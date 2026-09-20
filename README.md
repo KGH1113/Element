@@ -29,9 +29,9 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - A Dance of Fire and Ice
 - UnityModManager
 - Harmony
-- AdofaiIpc 0.4.0
+- AdofaiIpc 0.4.1
 
-Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 AdofaiIpc 0.4.0 dependency bootstrap을 사용하며, ImplDmNote 데스크톱 앱은 대응하는 ADOFAI-IPC TypeScript 클라이언트를 사용합니다.
+Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 AdofaiIpc 0.4.1 dependency bootstrap을 사용하며, ImplDmNote 데스크톱 앱은 대응하는 ADOFAI-IPC TypeScript 클라이언트를 사용합니다.
 
 ## ImplDmNote
 

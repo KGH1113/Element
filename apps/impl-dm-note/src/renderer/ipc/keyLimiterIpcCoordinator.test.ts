@@ -99,7 +99,7 @@ describe('KeyLimiterIpcCoordinator', () => {
 
   it('records version mismatch as a terminal state', async () => {
     const mismatch = new IpcVersionMismatchError({
-      clientVersion: '0.3.0',
+      clientVersion: '0.4.0',
       serverVersion: '0.2.0',
       direction: 'server_outdated',
       protocolVersion: 1,

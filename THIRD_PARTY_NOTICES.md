@@ -8,7 +8,7 @@ ImplDmNote is built and distributed as an application separate from the ImplReso
 
 ## AdofaiIpc
 
-ImplResourcePack uses and redistributes the AdofaiIpc 0.3.0 dependency bootstrap and shim. AdofaiIpc is copyright (c) 2026 KGH1113 and distributed under the MIT License.
+ImplResourcePack uses and redistributes the AdofaiIpc 0.4.0 dependency bootstrap and shim. AdofaiIpc is copyright (c) 2026 KGH1113 and distributed under the MIT License.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to inclusion of the copyright and permission notice.
 

@@ -10145,7 +10145,7 @@ NPM PRODUCTION DEPENDENCY LICENSES
 ===================================
 
 -------------------------------------------------------------------------------
-@adofai-ipc/client 0.3.0
+@adofai-ipc/client 0.4.0
 License: MIT
 Source: https://github.com/KGH1113/adofai-ipc#readme
 

@@ -21,7 +21,7 @@ describe('ADOFAI-IPC client integration', () => {
           return jsonResponse({
             ok: true,
             server: 'AdofaiIpc',
-            serverVersion: '0.3.0',
+            serverVersion: '0.4.0',
             protocolVersion: 1,
             port: 32146,
           });

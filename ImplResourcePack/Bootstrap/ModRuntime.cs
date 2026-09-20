@@ -278,9 +278,9 @@ internal sealed class ModRuntime : IDisposable
     _harmony = null;
   }
 
-  private void OnTimeTick()
+  private void OnTimeTick(int framesPerSecond)
   {
-    Execute("Update status time", () => _coordinator?.RefreshTime());
+    Execute("Update status time", () => _coordinator?.RefreshTime(framesPerSecond));
   }
 
   private void OnSceneUnloaded(Scene scene)

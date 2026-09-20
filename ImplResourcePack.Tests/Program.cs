@@ -3,6 +3,7 @@ using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Judgement;
 using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Infrastructure.Game.Judgement;
+using ImplResourcePack.Infrastructure.Game.Status;
 using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Overlay.Combo;
 using UnityEngine;
@@ -29,6 +30,7 @@ internal static class Program
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
       Run("represents X-Perfect counts separately", RepresentsXPerfectCountsSeparately);
       Run("normalizes song title size tags", NormalizesSongTitleSizeTags);
+      Run("measures stable and briefly dropped frame rates", MeasuresFrameRates);
       Run("trackpad gesture ownership, zoom and native ABI", TrackpadTests.Run);
       Console.WriteLine("ImplResourcePack tests: " + _passed + " passed");
       return 0;
@@ -179,6 +181,33 @@ internal static class Program
     );
     Equal("<size=145.833333%>scaled</size>", SongTitleMarkupNormalizer.Normalize("<size=70>scaled</size>", 48));
     Equal("plain", SongTitleMarkupNormalizer.Normalize("plain", 0));
+  }
+
+  private static void MeasuresFrameRates()
+  {
+    Equal(60, MeasureFrameRate(60d, 1d));
+    Equal(50, MeasureFrameRate(50d, 1d));
+
+    FrameRateSampler sampler = new();
+    double now = 0d;
+    int measured = 0;
+    for (int frame = 0; frame < 60; frame++)
+    {
+      now += frame == 30 ? 2d / 60d : 1d / 60d;
+      sampler.TryRecordFrame(now, out measured);
+    }
+
+    True(measured >= 58 && measured <= 60, "one missed refresh must not be exaggerated as 50 FPS");
+  }
+
+  private static int MeasureFrameRate(double rate, double duration)
+  {
+    FrameRateSampler sampler = new();
+    int measured = 0;
+    int frameCount = (int)Math.Ceiling(rate * duration) + 1;
+    for (int frame = 0; frame < frameCount; frame++)
+      sampler.TryRecordFrame(frame / rate, out measured);
+    return measured;
   }
 
   private static KeyLimiterSyncRequestDto Request(long revision, bool enabled, params string[] keys) =>

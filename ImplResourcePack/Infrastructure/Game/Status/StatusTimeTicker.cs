@@ -1,16 +1,19 @@
 using System;
+using System.Diagnostics;
 using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Game.Status;
 
 internal sealed class StatusTimeTicker : MonoBehaviour
 {
-  private const float IntervalSeconds = 0.25f;
+  private const double RefreshIntervalSeconds = 0.1d;
 
-  private Action _tick;
+  private readonly FrameRateSampler _frameRateSampler = new();
+  private Action<int> _tick;
+  private double _nextRefreshTime;
   private bool _running;
 
-  public void Initialize(Action tick)
+  public void Initialize(Action<int> tick)
   {
     _tick = tick;
   }
@@ -20,8 +23,9 @@ internal sealed class StatusTimeTicker : MonoBehaviour
     if (_running || _tick == null)
       return;
 
+    _frameRateSampler.Reset();
+    _nextRefreshTime = GetRealtimeSeconds();
     _running = true;
-    InvokeRepeating(nameof(Tick), 0f, IntervalSeconds);
   }
 
   public void StopTicking()
@@ -29,14 +33,24 @@ internal sealed class StatusTimeTicker : MonoBehaviour
     if (!_running)
       return;
 
-    CancelInvoke(nameof(Tick));
     _running = false;
+    _frameRateSampler.Reset();
   }
 
-  private void Tick()
+  private void Update()
   {
-    _tick?.Invoke();
+    if (!_running)
+      return;
+
+    double now = GetRealtimeSeconds();
+    if (!_frameRateSampler.TryRecordFrame(now, out int framesPerSecond) || now < _nextRefreshTime)
+      return;
+
+    _nextRefreshTime = now + RefreshIntervalSeconds;
+    _tick?.Invoke(framesPerSecond);
   }
+
+  private static double GetRealtimeSeconds() => (double)Stopwatch.GetTimestamp() / Stopwatch.Frequency;
 
   private void OnDisable()
   {

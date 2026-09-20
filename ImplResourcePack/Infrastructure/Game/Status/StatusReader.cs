@@ -30,9 +30,10 @@ internal sealed class StatusReader
     return current.WithMetrics(_startProgress, progress, Mathf.Clamp01(xAccuracy), RDString.language);
   }
 
-  public StatusSnapshot ReadTime(StatusSnapshot current)
+  public StatusSnapshot ReadTime(StatusSnapshot current, int? framesPerSecond = null)
   {
-    current = ReadFps(current);
+    if (framesPerSecond.HasValue)
+      current = current.WithFps(true, framesPerSecond.Value);
 
     scrController controller = scrController.instance;
     scrConductor conductor = scrConductor.instance;
@@ -63,19 +64,6 @@ internal sealed class StatusReader
     mapTime = Math.Max(0d, Math.Min(mapTime, totalTime));
 
     return current.WithTime(true, (int)mapTime, Math.Max(0, (int)totalTime), RDString.language);
-  }
-
-  private static StatusSnapshot ReadFps(StatusSnapshot current)
-  {
-    float deltaTime = Time.smoothDeltaTime;
-    if (deltaTime <= 0f || float.IsNaN(deltaTime) || float.IsInfinity(deltaTime))
-      return current.WithFps(false, 0);
-
-    float framesPerSecond = 1f / deltaTime;
-    if (framesPerSecond <= 0f || float.IsNaN(framesPerSecond) || float.IsInfinity(framesPerSecond))
-      return current.WithFps(false, 0);
-
-    return current.WithFps(true, Mathf.RoundToInt(framesPerSecond));
   }
 
   private static float ReadCurrentProgress()

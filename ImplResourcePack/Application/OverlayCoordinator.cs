@@ -86,10 +86,10 @@ internal sealed class OverlayCoordinator : IDisposable
       _status.RefreshMetrics();
   }
 
-  public void RefreshTime()
+  public void RefreshTime(int framesPerSecond)
   {
     if (IsVisible)
-      _status.RefreshTime();
+      _status.RefreshTime(framesPerSecond);
   }
 
   public void RefreshAfterReset(scrMarginTracker tracker)

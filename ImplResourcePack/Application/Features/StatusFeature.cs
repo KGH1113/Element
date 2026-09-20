@@ -54,9 +54,9 @@ internal sealed class StatusFeature : IOverlayFeature
     _view.Render(_snapshot);
   }
 
-  public void RefreshTime()
+  public void RefreshTime(int framesPerSecond)
   {
-    StatusSnapshot next = _reader.ReadTime(_snapshot);
+    StatusSnapshot next = _reader.ReadTime(_snapshot, framesPerSecond);
     if (
       (!next.HasTime && !next.HasFps)
       || (

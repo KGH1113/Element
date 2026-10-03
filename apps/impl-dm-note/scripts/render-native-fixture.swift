@@ -18,7 +18,21 @@ final class Fixture: NSObject, WKScriptMessageHandler {
         let controller = WKUserContentController()
         controller.add(self, name: "renderAck")
         let config = String(data: try Data(contentsOf: directory.appendingPathComponent("config.json")), encoding: .utf8)!
-        controller.addUserScript(WKUserScript(source: "window.__dmnRenderConfig=\(config);window.__TAURI_INTERNALS__={invoke:async(command,args)=>{if(command!=='dmnote_render_ack')throw new Error(command);window.webkit.messageHandlers.renderAck.postMessage(args);}};", injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        // Match Tauri 2's nonwritable, nonconfigurable globals. A mutable mock
+        // previously hid a production-only failure when installing the shim.
+        let bootstrap = """
+        window.__dmnRenderConfig=\(config);
+        Object.defineProperty(window,'isTauri',{value:true});
+        Object.defineProperty(window,'__TAURI_INTERNALS__',{value:{}});
+        Object.defineProperty(window.__TAURI_INTERNALS__,'invoke',{value:async(command,args)=>{
+          if(command!=='dmnote_render_ack')throw new Error('Unexpected native command: '+command);
+          window.webkit.messageHandlers.renderAck.postMessage(args);
+        }});
+        Object.defineProperty(window,'__TAURI_EVENT_PLUGIN_INTERNALS__',{value:{unregisterListener:()=>{throw new Error('Unexpected native listener');}}});
+        window.addEventListener('error',event=>window.webkit.messageHandlers.renderAck.postMessage({result:{},error:String(event.message)}));
+        window.addEventListener('unhandledrejection',event=>window.webkit.messageHandlers.renderAck.postMessage({result:{},error:String(event.reason)}));
+        """
+        controller.addUserScript(WKUserScript(source: bootstrap, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         let settings = WKWebViewConfiguration()
         settings.userContentController = controller
         settings.websiteDataStore = .nonPersistent()

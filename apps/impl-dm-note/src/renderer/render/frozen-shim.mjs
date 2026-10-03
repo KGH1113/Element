@@ -159,15 +159,14 @@ export function installFrozenShim(
       currentWebview: { label, windowLabel: label },
     },
   };
-  globalThis.__TAURI_INTERNALS__ = internals;
-  globalThis.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+  globalThis.__dmnRenderInternals = internals;
+  globalThis.__dmnRenderEventInternals = {
     unregisterListener: (_event, id) => {
       const entry = listeners.get(id);
       if (entry) callbacks.delete(entry.handler);
       listeners.delete(id);
     },
   };
-  globalThis.isTauri = true;
   window.__dmn_window_type = 'overlay';
   return {
     emit,
@@ -180,9 +179,8 @@ export function installFrozenShim(
     dispose: () => {
       listeners.clear();
       callbacks.clear();
-      delete globalThis.__TAURI_INTERNALS__;
-      delete globalThis.__TAURI_EVENT_PLUGIN_INTERNALS__;
-      delete globalThis.isTauri;
+      delete globalThis.__dmnRenderInternals;
+      delete globalThis.__dmnRenderEventInternals;
     },
   };
 }

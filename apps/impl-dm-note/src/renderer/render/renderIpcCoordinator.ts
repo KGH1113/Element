@@ -102,7 +102,7 @@ export async function runRenderIpcCoordinator() {
             id: command.id,
             error: {
               code,
-              message: `ImplDmNote could not render this frame (${message}). Check the preset and try again.`,
+              message: `ImplDmNote failed during ${command.method === 'begin' ? 'overlay initialization' : command.method === 'frame' ? 'frame capture' : command.method === 'reset' ? 'overlay reset' : 'render cleanup'}: ${message}`,
             },
           };
         }

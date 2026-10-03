@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { createServer } from 'vite';
+import { build, preview } from 'vite';
 import { mapEvents, frameAt } from '../src/renderer/render/timing.mjs';
 
 if (process.platform !== 'darwin')
@@ -148,12 +148,11 @@ async function execute(command, args) {
 }
 let server;
 try {
-  server = await createServer({
+  await build({ configFile: join(app, 'vite.config.ts'), logLevel: 'error' });
+  server = await preview({
     configFile: join(app, 'vite.config.ts'),
-    cacheDir: join(directory, 'vite-cache'),
-    server: { port: 0, strictPort: false, host: '127.0.0.1' },
+    preview: { port: 0, strictPort: false, host: '127.0.0.1' },
   });
-  await server.listen();
   const port = server.httpServer.address().port;
   const executable = join(directory, 'fixture');
   await execute('xcrun', [
@@ -257,6 +256,6 @@ try {
     'PASS: hidden native WKWebView, full overlay, alpha, exact short taps/holds/mouse, isolated custom JS storage, identical pixels across sessions.',
   );
 } finally {
-  await server?.close();
+  await new Promise((done) => server ? server.httpServer.close(done) : done());
   await rm(directory, { recursive: true, force: true });
 }

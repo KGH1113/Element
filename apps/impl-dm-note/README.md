@@ -28,7 +28,7 @@ macOS는 앱에 포함된 WKWebView, Windows는 WebView2의 전체 화면 캡처
 ./scripts/run.sh desktop-bundle
 ```
 
-`desktop-render-test`는 macOS의 격리된 비영구 WKWebView에서 합성 입력만 사용합니다. 기존 앱이나 사용자 데이터, 입력 장치를 열지 않습니다. `desktop-bundle`은 개발 프로필의 앱에 프론트엔드를 내장하고 macOS에서는 로컬 서명을 확인한 뒤 `Release/ImplDmNote-Renderer-macos-<arch>.zip`을 생성합니다. Windows 캡처 코드는 포함되지만 macOS에서 Windows 실행 검증은 하지 않습니다.
+`desktop-render-test`는 배포용 프론트엔드를 빌드한 뒤 macOS의 격리된 비영구 WKWebView에서 합성 입력만 사용합니다. Tauri와 동일하게 읽기 전용 전역 속성을 설치하여 네이티브 연결을 보존하는지 확인합니다. 기존 앱이나 사용자 데이터, 입력 장치를 열지 않습니다. `desktop-bundle`은 개발 프로필의 앱에 프론트엔드를 내장하고 macOS에서는 로컬 서명을 확인한 뒤 `Release/ImplDmNote-Renderer-macos-<arch>.zip`을 생성합니다. Windows 캡처 코드는 포함되지만 macOS에서 Windows 실행 검증은 하지 않습니다.
 
 ## 개발
 

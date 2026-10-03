@@ -71,6 +71,11 @@ unexpected_cfgs = "allow"
 [dev-dependencies]
 tempfile = "3"
 
+# Renderer test packages still use the development profile. Pixel conversion
+# must run optimized even there; dependency debug settings remain unchanged.
+[profile.dev.package.impl-dm-note]
+opt-level = 2
+
 # Release 프로필 최적화 (메모리/바이너리 크기 감소)
 [profile.release]
 lto = true

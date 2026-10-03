@@ -11,6 +11,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use tokio::sync::oneshot;
 
 pub mod capture;
+mod layout;
 const LABEL: &str = "dmnote-render";
 type Ack = oneshot::Sender<Result<Value, String>>;
 
@@ -28,6 +29,7 @@ struct Session {
     config: Value,
     directory: PathBuf,
     next_frame: u64,
+    rgba: bool,
 }
 
 impl RenderService {
@@ -53,7 +55,7 @@ impl RenderService {
         });
     }
 
-    pub async fn begin(&self, app: &AppHandle, request: Value) -> Result<Value, String> {
+    pub async fn begin(&self, app: &AppHandle, mut request: Value) -> Result<Value, String> {
         let id = request["sessionId"]
             .as_str()
             .ok_or("render-invalid-session")?
@@ -61,6 +63,8 @@ impl RenderService {
         if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err("render-invalid-session".into());
         }
+        let placement = layout::prepare(app, &mut request)?;
+        let rgba = cfg!(target_os = "macos") && request["frameFormat"].as_str() == Some("rgba");
         let width = request["width"]
             .as_u64()
             .filter(|size| (1..=8192).contains(size))
@@ -120,8 +124,9 @@ impl RenderService {
                 config: config.clone(),
                 directory: directory.clone(),
                 next_frame: 0,
+                rgba,
             });
-            Ok(json!({"width":width, "height":height, "frameDirectory":directory, "sessionId":id}))
+            Ok(json!({"width":width, "height":height, "layout":placement, "frameFormat":if rgba { "rgba" } else { "png" }, "frameDirectory":directory, "sessionId":id}))
         })();
         let result = match prepare {
             Ok(value) => value,
@@ -154,8 +159,8 @@ impl RenderService {
             WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("render/index.html".into()))
                 .title("ImplDmNote Render")
                 .inner_size(
-                    config["width"].as_f64().unwrap(),
-                    config["height"].as_f64().unwrap(),
+                    config["surfaceWidth"].as_f64().unwrap_or(config["width"].as_f64().unwrap()),
+                    config["surfaceHeight"].as_f64().unwrap_or(config["height"].as_f64().unwrap()),
                 )
                 .decorations(false)
                 .transparent(true)
@@ -191,6 +196,7 @@ impl RenderService {
             .as_u64()
             .ok_or("render-invalid-frame")?;
         let directory;
+        let (width, height, rgba);
         {
             let sessions = self.session.lock();
             let session = sessions.as_ref().ok_or("render-no-session")?;
@@ -199,6 +205,9 @@ impl RenderService {
                 return Err("render-frame-out-of-sequence".into());
             }
             directory = session.directory.clone();
+            width = session.config["width"].as_u64().unwrap() as u32;
+            height = session.config["height"].as_u64().unwrap() as u32;
+            rgba = session.rgba;
         }
         self.touch();
         let window = app
@@ -210,10 +219,10 @@ impl RenderService {
             .eval(format!("void window.__dmnRenderFrame({request});"))
             .map_err(|e| e.to_string())?;
         let mut result = await_ack(receiver).await?;
-        let png = capture::png(&window).await?;
-        let path = directory.join("frame.png");
+        let pixels = capture::frame(&window, width, height, rgba).await?;
+        let path = directory.join(if rgba { "frame.rgba" } else { "frame.png" });
         let temporary = directory.join("frame.partial");
-        std::fs::write(&temporary, png).map_err(|e| e.to_string())?;
+        std::fs::write(&temporary, pixels).map_err(|e| e.to_string())?;
         if path.exists() {
             std::fs::remove_file(&path).map_err(|e| e.to_string())?;
         }

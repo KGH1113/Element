@@ -10,6 +10,7 @@ final class Fixture: NSObject, WKScriptMessageHandler {
     var index = 0
     var webview: WKWebView!
     var window: NSWindow!
+    let raw = CommandLine.arguments.count > 3 && CommandLine.arguments[3] == "rgba"
 
     init(_ directory: URL) throws {
         self.directory = directory
@@ -60,12 +61,38 @@ final class Fixture: NSObject, WKScriptMessageHandler {
         reports.append(result)
         let configuration = WKSnapshotConfiguration()
         configuration.afterScreenUpdates = true
+        configuration.snapshotWidth = NSNumber(value: 320 / window.backingScaleFactor)
+        let started = CFAbsoluteTimeGetCurrent()
         webview.takeSnapshot(with: configuration) { image, error in
-            guard error == nil, let tiff = image?.tiffRepresentation,
-                  let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else {
+            let captured = CFAbsoluteTimeGetCurrent()
+            guard error == nil, let image else {
                 self.fail(String(describing: error)); return
             }
-            do { try png.write(to: self.directory.appendingPathComponent("frame-\(self.index).png")) }
+            let bytes: Data
+            if self.raw {
+                guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil),
+                      let context = CGContext(data: nil, width: 320, height: 320, bitsPerComponent: 8, bytesPerRow: 320 * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.premultipliedLast.rawValue),
+                      let memory = context.data else { self.fail("raw bitmap"); return }
+                self.reports[self.index]["sourceWidth"] = cgImage.width
+                self.reports[self.index]["sourceHeight"] = cgImage.height
+                context.draw(cgImage, in: CGRect(x: 0, y: 0, width: 320, height: 320))
+                let pixels = memory.assumingMemoryBound(to: UInt8.self)
+                for offset in stride(from: 0, to: 320 * 320 * 4, by: 4) {
+                    let alpha = Int(pixels[offset + 3])
+                    if alpha > 0 && alpha < 255 {
+                        for channel in 0..<3 { pixels[offset + channel] = UInt8(min(255, (Int(pixels[offset + channel]) * 255 + alpha / 2) / alpha)) }
+                    }
+                }
+                bytes = Data(bytes: memory, count: 320 * 320 * 4)
+            } else {
+                guard let tiff = image.tiffRepresentation, let bitmap = NSBitmapImageRep(data: tiff), let png = bitmap.representation(using: .png, properties: [:]) else { self.fail("PNG encoding"); return }
+                self.reports[self.index]["sourceWidth"] = bitmap.pixelsWide
+                self.reports[self.index]["sourceHeight"] = bitmap.pixelsHigh
+                bytes = png
+            }
+            self.reports[self.index]["snapshotMs"] = (captured - started) * 1000
+            self.reports[self.index]["conversionMs"] = (CFAbsoluteTimeGetCurrent() - captured) * 1000
+            do { try bytes.write(to: self.directory.appendingPathComponent("frame-\(self.index).\(self.raw ? "rgba" : "png")")) }
             catch { self.fail(String(describing: error)); return }
             self.index += 1
             self.sendFrame()

@@ -52,6 +52,8 @@ export async function runRenderIpcCoordinator() {
         error?: { code: string; message: string };
       };
       const executions = new Map<string, { reply?: Reply }>();
+      let wake: (() => void) | undefined;
+      let touchedAt = 0;
       const execute = async (
         command: Command,
         execution: { reply?: Reply },
@@ -114,19 +116,34 @@ export async function runRenderIpcCoordinator() {
         );
         // Polling stays responsive while native frame capture is pending. An end
         // command can immediately destroy that surface and release the input gate.
-        if (sessionId) await invoke('dmnote_render_touch');
+        if (sessionId && performance.now() - touchedAt >= 1000) {
+          await invoke('dmnote_render_touch');
+          touchedAt = performance.now();
+        }
         if (!poll.active && sessionId) await end();
         if (poll.command && !executions.has(poll.command.id)) {
           const execution = {};
           executions.set(poll.command.id, execution);
-          void execute(poll.command, execution);
+          void execute(poll.command, execution).finally(() => wake?.());
         }
+        let replied = false;
         for (const [id, execution] of executions) {
           if (!execution.reply) continue;
           await call('dmnote.reply', { applicationId, ...execution.reply });
           executions.delete(id);
+          replied = true;
         }
-        await sleep(poll.active ? 10 : 500);
+        // Do not add a fixed sleep to every captured frame. Completion wakes this
+        // loop immediately; pending captures still poll for cancellation.
+        if (replied) continue;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+          timer = setTimeout(resolve, poll.active ? (executions.size ? 50 : 5) : 500);
+          if ([...executions.values()].some((execution) => execution.reply)) resolve();
+        });
+        clearTimeout(timer);
+        wake = undefined;
       }
     } catch {
       // Restoring early is safe; a disconnected renderer cannot consume frames.

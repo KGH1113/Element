@@ -16,6 +16,38 @@ afterEach(() => {
 });
 
 describe('automatic render IPC', () => {
+  it('replies immediately after capture without adding a polling delay to each frame', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('localStorage', Object.create({ getItem: () => null }));
+    let began = false, frames = 0;
+    dependencies.invoke.mockImplementation(async (name: string) => {
+      if (name === 'dmnote_render_frame')
+        return new Promise((resolve) => setTimeout(() => resolve({}), 1));
+      return {};
+    });
+    const call = vi.fn(async ({ method, params: request }) => {
+      if (method === 'dmnote.hello') return { protocolVersion: 1 };
+      if (method === 'dmnote.reply') {
+        if (request.id === 'begin') began = true;
+        else frames++;
+        if (frames === 10) window.dispatchEvent(new Event('pagehide'));
+        return { accepted: true };
+      }
+      return { active: true, command: {
+        id: began ? `frame-${frames}` : 'begin',
+        method: began ? 'frame' : 'begin',
+        params: { sessionId: '123456789012345678901234567890ab' },
+      } };
+    });
+    dependencies.connect.mockResolvedValue({ call, waitForNamespace: vi.fn().mockResolvedValue({ status: 'ready' }) });
+    const running = runRenderIpcCoordinator();
+    await vi.advanceTimersByTimeAsync(25);
+    window.dispatchEvent(new Event('pagehide'));
+    await running;
+    expect(frames).toBe(10);
+    expect(dependencies.invoke.mock.calls.filter(([name]) => name === 'dmnote_render_touch').length).toBeLessThanOrEqual(1);
+  });
+
   it('processes cancellation while a native frame is pending and restores the session', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('localStorage', Object.create({ getItem: () => null }));

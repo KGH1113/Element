@@ -160,6 +160,7 @@ try {
   const executable = join(directory, 'fixture');
   await execute('xcrun', [
     'swiftc',
+    '-O',
     join(app, 'scripts/render-native-fixture.swift'),
     '-framework',
     'AppKit',
@@ -171,7 +172,9 @@ try {
     join(directory, 'swift-cache'),
   ]);
   const hashes = [];
-  for (let pass = 0; pass < 2; pass++) {
+  const conversion = [], snapshots = [];
+  for (let pass = 0; pass < 4; pass++) {
+    const format = pass < 2 ? 'png' : 'rgba';
     const output = join(directory, String(pass));
     await mkdir(output);
     await writeFile(
@@ -190,13 +193,14 @@ try {
     await execute(executable, [
       output,
       `http://127.0.0.1:${port}/render/index.html`,
+      format,
     ]);
     hashes.push(
       await Promise.all(
         frames.map(async (frame) =>
           createHash('sha256')
             .update(
-              await readFile(join(output, `frame-${frame.frameIndex}.png`)),
+              await readFile(join(output, `frame-${frame.frameIndex}.${format}`)),
             )
             .digest('hex'),
         ),
@@ -205,6 +209,9 @@ try {
     const reports = JSON.parse(
       await readFile(join(output, 'reports.json'), 'utf8'),
     );
+    conversion.push(reports.reduce((sum, report) => sum + report.conversionMs, 0) / reports.length);
+    snapshots.push(reports.reduce((sum, report) => sum + report.snapshotMs, 0) / reports.length);
+    if (pass === 0 || pass === 2) console.log(`${format} source size: ${reports[0].sourceWidth}x${reports[0].sourceHeight}`);
     assert.equal(reports[1].counters['hand-export'].A, 1);
     assert(!reports[1].activeKeys.includes('A'));
     assert(reports[8].activeKeys.includes('S'));
@@ -227,6 +234,30 @@ try {
     hashes[1],
     'Identical native render jobs must produce identical pixels.',
   );
+  assert.deepEqual(hashes[2], hashes[3], 'Raw pixel captures must also be deterministic.');
+  const baseline = spawnSync(process.env.FFMPEG_PATH || 'ffmpeg', [
+    '-v', 'error', '-i', join(directory, '0/frame-16.png'), '-vf', 'scale=320:320',
+    '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgba', 'pipe:1',
+  ], { maxBuffer: 32 * 1024 * 1024 });
+  assert.equal(baseline.status, 0, String(baseline.stderr));
+  const raw = await readFile(join(directory, '2/frame-16.rgba'));
+  assert.equal(raw.length, 320 * 320 * 4);
+  let alphaDifference = 0, colorDifference = 0;
+  let alphaTotal = 0, colorTotal = 0, colorCount = 0;
+  for (let i = 0; i < raw.length; i += 4) {
+    alphaDifference = Math.max(alphaDifference, Math.abs(raw[i + 3] - baseline.stdout[i + 3]));
+    alphaTotal += Math.abs(raw[i + 3] - baseline.stdout[i + 3]);
+    if (raw[i + 3] > 200 && baseline.stdout[i + 3] > 200)
+      for (let channel = 0; channel < 3; channel++) {
+        colorDifference = Math.max(colorDifference, Math.abs(raw[i + channel] - baseline.stdout[i + channel]));
+        colorTotal += Math.abs(raw[i + channel] - baseline.stdout[i + channel]);
+        colorCount++;
+      }
+  }
+  console.log(`Pixel comparison: alpha mean=${alphaTotal / (raw.length / 4)}, color mean=${colorTotal / colorCount}, maxima=${alphaDifference}/${colorDifference}`);
+  assert(alphaDifference <= 2 && colorDifference <= 3,
+    `Raw capture must preserve orientation, colors and alpha: alpha=${alphaDifference}, color=${colorDifference}`);
+  console.log(`Native capture averages: PNG conversion=${conversion[0].toFixed(2)}ms, raw conversion=${conversion[2].toFixed(2)}ms; snapshots=${snapshots[0].toFixed(2)}/${snapshots[2].toFixed(2)}ms.`);
   const decoded = spawnSync(
     process.env.FFMPEG_PATH || 'ffmpeg',
     [

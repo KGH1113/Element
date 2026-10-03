@@ -8,6 +8,7 @@ case "${1:-}" in
     npm run type-check
     npm run test
     cargo check --offline --manifest-path src-tauri/Cargo.toml
+    cargo test --offline --manifest-path src-tauri/Cargo.toml --lib services::render::layout::tests
     ;;
   desktop-build)
     npm run build

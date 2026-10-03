@@ -45,6 +45,7 @@ export async function runRenderIpcCoordinator() {
             ? 'windows'
             : 'unsupported',
         nativeCapture: /Mac|Windows/.test(navigator.userAgent),
+        multiViewerCapture: true,
       });
       type Reply = {
         id: string;

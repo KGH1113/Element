@@ -89,7 +89,7 @@ const snapshot = {
   },
   keys: {
     'hand-export': ['A', 'S', 'MOUSE1'],
-    'foot-export': ['A', 'S', 'MOUSE1'],
+    'foot-export': ['S', 'MOUSE1'],
   },
   positions: { 'hand-export': positions, 'foot-export': positions },
   selectedViewerTabs: { hand: 'hand-export', foot: 'foot-export' },
@@ -173,18 +173,20 @@ try {
   ]);
   const hashes = [];
   const conversion = [], snapshots = [];
-  for (let pass = 0; pass < 4; pass++) {
+  for (let pass = 0; pass < 6; pass++) {
     const format = pass < 2 ? 'png' : 'rgba';
+    const viewerKind = pass < 4 ? 'hand' : 'foot';
+    const mode = `${viewerKind}-export`;
     const output = join(directory, String(pass));
     await mkdir(output);
     await writeFile(
       join(output, 'config.json'),
       JSON.stringify({
         snapshot,
-        viewerKind: 'hand',
+        viewerKind,
         initialOutputTimeUs: -200000,
         pluginStorage: {},
-        pluginElements,
+        pluginElements: pluginElements.map((element) => ({ ...element, tabId: mode })),
         assetUrls: {},
         verify: true,
       }),
@@ -212,13 +214,14 @@ try {
     conversion.push(reports.reduce((sum, report) => sum + report.conversionMs, 0) / reports.length);
     snapshots.push(reports.reduce((sum, report) => sum + report.snapshotMs, 0) / reports.length);
     if (pass === 0 || pass === 2) console.log(`${format} source size: ${reports[0].sourceWidth}x${reports[0].sourceHeight}`);
-    assert.equal(reports[1].counters['hand-export'].A, 1);
+    if (viewerKind === 'hand') assert.equal(reports[1].counters[mode].A, 1);
+    else assert.equal(reports[1].counters[mode]?.A, undefined, 'Foot capture must use its own selected tab, not hand mappings.');
     assert(!reports[1].activeKeys.includes('A'));
     assert(reports[8].activeKeys.includes('S'));
     assert(!reports[19].activeKeys.includes('S'));
     assert(reports[10].activeKeys.includes('MOUSE1'));
     assert(!reports[16].activeKeys.includes('MOUSE1'));
-    assert.equal(reports[16].counters['hand-export'].MOUSE1, 1);
+    assert.equal(reports[16].counters[mode].MOUSE1, 1);
     assert(
       Object.values(reports[0].pluginStorage).includes(42),
       'Custom JS must execute against isolated plugin storage.',
@@ -235,6 +238,8 @@ try {
     'Identical native render jobs must produce identical pixels.',
   );
   assert.deepEqual(hashes[2], hashes[3], 'Raw pixel captures must also be deterministic.');
+  assert.deepEqual(hashes[4], hashes[5], 'Foot captures must be deterministic across sessions.');
+  assert.notDeepEqual(hashes[2], hashes[4], 'Distinct hand and foot presets must produce distinct pixels.');
   const baseline = spawnSync(process.env.FFMPEG_PATH || 'ffmpeg', [
     '-v', 'error', '-i', join(directory, '0/frame-16.png'), '-vf', 'scale=320:320',
     '-frames:v', '1', '-f', 'rawvideo', '-pix_fmt', 'rgba', 'pipe:1',
@@ -287,7 +292,7 @@ try {
     'Native capture must preserve transparent and visible overlay pixels.',
   );
   console.log(
-    'PASS: hidden native WKWebView, full overlay, alpha, exact short taps/holds/mouse, isolated custom JS storage, identical pixels across sessions.',
+    'PASS: hidden native WKWebView, distinct hand/foot presets, full overlay, alpha, exact short taps/holds/mouse, isolated custom JS storage, identical pixels across sessions.',
   );
 } finally {
   await new Promise((done) => server ? server.httpServer.close(done) : done());

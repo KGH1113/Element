@@ -23,6 +23,9 @@ const module = { exports: {} };
 runInNewContext(code, { module, exports: module.exports });
 const settings = module.exports.getDefaultSettingsState();
 settings.noteEffect = true;
+// Exercise fractional note-expiry deadlines within the captured frame range.
+settings.noteSettings.speed = 1234;
+settings.noteSettings.trackHeight = 123;
 settings.keyCounterEnabled = true;
 settings.useCustomCSS = true;
 settings.customCSS = {

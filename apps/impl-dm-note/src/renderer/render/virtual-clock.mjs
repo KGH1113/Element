@@ -5,17 +5,22 @@ export class VirtualClock {
   timers = new Map();
   frames = new Map();
   afterTask = () => {};
+  timerNesting = 0;
 
   schedule(callback, delay = 0, repeat = false, args = []) {
     if (typeof callback !== 'function')
       throw new Error('String timers are unsupported during export.');
-    const interval = Math.max(repeat ? 0.001 : 0, Number(delay) || 0);
+    // Browsers clamp deeply nested timers to 4ms. Without that task progress,
+    // a zero-delay retry can keep running forever at exactly the same timestamp.
+    const nesting = this.timerNesting + 1;
+    const interval = Math.max(repeat ? 1 : 0, nesting > 5 ? 4 : 0, Number(delay) || 0);
     const id = this.nextId++;
     this.timers.set(id, {
       callback,
       due: this.nowMs + interval,
       interval: repeat ? interval : null,
       args,
+      nesting,
     });
     return id;
   }
@@ -41,9 +46,18 @@ export class VirtualClock {
       const { id, timer } = selected;
       this.nowMs = timer.due;
       if (timer.interval === null) this.timers.delete(id);
-      else timer.due += timer.interval;
-      timer.callback(...timer.args);
-      this.afterTask();
+      else {
+        timer.nesting++;
+        timer.due += Math.max(timer.interval, timer.nesting > 5 ? 4 : 0);
+      }
+      const previousNesting = this.timerNesting;
+      this.timerNesting = timer.nesting;
+      try {
+        timer.callback(...timer.args);
+        this.afterTask();
+      } finally {
+        this.timerNesting = previousNesting;
+      }
     }
     this.nowMs = targetMs;
   }

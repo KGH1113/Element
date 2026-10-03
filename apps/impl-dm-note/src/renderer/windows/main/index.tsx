@@ -7,8 +7,10 @@ import '@styles/viewer-compat-v1.css';
 import '@styles/tokens.css';
 import '@styles/chrome-global.css';
 import '@styles/chrome-main.css';
+import { runRenderIpcCoordinator } from '../../render/renderIpcCoordinator';
 
 window.__dmn_window_type = 'main';
+void runRenderIpcCoordinator();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container not found');

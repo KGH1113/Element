@@ -14,6 +14,10 @@ Commands:
   build       Build and install the mod
   package     Build the release package and metadata
   check       Validate all shell scripts
+  desktop-check  Check the ImplDmNote frontend and native backend without installing
+  desktop-build  Build the ImplDmNote frontend and native backend without installing
+  desktop-bundle  Package the native app with its embedded render surface without installing
+  desktop-render-test  Run isolated native render fixtures without live inputs
   help        Show this help
 USAGE
 }
@@ -31,6 +35,9 @@ case "$command_name" in
     ;;
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"
+    ;;
+  desktop-check|desktop-build|desktop-bundle|desktop-render-test)
+    exec "$SCRIPTS_DIR/workflows/desktop-render.sh" "$command_name" "${@:2}"
     ;;
   help|-h|--help)
     usage

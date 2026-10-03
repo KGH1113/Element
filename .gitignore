@@ -4,6 +4,7 @@
 bin/
 obj/
 build/
+Release/
 node_modules/
 !scripts/tasks/build/
 !scripts/tasks/build/*.sh

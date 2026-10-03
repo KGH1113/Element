@@ -46,6 +46,8 @@ npm run desktop:build
 
 원본과 변경 이력은 [`apps/impl-dm-note/UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md), 라이선스는 [`apps/impl-dm-note/LICENSE`](apps/impl-dm-note/LICENSE)를 참고하세요. 커스텀 JavaScript 플러그인은 샌드박스되지 않으며 앱 사용자와 같은 권한으로 실행되므로 신뢰하는 코드만 설치해야 합니다.
 
+TUFReplay-Renderer가 실행 중이면 ImplDmNote는 같은 localhost ADOFAI-IPC를 통해 자동 렌더 세션에 연결합니다. 웹의 Render 동작이 현재 프리셋을 고정하고 실제 입력을 제외한 전용 화면을 프레임 단위로 출력합니다. 수동 스냅샷·Chrome·소스 경로 설정은 필요하지 않으며, 렌더 카운터는 기록별로 0부터 시작하고 기존 앱의 누적 카운터는 보존됩니다. 앱의 [`렌더링 안내`](apps/impl-dm-note/README.md#리플레이-렌더링)를 참고하세요.
+
 판정 오버레이는 JipperResourcePack과 동일한 `MAPLESTORY_OTF_BOLD SDF` 폰트 자산을 플랫폼별 AssetBundle에서 로드합니다.
 
 ## Build

@@ -9,10 +9,11 @@ if (process.platform !== 'darwin') {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const tauriDir = path.resolve(scriptDir, '..', 'src-tauri');
+const profile = process.argv.includes('--debug') ? 'debug' : 'release';
 const appPath = path.join(
   tauriDir,
   'target',
-  'release',
+  profile,
   'bundle',
   'macos',
   'ImplDmNote.app',

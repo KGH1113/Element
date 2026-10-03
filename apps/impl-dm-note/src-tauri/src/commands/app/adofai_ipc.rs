@@ -55,12 +55,13 @@ pub async fn adofai_ipc_http_request(
         ));
     }
 
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_millis(250))
-        .timeout(Duration::from_secs(2))
-        .no_proxy()
-        .build()
-        .map_err(|error| CommandError::msg(format!("Could not create IPC HTTP client: {error}")))?;
+    // Render frames reuse the existing loopback connection rather than creating
+    // and tearing down a TCP client for every pull and acknowledgement.
+    static CLIENT: once_cell::sync::Lazy<reqwest::Client> = once_cell::sync::Lazy::new(|| {
+        reqwest::Client::builder().connect_timeout(Duration::from_millis(250))
+            .timeout(Duration::from_secs(2)).no_proxy().build().expect("IPC HTTP client")
+    });
+    let client = &*CLIENT;
 
     let mut builder = client.request(method, url);
     for (name, value) in request.headers {

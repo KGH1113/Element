@@ -956,6 +956,12 @@ impl AppState {
                                 continue;
                             }
 
+                            // Rendering freezes physical keyboard, mouse, HID and
+                            // shortcuts before counters, sounds or plugin events.
+                            let render_service = app_handle.state::<crate::services::render::RenderService>();
+                            let _render_input = render_service.live_input.lock();
+                            if render_service.input_gated.load(Ordering::Acquire) { continue; }
+
                             // DaemonCommand(글로벌 단축키) 파싱 우선 시도
                             if let Ok(command) = serde_json::from_str::<crate::ipc::DaemonCommand>(s) {
                                 match command {
@@ -1846,6 +1852,14 @@ impl AppState {
 
     pub fn clear_active_keys(&self) {
         self.active_keys.write().clear();
+    }
+
+    pub fn release_live_keys(&self, app: &AppHandle) {
+        for entry in self.active_keys.write().drain() {
+            if let Some((mode, key)) = entry.split_once("::") {
+                let _ = app.emit("keys:state", json!({"mode":mode,"key":key,"state":"UP","eventAgeMs":0}));
+            }
+        }
     }
 
     /// 모드 전환 시 active_keys의 prefix를 새 모드로 교체

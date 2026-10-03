@@ -130,6 +130,8 @@ fn main() {
             let app_state = AppState::initialize(store)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(app_state);
+            app.manage(services::render::RenderService::default());
+            services::render::RenderService::start_watchdog(app.handle().clone());
             let handle = app.handle();
             {
                 let state = app.state::<AppState>();
@@ -147,6 +149,12 @@ fn main() {
             // 앱 생명주기
             commands::app::bootstrap::app_bootstrap,
             commands::app::adofai_ipc::adofai_ipc_http_request,
+            commands::app::render::dmnote_render_touch,
+            commands::app::render::dmnote_render_begin,
+            commands::app::render::dmnote_render_reset,
+            commands::app::render::dmnote_render_frame,
+            commands::app::render::dmnote_render_end,
+            commands::app::render::dmnote_render_ack,
             commands::app::system::window_minimize,
             commands::app::system::window_close,
             commands::app::system::window_show_main,
@@ -524,8 +532,8 @@ fn register_dev_capability(app: &tauri::App) -> Result<(), Box<dyn std::error::E
     let builder = DEV_URLS.iter().fold(
         CapabilityBuilder::new("impl-dm-note-dev")
             .local(true)
-            .windows(["main", "hand-overlay", "foot-overlay"])
-            .webviews(["main", "hand-overlay", "foot-overlay"])
+            .windows(["main", "hand-overlay", "foot-overlay", "dmnote-render"])
+            .webviews(["main", "hand-overlay", "foot-overlay", "dmnote-render"])
             .permission("impl-dm-note-allow-all"),
         |acc, url| acc.remote((*url).to_string()),
     );

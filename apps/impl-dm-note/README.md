@@ -9,6 +9,26 @@ ImplDmNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. D
 - OBS 브라우저 소스 연결
 - 노래 제목, 녹화 모드, 판정 표시 설정
 - Windows ASIO 출력과 macOS Dock helper
+- TUFReplay-Renderer의 자동 렌더 세션과 투명 프레임 출력
+
+## 리플레이 렌더링
+
+렌더 기능이 포함된 ImplDmNote와 TUFReplay-Renderer를 실행하면 앱이 기존 localhost ADOFAI-IPC에 자동 연결합니다. 웹에서 ImplDmNote 포함을 선택하고 Render를 누르면 현재 프리셋, 손·발 탭, CSS, JavaScript 플러그인과 패널 배치를 한 번 고정합니다. 별도 OBS 캡처나 Node, Chrome, 소스 경로, 수동 스냅샷 설정은 필요하지 않습니다.
+
+렌더 세션 동안 실제 키보드·마우스·HID 입력과 전역 단축키는 키뷰어 입력 경로에서 제외됩니다. 기록된 키는 숨겨진 전용 화면에서만 재생하며 앱의 누적 카운터나 플러그인 저장소에는 저장하지 않습니다. 렌더 카운터는 기록에 포함된 입력을 0부터 셉니다. 종료·취소 시 실제 입력으로 돌아오며, 연결이 끊어지면 최대 15초 안에 앱 자체의 실시간 감시가 세션을 정리합니다. 세션 경계에서는 눌림 표시를 해제하여 키가 계속 눌린 채 남지 않게 합니다.
+
+macOS는 앱에 포함된 WKWebView, Windows는 WebView2의 전체 화면 캡처를 사용합니다. 키·글자·카운터·통계·DOM 플러그인과 WebGL 노트가 함께 출력됩니다. 정상적인 플러그인 키/통계 API와 타이머는 렌더 시간에 맞춰 실행되며, 별도 Worker 시계나 외부 프로그램, 새 네트워크 데이터에 의존하는 플러그인은 별도 재생 계약이 필요합니다.
+
+개발 및 검증은 저장소 루트에서 실행합니다. 다음 명령은 게임에 설치하지 않습니다.
+
+```bash
+./scripts/run.sh desktop-check
+./scripts/run.sh desktop-render-test
+./scripts/run.sh desktop-build
+./scripts/run.sh desktop-bundle
+```
+
+`desktop-render-test`는 macOS의 격리된 비영구 WKWebView에서 합성 입력만 사용합니다. 기존 앱이나 사용자 데이터, 입력 장치를 열지 않습니다. `desktop-bundle`은 개발 프로필의 앱에 프론트엔드를 내장하고 macOS에서는 로컬 서명을 확인한 뒤 `Release/ImplDmNote-Renderer-macos-<arch>.zip`을 생성합니다. Windows 캡처 코드는 포함되지만 macOS에서 Windows 실행 검증은 하지 않습니다.
 
 ## 개발
 

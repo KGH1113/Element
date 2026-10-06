@@ -1,5 +1,14 @@
 # macOS 레벨 에디터 트랙패드 — 첫 구현
 
+**2026-10-05: 비활성 창 입력 수정**
+
+- Unity의 `Application.isFocused`와 네이티브 모니터의 `NSApp.active`·`isKeyWindow` 조건을 제거했다. AppKit이 게임 창에 전달한 정밀 스크롤·핀치 이벤트는 창을 먼저 클릭하지 않아도 처리한다. 입력 수집은 앱의 로컬 모니터를 사용한다. [Apple의 로컬 이벤트 모니터 문서](https://developer.apple.com/documentation/appkit/nsevent/addlocalmonitorforevents(matching:handler:))
+- 비활성 창에서 Unity의 `Input.mousePosition`이 오래된 좌표일 수 있으므로, 네이티브 핀치를 적용하는 동안 `ZoomCamera`의 최초 포인터 읽기를 이벤트 좌표로 대체한다. 일반 게임 줌은 기존 좌표를 사용한다.
+- 캔버스/UI 대상 구분, 관성, 편집 상태에 따른 차단은 유지한다. 포커스 전환만으로 제스처 소유권을 초기화하지 않는다.
+- 설치된 AdofaiIpc Bootstrap의 체크섬이 lock 파일과 달라 첫 빌드가 중단됐다. lock 파일과 SHA-256이 일치하는 로컬 `adofai-ipc/build/package`의 Bootstrap·DependencyShim을 빌드 입력으로 지정해 `./scripts/run.sh build`를 완료했다.
+- arm64/x86_64 네이티브 빌드와 C# 모드 빌드 성공, 모드 경고·오류 0개, 기존 트랙패드 검사를 포함한 C# 테스트 14개 그룹 통과. `./scripts/run.sh check`의 셸 스크립트 22개 구문 검사와 `git diff --check`도 통과했다. NuGet 취약점 조회 경고(NU1900)가 있었고 shellcheck는 설치되어 있지 않다.
+- 수정한 DLL·dylib를 로컬 게임 모드 폴더에 설치했으며 빌드 출력과 설치 파일의 SHA-256 일치를 확인했다. **게임 재시작이 필요하다.** 비활성 창에서의 실제 두 손가락 패닝·핀치와 최신 Harmony 줌 패치의 런타임 적용은 아직 실기 검증하지 않았다.
+
 2026-09-09. 두 손가락 패닝·핀치 줌을 구현하고 로컬 ADOFAI 모드 폴더에 설치했다. **현재 실행 중인 게임을 재시작하면 최신 수정이 적용된다.**
 
 사용자가 첫 빌드에서 좌우 패닝이 정상이며 위아래 패닝은 반대라고 확인했다. 이에 AppKit의 세로 스크롤 이동량을 Unity의 아래에서 위로 증가하는 화면 좌표에 맞춰 반전했다. 가로 방향은 유지했다. 수정한 네이티브 라이브러리까지 다시 빌드하고 설치했다. 수정 후 세로 방향과 실제 핀치 감각은 추가 실기 확인이 필요하다.

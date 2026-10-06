@@ -32,7 +32,9 @@ extern "C" __attribute__((visibility("default"))) int irp_trackpad_start() {
     NSEventMaskOtherMouseDown | NSEventMaskKeyDown;
   monitor = [NSEvent addLocalMonitorForEventsMatchingMask:mask handler:^NSEvent *(NSEvent *event) {
     std::lock_guard<std::mutex> lock(gate);
-    if (!enabled || !NSApp.active || !event.window.isKeyWindow) return event;
+    // AppKit also delivers scroll/gesture events to an unfocused window under
+    // the pointer. Accept those events without activating the application.
+    if (!enabled || !event.window) return event;
     TrackpadEvent sample = {};
     if (event.type == NSEventTypeMagnify) {
       sample.kind = 2;

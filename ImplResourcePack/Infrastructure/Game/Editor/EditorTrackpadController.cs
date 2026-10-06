@@ -24,6 +24,7 @@ internal sealed class EditorTrackpadController : IDisposable
   private readonly MethodInfo _dragCamera = AccessTools.Method(typeof(scnEditor), "DragCamera");
   private int _frame = -1;
   private scnEditor _editor;
+  private Vector3? _zoomPointer;
   private bool _suppressEditor, _suppressUi, _disposed;
 
   public static EditorTrackpadController TryCreate(Main main)
@@ -60,6 +61,8 @@ internal sealed class EditorTrackpadController : IDisposable
       transpiler: new HarmonyMethod(typeof(EditorTrackpadController), nameof(ReplaceEditorScroll)));
     _harmony.Patch(AccessTools.PropertyGetter(typeof(BaseInput), "mouseScrollDelta"),
       postfix: new HarmonyMethod(typeof(EditorTrackpadController), nameof(FilterUiScroll)));
+    _harmony.Patch(AccessTools.Method(typeof(scnEditor), nameof(scnEditor.ZoomCamera)),
+      transpiler: new HarmonyMethod(typeof(EditorTrackpadController), nameof(ReplaceZoomPointer)));
     _current = this;
     _main.Log("macOS editor trackpad ready: two-finger pan and pinch zoom.");
   }
@@ -72,7 +75,7 @@ internal sealed class EditorTrackpadController : IDisposable
   }
 
   private bool CanNavigate(scnEditor editor) =>
-    _main.Settings.NativeEditorTrackpad && UnityEngine.Application.isFocused &&
+    _main.Settings.NativeEditorTrackpad &&
     editor != null && !editor.playMode && editor.camera != null &&
     editor.eventSystem != null && editor.eventSystem.currentInputModule is CustomStandaloneInputModule &&
     !editor.userIsEditingAnInputField && !(bool)_popup.GetValue(editor) &&
@@ -94,7 +97,7 @@ internal sealed class EditorTrackpadController : IDisposable
       _scroll = new TrackpadGesture();
       _pinch = new TrackpadGesture();
       _editor = active ? editor : null;
-      // Scene/focus transitions must not reuse a prior gesture's ownership.
+      // Scene/navigation transitions must not reuse a prior gesture's ownership.
       _native.SetEnabled(false);
       _native.SetEnabled(active);
       return;
@@ -163,7 +166,14 @@ internal sealed class EditorTrackpadController : IDisposable
         {
           float target = (float)TrackpadGesture.ZoomSize(editor.camUserSizeMultiplier, sample.Magnification);
           float delta = (editor.camUserSizeMultiplier - target) / editor.scrollSpeed;
-          if (delta != 0) editor.ZoomCamera(delta, anchorAtPointer: true, instant: true);
+          if (delta != 0)
+          {
+            // Unity's mouse position can be stale while the window is unfocused.
+            // Use the same native position for canvas routing and the zoom anchor.
+            _zoomPointer = new Vector3((float)sample.X * Screen.width, (float)sample.Y * Screen.height, 0);
+            try { editor.ZoomCamera(delta, anchorAtPointer: true, instant: true); }
+            finally { _zoomPointer = null; }
+          }
         }
       }
       _pending.Clear();
@@ -188,6 +198,27 @@ internal sealed class EditorTrackpadController : IDisposable
   {
     _current?.Tick();
     if (_current?._suppressUi == true) __result = Vector2.zero;
+  }
+  private static Vector3 ReadZoomPointer() => _current?._zoomPointer ?? UnityEngine.Input.mousePosition;
+
+  private static IEnumerable<CodeInstruction> ReplaceZoomPointer(IEnumerable<CodeInstruction> instructions)
+  {
+    MethodInfo original = AccessTools.PropertyGetter(typeof(UnityEngine.Input), nameof(UnityEngine.Input.mousePosition));
+    MethodInfo replacement = AccessTools.Method(typeof(EditorTrackpadController), nameof(ReadZoomPointer));
+    int matches = 0;
+    var result = new List<CodeInstruction>();
+    foreach (CodeInstruction instruction in instructions)
+    {
+      if (instruction.Calls(original))
+      {
+        instruction.opcode = OpCodes.Call;
+        instruction.operand = replacement;
+        matches++;
+      }
+      result.Add(instruction);
+    }
+    if (matches != 1) throw new InvalidOperationException("Editor zoom hook changed; expected exactly one pointer read");
+    return result;
   }
   private static IEnumerable<CodeInstruction> ReplaceEditorScroll(IEnumerable<CodeInstruction> instructions)
   {

@@ -10,12 +10,14 @@ using ImplResourcePack.Infrastructure.Game.Editor;
 using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Recording;
 using ImplResourcePack.Infrastructure.Game.Status;
+using ImplResourcePack.Infrastructure.Game.TimingScale;
 using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Overlay.Bpm;
 using ImplResourcePack.Presentation.Overlay.Combo;
 using ImplResourcePack.Presentation.Overlay.Judgement;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Overlay.Status;
+using ImplResourcePack.Presentation.Overlay.TimingScale;
 using UnityEngine.SceneManagement;
 
 namespace ImplResourcePack.Bootstrap;
@@ -95,7 +97,11 @@ internal sealed class ModRuntime : IDisposable
         new BpmView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
       );
       ComboFeature combo = new(new ComboView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material));
-      _coordinator = new OverlayCoordinator(judgement, status, bpm, combo);
+      TimingScaleFeature timingScale = new(
+        new TimingScaleReader(),
+        new TimingScaleView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
+      );
+      _coordinator = new OverlayCoordinator(judgement, status, bpm, combo, timingScale);
 
       _timeTicker = _canvasHost.Root.AddComponent<StatusTimeTicker>();
       _timeTicker.Initialize(OnTimeTick);
@@ -229,7 +235,7 @@ internal sealed class ModRuntime : IDisposable
 
   public void OnFloorChanged()
   {
-    Execute("Update progress and BPM", () => _coordinator?.RefreshFloor());
+    Execute("Update progress, BPM and timing scale", () => _coordinator?.RefreshFloor());
   }
 
   public void Dispose()

@@ -20,7 +20,7 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - BPM
 - 판정
 - 콤보
-- 타이밍 스케일
+- 타이밍 스케일 (하단 중앙에 현재 타일의 판정 배율을 백분율로 표시)
 - 최고 기록과 시도 횟수
 - ImplDmNote 프로필과 동기화되는 입력 키 리미터
 

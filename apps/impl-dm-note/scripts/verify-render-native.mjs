@@ -22,6 +22,7 @@ const { code } = await runtimeRequire('esbuild').transform(
 const module = { exports: {} };
 runInNewContext(code, { module, exports: module.exports });
 const settings = module.exports.getDefaultSettingsState();
+const tauriConfig = JSON.parse(await readFile(join(app, 'src-tauri/tauri.conf.json'), 'utf8'));
 settings.noteEffect = true;
 // Exercise fractional note-expiry deadlines within the captured frame range.
 settings.noteSettings.speed = 1234;
@@ -30,9 +31,14 @@ settings.keyCounterEnabled = true;
 settings.useCustomCSS = true;
 settings.customCSS = {
   path: null,
-  content: '* { font-family: monospace !important; }',
+  content: '[data-state] { --key-radius: 17px; --key-bg: rgb(16, 32, 48); }',
 };
-settings.fontSettings = { customFonts: [] };
+const fontPath = join(app, 'src/renderer/assets/fonts/PretendardVariable.woff2');
+const fontData = await readFile(fontPath);
+settings.fontSettings = { customFonts: [{
+  id: 'fixture-font', type: 'local', name: 'Fixture Font',
+  displayName: 'Fixture Font', enabled: true, localPath: fontPath,
+}] };
 settings.useCustomJS = true;
 settings.customJS = {
   path: null,
@@ -80,6 +86,7 @@ const positions = [0, 90, 180].map((dx) => ({
   dy: 170,
   width: 60,
   height: 60,
+  fontFamily: 'Fixture Font',
 }));
 const snapshot = {
   settings,
@@ -103,7 +110,12 @@ const snapshot = {
   keyCounters: {},
   layerGroups: {},
   tabNoteOverrides: {},
-  tabCssOverrides: {},
+  tabCssOverrides: {
+    'foot-export': {
+      enabled: true, path: 'fixture-foot.css',
+      content: '[data-state] { --key-radius: 23px; --key-bg: rgb(64, 32, 16); }',
+    },
+  },
 };
 const manifest = {
   snapshot,
@@ -155,6 +167,26 @@ try {
   server = await preview({
     configFile: join(app, 'vite.config.ts'),
     preview: { port: 0, strictPort: false, host: '127.0.0.1' },
+    plugins: [{
+      name: 'native-render-tauri-csp-fixture',
+      configurePreviewServer(server) {
+        server.middlewares.use(async (request, response, next) => {
+          if (request.url !== '/render/index.html') return next();
+          // Tauri adds a nonce to inline styles and to style-src. WebKit then
+          // ignores unsafe-inline, so dynamic CSS/font styles need that nonce too.
+          const nonce = 'native-render-fixture';
+          let html = await readFile(join(app, 'dist/renderer/render/index.html'), 'utf8');
+          const hasInlineStyle = /<style\b/.test(html);
+          html = html.replaceAll('<style', `<style nonce="${nonce}"`);
+          const csp = hasInlineStyle
+            ? tauriConfig.app.security.csp.replace(/style-src[^;]*/, `$& 'nonce-${nonce}'`)
+            : tauriConfig.app.security.csp;
+          response.setHeader('Content-Type', 'text/html');
+          response.setHeader('Content-Security-Policy', csp);
+          response.end(html);
+        });
+      },
+    }],
   });
   const port = server.httpServer.address().port;
   const executable = join(directory, 'fixture');
@@ -187,7 +219,7 @@ try {
         initialOutputTimeUs: -200000,
         pluginStorage: {},
         pluginElements: pluginElements.map((element) => ({ ...element, tabId: mode })),
-        assetUrls: {},
+        assetUrls: { [fontPath]: `data:font/woff2;base64,${fontData.toString('base64')}` },
         verify: true,
       }),
     );
@@ -211,6 +243,13 @@ try {
     const reports = JSON.parse(
       await readFile(join(output, 'reports.json'), 'utf8'),
     );
+    const css = viewerKind === 'foot' ? snapshot.tabCssOverrides[mode] : settings.customCSS;
+    assert.equal(reports[0].styles.customCss, css.content, 'Render must apply the frozen global or selected-tab CSS.');
+    assert.equal(reports[0].styles.borderRadius, viewerKind === 'foot' ? '23px' : '17px', 'Render must use custom CSS key variables under the packaged CSP.');
+    assert.equal(reports[0].styles.backgroundColor, viewerKind === 'foot' ? 'rgb(64, 32, 16)' : 'rgb(16, 32, 48)', 'Render must use custom CSS colors.');
+    assert(reports[0].styles.fontFamily.includes('Fixture Font'), 'Render must keep the selected key font.');
+    assert(reports[0].styles.fonts.some(font => font.family === 'Fixture Font' && font.status === 'loaded'), 'Render must load the frozen local font before the first frame.');
+    assert.equal(reports[0].styles.viewerSurface, true, 'Render must share the live viewer style boundary.');
     conversion.push(reports.reduce((sum, report) => sum + report.conversionMs, 0) / reports.length);
     snapshots.push(reports.reduce((sum, report) => sum + report.snapshotMs, 0) / reports.length);
     if (pass === 0 || pass === 2) console.log(`${format} source size: ${reports[0].sourceWidth}x${reports[0].sourceHeight}`);
@@ -292,7 +331,7 @@ try {
     'Native capture must preserve transparent and visible overlay pixels.',
   );
   console.log(
-    'PASS: hidden native WKWebView, distinct hand/foot presets, full overlay, alpha, exact short taps/holds/mouse, isolated custom JS storage, identical pixels across sessions.',
+    'PASS: hidden native WKWebView with packaged Tauri CSP, global/tab custom CSS, frozen local fonts, distinct hand/foot presets, full overlay, alpha, exact short taps/holds/mouse, isolated custom JS storage, identical pixels across sessions.',
   );
 } finally {
   await new Promise((done) => server ? server.httpServer.close(done) : done());

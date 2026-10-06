@@ -59,7 +59,9 @@ async function start() {
     import('@api/dmnoteApi'),
     import('@styles/viewer-compat-v1.css'),
   ]);
-  const root = createRoot(document.getElementById('root'));
+  const container = document.getElementById('root');
+  container.dataset.dmnViewerSurface = '';
+  const root = createRoot(container);
   flushSync(() =>
     root.render(
       React.createElement(I18nProvider, null, React.createElement(App)),

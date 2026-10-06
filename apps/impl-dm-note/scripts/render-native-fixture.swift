@@ -27,6 +27,19 @@ final class Fixture: NSObject, WKScriptMessageHandler {
         Object.defineProperty(window,'__TAURI_INTERNALS__',{value:{}});
         Object.defineProperty(window.__TAURI_INTERNALS__,'invoke',{value:async(command,args)=>{
           if(command!=='dmnote_render_ack')throw new Error('Unexpected native command: '+command);
+          if (args.result?.frameIndex != null) {
+            const key = document.querySelector('[data-state]');
+            const label = key?.querySelector('.text-safe-inline');
+            const styles = key ? getComputedStyle(key) : null;
+            args.result.styles = {
+              customCss: document.getElementById('dmn-custom-css')?.textContent ?? null,
+              backgroundColor: styles?.backgroundColor,
+              borderRadius: styles?.borderRadius,
+              fontFamily: label ? getComputedStyle(label).fontFamily : null,
+              fonts: [...document.fonts].map(font => ({ family: font.family, status: font.status })),
+              viewerSurface: document.getElementById('root').hasAttribute('data-dmn-viewer-surface'),
+            };
+          }
           window.webkit.messageHandlers.renderAck.postMessage(args);
         }});
         Object.defineProperty(window,'__TAURI_EVENT_PLUGIN_INTERNALS__',{value:{unregisterListener:()=>{throw new Error('Unexpected native listener');}}});

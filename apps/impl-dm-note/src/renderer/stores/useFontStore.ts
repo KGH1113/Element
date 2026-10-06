@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { getOrCreateStyleElement } from '@utils/core/styleElement';
 import {
   BUILTIN_FONTS,
   type CustomFont,
@@ -96,15 +97,8 @@ export const useFontStore = create<FontState>((set, get) => ({
 
 // 폰트 CSS를 DOM에 주입하는 헬퍼 함수
 export function injectFontCSS(fontId: string, css: string): void {
-  const existingStyle = document.getElementById(`font-${fontId}`);
-  if (existingStyle) {
-    existingStyle.textContent = css;
-  } else {
-    const style = document.createElement('style');
-    style.id = `font-${fontId}`;
-    style.textContent = css;
-    document.head.appendChild(style);
-  }
+  const style = getOrCreateStyleElement(`font-${fontId}`);
+  if (style.textContent !== css) style.textContent = css;
 }
 
 // 폰트 CSS를 DOM에서 제거하는 헬퍼 함수

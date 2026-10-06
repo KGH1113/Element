@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { obsApi } from '@api/modules/obsApi';
+import { getOrCreateStyleElement } from '@utils/core/styleElement';
 import type { TabCssOverrides } from '@src/types/plugin/css';
 import type { CustomCss } from '@src/types/plugin/css';
 
@@ -22,15 +23,7 @@ export function useCustomCssInjection() {
 
   useEffect(() => {
     // 스타일 요소 생성/재사용
-    let styleEl = document.getElementById(
-      STYLE_ELEMENT_ID,
-    ) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = STYLE_ELEMENT_ID;
-      document.head.appendChild(styleEl);
-    }
-    styleElRef.current = styleEl;
+    styleElRef.current = getOrCreateStyleElement(STYLE_ELEMENT_ID);
 
     /**
      * 현재 탭에 적용할 CSS 결정 및 적용

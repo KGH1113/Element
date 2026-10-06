@@ -29,9 +29,11 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - A Dance of Fire and Ice
 - UnityModManager
 - Harmony
-- AdofaiIpc 0.4.1
+- AdofaiIpc 1.0.0
 
-Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 AdofaiIpc 0.4.1 dependency bootstrap을 사용하며, ImplDmNote 데스크톱 앱은 대응하는 ADOFAI-IPC TypeScript 클라이언트를 사용합니다.
+Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 AdofaiIpc 1.0.0 dependency bootstrap을 사용하며, ImplDmNote 데스크톱 앱은 같은 프로토콜의 TypeScript SDK 원본을 앱 내부에 고정하여 사용합니다. npm 패키지 릴리스에 의존하지 않습니다.
+
+앱과 모드는 하나의 loopback WebSocket 연결에서 명령과 상태 이벤트를 주고받습니다. 키 프로필 적용 결과와 namespace 준비 상태는 polling 없이 전달되고, 프로필을 소유한 앱의 연결이 끊기면 입력 키 제한을 해제합니다. 자세한 경계와 검증은 [`docs/adofai-ipc-v1.md`](docs/adofai-ipc-v1.md)를 참고하세요.
 
 ## ImplDmNote
 
@@ -45,6 +47,8 @@ npm run desktop:build
 ```
 
 원본과 변경 이력은 [`apps/impl-dm-note/UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md), 라이선스는 [`apps/impl-dm-note/LICENSE`](apps/impl-dm-note/LICENSE)를 참고하세요. 커스텀 JavaScript 플러그인은 샌드박스되지 않으며 앱 사용자와 같은 권한으로 실행되므로 신뢰하는 코드만 설치해야 합니다.
+
+TUFReplay-Renderer가 실행 중이면 ImplDmNote는 같은 localhost ADOFAI-IPC를 통해 자동 렌더 세션에 연결합니다. 웹의 Render 동작이 현재 프리셋을 고정하고 실제 입력을 제외한 전용 화면을 프레임 단위로 출력합니다. 자동 배치는 열려 있는 손·발 오버레이를 모두 포함하고 각 창의 위치·크기와 선택된 탭을 유지합니다. 수동 스냅샷·Chrome·소스 경로 설정은 필요하지 않으며, 렌더 카운터는 기록별로 0부터 시작하고 기존 앱의 누적 카운터는 보존됩니다. 앱의 [`렌더링 안내`](apps/impl-dm-note/README.md#리플레이-렌더링)를 참고하세요.
 
 판정 오버레이는 JipperResourcePack과 동일한 `MAPLESTORY_OTF_BOLD SDF` 폰트 자산을 플랫폼별 AssetBundle에서 로드합니다.
 
@@ -64,6 +68,8 @@ Unity 프로젝트는 `ImplResourcePack.Unity`에 있으며 Unity `6000.3.10f1`�
 cp .env.example .env
 ./scripts/run.sh build
 ```
+
+`./scripts/run.sh mod-check`는 설치 없이 빌드와 C# 회귀 테스트를 수행합니다. 검증된 산출물을 설치하려면 `./scripts/run.sh install`을 사용합니다.
 
 `build` 명령은 입력 경로를 검증하고 Debug 빌드를 만든 뒤 기본적으로 ADOFAI의 `Mods/ImplResourcePack`에 설치합니다.
 

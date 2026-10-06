@@ -956,6 +956,12 @@ impl AppState {
                                 continue;
                             }
 
+                            // Rendering freezes physical keyboard, mouse, HID and
+                            // shortcuts before counters, sounds or plugin events.
+                            let render_service = app_handle.state::<crate::services::render::RenderService>();
+                            let _render_input = render_service.live_input.lock();
+                            if render_service.input_gated.load(Ordering::Acquire) { continue; }
+
                             // DaemonCommand(글로벌 단축키) 파싱 우선 시도
                             if let Ok(command) = serde_json::from_str::<crate::ipc::DaemonCommand>(s) {
                                 match command {
@@ -1120,9 +1126,9 @@ impl AppState {
                             let mut changed_routes = Vec::new();
                             for (mode, key_label) in &selected_routes {
                                 let mode_changed = if state == "DOWN" {
-                                    let changed = app_state.register_key_down(mode, &key_label);
+                                    let changed = app_state.register_key_down(mode, key_label);
                                     if changed {
-                                        if let Some(count) = app_state.increment_key_counter(mode, &key_label) {
+                                        if let Some(count) = app_state.increment_key_counter(mode, key_label) {
                                         log::trace!(
                                             "[IPC] emit keys:counter: mode={}, key={}, count={}",
                                             mode, key_label, count
@@ -1141,7 +1147,7 @@ impl AppState {
                                     }
                                     changed
                                 } else {
-                                    app_state.register_key_up(mode, &key_label)
+                                    app_state.register_key_up(mode, key_label)
                                 };
                                 if mode_changed {
                                     changed_routes.push((mode.clone(), key_label.clone()));
@@ -1846,6 +1852,14 @@ impl AppState {
 
     pub fn clear_active_keys(&self) {
         self.active_keys.write().clear();
+    }
+
+    pub fn release_live_keys(&self, app: &AppHandle) {
+        for entry in self.active_keys.write().drain() {
+            if let Some((mode, key)) = entry.split_once("::") {
+                let _ = app.emit("keys:state", json!({"mode":mode,"key":key,"state":"UP","eventAgeMs":0}));
+            }
+        }
     }
 
     /// 모드 전환 시 active_keys의 prefix를 새 모드로 교체

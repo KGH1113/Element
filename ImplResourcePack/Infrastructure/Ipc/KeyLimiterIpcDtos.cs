@@ -54,6 +54,9 @@ public sealed class KeyLimiterSyncResponseDto
   [JsonProperty("reason")]
   public string Reason;
 
+  [JsonProperty("message")]
+  public string Message;
+
   [JsonProperty("enabled")]
   public bool Enabled;
 
@@ -69,11 +72,7 @@ public sealed class KeyLimiterSyncResponseDto
   [JsonProperty("unsupportedKeys")]
   public string[] UnsupportedKeys;
 
-  internal static KeyLimiterSyncResponseDto From(
-    KeyLimiterSnapshot snapshot,
-    bool applied,
-    string reason
-  ) =>
+  internal static KeyLimiterSyncResponseDto From(KeyLimiterSnapshot snapshot, bool applied, string reason) =>
     new()
     {
       Ok = true,

@@ -9,6 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+        "@adofai-ipc/client": path.resolve(__dirname, "vendor/adofai-ipc/src/index.ts"),
       '@components': path.resolve(rendererRoot, 'components'),
       '@styles': path.resolve(rendererRoot, 'styles'),
       '@windows': path.resolve(rendererRoot, 'windows'),

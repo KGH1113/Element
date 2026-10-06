@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import type { KeyPositions } from '@src/types/key/keys';
 import { KeyLimiterIpcCoordinator } from '@src/renderer/ipc/keyLimiterIpcCoordinator';
+import {
+  FakeMessagePort,
+  testScheduler,
+} from '../../__tests__/fakeMessagePort';
 import { startKeyLimiterSync } from './useKeyLimiterSync';
 
 describe('startKeyLimiterSync', () => {
@@ -25,18 +29,24 @@ describe('startKeyLimiterSync', () => {
   });
 
   it('syncs both viewer selections but ignores editor-only tab changes', async () => {
-    const call = vi.fn().mockResolvedValue({ applied: true });
+    const call = vi.fn();
+    const messages = new FakeMessagePort();
+    const send = messages.send.bind(messages);
+    messages.send = (name, params) => {
+      const id = send(name, params);
+      call({ params });
+      queueMicrotask(() =>
+        messages.receive(
+          'key-limiter.profile.applied',
+          { ok: true, applied: true, reason: 'applied', ...(params as object) },
+          id,
+        ),
+      );
+      return id;
+    };
     const coordinator = new KeyLimiterIpcCoordinator({
-      connect: vi.fn().mockResolvedValue({
-        waitForNamespace: vi.fn().mockResolvedValue({
-          namespace: 'impl-resourcepack',
-          displayName: 'ImplResourcePack',
-          version: '0.1.0',
-          status: 'ready',
-          methods: ['key-limiter.sync'],
-        }),
-        call,
-      }),
+      messages,
+      scheduler: testScheduler,
     });
     const stop = startKeyLimiterSync(coordinator);
 
@@ -107,18 +117,24 @@ describe('startKeyLimiterSync', () => {
   });
 
   it('syncs limiter metadata changes but ignores visual-only position changes', async () => {
-    const call = vi.fn().mockResolvedValue({ applied: true });
+    const call = vi.fn();
+    const messages = new FakeMessagePort();
+    const send = messages.send.bind(messages);
+    messages.send = (name, params) => {
+      const id = send(name, params);
+      call({ params });
+      queueMicrotask(() =>
+        messages.receive(
+          'key-limiter.profile.applied',
+          { ok: true, applied: true, reason: 'applied', ...(params as object) },
+          id,
+        ),
+      );
+      return id;
+    };
     const coordinator = new KeyLimiterIpcCoordinator({
-      connect: vi.fn().mockResolvedValue({
-        waitForNamespace: vi.fn().mockResolvedValue({
-          namespace: 'impl-resourcepack',
-          displayName: 'ImplResourcePack',
-          version: '0.1.0',
-          status: 'ready',
-          methods: ['key-limiter.sync'],
-        }),
-        call,
-      }),
+      messages,
+      scheduler: testScheduler,
     });
     const stop = startKeyLimiterSync(coordinator);
 
@@ -190,7 +206,10 @@ describe('startKeyLimiterSync', () => {
       two: ['FORWARD SLASH', 'SEMICOLON'],
       none: [],
     };
-    const coordinator = new KeyLimiterIpcCoordinator();
+    const coordinator = new KeyLimiterIpcCoordinator({
+      messages: new FakeMessagePort(),
+      scheduler: testScheduler,
+    });
     const enqueue = vi
       .spyOn(coordinator, 'enqueue')
       .mockImplementation(() => {});

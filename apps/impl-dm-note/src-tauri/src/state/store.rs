@@ -596,9 +596,9 @@ mod viewer_selection_tests {
     fn viewer_selections_survive_store_updates_and_reload_in_both_orders() {
         for foot_first in [false, true] {
             let dir = tempdir().unwrap();
-            let mut data = AppStoreData::default();
-            data.key_viewer_tabs_migrated = true;
-            data.tabs = [
+            let data = AppStoreData {
+              key_viewer_tabs_migrated: true,
+              tabs: [
                 ("inroll", KeyViewerKind::Hand),
                 ("foot-a", KeyViewerKind::Foot),
                 ("numpad", KeyViewerKind::Hand),
@@ -610,11 +610,13 @@ mod viewer_selection_tests {
                 name: id.into(),
                 viewer_kind,
             })
-            .collect();
-            data.selected_key_type = "inroll".into();
-            data.selected_viewer_tabs = SelectedViewerTabs {
+            .collect(),
+              selected_key_type: "inroll".into(),
+              selected_viewer_tabs: SelectedViewerTabs {
                 hand: "inroll".into(),
                 foot: "foot-a".into(),
+              },
+              ..AppStoreData::default()
             };
             let store = AppStore {
                 path: dir.path().join("store.json"),

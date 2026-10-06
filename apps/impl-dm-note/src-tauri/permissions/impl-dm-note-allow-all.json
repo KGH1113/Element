@@ -6,7 +6,9 @@
       "description": "Full ImplDmNote command access for renderer",
       "commands": {
         "allow": [
-          "adofai_ipc_http_request",
+          "adofai_ipc_ws_close",
+          "adofai_ipc_ws_connect",
+          "adofai_ipc_ws_send",
           "app_bootstrap",
           "app_open_external",
           "app_quit",
@@ -32,6 +34,12 @@
           "css_tab_set",
           "css_tab_toggle",
           "css_toggle",
+          "dmnote_render_ack",
+          "dmnote_render_begin",
+          "dmnote_render_end",
+          "dmnote_render_frame",
+          "dmnote_render_reset",
+          "dmnote_render_touch",
           "font_load",
           "get_cursor_settings",
           "graph_positions_get",

@@ -976,17 +976,19 @@ mod tests {
 
     #[test]
     fn legacy_editor_selection_becomes_the_hand_selection() {
-        let mut data = AppStoreData::default();
-        data.key_viewer_tabs_migrated = false;
-        data.selected_key_type = "numpad".into();
-        data.tabs = ["hand-default", "numpad"]
+        let data = AppStoreData {
+          key_viewer_tabs_migrated: false,
+          selected_key_type: "numpad".into(),
+          tabs: ["hand-default", "numpad"]
             .into_iter()
             .map(|id| KeyViewerTab {
                 id: id.into(),
                 name: id.into(),
                 viewer_kind: KeyViewerKind::Hand,
             })
-            .collect();
+            .collect(),
+          ..AppStoreData::default()
+        };
 
         let normalized = normalize_state(data);
 
@@ -997,10 +999,12 @@ mod tests {
 
     #[test]
     fn invalid_hand_selection_falls_back_without_changing_the_foot_selection() {
-        let mut data = AppStoreData::default();
-        data.key_viewer_tabs_migrated = true;
-        data.tabs = super::default_viewer_tabs("en");
-        data.selected_key_type = "foot-default".into();
+        let mut data = AppStoreData {
+          key_viewer_tabs_migrated: true,
+          tabs: super::default_viewer_tabs("en"),
+          selected_key_type: "foot-default".into(),
+          ..AppStoreData::default()
+        };
         data.selected_viewer_tabs.hand = "missing".into();
 
         let normalized = normalize_state(data);

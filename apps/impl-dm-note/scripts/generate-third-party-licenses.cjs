@@ -97,6 +97,12 @@ function generateNpmReport() {
   return lines.join('\n');
 }
 
+function generateVendoredReport() {
+  const root = path.join(appRoot, 'vendor', 'adofai-ipc');
+  const metadata = JSON.parse(fs.readFileSync(path.join(root, 'source.json'), 'utf8'));
+  return ['VENDORED SOURCE LICENSES', '========================', '', `ADOFAI-IPC TypeScript SDK ${metadata.version}`, `Source: ${metadata.source}`, 'License: MIT', '', fs.readFileSync(path.join(root, 'LICENSE'), 'utf8').trim()].join('\n');
+}
+
 function generateReport() {
   return [
     'ImplDmNote Third-Party Licenses',
@@ -105,6 +111,8 @@ function generateReport() {
     runCargoAbout(),
     '',
     generateNpmReport(),
+    '',
+    generateVendoredReport(),
     '',
   ].join('\n');
 }

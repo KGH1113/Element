@@ -39,7 +39,7 @@ describe('buildKeyLimiterSyncRequest', () => {
     );
 
     expect(request).toEqual({
-      schemaVersion: 1,
+      schemaVersion: 2,
       source: 'impl-dm-note',
       clientVersion: '0.1.0',
       sessionId: 'session-1',

@@ -43,6 +43,8 @@ let completionTimer: ReturnType<typeof setTimeout> | null = null;
 function errorMessage(error: unknown): string | null {
   if (error instanceof Error) return error.message;
   if (typeof error === 'string') return error;
+  if (typeof (error as { message?: unknown })?.message === 'string')
+    return (error as { message: string }).message;
   return error == null ? null : String(error);
 }
 
@@ -100,7 +102,10 @@ export const useKeyLimiterStatusStore = create<KeyLimiterStatusState>(
         set({
           deliveryState: 'error',
           latestRevision: request.revision,
-          error: response?.reason || 'invalid_sync_response',
+          error:
+            response?.message ||
+            response?.reason ||
+            'The game could not confirm this key profile. Reconnect ADOFAI and select the profile again.',
         });
         return;
       }

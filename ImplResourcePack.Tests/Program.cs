@@ -1,10 +1,10 @@
 using System;
+using System.Threading;
 using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Judgement;
 using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Status;
-using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Overlay.Combo;
 using UnityEngine;
 
@@ -25,6 +25,8 @@ internal static class Program
       Run("allows ANSI and ISO backslash input", AllowsBackslashInput);
       Run("applies supported keys and reports unsupported keys", AppliesSupportedSubset);
       Run("handles duplicate and stale revisions", HandlesRevisionOrdering);
+      Run("profile ownership and disconnect restore", HandlesProfileOwnership);
+      Run("canceled queued profile cannot regain ownership", RejectsCanceledProfile);
       Run("disables when no requested key is supported", DisablesUnsupportedOnlyProfile);
       Run("applies hit text visibility settings", AppliesHitTextVisibilitySettings);
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
@@ -70,10 +72,7 @@ internal static class Program
     MacModifierMapsTo(KeyCode.RightShift, 0xE5);
     MacModifierMapsTo(KeyCode.RightAlt, 0xE6);
     MacModifierMapsTo(KeyCode.RightMeta, 0xE7);
-    True(
-      !DmNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _),
-      "ordinary keys must not use the modifier fallback"
-    );
+    True(!DmNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _), "ordinary keys must not use the modifier fallback");
     MapsAsyncTo("LEFT SHIFT", KeyCode.LeftShift, 0xE1);
     MapsAsyncTo("RIGHT SHIFT", KeyCode.RightShift, 0xE5);
   }
@@ -86,8 +85,8 @@ internal static class Program
 
   private static void AppliesSupportedSubset()
   {
-    KeyLimiterService service = new();
-    KeyLimiterSyncResponseDto response = service.Apply(Request(1, true, "A", "FN", "DOT"));
+    KeyLimiterService service = new(new DmNoteKeyResolver());
+    KeyLimiterApplyResult response = service.Apply(Request(1, true, "A", "FN", "DOT"));
     True(response.Ok && response.Applied && response.Enabled, "request should be applied");
     Sequence(new[] { "A", "DOT" }, response.SupportedKeys);
     Sequence(new[] { "FN" }, response.UnsupportedKeys);
@@ -100,7 +99,7 @@ internal static class Program
   {
     foreach (string name in new[] { "BACKSLASH", "\\" })
     {
-      KeyLimiterService service = new();
+      KeyLimiterService service = new(new DmNoteKeyResolver());
       service.Apply(Request(1, true, name));
       True(service.Current.Allows(KeyCode.Backslash), "backslash should be allowed");
       if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
@@ -117,7 +116,7 @@ internal static class Program
 
   private static void HandlesRevisionOrdering()
   {
-    KeyLimiterService service = new();
+    KeyLimiterService service = new(new DmNoteKeyResolver());
     service.Apply(Request(2, true, "A"));
     Equal("duplicate", service.Apply(Request(2, true, "S")).Reason);
     Equal("stale_revision", service.Apply(Request(1, true, "S")).Reason);
@@ -126,8 +125,8 @@ internal static class Program
 
   private static void DisablesUnsupportedOnlyProfile()
   {
-    KeyLimiterService service = new();
-    KeyLimiterSyncResponseDto response = service.Apply(Request(1, true, "FN"));
+    KeyLimiterService service = new(new DmNoteKeyResolver());
+    KeyLimiterApplyResult response = service.Apply(Request(1, true, "FN"));
     True(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
   }
 
@@ -210,16 +209,68 @@ internal static class Program
     return measured;
   }
 
-  private static KeyLimiterSyncRequestDto Request(long revision, bool enabled, params string[] keys) =>
+  private static void HandlesProfileOwnership()
+  {
+    KeyLimiterService profiles = new(new DmNoteKeyResolver());
+    KeyLimiterSessionController session = new(profiles);
+    True(session.Apply("first-app", Request(1, true, "A")).Applied, "First app must own the profile.");
+    True(
+      session.Apply("second-app", Request(2, true, "B")).Reason == "profile_owned_by_another_app",
+      "A second app cannot replace the profile."
+    );
+    True(
+      !session.PeerDisconnected("second-app") && profiles.Current.Enabled,
+      "An unrelated disconnect must preserve the owner."
+    );
+    True(
+      session.PeerDisconnected("first-app") && !profiles.Current.Enabled,
+      "Owner disconnect must release the key limiter."
+    );
+    True(
+      session.Apply("second-app", Request(1, true, "B")).Applied,
+      "A new connection can become owner after release."
+    );
+    KeyLimiterUpdate invalid = Request(2, true, "A");
+    invalid.SchemaVersion = 1;
+    True(
+      session.Apply("second-app", invalid).Reason == "unsupported_schema",
+      "The old profile schema must be rejected."
+    );
+    session.Clear();
+    True(!profiles.Current.Enabled, "Mod shutdown must release the profile.");
+  }
+
+  private static void RejectsCanceledProfile()
+  {
+    KeyLimiterService profiles = new(new DmNoteKeyResolver());
+    KeyLimiterSessionController session = new(profiles);
+    using CancellationTokenSource disconnected = new();
+    session.Apply("old-app", Request(1, true, "A"));
+    disconnected.Cancel();
+    session.PeerDisconnected("old-app");
+    bool rejected = false;
+    try
+    {
+      session.Apply("old-app", Request(2, true, "B"), disconnected.Token);
+    }
+    catch (OperationCanceledException)
+    {
+      rejected = true;
+    }
+    True(rejected && !profiles.Current.Enabled, "Disconnected queued work must not re-enable input blocking.");
+    True(session.Apply("new-app", Request(1, true, "B")).Applied, "A new app must remain able to own the profile.");
+  }
+
+  private static KeyLimiterUpdate Request(long revision, bool enabled, params string[] keys) =>
     new()
     {
-      SchemaVersion = 1,
+      SchemaVersion = 2,
       Source = "impl-dm-note",
       ClientVersion = "0.1.0",
       SessionId = "test-session",
       Revision = revision,
       Enabled = enabled,
-      Profile = new KeyLimiterProfileDto { Id = "4key", Name = "4key" },
+      Profile = new KeyLimiterProfile { Id = "4key", Name = "4key" },
       Keys = keys,
       ExcludedGhostKeys = Array.Empty<string>(),
     };
@@ -232,10 +283,7 @@ internal static class Program
 
   private static void MacModifierMapsTo(KeyCode key, ushort expected)
   {
-    True(
-      DmNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual),
-      key + " should have a macOS async fallback"
-    );
+    True(DmNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual), key + " should have a macOS async fallback");
     Equal(expected, actual);
   }
 

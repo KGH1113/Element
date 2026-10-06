@@ -7,6 +7,7 @@ using ImplResourcePack.Domain.Judgement;
 using ImplResourcePack.Infrastructure.Assets;
 using ImplResourcePack.Infrastructure.Game.Bpm;
 using ImplResourcePack.Infrastructure.Game.Editor;
+using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Recording;
 using ImplResourcePack.Infrastructure.Game.Status;
@@ -59,8 +60,8 @@ internal sealed class ModRuntime : IDisposable
 
     try
     {
-      _keyLimiter = new KeyLimiterService();
-      _keyLimiterIpc = new KeyLimiterIpcFeature(_keyLimiter);
+      _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
+      _keyLimiterIpc = new KeyLimiterIpcFeature(new KeyLimiterSessionController(_keyLimiter));
       _keyLimiterIpc.Enable();
 
       _harmony = new Harmony(HarmonyId);

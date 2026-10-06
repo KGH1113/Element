@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
 import { useKeyStore } from '@stores/data/useKeyStore';
-import { KeyLimiterIpcCoordinator } from '@src/renderer/ipc/keyLimiterIpcCoordinator';
+import type { KeyLimiterIpcCoordinator } from '@src/renderer/ipc/keyLimiterIpcCoordinator';
 import {
   buildKeyLimiterSyncRequest,
   getKeyLimiterSnapshotFingerprint,
 } from '@src/renderer/ipc/keyLimiterSnapshot';
+import { createKeyLimiterCoordinator } from '../../bootstrap/ipcRuntime';
 import { useKeyLimiterStatusStore } from '@stores/useKeyLimiterStatusStore';
 
 function createSessionId(): string {
@@ -16,7 +17,7 @@ function createSessionId(): string {
 }
 
 export function startKeyLimiterSync(
-  coordinator: KeyLimiterIpcCoordinator = new KeyLimiterIpcCoordinator(),
+  coordinator: KeyLimiterIpcCoordinator = createKeyLimiterCoordinator(),
 ): () => void {
   const sessionId = createSessionId();
   let revision = 0;
@@ -65,7 +66,7 @@ export function useKeyLimiterSync(): void {
   useEffect(() => {
     if (window.__dmn_window_type !== 'main') return;
     const status = useKeyLimiterStatusStore.getState();
-    const coordinator = new KeyLimiterIpcCoordinator({
+    const coordinator = createKeyLimiterCoordinator({
       onStateChange: (state, error) =>
         useKeyLimiterStatusStore.getState().setConnectionState(state, error),
       onSyncStart: (request) =>

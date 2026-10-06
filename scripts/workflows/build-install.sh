@@ -14,4 +14,6 @@ run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
 run_task "Build dependency bootstrap (Debug)" "$TASKS_DIR/build/bootstrap.sh" Debug
 run_task "Build mod (Debug)" "$TASKS_DIR/build/mod.sh" Debug
 run_task "Run C# tests" "$TASKS_DIR/test/csharp.sh"
-run_task "Install mod" "$TASKS_DIR/install/mod.sh"
+if [ "${1:-install}" != "check" ]; then
+  run_task "Install mod" "$TASKS_DIR/install/mod.sh"
+fi

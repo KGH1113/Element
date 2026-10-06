@@ -1,3 +1,5 @@
+> 이 문서는 v0.4 계열의 통합 조사 기록입니다. 현재 v1.0.0 WebSocket 구현과 검증은 [ADOFAI-IPC v1 경계](adofai-ipc-v1.md)를 참고하세요.
+
 # TUFReplay의 AdofaiIpc 통합 조사와 ImplResourcePack 적용안
 
 ## 조사 범위

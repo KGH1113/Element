@@ -5,7 +5,7 @@ import type {
   SelectedViewerTabs,
 } from '@src/types/key/keys';
 
-export const KEY_LIMITER_SCHEMA_VERSION = 1 as const;
+export const KEY_LIMITER_SCHEMA_VERSION = 2 as const;
 export const KEY_LIMITER_SOURCE = 'impl-dm-note' as const;
 
 export interface KeyLimiterProfile {

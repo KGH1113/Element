@@ -83,6 +83,13 @@ fn main() {
                 }
             }
         })
+        .on_window_event(|window, event| {
+            if window.label() == "main" && matches!(event, tauri::WindowEvent::Destroyed) {
+                let app = window.app_handle();
+                app.state::<commands::app::adofai_ipc::NativeIpcSockets>().close_all();
+                app.state::<services::render::RenderService>().end(app, None);
+            }
+        })
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
@@ -130,6 +137,9 @@ fn main() {
             let app_state = AppState::initialize(store)
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(app_state);
+            app.manage(commands::app::adofai_ipc::NativeIpcSockets::default());
+            app.manage(services::render::RenderService::default());
+            services::render::RenderService::start_watchdog(app.handle().clone());
             let handle = app.handle();
             {
                 let state = app.state::<AppState>();
@@ -146,7 +156,15 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             // 앱 생명주기
             commands::app::bootstrap::app_bootstrap,
-            commands::app::adofai_ipc::adofai_ipc_http_request,
+            commands::app::adofai_ipc::adofai_ipc_ws_connect,
+            commands::app::adofai_ipc::adofai_ipc_ws_send,
+            commands::app::adofai_ipc::adofai_ipc_ws_close,
+            commands::app::render::dmnote_render_touch,
+            commands::app::render::dmnote_render_begin,
+            commands::app::render::dmnote_render_reset,
+            commands::app::render::dmnote_render_frame,
+            commands::app::render::dmnote_render_end,
+            commands::app::render::dmnote_render_ack,
             commands::app::system::window_minimize,
             commands::app::system::window_close,
             commands::app::system::window_show_main,
@@ -524,8 +542,8 @@ fn register_dev_capability(app: &tauri::App) -> Result<(), Box<dyn std::error::E
     let builder = DEV_URLS.iter().fold(
         CapabilityBuilder::new("impl-dm-note-dev")
             .local(true)
-            .windows(["main", "hand-overlay", "foot-overlay"])
-            .webviews(["main", "hand-overlay", "foot-overlay"])
+            .windows(["main", "hand-overlay", "foot-overlay", "dmnote-render"])
+            .webviews(["main", "hand-overlay", "foot-overlay", "dmnote-render"])
             .permission("impl-dm-note-allow-all"),
         |acc, url| acc.remote((*url).to_string()),
     );

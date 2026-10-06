@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "type-check": "tsc --noEmit",
-    "check": "npm run type-check && npm run lint && npm run format:check && npm run test",
+    "check": "npm run sdk:check && npm run type-check && npm run lint && npm run format:check && npm run test",
     "type-check:watch": "tsc --noEmit --watch",
     "tauri:dev": "tauri dev -f asio-backend",
     "tauri:dev:no-asio": "tauri dev",
@@ -23,7 +23,7 @@
     "tauri:build:mac": "tauri build --bundles app -f asio-backend && node scripts/sign-macos-app.mjs",
     "tauri:build:windows": "node scripts/build-portable-win.cjs --major 143 --arch x64",
     "tauri:build:portable:webview2-fixed:143": "node scripts/build-portable-win.cjs --major 143 --arch x64",
-    "//": "버전 업데이트: patch(1.4.0->1.4.1), minor(1.4.0->1.5.0), major(1.4.0->2.0.0)",
+    "//": "\ubc84\uc804 \uc5c5\ub370\uc774\ud2b8: patch(1.4.0->1.4.1), minor(1.4.0->1.5.0), major(1.4.0->2.0.0)",
     "sync-version": "node scripts/sync-version.cjs",
     "licenses:generate": "node scripts/generate-third-party-licenses.cjs",
     "licenses:check": "node scripts/generate-third-party-licenses.cjs --check",
@@ -32,7 +32,8 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "sdk:check": "node scripts/verify-vendored-sdk.cjs"
   },
   "contributors": [
     {
@@ -81,7 +82,6 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "@adofai-ipc/client": "0.4.1",
     "@codemirror/commands": "^6.10.1",
     "@codemirror/lang-css": "^6.3.1",
     "@codemirror/language": "^6.12.1",

@@ -21,7 +21,21 @@ export default defineConfig(() => {
     define: {
       __APP_VERSION__: JSON.stringify(pkg.version),
     },
+    // Keep the bridge transform active in development and native fixtures too.
+    optimizeDeps: { exclude: ["@tauri-apps/api"] },
     plugins: [
+      {
+        name: "dmnote-render-tauri-bridge",
+        enforce: "pre",
+        transform(code, id) {
+          if (!id.replaceAll("\\", "/").includes("/@tauri-apps/api/")) return;
+          // Tauri's native globals and methods are nonconfigurable. Keep them
+          // intact; only API calls in the isolated render window use the snapshot.
+          return code
+            .replaceAll("window.__TAURI_INTERNALS__", "(window.__dmnRenderInternals ?? window.__TAURI_INTERNALS__)")
+            .replaceAll("window.__TAURI_EVENT_PLUGIN_INTERNALS__", "(window.__dmnRenderEventInternals ?? window.__TAURI_EVENT_PLUGIN_INTERNALS__)");
+        },
+      },
       react({
         babel: {
           plugins: [
@@ -67,6 +81,7 @@ export default defineConfig(() => {
     },
     resolve: {
       alias: {
+        "@adofai-ipc/client": path.resolve(__dirname, "vendor/adofai-ipc/src/index.ts"),
         "@components": path.resolve(rendererRoot, "components"),
         "@styles": path.resolve(rendererRoot, "styles"),
         "@windows": path.resolve(rendererRoot, "windows"),
@@ -92,6 +107,7 @@ export default defineConfig(() => {
           main: path.resolve(windowsRoot, "main/index.html"),
           overlay: path.resolve(windowsRoot, "overlay/index.html"),
           obs: path.resolve(windowsRoot, "obs/index.html"),
+          render: path.resolve(windowsRoot, "render/index.html"),
         },
       },
     },

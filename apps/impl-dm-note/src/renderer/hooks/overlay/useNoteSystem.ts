@@ -169,9 +169,11 @@ export function useNoteSystem({
         // 활성화된 노트는 항상 유지
         if (!note.isActive) {
           // 완료된 노트가 화면 밖으로 나갔는지 확인
-          const timeSinceCompletion = currentTime - (note.endTime as number);
-          const yPosition = (timeSinceCompletion * flowSpeed) / 1000;
-          shouldKeep = yPosition < trackHeight + 200;
+          // Use the same deadline as scheduleCleanup. Converting the deadline
+          // back to pixels can round just below the boundary and reschedule at 0ms.
+          const cleanupTime =
+            (note.endTime as number) + ((trackHeight + 200) * 1000) / flowSpeed;
+          shouldKeep = currentTime < cleanupTime;
 
           if (!shouldKeep) {
             const removedId = note.id;

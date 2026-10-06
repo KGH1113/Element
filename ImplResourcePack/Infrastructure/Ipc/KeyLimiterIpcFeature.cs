@@ -9,21 +9,16 @@ namespace ImplResourcePack.Infrastructure.Ipc;
 internal sealed class KeyLimiterIpcFeature : IDisposable
 {
   private const string Namespace = "impl-resourcepack";
-  private const int SchemaVersion = 1;
-  private readonly KeyLimiterService _service;
-  private bool _active;
+  private readonly KeyLimiterSessionController _session;
+  private AdofaiIpcNamespace _ipc;
 
-  public KeyLimiterIpcFeature(KeyLimiterService service)
-  {
-    _service = service;
-  }
+  public KeyLimiterIpcFeature(KeyLimiterSessionController session) => _session = session;
 
   public void Enable()
   {
-    if (_active)
+    if (_ipc != null)
       return;
-
-    AdofaiIpcNamespace ipc = AdofaiIpc.AdofaiIpc.RegisterNamespace(
+    _ipc = AdofaiIpc.AdofaiIpc.RegisterNamespace(
       Namespace,
       new IpcNamespaceInfo
       {
@@ -39,96 +34,107 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
         },
       }
     );
-    ipc.Register("health.get", Health);
-    ipc.RegisterMainThread("key-limiter.sync", Sync);
-    ipc.Register("key-limiter.status", Status);
-    ipc.MarkReady();
-    _active = true;
-    Main.Instance.Log("[IPC] Namespace ready: " + Namespace);
+    _ipc.RegisterMainThreadCommand("key-limiter.profile.set", SetProfile);
+    _ipc.PeerSubscribed += OnPeerSubscribed;
+    _ipc.PeerDisconnected += OnPeerDisconnected;
+    _ipc.MarkReady();
+    Main.Instance.Log("[IPC] WebSocket namespace ready: " + Namespace);
   }
 
   public void Dispose()
   {
-    _service.Clear();
-    if (!_active)
+    _session.Clear();
+    if (_ipc == null)
       return;
-    _active = false;
+    _ipc.PeerSubscribed -= OnPeerSubscribed;
+    _ipc.PeerDisconnected -= OnPeerDisconnected;
     AdofaiIpc.AdofaiIpc.UnregisterNamespace(Namespace);
-    Main.Instance?.Log("[IPC] Unregistered namespace: " + Namespace);
+    _ipc = null;
   }
 
-  private static object Health(IpcRequest request) =>
-    new HealthResponseDto
-    {
-      Ok = true,
-      Mod = "ImplResourcePack",
-      ModVersion = Main.Instance?.Version ?? "unknown",
-      ProtocolVersion = SchemaVersion,
-      ServerVersion = 1,
-    };
-
-  private object Sync(IpcRequest request)
+  private void SetProfile(IpcCommand command)
   {
-    KeyLimiterSyncRequestDto input;
+    command.CancellationToken.ThrowIfCancellationRequested();
+    KeyLimiterSyncRequestDto payload;
     try
     {
-      input = request?.Params?.ToObject<KeyLimiterSyncRequestDto>();
+      payload = command.Payload?.ToObject<KeyLimiterSyncRequestDto>();
     }
-    catch (Exception exception)
+    catch (Exception)
     {
-      Main.Instance?.LogWarning("[IPC] Invalid key-limiter.sync payload: " + exception.Message);
-      return KeyLimiterSyncResponseDto.Invalid("invalid_request");
+      command.Reject("invalid_profile", "The key profile could not be read. Select the profile again in ImplDmNote.");
+      return;
     }
-
-    string validationError = Validate(input);
-    if (validationError != null)
-      return KeyLimiterSyncResponseDto.Invalid(validationError);
-
-    KeyLimiterSyncResponseDto response = _service.Apply(input);
-    if (response.UnsupportedKeys.Length > 0)
-      Main.Instance?.LogWarning(
-        "[IPC] Unsupported limiter keys: " + string.Join(", ", response.UnsupportedKeys)
-      );
-    return response;
+    KeyLimiterUpdate update =
+      payload == null
+        ? null
+        : new KeyLimiterUpdate
+        {
+          SchemaVersion = payload.SchemaVersion,
+          Source = payload.Source,
+          ClientVersion = payload.ClientVersion,
+          SessionId = payload.SessionId,
+          Revision = payload.Revision,
+          Enabled = payload.Enabled,
+          Profile =
+            payload.Profile == null
+              ? null
+              : new KeyLimiterProfile { Id = payload.Profile.Id, Name = payload.Profile.Name },
+          Keys = payload.Keys,
+          ExcludedGhostKeys = payload.ExcludedGhostKeys,
+        };
+    KeyLimiterApplyResult applied = _session.Apply(command.PeerId, update, command.CancellationToken);
+    command.Reply(
+      "key-limiter.profile.applied",
+      new KeyLimiterSyncResponseDto
+      {
+        Ok = applied.Ok,
+        Applied = applied.Applied,
+        Reason = applied.Reason,
+        Message = Explain(applied.Reason),
+        Enabled = applied.Enabled,
+        SessionId = applied.SessionId,
+        Revision = applied.Revision,
+        SupportedKeys = applied.SupportedKeys,
+        UnsupportedKeys = applied.UnsupportedKeys,
+      }
+    );
+    if (applied.Applied)
+      _ipc.Publish("key-limiter.state.changed", State());
   }
 
-  private object Status(IpcRequest request)
+  private static string Explain(string reason) =>
+    reason switch
+    {
+      "applied" or "duplicate" => null,
+      "profile_owned_by_another_app" =>
+        "Another ImplDmNote instance controls the key profile. Close that instance and reconnect this app.",
+      "unsupported_schema" => "The app and mod use different key-profile versions. Update both and restart ADOFAI.",
+      "stale_revision" => "The game already has a newer key profile. Select the current profile again in ImplDmNote.",
+      _ => "The game could not apply this key profile. Select the profile again in ImplDmNote.",
+    };
+
+  private object State()
   {
-    KeyLimiterSnapshot snapshot = _service.Current;
+    KeyLimiterSnapshot value = _session.Current;
     return new KeyLimiterStatusResponseDto
     {
-      SchemaVersion = SchemaVersion,
-      Enabled = snapshot.Enabled,
-      Profile = new KeyLimiterProfileDto
-      {
-        Id = snapshot.ProfileId,
-        Name = snapshot.ProfileName,
-      },
-      SessionId = snapshot.SessionId,
-      Revision = snapshot.Revision,
-      SupportedKeys = snapshot.SupportedKeys,
-      UnsupportedKeys = snapshot.UnsupportedKeys,
+      SchemaVersion = 2,
+      Enabled = value.Enabled,
+      Profile = new KeyLimiterProfileDto { Id = value.ProfileId, Name = value.ProfileName },
+      SessionId = value.SessionId,
+      Revision = value.Revision,
+      SupportedKeys = value.SupportedKeys,
+      UnsupportedKeys = value.UnsupportedKeys,
     };
   }
 
-  private static string Validate(KeyLimiterSyncRequestDto input)
+  private void OnPeerSubscribed(IpcPeerInfo peer) =>
+    _ipc?.SendToPeer(peer.PeerId, "key-limiter.state.changed", State());
+
+  private void OnPeerDisconnected(IpcPeerInfo peer)
   {
-    if (input == null)
-      return "invalid_request";
-    if (input.SchemaVersion != SchemaVersion)
-      return "unsupported_schema";
-    if (!string.Equals(input.Source, "impl-dm-note", StringComparison.Ordinal))
-      return "invalid_source";
-    if (string.IsNullOrWhiteSpace(input.ClientVersion))
-      return "invalid_client_version";
-    if (string.IsNullOrWhiteSpace(input.SessionId))
-      return "invalid_session";
-    if (input.Revision <= 0)
-      return "invalid_revision";
-    if (input.Profile == null || string.IsNullOrWhiteSpace(input.Profile.Id))
-      return "invalid_profile";
-    if (input.Keys == null)
-      return "invalid_keys";
-    return null;
+    if (_session.PeerDisconnected(peer.PeerId))
+      _ipc?.Publish("key-limiter.state.changed", State());
   }
 }

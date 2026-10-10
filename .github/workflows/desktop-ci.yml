@@ -39,6 +39,9 @@ jobs:
         run: npm run test:visual -w @impl-resourcepack/impl-dm-note
 
   desktop:
+    permissions:
+      contents: read
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -66,6 +69,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/impl-dm-note/src-tauri
+          cache-on-failure: true
 
       - name: Install dependencies
         run: npm ci
@@ -88,7 +92,8 @@ jobs:
 
       - uses: rustsec/audit-check@v2.0.0
         with:
-          workingDirectory: apps/impl-dm-note/src-tauri
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: apps/impl-dm-note/src-tauri
 
       - name: Verify generated dependency licenses
         run: |

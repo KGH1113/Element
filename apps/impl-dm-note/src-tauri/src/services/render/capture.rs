@@ -123,7 +123,7 @@ fn capture(
             let captured = stream.clone();
             let callback = CapturePreviewCompletedHandler::create(Box::new(move |status| {
                 let result = (|| -> Result<Vec<u8>, String> {
-                    status.ok().map_err(|e| e.to_string())?;
+                    status.map_err(|e| e.to_string())?;
                     let mut stat = Default::default();
                     captured
                         .Stat(&mut stat, STATFLAG_NONAME)

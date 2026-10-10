@@ -10,6 +10,7 @@ const ignoredDirectories = new Set([
   "target",
   "dist",
   "build",
+  "Release",
 ]);
 
 function walk(directory) {

@@ -29,7 +29,11 @@ export class SdkMessagePort implements MessagePort {
       .then((client) => {
         this.channel = client.namespace(
           namespace,
-          namespace === 'impl-resourcepack' ? 1 : undefined,
+          namespace === 'impl-resourcepack'
+            ? 1
+            : namespace === 'tuf-replay-renderer'
+              ? 2
+              : undefined,
         );
         this.listeners.forEach((listener) => this.install(listener));
         const update = (

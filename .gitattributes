@@ -1,0 +1,2 @@
+# Preserve canonical SDK bytes when Windows checks out the source snapshot.
+apps/impl-dm-note/vendor/adofai-ipc/** text eol=lf

@@ -47,6 +47,7 @@ function compressFolderToZip(folderPath, zipPath) {
 const REQUIRED_LEGAL_FILES = [
   'LICENSE',
   'UPSTREAM.md',
+  'DIFFERENCES.md',
   'THIRD_PARTY_NOTICES.txt',
   'THIRD_PARTY_LICENSES.txt',
 ];

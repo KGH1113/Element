@@ -8,6 +8,7 @@
       "target/impl-dm-note-helper/ImplDmNote.app": "ImplDmNote.app",
       "../LICENSE": "LICENSE",
       "../UPSTREAM.md": "UPSTREAM.md",
+      "../DIFFERENCES.md": "DIFFERENCES.md",
       "../THIRD_PARTY_NOTICES.txt": "THIRD_PARTY_NOTICES.txt",
       "../THIRD_PARTY_LICENSES.txt": "THIRD_PARTY_LICENSES.txt"
     },

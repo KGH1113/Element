@@ -23,6 +23,7 @@ test('portable artifact uses the ImplDmNote identity and Rust binary path', () =
   assert.deepEqual(REQUIRED_LEGAL_FILES, [
     'LICENSE',
     'UPSTREAM.md',
+    'DIFFERENCES.md',
     'THIRD_PARTY_NOTICES.txt',
     'THIRD_PARTY_LICENSES.txt',
   ]);

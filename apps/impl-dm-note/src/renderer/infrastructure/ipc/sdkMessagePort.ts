@@ -1,4 +1,8 @@
-import type { IpcChannel, IpcConnection } from '@adofai-ipc/client';
+import type {
+  IpcChannel,
+  IpcConnection,
+  IpcConnectionState,
+} from '@adofai-ipc/client';
 import type {
   MessageMetadata,
   MessagePort,
@@ -10,6 +14,7 @@ import type {
 export class SdkMessagePort implements MessagePort {
   state: MessageState = 'connecting';
   private channel?: IpcChannel;
+  private readonly lifecycle: Unsubscribe[] = [];
   private readonly stateListeners = new Set<
     (state: MessageState, error?: unknown) => void
   >();
@@ -24,26 +29,61 @@ export class SdkMessagePort implements MessagePort {
       .then((client) => {
         this.channel = client.namespace(namespace);
         this.listeners.forEach((listener) => this.install(listener));
-        client.onState((state) => {
-          if (state === 'incompatible') this.setState('version-mismatch');
-          else if (state === 'closed') this.setState('disposed');
-          else if (state !== 'connected')
-            this.setState(
-              state === 'reconnecting' ? 'retrying' : 'disconnected',
-            );
-        });
-        this.channel.onStatus((status) =>
+        const update = (
+          state: IpcConnectionState = client.state,
+          error?: unknown,
+        ) => {
           this.setState(
-            status === 'ready'
-              ? 'ready'
-              : status === 'error'
-                ? 'disconnected'
-                : 'connecting',
+            state === 'incompatible'
+              ? 'version-mismatch'
+              : state === 'closed'
+                ? 'disposed'
+                : state === 'reconnecting'
+                  ? 'retrying'
+                  : state !== 'connected'
+                    ? 'disconnected'
+                    : this.channel.status === 'ready'
+                      ? 'ready'
+                      : this.channel.status === 'error'
+                        ? 'disconnected'
+                        : 'connecting',
+            error,
+          );
+        };
+        const resume = () => {
+          if (document.visibilityState === 'visible') client.checkConnection();
+        };
+        const online = () => client.checkConnection();
+        for (const name of ['pageshow', 'focus']) {
+          window.addEventListener(name, resume);
+          this.lifecycle.push(() => window.removeEventListener(name, resume));
+        }
+        window.addEventListener('online', online);
+        document.addEventListener('visibilitychange', resume);
+        this.lifecycle.push(
+          () => window.removeEventListener('online', online),
+          () => document.removeEventListener('visibilitychange', resume),
+          this.channel.onStatus((_status, error) =>
+            update(client.state, error),
           ),
         );
-        this.setState(this.channel.status === 'ready' ? 'ready' : 'connecting');
+        const unsubscribe = client.onState((state) => {
+          update(state);
+          if (state === 'closed' || state === 'incompatible')
+            this.releaseLifecycle();
+        });
+        if (client.state === 'closed' || client.state === 'incompatible')
+          unsubscribe();
+        else this.lifecycle.push(unsubscribe);
       })
-      .catch((error) => this.setState('version-mismatch', error));
+      .catch((error) =>
+        this.setState(
+          (error as { code?: string })?.code === 'INCOMPATIBLE'
+            ? 'version-mismatch'
+            : 'disconnected',
+          error,
+        ),
+      );
   }
   onState(
     listener: (state: MessageState, error?: unknown) => void,
@@ -105,6 +145,13 @@ export class SdkMessagePort implements MessagePort {
   }
   setConnectionState(state: MessageState, error?: unknown): void {
     this.setState(state, error);
+  }
+  private releaseLifecycle(): void {
+    this.lifecycle.splice(0).forEach((unsubscribe) => unsubscribe());
+    this.listeners.forEach((subscription) => {
+      subscription.cancel?.();
+      subscription.cancel = undefined;
+    });
   }
   private setState(state: MessageState, error?: unknown): void {
     if (this.state === state && !error) return;

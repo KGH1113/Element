@@ -23,6 +23,8 @@ Commands:
   desktop-licenses  Generate bundled source and dependency notices
   mod-format  Format the changed C# message boundaries
   desktop-check  Check the ImplDmNote frontend and native backend without installing
+  desktop-frontend-check  Verify SDK, types, lint, formatting, tests, and frontend build
+  desktop-ipc-format  Format the IPC lifecycle adapter and its regression tests
   desktop-build  Build the ImplDmNote frontend and native backend without installing
   desktop-bundle  Package the native app with its embedded render surface without installing
   desktop-render-test  Run isolated native render fixtures without live inputs
@@ -53,7 +55,7 @@ case "$command_name" in
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"
     ;;
-  desktop-check|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-format|desktop-licenses|desktop-native-check|desktop-native-format)
+  desktop-check|desktop-frontend-check|desktop-ipc-format|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-format|desktop-licenses|desktop-native-check|desktop-native-format)
     exec "$SCRIPTS_DIR/workflows/desktop-render.sh" "$command_name" "${@:2}"
     ;;
   help|-h|--help)

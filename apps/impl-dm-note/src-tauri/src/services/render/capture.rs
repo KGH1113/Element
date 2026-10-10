@@ -110,7 +110,7 @@ fn capture(
     _snapshot_width: f64,
 ) {
     use webview2_com::{
-        callback::CapturePreviewCompletedHandler,
+        CapturePreviewCompletedHandler,
         Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG,
     };
     use windows::Win32::{
@@ -254,7 +254,7 @@ mod raw {
             CGContextRelease(context);
         }
         // FFmpeg overlay expects straight alpha, unlike the native bitmap.
-        for pixel in bytes.chunks_exact_mut(4) {
+        for pixel in bytes.as_chunks_mut::<4>().0 {
             let alpha = pixel[3] as u32;
             if alpha > 0 && alpha < 255 {
                 for channel in &mut pixel[..3] {

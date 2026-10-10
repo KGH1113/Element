@@ -85,9 +85,10 @@ pub fn prepare(app: &AppHandle, request: &mut Value) -> Result<Value, String> {
     let pid = request["gameProcessId"]
         .as_u64()
         .ok_or("render-game-process-missing")? as u32;
-    let mut game = game_rect(pid).ok_or("render-game-window-missing: The game's window bounds could not be read. Keep the game window visible or use manual placement.")?;
+    let game = game_rect(pid).ok_or("render-game-window-missing: The game's window bounds could not be read. Keep the game window visible or use manual placement.")?;
     #[cfg(target_os = "macos")]
-    {
+    let game = {
+        let mut game = game;
         // CGWindow bounds include the title bar. Unity reports the drawable aspect
         // ratio, so align its content to the bottom of the native window.
         let aspect = request["gameViewportWidth"].as_f64().unwrap_or(0.0)
@@ -98,7 +99,8 @@ pub fn prepare(app: &AppHandle, request: &mut Value) -> Result<Value, String> {
         let height = (game.width / aspect).min(game.height);
         game.y += game.height - height;
         game.height = height;
-    }
+        game
+    };
     let (width, height, layout) = map(
         bounds,
         game,

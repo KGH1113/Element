@@ -201,7 +201,8 @@ async function main() {
   const tmpRoot = fs.mkdtempSync(
     path.join(os.tmpdir(), 'impl-dm-note-webview2-'),
   );
-  const nupkgPath = path.join(tmpRoot, `${id}.${selected}.nupkg`);
+  // Windows PowerShell's bundled Expand-Archive requires the .zip extension.
+  const nupkgPath = path.join(tmpRoot, `${id}.${selected}.zip`);
   const extractDir = path.join(tmpRoot, 'extract');
 
   console.log(`[webview2] downloading ${id}@${selected}`);
@@ -209,7 +210,7 @@ async function main() {
 
   ensureEmptyDir(extractDir);
   execSync(
-    `powershell -NoProfile -Command "Expand-Archive -Path '${nupkgPath}' -DestinationPath '${extractDir}' -Force"`,
+    `powershell -NoProfile -Command "Expand-Archive -LiteralPath '${nupkgPath}' -DestinationPath '${extractDir}' -Force -ErrorAction Stop"`,
     {
       stdio: 'inherit',
     },

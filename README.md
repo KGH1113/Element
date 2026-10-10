@@ -23,6 +23,7 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - 타이밍 스케일 (하단 중앙에 현재 타일의 판정 배율을 백분율로 표시)
 - 최고 기록과 시도 횟수
 - ImplDmNote 프로필과 동기화되는 입력 키 리미터
+- ImplDmNote 손·발 키뷰어 창을 게임 화면 안에 표시하는 미러
 
 ## Runtime dependencies
 
@@ -34,6 +35,8 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 AdofaiIpc 1.0.0 dependency bootstrap을 사용하며, ImplDmNote 데스크톱 앱은 같은 프로토콜의 TypeScript SDK 원본을 앱 내부에 고정하여 사용합니다. npm 패키지 릴리스에 의존하지 않습니다.
 
 앱과 모드는 하나의 loopback WebSocket 연결에서 명령과 상태 이벤트를 주고받습니다. 키 프로필 적용 결과와 namespace 준비 상태는 polling 없이 전달되고, 프로필을 소유한 앱의 연결이 끊기면 입력 키 제한을 해제합니다. 자세한 경계와 검증은 [`docs/adofai-ipc-v1.md`](docs/adofai-ipc-v1.md)를 참고하세요.
+
+게임 플레이 중 ImplDmNote의 손·발 창이 열려 있으면 모드가 해당 창의 전체 화면을 게임 캔버스 양쪽 아래에 표시합니다. 키뷰어의 CSS, 글자, WebGL 노트와 플러그인 화면을 기존 창에서 그대로 캡처하므로 게임 창을 Discord에 공유해도 함께 보입니다. UnityModManager 설정의 **Show hand and foot viewers in game**에서 끌 수 있습니다. 게임이 한 프레임씩 요청하며 최대 20fps로 갱신합니다. ImplDmNote의 OBS 모드는 데스크톱 창을 닫으므로 게임 미러와 동시에 사용할 수 없습니다.
 
 ## ImplDmNote
 

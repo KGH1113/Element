@@ -15,6 +15,7 @@ using ImplResourcePack.Infrastructure.Game.TimingScale;
 using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Overlay.Bpm;
 using ImplResourcePack.Presentation.Overlay.Combo;
+using ImplResourcePack.Presentation.Overlay.DmNote;
 using ImplResourcePack.Presentation.Overlay.Judgement;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Overlay.Status;
@@ -36,6 +37,7 @@ internal sealed class ModRuntime : IDisposable
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
+  private DmNoteMirrorIpcFeature _dmNoteMirror;
   private RecordingModeController _recordingMode;
   private bool _sceneHooked;
   private bool _initialized;
@@ -62,7 +64,6 @@ internal sealed class ModRuntime : IDisposable
     {
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
       _keyLimiterIpc = new KeyLimiterIpcFeature(new KeyLimiterSessionController(_keyLimiter));
-      _keyLimiterIpc.Enable();
 
       _harmony = new Harmony(HarmonyId);
       _harmony.PatchAll(typeof(Main).Assembly);
@@ -71,6 +72,11 @@ internal sealed class ModRuntime : IDisposable
       SceneManager.sceneUnloaded += OnSceneUnloaded;
       _sceneHooked = true;
       WarnIfKeyboardChatterBlockerIsLoaded();
+
+      _canvasHost = new OverlayCanvasHost();
+      _dmNoteMirror = new DmNoteMirrorIpcFeature(new DmNoteMirrorView(_canvasHost));
+      _keyLimiterIpc.AttachMirror(_dmNoteMirror);
+      _keyLimiterIpc.Enable();
 
       _fontBundleLoader = new FontBundleLoader(_main);
       if (!_fontBundleLoader.Load())
@@ -82,7 +88,6 @@ internal sealed class ModRuntime : IDisposable
         return true;
       }
 
-      _canvasHost = new OverlayCanvasHost();
       _materialFactory = new OverlayMaterialFactory(_fontBundleLoader.FontAsset);
 
       JudgementFeature judgement = new(
@@ -125,7 +130,7 @@ internal sealed class ModRuntime : IDisposable
       "Show overlay",
       () =>
       {
-        if (!_initialized || !OverlaysAvailable)
+        if (!_initialized || _canvasHost == null)
           return;
         if (IsRecording)
         {
@@ -140,13 +145,18 @@ internal sealed class ModRuntime : IDisposable
         }
 
         _canvasHost.SetVisible(true);
-        _coordinator.Show();
-        _timeTicker.StartTicking();
+        _dmNoteMirror?.SetActive(_main.Settings.ShowDmNoteInGame);
+        _coordinator?.Show();
+        _timeTicker?.StartTicking();
       }
     );
   }
 
-  public void TickTrackpad() => _trackpad?.Tick();
+  public void TickTrackpad()
+  {
+    _trackpad?.Tick();
+    Execute("Update ImplDmNote viewers", () => _dmNoteMirror?.Tick());
+  }
 
   public void HideGameplay()
   {
@@ -250,6 +260,9 @@ internal sealed class ModRuntime : IDisposable
     _trackpad?.Dispose();
     _trackpad = null;
 
+    _dmNoteMirror?.Dispose();
+    _dmNoteMirror = null;
+
     _keyLimiterIpc?.Dispose();
     _keyLimiterIpc = null;
     _keyLimiter?.Clear();
@@ -299,6 +312,7 @@ internal sealed class ModRuntime : IDisposable
   private void HideCore()
   {
     _timeTicker?.StopTicking();
+    _dmNoteMirror?.SetActive(false);
     _coordinator?.Hide();
     _canvasHost?.SetVisible(false);
   }

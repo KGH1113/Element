@@ -4,6 +4,7 @@ import {
   type KeyLimiterCoordinatorOptions,
 } from '../ipc/keyLimiterIpcCoordinator';
 import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
+import { LiveMirrorIpcCoordinator } from '../liveMirror/liveMirrorIpcCoordinator';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
 import { connectIpc, type IpcConnection } from '@adofai-ipc/client';
@@ -103,7 +104,17 @@ export function startRenderMessages(): () => Promise<void> {
       touch: () => invoke('dmnote_render_touch'),
     },
   });
+  const mirror = new LiveMirrorIpcCoordinator(
+    applicationMessages('impl-resourcepack'),
+    {
+      frame: (sessionId) => invoke('dmnote_mirror_frame', { sessionId }),
+      end: async (sessionId) => {
+        await invoke('dmnote_mirror_end', { sessionId });
+      },
+    },
+  );
   const stop = async () => {
+    await mirror.dispose();
     await coordinator.dispose();
     await closeApplicationMessages();
   };

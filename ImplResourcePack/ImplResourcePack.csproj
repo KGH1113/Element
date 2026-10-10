@@ -64,6 +64,10 @@
       <HintPath>$(AdofaiManaged)/UnityEngine.UI.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(AdofaiManaged)/Unity.TextMeshPro.dll</HintPath>
       <Private>false</Private>

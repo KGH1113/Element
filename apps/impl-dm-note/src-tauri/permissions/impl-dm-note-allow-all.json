@@ -34,6 +34,8 @@
           "css_tab_set",
           "css_tab_toggle",
           "css_toggle",
+          "dmnote_mirror_end",
+          "dmnote_mirror_frame",
           "dmnote_render_ack",
           "dmnote_render_begin",
           "dmnote_render_end",

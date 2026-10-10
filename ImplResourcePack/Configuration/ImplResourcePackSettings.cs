@@ -10,6 +10,8 @@ public sealed class ImplResourcePackSettings : UnityModManager.ModSettings
 
   public bool NativeEditorTrackpad = true;
 
+  public bool ShowDmNoteInGame = true;
+
   public override void Save(UnityModManager.ModEntry modEntry)
   {
     Save(this, modEntry);

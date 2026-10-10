@@ -10,9 +10,12 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
 {
   private const string Namespace = "impl-resourcepack";
   private readonly KeyLimiterSessionController _session;
+  private DmNoteMirrorIpcFeature _mirror;
   private AdofaiIpcNamespace _ipc;
 
   public KeyLimiterIpcFeature(KeyLimiterSessionController session) => _session = session;
+
+  public void AttachMirror(DmNoteMirrorIpcFeature mirror) => _mirror = mirror;
 
   public void Enable()
   {
@@ -35,6 +38,11 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
       }
     );
     _ipc.RegisterMainThreadCommand("key-limiter.profile.set", SetProfile);
+    if (_mirror != null)
+    {
+      _mirror.Attach(_ipc);
+      _ipc.PeerEvent += _mirror.OnPeerEvent;
+    }
     _ipc.PeerSubscribed += OnPeerSubscribed;
     _ipc.PeerDisconnected += OnPeerDisconnected;
     _ipc.MarkReady();
@@ -48,6 +56,8 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
       return;
     _ipc.PeerSubscribed -= OnPeerSubscribed;
     _ipc.PeerDisconnected -= OnPeerDisconnected;
+    if (_mirror != null)
+      _ipc.PeerEvent -= _mirror.OnPeerEvent;
     AdofaiIpc.AdofaiIpc.UnregisterNamespace(Namespace);
     _ipc = null;
   }
@@ -134,6 +144,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
 
   private void OnPeerDisconnected(IpcPeerInfo peer)
   {
+    _mirror?.OnPeerDisconnected(peer);
     if (_session.PeerDisconnected(peer.PeerId))
       _ipc?.Publish("key-limiter.state.changed", State());
   }

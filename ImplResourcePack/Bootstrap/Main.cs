@@ -106,12 +106,23 @@ public sealed class Main
       changed = true;
     }
 
+    GUILayout.Space(12f);
+    GUILayout.Label("ImplDmNote");
+    bool showDmNote = GUILayout.Toggle(Instance.Settings.ShowDmNoteInGame, "Show hand and foot viewers in game");
+    if (showDmNote != Instance.Settings.ShowDmNoteInGame)
+    {
+      Instance.Settings.ShowDmNoteInGame = showDmNote;
+      changed = true;
+    }
+
     if (UnityEngine.Application.platform == RuntimePlatform.OSXPlayer)
     {
       GUILayout.Space(12f);
       GUILayout.Label("Level editor");
       Instance.Settings.NativeEditorTrackpad = GUILayout.Toggle(
-        Instance.Settings.NativeEditorTrackpad, "Native trackpad (two-finger pan / pinch zoom)");
+        Instance.Settings.NativeEditorTrackpad,
+        "Native trackpad (two-finger pan / pinch zoom)"
+      );
     }
 
     if (changed)
@@ -152,7 +163,7 @@ public sealed class Main
         if (Runtime.OverlaysAvailable)
           Log("Enabled with IPC key limiter and overlays.");
         else
-          LogWarning("Enabled IPC key limiter without overlays because their font could not be loaded.");
+          LogWarning("Enabled IPC key limiter and ImplDmNote viewers; font-based overlays are unavailable.");
       }
       else
       {

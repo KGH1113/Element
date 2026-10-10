@@ -11,7 +11,6 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 
 run_task "Validate local build inputs" "$TASKS_DIR/validate/local-build-inputs.sh"
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
-run_task "Build dependency bootstrap (Debug)" "$TASKS_DIR/build/bootstrap.sh" Debug
 run_task "Build mod (Debug)" "$TASKS_DIR/build/mod.sh" Debug
 run_task "Run C# tests" "$TASKS_DIR/test/csharp.sh"
 if [ "${1:-install}" != "check" ]; then

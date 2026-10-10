@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using AdofaiIpc;
+using AdofaiIpc.Contracts;
 using ImplResourcePack.Presentation.Overlay.DmNote;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ImplResourcePack.Infrastructure.Ipc;
 
@@ -13,7 +15,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
   private const long MaxFrameBytes = 64L * 1024 * 1024;
   private readonly object _gate = new();
   private readonly DmNoteMirrorView _view;
-  private AdofaiIpcNamespace _ipc;
+  private IFeatureRegistration _ipc;
   private string _peerId;
   private string _sessionId;
   private string _pendingId;
@@ -53,7 +55,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
 
   public DmNoteMirrorIpcFeature(DmNoteMirrorView view) => _view = view;
 
-  public void Attach(AdofaiIpcNamespace ipc) => _ipc = ipc;
+  public void Attach(IFeatureRegistration ipc) => _ipc = ipc;
 
   public void SetActive(bool active)
   {
@@ -78,11 +80,11 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
       TrySendEnd(peer, oldSession);
   }
 
-  public void OnPeerEvent(IpcPeerEvent message)
+  public void OnPeerEvent(PeerEvent message)
   {
     if (message.Name == "mirror.available")
     {
-      if ((int?)message.Payload?["protocolVersion"] != 1)
+      if ((int?)JObject.Parse(message.Json)?["protocolVersion"] != 1)
         return;
       lock (_gate)
       {
@@ -107,7 +109,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
         FrameReply reply;
         try
         {
-          reply = message.Payload?.ToObject<FrameReply>();
+          reply = JsonConvert.DeserializeObject<FrameReply>(message.Json);
         }
         catch
         {
@@ -125,7 +127,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
       }
       else
       {
-        string detail = message.Payload?["message"]?.ToString();
+        string detail = JObject.Parse(message.Json)?["message"]?.ToString();
         if (detail?.Length > 256)
           detail = detail.Substring(0, 256);
         if (!string.IsNullOrWhiteSpace(detail) && detail != _lastWarning)
@@ -138,7 +140,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
     }
   }
 
-  public void OnPeerDisconnected(IpcPeerInfo peer)
+  public void OnPeerDisconnected(IClientConnection peer)
   {
     lock (_gate)
     {
@@ -215,7 +217,11 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
       }
       try
       {
-        _pendingId = _ipc.SendCommandToPeer(_peerId, "mirror.frame", new { sessionId = _sessionId });
+        _pendingId = _ipc.SendCommandToPeer(
+          _peerId,
+          "mirror.frame",
+          JsonConvert.SerializeObject(new { sessionId = _sessionId })
+        );
         _pendingAt = DateTime.UtcNow;
         _nextRequestAt = _pendingAt.AddMilliseconds(FrameIntervalMs);
       }
@@ -242,7 +248,7 @@ internal sealed class DmNoteMirrorIpcFeature : IDisposable
   {
     try
     {
-      _ipc?.SendCommandToPeer(peer, "mirror.end", new { sessionId = session });
+      _ipc?.SendCommandToPeer(peer, "mirror.end", JsonConvert.SerializeObject(new { sessionId = session }));
     }
     catch
     {

@@ -1,8 +1,11 @@
 using System;
-using AdofaiIpc;
-using AdofaiIpc.Core;
+using System.IO;
+using System.Threading.Tasks;
+using AdofaiIpc.Contracts;
+using AdofaiIpc.Loader;
 using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Input;
+using Newtonsoft.Json;
 
 namespace ImplResourcePack.Infrastructure.Ipc;
 
@@ -11,7 +14,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   private const string Namespace = "impl-resourcepack";
   private readonly KeyLimiterSessionController _session;
   private DmNoteMirrorIpcFeature _mirror;
-  private AdofaiIpcNamespace _ipc;
+  private IFeatureRegistration _ipc;
 
   public KeyLimiterIpcFeature(KeyLimiterSessionController session) => _session = session;
 
@@ -21,30 +24,51 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   {
     if (_ipc != null)
       return;
-    _ipc = AdofaiIpc.AdofaiIpc.RegisterNamespace(
-      Namespace,
-      new IpcNamespaceInfo
-      {
-        DisplayName = "ImplResourcePack",
-        Version = Main.Instance.Version,
-        AllowedOrigins = new[]
+    string mods = Directory
+      .GetParent(
+        Path.GetFullPath(Main.Instance.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+      )
+      .FullName;
+    IIpcRuntime runtime = IpcLoader.GetRuntime(
+      mods,
+      new RuntimeRequirements(
+        minimumRuntimeVersion: "2.0.0",
+        requiredCapabilities: new[] { "commands", "game-thread", "snapshots" }
+      )
+    );
+    _ipc = runtime.RegisterFeature(
+      new FeatureDescription(
+        Namespace,
+        Main.Instance.Version,
+        protocolMajor: 1,
+        displayName: "ImplResourcePack",
+        allowedOrigins: new[]
         {
           "tauri://localhost",
           "http://tauri.localhost",
           "https://tauri.localhost",
           "http://localhost",
           "http://127.0.0.1",
-        },
+        }
+      ),
+      builder =>
+      {
+        builder.OnCommand(
+          "key-limiter.profile.set",
+          IpcExecutionContext.GameThread,
+          command =>
+          {
+            SetProfile(command);
+            return Task.CompletedTask;
+          }
+        );
+        builder.OnClientAttached(OnPeerSubscribed);
+        builder.OnClientDetached(OnPeerDisconnected);
+        if (_mirror != null)
+          builder.OnEvent(_mirror.OnPeerEvent);
       }
     );
-    _ipc.RegisterMainThreadCommand("key-limiter.profile.set", SetProfile);
-    if (_mirror != null)
-    {
-      _mirror.Attach(_ipc);
-      _ipc.PeerEvent += _mirror.OnPeerEvent;
-    }
-    _ipc.PeerSubscribed += OnPeerSubscribed;
-    _ipc.PeerDisconnected += OnPeerDisconnected;
+    _mirror?.Attach(_ipc);
     _ipc.MarkReady();
     Main.Instance.Log("[IPC] WebSocket namespace ready: " + Namespace);
   }
@@ -54,21 +78,17 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     _session.Clear();
     if (_ipc == null)
       return;
-    _ipc.PeerSubscribed -= OnPeerSubscribed;
-    _ipc.PeerDisconnected -= OnPeerDisconnected;
-    if (_mirror != null)
-      _ipc.PeerEvent -= _mirror.OnPeerEvent;
-    AdofaiIpc.AdofaiIpc.UnregisterNamespace(Namespace);
+    _ipc.Dispose();
     _ipc = null;
   }
 
-  private void SetProfile(IpcCommand command)
+  private void SetProfile(IIncomingMessage command)
   {
     command.CancellationToken.ThrowIfCancellationRequested();
     KeyLimiterSyncRequestDto payload;
     try
     {
-      payload = command.Payload?.ToObject<KeyLimiterSyncRequestDto>();
+      payload = JsonConvert.DeserializeObject<KeyLimiterSyncRequestDto>(command.Json);
     }
     catch (Exception)
     {
@@ -93,24 +113,26 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
           Keys = payload.Keys,
           ExcludedGhostKeys = payload.ExcludedGhostKeys,
         };
-    KeyLimiterApplyResult applied = _session.Apply(command.PeerId, update, command.CancellationToken);
+    KeyLimiterApplyResult applied = _session.Apply(command.Client.PeerId, update, command.CancellationToken);
     command.Reply(
       "key-limiter.profile.applied",
-      new KeyLimiterSyncResponseDto
-      {
-        Ok = applied.Ok,
-        Applied = applied.Applied,
-        Reason = applied.Reason,
-        Message = Explain(applied.Reason),
-        Enabled = applied.Enabled,
-        SessionId = applied.SessionId,
-        Revision = applied.Revision,
-        SupportedKeys = applied.SupportedKeys,
-        UnsupportedKeys = applied.UnsupportedKeys,
-      }
+      JsonConvert.SerializeObject(
+        new KeyLimiterSyncResponseDto
+        {
+          Ok = applied.Ok,
+          Applied = applied.Applied,
+          Reason = applied.Reason,
+          Message = Explain(applied.Reason),
+          Enabled = applied.Enabled,
+          SessionId = applied.SessionId,
+          Revision = applied.Revision,
+          SupportedKeys = applied.SupportedKeys,
+          UnsupportedKeys = applied.UnsupportedKeys,
+        }
+      )
     );
     if (applied.Applied)
-      _ipc.Publish("key-limiter.state.changed", State());
+      _ipc.Publish("key-limiter.state.changed", JsonConvert.SerializeObject(State()));
   }
 
   private static string Explain(string reason) =>
@@ -139,13 +161,13 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     };
   }
 
-  private void OnPeerSubscribed(IpcPeerInfo peer) =>
-    _ipc?.SendToPeer(peer.PeerId, "key-limiter.state.changed", State());
+  private void OnPeerSubscribed(IClientConnection peer) =>
+    _ipc?.SendToPeer(peer.PeerId, "key-limiter.state.changed", JsonConvert.SerializeObject(State()));
 
-  private void OnPeerDisconnected(IpcPeerInfo peer)
+  private void OnPeerDisconnected(IClientConnection peer)
   {
     _mirror?.OnPeerDisconnected(peer);
     if (_session.PeerDisconnected(peer.PeerId))
-      _ipc?.Publish("key-limiter.state.changed", State());
+      _ipc?.Publish("key-limiter.state.changed", JsonConvert.SerializeObject(State()));
   }
 }

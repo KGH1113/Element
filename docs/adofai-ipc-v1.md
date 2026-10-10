@@ -1,5 +1,7 @@
 # ADOFAI-IPC 1.0.0
 
+이 문서는 v1 구현의 기록입니다. 현재 DLL 번들 및 버전 계약은 [ADOFAI-IPC v2 integration](adofai-ipc-v2.md)을 참조하세요.
+
 ImplResourcePack과 ImplDmNote는 wire protocol 3, `/ipc/ws`, `adofai-ipc.v3`를 사용합니다. 구 HTTP API와 npm SDK 의존성은 제거했습니다. 앱의 canonical SDK 원본과 라이선스를 `apps/impl-dm-note/vendor/adofai-ipc`에 고정합니다.
 
 ## 경계

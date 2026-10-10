@@ -1,5 +1,0 @@
-{
-  "AssemblyName": "ImplResourcePack.Bootstrap.dll",
-  "EntryMethod": "ImplResourcePack.Bootstrap.Bootstrap.Load",
-  "MinimumAdofaiIpcVersion": "1.0.0"
-}

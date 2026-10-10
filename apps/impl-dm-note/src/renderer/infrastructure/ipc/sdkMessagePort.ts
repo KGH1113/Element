@@ -27,14 +27,18 @@ export class SdkMessagePort implements MessagePort {
   constructor(connection: Promise<IpcConnection>, namespace: string) {
     void connection
       .then((client) => {
-        this.channel = client.namespace(namespace);
+        this.channel = client.namespace(
+          namespace,
+          namespace === 'impl-resourcepack' ? 1 : undefined,
+        );
         this.listeners.forEach((listener) => this.install(listener));
         const update = (
           state: IpcConnectionState = client.state,
           error?: unknown,
         ) => {
           this.setState(
-            state === 'incompatible'
+            state === 'incompatible' ||
+              this.channel.error?.code === 'feature_protocol_mismatch'
               ? 'version-mismatch'
               : state === 'closed'
                 ? 'disposed'

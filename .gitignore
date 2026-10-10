@@ -26,3 +26,7 @@ ImplResourcePack.Unity/[Oo]bj/
 ImplResourcePack.Unity/[Ll]ogs/
 ImplResourcePack.Unity/[Uu]ser[Ss]ettings/
 ImplResourcePack.Unity/[Mm]emoryCaptures/
+
+# Verified bundled IPC binaries are source dependencies.
+!vendor/adofai-ipc-runtime/*.dll
+!vendor/adofai-ipc-runtime/ipc/*.dll

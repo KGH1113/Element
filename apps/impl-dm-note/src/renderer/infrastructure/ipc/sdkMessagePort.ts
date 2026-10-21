@@ -2,7 +2,7 @@ import type {
   IpcChannel,
   IpcConnection,
   IpcConnectionState,
-} from '@adofai-ipc/client';
+} from 'adofai-ipc/transport';
 import type {
   MessageMetadata,
   MessagePort,

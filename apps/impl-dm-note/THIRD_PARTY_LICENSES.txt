@@ -10888,7 +10888,7 @@ SOFTWARE.
 VENDORED SOURCE LICENSES
 ========================
 
-ADOFAI-IPC TypeScript SDK 2.0.0
+ADOFAI-IPC TypeScript SDK 2.1.0
 Source: https://github.com/KGH1113/adofai-ipc
 License: MIT
 

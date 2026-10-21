@@ -7,7 +7,7 @@ import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
 import { LiveMirrorIpcCoordinator } from '../liveMirror/liveMirrorIpcCoordinator';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
-import { connectIpc, type IpcConnection } from '@adofai-ipc/client';
+import { connectIpc, type IpcConnection } from 'adofai-ipc/transport';
 import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketTransport';
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import type { MessageState } from '../application/ports/messagePort';

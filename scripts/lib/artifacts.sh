@@ -10,6 +10,7 @@ IMPL_RESOURCEPACK_ARTIFACTS_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pw
 source "$IMPL_RESOURCEPACK_ARTIFACTS_LIB_DIR/context.sh"
 # shellcheck source=guards.sh
 source "$IMPL_RESOURCEPACK_ARTIFACTS_LIB_DIR/guards.sh"
+# shellcheck source=ipc-bundle.sh
 source "${BASH_SOURCE[0]%/*}/ipc-bundle.sh"
 
 # Replace runtime files by rename, never truncate a DLL/dylib mapped by a

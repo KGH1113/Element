@@ -5,7 +5,7 @@ TASK_DESKTOP="$TASK_REPOSITORY/apps/impl-dm-note"
 cd "$TASK_DESKTOP"
 case "${1:-}" in
   desktop-ipc-format)
-    npm exec -- prettier --write src/renderer/infrastructure/ipc/sdkMessagePort.ts src/renderer/infrastructure/ipc/sdkMessagePort.test.ts
+    npm exec -- prettier --write src/renderer/infrastructure/ipc/sdkMessagePort.ts src/renderer/infrastructure/ipc/sdkMessagePort.test.ts src/renderer/infrastructure/ipc/sdkTransport.test.ts
     ;;
   desktop-frontend-check)
     npm run check
@@ -32,7 +32,7 @@ case "${1:-}" in
     cargo clippy --offline --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
     ;;
   desktop-message-test)
-    npm exec -- vitest run src/renderer/infrastructure/ipc/sdkMessagePort.test.ts src/renderer/application/connectionSupervisor.test.ts src/renderer/ipc/keyLimiterIpcCoordinator.test.ts src/renderer/render/renderIpcCoordinator.test.ts src/renderer/ipc/keyLimiterSnapshot.test.ts
+    npm exec -- vitest run src/renderer/infrastructure/ipc/sdkMessagePort.test.ts src/renderer/infrastructure/ipc/sdkTransport.test.ts src/renderer/application/connectionSupervisor.test.ts src/renderer/ipc/keyLimiterIpcCoordinator.test.ts src/renderer/render/renderIpcCoordinator.test.ts src/renderer/ipc/keyLimiterSnapshot.test.ts
     ;;
   desktop-format)
     npm exec -- prettier --write src/renderer/application src/renderer/bootstrap src/renderer/infrastructure src/renderer/ipc src/renderer/liveMirror src/renderer/render/renderIpcCoordinator.ts src/renderer/render/renderIpcCoordinator.test.ts src/renderer/__tests__/fakeMessagePort.ts src/renderer/hooks/app/useKeyLimiterSync.ts src/renderer/hooks/app/useKeyLimiterSync.test.ts src/renderer/windows/main/index.tsx src/renderer/stores/useKeyLimiterStatusStore.ts src/renderer/stores/useKeyLimiterStatusStore.test.ts src/renderer/render/virtual-clock.test.ts src/renderer/render/virtual-clock.mjs src/renderer/hooks/overlay/useNoteSystem.test.ts src/renderer/utils/core/styleElement.ts src/renderer/hooks/app/useCustomCssInjection.ts src/renderer/stores/useFontStore.ts src/renderer/windows/render/index.mjs

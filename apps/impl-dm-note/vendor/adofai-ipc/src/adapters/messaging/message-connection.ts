@@ -1,24 +1,15 @@
-import { browserTransportFactory } from "./browser-transport";
-import { IpcNamespaceError, IpcProtocolMismatchError, IpcTimeoutError, IpcUnavailableError } from "./errors";
-import { IPC_SUBPROTOCOL, MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "./version";
-import type { ConnectIpcOptions, IpcCommandOptions, IpcConnectionState, IpcErrorInfo, IpcMessage, IpcNamespaceStatus, IpcReadyOptions, IpcTransport, IpcTransportFactory } from "./types";
-
-type Listener = (payload: any, message: IpcMessage<any>) => void;
+import { IpcProtocolMismatchError, IpcTimeoutError, IpcUnavailableError } from "../../api/connection-errors";
+import { IPC_SUBPROTOCOL, MAX_MESSAGE_BYTES, PROTOCOL_VERSION } from "../../models/protocol";
+import type { ConnectIpcOptions, IpcCommandOptions } from "../../api/options";
+import type { IpcConnectionState, IpcMessage } from "../../models/messaging";
+import type { IpcTransport, IpcTransportFactory } from "../../ports/transport";
+import { IpcChannel } from "./message-channel";
+import { messageId } from "../protocol/message-id";
+import { parseMessage } from "../protocol/parse-message";
+import type { MessageSession } from "../../ports/message-session";
 const encoder = new TextEncoder();
-let nextId = 0;
-function messageId(): string { return globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${(++nextId).toString(36)}-${Math.random().toString(36).slice(2)}`; }
 function invoke<T>(listeners: Set<(value: T) => void>, value: T): void { for (const listener of [...listeners]) { try { listener(value); } catch { /* A consumer callback cannot break transport dispatch. */ } } }
-function parse(text: string): IpcMessage | null {
-  if (encoder.encode(text).length > MAX_MESSAGE_BYTES) return null;
-  try { const value = JSON.parse(text) as IpcMessage; return value && typeof value.kind === "string" && typeof value.name === "string" && typeof value.id === "string" ? value : null; } catch { return null; }
-}
-
-export async function connectIpc(options: ConnectIpcOptions = {}): Promise<IpcConnection> {
-  const connection = new IpcConnection(options);
-  await connection.start(); return connection;
-}
-
-export class IpcConnection {
+export class MessageConnection implements MessageSession {
   private readonly channels = new Map<string, IpcChannel>();
   private readonly states = new Set<(state: IpcConnectionState) => void>();
   private readonly factory: IpcTransportFactory;
@@ -44,8 +35,8 @@ export class IpcConnection {
   peerId: string | undefined;
   connectionId: string | undefined;
 
-  constructor(private readonly options: ConnectIpcOptions = {}) {
-    this.factory = options.transportFactory ?? browserTransportFactory;
+  constructor(private readonly options: ConnectIpcOptions, factory: IpcTransportFactory) {
+    this.factory = factory;
     // Chromium can delay WebSocket opening by up to five seconds after failed
     // handshakes in the same renderer process. Aborting sooner perpetuates that penalty.
     this.timeoutMs = options.connectTimeoutMs ?? 8000;
@@ -56,6 +47,8 @@ export class IpcConnection {
     if (!["127.0.0.1", "localhost"].includes(this.host) || !Number.isInteger(this.startPort) || !Number.isInteger(this.endPort) || this.startPort < 1 || this.endPort > 65535 || this.endPort < this.startPort || this.endPort - this.startPort > 32 || ![this.timeoutMs, this.heartbeatIntervalMs, this.heartbeatTimeoutMs].every(value => Number.isFinite(value) && value > 0)) throw new TypeError("Invalid localhost IPC discovery options.");
   }
   get state(): IpcConnectionState { return this._state; }
+  // The runtime advertises numeric loopback URLs, including when discovery used localhost.
+  get downloadOrigin(): string | undefined { return this.transport && this.preferredPort !== undefined ? new URL(`http://127.0.0.1:${this.preferredPort}`).origin : undefined; }
   onState(listener: (state: IpcConnectionState) => void): () => void { this.states.add(listener); listener(this._state); return () => this.states.delete(listener); }
   namespace(name: string, protocolMajor?: number): IpcChannel {
     if (protocolMajor !== undefined && (!Number.isInteger(protocolMajor) || protocolMajor < 1)) throw new TypeError("Invalid feature protocol major.");
@@ -108,7 +101,7 @@ export class IpcConnection {
     if (!/^[a-z0-9.-]+$/.test(name)) throw new TypeError("Invalid IPC message name.");
     const id = options.id ?? messageId();
     if (!id || id.length > 128) throw new TypeError("Invalid IPC message id.");
-    this.write({ kind, namespace, name, id, correlationId, payload: payload ?? {} }); return id;
+    this.write({ kind, namespace, name, id, correlationId, payload: payload === undefined ? {} : payload }); return id;
   }
   private subscribe(namespace: string): void { this.write({ kind: "subscribe", namespace, name: "namespace.subscribe", id: messageId(), payload: {} }); }
   private write(message: IpcMessage): void {
@@ -132,7 +125,7 @@ export class IpcConnection {
       const welcome = new Promise<IpcMessage>((resolve, reject) => { resolveWelcome = resolve; rejectWelcome = reject; });
       // Attach a rejection handler immediately: native transports can close before connect resolves.
       void welcome.catch(() => {});
-      const offMessage = transport.onMessage(text => { const message = parse(text); if (message?.kind === "welcome") resolveWelcome(message); });
+      const offMessage = transport.onMessage(text => { const message = parseMessage(text); if (message?.kind === "welcome") resolveWelcome(message); });
       const offClose = transport.onClose(reason => rejectWelcome(reason ?? new IpcUnavailableError()));
       let timer: ReturnType<typeof setTimeout> | undefined;
       let disposed = false;
@@ -164,7 +157,7 @@ export class IpcConnection {
     const data = welcome.payload as { peerId: string; connectionId: string }; this.peerId = data.peerId; this.connectionId = data.connectionId;
     this.bindings = [transport.onMessage(text => {
       if (this.transport !== transport || this.stopped) return;
-      const message = parse(text); if (!message) { this.lost(transport); return; }
+      const message = parseMessage(text); if (!message) { this.lost(transport); return; }
       if (message.kind === "pong" && message.correlationId === this.heartbeatId) {
         clearTimeout(this.heartbeatDeadline); this.heartbeatDeadline = undefined; this.heartbeatId = undefined;
       }
@@ -214,56 +207,4 @@ export class IpcConnection {
   private incompatible(error: IpcProtocolMismatchError): void { this.shutdown("incompatible"); this.options.onProtocolMismatch?.(error); }
   private setState(state: IpcConnectionState): void { this._state = state; invoke(this.states, state); }
   private disposeTransport(transport: IpcTransport): void { try { const result = transport.close(); if (result) void result.catch(() => {}); } catch { } }
-}
-
-export class IpcChannel {
-  private readonly events = new Map<string, Set<Listener>>();
-  private readonly commands = new Map<string, Set<Listener>>();
-  private readonly statuses = new Set<(status: IpcNamespaceStatus, error?: IpcErrorInfo) => void>();
-  private _status: IpcNamespaceStatus = "unavailable";
-  private _error: IpcErrorInfo | undefined;
-  constructor(private readonly connection: IpcConnection, readonly name: string, readonly protocolMajor?: number) {}
-  get status(): IpcNamespaceStatus { return this._status; }
-  get error(): IpcErrorInfo | undefined { return this._error; }
-  on<T = unknown>(name: string, listener: (payload: T, message: IpcMessage<T>) => void): () => void { return this.listen(this.events, name, listener); }
-  onCommand<T = unknown>(name: string, listener: (payload: T, message: IpcMessage<T>) => void): () => void { return this.listen(this.commands, name, listener); }
-  onStatus(listener: (status: IpcNamespaceStatus, error?: IpcErrorInfo) => void): () => void { this.statuses.add(listener); listener(this.status, this.error); return () => this.statuses.delete(listener); }
-  send(name: string, payload?: unknown, options?: IpcCommandOptions): string { this.requireCompatible(); return this.connection.send("command", this.name, name, payload, options); }
-  emit(name: string, payload?: unknown): string { this.requireCompatible(); return this.connection.send("event", this.name, name, payload); }
-  reply(correlationId: string, name: string, payload?: unknown): string { this.requireCompatible(); return this.connection.send("event", this.name, name, payload, {}, correlationId); }
-  whenReady(options: IpcReadyOptions = {}): Promise<void> {
-    if (options.signal?.aborted) return Promise.reject(options.signal.reason ?? new DOMException("Aborted", "AbortError"));
-    if (this.status === "ready") return Promise.resolve();
-    if (this.status === "error") return Promise.reject(new IpcNamespaceError(this.error?.code ?? "namespace_error", this.error?.message ?? "The mod could not initialize."));
-    return new Promise((resolve, reject) => {
-      let timer: ReturnType<typeof setTimeout> | undefined; let off = () => {};
-      const finish = (error?: unknown) => { clearTimeout(timer); off(); options.signal?.removeEventListener("abort", abort); if (error) reject(error); else resolve(); };
-      const abort = () => finish(options.signal?.reason ?? new DOMException("Aborted", "AbortError"));
-      options.signal?.addEventListener("abort", abort, { once: true });
-      off = this.onStatus((status, error) => { if (status === "ready") finish(); else if (status === "error") finish(new IpcNamespaceError(error?.code ?? "namespace_error", error?.message ?? "The mod could not initialize.")); });
-      timer = setTimeout(() => finish(new IpcTimeoutError(options.timeoutMs ?? 15000)), options.timeoutMs ?? 15000);
-    });
-  }
-  /** Internal transport adapter dispatch. */
-  receive(message: IpcMessage): void {
-    if (message.kind === "namespace") {
-      let payload = message.payload as { status: IpcNamespaceStatus; error?: IpcErrorInfo; featureProtocolMajor?: number };
-      if (payload?.status === "ready" && this.protocolMajor !== undefined && payload.featureProtocolMajor !== this.protocolMajor) {
-        payload = { status: "error", error: { code: "feature_protocol_mismatch", message: "The app and mod use different message versions. Update both, restart ADOFAI, and reconnect." } };
-      }
-      if (["ready", "initializing", "error", "unavailable"].includes(payload?.status)) { this._status = payload.status; this._error = payload.error; for (const listener of [...this.statuses]) { try { listener(this.status, this.error); } catch { } } }
-    }
-    if (this._error?.code === "feature_protocol_mismatch") return;
-    const listeners = (message.kind === "command" ? this.commands : this.events).get(message.name);
-    if (listeners) for (const listener of [...listeners]) { try { listener(message.payload, message); } catch { } }
-  }
-  disconnected(): void { this._status = "unavailable"; this._error = undefined; for (const listener of [...this.statuses]) { try { listener(this.status); } catch { } } }
-  private requireCompatible(): void {
-    if (this._error?.code === "feature_protocol_mismatch") throw new IpcNamespaceError(this._error.code, this._error.message);
-  }
-  private listen<T>(map: Map<string, Set<Listener>>, name: string, listener: (payload: T, message: IpcMessage<T>) => void): () => void {
-    let listeners = map.get(name); if (!listeners) { listeners = new Set(); map.set(name, listeners); }
-    const stored = listener as Listener; listeners.add(stored);
-    return () => { listeners?.delete(stored); if (!listeners?.size) map.delete(name); };
-  }
 }

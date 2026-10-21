@@ -61,4 +61,4 @@ redistribution in binary form:
 ADOFAI-IPC TypeScript SDK
 ------------------------
 
-Canonical SDK source for ADOFAI-IPC 1.0.0 is vendored at vendor/adofai-ipc rather than installed from npm. Its MIT license and source provenance are included in that directory and in THIRD_PARTY_LICENSES.txt.
+Canonical SDK source for ADOFAI-IPC 2.1.0 is vendored at vendor/adofai-ipc rather than installed from npm. Its MIT license and source provenance are included in that directory and in THIRD_PARTY_LICENSES.txt.

@@ -3,7 +3,7 @@ import type {
   IpcConnection,
   IpcConnectionState,
   IpcNamespaceStatus,
-} from '@adofai-ipc/client';
+} from 'adofai-ipc/transport';
 import { SdkMessagePort } from './sdkMessagePort';
 
 function harness() {

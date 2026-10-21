@@ -32,7 +32,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     IIpcRuntime runtime = IpcLoader.GetRuntime(
       mods,
       new RuntimeRequirements(
-        minimumRuntimeVersion: "2.0.0",
+        minimumRuntimeVersion: "2.1.0",
         requiredCapabilities: new[] { "commands", "game-thread", "snapshots" }
       )
     );

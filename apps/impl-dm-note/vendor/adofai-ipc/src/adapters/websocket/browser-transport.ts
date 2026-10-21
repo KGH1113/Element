@@ -1,5 +1,5 @@
-import { IpcUnavailableError } from "./errors";
-import type { IpcTransport, IpcTransportFactory } from "./types";
+import { IpcUnavailableError } from "../../api/connection-errors";
+import type { IpcTransport, IpcTransportFactory } from "../../ports/transport";
 
 export const browserTransportFactory: IpcTransportFactory = (url, protocol) => new BrowserTransport(url, protocol);
 

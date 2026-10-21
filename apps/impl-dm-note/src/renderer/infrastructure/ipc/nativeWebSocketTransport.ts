@@ -1,5 +1,5 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
-import type { IpcTransport } from '@adofai-ipc/client';
+import type { IpcTransport } from 'adofai-ipc/transport';
 type NativeEvent =
   { kind: 'message'; text: string } | { kind: 'closed'; reason: string };
 /** An ordered, bounded native byte pipe. SDK protocol parsing stays in TypeScript. */

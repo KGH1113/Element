@@ -16,6 +16,7 @@ Commands:
   install     Install the already verified mod payload
   package     Build the release package and metadata
   check       Validate all shell scripts
+  ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
   desktop-native-check  Check/test/clippy native backend without installing
   desktop-message-test  Run message/session application regressions
   desktop-native-format  Format the changed native message boundaries
@@ -54,6 +55,9 @@ case "$command_name" in
     ;;
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"
+    ;;
+  ipc-sync)
+    exec node "$SCRIPTS_DIR/tasks/verify/sync-adofai-ipc.mjs" "${2:-}" "${3:-}"
     ;;
   desktop-check|desktop-frontend-check|desktop-ipc-format|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-format|desktop-licenses|desktop-native-check|desktop-native-format)
     exec "$SCRIPTS_DIR/workflows/desktop-render.sh" "$command_name" "${@:2}"

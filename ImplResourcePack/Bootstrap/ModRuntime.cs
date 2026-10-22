@@ -15,7 +15,6 @@ using ImplResourcePack.Infrastructure.Game.TimingScale;
 using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Overlay.Bpm;
 using ImplResourcePack.Presentation.Overlay.Combo;
-using ImplResourcePack.Presentation.Overlay.DmNote;
 using ImplResourcePack.Presentation.Overlay.Judgement;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Overlay.Status;
@@ -37,7 +36,8 @@ internal sealed class ModRuntime : IDisposable
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
-  private DmNoteMirrorIpcFeature _dmNoteMirror;
+  private DmNoteNativeIpcFeature _nativeViewers;
+  private bool _nativePreview;
   private RecordingModeController _recordingMode;
   private bool _sceneHooked;
   private bool _initialized;
@@ -47,6 +47,8 @@ internal sealed class ModRuntime : IDisposable
   internal KeyLimiterService KeyLimiter => _keyLimiter;
   public bool OverlaysAvailable => _coordinator != null;
   public bool IsRecording => _recordingMode?.IsActive ?? false;
+  public bool NativeViewerPreview => _nativePreview;
+  public string NativeViewerStatus => _nativeViewers?.Status;
 
   public ModRuntime(Main main)
   {
@@ -74,8 +76,8 @@ internal sealed class ModRuntime : IDisposable
       WarnIfKeyboardChatterBlockerIsLoaded();
 
       _canvasHost = new OverlayCanvasHost();
-      _dmNoteMirror = new DmNoteMirrorIpcFeature(new DmNoteMirrorView(_canvasHost));
-      _keyLimiterIpc.AttachMirror(_dmNoteMirror);
+      _nativeViewers = new DmNoteNativeIpcFeature();
+      _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _keyLimiterIpc.Enable();
 
       _fontBundleLoader = new FontBundleLoader(_main);
@@ -145,7 +147,7 @@ internal sealed class ModRuntime : IDisposable
         }
 
         _canvasHost.SetVisible(true);
-        _dmNoteMirror?.SetActive(_main.Settings.ShowDmNoteInGame);
+        RefreshViewerMode(true);
         _coordinator?.Show();
         _timeTicker?.StartTicking();
       }
@@ -155,7 +157,13 @@ internal sealed class ModRuntime : IDisposable
   public void TickTrackpad()
   {
     _trackpad?.Tick();
-    Execute("Update ImplDmNote viewers", () => _dmNoteMirror?.Tick());
+    Execute("Update native ImplDmNote viewers", () => _nativeViewers?.Tick());
+  }
+
+  public void ToggleNativeViewerPreview()
+  {
+    _nativePreview = !_nativePreview;
+    RefreshViewerMode(IsGameplayActive());
   }
 
   public void HideGameplay()
@@ -181,6 +189,8 @@ internal sealed class ModRuntime : IDisposable
 
         if (IsGameplayActive())
           ShowGameplay();
+        else
+          RefreshViewerMode(false);
       }
     );
   }
@@ -260,8 +270,8 @@ internal sealed class ModRuntime : IDisposable
     _trackpad?.Dispose();
     _trackpad = null;
 
-    _dmNoteMirror?.Dispose();
-    _dmNoteMirror = null;
+    _nativeViewers?.Dispose();
+    _nativeViewers = null;
 
     _keyLimiterIpc?.Dispose();
     _keyLimiterIpc = null;
@@ -312,9 +322,16 @@ internal sealed class ModRuntime : IDisposable
   private void HideCore()
   {
     _timeTicker?.StopTicking();
-    _dmNoteMirror?.SetActive(false);
+    RefreshViewerMode(false);
     _coordinator?.Hide();
     _canvasHost?.SetVisible(false);
+  }
+
+  private void RefreshViewerMode(bool gameplay)
+  {
+    bool supported = UnityEngine.Application.platform == UnityEngine.RuntimePlatform.OSXPlayer;
+    bool enabled = supported && _main.Settings.ShowDmNoteInGame && !IsRecording && !scrController.coopMode;
+    _nativeViewers?.SetActive(enabled && (gameplay || _nativePreview));
   }
 
   private void Execute(string context, Action action)

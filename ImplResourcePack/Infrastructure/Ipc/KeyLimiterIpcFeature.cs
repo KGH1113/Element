@@ -13,12 +13,12 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
 {
   private const string Namespace = "impl-resourcepack";
   private readonly KeyLimiterSessionController _session;
-  private DmNoteMirrorIpcFeature _mirror;
+  private DmNoteNativeIpcFeature _nativeViewers;
   private IFeatureRegistration _ipc;
 
   public KeyLimiterIpcFeature(KeyLimiterSessionController session) => _session = session;
 
-  public void AttachMirror(DmNoteMirrorIpcFeature mirror) => _mirror = mirror;
+  public void AttachNativeViewers(DmNoteNativeIpcFeature nativeViewers) => _nativeViewers = nativeViewers;
 
   public void Enable()
   {
@@ -64,11 +64,13 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
         );
         builder.OnClientAttached(OnPeerSubscribed);
         builder.OnClientDetached(OnPeerDisconnected);
-        if (_mirror != null)
-          builder.OnEvent(_mirror.OnPeerEvent);
+        builder.OnEvent(message =>
+        {
+          _nativeViewers?.OnPeerEvent(message);
+        });
       }
     );
-    _mirror?.Attach(_ipc);
+    _nativeViewers?.Attach(_ipc);
     _ipc.MarkReady();
     Main.Instance.Log("[IPC] WebSocket namespace ready: " + Namespace);
   }
@@ -166,7 +168,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
 
   private void OnPeerDisconnected(IClientConnection peer)
   {
-    _mirror?.OnPeerDisconnected(peer);
+    _nativeViewers?.OnPeerDisconnected(peer);
     if (_session.PeerDisconnected(peer.PeerId))
       _ipc?.Publish("key-limiter.state.changed", JsonConvert.SerializeObject(State()));
   }

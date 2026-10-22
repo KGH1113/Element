@@ -12,6 +12,8 @@
 
 import { OBS_PROTOCOL_VERSION } from '@src/types/obs';
 import type { ObsEnvelope, HelloAckPayload } from '@src/types/obs';
+import type { KeyViewerKind } from '@src/types/key/keys';
+import { obsWindowLabel } from './obsViewer';
 
 // ── 내부 상태 ──
 
@@ -23,6 +25,7 @@ let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let connHost = '127.0.0.1';
 let connPort = '34891';
 let connToken = '';
+let windowLabel = 'obs-overlay';
 
 // deny 리스트 — hello_ack에서 수신 (백엔드가 유일한 source of truth)
 let denyList: string[] = [];
@@ -267,8 +270,13 @@ function shimConvertFileSrc(filePath: string, _protocol = 'asset'): string {
  * IPC shim 초기화. WS 연결 → hello_ack(denyList 수신) → snapshot 수신 → 글로벌 설치.
  * 반드시 dmnoteApi import 전에 호출.
  */
-export function initIpcShim(wsUrl: string, token: string): Promise<void> {
+export function initIpcShim(
+  wsUrl: string,
+  token: string,
+  viewerKind?: KeyViewerKind,
+): Promise<void> {
   disposed = false;
+  windowLabel = obsWindowLabel(viewerKind);
 
   // 연결 정보 파싱 (convertFileSrc에서 사용)
   try {
@@ -388,8 +396,8 @@ function installGlobals() {
     callbacks,
     convertFileSrc: shimConvertFileSrc,
     metadata: {
-      currentWindow: { label: 'obs-overlay' },
-      currentWebview: { windowLabel: 'obs-overlay', label: 'obs-overlay' },
+      currentWindow: { label: windowLabel },
+      currentWebview: { windowLabel, label: windowLabel },
     },
   };
 

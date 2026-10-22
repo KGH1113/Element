@@ -88,12 +88,6 @@ fn main() {
                 let app = window.app_handle();
                 app.state::<commands::app::adofai_ipc::NativeIpcSockets>().close_all();
                 app.state::<services::render::RenderService>().end(app, None);
-                let app = app.clone();
-                tauri::async_runtime::spawn(async move {
-                    app.state::<services::live_mirror::LiveMirrorService>()
-                        .end(None)
-                        .await;
-                });
             }
         })
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -144,7 +138,6 @@ fn main() {
                 .map_err(|e| -> Box<dyn std::error::Error> { e.into() })?;
             app.manage(app_state);
             app.manage(commands::app::adofai_ipc::NativeIpcSockets::default());
-            app.manage(services::live_mirror::LiveMirrorService::default());
             app.manage(services::render::RenderService::default());
             services::render::RenderService::start_watchdog(app.handle().clone());
             let handle = app.handle();
@@ -172,8 +165,7 @@ fn main() {
             commands::app::render::dmnote_render_frame,
             commands::app::render::dmnote_render_end,
             commands::app::render::dmnote_render_ack,
-            commands::app::live_mirror::dmnote_mirror_frame,
-            commands::app::live_mirror::dmnote_mirror_end,
+            commands::app::native_viewers::dmnote_native_describe,
             commands::app::system::window_minimize,
             commands::app::system::window_close,
             commands::app::system::window_show_main,

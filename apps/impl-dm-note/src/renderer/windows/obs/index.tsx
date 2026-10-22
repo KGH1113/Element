@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '@styles/viewer-compat-v1.css';
 import { initIpcShim, disposeIpcShim } from '@api/ipcShim';
+import { obsViewerKind } from '@api/obsViewer';
 
 async function bootstrap() {
   // URL 파라미터에서 WS 접속 정보 추출
@@ -13,7 +14,7 @@ async function bootstrap() {
 
   try {
     // 1. IPC shim 설치 (WS 연결 + snapshot 수신 대기)
-    await initIpcShim(wsUrl, token);
+    await initIpcShim(wsUrl, token, obsViewerKind(params));
 
     // 2. window.api 설치 (shim 위에서 동작)
     await import('@api/dmnoteApi');

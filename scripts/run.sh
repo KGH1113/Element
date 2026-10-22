@@ -13,6 +13,7 @@ Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
   build       Build and install the mod
   mod-check   Build and test the mod without installing
+  native-webview-check  Build and verify the macOS game WebView host
   install     Install the already verified mod payload
   package     Build the release package and metadata
   check       Validate all shell scripts
@@ -27,7 +28,7 @@ Commands:
   desktop-frontend-check  Verify SDK, types, lint, formatting, tests, and frontend build
   desktop-ipc-format  Format the IPC lifecycle adapter and its regression tests
   desktop-build  Build the ImplDmNote frontend and native backend without installing
-  desktop-bundle  Package the native app with its embedded render surface without installing
+  desktop-bundle [--release]  Package the native app without installing (default: Debug)
   desktop-render-test  Run isolated native render fixtures without live inputs
   help        Show this help
 USAGE
@@ -46,6 +47,9 @@ case "$command_name" in
     ;;
   mod-check)
     exec "$SCRIPTS_DIR/workflows/build-install.sh" check
+    ;;
+  native-webview-check)
+    exec bash "$SCRIPTS_DIR/tasks/test/game-webview.sh"
     ;;
   install)
     exec "$SCRIPTS_DIR/tasks/install/mod.sh"

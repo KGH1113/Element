@@ -34,6 +34,7 @@ internal static class Program
       Run("normalizes song title size tags", NormalizesSongTitleSizeTags);
       Run("measures stable and briefly dropped frame rates", MeasuresFrameRates);
       Run("trackpad gesture ownership, zoom and native ABI", TrackpadTests.Run);
+      Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Console.WriteLine("ImplResourcePack tests: " + _passed + " passed");
       return 0;
     }

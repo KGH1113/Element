@@ -17,16 +17,18 @@ source "${BASH_SOURCE[0]%/*}/ipc-bundle.sh"
 # running game. Existing processes retain their version until restart.
 copy_runtime_payload() {
   local destination="$1"
-  local name temporary
+  local name temporary destination_dir
   local names=(ImplResourcePack.dll)
   if is_macos; then
-    names+=(libImplTrackpad.dylib)
+    names+=(libImplTrackpad.dylib native/libImplGameWebView.dylib)
   fi
   for name in "${names[@]}"; do
     require_file "$IMPL_RESOURCEPACK_BUILD_OUTPUT/$name"
   done
   for name in "${names[@]}"; do
-    temporary="$(mktemp "$destination/.$name.XXXXXX")"
+    destination_dir="$(dirname "$destination/$name")"
+    mkdir -p "$destination_dir"
+    temporary="$(mktemp "$destination_dir/.${name##*/}.XXXXXX")"
     if ! cp -p "$IMPL_RESOURCEPACK_BUILD_OUTPUT/$name" "$temporary"; then
       rm -f "$temporary"
       return 1

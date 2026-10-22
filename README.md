@@ -23,7 +23,7 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - 타이밍 스케일 (하단 중앙에 현재 타일의 판정 배율을 백분율로 표시)
 - 최고 기록과 시도 횟수
 - ImplDmNote 프로필과 동기화되는 입력 키 리미터
-- ImplDmNote 손·발 키뷰어 창을 게임 화면 안에 표시하는 미러
+- ImplDmNote 손·발 키뷰어를 게임 창 안에서 직접 그리는 네이티브 웹뷰 (macOS)
 
 ## Runtime dependencies
 
@@ -36,7 +36,9 @@ Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 Contract
 
 앱과 모드는 하나의 loopback WebSocket 연결에서 명령과 상태 이벤트를 주고받습니다. 키 프로필 적용 결과와 namespace 준비 상태는 polling 없이 전달되고, 프로필을 소유한 앱의 연결이 끊기면 입력 키 제한을 해제합니다. 자세한 경계와 검증은 [`docs/adofai-ipc-v2.md`](docs/adofai-ipc-v2.md)를 참고하세요.
 
-게임 플레이 중 ImplDmNote의 손·발 창이 열려 있으면 모드가 해당 창의 전체 화면을 게임 캔버스 양쪽 아래에 표시합니다. 키뷰어의 CSS, 글자, WebGL 노트와 플러그인 화면을 기존 창에서 그대로 캡처하므로 게임 창을 Discord에 공유해도 함께 보입니다. UnityModManager 설정의 **Show hand and foot viewers in game**에서 끌 수 있습니다. 게임이 한 프레임씩 요청하며 최대 20fps로 갱신합니다. ImplDmNote의 OBS 모드는 데스크톱 창을 닫으므로 게임 미러와 동시에 사용할 수 없습니다.
+macOS 11 이상에서는 ImplDmNote의 OBS 페이지를 게임 창 내부의 WKWebView에서 직접 그립니다. 앱에서 원하는 손·발 탭을 선택하고 OBS 모드를 켜면 게임 플레이 중 양쪽 아래에 표시됩니다. UnityModManager 설정의 **Show hand and foot viewers in game**은 기본으로 켜져 있으며, **Show viewer preview**로 메뉴에서도 확인할 수 있습니다. OBS Studio를 실행할 필요는 없습니다.
+
+게임 내 키뷰어는 네이티브 방식만 사용합니다. 프레임 캡처·파일 전달·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Windows·Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. Discord·OBS에서 게임만 선택했을 때 함께 캡처되는지는 추가 검증이 필요합니다. Release 앱 빌드와 확인 절차는 [게임 내 키뷰어 안내](docs/native-webview.md)를 참고하세요.
 
 ## ImplDmNote
 

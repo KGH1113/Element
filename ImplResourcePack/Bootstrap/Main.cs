@@ -108,15 +108,28 @@ public sealed class Main
 
     GUILayout.Space(12f);
     GUILayout.Label("ImplDmNote");
-    bool showDmNote = GUILayout.Toggle(Instance.Settings.ShowDmNoteInGame, "Show hand and foot viewers in game");
-    if (showDmNote != Instance.Settings.ShowDmNoteInGame)
-    {
-      Instance.Settings.ShowDmNoteInGame = showDmNote;
-      changed = true;
-    }
-
     if (UnityEngine.Application.platform == RuntimePlatform.OSXPlayer)
     {
+      bool showDmNote = GUILayout.Toggle(Instance.Settings.ShowDmNoteInGame, "Show hand and foot viewers in game");
+      if (showDmNote != Instance.Settings.ShowDmNoteInGame)
+      {
+        Instance.Settings.ShowDmNoteInGame = showDmNote;
+        changed = true;
+      }
+      if (showDmNote)
+      {
+        GUILayout.Label("Enable OBS mode in ImplDmNote.");
+        if (
+          GUILayout.Button(
+            Instance.Runtime?.NativeViewerPreview == true ? "Hide viewer preview" : "Show viewer preview"
+          )
+        )
+          Instance.Runtime?.ToggleNativeViewerPreview();
+        GUILayout.Label(
+          Instance.Runtime?.NativeViewerStatus ?? "Native viewers are unavailable while the mod is disabled."
+        );
+      }
+
       GUILayout.Space(12f);
       GUILayout.Label("Level editor");
       Instance.Settings.NativeEditorTrackpad = GUILayout.Toggle(
@@ -124,6 +137,8 @@ public sealed class Main
         "Native trackpad (two-finger pan / pinch zoom)"
       );
     }
+    else
+      GUILayout.Label("In-game viewers currently require macOS 11 or newer.");
 
     if (changed)
       Instance.Runtime?.ApplySettings();

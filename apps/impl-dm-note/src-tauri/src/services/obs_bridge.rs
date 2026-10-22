@@ -223,6 +223,22 @@ impl ObsBridgeService {
         }
     }
 
+    /// Authenticated loopback entry point for an embedded local viewer.
+    /// Unlike status(), this does not perform network interface discovery.
+    pub fn local_http_url(&self) -> Option<tauri::Url> {
+        if !self.is_running() {
+            return None;
+        }
+        let port = *self.port.read();
+        let token = self.session_token.read();
+        if port == 0 || token.is_empty() {
+            return None;
+        }
+        let mut url = tauri::Url::parse(&format!("http://127.0.0.1:{port}/")).ok()?;
+        url.query_pairs_mut().append_pair("token", &token);
+        Some(url)
+    }
+
     pub fn update_snapshot(&self, snapshot: Value) {
         *self.cached_snapshot.write() = snapshot;
     }

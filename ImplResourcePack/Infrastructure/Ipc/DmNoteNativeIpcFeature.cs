@@ -1,10 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using AdofaiIpc.Contracts;
+using ImplResourcePack.Configuration;
 using ImplResourcePack.Domain.DmNote;
 using ImplResourcePack.Infrastructure.Game.DmNote;
+using ImplResourcePack.Presentation.Layout;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using TMPro;
+using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Ipc;
 
@@ -20,10 +25,174 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private DateTime _nextRequestAt;
   private DateTime _nextErrorCheckAt;
   private NativeViewerSurface[] _surfaces;
+  private NativeViewerSurface[] _knownSurfaces = Array.Empty<NativeViewerSurface>();
   private bool _active;
   private bool _disposed;
   private bool _reset;
+  private bool _visible = true;
+  private bool _editing;
+  private Rect _editorExclusion;
+  private readonly List<NativeViewerLayoutTarget> _layoutTargets;
+  private readonly NativeViewerLayoutTarget[] _galleryTargets;
+  private List<OverlayLayoutSettings> _layouts;
+  private TMP_FontAsset _font;
   private string _status = "Enable OBS mode in ImplDmNote, then start a level or show the preview.";
+  public Action EnabledChanged { get; set; }
+
+  public DmNoteNativeIpcFeature()
+  {
+    _galleryTargets = new[]
+    {
+      new NativeViewerLayoutTarget("hand", "손 키뷰어", SetEditing, OnEnabledChanged),
+      new NativeViewerLayoutTarget("foot", "발 키뷰어", SetEditing, OnEnabledChanged),
+    };
+    _layoutTargets = new List<NativeViewerLayoutTarget>(_galleryTargets);
+  }
+
+  public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
+  public IReadOnlyList<IOverlayLayoutTarget> GalleryTargets => _galleryTargets;
+  public bool HasEnabledViewers => _layoutTargets.Any(target => target.Enabled);
+
+  public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
+  {
+    if (layouts == null)
+      throw new ArgumentNullException(nameof(layouts));
+    _layouts = layouts;
+    foreach (OverlayLayoutSettings settings in layouts.ToArray())
+    {
+      if (settings == null || _layoutTargets.Any(target => target.Id == settings.Id))
+        continue;
+      string kind =
+        settings.TemplateId == "native-hand" ? "hand"
+        : settings.TemplateId == "native-foot" ? "foot"
+        : null;
+      if (kind == null)
+        continue;
+      NativeViewerLayoutTarget target = CreateTarget(kind, settings.Id);
+      _layoutTargets.Add(target);
+    }
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.Configure(layouts, legacyEnabled);
+  }
+
+  public IOverlayLayoutTarget AddElement(string templateId)
+  {
+    string kind =
+      templateId == "native-hand" ? "hand"
+      : templateId == "native-foot" ? "foot"
+      : null;
+    if (kind == null || _layouts == null)
+      return null;
+    string id = templateId + ":" + Guid.NewGuid().ToString("N");
+    NativeViewerLayoutTarget target = CreateTarget(kind, id);
+    _layouts.Add(
+      new OverlayLayoutSettings
+      {
+        Id = id,
+        TemplateId = templateId,
+        Enabled = true,
+        Customized = true,
+        CenterX = .5f,
+        CenterY = .5f,
+      }
+    );
+    _layoutTargets.Add(target);
+    target.Configure(_layouts);
+    target.SetPreview(_editing);
+    OnEnabledChanged();
+    return target;
+  }
+
+  private NativeViewerLayoutTarget CreateTarget(string kind, string id)
+  {
+    NativeViewerLayoutTarget target = new(
+      kind,
+      kind == "hand" ? "손 키뷰어" : "발 키뷰어",
+      SetEditing,
+      OnEnabledChanged,
+      id
+    );
+    target.ConfigurePreview(_font);
+    target.Bind(_host);
+    return target;
+  }
+
+  public void ConfigurePreview(TMP_FontAsset font)
+  {
+    _font = font;
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.ConfigurePreview(font);
+  }
+
+  private void OnEnabledChanged()
+  {
+    // This callback runs on Unity's thread for add/delete and history restore.
+    // Removing the last viewer ends the session, descriptor polling, and WebKit.
+    EnabledChanged?.Invoke();
+    if (!HasEnabledViewers)
+    {
+      SetActive(false);
+      _host?.Dispose();
+      _host = null;
+      BindLayoutTargets();
+      return;
+    }
+    if (_host != null)
+    {
+      ApplyEnabledSurfaces();
+      BindLayoutTargets();
+    }
+  }
+
+  private void ApplyEnabledSurfaces()
+  {
+    _host.Apply(
+      _layoutTargets
+        .Where(target => target.Enabled)
+        .SelectMany(target =>
+          _knownSurfaces
+            .Where(surface => surface.ViewerKind == target.Kind)
+            .Select(surface => (target.NativeId, surface))
+        )
+        .ToArray()
+    );
+  }
+
+  // Unity main thread only. Settings temporarily cover the game while editing
+  // uses native chrome because AppKit children are above the Unity framebuffer.
+  public void SetVisible(bool visible)
+  {
+    _visible = visible;
+    _host?.Show(visible);
+  }
+
+  public void SetEditorExclusion(Rect screenTopLeftPixels)
+  {
+    int width = Screen.width;
+    int height = Screen.height;
+    _editorExclusion =
+      width > 0 && height > 0
+        ? new Rect(
+          screenTopLeftPixels.x / width,
+          screenTopLeftPixels.y / height,
+          screenTopLeftPixels.width / width,
+          screenTopLeftPixels.height / height
+        )
+        : default;
+    _host?.ExcludeEditor(_editorExclusion);
+  }
+
+  private void SetEditing(bool editing)
+  {
+    _editing = editing;
+    _host?.Edit(editing);
+  }
+
+  private void BindLayoutTargets()
+  {
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.Bind(_host);
+  }
 
   private sealed class Reply
   {
@@ -52,6 +221,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       _sessionId = active ? Guid.NewGuid().ToString("N") : null;
       _pendingId = null;
       _surfaces = null;
+      if (!active)
+        _knownSurfaces = Array.Empty<NativeViewerSurface>();
       _nextRequestAt = DateTime.UtcNow;
       _reset = true;
       if (active)
@@ -164,13 +335,19 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
     {
       _host?.Dispose();
       _host = null;
+      BindLayoutTargets();
     }
     if (surfaces != null)
     {
       try
       {
         _host ??= new MacGameWebView(Main.Instance.Path);
-        _host.Apply(surfaces);
+        _knownSurfaces = surfaces;
+        ApplyEnabledSurfaces();
+        _host.Show(_visible);
+        _host.ExcludeEditor(_editorExclusion);
+        _host.Edit(_editing);
+        BindLayoutTargets();
         lock (_gate)
           _status =
             surfaces.Length == 0
@@ -181,6 +358,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       {
         _host?.Dispose();
         _host = null;
+        BindLayoutTargets();
         lock (_gate)
           _status =
             error is InvalidOperationException
@@ -188,6 +366,9 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
               : "Native viewers could not open. Reinstall the mod and restart ADOFAI.";
       }
     }
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.TickPreview();
+    _host?.RefreshTheme();
     if (_host != null && DateTime.UtcNow >= _nextErrorCheckAt)
     {
       _nextErrorCheckAt = DateTime.UtcNow.AddMilliseconds(500);
@@ -235,5 +416,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
     }
     _host?.Dispose();
     _host = null;
+    BindLayoutTargets();
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.Dispose();
   }
 }

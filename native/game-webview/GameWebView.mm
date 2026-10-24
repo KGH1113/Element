@@ -1,8 +1,10 @@
 #import "GameWebView.h"
 #import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
 #import <WebKit/WebKit.h>
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstring>
 #include <exception>
@@ -14,8 +16,10 @@ constexpr CGFloat kInset = 16;
 constexpr CGFloat kMaximumWidth = 430;
 constexpr CGFloat kMaximumHeight = 270;
 constexpr int kMaximumViewport = 4096;
+constexpr CGFloat kMinimumVisibleFraction = 0.1;
 std::mutex errorMutex;
 std::string lastError;
+std::atomic<unsigned long long> geometryRevision{1};
 
 void SetError(const char *message) {
   std::lock_guard<std::mutex> lock(errorMutex);
@@ -125,10 +129,141 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 - (NSView *)hitTest:(NSPoint)point { return nil; }
 @end
 
+@interface IRPGameWebViewPaddingBridge : NSObject <WKScriptMessageHandler>
+@property(nonatomic, copy) void (^changed)(CGFloat);
+@end
+@implementation IRPGameWebViewPaddingBridge
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+  if (!message.frameInfo.isMainFrame || ![message.body isKindOfClass:NSNumber.class]) return;
+  double value = [message.body doubleValue];
+  if (std::isfinite(value) && value >= 0 && value <= kMaximumViewport && self.changed) self.changed(value);
+}
+@end
+
+@interface IRPGameWebViewSelectionBridge : NSObject <WKScriptMessageHandler>
+@property(nonatomic, copy) void (^changed)(NSRect);
+@end
+@implementation IRPGameWebViewSelectionBridge
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+  if (!message.frameInfo.isMainFrame || ![message.body isKindOfClass:NSArray.class]) return;
+  NSArray *values = message.body;
+  if (values.count != 4) return;
+  double parsed[4];
+  for (NSUInteger i = 0; i < 4; i++) {
+    if (![values[i] isKindOfClass:NSNumber.class]) return;
+    parsed[i] = [values[i] doubleValue];
+    if (!std::isfinite(parsed[i]) || parsed[i] < 0 || parsed[i] > 1) return;
+  }
+  if (parsed[0] + parsed[2] > 1.001 || parsed[1] + parsed[3] > 1.001) return;
+  if (self.changed) self.changed(NSMakeRect(parsed[0], parsed[1], parsed[2], parsed[3]));
+}
+@end
+
+// Observe visible key/stat geometry only; the note canvas intentionally reserves
+// a larger animation viewport. No polling or layout reads run during gameplay.
+static NSString *SelectionScript() {
+  return @"(() => {"
+    "let editing=false, pending=false, previous='';"
+    "const measure=()=>{pending=false; const w=innerWidth,h=innerHeight;if(!w||!h)return;"
+      "let l=w,t=h,r=0,b=0;"
+      "document.querySelectorAll('[data-state], [data-key-element], .absolute.select-none').forEach(el=>{"
+        "const s=getComputedStyle(el); if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return;"
+        "const a=el.getBoundingClientRect();if(!a.width||!a.height)return;"
+        "l=Math.min(l,a.left);t=Math.min(t,a.top);r=Math.max(r,a.right);b=Math.max(b,a.bottom);"
+      "});"
+      "l=Math.max(0,l);t=Math.max(0,t);r=Math.min(w,r);b=Math.min(h,b);"
+      "const v=r>l&&b>t?[l/w,t/h,(r-l)/w,(b-t)/h]:[0,0,0,0];"
+      "const k=v.join(',');if(k!==previous){previous=k;window.webkit.messageHandlers.irpSelection.postMessage(v);}"
+    "};"
+    "const schedule=()=>{if(editing&&!pending){pending=true;setTimeout(measure,32);}};"
+    "window.__irpSetEditing=value=>{editing=!!value;if(editing)schedule();};"
+    "new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden']});"
+    "addEventListener('resize',schedule);setTimeout(measure,0);"
+  "})();";
+}
+
+// Read the viewer's own setting, without changing its desktop/OBS preferences.
+// Wait only for bootstrap, then receive changes through its public settings API.
+static NSString *PaddingScript() {
+  return @"(() => {"
+    "let observer;"
+    "const start = () => {"
+      "const api = window.api?.settings; if (!api?.get || !api?.onChanged) return false;"
+      "observer?.disconnect();"
+      "let revision = 0;"
+      "const publish = state => { const p = state?.gridSettings?.overlayPadding;"
+        "if (typeof p === 'number' && Number.isFinite(p)) window.webkit.messageHandlers.irpPadding.postMessage(p); };"
+      "api.onChanged(state => { revision++; publish(state); });"
+      "const version = revision; api.get().then(state => { if (revision === version) publish(state); }).catch(() => {});"
+      "return true;"
+    "};"
+    "if (!start()) { observer = new MutationObserver(start); observer.observe(document.documentElement, {childList:true, subtree:true}); }"
+  "})();";
+}
+
+@interface IRPGameWebViewLayoutBridge : NSObject <WKScriptMessageHandler>
+@property(nonatomic, copy) void (^changed)(NSSize, CGFloat);
+@end
+@implementation IRPGameWebViewLayoutBridge
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+  if (!message.frameInfo.isMainFrame || ![message.body isKindOfClass:NSArray.class]) return;
+  NSArray *values = message.body;
+  if (values.count != 3) return;
+  double parsed[3];
+  for (NSUInteger i = 0; i < 3; i++) {
+    if (![values[i] isKindOfClass:NSNumber.class]) return;
+    parsed[i] = [values[i] doubleValue];
+    if (!std::isfinite(parsed[i]) || parsed[i] < 0 || parsed[i] > kMaximumViewport) return;
+  }
+  if (parsed[0] < 1 || parsed[1] < 1 || parsed[2] * 2 >= std::min(parsed[0], parsed[1])) return;
+  if (self.changed) self.changed(NSMakeSize(parsed[0], parsed[1]), parsed[2]);
+}
+@end
+
+// The renderer publishes layout dimensions, not its current clipped browser
+// size. Attribute filtering avoids reacting to input highlights or animation.
+static NSString *LayoutScript() {
+  return @"(() => {"
+    "let bootstrapObserver;"
+    "const start=()=>{"
+      "const root=document.getElementById('root');if(!root)return;"
+      "bootstrapObserver?.disconnect();let previous='';"
+      "const publish=()=>{"
+        "const names=['data-dmn-viewer-width','data-dmn-viewer-height','data-dmn-viewer-padding'];"
+        "if(!names.every(name=>root.hasAttribute(name)))return;"
+        "const values=names.map(name=>Number(root.getAttribute(name)));"
+        "const key=values.join(',');if(key===previous)return;previous=key;"
+        "window.webkit.messageHandlers.irpLayout.postMessage(values);"
+      "};"
+      "new MutationObserver(publish).observe(root,{attributes:true,attributeFilter:"
+        "['data-dmn-viewer-width','data-dmn-viewer-height','data-dmn-viewer-padding']});"
+      "publish();"
+    "};"
+    "if(document.getElementById('root'))start();else{"
+      "bootstrapObserver=new MutationObserver(start);"
+      "bootstrapObserver.observe(document.documentElement,{childList:true,subtree:true});"
+    "}"
+  "})();";
+}
+
 @interface IRPGameWebViewSurface : NSObject <WKNavigationDelegate, WKUIDelegate>
 @property(nonatomic, strong) IRPGameWebView *webView;
 @property(nonatomic, strong) NSURL *url;
 @property(nonatomic) NSSize viewport;
+@property(nonatomic) NSSize reportedViewport;
+@property(nonatomic) CGFloat referenceScale;
+@property(nonatomic) CGFloat padding;
+@property(nonatomic) NSRect contentFrame;
+@property(nonatomic) NSRect selectionInViewport;
+@property(nonatomic, strong) CAShapeLayer *contentMask;
+@property(nonatomic) BOOL customized;
+@property(nonatomic) NSPoint normalizedCenter;
+@property(nonatomic) CGFloat layoutScale;
+@property(nonatomic) CGFloat effectiveScale;
+@property(nonatomic) BOOL explicitBounds;
+@property(nonatomic) NSRect normalizedBounds;
+@property(nonatomic) BOOL selected;
+@property(nonatomic) BOOL editing;
 @end
 
 @implementation IRPGameWebViewSurface
@@ -170,13 +305,55 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
   SetError("");
+  [webView evaluateJavaScript:self.editing ? @"window.__irpSetEditing?.(true);" : @"window.__irpSetEditing?.(false);"
+           completionHandler:nil];
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
   // The descriptor poll, rather than an immediate reload loop in the renderer
   // callback, can retry after the process has terminated.
   self.url = nil;
-  SetError("Native viewer renderer stopped. Re-enable the native preview.");
+  SetError("Native viewer renderer stopped. Viewers will reconnect automatically.");
+}
+@end
+
+@interface IRPGameWebViewChrome : NSView
+@property(nonatomic, strong)
+    NSMutableDictionary<NSString *, IRPGameWebViewSurface *> *surfaces;
+@end
+
+@implementation IRPGameWebViewChrome
+- (BOOL)acceptsFirstResponder { return NO; }
+- (NSView *)hitTest:(NSPoint)point { return nil; }
+- (void)drawRect:(NSRect)dirtyRect {
+  CGFloat pixelsPerPoint = std::max<CGFloat>(1, self.window.backingScaleFactor);
+  CGFloat unit = std::clamp<CGFloat>(self.bounds.size.height * pixelsPerPoint / 1000, 1, 2) / pixelsPerPoint;
+  for (IRPGameWebViewSurface *surface in self.surfaces.allValues) {
+    if (surface.webView.hidden || !surface.selected) continue;
+    NSRect frame = surface.contentFrame;
+    NSRect inset = NSInsetRect(frame, 1.5 * unit, 1.5 * unit);
+    CGFloat radius = std::min<CGFloat>(8 * unit, std::min(inset.size.width, inset.size.height) / 2);
+    NSBezierPath *outline = [NSBezierPath bezierPathWithRoundedRect:inset xRadius:radius yRadius:radius];
+    CGFloat dash[] = {8 * unit, 5 * unit};
+    [outline setLineDash:dash count:2 phase:0];
+    outline.lineWidth = 3 * unit;
+    [NSColor.whiteColor setStroke];
+    [outline stroke];
+    NSPoint handles[] = {
+        NSMakePoint(NSMinX(frame), NSMinY(frame)), NSMakePoint(NSMidX(frame), NSMinY(frame)),
+        NSMakePoint(NSMaxX(frame), NSMinY(frame)), NSMakePoint(NSMaxX(frame), NSMidY(frame)),
+        NSMakePoint(NSMaxX(frame), NSMaxY(frame)), NSMakePoint(NSMidX(frame), NSMaxY(frame)),
+        NSMakePoint(NSMinX(frame), NSMaxY(frame)), NSMakePoint(NSMinX(frame), NSMidY(frame))};
+    for (NSPoint point : handles) {
+      NSRect handle = NSMakeRect(point.x - 3.5 * unit, point.y - 3.5 * unit, 7 * unit, 7 * unit);
+      NSBezierPath *path = [NSBezierPath bezierPathWithOvalInRect:handle];
+      [NSColor.whiteColor setFill];
+      [path fill];
+      [[NSColor colorWithWhite:0 alpha:0.75] setStroke];
+      path.lineWidth = unit;
+      [path stroke];
+    }
+  }
 }
 @end
 
@@ -184,7 +361,13 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 @property(nonatomic, strong)
     NSMutableDictionary<NSString *, IRPGameWebViewSurface *> *surfaces;
 @property(nonatomic) BOOL previewVisible;
+@property(nonatomic) BOOL editing;
+@property(nonatomic, strong) IRPGameWebViewChrome *chrome;
+@property(nonatomic) NSRect editorExclusion;
+@property(nonatomic, strong) CAShapeLayer *editorMask;
+@property(nonatomic) NSRect appliedMaskExclusion;
 - (void)layoutSurfaces;
+- (void)updateEditorMask;
 @end
 
 @implementation IRPGameWebViewHost
@@ -194,6 +377,13 @@ NSWindow *FindGameWindow(NSWindow *previous) {
     self.surfaces = [NSMutableDictionary dictionary];
     self.previewVisible = YES;
     self.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    self.wantsLayer = YES;
+    self.layer.masksToBounds = YES;
+    self.chrome = [[IRPGameWebViewChrome alloc] initWithFrame:self.bounds];
+    self.chrome.surfaces = self.surfaces;
+    self.chrome.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    self.chrome.hidden = YES;
+    [self addSubview:self.chrome];
   }
   return self;
 }
@@ -201,31 +391,120 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 - (BOOL)acceptsFirstResponder { return NO; }
 - (NSView *)hitTest:(NSPoint)point { return nil; }
 - (void)setFrameSize:(NSSize)newSize {
+  BOOL changed = !NSEqualSizes(self.frame.size, newSize);
   [super setFrameSize:newSize];
+  if (changed) ++geometryRevision;
+  [self layoutSurfaces];
+}
+- (void)viewDidChangeBackingProperties {
+  [super viewDidChangeBackingProperties];
+  ++geometryRevision;
   [self layoutSurfaces];
 }
 - (void)layoutSurfaces {
-  CGFloat availableWidth = std::max<CGFloat>(0, (self.bounds.size.width - 3 * kInset) / 2);
-  CGFloat availableHeight = std::max<CGFloat>(0, self.bounds.size.height - 2 * kInset);
   for (NSString *kind in self.surfaces) {
     IRPGameWebViewSurface *surface = self.surfaces[kind];
     NSSize source = surface.viewport;
     if (source.width <= 0 || source.height <= 0) continue;
-    CGFloat scale = std::min<CGFloat>(
-        1, std::min(std::min(kMaximumWidth, availableWidth) / source.width,
-                    std::min(kMaximumHeight, availableHeight) / source.height));
+    CGFloat padding = std::min<CGFloat>(surface.padding, (std::min(source.width, source.height) - 1) / 2);
+    NSSize content = NSMakeSize(source.width - padding * 2, source.height - padding * 2);
+    // Fit once on attachment, then preserve CSS pixel size as content grows.
+    CGFloat baseScale = surface.referenceScale;
+    CGFloat scale = baseScale;
+    if (surface.customized) {
+      scale = baseScale * surface.layoutScale;
+    }
+    if (!surface.explicitBounds) surface.effectiveScale = baseScale > 0 ? scale / baseScale : 1;
+    if (surface.explicitBounds)
+      scale = surface.normalizedBounds.size.width * self.bounds.size.width / content.width;
     BOOL canDisplay = self.previewVisible && scale > 0;
     surface.webView.hidden = !canDisplay;
     if (!canDisplay) continue;
-    NSSize size = NSMakeSize(source.width * scale, source.height * scale);
-    CGFloat x = [kind isEqualToString:@"hand"]
+    NSSize size = NSMakeSize(content.width * scale, content.height * scale);
+    CGFloat x = ([kind isEqualToString:@"hand"] || [kind hasPrefix:@"hand:"])
                     ? kInset
                     : self.bounds.size.width - kInset - size.width;
-    surface.webView.frame = NSMakeRect(x, kInset, size.width, size.height);
+    CGFloat y = kInset;
+    if (surface.customized) {
+      x = std::clamp<CGFloat>(surface.normalizedCenter.x * self.bounds.size.width - size.width / 2,
+                             -size.width * (1 - kMinimumVisibleFraction),
+                             self.bounds.size.width - size.width * kMinimumVisibleFraction);
+      y = std::clamp<CGFloat>((1 - surface.normalizedCenter.y) * self.bounds.size.height - size.height / 2,
+                             -size.height * (1 - kMinimumVisibleFraction),
+                             self.bounds.size.height - size.height * kMinimumVisibleFraction);
+    }
+    NSRect frame = NSMakeRect(x, y, size.width, size.height);
+    if (surface.explicitBounds) {
+      NSRect normalized = surface.normalizedBounds;
+      frame = NSMakeRect(normalized.origin.x * self.bounds.size.width,
+          (1 - normalized.origin.y - normalized.size.height) * self.bounds.size.height,
+          normalized.size.width * self.bounds.size.width,
+          normalized.size.height * self.bounds.size.height);
+      size = frame.size;
+    }
+    surface.contentFrame = frame;
+    CGFloat inset = padding * scale;
+    NSRect webFrame = NSInsetRect(frame, -inset, -inset);
+    if (!NSEqualRects(surface.webView.frame, webFrame)) surface.webView.frame = webFrame;
+    if (padding > 0) {
+      if (surface.contentMask == nil) surface.contentMask = [CAShapeLayer layer];
+      NSRect maskRect = NSMakeRect(inset, inset, size.width, size.height);
+      if (surface.webView.layer.mask != surface.contentMask ||
+          !NSEqualRects(surface.contentMask.frame, surface.webView.bounds) ||
+          !CGRectEqualToRect(CGPathGetBoundingBox(surface.contentMask.path), NSRectToCGRect(maskRect))) {
+        CGPathRef path = CGPathCreateWithRect(NSRectToCGRect(maskRect), nullptr);
+        [CATransaction begin];
+        [CATransaction setDisableActions:YES];
+        surface.contentMask.frame = surface.webView.bounds;
+        surface.contentMask.path = path;
+        surface.webView.layer.mask = surface.contentMask;
+        [CATransaction commit];
+        CGPathRelease(path);
+      }
+    } else surface.webView.layer.mask = nil;
     // Preserve the CSS viewport used by the desktop/OBS renderer while fitting
     // the visual surface into game points (independent of Retina backing scale).
-    surface.webView.pageZoom = scale;
+    if (std::abs(surface.webView.pageZoom - scale) > 0.000001) surface.webView.pageZoom = scale;
   }
+  self.chrome.hidden = !self.editing || !self.previewVisible;
+  self.chrome.needsDisplay = self.editing;
+  [self updateEditorMask];
+}
+- (void)updateEditorMask {
+  NSRect normalized = self.editorExclusion;
+  if (!self.editing || normalized.size.width <= 0 || normalized.size.height <= 0) {
+    self.layer.mask = nil;
+    return;
+  }
+  NSSize size = self.bounds.size;
+  NSRect exclusion = NSIntersectionRect(self.bounds, NSMakeRect(
+      normalized.origin.x * size.width,
+      (1 - normalized.origin.y - normalized.size.height) * size.height,
+      normalized.size.width * size.width, normalized.size.height * size.height));
+  if (NSIsEmptyRect(exclusion)) {
+    self.layer.mask = nil;
+    return;
+  }
+  if (self.layer.mask != nil && NSEqualRects(self.editorMask.frame, self.bounds) &&
+      NSEqualRects(self.appliedMaskExclusion, exclusion)) return;
+  if (self.editorMask == nil) {
+    self.editorMask = [CAShapeLayer layer];
+    self.editorMask.fillRule = kCAFillRuleEvenOdd;
+    self.editorMask.fillColor = NSColor.whiteColor.CGColor;
+  }
+  CGMutablePathRef path = CGPathCreateMutable();
+  CGPathAddRect(path, nullptr, NSRectToCGRect(self.bounds));
+  CGPathAddRect(path, nullptr, NSRectToCGRect(exclusion));
+  // Disable implicit Core Animation actions: editor changes track the pointer
+  // and window size exactly, without delayed mask interpolation.
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  self.editorMask.frame = self.bounds;
+  self.editorMask.path = path;
+  self.appliedMaskExclusion = exclusion;
+  self.layer.mask = self.editorMask;
+  [CATransaction commit];
+  CGPathRelease(path);
 }
 @end
 
@@ -260,12 +539,15 @@ bool EnsureHost() {
            NSWindowDidEnterFullScreenNotification,
            NSWindowDidExitFullScreenNotification,
            NSWindowDidResizeNotification,
+           NSWindowDidChangeBackingPropertiesNotification,
+           NSWindowDidChangeScreenNotification,
            NSWindowDidDeminiaturizeNotification
          ]) {
       id observer = [NSNotificationCenter.defaultCenter
           addObserverForName:name object:nil queue:NSOperationQueue.mainQueue
                   usingBlock:^(NSNotification *notification) {
                     if (notification.object == gameWindow) {
+                      ++geometryRevision;
                       OnMainThread(^{ return EnsureHost() ? 1 : 0; });
                     }
                   }];
@@ -283,6 +565,7 @@ void RemoveSurface(NSString *kind) {
   [surface.webView stopLoading];
   [surface.webView removeFromSuperview];
   [host.surfaces removeObjectForKey:kind];
+  host.chrome.needsDisplay = YES;
 }
 } // namespace
 
@@ -295,9 +578,10 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_supported(void
 extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
     const char *viewerKind, const char *url, int width, int height) {
   if (!irp_webview_supported()) return 0;
-  if (viewerKind == nullptr ||
-      (strcmp(viewerKind, "hand") != 0 && strcmp(viewerKind, "foot") != 0)) {
-    SetError("Native viewer kind must be hand or foot.");
+  if (viewerKind == nullptr || strlen(viewerKind) > 160 ||
+      (strcmp(viewerKind, "hand") != 0 && strcmp(viewerKind, "foot") != 0 &&
+       strncmp(viewerKind, "hand:", 5) != 0 && strncmp(viewerKind, "foot:", 5) != 0)) {
+    SetError("Native viewer identifier must begin with hand or foot.");
     return 0;
   }
   bool remove = url == nullptr || url[0] == '\0';
@@ -323,24 +607,72 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
     IRPGameWebViewSurface *surface = host.surfaces[kind];
     if (surface == nil) {
       surface = [[IRPGameWebViewSurface alloc] init];
+      surface.referenceScale = std::min<CGFloat>(1, std::min(kMaximumWidth / width, kMaximumHeight / height));
       WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
       configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
       configuration.preferences.javaScriptCanOpenWindowsAutomatically = NO;
+      IRPGameWebViewPaddingBridge *bridge = [[IRPGameWebViewPaddingBridge alloc] init];
+      __weak IRPGameWebViewSurface *weakSurface = surface;
+      __weak IRPGameWebViewHost *weakHost = host;
+      bridge.changed = ^(CGFloat padding) {
+        IRPGameWebViewSurface *current = weakSurface;
+        if (current != nil && std::abs(current.padding - padding) > 0.001) {
+          current.padding = padding;
+          ++geometryRevision;
+          [weakHost layoutSurfaces];
+        }
+      };
+      [configuration.userContentController addScriptMessageHandler:bridge name:@"irpPadding"];
+      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:PaddingScript()
+          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+      IRPGameWebViewLayoutBridge *layoutBridge = [[IRPGameWebViewLayoutBridge alloc] init];
+      layoutBridge.changed = ^(NSSize viewport, CGFloat padding) {
+        IRPGameWebViewSurface *current = weakSurface;
+        if (current == nil) return;
+        current.reportedViewport = viewport;
+        if (!NSEqualSizes(current.viewport, viewport) || std::abs(current.padding - padding) > 0.001) {
+          current.viewport = viewport;
+          current.padding = padding;
+          current.selectionInViewport = NSZeroRect;
+          ++geometryRevision;
+          [weakHost layoutSurfaces];
+        }
+      };
+      [configuration.userContentController addScriptMessageHandler:layoutBridge name:@"irpLayout"];
+      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:LayoutScript()
+          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+      IRPGameWebViewSelectionBridge *selectionBridge = [[IRPGameWebViewSelectionBridge alloc] init];
+      selectionBridge.changed = ^(NSRect bounds) { weakSurface.selectionInViewport = bounds; };
+      [configuration.userContentController addScriptMessageHandler:selectionBridge name:@"irpSelection"];
+      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:SelectionScript()
+          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
       surface.webView = [[IRPGameWebView alloc] initWithFrame:NSZeroRect configuration:configuration];
       surface.webView.navigationDelegate = surface;
       surface.webView.UIDelegate = surface;
       surface.webView.allowsBackForwardNavigationGestures = NO;
       surface.webView.allowsLinkPreview = NO;
+      surface.webView.wantsLayer = YES;
       // WKWebView exposes transparent drawing via this WebKit property on macOS.
       // The outer exception boundary reports incompatibility without crashing Unity.
       [surface.webView setValue:@NO forKey:@"drawsBackground"];
-      [host addSubview:surface.webView];
+      [host addSubview:surface.webView positioned:NSWindowBelow relativeTo:host.chrome];
       host.surfaces[kind] = surface;
     }
-    surface.viewport = NSMakeSize(width, height);
+    BOOL sourceChanged = ![surface.url isEqual:source];
+    if (sourceChanged) surface.reportedViewport = NSZeroSize;
+    // Descriptors bootstrap the page. Once it reports its computed layout,
+    // repeated descriptors must not restore obsolete desktop window bounds.
+    NSSize viewport = surface.reportedViewport.width > 0 ? surface.reportedViewport : NSMakeSize(width, height);
+    if (!NSEqualSizes(surface.viewport, viewport)) ++geometryRevision;
+    surface.viewport = viewport;
+    surface.editing = host.editing;
     [host layoutSurfaces];
-    if (![surface.url isEqual:source]) {
+    if (sourceChanged) {
+      if (surface.padding != 0) ++geometryRevision;
+      surface.padding = 0;
+      surface.selectionInViewport = NSZeroRect;
       surface.url = source;
+      [host layoutSurfaces];
       SetError("");
       [surface.webView loadRequest:[NSURLRequest requestWithURL:source
                                                   cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
@@ -359,14 +691,171 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_set_visible(i
   });
 }
 
+extern "C" __attribute__((visibility("default"))) int irp_webview_set_layout(
+    const char *viewerKind, int customized, double centerX, double centerY, double scale) {
+  if (viewerKind == nullptr ||
+      !std::isfinite(centerX) || !std::isfinite(centerY) || !std::isfinite(scale) || scale <= 0) {
+    SetError("Native viewer layout requires a valid viewer and finite positive size.");
+    return 0;
+  }
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface == nil) return 0;
+    surface.explicitBounds = NO;
+    surface.customized = customized != 0;
+    surface.normalizedCenter = NSMakePoint(std::clamp(centerX, -4.0, 5.0), std::clamp(centerY, -4.0, 5.0));
+    surface.layoutScale = std::clamp(scale, 0.2, 5.0);
+    [host layoutSurfaces];
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_set_bounds(
+    const char *viewerKind, double x, double y, double width, double height, double effectiveScale) {
+  if (viewerKind == nullptr || !std::isfinite(x) || !std::isfinite(y) ||
+      !std::isfinite(width) || !std::isfinite(height) || !std::isfinite(effectiveScale) ||
+      width <= 0 || height <= 0 || effectiveScale <= 0) {
+    SetError("Native viewer bounds require finite coordinates and positive size.");
+    return 0;
+  }
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface == nil) return 0;
+    NSRect normalized = NSMakeRect(x, y, width, height);
+    BOOL changed = !surface.explicitBounds || !NSEqualRects(surface.normalizedBounds, normalized) ||
+        surface.effectiveScale != effectiveScale;
+    surface.explicitBounds = YES;
+    surface.normalizedBounds = normalized;
+    surface.effectiveScale = effectiveScale;
+    if (changed) [host layoutSurfaces];
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_reference_size(
+    const char *viewerKind, double *width, double *height) {
+  if (viewerKind == nullptr || width == nullptr || height == nullptr) return 0;
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface == nil || surface.viewport.width <= 0 || surface.viewport.height <= 0) return 0;
+    NSSize source = surface.viewport;
+    CGFloat padding = std::min<CGFloat>(surface.padding, (std::min(source.width, source.height) - 1) / 2);
+    CGFloat fit = surface.referenceScale;
+    *width = (source.width - 2 * padding) * fit;
+    *height = (source.height - 2 * padding) * fit;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) unsigned long long irp_webview_geometry_revision(void) {
+  return geometryRevision.load(std::memory_order_relaxed);
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_bounds(
+    const char *viewerKind, double *x, double *y, double *width, double *height, double *effectiveScale) {
+  if (viewerKind == nullptr || x == nullptr || y == nullptr || width == nullptr ||
+      height == nullptr || effectiveScale == nullptr) return 0;
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    NSSize size = host.bounds.size;
+    if (surface == nil || size.width <= 0 || size.height <= 0) return 0;
+    NSRect frame = surface.contentFrame;
+    *x = NSMinX(frame) / size.width;
+    *y = (size.height - NSMaxY(frame)) / size.height;
+    *width = frame.size.width / size.width;
+    *height = frame.size.height / size.height;
+    *effectiveScale = surface.effectiveScale;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_selection_bounds(
+    const char *viewerKind, double *x, double *y, double *width, double *height, double *effectiveScale) {
+  if (viewerKind == nullptr || x == nullptr || y == nullptr || width == nullptr || height == nullptr || effectiveScale == nullptr) return 0;
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    NSSize size = host.bounds.size;
+    if (surface == nil || size.width <= 0 || size.height <= 0) return 0;
+    NSRect measured = surface.selectionInViewport;
+    NSRect frame = surface.contentFrame;
+    if (measured.size.width > 0 && measured.size.height > 0) {
+      NSRect viewport = surface.webView.frame;
+      frame = NSIntersectionRect(frame, NSMakeRect(
+          NSMinX(viewport) + NSMinX(measured) * viewport.size.width,
+          NSMaxY(viewport) - NSMaxY(measured) * viewport.size.height,
+          measured.size.width * viewport.size.width, measured.size.height * viewport.size.height));
+    }
+    *x = NSMinX(frame) / size.width;
+    *y = (size.height - NSMaxY(frame)) / size.height;
+    *width = frame.size.width / size.width;
+    *height = frame.size.height / size.height;
+    *effectiveScale = surface.effectiveScale;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_pointer(double *x, double *y) {
+  if (x == nullptr || y == nullptr) return 0;
+  return OnMainThread(^{
+    if (host == nil || host.window == nil || host.bounds.size.width <= 0 || host.bounds.size.height <= 0) return 0;
+    NSPoint windowPoint = [host.window convertPointFromScreen:NSEvent.mouseLocation];
+    NSPoint point = [host convertPoint:windowPoint fromView:nil];
+    *x = (point.x - NSMinX(host.bounds)) / host.bounds.size.width;
+    *y = (NSMaxY(host.bounds) - point.y) / host.bounds.size.height;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_editing(int editing) {
+  OnMainThread(^{
+    host.editing = editing != 0;
+    for (IRPGameWebViewSurface *surface in host.surfaces.allValues) {
+      surface.editing = host.editing;
+      [surface.webView evaluateJavaScript:host.editing ? @"window.__irpSetEditing?.(true);" : @"window.__irpSetEditing?.(false);"
+                       completionHandler:nil];
+    }
+    [host layoutSurfaces];
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_selected(const char *viewerKind, int selected) {
+  if (viewerKind == nullptr) return;
+  OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface != nil && surface.selected != (selected != 0)) {
+      surface.selected = selected != 0;
+      host.chrome.needsDisplay = YES;
+    }
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_highlight(double red, double green, double blue) {
+  // Retain the export for managed callers that resolve this ABI. The OBS page
+  // owns its skin: a mod accent must never override per-key colors or alpha.
+  (void)red;
+  (void)green;
+  (void)blue;
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_editor_exclusion(
+    double x, double y, double width, double height) {
+  if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) return;
+  OnMainThread(^{
+    host.editorExclusion = NSMakeRect(x, y, std::max(0.0, width), std::max(0.0, height));
+    [host updateEditorMask];
+    return 1;
+  });
+}
+
 extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void) {
   OnMainThread(^{
     for (id observer in windowObservers) {
       [NSNotificationCenter.defaultCenter removeObserver:observer];
     }
     windowObservers = nil;
-    RemoveSurface(@"hand");
-    RemoveSurface(@"foot");
+    for (NSString *kind in host.surfaces.allKeys) RemoveSurface(kind);
     [host removeFromSuperview];
     host = nil;
     gameWindow = nil;

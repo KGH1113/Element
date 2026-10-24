@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
 using UnityModManagerNet;
 
 namespace ImplResourcePack.Configuration;
@@ -11,6 +14,41 @@ public sealed class ImplResourcePackSettings : UnityModManager.ModSettings
   public bool NativeEditorTrackpad = true;
 
   public bool ShowDmNoteInGame = true;
+
+  public int SettingsVersion;
+  public string HighlightColor = "#BA712B";
+  public List<string> RecentHighlightColors = new();
+  public bool ReduceUiMotion;
+  public bool LayoutSnapping = true;
+
+  public GameplayTweaksSettings Gameplay = new();
+  public Effects.EffectSettings Effects = new();
+
+  public KeyCode SettingsShortcutKey = KeyCode.Tab;
+  public KeyCode SettingsShortcutModifier = KeyCode.LeftAlt;
+
+  public List<OverlayLayoutSettings> OverlayLayouts = new();
+
+  public void Migrate()
+  {
+    // Only replace the previous default. After the first migration users can
+    // deliberately choose that green again without a later load changing it.
+    if (
+      SettingsVersion < 1
+      && string.Equals(HighlightColor?.Trim().TrimStart('#'), "7CCE00", StringComparison.OrdinalIgnoreCase)
+    )
+      HighlightColor = "#BA712B";
+    Gameplay ??= new();
+    Gameplay.Judgement ??= new();
+    if (SettingsVersion < 2)
+    {
+      Gameplay.Judgement.HidePerfect = HidePerfectJudgmentText;
+    }
+    Gameplay.Normalize();
+    Effects ??= new();
+    Effects.Normalize();
+    SettingsVersion = Math.Max(SettingsVersion, 2);
+  }
 
   public override void Save(UnityModManager.ModEntry modEntry)
   {

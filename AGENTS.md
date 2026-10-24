@@ -9,6 +9,7 @@
 # Useful dev tool usage
 - You can use `ilspycmd` and `assetripper(headless)` to inspect ADOFAI's code. Use it unless you really don't need to.
 - Use `./scripts/run.sh` for building, packaging, checking, ext. instead of manually executing dotnet commands. Also maintain the scripts.
+- After modifying the mod, complete the relevant checks and run `./scripts/run.sh install` to install the verified build into the user's mod folder.
 
 # UI/UX
 - Use shadcn mcp server actively. and use shadcn components.

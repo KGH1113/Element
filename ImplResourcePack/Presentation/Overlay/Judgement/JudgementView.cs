@@ -29,6 +29,7 @@ internal sealed class JudgementView : IOverlayView<JudgementSnapshot>
     );
     _text = OverlayTextFactory.AddText(_root, font, material, 25f, TextAlignmentOptions.Bottom);
     _text.color = OverlayTheme.JudgementBase;
+    host.RegisterLayout("judgement", "판정", _root, _text, "0  0  0  2  4  120  4  2  0  0  0");
     _root.SetActive(false);
   }
 
@@ -48,6 +49,8 @@ internal sealed class JudgementView : IOverlayView<JudgementSnapshot>
   {
     if (_text == null)
       return;
+
+    _text.color = OverlayTheme.JudgementBase;
 
     string xPerfectColorHex = GetXPerfectColorHex();
     _builder.Clear();

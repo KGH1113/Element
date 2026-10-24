@@ -31,5 +31,5 @@ require_file "$smoke_source"
 smoke="$(mktemp "$IMPL_RESOURCEPACK_BUILD_OUTPUT/native/.GameWebViewSmoke.XXXXXX")"
 trap 'rm -f "$smoke"' EXIT
 xcrun clang++ -std=c++17 -fobjc-arc -mmacosx-version-min=11.0 -O2 -Wall -Wextra -Werror \
-  -framework AppKit -framework WebKit "$smoke_source" -o "$smoke"
+  -framework AppKit -framework WebKit -framework QuartzCore "$smoke_source" -o "$smoke"
 "$smoke" "$library"

@@ -28,6 +28,7 @@ internal sealed class TimingScaleView : IOverlayView<TimingScaleSnapshot>
     );
     _text = OverlayTextFactory.AddText(_root, font, material, 20f, TextAlignmentOptions.Bottom);
     _text.color = Color.white;
+    host.RegisterLayout("timing-scale", "타이밍 배율", _root, _text, "Timing Scale - 100%");
     _root.SetActive(false);
   }
 

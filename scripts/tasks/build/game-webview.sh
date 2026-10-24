@@ -24,7 +24,7 @@ trap 'rm -f "$temporary"' EXIT
 
 xcrun clang++ -std=c++17 -fobjc-arc -fvisibility=hidden -dynamiclib \
   -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -O2 -Wall -Wextra -Werror \
-  -framework AppKit -framework WebKit \
+  -framework AppKit -framework WebKit -framework QuartzCore \
   -Wl,-install_name,@rpath/libImplGameWebView.dylib \
   "$IMPL_RESOURCEPACK_PROJECT_ROOT/native/game-webview/GameWebView.mm" \
   -o "$temporary"

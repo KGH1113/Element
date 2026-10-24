@@ -1,6 +1,7 @@
 using System;
 using ImplResourcePack.Bootstrap;
 using ImplResourcePack.Configuration;
+using ImplResourcePack.Presentation.Settings;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -32,6 +33,8 @@ public sealed class Main
       Instance = new Main(modEntry);
       Instance.Settings =
         UnityModManager.ModSettings.Load<ImplResourcePackSettings>(modEntry) ?? new ImplResourcePackSettings();
+      Instance.Settings.Migrate();
+      Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;
@@ -87,61 +90,12 @@ public sealed class Main
     if (Instance?.Settings == null)
       return;
 
-    bool changed = false;
-
-    GUILayout.Label("Judgment visuals");
-    bool hidePerfect = GUILayout.Toggle(Instance.Settings.HidePerfectJudgmentText, "Hide Perfect judgment text");
-    if (hidePerfect != Instance.Settings.HidePerfectJudgmentText)
-    {
-      Instance.Settings.HidePerfectJudgmentText = hidePerfect;
-      changed = true;
-    }
-
-    GUILayout.Space(12f);
-    GUILayout.Label("Recording");
-    bool recordMode = GUILayout.Toggle(Instance.Settings.RecordMode, "Record mode (hide game and ImplResourcePack UI)");
-    if (recordMode != Instance.Settings.RecordMode)
-    {
-      Instance.Settings.RecordMode = recordMode;
-      changed = true;
-    }
-
-    GUILayout.Space(12f);
-    GUILayout.Label("ImplDmNote");
-    if (UnityEngine.Application.platform == RuntimePlatform.OSXPlayer)
-    {
-      bool showDmNote = GUILayout.Toggle(Instance.Settings.ShowDmNoteInGame, "Show hand and foot viewers in game");
-      if (showDmNote != Instance.Settings.ShowDmNoteInGame)
-      {
-        Instance.Settings.ShowDmNoteInGame = showDmNote;
-        changed = true;
-      }
-      if (showDmNote)
-      {
-        GUILayout.Label("Enable OBS mode in ImplDmNote.");
-        if (
-          GUILayout.Button(
-            Instance.Runtime?.NativeViewerPreview == true ? "Hide viewer preview" : "Show viewer preview"
-          )
-        )
-          Instance.Runtime?.ToggleNativeViewerPreview();
-        GUILayout.Label(
-          Instance.Runtime?.NativeViewerStatus ?? "Native viewers are unavailable while the mod is disabled."
-        );
-      }
-
-      GUILayout.Space(12f);
-      GUILayout.Label("Level editor");
-      Instance.Settings.NativeEditorTrackpad = GUILayout.Toggle(
-        Instance.Settings.NativeEditorTrackpad,
-        "Native trackpad (two-finger pan / pinch zoom)"
-      );
-    }
-    else
-      GUILayout.Label("In-game viewers currently require macOS 11 or newer.");
-
-    if (changed)
-      Instance.Runtime?.ApplySettings();
+    GUILayout.Label("ImplResourcePack · " + SettingsPanel.ShortcutLabel(Instance.Settings));
+    bool wasEnabled = GUI.enabled;
+    GUI.enabled = wasEnabled && Instance.Runtime != null;
+    if (GUILayout.Button(RDString.language == SystemLanguage.Korean ? "설정 열기" : "Open settings"))
+      Instance.Runtime?.OpenSettings();
+    GUI.enabled = wasEnabled;
   }
 
   private static void OnSaveGUI(UnityModManager.ModEntry modEntry)

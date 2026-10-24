@@ -13,6 +13,7 @@ Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
   build       Build and install the mod
   mod-check   Build and test the mod without installing
+  ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
   install     Install the already verified mod payload
   package     Build the release package and metadata
@@ -47,6 +48,9 @@ case "$command_name" in
     ;;
   mod-check)
     exec "$SCRIPTS_DIR/workflows/build-install.sh" check
+    ;;
+  ui-check)
+    exec bash "$SCRIPTS_DIR/tasks/test/ui-preview.sh"
     ;;
   native-webview-check)
     exec bash "$SCRIPTS_DIR/tasks/test/game-webview.sh"

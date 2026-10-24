@@ -75,6 +75,7 @@ internal sealed class EditorTrackpadController : IDisposable
   }
 
   private bool CanNavigate(scnEditor editor) =>
+    !ImplResourcePack.Presentation.Settings.UIInteractionState.BlocksPointerInput &&
     _main.Settings.NativeEditorTrackpad &&
     editor != null && !editor.playMode && editor.camera != null &&
     editor.eventSystem != null && editor.eventSystem.currentInputModule is CustomStandaloneInputModule &&

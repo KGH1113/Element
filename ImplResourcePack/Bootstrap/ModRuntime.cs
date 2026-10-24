@@ -7,18 +7,24 @@ using ImplResourcePack.Domain.Judgement;
 using ImplResourcePack.Infrastructure.Assets;
 using ImplResourcePack.Infrastructure.Game.Bpm;
 using ImplResourcePack.Infrastructure.Game.Editor;
+using ImplResourcePack.Infrastructure.Game.Effects;
 using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Recording;
 using ImplResourcePack.Infrastructure.Game.Status;
 using ImplResourcePack.Infrastructure.Game.TimingScale;
+using ImplResourcePack.Infrastructure.Game.Tweaks;
 using ImplResourcePack.Infrastructure.Ipc;
+using ImplResourcePack.Presentation.Layout;
 using ImplResourcePack.Presentation.Overlay.Bpm;
 using ImplResourcePack.Presentation.Overlay.Combo;
 using ImplResourcePack.Presentation.Overlay.Judgement;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Overlay.Status;
 using ImplResourcePack.Presentation.Overlay.TimingScale;
+using ImplResourcePack.Presentation.Settings;
+using TMPro;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace ImplResourcePack.Bootstrap;
@@ -43,6 +49,13 @@ internal sealed class ModRuntime : IDisposable
   private bool _initialized;
   private bool _disposed;
   private EditorTrackpadController _trackpad;
+  private GameplayTweaksController _gameplayTweaks;
+  private PlanetPreviewRenderer _planetPreview;
+  private bool _planetPreviewFailed;
+  private EffectsController _effects;
+  private bool _presentationSettingsApplied;
+  private SettingsPanel _settingsPanel;
+  private OverlayLayoutEditor _layoutEditor;
 
   internal KeyLimiterService KeyLimiter => _keyLimiter;
   public bool OverlaysAvailable => _coordinator != null;
@@ -70,13 +83,18 @@ internal sealed class ModRuntime : IDisposable
       _harmony = new Harmony(HarmonyId);
       _harmony.PatchAll(typeof(Main).Assembly);
       _trackpad = EditorTrackpadController.TryCreate(_main);
+      _gameplayTweaks = new GameplayTweaksController(_main);
+      _effects = new EffectsController(() => _main.Settings.Effects);
       _recordingMode = new RecordingModeController();
       SceneManager.sceneUnloaded += OnSceneUnloaded;
       _sceneHooked = true;
       WarnIfKeyboardChatterBlockerIsLoaded();
 
       _canvasHost = new OverlayCanvasHost();
+      _canvasHost.ConfigureLayouts(_main.Settings.OverlayLayouts);
       _nativeViewers = new DmNoteNativeIpcFeature();
+      _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
+      _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _keyLimiterIpc.Enable();
 
@@ -86,6 +104,7 @@ internal sealed class ModRuntime : IDisposable
         _fontBundleLoader.Dispose();
         _fontBundleLoader = null;
         _initialized = true;
+        InitializeSettings();
         ApplySettings();
         return true;
       }
@@ -115,6 +134,7 @@ internal sealed class ModRuntime : IDisposable
       _timeTicker.Initialize(OnTimeTick);
 
       _initialized = true;
+      InitializeSettings();
       ApplySettings();
 
       return true;
@@ -156,8 +176,123 @@ internal sealed class ModRuntime : IDisposable
 
   public void TickTrackpad()
   {
-    _trackpad?.Tick();
+    if (_layoutEditor?.IsOpen == true)
+    {
+      if (_settingsPanel.ShortcutPressed())
+        _layoutEditor.Close(true);
+      else
+        _layoutEditor.Tick();
+      if (_layoutEditor.IsOpen)
+        _nativeViewers?.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+      UIInteractionState.RestoreCursor();
+    }
+    else
+      _settingsPanel?.Tick();
+    if (!UIInteractionState.BlocksPointerInput)
+      _trackpad?.Tick();
     Execute("Update native ImplDmNote viewers", () => _nativeViewers?.Tick());
+  }
+
+  public void OpenSettings()
+  {
+    _settingsPanel?.Open();
+  }
+
+  private void InitializeSettings()
+  {
+    TMP_FontAsset font = _fontBundleLoader?.FontAsset;
+    font ??=
+      RDString.language == SystemLanguage.Korean ? RDConstants.data.koreanFontTMPro : RDConstants.data.latinFontTMPro;
+    font ??= TMP_Settings.defaultFontAsset;
+    _nativeViewers.ConfigurePreview(font);
+    _layoutEditor = new OverlayLayoutEditor(
+      _canvasHost,
+      _nativeViewers.LayoutTargets,
+      font,
+      font != null ? font.material : null,
+      OnLayoutClosed,
+      _main.Settings,
+      _nativeViewers.AddElement,
+      _nativeViewers.GalleryTargets
+    );
+    _settingsPanel = new SettingsPanel(
+      _main.Settings,
+      font,
+      ApplySettings,
+      SaveSettings,
+      OpenLayout,
+      ResetLayout,
+      ToggleNativeViewerPreview,
+      () => _nativePreview,
+      () => NativeViewerStatus,
+      OnSettingsVisibility,
+      RenderPlanetPreview
+    );
+  }
+
+  private Texture RenderPlanetPreview(int index, Configuration.PlanetAppearanceProfile profile)
+  {
+    if (_planetPreviewFailed)
+      return null;
+    try
+    {
+      _planetPreview ??= new PlanetPreviewRenderer(_gameplayTweaks.Planets);
+      return _planetPreview.Render(index, profile);
+    }
+    catch (Exception exception)
+    {
+      _planetPreviewFailed = true;
+      _planetPreview?.Dispose();
+      _planetPreview = null;
+      _main.LogException("Render planet preview", exception);
+      return null;
+    }
+  }
+
+  private void ResetLayout()
+  {
+    _canvasHost.ResetLayouts();
+    _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts);
+  }
+
+  private bool SaveSettings()
+  {
+    try
+    {
+      _main.Settings.Save(_main.ModEntry);
+      return true;
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Save settings", exception);
+      return false;
+    }
+  }
+
+  private void OnSettingsVisibility(bool visible)
+  {
+    if (visible)
+      UIInteractionState.Begin();
+    else
+      UIInteractionState.End();
+    _nativeViewers?.SetVisible(!visible);
+  }
+
+  private void OpenLayout()
+  {
+    UIInteractionState.Begin(layoutEditing: true);
+    _layoutEditor.Open();
+    _nativeViewers?.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+    RefreshViewerMode(IsGameplayActive());
+  }
+
+  private void OnLayoutClosed(bool save)
+  {
+    bool saved = !save || SaveSettings();
+    RefreshViewerMode(IsGameplayActive());
+    _settingsPanel.Open();
+    if (!saved)
+      _settingsPanel.ShowSaveError();
   }
 
   public void ToggleNativeViewerPreview()
@@ -180,6 +315,16 @@ internal sealed class ModRuntime : IDisposable
         if (!_initialized)
           return;
 
+        OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
+        _gameplayTweaks?.Apply();
+        _effects?.ApplySettings();
+        // Color drags only update the affected planet. Avoid rebuilding overlay
+        // layouts, refreshing all counters or scanning the recording HUD per sample.
+        if (_presentationSettingsApplied && IsRecording == _main.Settings.RecordMode)
+          return;
+        _presentationSettingsApplied = true;
+        _canvasHost?.ApplyLayouts();
+        _nativeViewers?.ConfigureLayouts(_main.Settings.OverlayLayouts);
         _recordingMode?.Apply(_main.Settings.RecordMode);
         if (IsRecording)
         {
@@ -197,11 +342,7 @@ internal sealed class ModRuntime : IDisposable
 
   public bool ShouldShowHitText(HitMargin hitMargin)
   {
-    return HitTextVisibilityPolicy.ShouldShow(
-      _main.Settings.HidePerfectJudgmentText,
-      IsRecording,
-      HitMarginPolicy.IsPerfect(hitMargin)
-    );
+    return JudgementVisualPolicy.ShouldShow(_main.Settings.Gameplay.Judgement, IsRecording, (int)hitMargin);
   }
 
   public void ReapplyRecordingUi()
@@ -267,8 +408,20 @@ internal sealed class ModRuntime : IDisposable
     _disposed = true;
     _initialized = false;
 
+    _layoutEditor?.Dispose();
+    _layoutEditor = null;
+    _settingsPanel?.Dispose();
+    _settingsPanel = null;
+    _planetPreview?.Dispose();
+    _planetPreview = null;
+    UIInteractionState.Reset();
+
     _trackpad?.Dispose();
     _trackpad = null;
+    _gameplayTweaks?.Dispose();
+    _gameplayTweaks = null;
+    _effects?.Dispose();
+    _effects = null;
 
     _nativeViewers?.Dispose();
     _nativeViewers = null;
@@ -330,8 +483,10 @@ internal sealed class ModRuntime : IDisposable
   private void RefreshViewerMode(bool gameplay)
   {
     bool supported = UnityEngine.Application.platform == UnityEngine.RuntimePlatform.OSXPlayer;
-    bool enabled = supported && _main.Settings.ShowDmNoteInGame && !IsRecording && !scrController.coopMode;
-    _nativeViewers?.SetActive(enabled && (gameplay || _nativePreview));
+    bool editing = _layoutEditor?.IsOpen == true;
+    bool enabled =
+      supported && _nativeViewers.HasEnabledViewers && (editing || (!IsRecording && !scrController.coopMode));
+    _nativeViewers?.SetActive(enabled && (gameplay || _nativePreview || _layoutEditor?.IsOpen == true));
   }
 
   private void Execute(string context, Action action)

@@ -28,6 +28,7 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
   private int _lastTotalSeconds = -1;
   private bool _hasLastFps;
   private int _lastFps = -1;
+  private int _lastThemeVersion = -1;
 
   public StatusView(OverlayCanvasHost host, TMP_FontAsset font, Material material)
   {
@@ -46,15 +47,17 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
 
   public void Render(StatusSnapshot snapshot)
   {
-    bool languageChanged = !_hasLastLanguage || _lastLanguage != snapshot.Language;
+    bool themeChanged = _lastThemeVersion != OverlayTheme.Version;
+    bool languageChanged = !_hasLastLanguage || _lastLanguage != snapshot.Language || themeChanged;
     if (snapshot.HasMetrics)
       RenderMetrics(snapshot, languageChanged);
     if (snapshot.HasTime)
       RenderTime(snapshot, languageChanged);
-    RenderFps(snapshot);
+    RenderFps(snapshot, themeChanged);
 
     _hasLastLanguage = true;
     _lastLanguage = snapshot.Language;
+    _lastThemeVersion = OverlayTheme.Version;
   }
 
   public void Dispose()
@@ -84,6 +87,10 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
     _xAccuracyText = CreateRow("XAccuracy", -50f, font, material);
     _timeText = CreateRow("Time", -85f, font, material);
     _fpsText = CreateRow("FPS", -120f, font, material);
+    host.RegisterLayout("progress", "진행도", _progressText.gameObject, _progressText, "진행도 | 0%-48%");
+    host.RegisterLayout("accuracy", "정확도", _xAccuracyText.gameObject, _xAccuracyText, "정확도 | 100%");
+    host.RegisterLayout("time", "음악·맵 시간", _timeText.gameObject, _timeText, "음악 시간 | 1:27~3:48");
+    host.RegisterLayout("fps", "FPS", _fpsText.gameObject, _fpsText, "FPS | 120");
     _statusRoot.SetActive(false);
   }
 
@@ -156,7 +163,7 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
     _lastTotalSeconds = snapshot.TotalSeconds;
   }
 
-  private void RenderFps(StatusSnapshot snapshot)
+  private void RenderFps(StatusSnapshot snapshot, bool themeChanged)
   {
     if (!snapshot.HasFps)
     {
@@ -168,7 +175,7 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
       return;
     }
 
-    if (_hasLastFps && _lastFps == snapshot.Fps)
+    if (_hasLastFps && _lastFps == snapshot.Fps && !themeChanged)
       return;
 
     _fpsText.color = OverlayTheme.Accent;

@@ -41,6 +41,10 @@
       <HintPath>$(AdofaiManaged)/RDTools.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine">
+      <HintPath>$(AdofaiManaged)/UnityEngine.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.CoreModule">
       <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
@@ -75,6 +79,10 @@
     </Reference>
     <Reference Include="UnityEngine.AudioModule">
       <HintPath>$(AdofaiManaged)/UnityEngine.AudioModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ParticleSystemModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.ParticleSystemModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">

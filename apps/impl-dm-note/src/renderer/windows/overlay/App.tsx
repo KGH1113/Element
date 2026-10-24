@@ -31,6 +31,7 @@ import type { KnobItemPosition } from '@src/types/key/knobs';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import OverlayScene from '@components/shared/OverlayScene';
 import { computeLayout } from '@hooks/shared/useLayoutComputation';
+import { publishViewerLayout } from '@api/viewerLayout';
 import { isKeyMappedToViewer } from './keyStateRouting';
 
 type KeyDelayTimerEntry = { timers: Set<ReturnType<typeof setTimeout>> };
@@ -626,13 +627,17 @@ export default function App() {
   } | null>(null);
 
   useEffect(() => {
-    if (!bounds) return;
+    if (!bounds) {
+      publishViewerLayout(1, 1, 0);
+      return;
+    }
 
     const keyAreaWidth = bounds.maxX - bounds.minX;
     const keyAreaHeight = bounds.maxY - bounds.minY;
     const extraTop = trackHeight;
     const totalWidth = keyAreaWidth + overlayPadding * 2;
     const totalHeight = keyAreaHeight + overlayPadding * 2 + extraTop;
+    publishViewerLayout(totalWidth, totalHeight, overlayPadding);
     const contentTopOffset = extraTop + overlayPadding;
     const currentMinX = bounds.minX;
     const currentMinY = bounds.minY;

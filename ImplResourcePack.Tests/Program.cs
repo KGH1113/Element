@@ -34,7 +34,11 @@ internal static class Program
       Run("normalizes song title size tags", NormalizesSongTitleSizeTags);
       Run("measures stable and briefly dropped frame rates", MeasuresFrameRates);
       Run("trackpad gesture ownership, zoom and native ABI", TrackpadTests.Run);
+      Run("overlay layout hit bounds and eight anchored proportional resize handles", OverlayLayoutTests.Run);
+      Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
+      Run("gameplay tweaks, judgement filtering, editor transforms and planet persistence", GameplayTweaksTests.Run);
+      Run("effect presets, unique names, serialization and deferred filtering", EffectSettingsTests.Run);
       Console.WriteLine("ImplResourcePack tests: " + _passed + " passed");
       return 0;
     }

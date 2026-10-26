@@ -1,4 +1,5 @@
 #import "GameWebView.h"
+#import "ViewerScripts.h"
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
 #import <WebKit/WebKit.h>
@@ -159,48 +160,6 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 }
 @end
 
-// Observe visible key/stat geometry only; the note canvas intentionally reserves
-// a larger animation viewport. No polling or layout reads run during gameplay.
-static NSString *SelectionScript() {
-  return @"(() => {"
-    "let editing=false, pending=false, previous='';"
-    "const measure=()=>{pending=false; const w=innerWidth,h=innerHeight;if(!w||!h)return;"
-      "let l=w,t=h,r=0,b=0;"
-      "document.querySelectorAll('[data-state], [data-key-element], .absolute.select-none').forEach(el=>{"
-        "const s=getComputedStyle(el); if(s.display==='none'||s.visibility==='hidden'||s.opacity==='0')return;"
-        "const a=el.getBoundingClientRect();if(!a.width||!a.height)return;"
-        "l=Math.min(l,a.left);t=Math.min(t,a.top);r=Math.max(r,a.right);b=Math.max(b,a.bottom);"
-      "});"
-      "l=Math.max(0,l);t=Math.max(0,t);r=Math.min(w,r);b=Math.min(h,b);"
-      "const v=r>l&&b>t?[l/w,t/h,(r-l)/w,(b-t)/h]:[0,0,0,0];"
-      "const k=v.join(',');if(k!==previous){previous=k;window.webkit.messageHandlers.irpSelection.postMessage(v);}"
-    "};"
-    "const schedule=()=>{if(editing&&!pending){pending=true;setTimeout(measure,32);}};"
-    "window.__irpSetEditing=value=>{editing=!!value;if(editing)schedule();};"
-    "new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['style','class','hidden']});"
-    "addEventListener('resize',schedule);setTimeout(measure,0);"
-  "})();";
-}
-
-// Read the viewer's own setting, without changing its desktop/OBS preferences.
-// Wait only for bootstrap, then receive changes through its public settings API.
-static NSString *PaddingScript() {
-  return @"(() => {"
-    "let observer;"
-    "const start = () => {"
-      "const api = window.api?.settings; if (!api?.get || !api?.onChanged) return false;"
-      "observer?.disconnect();"
-      "let revision = 0;"
-      "const publish = state => { const p = state?.gridSettings?.overlayPadding;"
-        "if (typeof p === 'number' && Number.isFinite(p)) window.webkit.messageHandlers.irpPadding.postMessage(p); };"
-      "api.onChanged(state => { revision++; publish(state); });"
-      "const version = revision; api.get().then(state => { if (revision === version) publish(state); }).catch(() => {});"
-      "return true;"
-    "};"
-    "if (!start()) { observer = new MutationObserver(start); observer.observe(document.documentElement, {childList:true, subtree:true}); }"
-  "})();";
-}
-
 @interface IRPGameWebViewLayoutBridge : NSObject <WKScriptMessageHandler>
 @property(nonatomic, copy) void (^changed)(NSSize, CGFloat);
 @end
@@ -220,30 +179,18 @@ static NSString *PaddingScript() {
 }
 @end
 
-// The renderer publishes layout dimensions, not its current clipped browser
-// size. Attribute filtering avoids reacting to input highlights or animation.
-static NSString *LayoutScript() {
-  return @"(() => {"
-    "let bootstrapObserver;"
-    "const start=()=>{"
-      "const root=document.getElementById('root');if(!root)return;"
-      "bootstrapObserver?.disconnect();let previous='';"
-      "const publish=()=>{"
-        "const names=['data-dmn-viewer-width','data-dmn-viewer-height','data-dmn-viewer-padding'];"
-        "if(!names.every(name=>root.hasAttribute(name)))return;"
-        "const values=names.map(name=>Number(root.getAttribute(name)));"
-        "const key=values.join(',');if(key===previous)return;previous=key;"
-        "window.webkit.messageHandlers.irpLayout.postMessage(values);"
-      "};"
-      "new MutationObserver(publish).observe(root,{attributes:true,attributeFilter:"
-        "['data-dmn-viewer-width','data-dmn-viewer-height','data-dmn-viewer-padding']});"
-      "publish();"
-    "};"
-    "if(document.getElementById('root'))start();else{"
-      "bootstrapObserver=new MutationObserver(start);"
-      "bootstrapObserver.observe(document.documentElement,{childList:true,subtree:true});"
-    "}"
-  "})();";
+// Page scripts are shared with the Windows host (ViewerScripts.h). This prelude
+// routes their window.__irpPost(name, value) calls to WebKit message handlers.
+static NSString *BridgeScript() {
+  return @"(() => { if (window.__irpPost) return;"
+    "const post = (name, value) => window.webkit.messageHandlers[name].postMessage(value);"
+    "Object.defineProperty(window, '__irpPost', { value: post }); })();";
+}
+
+static WKUserScript *PageScript(NSString *source) {
+  return [[WKUserScript alloc] initWithSource:source
+                                injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
+                             forMainFrameOnly:YES];
 }
 
 @interface IRPGameWebViewSurface : NSObject <WKNavigationDelegate, WKUIDelegate>
@@ -623,8 +570,9 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
         }
       };
       [configuration.userContentController addScriptMessageHandler:bridge name:@"irpPadding"];
-      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:PaddingScript()
-          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+      // User scripts run in insertion order: the bridge must precede its callers.
+      [configuration.userContentController addUserScript:PageScript(BridgeScript())];
+      [configuration.userContentController addUserScript:PageScript(@(irp::scripts::kPadding))];
       IRPGameWebViewLayoutBridge *layoutBridge = [[IRPGameWebViewLayoutBridge alloc] init];
       layoutBridge.changed = ^(NSSize viewport, CGFloat padding) {
         IRPGameWebViewSurface *current = weakSurface;
@@ -639,13 +587,11 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
         }
       };
       [configuration.userContentController addScriptMessageHandler:layoutBridge name:@"irpLayout"];
-      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:LayoutScript()
-          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+      [configuration.userContentController addUserScript:PageScript(@(irp::scripts::kLayout))];
       IRPGameWebViewSelectionBridge *selectionBridge = [[IRPGameWebViewSelectionBridge alloc] init];
       selectionBridge.changed = ^(NSRect bounds) { weakSurface.selectionInViewport = bounds; };
       [configuration.userContentController addScriptMessageHandler:selectionBridge name:@"irpSelection"];
-      [configuration.userContentController addUserScript:[[WKUserScript alloc] initWithSource:SelectionScript()
-          injectionTime:WKUserScriptInjectionTimeAtDocumentEnd forMainFrameOnly:YES]];
+      [configuration.userContentController addUserScript:PageScript(@(irp::scripts::kSelection))];
       surface.webView = [[IRPGameWebView alloc] initWithFrame:NSZeroRect configuration:configuration];
       surface.webView.navigationDelegate = surface;
       surface.webView.UIDelegate = surface;

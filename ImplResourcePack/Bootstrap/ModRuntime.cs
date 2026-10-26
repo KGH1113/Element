@@ -99,8 +99,8 @@ internal sealed class ModRuntime : IDisposable
 
       _overlay = new OverlayRuntime(_main, OnTimeTick);
       _nativeViewers = new DmNoteNativeIpcFeature(
-        UnityEngine.Application.platform == RuntimePlatform.OSXPlayer,
-        () => new MacGameWebView(_main.Path),
+        NativeViewerPlatform.IsSupported,
+        () => NativeViewerPlatform.CreateHost(_main.Path),
         () => OverlayTheme.Accent,
         _main.LogException,
         _main.LogWarning
@@ -325,7 +325,7 @@ internal sealed class ModRuntime : IDisposable
   {
     if (_nativeViewers == null)
       return;
-    bool supported = UnityEngine.Application.platform == RuntimePlatform.OSXPlayer;
+    bool supported = NativeViewerPlatform.IsSupported;
     bool editing = _settingsUi?.IsEditingLayout == true;
     bool enabled =
       supported && _nativeViewers.HasEnabledViewers && (editing || (!IsRecording && !scrController.coopMode));

@@ -290,10 +290,9 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
     if (!_editing || now < _nextErrorCheckAt)
       return;
     _nextErrorCheckAt = now + ErrorCheckInterval;
-    string error = _host.LoadError;
-    if (string.IsNullOrWhiteSpace(error))
+    if (!_host.TryGetFault(out NativeViewerStatus status, out string error))
       return;
-    _session.Report(MacGameWebView.Classify(error));
+    _session.Report(status);
     if (error != _lastLoggedError)
     {
       _lastLoggedError = error;

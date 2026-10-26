@@ -68,7 +68,7 @@ namespace ImplResourcePack.Infrastructure.Game.DmNote
 {
   // Only the native transport is replaced. The production managed target owns
   // anchor selection, scaling, visibility fitting, staging and persistence.
-  internal sealed class MacGameWebView : INativeViewerLayoutHost
+  internal sealed class GameWebView : INativeViewerLayoutHost
   {
     public bool Connected = true;
     public Vector2 HostSizePoints;

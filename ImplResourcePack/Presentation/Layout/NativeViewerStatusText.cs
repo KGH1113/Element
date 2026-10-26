@@ -1,5 +1,6 @@
 using ImplResourcePack.Domain.DmNote;
 using ImplResourcePack.Presentation.Settings;
+using UnityEngine;
 
 namespace ImplResourcePack.Presentation.Layout;
 
@@ -56,13 +57,22 @@ internal static class NativeViewerStatusText
         "모드를 다시 설치하고 게임을 재시작하면 키뷰어를 쓸 수 있어요.",
         "Reinstall the mod and restart ADOFAI to use the key viewer."
       ),
-      NativeViewerStatus.UnsupportedSystem => SettingsLocale.L(
-        "게임 내 키뷰어는 macOS 11 이상에서 쓸 수 있어요.",
-        "In-game key viewers need macOS 11 or later."
+      NativeViewerStatus.WebViewRuntimeMissing => SettingsLocale.L(
+        "Microsoft Edge WebView2 런타임을 설치하거나 업데이트한 뒤 게임을 다시 시작하면 키뷰어를 쓸 수 있어요.",
+        "Install or update the Microsoft Edge WebView2 Runtime, then restart ADOFAI to use the key viewer."
       ),
+      NativeViewerStatus.UnsupportedSystem => UnityEngine.Application.platform == RuntimePlatform.WindowsPlayer
+        ? SettingsLocale.L(
+          "게임 내 키뷰어는 Windows 10 이상에서 쓸 수 있어요.",
+          "In-game key viewers need Windows 10 or later."
+        )
+        : SettingsLocale.L(
+          "게임 내 키뷰어는 macOS 11 이상에서 쓸 수 있어요.",
+          "In-game key viewers need macOS 11 or later."
+        ),
       NativeViewerStatus.UnsupportedPlatform => SettingsLocale.L(
-        "게임 내 키뷰어는 지금 macOS에서만 쓸 수 있어요. ImplDmNote 창이나 OBS로 키뷰어를 볼 수 있어요.",
-        "In-game key viewers currently run on macOS only. Use the ImplDmNote window or OBS instead."
+        "게임 내 키뷰어는 지금 macOS와 Windows에서만 쓸 수 있어요. ImplDmNote 창이나 OBS로 키뷰어를 볼 수 있어요.",
+        "In-game key viewers currently run on macOS and Windows only. Use the ImplDmNote window or OBS instead."
       ),
       _ => string.Empty,
     };

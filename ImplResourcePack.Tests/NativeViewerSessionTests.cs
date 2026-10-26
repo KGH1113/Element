@@ -55,19 +55,44 @@ internal static class NativeViewerSessionTests
   private static void MapsNativeHostErrors()
   {
     Check(
-      MacGameWebView.Classify("Native viewer renderer stopped. Viewers will reconnect automatically.")
+      NativeViewerErrors.Classify("Native viewer renderer stopped. Viewers will reconnect automatically.")
         == NativeViewerStatus.Reconnecting,
       "A crashed page reconnects by itself."
     );
     Check(
-      MacGameWebView.Classify("The Unity game window was not found. Return to the game and retry.")
+      NativeViewerErrors.Classify("The Unity game window was not found. Return to the game and retry.")
         == NativeViewerStatus.WindowUnavailable,
       "A missing game window asks the player to return to it."
     );
     Check(
-      MacGameWebView.Classify("Native viewer could not load its local source. Check ImplDmNote.")
+      NativeViewerErrors.Classify("Native viewer could not load its local source. Check ImplDmNote.")
         == NativeViewerStatus.PageUnavailable,
       "Page load errors suggest reloading OBS mode."
+    );
+    Check(
+      NativeViewerErrors.Classify("Microsoft Edge WebView2 Runtime is not installed. Install it and restart ADOFAI.")
+        == NativeViewerStatus.WebViewRuntimeMissing,
+      "A missing WebView2 Runtime asks the player to install it."
+    );
+    Check(
+      NativeViewerErrors.Classify(
+        "This WebView2 Runtime is too old for the in-game viewer. Update it and restart ADOFAI."
+      ) == NativeViewerStatus.WebViewRuntimeMissing,
+      "An outdated WebView2 Runtime asks the player to update it."
+    );
+    Check(
+      NativeViewerErrors.Classify("WebView2 could not start the in-game viewer. Viewers will reconnect automatically.")
+        == NativeViewerStatus.Reconnecting,
+      "A WebView2 start failure retries by itself."
+    );
+    Check(
+      NativeViewerErrors.Classify("Native viewers must be created on the game window's thread.")
+        == NativeViewerStatus.WindowUnavailable,
+      "A wrong host thread is reported as a window problem."
+    );
+    Check(
+      NativeViewerErrors.Classify("Native viewer requires macOS 11 or later.") == NativeViewerStatus.UnsupportedSystem,
+      "Old macOS versions are unsupported."
     );
   }
 

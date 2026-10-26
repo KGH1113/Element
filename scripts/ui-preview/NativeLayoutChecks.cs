@@ -38,7 +38,7 @@ namespace ImplResourcePack.Editor
       Vector2 size = reference * screenScale * migratedScale;
       Rect original = new Rect(viewportWidth * .82f - size.x * .5f,
         viewportHeight * .81f - size.y * .5f, size.x, size.y);
-      var host = new MacGameWebView
+      var host = new GameWebView
       {
         HostSizePoints = new Vector2(viewportWidth * .5f, viewportHeight * .5f),
         ReferenceSize = reference,
@@ -215,7 +215,7 @@ namespace ImplResourcePack.Editor
       return writer.ToString();
     }
 
-    private static Rect HostPixels(MacGameWebView host) => new Rect(
+    private static Rect HostPixels(GameWebView host) => new Rect(
       host.ContentBoundsPoints.x / host.HostSizePoints.x * Screen.width,
       host.ContentBoundsPoints.y / host.HostSizePoints.y * Screen.height,
       host.ContentBoundsPoints.width / host.HostSizePoints.x * Screen.width,

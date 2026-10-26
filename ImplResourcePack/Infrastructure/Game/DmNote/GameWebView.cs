@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Runtime.InteropServices;
 using ImplResourcePack.Domain.DmNote;
 using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Game.DmNote;
 
-internal sealed class MacGameWebView : INativeViewerHost
+/// <summary>
+/// The in-game viewer ABI (native/game-webview/GameWebView.h). macOS and Windows
+/// ship different libraries behind the same exports; only loading differs.
+/// </summary>
+internal sealed class GameWebView : INativeViewerHost
 {
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate int Supported();
@@ -61,14 +64,6 @@ internal sealed class MacGameWebView : INativeViewerHost
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate IntPtr LastError();
 
-  [DllImport("/usr/lib/libSystem.B.dylib")]
-  private static extern IntPtr dlopen(string path, int mode);
-
-  [DllImport("/usr/lib/libSystem.B.dylib")]
-  private static extern IntPtr dlsym(IntPtr handle, string name);
-
-  // Objective-C classes and WebKit callbacks may outlive a view. Keep the image loaded.
-  private static IntPtr _library;
   private readonly SetSurface _setSurface;
   private readonly SetVisible _setVisible;
   private readonly SetLayout _setLayout;
@@ -109,52 +104,34 @@ internal sealed class MacGameWebView : INativeViewerHost
     }
   }
 
-  public MacGameWebView(string modPath)
+  public GameWebView(INativeViewerLibrary library)
   {
-    // libSystem and the WebKit host exist only on macOS; never reach dlopen elsewhere.
-    if (
-      UnityEngine.Application.platform != RuntimePlatform.OSXPlayer
-      && UnityEngine.Application.platform != RuntimePlatform.OSXEditor
-    )
-      throw new NativeViewerHostException(
-        NativeViewerStatus.UnsupportedPlatform,
-        "Native viewers are available only on macOS."
-      );
-    if (_library == IntPtr.Zero)
+    if (library == null)
+      throw new ArgumentNullException(nameof(library));
+    _setSurface = Symbol<SetSurface>(library, "irp_webview_set_surface");
+    _setVisible = Symbol<SetVisible>(library, "irp_webview_set_visible");
+    _setLayout = Symbol<SetLayout>(library, "irp_webview_set_layout");
+    _setBounds = Symbol<SetBounds>(library, "irp_webview_set_bounds");
+    _getReferenceSize = Symbol<GetReferenceSize>(library, "irp_webview_get_reference_size");
+    _getGeometryRevision = Symbol<GetGeometryRevision>(library, "irp_webview_geometry_revision");
+    _getBounds = Symbol<GetBounds>(library, "irp_webview_get_bounds");
+    _getSelectionBounds = Symbol<GetBounds>(library, "irp_webview_get_selection_bounds");
+    _getPointer = Symbol<GetPointer>(library, "irp_webview_get_pointer");
+    _setEditing = Symbol<SetEditing>(library, "irp_webview_set_editing");
+    _setSelected = Symbol<SetSelected>(library, "irp_webview_set_selected");
+    _setHighlight = Symbol<SetHighlight>(library, "irp_webview_set_highlight");
+    _setEditorExclusion = Symbol<SetEditorExclusion>(library, "irp_webview_set_editor_exclusion");
+    _dispose = Symbol<DisposeViews>(library, "irp_webview_dispose");
+    _lastError = Symbol<LastError>(library, "irp_webview_last_error");
+    if (Symbol<Supported>(library, "irp_webview_supported")() == 0)
     {
-      string path = Path.Combine(modPath, "native", "libImplGameWebView.dylib");
-      if (!File.Exists(path))
-        throw new NativeViewerHostException(
-          NativeViewerStatus.ComponentMissing,
-          "Native viewer library is missing: " + path
-        );
-      _library = dlopen(path, 2);
-      if (_library == IntPtr.Zero)
-        throw new NativeViewerHostException(
-          NativeViewerStatus.ComponentMissing,
-          "Native viewer library could not load: " + path
-        );
-    }
-    _setSurface = Symbol<SetSurface>("irp_webview_set_surface");
-    _setVisible = Symbol<SetVisible>("irp_webview_set_visible");
-    _setLayout = Symbol<SetLayout>("irp_webview_set_layout");
-    _setBounds = Symbol<SetBounds>("irp_webview_set_bounds");
-    _getReferenceSize = Symbol<GetReferenceSize>("irp_webview_get_reference_size");
-    _getGeometryRevision = Symbol<GetGeometryRevision>("irp_webview_geometry_revision");
-    _getBounds = Symbol<GetBounds>("irp_webview_get_bounds");
-    _getSelectionBounds = Symbol<GetBounds>("irp_webview_get_selection_bounds");
-    _getPointer = Symbol<GetPointer>("irp_webview_get_pointer");
-    _setEditing = Symbol<SetEditing>("irp_webview_set_editing");
-    _setSelected = Symbol<SetSelected>("irp_webview_set_selected");
-    _setHighlight = Symbol<SetHighlight>("irp_webview_set_highlight");
-    _setEditorExclusion = Symbol<SetEditorExclusion>("irp_webview_set_editor_exclusion");
-    _dispose = Symbol<DisposeViews>("irp_webview_dispose");
-    _lastError = Symbol<LastError>("irp_webview_last_error");
-    if (Symbol<Supported>("irp_webview_supported")() == 0)
+      // The library explains why: an old macOS, or no WebView2 Runtime on Windows.
+      string message = LastErrorText;
       throw new NativeViewerHostException(
-        NativeViewerStatus.UnsupportedSystem,
-        "Native viewers require macOS 11 or newer."
+        NativeViewerErrors.Classify(message, unknown: NativeViewerStatus.UnsupportedSystem),
+        string.IsNullOrWhiteSpace(message) ? "Native viewers are not supported on this system." : message
       );
+    }
   }
 
   public void Apply((string Id, NativeViewerSurface Surface)[] surfaces)
@@ -173,8 +150,6 @@ internal sealed class MacGameWebView : INativeViewerHost
     _kinds.UnionWith(next);
     _geometryFrame = -1;
   }
-
-  public void Hide() => Show(false);
 
   public void ApplyHighlight(Color accent)
   {
@@ -261,7 +236,14 @@ internal sealed class MacGameWebView : INativeViewerHost
     return width > 0 && height > 0;
   }
 
-  public string LoadError => Marshal.PtrToStringAnsi(_lastError());
+  public bool TryGetFault(out NativeViewerStatus status, out string message)
+  {
+    message = _disposed ? null : LastErrorText;
+    status = NativeViewerErrors.Classify(message);
+    return !string.IsNullOrWhiteSpace(message);
+  }
+
+  private string LastErrorText => Marshal.PtrToStringAnsi(_lastError());
 
   public bool TryGetSelectionBounds(string kind, out Rect normalizedBounds)
   {
@@ -301,30 +283,16 @@ internal sealed class MacGameWebView : INativeViewerHost
 
   private NativeViewerHostException HostError()
   {
-    string message = LoadError;
+    string message = LastErrorText;
     return string.IsNullOrWhiteSpace(message)
       ? new NativeViewerHostException(NativeViewerStatus.WindowUnavailable, "Could not attach native viewers.")
-      : new NativeViewerHostException(Classify(message), message);
+      : new NativeViewerHostException(NativeViewerErrors.Classify(message), message);
   }
 
-  /// <summary>Maps the native host's diagnostic text to what the user can do about it.</summary>
-  public static NativeViewerStatus Classify(string nativeError)
-  {
-    if (string.IsNullOrWhiteSpace(nativeError))
-      return NativeViewerStatus.Attached;
-    if (nativeError.Contains("renderer stopped"))
-      return NativeViewerStatus.Reconnecting;
-    if (nativeError.Contains("macOS 11"))
-      return NativeViewerStatus.UnsupportedSystem;
-    if (nativeError.Contains("game window") || nativeError.Contains("application is not ready"))
-      return NativeViewerStatus.WindowUnavailable;
-    return NativeViewerStatus.PageUnavailable;
-  }
-
-  private static T Symbol<T>(string name)
+  private static T Symbol<T>(INativeViewerLibrary library, string name)
     where T : Delegate
   {
-    IntPtr address = dlsym(_library, name);
+    IntPtr address = library.Symbol(name);
     if (address == IntPtr.Zero)
       throw new NativeViewerHostException(
         NativeViewerStatus.ComponentMissing,

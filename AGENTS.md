@@ -12,7 +12,8 @@
 - After modifying the mod, complete the relevant checks and run `./scripts/run.sh install` to install the verified build into the user's mod folder.
 
 # UI/UX
-- Use shadcn mcp server actively. and use shadcn components.
+- ImplDmNote desktop app (`apps/impl-dm-note`, React): use shadcn mcp server actively. and use shadcn components.
+- In-game UI (Unity UGUI under `ImplResourcePack/Presentation`): shadcn components can't run there, so follow shadcn's card/button/switch/slider patterns as the existing settings UI does.
 - Read apple-design skill.
 - [Toss tech blog: 좋은 에러 메시지를 만드는 6가지 원칙](https://toss.tech/article/21021) read this blog for better error ux.
 

@@ -7,14 +7,12 @@ namespace ImplResourcePack.Editor
 {
   public static class FontBundleBuilder
   {
-    private const string BundleName = "implresourcepackfont";
-    private const string FontAssetPath = "Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset";
+    internal const string BundleName = "implresourcepackfont";
 
     [MenuItem("Impl Resource Pack/Build Font Bundles")]
     public static void BuildAll()
     {
-      if (AssetDatabase.LoadMainAssetAtPath(FontAssetPath) == null)
-        throw new FileNotFoundException("Font asset was not found.", FontAssetPath);
+      FontAssetGenerator.GenerateAll();
 
       string projectRoot =
         Directory.GetParent(Application.dataPath)?.FullName
@@ -25,7 +23,11 @@ namespace ImplResourcePack.Editor
       string runtimeRoot = Path.Combine(repositoryRoot, "ImplResourcePack", "Assets", "Font");
       string scratchRoot = Path.Combine(projectRoot, "Library", "ImplResourcePackFontBundles");
 
-      AssetBundleBuild definition = new() { assetBundleName = BundleName, assetNames = new[] { FontAssetPath } };
+      AssetBundleBuild definition = new()
+      {
+        assetBundleName = BundleName,
+        assetNames = new[] { FontAssetGenerator.PrimaryAssetPath, FontAssetGenerator.KoreanAssetPath },
+      };
 
       BuildOne(definition, scratchRoot, runtimeRoot, "Windows", BuildTarget.StandaloneWindows64);
       BuildOne(definition, scratchRoot, runtimeRoot, "Linux", BuildTarget.StandaloneLinux64);

@@ -9,7 +9,8 @@ source "$TASK_DIR/../../lib/guards.sh"
 
 require_file "$UNITY_EXE"
 require_dir "$IMPL_RESOURCEPACK_UNITY_PROJECT"
-require_file "$IMPL_RESOURCEPACK_UNITY_PROJECT/Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset"
+require_file "$IMPL_RESOURCEPACK_UNITY_PROJECT/Assets/Font/MAPLESTORY_OTF_BOLD.OTF"
+require_file "$IMPL_RESOURCEPACK_UNITY_PROJECT/Assets/Editor/FontAssetGenerator.cs"
 require_file "$IMPL_RESOURCEPACK_UNITY_PROJECT/Assets/Editor/FontBundleBuilder.cs"
 
 "$UNITY_EXE" \

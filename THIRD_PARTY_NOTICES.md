@@ -16,11 +16,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## MapleStory OTF Bold
 
-ImplResourcePack includes the `MAPLESTORY_OTF_BOLD` font-derived TextMesh Pro SDF asset as obtained from [Jongye0l/JipperResourcePack](https://github.com/Jongye0l/JipperResourcePack). No additional conversion or modification is performed by this repository.
+The ImplResourcePack source repository includes the unmodified `MAPLESTORY_OTF_BOLD.OTF` font file. Its Unity editor tooling (`ImplResourcePack.Unity/Assets/Editor/FontAssetGenerator.cs`) rasterizes TextMesh Pro SDF atlases from that file; it only chooses which code points to render and does not edit the font's outlines, metrics, names, or other data. Release builds redistribute only the resulting `MAPLESTORY_OTF_BOLD SDF` and `MAPLESTORY_OTF_BOLD KR SDF` assets inside the platform AssetBundles, not the font file itself.
 
 The MapleStory typeface is owned by NEXON Korea Corporation. The [official font terms](https://maplestory.nexon.com/Media/Font) permit free use by individuals and businesses and permit redistribution or bundling with a copyright notice. The font itself may not be modified or edited, and it may not be sold for a fee. Attribution is recommended by the official terms.
 
-MapleStory and NEXON are trademarks or registered marks of their respective owners. Inclusion of the font asset does not imply endorsement.
+MapleStory and NEXON are trademarks or registered marks of their respective owners. Inclusion of the font and its derived assets does not imply endorsement.
 
 ## ImplDmNote runtime artwork
 

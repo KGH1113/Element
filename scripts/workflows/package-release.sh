@@ -12,6 +12,7 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 run_task "Validate release package inputs" "$TASKS_DIR/validate/release-package-inputs.sh"
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
 run_task "Build mod (Release)" "$TASKS_DIR/build/mod.sh" Release
+run_task "Prepare Windows game WebView host" "$TASKS_DIR/package/windows-webview.sh"
 run_task "Stage package" "$TASKS_DIR/package/stage.sh"
 run_task "Create package archive" "$TASKS_DIR/package/archive.sh"
 run_task "Write release metadata" "$TASKS_DIR/package/write-release-assets.sh"

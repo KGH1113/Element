@@ -15,6 +15,8 @@ Commands:
   mod-check   Build and test the mod without installing
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
+  windows-webview-check  Build the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST and run its desktop smoke probe
+  windows-install  Install the mod with the Windows host into the Windows PC's ADOFAI (game closed)
   install     Install the already verified mod payload
   package     Build the release package and metadata
   check       Validate all shell scripts
@@ -55,6 +57,12 @@ case "$command_name" in
     ;;
   native-webview-check)
     exec bash "$SCRIPTS_DIR/tasks/test/game-webview.sh"
+    ;;
+  windows-webview-check)
+    exec bash "$SCRIPTS_DIR/tasks/test/game-webview-windows.sh"
+    ;;
+  windows-install)
+    exec bash "$SCRIPTS_DIR/tasks/install/windows-mod.sh"
     ;;
   install)
     exec "$SCRIPTS_DIR/tasks/install/mod.sh"

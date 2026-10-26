@@ -22,7 +22,7 @@ JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버�
 - 타이밍 스케일 (하단 중앙에 현재 타일의 판정 배율을 백분율로 표시)
 - 곡 제목
 - ImplDmNote 프로필과 동기화되는 입력 키 리미터
-- ImplDmNote 손·발 키뷰어를 게임 창 안에서 직접 그리는 네이티브 웹뷰 (macOS)
+- ImplDmNote 손·발 키뷰어를 게임 창 안에서 직접 그리는 네이티브 웹뷰 (macOS·Windows)
 
 ## 설정과 오버레이 설정
 
@@ -90,9 +90,9 @@ Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 Contract
 
 앱과 모드는 하나의 loopback WebSocket 연결에서 명령과 상태 이벤트를 주고받습니다. 키 프로필 적용 결과와 namespace 준비 상태는 polling 없이 전달되고, 프로필을 소유한 앱의 연결이 끊기면 입력 키 제한을 해제합니다. 자세한 경계와 검증은 [`docs/adofai-ipc-v2.md`](docs/adofai-ipc-v2.md)를 참고하세요.
 
-macOS 11 이상에서는 ImplDmNote의 OBS 페이지를 게임 창 내부의 WKWebView에서 직접 그립니다. 앱에서 원하는 손·발 탭을 선택하고 OBS 모드를 켜면 추가된 키뷰어 요소에 표시됩니다. **Overlay → Add Element**에서 손·발 키뷰어를 추가하고 선택해 이동·크기 조정·삭제할 수 있습니다. 손·발 키뷰어 요소를 모두 삭제하면 게임 내 키뷰어 기능 자체를 비활성화하며, 다시 추가하면 연결을 재개합니다. 별도의 표시 스위치와 연결·미리보기 카드는 제공하지 않습니다. 키뷰어가 연결되지 않으면 오버레이 편집 화면의 키뷰어 예시 위에 이유와 해결 방법을 한국어·영어로 표시합니다(예: ImplDmNote 실행, OBS 모드 켜기, 업데이트). 오버레이 설정은 별도로 실행되는 데스크톱 앱 창이 아닌 게임 내 키뷰어를 대상으로 합니다. OBS Studio를 실행할 필요는 없습니다.
+macOS 11 이상에서는 WKWebView, Windows 10 이상에서는 WebView2로 ImplDmNote의 OBS 페이지를 게임 창 안에서 직접 그립니다. Windows는 시스템의 Microsoft Edge WebView2 런타임(Windows 11 기본 포함)을 사용합니다. 앱에서 원하는 손·발 탭을 선택하고 OBS 모드를 켜면 추가된 키뷰어 요소에 표시됩니다. **Overlay → Add Element**에서 손·발 키뷰어를 추가하고 선택해 이동·크기 조정·삭제할 수 있습니다. 손·발 키뷰어 요소를 모두 삭제하면 게임 내 키뷰어 기능 자체를 비활성화하며, 다시 추가하면 연결을 재개합니다. 별도의 표시 스위치와 연결·미리보기 카드는 제공하지 않습니다. 키뷰어가 연결되지 않으면 오버레이 편집 화면의 키뷰어 예시 위에 이유와 해결 방법을 한국어·영어로 표시합니다(예: ImplDmNote 실행, OBS 모드 켜기, 업데이트). 오버레이 설정은 별도로 실행되는 데스크톱 앱 창이 아닌 게임 내 키뷰어를 대상으로 합니다. OBS Studio를 실행할 필요는 없습니다.
 
-게임 내 키뷰어는 네이티브 방식만 사용합니다. 프레임 캡처·파일 전달·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Windows·Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. Discord·OBS에서 게임 창만 선택해도 키뷰어가 함께 캡처됩니다. Release 앱 빌드와 확인 절차는 [게임 내 키뷰어 안내](docs/native-webview.md)를 참고하세요.
+게임 내 키뷰어는 네이티브 방식만 사용합니다. 프레임 캡처·파일 전달·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. macOS에서는 Discord·OBS에서 게임 창만 선택해도 키뷰어가 함께 캡처됩니다. Windows의 OBS에서는 **윈도우 캡처**의 캡처 방식을 **Windows 10 (1903 이상)**으로 설정해야 키뷰어가 함께 보입니다. 기본값인 **자동**은 게임 창에 BitBlt를 골라 키뷰어가 빠지며, **게임 캡처**도 게임이 그린 프레임만 가져가므로 키뷰어를 포함하지 않습니다. Release 앱 빌드와 확인 절차는 [게임 내 키뷰어 안내](docs/native-webview.md)를 참고하세요.
 
 앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 키뷰어 정보를 게임에 보냅니다. 게임은 놓친 알림에 대비해 30초마다 한 번만 확인하며, 이 기능이 없는 이전 앱에는 기존처럼 2초마다 확인합니다. 앱이 잠시 바쁘거나 OBS 서버가 시작 중이면 키뷰어 페이지를 유지한 채 다시 시도하고, 리플레이를 렌더링하는 동안에는 숨겼다가 끝나면 다시 표시합니다. OBS 모드를 끄거나 앱 연결이 끊긴 경우에만 페이지를 닫습니다.
 
@@ -173,7 +173,7 @@ C# 포맷터는 `tuf-replay`와 동일한 CSharpier 1.3.0을 사용합니다.
 ./scripts/run.sh mod-format
 ```
 
-`mod-format`은 입력 리미터·IPC·설정·오버레이와 관련 C# 테스트에 CSharpier를 적용합니다. `./scripts/run.sh mod-check`는 빌드와 회귀 테스트를, `./scripts/run.sh native-webview-check`는 macOS 네이티브 뷰의 배치·비율·재연결·입력 통과를 검증합니다. 실제 게임에서의 UI 표시와 조작은 별도 E2E 확인이 필요합니다.
+`mod-format`은 입력 리미터·IPC·설정·오버레이와 관련 C# 테스트에 CSharpier를 적용합니다. `./scripts/run.sh mod-check`는 빌드와 회귀 테스트를, `./scripts/run.sh native-webview-check`는 macOS 네이티브 뷰의 배치·비율·재연결·입력 통과를, `./scripts/run.sh windows-webview-check`는 `.env`에 지정한 Windows PC에서 Windows 네이티브 뷰를 빌드하고 같은 항목을 검증합니다. 실제 게임에서의 UI 표시와 조작은 별도 E2E 확인이 필요합니다.
 
 IPC 최소 런타임은 2.1.0, 계약 major는 1, wire major는 3, `impl-resourcepack` 기능 major는 1입니다. `vendor/adofai-ipc-runtime/SHA256SUMS`로 빌드 입력을 검증합니다. 기능을 끄면 등록만 해제하고 게임 프로세스의 공용 서버는 계속 실행됩니다. 이전 dependency shim 설치에서는 모드를 완전히 다시 설치하고 게임을 재시작해야 합니다.
 

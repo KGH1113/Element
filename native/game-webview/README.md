@@ -1,4 +1,4 @@
-# Native game webview (macOS)
+# Native game webview (macOS and Windows)
 
 ## Overview
 
@@ -7,7 +7,12 @@ in the Unity game's existing `NSWindow.contentView`. It creates no extra native
 window. ImplDmNote supplies authenticated local OBS viewer URLs and original CSS
 viewport dimensions. WebKit renders those pages directly; Unity does not copy
 screen captures or upload a texture. This is the only in-game viewer path;
-Windows and Linux do not yet have a native host.
+`GameWebViewWin.cpp` implements the same ABI on Windows (see [Windows](#windows)).
+Linux does not yet have a native host.
+
+Both hosts inject the page scripts in `ViewerScripts.h`. Each first defines
+`window.__irpPost(name, value)` for its own bridge (WebKit message handlers or
+WebView2 web messages) and validates every value it receives.
 
 ## Security
 
@@ -118,3 +123,55 @@ image. Capture backends can omit native child views even when the local game
 window displays them. On 2026-10-26 Discord and OBS Window Capture both included
 the viewers with only the game window selected; recheck after capture app or
 macOS updates.
+
+## Windows
+
+`GameWebViewWin.cpp` builds `ImplGameWebView.dll`. Each viewer is a WebView2
+composition controller whose root visual sits in a DirectComposition tree bound
+to the Unity window (`UnityWndClass`) as a topmost target, so pages composite
+above the game's swap chain inside the game window. No window covers the game
+(WebView2's own helper child is 0×0) and no input is forwarded, so clicks, keys
+and keyboard focus stay with Unity. Page rendering runs in `msedgewebview2.exe`.
+
+All exports run on the Unity window's thread, which is a COM single-threaded
+apartment; Unity's message pump also delivers WebView2 callbacks and the host's
+timers. The host never subclasses Unity's window: `irp_webview_geometry_revision`,
+which the managed host polls once per frame, notices size, DPI and minimize
+changes. Hidden or minimized pages call `put_IsVisible(FALSE)`, which stops
+rendering while keeping the page loaded.
+
+Placement mirrors the macOS host in physical pixels: automatic layout measures
+the 16-point inset and 430×270 fit in DIPs, explicit bounds come normalized from
+the managed resolver, and `RasterizationScale` (with monitor scale detection off)
+maps CSS pixels to pixels, so the page keeps its CSS viewport and rasterizes at
+its final size. Offsets are rounded to whole pixels for sharp text. A visual clip
+crops the configured padding. Editing chrome is drawn with Direct2D on a
+DirectComposition surface; the toolbar exclusion clears that region of the chrome
+and cuts the page with a CSS `clip-path` (even-odd path) because visual clips
+cannot express holes.
+
+Security matches macOS: explicit-port loopback HTTP only, top-level and frame
+navigation limited to the descriptor's origin, new windows and script dialogs
+blocked, InPrivate storage, and no URLs or tokens in diagnostics.
+
+When a renderer exits the page reloads after one second; when the browser process
+exits the environment and pages are rebuilt (at most five recoveries per minute,
+after which the next descriptor retries). The WebView2 environment and graphics
+devices outlive a disposed host for 60 seconds so the next gameplay session
+attaches in about 3 ms instead of about 40 ms. The DLL statically links the CRT
+and `WebView2LoaderStatic.lib` and depends only on system libraries; it requires
+the Microsoft Edge WebView2 Runtime.
+
+Capture: window capture through Windows Graphics Capture (OBS "Windows 10 (1903
+and up)") and display capture include the viewers. OBS's automatic window capture
+method selects BitBlt for Unity windows, and BitBlt and OBS Game Capture copy only
+the game's frame, so they omit the viewers.
+
+`./scripts/run.sh windows-webview-check` builds the DLL on the Windows host from
+`.env` (MSVC, pinned WebView2 SDK) and runs `GameWebViewWinSmoke.cpp` on its signed-in
+desktop. The probe creates a `UnityWndClass` window presenting a D3D11 flip-model
+swap chain, serves a loopback fixture page, and checks composed screen pixels,
+transparency, click and focus pass-through, editing chrome and exclusion,
+visibility, content growth, stale descriptors, resize and minimize, navigation
+blocking, browser-process recovery, and reattachment. Like the macOS probe, it
+does not prove the real game's hierarchy or capture behavior.

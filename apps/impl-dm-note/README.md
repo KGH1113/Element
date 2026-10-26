@@ -16,7 +16,7 @@ ImplDmNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. D
 
 macOS 11 이상에서 ImplResourcePack 모드와 ImplDmNote를 함께 실행하고 앱의 OBS 모드를 켜면, 게임 플레이 중 손·발 키뷰어가 게임 창 양쪽 아래에 표시됩니다. 모드의 **Show hand and foot viewers in game**은 기본으로 켜져 있으며 **Show viewer preview**로 메뉴에서도 확인할 수 있습니다. OBS Studio를 실행할 필요는 없습니다. 각 뷰어에서 선택한 탭을 따로 사용하고 최대 430×270포인트에 맞춰 배치합니다.
 
-게임 창 내부의 WKWebView가 OBS 페이지를 직접 렌더링합니다. 프레임 캡처·임시 파일 전송·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Windows·Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. 리플레이 렌더링 중에는 게임 내 뷰어를 잠시 숨기고, 끝나면 페이지를 다시 불러오지 않고 표시합니다. Discord·OBS에서 얼불춤 창만 선택해도 키뷰어가 함께 캡처됩니다. 앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 게임에 키뷰어 정보를 보냅니다(`mirror.native.changed`·`mirror.native.unavailable`).
+게임 창 안의 웹뷰(macOS는 WKWebView, Windows는 WebView2)가 OBS 페이지를 직접 렌더링합니다. 프레임 캡처·임시 파일 전송·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. 리플레이 렌더링 중에는 게임 내 뷰어를 잠시 숨기고, 끝나면 페이지를 다시 불러오지 않고 표시합니다. macOS의 Discord·OBS와 Windows OBS 윈도우 캡처의 **Windows 10 (1903 이상)** 방식에서는 얼불춤 창만 선택해도 키뷰어가 함께 캡처됩니다. 앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 게임에 키뷰어 정보를 보냅니다(`mirror.native.changed`·`mirror.native.unavailable`).
 
 `./scripts/run.sh desktop-bundle --release`로 만든 앱을 사용하세요. Debug 앱은 OBS 페이지를 Vite 개발 서버로 리다이렉트하므로 독립 실행 검증에 적합하지 않습니다. [게임·Discord·OBS 검증 절차](../../docs/native-webview.md)를 참고하세요.
 

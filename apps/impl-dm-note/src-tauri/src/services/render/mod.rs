@@ -107,6 +107,7 @@ impl RenderService {
                 rgba,
             });
         }
+        crate::services::native_viewers::notify_changed(app);
         self.touch();
         let prepare = (|| -> Result<Value, String> {
             let state = app.state::<crate::state::AppState>();
@@ -369,6 +370,7 @@ impl RenderService {
         self.input_gated.store(false, Ordering::Release);
         *self.last_contact.lock() = None;
         let _ = app.emit("render:mode", json!({"active":false}));
+        crate::services::native_viewers::notify_changed(app);
     }
 }
 

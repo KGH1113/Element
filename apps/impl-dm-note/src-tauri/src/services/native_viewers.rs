@@ -3,7 +3,7 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::atomic::Ordering;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::render::RenderService;
 use crate::models::{AppStoreData, KeyViewerKind, OverlayWindowLayout};
@@ -23,6 +23,12 @@ impl NativeViewerError {
             retryable,
         }
     }
+}
+
+/// Tells the game to describe its pages again. The event carries no data:
+/// descriptors include the OBS token and are sent only over the game IPC.
+pub fn notify_changed(app: &AppHandle) {
+    let _ = app.emit("native-viewers:changed", ());
 }
 
 /// The game owns rendering; describing pages never starts OBS or closes windows.

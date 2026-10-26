@@ -516,6 +516,7 @@ impl AppState {
                     // 초기 스냅샷 캐싱 (신규 클라이언트에 전송됨)
                     state.refresh_obs_snapshot();
                     let _ = app_handle.emit("obs:status", &state.obs_bridge.status());
+                    crate::services::native_viewers::notify_changed(&app_handle);
                 }
                 Err(e) => {
                     log::error!(
@@ -529,6 +530,7 @@ impl AppState {
                     let state = app_handle.state::<AppState>();
                     state.obs_restore_overlay(&app_handle);
                     let _ = app_handle.emit("obs:status", &state.obs_bridge.status());
+                    crate::services::native_viewers::notify_changed(&app_handle);
                 }
             }
         });

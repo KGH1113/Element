@@ -69,6 +69,7 @@ pub async fn obs_start(app: AppHandle, state: State<'_, AppState>) -> CmdResult<
     state.obs_hide_overlay(&app);
     let status = state.obs_bridge.status();
     let _ = app.emit("obs:status", &status);
+    crate::services::native_viewers::notify_changed(&app);
     Ok(status)
 }
 
@@ -79,6 +80,7 @@ pub async fn obs_stop(app: AppHandle, state: State<'_, AppState>) -> CmdResult<O
     state.obs_restore_overlay(&app);
     let status = state.obs_bridge.status();
     let _ = app.emit("obs:status", &status);
+    crate::services::native_viewers::notify_changed(&app);
     Ok(status)
 }
 
@@ -101,5 +103,6 @@ pub fn obs_regenerate_token(app: AppHandle, state: State<'_, AppState>) -> CmdRe
     }
     let status = state.obs_bridge.status();
     let _ = app.emit("obs:status", &status);
+    crate::services::native_viewers::notify_changed(&app);
     Ok(status)
 }

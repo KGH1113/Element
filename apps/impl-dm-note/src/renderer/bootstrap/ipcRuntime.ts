@@ -12,6 +12,7 @@ import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketT
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
+import { subscribe } from '@api/modules/shared';
 export const wallClockScheduler: SchedulerPort = {
   delay(callback, milliseconds) {
     const id = setTimeout(callback, milliseconds);
@@ -108,7 +109,9 @@ export function startRenderMessages(): () => Promise<void> {
     applicationMessages('impl-resourcepack'),
     {
       describe: (sessionId) => invoke('dmnote_native_describe', { sessionId }),
+      onChanged: (listener) => subscribe('native-viewers:changed', listener),
     },
+    wallClockScheduler,
   );
   const stop = async () => {
     await viewers.dispose();

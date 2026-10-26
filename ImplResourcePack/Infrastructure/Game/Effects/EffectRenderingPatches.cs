@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using ADOFAI;
+using ADOFAI.LevelEditor.Controls;
 using HarmonyLib;
 using ImplResourcePack.Configuration.Effects;
 
@@ -94,18 +95,26 @@ internal static class EffectReturnToEditorPatch
   [HarmonyPrefix]
   private static void Prefix(out IDisposable __state)
   {
-    EffectsController controller = EffectsController.Active;
-    __state = controller?.SuspendRendering();
-    if (controller == null || EffectsController.Applied == RemovedEffects.None || ADOBase.customLevel == null)
-      return;
-    // Restore decoration objects before the editor restores its previous
-    // selection. Its own SwitchToEditMode -> ResetScene rebuilds all floors.
-    ADOBase.customLevel.UpdateDecorationObjects();
-    ADOBase.customLevel.UpdateVideo();
+    __state = EffectsController.Active?.BeginEditorReturn();
   }
 
   [HarmonyFinalizer]
   private static void Finalizer(IDisposable __state) => __state?.Dispose();
+}
+
+[HarmonyPatch(typeof(PropertyControl_DecorationsList), "FilterSearchResults")]
+internal static class EffectEditorDecorationListPatch
+{
+  [HarmonyPostfix]
+  private static void Postfix(List<LevelEvent> ___filteredEvents)
+  {
+    // Filter only the list's display entries; saving and undo still use originals.
+    EffectLevelFilter.FilterEditorDecorations(
+      ___filteredEvents,
+      ADOBase.editor?.levelData,
+      EffectsController.ForRendering
+    );
+  }
 }
 
 [HarmonyPatch(typeof(scnGame), "Play")]
@@ -116,12 +125,8 @@ internal static class EffectPlayPatch
   {
     EffectsController controller = EffectsController.Active;
     bool changed = controller?.CommitForPlayback() ?? false;
-    bool fromEditor =
-      ADOBase.editor != null
-      && ADOBase.editor.inStrictlyEditingMode
-      && EffectsController.Applied != RemovedEffects.None;
-    __state = controller?.BeginRender(__instance, startingPlayback: true);
-    if (!changed && !fromEditor)
+    __state = controller?.BeginRender(__instance);
+    if (!changed)
       return;
     remakeFloors = true;
     __instance.RemakePath();

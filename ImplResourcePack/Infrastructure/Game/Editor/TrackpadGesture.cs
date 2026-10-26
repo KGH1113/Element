@@ -17,6 +17,13 @@ internal sealed class TrackpadGesture
   private Owner _owner;
   private bool _cancelledCanvas;
   public bool BlocksUi => _owner == Owner.Canvas || (_owner == Owner.Cancelled && _cancelledCanvas);
+
+  public void Reset()
+  {
+    _owner = Owner.None;
+    _cancelledCanvas = false;
+  }
+
   public void Cancel()
   {
     _cancelledCanvas |= _owner == Owner.Canvas;

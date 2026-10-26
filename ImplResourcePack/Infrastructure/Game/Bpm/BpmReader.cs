@@ -1,8 +1,9 @@
+using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Bpm;
 
 namespace ImplResourcePack.Infrastructure.Game.Bpm;
 
-internal sealed class BpmReader
+internal sealed class BpmReader : IBpmSource
 {
   public BpmSnapshot Read()
   {

@@ -20,6 +20,7 @@ internal sealed partial class OverlayLayoutEditor
     CloseGallery();
     _resetConfirmation = true;
     _galleryWidth = ViewWidth;
+    _galleryRebuildAt = float.PositiveInfinity;
     _galleryHeight = ViewHeight;
     _galleryUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
     _galleryRoot = _galleryUi.Rect("Reset all confirmation", _root.transform, 0, 0, ViewWidth, ViewHeight).gameObject;

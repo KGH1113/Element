@@ -41,18 +41,12 @@ internal sealed partial class SettingsPanel
   private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1 };
   private readonly SettingsWindowMotion _windowMotion;
 
-  // Keep the runtime entry point stable while layout/color/viewer controls move
-  // into the overlay editor. Settings now owns just its home and two subpages.
   public SettingsPanel(
     ImplResourcePackSettings settings,
     TMP_FontAsset font,
     Action apply,
     Func<bool> save,
     Action editLayout,
-    Action resetLayout,
-    Action togglePreview,
-    Func<bool> preview,
-    Func<string> viewerStatus,
     Action<bool> visibility,
     Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null
   )

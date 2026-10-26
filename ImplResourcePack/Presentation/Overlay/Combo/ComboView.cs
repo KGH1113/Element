@@ -1,4 +1,4 @@
-using System.Globalization;
+using System.Text;
 using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Combo;
 using ImplResourcePack.Presentation.Overlay.Shared;
@@ -11,6 +11,7 @@ namespace ImplResourcePack.Presentation.Overlay.Combo;
 
 internal sealed class ComboView : IOverlayView<ComboSnapshot>
 {
+  private readonly StringBuilder _builder = new(12);
   private GameObject _root;
   private Material _comboMaterial;
   private ComboAnimationDriver _animation;
@@ -120,7 +121,7 @@ internal sealed class ComboView : IOverlayView<ComboSnapshot>
     )
       return;
 
-    _valueText.text = snapshot.Count.ToString(CultureInfo.InvariantCulture);
+    _valueText.Assign(_builder.Clear().AppendInt(snapshot.Count));
     _valueText.color = OverlayTheme.ComboColor(snapshot.Count);
     _lastCount = snapshot.Count;
     _lastThemeVersion = OverlayTheme.Version;

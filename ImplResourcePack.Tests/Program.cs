@@ -38,7 +38,10 @@ internal static class Program
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run("gameplay tweaks, judgement filtering, editor transforms and planet persistence", GameplayTweaksTests.Run);
-      Run("effect presets, unique names, serialization and deferred filtering", EffectSettingsTests.Run);
+      Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
+      Run("allocation-free overlay text and hook-thread key limiter state", PerformanceTests.Run);
+      Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
+      Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
       Console.WriteLine("ImplResourcePack tests: " + _passed + " passed");
       return 0;
     }

@@ -76,10 +76,20 @@ internal sealed class RecordingModeController
       Hide(controller.errorMeter?.wrapperRectTransform?.gameObject);
     }
 
-    scrEnableIfBeta betaIndicator = Resources.FindObjectsOfTypeAll<scrEnableIfBeta>().FirstOrDefault();
+    // Scene objects only. Resources.FindObjectsOfTypeAll also returns prefab
+    // assets; deactivating the miss/fail indicator prefabs made every later
+    // instance start inactive, so the game's blink coroutine failed on each death.
+    scrEnableIfBeta betaIndicator = Object
+      .FindObjectsByType<scrEnableIfBeta>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+      .FirstOrDefault();
     Hide(betaIndicator?.gameObject);
 
-    foreach (scrMissIndicator indicator in Resources.FindObjectsOfTypeAll<scrMissIndicator>())
+    foreach (
+      scrMissIndicator indicator in Object.FindObjectsByType<scrMissIndicator>(
+        FindObjectsInactive.Include,
+        FindObjectsSortMode.None
+      )
+    )
       Hide(indicator?.gameObject);
   }
 

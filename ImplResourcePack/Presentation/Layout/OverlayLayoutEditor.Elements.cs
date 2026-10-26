@@ -20,6 +20,7 @@ internal sealed partial class OverlayLayoutEditor
   private TextMeshProUGUI _galleryError;
   private int _galleryWidth,
     _galleryHeight;
+  private float _galleryRebuildAt = float.PositiveInfinity;
 
   private static string ElementLabel(IOverlayLayoutTarget target) =>
     target.TemplateId switch
@@ -114,8 +115,19 @@ internal sealed partial class OverlayLayoutEditor
       );
       _colorPopover.Root.localScale = Vector3.one * PopupScale;
     }
-    if (_galleryRoot != null && (_galleryWidth != ViewWidth || _galleryHeight != ViewHeight))
+    if (_galleryRoot == null)
+      return;
+    if (_galleryWidth != ViewWidth || _galleryHeight != ViewHeight)
     {
+      // A live window resize changes the size every frame. Rebuilding ~150
+      // objects per frame stalls the editor, so wait until the size settles.
+      _galleryWidth = ViewWidth;
+      _galleryHeight = ViewHeight;
+      _galleryRebuildAt = Time.unscaledTime + .2f;
+    }
+    else if (Time.unscaledTime >= _galleryRebuildAt)
+    {
+      _galleryRebuildAt = float.PositiveInfinity;
       if (_resetConfirmation)
         OpenResetConfirmation();
       else
@@ -182,6 +194,7 @@ internal sealed partial class OverlayLayoutEditor
     _toolbarDragging = false;
     _galleryWidth = ViewWidth;
     _galleryHeight = ViewHeight;
+    _galleryRebuildAt = float.PositiveInfinity;
     _galleryUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
     _galleryRoot = _galleryUi.Rect("Add Element gallery", _root.transform, 0, 0, ViewWidth, ViewHeight).gameObject;
     Button backdrop = _galleryUi.Button(

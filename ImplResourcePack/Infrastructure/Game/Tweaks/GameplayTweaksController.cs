@@ -30,8 +30,8 @@ internal sealed class GameplayTweaksController : IDisposable
     Hook(typeof(scnEditor), "OnSelectedFloorChange", postfix: nameof(InvalidateEditor));
     Hook(typeof(scnEditor), "RemakePath", postfix: nameof(InvalidateEditor));
     Hook(typeof(scnEditor), "DrawFloorNums", postfix: nameof(InvalidateEditor));
-    Hook(typeof(scrFloor), "OnBecameVisible", postfix: nameof(InvalidateEditor));
-    Hook(typeof(scrFloor), "OnBecameInvisible", postfix: nameof(InvalidateEditor));
+    Hook(typeof(scrFloor), "OnBecameVisible", postfix: nameof(FloorVisibilityChanged));
+    Hook(typeof(scrFloor), "OnBecameInvisible", postfix: nameof(FloorVisibilityChanged));
     foreach (string method in new[] { "FlipFloor", "RotateFloor", "RotateFloor180" })
       Hook(
         typeof(scnEditor),
@@ -170,6 +170,9 @@ internal sealed class GameplayTweaksController : IDisposable
   }
 
   private static void InvalidateEditor() => _current?._editor.Invalidate();
+
+  private static void FloorVisibilityChanged(scrFloor __instance) =>
+    _current?._editor.OnFloorVisibilityChanged(__instance);
 
   private static void BeforeEditorTransform(
     scnEditor __instance,

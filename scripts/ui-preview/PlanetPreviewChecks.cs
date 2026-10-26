@@ -52,7 +52,8 @@ namespace ImplResourcePack.Editor
         Assert(Field<GameObject>(renderer, "_root") == null, "renderer remains lazy until a valid source is requested");
         RenderTexture.active = activeSentinel;
         RenderTexture target = Render(renderer, 0, profile);
-        Assert(target.width == 640 && target.height == 400 && target.IsCreated(), "preview owns a live render target");
+        Assert(target.width == 640 && target.height == 400 && target.IsCreated() && target.depth == 0,
+          "preview owns a live render target without an unused depth buffer");
         Assert(RenderTexture.active == activeSentinel, "preview rendering restores the caller's active render target");
         Assert(renders > 0, "production preview executes a real Unity camera render");
         int firstRenders = renders;
@@ -119,22 +120,32 @@ namespace ImplResourcePack.Editor
         profile.Ring.ColorHex = "#469FE0"; profile.Ring.Opacity = 100;
         Render(renderer, 0, profile);
         Save(target, output, "planet-renderer-synthetic-components");
+        // Settings show one planet at a time, so all planets share one target.
+        int beforeSwitch = renders;
         RenderTexture blueTarget = Render(renderer, 1, new PlanetAppearanceProfile("#3366FF"));
-        Assert(blueTarget != target && blueTarget.IsCreated(), "each planet has an independent cached render target");
-        Assert(Render(renderer, 0, profile) == target, "switching back to Fire reuses its existing render target");
+        Assert(blueTarget == target && blueTarget.IsCreated() && renders > beforeSwitch,
+          "switching planets redraws the single shared render target");
+        int beforeReturn = renders;
+        Assert(Render(renderer, 0, profile) == target && renders > beforeReturn,
+          "switching back to Fire redraws it instead of showing the previous planet");
+        int beforeRepeat = renders;
+        Assert(Render(renderer, 0, profile) == target && renders == beforeRepeat,
+          "the shown planet is not redrawn while its appearance is unchanged");
 
         source.Body.sprite = source.AlternateSprite;
+        int beforeSprite = renders;
         RenderTexture replacement = Render(renderer, 0, profile);
-        Assert(replacement != target && (target == null || !target.IsCreated()),
-          "source sprite replacement rebuilds the preview and releases its old GPU target");
+        Assert(replacement == target && renders > beforeSprite,
+          "source sprite replacement rebuilds the preview and redraws the shared target");
         Assert(PreviewComponent<SpriteRenderer>(renderer, 0, "Body").sprite == source.AlternateSprite,
           "the rebuilt preview uses the new source sprite asset");
         source.Body.sprite = source.Sprite;
         target = Render(renderer, 0, profile);
         Material original = source.Body.sharedMaterial;
         source.Body.sharedMaterial = source.AlternateMaterial;
+        int beforeMaterial = renders;
         replacement = Render(renderer, 0, profile);
-        Assert(replacement != target && (target == null || !target.IsCreated()),
+        Assert(replacement == target && renders > beforeMaterial,
           "source material replacement invalidates the visual cache");
         source.Body.sharedMaterial = original;
         target = Render(renderer, 0, profile);
@@ -178,8 +189,7 @@ namespace ImplResourcePack.Editor
         GameObject ownedRoot = Field<GameObject>(renderer, "_root");
         var ownedMaterials = ownedRoot.GetComponentsInChildren<Renderer>(true)
           .SelectMany(component => component.sharedMaterials).Where(material => material != null).Distinct().ToArray();
-        RenderTexture[] ownedTargets = ((Array)Field<object>(renderer, "_previews")).Cast<object>()
-          .Where(value => value != null).Select(value => Field<RenderTexture>(value, "Texture")).ToArray();
+        RenderTexture[] ownedTargets = { Field<RenderTexture>(renderer, "_target") };
         renderer.Dispose();
         Assert(ownedRoot == null && ownedMaterials.All(material => material == null)
           && ownedTargets.All(texture => texture == null || !texture.IsCreated()),

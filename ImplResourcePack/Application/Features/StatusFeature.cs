@@ -1,15 +1,14 @@
 using ImplResourcePack.Domain.Status;
-using ImplResourcePack.Infrastructure.Game.Status;
 
 namespace ImplResourcePack.Application.Features;
 
 internal sealed class StatusFeature : IOverlayFeature
 {
-  private readonly StatusReader _reader;
+  private readonly IStatusSource _reader;
   private readonly IOverlayView<StatusSnapshot> _view;
   private StatusSnapshot _snapshot;
 
-  public StatusFeature(StatusReader reader, IOverlayView<StatusSnapshot> view)
+  public StatusFeature(IStatusSource reader, IOverlayView<StatusSnapshot> view)
   {
     _reader = reader;
     _view = view;

@@ -24,4 +24,31 @@ internal sealed class NativeViewerSurface
       && address.UserInfo.Length == 0
       && address.Fragment.Length == 0;
   }
+
+  public bool SameAs(NativeViewerSurface other) =>
+    other != null
+    && ViewerKind == other.ViewerKind
+    && Url == other.Url
+    && Width == other.Width
+    && Height == other.Height;
+
+  /// <summary>An unchanged descriptor needs no native layout or page work.</summary>
+  public static bool SameSet(NativeViewerSurface[] left, NativeViewerSurface[] right)
+  {
+    if (left == null || right == null || left.Length != right.Length)
+      return false;
+    foreach (NativeViewerSurface surface in left)
+    {
+      bool found = false;
+      foreach (NativeViewerSurface candidate in right)
+        if (surface != null && surface.SameAs(candidate))
+        {
+          found = true;
+          break;
+        }
+      if (!found)
+        return false;
+    }
+    return true;
+  }
 }

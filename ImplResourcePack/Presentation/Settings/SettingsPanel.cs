@@ -138,8 +138,7 @@ internal sealed partial class SettingsPanel : IDisposable
       CaptureShortcut();
       return;
     }
-    bool typing = EventSystem.current?.currentSelectedGameObject?.GetComponent<TMP_InputField>()?.isFocused == true;
-    if (!typing && ShortcutPressed())
+    if (!IsTyping() && ShortcutPressed())
     {
       if (IsOpen)
         Close();
@@ -179,15 +178,21 @@ internal sealed partial class SettingsPanel : IDisposable
     UIInteractionState.RestoreCursor();
   }
 
-  public bool ShortcutPressed()
+  public bool ShortcutPressed() => ShortcutPressed(_settings);
+
+  // Static so the runtime can watch the shortcut before the window is built.
+  public static bool ShortcutPressed(ImplResourcePackSettings settings)
   {
-    if (!UnityEngine.Input.GetKeyDown(_settings.SettingsShortcutKey))
+    if (!UnityEngine.Input.GetKeyDown(settings.SettingsShortcutKey))
       return false;
     foreach (KeyCode modifier in Modifiers)
-      if (UnityEngine.Input.GetKey(modifier) != (modifier == _settings.SettingsShortcutModifier))
+      if (UnityEngine.Input.GetKey(modifier) != (modifier == settings.SettingsShortcutModifier))
         return false;
     return true;
   }
+
+  public static bool IsTyping() =>
+    EventSystem.current?.currentSelectedGameObject?.GetComponent<TMP_InputField>()?.isFocused == true;
 
   private void BeginCapture()
   {

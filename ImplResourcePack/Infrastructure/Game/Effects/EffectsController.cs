@@ -10,29 +10,18 @@ internal sealed class EffectsController : IDisposable
   private RemovedEffects _requested;
   private RemovedEffects _applied;
   private int _renderDepth;
-  private int _suspended;
+  private int _editorReturnDepth;
   private bool _disposed;
 
   internal static EffectsController Active { get; private set; }
   internal static RemovedEffects Applied => Active?._applied ?? RemovedEffects.None;
   internal static bool Rendering => (Active?._renderDepth ?? 0) > 0;
-  internal static RemovedEffects ForRendering
-  {
-    get
-    {
-      EffectsController controller = Active;
-      if (controller == null || controller._suspended > 0)
-        return RemovedEffects.None;
-      scnEditor editor = ADOBase.editor;
-      return AllowsRendering(editor != null && editor.inStrictlyEditingMode, controller._renderDepth > 0, false)
-        ? controller._applied
-        : RemovedEffects.None;
-    }
-  }
-  public bool RequiresRestart => _requested != _applied;
 
-  internal static bool AllowsRendering(bool editing, bool startingPlayback, bool suspended) =>
-    !suspended && (!editing || startingPlayback);
+  // Keep one visual preset through loading, editing, playback and editor return.
+  // Temporarily restoring originals on return would reload every removed image.
+  internal static RemovedEffects ForRendering => Applied;
+  public bool RequiresRestart => _requested != _applied;
+  internal bool ReturningToEditor => _editorReturnDepth > 0;
 
   public EffectsController(Func<EffectSettings> settings)
   {
@@ -51,15 +40,19 @@ internal sealed class EffectsController : IDisposable
 
   internal bool CommitForPlayback()
   {
+    // SwitchToEditMode also calls ResetScene. Keep the current visual preset
+    // instead of committing pending settings and rebuilding assets on return.
+    if (_disposed || ReturningToEditor)
+      return false;
     ApplySettings();
     bool changed = _applied != _requested;
     _applied = _requested;
     return changed;
   }
 
-  internal IDisposable BeginRender(scnGame game, bool startingPlayback = false)
+  internal IDisposable BeginRender(scnGame game)
   {
-    RemovedEffects effects = startingPlayback && _suspended == 0 ? _applied : ForRendering;
+    RemovedEffects effects = ForRendering;
     if (_disposed || game == null || game.levelData == null || effects == RemovedEffects.None || _renderDepth > 0)
       return null;
     LevelData original = game.levelData;
@@ -69,10 +62,10 @@ internal sealed class EffectsController : IDisposable
     return new RenderScope(this, game, original, rendered);
   }
 
-  internal IDisposable SuspendRendering()
+  internal IDisposable BeginEditorReturn()
   {
-    _suspended++;
-    return new Suspension(this);
+    _editorReturnDepth++;
+    return new EditorReturnScope(this);
   }
 
   public void Dispose()
@@ -109,17 +102,17 @@ internal sealed class EffectsController : IDisposable
     }
   }
 
-  private sealed class Suspension : IDisposable
+  private sealed class EditorReturnScope : IDisposable
   {
     private EffectsController _owner;
 
-    public Suspension(EffectsController owner) => _owner = owner;
+    public EditorReturnScope(EffectsController owner) => _owner = owner;
 
     public void Dispose()
     {
       if (_owner == null)
         return;
-      _owner._suspended--;
+      _owner._editorReturnDepth--;
       _owner = null;
     }
   }

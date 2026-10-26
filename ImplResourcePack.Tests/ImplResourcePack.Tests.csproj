@@ -19,6 +19,14 @@
       <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <Reference Include="AdofaiIpc.Contracts">
+      <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(AdofaiManaged)/Newtonsoft.Json.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="SkyHook.Unity">
       <HintPath>$(AdofaiManaged)/SkyHook.Unity.dll</HintPath>
       <Private>true</Private>

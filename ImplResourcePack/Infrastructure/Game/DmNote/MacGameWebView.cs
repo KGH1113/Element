@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using ImplResourcePack.Domain.DmNote;
-using ImplResourcePack.Presentation.Overlay.Shared;
 using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Game.DmNote;
 
-internal sealed class MacGameWebView : IDisposable
+internal sealed class MacGameWebView : INativeViewerHost
 {
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate int Supported();
@@ -93,7 +92,7 @@ internal sealed class MacGameWebView : IDisposable
   private int _pointerFrame = -1;
   private bool _pointerAvailable;
   private Vector2 _pointer;
-  private int _themeVersion = -1;
+  private Color _highlight = new(float.NaN, 0, 0);
   private int _geometryFrame = -1;
   private ulong _geometryRevision;
 
@@ -112,15 +111,28 @@ internal sealed class MacGameWebView : IDisposable
 
   public MacGameWebView(string modPath)
   {
+    // libSystem and the WebKit host exist only on macOS; never reach dlopen elsewhere.
+    if (
+      UnityEngine.Application.platform != RuntimePlatform.OSXPlayer
+      && UnityEngine.Application.platform != RuntimePlatform.OSXEditor
+    )
+      throw new NativeViewerHostException(
+        NativeViewerStatus.UnsupportedPlatform,
+        "Native viewers are available only on macOS."
+      );
     if (_library == IntPtr.Zero)
     {
       string path = Path.Combine(modPath, "native", "libImplGameWebView.dylib");
       if (!File.Exists(path))
-        throw new InvalidOperationException("Native viewer library is missing. Reinstall the mod and restart ADOFAI.");
+        throw new NativeViewerHostException(
+          NativeViewerStatus.ComponentMissing,
+          "Native viewer library is missing: " + path
+        );
       _library = dlopen(path, 2);
       if (_library == IntPtr.Zero)
-        throw new InvalidOperationException(
-          "Native viewer library could not load. Reinstall the mod and restart ADOFAI."
+        throw new NativeViewerHostException(
+          NativeViewerStatus.ComponentMissing,
+          "Native viewer library could not load: " + path
         );
     }
     _setSurface = Symbol<SetSurface>("irp_webview_set_surface");
@@ -139,8 +151,10 @@ internal sealed class MacGameWebView : IDisposable
     _dispose = Symbol<DisposeViews>("irp_webview_dispose");
     _lastError = Symbol<LastError>("irp_webview_last_error");
     if (Symbol<Supported>("irp_webview_supported")() == 0)
-      throw new InvalidOperationException("Native viewers require macOS 11 or newer.");
-    RefreshTheme();
+      throw new NativeViewerHostException(
+        NativeViewerStatus.UnsupportedSystem,
+        "Native viewers require macOS 11 or newer."
+      );
   }
 
   public void Apply((string Id, NativeViewerSurface Surface)[] surfaces)
@@ -149,7 +163,7 @@ internal sealed class MacGameWebView : IDisposable
     foreach ((string id, NativeViewerSurface surface) in surfaces)
     {
       if (_setSurface(id, surface.Url, surface.Width, surface.Height) == 0)
-        throw new InvalidOperationException(Error());
+        throw HostError();
       next.Add(id);
     }
     foreach (string kind in _kinds)
@@ -162,12 +176,11 @@ internal sealed class MacGameWebView : IDisposable
 
   public void Hide() => Show(false);
 
-  public void RefreshTheme()
+  public void ApplyHighlight(Color accent)
   {
-    if (_disposed || _themeVersion == OverlayTheme.Version)
+    if (_disposed || _highlight == accent)
       return;
-    _themeVersion = OverlayTheme.Version;
-    Color accent = OverlayTheme.Accent;
+    _highlight = accent;
     _setHighlight(accent.r, accent.g, accent.b);
   }
 
@@ -206,7 +219,7 @@ internal sealed class MacGameWebView : IDisposable
   public void Layout(string kind, bool customized, float centerX, float centerY, float scale)
   {
     if (HasSurface(kind) && _setLayout(kind, customized ? 1 : 0, centerX, centerY, scale) == 0)
-      throw new InvalidOperationException(Error());
+      throw HostError();
   }
 
   public void LayoutBounds(string kind, Rect normalizedBounds, float effectiveScale)
@@ -222,7 +235,7 @@ internal sealed class MacGameWebView : IDisposable
         effectiveScale
       ) == 0
     )
-      throw new InvalidOperationException(Error());
+      throw HostError();
   }
 
   public bool TryGetReferenceSize(string kind, out Vector2 size)
@@ -286,12 +299,26 @@ internal sealed class MacGameWebView : IDisposable
     _dispose();
   }
 
-  private string Error()
+  private NativeViewerHostException HostError()
   {
     string message = LoadError;
     return string.IsNullOrWhiteSpace(message)
-      ? "Could not attach native viewers. Switch to windowed mode and try again."
-      : message;
+      ? new NativeViewerHostException(NativeViewerStatus.WindowUnavailable, "Could not attach native viewers.")
+      : new NativeViewerHostException(Classify(message), message);
+  }
+
+  /// <summary>Maps the native host's diagnostic text to what the user can do about it.</summary>
+  public static NativeViewerStatus Classify(string nativeError)
+  {
+    if (string.IsNullOrWhiteSpace(nativeError))
+      return NativeViewerStatus.Attached;
+    if (nativeError.Contains("renderer stopped"))
+      return NativeViewerStatus.Reconnecting;
+    if (nativeError.Contains("macOS 11"))
+      return NativeViewerStatus.UnsupportedSystem;
+    if (nativeError.Contains("game window") || nativeError.Contains("application is not ready"))
+      return NativeViewerStatus.WindowUnavailable;
+    return NativeViewerStatus.PageUnavailable;
   }
 
   private static T Symbol<T>(string name)
@@ -299,7 +326,18 @@ internal sealed class MacGameWebView : IDisposable
   {
     IntPtr address = dlsym(_library, name);
     if (address == IntPtr.Zero)
-      throw new MissingMethodException("Native viewer library is incompatible. Reinstall the mod and restart ADOFAI.");
+      throw new NativeViewerHostException(
+        NativeViewerStatus.ComponentMissing,
+        "Native viewer library is incompatible: missing " + name
+      );
     return Marshal.GetDelegateForFunctionPointer<T>(address);
   }
+}
+
+internal sealed class NativeViewerHostException : Exception
+{
+  public NativeViewerStatus Status { get; }
+
+  public NativeViewerHostException(NativeViewerStatus status, string message)
+    : base(message) => Status = status;
 }

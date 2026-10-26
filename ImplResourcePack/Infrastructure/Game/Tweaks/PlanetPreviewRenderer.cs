@@ -18,6 +18,12 @@ internal sealed class PlanetPreviewRenderer : IDisposable
   private readonly Preview[] _previews = new Preview[3];
   private GameObject _root;
   private Camera _camera;
+
+  // The settings page shows one planet at a time, so all previews share one
+  // target. The owner frees it when settings close.
+  private RenderTexture _target;
+  private int _targetIndex = -1;
+  private int _targetRevision;
   private PlanetRenderer _fallback;
   private float _nextFallbackLookup;
   private bool _disposed;
@@ -37,10 +43,13 @@ internal sealed class PlanetPreviewRenderer : IDisposable
     {
       preview?.Dispose();
       _previews[planetIndex] = preview = new Preview(_root.transform, source);
+      if (_targetIndex == planetIndex)
+        _targetIndex = -1;
     }
     int revision = AppearanceHash(source, profile);
-    if (preview.Revision == revision && preview.HasRendered && preview.Texture.IsCreated())
-      return preview.Texture;
+    RenderTexture target = EnsureTarget();
+    if (_targetIndex == planetIndex && _targetRevision == revision && target.IsCreated())
+      return target;
 
     // The camera is disabled and only this visual tree is temporarily active.
     // No scene camera can see these objects during its normal render loop.
@@ -50,13 +59,13 @@ internal sealed class PlanetPreviewRenderer : IDisposable
       _root.SetActive(true);
       preview.Root.SetActive(true);
       preview.Apply(source, profile);
-      if (!preview.Texture.IsCreated())
-        preview.Texture.Create();
+      if (!target.IsCreated())
+        target.Create();
       _camera.orthographicSize = preview.HalfHeight;
-      _camera.targetTexture = preview.Texture;
+      _camera.targetTexture = target;
       _camera.Render();
-      preview.Revision = revision;
-      preview.HasRendered = true;
+      _targetIndex = planetIndex;
+      _targetRevision = revision;
     }
     finally
     {
@@ -65,7 +74,31 @@ internal sealed class PlanetPreviewRenderer : IDisposable
       _camera.targetTexture = null;
       RenderTexture.active = previous;
     }
-    return preview.Texture;
+    return target;
+  }
+
+  private RenderTexture EnsureTarget()
+  {
+    if (_target != null)
+      return _target;
+    // The planet body is premultiplied but its ring uses straight alpha. An RGB
+    // target avoids multiplying either composited result again in RawImage.
+    RenderTextureFormat format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float)
+      ? RenderTextureFormat.RGB111110Float
+      : RenderTextureFormat.ARGB32;
+    // Sprites, lines and particles are ordered by sorting order, not depth;
+    // a 4x MSAA depth buffer would only add another 4 MB.
+    _target = new RenderTexture(640, 400, 0, format)
+    {
+      name = "ImplResourcePack Planet Preview",
+      hideFlags = HideFlags.HideAndDontSave,
+      antiAliasing = 4,
+      filterMode = FilterMode.Bilinear,
+      wrapMode = TextureWrapMode.Clamp,
+    };
+    _target.Create();
+    _targetIndex = -1;
+    return _target;
   }
 
   private void EnsureCamera()
@@ -299,6 +332,12 @@ internal sealed class PlanetPreviewRenderer : IDisposable
       DestroyOwned(_root);
     _root = null;
     _camera = null;
+    if (_target != null)
+    {
+      _target.Release();
+      DestroyOwned(_target);
+    }
+    _target = null;
   }
 
   private struct Source
@@ -322,9 +361,6 @@ internal sealed class PlanetPreviewRenderer : IDisposable
   private sealed class Preview : IDisposable
   {
     internal readonly GameObject Root;
-    internal readonly RenderTexture Texture;
-    internal int Revision;
-    internal bool HasRendered;
     internal float HalfHeight = 1.7f;
     private readonly Source _source;
     private readonly List<Material> _materials = new();
@@ -363,20 +399,6 @@ internal sealed class PlanetPreviewRenderer : IDisposable
       try
       {
         Root.SetActive(false);
-        // The planet body is premultiplied but its ring uses straight alpha. An
-        // RGB target avoids multiplying either composited result again in RawImage.
-        RenderTextureFormat format = SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RGB111110Float)
-          ? RenderTextureFormat.RGB111110Float
-          : RenderTextureFormat.ARGB32;
-        Texture = new RenderTexture(640, 400, 24, format)
-        {
-          name = "ImplResourcePack Planet Preview",
-          hideFlags = HideFlags.HideAndDontSave,
-          antiAliasing = 4,
-          filterMode = FilterMode.Bilinear,
-          wrapMode = TextureWrapMode.Clamp,
-        };
-        Texture.Create();
         float size = Mathf.Max(0.01f, Mathf.Max(source.Body.sprite.bounds.size.x, source.Body.sprite.bounds.size.y));
         float scale = 1.15f / size;
         _body = CopySprite(source.Body, "Body", scale, 20);
@@ -658,11 +680,6 @@ internal sealed class PlanetPreviewRenderer : IDisposable
       }
       foreach (Material material in _materials)
         DestroyOwned(material);
-      if (Texture != null)
-      {
-        Texture.Release();
-        DestroyOwned(Texture);
-      }
     }
   }
 }

@@ -1,5 +1,7 @@
 # Native game webview (macOS)
 
+## Overview
+
 `GameWebView.mm` embeds a transparent, click-through `WKWebView` for each added hand or foot element
 in the Unity game's existing `NSWindow.contentView`. It creates no extra native
 window. ImplDmNote supplies authenticated local OBS viewer URLs and original CSS
@@ -7,10 +9,14 @@ viewport dimensions. WebKit renders those pages directly; Unity does not copy
 screen captures or upload a texture. This is the only in-game viewer path;
 Windows and Linux do not yet have a native host.
 
+## Security
+
 The host accepts only explicit-port loopback HTTP URLs, keeps navigation within
 the supplied origin, uses nonpersistent WebKit storage, and excludes URLs and
 authentication tokens from diagnostics. The renderer remains a browser and can
 load its page's resources and plugins; this is not a network sandbox.
+
+## Placement
 
 On initial attachment, each viewer fits within 430×270 game-window points with 16-point bottom and side
 insets. That initial reference scale is frozen: larger content grows the view,
@@ -54,6 +60,8 @@ when a viewer is moved over them. The exclusion follows toolbar dragging in the
 same frame, follows window resizing, and is
 removed when editing ends.
 
+## Content size
+
 The native page reads `window.api.settings` after bootstrap and subscribes to its
 padding changes. A local layer mask crops the configured outer padding, and the
 same cropped rectangle drives selection and hit testing. The original CSS viewport
@@ -65,11 +73,15 @@ The OBS renderer publishes its computed CSS width, height, and padding on the
 layout dimensions to WebKit's `irpLayout` handler. Live dimensions replace the
 initial descriptor size, so switching tabs, changing key layouts, and adjusting
 note tracks resizes the view without reloading it or resetting input state.
-Descriptor polling cannot overwrite these dimensions with stale desktop bounds.
+Descriptor updates (pushed by ImplDmNote, or the occasional fallback describe)
+cannot overwrite these dimensions with stale desktop bounds, and an unchanged
+descriptor is not applied again.
 A source URL change resets the live size until the new page reports its layout.
 Geometry revisions let the managed resolver preserve saved anchors and scale
 while updating content bounds. Key highlights and note animation do not trigger
 size measurements or layout messages.
+
+## C ABI
 
 The public C ABI is in `GameWebView.h`. `irp_webview_set_bounds` accepts the resolved
 normalized content rectangle; `irp_webview_get_reference_size` returns the cropped
@@ -81,6 +93,8 @@ when the host is attached and navigation is scheduled, rather than waiting for
 page load. A null or empty URL removes only that viewer. `dispose` removes views,
 delegates, and observers; keep the dylib loaded until game process exit because
 Objective-C classes and late WebKit callbacks outlive a managed mod reload.
+
+## Verification
 
 Build and run the standalone probe through `./scripts/run.sh native-webview-check`.
 `GameWebViewSmoke.mm` creates a synthetic `PlayerWindow`/`PlayerWindowView` pair
@@ -101,4 +115,6 @@ full screen, minimizing/restoring, gameplay
 keyboard/mouse input, and enabling/disabling the mod. Then select only the game
 in Discord sharing and OBS Window Capture and inspect the received/recorded
 image. Capture backends can omit native child views even when the local game
-window displays them; capture inclusion remains to be verified on real clients.
+window displays them. On 2026-10-26 Discord and OBS Window Capture both included
+the viewers with only the game window selected; recheck after capture app or
+macOS updates.

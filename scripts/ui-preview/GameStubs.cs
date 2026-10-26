@@ -68,7 +68,7 @@ namespace ImplResourcePack.Infrastructure.Game.DmNote
 {
   // Only the native transport is replaced. The production managed target owns
   // anchor selection, scaling, visibility fitting, staging and persistence.
-  internal sealed class MacGameWebView
+  internal sealed class MacGameWebView : INativeViewerLayoutHost
   {
     public bool Connected = true;
     public Vector2 HostSizePoints;
@@ -152,6 +152,7 @@ namespace ImplResourcePack.Presentation.Overlay.Shared
     public Layout.IOverlayLayoutTarget AddElement(string templateId) => AddFactory?.Invoke(templateId);
     public void ApplyLayouts() { foreach (var target in LayoutTargets) target.RefreshLayout(); }
     public void SetLayoutPreview(bool value) { }
+    public void PruneDisabledInstances() { }
     public void TickLayoutPreview() { }
   }
 }

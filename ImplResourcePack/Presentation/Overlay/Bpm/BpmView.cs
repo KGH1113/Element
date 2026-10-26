@@ -1,5 +1,3 @@
-using System;
-using System.Globalization;
 using System.Text;
 using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Bpm;
@@ -17,8 +15,10 @@ internal sealed class BpmView : IOverlayView<BpmSnapshot>
   private TextMeshProUGUI _text;
   private TextMeshProUGUI _currentText;
   private TextMeshProUGUI _keysText;
-  private double _lastTileBpm = double.NaN;
-  private double _lastCurrentBpm = double.NaN;
+
+  // Displayed values (two decimals) decide when the text needs rebuilding.
+  private long _lastTileBpm = long.MinValue;
+  private long _lastCurrentBpm = long.MinValue;
   private int _lastThemeVersion = -1;
 
   public BpmView(OverlayCanvasHost host, TMP_FontAsset font, Material material)
@@ -54,32 +54,21 @@ internal sealed class BpmView : IOverlayView<BpmSnapshot>
 
   public void Render(BpmSnapshot snapshot)
   {
-    if (
-      _text == null
-      || !snapshot.IsValid
-      || (
-        _lastTileBpm == snapshot.TileBpm
-        && _lastCurrentBpm == snapshot.CurrentBpm
-        && _lastThemeVersion == OverlayTheme.Version
-      )
-    )
+    if (_text == null || !snapshot.IsValid)
+      return;
+    long tileBpm = NumberText.Scaled(snapshot.TileBpm, 2);
+    long currentBpm = NumberText.Scaled(snapshot.CurrentBpm, 2);
+    if (_lastTileBpm == tileBpm && _lastCurrentBpm == currentBpm && _lastThemeVersion == OverlayTheme.Version)
       return;
 
-    string tileColor = OverlayTheme.ColorToHex(OverlayTheme.BpmColor(snapshot.TileBpm));
-    string currentColor = OverlayTheme.ColorToHex(OverlayTheme.BpmColor(snapshot.CurrentBpm));
+    Color tileColor = OverlayTheme.BpmColor(snapshot.TileBpm);
+    Color currentColor = OverlayTheme.BpmColor(snapshot.CurrentBpm);
+    _text.Assign(AppendLine("TBPM", snapshot.TileBpm, tileColor));
+    _currentText.Assign(AppendLine("CBPM", snapshot.CurrentBpm, currentColor));
+    _keysText.Assign(AppendLine("KPS", snapshot.KeysPerSecond, currentColor));
 
-    _builder.Clear();
-    AppendLine("TBPM", snapshot.TileBpm, tileColor);
-    _text.text = _builder.ToString();
-    _builder.Clear();
-    AppendLine("CBPM", snapshot.CurrentBpm, currentColor);
-    _currentText.text = _builder.ToString();
-    _builder.Clear();
-    AppendLine("KPS", snapshot.KeysPerSecond, currentColor);
-    _keysText.text = _builder.ToString();
-
-    _lastTileBpm = snapshot.TileBpm;
-    _lastCurrentBpm = snapshot.CurrentBpm;
+    _lastTileBpm = tileBpm;
+    _lastCurrentBpm = currentBpm;
     _lastThemeVersion = OverlayTheme.Version;
   }
 
@@ -109,15 +98,16 @@ internal sealed class BpmView : IOverlayView<BpmSnapshot>
     return text;
   }
 
-  private void AppendLine(string label, double value, string color)
+  private StringBuilder AppendLine(string label, double value, Color color)
   {
-    _builder
+    return _builder
+      .Clear()
       .Append("<color=#FFFFFF>")
       .Append(label)
       .Append(" |</color> <color=#")
-      .Append(color)
+      .AppendHexRgb(color)
       .Append('>')
-      .Append(Math.Round(value, 2).ToString(CultureInfo.InvariantCulture))
+      .AppendRounded(value, 2)
       .Append("</color>");
   }
 }

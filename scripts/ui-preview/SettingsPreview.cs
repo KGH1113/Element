@@ -512,7 +512,7 @@ namespace ImplResourcePack.Editor
       OverlayTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, () => {}, () => {}, () => false, () => "Native viewers attached.", _ => {}, planetPreview.Render);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render);
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");

@@ -18,14 +18,14 @@ internal sealed class EditorTrackpadController : IDisposable
   private readonly TrackpadEvent[] _buffer = new TrackpadEvent[4096];
   private readonly List<TrackpadEvent> _pending = new();
   private readonly List<RaycastResult> _hits = new();
-  private TrackpadGesture _scroll = new();
-  private TrackpadGesture _pinch = new();
+  private readonly TrackpadGesture _scroll = new();
+  private readonly TrackpadGesture _pinch = new();
   private readonly FieldInfo _popup = AccessTools.Field(typeof(scnEditor), "showingPopup");
   private readonly MethodInfo _dragCamera = AccessTools.Method(typeof(scnEditor), "DragCamera");
   private int _frame = -1;
   private scnEditor _editor;
   private Vector3? _zoomPointer;
-  private bool _suppressEditor, _suppressUi, _disposed;
+  private bool _active, _suppressEditor, _suppressUi, _disposed;
 
   public static EditorTrackpadController TryCreate(Main main)
   {
@@ -92,17 +92,22 @@ internal sealed class EditorTrackpadController : IDisposable
     _pending.Clear();
     scnEditor editor = scnEditor.instance;
     bool active = CanNavigate(editor);
-    _native.SetEnabled(active);
-    if (!active || editor != _editor)
+    scnEditor target = active ? editor : null;
+    if (active != _active || target != _editor)
     {
-      _scroll = new TrackpadGesture();
-      _pinch = new TrackpadGesture();
-      _editor = active ? editor : null;
       // Scene/navigation transitions must not reuse a prior gesture's ownership.
+      _scroll.Reset();
+      _pinch.Reset();
+      _editor = target;
+      _active = active;
       _native.SetEnabled(false);
       _native.SetEnabled(active);
       return;
     }
+    // Outside the editor this runs every frame; an unchanged inactive state
+    // needs no native calls or fresh gesture state.
+    if (!active)
+      return;
     int count = _native.Read(_buffer);
     if (count < 0)
     {

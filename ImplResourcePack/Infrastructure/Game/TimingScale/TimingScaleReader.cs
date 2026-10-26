@@ -1,8 +1,9 @@
+using ImplResourcePack.Application;
 using ImplResourcePack.Domain.TimingScale;
 
 namespace ImplResourcePack.Infrastructure.Game.TimingScale;
 
-internal sealed class TimingScaleReader
+internal sealed class TimingScaleReader : ITimingScaleSource
 {
   public TimingScaleSnapshot Read()
   {

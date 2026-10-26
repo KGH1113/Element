@@ -1,4 +1,4 @@
-namespace ImplResourcePack.Infrastructure.Game.Judgement;
+namespace ImplResourcePack.Domain.Judgement;
 
 internal static class HitMarginPolicy
 {

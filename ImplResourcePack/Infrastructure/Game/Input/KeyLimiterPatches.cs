@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using ImplResourcePack.Bootstrap;
 using ImplResourcePack.Domain.Input;
 using SkyHook;
 using UnityEngine;
@@ -9,21 +10,42 @@ namespace ImplResourcePack.Infrastructure.Game.Input;
 
 internal static class KeyLimiterPatchPolicy
 {
-  public static bool ShouldEnforce(KeyLimiterSnapshot snapshot)
-  {
-    scrController controller = ADOBase.controller;
-    return snapshot != null
-      && snapshot.Enabled
-      && controller != null
-      && !controller.paused
-      && controller.gameworld
-      && controller.stateMachine.GetState() is States state
-      && state == States.PlayerControl;
-  }
+  // SkyHook calls the hook prefix on its native thread, where Unity objects must
+  // not be touched. The main thread publishes the gameplay state after each
+  // controller update, and the hook reads only this flag and the snapshot.
+  private static volatile bool _playerControl;
+
+  public static bool ShouldEnforce(KeyLimiterSnapshot snapshot) =>
+    snapshot != null && snapshot.Enabled && IsPlayerControl(ADOBase.controller);
+
+  public static bool ShouldEnforceOnHookThread(KeyLimiterSnapshot snapshot) =>
+    snapshot != null && snapshot.Enabled && _playerControl;
+
+  public static void Publish(scrController controller) => Publish(IsPlayerControl(controller));
+
+  internal static void Publish(bool playerControl) => _playerControl = playerControl;
+
+  public static void Reset() => _playerControl = false;
+
+  private static bool IsPlayerControl(scrController controller) =>
+    controller != null
+    && !controller.paused
+    && controller.gameworld
+    && controller.stateMachine.GetState() is States state
+    && state == States.PlayerControl;
+}
+
+[HarmonyPatch(typeof(scrController), "Update")]
+[PatchGroup("KeyLimiter")]
+internal static class KeyLimiterStatePatch
+{
+  [HarmonyPostfix]
+  private static void Postfix(scrController __instance) => KeyLimiterPatchPolicy.Publish(__instance);
 }
 
 [HarmonyPatch(typeof(scrPlayer), nameof(scrPlayer.CountValidKeysPressed))]
 [HarmonyAfter("KeyboardChatterBlocker")]
+[PatchGroup("KeyLimiter")]
 internal static class CountValidKeysPressedLimiterPatch
 {
   [HarmonyPostfix]
@@ -52,6 +74,7 @@ internal static class CountValidKeysPressedLimiterPatch
 
 [HarmonyPatch(typeof(SkyHookManager), "HookCallback")]
 [HarmonyAfter("KeyboardChatterBlocker")]
+[PatchGroup("KeyLimiter")]
 internal static class SkyHookLimiterPatch
 {
   [HarmonyPrefix]
@@ -62,6 +85,6 @@ internal static class SkyHookLimiterPatch
       return true;
 
     KeyLimiterSnapshot snapshot = Main.Instance?.Runtime?.KeyLimiter?.Current;
-    return !KeyLimiterPatchPolicy.ShouldEnforce(snapshot) || snapshot.AllowsAsync(ev.Key);
+    return !KeyLimiterPatchPolicy.ShouldEnforceOnHookThread(snapshot) || snapshot.AllowsAsync(ev.Key);
   }
 }

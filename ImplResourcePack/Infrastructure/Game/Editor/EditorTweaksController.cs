@@ -19,13 +19,41 @@ internal sealed class EditorTweaksController : IDisposable
   private readonly StringBuilder _text = new();
   private static readonly FieldInfo Popup = AccessTools.Field(typeof(scnEditor), "showingPopup");
   private scrFloor _labelFloor;
-  private bool _dirty = true;
+  private string _labelText;
+
+  // Selection stats change only with the selection or level; placement follows
+  // the camera. Visibility callbacks fire for every floor crossing the view, so
+  // they only request a throttled placement update.
+  private bool _statsDirty = true;
+  private bool _placementDirty;
+  private bool _labelOverwritten;
+  private float _nextPlacement;
   private bool _wasPlaying;
   private int _selectionOptions = -1;
 
   public EditorTweaksController(EditorTweaksOptions settings) => _settings = settings;
 
-  public void Invalidate() => _dirty = true;
+  public void Invalidate() => _statsDirty = true;
+
+  public void OnFloorVisibilityChanged(scrFloor floor)
+  {
+    if (floor == null || _labelText == null)
+      return;
+    // The game rewrites a floor's number text when it becomes visible.
+    if (floor == _labelFloor)
+    {
+      _labelOverwritten = true;
+      return;
+    }
+    scnEditor editor = scnEditor.instance;
+    if (editor == null || editor.SelectionIsEmpty())
+      return;
+    // Selections are contiguous, so a seqID range check finds members in O(1).
+    int first = editor.selectedFloors[0].seqID;
+    int last = editor.selectedFloors[editor.selectedFloors.Count - 1].seqID;
+    if (floor.seqID >= Math.Min(first, last) && floor.seqID <= Math.Max(first, last))
+      _placementDirty = true;
+  }
 
   public void ApplySettings()
   {
@@ -48,7 +76,7 @@ internal sealed class EditorTweaksController : IDisposable
     if (_wasPlaying != editor.playMode)
     {
       _wasPlaying = editor.playMode;
-      _dirty = true;
+      _statsDirty = true;
     }
     if (_settings.FineRotation && CanEdit(editor) && RDInput.holdingControl && RDInput.holdingAlt)
     {
@@ -56,10 +84,23 @@ internal sealed class EditorTweaksController : IDisposable
       if (clockwise || UnityEngine.Input.GetKeyDown(KeyCode.Comma))
         RotateSelection(editor, clockwise);
     }
-    if (!_dirty)
+    if (_statsDirty)
+    {
+      _statsDirty = _placementDirty = _labelOverwritten = false;
+      RefreshSelection(editor);
       return;
-    _dirty = false;
-    RefreshSelection(editor);
+    }
+    if (_labelOverwritten)
+    {
+      _labelOverwritten = false;
+      ShowLabel(_labelFloor);
+    }
+    if (_placementDirty && Time.unscaledTime >= _nextPlacement)
+    {
+      _placementDirty = false;
+      _nextPlacement = Time.unscaledTime + .1f;
+      PlaceLabel(editor);
+    }
   }
 
   private static bool CanEdit(scnEditor editor) =>
@@ -105,7 +146,7 @@ internal sealed class EditorTweaksController : IDisposable
         editor.MultiSelectFloors(editor.floors[first], editor.floors[last]);
       editor.multiSelectPoint = editor.floors[Mathf.Clamp(selectionAnchor, 0, editor.floors.Count - 1)];
     }
-    _dirty = true;
+    _statsDirty = true;
   }
 
   internal Mutation BeginMutation(scnEditor editor, scrFloor floor, string operation, bool clockwiseOrHorizontal)
@@ -127,7 +168,7 @@ internal sealed class EditorTweaksController : IDisposable
     bool changed = SyncEvents(editor, mutation.Floor, mutation.Kind, mutation.Degrees);
     if (changed && remakePath)
       editor.ApplyEventsToFloors();
-    _dirty = true;
+    _statsDirty = true;
   }
 
   private bool SyncEvents(scnEditor editor, int floor, EditorTransformKind kind, float degrees)
@@ -156,25 +197,18 @@ internal sealed class EditorTweaksController : IDisposable
 
   private void RefreshSelection(scnEditor editor)
   {
-    RestoreLabel(editor);
+    _labelText = null;
     if (!_settings.HasSelectionInfo || editor.playMode || editor.showFloorNums || editor.SelectionIsEmpty())
-      return;
-    scrFloor anchor = null;
-    float nearest = float.PositiveInfinity;
-    Vector3 cameraPosition = editor.camera != null ? editor.camera.transform.position : Vector3.zero;
-    foreach (scrFloor floor in editor.selectedFloors)
     {
-      if (floor == null || !floor.enabled || floor.editorNumText == null)
-        continue;
-      Vector3 delta = floor.transform.position - cameraPosition;
-      float distance = delta.x * delta.x + delta.y * delta.y;
-      if (distance >= nearest)
-        continue;
-      nearest = distance;
-      anchor = floor;
-    }
-    if (anchor == null)
+      RestoreLabel(editor);
       return;
+    }
+    scrFloor anchor = NearestSelected(editor);
+    if (anchor == null)
+    {
+      RestoreLabel(editor);
+      return;
+    }
 
     double angle = 0;
     int count = editor.selectedFloors.Count;
@@ -215,9 +249,51 @@ internal sealed class EditorTweaksController : IDisposable
       double denominator = startSpeed * editor.levelData.bpm * 3;
       Append(denominator > 0 ? angle / denominator : 0, "0.######", " s", "FFFFFF");
     }
-    anchor.editorNumText.letterText.text = _text.ToString();
-    anchor.editorNumText.gameObject.SetActive(true);
+    _labelText = _text.ToString();
+    if (anchor != _labelFloor)
+      RestoreLabel(editor);
     _labelFloor = anchor;
+    ShowLabel(anchor);
+  }
+
+  private void PlaceLabel(scnEditor editor)
+  {
+    if (_labelText == null)
+      return;
+    scrFloor anchor = NearestSelected(editor);
+    if (anchor == null || anchor == _labelFloor)
+      return;
+    RestoreLabel(editor);
+    _labelFloor = anchor;
+    ShowLabel(anchor);
+  }
+
+  private void ShowLabel(scrFloor floor)
+  {
+    if (floor == null || floor.editorNumText == null || _labelText == null)
+      return;
+    if (floor.editorNumText.letterText.text != _labelText)
+      floor.editorNumText.letterText.text = _labelText;
+    floor.editorNumText.gameObject.SetActive(true);
+  }
+
+  private static scrFloor NearestSelected(scnEditor editor)
+  {
+    scrFloor anchor = null;
+    float nearest = float.PositiveInfinity;
+    Vector3 cameraPosition = editor.camera != null ? editor.camera.transform.position : Vector3.zero;
+    foreach (scrFloor floor in editor.selectedFloors)
+    {
+      if (floor == null || !floor.enabled || floor.editorNumText == null)
+        continue;
+      Vector3 delta = floor.transform.position - cameraPosition;
+      float distance = delta.x * delta.x + delta.y * delta.y;
+      if (distance >= nearest)
+        continue;
+      nearest = distance;
+      anchor = floor;
+    }
+    return anchor;
   }
 
   private void Append(double value, string format, string suffix, string color)
@@ -238,7 +314,11 @@ internal sealed class EditorTweaksController : IDisposable
     _labelFloor = null;
   }
 
-  public void Dispose() => RestoreLabel(ADOBase.editor);
+  public void Dispose()
+  {
+    _labelText = null;
+    RestoreLabel(ADOBase.editor);
+  }
 
   internal sealed class Mutation : IDisposable
   {

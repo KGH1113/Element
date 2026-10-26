@@ -1,5 +1,5 @@
 using ImplResourcePack.Domain.Combo;
-using ImplResourcePack.Infrastructure.Game.Judgement;
+using ImplResourcePack.Domain.Judgement;
 
 namespace ImplResourcePack.Application.Features;
 

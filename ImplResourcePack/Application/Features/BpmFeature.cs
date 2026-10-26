@@ -1,14 +1,13 @@
 using ImplResourcePack.Domain.Bpm;
-using ImplResourcePack.Infrastructure.Game.Bpm;
 
 namespace ImplResourcePack.Application.Features;
 
 internal sealed class BpmFeature : IOverlayFeature
 {
-  private readonly BpmReader _reader;
+  private readonly IBpmSource _reader;
   private readonly IOverlayView<BpmSnapshot> _view;
 
-  public BpmFeature(BpmReader reader, IOverlayView<BpmSnapshot> view)
+  public BpmFeature(IBpmSource reader, IOverlayView<BpmSnapshot> view)
   {
     _reader = reader;
     _view = view;

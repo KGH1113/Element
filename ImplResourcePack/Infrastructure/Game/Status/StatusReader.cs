@@ -1,10 +1,11 @@
 using System;
+using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Status;
 using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Game.Status;
 
-internal sealed class StatusReader
+internal sealed class StatusReader : IStatusSource
 {
   private bool _songStarted;
   private float _startProgress;

@@ -52,46 +52,44 @@ internal sealed class JudgementView : IOverlayView<JudgementSnapshot>
 
     _text.color = OverlayTheme.JudgementBase;
 
-    string xPerfectColorHex = GetXPerfectColorHex();
+    // Rendered on every hit: numbers and colors are appended without their own
+    // strings, leaving one string per change for TMP.
     _builder.Clear();
     _builder
-      .Append(snapshot.FailOverload)
+      .AppendInt(snapshot.FailOverload)
       .Append(" <color=#FF0000>")
-      .Append(snapshot.TooEarly)
+      .AppendInt(snapshot.TooEarly)
       .Append("</color> <color=#FF6F4E>")
-      .Append(snapshot.VeryEarly)
+      .AppendInt(snapshot.VeryEarly)
       .Append("</color> <color=#A0FF4E>")
-      .Append(snapshot.EarlyPerfect)
+      .AppendInt(snapshot.EarlyPerfect)
       .Append("</color> <color=#")
       .Append(PerfectColorHex)
       .Append(">")
-      .Append(snapshot.PerfectMinus)
-      .Append("</color> <color=#")
-      .Append(xPerfectColorHex)
+      .AppendInt(snapshot.PerfectMinus)
+      .Append("</color> <color=#");
+    AppendXPerfectColor(_builder)
       .Append(">")
-      .Append(snapshot.XPerfectAndAuto)
+      .AppendInt(snapshot.XPerfectAndAuto)
       .Append("</color> <color=#")
       .Append(PerfectColorHex)
       .Append(">")
-      .Append(snapshot.PerfectPlus)
+      .AppendInt(snapshot.PerfectPlus)
       .Append("</color> <color=#A0FF4E>")
-      .Append(snapshot.LatePerfect)
+      .AppendInt(snapshot.LatePerfect)
       .Append("</color> <color=#FF6F4E>")
-      .Append(snapshot.VeryLate)
+      .AppendInt(snapshot.VeryLate)
       .Append("</color> <color=#FF0000>")
-      .Append(snapshot.TooLate)
+      .AppendInt(snapshot.TooLate)
       .Append("</color> ")
-      .Append(snapshot.FailMiss);
-    _text.text = _builder.ToString();
+      .AppendInt(snapshot.FailMiss);
+    _text.Assign(_builder);
   }
 
-  private static string GetXPerfectColorHex()
+  private static StringBuilder AppendXPerfectColor(StringBuilder builder)
   {
-    if (RDC.data == null)
-      return PerfectColorHex;
-
-    ColourSchemeHitMargin colors = RDC.hitMarginColoursBySettings;
-    return colors != null ? OverlayTheme.ColorToHex(colors.colourXPerfect) : PerfectColorHex;
+    ColourSchemeHitMargin colors = RDC.data != null ? RDC.hitMarginColoursBySettings : null;
+    return colors != null ? builder.AppendHexRgb(colors.colourXPerfect) : builder.Append(PerfectColorHex);
   }
 
   public void Dispose()

@@ -6,8 +6,6 @@ using ImplResourcePack.Configuration;
 using ImplResourcePack.Domain.DmNote;
 using ImplResourcePack.Infrastructure.Game.DmNote;
 using ImplResourcePack.Presentation.Layout;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using TMPro;
 using UnityEngine;
 
@@ -15,20 +13,19 @@ namespace ImplResourcePack.Infrastructure.Ipc;
 
 internal sealed class DmNoteNativeIpcFeature : IDisposable
 {
-  private readonly object _gate = new();
+  private static readonly TimeSpan ErrorCheckInterval = TimeSpan.FromMilliseconds(500);
+
+  private readonly NativeViewerSession _session;
+  private readonly Func<INativeViewerHost> _createHost;
+  private readonly Func<Color> _highlight;
+  private readonly Action<string, Exception> _logError;
+  private readonly Action<string> _logWarning;
   private IFeatureRegistration _ipc;
-  private MacGameWebView _host;
-  private string _peerId;
-  private string _sessionId;
-  private string _pendingId;
-  private DateTime _pendingAt;
-  private DateTime _nextRequestAt;
+  private INativeViewerHost _host;
   private DateTime _nextErrorCheckAt;
-  private NativeViewerSurface[] _surfaces;
   private NativeViewerSurface[] _knownSurfaces = Array.Empty<NativeViewerSurface>();
-  private bool _active;
   private bool _disposed;
-  private bool _reset;
+  private bool _suspended;
   private bool _visible = true;
   private bool _editing;
   private Rect _editorExclusion;
@@ -36,16 +33,23 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private readonly NativeViewerLayoutTarget[] _galleryTargets;
   private List<OverlayLayoutSettings> _layouts;
   private TMP_FontAsset _font;
-  private string _status = "Enable OBS mode in ImplDmNote, then start a level or show the preview.";
+  private string _lastLoggedError;
   public Action EnabledChanged { get; set; }
 
-  public DmNoteNativeIpcFeature()
+  public DmNoteNativeIpcFeature(
+    bool supported,
+    Func<INativeViewerHost> createHost,
+    Func<Color> highlight,
+    Action<string, Exception> logError,
+    Action<string> logWarning
+  )
   {
-    _galleryTargets = new[]
-    {
-      new NativeViewerLayoutTarget("hand", "손 키뷰어", SetEditing, OnEnabledChanged),
-      new NativeViewerLayoutTarget("foot", "발 키뷰어", SetEditing, OnEnabledChanged),
-    };
+    _session = new NativeViewerSession(supported);
+    _createHost = createHost ?? throw new ArgumentNullException(nameof(createHost));
+    _highlight = highlight ?? (() => Color.white);
+    _logError = logError ?? ((_, _) => { });
+    _logWarning = logWarning ?? (_ => { });
+    _galleryTargets = new[] { CreateTarget("hand", null), CreateTarget("foot", null) };
     _layoutTargets = new List<NativeViewerLayoutTarget>(_galleryTargets);
   }
 
@@ -110,7 +114,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       kind == "hand" ? "손 키뷰어" : "발 키뷰어",
       SetEditing,
       OnEnabledChanged,
-      id
+      id,
+      () => Status
     );
     target.ConfigurePreview(_font);
     target.Bind(_host);
@@ -163,7 +168,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   public void SetVisible(bool visible)
   {
     _visible = visible;
-    _host?.Show(visible);
+    _host?.Show(_visible && !_suspended);
   }
 
   public void SetEditorExclusion(Rect screenTopLeftPixels)
@@ -194,226 +199,124 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       target.Bind(_host);
   }
 
-  private sealed class Reply
-  {
-    public string SessionId { get; set; }
-    public NativeViewerSurface[] Surfaces { get; set; }
-  }
-
-  public string Status
-  {
-    get
-    {
-      lock (_gate)
-        return _status;
-    }
-  }
+  public NativeViewerStatus Status => _session.Status;
 
   public void Attach(IFeatureRegistration ipc) => _ipc = ipc;
 
   public void SetActive(bool active)
   {
-    lock (_gate)
-    {
-      if (_disposed || _active == active)
-        return;
-      _active = active;
-      _sessionId = active ? Guid.NewGuid().ToString("N") : null;
-      _pendingId = null;
-      _surfaces = null;
-      if (!active)
-        _knownSurfaces = Array.Empty<NativeViewerSurface>();
-      _nextRequestAt = DateTime.UtcNow;
-      _reset = true;
-      if (active)
-        _status =
-          _peerId == null
-            ? "Waiting for ImplDmNote. Open the updated app and enable OBS mode."
-            : "Connecting to OBS viewers...";
-    }
+    if (!_disposed)
+      _session.SetActive(active, DateTime.UtcNow);
+    if (!active)
+      _knownSurfaces = Array.Empty<NativeViewerSurface>();
   }
 
-  public void OnPeerEvent(PeerEvent message)
-  {
-    lock (_gate)
-    {
-      if (_disposed)
-        return;
-      if (message.Name == "mirror.available")
-      {
-        try
-        {
-          if ((int?)JObject.Parse(message.Json)?["nativeProtocolVersion"] == 1 && _peerId == null)
-          {
-            _peerId = message.PeerId;
-            _nextRequestAt = DateTime.UtcNow;
-          }
-        }
-        catch (JsonException)
-        {
-          // A malformed capability advertisement cannot select the native provider.
-        }
-        return;
-      }
-      if (!_active || message.PeerId != _peerId || message.CorrelationId != _pendingId)
-        return;
-      if (message.Name != "mirror.native.ready" && message.Name != "mirror.failed")
-        return;
-      _pendingId = null;
-      _nextRequestAt = DateTime.UtcNow.AddSeconds(2);
-      if (message.Name == "mirror.failed")
-      {
-        _reset = true;
-        string code = null;
-        try
-        {
-          code = (string)JObject.Parse(message.Json)?["code"];
-        }
-        catch (JsonException) { }
-        _status = code switch
-        {
-          "replay-render-active" =>
-            "Replay rendering is using ImplDmNote. Native viewers will reconnect when it finishes.",
-          "obs-not-ready" => "The OBS viewer service is starting. Native viewers will reconnect automatically.",
-          "mirror-busy" => "ImplDmNote is finishing another viewer request. Retrying shortly.",
-          _ =>
-            "OBS viewers are unavailable. Enable OBS mode in ImplDmNote; native viewers will reconnect automatically.",
-        };
-        return;
-      }
-      try
-      {
-        Reply reply = JsonConvert.DeserializeObject<Reply>(message.Json);
-        if (reply?.SessionId != _sessionId)
-          return;
-        if (
-          reply.Surfaces == null
-          || reply.Surfaces.Length > 2
-          || reply.Surfaces.Any(surface => surface == null || !surface.IsValid())
-          || reply.Surfaces.Select(surface => surface.ViewerKind).Distinct().Count() != reply.Surfaces.Length
-        )
-          throw new JsonSerializationException();
-        _surfaces = reply.Surfaces;
-      }
-      catch (JsonException)
-      {
-        _reset = true;
-        _status = "The app sent an incompatible native viewer description. Update both the app and mod.";
-      }
-    }
-  }
+  // IPC thread: the session only records state; Tick applies it to AppKit.
+  public void OnPeerEvent(PeerEvent message) => _session.OnPeerEvent(message, DateTime.UtcNow);
 
-  public void OnPeerDisconnected(IClientConnection peer)
-  {
-    lock (_gate)
-    {
-      if (peer.PeerId != _peerId)
-        return;
-      _peerId = null;
-      _pendingId = null;
-      _surfaces = null;
-      _reset = true;
-      _status = "ImplDmNote disconnected. Reopen the app and enable OBS mode.";
-    }
-  }
+  public void OnPeerDisconnected(IClientConnection peer) => _session.OnPeerDisconnected(peer.PeerId);
 
   // Called on Unity's main thread; IPC callbacks never access AppKit.
   public void Tick()
   {
-    NativeViewerSurface[] surfaces;
-    bool reset;
-    lock (_gate)
+    if (_disposed)
+      return;
+    NativeViewerWork work = _session.TakeWork();
+    if (work.ResetHost)
     {
-      if (_disposed)
-        return;
-      reset = _reset;
-      _reset = false;
-      surfaces = _surfaces;
-      _surfaces = null;
-    }
-    if (reset)
-    {
+      _suspended = false;
       _host?.Dispose();
       _host = null;
       BindLayoutTargets();
     }
-    if (surfaces != null)
+    if (work.HideHost && _host != null)
     {
-      try
+      // Keep the pages loaded while ImplDmNote renders a replay; the next
+      // descriptor shows them again without a reload.
+      _suspended = true;
+      _host.Show(false);
+    }
+    if (work.Surfaces != null)
+      AttachSurfaces(work.Surfaces);
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+      target.TickPreview();
+    if (_host != null)
+    {
+      _host.ApplyHighlight(_highlight());
+      CheckPageErrors();
+    }
+    IFeatureRegistration ipc = _ipc;
+    Exception error = _session.RequestIfDue(
+      DateTime.UtcNow,
+      ipc == null ? null : (peer, json) => ipc.SendCommandToPeer(peer, NativeViewerSession.DescribeCommand, json)
+    );
+    if (error != null)
+      LogOnce("Request native ImplDmNote viewers", error);
+  }
+
+  private void AttachSurfaces(NativeViewerSurface[] surfaces)
+  {
+    try
+    {
+      bool unchanged = _host != null && NativeViewerSurface.SameSet(surfaces, _knownSurfaces);
+      _knownSurfaces = surfaces;
+      if (!unchanged)
       {
-        _host ??= new MacGameWebView(Main.Instance.Path);
-        _knownSurfaces = surfaces;
+        _host ??= _createHost();
         ApplyEnabledSurfaces();
-        _host.Show(_visible);
         _host.ExcludeEditor(_editorExclusion);
         _host.Edit(_editing);
         BindLayoutTargets();
-        lock (_gate)
-          _status =
-            surfaces.Length == 0
-              ? "No viewers selected. Open a hand or foot viewer before enabling OBS mode."
-              : "Native viewers attached. Check the Discord / OBS capture preview.";
       }
-      catch (Exception error)
-      {
-        _host?.Dispose();
-        _host = null;
-        BindLayoutTargets();
-        lock (_gate)
-          _status =
-            error is InvalidOperationException
-              ? error.Message
-              : "Native viewers could not open. Reinstall the mod and restart ADOFAI.";
-      }
+      _suspended = false;
+      _host.Show(_visible);
+      _session.Report(surfaces.Length == 0 ? NativeViewerStatus.NoViewerTab : NativeViewerStatus.Attached);
     }
-    foreach (NativeViewerLayoutTarget target in _layoutTargets)
-      target.TickPreview();
-    _host?.RefreshTheme();
-    if (_host != null && DateTime.UtcNow >= _nextErrorCheckAt)
+    catch (Exception error)
     {
-      _nextErrorCheckAt = DateTime.UtcNow.AddMilliseconds(500);
-      string error = _host.LoadError;
-      if (!string.IsNullOrWhiteSpace(error))
-      {
-        lock (_gate)
-          _status = error;
-      }
+      _host?.Dispose();
+      _host = null;
+      BindLayoutTargets();
+      _session.Report(error is NativeViewerHostException host ? host.Status : NativeViewerStatus.WindowUnavailable);
+      LogOnce("Attach native ImplDmNote viewers", error);
     }
-    lock (_gate)
+  }
+
+  // Page errors matter only while the editor can show them; skip the native
+  // call and string marshaling during gameplay.
+  private void CheckPageErrors()
+  {
+    DateTime now = DateTime.UtcNow;
+    if (!_editing || now < _nextErrorCheckAt)
+      return;
+    _nextErrorCheckAt = now + ErrorCheckInterval;
+    string error = _host.LoadError;
+    if (string.IsNullOrWhiteSpace(error))
+      return;
+    _session.Report(MacGameWebView.Classify(error));
+    if (error != _lastLoggedError)
     {
-      if (!_active || _peerId == null || _ipc == null || DateTime.UtcNow < _nextRequestAt)
-        return;
-      if (_pendingId != null && DateTime.UtcNow - _pendingAt < TimeSpan.FromSeconds(10))
-        return;
-      try
-      {
-        _pendingId = _ipc.SendCommandToPeer(
-          _peerId,
-          "mirror.native.describe",
-          JsonConvert.SerializeObject(new { sessionId = _sessionId })
-        );
-        _pendingAt = DateTime.UtcNow;
-        _nextRequestAt = _pendingAt.AddSeconds(2);
-      }
-      catch
-      {
-        _nextRequestAt = DateTime.UtcNow.AddSeconds(2);
-        _status = "Could not reach ImplDmNote. Check that the updated app is connected to the game.";
-      }
+      _lastLoggedError = error;
+      _logWarning("[Native viewers] " + error);
     }
+  }
+
+  private void LogOnce(string context, Exception error)
+  {
+    string key = context + ": " + error.GetType().Name + ": " + error.Message;
+    if (key == _lastLoggedError)
+      return;
+    _lastLoggedError = key;
+    _logError(context, error);
   }
 
   public void Dispose()
   {
-    lock (_gate)
-    {
-      if (_disposed)
-        return;
-      _disposed = true;
-      _active = false;
-      _ipc = null;
-      _surfaces = null;
-    }
+    if (_disposed)
+      return;
+    _disposed = true;
+    _session.Close();
+    _ipc = null;
     _host?.Dispose();
     _host = null;
     BindLayoutTargets();

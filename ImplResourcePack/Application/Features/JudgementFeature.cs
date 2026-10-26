@@ -1,14 +1,13 @@
 using ImplResourcePack.Domain.Judgement;
-using ImplResourcePack.Infrastructure.Game.Judgement;
 
 namespace ImplResourcePack.Application.Features;
 
 internal sealed class JudgementFeature : IOverlayFeature
 {
-  private readonly JudgementReader _reader;
+  private readonly IJudgementSource _reader;
   private readonly IOverlayView<JudgementSnapshot> _view;
 
-  public JudgementFeature(JudgementReader reader, IOverlayView<JudgementSnapshot> view)
+  public JudgementFeature(IJudgementSource reader, IOverlayView<JudgementSnapshot> view)
   {
     _reader = reader;
     _view = view;

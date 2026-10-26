@@ -1,8 +1,9 @@
+using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Judgement;
 
 namespace ImplResourcePack.Infrastructure.Game.Judgement;
 
-internal sealed class JudgementReader
+internal sealed class JudgementReader : IJudgementSource
 {
   public bool TryRead(out JudgementSnapshot snapshot)
   {

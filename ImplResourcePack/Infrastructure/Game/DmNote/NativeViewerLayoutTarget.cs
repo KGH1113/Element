@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using ImplResourcePack.Configuration;
+using ImplResourcePack.Domain.DmNote;
 using ImplResourcePack.Domain.Layout;
 using ImplResourcePack.Presentation.Layout;
 using ImplResourcePack.Presentation.Settings;
@@ -22,8 +23,10 @@ internal sealed class NativeViewerLayoutTarget
   private readonly string _label;
   private readonly Action<bool> _setPreview;
   private readonly Action _enabledChanged;
+  private readonly Func<NativeViewerStatus> _status;
+  private NativeViewerMock _mock;
   private OverlayLayoutSettings _settings;
-  private MacGameWebView _host;
+  private INativeViewerLayoutHost _host;
   private Rect _bounds;
   private float _effectiveScale = 1f;
   private int _screenWidth;
@@ -43,15 +46,18 @@ internal sealed class NativeViewerLayoutTarget
   private TMP_FontAsset _font;
   private GameObject _previewCanvas;
   private RectTransform _previewRoot;
+  private Rect _previewBounds = new(float.NaN, 0, 0, 0);
 
   public NativeViewerLayoutTarget(
     string kind,
     string label,
     Action<bool> setPreview,
     Action enabledChanged,
-    string id = null
+    string id = null,
+    Func<NativeViewerStatus> status = null
   )
   {
+    _status = status;
     _kind = kind;
     Id = id ?? "dmnote-" + kind;
     TemplateId = "native-" + kind;
@@ -151,7 +157,7 @@ internal sealed class NativeViewerLayoutTarget
     Apply();
   }
 
-  public void Bind(MacGameWebView host)
+  public void Bind(INativeViewerLayoutHost host)
   {
     if (_host != host && host != null)
       _growthLayout = null;
@@ -284,20 +290,36 @@ internal sealed class NativeViewerLayoutTarget
       canvas.renderMode = RenderMode.ScreenSpaceOverlay;
       canvas.sortingOrder = 32758;
       _previewRoot = NativeViewerMock.Create(_kind, _previewCanvas.transform, _font, true);
+      _mock = _previewRoot.GetComponent<NativeViewerMock>();
+      _previewBounds = new Rect(float.NaN, 0, 0, 0);
     }
     if (_previewCanvas == null)
       return;
-    _previewCanvas.SetActive(visible);
+    if (_previewCanvas.activeSelf != visible)
+      _previewCanvas.SetActive(visible);
     if (!visible)
       return;
-    _previewRoot.anchorMin = _previewRoot.anchorMax = new Vector2(0, 1);
-    _previewRoot.pivot = new Vector2(0, 1);
-    _previewRoot.anchoredPosition = new Vector2(_bounds.x, -_bounds.y);
-    _previewRoot.localScale = new Vector3(
-      _bounds.width / NativeViewerMock.Width(_kind),
-      _bounds.height / NativeViewerMock.ViewportHeight,
-      1
-    );
+    // Runs every editor frame; touching the RectTransform would rebuild the
+    // preview canvas each frame even when nothing moved.
+    if (_previewBounds != _bounds)
+    {
+      _previewBounds = _bounds;
+      _previewRoot.anchorMin = _previewRoot.anchorMax = new Vector2(0, 1);
+      _previewRoot.pivot = new Vector2(0, 1);
+      _previewRoot.anchoredPosition = new Vector2(_bounds.x, -_bounds.y);
+      _previewRoot.localScale = new Vector3(
+        _bounds.width / NativeViewerMock.Width(_kind),
+        _bounds.height / NativeViewerMock.ViewportHeight,
+        1
+      );
+    }
+    if (_status != null)
+    {
+      // The sample is shown only while this viewer has no live page, so an
+      // attached session means ImplDmNote has no tab for this kind.
+      NativeViewerStatus status = _status();
+      _mock?.SetStatus(status == NativeViewerStatus.Attached ? NativeViewerStatus.NoViewerTab : status);
+    }
   }
 
   public void RefreshLayout()
@@ -483,6 +505,7 @@ internal sealed class NativeViewerLayoutTarget
     }
     _previewCanvas = null;
     _previewRoot = null;
+    _mock = null;
   }
 
   private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

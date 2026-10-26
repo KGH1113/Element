@@ -1,3 +1,5 @@
+using ImplResourcePack.Domain.DmNote;
+using ImplResourcePack.Presentation.Layout;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Settings;
 using TMPro;
@@ -13,6 +15,9 @@ internal sealed class NativeViewerMock : MonoBehaviour
   public const float ViewportHeight = 270;
   private SettingsUiFactory _ui;
   private int _themeVersion = -1;
+  private TextMeshProUGUI _statusText;
+  private GameObject _statusPanel;
+  private NativeViewerStatus? _status;
 
   public static float Width(string kind) => kind == "hand" ? 430 : 210;
 
@@ -53,7 +58,32 @@ internal sealed class NativeViewerMock : MonoBehaviour
     ui.Text("KPS", stats.transform, 8, 0, 60, 20, 14);
     TextMeshProUGUI value = ui.Text(hand ? "12" : "4", stats.transform, width - 48, 0, 40, 20, 14);
     value.alignment = TextAlignmentOptions.MidlineRight;
+    if (expanded)
+    {
+      // The empty note area above the keys explains why the live viewer is absent.
+      NativeViewerMock mock = root.GetComponent<NativeViewerMock>();
+      Image panel = ui.Panel("Status", root, 8, 8, width - 16, top - 16, new Color(0, 0, 0, .62f));
+      mock._statusPanel = panel.gameObject;
+      mock._statusText = ui.Text(string.Empty, panel.transform, 10, 8, width - 36, top - 32, 15);
+      mock._statusText.alignment = TextAlignmentOptions.Center;
+      mock._statusText.textWrappingMode = TextWrappingModes.Normal;
+      mock._statusText.enableAutoSizing = true;
+      mock._statusText.fontSizeMin = 10;
+      mock._statusText.fontSizeMax = 15;
+      mock._statusText.color = new Color(1, 1, 1, .92f);
+      mock._statusPanel.SetActive(false);
+    }
     return root;
+  }
+
+  public void SetStatus(NativeViewerStatus status)
+  {
+    if (_statusText == null || _status == status)
+      return;
+    _status = status;
+    string message = NativeViewerStatusText.Get(status);
+    _statusText.text = message;
+    _statusPanel.SetActive(message.Length > 0);
   }
 
   private void Update()

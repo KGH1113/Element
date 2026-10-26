@@ -131,14 +131,13 @@ internal sealed class OverlayCanvasHost : IDisposable
 
   private void RestoreInstances(RectTransformLayoutTarget template)
   {
+    // Deleted copies are kept disabled only for the editor's undo history.
+    // Nothing can restore them after a restart, so drop them instead of
+    // rebuilding invisible objects on every launch.
+    _layoutSettings.RemoveAll(settings => IsCopy(template, settings) && !settings.Enabled);
     foreach (OverlayLayoutSettings settings in _layoutSettings)
     {
-      if (
-        settings == null
-        || string.IsNullOrEmpty(settings.Id)
-        || settings.Id == template.Id
-        || settings.TemplateId != template.TemplateId
-      )
+      if (!IsCopy(template, settings))
         continue;
       bool exists = false;
       foreach (RectTransformLayoutTarget instance in _instances)
@@ -149,6 +148,32 @@ internal sealed class OverlayCanvasHost : IDisposable
         }
       if (!exists)
         CreateInstance(template, settings);
+    }
+  }
+
+  private static bool IsCopy(RectTransformLayoutTarget template, OverlayLayoutSettings settings) =>
+    settings != null
+    && !string.IsNullOrEmpty(settings.Id)
+    && settings.Id != template.Id
+    && settings.TemplateId == template.TemplateId;
+
+  /// <summary>
+  /// Destroys copies deleted or undone during an editing session. Call only after
+  /// the editor's history is discarded; undo needs the disabled instances.
+  /// </summary>
+  public void PruneDisabledInstances()
+  {
+    for (int i = _instances.Count - 1; i >= 0; i--)
+    {
+      RectTransformLayoutTarget target = _instances[i];
+      if (target.Enabled)
+        continue;
+      target.EnabledChanged -= UpdateMirrorMembership;
+      target.Dispose();
+      _layoutTargets.Remove(target);
+      _mirroringInstances.Remove(target);
+      _instances.RemoveAt(i);
+      _layoutSettings.RemoveAll(settings => settings != null && settings.Id == target.Id);
     }
   }
 

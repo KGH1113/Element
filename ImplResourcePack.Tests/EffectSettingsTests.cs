@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Xml.Serialization;
 using ADOFAI;
 using ImplResourcePack.Configuration.Effects;
@@ -17,6 +19,9 @@ internal static class EffectSettingsTests
     NamesAndSelection();
     PersistenceAndRepair();
     FilteringAndPlaybackBoundary();
+    EditorReturnKeepsVisualPreset();
+    EditorDecorationListPreservesSource();
+    EditorReturnScopeLifetime();
   }
 
   private static void NamesAndSelection()
@@ -101,17 +106,8 @@ internal static class EffectSettingsTests
   private static void FilteringAndPlaybackBoundary()
   {
     Check(
-      !EffectsController.AllowsRendering(true, false, false),
-      "Editing must keep every original effect and decoration available."
-    );
-    Check(
-      EffectsController.AllowsRendering(true, true, false),
-      "Starting editor test play must activate the preset before preparing visuals."
-    );
-    Check(EffectsController.AllowsRendering(false, false, false), "Normal gameplay must use the active preset.");
-    Check(
-      !EffectsController.AllowsRendering(false, true, true),
-      "Returning to the editor must restore originals even inside a playback transition."
+      EffectsController.ForRendering == RemovedEffects.None,
+      "An inactive remover must leave editor visuals intact."
     );
     foreach (LevelEventType type in Enum.GetValues(typeof(LevelEventType)))
       Check(
@@ -177,6 +173,136 @@ internal static class EffectSettingsTests
     Check(EffectsController.Applied == RemovedEffects.None, "Disabling must restore vanilla event processing.");
     controller.Dispose();
     Check(EffectsController.Active == null, "Disposal must release static patch ownership.");
+  }
+
+  private static void EditorReturnKeepsVisualPreset()
+  {
+    var settings = new EffectSettings { Enabled = true };
+    using var controller = new EffectsController(() => settings);
+    RemovedEffects applied = EffectsController.Applied;
+    Check(EffectsController.ForRendering == applied, "Opening the editor must use the applied visual preset.");
+    for (int retry = 0; retry < 11; retry++)
+    {
+      controller.CommitForPlayback();
+      Check(
+        EffectsController.ForRendering == applied,
+        "Repeated failures must keep the same visual filter through asset reloads."
+      );
+    }
+
+    settings.Enabled = false;
+    controller.ApplySettings();
+    using (controller.BeginEditorReturn())
+    {
+      Check(
+        !controller.CommitForPlayback() && EffectsController.Applied == applied && controller.RequiresRestart,
+        "Editor return must defer pending settings instead of rebuilding the level with a different preset."
+      );
+      Check(
+        EffectsController.ForRendering == applied,
+        "ResetScene, ReloadAssets and decoration setup on return must keep removed images filtered out."
+      );
+    }
+    Check(
+      !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      "The editor must retain the filtered preview and decoration list after returning from play."
+    );
+    Check(
+      controller.CommitForPlayback() && EffectsController.ForRendering == RemovedEffects.None,
+      "The next level load or playback boundary must apply a requested disable."
+    );
+  }
+
+  private static void EditorDecorationListPreservesSource()
+  {
+    LevelEvent required = EventFixture(LevelEventType.AddDecoration, ("tag", "required"));
+    LevelEvent visual = EventFixture(LevelEventType.AddDecoration, ("tag", "visual"));
+    LevelEvent text = EventFixture(LevelEventType.AddText);
+    LevelEvent particle = EventFixture(LevelEventType.AddParticle);
+    var source = new LevelData(false)
+    {
+      levelEvents = new EventsArray<LevelEvent>
+      {
+        EventFixture(LevelEventType.SetConditionalEvents, ("perfectTag", "on-hit")),
+        EventFixture(LevelEventType.MoveDecorations, ("eventTag", "on-hit"), ("tag", "required")),
+      },
+      decorations = new DecorationsArray<LevelEvent> { required, visual, text, particle },
+    };
+    var display = new List<LevelEvent>(source.decorations);
+    EffectLevelFilter.FilterEditorDecorations(display, source, EffectCatalog.All);
+    Check(
+      display.Count == 1 && ReferenceEquals(display[0], required),
+      "The editor list must hide removed decorations while preserving gameplay-linked originals."
+    );
+    Check(
+      source.decorations.Count == 4 && ReferenceEquals(source.decorations[1], visual) && source.levelEvents.Count == 2,
+      "Filtering the decoration list must not delete source entries used by saving, editing or undo."
+    );
+    EffectLevelFilter.FilterEditorDecorations(display, source, EffectCatalog.All);
+    Check(display.Count == 1, "Repeated editor list refreshes must not change the visible subset.");
+    display = new List<LevelEvent>(source.decorations);
+    EffectLevelFilter.FilterEditorDecorations(display, source, RemovedEffects.Filters);
+    Check(display.Count == 4, "A filter-only preset must preserve every decoration in the editor list.");
+    EffectLevelFilter.FilterEditorDecorations(display, source, RemovedEffects.Particles);
+    Check(
+      display.Count == 3 && !display.Contains(particle),
+      "Particle removal must filter particle entries independently."
+    );
+
+    source.levelEvents.Clear();
+    display = new List<LevelEvent>(source.decorations);
+    EffectLevelFilter.FilterEditorDecorations(display, source, EffectCatalog.All);
+    Check(display.Count == 0, "Remove All must keep a purely visual level's decoration tab empty after editor return.");
+    Check(source.decorations.Count == 4, "Hiding all decoration entries must still preserve source data.");
+  }
+
+  private static void EditorReturnScopeLifetime()
+  {
+    var settings = new EffectSettings { Enabled = true };
+    using var controller = new EffectsController(() => settings);
+    RemovedEffects applied = EffectsController.ForRendering;
+    IDisposable outer = controller.BeginEditorReturn();
+    using (controller.BeginEditorReturn())
+      Check(EffectsController.ForRendering == applied, "Nested editor return must not expose original effects.");
+    Check(controller.ReturningToEditor, "Ending a nested return must keep the outer return boundary.");
+    outer.Dispose();
+    outer.Dispose();
+    Check(
+      !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      "Duplicate disposal must release the return boundary without disabling the visual preset."
+    );
+
+    bool failed = false;
+    try
+    {
+      using (controller.BeginEditorReturn())
+        throw new InvalidOperationException("transition failed");
+    }
+    catch (InvalidOperationException)
+    {
+      failed = true;
+    }
+    Check(
+      failed && !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      "A failed transition must release its return boundary while retaining the applied visual preset."
+    );
+    controller.Dispose();
+    Check(EffectsController.ForRendering == RemovedEffects.None, "Mod disposal must release the visual preset.");
+  }
+
+  private static LevelEvent EventFixture(LevelEventType type, params (string Key, string Value)[] properties)
+  {
+    // LevelEvent's constructor needs the game's loaded settings asset. These
+    // read-only filtering fixtures need only the event type and property data.
+    var result = (LevelEvent)RuntimeHelpers.GetUninitializedObject(typeof(LevelEvent));
+    result.eventType = type;
+    var data = new Dictionary<string, object>();
+    foreach (var (key, value) in properties)
+      data.Add(key, value);
+    typeof(LevelEvent)
+      .GetField("data", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
+      .SetValue(result, data);
+    return result;
   }
 
   private static void Check(bool value, string message)

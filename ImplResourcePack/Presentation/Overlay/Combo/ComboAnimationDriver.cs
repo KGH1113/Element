@@ -2,7 +2,6 @@ using System;
 using System.Diagnostics;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace ImplResourcePack.Presentation.Overlay.Combo;
 
@@ -11,6 +10,8 @@ internal sealed class ComboAnimationDriver : MonoBehaviour
   private const double DurationMilliseconds = 500d;
   private const float RestingFontSize = 78f;
   private const float BumpFontSize = 30f;
+
+  // Half the resting value height: the title sits on the value's top edge.
   private const float RestingTitleY = 43.505f;
 
   private readonly Stopwatch _stopwatch = new();
@@ -42,6 +43,8 @@ internal sealed class ComboAnimationDriver : MonoBehaviour
     enabled = false;
     if (_valueText != null)
       _valueText.fontSize = RestingFontSize;
+    if (_valueTransform != null)
+      _valueTransform.localScale = Vector3.one;
     if (_titleTransform != null)
       _titleTransform.anchoredPosition = new Vector2(0f, RestingTitleY);
   }
@@ -60,11 +63,14 @@ internal sealed class ComboAnimationDriver : MonoBehaviour
       enabled = false;
   }
 
+  // Scale the centered value instead of animating fontSize: a font size change
+  // re-lays out the text and its ContentSizeFitter every frame for 500 ms after
+  // each hit. Scaling from the center grows it the same way without any layout.
   private void ApplyAnimation(double progress)
   {
-    _valueText.fontSize = BumpFontSize * OutExpoChange(progress) + RestingFontSize;
-    LayoutRebuilder.ForceRebuildLayoutImmediate(_valueTransform);
-    _titleTransform.anchoredPosition = new Vector2(0f, _valueTransform.sizeDelta.y / 2f);
+    float scale = (BumpFontSize * OutExpoChange(progress) + RestingFontSize) / RestingFontSize;
+    _valueTransform.localScale = new Vector3(scale, scale, 1f);
+    _titleTransform.anchoredPosition = new Vector2(0f, RestingTitleY * scale);
   }
 
   private static float OutExpoChange(double progress)

@@ -144,6 +144,9 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       _ownedEvents = null;
     }
     _closing = false;
+    // The session's undo history ends here, so deleted copies can be released
+    // before the settings are saved.
+    _host.PruneDisabledInstances();
     _onClosed?.Invoke(save);
   }
 

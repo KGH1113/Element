@@ -62,7 +62,9 @@ namespace ImplResourcePack.Editor
       target.Configure(values);
       target.Bind(host);
       Same(original, target.Bounds, "legacy native points normalize into the actual Unity viewport");
-      Check(host.LegacyCalls > 0 && host.BoundsCalls == 0 && host.LastCustomized
+      // The legacy center/scale transport only observes where the old placement
+      // renders; temporary anchored geometry then holds that same rectangle.
+      Check(host.LegacyCalls > 0 && host.LastCustomized
         && host.LastLegacyCenter == new Vector2(.82f, .81f) && host.LastLegacyScale == 2.25f,
         "legacy native layout retains its old transport and scale interpretation");
       target.SetSelected(true);

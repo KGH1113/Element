@@ -1,5 +1,4 @@
-using System;
-using System.Globalization;
+using System.Text;
 using ImplResourcePack.Application;
 using ImplResourcePack.Domain.Status;
 using ImplResourcePack.Presentation.Overlay.Shared;
@@ -17,9 +16,12 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
   private TextMeshProUGUI _timeText;
   private TextMeshProUGUI _fpsText;
 
-  private float _lastStartProgress = float.NaN;
-  private float _lastProgress = float.NaN;
-  private float _lastXAccuracy = float.NaN;
+  // Compare the displayed (rounded) values: raw floats change on every tile
+  // even when the text would be identical.
+  private readonly StringBuilder _builder = new(96);
+  private long _lastStartProgress = long.MinValue;
+  private long _lastProgress = long.MinValue;
+  private long _lastXAccuracy = long.MinValue;
   private bool _hasLastLanguage;
   private SystemLanguage _lastLanguage;
   private bool _hasLastTime;
@@ -110,28 +112,41 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
   private void RenderMetrics(StatusSnapshot snapshot, bool languageChanged)
   {
     OverlayLabels labels = OverlayLocalization.Get(snapshot.Language);
-    if (_lastStartProgress != snapshot.StartProgress || _lastProgress != snapshot.Progress || languageChanged)
+    double startProgress = snapshot.StartProgress * 100f;
+    double progress = snapshot.Progress * 100f;
+    long shownStart = NumberText.Scaled(startProgress, 0);
+    long shownProgress = NumberText.Scaled(progress, 0);
+    if (_lastStartProgress != shownStart || _lastProgress != shownProgress || languageChanged)
     {
-      Color progressColor = OverlayTheme.ProgressColor(snapshot.Progress);
-      _progressText.color = progressColor;
-      _progressText.text =
-        "<color=#FFFFFF>"
-        + labels.Progress
-        + " |</color> "
-        + FormatWholeNumber(snapshot.StartProgress * 100f)
-        + "%-"
-        + FormatWholeNumber(snapshot.Progress * 100f)
-        + "%";
-      _lastStartProgress = snapshot.StartProgress;
-      _lastProgress = snapshot.Progress;
+      _progressText.color = OverlayTheme.ProgressColor(snapshot.Progress);
+      _builder
+        .Clear()
+        .Append("<color=#FFFFFF>")
+        .Append(labels.Progress)
+        .Append(" |</color> ")
+        .AppendRounded(startProgress, 0)
+        .Append("%-")
+        .AppendRounded(progress, 0)
+        .Append('%');
+      _progressText.Assign(_builder);
+      _lastStartProgress = shownStart;
+      _lastProgress = shownProgress;
     }
 
-    if (_lastXAccuracy != snapshot.XAccuracy || languageChanged)
+    double xAccuracy = snapshot.XAccuracy * 100f;
+    long shownAccuracy = NumberText.Scaled(xAccuracy, 2);
+    if (_lastXAccuracy != shownAccuracy || languageChanged)
     {
       _xAccuracyText.color = OverlayTheme.XAccuracyColor(snapshot.XAccuracy);
-      _xAccuracyText.text =
-        "<color=#FFFFFF>" + labels.XAccuracy + " |</color> " + FormatNumber(snapshot.XAccuracy * 100f) + "%";
-      _lastXAccuracy = snapshot.XAccuracy;
+      _builder
+        .Clear()
+        .Append("<color=#FFFFFF>")
+        .Append(labels.XAccuracy)
+        .Append(" |</color> ")
+        .AppendRounded(xAccuracy, 2)
+        .Append('%');
+      _xAccuracyText.Assign(_builder);
+      _lastXAccuracy = shownAccuracy;
     }
   }
 
@@ -149,13 +164,10 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
     OverlayLabels labels = OverlayLocalization.Get(snapshot.Language);
     string label = snapshot.IsMapTime ? labels.MapTime : labels.MusicTime;
     _timeText.color = OverlayTheme.Accent;
-    _timeText.text =
-      "<color=#FFFFFF>"
-      + label
-      + " |</color> "
-      + FormatTime(snapshot.CurrentSeconds, snapshot.TotalSeconds)
-      + "~"
-      + FormatTime(snapshot.TotalSeconds, snapshot.TotalSeconds);
+    _builder.Clear().Append("<color=#FFFFFF>").Append(label).Append(" |</color> ");
+    AppendTime(_builder, snapshot.CurrentSeconds, snapshot.TotalSeconds).Append('~');
+    AppendTime(_builder, snapshot.TotalSeconds, snapshot.TotalSeconds);
+    _timeText.Assign(_builder);
 
     _hasLastTime = true;
     _lastWasMapTime = snapshot.IsMapTime;
@@ -179,32 +191,21 @@ internal sealed class StatusView : IOverlayView<StatusSnapshot>
       return;
 
     _fpsText.color = OverlayTheme.Accent;
-    _fpsText.text = "<color=#FFFFFF>FPS |</color> " + snapshot.Fps.ToString(CultureInfo.InvariantCulture);
+    _fpsText.Assign(_builder.Clear().Append("<color=#FFFFFF>FPS |</color> ").AppendInt(snapshot.Fps));
     _hasLastFps = true;
     _lastFps = snapshot.Fps;
   }
 
-  private static string FormatNumber(double value)
-  {
-    return Math.Round(value, 2).ToString(CultureInfo.InvariantCulture);
-  }
-
-  private static string FormatWholeNumber(double value)
-  {
-    return Math.Round(value).ToString(CultureInfo.InvariantCulture);
-  }
-
-  private static string FormatTime(int seconds, int totalSeconds)
+  private static StringBuilder AppendTime(StringBuilder builder, int seconds, int totalSeconds)
   {
     if (totalSeconds >= 3600)
-      return string.Format(
-        CultureInfo.InvariantCulture,
-        "{0}:{1:00}:{2:00}",
-        seconds / 3600,
-        seconds % 3600 / 60,
-        seconds % 60
-      );
+      return builder
+        .AppendInt(seconds / 3600)
+        .Append(':')
+        .AppendTwoDigits(seconds % 3600 / 60)
+        .Append(':')
+        .AppendTwoDigits(seconds % 60);
 
-    return string.Format(CultureInfo.InvariantCulture, "{0}:{1:00}", seconds / 60, seconds % 60);
+    return builder.AppendInt(seconds / 60).Append(':').AppendTwoDigits(seconds % 60);
   }
 }

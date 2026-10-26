@@ -13,10 +13,19 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
 {
   private const string Namespace = "impl-resourcepack";
   private readonly KeyLimiterSessionController _session;
+  private readonly string _modPath;
+  private readonly string _version;
+  private readonly Action<string> _log;
   private DmNoteNativeIpcFeature _nativeViewers;
   private IFeatureRegistration _ipc;
 
-  public KeyLimiterIpcFeature(KeyLimiterSessionController session) => _session = session;
+  public KeyLimiterIpcFeature(KeyLimiterSessionController session, string modPath, string version, Action<string> log)
+  {
+    _session = session;
+    _modPath = modPath;
+    _version = version;
+    _log = log ?? (_ => { });
+  }
 
   public void AttachNativeViewers(DmNoteNativeIpcFeature nativeViewers) => _nativeViewers = nativeViewers;
 
@@ -25,9 +34,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     if (_ipc != null)
       return;
     string mods = Directory
-      .GetParent(
-        Path.GetFullPath(Main.Instance.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
-      )
+      .GetParent(Path.GetFullPath(_modPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)))
       .FullName;
     IIpcRuntime runtime = IpcLoader.GetRuntime(
       mods,
@@ -39,7 +46,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     _ipc = runtime.RegisterFeature(
       new FeatureDescription(
         Namespace,
-        Main.Instance.Version,
+        _version,
         protocolMajor: 1,
         displayName: "ImplResourcePack",
         allowedOrigins: new[]
@@ -72,7 +79,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
     );
     _nativeViewers?.Attach(_ipc);
     _ipc.MarkReady();
-    Main.Instance.Log("[IPC] WebSocket namespace ready: " + Namespace);
+    _log("[IPC] WebSocket namespace ready: " + Namespace);
   }
 
   public void Dispose()

@@ -1,71 +1,73 @@
 using System;
+using System.Collections.Generic;
 using HarmonyLib;
-using ImplResourcePack.Application;
-using ImplResourcePack.Application.Features;
 using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Judgement;
-using ImplResourcePack.Infrastructure.Assets;
-using ImplResourcePack.Infrastructure.Game.Bpm;
+using ImplResourcePack.Infrastructure.Game.DmNote;
 using ImplResourcePack.Infrastructure.Game.Editor;
 using ImplResourcePack.Infrastructure.Game.Effects;
 using ImplResourcePack.Infrastructure.Game.Input;
-using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Recording;
-using ImplResourcePack.Infrastructure.Game.Status;
-using ImplResourcePack.Infrastructure.Game.TimingScale;
 using ImplResourcePack.Infrastructure.Game.Tweaks;
 using ImplResourcePack.Infrastructure.Ipc;
-using ImplResourcePack.Presentation.Layout;
-using ImplResourcePack.Presentation.Overlay.Bpm;
-using ImplResourcePack.Presentation.Overlay.Combo;
-using ImplResourcePack.Presentation.Overlay.Judgement;
 using ImplResourcePack.Presentation.Overlay.Shared;
-using ImplResourcePack.Presentation.Overlay.Status;
-using ImplResourcePack.Presentation.Overlay.TimingScale;
 using ImplResourcePack.Presentation.Settings;
-using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace ImplResourcePack.Bootstrap;
 
+/// <summary>
+/// Composes the mod: patches, input limiting, IPC and gameplay tweaks here; the
+/// overlay and the settings UI in their own runtimes. Game callbacks enter
+/// through this facade, which isolates their failures from the game.
+/// </summary>
 internal sealed class ModRuntime : IDisposable
 {
   private const string HarmonyId = "ImplResourcePack";
 
   private readonly Main _main;
-  private FontBundleLoader _fontBundleLoader;
-  private OverlayCanvasHost _canvasHost;
-  private OverlayMaterialFactory _materialFactory;
-  private OverlayCoordinator _coordinator;
-  private StatusTimeTicker _timeTicker;
+  private readonly Dictionary<string, int> _failures = new(StringComparer.Ordinal);
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
   private DmNoteNativeIpcFeature _nativeViewers;
-  private bool _nativePreview;
   private RecordingModeController _recordingMode;
+  private EditorTrackpadController _trackpad;
+  private GameplayTweaksController _gameplayTweaks;
+  private EffectsController _effects;
+  private OverlayRuntime _overlay;
+  private SettingsUiRuntime _settingsUi;
   private bool _sceneHooked;
   private bool _initialized;
   private bool _disposed;
-  private EditorTrackpadController _trackpad;
-  private GameplayTweaksController _gameplayTweaks;
-  private PlanetPreviewRenderer _planetPreview;
-  private bool _planetPreviewFailed;
-  private EffectsController _effects;
   private bool _presentationSettingsApplied;
-  private SettingsPanel _settingsPanel;
-  private OverlayLayoutEditor _layoutEditor;
+
+  // Per-frame and per-hit callbacks reuse these delegates; a lambda per call
+  // would add garbage, and every GC pause also stops the async input thread.
+  private readonly Action _tickNativeViewers;
+  private readonly Action<scrMarginTracker, HitMargin> _registerHit;
+  private readonly Action _refreshAccuracy;
+  private readonly Action _refreshFloor;
+  private readonly Action<int> _refreshTime;
+  private readonly Action<scrMissIndicator> _hideMissIndicator;
+  private readonly Action _releaseFallbackGlyphs;
 
   internal KeyLimiterService KeyLimiter => _keyLimiter;
-  public bool OverlaysAvailable => _coordinator != null;
+  internal IReadOnlyList<string> FailedPatchGroups { get; private set; } = Array.Empty<string>();
+  public bool OverlaysAvailable => _overlay?.Available == true;
   public bool IsRecording => _recordingMode?.IsActive ?? false;
-  public bool NativeViewerPreview => _nativePreview;
-  public string NativeViewerStatus => _nativeViewers?.Status;
 
   public ModRuntime(Main main)
   {
     _main = main;
+    _tickNativeViewers = () => _nativeViewers?.Tick();
+    _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
+    _refreshAccuracy = () => _overlay?.RefreshAccuracy();
+    _refreshFloor = () => _overlay?.RefreshFloor();
+    _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
+    _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
+    _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
   }
 
   public bool Initialize()
@@ -78,10 +80,15 @@ internal sealed class ModRuntime : IDisposable
     try
     {
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
-      _keyLimiterIpc = new KeyLimiterIpcFeature(new KeyLimiterSessionController(_keyLimiter));
+      _keyLimiterIpc = new KeyLimiterIpcFeature(
+        new KeyLimiterSessionController(_keyLimiter),
+        _main.Path,
+        _main.Version,
+        _main.Log
+      );
 
       _harmony = new Harmony(HarmonyId);
-      _harmony.PatchAll(typeof(Main).Assembly);
+      FailedPatchGroups = PatchGroups.Apply(_harmony, typeof(Main).Assembly, _main.LogException);
       _trackpad = EditorTrackpadController.TryCreate(_main);
       _gameplayTweaks = new GameplayTweaksController(_main);
       _effects = new EffectsController(() => _main.Settings.Effects);
@@ -90,53 +97,30 @@ internal sealed class ModRuntime : IDisposable
       _sceneHooked = true;
       WarnIfKeyboardChatterBlockerIsLoaded();
 
-      _canvasHost = new OverlayCanvasHost();
-      _canvasHost.ConfigureLayouts(_main.Settings.OverlayLayouts);
-      _nativeViewers = new DmNoteNativeIpcFeature();
+      _overlay = new OverlayRuntime(_main, OnTimeTick);
+      _nativeViewers = new DmNoteNativeIpcFeature(
+        UnityEngine.Application.platform == RuntimePlatform.OSXPlayer,
+        () => new MacGameWebView(_main.Path),
+        () => OverlayTheme.Accent,
+        _main.LogException,
+        _main.LogWarning
+      );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _keyLimiterIpc.Enable();
 
-      _fontBundleLoader = new FontBundleLoader(_main);
-      if (!_fontBundleLoader.Load())
-      {
-        _fontBundleLoader.Dispose();
-        _fontBundleLoader = null;
-        _initialized = true;
-        InitializeSettings();
-        ApplySettings();
-        return true;
-      }
-
-      _materialFactory = new OverlayMaterialFactory(_fontBundleLoader.FontAsset);
-
-      JudgementFeature judgement = new(
-        new JudgementReader(),
-        new JudgementView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
+      _settingsUi = new SettingsUiRuntime(
+        _main,
+        _overlay.Canvas,
+        _overlay.Font,
+        _nativeViewers,
+        _gameplayTweaks.Planets,
+        ApplySettings,
+        () => RefreshViewerMode(IsGameplayActive())
       );
-      StatusFeature status = new(
-        new StatusReader(),
-        new StatusView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
-      );
-      BpmFeature bpm = new(
-        new BpmReader(),
-        new BpmView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
-      );
-      ComboFeature combo = new(new ComboView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material));
-      TimingScaleFeature timingScale = new(
-        new TimingScaleReader(),
-        new TimingScaleView(_canvasHost, _fontBundleLoader.FontAsset, _materialFactory.Material)
-      );
-      _coordinator = new OverlayCoordinator(judgement, status, bpm, combo, timingScale);
-
-      _timeTicker = _canvasHost.Root.AddComponent<StatusTimeTicker>();
-      _timeTicker.Initialize(OnTimeTick);
-
       _initialized = true;
-      InitializeSettings();
       ApplySettings();
-
       return true;
     }
     catch
@@ -152,7 +136,7 @@ internal sealed class ModRuntime : IDisposable
       "Show overlay",
       () =>
       {
-        if (!_initialized || _canvasHost == null)
+        if (!_initialized || _overlay == null)
           return;
         if (IsRecording)
         {
@@ -166,139 +150,26 @@ internal sealed class ModRuntime : IDisposable
           return;
         }
 
-        _canvasHost.SetVisible(true);
         RefreshViewerMode(true);
-        _coordinator?.Show();
-        _timeTicker?.StartTicking();
+        _overlay.Show();
       }
     );
   }
 
+  /// <summary>UnityModManager's per-frame update, in every scene.</summary>
   public void TickTrackpad()
   {
-    if (_layoutEditor?.IsOpen == true)
-    {
-      if (_settingsPanel.ShortcutPressed())
-        _layoutEditor.Close(true);
-      else
-        _layoutEditor.Tick();
-      if (_layoutEditor.IsOpen)
-        _nativeViewers?.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
-      UIInteractionState.RestoreCursor();
-    }
-    else
-      _settingsPanel?.Tick();
+    if (_initialized)
+      _settingsUi?.Tick();
     if (!UIInteractionState.BlocksPointerInput)
       _trackpad?.Tick();
-    Execute("Update native ImplDmNote viewers", () => _nativeViewers?.Tick());
+    Execute("Update native ImplDmNote viewers", _tickNativeViewers);
   }
 
   public void OpenSettings()
   {
-    _settingsPanel?.Open();
-  }
-
-  private void InitializeSettings()
-  {
-    TMP_FontAsset font = _fontBundleLoader?.FontAsset;
-    font ??=
-      RDString.language == SystemLanguage.Korean ? RDConstants.data.koreanFontTMPro : RDConstants.data.latinFontTMPro;
-    font ??= TMP_Settings.defaultFontAsset;
-    _nativeViewers.ConfigurePreview(font);
-    _layoutEditor = new OverlayLayoutEditor(
-      _canvasHost,
-      _nativeViewers.LayoutTargets,
-      font,
-      font != null ? font.material : null,
-      OnLayoutClosed,
-      _main.Settings,
-      _nativeViewers.AddElement,
-      _nativeViewers.GalleryTargets
-    );
-    _settingsPanel = new SettingsPanel(
-      _main.Settings,
-      font,
-      ApplySettings,
-      SaveSettings,
-      OpenLayout,
-      ResetLayout,
-      ToggleNativeViewerPreview,
-      () => _nativePreview,
-      () => NativeViewerStatus,
-      OnSettingsVisibility,
-      RenderPlanetPreview
-    );
-  }
-
-  private Texture RenderPlanetPreview(int index, Configuration.PlanetAppearanceProfile profile)
-  {
-    if (_planetPreviewFailed)
-      return null;
-    try
-    {
-      _planetPreview ??= new PlanetPreviewRenderer(_gameplayTweaks.Planets);
-      return _planetPreview.Render(index, profile);
-    }
-    catch (Exception exception)
-    {
-      _planetPreviewFailed = true;
-      _planetPreview?.Dispose();
-      _planetPreview = null;
-      _main.LogException("Render planet preview", exception);
-      return null;
-    }
-  }
-
-  private void ResetLayout()
-  {
-    _canvasHost.ResetLayouts();
-    _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts);
-  }
-
-  private bool SaveSettings()
-  {
-    try
-    {
-      _main.Settings.Save(_main.ModEntry);
-      return true;
-    }
-    catch (Exception exception)
-    {
-      _main.LogException("Save settings", exception);
-      return false;
-    }
-  }
-
-  private void OnSettingsVisibility(bool visible)
-  {
-    if (visible)
-      UIInteractionState.Begin();
-    else
-      UIInteractionState.End();
-    _nativeViewers?.SetVisible(!visible);
-  }
-
-  private void OpenLayout()
-  {
-    UIInteractionState.Begin(layoutEditing: true);
-    _layoutEditor.Open();
-    _nativeViewers?.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
-    RefreshViewerMode(IsGameplayActive());
-  }
-
-  private void OnLayoutClosed(bool save)
-  {
-    bool saved = !save || SaveSettings();
-    RefreshViewerMode(IsGameplayActive());
-    _settingsPanel.Open();
-    if (!saved)
-      _settingsPanel.ShowSaveError();
-  }
-
-  public void ToggleNativeViewerPreview()
-  {
-    _nativePreview = !_nativePreview;
-    RefreshViewerMode(IsGameplayActive());
+    if (_initialized)
+      _settingsUi?.Open();
   }
 
   public void HideGameplay()
@@ -323,7 +194,7 @@ internal sealed class ModRuntime : IDisposable
         if (_presentationSettingsApplied && IsRecording == _main.Settings.RecordMode)
           return;
         _presentationSettingsApplied = true;
-        _canvasHost?.ApplyLayouts();
+        _overlay?.Canvas?.ApplyLayouts();
         _nativeViewers?.ConfigureLayouts(_main.Settings.OverlayLayouts);
         _recordingMode?.Apply(_main.Settings.RecordMode);
         if (IsRecording)
@@ -352,7 +223,7 @@ internal sealed class ModRuntime : IDisposable
 
   public void HideRecordingMissIndicator(scrMissIndicator indicator)
   {
-    Execute("Hide recording miss indicator", () => _recordingMode?.HideMissIndicator(indicator));
+    Execute("Hide recording miss indicator", _hideMissIndicator, indicator);
   }
 
   public void HideRecordingErrorMeter()
@@ -362,42 +233,27 @@ internal sealed class ModRuntime : IDisposable
 
   public void OnHit(scrMarginTracker tracker, HitMargin hit)
   {
-    Execute("Update judgement and combo", () => _coordinator?.RegisterHit(tracker, hit));
+    Execute("Update judgement and combo", _registerHit, tracker, hit);
   }
 
   public void OnTrackerReset(scrMarginTracker tracker)
   {
-    Execute(
-      "Refresh overlay after reset",
-      () =>
-      {
-        _coordinator?.RefreshAfterReset(tracker);
-        if (_coordinator is { IsVisible: true })
-          _timeTicker?.StartTicking();
-      }
-    );
+    Execute("Refresh overlay after reset", () => _overlay?.RefreshAfterReset(tracker));
   }
 
   public void OnPlayerDied(scrMarginTracker tracker)
   {
-    Execute(
-      "Refresh overlay after death",
-      () =>
-      {
-        _timeTicker?.StopTicking();
-        _coordinator?.RefreshAfterReset(tracker);
-      }
-    );
+    Execute("Refresh overlay after death", () => _overlay?.RefreshAfterDeath(tracker));
   }
 
   public void OnAccuracyChanged()
   {
-    Execute("Update XAccuracy", () => _coordinator?.RefreshAccuracy());
+    Execute("Update XAccuracy", _refreshAccuracy);
   }
 
   public void OnFloorChanged()
   {
-    Execute("Update progress, BPM and timing scale", () => _coordinator?.RefreshFloor());
+    Execute("Update progress, BPM and timing scale", _refreshFloor);
   }
 
   public void Dispose()
@@ -408,13 +264,8 @@ internal sealed class ModRuntime : IDisposable
     _disposed = true;
     _initialized = false;
 
-    _layoutEditor?.Dispose();
-    _layoutEditor = null;
-    _settingsPanel?.Dispose();
-    _settingsPanel = null;
-    _planetPreview?.Dispose();
-    _planetPreview = null;
-    UIInteractionState.Reset();
+    _settingsUi?.Dispose();
+    _settingsUi = null;
 
     _trackpad?.Dispose();
     _trackpad = null;
@@ -430,6 +281,7 @@ internal sealed class ModRuntime : IDisposable
     _keyLimiterIpc = null;
     _keyLimiter?.Clear();
     _keyLimiter = null;
+    KeyLimiterPatchPolicy.Reset();
 
     _recordingMode?.Dispose();
     _recordingMode = null;
@@ -440,22 +292,8 @@ internal sealed class ModRuntime : IDisposable
       _sceneHooked = false;
     }
 
-    _timeTicker?.StopTicking();
-    _coordinator?.Hide();
-    _canvasHost?.SetVisible(false);
-
-    _coordinator?.Dispose();
-    _coordinator = null;
-    _timeTicker = null;
-
-    _canvasHost?.Dispose();
-    _canvasHost = null;
-
-    _materialFactory?.Dispose();
-    _materialFactory = null;
-
-    _fontBundleLoader?.Dispose();
-    _fontBundleLoader = null;
+    _overlay?.Dispose();
+    _overlay = null;
 
     _harmony?.UnpatchAll(HarmonyId);
     _harmony = null;
@@ -463,30 +301,35 @@ internal sealed class ModRuntime : IDisposable
 
   private void OnTimeTick(int framesPerSecond)
   {
-    Execute("Update status time", () => _coordinator?.RefreshTime(framesPerSecond));
+    Execute("Update status time", _refreshTime, framesPerSecond);
   }
 
   private void OnSceneUnloaded(Scene scene)
   {
+    KeyLimiterPatchPolicy.Reset();
     _recordingMode?.ForgetDestroyedSceneObjects();
     HideGameplay();
+    // Overlay texts are inactive now, so they rebuild their glyphs on the next
+    // show. Open settings texts share the font and would keep blank glyphs.
+    if (_settingsUi?.IsOpen != true)
+      Execute("Release overlay fallback glyphs", _releaseFallbackGlyphs);
   }
 
   private void HideCore()
   {
-    _timeTicker?.StopTicking();
     RefreshViewerMode(false);
-    _coordinator?.Hide();
-    _canvasHost?.SetVisible(false);
+    _overlay?.Hide();
   }
 
   private void RefreshViewerMode(bool gameplay)
   {
-    bool supported = UnityEngine.Application.platform == UnityEngine.RuntimePlatform.OSXPlayer;
-    bool editing = _layoutEditor?.IsOpen == true;
+    if (_nativeViewers == null)
+      return;
+    bool supported = UnityEngine.Application.platform == RuntimePlatform.OSXPlayer;
+    bool editing = _settingsUi?.IsEditingLayout == true;
     bool enabled =
       supported && _nativeViewers.HasEnabledViewers && (editing || (!IsRecording && !scrController.coopMode));
-    _nativeViewers?.SetActive(enabled && (gameplay || _nativePreview || _layoutEditor?.IsOpen == true));
+    _nativeViewers.SetActive(enabled && (gameplay || editing));
   }
 
   private void Execute(string context, Action action)
@@ -500,8 +343,52 @@ internal sealed class ModRuntime : IDisposable
     }
     catch (Exception exception)
     {
-      _main.LogException(context, exception);
+      ReportFailure(context, exception);
     }
+  }
+
+  private void Execute<T>(string context, Action<T> action, T argument)
+  {
+    if (_disposed)
+      return;
+
+    try
+    {
+      action(argument);
+    }
+    catch (Exception exception)
+    {
+      ReportFailure(context, exception);
+    }
+  }
+
+  private void Execute<T1, T2>(string context, Action<T1, T2> action, T1 first, T2 second)
+  {
+    if (_disposed)
+      return;
+
+    try
+    {
+      action(first, second);
+    }
+    catch (Exception exception)
+    {
+      ReportFailure(context, exception);
+    }
+  }
+
+  // Per-frame callbacks can fail every frame. Log the first stack trace, then
+  // only a short count so a persistent error cannot flood the log.
+  private void ReportFailure(string context, Exception exception)
+  {
+    _failures.TryGetValue(context, out int count);
+    _failures[context] = ++count;
+    if (count == 1)
+      _main.LogException(context, exception);
+    else if (count == 10 || count == 100 || count % 1000 == 0)
+      _main.LogWarning(
+        "[" + context + "] failed " + count + " times. Latest: " + exception.GetType().Name + ": " + exception.Message
+      );
   }
 
   private static bool IsGameplayActive()

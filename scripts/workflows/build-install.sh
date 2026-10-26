@@ -11,7 +11,10 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 
 run_task "Validate local build inputs" "$TASKS_DIR/validate/local-build-inputs.sh"
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
-run_task "Build mod (Debug)" "$TASKS_DIR/build/mod.sh" Debug
+# Release by default: a Debug assembly disables JIT optimizations inside the game.
+# Set IMPL_RESOURCEPACK_CONFIGURATION=Debug to step through the mod in a debugger.
+configuration="${IMPL_RESOURCEPACK_CONFIGURATION:-Release}"
+run_task "Build mod ($configuration)" "$TASKS_DIR/build/mod.sh" "$configuration"
 run_task "Run C# tests" "$TASKS_DIR/test/csharp.sh"
 if [ "${1:-install}" != "check" ]; then
   run_task "Install mod" "$TASKS_DIR/install/mod.sh"

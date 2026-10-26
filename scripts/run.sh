@@ -18,6 +18,7 @@ Commands:
   install     Install the already verified mod payload
   package     Build the release package and metadata
   check       Validate all shell scripts
+  hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
   desktop-native-check  Check/test/clippy native backend without installing
   desktop-message-test  Run message/session application regressions
@@ -63,6 +64,9 @@ case "$command_name" in
     ;;
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"
+    ;;
+  hooks)
+    exec bash "$SCRIPTS_DIR/tasks/install/git-hooks.sh"
     ;;
   ipc-sync)
     exec node "$SCRIPTS_DIR/tasks/verify/sync-adofai-ipc.mjs" "${2:-}" "${3:-}"

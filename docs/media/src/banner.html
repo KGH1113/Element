@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ImplResourcePack banner</title>
+<!--
+  README banner source. Two real in-game screens are reproduced with the mod's own
+  pixel sizes, colors and font:
+    - Settings home   ImplResourcePack/Presentation/Settings/SettingsPanel.Shell.cs
+    - Add Element     ImplResourcePack/Presentation/Layout/OverlayLayoutEditor.Elements.cs
+  Colors come from SettingsUiFactory / SettingsPalette / OverlayTheme /
+  JudgementView. Render at 2x with a 1600x900 viewport:
+  see docs/media/src/render-banner.mjs
+-->
+<style>
+  @font-face {
+    font-family: "Maple";
+    src: url("../../../ImplResourcePack.Unity/Assets/Font/MAPLESTORY_OTF_BOLD.OTF");
+  }
+
+  :root {
+    /* SettingsUiFactory */
+    --background: #111111;
+    --surface: #1d1d1d;
+    --surface-hover: #393939;
+    --muted: #a8a8a8;
+    --foreground: #f5f5f5;
+    --window-edge: #383838;
+    --divider: #3b3b3b;
+    /* SettingsPalette.SoftAccent for the default highlight #BA712B */
+    --soft-accent: #d9aa7e;
+    --accent: #ba712b;
+    /* JudgementView */
+    --judge-base: #d958ff;
+    --too: #ff0000;
+    --very: #ff6f4e;
+    --early-perfect: #a0ff4e;
+    --perfect: #60ff4e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { width: 1600px; height: 900px; overflow: hidden; background: #050507; }
+  body { position: relative; font-family: "Maple", sans-serif; color: var(--foreground); }
+
+  svg { display: block; overflow: visible; }
+  .stroke { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Game backdrop: near black with scattered dark diamonds. */
+  .backdrop { position: absolute; inset: 0; }
+  .glow {
+    position: absolute; inset: 0;
+    background: radial-gradient(60% 70% at 18% 82%, rgba(186, 113, 43, .16), transparent 70%);
+  }
+
+  /* Both popups live in one 3D scene so they share a vanishing point. */
+  .scene {
+    position: absolute; inset: 0;
+    perspective: 2400px;
+    perspective-origin: 78% 30%;
+  }
+
+  /* ---------- Settings home (1000x600 game units) ---------- */
+  .window {
+    position: absolute;
+    left: 500px;
+    top: -10px;
+    width: 1000px;
+    height: 600px;
+    transform: rotateZ(-5deg) rotateY(-14deg) rotateX(5deg) scale(1.22);
+    transform-origin: 0 0;
+    background: var(--window-edge);
+    border-radius: 8px;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 38%, rgba(0, 0, 0, .5) 62%, transparent 90%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 38%, rgba(0, 0, 0, .5) 62%, transparent 90%);
+  }
+  .surface { position: absolute; inset: 1px; background: var(--background); border-radius: 8px; }
+  .win-title { position: absolute; left: 32px; top: 24px; height: 40px; font-size: 27px; line-height: 40px; }
+  .close { position: absolute; width: 40px; height: 40px; }
+  .close svg { position: absolute; left: 8px; top: 8px; width: 24px; height: 24px; color: var(--foreground); }
+
+  .card { position: absolute; width: 460px; height: 216px; background: var(--surface); border-radius: 8px; }
+  .card.hover { background: var(--surface-hover); }
+  .card .icon { position: absolute; left: 20px; top: 20px; width: 32px; height: 32px; color: var(--muted); }
+  .card h3 {
+    position: absolute; left: 68px; top: 18px; width: 372px; height: 36px;
+    font-size: 25px; line-height: 36px; font-weight: 400;
+  }
+  .card p {
+    position: absolute; left: 20px; top: 66px; width: 420px; height: 90px;
+    font-size: 15px; line-height: 1.28; color: var(--muted);
+  }
+  .card .divider { position: absolute; left: 20px; top: 164px; width: 420px; height: 1px; background: var(--divider); }
+  .card .action {
+    position: absolute; left: 20px; top: 178px; width: 394px; height: 24px;
+    font-size: 15px; line-height: 24px; color: var(--soft-accent);
+  }
+  .card .arrow { position: absolute; left: 424px; top: 178px; width: 16px; height: 24px; color: var(--soft-accent); }
+  .card .arrow svg { position: absolute; left: 0; top: 4px; width: 16px; height: 16px; }
+
+  /* ---------- Add Element gallery (w 760 x h 520 game units) ---------- */
+  .gallery {
+    position: absolute;
+    left: 700px;
+    top: 170px;
+    width: 760px;
+    height: 520px;
+    transform: translateZ(90px) rotateZ(-3deg) rotateY(-10deg) rotateX(4deg) scale(1);
+    transform-origin: 0 0;
+    background: var(--background);
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px #2c2c2c, 0 50px 90px rgba(0, 0, 0, .65);
+    overflow: hidden;
+  }
+  .gal-title { position: absolute; left: 28px; top: 20px; height: 40px; font-size: 26px; line-height: 40px; }
+  .gal-close { left: 692px; top: 20px; }
+  .viewport { position: absolute; left: 20px; top: 90px; width: 720px; height: 410px; overflow: hidden; }
+  .tiles { position: absolute; left: 8px; top: 0; width: 704px; }
+
+  .tile {
+    position: absolute;
+    width: 226.67px;
+    height: 172px;
+    background: var(--surface);
+    border-radius: 8px;
+  }
+  .tile.hover { background: var(--surface-hover); }
+  .tile .preview {
+    position: absolute; left: 16px; top: 16px; width: 194.67px; height: 104px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tile .label {
+    position: absolute; left: 16px; top: 130px; width: 178.67px; height: 30px;
+    font-size: 16px; line-height: 30px;
+  }
+  .tile .plus { position: absolute; left: 192.67px; top: 136px; width: 18px; height: 18px; color: var(--soft-accent); }
+
+  /* Overlay text as the game draws it: white label, tinted value, soft underlay. */
+  .ov {
+    white-space: nowrap;
+    font-size: 19px;
+    line-height: 1;
+    color: var(--accent);
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, .5), 0 0 1px #000;
+  }
+  .ov .k { color: #fff; }
+  .ov.j { font-size: 19px; color: var(--judge-base); }
+  .ov.j .t { color: var(--too); }
+  .ov.j .v { color: var(--very); }
+  .ov.j .e { color: var(--early-perfect); }
+  .ov.j .p { color: var(--perfect); }
+
+  /* ---------- Project facts, drawn like the game's top-left overlay ---------- */
+  .hud {
+    position: absolute;
+    left: 84px;
+    top: 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .hud .ov {
+    font-size: 27px;
+    text-shadow: 2px 2px 0 rgba(0, 0, 0, .55), 0 0 2px #000;
+  }
+
+  /* ---------- Banner lettering ---------- */
+  .heading {
+    position: absolute;
+    left: 84px;
+    top: 540px;
+    font-size: 150px;
+    line-height: .94;
+    letter-spacing: -.035em;
+    white-space: nowrap;
+    text-shadow: 0 6px 0 rgba(0, 0, 0, .45), 0 2px 30px rgba(0, 0, 0, .6);
+  }
+  .heading .l1 { display: block; color: var(--accent); }
+  .heading .l2 { display: block; color: var(--foreground); margin-top: 6px; }
+</style>
+</head>
+<body>
+  <svg class="backdrop" width="1600" height="900" aria-hidden="true">
+    <defs>
+      <pattern id="diamonds" width="96" height="96" patternUnits="userSpaceOnUse">
+        <rect x="14" y="20" width="30" height="30" rx="2" transform="rotate(34 29 35)" fill="#0f0f15"/>
+        <rect x="62" y="64" width="26" height="26" rx="2" transform="rotate(-18 75 77)" fill="#0d0d13"/>
+        <rect x="64" y="-6" width="22" height="22" rx="2" transform="rotate(48 75 5)" fill="#0b0b10"/>
+      </pattern>
+    </defs>
+    <rect width="1600" height="900" fill="url(#diamonds)"/>
+  </svg>
+  <div class="glow"></div>
+
+  <div class="scene">
+    <!-- Settings home -->
+    <div class="window">
+      <div class="surface"></div>
+      <div class="win-title">Settings</div>
+      <div class="close" style="left:928px; top:24px">
+        <svg viewBox="0 0 32 32"><path class="stroke" stroke-width="3.2" d="M8 8L24 24M24 8L8 24"/></svg>
+      </div>
+
+      <div class="card" style="left:32px; top:96px">
+        <svg class="icon" viewBox="0 0 32 32"><path class="stroke" stroke-width="2" stroke-linejoin="miter" d="M5 6H27V26H5Z M14 6V26 M14 16H27"/></svg>
+        <h3>Overlay</h3>
+        <p>Add elements and adjust their color and layout.</p>
+        <div class="divider"></div><div class="action">Edit overlays</div>
+        <div class="arrow"><svg viewBox="0 0 32 32"><path class="stroke" stroke-width="2.8" d="M10 5L21 16L10 27"/></svg></div>
+      </div>
+      <div class="card" style="left:508px; top:96px">
+        <svg class="icon" viewBox="0 0 32 32">
+          <path class="stroke" stroke-width="2" d="M5 8H27 M5 16H27 M5 24H27"/>
+          <circle cx="11" cy="8" r="3.2" fill="currentColor"/><circle cx="23" cy="16" r="3.2" fill="currentColor"/><circle cx="15" cy="24" r="3.2" fill="currentColor"/>
+        </svg>
+        <h3>Tweaks</h3>
+        <p>Adjust judgment display and gameplay behavior.</p>
+        <div class="divider"></div><div class="action">Open tweaks</div>
+        <div class="arrow"><svg viewBox="0 0 32 32"><path class="stroke" stroke-width="2.8" d="M10 5L21 16L10 27"/></svg></div>
+      </div>
+      <div class="card" style="left:32px; top:328px">
+        <svg class="icon" viewBox="0 0 32 32"><path class="stroke" stroke-width="2" stroke-linejoin="miter" d="M16 4L19.5 12.5L28 16L19.5 19.5L16 28L12.5 19.5L4 16L12.5 12.5Z M25 3V9 M22 6H28"/></svg>
+        <h3>Effects</h3>
+        <p>Keep the effects you want with personal presets.</p>
+        <div class="divider"></div><div class="action">Choose a preset</div>
+        <div class="arrow"><svg viewBox="0 0 32 32"><path class="stroke" stroke-width="2.8" d="M10 5L21 16L10 27"/></svg></div>
+      </div>
+      <div class="card" style="left:508px; top:328px">
+        <svg class="icon" viewBox="0 0 32 32">
+          <path id="gear" class="stroke" stroke-width="2" stroke-linejoin="miter" d=""/>
+          <circle class="stroke" stroke-width="2" cx="16" cy="16" r="3.8"/>
+        </svg>
+        <h3>General</h3>
+        <p>Set your shortcut and motion preferences.</p>
+        <div class="divider"></div><div class="action">Open general</div>
+        <div class="arrow"><svg viewBox="0 0 32 32"><path class="stroke" stroke-width="2.8" d="M10 5L21 16L10 27"/></svg></div>
+      </div>
+    </div>
+
+    <!-- Add Element gallery -->
+    <div class="gallery">
+      <div class="gal-title">Add Element</div>
+      <div class="close gal-close"><svg viewBox="0 0 32 32"><path class="stroke" stroke-width="3.2" d="M8 8L24 24M24 8L8 24"/></svg></div>
+      <div class="viewport"><div class="tiles" id="tiles"></div></div>
+    </div>
+  </div>
+
+  <!-- render-banner.mjs fills #version and #umm from ImplResourcePack/Info.json. -->
+  <div class="hud">
+    <div class="ov"><span class="k">Version |</span> <span id="version">0.0.0</span></div>
+    <div class="ov"><span class="k">UnityModManager |</span> <span id="umm">0.0.0</span>+</div>
+    <div class="ov"><span class="k">Platform |</span> macOS · Windows</div>
+  </div>
+
+  <h1 class="heading"><span class="l1">IMPL</span><span class="l2">ResourcePack</span></h1>
+
+  <script>
+    // SettingsNavigationIcon kind 2: continuous gear contour (32 points).
+    const pts = [];
+    for (let i = 0; i < 32; i++) {
+      const a = (i * Math.PI) / 16;
+      const r = i % 4 === 1 || i % 4 === 2 ? 12 : 9;
+      pts.push((16 + Math.cos(a) * r).toFixed(2) + " " + (16 + Math.sin(a) * r).toFixed(2));
+    }
+    document.getElementById("gear").setAttribute("d", "M" + pts.join("L") + "Z");
+
+    // Gallery tiles: 3 columns, gap 12, height 172 (OverlayLayoutEditor.Elements.cs).
+    const kv = (k, v) => `<span class="ov"><span class="k">${k} |</span> ${v}</span>`;
+    const judgements =
+      `<span class="ov j">0 <span class="t">0</span> <span class="v">2</span> <span class="e">4</span> ` +
+      `<span class="p">120</span> <span class="p">4</span> <span class="e">2</span> <span class="v">0</span> <span class="t">0</span> 0</span>`;
+    const elements = [
+      ["Judgments", judgements],
+      ["Progress", kv("Progress", "0%-48%")],
+      ["Accuracy", kv("XAccuracy", "99,5%")],
+      ["Music / map time", kv("Music Time", "1:27~3:48")],
+      ["FPS", kv("FPS", "120"), true],
+      ["Tile BPM", kv("TBPM", "180")],
+      ["Current BPM", kv("CBPM", "180")],
+      ["Keys per second", kv("KPS", "6")],
+      ["Song title", `<span class="ov" style="color:#fff">A Dance of Fire and Ice</span>`],
+    ];
+    const plus = `<svg viewBox="0 0 24 24"><path class="stroke" stroke-width="2" d="M12 5V19M5 12H19"/></svg>`;
+    document.getElementById("tiles").innerHTML = elements
+      .map(([label, html, hover], i) => {
+        const x = (i % 3) * (226.67 + 12);
+        const y = Math.floor(i / 3) * (172 + 12);
+        return `<div class="tile${hover ? " hover" : ""}" style="left:${x}px; top:${y}px">
+          <div class="preview">${html}</div><div class="label">${label}</div><div class="plus">${plus}</div></div>`;
+      })
+      .join("");
+  </script>
+</body>
+</html>

@@ -5,6 +5,12 @@
 # README.md rule
 - IF you are new to this project 'cause the session started right before, read README.md to understand this project.
 - If there is outdated thing in README.md, edit README.md to bring up to date.
+- README.md is a landing page for people, not agent memory or a changelog. Keep it short and visual: banner, showcase videos, feature highlights, quick start, shortcuts, structure diagram, platform support, license.
+- Write for someone who has never seen the project: say what a feature does for the player, not why it was built that way. No development-process reasoning or comparisons with tools the reader didn't ask about (e.g. "no need to run OBS" in a feature description, "works without JALib"). No emoji.
+- **DO NOT** add implementation details, internal behavior specs, fixed-bug notes, migration notes, or "how it works in code" paragraphs to README.md. Put them in a file under `docs/` and link from README.md at most one line.
+- A new feature gets at most one short bullet or card in README.md. Don't grow a section into a paragraph; if it needs more than two lines, it belongs in `docs/`.
+- Keep README.md media in `docs/media/`. GitHub strips `<video>` tags that point at repository files, so showcase videos are embedded with GitHub-uploaded `https://github.com/user-attachments/assets/...` URLs; keep the source mp4 (H.264, under 10MB, no GIFs) in `docs/media/showcase/` so it can be re-uploaded. GitHub shows the uploaded file name above each video, so name the files by what they show (`Tweaks.mp4`). Each settings-section clip starts on the Settings home and shows entering that tab.
+- Version, mod loader and platform are drawn in the banner, not in a badge row. After a version bump, rerun `node docs/media/src/render-banner.mjs <playwright>/index.mjs` (it reads `ImplResourcePack/Info.json`).
 
 # Useful dev tool usage
 - You can use `ilspycmd` and `assetripper(headless)` to inspect ADOFAI's code. Use it unless you really don't need to.

@@ -1,180 +1,168 @@
-# ImplResourcePack
+<img src="docs/media/banner.png" alt="IMPL ResourcePack: 모드의 Settings 화면과 Add Element 갤러리" width="100%">
 
-JALib에 의존하지 않는 A Dance of Fire and Ice용 UnityModManager 오버레이 모드입니다.
+<p align="center">
+얼불춤(A Dance of Fire and Ice) 오버레이·편의 기능 모드입니다.<br>
+판정·정확도·BPM을 원하는 자리에 놓고, 키뷰어를 게임 화면 안에 띄웁니다.
+</p>
 
-## 라이선스 범위
+## 쇼케이스
 
-| 범위                        | 라이선스                     | 설명                                                                                                                                                  |
-| --------------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 저장소 루트(아래 예외 제외) | source-available proprietary | 개인·비상업적 공식 빌드 사용과 공식 저장소 기여 준비만 허용됩니다. 자세한 내용은 [`LICENSE.md`](LICENSE.md)를 확인하세요.                             |
-| `apps/impl-dm-note/**`      | GPL-3.0-only                 | DM Note v1.6.1 기반의 독립 구성요소입니다. 앱의 [`LICENSE`](apps/impl-dm-note/LICENSE)와 [`UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md)가 적용됩니다. |
-| 서드파티 코드·폰트·자산     | 각 고유 조건                 | [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)와 구성요소별 고지를 확인하세요.                                                                    |
+<table>
+<tr>
+<td width="50%" valign="top">
+<video src="https://github.com/user-attachments/assets/bd995000-da71-4dc4-a5fd-3e5292c24df6" controls width="100%"></video>
+<br><b>Tweaks</b> · 에디터 도구, 판정 문구 숨김, 행성 꾸미기
+</td>
+<td width="50%" valign="top">
+<video src="https://github.com/user-attachments/assets/1a4a0234-938e-403c-8387-9fdea7e19432" controls width="100%"></video>
+<br><b>Effects</b> · 프리셋 카드 한 번으로 이펙트 정리
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<video src="https://github.com/user-attachments/assets/a0d8aa55-0767-4038-b3a3-9e25380ce0b3" controls width="100%"></video>
+<br><b>General</b> · 설정 단축키, 움직임 줄이기
+</td>
+<td width="50%" valign="top">
+<video src="https://github.com/user-attachments/assets/4f5fe5dd-5a8a-4a57-a0fe-0f2ce8fcd394" controls width="100%"></video>
+<br><b>Overlay</b> · 요소 추가와 배치, 하이라이트 색
+</td>
+</tr>
+<tr>
+<td colspan="2" valign="top">
+<video src="https://github.com/user-attachments/assets/4136d2c5-f1bb-4bd7-82bd-5f389172175e" controls width="100%"></video>
+<br><b>ImplDmNote</b> · 앱에서 고른 손·발 키뷰어가 게임 화면 안에 그대로 나타납니다
+</td>
+</tr>
+</table>
 
-기여 절차와 권리 조건은 [`CONTRIBUTING.md`](CONTRIBUTING.md) 및 [`CONTRIBUTOR_AGREEMENT.md`](CONTRIBUTOR_AGREEMENT.md)에 정리되어 있습니다.
+## 기능
 
-현재는 Jipper 스타일의 싱글 플레이 판정 오버레이를 제공합니다. 데스크톱 키뷰어는 `apps/impl-dm-note`의 독립 애플리케이션 ImplDmNote로 제공합니다.
+<table>
+<tr>
+<td width="33%" valign="top">
 
-- 진행도와 절대 정확도
-- 음악 시간과 맵 시간
-- 타일 BPM, 현재 BPM, 초당 입력 수, FPS
-- 판정
-- 콤보
-- 타이밍 스케일 (하단 중앙에 현재 타일의 판정 배율을 백분율로 표시)
-- 곡 제목
-- ImplDmNote 프로필과 동기화되는 입력 키 리미터
-- ImplDmNote 손·발 키뷰어를 게임 창 안에서 직접 그리는 네이티브 웹뷰 (macOS·Windows)
+### 판정 오버레이
+진행도·정확도·음악/맵 시간·타일 BPM·현재 BPM·KPS·FPS·판정·콤보·타이밍 스케일·곡 제목. 같은 요소를 여러 개 추가해 각각 배치합니다.
 
-## 설정과 오버레이 설정
+</td>
+<td width="33%" valign="top">
 
-**왼쪽 Alt + Tab**으로 커스텀 설정 화면을 열고 닫습니다. macOS에서는 **왼쪽 Option + Tab**입니다. UMM에는 설정 화면을 여는 버튼만 있습니다. 첫 화면에는 **Overlay · Tweaks / Effects · General(일반)** 카드가 2×2로 배치되며, 아주 좁은 창에서는 세로로 배치됩니다.
+### 끌어서 배치
+드래그로 이동하고, 모서리와 변을 잡아 크기를 바꿉니다. 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
 
-- **Overlay**: 게임 화면 위에서 오버레이 요소를 추가·삭제하고 배치와 색상을 편집합니다.
-- **Tweaks**: 에디터, 판정 표시, 행성 꾸미기 세부 화면과 녹화 모드, macOS 트랙패드를 제공합니다. 트랙패드 항목은 macOS에서만 표시됩니다.
-- **Effects**: 이름이 있는 이펙트 제거 프리셋을 갤러리에서 선택합니다. 한 번에 하나만 적용하며 상단 스위치로 전체 기능을 끕니다.
-- **General(일반)**: 설정 단축키와 **움직임 줄이기**를 설정합니다. macOS 보조 키는 ⌘·⌥·⌃·⇧ 기호와 L/R로 표시하며, 문장부호 키는 실제 문자로 표시합니다. 왼쪽 꺾쇠 아이콘 또는 `Esc`로 상위 화면에 돌아갑니다.
+</td>
+<td width="33%" valign="top">
 
-**Tweaks → 에디터**는 선택 정보와 편집 동작 탭으로 나뉩니다. 선택 구간의 각도·박자·타일 수·시간 표시, 마지막 간격 제외, 정밀 회전 각도, 타일 뒤집기·회전 시 카메라·타일 이벤트 좌표 동기화를 설정합니다. 정밀 회전은 **Ctrl + Alt + 쉼표/마침표**, macOS에서는 **Cmd + Option + 쉼표/마침표**입니다. 게임의 실행 취소·다시 실행을 유지하며 구형 문자 경로 맵은 15° 단위로 회전합니다.
+### 게임 내 키뷰어
+[ImplDmNote](#impldmnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. 다른 요소처럼 Add Element에서 추가하고 위치와 크기를 정합니다.
 
-**Tweaks → 판정 표시**에서는 Perfect −/+, X-Perfect, Early/Late Perfect, Too Early/Early/Late/Too Late, Miss, Overload 문구를 각각 표시하거나 숨깁니다. 게임의 `XPerfect` 판정은 Perfect −/+와 독립적으로 설정합니다. 기존 Perfect 숨김 선택은 두 설정에 한 번만 이전하며 모드의 판정 카운터는 영향을 받지 않습니다.
+</td>
+</tr>
+<tr>
+<td valign="top">
 
-**Tweaks → 행성**은 불·얼음·세 번째 공을 각각 설정합니다. 공·꼬리·고리의 색상과 0–100% 불투명도를 하나의 HSV/HEX 편집기에서 바꿉니다. 미리보기는 게임의 실제 공 텍스처·마스크·머티리얼을 사용하며 색상과 불투명도 변경을 즉시 반영합니다. `맵 색상`을 선택하면 맵의 색상 변화를 유지하며 불투명도만 적용합니다. 전체 기능 또는 개별 행성의 적용을 끄면 게임의 원래 모습으로 복구합니다. 새 기능은 기본적으로 꺼져 있습니다.
+### Effect Remover
+22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 원본 맵은 바뀌지 않습니다.
 
-**Effects**는 아래 세 가지 기본 프리셋을 제공하며 처음에는 꺼져 있습니다. 게임의 "태그 없음" 값(`NONE`, `None`, `없음` 등)은 게임플레이 연결로 보지 않습니다.
+</td>
+<td colspan="2" valign="top">
 
-- **Remove All**: 지원하는 모든 이펙트 제거 옵션을 켭니다.
-- **No Filters**: 화면 필터와 고급 필터만 제거합니다. 장식·배경·화면 번쩍임·흔들림은 유지합니다.
-- **Only Tiles**: 타일 색상·등장/퇴장·이동·위치·투명도 이벤트와 해당 이벤트의 반복을 유지하고 나머지 이펙트를 제거합니다.
+### Tweaks
+- **행성 꾸미기**: 불·얼음·세 번째 공의 공·꼬리·고리 색과 불투명도를 바꿉니다.
+- **에디터 도구**: 선택 구간의 각도·박자·타일 수·시간 표시, 정밀 회전, 타일을 뒤집거나 돌릴 때 이벤트 좌표 함께 맞추기.
+- **판정 문구 숨김**: Perfect·Early·Miss·Overload 등 보고 싶지 않은 판정 문구를 골라 숨깁니다.
 
-프리셋을 누르면 선택하여 켜고, 연필 아이콘으로 편집합니다. **프리셋 추가**에서는 이름과 제거할 효과를 설정하고 저장합니다. 이름은 앞뒤 공백과 대소문자를 구분하지 않고 고유해야 합니다. 화면·배경/장식·타일·공·기타 탭에서 관련 옵션만 보여주며 프리셋 카드는 넓은 창에서 한 줄에 세 개입니다. 수정하지 않은 이전 기본 프리셋은 새 구성으로 이전하며, 직접 만들거나 수정한 프리셋은 유지합니다.
+</td>
+</tr>
+</table>
 
-이펙트 제거 변경은 **레벨을 열거나 플레이를 시작·재시작할 때** 적용됩니다. 플레이 도중 설정을 바꿔도 자동으로 일시정지하거나 재시작하지 않습니다. 에디터 미리보기와 장식 목록에도 현재 적용된 프리셋을 유지하며, 플레이 후 에디터로 복귀할 때 제거된 장식과 이미지를 다시 불러오지 않습니다. 원본 맵 데이터와 저장·실행 취소 데이터는 보존합니다. 게임플레이 조건에 연결된 장식과 박자·입력 이벤트도 보존합니다. 경로 배치·체크포인트에 영향을 주는 옵션은 설명을 표시합니다.
+그 밖에 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, 입력 키 리미터, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
-뒤로/닫기는 배경 없는 아이콘이며 호버와 누름 상태에 반응합니다. 버튼·입력란·슬라이더·색상 선택 영역은 각각 맞는 커서를 사용합니다. 아이콘은 화면 픽셀 크기를 고려한 안티앨리어싱을 사용하고, 창은 크기를 늘리지 않고 짧은 페이드와 위치 전환으로 나타납니다. **움직임 줄이기**를 켜면 즉시 표시됩니다.
+## 시작하기
 
-**오버레이 설정 → Edit Color**는 모든 오버레이와 설정 UI가 함께 사용하는 하이라이트 색상을 변경합니다. 색상 선택 영역과 HEX 입력을 제공하며 변경 결과가 즉시 반영됩니다. 기본값은 `#BA712B`입니다. 기존 기본값 `#7CCE00`을 사용하던 설정은 첫 로드에서 새 기본값으로 이전하고, 직접 지정한 다른 색상은 유지합니다. 이후 이전의 초록색을 다시 선택하면 그 선택도 유지합니다. Perfect·Miss 등 판정별 의미 색상은 바뀌지 않습니다. 유효하지 않은 HEX 입력은 기존 색상을 덮어쓰지 않습니다.
+> [!NOTE]
+> 아직 배포용 패키지가 없어 소스에서 빌드합니다. 게임 DLL을 참조하므로 게임이 설치된 PC에서 빌드하세요.
 
-**Overlay**를 누르면 설정 화면이 사라지고 게임 위에 플로팅 편집 패널이 나타납니다. 진행도·정확도·시간·FPS·타일 BPM·현재 BPM·초당 입력 수·곡 제목·콤보·판정·타이밍 스케일과 손·발 키뷰어를 각각 편집합니다.
+**필요한 것:** A Dance of Fire and Ice · [UnityModManager](https://github.com/newman55/unity-mod-manager) 0.27 이상 · Harmony
 
-- **Add Element**에서 요소 갤러리를 엽니다. 갤러리는 예시 데이터로 실제 오버레이를 렌더링하며 현재 하이라이트 색상을 반영합니다. 원하는 요소를 누르면 추가되고, 같은 종류도 여러 번 추가해 각각 배치할 수 있습니다.
-- 선택한 요소는 플로팅 패널의 삭제 아이콘 또는 `Cmd/Ctrl + Delete`로 삭제합니다. macOS 키보드의 Delete 키에 해당하는 `Cmd + Backspace`와 Windows의 `Ctrl + Backspace`도 지원합니다. 추가·삭제도 실행 취소와 다시 실행에 포함됩니다. 삭제하거나 취소한 복사본은 편집을 마치면 정리되어 저장되지 않습니다.
-- 선택 전에는 현재 실제로 표시된 요소의 크기만 클릭 영역으로 사용합니다. 선택 후에는 내용이 변해도 편집 영역이 흔들리지 않도록 최대 크기의 흰색 점선 영역을 사용합니다. 안쪽을 드래그하면 이동하고, 선택 영역의 모서리 네 곳과 변 네 곳은 비율을 유지하는 리사이즈 핸들입니다. 잡은 방향의 반대편을 고정하며, 호버 위치에 맞춰 커서가 바뀝니다. 선택 영역 위에는 이름을 별도로 표시하지 않습니다.
-- 요소는 화면 밖으로 옮길 수 있지만 가로·세로 각각 최소 10%는 화면 안에 남습니다. 크기를 조절하거나 해상도를 바꿀 때도 같은 한도를 적용합니다. 게임 내 키뷰어는 앱의 바깥 여백을 제외한 콘텐츠 영역을 기준으로 표시하고 조정합니다. 노트 트랙 영역은 유지합니다.
-- 조정 패널은 빈 영역이나 왼쪽 손잡이를 잡아 드래그할 수 있습니다. 패널 위에서는 Unity·네이티브 선택 테두리를 모두 가립니다. 크기 컨트롤은 `+ 숫자% −` 순서이며 실행 취소·다시 실행·요소 초기화·자동 맞춤은 아이콘으로 표시합니다.
-- 자동 맞춤을 켜면 화면·요소의 가장자리와 중앙뿐 아니라 같은 행·열에 있는 요소 사이의 간격도 맞춥니다. 두 요소 사이에 놓거나 줄의 앞뒤에 이어 놓을 때 같은 간격을 유지하며, 맞춰지는 두 간격에 가이드가 표시됩니다. `Alt/Option`을 누르는 동안에는 자동 맞춤을 잠시 해제합니다.
-- `Tab` / `Shift + Tab`으로 요소를 선택하고 방향키로 1px, `Shift + 방향키`로 10px 이동합니다. `+` / `-`로 크기를 조절하며 `Shift`를 누르면 조정 폭이 커집니다. 플레이 중에는 이 키들이 리듬 입력과 겹치지 않도록 `Ctrl` 또는 `Cmd`를 함께 누릅니다.
-- **저장** 또는 `Ctrl/Cmd + Enter`로 적용하고, **취소** 또는 `Esc`로 편집 시작 전 상태로 되돌립니다. 두 경우 모두 설정 화면으로 돌아갑니다. Enter만 누르면 리듬 입력을 계속 받습니다.
-- **전체 초기화**는 확인 모달에서 승인하면 오버레이 구성을 최초 상태로 복원합니다. 삭제한 기본 요소를 다시 표시하고 추가한 요소는 제거하며, 모든 위치·크기를 기본값으로 되돌립니다. 실행 취소하거나 편집 화면의 취소로 복구할 수 있습니다. 하이라이트 색상과 게임플레이 설정은 유지합니다.
-- 이동을 확정하면 요소 중심에서 가장 가까운 화면 기준점을 자동으로 선택하고, 화면과 요소의 같은 기준점 사이 여백을 저장합니다. 일반 오버레이는 3×3의 9개 점, 키뷰어는 네 꼭짓점과 중앙의 5개 점을 사용합니다. 정확히 같은 거리라면 중앙 방향을 선택합니다. 크기 조절은 기존 기준점을 유지하며, 초기화 아이콘은 선택한 요소의 기본 배치를 복원합니다.
-- 설정과 배치 조정은 게임을 자동으로 일시정지하지 않습니다. 설정 화면은 키 입력을 사용하며, 배치 조정 중에는 리듬 키 입력을 유지하고 마우스를 조정에 사용합니다. 갤러리·색상 편집기와 숫자 입력 중에는 해당 UI가 키 입력을 사용합니다.
+```bash
+git clone https://github.com/KGH1113/ImplResourcePack.git
+cd ImplResourcePack
 
-Unity Canvas와 TextMeshPro로 화면을 구성하고 필요한 속성만 갱신합니다. 설정 화면은 처음 열 때 한 번 만들고, 행성 미리보기는 설정 화면을 닫으면 해제합니다. [Quartz의 UI 구조](https://github.com/PrismMods/Quartz/tree/main/Quartz/UI)와 shadcn의 카드·버튼·스위치·슬라이더 패턴을 참고한 독립 구현이며, 게임 안에서 브라우저나 React를 구동하지 않습니다.
+cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
+./scripts/run.sh build      # Release 빌드 후 Mods/ImplResourcePack에 설치
+```
 
-### 해상도와 배치 저장
+게임에서 **왼쪽 <kbd>Alt</kbd> + <kbd>Tab</kbd>** (macOS는 <kbd>⌥</kbd> + <kbd>Tab</kbd>)을 누르면 설정 화면이 열립니다.
 
-배치 기준은 모니터 전체가 아닌 **실제 게임 화면 영역**입니다. 좌표는 좌상단 원점, 오른쪽이 +X, 아래쪽이 +Y인 Unity 화면 픽셀로 통일합니다. `1920×1080`을 논리 기준으로 삼고 `s = sqrt((너비 / 1920) × (높이 / 1080))`를 여백과 요소 크기에 동일하게 적용합니다. 따라서 `2560×1440`에서는 크기와 여백이 함께 4/3배가 되며, 화면 비율이 달라져도 선택한 가장자리·중앙 기준을 유지합니다. 개별 크기 조절 배율은 별도로 보존합니다. Unity는 기존 CanvasScaler가 공통 배율을 담당하고, 네이티브 키뷰어는 같은 화면 픽셀 배치를 AppKit 뷰 포인트로 변환하므로 배율을 중복 적용하지 않습니다.
+**게임 내 키뷰어 켜기**
 
-새 형식은 `LayoutVersion=1`, `Anchor`, 논리 단위 `OffsetX/OffsetY`, 개별 `Scale`을 저장합니다. 정규화 기준점 `a`, 화면 크기 `V`, 현재 요소 크기 `S`, 오프셋 `d`에 대해 저장은 `d = (좌상단 + a×S − a×V) / s`, 복원은 `좌상단 = a×V + d×s − a×S`입니다. 텍스트 길이가 달라지면 해당 요소의 현재 콘텐츠 크기로 다시 정렬하며, 콤보·판정의 일시적인 애니메이션 변위는 저장 기준에서 제외합니다. 선택 후 표시되는 최대 편집 영역과 콘텐츠 기준점은 구분됩니다.
+1. [ImplDmNote](#impldmnote)를 실행하고 손·발 탭 중 하나를 고릅니다.
+2. 앱 설정에서 **OBS 모드 활성화**를 켭니다. OBS 프로그램은 없어도 됩니다.
+3. 게임 설정의 **Overlay → Add Element**에서 손 키뷰어나 발 키뷰어를 추가하고 저장합니다.
 
-기존 `CenterX/CenterY` 설정은 원래 해상도를 추정해 변환하지 않습니다. 먼저 기존 방식으로 표시하고, 사용자가 그 요소의 이동·크기 조절을 확정할 때 현재 보이는 위치와 유효 크기로 새 형식에 전환합니다. 단순 로드, 설정 열기, 화면 이동만으로 저장값을 바꾸지 않습니다. 저장·취소·실행 취소·다시 실행에는 형식과 기준점 정보도 함께 포함됩니다. 작은 화면에서 최소 10% 가시성을 위해 위치를 임시 보정해도 원래 오프셋은 유지하므로 이전 화면으로 돌아오면 원래 배치가 복원됩니다. 드래그 도중 게임 화면 크기가 바뀌면 진행 중인 드래그를 취소하고 저장된 배치를 복원합니다. 화면별 프로필과 그룹은 제공하지 않습니다.
+## 단축키
 
-## Runtime dependencies
+| 동작 | Windows | macOS |
+| --- | --- | --- |
+| 설정 화면 열기·닫기 | <kbd>왼쪽 Alt</kbd> + <kbd>Tab</kbd> | <kbd>왼쪽 ⌥</kbd> + <kbd>Tab</kbd> |
+| 요소 선택 | <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | 동일 |
+| 1px / 10px 이동 | <kbd>←↑↓→</kbd> / <kbd>Shift</kbd> + <kbd>←↑↓→</kbd> | 동일 |
+| 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
+| 저장 / 취소 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> | <kbd>⌘</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> |
+| 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
+| 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |
+| 자동 맞춤 잠시 끄기 | <kbd>Alt</kbd> 누르는 동안 | <kbd>⌥</kbd> 누르는 동안 |
+| 정밀 회전 (에디터) | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>,</kbd> <kbd>.</kbd> | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>,</kbd> <kbd>.</kbd> |
 
-- A Dance of Fire and Ice
-- UnityModManager 0.27.0 이상
-- Harmony
-- ADOFAI-IPC 2.1.0 동봉 DLL (별도 공용 모드 설치 없음)
+플레이 중에는 리듬 입력과 겹치지 않도록 이동·크기 조절 키에 <kbd>Ctrl</kbd>(macOS는 <kbd>⌘</kbd>)을 함께 누릅니다.
 
-Harmony 패치는 기능별로 적용합니다. 게임 업데이트로 패치 대상이 바뀌면 해당 기능만 꺼지고 UMM 로그에 기능 이름이 남으며, 나머지 기능은 계속 동작합니다.
+## 구조
 
-Unity 모드는 JALib에 의존하지 않습니다. ImplResourcePack은 Contracts·Loader와 `ipc/` 런타임 번들을 동봉하며, ImplDmNote 데스크톱 앱은 같은 프로토콜의 TypeScript SDK 원본을 앱 내부에 고정하여 사용합니다. npm 패키지 릴리스에 의존하지 않습니다.
+모드와 앱은 [ADOFAI-IPC](https://github.com/KGH1113/adofai-ipc)로 명령과 상태를 주고받습니다.
 
-앱과 모드는 하나의 loopback WebSocket 연결에서 명령과 상태 이벤트를 주고받습니다. 키 프로필 적용 결과와 namespace 준비 상태는 polling 없이 전달되고, 프로필을 소유한 앱의 연결이 끊기면 입력 키 제한을 해제합니다. 자세한 경계와 검증은 [`docs/adofai-ipc-v2.md`](docs/adofai-ipc-v2.md)를 참고하세요.
+```mermaid
+flowchart TB
+    ren["TUFReplay-Renderer"] -->|리플레이 렌더링| app["ImplDmNote"]
+    subgraph game["A Dance of Fire and Ice"]
+        mod["ImplResourcePack"]
+        view["게임 내 키뷰어"]
+    end
+    app <-->|ADOFAI-IPC| mod
+    app -->|키뷰어 화면| view
 
-macOS 11 이상에서는 WKWebView, Windows 10 이상에서는 WebView2로 ImplDmNote의 OBS 페이지를 게임 창 안에서 직접 그립니다. Windows는 시스템의 Microsoft Edge WebView2 런타임(Windows 11 기본 포함)을 사용합니다. 앱에서 원하는 손·발 탭을 선택하고 OBS 모드를 켜면 추가된 키뷰어 요소에 표시됩니다. **Overlay → Add Element**에서 손·발 키뷰어를 추가하고 선택해 이동·크기 조정·삭제할 수 있습니다. 손·발 키뷰어 요소를 모두 삭제하면 게임 내 키뷰어 기능 자체를 비활성화하며, 다시 추가하면 연결을 재개합니다. 별도의 표시 스위치와 연결·미리보기 카드는 제공하지 않습니다. 키뷰어가 연결되지 않으면 오버레이 편집 화면의 키뷰어 예시 위에 이유와 해결 방법을 한국어·영어로 표시합니다(예: ImplDmNote 실행, OBS 모드 켜기, 업데이트). 오버레이 설정은 별도로 실행되는 데스크톱 앱 창이 아닌 게임 내 키뷰어를 대상으로 합니다. OBS Studio를 실행할 필요는 없습니다.
+    classDef accent fill:#ba712b,stroke:#ba712b,color:#fff
+    class mod,app accent
+```
 
-게임 내 키뷰어는 네이티브 방식만 사용합니다. 프레임 캡처·파일 전달·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. macOS에서는 Discord·OBS에서 게임 창만 선택해도 키뷰어가 함께 캡처됩니다. Windows의 OBS에서는 **윈도우 캡처**의 캡처 방식을 **Windows 10 (1903 이상)**으로 설정해야 키뷰어가 함께 보입니다. 기본값인 **자동**은 게임 창에 BitBlt를 골라 키뷰어가 빠지며, **게임 캡처**도 게임이 그린 프레임만 가져가므로 키뷰어를 포함하지 않습니다. Release 앱 빌드와 확인 절차는 [게임 내 키뷰어 안내](docs/native-webview.md)를 참고하세요.
+## 플랫폼
 
-앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 키뷰어 정보를 게임에 보냅니다. 게임은 놓친 알림에 대비해 30초마다 한 번만 확인하며, 이 기능이 없는 이전 앱에는 기존처럼 2초마다 확인합니다. 앱이 잠시 바쁘거나 OBS 서버가 시작 중이면 키뷰어 페이지를 유지한 채 다시 시도하고, 리플레이를 렌더링하는 동안에는 숨겼다가 끝나면 다시 표시합니다. OBS 모드를 끄거나 앱 연결이 끊긴 경우에만 페이지를 닫습니다.
-
-연결된 키뷰어의 키·통계·그래프는 ImplDmNote에서 지정한 색상·투명도·이미지·노트 스타일을 그대로 사용합니다. 모드 하이라이트 색상으로 OBS 페이지의 스타일을 덮어쓰지 않습니다. 갤러리와 연결 전 편집 화면에서는 손·발 키와 KPS의 예시 구성을 표시합니다.
-
-탭·키 개수·배치·노트 트랙 높이가 바뀌면 게임 내 키뷰어도 실제 콘텐츠 크기에 맞춰 자동으로 리사이징됩니다. 최초 연결 시 정한 기본 배율과 사용자의 개별 배율을 유지하며, 콘텐츠가 커졌다고 다시 축소하지 않습니다. 이동을 확정할 때 키뷰어 중심에서 실제 게임 화면의 네 꼭짓점·중앙 중 가장 가까운 점을 선택합니다. 해당 키뷰어 꼭짓점 또는 중심을 고정하고 반대 방향으로 확장·축소하며, 크기 변화 도중 기준점을 다시 고르지 않습니다. 페이지를 다시 불러오지 않으며, OBS 모드에서 데스크톱 창 크기가 이전 값으로 남아 있어도 현재 키뷰어 배치를 사용합니다.
+| 플랫폼 | 게임 내 키뷰어 |
+| --- | --- |
+| macOS 11 이상 | 지원 |
+| Windows 10 이상 | 지원 · Microsoft Edge WebView2 런타임 필요 (Windows 11 기본 포함) |
+| Linux | 미지원 |
 
 ## ImplDmNote
 
-`apps/impl-dm-note`는 DM Note v1.6.1을 기반으로 수정한 GPL-3.0-only 데스크톱 애플리케이션입니다. 별도 실행 파일과 앱 데이터 디렉터리를 사용하며 localhost ADOFAI-IPC를 통해 ImplResourcePack과 통신합니다.
+[`apps/impl-dm-note`](apps/impl-dm-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
+
+- 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
+- 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
+- TUFReplay-Renderer와 연동한 리플레이 영상 렌더링
 
 ```bash
 npm install
 npm run desktop:dev
-npm run desktop:check
-npm run desktop:build
 ```
 
-원본과 변경 이력은 [`apps/impl-dm-note/UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md), 라이선스는 [`apps/impl-dm-note/LICENSE`](apps/impl-dm-note/LICENSE)를 참고하세요. 커스텀 JavaScript 플러그인은 샌드박스되지 않으며 앱 사용자와 같은 권한으로 실행되므로 신뢰하는 코드만 설치해야 합니다.
+## 라이선스
 
-TUFReplay-Renderer가 실행 중이면 ImplDmNote는 같은 localhost ADOFAI-IPC를 통해 자동 렌더 세션에 연결합니다. 웹의 Render 동작이 현재 프리셋을 고정하고 실제 입력을 제외한 전용 화면을 프레임 단위로 출력합니다. 자동 배치는 열려 있는 손·발 오버레이를 모두 포함하고 각 창의 위치·크기와 선택된 탭을 유지합니다. 수동 스냅샷·Chrome·소스 경로 설정은 필요하지 않으며, 렌더 카운터는 기록별로 0부터 시작하고 기존 앱의 누적 카운터는 보존됩니다. 앱의 [`렌더링 안내`](apps/impl-dm-note/README.md#리플레이-렌더링)를 참고하세요.
+| 범위 | 라이선스 |
+| --- | --- |
+| 저장소 루트 (아래 예외 제외) | source-available proprietary. 개인·비상업적 공식 빌드 사용과 공식 저장소 기여 준비만 허용. [`LICENSE.md`](LICENSE.md) |
+| `apps/impl-dm-note/**` | GPL-3.0-only. [`LICENSE`](apps/impl-dm-note/LICENSE) · [`UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md) |
+| 서드파티 코드·폰트·자산 | 각 고유 조건. [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
 
-커스텀 설정과 배치 조정 UI는 게임 오버레이와 같은 `MAPLESTORY_OTF_BOLD SDF`를 사용합니다. 이미 굵은 서체이므로 추가 굵기를 합성하지 않고 크기·간격·색상으로 제목과 본문을 구분합니다. 폰트 자산은 플랫폼별 AssetBundle에 포함됩니다. 라틴 문자·숫자·문장부호는 `MAPLESTORY_OTF_BOLD SDF`(74pt, 1024×1024), 한글·키릴·그리스 문자와 기호는 폴백인 `MAPLESTORY_OTF_BOLD KR SDF`(36pt, 2048×2048)에 미리 그려져 있습니다. 서체가 그리지 않는 문자(한자·가나, 일부 한글 음절과 악센트 문자 등)만 게임 CJK 서체에서 모드 전용 동적 아틀라스(1024×1024 페이지)에 필요할 때 추가하며, 게임이 공유하는 폰트 아틀라스는 키우지 않습니다.
-
-하이라이트 색상 편집은 오버레이 설정의 **Edit Color**에 모았습니다. 갤러리 미리보기에도 실제 오버레이 색상 계산을 적용하고, 설정 UI는 같은 색상에서 읽기 쉬운 밝은 톤을 만듭니다. 색상 드래그 중에는 폰트나 오버레이를 다시 생성하지 않습니다. 좁은 창에서는 첫 화면의 카드를 세로로 배치하고 필요한 내용만 스크롤합니다.
-
-오버레이 설정은 실행 취소·다시 실행, 요소별 초기화, 크기 % 입력을 제공합니다. 화면 및 다른 요소와 가까워지면 정렬선과 약한 맞춤이 적용되며, Alt/Option을 누르면 맞춤을 잠시 해제합니다. Ctrl/Cmd+Z는 실행 취소, Ctrl/Cmd+Shift+Z는 다시 실행입니다. **General(일반) → 움직임 줄이기**로 전환 효과를 끌 수 있습니다. 저장 등의 주요 버튼은 어두운 배경과 밝은 하이라이트 글자를 사용합니다.
-
-## Build
-
-빌드 환경 설정은 `tuf-replay`와 같은 `.env` 규약을 사용합니다.
-
-폰트 AssetBundle을 다시 생성하려면 Unity 에디터를 닫은 뒤 다음 명령을 실행합니다.
-
-```bash
-./scripts/run.sh assets
-```
-
-Unity 프로젝트는 `ImplResourcePack.Unity`에 있으며 Unity `6000.3.10f1`을 사용합니다.
-`assets` 명령은 수정하지 않은 `MAPLESTORY_OTF_BOLD.OTF`에서 두 SDF 자산을 다시 생성한 뒤 플랫폼별 런타임 AssetBundle로 패키징합니다. 서체 파일은 편집하지 않고 아틀라스에 넣을 문자만 고르며, 윤곽선이 없는 글리프는 빈칸으로 그리지 않도록 제외해 폴백 서체로 넘깁니다. 지정한 문자가 아틀라스에 들어가지 않으면 빌드가 실패하며, 같은 입력에서는 같은 자산과 번들이 생성됩니다. 문자 범위와 크기는 `ImplResourcePack.Unity/Assets/Editor/FontAssetGenerator.cs`에서 정합니다.
-
-```bash
-cp .env.example .env
-./scripts/run.sh build
-```
-
-`./scripts/run.sh mod-check`는 설치 없이 빌드와 C# 회귀 테스트를 수행합니다. 검증된 산출물을 설치하려면 `./scripts/run.sh install`을 사용합니다.
-
-모드는 공개할 수 없는 게임 DLL을 참조하므로 공개 CI 대신 로컬 Git hook으로 검사합니다. `./scripts/run.sh hooks`를 한 번 실행하면 모드 관련 파일(`ImplResourcePack/`, 테스트, `native/`, `scripts/` 등)이 바뀐 push 전에 `mod-check`가 자동으로 실행됩니다. 한 번 건너뛰려면 `git push --no-verify`를 사용합니다.
-
-`./scripts/run.sh ui-check`는 게임을 실행하지 않고 Unity에서 실제 UI 소스를 렌더링합니다. 한국어·영어, 좁은 창·720p·1080p·Retina 화면을 `build/ui-preview/`에 저장하며 폰트·테마 대비·입력 검증도 확인합니다. 게임 입력과 네이티브 키뷰어 통합 E2E는 별도로 확인해야 합니다. Unity 에디터를 닫은 상태에서 실행하세요.
-
-`build` 명령은 입력 경로를 검증하고 Release 빌드를 만든 뒤 기본적으로 ADOFAI의 `Mods/ImplResourcePack`에 설치합니다. Debug 빌드는 게임 안에서 JIT 최적화가 꺼지므로 디버거가 필요할 때만 `.env`에 `IMPL_RESOURCEPACK_CONFIGURATION="Debug"`를 지정합니다.
-
-릴리스 패키지는 다음 명령으로 만듭니다.
-
-```bash
-./scripts/run.sh package
-```
-
-생성물:
-
-- `build/ImplResourcePack.zip`
-- `build/ImplResourcePack.version`
-- `build/ImplResourcePack.zip.sha256`
-
-셸 스크립트만 검사하려면 다음을 실행합니다.
-
-```bash
-./scripts/run.sh check
-```
-
-## Formatting
-
-C# 포맷터는 `tuf-replay`와 동일한 CSharpier 1.3.0을 사용합니다.
-
-```bash
-./scripts/run.sh mod-format
-```
-
-`mod-format`은 입력 리미터·IPC·설정·오버레이와 관련 C# 테스트에 CSharpier를 적용합니다. `./scripts/run.sh mod-check`는 빌드와 회귀 테스트를, `./scripts/run.sh native-webview-check`는 macOS 네이티브 뷰의 배치·비율·재연결·입력 통과를, `./scripts/run.sh windows-webview-check`는 `.env`에 지정한 Windows PC에서 Windows 네이티브 뷰를 빌드하고 같은 항목을 검증합니다. 실제 게임에서의 UI 표시와 조작은 별도 E2E 확인이 필요합니다.
-
-IPC 최소 런타임은 2.1.0, 계약 major는 1, wire major는 3, `impl-resourcepack` 기능 major는 1입니다. `vendor/adofai-ipc-runtime/SHA256SUMS`로 빌드 입력을 검증합니다. 기능을 끄면 등록만 해제하고 게임 프로세스의 공용 서버는 계속 실행됩니다. 이전 dependency shim 설치에서는 모드를 완전히 다시 설치하고 게임을 재시작해야 합니다.
-
-IPC를 갱신하려면 깨끗한 로컬 `adofai-ipc` 저장소에서 `./scripts/run.sh package`로 Release DLL을 빌드·검증한 후, 이 저장소에서 `./scripts/run.sh ipc-sync /path/to/adofai-ipc /path/to/release-dlls`를 실행합니다. 동기화는 DLL과 SDK 원본의 source revision 및 SHA-256을 기록하며, 빌드 검증 결과는 별도로 확인해야 합니다. 앱은 2.1.0의 공식 `adofai-ipc/transport` 진입점으로 기존 메시지 프로토콜을 사용하며, SDK 전체 원본에는 계약 기반 `adofai-ipc` API도 포함됩니다.
+기여는 [`CONTRIBUTING.md`](CONTRIBUTING.md)와 [`CONTRIBUTOR_AGREEMENT.md`](CONTRIBUTOR_AGREEMENT.md)를 먼저 읽어 주세요.

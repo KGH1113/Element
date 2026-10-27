@@ -292,6 +292,12 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
         _host.Edit(_editing);
         BindLayoutTargets();
       }
+      else if (PageNeedsDescriptor())
+      {
+        // The host dropped a stopped or failed page and waits for its source
+        // again; an identical descriptor is that retry (every poll, at most 30 s).
+        ApplyEnabledSurfaces();
+      }
       _suspended = false;
       _host.Show(_visible);
       _session.Report(surfaces.Length == 0 ? NativeViewerStatus.NoViewerTab : NativeViewerStatus.Attached);
@@ -305,6 +311,10 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       LogOnce("Attach native ImplDmNote viewers", error);
     }
   }
+
+  // Runs once per descriptor reply, not per frame.
+  private bool PageNeedsDescriptor() =>
+    _host.TryGetFault(out NativeViewerStatus status, out _) && NativeViewerErrors.NeedsDescriptor(status);
 
   // Page errors matter only while the editor can show them; skip the native
   // call and string marshaling during gameplay.

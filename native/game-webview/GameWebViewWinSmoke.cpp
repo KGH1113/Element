@@ -525,8 +525,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   api.setSurface("hand", escape.c_str(), 860, 320);
   bool blocked = Pump(8000, [] { return std::strstr(api.lastError(), "blocked navigation") != nullptr; });
   Check(blocked, "navigation outside the local source is blocked");
+  // Faults belong to one viewer: another page loading must not clear this one.
+  std::string footReload = footUrl + "&reload=1";
+  api.setSurface("foot", footReload.c_str(), 860, 320);
+  Pump(3000);
+  Check(std::strstr(api.lastError(), "blocked navigation") != nullptr,
+        "another viewer's page load keeps this viewer's fault");
   api.setSurface("hand", handUrl.c_str(), 860, 320);
   Pump(3000, [] { return ReferenceIs("hand", 190, 90); });
+  Check(api.lastError()[0] == '\0', "reloading the viewer clears its fault");
 
   // A crashed browser process rebuilds the environment and pages.
   DWORD browser = FindChildProcess(GetCurrentProcessId(), L"msedgewebview2.exe");

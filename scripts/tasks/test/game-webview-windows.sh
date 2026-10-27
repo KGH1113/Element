@@ -4,6 +4,8 @@ set -euo pipefail
 TASK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=../../lib/windows-host.sh
 source "$TASK_DIR/../../lib/windows-host.sh"
+# shellcheck source=../../lib/windows-webview.sh
+source "$TASK_DIR/../../lib/windows-webview.sh"
 
 bash "$TASK_DIR/../build/game-webview-windows.sh"
 
@@ -22,3 +24,6 @@ Remove-Item \$log -ErrorAction SilentlyContinue
 if (Test-Path \$log) { Get-Content \$log -Encoding UTF8 } else { 'The smoke probe wrote no log.' }
 exit \$code
 PS
+# Record that this exact build passed; packaging ships only a verified library.
+cp "$WINDOWS_WEBVIEW_STAMP" "$WINDOWS_WEBVIEW_VERIFIED"
+printf 'Windows game WebView host passed the smoke probe.\n'

@@ -65,6 +65,10 @@ internal static class NativeViewerStatusText
         "Microsoft Edge WebView2 런타임을 설치하거나 업데이트한 뒤 게임을 다시 시작하면 키뷰어를 쓸 수 있어요.",
         "Install or update the Microsoft Edge WebView2 Runtime, then restart ADOFAI to use the key viewer."
       ),
+      NativeViewerStatus.HostIncompatible => SettingsLocale.L(
+        "이 게임 환경에서는 게임 내 키뷰어를 띄울 수 없어요. ImplDmNote 창이나 OBS로 키뷰어를 볼 수 있어요.",
+        "This game setup can't show in-game key viewers. Use the ImplDmNote window or OBS instead."
+      ),
       NativeViewerStatus.UnsupportedSystem => UnityEngine.Application.platform == RuntimePlatform.WindowsPlayer
         ? SettingsLocale.L(
           "게임 내 키뷰어는 Windows 10 이상에서 쓸 수 있어요.",

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import Modal from '../Modal/Modal';
-import { SettingCard, SettingToggleRow } from '../common/SettingRow';
+import Toggle from '../common/Toggle';
 import { useTranslation } from '@contexts/useTranslation';
 import { useKeyLimiterStatusStore } from '@stores/useKeyLimiterStatusStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
@@ -13,7 +13,18 @@ interface ImplConnectionModalProps {
 
 type ConnectionSetting = 'keyLimiterEnabled' | 'inGameViewersEnabled';
 
-/** ImplResourcePack link: what the game received, and what the app sends it. */
+const CloseIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+    <path
+      d="m2.5 2.5 7 7m0-7-7 7"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+/** ImplResourcePack link: what the app sends the game, and what it applied. */
 export default function ImplConnectionModal({
   presentation,
   onClose,
@@ -36,10 +47,16 @@ export default function ImplConnectionModal({
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
+      hour12: false,
     }).format(acknowledgement.acknowledgedAt);
   }, [acknowledgement, i18n.language]);
+  // The title already names ImplResourcePack; the status line says only the state.
+  const status =
+    presentation.labelKey === 'keyLimiter.connected'
+      ? t('implConnection.connected')
+      : t(presentation.labelKey);
 
-  // Optimistic: the store follows the toggle at once and rolls back if the
+  // Optimistic: the store follows the switch at once and rolls back if the
   // backend refuses the change.
   const toggle = (setting: ConnectionSetting, current: boolean) => {
     const next = !current;
@@ -50,6 +67,26 @@ export default function ImplConnectionModal({
     });
   };
 
+  const rows: Array<{
+    setting: ConnectionSetting;
+    checked: boolean;
+    label: string;
+    description: string;
+  }> = [
+    {
+      setting: 'keyLimiterEnabled',
+      checked: keyLimiterEnabled,
+      label: t('implConnection.keyLimiter'),
+      description: t('implConnection.keyLimiterDescription'),
+    },
+    {
+      setting: 'inGameViewersEnabled',
+      checked: inGameViewersEnabled,
+      label: t('implConnection.inGame'),
+      description: t('implConnection.inGameDescription'),
+    },
+  ];
+
   return (
     <Modal onClick={onClose} ariaLabel={t('implConnection.title')}>
       <div
@@ -57,55 +94,67 @@ export default function ImplConnectionModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="dmn-connection-modal__header">
-          <h2>{t('implConnection.title')}</h2>
-          <p
-            className={`dmn-connection-modal__status key-limiter-status--${presentation.tone}`}
+          <div className="dmn-connection-modal__heading">
+            <h2>{t('implConnection.title')}</h2>
+            <p
+              className={`dmn-connection-modal__status dmn-connection-modal__status--${presentation.tone}`}
+            >
+              {status}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="dmn-connection-modal__close"
+            aria-label={t('implConnection.close')}
+            onClick={onClose}
           >
-            {t(presentation.labelKey)}
-          </p>
+            <CloseIcon />
+          </button>
         </header>
 
-        <SettingCard>
-          <SettingToggleRow
-            label={t('implConnection.keyLimiter')}
-            description={t('implConnection.keyLimiterDescription')}
-            checked={keyLimiterEnabled}
-            onToggle={() => toggle('keyLimiterEnabled', keyLimiterEnabled)}
-          />
-          <SettingToggleRow
-            label={t('implConnection.inGame')}
-            description={t('implConnection.inGameDescription')}
-            checked={inGameViewersEnabled}
-            onToggle={() =>
-              toggle('inGameViewersEnabled', inGameViewersEnabled)
-            }
-          />
-        </SettingCard>
+        <div className="dmn-connection-modal__group">
+          {rows.map((row) => (
+            <div key={row.setting} className="dmn-connection-modal__row">
+              <div className="dmn-connection-modal__copy">
+                <p className="dmn-connection-modal__label">{row.label}</p>
+                <p className="dmn-connection-modal__description">
+                  {row.description}
+                </p>
+              </div>
+              <Toggle
+                checked={row.checked}
+                ariaLabel={row.label}
+                onChange={() => toggle(row.setting, row.checked)}
+              />
+            </div>
+          ))}
+        </div>
 
         {acknowledgement ? (
-          <dl className="dmn-connection-modal__details">
+          <dl className="dmn-connection-modal__stats">
             <div>
               <dt>{t('keyLimiter.profile')}</dt>
-              <dd>{acknowledgement.profile.name}</dd>
+              <dd title={acknowledgement.profile.name}>
+                {acknowledgement.profile.name}
+              </dd>
             </div>
             <div>
-              <dt>{t('keyLimiter.appliedKeys')}</dt>
+              <dt>{t('implConnection.keys')}</dt>
               <dd>{acknowledgement.supportedKeys.length}</dd>
             </div>
             <div>
-              <dt>{t('keyLimiter.lastApplied')}</dt>
+              <dt>{t('implConnection.updated')}</dt>
               <dd>{appliedAt}</dd>
             </div>
-            {unsupportedKeys.length > 0 && (
-              <div className="dmn-connection-modal__unsupported">
-                <dt>{t('keyLimiter.unsupportedKeys')}</dt>
-                <dd>{unsupportedKeys.join(', ')}</dd>
-              </div>
-            )}
           </dl>
         ) : (
           <p className="dmn-connection-modal__note">
             {t('keyLimiter.waitingDetail')}
+          </p>
+        )}
+        {unsupportedKeys.length > 0 && (
+          <p className="dmn-connection-modal__note dmn-connection-modal__note--warning">
+            {t('keyLimiter.unsupportedKeys')}: {unsupportedKeys.join(', ')}
           </p>
         )}
         {error && (
@@ -113,14 +162,6 @@ export default function ImplConnectionModal({
             {error}
           </p>
         )}
-
-        <button
-          type="button"
-          className="dmn-connection-modal__done"
-          onClick={onClose}
-        >
-          {t('implConnection.done')}
-        </button>
       </div>
     </Modal>
   );

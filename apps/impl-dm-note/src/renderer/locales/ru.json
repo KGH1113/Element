@@ -629,9 +629,12 @@
   "implConnection": {
     "title": "IMPLResourcePack",
     "keyLimiter": "Ограничитель клавиш",
-    "keyLimiterDescription": "ADOFAI принимает только клавиши выбранных вкладок рук и ног. Клавиши-призраки не ограничиваются.",
+    "keyLimiterDescription": "ADOFAI принимает только клавиши выбранных вкладок.",
     "inGame": "Показывать в ADOFAI",
-    "inGameDescription": "Показывает key viewer в списке Add Element и на экране игры.",
-    "done": "Готово"
+    "inGameDescription": "Key viewer в Add Element и на экране игры.",
+    "connected": "Подключено",
+    "keys": "Клавиши",
+    "updated": "Обновлено",
+    "close": "Закрыть"
   }
 }

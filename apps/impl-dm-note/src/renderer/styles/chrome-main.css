@@ -1163,19 +1163,28 @@
  * surface comes from the shared .dmn-modal-card recipe. */
 .dmn-connection-modal {
   display: flex;
-  width: 340px;
+  width: 360px;
   flex-direction: column;
   gap: var(--ui-space-5);
-  padding: var(--ui-space-7);
+  padding: var(--ui-space-8);
 }
 
 .dmn-connection-modal__header {
   display: flex;
-  flex-direction: column;
-  gap: var(--ui-space-1);
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-5);
+  margin-bottom: var(--ui-space-1);
 }
 
-.dmn-connection-modal__header h2 {
+.dmn-connection-modal__heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmn-connection-modal__heading h2 {
   margin: 0;
   color: var(--ui-fg-primary);
   font-size: var(--ui-type-heading-size);
@@ -1186,80 +1195,136 @@
 
 .dmn-connection-modal__status {
   margin: 0;
-  font-size: var(--ui-type-caption-size);
-  font-weight: 600;
-  line-height: var(--ui-type-caption-line);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  line-height: var(--ui-type-body-line);
 }
 
-.dmn-connection-modal__details {
-  display: grid;
-  gap: var(--ui-space-2);
-  margin: 0;
-  padding: 0 var(--ui-space-2);
+.dmn-connection-modal__status--success {
+  color: var(--ui-success);
 }
 
-.dmn-connection-modal__details > div {
+.dmn-connection-modal__status--warning {
+  color: var(--ui-warning);
+}
+
+.dmn-connection-modal__status--error {
+  color: var(--ui-danger);
+}
+
+.dmn-connection-modal__close {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin: -4px -6px 0 0;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-fg-muted);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-connection-modal__close:hover {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.dmn-connection-modal__close:active {
+  background: var(--ui-fill-hover);
+}
+
+/* One grouped list: rows share a surface and a hairline between them. */
+.dmn-connection-modal__group {
+  overflow: hidden;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-connection-modal__row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--ui-space-5);
+  gap: var(--ui-space-6);
+  padding: var(--ui-space-5) var(--ui-space-6);
 }
 
-.dmn-connection-modal__details dt,
-.dmn-connection-modal__note {
+.dmn-connection-modal__row + .dmn-connection-modal__row {
+  box-shadow: inset 0 1px 0 var(--ui-line-subtle);
+}
+
+.dmn-connection-modal__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmn-connection-modal__label {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-connection-modal__description {
   margin: 0;
   color: var(--ui-fg-muted);
   font-size: var(--ui-type-caption-size);
   line-height: var(--ui-type-caption-line);
 }
 
-.dmn-connection-modal__details dd {
+.dmn-connection-modal__stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) minmax(0, 1.1fr);
+  gap: var(--ui-space-3);
+  margin: 0;
+}
+
+.dmn-connection-modal__stats > div {
+  display: flex;
   min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--ui-space-4) var(--ui-space-5);
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-connection-modal__stats dt {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+.dmn-connection-modal__stats dd {
   margin: 0;
   overflow: hidden;
-  color: var(--ui-fg-secondary);
-  font-size: var(--ui-type-caption-size);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
   font-weight: 600;
+  line-height: var(--ui-type-label-line);
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dmn-connection-modal__unsupported {
-  flex-direction: column;
-  align-items: flex-start !important;
-  gap: var(--ui-space-1) !important;
-}
-
-.dmn-connection-modal__unsupported dd {
-  width: 100%;
-  color: var(--ui-warning);
-  white-space: normal;
+.dmn-connection-modal__note {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
   overflow-wrap: anywhere;
 }
 
-.dmn-connection-modal__note {
-  padding: 0 var(--ui-space-2);
+.dmn-connection-modal__note--warning {
+  color: var(--ui-warning);
 }
 
 .dmn-connection-modal__note--error {
   color: var(--ui-danger);
-  overflow-wrap: anywhere;
-}
-
-.dmn-connection-modal__done {
-  height: var(--ui-control-height-md);
-  border-radius: var(--ui-radius-control);
-  background: color-mix(in srgb, var(--ui-fg-primary) 7%, transparent);
-  color: var(--ui-fg-primary);
-  font-size: var(--ui-type-body-size);
-  font-weight: 600;
-  transition: background-color var(--ui-motion-fast) var(--ui-ease-standard);
-}
-
-.dmn-connection-modal__done:hover {
-  background: color-mix(in srgb, var(--ui-fg-primary) 11%, transparent);
-}
-
-.dmn-connection-modal__done:active {
-  transform: scale(var(--ui-press-scale));
 }

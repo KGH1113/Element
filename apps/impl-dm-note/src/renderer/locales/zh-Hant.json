@@ -629,9 +629,12 @@
   "implConnection": {
     "title": "IMPLResourcePack",
     "keyLimiter": "啟用按鍵限制",
-    "keyLimiterDescription": "ADOFAI 只接受所選手部與腳部分頁中的按鍵。幽靈鍵不受限制。",
+    "keyLimiterDescription": "ADOFAI 只接受所選分頁中的按鍵。",
     "inGame": "在 ADOFAI 中顯示",
-    "inGameDescription": "在 ADOFAI 的 Add Element 清單與遊戲畫面中顯示按鍵顯示器。",
-    "done": "完成"
+    "inGameDescription": "在 Add Element 清單與遊戲畫面中顯示。",
+    "connected": "已連線",
+    "keys": "按鍵",
+    "updated": "更新",
+    "close": "關閉"
   }
 }

@@ -629,9 +629,12 @@
   "implConnection": {
     "title": "IMPLResourcePack",
     "keyLimiter": "Enable Key Limiter",
-    "keyLimiterDescription": "ADOFAI accepts only the keys in the selected hand and foot tabs. Ghost keys are never limited.",
+    "keyLimiterDescription": "Only keys in the selected tabs count in ADOFAI.",
     "inGame": "Show inside ADOFAI",
-    "inGameDescription": "Shows the key viewers in ADOFAI’s Add Element list and on the game screen.",
-    "done": "Done"
+    "inGameDescription": "Key viewers in Add Element and on screen.",
+    "connected": "Connected",
+    "keys": "Keys",
+    "updated": "Updated",
+    "close": "Close"
   }
 }

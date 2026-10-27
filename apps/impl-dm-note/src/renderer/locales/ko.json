@@ -629,9 +629,12 @@
   "implConnection": {
     "title": "IMPLResourcePack",
     "keyLimiter": "키 리미터 사용",
-    "keyLimiterDescription": "선택한 손·발 탭의 키만 얼불춤에 입력됩니다. 고스트 키는 제한하지 않습니다.",
+    "keyLimiterDescription": "선택한 탭의 키만 얼불춤에 입력됩니다.",
     "inGame": "얼불춤 안에 표시",
-    "inGameDescription": "얼불춤의 Add Element 목록과 게임 화면에 키뷰어를 표시합니다.",
-    "done": "완료"
+    "inGameDescription": "Add Element 목록과 게임 화면에 키뷰어를 띄웁니다.",
+    "connected": "연결됨",
+    "keys": "키",
+    "updated": "적용",
+    "close": "닫기"
   }
 }

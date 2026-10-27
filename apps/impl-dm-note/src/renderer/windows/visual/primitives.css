@@ -16,13 +16,7 @@ body {
   width: 1280px;
   height: 720px;
   padding: 56px;
-  background:
-    radial-gradient(
-      circle at 75% 10%,
-      rgba(139, 92, 246, 0.11),
-      transparent 34%
-    ),
-    var(--ui-bg-app);
+  background: var(--ui-bg-app);
 }
 
 .primitive-card {

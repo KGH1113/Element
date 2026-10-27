@@ -81,7 +81,7 @@ const Alert = ({
   return (
     <Modal onClick={onCancel}>
       <div
-        className="flex flex-col bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] p-[20px] pr-[6px]"
+        className="dmn-modal-card flex flex-col p-[20px] pr-[6px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 메시지 텍스트 or Custom HTML */}

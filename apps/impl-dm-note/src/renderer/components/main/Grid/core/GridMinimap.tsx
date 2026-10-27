@@ -543,7 +543,8 @@ const GridMinimap = ({
                 y={y}
                 width={Math.max(w, 2)}
                 height={Math.max(h, 2)}
-                fill="rgba(168, 85, 247, 0.6)"
+                fill="var(--ui-selection)"
+                fillOpacity={0.6}
                 rx={1}
               />
             );
@@ -554,8 +555,8 @@ const GridMinimap = ({
             y={viewport.y}
             width={viewport.width}
             height={viewport.height}
-            fill="rgba(59, 130, 246, 0.2)"
-            stroke="rgba(59, 130, 246, 0.8)"
+            fill="var(--ui-selection-fill)"
+            stroke="var(--ui-selection-border)"
             strokeWidth={1}
             rx={2}
           />

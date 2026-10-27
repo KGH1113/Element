@@ -987,13 +987,23 @@ export const PluginElement: React.FC<PluginElementProps> = ({
             // 스타일 토글
             if (input.checked) {
               checkbox.classList.remove('bg-[#3B4049]');
-              checkbox.classList.add('bg-[#493C1D]');
+              checkbox.classList.add(
+                'bg-[color-mix(in_srgb,var(--ui-accent,#ba712b)_32%,#1a191e)]',
+              );
               knob.classList.remove('left-[2px]', 'bg-[#989BA6]');
-              knob.classList.add('left-[13px]', 'bg-[#FFB400]');
+              knob.classList.add(
+                'left-[13px]',
+                'bg-[var(--ui-accent,#ba712b)]',
+              );
             } else {
-              checkbox.classList.remove('bg-[#493C1D]');
+              checkbox.classList.remove(
+                'bg-[color-mix(in_srgb,var(--ui-accent,#ba712b)_32%,#1a191e)]',
+              );
               checkbox.classList.add('bg-[#3B4049]');
-              knob.classList.remove('left-[13px]', 'bg-[#FFB400]');
+              knob.classList.remove(
+                'left-[13px]',
+                'bg-[var(--ui-accent,#ba712b)]',
+              );
               knob.classList.add('left-[2px]', 'bg-[#989BA6]');
             }
 

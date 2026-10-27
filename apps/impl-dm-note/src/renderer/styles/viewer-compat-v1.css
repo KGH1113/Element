@@ -26,7 +26,7 @@
     @apply w-[24px] h-[24px] flex items-center justify-center hover:bg-[#303036] rounded-[4px] transition-colors;
   }
   .input-field {
-    @apply text-center h-[23px] bg-[#2A2A30] rounded-[7px] border border-[#3A3943] focus:border-[#459BF8] text-[11px] text-[#D7D8DB];
+    @apply text-center h-[23px] bg-[#2A2A30] rounded-[7px] border border-[#3A3943] focus:border-[var(--ui-accent,#ba712b)] text-[11px] text-[#D7D8DB];
   }
   .btn-danger {
     @apply bg-[#3C1E1E] hover:bg-[#442222] active:bg-[#522929] rounded-[7px] text-[#E6DBDB];
@@ -90,11 +90,11 @@ body,
 
 /* 라디오 버튼 스타일링 */
 input[type='radio']:checked + span {
-  border-color: #ffb400;
+  border-color: var(--ui-accent, #ba712b);
 }
 
 input[type='radio']:checked + span span {
-  background: #ffb400;
+  background: var(--ui-accent, #ba712b);
   transform: scale(0.5);
 }
 
@@ -208,20 +208,6 @@ input[type='number']::-webkit-outer-spin-button {
   animation: viewerTabPopupIn 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.viewer-tab-popup::after {
-  position: absolute;
-  bottom: -4px;
-  left: var(--dmn-popup-anchor-x, 50%);
-  z-index: 0;
-  width: 8px;
-  height: 8px;
-  content: '';
-  background: #000000;
-  border-right: 1px solid #3a3943;
-  border-bottom: 1px solid #3a3943;
-  transform: translateX(-50%) rotate(45deg);
-}
-
 .viewer-tab-trigger-surface {
   transition:
     transform 75ms ease-out,
@@ -259,30 +245,27 @@ input[type='number']::-webkit-outer-spin-button {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 0;
   border-radius: 999px;
-  background: rgba(32, 32, 37, 0.82);
+  background: var(--ui-fill-faint, rgba(255, 255, 255, 0.035));
   padding: 0 11px;
   color: #a9acb7;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.015em;
-  backdrop-filter: blur(12px) saturate(135%);
   transition:
     color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 220ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 100ms ease-out;
 }
 
 .key-limiter-status:hover,
 .key-limiter-status:focus-visible {
-  background: rgba(43, 43, 49, 0.92);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--ui-fill, rgba(255, 255, 255, 0.072));
 }
 
 .key-limiter-status:focus-visible {
-  box-shadow: 0 0 0 2px rgba(69, 155, 248, 0.38);
+  box-shadow: var(--ui-focus-ring, 0 0 0 1.5px rgba(186, 113, 43, 0.9));
 }
 
 .key-limiter-status:active {

@@ -33,11 +33,10 @@ use crate::{
     },
     keyboard::KeyboardManager,
     models::{
-        counter_labels, ghost_key_labels, overlay_resize_anchor_from_str, AppStoreData, BootstrapOverlayState,
-        BootstrapPayload, DefaultsPayload, KeyCounterSettings, KeyCounters, KeyMappings,
-        KeyPositions,
-        KeySoundOutputBackendPersist, KeyViewerKind, OverlayBounds, OverlayResizeAnchor,
-        OverlayWindowLayout, SettingsDiff, SettingsState,
+        counter_labels, ghost_key_labels, overlay_resize_anchor_from_str, AppStoreData,
+        BootstrapOverlayState, BootstrapPayload, DefaultsPayload, KeyCounterSettings, KeyCounters,
+        KeyMappings, KeyPositions, KeySoundOutputBackendPersist, KeyViewerKind, OverlayBounds,
+        OverlayResizeAnchor, OverlayWindowLayout, SettingsDiff, SettingsState,
     },
     services::{css_watcher::CssWatcher, obs_bridge::ObsBridgeService, settings::SettingsService},
 };
@@ -117,10 +116,11 @@ fn match_key_for_mode(
     let positions = positions.get(mode)?;
     candidates
         .iter()
-        .find(|candidate| ghost_key_labels(keys, positions).any(|ghost| ghost == candidate.as_str()))
+        .find(|candidate| {
+            ghost_key_labels(keys, positions).any(|ghost| ghost == candidate.as_str())
+        })
         .cloned()
 }
-
 
 #[cfg(test)]
 mod active_key_mode_tests {
@@ -191,7 +191,12 @@ mod active_key_mode_tests {
             Some("R".to_string())
         );
         assert_eq!(
-            match_key_for_mode(&mappings, &positions, "hand", &["E".to_string(), "R".to_string()]),
+            match_key_for_mode(
+                &mappings,
+                &positions,
+                "hand",
+                &["E".to_string(), "R".to_string()]
+            ),
             Some("E".to_string())
         );
         assert_eq!(
@@ -2080,10 +2085,13 @@ impl AppState {
 
             let owner_match = mappings.iter().position(|mapped| mapped == key_label);
             let ghost_match = || {
-                mappings.iter().zip(positions.iter()).find_map(|(owner_key, owner)| {
-                    let ghost = owner.ghost.as_ref()?;
-                    (ghost.active_key(owner_key)? == key_label).then_some(&*ghost.settings)
-                })
+                mappings
+                    .iter()
+                    .zip(positions.iter())
+                    .find_map(|(owner_key, owner)| {
+                        let ghost = owner.ghost.as_ref()?;
+                        (ghost.active_key(owner_key)? == key_label).then_some(&*ghost.settings)
+                    })
             };
             let position = owner_match
                 .and_then(|index| positions.get(index))

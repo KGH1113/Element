@@ -183,7 +183,7 @@ const KeySetting = ({
   return (
     <Modal onClick={onClose} animate={!initialSkipRef.current}>
       <div
-        className="flex items-center justify-center p-[20px] bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] gap-[19px]"
+        className="dmn-modal-card flex items-center justify-center p-[20px] gap-[19px]"
         onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
       >
         <div className="flex-1 flex flex-col gap-[19px]">
@@ -194,7 +194,7 @@ const KeySetting = ({
             <button
               onClick={() => setIsListening(true)}
               className={`flex items-center justify-center h-[23px] min-w-[0px] px-[8.5px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-                isListening ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                isListening ? 'border-ui-accent' : 'border-[#3A3943]'
               } text-[#DBDEE8] text-style-2`}
             >
               {isListening
@@ -207,7 +207,7 @@ const KeySetting = ({
             <div className="flex items-center gap-[10.5px]">
               <div
                 className={`relative w-[54px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-                  widthFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                  widthFocused ? 'border-ui-accent' : 'border-[#3A3943]'
                 }`}
               >
                 <span className="absolute left-[5px] top-[50%] transform -translate-y-1/2 text-[#97999E] text-style-1 pointer-events-none">
@@ -242,7 +242,7 @@ const KeySetting = ({
               </div>
               <div
                 className={`relative w-[54px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-                  heightFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                  heightFocused ? 'border-ui-accent' : 'border-[#3A3943]'
                 }`}
               >
                 <span className="absolute left-[5px] top-[50%] transform -translate-y-1/2 text-[#97999E] text-style-1 pointer-events-none">
@@ -286,7 +286,7 @@ const KeySetting = ({
               ref={imageButtonRef}
               type="button"
               className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                showImagePicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                showImagePicker ? 'border-ui-accent' : 'border-[#3A3943]'
               } text-[#DBDEE8] text-style-4`}
               onClick={handleImageButtonClick}
             >
@@ -305,7 +305,7 @@ const KeySetting = ({
                 value={className}
                 onChange={(e) => setClassName(e.target.value)}
                 placeholder="className"
-                className="text-center w-[90px] h-[23px] p-[6px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+                className="text-center w-[90px] h-[23px] p-[6px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
               />
             </div>
           )}

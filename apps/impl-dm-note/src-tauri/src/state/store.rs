@@ -17,8 +17,8 @@ use crate::models::{
 
 use super::builtin_sounds::seed_builtin_sounds;
 use super::migration::{
-    find_legacy_store_file, load_store_from_path, migrate_key_images_to_app_data,
-    fold_stacked_ghost_keys, migrate_local_fonts_to_app_data, normalize_state,
+    find_legacy_store_file, fold_stacked_ghost_keys, load_store_from_path,
+    migrate_key_images_to_app_data, migrate_local_fonts_to_app_data, normalize_state,
     restore_missing_viewer_data_from_backup,
 };
 

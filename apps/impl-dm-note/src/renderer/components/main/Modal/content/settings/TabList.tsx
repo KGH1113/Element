@@ -166,8 +166,8 @@ const TabList = ({ viewerKind }: TabListProps) => {
   };
 
   return (
-    <div className="relative z-[1] flex max-w-[154px] flex-col items-center justify-center rounded-[7px] border border-button-hover bg-button-primary">
-      <div className="min-h-[39px] w-full border-b-[1px] border-button-hover flex flex-col items-center justify-center p-[8px] gap-[8px]">
+    <div className="relative z-[1] flex max-w-[154px] flex-col items-center justify-center">
+      <div className="min-h-[39px] w-full border-b-[1px] border-ui-line-subtle flex flex-col items-center justify-center p-[8px] gap-[8px]">
         <span className="w-full truncate text-left text-style-2 font-semibold text-[#F2F3F7]">
           {t(`tabs.${viewerKind}Viewer`)}
         </span>
@@ -228,7 +228,7 @@ const TabList = ({ viewerKind }: TabListProps) => {
                     className={`relative min-w-0 flex-1 min-h-[24px] h-[24px] flex-shrink-0 flex items-center justify-center rounded-[7px] px-[24px] text-style-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus ${
                       selectedTabId === tab.id
                         ? 'bg-button-active text-[#FFFFFF] hover:bg-surfaceHover'
-                        : 'text-[#DBDEE8] hover:bg-button-hover active:bg-button-active'
+                        : 'text-[#DBDEE8] hover:bg-ui-fill active:bg-ui-fill-active'
                     }`}
                     onClick={() => handleSelect(tab.id)}
                     onContextMenu={(event) => {
@@ -262,7 +262,7 @@ const TabList = ({ viewerKind }: TabListProps) => {
                     type="button"
                     draggable
                     aria-label={t('tabs.reorder', { name: tab.name })}
-                    className="h-[24px] w-[16px] cursor-grab rounded text-[#8B8E99] hover:bg-button-hover hover:text-white active:cursor-grabbing"
+                    className="h-[24px] w-[16px] cursor-grab rounded text-[#8B8E99] hover:bg-ui-fill hover:text-white active:cursor-grabbing"
                     onDragStart={(event) => {
                       draggingId.current = tab.id;
                       dropCommitted.current = false;
@@ -301,7 +301,7 @@ const TabList = ({ viewerKind }: TabListProps) => {
           <button
             type="button"
             aria-label={t('tabs.create')}
-            className="flex flex-1 items-center justify-center max-w-[138px] h-[22px] rounded-[7px] bg-button-hover hover:bg-button-active active:bg-[#333333]"
+            className="flex flex-1 items-center justify-center max-w-[138px] h-[22px] rounded-[7px] bg-ui-fill hover:bg-ui-fill-hover active:bg-ui-fill-active"
             onClick={() => setShowNameModal(true)}
           >
             <PlusIcon />
@@ -314,7 +314,7 @@ const TabList = ({ viewerKind }: TabListProps) => {
             className={`flex flex-1 items-center justify-center max-w-[138px] h-[22px] rounded-[7px] ${
               tabs.length > 1
                 ? 'bg-[#3C1E1E] hover:bg-[#442222] active:bg-[#522929]'
-                : 'bg-button-hover opacity-50 cursor-not-allowed'
+                : 'bg-ui-fill opacity-50 cursor-not-allowed'
             }`}
             disabled={tabs.length <= 1}
             onClick={() => {

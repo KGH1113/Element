@@ -129,7 +129,8 @@ function drawWaveform(
   const visStartX = Math.max(padX, startX);
   const visEndX = Math.min(padX + drawableW, endX);
   if (visEndX > visStartX) {
-    ctx.fillStyle = 'rgba(69, 155, 248, 0.10)';
+    // Canvas cannot resolve CSS variables: these mirror --ui-accent / --ui-accent-text.
+    ctx.fillStyle = 'rgba(186, 113, 43, 0.10)';
     ctx.fillRect(visStartX, 0, visEndX - visStartX, height);
   }
 
@@ -142,7 +143,7 @@ function drawWaveform(
     const x = padX + px;
 
     const inRange = x >= startX && x <= endX;
-    ctx.fillStyle = inRange ? '#9EC4FF' : '#545868';
+    ctx.fillStyle = inRange ? '#e2b98f' : '#545868';
     ctx.fillRect(x, y, 1, barHeight);
   }
 
@@ -1020,9 +1021,9 @@ const SoundTrimModal = ({
         onClick={(event) => event.stopPropagation()}
       >
         {/* 헤더 바 */}
-        <div className="h-[37px] bg-[#2A2A30] border-b border-[#3A3943] px-[12px] flex items-center justify-between">
+        <div className="h-[37px] bg-ui-fill-faint border-b border-ui-line-subtle px-[12px] flex items-center justify-between">
           <div className="min-w-0 flex items-center gap-[8px]">
-            <span className="px-[6px] h-[18px] rounded-[4px] border border-[#3A3943] bg-[#1A191E] text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-[#8CC2FF]">
+            <span className="px-[6px] h-[18px] rounded-[4px] bg-ui-accent-soft text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-ui-accent-text">
               Sound
             </span>
             <span className="truncate text-[12px] leading-[16px] text-[#DBDEE8]">
@@ -1046,7 +1047,7 @@ const SoundTrimModal = ({
               value={soundName}
               onChange={(e) => setSoundName(e.target.value)}
               placeholder={t('soundTrimModal.namePlaceholder')}
-              className="w-full h-[30px] px-[10px] rounded-[7px] border border-[#3A3943] bg-[#1E1E1E] text-[12px] leading-[16px] text-[#DBDEE8] placeholder-[#6F6E7A] outline-none focus:border-[#459BF8] transition-colors"
+              className="w-full h-[30px] px-[10px] rounded-[7px] border border-[#3A3943] bg-[#1E1E1E] text-[12px] leading-[16px] text-[#DBDEE8] placeholder-[#6F6E7A] outline-none focus:border-ui-accent transition-colors"
               disabled={isSaving}
             />
           </div>
@@ -1128,11 +1129,11 @@ const SoundTrimModal = ({
         </div>
 
         {/* 힌트 바 */}
-        <div className="h-[28px] bg-[#2A2A30] border-t border-[#3A3943] px-[12px] flex items-center justify-between gap-[12px]">
+        <div className="h-[28px] bg-ui-fill-faint border-t border-ui-line-subtle px-[12px] flex items-center justify-between gap-[12px]">
           {!isEditMode ? (
             <button
               type="button"
-              className="text-[11px] leading-[14px] text-[#8CC2FF] hover:text-[#ACCFFF] transition-colors"
+              className="text-[11px] leading-[14px] text-ui-accent-text hover:text-ui-fg-primary transition-colors"
               onClick={selectFile}
               disabled={isDecoding || isSaving}
             >
@@ -1157,7 +1158,7 @@ const SoundTrimModal = ({
         ) : null}
 
         {/* 푸터 */}
-        <div className="bg-[#1A191E] border-t border-[#2A2A30] px-[12px] py-[10px] flex items-center justify-end gap-[10.5px]">
+        <div className="border-t border-ui-line-subtle px-[12px] py-[10px] flex items-center justify-end gap-[10.5px]">
           <button
             type="button"
             className={`w-[120px] h-[30px] rounded-[7px] text-style-3 transition-colors ${

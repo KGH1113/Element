@@ -351,7 +351,7 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
                 }
 
                 target.classList.remove('border-[#3A3943]');
-                target.classList.add('border-[#459BF8]');
+                target.classList.add('border-[var(--ui-accent,#ba712b)]');
 
                 window.api.ui.pickColor({
                   initialColor: String(currentSettings[key] ?? ''),
@@ -365,7 +365,9 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
                     wrappedChange(newColor);
                   },
                   onClose: () => {
-                    target.classList.remove('border-[#459BF8]');
+                    target.classList.remove(
+                      'border-[var(--ui-accent,#ba712b)]',
+                    );
                     target.classList.add('border-[#3A3943]');
                   },
                 });

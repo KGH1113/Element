@@ -239,14 +239,14 @@ export default function CommonListPickerPopup<T>({
     >
       <div
         ref={containerCallbackRef}
-        className={`dmn-picker-surface flex flex-col gap-[8px] p-[8px] ${widthClass}`.trim()}
+        className={`flex flex-col gap-[8px] p-[8px] ${widthClass}`.trim()}
       >
         <input
           type="text"
           value={searchQuery}
           onChange={(event) => onSearchQueryChange(event.target.value)}
           placeholder={searchPlaceholder}
-          className="w-full h-[23px] px-[8px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] text-[#DBDEE8] text-style-2 placeholder-[#6F6E7A] focus:border-[#459BF8] outline-none"
+          className="w-full h-[23px] px-[8px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] text-[#DBDEE8] text-style-2 placeholder-[#6F6E7A] focus:border-ui-accent outline-none"
         />
 
         {filterOptions && filterValue !== undefined && onFilterChange ? (

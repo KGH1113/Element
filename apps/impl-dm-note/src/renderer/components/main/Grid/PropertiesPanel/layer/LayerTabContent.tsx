@@ -552,27 +552,27 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       ${isBeingDragged ? 'opacity-30' : ''}
                       ${
                         isSelected
-                          ? 'bg-[#3B82F6]/20 text-[#DBDEE8]'
+                          ? 'bg-ui-selection-fill text-[#DBDEE8]'
                           : dnd.isDragging
                             ? 'text-[#9B9DA5]'
-                            : 'hover:bg-[#2A2A30] text-[#9B9DA5]'
+                            : 'hover:bg-ui-fill text-[#9B9DA5]'
                       }
                     `}
                   >
                     {/* 아이템 드래그 드롭 인디케이터 */}
                     {dnd.draggedItemId &&
                       dnd.dragOverItemDisplayIndex === displayIndex && (
-                        <div className="absolute left-0 right-0 top-0 h-[2px] bg-[#3B82F6] z-10" />
+                        <div className="absolute left-0 right-0 top-0 h-[2px] bg-ui-selection z-10" />
                       )}
                     {dnd.draggedItemId &&
                       dnd.dragOverHeaderBottomGroupId === gh.groupId && (
-                        <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-[#3B82F6] z-10" />
+                        <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-ui-selection z-10" />
                       )}
                     {/* 그룹 드래그 드롭 인디케이터 */}
                     {dnd.draggedGroupId &&
                       dnd.dragOverDisplayIndex === displayIndex &&
                       dnd.draggedGroupId !== gh.groupId && (
-                        <div className="absolute left-0 right-0 top-0 h-[2px] bg-[#3B82F6] z-10" />
+                        <div className="absolute left-0 right-0 top-0 h-[2px] bg-ui-selection z-10" />
                       )}
                     {/* 접기/펼치기 토글 */}
                     <div
@@ -597,7 +597,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       <input
                         ref={actions.renameInputRef}
                         type="text"
-                        className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-[#3B82F6]"
+                        className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
                         value={actions.renameValue}
                         onChange={(e) => actions.setRenameValue(e.target.value)}
                         onBlur={() => {
@@ -694,10 +694,10 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                     ${isInDraggedGroup ? 'opacity-30' : ''}
                     ${
                       isItemSelected(item)
-                        ? 'bg-[#3B82F6]/20 text-[#DBDEE8]'
+                        ? 'bg-ui-selection-fill text-[#DBDEE8]'
                         : dnd.isDragging
                           ? 'text-[#8B8D95]'
-                          : 'hover:bg-[#2A2A30] text-[#8B8D95]'
+                          : 'hover:bg-ui-fill text-[#8B8D95]'
                     }
                   `}
                 >
@@ -705,12 +705,12 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                   {dnd.draggedItemId &&
                     dnd.dragOverItemDisplayIndex === displayIndex &&
                     !dnd.draggedItemIdsRef.current.includes(item.id) && (
-                      <div className="absolute left-0 right-0 top-0 h-[2px] bg-[#3B82F6] z-10" />
+                      <div className="absolute left-0 right-0 top-0 h-[2px] bg-ui-selection z-10" />
                     )}
                   {dnd.draggedGroupId &&
                     dnd.dragOverDisplayIndex === displayIndex &&
                     item.groupId !== dnd.draggedGroupId && (
-                      <div className="absolute left-0 right-0 top-0 h-[2px] bg-[#3B82F6] z-10" />
+                      <div className="absolute left-0 right-0 top-0 h-[2px] bg-ui-selection z-10" />
                     )}
 
                   {/* 아이콘 */}
@@ -733,7 +733,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                     <input
                       ref={actions.renameInputRef}
                       type="text"
-                      className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-[#3B82F6]"
+                      className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
                       value={actions.renameValue}
                       onChange={(e) => actions.setRenameValue(e.target.value)}
                       onBlur={() => {
@@ -805,11 +805,11 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
             {/* 마지막 아이템 뒤 드롭 인디케이터 */}
             {dnd.draggedItemId &&
               dnd.dragOverItemDisplayIndex === displayItems.length && (
-                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-[#3B82F6] z-10" />
+                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-ui-selection z-10" />
               )}
             {dnd.draggedGroupId &&
               dnd.dragOverDisplayIndex === displayItems.length && (
-                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-[#3B82F6] z-10" />
+                <div className="absolute left-0 right-0 bottom-0 h-[2px] bg-ui-selection z-10" />
               )}
           </div>
         )}

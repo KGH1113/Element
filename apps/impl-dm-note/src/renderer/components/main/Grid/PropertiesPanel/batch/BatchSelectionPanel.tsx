@@ -528,7 +528,7 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
                 <input
                   ref={renameInputRef}
                   type="text"
-                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-[#3B82F6]"
+                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-ui-accent"
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={() => {
@@ -558,7 +558,7 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
                   </span>
                   <button
                     onClick={handleRenameStart}
-                    className="w-[18px] h-[18px] flex items-center justify-center text-[#6B6D75] hover:text-[#DBDEE8] hover:bg-[#2A2A30] rounded-[4px] transition-colors flex-shrink-0"
+                    className="w-[18px] h-[18px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors flex-shrink-0"
                     title={t('contextMenu.rename') || 'Rename'}
                   >
                     <RenameIcon />
@@ -579,14 +579,14 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
           <div className="flex items-center gap-[4px]">
             <button
               onClick={handleToggleMode}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.switchToLayer') || 'Switch to Layer'}
             >
               <ModeToggleIcon mode="layer" />
             </button>
             <button
               onClick={handleTogglePanel}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.closePanel') || '속성 패널 닫기'}
             >
               <SidebarToggleIcon isOpen={true} />
@@ -1105,7 +1105,7 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
                 <input
                   ref={renameInputRef}
                   type="text"
-                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-[#3B82F6]"
+                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-ui-accent"
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={() => {
@@ -1135,7 +1135,7 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
                   </span>
                   <button
                     onClick={handleRenameStart}
-                    className="w-[18px] h-[18px] flex items-center justify-center text-[#6B6D75] hover:text-[#DBDEE8] hover:bg-[#2A2A30] rounded-[4px] transition-colors flex-shrink-0"
+                    className="w-[18px] h-[18px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors flex-shrink-0"
                     title={t('contextMenu.rename') || 'Rename'}
                   >
                     <RenameIcon />
@@ -1156,14 +1156,14 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
           <div className="flex items-center gap-[4px]">
             <button
               onClick={handleToggleMode}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.switchToLayer') || 'Switch to Layer'}
             >
               <ModeToggleIcon mode="layer" />
             </button>
             <button
               onClick={handleTogglePanel}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.closePanel') || '속성 패널 닫기'}
             >
               <SidebarToggleIcon isOpen={true} />
@@ -1470,7 +1470,7 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
                 <input
                   ref={renameInputRef}
                   type="text"
-                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-[#3B82F6]"
+                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-ui-accent"
                   value={renameValue}
                   onChange={(e) => setRenameValue(e.target.value)}
                   onBlur={() => {
@@ -1500,7 +1500,7 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
                   </span>
                   <button
                     onClick={handleRenameStart}
-                    className="w-[18px] h-[18px] flex items-center justify-center text-[#6B6D75] hover:text-[#DBDEE8] hover:bg-[#2A2A30] rounded-[4px] transition-colors flex-shrink-0"
+                    className="w-[18px] h-[18px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors flex-shrink-0"
                     title={t('contextMenu.rename') || 'Rename'}
                   >
                     <RenameIcon />
@@ -1521,14 +1521,14 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
           <div className="flex items-center gap-[4px]">
             <button
               onClick={handleToggleMode}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.switchToLayer') || 'Switch to Layer'}
             >
               <ModeToggleIcon mode="layer" />
             </button>
             <button
               onClick={handleTogglePanel}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.closePanel') || '속성 패널 닫기'}
             >
               <SidebarToggleIcon isOpen={true} />

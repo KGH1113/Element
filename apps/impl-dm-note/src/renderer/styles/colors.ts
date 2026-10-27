@@ -17,7 +17,9 @@ export const colors = {
   surfaceHover: '#303036',
   surfaceActive: '#393941',
   hoverDark: '#353540',
-  focus: '#459BF8',
+  // Legacy alias for the highlight colour; the fallback covers windows that
+  // do not load the design tokens.
+  focus: 'var(--ui-accent, #ba712b)',
   textDisabled: '#6B6D75',
 
   danger: {

@@ -264,7 +264,7 @@ const CounterTabContent: React.FC<CounterTabContentProps> = ({
           onClick={() => handlePickerToggle('fill')}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             pickerFor === 'fill'
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={{
@@ -283,7 +283,7 @@ const CounterTabContent: React.FC<CounterTabContentProps> = ({
           onClick={() => handlePickerToggle('stroke')}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             pickerFor === 'stroke'
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={{
@@ -302,7 +302,7 @@ const CounterTabContent: React.FC<CounterTabContentProps> = ({
           ref={fontBtnRef}
           type="button"
           className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            pickerFor === 'font' ? 'border-[#459BF8]' : 'border-[#3A3943]'
+            pickerFor === 'font' ? 'border-ui-accent' : 'border-[#3A3943]'
           } text-[#DBDEE8] text-style-4`}
           onClick={() => handlePickerToggle('font')}
         >
@@ -367,7 +367,7 @@ const CounterTabContent: React.FC<CounterTabContentProps> = ({
           ref={animationBtnRef}
           type="button"
           className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            showAnimationPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+            showAnimationPicker ? 'border-ui-accent' : 'border-[#3A3943]'
           } text-[#DBDEE8] text-style-4`}
           onClick={() => setShowAnimationPicker((prev) => !prev)}
         >

@@ -659,7 +659,7 @@ const BatchStyleTabContent: React.FC<BatchStyleTabContentProps> = ({
           ref={batchImageButtonRef}
           type="button"
           className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            showBatchImagePicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+            showBatchImagePicker ? 'border-ui-accent' : 'border-[#3A3943]'
           } text-[#DBDEE8] text-style-4`}
           onClick={onToggleBatchImagePicker}
         >
@@ -705,7 +705,7 @@ const BatchStyleTabContent: React.FC<BatchStyleTabContentProps> = ({
               ref={fontButtonRef}
               type="button"
               className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                showFontPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                showFontPicker ? 'border-ui-accent' : 'border-[#3A3943]'
               } text-[#DBDEE8] text-style-4`}
               onClick={() => setShowFontPicker(!showFontPicker)}
             >
@@ -898,7 +898,7 @@ const BatchStyleTabContent: React.FC<BatchStyleTabContentProps> = ({
                   ref={soundButtonRef}
                   type="button"
                   className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                    showSoundPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                    showSoundPicker ? 'border-ui-accent' : 'border-[#3A3943]'
                   } text-[#DBDEE8] text-style-4`}
                   onClick={() => setShowSoundPicker((prev) => !prev)}
                 >

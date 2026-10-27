@@ -780,7 +780,7 @@ const ColorPickerWrapper = ({
     >
       <div
         ref={pickerContainerRef}
-        className="dmn-picker-surface flex w-[146px] flex-col gap-[8px] p-[8px]"
+        className="flex w-[146px] flex-col gap-[8px] p-[8px]"
       >
         {showStateSwitch && (
           <StateSwitch state={stateMode} onChange={onStateModeChange} />
@@ -1249,7 +1249,7 @@ const Input = ({
               onValueCommit?.();
             }
           }}
-          className="pl-[23px] text-left w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8] uppercase pt-[1px] leading-[23px]"
+          className="pl-[23px] text-left w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] uppercase pt-[1px] leading-[23px]"
         />
       </div>
 
@@ -1272,7 +1272,7 @@ const Input = ({
                 event.currentTarget.blur();
               }
             }}
-            className="px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px]"
+            className="px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px]"
           />
         </div>
       )}
@@ -1415,8 +1415,8 @@ function GradientInput({
           placeholder={label}
           className={`pl-[23px] text-left w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] text-style-4 text-[#DBDEE8] uppercase pt-[1px] leading-[23px] ${
             selected
-              ? 'border-[#459BF8]'
-              : 'border-[#3A3943] focus:border-[#459BF8]'
+              ? 'border-ui-accent'
+              : 'border-[#3A3943] focus:border-ui-accent'
           }`}
         />
       </div>
@@ -1439,8 +1439,8 @@ function GradientInput({
                 event.currentTarget.blur();
               }
             }}
-            className={`px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px] ${
-              rightFocused ? 'border-[#459BF8]' : ''
+            className={`px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px] ${
+              rightFocused ? 'border-ui-accent' : ''
             }`}
             title={rightTitle}
           />

@@ -540,7 +540,7 @@ const NoteTabContent: React.FC<NoteTabContentProps> = ({
           onClick={() => handlePickerToggle('note')}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             pickerFor === 'note'
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={getNoteColorDisplay().style}
@@ -556,7 +556,7 @@ const NoteTabContent: React.FC<NoteTabContentProps> = ({
             onClick={() => handlePickerToggle('border')}
             className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
               pickerFor === 'border'
-                ? 'border-[#459BF8]'
+                ? 'border-ui-accent'
                 : 'border-[#3A3943] hover:border-[#505058]'
             }`}
             style={{ backgroundColor: borderColor }}
@@ -706,7 +706,7 @@ const NoteTabContent: React.FC<NoteTabContentProps> = ({
           onClick={() => handlePickerToggle('glow')}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             pickerFor === 'glow'
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={getGlowColorDisplay().style}

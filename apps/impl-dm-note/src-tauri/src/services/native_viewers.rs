@@ -48,7 +48,10 @@ pub fn describe(app: &AppHandle, session_id: &str) -> Result<Value, NativeViewer
         ));
     }
     let state = app.state::<crate::state::AppState>();
-    if !state.store.with_state(|store| store.in_game_viewers_enabled) {
+    if !state
+        .store
+        .with_state(|store| store.in_game_viewers_enabled)
+    {
         return Err(NativeViewerError::new(
             "in-game-disabled",
             "Show inside ADOFAI is off in ImplDmNote.",

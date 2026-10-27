@@ -38,10 +38,19 @@
   font: inherit;
 }
 
-[data-dmn-app-chrome] :focus-visible:not([data-dmn-viewer-surface] *),
-[data-dmn-app-portal] :focus-visible {
+/*
+ * Keyboard focus ring for controls only. Text entry draws its own focus
+ * state on the field (or its well, via :focus-within); a second global
+ * ring on top of that doubled the indicator.
+ */
+[data-dmn-app-chrome]
+  :focus-visible:not(input, textarea, select, [contenteditable]):not(
+    [data-dmn-viewer-surface] *
+  ),
+[data-dmn-app-portal]
+  :focus-visible:not(input, textarea, select, [contenteditable]) {
   outline: 0;
-  box-shadow: var(--ui-shadow-focus);
+  box-shadow: var(--ui-focus-ring);
 }
 
 @media (prefers-reduced-motion: reduce) {

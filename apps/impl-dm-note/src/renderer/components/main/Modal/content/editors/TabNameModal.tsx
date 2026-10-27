@@ -68,7 +68,7 @@ const TabNameModal = ({
   return (
     <Modal onClick={onClose}>
       <div
-        className="flex flex-col justify-between w-[280px] p-[20px] gap-[19px] bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30]"
+        className="dmn-modal-card flex flex-col justify-between w-[280px] p-[20px] gap-[19px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="text-style-3 text-[#FFFFFF]">

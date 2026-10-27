@@ -155,7 +155,7 @@ const CounterTabContent = forwardRef<
   // 컬러 버튼 스타일
   const colorButtonClass = (active: boolean) =>
     `relative px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-      active ? 'border-[#459BF8]' : 'border-[#3A3943]'
+      active ? 'border-ui-accent' : 'border-[#3A3943]'
     } text-[#DBDEE8] text-style-2`;
 
   // 컬러 프리뷰 박스
@@ -332,7 +332,7 @@ const CounterTabContent = forwardRef<
             }))
           }
           onBlur={handleGapBlur}
-          className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+          className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
           style={{
             width: alignDropdownWidth ? `${alignDropdownWidth}px` : undefined,
           }}

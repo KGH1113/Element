@@ -113,7 +113,7 @@ const SubMenu = ({
           node;
         if (needsScroll) subLenisRef(node);
       }}
-      className={`fixed z-[10001] bg-button-primary rounded-[7px] p-[5px] flex flex-col gap-[1px] tooltip-fade-in${
+      className={`fixed z-[10001] bg-ui-glass rounded-ui-surface shadow-ui-popup p-[5px] flex flex-col gap-[1px] tooltip-fade-in${
         needsScroll ? ' listpopup-scroll' : ''
       }`}
       style={{
@@ -210,7 +210,7 @@ const MenuItemRow = ({
   if (item.type === 'separator') {
     return (
       <div className="-mx-[5px] py-[3px]">
-        <div className="h-[1px] bg-[#3A3D4A]" />
+        <div className="h-[1px] bg-ui-line-subtle" />
       </div>
     );
   }
@@ -235,7 +235,7 @@ const MenuItemRow = ({
         className={`w-full min-w-[108px] h-[24px] px-[24px] rounded-[7px] flex items-center justify-center ${
           item.disabled
             ? 'opacity-70'
-            : 'hover:bg-button-hover active:bg-button-active cursor-pointer'
+            : 'hover:bg-ui-fill active:bg-ui-fill-active cursor-pointer'
         }`}
       >
         <span
@@ -264,7 +264,7 @@ const MenuItemRow = ({
         className={`w-full min-w-[120px] h-[24px] px-[6px] rounded-[5px] flex items-center gap-[4px] ${
           item.disabled
             ? 'opacity-70'
-            : 'hover:bg-button-hover active:bg-button-active cursor-pointer'
+            : 'hover:bg-ui-fill active:bg-ui-fill-active cursor-pointer'
         }`}
       >
         {/* 좌측 체크 영역 (고정 너비) */}
@@ -347,8 +347,7 @@ const ListPopup = ({
   textAlign = 'center',
   maxVisibleItems,
 }: ListPopupProps) => {
-  const defaultClassName =
-    'z-30 bg-button-primary rounded-[7px] p-[5px] flex flex-col gap-[1px]';
+  const defaultClassName = 'p-[5px] flex flex-col gap-[1px]';
   const effectiveClassName = `${defaultClassName} ${className}`.trim();
 
   // 스크롤 필요 여부 계산

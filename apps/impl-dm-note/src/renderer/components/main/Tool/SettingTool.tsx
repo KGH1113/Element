@@ -413,15 +413,10 @@ const Button = ({
     <button
       type="button"
       aria-label={ariaLabel}
+      aria-pressed={isSelected}
       disabled={disabled}
       className={`dmn-tool-button flex h-[30px] w-[30px] items-center justify-center ${
-        disabled
-          ? 'opacity-40 cursor-not-allowed'
-          : `active:bg-button-active ${
-              isSelected
-                ? 'bg-button-active'
-                : 'bg-button-primary hover:bg-button-hover'
-            }`
+        disabled ? 'opacity-40 cursor-not-allowed' : ''
       }`}
       onClick={disabled ? undefined : onClick}
     >
@@ -443,11 +438,8 @@ const ChevronButton = React.forwardRef<HTMLButtonElement, ChevronButtonProps>(
         ref={ref}
         type="button"
         aria-label={ariaLabel}
-        className={`dmn-tool-button flex h-[30px] w-[14px] items-center justify-center ${
-          isSelected
-            ? 'bg-button-active hover:bg-button-active'
-            : 'bg-button-primary hover:bg-button-hover'
-        }`}
+        aria-expanded={isSelected}
+        className="dmn-tool-button flex h-[30px] w-[14px] items-center justify-center"
         onClick={onClick}
       >
         <ChevronDownIcon />

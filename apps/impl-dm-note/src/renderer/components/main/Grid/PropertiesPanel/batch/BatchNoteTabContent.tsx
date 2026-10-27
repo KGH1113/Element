@@ -204,7 +204,7 @@ const BatchNoteTabContent: React.FC<BatchNoteTabContentProps> = ({
           onClick={onNoteColorPickerToggle}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             isNoteColorPickerOpen
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={getBatchNoteColorDisplay().style}
@@ -222,7 +222,7 @@ const BatchNoteTabContent: React.FC<BatchNoteTabContentProps> = ({
             onClick={onBorderColorPickerToggle}
             className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
               isBorderColorPickerOpen
-                ? 'border-[#459BF8]'
+                ? 'border-ui-accent'
                 : 'border-[#3A3943] hover:border-[#505058]'
             }`}
             style={getBatchBorderColorDisplay().style}
@@ -395,7 +395,7 @@ const BatchNoteTabContent: React.FC<BatchNoteTabContentProps> = ({
           onClick={onGlowColorPickerToggle}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             isGlowColorPickerOpen
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={getBatchGlowColorDisplay().style}

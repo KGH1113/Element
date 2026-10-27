@@ -87,7 +87,7 @@ const LaboratoryModal = ({
   return (
     <Modal onClick={onClose}>
       <div
-        className="flex flex-col items-center justify-center p-[20px] bg-[#1A191E] rounded-[13px] gap-[19px] border-[1px] border-[#2A2A30]"
+        className="dmn-modal-card flex flex-col items-center justify-center p-[20px] gap-[19px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between w-full items-center">
@@ -115,7 +115,7 @@ const LaboratoryModal = ({
               );
               setMinimum(String(sanitized));
             }}
-            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
           />
         </div>
 
@@ -134,7 +134,7 @@ const LaboratoryModal = ({
               );
               setThreshold(String(sanitized));
             }}
-            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
           />
         </div>
 
@@ -158,7 +158,7 @@ const LaboratoryModal = ({
                 );
                 setKeyDelay(String(sanitized));
               }}
-              className="text-center w-[55px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+              className="text-center w-[55px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
             />
           </div>
         </div>

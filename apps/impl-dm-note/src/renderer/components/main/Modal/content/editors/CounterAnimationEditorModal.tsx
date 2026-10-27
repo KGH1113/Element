@@ -843,12 +843,12 @@ const CounterAnimationEditorModal = ({
   return (
     <Modal onClick={onClose}>
       <div
-        className="w-[730px] max-w-[calc(100vw-80px)] h-[366px] flex flex-col bg-[#1A191E] rounded-[12px] border border-[#2A2A30] shadow-2xl overflow-hidden"
+        className="dmn-modal-card w-[730px] max-w-[calc(100vw-80px)] h-[366px] flex flex-col overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="h-[37px] bg-[#2A2A30] border-b border-[#3A3943] px-[12px] flex items-center justify-between">
+        <div className="h-[37px] bg-ui-fill-faint border-b border-ui-line-subtle px-[12px] flex items-center justify-between">
           <div className="min-w-0 flex items-center gap-[8px]">
-            <span className="px-[6px] h-[18px] rounded-[4px] border border-[#3A3943] bg-[#1A191E] text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-[#8CC2FF]">
+            <span className="px-[6px] h-[18px] rounded-[4px] bg-ui-accent-soft text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-ui-accent-text">
               Motion
             </span>
             <span className="truncate text-[12px] leading-[16px] text-[#DBDEE8]">
@@ -867,11 +867,11 @@ const CounterAnimationEditorModal = ({
                 placeholder={
                   t('counterSetting.animationNamePlaceholder') || '모션 이름'
                 }
-                className="w-full h-[32px] px-[12px] rounded-[8px] border border-[#2A2A30] bg-[#0A0A0C] text-[12px] leading-[16px] text-[#DBDEE8] placeholder-[#5A5C66] outline-none focus:border-[#459BF8] focus:ring-1 focus:ring-[#459BF8]/20 transition-all font-medium shadow-inner"
+                className="w-full h-[32px] px-[12px] rounded-[8px] border border-transparent bg-ui-inset text-[12px] leading-[16px] text-[#DBDEE8] placeholder-[#5A5C66] outline-none focus:border-ui-accent focus:ring-1 focus:ring-ui-accent/20 transition-all font-medium shadow-inner"
               />
             </div>
 
-            <div className="flex-1 flex gap-[16px] p-[16px] rounded-[10px] bg-[#1A191E] border border-[#2A2A30] shadow-sm min-h-0 items-center">
+            <div className="flex-1 flex gap-[16px] p-[16px] rounded-[10px] bg-ui-fill-faint min-h-0 items-center">
               <div className="shrink-0 flex flex-col">
                 <div
                   className="rounded-[8px] border border-[#2A2A30] bg-[#0F0F13] overflow-hidden"
@@ -959,7 +959,7 @@ const CounterAnimationEditorModal = ({
                       <path
                         d={`M ${startW.x} ${startW.y} C ${p1w.x} ${p1w.y}, ${p2w.x} ${p2w.y}, ${endW.x} ${endW.y}`}
                         fill="none"
-                        stroke="#459BF8"
+                        stroke="var(--ui-accent)"
                         strokeWidth="1.8"
                         vectorEffect="non-scaling-stroke"
                       />
@@ -976,7 +976,7 @@ const CounterAnimationEditorModal = ({
                         cy={p1w.y}
                         r={HANDLE_RADIUS * ns}
                         fill="#1A191E"
-                        stroke="#459BF8"
+                        stroke="var(--ui-accent)"
                         strokeWidth={2 * ns}
                         style={{ pointerEvents: 'none' }}
                       />
@@ -993,7 +993,7 @@ const CounterAnimationEditorModal = ({
                         cy={p2w.y}
                         r={HANDLE_RADIUS * ns}
                         fill="#1A191E"
-                        stroke="#FFB400"
+                        stroke="var(--ui-accent-text)"
                         strokeWidth={2 * ns}
                         style={{ pointerEvents: 'none' }}
                       />
@@ -1351,7 +1351,7 @@ const CounterAnimationEditorModal = ({
           </div>
         </div>
 
-        <div className="bg-[#1A191E] border-t border-[#2A2A30] px-[12px] py-[10px] flex items-center gap-[10.5px]">
+        <div className="border-t border-ui-line-subtle px-[12px] py-[10px] flex items-center gap-[10.5px]">
           <div className="flex items-center gap-1.5 mr-auto">
             <svg
               className="w-3.5 h-3.5 shrink-0"

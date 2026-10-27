@@ -266,9 +266,9 @@ const WebFontInputModal = ({
         className="dmn-manager-surface w-[640px] max-w-[calc(100vw-80px)] flex flex-col overflow-hidden"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="h-[37px] bg-[#2A2A30] border-b border-[#3A3943] px-[12px] flex items-center justify-between">
+        <div className="h-[37px] bg-ui-fill-faint border-b border-ui-line-subtle px-[12px] flex items-center justify-between">
           <div className="min-w-0 flex items-center gap-[8px]">
-            <span className="px-[6px] h-[18px] rounded-[4px] border border-[#3A3943] bg-[#1A191E] text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-[#8CC2FF]">
+            <span className="px-[6px] h-[18px] rounded-[4px] bg-ui-accent-soft text-[10px] leading-[18px] font-semibold tracking-[0.2px] text-ui-accent-text">
               CSS
             </span>
             <span className="truncate text-[12px] leading-[16px] text-[#DBDEE8]">
@@ -289,7 +289,7 @@ const WebFontInputModal = ({
           </div>
         </div>
 
-        <div className="h-[28px] mt-[10px] bg-[#2A2A30] border-t border-[#3A3943] px-[12px] flex items-center justify-between gap-[12px]">
+        <div className="h-[28px] mt-[10px] bg-ui-fill-faint border-t border-ui-line-subtle px-[12px] flex items-center justify-between gap-[12px]">
           <p className="truncate text-[11px] leading-[14px] text-[#8A8D99]">
             {fixedHintMessage}
           </p>
@@ -298,7 +298,7 @@ const WebFontInputModal = ({
           </p>
         </div>
 
-        <div className="bg-[#1A191E] border-t border-[#2A2A30] px-[12px] py-[10px] flex items-center justify-end gap-[10.5px]">
+        <div className="border-t border-ui-line-subtle px-[12px] py-[10px] flex items-center justify-end gap-[10.5px]">
           <button
             className={`w-[120px] h-[30px] rounded-[7px] text-style-3 text-[#DCDEE7] transition-colors ${
               canSubmit

@@ -14,8 +14,7 @@ use crate::{
     defaults::{default_keys, default_positions},
     models::{
         AppStoreData, FontType, GhostKey, GraphPositions, KeyCounters, KeyMappings, KeyPosition,
-        KeyPositions,
-        KeyViewerKind, KeyViewerTab, NoteSettings, OverlayBounds, SelectedViewerTabs,
+        KeyPositions, KeyViewerKind, KeyViewerTab, NoteSettings, OverlayBounds, SelectedViewerTabs,
         StatPositions,
     },
 };

@@ -294,7 +294,7 @@ const bootstrap = async (): Promise<void> => {
           portal
           onClose={() => setPaletteOpen(false)}
         >
-          <Palette color="#8b5cf6" onColorChange={() => undefined} />
+          <Palette color="#ba712b" onColorChange={() => undefined} />
         </FloatingPopup>
         <FontManagerModal
           isOpen={fixtureState === 'font'}

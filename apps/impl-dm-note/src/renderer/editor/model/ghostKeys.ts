@@ -128,7 +128,12 @@ export function expandGhostKeys(
     const owner = positions[index];
     if (!hasActiveGhost(owner, keys[index])) continue;
     expandedKeys ??= keys.slice();
-    expandedPositions ??= positions.slice(0, keys.length);
+    // Keep ghosts index-aligned with their keys even when a key has no
+    // stored position; viewers fall back for those the same way as before.
+    expandedPositions ??= Array.from(
+      { length: keys.length },
+      (_, i) => positions[i],
+    );
     expandedKeys.push(owner.ghost!.key!);
     expandedPositions.push(
       resolveGhostPosition(owner, index, labelOf(keys[index])),

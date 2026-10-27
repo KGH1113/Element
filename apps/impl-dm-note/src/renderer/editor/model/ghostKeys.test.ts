@@ -90,6 +90,15 @@ describe('expandGhostKeys', () => {
     });
   });
 
+  it('keeps ghosts aligned when a key has no stored position', () => {
+    const expanded = expandGhostKeys(['E', 'F'], [withGhost('R')]);
+
+    expect(expanded.keys).toEqual(['E', 'F', 'R']);
+    expect(expanded.positions).toHaveLength(3);
+    expect(expanded.positions[1]).toBeUndefined();
+    expect(expanded.positions[2]).toMatchObject({ dx: 493 });
+  });
+
   it('skips disabled, unbound and self-bound ghosts', () => {
     const keys = ['E', 'F', 'G'];
     const positions = [withGhost('R', false), withGhost(null), withGhost('G')];

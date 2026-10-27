@@ -23,7 +23,7 @@ runtime_payload_names() {
   if [ "$target" != "windows" ] && is_macos; then
     RUNTIME_PAYLOAD_NAMES+=(libImplTrackpad.dylib native/libImplGameWebView.dylib)
   fi
-  if [ "$target" = "windows" ] || { [ "$target" = "package" ] && windows_webview_ready; }; then
+  if [ "$target" = "windows" ] || { [ "$target" = "package" ] && windows_webview_verified; }; then
     RUNTIME_PAYLOAD_NAMES+=(native/ImplGameWebView.dll)
   fi
 }

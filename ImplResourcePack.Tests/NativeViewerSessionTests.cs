@@ -94,6 +94,28 @@ internal static class NativeViewerSessionTests
       NativeViewerErrors.Classify("Native viewer requires macOS 11 or later.") == NativeViewerStatus.UnsupportedSystem,
       "Old macOS versions are unsupported."
     );
+    Check(
+      NativeViewerErrors.Classify("This game build cannot host WebView2 (multithreaded COM apartment).")
+        == NativeViewerStatus.HostIncompatible,
+      "A COM apartment the game fixed at startup is not reported as a retryable window problem."
+    );
+    Check(
+      NativeViewerErrors.Classify(
+        "Native viewer could not load its local source. Viewers will reconnect automatically."
+      ) == NativeViewerStatus.Reconnecting,
+      "A page load the host retries by itself reports reconnecting."
+    );
+    Check(
+      NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.PageUnavailable)
+        && NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.Reconnecting),
+      "Failed and stopped pages accept an unchanged descriptor as their retry."
+    );
+    Check(
+      !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.Attached)
+        && !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.WebViewRuntimeMissing)
+        && !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.HostIncompatible),
+      "Healthy viewers and problems a reload cannot fix skip unchanged descriptors."
+    );
   }
 
   private static void PollsUntilTheAppPushes()

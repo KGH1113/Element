@@ -18,6 +18,7 @@ internal enum NativeViewerStatus
   WindowUnavailable,
   ComponentMissing,
   WebViewRuntimeMissing,
+  HostIncompatible,
   UnsupportedSystem,
   UnsupportedPlatform,
 }

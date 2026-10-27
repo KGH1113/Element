@@ -123,8 +123,9 @@ Windows PC에서 빌드합니다. OpenSSH 서버와 Visual Studio Build Tools(C+
 빌드는 고정한 WebView2 SDK 1.0.4314.35를 NuGet에서 받아 SHA-256을 확인하고,
 CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL을 만듭니다.
 스모크 테스트는 로그인된 데스크톱에서 약 1분 동안 커서를 움직이고 자기 창을
-클릭하므로 그 PC를 쓰지 않을 때 실행합니다. `package`는 호스트가 지정되어
-있으면 DLL을 다시 빌드하고, 없으면 현재 소스로 빌드한 DLL이 있어야 합니다.
+클릭하므로 그 PC를 쓰지 않을 때 실행합니다. `package`는 현재 소스로 빌드하고
+스모크 테스트를 통과한 DLL만 포함하며, 스모크 테스트를 직접 시작하지 않습니다.
+소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요.
 `IMPL_RESOURCEPACK_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
 패키징하며, 이 경우 Windows 플레이어는 게임 내 키뷰어를 쓸 수 없습니다.
 Windows용 ImplDmNote Release 빌드는 관리자 권한으로 실행됩니다.

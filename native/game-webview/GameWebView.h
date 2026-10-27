@@ -69,6 +69,10 @@ IRP_WEBVIEW_API void irp_webview_set_editor_exclusion(double x, double y, double
                                                       double height);
 IRP_WEBVIEW_API void irp_webview_dispose(void);
 
+// The latest host error (a failed call, the window, the web engine); if none, the
+// first viewer whose page is still failing. A successful set_surface clears host
+// errors; a viewer's fault clears when its page loads, its source changes or it
+// is removed. Empty when everything is attached.
 // Thread-local copy; valid until this thread next calls last_error. Diagnostics
 // never contain a URL or its authentication token.
 IRP_WEBVIEW_API const char *irp_webview_last_error(void);

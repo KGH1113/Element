@@ -18,7 +18,8 @@ IMPL_RESOURCEPACK_WINDOWS_SSH_KEY="${IMPL_RESOURCEPACK_WINDOWS_SSH_KEY:-}"
 IMPL_RESOURCEPACK_WINDOWS_MODS_DIR="${IMPL_RESOURCEPACK_WINDOWS_MODS_DIR:-C:\\Program Files (x86)\\Steam\\steamapps\\common\\A Dance of Fire and Ice\\Mods}"
 
 # Relative to the remote user's home; scp and PowerShell both resolve it there.
-WINDOWS_REMOTE_DIR=".impl-resourcepack/game-webview"
+# Override it per worktree so parallel builds on one PC never share files.
+WINDOWS_REMOTE_DIR="${IMPL_RESOURCEPACK_WINDOWS_REMOTE_DIR:-.impl-resourcepack/game-webview}"
 export IMPL_RESOURCEPACK_WINDOWS_HOST IMPL_RESOURCEPACK_WINDOWS_SSH_KEY IMPL_RESOURCEPACK_WINDOWS_MODS_DIR
 export WINDOWS_REMOTE_DIR
 

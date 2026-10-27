@@ -141,6 +141,33 @@ test('viewer-only entry does not load app typography or tokens', async ({
   expect(contract.hasPretendardFace).toBe(false);
 });
 
+test('a held ghost key replaces its key and the newest press shows', async ({
+  page,
+}) => {
+  await page.goto('/visual/index.html?surface=overlay&fixture=hand-ghost');
+  await page.waitForFunction(() => window.__VISUAL_READY__ === true);
+  const keys = page.locator('[data-viewer-layer="keys"]');
+  const press = (key: string, active: boolean) =>
+    page.evaluate(([k, a]) => window.__VISUAL_SET_KEY__?.(k, a), [
+      key,
+      active,
+    ] as const);
+
+  await press('E', false);
+  await expect(keys).toHaveText('E');
+  await press('R', true);
+  await expect(keys).toHaveText('R');
+  await press('E', true);
+  await expect(keys).toHaveText('E');
+  await press('R', false);
+  await press('R', true);
+  await expect(keys).toHaveText('R');
+  await press('R', false);
+  await expect(keys).toHaveText('E');
+  await press('E', false);
+  await expect(keys).toHaveText('E');
+});
+
 test('primitive controls preserve controlled input semantics', async ({
   page,
 }) => {

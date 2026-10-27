@@ -30,7 +30,7 @@ KeyboardChatterBlocker에는 라이선스가 없어 코드를 가져오지 않�
 
 키마다 `ghost: { enabled, key, settings }`를 저장한다. `settings`는 키 스타일 전체이며 위치·크기는 항상 원래 키를 따른다.
 
-- 렌더링: 오버레이·OBS·게임 내 키뷰어·리플레이 렌더러는 `expandGhostKeys`로 고스트를 원래 키 위의 가상 키로 덧붙인다. 같은 z-index에 DOM 뒤쪽에 있어 원래 키 바로 위에 그려진다. 기본값은 대기 시 렌더링하지 않음(`idleTransparent`), 눌렀을 때 원래 키의 눌림 색, 원래 노트 색의 테두리만 있는 노트, 카운터 꺼짐이다.
+- 렌더링: 오버레이·OBS·게임 내 키뷰어·리플레이 렌더러는 `expandGhostKeys`로 고스트를 원래 키 위의 가상 키로 덧붙인다. 같은 z-index에 DOM 뒤쪽에 있어 원래 키 바로 위에 그려진다. 고스트 키를 누르는 동안 원래 키는 그리지 않아 완전히 다른 키처럼 보이고, 두 키를 함께 누르면 나중에 누른 쪽이 보인다(`getKeyPressOrder`, `isCoveredByPair`). 고스트의 글자는 표시 텍스트를 따로 정하지 않으면 고스트 키 이름이다. 기본값은 대기 시 렌더링하지 않음(`idleTransparent`), 눌렀을 때 원래 키의 눌림 색, 원래 노트 색의 테두리만 있는 노트, 카운터 꺼짐이다.
 - 입력 라우팅: 백엔드(`match_key_for_mode`)는 원래 키를 먼저, 그다음 고스트 키를 찾는다. 카운터와 키음도 고스트를 인식한다.
 - 키 리미터: 고스트 키는 허용 키 목록에 들어가지 않고 `excludedGhostKeys`로만 보고된다.
 - 마이그레이션: 이전에 다른 키와 같은 자리에 겹쳐 둔 `keyLimiterExcluded` 키는 한 번만 그 키의 고스트로 옮긴다(`ghostKeysFolded`, 백업 `store.pre-ghost-keys.json`). 프리셋을 불러올 때도 같은 규칙을 적용한다. 겹치지 않는 제외 키는 그대로 동작한다.

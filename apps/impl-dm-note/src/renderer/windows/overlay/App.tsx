@@ -34,7 +34,6 @@ import { computeLayout } from '@hooks/shared/useLayoutComputation';
 import { publishViewerLayout } from '@api/viewerLayout';
 import { isKeyMappedToViewer } from './keyStateRouting';
 import { expandGhostKeys } from '@src/renderer/editor/model/ghostKeys';
-import { getKeyInfoByGlobalKey } from '@utils/core/KeyMaps';
 
 type KeyDelayTimerEntry = { timers: Set<ReturnType<typeof setTimeout>> };
 
@@ -43,7 +42,6 @@ type KeyDelayTimerEntry = { timers: Set<ReturnType<typeof setTimeout>> };
 const MAX_EVENT_AGE_MS = 250;
 const NO_KEYS: string[] = [];
 const NO_POSITIONS: KeyPosition[] = [];
-const keyLabel = (key: string) => getKeyInfoByGlobalKey(key).displayName;
 
 export default function App() {
   const windowLabel = getCurrentWindow().label;
@@ -167,7 +165,6 @@ export default function App() {
       expandGhostKeys(
         keyMappings[selectedKeyType] ?? NO_KEYS,
         positions[selectedKeyType] ?? NO_POSITIONS,
-        keyLabel,
       ),
     [keyMappings, positions, selectedKeyType],
   );
@@ -713,6 +710,7 @@ export default function App() {
   return (
     <OverlayScene
       currentKeys={currentKeys}
+      pairedKeys={viewerKeys.pairedKeys}
       displayPositions={displayPositions}
       currentPositions={currentPositions}
       displayStatPositions={displayStatPositions}

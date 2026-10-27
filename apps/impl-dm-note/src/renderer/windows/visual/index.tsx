@@ -13,13 +13,18 @@ import {
 import { NoteBuffer } from '@stores/signals/noteBuffer';
 import { resetAllKeySignals, setKeyActive } from '@stores/signals/keySignals';
 import {
+  createDefaultGhostSettings,
+  expandGhostKeys,
+} from '@src/renderer/editor/model/ghostKeys';
+import {
   resetAllCounters,
   setKeyCounter,
 } from '@stores/signals/keyCounterSignals';
 import type { KeyCounterSettings, KeyPosition } from '@src/types/key/keys';
 
 type Surface = 'main' | 'overlay' | 'obs';
-type FixtureId = 'hand-default' | 'hand-custom-css' | 'foot-note-counter';
+type FixtureId =
+  'hand-default' | 'hand-custom-css' | 'foot-note-counter' | 'hand-ghost';
 
 interface VisualFixture {
   id: FixtureId;
@@ -33,6 +38,7 @@ interface VisualFixture {
 declare global {
   interface Window {
     __VISUAL_READY__?: boolean;
+    __VISUAL_SET_KEY__?: (key: string, active: boolean) => void;
   }
 }
 
@@ -76,7 +82,35 @@ const position = (
   ...overrides,
 });
 
+// E with a ghost on R: the ghost is a different key while it is held.
+const ghostOwner = (() => {
+  const owner = position(220, 470, {
+    activeBackgroundColor: 'rgba(186, 113, 43, 0.9)',
+    activeFontColor: '#FFFFFF',
+    counter: counter('inside', { enabled: false }),
+  });
+  return {
+    ...owner,
+    ghost: {
+      enabled: true,
+      key: 'R',
+      settings: {
+        ...createDefaultGhostSettings(owner),
+        activeBackgroundColor: 'rgba(69, 155, 248, 0.92)',
+      },
+    },
+  };
+})();
+
 const FIXTURES: Record<FixtureId, VisualFixture> = {
+  'hand-ghost': {
+    id: 'hand-ghost',
+    viewerKind: 'hand',
+    keys: ['E'],
+    positions: [ghostOwner],
+    hiddenKeyCount: 0,
+    noteEnabled: false,
+  },
   'hand-default': {
     id: 'hand-default',
     viewerKind: 'hand',
@@ -154,7 +188,8 @@ const surface: Surface =
     : 'main';
 const fixtureId: FixtureId =
   requestedFixture === 'hand-custom-css' ||
-  requestedFixture === 'foot-note-counter'
+  requestedFixture === 'foot-note-counter' ||
+  requestedFixture === 'hand-ghost'
     ? requestedFixture
     : 'hand-default';
 
@@ -201,6 +236,7 @@ function VisualViewer({ fixture }: { fixture: VisualFixture }) {
       setKeyCounter(fixture.viewerKind, key, (index + 1) * 12);
     });
 
+    window.__VISUAL_SET_KEY__ = setKeyActive;
     const settle = async () => {
       await document.fonts.ready;
       await new Promise<void>((resolve) =>
@@ -223,11 +259,15 @@ function VisualViewer({ fixture }: { fixture: VisualFixture }) {
     };
   }, [fixture]);
 
-  const visibleEntries = fixture.positions
+  const expanded = useMemo(
+    () => expandGhostKeys(fixture.keys, fixture.positions),
+    [fixture],
+  );
+  const visibleEntries = expanded.positions
     .map((item, index) => ({
       item,
       index,
-      key: fixture.keys[index],
+      key: expanded.keys[index],
     }))
     .filter(({ item }) => !item.hidden);
 
@@ -272,6 +312,7 @@ function VisualViewer({ fixture }: { fixture: VisualFixture }) {
               key={key}
               keyName={item.displayText || key}
               globalKey={key}
+              pairedKey={expanded.pairedKeys?.[index]}
               position={item}
               mode={fixture.viewerKind}
               counterEnabled

@@ -3,9 +3,15 @@ import type { KeyPosition } from '@src/types/key/keys';
 import { buildKeyLimiterSyncRequest } from '@src/renderer/ipc/keyLimiterSnapshot';
 import { isKeyMappedToViewer } from '@src/renderer/windows/overlay/keyStateRouting';
 import {
+  getKeyPressOrder,
+  resetAllKeySignals,
+  setKeyActive,
+} from '@stores/signals/keySignals';
+import {
   createDefaultGhostSettings,
   expandGhostKeys,
   ghostKeyLabels,
+  isCoveredByPair,
   mergeGhostSettings,
   toTransparentColor,
 } from './ghostKeys';
@@ -73,21 +79,39 @@ describe('expandGhostKeys', () => {
 
     expect(expanded.keys).toBe(keys);
     expect(expanded.positions).toBe(positions);
+    expect(expanded.pairedKeys).toBeNull();
   });
 
-  it('appends a ghost that follows the owner geometry and label', () => {
+  it('appends a ghost that follows the owner geometry with its own label', () => {
     const moved = { ...withGhost('R'), dx: 600, width: 80 };
 
-    const expanded = expandGhostKeys(['E'], [moved], () => 'E');
+    const expanded = expandGhostKeys(['E'], [moved]);
 
     expect(expanded.keys).toEqual(['E', 'R']);
     expect(expanded.positions[1]).toMatchObject({
       dx: 600,
       width: 80,
       zIndex: 6,
-      displayText: 'E',
       keyLimiterExcluded: true,
     });
+    // No display text: the ghost shows its own key name, not the owner's.
+    expect(expanded.positions[1].displayText).toBeUndefined();
+    expect(expanded.pairedKeys).toEqual(['R', 'E']);
+  });
+
+  it('keeps a display text set on the ghost', () => {
+    const base = withGhost('R');
+    const custom = {
+      ...base,
+      ghost: {
+        ...base.ghost!,
+        settings: { ...base.ghost!.settings, displayText: 'Ghost' },
+      },
+    };
+
+    expect(expandGhostKeys(['E'], [custom]).positions[1].displayText).toBe(
+      'Ghost',
+    );
   });
 
   it('keeps ghosts aligned when a key has no stored position', () => {
@@ -105,6 +129,34 @@ describe('expandGhostKeys', () => {
 
     expect(expandGhostKeys(keys, positions).keys).toBe(keys);
     expect(ghostKeyLabels(keys, positions)).toEqual([]);
+  });
+});
+
+describe('which of a key and its ghost is shown', () => {
+  it('shows the most recent press', () => {
+    // Ghost alone: the owner hides and the ghost shows.
+    expect(isCoveredByPair(false, true, 0, 1)).toBe(true);
+    expect(isCoveredByPair(true, false, 1, 0)).toBe(false);
+    // Both held: the later press wins either way.
+    expect(isCoveredByPair(true, true, 1, 2)).toBe(true);
+    expect(isCoveredByPair(true, true, 2, 1)).toBe(false);
+    // Neither held: the owner's idle look shows.
+    expect(isCoveredByPair(false, false, 1, 2)).toBe(false);
+  });
+
+  it('orders presses, not releases or repeats', () => {
+    resetAllKeySignals();
+    setKeyActive('E', true);
+    setKeyActive('R', true);
+    expect(getKeyPressOrder('R')).toBeGreaterThan(getKeyPressOrder('E'));
+    const pressedAt = getKeyPressOrder('E');
+    setKeyActive('E', true);
+    expect(getKeyPressOrder('E')).toBe(pressedAt);
+    setKeyActive('E', false);
+    setKeyActive('E', true);
+    expect(getKeyPressOrder('E')).toBeGreaterThan(getKeyPressOrder('R'));
+    resetAllKeySignals();
+    expect(getKeyPressOrder('E')).toBe(0);
   });
 });
 

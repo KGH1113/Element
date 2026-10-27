@@ -19,6 +19,8 @@ import {
   type KeyElementPosition,
 } from '@hooks/overlay/useKeyElementStyles';
 import { useKeyActive } from '@hooks/overlay/useKeyActive';
+import { getKeyPressOrder } from '@stores/signals/keySignals';
+import { isCoveredByPair } from '@src/renderer/editor/model/ghostKeys';
 import InsideCounterLayout from '@components/overlay/counters/InsideCounterLayout';
 import CountDisplay from '@components/overlay/counters/CountDisplay';
 import {
@@ -70,6 +72,8 @@ interface DraggableKeyProps {
 interface KeyProps {
   keyName: string;
   globalKey: string;
+  /** The ghost or owner drawn in the same place; the newer press is shown. */
+  pairedKey?: string;
   position: KeyElementPosition;
   mode?: string;
   counterEnabled?: boolean;
@@ -579,15 +583,28 @@ const DraggableKey = React.memo(
 
 export default DraggableKey;
 
+// Keys without a pair subscribe to a signal nobody sets.
+const NO_PAIR = '';
+
 export const Key = React.memo(function Key({
   keyName,
   globalKey,
+  pairedKey,
   position,
   mode,
   counterEnabled = false,
 }: KeyProps) {
   const selectorKey = globalKey || keyName;
   const active = useKeyActive(selectorKey);
+  const pairActive = useKeyActive(pairedKey ?? NO_PAIR);
+  const covered =
+    pairedKey !== undefined &&
+    isCoveredByPair(
+      active,
+      pairActive,
+      getKeyPressOrder(selectorKey),
+      getKeyPressOrder(pairedKey),
+    );
 
   const {
     keyStyle,
@@ -606,7 +623,7 @@ export const Key = React.memo(function Key({
     warmupImageSource(activeImageSrc);
   }, [inactiveImageSrc, activeImageSrc]);
 
-  if (isTransparent) return null;
+  if (isTransparent || covered) return null;
 
   const counterSettings = normalizeCounterSettings(
     position?.counter ?? createDefaultCounterSettings(),

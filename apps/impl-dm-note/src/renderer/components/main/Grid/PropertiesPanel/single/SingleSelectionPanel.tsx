@@ -1460,11 +1460,6 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
   const editingGhost = supportsGhost && binding === 'ghost';
   const ghost = singleKeyPosition?.ghost;
   const ghostEnabled = !!ghost?.enabled;
-  const ownerLabel =
-    singleKeyPosition?.displayText ||
-    singleKeyInfo?.displayName ||
-    singleKeyCode ||
-    '';
   // Geometry always follows the owner, so the editor shows the owner's box.
   const ghostPosition: KeyPosition | null = singleKeyPosition
     ? {
@@ -1711,7 +1706,6 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
                 onKeyPreview={onGhostPreview}
                 isListening={isGhostListening}
                 onKeyListen={handleGhostKeyListen}
-                displayTextPlaceholder={ownerLabel}
                 hideGeometry
                 showSoundControls
                 showImagePicker={showImagePicker}
@@ -1828,7 +1822,7 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
                 key="ghost-counter"
                 keyIndex={singleKeyIndex!}
                 keyPosition={ghostPosition!}
-                keyDisplayName={ownerLabel}
+                keyDisplayName={ghostKeyInfo?.displayName}
                 isStat={false}
                 onKeyUpdate={onGhostUpdate!}
                 panelElement={panelElement}

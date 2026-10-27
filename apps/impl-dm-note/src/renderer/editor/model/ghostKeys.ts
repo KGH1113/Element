@@ -84,11 +84,14 @@ export function hasActiveGhost(
   );
 }
 
-/** Ghost settings with the owner's live geometry and stacking. */
+/**
+ * Ghost settings with the owner's live geometry and stacking. Its label is
+ * its own key's unless the ghost sets display text: while held, it is a
+ * different key in the same place.
+ */
 export function resolveGhostPosition(
   owner: KeyPosition,
   ownerIndex: number,
-  ownerLabel: string,
 ): KeyPosition {
   const settings = owner.ghost!.settings;
   return {
@@ -101,7 +104,7 @@ export function resolveGhostPosition(
     // Same z-index as the owner; ghosts come after every key, so the ghost
     // stacks directly above its owner.
     zIndex: owner.zIndex ?? ownerIndex,
-    displayText: settings.displayText || owner.displayText || ownerLabel,
+    displayText: settings.displayText || undefined,
     layerName: undefined,
     groupId: undefined,
     keyLimiterExcluded: true,
@@ -111,6 +114,11 @@ export function resolveGhostPosition(
 export interface ExpandedKeys {
   keys: string[];
   positions: KeyPosition[];
+  /**
+   * For each entry, the key sharing its element: an owner's ghost or a
+   * ghost's owner. Null when the tab has no ghosts.
+   */
+  pairedKeys: Array<string | undefined> | null;
 }
 
 /**
@@ -120,10 +128,10 @@ export interface ExpandedKeys {
 export function expandGhostKeys(
   keys: string[],
   positions: KeyPosition[],
-  labelOf: (key: string) => string = (key) => key,
 ): ExpandedKeys {
   let expandedKeys: string[] | null = null;
   let expandedPositions: KeyPosition[] | null = null;
+  let pairedKeys: Array<string | undefined> | null = null;
   for (let index = 0; index < keys.length; index++) {
     const owner = positions[index];
     if (!hasActiveGhost(owner, keys[index])) continue;
@@ -134,14 +142,29 @@ export function expandGhostKeys(
       { length: keys.length },
       (_, i) => positions[i],
     );
-    expandedKeys.push(owner.ghost!.key!);
-    expandedPositions.push(
-      resolveGhostPosition(owner, index, labelOf(keys[index])),
-    );
+    pairedKeys ??= new Array<string | undefined>(keys.length);
+    const ghostKey = owner.ghost!.key!;
+    pairedKeys[index] = ghostKey;
+    pairedKeys.push(keys[index]);
+    expandedKeys.push(ghostKey);
+    expandedPositions.push(resolveGhostPosition(owner, index));
   }
   return expandedKeys
-    ? { keys: expandedKeys, positions: expandedPositions! }
-    : { keys, positions };
+    ? { keys: expandedKeys, positions: expandedPositions!, pairedKeys }
+    : { keys, positions, pairedKeys: null };
+}
+
+/**
+ * A key and its ghost share one element and the most recent press wins: an
+ * element hides while its pair is held and was pressed after it.
+ */
+export function isCoveredByPair(
+  active: boolean,
+  pairActive: boolean,
+  pressOrder: number,
+  pairPressOrder: number,
+): boolean {
+  return pairActive && (!active || pairPressOrder > pressOrder);
 }
 
 /** Keyboard keys bound as ghosts in one tab, in key order. */

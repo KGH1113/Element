@@ -230,7 +230,7 @@
   },
   "keyLimiter": {
     "connecting": "Connecting to ADOFAI",
-    "connected": "ADOFAI connected",
+    "connected": "IMPLResourcePack Connected",
     "sending": "Sending changes",
     "applied": "Applied to ADOFAI",
     "released": "Key limit cleared",
@@ -489,7 +489,6 @@
     "zIndex": "Layer Order",
     "useInlineStyles": "Inline Styles Priority",
     "useInlineStylesHint": "When enabled, property panel styles take precedence over custom CSS.",
-    "ghostKey": "Ghost key (ignore limiter)",
     "keyMapping": "Key Mapping",
     "statType": "Stat Type",
     "statKpsType": "KPS Type",
@@ -550,7 +549,11 @@
     "selectedSound": "Selected Sound",
     "soundVolume": "Sound Volume",
     "import": "Import",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "bindingDefault": "Default",
+    "bindingGhost": "Ghost",
+    "enableGhostKey": "Enable Ghost Key",
+    "ghostKeyHint": "Bind a second keyboard key to this key. It gets its own style, note and counter, and the key limiter ignores it."
   },
   "fontPicker": {
     "searchPlaceholder": "Search...",
@@ -622,5 +625,13 @@
     "availabilityMultipleFamilies": "Multiple fonts detected",
     "duplicateFontFamilyAlert": "\"{{name}}\" font is already registered.",
     "fixedHint": "You can add @font-face CSS."
+  },
+  "implConnection": {
+    "title": "IMPLResourcePack",
+    "keyLimiter": "Enable Key Limiter",
+    "keyLimiterDescription": "ADOFAI accepts only the keys in the selected hand and foot tabs. Ghost keys are never limited.",
+    "inGame": "Show inside ADOFAI",
+    "inGameDescription": "Shows the key viewers in ADOFAI’s Add Element list and on the game screen.",
+    "done": "Done"
   }
 }

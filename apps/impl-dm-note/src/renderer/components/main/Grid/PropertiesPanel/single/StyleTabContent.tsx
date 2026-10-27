@@ -57,6 +57,8 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
   mappingControlLayout,
   mappingLabel,
   hideDisplayText = false,
+  displayTextPlaceholder,
+  hideGeometry = false,
   showSoundControls = true,
   showImagePicker = false,
   onToggleImagePicker,
@@ -370,13 +372,6 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
     onKeyUpdate({ index: keyIndex, className: keyPosition.className || '' });
   };
 
-  const handleGhostKeyToggle = () => {
-    onKeyUpdate({
-      index: keyIndex,
-      keyLimiterExcluded: !(keyPosition.keyLimiterExcluded ?? false),
-    });
-  };
-
   // 이미지 피커 열림 상태 (외부 또는 내부)
   const _isImagePickerOpen = onToggleImagePicker
     ? showImagePicker
@@ -427,65 +422,69 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
         </>
       ) : null}
 
-      {/* 위치 */}
-      <PropertyRow label={t('propertiesPanel.position') || '위치'}>
-        <NumberInput
-          value={
-            isIndividualMode ? keyPosition.dx : (localDx ?? keyPosition.dx)
-          }
-          onChange={handlePositionXChange}
-          prefix="X"
-          min={-9999}
-          max={9999}
-          allowDecimal
-          decimalScale={1}
-        />
-        <NumberInput
-          value={
-            isIndividualMode ? keyPosition.dy : (localDy ?? keyPosition.dy)
-          }
-          onChange={handlePositionYChange}
-          prefix="Y"
-          min={-9999}
-          max={9999}
-          allowDecimal
-          decimalScale={1}
-        />
-      </PropertyRow>
+      {!hideGeometry && (
+        <>
+          {/* 위치 */}
+          <PropertyRow label={t('propertiesPanel.position') || '위치'}>
+            <NumberInput
+              value={
+                isIndividualMode ? keyPosition.dx : (localDx ?? keyPosition.dx)
+              }
+              onChange={handlePositionXChange}
+              prefix="X"
+              min={-9999}
+              max={9999}
+              allowDecimal
+              decimalScale={1}
+            />
+            <NumberInput
+              value={
+                isIndividualMode ? keyPosition.dy : (localDy ?? keyPosition.dy)
+              }
+              onChange={handlePositionYChange}
+              prefix="Y"
+              min={-9999}
+              max={9999}
+              allowDecimal
+              decimalScale={1}
+            />
+          </PropertyRow>
 
-      {/* 크기 */}
-      <PropertyRow label={t('propertiesPanel.size') || '크기'}>
-        <NumberInput
-          value={
-            isIndividualMode
-              ? (keyPosition.width ?? 60)
-              : (localWidth ?? keyPosition.width ?? 60)
-          }
-          onChange={handleWidthChange}
-          onBlur={onSizeBlur}
-          prefix="W"
-          min={1}
-          max={999}
-          allowDecimal
-          decimalScale={1}
-        />
-        <NumberInput
-          value={
-            isIndividualMode
-              ? (keyPosition.height ?? 60)
-              : (localHeight ?? keyPosition.height ?? 60)
-          }
-          onChange={handleHeightChange}
-          onBlur={onSizeBlur}
-          prefix="H"
-          min={1}
-          max={999}
-          allowDecimal
-          decimalScale={1}
-        />
-      </PropertyRow>
+          {/* 크기 */}
+          <PropertyRow label={t('propertiesPanel.size') || '크기'}>
+            <NumberInput
+              value={
+                isIndividualMode
+                  ? (keyPosition.width ?? 60)
+                  : (localWidth ?? keyPosition.width ?? 60)
+              }
+              onChange={handleWidthChange}
+              onBlur={onSizeBlur}
+              prefix="W"
+              min={1}
+              max={999}
+              allowDecimal
+              decimalScale={1}
+            />
+            <NumberInput
+              value={
+                isIndividualMode
+                  ? (keyPosition.height ?? 60)
+                  : (localHeight ?? keyPosition.height ?? 60)
+              }
+              onChange={handleHeightChange}
+              onBlur={onSizeBlur}
+              prefix="H"
+              min={1}
+              max={999}
+              allowDecimal
+              decimalScale={1}
+            />
+          </PropertyRow>
 
-      <SectionDivider />
+          <SectionDivider />
+        </>
+      )}
 
       {/* 배경색 */}
       <PropertyRow label={t('propertiesPanel.backgroundColor') || '배경색'}>
@@ -574,7 +573,7 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
             value={keyPosition.displayText || ''}
             onChange={handleDisplayTextChange}
             onBlur={handleDisplayTextBlur}
-            placeholder={keyInfo?.displayName || ''}
+            placeholder={displayTextPlaceholder ?? keyInfo?.displayName ?? ''}
             width="54px"
           />
         </PropertyRow>
@@ -645,18 +644,6 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
           }
         />
       </PropertyRow>
-
-      <SectionDivider />
-
-      <div className="flex justify-between items-center w-full h-[23px]">
-        <p className="text-white text-style-2">
-          {t('propertiesPanel.ghostKey') || 'Ghost key (ignore limiter)'}
-        </p>
-        <Checkbox
-          checked={keyPosition.keyLimiterExcluded ?? false}
-          onChange={handleGhostKeyToggle}
-        />
-      </div>
 
       {/* 커스텀 CSS 활성화 시에만 클래스명 및 CSS 우선순위 표시 */}
       {useCustomCSS && (

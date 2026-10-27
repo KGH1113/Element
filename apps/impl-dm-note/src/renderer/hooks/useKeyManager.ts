@@ -8,6 +8,7 @@ import { useHistoryStore } from '@stores/data/useHistoryStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { setUndoRedoInProgress } from '@api/pluginDisplayElements';
 import type {
+  GhostKey,
   KeyMappings,
   KeyPositions,
   NoteColor,
@@ -317,6 +318,7 @@ export function useKeyManager() {
       imageFit: ImageFit;
       useInlineStyles: boolean;
       displayText: string;
+      ghost: GhostKey;
     }>,
   ) => {
     const state = useKeyStore.getState();
@@ -431,6 +433,7 @@ export function useKeyManager() {
                 updates.displayText !== undefined
                   ? updates.displayText
                   : pos.displayText,
+              ghost: updates.ghost !== undefined ? updates.ghost : pos.ghost,
             }
           : pos,
       ),

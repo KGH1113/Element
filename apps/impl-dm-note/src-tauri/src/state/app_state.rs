@@ -33,8 +33,9 @@ use crate::{
     },
     keyboard::KeyboardManager,
     models::{
-        overlay_resize_anchor_from_str, AppStoreData, BootstrapOverlayState, BootstrapPayload,
-        DefaultsPayload, KeyCounterSettings, KeyCounters, KeyMappings,
+        counter_labels, ghost_key_labels, overlay_resize_anchor_from_str, AppStoreData, BootstrapOverlayState,
+        BootstrapPayload, DefaultsPayload, KeyCounterSettings, KeyCounters, KeyMappings,
+        KeyPositions,
         KeySoundOutputBackendPersist, KeyViewerKind, OverlayBounds, OverlayResizeAnchor,
         OverlayWindowLayout, SettingsDiff, SettingsState,
     },
@@ -102,18 +103,29 @@ fn transfer_active_key_mode(
     *active_keys = transferred;
 }
 
-fn match_key_for_mode(mappings: &KeyMappings, mode: &str, candidates: &[String]) -> Option<String> {
+/// Owner keys win over ghost keys, matching the order viewers render them.
+fn match_key_for_mode(
+    mappings: &KeyMappings,
+    positions: &KeyPositions,
+    mode: &str,
+    candidates: &[String],
+) -> Option<String> {
     let keys = mappings.get(mode)?;
+    if let Some(found) = candidates.iter().find(|candidate| keys.contains(candidate)) {
+        return Some(found.clone());
+    }
+    let positions = positions.get(mode)?;
     candidates
         .iter()
-        .find(|candidate| keys.contains(candidate))
+        .find(|candidate| ghost_key_labels(keys, positions).any(|ghost| ghost == candidate.as_str()))
         .cloned()
 }
+
 
 #[cfg(test)]
 mod active_key_mode_tests {
     use super::{match_key_for_mode, transfer_active_key_mode};
-    use crate::models::KeyMappings;
+    use crate::models::{counter_labels, KeyMappings, KeyPosition, KeyPositions};
     use std::collections::HashSet;
 
     #[test]
@@ -144,13 +156,62 @@ mod active_key_mode_tests {
         ]);
         let candidates = vec!["RETURN".to_string(), "NUMPAD RETURN".to_string()];
 
+        let positions = KeyPositions::new();
         assert_eq!(
-            match_key_for_mode(&mappings, "numpad", &candidates),
+            match_key_for_mode(&mappings, &positions, "numpad", &candidates),
             Some("NUMPAD RETURN".to_string())
         );
         assert_eq!(
-            match_key_for_mode(&mappings, "foot", &candidates),
+            match_key_for_mode(&mappings, &positions, "foot", &candidates),
             Some("RETURN".to_string())
+        );
+    }
+
+    fn ghost_owner(ghost_key: &str, enabled: bool) -> KeyPosition {
+        let mut owner: KeyPosition = serde_json::from_value(serde_json::json!({
+            "dx": 0.0, "dy": 0.0, "width": 60.0, "height": 60.0,
+            "count": 0, "noteColor": "#FFFFFF", "noteOpacity": 80,
+        }))
+        .unwrap();
+        owner.ghost = Some(crate::models::GhostKey {
+            enabled,
+            key: Some(ghost_key.to_string()),
+            settings: Box::new(owner.clone()),
+        });
+        owner
+    }
+
+    #[test]
+    fn routes_enabled_ghost_keys_after_owner_keys() {
+        let mappings = KeyMappings::from([("hand".to_string(), vec!["E".to_string()])]);
+        let positions = KeyPositions::from([("hand".to_string(), vec![ghost_owner("R", true)])]);
+
+        assert_eq!(
+            match_key_for_mode(&mappings, &positions, "hand", &["R".to_string()]),
+            Some("R".to_string())
+        );
+        assert_eq!(
+            match_key_for_mode(&mappings, &positions, "hand", &["E".to_string(), "R".to_string()]),
+            Some("E".to_string())
+        );
+        assert_eq!(
+            counter_labels(&mappings, &positions).get("hand"),
+            Some(&vec!["E".to_string(), "R".to_string()])
+        );
+    }
+
+    #[test]
+    fn disabled_ghost_keys_receive_no_input() {
+        let mappings = KeyMappings::from([("hand".to_string(), vec!["E".to_string()])]);
+        let positions = KeyPositions::from([("hand".to_string(), vec![ghost_owner("R", false)])]);
+
+        assert_eq!(
+            match_key_for_mode(&mappings, &positions, "hand", &["R".to_string()]),
+            None
+        );
+        assert_eq!(
+            counter_labels(&mappings, &positions).get("hand"),
+            Some(&vec!["E".to_string()])
         );
     }
 }
@@ -204,7 +265,10 @@ impl AppState {
         let settings = SettingsService::new(store.clone());
 
         let key_counters = Arc::new(RwLock::new(snapshot.key_counters.clone()));
-        Self::sync_counters_with_keys_impl(&key_counters, &snapshot.keys);
+        Self::sync_counters_with_keys_impl(
+            &key_counters,
+            &counter_labels(&snapshot.keys, &snapshot.key_positions),
+        );
         let key_counter_enabled = Arc::new(AtomicBool::new(snapshot.key_counter_enabled));
         let active_keys = Arc::new(RwLock::new(HashSet::new()));
         // 저장된 출력 백엔드로 엔진을 처음부터 초기화 → "기본 장치 → ASIO" 전환 깜빡임 제거.
@@ -400,6 +464,8 @@ impl AppState {
                 grid_settings: state.grid_settings.clone(),
                 shortcuts: state.shortcuts.clone(),
                 obs_mode_enabled: state.obs_mode_enabled,
+                key_limiter_enabled: state.key_limiter_enabled,
+                in_game_viewers_enabled: state.in_game_viewers_enabled,
             },
             keys: state.keys.clone(),
             positions: state.key_positions.clone(),
@@ -1117,7 +1183,12 @@ impl AppState {
                             let selected_routes = selected_modes
                                 .into_iter()
                                 .filter_map(|mode| {
-                                    match_key_for_mode(&snapshot.keys, &mode, &message.labels)
+                                    match_key_for_mode(
+                                        &snapshot.keys,
+                                        &snapshot.key_positions,
+                                        &mode,
+                                        &message.labels,
+                                    )
                                         .map(|key| (mode, key))
                                 })
                                 .collect::<Vec<_>>();
@@ -1775,6 +1846,11 @@ impl AppState {
             }
         }
 
+        if diff.changed.in_game_viewers_enabled.is_some() {
+            // The game re-describes its pages and hides or restores them.
+            crate::services::native_viewers::notify_changed(app);
+        }
+
         if diff.changed.shortcuts.is_some() {
             // 변경된 글로벌 단축키 적용을 위해 키보드 daemon 재시작
             if let Some(task) = self.keyboard_task.write().take() {
@@ -1889,8 +1965,12 @@ impl AppState {
         Ok(snapshot)
     }
 
+    /// Ghost key counters live alongside their owners and survive key edits.
     pub fn sync_counters_with_keys(&self, keys: &KeyMappings) {
-        Self::sync_counters_with_keys_impl(&self.key_counters, keys);
+        let labels = self
+            .store
+            .with_state(|state| counter_labels(keys, &state.key_positions));
+        Self::sync_counters_with_keys_impl(&self.key_counters, &labels);
     }
 
     fn sync_counters_with_keys_impl(target: &Arc<RwLock<KeyCounters>>, keys: &KeyMappings) {
@@ -1998,32 +2078,27 @@ impl AppState {
             let mappings = state.keys.get(mode)?;
             let positions = state.key_positions.get(mode)?;
 
-            for (index, mapped_key) in mappings.iter().enumerate() {
-                if mapped_key != key_label {
-                    continue;
-                }
-
-                let Some(position) = positions.get(index) else {
-                    continue;
-                };
-
-                if !position.sound_enabled.unwrap_or(false) {
-                    continue;
-                }
-                let Some(sound_path) = position.sound_path.as_ref() else {
-                    continue;
-                };
-                let trimmed_path = sound_path.trim();
-                if trimmed_path.is_empty() {
-                    continue;
-                }
-
-                let volume_percent = position.sound_volume.unwrap_or(100.0);
-                let per_key_volume = (volume_percent / 100.0).clamp(0.0, 2.0) as f32;
-                return Some((trimmed_path.to_string(), per_key_volume));
+            let owner_match = mappings.iter().position(|mapped| mapped == key_label);
+            let ghost_match = || {
+                mappings.iter().zip(positions.iter()).find_map(|(owner_key, owner)| {
+                    let ghost = owner.ghost.as_ref()?;
+                    (ghost.active_key(owner_key)? == key_label).then_some(&*ghost.settings)
+                })
+            };
+            let position = owner_match
+                .and_then(|index| positions.get(index))
+                .or_else(ghost_match)?;
+            if !position.sound_enabled.unwrap_or(false) {
+                return None;
+            }
+            let trimmed_path = position.sound_path.as_deref()?.trim();
+            if trimmed_path.is_empty() {
+                return None;
             }
 
-            None
+            let volume_percent = position.sound_volume.unwrap_or(100.0);
+            let per_key_volume = (volume_percent / 100.0).clamp(0.0, 2.0) as f32;
+            Some((trimmed_path.to_string(), per_key_volume))
         })
     }
 

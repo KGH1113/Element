@@ -230,7 +230,7 @@
   },
   "keyLimiter": {
     "connecting": "正在连接冰与火之舞",
-    "connected": "已连接冰与火之舞",
+    "connected": "IMPLResourcePack 已连接",
     "sending": "正在发送更改",
     "applied": "已应用到冰与火之舞",
     "released": "已解除按键限制",
@@ -269,7 +269,6 @@
     "resetKeyCounter": "重置 [{{name}}] 键的计数器?",
     "reset": "重置",
     "removeKey": "移除 [{{name}}] 键?",
-
     "removeStat": "移除 [{{name}}] 统计?",
     "removeGraph": "移除 [{{name}}] 图表?",
     "removeKnob": "移除 [{{name}}] 旋钮?",
@@ -322,9 +321,7 @@
     "deleteKey": "删除按键",
     "duplicateSelected": "复制选中项",
     "deleteSelected": "删除选中项",
-
     "duplicateStat": "复制统计",
-
     "deleteStat": "删除统计",
     "duplicateGraph": "复制图表",
     "deleteGraph": "删除图表",
@@ -492,7 +489,6 @@
     "zIndex": "图层顺序",
     "useInlineStyles": "内联样式优先级",
     "useInlineStylesHint": "启用时, 属性面板样式将优先于自定义 CSS.",
-    "ghostKey": "幽灵键（忽略限制器）",
     "keyMapping": "按键映射",
     "statType": "统计类型",
     "statKpsType": "KPS 类型",
@@ -553,7 +549,11 @@
     "selectedSound": "已选音频",
     "soundVolume": "音量",
     "import": "导入",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "bindingDefault": "默认",
+    "bindingGhost": "幽灵",
+    "enableGhostKey": "启用幽灵键",
+    "ghostKeyHint": "为此按键绑定第二个键盘按键。它拥有独立的样式、音符和计数器，且不受按键限制。"
   },
   "fontPicker": {
     "searchPlaceholder": "搜索",
@@ -625,5 +625,13 @@
     "availabilityMultipleFamilies": "检测到多个字体",
     "duplicateFontFamilyAlert": "\"{{name}}\" 字体已注册。",
     "fixedHint": "您可以添加 @font-face CSS。"
+  },
+  "implConnection": {
+    "title": "IMPLResourcePack",
+    "keyLimiter": "启用按键限制",
+    "keyLimiterDescription": "ADOFAI 只接受所选手部和脚部标签页中的按键。幽灵键不受限制。",
+    "inGame": "在 ADOFAI 中显示",
+    "inGameDescription": "在 ADOFAI 的 Add Element 列表和游戏画面中显示键位显示器。",
+    "done": "完成"
   }
 }

@@ -29,6 +29,32 @@ describe('native in-game viewers', () => {
     await coordinator.dispose();
   });
 
+  it('tells the game again when Show inside ADOFAI changes', async () => {
+    const messages = new FakeMessagePort();
+    let inGame = true;
+    let changed: () => void = () => {};
+    const surface = {
+      describe: vi.fn(),
+      inGameEnabled: () => inGame,
+      onInGameChanged: (listener: () => void) => {
+        changed = listener;
+        return () => {};
+      },
+    };
+    const coordinator = new NativeViewerIpcCoordinator(messages, surface);
+    expect(messages.sent[0]).toMatchObject({
+      name: 'mirror.available',
+      payload: { inGame: true },
+    });
+    inGame = false;
+    changed();
+    expect(messages.sent.at(-1)).toMatchObject({
+      name: 'mirror.available',
+      payload: { nativeProtocolVersion: 1, inGame: false },
+    });
+    await coordinator.dispose();
+  });
+
   it('rejects invalid sessions before calling the native adapter', async () => {
     const messages = new FakeMessagePort();
     const surface = { describe: vi.fn() };

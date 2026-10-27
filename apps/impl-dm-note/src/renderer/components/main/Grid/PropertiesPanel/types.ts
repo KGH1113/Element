@@ -198,6 +198,10 @@ export interface StyleTabContentProps {
   mappingLabel?: string;
   // 표시 텍스트 입력 숨김 (통계 요소는 statType이 displayText 역할)
   hideDisplayText?: boolean;
+  // 표시 텍스트가 비었을 때 보여 줄 값 (고스트 키는 원래 키 이름을 따른다)
+  displayTextPlaceholder?: string;
+  // 위치·크기 숨김 (고스트 키는 원래 키의 위치·크기를 따른다)
+  hideGeometry?: boolean;
   showSoundControls?: boolean;
   showImagePicker?: boolean;
   onToggleImagePicker?: () => void;

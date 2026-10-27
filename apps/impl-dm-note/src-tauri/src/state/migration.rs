@@ -13,7 +13,8 @@ use uuid::Uuid;
 use crate::{
     defaults::{default_keys, default_positions},
     models::{
-        AppStoreData, FontType, GraphPositions, KeyCounters, KeyMappings, KeyPositions,
+        AppStoreData, FontType, GhostKey, GraphPositions, KeyCounters, KeyMappings, KeyPosition,
+        KeyPositions,
         KeyViewerKind, KeyViewerTab, NoteSettings, OverlayBounds, SelectedViewerTabs,
         StatPositions,
     },
@@ -326,6 +327,75 @@ pub(crate) fn migrate_legacy_ghost_keys(positions_by_mode: &mut KeyPositions) ->
                 Some(remaining)
             };
             changed = true;
+        }
+    }
+    changed
+}
+
+fn same_rect(a: &KeyPosition, b: &KeyPosition) -> bool {
+    const TOLERANCE: f64 = 0.5;
+    (a.dx - b.dx).abs() < TOLERANCE
+        && (a.dy - b.dy).abs() < TOLERANCE
+        && (a.width - b.width).abs() < TOLERANCE
+        && (a.height - b.height).abs() < TOLERANCE
+}
+
+/// Folds legacy limiter-excluded keys stacked exactly on another key into that
+/// key's ghost slot, keeping their look. Excluded keys that stand alone keep
+/// working as before.
+pub(crate) fn fold_stacked_ghost_keys(
+    keys_by_mode: &mut KeyMappings,
+    positions_by_mode: &mut KeyPositions,
+) -> bool {
+    let mut changed = false;
+    for (mode, keys) in keys_by_mode.iter_mut() {
+        let Some(positions) = positions_by_mode.get_mut(mode) else {
+            continue;
+        };
+        let len = keys.len().min(positions.len());
+        let mut folded = vec![false; len];
+        for ghost_index in 0..len {
+            let legacy = &positions[ghost_index];
+            if !legacy.key_limiter_excluded || legacy.hidden || legacy.ghost.is_some() {
+                continue;
+            }
+            let owner_index = (0..len).find(|&index| {
+                let owner = &positions[index];
+                index != ghost_index
+                    && !folded[index]
+                    && !owner.key_limiter_excluded
+                    && owner.ghost.is_none()
+                    && keys[index] != keys[ghost_index]
+                    && same_rect(owner, legacy)
+            });
+            let Some(owner_index) = owner_index else {
+                continue;
+            };
+            let mut settings = positions[ghost_index].clone();
+            settings.key_limiter_excluded = false;
+            settings.layer_name = None;
+            settings.group_id = None;
+            positions[owner_index].ghost = Some(GhostKey {
+                enabled: true,
+                key: Some(keys[ghost_index].clone()),
+                settings: Box::new(settings),
+            });
+            folded[ghost_index] = true;
+            changed = true;
+        }
+        if folded.iter().any(|value| *value) {
+            let mut index = 0;
+            keys.retain(|_| {
+                let keep = index >= len || !folded[index];
+                index += 1;
+                keep
+            });
+            let mut index = 0;
+            positions.retain(|_| {
+                let keep = index >= len || !folded[index];
+                index += 1;
+                keep
+            });
         }
     }
     changed
@@ -661,6 +731,10 @@ pub(crate) fn normalize_state(mut data: AppStoreData) -> AppStoreData {
     for positions in data.key_positions.values_mut() {
         for pos in positions.iter_mut() {
             migrate_note_border_color(&mut pos.note_border_color);
+            pos.strip_nested_ghost();
+            if let Some(ghost) = pos.ghost.as_mut() {
+                migrate_note_border_color(&mut ghost.settings.note_border_color);
+            }
         }
     }
     for positions in data.stat_positions.values_mut() {
@@ -680,7 +754,8 @@ pub(crate) fn normalize_state(mut data: AppStoreData) -> AppStoreData {
         tab.migrate_fade_position();
     }
 
-    merge_default_counters(&mut data.key_counters, &data.keys);
+    let labels = crate::models::counter_labels(&data.keys, &data.key_positions);
+    merge_default_counters(&mut data.key_counters, &labels);
 
     data.counter_animation_presets =
         crate::models::normalize_user_counter_animation_presets(data.counter_animation_presets);
@@ -971,8 +1046,50 @@ struct LegacyOverlayPosition {
 
 #[cfg(test)]
 mod tests {
-    use super::{migrate_legacy_ghost_keys, normalize_state, rgba_to_hex, LEGACY_BUILTIN_TAB_IDS};
-    use crate::models::{AppStoreData, KeyPosition, KeyPositions, KeyViewerKind, KeyViewerTab};
+    use super::{
+        fold_stacked_ghost_keys, migrate_legacy_ghost_keys, normalize_state, rgba_to_hex,
+        LEGACY_BUILTIN_TAB_IDS,
+    };
+    use crate::models::{
+        AppStoreData, KeyMappings, KeyPosition, KeyPositions, KeyViewerKind, KeyViewerTab,
+    };
+
+    fn key_at(dx: f64, excluded: bool) -> KeyPosition {
+        let mut position: KeyPosition = serde_json::from_value(serde_json::json!({
+            "dx": dx, "dy": 90.0, "width": 65.0, "height": 65.0,
+            "count": 0, "noteColor": "#BA712B", "noteOpacity": 80,
+        }))
+        .unwrap();
+        position.key_limiter_excluded = excluded;
+        position
+    }
+
+    #[test]
+    fn stacked_legacy_ghost_keys_fold_into_their_owner() {
+        let mut keys = KeyMappings::from([(
+            "numpad".to_string(),
+            vec!["E".to_string(), "R".to_string(), "Q".to_string()],
+        )]);
+        let mut legacy_ghost = key_at(493.0, true);
+        legacy_ghost.note_opacity = 0;
+        let mut positions = KeyPositions::from([(
+            "numpad".to_string(),
+            vec![key_at(493.0, false), legacy_ghost, key_at(600.0, true)],
+        )]);
+
+        assert!(fold_stacked_ghost_keys(&mut keys, &mut positions));
+
+        assert_eq!(keys["numpad"], vec!["E".to_string(), "Q".to_string()]);
+        let owner = &positions["numpad"][0];
+        let ghost = owner.ghost.as_ref().expect("ghost slot");
+        assert!(ghost.enabled);
+        assert_eq!(ghost.key.as_deref(), Some("R"));
+        assert_eq!(ghost.settings.note_opacity, 0);
+        assert!(!ghost.settings.key_limiter_excluded);
+        // A lone excluded key has no owner and keeps its legacy behavior.
+        assert!(positions["numpad"][1].key_limiter_excluded);
+        assert!(!fold_stacked_ghost_keys(&mut keys, &mut positions));
+    }
 
     #[test]
     fn legacy_editor_selection_becomes_the_hand_selection() {

@@ -49,6 +49,8 @@ impl SettingsService {
             state.grid_settings = next.grid_settings.clone();
             state.shortcuts = next.shortcuts.clone();
             state.obs_mode_enabled = next.obs_mode_enabled;
+            state.key_limiter_enabled = next.key_limiter_enabled;
+            state.in_game_viewers_enabled = next.in_game_viewers_enabled;
         })?;
 
         Ok(SettingsDiff {
@@ -177,6 +179,8 @@ fn normalize_patch(patch: &SettingsPatchInput, current: &SettingsState) -> Setti
     if let Some(value) = patch.obs_mode_enabled {
         normalized.obs_mode_enabled = Some(value);
     }
+    normalized.key_limiter_enabled = patch.key_limiter_enabled;
+    normalized.in_game_viewers_enabled = patch.in_game_viewers_enabled;
     normalized
 }
 
@@ -243,6 +247,12 @@ fn apply_changes(mut current: SettingsState, patch: &SettingsPatch) -> SettingsS
     }
     if let Some(value) = patch.obs_mode_enabled {
         current.obs_mode_enabled = value;
+    }
+    if let Some(value) = patch.key_limiter_enabled {
+        current.key_limiter_enabled = value;
+    }
+    if let Some(value) = patch.in_game_viewers_enabled {
+        current.in_game_viewers_enabled = value;
     }
     current
 }

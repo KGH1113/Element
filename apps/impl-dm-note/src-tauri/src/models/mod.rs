@@ -312,6 +312,62 @@ pub struct KeyPosition {
     /// 레이어 그룹 ID
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group_id: Option<String>,
+    /// 같은 요소에 연결한 두 번째 키(고스트 키). 키 리미터에 포함되지 않는다.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ghost: Option<GhostKey>,
+}
+
+/// A second keyboard key drawn on its owner with its own style, note and
+/// counter. Geometry always follows the owner.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GhostKey {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub key: Option<String>,
+    pub settings: Box<KeyPosition>,
+}
+
+impl GhostKey {
+    /// The bound keyboard key when this ghost receives input.
+    pub fn active_key<'a>(&'a self, owner_key: &str) -> Option<&'a str> {
+        self.key
+            .as_deref()
+            .filter(|key| self.enabled && !key.is_empty() && *key != owner_key)
+    }
+}
+
+impl KeyPosition {
+    /// Ghost keys never nest; a ghost's own settings carry no ghost.
+    pub fn strip_nested_ghost(&mut self) {
+        if let Some(ghost) = self.ghost.as_mut() {
+            ghost.settings.ghost = None;
+        }
+    }
+}
+
+/// Ghost keys bound in one tab, in key order.
+pub fn ghost_key_labels<'a>(
+    keys: &'a [String],
+    positions: &'a [KeyPosition],
+) -> impl Iterator<Item = &'a str> + 'a {
+    keys.iter()
+        .zip(positions.iter())
+        .filter_map(|(key, position)| position.ghost.as_ref()?.active_key(key))
+}
+
+/// Labels that keep a counter per tab: owner keys followed by their ghosts.
+pub fn counter_labels(keys: &KeyMappings, positions: &KeyPositions) -> KeyMappings {
+    keys.iter()
+        .map(|(mode, list)| {
+            let mut labels = list.clone();
+            if let Some(mode_positions) = positions.get(mode) {
+                labels.extend(ghost_key_labels(list, mode_positions).map(str::to_string));
+            }
+            (mode.clone(), labels)
+        })
+        .collect()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1382,6 +1438,15 @@ pub struct AppStoreData {
     /// OBS 모드 활성화 여부
     #[serde(default)]
     pub obs_mode_enabled: bool,
+    /// ImplResourcePack 키 리미터로 선택한 탭의 키를 보낼지 여부
+    #[serde(default = "default_true")]
+    pub key_limiter_enabled: bool,
+    /// 얼불춤 화면 안에 키뷰어를 표시할지 여부
+    #[serde(default = "default_true")]
+    pub in_game_viewers_enabled: bool,
+    /// 겹쳐 둔 레거시 고스트 키를 키별 고스트 키로 옮겼는지 여부
+    #[serde(default)]
+    pub ghost_keys_folded: bool,
     /// OBS WebSocket 서버 포트
     #[serde(default = "default_obs_port")]
     pub obs_port: u16,
@@ -1456,6 +1521,9 @@ impl Default for AppStoreData {
             sound_library: HashMap::new(),
             key_sound_output_backend: None,
             obs_mode_enabled: false,
+            key_limiter_enabled: true,
+            in_game_viewers_enabled: true,
+            ghost_keys_folded: true,
             obs_port: default_obs_port(),
             obs_token: None,
             plugin_data: HashMap::new(),
@@ -1729,6 +1797,10 @@ pub struct SettingsState {
     pub shortcuts: ShortcutsState,
     #[serde(default)]
     pub obs_mode_enabled: bool,
+    #[serde(default = "default_true")]
+    pub key_limiter_enabled: bool,
+    #[serde(default = "default_true")]
+    pub in_game_viewers_enabled: bool,
 }
 
 impl Default for SettingsState {
@@ -1759,6 +1831,8 @@ impl Default for SettingsState {
             grid_settings: GridSettings::default(),
             shortcuts: ShortcutsState::default(),
             obs_mode_enabled: false,
+            key_limiter_enabled: true,
+            in_game_viewers_enabled: true,
         }
     }
 }
@@ -1811,6 +1885,8 @@ pub struct SettingsPatchInput {
     pub grid_settings: Option<GridSettings>,
     pub shortcuts: Option<ShortcutsPatchInput>,
     pub obs_mode_enabled: Option<bool>,
+    pub key_limiter_enabled: Option<bool>,
+    pub in_game_viewers_enabled: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -1866,6 +1942,8 @@ impl SettingsDiff {
             p.grid_settings.is_some(),
             p.shortcuts.is_some(),
             p.obs_mode_enabled.is_some(),
+            p.key_limiter_enabled.is_some(),
+            p.in_game_viewers_enabled.is_some(),
         ]
         .iter()
         .filter(|&&x| x)
@@ -1922,6 +2000,10 @@ pub struct SettingsPatch {
     pub shortcuts: Option<ShortcutsState>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub obs_mode_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key_limiter_enabled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub in_game_viewers_enabled: Option<bool>,
 }
 
 #[cfg(test)]

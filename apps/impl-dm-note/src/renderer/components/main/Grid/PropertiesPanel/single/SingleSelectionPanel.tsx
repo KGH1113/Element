@@ -15,6 +15,10 @@ import type {
   PluginDisplayElementInternal,
 } from '@src/types/plugin/api';
 import type { KeyInfo } from '@utils/core/KeyMaps';
+import { getKeyInfoByGlobalKey } from '@utils/core/KeyMaps';
+import { createDefaultGhostSettings } from '@src/renderer/editor/model/ghostKeys';
+import TabSwitch from '@components/main/common/TabSwitch';
+import Toggle from '@components/main/common/Toggle';
 import {
   PropertyRow,
   NumberInput,
@@ -1330,6 +1334,15 @@ export const SingleKnobPanel: React.FC<SingleKnobPanelProps> = ({
 // Single Key/Stat Selection Panel
 // ============================================================================
 
+const GhostKeyHint: React.FC<{ t: (key: string) => string | undefined }> = ({
+  t,
+}) => (
+  <p className="text-[#9395A1] text-style-4 leading-[18px]">
+    {t('propertiesPanel.ghostKeyHint') ||
+      'Bind a second keyboard key to this key. It gets its own style, note and counter, and the key limiter ignores it.'}
+  </p>
+);
+
 interface SingleKeyStatPanelProps {
   setPanelElement: (el: HTMLDivElement | null) => void;
   isSingleStat: boolean;
@@ -1366,6 +1379,11 @@ interface SingleKeyStatPanelProps {
   ) => void;
   isListening: boolean;
   handleKeyListen: () => void;
+  isGhostListening?: boolean;
+  handleGhostKeyListen?: () => void;
+  onGhostUpdate?: (data: Partial<KeyPosition> & { index: number }) => void;
+  onGhostPreview?: (index: number, updates: Partial<KeyPosition>) => void;
+  onGhostEnabledChange?: (index: number, enabled: boolean) => void;
   localState: Partial<KeyPosition> & { dx?: number; dy?: number };
   setLocalState: React.Dispatch<
     React.SetStateAction<Partial<KeyPosition> & { dx?: number; dy?: number }>
@@ -1412,6 +1430,11 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
   handleStatPreview,
   isListening,
   handleKeyListen,
+  isGhostListening = false,
+  handleGhostKeyListen,
+  onGhostUpdate,
+  onGhostPreview,
+  onGhostEnabledChange,
   localState,
   setLocalState,
   handleSizeBlur,
@@ -1427,6 +1450,35 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
   const availableTabs = isSingleStat
     ? [TABS.STYLE, TABS.COUNTER]
     : [TABS.STYLE, TABS.NOTE, TABS.COUNTER];
+
+  // Default edits the key itself; Ghost edits its second keyboard key.
+  const [binding, setBinding] = useState<'default' | 'ghost'>('default');
+  useEffect(() => {
+    setBinding('default');
+  }, [singleKeyIndex, _selectedKeyType, isSingleStat]);
+  const supportsGhost = !isSingleStat && !!singleKeyPosition && !!onGhostUpdate;
+  const editingGhost = supportsGhost && binding === 'ghost';
+  const ghost = singleKeyPosition?.ghost;
+  const ghostEnabled = !!ghost?.enabled;
+  const ownerLabel =
+    singleKeyPosition?.displayText ||
+    singleKeyInfo?.displayName ||
+    singleKeyCode ||
+    '';
+  // Geometry always follows the owner, so the editor shows the owner's box.
+  const ghostPosition: KeyPosition | null = singleKeyPosition
+    ? {
+        ...(ghost?.settings ?? createDefaultGhostSettings(singleKeyPosition)),
+        dx: singleKeyPosition.dx,
+        dy: singleKeyPosition.dy,
+        width: singleKeyPosition.width,
+        height: singleKeyPosition.height,
+      }
+    : null;
+  const ghostKeyInfo: KeyInfo | null = ghost?.key
+    ? getKeyInfoByGlobalKey(ghost.key)
+    : null;
+  const showGhostHint = editingGhost && !ghostEnabled;
 
   const statBaseOptions = [
     { label: 'KPS', value: 'kps' },
@@ -1584,15 +1636,55 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
           </div>
         </div>
 
+        {/* 기본 키 / 고스트 키 전환 */}
+        {supportsGhost && (
+          <div className="px-[12px] pb-[8px]">
+            <TabSwitch
+              tabs={[
+                {
+                  id: 'default',
+                  label: t('propertiesPanel.bindingDefault') || 'Default',
+                },
+                {
+                  id: 'ghost',
+                  label: t('propertiesPanel.bindingGhost') || 'Ghost',
+                },
+              ]}
+              activeTab={binding}
+              onTabChange={(id) => {
+                setShowImagePicker(false);
+                setBinding(id === 'ghost' ? 'ghost' : 'default');
+              }}
+            />
+          </div>
+        )}
+
+        {editingGhost && (
+          <div className="flex h-[23px] items-center justify-between px-[12px] mb-[12px]">
+            <p className="text-white text-style-2">
+              {t('propertiesPanel.enableGhostKey') || 'Enable Ghost Key'}
+            </p>
+            <Toggle
+              checked={ghostEnabled}
+              ariaLabel={
+                t('propertiesPanel.enableGhostKey') || 'Enable Ghost Key'
+              }
+              onChange={(next) => onGhostEnabledChange?.(singleKeyIndex!, next)}
+            />
+          </div>
+        )}
+
         {/* 탭 */}
-        <div className="px-[12px] pb-[12px]">
-          <Tabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            t={t}
-            availableTabs={availableTabs}
-          />
-        </div>
+        {!showGhostHint && (
+          <div className="px-[12px] pb-[12px]">
+            <Tabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              t={t}
+              availableTabs={availableTabs}
+            />
+          </div>
+        )}
       </div>
 
       {/* 스크롤 가능한 속성 영역 (탭별 독립 스크롤) */}
@@ -1605,48 +1697,77 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
           }`}
         >
           <div className="p-[12px] flex flex-col gap-[12px]">
-            <StyleTabContent
-              keyIndex={keyLikeIndex}
-              keyPosition={keyLikePosition}
-              keyCode={keyLikeCode}
-              keyInfo={keyLikeInfo}
-              onPositionChange={handleKeyLikePositionChange}
-              onKeyUpdate={handleKeyLikeUpdate}
-              onKeyPreview={handleKeyLikePreview}
-              onKeyMappingChange={isSingleStat ? undefined : onKeyMappingChange}
-              isListening={isListening}
-              onKeyListen={isSingleStat ? undefined : handleKeyListen}
-              mappingControlLayout={mappingControlLayout}
-              mappingLabel={
-                isSingleStat
-                  ? t('propertiesPanel.statType') || 'Stat Type'
-                  : undefined
-              }
-              showSoundControls={!isSingleStat}
-              showImagePicker={showImagePicker}
-              onToggleImagePicker={() => setShowImagePicker(!showImagePicker)}
-              imageButtonRef={imageButtonRef}
-              panelElement={panelElement}
-              useCustomCSS={useCustomCSS}
-              t={t}
-              localDx={localState.dx}
-              localDy={localState.dy}
-              localWidth={localState.width}
-              localHeight={localState.height}
-              onLocalDxChange={(value) =>
-                setLocalState((prev) => ({ ...prev, dx: value }))
-              }
-              onLocalDyChange={(value) =>
-                setLocalState((prev) => ({ ...prev, dy: value }))
-              }
-              onLocalWidthChange={(value) =>
-                setLocalState((prev) => ({ ...prev, width: value }))
-              }
-              onLocalHeightChange={(value) =>
-                setLocalState((prev) => ({ ...prev, height: value }))
-              }
-              onSizeBlur={handleSizeBlur}
-            />
+            {showGhostHint ? (
+              <GhostKeyHint t={t} />
+            ) : editingGhost ? (
+              <StyleTabContent
+                key="ghost-style"
+                keyIndex={singleKeyIndex!}
+                keyPosition={ghostPosition!}
+                keyCode={ghost?.key ?? null}
+                keyInfo={ghostKeyInfo}
+                onPositionChange={onPositionChange}
+                onKeyUpdate={onGhostUpdate!}
+                onKeyPreview={onGhostPreview}
+                isListening={isGhostListening}
+                onKeyListen={handleGhostKeyListen}
+                displayTextPlaceholder={ownerLabel}
+                hideGeometry
+                showSoundControls
+                showImagePicker={showImagePicker}
+                onToggleImagePicker={() => setShowImagePicker(!showImagePicker)}
+                imageButtonRef={imageButtonRef}
+                panelElement={panelElement}
+                useCustomCSS={useCustomCSS}
+                t={t}
+              />
+            ) : (
+              <StyleTabContent
+                key="default-style"
+                keyIndex={keyLikeIndex}
+                keyPosition={keyLikePosition}
+                keyCode={keyLikeCode}
+                keyInfo={keyLikeInfo}
+                onPositionChange={handleKeyLikePositionChange}
+                onKeyUpdate={handleKeyLikeUpdate}
+                onKeyPreview={handleKeyLikePreview}
+                onKeyMappingChange={
+                  isSingleStat ? undefined : onKeyMappingChange
+                }
+                isListening={isListening}
+                onKeyListen={isSingleStat ? undefined : handleKeyListen}
+                mappingControlLayout={mappingControlLayout}
+                mappingLabel={
+                  isSingleStat
+                    ? t('propertiesPanel.statType') || 'Stat Type'
+                    : undefined
+                }
+                showSoundControls={!isSingleStat}
+                showImagePicker={showImagePicker}
+                onToggleImagePicker={() => setShowImagePicker(!showImagePicker)}
+                imageButtonRef={imageButtonRef}
+                panelElement={panelElement}
+                useCustomCSS={useCustomCSS}
+                t={t}
+                localDx={localState.dx}
+                localDy={localState.dy}
+                localWidth={localState.width}
+                localHeight={localState.height}
+                onLocalDxChange={(value) =>
+                  setLocalState((prev) => ({ ...prev, dx: value }))
+                }
+                onLocalDyChange={(value) =>
+                  setLocalState((prev) => ({ ...prev, dy: value }))
+                }
+                onLocalWidthChange={(value) =>
+                  setLocalState((prev) => ({ ...prev, width: value }))
+                }
+                onLocalHeightChange={(value) =>
+                  setLocalState((prev) => ({ ...prev, height: value }))
+                }
+                onSizeBlur={handleSizeBlur}
+              />
+            )}
           </div>
           <div className="properties-panel-overlay-bar">
             <div
@@ -1666,14 +1787,21 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
             }`}
           >
             <div className="p-[12px] flex flex-col gap-[12px]">
-              <NoteTabContent
-                keyIndex={singleKeyIndex!}
-                keyPosition={singleKeyPosition!}
-                onKeyUpdate={onKeyUpdate}
-                onKeyPreview={onKeyPreview}
-                panelElement={panelElement}
-                t={t}
-              />
+              {showGhostHint ? (
+                <GhostKeyHint t={t} />
+              ) : (
+                <NoteTabContent
+                  key={editingGhost ? 'ghost-note' : 'default-note'}
+                  keyIndex={singleKeyIndex!}
+                  keyPosition={
+                    editingGhost ? ghostPosition! : singleKeyPosition!
+                  }
+                  onKeyUpdate={editingGhost ? onGhostUpdate! : onKeyUpdate}
+                  onKeyPreview={editingGhost ? onGhostPreview : onKeyPreview}
+                  panelElement={panelElement}
+                  t={t}
+                />
+              )}
             </div>
             <div className="properties-panel-overlay-bar">
               <div
@@ -1693,15 +1821,31 @@ export const SingleKeyStatPanel: React.FC<SingleKeyStatPanelProps> = ({
           }`}
         >
           <div className="p-[12px] flex flex-col gap-[12px]">
-            <CounterTabContent
-              keyIndex={keyLikeIndex}
-              keyPosition={keyLikePosition}
-              keyDisplayName={keyLikeInfo?.displayName}
-              isStat={isSingleStat}
-              onKeyUpdate={handleKeyLikeUpdate}
-              panelElement={panelElement}
-              t={t}
-            />
+            {showGhostHint ? (
+              <GhostKeyHint t={t} />
+            ) : editingGhost ? (
+              <CounterTabContent
+                key="ghost-counter"
+                keyIndex={singleKeyIndex!}
+                keyPosition={ghostPosition!}
+                keyDisplayName={ownerLabel}
+                isStat={false}
+                onKeyUpdate={onGhostUpdate!}
+                panelElement={panelElement}
+                t={t}
+              />
+            ) : (
+              <CounterTabContent
+                key="default-counter"
+                keyIndex={keyLikeIndex}
+                keyPosition={keyLikePosition}
+                keyDisplayName={keyLikeInfo?.displayName}
+                isStat={isSingleStat}
+                onKeyUpdate={handleKeyLikeUpdate}
+                panelElement={panelElement}
+                t={t}
+              />
+            )}
           </div>
           <div className="properties-panel-overlay-bar">
             <div

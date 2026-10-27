@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   currentMonitor,
   getCurrentWindow,
@@ -33,12 +33,17 @@ import OverlayScene from '@components/shared/OverlayScene';
 import { computeLayout } from '@hooks/shared/useLayoutComputation';
 import { publishViewerLayout } from '@api/viewerLayout';
 import { isKeyMappedToViewer } from './keyStateRouting';
+import { expandGhostKeys } from '@src/renderer/editor/model/ghostKeys';
+import { getKeyInfoByGlobalKey } from '@utils/core/KeyMaps';
 
 type KeyDelayTimerEntry = { timers: Set<ReturnType<typeof setTimeout>> };
 
 // 입력 시각 보정용 age 상한(ms). 백엔드 stall/클럭 이상으로 비정상적으로 큰
 // 값이 와도 노트가 화면 위로 튀지 않도록 제한
 const MAX_EVENT_AGE_MS = 250;
+const NO_KEYS: string[] = [];
+const NO_POSITIONS: KeyPosition[] = [];
+const keyLabel = (key: string) => getKeyInfoByGlobalKey(key).displayName;
 
 export default function App() {
   const windowLabel = getCurrentWindow().label;
@@ -156,6 +161,16 @@ export default function App() {
   const selectedKeyType = useKeyStore((state) => state.selectedKeyType);
   const keyMappings = useKeyStore((state) => state.keyMappings);
   const positions = useKeyStore((state) => state.positions);
+  // Ghost keys render as extra virtual keys on top of their owners.
+  const viewerKeys = useMemo(
+    () =>
+      expandGhostKeys(
+        keyMappings[selectedKeyType] ?? NO_KEYS,
+        positions[selectedKeyType] ?? NO_POSITIONS,
+        keyLabel,
+      ),
+    [keyMappings, positions, selectedKeyType],
+  );
   const statPositions = useStatItemStore((state) => state.positions);
   const graphPositions = useGraphItemStore((state) => state.positions);
   const knobPositions = useKnobItemStore((state) => state.positions);
@@ -444,6 +459,7 @@ export default function App() {
     noteEffect,
     keyMappings,
     positions,
+    viewerKeys,
     selectedKeyType,
     handleKeyDown,
     handleKeyUp,
@@ -453,6 +469,7 @@ export default function App() {
       noteEffect,
       keyMappings,
       positions,
+      viewerKeys,
       selectedKeyType,
       handleKeyDown,
       handleKeyUp,
@@ -518,13 +535,13 @@ export default function App() {
             // 전용 viewer의 실제 선택 탭 매핑을 최종 라우팅 기준으로 삼는다.
             // 전역 편집 mode는 마지막으로 선택한 hand/foot 탭을 가리키므로,
             // payload mode를 검사하면 foot 선택 중 hand 입력 전체가 차단된다.
-            const currentKeys =
-              context.keyMappings[context.selectedKeyType] ?? [];
+            const currentKeys = context.viewerKeys.keys;
             if (
               !isKeyMappedToViewer(
                 key,
                 context.selectedKeyType,
                 context.keyMappings,
+                context.positions,
               )
             )
               return;
@@ -534,8 +551,7 @@ export default function App() {
             // 노트 이펙트는 즉시 처리 (딜레이 없음)
             if (context.noteEffect) {
               // 개별 키의 noteEffectEnabled 확인
-              const currentPositions =
-                context.positions[context.selectedKeyType] ?? [];
+              const currentPositions = context.viewerKeys.positions;
               const keyIndex = currentKeys.indexOf(key);
               const keyPosition = currentPositions[keyIndex];
               const keyNoteEffectEnabled =
@@ -585,8 +601,8 @@ export default function App() {
     };
   }, []);
 
-  const currentKeys = keyMappings[selectedKeyType] ?? [];
-  const currentPositions = positions[selectedKeyType] ?? [];
+  const currentKeys = viewerKeys.keys;
+  const currentPositions = viewerKeys.positions;
   const currentStatPositions = statPositions[selectedKeyType] ?? [];
   const currentGraphPositions = graphPositions[selectedKeyType] ?? [];
   const currentKnobPositions = knobPositions[selectedKeyType] ?? [];

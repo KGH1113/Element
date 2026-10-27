@@ -56,6 +56,10 @@ export interface SettingsState {
   gridSettings: GridSettings;
   shortcuts: ShortcutsState;
   obsModeEnabled: boolean;
+  /** Sends the selected tabs' keys to ImplResourcePack's key limiter. */
+  keyLimiterEnabled: boolean;
+  /** Shows the key viewers inside ADOFAI. */
+  inGameViewersEnabled: boolean;
 }
 
 /** @deprecated Use getDefaultSettingsState() from @src/renderer/defaults */

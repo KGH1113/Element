@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
 import { useKeyLimiterStatusStore } from '@stores/useKeyLimiterStatusStore';
-import FloatingTooltip from '../Modal/FloatingTooltip';
+import ImplConnectionModal from './ImplConnectionModal';
 import {
   getKeyLimiterStatusPresentation,
   type StatusIcon,
@@ -93,85 +93,37 @@ function StatusGlyph({ icon }: { icon: StatusIcon }) {
       </svg>
     );
   }
-  return <span className="key-limiter-status-dot" aria-hidden="true" />;
+  return null;
 }
 
 export default function KeyLimiterStatus() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
   const connectionState = useKeyLimiterStatusStore(
     (state) => state.connectionState,
   );
   const deliveryState = useKeyLimiterStatusStore(
     (state) => state.deliveryState,
   );
-  const acknowledgement = useKeyLimiterStatusStore(
-    (state) => state.lastAcknowledgement,
+  const hasUnsupportedKeys = useKeyLimiterStatusStore(
+    (state) => (state.lastAcknowledgement?.unsupportedKeys.length ?? 0) > 0,
   );
-  const error = useKeyLimiterStatusStore((state) => state.error);
-  const unsupportedKeys = acknowledgement?.unsupportedKeys ?? [];
   const presentation = getKeyLimiterStatusPresentation(
     connectionState,
     deliveryState,
-    unsupportedKeys.length > 0,
+    hasUnsupportedKeys,
   );
   const label = t(presentation.labelKey);
-  const formattedTime = useMemo(() => {
-    if (!acknowledgement) return null;
-    return new Intl.DateTimeFormat(i18n.language, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(acknowledgement.acknowledgedAt);
-  }, [acknowledgement, i18n.language]);
-
-  const detail = (
-    <div className="key-limiter-status-detail">
-      <div
-        className={`key-limiter-status-detail__heading key-limiter-status-detail__heading--${presentation.tone}`}
-      >
-        <StatusGlyph icon={presentation.icon} />
-        <span>{label}</span>
-      </div>
-      {acknowledgement ? (
-        <div className="key-limiter-status-detail__body">
-          <div>
-            <span>{t('keyLimiter.profile')}</span>
-            <strong>{acknowledgement.profile.name}</strong>
-          </div>
-          <div>
-            <span>{t('keyLimiter.appliedKeys')}</span>
-            <strong>{acknowledgement.supportedKeys.length}</strong>
-          </div>
-          <div>
-            <span>{t('keyLimiter.revision')}</span>
-            <strong>{acknowledgement.revision}</strong>
-          </div>
-          <div>
-            <span>{t('keyLimiter.lastApplied')}</span>
-            <strong>{formattedTime}</strong>
-          </div>
-          {unsupportedKeys.length > 0 && (
-            <div className="key-limiter-status-detail__unsupported">
-              <span>{t('keyLimiter.unsupportedKeys')}</span>
-              <strong>{unsupportedKeys.join(', ')}</strong>
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="key-limiter-status-detail__empty">
-          {t('keyLimiter.waitingDetail')}
-        </p>
-      )}
-      {error && <p className="key-limiter-status-detail__error">{error}</p>}
-    </div>
-  );
 
   return (
-    <FloatingTooltip content={detail} delay={180}>
+    <>
       <button
         type="button"
         className={`key-limiter-status key-limiter-status--${presentation.tone}`}
         aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen(true)}
       >
         <span
           className="key-limiter-status__live"
@@ -183,6 +135,12 @@ export default function KeyLimiterStatus() {
           <span className="key-limiter-status__label">{label}</span>
         </span>
       </button>
-    </FloatingTooltip>
+      {isOpen && (
+        <ImplConnectionModal
+          presentation={presentation}
+          onClose={() => setIsOpen(false)}
+        />
+      )}
+    </>
   );
 }

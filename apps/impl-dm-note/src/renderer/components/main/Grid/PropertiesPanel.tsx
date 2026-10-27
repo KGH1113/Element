@@ -17,7 +17,11 @@ import {
   parseAlphaPercent,
   hexWithAlphaPercent,
 } from '@utils/color/colorUtils';
-import type { KeyPosition } from '@src/types/key/keys';
+import type { GhostKey, KeyPosition } from '@src/types/key/keys';
+import {
+  createDefaultGhostSettings,
+  mergeGhostSettings,
+} from '@src/renderer/editor/model/ghostKeys';
 import type { StatItemPosition, StatItemType } from '@src/types/key/statItems';
 import type { GraphItemPosition } from '@src/types/key/graphItems';
 import type { KnobItemPosition } from '@src/types/key/knobs';
@@ -315,7 +319,30 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   // 키 리스닝 상태
   const [isListening, setIsListening] = useState(false);
+  // Which binding the next key press assigns: the key itself or its ghost.
+  const [listenTarget, setListenTarget] = useState<'default' | 'ghost'>(
+    'default',
+  );
   const justAssignedRef = useRef(false);
+
+  // Ghost edits always merge into the latest stored ghost, so rapid partial
+  // updates from the tabs never overwrite each other.
+  const readKey = (index: number): KeyPosition | undefined => {
+    const state = useKeyStore.getState();
+    return state.positions[state.selectedKeyType]?.[index];
+  };
+
+  const writeGhost = (index: number, next: (ghost: GhostKey) => GhostKey) => {
+    const owner = readKey(index);
+    if (!owner) return;
+    const current = owner.ghost ?? {
+      enabled: false,
+      key: null,
+      settings: createDefaultGhostSettings(owner),
+    };
+    onKeyUpdate({ index, ghost: next(current) });
+  };
+
   const listeningFlagTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -974,7 +1001,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
         setIsListening(false);
 
-        if (singleKeyIndex !== null && onKeyMappingChange) {
+        if (singleKeyIndex === null) return;
+        if (listenTarget === 'ghost') {
+          writeGhost(singleKeyIndex, (ghost) => ({
+            ...ghost,
+            key: info.globalKey,
+          }));
+        } else if (onKeyMappingChange) {
           onKeyMappingChange(singleKeyIndex, info.globalKey);
         }
       },
@@ -987,7 +1020,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         console.error('Failed to unsubscribe raw input listener', error);
       }
     };
-  }, [isListening, singleKeyIndex, onKeyMappingChange]);
+    // writeGhost reads the latest store state on every call.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isListening, listenTarget, singleKeyIndex, onKeyMappingChange]);
 
   // ============================================================================
   // 핸들러
@@ -1188,7 +1223,36 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   const handleKeyListen = () => {
     if (justAssignedRef.current) return;
+    setListenTarget('default');
     setIsListening(true);
+  };
+
+  const handleGhostKeyListen = () => {
+    if (justAssignedRef.current) return;
+    setListenTarget('ghost');
+    setIsListening(true);
+  };
+
+  const handleGhostUpdate = (
+    data: Partial<KeyPosition> & { index: number },
+  ) => {
+    const { index, ghost: _ghost, ...updates } = data;
+    const owner = readKey(index);
+    if (!owner) return;
+    onKeyUpdate({ index, ghost: mergeGhostSettings(owner, updates) });
+  };
+
+  const handleGhostPreview = (index: number, updates: Partial<KeyPosition>) => {
+    const owner = readKey(index);
+    if (!owner || !onKeyPreview) return;
+    const { ghost: _ghost, ...settings } = updates;
+    onKeyPreview(index, { ghost: mergeGhostSettings(owner, settings) });
+  };
+
+  const handleGhostEnabledChange = (index: number, enabled: boolean) => {
+    writeGhost(index, (ghost) => ({ ...ghost, enabled }));
+    if (enabled && !readKey(index)?.ghost?.key) handleGhostKeyListen();
+    if (!enabled && listenTarget === 'ghost') setIsListening(false);
   };
 
   const handleStatUpdate = (
@@ -2944,8 +3008,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       onKeyMappingChange={onKeyMappingChange}
       handleStatUpdate={handleStatUpdate}
       handleStatPreview={handleStatPreview}
-      isListening={isListening}
+      isListening={isListening && listenTarget === 'default'}
       handleKeyListen={handleKeyListen}
+      isGhostListening={isListening && listenTarget === 'ghost'}
+      handleGhostKeyListen={handleGhostKeyListen}
+      onGhostUpdate={handleGhostUpdate}
+      onGhostPreview={handleGhostPreview}
+      onGhostEnabledChange={handleGhostEnabledChange}
       localState={localState}
       setLocalState={setLocalState}
       handleSizeBlur={handleSizeBlur}

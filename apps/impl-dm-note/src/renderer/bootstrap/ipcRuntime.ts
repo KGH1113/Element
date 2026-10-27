@@ -13,6 +13,7 @@ import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { subscribe } from '@api/modules/shared';
+import { useSettingsStore } from '@stores/useSettingsStore';
 export const wallClockScheduler: SchedulerPort = {
   delay(callback, milliseconds) {
     const id = setTimeout(callback, milliseconds);
@@ -110,6 +111,12 @@ export function startRenderMessages(): () => Promise<void> {
     {
       describe: (sessionId) => invoke('dmnote_native_describe', { sessionId }),
       onChanged: (listener) => subscribe('native-viewers:changed', listener),
+      inGameEnabled: () => useSettingsStore.getState().inGameViewersEnabled,
+      onInGameChanged: (listener) =>
+        useSettingsStore.subscribe((state, previous) => {
+          if (state.inGameViewersEnabled !== previous.inGameViewersEnabled)
+            listener();
+        }),
     },
     wallClockScheduler,
   );

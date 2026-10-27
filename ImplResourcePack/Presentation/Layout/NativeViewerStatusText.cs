@@ -25,6 +25,10 @@ internal static class NativeViewerStatusText
         "ImplDmNote에서 OBS 모드를 켜면 키뷰어가 표시돼요.",
         "Turn on OBS mode in ImplDmNote to show the key viewer."
       ),
+      NativeViewerStatus.HiddenInApp => SettingsLocale.L(
+        "ImplDmNote에서 '얼불춤 안에 표시'를 켜면 키뷰어가 표시돼요.",
+        "Turn on Show inside ADOFAI in ImplDmNote to show the key viewer."
+      ),
       NativeViewerStatus.NoViewerTab => SettingsLocale.L(
         "ImplDmNote에서 이 키뷰어의 탭을 선택하면 여기에 표시돼요.",
         "Select a tab for this key viewer in ImplDmNote to show it here."

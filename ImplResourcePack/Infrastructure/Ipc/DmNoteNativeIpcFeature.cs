@@ -34,6 +34,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private List<OverlayLayoutSettings> _layouts;
   private TMP_FontAsset _font;
   private string _lastLoggedError;
+  private bool _hiddenInApp;
   public Action EnabledChanged { get; set; }
 
   public DmNoteNativeIpcFeature(
@@ -54,8 +55,22 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   }
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
-  public IReadOnlyList<IOverlayLayoutTarget> GalleryTargets => _galleryTargets;
-  public bool HasEnabledViewers => _layoutTargets.Any(target => target.Enabled);
+
+  /// <summary>Re-evaluated on every enumeration: the gallery opens without viewer cards while ImplDmNote hides them.</summary>
+  public IEnumerable<IOverlayLayoutTarget> GalleryTargets => VisibleGalleryTargets();
+
+  public bool HasEnabledViewers => !_hiddenInApp && _layoutTargets.Any(target => target.Enabled);
+
+  /// <summary>ImplDmNote's "Show inside ADOFAI" is off.</summary>
+  public bool HiddenInApp => _hiddenInApp;
+
+  private IEnumerable<IOverlayLayoutTarget> VisibleGalleryTargets()
+  {
+    if (_hiddenInApp)
+      yield break;
+    foreach (NativeViewerLayoutTarget target in _galleryTargets)
+      yield return target;
+  }
 
   public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
   {
@@ -115,7 +130,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       SetEditing,
       OnEnabledChanged,
       id,
-      () => Status
+      () => Status,
+      () => _hiddenInApp
     );
     target.ConfigurePreview(_font);
     target.Bind(_host);
@@ -221,6 +237,14 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   {
     if (_disposed)
       return;
+    bool hiddenInApp = _session.HiddenInApp;
+    if (hiddenInApp != _hiddenInApp)
+    {
+      // Hiding ends the session like removing the last viewer; showing again
+      // starts a fresh one through the same path.
+      _hiddenInApp = hiddenInApp;
+      OnEnabledChanged();
+    }
     NativeViewerWork work = _session.TakeWork();
     if (work.ResetHost)
     {

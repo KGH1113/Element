@@ -10,6 +10,7 @@ files.push(path.join(root, 'ImplResourcePack/Presentation/Overlay/Shared/Overlay
 files.push(path.join(root, 'ImplResourcePack/Presentation/Overlay/Shared/OverlayTextFactory.cs'));
 files.push(path.join(root, 'ImplResourcePack/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'ImplResourcePack/Domain/DmNote/NativeViewerStatus.cs'));
+files.push(path.join(root, 'ImplResourcePack/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'ImplResourcePack/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'ImplResourcePack/Infrastructure/Game/DmNote/NativeViewerHost.cs'));
 files.push(path.join(root, 'ImplResourcePack/Infrastructure/Game/DmNote/NativeViewerMock.cs'));

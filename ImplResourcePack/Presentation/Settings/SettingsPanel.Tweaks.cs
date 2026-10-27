@@ -51,9 +51,21 @@ internal sealed partial class SettingsPanel
         () => NavigateTo(6)
       )
     );
+    _tweakLinks.Add(
+      DetailLink(
+        _pages[1].transform,
+        L("키 채터 방지", "Key chatter"),
+        L(
+          "스위치가 튀어 한 번 누른 키가 두 번 입력되는 것을 막습니다.",
+          "Stops a bouncing switch from counting one press twice."
+        ),
+        () => NavigateTo(ChatterPage)
+      )
+    );
     CreateEditorPage();
     CreateJudgementPage();
     CreatePlanetPage();
+    CreateChatterPage();
   }
 
   private Button DetailLink(Transform parent, string title, string description, Action action)
@@ -457,5 +469,6 @@ internal sealed partial class SettingsPanel
       _judgementHeader.rect.height + Mathf.CeilToInt((float)_judgementOptions.Count / count) * 98 - 12
     );
     LayoutPlanetPage(width);
+    LayoutChatterPage(width);
   }
 }

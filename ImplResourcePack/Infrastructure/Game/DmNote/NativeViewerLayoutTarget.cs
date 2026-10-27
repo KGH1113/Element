@@ -24,6 +24,7 @@ internal sealed class NativeViewerLayoutTarget
   private readonly Action<bool> _setPreview;
   private readonly Action _enabledChanged;
   private readonly Func<NativeViewerStatus> _status;
+  private readonly Func<bool> _hiddenInApp;
   private NativeViewerMock _mock;
   private OverlayLayoutSettings _settings;
   private INativeViewerLayoutHost _host;
@@ -54,10 +55,12 @@ internal sealed class NativeViewerLayoutTarget
     Action<bool> setPreview,
     Action enabledChanged,
     string id = null,
-    Func<NativeViewerStatus> status = null
+    Func<NativeViewerStatus> status = null,
+    Func<bool> hiddenInApp = null
   )
   {
     _status = status;
+    _hiddenInApp = hiddenInApp;
     _kind = kind;
     Id = id ?? "dmnote-" + kind;
     TemplateId = "native-" + kind;
@@ -74,7 +77,10 @@ internal sealed class NativeViewerLayoutTarget
   public string NativeId { get; }
   public string Label => SettingsLocale.L(_label, _kind == "hand" ? "Hand keyviewer" : "Foot keyviewer");
   public bool Enabled => _settings.Enabled;
-  public bool Available => OwnsSelectionOutline || _preview;
+
+  // While ImplDmNote hides its viewers, the editor neither draws nor selects them.
+  private bool HiddenInApp => _hiddenInApp?.Invoke() == true;
+  public bool Available => !HiddenInApp && (OwnsSelectionOutline || _preview);
   public bool OwnsSelectionOutline => _host?.HasSurface(NativeId) == true;
   public Rect SelectionBounds
   {
@@ -280,7 +286,7 @@ internal sealed class NativeViewerLayoutTarget
     // Connected viewers also need geometry refresh: their CSS crop and AppKit
     // backing can change without a Unity resolution change or an IPC message.
     EnsureLayoutCurrent();
-    bool visible = _preview && Enabled && !OwnsSelectionOutline;
+    bool visible = _preview && Enabled && !OwnsSelectionOutline && !HiddenInApp;
     if (visible && _previewCanvas == null)
     {
       _previewCanvas = new GameObject("ImplDmNote offline preview", typeof(RectTransform), typeof(Canvas));

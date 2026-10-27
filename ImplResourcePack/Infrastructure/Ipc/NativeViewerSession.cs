@@ -48,6 +48,7 @@ internal sealed class NativeViewerSession
   private bool _closed;
   private bool _reset;
   private bool _hide;
+  private volatile bool _hiddenInApp;
   private NativeViewerStatus _status;
 
   public NativeViewerSession(bool supported)
@@ -64,6 +65,12 @@ internal sealed class NativeViewerSession
         return _status;
     }
   }
+
+  /// <summary>
+  /// ImplDmNote's "Show inside ADOFAI" is off. Read every frame without a lock;
+  /// a stale frame only delays hiding by one frame.
+  /// </summary>
+  public bool HiddenInApp => _hiddenInApp;
 
   public bool PushSupported
   {
@@ -152,6 +159,7 @@ internal sealed class NativeViewerSession
         return;
       _peerId = null;
       _pushSupported = false;
+      _hiddenInApp = false;
       _pendingId = null;
       _surfaces = null;
       _reset = true;
@@ -218,6 +226,8 @@ internal sealed class NativeViewerSession
       return;
     _peerId = message.PeerId;
     _pushSupported = availability.NativePush;
+    // Older apps omit the flag and always show their viewers.
+    _hiddenInApp = availability.InGame == false;
     _pendingId = null;
     _nextRequestAt = now;
     if (_active && _status == NativeViewerStatus.WaitingForApp)
@@ -299,5 +309,6 @@ internal sealed class NativeViewerSession
   {
     public int? NativeProtocolVersion { get; set; }
     public bool NativePush { get; set; }
+    public bool? InGame { get; set; }
   }
 }

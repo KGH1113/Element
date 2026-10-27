@@ -30,6 +30,7 @@ internal sealed class ModRuntime : IDisposable
   private readonly Dictionary<string, int> _failures = new(StringComparer.Ordinal);
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
+  private GameKeyLimiter _gameKeyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
   private DmNoteNativeIpcFeature _nativeViewers;
   private RecordingModeController _recordingMode;
@@ -46,6 +47,7 @@ internal sealed class ModRuntime : IDisposable
   // Per-frame and per-hit callbacks reuse these delegates; a lambda per call
   // would add garbage, and every GC pause also stops the async input thread.
   private readonly Action _tickNativeViewers;
+  private readonly Action _tickKeyLimiter;
   private readonly Action<scrMarginTracker, HitMargin> _registerHit;
   private readonly Action _refreshAccuracy;
   private readonly Action _refreshFloor;
@@ -62,6 +64,7 @@ internal sealed class ModRuntime : IDisposable
   {
     _main = main;
     _tickNativeViewers = () => _nativeViewers?.Tick();
+    _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
     _refreshFloor = () => _overlay?.RefreshFloor();
@@ -80,6 +83,7 @@ internal sealed class ModRuntime : IDisposable
     try
     {
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
+      _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       _keyLimiterIpc = new KeyLimiterIpcFeature(
         new KeyLimiterSessionController(_keyLimiter),
         _main.Path,
@@ -164,6 +168,7 @@ internal sealed class ModRuntime : IDisposable
     if (!UIInteractionState.BlocksPointerInput)
       _trackpad?.Tick();
     Execute("Update native ImplDmNote viewers", _tickNativeViewers);
+    Execute("Apply the ImplDmNote key limiter", _tickKeyLimiter);
   }
 
   public void OpenSettings()
@@ -281,7 +286,9 @@ internal sealed class ModRuntime : IDisposable
     _keyLimiterIpc = null;
     _keyLimiter?.Clear();
     _keyLimiter = null;
-    KeyLimiterPatchPolicy.Reset();
+    // Gives the game the player's own saved keys back.
+    Execute("Restore the game key limiter", () => _gameKeyLimiter?.Dispose());
+    _gameKeyLimiter = null;
 
     _recordingMode?.Dispose();
     _recordingMode = null;
@@ -306,7 +313,6 @@ internal sealed class ModRuntime : IDisposable
 
   private void OnSceneUnloaded(Scene scene)
   {
-    KeyLimiterPatchPolicy.Reset();
     _recordingMode?.ForgetDestroyedSceneObjects();
     HideGameplay();
     // Overlay texts are inactive now, so they rebuild their glyphs on the next
@@ -399,6 +405,21 @@ internal sealed class ModRuntime : IDisposable
       && ADOBase.conductor.isGameWorld;
   }
 
+  // Game versions before ADOFAI's built-in key limiter have no KeysSetting;
+  // the rest of the mod keeps working without the key limiter.
+  private GameKeyLimiter CreateGameKeyLimiter(KeyLimiterService profiles)
+  {
+    try
+    {
+      return new GameKeyLimiter(() => profiles.Current);
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Key limiter is off because this game version has no built-in key limiter", exception);
+      return null;
+    }
+  }
+
   private void WarnIfKeyboardChatterBlockerIsLoaded()
   {
     foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
@@ -407,7 +428,7 @@ internal sealed class ModRuntime : IDisposable
         continue;
 
       _main.LogWarning(
-        "[KeyLimiter] KeyboardChatterBlocker is loaded. Disable its key limiter to avoid combined filtering."
+        "[Input] KeyboardChatterBlocker is loaded. ADOFAI's key limiter now carries ImplDmNote's keys, and Tweaks > Key chatter replaces its chatter filter; turn its limiter and chatter filter off to avoid filtering input twice."
       );
       return;
     }

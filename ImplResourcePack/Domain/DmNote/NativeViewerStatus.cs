@@ -10,6 +10,7 @@ internal enum NativeViewerStatus
   Attached,
   NoViewerTab,
   ObsModeOff,
+  HiddenInApp,
   Preparing,
   ReplayRendering,
   Reconnecting,
@@ -65,6 +66,7 @@ internal readonly struct NativeViewerFailure
       "native-unavailable" => new(NativeViewerStatus.Preparing, false, false, false, TimeSpan.FromSeconds(2)),
       "replay-render-active" => new(NativeViewerStatus.ReplayRendering, false, true, false, idle),
       "obs-required" => new(NativeViewerStatus.ObsModeOff, true, false, false, idle),
+      "in-game-disabled" => new(NativeViewerStatus.HiddenInApp, true, false, false, idle),
       "invalid-session" => new(NativeViewerStatus.Incompatible, true, false, true, TimeSpan.Zero),
       _ => new(NativeViewerStatus.Preparing, false, false, false, idle),
     };

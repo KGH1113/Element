@@ -1,5 +1,6 @@
 using System;
 using ImplResourcePack.Configuration;
+using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Infrastructure.Game.Tweaks;
 using ImplResourcePack.Infrastructure.Ipc;
 using ImplResourcePack.Presentation.Layout;
@@ -77,7 +78,8 @@ internal sealed class SettingsUiRuntime : IDisposable
       Save,
       OpenLayout,
       OnVisibilityChanged,
-      RenderPlanetPreview
+      RenderPlanetPreview,
+      () => ChatterBlocker.Blocked
     );
 
   public void Open() => Panel.Open();

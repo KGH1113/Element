@@ -8,6 +8,7 @@ using ImplResourcePack.Configuration.Effects;
 using ImplResourcePack.Presentation.Settings;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Layout;
+using ImplResourcePack.Domain.Input;
 using ImplResourcePack.Domain.Layout;
 using ImplResourcePack.Infrastructure.Game.DmNote;
 using TMPro;
@@ -51,6 +52,8 @@ namespace ImplResourcePack.Editor
       Render(1280, 720, SystemLanguage.English, 7, "preset-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 7, "preset-editor-ko-narrow");
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
+      Render(1280, 720, SystemLanguage.Korean, 8, "key-chatter-ko-720");
+      Render(360, 720, SystemLanguage.English, 8, "key-chatter-en-compact");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       RenderLayout(1280, 720, SystemLanguage.Korean, "layout-ko-720");
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
@@ -503,6 +506,25 @@ namespace ImplResourcePack.Editor
       }
     }
 
+    private static void CheckChatterBlocking(SettingsPanel panel, ImplResourcePackSettings settings, int width)
+    {
+      ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
+      Slider window = Field<Slider>(panel, "_chatterWindow");
+      Button toggle = Field<Button>(panel, "_chatterSwitch");
+      Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
+      Assert(window.minValue == 5 && window.maxValue == 60 && window.wholeNumbers, "the window is whole milliseconds from 5 to 60");
+      Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
+      toggle.onClick.Invoke();
+      Assert(chatter.Enabled && window.interactable, "turning blocking on enables the window");
+      window.value = 33;
+      Assert(chatter.WindowMs == 33 && Field<TextMeshProUGUI>(panel, "_chatterWindowValue").text == "33 ms", "the slider saves and shows the window");
+      toggle.onClick.Invoke();
+      window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
+      Assert(!chatter.Enabled, "turning it off again restores the default state");
+      RectTransform row = Field<RectTransform>(panel, "_chatterRow");
+      Assert(row.rect.width <= width, "the window row fits the page");
+    }
+
     private static void Render(int width, int height, SystemLanguage language, int page, string name)
     {
       RDString.language = language;
@@ -566,6 +588,7 @@ namespace ImplResourcePack.Editor
         if (page == 4) CheckEditorSections(panel, settings, width, height);
         if (page == 5) CheckJudgmentChoices(panel, settings);
         if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
+        if (page == 8) CheckChatterBlocking(panel, settings, width);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");

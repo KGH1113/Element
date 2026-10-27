@@ -38,7 +38,7 @@ internal sealed partial class SettingsPanel
   private readonly TextMeshProUGUI[] _cardActions = new TextMeshProUGUI[4];
   private readonly RectTransform[] _cardDividers = new RectTransform[4];
   private readonly RectTransform[] _cardArrows = new RectTransform[4];
-  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1 };
+  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
   private readonly SettingsWindowMotion _windowMotion;
 
   public SettingsPanel(
@@ -48,10 +48,12 @@ internal sealed partial class SettingsPanel
     Func<bool> save,
     Action editLayout,
     Action<bool> visibility,
-    Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null
+    Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null,
+    Func<long> blockedChatter = null
   )
   {
     _settings = settings;
+    _blockedChatter = blockedChatter;
     settings.Gameplay.Normalize();
     settings.Effects.Normalize();
     _apply = apply;
@@ -114,6 +116,7 @@ internal sealed partial class SettingsPanel
       "Judgment visuals",
       "Planets",
       "Preset editor",
+      "Key chatter",
     };
     for (int i = 0; i < _pages.Length; i++)
       _pages[i] = _ui.Rect(pages[i], _viewport, 0, 0, 936, 480).gameObject;

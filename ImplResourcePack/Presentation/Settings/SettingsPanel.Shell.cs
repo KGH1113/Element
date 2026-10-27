@@ -116,7 +116,7 @@ internal sealed partial class SettingsPanel
       "Judgment visuals",
       "Planets",
       "Preset editor",
-      "Key chatter",
+      "Chatter blocker",
     };
     for (int i = 0; i < _pages.Length; i++)
       _pages[i] = _ui.Rect(pages[i], _viewport, 0, 0, 936, 480).gameObject;

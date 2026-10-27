@@ -18,7 +18,7 @@ namespace ImplResourcePack.Domain.Input;
 internal sealed class ChatterFilter
 {
   public const int MinimumWindowMs = 5;
-  public const int MaximumWindowMs = 60;
+  public const int MaximumWindowMs = 150;
   public const int DefaultWindowMs = 20;
 
   // Windows virtual keys, macOS key codes and Linux evdev codes all fit.

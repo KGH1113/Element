@@ -25,11 +25,8 @@ internal sealed partial class SettingsPanel
     ChatterBlockerOptions chatter = _settings.Gameplay.Chatter;
     Transform page = _pages[ChatterPage].transform;
     _chatterSwitch = _ui.Switch(
-      L("키 채터 방지", "Block key chatter"),
-      L(
-        "키를 뗀 직후 같은 키가 다시 눌리면 한 번으로 셉니다.",
-        "Counts a key once when it bounces right after you release it."
-      ),
+      L("채터 블로커", "Chatter blocker"),
+      L("튄 키 입력을 한 번으로 셉니다.", "Counts a bouncing key press only once."),
       page,
       0,
       () => chatter.Enabled,

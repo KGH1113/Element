@@ -383,7 +383,7 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 4 ? L("에디터", "Editor tweaks")
       : index == 5 ? L("판정 표시", "Judgment visuals")
       : index == 6 ? L("행성", "Planets")
-      : index == ChatterPage ? L("키 채터 방지", "Key chatter")
+      : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);

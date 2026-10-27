@@ -91,6 +91,14 @@ internal static class PerformanceTests
     filter.Configure(false, 20);
     True(filter.Accept(12, true, t + 401 * Millisecond), "a disabled filter passes everything");
     True(filter.Blocked == 0, "nothing was blocked");
+
+    True(ChatterFilter.ClampWindow(1) == 5 && ChatterFilter.ClampWindow(500) == 150, "the window is 5 to 150 ms");
+    filter.Configure(true, 150);
+    True(
+      filter.Accept(40, true, t) && filter.Accept(40, false, t + 30 * Millisecond),
+      "a 150 ms window still passes the first tap"
+    );
+    True(!filter.Accept(40, true, t + 150 * Millisecond), "120 ms after release is inside a 150 ms window");
   }
 
   // SkyHook calls the filter on a native thread with no Unity runtime and

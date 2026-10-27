@@ -428,7 +428,7 @@ internal sealed class ModRuntime : IDisposable
         continue;
 
       _main.LogWarning(
-        "[Input] KeyboardChatterBlocker is loaded. ADOFAI's key limiter now carries ImplDmNote's keys, and Tweaks > Key chatter replaces its chatter filter; turn its limiter and chatter filter off to avoid filtering input twice."
+        "[Input] KeyboardChatterBlocker is loaded. ADOFAI's key limiter now carries ImplDmNote's keys, and Tweaks > Chatter blocker replaces its chatter filter; turn its limiter and chatter filter off to avoid filtering input twice."
       );
       return;
     }

@@ -52,8 +52,8 @@ namespace ImplResourcePack.Editor
       Render(1280, 720, SystemLanguage.English, 7, "preset-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 7, "preset-editor-ko-narrow");
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
-      Render(1280, 720, SystemLanguage.Korean, 8, "key-chatter-ko-720");
-      Render(360, 720, SystemLanguage.English, 8, "key-chatter-en-compact");
+      Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
+      Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       RenderLayout(1280, 720, SystemLanguage.Korean, "layout-ko-720");
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
@@ -512,7 +512,7 @@ namespace ImplResourcePack.Editor
       Slider window = Field<Slider>(panel, "_chatterWindow");
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
-      Assert(window.minValue == 5 && window.maxValue == 60 && window.wholeNumbers, "the window is whole milliseconds from 5 to 60");
+      Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       toggle.onClick.Invoke();
       Assert(chatter.Enabled && window.interactable, "turning blocking on enables the window");

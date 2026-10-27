@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace ImplResourcePack.Presentation.Overlay.Shared;
@@ -7,6 +8,9 @@ internal static class OverlayTheme
   public const string DefaultHighlight = "#BA712B";
   public static Color Accent { get; private set; } = new(186f / 255f, 113f / 255f, 43f / 255f, 1f);
   public static int Version { get; private set; }
+
+  /// <summary>Raised after the highlight color actually changes.</summary>
+  public static event Action Changed;
   public static readonly Color JudgementBase = new(0.8509804f, 0.345098f, 1f);
 
   public const double BpmColorMaximum = 8000d;
@@ -29,6 +33,7 @@ internal static class OverlayTheme
       return;
     Accent = color;
     Version++;
+    Changed?.Invoke();
   }
 
   public static bool TryParseHighlight(string value, out Color color)

@@ -115,11 +115,18 @@ internal sealed class ComboView : IOverlayView<ComboSnapshot>
 
   public void Render(ComboSnapshot snapshot)
   {
-    if (
-      _valueText == null
-      || (_lastCount == snapshot.Count && !snapshot.Bump && _lastThemeVersion == OverlayTheme.Version)
-    )
+    if (_valueText == null)
       return;
+    if (_lastCount == snapshot.Count && !snapshot.Bump)
+    {
+      // A color-only change must not cut a running bump animation short.
+      if (_lastThemeVersion != OverlayTheme.Version)
+      {
+        _valueText.color = OverlayTheme.ComboColor(snapshot.Count);
+        _lastThemeVersion = OverlayTheme.Version;
+      }
+      return;
+    }
 
     _valueText.Assign(_builder.Clear().AppendInt(snapshot.Count));
     _valueText.color = OverlayTheme.ComboColor(snapshot.Count);

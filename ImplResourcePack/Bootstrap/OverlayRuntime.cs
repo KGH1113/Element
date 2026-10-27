@@ -52,6 +52,8 @@ internal sealed class OverlayRuntime : IDisposable
       );
       _timeTicker = Canvas.Root.AddComponent<StatusTimeTicker>();
       _timeTicker.Initialize(onTimeTick);
+      // Views only repaint when their data changes; repaint them once per color change.
+      OverlayTheme.Changed += RefreshTheme;
     }
     catch
     {
@@ -102,8 +104,11 @@ internal sealed class OverlayRuntime : IDisposable
   /// <summary>Frees CJK glyphs pulled in for song titles. Only while the overlay is hidden.</summary>
   public void ReleaseFallbackGlyphs() => _fontLoader?.ReleaseFallbackGlyphs();
 
+  private void RefreshTheme() => _coordinator?.RefreshAll();
+
   public void Dispose()
   {
+    OverlayTheme.Changed -= RefreshTheme;
     Hide();
     _coordinator?.Dispose();
     _coordinator = null;

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HarmonyLib;
 using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Judgement;
+using ImplResourcePack.Infrastructure.DmNoteApp;
 using ImplResourcePack.Infrastructure.Game.DmNote;
 using ImplResourcePack.Infrastructure.Game.Editor;
 using ImplResourcePack.Infrastructure.Game.Effects;
@@ -33,6 +34,8 @@ internal sealed class ModRuntime : IDisposable
   private GameKeyLimiter _gameKeyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
   private DmNoteNativeIpcFeature _nativeViewers;
+  private DmNoteAppLauncher _dmNoteApp;
+  private bool _dmNoteAutoOpen;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
   private GameplayTweaksController _gameplayTweaks;
@@ -113,6 +116,7 @@ internal sealed class ModRuntime : IDisposable
       _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _keyLimiterIpc.Enable();
+      _dmNoteApp = DmNoteAppLauncher.Create(_main.Path, _main.Log, _main.LogWarning, _main.LogException);
 
       _settingsUi = new SettingsUiRuntime(
         _main,
@@ -191,6 +195,7 @@ internal sealed class ModRuntime : IDisposable
         if (!_initialized)
           return;
 
+        OpenDmNoteWhenEnabled();
         OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
         _gameplayTweaks?.Apply();
         _effects?.ApplySettings();
@@ -214,6 +219,16 @@ internal sealed class ModRuntime : IDisposable
           RefreshViewerMode(false);
       }
     );
+  }
+
+  // Opens once at startup and again when the option is switched on; settings
+  // changes such as color drags do not start the app check again.
+  private void OpenDmNoteWhenEnabled()
+  {
+    bool enabled = _main.Settings.AutoOpenCloseDmNote;
+    if (enabled && !_dmNoteAutoOpen)
+      _dmNoteApp?.OpenIfClosed();
+    _dmNoteAutoOpen = enabled;
   }
 
   public bool ShouldShowHitText(HitMargin hitMargin)

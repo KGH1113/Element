@@ -573,8 +573,9 @@ namespace ImplResourcePack.Editor
         Assert(pages[1].GetComponentsInChildren<SettingsSwitchMotion>(true).Length ==
           (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
           "Tweaks contains trackpad only on macOS");
-        Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 1
-          && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform), "General contains shortcut and motion preferences");
+        Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 2
+          && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform),
+          "General contains shortcut, motion and ImplDmNote auto open preferences");
         Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
           "legacy viewer switch and connection card are absent");
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");

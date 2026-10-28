@@ -15,6 +15,9 @@ public sealed class ImplResourcePackSettings : UnityModManager.ModSettings
 
   public bool ShowDmNoteInGame = true;
 
+  /// <summary>Open the bundled ImplDmNote with the game; it closes when the game quits.</summary>
+  public bool AutoOpenCloseDmNote = true;
+
   public int SettingsVersion;
   public string HighlightColor = "#BA712B";
   public List<string> RecentHighlightColors = new();

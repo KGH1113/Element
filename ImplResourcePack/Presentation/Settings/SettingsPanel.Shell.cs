@@ -30,7 +30,8 @@ internal sealed partial class SettingsPanel
     _retrySave,
     _capture,
     _resetShortcut,
-    _motionRow;
+    _motionRow,
+    _dmNoteRow;
   private readonly List<Button> _tweakRows = new();
   private readonly RectTransform[] _cardIcons = new RectTransform[4];
   private readonly TextMeshProUGUI[] _cardTitles = new TextMeshProUGUI[4];
@@ -150,7 +151,10 @@ internal sealed partial class SettingsPanel
     CreateHomeCard(
       3,
       L("일반", "General"),
-      L("설정 단축키와 UI 움직임을 설정합니다.", "Set your shortcut and motion preferences."),
+      L(
+        "설정 단축키, UI 움직임, ImplDmNote 자동 실행을 설정합니다.",
+        "Set your shortcut, motion and ImplDmNote preferences."
+      ),
       L("일반 설정", "Open general"),
       () => NavigateTo(2)
     );
@@ -272,6 +276,21 @@ internal sealed partial class SettingsPanel
       v =>
       {
         settings.ReduceUiMotion = v;
+        Changed();
+      }
+    );
+    _dmNoteRow = _ui.Switch(
+      L("ImplDmNote 자동 열기/닫기", "Auto open/close ImplDmNote"),
+      L(
+        "게임을 켜면 ImplDmNote를 열고, 게임을 끄면 함께 닫습니다.",
+        "Open ImplDmNote with the game and close it when the game quits."
+      ),
+      _pages[2].transform,
+      236,
+      () => settings.AutoOpenCloseDmNote,
+      v =>
+      {
+        settings.AutoOpenCloseDmNote = v;
         Changed();
       }
     );
@@ -437,7 +456,9 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Place(_captureHint.rectTransform, 16, stackShortcut ? 170 : 114, contentWidth - 32, 48);
     float rowHeight = contentWidth < 520 ? 116 : 88;
     SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, shortcutHeight + 12, contentWidth, rowHeight);
-    ((RectTransform)_pages[2].transform).sizeDelta = new Vector2(contentWidth, shortcutHeight + 12 + rowHeight);
+    float dmNoteTop = shortcutHeight + 12 + rowHeight + 12;
+    SettingsUiFactory.Place((RectTransform)_dmNoteRow.transform, 0, dmNoteTop, contentWidth, rowHeight);
+    ((RectTransform)_pages[2].transform).sizeDelta = new Vector2(contentWidth, dmNoteTop + rowHeight);
     return captureWidth;
   }
 

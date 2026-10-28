@@ -105,6 +105,53 @@ describe('profile event publisher', () => {
     expect(errors).toHaveBeenCalledTimes(2);
     coordinator.dispose();
   });
+  it('resends a profile the game did not confirm until it answers', async () => {
+    const messages = new FakeMessagePort();
+    const starts = vi.fn();
+    const errors = vi.fn();
+    const results = vi.fn();
+    const coordinator = new KeyLimiterIpcCoordinator({
+      messages,
+      scheduler: testScheduler,
+      onSyncStart: starts,
+      onSyncError: errors,
+      onSyncResult: results,
+    });
+    coordinator.enqueue(request(1));
+    await coordinator.flushNow();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(errors).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(messages.sent).toHaveLength(2);
+    expect(messages.sent[1].payload).toEqual(request(1));
+    // The resend keeps the error visible instead of showing "sending" again.
+    expect(starts).toHaveBeenCalledTimes(1);
+    messages.receive(
+      'key-limiter.profile.applied',
+      { ...response(1), applied: false, reason: 'duplicate' },
+      messages.sent[1].id,
+    );
+    expect(results).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(60000);
+    expect(messages.sent).toHaveLength(2);
+    coordinator.dispose();
+  });
+  it('sends a newer edit instead of resending an unconfirmed one', async () => {
+    const messages = new FakeMessagePort();
+    const coordinator = new KeyLimiterIpcCoordinator({
+      messages,
+      scheduler: testScheduler,
+    });
+    coordinator.enqueue(request(1));
+    await coordinator.flushNow();
+    coordinator.enqueue(request(2));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(messages.sent.map((sent) => sent.payload)).toEqual([
+      request(1),
+      request(2),
+    ]);
+    coordinator.dispose();
+  });
   it('unsubscribes and cancels pending timers when disposed', async () => {
     const messages = new FakeMessagePort();
     const coordinator = new KeyLimiterIpcCoordinator({

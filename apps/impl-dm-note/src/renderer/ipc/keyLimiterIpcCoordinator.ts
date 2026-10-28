@@ -22,6 +22,7 @@ export interface KeyLimiterCoordinatorOptions {
   scheduler: SchedulerPort;
   debounceMs?: number;
   acknowledgementMs?: number;
+  retryMs?: number;
   onStateChange?: (state: KeyLimiterConnectionState, error?: unknown) => void;
   onSyncStart?: (request: KeyLimiterSyncRequest) => void;
   onSyncResult?: (
@@ -38,6 +39,7 @@ export class KeyLimiterIpcCoordinator {
     null;
   private cancelDebounce?: Unsubscribe;
   private cancelAcknowledgement?: Unsubscribe;
+  private cancelRetry?: Unsubscribe;
   private readonly subscriptions: Unsubscribe[];
   private disposed = false;
   private state: MessageState;
@@ -81,6 +83,7 @@ export class KeyLimiterIpcCoordinator {
       ),
       options.messages.onState((state, error) => {
         this.state = state;
+        this.clearRetry();
         options.onStateChange?.(state, error);
         if (state !== 'ready') {
           this.clearInFlight();
@@ -98,6 +101,7 @@ export class KeyLimiterIpcCoordinator {
   enqueue(request: KeyLimiterSyncRequest): void {
     if (this.disposed) return;
     this.latest = this.pending = request;
+    this.clearRetry();
     this.cancelDebounce?.();
     this.cancelDebounce = this.options.scheduler.delay(() => {
       this.cancelDebounce = undefined;
@@ -113,18 +117,24 @@ export class KeyLimiterIpcCoordinator {
     if (this.disposed) return;
     this.disposed = true;
     this.cancelDebounce?.();
+    this.clearRetry();
     this.clearInFlight();
     this.subscriptions.forEach((unsubscribe) => unsubscribe());
     this.latest = this.pending = null;
     this.state = 'disposed';
     this.options.onStateChange?.('disposed');
   }
+  private clearRetry(): void {
+    this.cancelRetry?.();
+    this.cancelRetry = undefined;
+  }
   private clearInFlight(): void {
     this.cancelAcknowledgement?.();
     this.cancelAcknowledgement = undefined;
     this.inFlight = null;
   }
-  private flush(): void {
+  /** A quiet resend keeps the shown error until the game answers. */
+  private flush(quiet = false): void {
     if (
       this.disposed ||
       this.state !== 'ready' ||
@@ -135,7 +145,7 @@ export class KeyLimiterIpcCoordinator {
     const request = this.pending;
     this.pending = null;
     try {
-      this.options.onSyncStart?.(request);
+      if (!quiet) this.options.onSyncStart?.(request);
       const id = this.options.messages.send('key-limiter.profile.set', request);
       this.inFlight = { id, request };
       this.cancelAcknowledgement = this.options.scheduler.delay(() => {
@@ -147,7 +157,18 @@ export class KeyLimiterIpcCoordinator {
             'The game did not confirm the key profile. Reconnect ADOFAI to try again.',
           ),
         );
-        this.flush();
+        if (this.pending) {
+          this.flush();
+          return;
+        }
+        // A game still loading its mods answers late (an app opened with the
+        // game connects that early). Resend until it answers; the mod treats
+        // the same revision again as a duplicate.
+        this.pending = request;
+        this.cancelRetry = this.options.scheduler.delay(() => {
+          this.cancelRetry = undefined;
+          this.flush(true);
+        }, this.options.retryMs ?? 5000);
       }, this.options.acknowledgementMs ?? 5000);
     } catch (error) {
       this.pending = this.latest;

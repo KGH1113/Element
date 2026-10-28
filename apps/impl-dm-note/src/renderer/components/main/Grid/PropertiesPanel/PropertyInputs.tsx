@@ -268,9 +268,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
         onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={showMixedPlaceholder ? mixedPlaceholder : undefined}
-        className={`dmn-number-field text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-          isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-        } text-style-4 ${
+        className={`dmn-number-field text-center h-[23px] border-[1px] border-transparent text-style-4 ${
           showMixedPlaceholder
             ? 'text-[#6B6D75] italic placeholder:text-[#6B6D75] placeholder:italic'
             : 'text-[#DBDEE8]'
@@ -282,9 +280,7 @@ export const NumberInput: React.FC<NumberInputProps> = ({
 
   return (
     <div
-      className={`dmn-number-field relative h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-        isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-      }`}
+      className="dmn-number-field relative h-[23px] border-[1px] border-transparent"
       style={{ width }}
     >
       {prefix && !showMixedPlaceholder && (
@@ -536,9 +532,7 @@ export const OptionalNumberInput: React.FC<OptionalNumberInputProps> = ({
   if (prefix) {
     return (
       <div
-        className={`dmn-number-field relative h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-          isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-        }`}
+        className="dmn-number-field relative h-[23px] border-[1px] border-transparent"
         style={{ width }}
       >
         {!showMixedPlaceholder && (
@@ -580,9 +574,7 @@ export const OptionalNumberInput: React.FC<OptionalNumberInputProps> = ({
         onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={effectivePlaceholder}
-        className={`dmn-number-field text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-          isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-        } text-style-4 ${textClass} ${placeholderClass}`}
+        className={`dmn-number-field text-center h-[23px] border-[1px] border-transparent text-style-4 ${textClass} ${placeholderClass}`}
         style={{ width }}
       />
     );
@@ -600,9 +592,7 @@ export const OptionalNumberInput: React.FC<OptionalNumberInputProps> = ({
       onFocus={handleFocus}
       onBlur={handleBlur}
       placeholder={effectivePlaceholder}
-      className={`dmn-number-field text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-        isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-      } text-style-4 ${textClass} ${placeholderClass}`}
+      className={`dmn-number-field text-center h-[23px] border-[1px] border-transparent text-style-4 ${textClass} ${placeholderClass}`}
       style={{ width }}
     />
   );
@@ -651,9 +641,7 @@ export const TextInput: React.FC<TextInputProps> = ({
       onFocus={() => setIsFocused(true)}
       onBlur={handleBlur}
       placeholder={placeholder}
-      className={`dmn-text-field text-center h-[23px] p-[6px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-        isFocused ? 'border-[#459BF8]' : 'border-[#3A3943]'
-      } text-style-4 ${
+      className={`dmn-text-field text-center h-[23px] p-[6px] border-[1px] border-transparent text-style-4 ${
         isMixed
           ? 'text-[#DBDEE8] placeholder:text-[#6B6D75] placeholder:italic'
           : 'text-[#DBDEE8]'
@@ -786,7 +774,9 @@ export const ColorInput: React.FC<ColorInputProps> = ({
         ref={buttonRef}
         onClick={handleToggle}
         className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
-          open ? 'border-[#459BF8]' : 'border-[#3A3943] hover:border-[#505058]'
+          open
+            ? 'border-ui-accent'
+            : 'border-ui-line hover:border-ui-line-strong'
         }`}
         style={{
           backgroundColor: getDisplayColor(
@@ -971,14 +961,14 @@ export const FontStyleToggle: React.FC<FontStyleToggleProps> = ({
   onStrikethroughChange,
 }) => {
   const buttonClass = (active: boolean) =>
-    `w-[24px] h-[21px] flex items-center justify-center transition-colors ${
+    `w-[24px] h-full flex items-center justify-center transition-colors ${
       active
-        ? 'bg-[#493C1D] text-[#FFB400]'
-        : 'bg-[#2A2A30] text-[#6B6D75] hover:bg-[#32323A] hover:text-[#97999E]'
+        ? 'bg-ui-accent-soft text-ui-accent-text'
+        : 'bg-transparent text-ui-fg-muted hover:bg-ui-fill hover:text-ui-fg-secondary'
     }`;
 
   return (
-    <div className="flex items-center h-[23px] bg-[#2A2A30] rounded-[7px] border border-[#3A3943] overflow-hidden">
+    <div className="flex items-center h-[23px] bg-ui-inset rounded-ui-inner overflow-hidden">
       <button
         onClick={() => onBoldChange(!isBold)}
         className={buttonClass(isBold)}
@@ -1021,11 +1011,7 @@ const TabButton: React.FC<TabButtonProps> = ({ active, onClick, children }) => (
     role="tab"
     aria-selected={active}
     onClick={onClick}
-    className={`dmn-panel-tab h-[24px] w-full ${
-      active
-        ? 'bg-[#3A3943] text-white'
-        : 'bg-[#26262C] text-[#9395A1] hover:bg-[#303036]'
-    }`}
+    className="dmn-panel-tab h-[24px] w-full"
   >
     {children}
   </button>
@@ -1082,7 +1068,7 @@ export const CloseIcon: React.FC = () => (
   <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
     <path
       d="M1 1L9 9M9 1L1 9"
-      stroke="#6B6D75"
+      stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
     />
@@ -1099,7 +1085,7 @@ export const SidebarToggleIcon: React.FC<{ isOpen: boolean }> = ({
       width="14.5"
       height="12.5"
       rx="2"
-      stroke="#6B6D75"
+      stroke="currentColor"
       strokeWidth="1.5"
       fill="none"
     />
@@ -1108,7 +1094,7 @@ export const SidebarToggleIcon: React.FC<{ isOpen: boolean }> = ({
       y1="1"
       x2={isOpen ? '10' : '12'}
       y2="13"
-      stroke="#6B6D75"
+      stroke="currentColor"
       strokeWidth="1.5"
     />
     {isOpen && (
@@ -1118,7 +1104,7 @@ export const SidebarToggleIcon: React.FC<{ isOpen: boolean }> = ({
           y1="4"
           x2="13.5"
           y2="4"
-          stroke="#6B6D75"
+          stroke="currentColor"
           strokeWidth="1"
           strokeLinecap="round"
         />
@@ -1127,7 +1113,7 @@ export const SidebarToggleIcon: React.FC<{ isOpen: boolean }> = ({
           y1="7"
           x2="13.5"
           y2="7"
-          stroke="#6B6D75"
+          stroke="currentColor"
           strokeWidth="1"
           strokeLinecap="round"
         />
@@ -1136,7 +1122,7 @@ export const SidebarToggleIcon: React.FC<{ isOpen: boolean }> = ({
           y1="10"
           x2="13.5"
           y2="10"
-          stroke="#6B6D75"
+          stroke="currentColor"
           strokeWidth="1"
           strokeLinecap="round"
         />
@@ -1150,8 +1136,8 @@ export const ModeToggleIcon: React.FC<{
   mode: 'layer' | 'property';
   disabled?: boolean;
 }> = ({ mode, disabled = false }) => {
-  const strokeColor = disabled ? '#4A4A50' : '#6B6D75';
-  const fillColor = disabled ? '#4A4A50' : '#6B6D75';
+  const strokeColor = disabled ? '#4A4A50' : 'currentColor';
+  const fillColor = disabled ? '#4A4A50' : 'currentColor';
 
   if (mode === 'layer') {
     // 레이어 아이콘 (쌓인 레이어)

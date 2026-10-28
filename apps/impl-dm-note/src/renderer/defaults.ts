@@ -211,5 +211,7 @@ function FALLBACK_SETTINGS_STATE(): SettingsState {
     gridSettings: FALLBACK_GRID_SETTINGS(),
     shortcuts: FALLBACK_SHORTCUTS(),
     obsModeEnabled: false,
+    keyLimiterEnabled: true,
+    inGameViewersEnabled: true,
   };
 }

@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <exception>
+#include <map>
 #include <mutex>
 #include <string>
 
@@ -18,13 +19,29 @@ constexpr CGFloat kMaximumWidth = 430;
 constexpr CGFloat kMaximumHeight = 270;
 constexpr int kMaximumViewport = 4096;
 constexpr CGFloat kMinimumVisibleFraction = 0.1;
+// Host errors describe the latest call. Faults belong to one viewer, so one
+// page loading never clears another's.
 std::mutex errorMutex;
-std::string lastError;
+std::string hostError;
+std::map<std::string, std::string> faults;
 std::atomic<unsigned long long> geometryRevision{1};
 
 void SetError(const char *message) {
   std::lock_guard<std::mutex> lock(errorMutex);
-  lastError = message;
+  hostError = message;
+}
+
+void SetFault(NSString *kind, const char *message) {
+  if (kind == nil) return;
+  std::lock_guard<std::mutex> lock(errorMutex);
+  std::string key = kind.UTF8String;
+  if (message == nullptr || message[0] == '\0') faults.erase(key);
+  else faults[key] = message;
+}
+
+void ClearFaults() {
+  std::lock_guard<std::mutex> lock(errorMutex);
+  faults.clear();
 }
 
 // Deliberately do not include exception descriptions or NSError URLs: the OBS
@@ -194,6 +211,7 @@ static WKUserScript *PageScript(NSString *source) {
 }
 
 @interface IRPGameWebViewSurface : NSObject <WKNavigationDelegate, WKUIDelegate>
+@property(nonatomic, copy) NSString *kind;
 @property(nonatomic, strong) IRPGameWebView *webView;
 @property(nonatomic, strong) NSURL *url;
 @property(nonatomic) NSSize viewport;
@@ -221,7 +239,7 @@ static WKUserScript *PageScript(NSString *source) {
   if (IsSameOrigin(self.url, target) && action.targetFrame != nil) {
     handler(WKNavigationActionPolicyAllow);
   } else {
-    SetError("Native viewer blocked navigation outside its local source.");
+    SetFault(self.kind, "Native viewer blocked navigation outside its local source.");
     handler(WKNavigationActionPolicyCancel);
   }
 }
@@ -238,7 +256,7 @@ static WKUserScript *PageScript(NSString *source) {
                       withError:(NSError *)error {
   if (error.code != NSURLErrorCancelled) {
     self.url = nil;
-    SetError("Native viewer could not load its local source. Check ImplDmNote.");
+    SetFault(self.kind, "Native viewer could not load its local source. Check ImplDmNote.");
   }
 }
 
@@ -246,12 +264,12 @@ static WKUserScript *PageScript(NSString *source) {
     didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
   if (error.code != NSURLErrorCancelled) {
     self.url = nil;
-    SetError("Native viewer lost its local source. Check ImplDmNote.");
+    SetFault(self.kind, "Native viewer lost its local source. Check ImplDmNote.");
   }
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-  SetError("");
+  SetFault(self.kind, "");
   [webView evaluateJavaScript:self.editing ? @"window.__irpSetEditing?.(true);" : @"window.__irpSetEditing?.(false);"
            completionHandler:nil];
 }
@@ -260,7 +278,7 @@ static WKUserScript *PageScript(NSString *source) {
   // The descriptor poll, rather than an immediate reload loop in the renderer
   // callback, can retry after the process has terminated.
   self.url = nil;
-  SetError("Native viewer renderer stopped. Viewers will reconnect automatically.");
+  SetFault(self.kind, "Native viewer renderer stopped. Viewers will reconnect automatically.");
 }
 @end
 
@@ -513,6 +531,7 @@ void RemoveSurface(NSString *kind) {
   [surface.webView removeFromSuperview];
   [host.surfaces removeObjectForKey:kind];
   host.chrome.needsDisplay = YES;
+  SetFault(kind, "");
 }
 } // namespace
 
@@ -554,6 +573,7 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
     IRPGameWebViewSurface *surface = host.surfaces[kind];
     if (surface == nil) {
       surface = [[IRPGameWebViewSurface alloc] init];
+      surface.kind = kind;
       surface.referenceScale = std::min<CGFloat>(1, std::min(kMaximumWidth / width, kMaximumHeight / height));
       WKWebViewConfiguration *configuration = [[WKWebViewConfiguration alloc] init];
       configuration.websiteDataStore = WKWebsiteDataStore.nonPersistentDataStore;
@@ -619,11 +639,13 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
       surface.selectionInViewport = NSZeroRect;
       surface.url = source;
       [host layoutSurfaces];
-      SetError("");
+      SetFault(kind, "");
       [surface.webView loadRequest:[NSURLRequest requestWithURL:source
                                                   cachePolicy:NSURLRequestReloadIgnoringLocalCacheData
                                               timeoutInterval:10]];
     }
+    // The call succeeded; earlier call errors no longer describe the host.
+    SetError("");
     return 1;
   });
 }
@@ -689,6 +711,32 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_get_reference_
     CGFloat fit = surface.referenceScale;
     *width = (source.width - 2 * padding) * fit;
     *height = (source.height - 2 * padding) * fit;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_content_size(
+    const char *viewerKind, double *width, double *height) {
+  if (viewerKind == nullptr || width == nullptr || height == nullptr) return 0;
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface == nil || surface.viewport.width <= 0 || surface.viewport.height <= 0) return 0;
+    NSSize source = surface.viewport;
+    CGFloat padding = std::min<CGFloat>(surface.padding, (std::min(source.width, source.height) - 1) / 2);
+    *width = source.width - 2 * padding;
+    *height = source.height - 2 * padding;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_view_size(double *width, double *height) {
+  if (width == nullptr || height == nullptr || NSApp == nil) return 0;
+  return OnMainThread(^{
+    // Before any viewer attaches there is no host yet; the game view is the same size.
+    NSView *view = host != nil && host.window != nil ? host : FindGameWindow(gameWindow).contentView;
+    if (view == nil || view.bounds.size.width <= 0 || view.bounds.size.height <= 0) return 0;
+    *width = view.bounds.size.width;
+    *height = view.bounds.size.height;
     return 1;
   });
 }
@@ -806,6 +854,7 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void)
     host = nil;
     gameWindow = nil;
     previewVisible = true;
+    ClearFaults();
     SetError("");
     return 1;
   });
@@ -814,6 +863,14 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void)
 extern "C" __attribute__((visibility("default"))) const char *irp_webview_last_error(void) {
   thread_local std::string result;
   std::lock_guard<std::mutex> lock(errorMutex);
-  result = lastError;
+  // A host problem affects every viewer, so it wins; otherwise report the
+  // first viewer still failing, in stable identifier order.
+  result = hostError;
+  if (result.empty())
+    for (const auto &fault : faults)
+      if (!fault.second.empty()) {
+        result = fault.second;
+        break;
+      }
   return result.c_str();
 }

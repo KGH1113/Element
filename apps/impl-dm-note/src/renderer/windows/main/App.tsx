@@ -20,6 +20,8 @@ import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useKeyLimiterSync } from '@hooks/app/useKeyLimiterSync';
+import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
+import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
 import { usePropertiesPanelStore } from '@stores/grid/usePropertiesPanelStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
@@ -306,6 +308,10 @@ export default function App() {
       typeof onCancel === 'function' ? onCancel : null;
     setAlertState({ isOpen: true, message, confirmText, type: 'confirm' });
   };
+
+  const obsModePrompt = useObsModePrompt(() =>
+    showAlert(t('settings.obsStartFailed')),
+  );
 
   const closeAlert = () => {
     setAlertState({
@@ -657,6 +663,12 @@ export default function App() {
         onConfirm={handleAlertConfirm}
         onCancel={handleAlertCancel}
       />
+      {obsModePrompt.open && (
+        <ObsModePrompt
+          onEnable={obsModePrompt.enable}
+          onDismiss={obsModePrompt.dismiss}
+        />
+      )}
       <CustomAlert
         isOpen={customDialogState.isOpen}
         message={customDialogState.html}

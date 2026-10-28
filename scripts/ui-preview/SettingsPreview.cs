@@ -8,7 +8,9 @@ using ImplResourcePack.Configuration.Effects;
 using ImplResourcePack.Presentation.Settings;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using ImplResourcePack.Presentation.Layout;
+using ImplResourcePack.Domain.Input;
 using ImplResourcePack.Domain.Layout;
+using ImplResourcePack.Application.Updates;
 using ImplResourcePack.Infrastructure.Game.DmNote;
 using TMPro;
 using UnityEditor;
@@ -26,7 +28,7 @@ namespace ImplResourcePack.Editor
     private static string _output;
     public static void RenderAll()
     {
-      _output = Path.GetFullPath(Path.Combine(Application.dataPath, "../../build/ui-preview"));
+      _output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../../build/ui-preview"));
       Directory.CreateDirectory(_output);
       CheckMigration();
       CheckSpacingGuides();
@@ -51,6 +53,8 @@ namespace ImplResourcePack.Editor
       Render(1280, 720, SystemLanguage.English, 7, "preset-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 7, "preset-editor-ko-narrow");
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
+      Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
+      Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       RenderLayout(1280, 720, SystemLanguage.Korean, "layout-ko-720");
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
@@ -503,6 +507,25 @@ namespace ImplResourcePack.Editor
       }
     }
 
+    private static void CheckChatterBlocking(SettingsPanel panel, ImplResourcePackSettings settings, int width)
+    {
+      ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
+      Slider window = Field<Slider>(panel, "_chatterWindow");
+      Button toggle = Field<Button>(panel, "_chatterSwitch");
+      Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
+      Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
+      toggle.onClick.Invoke();
+      Assert(chatter.Enabled && window.interactable, "turning blocking on enables the window");
+      window.value = 33;
+      Assert(chatter.WindowMs == 33 && Field<TextMeshProUGUI>(panel, "_chatterWindowValue").text == "33 ms", "the slider saves and shows the window");
+      toggle.onClick.Invoke();
+      window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
+      Assert(!chatter.Enabled, "turning it off again restores the default state");
+      RectTransform row = Field<RectTransform>(panel, "_chatterRow");
+      Assert(row.rect.width <= width, "the window row fits the page");
+    }
+
     private static void Render(int width, int height, SystemLanguage language, int page, string name)
     {
       RDString.language = language;
@@ -512,7 +535,7 @@ namespace ImplResourcePack.Editor
       OverlayTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates());
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");
@@ -549,10 +572,11 @@ namespace ImplResourcePack.Editor
         root.SetActive(true);
         GameObject[] pages = Field<GameObject[]>(panel, "_pages");
         Assert(pages[1].GetComponentsInChildren<SettingsSwitchMotion>(true).Length ==
-          (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
+          (UnityEngine.Application.platform == RuntimePlatform.OSXEditor || UnityEngine.Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
           "Tweaks contains trackpad only on macOS");
-        Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 1
-          && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform), "General contains shortcut and motion preferences");
+        Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 3
+          && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform),
+          "General contains shortcut, motion, ImplDmNote auto open and automatic update preferences");
         Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
           "legacy viewer switch and connection card are absent");
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
@@ -566,6 +590,7 @@ namespace ImplResourcePack.Editor
         if (page == 4) CheckEditorSections(panel, settings, width, height);
         if (page == 5) CheckJudgmentChoices(panel, settings);
         if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
+        if (page == 8) CheckChatterBlocking(panel, settings, width);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
@@ -882,6 +907,13 @@ namespace ImplResourcePack.Editor
 
     // This probe checks the UI/render-service boundary only. The deliberately
     // rectangular test textures are not ADOFAI artwork or a game-render test.
+    // The longest status: a download that outlasted startup.
+    private sealed class PreviewUpdates : IModUpdates
+    {
+      public ModUpdateStatus Status => new ModUpdateStatus(ModUpdateState.Downloading, "0.3.0", "0.3.1");
+      public bool AutomaticUpdates { get; set; } = true;
+    }
+
     private sealed class PlanetPreviewProbe : IDisposable
     {
       private readonly Texture2D[] _textures = new Texture2D[3];

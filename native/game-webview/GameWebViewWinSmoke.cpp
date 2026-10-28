@@ -58,6 +58,8 @@ struct Api {
   int (*setLayout)(const char *, int, double, double, double);
   int (*setBounds)(const char *, double, double, double, double, double);
   int (*getReferenceSize)(const char *, double *, double *);
+  int (*getContentSize)(const char *, double *, double *);
+  int (*getViewSize)(double *, double *);
   unsigned long long (*geometryRevision)();
   int (*getBounds)(const char *, double *, double *, double *, double *, double *);
   int (*getSelectionBounds)(const char *, double *, double *, double *, double *, double *);
@@ -88,6 +90,8 @@ bool LoadApi(const wchar_t *path) {
          Resolve(module, "irp_webview_set_layout", &api.setLayout) &&
          Resolve(module, "irp_webview_set_bounds", &api.setBounds) &&
          Resolve(module, "irp_webview_get_reference_size", &api.getReferenceSize) &&
+         Resolve(module, "irp_webview_get_content_size", &api.getContentSize) &&
+         Resolve(module, "irp_webview_get_view_size", &api.getViewSize) &&
          Resolve(module, "irp_webview_geometry_revision", &api.geometryRevision) &&
          Resolve(module, "irp_webview_get_bounds", &api.getBounds) &&
          Resolve(module, "irp_webview_get_selection_bounds", &api.getSelectionBounds) &&
@@ -326,6 +330,22 @@ bool ReferenceIs(const char *kind, double width, double height) {
   return api.getReferenceSize(kind, &w, &h) && std::abs(w - width) < 0.01 && std::abs(h - height) < 0.01;
 }
 
+// The natural CSS size, as the separate ImplDmNote window shows it at 100%.
+bool ContentIs(const char *kind, double width, double height) {
+  double w = 0, h = 0;
+  return api.getContentSize(kind, &w, &h) && std::abs(w - width) < 0.01 && std::abs(h - height) < 0.01;
+}
+
+// The game view in DIPs: client pixels at the window's DPI.
+bool ViewIsWindowInDips() {
+  RECT client{};
+  GetClientRect(window, &client);
+  UINT dpi = GetDpiForWindow(window);
+  double unit = (dpi == 0 ? 96 : dpi) / 96.0;
+  double w = 0, h = 0;
+  return api.getViewSize(&w, &h) && std::abs(w - client.right / unit) < 0.01 && std::abs(h - client.bottom / unit) < 0.01;
+}
+
 DWORD FindChildProcess(DWORD parent, const wchar_t *name) {
   HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
   PROCESSENTRY32W entry{sizeof(entry)};
@@ -402,9 +422,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   Check(api.setSurface("hand", handUrl.c_str(), 860, 320) == 1, "attaches a viewer");
   Log("  first attach call took %.1f ms", Seconds(start) * 1000);
   Check(ReferenceIs("hand", 430, 160), "descriptor bootstraps the fitted reference size");
+  Check(ContentIs("hand", 860, 320) && ViewIsWindowInDips(),
+        "reports the natural content size and the game view in DIPs");
   unsigned long long revision = api.geometryRevision();
   bool laidOut = Pump(20000, [] { return ReferenceIs("hand", 190, 90); });
   Check(laidOut, "page layout replaces the descriptor size (cropped padding)");
+  Check(ContentIs("hand", 380, 180), "the natural content size follows the page layout");
   Log("  page reported its layout after %.2f s; last error: '%s'", Seconds(start), api.lastError());
   Check(api.geometryRevision() > revision, "page layout bumps the geometry revision");
 
@@ -525,8 +548,15 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   api.setSurface("hand", escape.c_str(), 860, 320);
   bool blocked = Pump(8000, [] { return std::strstr(api.lastError(), "blocked navigation") != nullptr; });
   Check(blocked, "navigation outside the local source is blocked");
+  // Faults belong to one viewer: another page loading must not clear this one.
+  std::string footReload = footUrl + "&reload=1";
+  api.setSurface("foot", footReload.c_str(), 860, 320);
+  Pump(3000);
+  Check(std::strstr(api.lastError(), "blocked navigation") != nullptr,
+        "another viewer's page load keeps this viewer's fault");
   api.setSurface("hand", handUrl.c_str(), 860, 320);
   Pump(3000, [] { return ReferenceIs("hand", 190, 90); });
+  Check(api.lastError()[0] == '\0', "reloading the viewer clears its fault");
 
   // A crashed browser process rebuilds the environment and pages.
   DWORD browser = FindChildProcess(GetCurrentProcessId(), L"msedgewebview2.exe");

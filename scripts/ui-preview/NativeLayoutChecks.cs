@@ -35,14 +35,18 @@ namespace ImplResourcePack.Editor
       float screenScale = OverlayLayoutPosition.ScreenScale(viewportWidth, viewportHeight);
       Vector2 reference = new Vector2(36, 24);
       const float migratedScale = 7.25f;
-      Vector2 size = reference * screenScale * migratedScale;
+      // The fake host reports two desktop units per Unity pixel (a game drawn
+      // below its window size), which keeps sizes inside any fixture viewport.
+      const float unitsPerPixel = 2;
+      Vector2 size = reference / unitsPerPixel * migratedScale;
       Rect original = new Rect(viewportWidth * .82f - size.x * .5f,
         viewportHeight * .81f - size.y * .5f, size.x, size.y);
       var host = new GameWebView
       {
-        HostSizePoints = new Vector2(viewportWidth * .5f, viewportHeight * .5f),
+        HostSizePoints = new Vector2(viewportWidth, viewportHeight) * unitsPerPixel,
         ReferenceSize = reference,
-        LegacyBoundsPoints = new Rect(original.x * .5f, original.y * .5f, original.width * .5f, original.height * .5f),
+        LegacyBoundsPoints = new Rect(original.x * unitsPerPixel, original.y * unitsPerPixel,
+          original.width * unitsPerPixel, original.height * unitsPerPixel),
         LegacyEffectiveScale = 2.25f,
       };
       var settings = new OverlayLayoutSettings
@@ -94,7 +98,7 @@ namespace ImplResourcePack.Editor
       Same(staged, target.Bounds, "the first completed edit migrates without a visual jump");
       Check(settings.LayoutVersion == 1 && settings.Customized && settings.Scale > 5,
         "explicit migration preserves a positive scale beyond the old slider maximum");
-      Near(migratedScale, settings.Scale, "new native scale derives from actual pixels and shared reference units");
+      Near(migratedScale, settings.Scale, "new native scale is relative to the separate window's size");
       Check(host.BoundsCalls > 0, "anchored layout uses normalized rectangle transport");
       Same(target.Bounds, HostPixels(host), "managed and native transports agree on the content rectangle");
 
@@ -102,9 +106,14 @@ namespace ImplResourcePack.Editor
       Rect beforeHostChange = target.Bounds;
       int sends = host.BoundsCalls;
       host.ChangeHost(new Vector2(viewportWidth, viewportHeight));
-      Same(beforeHostChange, target.Bounds, "changing native points per Unity pixel preserves anchored pixels");
+      Rect afterHostChange = target.Bounds;
+      Near(beforeHostChange.width * unitsPerPixel, afterHostChange.width,
+        "a viewer keeps its desktop size, like the separate window, when desktop units per Unity pixel change");
+      Near(beforeHostChange.height * unitsPerPixel, afterHostChange.height, "both axes follow the desktop unit");
+      Check(Vector2.Distance(AnchorPoint(beforeHostChange, settings.Anchor), AnchorPoint(afterHostChange, settings.Anchor)) < .1f,
+        "a desktop unit change keeps the saved anchor point");
       Check(host.BoundsCalls > sends, "a native geometry revision refreshes connected layout without IPC reload");
-      Same(beforeHostChange, HostPixels(host), "normalized bounds adapt to the changed native host size");
+      Same(afterHostChange, HostPixels(host), "normalized bounds adapt to the changed native host size");
       Check(Serialized(settings) == anchoredSettings, "host backing changes do not rewrite anchor offsets or scale");
 
       // Unity Screen is real and read-only during this synchronous edit-mode
@@ -113,7 +122,7 @@ namespace ImplResourcePack.Editor
       SetField(target, "_screenWidth", Screen.width + 400);
       SetField(target, "_screenHeight", Screen.height + 200);
       SetField(target, "_screenScale", -1f);
-      Same(beforeHostChange, target.Bounds, "stale viewport caches resolve again against Unity's current viewport");
+      Same(afterHostChange, target.Bounds, "stale viewport caches resolve again against Unity's current viewport");
       Check(Serialized(settings) == anchoredSettings, "viewport refresh preserves saved placement intent");
 
       Vector2 anchorBefore = AnchorPoint(target.Bounds, settings.Anchor);
@@ -121,8 +130,8 @@ namespace ImplResourcePack.Editor
       Rect changedContent = target.Bounds;
       Check(Vector2.Distance(anchorBefore, AnchorPoint(changedContent, settings.Anchor)) < .1f,
         "late native CSS content dimensions retain the selected anchor point");
-      Near(beforeHostChange.width * 1.5f, changedContent.width, "new CSS intrinsic width is resolved before positioning");
-      Near(beforeHostChange.height * 1.5f, changedContent.height, "new CSS intrinsic height uses the same uniform scale");
+      Near(afterHostChange.width * 1.5f, changedContent.width, "new CSS intrinsic width is resolved before positioning");
+      Near(afterHostChange.height * 1.5f, changedContent.height, "new CSS intrinsic height uses the same uniform scale");
       Check(Serialized(settings) == anchoredSettings, "CSS measurement changes do not migrate or renormalize storage");
 
       target.Bind(null);
@@ -190,7 +199,7 @@ namespace ImplResourcePack.Editor
         && settings.OffsetX == 0 && settings.OffsetY == 0 && settings.Scale == 1
         && settings.CenterX == .5f && settings.CenterY == .5f,
         "explicit reset clears the full anchored format and restores defaults");
-      host.ChangeHost(new Vector2(viewportWidth * .5f, viewportHeight * .5f));
+      host.ChangeHost(new Vector2(viewportWidth, viewportHeight) * unitsPerPixel);
       opening.Restore(values);
       target.RefreshLayout();
       Same(original, target.Bounds, "cancel restores the old native rectangle after anchored edits and reset");

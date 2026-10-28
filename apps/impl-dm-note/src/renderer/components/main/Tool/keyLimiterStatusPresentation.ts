@@ -1,7 +1,7 @@
 import type { KeyLimiterConnectionState } from '@src/renderer/ipc/keyLimiterIpcCoordinator';
 import type { KeyLimiterDeliveryState } from '@stores/useKeyLimiterStatusStore';
 
-export type StatusIcon = 'dot' | 'progress' | 'check' | 'warning' | 'error';
+export type StatusIcon = 'none' | 'progress' | 'check' | 'warning' | 'error';
 
 export interface StatusPresentation {
   labelKey: string;
@@ -62,5 +62,5 @@ export function getKeyLimiterStatusPresentation(
   if (hasUnsupportedKeys) {
     return { labelKey: 'keyLimiter.partial', tone: 'warning', icon: 'warning' };
   }
-  return { labelKey: 'keyLimiter.connected', tone: 'success', icon: 'dot' };
+  return { labelKey: 'keyLimiter.connected', tone: 'success', icon: 'none' };
 }

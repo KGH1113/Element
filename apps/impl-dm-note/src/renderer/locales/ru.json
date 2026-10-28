@@ -230,7 +230,7 @@
   },
   "keyLimiter": {
     "connecting": "Подключение к ADOFAI",
-    "connected": "ADOFAI подключена",
+    "connected": "IMPLResourcePack подключён",
     "sending": "Отправка изменений",
     "applied": "Применено в ADOFAI",
     "released": "Ограничение клавиш снято",
@@ -489,7 +489,6 @@
     "zIndex": "Порядок слоёв",
     "useInlineStyles": "Приоритет стилей",
     "useInlineStylesHint": "Стили панели приоритетнее CSS.",
-    "ghostKey": "Ghost-клавиша (не ограничивать)",
     "keyMapping": "Привязка клавиш",
     "statType": "Тип стат.",
     "statKpsType": "Тип KPS",
@@ -550,7 +549,11 @@
     "selectedSound": "Выбранный звук",
     "soundVolume": "Громкость",
     "import": "Импорт",
-    "loading": "Загрузка..."
+    "loading": "Загрузка...",
+    "bindingDefault": "Основная",
+    "bindingGhost": "Призрак",
+    "enableGhostKey": "Клавиша-призрак",
+    "ghostKeyHint": "Привязывает к этой клавише вторую клавишу клавиатуры со своим стилем, нотой и счётчиком. Ограничитель клавиш её не учитывает."
   },
   "fontPicker": {
     "searchPlaceholder": "Поиск...",
@@ -622,5 +625,22 @@
     "availabilityMultipleFamilies": "Несколько шрифтов",
     "duplicateFontFamilyAlert": "Шрифт \"{{name}}\" уже добавлен.",
     "fixedHint": "Можно добавить @font-face CSS."
+  },
+  "implConnection": {
+    "title": "IMPLResourcePack",
+    "keyLimiter": "Ограничитель клавиш",
+    "keyLimiterDescription": "ADOFAI принимает только клавиши выбранных вкладок.",
+    "inGame": "Показывать в ADOFAI",
+    "inGameDescription": "Key viewer в Add Element и на экране игры.",
+    "connected": "Подключено",
+    "keys": "Клавиши",
+    "updated": "Обновлено",
+    "close": "Закрыть"
+  },
+  "obsModePrompt": {
+    "title": "Включить режим OBS?",
+    "message": "В режиме OBS IMPLResourcePack показывает key viewer ImplDmNote прямо в игре.",
+    "enable": "Включить",
+    "dismiss": "Не сейчас"
   }
 }

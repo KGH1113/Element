@@ -118,7 +118,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
           refY={3}
           orient="auto"
         >
-          <path d="M 6 0 L 0 3 L 6 6 z" fill="#A855F7" />
+          <path d="M 6 0 L 0 3 L 6 6 z" fill="var(--ui-selection)" />
         </marker>
         <marker
           id="spacing-arrow-end"
@@ -128,7 +128,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
           refY={3}
           orient="auto"
         >
-          <path d="M 0 0 L 6 3 L 0 6 z" fill="#A855F7" />
+          <path d="M 0 0 L 6 3 L 0 6 z" fill="var(--ui-selection)" />
         </marker>
       </defs>
 
@@ -150,11 +150,11 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                   y1={extent.start}
                   x2={guide.position}
                   y2={extent.end}
-                  stroke="#FF6B6B"
+                  stroke="var(--ui-guide-align)"
                   strokeWidth={1 / zoom}
                   strokeDasharray={`${4 / zoom} ${2 / zoom}`}
                   style={{
-                    filter: 'drop-shadow(0 0 2px rgba(255, 107, 107, 0.5))',
+                    filter: 'drop-shadow(0 0 2px var(--ui-guide-align-glow))',
                   }}
                 />
               );
@@ -166,11 +166,11 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                   y1={guide.position}
                   x2={extent.end}
                   y2={guide.position}
-                  stroke="#FF6B6B"
+                  stroke="var(--ui-guide-align)"
                   strokeWidth={1 / zoom}
                   strokeDasharray={`${4 / zoom} ${2 / zoom}`}
                   style={{
-                    filter: 'drop-shadow(0 0 2px rgba(255, 107, 107, 0.5))',
+                    filter: 'drop-shadow(0 0 2px var(--ui-guide-align-glow))',
                   }}
                 />
               );
@@ -194,7 +194,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                     y1={spacing.crossAxisPos}
                     x2={spacing.endPos}
                     y2={spacing.crossAxisPos}
-                    stroke="#A855F7"
+                    stroke="var(--ui-selection)"
                     strokeWidth={1.5 / zoom}
                     markerStart="url(#spacing-arrow-start)"
                     markerEnd="url(#spacing-arrow-end)"
@@ -206,7 +206,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                     width={32 / zoom}
                     height={16 / zoom}
                     rx={4 / zoom}
-                    fill="#A855F7"
+                    fill="var(--ui-selection)"
                     opacity={0.9}
                   />
                   <text
@@ -232,7 +232,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                     y1={spacing.startPos}
                     x2={spacing.crossAxisPos}
                     y2={spacing.endPos}
-                    stroke="#A855F7"
+                    stroke="var(--ui-selection)"
                     strokeWidth={1.5 / zoom}
                     markerStart="url(#spacing-arrow-start)"
                     markerEnd="url(#spacing-arrow-end)"
@@ -244,7 +244,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                     width={32 / zoom}
                     height={16 / zoom}
                     rx={4 / zoom}
-                    fill="#A855F7"
+                    fill="var(--ui-selection)"
                     opacity={0.9}
                   />
                   <text
@@ -281,12 +281,12 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                   width={bounds.width}
                   height={bounds.height}
                   fill="none"
-                  stroke="#3B82F6"
+                  stroke="var(--ui-selection)"
                   strokeWidth={2 / zoom}
                   strokeDasharray={`${4 / zoom} ${2 / zoom}`}
                   rx={4 / zoom}
                   style={{
-                    filter: 'drop-shadow(0 0 3px rgba(59, 130, 246, 0.5))',
+                    filter: 'drop-shadow(0 0 3px var(--ui-selection-glow))',
                   }}
                 />
               )}
@@ -297,7 +297,7 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
                 width={48 / zoom}
                 height={16 / zoom}
                 rx={4 / zoom}
-                fill="#3B82F6"
+                fill="var(--ui-selection)"
                 opacity={0.9}
               />
               {/* 라벨 텍스트 */}

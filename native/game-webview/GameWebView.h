@@ -40,6 +40,13 @@ IRP_WEBVIEW_API int irp_webview_set_bounds(const char *viewer_kind, double x, do
 // attachment's fixed fit factor. Independent of host size and display scale.
 IRP_WEBVIEW_API int irp_webview_get_reference_size(const char *viewer_kind, double *width,
                                                    double *height);
+// Cropped content at its natural CSS size, without the initial fit factor. The
+// separate ImplDmNote window shows it at one CSS pixel per desktop unit.
+IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewer_kind, double *width,
+                                                 double *height);
+// The game view in desktop units: AppKit points on macOS, DIPs (client pixels
+// at the window's DPI) on Windows. Works before any viewer attaches.
+IRP_WEBVIEW_API int irp_webview_get_view_size(double *width, double *height);
 // Changes only when external geometry changes (source, padding, host, backing),
 // never for set_bounds. Cheap enough to poll once per frame.
 IRP_WEBVIEW_API unsigned long long irp_webview_geometry_revision(void);
@@ -69,6 +76,10 @@ IRP_WEBVIEW_API void irp_webview_set_editor_exclusion(double x, double y, double
                                                       double height);
 IRP_WEBVIEW_API void irp_webview_dispose(void);
 
+// The latest host error (a failed call, the window, the web engine); if none, the
+// first viewer whose page is still failing. A successful set_surface clears host
+// errors; a viewer's fault clears when its page loads, its source changes or it
+// is removed. Empty when everything is attached.
 // Thread-local copy; valid until this thread next calls last_error. Diagnostics
 // never contain a URL or its authentication token.
 IRP_WEBVIEW_API const char *irp_webview_last_error(void);

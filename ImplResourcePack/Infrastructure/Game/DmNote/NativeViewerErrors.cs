@@ -15,6 +15,9 @@ internal static class NativeViewerErrors
   {
     if (string.IsNullOrWhiteSpace(nativeError))
       return NativeViewerStatus.Attached;
+    // Fixed when the game starts; retrying or returning to the window cannot help.
+    if (nativeError.Contains("COM apartment"))
+      return NativeViewerStatus.HostIncompatible;
     if (nativeError.Contains("renderer stopped") || nativeError.Contains("reconnect automatically"))
       return NativeViewerStatus.Reconnecting;
     if (nativeError.Contains("WebView2 Runtime"))
@@ -25,4 +28,11 @@ internal static class NativeViewerErrors
       return NativeViewerStatus.WindowUnavailable;
     return unknown;
   }
+
+  /// <summary>
+  /// A page that stopped or failed to load waits for its descriptor, so the
+  /// next descriptor must reach the host even when it is unchanged.
+  /// </summary>
+  public static bool NeedsDescriptor(NativeViewerStatus status) =>
+    status is NativeViewerStatus.PageUnavailable or NativeViewerStatus.Reconnecting;
 }

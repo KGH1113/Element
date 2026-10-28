@@ -63,16 +63,38 @@ constexpr UINT kIdleReleaseMs = 60000;
 constexpr int kMaximumRecoveries = 5;
 constexpr auto kRecoveryWindow = std::chrono::seconds(60);
 
+// Host errors describe the latest call or the shared WebView2 environment.
+// Faults belong to one viewer, so one page loading never clears another's.
 std::mutex errorMutex;
-std::string lastError;
+std::string hostError;
+std::map<std::string, std::string> faults;
 std::atomic<unsigned long long> geometryRevision{1};
 
 // Deliberately never include HRESULT text or URLs: the OBS viewer authenticates
 // through a query token, which must not enter game logs.
 void SetError(const char *message) {
   std::lock_guard<std::mutex> lock(errorMutex);
-  lastError = message;
+  hostError = message;
 }
+
+void SetFault(const std::string &kind, const char *message) {
+  std::lock_guard<std::mutex> lock(errorMutex);
+  if (message == nullptr || message[0] == '\0') faults.erase(kind);
+  else faults[kind] = message;
+}
+
+void ClearFaults() {
+  std::lock_guard<std::mutex> lock(errorMutex);
+  faults.clear();
+}
+
+// Managed code maps these phrases to player-facing statuses (NativeViewerErrors).
+constexpr const char *kRendererStopped = "Native viewer renderer stopped. Viewers will reconnect automatically.";
+constexpr const char *kLoadRetrying =
+    "Native viewer could not load its local source. Viewers will reconnect automatically.";
+constexpr const char *kLoadFailed = "Native viewer could not load its local source. Check ImplDmNote.";
+constexpr const char *kRuntimeTooOld =
+    "This WebView2 Runtime is too old for the in-game viewer. Update it and restart ADOFAI.";
 
 struct RectD {
   double x = 0, y = 0, width = 0, height = 0;
@@ -268,6 +290,9 @@ struct Surface {
   bool scriptReady = false;
   bool navigated = false;
   bool reloadPending = false;
+  // Each viewer has its own retry budget: two pages sharing a renderer must not
+  // spend each other's retries when it stops.
+  std::deque<std::chrono::steady_clock::time_point> recoveries;
 
   ComPtr<IDCompositionVisual2> container;
   ComPtr<IDCompositionVisual2> content;
@@ -301,6 +326,10 @@ struct Host {
   ComPtr<IDCompositionVisual2> chrome;
   ComPtr<IDCompositionSurface> chromeSurface;
   int chromeWidth = 0, chromeHeight = 0;
+  // Surface area the last chrome draw covered; redraws touch only old and new outlines.
+  RectD chromeDrawn;
+  // A new surface's content is undefined until one full draw succeeds.
+  bool chromeInitialized = false;
   std::map<std::string, std::unique_ptr<Surface>> surfaces;
 };
 
@@ -386,7 +415,8 @@ bool EnsureApartment() {
   if (apartmentReady) return true;
   HRESULT result = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   if (result == RPC_E_CHANGED_MODE) {
-    SetError("The game window's thread cannot host WebView2 (multithreaded COM apartment).");
+    // Fixed for the process lifetime: retrying or returning to the game cannot help.
+    SetError("This game build cannot host WebView2 (multithreaded COM apartment).");
     return false;
   }
   if (FAILED(result)) {
@@ -475,6 +505,8 @@ bool EnsureDevices() {
   return true;
 }
 
+// Never let WebView2 fall back to its default folder beside the game executable:
+// Steam libraries under Program Files are not writable.
 std::wstring UserDataFolder() {
   PWSTR local = nullptr;
   std::wstring folder;
@@ -482,6 +514,11 @@ std::wstring UserDataFolder() {
     folder = std::wstring(local) + L"\\ImplResourcePack\\WebView2";
   }
   CoTaskMemFree(local);
+  if (folder.empty()) {
+    wchar_t temporary[MAX_PATH + 1] = {};
+    DWORD length = GetTempPathW(MAX_PATH + 1, temporary);
+    if (length > 0 && length <= MAX_PATH) folder = std::wstring(temporary) + L"ImplResourcePack\\WebView2";
+  }
   return folder;
 }
 
@@ -492,14 +529,14 @@ const char *RuntimeError(HRESULT result) {
 }
 
 // Returns false when recoveries are exhausted: a page that keeps crashing waits
-// for the next descriptor or session instead of looping.
-bool ScheduleRecovery() {
+// for the next descriptor or session instead of looping. A viewer's own failure
+// spends its budget; environment-wide failures spend the shared one.
+bool ScheduleRecovery(std::deque<std::chrono::steady_clock::time_point> &recoveries) {
   auto now = std::chrono::steady_clock::now();
-  while (!shared.recoveries.empty() && now - shared.recoveries.front() > kRecoveryWindow)
-    shared.recoveries.pop_front();
+  while (!recoveries.empty() && now - recoveries.front() > kRecoveryWindow) recoveries.pop_front();
   HWND window = EnsureMessageWindow();
-  if (window == nullptr || (int)shared.recoveries.size() >= kMaximumRecoveries) return false;
-  shared.recoveries.push_back(now);
+  if (window == nullptr || (int)recoveries.size() >= kMaximumRecoveries) return false;
+  recoveries.push_back(now);
   SetTimer(window, kRecoverTimer, kRecoverDelayMs, nullptr);
   return true;
 }
@@ -507,19 +544,26 @@ bool ScheduleRecovery() {
 bool EnsureEnvironment() {
   if (shared.environment || shared.environmentCreating) return true;
   std::wstring folder = UserDataFolder();
+  if (folder.empty()) {
+    SetError("Windows could not prepare a folder for the in-game viewer. Viewers will reconnect automatically.");
+    return false;
+  }
   unsigned long long generation = ++shared.environmentGeneration;
   shared.environmentCreating = true;
   HRESULT result = CreateCoreWebView2EnvironmentWithOptions(
-      nullptr, folder.empty() ? nullptr : folder.c_str(), nullptr,
+      nullptr, folder.c_str(), nullptr,
       Callback<ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler>(
           [generation](HRESULT created, ICoreWebView2Environment *environment) -> HRESULT {
             if (generation != shared.environmentGeneration) return S_OK;
             shared.environmentCreating = false;
             if (FAILED(created) || environment == nullptr) {
               SetError(RuntimeError(created));
-              if (host != nullptr && created != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND)) ScheduleRecovery();
+              if (host != nullptr && created != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND))
+                ScheduleRecovery(shared.recoveries);
               return S_OK;
             }
+            // The environment is back; page faults now track each viewer's reload.
+            SetError("");
             shared.environment = environment;
             try {
               EnsureControllers();
@@ -645,7 +689,8 @@ bool AllowedNavigation(const Surface &surface, LPWSTR uri) {
   return SameOrigin(surface.url, target);
 }
 
-// Pages and their frames may navigate only within the descriptor's origin.
+// Pages and their frames may navigate only within the descriptor's origin. The
+// block stays on this viewer until its page loads again.
 ComPtr<ICoreWebView2NavigationStartingEventHandler> SameOriginGuard(const std::string &kind,
                                                                    unsigned long long id) {
   return Callback<ICoreWebView2NavigationStartingEventHandler>(
@@ -655,7 +700,7 @@ ComPtr<ICoreWebView2NavigationStartingEventHandler> SameOriginGuard(const std::s
         args->get_Uri(&uri);
         if (current == nullptr || !AllowedNavigation(*current, uri)) {
           args->put_Cancel(TRUE);
-          SetError("Native viewer blocked navigation outside its local source.");
+          if (current != nullptr) SetFault(kind, "Native viewer blocked navigation outside its local source.");
         }
         return S_OK;
       });
@@ -706,13 +751,20 @@ void ConfigureWebView(Surface &surface) {
               COREWEBVIEW2_WEB_ERROR_STATUS status = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
               args->get_WebErrorStatus(&status);
               if (status != COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED) {
-                current->url.clear();
-                SetError("Native viewer could not load its local source. Check ImplDmNote.");
+                // ImplDmNote's page server may be restarting: retry like a stopped
+                // renderer, then wait for the next descriptor.
+                if (ScheduleRecovery(current->recoveries)) {
+                  current->reloadPending = true;
+                  SetFault(kind, kLoadRetrying);
+                } else {
+                  current->url.clear();
+                  SetFault(kind, kLoadFailed);
+                }
               }
               return S_OK;
             }
             current->navigated = true;
-            SetError("");
+            SetFault(kind, "");
             ApplyEditing(*current);
             Layout();
             return S_OK;
@@ -726,15 +778,15 @@ void ConfigureWebView(Surface &surface) {
             args->get_ProcessFailedKind(&failure);
             if (failure == COREWEBVIEW2_PROCESS_FAILED_KIND_BROWSER_PROCESS_EXITED) {
               // Every controller of this environment is gone. Tear down outside this
-              // event, keep descriptors, and rebuild after a short delay.
-              SetError("Native viewer renderer stopped. Viewers will reconnect automatically.");
+              // event, keep descriptors, and rebuild after a short delay. The
+              // teardown marks every viewer until its page loads again.
               if (HWND window = EnsureMessageWindow()) SetTimer(window, kTeardownTimer, 0, nullptr);
             } else if (failure == COREWEBVIEW2_PROCESS_FAILED_KIND_RENDER_PROCESS_EXITED) {
               if (Surface *current = FindSurface(kind, id)) {
                 current->navigated = false;
-                SetError("Native viewer renderer stopped. Viewers will reconnect automatically.");
+                SetFault(kind, kRendererStopped);
                 // Without a retry, the next descriptor for this URL reloads it.
-                if (ScheduleRecovery()) current->reloadPending = true;
+                if (ScheduleRecovery(current->recoveries)) current->reloadPending = true;
                 else current->url.clear();
               }
             }
@@ -769,7 +821,7 @@ void ConfigureWebView(Surface &surface) {
             Surface *current = FindSurface(kind, id);
             if (current == nullptr) return S_OK;
             if (FAILED(result)) {
-              SetError("Native viewer could not prepare its page. Try again.");
+              SetFault(kind, "Native viewer could not prepare its page. Try again.");
               return S_OK;
             }
             current->scriptReady = true;
@@ -784,7 +836,7 @@ void OnControllerCreated(Surface &surface, ICoreWebView2CompositionController *c
   if (FAILED(surface.composition.As(&surface.controller)) || FAILED(surface.controller.As(&surface.controller3)) ||
       FAILED(surface.controller->get_CoreWebView2(&surface.webView))) {
     CloseWebView(surface);
-    SetError("This WebView2 Runtime is too old for the in-game viewer. Update it and restart ADOFAI.");
+    SetFault(surface.kind, kRuntimeTooOld);
     return;
   }
   ComPtr<ICoreWebView2Controller2> controller2;
@@ -816,8 +868,8 @@ void CreateController(Surface &surface) {
         }
         current->creating = false;
         if (FAILED(result) || composition == nullptr) {
-          SetError("Native viewer could not create its page. Viewers will reconnect automatically.");
-          ScheduleRecovery();
+          SetFault(kind, "Native viewer could not create its page. Viewers will reconnect automatically.");
+          ScheduleRecovery(current->recoveries);
           return S_OK;
         }
         try {
@@ -846,7 +898,7 @@ void CreateController(Surface &surface) {
       result = environment3->CreateCoreWebView2CompositionController(host->window, completed.Get());
   }
   if (FAILED(result)) {
-    SetError("This WebView2 Runtime is too old for the in-game viewer. Update it and restart ADOFAI.");
+    SetFault(surface.kind, kRuntimeTooOld);
     return;
   }
   surface.creating = true;
@@ -896,6 +948,7 @@ void RemoveSurface(const std::string &kind) {
   CloseWebView(surface, false);
   if (surface.container) host->webLayer->RemoveVisual(surface.container.Get());
   host->surfaces.erase(found);
+  SetFault(kind, "");
 }
 
 bool AttachTarget(HWND window) {
@@ -1076,6 +1129,24 @@ void DrawChrome(ID2D1DeviceContext *context) {
   }
 }
 
+RectD Union(const RectD &left, const RectD &right) {
+  if (left.Empty()) return right;
+  if (right.Empty()) return left;
+  double l = std::min(left.x, right.x), t = std::min(left.y, right.y);
+  return {l, t, std::max(left.Right(), right.Right()) - l, std::max(left.Bottom(), right.Bottom()) - t};
+}
+
+// Everything DrawChrome can touch: outlines plus handle radius, stroke and antialiasing.
+RectD ChromeExtent() {
+  double unit = std::clamp(host->height / 1000.0, 1.0, 2.0);
+  RectD extent;
+  for (auto &entry : host->surfaces) {
+    const Surface &surface = *entry.second;
+    if (!surface.hidden && surface.selected) extent = Union(extent, Inflate(surface.contentFrame, 5 * unit + 2));
+  }
+  return Intersect(extent, {0, 0, (double)host->width, (double)host->height});
+}
+
 void UpdateChrome() {
   bool show = host->editing && previewVisible && !host->iconic && host->width > 0 && host->height > 0;
   if (!show) {
@@ -1083,6 +1154,8 @@ void UpdateChrome() {
       host->chrome->SetContent(nullptr);
       host->chromeSurface.Reset();
     }
+    host->chromeDrawn = {};
+    host->chromeInitialized = false;
     return;
   }
   if (!host->chromeSurface || host->chromeWidth != host->width || host->chromeHeight != host->height) {
@@ -1093,11 +1166,30 @@ void UpdateChrome() {
     host->chromeWidth = host->width;
     host->chromeHeight = host->height;
     host->chrome->SetContent(host->chromeSurface.Get());
+    host->chromeInitialized = false;
   }
+  // Dragging redraws every frame; at 4K a full-window draw is ~33 MB of fill.
+  // Only the previous and the new outlines change, so update just their union.
+  RectD extent = ChromeExtent();
+  RectD dirty = host->chromeInitialized ? Union(host->chromeDrawn, extent)
+                                        : RectD{0, 0, (double)host->width, (double)host->height};
+  if (dirty.Empty()) return;
+  RECT update{(LONG)std::floor(dirty.x), (LONG)std::floor(dirty.y), (LONG)std::ceil(dirty.Right()),
+              (LONG)std::ceil(dirty.Bottom())};
+  update.left = std::max<LONG>(0, update.left);
+  update.top = std::max<LONG>(0, update.top);
+  update.right = std::min<LONG>(host->width, update.right);
+  update.bottom = std::min<LONG>(host->height, update.bottom);
+  if (update.right <= update.left || update.bottom <= update.top) return;
   ComPtr<ID2D1DeviceContext> context;
   POINT offset{};
-  if (FAILED(host->chromeSurface->BeginDraw(nullptr, IID_PPV_ARGS(&context), &offset))) return;
-  context->SetTransform(D2D1::Matrix3x2F::Translation((float)offset.x, (float)offset.y));
+  if (FAILED(host->chromeSurface->BeginDraw(&update, IID_PPV_ARGS(&context), &offset))) return;
+  // The offset locates the update rectangle, not the surface origin.
+  context->SetTransform(
+      D2D1::Matrix3x2F::Translation((float)(offset.x - update.left), (float)(offset.y - update.top)));
+  context->PushAxisAlignedClip(
+      D2D1::RectF((float)update.left, (float)update.top, (float)update.right, (float)update.bottom),
+      D2D1_ANTIALIAS_MODE_ALIASED);
   context->Clear(D2D1::ColorF(0, 0, 0, 0));
   DrawChrome(context.Get());
   RectD exclusion = ExclusionPixels();
@@ -1108,7 +1200,10 @@ void UpdateChrome() {
     context->Clear(D2D1::ColorF(0, 0, 0, 0));
     context->PopAxisAlignedClip();
   }
-  host->chromeSurface->EndDraw();
+  context->PopAxisAlignedClip();
+  if (FAILED(host->chromeSurface->EndDraw())) return;
+  host->chromeDrawn = extent;
+  host->chromeInitialized = true;
 }
 
 void Layout() {
@@ -1183,13 +1278,16 @@ void OnTimer(UINT_PTR id) {
   }
   if (id == kTeardownTimer) {
     if (host != nullptr)
-      for (auto &entry : host->surfaces) CloseWebView(*entry.second);
+      for (auto &entry : host->surfaces) {
+        CloseWebView(*entry.second);
+        SetFault(entry.first, kRendererStopped);
+      }
     shared.environment.Reset();
     shared.environmentCreating = false;
     ++shared.environmentGeneration;
     Commit();
     // Without a retry, the next descriptor recreates the environment.
-    if (host != nullptr) ScheduleRecovery();
+    if (host != nullptr) ScheduleRecovery(shared.recoveries);
     return;
   }
   if (id != kRecoverTimer || host == nullptr) return;
@@ -1301,7 +1399,9 @@ IRP_WEBVIEW_API int irp_webview_set_surface(const char *viewerKind, const char *
       surface.padding = 0;
       surface.selectionInViewport = {};
       surface.url = source;
-      SetError("");
+      // The retry budget is kept: a page that keeps failing gets about one retry
+      // per descriptor poll instead of a fresh burst each time.
+      SetFault(kind, "");
       if (surface.webView) Navigate(surface);
     } else if (surface.reloadPending && surface.webView) {
       Navigate(surface);
@@ -1310,6 +1410,8 @@ IRP_WEBVIEW_API int irp_webview_set_surface(const char *viewerKind, const char *
     // also rebuilds a page after its browser process stopped.
     if (!surface.webView) CreateController(surface);
     Layout();
+    // The call succeeded; earlier call errors no longer describe the host.
+    SetError("");
     return 1;
   });
 }
@@ -1375,6 +1477,35 @@ IRP_WEBVIEW_API int irp_webview_get_reference_size(const char *viewerKind, doubl
         std::min(surface->padding, (std::min(surface->viewportWidth, surface->viewportHeight) - 1) / 2);
     *width = (surface->viewportWidth - 2 * padding) * surface->referenceScale;
     *height = (surface->viewportHeight - 2 * padding) * surface->referenceScale;
+    return 1;
+  });
+}
+
+IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewerKind, double *width, double *height) {
+  if (viewerKind == nullptr || width == nullptr || height == nullptr || !OnGameThread()) return 0;
+  return Guarded([&] {
+    Surface *surface = Lookup(viewerKind);
+    if (surface == nullptr || surface->viewportWidth <= 0 || surface->viewportHeight <= 0) return 0;
+    double padding =
+        std::min(surface->padding, (std::min(surface->viewportWidth, surface->viewportHeight) - 1) / 2);
+    *width = surface->viewportWidth - 2 * padding;
+    *height = surface->viewportHeight - 2 * padding;
+    return 1;
+  });
+}
+
+IRP_WEBVIEW_API int irp_webview_get_view_size(double *width, double *height) {
+  if (width == nullptr || height == nullptr || !OnGameThread()) return 0;
+  return Guarded([&] {
+    // Before any viewer attaches there is no host yet; measure the game window itself.
+    HWND window = host != nullptr && IsWindow(host->window) ? host->window : FindGameWindow(nullptr);
+    if (window == nullptr) return 0;
+    RECT client{};
+    if (!GetClientRect(window, &client) || client.right <= 0 || client.bottom <= 0) return 0;
+    UINT dpi = GetDpiForWindow(window);
+    double unit = (dpi == 0 ? 96 : dpi) / 96.0;
+    *width = client.right / unit;
+    *height = client.bottom / unit;
     return 1;
   });
 }
@@ -1495,6 +1626,7 @@ IRP_WEBVIEW_API void irp_webview_dispose(void) {
   if (!OnGameThread()) return;
   Guarded([] {
     DestroyHost();
+    ClearFaults();
     previewVisible = true;
     if (shared.messageWindow != nullptr) {
       KillTimer(shared.messageWindow, kRecoverTimer);
@@ -1510,7 +1642,15 @@ IRP_WEBVIEW_API void irp_webview_dispose(void) {
 IRP_WEBVIEW_API const char *irp_webview_last_error(void) {
   thread_local std::string result;
   std::lock_guard<std::mutex> lock(errorMutex);
-  result = lastError;
+  // A host problem affects every viewer, so it wins; otherwise report the
+  // first viewer still failing, in stable identifier order.
+  result = hostError;
+  if (result.empty())
+    for (const auto &fault : faults)
+      if (!fault.second.empty()) {
+        result = fault.second;
+        break;
+      }
   return result.c_str();
 }
 

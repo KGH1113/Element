@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using HarmonyLib;
 using ImplResourcePack.Infrastructure.Game.Editor;
+using ImplResourcePack.Infrastructure.Game.Input;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -93,6 +94,7 @@ internal sealed class GameplayTweaksController : IDisposable
     if (_disposed)
       return;
     _main.Settings.Gameplay.Normalize();
+    ChatterBlocker.Configure(_main.Settings.Gameplay.Chatter.Enabled, _main.Settings.Gameplay.Chatter.WindowMs);
     if (!_editorFailed)
     {
       _editor.ApplySettings();
@@ -321,6 +323,7 @@ internal sealed class GameplayTweaksController : IDisposable
       _current = null;
     SceneManager.sceneUnloaded -= SceneUnloaded;
     _harmony.UnpatchAll(_harmony.Id);
+    ChatterBlocker.Configure(false, 0);
     _editor.Dispose();
     _planets.Dispose();
   }

@@ -14,6 +14,11 @@ import type { LayerGroups } from '@src/types/layerGroups';
 import type { TabNoteOverrides } from '@src/types/settings/noteSettings';
 import type { TabCssOverrides } from '@src/types/plugin/css';
 
+/** How the app was started; ImplResourcePack can open it with ADOFAI. */
+export interface LaunchContext {
+  launchedByGame: boolean;
+}
+
 export interface BootstrapPayload {
   settings: SettingsState;
   defaults: DefaultsPayload;

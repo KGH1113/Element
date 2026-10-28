@@ -59,11 +59,17 @@ URL 확인 응답에 예전 데스크톱 창 크기가 포함되어도 현재 �
 9개 기준점 정책은 그대로 사용합니다.
 
 편집한 키뷰어 배치는 이 5개 기준점 중 하나와 논리 단위 여백, 개별 배율을
-저장합니다. 실제 게임 화면의 너비·높이에 따라
-`s = sqrt((너비 / 1920) × (높이 / 1080))`를 크기와 여백에 함께 적용합니다.
-네이티브 크기의 기준은 현재 콘텐츠 크기에 최초 연결의 고정 기본 배율을
-적용한 값입니다. Unity 화면 픽셀을 AppKit 포인트로 변환하므로 Retina 배율을
-중복 적용하지 않습니다. 위치와 크기 변경은 로컬 프레임·페이지 배율만 갱신하며
+저장합니다. 여백에는 실제 게임 화면의 너비·높이에 따라
+`s = sqrt((너비 / 1920) × (높이 / 1080))`를 적용합니다.
+
+크기는 별도 창 모드와 같습니다. 배율 100%에서 CSS 1픽셀이 macOS 1포인트,
+Windows 1 DIP(창의 디스플레이 배율 적용)이므로 게임 해상도나 Retina 여부와
+관계없이 ImplDmNote 창과 같은 크기로 보입니다. 네이티브 라이브러리가 알려 주는
+게임 뷰 크기(포인트·DIP)와 Unity 화면 픽셀의 비율로 환산하며, 게임 창을 배율이
+다른 모니터로 옮기면 그 모니터의 단위를 따릅니다. 처음 연결된 키뷰어가
+430×270보다 크면 그 안에 맞는 배율로 시작하고, 편집 화면에는 별도 창 대비
+배율이 표시됩니다. 저장한 배율이 게임 화면보다 크면 화면에 맞게 줄여 그리고
+저장값은 유지합니다. 위치와 크기 변경은 로컬 프레임·페이지 배율만 갱신하며
 IPC 요청이나 페이지 재로드를 발생시키지 않습니다.
 
 ## 캡처 호환성
@@ -117,16 +123,27 @@ Windows PC에서 빌드합니다. OpenSSH 서버와 Visual Studio Build Tools(C+
 
 ```bash
 ./scripts/run.sh windows-webview-check  # 원격 빌드와 데스크톱 스모크 테스트
-./scripts/run.sh windows-install        # 그 PC의 얼불춤에 설치(게임을 닫은 상태)
+./scripts/run.sh windows-install        # 그 PC에 옮겨 설치할 zip 만들기(접속 없음)
 ```
+
+`windows-install`은 그 PC에 접속하지 않습니다. 만든
+`build/ImplResourcePack-windows-install.zip`을 그 PC로 옮겨 풀고, 게임을 닫은 채
+그 폴더에서 `powershell -ExecutionPolicy Bypass -File .\Install.ps1`을 실행합니다.
+`Install.ps1`은 Steam 라이브러리에서 얼불춤의 `Mods` 폴더를 찾고(다른 위치면
+`-Mods <폴더>`), 설정 파일은 그대로 둔 채 모드를 바꿉니다.
 
 빌드는 고정한 WebView2 SDK 1.0.4314.35를 NuGet에서 받아 SHA-256을 확인하고,
 CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL을 만듭니다.
 스모크 테스트는 로그인된 데스크톱에서 약 1분 동안 커서를 움직이고 자기 창을
-클릭하므로 그 PC를 쓰지 않을 때 실행합니다. `package`는 호스트가 지정되어
-있으면 DLL을 다시 빌드하고, 없으면 현재 소스로 빌드한 DLL이 있어야 합니다.
+클릭하므로 그 PC를 쓰지 않을 때 실행합니다. `package`는 현재 소스로 빌드하고
+스모크 테스트를 통과한 DLL만 포함하며, 스모크 테스트를 직접 시작하지 않습니다.
+소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요. 릴리스는 이 PC 대신
+CD가 GitHub의 Windows 러너에서 빌드하고 스모크 테스트한 DLL을 씁니다
+([릴리스](releasing.md)). CI도 PR마다 같은 빌드와 스모크 테스트를 돌립니다.
 `IMPL_RESOURCEPACK_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
 패키징하며, 이 경우 Windows 플레이어는 게임 내 키뷰어를 쓸 수 없습니다.
+이 DLL은 `ImplResourcePack-windows.zip`에만 들어갑니다. 패키지에 함께 들어가는
+ImplDmNote는 [모드에 포함된 ImplDmNote](bundled-impl-dm-note.md)를 보세요.
 Windows용 ImplDmNote Release 빌드는 관리자 권한으로 실행됩니다.
 
 ## 사용하기

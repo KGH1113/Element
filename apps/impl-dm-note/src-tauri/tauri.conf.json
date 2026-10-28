@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ImplDmNote",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "identifier": "io.github.kgh1113.impldmnote",
   "build": {
     "beforeBuildCommand": "npm run build",
@@ -32,7 +32,8 @@
         "shadow": true,
         "url": "main/index.html",
         "visible": false,
-        "backgroundColor": "#1A191E"
+        "focus": false,
+        "backgroundColor": "#131315"
       }
     ],
     "security": {

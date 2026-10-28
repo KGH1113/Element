@@ -31,6 +31,7 @@ import type {
 import type { JsPlugin } from '@src/types/plugin/js';
 import type { KeyCounters } from '@src/types/key/keys';
 import { obsApi } from '@api/modules/obsApi';
+import { setObsModeRunning } from '@utils/obsMode';
 import { keySoundOutputApi } from '@api/modules/resourceApi';
 import type {
   KeySoundOutputBackend,
@@ -670,9 +671,7 @@ const Settings = ({
     if (obsTogglingRef.current) return;
     obsTogglingRef.current = true;
     try {
-      const status = next ? await obsApi.start() : await obsApi.stop();
-      setObsStatus(status);
-      await window.api.settings.update({ obsModeEnabled: next });
+      setObsStatus(await setObsModeRunning(next));
     } catch (error) {
       console.error('Failed to toggle OBS mode', error);
       setObsStatus((prev) => ({ ...prev, running: !next }));
@@ -840,7 +839,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleOverlayLockChange}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.overlayLock')}
                 </p>
                 <Checkbox
@@ -852,7 +851,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleAlwaysOnTopChange}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.alwaysOnTop')}
                 </p>
                 <Checkbox
@@ -864,7 +863,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleNoteEffectChange}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.noteEffect')}
                 </p>
                 <Checkbox
@@ -876,7 +875,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleKeyCounterToggle}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.keyCounter')}
                 </p>
                 <div className="flex items-center gap-[8px]">
@@ -899,7 +898,7 @@ const Settings = ({
                 onMouseLeave={() => setHoveredKey(null)}
                 onClick={handleLaboratoryToggle}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t("settings.laboratory")}
                 </p>
                 <Checkbox
@@ -912,14 +911,14 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleTrayToggle}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.trayEnabled')}
                 </p>
                 <Checkbox checked={trayEnabled} onChange={handleTrayToggle} />
               </div>
               {null}
               <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.resizeAnchor')}
                 </p>
                 <Dropdown
@@ -948,7 +947,7 @@ const Settings = ({
                   className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                   onClick={handleToggleCustomCSS}
                 >
-                  <p className="text-style-3 text-[#FFFFFF]">
+                  <p className="text-label text-ui-fg-primary">
                     {t('settings.customCSS')}
                   </p>
                   <Checkbox
@@ -960,7 +959,9 @@ const Settings = ({
                   <p
                     className={
                       'text-[12px] truncate max-w-[150px] ' +
-                      (useCustomCSS ? 'text-[#989BA6]' : 'text-[#44464E]')
+                      (useCustomCSS
+                        ? 'text-ui-fg-muted'
+                        : 'text-ui-fg-disabled')
                     }
                   >
                     {customCSSPath && customCSSPath.length > 0
@@ -971,10 +972,10 @@ const Settings = ({
                     onClick={handleLoadCustomCSS}
                     disabled={!useCustomCSS}
                     className={
-                      'py-[4px] px-[8px] bg-[#2A2A31] border-[1px] border-[#3A3944] rounded-[7px] text-style-2 ' +
+                      'py-[5px] px-[9px] rounded-ui-inner text-style-2 ' +
                       (useCustomCSS
-                        ? 'text-[#DBDEE8]'
-                        : 'text-[#44464E] cursor-not-allowed bg-[#222228] border-[#31303C]')
+                        ? 'bg-ui-fill hover:bg-ui-fill-hover text-[#DBDEE8]'
+                        : 'bg-ui-fill-faint text-ui-fg-disabled cursor-not-allowed')
                     }
                   >
                     {t('settings.loadCss')}
@@ -986,7 +987,7 @@ const Settings = ({
                   className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                   onClick={handleToggleCustomJS}
                 >
-                  <p className="text-style-3 text-[#FFFFFF]">
+                  <p className="text-label text-ui-fg-primary">
                     {t('settings.customJS')}
                   </p>
                   <Checkbox
@@ -998,7 +999,7 @@ const Settings = ({
                   <p
                     className={
                       'text-[12px] truncate max-w-[150px] ' +
-                      (useCustomJS ? 'text-[#989BA6]' : 'text-[#44464E]')
+                      (useCustomJS ? 'text-ui-fg-muted' : 'text-ui-fg-disabled')
                     }
                   >
                     {t('settings.pluginManageLabel')}
@@ -1008,10 +1009,10 @@ const Settings = ({
                       onClick={handleReloadPlugins}
                       disabled={!canReloadPlugins || isReloadingPlugins}
                       className={
-                        'flex items-center justify-center px-[5px] py-[4px] border-[1px] rounded-[7px] transition-none ' +
+                        'flex items-center justify-center px-[6px] py-[5px] rounded-ui-inner transition-none ' +
                         (canReloadPlugins && !isReloadingPlugins
-                          ? 'bg-[#2A2A31] border-[#3A3944] hover:bg-[#34343c]'
-                          : 'bg-[#222228] border-[#31303C] cursor-not-allowed')
+                          ? 'bg-ui-fill hover:bg-ui-fill-hover'
+                          : 'bg-ui-fill-faint cursor-not-allowed')
                       }
                       style={
                         isReloadingPlugins
@@ -1025,7 +1026,7 @@ const Settings = ({
                           'w-[13px] h-[13px] -scale-x-100 ' +
                           (canReloadPlugins && !isReloadingPlugins
                             ? '[&_path]:fill-[#DBDEE8]'
-                            : '[&_path]:fill-[#44464E]')
+                            : '[&_path]:fill-[var(--ui-fg-disabled)]')
                         }
                       />
                     </button>
@@ -1037,7 +1038,7 @@ const Settings = ({
                     </button>
                   </div>
                 </div>
-                <p className="pb-[8px] text-[11px] leading-[15px] text-[#989BA6]">
+                <p className="pb-[8px] text-[11px] leading-[15px] text-ui-fg-muted">
                   {t('settings.pluginSecurityWarning')}
                 </p>
               </div>
@@ -1048,7 +1049,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleObsToggle}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.obsMode')}
                 </p>
                 <Checkbox
@@ -1060,7 +1061,9 @@ const Settings = ({
                 <p
                   className={
                     'text-[12px] ' +
-                    (obsStatus.running ? 'text-[#989BA6]' : 'text-[#44464E]')
+                    (obsStatus.running
+                      ? 'text-ui-fg-muted'
+                      : 'text-ui-fg-disabled')
                   }
                 >
                   {obsStatus.running
@@ -1077,10 +1080,10 @@ const Settings = ({
                     onClick={handleObsRegenerateToken}
                     disabled={!obsStatus.running}
                     className={
-                      'flex items-center justify-center px-[5px] py-[4px] border-[1px] rounded-[7px] transition-colors ' +
+                      'flex items-center justify-center px-[6px] py-[5px] rounded-ui-inner transition-colors ' +
                       (obsStatus.running
-                        ? 'bg-[#2A2A31] border-[#3A3944] hover:bg-[#34343c]'
-                        : 'bg-[#222228] border-[#31303C] cursor-not-allowed')
+                        ? 'bg-ui-fill hover:bg-ui-fill-hover'
+                        : 'bg-ui-fill-faint cursor-not-allowed')
                     }
                   >
                     <ResetIcon
@@ -1088,7 +1091,7 @@ const Settings = ({
                         'w-[13px] h-[13px] -scale-x-100 ' +
                         (obsStatus.running
                           ? '[&_path]:fill-[#DBDEE8]'
-                          : '[&_path]:fill-[#44464E]')
+                          : '[&_path]:fill-[var(--ui-fg-disabled)]')
                       }
                     />
                   </button>
@@ -1105,7 +1108,7 @@ const Settings = ({
             {/* 키음 출력 설정 */}
             <div className="dmn-setting-card flex flex-col">
               <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-style-3 text-[#FFFFFF] flex-1 min-w-0 truncate pr-[10px]">
+                <p className="text-label text-ui-fg-primary flex-1 min-w-0 truncate pr-[10px]">
                   {t('settings.keySoundOutput') || '키 사운드 출력'}
                 </p>
                 <div className="shrink-0">
@@ -1167,10 +1170,10 @@ const Settings = ({
               </div>
               <div className="flex flex-row justify-between items-center h-[40px]">
                 <p
-                  className={`text-style-3 ${
+                  className={`text-label ${
                     keySoundOutput?.requested.kind === 'asio'
-                      ? 'text-[#FFFFFF]'
-                      : 'text-[#666666]'
+                      ? 'text-ui-fg-primary'
+                      : 'text-ui-fg-disabled'
                   }`}
                 >
                   {t('settings.keySoundOutputBuffer') || 'ASIO 버퍼 크기'}
@@ -1192,7 +1195,7 @@ const Settings = ({
             {/* 기타 설정 */}
             <div className="dmn-setting-card flex flex-col">
               <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.language')}
                 </p>
                 <Dropdown
@@ -1204,7 +1207,7 @@ const Settings = ({
                 />
               </div>
               <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.shortcuts')}
                 </p>
                 <button
@@ -1215,7 +1218,7 @@ const Settings = ({
                 </button>
               </div>
               <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.graphicsOption')}
                 </p>
                 <Dropdown
@@ -1231,7 +1234,7 @@ const Settings = ({
                 className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
                 onClick={handleDeveloperModeToggle}
               >
-                <p className="text-style-3 text-[#FFFFFF]">
+                <p className="text-label text-ui-fg-primary">
                   {t('settings.developerMode')}
                 </p>
                 <Checkbox
@@ -1240,13 +1243,13 @@ const Settings = ({
                 />
               </div>
               {/* 버전 및 설정 초기화 */}
-              <div className="flex justify-between items-center py-[14px] px-[12px] bg-[#101013] rounded-[7px] mt-[7px] mb-[12px]">
-                <p className="text-style-3 text-[#FFFFFF]">
+              <div className="flex justify-between items-center py-[14px] px-[12px] bg-ui-inset rounded-ui-surface mt-[7px] mb-[12px]">
+                <p className="text-label text-ui-fg-primary">
                   Ver {__APP_VERSION__}
                 </p>
                 <div className="flex gap-[8px]">
                   <button
-                    className="bg-[#401C1D] rounded-[7px] py-[4px] px-[9px] text-style-2 text-[#E8DBDB]"
+                    className="bg-[var(--ui-danger-soft)] hover:bg-[rgba(239,83,80,0.24)] rounded-ui-inner py-[4px] px-[9px] text-style-2 text-[#ffb4b2]"
                     onClick={handleResetAll}
                   >
                     {t('settings.resetData')}

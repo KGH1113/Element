@@ -48,7 +48,7 @@ internal sealed class EditorTrackpadController : IDisposable
   private EditorTrackpadController(Main main)
   {
     _main = main;
-    _native = new MacTrackpadNative(main.Path);
+    _native = new MacTrackpadNative(main.RuntimePath);
   }
 
   private void Install()

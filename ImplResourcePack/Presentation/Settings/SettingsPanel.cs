@@ -21,7 +21,7 @@ internal sealed partial class SettingsPanel : IDisposable
   private readonly GameObject _root;
   private readonly RectTransform _window;
   private readonly Canvas _canvas;
-  private readonly GameObject[] _pages = new GameObject[8];
+  private readonly GameObject[] _pages = new GameObject[9];
   private readonly Button[] _homeCards = new Button[4];
   private readonly TextMeshProUGUI _title;
   private readonly TextMeshProUGUI _feedback;
@@ -168,6 +168,8 @@ internal sealed partial class SettingsPanel : IDisposable
       FitWindow();
     if (_page == 6 && Time.unscaledTime >= _nextPlanetPreview)
       RefreshPlanetPreview();
+    if (_page == ChatterPage)
+      RefreshChatterCount();
     GameObject focused = EventSystem.current?.currentSelectedGameObject;
     if (focused != _lastFocused)
     {
@@ -381,6 +383,7 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 4 ? L("에디터", "Editor tweaks")
       : index == 5 ? L("판정 표시", "Judgment visuals")
       : index == 6 ? L("행성", "Planets")
+      : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);
@@ -390,6 +393,8 @@ internal sealed partial class SettingsPanel : IDisposable
     _scroll.verticalNormalizedPosition = _scrollPositions[index];
     _lastFocused = null;
     RefreshPlanetPreview();
+    if (index == 2)
+      RefreshUpdateRow();
   }
 
   private void Back()

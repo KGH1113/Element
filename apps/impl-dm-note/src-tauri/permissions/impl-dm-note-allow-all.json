@@ -10,6 +10,7 @@
           "adofai_ipc_ws_connect",
           "adofai_ipc_ws_send",
           "app_bootstrap",
+          "app_launch_context",
           "app_open_external",
           "app_quit",
           "app_restart",

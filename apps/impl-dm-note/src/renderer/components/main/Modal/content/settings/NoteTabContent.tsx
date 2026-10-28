@@ -312,7 +312,7 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
             ref={colorButtonRef}
             type="button"
             className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-              state.showPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+              state.showPicker ? 'border-ui-accent' : 'border-[#3A3943]'
             } text-[#DBDEE8] text-style-2`}
             onClick={() =>
               setState((prev) => ({ ...prev, showPicker: !prev.showPicker }))
@@ -343,7 +343,7 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
               }))
             }
             onBlur={handleOpacityBlur}
-            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
           />
         </div>
 
@@ -371,7 +371,7 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
               type="button"
               disabled={!state.glowEnabled}
               className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                state.showGlowPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+                state.showGlowPicker ? 'border-ui-accent' : 'border-[#3A3943]'
               } text-[#DBDEE8] text-style-2`}
               onClick={() => {
                 if (state.glowEnabled) {
@@ -412,7 +412,7 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
                 }))
               }
               onBlur={handleGlowSizeBlur}
-              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
             />
           </div>
 
@@ -437,7 +437,7 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
                 }))
               }
               onBlur={handleGlowOpacityBlur}
-              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
             />
           </div>
         </div>

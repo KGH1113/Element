@@ -141,6 +141,8 @@ struct Api {
   int (*layout)(const char *, int, double, double, double);
   int (*setBounds)(const char *, double, double, double, double, double);
   int (*referenceSize)(const char *, double *, double *);
+  int (*contentSize)(const char *, double *, double *);
+  int (*viewSize)(double *, double *);
   unsigned long long (*geometryRevision)(void);
   int (*bounds)(const char *, double *, double *, double *, double *, double *);
   int (*selectionBounds)(const char *, double *, double *, double *, double *, double *);
@@ -168,6 +170,8 @@ int Run(const char *path) {
       reinterpret_cast<int (*)(const char *, int, double, double, double)>(dlsym(library, "irp_webview_set_layout")),
       reinterpret_cast<int (*)(const char *, double, double, double, double, double)>(dlsym(library, "irp_webview_set_bounds")),
       reinterpret_cast<int (*)(const char *, double *, double *)>(dlsym(library, "irp_webview_get_reference_size")),
+      reinterpret_cast<int (*)(const char *, double *, double *)>(dlsym(library, "irp_webview_get_content_size")),
+      reinterpret_cast<int (*)(double *, double *)>(dlsym(library, "irp_webview_get_view_size")),
       reinterpret_cast<unsigned long long (*)(void)>(dlsym(library, "irp_webview_geometry_revision")),
       reinterpret_cast<int (*)(const char *, double *, double *, double *, double *, double *)>(dlsym(library, "irp_webview_get_bounds")),
       reinterpret_cast<int (*)(const char *, double *, double *, double *, double *, double *)>(dlsym(library, "irp_webview_get_selection_bounds")),
@@ -179,7 +183,7 @@ int Run(const char *path) {
       reinterpret_cast<void (*)(void)>(dlsym(library, "irp_webview_dispose")),
       reinterpret_cast<const char *(*)(void)>(dlsym(library, "irp_webview_last_error")),
   };
-  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.geometryRevision || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.dispose || !api.error) {
+  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.contentSize || !api.viewSize || !api.geometryRevision || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.dispose || !api.error) {
     fprintf(stderr, "FAIL: missing native viewer C ABI export\n");
     return 1;
   }
@@ -415,6 +419,15 @@ int Run(const char *path) {
   if (!check(api.referenceSize("hand", &referenceWidth, &referenceHeight) == 1 &&
              Nearly(referenceWidth, 430) && Nearly(referenceHeight, 270),
              "reference content size is independent of game window and backing scale")) return 1;
+  // The managed layout sizes viewers like the separate window: natural CSS
+  // pixels per desktop unit, measured against the game view in points.
+  double contentWidth, contentHeight, viewWidth, viewHeight;
+  // The 860x540 descriptor was fitted by .5 into the 430x270 reference.
+  if (!check(api.contentSize("hand", &contentWidth, &contentHeight) == 1 && Nearly(contentWidth, 860) &&
+             Nearly(contentHeight, 540) && api.viewSize(&viewWidth, &viewHeight) == 1 &&
+             Nearly(viewWidth, game.contentView.bounds.size.width) &&
+             Nearly(viewHeight, game.contentView.bounds.size.height),
+             "natural content size and the game view are reported in desktop points")) return 1;
   auto applyBottomRight = [&](double gameWidth, double gameHeight, double uniformScale, double userScale) {
     double w = referenceWidth * uniformScale * userScale;
     double h = referenceHeight * uniformScale * userScale;
@@ -520,7 +533,9 @@ int Run(const char *path) {
                Nearly(width * 1280, referenceWidth * .7) && Nearly(height * 720, referenceHeight * .7) &&
                std::abs(views[1].pageZoom - initialZoom) < .00001 &&
                std::abs(x + width / 2 - .75) < .00001 && std::abs(y + height / 2 - .6) < .00001 &&
-               std::abs(scale - .7) < .00001,
+               std::abs(scale - .7) < .00001 &&
+               api.contentSize("foot", &contentWidth, &contentHeight) == 1 &&
+               Nearly(contentWidth, cssWidth - 60) && Nearly(contentHeight, cssHeight - 60),
                "content growth beyond 430x270 preserves CSS pixel size and user scale")) return 1;
     __block double cssViewport = 0;
     [views[1] evaluateJavaScript:@"window.innerWidth" completionHandler:^(id result, NSError *error) {

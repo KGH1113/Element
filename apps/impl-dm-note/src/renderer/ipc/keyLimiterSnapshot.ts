@@ -4,6 +4,7 @@ import type {
   KeyViewerTab,
   SelectedViewerTabs,
 } from '@src/types/key/keys';
+import { ghostKeyLabels } from '@src/renderer/editor/model/ghostKeys';
 
 export const KEY_LIMITER_SCHEMA_VERSION = 2 as const;
 export const KEY_LIMITER_SOURCE = 'impl-dm-note' as const;
@@ -30,6 +31,8 @@ export interface KeyLimiterSnapshotSource {
   tabs: KeyViewerTab[];
   keyMappings: KeyMappings;
   positions: KeyPositions;
+  /** The Enable Key Limiter toggle in ImplDmNote. */
+  keyLimiterEnabled?: boolean;
 }
 
 function pushUnique(target: string[], seen: Set<string>, key: string): void {
@@ -64,6 +67,10 @@ export function buildKeyLimiterSyncRequest(
 
       pushUnique(keys, included, key);
     });
+    // Ghost keys never limit input; report them so the game can explain why.
+    ghostKeyLabels(mappings, positions).forEach((key) =>
+      pushUnique(ghostCandidates, seenGhostCandidates, key),
+    );
   });
 
   const excludedGhostKeys = ghostCandidates.filter((key) => !included.has(key));
@@ -76,7 +83,7 @@ export function buildKeyLimiterSyncRequest(
     clientVersion,
     sessionId,
     revision,
-    enabled: keys.length > 0,
+    enabled: source.keyLimiterEnabled !== false && keys.length > 0,
     profile: {
       id: `dual:${encodeURIComponent(handMode)}:${encodeURIComponent(
         footMode,

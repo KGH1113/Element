@@ -78,8 +78,7 @@ function main() {
         'Usage: node scripts/build-portable-win.js [options]',
         '',
         'Options:',
-        '  --major <143>          WebView2 Fixed runtime major (default: 143)',
-        '  --arch <x64|x86|arm64> WebView2 runtime arch (default: x64)',
+        '  --arch <x64|x86|arm64> Output name architecture (default: x64)',
         '  --exe-name <name>      Output exe name (default: impl-dm-note.exe)',
         '  --out <dir>            Output root dir (default: dist/portable)',
         '  --folder <name>        Output folder name (default: ImplDmNote-v<ver>-windows-<arch>-portable)',
@@ -88,7 +87,6 @@ function main() {
     );
     return;
   }
-  const major = String(args.major ?? '143');
   const arch = String(args.arch ?? 'x64');
   const exeName = String(
     args['exe-name'] ?? args.exeName ?? 'impl-dm-note.exe',
@@ -107,16 +105,8 @@ function main() {
 
   fs.mkdirSync(outRoot, { recursive: true });
 
-  // 1) Download fixed WebView2 runtime into src-tauri/webview2-fixed-runtime
-  run(
-    `node "${path.join(
-      repoRoot,
-      'scripts',
-      'download-webview2-fixed-runtime.cjs',
-    )}" --major ${major} --arch ${arch}`,
-  );
-
-  // 2) Build binary only (no installer)
+  // 1) Build binary only (no installer). The app uses the system's Evergreen
+  // WebView2 Runtime, the same one the in-game viewers need.
   run('npx tauri build --no-bundle -f asio-backend', { cwd: repoRoot });
 
   const exeSrc = builtExecutablePath(repoRoot);
@@ -124,20 +114,9 @@ function main() {
     throw new Error(`Built exe not found: ${exeSrc}`);
   }
 
-  const runtimeSrc = path.join(repoRoot, 'src-tauri', 'webview2-fixed-runtime');
-  const runtimeExe = path.join(runtimeSrc, 'msedgewebview2.exe');
-  if (!fs.existsSync(runtimeExe)) {
-    throw new Error(
-      `Fixed WebView2 runtime missing (expected ${runtimeExe}). Run the download step first.`,
-    );
-  }
-
-  // 3) Stage portable folder
+  // 2) Stage portable folder
   ensureEmptyDir(outDir);
   fs.copyFileSync(exeSrc, path.join(outDir, exeName));
-  fs.cpSync(runtimeSrc, path.join(outDir, 'webview2-fixed-runtime'), {
-    recursive: true,
-  });
   for (const legalFile of REQUIRED_LEGAL_FILES) {
     const source = path.join(repoRoot, legalFile);
     if (!fs.existsSync(source)) {
@@ -146,7 +125,7 @@ function main() {
     fs.copyFileSync(source, path.join(outDir, legalFile));
   }
 
-  // 4) Zip
+  // 3) Zip
   compressFolderToZip(outDir, zipPath);
 
   console.log(`[portable] folder: ${outDir}`);

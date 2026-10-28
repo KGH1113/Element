@@ -7,16 +7,13 @@ namespace ImplResourcePack.Presentation.Layout;
 /// <summary>
 /// What the editor's offline key viewer sample tells the player. Each message
 /// says what to do next, in player terms (no IPC, WebKit or protocol words).
+/// Nothing is said while ImplDmNote is closed: the editor hides key viewers then.
 /// </summary>
 internal static class NativeViewerStatusText
 {
   public static string Get(NativeViewerStatus status) =>
     status switch
     {
-      NativeViewerStatus.WaitingForApp => SettingsLocale.L(
-        "ImplDmNote를 실행하면 키뷰어가 여기에 표시돼요.",
-        "Open ImplDmNote to show the key viewer here."
-      ),
       NativeViewerStatus.Connecting => SettingsLocale.L(
         "ImplDmNote에서 키뷰어를 불러오고 있어요.",
         "Loading the key viewer from ImplDmNote…"
@@ -24,6 +21,10 @@ internal static class NativeViewerStatusText
       NativeViewerStatus.ObsModeOff => SettingsLocale.L(
         "ImplDmNote에서 OBS 모드를 켜면 키뷰어가 표시돼요.",
         "Turn on OBS mode in ImplDmNote to show the key viewer."
+      ),
+      NativeViewerStatus.HiddenInApp => SettingsLocale.L(
+        "ImplDmNote에서 '얼불춤 안에 표시'를 켜면 키뷰어가 표시돼요.",
+        "Turn on Show inside ADOFAI in ImplDmNote to show the key viewer."
       ),
       NativeViewerStatus.NoViewerTab => SettingsLocale.L(
         "ImplDmNote에서 이 키뷰어의 탭을 선택하면 여기에 표시돼요.",
@@ -60,6 +61,10 @@ internal static class NativeViewerStatusText
       NativeViewerStatus.WebViewRuntimeMissing => SettingsLocale.L(
         "Microsoft Edge WebView2 런타임을 설치하거나 업데이트한 뒤 게임을 다시 시작하면 키뷰어를 쓸 수 있어요.",
         "Install or update the Microsoft Edge WebView2 Runtime, then restart ADOFAI to use the key viewer."
+      ),
+      NativeViewerStatus.HostIncompatible => SettingsLocale.L(
+        "이 게임 환경에서는 게임 내 키뷰어를 띄울 수 없어요. ImplDmNote 창이나 OBS로 키뷰어를 볼 수 있어요.",
+        "This game setup can't show in-game key viewers. Use the ImplDmNote window or OBS instead."
       ),
       NativeViewerStatus.UnsupportedSystem => UnityEngine.Application.platform == RuntimePlatform.WindowsPlayer
         ? SettingsLocale.L(

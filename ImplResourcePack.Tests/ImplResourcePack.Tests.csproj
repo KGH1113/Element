@@ -11,6 +11,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../ImplResourcePack/ImplResourcePack.csproj" />
+    <!-- Aliased: both also compile the shared update sources the mod has. -->
+    <ProjectReference Include="../ImplResourcePack.Launcher/ImplResourcePack.Launcher.csproj" Aliases="launcher" />
+    <ProjectReference Include="../ImplResourcePack.Updater/ImplResourcePack.Updater.csproj" Aliases="updater" />
     <Reference Include="Assembly-CSharp">
       <HintPath>$(AdofaiManaged)/Assembly-CSharp.dll</HintPath>
       <Private>true</Private>

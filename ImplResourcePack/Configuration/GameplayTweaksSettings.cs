@@ -1,5 +1,6 @@
 using System;
 using System.Xml.Serialization;
+using ImplResourcePack.Domain.Input;
 
 namespace ImplResourcePack.Configuration;
 
@@ -8,12 +9,15 @@ public sealed class GameplayTweaksSettings
   public EditorTweaksOptions Editor = new();
   public JudgementVisualOptions Judgement = new();
   public PlanetAppearanceOptions Planets = new();
+  public ChatterBlockerOptions Chatter = new();
 
   public void Normalize()
   {
     Editor ??= new();
     Judgement ??= new();
     Planets ??= new();
+    Chatter ??= new();
+    Chatter.WindowMs = ChatterFilter.ClampWindow(Chatter.WindowMs);
     Editor.RotationStep = FiniteClamp(Editor.RotationStep, 0.1f, 180f, 22.5f);
     Judgement.Normalize();
     Planets.Normalize();
@@ -36,6 +40,14 @@ public sealed class EditorTweaksOptions
 
   [XmlIgnore]
   public bool HasSelectionInfo => ShowAngle || ShowBeats || ShowCount || ShowDuration;
+}
+
+public sealed class ChatterBlockerOptions
+{
+  public bool Enabled;
+
+  /// <summary>A press this soon after the same key's release is switch bounce.</summary>
+  public int WindowMs = ChatterFilter.DefaultWindowMs;
 }
 
 public sealed class JudgementVisualOptions

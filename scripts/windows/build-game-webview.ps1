@@ -1,5 +1,5 @@
-# Builds ImplGameWebView.dll and its smoke probe with MSVC on the Windows build host.
-# Invoked over SSH by scripts/tasks/build/game-webview-windows.sh.
+# Builds ImplGameWebView.dll and its smoke probe with MSVC.
+# CI and CD run it on GitHub's Windows runner; scripts/tasks/build/game-webview-windows.sh runs it over SSH.
 param(
   [Parameter(Mandatory = $true)] [string] $Source,
   [Parameter(Mandatory = $true)] [string] $Output

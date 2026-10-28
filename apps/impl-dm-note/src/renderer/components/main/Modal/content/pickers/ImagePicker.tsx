@@ -186,7 +186,7 @@ const ImagePicker = ({
     >
       <div
         ref={pickerContainerRef}
-        className="dmn-picker-surface flex w-[146px] flex-col gap-[8px] p-[8px]"
+        className="flex w-[146px] flex-col gap-[8px] p-[8px]"
       >
         {/* 모드 전환 버튼 */}
         <div className="flex gap-[6px] max-w-full">

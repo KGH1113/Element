@@ -23,6 +23,7 @@ internal static class NativeViewerSessionTests
     KeepsTheHostForTransientFailures();
     StopsOnIncompatibleReplies();
     DisconnectResetsTheHost();
+    FollowsShowInsideAdofai();
   }
 
   private static void ClassifiesFailures()
@@ -93,6 +94,28 @@ internal static class NativeViewerSessionTests
     Check(
       NativeViewerErrors.Classify("Native viewer requires macOS 11 or later.") == NativeViewerStatus.UnsupportedSystem,
       "Old macOS versions are unsupported."
+    );
+    Check(
+      NativeViewerErrors.Classify("This game build cannot host WebView2 (multithreaded COM apartment).")
+        == NativeViewerStatus.HostIncompatible,
+      "A COM apartment the game fixed at startup is not reported as a retryable window problem."
+    );
+    Check(
+      NativeViewerErrors.Classify(
+        "Native viewer could not load its local source. Viewers will reconnect automatically."
+      ) == NativeViewerStatus.Reconnecting,
+      "A page load the host retries by itself reports reconnecting."
+    );
+    Check(
+      NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.PageUnavailable)
+        && NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.Reconnecting),
+      "Failed and stopped pages accept an unchanged descriptor as their retry."
+    );
+    Check(
+      !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.Attached)
+        && !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.WebViewRuntimeMissing)
+        && !NativeViewerErrors.NeedsDescriptor(NativeViewerStatus.HostIncompatible),
+      "Healthy viewers and problems a reload cannot fix skip unchanged descriptors."
     );
   }
 
@@ -179,15 +202,48 @@ internal static class NativeViewerSessionTests
 
   private static void DisconnectResetsTheHost()
   {
+    Check(!Active(out _).Connected, "Before ImplDmNote announces its viewers, the editor hides them.");
     var session = Connected(out _);
+    Check(session.Connected, "An app that announced its viewers is connected.");
     session.TakeWork();
     session.OnPeerDisconnected(App);
     Check(session.TakeWork().ResetHost, "A disconnected app's pages are released.");
-    Check(session.Status == NativeViewerStatus.WaitingForApp, "The player is asked to open the app.");
+    Check(!session.Connected, "A disconnected app hides the editor's key viewers.");
+    Check(session.Status == NativeViewerStatus.WaitingForApp, "The session waits for the app to return.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1 }), Start);
+    Check(session.Connected, "A returning app shows the key viewers again.");
     var unsupported = new NativeViewerSession(false);
     unsupported.SetActive(true, Start);
     unsupported.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1 }), Start);
     Check(unsupported.Status == NativeViewerStatus.UnsupportedPlatform, "Other platforms explain the macOS limit.");
+  }
+
+  private static void FollowsShowInsideAdofai()
+  {
+    var session = Active(out _);
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1 }), Start);
+    Check(!session.HiddenInApp, "Apps that omit the flag keep showing their viewers.");
+    session.OnPeerEvent(
+      Event(
+        "mirror.available",
+        new
+        {
+          nativeProtocolVersion = 1,
+          nativePush = true,
+          inGame = false,
+        }
+      ),
+      Start
+    );
+    Check(session.HiddenInApp, "Show inside ADOFAI off hides the viewers.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1, inGame = true }), Start);
+    Check(!session.HiddenInApp, "Turning it back on shows them again.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1, inGame = false }), Start);
+    session.OnPeerDisconnected(App);
+    Check(!session.HiddenInApp, "A disconnected app no longer hides anything.");
+    NativeViewerFailure hidden = NativeViewerFailure.From("in-game-disabled", true);
+    Check(hidden.Status == NativeViewerStatus.HiddenInApp && hidden.ResetHost, "A hidden viewer releases its page.");
+    Check(!hidden.StopRequests, "Turning it back on reaches the game through a push.");
   }
 
   private static NativeViewerSession Active(out List<string> sent)

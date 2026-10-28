@@ -147,7 +147,7 @@ const Modal = ({
       data-dmn-modal-backdrop="true"
       data-dmn-app-portal
       data-dmn-motion-state={usesPresenceMotion ? motionState : undefined}
-      className={`dmn-modal-backdrop fixed bottom-[61px] left-[1px] right-[1px] top-[31px] flex items-center justify-center z-50 ${backdropAnimClass}`}
+      className={`dmn-modal-backdrop fixed bottom-[60px] left-0 right-0 top-[30px] flex items-center justify-center z-50 ${backdropAnimClass}`}
       onPointerDown={handleBackdropPointerDown}
       onClick={handleBackdropClick}
       onWheel={handleWheel}

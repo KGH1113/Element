@@ -42,7 +42,7 @@ internal sealed class FontBundleLoader : IDisposable
     if (platformDirectory == null)
       return false;
 
-    string bundlePath = Path.Combine(_main.Path, "Assets", "Font", platformDirectory, BundleName);
+    string bundlePath = Path.Combine(_main.RuntimePath, "Assets", "Font", platformDirectory, BundleName);
     if (!File.Exists(bundlePath))
     {
       _main.LogWarning("Font AssetBundle was not found: " + bundlePath);

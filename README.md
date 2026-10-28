@@ -72,26 +72,28 @@
 - **행성 꾸미기**: 불·얼음·세 번째 공의 공·꼬리·고리 색과 불투명도를 바꿉니다.
 - **에디터 도구**: 선택 구간의 각도·박자·타일 수·시간 표시, 정밀 회전, 타일을 뒤집거나 돌릴 때 이벤트 좌표 함께 맞추기.
 - **판정 문구 숨김**: Perfect·Early·Miss·Overload 등 보고 싶지 않은 판정 문구를 골라 숨깁니다.
+- **채터 블로커**: 스위치가 튀어 한 번 누른 키가 두 번 입력되는 것을 막습니다.
 
 </td>
 </tr>
 </table>
 
-그 밖에 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, 입력 키 리미터, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ImplDmNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, ImplDmNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 
-> [!NOTE]
-> 아직 배포용 패키지가 없어 소스에서 빌드합니다. 게임 DLL을 참조하므로 게임이 설치된 PC에서 빌드하세요.
-
 **필요한 것:** A Dance of Fire and Ice · [UnityModManager](https://github.com/newman55/unity-mod-manager) 0.27 이상 · Harmony
+
+[최신 릴리스](https://github.com/KGH1113/ImplResourcePack/releases/latest)에서 `ImplResourcePack-macos.zip` 또는 `ImplResourcePack-windows.zip`을 받아, 압축을 푼 `ImplResourcePack` 폴더를 얼불춤의 `Mods` 폴더에 넣습니다. 이후 버전은 게임을 켤 때 자동으로 설치됩니다.
+
+소스에서 빌드하려면 게임이 설치된 PC에서:
 
 ```bash
 git clone https://github.com/KGH1113/ImplResourcePack.git
 cd ImplResourcePack
 
 cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
-./scripts/run.sh build      # Release 빌드 후 Mods/ImplResourcePack에 설치
+./scripts/run.sh build      # 모드·ImplDmNote 빌드 후 Mods/ImplResourcePack에 설치
 ```
 
 게임에서 **왼쪽 <kbd>Alt</kbd> + <kbd>Tab</kbd>** (macOS는 <kbd>⌥</kbd> + <kbd>Tab</kbd>)을 누르면 설정 화면이 열립니다.
@@ -149,7 +151,9 @@ flowchart TB
 [`apps/impl-dm-note`](apps/impl-dm-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
 
 - 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
+- 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
 - 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
+- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). [자세히](docs/bundled-impl-dm-note.md)
 - TUFReplay-Renderer와 연동한 리플레이 영상 렌더링
 
 ```bash

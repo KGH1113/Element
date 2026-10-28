@@ -22,6 +22,8 @@ windows_powershell <<PS
 \$dir = Join-Path \$HOME '$WINDOWS_REMOTE_DIR'
 & (Join-Path \$dir 'src/build-game-webview.ps1') -Source (Join-Path \$dir 'src') -Output (Join-Path \$dir 'out')
 PS
+# A new library has not passed the smoke probe yet.
+rm -f "$WINDOWS_WEBVIEW_VERIFIED"
 windows_download "$WINDOWS_REMOTE_DIR/out/ImplGameWebView.dll" "$WINDOWS_WEBVIEW_LIBRARY"
 printf '%s\n' "$hash" >"$WINDOWS_WEBVIEW_STAMP"
 printf 'Built Windows game WebView host: %s\n' "$WINDOWS_WEBVIEW_LIBRARY"

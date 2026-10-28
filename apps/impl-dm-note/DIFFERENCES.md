@@ -39,8 +39,9 @@ upstream snapshot.
 
 - Windows releases use one portable archive named
   `ImplDmNote-v<version>-windows-x64-portable.zip`.
-- The portable archive contains `impl-dm-note.exe`, WebView2 Fixed Runtime,
-  the GPL, upstream provenance, and third-party notices.
+- The portable archive contains `impl-dm-note.exe`, the GPL, upstream
+  provenance, and third-party notices. It uses the system's Evergreen WebView2
+  Runtime instead of bundling a Fixed Runtime.
 - macOS builds include a Dock helper and the same legal notices in the app
   bundle.
 - Platform-specific build commands are exposed as `desktop:build:mac` and

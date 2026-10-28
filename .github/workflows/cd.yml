@@ -1,47 +1,39 @@
-name: Desktop CI
+name: CD
 
+# Merging to main builds what a release ships: ImplDmNote for macOS and
+# Windows and the Windows in-game viewer library. `./scripts/run.sh release`,
+# on the Mac with the game, downloads them, builds the mod around them and
+# publishes the release (docs/releasing.md). Run it by hand on another branch
+# (gh workflow run cd.yml --ref dev) to get test builds for windows-install.
 on:
-  pull_request:
-    paths:
-      - "apps/impl-dm-note/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/desktop-ci.yml"
   push:
     branches: [main]
-    paths:
-      - "apps/impl-dm-note/**"
-      - "package.json"
-      - "package-lock.json"
-      - ".github/workflows/desktop-ci.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: cd-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  visual-regression:
-    runs-on: macos-latest
+  version:
+    name: Shared version
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
-      - name: Install dependencies
-        run: npm ci
+      - name: The mod and ImplDmNote share one version
+        run: node scripts/tasks/version/version.mjs check
 
-      - name: Install Chromium
-        run: npx playwright install chromium
-
-      - name: Viewer compatibility baselines
-        run: npm run test:visual -w @impl-resourcepack/impl-dm-note
-
-  desktop:
-    permissions:
-      contents: read
-      checks: write
+  impl-dm-note:
+    name: ImplDmNote (${{ matrix.os }})
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -63,8 +55,6 @@ jobs:
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -73,33 +63,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Frontend gates
-        run: |
-          npm run sdk:check -w @impl-resourcepack/impl-dm-note
-          npm run type-check -w @impl-resourcepack/impl-dm-note
-          npm run lint -w @impl-resourcepack/impl-dm-note -- --max-warnings=0
-          npm run format:check -w @impl-resourcepack/impl-dm-note
-          npm run test -w @impl-resourcepack/impl-dm-note
-          npm audit
-          npm run desktop:audit
-
-      - name: Rust gates
-        working-directory: apps/impl-dm-note/src-tauri
-        run: |
-          cargo test --locked
-          cargo clippy --locked --all-targets -- -D warnings
-
-      - uses: rustsec/audit-check@v2.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: apps/impl-dm-note/src-tauri
-
-      - name: Verify generated dependency licenses
-        run: |
-          cargo install cargo-about --version 0.9.2 --locked --features cli
-          npm run licenses:generate -w @impl-resourcepack/impl-dm-note
-          git diff --exit-code -- apps/impl-dm-note/THIRD_PARTY_LICENSES.txt
 
       - name: Clean macOS release build
         if: runner.os == 'macOS'
@@ -113,6 +76,16 @@ jobs:
           done
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "io.github.kgh1113.impldmnote"
           codesign --verify --deep --strict "$APP"
+          # ditto keeps the signature and executable modes upload-artifact would drop.
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/ImplDmNote.app.zip"
+
+      - name: Upload macOS app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impl-dm-note-macos-app
+          path: ${{ runner.temp }}/ImplDmNote.app.zip
+          if-no-files-found: error
 
       - name: Build Windows portable ZIP
         if: runner.os == 'Windows'
@@ -131,7 +104,6 @@ jobs:
           $root = Join-Path $unpack $name
           @(
             'impl-dm-note.exe',
-            'webview2-fixed-runtime/msedgewebview2.exe',
             'LICENSE',
             'UPSTREAM.md',
             'THIRD_PARTY_NOTICES.txt',
@@ -142,3 +114,43 @@ jobs:
           if (Get-ChildItem $root -Recurse -File | Select-String -SimpleMatch 'com.dmnote.desktop','CN=esihunc') {
             throw 'Upstream package identity remains in the portable output.'
           }
+
+      - name: Upload Windows portable ZIP
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impl-dm-note-windows-portable
+          path: apps/impl-dm-note/dist/portable/*.zip
+          if-no-files-found: error
+
+  windows-viewer:
+    name: Windows in-game viewer
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with MSVC
+        shell: pwsh
+        run: ./scripts/windows/build-game-webview.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
+
+      # A release ships only a library that passed the probe.
+      - name: Smoke probe
+        shell: pwsh
+        run: ./scripts/windows/smoke-game-webview.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
+
+      - name: Upload the library
+        uses: actions/upload-artifact@v4
+        with:
+          name: impl-game-webview-windows
+          path: ${{ runner.temp }}/game-webview/ImplGameWebView.dll
+          if-no-files-found: error
+
+      - name: Upload smoke screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-viewer-smoke-shots
+          path: ${{ runner.temp }}/smoke-shots
+          if-no-files-found: ignore

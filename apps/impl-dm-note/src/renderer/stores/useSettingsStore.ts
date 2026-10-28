@@ -48,6 +48,8 @@ interface SettingsState {
   gridSettings: GridSettings;
   shortcuts: ShortcutsState;
   obsModeEnabled: boolean;
+  keyLimiterEnabled: boolean;
+  inGameViewersEnabled: boolean;
   setAll: (payload: SettingsStateSnapshot) => void;
   merge: (payload: Partial<SettingsStateSnapshot>) => void;
   syncFromSnapshot: (payload: SettingsStateSnapshot) => void;
@@ -130,6 +132,8 @@ const initialState: SettingsStateSnapshot = {
   gridSettings: getDefaultGridSettings(),
   shortcuts: getDefaultShortcuts(),
   obsModeEnabled: false,
+  keyLimiterEnabled: true,
+  inGameViewersEnabled: true,
 };
 
 function mergeSnapshot(

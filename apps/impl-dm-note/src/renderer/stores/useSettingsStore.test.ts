@@ -36,6 +36,8 @@ const createSnapshot = (
   gridSettings: getDefaultGridSettings(),
   shortcuts: getDefaultShortcuts(),
   obsModeEnabled: true,
+  keyLimiterEnabled: true,
+  inGameViewersEnabled: true,
   ...overrides,
 });
 

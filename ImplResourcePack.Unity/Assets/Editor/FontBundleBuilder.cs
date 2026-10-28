@@ -15,7 +15,7 @@ namespace ImplResourcePack.Editor
       FontAssetGenerator.GenerateAll();
 
       string projectRoot =
-        Directory.GetParent(Application.dataPath)?.FullName
+        Directory.GetParent(UnityEngine.Application.dataPath)?.FullName
         ?? throw new InvalidOperationException("Unity project root could not be resolved.");
       string repositoryRoot =
         Directory.GetParent(projectRoot)?.FullName

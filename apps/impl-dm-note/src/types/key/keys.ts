@@ -221,7 +221,7 @@ export const imageFitSchema = z.union([
 ]);
 export type ImageFit = z.infer<typeof imageFitSchema>;
 
-export const keyPositionSchema = z.object({
+export const baseKeyPositionSchema = z.object({
   dx: z.number(),
   dy: z.number(),
   width: z.number().positive(),
@@ -328,6 +328,24 @@ export const keyPositionSchema = z.object({
   fontItalic: z.boolean().optional(),
   fontUnderline: z.boolean().optional(),
   fontStrikethrough: z.boolean().optional(),
+});
+
+export type GhostKeySettings = z.infer<typeof baseKeyPositionSchema>;
+
+/**
+ * A second keyboard key on the same element. Its own style, note and counter
+ * apply while it is held, and the key limiter never includes it. Geometry
+ * always follows the owning key, so `settings` dx/dy/width/height are ignored.
+ */
+export const ghostKeySchema = z.object({
+  enabled: z.boolean().default(false),
+  key: z.string().nullable().optional(),
+  settings: baseKeyPositionSchema,
+});
+export type GhostKey = z.infer<typeof ghostKeySchema>;
+
+export const keyPositionSchema = baseKeyPositionSchema.extend({
+  ghost: ghostKeySchema.optional(),
 });
 
 export type KeyPosition = z.infer<typeof keyPositionSchema>;

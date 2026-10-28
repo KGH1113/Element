@@ -1,6 +1,9 @@
 using System;
+using ImplResourcePack.Application.Updates;
 using ImplResourcePack.Bootstrap;
 using ImplResourcePack.Configuration;
+using ImplResourcePack.Infrastructure.Ipc;
+using ImplResourcePack.Infrastructure.Updates;
 using ImplResourcePack.Presentation.Settings;
 using UnityEngine;
 using UnityModManagerNet;
@@ -12,8 +15,19 @@ public sealed class Main
   public static Main Instance { get; private set; }
 
   public UnityModManager.ModEntry ModEntry { get; }
+
+  /// <summary>The mod root: UMM settings, UpdateSettings.json and the shared IPC bundle.</summary>
   public string Path => ModEntry.Path;
+
+  /// <summary>
+  /// This version's folder (Runtime/versions/&lt;v&gt;): native libraries, fonts and
+  /// the bundled ImplDmNote. The mod root itself when started without the launcher.
+  /// </summary>
+  public string RuntimePath { get; }
+
   public string Version => ModEntry.Info.Version;
+
+  internal IModUpdates Updates { get; private set; }
 
   internal ImplResourcePackSettings Settings { get; private set; }
 
@@ -24,6 +38,9 @@ public sealed class Main
   private Main(UnityModManager.ModEntry modEntry)
   {
     ModEntry = modEntry;
+    // UMM may load an assembly from memory, which leaves no location.
+    string location = typeof(Main).Assembly.Location;
+    RuntimePath = string.IsNullOrEmpty(location) ? modEntry.Path : System.IO.Path.GetDirectoryName(location);
   }
 
   public static bool Load(UnityModManager.ModEntry modEntry)
@@ -31,6 +48,9 @@ public sealed class Main
     try
     {
       Instance = new Main(modEntry);
+      // Other mods' IPC loaders look for this mod's runtime at the mod root.
+      BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
+      Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
       Instance.Settings =
         UnityModManager.ModSettings.Load<ImplResourcePackSettings>(modEntry) ?? new ImplResourcePackSettings();
       Instance.Settings.Migrate();
@@ -91,6 +111,7 @@ public sealed class Main
       return;
 
     GUILayout.Label("ImplResourcePack · " + SettingsPanel.ShortcutLabel(Instance.Settings));
+    GUILayout.Label(SettingsPanel.UpdateStatusText(Instance.Updates));
     bool wasEnabled = GUI.enabled;
     GUI.enabled = wasEnabled && Instance.Runtime != null;
     if (GUILayout.Button(RDString.language == SystemLanguage.Korean ? "설정 열기" : "Open settings"))

@@ -233,7 +233,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
   return (
     <Modal onClick={handleClose} animate={!initialSkipRef.current}>
       <div
-        className="flex flex-col bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] p-[20px] pr-[6px]"
+        className="dmn-modal-card flex flex-col p-[20px] pr-[6px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pr-[14px]">

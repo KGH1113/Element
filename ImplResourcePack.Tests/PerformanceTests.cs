@@ -2,9 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using System.Threading;
-using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Input;
-using ImplResourcePack.Infrastructure.Game.Input;
 using ImplResourcePack.Presentation.Overlay.Shared;
 using UnityEngine;
 
@@ -16,7 +14,9 @@ internal static class PerformanceTests
   {
     FormatsNumbersLikeTheOriginalStrings();
     AppendsWithoutAllocating();
-    HookThreadReadsOnlyPublishedState();
+    ChatterFilterDropsBounceAndItsRelease();
+    ChatterFilterKeepsFastJacksAndRepeats();
+    ChatterFilterRunsOffTheMainThreadWithoutAllocating();
   }
 
   private static void FormatsNumbersLikeTheOriginalStrings()
@@ -56,58 +56,83 @@ internal static class PerformanceTests
     builder.AppendTwoDigits(7).Append(' ').AppendHexRgb(new Color(.2f, .4f, .6f));
   }
 
-  private static void HookThreadReadsOnlyPublishedState()
+  private const long Millisecond = TimeSpan.TicksPerMillisecond;
+
+  private static void ChatterFilterDropsBounceAndItsRelease()
   {
-    KeyLimiterService service = new(new DmNoteKeyResolver());
-    service.Apply(
-      new KeyLimiterUpdate
-      {
-        SchemaVersion = 2,
-        Source = "impl-dm-note",
-        ClientVersion = "0.1.0",
-        SessionId = "hook-thread",
-        Revision = 1,
-        Enabled = true,
-        Profile = new KeyLimiterProfile { Id = "4key", Name = "4key" },
-        Keys = new[] { "A" },
-        ExcludedGhostKeys = Array.Empty<string>(),
-      }
+    var filter = new ChatterFilter();
+    filter.Configure(true, 20);
+    long t = 1_000_000 * Millisecond;
+    True(filter.Accept(30, true, t), "the first press passes");
+    True(filter.Accept(30, false, t + 80 * Millisecond), "its release passes");
+    True(!filter.Accept(30, true, t + 83 * Millisecond), "a press 3 ms after release is bounce");
+    True(!filter.Accept(30, false, t + 86 * Millisecond), "the bounce's release is swallowed too");
+    True(!filter.Accept(30, true, t + 95 * Millisecond), "bounce right after a swallowed release is caught");
+    True(!filter.Accept(30, false, t + 97 * Millisecond), "and its release");
+    True(filter.Accept(30, true, t + 140 * Millisecond), "a real press after the window passes");
+    True(filter.Accept(31, true, t + 141 * Millisecond), "other keys are independent");
+    True(filter.Blocked == 2, "two bounces were counted, got " + filter.Blocked);
+  }
+
+  private static void ChatterFilterKeepsFastJacksAndRepeats()
+  {
+    var filter = new ChatterFilter();
+    filter.Configure(true, 20);
+    long t = 5_000_000 * Millisecond;
+    // 16th notes at 300 BPM: 50 ms apart, held 25 ms.
+    for (int i = 0; i < 8; i++)
+    {
+      True(filter.Accept(12, true, t + i * 50 * Millisecond), "jack press " + i + " passes");
+      True(filter.Accept(12, false, t + (i * 50 + 25) * Millisecond), "jack release " + i + " passes");
+    }
+    True(filter.Accept(13, true, t), "a held key passes");
+    True(filter.Accept(13, true, t + 500 * Millisecond), "OS key repeat of a held key passes");
+    True(filter.Accept(-1, true, t) && filter.Accept(5000, true, t), "out-of-range keys pass");
+    filter.Configure(false, 20);
+    True(filter.Accept(12, true, t + 401 * Millisecond), "a disabled filter passes everything");
+    True(filter.Blocked == 0, "nothing was blocked");
+
+    True(ChatterFilter.ClampWindow(1) == 5 && ChatterFilter.ClampWindow(500) == 150, "the window is 5 to 150 ms");
+    filter.Configure(true, 150);
+    True(
+      filter.Accept(40, true, t) && filter.Accept(40, false, t + 30 * Millisecond),
+      "a 150 ms window still passes the first tap"
     );
-    KeyLimiterSnapshot snapshot = service.Current;
-    bool[] results = new bool[4];
+    True(!filter.Accept(40, true, t + 150 * Millisecond), "120 ms after release is inside a 150 ms window");
+  }
+
+  // SkyHook calls the filter on a native thread with no Unity runtime and
+  // expects no allocation per event.
+  private static void ChatterFilterRunsOffTheMainThreadWithoutAllocating()
+  {
+    var filter = new ChatterFilter();
+    filter.Configure(true, 20);
+    long allocated = -1;
     Exception failure = null;
-    // The native hook is not a Unity thread. Any Unity object access in the
-    // policy would throw here, because this process has no Unity runtime.
     var thread = new Thread(() =>
     {
       try
       {
-        KeyLimiterPatchPolicy.Publish(true);
-        results[0] = KeyLimiterPatchPolicy.ShouldEnforceOnHookThread(snapshot);
-        results[1] = KeyLimiterPatchPolicy.ShouldEnforceOnHookThread(null);
-        KeyLimiterPatchPolicy.Reset();
-        results[2] = KeyLimiterPatchPolicy.ShouldEnforceOnHookThread(snapshot);
-        service.Clear();
-        KeyLimiterPatchPolicy.Publish(true);
-        results[3] = KeyLimiterPatchPolicy.ShouldEnforceOnHookThread(service.Current);
+        long t = 1_000_000 * Millisecond;
+        filter.Accept(1, true, t);
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10_000; i++)
+        {
+          t += 7 * Millisecond;
+          filter.Accept(i & 255, (i & 1) == 0, t);
+        }
+        allocated = GC.GetAllocatedBytesForCurrentThread() - before;
       }
       catch (Exception exception)
       {
         failure = exception;
       }
-      finally
-      {
-        KeyLimiterPatchPolicy.Reset();
-      }
     });
     thread.Start();
     thread.Join();
     if (failure != null)
-      throw new InvalidOperationException("The hook-thread policy touched Unity state.", failure);
-    True(results[0], "published player control must enforce an enabled profile");
-    True(!results[1], "a missing profile must never block keys");
-    True(!results[2], "after a scene unload the hook must stop enforcing");
-    True(!results[3], "a disabled profile must never block keys");
+      throw new InvalidOperationException("The chatter filter failed off the main thread.", failure);
+    True(allocated == 0, "the chatter filter allocated " + allocated + " bytes");
   }
 
   private static void True(bool value, string message)

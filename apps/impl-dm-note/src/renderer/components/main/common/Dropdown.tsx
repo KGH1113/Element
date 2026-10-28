@@ -52,6 +52,9 @@ const Dropdown: React.FC<DropdownProps> = ({
 }) => {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // The active row is only painted while navigating by keyboard; pointer
+  // hover is styled by :hover, so no row stays lit after the pointer leaves.
+  const [keyboardActive, setKeyboardActive] = useState(false);
   const [position, setPosition] = useState<MenuPosition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -174,6 +177,9 @@ const Dropdown: React.FC<DropdownProps> = ({
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== 'Tab' && event.key !== 'Escape') {
+      setKeyboardActive(true);
+    }
     if (event.key === 'Escape' && open) {
       event.preventDefault();
       close(true);
@@ -245,10 +251,15 @@ const Dropdown: React.FC<DropdownProps> = ({
                 type="button"
                 role="option"
                 aria-selected={option.value === value}
-                data-active={index === activeIndex || undefined}
+                data-active={
+                  (keyboardActive && index === activeIndex) || undefined
+                }
                 className="dmn-dropdown-option"
                 tabIndex={-1}
-                onPointerMove={() => setActiveIndex(index)}
+                onPointerMove={() => {
+                  setKeyboardActive(false);
+                  setActiveIndex(index);
+                }}
                 onClick={() => selectOption(index)}
               >
                 <span>{option.label}</span>
@@ -278,7 +289,11 @@ const Dropdown: React.FC<DropdownProps> = ({
             : undefined
         }
         disabled={disabled}
-        onClick={() => (open ? close() : openMenu())}
+        onClick={() => {
+          setKeyboardActive(false);
+          if (open) close();
+          else openMenu();
+        }}
         onKeyDown={handleKeyDown}
       >
         {iconTrigger ?? (

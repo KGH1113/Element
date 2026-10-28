@@ -7,6 +7,7 @@ mod defaults;
 mod errors;
 mod ipc;
 mod keyboard;
+mod launch;
 mod models;
 mod services;
 mod state;
@@ -28,14 +29,12 @@ use tauri::{
 
 use impl_dm_note::compute_compensating_zoom;
 
+use launch::LaunchContext;
 use state::{AppState, AppStore};
 
 fn main() {
     #[cfg(target_os = "windows")]
     {
-        // WebView2 투명 오버레이 이슈 방지 — 번들된 Fixed 런타임 우선 적용
-        apply_webview2_fixed_runtime_override();
-
         // GPU/하드웨어 가속 강제 활성화 및 렌더링 최적화 플래그
         let gpu_flags = [
             "--enable-gpu-rasterization", // GPU 래스터화 강제 활성화
@@ -68,6 +67,8 @@ fn main() {
         eprintln!("Failed to initialize logging: {err}");
     }
 
+    let launch = LaunchContext::from_args(std::env::args());
+
     let context = tauri::generate_context!();
 
     tauri::Builder::default()
@@ -90,14 +91,21 @@ fn main() {
                 app.state::<services::render::RenderService>().end(app, None);
             }
         })
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // ImplResourcePack opens the app on every game start; a running
+            // instance stays where it is instead of jumping over the game.
+            if LaunchContext::from_args(&args).launched_by_game {
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
         }))
-        .setup(|app| {
+        .setup(move |app| {
+            app.manage(launch);
+
             // dev 빌드에서만 remote URL capability 등록 (릴리즈에서는 local:true만 사용)
             if cfg!(debug_assertions) {
                 register_dev_capability(app)?;
@@ -172,6 +180,7 @@ fn main() {
             commands::app::system::app_open_external,
             commands::app::system::app_restart,
             commands::app::system::app_quit,
+            commands::app::system::app_launch_context,
             commands::app::system::window_open_devtools_all,
             commands::app::system::get_cursor_settings,
             // OBS 모드
@@ -287,8 +296,23 @@ fn main() {
             commands::plugin::storage::plugin_storage_has_data,
             commands::plugin::storage::plugin_storage_clear_by_prefix,
         ])
-        .run(context)
-        .expect("error while running tauri application");
+        .build(context)
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // The Dock icon belongs to the helper app, which reopens this one.
+            // A window hidden in the background (tray mode or a game launch)
+            // then comes back like any other macOS app's.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } = _event
+            {
+                if let Err(err) = state::app_state::show_main_window(_app) {
+                    log::warn!("failed to show main window on reopen: {err}");
+                }
+            }
+        });
 }
 
 #[cfg(target_os = "windows")]
@@ -507,7 +531,24 @@ fn apply_main_window_configuration(
 
     let state = app.state::<AppState>();
     let snapshot = state.store.snapshot();
-    let should_start_hidden = snapshot.tray_enabled && snapshot.main_window_hidden;
+    // A game launch starts in the background without changing the saved
+    // window state; the tray (menu bar on macOS) icon brings it back.
+    let launched_by_game = app
+        .try_state::<LaunchContext>()
+        .is_some_and(|launch| launch.launched_by_game);
+    // Like the Dock icon on macOS, a taskbar button opens the window while the
+    // game keeps focus; Windows 11 hides new tray icons in the overflow.
+    #[cfg(target_os = "windows")]
+    {
+        if launched_by_game {
+            if let Err(err) = show_in_taskbar_without_focus(&window) {
+                log::warn!("failed to show main window in the taskbar: {err}");
+            }
+            return Ok(());
+        }
+    }
+    let should_start_hidden =
+        launched_by_game || (snapshot.tray_enabled && snapshot.main_window_hidden);
 
     if should_start_hidden {
         if let Err(err) = state.ensure_tray_icon_for_background(app) {
@@ -525,9 +566,41 @@ fn apply_main_window_configuration(
     if let Err(err) = window.show() {
         log::warn!("failed to show main window after configuration: {err}");
     }
+    // The window is created without focus (tauri.conf.json) so a game launch
+    // never takes it from the game; a launch by the player focuses it here.
+    let _ = window.set_focus();
     if let Err(err) = state.set_main_window_hidden(false) {
         log::warn!("failed to persist visible main window state: {err}");
     }
+    Ok(())
+}
+
+/// Shows the main window minimized and not activated, so it gets a taskbar
+/// button without taking focus from the game.
+#[cfg(target_os = "windows")]
+fn show_in_taskbar_without_focus(window: &tauri::WebviewWindow) -> Result<()> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWMINNOACTIVE};
+
+    let hwnd = window.hwnd()?;
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
+    }
+    // tao still counts the window as hidden and would hide it again on its
+    // next flag update. Once the player opens it (it is focused then), let
+    // tao mark it visible; its SW_SHOW changes nothing at that point.
+    let synced = Arc::new(AtomicBool::new(false));
+    let target = window.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Focused(true))
+            && !synced.swap(true, Ordering::SeqCst)
+        {
+            if let Err(err) = target.show() {
+                log::warn!("failed to sync main window visibility: {err}");
+            }
+        }
+    });
     Ok(())
 }
 
@@ -560,8 +633,11 @@ fn launch_macos_dock_helper() {
         return;
     };
 
+    // -g: the helper is a regular app only for the Dock icon. Bringing it to
+    // the front would switch a fullscreen game's Space back to the desktop.
     let mut cmd = Command::new("/usr/bin/open");
-    cmd.arg(&helper_path)
+    cmd.arg("-g")
+        .arg(&helper_path)
         .arg("--args")
         .arg("--main-pid")
         .arg(std::process::id().to_string())
@@ -633,66 +709,6 @@ fn resolve_current_bundle_path() -> Option<PathBuf> {
     }
 
     None
-}
-
-#[cfg(target_os = "windows")]
-fn apply_webview2_fixed_runtime_override() {
-    use std::env;
-    const KEY: &str = "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER";
-
-    if env::var_os("IMPL_DM_NOTE_WEBVIEW2_USE_SYSTEM").is_some() {
-        return;
-    }
-
-    if env::var_os(KEY).is_some() {
-        return;
-    }
-
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    if let Some(dir) = env::var_os("IMPL_DM_NOTE_WEBVIEW2_FIXED_RUNTIME_DIR") {
-        candidates.push(PathBuf::from(dir));
-    }
-
-    if let Ok(exe) = env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            candidates.push(exe_dir.join("webview2-fixed-runtime"));
-            candidates.push(exe_dir.join("WebView2FixedRuntime"));
-            candidates.push(exe_dir.join("resources").join("webview2-fixed-runtime"));
-            candidates.push(
-                exe_dir
-                    .join("..")
-                    .join("resources")
-                    .join("webview2-fixed-runtime"),
-            );
-        }
-    }
-
-    if cfg!(debug_assertions) {
-        // `tauri dev` — 바이너리 위치 가변, 저장소 기준 경로 추가 확인
-        candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("webview2-fixed-runtime"));
-        candidates.push(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("webview2-fixed-runtime"),
-        );
-    }
-
-    for candidate in candidates {
-        if is_valid_webview2_fixed_runtime_dir(&candidate) {
-            env::set_var(KEY, &candidate);
-            log::info!(
-                "using fixed WebView2 runtime override: {}",
-                candidate.display()
-            );
-            return;
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn is_valid_webview2_fixed_runtime_dir(dir: &std::path::Path) -> bool {
-    dir.is_dir() && dir.join("msedgewebview2.exe").is_file()
 }
 
 /// macOS 접근성(Accessibility) 권한을 확인하고,

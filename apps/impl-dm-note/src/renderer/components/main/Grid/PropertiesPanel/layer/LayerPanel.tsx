@@ -39,11 +39,7 @@ const LayerPanelTabButton: React.FC<LayerPanelTabButtonProps> = ({
     role="tab"
     aria-selected={active}
     onClick={onClick}
-    className={`dmn-panel-tab h-[24px] w-full ${
-      active
-        ? 'bg-[#3A3943] text-white'
-        : 'bg-[#26262C] text-[#9395A1] hover:bg-[#303036]'
-    }`}
+    className="dmn-panel-tab h-[24px] w-full"
   >
     {children}
   </button>
@@ -130,7 +126,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
               onClick={hasSelection ? onSwitchToProperty : undefined}
               className={`w-[24px] h-[24px] flex items-center justify-center rounded-[4px] transition-colors ${
                 hasSelection
-                  ? 'hover:bg-[#2A2A30] cursor-pointer'
+                  ? 'text-ui-fg-muted hover:text-ui-fg-primary cursor-pointer'
                   : 'cursor-not-allowed opacity-70'
               }`}
               title={
@@ -142,7 +138,7 @@ const LayerPanel: React.FC<LayerPanelProps> = ({
             {/* 패널 닫기 버튼 */}
             <button
               onClick={onClose}
-              className="w-[24px] h-[24px] flex items-center justify-center hover:bg-[#2A2A30] rounded-[4px] transition-colors"
+              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
               title={t('propertiesPanel.closePanel') || 'Close Panel'}
             >
               <SidebarToggleIcon isOpen={true} />

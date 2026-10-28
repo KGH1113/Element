@@ -17,8 +17,9 @@ use crate::models::{
 
 use super::builtin_sounds::seed_builtin_sounds;
 use super::migration::{
-    find_legacy_store_file, load_store_from_path, migrate_key_images_to_app_data,
-    migrate_local_fonts_to_app_data, normalize_state, restore_missing_viewer_data_from_backup,
+    find_legacy_store_file, fold_stacked_ghost_keys, load_store_from_path,
+    migrate_key_images_to_app_data, migrate_local_fonts_to_app_data, normalize_state,
+    restore_missing_viewer_data_from_backup,
 };
 
 pub struct AppStore {
@@ -53,6 +54,15 @@ impl AppStore {
                 log::info!("[Store] Restored missing key viewer data from migration backup");
             }
             state.key_viewer_data_recovered = true;
+            needs_persist = true;
+        }
+
+        if !state.ghost_keys_folded {
+            if fold_stacked_ghost_keys(&mut state.keys, &mut state.key_positions) {
+                backup_store_once(&path, "store.pre-ghost-keys.json")?;
+                log::info!("[Store] Moved stacked legacy ghost keys into ghost key slots");
+            }
+            state.ghost_keys_folded = true;
             needs_persist = true;
         }
 
@@ -309,6 +319,21 @@ fn backup_pre_key_viewer_tabs_store(path: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Keeps the file as it was before a one-time migration rewrote it.
+fn backup_store_once(path: &Path, backup_name: &str) -> Result<()> {
+    let backup_path = path.with_file_name(backup_name);
+    if path.exists() && !backup_path.exists() {
+        fs::copy(path, &backup_path).with_context(|| {
+            format!(
+                "failed to back up store from {} to {}",
+                path.display(),
+                backup_path.display()
+            )
+        })?;
+    }
+    Ok(())
+}
+
 fn settings_from_store(store: &AppStoreData) -> SettingsState {
     let mut custom_js = store.custom_js.clone();
     let _ = custom_js.normalize();
@@ -335,6 +360,8 @@ fn settings_from_store(store: &AppStoreData) -> SettingsState {
         grid_settings: store.grid_settings.clone(),
         shortcuts: store.shortcuts.clone(),
         obs_mode_enabled: store.obs_mode_enabled,
+        key_limiter_enabled: store.key_limiter_enabled,
+        in_game_viewers_enabled: store.in_game_viewers_enabled,
     }
 }
 

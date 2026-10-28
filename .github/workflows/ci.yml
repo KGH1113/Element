@@ -1,0 +1,157 @@
+name: CI
+
+# dev → pull request → main. Every pull request to main is checked here and
+# nothing is kept. Merging runs CD (cd.yml), which builds what a release ships
+# (docs/releasing.md). The mod itself references the game's DLLs, so it is
+# built and tested on the developer's machine (`./scripts/run.sh mod-check`).
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    name: Version and scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The mod and ImplDmNote share one version
+        run: node scripts/tasks/version/version.mjs check
+
+      - name: Shell scripts
+        run: ./scripts/run.sh check
+
+      - name: PowerShell scripts
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($file in Get-ChildItem scripts/windows -Filter *.ps1) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$null, [ref]$errors) | Out-Null
+            foreach ($problem in $errors) {
+              "::error file=$($file.FullName),line=$($problem.Extent.StartLineNumber)::$($problem.Message)"
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+
+  visual-regression:
+    name: Viewer screenshots
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Viewer compatibility baselines
+        run: npm run test:visual -w @impl-resourcepack/impl-dm-note
+
+  app:
+    name: ImplDmNote (${{ matrix.os }})
+    permissions:
+      contents: read
+      checks: write
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_TERM_COLOR: always
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/impl-dm-note/src-tauri
+          cache-on-failure: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Frontend gates
+        run: |
+          npm run sdk:check -w @impl-resourcepack/impl-dm-note
+          npm run type-check -w @impl-resourcepack/impl-dm-note
+          npm run lint -w @impl-resourcepack/impl-dm-note -- --max-warnings=0
+          npm run format:check -w @impl-resourcepack/impl-dm-note
+          npm run test -w @impl-resourcepack/impl-dm-note
+          npm audit
+          npm run desktop:audit
+
+      - name: Rust gates
+        working-directory: apps/impl-dm-note/src-tauri
+        run: |
+          cargo test --locked
+          cargo clippy --locked --all-targets -- -D warnings
+
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: apps/impl-dm-note/src-tauri
+
+      - name: Verify generated dependency licenses
+        run: |
+          cargo install cargo-about --version 0.9.2 --locked --features cli
+          npm run licenses:generate -w @impl-resourcepack/impl-dm-note
+          git diff --exit-code -- apps/impl-dm-note/THIRD_PARTY_LICENSES.txt
+
+  windows-viewer:
+    name: Windows in-game viewer
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build with MSVC
+        shell: pwsh
+        run: ./scripts/windows/build-game-webview.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
+
+      # The probe stands in for ADOFAI and checks composed screen pixels and
+      # real clicks on the runner's desktop.
+      - name: Smoke probe
+        shell: pwsh
+        run: ./scripts/windows/smoke-game-webview.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
+
+      - name: Upload smoke screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-viewer-smoke-shots
+          path: ${{ runner.temp }}/smoke-shots
+          if-no-files-found: ignore

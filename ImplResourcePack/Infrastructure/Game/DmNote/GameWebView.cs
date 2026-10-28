@@ -31,6 +31,9 @@ internal sealed class GameWebView : INativeViewerHost
   private delegate int GetReferenceSize(string kind, out double width, out double height);
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+  private delegate int GetViewSize(out double width, out double height);
+
+  [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate ulong GetGeometryRevision();
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -69,6 +72,9 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetLayout _setLayout;
   private readonly SetBounds _setBounds;
   private readonly GetReferenceSize _getReferenceSize;
+  // Optional: libraries built before window-sized viewers lack these two.
+  private readonly GetReferenceSize _getContentSize;
+  private readonly GetViewSize _getViewSize;
   private readonly GetGeometryRevision _getGeometryRevision;
   private readonly GetBounds _getBounds;
   private readonly GetBounds _getSelectionBounds;
@@ -113,6 +119,8 @@ internal sealed class GameWebView : INativeViewerHost
     _setLayout = Symbol<SetLayout>(library, "irp_webview_set_layout");
     _setBounds = Symbol<SetBounds>(library, "irp_webview_set_bounds");
     _getReferenceSize = Symbol<GetReferenceSize>(library, "irp_webview_get_reference_size");
+    _getContentSize = OptionalSymbol<GetReferenceSize>(library, "irp_webview_get_content_size");
+    _getViewSize = OptionalSymbol<GetViewSize>(library, "irp_webview_get_view_size");
     _getGeometryRevision = Symbol<GetGeometryRevision>(library, "irp_webview_geometry_revision");
     _getBounds = Symbol<GetBounds>(library, "irp_webview_get_bounds");
     _getSelectionBounds = Symbol<GetBounds>(library, "irp_webview_get_selection_bounds");
@@ -222,6 +230,24 @@ internal sealed class GameWebView : INativeViewerHost
     return width > 0 && height > 0;
   }
 
+  public bool TryGetContentSize(string kind, out Vector2 size)
+  {
+    size = default;
+    if (_getContentSize == null || !HasSurface(kind) || _getContentSize(kind, out double width, out double height) == 0)
+      return false;
+    size = new Vector2((float)width, (float)height);
+    return width > 0 && height > 0;
+  }
+
+  public bool TryGetViewSize(out Vector2 size)
+  {
+    size = default;
+    if (_disposed || _getViewSize == null || _getViewSize(out double width, out double height) == 0)
+      return false;
+    size = new Vector2((float)width, (float)height);
+    return width > 0 && height > 0;
+  }
+
   public bool TryGetBounds(string kind, out Rect normalizedBounds, out float effectiveScale)
   {
     normalizedBounds = default;
@@ -287,6 +313,13 @@ internal sealed class GameWebView : INativeViewerHost
     return string.IsNullOrWhiteSpace(message)
       ? new NativeViewerHostException(NativeViewerStatus.WindowUnavailable, "Could not attach native viewers.")
       : new NativeViewerHostException(NativeViewerErrors.Classify(message), message);
+  }
+
+  private static T OptionalSymbol<T>(INativeViewerLibrary library, string name)
+    where T : Delegate
+  {
+    IntPtr address = library.Symbol(name);
+    return address == IntPtr.Zero ? null : Marshal.GetDelegateForFunctionPointer<T>(address);
   }
 
   private static T Symbol<T>(INativeViewerLibrary library, string name)

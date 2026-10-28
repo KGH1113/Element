@@ -1466,7 +1466,7 @@ const Grid = ({
       data-grid-container
       data-dmn-viewer-surface
       className="dmn-grid-surface relative h-full w-full overflow-hidden"
-      style={{ backgroundColor: color === 'transparent' ? '#3A3943' : color }}
+      style={color === 'transparent' ? undefined : { backgroundColor: color }}
       onContextMenu={(e) => {
         if (duplicateState) {
           setDuplicateState(null);
@@ -1544,7 +1544,7 @@ const Grid = ({
         zoom={zoom}
         panX={panX}
         panY={panY}
-        color={color === 'transparent' ? '#3A3943' : color}
+        color={color === 'transparent' ? 'var(--ui-bg-panel)' : color}
       />
       {/* 줌/팬이 적용되는 콘텐츠 영역 */}
       <div
@@ -1711,7 +1711,7 @@ const Grid = ({
               top: displayBounds.y * zoom + panY - 2,
               width: displayBounds.width * zoom + 4,
               height: displayBounds.height * zoom + 4,
-              border: '2px solid rgba(59, 130, 246, 0.8)',
+              border: '2px solid var(--ui-selection-border)',
               borderRadius: '4px',
               pointerEvents: 'none',
               zIndex: 20,

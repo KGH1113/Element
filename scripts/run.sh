@@ -11,14 +11,17 @@ Usage: ./scripts/run.sh <command>
 
 Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
-  build       Build and install the mod
+  build       Build the mod, its native libraries and ImplDmNote, test, and install it all
   mod-check   Build and test the mod without installing
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
-  windows-webview-check  Build the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST and run its desktop smoke probe
-  windows-install  Install the mod with the Windows host into the Windows PC's ADOFAI (game closed)
-  install     Install the already verified mod payload
-  package     Build the release package and metadata
+  windows-webview-check  Build and smoke-test the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST (releases use CD's)
+  windows-install  Make build/ImplResourcePack-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
+  dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
+  install     Install the already verified mod payload and ImplDmNote
+  package     Build the macOS and Windows release packages and their update manifest
+  version [x.y.z]  Check that the mod and ImplDmNote share one version, or set it
+  release [--yes]  On main: build the mod around CD's builds, package and publish (docs/releasing.md)
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
@@ -64,11 +67,23 @@ case "$command_name" in
   windows-install)
     exec bash "$SCRIPTS_DIR/tasks/install/windows-mod.sh"
     ;;
+  dmnote-windows-build)
+    exec bash "$SCRIPTS_DIR/tasks/build/dmnote-windows.sh"
+    ;;
   install)
     exec "$SCRIPTS_DIR/tasks/install/mod.sh"
     ;;
   package)
     exec "$SCRIPTS_DIR/workflows/package-release.sh"
+    ;;
+  version)
+    if [ -n "${2:-}" ]; then
+      exec node "$SCRIPTS_DIR/tasks/version/version.mjs" set "$2"
+    fi
+    exec node "$SCRIPTS_DIR/tasks/version/version.mjs" check
+    ;;
+  release)
+    exec "$SCRIPTS_DIR/workflows/release.sh" "${2:-}"
     ;;
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"

@@ -205,7 +205,7 @@ const BatchCounterTabContent: React.FC<BatchCounterTabContentProps> = ({
           onClick={onFillPickerToggle}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             isFillPickerOpen
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={{
@@ -227,7 +227,7 @@ const BatchCounterTabContent: React.FC<BatchCounterTabContentProps> = ({
           onClick={onStrokePickerToggle}
           className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
             isStrokePickerOpen
-              ? 'border-[#459BF8]'
+              ? 'border-ui-accent'
               : 'border-[#3A3943] hover:border-[#505058]'
           }`}
           style={{
@@ -249,7 +249,7 @@ const BatchCounterTabContent: React.FC<BatchCounterTabContentProps> = ({
           ref={fontButtonRef}
           type="button"
           className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            showFontPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+            showFontPicker ? 'border-ui-accent' : 'border-[#3A3943]'
           } text-[#DBDEE8] text-style-4`}
           onClick={() => setShowFontPicker((prev) => !prev)}
         >
@@ -316,7 +316,7 @@ const BatchCounterTabContent: React.FC<BatchCounterTabContentProps> = ({
           ref={animationButtonRef}
           type="button"
           className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            showAnimationPicker ? 'border-[#459BF8]' : 'border-[#3A3943]'
+            showAnimationPicker ? 'border-ui-accent' : 'border-[#3A3943]'
           } text-[#DBDEE8] text-style-4`}
           onClick={() => setShowAnimationPicker((prev) => !prev)}
         >

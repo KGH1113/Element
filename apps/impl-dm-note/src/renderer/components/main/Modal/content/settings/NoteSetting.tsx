@@ -16,7 +16,7 @@ const ADVANCED_TAB = 'advanced' as const;
 type TabId = typeof NOTE_TAB | typeof ADVANCED_TAB;
 
 const INPUT_CLASS =
-  'text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]';
+  'text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]';
 
 function sanitizeNumericValue(
   value: string | number | undefined,
@@ -454,7 +454,7 @@ const NoteSetting = ({
   return (
     <Modal onClick={onClose}>
       <div
-        className="flex flex-col bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] p-[20px]"
+        className="dmn-modal-card flex flex-col p-[20px]"
         onClick={(e) => e.stopPropagation()}
       >
         {title && <p className="text-white text-style-2 mb-[10px]">{title}</p>}

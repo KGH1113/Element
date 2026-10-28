@@ -52,7 +52,13 @@ internal sealed class KeyLimiterSnapshot
     _allowedAsyncKeys = allowedAsyncKeys ?? new HashSet<ushort>();
   }
 
-  public bool Allows(KeyCode key) => key == KeyCode.Escape || _allowedKeys.Contains(key);
+  /// <summary>Unity keys the game accepts while this profile is enabled.</summary>
+  public IEnumerable<KeyCode> AllowedKeys => _allowedKeys;
+
+  /// <summary>SkyHook native key codes the game accepts while this profile is enabled.</summary>
+  public IEnumerable<ushort> AllowedAsyncKeys => _allowedAsyncKeys;
+
+  public bool Allows(KeyCode key) => _allowedKeys.Contains(key);
 
   public bool AllowsAsync(ushort key) => _allowedAsyncKeys.Contains(key);
 }

@@ -17,6 +17,7 @@ import type { NoteBuffer } from '@stores/signals/noteBuffer';
 interface OverlayKeyProps {
   keyName: string;
   globalKey: string;
+  pairedKey?: string;
   position: KeyPosition;
   mode?: string;
   counterEnabled?: boolean;
@@ -69,6 +70,8 @@ type NoteSubscriber = (event: any) => void;
 interface OverlaySceneProps {
   // 키/위치 데이터
   currentKeys: string[];
+  /** Per key, the ghost or owner sharing its element (null: no ghosts). */
+  pairedKeys?: Array<string | undefined> | null;
   displayPositions: KeyPosition[];
   currentPositions: KeyPosition[];
   displayStatPositions: Record<string, unknown>[];
@@ -99,6 +102,7 @@ interface OverlaySceneProps {
 
 const OverlayScene = ({
   currentKeys,
+  pairedKeys,
   displayPositions,
   currentPositions,
   displayStatPositions,
@@ -163,6 +167,7 @@ const OverlayScene = ({
             key={`${selectedKeyType}-${index}`}
             keyName={displayName}
             globalKey={key}
+            pairedKey={pairedKeys?.[index]}
             position={position}
             mode={selectedKeyType}
             counterEnabled={keyCounterEnabled}

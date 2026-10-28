@@ -189,7 +189,19 @@ internal sealed class SettingsUiFactory : IDisposable
     return button;
   }
 
-  public Button Switch(string title, string description, Transform parent, float y, Func<bool> read, Action<bool> write)
+  public Button Switch(string title, string description, Transform parent, float y, Func<bool> read, Action<bool> write) =>
+    Switch(title, description, parent, y, read, write, out _);
+
+  /// <summary>A switch row whose <paramref name="descriptionText"/> the caller keeps current.</summary>
+  public Button Switch(
+    string title,
+    string description,
+    Transform parent,
+    float y,
+    Func<bool> read,
+    Action<bool> write,
+    out TextMeshProUGUI descriptionText
+  )
   {
     Button row = Button(
       title,
@@ -221,7 +233,7 @@ internal sealed class SettingsUiFactory : IDisposable
     ContentSizeFitter fit = copy.gameObject.AddComponent<ContentSizeFitter>();
     fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     Text(title, copy, 0, 0, 532, 24, 17);
-    Text(description, copy, 0, 0, 532, 24, 14, Muted);
+    descriptionText = Text(description, copy, 0, 0, 532, 24, 14, Muted);
     SettingsCapsuleGraphic track = Capsule("Switch", row.transform, 0, 0, 48, 28, Surface);
     track.rectTransform.anchorMin = track.rectTransform.anchorMax = new Vector2(1, .5f);
     track.rectTransform.pivot = new Vector2(0, .5f);

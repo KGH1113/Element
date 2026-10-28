@@ -154,9 +154,13 @@ Security matches macOS: explicit-port loopback HTTP only, top-level and frame
 navigation limited to the descriptor's origin, new windows and script dialogs
 blocked, InPrivate storage, and no URLs or tokens in diagnostics.
 
-When a renderer exits the page reloads after one second; when the browser process
-exits the environment and pages are rebuilt (at most five recoveries per minute,
-after which the next descriptor retries). The WebView2 environment and graphics
+When a renderer exits or a page fails to load, the page reloads after one second;
+when the browser process exits the environment and pages are rebuilt. Each viewer
+has its own budget of five recoveries per minute (the environment has one more),
+after which the next descriptor retries: the mod re-sends an unchanged descriptor
+while a page is failing. Both hosts keep faults per viewer, so one page loading
+never clears another viewer's error; `irp_webview_last_error` reports a host
+error first, then the first failing viewer. The WebView2 environment and graphics
 devices outlive a disposed host for 60 seconds so the next gameplay session
 attaches in about 3 ms instead of about 40 ms. The DLL statically links the CRT
 and `WebView2LoaderStatic.lib` and depends only on system libraries; it requires

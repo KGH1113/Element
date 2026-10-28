@@ -370,7 +370,7 @@ const ShortcutSettingsModal = ({
       }}
     >
       <div
-        className="flex flex-col min-w-[320px] bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] p-[20px] pr-[6px]"
+        className="dmn-modal-card flex flex-col min-w-[320px] p-[20px] pr-[6px]"
         onClick={(event) => event.stopPropagation()}
         onPointerDownCapture={(event) => {
           if (!isListening) return;
@@ -460,7 +460,7 @@ const ShortcutSettingsModal = ({
                           }}
                           className={`flex items-center justify-center h-[23px] min-w-[0px] px-[8.5px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
                             isRowListening
-                              ? 'border-[#459BF8]'
+                              ? 'border-ui-accent'
                               : 'border-[#3A3943]'
                           } text-[#DBDEE8] text-style-2`}
                         >
@@ -518,7 +518,7 @@ const ShortcutSettingsModal = ({
                           }}
                           className={`flex items-center justify-center h-[23px] min-w-[0px] px-[8.5px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
                             isRowListening
-                              ? 'border-[#459BF8]'
+                              ? 'border-ui-accent'
                               : 'border-[#3A3943]'
                           } text-[#DBDEE8] text-style-2`}
                         >

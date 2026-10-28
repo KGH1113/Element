@@ -174,7 +174,7 @@ const CounterSettingModal = ({
 
   const colorButtonClass = (active: boolean) =>
     `relative px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-      active ? 'border-[#459BF8]' : 'border-[#3A3943]'
+      active ? 'border-ui-accent' : 'border-[#3A3943]'
     } text-[#DBDEE8] text-style-2`;
 
   const renderColorSquare = (style: React.CSSProperties) => (
@@ -282,7 +282,7 @@ const CounterSettingModal = ({
   return (
     <Modal onClick={onClose}>
       <div
-        className="flex flex-col items-center justify-center p-[20px] bg-[#1A191E] rounded-[13px] border-[1px] border-[#2A2A30] gap-[19px]"
+        className="dmn-modal-card flex flex-col items-center justify-center p-[20px] gap-[19px]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 배치 영역 */}
@@ -356,7 +356,7 @@ const CounterSettingModal = ({
                 setDisplayGap(`${clamped}px`);
               }
             }}
-            className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8]"
+            className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
             style={{
               width: alignDropdownWidth ? `${alignDropdownWidth}px` : undefined,
             }}

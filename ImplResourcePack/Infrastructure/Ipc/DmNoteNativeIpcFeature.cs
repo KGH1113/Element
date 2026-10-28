@@ -34,6 +34,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private List<OverlayLayoutSettings> _layouts;
   private TMP_FontAsset _font;
   private string _lastLoggedError;
+  private bool _hiddenInApp;
+  private bool _connected;
   public Action EnabledChanged { get; set; }
 
   public DmNoteNativeIpcFeature(
@@ -54,8 +56,26 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   }
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
-  public IReadOnlyList<IOverlayLayoutTarget> GalleryTargets => _galleryTargets;
-  public bool HasEnabledViewers => _layoutTargets.Any(target => target.Enabled);
+
+  /// <summary>Re-evaluated on every enumeration: the gallery opens without viewer cards while the editor hides them.</summary>
+  public IEnumerable<IOverlayLayoutTarget> GalleryTargets => VisibleGalleryTargets();
+
+  public bool HasEnabledViewers => !_hiddenInApp && _layoutTargets.Any(target => target.Enabled);
+
+  /// <summary>ImplDmNote's "Show inside ADOFAI" is off.</summary>
+  public bool HiddenInApp => _hiddenInApp;
+
+  // The editor shows key viewers only while ImplDmNote is connected and shows
+  // them in the game. Unlike HiddenInApp, a closed app keeps the session waiting.
+  private bool HiddenFromEditor => !_connected || _hiddenInApp;
+
+  private IEnumerable<IOverlayLayoutTarget> VisibleGalleryTargets()
+  {
+    if (HiddenFromEditor)
+      yield break;
+    foreach (NativeViewerLayoutTarget target in _galleryTargets)
+      yield return target;
+  }
 
   public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
   {
@@ -115,7 +135,8 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       SetEditing,
       OnEnabledChanged,
       id,
-      () => Status
+      () => Status,
+      () => HiddenFromEditor
     );
     target.ConfigurePreview(_font);
     target.Bind(_host);
@@ -221,6 +242,15 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   {
     if (_disposed)
       return;
+    _connected = _session.Connected;
+    bool hiddenInApp = _session.HiddenInApp;
+    if (hiddenInApp != _hiddenInApp)
+    {
+      // Hiding ends the session like removing the last viewer; showing again
+      // starts a fresh one through the same path.
+      _hiddenInApp = hiddenInApp;
+      OnEnabledChanged();
+    }
     NativeViewerWork work = _session.TakeWork();
     if (work.ResetHost)
     {
@@ -268,6 +298,12 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
         _host.Edit(_editing);
         BindLayoutTargets();
       }
+      else if (PageNeedsDescriptor())
+      {
+        // The host dropped a stopped or failed page and waits for its source
+        // again; an identical descriptor is that retry (every poll, at most 30 s).
+        ApplyEnabledSurfaces();
+      }
       _suspended = false;
       _host.Show(_visible);
       _session.Report(surfaces.Length == 0 ? NativeViewerStatus.NoViewerTab : NativeViewerStatus.Attached);
@@ -281,6 +317,10 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       LogOnce("Attach native ImplDmNote viewers", error);
     }
   }
+
+  // Runs once per descriptor reply, not per frame.
+  private bool PageNeedsDescriptor() =>
+    _host.TryGetFault(out NativeViewerStatus status, out _) && NativeViewerErrors.NeedsDescriptor(status);
 
   // Page errors matter only while the editor can show them; skip the native
   // call and string marshaling during gameplay.

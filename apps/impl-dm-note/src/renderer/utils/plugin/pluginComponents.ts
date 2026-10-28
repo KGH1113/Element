@@ -128,9 +128,11 @@ export function createButton(
 export function createCheckbox(options: CheckboxOptions = {}): string {
   const { checked = false, onChange, id = '' } = options;
 
-  const bgClass = checked ? 'bg-[#493C1D]' : 'bg-[#3B4049]';
+  const bgClass = checked
+    ? 'bg-[color-mix(in_srgb,var(--ui-accent,#ba712b)_32%,#1a191e)]'
+    : 'bg-[#3B4049]';
   const knobClass = checked
-    ? 'left-[13px] bg-[#FFB400]'
+    ? 'left-[13px] bg-[var(--ui-accent,#ba712b)]'
     : 'left-[2px] bg-[#989BA6]';
 
   // 핸들러 처리: 함수면 등록, 문자열이면 레거시 방식
@@ -234,7 +236,7 @@ export function createInput(options: InputOptions = {}): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  return `<input ${idAttr} type="${type}" value="${escapedValue}" placeholder="${placeholder}" class="text-center px-[8px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[#459BF8] text-style-4 text-[#DBDEE8] outline-none" style="width: ${width}px" ${minAttr} ${maxAttr} ${stepAttr} ${onBlurAttr} ${
+  return `<input ${idAttr} type="${type}" value="${escapedValue}" placeholder="${placeholder}" class="text-center px-[8px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-[var(--ui-accent,#ba712b)] text-style-4 text-[#DBDEE8] outline-none" style="width: ${width}px" ${minAttr} ${maxAttr} ${stepAttr} ${onBlurAttr} ${
     disabled ? 'disabled' : ''
   } ${onInputAttr} ${onChangeAttr} />`;
 }

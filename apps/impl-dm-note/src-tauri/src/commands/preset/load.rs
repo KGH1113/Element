@@ -13,7 +13,10 @@ use crate::{
         KeyViewerKind, KeyViewerTab, KnobPositions, NoteSettingsPatch, SettingsPatchInput,
         StatPositions,
     },
-    state::{migration::migrate_legacy_ghost_keys, AppState},
+    state::{
+        migration::{fold_stacked_ghost_keys, migrate_legacy_ghost_keys},
+        AppState,
+    },
 };
 
 use super::{
@@ -57,6 +60,7 @@ pub fn preset_load(state: State<'_, AppState>, app: AppHandle) -> CmdResult<Pres
         .key_positions
         .unwrap_or_else(|| default_positions().clone());
     migrate_legacy_ghost_keys(&mut positions);
+    fold_stacked_ghost_keys(&mut keys, &mut positions);
     let mut stat_positions = preset.stat_positions.unwrap_or_default();
     let mut graph_positions = preset.graph_positions.unwrap_or_default();
     let mut knob_positions = preset.knob_positions.unwrap_or_default();
@@ -258,7 +262,7 @@ pub fn preset_load_tab(
         selected_key_type.as_deref(),
         &current_tab_id,
     )?;
-    let src_keys = imported_keys
+    let mut src_keys = imported_keys
         .get(&source_tab_id)
         .cloned()
         .ok_or_else(|| CommandError::msg("invalid-tab-preset"))?;
@@ -269,6 +273,9 @@ pub fn preset_load_tab(
         src_key_positions.insert(current_tab_id.clone(), v.clone());
     }
     migrate_legacy_ghost_keys(&mut src_key_positions);
+    let mut src_key_mappings = HashMap::from([(current_tab_id.clone(), src_keys)]);
+    fold_stacked_ghost_keys(&mut src_key_mappings, &mut src_key_positions);
+    src_keys = src_key_mappings.remove(&current_tab_id).unwrap_or_default();
 
     let imported_stat_positions = stat_positions.unwrap_or_default();
     let mut src_stat_positions: StatPositions = HashMap::new();

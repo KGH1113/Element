@@ -8,6 +8,9 @@ export interface NativeViewerSurfacePort {
   describe(sessionId: string): Promise<unknown>;
   /** Fires when OBS mode, its token/port or a replay render changes. */
   onChanged?(listener: () => void): Unsubscribe;
+  /** Whether the player wants the viewers inside ADOFAI at all. */
+  inGameEnabled?(): boolean;
+  onInGameChanged?(listener: () => void): Unsubscribe;
 }
 
 const failures = {
@@ -19,6 +22,7 @@ const failures = {
     'A replay render is using ImplDmNote. Try again after it finishes.',
   'native-unavailable':
     'The native in-game viewers could not be prepared. Try again.',
+  'in-game-disabled': 'Show inside ADOFAI is off in ImplDmNote.',
 } as const;
 
 type FailureCode = keyof typeof failures;
@@ -67,17 +71,28 @@ export class NativeViewerIpcCoordinator {
         this.generation++;
         this.session = undefined;
         this.cancelChange();
-        if (state === 'ready')
-          messages.emit('mirror.available', {
-            nativeProtocolVersion: 1,
-            nativePush: this.canPush,
-          });
+        if (state === 'ready') this.announce();
       }),
     );
     if (surface.onChanged && scheduler)
       this.subscriptions.push(
         surface.onChanged(() => this.scheduleChange(changeDebounceMs)),
       );
+    if (surface.onInGameChanged)
+      this.subscriptions.push(
+        surface.onInGameChanged(() => {
+          if (this.messages.state === 'ready') this.announce();
+        }),
+      );
+  }
+
+  /** The game hides its viewer cards and pages while `inGame` is false. */
+  private announce(): void {
+    this.messages.emit('mirror.available', {
+      nativeProtocolVersion: 1,
+      nativePush: this.canPush,
+      inGame: this.surface.inGameEnabled?.() ?? true,
+    });
   }
 
   private get canPush(): boolean {

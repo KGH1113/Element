@@ -127,6 +127,15 @@ namespace ImplResourcePack.Infrastructure.Game.DmNote
       return Connected && size.x > 0 && size.y > 0;
     }
 
+    // This fake has no initial fit, so its content and reference sizes match.
+    public bool TryGetContentSize(string kind, out Vector2 size) => TryGetReferenceSize(kind, out size);
+
+    public bool TryGetViewSize(out Vector2 size)
+    {
+      size = HostSizePoints;
+      return size.x > 0 && size.y > 0;
+    }
+
     public bool TryGetBounds(string kind, out Rect normalized, out float effectiveScale)
     {
       effectiveScale = LastEffectiveScale;

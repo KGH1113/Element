@@ -109,31 +109,26 @@ final class DockHelperAppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func activateOrLaunchMain() {
-        if let pid = mainPid, let app = NSRunningApplication(processIdentifier: pid), !app.isTerminated {
-            app.activate(options: [.activateIgnoringOtherApps])
-            return
-        }
-
-        if let running = NSRunningApplication
-            .runningApplications(withBundleIdentifier: mainBundleId)
-            .first(where: { !$0.isTerminated }) {
-            running.activate(options: [.activateIgnoringOtherApps])
-            return
-        }
-
         let workspace = NSWorkspace.shared
+        let running = mainPid
+            .flatMap { NSRunningApplication(processIdentifier: $0) }
+            .flatMap { $0.isTerminated ? nil : $0 }
+            ?? NSRunningApplication
+            .runningApplications(withBundleIdentifier: mainBundleId)
+            .first(where: { !$0.isTerminated })
+        // Opening the bundle, even while it runs, makes LaunchServices send it
+        // a reopen event, which shows a window hidden in the background (tray
+        // mode or a game launch). Activation alone would leave it hidden.
+        guard let bundleURL = running?.bundleURL
+            ?? mainBundlePath.map({ URL(fileURLWithPath: $0) })
+            ?? workspace.urlForApplication(withBundleIdentifier: mainBundleId)
+        else {
+            running?.activate(options: [.activateIgnoringOtherApps])
+            return
+        }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-
-        if let bundlePath = mainBundlePath {
-            let bundleURL = URL(fileURLWithPath: bundlePath)
-            workspace.openApplication(at: bundleURL, configuration: configuration) { _, _ in }
-            return
-        }
-
-        if let bundleURL = workspace.urlForApplication(withBundleIdentifier: mainBundleId) {
-            workspace.openApplication(at: bundleURL, configuration: configuration) { _, _ in }
-        }
+        workspace.openApplication(at: bundleURL, configuration: configuration) { _, _ in }
     }
 }
 

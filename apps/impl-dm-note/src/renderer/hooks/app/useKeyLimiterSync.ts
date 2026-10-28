@@ -7,6 +7,7 @@ import {
 } from '@src/renderer/ipc/keyLimiterSnapshot';
 import { createKeyLimiterCoordinator } from '../../bootstrap/ipcRuntime';
 import { useKeyLimiterStatusStore } from '@stores/useKeyLimiterStatusStore';
+import { useSettingsStore } from '@stores/useSettingsStore';
 
 function createSessionId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -29,7 +30,10 @@ export function startKeyLimiterSync(
 
     const nextRevision = revision + 1;
     const request = buildKeyLimiterSyncRequest(
-      state,
+      {
+        ...state,
+        keyLimiterEnabled: useSettingsStore.getState().keyLimiterEnabled,
+      },
       sessionId,
       nextRevision,
       __APP_VERSION__,
@@ -53,11 +57,17 @@ export function startKeyLimiterSync(
       enqueueCurrentState();
     }
   });
+  const unsubscribeSettings = useSettingsStore.subscribe((state, previous) => {
+    if (state.keyLimiterEnabled !== previous.keyLimiterEnabled) {
+      enqueueCurrentState();
+    }
+  });
 
   enqueueCurrentState();
 
   return () => {
     unsubscribe();
+    unsubscribeSettings();
     coordinator.dispose();
   };
 }

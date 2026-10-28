@@ -106,7 +106,7 @@ test('app chrome typography does not leak into viewer surfaces', async ({
   expect(contract.portal).toContain('Pretendard Variable');
   expect(contract.viewer).toContain('SUIT-Regular');
   expect(contract.viewerControl).toContain('SUIT-Regular');
-  expect(contract.accent).toBe('#8b5cf6');
+  expect(contract.accent).toBe('#ba712b');
   expect(contract.hasPretendardFace).toBe(true);
 });
 
@@ -139,6 +139,33 @@ test('viewer-only entry does not load app typography or tokens', async ({
   expect(contract.rootFont).toContain('SUIT-Regular');
   expect(contract.accent).toBe('');
   expect(contract.hasPretendardFace).toBe(false);
+});
+
+test('a held ghost key replaces its key and the newest press shows', async ({
+  page,
+}) => {
+  await page.goto('/visual/index.html?surface=overlay&fixture=hand-ghost');
+  await page.waitForFunction(() => window.__VISUAL_READY__ === true);
+  const keys = page.locator('[data-viewer-layer="keys"]');
+  const press = (key: string, active: boolean) =>
+    page.evaluate(([k, a]) => window.__VISUAL_SET_KEY__?.(k, a), [
+      key,
+      active,
+    ] as const);
+
+  await press('E', false);
+  await expect(keys).toHaveText('E');
+  await press('R', true);
+  await expect(keys).toHaveText('R');
+  await press('E', true);
+  await expect(keys).toHaveText('E');
+  await press('R', false);
+  await press('R', true);
+  await expect(keys).toHaveText('R');
+  await press('R', false);
+  await expect(keys).toHaveText('E');
+  await press('E', false);
+  await expect(keys).toHaveText('E');
 });
 
 test('primitive controls preserve controlled input semantics', async ({
@@ -269,6 +296,28 @@ test('modal traps focus while popup and tooltip keep their own roles', async ({
   await expect(opener).toBeFocused();
 });
 
+test('OBS mode prompt asks one titled question with equal actions', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 902, height: 488 });
+  await page.goto('/visual/shell.html?state=obs-prompt');
+  await page.waitForFunction(() => window.__VISUAL_READY__ === true);
+
+  const card = page.locator('.dmn-obs-prompt');
+  await expect(card).toHaveScreenshot('obs-mode-prompt.png');
+  const enable = card.getByRole('button', { name: 'Turn on' });
+  const dismiss = card.getByRole('button', { name: 'Not now' });
+  await expect(enable).toBeFocused();
+  const [enableBox, dismissBox] = await Promise.all([
+    enable.boundingBox(),
+    dismiss.boundingBox(),
+  ]);
+  // Same size and one line each; the primary action comes last.
+  expect(enableBox?.width).toBe(dismissBox?.width);
+  expect(enableBox?.height).toBe(dismissBox?.height);
+  expect(enableBox!.x).toBeGreaterThan(dismissBox!.x);
+});
+
 test('editor shell keeps app chrome geometry and glass hierarchy', async ({
   page,
 }) => {
@@ -325,7 +374,7 @@ test('editor shell keeps app chrome geometry and glass hierarchy', async ({
   expect(contract.propertyRowHeight).toBe(32);
   expect(contract.propertyLabelTypography).toEqual(['13px', '18px', '500']);
   expect(contract.appTypography).toEqual(['12px', '18px', '500']);
-  expect(contract.frameRadius).toBe('10px');
+  expect(contract.frameRadius).toBe('8px');
   expect(contract.panelBackdrop).toContain('blur(18px)');
   expect(contract.panelBackground).not.toBe('rgba(0, 0, 0, 0)');
 });
@@ -338,7 +387,8 @@ test('toolbar palette popup remains inside the shell viewport', async ({
   await page.waitForFunction(() => window.__VISUAL_READY__ === true);
   await page.getByRole('button', { name: 'Palette' }).click();
 
-  const popup = page.locator('[data-dmn-app-portal] .dmn-picker-surface');
+  // FloatingPopup owns the single popup surface; picker content is unpainted.
+  const popup = page.locator('.dmn-popup-surface[data-dmn-app-portal]');
   await expect(popup).toBeVisible();
   const [popupBounds, rootBounds] = await Promise.all([
     popup.boundingBox(),
@@ -493,7 +543,7 @@ test('settings collapses to a single pane in a narrow resized viewport', async (
   expect(geometry.toolbarWidth).toBe(geometry.clientWidth);
 });
 
-test('viewer tab popup arrow follows the hand and foot triggers', async ({
+test('viewer tab popup anchors above the hand and foot triggers', async ({
   page,
 }) => {
   await page.goto('/visual/shell.html?state=tabs');
@@ -508,21 +558,21 @@ test('viewer tab popup arrow follows the hand and foot triggers', async ({
 
     const popup = page.locator('.viewer-tab-popup');
     await expect(popup).toBeVisible();
+    // The popup has no arrow (matching upstream); it must sit above its
+    // trigger and span the trigger's centre line.
     await expect
       .poll(async () => {
         const triggerBox = await trigger.boundingBox();
         const popupBox = await popup.boundingBox();
-        const arrowLeft = await popup.evaluate((element) =>
-          Number.parseFloat(getComputedStyle(element, '::after').left),
-        );
-        if (!triggerBox || !popupBox || Number.isNaN(arrowLeft)) {
-          return Number.POSITIVE_INFINITY;
-        }
-        return Math.abs(
-          popupBox.x + arrowLeft - (triggerBox.x + triggerBox.width / 2),
+        if (!triggerBox || !popupBox) return false;
+        const triggerCenter = triggerBox.x + triggerBox.width / 2;
+        return (
+          popupBox.y + popupBox.height <= triggerBox.y &&
+          popupBox.x <= triggerCenter &&
+          popupBox.x + popupBox.width >= triggerCenter
         );
       })
-      .toBeLessThan(1);
+      .toBe(true);
 
     await trigger.click();
     await expect(popup).toHaveCount(0);

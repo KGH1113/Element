@@ -6766,7 +6766,7 @@ For these and/or other purposes and motivations, and without any expectation of 
 -------------------------------------------------------------------------------
 License: GNU General Public License v3.0 only
 Used by:
-- impl-dm-note 0.1.0
+- impl-dm-note 0.3.0
 
 GNU GENERAL PUBLIC LICENSE
 Version 3, 29 June 2007
@@ -10830,7 +10830,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
 -------------------------------------------------------------------------------
-zod 4.5.4
+zod 4.6.7
 License: MIT
 Source: https://zod.dev
 Copyright metadata: Colin McDonnell <zod@colinhacks.com>

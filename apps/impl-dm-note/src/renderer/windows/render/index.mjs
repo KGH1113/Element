@@ -47,6 +47,7 @@ async function start() {
     { default: App },
     { useKeyStore },
     { usePluginDisplayElementStore },
+    { ghostKeyLabels },
   ] = await Promise.all([
     import('react-dom/client'),
     import('react-dom'),
@@ -55,6 +56,7 @@ async function start() {
     import('@windows/overlay/App'),
     import('@stores/data/useKeyStore'),
     import('@stores/plugin/usePluginDisplayElementStore'),
+    import('@src/renderer/editor/model/ghostKeys'),
     import('@components/overlay/WebGLTracksOGL'),
     import('@api/dmnoteApi'),
     import('@styles/viewer-compat-v1.css'),
@@ -123,9 +125,13 @@ async function start() {
     try {
       if (request.frameIndex !== nextFrame)
         throw new Error('Render frame is out of sequence.');
-      const selectedMode = useKeyStore.getState().selectedKeyType;
-      const selectedKeys =
-        useKeyStore.getState().keyMappings[selectedMode] || [];
+      const keyState = useKeyStore.getState();
+      const selectedMode = keyState.selectedKeyType;
+      const mappedKeys = keyState.keyMappings[selectedMode] || [];
+      // Ghost keys come last, like the native hook's routing order.
+      const selectedKeys = mappedKeys.concat(
+        ghostKeyLabels(mappedKeys, keyState.positions[selectedMode] || []),
+      );
       for (const event of request.events) {
         clock.advanceTo(event.outputTimeUs / 1000);
         sampleStyles();

@@ -119,6 +119,8 @@ function buildSettingsSnapshot(
     gridSettings: bootstrap.settings.gridSettings ?? getDefaultGridSettings(),
     shortcuts: bootstrap.settings.shortcuts ?? getDefaultShortcuts(),
     obsModeEnabled: bootstrap.settings.obsModeEnabled ?? false,
+    keyLimiterEnabled: bootstrap.settings.keyLimiterEnabled ?? true,
+    inGameViewersEnabled: bootstrap.settings.inGameViewersEnabled ?? true,
   };
 }
 

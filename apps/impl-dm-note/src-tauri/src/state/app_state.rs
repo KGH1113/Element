@@ -2277,6 +2277,7 @@ pub fn show_main_window(app_handle: &AppHandle) -> Result<()> {
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.unminimize();
         main.show()?;
+        restore_if_minimized(&main);
         let _ = main.set_focus();
     }
 
@@ -2288,6 +2289,24 @@ pub fn show_main_window(app_handle: &AppHandle) -> Result<()> {
     state.set_main_window_hidden(false)?;
     Ok(())
 }
+
+/// A game launch on Windows minimizes the window without tao knowing, so
+/// `unminimize` alone would leave it in the taskbar.
+#[cfg(target_os = "windows")]
+fn restore_if_minimized(window: &WebviewWindow) {
+    use windows::Win32::UI::WindowsAndMessaging::{IsIconic, ShowWindow, SW_RESTORE};
+
+    if let Ok(hwnd) = window.hwnd() {
+        unsafe {
+            if IsIconic(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            }
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn restore_if_minimized(_window: &WebviewWindow) {}
 
 fn shutdown_application(app_handle: AppHandle, overlay_force_close: Arc<AtomicBool>) {
     if overlay_force_close.swap(true, Ordering::SeqCst) {

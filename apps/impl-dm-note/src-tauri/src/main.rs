@@ -536,6 +536,17 @@ fn apply_main_window_configuration(
     let launched_by_game = app
         .try_state::<LaunchContext>()
         .is_some_and(|launch| launch.launched_by_game);
+    // Like the Dock icon on macOS, a taskbar button opens the window while the
+    // game keeps focus; Windows 11 hides new tray icons in the overflow.
+    #[cfg(target_os = "windows")]
+    {
+        if launched_by_game {
+            if let Err(err) = show_in_taskbar_without_focus(&window) {
+                log::warn!("failed to show main window in the taskbar: {err}");
+            }
+            return Ok(());
+        }
+    }
     let should_start_hidden =
         launched_by_game || (snapshot.tray_enabled && snapshot.main_window_hidden);
 
@@ -558,6 +569,35 @@ fn apply_main_window_configuration(
     if let Err(err) = state.set_main_window_hidden(false) {
         log::warn!("failed to persist visible main window state: {err}");
     }
+    Ok(())
+}
+
+/// Shows the main window minimized and not activated, so it gets a taskbar
+/// button without taking focus from the game.
+#[cfg(target_os = "windows")]
+fn show_in_taskbar_without_focus(window: &tauri::WebviewWindow) -> Result<()> {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOWMINNOACTIVE};
+
+    let hwnd = window.hwnd()?;
+    unsafe {
+        let _ = ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
+    }
+    // tao still counts the window as hidden and would hide it again on its
+    // next flag update. Once the player opens it (it is focused then), let
+    // tao mark it visible; its SW_SHOW changes nothing at that point.
+    let synced = Arc::new(AtomicBool::new(false));
+    let target = window.clone();
+    window.on_window_event(move |event| {
+        if matches!(event, tauri::WindowEvent::Focused(true))
+            && !synced.swap(true, Ordering::SeqCst)
+        {
+            if let Err(err) = target.show() {
+                log::warn!("failed to sync main window visibility: {err}");
+            }
+        }
+    });
     Ok(())
 }
 

@@ -5,8 +5,6 @@ use crate::errors::{CmdResult, CommandError};
 use crate::launch::LaunchContext;
 use crate::state::AppState;
 
-const TRAY_ICON_ID: &str = "background-tray";
-
 #[tauri::command]
 pub fn window_minimize(app: AppHandle) -> CmdResult<()> {
     if let Some(window) = app.get_webview_window("main") {
@@ -45,19 +43,8 @@ pub fn app_restart(app: AppHandle) -> CmdResult<()> {
 }
 
 #[tauri::command]
-pub fn window_show_main(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
-    if let Some(main) = app.get_webview_window("main") {
-        let _ = main.unminimize();
-        main.show()?;
-        let _ = main.set_focus();
-    }
-
-    if app.tray_by_id(TRAY_ICON_ID).is_some() {
-        let _ = app.remove_tray_by_id(TRAY_ICON_ID);
-    }
-
-    state.set_main_window_hidden(false)?;
-
+pub fn window_show_main(app: AppHandle) -> CmdResult<()> {
+    crate::state::app_state::show_main_window(&app)?;
     Ok(())
 }
 

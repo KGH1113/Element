@@ -35,8 +35,9 @@ IMPL_RESOURCEPACK_INSTALL_PATH="${IMPL_RESOURCEPACK_INSTALL_DIR:-$ADOFAI_MODS_DI
 
 IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT="${IMPL_RESOURCEPACK_PACKAGE_ROOT:-$IMPL_RESOURCEPACK_PROJECT_ROOT/build/package}"
 # One release archive per OS: ImplResourcePack-macos.zip and -windows.zip.
+# IMPL_RESOURCEPACK_PACKAGE_PLATFORMS=macos packages one OS, e.g. for a test.
 IMPL_RESOURCEPACK_PACKAGE_OUTPUT_DIR="${IMPL_RESOURCEPACK_PACKAGE_DIR:-$IMPL_RESOURCEPACK_PROJECT_ROOT/build}"
-IMPL_RESOURCEPACK_PACKAGE_PLATFORMS="macos windows"
+IMPL_RESOURCEPACK_PACKAGE_PLATFORMS="${IMPL_RESOURCEPACK_PACKAGE_PLATFORMS:-macos windows}"
 IMPL_RESOURCEPACK_VERSION_ASSET_PATH="${IMPL_RESOURCEPACK_VERSION_ASSET:-$IMPL_RESOURCEPACK_PROJECT_ROOT/build/ImplResourcePack.version}"
 IMPL_RESOURCEPACK_PLATFORM="$(uname -s)"
 
@@ -58,6 +59,14 @@ is_macos() {
 # package_stage <macos|windows>: the mod folder staged for that release archive.
 package_stage() {
   printf '%s/%s/ImplResourcePack\n' "$IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT" "$1"
+}
+
+# packages_platform <macos|windows>: true when this run packages that OS.
+packages_platform() {
+  case " $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS " in
+    *" $1 "*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # package_zip <macos|windows>

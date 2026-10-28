@@ -18,7 +18,9 @@ if [ "${IMPL_RESOURCEPACK_SKIP_DMNOTE:-0}" = "1" ]; then
   exit 0
 fi
 
-if dmnote_mac_current; then
+if [ "$only" != "macos" ] && ! packages_platform macos; then
+  printf 'Skipping the macOS ImplDmNote (not packaged in this run).\n'
+elif dmnote_mac_current; then
   printf 'Using the macOS ImplDmNote build for the current sources: %s\n' "$DMNOTE_MAC_APP"
 else
   is_macos || fail "The macOS ImplDmNote is built with Xcode tools. Package on macOS, or set IMPL_RESOURCEPACK_DMNOTE_MAC_APP to a built ImplDmNote.app."
@@ -34,7 +36,7 @@ else
   fi
 fi
 
-if [ "$only" = "macos" ]; then
+if [ "$only" = "macos" ] || ! packages_platform windows; then
   exit 0
 elif dmnote_windows_current; then
   printf 'Using the Windows ImplDmNote build: %s\n' "$(dmnote_windows_zip)"

@@ -65,6 +65,8 @@
 - 데스크톱 CI는 Windows 포터블 zip을 `impl-dm-note-windows-portable`
   아티팩트로 올립니다. 이를 쓰려면 `IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP`,
   앱 없이 패키징하려면 `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`을 지정합니다.
+- `IMPL_RESOURCEPACK_PACKAGE_PLATFORMS=macos`처럼 OS를 지정하면 그 OS의
+  패키지만 만듭니다(테스트용).
 - 로컬 `install`/`build`는 기본적으로 앱을 넣지 않습니다. macOS에서
   `IMPL_RESOURCEPACK_INSTALL_DMNOTE=1`이면 macOS 앱도 함께 설치합니다.
 

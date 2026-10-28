@@ -12,9 +12,12 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 run_task "Validate release package inputs" "$TASKS_DIR/validate/release-package-inputs.sh"
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
 run_task "Build mod (Release)" "$TASKS_DIR/build/mod.sh" Release
-run_task "Prepare Windows game WebView host" "$TASKS_DIR/package/windows-webview.sh"
+if packages_platform windows; then
+  run_task "Prepare Windows game WebView host" "$TASKS_DIR/package/windows-webview.sh"
+fi
 run_task "Prepare ImplDmNote" "$TASKS_DIR/package/impl-dm-note.sh"
-run_task "Stage macOS package" "$TASKS_DIR/package/stage.sh" macos
-run_task "Stage Windows package" "$TASKS_DIR/package/stage.sh" windows
+for platform in $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS; do
+  run_task "Stage $platform package" "$TASKS_DIR/package/stage.sh" "$platform"
+done
 run_task "Create package archives" "$TASKS_DIR/package/archive.sh"
 run_task "Write release metadata" "$TASKS_DIR/package/write-release-assets.sh"

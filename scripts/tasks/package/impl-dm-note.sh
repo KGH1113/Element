@@ -27,5 +27,5 @@ if ! packages_platform windows; then
 elif dmnote_windows_current; then
   printf 'Using the Windows ImplDmNote build: %s\n' "$(dmnote_windows_zip)"
 else
-  fail "The Windows ImplDmNote archive is missing or older than the committed app sources ($(dmnote_windows_zip)). Run ./scripts/run.sh dmnote-windows-build (builds on IMPL_RESOURCEPACK_WINDOWS_HOST), set IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP to the desktop CI portable zip, or set IMPL_RESOURCEPACK_SKIP_DMNOTE=1 to package without ImplDmNote."
+  fail "The Windows ImplDmNote archive is missing or older than the committed app sources ($(dmnote_windows_zip)). Run ./scripts/run.sh dmnote-windows-build (builds on IMPL_RESOURCEPACK_WINDOWS_HOST), set IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP to the portable zip CD built, or set IMPL_RESOURCEPACK_SKIP_DMNOTE=1 to package without ImplDmNote."
 fi

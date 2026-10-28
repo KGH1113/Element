@@ -137,7 +137,9 @@ CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL�
 스모크 테스트는 로그인된 데스크톱에서 약 1분 동안 커서를 움직이고 자기 창을
 클릭하므로 그 PC를 쓰지 않을 때 실행합니다. `package`는 현재 소스로 빌드하고
 스모크 테스트를 통과한 DLL만 포함하며, 스모크 테스트를 직접 시작하지 않습니다.
-소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요.
+소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요. 릴리스는 이 PC 대신
+CD가 GitHub의 Windows 러너에서 빌드하고 스모크 테스트한 DLL을 씁니다
+([릴리스](releasing.md)). CI도 PR마다 같은 빌드와 스모크 테스트를 돌립니다.
 `IMPL_RESOURCEPACK_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
 패키징하며, 이 경우 Windows 플레이어는 게임 내 키뷰어를 쓸 수 없습니다.
 이 DLL은 `ImplResourcePack-windows.zip`에만 들어갑니다. 패키지에 함께 들어가는

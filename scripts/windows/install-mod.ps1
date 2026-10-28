@@ -101,6 +101,6 @@ if ($bundled) {
 } elseif ($kept) {
   Write-Output "ImplDmNote: kept the one already on this PC ($existing)."
 } else {
-  Write-Warning 'ImplDmNote is not in this zip or on this PC, so Auto open/close cannot open it. Make the zip again once Desktop CI has built ImplDmNote.'
+  Write-Warning 'ImplDmNote is not in this zip or on this PC, so Auto open/close cannot open it. Make the zip again once CD has built ImplDmNote.'
 }
 Write-Output 'Start ADOFAI to load it.'

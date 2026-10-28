@@ -9,14 +9,14 @@ source "$SCRIPTS_DIR/lib/context.sh"
 # shellcheck source=../lib/logging.sh
 source "$SCRIPTS_DIR/lib/logging.sh"
 
-# dev → pull request → main → Desktop CI builds ImplDmNote → this script, on
-# the Mac with the game: packages the mod around that build and publishes it.
-# See docs/releasing.md.
-app_env="$IMPL_RESOURCEPACK_PROJECT_ROOT/build/release/ci-app.env"
+# dev → pull request (CI checks) → main → CD builds ImplDmNote and the Windows
+# in-game viewer → this script, on the Mac with the game: builds the mod around
+# those builds, packages it and publishes it. See docs/releasing.md.
+app_env="$IMPL_RESOURCEPACK_PROJECT_ROOT/build/release/cd-builds.env"
 mkdir -p "$(dirname "$app_env")"
 
 run_task "Check main and the version" "$TASKS_DIR/release/preflight.sh"
-run_task "Download ImplDmNote from Desktop CI" "$TASKS_DIR/release/ci-app.sh" "$app_env"
+run_task "Download the CD builds" "$TASKS_DIR/release/cd-builds.sh" "$app_env"
 # shellcheck disable=SC1090
 source "$app_env"
 run_task "Run C# tests" "$TASKS_DIR/test/csharp.sh"

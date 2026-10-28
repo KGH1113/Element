@@ -15,13 +15,13 @@ Commands:
   mod-check   Build and test the mod without installing
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
-  windows-webview-check  Build the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST and run its desktop smoke probe
+  windows-webview-check  Build and smoke-test the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST (releases use CD's)
   windows-install  Make build/ImplResourcePack-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
   dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload and ImplDmNote
   package     Build the macOS and Windows release packages and their update manifest
   version [x.y.z]  Check that the mod and ImplDmNote share one version, or set it
-  release [--yes]  On main: package with Desktop CI's ImplDmNote and publish (docs/releasing.md)
+  release [--yes]  On main: build the mod around CD's builds, package and publish (docs/releasing.md)
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK

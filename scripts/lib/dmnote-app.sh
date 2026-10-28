@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The ImplDmNote builds a mod package or install carries: the macOS app bundle
 # (built here from the working tree) and the Windows portable archive (built
-# from committed sources by desktop CI or the Windows host). A build is current
+# from committed sources by CD or the Windows host). A build is current
 # when the app sources it stamps are the ones it would be built from now.
 
 if [ "${IMPL_RESOURCEPACK_DMNOTE_APP_LOADED:-0}" = "1" ]; then
@@ -101,7 +101,7 @@ ensure_dmnote_macos() {
   printf '%s\n' "$stamp" > "$DMNOTE_MAC_STAMP"
 }
 
-# An archive passed in explicitly (for example from desktop CI) is trusted.
+# An archive passed in explicitly (for example from CD) is trusted.
 dmnote_windows_current() {
   [ -n "${IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP:-}" ] && [ -f "$IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP" ] && return 0
   dmnote_build_current "$(dmnote_windows_zip)" "$(dmnote_windows_zip).sources" "$(dmnote_source_stamp)"

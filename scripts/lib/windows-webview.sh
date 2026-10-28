@@ -28,6 +28,33 @@ windows_webview_source_hash() {
   (cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && shasum -a 256 "${WINDOWS_WEBVIEW_SOURCES[@]}") | shasum -a 256 | cut -d ' ' -f 1
 }
 
+# windows_webview_source_stamp_at <commit>: the sources at that commit, by git
+# object, so a CD build matches whatever line endings its checkout used.
+windows_webview_source_stamp_at() {
+  local path
+  for path in "${WINDOWS_WEBVIEW_SOURCES[@]}"; do
+    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse "$1:$path"
+  done | shasum -a 256 | cut -d ' ' -f 1
+}
+
+# True when the sources have no uncommitted changes, so a CD build of HEAD is
+# a build of them.
+windows_webview_committed() {
+  [ -z "$(git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" status --porcelain -- "${WINDOWS_WEBVIEW_SOURCES[@]}")" ]
+}
+
+# windows_webview_adopt <library>: takes a library CD built from the current
+# sources and passed the smoke probe as this build's.
+windows_webview_adopt() {
+  local temporary
+  mkdir -p "$(dirname "$WINDOWS_WEBVIEW_LIBRARY")"
+  temporary="$(mktemp "$(dirname "$WINDOWS_WEBVIEW_LIBRARY")/.ImplGameWebView.dll.XXXXXX")"
+  cp "$1" "$temporary"
+  mv -f "$temporary" "$WINDOWS_WEBVIEW_LIBRARY"
+  windows_webview_source_hash > "$WINDOWS_WEBVIEW_STAMP"
+  cp "$WINDOWS_WEBVIEW_STAMP" "$WINDOWS_WEBVIEW_VERIFIED"
+}
+
 # True when the built Windows library matches the current sources.
 windows_webview_ready() {
   [ -f "$WINDOWS_WEBVIEW_LIBRARY" ] && [ -f "$WINDOWS_WEBVIEW_STAMP" ] &&

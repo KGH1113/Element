@@ -74,10 +74,10 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드를 켜면 Window
   거부합니다. ASIO 오디오 백엔드가 bindgen을 쓰므로 그 PC에 LLVM이 필요합니다
   (`winget install LLVM.LLVM` 한 번, 또는 `LIBCLANG_PATH`). Node 22는 없으면
   빌드 캐시에 받아 씁니다.
-- 릴리스(`./scripts/run.sh release`)는 두 OS 앱 모두 main의 Desktop CI
-  빌드를 씁니다([릴리스](releasing.md)).
-- 데스크톱 CI는 Windows 포터블 zip을 `impl-dm-note-windows-portable`
-  아티팩트로 올립니다. 이를 쓰려면 `IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP`,
+- 릴리스(`./scripts/run.sh release`)는 두 OS 앱 모두 main의 CD 빌드를
+  씁니다([릴리스](releasing.md)).
+- CD는 Windows 포터블 zip을 `impl-dm-note-windows-portable` 아티팩트로
+  올립니다. 로컬 `package`에서 이를 쓰려면 `IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP`,
   앱 없이 패키징하려면 `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`을 지정합니다.
 - `IMPL_RESOURCEPACK_PACKAGE_PLATFORMS=macos`처럼 OS를 지정하면 그 OS의
   패키지만 만듭니다(테스트용).
@@ -86,9 +86,10 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드를 켜면 Window
   그대로 두어, 게임이 앱을 다시 설치하지 않습니다.
 - `windows-install`은 Windows PC에 접속하지 않고
   `build/ImplResourcePack-windows-install.zip`을 만듭니다. 커밋된 앱 소스로
-  Desktop CI가 만든 Windows 앱(PR이나 main 실행)을 `gh`로 받아 넣습니다. 그런
-  빌드가 아직 없으면 앱 없이 만들고, 그 PC의 `Install.ps1`이 이미 있던 앱을
-  유지합니다.
+  CD가 만든 Windows 앱(main merge나 `gh workflow run cd.yml --ref dev`)을
+  `gh`로 받아 넣습니다. 그런 빌드가 아직 없으면 앱 없이 만들고, 그 PC의
+  `Install.ps1`이 이미 있던 앱을 유지합니다. Windows 게임 내 키뷰어도 이
+  Mac에 현재 소스의 빌드가 없으면 CD에서 받습니다.
 - `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`이면 `install`과 `windows-install`도 앱을
   새로 넣지 않습니다.
 

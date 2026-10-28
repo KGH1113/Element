@@ -308,7 +308,7 @@ fn main() {
                 ..
             } = _event
             {
-                if let Err(err) = state::show_main_window(_app) {
+                if let Err(err) = state::app_state::show_main_window(_app) {
                     log::warn!("failed to show main window on reopen: {err}");
                 }
             }

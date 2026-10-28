@@ -715,6 +715,32 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_get_reference_
   });
 }
 
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_content_size(
+    const char *viewerKind, double *width, double *height) {
+  if (viewerKind == nullptr || width == nullptr || height == nullptr) return 0;
+  return OnMainThread(^{
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:viewerKind]];
+    if (surface == nil || surface.viewport.width <= 0 || surface.viewport.height <= 0) return 0;
+    NSSize source = surface.viewport;
+    CGFloat padding = std::min<CGFloat>(surface.padding, (std::min(source.width, source.height) - 1) / 2);
+    *width = source.width - 2 * padding;
+    *height = source.height - 2 * padding;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) int irp_webview_get_view_size(double *width, double *height) {
+  if (width == nullptr || height == nullptr || NSApp == nil) return 0;
+  return OnMainThread(^{
+    // Before any viewer attaches there is no host yet; the game view is the same size.
+    NSView *view = host != nil && host.window != nil ? host : FindGameWindow(gameWindow).contentView;
+    if (view == nil || view.bounds.size.width <= 0 || view.bounds.size.height <= 0) return 0;
+    *width = view.bounds.size.width;
+    *height = view.bounds.size.height;
+    return 1;
+  });
+}
+
 extern "C" __attribute__((visibility("default"))) unsigned long long irp_webview_geometry_revision(void) {
   return geometryRevision.load(std::memory_order_relaxed);
 }

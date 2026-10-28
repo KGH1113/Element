@@ -1481,6 +1481,35 @@ IRP_WEBVIEW_API int irp_webview_get_reference_size(const char *viewerKind, doubl
   });
 }
 
+IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewerKind, double *width, double *height) {
+  if (viewerKind == nullptr || width == nullptr || height == nullptr || !OnGameThread()) return 0;
+  return Guarded([&] {
+    Surface *surface = Lookup(viewerKind);
+    if (surface == nullptr || surface->viewportWidth <= 0 || surface->viewportHeight <= 0) return 0;
+    double padding =
+        std::min(surface->padding, (std::min(surface->viewportWidth, surface->viewportHeight) - 1) / 2);
+    *width = surface->viewportWidth - 2 * padding;
+    *height = surface->viewportHeight - 2 * padding;
+    return 1;
+  });
+}
+
+IRP_WEBVIEW_API int irp_webview_get_view_size(double *width, double *height) {
+  if (width == nullptr || height == nullptr || !OnGameThread()) return 0;
+  return Guarded([&] {
+    // Before any viewer attaches there is no host yet; measure the game window itself.
+    HWND window = host != nullptr && IsWindow(host->window) ? host->window : FindGameWindow(nullptr);
+    if (window == nullptr) return 0;
+    RECT client{};
+    if (!GetClientRect(window, &client) || client.right <= 0 || client.bottom <= 0) return 0;
+    UINT dpi = GetDpiForWindow(window);
+    double unit = (dpi == 0 ? 96 : dpi) / 96.0;
+    *width = client.right / unit;
+    *height = client.bottom / unit;
+    return 1;
+  });
+}
+
 IRP_WEBVIEW_API unsigned long long irp_webview_geometry_revision(void) {
   // Called once per frame by the managed host: notice window size, display
   // scale and minimize changes here instead of subclassing Unity's window.

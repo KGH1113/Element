@@ -40,6 +40,13 @@ IRP_WEBVIEW_API int irp_webview_set_bounds(const char *viewer_kind, double x, do
 // attachment's fixed fit factor. Independent of host size and display scale.
 IRP_WEBVIEW_API int irp_webview_get_reference_size(const char *viewer_kind, double *width,
                                                    double *height);
+// Cropped content at its natural CSS size, without the initial fit factor. The
+// separate ImplDmNote window shows it at one CSS pixel per desktop unit.
+IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewer_kind, double *width,
+                                                 double *height);
+// The game view in desktop units: AppKit points on macOS, DIPs (client pixels
+// at the window's DPI) on Windows. Works before any viewer attaches.
+IRP_WEBVIEW_API int irp_webview_get_view_size(double *width, double *height);
 // Changes only when external geometry changes (source, padding, host, backing),
 // never for set_bounds. Cheap enough to poll once per frame.
 IRP_WEBVIEW_API unsigned long long irp_webview_geometry_revision(void);

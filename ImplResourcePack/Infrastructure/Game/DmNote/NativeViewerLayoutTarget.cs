@@ -33,6 +33,10 @@ internal sealed class NativeViewerLayoutTarget
   private int _screenWidth;
   private int _screenHeight;
   private float _screenScale = 1;
+  // Unity pixels per reference unit for sizes; 0 until the host reports its
+  // desktop units. With them, 100% is the size the separate ImplDmNote window
+  // shows (one CSS pixel per point or DIP); without, the 1920x1080 scale.
+  private float _sizeUnit;
   private ulong _geometryRevision;
   private Vector2 _referenceSize;
   private OverlayLayoutSettings _growthLayout;
@@ -230,7 +234,7 @@ internal sealed class NativeViewerLayoutTarget
       Screen.height,
       anchor
     );
-    float denominator = _referenceSize.x * _screenScale;
+    float denominator = _referenceSize.x * SizeUnit;
     if (!position.IsValid || denominator <= 0 || !Finite(denominator))
       return;
     // Legacy native viewers used AppKit points. Capture the actual rendered size
@@ -356,14 +360,11 @@ internal sealed class NativeViewerLayoutTarget
     _bounds = default;
     if (_screenWidth <= 0 || _screenHeight <= 0)
       return;
-    if (_host != null && _host.TryGetReferenceSize(NativeId, out Vector2 connectedReference))
-      _referenceSize = connectedReference;
-    else if (_referenceSize.x <= 0 || _referenceSize.y <= 0)
-      _referenceSize = new Vector2(NativeViewerMock.Width(_kind), NativeViewerMock.ViewportHeight);
+    ReadReferenceSize();
     if (_growthLayout == null || !_growthKey.Equals(GrowthKey))
     {
       Rect initial = InitialBounds();
-      float denominator = _referenceSize.x * _screenScale;
+      float denominator = _referenceSize.x * SizeUnit;
       if (denominator <= 0 || initial.width <= 0)
         return;
       _growthLayout = NativeViewerGrowth.Capture(
@@ -382,10 +383,10 @@ internal sealed class NativeViewerLayoutTarget
     if (_growthLayout != null)
     {
       _effectiveScale = _staged
-        ? _stagedBounds.width / (_referenceSize.x * _screenScale)
-        : PositiveScale(_growthLayout.Scale);
-      float width = _referenceSize.x * _screenScale * _effectiveScale;
-      float height = _referenceSize.y * _screenScale * _effectiveScale;
+        ? _stagedBounds.width / (_referenceSize.x * SizeUnit)
+        : Mathf.Min(PositiveScale(_growthLayout.Scale), FitScale());
+      float width = _referenceSize.x * SizeUnit * _effectiveScale;
+      float height = _referenceSize.y * SizeUnit * _effectiveScale;
       LayoutBounds desired = _staged
         ? new LayoutBounds(_stagedBounds.center.x - width * .5f, _stagedBounds.center.y - height * .5f, width, height)
         : OverlayLayoutPosition.Resolve(_growthLayout, width, height, _screenWidth, _screenHeight);
@@ -405,6 +406,38 @@ internal sealed class NativeViewerLayoutTarget
     }
   }
 
+  private float SizeUnit => _sizeUnit > 0 ? _sizeUnit : _screenScale;
+
+  // Reads the content size and size unit from the host. Disconnected, the last
+  // known values stay so the placement does not jump.
+  private void ReadReferenceSize()
+  {
+    float desktopUnit = 0;
+    if (_host != null && _host.TryGetViewSize(out Vector2 view) && view.x > 0)
+      desktopUnit = _screenWidth / view.x;
+    if (desktopUnit > 0 && _host.TryGetContentSize(NativeId, out Vector2 content))
+    {
+      _referenceSize = content;
+      _sizeUnit = desktopUnit;
+      return;
+    }
+    if (_host != null && _host.TryGetReferenceSize(NativeId, out Vector2 fitted))
+    {
+      // A library without desktop units: its fitted size in 1920x1080 units.
+      _referenceSize = fitted;
+      _sizeUnit = 0;
+      return;
+    }
+    if (_referenceSize.x <= 0 || _referenceSize.y <= 0)
+      _referenceSize = new Vector2(NativeViewerMock.Width(_kind), NativeViewerMock.ViewportHeight);
+    if (desktopUnit > 0)
+      _sizeUnit = desktopUnit;
+  }
+
+  // A saved scale larger than the game view is shown at the largest size that fits.
+  private float FitScale() =>
+    Mathf.Min(_screenWidth / (_referenceSize.x * SizeUnit), _screenHeight / (_referenceSize.y * SizeUnit));
+
   private (bool, int, Anchor9, float, float, float, float, float) GrowthKey =>
     (
       _settings.Customized,
@@ -423,7 +456,7 @@ internal sealed class NativeViewerLayoutTarget
   {
     if (_settings.Customized && OverlayLayoutPosition.IsAnchored(_settings))
     {
-      float scale = PositiveScale(_settings.Scale) * _screenScale;
+      float scale = PositiveScale(_settings.Scale) * SizeUnit;
       LayoutBounds resolved = OverlayLayoutGeometry.KeepVisible(
         OverlayLayoutPosition.Resolve(
           _settings,
@@ -460,8 +493,8 @@ internal sealed class NativeViewerLayoutTarget
       float height = NativeViewerMock.ViewportHeight;
       float fit = Mathf.Min(1, Mathf.Min(430 / width, 270 / height));
       _effectiveScale = _settings.Customized ? FiniteClamp(_settings.Scale, .2f, 5, 1) : 1;
-      width *= fit * _effectiveScale;
-      height *= fit * _effectiveScale;
+      width *= fit * _effectiveScale * SizeUnit;
+      height *= fit * _effectiveScale * SizeUnit;
       float x =
         _settings.Customized ? FiniteClamp(_settings.CenterX, -4, 5, .5f) * _screenWidth - width / 2
         : _kind == "hand" ? 16

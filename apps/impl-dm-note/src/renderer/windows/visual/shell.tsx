@@ -86,7 +86,8 @@ const fixtureState =
   requestedState === 'manager' ||
   requestedState === 'font' ||
   requestedState === 'sound' ||
-  requestedState === 'tabs'
+  requestedState === 'tabs' ||
+  requestedState === 'obs-prompt'
     ? requestedState
     : 'editor';
 
@@ -101,6 +102,7 @@ const bootstrap = async (): Promise<void> => {
     { default: Palette },
     { default: FontManagerModal },
     { default: SoundManagerModal },
+    { default: ObsModePrompt },
     propertyInputs,
     panelChrome,
     { useSettingsStore },
@@ -115,6 +117,7 @@ const bootstrap = async (): Promise<void> => {
     import('@components/main/Modal/content/pickers/Palette'),
     import('@components/main/Modal/content/managers/FontManagerModal'),
     import('@components/main/Modal/content/managers/SoundManagerModal'),
+    import('@components/main/Tool/ObsModePrompt'),
     import('@components/main/Grid/PropertiesPanel/PropertyInputs'),
     import('@components/main/Grid/PropertiesPanel/panelChrome'),
     import('@stores/useSettingsStore'),
@@ -301,6 +304,12 @@ const bootstrap = async (): Promise<void> => {
           onClose={() => undefined}
           t={(key) => key.split('.').at(-1) ?? key}
         />
+        {fixtureState === 'obs-prompt' && (
+          <ObsModePrompt
+            onEnable={() => undefined}
+            onDismiss={() => undefined}
+          />
+        )}
         <SoundManagerModal
           isOpen={fixtureState === 'sound'}
           selectedSound="/fixtures/mechanical.wav"

@@ -638,7 +638,8 @@
     "close": "닫기"
   },
   "obsModePrompt": {
-    "message": "OBS 모드를 켜면 IMPLResourcePack을 통해 인게임에서 ImplDmNote 키뷰어를 볼 수 있어요. OBS 모드를 켤까요?",
+    "title": "OBS 모드를 켤까요?",
+    "message": "OBS 모드를 켜면 IMPLResourcePack이 게임 화면 안에 ImplDmNote 키뷰어를 보여줘요.",
     "enable": "켜기",
     "dismiss": "무시"
   }

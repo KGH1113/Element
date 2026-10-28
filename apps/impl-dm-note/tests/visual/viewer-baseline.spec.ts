@@ -296,6 +296,28 @@ test('modal traps focus while popup and tooltip keep their own roles', async ({
   await expect(opener).toBeFocused();
 });
 
+test('OBS mode prompt asks one titled question with equal actions', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 902, height: 488 });
+  await page.goto('/visual/shell.html?state=obs-prompt');
+  await page.waitForFunction(() => window.__VISUAL_READY__ === true);
+
+  const card = page.locator('.dmn-obs-prompt');
+  await expect(card).toHaveScreenshot('obs-mode-prompt.png');
+  const enable = card.getByRole('button', { name: 'Turn on' });
+  const dismiss = card.getByRole('button', { name: 'Not now' });
+  await expect(enable).toBeFocused();
+  const [enableBox, dismissBox] = await Promise.all([
+    enable.boundingBox(),
+    dismiss.boundingBox(),
+  ]);
+  // Same size and one line each; the primary action comes last.
+  expect(enableBox?.width).toBe(dismissBox?.width);
+  expect(enableBox?.height).toBe(dismissBox?.height);
+  expect(enableBox!.x).toBeGreaterThan(dismissBox!.x);
+});
+
 test('editor shell keeps app chrome geometry and glass hierarchy', async ({
   page,
 }) => {

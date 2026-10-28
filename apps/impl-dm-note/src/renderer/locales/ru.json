@@ -638,7 +638,8 @@
     "close": "Закрыть"
   },
   "obsModePrompt": {
-    "message": "С режимом OBS IMPLResourcePack показывает key viewer ImplDmNote прямо в игре. Включить режим OBS?",
+    "title": "Включить режим OBS?",
+    "message": "В режиме OBS IMPLResourcePack показывает key viewer ImplDmNote прямо в игре.",
     "enable": "Включить",
     "dismiss": "Не сейчас"
   }

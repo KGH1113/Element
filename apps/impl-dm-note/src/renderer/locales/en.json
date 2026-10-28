@@ -638,7 +638,8 @@
     "close": "Close"
   },
   "obsModePrompt": {
-    "message": "With OBS mode on, IMPLResourcePack shows your ImplDmNote key viewers in game. Turn on OBS mode?",
+    "title": "Turn on OBS mode?",
+    "message": "With OBS mode on, IMPLResourcePack shows your ImplDmNote key viewers inside ADOFAI.",
     "enable": "Turn on",
     "dismiss": "Not now"
   }

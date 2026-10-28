@@ -21,6 +21,7 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useKeyLimiterSync } from '@hooks/app/useKeyLimiterSync';
 import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
+import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
 import { usePropertiesPanelStore } from '@stores/grid/usePropertiesPanelStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
@@ -662,15 +663,12 @@ export default function App() {
         onConfirm={handleAlertConfirm}
         onCancel={handleAlertCancel}
       />
-      <CustomAlert
-        isOpen={obsModePrompt.open}
-        message={t('obsModePrompt.message')}
-        type="confirm"
-        confirmText={t('obsModePrompt.enable')}
-        cancelText={t('obsModePrompt.dismiss')}
-        onConfirm={obsModePrompt.enable}
-        onCancel={obsModePrompt.dismiss}
-      />
+      {obsModePrompt.open && (
+        <ObsModePrompt
+          onEnable={obsModePrompt.enable}
+          onDismiss={obsModePrompt.dismiss}
+        />
+      )}
       <CustomAlert
         isOpen={customDialogState.isOpen}
         message={customDialogState.html}

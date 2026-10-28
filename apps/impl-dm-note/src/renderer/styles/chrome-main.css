@@ -1159,6 +1159,45 @@
   }
 }
 
+/* OBS mode prompt: a question title, one sentence, and two equal actions
+ * with the primary one last, on the shared .dmn-modal-card surface. */
+.dmn-obs-prompt {
+  display: flex;
+  width: 320px;
+  flex-direction: column;
+  gap: var(--ui-space-8);
+  padding: var(--ui-space-8);
+}
+
+.dmn-obs-prompt__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.dmn-obs-prompt__copy h2 {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-type-heading-weight);
+  line-height: var(--ui-type-heading-line);
+  letter-spacing: var(--ui-type-heading-tracking);
+}
+
+.dmn-obs-prompt__copy p {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  line-height: var(--ui-type-body-line);
+  word-break: keep-all;
+}
+
+.dmn-obs-prompt__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ui-space-3);
+}
+
 /* ImplResourcePack connection modal (toolbar status button). The card
  * surface comes from the shared .dmn-modal-card recipe. */
 .dmn-connection-modal {

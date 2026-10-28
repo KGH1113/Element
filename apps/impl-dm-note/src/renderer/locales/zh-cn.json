@@ -638,7 +638,8 @@
     "close": "关闭"
   },
   "obsModePrompt": {
-    "message": "开启 OBS 模式后，可通过 IMPLResourcePack 在游戏内显示 ImplDmNote 按键显示器。要开启 OBS 模式吗？",
+    "title": "要开启 OBS 模式吗？",
+    "message": "开启 OBS 模式后，IMPLResourcePack 会在游戏画面中显示 ImplDmNote 按键显示器。",
     "enable": "开启",
     "dismiss": "忽略"
   }

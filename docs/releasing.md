@@ -27,7 +27,7 @@ flowchart LR
 1. **dev에서 버전 올리기.** 모드와 ImplDmNote는 같은 버전을 씁니다.
 
    ```bash
-   ./scripts/run.sh version 0.3.0   # Info.json, package.json, tauri.conf.json, Cargo.toml/lock, package-lock.json
+   ./scripts/run.sh version 0.3.0   # Info.json, package.json, tauri.conf.json, Cargo.toml/lock, package-lock.json, THIRD_PARTY_LICENSES.txt
    ./scripts/run.sh version         # 모두 같은지 확인
    ```
 

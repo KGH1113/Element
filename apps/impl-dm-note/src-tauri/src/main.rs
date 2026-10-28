@@ -590,8 +590,11 @@ fn launch_macos_dock_helper() {
         return;
     };
 
+    // -g: the helper is a regular app only for the Dock icon. Bringing it to
+    // the front would switch a fullscreen game's Space back to the desktop.
     let mut cmd = Command::new("/usr/bin/open");
-    cmd.arg(&helper_path)
+    cmd.arg("-g")
+        .arg(&helper_path)
         .arg("--args")
         .arg("--main-pid")
         .arg(std::process::id().to_string())

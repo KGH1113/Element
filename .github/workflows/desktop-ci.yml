@@ -131,7 +131,6 @@ jobs:
           $root = Join-Path $unpack $name
           @(
             'impl-dm-note.exe',
-            'webview2-fixed-runtime/msedgewebview2.exe',
             'LICENSE',
             'UPSTREAM.md',
             'THIRD_PARTY_NOTICES.txt',

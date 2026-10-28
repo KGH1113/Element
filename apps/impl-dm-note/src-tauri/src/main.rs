@@ -33,9 +33,6 @@ use state::{AppState, AppStore};
 fn main() {
     #[cfg(target_os = "windows")]
     {
-        // WebView2 투명 오버레이 이슈 방지 — 번들된 Fixed 런타임 우선 적용
-        apply_webview2_fixed_runtime_override();
-
         // GPU/하드웨어 가속 강제 활성화 및 렌더링 최적화 플래그
         let gpu_flags = [
             "--enable-gpu-rasterization", // GPU 래스터화 강제 활성화
@@ -633,66 +630,6 @@ fn resolve_current_bundle_path() -> Option<PathBuf> {
     }
 
     None
-}
-
-#[cfg(target_os = "windows")]
-fn apply_webview2_fixed_runtime_override() {
-    use std::env;
-    const KEY: &str = "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER";
-
-    if env::var_os("IMPL_DM_NOTE_WEBVIEW2_USE_SYSTEM").is_some() {
-        return;
-    }
-
-    if env::var_os(KEY).is_some() {
-        return;
-    }
-
-    let mut candidates: Vec<PathBuf> = Vec::new();
-
-    if let Some(dir) = env::var_os("IMPL_DM_NOTE_WEBVIEW2_FIXED_RUNTIME_DIR") {
-        candidates.push(PathBuf::from(dir));
-    }
-
-    if let Ok(exe) = env::current_exe() {
-        if let Some(exe_dir) = exe.parent() {
-            candidates.push(exe_dir.join("webview2-fixed-runtime"));
-            candidates.push(exe_dir.join("WebView2FixedRuntime"));
-            candidates.push(exe_dir.join("resources").join("webview2-fixed-runtime"));
-            candidates.push(
-                exe_dir
-                    .join("..")
-                    .join("resources")
-                    .join("webview2-fixed-runtime"),
-            );
-        }
-    }
-
-    if cfg!(debug_assertions) {
-        // `tauri dev` — 바이너리 위치 가변, 저장소 기준 경로 추가 확인
-        candidates.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("webview2-fixed-runtime"));
-        candidates.push(
-            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("webview2-fixed-runtime"),
-        );
-    }
-
-    for candidate in candidates {
-        if is_valid_webview2_fixed_runtime_dir(&candidate) {
-            env::set_var(KEY, &candidate);
-            log::info!(
-                "using fixed WebView2 runtime override: {}",
-                candidate.display()
-            );
-            return;
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn is_valid_webview2_fixed_runtime_dir(dir: &std::path::Path) -> bool {
-    dir.is_dir() && dir.join("msedgewebview2.exe").is_file()
 }
 
 /// macOS 접근성(Accessibility) 권한을 확인하고,

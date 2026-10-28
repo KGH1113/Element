@@ -7,10 +7,6 @@ src-tauri/target
 .DS_Store
 .claude/settings.local.json
 
-# WebView2 FixedVersionRuntime (downloaded locally; keep placeholder)
-src-tauri/webview2-fixed-runtime/*
-!src-tauri/webview2-fixed-runtime/placeholder.txt
-
 .mcp.json
 mcp.json
 

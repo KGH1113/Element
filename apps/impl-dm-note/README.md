@@ -58,7 +58,7 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 ```
 
-현재 운영체제의 릴리스 빌드는 `npm run desktop:build`로 만들 수 있습니다. 명시적인 플랫폼 명령은 `desktop:build:mac`과 `desktop:build:windows`입니다. Windows 공식 산출물은 `ImplDmNote-v<version>-windows-x64-portable.zip`이며 WebView2 Fixed Runtime과 법적 고지를 포함합니다.
+현재 운영체제의 릴리스 빌드는 `npm run desktop:build`로 만들 수 있습니다. 명시적인 플랫폼 명령은 `desktop:build:mac`과 `desktop:build:windows`입니다. Windows 공식 산출물은 `ImplDmNote-v<version>-windows-x64-portable.zip`이며 법적 고지를 포함합니다. WebView2는 시스템에 설치된 Evergreen 런타임을 사용합니다.
 
 ## 데이터와 호환성
 

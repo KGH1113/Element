@@ -517,7 +517,7 @@ fn apply_main_window_configuration(
     let state = app.state::<AppState>();
     let snapshot = state.store.snapshot();
     // A game launch starts in the background without changing the saved
-    // window state; the tray (Windows) or Dock (macOS) brings it back.
+    // window state; the tray (menu bar on macOS) icon brings it back.
     let launched_by_game = app
         .try_state::<LaunchContext>()
         .is_some_and(|launch| launch.launched_by_game);

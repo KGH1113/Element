@@ -566,6 +566,9 @@ fn apply_main_window_configuration(
     if let Err(err) = window.show() {
         log::warn!("failed to show main window after configuration: {err}");
     }
+    // The window is created without focus (tauri.conf.json) so a game launch
+    // never takes it from the game; a launch by the player focuses it here.
+    let _ = window.set_focus();
     if let Err(err) = state.set_main_window_hidden(false) {
         log::warn!("failed to persist visible main window state: {err}");
     }

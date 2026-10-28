@@ -65,8 +65,9 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드를 켜면 Window
 ./scripts/run.sh package                 # macOS에서 실행, macOS 앱은 직접 빌드
 ```
 
-- `package`는 macOS에서만 실행합니다. macOS 앱은 커밋된 앱 소스로 만든 빌드가
-  있으면 재사용하고, 없으면 `npm run desktop:build:mac`으로 빌드합니다.
+- `package`는 macOS에서만 실행합니다. macOS 앱은 지금 앱 소스(커밋하지 않은
+  변경 포함)로 만든 빌드가 있으면 재사용하고, 없으면
+  `npm run desktop:build:mac`으로 빌드합니다.
 - Windows 앱은 `dmnote-windows-build`가 커밋된 `apps/impl-dm-note`,
   `package.json`, `package-lock.json`만 `git archive`로 보내 Windows PC에서
   `npm run desktop:build:windows`로 빌드합니다. 커밋하지 않은 앱 변경이 있으면
@@ -80,8 +81,16 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드를 켜면 Window
   앱 없이 패키징하려면 `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`을 지정합니다.
 - `IMPL_RESOURCEPACK_PACKAGE_PLATFORMS=macos`처럼 OS를 지정하면 그 OS의
   패키지만 만듭니다(테스트용).
-- 로컬 `install`/`build`는 기본적으로 앱을 넣지 않습니다. macOS에서
-  `IMPL_RESOURCEPACK_INSTALL_DMNOTE=1`이면 macOS 앱도 함께 설치합니다.
+- 로컬 `install`/`build`는 macOS 앱도 함께 설치합니다. 앱 소스가 바뀐 뒤 처음
+  설치할 때만 다시 빌드합니다(몇 분). 앱이 바뀌지 않았으면 모드 폴더의 zip도
+  그대로 두어, 게임이 앱을 다시 설치하지 않습니다.
+- `windows-install`은 Windows PC에 접속하지 않고
+  `build/ImplResourcePack-windows-install.zip`을 만듭니다. 커밋된 앱 소스로
+  Desktop CI가 만든 Windows 앱(PR이나 main 실행)을 `gh`로 받아 넣습니다. 그런
+  빌드가 아직 없으면 앱 없이 만들고, 그 PC의 `Install.ps1`이 이미 있던 앱을
+  유지합니다.
+- `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`이면 `install`과 `windows-install`도 앱을
+  새로 넣지 않습니다.
 
 Windows 앱은 Fixed WebView2 런타임을 넣지 않고 시스템의 Evergreen 런타임을
 씁니다. 게임 내 키뷰어도 같은 런타임을 사용합니다.

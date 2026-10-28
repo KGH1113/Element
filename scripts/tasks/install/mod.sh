@@ -28,14 +28,21 @@ development=development
 if [ "${IMPL_RESOURCEPACK_INSTALL_UPDATABLE:-0}" = "1" ]; then
   development=""
 fi
+# ImplDmNote comes with the install so Auto open/close opens it. It is built
+# first: a failed build leaves the installed mod as it was.
+# IMPL_RESOURCEPACK_SKIP_DMNOTE=1 keeps the copy this version folder has.
+dmnote=""
+if [ "${IMPL_RESOURCEPACK_SKIP_DMNOTE:-0}" = "1" ]; then
+  printf 'Leaving ImplDmNote as it is (IMPL_RESOURCEPACK_SKIP_DMNOTE=1).\n'
+elif is_macos; then
+  ensure_dmnote_macos
+  dmnote=macos
+fi
 remove_legacy_payload "$IMPL_RESOURCEPACK_INSTALL_PATH"
 remove_other_versions "$IMPL_RESOURCEPACK_INSTALL_PATH"
 stage_mod "$IMPL_RESOURCEPACK_INSTALL_PATH" local "" "$development"
 copy_debug_symbols "$runtime"
-# Opt-in: a release build of ImplDmNote takes minutes, so a regular install
-# leaves the app out and Auto open/close does nothing.
-if [ "${IMPL_RESOURCEPACK_INSTALL_DMNOTE:-0}" = "1" ] && is_macos; then
-  "$TASK_DIR/../package/impl-dm-note.sh" macos
+if [ "$dmnote" = "macos" ]; then
   stage_dmnote_macos "$runtime"
 fi
 

@@ -123,8 +123,14 @@ Windows PC에서 빌드합니다. OpenSSH 서버와 Visual Studio Build Tools(C+
 
 ```bash
 ./scripts/run.sh windows-webview-check  # 원격 빌드와 데스크톱 스모크 테스트
-./scripts/run.sh windows-install        # 그 PC의 얼불춤에 설치(게임을 닫은 상태)
+./scripts/run.sh windows-install        # 그 PC에 옮겨 설치할 zip 만들기(접속 없음)
 ```
+
+`windows-install`은 그 PC에 접속하지 않습니다. 만든
+`build/ImplResourcePack-windows-install.zip`을 그 PC로 옮겨 풀고, 게임을 닫은 채
+그 폴더에서 `powershell -ExecutionPolicy Bypass -File .\Install.ps1`을 실행합니다.
+`Install.ps1`은 Steam 라이브러리에서 얼불춤의 `Mods` 폴더를 찾고(다른 위치면
+`-Mods <폴더>`), 설정 파일은 그대로 둔 채 모드를 바꿉니다.
 
 빌드는 고정한 WebView2 SDK 1.0.4314.35를 NuGet에서 받아 SHA-256을 확인하고,
 CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL을 만듭니다.

@@ -92,7 +92,7 @@ git clone https://github.com/KGH1113/ImplResourcePack.git
 cd ImplResourcePack
 
 cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
-./scripts/run.sh build      # Release 빌드 후 Mods/ImplResourcePack에 설치
+./scripts/run.sh build      # 모드·ImplDmNote 빌드 후 Mods/ImplResourcePack에 설치
 ```
 
 게임에서 **왼쪽 <kbd>Alt</kbd> + <kbd>Tab</kbd>** (macOS는 <kbd>⌥</kbd> + <kbd>Tab</kbd>)을 누르면 설정 화면이 열립니다.

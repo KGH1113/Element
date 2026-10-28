@@ -11,14 +11,14 @@ Usage: ./scripts/run.sh <command>
 
 Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
-  build       Build and install the mod
+  build       Build the mod, its native libraries and ImplDmNote, test, and install it all
   mod-check   Build and test the mod without installing
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
   windows-webview-check  Build the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST and run its desktop smoke probe
-  windows-install  Install the mod with the Windows host into the Windows PC's ADOFAI (game closed)
+  windows-install  Make build/ImplResourcePack-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
   dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
-  install     Install the already verified mod payload
+  install     Install the already verified mod payload and ImplDmNote
   package     Build the macOS and Windows release packages and their update manifest
   version [x.y.z]  Check that the mod and ImplDmNote share one version, or set it
   release [--yes]  On main: package with Desktop CI's ImplDmNote and publish (docs/releasing.md)

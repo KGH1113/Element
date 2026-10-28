@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# The ImplDmNote builds a mod package carries: the macOS app bundle (built
-# here) and the Windows portable archive (built on the Windows host or taken
-# from desktop CI). A build is current when it was made from the committed
-# app sources it stamps.
+# The ImplDmNote builds a mod package or install carries: the macOS app bundle
+# (built here from the working tree) and the Windows portable archive (built
+# from committed sources by desktop CI or the Windows host). A build is current
+# when the app sources it stamps are the ones it would be built from now.
 
 if [ "${IMPL_RESOURCEPACK_DMNOTE_APP_LOADED:-0}" = "1" ]; then
   return 0
@@ -47,32 +47,82 @@ dmnote_source_stamp_at() {
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 
-# dmnote_build_current <build> <stamp file>
-dmnote_build_current() {
-  local stamp
+# dmnote_worktree_stamp: the app sources as they are on disk, committed or
+# not, in the same form as dmnote_source_stamp (equal when nothing is
+# uncommitted). The macOS app builds from the working tree, so its stamp is this.
+dmnote_worktree_stamp() {
+  local stamp index tree path
   stamp="$(dmnote_source_stamp)"
-  [ -n "$stamp" ] && [ -e "$1" ] && [ -f "$2" ] && [ "$(cat "$2")" = "$stamp" ]
+  if [ -n "$stamp" ]; then
+    printf '%s\n' "$stamp"
+    return 0
+  fi
+  # A scratch copy of git's index: its file cache means only changed files are hashed.
+  index="$(mktemp -d)"
+  cp "$(git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse --absolute-git-dir)/index" "$index/index"
+  if ! tree="$(cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" &&
+    GIT_INDEX_FILE="$index/index" git add -A -- "${DMNOTE_SOURCE_PATHS[@]}" &&
+    GIT_INDEX_FILE="$index/index" git write-tree)"; then
+    rm -rf "$index"
+    return 1
+  fi
+  rm -rf "$index"
+  for path in "${DMNOTE_SOURCE_PATHS[@]}"; do
+    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse "$tree:$path"
+  done | shasum -a 256 | cut -d ' ' -f 1
 }
 
-dmnote_mac_current() {
-  [ -n "${IMPL_RESOURCEPACK_DMNOTE_MAC_APP:-}" ] || dmnote_build_current "$DMNOTE_MAC_APP" "$DMNOTE_MAC_STAMP"
+# dmnote_build_current <build> <stamp file> <stamp>
+dmnote_build_current() {
+  [ -n "$3" ] && [ -e "$1" ] && [ -f "$2" ] && [ "$(cat "$2")" = "$3" ]
+}
+
+# ensure_dmnote_macos: a macOS app built from the app sources as they are now.
+# The last build is reused until they change; IMPL_RESOURCEPACK_DMNOTE_MAC_APP
+# is used as it is.
+ensure_dmnote_macos() {
+  local stamp
+  if [ -n "${IMPL_RESOURCEPACK_DMNOTE_MAC_APP:-}" ]; then
+    require_dir "$DMNOTE_MAC_APP"
+    printf 'Using the macOS ImplDmNote at %s\n' "$DMNOTE_MAC_APP"
+    return 0
+  fi
+  stamp="$(dmnote_worktree_stamp)"
+  if dmnote_build_current "$DMNOTE_MAC_APP" "$DMNOTE_MAC_STAMP" "$stamp"; then
+    printf 'The macOS ImplDmNote is already built from the current sources: %s\n' "$DMNOTE_MAC_APP"
+    return 0
+  fi
+  is_macos || fail "The macOS ImplDmNote is built with Xcode tools. Run this on macOS, or set IMPL_RESOURCEPACK_DMNOTE_MAC_APP to a built ImplDmNote.app."
+  require_command npm
+  printf 'Building the macOS ImplDmNote: its sources changed since the last build. This takes a few minutes.\n'
+  (cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && npm run desktop:build:mac)
+  require_dir "$DMNOTE_MAC_APP"
+  # The stamp is from before the build, so edits made meanwhile build again.
+  printf '%s\n' "$stamp" > "$DMNOTE_MAC_STAMP"
 }
 
 # An archive passed in explicitly (for example from desktop CI) is trusted.
 dmnote_windows_current() {
   [ -n "${IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP:-}" ] && [ -f "$IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP" ] && return 0
-  dmnote_build_current "$(dmnote_windows_zip)" "$(dmnote_windows_zip).sources"
+  dmnote_build_current "$(dmnote_windows_zip)" "$(dmnote_windows_zip).sources" "$(dmnote_source_stamp)"
 }
 
 # stage_dmnote_macos <mod folder>: ditto keeps the executable bit and code
-# signature through the zip; the mod unpacks it with ditto as well.
+# signature through the zip; the mod unpacks it with ditto as well. An
+# unchanged app keeps its old zip, so the mod does not install it again.
 stage_dmnote_macos() {
-  local destination="$1/ImplDmNote/macos"
+  local destination="$1/ImplDmNote/macos" temporary
   require_command ditto
   require_dir "$DMNOTE_MAC_APP"
   mkdir -p "$destination"
-  rm -f "$destination/ImplDmNote.app.zip"
-  ditto -c -k --keepParent "$DMNOTE_MAC_APP" "$destination/ImplDmNote.app.zip"
+  temporary="$(mktemp "$destination/.ImplDmNote.app.zip.XXXXXX")"
+  ditto -c -k --keepParent "$DMNOTE_MAC_APP" "$temporary"
+  if cmp -s "$temporary" "$destination/ImplDmNote.app.zip"; then
+    rm -f "$temporary"
+  else
+    chmod 644 "$temporary"
+    mv -f "$temporary" "$destination/ImplDmNote.app.zip"
+  fi
 }
 
 # stage_dmnote_windows <mod folder>: the portable archive holds one folder
@@ -92,6 +142,8 @@ stage_dmnote_windows() {
     fail "The ImplDmNote archive has no impl-dm-note.exe: $archive"
   fi
   mkdir -p "$destination"
-  cp -R "$folder/." "$destination/"
+  # Kept file times keep the mod's install stamp, so a repeat install of the
+  # same app does not copy it again.
+  cp -Rp "$folder/." "$destination/"
   rm -rf "$unpacked"
 }

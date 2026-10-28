@@ -2,6 +2,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::cursor::{get_macos_cursor_settings, rgb_to_hex};
 use crate::errors::{CmdResult, CommandError};
+use crate::launch::LaunchContext;
 use crate::state::AppState;
 
 const TRAY_ICON_ID: &str = "background-tray";
@@ -58,6 +59,11 @@ pub fn window_show_main(app: AppHandle, state: State<'_, AppState>) -> CmdResult
     state.set_main_window_hidden(false)?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn app_launch_context(launch: State<'_, LaunchContext>) -> CmdResult<LaunchContext> {
+    Ok(*launch)
 }
 
 #[tauri::command]

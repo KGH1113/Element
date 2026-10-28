@@ -10,6 +10,8 @@ import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
 import { connectIpc, type IpcConnection } from 'adofai-ipc/transport';
 import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketTransport';
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
+import { quitWhenGameLeaves } from '../application/gameOwnedLifetime';
+import { appApi } from '@api/modules/appApi';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { subscribe } from '@api/modules/shared';
@@ -133,4 +135,14 @@ export function startRenderMessages(): () => Promise<void> {
     { once: true },
   );
   return stop;
+}
+/** An app the game opened (Auto open/close ImplDmNote) closes with the game. */
+export async function startGameOwnedLifetime(): Promise<void> {
+  const launch = await appApi.launchContext().catch(() => null);
+  if (!launch?.launchedByGame) return;
+  quitWhenGameLeaves(
+    applicationMessages('impl-resourcepack'),
+    wallClockScheduler,
+    () => void appApi.quit(),
+  );
 }

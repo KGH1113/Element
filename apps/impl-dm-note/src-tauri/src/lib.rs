@@ -5,6 +5,7 @@ pub mod defaults;
 pub mod errors;
 pub mod ipc;
 pub mod keyboard;
+pub mod launch;
 pub mod models;
 pub mod services;
 pub mod state;

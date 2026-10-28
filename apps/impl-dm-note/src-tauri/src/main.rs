@@ -7,6 +7,7 @@ mod defaults;
 mod errors;
 mod ipc;
 mod keyboard;
+mod launch;
 mod models;
 mod services;
 mod state;
@@ -28,6 +29,7 @@ use tauri::{
 
 use impl_dm_note::compute_compensating_zoom;
 
+use launch::LaunchContext;
 use state::{AppState, AppStore};
 
 fn main() {
@@ -65,6 +67,8 @@ fn main() {
         eprintln!("Failed to initialize logging: {err}");
     }
 
+    let launch = LaunchContext::from_args(std::env::args());
+
     let context = tauri::generate_context!();
 
     tauri::Builder::default()
@@ -87,14 +91,21 @@ fn main() {
                 app.state::<services::render::RenderService>().end(app, None);
             }
         })
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            // ImplResourcePack opens the app on every game start; a running
+            // instance stays where it is instead of jumping over the game.
+            if LaunchContext::from_args(&args).launched_by_game {
+                return;
+            }
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.unminimize();
                 let _ = window.show();
                 let _ = window.set_focus();
             }
         }))
-        .setup(|app| {
+        .setup(move |app| {
+            app.manage(launch);
+
             // dev 빌드에서만 remote URL capability 등록 (릴리즈에서는 local:true만 사용)
             if cfg!(debug_assertions) {
                 register_dev_capability(app)?;
@@ -169,6 +180,7 @@ fn main() {
             commands::app::system::app_open_external,
             commands::app::system::app_restart,
             commands::app::system::app_quit,
+            commands::app::system::app_launch_context,
             commands::app::system::window_open_devtools_all,
             commands::app::system::get_cursor_settings,
             // OBS 모드
@@ -504,7 +516,13 @@ fn apply_main_window_configuration(
 
     let state = app.state::<AppState>();
     let snapshot = state.store.snapshot();
-    let should_start_hidden = snapshot.tray_enabled && snapshot.main_window_hidden;
+    // A game launch starts in the background without changing the saved
+    // window state; the tray (Windows) or Dock (macOS) brings it back.
+    let launched_by_game = app
+        .try_state::<LaunchContext>()
+        .is_some_and(|launch| launch.launched_by_game);
+    let should_start_hidden =
+        launched_by_game || (snapshot.tray_enabled && snapshot.main_window_hidden);
 
     if should_start_hidden {
         if let Err(err) = state.ensure_tray_icon_for_background(app) {

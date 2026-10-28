@@ -1,12 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
 
-import type { BootstrapPayload } from '@src/types/app';
+import type { BootstrapPayload, LaunchContext } from '@src/types/app';
 
 export const appApi = {
   bootstrap: () => invoke<BootstrapPayload>('app_bootstrap'),
   openExternal: (url: string) => invoke<void>('app_open_external', { url }),
   restart: () => invoke<void>('app_restart'),
   quit: () => invoke<void>('app_quit'),
+  launchContext: () => invoke<LaunchContext>('app_launch_context'),
 };
 
 export const windowApi = {

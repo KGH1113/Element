@@ -7,10 +7,14 @@ import '@styles/viewer-compat-v1.css';
 import '@styles/tokens.css';
 import '@styles/chrome-global.css';
 import '@styles/chrome-main.css';
-import { startRenderMessages } from '../../bootstrap/ipcRuntime';
+import {
+  startGameOwnedLifetime,
+  startRenderMessages,
+} from '../../bootstrap/ipcRuntime';
 
 window.__dmn_window_type = 'main';
 startRenderMessages();
+void startGameOwnedLifetime();
 
 const container = document.getElementById('root');
 if (!container) throw new Error('Root container not found');

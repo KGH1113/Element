@@ -296,8 +296,23 @@ fn main() {
             commands::plugin::storage::plugin_storage_has_data,
             commands::plugin::storage::plugin_storage_clear_by_prefix,
         ])
-        .run(context)
-        .expect("error while running tauri application");
+        .build(context)
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            // The Dock icon belongs to the helper app, which reopens this one.
+            // A window hidden in the background (tray mode or a game launch)
+            // then comes back like any other macOS app's.
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows: false,
+                ..
+            } = _event
+            {
+                if let Err(err) = state::show_main_window(_app) {
+                    log::warn!("failed to show main window on reopen: {err}");
+                }
+            }
+        });
 }
 
 #[cfg(target_os = "windows")]

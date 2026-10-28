@@ -2272,7 +2272,8 @@ fn tray_menu_labels(_language: &str) -> (&'static str, &'static str) {
     ("Settings", "Quit")
 }
 
-fn show_main_window(app_handle: &AppHandle) -> Result<()> {
+/// Brings the settings window back from the background (tray or game launch).
+pub fn show_main_window(app_handle: &AppHandle) -> Result<()> {
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.unminimize();
         main.show()?;

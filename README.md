@@ -82,10 +82,11 @@
 
 ## 시작하기
 
-> [!NOTE]
-> 아직 배포용 패키지가 없어 소스에서 빌드합니다. 게임 DLL을 참조하므로 게임이 설치된 PC에서 빌드하세요.
-
 **필요한 것:** A Dance of Fire and Ice · [UnityModManager](https://github.com/newman55/unity-mod-manager) 0.27 이상 · Harmony
+
+[최신 릴리스](https://github.com/KGH1113/ImplResourcePack/releases/latest)에서 `ImplResourcePack-macos.zip` 또는 `ImplResourcePack-windows.zip`을 받아, 압축을 푼 `ImplResourcePack` 폴더를 얼불춤의 `Mods` 폴더에 넣습니다. 이후 버전은 게임을 켤 때 자동으로 설치됩니다.
+
+소스에서 빌드하려면 게임이 설치된 PC에서:
 
 ```bash
 git clone https://github.com/KGH1113/ImplResourcePack.git

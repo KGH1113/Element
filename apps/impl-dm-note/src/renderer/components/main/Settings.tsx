@@ -31,6 +31,7 @@ import type {
 import type { JsPlugin } from '@src/types/plugin/js';
 import type { KeyCounters } from '@src/types/key/keys';
 import { obsApi } from '@api/modules/obsApi';
+import { setObsModeRunning } from '@utils/obsMode';
 import { keySoundOutputApi } from '@api/modules/resourceApi';
 import type {
   KeySoundOutputBackend,
@@ -670,9 +671,7 @@ const Settings = ({
     if (obsTogglingRef.current) return;
     obsTogglingRef.current = true;
     try {
-      const status = next ? await obsApi.start() : await obsApi.stop();
-      setObsStatus(status);
-      await window.api.settings.update({ obsModeEnabled: next });
+      setObsStatus(await setObsModeRunning(next));
     } catch (error) {
       console.error('Failed to toggle OBS mode', error);
       setObsStatus((prev) => ({ ...prev, running: !next }));

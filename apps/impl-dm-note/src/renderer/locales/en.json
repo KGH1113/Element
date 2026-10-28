@@ -636,5 +636,10 @@
     "keys": "Keys",
     "updated": "Updated",
     "close": "Close"
+  },
+  "obsModePrompt": {
+    "message": "With OBS mode on, IMPLResourcePack shows your ImplDmNote key viewers in game. Turn on OBS mode?",
+    "enable": "Turn on",
+    "dismiss": "Not now"
   }
 }

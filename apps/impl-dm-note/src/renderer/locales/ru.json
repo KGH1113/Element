@@ -636,5 +636,10 @@
     "keys": "Клавиши",
     "updated": "Обновлено",
     "close": "Закрыть"
+  },
+  "obsModePrompt": {
+    "message": "С режимом OBS IMPLResourcePack показывает key viewer ImplDmNote прямо в игре. Включить режим OBS?",
+    "enable": "Включить",
+    "dismiss": "Не сейчас"
   }
 }

@@ -4,7 +4,7 @@
 
 ImplDmNote (`apps/impl-dm-note`) is based on DM Note v1.6.1, copyright (C) 2024 lee-sihun, and is distributed under GPL-3.0-only. The complete license, upstream notices, source provenance, and modification summary are included inside that application directory.
 
-ImplDmNote is built and distributed as an application separate from the ImplResourcePack Unity mod.
+ImplDmNote is a separate program from the ImplResourcePack Unity mod. Release archives of the mod carry a copy of it in `ImplDmNote/` next to the mod; that copy keeps its own GPL-3.0-only license and notices inside it, and its complete source code is `apps/impl-dm-note` in https://github.com/KGH1113/ImplResourcePack.
 
 ## AdofaiIpc
 

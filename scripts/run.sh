@@ -17,8 +17,9 @@ Commands:
   native-webview-check  Build and verify the macOS game WebView host
   windows-webview-check  Build the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST and run its desktop smoke probe
   windows-install  Install the mod with the Windows host into the Windows PC's ADOFAI (game closed)
+  dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload
-  package     Build the release package and metadata
+  package     Build the macOS and Windows release packages and metadata
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
@@ -63,6 +64,9 @@ case "$command_name" in
     ;;
   windows-install)
     exec bash "$SCRIPTS_DIR/tasks/install/windows-mod.sh"
+    ;;
+  dmnote-windows-build)
+    exec bash "$SCRIPTS_DIR/tasks/build/dmnote-windows.sh"
     ;;
   install)
     exec "$SCRIPTS_DIR/tasks/install/mod.sh"

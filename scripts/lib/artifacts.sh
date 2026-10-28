@@ -15,22 +15,39 @@ source "${BASH_SOURCE[0]%/*}/ipc-bundle.sh"
 # shellcheck source=windows-webview.sh
 source "${BASH_SOURCE[0]%/*}/windows-webview.sh"
 
-# Native libraries per target: a local install carries the host's own, the
-# release package every platform's, and a Windows install only Windows'.
+# Native libraries per target: a local install carries the host's own, each
+# release archive (macos, windows-package) its OS's, and a Windows test
+# install the current Windows build. A Windows release takes only the library
+# that passed the smoke probe.
 runtime_payload_names() {
   local target="${1:-local}"
   RUNTIME_PAYLOAD_NAMES=(ImplResourcePack.dll)
-  if [ "$target" != "windows" ] && is_macos; then
-    RUNTIME_PAYLOAD_NAMES+=(libImplTrackpad.dylib native/libImplGameWebView.dylib)
-  fi
-  if [ "$target" = "windows" ] || { [ "$target" = "package" ] && windows_webview_verified; }; then
-    RUNTIME_PAYLOAD_NAMES+=(native/ImplGameWebView.dll)
-  fi
+  case "$target" in
+    local)
+      if is_macos; then
+        RUNTIME_PAYLOAD_NAMES+=(libImplTrackpad.dylib native/libImplGameWebView.dylib)
+      fi
+      ;;
+    macos)
+      RUNTIME_PAYLOAD_NAMES+=(libImplTrackpad.dylib native/libImplGameWebView.dylib)
+      ;;
+    windows)
+      RUNTIME_PAYLOAD_NAMES+=(native/ImplGameWebView.dll)
+      ;;
+    windows-package)
+      if windows_webview_verified; then
+        RUNTIME_PAYLOAD_NAMES+=(native/ImplGameWebView.dll)
+      fi
+      ;;
+    *)
+      fail "Unknown payload target: $target"
+      ;;
+  esac
 }
 
 # Replace runtime files by rename, never truncate a DLL/dylib mapped by a
 # running game. Existing processes retain their version until restart.
-# copy_runtime_payload <destination> [local|package|windows]
+# copy_runtime_payload <destination> [local|macos|windows|windows-package]
 copy_runtime_payload() {
   local destination="$1"
   local name temporary destination_dir
@@ -51,7 +68,7 @@ copy_runtime_payload() {
   done
 }
 
-# copy_core_payload <destination> [local|package|windows]
+# copy_core_payload <destination> [local|macos|windows|windows-package]
 copy_core_payload() {
   local destination="$1"
 
@@ -64,8 +81,10 @@ copy_core_payload() {
   copy_ipc_bundle "$destination"
 }
 
+# copy_assets <destination> [Mac|Windows|Linux]: with a platform, only the
+# font bundles that OS loads.
 copy_assets() {
-  local destination="$1"
+  local destination="$1" platform="${2:-}" folder
   local source="$IMPL_RESOURCEPACK_PROJECT_ROOT/ImplResourcePack/Assets"
   local target="$destination/Assets"
 
@@ -77,6 +96,11 @@ copy_assets() {
     safe_remove_tree "$target" "$destination"
   fi
   cp -R "$source" "$target"
+  if [ -n "$platform" ]; then
+    for folder in "$target"/Font/*/; do
+      [ "$(basename "$folder")" = "$platform" ] || safe_remove_tree "${folder%/}" "$target"
+    done
+  fi
 }
 
 copy_debug_symbols() {

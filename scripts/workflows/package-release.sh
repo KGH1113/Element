@@ -13,6 +13,8 @@ run_task "Validate release package inputs" "$TASKS_DIR/validate/release-package-
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
 run_task "Build mod (Release)" "$TASKS_DIR/build/mod.sh" Release
 run_task "Prepare Windows game WebView host" "$TASKS_DIR/package/windows-webview.sh"
-run_task "Stage package" "$TASKS_DIR/package/stage.sh"
-run_task "Create package archive" "$TASKS_DIR/package/archive.sh"
+run_task "Prepare ImplDmNote" "$TASKS_DIR/package/impl-dm-note.sh"
+run_task "Stage macOS package" "$TASKS_DIR/package/stage.sh" macos
+run_task "Stage Windows package" "$TASKS_DIR/package/stage.sh" windows
+run_task "Create package archives" "$TASKS_DIR/package/archive.sh"
 run_task "Write release metadata" "$TASKS_DIR/package/write-release-assets.sh"

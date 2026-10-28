@@ -128,6 +128,8 @@ CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL�
 소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요.
 `IMPL_RESOURCEPACK_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
 패키징하며, 이 경우 Windows 플레이어는 게임 내 키뷰어를 쓸 수 없습니다.
+이 DLL은 `ImplResourcePack-windows.zip`에만 들어갑니다. 패키지에 함께 들어가는
+ImplDmNote는 [모드에 포함된 ImplDmNote](bundled-impl-dm-note.md)를 보세요.
 Windows용 ImplDmNote Release 빌드는 관리자 권한으로 실행됩니다.
 
 ## 사용하기

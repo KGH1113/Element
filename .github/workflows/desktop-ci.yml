@@ -141,3 +141,12 @@ jobs:
           if (Get-ChildItem $root -Recurse -File | Select-String -SimpleMatch 'com.dmnote.desktop','CN=esihunc') {
             throw 'Upstream package identity remains in the portable output.'
           }
+
+      # Mod packages can carry this build: IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP.
+      - name: Upload Windows portable ZIP
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impl-dm-note-windows-portable
+          path: apps/impl-dm-note/dist/portable/*.zip
+          if-no-files-found: error

@@ -8,15 +8,16 @@ source "$TASK_DIR/../../lib/context.sh"
 source "$TASK_DIR/../../lib/guards.sh"
 
 require_command zip
-require_dir "$IMPL_RESOURCEPACK_PACKAGE_STAGE"
+mkdir -p "$IMPL_RESOURCEPACK_PACKAGE_OUTPUT_DIR"
 
-rm -f "$IMPL_RESOURCEPACK_PACKAGE_ZIP_PATH"
-mkdir -p "$(dirname "$IMPL_RESOURCEPACK_PACKAGE_ZIP_PATH")"
-(
-  cd "$IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT"
-  zip -r "$IMPL_RESOURCEPACK_PACKAGE_ZIP_PATH" ImplResourcePack \
-    -x 'ImplResourcePack/*.log'
-)
-
-printf 'Packaged to %s\n' "$IMPL_RESOURCEPACK_PACKAGE_ZIP_PATH"
-
+for platform in $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS; do
+  stage="$(package_stage "$platform")"
+  archive="$(package_zip "$platform")"
+  require_dir "$stage"
+  rm -f "$archive"
+  (
+    cd "$(dirname "$stage")"
+    zip -qr "$archive" ImplResourcePack -x 'ImplResourcePack/*.log'
+  )
+  printf 'Packaged to %s\n' "$archive"
+done

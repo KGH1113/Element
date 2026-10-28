@@ -7,16 +7,13 @@ namespace ImplResourcePack.Presentation.Layout;
 /// <summary>
 /// What the editor's offline key viewer sample tells the player. Each message
 /// says what to do next, in player terms (no IPC, WebKit or protocol words).
+/// Nothing is said while ImplDmNote is closed: the editor hides key viewers then.
 /// </summary>
 internal static class NativeViewerStatusText
 {
   public static string Get(NativeViewerStatus status) =>
     status switch
     {
-      NativeViewerStatus.WaitingForApp => SettingsLocale.L(
-        "ImplDmNote를 실행하면 키뷰어가 여기에 표시돼요.",
-        "Open ImplDmNote to show the key viewer here."
-      ),
       NativeViewerStatus.Connecting => SettingsLocale.L(
         "ImplDmNote에서 키뷰어를 불러오고 있어요.",
         "Loading the key viewer from ImplDmNote…"

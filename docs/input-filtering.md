@@ -10,7 +10,12 @@ ImplDmNote가 보낸 키 프로필(`key-limiter.profile.set`)은 `KeyLimiterServ
 - 모드는 두 캐시 필드만 새 `HashSet`으로 교체한다. setter·`Add`·`Clear`를 부르지 않으므로 플레이어가 저장한 키(`generalPrefs`)는 바뀌지 않는다.
 - 해제(앱 연결 끊김, 토글 끔, 모드 비활성화) 시 캐시를 `null`로 돌려 게임이 저장된 키를 다시 읽게 한다. 강제 종료돼도 디스크에는 아무것도 남지 않는다.
 - 빈 집합은 게임에서 "제한 없음"이다. 한쪽만 매핑되면 `KeyCode.None` / `ushort.MaxValue` 센티널을 넣어 그쪽도 제한한다.
-- 일시정지 메뉴의 키 편집기는 setter로 캐시를 덮어쓴다. ImplDmNote 키가 적용 중일 때는 `SettingsMenu.StartEditingKeys`를 막고 `PauseSettingButton.GetDescriptionText`에 안내 문구를 붙인다. 다른 경로로 캐시가 바뀌면 다음 프레임에 다시 설치한다.
+- 일시정지 메뉴의 키 편집기는 setter로 캐시를 덮어쓴다. 다른 경로로 캐시가 바뀌면 다음 프레임에 다시 설치한다.
+- 설정 화면의 Key Limiter 줄(`keyLimiter`)은 ImplDmNote 키가 적용 중일 때 `KeyLimiterMenuRow`가 맡는다(JipperResourcePack과 같은 방식). 게임의 `KeysSetting.KeyLabels`는 캐시가 아니라 저장된 키를 읽으므로, 그대로 두면 쓰이지 않는 키가 표시된다.
+  - 값: `SettingsMenu.UpdateSetting` Refresh 후처리로 "ImplDmNote 키"를 쓴다.
+  - 설명: `PauseSettingButton.GetDescriptionText`를 안내 문구로 바꾼다. 게임 문구("Enter 키로 키 추가/제거")가 맞지 않기 때문이다.
+  - Enter(Activate): 키 편집기를 열지 않고 설명만 다시 보여 준다.
+  - 게임은 줄을 씬마다 한 번만 그리고 메뉴를 열 때 다시 그리지 않는다. 그래서 줄과 포커스를 기억해 두고, 적용이 시작·끝날 때 다시 그린다. 그때 키를 편집 중이었다면 편집을 끝낸다. 메뉴가 숨겨져 있으면 설명은 건드리지 않는다(염소가 움직이고 효과음이 난다).
 - 동작 차이: 게임 기본 리미터는 `gameworld`이고 일시정지 메뉴가 닫혀 있으면 항상 적용된다(카운트다운, 실패 화면 포함). 마우스·게임패드는 제한하지 않는다. 키뷰어에는 막힌 키도 표시된다.
 - 이전 방식(`CountValidKeysPressed` 후처리 + SkyHook `HookCallback` 접두 패치)은 삭제했다. 입력마다 실행되던 패치와 SkyHook 스레드 작업이 사라졌다.
 
@@ -38,3 +43,5 @@ KeyboardChatterBlocker에는 라이선스가 없어 코드를 가져오지 않�
 ## 얼불춤 안에 표시 (ImplDmNote)
 
 ImplDmNote의 **Show inside ADOFAI**를 끄면 `mirror.available`에 `inGame: false`를 보내고 `mirror.native.describe`는 `in-game-disabled`로 거절한다. 모드는 Add Element 갤러리의 키뷰어 카드, 배치된 키뷰어 페이지와 편집기 프레임을 숨긴다. 배치는 저장된 채로 남아 다시 켜면 돌아온다.
+
+ImplDmNote가 연결되어 있지 않을 때(`mirror.available` 전이거나 연결이 끊긴 뒤)도 편집기는 갤러리의 키뷰어 카드와 배치된 키뷰어 프레임을 숨기고, 안내 문구도 띄우지 않는다(`NativeViewerSession.Connected`). 다만 세션은 끝내지 않고 앱을 기다리므로, 앱이 연결되면 키뷰어가 바로 나타난다.

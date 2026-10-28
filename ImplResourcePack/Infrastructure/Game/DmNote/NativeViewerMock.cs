@@ -8,8 +8,9 @@ using UnityEngine.UI;
 
 namespace ImplResourcePack.Infrastructure.Game.DmNote;
 
-// A visual-only key sample for the gallery and disconnected editor. It never
-// captures keys, opens IPC sessions, or appears during ordinary gameplay.
+// A visual-only key sample for the gallery, and for the editor while a viewer
+// has no live page. It never captures keys, opens IPC sessions, or appears
+// during ordinary gameplay.
 internal sealed class NativeViewerMock : MonoBehaviour
 {
   public const float ViewportHeight = 270;

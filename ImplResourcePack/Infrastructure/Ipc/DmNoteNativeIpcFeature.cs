@@ -35,6 +35,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private TMP_FontAsset _font;
   private string _lastLoggedError;
   private bool _hiddenInApp;
+  private bool _connected;
   public Action EnabledChanged { get; set; }
 
   public DmNoteNativeIpcFeature(
@@ -56,7 +57,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
 
-  /// <summary>Re-evaluated on every enumeration: the gallery opens without viewer cards while ImplDmNote hides them.</summary>
+  /// <summary>Re-evaluated on every enumeration: the gallery opens without viewer cards while the editor hides them.</summary>
   public IEnumerable<IOverlayLayoutTarget> GalleryTargets => VisibleGalleryTargets();
 
   public bool HasEnabledViewers => !_hiddenInApp && _layoutTargets.Any(target => target.Enabled);
@@ -64,9 +65,13 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   /// <summary>ImplDmNote's "Show inside ADOFAI" is off.</summary>
   public bool HiddenInApp => _hiddenInApp;
 
+  // The editor shows key viewers only while ImplDmNote is connected and shows
+  // them in the game. Unlike HiddenInApp, a closed app keeps the session waiting.
+  private bool HiddenFromEditor => !_connected || _hiddenInApp;
+
   private IEnumerable<IOverlayLayoutTarget> VisibleGalleryTargets()
   {
-    if (_hiddenInApp)
+    if (HiddenFromEditor)
       yield break;
     foreach (NativeViewerLayoutTarget target in _galleryTargets)
       yield return target;
@@ -131,7 +136,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
       OnEnabledChanged,
       id,
       () => Status,
-      () => _hiddenInApp
+      () => HiddenFromEditor
     );
     target.ConfigurePreview(_font);
     target.Bind(_host);
@@ -237,6 +242,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   {
     if (_disposed)
       return;
+    _connected = _session.Connected;
     bool hiddenInApp = _session.HiddenInApp;
     if (hiddenInApp != _hiddenInApp)
     {

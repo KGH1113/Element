@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
-using ImplResourcePack.Bootstrap;
 using ImplResourcePack.Domain.Input;
-using ImplResourcePack.Presentation.Settings;
 using UnityEngine;
 
 namespace ImplResourcePack.Infrastructure.Game.Input;
@@ -90,7 +88,7 @@ internal sealed class GameKeyLimiter : IDisposable
     KeysSetting keys = Persistence.keyLimiterKeys;
     UnityCache(keys) = _unityKeys;
     AsyncCache(keys) = _asyncKeys;
-    Active = true;
+    SetActive(true);
   }
 
   // Clearing the caches makes the game reload the player's saved keys lazily.
@@ -106,34 +104,14 @@ internal sealed class GameKeyLimiter : IDisposable
     }
     _unityKeys = null;
     _asyncKeys = null;
-    Active = false;
+    SetActive(false);
   }
 
-  internal static string MenuNote =>
-    SettingsLocale.L(
-      "ImplDmNote가 연결되어 있는 동안에는 ImplDmNote의 키만 입력돼요. 직접 고른 키를 쓰려면 ImplDmNote에서 키 리미터를 꺼 주세요.",
-      "While ImplDmNote is connected, only its keys are accepted. Turn off Enable Key Limiter in ImplDmNote to use your own keys."
-    );
-}
-
-/// <summary>Editing would change only the player's saved keys, which are not in use while ImplDmNote's are.</summary>
-[HarmonyPatch(typeof(SettingsMenu), "StartEditingKeys")]
-[PatchGroup("KeyLimiter")]
-internal static class KeyLimiterMenuEditPatch
-{
-  [HarmonyPrefix]
-  private static bool Prefix(KeysSetting setting) =>
-    !GameKeyLimiter.Active || !ReferenceEquals(setting, Persistence.keyLimiterKeys);
-}
-
-[HarmonyPatch(typeof(PauseSettingButton), nameof(PauseSettingButton.GetDescriptionText))]
-[PatchGroup("KeyLimiter")]
-internal static class KeyLimiterMenuDescriptionPatch
-{
-  [HarmonyPostfix]
-  private static void Postfix(PauseSettingButton __instance, ref string __result)
+  private static void SetActive(bool active)
   {
-    if (GameKeyLimiter.Active && __instance.name == "keyLimiter")
-      __result += "\n" + GameKeyLimiter.MenuNote;
+    if (Active == active)
+      return;
+    Active = active;
+    KeyLimiterMenuRow.Refresh();
   }
 }

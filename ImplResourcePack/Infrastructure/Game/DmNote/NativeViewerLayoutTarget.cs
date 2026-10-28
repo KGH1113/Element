@@ -24,7 +24,7 @@ internal sealed class NativeViewerLayoutTarget
   private readonly Action<bool> _setPreview;
   private readonly Action _enabledChanged;
   private readonly Func<NativeViewerStatus> _status;
-  private readonly Func<bool> _hiddenInApp;
+  private readonly Func<bool> _hidden;
   private NativeViewerMock _mock;
   private OverlayLayoutSettings _settings;
   private INativeViewerLayoutHost _host;
@@ -60,11 +60,11 @@ internal sealed class NativeViewerLayoutTarget
     Action enabledChanged,
     string id = null,
     Func<NativeViewerStatus> status = null,
-    Func<bool> hiddenInApp = null
+    Func<bool> hidden = null
   )
   {
     _status = status;
-    _hiddenInApp = hiddenInApp;
+    _hidden = hidden;
     _kind = kind;
     Id = id ?? "dmnote-" + kind;
     TemplateId = "native-" + kind;
@@ -82,9 +82,9 @@ internal sealed class NativeViewerLayoutTarget
   public string Label => SettingsLocale.L(_label, _kind == "hand" ? "Hand keyviewer" : "Foot keyviewer");
   public bool Enabled => _settings.Enabled;
 
-  // While ImplDmNote hides its viewers, the editor neither draws nor selects them.
-  private bool HiddenInApp => _hiddenInApp?.Invoke() == true;
-  public bool Available => !HiddenInApp && (OwnsSelectionOutline || _preview);
+  // While ImplDmNote is closed or hides its viewers, the editor neither draws nor selects them.
+  private bool Hidden => _hidden?.Invoke() == true;
+  public bool Available => !Hidden && (OwnsSelectionOutline || _preview);
   public bool OwnsSelectionOutline => _host?.HasSurface(NativeId) == true;
   public Rect SelectionBounds
   {
@@ -290,7 +290,7 @@ internal sealed class NativeViewerLayoutTarget
     // Connected viewers also need geometry refresh: their CSS crop and AppKit
     // backing can change without a Unity resolution change or an IPC message.
     EnsureLayoutCurrent();
-    bool visible = _preview && Enabled && !OwnsSelectionOutline && !HiddenInApp;
+    bool visible = _preview && Enabled && !OwnsSelectionOutline && !Hidden;
     if (visible && _previewCanvas == null)
     {
       _previewCanvas = new GameObject("ImplDmNote offline preview", typeof(RectTransform), typeof(Canvas));

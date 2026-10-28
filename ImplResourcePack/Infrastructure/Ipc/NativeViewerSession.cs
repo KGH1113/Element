@@ -49,6 +49,7 @@ internal sealed class NativeViewerSession
   private bool _reset;
   private bool _hide;
   private volatile bool _hiddenInApp;
+  private volatile bool _connected;
   private NativeViewerStatus _status;
 
   public NativeViewerSession(bool supported)
@@ -71,6 +72,12 @@ internal sealed class NativeViewerSession
   /// a stale frame only delays hiding by one frame.
   /// </summary>
   public bool HiddenInApp => _hiddenInApp;
+
+  /// <summary>
+  /// ImplDmNote has announced its viewers and not disconnected. Read every frame
+  /// without a lock, like <see cref="HiddenInApp"/>.
+  /// </summary>
+  public bool Connected => _connected;
 
   public bool PushSupported
   {
@@ -158,6 +165,7 @@ internal sealed class NativeViewerSession
       if (peerId != _peerId)
         return;
       _peerId = null;
+      _connected = false;
       _pushSupported = false;
       _hiddenInApp = false;
       _pendingId = null;
@@ -225,6 +233,7 @@ internal sealed class NativeViewerSession
     if (availability?.NativeProtocolVersion != 1 || (_peerId != null && _peerId != message.PeerId))
       return;
     _peerId = message.PeerId;
+    _connected = true;
     _pushSupported = availability.NativePush;
     // Older apps omit the flag and always show their viewers.
     _hiddenInApp = availability.InGame == false;

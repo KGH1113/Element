@@ -202,11 +202,16 @@ internal static class NativeViewerSessionTests
 
   private static void DisconnectResetsTheHost()
   {
+    Check(!Active(out _).Connected, "Before ImplDmNote announces its viewers, the editor hides them.");
     var session = Connected(out _);
+    Check(session.Connected, "An app that announced its viewers is connected.");
     session.TakeWork();
     session.OnPeerDisconnected(App);
     Check(session.TakeWork().ResetHost, "A disconnected app's pages are released.");
-    Check(session.Status == NativeViewerStatus.WaitingForApp, "The player is asked to open the app.");
+    Check(!session.Connected, "A disconnected app hides the editor's key viewers.");
+    Check(session.Status == NativeViewerStatus.WaitingForApp, "The session waits for the app to return.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1 }), Start);
+    Check(session.Connected, "A returning app shows the key viewers again.");
     var unsupported = new NativeViewerSession(false);
     unsupported.SetActive(true, Start);
     unsupported.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1 }), Start);

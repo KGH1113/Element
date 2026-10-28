@@ -32,12 +32,18 @@ dmnote_windows_zip() {
 # Prints the committed source identity, or nothing when the app sources have
 # uncommitted changes (then no stamp can describe them).
 dmnote_source_stamp() {
-  local path
   if [ -n "$(git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" status --porcelain -- "${DMNOTE_SOURCE_PATHS[@]}")" ]; then
     return 0
   fi
+  dmnote_source_stamp_at HEAD
+}
+
+# dmnote_source_stamp_at <commit>: the app source identity at that commit, so
+# a CI build of an older commit counts when the app has not changed since.
+dmnote_source_stamp_at() {
+  local path
   for path in "${DMNOTE_SOURCE_PATHS[@]}"; do
-    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse "HEAD:$path"
+    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse "$1:$path"
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 

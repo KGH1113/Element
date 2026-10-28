@@ -21,7 +21,8 @@ source "${BASH_SOURCE[0]%/*}/windows-webview.sh"
 # that passed the smoke probe.
 runtime_payload_names() {
   local target="${1:-local}"
-  RUNTIME_PAYLOAD_NAMES=(ImplResourcePack.dll)
+  # Every version carries its own launcher and updater (see docs/auto-update.md).
+  RUNTIME_PAYLOAD_NAMES=(ImplResourcePack.dll ImplResourcePack.Launcher.dll ImplResourcePack.Updater.dll)
   case "$target" in
     local)
       if is_macos; then
@@ -104,9 +105,11 @@ copy_assets() {
 }
 
 copy_debug_symbols() {
-  local destination="$1"
+  local destination="$1" name
 
-  if [ -f "$IMPL_RESOURCEPACK_BUILD_OUTPUT/ImplResourcePack.pdb" ]; then
-    cp "$IMPL_RESOURCEPACK_BUILD_OUTPUT/ImplResourcePack.pdb" "$destination/"
-  fi
+  for name in ImplResourcePack ImplResourcePack.Launcher ImplResourcePack.Updater; do
+    if [ -f "$IMPL_RESOURCEPACK_BUILD_OUTPUT/$name.pdb" ]; then
+      cp "$IMPL_RESOURCEPACK_BUILD_OUTPUT/$name.pdb" "$destination/"
+    fi
+  done
 }

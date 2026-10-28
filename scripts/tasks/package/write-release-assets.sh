@@ -6,20 +6,27 @@ TASK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TASK_DIR/../../lib/context.sh"
 # shellcheck source=../../lib/guards.sh
 source "$TASK_DIR/../../lib/guards.sh"
+# shellcheck source=../../lib/mod-layout.sh
+source "$TASK_DIR/../../lib/mod-layout.sh"
 
-require_command shasum
-
-version="$(sed -n 's/.*"Version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$IMPL_RESOURCEPACK_PROJECT_ROOT/ImplResourcePack/Info.json" | head -n 1)"
-[ -n "$version" ] || fail "ImplResourcePack version is missing from Info.json."
-
-mkdir -p "$(dirname "$IMPL_RESOURCEPACK_VERSION_ASSET_PATH")"
-printf '%s\n' "$version" > "$IMPL_RESOURCEPACK_VERSION_ASSET_PATH"
-printf 'Version asset: %s\n' "$IMPL_RESOURCEPACK_VERSION_ASSET_PATH"
-
+# ImplResourcePack.update.json: what the in-game updater reads from the latest
+# release. Each archive must hold a complete version folder for it.
+require_command unzip
+version="$(mod_version)"
+runtime="ImplResourcePack/Runtime/versions/$version"
+pairs=()
 for platform in $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS; do
   archive="$(package_zip "$platform")"
   require_file "$archive"
-  # Name only the archive, so the checksum verifies next to it anywhere.
-  (cd "$(dirname "$archive")" && shasum -a 256 "$(basename "$archive")") > "$archive.sha256"
-  printf 'Checksum asset: %s.sha256\n' "$archive"
+  listing="$(unzip -Z1 "$archive")"
+  for entry in ImplResourcePack/Info.json "ImplResourcePack/Runtime/launchers/$version/ImplResourcePack.Launcher.dll" \
+    ImplResourcePack/Runtime/state.json "$runtime/Info.json" "$runtime/ImplResourcePack.dll" \
+    "$runtime/ImplResourcePack.Launcher.dll" "$runtime/ImplResourcePack.Updater.dll" "$runtime/ipc/manifest.json"; do
+    grep -Fxq "$entry" <<< "$listing" || fail "$archive is missing $entry."
+  done
+  pairs+=("$platform=$archive")
 done
+
+mkdir -p "$(dirname "$IMPL_RESOURCEPACK_UPDATE_MANIFEST_PATH")"
+node "$IMPL_RESOURCEPACK_MOD_INFO_TOOL" manifest "$IMPL_RESOURCEPACK_MOD_INFO" "$IMPL_RESOURCEPACK_UPDATE_MANIFEST_PATH" "${pairs[@]}"
+printf 'Update manifest: %s\n' "$IMPL_RESOURCEPACK_UPDATE_MANIFEST_PATH"

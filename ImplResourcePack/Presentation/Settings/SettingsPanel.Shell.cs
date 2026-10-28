@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using ImplResourcePack.Application.Updates;
 using ImplResourcePack.Configuration;
 using ImplResourcePack.Presentation.Layout;
 using TMPro;
@@ -50,11 +51,13 @@ internal sealed partial class SettingsPanel
     Action editLayout,
     Action<bool> visibility,
     Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null,
-    Func<long> blockedChatter = null
+    Func<long> blockedChatter = null,
+    IModUpdates updates = null
   )
   {
     _settings = settings;
     _blockedChatter = blockedChatter;
+    _updates = updates;
     settings.Gameplay.Normalize();
     settings.Effects.Normalize();
     _apply = apply;
@@ -152,8 +155,8 @@ internal sealed partial class SettingsPanel
       3,
       L("일반", "General"),
       L(
-        "설정 단축키, UI 움직임, ImplDmNote 자동 실행을 설정합니다.",
-        "Set your shortcut, motion and ImplDmNote preferences."
+        "설정 단축키, UI 움직임, ImplDmNote 자동 실행, 업데이트를 설정합니다.",
+        "Set your shortcut, motion, ImplDmNote and update preferences."
       ),
       L("일반 설정", "Open general"),
       () => NavigateTo(2)
@@ -294,6 +297,7 @@ internal sealed partial class SettingsPanel
         Changed();
       }
     );
+    CreateUpdateRow(336);
     _feedback = _ui.Text("", _window, 32, 540, 780, 40, 14, SettingsUiFactory.Muted);
     _retrySave = _ui.Button(
       L("다시 저장", "Retry save"),
@@ -458,7 +462,13 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, shortcutHeight + 12, contentWidth, rowHeight);
     float dmNoteTop = shortcutHeight + 12 + rowHeight + 12;
     SettingsUiFactory.Place((RectTransform)_dmNoteRow.transform, 0, dmNoteTop, contentWidth, rowHeight);
-    ((RectTransform)_pages[2].transform).sizeDelta = new Vector2(contentWidth, dmNoteTop + rowHeight);
+    float bottom = dmNoteTop + rowHeight;
+    if (_updateRow != null)
+    {
+      SettingsUiFactory.Place((RectTransform)_updateRow.transform, 0, bottom + 12, contentWidth, rowHeight);
+      bottom += 12 + rowHeight;
+    }
+    ((RectTransform)_pages[2].transform).sizeDelta = new Vector2(contentWidth, bottom);
     return captureWidth;
   }
 

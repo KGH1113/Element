@@ -8,6 +8,8 @@ Release/
 node_modules/
 !scripts/tasks/build/
 !scripts/tasks/build/*.sh
+!scripts/tasks/release/
+!scripts/tasks/release/*.sh
 
 # Local environment
 .env

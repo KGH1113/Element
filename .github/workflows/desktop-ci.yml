@@ -1,11 +1,15 @@
 name: Desktop CI
 
+# dev → pull request → main. Each push to main builds the ImplDmNote that
+# `./scripts/run.sh release` packages into the mod (docs/releasing.md).
 on:
   pull_request:
     paths:
       - "apps/impl-dm-note/**"
       - "package.json"
       - "package-lock.json"
+      - "ImplResourcePack/Info.json"
+      - "scripts/tasks/version/**"
       - ".github/workflows/desktop-ci.yml"
   push:
     branches: [main]
@@ -13,12 +17,33 @@ on:
       - "apps/impl-dm-note/**"
       - "package.json"
       - "package-lock.json"
+      - "ImplResourcePack/Info.json"
+      - "scripts/tasks/version/**"
       - ".github/workflows/desktop-ci.yml"
+  # Builds main again when its artifacts expired or a run was cancelled.
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: desktop-ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  version:
+    name: Shared version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: The mod and ImplDmNote share one version
+        run: node scripts/tasks/version/version.mjs check
+
   visual-regression:
     runs-on: macos-latest
     steps:
@@ -113,6 +138,17 @@ jobs:
           done
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "io.github.kgh1113.impldmnote"
           codesign --verify --deep --strict "$APP"
+          # ditto keeps the signature and executable modes upload-artifact would drop.
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/ImplDmNote.app.zip"
+
+      # `./scripts/run.sh release` packages this build into the macOS mod archive.
+      - name: Upload macOS app
+        if: runner.os == 'macOS'
+        uses: actions/upload-artifact@v4
+        with:
+          name: impl-dm-note-macos-app
+          path: ${{ runner.temp }}/ImplDmNote.app.zip
+          if-no-files-found: error
 
       - name: Build Windows portable ZIP
         if: runner.os == 'Windows'
@@ -142,7 +178,8 @@ jobs:
             throw 'Upstream package identity remains in the portable output.'
           }
 
-      # Mod packages can carry this build: IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP.
+      # `./scripts/run.sh release` packages this build into the Windows mod
+      # archive; IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP uses it for a local package.
       - name: Upload Windows portable ZIP
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4

@@ -107,7 +107,7 @@ internal sealed class ModRuntime : IDisposable
       _overlay = new OverlayRuntime(_main, OnTimeTick);
       _nativeViewers = new DmNoteNativeIpcFeature(
         NativeViewerPlatform.IsSupported,
-        () => NativeViewerPlatform.CreateHost(_main.Path),
+        () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
         _main.LogException,
         _main.LogWarning
@@ -116,7 +116,7 @@ internal sealed class ModRuntime : IDisposable
       _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _keyLimiterIpc.Enable();
-      _dmNoteApp = DmNoteAppLauncher.Create(_main.Path, _main.Log, _main.LogWarning, _main.LogException);
+      _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
 
       _settingsUi = new SettingsUiRuntime(
         _main,

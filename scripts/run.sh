@@ -19,7 +19,9 @@ Commands:
   windows-install  Install the mod with the Windows host into the Windows PC's ADOFAI (game closed)
   dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload
-  package     Build the macOS and Windows release packages and metadata
+  package     Build the macOS and Windows release packages and their update manifest
+  version [x.y.z]  Check that the mod and ImplDmNote share one version, or set it
+  release [--yes]  On main: package with Desktop CI's ImplDmNote and publish (docs/releasing.md)
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
@@ -73,6 +75,15 @@ case "$command_name" in
     ;;
   package)
     exec "$SCRIPTS_DIR/workflows/package-release.sh"
+    ;;
+  version)
+    if [ -n "${2:-}" ]; then
+      exec node "$SCRIPTS_DIR/tasks/version/version.mjs" set "$2"
+    fi
+    exec node "$SCRIPTS_DIR/tasks/version/version.mjs" check
+    ;;
+  release)
+    exec "$SCRIPTS_DIR/workflows/release.sh" "${2:-}"
     ;;
   check)
     exec "$SCRIPTS_DIR/workflows/check-scripts.sh"

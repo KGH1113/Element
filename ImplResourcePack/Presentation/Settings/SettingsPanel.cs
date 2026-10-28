@@ -393,6 +393,8 @@ internal sealed partial class SettingsPanel : IDisposable
     _scroll.verticalNormalizedPosition = _scrollPositions[index];
     _lastFocused = null;
     RefreshPlanetPreview();
+    if (index == 2)
+      RefreshUpdateRow();
   }
 
   private void Back()

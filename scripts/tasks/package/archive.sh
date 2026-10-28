@@ -17,7 +17,7 @@ for platform in $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS; do
   rm -f "$archive"
   (
     cd "$(dirname "$stage")"
-    zip -qr "$archive" ImplResourcePack -x 'ImplResourcePack/*.log'
+    zip -qr "$archive" ImplResourcePack -x 'ImplResourcePack/*.log' '*/.DS_Store' '*/.development'
   )
   printf 'Packaged to %s\n' "$archive"
 done

@@ -9,13 +9,16 @@
 | `ImplResourcePack-macos.zip` | 모드 DLL, macOS 네이티브 라이브러리, `Mac` 폰트, `ImplDmNote/macos/ImplDmNote.app.zip` |
 | `ImplResourcePack-windows.zip` | 모드 DLL, `ImplGameWebView.dll`(스모크 테스트 통과본), `Windows` 폰트, `ImplDmNote/windows/` |
 
+모두 버전 폴더 `Runtime/versions/<버전>/` 안에 있습니다([자동 업데이트](auto-update.md)).
+모드가 업데이트되면 새 버전 폴더의 앱이 다음에 게임이 앱을 열 때 설치됩니다.
+
 ## 게임을 켤 때
 
 `DmNoteAppLauncher`가 게임 스레드 밖에서 다음을 처리합니다.
 
 1. 이미 실행 중이면 아무것도 하지 않습니다. macOS는 `pgrep -x impl-dm-note`,
    Windows는 `impl-dm-note` 프로세스 이름으로 확인합니다.
-2. 모드 폴더의 앱을 고정된 위치로 복사합니다. 모드 빌드가 바뀌었을 때만
+2. 실행 중인 버전 폴더의 앱을 고정된 위치로 복사합니다. 모드 빌드가 바뀌었을 때만
    다시 복사하며(`<설치 경로>.stamp`의 크기·수정 시각 비교), 새 폴더를 다 만든
    뒤 바꿔 끼웁니다.
    - macOS: `~/Library/Application Support/ImplResourcePack/ImplDmNote.app`.
@@ -70,6 +73,8 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드를 켜면 Window
   거부합니다. ASIO 오디오 백엔드가 bindgen을 쓰므로 그 PC에 LLVM이 필요합니다
   (`winget install LLVM.LLVM` 한 번, 또는 `LIBCLANG_PATH`). Node 22는 없으면
   빌드 캐시에 받아 씁니다.
+- 릴리스(`./scripts/run.sh release`)는 두 OS 앱 모두 main의 Desktop CI
+  빌드를 씁니다([릴리스](releasing.md)).
 - 데스크톱 CI는 Windows 포터블 zip을 `impl-dm-note-windows-portable`
   아티팩트로 올립니다. 이를 쓰려면 `IMPL_RESOURCEPACK_DMNOTE_WINDOWS_ZIP`,
   앱 없이 패키징하려면 `IMPL_RESOURCEPACK_SKIP_DMNOTE=1`을 지정합니다.

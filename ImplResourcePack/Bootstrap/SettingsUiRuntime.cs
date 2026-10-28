@@ -79,7 +79,8 @@ internal sealed class SettingsUiRuntime : IDisposable
       OpenLayout,
       OnVisibilityChanged,
       RenderPlanetPreview,
-      () => ChatterBlocker.Blocked
+      () => ChatterBlocker.Blocked,
+      _main.Updates
     );
 
   public void Open() => Panel.Open();

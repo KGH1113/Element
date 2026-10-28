@@ -43,6 +43,7 @@ internal static class Program
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
       Run("bundled ImplDmNote installs once per build and opens only when closed", DmNoteAppTests.Run);
+      Run("auto update: versions, verified downloads, background finish, rollback and launcher switch", UpdateTests.Run);
       Console.WriteLine("ImplResourcePack tests: " + _passed + " passed");
       return 0;
     }

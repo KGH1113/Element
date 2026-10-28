@@ -77,7 +77,9 @@ stage_dmnote_windows() {
   require_command unzip
   require_file "$archive"
   unpacked="$(mktemp -d)"
-  unzip -q "$archive" -d "$unpacked"
+  # Windows PowerShell's Compress-Archive writes backslash separators; unzip
+  # converts them and reports that warning with exit status 1.
+  unzip -q "$archive" -d "$unpacked" || [ "$?" -eq 1 ]
   folder="$(dirname "$(find "$unpacked" -name impl-dm-note.exe -type f | head -n 1)")"
   if [ ! -f "$folder/impl-dm-note.exe" ]; then
     rm -rf "$unpacked"

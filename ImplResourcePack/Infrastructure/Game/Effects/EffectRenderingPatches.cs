@@ -56,7 +56,7 @@ internal static class EffectFloorInputPatch
     RemovedEffects effects = EffectsController.ForRendering;
     if (EffectsController.Rendering || effects == RemovedEffects.None)
       return;
-    levelData = EffectLevelFilter.Create(levelData, effects, events);
+    levelData = EffectLevelFilter.Create(levelData, effects, EffectsController.CameraZoomForRendering, events);
     events = levelData.levelEvents;
   }
 }

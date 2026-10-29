@@ -34,6 +34,9 @@ internal sealed partial class SettingsPanel
   private EffectPreset _editingPreset,
     _presetDraft;
   private EffectGroup _effectGroup;
+  private SettingsValueRow _cameraZoom;
+
+  private bool DraftRemovesCamera => _presetDraft != null && (_presetDraft.Effects & RemovedEffects.CameraMotion) != 0;
 
   private void CreateEffectsPages(TMP_FontAsset font)
   {
@@ -167,6 +170,24 @@ internal sealed partial class SettingsPanel
       _effectRows.Add(row);
       _effectDefinitions.Add(entry);
     }
+    _cameraZoom = new SettingsValueRow(
+      _ui,
+      _effectOptions,
+      "Camera zoom",
+      L("카메라 확대", "Camera zoom"),
+      "%",
+      EffectPreset.MinimumCameraZoom,
+      EffectPreset.MaximumCameraZoom,
+      10,
+      () => _presetDraft?.CameraZoom ?? EffectPreset.DefaultCameraZoom,
+      zoom =>
+      {
+        if (_presetDraft != null)
+          _presetDraft.CameraZoom = zoom;
+      }
+    );
+    // Turning camera movement on or off in the draft enables the zoom with it.
+    _ui.Bind(() => _cameraZoom.Sync(DraftRemovesCamera));
   }
 
   private Button ActionIconButton(string name, Transform parent, LayoutAction icon, Action action)
@@ -294,6 +315,7 @@ internal sealed partial class SettingsPanel
     _savePreset.interactable = preset != null;
     _deletePreset.gameObject.SetActive(preset != null);
     _effectGroup = EffectGroup.Screen;
+    _cameraZoom.Sync(DraftRemovesCamera);
     _ui.RefreshTheme();
     NavigateTo(7);
     if (preset == null)
@@ -337,6 +359,7 @@ internal sealed partial class SettingsPanel
     else
       _settings.Effects.TryRename(_editingPreset.Id, name, out _);
     _editingPreset.Effects = _presetDraft.Effects;
+    _editingPreset.CameraZoom = _presetDraft.CameraZoom;
     Changed();
     RefreshPresetGallery();
     SelectPage(3);
@@ -410,23 +433,35 @@ internal sealed partial class SettingsPanel
     int optionColumns = width >= 600 ? 2 : 1;
     float optionWidth = (width - (optionColumns - 1) * 12) / optionColumns;
     float optionHeight = width < 600 ? 116 : 100;
+    // Camera movement leads the Screen tab with its zoom right under it.
+    bool screen = _effectGroup == EffectGroup.Screen;
+    int camera = _effectDefinitions.FindIndex(entry => entry.Flag == RemovedEffects.CameraMotion);
+    _cameraZoom.SetVisible(screen);
+    float gridTop = 0;
+    if (screen && camera >= 0)
+    {
+      SettingsUiFactory.Place((RectTransform)_effectRows[camera].transform, 0, 0, width, optionHeight);
+      gridTop = optionHeight + 12;
+      _cameraZoom.Layout(0, gridTop, width);
+      gridTop += SettingsValueRow.Height + 12;
+    }
     int visible = 0;
     for (int i = 0; i < _effectRows.Count; i++)
     {
       bool show = _effectDefinitions[i].Group == _effectGroup;
       _effectRows[i].gameObject.SetActive(show);
-      if (!show)
+      if (!show || i == camera)
         continue;
       SettingsUiFactory.Place(
         (RectTransform)_effectRows[i].transform,
         visible % optionColumns * (optionWidth + 12),
-        visible / optionColumns * (optionHeight + 12),
+        gridTop + visible / optionColumns * (optionHeight + 12),
         optionWidth,
         optionHeight
       );
       visible++;
     }
-    float optionsHeight = Mathf.CeilToInt(visible / (float)optionColumns) * (optionHeight + 12) - 12;
+    float optionsHeight = gridTop + Mathf.CeilToInt(visible / (float)optionColumns) * (optionHeight + 12) - 12;
     float optionsTop = identityHeight + tabsHeight + 24;
     SettingsUiFactory.Place(_effectOptions, 0, optionsTop, width, optionsHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, optionsTop + optionsHeight);

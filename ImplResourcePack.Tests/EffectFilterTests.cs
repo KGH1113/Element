@@ -14,6 +14,21 @@ internal static class EffectFilterTests
   {
     CopiesOnlyTracksThatChangeOpacity();
     IgnoresTheGamesNoneTag();
+    FollowingCameraUsesTheChosenZoom();
+  }
+
+  private static void FollowingCameraUsesTheChosenZoom()
+  {
+    LevelEvent camera = EffectLevelFilter.FollowingCamera(
+      Fixture(LevelEventType.CameraSettings, ("zoom", 100f)),
+      300
+    );
+    // The game reads it with (float)cameraSettings["zoom"]; any other boxed type throws.
+    Check(camera["zoom"] is float zoom && zoom == 300f, "The camera zoom must be stored as a float percent.");
+    Check(
+      (float)EffectLevelFilter.FollowingCamera(Fixture(LevelEventType.CameraSettings), 4000)["zoom"] == 1000f,
+      "A zoom beyond the slider must be clamped before it reaches the camera."
+    );
   }
 
   private static void CopiesOnlyTracksThatChangeOpacity()

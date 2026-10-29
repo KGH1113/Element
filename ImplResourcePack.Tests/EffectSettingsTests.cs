@@ -22,6 +22,55 @@ internal static class EffectSettingsTests
     EditorReturnKeepsVisualPreset();
     EditorDecorationListPreservesSource();
     EditorReturnScopeLifetime();
+    CameraZoomFollowsThePreset();
+  }
+
+  private static void CameraZoomFollowsThePreset()
+  {
+    Check(new EffectPreset().CameraZoom == 250, "A preset must start at Enhanced Effect Remover's 250% zoom.");
+    var older = Read(
+      @"<EffectSettings><Enabled>true</Enabled><ActivePresetId>old</ActivePresetId><Presets>
+      <EffectPreset><Id>old</Id><Name>Old</Name><Effects>CameraMotion</Effects></EffectPreset>
+    </Presets></EffectSettings>"
+    );
+    older.Normalize();
+    Check(older.ActiveCameraZoom == 250, "Presets saved before the zoom existed must load at 250%.");
+
+    var settings = new EffectSettings { Enabled = true };
+    settings.ActivePreset.CameraZoom = 300;
+    var restored = Read(Write(settings));
+    restored.Normalize();
+    Check(restored.ActiveCameraZoom == 300, "The chosen zoom must survive XML persistence.");
+    Check(settings.ActivePreset.Copy().CameraZoom == 300, "Editing a copy of a preset must keep its zoom.");
+    settings.ActivePreset.CameraZoom = 5000;
+    settings.Normalize();
+    Check(settings.ActiveCameraZoom == 1000, "A zoom above 1000% must load as 1000%.");
+    settings.ActivePreset.CameraZoom = 0;
+    settings.Normalize();
+    Check(settings.ActiveCameraZoom == 100, "A zoom below 100% must load as 100%.");
+
+    settings.ActivePreset.CameraZoom = 250;
+    using var controller = new EffectsController(() => settings);
+    Check(EffectsController.CameraZoomForRendering == 250, "Playback must start with the preset's zoom.");
+    settings.ActivePreset.CameraZoom = 400;
+    controller.ApplySettings();
+    Check(
+      controller.RequiresRestart && EffectsController.CameraZoomForRendering == 250,
+      "A new zoom must wait for the next level start like any preset change."
+    );
+    Check(
+      controller.CommitForPlayback() && EffectsController.CameraZoomForRendering == 400,
+      "A level start must rebuild with the new zoom, since the first tile holds the camera."
+    );
+    settings.Select(EffectSettings.NoFiltersId);
+    controller.ApplySettings();
+    controller.CommitForPlayback();
+    settings.ActivePreset.CameraZoom = 700;
+    controller.ApplySettings();
+    Check(
+      !controller.RequiresRestart,
+      "A zoom change must not rebuild a level while the preset keeps the map's camera."
+    );
   }
 
   private static void NamesAndSelection()

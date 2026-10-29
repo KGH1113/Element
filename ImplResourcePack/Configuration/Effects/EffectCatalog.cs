@@ -56,8 +56,8 @@ public static class EffectCatalog
       EffectGroup.Screen,
       "Camera movement",
       "카메라 이동",
-      "Remove authored camera moves, rotation and zoom changes.",
-      "맵에 지정된 카메라 이동·회전·확대 변화를 제거합니다."
+      "Follow the planets at your zoom instead of the map's camera moves, rotation and zoom.",
+      "맵의 카메라 이동·회전·확대 대신 정한 배율로 행성을 따라갑니다."
     ),
     new(
       RemovedEffects.ScreenFlash,

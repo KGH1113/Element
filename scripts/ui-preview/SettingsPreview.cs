@@ -693,8 +693,28 @@ namespace ImplResourcePack.Editor
       name.text = "Fixture calm";
       options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
       RemovedEffects expected = Field<EffectPreset>(panel, "_presetDraft").Effects;
+      SettingsValueRow zoom = Field<SettingsValueRow>(panel, "_cameraZoom");
+      Assert((expected & RemovedEffects.CameraMotion) != 0 && zoom.Row.gameObject.activeSelf && zoom.Field.interactable
+        && zoom.Field.text == "250", "removing camera movement offers its zoom, starting at 250%");
+      RectTransform zoomRect = zoom.Row, cameraRect = (RectTransform)options[0].transform;
+      float zoomTop = -zoomRect.anchoredPosition.y, zoomBottom = zoomTop + zoomRect.rect.height;
+      Assert(Mathf.Approximately(cameraRect.rect.width, zoomRect.rect.width)
+        && zoomTop >= -cameraRect.anchoredPosition.y + cameraRect.rect.height,
+        "the zoom sits right under camera movement");
+      Assert(options.Skip(1).Where(button => button.gameObject.activeSelf)
+        .All(button => -((RectTransform)button.transform).anchoredPosition.y >= zoomBottom),
+        "the other Screen effects start below the zoom instead of covering it");
+      zoom.Field.onEndEdit.Invoke("1200");
+      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 1000 && zoom.Field.text == "1000"
+        && zoom.Slider.value == 1000, "a zoom above the range becomes the maximum");
+      zoom.Field.onEndEdit.Invoke("50");
+      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 100 && zoom.Field.text == "100",
+        "a zoom below the range becomes the minimum");
+      zoom.Field.onEndEdit.Invoke("300");
+      Assert(zoom.Slider.value == 300, "a typed zoom moves the slider");
       save.onClick.Invoke();
       EffectPreset created = settings.Effects.Presets.Single(preset => preset.Name == "Fixture calm");
+      Assert(created.CameraZoom == 300, "saving keeps the preset's zoom");
       Assert(settings.Effects.Presets.Count == originalCount + 1 && created.Effects == expected
         && Field<int>(panel, "_page") == 3, "saving creates the named preset and returns to its gallery");
       Field<List<Button>>(panel, "_presetCards").Single(button => button.name == "Preset: Fixture calm").onClick.Invoke();

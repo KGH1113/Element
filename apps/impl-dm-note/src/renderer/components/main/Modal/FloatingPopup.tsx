@@ -31,6 +31,11 @@ type FloatingPopupProps = {
   restoreFocus?: boolean;
 };
 
+// ListPopup의 서브메뉴는 body로 포털되므로 DOM상 팝업 밖이지만 같은 메뉴다.
+const isInsideSubMenu = (target: Node) =>
+  target instanceof Element &&
+  !!target.closest('[data-dmn-popup-submenu="true"]');
+
 const FloatingPopup = ({
   open,
   referenceRef,
@@ -106,7 +111,7 @@ const FloatingPopup = ({
         const isInsideModal =
           target instanceof Element &&
           !!target.closest('[data-dmn-modal-backdrop="true"]');
-        if (isInsideModal) return;
+        if (isInsideModal || isInsideSubMenu(target)) return;
         onClose?.();
       };
 
@@ -250,7 +255,7 @@ const FloatingPopup = ({
         el.contains(target as Node),
       );
 
-      if (isInsideFloating) {
+      if (isInsideFloating || isInsideSubMenu(target)) {
         pointerCapturedInside = true;
         return;
       }

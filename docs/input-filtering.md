@@ -45,3 +45,12 @@ KeyboardChatterBlocker에는 라이선스가 없어 코드를 가져오지 않�
 ImplDmNote의 **Show inside ADOFAI**를 끄면 `mirror.available`에 `inGame: false`를 보내고 `mirror.native.describe`는 `in-game-disabled`로 거절한다. 모드는 Add Element 갤러리의 키뷰어 카드, 배치된 키뷰어 페이지와 편집기 프레임을 숨긴다. 배치는 저장된 채로 남아 다시 켜면 돌아온다.
 
 ImplDmNote가 연결되어 있지 않을 때(`mirror.available` 전이거나 연결이 끊긴 뒤)도 편집기는 갤러리의 키뷰어 카드와 배치된 키뷰어 프레임을 숨기고, 안내 문구도 띄우지 않는다(`NativeViewerSession.Connected`). 다만 세션은 끝내지 않고 앱을 기다리므로, 앱이 연결되면 키뷰어가 바로 나타난다.
+
+## 설정 화면과 TUFReplay
+
+설정 화면은 열려 있는 동안 게임 키 입력을 막는다(`UIInteractionState.BlocksAsyncKeyboard`, `SettingsInputPatches`). TUFReplay는 게임이 아니라 OS에서 키를 직접 읽으므로, 그것만으로는 설정 화면에서 누른 키가 TUFReplay 녹화에 들어가고 재생 중인 리플레이가 설정 창에 키를 입력한다.
+
+- `TufReplayInputPause`가 TUFReplay의 공개 API `TUFReplay.NativeInputPause`를 리플렉션으로 찾아, `BlocksAsyncKeyboard`가 켜져 있는 동안 `Request("ImplResourcePack.Settings")`, 꺼지면 `Release`를 부른다. 그동안 TUFReplay는 UMM 창이 열려 있을 때처럼 녹화도 리플레이 입력도 멈추고, 해제 0.2초 뒤 다시 시작한다.
+- 기준은 게임이 키를 못 받는지다. 오버레이 편집기는 플레이 중에도 키를 게임에 넘기므로 텍스트를 입력할 때만 멈춘다. 게임이 판정한 키를 TUFReplay가 놓치면 리플레이가 실제 플레이와 달라진다.
+- `SettingsUiRuntime.Tick` 끝에서 매 프레임 상태를 맞춘다. 바뀌지 않으면 bool 비교 한 번이고, 어셈블리 탐색은 키보드를 가져갈 때만 한다. 모드를 끄면 요청을 해제한다.
+- TUFReplay가 없으면 아무것도 하지 않는다. API가 없는 이전 TUFReplay가 로드되어 있으면 경고를 한 번 남기고 그대로 동작한다.

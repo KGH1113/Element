@@ -510,20 +510,36 @@ namespace ImplResourcePack.Editor
     private static void CheckChatterBlocking(SettingsPanel panel, ImplResourcePackSettings settings, int width)
     {
       ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
-      Slider window = Field<Slider>(panel, "_chatterWindow");
+      SettingsValueRow windowRow = Field<SettingsValueRow>(panel, "_chatterWindow");
+      Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
       Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
+      TMP_InputField input = windowRow.Field;
+      Assert(!input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value and waits too");
       toggle.onClick.Invoke();
-      Assert(chatter.Enabled && window.interactable, "turning blocking on enables the window");
+      Assert(chatter.Enabled && window.interactable && input.interactable, "turning blocking on enables the window");
       window.value = 33;
-      Assert(chatter.WindowMs == 33 && Field<TextMeshProUGUI>(panel, "_chatterWindowValue").text == "33 ms", "the slider saves and shows the window");
+      Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
+      input.onEndEdit.Invoke("72");
+      Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
+      input.onEndEdit.Invoke("400");
+      Assert(chatter.WindowMs == 150 && window.value == 150 && input.text == "150", "a window above the range becomes the maximum");
+      input.onEndEdit.Invoke("2");
+      Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
+      input.onEndEdit.Invoke("");
+      Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
       toggle.onClick.Invoke();
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
+      input.SetTextWithoutNotify(chatter.WindowMs.ToString());
       Assert(!chatter.Enabled, "turning it off again restores the default state");
-      RectTransform row = Field<RectTransform>(panel, "_chatterRow");
+      RectTransform row = windowRow.Row;
       Assert(row.rect.width <= width, "the window row fits the page");
+      RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
+      Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
+      Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
     }
 
     private static void Render(int width, int height, SystemLanguage language, int page, string name)

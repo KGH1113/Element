@@ -1,13 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
-import PlusIcon from '@assets/svgs/plus2.svg';
-import MinusIcon from '@assets/svgs/minus.svg';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useLenis } from '@hooks/useLenis';
 import Alert from '../dialogs/Alert.jsx';
 import TabNameModal from '../editors/TabNameModal';
 import type { KeyViewerKind } from '@src/types/key/keys';
-import ListPopup from '../../ListPopup';
 import { moveTabId, moveTabIdByOffset } from './tabOrder';
 import {
   captureEditorHistorySnapshot,
@@ -19,12 +16,20 @@ interface TabListProps {
 }
 
 const MAX_TABS_PER_VIEWER = 30;
-const VISIBLE_TAB_COUNT = 5;
-const TAB_ITEM_HEIGHT = 24;
-const TAB_ITEM_GAP = 6;
+const VISIBLE_TAB_COUNT = 7;
+const TAB_ROW_HEIGHT = 26;
+const TAB_ROW_GAP = 4;
+const TAB_ROW_PITCH = TAB_ROW_HEIGHT + TAB_ROW_GAP;
 const SCROLL_CONTENT_GUTTER = 4;
+const DRAG_THRESHOLD_PX = 4;
 const TAB_LIST_MAX_HEIGHT =
-  VISIBLE_TAB_COUNT * TAB_ITEM_HEIGHT + (VISIBLE_TAB_COUNT - 1) * TAB_ITEM_GAP;
+  VISIBLE_TAB_COUNT * TAB_ROW_HEIGHT + (VISIBLE_TAB_COUNT - 1) * TAB_ROW_GAP;
+
+interface TabDrag {
+  id: string;
+  /** 잡은 지점을 손가락 아래에 붙여 두기 위한 행 이동량 */
+  offsetY: number;
+}
 
 const TabList = ({ viewerKind }: TabListProps) => {
   const allTabs = useKeyStore((state) => state.tabs);
@@ -34,18 +39,13 @@ const TabList = ({ viewerKind }: TabListProps) => {
   );
   const { t } = useTranslation();
 
-  const [askDelete, setAskDelete] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [renameTabId, setRenameTabId] = useState<string | null>(null);
   const [deleteTabId, setDeleteTabId] = useState<string | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    id: string;
-    x: number;
-    y: number;
-  } | null>(null);
   const [draftOrder, setDraftOrder] = useState<string[] | null>(null);
-  const draggingId = useRef<string | null>(null);
-  const dropCommitted = useRef(false);
+  const [drag, setDrag] = useState<TabDrag | null>(null);
+  const suppressClick = useRef(false);
+  const rowsRef = useRef<HTMLDivElement>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
   const selectedButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -94,6 +94,7 @@ const TabList = ({ viewerKind }: TabListProps) => {
   }, [wrapperElement, tabs.length]);
 
   const maxReached = tabs.length >= MAX_TABS_PER_VIEWER;
+  const canDelete = tabs.length > 1;
   const scrollbarCompensation = hasOverflow
     ? scrollbarWidth + SCROLL_CONTENT_GUTTER
     : 0;
@@ -165,116 +166,139 @@ const TabList = ({ viewerKind }: TabListProps) => {
     }
   };
 
+  // 행 자체를 끌어 순서를 바꾼다. HTML5 드래그는 Tauri 웹뷰가 파일 드롭용으로
+  // 가로채므로 포인터 이벤트로 직접 추적한다. 짧은 움직임은 클릭으로 남긴다.
+  const beginDrag = (id: string, event: React.PointerEvent<HTMLElement>) => {
+    suppressClick.current = false;
+    if (event.button !== 0 || displayedIds.length < 2) return;
+    if ((event.target as Element).closest('[data-tab-action="true"]')) return;
+
+    const pointerId = event.pointerId;
+    const startY = event.clientY;
+    const rowTop = event.currentTarget.getBoundingClientRect().top;
+    const grabOffset = startY - rowTop;
+    let order = displayedIds;
+    let active = false;
+
+    const move = (moveEvent: PointerEvent) => {
+      if (moveEvent.pointerId !== pointerId) return;
+      if (!active && Math.abs(moveEvent.clientY - startY) < DRAG_THRESHOLD_PX)
+        return;
+      active = true;
+      const listTop = rowsRef.current?.getBoundingClientRect().top ?? rowTop;
+      // 행 높이가 고정이라 칸 번호를 좌표로 바로 구한다. 렌더 전의 DOM 순서를
+      // 읽지 않으니 두 칸 사이에서 순서가 깜빡이지 않는다.
+      const slot = Math.min(
+        order.length - 1,
+        Math.max(
+          0,
+          Math.round(
+            (moveEvent.clientY - grabOffset - listTop) / TAB_ROW_PITCH,
+          ),
+        ),
+      );
+      const next = moveTabId(order, id, order[slot]);
+      if (next !== order) {
+        order = next;
+        setDraftOrder(next);
+      }
+      setDrag({
+        id,
+        offsetY:
+          moveEvent.clientY - grabOffset - (listTop + slot * TAB_ROW_PITCH),
+      });
+    };
+
+    const end = (endEvent: PointerEvent) => {
+      if (endEvent.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+      if (!active) return;
+      setDrag(null);
+      if (endEvent.type === 'pointerup') {
+        suppressClick.current = true;
+        void commitOrder(order);
+      } else {
+        setDraftOrder(null);
+      }
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+  };
+
   return (
-    <div className="relative z-[1] flex max-w-[154px] flex-col items-center justify-center">
-      <div className="min-h-[39px] w-full border-b-[1px] border-ui-line-subtle flex flex-col items-center justify-center p-[8px] gap-[8px]">
-        <span className="w-full truncate text-left text-style-2 font-semibold text-[#F2F3F7]">
-          {t(`tabs.${viewerKind}Viewer`)}
-        </span>
-        {tabs.length === 0 ? (
-          <span className="text-style-2 text-[#DBDEE8]">{t('tabs.empty')}</span>
-        ) : (
+    <div className="relative z-[1] flex w-[176px] flex-col gap-[4px] p-[6px]">
+      {orderedTabs.length > 0 && (
+        <div
+          ref={scrollRef}
+          className="flex w-full flex-col overflow-y-auto modal-content-scroll"
+          style={{
+            maxHeight: `${TAB_LIST_MAX_HEIGHT}px`,
+            width:
+              scrollbarCompensation > 0
+                ? `calc(100% + ${scrollbarCompensation}px)`
+                : undefined,
+            marginRight:
+              scrollbarCompensation > 0
+                ? `-${scrollbarCompensation}px`
+                : undefined,
+          }}
+        >
           <div
-            ref={scrollRef}
-            className="flex flex-col w-full gap-[6px] overflow-y-auto modal-content-scroll"
+            ref={rowsRef}
+            className="flex flex-col"
             style={{
-              maxHeight: `${TAB_LIST_MAX_HEIGHT}px`,
-              width:
-                scrollbarCompensation > 0
-                  ? `calc(100% + ${scrollbarCompensation}px)`
-                  : undefined,
-              marginRight:
-                scrollbarCompensation > 0
-                  ? `-${scrollbarCompensation}px`
-                  : undefined,
+              gap: `${TAB_ROW_GAP}px`,
+              ...(hasOverflow
+                ? { width: `calc(100% - ${SCROLL_CONTENT_GUTTER}px)` }
+                : {}),
             }}
           >
-            <div
-              className="flex flex-col gap-[6px]"
-              style={
-                hasOverflow
-                  ? { width: `calc(100% - ${SCROLL_CONTENT_GUTTER}px)` }
-                  : undefined
-              }
-            >
-              {orderedTabs.map((tab) => (
+            {orderedTabs.map((tab) => {
+              const isSelected = selectedTabId === tab.id;
+              const isDragging = drag?.id === tab.id;
+              return (
+                // 행 래퍼는 비인터랙티브로 두고, 선택은 행 전체를 덮는 버튼,
+                // 이름 변경·삭제는 형제 버튼이 맡는다
                 <div
                   key={tab.id}
-                  className="flex w-full items-center gap-[3px]"
-                  onDragOver={(event) => {
-                    if (!draggingId.current) return;
-                    event.preventDefault();
-                    setDraftOrder((current) =>
-                      moveTabId(
-                        current ?? displayedIds,
-                        draggingId.current as string,
-                        tab.id,
-                      ),
-                    );
+                  data-tab-row={tab.id}
+                  data-selected={isSelected ? 'true' : 'false'}
+                  data-dragging={isDragging ? 'true' : undefined}
+                  className={`group relative flex w-full shrink-0 select-none items-center rounded-[7px] px-[8px] text-style-2 ${
+                    isDragging
+                      ? 'z-[1] cursor-grabbing bg-ui-fill-active text-ui-fg-primary shadow-ui-popup'
+                      : isSelected
+                        ? 'bg-ui-fill-hover text-ui-fg-primary'
+                        : 'text-[#DBDEE8] hover:bg-ui-fill'
+                  }`}
+                  style={{
+                    height: `${TAB_ROW_HEIGHT}px`,
+                    transform: isDragging
+                      ? `translate3d(0, ${drag?.offsetY ?? 0}px, 0)`
+                      : undefined,
                   }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    dropCommitted.current = true;
-                    void commitOrder(draftOrder ?? displayedIds);
-                  }}
+                  onPointerDown={(event) => beginDrag(tab.id, event)}
                 >
                   <button
-                    ref={
-                      selectedTabId === tab.id ? selectedButtonRef : undefined
-                    }
+                    ref={isSelected ? selectedButtonRef : undefined}
                     type="button"
-                    aria-current={selectedTabId === tab.id ? 'true' : undefined}
-                    data-selected={selectedTabId === tab.id ? 'true' : 'false'}
-                    className={`relative min-w-0 flex-1 min-h-[24px] h-[24px] flex-shrink-0 flex items-center justify-center rounded-[7px] px-[24px] text-style-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus ${
-                      selectedTabId === tab.id
-                        ? 'bg-button-active text-[#FFFFFF] hover:bg-surfaceHover'
-                        : 'text-[#DBDEE8] hover:bg-ui-fill active:bg-ui-fill-active'
-                    }`}
-                    onClick={() => handleSelect(tab.id)}
-                    onContextMenu={(event) => {
-                      event.preventDefault();
-                      setContextMenu({
-                        id: tab.id,
-                        x: event.clientX,
-                        y: event.clientY,
-                      });
-                    }}
-                  >
-                    {selectedTabId === tab.id && (
-                      <svg
-                        className="absolute left-[8px] h-[11px] w-[11px] text-focus"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        aria-hidden="true"
-                      >
-                        <path
-                          d="M2 6.2 4.55 8.6 10 3"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    )}
-                    {tab.name}
-                  </button>
-                  <button
-                    type="button"
-                    draggable
-                    aria-label={t('tabs.reorder', { name: tab.name })}
-                    className="h-[24px] w-[16px] cursor-grab rounded text-[#8B8E99] hover:bg-ui-fill hover:text-white active:cursor-grabbing"
-                    onDragStart={(event) => {
-                      draggingId.current = tab.id;
-                      dropCommitted.current = false;
-                      setDraftOrder(displayedIds);
-                      event.dataTransfer.effectAllowed = 'move';
-                      event.dataTransfer.setData('text/plain', tab.id);
-                    }}
-                    onDragEnd={() => {
-                      draggingId.current = null;
-                      if (!dropCommitted.current) setDraftOrder(null);
+                    aria-label={tab.name}
+                    aria-current={isSelected ? 'true' : undefined}
+                    aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                    className="absolute inset-0 rounded-[7px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
+                    onClick={() => {
+                      if (suppressClick.current) {
+                        suppressClick.current = false;
+                        return;
+                      }
+                      void handleSelect(tab.id);
                     }}
                     onKeyDown={(event) => {
+                      if (!event.altKey) return;
                       const offset =
                         event.key === 'ArrowUp'
                           ? -1
@@ -287,45 +311,89 @@ const TabList = ({ viewerKind }: TabListProps) => {
                         moveTabIdByOffset(displayedIds, tab.id, offset),
                       );
                     }}
+                  />
+                  <span className="pointer-events-none relative min-w-0 flex-1 truncate text-left">
+                    {tab.name}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={t('tabs.renameTitle')}
+                    data-tab-action="true"
+                    className="relative flex h-full w-[20px] shrink-0 items-center justify-center text-ui-fg-muted opacity-0 hover:text-ui-fg-primary focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100 group-focus-within:opacity-100"
+                    onClick={() => setRenameTabId(tab.id)}
                   >
-                    ⋮
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M6.8 1.5 8.5 3.2M1.5 8.5l.5-2 4.6-4.6a.7.7 0 0 1 1 0l.5.5a.7.7 0 0 1 0 1L3.5 8l-2 .5Z"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      aria-label={t('tabs.delete')}
+                      data-tab-action="true"
+                      className="relative -mr-[6px] flex h-full w-[20px] shrink-0 items-center justify-center text-ui-fg-muted opacity-0 hover:text-ui-fg-primary focus-visible:opacity-100 focus-visible:outline-none group-hover:opacity-100 group-focus-within:opacity-100"
+                      onClick={() => setDeleteTabId(tab.id)}
+                    >
+                      <svg
+                        width="8"
+                        height="8"
+                        viewBox="0 0 8 8"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M1 1l6 6M7 1 1 7"
+                          stroke="currentColor"
+                          strokeWidth="1.2"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        )}
-      </div>
-      <div className="flex flex-row p-[8px] w-[154px] gap-[8px]">
-        {!maxReached && (
-          <button
-            type="button"
-            aria-label={t('tabs.create')}
-            className="flex flex-1 items-center justify-center max-w-[138px] h-[22px] rounded-[7px] bg-ui-fill hover:bg-ui-fill-hover active:bg-ui-fill-active"
-            onClick={() => setShowNameModal(true)}
+        </div>
+      )}
+
+      {!maxReached && (
+        <button
+          type="button"
+          className="flex w-full shrink-0 items-center gap-[6px] rounded-[7px] px-[8px] text-style-2 text-ui-fg-muted hover:bg-ui-fill hover:text-ui-fg-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-focus"
+          style={{ height: `${TAB_ROW_HEIGHT}px` }}
+          onClick={() => setShowNameModal(true)}
+        >
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            className="shrink-0"
+            aria-hidden="true"
           >
-            <PlusIcon />
-          </button>
-        )}
-        {tabs.length > 0 && (
-          <button
-            type="button"
-            aria-label={t('tabs.delete')}
-            className={`flex flex-1 items-center justify-center max-w-[138px] h-[22px] rounded-[7px] ${
-              tabs.length > 1
-                ? 'bg-[#3C1E1E] hover:bg-[#442222] active:bg-[#522929]'
-                : 'bg-ui-fill opacity-50 cursor-not-allowed'
-            }`}
-            disabled={tabs.length <= 1}
-            onClick={() => {
-              setDeleteTabId(selectedTabId);
-              setAskDelete(true);
-            }}
-          >
-            <MinusIcon />
-          </button>
-        )}
-      </div>
+            <path
+              d="M5 1.5V8.5M1.5 5H8.5"
+              stroke="currentColor"
+              strokeWidth="1.2"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="min-w-0 truncate">{t('tabs.createTitle')}</span>
+        </button>
+      )}
 
       <TabNameModal
         isOpen={showNameModal}
@@ -345,32 +413,8 @@ const TabList = ({ viewerKind }: TabListProps) => {
           .map((tab) => tab.name)}
       />
 
-      <ListPopup
-        open={contextMenu !== null}
-        position={contextMenu ?? undefined}
-        onClose={() => setContextMenu(null)}
-        items={[
-          { id: 'rename', label: t('tabs.rename') },
-          {
-            id: 'delete',
-            label: t('tabs.delete'),
-            disabled: tabs.length <= 1,
-          },
-        ]}
-        onSelect={(action) => {
-          const id = contextMenu?.id;
-          setContextMenu(null);
-          if (!id) return;
-          if (action === 'rename') setRenameTabId(id);
-          if (action === 'delete') {
-            setDeleteTabId(id);
-            setAskDelete(true);
-          }
-        }}
-      />
-
       <Alert
-        isOpen={askDelete}
+        isOpen={deleteTabId !== null}
         type="confirm"
         message={t('tabs.deleteConfirm', {
           name: tabs.find((tab) => tab.id === deleteTabId)?.name || '',
@@ -379,14 +423,11 @@ const TabList = ({ viewerKind }: TabListProps) => {
         cancelText={t('common.cancel')}
         showCancel
         onConfirm={async () => {
-          setAskDelete(false);
-          if (deleteTabId) await handleDelete(deleteTabId);
+          const id = deleteTabId;
           setDeleteTabId(null);
+          if (id) await handleDelete(id);
         }}
-        onCancel={() => {
-          setAskDelete(false);
-          setDeleteTabId(null);
-        }}
+        onCancel={() => setDeleteTabId(null)}
       />
     </div>
   );

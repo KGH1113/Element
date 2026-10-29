@@ -277,10 +277,8 @@
   "tabs": {
     "renameTitle": "重命名标签页",
     "rename": "重命名",
-    "reorder": "调整 {{name}} 顺序",
     "handViewer": "手部按键显示器",
     "footViewer": "脚部按键显示器",
-    "empty": "无额外标签页",
     "createTitle": "创建标签页",
     "create": "创建",
     "delete": "删除",

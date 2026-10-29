@@ -277,10 +277,8 @@
   "tabs": {
     "renameTitle": "Rename Tab",
     "rename": "Rename",
-    "reorder": "Reorder {{name}}",
     "handViewer": "Hand key viewer",
     "footViewer": "Foot key viewer",
-    "empty": "No additional tabs",
     "createTitle": "Create Tab",
     "create": "Create",
     "delete": "Delete",

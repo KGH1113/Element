@@ -81,6 +81,7 @@ const TabTool = () => {
                 placement="top"
                 offset={10}
                 portal
+                ariaLabel={label}
                 onClose={() => setOpenViewer(null)}
                 className="viewer-tab-popup z-[100] origin-bottom"
               >

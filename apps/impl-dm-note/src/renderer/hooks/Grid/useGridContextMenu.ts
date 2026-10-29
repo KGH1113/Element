@@ -4,6 +4,7 @@
  * - 그리드 컨텍스트 메뉴 항목 생성
  */
 
+import type { ListItem } from '@components/main/Modal/ListPopup';
 import { usePluginMenuStore } from '@stores/plugin/usePluginMenuStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
@@ -22,6 +23,18 @@ interface MenuItem {
   disabled?: boolean;
   isPlugin?: boolean;
 }
+
+// 자식이 전부 잠겨 있으면 묶음 행도 잠근다. 열 수 있어 보이는 빈 서브메뉴를 막는다.
+const groupRow = (
+  id: string,
+  label: string,
+  children: MenuItem[],
+): ListItem => ({
+  id,
+  label,
+  children,
+  disabled: children.every((child) => child.disabled),
+});
 
 interface KeyContext {
   keyCode: string;
@@ -51,7 +64,7 @@ interface UseGridContextMenuReturn {
   getKnobMenuItems: (contextIndex: number | null) => MenuItem[];
   getGridMenuItems: (
     gridAddLocalPos: { dx: number; dy: number } | null,
-  ) => MenuItem[];
+  ) => ListItem[];
   pluginKeyMenuItems: PluginMenuItemInternal<KeyMenuContext>[];
   pluginGridMenuItems: PluginMenuItemInternal<GridMenuContext>[];
   resolvePluginLabel: (pluginId: string, rawLabel: string) => string;
@@ -70,6 +83,8 @@ export function useGridContextMenu({
 }: UseGridContextMenuParams): UseGridContextMenuReturn {
   // 전역 CSS 활성화 여부
   const useCustomCSS = useSettingsStore((state) => state.useCustomCSS);
+  // OBS 모드는 데스크톱 오버레이 창을 없애므로 되돌릴 위치가 없다
+  const obsModeEnabled = useSettingsStore((state) => state.obsModeEnabled);
 
   // 플러그인 메뉴 아이템
   const pluginKeyMenuItems = usePluginMenuStore((state) => state.keyMenuItems);
@@ -182,25 +197,35 @@ export function useGridContextMenu({
 
   const getGridMenuItems = (
     gridAddLocalPos: { dx: number; dy: number } | null,
-  ): MenuItem[] => {
-    const topBaseItems: MenuItem[] = [
+  ): ListItem[] => {
+    const addItems: MenuItem[] = [
       { id: 'add', label: t('contextMenu.addKey') },
       { id: 'addStat', label: t('contextMenu.addStat') },
       { id: 'addGraph', label: t('contextMenu.addGraph') },
       { id: 'addKnob', label: t('contextMenu.addKnob') },
     ];
-    const bottomBaseItems: MenuItem[] = [
+    // 묶음 안에서는 부모 행이 맥락을 주므로 라벨을 줄인다
+    const tabItems: MenuItem[] = [
       {
         id: 'tabCss',
-        label: t('contextMenu.tabCssSetting'),
+        label: t('contextMenu.cssSetting'),
         disabled: !useCustomCSS,
       },
       {
         id: 'tabNote',
-        label: t('contextMenu.tabNoteSetting'),
+        label: t('contextMenu.trackSetting'),
         disabled: !noteEffect,
       },
     ];
+    // 화면 밖으로 끌려가 잡을 수 없는 오버레이를 메인 창에서 되찾는 길
+    const resetItems: MenuItem[] = obsModeEnabled
+      ? []
+      : [
+          {
+            id: 'resetOverlayPosition',
+            label: t('contextMenu.overlayTarget'),
+          },
+        ];
 
     // 플러그인 메뉴 필터링
     const context: GridContext | null = gridAddLocalPos
@@ -239,11 +264,26 @@ export function useGridContextMenu({
       pluginGridMenuItems.filter((i) => i.position !== 'top'),
     );
 
+    // 추가 동작만 맨 위에 두고 설정·복구 동작은 묶음으로 접는다
+    const groupRows: ListItem[] = [
+      groupRow('tabGroup', t('contextMenu.currentTabGroup'), tabItems),
+      ...(resetItems.length > 0
+        ? [
+            groupRow(
+              'resetGroup',
+              t('contextMenu.resetPositionGroup'),
+              resetItems,
+            ),
+          ]
+        : []),
+    ];
+
     return [
       ...topPluginItems,
-      ...topBaseItems,
+      ...addItems,
       ...bottomPluginItems,
-      ...bottomBaseItems,
+      { id: 'separator', label: '', type: 'separator' },
+      ...groupRows,
     ];
   };
 

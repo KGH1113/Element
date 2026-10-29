@@ -932,6 +932,27 @@ impl AppState {
         Ok(bounds)
     }
 
+    /// Moves the viewer's overlay to the middle of the screen it mostly sits on,
+    /// or the primary screen once it is off every screen. This is the way back
+    /// for an overlay dragged out of reach; the Moved event saves the new spot.
+    pub fn reset_overlay_position(&self, app: &AppHandle, viewer_kind: KeyViewerKind) -> Result<()> {
+        let label = overlay_label(viewer_kind);
+        let window = app
+            .get_webview_window(label)
+            .ok_or_else(|| anyhow!("{label} window is not open"))?;
+        let scale_factor = window.scale_factor().unwrap_or(1.0);
+        let position = window.outer_position()?.to_logical::<f64>(scale_factor);
+        let size = window.outer_size()?.to_logical::<f64>(scale_factor);
+        let monitors = MonitorData::gather(app);
+        let screen = monitors
+            .find_best_overlap(position.x, position.y, size.width, size.height)
+            .or_else(|| monitors.primary_spec())
+            .ok_or_else(|| anyhow!("monitor information unavailable"))?;
+        let target = screen.centered(size.width, size.height);
+        window.set_position(LogicalPosition::new(target.x, target.y))?;
+        Ok(())
+    }
+
     pub fn start_keyboard_hook(&self, app: AppHandle) -> Result<()> {
         let mut task_guard = self.keyboard_task.write();
         if task_guard.is_some() {
@@ -2558,6 +2579,16 @@ impl MonitorSpec {
         (right - left).max(0.0) * (bottom - top).max(0.0)
     }
 
+    /// The work-area center for a window of this size, kept on screen when it is larger.
+    fn centered(&self, width: f64, height: f64) -> OverlayPosition {
+        self.clamp(
+            self.logical_origin_x + (self.logical_width - width) / 2.0,
+            self.logical_origin_y + (self.logical_height - height) / 2.0,
+            width,
+            height,
+        )
+    }
+
     fn clamp(&self, x: f64, y: f64, width: f64, height: f64) -> OverlayPosition {
         let max_x = self.logical_origin_x + (self.logical_width - width).max(0.0);
         let max_y = self.logical_origin_y + (self.logical_height - height).max(0.0);
@@ -2566,6 +2597,37 @@ impl MonitorSpec {
             x: x.clamp(self.logical_origin_x, max_x),
             y: y.clamp(self.logical_origin_y, max_y),
         }
+    }
+}
+
+#[cfg(test)]
+mod monitor_spec_tests {
+    use super::MonitorSpec;
+
+    fn screen(x: f64, y: f64, width: f64, height: f64) -> MonitorSpec {
+        MonitorSpec {
+            logical_origin_x: x,
+            logical_origin_y: y,
+            logical_width: width,
+            logical_height: height,
+            physical_origin_x: x,
+            physical_origin_y: y,
+            physical_width: width,
+            physical_height: height,
+            scale_factor: 1.0,
+        }
+    }
+
+    #[test]
+    fn centered_places_the_overlay_in_the_middle_of_the_work_area() {
+        let target = screen(1920.0, 25.0, 1440.0, 875.0).centered(400.0, 300.0);
+        assert_eq!((target.x, target.y), (2440.0, 312.5));
+    }
+
+    #[test]
+    fn centered_keeps_an_overlay_larger_than_the_screen_at_its_top_left() {
+        let target = screen(0.0, 0.0, 800.0, 600.0).centered(1000.0, 700.0);
+        assert_eq!((target.x, target.y), (0.0, 0.0));
     }
 }
 

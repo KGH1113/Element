@@ -274,6 +274,7 @@ fn main() {
             commands::layout::overlay::overlay_set_lock,
             commands::layout::overlay::overlay_set_anchor,
             commands::layout::overlay::overlay_resize,
+            commands::layout::overlay::overlay_reset_position,
             // 미디어
             commands::media::image::image_load,
             commands::media::counter_animation::counter_animation_list,

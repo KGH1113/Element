@@ -9,6 +9,8 @@ internal sealed class EffectsController : IDisposable
   private readonly Func<EffectSettings> _settings;
   private RemovedEffects _requested;
   private RemovedEffects _applied;
+  private int _requestedZoom = EffectPreset.DefaultCameraZoom;
+  private int _appliedZoom = EffectPreset.DefaultCameraZoom;
   private int _renderDepth;
   private int _editorReturnDepth;
   private bool _disposed;
@@ -20,7 +22,13 @@ internal sealed class EffectsController : IDisposable
   // Keep one visual preset through loading, editing, playback and editor return.
   // Temporarily restoring originals on return would reload every removed image.
   internal static RemovedEffects ForRendering => Applied;
-  public bool RequiresRestart => _requested != _applied;
+  internal static int CameraZoomForRendering => Active?._appliedZoom ?? EffectPreset.DefaultCameraZoom;
+  public bool RequiresRestart => PendingChange;
+
+  // The zoom only reaches the level through the camera reset, so it alone
+  // matters only while camera movement is removed.
+  private bool PendingChange =>
+    _requested != _applied || ((_requested & RemovedEffects.CameraMotion) != 0 && _requestedZoom != _appliedZoom);
   internal bool ReturningToEditor => _editorReturnDepth > 0;
 
   public EffectsController(Func<EffectSettings> settings)
@@ -28,6 +36,7 @@ internal sealed class EffectsController : IDisposable
     _settings = settings;
     ApplySettings();
     _applied = _requested;
+    _appliedZoom = _requestedZoom;
     Active = this;
   }
 
@@ -35,7 +44,9 @@ internal sealed class EffectsController : IDisposable
   {
     if (_disposed)
       return;
-    _requested = (_settings()?.ActiveEffects ?? RemovedEffects.None) & EffectCatalog.All;
+    EffectSettings settings = _settings();
+    _requested = (settings?.ActiveEffects ?? RemovedEffects.None) & EffectCatalog.All;
+    _requestedZoom = settings?.ActiveCameraZoom ?? EffectPreset.DefaultCameraZoom;
   }
 
   internal bool CommitForPlayback()
@@ -45,8 +56,9 @@ internal sealed class EffectsController : IDisposable
     if (_disposed || ReturningToEditor)
       return false;
     ApplySettings();
-    bool changed = _applied != _requested;
+    bool changed = PendingChange;
     _applied = _requested;
+    _appliedZoom = _requestedZoom;
     return changed;
   }
 
@@ -56,7 +68,7 @@ internal sealed class EffectsController : IDisposable
     if (_disposed || game == null || game.levelData == null || effects == RemovedEffects.None || _renderDepth > 0)
       return null;
     LevelData original = game.levelData;
-    LevelData rendered = EffectLevelFilter.Create(original, effects);
+    LevelData rendered = EffectLevelFilter.Create(original, effects, _appliedZoom);
     _renderDepth++;
     game.levelData = rendered;
     return new RenderScope(this, game, original, rendered);

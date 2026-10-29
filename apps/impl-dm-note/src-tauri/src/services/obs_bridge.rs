@@ -24,6 +24,7 @@ use crate::models::obs::{
 const DENIED_WS_COMMANDS: &[&str] = &[
     // 오버레이 제어 (OBS에서 조작 불가)
     "overlay_resize",
+    "overlay_reset_position",
     "overlay_set_visible",
     "overlay_set_lock",
     "overlay_set_anchor",

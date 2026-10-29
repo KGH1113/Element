@@ -510,20 +510,36 @@ namespace ImplResourcePack.Editor
     private static void CheckChatterBlocking(SettingsPanel panel, ImplResourcePackSettings settings, int width)
     {
       ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
-      Slider window = Field<Slider>(panel, "_chatterWindow");
+      SettingsValueRow windowRow = Field<SettingsValueRow>(panel, "_chatterWindow");
+      Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
       Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
+      TMP_InputField input = windowRow.Field;
+      Assert(!input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value and waits too");
       toggle.onClick.Invoke();
-      Assert(chatter.Enabled && window.interactable, "turning blocking on enables the window");
+      Assert(chatter.Enabled && window.interactable && input.interactable, "turning blocking on enables the window");
       window.value = 33;
-      Assert(chatter.WindowMs == 33 && Field<TextMeshProUGUI>(panel, "_chatterWindowValue").text == "33 ms", "the slider saves and shows the window");
+      Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
+      input.onEndEdit.Invoke("72");
+      Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
+      input.onEndEdit.Invoke("400");
+      Assert(chatter.WindowMs == 150 && window.value == 150 && input.text == "150", "a window above the range becomes the maximum");
+      input.onEndEdit.Invoke("2");
+      Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
+      input.onEndEdit.Invoke("");
+      Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
       toggle.onClick.Invoke();
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
+      input.SetTextWithoutNotify(chatter.WindowMs.ToString());
       Assert(!chatter.Enabled, "turning it off again restores the default state");
-      RectTransform row = Field<RectTransform>(panel, "_chatterRow");
+      RectTransform row = windowRow.Row;
       Assert(row.rect.width <= width, "the window row fits the page");
+      RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
+      Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
+      Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
     }
 
     private static void Render(int width, int height, SystemLanguage language, int page, string name)
@@ -677,8 +693,28 @@ namespace ImplResourcePack.Editor
       name.text = "Fixture calm";
       options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
       RemovedEffects expected = Field<EffectPreset>(panel, "_presetDraft").Effects;
+      SettingsValueRow zoom = Field<SettingsValueRow>(panel, "_cameraZoom");
+      Assert((expected & RemovedEffects.CameraMotion) != 0 && zoom.Row.gameObject.activeSelf && zoom.Field.interactable
+        && zoom.Field.text == "250", "removing camera movement offers its zoom, starting at 250%");
+      RectTransform zoomRect = zoom.Row, cameraRect = (RectTransform)options[0].transform;
+      float zoomTop = -zoomRect.anchoredPosition.y, zoomBottom = zoomTop + zoomRect.rect.height;
+      Assert(Mathf.Approximately(cameraRect.rect.width, zoomRect.rect.width)
+        && zoomTop >= -cameraRect.anchoredPosition.y + cameraRect.rect.height,
+        "the zoom sits right under camera movement");
+      Assert(options.Skip(1).Where(button => button.gameObject.activeSelf)
+        .All(button => -((RectTransform)button.transform).anchoredPosition.y >= zoomBottom),
+        "the other Screen effects start below the zoom instead of covering it");
+      zoom.Field.onEndEdit.Invoke("1200");
+      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 1000 && zoom.Field.text == "1000"
+        && zoom.Slider.value == 1000, "a zoom above the range becomes the maximum");
+      zoom.Field.onEndEdit.Invoke("50");
+      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 100 && zoom.Field.text == "100",
+        "a zoom below the range becomes the minimum");
+      zoom.Field.onEndEdit.Invoke("300");
+      Assert(zoom.Slider.value == 300, "a typed zoom moves the slider");
       save.onClick.Invoke();
       EffectPreset created = settings.Effects.Presets.Single(preset => preset.Name == "Fixture calm");
+      Assert(created.CameraZoom == 300, "saving keeps the preset's zoom");
       Assert(settings.Effects.Presets.Count == originalCount + 1 && created.Effects == expected
         && Field<int>(panel, "_page") == 3, "saving creates the named preset and returns to its gallery");
       Field<List<Button>>(panel, "_presetCards").Single(button => button.name == "Preset: Fixture calm").onClick.Invoke();

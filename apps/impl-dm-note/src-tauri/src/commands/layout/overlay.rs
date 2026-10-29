@@ -59,6 +59,15 @@ pub fn overlay_set_anchor(
 }
 
 #[tauri::command]
+pub fn overlay_reset_position(
+    state: State<'_, AppState>,
+    app: AppHandle,
+    viewer_kind: KeyViewerKind,
+) -> CmdResult<()> {
+    Ok(state.reset_overlay_position(&app, viewer_kind)?)
+}
+
+#[tauri::command]
 pub fn overlay_resize(
     state: State<'_, AppState>,
     app: AppHandle,

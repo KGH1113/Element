@@ -27,6 +27,8 @@ export const overlayApi = {
     fixedPositionDeltaX?: number;
     fixedPositionDeltaY?: number;
   }) => invoke<OverlayBounds>('overlay_resize', { payload }),
+  resetPosition: (viewerKind: KeyViewerKind) =>
+    invoke<void>('overlay_reset_position', { viewerKind }),
   onVisibility: (listener: (payload: OverlayVisibilityPayload) => void) =>
     subscribe<OverlayVisibilityPayload>('overlay:visibility', listener),
   onLock: (listener: (payload: OverlayLockPayload) => void) =>

@@ -13,6 +13,7 @@ import TabCssModal from '../../Modal/content/editors/TabCssModal';
 import TabNoteSettingModal from '../../Modal/content/editors/TabNoteSettingModal';
 import ListPopup from '../../Modal/ListPopup';
 import { useKeyStore } from '@stores/data/useKeyStore';
+import { overlayApi } from '@api/modules/overlayApi';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
@@ -2106,6 +2107,7 @@ const Grid = ({
             setGridAddLocalPos(null);
           }}
           items={getGridMenuItems(gridAddLocalPos)}
+          textAlign="left"
           onSelect={(id: string) => {
             // 플러그인 메뉴 처리
             const pluginItem = pluginGridMenuItems.find(
@@ -2168,6 +2170,15 @@ const Grid = ({
             } else if (id === 'tabNote') {
               setIsNoteSettingOpen(false);
               setIsTabNoteModalOpen(true);
+            } else if (id === 'resetOverlayPosition') {
+              const viewerKind =
+                useKeyStore
+                  .getState()
+                  .tabs.find((tab) => tab.id === selectedKeyType)?.viewerKind ??
+                'hand';
+              void overlayApi.resetPosition(viewerKind).catch((error) => {
+                console.error('Failed to reset overlay position', error);
+              });
             }
             setIsGridContextOpen(false);
             setGridContextClientPos(null);

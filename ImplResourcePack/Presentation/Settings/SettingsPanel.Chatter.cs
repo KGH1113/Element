@@ -12,10 +12,8 @@ internal sealed partial class SettingsPanel
   private const int ChatterPage = 8;
   private readonly Func<long> _blockedChatter;
   private Button _chatterSwitch;
-  private RectTransform _chatterRow;
-  private Slider _chatterWindow;
-  private TextMeshProUGUI _chatterWindowValue,
-    _chatterHint,
+  private SettingsValueRow _chatterWindow;
+  private TextMeshProUGUI _chatterHint,
     _chatterBlocked,
     _chatterConflict;
   private long _shownBlocked = -1;
@@ -36,32 +34,22 @@ internal sealed partial class SettingsPanel
         Changed();
       }
     );
-    _chatterRow = _ui.Panel("Chatter window", page, 0, 100, 936, 88, SettingsUiFactory.Surface).rectTransform;
-    _ui.Text(L("무시할 간격", "Ignore window"), _chatterRow, 16, 10, 300, 24, 14, SettingsUiFactory.Muted);
-    _chatterWindowValue = _ui.Text("", _chatterRow, 800, 10, 120, 24, 14);
-    _chatterWindowValue.alignment = TextAlignmentOptions.Right;
-    _chatterWindow = _ui.Slider(
-      "Chatter window slider",
-      _chatterRow,
-      8,
-      42,
-      920,
-      0,
-      value =>
+    _chatterWindow = new SettingsValueRow(
+      _ui,
+      page,
+      "Chatter window",
+      L("무시할 간격", "Ignore window"),
+      "ms",
+      ChatterFilter.MinimumWindowMs,
+      ChatterFilter.MaximumWindowMs,
+      1,
+      () => chatter.WindowMs,
+      milliseconds =>
       {
-        int milliseconds = ChatterFilter.ClampWindow(Mathf.RoundToInt(value));
-        if (milliseconds == chatter.WindowMs)
-          return;
         chatter.WindowMs = milliseconds;
-        _chatterWindowValue.text = milliseconds + " ms";
         Changed();
-      },
-      1
+      }
     );
-    _chatterWindow.minValue = ChatterFilter.MinimumWindowMs;
-    _chatterWindow.maxValue = ChatterFilter.MaximumWindowMs;
-    _chatterWindow.wholeNumbers = true;
-    _chatterWindow.SetValueWithoutNotify(chatter.WindowMs);
     _chatterHint = _ui.Text(
       L(
         "한 번 눌렀는데 두 번 입력될 때만 켜세요. 간격이 길면 같은 키를 빠르게 연타할 때 입력이 빠질 수 있어요.",
@@ -93,12 +81,7 @@ internal sealed partial class SettingsPanel
     _chatterConflict.textWrappingMode = TextWrappingModes.Normal;
     _chatterConflict.gameObject.SetActive(IsAssemblyLoaded("KeyboardChatterBlocker"));
     RefreshChatterCount();
-    _ui.Bind(() =>
-    {
-      _chatterWindow.interactable = chatter.Enabled;
-      _chatterWindowValue.text = chatter.WindowMs + " ms";
-      _chatterWindowValue.color = chatter.Enabled ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
-    });
+    _ui.Bind(() => _chatterWindow.Sync(chatter.Enabled));
   }
 
   private void LayoutChatterPage(float width)
@@ -106,10 +89,8 @@ internal sealed partial class SettingsPanel
     float switchHeight = width < 520 ? 100 : 88;
     SettingsUiFactory.Place((RectTransform)_chatterSwitch.transform, 0, 0, width, switchHeight);
     float top = switchHeight + 12;
-    SettingsUiFactory.Place(_chatterRow, 0, top, width, 88);
-    SettingsUiFactory.Place(_chatterWindowValue.rectTransform, width - 136, 10, 120, 24);
-    SettingsUiFactory.Place((RectTransform)_chatterWindow.transform, 8, 42, width - 16, 36);
-    top += 100;
+    _chatterWindow.Layout(0, top, width);
+    top += SettingsValueRow.Height + 12;
     float hintHeight = width < 600 ? 64 : 44;
     SettingsUiFactory.Place(_chatterHint.rectTransform, 0, top, width, hintHeight);
     top += hintHeight + 8;

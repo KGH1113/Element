@@ -35,9 +35,18 @@ public enum RemovedEffects : long
 [Serializable]
 public sealed class EffectPreset
 {
+  public const int MinimumCameraZoom = 100;
+  public const int MaximumCameraZoom = 1000;
+  public const int DefaultCameraZoom = 250;
+
   public string Id = Guid.NewGuid().ToString("N");
   public string Name = "";
   public RemovedEffects Effects;
+
+  /// <summary>Zoom percent of the camera that follows the planets once camera movement is removed.</summary>
+  public int CameraZoom = DefaultCameraZoom;
+
+  public static int ClampCameraZoom(int zoom) => Math.Max(MinimumCameraZoom, Math.Min(MaximumCameraZoom, zoom));
 
   public EffectPreset Copy() =>
     new()
@@ -45,6 +54,7 @@ public sealed class EffectPreset
       Id = Id,
       Name = Name,
       Effects = Effects,
+      CameraZoom = CameraZoom,
     };
 }
 
@@ -78,6 +88,9 @@ public sealed class EffectSettings
   [XmlIgnore]
   public RemovedEffects ActiveEffects => Enabled ? ActivePreset?.Effects ?? RemovedEffects.None : RemovedEffects.None;
 
+  [XmlIgnore]
+  public int ActiveCameraZoom => EffectPreset.ClampCameraZoom(ActivePreset?.CameraZoom ?? EffectPreset.DefaultCameraZoom);
+
   public void Normalize()
   {
     Presets ??= new List<EffectPreset>();
@@ -108,6 +121,7 @@ public sealed class EffectSettings
       }
       preset.Name = candidate;
       preset.Effects &= EffectCatalog.All;
+      preset.CameraZoom = EffectPreset.ClampCameraZoom(preset.CameraZoom);
     }
     if (ActivePreset == null)
       ActivePresetId = Presets.Count > 0 ? Presets[0].Id : "";

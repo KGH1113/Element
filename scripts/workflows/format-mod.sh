@@ -13,7 +13,7 @@ cd "$IMPL_RESOURCEPACK_PROJECT_ROOT"
   ImplResourcePack/Infrastructure/Ipc ImplResourcePack/Infrastructure/Game/DmNote \
   ImplResourcePack/Infrastructure/Assets/FontBundleLoader.cs \
   ImplResourcePack.Unity/Assets/Editor/FontBundleBuilder.cs ImplResourcePack.Unity/Assets/Editor/FontAssetGenerator.cs \
-  ImplResourcePack/Infrastructure/Game/Input/KeyLimiterPatches.cs ImplResourcePack/Infrastructure/Game/Recording \
+  ImplResourcePack/Infrastructure/Game/Recording \
   ImplResourcePack/Infrastructure/Game/Input/DmNoteKeyResolver.cs \
   ImplResourcePack/Infrastructure/Game/Input/SettingsInputPatches.cs \
   ImplResourcePack/Bootstrap ImplResourcePack/Configuration ImplResourcePack/Presentation \

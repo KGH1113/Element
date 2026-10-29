@@ -1,4 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { createPortal } from 'react-dom';
 import FloatingPopup from './FloatingPopup';
 import { useLenis } from '@hooks/useLenis';
 
@@ -32,6 +40,12 @@ interface ListPopupProps {
   maxVisibleItems?: number;
 }
 
+// 부모 메뉴가 닫히기 시작하면 body로 빠져나간 서브메뉴도 함께 걷는다.
+const ListPopupOpenContext = createContext(true);
+
+const SUBMENU_GAP = 2;
+const SUBMENU_EDGE_PADDING = 5;
+
 /** 서브메뉴 컴포넌트 (호버 시 표시) */
 const SubMenu = ({
   items,
@@ -53,42 +67,42 @@ const SubMenu = ({
     id: string | null;
     close: (() => void) | null;
   }>({ id: null, close: null });
-  const pos = (() => {
-    if (!anchorRect) return null;
+  const parentOpen = useContext(ListPopupOpenContext);
+  // 실제 크기를 페인트 전에 재서 배치한다. 추정치로는 긴 라벨이 화면 밖으로 밀린다.
+  const [pos, setPos] = useState<{
+    left?: number;
+    right?: number;
+    top: number;
+  } | null>(null);
 
-    const padding = 5;
-    const normalLeft = anchorRect.right + 2;
-    let top = anchorRect.top;
-
-    // 서브메뉴의 대략적인 높이 추정
-    const separatorCount = items.filter((i) => i.type === 'separator').length;
-    const itemCount = items.length - separatorCount;
-    const estimatedHeight = itemCount * 24 + separatorCount * 9 + 10;
-    const estimatedWidth = 160;
-
-    // 오른쪽 경계 체크 → 공간 부족 시 왼쪽에 표시 (right 기준 정렬)
+  useLayoutEffect(() => {
+    const el = subMenuRef.current;
+    if (!anchorRect || !el) return;
+    const { offsetWidth: width, offsetHeight: height } = el;
+    const normalLeft = anchorRect.right + SUBMENU_GAP;
     const flipToLeft =
-      normalLeft + estimatedWidth > window.innerWidth - padding;
-
-    // 아래쪽 경계 체크
-    if (top + estimatedHeight > window.innerHeight - padding) {
-      top = window.innerHeight - estimatedHeight - padding;
-    }
-    if (top < padding) top = padding;
-
-    if (flipToLeft) {
-      return { right: window.innerWidth - anchorRect.left + 2, top } as {
-        left?: number;
-        right?: number;
-        top: number;
-      };
-    }
-    return { left: normalLeft, top } as {
-      left?: number;
-      right?: number;
-      top: number;
-    };
-  })();
+      normalLeft + width > window.innerWidth - SUBMENU_EDGE_PADDING &&
+      anchorRect.left - SUBMENU_GAP - width >= SUBMENU_EDGE_PADDING;
+    const top = Math.max(
+      SUBMENU_EDGE_PADDING,
+      Math.min(
+        anchorRect.top,
+        window.innerHeight - height - SUBMENU_EDGE_PADDING,
+      ),
+    );
+    // 측정 후 페인트 전에 위치를 확정하는 패턴이라 동기 setState가 의도다.
+    setPos(
+      flipToLeft
+        ? { right: window.innerWidth - anchorRect.left + SUBMENU_GAP, top }
+        : {
+            left: Math.min(
+              normalLeft,
+              window.innerWidth - width - SUBMENU_EDGE_PADDING,
+            ),
+            top,
+          },
+    );
+  }, [anchorRect, items.length]);
 
   const itemHeight = 24;
   const separatorCount = items.filter((i) => i.type === 'separator').length;
@@ -104,22 +118,30 @@ const SubMenu = ({
     wheelMultiplier: 0.7,
   });
 
-  if (!pos) return null;
+  if (!anchorRect || !parentOpen) return null;
 
-  return (
+  // body 포털 필수: 부모 팝업의 transform과 backdrop-filter가 fixed 요소의
+  // 기준 상자가 되어 뷰포트 좌표가 팝업 기준으로 밀려 창 밖에 그려진다.
+  // React 트리상으로는 여전히 부모 행의 자식이라 행의 mouseenter/leave가
+  // 서브메뉴 위에서도 끊기지 않는다.
+  return createPortal(
     <div
       ref={(node) => {
         (subMenuRef as React.MutableRefObject<HTMLDivElement | null>).current =
           node;
         if (needsScroll) subLenisRef(node);
       }}
+      data-dmn-app-portal
+      data-dmn-popup-submenu="true"
+      role="menu"
       className={`fixed z-[10001] bg-ui-glass rounded-ui-surface shadow-ui-popup p-[5px] flex flex-col gap-[1px] tooltip-fade-in${
         needsScroll ? ' listpopup-scroll' : ''
       }`}
       style={{
-        left: pos.left,
-        right: pos.right,
-        top: pos.top,
+        left: pos?.left,
+        right: pos?.right,
+        top: pos?.top ?? 0,
+        visibility: pos ? undefined : 'hidden',
         ...(maxHeight
           ? { maxHeight, overflowY: 'auto', overflowX: 'hidden' }
           : {}),
@@ -135,7 +157,8 @@ const SubMenu = ({
           siblingActiveRef={siblingActiveRef}
         />
       ))}
-    </div>
+    </div>,
+    document.body,
   );
 };
 
@@ -165,7 +188,7 @@ const MenuItemRow = ({
   const hasChildren = item.children && item.children.length > 0;
 
   const handleMouseEnter = () => {
-    if (!hasChildren) return;
+    if (!hasChildren || item.disabled) return;
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     const active = siblingActiveRef?.current;
     const hasActiveSibling = active?.id != null;
@@ -371,42 +394,44 @@ const ListPopup = ({
   });
 
   return (
-    <FloatingPopup
-      open={open}
-      referenceRef={referenceRef}
-      placement="top"
-      offset={25}
-      offsetX={offsetX}
-      offsetY={offsetY}
-      fixedX={position?.x}
-      fixedY={position?.y}
-      onClose={onClose}
-      role="menu"
-      className={effectiveClassName}
-    >
-      <div
-        ref={needsScroll ? lenisRef : undefined}
-        style={
-          maxHeight
-            ? { maxHeight, overflowY: 'auto', overflowX: 'hidden' }
-            : undefined
-        }
-        className={`flex flex-col gap-[1px]${
-          needsScroll ? ' listpopup-scroll' : ''
-        }`}
+    <ListPopupOpenContext.Provider value={open}>
+      <FloatingPopup
+        open={open}
+        referenceRef={referenceRef}
+        placement="top"
+        offset={25}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        fixedX={position?.x}
+        fixedY={position?.y}
+        onClose={onClose}
+        role="menu"
+        className={effectiveClassName}
       >
-        {items.map((it) => (
-          <MenuItemRow
-            key={it.id}
-            item={it}
-            textAlign={textAlign}
-            onSelect={onSelect}
-            onCloseAll={onClose}
-            siblingActiveRef={siblingActiveRef}
-          />
-        ))}
-      </div>
-    </FloatingPopup>
+        <div
+          ref={needsScroll ? lenisRef : undefined}
+          style={
+            maxHeight
+              ? { maxHeight, overflowY: 'auto', overflowX: 'hidden' }
+              : undefined
+          }
+          className={`flex flex-col gap-[1px]${
+            needsScroll ? ' listpopup-scroll' : ''
+          }`}
+        >
+          {items.map((it) => (
+            <MenuItemRow
+              key={it.id}
+              item={it}
+              textAlign={textAlign}
+              onSelect={onSelect}
+              onCloseAll={onClose}
+              siblingActiveRef={siblingActiveRef}
+            />
+          ))}
+        </div>
+      </FloatingPopup>
+    </ListPopupOpenContext.Provider>
   );
 };
 

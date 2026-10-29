@@ -43,7 +43,12 @@ internal static class EffectLevelFilter
     "trackShadowColor",
   };
 
-  public static LevelData Create(LevelData source, RemovedEffects effects, List<LevelEvent> events = null)
+  public static LevelData Create(
+    LevelData source,
+    RemovedEffects effects,
+    int cameraZoom,
+    List<LevelEvent> events = null
+  )
   {
     if (source == null || effects == RemovedEffects.None)
       return source;
@@ -60,6 +65,16 @@ internal static class EffectLevelFilter
       );
     if (Has(effects, RemovedEffects.TrackAnimations))
       ResetAnimations(result.trackSettings);
+
+    // Without its moves, a camera pinned to a tile or a fixed spot would never
+    // follow the planets. Start from the game's default camera, as Enhanced
+    // Effect Remover does, at the player's zoom. The game reads this setting
+    // when it builds the first tile, inside ApplyEventsToFloors.
+    if (Has(effects, RemovedEffects.CameraMotion))
+      result.cameraSettings = FollowingCamera(
+        new LevelEvent(0, LevelEventType.CameraSettings, GCS.settingsInfo["CameraSettings"]),
+        cameraZoom
+      );
 
     if (Has(effects, RemovedEffects.Backgrounds))
     {
@@ -105,6 +120,13 @@ internal static class EffectLevelFilter
       return;
     var preservedTags = Has(effects, RemovedEffects.Decorations) ? GameplayDecorationTags(source.levelEvents) : null;
     items.RemoveAll(item => ShouldRemove(item, effects, preservedTags));
+  }
+
+  /// <summary>Sets the zoom on a default camera. The game unboxes "zoom" as a float.</summary>
+  internal static LevelEvent FollowingCamera(LevelEvent defaults, int zoom)
+  {
+    defaults["zoom"] = (float)EffectPreset.ClampCameraZoom(zoom);
+    return defaults;
   }
 
   public static bool RemovesEvent(LevelEventType type, RemovedEffects effects)

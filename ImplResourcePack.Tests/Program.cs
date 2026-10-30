@@ -38,6 +38,7 @@ internal static class Program
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run("gameplay tweaks, judgement filtering, editor transforms and planet persistence", GameplayTweaksTests.Run);
+      Run("attempts count per start and speed, take back unplayed starts, follow skip rules and persist", AttemptTests.Run);
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);

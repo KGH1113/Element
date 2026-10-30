@@ -7,7 +7,8 @@ cd "$IMPL_RESOURCEPACK_PROJECT_ROOT"
   ImplResourcePack/Application \
   ImplResourcePack/Domain/DmNote ImplResourcePack/Domain/Layout \
   ImplResourcePack/Domain/Judgement/JudgementVisualPolicy.cs ImplResourcePack/Domain/Judgement/HitMarginPolicy.cs \
-  ImplResourcePack/Domain/Editor \
+  ImplResourcePack/Domain/Editor ImplResourcePack/Domain/Attempts \
+  ImplResourcePack/Infrastructure/Attempts ImplResourcePack/Infrastructure/Game/Attempts \
   ImplResourcePack/Infrastructure/Game/Effects ImplResourcePack/Infrastructure/Game/Tweaks \
   ImplResourcePack/Infrastructure/Game/Editor/EditorTweaksController.cs \
   ImplResourcePack/Infrastructure/Ipc ImplResourcePack/Infrastructure/Game/DmNote \
@@ -21,4 +22,4 @@ cd "$IMPL_RESOURCEPACK_PROJECT_ROOT"
   ImplResourcePack.Tests/OverlayLayoutTests.cs ImplResourcePack.Tests/LayoutEditingTests.cs \
   ImplResourcePack.Tests/GameplayTweaksTests.cs ImplResourcePack.Tests/EffectSettingsTests.cs \
   ImplResourcePack.Tests/PerformanceTests.cs ImplResourcePack.Tests/EffectFilterTests.cs \
-  ImplResourcePack.Tests/NativeViewerSessionTests.cs
+  ImplResourcePack.Tests/NativeViewerSessionTests.cs ImplResourcePack.Tests/AttemptTests.cs

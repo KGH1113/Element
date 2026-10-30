@@ -16,6 +16,7 @@ use crate::models::{
 };
 
 use super::builtin_sounds::seed_builtin_sounds;
+use super::initial_state::initial_state;
 use super::migration::{
     find_legacy_store_file, fold_stacked_ghost_keys, load_store_from_path,
     migrate_key_images_to_app_data, migrate_local_fonts_to_app_data, normalize_state,
@@ -46,7 +47,7 @@ impl AppStore {
             let (legacy, _) = load_store_from_path(&legacy_path)?;
             (default_path.clone(), legacy, true)
         } else {
-            (default_path, initialize_default_state(), true)
+            (default_path, initialize_default_state(&dir), true)
         };
 
         if !state.key_viewer_data_recovered {
@@ -365,15 +366,8 @@ fn settings_from_store(store: &AppStoreData) -> SettingsState {
     }
 }
 
-fn initialize_default_state() -> AppStoreData {
-    use crate::defaults::{default_keys, default_positions};
-
-    let data = AppStoreData {
-        keys: default_keys().clone(),
-        key_positions: default_positions().clone(),
-        ..Default::default()
-    };
-    normalize_state(data)
+fn initialize_default_state(app_data_dir: &Path) -> AppStoreData {
+    normalize_state(initial_state(app_data_dir))
 }
 
 fn collect_local_font_path_keys(data: &AppStoreData) -> HashSet<String> {

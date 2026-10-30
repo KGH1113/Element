@@ -1,5 +1,6 @@
 pub mod app_state;
 pub(crate) mod builtin_sounds;
+pub(crate) mod initial_state;
 pub(crate) mod migration;
 pub mod store;
 

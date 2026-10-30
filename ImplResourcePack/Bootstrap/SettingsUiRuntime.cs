@@ -23,6 +23,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly Action _viewerModeChanged;
   private readonly DmNoteNativeIpcFeature _nativeViewers;
   private readonly PlanetAppearanceController _planets;
+  private readonly TufReplayInputPause _tufReplayInput;
   private OverlayLayoutEditor _layoutEditor;
   private SettingsPanel _panel;
   private PlanetPreviewRenderer _planetPreview;
@@ -41,6 +42,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _main = main;
     _nativeViewers = nativeViewers;
     _planets = planets;
+    _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
     _apply = apply;
     _viewerModeChanged = viewerModeChanged;
     _font =
@@ -102,6 +104,9 @@ internal sealed class SettingsUiRuntime : IDisposable
       _panel.Tick();
     else if (SettingsPanel.ShortcutPressed(_main.Settings) && !SettingsPanel.IsTyping())
       Open();
+    // Exactly when the game stops getting keys: the layout editor lets them through
+    // during play, and TUFReplay must keep recording keys the game judges.
+    _tufReplayInput.Set(UIInteractionState.BlocksAsyncKeyboard);
   }
 
   public bool Save()
@@ -181,5 +186,6 @@ internal sealed class SettingsUiRuntime : IDisposable
     _panel = null;
     ReleasePlanetPreview();
     UIInteractionState.Reset();
+    _tufReplayInput.Dispose();
   }
 }

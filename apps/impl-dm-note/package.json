@@ -1,6 +1,6 @@
 {
   "name": "@impl-resourcepack/impl-dm-note",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "ImplDmNote desktop key viewer",
   "type": "module",
   "scripts": {

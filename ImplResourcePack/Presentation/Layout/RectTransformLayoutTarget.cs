@@ -682,6 +682,8 @@ internal sealed class RectTransformLayoutTarget : IOverlayLayoutTarget, IOverlay
         break;
       case "song-title":
       case "timing-scale":
+      case "attempt":
+      case "full-attempt":
         color = Color.white;
         break;
       case "combo":

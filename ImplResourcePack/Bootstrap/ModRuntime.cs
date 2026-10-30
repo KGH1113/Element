@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using ImplResourcePack.Application.Attempts;
 using ImplResourcePack.Application.KeyLimiter;
 using ImplResourcePack.Domain.Judgement;
+using ImplResourcePack.Infrastructure.Attempts;
 using ImplResourcePack.Infrastructure.DmNoteApp;
+using ImplResourcePack.Infrastructure.Game.Attempts;
 using ImplResourcePack.Infrastructure.Game.DmNote;
 using ImplResourcePack.Infrastructure.Game.Editor;
 using ImplResourcePack.Infrastructure.Game.Effects;
@@ -40,6 +43,8 @@ internal sealed class ModRuntime : IDisposable
   private EditorTrackpadController _trackpad;
   private GameplayTweaksController _gameplayTweaks;
   private EffectsController _effects;
+  private AttemptRunReader _attemptRuns;
+  private AttemptTracker _attempts;
   private OverlayRuntime _overlay;
   private SettingsUiRuntime _settingsUi;
   private bool _sceneHooked;
@@ -70,7 +75,11 @@ internal sealed class ModRuntime : IDisposable
     _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
-    _refreshFloor = () => _overlay?.RefreshFloor();
+    _refreshFloor = () =>
+    {
+      _attempts?.MarkPlayed();
+      _overlay?.RefreshFloor();
+    };
     _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
     _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
     _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
@@ -104,7 +113,8 @@ internal sealed class ModRuntime : IDisposable
       _sceneHooked = true;
       WarnIfKeyboardChatterBlockerIsLoaded();
 
-      _overlay = new OverlayRuntime(_main, OnTimeTick);
+      _attempts = CreateAttemptTracker();
+      _overlay = new OverlayRuntime(_main, OnTimeTick, _attempts);
       _nativeViewers = new DmNoteNativeIpcFeature(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
@@ -136,6 +146,13 @@ internal sealed class ModRuntime : IDisposable
       Dispose();
       throw;
     }
+  }
+
+  /// <summary>A play started from <paramref name="startFloor"/>: count it, then show the overlay.</summary>
+  public void BeginGameplay(int startFloor)
+  {
+    Execute("Count attempt", () => _attempts?.Begin(startFloor));
+    ShowGameplay();
   }
 
   public void ShowGameplay()
@@ -181,8 +198,10 @@ internal sealed class ModRuntime : IDisposable
       _settingsUi?.Open();
   }
 
+  /// <summary>The play ended or its scene is going away.</summary>
   public void HideGameplay()
   {
+    Execute("Finish attempt", () => _attempts?.End());
     Execute("Hide overlay", HideCore);
   }
 
@@ -263,7 +282,14 @@ internal sealed class ModRuntime : IDisposable
 
   public void OnPlayerDied(scrMarginTracker tracker)
   {
-    Execute("Refresh overlay after death", () => _overlay?.RefreshAfterDeath(tracker));
+    Execute(
+      "Refresh overlay after death",
+      () =>
+      {
+        _attempts?.MarkPlayed();
+        _overlay?.RefreshAfterDeath(tracker);
+      }
+    );
   }
 
   public void OnAccuracyChanged()
@@ -316,6 +342,20 @@ internal sealed class ModRuntime : IDisposable
 
     _overlay?.Dispose();
     _overlay = null;
+
+    // Ends the play in progress and waits briefly for its save. Not through
+    // Execute: it skips everything once the runtime is disposed.
+    try
+    {
+      _attempts?.Dispose();
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Save attempts", exception);
+    }
+    _attempts = null;
+    _attemptRuns?.Dispose();
+    _attemptRuns = null;
 
     _harmony?.UnpatchAll(HarmonyId);
     _harmony = null;
@@ -418,6 +458,28 @@ internal sealed class ModRuntime : IDisposable
       && !ADOBase.controller.paused
       && ADOBase.conductor != null
       && ADOBase.conductor.isGameWorld;
+  }
+
+  // Counting is optional: a failure here leaves the rest of the mod running.
+  private AttemptTracker CreateAttemptTracker()
+  {
+    try
+    {
+      _attemptRuns = new AttemptRunReader();
+      return new AttemptTracker(
+        _attemptRuns,
+        new AttemptFileStore(_main.Path, _main.LogException, _main.LogWarning),
+        AttemptCounter.Rules,
+        _main.LogException
+      );
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Attempt counting is off because it could not start", exception);
+      _attemptRuns?.Dispose();
+      _attemptRuns = null;
+      return null;
+    }
   }
 
   // Game versions before ADOFAI's built-in key limiter have no KeysSetting;

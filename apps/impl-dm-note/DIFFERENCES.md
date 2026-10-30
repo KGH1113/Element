@@ -27,6 +27,16 @@ upstream snapshot.
 - The overlay can display the current song title above the combo.
 - ImplResourcePack adds recording mode and judgment-text visibility settings.
 
+## First launch
+
+- A new install opens with ready-made hand key viewers (16K, 12K, 10K, 8K,
+  4K; 16K selected) and foot key viewers (0K, 2K, 4K, 6K, 8K on F1–F8; 0K
+  selected) instead of two empty tabs. They come from
+  `src-tauri/initial_key_viewers.json`.
+- Those key viewers use the bundled MapleStory OTF Bold font, which is copied
+  into the app data folder on first launch.
+- Reset Data still returns to the upstream two empty tabs.
+
 ## Removed upstream components
 
 - The upstream release and automatic-update channel is removed.
@@ -66,5 +76,7 @@ upstream snapshot.
 - Original DM Note authors retain copyright in their contributions.
 - The retained upstream icon and in-app logo are credited in
   [`THIRD_PARTY_NOTICES.txt`](THIRD_PARTY_NOTICES.txt).
+- The bundled MapleStory OTF Bold font is NEXON's and is not covered by the
+  GPL; its terms are in [`THIRD_PARTY_NOTICES.txt`](THIRD_PARTY_NOTICES.txt).
 - Cargo and production npm license texts are collected in
   [`THIRD_PARTY_LICENSES.txt`](THIRD_PARTY_LICENSES.txt).

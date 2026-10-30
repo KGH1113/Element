@@ -38,6 +38,10 @@ internal static class PlayerDiePatch
   [HarmonyPostfix]
   private static void Postfix(scrPlayer __instance)
   {
+    // No-fail, safe tiles and spare lives make Die return early while the player keeps playing.
+    if (__instance.alive)
+      return;
+
     Main.Instance?.Runtime?.OnPlayerDied(__instance.marginTracker);
   }
 }

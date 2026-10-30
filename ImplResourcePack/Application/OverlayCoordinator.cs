@@ -10,6 +10,7 @@ internal sealed class OverlayCoordinator : IDisposable
   private readonly BpmFeature _bpm;
   private readonly ComboFeature _combo;
   private readonly TimingScaleFeature _timingScale;
+  private readonly AttemptFeature _attempt;
   private bool _visible;
   private bool _disposed;
 
@@ -20,7 +21,8 @@ internal sealed class OverlayCoordinator : IDisposable
     StatusFeature status,
     BpmFeature bpm,
     ComboFeature combo,
-    TimingScaleFeature timingScale
+    TimingScaleFeature timingScale,
+    AttemptFeature attempt
   )
   {
     _judgement = judgement;
@@ -28,6 +30,7 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm = bpm;
     _combo = combo;
     _timingScale = timingScale;
+    _attempt = attempt;
   }
 
   public void Show()
@@ -46,6 +49,7 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm.Show();
     _combo.Show();
     _timingScale.Show();
+    _attempt.Show();
   }
 
   public void Hide()
@@ -59,6 +63,7 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm.Hide();
     _combo.Hide();
     _timingScale.Hide();
+    _attempt.Hide();
   }
 
   public void RefreshAll()
@@ -71,6 +76,7 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm.Refresh();
     _combo.Refresh();
     _timingScale.Refresh();
+    _attempt.Refresh();
   }
 
   public void RegisterHit(scrMarginTracker tracker, HitMargin hit)
@@ -128,5 +134,6 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm.Dispose();
     _combo.Dispose();
     _timingScale.Dispose();
+    _attempt.Dispose();
   }
 }

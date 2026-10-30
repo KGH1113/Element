@@ -30,7 +30,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 ## MapleStory OTF Bold
 
-The ImplResourcePack source repository includes the unmodified `MAPLESTORY_OTF_BOLD.OTF` font file. Its Unity editor tooling (`ImplResourcePack.Unity/Assets/Editor/FontAssetGenerator.cs`) rasterizes TextMesh Pro SDF atlases from that file; it only chooses which code points to render and does not edit the font's outlines, metrics, names, or other data. Release builds redistribute only the resulting `MAPLESTORY_OTF_BOLD SDF` and `MAPLESTORY_OTF_BOLD KR SDF` assets inside the platform AssetBundles, not the font file itself.
+The ImplResourcePack source repository includes the unmodified `MAPLESTORY_OTF_BOLD.OTF` font file. Its Unity editor tooling (`ImplResourcePack.Unity/Assets/Editor/FontAssetGenerator.cs`) rasterizes TextMesh Pro SDF atlases from that file; it only chooses which code points to render and does not edit the font's outlines, metrics, names, or other data. The mod's release builds redistribute only the resulting `MAPLESTORY_OTF_BOLD SDF` and `MAPLESTORY_OTF_BOLD KR SDF` assets inside the platform AssetBundles, not the font file itself.
+
+ImplDmNote keeps its own unmodified copy of the same font file at `apps/impl-dm-note/src-tauri/assets/fonts/MAPLESTORY_OTF_BOLD.OTF` and builds it into the app, which copies it into its app data folder on first launch for the default key viewers. The ImplDmNote copy in release archives therefore contains the font, with this notice repeated in its `THIRD_PARTY_NOTICES.txt`.
 
 The MapleStory typeface is owned by NEXON Korea Corporation. The [official font terms](https://maplestory.nexon.com/Media/Font) permit free use by individuals and businesses and permit redistribution or bundling with a copyright notice. The font itself may not be modified or edited, and it may not be sold for a fee. Attribution is recommended by the official terms.
 

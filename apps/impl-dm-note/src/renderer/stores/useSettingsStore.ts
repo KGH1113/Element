@@ -113,7 +113,7 @@ const initialState: SettingsStateSnapshot = {
   alwaysOnTop: true,
   overlayLocked: false,
   angleMode: 'd3d11',
-  noteEffect: false,
+  noteEffect: true,
   noteSettings: getDefaultNoteSettings(),
   tabNoteOverrides: {},
   fontSettings: getDefaultFontSettings(),
@@ -131,7 +131,7 @@ const initialState: SettingsStateSnapshot = {
   keyCounterEnabled: false,
   gridSettings: getDefaultGridSettings(),
   shortcuts: getDefaultShortcuts(),
-  obsModeEnabled: false,
+  obsModeEnabled: true,
   keyLimiterEnabled: true,
   inGameViewersEnabled: true,
 };

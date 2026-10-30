@@ -330,6 +330,31 @@ mod tests {
     }
 
     #[test]
+    fn starts_with_note_effects_and_obs_mode_on() {
+        with_initial_state(|first, dir| {
+            assert!(first.note_effect);
+            assert!(first.obs_mode_enabled);
+
+            // Turning them off sticks across launches.
+            let path = dir.join("store.json");
+            let mut off = first.clone();
+            off.note_effect = false;
+            off.obs_mode_enabled = false;
+            fs::write(&path, serde_json::to_string(&off).unwrap()).unwrap();
+            let (reloaded, _) = load_store_from_path(&path).unwrap();
+            assert!(!reloaded.note_effect);
+            assert!(!reloaded.obs_mode_enabled);
+
+            // A store saved before the OBS setting existed gets the default.
+            let mut value = serde_json::to_value(first).unwrap();
+            value.as_object_mut().unwrap().remove("obsModeEnabled");
+            fs::write(&path, value.to_string()).unwrap();
+            let (older, _) = load_store_from_path(&path).unwrap();
+            assert!(older.obs_mode_enabled);
+        });
+    }
+
+    #[test]
     fn font_copy_survives_a_second_first_run() {
         let dir = temp_app_data_dir();
         let first = initial_state(&dir);

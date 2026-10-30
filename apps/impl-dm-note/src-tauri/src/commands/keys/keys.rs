@@ -287,7 +287,7 @@ pub fn keys_reset_all(state: State<'_, AppState>, app: AppHandle) -> CmdResult<R
             path: Some(None),
             content: Some(String::new()),
         }),
-        note_effect: Some(false),
+        note_effect: Some(true),
         overlay_locked: Some(false),
         ..SettingsPatchInput::default()
     })?;

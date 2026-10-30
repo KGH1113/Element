@@ -25,6 +25,8 @@ ImplDmNote의 **Enable Key Limiter** 토글을 끄면 `enabled: false` 프로필
 
 KeyboardChatterBlocker에는 라이선스가 없어 코드를 가져오지 않고 새로 구현했다.
 
+- 기본값: 켜짐(`ChatterBlockerOptions.Enabled = true`). 저장된 설정이 있으면 그 값을 따른다.
+
 - 알고리즘: 같은 키를 **뗀 시각부터** 다음 누름까지의 간격이 창(기본 20ms, 5~150ms)보다 짧으면 그 누름과 짝이 되는 뗌을 함께 버린다. 원본은 누름-누름 간격만 보므로 길게 누른 키를 뗄 때 생기는 채터를 놓치고, 같은 간격이면 빠른 연타를 더 많이 막는다.
 - 막힌 뗌 직후의 튐도 잡도록, 버린 뗌도 마지막 뗌 시각으로 기록한다.
 - 비동기 입력: `SkyHookManager.HookCallback` 접두 패치. SkyHook 이벤트 시각(`GetTimeInTicks`)을 쓰고, 키별 상태는 고정 배열에 둔다. 할당·잠금·로그·Unity 호출이 없고 예외는 네이티브로 나가지 않는다. 원본의 문제(훅 스레드 로그 → UMM 로그 리스트 경쟁, 스레드 간 `List` 공유, 벽시계 사용, Windows 전용 Escape 판정)는 모두 없다.

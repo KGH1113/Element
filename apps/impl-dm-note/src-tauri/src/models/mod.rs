@@ -1436,7 +1436,7 @@ pub struct AppStoreData {
     #[serde(default)]
     pub key_sound_output_backend: Option<KeySoundOutputBackendPersist>,
     /// OBS 모드 활성화 여부
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub obs_mode_enabled: bool,
     /// ImplResourcePack 키 리미터로 선택한 탭의 키를 보낼지 여부
     #[serde(default = "default_true")]
@@ -1465,7 +1465,7 @@ impl Default for AppStoreData {
             always_on_top: true,
             overlay_locked: false,
             overlay_visible: false,
-            note_effect: false,
+            note_effect: true,
             note_settings: NoteSettings::default(),
             selected_key_type: "hand-default".to_string(),
             tabs: vec![
@@ -1520,7 +1520,7 @@ impl Default for AppStoreData {
             shortcuts: ShortcutsState::default(),
             sound_library: HashMap::new(),
             key_sound_output_backend: None,
-            obs_mode_enabled: false,
+            obs_mode_enabled: true,
             key_limiter_enabled: true,
             in_game_viewers_enabled: true,
             ghost_keys_folded: true,
@@ -1795,7 +1795,7 @@ pub struct SettingsState {
     pub grid_settings: GridSettings,
     #[serde(default)]
     pub shortcuts: ShortcutsState,
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub obs_mode_enabled: bool,
     #[serde(default = "default_true")]
     pub key_limiter_enabled: bool,
@@ -1809,7 +1809,7 @@ impl Default for SettingsState {
             hardware_acceleration: true,
             always_on_top: true,
             overlay_locked: false,
-            note_effect: false,
+            note_effect: true,
             note_settings: NoteSettings::default(),
             angle_mode: if cfg!(target_os = "macos") {
                 "metal".to_string()
@@ -1830,7 +1830,7 @@ impl Default for SettingsState {
             key_counter_enabled: false,
             grid_settings: GridSettings::default(),
             shortcuts: ShortcutsState::default(),
-            obs_mode_enabled: false,
+            obs_mode_enabled: true,
             key_limiter_enabled: true,
             in_game_viewers_enabled: true,
         }

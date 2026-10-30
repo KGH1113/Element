@@ -44,7 +44,7 @@ public sealed class EditorTweaksOptions
 
 public sealed class ChatterBlockerOptions
 {
-  public bool Enabled;
+  public bool Enabled = true;
 
   /// <summary>A press this soon after the same key's release is switch bounce.</summary>
   public int WindowMs = ChatterFilter.DefaultWindowMs;

@@ -193,7 +193,7 @@ function FALLBACK_SETTINGS_STATE(): SettingsState {
     hardwareAcceleration: true,
     alwaysOnTop: true,
     overlayLocked: false,
-    noteEffect: false,
+    noteEffect: true,
     noteSettings: FALLBACK_NOTE_SETTINGS(),
     fontSettings: { customFonts: [] },
     angleMode: 'd3d11',
@@ -210,7 +210,7 @@ function FALLBACK_SETTINGS_STATE(): SettingsState {
     keyCounterEnabled: false,
     gridSettings: FALLBACK_GRID_SETTINGS(),
     shortcuts: FALLBACK_SHORTCUTS(),
-    obsModeEnabled: false,
+    obsModeEnabled: true,
     keyLimiterEnabled: true,
     inGameViewersEnabled: true,
   };

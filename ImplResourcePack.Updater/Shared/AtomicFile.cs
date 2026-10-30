@@ -27,6 +27,22 @@ internal static class AtomicFile
     }
   }
 
+  /// <summary>Replaces <paramref name="path"/> with <paramref name="bytes"/> in one step.</summary>
+  public static void WriteAllBytes(string path, byte[] bytes)
+  {
+    Directory.CreateDirectory(Path.GetDirectoryName(path));
+    string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+    try
+    {
+      File.WriteAllBytes(temporary, bytes);
+      Move(temporary, path);
+    }
+    finally
+    {
+      TryDelete(temporary);
+    }
+  }
+
   /// <summary>Copies <paramref name="source"/> over <paramref name="target"/> unless they already match.</summary>
   public static void Copy(string source, string target)
   {

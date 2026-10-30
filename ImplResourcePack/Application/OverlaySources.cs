@@ -1,3 +1,4 @@
+using ImplResourcePack.Domain.Attempts;
 using ImplResourcePack.Domain.Bpm;
 using ImplResourcePack.Domain.Judgement;
 using ImplResourcePack.Domain.Status;
@@ -29,4 +30,9 @@ internal interface IStatusSource
 internal interface ITimingScaleSource
 {
   TimingScaleSnapshot Read();
+}
+
+internal interface IAttemptSource
+{
+  AttemptCounts Read();
 }

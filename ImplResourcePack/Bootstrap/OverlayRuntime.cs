@@ -6,6 +6,7 @@ using ImplResourcePack.Infrastructure.Game.Bpm;
 using ImplResourcePack.Infrastructure.Game.Judgement;
 using ImplResourcePack.Infrastructure.Game.Status;
 using ImplResourcePack.Infrastructure.Game.TimingScale;
+using ImplResourcePack.Presentation.Overlay.Attempt;
 using ImplResourcePack.Presentation.Overlay.Bpm;
 using ImplResourcePack.Presentation.Overlay.Combo;
 using ImplResourcePack.Presentation.Overlay.Judgement;
@@ -27,7 +28,8 @@ internal sealed class OverlayRuntime : IDisposable
   private OverlayCoordinator _coordinator;
   private StatusTimeTicker _timeTicker;
 
-  public OverlayRuntime(Main main, Action<int> onTimeTick)
+  /// <param name="attempts">Null when attempt counting could not start.</param>
+  public OverlayRuntime(Main main, Action<int> onTimeTick, IAttemptSource attempts)
   {
     try
     {
@@ -48,7 +50,8 @@ internal sealed class OverlayRuntime : IDisposable
         new StatusFeature(new StatusReader(), new StatusView(Canvas, font, _materials.Material)),
         new BpmFeature(new BpmReader(), new BpmView(Canvas, font, _materials.Material)),
         new ComboFeature(new ComboView(Canvas, font, _materials.Material)),
-        new TimingScaleFeature(new TimingScaleReader(), new TimingScaleView(Canvas, font, _materials.Material))
+        new TimingScaleFeature(new TimingScaleReader(), new TimingScaleView(Canvas, font, _materials.Material)),
+        new AttemptFeature(attempts, new AttemptView(Canvas, font, _materials.Material))
       );
       _timeTicker = Canvas.Root.AddComponent<StatusTimeTicker>();
       _timeTicker.Initialize(onTimeTick);

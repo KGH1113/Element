@@ -274,8 +274,8 @@ namespace ImplResourcePack.Editor
       Assert(editor.NativeExclusionBounds == new Rect(0, 0, width, height), "gallery excludes native surfaces across the viewport");
       var samples = gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Where(t => t.text.Contains("0%-48%")).ToArray();
       Assert(samples.Length == 1 && samples[0].color == OverlayTheme.ProgressColor(.48f), "gallery renders real progress composition with mock data and theme");
-      Assert(host.GalleryTargets.Count == 11 && gallery.GetComponentsInChildren<Button>(true).Count(b => b.name.StartsWith("Add ")) == 13,
-        "gallery offers all eleven overlay templates and both native viewer kinds");
+      Assert(host.GalleryTargets.Count == 13 && gallery.GetComponentsInChildren<Button>(true).Count(b => b.name.StartsWith("Add ")) == 15,
+        "gallery offers all thirteen overlay templates and both native viewer kinds");
       Assert(gallery.GetComponentsInChildren<NativeViewerMock>(true).Length == 2, "gallery renders production hand and foot mock components");
       Assert(gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text == "Tab")
         && gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text == "Left"), "gallery includes real key labels for hand and foot");
@@ -375,6 +375,8 @@ namespace ImplResourcePack.Editor
       host.GalleryTargets.Add(new RectTransformLayoutTarget("combo", "콤보", (RectTransform)combo.transform, sources.transform, valueText, "120"));
       AddGalleryTemplate(host, sources.transform, font, "judgement", "판정", "0  0  0  2  4  120  4  2  0  0  0", new Vector2(1000, 30), 25, TextAlignmentOptions.Bottom);
       AddGalleryTemplate(host, sources.transform, font, "timing-scale", "타이밍 배율", "Timing Scale - 100%", new Vector2(300, 30), 20, TextAlignmentOptions.Bottom);
+      AddGalleryTemplate(host, sources.transform, font, "attempt", "시도 횟수", "Attempt 3", new Vector2(300, 30), 25, TextAlignmentOptions.BottomLeft);
+      AddGalleryTemplate(host, sources.transform, font, "full-attempt", "전체 시도 횟수", "Full Attempt 27", new Vector2(300, 30), 25, TextAlignmentOptions.BottomLeft);
       sources.SetActive(false);
       return sources;
     }

@@ -36,6 +36,8 @@ internal sealed partial class OverlayLayoutEditor
       "combo" => L("콤보", "Combo"),
       "judgement" => L("판정", "Judgments"),
       "timing-scale" => L("타이밍 배율", "Timing scale"),
+      "attempt" => L("시도 횟수", "Attempts"),
+      "full-attempt" => L("전체 시도 횟수", "Full attempts"),
       "native-hand" => L("손 키뷰어", "Hand key viewer"),
       "native-foot" => L("발 키뷰어", "Foot key viewer"),
       _ => target.Label,

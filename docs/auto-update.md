@@ -12,6 +12,7 @@ Mods/ImplResourcePack/
   Info.json                     UMM 진입점: 현재 버전의 런처
   Settings.xml                  모드 설정 (업데이트해도 그대로)
   UpdateSettings.json           자동 업데이트 설정 (없으면 켜짐)
+  Attempts.dat                  맵별 시도 횟수 (업데이트해도 그대로)
   AdofaiIpc.*.dll, ipc/         다른 모드가 찾는 IPC 번들
   Runtime/state.json            Current · Previous · Trial · Failed
   Runtime/launchers/<v>/        ImplResourcePack.Launcher.dll

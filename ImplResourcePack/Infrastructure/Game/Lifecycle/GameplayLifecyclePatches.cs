@@ -6,10 +6,10 @@ namespace ImplResourcePack.Infrastructure.Game.Lifecycle;
 internal static class GamePlayPatch
 {
   [HarmonyPostfix]
-  private static void Postfix()
+  private static void Postfix(int seqID)
   {
     if (!GCS.practiceMode)
-      Main.Instance?.Runtime?.ShowGameplay();
+      Main.Instance?.Runtime?.BeginGameplay(seqID);
   }
 }
 
@@ -22,7 +22,8 @@ internal static class PressToStartPatch
     if (!GCS.practiceMode && scnGame.instance != null)
       return;
 
-    Main.Instance?.Runtime?.ShowGameplay();
+    scrController controller = scrController.instance;
+    Main.Instance?.Runtime?.BeginGameplay(controller != null ? controller.currentSeqID : 0);
   }
 }
 

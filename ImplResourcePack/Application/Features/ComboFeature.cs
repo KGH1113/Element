@@ -27,6 +27,9 @@ internal sealed class ComboFeature : IOverlayFeature
 
   public void RegisterHit(HitMargin hit)
   {
+    if (!HitMarginPolicy.AffectsCombo(hit))
+      return;
+
     bool continuesCombo = HitMarginPolicy.ContinuesCombo(hit);
     if (continuesCombo)
     {

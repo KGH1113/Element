@@ -31,6 +31,7 @@ internal static class Program
       Run("applies hit text visibility settings", AppliesHitTextVisibilitySettings);
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
       Run("represents X-Perfect counts separately", RepresentsXPerfectCountsSeparately);
+      Run("midspin tiles leave the combo unchanged", ComboTests.Run);
       Run("normalizes song title size tags", NormalizesSongTitleSizeTags);
       Run("measures stable and briefly dropped frame rates", MeasuresFrameRates);
       Run("trackpad gesture ownership, zoom and native ABI", TrackpadTests.Run);

@@ -155,6 +155,7 @@ internal static class GameplayTweaksTests
       !settings.Planets.Enabled && !settings.Editor.HasSelectionInfo,
       "new opt-in gameplay tweaks leave gameplay unchanged"
     );
+    Check(settings.Chatter.Enabled, "the chatter blocker starts on");
     settings.Editor.RotationStep = float.NaN;
     settings.Planets.Red.Body.Opacity = -10;
     settings.Planets.Blue.Tail.Opacity = 180;
@@ -178,6 +179,7 @@ internal static class GameplayTweaksTests
     settings.Planets.Green.Body.Opacity = 37;
     settings.Judgement.HideTooEarly = true;
     settings.Editor.SyncEventPositions = true;
+    settings.Chatter.Enabled = false;
     XmlSerializer serializer = new(typeof(GameplayTweaksSettings));
     using StringWriter writer = new();
     serializer.Serialize(writer, settings);
@@ -189,14 +191,18 @@ internal static class GameplayTweaksTests
         && !restored.Planets.Green.Body.OverrideColor
         && restored.Planets.Green.Body.Opacity == 37
         && restored.Judgement.HideTooEarly
-        && restored.Editor.SyncEventPositions,
-      "nested tweak and RGBA choices survive XML roundtrips"
+        && restored.Editor.SyncEventPositions
+        && !restored.Chatter.Enabled,
+      "nested tweak and RGBA choices survive XML roundtrips, including a chatter blocker turned off"
     );
     using StringReader missing = new("<GameplayTweaksSettings />");
     GameplayTweaksSettings defaults = (GameplayTweaksSettings)serializer.Deserialize(missing);
     defaults.Normalize();
     Check(
-      defaults.Judgement.HidePerfect && defaults.Judgement.HideXPerfect && defaults.Planets.Red.Body.Opacity == 100,
+      defaults.Judgement.HidePerfect
+        && defaults.Judgement.HideXPerfect
+        && defaults.Planets.Red.Body.Opacity == 100
+        && defaults.Chatter.Enabled,
       "older or empty settings preserve expected nested defaults"
     );
   }

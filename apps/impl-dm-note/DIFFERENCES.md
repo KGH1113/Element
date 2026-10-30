@@ -37,6 +37,13 @@ upstream snapshot.
   into the app data folder on first launch.
 - Reset Data still returns to the upstream two empty tabs.
 
+## Defaults
+
+- Note effects are on by default, and Reset Data turns them back on.
+- OBS mode is on by default, so in-game key viewers work without a trip to
+  Settings. A store without `obsModeEnabled` loads with it on.
+- Saved stores keep whatever the user chose.
+
 ## Removed upstream components
 
 - The upstream release and automatic-update channel is removed.

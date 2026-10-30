@@ -62,3 +62,16 @@ ADOFAI-IPC TypeScript SDK
 ------------------------
 
 Canonical SDK source for ADOFAI-IPC 2.1.0 is vendored at vendor/adofai-ipc rather than installed from npm. Its MIT license and source provenance are included in that directory and in THIRD_PARTY_LICENSES.txt.
+
+
+MapleStory OTF Bold font
+------------------------
+
+ImplDmNote bundles the unmodified MapleStory OTF Bold font file (src-tauri/assets/fonts/MAPLESTORY_OTF_BOLD.OTF). On first launch it is copied into the app data folder and used by the default key viewers.
+
+  Copyright (c) 2017 NEXON-Maplestory. All rights reserved.
+  Font designed by FONTRIX Inc.
+
+The MapleStory typeface is owned by NEXON Korea Corporation. The official font terms (https://maplestory.nexon.com/Media/Font) permit free use by individuals and businesses and permit redistribution or bundling with a copyright notice. The font may not be modified or edited, and it may not be sold for a fee. The font is not covered by ImplDmNote's GPL-3.0-only license.
+
+MapleStory and NEXON are trademarks or registered marks of their respective owners. Inclusion of the font does not imply endorsement.

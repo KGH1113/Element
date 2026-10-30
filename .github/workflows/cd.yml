@@ -1,6 +1,6 @@
 name: CD
 
-# Merging to main builds what a release ships: ImplDmNote for macOS and
+# Merging to main builds what a release ships: ElementNote for macOS and
 # Windows and the Windows in-game viewer library. `./scripts/run.sh release`,
 # on the Mac with the game, downloads them, builds the mod around them and
 # publishes the release (docs/releasing.md). Run it by hand on another branch
@@ -28,11 +28,11 @@ jobs:
         with:
           node-version: 22
 
-      - name: The mod and ImplDmNote share one version
+      - name: The mod and ElementNote share one version
         run: node scripts/tasks/version/version.mjs check
 
-  impl-dm-note:
-    name: ImplDmNote (${{ matrix.os }})
+  element-note:
+    name: ElementNote (${{ matrix.os }})
     needs: version
     strategy:
       fail-fast: false
@@ -58,7 +58,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/impl-dm-note/src-tauri
+          workspaces: apps/element-note/src-tauri
           cache-on-failure: true
 
       - name: Install dependencies
@@ -67,24 +67,24 @@ jobs:
       - name: Clean macOS release build
         if: runner.os == 'macOS'
         run: |
-          rm -rf apps/impl-dm-note/src-tauri/target
+          rm -rf apps/element-note/src-tauri/target
           npm run desktop:build:mac
-          APP=apps/impl-dm-note/src-tauri/target/release/bundle/macos/ImplDmNote.app
-          test -d "$APP/Contents/Resources/ImplDmNote.app"
+          APP=apps/element-note/src-tauri/target/release/bundle/macos/ElementNote.app
+          test -d "$APP/Contents/Resources/ElementNote.app"
           for file in LICENSE UPSTREAM.md THIRD_PARTY_NOTICES.txt THIRD_PARTY_LICENSES.txt; do
             test -f "$APP/Contents/Resources/$file"
           done
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "io.github.kgh1113.impldmnote"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")" = "io.github.kgh1113.elementnote"
           codesign --verify --deep --strict "$APP"
           # ditto keeps the signature and executable modes upload-artifact would drop.
-          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/ImplDmNote.app.zip"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/ElementNote.app.zip"
 
       - name: Upload macOS app
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v4
         with:
-          name: impl-dm-note-macos-app
-          path: ${{ runner.temp }}/ImplDmNote.app.zip
+          name: element-note-macos-app
+          path: ${{ runner.temp }}/ElementNote.app.zip
           if-no-files-found: error
 
       - name: Build Windows portable ZIP
@@ -95,15 +95,15 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $version = (Get-Content apps/impl-dm-note/package.json | ConvertFrom-Json).version
-          $name = "ImplDmNote-v$version-windows-x64-portable"
-          $zip = "apps/impl-dm-note/dist/portable/$name.zip"
+          $version = (Get-Content apps/element-note/package.json | ConvertFrom-Json).version
+          $name = "ElementNote-v$version-windows-x64-portable"
+          $zip = "apps/element-note/dist/portable/$name.zip"
           if (-not (Test-Path $zip)) { throw "Missing $zip" }
-          $unpack = Join-Path $env:RUNNER_TEMP "impl-dm-note-portable"
+          $unpack = Join-Path $env:RUNNER_TEMP "element-note-portable"
           Expand-Archive -Path $zip -DestinationPath $unpack -Force
           $root = Join-Path $unpack $name
           @(
-            'impl-dm-note.exe',
+            'element-note.exe',
             'LICENSE',
             'UPSTREAM.md',
             'THIRD_PARTY_NOTICES.txt',
@@ -119,8 +119,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: actions/upload-artifact@v4
         with:
-          name: impl-dm-note-windows-portable
-          path: apps/impl-dm-note/dist/portable/*.zip
+          name: element-note-windows-portable
+          path: apps/element-note/dist/portable/*.zip
           if-no-files-found: error
 
   windows-viewer:
@@ -143,8 +143,8 @@ jobs:
       - name: Upload the library
         uses: actions/upload-artifact@v4
         with:
-          name: impl-game-webview-windows
-          path: ${{ runner.temp }}/game-webview/ImplGameWebView.dll
+          name: element-game-webview-windows
+          path: ${{ runner.temp }}/game-webview/ElementGameWebView.dll
           if-no-files-found: error
 
       - name: Upload smoke screenshots

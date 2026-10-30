@@ -9,9 +9,9 @@ if ! is_macos; then
   exit 0
 fi
 
-mkdir -p "$IMPL_RESOURCEPACK_BUILD_OUTPUT"
+mkdir -p "$ELEMENT_BUILD_OUTPUT"
 xcrun clang++ -std=c++17 -fobjc-arc -fvisibility=hidden -dynamiclib \
   -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -Wall -Wextra -Werror \
-  -framework AppKit "$IMPL_RESOURCEPACK_PROJECT_ROOT/native/macos/Trackpad.mm" \
-  -o "$IMPL_RESOURCEPACK_BUILD_OUTPUT/libImplTrackpad.dylib"
-codesign --force --sign - "$IMPL_RESOURCEPACK_BUILD_OUTPUT/libImplTrackpad.dylib"
+  -framework AppKit "$ELEMENT_PROJECT_ROOT/native/macos/Trackpad.mm" \
+  -o "$ELEMENT_BUILD_OUTPUT/libElementTrackpad.dylib"
+codesign --force --sign - "$ELEMENT_BUILD_OUTPUT/libElementTrackpad.dylib"

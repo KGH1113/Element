@@ -2,12 +2,12 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using ImplResourcePack.Configuration;
-using ImplResourcePack.Infrastructure.Game.Tweaks;
+using Element.Configuration;
+using Element.Infrastructure.Game.Tweaks;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace ImplResourcePack.Editor
+namespace Element.Editor
 {
   // These checks execute the production renderer with real Unity rendering
   // components and deliberately synthetic textures. They do not validate

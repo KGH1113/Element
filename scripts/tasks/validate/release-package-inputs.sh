@@ -11,7 +11,7 @@ require_command zip
 require_command unzip
 require_command node
 node "$TASK_DIR/../version/version.mjs" check >/dev/null
-for platform in $IMPL_RESOURCEPACK_PACKAGE_PLATFORMS; do
+for platform in $ELEMENT_PACKAGE_PLATFORMS; do
   case "$platform" in
     macos | windows) ;;
     *) fail "Unknown package platform: $platform (use macos and/or windows)." ;;

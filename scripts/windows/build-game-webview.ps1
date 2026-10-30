@@ -1,4 +1,4 @@
-# Builds ImplGameWebView.dll and its smoke probe with MSVC.
+# Builds ElementGameWebView.dll and its smoke probe with MSVC.
 # CI and CD run it on GitHub's Windows runner; scripts/tasks/build/game-webview-windows.sh runs it over SSH.
 param(
   [Parameter(Mandatory = $true)] [string] $Source,
@@ -10,7 +10,7 @@ $ProgressPreference = 'SilentlyContinue'
 # Pinned WebView2 SDK: headers and the static loader linked into the DLL.
 $sdkVersion = '1.0.4314.35'
 $sdkSha256 = '90778DEB1B77E36292828B4B5833C9255C27533F40E0DDD55891AE718944EDC4'
-$cache = Join-Path $env:LOCALAPPDATA 'ImplResourcePack\build-cache'
+$cache = Join-Path $env:LOCALAPPDATA 'Element\build-cache'
 $sdk = Join-Path $cache "webview2-$sdkVersion\build\native"
 
 if (-not (Test-Path (Join-Path $sdk 'include\WebView2.h'))) {
@@ -58,14 +58,14 @@ try {
   $common = @('/nologo', '/std:c++17', '/EHsc', '/O2', '/W4', '/WX', '/MT', '/GS', '/guard:cf',
     '/DUNICODE', '/D_UNICODE', '/external:W0', '/external:I', (Join-Path $sdk 'include'))
   # Static CRT and loader: the DLL depends only on system libraries.
-  Invoke-Compiler ($common + @((Join-Path $Source 'GameWebViewWin.cpp'), '/LD', '/Fe:ImplGameWebView.dll',
+  Invoke-Compiler ($common + @((Join-Path $Source 'GameWebViewWin.cpp'), '/LD', '/Fe:ElementGameWebView.dll',
       '/link', '/NOLOGO', '/GUARD:CF', '/DYNAMICBASE', '/NXCOMPAT', (Join-Path $sdk 'x64\WebView2LoaderStatic.lib'),
       'd3d11.lib', 'd2d1.lib', 'dcomp.lib', 'dxgi.lib', 'ole32.lib', 'user32.lib', 'shell32.lib', 'advapi32.lib'))
-  Invoke-Compiler ($common + @((Join-Path $Source 'GameWebViewWinSmoke.cpp'), '/Fe:ImplGameWebViewSmoke.exe',
+  Invoke-Compiler ($common + @((Join-Path $Source 'GameWebViewWinSmoke.cpp'), '/Fe:ElementGameWebViewSmoke.exe',
       '/link', '/NOLOGO', '/SUBSYSTEM:WINDOWS', 'd3d11.lib', 'dxgi.lib', 'user32.lib', 'gdi32.lib', 'ws2_32.lib',
       'ole32.lib', 'shell32.lib'))
 }
 finally {
   Pop-Location
 }
-"Built $(Join-Path $Output 'ImplGameWebView.dll') with WebView2 SDK $sdkVersion"
+"Built $(Join-Path $Output 'ElementGameWebView.dll') with WebView2 SDK $sdkVersion"

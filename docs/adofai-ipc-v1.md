@@ -2,7 +2,7 @@
 
 이 문서는 v1 구현의 기록입니다. 현재 DLL 번들 및 버전 계약은 [ADOFAI-IPC v2 integration](adofai-ipc-v2.md)을 참조하세요.
 
-ImplResourcePack과 ImplDmNote는 wire protocol 3, `/ipc/ws`, `adofai-ipc.v3`를 사용합니다. 구 HTTP API와 npm SDK 의존성은 제거했습니다. 앱의 canonical SDK 원본과 라이선스를 `apps/impl-dm-note/vendor/adofai-ipc`에 고정합니다.
+Element와 ElementNote는 wire protocol 3, `/ipc/ws`, `adofai-ipc.v3`를 사용합니다. 구 HTTP API와 npm SDK 의존성은 제거했습니다. 앱의 canonical SDK 원본과 라이선스를 `apps/element-note/vendor/adofai-ipc`에 고정합니다.
 
 ## 경계
 
@@ -13,9 +13,9 @@ ImplResourcePack과 ImplDmNote는 wire protocol 3, `/ipc/ws`, `adofai-ipc.v3`를
 
 ## 키 리미터
 
-앱은 `impl-resourcepack`에 `key-limiter.profile.set` 명령을 보냅니다. 모드는 correlated `key-limiter.profile.applied` 결과와 `key-limiter.state.changed` 상태를 전송합니다. 동일 session/revision의 중복은 허용하고 stale revision과 다른 앱의 takeover는 거부합니다. 앱은 한 프로필의 결과를 기다리는 동안 최신 변경 하나만 보관하며 reconnect 때 현재 프로필을 다시 전송합니다.
+앱은 `element`에 `key-limiter.profile.set` 명령을 보냅니다. 모드는 correlated `key-limiter.profile.applied` 결과와 `key-limiter.state.changed` 상태를 전송합니다. 동일 session/revision의 중복은 허용하고 stale revision과 다른 앱의 takeover는 거부합니다. 앱은 한 프로필의 결과를 기다리는 동안 최신 변경 하나만 보관하며 reconnect 때 현재 프로필을 다시 전송합니다.
 
-## Renderer와 ImplDmNote
+## Renderer와 ElementNote
 
 `tuf-replay-renderer` namespace의 앱 프로토콜은 2입니다. 앱의 `dmnote.attach` 명령에 Renderer가 `dmnote.attached`로 응답합니다. Renderer는 특정 peer에게 `dmnote.begin/reset/frame/end`를 전달하고, 앱은 같은 command id에 `dmnote.begun/reset/frame.ready/ended` 또는 `dmnote.failed`를 응답합니다. `dmnote.pulse`는 실제 시계로 1초마다 보냅니다.
 

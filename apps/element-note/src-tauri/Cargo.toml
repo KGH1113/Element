@@ -1,0 +1,90 @@
+[package]
+name = "element-note"
+version = "0.5.0"
+edition = "2021"
+default-run = "element-note"
+license = "GPL-3.0-only"
+
+[features]
+asio-backend = ["dep:cpal"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+base64 = "0.22"
+thiserror = "1.0"
+parking_lot = "0.12"
+log = "0.4"
+notify = "6.1"
+notify-debouncer-mini = "0.4"
+fern = { version = "0.6", features = ["colored"] }
+tauri = { version = "~2.11.0", features = ["wry", "devtools", "macos-private-api", "protocol-asset", "tray-icon"] }
+tauri-runtime-wry = { version = "~2.11.0", features = ["devtools"] }
+tauri-plugin-single-instance = "2.4.4"
+once_cell = "1.19"
+open = "5.1"
+rfd = "0.14"
+dirs-next = "2.0"
+uuid = { version = "1", features = ["v4"] }
+rodio = { git = "https://github.com/lee-sihun/rodio", rev = "7b771e15", default-features = false, features = ["playback"] }
+symphonia = { version = "0.5", default-features = false, features = ["ogg", "vorbis", "wav", "aiff", "mp3", "isomp4", "aac", "pcm", "adpcm", "flac", "alac"] }
+tokio = { version = "1", features = ["rt", "net", "sync", "time", "macros"] }
+tokio-tungstenite = "0.24"
+futures-util = "0.3"
+local-ip-address = "0.6.10"
+reqwest = { version = "0.12.26", default-features = false, features = ["json"] }
+[target."cfg(windows)".dependencies]
+webview2-com = "0.38.2"
+cpal = { version = "0.17.3", optional = true, default-features = false, features = ["asio"] }
+windows = { version = "0.61.3", features = [
+	"Win32_Foundation",
+	"Win32_UI_WindowsAndMessaging",
+	"Win32_UI_Input",
+	"Win32_Devices_HumanInterfaceDevice",
+	"Win32_Storage_FileSystem",
+	"Win32_System_Threading",
+	"Win32_System_Pipes",
+	"Win32_System_LibraryLoader",
+	"Win32_System_IO",
+	"Win32_System_Com_StructuredStorage",
+	"Win32_System_Registry",
+	"Win32_Security",
+	"Win32_UI_Shell"
+] }
+thread-priority = "1.2"
+
+[target."cfg(target_os = \"macos\")".dependencies]
+block2 = "0.6.2"
+rdev = "0.5.3"
+objc = "0.2"
+objc-foundation = "0.1"
+thread-priority = "1.2"
+
+# objc 크레이트의 매크로에서 발생하는 cfg 경고 억제
+[lints.rust]
+unexpected_cfgs = "allow"
+
+[dev-dependencies]
+tempfile = "3"
+
+# Renderer test packages still use the development profile. Pixel conversion
+# must run optimized even there; dependency debug settings remain unchanged.
+[profile.dev.package.element-note]
+opt-level = 2
+
+# Release 프로필 최적화 (메모리/바이너리 크기 감소)
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = "z"  # 's'보다 더 공격적인 크기 최적화
+strip = true
+panic = "abort"
+
+# 빌드 시 release 의존성도 최적화
+[profile.release.package."*"]
+opt-level = "z"
+strip = true

@@ -1,7 +1,7 @@
 #pragma once
 
-// macOS: libImplGameWebView.dylib (WKWebView, macOS 11+).
-// Windows: ImplGameWebView.dll (WebView2 composition hosting, Windows 10+).
+// macOS: libElementGameWebView.dylib (WKWebView, macOS 11+).
+// Windows: ElementGameWebView.dll (WebView2 composition hosting, Windows 10+).
 #if defined(_WIN32)
 #define IRP_WEBVIEW_API __declspec(dllexport)
 #else
@@ -41,7 +41,7 @@ IRP_WEBVIEW_API int irp_webview_set_bounds(const char *viewer_kind, double x, do
 IRP_WEBVIEW_API int irp_webview_get_reference_size(const char *viewer_kind, double *width,
                                                    double *height);
 // Cropped content at its natural CSS size, without the initial fit factor. The
-// separate ImplDmNote window shows it at one CSS pixel per desktop unit.
+// separate ElementNote window shows it at one CSS pixel per desktop unit.
 IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewer_kind, double *width,
                                                  double *height);
 // The game view in desktop units: AppKit points on macOS, DIPs (client pixels

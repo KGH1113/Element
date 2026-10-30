@@ -1,4 +1,4 @@
-<img src="docs/media/banner.png" alt="IMPL ResourcePack: 모드의 Settings 화면과 Add Element 갤러리" width="100%">
+<img src="docs/media/banner.png" alt="Element: 모드의 Settings 화면과 Add Element 갤러리" width="100%">
 
 <p align="center">
 얼불춤(A Dance of Fire and Ice) 오버레이·편의 기능 모드입니다.<br>
@@ -31,7 +31,7 @@
 <tr>
 <td colspan="2" valign="top">
 <video src="https://github.com/user-attachments/assets/4136d2c5-f1bb-4bd7-82bd-5f389172175e" controls width="100%"></video>
-<br><b>ImplDmNote</b> · 앱에서 고른 손·발 키뷰어가 게임 화면 안에 그대로 나타납니다
+<br><b>ElementNote</b> · 앱에서 고른 손·발 키뷰어가 게임 화면 안에 그대로 나타납니다
 </td>
 </tr>
 </table>
@@ -55,7 +55,7 @@
 <td width="33%" valign="top">
 
 ### 게임 내 키뷰어
-[ImplDmNote](#impldmnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. 다른 요소처럼 Add Element에서 추가하고 위치와 크기를 정합니다.
+[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. 다른 요소처럼 Add Element에서 추가하고 위치와 크기를 정합니다.
 
 </td>
 </tr>
@@ -78,29 +78,29 @@
 </tr>
 </table>
 
-그 밖에 [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ImplDmNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, ImplDmNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 
 **필요한 것:** A Dance of Fire and Ice · [UnityModManager](https://github.com/newman55/unity-mod-manager) 0.27 이상 · Harmony
 
-[최신 릴리스](https://github.com/KGH1113/ImplResourcePack/releases/latest)에서 `ImplResourcePack-macos.zip` 또는 `ImplResourcePack-windows.zip`을 받아, 압축을 푼 `ImplResourcePack` 폴더를 얼불춤의 `Mods` 폴더에 넣습니다. 이후 버전은 게임을 켤 때 자동으로 설치됩니다.
+[최신 릴리스](https://github.com/KGH1113/Element/releases/latest)에서 `Element-macos.zip` 또는 `Element-windows.zip`을 받아, 압축을 푼 `Element` 폴더를 얼불춤의 `Mods` 폴더에 넣습니다. 이후 버전은 게임을 켤 때 자동으로 설치됩니다.
 
 소스에서 빌드하려면 게임이 설치된 PC에서:
 
 ```bash
-git clone https://github.com/KGH1113/ImplResourcePack.git
-cd ImplResourcePack
+git clone https://github.com/KGH1113/Element.git
+cd Element
 
 cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
-./scripts/run.sh build      # 모드·ImplDmNote 빌드 후 Mods/ImplResourcePack에 설치
+./scripts/run.sh build      # 모드·ElementNote 빌드 후 Mods/Element에 설치
 ```
 
 게임에서 **왼쪽 <kbd>Alt</kbd> + <kbd>Tab</kbd>** (macOS는 <kbd>⌥</kbd> + <kbd>Tab</kbd>)을 누르면 설정 화면이 열립니다.
 
 **게임 내 키뷰어 켜기**
 
-1. [ImplDmNote](#impldmnote)를 실행하고 손·발 탭 중 하나를 고릅니다.
+1. [ElementNote](#elementnote)를 실행하고 손·발 탭 중 하나를 고릅니다.
 2. 앱 설정의 **OBS 모드 활성화**가 켜져 있는지 확인합니다(기본으로 켜져 있음). OBS 프로그램은 없어도 됩니다.
 3. 게임 설정의 **Overlay → Add Element**에서 손 키뷰어나 발 키뷰어를 추가하고 저장합니다.
 
@@ -126,9 +126,9 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 
 ```mermaid
 flowchart TB
-    ren["TUFReplay-Renderer"] -->|리플레이 렌더링| app["ImplDmNote"]
+    ren["TUFReplay-Renderer"] -->|리플레이 렌더링| app["ElementNote"]
     subgraph game["A Dance of Fire and Ice"]
-        mod["ImplResourcePack"]
+        mod["Element"]
         view["게임 내 키뷰어"]
     end
     app <-->|ADOFAI-IPC| mod
@@ -146,15 +146,15 @@ flowchart TB
 | Windows 10 이상 | 지원 · Microsoft Edge WebView2 런타임 필요 (Windows 11 기본 포함) |
 | Linux | 미지원 |
 
-## ImplDmNote
+## ElementNote
 
-[`apps/impl-dm-note`](apps/impl-dm-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
+[`apps/element-note`](apps/element-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
 
 - 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다
 - 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
 - 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
-- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). [자세히](docs/bundled-impl-dm-note.md)
+- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). [자세히](docs/bundled-element-note.md)
 - TUFReplay-Renderer와 연동한 리플레이 영상 렌더링
 
 ```bash
@@ -167,7 +167,7 @@ npm run desktop:dev
 | 범위 | 라이선스 |
 | --- | --- |
 | 저장소 루트 (아래 예외 제외) | source-available proprietary. 개인·비상업적 공식 빌드 사용과 공식 저장소 기여 준비만 허용. [`LICENSE.md`](LICENSE.md) |
-| `apps/impl-dm-note/**` | GPL-3.0-only. [`LICENSE`](apps/impl-dm-note/LICENSE) · [`UPSTREAM.md`](apps/impl-dm-note/UPSTREAM.md) |
+| `apps/element-note/**` | GPL-3.0-only. [`LICENSE`](apps/element-note/LICENSE) · [`UPSTREAM.md`](apps/element-note/UPSTREAM.md) |
 | 서드파티 코드·폰트·자산 | 각 고유 조건. [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) |
 
 기여는 [`CONTRIBUTING.md`](CONTRIBUTING.md)와 [`CONTRIBUTOR_AGREEMENT.md`](CONTRIBUTOR_AGREEMENT.md)를 먼저 읽어 주세요.

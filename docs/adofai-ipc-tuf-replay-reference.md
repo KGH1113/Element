@@ -1,6 +1,6 @@
 > 이 문서는 v0.4 계열의 통합 조사 기록입니다. 현재 v1.0.0 WebSocket 구현과 검증은 [ADOFAI-IPC v1 경계](adofai-ipc-v1.md)를 참고하세요.
 
-# TUFReplay의 AdofaiIpc 통합 조사와 ImplResourcePack 적용안
+# TUFReplay의 AdofaiIpc 통합 조사와 Element 적용안
 
 ## 조사 범위
 
@@ -31,12 +31,12 @@ UMM
 
 1. `AdofaiIpc.DependencyShim`과 `AdofaiIpc.Bootstrap`
    - AdofaiIpc 의존성의 설치, 버전 검사, 활성화 및 dependent mod core 호출을 담당한다.
-   - AdofaiIpc를 쓰는 `ImplResourcePack`에도 필요하다.
+   - AdofaiIpc를 쓰는 `Element`에도 필요하다.
 2. `TUFReplay.Bootstrap`
    - TUFReplay 자체 자동 업데이트와 versioned runtime rollback을 담당한다.
-   - 현재 `ImplResourcePack`에는 자체 updater가 없으므로 필요하지 않다.
+   - 현재 `Element`에는 자체 updater가 없으므로 필요하지 않다.
 
-따라서 현재 `ImplResourcePack`은 공용 dependency bootstrap까지만 도입하고, manifest가 `ImplResourcePack.dll`을 직접 호출하게 만드는 것이 맞다.
+따라서 현재 `Element`는 공용 dependency bootstrap까지만 도입하고, manifest가 `Element.dll`을 직접 호출하게 만드는 것이 맞다.
 
 ## TUFReplay의 실제 dependency 진입 계약
 
@@ -136,26 +136,26 @@ coordinator 흐름:
 - 새 TUFReplay runtime 로드 성공 시 둘을 함께 승격
 - runtime 초기화 실패 시 새 runtime과 dependency bootstrap trial을 함께 rollback
 
-이 계층은 TUFReplay updater의 원자성을 위한 것이다. `ImplResourcePack`이 수동 설치/단순 패키지만 제공하는 동안에는 복사할 이유가 없다.
+이 계층은 TUFReplay updater의 원자성을 위한 것이다. `Element`가 수동 설치/단순 패키지만 제공하는 동안에는 복사할 이유가 없다.
 
-나중에 `ImplResourcePack` 자체 updater를 추가할 때는 그 시점에 다음 구조를 도입한다.
+나중에 `Element` 자체 updater를 추가할 때는 그 시점에 다음 구조를 도입한다.
 
 ```text
-ImplResourcePack.Bootstrap.dll
+Element.Bootstrap.dll
 Runtime/state.json
-Runtime/versions/<version>/ImplResourcePack.dll
+Runtime/versions/<version>/Element.dll
 ```
 
 지금 미리 넣으면 빌드, 패키징, rollback, 테스트 면적만 커진다.
 
-## ImplResourcePack에 권장하는 최종 진입 구조
+## Element에 권장하는 최종 진입 구조
 
 ### `Info.json`
 
 ```json
 {
-  "Id": "ImplResourcePack",
-  "DisplayName": "Impl Resource Pack",
+  "Id": "Element",
+  "DisplayName": "Element",
   "Author": "impl",
   "Version": "<mod-version>",
   "AssemblyName": "AdofaiIpc.DependencyShim.dll",
@@ -170,8 +170,8 @@ Runtime/versions/<version>/ImplResourcePack.dll
 
 ```json
 {
-  "AssemblyName": "ImplResourcePack.dll",
-  "EntryMethod": "ImplResourcePack.Main.Load",
+  "AssemblyName": "Element.dll",
+  "EntryMethod": "Element.Main.Load",
   "MinimumAdofaiIpcVersion": "0.3.0"
 }
 ```
@@ -179,11 +179,11 @@ Runtime/versions/<version>/ImplResourcePack.dll
 ### 설치/ZIP 구조
 
 ```text
-ImplResourcePack/
+Element/
   Info.json
   AdofaiIpcBootstrap.json
   AdofaiIpc.DependencyShim.dll
-  ImplResourcePack.dll
+  Element.dll
   THIRD_PARTY_NOTICES.md
   Assets/
   DependencyBootstrap/
@@ -193,7 +193,7 @@ ImplResourcePack/
         AdofaiIpc.Bootstrap.dll
 ```
 
-`ImplResourcePack.dll`은 manifest가 mod root 기준으로 찾으므로 root에 둔다.
+`Element.dll`은 manifest가 mod root 기준으로 찾으므로 root에 둔다.
 
 ## migration DLL 적용 여부
 
@@ -206,11 +206,11 @@ TUFReplay core의 첫 줄에는 `AdofaiIpcMigrationBridge.PrepareAndNotify`가 �
 - 그 실행에서는 dependent core를 중단한다.
 - 사용자에게 AdofaiIpc 재설치/게임 완전 종료/재시작을 안내한다.
 
-현재 `ImplResourcePack`은 자체 in-process updater가 없고 새 버전을 수동으로 완전히 설치할 수 있으므로, 첫 IPC release ZIP이 위 최종 layout을 그대로 제공한다면 migration bridge는 필요하지 않다.
+현재 `Element`는 자체 in-process updater가 없고 새 버전을 수동으로 완전히 설치할 수 있으므로, 첫 IPC release ZIP이 위 최종 layout을 그대로 제공한다면 migration bridge는 필요하지 않다.
 
 다음 경우에만 `AdofaiIpc.Migration.dll`을 포함한다.
 
-- 이미 실행 중인 구버전 `ImplResourcePack.dll`이 자기 자신을 업데이트한다.
+- 이미 실행 중인 구버전 `Element.dll`이 자기 자신을 업데이트한다.
 - loaded DLL을 덮어쓰지 않고 다음 실행의 entrypoint를 전환해야 한다.
 - 기존 사용자를 자동 업데이트로 final shim layout에 옮겨야 한다.
 
@@ -269,12 +269,12 @@ IPC disable/unregister
 
 이렇게 해야 ready namespace가 아직 준비되지 않았거나 이미 정리된 서비스를 호출하지 않는다.
 
-`ImplResourcePack` 적용 순서:
+`Element` 적용 순서:
 
 1. DM Note limiter state와 label mapper 준비
 2. Harmony 키 필터 패치 적용
 3. 오버레이 기능은 독립적으로 초기화
-4. `impl-resourcepack` namespace 등록
+4. `element` namespace 등록
 5. `key-limiter.sync`, `key-limiter.status`, `health.get` 등록
 6. `MarkReady()`
 
@@ -303,12 +303,12 @@ TUFReplay health DTO에는 다음 세 버전 개념이 분리되어 있다.
 - `ProtocolVersion`: 해당 namespace API 계약 버전
 - AdofaiIpc `/ipc/health`의 `protocolVersion`: gateway protocol 버전
 
-`ImplResourcePack`도 `health.get`에 최소 다음을 반환하는 것이 좋다.
+`Element`도 `health.get`에 최소 다음을 반환하는 것이 좋다.
 
 ```json
 {
   "ok": true,
-  "mod": "ImplResourcePack",
+  "mod": "Element",
   "modVersion": "0.2.0",
   "protocolVersion": 1,
   "keyLimiterSchemaVersion": 1
@@ -318,7 +318,7 @@ TUFReplay health DTO에는 다음 세 버전 개념이 분리되어 있다.
 DM Note는 gateway 연결 성공만 보고 sync하지 말고 다음을 모두 검사한다.
 
 1. AdofaiIpc health의 gateway protocol 호환성
-2. `impl-resourcepack` namespace ready
+2. `element` namespace ready
 3. `health.get`의 namespace protocol 호환성
 4. `key-limiter.sync` payload schema 호환성
 
@@ -328,7 +328,7 @@ TUFReplay는 public field DTO를 사용해 Newtonsoft/Unity 환경에서 단순�
 
 TUFReplay는 실제 consumer origin만 whitelist한다.
 
-`ImplResourcePack`의 consumer는 DM Note Tauri WebView이므로 다음을 시작점으로 둔다.
+`Element`의 consumer는 DM Note Tauri WebView이므로 다음을 시작점으로 둔다.
 
 ```text
 tauri://localhost
@@ -354,7 +354,7 @@ ADOFAI_IPC_INFO_JSON
 ADOFAI_IPC_BOOTSTRAP_LOCK
 ```
 
-`ImplResourcePack`도 같은 이름을 사용하면 로컬 개발 환경과 패키징 절차를 공유하기 쉽다. migration을 쓰지 않는 동안 `ADOFAI_IPC_MIGRATION_DLL`은 생략한다.
+`Element`도 같은 이름을 사용하면 로컬 개발 환경과 패키징 절차를 공유하기 쉽다. migration을 쓰지 않는 동안 `ADOFAI_IPC_MIGRATION_DLL`은 생략한다.
 
 ### lock file
 
@@ -398,7 +398,7 @@ launcher payload helper가 담당할 일:
 
 core payload helper는 기존처럼 다음을 복사한다.
 
-- `ImplResourcePack.dll`
+- `Element.dll`
 - `THIRD_PARTY_NOTICES.md`
 - `Assets/`
 
@@ -408,7 +408,7 @@ AdofaiIpc core DLL 자체는 복사하지 않는다.
 
 TUFReplay install task가 좋은 이유는 새 payload를 덮기 전에 명시적으로 이전 layout을 정리하고, 삭제 대상이 mod install root 안인지 검사하기 때문이다.
 
-`ImplResourcePack`에서 필요한 최소 규칙:
+`Element`에서 필요한 최소 규칙:
 
 - install path가 root나 비어 있는 경로가 아닌지 검증
 - 과거에 로컬 복사된 `AdofaiIpc.dll`이 있다면 제거
@@ -427,7 +427,7 @@ TUFReplay는 runtime 기능 설정과 updater 설정을 분리한다.
 - updater 채널: `UpdateSettings.json`
 - 대용량/영속 데이터: `Data/`
 
-`ImplResourcePack`도 이후 설정이 생기면 관심사별로 분리하는 것이 좋다.
+`Element`도 이후 설정이 생기면 관심사별로 분리하는 것이 좋다.
 
 권장:
 
@@ -448,20 +448,20 @@ TUFReplay는 runtime 기능 설정과 updater 설정을 분리한다.
 
 ### 새 파일
 
-- `ImplResourcePack/AdofaiIpcBootstrap.json`
-- `ImplResourcePack/AdofaiIpcBootstrap.lock`
-- `ImplResourcePack/Shared/Ipc/ImplResourcePackIpcFeature.cs`
-- `ImplResourcePack/Shared/Ipc/HealthIpcHandlers.cs`
-- `ImplResourcePack/Shared/Ipc/HealthDtos.cs`
-- `ImplResourcePack/Shared/Ipc/IpcParams.cs`
+- `Element/AdofaiIpcBootstrap.json`
+- `Element/AdofaiIpcBootstrap.lock`
+- `Element/Shared/Ipc/ElementIpcFeature.cs`
+- `Element/Shared/Ipc/HealthIpcHandlers.cs`
+- `Element/Shared/Ipc/HealthDtos.cs`
+- `Element/Shared/Ipc/IpcParams.cs`
 - key limiter sync/status handler 및 DTO
 - AdofaiIpc package verification task
 
 ### 수정 파일
 
-- `ImplResourcePack/Info.json`
-- `ImplResourcePack/ImplResourcePack.csproj`
-- `ImplResourcePack/Bootstrap/ModRuntime.cs`
+- `Element/Info.json`
+- `Element/Element.csproj`
+- `Element/Bootstrap/ModRuntime.cs`
 - `scripts/lib/context.sh`
 - `scripts/lib/artifacts.sh`
 - local/release validation tasks
@@ -471,7 +471,7 @@ TUFReplay는 runtime 기능 설정과 updater 설정을 분리한다.
 
 ### 하지 않을 것
 
-- `AdofaiIpc.dll`을 ImplResourcePack ZIP에 private runtime dependency로 복사
+- `AdofaiIpc.dll`을 Element ZIP에 private runtime dependency로 복사
 - namespace handler 등록 전에 `MarkReady()` 호출
 - 오버레이 font 로드 성공 여부에 IPC/limiter 초기화를 결합
 - TUFReplay 자체 updater bootstrap을 현재 단계에서 복사
@@ -504,4 +504,4 @@ TUFReplay/AdofaiIpc E2E에서 현재 기능에 필요한 사례를 가져온다.
 5. `key-limiter.sync/status` 등록
 6. DM Note 포크 client 연결
 7. 양쪽 재시작/오류/ghost 시나리오 검증
-8. 향후 자체 updater가 필요해질 때만 별도 `ImplResourcePack.Bootstrap` 도입
+8. 향후 자체 updater가 필요해질 때만 별도 `Element.Bootstrap` 도입

@@ -1,4 +1,4 @@
-// Windows host for the in-game ImplDmNote viewers.
+// Windows host for the in-game ElementNote viewers.
 //
 // Each OBS page renders through a WebView2 composition controller into a
 // DirectComposition visual. The visual tree is bound to the Unity window as a
@@ -92,7 +92,7 @@ void ClearFaults() {
 constexpr const char *kRendererStopped = "Native viewer renderer stopped. Viewers will reconnect automatically.";
 constexpr const char *kLoadRetrying =
     "Native viewer could not load its local source. Viewers will reconnect automatically.";
-constexpr const char *kLoadFailed = "Native viewer could not load its local source. Check ImplDmNote.";
+constexpr const char *kLoadFailed = "Native viewer could not load its local source. Check ElementNote.";
 constexpr const char *kRuntimeTooOld =
     "This WebView2 Runtime is too old for the in-game viewer. Update it and restart ADOFAI.";
 
@@ -448,7 +448,7 @@ HWND EnsureMessageWindow() {
   WNDCLASSEXW windowClass{sizeof(windowClass)};
   windowClass.lpfnWndProc = MessageWindowProc;
   windowClass.hInstance = Module();
-  windowClass.lpszClassName = L"ImplGameWebViewMessages";
+  windowClass.lpszClassName = L"ElementGameWebViewMessages";
   RegisterClassExW(&windowClass);
   shared.messageWindow = CreateWindowExW(0, windowClass.lpszClassName, L"", 0, 0, 0, 0, 0, HWND_MESSAGE,
                                          nullptr, windowClass.hInstance, nullptr);
@@ -511,13 +511,13 @@ std::wstring UserDataFolder() {
   PWSTR local = nullptr;
   std::wstring folder;
   if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_LocalAppData, KF_FLAG_CREATE, nullptr, &local)) && local) {
-    folder = std::wstring(local) + L"\\ImplResourcePack\\WebView2";
+    folder = std::wstring(local) + L"\\Element\\WebView2";
   }
   CoTaskMemFree(local);
   if (folder.empty()) {
     wchar_t temporary[MAX_PATH + 1] = {};
     DWORD length = GetTempPathW(MAX_PATH + 1, temporary);
-    if (length > 0 && length <= MAX_PATH) folder = std::wstring(temporary) + L"ImplResourcePack\\WebView2";
+    if (length > 0 && length <= MAX_PATH) folder = std::wstring(temporary) + L"Element\\WebView2";
   }
   return folder;
 }
@@ -751,7 +751,7 @@ void ConfigureWebView(Surface &surface) {
               COREWEBVIEW2_WEB_ERROR_STATUS status = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
               args->get_WebErrorStatus(&status);
               if (status != COREWEBVIEW2_WEB_ERROR_STATUS_OPERATION_CANCELED) {
-                // ImplDmNote's page server may be restarting: retry like a stopped
+                // ElementNote's page server may be restarting: retry like a stopped
                 // renderer, then wait for the next descriptor.
                 if (ScheduleRecovery(current->recoveries)) {
                   current->reloadPending = true;

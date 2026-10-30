@@ -1,16 +1,16 @@
 {
-  "name": "impl-resourcepack-monorepo",
+  "name": "element-monorepo",
   "private": true,
   "workspaces": [
-    "apps/impl-dm-note"
+    "apps/element-note"
   ],
   "scripts": {
-    "desktop:dev": "npm run tauri:dev -w @impl-resourcepack/impl-dm-note",
-    "desktop:build": "npm run tauri:build -w @impl-resourcepack/impl-dm-note",
-    "desktop:build:mac": "npm run tauri:build:mac -w @impl-resourcepack/impl-dm-note",
-    "desktop:build:windows": "npm run tauri:build:windows -w @impl-resourcepack/impl-dm-note",
-    "desktop:test": "npm run test -w @impl-resourcepack/impl-dm-note",
-    "desktop:check": "npm run check -w @impl-resourcepack/impl-dm-note",
+    "desktop:dev": "npm run tauri:dev -w @element/element-note",
+    "desktop:build": "npm run tauri:build -w @element/element-note",
+    "desktop:build:mac": "npm run tauri:build:mac -w @element/element-note",
+    "desktop:build:windows": "npm run tauri:build:windows -w @element/element-note",
+    "desktop:test": "npm run test -w @element/element-note",
+    "desktop:check": "npm run check -w @element/element-note",
     "desktop:audit": "node scripts/audit-public-release.cjs"
   }
 }

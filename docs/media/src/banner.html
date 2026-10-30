@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>ImplResourcePack banner</title>
+<title>Element banner</title>
 <!--
   README banner source. Two real in-game screens are reproduced with the mod's own
   pixel sizes, colors and font:
-    - Settings home   ImplResourcePack/Presentation/Settings/SettingsPanel.Shell.cs
-    - Add Element     ImplResourcePack/Presentation/Layout/OverlayLayoutEditor.Elements.cs
+    - Settings home   Element/Presentation/Settings/SettingsPanel.Shell.cs
+    - Add Element     Element/Presentation/Layout/OverlayLayoutEditor.Elements.cs
   Colors come from SettingsUiFactory / SettingsPalette / OverlayTheme /
   JudgementView. Render at 2x with a 1600x900 viewport:
   see docs/media/src/render-banner.mjs
@@ -15,7 +15,7 @@
 <style>
   @font-face {
     font-family: "Maple";
-    src: url("../../../ImplResourcePack.Unity/Assets/Font/MAPLESTORY_OTF_BOLD.OTF");
+    src: url("../../../Element.Unity/Assets/Font/MAPLESTORY_OTF_BOLD.OTF");
   }
 
   :root {
@@ -168,15 +168,14 @@
   .heading {
     position: absolute;
     left: 84px;
-    top: 540px;
-    font-size: 150px;
+    top: 600px;
+    font-size: 230px;
     line-height: .94;
     letter-spacing: -.035em;
     white-space: nowrap;
     text-shadow: 0 6px 0 rgba(0, 0, 0, .45), 0 2px 30px rgba(0, 0, 0, .6);
   }
   .heading .l1 { display: block; color: var(--accent); }
-  .heading .l2 { display: block; color: var(--foreground); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -245,14 +244,14 @@
     </div>
   </div>
 
-  <!-- render-banner.mjs fills #version and #umm from ImplResourcePack/Info.json. -->
+  <!-- render-banner.mjs fills #version and #umm from Element/Info.json. -->
   <div class="hud">
     <div class="ov"><span class="k">Version |</span> <span id="version">0.0.0</span></div>
     <div class="ov"><span class="k">UnityModManager |</span> <span id="umm">0.0.0</span>+</div>
     <div class="ov"><span class="k">Platform |</span> macOS · Windows</div>
   </div>
 
-  <h1 class="heading"><span class="l1">IMPL</span><span class="l2">ResourcePack</span></h1>
+  <h1 class="heading"><span class="l1">Element</span></h1>
 
   <script>
     // SettingsNavigationIcon kind 2: continuous gear contour (32 points).

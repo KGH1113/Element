@@ -4,7 +4,7 @@
 
 `GameWebView.mm` embeds a transparent, click-through `WKWebView` for each added hand or foot element
 in the Unity game's existing `NSWindow.contentView`. It creates no extra native
-window. ImplDmNote supplies authenticated local OBS viewer URLs and original CSS
+window. ElementNote supplies authenticated local OBS viewer URLs and original CSS
 viewport dimensions. WebKit renders those pages directly; Unity does not copy
 screen captures or upload a texture. This is the only in-game viewer path;
 `GameWebViewWin.cpp` implements the same ABI on Windows (see [Windows](#windows)).
@@ -78,7 +78,7 @@ The OBS renderer publishes its computed CSS width, height, and padding on the
 layout dimensions to WebKit's `irpLayout` handler. Live dimensions replace the
 initial descriptor size, so switching tabs, changing key layouts, and adjusting
 note tracks resizes the view without reloading it or resetting input state.
-Descriptor updates (pushed by ImplDmNote, or the occasional fallback describe)
+Descriptor updates (pushed by ElementNote, or the occasional fallback describe)
 cannot overwrite these dimensions with stale desktop bounds, and an unchanged
 descriptor is not applied again.
 A source URL change resets the live size until the new page reports its layout.
@@ -126,7 +126,7 @@ macOS updates.
 
 ## Windows
 
-`GameWebViewWin.cpp` builds `ImplGameWebView.dll`. Each viewer is a WebView2
+`GameWebViewWin.cpp` builds `ElementGameWebView.dll`. Each viewer is a WebView2
 composition controller whose root visual sits in a DirectComposition tree bound
 to the Unity window (`UnityWndClass`) as a topmost target, so pages composite
 above the game's swap chain inside the game window. No window covers the game

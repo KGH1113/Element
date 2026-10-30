@@ -3,15 +3,15 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
-using ImplResourcePack.Configuration;
-using ImplResourcePack.Configuration.Effects;
-using ImplResourcePack.Presentation.Settings;
-using ImplResourcePack.Presentation.Overlay.Shared;
-using ImplResourcePack.Presentation.Layout;
-using ImplResourcePack.Domain.Input;
-using ImplResourcePack.Domain.Layout;
-using ImplResourcePack.Application.Updates;
-using ImplResourcePack.Infrastructure.Game.DmNote;
+using Element.Configuration;
+using Element.Configuration.Effects;
+using Element.Presentation.Settings;
+using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Layout;
+using Element.Domain.Input;
+using Element.Domain.Layout;
+using Element.Application.Updates;
+using Element.Infrastructure.Game.DmNote;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -19,7 +19,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace ImplResourcePack.Editor
+namespace Element.Editor
 {
   public static class SettingsPreview
   {
@@ -68,7 +68,7 @@ namespace ImplResourcePack.Editor
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
       var host = new OverlayCanvasHost();
-      var settings = new ImplResourcePackSettings { ReduceUiMotion = true };
+      var settings = new ElementSettings { ReduceUiMotion = true };
       OverlayTheme.SetHighlight(settings.HighlightColor);
       var target = new PreviewTarget(new Rect(96, 80, 280, 44), language == SystemLanguage.Korean ? "진행률" : "Progress", font);
       host.LayoutSettings.Add(target.Settings); host.LayoutTargets.Add(target);
@@ -236,7 +236,7 @@ namespace ImplResourcePack.Editor
     }
 
     private static void CheckElementEditing(OverlayLayoutEditor editor, OverlayCanvasHost host, PreviewTarget original,
-      ImplResourcePackSettings settings, Camera camera, RenderTexture texture, int width, int height, string name)
+      ElementSettings settings, Camera camera, RenderTexture texture, int width, int height, string name)
     {
       Call(editor, "ToggleColor");
       OverlayColorPopover picker = Field<OverlayColorPopover>(editor, "_colorPopover");
@@ -477,19 +477,19 @@ namespace ImplResourcePack.Editor
     private static void Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Private).Invoke(target, args);
     private static void CheckMigration()
     {
-      var fresh = new ImplResourcePackSettings();
+      var fresh = new ElementSettings();
       Assert(fresh.HighlightColor == "#BA712B" && OverlayTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
-      var legacy = new ImplResourcePackSettings { HighlightColor = " #7cce00 " };
+      var legacy = new ElementSettings { HighlightColor = " #7cce00 " };
       legacy.Migrate();
       Assert(legacy.HighlightColor == "#BA712B" && legacy.SettingsVersion >= 1, "old default migrates once");
       legacy.HighlightColor = "#7CCE00"; legacy.Migrate();
       Assert(legacy.HighlightColor == "#7CCE00", "explicit green after migration is preserved");
-      var custom = new ImplResourcePackSettings { HighlightColor = "#336699" };
+      var custom = new ElementSettings { HighlightColor = "#336699" };
       custom.Migrate(); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
       foreach (bool hidden in new[] { false, true })
       foreach (int version in new[] { 0, 1 })
       {
-        var old = new ImplResourcePackSettings { SettingsVersion = version, HidePerfectJudgmentText = hidden };
+        var old = new ElementSettings { SettingsVersion = version, HidePerfectJudgmentText = hidden };
         old.Migrate();
         Assert(old.Gameplay.Judgement.HidePerfect == hidden && old.Gameplay.Judgement.HideXPerfect == hidden,
           "outer legacy Perfect visibility migrates to Perfect +/- and XP before normalization: " + version + " / " + hidden);
@@ -501,7 +501,7 @@ namespace ImplResourcePack.Editor
       }
       foreach (bool hidden in new[] { false, true })
       {
-        var grouped = new ImplResourcePackSettings { SettingsVersion = 2 };
+        var grouped = new ElementSettings { SettingsVersion = 2 };
         grouped.Gameplay.Judgement.HidePerfect = hidden;
         grouped.Migrate();
         Assert(grouped.Gameplay.Judgement.HidePerfect == hidden && grouped.Gameplay.Judgement.HideXPerfect == hidden,
@@ -509,7 +509,7 @@ namespace ImplResourcePack.Editor
       }
     }
 
-    private static void CheckChatterBlocking(SettingsPanel panel, ImplResourcePackSettings settings, int width)
+    private static void CheckChatterBlocking(SettingsPanel panel, ElementSettings settings, int width)
     {
       ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
       SettingsValueRow windowRow = Field<SettingsValueRow>(panel, "_chatterWindow");
@@ -549,7 +549,7 @@ namespace ImplResourcePack.Editor
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
       Assert(font != null, "overlay font exists");
-      ImplResourcePackSettings settings = new ImplResourcePackSettings { ReduceUiMotion = true };
+      ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
       OverlayTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
@@ -594,7 +594,7 @@ namespace ImplResourcePack.Editor
           "Tweaks contains trackpad only on macOS");
         Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 3
           && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform),
-          "General contains shortcut, motion, ImplDmNote auto open and automatic update preferences");
+          "General contains shortcut, motion, ElementNote auto open and automatic update preferences");
         Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
           "legacy viewer switch and connection card are absent");
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
@@ -669,7 +669,7 @@ namespace ImplResourcePack.Editor
       }
     }
 
-    private static void CheckPresetEditing(SettingsPanel panel, ImplResourcePackSettings settings, int width, int height)
+    private static void CheckPresetEditing(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
       int originalCount = settings.Effects.Presets.Count;
       var name = Field<TMP_InputField>(panel, "_presetName");
@@ -771,7 +771,7 @@ namespace ImplResourcePack.Editor
       }
     }
 
-    private static void CheckEditorSections(SettingsPanel panel, ImplResourcePackSettings settings, int width, int height)
+    private static void CheckEditorSections(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
       var tabs = Field<List<Button>>(panel, "_editorTabButtons");
       RectTransform selection = Field<RectTransform>(panel, "_selectionPane");
@@ -796,7 +796,7 @@ namespace ImplResourcePack.Editor
       tabs[0].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
     }
 
-    private static void CheckJudgmentChoices(SettingsPanel panel, ImplResourcePackSettings settings)
+    private static void CheckJudgmentChoices(SettingsPanel panel, ElementSettings settings)
     {
       var rows = Field<List<Button>>(panel, "_judgementOptions");
       var judgment = settings.Gameplay.Judgement;
@@ -828,7 +828,7 @@ namespace ImplResourcePack.Editor
       Assert(hidden.All(read => !read()), "Show all restores all ten judgment types after independent editing");
     }
 
-    private static void CheckPlanetEditing(SettingsPanel panel, ImplResourcePackSettings settings, int width, int height, PlanetPreviewProbe preview)
+    private static void CheckPlanetEditing(SettingsPanel panel, ElementSettings settings, int width, int height, PlanetPreviewProbe preview)
     {
       var enabled = Field<Button>(panel, "_planetEnabled");
       var sources = Field<List<Button>>(panel, "_planetSourceButtons");
@@ -992,7 +992,7 @@ namespace ImplResourcePack.Editor
       }
     }
 
-    private static void CheckNavigationControls(SettingsPanel panel, ImplResourcePackSettings settings)
+    private static void CheckNavigationControls(SettingsPanel panel, ElementSettings settings)
     {
       var eventRoot = new GameObject("Navigation fixture events", typeof(EventSystem));
       var pointer = new PointerEventData(eventRoot.GetComponent<EventSystem>());
@@ -1282,7 +1282,7 @@ namespace ImplResourcePack.Editor
       Object.DestroyImmediate(root);
     }
 
-    private static void CheckShortcut(SettingsPanel panel, ImplResourcePackSettings settings)
+    private static void CheckShortcut(SettingsPanel panel, ElementSettings settings)
     {
       var capture = (SettingsButton)Field<Button>(panel, "_capture");
       var reset = Field<Button>(panel, "_resetShortcut");

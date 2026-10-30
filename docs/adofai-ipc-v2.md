@@ -1,6 +1,6 @@
 # ADOFAI-IPC v2 integration
 
-The `impl-resourcepack` feature message major is 1 and `tuf-replay-renderer` is 2. Both mods now use the same process runtime; the desktop SDK checks both feature majors before sending domain traffic.
+The `element` feature message major is 1 and `tuf-replay-renderer` is 2. Both mods now use the same process runtime; the desktop SDK checks both feature majors before sending domain traffic.
 
 The mod bundles ADOFAI-IPC product version 2.1.0, contract major 1 with assembly identity 1.0.0.0, and WebSocket wire major 3. Its feature message major is explicit and checked by the browser SDK. The DLLs, manifest, MIT license, source revision and SHA-256 values are committed under `vendor/adofai-ipc-runtime`; the complete SDK sources are vendored separately at the same upstream revision.
 

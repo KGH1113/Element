@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# The builds CD (.github/workflows/cd.yml) uploads: ImplDmNote for macOS and
+# The builds CD (.github/workflows/cd.yml) uploads: ElementNote for macOS and
 # Windows and the Windows in-game viewer library. Merges to main build them,
 # and so does a manual run on any branch. `release` takes main's;
 # `windows-install` takes any run made from the same sources.
 
-if [ "${IMPL_RESOURCEPACK_CD_BUILDS_LOADED:-0}" = "1" ]; then
+if [ "${ELEMENT_CD_BUILDS_LOADED:-0}" = "1" ]; then
   return 0
 fi
-IMPL_RESOURCEPACK_CD_BUILDS_LOADED=1
+ELEMENT_CD_BUILDS_LOADED=1
 
 # shellcheck source=context.sh
 source "${BASH_SOURCE[0]%/*}/context.sh"
@@ -19,9 +19,9 @@ source "${BASH_SOURCE[0]%/*}/dmnote-app.sh"
 source "${BASH_SOURCE[0]%/*}/windows-webview.sh"
 
 CD_WORKFLOW=cd.yml
-CD_MAC_APP=impl-dm-note-macos-app
-CD_WINDOWS_APP=impl-dm-note-windows-portable
-CD_WINDOWS_VIEWER=impl-game-webview-windows
+CD_MAC_APP=element-note-macos-app
+CD_WINDOWS_APP=element-note-windows-portable
+CD_WINDOWS_VIEWER=element-game-webview-windows
 export CD_WORKFLOW CD_MAC_APP CD_WINDOWS_APP CD_WINDOWS_VIEWER
 
 # release_source_stamp_at <commit>: everything a release takes from CD.
@@ -34,7 +34,7 @@ release_source_stamp_at() {
 cd_has_artifacts() {
   local run="$1" names name
   shift
-  names="$(cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && gh api "repos/{owner}/{repo}/actions/runs/$run/artifacts" \
+  names="$(cd "$ELEMENT_PROJECT_ROOT" && gh api "repos/{owner}/{repo}/actions/runs/$run/artifacts" \
     --jq '.artifacts[] | select(.expired | not) | .name')"
   for name in "$@"; do
     grep -Fxq "$name" <<< "$names" || return 1
@@ -55,7 +55,7 @@ cd_find_run() {
     list+=(--branch "$branch")
   fi
   while read -r id sha status conclusion; do
-    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" cat-file -e "$sha^{commit}" 2>/dev/null || continue
+    git -C "$ELEMENT_PROJECT_ROOT" cat-file -e "$sha^{commit}" 2>/dev/null || continue
     [ "$("$stamp_at" "$sha")" = "$stamp" ] || continue
     if [ "$status" != "completed" ]; then
       printf 'running %s\n' "$id"
@@ -65,13 +65,13 @@ cd_find_run() {
       printf 'ready %s\n' "$id"
       return 0
     fi
-  done < <(cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && gh "${list[@]}")
+  done < <(cd "$ELEMENT_PROJECT_ROOT" && gh "${list[@]}")
   return 0
 }
 
 # cd_download <run id> <artifact> <directory>
 cd_download() {
-  (cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && gh run download "$1" --name "$2" --dir "$3")
+  (cd "$ELEMENT_PROJECT_ROOT" && gh run download "$1" --name "$2" --dir "$3")
 }
 
 # cd_fetch <stamp function> <stamp> <artifact> <file> <destination>: saves
@@ -91,7 +91,7 @@ cd_fetch() {
       return 1
       ;;
     *)
-      branch="$(git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse --abbrev-ref HEAD)"
+      branch="$(git -C "$ELEMENT_PROJECT_ROOT" rev-parse --abbrev-ref HEAD)"
       printf 'Warning: CD has not built %s from these committed sources. Merge them to main, or push %s and run: gh workflow run %s --ref %s\n' \
         "$file" "$branch" "$CD_WORKFLOW" "$branch" >&2
       return 1

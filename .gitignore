@@ -22,12 +22,12 @@ node_modules/
 .vs/
 
 # Unity project caches and local state
-ImplResourcePack.Unity/[Ll]ibrary/
-ImplResourcePack.Unity/[Tt]emp/
-ImplResourcePack.Unity/[Oo]bj/
-ImplResourcePack.Unity/[Ll]ogs/
-ImplResourcePack.Unity/[Uu]ser[Ss]ettings/
-ImplResourcePack.Unity/[Mm]emoryCaptures/
+Element.Unity/[Ll]ibrary/
+Element.Unity/[Tt]emp/
+Element.Unity/[Oo]bj/
+Element.Unity/[Ll]ogs/
+Element.Unity/[Uu]ser[Ss]ettings/
+Element.Unity/[Mm]emoryCaptures/
 
 # Verified bundled IPC binaries are source dependencies.
 !vendor/adofai-ipc-runtime/*.dll

@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Xml.Serialization;
-using ImplResourcePack.Configuration;
-using ImplResourcePack.Domain.Layout;
-using ImplResourcePack.Infrastructure.Game.DmNote;
+using Element.Configuration;
+using Element.Domain.Layout;
+using Element.Infrastructure.Game.DmNote;
 using TMPro;
 using UnityEngine;
 
-namespace ImplResourcePack.Editor
+namespace Element.Editor
 {
   // Executes the production managed native target. The fake host supplies
   // AppKit point-space observations and records transport only; no WebKit or

@@ -12,7 +12,7 @@ source "$TASK_DIR/../../lib/mod-layout.sh"
 source "$TASK_DIR/../../lib/dmnote-app.sh"
 
 # stage.sh <macos|windows>: one OS's mod folder with only its native
-# libraries, fonts and ImplDmNote build, laid out as a fresh install.
+# libraries, fonts and ElementNote build, laid out as a fresh install.
 platform="${1:-}"
 case "$platform" in
   macos) payload=macos fonts=Mac ;;
@@ -21,16 +21,16 @@ case "$platform" in
 esac
 
 stage="$(package_stage "$platform")"
-assert_non_root_path "$IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT"
+assert_non_root_path "$ELEMENT_PACKAGE_BUILD_ROOT"
 assert_non_root_path "$stage"
-mkdir -p "$IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT"
+mkdir -p "$ELEMENT_PACKAGE_BUILD_ROOT"
 if [ -e "$stage" ]; then
-  safe_remove_tree "$stage" "$IMPL_RESOURCEPACK_PACKAGE_BUILD_ROOT"
+  safe_remove_tree "$stage" "$ELEMENT_PACKAGE_BUILD_ROOT"
 fi
 mkdir -p "$stage"
 
 stage_mod "$stage" "$payload" "$fonts"
-if [ "${IMPL_RESOURCEPACK_SKIP_DMNOTE:-0}" != "1" ]; then
+if [ "${ELEMENT_SKIP_DMNOTE:-0}" != "1" ]; then
   "stage_dmnote_$platform" "$(mod_runtime_dir "$stage")"
 fi
 

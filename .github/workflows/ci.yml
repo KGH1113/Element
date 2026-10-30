@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 22
 
-      - name: The mod and ImplDmNote share one version
+      - name: The mod and ElementNote share one version
         run: node scripts/tasks/version/version.mjs check
 
       - name: Shell scripts
@@ -65,10 +65,10 @@ jobs:
         run: npx playwright install chromium
 
       - name: Viewer compatibility baselines
-        run: npm run test:visual -w @impl-resourcepack/impl-dm-note
+        run: npm run test:visual -w @element/element-note
 
   app:
-    name: ImplDmNote (${{ matrix.os }})
+    name: ElementNote (${{ matrix.os }})
     permissions:
       contents: read
       checks: write
@@ -98,7 +98,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/impl-dm-note/src-tauri
+          workspaces: apps/element-note/src-tauri
           cache-on-failure: true
 
       - name: Install dependencies
@@ -106,16 +106,16 @@ jobs:
 
       - name: Frontend gates
         run: |
-          npm run sdk:check -w @impl-resourcepack/impl-dm-note
-          npm run type-check -w @impl-resourcepack/impl-dm-note
-          npm run lint -w @impl-resourcepack/impl-dm-note -- --max-warnings=0
-          npm run format:check -w @impl-resourcepack/impl-dm-note
-          npm run test -w @impl-resourcepack/impl-dm-note
+          npm run sdk:check -w @element/element-note
+          npm run type-check -w @element/element-note
+          npm run lint -w @element/element-note -- --max-warnings=0
+          npm run format:check -w @element/element-note
+          npm run test -w @element/element-note
           npm audit
           npm run desktop:audit
 
       - name: Rust gates
-        working-directory: apps/impl-dm-note/src-tauri
+        working-directory: apps/element-note/src-tauri
         run: |
           cargo test --locked
           cargo clippy --locked --all-targets -- -D warnings
@@ -123,13 +123,13 @@ jobs:
       - uses: rustsec/audit-check@v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: apps/impl-dm-note/src-tauri
+          working-directory: apps/element-note/src-tauri
 
       - name: Verify generated dependency licenses
         run: |
           cargo install cargo-about --version 0.9.2 --locked --features cli
-          npm run licenses:generate -w @impl-resourcepack/impl-dm-note
-          git diff --exit-code -- apps/impl-dm-note/THIRD_PARTY_LICENSES.txt
+          npm run licenses:generate -w @element/element-note
+          git diff --exit-code -- apps/element-note/THIRD_PARTY_LICENSES.txt
 
   windows-viewer:
     name: Windows in-game viewer

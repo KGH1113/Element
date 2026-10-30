@@ -24,7 +24,7 @@
 
 ## API
 
-어셈블리 `ImplResourcePack`의 `ImplResourcePack.AttemptCounter`:
+어셈블리 `Element`의 `Element.AttemptCounter`:
 
 | 멤버 | 설명 |
 | --- | --- |
@@ -34,7 +34,7 @@
 
 ## 예시
 
-ImplResourcePack DLL을 참조하지 않고 리플렉션으로 연결합니다. ImplResourcePack이
+Element DLL을 참조하지 않고 리플렉션으로 연결합니다. Element가
 없거나 버전이 다르면 아무 일도 하지 않습니다.
 
 ```csharp
@@ -42,9 +42,9 @@ static void SkipAttemptsWhileReplaying()
 {
   foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
   {
-    if (assembly.GetName().Name != "ImplResourcePack")
+    if (assembly.GetName().Name != "Element")
       continue;
-    Type api = assembly.GetType("ImplResourcePack.AttemptCounter", throwOnError: false);
+    Type api = assembly.GetType("Element.AttemptCounter", throwOnError: false);
     if (api?.GetField("ApiVersion")?.GetValue(null) is not 1)
       return;
     api.GetMethod("SetSkipRule", new[] { typeof(string), typeof(Func<bool>) })
@@ -54,5 +54,5 @@ static void SkipAttemptsWhileReplaying()
 }
 ```
 
-ImplResourcePack보다 먼저 로드될 수 있으면, 게임 시작 뒤(예: 첫 씬 로드) 한 번 더
+Element보다 먼저 로드될 수 있으면, 게임 시작 뒤(예: 첫 씬 로드) 한 번 더
 호출하세요. 다시 등록해도 규칙은 하나만 남습니다.

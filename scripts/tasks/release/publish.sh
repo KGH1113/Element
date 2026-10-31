@@ -9,14 +9,14 @@ source "$TASK_DIR/../../lib/guards.sh"
 
 # publish.sh [--yes]: uploads the packages as a draft, checks the upload, and
 # after confirmation publishes it as the latest release the updater reads.
-confirmed="${IMPL_RESOURCEPACK_RELEASE_YES:-0}"
+confirmed="${ELEMENT_RELEASE_YES:-0}"
 [ "${1:-}" = "--yes" ] && confirmed=1
 
-cd "$IMPL_RESOURCEPACK_PROJECT_ROOT"
+cd "$ELEMENT_PROJECT_ROOT"
 version="$(node "$TASK_DIR/../version/version.mjs" check)"
 tag="v$version"
 repository="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
-assets=("$(package_zip macos)" "$(package_zip windows)" "$IMPL_RESOURCEPACK_UPDATE_MANIFEST_PATH")
+assets=("$(package_zip macos)" "$(package_zip windows)" "$ELEMENT_UPDATE_MANIFEST_PATH")
 for asset in "${assets[@]}"; do
   require_file "$asset"
 done
@@ -32,7 +32,7 @@ case "$version" in
 esac
 
 gh release create "$tag" "${assets[@]}" --draft --target "$(git rev-parse HEAD)" \
-  --title "ImplResourcePack $version" "${notes[@]}" >/dev/null
+  --title "Element $version" "${notes[@]}" >/dev/null
 printf 'Uploaded draft %s\n' "$tag"
 
 uploaded="$(gh release view "$tag" --json assets --jq '.assets[] | "\(.name) \(.size)"')"
@@ -61,7 +61,7 @@ if [ "${channel[0]}" = "--prerelease" ]; then
   exit 0
 fi
 # The URL the updater reads; GitHub can take a moment to point it at the new release.
-manifest="https://github.com/$repository/releases/latest/download/ImplResourcePack.update.json"
+manifest="https://github.com/$repository/releases/latest/download/Element.update.json"
 for _ in 1 2 3 4 5 6 7 8 9 10; do
   if [ "$(curl -fsSL "$manifest" 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).version)}catch{}})')" = "$version" ]; then
     printf 'Players now receive %s: %s\n' "$version" "$manifest"

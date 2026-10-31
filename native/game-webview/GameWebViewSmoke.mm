@@ -214,7 +214,7 @@ int Run(const char *path) {
   NSWindow *game = [[PlayerWindow alloc] initWithContentRect:NSMakeRect(40, 40, 1280, 720)
                                               styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskResizable
                                                 backing:NSBackingStoreBuffered defer:NO];
-  game.title = @"ImplResourcePack native host smoke probe";
+  game.title = @"Element native host smoke probe";
   PlayerWindowView *gameView = [[PlayerWindowView alloc] initWithFrame:NSMakeRect(0, 0, 1280, 720)];
   game.contentView = gameView;
   [game orderFront:nil];
@@ -639,7 +639,7 @@ int Run(const char *path) {
 int main(int argc, char **argv) {
   @autoreleasepool {
     if (argc != 2) {
-      fprintf(stderr, "Usage: GameWebViewSmoke /absolute/path/libImplGameWebView.dylib\n");
+      fprintf(stderr, "Usage: GameWebViewSmoke /absolute/path/libElementGameWebView.dylib\n");
       return 2;
     }
     [IRPProbeApplication sharedApplication];

@@ -11,12 +11,12 @@ $ErrorActionPreference = 'Stop'
 
 $log = Join-Path $Build 'smoke.log'
 Remove-Item $log -ErrorAction SilentlyContinue
-$arguments = '"' + (Join-Path $Build 'ImplGameWebView.dll') + '" "' + $log + '"'
+$arguments = '"' + (Join-Path $Build 'ElementGameWebView.dll') + '" "' + $log + '"'
 if ($Shots) {
   New-Item -ItemType Directory -Force $Shots | Out-Null
   $arguments += ' "' + $Shots + '"'
 }
-$probe = Start-Process (Join-Path $Build 'ImplGameWebViewSmoke.exe') -ArgumentList $arguments -PassThru
+$probe = Start-Process (Join-Path $Build 'ElementGameWebViewSmoke.exe') -ArgumentList $arguments -PassThru
 # Reading the handle now keeps ExitCode available after the probe exits.
 $null = $probe.Handle
 $finished = $probe.WaitForExit($TimeoutSeconds * 1000)

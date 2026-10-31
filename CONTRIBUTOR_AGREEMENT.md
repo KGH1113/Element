@@ -1,6 +1,6 @@
-# ImplResourcePack Contributor Agreement
+# Element Contributor Agreement
 
-This Contributor Agreement (the "Agreement") applies to every contribution submitted to the ImplResourcePack repository at <https://github.com/KGH1113/ImplResourcePack> (the "Project"). The "Project Owner" is the individual controlling the GitHub account `KGH1113`.
+This Contributor Agreement (the "Agreement") applies to every contribution submitted to the Element repository at <https://github.com/KGH1113/Element> (the "Project"). The "Project Owner" is the individual controlling the GitHub account `KGH1113`.
 
 By submitting a pull request or other contribution with an affirmative reference to this Agreement, you agree to the following terms. The transfer and licenses below take effect only if and when the Project Owner accepts the contribution into the Project.
 
@@ -10,13 +10,13 @@ You assign to the Project Owner, to the maximum extent permitted by law, all tra
 
 The Project Owner may use, modify, remove, relicense, distribute, commercialize, or discontinue the accepted contribution without further permission, notice, attribution, or compensation to you.
 
-## 2. ImplDmNote and upstream rights
+## 2. ElementNote and upstream rights
 
-An accepted contribution to `apps/impl-dm-note/**` will continue to be distributed as part of ImplDmNote under GPL-3.0-only. This Agreement does not transfer, relicense, limit, or otherwise affect copyright owned by upstream DM Note authors or other third parties. You may contribute only rights that you own or are authorized to submit.
+An accepted contribution to `apps/element-note/**` will continue to be distributed as part of ElementNote under GPL-3.0-only. This Agreement does not transfer, relicense, limit, or otherwise affect copyright owned by upstream DM Note authors or other third parties. You may contribute only rights that you own or are authorized to submit.
 
 ## 3. Fallback license
 
-If any part of the assignment in Section 1 is invalid or ineffective in a jurisdiction, you grant the Project Owner an exclusive, perpetual, irrevocable, worldwide, transferable, sublicensable, royalty-free license to exercise every copyright property right in the accepted contribution, including the right to create and exploit derivative works. For accepted ImplDmNote contributions, this fallback license is in addition to—not a replacement for—the GPL-3.0-only distribution terms.
+If any part of the assignment in Section 1 is invalid or ineffective in a jurisdiction, you grant the Project Owner an exclusive, perpetual, irrevocable, worldwide, transferable, sublicensable, royalty-free license to exercise every copyright property right in the accepted contribution, including the right to create and exploit derivative works. For accepted ElementNote contributions, this fallback license is in addition to—not a replacement for—the GPL-3.0-only distribution terms.
 
 ## 4. Moral rights
 
@@ -36,7 +36,7 @@ The Project Owner may reject or remove any contribution for any reason and has n
 
 ## 6. No broader permission
 
-This Agreement allows you to contribute to the Project. It does not grant permission to distribute the proprietary root component, publish a modified version of it, create an independent derivative work, or otherwise use it beyond `LICENSE.md`. Rights granted by GPL-3.0-only for ImplDmNote are not restricted by this section.
+This Agreement allows you to contribute to the Project. It does not grant permission to distribute the proprietary root component, publish a modified version of it, create an independent derivative work, or otherwise use it beyond `LICENSE.md`. Rights granted by GPL-3.0-only for ElementNote are not restricted by this section.
 
 ## 7. Governing law
 

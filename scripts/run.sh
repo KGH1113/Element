@@ -11,16 +11,16 @@ Usage: ./scripts/run.sh <command>
 
 Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
-  build       Build the mod, its native libraries and ImplDmNote, test, and install it all
+  build       Build the mod, its native libraries and ElementNote, test, and install it all
   mod-check   Build and test the mod without installing
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
-  windows-webview-check  Build and smoke-test the Windows game WebView host on IMPL_RESOURCEPACK_WINDOWS_HOST (releases use CD's)
-  windows-install  Make build/ImplResourcePack-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
-  dmnote-windows-build  Build the Windows ImplDmNote for packages on IMPL_RESOURCEPACK_WINDOWS_HOST (no desktop input)
-  install     Install the already verified mod payload and ImplDmNote
+  windows-webview-check  Build and smoke-test the Windows game WebView host on ELEMENT_WINDOWS_HOST (releases use CD's)
+  windows-install  Make build/Element-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
+  dmnote-windows-build  Build the Windows ElementNote for packages on ELEMENT_WINDOWS_HOST (no desktop input)
+  install     Install the already verified mod payload and ElementNote
   package     Build the macOS and Windows release packages and their update manifest
-  version [x.y.z]  Check that the mod and ImplDmNote share one version, or set it
+  version [x.y.z]  Check that the mod and ElementNote share one version, or set it
   release [--yes]  On main: build the mod around CD's builds, package and publish (docs/releasing.md)
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
@@ -31,10 +31,10 @@ Commands:
   desktop-format  Format the changed frontend message boundaries
   desktop-licenses  Generate bundled source and dependency notices
   mod-format  Format the changed C# message boundaries
-  desktop-check  Check the ImplDmNote frontend and native backend without installing
+  desktop-check  Check the ElementNote frontend and native backend without installing
   desktop-frontend-check  Verify SDK, types, lint, formatting, tests, and frontend build
   desktop-ipc-format  Format the IPC lifecycle adapter and its regression tests
-  desktop-build  Build the ImplDmNote frontend and native backend without installing
+  desktop-build  Build the ElementNote frontend and native backend without installing
   desktop-bundle [--release]  Package the native app without installing (default: Debug)
   desktop-render-test  Run isolated native render fixtures without live inputs
   help        Show this help

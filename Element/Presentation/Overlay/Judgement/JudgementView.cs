@@ -1,0 +1,103 @@
+using System;
+using System.Text;
+using Element.Application;
+using Element.Domain.Judgement;
+using Element.Presentation.Overlay.Shared;
+using TMPro;
+using UnityEngine;
+using Object = UnityEngine.Object;
+
+namespace Element.Presentation.Overlay.Judgement;
+
+internal sealed class JudgementView : IOverlayView<JudgementSnapshot>
+{
+  private const string PerfectColorHex = "60FF4E";
+
+  private readonly StringBuilder _builder = new(256);
+  private GameObject _root;
+  private TextMeshProUGUI _text;
+
+  public JudgementView(OverlayCanvasHost host, TMP_FontAsset font, Material material)
+  {
+    _root = OverlayTextFactory.CreateRect(
+      "Judgement",
+      host.Root.transform,
+      new Vector2(0.5f, 0f),
+      new Vector2(0.5f, 0f),
+      new Vector2(0f, 85f),
+      new Vector2(1000f, 30f)
+    );
+    _text = OverlayTextFactory.AddText(_root, font, material, 25f, TextAlignmentOptions.Bottom);
+    _text.color = OverlayTheme.JudgementBase;
+    host.RegisterLayout("judgement", "판정", _root, _text, "0  0  0  2  4  120  4  2  0  0  0");
+    _root.SetActive(false);
+  }
+
+  public void Show()
+  {
+    if (_root != null)
+      _root.SetActive(true);
+  }
+
+  public void Hide()
+  {
+    if (_root != null)
+      _root.SetActive(false);
+  }
+
+  public void Render(JudgementSnapshot snapshot)
+  {
+    if (_text == null)
+      return;
+
+    _text.color = OverlayTheme.JudgementBase;
+
+    // Rendered on every hit: numbers and colors are appended without their own
+    // strings, leaving one string per change for TMP.
+    _builder.Clear();
+    _builder
+      .AppendInt(snapshot.FailOverload)
+      .Append(" <color=#FF0000>")
+      .AppendInt(snapshot.TooEarly)
+      .Append("</color> <color=#FF6F4E>")
+      .AppendInt(snapshot.VeryEarly)
+      .Append("</color> <color=#A0FF4E>")
+      .AppendInt(snapshot.EarlyPerfect)
+      .Append("</color> <color=#")
+      .Append(PerfectColorHex)
+      .Append(">")
+      .AppendInt(snapshot.PerfectMinus)
+      .Append("</color> <color=#");
+    AppendXPerfectColor(_builder)
+      .Append(">")
+      .AppendInt(snapshot.XPerfectAndAuto)
+      .Append("</color> <color=#")
+      .Append(PerfectColorHex)
+      .Append(">")
+      .AppendInt(snapshot.PerfectPlus)
+      .Append("</color> <color=#A0FF4E>")
+      .AppendInt(snapshot.LatePerfect)
+      .Append("</color> <color=#FF6F4E>")
+      .AppendInt(snapshot.VeryLate)
+      .Append("</color> <color=#FF0000>")
+      .AppendInt(snapshot.TooLate)
+      .Append("</color> ")
+      .AppendInt(snapshot.FailMiss);
+    _text.Assign(_builder);
+  }
+
+  private static StringBuilder AppendXPerfectColor(StringBuilder builder)
+  {
+    ColourSchemeHitMargin colors = RDC.data != null ? RDC.hitMarginColoursBySettings : null;
+    return colors != null ? builder.AppendHexRgb(colors.colourXPerfect) : builder.Append(PerfectColorHex);
+  }
+
+  public void Dispose()
+  {
+    if (_root != null)
+      Object.Destroy(_root);
+
+    _root = null;
+    _text = null;
+  }
+}

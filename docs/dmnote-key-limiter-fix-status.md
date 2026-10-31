@@ -22,7 +22,7 @@
 
 실제 키보드를 이용한 화면 확인은 아직 수행하지 않았다.
 
-macOS 릴리스 앱 빌드 및 코드 서명 검증을 완료했다. 실행 파일은 `apps/impl-dm-note/src-tauri/target/release/bundle/macos/ImplDmNote.app`이다. 실행 중인 DM Note를 완전히 종료한 후 이 앱을 실행하면 문제 1 수정이 적용된다. 문제 2 수정은 별도의 게임 모드 DLL 변경이므로 앱 실행만으로 적용되지는 않는다.
+macOS 릴리스 앱 빌드 및 코드 서명 검증을 완료했다. 실행 파일은 `apps/element-note/src-tauri/target/release/bundle/macos/ElementNote.app`이다. 실행 중인 DM Note를 완전히 종료한 후 이 앱을 실행하면 문제 1 수정이 적용된다. 문제 2 수정은 별도의 게임 모드 DLL 변경이므로 앱 실행만으로 적용되지는 않는다.
 
 ## 검증
 

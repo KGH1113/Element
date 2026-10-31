@@ -3,14 +3,14 @@
 //   mod-info.mjs version  <Info.json>                       prints the version
 //   mod-info.mjs launcher <Info.json> <out Info.json>       root Info.json that starts the launcher
 //   mod-info.mjs state    <version> <out state.json>        Runtime/state.json for a fresh install
-//   mod-info.mjs manifest <Info.json> <out> <os>=<zip>...   ImplResourcePack.update.json
+//   mod-info.mjs manifest <Info.json> <out> <os>=<zip>...   Element.update.json
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const MOD = 'ImplResourcePack';
-const LAUNCHER = 'ImplResourcePack.Launcher.dll';
-const LAUNCHER_ENTRY = 'ImplResourcePack.Launcher.Entry.Load';
+const MOD = 'Element';
+const LAUNCHER = 'Element.Launcher.dll';
+const LAUNCHER_ENTRY = 'Element.Launcher.Entry.Load';
 const PLATFORMS = new Set(['macos', 'windows']);
 const SEMVER = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
 

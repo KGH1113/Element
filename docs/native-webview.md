@@ -6,7 +6,7 @@
 
 ## 동작
 
-ImplDmNote의 OBS 브릿지가 손·발 페이지의 인증된 loopback URL과 원본 논리
+ElementNote의 OBS 브릿지가 손·발 페이지의 인증된 loopback URL과 원본 논리
 뷰포트 크기를 제공합니다. 게임 모드가 네이티브 라이브러리를 로드하고 실제
 Unity 창의 `contentView` 안에 추가된 손·발 요소마다 투명한 WKWebView를 붙입니다. 별도 앱 창은
 생성하지 않습니다. 웹뷰는 입력과 포커스를 받지 않아 게임 조작을 통과시킵니다.
@@ -64,7 +64,7 @@ URL 확인 응답에 예전 데스크톱 창 크기가 포함되어도 현재 �
 
 크기는 별도 창 모드와 같습니다. 배율 100%에서 CSS 1픽셀이 macOS 1포인트,
 Windows 1 DIP(창의 디스플레이 배율 적용)이므로 게임 해상도나 Retina 여부와
-관계없이 ImplDmNote 창과 같은 크기로 보입니다. 네이티브 라이브러리가 알려 주는
+관계없이 ElementNote 창과 같은 크기로 보입니다. 네이티브 라이브러리가 알려 주는
 게임 뷰 크기(포인트·DIP)와 Unity 화면 픽셀의 비율로 환산하며, 게임 창을 배율이
 다른 모니터로 옮기면 그 모니터의 단위를 따릅니다. 처음 연결된 키뷰어가
 430×270보다 크면 그 안에 맞는 배율로 시작하고, 편집 화면에는 별도 창 대비
@@ -101,12 +101,12 @@ BitBlt는 게임 프레임만 가져가므로 키뷰어가 빠집니다. 게임�
 
 모드 설치 후 게임을 재시작해야 새 DLL을 로드합니다. 실행 중인 게임은 기존
 버전을 계속 사용합니다. 네이티브 라이브러리는 모드 폴더의
-`native/libImplGameWebView.dylib`에 포함됩니다.
+`native/libElementGameWebView.dylib`에 포함됩니다.
 
 테스트 앱은
-`apps/impl-dm-note/src-tauri/target/release/bundle/macos/ImplDmNote.app`입니다.
-압축본은 `Release/ImplDmNote-Renderer-macos-arm64.zip`입니다.
-기존 ImplDmNote 인스턴스를 종료한 뒤 이 앱을 실행합니다. 기존 앱 데이터와
+`apps/element-note/src-tauri/target/release/bundle/macos/ElementNote.app`입니다.
+압축본은 `Release/ElementNote-Renderer-macos-arm64.zip`입니다.
+기존 ElementNote 인스턴스를 종료한 뒤 이 앱을 실행합니다. 기존 앱 데이터와
 프리셋을 사용하며 테스트를 위해 초기화하지 않습니다.
 
 Release 앱을 사용해야 합니다. Debug 앱의 OBS 브릿지는
@@ -116,10 +116,10 @@ Release 빌드는 내장 프론트엔드를 OBS 서버에서 직접 제공하므
 
 ### Windows
 
-Windows 라이브러리(`native/ImplGameWebView.dll`)는 MSVC와 WebView2 SDK가 필요해
+Windows 라이브러리(`native/ElementGameWebView.dll`)는 MSVC와 WebView2 SDK가 필요해
 Windows PC에서 빌드합니다. OpenSSH 서버와 Visual Studio Build Tools(C++ x64)가
-설치된 PC를 `.env`의 `IMPL_RESOURCEPACK_WINDOWS_HOST`와(필요하면)
-`IMPL_RESOURCEPACK_WINDOWS_SSH_KEY`로 지정합니다.
+설치된 PC를 `.env`의 `ELEMENT_WINDOWS_HOST`와(필요하면)
+`ELEMENT_WINDOWS_SSH_KEY`로 지정합니다.
 
 ```bash
 ./scripts/run.sh windows-webview-check  # 원격 빌드와 데스크톱 스모크 테스트
@@ -127,7 +127,7 @@ Windows PC에서 빌드합니다. OpenSSH 서버와 Visual Studio Build Tools(C+
 ```
 
 `windows-install`은 그 PC에 접속하지 않습니다. 만든
-`build/ImplResourcePack-windows-install.zip`을 그 PC로 옮겨 풀고, 게임을 닫은 채
+`build/Element-windows-install.zip`을 그 PC로 옮겨 풀고, 게임을 닫은 채
 그 폴더에서 `powershell -ExecutionPolicy Bypass -File .\Install.ps1`을 실행합니다.
 `Install.ps1`은 Steam 라이브러리에서 얼불춤의 `Mods` 폴더를 찾고(다른 위치면
 `-Mods <폴더>`), 설정 파일은 그대로 둔 채 모드를 바꿉니다.
@@ -140,18 +140,18 @@ CRT와 WebView2 로더를 정적 링크해 시스템 DLL에만 의존하는 DLL�
 소스를 바꿨다면 먼저 `windows-webview-check`를 실행하세요. 릴리스는 이 PC 대신
 CD가 GitHub의 Windows 러너에서 빌드하고 스모크 테스트한 DLL을 씁니다
 ([릴리스](releasing.md)). CI도 PR마다 같은 빌드와 스모크 테스트를 돌립니다.
-`IMPL_RESOURCEPACK_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
+`ELEMENT_SKIP_WINDOWS_WEBVIEW=1`이면 Windows 라이브러리 없이
 패키징하며, 이 경우 Windows 플레이어는 게임 내 키뷰어를 쓸 수 없습니다.
-이 DLL은 `ImplResourcePack-windows.zip`에만 들어갑니다. 패키지에 함께 들어가는
-ImplDmNote는 [모드에 포함된 ImplDmNote](bundled-impl-dm-note.md)를 보세요.
-Windows용 ImplDmNote Release 빌드는 관리자 권한으로 실행됩니다.
+이 DLL은 `Element-windows.zip`에만 들어갑니다. 패키지에 함께 들어가는
+ElementNote는 [모드에 포함된 ElementNote](bundled-element-note.md)를 보세요.
+Windows용 ElementNote Release 빌드는 관리자 권한으로 실행됩니다.
 
 ## 사용하기
 
-1. 업데이트된 ImplDmNote에서 손·발 뷰어의 원하는 탭·모양을 선택합니다.
+1. 업데이트된 ElementNote에서 손·발 뷰어의 원하는 탭·모양을 선택합니다.
 2. 앱 설정에서 OBS 모드가 켜져 있는지 확인합니다(기본으로 켜져 있음). OBS Studio 자체를 실행할 필요는 없습니다.
 3. 게임에서 왼쪽 Option + Tab(Windows는 왼쪽 Alt + Tab)으로 커스텀 설정을 엽니다. UMM의 **설정 열기** 버튼으로도 접근할 수 있습니다.
-4. 첫 화면의 **Overlay**를 누릅니다. **Add Element** 갤러리에서 손 또는 발 키뷰어를 추가합니다. 갤러리는 예시 데이터로 미리보기를 표시하며, 실제 요소는 ImplDmNote에서 선택한 탭을 사용합니다.
+4. 첫 화면의 **Overlay**를 누릅니다. **Add Element** 갤러리에서 손 또는 발 키뷰어를 추가합니다. 갤러리는 예시 데이터로 미리보기를 표시하며, 실제 요소는 ElementNote에서 선택한 탭을 사용합니다.
 5. 키뷰어를 선택해 이동·크기 조정합니다. 선택 전에는 현재 표시된 콘텐츠가 클릭 영역이고, 선택 후에는 최대 편집 영역에 흰색 점선이 표시됩니다. 내부는 이동, 네 꼭짓점과 네 변은 비율 유지 리사이즈 영역입니다. 앱의 바깥 여백을 뺀 콘텐츠 크기를 사용하며 노트 트랙 영역은 유지합니다. 화면 밖으로 이동하더라도 가로·세로의 10%는 남습니다.
 6. 이동을 확정하면 가장 가까운 화면 기준점에 대한 여백을 저장하고, 크기 조절은 기존 기준점을 유지합니다. **저장**하면 요소 구성·기준점·여백·개별 배율을 유지합니다. **취소**하면 편집 시작 전 상태로 돌아갑니다. 플로팅 패널도 드래그할 수 있고, 점선은 패널 뒤에서 가려집니다.
 
@@ -219,7 +219,7 @@ macOS의 `Cmd + Backspace`와 Windows의 `Ctrl + Backspace`도 지원합니다.
 | Windows 스모크 프로브 | `UnityWndClass` 창과 flip-model 스왑체인 위에서 화면 픽셀로 합성·투명 배경 확인, 클릭과 키보드 포커스가 게임 창에 남음, 편집 테두리·툴바 영역 잘라내기, 숨김·표시, 콘텐츠 확장과 오래된 descriptor 무시, 창 크기 변경·최소화 복원, 외부 탐색 차단, 브라우저 프로세스 종료 후 약 2초 내 복구, 해제 후 약 0.7초 내 재연결 통과 |
 | 원격 빌드 | 고정 SDK 다운로드·SHA-256 확인, MSVC `/W4 /WX` 빌드, 시스템 DLL만 의존하는 305KB DLL과 소스 해시 기록 확인 |
 | `native-webview-check` | 페이지 스크립트를 `ViewerScripts.h`로 공용화한 뒤 macOS 회귀 통과 |
-| 실제 얼불춤 | Windows PC의 `Mods/ImplResourcePack`에 스테이징한 빌드로 확인(위 수동 검증 기록). 게임이 실행 중이어서 `windows-install` 명령 자체는 실행하지 않음 |
+| 실제 얼불춤 | Windows PC의 `Mods/Element`에 스테이징한 빌드로 확인(위 수동 검증 기록). 게임이 실행 중이어서 `windows-install` 명령 자체는 실행하지 않음 |
 | 성능 | 첫 연결 약 40ms(그래픽 장치 17ms, WebView2 환경 10ms 포함), 재연결 약 3ms. 플레이 중 네이티브 호출은 프레임당 창 크기 확인 1회 |
 
 2026-10-24 콘텐츠 크기 자동 갱신 검증 결과:
@@ -229,8 +229,8 @@ macOS의 `Cmd + Backspace`와 Windows의 `Ctrl + Backspace`도 지원합니다.
 | `desktop-frontend-check` | SDK·타입·린트·포맷 검사, Vitest 158개, Node 테스트 7개, 프로덕션 빌드 통과 |
 | `mod-check` | 경고·오류 없는 C# 빌드 및 21개 테스트 통과. 키뷰어의 5개 기준점 선택·확장·축소·기준점 유지와 일반 오버레이의 기존 9개 기준점 검증 포함 |
 | `native-webview-check` | 실제 WKWebView에서 2·4·8키 전환과 2048×1200 콘텐츠 확장 시 고정 CSS 배율 유지, 네 꼭짓점·중앙 고정, 오래된 descriptor의 덮어쓰기 방지, 빈 탭·소스 교체 검증 통과 |
-| `package` | 경고·오류 없는 Release 빌드와 DLL·네이티브 라이브러리를 포함한 `build/ImplResourcePack.zip` 생성 완료 |
-| 설치 | `./scripts/run.sh install`로 Steam 얼불춤의 `Mods/ImplResourcePack`에 설치 완료. 모드 DLL·네이티브 라이브러리·IPC 런타임 6개 파일의 SHA-256이 빌드 입력과 일치. 게임 재시작 후 적용되며 실제 게임 재검증은 별도 |
+| `package` | 경고·오류 없는 Release 빌드와 DLL·네이티브 라이브러리를 포함한 `build/Element.zip` 생성 완료 |
+| 설치 | `./scripts/run.sh install`로 Steam 얼불춤의 `Mods/Element`에 설치 완료. 모드 DLL·네이티브 라이브러리·IPC 런타임 6개 파일의 SHA-256이 빌드 입력과 일치. 게임 재시작 후 적용되며 실제 게임 재검증은 별도 |
 | 프로덕션 OBS 페이지 | 진단 브라우저에서 발 2·4·8·4키 전환 시 133·209·361·209px 전달과 모든 키 표시 확인, 키 크기 변경 시 244×430 갱신과 눌림 상태 유지 확인 |
 | `desktop-bundle --release` | 수정된 프론트엔드를 포함한 최적화 앱 번들·로컬 서명 검증·ZIP 생성 완료 |
 | `check` | 셸 스크립트 27개 검사 통과 |
@@ -272,7 +272,7 @@ Discord·OBS 캡처에서의 재검증은 이 결과에 포함되지 않습니�
 | `native-webview-check` | arm64·x86_64 라이브러리·서명·실제 WebKit 독립 프로브 통과 |
 | `check` | 셸 스크립트 26개 검사 통과 |
 | `desktop-bundle --release` | 최적화 앱 빌드·앱 번들·로컬 서명 검증·ZIP 생성 완료 |
-| 설치 | 수정된 네이티브 라이브러리를 `Mods/ImplResourcePack`에 설치하고 게임 완전 종료·재실행 완료, 설치본 해시 일치 확인 |
+| 설치 | 수정된 네이티브 라이브러리를 `Mods/Element`에 설치하고 게임 완전 종료·재실행 완료, 설치본 해시 일치 확인 |
 | 실제 얼불춤 | 수정 후 에디터 화면의 왼쪽 아래 손 뷰어·오른쪽 아래 발 뷰어 표시 확인 |
 | Discord·OBS | 미검증 |
 

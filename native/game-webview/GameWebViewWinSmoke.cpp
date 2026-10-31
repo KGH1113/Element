@@ -1,9 +1,9 @@
-// Standalone probe for ImplGameWebView.dll. It stands in for ADOFAI: a
+// Standalone probe for ElementGameWebView.dll. It stands in for ADOFAI: a
 // UnityWndClass window presenting a D3D11 flip-model swap chain, driven through
 // the same exported ABI the mod loads at runtime. A loopback HTTP fixture plays
-// the ImplDmNote OBS page. Results are checked from composed screen pixels, so
+// the ElementNote OBS page. Results are checked from composed screen pixels, so
 // run it on an interactive desktop:
-//   ImplGameWebViewSmoke.exe <dll> <log> [screenshot directory]
+//   ElementGameWebViewSmoke.exe <dll> <log> [screenshot directory]
 
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -104,7 +104,7 @@ bool LoadApi(const wchar_t *path) {
          Resolve(module, "irp_webview_last_error", &api.lastError);
 }
 
-// ---- Loopback fixture standing in for ImplDmNote's OBS page.
+// ---- Loopback fixture standing in for ElementNote's OBS page.
 const char *kPage = R"HTML(<!doctype html>
 <html><head><meta charset="utf-8"><style>
 html, body { margin: 0; background: transparent; overflow: hidden; }
@@ -197,7 +197,7 @@ bool CreateGameWindow(int width, int height) {
   RegisterClassExW(&windowClass);
   RECT rect{0, 0, width, height};
   AdjustWindowRectEx(&rect, WS_OVERLAPPEDWINDOW, FALSE, WS_EX_TOPMOST);
-  window = CreateWindowExW(WS_EX_TOPMOST, windowClass.lpszClassName, L"ImplGameWebView smoke", WS_OVERLAPPEDWINDOW,
+  window = CreateWindowExW(WS_EX_TOPMOST, windowClass.lpszClassName, L"ElementGameWebView smoke", WS_OVERLAPPEDWINDOW,
                            40, 40, rect.right - rect.left, rect.bottom - rect.top, nullptr, nullptr,
                            windowClass.hInstance, nullptr);
   if (window == nullptr) return false;
@@ -330,7 +330,7 @@ bool ReferenceIs(const char *kind, double width, double height) {
   return api.getReferenceSize(kind, &w, &h) && std::abs(w - width) < 0.01 && std::abs(h - height) < 0.01;
 }
 
-// The natural CSS size, as the separate ImplDmNote window shows it at 100%.
+// The natural CSS size, as the separate ElementNote window shows it at 100%.
 bool ContentIs(const char *kind, double width, double height) {
   double w = 0, h = 0;
   return api.getContentSize(kind, &w, &h) && std::abs(w - width) < 0.01 && std::abs(h - height) < 0.01;

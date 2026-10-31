@@ -3,15 +3,15 @@
 # built from, whether the built copy still matches them, and whether that exact
 # build passed the desktop smoke probe.
 
-if [ "${IMPL_RESOURCEPACK_WINDOWS_WEBVIEW_LOADED:-0}" = "1" ]; then
+if [ "${ELEMENT_WINDOWS_WEBVIEW_LOADED:-0}" = "1" ]; then
   return 0
 fi
-IMPL_RESOURCEPACK_WINDOWS_WEBVIEW_LOADED=1
+ELEMENT_WINDOWS_WEBVIEW_LOADED=1
 
 # shellcheck source=context.sh
 source "${BASH_SOURCE[0]%/*}/context.sh"
 
-WINDOWS_WEBVIEW_LIBRARY="$IMPL_RESOURCEPACK_BUILD_OUTPUT/native/ImplGameWebView.dll"
+WINDOWS_WEBVIEW_LIBRARY="$ELEMENT_BUILD_OUTPUT/native/ElementGameWebView.dll"
 WINDOWS_WEBVIEW_STAMP="$WINDOWS_WEBVIEW_LIBRARY.sources"
 WINDOWS_WEBVIEW_VERIFIED="$WINDOWS_WEBVIEW_LIBRARY.verified"
 WINDOWS_WEBVIEW_SOURCES=(
@@ -25,7 +25,7 @@ WINDOWS_WEBVIEW_SOURCES=(
 export WINDOWS_WEBVIEW_LIBRARY WINDOWS_WEBVIEW_STAMP WINDOWS_WEBVIEW_VERIFIED
 
 windows_webview_source_hash() {
-  (cd "$IMPL_RESOURCEPACK_PROJECT_ROOT" && shasum -a 256 "${WINDOWS_WEBVIEW_SOURCES[@]}") | shasum -a 256 | cut -d ' ' -f 1
+  (cd "$ELEMENT_PROJECT_ROOT" && shasum -a 256 "${WINDOWS_WEBVIEW_SOURCES[@]}") | shasum -a 256 | cut -d ' ' -f 1
 }
 
 # windows_webview_source_stamp_at <commit>: the sources at that commit, by git
@@ -33,14 +33,14 @@ windows_webview_source_hash() {
 windows_webview_source_stamp_at() {
   local path
   for path in "${WINDOWS_WEBVIEW_SOURCES[@]}"; do
-    git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" rev-parse "$1:$path"
+    git -C "$ELEMENT_PROJECT_ROOT" rev-parse "$1:$path"
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 
 # True when the sources have no uncommitted changes, so a CD build of HEAD is
 # a build of them.
 windows_webview_committed() {
-  [ -z "$(git -C "$IMPL_RESOURCEPACK_PROJECT_ROOT" status --porcelain -- "${WINDOWS_WEBVIEW_SOURCES[@]}")" ]
+  [ -z "$(git -C "$ELEMENT_PROJECT_ROOT" status --porcelain -- "${WINDOWS_WEBVIEW_SOURCES[@]}")" ]
 }
 
 # windows_webview_adopt <library>: takes a library CD built from the current
@@ -48,7 +48,7 @@ windows_webview_committed() {
 windows_webview_adopt() {
   local temporary
   mkdir -p "$(dirname "$WINDOWS_WEBVIEW_LIBRARY")"
-  temporary="$(mktemp "$(dirname "$WINDOWS_WEBVIEW_LIBRARY")/.ImplGameWebView.dll.XXXXXX")"
+  temporary="$(mktemp "$(dirname "$WINDOWS_WEBVIEW_LIBRARY")/.ElementGameWebView.dll.XXXXXX")"
   cp "$1" "$temporary"
   mv -f "$temporary" "$WINDOWS_WEBVIEW_LIBRARY"
   windows_webview_source_hash > "$WINDOWS_WEBVIEW_STAMP"

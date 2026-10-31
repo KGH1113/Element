@@ -7,7 +7,7 @@ set -euo pipefail
 TASK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$TASK_DIR/../../.." && pwd)"
 ZERO=0000000000000000000000000000000000000000
-MOD_PATHS='^(ImplResourcePack/|ImplResourcePack\.(Tests|Launcher|Updater)/|ImplResourcePack\.Unity/Assets/|native/|scripts/|vendor/adofai-ipc-runtime/)'
+MOD_PATHS='^(Element/|Element\.(Tests|Launcher|Updater)/|Element\.Unity/Assets/|native/|scripts/|vendor/adofai-ipc-runtime/)'
 
 changed_files() {
   local local_sha="$1" remote_sha="$2" base
@@ -20,7 +20,7 @@ changed_files() {
   if [ -n "$base" ]; then
     git diff --name-only "$base" "$local_sha"
   else
-    printf 'ImplResourcePack/\n'
+    printf 'Element/\n'
   fi
 }
 

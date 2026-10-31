@@ -9,12 +9,12 @@ checked=0
 while IFS= read -r script; do
   bash -n "$script"
   checked=$((checked + 1))
-done < <(find "$IMPL_RESOURCEPACK_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
+done < <(find "$ELEMENT_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
 
 if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r script; do
     shellcheck -x --source-path=SCRIPTDIR "$script"
-  done < <(find "$IMPL_RESOURCEPACK_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
+  done < <(find "$ELEMENT_PROJECT_ROOT/scripts" -type f -name '*.sh' | sort)
 else
   printf 'shellcheck is not installed; syntax validation only.\n'
 fi

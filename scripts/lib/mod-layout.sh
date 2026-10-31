@@ -4,10 +4,10 @@
 # runs from under Runtime/versions/<v>/. Installs, the Windows test install
 # and release packages all stage it the same way.
 
-if [ "${IMPL_RESOURCEPACK_MOD_LAYOUT_LOADED:-0}" = "1" ]; then
+if [ "${ELEMENT_MOD_LAYOUT_LOADED:-0}" = "1" ]; then
   return 0
 fi
-IMPL_RESOURCEPACK_MOD_LAYOUT_LOADED=1
+ELEMENT_MOD_LAYOUT_LOADED=1
 
 # shellcheck source=context.sh
 source "${BASH_SOURCE[0]%/*}/context.sh"
@@ -18,11 +18,11 @@ source "${BASH_SOURCE[0]%/*}/artifacts.sh"
 # shellcheck source=ipc-bundle.sh
 source "${BASH_SOURCE[0]%/*}/ipc-bundle.sh"
 
-IMPL_RESOURCEPACK_MOD_INFO="$IMPL_RESOURCEPACK_PROJECT_ROOT/ImplResourcePack/Info.json"
-IMPL_RESOURCEPACK_MOD_INFO_TOOL="${BASH_SOURCE[0]%/*}/mod-info.mjs"
+ELEMENT_MOD_INFO="$ELEMENT_PROJECT_ROOT/Element/Info.json"
+ELEMENT_MOD_INFO_TOOL="${BASH_SOURCE[0]%/*}/mod-info.mjs"
 
 mod_version() {
-  node "$IMPL_RESOURCEPACK_MOD_INFO_TOOL" version "$IMPL_RESOURCEPACK_MOD_INFO"
+  node "$ELEMENT_MOD_INFO_TOOL" version "$ELEMENT_MOD_INFO"
 }
 
 # mod_runtime_dir <mod folder>: this build's version folder inside it.
@@ -51,11 +51,11 @@ stage_mod() {
   fi
 
   mkdir -p "$destination/Runtime/launchers/$version"
-  cp "$IMPL_RESOURCEPACK_BUILD_OUTPUT/ImplResourcePack.Launcher.dll" "$destination/Runtime/launchers/$version/"
+  cp "$ELEMENT_BUILD_OUTPUT/Element.Launcher.dll" "$destination/Runtime/launchers/$version/"
   copy_ipc_bundle "$destination"
-  cp "$IMPL_RESOURCEPACK_PROJECT_ROOT/LICENSE.md" "$IMPL_RESOURCEPACK_PROJECT_ROOT/THIRD_PARTY_NOTICES.md" "$destination/"
-  node "$IMPL_RESOURCEPACK_MOD_INFO_TOOL" launcher "$IMPL_RESOURCEPACK_MOD_INFO" "$destination/Info.json"
-  node "$IMPL_RESOURCEPACK_MOD_INFO_TOOL" state "$version" "$destination/Runtime/state.json"
+  cp "$ELEMENT_PROJECT_ROOT/LICENSE.md" "$ELEMENT_PROJECT_ROOT/THIRD_PARTY_NOTICES.md" "$destination/"
+  node "$ELEMENT_MOD_INFO_TOOL" launcher "$ELEMENT_MOD_INFO" "$destination/Info.json"
+  node "$ELEMENT_MOD_INFO_TOOL" state "$version" "$destination/Runtime/state.json"
   rm -f "$destination/Runtime/state.json.bak"
 }
 
@@ -63,9 +63,9 @@ stage_mod() {
 # versioned runtimes. The launcher removes it too; an install does it at once.
 remove_legacy_payload() {
   local destination="$1" name
-  rm -f "$destination/ImplResourcePack.dll" "$destination/ImplResourcePack.pdb" "$destination/libImplTrackpad.dylib"
-  rm -f "$destination"/ImplResourcePack.dll.*.cache
-  for name in native Assets ImplDmNote; do
+  rm -f "$destination/Element.dll" "$destination/Element.pdb" "$destination/libElementTrackpad.dylib"
+  rm -f "$destination"/Element.dll.*.cache
+  for name in native Assets ElementNote; do
     if [ -e "$destination/$name" ]; then
       safe_remove_tree "$destination/$name" "$destination"
     fi

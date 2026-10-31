@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-if [ "${IMPL_RESOURCEPACK_GUARDS_LOADED:-0}" = "1" ]; then
+if [ "${ELEMENT_GUARDS_LOADED:-0}" = "1" ]; then
   return 0
 fi
-IMPL_RESOURCEPACK_GUARDS_LOADED=1
+ELEMENT_GUARDS_LOADED=1
 
 fail() {
   printf 'Error: %s\n' "$*" >&2

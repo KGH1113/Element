@@ -1,10 +1,10 @@
-# ImplResourcePack Proprietary License
+# Element Proprietary License
 
 Copyright (c) 2026 KGH1113. All rights reserved.
 
-This license applies to the ImplResourcePack source code, binaries, documentation, and original assets (collectively, the "Software"), except for:
+This license applies to the Element source code, binaries, documentation, and original assets (collectively, the "Software"), except for:
 
-- `apps/impl-dm-note/**`, which is an independent GPL-3.0-only component governed by its own `LICENSE`; and
+- `apps/element-note/**`, which is an independent GPL-3.0-only component governed by its own `LICENSE`; and
 - third-party code, fonts, icons, logos, and other assets identified in `THIRD_PARTY_NOTICES.md` or their accompanying notices.
 
 ## 1. Limited permissions
@@ -13,7 +13,7 @@ Subject to this license, you may:
 
 1. view the source code;
 2. download, install, and run unmodified official release binaries for personal, non-commercial use; and
-3. fork, reproduce, and modify the source code solely as necessary to prepare and submit a contribution to the official repository at <https://github.com/KGH1113/ImplResourcePack>.
+3. fork, reproduce, and modify the source code solely as necessary to prepare and submit a contribution to the official repository at <https://github.com/KGH1113/Element>.
 
 Permission under item 3 includes displaying proposed changes in a GitHub fork and pull request. It does not permit using the fork or modified code for an independent project or distribution.
 
@@ -34,7 +34,7 @@ No patent, trademark, or other right is granted except the limited copyright per
 
 Contributions are accepted only under `CONTRIBUTOR_AGREEMENT.md`. Preparing or submitting a contribution does not grant the contributor any right to distribute the Software or a derivative work outside the contribution process.
 
-Contributions made specifically to `apps/impl-dm-note/**` remain distributable under GPL-3.0-only as part of ImplDmNote, as described in the Contributor Agreement.
+Contributions made specifically to `apps/element-note/**` remain distributable under GPL-3.0-only as part of ElementNote, as described in the Contributor Agreement.
 
 ## 4. Ownership and excluded material
 

@@ -12,7 +12,7 @@ if ! is_macos; then
   exit 0
 fi
 
-library="$IMPL_RESOURCEPACK_BUILD_OUTPUT/native/libImplGameWebView.dylib"
+library="$ELEMENT_BUILD_OUTPUT/native/libElementGameWebView.dylib"
 architectures="$(xcrun lipo "$library" -archs)"
 for architecture in arm64 x86_64; do
   case " $architectures " in
@@ -26,9 +26,9 @@ done
 codesign --verify --strict "$library"
 printf 'Verified universal macOS game WebView host: %s\n' "$library"
 
-smoke_source="$IMPL_RESOURCEPACK_PROJECT_ROOT/native/game-webview/GameWebViewSmoke.mm"
+smoke_source="$ELEMENT_PROJECT_ROOT/native/game-webview/GameWebViewSmoke.mm"
 require_file "$smoke_source"
-smoke="$(mktemp "$IMPL_RESOURCEPACK_BUILD_OUTPUT/native/.GameWebViewSmoke.XXXXXX")"
+smoke="$(mktemp "$ELEMENT_BUILD_OUTPUT/native/.GameWebViewSmoke.XXXXXX")"
 trap 'rm -f "$smoke"' EXIT
 xcrun clang++ -std=c++17 -fobjc-arc -mmacosx-version-min=11.0 -O2 -Wall -Wextra -Werror \
   -framework AppKit -framework WebKit -framework QuartzCore "$smoke_source" -o "$smoke"

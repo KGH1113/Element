@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 public static class RDString { public static SystemLanguage language = SystemLanguage.Korean; }
-namespace ImplResourcePack.Presentation.Settings { internal static class UIInteractionState { public static void RestoreCursor() { } public static void SetTextEditing(bool value) { } } }
+namespace Element.Presentation.Settings { internal static class UIInteractionState { public static void RestoreCursor() { } public static void SetTextEditing(bool value) { } } }
 public static class ADOBase
 {
   public class Controller { public bool paused; }
@@ -49,7 +49,7 @@ public static class FixtureColorExtensions
 {
   public static Color WithAlpha(this Color color, float alpha) { color.a = alpha; return color; }
 }
-namespace ImplResourcePack.Infrastructure.Game.Tweaks
+namespace Element.Infrastructure.Game.Tweaks
 {
   // Snapshot injection models the game-owned appearance boundary, not the
   // production appearance controller's mutation/restoration implementation.
@@ -64,7 +64,7 @@ namespace ImplResourcePack.Infrastructure.Game.Tweaks
     }
   }
 }
-namespace ImplResourcePack.Infrastructure.Game.DmNote
+namespace Element.Infrastructure.Game.DmNote
 {
   // Only the native transport is replaced. The production managed target owns
   // anchor selection, scaling, visibility fitting, staging and persistence.
@@ -150,7 +150,7 @@ namespace ImplResourcePack.Infrastructure.Game.DmNote
     public bool TryGetPointer(out Vector2 normalized) { normalized = default; return false; }
   }
 }
-namespace ImplResourcePack.Presentation.Overlay.Shared
+namespace Element.Presentation.Overlay.Shared
 {
   internal sealed class OverlayCanvasHost
   {

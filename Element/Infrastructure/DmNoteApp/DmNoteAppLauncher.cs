@@ -6,8 +6,9 @@ using UnityEngine;
 namespace Element.Infrastructure.DmNoteApp;
 
 /// <summary>
-/// Auto open/close ElementNote: opens the bundled app with the game unless it
-/// is already running. The app closes itself once the game is gone.
+/// Keeps the bundled ElementNote installed where players can open it, and
+/// auto opens it with the game unless it is already running. The app closes
+/// itself once the game is gone.
 /// </summary>
 internal sealed class DmNoteAppLauncher
 {
@@ -19,7 +20,9 @@ internal sealed class DmNoteAppLauncher
   private readonly Action<string> _log;
   private readonly Action<string> _logWarning;
   private readonly Action<string, Exception> _logError;
-  private int _busy;
+
+  // One request at a time: a later one finds the app installed or running.
+  private readonly object _gate = new();
 
   public DmNoteAppLauncher(
     IDmNoteApp app,
@@ -43,37 +46,56 @@ internal sealed class DmNoteAppLauncher
     Action<string, Exception> logError
   ) => new(ForCurrentPlatform(modPath), RunOnThread, log, logWarning, logError);
 
-  /// <summary>Returns at once; installing and starting run on a worker thread.</summary>
-  public void OpenIfClosed()
+  /// <summary>Installs or updates the app unless it is running. Returns at once; the work runs on a worker thread.</summary>
+  public void InstallIfClosed() => Start(open: false);
+
+  /// <summary>Installs the app like <see cref="InstallIfClosed"/>, then opens it.</summary>
+  public void OpenIfClosed() => Start(open: true);
+
+  private void Start(bool open)
   {
     if (_app == null || !_app.IsBundled)
       return;
-    if (Interlocked.Exchange(ref _busy, 1) == 1)
-      return;
-    _runInBackground(Open);
+    _runInBackground(() => Prepare(open));
   }
 
-  private void Open()
+  private void Prepare(bool open)
+  {
+    lock (_gate)
+    {
+      try
+      {
+        // A running copy cannot be replaced; the next game start updates it.
+        if (_app.IsRunning())
+          return;
+        _app.Install();
+        EnsureListed();
+        if (!open)
+          return;
+        _app.Launch();
+        _log("Opened ElementNote with the game.");
+      }
+      catch (Win32Exception exception) when (exception.NativeErrorCode == ErrorCancelled)
+      {
+        _logWarning("ElementNote stayed closed because its administrator prompt was declined.");
+      }
+      catch (Exception exception)
+      {
+        _logError(open ? "Open ElementNote" : "Install ElementNote", exception);
+      }
+    }
+  }
+
+  // Opening it with the game still works without the shortcut.
+  private void EnsureListed()
   {
     try
     {
-      if (_app.IsRunning())
-        return;
-      _app.Install();
-      _app.Launch();
-      _log("Opened ElementNote with the game.");
-    }
-    catch (Win32Exception exception) when (exception.NativeErrorCode == ErrorCancelled)
-    {
-      _logWarning("ElementNote stayed closed because its administrator prompt was declined.");
+      _app.EnsureListed();
     }
     catch (Exception exception)
     {
-      _logError("Open ElementNote", exception);
-    }
-    finally
-    {
-      Interlocked.Exchange(ref _busy, 0);
+      _logWarning("ElementNote was installed but could not be added to the app list: " + exception.Message);
     }
   }
 

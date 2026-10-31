@@ -100,7 +100,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 
 **게임 내 키뷰어 켜기**
 
-1. [ElementNote](#elementnote)를 실행하고 손·발 탭 중 하나를 고릅니다.
+1. [ElementNote](#elementnote)를 실행하고(Launchpad·시작 메뉴, 또는 게임과 함께 자동으로) 손·발 탭 중 하나를 고릅니다.
 2. 앱 설정의 **OBS 모드 활성화**가 켜져 있는지 확인합니다(기본으로 켜져 있음). OBS 프로그램은 없어도 됩니다.
 3. 게임 설정의 **Overlay → Add Element → 키뷰어**로 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 고른 뒤 저장합니다.
 
@@ -155,7 +155,7 @@ flowchart TB
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다
 - 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
 - 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
-- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). [자세히](docs/bundled-element-note.md)
+- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/bundled-element-note.md)
 - TUFReplay-Renderer와 연동한 리플레이 영상 렌더링
 
 ```bash

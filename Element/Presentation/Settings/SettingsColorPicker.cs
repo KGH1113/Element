@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using Element.Configuration;
+using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -33,9 +35,19 @@ internal sealed class SettingsColorPicker : IDisposable
     _v;
   private bool _syncing,
     _allowOpacity,
-    _hasDefault;
+    _hasDefault,
+    _sourceMode,
+    _followsHighlight;
+  private readonly RectTransform _planeRect;
+  private readonly SettingsSegmentedControl _source;
+  private readonly TextMeshProUGUI _opacityLabel;
+  private Action<OverlayColorSettings> _sourceChanged;
+  private const float SourceRow = 44;
   public RectTransform Root { get; }
-  public float Height => _allowOpacity ? 358 : 318;
+  public float Height =>
+    !_sourceMode ? (_allowOpacity ? 358 : 318)
+    : _followsHighlight ? 206
+    : 358 + SourceRow;
   public bool Visible => Root.gameObject.activeSelf;
   public bool IsTyping => Visible && (_hex.isFocused || _opacity.isFocused);
   public Action Hidden;
@@ -48,9 +60,21 @@ internal sealed class SettingsColorPicker : IDisposable
     Root = surface.rectTransform;
     _title = _ui.Text("", Root, 16, 10, 208, 32, 16);
     _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, 5);
+    _source = new SettingsSegmentedControl(
+      _ui,
+      Root,
+      16,
+      52,
+      256,
+      36,
+      new[] { L("하이라이트 색", "Highlight Color"), L("직접 고르기", "Custom Color") },
+      index => SetSource(index == 0),
+      13
+    );
 
     SettingsColorMask plane = _ui.Rect("Saturation and brightness", Root, 16, 52, 256, 156)
       .gameObject.AddComponent<SettingsColorMask>();
+    _planeRect = plane.rectTransform;
     plane.color = Color.white;
     plane.raycastTarget = true;
     plane.gameObject.AddComponent<Mask>().showMaskGraphic = true;
@@ -134,8 +158,11 @@ internal sealed class SettingsColorPicker : IDisposable
     _opacity.contentType = TMP_InputField.ContentType.IntegerNumber;
     SettingsUiFactory.Stretch(_opacity.textViewport, 10, 4, 23, 4);
     _opacity.textComponent.alignment = TextAlignmentOptions.Right;
+    // Right-aligned text puts the caret on the field's edge; keep room for it.
+    _opacity.textComponent.margin = new Vector4(0, 0, 2, 0);
     _opacity.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     _ui.Text("%", _opacity.transform, 49, 0, 17, 40, 13, SettingsUiFactory.Muted);
+    _opacityLabel = _ui.Text(L("불투명도", "Opacity"), Root, 16, 140, 176, 40, 14, SettingsUiFactory.Muted);
     _reset = _ui.Button(L("기본값", "Default"), Root, 200, 254, 72, 40, ResetColor);
     TextMeshProUGUI resetText = _reset.GetComponentInChildren<TextMeshProUGUI>();
     SettingsUiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
@@ -153,23 +180,90 @@ internal sealed class SettingsColorPicker : IDisposable
 
   public void Show(string title, Color value, bool opacity, Action<Color> changed)
   {
+    _sourceMode = false;
+    _followsHighlight = false;
+    _sourceChanged = null;
     _changed = changed;
     _allowOpacity = opacity;
     _title.text = title;
-    _alpha.gameObject.SetActive(opacity);
-    _opacity.gameObject.SetActive(opacity);
-    _reset.gameObject.SetActive(!opacity && _hasDefault);
-    float bottom = opacity ? 294 : 254;
-    float hexWidth = opacity || _hasDefault ? 176 : 256;
-    SettingsUiFactory.Place((RectTransform)_hex.transform, 16, bottom, hexWidth, 40);
-    SettingsUiFactory.Place(_error.rectTransform, 16, bottom + 43, 256, 16);
-    Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Height);
     if (!opacity)
       value.a = 1;
+    Open(value);
+  }
+
+  /// <summary>
+  /// Overlay element colors: follow the highlight color, keeping only their own
+  /// opacity, or a custom color with opacity.
+  /// </summary>
+  public void ShowSource(string title, OverlayColorSettings value, Action<OverlayColorSettings> changed)
+  {
+    value ??= OverlayColorSettings.HighlightColor();
+    _sourceMode = true;
+    _followsHighlight = value.Highlight;
+    _changed = null;
+    _sourceChanged = changed;
+    _allowOpacity = true;
+    _title.text = title;
+    Color color = value.Highlight ? OverlayTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(value.Hex);
+    color.a = Mathf.Clamp01(value.Alpha);
+    _source.Selected = value.Highlight ? 0 : 1;
+    Open(color);
+  }
+
+  private void Open(Color value)
+  {
+    Layout();
     Color.RGBToHSV(value, out _h, out _s, out _v);
     Apply(value, true, false);
     Root.gameObject.SetActive(true);
     Root.SetAsLastSibling();
+  }
+
+  private void SetSource(bool highlight)
+  {
+    if (!_sourceMode || _followsHighlight == highlight)
+      return;
+    _followsHighlight = highlight;
+    Color color = highlight ? OverlayTheme.Accent : _value;
+    color.a = _value.a;
+    Color.RGBToHSV(color, out _h, out _s, out _v);
+    Layout();
+    Apply(color, true, true);
+  }
+
+  // Classic pickers keep their original layout. Source pickers add the
+  // Highlight/Custom row; following the highlight leaves only opacity.
+  private void Layout()
+  {
+    bool custom = !_sourceMode || !_followsHighlight;
+    float top = _sourceMode ? SourceRow : 0;
+    _source.Root.gameObject.SetActive(_sourceMode);
+    _planeRect.gameObject.SetActive(custom);
+    _hue.gameObject.SetActive(custom);
+    _hex.gameObject.SetActive(custom);
+    _opacityLabel.gameObject.SetActive(!custom);
+    _alpha.gameObject.SetActive(_allowOpacity);
+    _opacity.gameObject.SetActive(_allowOpacity);
+    _reset.gameObject.SetActive(!_sourceMode && !_allowOpacity && _hasDefault);
+    if (custom)
+    {
+      SettingsUiFactory.Place(_planeRect, 16, 52 + top, 256, 156);
+      SettingsUiFactory.Place((RectTransform)_hue.transform, 6, 214 + top, 276, 36);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, 6, 250 + top, 276, 36);
+      float bottom = (_allowOpacity ? 294 : 254) + top;
+      float hexWidth = _allowOpacity || _reset.gameObject.activeSelf ? 176 : 256;
+      SettingsUiFactory.Place((RectTransform)_hex.transform, 16, bottom, hexWidth, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, bottom, 72, 40);
+      SettingsUiFactory.Place(_error.rectTransform, 16, bottom + 43, 256, 16);
+    }
+    else
+    {
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, 6, 52 + top, 276, 36);
+      SettingsUiFactory.Place(_opacityLabel.rectTransform, 16, 96 + top, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, 96 + top, 72, 40);
+      SettingsUiFactory.Place(_error.rectTransform, 16, 139 + top, 256, 16);
+    }
+    Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Height);
   }
 
   public void Hide()
@@ -185,6 +279,19 @@ internal sealed class SettingsColorPicker : IDisposable
   {
     if (!Visible)
       return true;
+    if (_sourceMode && _followsHighlight)
+    {
+      if (!TryReadOpacity(_opacity.text, out float alpha))
+      {
+        _error.text = L("불투명도를 0–100%로 입력하세요", "Enter opacity from 0 to 100%");
+        Focus(_opacity);
+        return false;
+      }
+      Color accent = OverlayTheme.Accent;
+      accent.a = alpha;
+      Apply(accent, true, true);
+      return true;
+    }
     if (!TryReadHex(_hex.text, out Color color))
     {
       _error.text = L("BA712B처럼 6자리로 입력하세요", "Use six hex digits, e.g. BA712B");
@@ -297,7 +404,14 @@ internal sealed class SettingsColorPicker : IDisposable
     _alphaGraphic.SetColor(opaque);
     _error.text = "";
     if (notify)
+    {
       _changed?.Invoke(color);
+      _sourceChanged?.Invoke(
+        _followsHighlight
+          ? OverlayColorSettings.HighlightColor(color.a)
+          : OverlayColorSettings.Custom("#" + ColorUtility.ToHtmlStringRGB(color), color.a)
+      );
+    }
     _ui.RefreshTheme();
     _syncing = false;
   }

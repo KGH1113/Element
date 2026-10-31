@@ -7,6 +7,8 @@ using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Presentation.Settings;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Elements;
+using Element.Domain.Elements;
 using Element.Presentation.Layout;
 using Element.Domain.Input;
 using Element.Domain.Layout;
@@ -56,7 +58,9 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
       Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
-      RenderLayout(1280, 720, SystemLanguage.Korean, "layout-ko-720");
+      Debug.Log("UI_PREVIEW_SCREEN " + Screen.width + "x" + Screen.height);
+      RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
+      RenderLayout(Screen.width, Screen.height, SystemLanguage.English, "layout-en");
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
       CheckColorPicker();
       RenderInputCarets();
@@ -67,274 +71,427 @@ namespace Element.Editor
     {
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-      var host = new OverlayCanvasHost();
+      // Elements measure themselves in screen pixels, so the editor uses the
+      // fixture's screen; the narrow pass checks the toolbar at its own width.
+      int screenWidth = Screen.width, screenHeight = Screen.height;
       var settings = new ElementSettings { ReduceUiMotion = true };
+      settings.Migrate();
       OverlayTheme.SetHighlight(settings.HighlightColor);
-      var target = new PreviewTarget(new Rect(96, 80, 280, 44), language == SystemLanguage.Korean ? "진행률" : "Progress", font);
-      host.LayoutSettings.Add(target.Settings); host.LayoutTargets.Add(target);
-      GameObject gallerySources = CreateGalleryTemplates(host, font);
-      var external = new ExternalPreviewTarget(new Rect(width - 264, 180, 208, 130));
-      var footTemplate = new ExternalPreviewTarget(new Rect(0, 0, 210, 270), "foot");
-      host.LayoutTargets.Add(external);
-      host.LayoutSettings.Add(external.Settings);
-      int instanceNumber = 0;
-      host.AddFactory = templateId =>
-      {
-        var copy = new PreviewTarget(new Rect(width * .5f - 140, height * .5f - 22, 280, 44), target.Label, font, "copy-" + ++instanceNumber);
-        host.LayoutTargets.Add(copy); host.LayoutSettings.Add(copy.Settings);
-        return copy;
-      };
-      var editor = new OverlayLayoutEditor(host, null, font, font.material, _ => {}, settings, null, new[] { external, footTemplate });
+      var host = new OverlayCanvasHost();
+      host.SetFont(font, font.material);
+      host.ConfigureLayouts(settings.OverlayLayouts);
+      var viewers = new PreviewKeyViewers(screenWidth);
+      var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
       var eventsRoot = new GameObject("Fixture events", typeof(EventSystem));
       editor.Open();
-      editor.GetType().GetField("_selected", Private).SetValue(editor, 0);
       GameObject root = Field<GameObject>(editor, "_root"); root.SetActive(true);
       var cameraRoot = new GameObject("Layout preview camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
       camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.04f, .05f, .07f);
-      var texture = new RenderTexture(width, height, 24); camera.targetTexture = texture;
-      Canvas canvas = root.GetComponent<Canvas>(); canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
+      var texture = new RenderTexture(screenWidth, screenHeight, 24); camera.targetTexture = texture;
+      var canvases = new[] { host.Root.GetComponent<Canvas>(), root.GetComponent<Canvas>() };
+      _refresh = () => Call(editor, "UpdateFrames");
       editor.Resize(width, height); Canvas.ForceUpdateCanvases();
       Rect toolbar = editor.ToolbarBounds;
       Assert(toolbar.xMin >= 0 && toolbar.xMax <= width && toolbar.yMax <= height, "layout toolbar fits viewport");
       Assert(toolbar.width <= 640.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
-      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 1, "only the selected target has a Unity outline");
-      editor.GetType().GetField("_selected", Private).SetValue(editor, 1);
-      Call(editor, "UpdateFrames");
-      Assert(external.Selected && root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 0,
-        "native target owns its outline without a duplicate Unity outline");
-      editor.GetType().GetField("_selected", Private).SetValue(editor, -1);
-      Call(editor, "UpdateFrames");
-      Assert(!external.Selected && root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 0,
-        "deselection removes all outlines");
       RectTransform toolbarRect = Field<RectTransform>(editor, "_toolbar");
+      Call(editor, "UpdateFrames");
+      Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "no element toolbar without a selection");
+      int fpsIndex = IndexOf(editor, host.LayoutTargets.Single(target => target.Id == "fps"));
+      Select(editor, fpsIndex);
+      RectTransform popup = Field<RectTransform>(editor, "_settingsPanel");
+      Assert(popup != null && popup.gameObject.activeSelf, "selecting an element opens its own toolbar");
+      Assert(!toolbarRect.GetComponentsInChildren<Button>(true).Any(button => button.name.Contains("settings")),
+        "the toolbar has no settings button");
+      Assert(popup.GetComponentsInChildren<Button>(true).Any(button => button.name == "Edit text"), "a text's toolbar opens the text editor");
+      Assert(popup.Find("Drag element toolbar") != null, "the element toolbar has a grip to move it");
+      Rect barBefore = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      Vector2 grab = barBefore.position + new Vector2(14, 20);
+      Call(editor, "BeginElementBarDrag", grab);
+      Call(editor, "MoveElementBar", grab + new Vector2(-60, -40));
+      SetField(editor, "_elementBarDragging", false);
+      Rect barAfter = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      Assert(Mathf.Abs(barAfter.x - (barBefore.x - 60)) < .5f && Mathf.Abs(barAfter.y - (barBefore.y - 40)) < .5f,
+        "the element toolbar follows its grip one to one");
+      Select(editor, -1);
+      Select(editor, fpsIndex);
+      popup = Field<RectTransform>(editor, "_settingsPanel");
+      Rect barKept = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      Assert(barKept.position == barAfter.position, "the element toolbar keeps its place for the next selection");
+      var cutouts = editor.NativeExclusions;
+      float toolbarScale = (float)editor.GetType().GetProperty("ToolbarScale", Private).GetValue(editor);
+      Assert(cutouts.Count == 2 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
+        "native viewers get each panel as its own rounded cutout: " + cutouts.Count);
+      Assert(Field<TMP_InputField>(editor, "_textSizeInput").text == "25", "a text's toolbar shows its size in pixels");
+      CheckInputCaret(Field<TMP_InputField>(editor, "_textSizeInput"), "element toolbar text size", "", "25", "37.5", "400");
+      foreach (TextMeshProUGUI label in popup.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "text toolbar label fits: " + label.text);
+      }
+      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 1, "only the selected element has an outline");
       RectTransform grip = (RectTransform)toolbarRect.Find("Drag panel");
       Assert(Mathf.Abs(CenterIn(grip, toolbarRect).y - CenterIn(Field<TextMeshProUGUI>(editor, "_instruction").rectTransform, toolbarRect).y) < .1f,
         "move grip and title share the same vertical center");
-      external.PointerOffset = new Vector2(0, 28);
-      editor.GetType().GetField("_selected", Private).SetValue(editor, 1);
-      foreach (LayoutHandle edge in new[] { LayoutHandle.Top, LayoutHandle.Bottom })
-      {
-        Vector2 edgePoint = new Vector2(external.Bounds.center.x, edge == LayoutHandle.Top ? external.Bounds.yMin : external.Bounds.yMax);
-        object[] hitArgs = { edgePoint - external.PointerOffset, LayoutHandle.None };
-        int hit = (int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, hitArgs);
-        Assert(hit == 1 && (LayoutHandle)hitArgs[1] == edge, "native top/bottom hit uses the same coordinates as its outline");
-      }
-      editor.GetType().GetField("_selected", Private).SetValue(editor, -1);
-      object[] firstHit = { new Vector2(external.Bounds.center.x, external.Bounds.yMin + 3) - external.PointerOffset, LayoutHandle.None };
-      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, firstHit) == -1,
-        "unselected native element excludes the empty note viewport");
-      object[] contentHit = { external.SelectionBounds.center - external.PointerOffset, LayoutHandle.None };
-      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, contentHit) == 1
-        && (LayoutHandle)contentHit[1] == LayoutHandle.Move, "unselected native element selects only current content");
-      external.PointerOffset = Vector2.zero;
-      editor.GetType().GetField("_selected", Private).SetValue(editor, 0);
-      Call(editor, "UpdateFrames");
       Button plus = Field<Button>(editor, "_plus"), minus = Field<Button>(editor, "_minus");
       TMP_InputField sizeInput = Field<TMP_InputField>(editor, "_scaleInput");
       Assert(Mathf.Abs(CenterIn((RectTransform)plus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f
         && Mathf.Abs(CenterIn((RectTransform)minus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f,
         "plus, minus and percentage field share one vertical center");
-      foreach (string value in new[] { "20", "100", "500", "99.9" })
-      {
-        sizeInput.SetTextWithoutNotify(value); Call(editor, "AlignScaleValue"); Canvas.ForceUpdateCanvases();
-        TextMeshProUGUI suffix = Field<TextMeshProUGUI>(editor, "_scaleSuffix");
-        sizeInput.textComponent.ForceMeshUpdate(); suffix.ForceMeshUpdate();
-        RectTransform field = (RectTransform)sizeInput.transform;
-        Vector3 left = field.InverseTransformPoint(sizeInput.textComponent.transform.TransformPoint(sizeInput.textComponent.textBounds.min));
-        Vector3 right = field.InverseTransformPoint(suffix.transform.TransformPoint(suffix.textBounds.max));
-        Assert(Mathf.Abs((left.x + right.x) * .5f - field.rect.center.x) < 2, "percentage text group stays horizontally centered: " + value);
-      }
       CheckInputCaret(sizeInput, "overlay scale", "", "100", "99.9");
-      Assert(((RectTransform)plus.transform).anchoredPosition.x < ((RectTransform)sizeInput.transform).anchoredPosition.x
-        && ((RectTransform)sizeInput.transform).anchoredPosition.x < ((RectTransform)minus.transform).anchoredPosition.x,
-        "size controls are ordered plus, percent, minus");
-      Assert(root.GetComponentsInChildren<TextMeshProUGUI>(false).All(label => label.text != "Size %" && label.text != "크기 %"),
-        "size caption is absent");
-      foreach (LayoutActionIcon icon in root.GetComponentsInChildren<LayoutActionIcon>(false))
-      {
+      foreach (LayoutActionIcon icon in root.GetComponentsInChildren<LayoutActionIcon>(true))
         using (var mesh = new VertexHelper())
         {
           typeof(LayoutActionIcon).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(icon, new object[] { mesh });
           Assert(mesh.currentVertCount > 0, "vector icon renders: " + icon.Kind);
         }
-      }
-      Assert(Field<Button>(editor, "_save").colors.normalColor.maxColorComponent < .5f,
-        "save uses a dark tinted fill");
-      Assert(Field<Button>(editor, "_delete").interactable && Field<Button>(editor, "_add").interactable,
-        "selected element exposes delete and add actions");
-      Call(editor, "CommitScale", "150");
-      Assert(Mathf.Approximately(target.Settings.Scale, 1.5f), "precise layout scale commits");
-      Call(editor, "Undo"); Assert(Mathf.Approximately(target.Settings.Scale, 1), "layout undo restores settings");
-      Call(editor, "Redo"); Assert(Mathf.Approximately(target.Settings.Scale, 1.5f), "layout redo restores edit");
-      Call(editor, "CommitScale", "999"); Call(editor, "UpdateToolbar");
-      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("500"), "layout validation stays visible");
-      Call(editor, "ResetSelected"); Call(editor, "Undo");
-      Assert(Mathf.Approximately(target.Settings.Scale, 1.5f), "element reset is undoable");
-      var beforeResize = new LayoutSnapshot(host.LayoutSettings);
-      Rect beforeDrag = target.Bounds;
-      target.SetBounds(new Rect(beforeDrag.x + 80, beforeDrag.y + 40, beforeDrag.width, beforeDrag.height));
-      editor.GetType().GetField("_dragging", Private).SetValue(editor, 0);
-      editor.Resize(width + 100, height + 40);
-      Assert(Field<int>(editor, "_dragging") == -1 && beforeResize.Matches(new LayoutSnapshot(host.LayoutSettings)),
-        "viewport change cancels the staged drag without selecting an anchor or changing persistent placement");
-      Assert(target.Bounds == beforeDrag, "viewport change discards staged pixel movement");
-      editor.GetType().GetField("_scaleErrorUntil", Private).SetValue(editor, 0f);
-      editor.Resize(width, height); Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false))
+      foreach (TextMeshProUGUI label in toolbarRect.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(label.font == font, "layout uses overlay font");
-        if (label.transform.IsChildOf(Field<RectTransform>(editor, "_toolbar")))
-          Assert(!label.isTextTruncated, "layout label fits: " + label.text);
+        Assert(label.font == font && !label.isTextTruncated, "toolbar label fits: " + label.text);
       }
-      // Drag the toolbar over the selected outline while preserving the exact
-      // pointer offset. Validate the generated mesh, not just sibling order.
-      Vector2 grab = toolbar.position + new Vector2(20, 18);
-      Call(editor, "BeginToolbarDrag", grab);
-      Call(editor, "MoveToolbar", grab);
-      Assert(editor.ToolbarBounds.position == toolbar.position, "panel does not jump on pointer down");
-      Vector2 moved = new Vector2(110, 90);
-      Call(editor, "MoveToolbar", moved + new Vector2(20, 18));
-      Call(editor, "UpdateFrames"); Canvas.ForceUpdateCanvases();
-      Assert(editor.ToolbarBounds.position == moved, "panel follows drag one to one");
-      LayoutOutlineGraphic outline = root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Single();
-      using (var mesh = new VertexHelper())
+      Assert(Field<Button>(editor, "_save").colors.normalColor.maxColorComponent < .5f, "save uses a dark tinted fill");
+      if (width != screenWidth || height != screenHeight)
       {
-        typeof(LayoutOutlineGraphic).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(outline, new object[] { mesh });
-        UIVertex vertex = default;
-        for (int i = 0; i < mesh.currentVertCount; i++)
-        {
-          mesh.PopulateUIVertex(ref vertex, i);
-          Vector2 point = new Vector2(target.Bounds.x + vertex.position.x, target.Bounds.y - vertex.position.y);
-          Assert(!editor.ToolbarBounds.Contains(point), "outline mesh excludes the dragged panel");
-        }
+        Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
+        return;
       }
-      Assert(!outline.GetComponentsInChildren<TextMeshProUGUI>(true).Any(), "selected outline has no floating name label");
-      Call(editor, "MoveToolbar", new Vector2(-1000, -1000));
-      Assert(editor.ToolbarBounds.position == Vector2.zero, "panel remains reachable at screen edges");
-      Call(editor, "MoveToolbar", moved + new Vector2(20, 18));
-      Call(editor, "UpdateFrames"); Canvas.ForceUpdateCanvases();
-      camera.Render(); RenderTexture.active = texture;
-      var image = new Texture2D(width, height, TextureFormat.RGB24, false);
-      image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
-      File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
-      CheckElementEditing(editor, host, target, settings, camera, texture, width, height, name);
-      RenderTexture.active = null; camera.targetTexture = null;
-      Object.DestroyImmediate(image); Object.DestroyImmediate(texture); Object.DestroyImmediate(cameraRoot);
-      OverlayColorPopover popover = Field<OverlayColorPopover>(editor, "_colorPopover");
-      if (popover != null)
+
+      // Everything below edits real elements on the fixture's screen.
+      IOverlayLayoutTarget fps = host.LayoutTargets.Single(target => target.Id == "fps");
+      Call(editor, "CommitScale", "150");
+      Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "precise layout scale commits");
+      Call(editor, "Undo"); Assert(Mathf.Abs(fps.EffectiveScale - 1) < .01f, "layout undo restores the scale");
+      Call(editor, "Redo"); Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "layout redo restores the edit");
+      Call(editor, "CommitScale", "1999"); Call(editor, "UpdateToolbar");
+      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("1000"), "scale validation names the 1000% limit");
+      SaveFrame(camera, texture, canvases, name);
+
+      // Add Element: three kinds; key viewers explain why they're unavailable.
+      viewers.Availability = KeyViewerAvailability.AppClosed;
+      Call(editor, "ToggleAddMenu");
+      RectTransform menu = Field<RectTransform>(editor, "_addMenu");
+      Button[] kinds = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
+      Assert(kinds.Length == 3, "Add Element offers Text, Key viewer and Shape");
+      Assert(kinds[0].interactable && !kinds[1].interactable && kinds[2].interactable, "a closed ElementNote disables only key viewers");
+      Assert(kinds[1].GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text.Contains("ElementNote")), "the disabled key viewer says how to enable it");
+      foreach (TextMeshProUGUI label in menu.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
-        SettingsUiFactory pickerUi = Field<SettingsUiFactory>(Field<SettingsColorPicker>(popover, "_picker"), "_ui");
-        Object.DestroyImmediate(Field<Sprite>(pickerUi, "_rounded")); Object.DestroyImmediate(Field<Texture2D>(pickerUi, "_texture"));
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "add menu label fits: " + label.text);
       }
-      root.SetActive(false); Object.DestroyImmediate(root);
-      Object.DestroyImmediate(eventsRoot);
-      Object.DestroyImmediate(gallerySources);
-      SettingsUiFactory ui = Field<SettingsUiFactory>(editor, "_ui");
-      Object.DestroyImmediate(Field<Sprite>(ui, "_rounded")); Object.DestroyImmediate(Field<Texture2D>(ui, "_texture"));
+      Assert(PopoverInside(editor, menu, screenWidth, screenHeight), "the add menu stays on screen");
+      SaveFrame(camera, texture, canvases, name + "-add");
+      Call(editor, "ToggleAddMenu");
+      Assert(Field<RectTransform>(editor, "_addMenu") == null, "Add Element closes its menu again");
+
+      TextOverlayElement fpsText = host.LayoutTargets.OfType<TextOverlayElement>().Single(text => text.Id == "fps");
+      Call(editor, "CommitTextSize", fpsText, "30");
+      Assert(fpsText.Settings.Text.Runs.All(run => Mathf.Abs(run.Size * fpsText.EffectiveScale - 30) < .05f),
+        "the toolbar's size sets the whole text in pixels");
+      Call(editor, "CommitTextSize", fpsText, "900");
+      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("400"), "a size outside 4–400px is refused with the range");
+      Call(editor, "Undo");
+      CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
+      CheckKeyViewers(editor, viewers);
+      CheckTextEditor(editor, host, camera, texture, canvases, name);
+      CheckHighlightColor(editor, settings, camera, texture, canvases, name);
+
+      var beforeReset = new LayoutSnapshot(host.LayoutSettings);
+      Call(editor, "OpenResetConfirmation");
+      Assert(Field<GameObject>(editor, "_modalRoot") != null && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
+        "Reset all asks first, covering native viewers");
+      Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening the confirmation changes nothing");
+      Call(editor, "CloseModal");
+      Call(editor, "RestoreDefaultOverlays");
+      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled)
+        && host.LayoutTargets.Single(target => target.Id == "fps").Enabled, "Reset all removes added elements and restores built-ins");
+      Call(editor, "Undo");
+      Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Reset all is one undo step");
+      editor.Close(false);
+      Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "cancel restores the opening highlight and exits");
+      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled), "cancel discards added shapes");
+      Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
     }
 
-    private static void CheckElementEditing(OverlayLayoutEditor editor, OverlayCanvasHost host, PreviewTarget original,
-      ElementSettings settings, Camera camera, RenderTexture texture, int width, int height, string name)
+    private static void CheckShapes(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name, int width, int height)
+    {
+      Call(editor, "ToggleAddMenu");
+      Field<RectTransform>(editor, "_addMenu").GetComponentsInChildren<Button>(true).Single(button => button.name == "Add Shape").onClick.Invoke();
+      ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
+      Assert(shape.Enabled && Field<int>(editor, "_selected") == IndexOf(editor, shape), "a new shape is added and selected");
+      Assert(shape.Shape.Kind == OverlayShapeKind.Square, "a new shape starts as a square");
+      Call(editor, "UpdateFrames");
+      ShapeHandlesGraphic handles = Field<ShapeHandlesGraphic>(editor, "_shapeHandles");
+      Assert(handles.gameObject.activeSelf, "a selected shape shows its corner handles");
+      SaveFrame(camera, texture, canvases, name + "-shape");
+
+      // Drag the top-left corner outward: the box grows and the other corners stay.
+      Rect before = shape.Bounds;
+      Vector2 corner = before.position;
+      object[] hit = { corner, null, 0 };
+      Assert((bool)editor.GetType().GetMethod("TryShapeHandleAt", Private).Invoke(editor, hit), "a corner handle can be grabbed");
+      Call(editor, "BeginShapeDrag", hit[1], hit[2], corner);
+      SetField(editor, "_pressMoved", true);
+      Call(editor, "DragShapeHandle", corner + new Vector2(-40, -20));
+      Call(editor, "FinishDrag");
+      Rect after = shape.Bounds;
+      Assert(Mathf.Abs(after.xMax - before.xMax) < 1 && Mathf.Abs(after.yMax - before.yMax) < 1 && after.width > before.width + 30,
+        "moving a corner grows the box toward it and keeps the others");
+      Assert(OverlayShapeGeometry.IsEdited(shape.Shape), "a moved corner counts as an edit");
+
+      // Round one corner from its handle.
+      List<Vector2> radii = Field<List<Vector2>>(editor, "_handleRadii");
+      Call(editor, "CollectHandles", shape);
+      Vector2 radiusHandle = radii[2];
+      Call(editor, "BeginShapeDrag", Enum.Parse(hit[1].GetType(), "Radius"), 2, radiusHandle);
+      SetField(editor, "_pressMoved", true);
+      Vector2 inward = (shape.Bounds.center - radiusHandle).normalized;
+      Call(editor, "DragShapeHandle", radiusHandle + inward * 30);
+      Call(editor, "FinishDrag");
+      Assert(shape.Shape.Points[2].Radius > 5, "dragging a radius handle rounds only that corner");
+      Assert(shape.Shape.Points[0].Radius == 0 && shape.Shape.Points[1].Radius == 0, "other corners stay sharp");
+      SaveFrame(camera, texture, canvases, name + "-shape-edited");
+
+      // A click on a handle without moving opens its exact values.
+      Call(editor, "OpenShapeValues", shape, Enum.Parse(hit[1].GetType(), "Corner"), 1, LayoutHandle.None);
+      LayoutValuePopover values = Field<LayoutValuePopover>(editor, "_valuePopover");
+      Assert(values.Visible && PopoverInside(editor, values.Root, width, height), "corner values open on screen");
+      CheckInputCaret(Field<TMP_InputField[]>(values, "_inputs")[0], "exact corner value", "", "12", "-263.9", "10000");
+      SaveFrame(camera, texture, canvases, name + "-shape-values");
+      TMP_InputField[] inputs = Field<TMP_InputField[]>(values, "_inputs");
+      inputs[0].text = "";
+      Assert(!values.Commit() && Field<TextMeshProUGUI>(values, "_error").text.Length > 0, "an invalid number explains the range");
+      Rect sized = shape.Bounds;
+      values.Hide();
+      Call(editor, "OpenShapeValues", shape, Enum.Parse(hit[1].GetType(), "None"), -1, LayoutHandle.Right);
+      inputs[0].text = Mathf.Round(shape.Shape.Width * shape.EffectiveScale + 50).ToString(System.Globalization.CultureInfo.InvariantCulture);
+      Assert(values.Commit(), "a valid width applies");
+      float grown = 50 * OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
+      Assert(Mathf.Abs(shape.Bounds.x - sized.x) < 1 && Mathf.Abs(shape.Bounds.width - sized.width - grown) < 1.5f
+        && Mathf.Abs(shape.Bounds.height - sized.height) < 1,
+        "an exact width stretches from the left edge: " + sized + " -> " + shape.Bounds + " typed " + inputs[0].text);
+
+      // Settings: kind, fill and border.
+      Call(editor, "UpdateFrames");
+      RectTransform panel = Field<RectTransform>(editor, "_settingsPanel");
+      Assert(panel != null && PopoverInside(editor, panel, width, height), "shape settings open on screen");
+      foreach (TextMeshProUGUI label in panel.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "shape settings label fits: " + label.text);
+      }
+      SaveFrame(camera, texture, canvases, name + "-shape-settings");
+      Call(editor, "ChooseShapeKind", shape, OverlayShapeKind.Triangle);
+      Assert(Field<GameObject>(editor, "_modalRoot") != null && shape.Shape.Kind == OverlayShapeKind.Square,
+        "changing an edited shape asks before dropping its edits");
+      SaveFrame(camera, texture, canvases, name + "-shape-confirm");
+      Field<GameObject>(editor, "_modalRoot").GetComponentsInChildren<Button>().Last().onClick.Invoke();
+      Assert(shape.Shape.Kind == OverlayShapeKind.Triangle && shape.Shape.Points.Count == 3 && !OverlayShapeGeometry.IsEdited(shape.Shape),
+        "confirming changes the kind and resets its corners");
+      Call(editor, "Undo");
+      Assert(shape.Shape.Kind == OverlayShapeKind.Square && OverlayShapeGeometry.IsEdited(shape.Shape), "the kind change is undoable");
+      Call(editor, "UpdateFrames");
+      Assert(Field<SettingsSegmentedControl>(editor, "_kindControl").Selected == 0, "the shape toolbar follows an undone kind");
+      Call(editor, "OpenShapeColor", shape, false);
+      SettingsColorPicker picker = Field<SettingsColorPicker>(editor, "_elementPicker");
+      Assert(picker.Visible && Field<SettingsSegmentedControl>(picker, "_source").Selected == 0, "fill starts on the highlight color");
+      Assert(!Field<TMP_InputField>(picker, "_hex").gameObject.activeSelf && Field<TMP_InputField>(picker, "_opacity").gameObject.activeSelf,
+        "highlight colors edit only their opacity");
+      SaveFrame(camera, texture, canvases, name + "-shape-fill-highlight");
+      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
+      Assert(Field<TMP_InputField>(picker, "_hex").gameObject.activeSelf && !shape.Shape.Fill.Highlight, "Custom Color edits the full color");
+      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      Assert(picker.Commit() && shape.Shape.Fill.Hex == "#2050A0", "a custom fill applies");
+      SaveFrame(camera, texture, canvases, name + "-shape-fill-custom");
+      picker.Hide();
+      Call(editor, "CommitStrokeWidth", shape, "500");
+      Assert(shape.Shape.StrokeWidth == 0 && Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("100"), "a border width outside 0–100 is refused");
+      Call(editor, "CommitStrokeWidth", shape, "6");
+      Assert(shape.Shape.StrokeWidth == 6, "a border width applies");
+      Call(editor, "ClosePopovers");
+    }
+
+    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers)
+    {
+      viewers.Availability = KeyViewerAvailability.Ready;
+      Call(editor, "ToggleAddMenu");
+      Field<RectTransform>(editor, "_addMenu").GetComponentsInChildren<Button>(true).Single(button => button.name == "Add KeyViewer").onClick.Invoke();
+      IOverlayLayoutTarget hand = viewers.Targets.Last();
+      Assert(hand.TemplateId == OverlayElementKinds.HandKeyViewer && Field<int>(editor, "_selected") == IndexOf(editor, hand),
+        "a key viewer is added at once, as a hand viewer");
+      Call(editor, "UpdateFrames");
+      SettingsSegmentedControl kind = Field<SettingsSegmentedControl>(editor, "_kindControl");
+      Assert(kind.Selected == 0, "key viewer settings show hand selected");
+      kind.Select(1, true);
+      IOverlayLayoutTarget foot = viewers.Targets.Last();
+      Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
+        "switching to foot replaces the viewer in place");
+      Assert(Field<int>(editor, "_selected") == IndexOf(editor, foot), "the switched viewer stays selected");
+    }
+
+    private static void CheckTextEditor(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name)
+    {
+      TextOverlayElement fps = host.LayoutTargets.OfType<TextOverlayElement>().Single(text => text.Id == "fps");
+      Select(editor, IndexOf(editor, fps));
+      ElementSettings preferences = Field<ElementSettings>(editor, "_preferences");
+      preferences.ReduceUiMotion = false;
+      Field<RectTransform>(editor, "_settingsPanel").GetComponentsInChildren<Button>(true).Single(button => button.name == "Edit text").onClick.Invoke();
+      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
+      Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "the element toolbar steps aside while editing text");
+      GameObject editorRoot = Field<GameObject>(text, "_root");
+      Assert(!editorRoot.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == "텍스트 편집" || label.text == "Edit text"),
+        "the editor has no title card");
+      Assert(Field<CanvasGroup>(text, "_fade").alpha < 1, "the editor fades in instead of cutting in");
+      SetField(text, "_openedAt", -10f); Call(text, "UpdateFade");
+      Assert(Field<CanvasGroup>(text, "_fade").alpha == 1, "the fade finishes");
+      preferences.ReduceUiMotion = true;
+      RectTransform values = Field<RectTransform>(text, "_valuesArea");
+      Button[] chips = values.GetComponentsInChildren<Button>(true);
+      Assert(chips.Any(chip => chip.name == "Value progress-start") && chips.Any(chip => chip.name == "Value progress-current"),
+        "start and current progress are offered on their own");
+      Assert(!chips.Any(chip => chip.name.EndsWith("-label")), "labels are not offered");
+      Assert(chips.Length == OverlayValueCatalog.All.Count(value => !OverlayValueCatalog.IsLegacy(value)), "every category is listed at once");
+      foreach (TextMeshProUGUI label in values.GetComponentsInChildren<TextMeshProUGUI>(true))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "value chip fits: " + label.text);
+      }
+      RectTransform chipContent = values.GetComponent<ScrollRect>().content;
+      TextMeshProUGUI[] categories = chipContent.GetComponentsInChildren<TextMeshProUGUI>(true)
+        .Where(label => label.transform.parent == chipContent).ToArray();
+      Assert(categories.Length == OverlayValueCatalog.Categories.Length && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
+        "category names line up in one column");
+      float column = categories.Max(label => label.rectTransform.sizeDelta.x);
+      Assert(chips.All(chip => ((RectTransform)chip.transform).anchoredPosition.x >= column - .5f), "values wrap to the right of the names");
+      RectTransform format = Field<RectTransform>(text, "_formatBar");
+      Assert(Field<TMP_InputField>(text, "_sizeInput").transform.IsChildOf(format) && Field<Button>(text, "_colorButton").transform.IsChildOf(format)
+        && format.GetComponent<SettingsCapsuleGraphic>() != null, "size and color share one capsule");
+      float actual = fps.EffectiveScale * OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
+      Assert(Mathf.Abs(Field<float>(text, "_previewScale") - actual) < .001f, "the edited text is shown at its game size");
+      OverlayTextDocument document = Field<OverlayTextDocument>(text, "_document");
+      Assert(document.Count == 7 && document[6].IsValue, "the editor reads FPS | {fps}");
+      List<int> lengths = Field<List<int>>(text, "_length");
+      Assert(lengths[6] >= 3, "the value shows its live or sample number");
+      SaveFrame(camera, texture, canvases, name + "-text");
+      SetField(text, "_caretIndex", 7); SetField(text, "_anchor", 7);
+      Call(text, "Type", " ms");
+      Call(text, "InsertValue", OverlayValueCatalog.Get(OverlayValueId.KeysPerSecond));
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(document.Count == 11 && document[10].Value == "kps", "typing and values insert at the caret");
+      SetField(text, "_anchor", 0); SetField(text, "_caretIndex", 3);
+      Call(text, "Render");
+      string shown = (25 * fps.EffectiveScale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+      Assert(Field<TMP_InputField>(text, "_sizeInput").text == shown, "the size field shows the selection's size as drawn: " + shown);
+      CheckInputCaret(Field<TMP_InputField>(text, "_sizeInput"), "text editor size", "", "25", "37.5", "400");
+      Call(text, "CommitSize", "40");
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
+      Button color = Field<Button>(text, "_colorButton");
+      color.onClick.Invoke();
+      SettingsColorPicker picker = Field<SettingsColorPicker>(text, "_picker");
+      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
+      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      picker.Commit();
+      SaveFrame(camera, texture, canvases, name + "-text-color");
+      picker.Hide();
+      Call(text, "DeleteRange", 9, 10);
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(document.Count == 10 && document[9].Value == "kps", "deleting next to a value removes one step");
+      Call(text, "Undo");
+      Assert(Field<OverlayTextDocument>(text, "_document").Count == 11, "the text editor has its own undo");
+      text.Close(true, true);
+      Assert(!text.IsOpen && fps.Settings.Text.Runs.Any(run => run.Value == "kps") && !fps.Settings.Text.Runs[0].Color.Highlight
+        && fps.Settings.Text.Runs[0].Color.Hex == "#40C0FF" && fps.Settings.Text.Runs[0].Size > 0, "Done saves the runs with their colors and sizes");
+      Call(editor, "Undo");
+      Assert(!fps.Settings.Text.Runs.Any(run => run.Value == "kps"), "a text edit is one layout undo step");
+
+      TextOverlayElement progress = host.LayoutTargets.OfType<TextOverlayElement>().Single(element => element.Id == "progress");
+      Select(editor, IndexOf(editor, progress));
+      Call(editor, "OpenTextEditor", progress, false);
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(!document[0].IsValue && document[document.Count - 1].Value == "progress", "a converted label opens as plain words");
+      text.Close(false, true);
+
+      Call(editor, "AddText");
+      Assert(text.IsOpen && Field<OverlayTextDocument>(text, "_document").Count == 0, "Add Element → Text opens an empty editor");
+      RectTransform hint = Field<TextMeshProUGUI>(text, "_placeholder").rectTransform, emptyCaret = Field<Image>(text, "_emptyCaret").rectTransform;
+      Assert(hint.gameObject.activeSelf && emptyCaret.gameObject.activeSelf && emptyCaret.anchoredPosition.x < hint.anchoredPosition.x
+        && Mathf.Abs((emptyCaret.anchoredPosition.y - emptyCaret.sizeDelta.y * .5f) - (hint.anchoredPosition.y - hint.sizeDelta.y * .5f)) < 1,
+        "an empty text shows its caret just before the hint, on one line");
+      SaveFrame(camera, texture, canvases, name + "-text-new");
+      TextOverlayElement added = host.LayoutTargets.OfType<TextOverlayElement>().Last();
+      text.Close(false, true);
+      Assert(!added.Enabled, "cancelling a new text removes it");
+    }
+
+    private static void CheckHighlightColor(OverlayLayoutEditor editor, ElementSettings settings, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name)
     {
       Call(editor, "ToggleColor");
-      OverlayColorPopover picker = Field<OverlayColorPopover>(editor, "_colorPopover");
-      SettingsColorPicker controls = Field<SettingsColorPicker>(picker, "_picker");
-      Assert(picker.Visible, "Edit Color opens its anchored popover");
+      OverlayColorPopover popover = Field<OverlayColorPopover>(editor, "_colorPopover");
+      SettingsColorPicker controls = Field<SettingsColorPicker>(popover, "_picker");
+      Assert(popover.Visible && !Field<SettingsSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
+        "the highlight color itself has no Highlight/Custom choice");
       TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
       string before = settings.HighlightColor;
       hex.text = "#12";
-      Assert(settings.HighlightColor == before && Field<TextMeshProUGUI>(controls, "_error").text == "", "incomplete color preserves theme without a premature error");
-      Assert(!picker.Commit() && Field<TextMeshProUGUI>(controls, "_error").text.Length > 0, "invalid color cannot commit and shows an inline error");
+      Assert(settings.HighlightColor == before && !popover.Commit(), "an incomplete color cannot commit");
       hex.text = "#204060";
-      Assert(picker.Commit() && settings.HighlightColor == "#204060", "valid HEX color commits as RGB");
-      SettingsColorPlane plane = Field<SettingsColorPlane>(controls, "_plane");
-      Slider hue = Field<Slider>(controls, "_hue");
-      plane.Changed(.8f, 0);
-      hue.value = .77f;
-      plane.Changed(.8f, .9f);
-      Color.RGBToHSV(OverlayTheme.Accent, out float h, out float s, out float v);
-      Assert(Mathf.Abs(h - .77f) < .01f && Mathf.Abs(s - .8f) < .01f && Mathf.Abs(v - .9f) < .01f,
-        "HSV preserves selected hue through black without RGB round-trip jumps");
-      hex.text = "#BA712B"; picker.Commit();
-      Canvas.ForceUpdateCanvases();
-      foreach (Button button in picker.Root.GetComponentsInChildren<Button>(false))
-        foreach (TextMeshProUGUI label in button.GetComponentsInChildren<TextMeshProUGUI>(false))
-        {
-          label.ForceMeshUpdate();
-          Assert(label.textInfo.lineCount <= 1 && !label.isTextTruncated, "color popover button stays on one line: " + label.text);
-        }
-      SaveFrame(camera, texture, width, height, name + "-color");
-      picker.Hide();
-
-      Call(editor, "OpenGallery");
-      GameObject gallery = Field<GameObject>(editor, "_galleryRoot");
-      Assert(gallery != null && gallery.activeSelf, "Add Element opens modal gallery");
-      Assert(editor.NativeExclusionBounds == new Rect(0, 0, width, height), "gallery excludes native surfaces across the viewport");
-      var samples = gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Where(t => t.text.Contains("0%-48%")).ToArray();
-      Assert(samples.Length == 1 && samples[0].color == OverlayTheme.ProgressColor(.48f), "gallery renders real progress composition with mock data and theme");
-      Assert(host.GalleryTargets.Count == 13 && gallery.GetComponentsInChildren<Button>(true).Count(b => b.name.StartsWith("Add ")) == 15,
-        "gallery offers all thirteen overlay templates and both native viewer kinds");
-      Assert(gallery.GetComponentsInChildren<NativeViewerMock>(true).Length == 2, "gallery renders production hand and foot mock components");
-      Assert(gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text == "Tab")
-        && gallery.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text == "Left"), "gallery includes real key labels for hand and foot");
-      Canvas.ForceUpdateCanvases();
-      Assert(gallery.GetComponentInChildren<ScrollRect>().verticalNormalizedPosition > .99f, "gallery starts at the first row");
-      SaveFrame(camera, texture, width, height, name + "-gallery");
-      ScrollRect galleryScroll = gallery.GetComponentInChildren<ScrollRect>();
-      galleryScroll.verticalNormalizedPosition = 0;
-      Canvas.ForceUpdateCanvases();
-      SaveFrame(camera, texture, width, height, name + "-gallery-viewers");
-      Button tile = gallery.GetComponentsInChildren<Button>().Single(b => b.name == "Add progress");
-      tile.onClick.Invoke();
-      Assert(Field<GameObject>(editor, "_galleryRoot") == null, "choosing a gallery element closes the modal");
-      IOverlayLayoutTarget first = host.LayoutTargets.Last();
-      Assert(first.Id != original.Id && first.TemplateId == original.TemplateId && first.Enabled, "adding existing template creates an independent enabled instance");
-      Call(editor, "CommitScale", "200");
-      Assert(Mathf.Approximately(first.EffectiveScale, 2) && Mathf.Approximately(original.EffectiveScale, 1.5f), "duplicate scale does not change original");
-      Call(editor, "DeleteSelected");
-      Assert(!first.Enabled && original.Enabled, "delete removes only selected instance");
-      Call(editor, "Undo"); Assert(first.Enabled, "undo restores deleted instance");
-      Call(editor, "Redo"); Assert(!first.Enabled, "redo deletes the same instance");
-      Call(editor, "Undo");
-      Call(editor, "AddElement", original);
-      IOverlayLayoutTarget second = host.LayoutTargets.Last();
-      Assert(second.Id != first.Id && first.Enabled && second.Enabled, "same template can be added repeatedly");
-      first.SetBounds(second.Bounds);
-      int firstIndex = host.LayoutTargets.IndexOf(first), secondIndex = host.LayoutTargets.IndexOf(second);
-      editor.GetType().GetField("_selected", Private).SetValue(editor, firstIndex);
-      object[] selectedHit = { second.SelectionBounds.center, LayoutHandle.None };
-      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, selectedHit) == firstIndex,
-        "selected maximum editing area retains priority over overlapping duplicate content");
-      editor.GetType().GetField("_selected", Private).SetValue(editor, -1);
-      object[] duplicateHit = { second.SelectionBounds.center, LayoutHandle.None };
-      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, duplicateHit) == secondIndex,
-        "equal overlapping unselected elements select the most recently added instance");
-      editor.GetType().GetField("_selected", Private).SetValue(editor, 0);
-      Call(editor, "DeleteSelected");
-      Assert(!original.Enabled && first.Enabled && second.Enabled, "deleting original leaves copies enabled");
-      var beforeReset = new LayoutSnapshot(host.LayoutSettings);
-      Call(editor, "OpenResetConfirmation");
-      Assert(Field<bool>(editor, "_resetConfirmation") && editor.NativeExclusionBounds == new Rect(0, 0, width, height),
-        "factory reset opens a modal blocking overlay interaction");
-      Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening reset confirmation never changes settings");
-      Call(editor, "CloseGallery");
-      Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "canceling reset confirmation preserves all settings");
-      Call(editor, "OpenResetConfirmation");
-      Call(editor, "RestoreDefaultOverlays");
-      Assert(!first.Enabled && !second.Enabled && Field<GameObject>(editor, "_galleryRoot") == null,
-        "confirming reset removes added instances and closes the modal");
-      Call(editor, "Undo");
-      Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "factory reset is one undoable editor action");
-      Call(editor, "ToggleColor");
-      hex.text = "#336699"; picker.Commit(); picker.Hide();
-      editor.Close(false);
-      Assert(original.Enabled && Mathf.Approximately(original.EffectiveScale, 1) && !first.Enabled && !second.Enabled,
-        "cancel restores opening elements and discards all added instances");
-      Assert(settings.HighlightColor == "#BA712B" && !editor.IsOpen, "cancel restores opening highlight and exits editor");
+      Assert(popover.Commit() && settings.HighlightColor == "#204060", "a valid highlight commits");
+      SaveFrame(camera, texture, canvases, name + "-color");
+      popover.Hide();
     }
 
+    private static bool PopoverInside(OverlayLayoutEditor editor, RectTransform popover, int width, int height)
+    {
+      Rect bounds = (Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { popover });
+      return bounds.xMin >= 0 && bounds.yMin >= 0 && bounds.xMax <= width + .5f && bounds.yMax <= height + .5f;
+    }
+
+    private static void Select(OverlayLayoutEditor editor, int index)
+    {
+      SetField(editor, "_selected", index);
+      Call(editor, "UpdateFrames");
+    }
+
+    private static int IndexOf(OverlayLayoutEditor editor, IOverlayLayoutTarget target) =>
+      (int)editor.GetType().GetMethod("IndexOf", Private).Invoke(editor, new object[] { target });
+
+    private static void SetField(object target, string name, object value) => target.GetType().GetField(name, Private).SetValue(target, value);
+
+    private static void Cleanup(OverlayLayoutEditor editor, GameObject root, GameObject eventsRoot, GameObject cameraRoot,
+      RenderTexture texture, OverlayCanvasHost host)
+    {
+      if (editor.IsOpen)
+        editor.Close(false);
+      editor.Dispose();
+      Object.DestroyImmediate(texture); Object.DestroyImmediate(cameraRoot);
+      Object.DestroyImmediate(eventsRoot);
+      if (host.Root != null)
+        Object.DestroyImmediate(host.Root);
+    }
+
+    // Overlay canvases render through the camera only while a frame is captured,
+    // so element geometry stays in the same screen pixels the editor measures.
+    private static Action _refresh;
+    private static void SaveFrame(Camera camera, RenderTexture target, Canvas[] canvases, string name)
+    {
+      _refresh?.Invoke();
+      foreach (Canvas canvas in canvases) { canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1; }
+      canvases[0].planeDistance = 2;
+      Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
+      Texture2D image = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+      image.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); image.Apply();
+      File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
+      RenderTexture.active = null; Object.DestroyImmediate(image);
+      foreach (Canvas canvas in canvases) canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+      Canvas.ForceUpdateCanvases();
+    }
     private static void SaveFrame(Camera camera, RenderTexture target, int width, int height, string name)
     {
       Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
@@ -344,61 +501,37 @@ namespace Element.Editor
       RenderTexture.active = null; Object.DestroyImmediate(image);
     }
     private static Vector3 CenterIn(RectTransform child, Transform parent) => parent.InverseTransformPoint(child.TransformPoint(child.rect.center));
-    private static GameObject CreateGalleryTemplates(OverlayCanvasHost host, TMP_FontAsset font)
-    {
-      // Mirror the authored text geometry from the production views; the actual
-      // target generates every gallery sample, including its theme calculation.
-      var sources = new GameObject("Gallery source templates", typeof(RectTransform));
-      AddGalleryTemplate(host, sources.transform, font, "progress", "진행도", "진행도 | 0%-48%", new Vector2(456, 30), 25, TextAlignmentOptions.TopLeft);
-      AddGalleryTemplate(host, sources.transform, font, "accuracy", "정확도", "정확도 | 100%", new Vector2(456, 30), 25, TextAlignmentOptions.TopLeft);
-      AddGalleryTemplate(host, sources.transform, font, "time", "음악·맵 시간", "음악 시간 | 1:27~3:48", new Vector2(456, 30), 25, TextAlignmentOptions.TopLeft);
-      AddGalleryTemplate(host, sources.transform, font, "fps", "FPS", "FPS | 120", new Vector2(456, 30), 25, TextAlignmentOptions.TopLeft);
-      AddGalleryTemplate(host, sources.transform, font, "tile-bpm", "타일 BPM", "TBPM | 180", new Vector2(456, 30), 25, TextAlignmentOptions.TopRight);
-      AddGalleryTemplate(host, sources.transform, font, "current-bpm", "현재 BPM", "CBPM | 180", new Vector2(456, 30), 25, TextAlignmentOptions.TopRight);
-      AddGalleryTemplate(host, sources.transform, font, "keys-per-second", "초당 입력 수", "KPS | 6", new Vector2(456, 30), 25, TextAlignmentOptions.TopRight);
-      AddGalleryTemplate(host, sources.transform, font, "song-title", "곡 제목", "A Dance of Fire and Ice", new Vector2(600, 32), 24, TextAlignmentOptions.Center);
-      GameObject combo = OverlayTextFactory.CreateRect("Combo", sources.transform, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, new Vector2(300, 200));
-      GameObject title = OverlayTextFactory.CreateRect("ComboTitle", combo.transform, new Vector2(.5f, .45f), new Vector2(.5f, 0), Vector2.zero, Vector2.zero);
-      TextMeshProUGUI titleText = OverlayTextFactory.AddText(title, font, font.material, 40, TextAlignmentOptions.Center);
-      titleText.text = "Perfect"; titleText.color = Color.white;
-      var titleFit = title.AddComponent<ContentSizeFitter>();
-      titleFit.horizontalFit = titleFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-      GameObject value = OverlayTextFactory.CreateRect("ComboValue", combo.transform, new Vector2(.5f, .45f), new Vector2(.5f, .5f), Vector2.zero, Vector2.zero);
-      TextMeshProUGUI valueText = OverlayTextFactory.AddText(value, font, font.material, 108, TextAlignmentOptions.Top);
-      valueText.text = "120";
-      // ComboAnimationDriver.Initialize applies this production resting pose
-      // before RegisterLayout captures the template's sample geometry.
-      valueText.fontSize = 78;
-      ((RectTransform)title.transform).anchoredPosition = new Vector2(0, 43.505f);
-      var valueFit = value.AddComponent<ContentSizeFitter>();
-      valueFit.horizontalFit = valueFit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-      host.GalleryTargets.Add(new RectTransformLayoutTarget("combo", "콤보", (RectTransform)combo.transform, sources.transform, valueText, "120"));
-      AddGalleryTemplate(host, sources.transform, font, "judgement", "판정", "0  0  0  2  4  120  4  2  0  0  0", new Vector2(1000, 30), 25, TextAlignmentOptions.Bottom);
-      AddGalleryTemplate(host, sources.transform, font, "timing-scale", "타이밍 배율", "Timing Scale - 100%", new Vector2(300, 30), 20, TextAlignmentOptions.Bottom);
-      AddGalleryTemplate(host, sources.transform, font, "attempt", "시도 횟수", "Attempt 3", new Vector2(300, 30), 25, TextAlignmentOptions.BottomLeft);
-      AddGalleryTemplate(host, sources.transform, font, "full-attempt", "전체 시도 횟수", "Full Attempt 27", new Vector2(300, 30), 25, TextAlignmentOptions.BottomLeft);
-      sources.SetActive(false);
-      return sources;
-    }
 
-    private static void AddGalleryTemplate(OverlayCanvasHost host, Transform parent, TMP_FontAsset font,
-      string id, string label, string sample, Vector2 size, float fontSize, TextAlignmentOptions alignment)
+    // ElementNote's viewers without ElementNote: fixed rectangles that move as told.
+    private sealed class PreviewKeyViewers : IKeyViewerElements
     {
-      GameObject source = OverlayTextFactory.CreateRect(id, parent, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, size);
-      TextMeshProUGUI text = OverlayTextFactory.AddText(source, font, font.material, fontSize, alignment);
-      text.text = sample;
-      if (id == "song-title")
+      private readonly List<IOverlayLayoutTarget> _targets = new List<IOverlayLayoutTarget>();
+      private readonly int _width;
+      private int _count;
+      public PreviewKeyViewers(int width) { _width = width; }
+      public IReadOnlyList<IOverlayLayoutTarget> Targets => _targets;
+      public IReadOnlyCollection<string> DefaultIds => new string[0];
+      public KeyViewerAvailability Availability { get; set; } = KeyViewerAvailability.Ready;
+      public IOverlayLayoutTarget Add(string templateId)
       {
-        text.enableAutoSizing = true; text.fontSizeMin = 12; text.fontSizeMax = 24;
-        text.textWrappingMode = TextWrappingModes.NoWrap; text.overflowMode = TextOverflowModes.Overflow;
+        var target = new ExternalPreviewTarget(new Rect(_width * .5f - 105, 200, 210, 140), templateId == OverlayElementKinds.FootKeyViewer ? "foot" : "hand", ++_count);
+        _targets.Add(target);
+        return target;
       }
-      host.GalleryTargets.Add(new RectTransformLayoutTarget(id, label, (RectTransform)source.transform, parent, text, sample));
+      public IOverlayLayoutTarget Switch(IOverlayLayoutTarget target, string templateId)
+      {
+        if (target.TemplateId == templateId) return null;
+        var created = (ExternalPreviewTarget)Add(templateId);
+        created.SetBounds(target.Bounds);
+        target.SetEnabled(false);
+        return created;
+      }
     }
-    private sealed class ExternalPreviewTarget : IOverlayLayoutTarget, IExternalLayoutOutline, IOverlayLayoutPointer, IOverlayGalleryPreview
+    private sealed class ExternalPreviewTarget : IOverlayLayoutTarget, IExternalLayoutOutline, IOverlayLayoutPointer
     {
       private readonly string _kind;
-      public ExternalPreviewTarget(Rect bounds, string kind = "hand")
-      { Bounds = bounds; _kind = kind; Settings = new OverlayLayoutSettings { Id = "native-preview-" + kind, TemplateId = "native-" + kind }; }
+      public ExternalPreviewTarget(Rect bounds, string kind, int number)
+      { Bounds = bounds; _kind = kind; Settings = new OverlayLayoutSettings { Id = "native-" + kind + ":" + number, TemplateId = "native-" + kind }; }
       public readonly OverlayLayoutSettings Settings;
       public string Id => Settings.Id;
       public string TemplateId => Settings.TemplateId;
@@ -410,8 +543,7 @@ namespace Element.Editor
       public bool OwnsSelectionOutline => true;
       public float EffectiveScale => 1;
       public bool Selected { get; private set; }
-      public Vector2 PointerOffset;
-      public Vector2 PointerInLayoutSpace(Vector2 pointer) => pointer + PointerOffset;
+      public Vector2 PointerInLayoutSpace(Vector2 pointer) => pointer;
       public void SetSelected(bool selected) { Selected = selected; }
       public void SetEnabled(bool enabled) { Settings.Enabled = enabled; }
       public void SetBounds(Rect bounds) { Bounds = bounds; }
@@ -419,54 +551,6 @@ namespace Element.Editor
       public void SetPreview(bool preview) { }
       public void RefreshLayout() { }
       public void ResetLayout() { }
-      public GameObject CreateGalleryPreview(Transform parent)
-      {
-        TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-        return NativeViewerMock.Create(_kind, parent, font, false).gameObject;
-      }
-    }
-    private sealed class PreviewTarget : IOverlayLayoutTarget, IOverlayGalleryPreview
-    {
-      private readonly Rect _original;
-      private readonly TMP_FontAsset _font;
-      public readonly OverlayLayoutSettings Settings;
-      public PreviewTarget(Rect bounds, string label, TMP_FontAsset font, string id = "preview")
-      { _original = bounds; Bounds = bounds; Label = label; _font = font; Settings = new OverlayLayoutSettings { Id = id, TemplateId = "progress", Scale = 1 }; }
-      public string Id => Settings.Id;
-      public string TemplateId => Settings.TemplateId;
-      public string Label { get; }
-      public Rect Bounds { get; private set; }
-      public Rect SelectionBounds => new Rect(Bounds.x + 16, Bounds.y + 8, Bounds.width * .6f, Mathf.Max(1, Bounds.height - 16));
-      public bool Available => true;
-      public bool Enabled => Settings.Enabled;
-      private bool _pending;
-      public float EffectiveScale => _pending ? Bounds.width / _original.width : Settings.Scale;
-      public void SetBounds(Rect bounds) { if (Bounds == bounds) return; Bounds = bounds; _pending = true; }
-      public void CommitLayout(bool reselectAnchor, bool initialize = false)
-      {
-        if (!_pending && !initialize) return;
-        var position = OverlayLayoutPosition.Capture(new LayoutBounds(Bounds.x, Bounds.y, Bounds.width, Bounds.height), Screen.width, Screen.height,
-          !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? (Anchor9?)Settings.Anchor : null);
-        Settings.Scale = EffectiveScale;
-        Settings.Customized = true;
-        Settings.LayoutVersion = OverlayLayoutPosition.CurrentVersion;
-        Settings.Anchor = position.Anchor; Settings.OffsetX = position.OffsetX; Settings.OffsetY = position.OffsetY;
-        _pending = false;
-      }
-      public void SetEnabled(bool enabled) { Settings.Enabled = enabled; }
-      public void SetPreview(bool value) { }
-      public void RefreshLayout() { _pending = false; Bounds = new Rect(_original.position, _original.size * Settings.Scale); }
-      public void ResetLayout() { Settings.Scale = 1; Settings.Customized = false; Settings.LayoutVersion = 0; Settings.Anchor = Anchor9.Center; Settings.OffsetX = Settings.OffsetY = 0; RefreshLayout(); }
-      public GameObject CreateGalleryPreview(Transform parent)
-      {
-        GameObject source = OverlayTextFactory.CreateRect("Gallery source fixture", parent, new Vector2(.5f, .5f), new Vector2(.5f, .5f), Vector2.zero, _original.size);
-        TextMeshProUGUI text = OverlayTextFactory.AddText(source, _font, _font.material, 24, TextAlignmentOptions.MidlineLeft);
-        text.text = "0%-48%";
-        var real = new RectTransformLayoutTarget(TemplateId, Label, (RectTransform)source.transform, parent, text, "0%-48%");
-        GameObject sample = real.CreateGalleryPreview(parent);
-        Object.DestroyImmediate(source);
-        return sample;
-      }
     }
     private static void Assert(bool condition, string name)
     {
@@ -520,6 +604,7 @@ namespace Element.Editor
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
+      CheckInputCaret(input, "chatter window", "", "5", "150");
       Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
       toggle.onClick.Invoke();
       Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
@@ -1118,6 +1203,10 @@ namespace Element.Editor
           Assert(lower.y >= input.textViewport.rect.yMin - .1f && upper.y <= input.textViewport.rect.yMax + .1f
             && top - bottom >= text.fontSize * .5f,
             "the complete caret stays inside the viewport instead of clipping above the text: " + context);
+          float left = caret.Min(vertex => input.textViewport.InverseTransformPoint(text.rectTransform.TransformPoint(vertex.position)).x);
+          float right = caret.Max(vertex => input.textViewport.InverseTransformPoint(text.rectTransform.TransformPoint(vertex.position)).x);
+          Assert(left >= input.textViewport.rect.xMin - .1f && right <= input.textViewport.rect.xMax + .1f,
+            "the caret stays inside the field sideways too: " + context + " / " + sample + " / " + position);
         }
         if (sample.Length > 0)
         {

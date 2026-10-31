@@ -1,8 +1,10 @@
 # 모드에 포함된 ElementNote
 
 모드 릴리스 패키지는 OS별로 나뉘고, 각 패키지에 그 OS용 ElementNote가 들어
-있습니다. **일반 → ElementNote 자동 열기/닫기**(기본값 켜짐)를 켜 두면 게임을
-켤 때 앱이 열리고, 게임을 끄면 앱도 닫힙니다.
+있습니다. 게임을 한 번 켜면 앱이 PC에 설치되어 macOS는 Launchpad·Spotlight,
+Windows는 시작 메뉴에서 게임 없이도 열 수 있습니다. **일반 → ElementNote 자동
+열기/닫기**(기본값 켜짐)를 켜 두면 게임을 켤 때 앱이 열리고, 게임을 끄면 앱도
+닫힙니다.
 
 | 패키지 | 들어 있는 것 |
 |---|---|
@@ -10,27 +12,43 @@
 | `Element-windows.zip` | 모드 DLL, `ElementGameWebView.dll`(스모크 테스트 통과본), `Windows` 폰트, `ElementNote/windows/` |
 
 모두 버전 폴더 `Runtime/versions/<버전>/` 안에 있습니다([자동 업데이트](auto-update.md)).
-모드가 업데이트되면 새 버전 폴더의 앱이 다음에 게임이 앱을 열 때 설치됩니다.
+모드가 업데이트되면 새 버전 폴더의 앱이 다음에 게임을 켤 때(앱이 닫혀 있으면)
+설치됩니다.
 
 ## 게임을 켤 때
 
-`DmNoteAppLauncher`가 게임 스레드 밖에서 다음을 처리합니다.
+`DmNoteAppLauncher`가 게임 스레드 밖에서 다음을 처리합니다. 자동 열기/닫기를
+꺼도 1·2·3은 게임을 켤 때마다 한 번 합니다.
 
-1. 이미 실행 중이면 아무것도 하지 않습니다. macOS는 `pgrep -x element-note`,
-   Windows는 `element-note` 프로세스 이름으로 확인합니다.
-2. 실행 중인 버전 폴더의 앱을 고정된 위치로 복사합니다. 모드 빌드가 바뀌었을 때만
-   다시 복사하며(`<설치 경로>.stamp`의 크기·수정 시각 비교), 새 폴더를 다 만든
-   뒤 바꿔 끼웁니다.
-   - macOS: `~/Library/Application Support/io.github.kgh1113.element/ElementNote.app`.
-     `ditto -x -k --noqtn`으로 풀어서 실행 권한과 서명이 유지됩니다.
-   - Windows: `%LOCALAPPDATA%\io.github.kgh1113.element\ElementNote`
-3. `--launched-by-game`으로 실행합니다. macOS는 `open -g`라 게임이 앞에
-   남습니다. Windows Release는 관리자 권한을 요구하므로 ShellExecute로 실행하고
-   UAC 확인 창이 뜹니다. 거절하면 경고만 남기고 넘어갑니다.
+1. 이미 실행 중이면 아무것도 하지 않습니다. 실행 중인 앱은 바꿔 끼울 수 없어서,
+   업데이트는 앱이 닫힌 채로 게임을 켤 때 적용됩니다. macOS는
+   `pgrep -x element-note`, Windows는 `element-note` 프로세스 이름으로 확인합니다.
+2. 실행 중인 버전 폴더의 앱을 고정된 위치에 설치합니다. 모드 빌드가 바뀌었거나
+   설치된 앱이 없을 때만 다시 복사하며(`.stamp`의 크기·수정 시각 비교), 새 폴더를
+   다 만든 뒤 바꿔 끼웁니다. stamp와 임시 폴더는 앱 폴더가 아닌
+   `io.github.kgh1113.element` 데이터 폴더에 둡니다.
+   - macOS: `~/Applications/ElementNote.app`. Launchpad·Spotlight에 나옵니다.
+     `ditto -x -k --noqtn`으로 풀어서 실행 권한과 서명이 유지됩니다. 1.0.0이
+     설치한 `~/Library/Application Support/io.github.kgh1113.element/ElementNote.app`은
+     새 위치에 설치한 뒤 지웁니다.
+   - Windows: `%LOCALAPPDATA%\io.github.kgh1113.element\ElementNote`.
+     방화벽 규칙이 경로를 기억하므로 위치는 1.0.0 그대로입니다.
+3. Windows는 시작 메뉴에 `ElementNote` 바로 가기가 없으면 만듭니다
+   (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\ElementNote.lnk`). 한글 등
+   비ASCII 사용자 폴더가 깨지지 않도록 WScript.Shell 대신 IShellLinkW로 쓰며,
+   잠깐 뜨는 PowerShell 프로세스에서 처리합니다. 실패하면 경고만 남기고 앱은
+   그대로 엽니다. 지운 바로 가기는 다음에 게임을 켤 때 다시 생깁니다.
+4. 자동 열기/닫기가 켜져 있으면 `--launched-by-game`으로 실행합니다. macOS는
+   `open -g`라 게임이 앞에 남습니다. Windows Release는 관리자 권한을 요구하므로
+   ShellExecute로 실행하고 UAC 확인 창이 뜹니다. 거절하면 경고만 남기고 넘어갑니다.
 
 모드 폴더에서 바로 실행하지 않는 이유: Windows는 실행 중인 exe가 잠겨 모드
 업데이트를 막고, macOS는 일반 zip 해제에서 실행 권한이 빠집니다. 위치가
-고정되어 있어 손쉬운 사용·입력 모니터링 권한과 앱 설정도 그대로 유지됩니다.
+고정되어 있어 앱 설정도 그대로 유지됩니다. macOS 앱은 번들 ID만 확인하는
+서명이라, 위치가 바뀌어도 손쉬운 사용·입력 모니터링 권한이 이어집니다.
+
+시작 메뉴·Launchpad에서 연 앱은 사용자가 직접 연 앱이라 창이 바로 열리고,
+게임을 꺼도 닫히지 않습니다.
 
 ## 앱 쪽 동작
 

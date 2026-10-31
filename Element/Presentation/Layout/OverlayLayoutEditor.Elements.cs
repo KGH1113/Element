@@ -1,90 +1,232 @@
-using System.Collections.Generic;
+using System;
+using Element.Configuration;
+using Element.Domain.Layout;
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Layout;
 
+// Popovers above the toolbar, and adding and deleting elements.
 internal sealed partial class OverlayLayoutEditor
 {
-  private GameObject _galleryRoot;
-  private bool _resetConfirmation;
-  private RectTransform _galleryPanel;
-  private SettingsUiFactory _galleryUi;
+  private const float AddMenuWidth = 360,
+    AddMenuRow = 68;
+  private GameObject _modalRoot;
+  private SettingsUiFactory _modalUi;
   private OverlayColorPopover _colorPopover;
-  private readonly List<IOverlayLayoutTarget> _galleryTemplates = new();
-  private TextMeshProUGUI _galleryError;
-  private int _galleryWidth,
-    _galleryHeight;
-  private float _galleryRebuildAt = float.PositiveInfinity;
+  private RectTransform _addMenu;
+  private SettingsUiFactory _addMenuUi;
+  private int _modalWidth,
+    _modalHeight;
+  private Action _rebuildModal;
 
-  private static string ElementLabel(IOverlayLayoutTarget target) =>
-    target.TemplateId switch
+  private string ElementLabel(IOverlayLayoutTarget target) =>
+    target switch
     {
-      "progress" => L("진행도", "Progress"),
-      "accuracy" => L("정확도", "Accuracy"),
-      "time" => L("음악·맵 시간", "Music / map time"),
-      "fps" => "FPS",
-      "tile-bpm" => L("타일 BPM", "Tile BPM"),
-      "current-bpm" => L("현재 BPM", "Current BPM"),
-      "keys-per-second" => L("초당 입력 수", "Keys per second"),
-      "song-title" => L("곡 제목", "Song title"),
-      "combo" => L("콤보", "Combo"),
-      "judgement" => L("판정", "Judgments"),
-      "timing-scale" => L("타이밍 배율", "Timing scale"),
-      "attempt" => L("시도 횟수", "Attempts"),
-      "full-attempt" => L("전체 시도 횟수", "Full attempts"),
-      "native-hand" => L("손 키뷰어", "Hand key viewer"),
-      "native-foot" => L("발 키뷰어", "Foot key viewer"),
-      _ => target.Label,
+      TextOverlayElement => L("텍스트", "Text"),
+      ShapeOverlayElement shape => shape.Label,
+      _ => target.TemplateId switch
+      {
+        OverlayElementKinds.HandKeyViewer => L("손 키뷰어", "Hand key viewer"),
+        OverlayElementKinds.FootKeyViewer => L("발 키뷰어", "Foot key viewer"),
+        _ => target.Label,
+      },
     };
 
+  /// <summary>Screen pixels native key viewers must leave uncovered for the editor's own UI.</summary>
   public Rect NativeExclusionBounds
   {
     get
     {
-      if (_galleryRoot != null)
+      if (_modalRoot != null || (_textEditor != null && _textEditor.IsOpen))
         return new Rect(0, 0, ViewWidth, ViewHeight);
-      Rect a = ToolbarBounds;
-      if (!(_colorPopover?.Visible ?? false))
-        return a;
-      Rect b = ColorPopoverBounds;
-      return Rect.MinMaxRect(
-        Mathf.Min(a.xMin, b.xMin),
-        Mathf.Min(a.yMin, b.yMin),
-        Mathf.Max(a.xMax, b.xMax),
-        Mathf.Max(a.yMax, b.yMax)
-      );
+      Rect bounds = ToolbarBounds;
+      foreach (Rect popover in VisiblePopoverBounds())
+        bounds = Rect.MinMaxRect(
+          Mathf.Min(bounds.xMin, popover.xMin),
+          Mathf.Min(bounds.yMin, popover.yMin),
+          Mathf.Max(bounds.xMax, popover.xMax),
+          Mathf.Max(bounds.yMax, popover.yMax)
+        );
+      return bounds;
     }
   }
 
-  private float PopupScale =>
-    Mathf.Min(
-      UiScale,
-      Mathf.Min((ViewWidth - 16) / OverlayColorPopover.Width, (ViewHeight - 16) / OverlayColorPopover.Height)
-    );
+  private System.Collections.Generic.IEnumerable<Rect> VisiblePopoverBounds()
+  {
+    foreach (RectTransform panel in VisiblePanels())
+      yield return ScreenRect(panel);
+  }
 
-  private Rect ColorPopoverBounds
+  private System.Collections.Generic.IEnumerable<RectTransform> VisiblePanels()
+  {
+    if (_colorPopover?.Visible ?? false)
+      yield return _colorPopover.Root;
+    if (_addMenu != null)
+      yield return _addMenu;
+    if (_settingsPanel != null && _settingsPanel.gameObject.activeSelf)
+      yield return _settingsPanel;
+    if (_elementPicker?.Visible ?? false)
+      yield return _elementPicker.Root;
+    if (_valuePopover?.Visible ?? false)
+      yield return _valuePopover.Root;
+  }
+
+  private readonly System.Collections.Generic.List<LayoutExclusion> _exclusions = new();
+
+  /// <summary>
+  /// Every editor panel with its rounded corners, in screen pixels from the
+  /// top left. Native key viewers leave exactly these shapes uncovered.
+  /// </summary>
+  public System.Collections.Generic.IReadOnlyList<LayoutExclusion> NativeExclusions
   {
     get
     {
-      Rect toolbar = ToolbarBounds;
-      float w = OverlayColorPopover.Width * PopupScale,
-        h = OverlayColorPopover.Height * PopupScale;
-      float y = toolbar.y - h - 10;
-      if (y < 8)
-        y = toolbar.yMax + 10;
-      return new Rect(
-        Mathf.Clamp(toolbar.xMax - w, 8, Mathf.Max(8, ViewWidth - w - 8)),
-        Mathf.Clamp(y, 8, Mathf.Max(8, ViewHeight - h - 8)),
-        w,
-        h
-      );
+      _exclusions.Clear();
+      if (_modalRoot != null || (_textEditor != null && _textEditor.IsOpen))
+      {
+        _exclusions.Add(new LayoutExclusion(new LayoutBounds(0, 0, ViewWidth, ViewHeight), 0));
+        return _exclusions;
+      }
+      AddExclusion(ToolbarBounds, ToolbarScale);
+      foreach (RectTransform panel in VisiblePanels())
+        AddExclusion(ScreenRect(panel), panel.localScale.x);
+      LayoutExclusions.Merge(_exclusions);
+      return _exclusions;
     }
+  }
+
+  // Panels use the shared 8-unit rounded corner, at their own scale.
+  private void AddExclusion(Rect bounds, float scale) =>
+    _exclusions.Add(new LayoutExclusion(new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height), 8 * scale));
+
+  // Popovers that close on an outside click. The selection's settings popup
+  // stays open and never blocks the canvas.
+  private bool AnyPopoverVisible =>
+    (_colorPopover?.Visible ?? false)
+    || _addMenu != null
+    || (_elementPicker?.Visible ?? false)
+    || (_valuePopover?.Visible ?? false);
+
+  private bool PopoverTyping =>
+    (_colorPopover?.IsTyping ?? false)
+    || (_elementPicker?.IsTyping ?? false)
+    || (_valuePopover?.IsTyping ?? false)
+    || (_strokeInput != null && _strokeInput.isFocused)
+    || (_textSizeInput != null && _textSizeInput.isFocused);
+
+  private bool PopoverContains(Vector2 point)
+  {
+    foreach (Rect bounds in VisiblePopoverBounds())
+      if (bounds.Contains(point))
+        return true;
+    return false;
+  }
+
+  private void CloseTopPopover()
+  {
+    if (_valuePopover?.Visible ?? false)
+      _valuePopover.Hide();
+    else if (_elementPicker?.Visible ?? false)
+      _elementPicker.Hide();
+    else if (_addMenu != null)
+      CloseAddMenu();
+    else
+      _colorPopover?.Hide();
+  }
+
+  private void ClosePopovers()
+  {
+    _valuePopover?.Hide();
+    if (_elementPicker?.Visible ?? false)
+      _elementPicker.Hide();
+    CloseAddMenu();
+    _colorPopover?.Hide();
+  }
+
+  /// <summary>Applies typed popover values; false keeps the editor open to fix them.</summary>
+  private bool CommitPopovers()
+  {
+    if (_colorPopover != null && !_colorPopover.Commit())
+      return false;
+    if (_elementPicker != null && !_elementPicker.Commit())
+      return false;
+    return _valuePopover == null || !_valuePopover.Visible || _valuePopover.Commit();
+  }
+
+  private void RaisePopovers()
+  {
+    if (_colorPopover?.Visible ?? false)
+      _colorPopover.Root.SetAsLastSibling();
+    _addMenu?.SetAsLastSibling();
+    _settingsPanel?.SetAsLastSibling();
+    if (_elementPicker?.Visible ?? false)
+      _elementPicker.Root.SetAsLastSibling();
+    if (_valuePopover?.Visible ?? false)
+      _valuePopover.Root.SetAsLastSibling();
+    if (_modalRoot != null)
+      _modalRoot.transform.SetAsLastSibling();
+    if (_textEditor != null && _textEditor.IsOpen)
+      _textEditor.Raise();
+  }
+
+  private float PopupScale(float width, float height) =>
+    Mathf.Min(UiScale, Mathf.Min((ViewWidth - 16) / width, (ViewHeight - 16) / height));
+
+  // A popover above the toolbar (below it when there is no room), clamped to the view.
+  private Rect PopoverAboveToolbar(float width, float height, float toolbarX, bool alignRight)
+  {
+    Rect toolbar = ToolbarBounds;
+    float scale = PopupScale(width, height);
+    float w = width * scale,
+      h = height * scale;
+    float y = toolbar.y - h - 10;
+    if (y < 8)
+      y = toolbar.yMax + 10;
+    float x = alignRight ? toolbar.xMax - w : toolbar.x + toolbarX * ToolbarScale;
+    return new Rect(
+      Mathf.Clamp(x, 8, Mathf.Max(8, ViewWidth - w - 8)),
+      Mathf.Clamp(y, 8, Mathf.Max(8, ViewHeight - h - 8)),
+      w,
+      h
+    );
+  }
+
+  private void PlacePopover(RectTransform popover, Rect bounds, float width, float height)
+  {
+    SettingsUiFactory.Place(popover, bounds.x, bounds.y, width, height);
+    popover.localScale = Vector3.one * (bounds.width / width);
+  }
+
+  private Rect ScreenRect(RectTransform rect)
+  {
+    Vector2 position = rect.anchoredPosition;
+    Vector2 size = rect.rect.size * rect.localScale.x;
+    return new Rect(position.x, -position.y, size.x, size.y);
+  }
+
+  private void UpdatePopupPositions()
+  {
+    if (_colorPopover?.Visible ?? false)
+      PlacePopover(
+        _colorPopover.Root,
+        PopoverAboveToolbar(OverlayColorPopover.Width, OverlayColorPopover.Height, 0, true),
+        OverlayColorPopover.Width,
+        OverlayColorPopover.Height
+      );
+    if (_addMenu != null)
+    {
+      float height = AddMenuHeight;
+      PlacePopover(_addMenu, PopoverAboveToolbar(AddMenuWidth, height, 348, false), AddMenuWidth, height);
+    }
+    UpdateSettingsPosition();
+    if (_modalRoot != null && (_modalWidth != ViewWidth || _modalHeight != ViewHeight))
+      _rebuildModal?.Invoke();
   }
 
   private void ToggleColor()
@@ -95,52 +237,21 @@ internal sealed partial class OverlayLayoutEditor
       _colorPopover.Hide();
     else
     {
-      CloseGallery();
+      if (!CommitPopovers())
+        return;
+      ClosePopovers();
       _colorPopover.Show();
-      UpdatePopupPosition();
+      UpdatePopupPositions();
     }
     FinishDrag();
     _toolbarDragging = false;
-  }
-
-  private void UpdatePopupPosition()
-  {
-    if (_colorPopover?.Visible ?? false)
-    {
-      Rect bounds = ColorPopoverBounds;
-      SettingsUiFactory.Place(
-        _colorPopover.Root,
-        bounds.x,
-        bounds.y,
-        OverlayColorPopover.Width,
-        OverlayColorPopover.Height
-      );
-      _colorPopover.Root.localScale = Vector3.one * PopupScale;
-    }
-    if (_galleryRoot == null)
-      return;
-    if (_galleryWidth != ViewWidth || _galleryHeight != ViewHeight)
-    {
-      // A live window resize changes the size every frame. Rebuilding ~150
-      // objects per frame stalls the editor, so wait until the size settles.
-      _galleryWidth = ViewWidth;
-      _galleryHeight = ViewHeight;
-      _galleryRebuildAt = Time.unscaledTime + .2f;
-    }
-    else if (Time.unscaledTime >= _galleryRebuildAt)
-    {
-      _galleryRebuildAt = float.PositiveInfinity;
-      if (_resetConfirmation)
-        OpenResetConfirmation();
-      else
-        OpenGallery();
-    }
   }
 
   private void DeleteSelected()
   {
     if (!HasSelection)
       return;
+    ClosePopovers();
     IOverlayLayoutTarget target = _frames[_selected].Target;
     (target as IExternalLayoutOutline)?.SetSelected(false);
     target.SetEnabled(false);
@@ -150,26 +261,168 @@ internal sealed partial class OverlayLayoutEditor
     UpdateFrames();
   }
 
-  private void AddElement(IOverlayLayoutTarget template)
+  private float AddMenuHeight => 16 + AddMenuRow * 3;
+
+  private void ToggleAddMenu()
   {
-    IOverlayLayoutTarget target = _host.AddElement(template.TemplateId);
-    if (target == null)
+    if (_addMenu != null)
     {
-      target = _addExternalElement?.Invoke(template.TemplateId);
-      if (target != null)
-        _extraTargets.Add(target);
-    }
-    if (target == null)
-    {
-      if (_galleryError != null)
-        _galleryError.text = L(
-          "요소를 추가하지 못했습니다. 갤러리를 다시 열어주세요.",
-          "Couldn't add the element. Reopen the gallery and try again."
-        );
+      CloseAddMenu();
       return;
     }
-    target.SetEnabled(true);
-    target.SetPreview(true);
+    if (!CommitPopovers())
+      return;
+    ClosePopovers();
+    FinishDrag();
+    _toolbarDragging = false;
+    _addMenuUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
+    Image panel = _addMenuUi.Panel(
+      "Add element menu",
+      _root.transform,
+      0,
+      0,
+      AddMenuWidth,
+      AddMenuHeight,
+      new Color(.105f, .105f, .105f)
+    );
+    panel.raycastTarget = true;
+    _addMenu = panel.rectTransform;
+    KeyViewerAvailability viewers = _keyViewers?.Availability ?? KeyViewerAvailability.Unsupported;
+    Button text = AddMenuRowButton(
+      0,
+      LayoutAction.Text,
+      L("텍스트", "Text"),
+      _host.CanShowText
+        ? L("글자에 FPS·정확도 같은 값을 넣어요", "Words with values like FPS or accuracy")
+        : L("오버레이 글꼴을 불러오지 못해 쓸 수 없어요", "Unavailable: the overlay font didn't load"),
+      _host.CanShowText,
+      AddText
+    );
+    AddMenuRowButton(
+      1,
+      LayoutAction.KeyViewer,
+      L("키뷰어", "Key viewer"),
+      viewers switch
+      {
+        KeyViewerAvailability.Ready => L(
+          "ElementNote의 키뷰어를 게임 화면에 놓아요",
+          "Places ElementNote's key viewer"
+        ),
+        KeyViewerAvailability.AppClosed => L(
+          "ElementNote를 실행하면 추가할 수 있어요",
+          "Open ElementNote to add a key viewer"
+        ),
+        KeyViewerAvailability.HiddenInApp => L(
+          "ElementNote에서 '얼불춤 안에 표시'를 켜 주세요",
+          "Turn on 'Show inside ADOFAI' in ElementNote"
+        ),
+        _ => L("이 운영체제에서는 게임 안 키뷰어를 쓸 수 없어요", "In-game key viewers aren't available here"),
+      },
+      viewers == KeyViewerAvailability.Ready,
+      AddKeyViewer
+    );
+    AddMenuRowButton(
+      2,
+      LayoutAction.Shape,
+      L("도형", "Shape"),
+      L("사각형·삼각형·원으로 글자 뒤 배경을 깔아요", "A square, triangle or circle behind text"),
+      true,
+      AddShape
+    );
+    UpdatePopupPositions();
+    EventSystem.current?.SetSelectedGameObject(text.gameObject);
+  }
+
+  private Button AddMenuRowButton(
+    int row,
+    LayoutAction icon,
+    string title,
+    string description,
+    bool enabled,
+    Action add
+  )
+  {
+    Button button = _addMenuUi.Button("", _addMenu, 8, 8 + row * AddMenuRow, AddMenuWidth - 16, AddMenuRow - 4, add);
+    button.name = "Add " + icon;
+    button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
+    button.interactable = enabled;
+    button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
+    LayoutActionIcon glyph = _addMenuUi
+      .Rect("Icon", button.transform, 14, 18, 28, 28)
+      .gameObject.AddComponent<LayoutActionIcon>();
+    glyph.Kind = icon;
+    glyph.color = enabled ? SettingsPalette.SoftAccent : SettingsUiFactory.Muted;
+    glyph.raycastTarget = false;
+    _addMenuUi.Text(title, button.transform, 56, 10, AddMenuWidth - 88, 24, 16);
+    TextMeshProUGUI detail = _addMenuUi.Text(
+      description,
+      button.transform,
+      56,
+      34,
+      AddMenuWidth - 88,
+      20,
+      12,
+      enabled ? SettingsUiFactory.Muted : new Color(1, .66f, .53f)
+    );
+    detail.textWrappingMode = TextWrappingModes.NoWrap;
+    return button;
+  }
+
+  private void CloseAddMenu()
+  {
+    if (_addMenu == null)
+      return;
+    _addMenu.gameObject.SetActive(false);
+    SettingsUiFactory.Destroy(_addMenu.gameObject);
+    _addMenu = null;
+    _addMenuUi?.Dispose();
+    _addMenuUi = null;
+    if (IsOpen && _add != null)
+      EventSystem.current?.SetSelectedGameObject(_add.gameObject);
+  }
+
+  private void AddText()
+  {
+    CloseAddMenu();
+    TextOverlayElement text = _host.AddText(null);
+    if (text == null)
+      return;
+    text.SetPreview(true);
+    AddFrame(text);
+    _selected = _frames.Count - 1;
+    // History records the text once it has content; cancelling removes it.
+    OpenTextEditor(text, true);
+  }
+
+  private void AddShape()
+  {
+    CloseAddMenu();
+    ShapeOverlayElement shape = _host.AddShape();
+    shape.SetPreview(true);
+    PlaceNewElement(shape);
+  }
+
+  private void AddKeyViewer()
+  {
+    CloseAddMenu();
+    IOverlayLayoutTarget viewer = _keyViewers?.Add(OverlayElementKinds.HandKeyViewer);
+    if (viewer == null)
+    {
+      _keyboardHelp.text = L(
+        "키뷰어를 추가하지 못했어요. ElementNote가 켜져 있는지 확인해 주세요.",
+        "Couldn't add the key viewer. Check that ElementNote is open."
+      );
+      _scaleErrorUntil = Time.unscaledTime + 5;
+      return;
+    }
+    viewer.SetEnabled(true);
+    viewer.SetPreview(true);
+    PlaceNewElement(viewer);
+  }
+
+  // A new element starts in the middle of the view, selected, as one undo step.
+  private void PlaceNewElement(IOverlayLayoutTarget target)
+  {
     Canvas.ForceUpdateCanvases();
     Rect bounds = target.Bounds;
     if (bounds.width > 0 && bounds.height > 0)
@@ -178,155 +431,59 @@ internal sealed partial class OverlayLayoutEditor
       target.SetBounds(bounds);
       target.CommitLayout(true, initialize: true);
     }
-    AddFrame(target);
-    _selected = _frames.Count - 1;
+    if (IndexOf(target) < 0)
+      AddFrame(target);
+    _selected = IndexOf(target);
     _history.Commit(_host.LayoutSettings);
-    CloseGallery();
     _toolbar.SetAsLastSibling();
     UpdateFrames();
   }
 
-  private void OpenGallery()
+  // A full-screen confirmation. Rebuilt when the view size settles.
+  private RectTransform OpenModal(string name, float width, float height, Action rebuild)
   {
-    if (_colorPopover != null && !_colorPopover.Commit())
-      return;
-    _colorPopover?.Hide();
-    CloseGallery();
-    FinishDrag();
-    _toolbarDragging = false;
-    _galleryWidth = ViewWidth;
-    _galleryHeight = ViewHeight;
-    _galleryRebuildAt = float.PositiveInfinity;
-    _galleryUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
-    _galleryRoot = _galleryUi.Rect("Add Element gallery", _root.transform, 0, 0, ViewWidth, ViewHeight).gameObject;
-    Button backdrop = _galleryUi.Button(
-      "",
-      _galleryRoot.transform,
+    CloseModal();
+    _rebuildModal = rebuild;
+    _modalWidth = ViewWidth;
+    _modalHeight = ViewHeight;
+    _modalUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
+    _modalRoot = _modalUi.Rect(name, _root.transform, 0, 0, ViewWidth, ViewHeight).gameObject;
+    Image backdrop = _modalUi.Panel(
+      "Backdrop",
+      _modalRoot.transform,
       0,
       0,
       ViewWidth,
       ViewHeight,
-      CloseGallery,
-      false,
+      new Color(0, 0, 0, .7f),
       false
     );
-    backdrop.targetGraphic.color = new Color(0, 0, 0, .7f);
-    backdrop.transition = Selectable.Transition.None;
-    float scale = Mathf.Min(UiScale, Mathf.Min(ViewWidth / 720f, ViewHeight / 460f));
-    float w = Mathf.Min(1000, (ViewWidth - 48) / scale);
-    float h = Mathf.Min(690, (ViewHeight - 48) / scale);
-    Image panel = _galleryUi.Panel(
-      "Gallery",
-      _galleryRoot.transform,
-      (ViewWidth - w * scale) * .5f,
-      (ViewHeight - h * scale) * .5f,
-      w,
-      h,
-      SettingsUiFactory.Background
-    );
-    panel.raycastTarget = true;
-    _galleryPanel = panel.rectTransform;
-    _galleryPanel.localScale = Vector3.one * scale;
-    _galleryUi.Text(L("요소 추가", "Add Element"), _galleryPanel, 28, 20, w - 160, 40, 26);
-    Button close = _galleryUi.IconButton("Close gallery", _galleryPanel, w - 68, 20, 40, CloseGallery, 5);
-    close.navigation = new Navigation { mode = Navigation.Mode.Automatic };
-    _galleryError = _galleryUi.Text("", _galleryPanel, 28, 62, w - 56, 24, 13, new Color(1, .66f, .53f));
-    RectTransform viewport = _galleryUi.Rect("Gallery viewport", _galleryPanel, 20, 90, w - 40, h - 110);
-    viewport.gameObject.AddComponent<RectMask2D>();
-    Image viewportHit = viewport.gameObject.AddComponent<Image>();
-    viewportHit.color = Color.clear;
-    ScrollRect scroll = viewport.gameObject.AddComponent<ScrollRect>();
-    scroll.horizontal = false;
-    scroll.movementType = ScrollRect.MovementType.Clamped;
-    scroll.scrollSensitivity = 38;
-    scroll.inertia = !_preferences.ReduceUiMotion;
-    scroll.viewport = viewport;
-    _galleryTemplates.Clear();
-    foreach (IOverlayLayoutTarget template in _host.GalleryTargets)
-      _galleryTemplates.Add(template);
-    if (_galleryExtras != null)
-      foreach (IOverlayLayoutTarget template in _galleryExtras)
-        _galleryTemplates.Add(template);
-    const int columns = 3;
-    const float gap = 12,
-      tileHeight = 172;
-    float tileWidth = (w - 56 - gap * (columns - 1)) / columns;
-    int rows = Mathf.CeilToInt(_galleryTemplates.Count / (float)columns);
-    RectTransform content = _galleryUi.Rect("Elements", viewport, 8, 0, w - 56, rows * (tileHeight + gap));
-    scroll.content = content;
-    Image scrollTrack = _galleryUi.Panel("Gallery scroll", _galleryPanel, w - 20, 90, 12, h - 110, Color.clear, false);
-    scrollTrack.raycastTarget = true;
-    Scrollbar scrollbar = scrollTrack.gameObject.AddComponent<Scrollbar>();
-    scrollbar.direction = Scrollbar.Direction.BottomToTop;
-    scrollbar.transition = Selectable.Transition.None;
-    RectTransform slideArea = _galleryUi.Rect("Slide area", scrollTrack.transform, 4, 0, 4, h - 110);
-    Image thumb = _galleryUi.Panel("Scroll thumb", slideArea, 0, 0, 4, 40, new Color(.32f, .32f, .32f));
-    thumb.rectTransform.sizeDelta = Vector2.zero;
-    thumb.rectTransform.anchoredPosition = Vector2.zero;
-    scrollbar.handleRect = thumb.rectTransform;
-    scrollbar.targetGraphic = thumb;
-    scroll.verticalScrollbar = scrollbar;
-    scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
-    for (int i = 0; i < _galleryTemplates.Count; i++)
-    {
-      IOverlayLayoutTarget template = _galleryTemplates[i];
-      Button tile = _galleryUi.Button(
-        ElementLabel(template),
-        content,
-        (i % columns) * (tileWidth + gap),
-        (i / columns) * (tileHeight + gap),
-        tileWidth,
-        tileHeight,
-        () => AddElement(template)
-      );
-      tile.name = "Add " + template.TemplateId;
-      tile.navigation = new Navigation { mode = Navigation.Mode.Automatic };
-      TextMeshProUGUI label = tile.GetComponentInChildren<TextMeshProUGUI>();
-      SettingsUiFactory.Place(label.rectTransform, 16, tileHeight - 42, tileWidth - 48, 30);
-      label.alignment = TextAlignmentOptions.MidlineLeft;
-      label.fontSize = 16;
-      LayoutActionIcon plus = _galleryUi
-        .Rect("Add", tile.transform, tileWidth - 34, tileHeight - 36, 18, 18)
-        .gameObject.AddComponent<LayoutActionIcon>();
-      plus.Kind = LayoutAction.Plus;
-      plus.color = SettingsPalette.SoftAccent;
-      plus.raycastTarget = false;
-      RectTransform previewArea = _galleryUi.Rect("Preview", tile.transform, 16, 16, tileWidth - 32, tileHeight - 68);
-      previewArea.gameObject.AddComponent<RectMask2D>();
-      if (template is IOverlayGalleryPreview provider)
-      {
-        GameObject sample = provider.CreateGalleryPreview(previewArea);
-        if (sample != null && sample.transform is RectTransform rect)
-        {
-          Vector2 intrinsic = rect.rect.size;
-          float fit = Mathf.Min(
-            (tileWidth - 48) / Mathf.Max(1, intrinsic.x),
-            (tileHeight - 84) / Mathf.Max(1, intrinsic.y)
-          );
-          rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
-          rect.anchoredPosition = Vector2.zero;
-          rect.localScale = Vector3.one * Mathf.Min(1.3f, fit);
-        }
-      }
-    }
-    Canvas.ForceUpdateCanvases();
-    scroll.verticalNormalizedPosition = 1;
-    EventSystem.current?.SetSelectedGameObject(close.gameObject);
-    UpdateFrames();
+    backdrop.raycastTarget = true;
+    float scale = Mathf.Min(UiScale, Mathf.Min((ViewWidth - 32) / width, (ViewHeight - 32) / height));
+    RectTransform panel = _modalUi
+      .Panel(
+        "Dialog",
+        _modalRoot.transform,
+        (ViewWidth - width * scale) * .5f,
+        (ViewHeight - height * scale) * .5f,
+        width,
+        height,
+        SettingsUiFactory.Background
+      )
+      .rectTransform;
+    panel.localScale = Vector3.one * scale;
+    return panel;
   }
 
-  private void CloseGallery()
+  private void CloseModal()
   {
-    if (_galleryRoot == null)
+    if (_modalRoot == null)
       return;
-    _galleryRoot.SetActive(false);
-    SettingsUiFactory.Destroy(_galleryRoot);
-    _galleryRoot = null;
-    _resetConfirmation = false;
-    _galleryUi.Dispose();
-    _galleryUi = null;
-    _galleryTemplates.Clear();
-    if (IsOpen && _add != null)
-      EventSystem.current?.SetSelectedGameObject(_add.gameObject);
+    _modalRoot.SetActive(false);
+    SettingsUiFactory.Destroy(_modalRoot);
+    _modalRoot = null;
+    _rebuildModal = null;
+    _modalUi?.Dispose();
+    _modalUi = null;
   }
 }

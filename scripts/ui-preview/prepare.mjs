@@ -9,6 +9,8 @@ for (const name of fs.readdirSync(configuration, { recursive: true }).filter(nam
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTheme.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFactory.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
+files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs'));
+files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Application/Updates/IModUpdates.cs'));
@@ -19,8 +21,9 @@ files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayou
 files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout')).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
-for (const name of fs.readdirSync(path.join(root, 'Element/Domain/Layout')).filter(name => name.endsWith('.cs')))
-  files.push(path.join(root, 'Element/Domain/Layout', name));
+for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Elements'])
+  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
+    files.push(path.join(root, folder, name));
 for (const source of files) {
   let code = fs.readFileSync(source, 'utf8');
   if (/^namespace [\w.]+;$/m.test(code)) code = code.replace(/^namespace ([\w.]+);$/m, 'namespace $1\n{') + '\n}\n';

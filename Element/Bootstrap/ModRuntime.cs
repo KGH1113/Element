@@ -41,6 +41,7 @@ internal sealed class ModRuntime : IDisposable
   private DmNoteNativeIpcFeature _nativeViewers;
   private DmNoteAppLauncher _dmNoteApp;
   private bool _dmNoteAutoOpen;
+  private bool _dmNoteAppChecked;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
   private GameplayTweaksController _gameplayTweaks;
@@ -231,7 +232,7 @@ internal sealed class ModRuntime : IDisposable
         if (!_initialized)
           return;
 
-        OpenDmNoteWhenEnabled();
+        SyncDmNoteApp();
         OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
         _gameplayTweaks?.Apply();
         _effects?.ApplySettings();
@@ -257,13 +258,17 @@ internal sealed class ModRuntime : IDisposable
     );
   }
 
-  // Opens once at startup and again when the option is switched on; settings
-  // changes such as color drags do not start the app check again.
-  private void OpenDmNoteWhenEnabled()
+  // Installs or updates the app once at startup, so players can open it on its
+  // own even with auto open off. Opens it then and again when the option is
+  // switched on; settings changes such as color drags do not start the app check again.
+  private void SyncDmNoteApp()
   {
     bool enabled = _main.Settings.AutoOpenCloseDmNote;
     if (enabled && !_dmNoteAutoOpen)
       _dmNoteApp?.OpenIfClosed();
+    else if (!_dmNoteAppChecked)
+      _dmNoteApp?.InstallIfClosed();
+    _dmNoteAppChecked = true;
     _dmNoteAutoOpen = enabled;
   }
 

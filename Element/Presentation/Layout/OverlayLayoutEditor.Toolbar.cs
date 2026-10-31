@@ -216,6 +216,8 @@ internal sealed partial class OverlayLayoutEditor
     _scaleInput.textViewport.anchorMin = _scaleInput.textViewport.anchorMax = new Vector2(0, 1);
     _scaleInput.textViewport.pivot = new Vector2(0, 1);
     _scaleInput.textComponent.alignment = TextAlignmentOptions.Right;
+    // Right-aligned text puts the caret on the field's edge; keep room for it.
+    _scaleInput.textComponent.margin = new Vector4(0, 0, 2, 0);
     _scaleInput.gameObject.AddComponent<LayoutTextCapture>();
     _scaleSuffix = _ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
     AlignScaleValue();
@@ -243,8 +245,8 @@ internal sealed partial class OverlayLayoutEditor
       40
     );
     _ui.Panel("Add divider", _toolbar, 336, 68, 1, 24, new Color(1, 1, 1, .1f), false);
-    _add = _ui.Button(L("요소 추가", "Add Element"), _toolbar, 348, 60, 132, 40, OpenGallery, true);
-    _editColor = _ui.Button(L("색상 편집", "Edit Color"), _toolbar, 488, 60, 140, 40, ToggleColor);
+    _add = _ui.Button(L("요소 추가", "Add Element"), _toolbar, 348, 60, 132, 40, ToggleAddMenu, true);
+    _editColor = _ui.Button(L("하이라이트 색", "Highlight"), _toolbar, 488, 60, 140, 40, ToggleColor);
     _colorSwatch = _ui.Panel("Highlight color", _editColor.transform, 12, 12, 16, 16, _ui.Accent);
     SettingsUiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
     _toolbarControls.Add((RectTransform)_add.transform);
@@ -300,8 +302,9 @@ internal sealed partial class OverlayLayoutEditor
     _scalePending = false;
     _scaleErrorUntil = 0;
     _host.ApplyLayouts();
-    foreach (IOverlayLayoutTarget target in _extraTargets)
-      target.RefreshLayout();
+    if (_keyViewers != null)
+      foreach (IOverlayLayoutTarget target in _keyViewers.Targets)
+        target.RefreshLayout();
     if (!HasSelection)
       _selected = -1;
     _lastScale = -1;
@@ -310,6 +313,7 @@ internal sealed partial class OverlayLayoutEditor
   private void Undo()
   {
     FinishDrag();
+    _settingsStale = true;
     _history.Undo(_host.LayoutSettings);
     RefreshLayouts();
   }
@@ -317,6 +321,7 @@ internal sealed partial class OverlayLayoutEditor
   private void Redo()
   {
     FinishDrag();
+    _settingsStale = true;
     _history.Redo(_host.LayoutSettings);
     RefreshLayouts();
   }
@@ -325,6 +330,7 @@ internal sealed partial class OverlayLayoutEditor
   {
     if (!HasSelection)
       return;
+    ClosePopovers();
     _frames[_selected].Target.ResetLayout();
     _scalePending = false;
     _scaleErrorUntil = 0;
@@ -338,7 +344,7 @@ internal sealed partial class OverlayLayoutEditor
       return;
     float current = ValidScale(_frames[_selected].Target.EffectiveScale);
     float min = Mathf.Min(20, current * 100);
-    float max = Mathf.Max(500, current * 100);
+    float max = Mathf.Max(MaximumScale * 100, current * 100);
     if (
       !float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float percent)
       || !OverlayLayoutGeometry.Finite(percent)
@@ -372,11 +378,11 @@ internal sealed partial class OverlayLayoutEditor
       ToRect(
         OverlayLayoutGeometry.ScaleAtCenter(
           ToBounds(target.Bounds),
-          Mathf.Clamp(scale, Mathf.Min(.2f, current), Mathf.Max(5f, current)) / current,
+          Mathf.Clamp(scale, Mathf.Min(.2f, current), Mathf.Max(MaximumScale, current)) / current,
           ViewWidth,
           ViewHeight,
           Mathf.Min(1, .2f / current),
-          Mathf.Max(1, 5f / current)
+          Mathf.Max(1, MaximumScale / current)
         )
       )
     );
@@ -434,6 +440,9 @@ internal sealed partial class OverlayLayoutEditor
     }
     foreach (LayoutActionIcon icon in _actionIcons)
     {
+      // The settings button is hidden without a selection.
+      if (!icon.gameObject.activeInHierarchy)
+        continue;
       bool enabled = icon.GetComponentInParent<Button>().interactable;
       icon.color =
         !enabled ? new Color(.4f, .4f, .4f)

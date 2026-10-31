@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Domain.Elements;
 using Element.Domain.Layout;
 using Element.Presentation.Layout;
+using Element.Presentation.Overlay.Elements;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -10,24 +12,42 @@ using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Overlay.Shared;
 
+/// <summary>
+/// The overlay canvas and its text and shape elements, kept in step with the
+/// saved layout list. Shapes draw on a layer below every text.
+/// </summary>
 internal sealed class OverlayCanvasHost : IDisposable
 {
   public GameObject Root { get; private set; }
-  private readonly List<IOverlayLayoutTarget> _layoutTargets = new();
-  private readonly List<IOverlayLayoutTarget> _galleryTargets = new();
-  private readonly List<RectTransformLayoutTarget> _instances = new();
-  private readonly List<RectTransformLayoutTarget> _mirroringInstances = new();
+  public OverlayValues Values { get; } = new();
+  private readonly List<OverlayElementTarget> _elements = new();
+  private readonly List<TextOverlayElement> _texts = new();
+  private readonly List<ShapeOverlayElement> _shapes = new();
+  private readonly HashSet<string> _defaultIds = new();
+  private Transform _shapeLayer;
+  private Transform _textLayer;
   private List<OverlayLayoutSettings> _layoutSettings = new();
+  private TMP_FontAsset _font;
+  private Material _material;
   private bool _visible;
   private bool _layoutPreview;
-  public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
-  public IReadOnlyList<IOverlayLayoutTarget> GalleryTargets => _galleryTargets;
+  private bool _fitPending;
+  private int _comboBumps;
+  private int _themeVersion = -1;
+
+  public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
+  public bool CanShowText => _font != null;
+  public TMP_FontAsset Font => _font;
+
+  /// <summary>The converted built-ins: kept hidden when deleted, so Reset all can bring them back.</summary>
+  public IReadOnlyCollection<string> DefaultIds => _defaultIds;
 
   public OverlayCanvasHost()
   {
     Root = new GameObject("Element Overlay");
-    Object.DontDestroyOnLoad(Root);
+    if (UnityEngine.Application.isPlaying)
+      Object.DontDestroyOnLoad(Root);
 
     Canvas canvas = Root.AddComponent<Canvas>();
     canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -40,9 +60,21 @@ internal sealed class OverlayCanvasHost : IDisposable
     );
     scaler.matchWidthOrHeight = 0.5f;
 
+    _shapeLayer = CreateLayer("Shapes");
+    _textLayer = CreateLayer("Texts");
+    foreach (OverlayDefaultElement element in OverlayElementDefaults.All)
+      _defaultIds.Add(element.Id);
+
     Root.AddComponent<OverlayViewportWatcher>().Initialize(this);
 
     Root.SetActive(false);
+  }
+
+  /// <summary>Text elements need the overlay font; without it only shapes are shown.</summary>
+  public void SetFont(TMP_FontAsset font, Material material)
+  {
+    _font = font;
+    _material = material;
   }
 
   public void SetVisible(bool visible)
@@ -55,125 +87,100 @@ internal sealed class OverlayCanvasHost : IDisposable
   public void ConfigureLayouts(List<OverlayLayoutSettings> layouts)
   {
     _layoutSettings = layouts ?? new List<OverlayLayoutSettings>();
-    for (int i = _instances.Count - 1; i >= 0; i--)
+    for (int i = _elements.Count - 1; i >= 0; i--)
     {
-      RectTransformLayoutTarget target = _instances[i];
-      OverlayLayoutSettings settings = FindSettings(target.Id);
-      if (settings != null && settings.TemplateId == target.TemplateId)
-        target.Configure(settings);
+      OverlayElementTarget element = _elements[i];
+      OverlayLayoutSettings settings = FindSettings(element.Id);
+      if (settings != null && settings.TemplateId == element.TemplateId)
+        element.Configure(settings);
       else
-      {
-        target.EnabledChanged -= UpdateMirrorMembership;
-        target.Dispose();
-        _layoutTargets.Remove(target);
-        _mirroringInstances.Remove(target);
-        _instances.RemoveAt(i);
-      }
+        Remove(element);
     }
-    foreach (RectTransformLayoutTarget target in _galleryTargets)
-    {
-      target.Configure(GetSettings(target.Id));
-      RestoreInstances(target);
-    }
-  }
-
-  public void RegisterLayout(string id, string label, GameObject root, TextMeshProUGUI text, string preview)
-  {
-    RectTransformLayoutTarget target = new(
-      id,
-      label,
-      root.GetComponent<RectTransform>(),
-      Root.transform,
-      text,
-      preview
-    );
-    _layoutTargets.Add(target);
-    _galleryTargets.Add(target);
-    target.Configure(GetSettings(id));
-    RestoreInstances(target);
-  }
-
-  public IOverlayLayoutTarget AddElement(string templateId)
-  {
-    foreach (RectTransformLayoutTarget template in _galleryTargets)
-      if (template.TemplateId == templateId)
-      {
-        OverlayLayoutSettings settings = new()
-        {
-          Id = templateId + ":" + Guid.NewGuid().ToString("N"),
-          TemplateId = templateId,
-        };
-        _layoutSettings.Add(settings);
-        return CreateInstance(template, settings);
-      }
-    return null;
-  }
-
-  private RectTransformLayoutTarget CreateInstance(RectTransformLayoutTarget template, OverlayLayoutSettings settings)
-  {
-    RectTransformLayoutTarget instance = template.CreateInstance(settings.Id, Root.transform);
-    instance.Configure(settings);
-    _instances.Add(instance);
-    instance.EnabledChanged += UpdateMirrorMembership;
-    UpdateMirrorMembership(instance);
-    _layoutTargets.Add(instance);
-    instance.SetPreview(_layoutPreview);
-    return instance;
-  }
-
-  private void UpdateMirrorMembership(RectTransformLayoutTarget target)
-  {
-    if (!target.Enabled)
-      _mirroringInstances.Remove(target);
-    else if (!_mirroringInstances.Contains(target))
-      _mirroringInstances.Add(target);
-  }
-
-  private void RestoreInstances(RectTransformLayoutTarget template)
-  {
-    // Deleted copies are kept disabled only for the editor's undo history.
-    // Nothing can restore them after a restart, so drop them instead of
-    // rebuilding invisible objects on every launch.
-    _layoutSettings.RemoveAll(settings => IsCopy(template, settings) && !settings.Enabled);
     foreach (OverlayLayoutSettings settings in _layoutSettings)
     {
-      if (!IsCopy(template, settings))
+      if (settings == null || string.IsNullOrEmpty(settings.Id) || Find(settings.Id) != null)
         continue;
-      bool exists = false;
-      foreach (RectTransformLayoutTarget instance in _instances)
-        if (instance.Id == settings.Id)
-        {
-          exists = true;
-          break;
-        }
-      if (!exists)
-        CreateInstance(template, settings);
+      if (settings.TemplateId == OverlayElementKinds.Text)
+        CreateText(settings);
+      else if (settings.TemplateId == OverlayElementKinds.Shape)
+        CreateShape(settings);
     }
+    _fitPending = true;
   }
 
-  private static bool IsCopy(RectTransformLayoutTarget template, OverlayLayoutSettings settings) =>
-    settings != null
-    && !string.IsNullOrEmpty(settings.Id)
-    && settings.Id != template.Id
-    && settings.TemplateId == template.TemplateId;
+  public TextOverlayElement AddText(List<OverlayTextRun> runs)
+  {
+    if (!CanShowText)
+      return null;
+    OverlayLayoutSettings settings = new()
+    {
+      Id = OverlayElementKinds.Text + ":" + Guid.NewGuid().ToString("N"),
+      TemplateId = OverlayElementKinds.Text,
+      Text = new OverlayTextSettings { Runs = runs ?? new List<OverlayTextRun>() },
+    };
+    _layoutSettings.Add(settings);
+    return CreateText(settings);
+  }
+
+  public ShapeOverlayElement AddShape()
+  {
+    OverlayLayoutSettings settings = new()
+    {
+      Id = OverlayElementKinds.Shape + ":" + Guid.NewGuid().ToString("N"),
+      TemplateId = OverlayElementKinds.Shape,
+      Shape = OverlayShapeGeometry.Create(),
+    };
+    _layoutSettings.Add(settings);
+    return CreateShape(settings);
+  }
+
+  private TextOverlayElement CreateText(OverlayLayoutSettings settings)
+  {
+    if (!CanShowText)
+      return null;
+    TextOverlayElement element = new(_textLayer, _font, _material, Values);
+    element.ContentChanged += OnContentChanged;
+    _elements.Add(element);
+    _texts.Add(element);
+    element.SetPreview(_layoutPreview);
+    element.Configure(settings);
+    return element;
+  }
+
+  private ShapeOverlayElement CreateShape(OverlayLayoutSettings settings)
+  {
+    ShapeOverlayElement element = new(_shapeLayer);
+    _elements.Add(element);
+    _shapes.Add(element);
+    element.Configure(settings);
+    return element;
+  }
+
+  private void Remove(OverlayElementTarget element)
+  {
+    element.ContentChanged -= OnContentChanged;
+    element.Dispose();
+    _elements.Remove(element);
+    if (element is TextOverlayElement text)
+      _texts.Remove(text);
+    if (element is ShapeOverlayElement shape)
+      _shapes.Remove(shape);
+  }
 
   /// <summary>
-  /// Destroys copies deleted or undone during an editing session. Call only after
-  /// the editor's history is discarded; undo needs the disabled instances.
+  /// Destroys elements deleted or undone during an editing session. Call only
+  /// after the editor's history is discarded; undo needs the hidden elements.
   /// </summary>
   public void PruneDisabledInstances()
   {
-    for (int i = _instances.Count - 1; i >= 0; i--)
+    for (int i = _elements.Count - 1; i >= 0; i--)
     {
-      RectTransformLayoutTarget target = _instances[i];
-      if (target.Enabled)
+      OverlayElementTarget element = _elements[i];
+      if (element.Enabled || _defaultIds.Contains(element.Id))
         continue;
-      target.EnabledChanged -= UpdateMirrorMembership;
-      target.Dispose();
-      _layoutTargets.Remove(target);
-      _mirroringInstances.Remove(target);
-      _instances.RemoveAt(i);
-      _layoutSettings.RemoveAll(settings => settings != null && settings.Id == target.Id);
+      string id = element.Id;
+      Remove(element);
+      _layoutSettings.RemoveAll(settings => settings != null && settings.Id == id);
     }
   }
 
@@ -181,60 +188,143 @@ internal sealed class OverlayCanvasHost : IDisposable
   {
     _layoutPreview = preview;
     SetVisible(_visible);
-    TickMirrors();
-    foreach (IOverlayLayoutTarget target in _layoutTargets)
-      target.SetPreview(preview);
+    foreach (OverlayElementTarget element in _elements)
+      element.SetPreview(preview);
   }
 
   public void ApplyLayouts()
   {
-    foreach (RectTransformLayoutTarget target in _layoutTargets)
-      target.Apply();
+    foreach (OverlayElementTarget element in _elements)
+      element.Apply();
+    foreach (ShapeOverlayElement shape in _shapes)
+      shape.Refresh();
   }
 
-  public void TickLayoutPreview()
-  {
-    if (!_layoutPreview)
-      return;
-    TickMirrors();
-    foreach (RectTransformLayoutTarget target in _layoutTargets)
-      target.UpdatePreview();
-  }
+  public void TickLayoutPreview() => Tick();
 
-  internal void TickMirrors()
+  /// <summary>Once per frame while the canvas is shown: redraws what changed.</summary>
+  internal void Tick()
   {
-    foreach (RectTransformLayoutTarget instance in _mirroringInstances)
+    ulong changes = Values.TakeChanges();
+    bool themeChanged = _themeVersion != OverlayTheme.Version;
+    _themeVersion = OverlayTheme.Version;
+    if (changes != 0 || themeChanged)
+      foreach (TextOverlayElement text in _texts)
+        text.Refresh(changes);
+    if (themeChanged)
+      foreach (ShapeOverlayElement shape in _shapes)
+        shape.Refresh();
+    if (_comboBumps != Values.ComboBumps)
     {
-      instance.UpdateMirroredVisual();
-      if (_layoutPreview)
-        instance.UpdatePreview();
+      _comboBumps = Values.ComboBumps;
+      foreach (TextOverlayElement text in _texts)
+        if (text.UsesCombo && text.Enabled)
+          text.Pulse();
     }
+    if (_fitPending)
+      FitPendingGroups();
   }
 
-  public void ResetLayouts()
+  private void OnContentChanged(OverlayElementTarget element)
   {
-    foreach (OverlayLayoutSettings settings in _layoutSettings)
+    if (element.PendingFit)
+      _fitPending = true;
+  }
+
+  // A moved combo was one element. Measure its title and number where the
+  // built-in drew them, then place both as the old combo was placed.
+  private void FitPendingGroups()
+  {
+    _fitPending = false;
+    foreach (TextOverlayElement first in _texts)
     {
-      if (settings == null)
+      if (!first.PendingFit)
         continue;
-      settings.Customized = false;
-      settings.LayoutVersion = 0;
-      settings.Anchor = Anchor9.Center;
-      settings.OffsetX = settings.OffsetY = 0;
-      settings.CenterX = settings.CenterY = 0.5f;
-      settings.Scale = 1f;
+      string group = first.Settings.PendingGroup;
+      List<TextOverlayElement> members = _texts.FindAll(text => text.PendingFit && text.Settings.PendingGroup == group);
+      bool ready = true;
+      Rect union = default;
+      for (int i = 0; i < members.Count; i++)
+      {
+        if (!members[i].Enabled || !members[i].HasContent)
+        {
+          ready = false;
+          break;
+        }
+        Rect bounds = members[i].AnchorBounds;
+        union =
+          i == 0
+            ? bounds
+            : Rect.MinMaxRect(
+              Mathf.Min(union.xMin, bounds.xMin),
+              Mathf.Min(union.yMin, bounds.yMin),
+              Mathf.Max(union.xMax, bounds.xMax),
+              Mathf.Max(union.yMax, bounds.yMax)
+            );
+      }
+      if (!ready)
+        continue;
+      OverlayLayoutSettings old = first.Settings;
+      bool anchored = OverlayLayoutPosition.IsAnchored(old);
+      float scale =
+        OverlayLayoutGeometry.Finite(old.Scale) && old.Scale > 0
+          ? (anchored ? old.Scale : Mathf.Clamp(old.Scale, .2f, 5f))
+          : 1;
+      Vector2 from,
+        to;
+      if (anchored)
+      {
+        LayoutBounds target = OverlayLayoutPosition.Resolve(
+          old,
+          union.width * scale,
+          union.height * scale,
+          Screen.width,
+          Screen.height
+        );
+        from = union.min;
+        to = new Vector2(target.X, target.Y);
+      }
+      else
+      {
+        float unit = OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
+        LegacyOverlayPlacement root = LegacyOverlayPlacement.ComboRoot;
+        from = new Vector2(Screen.width * .5f, (-root.Position.y + root.Size.y * .5f) * unit);
+        to = new Vector2(old.CenterX * Screen.width, old.CenterY * Screen.height);
+      }
+      List<Rect> targets = new(members.Count);
+      foreach (TextOverlayElement member in members)
+      {
+        Rect bounds = member.AnchorBounds;
+        Vector2 center = to + (bounds.center - from) * scale;
+        targets.Add(new Rect(center - bounds.size * scale * .5f, bounds.size * scale));
+      }
+      for (int i = 0; i < members.Count; i++)
+      {
+        members[i].PlaceContent(targets[i], members[i].EffectiveScale * scale);
+        members[i].CommitLayout(true, initialize: true);
+      }
+      _fitPending = true;
+      return;
     }
-    ApplyLayouts();
   }
 
-  private OverlayLayoutSettings GetSettings(string id)
+  private Transform CreateLayer(string name)
   {
-    OverlayLayoutSettings found = FindSettings(id);
-    if (found != null)
-      return found;
-    OverlayLayoutSettings created = new() { Id = id };
-    _layoutSettings.Add(created);
-    return created;
+    GameObject layer = new(name, typeof(RectTransform));
+    RectTransform rect = layer.GetComponent<RectTransform>();
+    rect.SetParent(Root.transform, false);
+    rect.anchorMin = Vector2.zero;
+    rect.anchorMax = Vector2.one;
+    rect.offsetMin = rect.offsetMax = Vector2.zero;
+    return rect;
+  }
+
+  private OverlayElementTarget Find(string id)
+  {
+    foreach (OverlayElementTarget element in _elements)
+      if (element.Id == id)
+        return element;
+    return null;
   }
 
   private OverlayLayoutSettings FindSettings(string id)
@@ -251,16 +341,15 @@ internal sealed class OverlayCanvasHost : IDisposable
       return;
 
     Root.SetActive(false);
-    foreach (RectTransformLayoutTarget target in _layoutTargets)
+    foreach (OverlayElementTarget element in _elements)
     {
-      target.EnabledChanged -= UpdateMirrorMembership;
-      target.Dispose();
+      element.ContentChanged -= OnContentChanged;
+      element.Dispose();
     }
-    _layoutTargets.Clear();
-    _galleryTargets.Clear();
-    _instances.Clear();
-    _mirroringInstances.Clear();
-    Object.Destroy(Root);
+    _elements.Clear();
+    _texts.Clear();
+    _shapes.Clear();
+    Settings.SettingsUiFactory.Destroy(Root);
     Root = null;
   }
 }
@@ -288,7 +377,7 @@ internal sealed class OverlayViewportWatcher : MonoBehaviour
   {
     if (_host == null)
       return;
-    _host.TickMirrors();
+    _host.Tick();
     float scale = _canvas != null ? _canvas.scaleFactor : 1;
     if (_width == Screen.width && _height == Screen.height && _scale == scale)
       return;

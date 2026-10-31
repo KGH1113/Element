@@ -15,6 +15,12 @@ internal enum LayoutAction
   Grip,
   Delete,
   Close,
+  Text,
+  KeyViewer,
+  Shape,
+  Square,
+  Triangle,
+  Circle,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -28,6 +34,33 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
     mesh.Clear();
     switch (Kind)
     {
+      case LayoutAction.Text:
+        Line(mesh, 5, 5, 19, 5);
+        Line(mesh, 12, 5, 12, 20);
+        Line(mesh, 9, 20, 15, 20);
+        break;
+      case LayoutAction.KeyViewer:
+        Box(mesh, 3, 5, 10, 12);
+        Box(mesh, 14, 5, 21, 12);
+        Box(mesh, 3, 15, 21, 20);
+        break;
+      case LayoutAction.Shape:
+        Box(mesh, 3, 3, 14, 14);
+        Arc(mesh, 15.5f, 15.5f, 5.5f, 0, 360);
+        break;
+      case LayoutAction.Square:
+        Box(mesh, 5, 5, 19, 19);
+        break;
+      case LayoutAction.Triangle:
+        BeginPath();
+        PathPoint(12, 4);
+        PathPoint(20.5f, 19);
+        PathPoint(3.5f, 19);
+        Stroke(mesh, 2, true);
+        break;
+      case LayoutAction.Circle:
+        Arc(mesh, 12, 12, 8, 0, 360);
+        break;
       case LayoutAction.Close:
         Line(mesh, 6, 6, 18, 18);
         Line(mesh, 18, 6, 6, 18);
@@ -80,6 +113,16 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         Line(mesh, 15, 8, 19, 8);
         break;
     }
+  }
+
+  private void Box(VertexHelper mesh, float left, float top, float right, float bottom)
+  {
+    BeginPath();
+    PathPoint(left, top);
+    PathPoint(right, top);
+    PathPoint(right, bottom);
+    PathPoint(left, bottom);
+    Stroke(mesh, 2, true);
   }
 
   private void Curve(VertexHelper mesh, Vector2 a, Vector2 b, Vector2 c, Vector2 d, bool mirror)

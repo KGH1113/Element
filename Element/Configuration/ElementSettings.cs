@@ -50,7 +50,10 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     Gameplay.Normalize();
     Effects ??= new();
     Effects.Normalize();
-    SettingsVersion = Math.Max(SettingsVersion, 2);
+    OverlayLayouts ??= new();
+    if (SettingsVersion < 3)
+      Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
+    SettingsVersion = Math.Max(SettingsVersion, 3);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

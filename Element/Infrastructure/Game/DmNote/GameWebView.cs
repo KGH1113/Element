@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Element.Domain.DmNote;
+using Element.Domain.Layout;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.DmNote;
@@ -60,6 +61,7 @@ internal sealed class GameWebView : INativeViewerHost
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate void SetEditorExclusion(double x, double y, double width, double height);
+  private delegate void SetEditorExclusions([In] double[] values, int count);
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate void DisposeViews();
@@ -72,6 +74,7 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetLayout _setLayout;
   private readonly SetBounds _setBounds;
   private readonly GetReferenceSize _getReferenceSize;
+
   // Optional: libraries built before window-sized viewers lack these two.
   private readonly GetReferenceSize _getContentSize;
   private readonly GetViewSize _getViewSize;
@@ -83,13 +86,14 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetSelected _setSelected;
   private readonly SetHighlight _setHighlight;
   private readonly SetEditorExclusion _setEditorExclusion;
+  private readonly SetEditorExclusions _setEditorExclusions;
+  private double[] _exclusionValues = Array.Empty<double>();
   private readonly DisposeViews _dispose;
   private readonly LastError _lastError;
   private bool _disposed;
   private readonly HashSet<string> _kinds = new();
   private bool _visible = true;
   private bool _editing;
-  private Rect _editorExclusion;
   private int _pointerFrame = -1;
   private bool _pointerAvailable;
   private Vector2 _pointer;
@@ -129,6 +133,7 @@ internal sealed class GameWebView : INativeViewerHost
     _setSelected = Symbol<SetSelected>(library, "irp_webview_set_selected");
     _setHighlight = Symbol<SetHighlight>(library, "irp_webview_set_highlight");
     _setEditorExclusion = Symbol<SetEditorExclusion>(library, "irp_webview_set_editor_exclusion");
+    _setEditorExclusions = OptionalSymbol<SetEditorExclusions>(library, "irp_webview_set_editor_exclusions");
     _dispose = Symbol<DisposeViews>(library, "irp_webview_dispose");
     _lastError = Symbol<LastError>(library, "irp_webview_last_error");
     if (Symbol<Supported>(library, "irp_webview_supported")() == 0)
@@ -185,12 +190,54 @@ internal sealed class GameWebView : INativeViewerHost
     _setEditing(editing ? 1 : 0);
   }
 
-  public void ExcludeEditor(Rect normalizedBounds)
+  public void ExcludeEditor(IReadOnlyList<LayoutExclusion> normalized)
   {
-    if (_disposed || _editorExclusion == normalizedBounds)
+    if (_disposed)
       return;
-    _editorExclusion = normalizedBounds;
-    _setEditorExclusion(normalizedBounds.x, normalizedBounds.y, normalizedBounds.width, normalizedBounds.height);
+    double[] values = new double[normalized.Count * 5];
+    for (int i = 0; i < normalized.Count; i++)
+    {
+      LayoutBounds bounds = normalized[i].Bounds;
+      values[i * 5] = bounds.X;
+      values[i * 5 + 1] = bounds.Y;
+      values[i * 5 + 2] = bounds.Width;
+      values[i * 5 + 3] = bounds.Height;
+      values[i * 5 + 4] = normalized[i].Radius;
+    }
+    if (Same(values, _exclusionValues))
+      return;
+    _exclusionValues = values;
+    if (_setEditorExclusions != null)
+    {
+      _setEditorExclusions(values, normalized.Count);
+      return;
+    }
+    // A library from before rounded cutouts takes one square around them all.
+    float left = float.PositiveInfinity,
+      top = float.PositiveInfinity,
+      right = float.NegativeInfinity,
+      bottom = float.NegativeInfinity;
+    foreach (LayoutExclusion exclusion in normalized)
+    {
+      left = Math.Min(left, exclusion.Bounds.X);
+      top = Math.Min(top, exclusion.Bounds.Y);
+      right = Math.Max(right, exclusion.Bounds.Right);
+      bottom = Math.Max(bottom, exclusion.Bounds.Bottom);
+    }
+    if (normalized.Count == 0)
+      _setEditorExclusion(0, 0, 0, 0);
+    else
+      _setEditorExclusion(left, top, right - left, bottom - top);
+  }
+
+  private static bool Same(double[] a, double[] b)
+  {
+    if (a.Length != b.Length)
+      return false;
+    for (int i = 0; i < a.Length; i++)
+      if (a[i] != b[i])
+        return false;
+    return true;
   }
 
   public void Select(string kind, bool selected)

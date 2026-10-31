@@ -16,7 +16,6 @@ internal sealed class NativeViewerLayoutTarget
   : IOverlayLayoutTarget,
     IExternalLayoutOutline,
     IOverlayLayoutPointer,
-    IOverlayGalleryPreview,
     IDisposable
 {
   private readonly string _kind;
@@ -33,6 +32,7 @@ internal sealed class NativeViewerLayoutTarget
   private int _screenWidth;
   private int _screenHeight;
   private float _screenScale = 1;
+
   // Unity pixels per reference unit for sizes; 0 until the host reports its
   // desktop units. With them, 100% is the size the separate ElementNote window
   // shows (one CSS pixel per point or DIP); without, the 1920x1080 scale.
@@ -148,14 +148,6 @@ internal sealed class NativeViewerLayoutTarget
   }
 
   public void ConfigurePreview(TMP_FontAsset font) => _font = font;
-
-  public GameObject CreateGalleryPreview(Transform parent)
-  {
-    RectTransform root = NativeViewerMock.Create(_kind, parent, _font, false);
-    root.anchorMin = root.anchorMax = root.pivot = new Vector2(.5f, .5f);
-    root.anchoredPosition = Vector2.zero;
-    return root.gameObject;
-  }
 
   public void SetEnabled(bool enabled)
   {

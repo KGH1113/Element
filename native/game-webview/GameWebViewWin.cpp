@@ -115,6 +115,19 @@ RectD Intersect(const RectD &left, const RectD &right) {
   return {l, t, r - l, b - t};
 }
 
+// An editor panel to cut out of native content, with its corner radius.
+struct Exclusion {
+  RectD rect;
+  double radius = 0;
+};
+
+bool SameExclusions(const std::vector<Exclusion> &left, const std::vector<Exclusion> &right) {
+  if (left.size() != right.size()) return false;
+  for (size_t i = 0; i < left.size(); i++)
+    if (!SameRect(left[i].rect, right[i].rect) || left[i].radius != right[i].radius) return false;
+  return true;
+}
+
 RectD Inflate(const RectD &rect, double amount) {
   return {rect.x - amount, rect.y - amount, rect.width + amount * 2, rect.height + amount * 2};
 }
@@ -319,7 +332,8 @@ struct Host {
   UINT dpi = 96;
   bool iconic = false;
   bool editing = false;
-  RectD editorExclusion;
+  // Normalized rectangles; radius is normalized to the view height.
+  std::vector<Exclusion> editorExclusions;
   ComPtr<IDCompositionTarget> target;
   ComPtr<IDCompositionVisual2> root;
   ComPtr<IDCompositionVisual2> webLayer;
@@ -615,11 +629,22 @@ std::wstring PageScript() {
       "Object.defineProperty(window, '__irpPost', { value: post });\n"
       // The editor toolbar must stay visible above freely moved viewers. Cut the
       // page itself; the native outline is cleared separately.
-      "window.__irpSetExclusion = (x, y, w, h) => {\n"
+      // Each cutout keeps the rounded corners of the Unity panel it reveals.
+      "window.__irpSetExclusions = (shapes) => {\n"
       "  const root = document.documentElement; if (!root) return;\n"
-      "  root.style.clipPath = w > 0 && h > 0\n"
-      "    ? `path(evenodd, \"M-100000 -100000H100000V100000H-100000Z M${x} ${y}h${w}v${h}h${-w}Z\")` : '';\n"
+      "  if (!shapes || !shapes.length) { root.style.clipPath = ''; return; }\n"
+      "  let d = 'M-100000 -100000H100000V100000H-100000Z';\n"
+      "  for (const [x, y, w, h, radius] of shapes) {\n"
+      "    const r = Math.max(0, Math.min(radius, w / 2, h / 2));\n"
+      "    d += r > 0\n"
+      "      ? ` M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}`\n"
+      "        + `A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}`\n"
+      "        + `V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`\n"
+      "      : ` M${x} ${y}h${w}v${h}h${-w}Z`;\n"
+      "  }\n"
+      "  root.style.clipPath = `path(evenodd, \"${d}\")`;\n"
       "};\n"
+      "window.__irpSetExclusion = (x, y, w, h) => window.__irpSetExclusions(w > 0 && h > 0 ? [[x, y, w, h, 0]] : []);\n"
       "const run = () => {\n";
   script += irp::scripts::kSelection;
   script += "\n";
@@ -1075,29 +1100,70 @@ void ApplySurface(Surface &surface, const RectD &clip) {
   ApplyVisibility(surface);
 }
 
-RectD ExclusionPixels() {
-  if (host == nullptr || !host->editing || host->editorExclusion.Empty()) return {};
-  const RectD &normalized = host->editorExclusion;
-  return Intersect({0, 0, (double)host->width, (double)host->height},
-                   {normalized.x * host->width, normalized.y * host->height, normalized.width * host->width,
-                    normalized.height * host->height});
+std::vector<Exclusion> ExclusionPixels() {
+  std::vector<Exclusion> result;
+  if (host == nullptr || !host->editing) return result;
+  double width = host->width, height = host->height;
+  for (const Exclusion &normalized : host->editorExclusions) {
+    RectD rect = Intersect({0, 0, width, height},
+                           {normalized.rect.x * width, normalized.rect.y * height, normalized.rect.width * width,
+                            normalized.rect.height * height});
+    if (rect.Empty()) continue;
+    result.push_back({rect, std::max(0.0, std::min({normalized.radius * height, rect.width / 2, rect.height / 2}))});
+  }
+  return result;
 }
 
-void ApplyExclusion(Surface &surface, const RectD &exclusion) {
+void ApplyExclusion(Surface &surface, const std::vector<Exclusion> &exclusions) {
   if (!surface.webView || !surface.navigated) return;
-  RectD cut = surface.hidden || surface.scale <= 0 ? RectD{} : Intersect(exclusion, surface.webFrame);
-  wchar_t script[256];
-  if (cut.Empty()) {
-    std::swprintf(script, 256, L"window.__irpSetExclusion?.(0,0,0,0);");
-  } else {
+  std::wstring script = L"window.__irpSetExclusions?.([";
+  if (!surface.hidden && surface.scale > 0) {
     double offsetX = (double)surface.appliedOffset.x, offsetY = (double)surface.appliedOffset.y;
-    std::swprintf(script, 256, L"window.__irpSetExclusion?.(%.2f,%.2f,%.2f,%.2f);",
-                  (cut.x - offsetX) / surface.scale, (cut.y - offsetY) / surface.scale,
-                  cut.width / surface.scale, cut.height / surface.scale);
+    bool first = true;
+    for (const Exclusion &exclusion : exclusions) {
+      RectD cut = Intersect(exclusion.rect, surface.webFrame);
+      if (cut.Empty()) continue;
+      wchar_t item[192];
+      std::swprintf(item, 192, L"[%.2f,%.2f,%.2f,%.2f,%.2f]", (cut.x - offsetX) / surface.scale,
+                    (cut.y - offsetY) / surface.scale, cut.width / surface.scale, cut.height / surface.scale,
+                    exclusion.radius / surface.scale);
+      if (!first) script += L",";
+      script += item;
+      first = false;
+    }
   }
+  script += L"]);";
   if (surface.appliedExclusion == script) return;
   surface.appliedExclusion = script;
   Execute(surface, script);
+}
+
+// Everything except the editor's rounded panels; chrome drawn through it
+// never covers Unity's toolbar. Cutouts never overlap, so even-odd is exact.
+ComPtr<ID2D1Geometry> ChromeMask(ID2D1DeviceContext *context, const std::vector<Exclusion> &exclusions) {
+  if (exclusions.empty()) return nullptr;
+  ComPtr<ID2D1Factory> factory;
+  context->GetFactory(&factory);
+  if (!factory) return nullptr;
+  std::vector<ComPtr<ID2D1Geometry>> owned;
+  ComPtr<ID2D1RectangleGeometry> whole;
+  if (FAILED(factory->CreateRectangleGeometry(D2D1::RectF(0, 0, (float)host->width, (float)host->height), &whole)))
+    return nullptr;
+  owned.push_back(whole);
+  for (const Exclusion &exclusion : exclusions) {
+    const RectD &rect = exclusion.rect;
+    D2D1_ROUNDED_RECT shape{D2D1::RectF((float)rect.x, (float)rect.y, (float)rect.Right(), (float)rect.Bottom()),
+                            (float)exclusion.radius, (float)exclusion.radius};
+    ComPtr<ID2D1RoundedRectangleGeometry> hole;
+    if (FAILED(factory->CreateRoundedRectangleGeometry(shape, &hole))) return nullptr;
+    owned.push_back(hole);
+  }
+  std::vector<ID2D1Geometry *> parts;
+  for (const ComPtr<ID2D1Geometry> &part : owned) parts.push_back(part.Get());
+  ComPtr<ID2D1GeometryGroup> group;
+  if (FAILED(factory->CreateGeometryGroup(D2D1_FILL_MODE_ALTERNATE, parts.data(), (UINT32)parts.size(), &group)))
+    return nullptr;
+  return group;
 }
 
 void DrawChrome(ID2D1DeviceContext *context) {
@@ -1191,15 +1257,10 @@ void UpdateChrome() {
       D2D1::RectF((float)update.left, (float)update.top, (float)update.right, (float)update.bottom),
       D2D1_ANTIALIAS_MODE_ALIASED);
   context->Clear(D2D1::ColorF(0, 0, 0, 0));
+  ComPtr<ID2D1Geometry> mask = ChromeMask(context.Get(), ExclusionPixels());
+  if (mask) context->PushLayer(D2D1::LayerParameters1(D2D1::InfiniteRect(), mask.Get()), nullptr);
   DrawChrome(context.Get());
-  RectD exclusion = ExclusionPixels();
-  if (!exclusion.Empty()) {
-    context->PushAxisAlignedClip(D2D1::RectF((float)exclusion.x, (float)exclusion.y, (float)exclusion.Right(),
-                                             (float)exclusion.Bottom()),
-                                 D2D1_ANTIALIAS_MODE_ALIASED);
-    context->Clear(D2D1::ColorF(0, 0, 0, 0));
-    context->PopAxisAlignedClip();
-  }
+  if (mask) context->PopLayer();
   context->PopAxisAlignedClip();
   if (FAILED(host->chromeSurface->EndDraw())) return;
   host->chromeDrawn = extent;
@@ -1251,8 +1312,8 @@ void Layout() {
     ApplySurface(surface, {inset, inset, frame.width, frame.height});
   }
   UpdateChrome();
-  RectD exclusion = ExclusionPixels();
-  for (auto &entry : host->surfaces) ApplyExclusion(*entry.second, exclusion);
+  std::vector<Exclusion> exclusions = ExclusionPixels();
+  for (auto &entry : host->surfaces) ApplyExclusion(*entry.second, exclusions);
   Commit();
 }
 
@@ -1614,9 +1675,29 @@ IRP_WEBVIEW_API void irp_webview_set_editor_exclusion(double x, double y, double
     return;
   Guarded([&] {
     if (host == nullptr) return 0;
-    RectD exclusion{x, y, std::max(0.0, width), std::max(0.0, height)};
-    if (SameRect(exclusion, host->editorExclusion)) return 1;
-    host->editorExclusion = exclusion;
+    std::vector<Exclusion> exclusions;
+    if (width > 0 && height > 0) exclusions.push_back({{x, y, width, height}, 0});
+    if (SameExclusions(exclusions, host->editorExclusions)) return 1;
+    host->editorExclusions = exclusions;
+    if (host->editing) Layout();
+    return 1;
+  });
+}
+
+IRP_WEBVIEW_API void irp_webview_set_editor_exclusions(const double *values, int count) {
+  if (count < 0 || (count > 0 && values == nullptr) || !OnGameThread()) return;
+  Guarded([&] {
+    if (host == nullptr) return 0;
+    std::vector<Exclusion> exclusions;
+    for (int i = 0; i < count; i++) {
+      const double *shape = values + (size_t)i * 5;
+      bool finite = true;
+      for (int j = 0; j < 5; j++) finite = finite && std::isfinite(shape[j]);
+      if (!finite || shape[2] <= 0 || shape[3] <= 0) continue;
+      exclusions.push_back({{shape[0], shape[1], shape[2], shape[3]}, std::max(0.0, shape[4])});
+    }
+    if (SameExclusions(exclusions, host->editorExclusions)) return 1;
+    host->editorExclusions = exclusions;
     if (host->editing) Layout();
     return 1;
   });

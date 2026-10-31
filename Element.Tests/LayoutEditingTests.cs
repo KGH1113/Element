@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Element.Configuration;
+using Element.Domain.Elements;
 using Element.Domain.Layout;
 
 namespace Element.Tests;
@@ -171,7 +172,7 @@ internal static class LayoutEditingTests
     LayoutSnapshot before = new(values);
     LayoutHistory history = new();
     history.Reset(values);
-    OverlayLayoutDefaults.Restore(values, new HashSet<string> { "fps", "dmnote-hand" });
+    OverlayElementDefaults.Restore(values, new HashSet<string> { "fps", "dmnote-hand" });
     history.Commit(values);
     Check(
       values[0].Enabled && values[1].Enabled && !values[2].Enabled,

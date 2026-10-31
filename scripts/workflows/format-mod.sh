@@ -5,7 +5,7 @@ source "$WORKFLOW_DIR/../lib/context.sh"
 cd "$ELEMENT_PROJECT_ROOT"
 "$DOTNET_EXE" csharpier format \
   Element/Application \
-  Element/Domain/DmNote Element/Domain/Layout \
+  Element/Domain/DmNote Element/Domain/Layout Element/Domain/Elements \
   Element/Domain/Judgement/JudgementVisualPolicy.cs Element/Domain/Judgement/HitMarginPolicy.cs \
   Element/Domain/Editor Element/Domain/Attempts \
   Element/Infrastructure/Attempts Element/Infrastructure/Game/Attempts \
@@ -19,7 +19,7 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element/Infrastructure/Game/Input/SettingsInputPatches.cs \
   Element/Bootstrap Element/Configuration Element/Presentation \
   Element.Tests/Program.cs Element.Tests/NativeViewerTests.cs \
-  Element.Tests/OverlayLayoutTests.cs Element.Tests/LayoutEditingTests.cs \
+  Element.Tests/OverlayLayoutTests.cs Element.Tests/LayoutEditingTests.cs Element.Tests/OverlayElementTests.cs \
   Element.Tests/GameplayTweaksTests.cs Element.Tests/EffectSettingsTests.cs \
   Element.Tests/PerformanceTests.cs Element.Tests/EffectFilterTests.cs \
   Element.Tests/NativeViewerSessionTests.cs Element.Tests/AttemptTests.cs

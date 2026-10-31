@@ -59,16 +59,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     main.Settings.Gameplay.Normalize();
     main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(_font);
-    _layoutEditor = new OverlayLayoutEditor(
-      canvas,
-      nativeViewers.LayoutTargets,
-      _font,
-      _font != null ? _font.material : null,
-      OnLayoutClosed,
-      main.Settings,
-      nativeViewers.AddElement,
-      nativeViewers.GalleryTargets
-    );
+    _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
   }
 
   public bool IsEditingLayout => _layoutEditor?.IsOpen == true;
@@ -101,7 +92,7 @@ internal sealed class SettingsUiRuntime : IDisposable
       else
         _layoutEditor.Tick();
       if (_layoutEditor.IsOpen)
-        _nativeViewers.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+        _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
       UIInteractionState.RestoreCursor();
     }
     else if (_panel != null)
@@ -163,7 +154,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   {
     UIInteractionState.Begin(layoutEditing: true);
     _layoutEditor.Open();
-    _nativeViewers.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+    _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
     _viewerModeChanged();
   }
 

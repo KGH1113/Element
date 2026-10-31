@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;
@@ -14,13 +15,12 @@ namespace Element.Presentation.Layout;
 
 internal sealed partial class OverlayLayoutEditor : IDisposable
 {
+  private const float MaximumScale = 10f;
   private readonly OverlayCanvasHost _host;
-  private readonly List<IOverlayLayoutTarget> _extraTargets = new();
+  private readonly IKeyViewerElements _keyViewers;
   private readonly List<TargetFrame> _frames = new();
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
-  private readonly Func<string, IOverlayLayoutTarget> _addExternalElement;
-  private readonly IEnumerable<IOverlayLayoutTarget> _galleryExtras;
   private readonly TMP_FontAsset _font;
   private readonly Action<bool> _onClosed;
   private readonly LayoutCursors _cursors = new();
@@ -33,7 +33,11 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   private LayoutHandle _dragHandle;
   private Rect _dragStart;
   private Vector2 _pointerStart;
+  private Vector2 _pressPosition;
+  private bool _pressMoved;
   private float _dragScale;
+  private float _lastClickTime = -1;
+  private int _lastClickTarget = -1;
   private bool _previousCursorVisible;
   private CursorLockMode _previousCursorLock;
   private int _themeVersion = -1;
@@ -42,23 +46,17 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
 
   public OverlayLayoutEditor(
     OverlayCanvasHost host,
-    IEnumerable<IOverlayLayoutTarget> extras,
+    IKeyViewerElements keyViewers,
     TMP_FontAsset font,
-    Material material,
     Action<bool> onClosed,
-    ElementSettings preferences,
-    Func<string, IOverlayLayoutTarget> addExternalElement = null,
-    IEnumerable<IOverlayLayoutTarget> galleryExtras = null
+    ElementSettings preferences
   )
   {
     _host = host;
+    _keyViewers = keyViewers;
     _font = font;
     _onClosed = onClosed;
     _preferences = preferences;
-    _addExternalElement = addExternalElement;
-    _galleryExtras = galleryExtras;
-    if (extras != null)
-      _extraTargets.AddRange(extras);
   }
 
   public void Open()
@@ -81,13 +79,11 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     Canvas.ForceUpdateCanvases();
     _host.ApplyLayouts();
     foreach (TargetFrame frame in _frames)
-    {
       frame.Target.SetPreview(true);
-      frame.InitialBounds = frame.Target.Bounds;
-    }
     _root.SetActive(true);
     _history.Reset(_host.LayoutSettings);
     _selected = _dragging = -1;
+    _shapeDrag = ShapeDrag.None;
     _toolbarDragging = false;
     _guideX = _guideY = float.NaN;
     _horizontalSpacing = _verticalSpacing = default;
@@ -99,7 +95,14 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     if (!IsOpen)
       return;
-    if (save && _colorPopover != null && !_colorPopover.Commit())
+    // Closing the whole editor finishes an open text edit the same way.
+    if (_textEditor != null && _textEditor.IsOpen)
+    {
+      _textEditor.Close(save, true);
+      if (_textEditor.IsOpen)
+        return;
+    }
+    if (save && !CommitPopovers())
       return;
     if (save && HasSelection && _scalePending)
     {
@@ -116,7 +119,10 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     IsOpen = false;
     _closing = true;
     _dragging = -1;
+    _shapeDrag = ShapeDrag.None;
     _toolbarDragging = false;
+    ClosePopovers();
+    CloseElementSettings();
     if (!save)
     {
       _openingLayout.Restore(_host.LayoutSettings);
@@ -130,8 +136,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       frame.Target.SetPreview(false);
     }
     _host.SetLayoutPreview(false);
-    CloseGallery();
-    _colorPopover?.Hide();
     _root.SetActive(false);
     _cursors.Set(LayoutHandle.None);
     Cursor.visible = _previousCursorVisible;
@@ -144,7 +148,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       _ownedEvents = null;
     }
     _closing = false;
-    // The session's undo history ends here, so deleted copies can be released
+    // The session's undo history ends here, so deleted elements can be released
     // before the settings are saved.
     _host.PruneDisabledInstances();
     _onClosed?.Invoke(save);
@@ -156,25 +160,34 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       return;
     _horizontalSpacing = _verticalSpacing = default;
     EnsureEvents();
-    bool typing = (_scaleInput != null && _scaleInput.isFocused) || (_colorPopover?.IsTyping ?? false);
     if (_viewportWidth != Screen.width || _viewportHeight != Screen.height)
       Resize(Screen.width, Screen.height);
-    UIInteractionState.SetTextEditing(typing || _galleryRoot != null || (_colorPopover?.Visible ?? false));
-    UpdatePopupPosition();
-    if (_galleryRoot != null || (_colorPopover?.Visible ?? false))
+    if (_textEditor != null && _textEditor.IsOpen)
+    {
+      UIInteractionState.SetTextEditing(true);
+      _textEditor.Tick();
+      _host.TickLayoutPreview();
+      UpdateFrames();
+      _cursors.Set(LayoutHandle.None);
+      return;
+    }
+    bool typing = (_scaleInput != null && _scaleInput.isFocused) || PopoverTyping;
+    UIInteractionState.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
+    UpdatePopupPositions();
+    if (_modalRoot != null || AnyPopoverVisible)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
       {
-        if (_galleryRoot != null)
-          CloseGallery();
+        if (_modalRoot != null)
+          CloseModal();
         else
-          _colorPopover.Hide();
+          CloseTopPopover();
       }
-      else if (!typing && _colorPopover != null && _colorPopover.Visible && Input.GetMouseButtonDown(0))
+      else if (!typing && _modalRoot == null && Input.GetMouseButtonDown(0))
       {
         Vector2 p = new(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-        if (!ColorPopoverBounds.Contains(p) && !ToolbarBounds.Contains(p))
-          _colorPopover.Hide();
+        if (!PopoverContains(p) && !ToolbarBounds.Contains(p))
+          ClosePopovers();
       }
       _host.TickLayoutPreview();
       UpdateFrames();
@@ -216,56 +229,22 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
         _toolbarDragging = false;
       _cursors.Set(LayoutHandle.Move);
     }
-    else if (_dragging >= 0)
+    else if (_elementBarDragging)
     {
-      TargetFrame frame = _frames[_dragging];
-      if (frame.Target.Available && Input.GetMouseButton(0))
-      {
-        Vector2 pointer = PointerFor(frame.Target, mouse);
-        LayoutBounds resized = OverlayLayoutGeometry.Drag(
-          ToBounds(_dragStart),
-          _dragHandle,
-          pointer.x - _pointerStart.x,
-          pointer.y - _pointerStart.y,
-          Screen.width,
-          Screen.height,
-          Mathf.Min(1f, 0.2f / _dragScale),
-          Mathf.Max(1f, 5f / _dragScale)
-        );
-        if (
-          _dragHandle == LayoutHandle.Move
-          && _preferences.LayoutSnapping
-          && !Input.GetKey(KeyCode.LeftAlt)
-          && !Input.GetKey(KeyCode.RightAlt)
-          && (pointer - _pointerStart).sqrMagnitude > 9
-        )
-        {
-          _snapReferences.Clear();
-          for (int i = 0; i < _frames.Count; i++)
-            if (i != _dragging && _frames[i].Target.Available && _frames[i].Target.Enabled)
-              _snapReferences.Add(ToBounds(_frames[i].Target.Bounds));
-          resized = LayoutSnap.Move(
-            resized,
-            _snapReferences,
-            Screen.width,
-            Screen.height,
-            7 * UiScale,
-            out _guideX,
-            out _guideY,
-            out _horizontalSpacing,
-            out _verticalSpacing
-          );
-        }
-        else
-          _guideX = _guideY = float.NaN;
-        frame.Target.SetBounds(ToRect(resized));
-      }
-      _cursors.Set(_dragHandle);
+      MoveElementBar(mouse);
       if (!Input.GetMouseButton(0))
-      {
-        FinishDrag();
-        _guideX = _guideY = float.NaN;
-      }
+        _elementBarDragging = false;
+      _cursors.Set(LayoutHandle.Move);
+    }
+    else if (_dragging >= 0)
+      ContinueDrag(mouse);
+    else if (SettingsPanelContains(mouse))
+    {
+      // Like the main toolbar, the element toolbar drags from anywhere but its controls.
+      bool canDrag = !ElementBarControlAt(mouse);
+      _cursors.Set(canDrag ? LayoutHandle.Move : LayoutHandle.None);
+      if (canDrag && Input.GetMouseButtonDown(0))
+        BeginElementBarDrag(mouse);
     }
     else if (toolbar.Contains(mouse))
     {
@@ -274,19 +253,39 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (canDrag && Input.GetMouseButtonDown(0))
         BeginToolbarDrag(mouse);
     }
+    else if (TryShapeHandleAt(mouse, out ShapeDrag shapeHandle, out int shapeIndex))
+    {
+      _cursors.Set(LayoutHandle.Move);
+      if (Input.GetMouseButtonDown(0))
+        BeginShapeDrag(shapeHandle, shapeIndex, mouse);
+    }
     else
     {
       int hovered = FindTarget(mouse, out LayoutHandle handle);
       _cursors.Set(handle);
       if (hovered >= 0 && Input.GetMouseButtonDown(0))
       {
+        bool doubleClick =
+          hovered == _lastClickTarget && hovered == _selected && Time.unscaledTime - _lastClickTime < .35f;
+        _lastClickTarget = hovered;
+        _lastClickTime = Time.unscaledTime;
+        if (doubleClick && _frames[hovered].Target is TextOverlayElement text)
+        {
+          OpenTextEditor(text, false);
+          return;
+        }
         _scalePending = false;
         _scaleErrorUntil = 0;
         _selected = _dragging = hovered;
         _dragHandle = handle;
+        _shapeDrag = ShapeDrag.None;
         _dragStart = _frames[hovered].Target.Bounds;
         _pointerStart = PointerFor(_frames[hovered].Target, mouse);
+        _pressPosition = mouse;
+        _pressMoved = false;
         _dragScale = ValidScale(_frames[hovered].Target.EffectiveScale);
+        if (_frames[hovered].Target is ShapeOverlayElement shape)
+          _shapeStartPixels = shape.PixelsPerUnit;
       }
       else if (Input.GetMouseButtonDown(0))
         _selected = -1;
@@ -294,6 +293,103 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     HandleKeyboard();
     UpdateFrames();
   }
+
+  private void ContinueDrag(Vector2 mouse)
+  {
+    TargetFrame frame = _frames[_dragging];
+    if ((mouse - _pressPosition).sqrMagnitude > 9)
+      _pressMoved = true;
+    if (frame.Target.Available && Input.GetMouseButton(0))
+    {
+      if (_shapeDrag != ShapeDrag.None)
+        DragShapeHandle(mouse);
+      else if (_pressMoved)
+        DragBox(frame, mouse);
+    }
+    _cursors.Set(_shapeDrag != ShapeDrag.None ? LayoutHandle.Move : _dragHandle);
+    if (!Input.GetMouseButton(0))
+    {
+      bool clicked = !_pressMoved;
+      ShapeDrag shapeHandle = _shapeDrag;
+      int shapeIndex = _shapeIndex;
+      LayoutHandle boxHandle = _dragHandle;
+      FinishDrag();
+      _guideX = _guideY = float.NaN;
+      // Clicking a handle without moving it opens its exact values.
+      if (clicked && frame.Target is ShapeOverlayElement shape)
+      {
+        if (shapeHandle != ShapeDrag.None)
+          OpenShapeValues(shape, shapeHandle, shapeIndex, LayoutHandle.None);
+        else if (boxHandle != LayoutHandle.Move && boxHandle != LayoutHandle.None)
+          OpenShapeValues(shape, ShapeDrag.None, -1, boxHandle);
+      }
+    }
+  }
+
+  private void DragBox(TargetFrame frame, Vector2 mouse)
+  {
+    Vector2 pointer = PointerFor(frame.Target, mouse);
+    float dx = pointer.x - _pointerStart.x,
+      dy = pointer.y - _pointerStart.y;
+    // A shape's sides stretch it one way; its corners and every other element scale evenly.
+    if (frame.Target is ShapeOverlayElement shape && IsEdge(_dragHandle))
+    {
+      LayoutBounds stretched = OverlayLayoutGeometry.Stretch(
+        ToBounds(_dragStart),
+        _dragHandle,
+        dx,
+        dy,
+        Mathf.Max(4, OverlayShapeMinimumPixels(shape))
+      );
+      shape.SetStretchedBounds(ToRect(stretched), _shapeStartPixels);
+      return;
+    }
+    LayoutBounds resized = OverlayLayoutGeometry.Drag(
+      ToBounds(_dragStart),
+      _dragHandle,
+      dx,
+      dy,
+      Screen.width,
+      Screen.height,
+      Mathf.Min(1f, 0.2f / _dragScale),
+      Mathf.Max(1f, MaximumScale / _dragScale)
+    );
+    if (
+      _dragHandle == LayoutHandle.Move
+      && _preferences.LayoutSnapping
+      && !Input.GetKey(KeyCode.LeftAlt)
+      && !Input.GetKey(KeyCode.RightAlt)
+    )
+    {
+      _snapReferences.Clear();
+      for (int i = 0; i < _frames.Count; i++)
+        if (i != _dragging && _frames[i].Target.Available && _frames[i].Target.Enabled)
+          _snapReferences.Add(ToBounds(_frames[i].Target.Bounds));
+      resized = LayoutSnap.Move(
+        resized,
+        _snapReferences,
+        Screen.width,
+        Screen.height,
+        7 * UiScale,
+        out _guideX,
+        out _guideY,
+        out _horizontalSpacing,
+        out _verticalSpacing
+      );
+    }
+    else
+      _guideX = _guideY = float.NaN;
+    frame.Target.SetBounds(ToRect(resized));
+  }
+
+  private static bool IsEdge(LayoutHandle handle) =>
+    handle == LayoutHandle.Left
+    || handle == LayoutHandle.Right
+    || handle == LayoutHandle.Top
+    || handle == LayoutHandle.Bottom;
+
+  private static float OverlayShapeMinimumPixels(ShapeOverlayElement shape) =>
+    Domain.Elements.OverlayShapeGeometry.MinimumSize * shape.PixelsPerUnit;
 
   public void Dispose()
   {
@@ -316,8 +412,13 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     IsOpen = false;
     _cursors.Dispose();
-    CloseGallery();
+    ClosePopovers();
+    CloseElementSettings();
+    CloseModal();
     _colorPopover?.Dispose();
+    _elementPicker?.Dispose();
+    _valuePopover?.Dispose();
+    _textEditor?.Dispose();
     _ui?.Dispose();
     UIInteractionState.SetTextEditing(false);
     if (_ownedEvents != null)
@@ -365,6 +466,15 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     if (!HasSelection)
       return;
+    if (
+      !IsGameplayActive()
+      && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+      && _frames[_selected].Target is TextOverlayElement selectedText
+    )
+    {
+      OpenTextEditor(selectedText, false);
+      return;
+    }
     float step = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 10f : 1f;
     float dx =
       Input.GetKeyDown(KeyCode.LeftArrow) ? -step
@@ -402,21 +512,26 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     if (_dragging < 0 || _dragging >= _frames.Count)
       return;
-    _frames[_dragging].Target.CommitLayout(_dragHandle == LayoutHandle.Move);
+    IOverlayLayoutTarget target = _frames[_dragging].Target;
+    if (target is ShapeOverlayElement shape && (_shapeDrag != ShapeDrag.None || IsEdge(_dragHandle)))
+      shape.CommitShape();
+    else
+      target.CommitLayout(_dragHandle == LayoutHandle.Move);
     _dragging = -1;
+    _shapeDrag = ShapeDrag.None;
     _history.Commit(_host.LayoutSettings);
   }
 
   private int FindTarget(Vector2 pointer, out LayoutHandle bestHandle)
   {
     // The selected rectangle owns its editing area, including where another
-    // instance's compact content overlaps it. New copies must remain draggable.
+    // element's compact content overlaps it. New copies must remain draggable.
     if (HasSelection)
     {
       IOverlayLayoutTarget selected = _frames[_selected].Target;
       Vector2 selectedPointer = PointerFor(selected, pointer);
       bestHandle = OverlayLayoutGeometry.HitTest(
-        ToBounds(selected.Bounds),
+        ToBounds(EditBounds(selected)),
         selectedPointer.x,
         selectedPointer.y,
         10 * UiScale
@@ -432,7 +547,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       IOverlayLayoutTarget target = _frames[index].Target;
       if (!target.Available || !target.Enabled)
         continue;
-      Rect bounds = index == _selected ? target.Bounds : target.SelectionBounds;
+      Rect bounds = index == _selected ? EditBounds(target) : target.SelectionBounds;
       if (bounds.width <= 0 || bounds.height <= 0)
         continue;
       Vector2 localPointer = PointerFor(target, pointer);
@@ -459,32 +574,51 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     return best;
   }
 
+  // A shape's dashed box sits a little outside it, so the box's corners stay
+  // apart from the shape's own corner handles.
+  private Rect EditBounds(IOverlayLayoutTarget target)
+  {
+    Rect bounds = target.Bounds;
+    if (
+      target is not ShapeOverlayElement shape
+      || shape.Shape == null
+      || !Domain.Elements.OverlayShapeGeometry.HasCorners(shape.Shape.Kind)
+    )
+      return bounds;
+    float margin = 10 * UiScale;
+    return new Rect(bounds.x - margin, bounds.y - margin, bounds.width + margin * 2, bounds.height + margin * 2);
+  }
+
   private static Vector2 PointerFor(IOverlayLayoutTarget target, Vector2 fallback) =>
     target is IOverlayLayoutPointer native ? native.PointerInLayoutSpace(fallback) : fallback;
 
   private void UpdateFrames()
   {
+    bool editingText = _textEditor != null && _textEditor.IsOpen;
+    bool covered = _modalRoot != null || editingText;
+    // The text editor stands alone; the toolbar would show through its dim.
+    if (_toolbar.gameObject.activeSelf == editingText)
+      _toolbar.gameObject.SetActive(!editingText);
     for (int index = 0; index < _frames.Count; index++)
     {
       TargetFrame frame = _frames[index];
-      bool selected = frame.Target.Available && frame.Target.Enabled && index == _selected && _galleryRoot == null;
+      bool selected = frame.Target.Available && frame.Target.Enabled && index == _selected && !covered;
       (frame.Target as IExternalLayoutOutline)?.SetSelected(selected);
       bool visible = selected && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
       frame.Outline.gameObject.SetActive(visible);
       if (!visible)
         continue;
-      Rect bounds = frame.Target.Bounds;
+      Rect bounds = EditBounds(frame.Target);
       SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(UiScale);
       Rect panel = NativeExclusionBounds;
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
+    UpdateShapeHandles(covered);
+    SyncElementSettings();
     UpdateToolbar();
     UpdateGuides();
-    if (_colorPopover?.Visible ?? false)
-      _colorPopover.Root.SetAsLastSibling();
-    if (_galleryRoot != null)
-      _galleryRoot.transform.SetAsLastSibling();
+    RaisePopovers();
   }
 
   private void RebuildFrames()
@@ -497,8 +631,9 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     _frames.Clear();
     foreach (IOverlayLayoutTarget target in _host.LayoutTargets)
       AddFrame(target);
-    foreach (IOverlayLayoutTarget target in _extraTargets)
-      AddFrame(target);
+    if (_keyViewers != null)
+      foreach (IOverlayLayoutTarget target in _keyViewers.Targets)
+        AddFrame(target);
     _toolbar.SetAsLastSibling();
   }
 
@@ -515,6 +650,16 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     LayoutOutlineGraphic outline = root.AddComponent<LayoutOutlineGraphic>();
     outline.raycastTarget = false;
     _frames.Add(new TargetFrame(target, outline));
+    if (_shapeHandles != null)
+      _shapeHandles.transform.SetAsLastSibling();
+  }
+
+  private int IndexOf(IOverlayLayoutTarget target)
+  {
+    for (int i = 0; i < _frames.Count; i++)
+      if (_frames[i].Target == target)
+        return i;
+    return -1;
   }
 
   private void SetRect(RectTransform transform, Rect bounds)
@@ -547,7 +692,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     public readonly IOverlayLayoutTarget Target;
     public readonly LayoutOutlineGraphic Outline;
-    public Rect InitialBounds;
 
     public TargetFrame(IOverlayLayoutTarget target, LayoutOutlineGraphic outline)
     {

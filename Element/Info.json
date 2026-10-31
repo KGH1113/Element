@@ -2,7 +2,7 @@
   "Id": "Element",
   "DisplayName": "Element",
   "Author": "impl",
-  "Version": "0.5.0",
+  "Version": "1.0.0",
   "ManagerVersion": "0.27.0",
   "AssemblyName": "Element.dll",
   "EntryMethod": "Element.Main.Load"

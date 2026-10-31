@@ -158,6 +158,8 @@ internal sealed class SettingsColorPicker : IDisposable
     _opacity.contentType = TMP_InputField.ContentType.IntegerNumber;
     SettingsUiFactory.Stretch(_opacity.textViewport, 10, 4, 23, 4);
     _opacity.textComponent.alignment = TextAlignmentOptions.Right;
+    // Right-aligned text puts the caret on the field's edge; keep room for it.
+    _opacity.textComponent.margin = new Vector4(0, 0, 2, 0);
     _opacity.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     _ui.Text("%", _opacity.transform, 49, 0, 17, 40, 13, SettingsUiFactory.Muted);
     _opacityLabel = _ui.Text(L("불투명도", "Opacity"), Root, 16, 140, 176, 40, 14, SettingsUiFactory.Muted);

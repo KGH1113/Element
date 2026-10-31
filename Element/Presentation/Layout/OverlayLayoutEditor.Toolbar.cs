@@ -216,6 +216,8 @@ internal sealed partial class OverlayLayoutEditor
     _scaleInput.textViewport.anchorMin = _scaleInput.textViewport.anchorMax = new Vector2(0, 1);
     _scaleInput.textViewport.pivot = new Vector2(0, 1);
     _scaleInput.textComponent.alignment = TextAlignmentOptions.Right;
+    // Right-aligned text puts the caret on the field's edge; keep room for it.
+    _scaleInput.textComponent.margin = new Vector4(0, 0, 2, 0);
     _scaleInput.gameObject.AddComponent<LayoutTextCapture>();
     _scaleSuffix = _ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
     AlignScaleValue();

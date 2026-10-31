@@ -124,6 +124,7 @@ namespace Element.Editor
       Assert(cutouts.Count == 2 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
         "native viewers get each panel as its own rounded cutout: " + cutouts.Count);
       Assert(Field<TMP_InputField>(editor, "_textSizeInput").text == "25", "a text's toolbar shows its size in pixels");
+      CheckInputCaret(Field<TMP_InputField>(editor, "_textSizeInput"), "element toolbar text size", "", "25", "37.5", "400");
       foreach (TextMeshProUGUI label in popup.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
@@ -258,6 +259,7 @@ namespace Element.Editor
       Call(editor, "OpenShapeValues", shape, Enum.Parse(hit[1].GetType(), "Corner"), 1, LayoutHandle.None);
       LayoutValuePopover values = Field<LayoutValuePopover>(editor, "_valuePopover");
       Assert(values.Visible && PopoverInside(editor, values.Root, width, height), "corner values open on screen");
+      CheckInputCaret(Field<TMP_InputField[]>(values, "_inputs")[0], "exact corner value", "", "12", "-263.9", "10000");
       SaveFrame(camera, texture, canvases, name + "-shape-values");
       TMP_InputField[] inputs = Field<TMP_InputField[]>(values, "_inputs");
       inputs[0].text = "";
@@ -385,6 +387,7 @@ namespace Element.Editor
       Call(text, "Render");
       string shown = (25 * fps.EffectiveScale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
       Assert(Field<TMP_InputField>(text, "_sizeInput").text == shown, "the size field shows the selection's size as drawn: " + shown);
+      CheckInputCaret(Field<TMP_InputField>(text, "_sizeInput"), "text editor size", "", "25", "37.5", "400");
       Call(text, "CommitSize", "40");
       document = Field<OverlayTextDocument>(text, "_document");
       Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
@@ -601,6 +604,7 @@ namespace Element.Editor
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
+      CheckInputCaret(input, "chatter window", "", "5", "150");
       Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
       toggle.onClick.Invoke();
       Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
@@ -1199,6 +1203,10 @@ namespace Element.Editor
           Assert(lower.y >= input.textViewport.rect.yMin - .1f && upper.y <= input.textViewport.rect.yMax + .1f
             && top - bottom >= text.fontSize * .5f,
             "the complete caret stays inside the viewport instead of clipping above the text: " + context);
+          float left = caret.Min(vertex => input.textViewport.InverseTransformPoint(text.rectTransform.TransformPoint(vertex.position)).x);
+          float right = caret.Max(vertex => input.textViewport.InverseTransformPoint(text.rectTransform.TransformPoint(vertex.position)).x);
+          Assert(left >= input.textViewport.rect.xMin - .1f && right <= input.textViewport.rect.xMax + .1f,
+            "the caret stays inside the field sideways too: " + context + " / " + sample + " / " + position);
         }
         if (sample.Length > 0)
         {

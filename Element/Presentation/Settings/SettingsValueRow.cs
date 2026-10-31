@@ -69,6 +69,8 @@ internal sealed class SettingsValueRow
     Field.contentType = TMP_InputField.ContentType.IntegerNumber;
     SettingsUiFactory.Stretch(Field.textViewport, 10, 4, 36, 4);
     Field.textComponent.alignment = TextAlignmentOptions.Right;
+    // Right-aligned text puts the caret on the field's edge; keep room for it.
+    Field.textComponent.margin = new Vector4(0, 0, 2, 0);
     Field.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     ui.Text(unit, Field.transform, FieldWidth - 32, 0, 22, 40, 13, SettingsUiFactory.Muted);
   }

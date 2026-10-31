@@ -515,12 +515,14 @@ namespace Element.Editor
       SettingsValueRow windowRow = Field<SettingsValueRow>(panel, "_chatterWindow");
       Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
-      Assert(!chatter.Enabled && !window.interactable, "the chatter window waits until blocking is on");
+      Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
       Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
-      Assert(!input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value and waits too");
+      Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
+      toggle.onClick.Invoke();
+      Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
       toggle.onClick.Invoke();
       Assert(chatter.Enabled && window.interactable && input.interactable, "turning blocking on enables the window");
       window.value = 33;
@@ -533,10 +535,9 @@ namespace Element.Editor
       Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
       input.onEndEdit.Invoke("");
       Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
-      toggle.onClick.Invoke();
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
       input.SetTextWithoutNotify(chatter.WindowMs.ToString());
-      Assert(!chatter.Enabled, "turning it off again restores the default state");
+      Assert(chatter.Enabled, "the page ends in the default state, blocking on");
       RectTransform row = windowRow.Row;
       Assert(row.rect.width <= width, "the window row fits the page");
       RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;

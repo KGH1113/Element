@@ -52,11 +52,13 @@ internal sealed partial class SettingsPanel
     Action<bool> visibility,
     Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null,
     Func<long> blockedChatter = null,
-    IModUpdates updates = null
+    IModUpdates updates = null,
+    Func<bool> judgementTextLinked = null
   )
   {
     _settings = settings;
     _blockedChatter = blockedChatter;
+    _judgementTextLinked = judgementTextLinked;
     _updates = updates;
     settings.Gameplay.Normalize();
     settings.Effects.Normalize();

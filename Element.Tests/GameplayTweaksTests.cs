@@ -13,6 +13,7 @@ internal static class GameplayTweaksTests
   {
     Judgements();
     JudgementMigration();
+    HitTextHideSyncTests.Run();
     Rotations();
     Persistence();
   }
@@ -22,10 +23,11 @@ internal static class GameplayTweaksTests
     JudgementVisualOptions options = new();
     foreach (HitMargin margin in Enum.GetValues(typeof(HitMargin)))
     {
-      bool perfect = margin is HitMargin.PerfectMinus or HitMargin.XPerfect or HitMargin.PerfectPlus;
+      bool perfect =
+        margin is HitMargin.PerfectMinus or HitMargin.XPerfect or HitMargin.PerfectPlus or HitMargin.Multipress;
       Check(
         JudgementVisualPolicy.ShouldShow(options, false, (int)margin) == !perfect,
-        "migrated default hides only the three Perfect margins"
+        "migrated default hides only the three Perfect margins and Multipress"
       );
       Check(
         !JudgementVisualPolicy.ShouldShow(options, true, (int)margin),
@@ -60,8 +62,12 @@ internal static class GameplayTweaksTests
         && JudgementVisualPolicy.ShouldShow(options, false, (int)HitMargin.XPerfect),
       "hiding the Perfect minus/plus pair leaves XPerfect visible"
     );
+    Check(
+      !JudgementVisualPolicy.ShouldShow(options, false, (int)HitMargin.Multipress),
+      "Multipress hides with Perfect, as ADOFAI's Hide Judgment Text does"
+    );
     options.HideOverload = true;
-    foreach (HitMargin margin in new[] { HitMargin.Multipress, HitMargin.FailOverload, HitMargin.OverPress })
+    foreach (HitMargin margin in new[] { HitMargin.FailOverload, HitMargin.OverPress })
       Check(
         !JudgementVisualPolicy.ShouldShow(options, false, (int)margin),
         "all overload variants share their visibility choice"

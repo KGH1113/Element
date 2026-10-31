@@ -24,6 +24,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly DmNoteNativeIpcFeature _nativeViewers;
   private readonly PlanetAppearanceController _planets;
   private readonly TufReplayInputPause _tufReplayInput;
+  private readonly Func<bool> _judgementTextLinked;
   private OverlayLayoutEditor _layoutEditor;
   private SettingsPanel _panel;
   private PlanetPreviewRenderer _planetPreview;
@@ -36,10 +37,12 @@ internal sealed class SettingsUiRuntime : IDisposable
     DmNoteNativeIpcFeature nativeViewers,
     PlanetAppearanceController planets,
     Action apply,
-    Action viewerModeChanged
+    Action viewerModeChanged,
+    Func<bool> judgementTextLinked
   )
   {
     _main = main;
+    _judgementTextLinked = judgementTextLinked;
     _nativeViewers = nativeViewers;
     _planets = planets;
     _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
@@ -82,7 +85,8 @@ internal sealed class SettingsUiRuntime : IDisposable
       OnVisibilityChanged,
       RenderPlanetPreview,
       () => ChatterBlocker.Blocked,
-      _main.Updates
+      _main.Updates,
+      _judgementTextLinked
     );
 
   public void Open() => Panel.Open();

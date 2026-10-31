@@ -1,6 +1,6 @@
 {
   "name": "@element/element-note",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "ElementNote desktop key viewer",
   "type": "module",
   "scripts": {

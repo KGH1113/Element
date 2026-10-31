@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Element.Infrastructure.Ipc;
 
-internal sealed class DmNoteNativeIpcFeature : IDisposable
+internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
 {
   private static readonly TimeSpan ErrorCheckInterval = TimeSpan.FromMilliseconds(500);
 
@@ -20,6 +20,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   private readonly Func<Color> _highlight;
   private readonly Action<string, Exception> _logError;
   private readonly Action<string> _logWarning;
+  private readonly bool _supported;
   private IFeatureRegistration _ipc;
   private INativeViewerHost _host;
   private DateTime _nextErrorCheckAt;
@@ -46,6 +47,7 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
     Action<string> logWarning
   )
   {
+    _supported = supported;
     _session = new NativeViewerSession(supported);
     _createHost = createHost ?? throw new ArgumentNullException(nameof(createHost));
     _highlight = highlight ?? (() => Color.white);
@@ -57,8 +59,15 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _layoutTargets;
 
-  /// <summary>Re-evaluated on every enumeration: the gallery opens without viewer cards while the editor hides them.</summary>
-  public IEnumerable<IOverlayLayoutTarget> GalleryTargets => VisibleGalleryTargets();
+  IReadOnlyList<IOverlayLayoutTarget> IKeyViewerElements.Targets => _layoutTargets;
+
+  public IReadOnlyCollection<string> DefaultIds => _galleryTargets.Select(target => target.Id).ToArray();
+
+  public KeyViewerAvailability Availability =>
+    !_supported ? KeyViewerAvailability.Unsupported
+    : !_connected ? KeyViewerAvailability.AppClosed
+    : _hiddenInApp ? KeyViewerAvailability.HiddenInApp
+    : KeyViewerAvailability.Ready;
 
   public bool HasEnabledViewers => !_hiddenInApp && _layoutTargets.Any(target => target.Enabled);
 
@@ -68,14 +77,6 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
   // The editor shows key viewers only while ElementNote is connected and shows
   // them in the game. Unlike HiddenInApp, a closed app keeps the session waiting.
   private bool HiddenFromEditor => !_connected || _hiddenInApp;
-
-  private IEnumerable<IOverlayLayoutTarget> VisibleGalleryTargets()
-  {
-    if (HiddenFromEditor)
-      yield break;
-    foreach (NativeViewerLayoutTarget target in _galleryTargets)
-      yield return target;
-  }
 
   public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
   {
@@ -97,6 +98,26 @@ internal sealed class DmNoteNativeIpcFeature : IDisposable
     }
     foreach (NativeViewerLayoutTarget target in _layoutTargets)
       target.Configure(layouts, legacyEnabled);
+  }
+
+  IOverlayLayoutTarget IKeyViewerElements.Add(string templateId) => AddElement(templateId);
+
+  public IOverlayLayoutTarget Switch(IOverlayLayoutTarget target, string templateId)
+  {
+    if (target is not NativeViewerLayoutTarget old || old.TemplateId == templateId || _layouts == null)
+      return null;
+    OverlayLayoutSettings from = _layouts.Find(layout => layout != null && layout.Id == old.Id);
+    if (AddElement(templateId) is not NativeViewerLayoutTarget created)
+      return null;
+    OverlayLayoutSettings to = _layouts.Find(layout => layout != null && layout.Id == created.Id);
+    if (from != null && to != null)
+    {
+      to.CopyPlacementFrom(from);
+      created.Configure(_layouts);
+    }
+    old.SetEnabled(false);
+    OnEnabledChanged();
+    return created;
   }
 
   public IOverlayLayoutTarget AddElement(string templateId)

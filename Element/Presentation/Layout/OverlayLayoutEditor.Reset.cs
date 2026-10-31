@@ -1,6 +1,6 @@
+using System;
 using System.Collections.Generic;
-using Element.Domain.Layout;
-using Element.Presentation.Settings;
+using Element.Domain.Elements;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -12,74 +12,70 @@ internal sealed partial class OverlayLayoutEditor
 {
   private void OpenResetConfirmation()
   {
-    if (_colorPopover != null && !_colorPopover.Commit())
+    if (!CommitPopovers())
       return;
-    _colorPopover?.Hide();
+    ClosePopovers();
     FinishDrag();
     _toolbarDragging = false;
-    CloseGallery();
-    _resetConfirmation = true;
-    _galleryWidth = ViewWidth;
-    _galleryRebuildAt = float.PositiveInfinity;
-    _galleryHeight = ViewHeight;
-    _galleryUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
-    _galleryRoot = _galleryUi.Rect("Reset all confirmation", _root.transform, 0, 0, ViewWidth, ViewHeight).gameObject;
-    Image backdrop = _galleryUi.Panel(
-      "Backdrop",
-      _galleryRoot.transform,
-      0,
-      0,
-      ViewWidth,
-      ViewHeight,
-      new Color(0, 0, 0, .7f),
-      false
-    );
-    backdrop.raycastTarget = true;
-    float scale = Mathf.Min(UiScale, Mathf.Min((ViewWidth - 32) / 500f, (ViewHeight - 32) / 260f));
-    RectTransform panel = _galleryUi
-      .Panel(
-        "Confirmation",
-        _galleryRoot.transform,
-        (ViewWidth - 500 * scale) * .5f,
-        (ViewHeight - 260 * scale) * .5f,
-        500,
-        260,
-        SettingsUiFactory.Background
-      )
-      .rectTransform;
-    panel.localScale = Vector3.one * scale;
-    _galleryUi.Text(L("오버레이를 처음 상태로 되돌릴까요?", "Reset all overlays?"), panel, 28, 24, 444, 40, 23);
-    _galleryUi.Text(
+    OpenConfirmation(
+      "Reset all confirmation",
+      L("오버레이를 처음 상태로 되돌릴까요?", "Reset all overlays?"),
       L(
-        "삭제한 기본 요소를 복원하고 추가한 요소를 제거합니다.\n모든 요소의 위치와 크기도 기본값으로 돌아갑니다.\n초기화 후에도 실행 취소할 수 있습니다.",
-        "Restore deleted default elements and remove added ones.\nAll positions and sizes return to their defaults.\nYou can undo this reset."
+        "삭제한 기본 요소를 복원하고 추가한 요소를 제거합니다.\n기본 요소의 글자와 위치, 크기도 처음으로 돌아갑니다.\n초기화 후에도 실행 취소할 수 있습니다.",
+        "Restore deleted default elements and remove added ones.\nDefault texts, positions and sizes return to the start.\nYou can undo this reset."
       ),
-      panel,
-      28,
-      80,
-      444,
-      100,
-      15,
-      SettingsUiFactory.Muted
+      L("전체 초기화", "Reset all"),
+      RestoreDefaultOverlays,
+      OpenResetConfirmation
     );
-    Button cancel = _galleryUi.Button(L("취소", "Cancel"), panel, 232, 196, 112, 40, CloseGallery);
-    _galleryUi.Button(L("전체 초기화", "Reset all"), panel, 356, 196, 116, 40, RestoreDefaultOverlays, true);
+  }
+
+  // Asks before a change that drops work. Cancel is focused, so Enter is safe.
+  private void OpenConfirmation(
+    string name,
+    string title,
+    string body,
+    string confirm,
+    Action confirmed,
+    Action rebuild
+  )
+  {
+    RectTransform panel = OpenModal(name, 500, 260, rebuild);
+    _modalUi.Text(title, panel, 28, 24, 444, 40, 23);
+    _modalUi.Text(body, panel, 28, 80, 444, 100, 15, Settings.SettingsUiFactory.Muted);
+    Button cancel = _modalUi.Button(L("취소", "Cancel"), panel, 232, 196, 112, 40, CloseModal);
+    _modalUi.Button(
+      confirm,
+      panel,
+      356,
+      196,
+      116,
+      40,
+      () =>
+      {
+        CloseModal();
+        confirmed();
+      },
+      true
+    );
     EventSystem.current?.SetSelectedGameObject(cancel.gameObject);
   }
 
   private void RestoreDefaultOverlays()
   {
-    HashSet<string> defaults = new();
-    foreach (IOverlayLayoutTarget target in _host.GalleryTargets)
-      defaults.Add(target.Id);
-    if (_galleryExtras != null)
-      foreach (IOverlayLayoutTarget target in _galleryExtras)
-        defaults.Add(target.Id);
-    OverlayLayoutDefaults.Restore(_host.LayoutSettings, defaults);
+    List<string> others = new();
+    if (_keyViewers != null)
+      others.AddRange(_keyViewers.DefaultIds);
+    OverlayElementDefaults.Restore(_host.LayoutSettings, others);
+    // Reset may bring back built-in texts whose entries were missing.
+    _host.ConfigureLayouts(_host.LayoutSettings);
+    RebuildFrames();
+    foreach (TargetFrame frame in _frames)
+      frame.Target.SetPreview(true);
     _selected = -1;
+    _settingsStale = true;
     RefreshLayouts();
     _history.Commit(_host.LayoutSettings);
-    CloseGallery();
     UpdateFrames();
   }
 }

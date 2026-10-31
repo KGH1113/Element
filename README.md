@@ -42,20 +42,20 @@
 <tr>
 <td width="33%" valign="top">
 
-### 판정 오버레이
-진행도·정확도·음악/맵 시간·타일 BPM·현재 BPM·KPS·FPS·판정·콤보·타이밍 스케일·곡 제목·시도 횟수. 같은 요소를 여러 개 추가해 각각 배치합니다.
+### 텍스트와 도형
+`FPS | ` 같은 글자에 진행도·정확도·BPM·KPS·FPS·판정·콤보·시간·곡 제목·시도 횟수 값을 넣어 원하는 문구를 만들고, 글자마다 색과 크기를 정합니다. 사각형·삼각형·원을 글자 뒤 배경으로 깝니다. [자세히](docs/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
 
 ### 끌어서 배치
-드래그로 이동하고, 모서리와 변을 잡아 크기를 바꿉니다. 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
+드래그로 이동하고, 모서리와 변을 잡아 크기를 바꿉니다. 도형은 꼭짓점을 옮기고 둥글게 깎습니다. 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
 
 </td>
 <td width="33%" valign="top">
 
 ### 게임 내 키뷰어
-[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. 다른 요소처럼 Add Element에서 추가하고 위치와 크기를 정합니다.
+[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꿉니다.
 
 </td>
 </tr>
@@ -102,7 +102,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 
 1. [ElementNote](#elementnote)를 실행하고 손·발 탭 중 하나를 고릅니다.
 2. 앱 설정의 **OBS 모드 활성화**가 켜져 있는지 확인합니다(기본으로 켜져 있음). OBS 프로그램은 없어도 됩니다.
-3. 게임 설정의 **Overlay → Add Element**에서 손 키뷰어나 발 키뷰어를 추가하고 저장합니다.
+3. 게임 설정의 **Overlay → Add Element → 키뷰어**로 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 고른 뒤 저장합니다.
 
 ## 단축키
 
@@ -114,6 +114,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
 | 저장 / 취소 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> | <kbd>⌘</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> |
 | 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
+| 텍스트 편집 | 텍스트 더블클릭 또는 <kbd>Enter</kbd> | 동일 |
 | 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |
 | 자동 맞춤 잠시 끄기 | <kbd>Alt</kbd> 누르는 동안 | <kbd>⌥</kbd> 누르는 동안 |
 | 정밀 회전 (에디터) | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>,</kbd> <kbd>.</kbd> | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>,</kbd> <kbd>.</kbd> |

@@ -30,14 +30,6 @@ internal interface IOverlayLayoutTarget
   void ResetLayout();
 }
 
-// Creates a visual-only sample using this overlay's own fonts, materials and
-// composition. The returned root is centered and sized to its intrinsic content;
-// the gallery can fit it into a tile without touching the live overlay.
-internal interface IOverlayGalleryPreview
-{
-  GameObject CreateGalleryPreview(Transform parent);
-}
-
 // An external renderer owns this target's selection border. Unity must not
 // draw a second copy underneath native/WebKit content.
 internal interface IExternalLayoutOutline

@@ -150,20 +150,11 @@ namespace Element.Infrastructure.Game.DmNote
     public bool TryGetPointer(out Vector2 normalized) { normalized = default; return false; }
   }
 }
-namespace Element.Presentation.Overlay.Shared
+public sealed class ColourSchemeHitMargin { public Color colourXPerfect = new Color(.376f, 1f, .306f); }
+public static class RDC
 {
-  internal sealed class OverlayCanvasHost
-  {
-    public readonly List<Configuration.OverlayLayoutSettings> LayoutSettings = new List<Configuration.OverlayLayoutSettings>();
-    public readonly List<Layout.IOverlayLayoutTarget> LayoutTargets = new List<Layout.IOverlayLayoutTarget>();
-    public readonly List<Layout.IOverlayLayoutTarget> GalleryTargets = new List<Layout.IOverlayLayoutTarget>();
-    public Func<string, Layout.IOverlayLayoutTarget> AddFactory;
-    public Layout.IOverlayLayoutTarget AddElement(string templateId) => AddFactory?.Invoke(templateId);
-    public void ApplyLayouts() { foreach (var target in LayoutTargets) target.RefreshLayout(); }
-    public void SetLayoutPreview(bool value) { }
-    public void PruneDisabledInstances() { }
-    public void TickLayoutPreview() { }
-  }
+  public static object data;
+  public static ColourSchemeHitMargin hitMarginColoursBySettings;
 }
 namespace UnityModManagerNet
 {

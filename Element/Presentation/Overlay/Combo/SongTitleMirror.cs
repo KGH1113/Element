@@ -1,3 +1,4 @@
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -6,13 +7,13 @@ namespace Element.Presentation.Overlay.Combo;
 
 internal sealed class SongTitleMirror : MonoBehaviour
 {
-  private TextMeshProUGUI _target;
+  private Action<string> _target;
   private Text _source;
   private string _lastText;
   private int _lastSourceFontSize;
   private bool _sourceWasEnabled;
 
-  public void Initialize(TextMeshProUGUI target)
+  public void Initialize(Action<string> target)
   {
     _target = target;
   }
@@ -71,7 +72,7 @@ internal sealed class SongTitleMirror : MonoBehaviour
     if (_lastText == text && _lastSourceFontSize == sourceFontSize)
       return;
 
-    _target.text = SongTitleMarkupNormalizer.Normalize(text, sourceFontSize);
+    _target(SongTitleMarkupNormalizer.Normalize(text, sourceFontSize));
     _lastText = text;
     _lastSourceFontSize = sourceFontSize;
   }

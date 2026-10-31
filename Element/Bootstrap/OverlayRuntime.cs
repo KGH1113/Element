@@ -9,6 +9,7 @@ using Element.Infrastructure.Game.TimingScale;
 using Element.Presentation.Overlay.Attempt;
 using Element.Presentation.Overlay.Bpm;
 using Element.Presentation.Overlay.Combo;
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Judgement;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Status;
@@ -18,8 +19,9 @@ using TMPro;
 namespace Element.Bootstrap;
 
 /// <summary>
-/// Owns the in-game overlay: its canvas, font, views and the status clock.
-/// The canvas exists even without the font so the layout editor still works.
+/// Owns the in-game overlay: its canvas, font, the features that publish values
+/// and the status clock. The canvas exists even without the font so the layout
+/// editor still works.
 /// </summary>
 internal sealed class OverlayRuntime : IDisposable
 {
@@ -34,29 +36,30 @@ internal sealed class OverlayRuntime : IDisposable
     try
     {
       Canvas = new OverlayCanvasHost();
-      Canvas.ConfigureLayouts(main.Settings.OverlayLayouts);
       _fontLoader = new FontBundleLoader(main);
       if (!_fontLoader.Load())
       {
         _fontLoader.Dispose();
         _fontLoader = null;
+        Canvas.ConfigureLayouts(main.Settings.OverlayLayouts);
         return;
       }
 
       TMP_FontAsset font = _fontLoader.FontAsset;
       _materials = new OverlayMaterialFactory(font);
+      Canvas.SetFont(font, _materials.Material);
+      Canvas.ConfigureLayouts(main.Settings.OverlayLayouts);
+      OverlayValues values = Canvas.Values;
       _coordinator = new OverlayCoordinator(
-        new JudgementFeature(new JudgementReader(), new JudgementView(Canvas, font, _materials.Material)),
-        new StatusFeature(new StatusReader(), new StatusView(Canvas, font, _materials.Material)),
-        new BpmFeature(new BpmReader(), new BpmView(Canvas, font, _materials.Material)),
-        new ComboFeature(new ComboView(Canvas, font, _materials.Material)),
-        new TimingScaleFeature(new TimingScaleReader(), new TimingScaleView(Canvas, font, _materials.Material)),
-        new AttemptFeature(attempts, new AttemptView(Canvas, font, _materials.Material))
+        new JudgementFeature(new JudgementReader(), new JudgementValues(values)),
+        new StatusFeature(new StatusReader(), new StatusValues(values)),
+        new BpmFeature(new BpmReader(), new BpmValues(values)),
+        new ComboFeature(new ComboValues(Canvas)),
+        new TimingScaleFeature(new TimingScaleReader(), new TimingScaleValues(values)),
+        new AttemptFeature(attempts, new AttemptValues(values))
       );
       _timeTicker = Canvas.Root.AddComponent<StatusTimeTicker>();
       _timeTicker.Initialize(onTimeTick);
-      // Views only repaint when their data changes; repaint them once per color change.
-      OverlayTheme.Changed += RefreshTheme;
     }
     catch
     {
@@ -107,11 +110,8 @@ internal sealed class OverlayRuntime : IDisposable
   /// <summary>Frees CJK glyphs pulled in for song titles. Only while the overlay is hidden.</summary>
   public void ReleaseFallbackGlyphs() => _fontLoader?.ReleaseFallbackGlyphs();
 
-  private void RefreshTheme() => _coordinator?.RefreshAll();
-
   public void Dispose()
   {
-    OverlayTheme.Changed -= RefreshTheme;
     Hide();
     _coordinator?.Dispose();
     _coordinator = null;

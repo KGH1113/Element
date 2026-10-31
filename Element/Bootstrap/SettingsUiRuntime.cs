@@ -59,16 +59,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     main.Settings.Gameplay.Normalize();
     main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(_font);
-    _layoutEditor = new OverlayLayoutEditor(
-      canvas,
-      nativeViewers.LayoutTargets,
-      _font,
-      _font != null ? _font.material : null,
-      OnLayoutClosed,
-      main.Settings,
-      nativeViewers.AddElement,
-      nativeViewers.GalleryTargets
-    );
+    _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
   }
 
   public bool IsEditingLayout => _layoutEditor?.IsOpen == true;

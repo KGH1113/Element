@@ -14,6 +14,9 @@ internal sealed partial class SettingsPanel
   private readonly List<Button> _selectionOptions = new();
   private readonly List<Button> _editingOptions = new();
   private readonly List<Button> _judgementOptions = new();
+
+  // True while ADOFAI's Competitive Mode is on and its Hide Judgment Text follows this page.
+  private readonly Func<bool> _judgementTextLinked;
   private RectTransform _editorTabs,
     _selectionPane,
     _editingPane,
@@ -295,17 +298,21 @@ internal sealed partial class SettingsPanel
     j.Normalize();
     Transform page = _pages[5].transform;
     _judgementHeader = _ui.Rect("Judgment controls", page, 0, 0, 936, 52);
-    var hint = _ui.Text(
-      L("표시할 판정을 선택하세요.", "Choose the popups to show."),
-      _judgementHeader,
-      0,
-      0,
-      580,
-      40,
-      15,
-      SettingsUiFactory.Muted
-    );
+    var hint = _ui.Text("", _judgementHeader, 0, 0, 580, 40, 15, SettingsUiFactory.Muted);
     SettingsUiFactory.StretchWidth(hint.rectTransform, 0, 232);
+    // Competitive Mode changes in the game's pause menu; read it each time the window opens.
+    _ui.Bind(() =>
+      hint.text =
+        _judgementTextLinked?.Invoke() == true
+          ? L(
+            "표시할 판정을 선택하세요. 얼불춤의 판정 텍스트 숨기기와 함께 바뀌어요.",
+            "Choose the popups to show. Synced with ADOFAI's Hide Judgment Text."
+          )
+          : L(
+            "표시할 판정을 선택하세요. 경쟁 모드를 켜면 얼불춤 설정과 함께 바뀌어요.",
+            "Choose the popups to show. Turn on Competitive Mode to sync with ADOFAI."
+          )
+    );
     _ui.Button(L("모두 표시", "Show all"), _judgementHeader, 704, 0, 108, 40, () => SetAllJudgements(false));
     _ui.Button(L("모두 숨김", "Hide all"), _judgementHeader, 824, 0, 108, 40, () => SetAllJudgements(true));
     JudgmentOption("Early Perfect", new Color(.7f, .9f, .35f), () => j.HideEarlyPerfect, v => j.HideEarlyPerfect = v);

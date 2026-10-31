@@ -38,7 +38,10 @@ internal static class Program
       Run("overlay layout hit bounds and eight anchored proportional resize handles", OverlayLayoutTests.Run);
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
-      Run("gameplay tweaks, judgement filtering, editor transforms and planet persistence", GameplayTweaksTests.Run);
+      Run(
+        "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",
+        GameplayTweaksTests.Run
+      );
       Run("attempts count per start and speed, take back unplayed starts, follow skip rules and persist", AttemptTests.Run);
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);

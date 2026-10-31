@@ -17,13 +17,14 @@ internal static class JudgementVisualPolicy
       HitMargin.TooEarly => !settings.HideTooEarly,
       HitMargin.VeryEarly => !settings.HideEarly,
       HitMargin.EarlyPerfect => !settings.HideEarlyPerfect,
-      HitMargin.PerfectMinus or HitMargin.PerfectPlus => !settings.HidePerfect,
+      // ADOFAI counts Multipress as a Perfect when it hides judgment text.
+      HitMargin.PerfectMinus or HitMargin.PerfectPlus or HitMargin.Multipress => !settings.HidePerfect,
       HitMargin.XPerfect => !settings.HideXPerfect,
       HitMargin.LatePerfect => !settings.HideLatePerfect,
       HitMargin.VeryLate => !settings.HideLate,
       HitMargin.TooLate => !settings.HideTooLate,
       HitMargin.FailMiss or HitMargin.FailedFloor => !settings.HideMiss,
-      HitMargin.Multipress or HitMargin.FailOverload or HitMargin.OverPress => !settings.HideOverload,
+      HitMargin.FailOverload or HitMargin.OverPress => !settings.HideOverload,
       _ => true,
     };
   }

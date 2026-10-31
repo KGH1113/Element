@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HarmonyLib;
 using Element.Application.Attempts;
+using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
 using Element.Domain.Judgement;
 using Element.Infrastructure.Attempts;
@@ -11,6 +12,7 @@ using Element.Infrastructure.Game.DmNote;
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
+using Element.Infrastructure.Game.Judgement;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
@@ -45,6 +47,7 @@ internal sealed class ModRuntime : IDisposable
   private EffectsController _effects;
   private AttemptRunReader _attemptRuns;
   private AttemptTracker _attempts;
+  private HitTextHideSync _hitTextSync;
   private OverlayRuntime _overlay;
   private SettingsUiRuntime _settingsUi;
   private bool _sceneHooked;
@@ -62,6 +65,7 @@ internal sealed class ModRuntime : IDisposable
   private readonly Action<int> _refreshTime;
   private readonly Action<scrMissIndicator> _hideMissIndicator;
   private readonly Action _releaseFallbackGlyphs;
+  private readonly Action _pushHitTextHide;
 
   internal KeyLimiterService KeyLimiter => _keyLimiter;
   internal IReadOnlyList<string> FailedPatchGroups { get; private set; } = Array.Empty<string>();
@@ -83,6 +87,7 @@ internal sealed class ModRuntime : IDisposable
     _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
     _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
     _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
+    _pushHitTextHide = () => _hitTextSync?.Push();
   }
 
   public bool Initialize()
@@ -109,6 +114,12 @@ internal sealed class ModRuntime : IDisposable
       _gameplayTweaks = new GameplayTweaksController(_main);
       _effects = new EffectsController(() => _main.Settings.Effects);
       _recordingMode = new RecordingModeController();
+      var gameHitText = new GameHitTextHide();
+      _hitTextSync = new HitTextHideSync(
+        () => _main.Settings.Gameplay.Judgement,
+        gameHitText,
+        () => _settingsUi?.Save()
+      );
       SceneManager.sceneUnloaded += OnSceneUnloaded;
       _sceneHooked = true;
       WarnIfKeyboardChatterBlockerIsLoaded();
@@ -135,7 +146,8 @@ internal sealed class ModRuntime : IDisposable
         _nativeViewers,
         _gameplayTweaks.Planets,
         ApplySettings,
-        () => RefreshViewerMode(IsGameplayActive())
+        () => RefreshViewerMode(IsGameplayActive()),
+        () => gameHitText.Applies
       );
       _initialized = true;
       ApplySettings();
@@ -186,6 +198,9 @@ internal sealed class ModRuntime : IDisposable
   {
     if (_initialized)
       _settingsUi?.Tick();
+    // The first frame comes after the game loaded its own settings.
+    if (_initialized && _hitTextSync?.Started == false)
+      Execute("Sync judgment text with ADOFAI", _hitTextSync.Start);
     if (!UIInteractionState.BlocksPointerInput)
       _trackpad?.Tick();
     Execute("Update native ElementNote viewers", _tickNativeViewers);
@@ -207,6 +222,8 @@ internal sealed class ModRuntime : IDisposable
 
   public void ApplySettings()
   {
+    // Its own guard: a failure here must not stop the rest of the settings applying.
+    Execute("Sync judgment text with ADOFAI", _pushHitTextHide);
     Execute(
       "Apply visual settings",
       () =>
@@ -253,6 +270,18 @@ internal sealed class ModRuntime : IDisposable
   public bool ShouldShowHitText(HitMargin hitMargin)
   {
     return JudgementVisualPolicy.ShouldShow(_main.Settings.Gameplay.Judgement, IsRecording, (int)hitMargin);
+  }
+
+  /// <summary>The player changed Hide Judgment Text in the game's pause settings.</summary>
+  public void OnGameHitTextHideChanged()
+  {
+    Execute("Sync judgment text from ADOFAI", () => _hitTextSync?.PullFromGame());
+  }
+
+  /// <summary>Competitive Mode decides whether the game applies Hide Judgment Text.</summary>
+  public void OnCompetitiveModeChanged()
+  {
+    Execute("Sync judgment text with ADOFAI", _pushHitTextHide);
   }
 
   public void ReapplyRecordingUi()
@@ -333,6 +362,7 @@ internal sealed class ModRuntime : IDisposable
 
     _recordingMode?.Dispose();
     _recordingMode = null;
+    _hitTextSync = null;
 
     if (_sceneHooked)
     {

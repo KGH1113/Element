@@ -1,0 +1,1369 @@
+/*
+ * Main-window-only foundation. Component-level visual changes intentionally
+ * remain in the legacy classes until the Phase 2 and Phase 3 backports.
+ */
+
+.dmn-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-2);
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-fg-primary);
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    border-color var(--ui-motion-fast) var(--ui-ease-standard),
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-button[data-size='sm'] {
+  height: var(--ui-control-height-sm);
+  padding: 0 var(--ui-space-3);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+}
+
+.dmn-button[data-size='md'] {
+  height: var(--ui-control-height-md);
+  padding: 0 var(--ui-space-5);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-button[data-size='icon'] {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.dmn-button[data-variant='primary'] {
+  background: var(--ui-accent);
+  color: white;
+}
+
+.dmn-button[data-variant='primary']:hover:not(:disabled) {
+  background: var(--ui-accent-hover);
+}
+
+.dmn-button:hover:not(:disabled) {
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.2);
+  transform: translateY(var(--ui-hover-lift));
+}
+
+.dmn-button[data-variant='primary']:active:not(:disabled) {
+  background: var(--ui-accent-pressed);
+}
+
+.dmn-button[data-variant='secondary'] {
+  border-color: var(--ui-line-subtle);
+  background: var(--ui-bg-surface);
+}
+
+.dmn-button[data-variant='secondary']:hover:not(:disabled),
+.dmn-button[data-variant='ghost']:hover:not(:disabled) {
+  background: var(--ui-bg-surface-hover);
+}
+
+.dmn-button[data-variant='secondary']:active:not(:disabled),
+.dmn-button[data-variant='ghost']:active:not(:disabled) {
+  background: var(--ui-bg-surface-active);
+}
+
+.dmn-button[data-variant='ghost'] {
+  background: transparent;
+  color: var(--ui-fg-secondary);
+}
+
+.dmn-button[data-variant='danger'] {
+  background: var(--ui-danger-soft);
+  color: #ffb4b2;
+}
+
+.dmn-button[data-variant='danger']:hover:not(:disabled) {
+  background: rgba(239, 83, 80, 0.24);
+}
+
+.dmn-button:active:not(:disabled) {
+  box-shadow: none;
+  transform: translateY(0) scale(var(--ui-press-scale));
+}
+
+.dmn-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.dmn-button--block {
+  width: 100%;
+}
+
+.dmn-button__content {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+.dmn-button__spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: dmn-spin 700ms linear infinite;
+}
+
+.dmn-toggle-track {
+  position: relative;
+  width: 28px;
+  height: 16px;
+  flex: none;
+  border: 0;
+  border-radius: var(--ui-radius-round);
+  background: rgba(255, 255, 255, 0.14);
+  transition: background-color var(--ui-toggle-duration) var(--ui-ease-out);
+}
+
+.dmn-toggle-track:hover:not(:disabled):not([data-state='checked']) {
+  background: rgba(255, 255, 255, 0.19);
+}
+
+.dmn-toggle-track[data-state='checked'] {
+  background: var(--ui-accent);
+}
+
+.dmn-toggle-track:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.dmn-toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transform: translateX(0) scaleY(1);
+  transition: transform var(--ui-toggle-duration) var(--ui-toggle-ease);
+}
+
+.dmn-toggle-track[data-state='checked'] .dmn-toggle-thumb {
+  transform: translateX(12px) scaleY(1);
+}
+
+.dmn-toggle-track:active:not(:disabled) .dmn-toggle-thumb {
+  transform: translateX(0) scaleY(0.82);
+}
+
+.dmn-toggle-track[data-state='checked']:active:not(:disabled)
+  .dmn-toggle-thumb {
+  transform: translateX(12px) scaleY(0.82);
+}
+
+.dmn-segmented {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 30px;
+  align-items: center;
+  padding: 3px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-bg-inset);
+}
+
+.dmn-segment-thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.035);
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-surface-active);
+  box-shadow: 0 2px 7px rgba(0, 0, 0, 0.26);
+  transition: transform var(--ui-segment-duration) var(--ui-segment-ease);
+  will-change: transform;
+}
+
+.dmn-segment-button {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 24px;
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+  transition:
+    color var(--ui-motion-base) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-segment-button:hover {
+  color: var(--ui-fg-secondary);
+}
+
+.dmn-segment-button[aria-pressed='true'] {
+  color: var(--ui-fg-primary);
+}
+
+.dmn-segment-button:active {
+  transform: scale(0.97);
+}
+
+/*
+ * Wells: a light fill with no border. Focus is a ring on the well itself,
+ * so wrapper wells (number fields with prefixes) light up via :focus-within.
+ */
+.dmn-number-field,
+.dmn-text-field {
+  box-sizing: border-box;
+  border-color: transparent;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-inset);
+  color: var(--ui-fg-primary);
+  caret-color: var(--ui-fg-primary);
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-number-field:hover:not(:disabled):not(:focus-within),
+.dmn-text-field:hover:not(:disabled):not(:focus-within) {
+  background: var(--ui-fill);
+}
+
+.dmn-number-field:focus-within,
+.dmn-text-field:focus-within {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.dmn-number-field::placeholder,
+.dmn-text-field::placeholder {
+  color: var(--ui-fg-muted);
+}
+
+.dmn-number-field:disabled,
+.dmn-text-field:disabled {
+  cursor: not-allowed;
+  color: var(--ui-fg-disabled);
+  opacity: 0.6;
+}
+
+.dmn-dropdown-trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  height: var(--ui-control-height-sm);
+  min-width: 70px;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-2);
+  padding: 0 var(--ui-space-3);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+  transition:
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-dropdown-trigger:hover:not(:disabled) {
+  background: var(--ui-fill-hover);
+}
+
+.dmn-dropdown-trigger[aria-expanded='true'] {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.dmn-dropdown-trigger:disabled {
+  cursor: not-allowed;
+  color: var(--ui-fg-disabled);
+  opacity: 0.55;
+}
+
+.dmn-dropdown-trigger--icon {
+  width: 23px;
+  min-width: 23px;
+  justify-content: center;
+  padding: 0;
+}
+
+.dmn-dropdown-chevron {
+  flex: none;
+  color: var(--ui-fg-muted);
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-dropdown-trigger[aria-expanded='true'] .dmn-dropdown-chevron {
+  transform: rotate(180deg);
+}
+
+.dmn-dropdown-menu {
+  z-index: var(--ui-z-popup);
+  display: flex;
+  min-width: 110px;
+  max-height: 200px;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+  padding: var(--ui-space-1);
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-bg-glass);
+  box-shadow: var(--ui-shadow-popup);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.dmn-dropdown-option {
+  display: flex;
+  width: 100%;
+  min-height: var(--ui-control-height-md);
+  align-items: center;
+  padding: 0 var(--ui-space-4);
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dmn-dropdown-option:hover,
+.dmn-dropdown-option[data-active='true'] {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.dmn-dropdown-option[aria-selected='true'] {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+}
+
+.dmn-dropdown-empty {
+  padding: var(--ui-space-3) var(--ui-space-4);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  line-height: var(--ui-type-body-line);
+}
+
+/*
+ * Modal wrapper is unpainted: the dialog content owns the one card surface
+ * (.dmn-modal-card / .dmn-manager-surface). position keeps it above the
+ * scrim pseudo-element of .dmn-modal-backdrop.
+ */
+.dmn-modal-surface {
+  position: relative;
+}
+
+/*
+ * Single modal card. Opaque on purpose: the scrim is the only backdrop
+ * filter while a modal is open (stacked backdrop filters re-filter the
+ * whole window every frame on Windows).
+ */
+.dmn-modal-card,
+.dmn-connection-modal {
+  border: 0;
+  border-radius: var(--ui-radius-modal);
+  background: var(--ui-bg-modal);
+  color: var(--ui-fg-secondary);
+  box-shadow: var(--ui-shadow-modal);
+}
+
+.dmn-popup-surface {
+  z-index: var(--ui-z-popup);
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-bg-glass);
+  box-shadow: var(--ui-shadow-popup);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+/* Direction-aware popup presence. Open and close share one transition so a
+ * quick reversal continues from the current visual state instead of jumping. */
+[data-dmn-motion-state] {
+  --ui-motion-x: 0px;
+  --ui-motion-y: 0px;
+}
+
+[data-dmn-placement^='top'] {
+  --ui-motion-y: 3px;
+  transform-origin: bottom center;
+}
+
+[data-dmn-placement^='bottom'] {
+  --ui-motion-y: -3px;
+  transform-origin: top center;
+}
+
+[data-dmn-placement^='left'] {
+  --ui-motion-x: 3px;
+  transform-origin: right center;
+}
+
+[data-dmn-placement^='right'] {
+  --ui-motion-x: -3px;
+  transform-origin: left center;
+}
+
+/* Opacity and transform only: a resting `filter` on a surface that also
+ * carries backdrop-filter costs an extra compositing pass every frame. */
+.dmn-motion {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    opacity var(--ui-popup-enter-duration) var(--ui-popup-ease),
+    transform var(--ui-popup-enter-duration) var(--ui-popup-ease);
+}
+
+.dmn-motion[data-dmn-motion-state='entering'] {
+  opacity: 0;
+  transform: translate3d(var(--ui-motion-x), var(--ui-motion-y), 0)
+    scale(var(--ui-popup-enter-scale));
+}
+
+.dmn-motion[data-dmn-motion-state='closing'] {
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(var(--ui-motion-x), var(--ui-motion-y), 0)
+    scale(var(--ui-popup-exit-scale));
+  transition-duration: var(--ui-popup-exit-duration);
+}
+
+.dmn-tooltip-surface {
+  z-index: var(--ui-z-tooltip);
+  padding: var(--ui-space-2) var(--ui-space-3);
+  border: 0;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-fg-primary);
+  box-shadow: var(--ui-shadow-tooltip);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-type-caption-weight);
+  line-height: var(--ui-type-caption-line);
+  letter-spacing: var(--ui-type-caption-tracking);
+  white-space: nowrap;
+}
+
+.dmn-tooltip-arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  pointer-events: none;
+  background: var(--ui-bg-elevated);
+  transform: rotate(45deg);
+}
+
+@keyframes dmn-popup-in {
+  from {
+    opacity: 0;
+    transform: translateY(-2px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes dmn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Phase 3: application shell ------------------------------------------------ */
+
+/* The native window already draws the edge and shadow; the frame only fills. */
+.dmn-app-frame {
+  border-radius: 8px;
+  background: var(--ui-bg-app);
+}
+
+.dmn-titlebar {
+  z-index: var(--ui-z-toolbar);
+  border-bottom: 1px solid var(--ui-line-subtle);
+  border-radius: 8px 8px 0 0;
+  background: var(--ui-bg-app);
+}
+
+.dmn-window-control {
+  color: var(--ui-fg-muted);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-window-control:hover {
+  color: var(--ui-fg-primary);
+  background: var(--ui-bg-surface-hover);
+}
+
+.dmn-window-control:active {
+  background: var(--ui-bg-surface-active);
+}
+
+.dmn-window-control--close {
+  border-radius: 0 8px 0 0;
+}
+
+.dmn-window-control--close:hover {
+  color: white;
+  background: var(--ui-danger);
+}
+
+.dmn-workspace {
+  position: relative;
+  background: var(--ui-bg-panel);
+}
+
+.dmn-toolbar {
+  z-index: var(--ui-z-toolbar);
+  border-top: 1px solid var(--ui-line-subtle);
+  background: var(--ui-bg-app);
+}
+
+.dmn-tool-group {
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-muted);
+}
+
+.dmn-tool-button {
+  border-radius: var(--ui-radius-inner);
+  background: transparent;
+  color: inherit;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-tool-button:hover:not(:disabled) {
+  color: var(--ui-fg-primary);
+  background: var(--ui-fill);
+}
+
+/* Selection is neutral; the accent is reserved for highlights. */
+.dmn-tool-button[aria-pressed='true'],
+.dmn-tool-button[aria-expanded='true'],
+.viewer-tab-trigger[data-open='true'] .dmn-tool-button {
+  color: var(--ui-fg-primary);
+  background: var(--ui-fill-hover);
+}
+
+.dmn-tool-button:active:not(:disabled) {
+  transform: translateY(0) scale(var(--ui-press-scale));
+}
+
+.key-limiter-status-slot {
+  color: var(--ui-fg-muted);
+}
+
+/* Canvas chrome only. Key/note/counter children keep viewer ownership. */
+
+/* The user's background colour (inline style) paints over this base. */
+.dmn-grid-surface {
+  isolation: isolate;
+  background-color: var(--ui-bg-panel);
+}
+
+/*
+ * One minimap chip. Canvas-resident chrome uses an opaque tint instead of a
+ * live backdrop blur, and box-shadow instead of filter, so it never forces
+ * a re-filter while the canvas is panned.
+ */
+.dmn-grid-minimap {
+  z-index: var(--ui-z-panel);
+  padding: var(--ui-space-1);
+  border-radius: 8px;
+  background: var(--ui-glass-dim);
+  color: var(--ui-fg-secondary);
+  font-family: 'Pretendard Variable', Pretendard, sans-serif;
+  box-shadow: var(--ui-shadow-chrome);
+}
+
+.dmn-minimap-zoom,
+.dmn-minimap-canvas {
+  overflow: hidden;
+  border-radius: var(--ui-radius-inner);
+}
+
+.dmn-minimap-control {
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-muted);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-minimap-control:hover {
+  color: var(--ui-fg-primary);
+}
+
+.dmn-minimap-readout {
+  color: var(--ui-fg-secondary);
+}
+
+/* Settings --------------------------------------------------------------- */
+
+.dmn-settings,
+.dmn-settings-host {
+  background: var(--ui-bg-panel);
+}
+
+.dmn-settings-list {
+  background: transparent;
+  scrollbar-gutter: stable;
+}
+
+.dmn-setting-card {
+  gap: 0;
+  padding: var(--ui-space-3) var(--ui-space-6);
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-setting-card > :where(div) {
+  height: auto;
+  min-height: var(--ui-settings-row-height);
+}
+
+.dmn-setting-card > :where(div[class*='justify-between']) {
+  gap: var(--ui-space-5);
+}
+
+.dmn-setting-row__label {
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+  letter-spacing: var(--ui-type-label-tracking);
+}
+
+.dmn-setting-card__title {
+  padding: var(--ui-space-2) 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-type-caption-weight);
+  line-height: var(--ui-type-caption-line);
+  letter-spacing: var(--ui-type-caption-tracking);
+}
+
+.dmn-setting-row {
+  display: flex;
+  width: 100%;
+  min-height: var(--ui-settings-row-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-5);
+}
+
+.dmn-setting-row__copy {
+  min-width: 0;
+}
+
+.dmn-setting-row__description {
+  margin-top: var(--ui-space-1);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-type-caption-weight);
+  line-height: var(--ui-type-caption-line);
+  letter-spacing: var(--ui-type-caption-tracking);
+}
+
+.dmn-setting-row__control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--ui-space-3);
+}
+
+.dmn-setting-card :where(button) {
+  flex: none;
+}
+
+.dmn-inline-action {
+  display: inline-flex;
+  min-height: var(--ui-control-height-sm);
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--ui-space-4);
+  border: 1px solid var(--ui-line-subtle);
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-surface);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-inline-action:hover:not(:disabled):not(.is-disabled) {
+  color: var(--ui-fg-primary);
+  background: var(--ui-bg-surface-hover);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  transform: translateY(var(--ui-hover-lift));
+}
+
+.dmn-inline-action:active:not(:disabled):not(.is-disabled) {
+  box-shadow: none;
+  transform: translateY(0) scale(var(--ui-press-scale));
+}
+
+.dmn-inline-action.is-disabled,
+.dmn-inline-action:disabled {
+  cursor: not-allowed;
+  color: var(--ui-fg-disabled);
+  opacity: 0.55;
+}
+
+.dmn-settings-detail {
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-settings-preview {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-5);
+  padding: var(--ui-space-9);
+  color: var(--ui-fg-secondary);
+  text-align: center;
+}
+
+.dmn-settings-preview__mark {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  place-items: center;
+  border: 0;
+  border-radius: 18px;
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+
+.dmn-settings-preview h2 {
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-title-size);
+  font-weight: var(--ui-type-title-weight);
+  line-height: var(--ui-type-title-line);
+  letter-spacing: var(--ui-type-title-tracking);
+}
+
+.dmn-settings-preview p {
+  margin-top: var(--ui-space-1);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  line-height: var(--ui-type-body-line);
+}
+
+.dmn-settings-preview__actions {
+  display: flex;
+  gap: var(--ui-space-2);
+}
+
+.dmn-settings-preview__actions button {
+  height: var(--ui-control-height-sm);
+  padding: 0 var(--ui-space-4);
+  border: 1px solid var(--ui-line-subtle);
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-surface);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+}
+
+.dmn-settings-preview__actions button:hover {
+  color: var(--ui-fg-primary);
+  background: var(--ui-bg-surface-hover);
+}
+
+.dmn-settings-side-panel {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: inherit;
+  background: transparent;
+}
+
+.dmn-settings-side-panel__header {
+  display: flex;
+  min-height: var(--ui-panel-header-height);
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--ui-space-5);
+}
+
+.dmn-settings-side-panel__body {
+  min-height: 0;
+  flex: 1;
+  padding: 0 var(--ui-space-5) var(--ui-space-5);
+  overflow: auto;
+}
+
+.dmn-settings-panel-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.dmn-settings-panel-row {
+  display: flex;
+  min-height: var(--ui-settings-row-height);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-3);
+  padding: var(--ui-space-2) var(--ui-space-6);
+  border: 0;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-bg-inset);
+}
+
+.dmn-settings-panel-row > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ui-space-1);
+}
+
+.dmn-settings-panel-row strong {
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-settings-panel-row span,
+.dmn-panel-help,
+.dmn-panel-empty {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-type-caption-weight);
+  line-height: var(--ui-type-caption-line);
+  letter-spacing: var(--ui-type-caption-tracking);
+}
+
+.dmn-settings-panel-list {
+  display: flex;
+  max-height: 190px;
+  flex-direction: column;
+  gap: var(--ui-space-2);
+  overflow: auto;
+}
+
+.dmn-panel-badge {
+  display: inline-flex;
+  min-width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-round);
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+  font-size: var(--ui-type-caption-size);
+  font-weight: var(--ui-type-caption-weight);
+  line-height: var(--ui-type-caption-line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Properties panel ------------------------------------------------------- */
+
+/* One glass panel: its docking edge is the inset hairline in the shadow,
+ * and nothing inside it paints separators or slabs of its own. */
+.dmn-properties-panel {
+  width: var(--ui-properties-panel-width);
+  overflow: hidden;
+  border-left: 0;
+  background: color-mix(in srgb, var(--ui-bg-glass) 96%, transparent);
+  color: var(--ui-fg-secondary);
+  box-shadow: var(--ui-shadow-panel);
+  backdrop-filter: blur(18px) saturate(125%);
+}
+
+.dmn-properties-panel__head-stack,
+.dmn-properties-panel__header,
+.dmn-properties-panel__footer {
+  border-width: 0;
+  background: transparent;
+}
+
+.dmn-properties-panel__header {
+  min-height: var(--ui-panel-header-height);
+}
+
+.dmn-properties-panel__header :where(input) {
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-properties-panel :where(.properties-panel-overlay-viewport) > div {
+  scrollbar-gutter: stable;
+}
+
+.dmn-panel-tabs {
+  border: 0;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-bg-inset);
+}
+
+.dmn-panel-tab {
+  border-radius: var(--ui-radius-inner);
+  background: transparent;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: var(--ui-type-body-weight);
+  line-height: var(--ui-type-body-line);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-panel-tab:hover {
+  color: var(--ui-fg-secondary);
+}
+
+.dmn-panel-tab[aria-selected='true'] {
+  color: var(--ui-fg-primary);
+  background: var(--ui-fill-hover);
+}
+
+.dmn-property-row {
+  min-height: var(--ui-form-row-height);
+  gap: var(--ui-space-3);
+}
+
+.dmn-property-row__label {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-property-divider {
+  background: var(--ui-line-subtle);
+}
+
+.dmn-panel-icon-button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-muted);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.dmn-panel-icon-button:hover {
+  color: var(--ui-fg-primary);
+}
+
+.dmn-panel-icon-button:active {
+  transform: translateY(0) scale(var(--ui-press-scale));
+}
+
+/* Management surfaces ---------------------------------------------------- */
+
+/*
+ * The scrim is a pseudo-element underlay, not the backdrop element itself:
+ * the backdrop is an ancestor of the dialog, and a filter or translucency
+ * on an ancestor would isolate the dialog from what is behind it. The blur
+ * radius is constant from the first frame; only the tint fades.
+ */
+.dmn-modal-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ui-scrim);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+
+.dmn-modal-backdrop[data-dmn-motion-state]::before {
+  transition: opacity var(--ui-modal-enter-duration) var(--ui-popup-ease);
+}
+
+.dmn-modal-backdrop[data-dmn-motion-state='entering']::before,
+.dmn-modal-backdrop[data-dmn-motion-state='closing']::before {
+  opacity: 0;
+}
+
+.dmn-modal-backdrop[data-dmn-motion-state='closing'] {
+  pointer-events: none;
+}
+
+.dmn-modal-backdrop[data-dmn-motion-state='closing']::before {
+  transition-duration: var(--ui-modal-exit-duration);
+}
+
+/* Opacity and transform only; no resting or animated `filter`. */
+.dmn-modal-motion {
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity var(--ui-modal-enter-duration) var(--ui-popup-ease),
+    transform var(--ui-modal-enter-duration) var(--ui-popup-ease);
+}
+
+.dmn-modal-motion[data-dmn-motion-state='entering'] {
+  opacity: 0;
+  transform: scale(var(--ui-modal-enter-scale));
+}
+
+.dmn-modal-motion[data-dmn-motion-state='closing'] {
+  opacity: 0;
+  transform: scale(var(--ui-modal-exit-scale));
+  transition-duration: var(--ui-modal-exit-duration);
+}
+
+/* Legacy modal call sites still receive the same v2 materialization curve. */
+@keyframes modalScale {
+  from {
+    opacity: 0;
+    transform: scale(var(--ui-modal-enter-scale));
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-modal-scale {
+  animation: modalScale var(--ui-modal-enter-duration) var(--ui-popup-ease)
+    forwards;
+}
+
+.animate-modal-fade {
+  animation: modalFade var(--ui-motion-base) var(--ui-popup-ease) forwards;
+}
+
+/* Manager dialogs use the same single modal card as .dmn-modal-card. */
+.dmn-manager-surface {
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--ui-radius-modal);
+  background: var(--ui-bg-modal);
+  color: var(--ui-fg-secondary);
+  box-shadow: var(--ui-shadow-modal);
+}
+
+.dmn-manager-surface :where(h1, h2, h3) {
+  color: var(--ui-fg-primary);
+  font-weight: 650;
+}
+
+.dmn-manager-divider {
+  background: var(--ui-line-subtle);
+}
+
+.dmn-manager-scroll-shadow--top {
+  background: linear-gradient(to bottom, var(--ui-bg-modal), transparent);
+}
+
+.dmn-manager-scroll-shadow--bottom {
+  background: linear-gradient(to top, var(--ui-bg-modal), transparent);
+}
+
+/* Picker content inside FloatingPopup: the popup already owns the surface. */
+.dmn-picker-surface {
+  color: var(--ui-fg-secondary);
+}
+
+@media (max-width: 720px) {
+  .dmn-settings-list {
+    right: 0;
+    width: auto;
+    border-right: 0;
+  }
+
+  .dmn-settings-list > div,
+  .dmn-settings-list > div > div {
+    width: 100%;
+  }
+
+  .dmn-settings-detail {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dmn-button,
+  .dmn-tool-button,
+  .dmn-inline-action,
+  .dmn-panel-tab,
+  .dmn-panel-icon-button,
+  .dmn-toggle-track,
+  .dmn-toggle-thumb,
+  .dmn-segment-thumb,
+  .dmn-segment-button,
+  .dmn-dropdown-chevron,
+  .dmn-motion,
+  .dmn-modal-backdrop::before,
+  .dmn-modal-motion {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+
+  .dmn-button:hover:not(:disabled),
+  .dmn-tool-button:hover:not(:disabled),
+  .dmn-inline-action:hover:not(:disabled):not(.is-disabled),
+  .dmn-panel-tab:hover,
+  .dmn-panel-icon-button:hover,
+  .dmn-segment-button:active {
+    transform: none;
+  }
+
+  .dmn-motion[data-dmn-motion-state],
+  .dmn-modal-motion[data-dmn-motion-state] {
+    filter: none;
+    transform: none;
+  }
+}
+
+/* OBS mode prompt: a question title, one sentence, and two equal actions
+ * with the primary one last, on the shared .dmn-modal-card surface. */
+.dmn-obs-prompt {
+  display: flex;
+  width: 320px;
+  flex-direction: column;
+  gap: var(--ui-space-8);
+  padding: var(--ui-space-8);
+}
+
+.dmn-obs-prompt__copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-3);
+}
+
+.dmn-obs-prompt__copy h2 {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-type-heading-weight);
+  line-height: var(--ui-type-heading-line);
+  letter-spacing: var(--ui-type-heading-tracking);
+}
+
+.dmn-obs-prompt__copy p {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  line-height: var(--ui-type-body-line);
+  word-break: keep-all;
+}
+
+.dmn-obs-prompt__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ui-space-3);
+}
+
+/* Element connection modal (toolbar status button). The card
+ * surface comes from the shared .dmn-modal-card recipe. */
+.dmn-connection-modal {
+  display: flex;
+  width: 360px;
+  flex-direction: column;
+  gap: var(--ui-space-5);
+  padding: var(--ui-space-8);
+}
+
+.dmn-connection-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ui-space-5);
+  margin-bottom: var(--ui-space-1);
+}
+
+.dmn-connection-modal__heading {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmn-connection-modal__heading h2 {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-type-heading-weight);
+  line-height: var(--ui-type-heading-line);
+  letter-spacing: var(--ui-type-heading-tracking);
+}
+
+.dmn-connection-modal__status {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  line-height: var(--ui-type-body-line);
+}
+
+.dmn-connection-modal__status--success {
+  color: var(--ui-success);
+}
+
+.dmn-connection-modal__status--warning {
+  color: var(--ui-warning);
+}
+
+.dmn-connection-modal__status--error {
+  color: var(--ui-danger);
+}
+
+.dmn-connection-modal__close {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin: -4px -6px 0 0;
+  border-radius: var(--ui-radius-control);
+  color: var(--ui-fg-muted);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.dmn-connection-modal__close:hover {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.dmn-connection-modal__close:active {
+  background: var(--ui-fill-hover);
+}
+
+/* One grouped list: rows share a surface and a hairline between them. */
+.dmn-connection-modal__group {
+  overflow: hidden;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-connection-modal__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-6);
+  padding: var(--ui-space-5) var(--ui-space-6);
+}
+
+.dmn-connection-modal__row + .dmn-connection-modal__row {
+  box-shadow: inset 0 1px 0 var(--ui-line-subtle);
+}
+
+.dmn-connection-modal__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dmn-connection-modal__label {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: var(--ui-type-label-weight);
+  line-height: var(--ui-type-label-line);
+}
+
+.dmn-connection-modal__description {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+.dmn-connection-modal__stats {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.8fr) minmax(0, 1.1fr);
+  gap: var(--ui-space-3);
+  margin: 0;
+}
+
+.dmn-connection-modal__stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--ui-space-4) var(--ui-space-5);
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-fill-faint);
+}
+
+.dmn-connection-modal__stats dt {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+.dmn-connection-modal__stats dd {
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: 600;
+  line-height: var(--ui-type-label-line);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dmn-connection-modal__note {
+  margin: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+  overflow-wrap: anywhere;
+}
+
+.dmn-connection-modal__note--warning {
+  color: var(--ui-warning);
+}
+
+.dmn-connection-modal__note--error {
+  color: var(--ui-danger);
+}

@@ -1,14 +1,14 @@
 using System;
-using ImplResourcePack.Configuration;
-using ImplResourcePack.Domain.Layout;
-using ImplResourcePack.Presentation.Layout;
-using ImplResourcePack.Presentation.Overlay.Shared;
+using Element.Configuration;
+using Element.Domain.Layout;
+using Element.Presentation.Layout;
+using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace ImplResourcePack.Editor
+namespace Element.Editor
 {
   internal static class OverlayTargetChecks
   {

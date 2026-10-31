@@ -256,7 +256,7 @@ static WKUserScript *PageScript(NSString *source) {
                       withError:(NSError *)error {
   if (error.code != NSURLErrorCancelled) {
     self.url = nil;
-    SetFault(self.kind, "Native viewer could not load its local source. Check ImplDmNote.");
+    SetFault(self.kind, "Native viewer could not load its local source. Check ElementNote.");
   }
 }
 
@@ -264,7 +264,7 @@ static WKUserScript *PageScript(NSString *source) {
     didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
   if (error.code != NSURLErrorCancelled) {
     self.url = nil;
-    SetFault(self.kind, "Native viewer lost its local source. Check ImplDmNote.");
+    SetFault(self.kind, "Native viewer lost its local source. Check ElementNote.");
   }
 }
 

@@ -38,7 +38,7 @@ writeJson(path.join(runtime, 'source.json'), {
 });
 fs.writeFileSync(path.join(runtime, 'SHA256SUMS'), files.map(file => `${hash(path.join(runtime, file))}  ${file}\n`).join(''));
 
-const destination = path.join(root, 'apps/impl-dm-note/vendor/adofai-ipc');
+const destination = path.join(root, 'apps/element-note/vendor/adofai-ipc');
 fs.rmSync(path.join(destination, 'src'), { recursive: true, force: true });
 fs.cpSync(path.join(sdk, 'src'), path.join(destination, 'src'), { recursive: true });
 fs.copyFileSync(path.join(sdk, 'LICENSE'), path.join(destination, 'LICENSE'));

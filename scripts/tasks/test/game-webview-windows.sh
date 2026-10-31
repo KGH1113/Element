@@ -18,8 +18,8 @@ windows_powershell <<PS
 \$out = Join-Path \$dir 'out'
 \$log = Join-Path \$out 'smoke.log'
 Remove-Item \$log -ErrorAction SilentlyContinue
-\$arguments = '"' + (Join-Path \$out 'ImplGameWebView.dll') + '" "' + \$log + '"'
-& (Join-Path \$dir 'src/run-on-desktop.ps1') -Exe (Join-Path \$out 'ImplGameWebViewSmoke.exe') -Arguments \$arguments -TimeoutSeconds 300
+\$arguments = '"' + (Join-Path \$out 'ElementGameWebView.dll') + '" "' + \$log + '"'
+& (Join-Path \$dir 'src/run-on-desktop.ps1') -Exe (Join-Path \$out 'ElementGameWebViewSmoke.exe') -Arguments \$arguments -TimeoutSeconds 300
 \$code = \$LASTEXITCODE
 if (Test-Path \$log) { Get-Content \$log -Encoding UTF8 } else { 'The smoke probe wrote no log.' }
 exit \$code

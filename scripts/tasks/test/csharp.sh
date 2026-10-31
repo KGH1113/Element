@@ -6,7 +6,7 @@ TASK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$TASK_DIR/../../lib/context.sh"
 
 DOTNET_ROOT="$DOTNET_ROOT" DOTNET_ROOT_ARM64="$DOTNET_ROOT_ARM64" \
-  "$DOTNET_EXE" run --project "$IMPL_RESOURCEPACK_PROJECT_ROOT/ImplResourcePack.Tests/ImplResourcePack.Tests.csproj" \
+  "$DOTNET_EXE" run --project "$ELEMENT_PROJECT_ROOT/Element.Tests/Element.Tests.csproj" \
     --configuration Debug \
     -p:AdofaiManaged="$ADOFAI_MANAGED" \
     -p:UnityModManagerDll="$UNITY_MOD_MANAGER_DLL" \

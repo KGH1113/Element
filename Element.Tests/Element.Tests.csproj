@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AdofaiIpcBundle Condition="'$(AdofaiIpcBundle)' == ''">$(MSBuildThisFileDirectory)../vendor/adofai-ipc-runtime</AdofaiIpcBundle>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>Element.Tests</AssemblyName>
+    <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Element/Element.csproj" />
+    <!-- Aliased: both also compile the shared update sources the mod has. -->
+    <ProjectReference Include="../Element.Launcher/Element.Launcher.csproj" Aliases="launcher" />
+    <ProjectReference Include="../Element.Updater/Element.Updater.csproj" Aliases="updater" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(AdofaiManaged)/Assembly-CSharp.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="AdofaiIpc.Contracts">
+      <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(AdofaiManaged)/Newtonsoft.Json.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="SkyHook.Unity">
+      <HintPath>$(AdofaiManaged)/SkyHook.Unity.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

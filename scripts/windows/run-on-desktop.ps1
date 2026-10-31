@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $user = (Get-CimInstance Win32_ComputerSystem).UserName
 if (-not $user) { throw 'Nobody is signed in to the Windows desktop. Sign in on the build host and retry.' }
 
-$name = 'ImplResourcePackDesktopProbe'
+$name = 'ElementDesktopProbe'
 $action = New-ScheduledTaskAction -Execute $Exe -Argument $Arguments -WorkingDirectory (Split-Path $Exe)
 $principal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `

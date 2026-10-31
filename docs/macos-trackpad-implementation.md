@@ -18,15 +18,15 @@
 - 편집 모드의 캔버스 위에서 두 손가락으로 이동하면 패닝한다. OS의 관성 스크롤도 같은 대상에 적용한다.
 - 핀치를 벌리면 확대, 오므리면 축소한다. 게임의 포인터 기준 줌 함수를 즉시 적용 모드로 사용한다.
 - 일반 마우스 휠은 기존 게임 처리를 유지한다. 정밀 스크롤을 제공하는 Magic Mouse는 트랙패드와 같은 패닝 경로에 들어갈 수 있다.
-- UnityModManager의 ImplResourcePack 설정에서 `Level editor → Native trackpad (two-finger pan / pinch zoom)`으로 끌 수 있다. macOS에서는 기본 활성화다.
+- UnityModManager의 Element 설정에서 `Level editor → Native trackpad (two-finger pan / pinch zoom)`으로 끌 수 있다. macOS에서는 기본 활성화다.
 - 재생 모드, 입력 필드 편집, 설정·파티클 편집 패널, 팝업 및 마우스 버튼 드래그 중에는 네이티브 카메라 제스처를 적용하지 않는다.
 
 **변경 내용**
 
 - [네이티브 입력 모듈](../native/macos/Trackpad.mm): AppKit의 정밀 스크롤과 magnify 이벤트를 별도로 수집한다. 제스처 단계와 관성 단계를 보존하고, 창 크기에 대해 정규화한 좌표와 이동량을 C ABI로 전달한다. bounded queue가 넘치면 해당 입력을 취소한다.
-- [네이티브 로더](../ImplResourcePack/Infrastructure/Game/Editor/MacTrackpadNative.cs): 모드 폴더의 라이브러리를 절대 경로로 로드한다. 모드 해제 시 이벤트 모니터를 제거한다.
-- [에디터 연결](../ImplResourcePack/Infrastructure/Game/Editor/EditorTrackpadController.cs): 캔버스와 UI의 제스처 대상을 구분한다. 에디터 Update의 기존 휠 읽기와 Unity UI 스크롤 경로를 제한적으로 패치해 중복 처리를 막는다. 오류나 API 변경에는 네이티브 기능을 해제하고 원래 입력으로 복귀한다.
-- [제스처 상태·줌 계산](../ImplResourcePack/Infrastructure/Game/Editor/TrackpadGesture.cs): 손을 떼고 관성이 이어져도 대상을 유지한다. 취소된 캔버스 관성이 UI 스크롤로 전환되지 않도록 처리한다. 작은 핀치 입력은 연속 배율로 반영한다.
+- [네이티브 로더](../Element/Infrastructure/Game/Editor/MacTrackpadNative.cs): 모드 폴더의 라이브러리를 절대 경로로 로드한다. 모드 해제 시 이벤트 모니터를 제거한다.
+- [에디터 연결](../Element/Infrastructure/Game/Editor/EditorTrackpadController.cs): 캔버스와 UI의 제스처 대상을 구분한다. 에디터 Update의 기존 휠 읽기와 Unity UI 스크롤 경로를 제한적으로 패치해 중복 처리를 막는다. 오류나 API 변경에는 네이티브 기능을 해제하고 원래 입력으로 복귀한다.
+- [제스처 상태·줌 계산](../Element/Infrastructure/Game/Editor/TrackpadGesture.cs): 손을 떼고 관성이 이어져도 대상을 유지한다. 취소된 캔버스 관성이 UI 스크롤로 전환되지 않도록 처리한다. 작은 핀치 입력은 연속 배율로 반영한다.
 - macOS 빌드에 arm64/x86_64 universal dylib 컴파일과 ad-hoc 서명을 추가하고 설치·패키징에 포함했다.
 - `scripts/tasks/install/mod.sh --runtime-only`는 실행 중인 게임이 읽는 바이너리를 직접 덮어쓰지 않고 새 파일을 rename으로 교체한다. 새 코드는 게임 재시작 후 적용된다.
 

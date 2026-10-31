@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 TASK_REPOSITORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-TASK_DESKTOP="$TASK_REPOSITORY/apps/impl-dm-note"
+TASK_DESKTOP="$TASK_REPOSITORY/apps/element-note"
 cd "$TASK_DESKTOP"
 case "${1:-}" in
   desktop-ipc-format)
@@ -70,7 +70,7 @@ case "${1:-}" in
         node scripts/sign-macos-app.mjs
       fi
       mkdir -p "$TASK_REPOSITORY/Release"
-      ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/$bundle_profile/bundle/macos/ImplDmNote.app" "$TASK_REPOSITORY/Release/ImplDmNote-Renderer-macos-$(uname -m).zip"
+      ditto -c -k --sequesterRsrc --keepParent "src-tauri/target/$bundle_profile/bundle/macos/ElementNote.app" "$TASK_REPOSITORY/Release/ElementNote-Renderer-macos-$(uname -m).zip"
     fi
     ;;
   desktop-render-test)

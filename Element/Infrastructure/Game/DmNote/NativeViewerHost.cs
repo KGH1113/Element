@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Element.Domain.DmNote;
+using Element.Domain.Layout;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.DmNote;
@@ -33,6 +35,8 @@ internal interface INativeViewerHost : INativeViewerLayoutHost, IDisposable
   void Apply((string Id, NativeViewerSurface Surface)[] surfaces);
   void Show(bool visible);
   void Edit(bool editing);
-  void ExcludeEditor(Rect normalizedBounds);
+
+  /// <summary>Normalized top-left panels; each radius is normalized to the view height.</summary>
+  void ExcludeEditor(IReadOnlyList<LayoutExclusion> normalized);
   void ApplyHighlight(Color accent);
 }

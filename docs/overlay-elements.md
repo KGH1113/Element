@@ -37,6 +37,8 @@ A shape starts as a square. Its toolbar changes the kind (square, triangle, circ
 
 Added at once as a hand viewer. Its toolbar switches between hand and foot in the same place. It is available while ElementNote runs with **Show inside ADOFAI** on; otherwise Add Element says what to turn on.
 
+Editor panels over a key viewer cut it out with their own rounded corners, so the viewer never covers the editor.
+
 ## Settings from before 1.1
 
 The fixed overlays of earlier versions are converted on the first load into texts with the same values, colors and places. A moved overlay keeps its anchor, offset and size. The combo becomes two texts, "Perfect" and the number, placed where the old combo was. Values that used to fade toward the highlight color (progress, accuracy, BPM) now use the highlight color directly. The labels in front of them ("Progress |", "Music Time |") keep following the game's language until the text is edited; editing turns them into plain words.

@@ -72,8 +72,14 @@ IRP_WEBVIEW_API void irp_webview_set_selected(const char *viewer_kind, int selec
 IRP_WEBVIEW_API void irp_webview_set_highlight(double red, double green, double blue);
 // Cut out a normalized top-left rectangle from all native content/chrome during
 // editing so Unity's layout toolbar stays visible above freely moved viewers.
+// Kept for existing managed callers; it sets one square cutout.
 IRP_WEBVIEW_API void irp_webview_set_editor_exclusion(double x, double y, double width,
                                                       double height);
+// Cut out every Unity editor panel at once, each with its own rounded corners.
+// values holds count groups of x, y, width, height (normalized, top-left
+// origin) and corner radius (normalized to the view height). Cutouts must not
+// overlap; count = 0 clears them.
+IRP_WEBVIEW_API void irp_webview_set_editor_exclusions(const double *values, int count);
 IRP_WEBVIEW_API void irp_webview_dispose(void);
 
 // The latest host error (a failed call, the window, the web engine); if none, the

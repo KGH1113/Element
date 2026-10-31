@@ -92,7 +92,7 @@ internal sealed class SettingsUiRuntime : IDisposable
       else
         _layoutEditor.Tick();
       if (_layoutEditor.IsOpen)
-        _nativeViewers.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+        _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
       UIInteractionState.RestoreCursor();
     }
     else if (_panel != null)
@@ -154,7 +154,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   {
     UIInteractionState.Begin(layoutEditing: true);
     _layoutEditor.Open();
-    _nativeViewers.SetEditorExclusion(_layoutEditor.NativeExclusionBounds);
+    _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
     _viewerModeChanged();
   }
 

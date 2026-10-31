@@ -4,6 +4,7 @@ using System.Linq;
 using AdofaiIpc.Contracts;
 using Element.Configuration;
 using Element.Domain.DmNote;
+using Element.Domain.Layout;
 using Element.Infrastructure.Game.DmNote;
 using Element.Presentation.Layout;
 using TMPro;
@@ -29,7 +30,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   private bool _suspended;
   private bool _visible = true;
   private bool _editing;
-  private Rect _editorExclusion;
+  private IReadOnlyList<LayoutExclusion> _editorExclusions = Array.Empty<LayoutExclusion>();
   private readonly List<NativeViewerLayoutTarget> _layoutTargets;
   private readonly NativeViewerLayoutTarget[] _galleryTargets;
   private List<OverlayLayoutSettings> _layouts;
@@ -213,20 +214,27 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     _host?.Show(_visible && !_suspended);
   }
 
-  public void SetEditorExclusion(Rect screenTopLeftPixels)
+  /// <summary>The editor's panels in screen pixels from the top left, with their corner radii.</summary>
+  public void SetEditorExclusions(IReadOnlyList<LayoutExclusion> screenTopLeftPixels)
   {
     int width = Screen.width;
     int height = Screen.height;
-    _editorExclusion =
-      width > 0 && height > 0
-        ? new Rect(
-          screenTopLeftPixels.x / width,
-          screenTopLeftPixels.y / height,
-          screenTopLeftPixels.width / width,
-          screenTopLeftPixels.height / height
-        )
-        : default;
-    _host?.ExcludeEditor(_editorExclusion);
+    List<LayoutExclusion> normalized = new(screenTopLeftPixels.Count);
+    if (width > 0 && height > 0)
+      foreach (LayoutExclusion exclusion in screenTopLeftPixels)
+        normalized.Add(
+          new LayoutExclusion(
+            new LayoutBounds(
+              exclusion.Bounds.X / width,
+              exclusion.Bounds.Y / height,
+              exclusion.Bounds.Width / width,
+              exclusion.Bounds.Height / height
+            ),
+            exclusion.Radius / height
+          )
+        );
+    _editorExclusions = normalized;
+    _host?.ExcludeEditor(_editorExclusions);
   }
 
   private void SetEditing(bool editing)
@@ -315,7 +323,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
       {
         _host ??= _createHost();
         ApplyEnabledSurfaces();
-        _host.ExcludeEditor(_editorExclusion);
+        _host.ExcludeEditor(_editorExclusions);
         _host.Edit(_editing);
         BindLayoutTargets();
       }

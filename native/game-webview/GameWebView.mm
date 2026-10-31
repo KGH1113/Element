@@ -12,6 +12,7 @@
 #include <map>
 #include <mutex>
 #include <string>
+#include <vector>
 
 namespace {
 constexpr CGFloat kInset = 16;
@@ -328,14 +329,17 @@ static WKUserScript *PageScript(NSString *source) {
 @property(nonatomic) BOOL previewVisible;
 @property(nonatomic) BOOL editing;
 @property(nonatomic, strong) IRPGameWebViewChrome *chrome;
-@property(nonatomic) NSRect editorExclusion;
 @property(nonatomic, strong) CAShapeLayer *editorMask;
-@property(nonatomic) NSRect appliedMaskExclusion;
 - (void)layoutSurfaces;
 - (void)updateEditorMask;
+- (void)setEditorExclusions:(const double *)values count:(int)count;
 @end
 
-@implementation IRPGameWebViewHost
+@implementation IRPGameWebViewHost {
+  // Groups of x, y, width, height and radius; see irp_webview_set_editor_exclusions.
+  std::vector<double> _editorExclusions;
+  std::vector<double> _appliedMask;
+}
 - (instancetype)initWithFrame:(NSRect)frame {
   self = [super initWithFrame:frame];
   if (self) {
@@ -435,38 +439,66 @@ static WKUserScript *PageScript(NSString *source) {
   self.chrome.needsDisplay = self.editing;
   [self updateEditorMask];
 }
+- (void)setEditorExclusions:(const double *)values count:(int)count {
+  std::vector<double> next;
+  for (int i = 0; values != nullptr && i < count; i++) {
+    const double *shape = values + i * 5;
+    bool finite = true;
+    for (int j = 0; j < 5; j++) finite = finite && std::isfinite(shape[j]);
+    if (!finite || shape[2] <= 0 || shape[3] <= 0) continue;
+    next.insert(next.end(), {shape[0], shape[1], shape[2], shape[3], std::max(0.0, shape[4])});
+  }
+  _editorExclusions = next;
+  [self updateEditorMask];
+}
 - (void)updateEditorMask {
-  NSRect normalized = self.editorExclusion;
-  if (!self.editing || normalized.size.width <= 0 || normalized.size.height <= 0) {
+  if (!self.editing || _editorExclusions.empty()) {
     self.layer.mask = nil;
+    _appliedMask.clear();
     return;
   }
   NSSize size = self.bounds.size;
-  NSRect exclusion = NSIntersectionRect(self.bounds, NSMakeRect(
-      normalized.origin.x * size.width,
-      (1 - normalized.origin.y - normalized.size.height) * size.height,
-      normalized.size.width * size.width, normalized.size.height * size.height));
-  if (NSIsEmptyRect(exclusion)) {
+  std::vector<double> applied;
+  CGMutablePathRef path = CGPathCreateMutable();
+  CGPathAddRect(path, nullptr, NSRectToCGRect(self.bounds));
+  for (size_t i = 0; i + 4 < _editorExclusions.size(); i += 5) {
+    const double *shape = _editorExclusions.data() + i;
+    NSRect exclusion = NSIntersectionRect(self.bounds, NSMakeRect(
+        shape[0] * size.width, (1 - shape[1] - shape[3]) * size.height,
+        shape[2] * size.width, shape[3] * size.height));
+    if (NSIsEmptyRect(exclusion)) continue;
+    // Unity's rounded panels must not show square corners of game behind them.
+    CGFloat radius = std::min({(CGFloat)(shape[4] * size.height), exclusion.size.width / 2,
+                               exclusion.size.height / 2});
+    if (radius > 0.5)
+      CGPathAddRoundedRect(path, nullptr, NSRectToCGRect(exclusion), radius, radius);
+    else
+      CGPathAddRect(path, nullptr, NSRectToCGRect(exclusion));
+    applied.insert(applied.end(), {exclusion.origin.x, exclusion.origin.y, exclusion.size.width,
+                                   exclusion.size.height, radius});
+  }
+  if (applied.empty()) {
     self.layer.mask = nil;
+    _appliedMask.clear();
+    CGPathRelease(path);
     return;
   }
-  if (self.layer.mask != nil && NSEqualRects(self.editorMask.frame, self.bounds) &&
-      NSEqualRects(self.appliedMaskExclusion, exclusion)) return;
+  if (self.layer.mask != nil && NSEqualRects(self.editorMask.frame, self.bounds) && applied == _appliedMask) {
+    CGPathRelease(path);
+    return;
+  }
   if (self.editorMask == nil) {
     self.editorMask = [CAShapeLayer layer];
     self.editorMask.fillRule = kCAFillRuleEvenOdd;
     self.editorMask.fillColor = NSColor.whiteColor.CGColor;
   }
-  CGMutablePathRef path = CGPathCreateMutable();
-  CGPathAddRect(path, nullptr, NSRectToCGRect(self.bounds));
-  CGPathAddRect(path, nullptr, NSRectToCGRect(exclusion));
   // Disable implicit Core Animation actions: editor changes track the pointer
   // and window size exactly, without delayed mask interpolation.
   [CATransaction begin];
   [CATransaction setDisableActions:YES];
   self.editorMask.frame = self.bounds;
   self.editorMask.path = path;
-  self.appliedMaskExclusion = exclusion;
+  _appliedMask = applied;
   self.layer.mask = self.editorMask;
   [CATransaction commit];
   CGPathRelease(path);
@@ -836,9 +868,19 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_set_highlight
 extern "C" __attribute__((visibility("default"))) void irp_webview_set_editor_exclusion(
     double x, double y, double width, double height) {
   if (!std::isfinite(x) || !std::isfinite(y) || !std::isfinite(width) || !std::isfinite(height)) return;
+  std::vector<double> shape{x, y, std::max(0.0, width), std::max(0.0, height), 0};
   OnMainThread(^{
-    host.editorExclusion = NSMakeRect(x, y, std::max(0.0, width), std::max(0.0, height));
-    [host updateEditorMask];
+    [host setEditorExclusions:shape.data() count:1];
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_editor_exclusions(const double *values,
+                                                                                        int count) {
+  if (count < 0 || (count > 0 && values == nullptr)) return;
+  std::vector<double> copy(values, values + (size_t)count * 5);
+  OnMainThread(^{
+    [host setEditorExclusions:copy.data() count:(int)(copy.size() / 5)];
     return 1;
   });
 }

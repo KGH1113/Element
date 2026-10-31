@@ -119,6 +119,10 @@ namespace Element.Editor
       popup = Field<RectTransform>(editor, "_settingsPanel");
       Rect barKept = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
       Assert(barKept.position == barAfter.position, "the element toolbar keeps its place for the next selection");
+      var cutouts = editor.NativeExclusions;
+      float toolbarScale = (float)editor.GetType().GetProperty("ToolbarScale", Private).GetValue(editor);
+      Assert(cutouts.Count == 2 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
+        "native viewers get each panel as its own rounded cutout: " + cutouts.Count);
       Assert(Field<TMP_InputField>(editor, "_textSizeInput").text == "25", "a text's toolbar shows its size in pixels");
       foreach (TextMeshProUGUI label in popup.GetComponentsInChildren<TextMeshProUGUI>(false))
       {

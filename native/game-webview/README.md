@@ -60,8 +60,9 @@ cursor feedback; AppKit supplies the pointer in the same host coordinate space
 as the border, including window/titlebar offsets and Retina scaling. Settings
 temporarily hide the native children so they cannot
 cover the settings panel. During editing a host-level even-odd layer mask cuts out
-the editor's toolbar bounds, keeping Unity's save/cancel controls visible even
-when a viewer is moved over them. The exclusion follows toolbar dragging in the
+every editor panel (`irp_webview_set_editor_exclusions`), each with its own
+rounded corners, keeping Unity's toolbars and popovers visible even when a
+viewer is moved over them. Overlapping panels arrive merged into one cutout. The exclusion follows toolbar dragging in the
 same frame, follows window resizing, and is
 removed when editing ends.
 
@@ -146,9 +147,9 @@ the managed resolver, and `RasterizationScale` (with monitor scale detection off
 maps CSS pixels to pixels, so the page keeps its CSS viewport and rasterizes at
 its final size. Offsets are rounded to whole pixels for sharp text. A visual clip
 crops the configured padding. Editing chrome is drawn with Direct2D on a
-DirectComposition surface; the toolbar exclusion clears that region of the chrome
-and cuts the page with a CSS `clip-path` (even-odd path) because visual clips
-cannot express holes.
+DirectComposition surface; the editor's rounded panels are left out of the chrome
+through a geometric layer mask, and cut out of the page with a CSS `clip-path`
+(even-odd path with arcs) because visual clips cannot express holes.
 
 Security matches macOS: explicit-port loopback HTTP only, top-level and frame
 navigation limited to the descriptor's origin, new windows and script dialogs

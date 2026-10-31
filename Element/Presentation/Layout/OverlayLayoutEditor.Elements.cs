@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
@@ -75,6 +76,34 @@ internal sealed partial class OverlayLayoutEditor
     if (_valuePopover?.Visible ?? false)
       yield return _valuePopover.Root;
   }
+
+  private readonly System.Collections.Generic.List<LayoutExclusion> _exclusions = new();
+
+  /// <summary>
+  /// Every editor panel with its rounded corners, in screen pixels from the
+  /// top left. Native key viewers leave exactly these shapes uncovered.
+  /// </summary>
+  public System.Collections.Generic.IReadOnlyList<LayoutExclusion> NativeExclusions
+  {
+    get
+    {
+      _exclusions.Clear();
+      if (_modalRoot != null || (_textEditor != null && _textEditor.IsOpen))
+      {
+        _exclusions.Add(new LayoutExclusion(new LayoutBounds(0, 0, ViewWidth, ViewHeight), 0));
+        return _exclusions;
+      }
+      AddExclusion(ToolbarBounds, ToolbarScale);
+      foreach (RectTransform panel in VisiblePanels())
+        AddExclusion(ScreenRect(panel), panel.localScale.x);
+      LayoutExclusions.Merge(_exclusions);
+      return _exclusions;
+    }
+  }
+
+  // Panels use the shared 8-unit rounded corner, at their own scale.
+  private void AddExclusion(Rect bounds, float scale) =>
+    _exclusions.Add(new LayoutExclusion(new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height), 8 * scale));
 
   // Popovers that close on an outside click. The selection's settings popup
   // stays open and never blocks the canvas.

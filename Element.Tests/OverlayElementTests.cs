@@ -30,6 +30,25 @@ internal static class OverlayElementTests
     ShapeRadiiStayInsideTheCorner();
     ShapeOutlinesTriangulate();
     ShapeSidesStretchOneWay();
+    OverlappingCutoutsMerge();
+  }
+
+  private static void OverlappingCutoutsMerge()
+  {
+    List<LayoutExclusion> exclusions = new()
+    {
+      new(new LayoutBounds(0, 400, 600, 100), 8),
+      new(new LayoutBounds(100, 300, 200, 80), 8),
+      new(new LayoutBounds(500, 450, 200, 100), 4),
+      new(new LayoutBounds(0, 0, 0, 10), 8),
+    };
+    LayoutExclusions.Merge(exclusions);
+    Check(exclusions.Count == 2, "separate panels stay separate and empty ones drop: " + exclusions.Count);
+    LayoutExclusion merged = exclusions.Find(exclusion => exclusion.Bounds.Y == 400);
+    Check(
+      merged.Bounds.X == 0 && merged.Bounds.Width == 700 && merged.Bounds.Height == 150 && merged.Radius == 4,
+      "overlapping panels become one cutout with the smaller radius"
+    );
   }
 
   private static void ShapeSidesStretchOneWay()

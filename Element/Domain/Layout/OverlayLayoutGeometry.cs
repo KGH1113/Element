@@ -124,6 +124,44 @@ internal static class OverlayLayoutGeometry
     return new LayoutBounds(x, y, width, height);
   }
 
+  /// <summary>
+  /// Moves one side and keeps the opposite side, so a shape grows in one
+  /// direction only. Corners and Move return <paramref name="start"/>.
+  /// </summary>
+  public static LayoutBounds Stretch(
+    LayoutBounds start,
+    LayoutHandle handle,
+    float deltaX,
+    float deltaY,
+    float minimumSize
+  )
+  {
+    if (!Finite(deltaX) || !Finite(deltaY))
+      return start;
+    float left = start.X,
+      top = start.Y,
+      right = start.Right,
+      bottom = start.Bottom;
+    switch (handle)
+    {
+      case LayoutHandle.Left:
+        left = Math.Min(start.X + deltaX, right - minimumSize);
+        break;
+      case LayoutHandle.Right:
+        right = Math.Max(start.Right + deltaX, left + minimumSize);
+        break;
+      case LayoutHandle.Top:
+        top = Math.Min(start.Y + deltaY, bottom - minimumSize);
+        break;
+      case LayoutHandle.Bottom:
+        bottom = Math.Max(start.Bottom + deltaY, top + minimumSize);
+        break;
+      default:
+        return start;
+    }
+    return new LayoutBounds(left, top, right - left, bottom - top);
+  }
+
   public static LayoutBounds KeepVisible(LayoutBounds bounds, float screenWidth, float screenHeight) =>
     new(
       Clamp(

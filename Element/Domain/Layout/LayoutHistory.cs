@@ -3,7 +3,7 @@ using Element.Configuration;
 
 namespace Element.Domain.Layout;
 
-// Store placement intent, not corrected display pixels or Unity object references.
+// Store placement and content intent, not corrected display pixels or Unity object references.
 internal sealed class LayoutSnapshot
 {
   private readonly List<OverlayLayoutSettings> _values = new();
@@ -12,22 +12,7 @@ internal sealed class LayoutSnapshot
   {
     foreach (OverlayLayoutSettings value in source)
       if (value != null)
-        _values.Add(
-          new OverlayLayoutSettings
-          {
-            Id = value.Id,
-            TemplateId = value.TemplateId,
-            Enabled = value.Enabled,
-            Customized = value.Customized,
-            CenterX = value.CenterX,
-            CenterY = value.CenterY,
-            Scale = value.Scale,
-            LayoutVersion = value.LayoutVersion,
-            Anchor = value.Anchor,
-            OffsetX = value.OffsetX,
-            OffsetY = value.OffsetY,
-          }
-        );
+        _values.Add(value.Clone());
   }
 
   public void Restore(IList<OverlayLayoutSettings> destination)
@@ -44,16 +29,7 @@ internal sealed class LayoutSnapshot
         target.Enabled = false;
         continue;
       }
-      target.TemplateId = value.TemplateId;
-      target.Enabled = value.Enabled;
-      target.Customized = value.Customized;
-      target.CenterX = value.CenterX;
-      target.CenterY = value.CenterY;
-      target.Scale = value.Scale;
-      target.LayoutVersion = value.LayoutVersion;
-      target.Anchor = value.Anchor;
-      target.OffsetX = value.OffsetX;
-      target.OffsetY = value.OffsetY;
+      target.CopyFrom(value);
     }
   }
 
@@ -68,18 +44,7 @@ internal sealed class LayoutSnapshot
           return false;
         continue;
       }
-      if (
-        a.TemplateId != b.TemplateId
-        || a.Enabled != b.Enabled
-        || a.Customized != b.Customized
-        || a.CenterX != b.CenterX
-        || a.CenterY != b.CenterY
-        || a.Scale != b.Scale
-        || a.LayoutVersion != b.LayoutVersion
-        || a.Anchor != b.Anchor
-        || a.OffsetX != b.OffsetX
-        || a.OffsetY != b.OffsetY
-      )
+      if (!a.SameAs(b))
         return false;
     }
     foreach (OverlayLayoutSettings b in other._values)

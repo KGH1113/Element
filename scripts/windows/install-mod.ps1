@@ -36,7 +36,7 @@ function Find-Mods {
 # The newest ElementNote on this PC: one an earlier install bundled, or the copy
 # the mod installed for itself.
 function Find-ExistingApp([string] $target) {
-  $folders = @((Join-Path $target $App), (Join-Path $env:LOCALAPPDATA 'Element\ElementNote'))
+  $folders = @((Join-Path $target $App), (Join-Path $env:LOCALAPPDATA 'io.github.kgh1113.element\ElementNote'))
   $versions = Join-Path $target 'Runtime\versions'
   if (Test-Path $versions) {
     $folders += @(Get-ChildItem $versions -Directory | ForEach-Object { Join-Path $_.FullName $App })

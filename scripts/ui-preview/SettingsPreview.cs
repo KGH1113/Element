@@ -570,6 +570,18 @@ namespace Element.Editor
       Assert(legacy.HighlightColor == "#7CCE00", "explicit green after migration is preserved");
       var custom = new ElementSettings { HighlightColor = "#336699" };
       custom.Migrate(); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
+      Assert(fresh.SettingsShortcutKey == KeyCode.F9 && fresh.SettingsShortcutModifier == KeyCode.LeftControl,
+        "new settings open with Left Ctrl + F9");
+      var oldShortcut = new ElementSettings { SettingsVersion = 3, SettingsShortcutKey = KeyCode.Tab, SettingsShortcutModifier = KeyCode.LeftAlt };
+      oldShortcut.Migrate();
+      Assert(oldShortcut.SettingsShortcutKey == KeyCode.F9 && oldShortcut.SettingsShortcutModifier == KeyCode.LeftControl
+        && oldShortcut.SettingsVersion >= 4, "old Left Alt + Tab default moves to Left Ctrl + F9");
+      oldShortcut.SettingsShortcutKey = KeyCode.Tab; oldShortcut.SettingsShortcutModifier = KeyCode.LeftAlt; oldShortcut.Migrate();
+      Assert(oldShortcut.SettingsShortcutKey == KeyCode.Tab, "Left Alt + Tab chosen after migration is preserved");
+      var customShortcut = new ElementSettings { SettingsVersion = 3, SettingsShortcutKey = KeyCode.BackQuote, SettingsShortcutModifier = KeyCode.None };
+      customShortcut.Migrate();
+      Assert(customShortcut.SettingsShortcutKey == KeyCode.BackQuote && customShortcut.SettingsShortcutModifier == KeyCode.None,
+        "migration preserves a custom shortcut");
       foreach (bool hidden in new[] { false, true })
       foreach (int version in new[] { 0, 1 })
       {
@@ -1440,7 +1452,7 @@ namespace Element.Editor
         "disabled controls dim their text and glyphs rather than resembling hover");
       capture.interactable = true; capture.OnDeselect(keyboard); capture.SetPalette(capture.colors);
       Object.DestroyImmediate(events);
-      settings.SettingsShortcutKey = KeyCode.Tab; settings.SettingsShortcutModifier = KeyCode.LeftAlt;
+      settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey; settings.SettingsShortcutModifier = ElementSettings.DefaultSettingsShortcutModifier;
       Call(panel, "UpdateShortcutLabel");
     }
   }

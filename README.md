@@ -96,7 +96,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 ./scripts/run.sh build      # 모드·ElementNote 빌드 후 Mods/Element에 설치
 ```
 
-게임에서 **왼쪽 <kbd>Alt</kbd> + <kbd>Tab</kbd>** (macOS는 <kbd>⌥</kbd> + <kbd>Tab</kbd>)을 누르면 설정 화면이 열립니다.
+게임에서 **왼쪽 <kbd>Ctrl</kbd> + <kbd>F9</kbd>** (macOS는 <kbd>⌃</kbd> + <kbd>F9</kbd>)을 누르면 설정 화면이 열립니다.
 
 **게임 내 키뷰어 켜기**
 
@@ -108,7 +108,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 
 | 동작 | Windows | macOS |
 | --- | --- | --- |
-| 설정 화면 열기·닫기 | <kbd>왼쪽 Alt</kbd> + <kbd>Tab</kbd> | <kbd>왼쪽 ⌥</kbd> + <kbd>Tab</kbd> |
+| 설정 화면 열기·닫기 | <kbd>왼쪽 Ctrl</kbd> + <kbd>F9</kbd> | <kbd>왼쪽 ⌃</kbd> + <kbd>F9</kbd> |
 | 요소 선택 | <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | 동일 |
 | 1px / 10px 이동 | <kbd>←↑↓→</kbd> / <kbd>Shift</kbd> + <kbd>←↑↓→</kbd> | 동일 |
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |

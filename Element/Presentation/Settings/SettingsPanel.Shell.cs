@@ -256,8 +256,8 @@ internal sealed partial class SettingsPanel
       44,
       () =>
       {
-        settings.SettingsShortcutKey = KeyCode.Tab;
-        settings.SettingsShortcutModifier = KeyCode.LeftAlt;
+        settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey;
+        settings.SettingsShortcutModifier = ElementSettings.DefaultSettingsShortcutModifier;
         CancelCapture();
         Changed();
       }

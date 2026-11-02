@@ -19,18 +19,10 @@ internal sealed partial class SettingsPanel
     _shortcutSection;
   private readonly ScrollRect _scroll;
   private readonly Scrollbar _scrollbar;
-  private readonly RectTransform _keycaps;
-  private readonly RectTransform _captureFrame;
-  private readonly SettingsKeySymbol _modifierSymbol;
-  private readonly TextMeshProUGUI _modifierSide;
-  private readonly TextMeshProUGUI _modifierKey,
-    _mainKey,
-    _keyPlus;
+  private readonly SettingsShortcutField _settingsShortcut;
   private readonly Button _close,
     _back,
     _retrySave,
-    _capture,
-    _resetShortcut,
     _motionRow,
     _dmNoteRow;
   private readonly List<Button> _tweakRows = new();
@@ -218,60 +210,25 @@ internal sealed partial class SettingsPanel
       17
     );
     SettingsUiFactory.StretchWidth(shortcutTitle.rectTransform, 16, 16);
-    _captureFrame = _ui.Panel(
-      "Shortcut input border",
+    _settingsShortcut = new SettingsShortcutField(
+      _ui,
       _shortcutSection,
-      16,
-      60,
-      240,
-      44,
-      new Color(.3f, .3f, .3f)
-    ).rectTransform;
-    _capture = _ui.Button("", _captureFrame, 1, 1, 238, 42, BeginCapture);
-    StyleShortcutButton(_capture);
-    _shortcutLabel = _capture.GetComponentInChildren<TextMeshProUGUI>();
-    _keycaps = _ui.Rect("Shortcut keys", _capture.transform, 12, 6, 214, 30);
-    SettingsUiFactory.StretchWidth(_keycaps, 12, 12);
-    Image modifierCap = _ui.Panel("Modifier", _keycaps, 0, 0, 136, 30, new Color(.21f, .21f, .21f));
-    _modifierKey = _ui.Text("", modifierCap.transform, 8, 0, 120, 30, 15);
-    SettingsUiFactory.Stretch(_modifierKey.rectTransform, 8, 0, 8, 0);
-    _modifierKey.alignment = TextAlignmentOptions.Midline;
-    _modifierSide = _ui.Text("L", modifierCap.transform, 8, 0, 14, 30, 11, SettingsUiFactory.Muted);
-    _modifierSymbol = _ui.Rect("Modifier symbol", modifierCap.transform, 28, 4, 22, 22)
-      .gameObject.AddComponent<SettingsKeySymbol>();
-    _modifierSymbol.color = SettingsUiFactory.Foreground;
-    _modifierSymbol.raycastTarget = false;
-    _keyPlus = _ui.Text("+", _keycaps, 144, 0, 20, 30, 14, SettingsUiFactory.Muted);
-    _keyPlus.alignment = TextAlignmentOptions.Midline;
-    Image mainCap = _ui.Panel("Key", _keycaps, 172, 0, 80, 30, new Color(.21f, .21f, .21f));
-    _mainKey = _ui.Text("", mainCap.transform, 8, 0, 64, 30, 15);
-    SettingsUiFactory.Stretch(_mainKey.rectTransform, 8, 0, 8, 0);
-    _mainKey.alignment = TextAlignmentOptions.Midline;
-    _resetShortcut = _ui.Button(
-      "",
-      _shortcutSection,
-      328,
-      60,
-      44,
-      44,
+      () => settings.SettingsShortcutKey,
+      () => settings.SettingsShortcutModifier,
+      AssignSettingsShortcut,
+      "Reset shortcut",
+      LayoutAction.Reset,
       () =>
       {
         settings.SettingsShortcutKey = KeyCode.Tab;
         settings.SettingsShortcutModifier = KeyCode.LeftAlt;
         CancelCapture();
         Changed();
-      }
+        UpdateShortcutLabel();
+      },
+      L("왼쪽 Alt + Tab", "Left Alt + Tab"),
+      FitWindow
     );
-    _resetShortcut.gameObject.name = "Reset shortcut";
-    _resetShortcut.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    LayoutActionIcon resetIcon = _ui.Rect("Reset icon", _resetShortcut.transform, 10, 10, 24, 24)
-      .gameObject.AddComponent<LayoutActionIcon>();
-    resetIcon.Kind = LayoutAction.Reset;
-    resetIcon.color = SettingsUiFactory.Foreground;
-    resetIcon.raycastTarget = false;
-    StyleShortcutButton(_resetShortcut);
-    _captureHint = _ui.Text("", _shortcutSection, 16, 114, 904, 48, 14, SettingsUiFactory.Muted);
-    SettingsUiFactory.StretchWidth(_captureHint.rectTransform, 16, 16);
     _motionRow = _ui.Switch(
       L("움직임 줄이기", "Reduce motion"),
       L("설정 전환과 스위치 움직임을 즉시 적용합니다.", "Use immediate menu and switch transitions."),
@@ -435,31 +392,17 @@ internal sealed partial class SettingsPanel
     LayoutEffectsPages(contentWidth);
     LayoutPopover();
     SettingsUiFactory.Place(_shortcutSection, 0, 0, contentWidth, 124);
-    if (_capturing)
-      LayoutShortcutControls(_shortcutLabel.preferredWidth + 26);
-    else
-      UpdateShortcutLabel();
+    UpdateShortcutLabel();
     SettingsUiFactory.Place(_feedback.rectTransform, inset, height - 64, contentWidth - 132, 48);
     SettingsUiFactory.Place((RectTransform)_retrySave.transform, width - inset - 120, height - 60, 120, 40);
   }
 
-  private float LayoutShortcutControls(float desiredWidth)
+  private void LayoutShortcutControls()
   {
     float contentWidth = _shortcutSection.rect.width;
-    float captureWidth = Mathf.Min(desiredWidth, contentWidth - 32);
-    bool stackShortcut = captureWidth + 52 > contentWidth - 32;
-    float shortcutHeight = (_capturing ? 178 : 124) + (stackShortcut ? 56 : 0);
+    float fieldBottom = _settingsShortcut.Layout(60, contentWidth);
+    float shortcutHeight = fieldBottom + (_settingsShortcut.Capturing ? 16 : 20);
     _shortcutSection.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, shortcutHeight);
-    SettingsUiFactory.Place(_captureFrame, 16, 60, captureWidth, 44);
-    SettingsUiFactory.Place((RectTransform)_capture.transform, 1, 1, captureWidth - 2, 42);
-    SettingsUiFactory.Place(
-      (RectTransform)_resetShortcut.transform,
-      stackShortcut ? 16 : captureWidth + 24,
-      stackShortcut ? 116 : 60,
-      44,
-      44
-    );
-    SettingsUiFactory.Place(_captureHint.rectTransform, 16, stackShortcut ? 170 : 114, contentWidth - 32, 48);
     float rowHeight = contentWidth < 520 ? 116 : 88;
     SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, shortcutHeight + 12, contentWidth, rowHeight);
     float dmNoteTop = shortcutHeight + 12 + rowHeight + 12;
@@ -471,18 +414,5 @@ internal sealed partial class SettingsPanel
       bottom += 12 + rowHeight;
     }
     ((RectTransform)_pages[2].transform).sizeDelta = new Vector2(contentWidth, bottom);
-    return captureWidth;
-  }
-
-  private void StyleShortcutButton(Button button)
-  {
-    _ui.Bind(() =>
-    {
-      ColorBlock colors = button.colors;
-      colors.normalColor = colors.selectedColor = new Color(.075f, .075f, .075f);
-      colors.highlightedColor = new Color(.16f, .16f, .16f);
-      colors.pressedColor = new Color(.05f, .05f, .05f);
-      ((SettingsButton)button).SetPalette(colors);
-    });
   }
 }

@@ -54,6 +54,9 @@ namespace Element.Editor
       Render(760, 720, SystemLanguage.English, 6, "planets-en-narrow");
       Render(1280, 720, SystemLanguage.English, 7, "preset-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 7, "preset-editor-ko-narrow");
+      Render(1280, 720, SystemLanguage.English, 7, "preset-shortcut-en-720");
+      Render(760, 720, SystemLanguage.Korean, 7, "preset-shortcut-ko-narrow");
+      Render(360, 720, SystemLanguage.English, 7, "preset-shortcut-en-compact");
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
       Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
       Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
@@ -64,6 +67,8 @@ namespace Element.Editor
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
       CheckColorPicker();
       RenderInputCarets();
+      RenderNotice(1280, 720, SystemLanguage.Korean, "notice-ko-720");
+      RenderNotice(360, 720, SystemLanguage.English, "notice-en-compact");
       File.WriteAllText(Path.Combine(_output, "checks.txt"), _checks + " UI assertions passed. Game integration is not exercised.\n");
       Debug.Log("UI_PREVIEW_OK " + _checks + " assertions");
     }
@@ -679,7 +684,7 @@ namespace Element.Editor
           (UnityEngine.Application.platform == RuntimePlatform.OSXEditor || UnityEngine.Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
           "Tweaks contains trackpad only on macOS");
         Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 3
-          && Field<Button>(panel, "_capture").transform.IsChildOf(pages[2].transform),
+          && Field<SettingsShortcutField>(panel, "_settingsShortcut").Capture.transform.IsChildOf(pages[2].transform),
           "General contains shortcut, motion, ElementNote auto open and automatic update preferences");
         Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
           "legacy viewer switch and connection card are absent");
@@ -689,8 +694,8 @@ namespace Element.Editor
         panel.Resize(width, height);
         Canvas.ForceUpdateCanvases();
         foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
-        if (page == 2) CheckShortcut(panel, settings);
-        if (page == 3) CheckPresetEditing(panel, settings, width, height);
+        if (page == 2) CheckShortcut(panel, settings, width, height);
+        if (page == 3) { CheckPresetEditing(panel, settings, width, height); CheckPresetShortcut(panel, settings, width, height); }
         if (page == 4) CheckEditorSections(panel, settings, width, height);
         if (page == 5) CheckJudgmentChoices(panel, settings);
         if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
@@ -733,6 +738,8 @@ namespace Element.Editor
         OverlayTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
         if (name == "editor-editing-en-720")
           Field<System.Collections.Generic.List<Button>>(panel, "_editorTabButtons")[1].onClick.Invoke();
+        if (name.StartsWith("preset-shortcut"))
+          ShowPresetShortcut(panel, settings, name.EndsWith("narrow"));
         // Force layout after checks; colors must be rendered using the same live components.
         panel.Resize(width, height); Canvas.ForceUpdateCanvases();
         Field<ScrollRect>(panel, "_scroll").SendMessage("LateUpdate");
@@ -1372,33 +1379,34 @@ namespace Element.Editor
       Object.DestroyImmediate(root);
     }
 
-    private static void CheckShortcut(SettingsPanel panel, ElementSettings settings)
+    private static void CheckShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
-      var capture = (SettingsButton)Field<Button>(panel, "_capture");
-      var reset = Field<Button>(panel, "_resetShortcut");
-      var frame = Field<RectTransform>(panel, "_captureFrame");
+      var field = Field<SettingsShortcutField>(panel, "_settingsShortcut");
+      var capture = (SettingsButton)field.Capture;
+      var reset = field.Action;
+      var frame = field.Frame;
       RectTransform section = Field<RectTransform>(panel, "_shortcutSection");
       Assert(frame.anchoredPosition.x == 16 && frame.rect.height == 44,
         "shortcut control is inset from the card with a consistent hit height");
       Assert(((RectTransform)reset.transform).anchoredPosition.y == frame.anchoredPosition.y
         || ((RectTransform)reset.transform).anchoredPosition.y < frame.anchoredPosition.y - frame.rect.height,
         "Reset shares the control baseline or stacks below on compact windows");
-      var keycaps = Field<RectTransform>(panel, "_keycaps");
+      var keycaps = field.Keycaps;
       foreach (KeyCode key in new[] { KeyCode.BackQuote, KeyCode.Slash, KeyCode.LeftBracket, KeyCode.Backslash, KeyCode.Backspace, KeyCode.PageDown })
       {
         settings.SettingsShortcutKey = key;
         Call(panel, "UpdateShortcutLabel"); Canvas.ForceUpdateCanvases();
-        var main = Field<TextMeshProUGUI>(panel, "_mainKey"); main.ForceMeshUpdate();
+        var main = Field<TextMeshProUGUI>(field, "_mainKey"); main.ForceMeshUpdate();
         RectTransform cap = (RectTransform)main.transform.parent;
         Assert(cap.anchoredPosition.x + cap.rect.width <= keycaps.rect.width + .1f,
           "keycap fits inside the shortcut field: " + key);
         Assert(!main.isTextTruncated && main.textInfo.lineCount == 1,
           "shortcut key stays readable on one line: " + key);
       }
-      Assert(SettingsPanel.KeyLabel(KeyCode.BackQuote) == "`" && SettingsPanel.KeyLabel(KeyCode.Backslash) == "\\"
-        && SettingsPanel.KeyLabel(KeyCode.Slash) == "/" && SettingsPanel.KeyLabel(KeyCode.Alpha1) == "1",
+      Assert(ShortcutKeys.KeyLabel(KeyCode.BackQuote) == "`" && ShortcutKeys.KeyLabel(KeyCode.Backslash) == "\\"
+        && ShortcutKeys.KeyLabel(KeyCode.Slash) == "/" && ShortcutKeys.KeyLabel(KeyCode.Alpha1) == "1",
         "printable keys use their actual characters instead of enum names");
-      SettingsKeySymbol symbol = Field<SettingsKeySymbol>(panel, "_modifierSymbol");
+      SettingsKeySymbol symbol = Field<SettingsKeySymbol>(field, "_modifierSymbol");
       foreach (KeyCode modifier in new[] { KeyCode.LeftCommand, KeyCode.RightAlt, KeyCode.LeftControl, KeyCode.RightShift })
       {
         settings.SettingsShortcutModifier = modifier;
@@ -1409,7 +1417,7 @@ namespace Element.Editor
           Assert(mesh.currentVertCount > 0 && !symbol.raycastTarget,
             "modifier symbol renders without font-atlas dependency: " + modifier);
         }
-        Assert(Field<TextMeshProUGUI>(panel, "_modifierSide").text == (modifier == KeyCode.RightAlt || modifier == KeyCode.RightShift ? "R" : "L"),
+        Assert(Field<TextMeshProUGUI>(field, "_modifierSide").text == (modifier == KeyCode.RightAlt || modifier == KeyCode.RightShift ? "R" : "L"),
           "modifier side remains distinguishable");
       }
       var events = new GameObject("Shortcut fixture events", typeof(EventSystem));
@@ -1442,6 +1450,122 @@ namespace Element.Editor
       Object.DestroyImmediate(events);
       settings.SettingsShortcutKey = KeyCode.Tab; settings.SettingsShortcutModifier = KeyCode.LeftAlt;
       Call(panel, "UpdateShortcutLabel");
+      EffectPreset owner = settings.Effects.Presets[0];
+      owner.ShortcutKey = KeyCode.F6;
+      field.BeginCapture();
+      Assert(!field.TryAssign(KeyCode.F6, KeyCode.None) && field.Capturing && field.Hint.text.Contains(owner.Name)
+        && settings.SettingsShortcutKey == KeyCode.Tab, "the settings shortcut cannot take a preset's shortcut and names that preset");
+      Assert(field.TryAssign(KeyCode.F7, KeyCode.LeftControl) && !field.Capturing && field.Hint.text.Length == 0
+        && settings.SettingsShortcutKey == KeyCode.F7 && settings.SettingsShortcutModifier == KeyCode.LeftControl,
+        "a free settings shortcut saves and ends recording");
+      owner.ClearShortcut();
+      reset.onClick.Invoke();
+      Assert(settings.SettingsShortcutKey == KeyCode.Tab && settings.SettingsShortcutModifier == KeyCode.LeftAlt
+        && Field<TextMeshProUGUI>(field, "_mainKey").text == "Tab", "Reset restores the default and shows it");
+      // Recording refits the window to the editor's own screen; return to the fixture's.
+      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
+    }
+
+    private static void CheckPresetShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
+    {
+      EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
+      other.ShortcutKey = KeyCode.Alpha1; other.ShortcutModifier = KeyCode.LeftAlt;
+      Call(panel, "EditPreset", target);
+      var tabs = Field<List<Button>>(panel, "_effectTabButtons");
+      Assert(tabs.Count == 6, "the preset editor adds a Shortcut tab after the five effect groups");
+      tabs[5].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
+      RectTransform card = Field<RectTransform>(panel, "_presetShortcutCard");
+      Assert(card.gameObject.activeSelf && !Field<RectTransform>(panel, "_effectOptions").gameObject.activeSelf,
+        "the Shortcut tab swaps the effect switches for the shortcut card");
+      var field = Field<SettingsShortcutField>(panel, "_presetShortcut");
+      Assert(!field.Keycaps.gameObject.activeSelf && !field.Action.interactable,
+        "a preset without a shortcut invites setting one and offers nothing to remove");
+      field.BeginCapture();
+      Assert(!field.TryAssign(KeyCode.Alpha1, KeyCode.LeftAlt) && field.Capturing && field.Hint.text.Contains(other.Name),
+        "a shortcut another preset uses names that preset and keeps recording");
+      Assert(!field.TryAssign(settings.SettingsShortcutKey, settings.SettingsShortcutModifier) && field.Capturing,
+        "the settings shortcut cannot apply a preset");
+      Assert(field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt) && !field.Capturing && field.Keycaps.gameObject.activeSelf
+        && field.Action.interactable, "a free shortcut shows as keycaps with remove available");
+      Assert(!target.HasShortcut, "the shortcut waits in the draft until the preset is saved");
+      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
+      foreach (RectTransform part in new[] { field.Frame, (RectTransform)field.Action.transform })
+        Assert(part.anchoredPosition.x + part.rect.width <= card.rect.width - 16 + .1f
+          && -part.anchoredPosition.y + part.rect.height <= card.rect.height, "the shortcut field fits its card: " + part.name);
+      Field<Button>(panel, "_savePreset").onClick.Invoke();
+      Assert(target.UsesShortcut(KeyCode.Alpha2, KeyCode.LeftAlt) && Field<int>(panel, "_page") == 3,
+        "saving keeps the shortcut on the preset");
+      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
+      Button presetCard = Field<List<Button>>(panel, "_presetCards").Single(button => button.name == "Preset: " + target.Name);
+      TextMeshProUGUI label = presetCard.GetComponentsInChildren<TextMeshProUGUI>()
+        .Single(text => text.text == ShortcutKeys.TextLabel(KeyCode.Alpha2, KeyCode.LeftAlt));
+      label.ForceMeshUpdate();
+      Assert(!label.isTextTruncated, "the preset card shows its shortcut in full");
+      Call(panel, "EditPreset", target);
+      Assert(!Field<bool>(panel, "_presetShortcutTab"), "editing a preset again starts on its effects");
+      tabs[5].onClick.Invoke();
+      field.Action.onClick.Invoke();
+      Assert(!Field<EffectPreset>(panel, "_presetDraft").HasShortcut && !field.Action.interactable && target.HasShortcut,
+        "removing clears the draft's shortcut only");
+      Call(panel, "Back");
+      Assert(target.HasShortcut, "leaving without saving keeps the saved shortcut");
+      target.ClearShortcut();
+      Call(panel, "RefreshPresetGallery");
+      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
+    }
+
+    // Leaves the preset editor on its Shortcut tab for the screenshot: a set
+    // shortcut, or on narrow windows a recording that hit another preset's.
+    private static void ShowPresetShortcut(SettingsPanel panel, ElementSettings settings, bool conflict)
+    {
+      EffectPreset draft = Field<EffectPreset>(panel, "_presetDraft");
+      draft.ShortcutKey = KeyCode.Alpha1; draft.ShortcutModifier = KeyCode.LeftAlt;
+      Field<List<Button>>(panel, "_effectTabButtons")[5].onClick.Invoke();
+      if (!conflict) return;
+      settings.Effects.Presets[1].ShortcutKey = KeyCode.Alpha2; settings.Effects.Presets[1].ShortcutModifier = KeyCode.LeftAlt;
+      var field = Field<SettingsShortcutField>(panel, "_presetShortcut");
+      field.BeginCapture();
+      Assert(!field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt), "the screenshot shows a conflicting shortcut");
+    }
+
+    private static void RenderNotice(int width, int height, SystemLanguage language, string name)
+    {
+      RDString.language = language;
+      TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
+      OverlayTheme.SetHighlight(new ElementSettings().HighlightColor);
+      var notice = new SettingsToast(font, () => true);
+      Assert(notice.Root == null, "the notice builds nothing until it is first shown");
+      bool korean = language == SystemLanguage.Korean;
+      notice.Show((korean ? "이펙트 프리셋: " : "Effect preset: ") + "Remove All",
+        korean ? "레벨을 시작하거나 재시작하면 반영됩니다." : "Takes effect when a level starts or restarts.");
+      notice.Resize(width, height);
+      GameObject root = notice.Root;
+      Canvas canvas = root.GetComponent<Canvas>();
+      Assert(root.activeSelf && canvas.sortingOrder < 32760, "the notice shows below the settings window");
+      Assert(root.GetComponent<GraphicRaycaster>() == null, "the notice never takes clicks from the game");
+      GameObject cameraRoot = new GameObject("Notice preview camera", typeof(Camera));
+      Camera camera = cameraRoot.GetComponent<Camera>();
+      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.035f, .045f, .055f);
+      RenderTexture target = new RenderTexture(width, height, 24);
+      camera.targetTexture = target;
+      canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
+      Canvas.ForceUpdateCanvases();
+      RectTransform card = (RectTransform)root.transform.GetChild(0);
+      foreach (TextMeshProUGUI text in card.GetComponentsInChildren<TextMeshProUGUI>())
+      {
+        text.ForceMeshUpdate();
+        Assert(width < 400 || !text.isTextTruncated, "the notice text fits: " + text.text);
+      }
+      Assert(card.rect.width <= width / canvas.scaleFactor, "the notice fits the screen");
+      camera.Render();
+      RenderTexture.active = target;
+      Texture2D image = new Texture2D(width, height, TextureFormat.RGB24, false);
+      image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
+      File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
+      RenderTexture.active = null;
+      Object.DestroyImmediate(image); camera.targetTexture = null; Object.DestroyImmediate(target); Object.DestroyImmediate(cameraRoot);
+      notice.Dispose();
+      Assert(notice.Root == null, "closing the notice removes it");
     }
   }
 

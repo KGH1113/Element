@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Configuration.Effects;
 using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
@@ -25,29 +26,13 @@ internal sealed partial class SettingsPanel : IDisposable
   private readonly Button[] _homeCards = new Button[4];
   private readonly TextMeshProUGUI _title;
   private readonly TextMeshProUGUI _feedback;
-  private TextMeshProUGUI _shortcutLabel;
-  private TextMeshProUGUI _captureHint;
   private GameObject _ownedEventSystem;
   private GameObject _previousSelection;
   private GameObject _lastFocused;
-  private bool _capturing;
   private int _page;
-  private int _captureStarted;
   private int _restoreSelectionFrame = -1;
   private int _screenWidth;
   private int _screenHeight;
-  private static readonly KeyCode[] Keys = (KeyCode[])Enum.GetValues(typeof(KeyCode));
-  private static readonly KeyCode[] Modifiers =
-  {
-    KeyCode.LeftAlt,
-    KeyCode.RightAlt,
-    KeyCode.LeftControl,
-    KeyCode.RightControl,
-    KeyCode.LeftShift,
-    KeyCode.RightShift,
-    KeyCode.LeftCommand,
-    KeyCode.RightCommand,
-  };
   public bool IsOpen => _root != null && _root.activeSelf;
   private static bool Korean => RDString.language == SystemLanguage.Korean;
 
@@ -133,9 +118,10 @@ internal sealed partial class SettingsPanel : IDisposable
         EventSystem.current?.SetSelectedGameObject(_previousSelection);
       _restoreSelectionFrame = -1;
     }
-    if (_capturing)
+    SettingsShortcutField capturing = CapturingShortcut;
+    if (capturing != null)
     {
-      CaptureShortcut();
+      capturing.Tick();
       return;
     }
     if (!IsTyping() && ShortcutPressed())
@@ -183,180 +169,46 @@ internal sealed partial class SettingsPanel : IDisposable
   public bool ShortcutPressed() => ShortcutPressed(_settings);
 
   // Static so the runtime can watch the shortcut before the window is built.
-  public static bool ShortcutPressed(ElementSettings settings)
-  {
-    if (!UnityEngine.Input.GetKeyDown(settings.SettingsShortcutKey))
-      return false;
-    foreach (KeyCode modifier in Modifiers)
-      if (UnityEngine.Input.GetKey(modifier) != (modifier == settings.SettingsShortcutModifier))
-        return false;
-    return true;
-  }
+  public static bool ShortcutPressed(ElementSettings settings) =>
+    ShortcutKeys.Pressed(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
 
   public static bool IsTyping() =>
     EventSystem.current?.currentSelectedGameObject?.GetComponent<TMP_InputField>()?.isFocused == true;
 
-  private void BeginCapture()
-  {
-    _capturing = true;
-    _keycaps.gameObject.SetActive(false);
-    _shortcutLabel.gameObject.SetActive(true);
-    EventSystem.current?.SetSelectedGameObject(null);
-    _captureStarted = Time.frameCount;
-    _shortcutLabel.text = L("새 단축키를 입력하세요…", "Press a shortcut…");
-    _captureHint.text = L(
-      "보조 키 하나와 일반 키를 함께 누를 수 있어요. Esc로 취소합니다.",
-      "Use a key with up to one modifier. Esc cancels."
-    );
-    FitWindow();
-  }
+  private SettingsShortcutField CapturingShortcut =>
+    _settingsShortcut?.Capturing == true ? _settingsShortcut
+    : _presetShortcut?.Capturing == true ? _presetShortcut
+    : null;
 
-  private void CaptureShortcut()
+  private string AssignSettingsShortcut(KeyCode key, KeyCode modifier)
   {
-    if (Time.frameCount == _captureStarted)
-      return;
-    if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
-    {
-      CancelCapture();
-      return;
-    }
-    foreach (KeyCode key in Keys)
-    {
-      if (key == KeyCode.None || key >= KeyCode.Mouse0 || IsModifier(key) || !UnityEngine.Input.GetKeyDown(key))
-        continue;
-      KeyCode modifier = KeyCode.None;
-      int count = 0;
-      foreach (KeyCode candidate in Modifiers)
-        if (UnityEngine.Input.GetKey(candidate))
-        {
-          modifier = candidate;
-          count++;
-        }
-      if (count > 1)
-      {
-        _captureHint.text = L(
-          "보조 키는 하나만 선택해주세요. 예: 왼쪽 Alt + Tab",
-          "Choose one modifier, for example Left Alt + Tab."
-        );
-        return;
-      }
-      _settings.SettingsShortcutKey = key;
-      _settings.SettingsShortcutModifier = modifier;
-      CancelCapture();
-      Changed();
-      return;
-    }
+    EffectPreset owner = _settings.Effects.FindShortcut(key, modifier);
+    if (owner != null)
+      return ShortcutInUse(owner);
+    _settings.SettingsShortcutKey = key;
+    _settings.SettingsShortcutModifier = modifier;
+    Changed();
+    return null;
   }
-
-  private static bool IsModifier(KeyCode key) => Array.IndexOf(Modifiers, key) >= 0;
 
   private void CancelCapture()
   {
-    bool captured = _capturing;
-    _capturing = false;
-    if (_captureHint != null)
-      _captureHint.text = "";
-    UpdateShortcutLabel();
-    FitWindow();
-    if (captured && IsOpen)
-      EventSystem.current?.SetSelectedGameObject(_capture.gameObject);
+    _settingsShortcut?.Cancel();
+    _presetShortcut?.Cancel();
   }
 
   private void UpdateShortcutLabel()
   {
-    if (_shortcutLabel != null)
-      _shortcutLabel.text = ShortcutLabel(_settings);
-    if (_keycaps == null)
+    if (_settingsShortcut == null)
       return;
-    _shortcutLabel.gameObject.SetActive(false);
-    _keycaps.gameObject.SetActive(true);
-    bool modifier = _settings.SettingsShortcutModifier != KeyCode.None;
-    _modifierKey.transform.parent.gameObject.SetActive(modifier);
-    _keyPlus.gameObject.SetActive(modifier);
-    _modifierKey.text = ModifierLabel(_settings.SettingsShortcutModifier);
-    bool symbol = modifier && IsMac && SettingsKeySymbol.Symbol(_settings.SettingsShortcutModifier).Length > 0;
-    _modifierKey.gameObject.SetActive(!symbol);
-    _modifierSymbol.gameObject.SetActive(symbol);
-    _modifierSide.gameObject.SetActive(symbol);
-    _modifierSymbol.SetKey(_settings.SettingsShortcutModifier);
-    _modifierSide.text = IsRightModifier(_settings.SettingsShortcutModifier) ? "R" : "L";
-    _mainKey.text = KeyLabel(_settings.SettingsShortcutKey);
-    float firstWidth = modifier ? (symbol ? 58 : Mathf.Min(112, _modifierKey.preferredWidth + 20)) : 0;
-    float gap = modifier ? 28 : 0;
-    float naturalKeyWidth = Mathf.Max(44, _mainKey.preferredWidth + 20);
-    float captureWidth = LayoutShortcutControls(firstWidth + gap + naturalKeyWidth + 26);
-    float secondWidth = Mathf.Clamp(naturalKeyWidth, 44, Mathf.Max(44, captureWidth - 26 - firstWidth - gap));
-    float start = 0;
-    SettingsUiFactory.Place((RectTransform)_modifierKey.transform.parent, start, 0, firstWidth, 30);
-    SettingsUiFactory.Place(_keyPlus.rectTransform, start + firstWidth + 4, 0, 20, 30);
-    SettingsUiFactory.Place(
-      (RectTransform)_mainKey.transform.parent,
-      start + firstWidth + (modifier ? 28 : 0),
-      0,
-      secondWidth,
-      30
-    );
-  }
-
-  private static string ModifierLabel(KeyCode key)
-  {
-    if (IsMac && SettingsKeySymbol.Symbol(key).Length > 0)
-      return (IsRightModifier(key) ? L("오른쪽 ", "Right ") : L("왼쪽 ", "Left ")) + SettingsKeySymbol.Symbol(key);
-    string modifier = key.ToString()
-      .Replace("Left", L("왼쪽 ", "Left "))
-      .Replace("Right", L("오른쪽 ", "Right "))
-      .Replace("Control", "Ctrl")
-      .Replace("Command", "Cmd");
-    if (
-      UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
-      || UnityEngine.Application.platform == RuntimePlatform.OSXEditor
-    )
-      modifier = modifier.Replace("Alt", "Option");
-    return modifier;
+    _settingsShortcut.Refresh();
+    LayoutShortcutControls();
   }
 
   public static string ShortcutLabel(ElementSettings settings) =>
-    (settings.SettingsShortcutModifier == KeyCode.None ? "" : ModifierLabel(settings.SettingsShortcutModifier) + " + ")
-    + KeyLabel(settings.SettingsShortcutKey);
+    ShortcutKeys.Label(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
 
-  private static bool IsMac =>
-    UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
-    || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-
-  private static bool IsRightModifier(KeyCode key) =>
-    key == KeyCode.RightAlt || key == KeyCode.RightCommand || key == KeyCode.RightControl || key == KeyCode.RightShift;
-
-  internal static string KeyLabel(KeyCode key)
-  {
-    if (key >= KeyCode.A && key <= KeyCode.Z)
-      return key.ToString().ToUpperInvariant();
-    if ((int)key >= 33 && (int)key <= 126)
-      return ((char)key).ToString();
-    if (key >= KeyCode.Keypad0 && key <= KeyCode.Keypad9)
-      return "Num " + ((int)key - (int)KeyCode.Keypad0);
-    return key switch
-    {
-      KeyCode.Escape => "Esc",
-      KeyCode.Return => "Enter",
-      KeyCode.Backspace => IsMac ? "Delete" : "Backspace",
-      KeyCode.Delete => "Del",
-      KeyCode.CapsLock => "Caps Lock",
-      KeyCode.PageUp => "Page Up",
-      KeyCode.PageDown => "Page Down",
-      KeyCode.UpArrow => "↑",
-      KeyCode.DownArrow => "↓",
-      KeyCode.LeftArrow => "←",
-      KeyCode.RightArrow => "→",
-      KeyCode.KeypadPeriod => "Num .",
-      KeyCode.KeypadDivide => "Num /",
-      KeyCode.KeypadMultiply => "Num *",
-      KeyCode.KeypadMinus => "Num -",
-      KeyCode.KeypadPlus => "Num +",
-      KeyCode.KeypadEnter => "Num Enter",
-      KeyCode.KeypadEquals => "Num =",
-      _ => key.ToString(),
-    };
-  }
+  private static bool IsMac => ShortcutKeys.IsMac;
 
   private void Changed()
   {
@@ -431,11 +283,7 @@ internal sealed partial class SettingsPanel : IDisposable
     }
     if (EventSystem.current != null)
       return;
-    _ownedEventSystem = new GameObject(
-      "Element UI Events",
-      typeof(EventSystem),
-      typeof(StandaloneInputModule)
-    );
+    _ownedEventSystem = new GameObject("Element UI Events", typeof(EventSystem), typeof(StandaloneInputModule));
     Object.DontDestroyOnLoad(_ownedEventSystem);
   }
 

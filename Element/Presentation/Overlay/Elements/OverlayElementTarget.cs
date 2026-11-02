@@ -220,11 +220,13 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
       new LayoutBounds(content.x, content.y, content.width, content.height),
       Screen.width,
       Screen.height,
-      OverlayLayoutPosition.IsAnchored(previous) ? previous.Anchor : null
+      OverlayLayoutPosition.IsAnchored(previous) ? previous.Anchor : null,
+      Settings.GrowFrom
     );
     if (!position.IsValid)
       return;
     StorePosition(_stagedSettings, position);
+    _stagedSettings.GrowFrom = Settings.GrowFrom;
     _stagedSettings.Scale = EffectiveScale;
     _staged = true;
   }
@@ -241,7 +243,8 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
       new LayoutBounds(content.x, content.y, content.width, content.height),
       Screen.width,
       Screen.height,
-      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null
+      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null,
+      Settings.GrowFrom
     );
     if (!position.IsValid)
       return;
@@ -259,6 +262,46 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     Settings.Scale = scale;
     Settings.PendingGroup = string.Empty;
     _staged = false;
+  }
+
+  /// <summary>
+  /// The point the element grows from when its size changes: its own choice,
+  /// or with Auto the anchor picked from where it sits.
+  /// </summary>
+  public Anchor9 GrowPoint
+  {
+    get
+    {
+      if (Settings == null)
+        return Anchor9.Center;
+      if (OverlayLayoutPosition.ValidGrowth(Settings.GrowFrom))
+        return (Anchor9)(int)Settings.GrowFrom;
+      if (OverlayLayoutPosition.IsAnchored(Settings))
+        return Settings.Anchor;
+      // Unplaced elements sit centered until their first edit.
+      if (!Settings.Customized)
+        return Anchor9.Center;
+      Rect content = AnchorBounds;
+      return OverlayLayoutPosition.SelectAnchor(
+        new LayoutBounds(content.x, content.y, content.width, content.height),
+        Screen.width,
+        Screen.height
+      );
+    }
+  }
+
+  /// <summary>Changes the point the element grows from, leaving it where it is now.</summary>
+  public void SetGrowFrom(OverlayGrowth growth)
+  {
+    if (Settings == null || Rect == null || Settings.GrowFrom == growth)
+      return;
+    Settings.GrowFrom = growth;
+    _staged = false;
+    // Saved again from where it is, measured to the new point. A converted
+    // combo half waits for its first fit, which measures with the new point.
+    if (!PendingFit)
+      CommitLayout(false, initialize: true);
+    ApplyPosition();
   }
 
   /// <summary>Scales about the pose's pivot, then moves the content to <paramref name="content"/>.</summary>

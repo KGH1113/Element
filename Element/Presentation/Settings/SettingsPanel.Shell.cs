@@ -220,13 +220,13 @@ internal sealed partial class SettingsPanel
       LayoutAction.Reset,
       () =>
       {
-        settings.SettingsShortcutKey = KeyCode.Tab;
-        settings.SettingsShortcutModifier = KeyCode.LeftAlt;
+        settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey;
+        settings.SettingsShortcutModifier = ElementSettings.DefaultSettingsShortcutModifier;
         CancelCapture();
         Changed();
         UpdateShortcutLabel();
       },
-      L("왼쪽 Alt + Tab", "Left Alt + Tab"),
+      L("왼쪽 Ctrl + F9", "Left Ctrl + F9"),
       FitWindow
     );
     _motionRow = _ui.Switch(

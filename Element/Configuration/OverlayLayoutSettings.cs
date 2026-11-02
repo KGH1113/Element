@@ -15,6 +15,23 @@ public enum Anchor9
   BottomRight,
 }
 
+// The point of an element that stays put when its content changes size, such
+// as a shape whose width follows a value; it grows away from that point. Auto
+// uses the screen anchor, picked from where the element sits.
+public enum OverlayGrowth
+{
+  Auto = -1,
+  TopLeft,
+  Top,
+  TopRight,
+  Left,
+  Center,
+  Right,
+  BottomLeft,
+  Bottom,
+  BottomRight,
+}
+
 [Serializable]
 public sealed class OverlayLayoutSettings
 {
@@ -38,6 +55,7 @@ public sealed class OverlayLayoutSettings
   public Anchor9 Anchor = Anchor9.Center;
   public float OffsetX;
   public float OffsetY;
+  public OverlayGrowth GrowFrom = OverlayGrowth.Auto;
 
   // A text converted from a built-in overlay sits where that overlay did until
   // it is moved. Empty for elements added in the editor.
@@ -79,6 +97,7 @@ public sealed class OverlayLayoutSettings
     Anchor = source.Anchor;
     OffsetX = source.OffsetX;
     OffsetY = source.OffsetY;
+    GrowFrom = source.GrowFrom;
   }
 
   public bool SameAs(OverlayLayoutSettings other) =>
@@ -94,6 +113,7 @@ public sealed class OverlayLayoutSettings
     && Anchor == other.Anchor
     && OffsetX == other.OffsetX
     && OffsetY == other.OffsetY
+    && GrowFrom == other.GrowFrom
     && DefaultPlacement == other.DefaultPlacement
     && PendingGroup == other.PendingGroup
     && (Text?.SameAs(other.Text) ?? other.Text == null)

@@ -34,6 +34,9 @@ internal sealed class OverlayCanvasHost : IDisposable
   private bool _fitPending;
   private int _comboBumps;
 
+  /// <summary>Values from outside the game's events, written into <see cref="Values"/> each frame.</summary>
+  public IOverlayValueFeed Feed { get; set; }
+
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
   public bool CanShowText => _font != null;
@@ -208,6 +211,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   /// <summary>Once per frame while the canvas is shown: redraws what changed.</summary>
   internal void Tick()
   {
+    Feed?.Pump(Values);
     OverlayValueMask changes = Values.TakeChanges();
     // Each refresh is a mask test unless its values, the theme or its scale changed.
     foreach (TextOverlayElement text in _texts)

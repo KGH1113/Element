@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Defaults for a standalone build; scripts pass the same paths with -p. -->
+  <Import Project="../Element/Directory.Build.props" Condition="'$(UnityModManagerDll)' == ''" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>ElementKit</AssemblyName>
+    <RootNamespace>ElementKit</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      Other mods bind to ElementKit by its full name, version included. It stays
+      1.0.0.0 for all of 1.x so a mod built against any 1.x runs on every later
+      Element; the release shows in FileVersion and InformationalVersion.
+    -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <Product>ElementKit</Product>
+    <Company>impl</Company>
+    <Description>Lets other ADOFAI mods add values to Element's overlay.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Element" />
+    <InternalsVisibleTo Include="Element.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityModManager">
+      <HintPath>$(UnityModManagerDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

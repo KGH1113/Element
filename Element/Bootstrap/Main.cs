@@ -48,6 +48,8 @@ public sealed class Main
     try
     {
       Instance = new Main(modEntry);
+      // Before other mods load: they bind to the ElementKit this version ships.
+      ElementKitAssembly.Install(Instance.LogWarning);
       // Other mods' IPC loaders look for this mod's runtime at the mod root.
       BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
@@ -136,6 +138,7 @@ public sealed class Main
       {
         Instance?.Settings?.Save(modEntry);
       }
+      ElementKitAssembly.Uninstall();
       Instance = null;
       return true;
     }

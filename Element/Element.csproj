@@ -21,6 +21,11 @@
     <Compile Include="../Element.Updater/Shared/UpdateReport.cs" Link="Updates/UpdateReport.cs" />
   </ItemGroup>
 
+  <!-- Ships next to Element.dll in each version folder; other mods bind to it. -->
+  <ItemGroup>
+    <ProjectReference Include="../ElementKit/ElementKit.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="AdofaiIpc.Contracts">
       <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>

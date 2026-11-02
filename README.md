@@ -63,7 +63,7 @@
 <td valign="top">
 
 ### Effect Remover
-22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 원본 맵은 바뀌지 않습니다.
+22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 프리셋마다 단축키를 지정하면 플레이 중이 아닐 때 바로 바꿀 수 있습니다. 원본 맵은 바뀌지 않습니다.
 
 </td>
 <td colspan="2" valign="top">

@@ -17,7 +17,8 @@ internal sealed partial class SettingsPanel
     _effectsHeading,
     _presetHeader,
     _effectTabs,
-    _effectOptions;
+    _effectOptions,
+    _presetShortcutCard;
   private Button _effectEnabled,
     _newPreset,
     _savePreset,
@@ -25,7 +26,8 @@ internal sealed partial class SettingsPanel
   private TextMeshProUGUI _effectStatus,
     _effectHint,
     _presetError,
-    _presetIntro;
+    _presetIntro,
+    _presetShortcutDescription;
   private TMP_InputField _presetName;
   private readonly List<Button> _presetCards = new();
   private readonly List<Button> _effectTabButtons = new();
@@ -34,7 +36,9 @@ internal sealed partial class SettingsPanel
   private EffectPreset _editingPreset,
     _presetDraft;
   private EffectGroup _effectGroup;
+  private bool _presetShortcutTab;
   private SettingsValueRow _cameraZoom;
+  private SettingsShortcutField _presetShortcut;
 
   private bool DraftRemovesCamera => _presetDraft != null && (_presetDraft.Effects & RemovedEffects.CameraMotion) != 0;
 
@@ -133,17 +137,22 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Muted
     );
     var groups = (EffectGroup[])Enum.GetValues(typeof(EffectGroup));
-    string[] names = new string[groups.Length];
-    for (int i = 0; i < names.Length; i++)
+    // The effect groups, then the shortcut that applies the preset.
+    string[] names = new string[groups.Length + 1];
+    for (int i = 0; i < groups.Length; i++)
       names[i] = EffectCatalog.GroupName(groups[i], Korean);
+    names[groups.Length] = L("단축키", "Shortcut");
     _effectTabs = Tabs(
       editor,
       names,
       _effectTabButtons,
-      () => (int)_effectGroup,
+      () => _presetShortcutTab ? groups.Length : (int)_effectGroup,
       value =>
       {
-        _effectGroup = (EffectGroup)value;
+        _presetShortcutTab = value == groups.Length;
+        if (!_presetShortcutTab)
+          _effectGroup = (EffectGroup)value;
+        _presetShortcut.Cancel();
         FitWindow();
       }
     );
@@ -188,7 +197,82 @@ internal sealed partial class SettingsPanel
     );
     // Turning camera movement on or off in the draft enables the zoom with it.
     _ui.Bind(() => _cameraZoom.Sync(DraftRemovesCamera));
+    CreatePresetShortcutCard(editor);
   }
+
+  private void CreatePresetShortcutCard(Transform editor)
+  {
+    _presetShortcutCard = _ui.Panel(
+      "Preset shortcut",
+      editor,
+      0,
+      152,
+      936,
+      160,
+      SettingsUiFactory.Surface
+    ).rectTransform;
+    TextMeshProUGUI title = _ui.Text(L("단축키", "Shortcut"), _presetShortcutCard, 16, 16, 700, 28, 17);
+    SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
+    _presetShortcutDescription = _ui.Text(
+      L(
+        "누르면 이 프리셋을 바로 적용합니다. 레벨을 플레이하는 중에는 동작하지 않습니다.",
+        "Press it to apply this preset right away. It does nothing while you play a level."
+      ),
+      _presetShortcutCard,
+      16,
+      48,
+      904,
+      24,
+      14,
+      SettingsUiFactory.Muted
+    );
+    SettingsUiFactory.StretchWidth(_presetShortcutDescription.rectTransform, 16, 16);
+    _presetShortcut = new SettingsShortcutField(
+      _ui,
+      _presetShortcutCard,
+      () => _presetDraft?.ShortcutKey ?? KeyCode.None,
+      () => _presetDraft?.ShortcutModifier ?? KeyCode.None,
+      AssignPresetShortcut,
+      "Remove shortcut",
+      LayoutAction.Close,
+      () =>
+      {
+        _presetDraft?.ClearShortcut();
+        _presetShortcut.Refresh();
+        FitWindow();
+      },
+      L("왼쪽 Alt + 1", "Left Alt + 1"),
+      FitWindow,
+      L("눌러서 단축키 지정", "Click to set a shortcut"),
+      actionNeedsShortcut: true
+    );
+  }
+
+  private string AssignPresetShortcut(KeyCode key, KeyCode modifier)
+  {
+    if (_presetDraft == null)
+      return "";
+    if (key == _settings.SettingsShortcutKey && modifier == _settings.SettingsShortcutModifier)
+      return L(
+        "설정 화면을 여는 단축키예요. 다른 키를 눌러주세요.",
+        "This shortcut opens settings. Press another one."
+      );
+    EffectPreset owner = _settings.Effects.FindShortcut(key, modifier, _editingPreset?.Id);
+    if (owner != null)
+      return ShortcutInUse(owner);
+    _presetDraft.ShortcutKey = key;
+    _presetDraft.ShortcutModifier = modifier;
+    return null;
+  }
+
+  private static string ShortcutInUse(EffectPreset owner) =>
+    L(
+      "'" + owner.Name + "' 프리셋이 이 단축키를 쓰고 있어요. 다른 키를 눌러주세요.",
+      "'" + owner.Name + "' already uses this shortcut. Press another one."
+    );
+
+  /// <summary>Shows a preset applied from outside the window, such as by its shortcut.</summary>
+  public void RefreshPresets() => RefreshPresetGallery();
 
   private Button ActionIconButton(string name, Transform parent, LayoutAction icon, Action action)
   {
@@ -250,6 +334,23 @@ internal sealed partial class SettingsPanel
         SettingsUiFactory.Muted
       );
       SettingsUiFactory.StretchWidth(count.rectTransform, 18, 18);
+      if (preset.HasShortcut)
+      {
+        var shortcut = _galleryUi.Text(
+          ShortcutKeys.TextLabel(preset.ShortcutKey, preset.ShortcutModifier),
+          card.transform,
+          18,
+          82,
+          220,
+          22,
+          13,
+          SettingsUiFactory.Muted
+        );
+        shortcut.alignment = TextAlignmentOptions.MidlineRight;
+        float shortcutWidth = Mathf.Min(shortcut.preferredWidth, 150);
+        SettingsUiFactory.StretchWidth(shortcut.rectTransform, 18, 18);
+        SettingsUiFactory.StretchWidth(count.rectTransform, 18, 18 + shortcutWidth + 12);
+      }
       bool selected = _settings.Effects.ActivePresetId == preset.Id;
       var state = _galleryUi.Text(
         selected
@@ -315,6 +416,9 @@ internal sealed partial class SettingsPanel
     _savePreset.interactable = preset != null;
     _deletePreset.gameObject.SetActive(preset != null);
     _effectGroup = EffectGroup.Screen;
+    _presetShortcutTab = false;
+    _presetShortcut.Cancel();
+    _presetShortcut.Refresh();
     _cameraZoom.Sync(DraftRemovesCamera);
     _ui.RefreshTheme();
     NavigateTo(7);
@@ -360,6 +464,8 @@ internal sealed partial class SettingsPanel
       _settings.Effects.TryRename(_editingPreset.Id, name, out _);
     _editingPreset.Effects = _presetDraft.Effects;
     _editingPreset.CameraZoom = _presetDraft.CameraZoom;
+    _editingPreset.ShortcutKey = _presetDraft.ShortcutKey;
+    _editingPreset.ShortcutModifier = _presetDraft.ShortcutModifier;
     Changed();
     RefreshPresetGallery();
     SelectPage(3);
@@ -400,7 +506,7 @@ internal sealed partial class SettingsPanel
       );
     SettingsUiFactory.Place(_effectHint.rectTransform, 0, top + galleryHeight + 72, width, 44);
     ((RectTransform)_pages[3].transform).sizeDelta = new Vector2(width, top + galleryHeight + 116);
-    if (_presetHeader == null)
+    if (_presetHeader == null || _presetShortcutCard == null)
       return;
     bool narrow = width < 600;
     float identityHeight = narrow ? 128 : 76;
@@ -416,9 +522,9 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Place((RectTransform)_deletePreset.transform, narrow ? 0 : width - 40, narrow ? 52 : 0, 40, 40);
     SettingsUiFactory.Place(_presetError.rectTransform, 0, narrow ? 104 : 52, width, 24);
     SettingsUiFactory.Place(_presetIntro.rectTransform, 0, narrow ? 104 : 52, width, 24);
-    // Two rows on compact screens keep five category labels legible.
-    int tabColumns = narrow ? 3 : 5;
-    int tabRows = narrow ? 2 : 1;
+    // Two rows on compact screens keep the six tab labels legible.
+    int tabColumns = narrow ? 3 : _effectTabButtons.Count;
+    int tabRows = Mathf.CeilToInt(_effectTabButtons.Count / (float)tabColumns);
     float tabsHeight = tabRows * 40 + 8;
     SettingsUiFactory.Place(_effectTabs, 0, identityHeight + 12, width, tabsHeight);
     float tabWidth = (width - 8) / tabColumns;
@@ -430,10 +536,18 @@ internal sealed partial class SettingsPanel
         tabWidth,
         36
       );
+    float optionsTop = identityHeight + tabsHeight + 24;
+    _presetShortcutCard.gameObject.SetActive(_presetShortcutTab);
+    if (_presetShortcutTab)
+    {
+      LayoutPresetShortcut(optionsTop, width);
+      return;
+    }
     int optionColumns = width >= 600 ? 2 : 1;
     float optionWidth = (width - (optionColumns - 1) * 12) / optionColumns;
     float optionHeight = width < 600 ? 116 : 100;
     // Camera movement leads the Screen tab with its zoom right under it.
+    _effectOptions.gameObject.SetActive(true);
     bool screen = _effectGroup == EffectGroup.Screen;
     int camera = _effectDefinitions.FindIndex(entry => entry.Flag == RemovedEffects.CameraMotion);
     _cameraZoom.SetVisible(screen);
@@ -462,9 +576,22 @@ internal sealed partial class SettingsPanel
       visible++;
     }
     float optionsHeight = gridTop + Mathf.CeilToInt(visible / (float)optionColumns) * (optionHeight + 12) - 12;
-    float optionsTop = identityHeight + tabsHeight + 24;
     SettingsUiFactory.Place(_effectOptions, 0, optionsTop, width, optionsHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, optionsTop + optionsHeight);
+  }
+
+  private void LayoutPresetShortcut(float top, float width)
+  {
+    _effectOptions.gameObject.SetActive(false);
+    _presetShortcut.Refresh();
+    SettingsUiFactory.Place(_presetShortcutCard, 0, top, width, 160);
+    // The description wraps on narrow windows; the field follows its height.
+    float descriptionHeight = Mathf.Max(20, _presetShortcutDescription.GetPreferredValues(width - 32, 0).y);
+    SettingsUiFactory.Place(_presetShortcutDescription.rectTransform, 16, 48, width - 32, descriptionHeight);
+    float fieldBottom = _presetShortcut.Layout(48 + descriptionHeight + 16, width);
+    float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
+    _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);
+    ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, top + cardHeight);
   }
 }
 

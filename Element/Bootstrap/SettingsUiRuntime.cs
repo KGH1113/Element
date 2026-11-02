@@ -1,5 +1,7 @@
 using System;
 using Element.Configuration;
+using Element.Configuration.Effects;
+using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
@@ -12,8 +14,9 @@ using UnityEngine;
 namespace Element.Bootstrap;
 
 /// <summary>
-/// The settings window, the overlay layout editor and the planet preview they use.
-/// Nothing here runs during gameplay except a shortcut check per frame.
+/// The settings window, the overlay layout editor, the planet preview they use
+/// and the effect preset shortcuts. Nothing here runs during gameplay except a
+/// shortcut check per frame.
 /// </summary>
 internal sealed class SettingsUiRuntime : IDisposable
 {
@@ -25,6 +28,8 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly PlanetAppearanceController _planets;
   private readonly TufReplayInputPause _tufReplayInput;
   private readonly Func<bool> _judgementTextLinked;
+  private readonly EffectPresetShortcuts _presetShortcuts;
+  private readonly SettingsToast _toast;
   private OverlayLayoutEditor _layoutEditor;
   private SettingsPanel _panel;
   private PlanetPreviewRenderer _planetPreview;
@@ -60,6 +65,12 @@ internal sealed class SettingsUiRuntime : IDisposable
     main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(_font);
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
+    _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
+    _presetShortcuts = new EffectPresetShortcuts(
+      () => main.Settings.Effects,
+      () => IsOpen || SettingsPanel.IsTyping(),
+      ApplyPresetShortcut
+    );
   }
 
   public bool IsEditingLayout => _layoutEditor?.IsOpen == true;
@@ -99,6 +110,7 @@ internal sealed class SettingsUiRuntime : IDisposable
       _panel.Tick();
     else if (SettingsPanel.ShortcutPressed(_main.Settings) && !SettingsPanel.IsTyping())
       Open();
+    _presetShortcuts.Tick();
     // Exactly when the game stops getting keys: the layout editor lets them through
     // during play, and TUFReplay must keep recording keys the game judges.
     _tufReplayInput.Set(UIInteractionState.BlocksAsyncKeyboard);
@@ -117,6 +129,33 @@ internal sealed class SettingsUiRuntime : IDisposable
       return false;
     }
   }
+
+  private void ApplyPresetShortcut(EffectPreset preset)
+  {
+    EffectSettings effects = _main.Settings.Effects;
+    string detail;
+    bool saved = true;
+    if (effects.Enabled && effects.ActivePresetId == preset.Id)
+      detail = L("이미 적용 중이에요.", "Already on.");
+    else
+    {
+      effects.Activate(preset.Id);
+      _apply();
+      _panel?.RefreshPresets();
+      saved = Save();
+      detail = saved
+        ? L("레벨을 시작하거나 재시작하면 반영됩니다.", "Takes effect when a level starts or restarts.")
+        : L(
+          "저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인해주세요.",
+          "Not saved. Check write permission for the mod folder."
+        );
+    }
+    // Record mode hides mod overlays; only a failed save still needs to be seen.
+    if (!_main.Settings.RecordMode || !saved)
+      _toast.Show(L("이펙트 프리셋: ", "Effect preset: ") + preset.Name, detail);
+  }
+
+  private static string L(string ko, string en) => RDString.language == SystemLanguage.Korean ? ko : en;
 
   private Texture RenderPlanetPreview(int index, PlanetAppearanceProfile profile)
   {
@@ -180,6 +219,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _panel?.Dispose();
     _panel = null;
     ReleasePlanetPreview();
+    _toast.Dispose();
     UIInteractionState.Reset();
     _tufReplayInput.Dispose();
   }

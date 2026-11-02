@@ -115,7 +115,11 @@ internal sealed class OverlayValues : IOverlayNumberSource
     return changes;
   }
 
-  /// <summary>An example for the editor while the game has no live value.</summary>
+  /// <summary>
+  /// An example for the editor while the game has no live value. A value whose
+  /// mod is missing or off shows its name in brackets, so it can still be
+  /// found, selected and deleted; the overlay itself shows nothing there.
+  /// </summary>
   public static void AppendSample(StringBuilder output, OverlayValueId id)
   {
     OverlayLabels labels = OverlayLocalization.Get(RDString.language);
@@ -131,7 +135,18 @@ internal sealed class OverlayValues : IOverlayNumberSource
         output.Append(labels.MusicTime);
         break;
       default:
-        output.Append(OverlayValueCatalog.Get(id).Sample);
+        OverlayValueDefinition value = OverlayValueCatalog.Get(id);
+        if (value.Available)
+        {
+          output.Append(value.Sample);
+          break;
+        }
+        output.Append('[');
+        OverlayTextComposer.AppendLiteral(
+          output,
+          RDString.language == SystemLanguage.Korean ? value.KoreanName : value.EnglishName
+        );
+        output.Append(']');
         break;
     }
   }

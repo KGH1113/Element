@@ -52,7 +52,7 @@ internal static class ValueExtensionTests
     OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, false);
     Check(output.Length == 0, "the overlay shows nothing for a missing value");
     OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, true);
-    Check(output.Length == 0, "the editor shows no example for a missing value");
+    Check(output.ToString() == "[Fingering/left-keys]", "the editor names a missing value by its key, so it can be found");
   }
 
   private static void RemovedBuiltInValuesAreStillDropped()

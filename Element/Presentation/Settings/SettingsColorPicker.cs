@@ -27,6 +27,10 @@ internal sealed class SettingsColorPicker : IDisposable
     _hueMarker;
   private readonly SettingsAlphaGraphic _alphaGraphic;
   private readonly Button _reset;
+  private readonly Button _close;
+  private readonly Image _surface;
+  private bool _column;
+  private float _columnWidth;
   private Action<Color> _changed;
   private Color _value,
     _defaultColor;
@@ -41,25 +45,71 @@ internal sealed class SettingsColorPicker : IDisposable
   private readonly RectTransform _planeRect;
   private readonly SettingsSegmentedControl _source;
   private readonly TextMeshProUGUI _opacityLabel;
+  private readonly RectTransform _opacitySlot;
+  private bool _externalOpacity;
   private Action<OverlayColorSettings> _sourceChanged;
   private const float SourceRow = 44;
   public RectTransform Root { get; }
   public float Height =>
-    !_sourceMode ? (_allowOpacity ? 358 : 318)
+    _column ? (_followsHighlight ? 142 : 334)
+    : !_sourceMode ? (_allowOpacity ? 358 : 318)
     : _followsHighlight ? 206
     : 358 + SourceRow;
+
+  /// <summary>The width as laid out now.</summary>
+  public float CurrentWidth => _column ? _columnWidth : Width;
+
+  public bool Column => _column;
+
+  /// <summary>
+  /// Lays the picker out as a borderless column <paramref name="width"/>
+  /// wide that belongs to the panel beside it, such as the keypad below it:
+  /// no card, title or close. Highlight/Custom on top, then the color square
+  /// at full size, the sliders, and HEX with opacity at the bottom. Whoever
+  /// places it names the color and closes it.
+  /// </summary>
+  public void LayOutAsColumn(float width)
+  {
+    _column = true;
+    _columnWidth = width;
+    _surface.color = Color.clear;
+    _title.gameObject.SetActive(false);
+    _close.gameObject.SetActive(false);
+    Layout();
+  }
+
   public bool Visible => Root.gameObject.activeSelf;
   public bool IsTyping => Visible && (_hex.isFocused || _opacity.isFocused);
   public Action Hidden;
+
+  /// <summary>
+  /// Where the opacity box sits. With <see cref="ExternalOpacity"/> the owner
+  /// puts its own opacity control here and the typed box is hidden.
+  /// </summary>
+  public RectTransform OpacitySlot => _opacitySlot;
+
+  /// <summary>The owner shows and edits the opacity in <see cref="OpacitySlot"/>.</summary>
+  public bool ExternalOpacity
+  {
+    get => _externalOpacity;
+    set
+    {
+      if (_externalOpacity == value)
+        return;
+      _externalOpacity = value;
+      Layout();
+    }
+  }
 
   public SettingsColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion)
   {
     _ui = new SettingsUiFactory(font) { ReduceMotion = reduceMotion };
     Image surface = _ui.Panel("Color picker", parent, 0, 0, Width, Height, new Color(.105f, .105f, .105f));
     surface.raycastTarget = true;
+    _surface = surface;
     Root = surface.rectTransform;
     _title = _ui.Text("", Root, 16, 10, 208, 32, 16);
-    _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, 5);
+    _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, 5);
     _source = new SettingsSegmentedControl(
       _ui,
       Root,
@@ -163,6 +213,8 @@ internal sealed class SettingsColorPicker : IDisposable
     _opacity.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     _ui.Text("%", _opacity.transform, 49, 0, 17, 40, 13, SettingsUiFactory.Muted);
     _opacityLabel = _ui.Text(L("불투명도", "Opacity"), Root, 16, 140, 176, 40, 14, SettingsUiFactory.Muted);
+    _opacitySlot = _ui.Rect("Opacity slot", Root, 200, 294, 72, 40);
+    _opacitySlot.gameObject.SetActive(false);
     _reset = _ui.Button(L("기본값", "Default"), Root, 200, 254, 72, 40, ResetColor);
     TextMeshProUGUI resetText = _reset.GetComponentInChildren<TextMeshProUGUI>();
     SettingsUiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
@@ -243,8 +295,17 @@ internal sealed class SettingsColorPicker : IDisposable
     _hex.gameObject.SetActive(custom);
     _opacityLabel.gameObject.SetActive(!custom);
     _alpha.gameObject.SetActive(_allowOpacity);
-    _opacity.gameObject.SetActive(_allowOpacity);
+    _opacity.gameObject.SetActive(_allowOpacity && !_externalOpacity);
+    _opacitySlot.gameObject.SetActive(_allowOpacity && _externalOpacity);
     _reset.gameObject.SetActive(!_sourceMode && !_allowOpacity && _hasDefault);
+    if (_column)
+    {
+      LayoutColumn(custom);
+      return;
+    }
+    SettingsUiFactory.Place(_title.rectTransform, 16, 10, 208, 32);
+    SettingsUiFactory.Place((RectTransform)_close.transform, 236, 6, 40, 40);
+    SettingsUiFactory.Place(_source.Root, 16, 52, 256, 36);
     if (custom)
     {
       SettingsUiFactory.Place(_planeRect, 16, 52 + top, 256, 156);
@@ -254,6 +315,7 @@ internal sealed class SettingsColorPicker : IDisposable
       float hexWidth = _allowOpacity || _reset.gameObject.activeSelf ? 176 : 256;
       SettingsUiFactory.Place((RectTransform)_hex.transform, 16, bottom, hexWidth, 40);
       SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, bottom, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, 200, bottom, 72, 40);
       SettingsUiFactory.Place(_error.rectTransform, 16, bottom + 43, 256, 16);
     }
     else
@@ -261,9 +323,59 @@ internal sealed class SettingsColorPicker : IDisposable
       SettingsUiFactory.Place((RectTransform)_alpha.transform, 6, 52 + top, 276, 36);
       SettingsUiFactory.Place(_opacityLabel.rectTransform, 16, 96 + top, 176, 40);
       SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, 96 + top, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, 200, 96 + top, 72, 40);
       SettingsUiFactory.Place(_error.rectTransform, 16, 139 + top, 256, 16);
     }
+    Resize();
+  }
+
+  // Top to bottom in a column as wide as the color square, centered: the
+  // square keeps its full size and HEX with opacity sits along the bottom.
+  private void LayoutColumn(bool custom)
+  {
+    const float column = 256;
+    float left = (_columnWidth - column) * .5f;
+    SettingsUiFactory.Place(_source.Root, left, 0, column, 36);
+    if (custom)
+    {
+      const float square = 156;
+      float y = 44 + square + 6;
+      SettingsUiFactory.Place(_planeRect, left, 44, column, square);
+      SettingsUiFactory.Place((RectTransform)_hue.transform, left - 10, y, column + 20, 36);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, y + 32, column + 20, 36);
+      SettingsUiFactory.Place(_error.rectTransform, left, y + 70, column, 14);
+      float bottom = Height - 40;
+      SettingsUiFactory.Place((RectTransform)_hex.transform, left, bottom, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, bottom, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, left + 184, bottom, 72, 40);
+    }
+    else
+    {
+      // Following the highlight leaves only its opacity.
+      SettingsUiFactory.Place(_opacityLabel.rectTransform, left, 44, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, 44, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, left + 184, 44, 72, 40);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, 92, column + 20, 36);
+      SettingsUiFactory.Place(_error.rectTransform, left, 128, column, 14);
+    }
+    Resize();
+  }
+
+  private void Resize()
+  {
+    Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, CurrentWidth);
     Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Height);
+  }
+
+  /// <summary>Moves the opacity to <paramref name="alpha"/> without reporting a change.</summary>
+  public void ShowOpacity(float alpha)
+  {
+    alpha = Mathf.Clamp01(alpha);
+    if (!_allowOpacity || Mathf.Approximately(_value.a, alpha))
+      return;
+    Color color = _value;
+    color.a = alpha;
+    Apply(color, true, false);
   }
 
   public void Hide()
@@ -281,7 +393,8 @@ internal sealed class SettingsColorPicker : IDisposable
       return true;
     if (_sourceMode && _followsHighlight)
     {
-      if (!TryReadOpacity(_opacity.text, out float alpha))
+      float alpha = _value.a;
+      if (!_externalOpacity && !TryReadOpacity(_opacity.text, out alpha))
       {
         _error.text = L("불투명도를 0–100%로 입력하세요", "Enter opacity from 0 to 100%");
         Focus(_opacity);
@@ -299,7 +412,7 @@ internal sealed class SettingsColorPicker : IDisposable
       return false;
     }
     color.a = _value.a;
-    if (_allowOpacity)
+    if (_allowOpacity && !_externalOpacity)
     {
       if (!TryReadOpacity(_opacity.text, out float opacity))
       {

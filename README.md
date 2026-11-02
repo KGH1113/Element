@@ -43,13 +43,13 @@
 <td width="33%" valign="top">
 
 ### 텍스트와 도형
-`FPS | ` 같은 글자에 진행도·정확도·BPM·KPS·FPS·판정·콤보·시간·곡 제목·시도 횟수 값을 넣어 원하는 문구를 만들고, 글자마다 색과 크기를 정합니다. 사각형·삼각형·원을 글자 뒤 배경으로 깝니다. [자세히](docs/overlay-elements.md)
+진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
 
 ### 끌어서 배치
-드래그로 이동하고, 모서리와 변을 잡아 크기를 바꿉니다. 도형은 꼭짓점을 옮기고 둥글게 깎습니다. 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
+드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
 
 </td>
 <td width="33%" valign="top">
@@ -110,9 +110,11 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | --- | --- | --- |
 | 설정 화면 열기·닫기 | <kbd>왼쪽 Ctrl</kbd> + <kbd>F9</kbd> | <kbd>왼쪽 ⌃</kbd> + <kbd>F9</kbd> |
 | 요소 선택 | <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | 동일 |
+| 여러 요소 선택 | 빈 곳 드래그, <kbd>Ctrl</kbd> 또는 <kbd>Shift</kbd> + 클릭·드래그 | 빈 곳 드래그, <kbd>⌘</kbd> 또는 <kbd>Shift</kbd> + 클릭·드래그 |
+| 전체 선택 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | <kbd>⌘</kbd> + <kbd>A</kbd> |
 | 1px / 10px 이동 | <kbd>←↑↓→</kbd> / <kbd>Shift</kbd> + <kbd>←↑↓→</kbd> | 동일 |
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
-| 저장 / 취소 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> | <kbd>⌘</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> |
+| 저장하고 나가기 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> (취소 버튼만 저장하지 않음) | <kbd>⌘</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> |
 | 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
 | 텍스트 편집 | 텍스트 더블클릭 또는 <kbd>Enter</kbd> | 동일 |
 | 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |

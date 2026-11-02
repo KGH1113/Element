@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -54,12 +55,23 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     Effects ??= new();
     Effects.Normalize();
     OverlayLayouts ??= new();
+    // Presets from before 1.1 become texts already in the current form; texts
+    // saved by 1.1.0 are rewritten for split values and units.
     if (SettingsVersion < 3)
       Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
+    else if (SettingsVersion < 4)
+      Domain.Elements.OverlayElementMigration.MigrateFormulas(OverlayLayouts);
+    // Built-ins added by an update, such as the progress bar, arrive once;
+    // deleting one afterwards keeps it gone.
+    if (SettingsVersion < 6)
+    {
+      Domain.Elements.OverlayElementMigration.UpgradeProgressBar(OverlayLayouts);
+      Domain.Elements.OverlayElementDefaults.AddMissing(OverlayLayouts);
+    }
     // Left Alt + Tab was the old default and also switches windows on Windows.
     // Move only that untouched default; a custom shortcut stays as chosen.
     if (
-      SettingsVersion < 4
+      SettingsVersion < 7
       && SettingsShortcutKey == KeyCode.Tab
       && SettingsShortcutModifier == KeyCode.LeftAlt
     )
@@ -67,11 +79,34 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       SettingsShortcutKey = DefaultSettingsShortcutKey;
       SettingsShortcutModifier = DefaultSettingsShortcutModifier;
     }
-    SettingsVersion = Math.Max(SettingsVersion, 4);
+    SettingsVersion = Math.Max(SettingsVersion, 7);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)
   {
     Save(this, modEntry);
+  }
+
+  /// <summary>
+  /// Reads the saved settings. Unity Mod Manager's own loader drops text that
+  /// is only spaces, such as the space between two values in an overlay text,
+  /// so the same file is read here with whitespace kept.
+  /// </summary>
+  public static ElementSettings Load(UnityModManager.ModEntry modEntry)
+  {
+    ElementSettings fresh = new();
+    string path = fresh.GetPath(modEntry);
+    if (!File.Exists(path))
+      return fresh;
+    try
+    {
+      using FileStream stream = File.OpenRead(path);
+      return SettingsXml.Read<ElementSettings>(stream) ?? fresh;
+    }
+    catch (Exception exception)
+    {
+      modEntry.Logger.Warning("Settings were read without keeping spaces: " + exception.Message);
+      return Load<ElementSettings>(modEntry) ?? fresh;
+    }
   }
 }

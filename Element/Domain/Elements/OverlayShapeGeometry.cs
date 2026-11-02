@@ -23,7 +23,7 @@ internal static class OverlayShapeGeometry
     return shape;
   }
 
-  // Changing the kind keeps the box, colors and stroke but drops vertex edits.
+  // Sets the kind's default corners; the box, colors and stroke stay.
   public static void SetKind(OverlayShapeSettings shape, OverlayShapeKind kind)
   {
     shape.Kind = kind;
@@ -41,28 +41,6 @@ internal static class OverlayShapeGeometry
     };
 
   public static bool HasCorners(OverlayShapeKind kind) => kind != OverlayShapeKind.Circle;
-
-  /// <summary>Vertices were moved or rounded; changing the kind would lose that.</summary>
-  public static bool IsEdited(OverlayShapeSettings shape)
-  {
-    if (shape == null || !HasCorners(shape.Kind))
-      return false;
-    IReadOnlyList<Vector2> defaults = DefaultPoints(shape.Kind);
-    if (shape.Points == null || shape.Points.Count != defaults.Count)
-      return true;
-    for (int i = 0; i < defaults.Count; i++)
-    {
-      OverlayShapePoint point = shape.Points[i];
-      if (
-        point == null
-        || Math.Abs(point.X - defaults[i].X) > Epsilon
-        || Math.Abs(point.Y - defaults[i].Y) > Epsilon
-        || point.Radius > Epsilon
-      )
-        return true;
-    }
-    return false;
-  }
 
   /// <summary>Repairs hand-edited or damaged settings so they can be drawn.</summary>
   public static void Normalize(OverlayShapeSettings shape)
@@ -107,70 +85,6 @@ internal static class OverlayShapeGeometry
 
   public static float ClampRadius(IReadOnlyList<Vector2> corners, int index, float radius) =>
     Finite(radius) ? Clamp(radius, 0, MaxRadius(corners, index)) : 0;
-
-  /// <summary>
-  /// The small round handle sits inside the corner on its bisector, <paramref name="offset"/>
-  /// past where the arc's center is. Returns false for a straight corner.
-  /// </summary>
-  public static bool TryRadiusHandle(
-    IReadOnlyList<Vector2> corners,
-    int index,
-    float radius,
-    float offset,
-    out Vector2 handle
-  )
-  {
-    handle = default;
-    if (!TryCorner(corners, index, out Vector2 vertex, out Vector2 bisector, out float half, out _))
-      return false;
-    float r = ClampRadius(corners, index, radius);
-    handle = vertex + bisector * (offset + r / (float)Math.Sin(half));
-    return true;
-  }
-
-  public static float RadiusFromHandle(IReadOnlyList<Vector2> corners, int index, Vector2 pointer, float offset)
-  {
-    if (!TryCorner(corners, index, out Vector2 vertex, out Vector2 bisector, out float half, out _))
-      return 0;
-    float along = Vector2.Dot(pointer - vertex, bisector) - offset;
-    return ClampRadius(corners, index, Math.Max(0, along) * (float)Math.Sin(half));
-  }
-
-  /// <summary>
-  /// Moves one corner. The box grows or shrinks to the corners' extent, so
-  /// <paramref name="origin"/> is where the new box's top left lies in the old box.
-  /// </summary>
-  public static void MoveCorner(
-    OverlayShapeSettings shape,
-    IReadOnlyList<Vector2> startCorners,
-    int index,
-    Vector2 position,
-    out Vector2 origin
-  )
-  {
-    origin = Vector2.Zero;
-    if (index < 0 || index >= startCorners.Count || !Finite(position.X) || !Finite(position.Y))
-      return;
-    Vector2 min = new(float.PositiveInfinity, float.PositiveInfinity);
-    Vector2 max = new(float.NegativeInfinity, float.NegativeInfinity);
-    for (int i = 0; i < startCorners.Count; i++)
-    {
-      Vector2 point = i == index ? position : startCorners[i];
-      min = Vector2.Min(min, point);
-      max = Vector2.Max(max, point);
-    }
-    float width = Math.Max(MinimumSize, max.X - min.X);
-    float height = Math.Max(MinimumSize, max.Y - min.Y);
-    for (int i = 0; i < startCorners.Count; i++)
-    {
-      Vector2 point = i == index ? position : startCorners[i];
-      shape.Points[i].X = Clamp((point.X - min.X) / width, 0, 1);
-      shape.Points[i].Y = Clamp((point.Y - min.Y) / height, 0, 1);
-    }
-    shape.Width = width;
-    shape.Height = height;
-    origin = min;
-  }
 
   /// <summary>Corner outline with each radius replaced by a tangent arc.</summary>
   public static void Outline(
@@ -238,7 +152,7 @@ internal static class OverlayShapeGeometry
 
   /// <summary>
   /// Triangle indices covering a simple polygon. Convex outlines use a fan; a
-  /// dragged corner can make the outline concave, which uses ear clipping.
+  /// corner placed in 1.1.0 can make the outline concave, which uses ear clipping.
   /// Self-crossing outlines fall back to a fan and may look folded.
   /// </summary>
   public static void Triangulate(IReadOnlyList<Vector2> polygon, List<int> output)

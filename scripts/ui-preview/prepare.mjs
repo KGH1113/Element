@@ -19,7 +19,7 @@ files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerHost.
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerMock.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayoutTarget.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
-for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout')).filter(name => name.endsWith('.cs')))
+for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
 for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Elements'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))

@@ -1,3 +1,4 @@
+using Element.Domain.Elements;
 using Element.Presentation.Overlay.Elements;
 
 namespace Element.Presentation.Layout;
@@ -19,12 +20,12 @@ internal sealed class OverlayLiveValues
   }
 
   /// <summary>Whether a value in <paramref name="used"/> changed since the last call.</summary>
-  public bool Changed(ulong used)
+  public bool Changed(OverlayValueMask used)
   {
     if (_values == null || _values.Stamp == _seen)
       return false;
-    ulong changed = _values.ChangedSince(_seen);
+    OverlayValueMask changed = _values.ChangedSince(_seen);
     _seen = _values.Stamp;
-    return (changed & used) != 0;
+    return changed.Overlaps(used);
   }
 }

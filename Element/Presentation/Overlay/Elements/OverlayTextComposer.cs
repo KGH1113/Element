@@ -23,11 +23,11 @@ internal static class OverlayTextComposer
   public const string ComboLink = "combo";
   public const string ValueLink = "v";
 
-  /// <summary>Parses every formula in <paramref name="runs"/>; returns the values they use as catalog bits.</summary>
-  public static ulong Compile(IReadOnlyList<OverlayTextRun> runs, List<OverlayCompiledRun> output)
+  /// <summary>Parses every formula in <paramref name="runs"/>; returns the values they use.</summary>
+  public static OverlayValueMask Compile(IReadOnlyList<OverlayTextRun> runs, List<OverlayCompiledRun> output)
   {
     output.Clear();
-    ulong mask = 0;
+    OverlayValueMask mask = OverlayValueMask.None;
     if (runs == null)
       return mask;
     foreach (OverlayTextRun run in runs)
@@ -43,7 +43,7 @@ internal static class OverlayTextComposer
       };
       if (run.IsValue && compiled.Value == null)
         continue;
-      mask |= (compiled.Value?.Mask ?? 0) | (compiled.Size?.Mask ?? 0) | (compiled.Alpha?.Mask ?? 0);
+      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha);
       output.Add(compiled);
     }
     return mask;
@@ -74,7 +74,7 @@ internal static class OverlayTextComposer
       OpenStyle(output, Resolve(run.Color, highlight, compiled.Alpha, source), size);
       if (compiled.Value != null)
       {
-        bool combo = (compiled.Value.Mask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;
+        bool combo = compiled.Value.Mask.Contains(OverlayValueId.Combo);
         if (combo)
           output.Append("<link=\"").Append(ComboLink).Append("\">");
         OverlayFormulaText.Append(output, compiled.Value, values, samples);
@@ -86,6 +86,9 @@ internal static class OverlayTextComposer
       CloseStyle(output, size);
     }
   }
+
+  /// <summary>The values <paramref name="formula"/> uses; none without a formula.</summary>
+  public static OverlayValueMask Mask(OverlayFormula formula) => formula?.Mask ?? OverlayValueMask.None;
 
   /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>
   public static float Size(float size, OverlayFormula formula, IOverlayNumberSource source, float elementScale)

@@ -48,7 +48,7 @@ internal sealed partial class OverlayShapeEditor
   // A level playing behind the editor moves the shape and its numbers.
   private void FollowLiveValues()
   {
-    if (!_live.Changed(_resolver.Mask | (_editing.Active ? _editing.Working.Mask : 0)))
+    if (!_live.Changed(_resolver.Mask | (_editing.Active ? _editing.Working.Mask : OverlayValueMask.None)))
       return;
     float blinkStart = _blinkStart;
     Render();

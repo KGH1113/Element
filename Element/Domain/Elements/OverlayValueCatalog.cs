@@ -47,6 +47,10 @@ internal enum OverlayValueCategory
   // Game-language labels from texts converted before 1.1. They still render,
   // but aren't offered; editing such a text turns them into plain words.
   Legacy,
+
+  // Values another mod adds through ElementKit. The dock shows them under
+  // their group's own name.
+  Extension,
 }
 
 // What a value is to arithmetic: a plain number, a time in seconds shown as
@@ -56,6 +60,22 @@ internal enum OverlayValueKind
   Number,
   Time,
   Text,
+}
+
+// Where another mod's values sit in the dock: a heading in both languages,
+// and the mod that added them.
+internal sealed class OverlayValueGroup
+{
+  public readonly string Source;
+  public readonly string KoreanName;
+  public readonly string EnglishName;
+
+  public OverlayValueGroup(string source, string koreanName, string englishName)
+  {
+    Source = source ?? string.Empty;
+    KoreanName = koreanName ?? string.Empty;
+    EnglishName = englishName ?? string.Empty;
+  }
 }
 
 internal sealed class OverlayValueDefinition
@@ -71,6 +91,13 @@ internal sealed class OverlayValueDefinition
   public readonly string Sample;
   public readonly double SampleNumber;
 
+  // Another mod's heading; null for the built-in values.
+  public readonly OverlayValueGroup Group;
+
+  // False while the mod that adds the value is missing or turned off: texts
+  // keep it, the overlay shows nothing there and the dock doesn't offer it.
+  public readonly bool Available;
+
   public OverlayValueDefinition(
     OverlayValueId id,
     string key,
@@ -79,7 +106,9 @@ internal sealed class OverlayValueDefinition
     string koreanName,
     string englishName,
     string sample,
-    double sampleNumber
+    double sampleNumber,
+    OverlayValueGroup group = null,
+    bool available = true
   )
   {
     Id = id;
@@ -90,14 +119,39 @@ internal sealed class OverlayValueDefinition
     EnglishName = englishName;
     Sample = sample;
     SampleNumber = sampleNumber;
+    Group = group;
+    Available = available;
   }
 
   public bool IsNumeric => Kind != OverlayValueKind.Text;
+
+  public bool IsExtension => Category == OverlayValueCategory.Extension;
 }
 
+// One heading of the dock and the values under it.
+internal readonly struct OverlayValueSection
+{
+  public readonly OverlayValueCategory Category;
+  public readonly OverlayValueGroup Group;
+  public readonly IReadOnlyList<OverlayValueDefinition> Values;
+
+  public OverlayValueSection(OverlayValueCategory category, OverlayValueGroup group, IReadOnlyList<OverlayValueDefinition> values)
+  {
+    Category = category;
+    Group = group;
+    Values = values;
+  }
+}
+
+// Every value a text or a shape can use. The built-in values keep fixed ids;
+// values other mods add, and keys saved by mods that aren't loaded, take the
+// ids after them for the rest of the session. Changed on the main thread only.
 internal static class OverlayValueCatalog
 {
-  public const int Count = (int)OverlayValueId.TimeLabel + 1;
+  public const int BuiltInCount = (int)OverlayValueId.TimeLabel + 1;
+
+  /// <summary>Built-in and added values together; one value mask holds them all.</summary>
+  public const int Capacity = OverlayValueMask.Capacity;
 
   public static readonly OverlayValueCategory[] Categories =
   {
@@ -109,7 +163,7 @@ internal static class OverlayValueCatalog
     OverlayValueCategory.System,
   };
 
-  private static readonly OverlayValueDefinition[] Definitions =
+  private static readonly OverlayValueDefinition[] BuiltInDefinitions =
   {
     Number(OverlayValueId.ProgressStart, "progress-start", OverlayValueCategory.Progress, "시작 지점", "Start", 0),
     Number(
@@ -208,11 +262,19 @@ internal static class OverlayValueCatalog
     ),
   };
 
+  private static readonly List<OverlayValueDefinition> Definitions = new(BuiltInDefinitions);
   private static readonly Dictionary<string, OverlayValueDefinition> ByKey = CreateIndex();
+
+  public static int Count => Definitions.Count;
+
+  /// <summary>Advances whenever a value is added, withdrawn or comes back, so the dock can rebuild.</summary>
+  public static int Version { get; private set; }
 
   public static OverlayValueDefinition Get(OverlayValueId id) => Definitions[(int)id];
 
   public static IReadOnlyList<OverlayValueDefinition> All => Definitions;
+
+  public static IReadOnlyList<OverlayValueDefinition> BuiltIn => BuiltInDefinitions;
 
   public static bool TryGet(string key, out OverlayValueDefinition definition)
   {
@@ -220,9 +282,210 @@ internal static class OverlayValueCatalog
     return key != null && ByKey.TryGetValue(key, out definition);
   }
 
+  /// <summary>
+  /// Like <see cref="TryGet"/>, but a mod's key (<c>Mod/key</c>) nobody has
+  /// added yet gets a place, so a text keeps it while that mod is missing.
+  /// False for other unknown keys, such as a built-in value that was removed.
+  /// </summary>
+  public static bool TryResolve(string key, out OverlayValueDefinition definition)
+  {
+    if (TryGet(key, out definition))
+      return true;
+    if (!IsExtensionKey(key) || Definitions.Count >= Capacity)
+      return false;
+    definition = Missing(NextId(), key, null, null, null);
+    Add(definition);
+    return true;
+  }
+
+  /// <summary>
+  /// Adds another mod's value, or brings back one with the same key: a text
+  /// already using the key starts showing it. Null when the key isn't a
+  /// mod's key or the catalog is full.
+  /// </summary>
+  public static OverlayValueDefinition Register(
+    string key,
+    OverlayValueGroup group,
+    OverlayValueKind kind,
+    string koreanName,
+    string englishName,
+    double sampleNumber,
+    string sampleText
+  )
+  {
+    if (!IsExtensionKey(key))
+      return null;
+    OverlayValueId id;
+    if (ByKey.TryGetValue(key, out OverlayValueDefinition existing))
+      id = existing.Id;
+    else if (Definitions.Count < Capacity)
+      id = NextId();
+    else
+      return null;
+    string sample = kind switch
+    {
+      OverlayValueKind.Text => sampleText ?? string.Empty,
+      OverlayValueKind.Time => ClockText(sampleNumber),
+      _ => SampleText(sampleNumber),
+    };
+    OverlayValueDefinition definition = new(
+      id,
+      key,
+      OverlayValueCategory.Extension,
+      kind,
+      koreanName,
+      englishName,
+      sample,
+      kind == OverlayValueKind.Text ? double.NaN : sampleNumber,
+      group
+    );
+    if (existing != null)
+      Replace(definition);
+    else
+      Add(definition);
+    return definition;
+  }
+
+  /// <summary>
+  /// The mod that added <paramref name="key"/> went away or was turned off.
+  /// Its id and name stay so texts keep it; it comes back on the next
+  /// <see cref="Register"/>.
+  /// </summary>
+  public static void Withdraw(string key)
+  {
+    if (!TryGet(key, out OverlayValueDefinition value) || !value.IsExtension || !value.Available)
+      return;
+    Replace(Missing(value.Id, key, value.Group, value.KoreanName, value.EnglishName, value.Kind));
+  }
+
+  /// <summary>
+  /// The dock's headings in order: the built-in categories, then each added
+  /// group in the order it arrived. Only values that can be added are listed.
+  /// </summary>
+  public static List<OverlayValueSection> Sections()
+  {
+    List<OverlayValueSection> sections = new();
+    foreach (OverlayValueCategory category in Categories)
+    {
+      List<OverlayValueDefinition> values = new();
+      foreach (OverlayValueDefinition value in BuiltInDefinitions)
+        if (value.Category == category)
+          values.Add(value);
+      sections.Add(new OverlayValueSection(category, null, values));
+    }
+    List<OverlayValueGroup> groups = new();
+    List<List<OverlayValueDefinition>> grouped = new();
+    for (int i = BuiltInCount; i < Definitions.Count; i++)
+    {
+      OverlayValueDefinition value = Definitions[i];
+      if (!value.Available || value.Group == null)
+        continue;
+      int index = groups.IndexOf(value.Group);
+      if (index < 0)
+      {
+        groups.Add(value.Group);
+        grouped.Add(new List<OverlayValueDefinition>());
+        index = groups.Count - 1;
+      }
+      grouped[index].Add(value);
+    }
+    for (int i = 0; i < groups.Count; i++)
+      sections.Add(new OverlayValueSection(OverlayValueCategory.Extension, groups[i], grouped[i]));
+    return sections;
+  }
+
+  /// <summary>
+  /// A mod's key: the mod's id, a slash, then lowercase letters, digits and
+  /// dashes, such as <c>Fingering/left-keys</c>. Both parts start with a
+  /// letter, so a calculation such as <c>10-4/2</c> is never taken for one.
+  /// </summary>
+  public static bool IsExtensionKey(string key)
+  {
+    if (string.IsNullOrEmpty(key) || key.Length > 96)
+      return false;
+    int slash = key.IndexOf('/');
+    if (slash <= 0 || slash == key.Length - 1 || key.IndexOf('/', slash + 1) >= 0)
+      return false;
+    if (!IsAsciiLetter(key[0]) || !(key[slash + 1] >= 'a' && key[slash + 1] <= 'z'))
+      return false;
+    for (int i = 0; i < slash; i++)
+    {
+      char c = key[i];
+      if (!(char.IsLetterOrDigit(c) && c < 128) && c != '_' && c != '-' && c != '.')
+        return false;
+    }
+    for (int i = slash + 1; i < key.Length; i++)
+    {
+      char c = key[i];
+      if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-'))
+        return false;
+    }
+    return true;
+  }
+
+  private static bool IsAsciiLetter(char c) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+
   public static bool IsLegacy(OverlayValueDefinition value) => value.Category == OverlayValueCategory.Legacy;
 
-  public static ulong Bit(OverlayValueId id) => 1UL << (int)id;
+  public static OverlayValueMask Bit(OverlayValueId id) => OverlayValueMask.Of(id);
+
+  /// <summary>Forgets every added value; for tests that need the built-in catalog alone.</summary>
+  internal static void ForgetExtensions()
+  {
+    for (int i = Definitions.Count - 1; i >= BuiltInCount; i--)
+    {
+      ByKey.Remove(Definitions[i].Key);
+      Definitions.RemoveAt(i);
+    }
+    Version++;
+  }
+
+  private static OverlayValueId NextId() => (OverlayValueId)Definitions.Count;
+
+  private static void Add(OverlayValueDefinition definition)
+  {
+    Definitions.Add(definition);
+    ByKey[definition.Key] = definition;
+    Version++;
+  }
+
+  private static void Replace(OverlayValueDefinition definition)
+  {
+    Definitions[(int)definition.Id] = definition;
+    ByKey[definition.Key] = definition;
+    Version++;
+  }
+
+  // Calculations keep a missing value as a number, so a formula using it
+  // stays whole until its mod is back.
+  private static OverlayValueDefinition Missing(
+    OverlayValueId id,
+    string key,
+    OverlayValueGroup group,
+    string koreanName,
+    string englishName,
+    OverlayValueKind kind = OverlayValueKind.Number
+  ) =>
+    new(
+      id,
+      key,
+      OverlayValueCategory.Extension,
+      kind,
+      koreanName ?? "설치되지 않은 값",
+      englishName ?? "Missing value",
+      string.Empty,
+      double.NaN,
+      group,
+      false
+    );
+
+  private static string ClockText(double seconds)
+  {
+    if (double.IsNaN(seconds) || double.IsInfinity(seconds))
+      return "0:00";
+    long whole = (long)System.Math.Round(System.Math.Abs(seconds));
+    return (seconds < 0 ? "-" : "") + (whole / 60) + ":" + (whole % 60).ToString("00");
+  }
 
   private static OverlayValueDefinition Number(
     OverlayValueId id,
@@ -251,11 +514,11 @@ internal static class OverlayValueCatalog
   private static Dictionary<string, OverlayValueDefinition> CreateIndex()
   {
     Dictionary<string, OverlayValueDefinition> index = new();
-    for (int i = 0; i < Definitions.Length; i++)
+    for (int i = 0; i < BuiltInDefinitions.Length; i++)
     {
-      if ((int)Definitions[i].Id != i)
-        throw new System.InvalidOperationException("Overlay value " + Definitions[i].Key + " is out of order.");
-      index.Add(Definitions[i].Key, Definitions[i]);
+      if ((int)BuiltInDefinitions[i].Id != i)
+        throw new System.InvalidOperationException("Overlay value " + BuiltInDefinitions[i].Key + " is out of order.");
+      index.Add(BuiltInDefinitions[i].Key, BuiltInDefinitions[i]);
     }
     return index;
   }

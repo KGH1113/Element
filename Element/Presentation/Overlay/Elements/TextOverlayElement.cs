@@ -61,10 +61,10 @@ internal sealed class TextOverlayElement : OverlayElementTarget
 
   public override string Label => L("텍스트", "Text");
 
-  /// <summary>The values this text shows, as OverlayValueCatalog bits.</summary>
-  public ulong ValueMask { get; private set; }
+  /// <summary>The values this text shows.</summary>
+  public OverlayValueMask ValueMask { get; private set; }
 
-  public bool UsesCombo => (ValueMask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;
+  public bool UsesCombo => ValueMask.Contains(OverlayValueId.Combo);
 
   public bool IsEmpty => Settings?.Text?.Runs == null || Settings.Text.Runs.Count == 0;
 
@@ -127,11 +127,11 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   }
 
   /// <summary>Rebuilds the text when one of <paramref name="changes"/> or the theme affects it.</summary>
-  public void Refresh(ulong changes)
+  public void Refresh(OverlayValueMask changes)
   {
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (
-      (changes & ValueMask) != 0
+      changes.Overlaps(ValueMask)
       || _themeVersion != OverlayTheme.Version
       || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))
     )

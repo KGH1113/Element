@@ -245,13 +245,13 @@ internal static class OverlayElementTests
 
   private static void ValueCatalogKeysAreUniqueAndIndexed()
   {
-    Check(OverlayValueCatalog.All.Count == OverlayValueCatalog.Count, "every value id has a definition");
-    Check(OverlayValueCatalog.Count <= 64, "value masks fit one ulong");
+    Check(OverlayValueCatalog.BuiltIn.Count == OverlayValueCatalog.BuiltInCount, "every value id has a definition");
+    Check(OverlayValueCatalog.BuiltInCount < OverlayValueCatalog.Capacity, "value masks leave room for other mods");
     Check(
-      OverlayValueCatalog.All.Select(value => value.Key).Distinct().Count() == OverlayValueCatalog.Count,
+      OverlayValueCatalog.BuiltIn.Select(value => value.Key).Distinct().Count() == OverlayValueCatalog.BuiltInCount,
       "value keys are unique"
     );
-    foreach (OverlayValueDefinition value in OverlayValueCatalog.All)
+    foreach (OverlayValueDefinition value in OverlayValueCatalog.BuiltIn)
     {
       Check(OverlayValueCatalog.TryGet(value.Key, out OverlayValueDefinition found) && found == value, value.Key);
       Check(!string.IsNullOrEmpty(value.Sample), value.Key + " has a sample for the editor");
@@ -653,11 +653,11 @@ internal static class OverlayElementTests
       "a converted label becomes plain words; other values stay"
     );
     Check(
-      OverlayValueCatalog.All.All(value => value.Key != "progress" && value.Key != "time" && value.Key != "judgements"),
+      OverlayValueCatalog.BuiltIn.All(value => value.Key != "progress" && value.Key != "time" && value.Key != "judgements"),
       "values made of other values are gone"
     );
     Check(
-      OverlayValueCatalog.All.Where(value => value.IsNumeric).All(value => !value.Sample.Contains("%")),
+      OverlayValueCatalog.BuiltIn.Where(value => value.IsNumeric).All(value => !value.Sample.Contains("%")),
       "values have no units"
     );
   }

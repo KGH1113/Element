@@ -34,7 +34,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
   private readonly OverlayLiveValues _live;
 
   // The values the text, its sizes and opacities, and the dock's formula use.
-  private ulong _liveMask;
+  private OverlayValueMask _liveMask;
   private readonly StringBuilder _builder = new(256);
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();

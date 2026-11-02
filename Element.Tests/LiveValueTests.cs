@@ -14,8 +14,8 @@ internal static class LiveValueTests
   {
     OverlayValues values = new();
     OverlayLiveValues editor = new(values);
-    ulong progress = OverlayValueCatalog.Bit(OverlayValueId.ProgressCurrent);
-    ulong combo = OverlayValueCatalog.Bit(OverlayValueId.Combo);
+    OverlayValueMask progress = OverlayValueCatalog.Bit(OverlayValueId.ProgressCurrent);
+    OverlayValueMask combo = OverlayValueCatalog.Bit(OverlayValueId.Combo);
     Check(!editor.Changed(progress), "nothing changed yet");
 
     values.Set(OverlayValueId.ProgressCurrent, new StringBuilder("48"), 48);

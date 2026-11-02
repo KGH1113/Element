@@ -40,6 +40,7 @@ internal static class Program
       Run("aligns and distributes several layout boxes", LayoutArrangeTests.Run);
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",

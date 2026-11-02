@@ -113,6 +113,27 @@ namespace Element.Editor
       object[] hit = { fpsRect.max, null };
       int hitIndex = (int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, hit);
       Assert(hitIndex == fpsIndex && (LayoutHandle)hit[1] == LayoutHandle.Move, "a text's corner moves it instead of scaling it");
+      // JRP's progress bar: a black bar centered under the top, the light
+      // track 2 units inside it, the fill over the track as wide as the
+      // progress, drawn in that order and clear of the title.
+      ShapeOverlayElement Built(string id) => host.LayoutTargets.OfType<ShapeOverlayElement>().Single(shape => shape.Id == id);
+      ShapeOverlayElement edge = Built(OverlayElementDefaults.ProgressBarId), track = Built(OverlayElementDefaults.ProgressTrackId),
+        fill = Built(OverlayElementDefaults.ProgressFillId);
+      Rect edgeRect = edge.Bounds, trackRect = track.Bounds, fillRect = fill.Bounds;
+      float unit = edgeRect.width / 640f;
+      Assert(edge.Enabled && track.Enabled && fill.Enabled && Mathf.Abs(edgeRect.center.x - Screen.width * .5f) < 1
+        && Mathf.Abs(edgeRect.y - 11 * unit) < 1 && Mathf.Abs(edgeRect.height - 16 * unit) < 1, "the progress bar sits centered under the top: " + edgeRect);
+      Assert(Mathf.Abs(trackRect.x - (edgeRect.x + 2 * unit)) < 1 && Mathf.Abs(trackRect.y - (edgeRect.y + 2 * unit)) < 1
+        && Mathf.Abs(trackRect.width - 636 * unit) < 1 && Mathf.Abs(trackRect.height - 12 * unit) < 1, "the track sits 2 units inside the bar: " + trackRect);
+      Assert(Mathf.Abs(fillRect.x - trackRect.x) < 1 && Mathf.Abs(fillRect.y - trackRect.y) < 1
+        && Mathf.Abs(fillRect.width - 636 * .48f * unit) < 1.5f && Mathf.Abs(fillRect.height - 12 * unit) < 1,
+        "the fill starts at the track's left edge and follows the progress: " + fillRect);
+      Func<ShapeOverlayElement, RectTransform> rectOf = shape => (RectTransform)typeof(OverlayElementTarget).GetProperty("Rect", Private).GetValue(shape);
+      Assert(rectOf(edge).GetSiblingIndex() < rectOf(track).GetSiblingIndex() && rectOf(track).GetSiblingIndex() < rectOf(fill).GetSiblingIndex()
+        && edge.Label == (Korean(name) ? "진행도 바" : "Progress bar") && track.Label == (Korean(name) ? "진행도 바 배경" : "Progress bar track"),
+        "the bar, track and fill draw in order, and the editor names them");
+      Rect titleRect = host.LayoutTargets.Single(target => target.Id == "song-title").SelectionBounds;
+      Assert(titleRect.yMin >= edgeRect.yMax, "the song title sits under the bar: " + titleRect + " / " + edgeRect);
       var cutouts = editor.NativeExclusions;
       float toolbarScale = (float)editor.GetType().GetProperty("ToolbarScale", Private).GetValue(editor);
       Assert(cutouts.Count == 1 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
@@ -193,7 +214,7 @@ namespace Element.Editor
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening the confirmation changes nothing");
       Call(editor, "CloseModal");
       Call(editor, "RestoreDefaultOverlays");
-      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled)
+      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _))
         && host.LayoutTargets.Single(target => target.Id == "fps").Enabled, "Reset all removes added elements and restores built-ins");
       Call(editor, "Undo");
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Reset all is one undo step: "
@@ -201,7 +222,7 @@ namespace Element.Editor
           .Select(layout => layout.Id + (layout.Enabled ? "" : " (hidden)"))));
       editor.Close(false);
       Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "cancel restores the opening highlight and exits");
-      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled), "cancel discards added shapes");
+      Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _)), "cancel discards added shapes");
       Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
     }
 
@@ -1194,8 +1215,11 @@ namespace Element.Editor
       });
       released.Migrate();
       released.Migrate();
-      Assert(released.SettingsVersion == 4 && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
+      Assert(released.SettingsVersion == 6 && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
+      Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
+        .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
+        "earlier layouts get the progress bar once");
       var presets = new ElementSettings { SettingsVersion = 2 };
       presets.Migrate();
       Assert(presets.OverlayLayouts.Single(layout => layout.Id == "accuracy").Text.Runs.Count(run => run.Text == "%") == 1,

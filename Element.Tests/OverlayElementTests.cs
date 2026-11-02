@@ -17,6 +17,8 @@ internal static class OverlayElementTests
     ValueCatalogKeysAreUniqueAndIndexed();
     MigratesBuiltInsToText();
     MigratesFreshInstallToDefaults();
+    ProgressBarIsBuiltIn();
+    UpgradesTheFirstProgressBar();
     SplitsTheComboIntoTwoTexts();
     HistoryRestoresTextAndShapeContent();
     ElementSettingsSurviveXml();
@@ -323,13 +325,134 @@ internal static class OverlayElementTests
     OverlayElementMigration.Migrate(layouts);
     Check(
       layouts.Count == OverlayElementDefaults.All.Count
+        && layouts.All(layout => layout.Enabled && layout.DefaultPlacement == layout.Id && !layout.Customized),
+      "a fresh install starts with every built-in shown in its place"
+    );
+    Check(
+      layouts.Count(layout => layout.TemplateId == OverlayElementKinds.Shape) == 3
         && layouts.All(layout =>
-          layout.TemplateId == OverlayElementKinds.Text
-          && layout.Enabled
-          && layout.DefaultPlacement == layout.Id
-          && !layout.Customized
+          layout.TemplateId == OverlayElementKinds.Shape ? layout.Shape != null : layout.Text != null
         ),
-      "a fresh install starts with every built-in text shown in its place"
+      "the built-ins are texts and the progress bar's three shapes"
+    );
+  }
+
+  // JRP's bar as it shows: a black bar, a light gray track 2 px inside it and
+  // a fill in the highlight color over the track, growing from its left.
+  private static void ProgressBarIsBuiltIn()
+  {
+    List<OverlayLayoutSettings> layouts = new();
+    OverlayElementDefaults.AddMissing(layouts);
+    int edge = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressBarId),
+      track = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressTrackId),
+      fill = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressFillId);
+    Check(edge >= 0 && track == edge + 1 && fill == track + 1, "the bar, its track and its fill draw in that order");
+    OverlayShapeSettings bar = layouts[edge].Shape,
+      inside = layouts[track].Shape,
+      progress = layouts[fill].Shape;
+    Check(
+      bar.Width == 640
+        && bar.Height == 16
+        && bar.StrokeWidth == 0
+        && bar.Fill.Hex == "#000000"
+        && inside.Width == 636
+        && inside.Height == 12
+        && inside.Fill.Hex == "#F5F5F5"
+        && bar.Points.All(point => point.Radius == 3)
+        && inside.Points.All(point => point.Radius == 3),
+      "a black 640 x 16 bar with a light gray 636 x 12 track, both with 3 px corners"
+    );
+    Check(
+      progress.Height == 12
+        && progress.Fill.Highlight
+        && progress.StrokeWidth == 0
+        && progress.WidthFormula == "{progress-current}*6.36"
+        && layouts[fill].GrowFrom == OverlayGrowth.Left,
+      "the fill follows the highlight color, covers the track at 100% and grows from its left: " + progress.WidthFormula
+    );
+    Numbers numbers = new() { [OverlayValueId.ProgressCurrent] = 50 };
+    Check(Evaluate(progress.WidthFormula, numbers, out _) == 318, "half way fills half the track");
+
+    // Deleting it keeps it gone: missing built-ins arrive once, by version.
+    layouts[edge].Enabled = false;
+    int count = layouts.Count;
+    OverlayElementDefaults.AddMissing(layouts);
+    Check(layouts.Count == count && !layouts[edge].Enabled, "a deleted built-in stays deleted");
+    OverlayElementDefaults.Restore(layouts, null);
+    Check(
+      layouts[edge].Enabled
+        && layouts[track].Enabled
+        && layouts[fill].Enabled
+        && layouts[fill].Shape.WidthFormula == progress.WidthFormula,
+      "Reset all brings the progress bar back"
+    );
+  }
+
+  // The first bar was one bordered shape at JRP's prefab size; an untouched
+  // one becomes the three pieces, with the track slipped in under the fill.
+  private static void UpgradesTheFirstProgressBar()
+  {
+    OverlayShapeSettings Old(float width, float height, string formula)
+    {
+      OverlayShapeSettings shape = OverlayShapeGeometry.Create(OverlayShapeKind.Square);
+      shape.Width = width;
+      shape.Height = height;
+      shape.WidthFormula = formula;
+      return shape;
+    }
+    List<OverlayLayoutSettings> layouts = new()
+    {
+      new() { Id = "song-title", TemplateId = OverlayElementKinds.Text },
+      new()
+      {
+        Id = OverlayElementDefaults.ProgressBarId,
+        TemplateId = OverlayElementKinds.Shape,
+        Enabled = true,
+        Shape = Old(642, 18, ""),
+      },
+      new()
+      {
+        Id = OverlayElementDefaults.ProgressFillId,
+        TemplateId = OverlayElementKinds.Shape,
+        Enabled = true,
+        Shape = Old(1, 14, "{progress-current}*6.38"),
+      },
+    };
+    layouts[1].Shape.StrokeWidth = 2;
+    layouts[2].Shape.Fill = OverlayColorSettings.Custom("#EBCDF9");
+    OverlayElementMigration.UpgradeProgressBar(layouts);
+    Check(
+      layouts.Count == 4
+        && layouts[2].Id == OverlayElementDefaults.ProgressTrackId
+        && layouts[2].Enabled
+        && layouts[1].Shape.Width == 640
+        && layouts[1].Shape.StrokeWidth == 0
+        && layouts[3].Shape.Height == 12
+        && layouts[3].Shape.Fill.Highlight,
+      "an untouched first bar becomes the black bar, the track and the highlight fill"
+    );
+
+    List<OverlayLayoutSettings> changed = new()
+    {
+      new()
+      {
+        Id = OverlayElementDefaults.ProgressBarId,
+        TemplateId = OverlayElementKinds.Shape,
+        Enabled = false,
+        Shape = Old(500, 30, ""),
+      },
+      new()
+      {
+        Id = OverlayElementDefaults.ProgressFillId,
+        TemplateId = OverlayElementKinds.Shape,
+        Shape = Old(1, 14, "{progress-current}*6.38"),
+      },
+    };
+    changed[1].Shape.Fill = OverlayColorSettings.Custom("#00FF00");
+    OverlayElementMigration.UpgradeProgressBar(changed);
+    Check(
+      changed[0].Shape.Width == 500 && changed[2].Shape.Fill.Hex == "#00FF00" && !changed[1].Enabled,
+      "a changed bar and a picked color stay; a deleted bar's new track stays hidden"
     );
   }
 

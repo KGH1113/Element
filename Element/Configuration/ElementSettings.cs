@@ -57,7 +57,14 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
     else if (SettingsVersion < 4)
       Domain.Elements.OverlayElementMigration.MigrateFormulas(OverlayLayouts);
-    SettingsVersion = Math.Max(SettingsVersion, 4);
+    // Built-ins added by an update, such as the progress bar, arrive once;
+    // deleting one afterwards keeps it gone.
+    if (SettingsVersion < 6)
+    {
+      Domain.Elements.OverlayElementMigration.UpgradeProgressBar(OverlayLayouts);
+      Domain.Elements.OverlayElementDefaults.AddMissing(OverlayLayouts);
+    }
+    SettingsVersion = Math.Max(SettingsVersion, 6);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

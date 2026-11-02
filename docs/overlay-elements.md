@@ -65,6 +65,8 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 Add Element → Shape asks for a square, triangle or circle, then opens the shape editor. The kind stays fixed afterwards.
 
+The default layout has a **progress bar** made of three shapes, as JipperResourcePack draws it: a black bar centered along the top, a light gray track 2 px inside it, and a fill in the highlight color over the track whose width is current progress × 6.36, growing from its left. Select both to move them together. Deleting them keeps them deleted; Reset all brings them back. Layouts from earlier versions get the bar once.
+
 - The shape sits in the middle at its in-game size, with **W** under it and **H** to its right.
 - Each corner of a square or triangle has an arc just outside it. Clicking the arc edits that corner's rounding and shows its value beside the arc.
 - The bar above has **Fill**, **Border**, **Border width** and **Grow from**. Fill and Border open the color picker above the keypad; clicking the other one switches it. Their opacity in the picker and the border width are typed in the input dock and take values.

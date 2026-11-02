@@ -30,11 +30,17 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   }
 
   public override string Label =>
-    Shape?.Kind switch
+    Id switch
     {
-      OverlayShapeKind.Triangle => L("삼각형", "Triangle"),
-      OverlayShapeKind.Circle => L("원", "Circle"),
-      _ => L("사각형", "Square"),
+      OverlayElementDefaults.ProgressBarId => L("진행도 바", "Progress bar"),
+      OverlayElementDefaults.ProgressTrackId => L("진행도 바 배경", "Progress bar track"),
+      OverlayElementDefaults.ProgressFillId => L("진행도 바 채우기", "Progress bar fill"),
+      _ => Shape?.Kind switch
+      {
+        OverlayShapeKind.Triangle => L("삼각형", "Triangle"),
+        OverlayShapeKind.Circle => L("원", "Circle"),
+        _ => L("사각형", "Square"),
+      },
     };
 
   public OverlayShapeSettings Shape => Settings?.Shape;
@@ -71,13 +77,21 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     Redraw();
   }
 
+  // Built-in shapes start where they belong; others in the middle.
   protected override void ResetPose()
   {
+    Vector2 center = new(.5f, .5f);
+    bool placed = ShapeDefaultPlacement.TryGet(
+      Settings?.DefaultPlacement,
+      out Vector2 anchor,
+      out Vector2 pivot,
+      out Vector2 position
+    );
     SetPose(
       Rect,
-      new Vector2(.5f, .5f),
-      new Vector2(.5f, .5f),
-      Vector2.zero,
+      placed ? anchor : center,
+      placed ? pivot : center,
+      placed ? position : Vector2.zero,
       new Vector2(_resolved.Width, _resolved.Height)
     );
     if (Rect.localScale != Vector3.one)

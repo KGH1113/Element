@@ -90,6 +90,12 @@ internal static class OverlayEditorUi
     return ui.Capsule("Swatch", button.transform, 8, 8, 16, 16, Color.white);
   }
 
+  /// <summary>A dock heading: a built-in category, or the heading another mod gave its values.</summary>
+  public static string SectionName(Domain.Elements.OverlayValueSection section) =>
+    section.Group != null
+      ? SettingsLocale.L(section.Group.KoreanName, section.Group.EnglishName)
+      : CategoryName(section.Category);
+
   public static string CategoryName(Domain.Elements.OverlayValueCategory category) =>
     category switch
     {

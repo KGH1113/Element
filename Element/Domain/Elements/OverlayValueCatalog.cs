@@ -457,7 +457,8 @@ internal static class OverlayValueCatalog
   }
 
   // Calculations keep a missing value as a number, so a formula using it
-  // stays whole until its mod is back.
+  // stays whole until its mod is back. One nobody added this session is
+  // named by its key, which says which mod it needs.
   private static OverlayValueDefinition Missing(
     OverlayValueId id,
     string key,
@@ -471,8 +472,8 @@ internal static class OverlayValueCatalog
       key,
       OverlayValueCategory.Extension,
       kind,
-      koreanName ?? "설치되지 않은 값",
-      englishName ?? "Missing value",
+      koreanName ?? key,
+      englishName ?? key,
       string.Empty,
       double.NaN,
       group,

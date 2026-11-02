@@ -224,9 +224,10 @@ internal sealed class OverlayInputDock
     return _builder.ToString();
   }
 
-  private readonly List<(OverlayValueCategory Category, TextMeshProUGUI Label)> _categories = new();
-  private readonly List<(OverlayValueDefinition Value, Button Chip, float Width)> _placed = new();
+  private readonly List<TextMeshProUGUI> _categories = new();
+  private readonly List<(int Section, OverlayValueDefinition Value, Button Chip, float Width)> _placed = new();
 
+  // The built-in categories, then a heading for each mod that adds values.
   private void BuildValues(
     SettingsUiFactory ui,
     TextMeshProUGUI measure,
@@ -234,10 +235,12 @@ internal sealed class OverlayInputDock
     Action<OverlayValueDefinition> pick
   )
   {
-    foreach (OverlayValueCategory category in OverlayValueCatalog.Categories)
+    foreach (OverlayValueSection section in OverlayValueCatalog.Sections())
     {
+      if (section.Values.Count == 0)
+        continue;
       TextMeshProUGUI label = ui.Text(
-        OverlayEditorUi.CategoryName(category),
+        OverlayEditorUi.SectionName(section),
         Content,
         0,
         0,
@@ -247,11 +250,10 @@ internal sealed class OverlayInputDock
         SettingsUiFactory.Muted
       );
       label.textWrappingMode = TextWrappingModes.NoWrap;
-      _categories.Add((category, label));
-      foreach (OverlayValueDefinition value in OverlayValueCatalog.All)
+      _categories.Add(label);
+      int index = _categories.Count - 1;
+      foreach (OverlayValueDefinition value in section.Values)
       {
-        if (value.Category != category)
-          continue;
         string text = OverlayKeypad.ValueName(value);
         float width = Mathf.Ceil(measure.GetPreferredValues(text).x) + 28;
         OverlayValueDefinition picked = value;
@@ -274,7 +276,7 @@ internal sealed class OverlayInputDock
         handle.Value = value;
         handle.Dock = this;
         _chips.Add(chip);
-        _placed.Add((value, chip, width));
+        _placed.Add((index, value, chip, width));
       }
     }
   }
@@ -284,17 +286,18 @@ internal sealed class OverlayInputDock
   private void LayOutValues(float width)
   {
     float column = 0;
-    foreach ((_, TextMeshProUGUI label) in _categories)
+    foreach (TextMeshProUGUI label in _categories)
       column = Mathf.Max(column, Mathf.Ceil(label.GetPreferredValues(label.text).x));
     column += 24;
     float y = 0;
-    foreach ((OverlayValueCategory category, TextMeshProUGUI label) in _categories)
+    for (int section = 0; section < _categories.Count; section++)
     {
+      TextMeshProUGUI label = _categories[section];
       SettingsUiFactory.Place(label.rectTransform, 0, y, column, ChipHeight);
       float x = column;
-      foreach ((OverlayValueDefinition value, Button chip, float chipWidth) in _placed)
+      foreach ((int placedSection, _, Button chip, float chipWidth) in _placed)
       {
-        if (value.Category != category)
+        if (placedSection != section)
           continue;
         if (x > column && x + chipWidth > width)
         {

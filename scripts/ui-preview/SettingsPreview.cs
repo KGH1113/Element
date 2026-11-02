@@ -330,7 +330,7 @@ namespace Element.Editor
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
-      Assert(dock.Content.GetComponentsInChildren<Button>(true).Count(button => button.name.StartsWith("Value ")) == OverlayValueCatalog.All.Count(value => !OverlayValueCatalog.IsLegacy(value)),
+      Assert(dock.Content.GetComponentsInChildren<Button>(true).Count(button => button.name.StartsWith("Value ")) == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
         "every value is laid out at once");
       Assert(dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key clear")
         && dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key done"), "the keypad has AC and Done");
@@ -862,6 +862,12 @@ namespace Element.Editor
       Select(editor, IndexOf(editor, fps));
       ElementSettings preferences = Field<ElementSettings>(editor, "_preferences");
       preferences.ReduceUiMotion = false;
+      // Another mod's values, as ElementKit adds them, and one whose mod is missing.
+      OverlayValueGroup tabub = new OverlayValueGroup("Tabub", "타법", "Tabub");
+      OverlayValueCatalog.Register("Tabub/hand", tabub, OverlayValueKind.Text, "지금 손", "Hand", double.NaN, "왼손");
+      OverlayValueCatalog.Register("Tabub/left-keys", tabub, OverlayValueKind.Number, "왼손 키", "Left keys", 5, null);
+      OverlayValueCatalog.Register("Tabub/pattern", tabub, OverlayValueKind.Text, "지금 타법", "Pattern", double.NaN, "2 + 2 + 1");
+      OverlayValueCatalog.TryResolve("Gone/value", out _);
       Call(editor, "UpdateToolbar");
       Field<Button>(editor, "_editContent").onClick.Invoke();
       OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
@@ -913,10 +919,20 @@ namespace Element.Editor
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
       Button[] chips = dock.Content.GetComponentsInChildren<Button>(true);
-      Assert(chips.Length == OverlayValueCatalog.All.Count(value => !OverlayValueCatalog.IsLegacy(value))
+      Assert(chips.Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count)
         && chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "every value is laid out, each draggable");
+      Assert(dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "타법" : "Tabub"))
+        && chips.Count(chip => chip.name.StartsWith("Value Tabub/")) == 3,
+        "another mod's values sit under its own heading");
+      Assert(!chips.Any(chip => chip.name == "Value Gone/value"), "a value whose mod is missing isn't offered");
+      RectTransform modHeading = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true)
+        .First(label => label.text == (Korean(name) ? "타법" : "Tabub")).rectTransform;
+      RectTransform systemHeading = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true)
+        .First(label => label.text == (Korean(name) ? "시스템" : "System")).rectTransform;
+      Assert(-modHeading.anchoredPosition.y > -systemHeading.anchoredPosition.y, "mod headings come after the built-in ones");
       TextMeshProUGUI[] categories = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == dock.Content).ToArray();
-      Assert(categories.Length == OverlayValueCatalog.Categories.Length && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
+      Assert(categories.Length == OverlayValueCatalog.Sections().Count(section => section.Values.Count > 0)
+        && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
         "category names line up in one column");
       float column = categories.Max(label => label.rectTransform.sizeDelta.x);
       Assert(chips.All(chip => ((RectTransform)chip.transform).anchoredPosition.x >= column - .5f), "values wrap to the right of the names");

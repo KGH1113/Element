@@ -49,6 +49,6 @@ internal sealed class BpmValues : IOverlayView<BpmSnapshot>
     if (shown == last)
       return;
     last = shown;
-    _values.Set(id, _builder.Clear().AppendRounded(value, 2));
+    _values.Set(id, _builder.Clear().AppendRounded(value, 2), shown / 100d);
   }
 }

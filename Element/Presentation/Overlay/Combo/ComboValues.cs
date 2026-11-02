@@ -46,7 +46,7 @@ internal sealed class ComboValues : IOverlayView<ComboSnapshot>
   {
     if (_lastCount != snapshot.Count)
     {
-      _values.Set(OverlayValueId.Combo, _builder.Clear().AppendInt(snapshot.Count));
+      _values.Set(OverlayValueId.Combo, _builder.Clear().AppendInt(snapshot.Count), snapshot.Count);
       _lastCount = snapshot.Count;
     }
     if (snapshot.Bump)

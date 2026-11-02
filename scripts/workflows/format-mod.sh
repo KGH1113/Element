@@ -15,6 +15,7 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element/Infrastructure/Assets/FontBundleLoader.cs \
   Element.Unity/Assets/Editor/FontBundleBuilder.cs Element.Unity/Assets/Editor/FontAssetGenerator.cs \
   Element/Infrastructure/Game/Recording \
+  Element/Infrastructure/Game/Lifecycle/GameplayState.cs \
   Element/Infrastructure/Game/Input/DmNoteKeyResolver.cs \
   Element/Infrastructure/Game/Input/SettingsInputPatches.cs \
   Element/Bootstrap Element/Configuration Element/Presentation \

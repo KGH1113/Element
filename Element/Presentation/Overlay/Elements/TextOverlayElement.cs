@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Text;
 using Element.Configuration;
 using Element.Domain.Elements;
@@ -20,12 +21,15 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   private readonly TextMeshProUGUI _text;
   private readonly OverlayContentGeometry _geometry;
   private readonly StringBuilder _builder = new(128);
+  private readonly List<OverlayCompiledRun> _runs = new();
   private readonly OverlayTextPulse _pulse;
   private bool _preview;
   private bool _hasLegacy;
   private LegacyOverlayPlacement _legacy;
   private string _legacyKey;
   private int _themeVersion = -1;
+  private float _renderedScale = -1;
+  private bool _hasSizeFormula;
 
   public TextOverlayElement(Transform parent, TMP_FontAsset font, Material material, OverlayValues values)
     : base(parent, "Text element")
@@ -91,7 +95,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       if (_text.alignment != alignment)
         _text.alignment = alignment;
     }
-    ValueMask = OverlayTextComposer.Mask(Settings.Text.Runs);
+    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs);
+    _hasSizeFormula = _runs.Exists(run => run.Size != null);
     Render();
   }
 
@@ -124,7 +129,12 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   /// <summary>Rebuilds the text when one of <paramref name="changes"/> or the theme affects it.</summary>
   public void Refresh(ulong changes)
   {
-    if ((changes & ValueMask) != 0 || _themeVersion != OverlayTheme.Version)
+    // Size formulas give pixels as drawn, so they follow the element's scale.
+    if (
+      (changes & ValueMask) != 0
+      || _themeVersion != OverlayTheme.Version
+      || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))
+    )
       Render();
   }
 
@@ -135,7 +145,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     if (Settings == null)
       return;
     _themeVersion = OverlayTheme.Version;
-    OverlayTextComposer.Compose(_builder, Settings.Text?.Runs, _values, _preview, OverlayTheme.Accent);
+    _renderedScale = EffectiveScale;
+    OverlayTextComposer.Compose(_builder, _runs, _values, _preview, OverlayTheme.Accent, _renderedScale);
     _text.Assign(_builder);
     if (_hasLegacy && _legacy.FitsText)
     {

@@ -32,11 +32,13 @@ internal static class Program
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
       Run("represents X-Perfect counts separately", RepresentsXPerfectCountsSeparately);
       Run("midspin tiles leave the combo unchanged", ComboTests.Run);
-      Run("normalizes song title size tags", NormalizesSongTitleSizeTags);
+      Run("song titles read the way the game shows them", SongTitleTests.Run);
       Run("measures stable and briefly dropped frame rates", MeasuresFrameRates);
       Run("trackpad gesture ownership, zoom and native ABI", TrackpadTests.Run);
       Run("overlay layout hit bounds and eight anchored proportional resize handles", OverlayLayoutTests.Run);
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
+      Run("aligns and distributes several layout boxes", LayoutArrangeTests.Run);
+      Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
@@ -179,24 +181,6 @@ internal static class Program
     Equal(5, snapshot.PerfectMinus);
     Equal(6, snapshot.XPerfectAndAuto);
     Equal(7, snapshot.PerfectPlus);
-  }
-
-  private static void NormalizesSongTitleSizeTags()
-  {
-    Equal(
-      "<size=150%>large</size> <size=50%>small</size>",
-      SongTitleMarkupNormalizer.Normalize("<size=150>large</size> <size=50>small</size>", 100)
-    );
-    Equal(
-      "<size=125%>larger</size> <size=75%>smaller</size>",
-      SongTitleMarkupNormalizer.Normalize("<size=+25>larger</size> <size=-25>smaller</size>", 100)
-    );
-    Equal(
-      "<size=60%>percent</size> <size=1.2em>em</size>",
-      SongTitleMarkupNormalizer.Normalize("<size=60%>percent</size> <size=1.2em>em</size>", 100)
-    );
-    Equal("<size=145.833333%>scaled</size>", SongTitleMarkupNormalizer.Normalize("<size=70>scaled</size>", 48));
-    Equal("plain", SongTitleMarkupNormalizer.Normalize("plain", 0));
   }
 
   private static void MeasuresFrameRates()

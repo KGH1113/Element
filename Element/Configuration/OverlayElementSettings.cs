@@ -15,12 +15,18 @@ public static class OverlayElementKinds
 
 // Every overlay color either follows the highlight color, keeping only its own
 // opacity, or is a fixed custom color.
+//
+// A number the player can tie to live values keeps its plain value and, next
+// to it, an optional formula (see OverlayFormula): values in braces with
+// + - * /, such as "{progress-current}*3". An empty formula uses the number.
+// Formulas give pixels as the game draws them at 1080p, or percent for opacity.
 [Serializable]
 public sealed class OverlayColorSettings
 {
   public bool Highlight;
   public string Hex = "#FFFFFF";
   public float Alpha = 1f;
+  public string AlphaFormula = string.Empty;
 
   public static OverlayColorSettings HighlightColor(float alpha = 1f) => new() { Highlight = true, Alpha = alpha };
 
@@ -32,13 +38,22 @@ public sealed class OverlayColorSettings
       Highlight = Highlight,
       Hex = Hex,
       Alpha = Alpha,
+      AlphaFormula = AlphaFormula ?? string.Empty,
     };
 
   public bool SameAs(OverlayColorSettings other) =>
-    other != null && Highlight == other.Highlight && Alpha == other.Alpha && (Highlight || Hex == other.Hex);
+    other != null
+    && Highlight == other.Highlight
+    && Alpha == other.Alpha
+    && SameFormula(AlphaFormula, other.AlphaFormula)
+    && (Highlight || Hex == other.Hex);
+
+  internal static bool SameFormula(string a, string b) => (a ?? string.Empty) == (b ?? string.Empty);
 }
 
-// One run is either literal text in one color, or one value (Value is its key).
+// One run is either literal text in one color, or one value: Value is a
+// formula, usually a single value's key ("combo"), or values with numbers and
+// + - * / ("{combo}*2").
 [Serializable]
 public sealed class OverlayTextRun
 {
@@ -47,8 +62,9 @@ public sealed class OverlayTextRun
   public OverlayColorSettings Color = new();
 
   // Font size in reference pixels before the element's scale; zero is the
-  // text's base size.
+  // text's base size. SizeFormula, when set, gives pixels as drawn instead.
   public float Size;
+  public string SizeFormula = string.Empty;
 
   public bool IsValue => !string.IsNullOrEmpty(Value);
 
@@ -64,6 +80,7 @@ public sealed class OverlayTextRun
       Value = Value,
       Color = (Color ?? new OverlayColorSettings()).Clone(),
       Size = Size,
+      SizeFormula = SizeFormula ?? string.Empty,
     };
 
   public bool SameAs(OverlayTextRun other) =>
@@ -71,6 +88,7 @@ public sealed class OverlayTextRun
     && Text == other.Text
     && Value == other.Value
     && Size == other.Size
+    && OverlayColorSettings.SameFormula(SizeFormula, other.SizeFormula)
     && (Color ?? new OverlayColorSettings()).SameAs(other.Color ?? new OverlayColorSettings());
 }
 
@@ -110,13 +128,16 @@ public enum OverlayShapeKind
   Circle,
 }
 
-// X and Y are fractions of the shape's box; Radius is in reference units.
+// X and Y are fractions of the shape's box; Radius is in reference units and
+// its formula gives pixels as drawn. Corners sit where their kind puts them;
+// shapes from 1.1.0 may keep corners that were dragged elsewhere.
 [Serializable]
 public sealed class OverlayShapePoint
 {
   public float X;
   public float Y;
   public float Radius;
+  public string RadiusFormula = string.Empty;
 
   public OverlayShapePoint Clone() =>
     new()
@@ -124,10 +145,15 @@ public sealed class OverlayShapePoint
       X = X,
       Y = Y,
       Radius = Radius,
+      RadiusFormula = RadiusFormula ?? string.Empty,
     };
 
   public bool SameAs(OverlayShapePoint other) =>
-    other != null && X == other.X && Y == other.Y && Radius == other.Radius;
+    other != null
+    && X == other.X
+    && Y == other.Y
+    && Radius == other.Radius
+    && OverlayColorSettings.SameFormula(RadiusFormula, other.RadiusFormula);
 }
 
 // Width, Height and StrokeWidth are reference units (1920x1080) before the
@@ -142,6 +168,9 @@ public sealed class OverlayShapeSettings
   public OverlayColorSettings Fill = OverlayColorSettings.HighlightColor();
   public OverlayColorSettings Stroke = OverlayColorSettings.Custom("#FFFFFF");
   public float StrokeWidth;
+  public string WidthFormula = string.Empty;
+  public string HeightFormula = string.Empty;
+  public string StrokeWidthFormula = string.Empty;
 
   public OverlayShapeSettings Clone()
   {
@@ -153,6 +182,9 @@ public sealed class OverlayShapeSettings
       Fill = (Fill ?? OverlayColorSettings.HighlightColor()).Clone(),
       Stroke = (Stroke ?? OverlayColorSettings.Custom("#FFFFFF")).Clone(),
       StrokeWidth = StrokeWidth,
+      WidthFormula = WidthFormula ?? string.Empty,
+      HeightFormula = HeightFormula ?? string.Empty,
+      StrokeWidthFormula = StrokeWidthFormula ?? string.Empty,
     };
     if (Points != null)
       foreach (OverlayShapePoint point in Points)
@@ -169,6 +201,9 @@ public sealed class OverlayShapeSettings
       || Width != other.Width
       || Height != other.Height
       || StrokeWidth != other.StrokeWidth
+      || !OverlayColorSettings.SameFormula(WidthFormula, other.WidthFormula)
+      || !OverlayColorSettings.SameFormula(HeightFormula, other.HeightFormula)
+      || !OverlayColorSettings.SameFormula(StrokeWidthFormula, other.StrokeWidthFormula)
       || !(Fill?.SameAs(other.Fill) ?? other.Fill == null)
       || !(Stroke?.SameAs(other.Stroke) ?? other.Stroke == null)
     )

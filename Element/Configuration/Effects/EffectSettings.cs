@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
+using UnityEngine;
 
 namespace Element.Configuration.Effects;
 
@@ -46,6 +47,23 @@ public sealed class EffectPreset
   /// <summary>Zoom percent of the camera that follows the planets once camera movement is removed.</summary>
   public int CameraZoom = DefaultCameraZoom;
 
+  /// <summary>Applies this preset when pressed outside play; None when the preset has no shortcut.</summary>
+  public KeyCode ShortcutKey = KeyCode.None;
+
+  /// <summary>Held with <see cref="ShortcutKey"/>; None for a single key.</summary>
+  public KeyCode ShortcutModifier = KeyCode.None;
+
+  public bool HasShortcut => ShortcutKey != KeyCode.None;
+
+  public bool UsesShortcut(KeyCode key, KeyCode modifier) =>
+    HasShortcut && ShortcutKey == key && ShortcutModifier == modifier;
+
+  public void ClearShortcut()
+  {
+    ShortcutKey = KeyCode.None;
+    ShortcutModifier = KeyCode.None;
+  }
+
   public static int ClampCameraZoom(int zoom) => Math.Max(MinimumCameraZoom, Math.Min(MaximumCameraZoom, zoom));
 
   public EffectPreset Copy() =>
@@ -55,6 +73,8 @@ public sealed class EffectPreset
       Name = Name,
       Effects = Effects,
       CameraZoom = CameraZoom,
+      ShortcutKey = ShortcutKey,
+      ShortcutModifier = ShortcutModifier,
     };
 }
 
@@ -89,7 +109,8 @@ public sealed class EffectSettings
   public RemovedEffects ActiveEffects => Enabled ? ActivePreset?.Effects ?? RemovedEffects.None : RemovedEffects.None;
 
   [XmlIgnore]
-  public int ActiveCameraZoom => EffectPreset.ClampCameraZoom(ActivePreset?.CameraZoom ?? EffectPreset.DefaultCameraZoom);
+  public int ActiveCameraZoom =>
+    EffectPreset.ClampCameraZoom(ActivePreset?.CameraZoom ?? EffectPreset.DefaultCameraZoom);
 
   public void Normalize()
   {
@@ -97,6 +118,7 @@ public sealed class EffectSettings
     MigrateDefaults();
     var ids = new HashSet<string>(StringComparer.Ordinal);
     var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    var shortcuts = new HashSet<(KeyCode, KeyCode)>();
     for (int i = Presets.Count - 1; i >= 0; i--)
       if (Presets[i] == null)
         Presets.RemoveAt(i);
@@ -122,6 +144,12 @@ public sealed class EffectSettings
       preset.Name = candidate;
       preset.Effects &= EffectCatalog.All;
       preset.CameraZoom = EffectPreset.ClampCameraZoom(preset.CameraZoom);
+      // One shortcut applies one preset; the earlier preset keeps a duplicate.
+      if (
+        !KeyShortcut.IsValid(preset.ShortcutKey, preset.ShortcutModifier)
+        || !shortcuts.Add((preset.ShortcutKey, preset.ShortcutModifier))
+      )
+        preset.ClearShortcut();
     }
     if (ActivePreset == null)
       ActivePresetId = Presets.Count > 0 ? Presets[0].Id : "";
@@ -162,6 +190,19 @@ public sealed class EffectSettings
     ActivePresetId = id;
     return true;
   }
+
+  /// <summary>Selects the preset and turns effect removal on, as clicking its card does.</summary>
+  public bool Activate(string id)
+  {
+    if (!Select(id))
+      return false;
+    Enabled = true;
+    return true;
+  }
+
+  /// <summary>The preset other than <paramref name="exceptId"/> that this shortcut applies, or null.</summary>
+  public EffectPreset FindShortcut(KeyCode key, KeyCode modifier, string exceptId = null) =>
+    Presets.Find(p => p != null && p.Id != exceptId && p.UsesShortcut(key, modifier));
 
   public bool Remove(string id)
   {

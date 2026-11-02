@@ -64,7 +64,8 @@ internal readonly struct LegacyOverlayPlacement
       "tile-bpm" => new(topRight, topRight, new Vector2(-16, -16), row, TextAlignmentOptions.TopRight),
       "current-bpm" => new(topRight, topRight, new Vector2(-16, -51), row, TextAlignmentOptions.TopRight),
       "keys-per-second" => new(topRight, topRight, new Vector2(-16, -86), row, TextAlignmentOptions.TopRight),
-      "song-title" => new(top, top, new Vector2(0, -21), new Vector2(600, 32), TextAlignmentOptions.Center),
+      // Just under the progress bar, which ends 28 units from the top.
+      "song-title" => new(top, top, new Vector2(0, -30), new Vector2(600, 32), TextAlignmentOptions.Center),
       // The number centers 45% up the combo block; the title sits on its top edge.
       OverlayElementDefaults.ComboId => new(top, center, new Vector2(0, -167), Vector2.zero, TextAlignmentOptions.Top),
       OverlayElementDefaults.ComboTitleId => new(

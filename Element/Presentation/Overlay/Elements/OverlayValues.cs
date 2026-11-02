@@ -6,43 +6,73 @@ using UnityEngine;
 namespace Element.Presentation.Overlay.Elements;
 
 /// <summary>
-/// The latest text of every value. Features write here; text elements that use
-/// a value redraw only when it changed. Setting an unchanged value costs no
-/// allocation and redraws nothing.
+/// The latest text and number of every value. Features write here; elements
+/// that use a value redraw only when it changed. Setting an unchanged value
+/// costs no allocation and redraws nothing.
 /// </summary>
-internal sealed class OverlayValues
+internal sealed class OverlayValues : IOverlayNumberSource
 {
   private readonly StringBuilder[] _text = new StringBuilder[OverlayValueCatalog.Count];
+  private readonly double[] _number = new double[OverlayValueCatalog.Count];
   private readonly bool[] _has = new bool[OverlayValueCatalog.Count];
+  private readonly long[] _stamp = new long[OverlayValueCatalog.Count];
   private ulong _dirty;
+  private long _stampNow;
 
   public OverlayValues()
   {
     for (int i = 0; i < _text.Length; i++)
       _text[i] = new StringBuilder(32);
+    WithSamples = new SampleNumbers(this);
+  }
+
+  /// <summary>Live numbers, falling back to each value's example for the editor.</summary>
+  public IOverlayNumberSource WithSamples { get; }
+
+  /// <summary>
+  /// Advances on every change. With <see cref="ChangedSince"/> a second
+  /// reader, such as an open editor, sees what changed without taking the
+  /// canvas's changes.
+  /// </summary>
+  public long Stamp => _stampNow;
+
+  /// <summary>The values changed after <paramref name="stamp"/>, as catalog bits.</summary>
+  public ulong ChangedSince(long stamp)
+  {
+    if (stamp >= _stampNow)
+      return 0;
+    ulong changed = 0;
+    for (int i = 0; i < _stamp.Length; i++)
+      if (_stamp[i] > stamp)
+        changed |= OverlayValueCatalog.Bit((OverlayValueId)i);
+    return changed;
   }
 
   /// <summary>Increments on every combo bump; text elements with the combo pulse once per step.</summary>
   public int ComboBumps { get; private set; }
 
-  public void Set(OverlayValueId id, StringBuilder value)
+  /// <summary>A number as shown (<paramref name="value"/>) and as calculated with (<paramref name="number"/>).</summary>
+  public void Set(OverlayValueId id, StringBuilder value, double number)
   {
     StringBuilder current = _text[(int)id];
-    if (_has[(int)id] && Same(current, value))
+    if (_has[(int)id] && Same(current, value) && _number[(int)id] == number)
       return;
     current.Clear().Append(value);
+    _number[(int)id] = number;
     _has[(int)id] = true;
-    _dirty |= OverlayValueCatalog.Bit(id);
+    Changed(id);
   }
 
+  /// <summary>Words such as the song title; they have no number.</summary>
   public void Set(OverlayValueId id, string value)
   {
     StringBuilder current = _text[(int)id];
     if (_has[(int)id] && Same(current, value))
       return;
     current.Clear().Append(value);
+    _number[(int)id] = double.NaN;
     _has[(int)id] = true;
-    _dirty |= OverlayValueCatalog.Bit(id);
+    Changed(id);
   }
 
   public void Clear(OverlayValueId id)
@@ -51,7 +81,19 @@ internal sealed class OverlayValues
       return;
     _has[(int)id] = false;
     _text[(int)id].Clear();
+    Changed(id);
+  }
+
+  private void Changed(OverlayValueId id)
+  {
     _dirty |= OverlayValueCatalog.Bit(id);
+    _stamp[(int)id] = ++_stampNow;
+  }
+
+  public bool TryGetNumber(OverlayValueId id, out double number)
+  {
+    number = _number[(int)id];
+    return _has[(int)id] && !double.IsNaN(number);
   }
 
   public void BumpCombo() => ComboBumps++;
@@ -85,12 +127,24 @@ internal sealed class OverlayValues
       case OverlayValueId.TimeLabel:
         output.Append(labels.MusicTime);
         break;
-      case OverlayValueId.Judgements:
-        JudgementColors.AppendRow(output, 0, 0, 0, 2, 4, 120, 4, 2, 0, 0, 0);
-        break;
       default:
         output.Append(OverlayValueCatalog.Get(id).Sample);
         break;
+    }
+  }
+
+  private sealed class SampleNumbers : IOverlayNumberSource
+  {
+    private readonly OverlayValues _live;
+
+    public SampleNumbers(OverlayValues live) => _live = live;
+
+    public bool TryGetNumber(OverlayValueId id, out double number)
+    {
+      if (_live.TryGetNumber(id, out number))
+        return true;
+      number = OverlayValueCatalog.Get(id).SampleNumber;
+      return !double.IsNaN(number);
     }
   }
 
@@ -116,60 +170,8 @@ internal sealed class OverlayValues
   }
 }
 
-// The judgment row's own colors, shared by the live value and its sample.
+// Judgment colors values take when they are added to a text.
 internal static class JudgementColors
 {
   public const string Perfect = "60FF4E";
-
-  public static StringBuilder AppendRow(
-    StringBuilder builder,
-    int overload,
-    int tooEarly,
-    int veryEarly,
-    int earlyPerfect,
-    int perfectEarly,
-    int purePerfect,
-    int perfectLate,
-    int latePerfect,
-    int veryLate,
-    int tooLate,
-    int miss
-  )
-  {
-    builder
-      .AppendInt(overload)
-      .Append(" <color=#FF0000>")
-      .AppendInt(tooEarly)
-      .Append("</color> <color=#FF6F4E>")
-      .AppendInt(veryEarly)
-      .Append("</color> <color=#A0FF4E>")
-      .AppendInt(earlyPerfect)
-      .Append("</color> <color=#")
-      .Append(Perfect)
-      .Append('>')
-      .AppendInt(perfectEarly)
-      .Append("</color> <color=#");
-    AppendPurePerfect(builder)
-      .Append('>')
-      .AppendInt(purePerfect)
-      .Append("</color> <color=#")
-      .Append(Perfect)
-      .Append('>')
-      .AppendInt(perfectLate)
-      .Append("</color> <color=#A0FF4E>")
-      .AppendInt(latePerfect)
-      .Append("</color> <color=#FF6F4E>")
-      .AppendInt(veryLate)
-      .Append("</color> <color=#FF0000>")
-      .AppendInt(tooLate)
-      .Append("</color> ")
-      .AppendInt(miss);
-    return builder;
-  }
-
-  private static StringBuilder AppendPurePerfect(StringBuilder builder)
-  {
-    ColourSchemeHitMargin colors = RDC.data != null ? RDC.hitMarginColoursBySettings : null;
-    return colors != null ? builder.AppendHexRgb(colors.colourXPerfect) : builder.Append(Perfect);
-  }
 }

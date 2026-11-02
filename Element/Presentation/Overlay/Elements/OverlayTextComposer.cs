@@ -7,6 +7,15 @@ using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;
 
+// A run with its formulas parsed once, when the text's settings change.
+internal sealed class OverlayCompiledRun
+{
+  public OverlayTextRun Run;
+  public OverlayFormula Value;
+  public OverlayFormula Size;
+  public OverlayFormula Alpha;
+}
+
 // Turns text runs into TMP rich text. Literal text never becomes markup, and
 // each value is wrapped in a link so its characters can be found after layout.
 internal static class OverlayTextComposer
@@ -14,50 +23,79 @@ internal static class OverlayTextComposer
   public const string ComboLink = "combo";
   public const string ValueLink = "v";
 
-  public static ulong Mask(IReadOnlyList<OverlayTextRun> runs)
+  /// <summary>Parses every formula in <paramref name="runs"/>; returns the values they use as catalog bits.</summary>
+  public static ulong Compile(IReadOnlyList<OverlayTextRun> runs, List<OverlayCompiledRun> output)
   {
+    output.Clear();
     ulong mask = 0;
     if (runs == null)
       return mask;
     foreach (OverlayTextRun run in runs)
-      if (run != null && run.IsValue && OverlayValueCatalog.TryGet(run.Value, out OverlayValueDefinition value))
-        mask |= OverlayValueCatalog.Bit(value.Id);
+    {
+      if (run == null)
+        continue;
+      OverlayCompiledRun compiled = new()
+      {
+        Run = run,
+        Value = run.IsValue ? OverlayFormulaText.Compile(run.Value) : null,
+        Size = OverlayFormulaText.Compile(run.SizeFormula),
+        Alpha = OverlayFormulaText.Compile(run.Color?.AlphaFormula),
+      };
+      if (run.IsValue && compiled.Value == null)
+        continue;
+      mask |= (compiled.Value?.Mask ?? 0) | (compiled.Size?.Mask ?? 0) | (compiled.Alpha?.Mask ?? 0);
+      output.Add(compiled);
+    }
     return mask;
   }
 
-  /// <summary>Live overlay text. Values without data show their sample only when <paramref name="samples"/>.</summary>
+  /// <summary>
+  /// Live overlay text. Values without data show their sample only when
+  /// <paramref name="samples"/>. Size formulas give pixels as drawn, so they are
+  /// divided by <paramref name="elementScale"/>.
+  /// </summary>
   public static void Compose(
     StringBuilder output,
-    IReadOnlyList<OverlayTextRun> runs,
+    IReadOnlyList<OverlayCompiledRun> runs,
     OverlayValues values,
     bool samples,
-    Color highlight
+    Color highlight,
+    float elementScale
   )
   {
     output.Clear();
     if (runs == null)
       return;
-    foreach (OverlayTextRun run in runs)
+    IOverlayNumberSource source = samples ? values?.WithSamples : values;
+    foreach (OverlayCompiledRun compiled in runs)
     {
-      if (run == null)
-        continue;
-      OpenStyle(output, run.Color, run.Size, highlight);
-      if (run.IsValue)
+      OverlayTextRun run = compiled.Run;
+      float size = Size(run.Size, compiled.Size, source, elementScale);
+      OpenStyle(output, Resolve(run.Color, highlight, compiled.Alpha, source), size);
+      if (compiled.Value != null)
       {
-        if (OverlayValueCatalog.TryGet(run.Value, out OverlayValueDefinition value))
-        {
-          bool combo = value.Id == OverlayValueId.Combo;
-          if (combo)
-            output.Append("<link=\"").Append(ComboLink).Append("\">");
-          AppendValue(output, value.Id, values, samples);
-          if (combo)
-            output.Append("</link>");
-        }
+        bool combo = (compiled.Value.Mask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;
+        if (combo)
+          output.Append("<link=\"").Append(ComboLink).Append("\">");
+        OverlayFormulaText.Append(output, compiled.Value, values, samples);
+        if (combo)
+          output.Append("</link>");
       }
       else
         AppendLiteral(output, run.Text);
-      CloseStyle(output, run.Size);
+      CloseStyle(output, size);
     }
+  }
+
+  /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>
+  public static float Size(float size, OverlayFormula formula, IOverlayNumberSource source, float elementScale)
+  {
+    if (formula == null)
+      return size;
+    double pixels = OverlayFormulaText.Resolve(formula, source, double.NaN);
+    if (double.IsNaN(pixels))
+      return size;
+    return Mathf.Clamp((float)pixels, 1, 1000) / Mathf.Max(.01f, elementScale);
   }
 
   public static Color Resolve(OverlayColorSettings color, Color highlight)
@@ -66,6 +104,24 @@ internal static class OverlayTextComposer
       return Color.white;
     Color result = color.Highlight ? highlight : ParseHex(color.Hex);
     result.a = Mathf.Clamp01(color.Alpha);
+    return result;
+  }
+
+  /// <summary>The color with its opacity formula (percent) applied when it has one.</summary>
+  public static Color Resolve(
+    OverlayColorSettings color,
+    Color highlight,
+    OverlayFormula alpha,
+    IOverlayNumberSource source
+  )
+  {
+    Color result = Resolve(color, highlight);
+    if (alpha != null)
+    {
+      double percent = OverlayFormulaText.Resolve(alpha, source, double.NaN);
+      if (!double.IsNaN(percent))
+        result.a = Mathf.Clamp01((float)percent / 100f);
+    }
     return result;
   }
 
@@ -89,9 +145,9 @@ internal static class OverlayTextComposer
   }
 
   /// <summary>Opens a run's color and, unless it is the base size, its size in reference pixels.</summary>
-  internal static void OpenStyle(StringBuilder output, OverlayColorSettings color, float size, Color highlight)
+  internal static void OpenStyle(StringBuilder output, Color color, float size)
   {
-    OpenColor(output, color, highlight);
+    OpenColor(output, color);
     if (HasSize(size))
       output.Append("<size=").AppendRounded(size, 2).Append('>');
   }
@@ -106,9 +162,8 @@ internal static class OverlayTextComposer
   private static bool HasSize(float size) =>
     size > 0 && Mathf.Abs(size - Domain.Elements.OverlayElementDefaults.TextSize) > .005f;
 
-  internal static void OpenColor(StringBuilder output, OverlayColorSettings color, Color highlight)
+  internal static void OpenColor(StringBuilder output, Color resolved)
   {
-    Color resolved = Resolve(color, highlight);
     output.Append("<color=#").AppendHexRgb(resolved);
     int alpha = Mathf.Clamp(Mathf.RoundToInt(resolved.a * 255), 0, 255);
     const string digits = "0123456789ABCDEF";

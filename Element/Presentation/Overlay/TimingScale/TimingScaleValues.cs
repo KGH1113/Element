@@ -39,7 +39,7 @@ internal sealed class TimingScaleValues : IOverlayView<TimingScaleSnapshot>
     double percent = Math.Round(snapshot.Scale * 100d, 2);
     if (_lastPercent == percent)
       return;
-    _values.Set(OverlayValueId.TimingScale, _builder.Clear().AppendRounded(percent, 2).Append('%'));
+    _values.Set(OverlayValueId.TimingScale, _builder.Clear().AppendRounded(percent, 2), percent);
     _lastPercent = percent;
   }
 

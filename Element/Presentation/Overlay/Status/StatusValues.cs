@@ -13,11 +13,9 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
 {
   private static readonly OverlayValueId[] Live =
   {
-    OverlayValueId.Progress,
     OverlayValueId.ProgressStart,
     OverlayValueId.ProgressCurrent,
     OverlayValueId.Accuracy,
-    OverlayValueId.Time,
     OverlayValueId.CurrentTime,
     OverlayValueId.TotalTime,
     OverlayValueId.Fps,
@@ -66,7 +64,7 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
     if (snapshot.HasTime)
       RenderTime(snapshot, languageChanged);
     if (snapshot.HasFps)
-      _values.Set(OverlayValueId.Fps, _builder.Clear().AppendInt(snapshot.Fps));
+      _values.Set(OverlayValueId.Fps, _builder.Clear().AppendInt(snapshot.Fps), snapshot.Fps);
     else
       _values.Clear(OverlayValueId.Fps);
 
@@ -84,10 +82,8 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
     long shownProgress = NumberText.Scaled(progress, 0);
     if (_lastStartProgress != shownStart || _lastProgress != shownProgress)
     {
-      _builder.Clear().AppendRounded(startProgress, 0).Append("%-").AppendRounded(progress, 0).Append('%');
-      _values.Set(OverlayValueId.Progress, _builder);
-      _values.Set(OverlayValueId.ProgressStart, _builder.Clear().AppendRounded(startProgress, 0).Append('%'));
-      _values.Set(OverlayValueId.ProgressCurrent, _builder.Clear().AppendRounded(progress, 0).Append('%'));
+      _values.Set(OverlayValueId.ProgressStart, _builder.Clear().AppendRounded(startProgress, 0), shownStart);
+      _values.Set(OverlayValueId.ProgressCurrent, _builder.Clear().AppendRounded(progress, 0), shownProgress);
       _lastStartProgress = shownStart;
       _lastProgress = shownProgress;
     }
@@ -96,7 +92,7 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
     long shownAccuracy = NumberText.Scaled(xAccuracy, 2);
     if (_lastXAccuracy != shownAccuracy)
     {
-      _values.Set(OverlayValueId.Accuracy, _builder.Clear().AppendRounded(xAccuracy, 2).Append('%'));
+      _values.Set(OverlayValueId.Accuracy, _builder.Clear().AppendRounded(xAccuracy, 2), shownAccuracy / 100d);
       _lastXAccuracy = shownAccuracy;
     }
   }
@@ -114,14 +110,16 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
 
     OverlayLabels labels = OverlayLocalization.Get(snapshot.Language);
     _values.Set(OverlayValueId.TimeLabel, snapshot.IsMapTime ? labels.MapTime : labels.MusicTime);
-    AppendTime(_builder.Clear(), snapshot.CurrentSeconds, snapshot.TotalSeconds).Append('~');
-    AppendTime(_builder, snapshot.TotalSeconds, snapshot.TotalSeconds);
-    _values.Set(OverlayValueId.Time, _builder);
     _values.Set(
       OverlayValueId.CurrentTime,
-      AppendTime(_builder.Clear(), snapshot.CurrentSeconds, snapshot.TotalSeconds)
+      AppendTime(_builder.Clear(), snapshot.CurrentSeconds, snapshot.TotalSeconds),
+      snapshot.CurrentSeconds
     );
-    _values.Set(OverlayValueId.TotalTime, AppendTime(_builder.Clear(), snapshot.TotalSeconds, snapshot.TotalSeconds));
+    _values.Set(
+      OverlayValueId.TotalTime,
+      AppendTime(_builder.Clear(), snapshot.TotalSeconds, snapshot.TotalSeconds),
+      snapshot.TotalSeconds
+    );
 
     _hasLastTime = true;
     _lastWasMapTime = snapshot.IsMapTime;
@@ -129,16 +127,6 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
     _lastTotalSeconds = snapshot.TotalSeconds;
   }
 
-  private static StringBuilder AppendTime(StringBuilder builder, int seconds, int totalSeconds)
-  {
-    if (totalSeconds >= 3600)
-      return builder
-        .AppendInt(seconds / 3600)
-        .Append(':')
-        .AppendTwoDigits(seconds % 3600 / 60)
-        .Append(':')
-        .AppendTwoDigits(seconds % 60);
-
-    return builder.AppendInt(seconds / 60).Append(':').AppendTwoDigits(seconds % 60);
-  }
+  private static StringBuilder AppendTime(StringBuilder builder, int seconds, int totalSeconds) =>
+    builder.AppendClock(seconds, totalSeconds);
 }

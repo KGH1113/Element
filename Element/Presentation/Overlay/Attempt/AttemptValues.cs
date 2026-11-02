@@ -27,8 +27,8 @@ internal sealed class AttemptValues : IOverlayView<AttemptCounts>
 
   public void Render(AttemptCounts counts)
   {
-    _values.Set(OverlayValueId.Attempt, _builder.Clear().AppendInt(counts.Attempt));
-    _values.Set(OverlayValueId.FullAttempt, _builder.Clear().AppendInt(counts.FullAttempt));
+    _values.Set(OverlayValueId.Attempt, _builder.Clear().AppendInt(counts.Attempt), counts.Attempt);
+    _values.Set(OverlayValueId.FullAttempt, _builder.Clear().AppendInt(counts.FullAttempt), counts.FullAttempt);
   }
 
   public void Dispose() { }

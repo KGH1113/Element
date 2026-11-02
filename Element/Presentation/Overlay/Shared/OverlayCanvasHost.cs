@@ -33,7 +33,6 @@ internal sealed class OverlayCanvasHost : IDisposable
   private bool _layoutPreview;
   private bool _fitPending;
   private int _comboBumps;
-  private int _themeVersion = -1;
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
@@ -122,13 +121,13 @@ internal sealed class OverlayCanvasHost : IDisposable
     return CreateText(settings);
   }
 
-  public ShapeOverlayElement AddShape()
+  public ShapeOverlayElement AddShape(OverlayShapeKind kind = OverlayShapeKind.Square)
   {
     OverlayLayoutSettings settings = new()
     {
       Id = OverlayElementKinds.Shape + ":" + Guid.NewGuid().ToString("N"),
       TemplateId = OverlayElementKinds.Shape,
-      Shape = OverlayShapeGeometry.Create(),
+      Shape = OverlayShapeGeometry.Create(kind),
     };
     _layoutSettings.Add(settings);
     return CreateShape(settings);
@@ -149,9 +148,10 @@ internal sealed class OverlayCanvasHost : IDisposable
 
   private ShapeOverlayElement CreateShape(OverlayLayoutSettings settings)
   {
-    ShapeOverlayElement element = new(_shapeLayer);
+    ShapeOverlayElement element = new(_shapeLayer, Values);
     _elements.Add(element);
     _shapes.Add(element);
+    element.SetPreview(_layoutPreview);
     element.Configure(settings);
     return element;
   }
@@ -197,7 +197,10 @@ internal sealed class OverlayCanvasHost : IDisposable
     foreach (OverlayElementTarget element in _elements)
       element.Apply();
     foreach (ShapeOverlayElement shape in _shapes)
-      shape.Refresh();
+    {
+      shape.Refresh(0);
+      shape.RefreshPixels();
+    }
   }
 
   public void TickLayoutPreview() => Tick();
@@ -206,14 +209,11 @@ internal sealed class OverlayCanvasHost : IDisposable
   internal void Tick()
   {
     ulong changes = Values.TakeChanges();
-    bool themeChanged = _themeVersion != OverlayTheme.Version;
-    _themeVersion = OverlayTheme.Version;
-    if (changes != 0 || themeChanged)
-      foreach (TextOverlayElement text in _texts)
-        text.Refresh(changes);
-    if (themeChanged)
-      foreach (ShapeOverlayElement shape in _shapes)
-        shape.Refresh();
+    // Each refresh is a mask test unless its values, the theme or its scale changed.
+    foreach (TextOverlayElement text in _texts)
+      text.Refresh(changes);
+    foreach (ShapeOverlayElement shape in _shapes)
+      shape.Refresh(changes);
     if (_comboBumps != Values.ComboBumps)
     {
       _comboBumps = Values.ComboBumps;

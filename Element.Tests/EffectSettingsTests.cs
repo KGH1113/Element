@@ -7,6 +7,7 @@ using System.Xml.Serialization;
 using ADOFAI;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
+using UnityEngine;
 
 namespace Element.Tests;
 
@@ -23,6 +24,81 @@ internal static class EffectSettingsTests
     EditorDecorationListPreservesSource();
     EditorReturnScopeLifetime();
     CameraZoomFollowsThePreset();
+    PresetShortcuts();
+  }
+
+  private static void PresetShortcuts()
+  {
+    var settings = new EffectSettings();
+    Check(settings.Presets.TrueForAll(p => !p.HasShortcut), "Default presets must start without a shortcut.");
+    EffectPreset first = settings.Presets[0],
+      second = settings.Presets[1];
+    first.ShortcutKey = KeyCode.Alpha1;
+    first.ShortcutModifier = KeyCode.LeftAlt;
+    Check(
+      settings.FindShortcut(KeyCode.Alpha1, KeyCode.LeftAlt) == first,
+      "A shortcut must find the preset that uses it."
+    );
+    Check(
+      settings.FindShortcut(KeyCode.Alpha1, KeyCode.None) == null
+        && settings.FindShortcut(KeyCode.Alpha1, KeyCode.RightAlt) == null,
+      "A shortcut must match its exact modifier, side included."
+    );
+    Check(
+      settings.FindShortcut(KeyCode.Alpha1, KeyCode.LeftAlt, first.Id) == null,
+      "The preset being edited must not conflict with its own shortcut."
+    );
+    Check(
+      first.Copy().UsesShortcut(KeyCode.Alpha1, KeyCode.LeftAlt),
+      "Editing a copy of a preset must keep its shortcut."
+    );
+
+    var restored = Read(Write(settings));
+    restored.Normalize();
+    Check(
+      restored.Presets[0].UsesShortcut(KeyCode.Alpha1, KeyCode.LeftAlt) && !restored.Presets[1].HasShortcut,
+      "Shortcuts must survive XML persistence."
+    );
+    var older = Read(
+      @"<EffectSettings><ActivePresetId>old</ActivePresetId><Presets>
+      <EffectPreset><Id>old</Id><Name>Old</Name><Effects>Filters</Effects></EffectPreset>
+    </Presets></EffectSettings>"
+    );
+    older.Normalize();
+    Check(!older.Presets[0].HasShortcut, "Presets saved before shortcuts existed must load without one.");
+
+    second.ShortcutKey = KeyCode.Alpha1;
+    second.ShortcutModifier = KeyCode.LeftAlt;
+    settings.Normalize();
+    Check(first.HasShortcut && !second.HasShortcut, "A shortcut saved on two presets must stay only on the first.");
+    second.ShortcutKey = KeyCode.LeftShift;
+    settings.Normalize();
+    Check(!second.HasShortcut, "A modifier alone cannot be a shortcut.");
+    second.ShortcutKey = KeyCode.Mouse0;
+    settings.Normalize();
+    Check(!second.HasShortcut, "A mouse button cannot be a shortcut.");
+    second.ShortcutKey = KeyCode.Alpha2;
+    second.ShortcutModifier = KeyCode.A;
+    settings.Normalize();
+    Check(
+      !second.HasShortcut && second.ShortcutModifier == KeyCode.None,
+      "Only a modifier key can be held with a shortcut."
+    );
+    second.ShortcutKey = KeyCode.F5;
+    second.ShortcutModifier = KeyCode.None;
+    settings.Normalize();
+    Check(second.UsesShortcut(KeyCode.F5, KeyCode.None), "A single key without a modifier is a valid shortcut.");
+
+    settings.Enabled = false;
+    settings.ActivePresetId = first.Id;
+    Check(
+      settings.Activate(second.Id) && settings.Enabled && settings.ActivePresetId == second.Id,
+      "Activating a preset must select it and turn effect removal on."
+    );
+    Check(
+      !settings.Activate("missing") && settings.ActivePresetId == second.Id,
+      "Activating a missing preset must leave the active one."
+    );
   }
 
   private static void CameraZoomFollowsThePreset()

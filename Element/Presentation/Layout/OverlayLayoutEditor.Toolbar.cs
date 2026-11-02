@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
@@ -33,6 +34,7 @@ internal sealed partial class OverlayLayoutEditor
     _toolbarGrabOffset;
   private string _actionHint = "";
   private int _scaleSelection = -2;
+  private Button _editContent;
   private Button _undo,
     _redo,
     _cancel,
@@ -222,6 +224,10 @@ internal sealed partial class OverlayLayoutEditor
     _scaleSuffix = _ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
     AlignScaleValue();
     _minus = IconButton(LayoutAction.Minus, L("축소", "Decrease size"), 148, 60, () => ScaleBy(.95f), 40);
+    // Texts and shapes are sized in their editor; their place for scale opens it.
+    _editContent = _ui.Button(L("텍스트 편집", "Edit text"), _toolbar, 12, 60, 172, 40, EditSelected, true);
+    _editContent.name = "Edit element";
+    _toolbarControls.Add((RectTransform)_editContent.transform);
     _ui.Panel("Selection divider", _toolbar, 196, 68, 1, 24, new Color(1, 1, 1, .1f), false);
     _reset = IconButton(LayoutAction.Reset, L("선택 요소 초기화", "Reset element"), 208, 60, ResetSelected, 40);
     _snap = IconButton(
@@ -275,6 +281,16 @@ internal sealed partial class OverlayLayoutEditor
     return button;
   }
 
+  private void EditSelected()
+  {
+    if (HasSelection)
+      OpenContentEditor(_frames[_selected].Target);
+  }
+
+  // Texts and shapes take their size from their editor, not from a scale.
+  private static bool SizedInEditor(IOverlayLayoutTarget target) =>
+    target is TextOverlayElement || target is ShapeOverlayElement;
+
   private bool HasSelection =>
     _selected >= 0
     && _selected < _frames.Count
@@ -305,8 +321,7 @@ internal sealed partial class OverlayLayoutEditor
     if (_keyViewers != null)
       foreach (IOverlayLayoutTarget target in _keyViewers.Targets)
         target.RefreshLayout();
-    if (!HasSelection)
-      _selected = -1;
+    PruneSelection();
     _lastScale = -1;
   }
 
@@ -331,7 +346,8 @@ internal sealed partial class OverlayLayoutEditor
     if (!HasSelection)
       return;
     ClosePopovers();
-    _frames[_selected].Target.ResetLayout();
+    foreach (IOverlayLayoutTarget target in _selection)
+      target.ResetLayout();
     _scalePending = false;
     _scaleErrorUntil = 0;
     _history.Commit(_host.LayoutSettings);
@@ -356,6 +372,7 @@ internal sealed partial class OverlayLayoutEditor
         min.ToString("0.#", CultureInfo.InvariantCulture) + "–" + max.ToString("0.#", CultureInfo.InvariantCulture);
       _keyboardHelp.text = L(range + "%로 입력하세요", "Enter " + range + "%");
       _scaleErrorUntil = Time.unscaledTime + 5;
+      _helpIsNote = false;
       _lastScale = -1;
       return;
     }
@@ -408,13 +425,26 @@ internal sealed partial class OverlayLayoutEditor
     }
     _undo.interactable = _history.CanUndo;
     _redo.interactable = _history.CanRedo;
-    _scaleInput.interactable =
-      _minus.interactable =
-      _plus.interactable =
-      _reset.interactable =
-      _delete.interactable =
-        HasSelection;
-    float scale = HasSelection ? _frames[_selected].Target.EffectiveScale * 100 : 100;
+    IOverlayLayoutTarget selection = HasSelection ? _frames[_selected].Target : null;
+    bool several = MultiSelected;
+    // Several selected show the scale, unavailable, rather than one element's Edit.
+    bool edit = !several && SizedInEditor(selection);
+    if (_editContent.gameObject.activeSelf != edit)
+    {
+      _editContent.gameObject.SetActive(edit);
+      _plus.gameObject.SetActive(!edit);
+      _minus.gameObject.SetActive(!edit);
+      _scaleInput.gameObject.SetActive(!edit);
+    }
+    if (edit)
+      _editContent.GetComponentInChildren<TextMeshProUGUI>().text =
+        selection is ShapeOverlayElement ? L("도형 편집", "Edit shape") : L("텍스트 편집", "Edit text");
+    _scaleInput.interactable = _minus.interactable = _plus.interactable = HasSelection && !several;
+    _reset.interactable = _delete.interactable = HasSelection;
+    float scale =
+      several ? -2
+      : HasSelection ? _frames[_selected].Target.EffectiveScale * 100
+      : 100;
     if (_scaleSelection != _selected)
     {
       _scaleSelection = _selected;
@@ -424,12 +454,20 @@ internal sealed partial class OverlayLayoutEditor
     }
     if (!_scaleInput.isFocused && !_scalePending && scale != _lastScale)
     {
-      _scaleInput.SetTextWithoutNotify(scale.ToString("0.#", CultureInfo.InvariantCulture));
+      _scaleInput.SetTextWithoutNotify(several ? "—" : scale.ToString("0.#", CultureInfo.InvariantCulture));
+      // A dash on its own: several elements have no one scale.
+      _scaleSuffix.gameObject.SetActive(!several);
       AlignScaleValue();
       _lastScale = scale;
     }
-    _instruction.text = HasSelection ? ElementLabel(_frames[_selected].Target) : L("요소 선택", "Select overlay");
-    _keyboardHelp.color = Time.unscaledTime < _scaleErrorUntil ? new Color(1, .66f, .53f) : SettingsUiFactory.Muted;
+    _instruction.text = HasSelection ? SelectionLabel() : L("요소 선택", "Select overlay");
+    bool message = Time.unscaledTime < _scaleErrorUntil;
+    _keyboardHelp.color =
+      !message ? SettingsUiFactory.Muted
+      : _helpIsNote ? SettingsUiFactory.Foreground
+      : new Color(1, .66f, .53f);
+    if (!message)
+      _helpIsNote = false;
     if (Time.unscaledTime >= _scaleErrorUntil)
       _keyboardHelp.text = _actionHint;
     if (_themeVersion != Overlay.Shared.OverlayTheme.Version)

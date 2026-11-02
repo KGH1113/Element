@@ -7,7 +7,7 @@ using Element.Presentation.Overlay.Shared;
 
 namespace Element.Presentation.Overlay.Judgement;
 
-// The colored judgment row and each count on its own.
+// Each judgment count.
 internal sealed class JudgementValues : IOverlayView<JudgementSnapshot>
 {
   private static readonly OverlayValueId[] Counts =
@@ -37,29 +37,13 @@ internal sealed class JudgementValues : IOverlayView<JudgementSnapshot>
 
   public void Hide()
   {
-    _values.Clear(OverlayValueId.Judgements);
     foreach (OverlayValueId id in Counts)
       _values.Clear(id);
   }
 
-  // Runs on every hit: numbers and colors are appended without their own strings.
+  // Runs on every hit: numbers are appended without their own strings.
   public void Render(JudgementSnapshot snapshot)
   {
-    JudgementColors.AppendRow(
-      _builder.Clear(),
-      snapshot.FailOverload,
-      snapshot.TooEarly,
-      snapshot.VeryEarly,
-      snapshot.EarlyPerfect,
-      snapshot.PerfectMinus,
-      snapshot.XPerfectAndAuto,
-      snapshot.PerfectPlus,
-      snapshot.LatePerfect,
-      snapshot.VeryLate,
-      snapshot.TooLate,
-      snapshot.FailMiss
-    );
-    _values.Set(OverlayValueId.Judgements, _builder);
     Set(OverlayValueId.Overload, snapshot.FailOverload);
     Set(OverlayValueId.TooEarly, snapshot.TooEarly);
     Set(OverlayValueId.VeryEarly, snapshot.VeryEarly);
@@ -75,5 +59,5 @@ internal sealed class JudgementValues : IOverlayView<JudgementSnapshot>
 
   public void Dispose() { }
 
-  private void Set(OverlayValueId id, int count) => _values.Set(id, _builder.Clear().AppendInt(count));
+  private void Set(OverlayValueId id, int count) => _values.Set(id, _builder.Clear().AppendInt(count), count);
 }

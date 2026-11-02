@@ -160,11 +160,18 @@ namespace UnityModManagerNet
 {
   public static class UnityModManager
   {
-    public class ModEntry { }
+    public class ModEntry
+    {
+      public string Path = "";
+      public ModLogger Logger = new();
+      public class ModLogger { public void Warning(string message) { } }
+    }
     public class ModSettings
     {
       public virtual void Save(ModEntry entry) { }
       protected static void Save<T>(T settings, ModEntry entry) { }
+      public virtual string GetPath(ModEntry entry) => System.IO.Path.Combine(entry.Path, "Settings.xml");
+      public static T Load<T>(ModEntry entry) where T : ModSettings, new() => new T();
     }
     public class UI { public static UI Instance; public void ToggleWindow(bool visible) { } }
   }

@@ -79,6 +79,20 @@ internal static class NumberText
     return builder;
   }
 
+  /// <summary>m:ss, or h:mm:ss when <paramref name="totalSeconds"/> reaches an hour.</summary>
+  public static StringBuilder AppendClock(this StringBuilder builder, int seconds, int totalSeconds)
+  {
+    if (totalSeconds >= 3600)
+      return builder
+        .AppendInt(seconds / 3600)
+        .Append(':')
+        .AppendTwoDigits(seconds % 3600 / 60)
+        .Append(':')
+        .AppendTwoDigits(seconds % 60);
+
+    return builder.AppendInt(seconds / 60).Append(':').AppendTwoDigits(seconds % 60);
+  }
+
   /// <summary>Matches ColorUtility.ToHtmlStringRGB without allocating a string.</summary>
   public static StringBuilder AppendHexRgb(this StringBuilder builder, Color color)
   {

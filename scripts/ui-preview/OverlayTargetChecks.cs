@@ -62,7 +62,7 @@ namespace Element.Editor
         Rect tile = Text(host, "tile-bpm").Bounds;
         check(Mathf.Abs(tile.xMax - (Screen.width - 16 * unit)) < 6 * unit, "BPM rows stay right aligned: " + tile);
 
-        host.Values.Set(OverlayValueId.Fps, "1234");
+        host.Values.Set(OverlayValueId.Fps, new System.Text.StringBuilder("1234"), 1234);
         host.Tick();
         check(fpsText.text.Contains("1234"), "a value change redraws only texts that use it");
         check(!Text(host, "progress").Settings.Text.Runs.Any(run => run.Value == "fps"), "progress does not use FPS");
@@ -76,7 +76,7 @@ namespace Element.Editor
         fps.Apply();
         Canvas.ForceUpdateCanvases();
         check(Same(moved, fps.Bounds, 1), "an applied anchored text stays put");
-        host.Values.Set(OverlayValueId.Fps, "1234567");
+        host.Values.Set(OverlayValueId.Fps, new System.Text.StringBuilder("1234567"), 1234567);
         host.Tick();
         Canvas.ForceUpdateCanvases();
         check(Mathf.Abs(fps.Bounds.x - moved.x) < 1 && fps.Bounds.width > moved.width,
@@ -93,6 +93,36 @@ namespace Element.Editor
         TextMeshProUGUI literalText = Field<TextMeshProUGUI>(Text(host, "text:literal"), "_text");
         literalText.ForceMeshUpdate();
         check(literalText.textInfo.characterCount == 4, "typed angle brackets stay literal text");
+
+        // Calculated values: × before +, times stay times, and nothing shows without data.
+        OverlayLayoutSettings math = new OverlayLayoutSettings
+        {
+          Id = "text:math",
+          TemplateId = OverlayElementKinds.Text,
+          Text = new OverlayTextSettings
+          {
+            Runs =
+            {
+              OverlayTextRun.ValueRun("{combo}*2+1", OverlayColorSettings.Custom("#FFFFFF")),
+              OverlayTextRun.Literal(" ", OverlayColorSettings.Custom("#FFFFFF")),
+              OverlayTextRun.ValueRun("{time-total}-{time-current}", OverlayColorSettings.Custom("#FFFFFF")),
+            },
+          },
+        };
+        layouts.Add(math);
+        host.ConfigureLayouts(layouts);
+        TextOverlayElement mathElement = Text(host, "text:math");
+        TextMeshProUGUI mathText = Field<TextMeshProUGUI>(mathElement, "_text");
+        check(mathText.text.Contains("241") && mathText.text.Contains("2:21"), "formulas show their results with samples: " + mathText.text);
+        host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("10"), 10);
+        host.Tick();
+        check(mathText.text.Contains(">21<") || mathText.text.Contains("21</"), "a live value recalculates: " + mathText.text);
+        check(mathElement.UsesCombo, "a calculated combo still pulses");
+        mathElement.SetPreview(false);
+        host.Values.Clear(OverlayValueId.TotalTime);
+        host.Tick();
+        check(!mathText.text.Contains(":"), "a formula without data shows nothing in the game: " + mathText.text);
+        mathElement.SetPreview(true);
 
         TextOverlayElement combo = Text(host, "combo:moved");
         TextOverlayElement title = Text(host, "combo:moved/title");
@@ -117,12 +147,19 @@ namespace Element.Editor
         check(shape.Bounds.center.x > Screen.width * .45f && shape.Bounds.center.x < Screen.width * .55f, "a new shape starts centered");
         ShapeGraphic graphic = Field<ShapeGraphic>(shape, "_graphic");
         check(Vertices(graphic) == 8, "a square draws its fill and a one-pixel soft edge");
-        float pixels = shape.PixelsPerUnit;
-        shape.SetStretchedBounds(new Rect(box.x, box.y, box.width * 1.5f, box.height), pixels);
-        shape.CommitShape();
-        check(Mathf.Abs(shape.Shape.Width - OverlayShapeGeometry.DefaultSize * 1.5f) < .5f
-          && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .5f, "a side stretches only its axis");
-        check(Mathf.Abs(shape.Bounds.x - box.x) < 1 && shape.Settings.Customized, "the stretched box keeps its left edge");
+        // Numbers tied to values follow them: a progress bar.
+        shape.Shape.WidthFormula = "{progress-current}*3";
+        shape.Apply();
+        Canvas.ForceUpdateCanvases();
+        check(Mathf.Abs(shape.Bounds.width - 144 * unit) < 1, "a width formula uses the sample while editing: " + shape.Bounds.width / unit);
+        check(shape.ValueMask == OverlayValueCatalog.Bit(OverlayValueId.ProgressCurrent), "a shape knows the values it uses");
+        host.Values.Set(OverlayValueId.ProgressCurrent, new System.Text.StringBuilder("60"), 60);
+        host.Tick();
+        Canvas.ForceUpdateCanvases();
+        check(Mathf.Abs(shape.Bounds.width - 180 * unit) < 1, "a live value resizes the shape: " + shape.Bounds.width / unit);
+        check(Mathf.Abs(shape.Shape.Width - OverlayShapeGeometry.DefaultSize) < .01f, "the plain width stays underneath the formula");
+        shape.Shape.WidthFormula = "";
+        shape.Apply();
         shape.Shape.Points[0].Radius = 40;
         shape.Shape.StrokeWidth = 6;
         shape.Redraw();

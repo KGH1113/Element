@@ -40,6 +40,8 @@ internal static class OverlayTextFactory
     text.alignment = alignment;
     text.raycastTarget = false;
     text.richText = true;
+    // Shown as written, like the game: a "\n" typed in a song title is two characters.
+    text.parseCtrlCharacters = false;
     return text;
   }
 }

@@ -114,7 +114,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | 전체 선택 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | <kbd>⌘</kbd> + <kbd>A</kbd> |
 | 1px / 10px 이동 | <kbd>←↑↓→</kbd> / <kbd>Shift</kbd> + <kbd>←↑↓→</kbd> | 동일 |
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
-| 저장 / 취소 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> | <kbd>⌘</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> |
+| 저장하고 나가기 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> (취소 버튼만 저장하지 않음) | <kbd>⌘</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> |
 | 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
 | 텍스트 편집 | 텍스트 더블클릭 또는 <kbd>Enter</kbd> | 동일 |
 | 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |

@@ -159,10 +159,12 @@ internal sealed partial class OverlayTextEditor
       switch (_event.keyCode)
       {
         case KeyCode.Escape:
+          // Esc closes the picker first, then finishes like Done; only
+          // Cancel leaves without saving.
           if (_picker.Visible)
             _picker.Hide();
           else
-            Close(false, true);
+            Close(true, true);
           return;
         case KeyCode.Return:
         case KeyCode.KeypadEnter:

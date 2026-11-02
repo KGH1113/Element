@@ -126,8 +126,8 @@ internal sealed partial class OverlayTextEditor : IDisposable
       _uiFont,
       _reduceMotion,
       L(
-        "텍스트 편집 · 값을 눌러 계산 · ⌘/Ctrl+Enter 완료 · Esc 취소",
-        "Edit text · Click a value to calculate · ⌘/Ctrl+Enter done · Esc cancel"
+        "텍스트 편집 · 값을 눌러 계산 · ⌘/Ctrl+Enter나 Esc로 완료",
+        "Edit text · Click a value to calculate · ⌘/Ctrl+Enter or Esc to finish"
       ),
       () => Close(false, true),
       () => Close(true, true)
@@ -353,7 +353,13 @@ internal sealed partial class OverlayTextEditor : IDisposable
       closed?.Invoke(commit);
   }
 
-  public void Dispose() => Close(false, false);
+  // Torn down with the editor open (the mod turned off), the edit is kept;
+  // a color that can't be read is the only thing that falls back.
+  public void Dispose()
+  {
+    Close(true, false);
+    Close(false, false);
+  }
 
   private static TextAlignmentOptions Horizontal(TextAlignmentOptions alignment)
   {

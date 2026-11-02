@@ -215,9 +215,10 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       UpdateFrames();
       return;
     }
+    // Esc saves like Save; only Cancel leaves without saving.
     if (Input.GetKeyDown(KeyCode.Escape))
     {
-      Close(false);
+      Close(true);
       return;
     }
     if (CommandModifierHeld() && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
@@ -391,11 +392,13 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     _closing = true;
     // Disposal must not reopen settings through the normal close callback.
+    // Torn down while open (the mod turned off), it keeps what was edited,
+    // an open text or shape edit included; only Cancel throws edits away.
+    _textEditor?.Dispose();
+    _shapeEditor?.Dispose();
     if (IsOpen)
     {
-      _openingLayout.Restore(_host.LayoutSettings);
-      _preferences.HighlightColor = _openingColor;
-      OverlayTheme.SetHighlight(_openingColor);
+      FinishDrag();
       RefreshLayouts();
       foreach (TargetFrame frame in _frames)
       {
@@ -412,8 +415,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     CloseElementSettings();
     CloseModal();
     _colorPopover?.Dispose();
-    _textEditor?.Dispose();
-    _shapeEditor?.Dispose();
     _ui?.Dispose();
     UIInteractionState.SetTextEditing(false);
     if (_ownedEvents != null)

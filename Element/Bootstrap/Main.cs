@@ -127,8 +127,15 @@ public sealed class Main
   {
     try
     {
-      Instance?.Settings?.Save(modEntry);
-      Instance?.Disable();
+      // Disabling closes open editors, which keep their edits; save after.
+      try
+      {
+        Instance?.Disable();
+      }
+      finally
+      {
+        Instance?.Settings?.Save(modEntry);
+      }
       Instance = null;
       return true;
     }

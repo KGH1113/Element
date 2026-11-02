@@ -530,14 +530,15 @@ internal sealed partial class OverlayShapeEditor
       KeyCode code = _event.keyCode;
       if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
       {
-        // Enter and Esc close what is open; Esc with nothing open cancels.
+        // Enter and Esc close what is open; Esc with nothing open finishes
+        // like Done. Only Cancel leaves without saving.
         if (_picker.Visible)
           _picker.Hide();
         else if (AnyOpen)
           CloseEditing();
         else if (code == KeyCode.Escape)
         {
-          Close(false, true);
+          Close(true, true);
           return;
         }
         Render();

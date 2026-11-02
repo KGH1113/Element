@@ -542,6 +542,16 @@ namespace Element.Editor
       shapes.Close(false, true);
       Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
+      // Only Cancel throws an edit away: one open when the editor is torn down
+      // (the mod turned off) is kept.
+      editContent.onClick.Invoke();
+      Click(Field<OverlayFormulaField>(shapes, "_heightField").Root, "Height");
+      Call(shapes, "KeypadPress", '9');
+      shapes.Dispose();
+      Assert(!shapes.IsOpen && Mathf.Abs(shape.Shape.Height * shape.EffectiveScale - 1609) < .01f,
+        "an edit open when the editor is torn down is kept: " + shape.Shape.Height * shape.EffectiveScale);
+      shape.Shape.Height = OverlayShapeGeometry.DefaultSize;
+      shape.Apply();
 
       // Triangles and circles.
       Call(editor, "AddShape", OverlayShapeKind.Triangle);

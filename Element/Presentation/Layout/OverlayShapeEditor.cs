@@ -122,8 +122,8 @@ internal sealed partial class OverlayShapeEditor : IDisposable
       _font,
       _reduceMotion,
       L(
-        "도형 편집 · 숫자를 눌러 입력 · ⌘/Ctrl+Enter 완료 · Esc 취소",
-        "Edit shape · Click a number to type · ⌘/Ctrl+Enter done · Esc cancel"
+        "도형 편집 · 숫자를 눌러 입력 · ⌘/Ctrl+Enter나 Esc로 완료",
+        "Edit shape · Click a number to type · ⌘/Ctrl+Enter or Esc to finish"
       ),
       () => Close(false, true),
       () => Close(true, true)
@@ -330,7 +330,13 @@ internal sealed partial class OverlayShapeEditor : IDisposable
       closed?.Invoke(commit);
   }
 
-  public void Dispose() => Close(false, false);
+  // Torn down with the editor open (the mod turned off), the edit is kept;
+  // a color that can't be read is the only thing that falls back.
+  public void Dispose()
+  {
+    Close(true, false);
+    Close(false, false);
+  }
 
   // Screen pixels per reference unit of the overlay canvas.
   private static float ScreenScale => OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);

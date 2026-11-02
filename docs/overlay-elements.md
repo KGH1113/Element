@@ -47,6 +47,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - **Combining values.** Type an operator, then pick another value (or drop it on the formula line). Without an operator, a value replaces what was there.
 - **Display.** The text shows the result as the game will: up to two decimals, or m:ss when the result is a time. Total − elapsed shows the time left. A time divided by a time is a plain number.
 - **Missing data.** A result needs every value it uses. Until the game has them, the overlay shows nothing there, and the editor uses each value's example.
+- **Leaving saves.** In the overlay editor and the text and shape editors, every way out saves except the Cancel button: Esc (once nothing else is open) finishes like Save or Done, and edits open when the mod is turned off are kept.
 - **Live while editing.** With a level playing behind the editor (autoplay, for one), the canvas, the text and shape editors' previews, their numbers and the input dock's result follow the live values. An editor redraws only when a value it shows changes.
 - **Words.** The song title can't be calculated with, so number fields refuse it with a short reason.
 - **Song title.** The game's level name, "artist - song", with the level's own bold, italic, colors and sizes. Parts the level hides stay hidden (a see-through artist, a dash shrunk to nothing). A name hidden entirely shows as plain text, so the overlay still says what is playing. Broken tags, such as a seven-digit color, are left out instead of shown.
@@ -59,7 +60,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
 - Sizes are what the game draws at 1080p.
-- ⌘/Ctrl + Enter finishes, Esc cancels. A text left empty is removed.
+- ⌘/Ctrl + Enter or Esc finishes and saves, as Done does; only Cancel leaves without saving. A text left empty is removed.
 - Only texts that use a changed value are redrawn, so values that update every hit cost no more than before.
 - A combo, even inside a calculation, grows briefly on every hit like the old combo.
 

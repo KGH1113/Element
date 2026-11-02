@@ -11,6 +11,7 @@ using Element.Presentation.Overlay.Bpm;
 using Element.Presentation.Overlay.Combo;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Judgement;
+using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Status;
 using Element.Presentation.Overlay.TimingScale;
@@ -36,6 +37,8 @@ internal sealed class OverlayRuntime : IDisposable
     try
     {
       Canvas = new OverlayCanvasHost();
+      // Values other mods add through ElementKit; shapes use them even without the font.
+      Canvas.Feed = new ModValues(main.LogWarning);
       _fontLoader = new FontBundleLoader(main);
       if (!_fontLoader.Load())
       {

@@ -235,8 +235,8 @@ internal sealed partial class SettingsPanel : IDisposable
       if (count > 1)
       {
         _captureHint.text = L(
-          "보조 키는 하나만 선택해주세요. 예: 왼쪽 Alt + Tab",
-          "Choose one modifier, for example Left Alt + Tab."
+          "보조 키는 하나만 선택해주세요. 예: 왼쪽 Ctrl + F9",
+          "Choose one modifier, for example Left Ctrl + F9."
         );
         return;
       }

@@ -28,8 +28,11 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public GameplayTweaksSettings Gameplay = new();
   public Effects.EffectSettings Effects = new();
 
-  public KeyCode SettingsShortcutKey = KeyCode.Tab;
-  public KeyCode SettingsShortcutModifier = KeyCode.LeftAlt;
+  public const KeyCode DefaultSettingsShortcutKey = KeyCode.F9;
+  public const KeyCode DefaultSettingsShortcutModifier = KeyCode.LeftControl;
+
+  public KeyCode SettingsShortcutKey = DefaultSettingsShortcutKey;
+  public KeyCode SettingsShortcutModifier = DefaultSettingsShortcutModifier;
 
   public List<OverlayLayoutSettings> OverlayLayouts = new();
 
@@ -65,7 +68,18 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       Domain.Elements.OverlayElementMigration.UpgradeProgressBar(OverlayLayouts);
       Domain.Elements.OverlayElementDefaults.AddMissing(OverlayLayouts);
     }
-    SettingsVersion = Math.Max(SettingsVersion, 6);
+    // Left Alt + Tab was the old default and also switches windows on Windows.
+    // Move only that untouched default; a custom shortcut stays as chosen.
+    if (
+      SettingsVersion < 7
+      && SettingsShortcutKey == KeyCode.Tab
+      && SettingsShortcutModifier == KeyCode.LeftAlt
+    )
+    {
+      SettingsShortcutKey = DefaultSettingsShortcutKey;
+      SettingsShortcutModifier = DefaultSettingsShortcutModifier;
+    }
+    SettingsVersion = Math.Max(SettingsVersion, 7);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

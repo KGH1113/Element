@@ -90,16 +90,16 @@ internal sealed partial class OverlayTextEditor
     _blinkStart = blinkStart;
   }
 
-  private ulong LiveMask()
+  private OverlayValueMask LiveMask()
   {
-    ulong mask = _editing.Active ? _editing.Working.Mask : 0;
+    OverlayValueMask mask = _editing.Active ? _editing.Working.Mask : OverlayValueMask.None;
     for (int i = 0; i < _document.Count; i++)
     {
       OverlayTextItem item = _document[i];
       if (item.IsValue)
-        mask |= OverlayFormulaText.Compile(item.Value)?.Mask ?? 0;
-      mask |= OverlayFormulaText.Compile(item.SizeFormula)?.Mask ?? 0;
-      mask |= OverlayFormulaText.Compile(item.Color.AlphaFormula)?.Mask ?? 0;
+        mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Value));
+      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
+      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
     }
     return mask;
   }

@@ -16,7 +16,7 @@ internal sealed class OverlayShapeResolver
     _stroke;
   private readonly List<OverlayFormula> _radius = new(4);
 
-  public ulong Mask { get; private set; }
+  public OverlayValueMask Mask { get; private set; }
   public OverlayFormula FillAlpha { get; private set; }
   public OverlayFormula StrokeAlpha { get; private set; }
 
@@ -72,5 +72,5 @@ internal sealed class OverlayShapeResolver
 
   private static OverlayFormula Parse(string text) => OverlayFormulaText.Compile(text);
 
-  private static ulong Bits(OverlayFormula formula) => formula?.Mask ?? 0;
+  private static OverlayValueMask Bits(OverlayFormula formula) => OverlayTextComposer.Mask(formula);
 }

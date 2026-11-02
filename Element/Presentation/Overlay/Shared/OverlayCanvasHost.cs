@@ -198,7 +198,7 @@ internal sealed class OverlayCanvasHost : IDisposable
       element.Apply();
     foreach (ShapeOverlayElement shape in _shapes)
     {
-      shape.Refresh(0);
+      shape.Refresh(OverlayValueMask.None);
       shape.RefreshPixels();
     }
   }
@@ -208,7 +208,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   /// <summary>Once per frame while the canvas is shown: redraws what changed.</summary>
   internal void Tick()
   {
-    ulong changes = Values.TakeChanges();
+    OverlayValueMask changes = Values.TakeChanges();
     // Each refresh is a mask test unless its values, the theme or its scale changed.
     foreach (TextOverlayElement text in _texts)
       text.Refresh(changes);

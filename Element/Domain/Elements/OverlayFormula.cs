@@ -70,7 +70,7 @@ internal sealed class OverlayFormula
     if (string.IsNullOrEmpty(text))
       return formula;
     text = text.Trim();
-    if (OverlayValueCatalog.TryGet(text, out OverlayValueDefinition single))
+    if (OverlayValueCatalog.TryResolve(text, out OverlayValueDefinition single))
     {
       formula._tokens.Add(OverlayFormulaToken.ValueToken(single.Id));
       return formula;
@@ -87,8 +87,9 @@ internal sealed class OverlayFormula
           break;
         string key = text.Substring(i + 1, close - i - 1);
         i = close;
-        // A value that no longer exists is dropped with the operator before it.
-        if (OverlayValueCatalog.TryGet(key, out OverlayValueDefinition value) && formula.CanTakeOperand)
+        // A built-in value that no longer exists is dropped with the operator
+        // before it. A mod's value stays even while that mod is missing.
+        if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value) && formula.CanTakeOperand)
           formula._tokens.Add(OverlayFormulaToken.ValueToken(value.Id));
         continue;
       }
@@ -193,11 +194,11 @@ internal sealed class OverlayFormula
   /// <summary>Words (the song title, a label) stand alone; arithmetic can't use them.</summary>
   public bool IsWords => IsSingleValue(out OverlayValueId id) && !OverlayValueCatalog.Get(id).IsNumeric;
 
-  public ulong Mask
+  public OverlayValueMask Mask
   {
     get
     {
-      ulong mask = 0;
+      OverlayValueMask mask = OverlayValueMask.None;
       foreach (OverlayFormulaToken token in _tokens)
         if (token.Kind == OverlayFormulaTokenKind.Value)
           mask |= OverlayValueCatalog.Bit(token.Value);

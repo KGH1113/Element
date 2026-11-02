@@ -43,7 +43,7 @@ internal sealed partial class OverlayLayoutEditor
   {
     get
     {
-      if (_modalRoot != null || (_textEditor != null && _textEditor.IsOpen))
+      if (_modalRoot != null || ContentEditorOpen)
         return new Rect(0, 0, ViewWidth, ViewHeight);
       Rect bounds = ToolbarBounds;
       foreach (Rect popover in VisiblePopoverBounds())
@@ -69,12 +69,10 @@ internal sealed partial class OverlayLayoutEditor
       yield return _colorPopover.Root;
     if (_addMenu != null)
       yield return _addMenu;
+    if (_shapeMenu != null)
+      yield return _shapeMenu;
     if (_settingsPanel != null && _settingsPanel.gameObject.activeSelf)
       yield return _settingsPanel;
-    if (_elementPicker?.Visible ?? false)
-      yield return _elementPicker.Root;
-    if (_valuePopover?.Visible ?? false)
-      yield return _valuePopover.Root;
   }
 
   private readonly System.Collections.Generic.List<LayoutExclusion> _exclusions = new();
@@ -88,7 +86,7 @@ internal sealed partial class OverlayLayoutEditor
     get
     {
       _exclusions.Clear();
-      if (_modalRoot != null || (_textEditor != null && _textEditor.IsOpen))
+      if (_modalRoot != null || ContentEditorOpen)
       {
         _exclusions.Add(new LayoutExclusion(new LayoutBounds(0, 0, ViewWidth, ViewHeight), 0));
         return _exclusions;
@@ -107,18 +105,9 @@ internal sealed partial class OverlayLayoutEditor
 
   // Popovers that close on an outside click. The selection's settings popup
   // stays open and never blocks the canvas.
-  private bool AnyPopoverVisible =>
-    (_colorPopover?.Visible ?? false)
-    || _addMenu != null
-    || (_elementPicker?.Visible ?? false)
-    || (_valuePopover?.Visible ?? false);
+  private bool AnyPopoverVisible => (_colorPopover?.Visible ?? false) || _addMenu != null;
 
-  private bool PopoverTyping =>
-    (_colorPopover?.IsTyping ?? false)
-    || (_elementPicker?.IsTyping ?? false)
-    || (_valuePopover?.IsTyping ?? false)
-    || (_strokeInput != null && _strokeInput.isFocused)
-    || (_textSizeInput != null && _textSizeInput.isFocused);
+  private bool PopoverTyping => _colorPopover?.IsTyping ?? false;
 
   private bool PopoverContains(Vector2 point)
   {
@@ -130,10 +119,8 @@ internal sealed partial class OverlayLayoutEditor
 
   private void CloseTopPopover()
   {
-    if (_valuePopover?.Visible ?? false)
-      _valuePopover.Hide();
-    else if (_elementPicker?.Visible ?? false)
-      _elementPicker.Hide();
+    if (_shapeMenu != null)
+      CloseShapeMenu();
     else if (_addMenu != null)
       CloseAddMenu();
     else
@@ -142,9 +129,6 @@ internal sealed partial class OverlayLayoutEditor
 
   private void ClosePopovers()
   {
-    _valuePopover?.Hide();
-    if (_elementPicker?.Visible ?? false)
-      _elementPicker.Hide();
     CloseAddMenu();
     _colorPopover?.Hide();
   }
@@ -152,11 +136,7 @@ internal sealed partial class OverlayLayoutEditor
   /// <summary>Applies typed popover values; false keeps the editor open to fix them.</summary>
   private bool CommitPopovers()
   {
-    if (_colorPopover != null && !_colorPopover.Commit())
-      return false;
-    if (_elementPicker != null && !_elementPicker.Commit())
-      return false;
-    return _valuePopover == null || !_valuePopover.Visible || _valuePopover.Commit();
+    return _colorPopover == null || _colorPopover.Commit();
   }
 
   private void RaisePopovers()
@@ -164,15 +144,14 @@ internal sealed partial class OverlayLayoutEditor
     if (_colorPopover?.Visible ?? false)
       _colorPopover.Root.SetAsLastSibling();
     _addMenu?.SetAsLastSibling();
+    _shapeMenu?.SetAsLastSibling();
     _settingsPanel?.SetAsLastSibling();
-    if (_elementPicker?.Visible ?? false)
-      _elementPicker.Root.SetAsLastSibling();
-    if (_valuePopover?.Visible ?? false)
-      _valuePopover.Root.SetAsLastSibling();
     if (_modalRoot != null)
       _modalRoot.transform.SetAsLastSibling();
     if (_textEditor != null && _textEditor.IsOpen)
       _textEditor.Raise();
+    if (_shapeEditor != null && _shapeEditor.IsOpen)
+      _shapeEditor.Raise();
   }
 
   private float PopupScale(float width, float height) =>
@@ -223,6 +202,7 @@ internal sealed partial class OverlayLayoutEditor
     {
       float height = AddMenuHeight;
       PlacePopover(_addMenu, PopoverAboveToolbar(AddMenuWidth, height, 348, false), AddMenuWidth, height);
+      PlaceShapeMenu();
     }
     UpdateSettingsPosition();
     if (_modalRoot != null && (_modalWidth != ViewWidth || _modalHeight != ViewHeight))
@@ -327,7 +307,7 @@ internal sealed partial class OverlayLayoutEditor
       L("도형", "Shape"),
       L("사각형·삼각형·원으로 글자 뒤 배경을 깔아요", "A square, triangle or circle behind text"),
       true,
-      AddShape
+      ToggleShapeMenu
     );
     UpdatePopupPositions();
     EventSystem.current?.SetSelectedGameObject(text.gameObject);
@@ -370,6 +350,7 @@ internal sealed partial class OverlayLayoutEditor
 
   private void CloseAddMenu()
   {
+    CloseShapeMenu();
     if (_addMenu == null)
       return;
     _addMenu.gameObject.SetActive(false);
@@ -394,12 +375,14 @@ internal sealed partial class OverlayLayoutEditor
     OpenTextEditor(text, true);
   }
 
-  private void AddShape()
+  private void AddShape(OverlayShapeKind kind)
   {
     CloseAddMenu();
-    ShapeOverlayElement shape = _host.AddShape();
+    ShapeOverlayElement shape = _host.AddShape(kind);
     shape.SetPreview(true);
-    PlaceNewElement(shape);
+    PlaceNewElement(shape, false);
+    // History records the shape when its editor is done; cancelling removes it.
+    OpenShapeEditor(shape, true);
   }
 
   private void AddKeyViewer()
@@ -421,7 +404,7 @@ internal sealed partial class OverlayLayoutEditor
   }
 
   // A new element starts in the middle of the view, selected, as one undo step.
-  private void PlaceNewElement(IOverlayLayoutTarget target)
+  private void PlaceNewElement(IOverlayLayoutTarget target, bool commit = true)
   {
     Canvas.ForceUpdateCanvases();
     Rect bounds = target.Bounds;
@@ -434,7 +417,8 @@ internal sealed partial class OverlayLayoutEditor
     if (IndexOf(target) < 0)
       AddFrame(target);
     _selected = IndexOf(target);
-    _history.Commit(_host.LayoutSettings);
+    if (commit)
+      _history.Commit(_host.LayoutSettings);
     _toolbar.SetAsLastSibling();
     UpdateFrames();
   }

@@ -8,6 +8,7 @@ using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Layout;
 
@@ -41,30 +42,28 @@ internal sealed partial class OverlayTextEditor
 
   public void Tick()
   {
-    if (_root == null)
+    if (_screen == null)
       return;
-    if (_viewWidth != Screen.width || _viewHeight != Screen.height)
+    if (_screen.ViewChanged)
     {
+      ClosePopovers();
       Build();
       Render();
     }
-    UpdateFade();
-    if ((_picker.Visible && _picker.IsTyping) || _sizeInput.isFocused)
+    _screen.Tick();
+    if (_picker.Visible && _picker.IsTyping)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
-      {
-        if (_picker.Visible)
-          _picker.Hide();
-        _sizeInput.DeactivateInputField();
-        ShowSize();
-      }
+        _picker.Hide();
       return;
     }
     HandleMouse();
     HandleKeys();
-    if (_root == null)
+    if (_screen == null)
       return;
-    string composition = Input.compositionString ?? "";
+    UpdateHover(Input.mousePosition);
+    // A formula takes keys, not IME text.
+    string composition = _editing.Active ? "" : Input.compositionString ?? "";
     if (composition != _composition)
     {
       if (composition.Length > 0 && HasSelection)
@@ -72,16 +71,12 @@ internal sealed partial class OverlayTextEditor
       _composition = composition;
       Render();
     }
-    _caret.enabled = !HasSelection && (_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
+    bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
+    // The text's caret rests while a formula has the input.
+    _caret.enabled = !HasSelection && !_editing.Active && blink;
     _emptyCaret.enabled = _caret.enabled;
+    _dock.Blink(blink);
     UpdateImePosition();
-  }
-
-  // The dim and everything on it fade in rather than cutting over the screen.
-  private void UpdateFade()
-  {
-    if (_fade.alpha < 1)
-      _fade.alpha = _reduceMotion() ? 1 : Mathf.Clamp01((Time.unscaledTime - _openedAt) / FadeSeconds);
   }
 
   private OverlayColorSettings TypingColor(int caret) =>
@@ -90,18 +85,52 @@ internal sealed partial class OverlayTextEditor
   private float TypingSize(int caret) =>
     _document.Count == 0 && _pendingSize > 0 ? _pendingSize : _document.TypingSize(caret);
 
+  private string TypingSizeFormula(int caret) =>
+    _document.Count == 0 ? _pendingSizeFormula : _document.TypingSizeFormula(caret);
+
+  // While a popover is open: Enter and Esc close it, and with a formula open
+  // the keyboard types into it like the keypad. Other keys go back to the
+  // text; after a value, typing continues behind it.
+  private bool HandlePopoverKey(bool command)
+  {
+    if (command || !AnyPopover)
+      return false;
+    KeyCode code = _event.keyCode;
+    if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
+    {
+      ClosePopovers();
+      Render();
+      return true;
+    }
+    if (_editing.Active && OverlayKeypad.TryKeyboard(_event, out char key))
+    {
+      KeypadPress(key);
+      return true;
+    }
+    if (_fieldSlot != null)
+      return true;
+    bool chip = ChipOpen(out _);
+    ClosePopovers();
+    if (chip)
+      _anchor = _caretIndex = Mathf.Max(_anchor, _caretIndex);
+    Render();
+    return false;
+  }
+
   private void HandleKeys()
   {
     bool mac =
       UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
       || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-    while (_root != null && Event.PopEvent(_event))
+    while (_screen != null && Event.PopEvent(_event))
     {
       if (_event.rawType != EventType.KeyDown)
         continue;
       bool command = mac ? _event.command : _event.control;
       bool word = mac ? _event.alt : _event.control;
       bool shift = _event.shift;
+      if (HandlePopoverKey(command))
+        continue;
       switch (_event.keyCode)
       {
         case KeyCode.Escape:
@@ -199,12 +228,35 @@ internal sealed partial class OverlayTextEditor
   private void HandleMouse()
   {
     Vector2 screen = Input.mousePosition;
+    if (_dragValue != null || _dock.Dragging)
+      return;
     if (Input.GetMouseButtonDown(0))
     {
-      if (!InTextArea(screen))
+      // Popovers, the bar and the picker handle their own clicks.
+      if (
+        _dock.Contains(screen)
+        || _growPopover.Contains(screen)
+        || OverlayEditorUi.Contains(_formatBar, screen)
+        || OverlayEditorUi.Contains(_picker.Root, screen)
+      )
         return;
+      bool popover = AnyPopover;
+      ClosePopovers();
+      if (!InTextArea(screen))
+      {
+        if (popover)
+          Render();
+        return;
+      }
       if (_picker.Visible)
         _picker.Hide();
+      // A click on a value selects it whole and opens its formula.
+      if (!(Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) && TryValueAt(screen, out int value))
+      {
+        _lastClick = Time.unscaledTime;
+        OpenChip(value);
+        return;
+      }
       int index = IndexAt(screen);
       bool doubleClick = Time.unscaledTime - _lastClick < .35f;
       _lastClick = Time.unscaledTime;
@@ -240,14 +292,14 @@ internal sealed partial class OverlayTextEditor
   }
 
   // The dimmed space around the text belongs to it; the top bar, the format
-  // bar, the values and the picker don't.
+  // bar, the popovers and the picker don't.
   private bool InTextArea(Vector2 screen)
   {
-    foreach (RectTransform blocked in new[] { _valuesArea, _formatBar, _picker.Root })
-      if (blocked.gameObject.activeInHierarchy && RectTransformUtility.RectangleContainsScreenPoint(blocked, screen))
+    foreach (RectTransform blocked in new[] { _dock.Root, _growPopover.Root, _formatBar, _picker.Root })
+      if (OverlayEditorUi.Contains(blocked, screen))
         return false;
-    Vector2 local = (Vector2)_frame.InverseTransformPoint(screen);
-    return -local.y >= TopBar && -local.y < -_valuesArea.anchoredPosition.y - 18;
+    float y = _screen.ToFrame(screen).y;
+    return y >= OverlayEditorFrame.TopBar && y < _bottomTop - 18;
   }
 
   private void Type(string text)
@@ -261,7 +313,8 @@ internal sealed partial class OverlayTextEditor
       Mathf.Max(_anchor, _caretIndex),
       text,
       TypingColor(start),
-      TypingSize(start)
+      TypingSize(start),
+      TypingSizeFormula(start)
     );
     Changed();
   }
@@ -336,7 +389,8 @@ internal sealed partial class OverlayTextEditor
         Mathf.Max(_anchor, _caretIndex),
         system,
         TypingColor(start),
-        TypingSize(start)
+        TypingSize(start),
+        TypingSizeFormula(start)
       );
       Changed();
     }
@@ -378,6 +432,9 @@ internal sealed partial class OverlayTextEditor
     _caretIndex = snapshot.Caret;
     _anchor = snapshot.Anchor;
     _lastTypingAt = -1;
+    _lastFormulaKey = null;
+    // The keypad reads the restored formula afresh.
+    _editing.Deactivate();
     Render();
   }
 
@@ -390,9 +447,13 @@ internal sealed partial class OverlayTextEditor
   // Rebuilds the text at its game size and everything placed around it.
   private void Render()
   {
-    if (_root == null)
+    if (_screen == null)
       return;
     _blinkStart = Time.unscaledTime;
+    _editing.Activate(CurrentSlot());
+    // The text stays above the dock.
+    SyncDock();
+    _bottomTop = _dock.Top;
     // The text must be active before it is laid out for the caret.
     bool empty = _document.Count == 0 && _composition.Length == 0;
     if (_preview.gameObject.activeSelf == empty)
@@ -402,10 +463,10 @@ internal sealed partial class OverlayTextEditor
     _preview.text = _builder.ToString();
     Vector2 preferred = _preview.GetPreferredValues();
     preferred = new Vector2(Mathf.Max(2, preferred.x), Mathf.Max(_preview.fontSize, preferred.y));
-    float frameWidth = _frame.sizeDelta.x;
-    float top = TopBar + 64,
-      bottom = -_valuesArea.anchoredPosition.y - 64;
-    Vector2 available = new Vector2(frameWidth - Margin * 2, Mathf.Max(40, bottom - top)) * _scale;
+    float frameWidth = _screen.Width;
+    float top = OverlayEditorFrame.TopBar + 64,
+      bottom = _bottomTop - 40;
+    Vector2 available = new Vector2(frameWidth - OverlayEditorFrame.Margin * 2, Mathf.Max(40, bottom - top)) * _scale;
     // The game's size, unless the text would not fit on screen.
     _previewScale = Mathf.Min(_elementScale * ScreenScale, available.x / preferred.x, available.y / preferred.y);
     RectTransform rect = _preview.rectTransform;
@@ -416,23 +477,55 @@ internal sealed partial class OverlayTextEditor
     _preview.ForceMeshUpdate();
     Map();
     PlaceCaret();
+    PlaceDropCaret();
     PlaceMarks();
     float textTop = (center.y - preferred.y * _previewScale * .5f) / _scale;
+    ShowFields();
+    float barWidth = LayoutFormatBar();
     SettingsUiFactory.Place(
       _formatBar,
-      frameWidth * .5f - FormatWidth * .5f,
-      Mathf.Max(TopBar, textTop - FormatHeight - 18),
-      FormatWidth,
+      frameWidth * .5f - barWidth * .5f,
+      Mathf.Max(OverlayEditorFrame.TopBar, textTop - FormatHeight - 18),
+      barWidth,
       FormatHeight
     );
-    ShowSize();
-    Range(out int start, out int end);
-    _colorSwatch.color = OverlayTextComposer.Resolve(
-      start < end ? _document[start].Color : TypingColor(_caretIndex),
-      OverlayTheme.Accent
-    );
-    PlaceEmptyHint(center, empty);
+    Color swatch = OverlayTextComposer.Resolve(RangeColor(), OverlayTheme.Accent);
+    swatch.a = 1;
+    _colorButton.Swatch = swatch;
     PlacePicker();
+    RefreshDock();
+    PlaceGrowMark();
+    PlaceEmptyHint(center, empty);
+  }
+
+  // While the grow popover is open, a dot marks the point that stays put.
+  private void PlaceGrowMark()
+  {
+    bool show = _growPopover.Visible;
+    _growMark.gameObject.SetActive(show);
+    if (!show)
+      return;
+    Rect text = _screen.FrameRect(_preview.rectTransform);
+    Anchor9 point = GrowPointNow();
+    Vector2 at = new(
+      text.x + text.width * Domain.Layout.OverlayLayoutPosition.AnchorX(point),
+      text.y + text.height * Domain.Layout.OverlayLayoutPosition.AnchorY(point)
+    );
+    SettingsUiFactory.Place(_growMark.rectTransform, at.x - 6, at.y - 6, 12, 12);
+    _growMark.transform.SetAsLastSibling();
+  }
+
+  // Size, color and grow point side by side; returns the bar's width.
+  private float LayoutFormatBar()
+  {
+    float y = (FormatHeight - OverlayBarButton.Height) * .5f;
+    float x = y;
+    foreach (OverlayBarButton button in new[] { _sizeButton, _colorButton, _growButton })
+    {
+      button.Place(x, y);
+      x += button.Width + 4;
+    }
+    return x - 4 + y;
   }
 
   // An empty text shows a muted hint with the caret just before it, centered
@@ -450,84 +543,72 @@ internal sealed partial class OverlayTextEditor
     SettingsUiFactory.Place(_emptyCaret.rectTransform, x - 6, y - 11, 2, 22);
   }
 
-  // − and + change the shown size by one pixel.
-  private void StepSize(int direction)
-  {
-    Range(out int start, out int end);
-    float size = start < end ? _document[start].Size : TypingSize(_caretIndex);
-    float pixels = Mathf.Round((size > 0 ? size : OverlayElementDefaults.TextSize) * _elementScale) + direction;
-    CommitSize(Mathf.Clamp(pixels, MinimumSize, MaximumSize).ToString(CultureInfo.InvariantCulture));
-  }
-
-  // The size field shows the selection's (or the whole text's) size in pixels
-  // as the game draws it; mixed sizes leave it empty.
-  private void ShowSize()
-  {
-    if (_sizeInput == null || _sizeInput.isFocused)
-      return;
-    Range(out int start, out int end);
-    float size = start < end ? _document[start].Size : TypingSize(_caretIndex);
-    for (int i = start + 1; i < end; i++)
-      if (_document[i].Size != size)
-      {
-        _sizeInput.SetTextWithoutNotify("");
-        return;
-      }
-    float pixels = (size > 0 ? size : OverlayElementDefaults.TextSize) * _elementScale;
-    _sizeInput.SetTextWithoutNotify(pixels.ToString("0.#", CultureInfo.InvariantCulture));
-  }
-
+  // The text as the game will draw it, with the editor's examples for values
+  // that have no data yet. Each value is a link so its characters can be found.
   private void Compose()
   {
     _builder.Clear();
     Color highlight = OverlayTheme.Accent;
-    OverlayColorSettings openColor = null;
+    IOverlayNumberSource samples = _values.WithSamples;
+    OverlayTextItem? open = null;
     float openSize = 0;
     for (int i = 0; i <= _document.Count; i++)
     {
       if (i == _caretIndex && _composition.Length > 0)
       {
-        if (openColor != null)
+        if (open != null)
           OverlayTextComposer.CloseStyle(_builder, openSize);
-        openColor = null;
-        OverlayTextComposer.OpenStyle(_builder, TypingColor(i), TypingSize(i), highlight);
+        open = null;
+        float typing = OverlayTextComposer.Size(
+          TypingSize(i),
+          OverlayFormulaText.Compile(TypingSizeFormula(i)),
+          samples,
+          _elementScale
+        );
+        OverlayTextComposer.OpenStyle(_builder, OverlayTextComposer.Resolve(TypingColor(i), highlight), typing);
         _builder.Append("<u>");
         OverlayTextComposer.AppendLiteral(_builder, _composition);
         _builder.Append("</u>");
-        OverlayTextComposer.CloseStyle(_builder, TypingSize(i));
+        OverlayTextComposer.CloseStyle(_builder, typing);
       }
       if (i == _document.Count)
         break;
       OverlayTextItem item = _document[i];
       if (item.IsValue)
       {
-        if (openColor != null)
+        if (open != null)
           OverlayTextComposer.CloseStyle(_builder, openSize);
-        openColor = null;
-        OverlayTextComposer.OpenStyle(_builder, item.Color, item.Size, highlight);
+        open = null;
+        float size = ItemSize(item, samples);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), size);
         _builder.Append("<link=\"").Append(OverlayTextComposer.ValueLink).Append("\">");
         int before = _builder.Length;
-        if (OverlayValueCatalog.TryGet(item.Value, out OverlayValueDefinition value))
-          OverlayTextComposer.AppendValue(_builder, value.Id, _values, true);
+        OverlayFormulaText.Append(_builder, OverlayFormula.Parse(item.Value), _values, true);
         if (_builder.Length == before)
           _builder.Append(' ');
         _builder.Append("</link>");
-        OverlayTextComposer.CloseStyle(_builder, item.Size);
+        OverlayTextComposer.CloseStyle(_builder, size);
         continue;
       }
-      if (openColor == null || !openColor.SameAs(item.Color) || openSize != item.Size)
+      if (open == null || !open.Value.SameStyle(item))
       {
-        if (openColor != null)
+        if (open != null)
           OverlayTextComposer.CloseStyle(_builder, openSize);
-        OverlayTextComposer.OpenStyle(_builder, item.Color, item.Size, highlight);
-        openColor = item.Color;
-        openSize = item.Size;
+        openSize = ItemSize(item, samples);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), openSize);
+        open = item;
       }
       OverlayTextComposer.AppendLiteral(_builder, item.Text);
     }
-    if (openColor != null)
+    if (open != null)
       OverlayTextComposer.CloseStyle(_builder, openSize);
   }
+
+  private float ItemSize(OverlayTextItem item, IOverlayNumberSource samples) =>
+    OverlayTextComposer.Size(item.Size, OverlayFormulaText.Compile(item.SizeFormula), samples, _elementScale);
+
+  private static Color ItemColor(OverlayTextItem item, Color highlight, IOverlayNumberSource samples) =>
+    OverlayTextComposer.Resolve(item.Color, highlight, OverlayFormulaText.Compile(item.Color.AlphaFormula), samples);
 
   // Where each item's characters are in the laid-out text.
   private void Map()
@@ -681,9 +762,14 @@ internal sealed partial class OverlayTextEditor
     Hide(_selectionRects, used);
     used = 0;
     float padding = 3 / Mathf.Max(.01f, _previewScale);
+    // The value the keypad edits glows in the accent; a value waiting for a
+    // dropped value does too while one is carried over it.
+    Color active = SettingsPalette.SoftAccent;
+    active.a = _dragValue != null && _dropTarget == DropTarget.Join ? .55f : .3f;
+    int editing = ChipOpen(out int selected) ? selected : -1;
     for (int i = 0; i < _document.Count; i++)
       if (_document[i].IsValue)
-        used = AddItemRect(_pillRects, used, i, new Color(1, 1, 1, .12f), padding);
+        used = AddItemRect(_pillRects, used, i, i == editing ? active : new Color(1, 1, 1, .12f), padding);
     Hide(_pillRects, used);
     foreach (Image pill in _pillRects)
       pill.transform.SetAsFirstSibling();

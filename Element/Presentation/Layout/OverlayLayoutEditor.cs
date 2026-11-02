@@ -83,7 +83,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     _root.SetActive(true);
     _history.Reset(_host.LayoutSettings);
     _selected = _dragging = -1;
-    _shapeDrag = ShapeDrag.None;
     _toolbarDragging = false;
     _guideX = _guideY = float.NaN;
     _horizontalSpacing = _verticalSpacing = default;
@@ -95,11 +94,17 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     if (!IsOpen)
       return;
-    // Closing the whole editor finishes an open text edit the same way.
+    // Closing the whole editor finishes an open text or shape edit the same way.
     if (_textEditor != null && _textEditor.IsOpen)
     {
       _textEditor.Close(save, true);
       if (_textEditor.IsOpen)
+        return;
+    }
+    if (_shapeEditor != null && _shapeEditor.IsOpen)
+    {
+      _shapeEditor.Close(save, true);
+      if (_shapeEditor.IsOpen)
         return;
     }
     if (save && !CommitPopovers())
@@ -119,7 +124,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     IsOpen = false;
     _closing = true;
     _dragging = -1;
-    _shapeDrag = ShapeDrag.None;
     _toolbarDragging = false;
     ClosePopovers();
     CloseElementSettings();
@@ -166,6 +170,15 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     {
       UIInteractionState.SetTextEditing(true);
       _textEditor.Tick();
+      _host.TickLayoutPreview();
+      UpdateFrames();
+      _cursors.Set(LayoutHandle.None);
+      return;
+    }
+    if (_shapeEditor != null && _shapeEditor.IsOpen)
+    {
+      UIInteractionState.SetTextEditing(true);
+      _shapeEditor.Tick();
       _host.TickLayoutPreview();
       UpdateFrames();
       _cursors.Set(LayoutHandle.None);
@@ -253,12 +266,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (canDrag && Input.GetMouseButtonDown(0))
         BeginToolbarDrag(mouse);
     }
-    else if (TryShapeHandleAt(mouse, out ShapeDrag shapeHandle, out int shapeIndex))
-    {
-      _cursors.Set(LayoutHandle.Move);
-      if (Input.GetMouseButtonDown(0))
-        BeginShapeDrag(shapeHandle, shapeIndex, mouse);
-    }
     else
     {
       int hovered = FindTarget(mouse, out LayoutHandle handle);
@@ -269,23 +276,17 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
           hovered == _lastClickTarget && hovered == _selected && Time.unscaledTime - _lastClickTime < .35f;
         _lastClickTarget = hovered;
         _lastClickTime = Time.unscaledTime;
-        if (doubleClick && _frames[hovered].Target is TextOverlayElement text)
-        {
-          OpenTextEditor(text, false);
+        if (doubleClick && OpenContentEditor(_frames[hovered].Target))
           return;
-        }
         _scalePending = false;
         _scaleErrorUntil = 0;
         _selected = _dragging = hovered;
         _dragHandle = handle;
-        _shapeDrag = ShapeDrag.None;
         _dragStart = _frames[hovered].Target.Bounds;
         _pointerStart = PointerFor(_frames[hovered].Target, mouse);
         _pressPosition = mouse;
         _pressMoved = false;
         _dragScale = ValidScale(_frames[hovered].Target.EffectiveScale);
-        if (_frames[hovered].Target is ShapeOverlayElement shape)
-          _shapeStartPixels = shape.PixelsPerUnit;
       }
       else if (Input.GetMouseButtonDown(0))
         _selected = -1;
@@ -299,30 +300,13 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     TargetFrame frame = _frames[_dragging];
     if ((mouse - _pressPosition).sqrMagnitude > 9)
       _pressMoved = true;
-    if (frame.Target.Available && Input.GetMouseButton(0))
-    {
-      if (_shapeDrag != ShapeDrag.None)
-        DragShapeHandle(mouse);
-      else if (_pressMoved)
-        DragBox(frame, mouse);
-    }
-    _cursors.Set(_shapeDrag != ShapeDrag.None ? LayoutHandle.Move : _dragHandle);
+    if (frame.Target.Available && Input.GetMouseButton(0) && _pressMoved)
+      DragBox(frame, mouse);
+    _cursors.Set(_dragHandle);
     if (!Input.GetMouseButton(0))
     {
-      bool clicked = !_pressMoved;
-      ShapeDrag shapeHandle = _shapeDrag;
-      int shapeIndex = _shapeIndex;
-      LayoutHandle boxHandle = _dragHandle;
       FinishDrag();
       _guideX = _guideY = float.NaN;
-      // Clicking a handle without moving it opens its exact values.
-      if (clicked && frame.Target is ShapeOverlayElement shape)
-      {
-        if (shapeHandle != ShapeDrag.None)
-          OpenShapeValues(shape, shapeHandle, shapeIndex, LayoutHandle.None);
-        else if (boxHandle != LayoutHandle.Move && boxHandle != LayoutHandle.None)
-          OpenShapeValues(shape, ShapeDrag.None, -1, boxHandle);
-      }
     }
   }
 
@@ -331,19 +315,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     Vector2 pointer = PointerFor(frame.Target, mouse);
     float dx = pointer.x - _pointerStart.x,
       dy = pointer.y - _pointerStart.y;
-    // A shape's sides stretch it one way; its corners and every other element scale evenly.
-    if (frame.Target is ShapeOverlayElement shape && IsEdge(_dragHandle))
-    {
-      LayoutBounds stretched = OverlayLayoutGeometry.Stretch(
-        ToBounds(_dragStart),
-        _dragHandle,
-        dx,
-        dy,
-        Mathf.Max(4, OverlayShapeMinimumPixels(shape))
-      );
-      shape.SetStretchedBounds(ToRect(stretched), _shapeStartPixels);
-      return;
-    }
     LayoutBounds resized = OverlayLayoutGeometry.Drag(
       ToBounds(_dragStart),
       _dragHandle,
@@ -382,15 +353,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     frame.Target.SetBounds(ToRect(resized));
   }
 
-  private static bool IsEdge(LayoutHandle handle) =>
-    handle == LayoutHandle.Left
-    || handle == LayoutHandle.Right
-    || handle == LayoutHandle.Top
-    || handle == LayoutHandle.Bottom;
-
-  private static float OverlayShapeMinimumPixels(ShapeOverlayElement shape) =>
-    Domain.Elements.OverlayShapeGeometry.MinimumSize * shape.PixelsPerUnit;
-
   public void Dispose()
   {
     _closing = true;
@@ -416,9 +378,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     CloseElementSettings();
     CloseModal();
     _colorPopover?.Dispose();
-    _elementPicker?.Dispose();
-    _valuePopover?.Dispose();
     _textEditor?.Dispose();
+    _shapeEditor?.Dispose();
     _ui?.Dispose();
     UIInteractionState.SetTextEditing(false);
     if (_ownedEvents != null)
@@ -469,12 +430,9 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     if (
       !IsGameplayActive()
       && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-      && _frames[_selected].Target is TextOverlayElement selectedText
+      && OpenContentEditor(_frames[_selected].Target)
     )
-    {
-      OpenTextEditor(selectedText, false);
       return;
-    }
     float step = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 10f : 1f;
     float dx =
       Input.GetKeyDown(KeyCode.LeftArrow) ? -step
@@ -494,9 +452,12 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       );
       target.CommitLayout(true);
     }
+    // Texts and shapes are sized in their editor, so + and − only scale the rest.
+    bool scalable = !SizedInEditor(_frames[_selected].Target);
     bool grow =
-      Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus);
-    bool shrink = Input.GetKeyDown(KeyCode.Minus) || Input.GetKeyDown(KeyCode.KeypadMinus);
+      scalable
+      && (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus));
+    bool shrink = scalable && (Input.GetKeyDown(KeyCode.Minus) || Input.GetKeyDown(KeyCode.KeypadMinus));
     if (grow || shrink)
     {
       float ratio = grow ? 1.02f : 1f / 1.02f;
@@ -513,12 +474,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     if (_dragging < 0 || _dragging >= _frames.Count)
       return;
     IOverlayLayoutTarget target = _frames[_dragging].Target;
-    if (target is ShapeOverlayElement shape && (_shapeDrag != ShapeDrag.None || IsEdge(_dragHandle)))
-      shape.CommitShape();
-    else
-      target.CommitLayout(_dragHandle == LayoutHandle.Move);
+    target.CommitLayout(_dragHandle == LayoutHandle.Move);
     _dragging = -1;
-    _shapeDrag = ShapeDrag.None;
     _history.Commit(_host.LayoutSettings);
   }
 
@@ -531,11 +488,14 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       IOverlayLayoutTarget selected = _frames[_selected].Target;
       Vector2 selectedPointer = PointerFor(selected, pointer);
       bestHandle = OverlayLayoutGeometry.HitTest(
-        ToBounds(EditBounds(selected)),
+        ToBounds(selected.Bounds),
         selectedPointer.x,
         selectedPointer.y,
-        10 * UiScale
+        SizedInEditor(selected) ? 0 : 10 * UiScale
       );
+      // Texts and shapes only move; their size is set in their editor.
+      if (bestHandle != LayoutHandle.None && SizedInEditor(selected))
+        bestHandle = LayoutHandle.Move;
       if (bestHandle != LayoutHandle.None)
         return _selected;
     }
@@ -547,17 +507,18 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       IOverlayLayoutTarget target = _frames[index].Target;
       if (!target.Available || !target.Enabled)
         continue;
-      Rect bounds = index == _selected ? EditBounds(target) : target.SelectionBounds;
+      Rect bounds = index == _selected ? target.Bounds : target.SelectionBounds;
       if (bounds.width <= 0 || bounds.height <= 0)
         continue;
       Vector2 localPointer = PointerFor(target, pointer);
+      bool resizable = index == _selected && !SizedInEditor(target);
       LayoutHandle handle = OverlayLayoutGeometry.HitTest(
         ToBounds(bounds),
         localPointer.x,
         localPointer.y,
-        index == _selected ? 10 * UiScale : 0
+        resizable ? 10 * UiScale : 0
       );
-      if (index != _selected && handle != LayoutHandle.None)
+      if (!resizable && handle != LayoutHandle.None)
         handle = LayoutHandle.Move;
       if (handle == LayoutHandle.None)
         continue;
@@ -574,31 +535,16 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     return best;
   }
 
-  // A shape's dashed box sits a little outside it, so the box's corners stay
-  // apart from the shape's own corner handles.
-  private Rect EditBounds(IOverlayLayoutTarget target)
-  {
-    Rect bounds = target.Bounds;
-    if (
-      target is not ShapeOverlayElement shape
-      || shape.Shape == null
-      || !Domain.Elements.OverlayShapeGeometry.HasCorners(shape.Shape.Kind)
-    )
-      return bounds;
-    float margin = 10 * UiScale;
-    return new Rect(bounds.x - margin, bounds.y - margin, bounds.width + margin * 2, bounds.height + margin * 2);
-  }
-
   private static Vector2 PointerFor(IOverlayLayoutTarget target, Vector2 fallback) =>
     target is IOverlayLayoutPointer native ? native.PointerInLayoutSpace(fallback) : fallback;
 
   private void UpdateFrames()
   {
-    bool editingText = _textEditor != null && _textEditor.IsOpen;
-    bool covered = _modalRoot != null || editingText;
-    // The text editor stands alone; the toolbar would show through its dim.
-    if (_toolbar.gameObject.activeSelf == editingText)
-      _toolbar.gameObject.SetActive(!editingText);
+    bool editingContent = ContentEditorOpen;
+    bool covered = _modalRoot != null || editingContent;
+    // The text and shape editors stand alone; the toolbar would show through their dim.
+    if (_toolbar.gameObject.activeSelf == editingContent)
+      _toolbar.gameObject.SetActive(!editingContent);
     for (int index = 0; index < _frames.Count; index++)
     {
       TargetFrame frame = _frames[index];
@@ -608,13 +554,12 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       frame.Outline.gameObject.SetActive(visible);
       if (!visible)
         continue;
-      Rect bounds = EditBounds(frame.Target);
+      Rect bounds = frame.Target.Bounds;
       SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(UiScale);
       Rect panel = NativeExclusionBounds;
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
-    UpdateShapeHandles(covered);
     SyncElementSettings();
     UpdateToolbar();
     UpdateGuides();
@@ -650,8 +595,6 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     LayoutOutlineGraphic outline = root.AddComponent<LayoutOutlineGraphic>();
     outline.raycastTarget = false;
     _frames.Add(new TargetFrame(target, outline));
-    if (_shapeHandles != null)
-      _shapeHandles.transform.SetAsLastSibling();
   }
 
   private int IndexOf(IOverlayLayoutTarget target)

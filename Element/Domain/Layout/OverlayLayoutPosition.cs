@@ -23,6 +23,11 @@ internal readonly struct AnchoredLayoutPosition
 
 // Persist offsets in shared logical units, then resolve against the current
 // element size. Coordinates are game-viewport pixels with a top-left origin.
+//
+// The anchor is a point on the screen; the offset runs from it to the same
+// point of the element, its pivot. The pivot is the anchor's own point unless
+// the element grows from another (OverlayGrowth), so a size change keeps the
+// pivot where it is.
 internal static class OverlayLayoutPosition
 {
   public const int CurrentVersion = 1;
@@ -48,6 +53,15 @@ internal static class OverlayLayoutPosition
 
   public static float AnchorY(Anchor9 anchor) => ValidAnchor(anchor) ? (int)anchor / 3 * .5f : .5f;
 
+  public static bool ValidGrowth(OverlayGrowth growth) =>
+    growth >= OverlayGrowth.TopLeft && growth <= OverlayGrowth.BottomRight;
+
+  /// <summary>The point an element grows from: its own choice, or the anchor's point when Auto.</summary>
+  public static Anchor9 GrowPoint(OverlayGrowth growth, Anchor9 anchor) =>
+    ValidGrowth(growth) ? (Anchor9)(int)growth
+    : ValidAnchor(anchor) ? anchor
+    : Anchor9.Center;
+
   public static Anchor9 SelectAnchor(LayoutBounds bounds, float viewportWidth, float viewportHeight)
   {
     if (!ValidBounds(bounds) || !Positive(viewportWidth) || !Positive(viewportHeight))
@@ -63,7 +77,8 @@ internal static class OverlayLayoutPosition
     LayoutBounds bounds,
     float viewportWidth,
     float viewportHeight,
-    Anchor9? anchor = null
+    Anchor9? anchor = null,
+    OverlayGrowth growth = OverlayGrowth.Auto
   )
   {
     if (
@@ -75,9 +90,14 @@ internal static class OverlayLayoutPosition
       return new AnchoredLayoutPosition(Anchor9.Center, float.NaN, float.NaN);
 
     Anchor9 selected = anchor ?? SelectAnchor(bounds, viewportWidth, viewportHeight);
+    Anchor9 pivot = GrowPoint(growth, selected);
     double scale = ScreenScale(viewportWidth, viewportHeight);
-    float x = (float)((bounds.X + (double)AnchorX(selected) * (bounds.Width - viewportWidth)) / scale);
-    float y = (float)((bounds.Y + (double)AnchorY(selected) * (bounds.Height - viewportHeight)) / scale);
+    float x = (float)(
+      (bounds.X + (double)AnchorX(pivot) * bounds.Width - (double)AnchorX(selected) * viewportWidth) / scale
+    );
+    float y = (float)(
+      (bounds.Y + (double)AnchorY(pivot) * bounds.Height - (double)AnchorY(selected) * viewportHeight) / scale
+    );
     return new AnchoredLayoutPosition(selected, x, y);
   }
 
@@ -99,9 +119,10 @@ internal static class OverlayLayoutPosition
     if (IsAnchored(settings))
     {
       float scale = ScreenScale(screenWidth, screenHeight);
+      Anchor9 pivot = GrowPoint(settings.GrowFrom, settings.Anchor);
       return new LayoutBounds(
-        AnchorX(settings.Anchor) * (screenWidth - width) + settings.OffsetX * scale,
-        AnchorY(settings.Anchor) * (screenHeight - height) + settings.OffsetY * scale,
+        AnchorX(settings.Anchor) * screenWidth - AnchorX(pivot) * width + settings.OffsetX * scale,
+        AnchorY(settings.Anchor) * screenHeight - AnchorY(pivot) * height + settings.OffsetY * scale,
         width,
         height
       );

@@ -30,13 +30,13 @@ internal static class OverlayElementDefaults
   public const string ComboId = "combo";
   public const string ComboTitleId = "combo-title";
   private const string White = "#FFFFFF";
-  private const string JudgementBase = "#D958FF";
+  internal const string JudgementBase = "#D958FF";
 
   private static readonly OverlayDefaultElement[] Elements =
   {
-    new("progress", 1, () => Labelled("progress-label", "progress")),
-    new("accuracy", 1, () => Labelled("accuracy-label", "accuracy")),
-    new("time", 1, () => Labelled("time-label", "time")),
+    new("progress", 1, () => Labelled("progress-label", Highlighted(OverlayElementMigration.Progress))),
+    new("accuracy", 1, () => Labelled("accuracy-label", Highlighted(OverlayElementMigration.Percent("accuracy")))),
+    new("time", 1, () => Labelled("time-label", Highlighted(OverlayElementMigration.Time))),
     new("fps", 1, () => Prefixed("FPS | ", "fps")),
     new("tile-bpm", 1, () => Prefixed("TBPM | ", "tile-bpm")),
     new("current-bpm", 1, () => Prefixed("CBPM | ", "current-bpm")),
@@ -44,10 +44,14 @@ internal static class OverlayElementDefaults
     new("song-title", 24f / TextSize, () => new() { Value("song-title", Custom(White)) }),
     new(ComboId, 78f / TextSize, () => new() { Value("combo", OverlayColorSettings.HighlightColor()) }),
     new(ComboTitleId, 40f / TextSize, () => new() { OverlayTextRun.Literal("Perfect", Custom(White)) }),
-    new("judgement", 1, () => new() { Value("judgements", Custom(JudgementBase)) }),
-    new("timing-scale", 20f / TextSize, () => Plain("Timing Scale - ", "timing-scale")),
-    new("attempt", 1, () => Plain("Attempt ", "attempt")),
-    new("full-attempt", 1, () => Plain("Full Attempt ", "full-attempt")),
+    new("judgement", 1, () => OverlayElementMigration.Judgements(Custom(JudgementBase), 0)),
+    new(
+      "timing-scale",
+      20f / TextSize,
+      () => Plain("Timing Scale - ", OverlayElementMigration.Percent("timing-scale"))
+    ),
+    new("attempt", 1, () => Plain("Attempt ", Single("attempt"))),
+    new("full-attempt", 1, () => Plain("Full Attempt ", Single("full-attempt"))),
   };
 
   public static IReadOnlyList<OverlayDefaultElement> All => Elements;
@@ -113,19 +117,31 @@ internal static class OverlayElementDefaults
     layout.PendingGroup = string.Empty;
   }
 
-  private static List<OverlayTextRun> Labelled(string label, string value) =>
-    new()
-    {
-      Value(label, Custom(White)),
-      OverlayTextRun.Literal(" | ", Custom(White)),
-      Value(value, OverlayColorSettings.HighlightColor()),
-    };
+  private static List<OverlayTextRun> Labelled(string label, List<OverlayTextRun> value)
+  {
+    List<OverlayTextRun> runs = new() { Value(label, Custom(White)), OverlayTextRun.Literal(" | ", Custom(White)) };
+    runs.AddRange(value);
+    return runs;
+  }
 
   private static List<OverlayTextRun> Prefixed(string prefix, string value) =>
     new() { OverlayTextRun.Literal(prefix, Custom(White)), Value(value, OverlayColorSettings.HighlightColor()) };
 
-  private static List<OverlayTextRun> Plain(string prefix, string value) =>
-    new() { OverlayTextRun.Literal(prefix, Custom(White)), Value(value, Custom(White)) };
+  private static List<OverlayTextRun> Plain(
+    string prefix,
+    Func<OverlayColorSettings, float, List<OverlayTextRun>> value
+  )
+  {
+    List<OverlayTextRun> runs = new() { OverlayTextRun.Literal(prefix, Custom(White)) };
+    runs.AddRange(value(Custom(White), 0));
+    return runs;
+  }
+
+  private static List<OverlayTextRun> Highlighted(Func<OverlayColorSettings, float, List<OverlayTextRun>> value) =>
+    value(OverlayColorSettings.HighlightColor(), 0);
+
+  private static Func<OverlayColorSettings, float, List<OverlayTextRun>> Single(string key) =>
+    (color, size) => new() { OverlayElementMigration.Run(key, color, size) };
 
   private static OverlayTextRun Value(string key, OverlayColorSettings color) => OverlayTextRun.ValueRun(key, color);
 
@@ -134,8 +150,119 @@ internal static class OverlayElementDefaults
 
 // Settings saved before 1.1 list fixed presets. Turn each into the equivalent
 // text element in place, keeping whether it is shown and where it sits.
+// Texts saved by 1.1.0 use values that were later split up or lost their unit;
+// MigrateFormulas rewrites them so they still read the same.
 internal static class OverlayElementMigration
 {
+  private static readonly (string Key, string Color)[] JudgementRow =
+  {
+    ("overload", null),
+    ("too-early", "#FF0000"),
+    ("very-early", "#FF6F4E"),
+    ("early-perfect", "#A0FF4E"),
+    ("perfect-early", "#60FF4E"),
+    ("pure-perfect", "#60FF4E"),
+    ("perfect-late", "#60FF4E"),
+    ("late-perfect", "#A0FF4E"),
+    ("very-late", "#FF6F4E"),
+    ("too-late", "#FF0000"),
+    ("miss", null),
+  };
+
+  // Values that used to end in "%".
+  private static readonly HashSet<string> PercentValues = new()
+  {
+    "progress-start",
+    "progress-current",
+    "accuracy",
+    "timing-scale",
+  };
+
+  /// <summary>"0%-48%": start and current progress with their percent signs.</summary>
+  public static List<OverlayTextRun> Progress(OverlayColorSettings color, float size) =>
+    new()
+    {
+      Run("progress-start", color, size),
+      Literal("%-", color, size),
+      Run("progress-current", color, size),
+      Literal("%", color, size),
+    };
+
+  /// <summary>"1:27~3:48": elapsed and total time.</summary>
+  public static List<OverlayTextRun> Time(OverlayColorSettings color, float size) =>
+    new() { Run("time-current", color, size), Literal("~", color, size), Run("time-total", color, size) };
+
+  public static Func<OverlayColorSettings, float, List<OverlayTextRun>> Percent(string key) =>
+    (color, size) => new() { Run(key, color, size), Literal("%", color, size) };
+
+  /// <summary>The colored row of every judgment count; <paramref name="color"/> is its base color.</summary>
+  public static List<OverlayTextRun> Judgements(OverlayColorSettings color, float size)
+  {
+    List<OverlayTextRun> runs = new();
+    for (int i = 0; i < JudgementRow.Length; i++)
+    {
+      if (i > 0)
+        runs.Add(Literal(" ", color, size));
+      (string key, string hex) = JudgementRow[i];
+      runs.Add(Run(key, hex == null ? color.Clone() : OverlayColorSettings.Custom(hex, color.Alpha), size));
+    }
+    return runs;
+  }
+
+  public static OverlayTextRun Run(string key, OverlayColorSettings color, float size)
+  {
+    OverlayTextRun run = OverlayTextRun.ValueRun(key, color.Clone());
+    run.Size = size;
+    return run;
+  }
+
+  private static OverlayTextRun Literal(string text, OverlayColorSettings color, float size)
+  {
+    OverlayTextRun run = OverlayTextRun.Literal(text, color.Clone());
+    run.Size = size;
+    return run;
+  }
+
+  /// <summary>Rewrites 1.1.0 texts: split values become their parts, and lost units come back as text.</summary>
+  public static void MigrateFormulas(List<OverlayLayoutSettings> layouts)
+  {
+    if (layouts == null)
+      return;
+    foreach (OverlayLayoutSettings layout in layouts)
+    {
+      List<OverlayTextRun> runs = layout?.Text?.Runs;
+      if (runs == null)
+        continue;
+      List<OverlayTextRun> rewritten = new(runs.Count);
+      foreach (OverlayTextRun run in runs)
+      {
+        if (run == null)
+          continue;
+        OverlayColorSettings color = run.Color ?? OverlayColorSettings.Custom("#FFFFFF");
+        switch (run.IsValue ? run.Value : null)
+        {
+          case "progress":
+            rewritten.AddRange(Progress(color, run.Size));
+            break;
+          case "time":
+            rewritten.AddRange(Time(color, run.Size));
+            break;
+          case "judgements":
+            rewritten.AddRange(Judgements(color, run.Size));
+            break;
+          case string key when PercentValues.Contains(key):
+            rewritten.Add(run);
+            rewritten.Add(Literal("%", color, run.Size));
+            break;
+          default:
+            rewritten.Add(run);
+            break;
+        }
+      }
+      layout.Text.Runs = rewritten;
+    }
+  }
+
   public static void Migrate(List<OverlayLayoutSettings> layouts)
   {
     if (layouts == null)

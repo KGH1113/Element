@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
@@ -33,6 +34,7 @@ internal sealed partial class OverlayLayoutEditor
     _toolbarGrabOffset;
   private string _actionHint = "";
   private int _scaleSelection = -2;
+  private Button _editContent;
   private Button _undo,
     _redo,
     _cancel,
@@ -222,6 +224,10 @@ internal sealed partial class OverlayLayoutEditor
     _scaleSuffix = _ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
     AlignScaleValue();
     _minus = IconButton(LayoutAction.Minus, L("축소", "Decrease size"), 148, 60, () => ScaleBy(.95f), 40);
+    // Texts and shapes are sized in their editor; their place for scale opens it.
+    _editContent = _ui.Button(L("텍스트 편집", "Edit text"), _toolbar, 12, 60, 172, 40, EditSelected, true);
+    _editContent.name = "Edit element";
+    _toolbarControls.Add((RectTransform)_editContent.transform);
     _ui.Panel("Selection divider", _toolbar, 196, 68, 1, 24, new Color(1, 1, 1, .1f), false);
     _reset = IconButton(LayoutAction.Reset, L("선택 요소 초기화", "Reset element"), 208, 60, ResetSelected, 40);
     _snap = IconButton(
@@ -274,6 +280,16 @@ internal sealed partial class OverlayLayoutEditor
     tooltip.Changed = visible => _actionHint = visible ? hint : "";
     return button;
   }
+
+  private void EditSelected()
+  {
+    if (HasSelection)
+      OpenContentEditor(_frames[_selected].Target);
+  }
+
+  // Texts and shapes take their size from their editor, not from a scale.
+  private static bool SizedInEditor(IOverlayLayoutTarget target) =>
+    target is TextOverlayElement || target is ShapeOverlayElement;
 
   private bool HasSelection =>
     _selected >= 0
@@ -408,6 +424,18 @@ internal sealed partial class OverlayLayoutEditor
     }
     _undo.interactable = _history.CanUndo;
     _redo.interactable = _history.CanRedo;
+    IOverlayLayoutTarget selection = HasSelection ? _frames[_selected].Target : null;
+    bool edit = SizedInEditor(selection);
+    if (_editContent.gameObject.activeSelf != edit)
+    {
+      _editContent.gameObject.SetActive(edit);
+      _plus.gameObject.SetActive(!edit);
+      _minus.gameObject.SetActive(!edit);
+      _scaleInput.gameObject.SetActive(!edit);
+    }
+    if (edit)
+      _editContent.GetComponentInChildren<TextMeshProUGUI>().text =
+        selection is ShapeOverlayElement ? L("도형 편집", "Edit shape") : L("텍스트 편집", "Edit text");
     _scaleInput.interactable =
       _minus.interactable =
       _plus.interactable =

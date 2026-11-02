@@ -51,9 +51,13 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     Effects ??= new();
     Effects.Normalize();
     OverlayLayouts ??= new();
+    // Presets from before 1.1 become texts already in the current form; texts
+    // saved by 1.1.0 are rewritten for split values and units.
     if (SettingsVersion < 3)
       Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
-    SettingsVersion = Math.Max(SettingsVersion, 3);
+    else if (SettingsVersion < 4)
+      Domain.Elements.OverlayElementMigration.MigrateFormulas(OverlayLayouts);
+    SettingsVersion = Math.Max(SettingsVersion, 4);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

@@ -21,6 +21,11 @@ internal enum LayoutAction
   Square,
   Triangle,
   Circle,
+  Backspace,
+  Back,
+  Forward,
+  GrowFrom,
+  StrokeWidth,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -60,6 +65,39 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         break;
       case LayoutAction.Circle:
         Arc(mesh, 12, 12, 8, 0, 360);
+        break;
+      case LayoutAction.Back:
+        Line(mesh, 15, 5, 8, 12);
+        Line(mesh, 8, 12, 15, 19);
+        break;
+      case LayoutAction.Forward:
+        Line(mesh, 9, 5, 16, 12);
+        Line(mesh, 16, 12, 9, 19);
+        break;
+      case LayoutAction.GrowFrom:
+        // A box with its top-left point filled and arrows out of it.
+        Box(mesh, 4, 4, 20, 20);
+        Dot(mesh, 4, 4, 3);
+        Line(mesh, 9, 9, 15, 15);
+        Line(mesh, 15, 15, 15, 11);
+        Line(mesh, 15, 15, 11, 15);
+        break;
+      case LayoutAction.StrokeWidth:
+        // Lines growing heavier, like a border's width.
+        Line(mesh, 4, 6, 20, 6, 1.2f);
+        Line(mesh, 4, 12, 20, 12, 2.2f);
+        Line(mesh, 4, 18.5f, 20, 18.5f, 3.6f);
+        break;
+      case LayoutAction.Backspace:
+        BeginPath();
+        PathPoint(9, 5);
+        PathPoint(21, 5);
+        PathPoint(21, 19);
+        PathPoint(9, 19);
+        PathPoint(3, 12);
+        Stroke(mesh, 2, true);
+        Line(mesh, 12, 9, 18, 15);
+        Line(mesh, 18, 9, 12, 15);
         break;
       case LayoutAction.Close:
         Line(mesh, 6, 6, 18, 18);

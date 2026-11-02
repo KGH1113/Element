@@ -22,6 +22,7 @@ internal static class OverlayElementTests
     SplitsTheComboIntoTwoTexts();
     HistoryRestoresTextAndShapeContent();
     ElementSettingsSurviveXml();
+    SpacesBetweenValuesSurviveSaving();
     TextDocumentKeepsValuesAtomic();
     TextDocumentMergesRunsAndColors();
     TextDocumentWordsAndCharacters();
@@ -551,6 +552,33 @@ internal static class OverlayElementTests
       loaded.Shape.Points[1].RadiusFormula == "{combo}" && loaded.Shape.HeightFormula == "{fps}/2",
       "formulas load back"
     );
+  }
+
+  // A space on its own between two values, as in the judgment row, is a run
+  // of only whitespace; reading the settings file back must keep it.
+  private static void SpacesBetweenValuesSurviveSaving()
+  {
+    List<OverlayLayoutSettings> layouts = new();
+    OverlayLayoutSettings judgement = new()
+    {
+      Id = "judgement",
+      Customized = true,
+      Text = new OverlayTextSettings(),
+    };
+    judgement.Text.Runs.AddRange(OverlayElementMigration.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
+    judgement.Text.Runs.Add(OverlayTextRun.Literal("  ", OverlayColorSettings.HighlightColor()));
+    layouts.Add(judgement);
+    using MemoryStream file = new();
+    using (StreamWriter writer = new(file, new System.Text.UTF8Encoding(false), 1024, true))
+      new XmlSerializer(typeof(List<OverlayLayoutSettings>)).Serialize(writer, layouts);
+    file.Position = 0;
+    List<OverlayLayoutSettings> loaded = SettingsXml.Read<List<OverlayLayoutSettings>>(file);
+    List<OverlayTextRun> runs = loaded[0].Text.Runs;
+    Check(
+      runs.Count == judgement.Text.Runs.Count && runs[1].Text == " " && runs[^1].Text == "  ",
+      "spaces between values come back after saving: '" + runs[1].Text + "'"
+    );
+    Check(loaded[0].SameAs(judgement), "the rest of the text comes back as it was");
   }
 
   private static void TextDocumentKeepsValuesAtomic()

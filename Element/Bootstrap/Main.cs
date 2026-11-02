@@ -51,8 +51,7 @@ public sealed class Main
       // Other mods' IPC loaders look for this mod's runtime at the mod root.
       BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
-      Instance.Settings =
-        UnityModManager.ModSettings.Load<ElementSettings>(modEntry) ?? new ElementSettings();
+      Instance.Settings = ElementSettings.Load(modEntry);
       Instance.Settings.Migrate();
       Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;

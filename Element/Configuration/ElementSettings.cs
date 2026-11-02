@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -70,5 +71,28 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public override void Save(UnityModManager.ModEntry modEntry)
   {
     Save(this, modEntry);
+  }
+
+  /// <summary>
+  /// Reads the saved settings. Unity Mod Manager's own loader drops text that
+  /// is only spaces, such as the space between two values in an overlay text,
+  /// so the same file is read here with whitespace kept.
+  /// </summary>
+  public static ElementSettings Load(UnityModManager.ModEntry modEntry)
+  {
+    ElementSettings fresh = new();
+    string path = fresh.GetPath(modEntry);
+    if (!File.Exists(path))
+      return fresh;
+    try
+    {
+      using FileStream stream = File.OpenRead(path);
+      return SettingsXml.Read<ElementSettings>(stream) ?? fresh;
+    }
+    catch (Exception exception)
+    {
+      modEntry.Logger.Warning("Settings were read without keeping spaces: " + exception.Message);
+      return Load<ElementSettings>(modEntry) ?? fresh;
+    }
   }
 }

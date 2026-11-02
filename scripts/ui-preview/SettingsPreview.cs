@@ -204,6 +204,7 @@ namespace Element.Editor
       CheckKeyViewers(editor, viewers);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
+      CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
@@ -599,6 +600,27 @@ namespace Element.Editor
 
     private static Vector2 ScreenCenter(RectTransform rect) =>
       RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+
+    // Unity's runtime is Mono: the settings file must keep a space that stands
+    // alone between two values, as in the judgment row.
+    private static void CheckSettingsKeepSpaces()
+    {
+      List<OverlayLayoutSettings> layouts = new List<OverlayLayoutSettings>
+      {
+        new OverlayLayoutSettings { Id = "judgement", Customized = true, Text = new OverlayTextSettings() },
+      };
+      layouts[0].Text.Runs.AddRange(OverlayElementMigration.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
+      var serializer = new System.Xml.Serialization.XmlSerializer(typeof(List<OverlayLayoutSettings>));
+      using (var file = new MemoryStream())
+      {
+        using (var writer = new StreamWriter(file, new System.Text.UTF8Encoding(false), 1024, true))
+          serializer.Serialize(writer, layouts);
+        file.Position = 0;
+        List<OverlayLayoutSettings> loaded = SettingsXml.Read<List<OverlayLayoutSettings>>(file);
+        Assert(loaded[0].Text.Runs.Count == layouts[0].Text.Runs.Count && loaded[0].Text.Runs[1].Text == " ",
+          "spaces between judgments come back after a restart: '" + loaded[0].Text.Runs[1].Text + "'");
+      }
+    }
 
     // Several elements: modifier clicks, the marquee, moving, arrows, align,
     // distribute, delete and select all, each one undo step.

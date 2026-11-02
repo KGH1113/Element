@@ -26,6 +26,14 @@ internal enum LayoutAction
   Forward,
   GrowFrom,
   StrokeWidth,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignTop,
+  AlignMiddle,
+  AlignBottom,
+  DistributeHorizontal,
+  DistributeVertical,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -87,6 +95,50 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         Line(mesh, 4, 6, 20, 6, 1.2f);
         Line(mesh, 4, 12, 20, 12, 2.2f);
         Line(mesh, 4, 18.5f, 20, 18.5f, 3.6f);
+        break;
+      // Two bars lined up against a guide line.
+      case LayoutAction.AlignLeft:
+        Line(mesh, 4, 3, 4, 21);
+        Line(mesh, 8, 8, 20, 8, 4);
+        Line(mesh, 8, 16, 15, 16, 4);
+        break;
+      case LayoutAction.AlignCenter:
+        Line(mesh, 12, 3, 12, 21);
+        Line(mesh, 5, 8, 19, 8, 4);
+        Line(mesh, 8, 16, 16, 16, 4);
+        break;
+      case LayoutAction.AlignRight:
+        Line(mesh, 20, 3, 20, 21);
+        Line(mesh, 4, 8, 16, 8, 4);
+        Line(mesh, 9, 16, 16, 16, 4);
+        break;
+      case LayoutAction.AlignTop:
+        Line(mesh, 3, 4, 21, 4);
+        Line(mesh, 8, 8, 8, 20, 4);
+        Line(mesh, 16, 8, 16, 15, 4);
+        break;
+      case LayoutAction.AlignMiddle:
+        Line(mesh, 3, 12, 21, 12);
+        Line(mesh, 8, 5, 8, 19, 4);
+        Line(mesh, 16, 8, 16, 16, 4);
+        break;
+      case LayoutAction.AlignBottom:
+        Line(mesh, 3, 20, 21, 20);
+        Line(mesh, 8, 4, 8, 16, 4);
+        Line(mesh, 16, 9, 16, 16, 4);
+        break;
+      // Two bars between two edges, with equal room around them.
+      case LayoutAction.DistributeHorizontal:
+        Line(mesh, 3, 4, 3, 20);
+        Line(mesh, 21, 4, 21, 20);
+        Line(mesh, 9, 7, 9, 17, 3.5f);
+        Line(mesh, 15, 7, 15, 17, 3.5f);
+        break;
+      case LayoutAction.DistributeVertical:
+        Line(mesh, 4, 3, 20, 3);
+        Line(mesh, 4, 21, 20, 21);
+        Line(mesh, 7, 9, 17, 9, 3.5f);
+        Line(mesh, 7, 15, 17, 15, 3.5f);
         break;
       case LayoutAction.Backspace:
         BeginPath();

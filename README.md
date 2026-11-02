@@ -49,7 +49,7 @@
 <td width="33%" valign="top">
 
 ### 끌어서 배치
-드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
+드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
 
 </td>
 <td width="33%" valign="top">
@@ -110,6 +110,8 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | --- | --- | --- |
 | 설정 화면 열기·닫기 | <kbd>왼쪽 Alt</kbd> + <kbd>Tab</kbd> | <kbd>왼쪽 ⌥</kbd> + <kbd>Tab</kbd> |
 | 요소 선택 | <kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd> | 동일 |
+| 여러 요소 선택 | 빈 곳 드래그, <kbd>Ctrl</kbd> 또는 <kbd>Shift</kbd> + 클릭·드래그 | 빈 곳 드래그, <kbd>⌘</kbd> 또는 <kbd>Shift</kbd> + 클릭·드래그 |
+| 전체 선택 | <kbd>Ctrl</kbd> + <kbd>A</kbd> | <kbd>⌘</kbd> + <kbd>A</kbd> |
 | 1px / 10px 이동 | <kbd>←↑↓→</kbd> / <kbd>Shift</kbd> + <kbd>←↑↓→</kbd> | 동일 |
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
 | 저장 / 취소 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> | <kbd>⌘</kbd> + <kbd>Enter</kbd> / <kbd>Esc</kbd> |

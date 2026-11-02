@@ -12,10 +12,11 @@ using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Layout;
 
-// A second toolbar that follows a selected key viewer with hand or foot. Texts
-// and shapes have none: the main toolbar's Edit button, a double-click or
-// Enter opens their editor. It drags by its grip like the main toolbar and
-// keeps its place; it never blocks the canvas.
+// A second toolbar that follows a selected key viewer with hand or foot, or
+// several selected elements with align and distribute. A single text or shape
+// has none: the main toolbar's Edit button, a double-click or Enter opens
+// its editor. It drags by its grip like the main toolbar and keeps its place;
+// it never blocks the canvas.
 internal sealed partial class OverlayLayoutEditor
 {
   private const float ElementBarHeight = 56;
@@ -42,7 +43,16 @@ internal sealed partial class OverlayLayoutEditor
       CloseElementSettings();
       return;
     }
-    if (_settingsTarget != target || _settingsStale)
+    if (MultiSelected)
+    {
+      if (!_settingsArrange || _settingsStale)
+      {
+        _settingsStale = false;
+        BuildArrangeSettings();
+      }
+      RefreshArrange();
+    }
+    else if (_settingsTarget != target || _settingsStale || _settingsArrange)
     {
       _settingsStale = false;
       if (OverlayElementKinds.IsKeyViewer(target.TemplateId))
@@ -145,8 +155,20 @@ internal sealed partial class OverlayLayoutEditor
     _settingsUi.Panel("Divider", _settingsPanel, x, 16, 1, 24, new Color(1, 1, 1, .1f), false);
 
   // Errors share the toolbar's help line, where scale errors already appear.
+  private bool _helpIsNote;
+
+  // A plain note, not an error, in the same place: what a press did when it
+  // had nothing to change.
+  private void ShowEditorNote(string message)
+  {
+    _keyboardHelp.text = message;
+    _scaleErrorUntil = Time.unscaledTime + 4;
+    _helpIsNote = true;
+  }
+
   private void ShowEditorError(string message)
   {
+    _helpIsNote = false;
     _keyboardHelp.text = message;
     _scaleErrorUntil = Time.unscaledTime + 5;
   }
@@ -214,6 +236,9 @@ internal sealed partial class OverlayLayoutEditor
     _settingsUi = null;
     _settingsTarget = null;
     _kindControl = null;
+    _settingsArrange = false;
+    _distributeHorizontal = _distributeVertical = null;
+    _arrangeIcons.Clear();
     _elementBarControls.Clear();
   }
 }

@@ -83,6 +83,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     _root.SetActive(true);
     _history.Reset(_host.LayoutSettings);
     _selected = _dragging = -1;
+    _selection.Clear();
+    EndMarquee();
     _toolbarDragging = false;
     _guideX = _guideY = float.NaN;
     _horizontalSpacing = _verticalSpacing = default;
@@ -225,6 +227,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     if (!UnityEngine.Application.isFocused)
     {
+      EndMarquee();
       FinishDrag();
       _toolbarDragging = false;
       _guideX = _guideY = float.NaN;
@@ -251,6 +254,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     else if (_dragging >= 0)
       ContinueDrag(mouse);
+    else if (_marqueePending)
+      ContinueMarquee(mouse);
     else if (SettingsPanelContains(mouse))
     {
       // Like the main toolbar, the element toolbar drags from anywhere but its controls.
@@ -269,30 +274,47 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     else
     {
       int hovered = FindTarget(mouse, out LayoutHandle handle);
-      _cursors.Set(handle);
-      if (hovered >= 0 && Input.GetMouseButtonDown(0))
+      // With Cmd/Ctrl or Shift, a press toggles or draws a marquee instead of moving.
+      bool adding = SelectionModifierHeld();
+      _cursors.Set(adding ? LayoutHandle.None : handle);
+      if (Input.GetMouseButtonDown(0))
       {
-        bool doubleClick =
-          hovered == _lastClickTarget && hovered == _selected && Time.unscaledTime - _lastClickTime < .35f;
-        _lastClickTarget = hovered;
-        _lastClickTime = Time.unscaledTime;
-        if (doubleClick && OpenContentEditor(_frames[hovered].Target))
-          return;
-        _scalePending = false;
-        _scaleErrorUntil = 0;
-        _selected = _dragging = hovered;
-        _dragHandle = handle;
-        _dragStart = _frames[hovered].Target.Bounds;
-        _pointerStart = PointerFor(_frames[hovered].Target, mouse);
-        _pressPosition = mouse;
-        _pressMoved = false;
-        _dragScale = ValidScale(_frames[hovered].Target.EffectiveScale);
+        if (adding || hovered < 0)
+          BeginMarquee(mouse, adding ? hovered : -1, adding);
+        else
+          PressElement(hovered, handle, mouse);
       }
-      else if (Input.GetMouseButtonDown(0))
-        _selected = -1;
     }
     HandleKeyboard();
     UpdateFrames();
+  }
+
+  private void PressElement(int hovered, LayoutHandle handle, Vector2 mouse)
+  {
+    bool doubleClick = hovered == _lastClickTarget && hovered == _selected && Time.unscaledTime - _lastClickTime < .35f;
+    _lastClickTarget = hovered;
+    _lastClickTime = Time.unscaledTime;
+    if (doubleClick && OpenContentEditor(_frames[hovered].Target))
+      return;
+    _scalePending = false;
+    _scaleErrorUntil = 0;
+    IOverlayLayoutTarget target = _frames[hovered].Target;
+    // Pressing one of several selected elements moves them all.
+    if (MultiSelected && IsSelected(target))
+    {
+      _selected = hovered;
+      _collapseTo = hovered;
+      BeginGroupDrag();
+    }
+    else
+      SelectOnly(hovered);
+    _dragging = hovered;
+    _dragHandle = handle;
+    _dragStart = target.Bounds;
+    _pointerStart = PointerFor(target, mouse);
+    _pressPosition = mouse;
+    _pressMoved = false;
+    _dragScale = ValidScale(target.EffectiveScale);
   }
 
   private void ContinueDrag(Vector2 mouse)
@@ -301,13 +323,25 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     if ((mouse - _pressPosition).sqrMagnitude > 9)
       _pressMoved = true;
     if (frame.Target.Available && Input.GetMouseButton(0) && _pressMoved)
-      DragBox(frame, mouse);
+    {
+      if (GroupDragging)
+        DragGroup(mouse);
+      else
+        DragBox(frame, mouse);
+    }
     _cursors.Set(_dragHandle);
     if (!Input.GetMouseButton(0))
-    {
-      FinishDrag();
-      _guideX = _guideY = float.NaN;
-    }
+      ReleaseDrag();
+  }
+
+  private void ReleaseDrag()
+  {
+    // A click on one of several selected elements, without moving, selects it alone.
+    int collapse = _pressMoved ? -1 : _collapseTo;
+    FinishDrag();
+    if (collapse >= 0)
+      SelectOnly(collapse);
+    _guideX = _guideY = float.NaN;
   }
 
   private void DragBox(TargetFrame frame, Vector2 mouse)
@@ -425,10 +459,17 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       DeleteSelected();
       return;
     }
+    if (CommandModifierHeld() && Input.GetKeyDown(KeyCode.A))
+    {
+      SelectAll();
+      return;
+    }
     if (!HasSelection)
       return;
+    // Enter edits one element; it has no meaning for several.
     if (
       !IsGameplayActive()
+      && !MultiSelected
       && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
       && OpenContentEditor(_frames[_selected].Target)
     )
@@ -443,17 +484,10 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       : Input.GetKeyDown(KeyCode.DownArrow) ? step
       : 0f;
     if (dx != 0f || dy != 0f)
-    {
-      IOverlayLayoutTarget target = _frames[_selected].Target;
-      target.SetBounds(
-        ToRect(
-          OverlayLayoutGeometry.Drag(ToBounds(target.Bounds), LayoutHandle.Move, dx, dy, Screen.width, Screen.height)
-        )
-      );
-      target.CommitLayout(true);
-    }
-    // Texts and shapes are sized in their editor, so + and − only scale the rest.
-    bool scalable = !SizedInEditor(_frames[_selected].Target);
+      NudgeSelection(dx, dy);
+    // Texts and shapes are sized in their editor, so + and − only scale the rest,
+    // one at a time.
+    bool scalable = !MultiSelected && !SizedInEditor(_frames[_selected].Target);
     bool grow =
       scalable
       && (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus));
@@ -471,10 +505,23 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
 
   private void FinishDrag()
   {
+    _collapseTo = -1;
     if (_dragging < 0 || _dragging >= _frames.Count)
+    {
+      _groupTargets.Clear();
       return;
-    IOverlayLayoutTarget target = _frames[_dragging].Target;
-    target.CommitLayout(_dragHandle == LayoutHandle.Move);
+    }
+    if (GroupDragging)
+    {
+      // A press that didn't move leaves every element where it was saved.
+      if (_pressMoved)
+        foreach (IOverlayLayoutTarget member in _groupTargets)
+          member.CommitLayout(true);
+    }
+    else
+      _frames[_dragging].Target.CommitLayout(_dragHandle == LayoutHandle.Move);
+    _groupTargets.Clear();
+    _groupStart.Clear();
     _dragging = -1;
     _history.Commit(_host.LayoutSettings);
   }
@@ -483,7 +530,27 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     // The selected rectangle owns its editing area, including where another
     // element's compact content overlaps it. New copies must remain draggable.
-    if (HasSelection)
+    if (MultiSelected)
+    {
+      // Several selected: each only moves, and the smallest under the pointer wins.
+      int owner = -1;
+      float smallest = float.MaxValue;
+      foreach (IOverlayLayoutTarget member in _selection)
+      {
+        Rect bounds = member.Bounds;
+        Vector2 local = PointerFor(member, pointer);
+        if (!bounds.Contains(local) || bounds.width * bounds.height >= smallest)
+          continue;
+        owner = IndexOf(member);
+        smallest = bounds.width * bounds.height;
+      }
+      if (owner >= 0)
+      {
+        bestHandle = LayoutHandle.Move;
+        return owner;
+      }
+    }
+    else if (HasSelection)
     {
       IOverlayLayoutTarget selected = _frames[_selected].Target;
       Vector2 selectedPointer = PointerFor(selected, pointer);
@@ -511,7 +578,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (bounds.width <= 0 || bounds.height <= 0)
         continue;
       Vector2 localPointer = PointerFor(target, pointer);
-      bool resizable = index == _selected && !SizedInEditor(target);
+      bool resizable = index == _selected && !MultiSelected && !SizedInEditor(target);
       LayoutHandle handle = OverlayLayoutGeometry.HitTest(
         ToBounds(bounds),
         localPointer.x,
@@ -542,13 +609,14 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     bool editingContent = ContentEditorOpen;
     bool covered = _modalRoot != null || editingContent;
+    NormalizeSelection();
     // The text and shape editors stand alone; the toolbar would show through their dim.
     if (_toolbar.gameObject.activeSelf == editingContent)
       _toolbar.gameObject.SetActive(!editingContent);
     for (int index = 0; index < _frames.Count; index++)
     {
       TargetFrame frame = _frames[index];
-      bool selected = frame.Target.Available && frame.Target.Enabled && index == _selected && !covered;
+      bool selected = !covered && IsSelected(frame.Target);
       (frame.Target as IExternalLayoutOutline)?.SetSelected(selected);
       bool visible = selected && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
       frame.Outline.gameObject.SetActive(visible);

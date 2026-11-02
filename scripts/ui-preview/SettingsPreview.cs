@@ -182,6 +182,7 @@ namespace Element.Editor
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
       CheckKeyViewers(editor, viewers);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
+      CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
@@ -577,6 +578,178 @@ namespace Element.Editor
 
     private static Vector2 ScreenCenter(RectTransform rect) =>
       RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+
+    // Several elements: modifier clicks, the marquee, moving, arrows, align,
+    // distribute, delete and select all, each one undo step.
+    private static void CheckMultiSelect(OverlayLayoutEditor editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
+      RenderTexture texture, Canvas[] canvases, string name)
+    {
+      var before = new LayoutSnapshot(host.LayoutSettings);
+      List<IOverlayLayoutTarget> selection = Field<List<IOverlayLayoutTarget>>(editor, "_selection");
+      GameObject root = Field<GameObject>(editor, "_root");
+      // Three texts spread across the screen: the leftmost, the one nearest the middle, the rightmost.
+      List<IOverlayLayoutTarget> shown = host.LayoutTargets.OfType<TextOverlayElement>().Where(text => text.Available && text.Enabled)
+        .Cast<IOverlayLayoutTarget>().ToList();
+      IOverlayLayoutTarget leftmost = shown.OrderBy(text => text.Bounds.xMin).First(), rightmost = shown.OrderBy(text => text.Bounds.xMax).Last();
+      IOverlayLayoutTarget middle = shown.Where(text => text != leftmost && text != rightmost)
+        .OrderBy(text => Mathf.Abs(text.Bounds.center.x - Screen.width * .5f)).First();
+      IOverlayLayoutTarget[] texts = { leftmost, middle, rightmost };
+      Assert(leftmost.Bounds.xMax < middle.Bounds.xMin && middle.Bounds.xMax < rightmost.Bounds.xMin, "three texts apart from each other");
+      int a = IndexOf(editor, texts[0]), b = IndexOf(editor, texts[1]), c = IndexOf(editor, texts[2]);
+      Call(editor, "SelectOnly", a);
+      Call(editor, "ToggleSelection", b);
+      Call(editor, "UpdateFrames");
+      Assert(selection.Count == 2 && selection.Contains(texts[0]) && selection.Contains(texts[1]) && Field<int>(editor, "_selected") == b,
+        "Cmd/Ctrl + click adds an element");
+      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 2, "each selected element has its outline");
+      Assert(Field<TextMeshProUGUI>(editor, "_instruction").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
+      TMP_InputField scaleInput = Field<TMP_InputField>(editor, "_scaleInput");
+      Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && scaleInput.gameObject.activeSelf && !scaleInput.interactable
+        && scaleInput.text == "—" && Field<Button>(editor, "_delete").interactable && Field<Button>(editor, "_reset").interactable,
+        "several selected: no Edit, the scale greys out, delete and reset stay");
+      RectTransform bar = Field<RectTransform>(editor, "_settingsPanel");
+      Assert(bar != null && bar.gameObject.activeSelf, "several selected get the align toolbar");
+      Func<LayoutAction, Button> arrange = kind =>
+        bar.GetComponentsInChildren<Button>(true).Single(button => button.GetComponentInChildren<LayoutActionIcon>()?.Kind == kind);
+      Assert(arrange(LayoutAction.AlignLeft).interactable && !arrange(LayoutAction.DistributeHorizontal).interactable
+        && !arrange(LayoutAction.DistributeVertical).interactable, "two can be aligned; spacing waits for three");
+      Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
+      object[] hit = { texts[0].Bounds.center, null };
+      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
+        "each selected element moves the group");
+      Call(editor, "ToggleSelection", b);
+      Call(editor, "UpdateFrames");
+      Assert(selection.Count == 1 && selection[0] == texts[0] && Field<int>(editor, "_selected") == a && Field<RectTransform>(editor, "_settingsPanel") == null,
+        "a second modifier click takes it out again");
+
+      // The marquee: only what lies fully inside.
+      Rect covered = Rect.MinMaxRect(texts.Min(t => t.SelectionBounds.xMin) - 4, texts.Min(t => t.SelectionBounds.yMin) - 4,
+        texts.Max(t => t.SelectionBounds.xMax) + 4, texts.Max(t => t.SelectionBounds.yMax) + 4);
+      Call(editor, "SelectOnly", -1);
+      Call(editor, "BeginMarquee", covered.min, -1, false);
+      SetField(editor, "_marqueeActive", true);
+      Call(editor, "SelectInside", covered.max);
+      Call(editor, "DrawMarquee", covered.max);
+      Call(editor, "UpdateFrames");
+      Assert(texts.All(selection.Contains) && selection.All(t => covered.Contains(t.SelectionBounds.min) && covered.Contains(t.SelectionBounds.max)),
+        "dragging over the canvas selects what lies fully inside");
+      Assert(Field<Image>(editor, "_marqueeFill").gameObject.activeSelf, "the selected area is drawn while dragging");
+      SaveFrame(camera, texture, canvases, name + "-multi-marquee");
+      Call(editor, "EndMarquee");
+      Assert(!Field<Image>(editor, "_marqueeFill").gameObject.activeSelf, "the area disappears on release");
+      Rect inner = texts[0].SelectionBounds;
+      Call(editor, "BeginMarquee", inner.min + Vector2.one, -1, false);
+      SetField(editor, "_marqueeActive", true);
+      Call(editor, "SelectInside", inner.max + Vector2.one * 4);
+      Assert(!selection.Contains(texts[0]), "an element only partly inside stays out");
+      Call(editor, "EndMarquee");
+      Call(editor, "SelectOnly", a);
+      Rect third = texts[2].SelectionBounds;
+      Call(editor, "BeginMarquee", third.min - Vector2.one * 3, -1, true);
+      SetField(editor, "_marqueeActive", true);
+      Call(editor, "SelectInside", third.max + Vector2.one * 3);
+      Assert(selection.Contains(texts[0]) && selection.Contains(texts[2]), "Cmd/Ctrl + drag adds to the selection, even starting on an element");
+      Call(editor, "EndMarquee");
+      // Released without moving: a modifier click toggles, a plain one on empty space clears.
+      Call(editor, "BeginMarquee", texts[1].Bounds.center, b, true);
+      Call(editor, "ReleaseMarquee");
+      Assert(selection.Count == 3 && selection.Contains(texts[1]), "a modifier click without moving adds what it hit");
+      Call(editor, "BeginMarquee", new Vector2(2, 2), -1, false);
+      Call(editor, "ReleaseMarquee");
+      Assert(selection.Count == 0 && Field<int>(editor, "_selected") == -1, "a click on empty space clears the selection");
+
+      // Moving all three, as one undo step.
+      foreach (int index in new[] { a, b, c })
+        Call(editor, "ToggleSelection", index);
+      bool snapping = settings.LayoutSnapping;
+      settings.LayoutSnapping = false;
+      Rect[] start = texts.Select(t => t.Bounds).ToArray();
+      Vector2 grab = texts[1].Bounds.center;
+      SetField(editor, "_lastClickTime", -10f);
+      Call(editor, "PressElement", b, LayoutHandle.Move, grab);
+      Assert(selection.Count == 3 && Field<int>(editor, "_dragging") == b, "pressing one of several keeps them all");
+      SetField(editor, "_pressMoved", true);
+      Call(editor, "DragGroup", grab + new Vector2(30, 20));
+      Call(editor, "FinishDrag");
+      settings.LayoutSnapping = snapping;
+      for (int i = 0; i < 3; i++)
+        Assert(Vector2.Distance(texts[i].Bounds.position, start[i].position + new Vector2(30, 20)) < 1.5f,
+          "dragging one moves every selected element the same: " + texts[i].Id);
+      Call(editor, "Undo");
+      Assert(texts.Select((t, i) => Vector2.Distance(t.Bounds.position, start[i].position)).All(d => d < 1.5f), "one undo puts them all back");
+      SetField(editor, "_lastClickTime", -10f);
+      Call(editor, "PressElement", b, LayoutHandle.Move, grab);
+      Call(editor, "ReleaseDrag");
+      Assert(selection.Count == 1 && selection[0] == texts[1], "a click on one of several, without moving, selects it alone");
+      foreach (int index in new[] { a, c })
+        Call(editor, "ToggleSelection", index);
+      Call(editor, "NudgeSelection", 10f, 0f);
+      Assert(texts.Select((t, i) => t.Bounds.x - start[i].x).All(d => Mathf.Abs(d - 10) < 1.5f), "arrow keys move every selected element");
+      Field<LayoutHistory>(editor, "_history").Commit(host.LayoutSettings);
+      Call(editor, "Undo");
+
+      // Align and distribute.
+      Call(editor, "UpdateFrames");
+      bar = Field<RectTransform>(editor, "_settingsPanel");
+      Assert(arrange(LayoutAction.DistributeHorizontal).interactable, "three can be spaced evenly");
+      arrange(LayoutAction.AlignLeft).onClick.Invoke();
+      float left = start.Min(r => r.x);
+      Assert(texts.All(t => Mathf.Abs(t.Bounds.x - left) < 1.5f), "align left lines them up on the leftmost edge");
+      Assert(selection.Count == 3, "aligning keeps the selection");
+      SaveFrame(camera, texture, canvases, name + "-multi");
+      Call(editor, "Undo");
+      Call(editor, "UpdateFrames");
+      bar = Field<RectTransform>(editor, "_settingsPanel");
+      arrange(LayoutAction.AlignMiddle).onClick.Invoke();
+      Assert(texts.Select(t => t.Bounds.center.y).Max() - texts.Select(t => t.Bounds.center.y).Min() < 1.5f, "align middle shares one vertical center");
+      Call(editor, "Undo");
+      Call(editor, "UpdateFrames");
+      bar = Field<RectTransform>(editor, "_settingsPanel");
+      arrange(LayoutAction.DistributeHorizontal).onClick.Invoke();
+      Rect[] spaced = texts.Select(t => t.Bounds).OrderBy(r => r.x).ToArray();
+      Assert(Mathf.Abs((spaced[1].x - spaced[0].xMax) - (spaced[2].x - spaced[1].xMax)) < 1.5f, "distribute leaves the same gaps: "
+        + string.Join(" | ", start.Select(r => r.ToString())) + " -> " + string.Join(" | ", spaced.Select(r => r.ToString()))
+        + " ids " + string.Join(",", texts.Select(t => t.Id)));
+      Call(editor, "Undo");
+      Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "undo after arranging restores every element");
+
+      // A column already evenly spaced: the press says so and changes nothing.
+      IOverlayLayoutTarget[] column = new[] { "progress", "accuracy", "time" }
+        .Select(id => host.LayoutTargets.First(t => t.Id == id)).ToArray();
+      Call(editor, "SelectOnly", IndexOf(editor, column[0]));
+      Call(editor, "ToggleSelection", IndexOf(editor, column[1]));
+      Call(editor, "ToggleSelection", IndexOf(editor, column[2]));
+      Call(editor, "UpdateFrames");
+      bar = Field<RectTransform>(editor, "_settingsPanel");
+      Rect[] columnStart = column.Select(t => t.Bounds).ToArray();
+      bool couldUndo = Field<LayoutHistory>(editor, "_history").CanUndo;
+      arrange(LayoutAction.DistributeVertical).onClick.Invoke();
+      Call(editor, "UpdateToolbar");
+      TextMeshProUGUI help = Field<TextMeshProUGUI>(editor, "_keyboardHelp");
+      Assert(column.Select((t, i) => t.Bounds == columnStart[i]).All(same => same) && help.text.Length > 0
+        && help.color == SettingsUiFactory.Foreground && Field<LayoutHistory>(editor, "_history").CanUndo == couldUndo,
+        "spacing an evenly spaced column says it already is, without an undo step: " + help.text);
+      Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "nothing moved");
+      foreach (int index in new[] { a, b, c })
+        Call(editor, "ToggleSelection", index);
+      foreach (IOverlayLayoutTarget member in column)
+        Call(editor, "ToggleSelection", IndexOf(editor, member));
+      Call(editor, "UpdateFrames");
+      Assert(selection.Count == 3 && texts.All(selection.Contains), "back to the three spread texts");
+
+      // Delete and select all.
+      Call(editor, "DeleteSelected");
+      Assert(texts.All(t => !t.Enabled) && selection.Count == 0, "delete removes every selected element");
+      Call(editor, "Undo");
+      Assert(texts.All(t => t.Enabled), "one undo brings them all back");
+      Call(editor, "SelectAll");
+      Call(editor, "UpdateFrames");
+      int selectable = host.LayoutTargets.Count(t => t.Available && t.Enabled);
+      Assert(selection.Count >= selectable && selection.All(t => t.Available && t.Enabled), "Cmd/Ctrl + A selects every element shown");
+      Call(editor, "SelectOnly", -1);
+      Call(editor, "UpdateFrames");
+      Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "multi-select leaves the layout as it was");
+    }
 
     private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers)
     {

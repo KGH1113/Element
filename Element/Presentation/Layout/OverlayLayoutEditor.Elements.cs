@@ -232,10 +232,14 @@ internal sealed partial class OverlayLayoutEditor
     if (!HasSelection)
       return;
     ClosePopovers();
-    IOverlayLayoutTarget target = _frames[_selected].Target;
-    (target as IExternalLayoutOutline)?.SetSelected(false);
-    target.SetEnabled(false);
-    _selected = _dragging = -1;
+    // Every selected element goes, as one undo step.
+    foreach (IOverlayLayoutTarget target in _selection)
+    {
+      (target as IExternalLayoutOutline)?.SetSelected(false);
+      target.SetEnabled(false);
+    }
+    SelectOnly(-1);
+    _dragging = -1;
     _history.Commit(_host.LayoutSettings);
     RefreshLayouts();
     UpdateFrames();
@@ -396,6 +400,7 @@ internal sealed partial class OverlayLayoutEditor
         "Couldn't add the key viewer. Check that ElementNote is open."
       );
       _scaleErrorUntil = Time.unscaledTime + 5;
+      _helpIsNote = false;
       return;
     }
     viewer.SetEnabled(true);

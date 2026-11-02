@@ -5,6 +5,16 @@ The overlay editor (Settings → Overlay) places three kinds of elements: **Text
 - **Texts and shapes** only move on the canvas; their size is set in their editor. While one is selected, the toolbar shows **Edit text** or **Edit shape** where the scale was. Double-clicking or pressing Enter opens the same editor. Scales from earlier versions stay as they were.
 - **Key viewers** keep the scale and resize handles. Selecting one opens a second toolbar with hand and foot; drag it by its grip. It keeps its place for the next selection and never blocks the canvas.
 
+## Selecting several
+
+- **Dragging over empty canvas** selects every element whose visible content lies fully inside the area. An element only partly inside stays out, so a large background shape isn't caught by accident.
+- **Cmd/Ctrl or Shift + click** adds an element to the selection or takes it out. **Cmd/Ctrl or Shift + drag** draws the area even when it starts on an element, and adds what it covers to the selection.
+- **Cmd/Ctrl + A** selects every element on the canvas. A plain click on empty canvas clears the selection.
+- **Moving.** Dragging any selected element moves them all; snapping uses the outline of the whole group. Arrow keys move them all too. A click on one of them without moving selects it alone.
+- **Delete and Reset** act on every selected element, as one undo step.
+- **Align and distribute.** With two or more selected, the second toolbar lines them up: left, center, right, top, middle or bottom, against the box they cover together. With three or more, it also spaces them evenly across or down, keeping the outer two in place. Each press is one undo step; when there is nothing to change, such as a column already evenly spaced, the toolbar says so instead.
+- While several are selected, the scale greys out and Edit text/shape, the resize handles and the key viewer toolbar step aside. Double-clicking one selects it alone and opens its editor.
+
 ## Values
 
 A value is something the game knows, kept live. It behaves as one character: the caret skips it, a selection takes it whole, and one Backspace deletes it.

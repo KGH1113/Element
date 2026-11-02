@@ -19,6 +19,7 @@ Commands:
   windows-install  Make build/Element-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
   dmnote-windows-build  Build the Windows ElementNote for packages on ELEMENT_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload and ElementNote
+  tabub-install  Build and install Tabub, the sample mod that adds values through ElementKit
   package     Build the macOS and Windows release packages and their update manifest
   version [x.y.z]  Check that the mod and ElementNote share one version, or set it
   release [--yes]  On main: build the mod around CD's builds, package and publish (docs/releasing.md)
@@ -72,6 +73,9 @@ case "$command_name" in
     ;;
   install)
     exec "$SCRIPTS_DIR/tasks/install/mod.sh"
+    ;;
+  tabub-install)
+    exec bash "$SCRIPTS_DIR/tasks/install/tabub.sh"
     ;;
   package)
     exec "$SCRIPTS_DIR/workflows/package-release.sh"

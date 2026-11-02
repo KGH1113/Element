@@ -11,6 +11,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Element/Element.csproj" />
+    <!-- The sample mod built on ElementKit; its planning rules are tested here. -->
+    <ProjectReference Include="../Tabub/Tabub.csproj" />
     <!-- Aliased: both also compile the shared update sources the mod has. -->
     <ProjectReference Include="../Element.Launcher/Element.Launcher.csproj" Aliases="launcher" />
     <ProjectReference Include="../Element.Updater/Element.Updater.csproj" Aliases="updater" />

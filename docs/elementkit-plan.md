@@ -1,9 +1,25 @@
 # ElementKit 계획
 
-> 상태: 계획(구현 전) · 2026-11-02
+> 상태: P0 완료, P1 중 값 부분 구현(`feat/elementkit`) · 2026-11-02
 
 다른 모드가 만든 오버레이도 Element 안에서 보이고, Element 방식대로 고칠 수 있게 합니다.
 모드는 **값**과 **프리셋**만 넣고, 화면·배치·편집은 전부 Element가 맡습니다.
+
+## 진행 상황
+
+| 항목 | 상태 |
+| --- | --- |
+| 값 목록 128칸(`OverlayValueMask`), 모드 값 등록 | 완료 |
+| 모드가 없을 때 값 보존(텍스트·수식 저장 왕복, 편집기에 `[이름]`, 오버레이엔 표시 안 함) | 완료 |
+| ElementKit.dll: `Kit.Attach`, `ValueGroup`, `NumberValue`/`TimeValue`/`TextValue`, 품질 규칙 검사 | 완료 |
+| Element 연결: 프레임마다 바뀐 값만 반영(할당 0), 꺼진 모드 숨김, 리로드·새 캔버스 | 완료 |
+| 입력 독에 모드별 카테고리 | 완료 |
+| ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
+| 예시 모드 [Tabub](../Tabub) (`./scripts/run.sh tabub-install`) | 완료 |
+| 프리셋, 기타 메뉴, 프리셋 내보내기 | 남음 |
+| `Player.Keys`, 묶음 값(`Numbers`), 실행 중 API 수준 확인 | 남음 |
+| NuGet 패키지·템플릿, 개발자 모드 | 남음 |
+| Element 버전 올리기(1.3.0)와 Tabub의 `Requirements`를 `Element-1.3.0`으로 | 릴리스 때 |
 
 ## 왜 만드나
 
@@ -56,7 +72,7 @@
   - API는 추가만 합니다. PublicApiAnalyzers로 공개 API를 기록해서, 깨는 변경이 들어가면 빌드가 실패하게 합니다.
 - **등록 정보 보관:** ElementKit 쪽 static에 둡니다. Element를 UMM에서 껐다 켜도(`ModRuntime` 재생성) 등록이 남아 있습니다.
 - **네임스페이스:**
-  - `ElementKit`: `Attach`, `Player`(Element만 아는 정보)
+  - `ElementKit`: `Kit.Attach`, `Player`(Element만 아는 정보, 남음)
   - `ElementKit.Values`: 값 등록과 갱신
   - `ElementKit.Presets`: 프리셋 형식(대개 파일로 넣으므로 코드에서 쓸 일은 드묾)
 
@@ -68,9 +84,9 @@ Mods/Element/
   Runtime/versions/<v>/
     Element.dll         구현 (internal, 업데이트마다 바뀜)
     ElementKit.dll      공개 API (MIT, AssemblyVersion 1.0.0.0 고정)
-Mods/Fingering/
+Mods/Tabub/
   Info.json             "Requirements": ["Element-1.3.0"]   ← 빌드가 자동으로 채움
-  Fingering.dll         ElementKit은 컴파일 때만 참조, 배포하지 않음
+  Tabub.dll         ElementKit은 컴파일 때만 참조, 배포하지 않음
   Presets/타법 표시.json
 ```
 
@@ -98,10 +114,12 @@ public static class Main
     public static bool Load(UnityModManager.ModEntry mod)
     {
         new Harmony(mod.Info.Id).PatchAll();   // 평소처럼
-        return ElementKit.Attach(mod);         // 이 어셈블리의 값과 Presets 폴더를 등록
+        return Kit.Attach(mod);                // 이 어셈블리의 값과 Presets 폴더를 등록
     }
 }
 ```
+
+진입점 클래스 이름이 `Kit`인 이유: 네임스페이스와 같은 이름의 클래스(`ElementKit.ElementKit`)는 `using ElementKit;` 뒤에서 이름이 부딪혀 쓸 수 없습니다.
 
 `Attach`가 하는 일:
 
@@ -114,20 +132,19 @@ public static class Main
 
 ```csharp
 // static readonly라서 null이 될 일이 없습니다. Attach가 이 필드들을 찾아 등록합니다.
-public static class FingeringValues
+public static class TabubValues
 {
-    public static readonly ValueGroup Group = new("fingering", "타법", "Fingering");
+    public static readonly ValueGroup Group = new("타법", "Tabub");   // 입력 독의 제목
 
-    public static readonly NumberValue  LeftKeys  = Group.Number("left-keys",  "왼손 키",   "Left keys",  sample: 3);
-    public static readonly NumberValue  RightKeys = Group.Number("right-keys", "오른손 키", "Right keys", sample: 2);
-    public static readonly TextValue    Pattern   = Group.Text("pattern",      "다음 타법", "Next pattern", sample: "L R L R");
-    public static readonly NumberValues NextLeft  = Group.Numbers("next-left", "다음 왼손", "Next left", sample: 1, count: 8);
+    public static readonly TextValue   Hand     = Group.Text("hand",        "지금 손",   "Hand",       sample: "왼손");
+    public static readonly TextValue   Pattern  = Group.Text("pattern",     "지금 타법", "Pattern",    sample: "2 + 2 + 1");
+    public static readonly NumberValue LeftKeys = Group.Number("left-keys", "왼손 키",   "Left keys",  sample: 5);
 }
 ```
 
-- **종류:** Element 기본 값과 같은 세 가지입니다. 숫자(`Number`), 시간(`Time`, 초 단위, m:ss로 표시), 글자(`Text`, 계산 불가).
-- **묶음 값:** `Numbers`는 "다음 8타일" 같은 이어진 값입니다. 입력 독에는 한 줄로 보이고 번호를 고릅니다.
-- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{Fingering/left-keys}`). 모드끼리 이름이 겹치지 않습니다.
+- **종류:** Element 기본 값과 같은 세 가지입니다. 숫자(`Number`), 시간(`Time`, 초 단위, m:ss로 표시), 글자(`Text`, 계산 불가). 글자 값 안의 `<b>` 같은 표시는 읽지 않고 그대로 보여 줍니다.
+- **묶음 값(남음):** `Numbers`는 "다음 8타일" 같은 이어진 값입니다. 입력 독에는 한 줄로 보이고 번호를 고릅니다.
+- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{Tabub/left-keys}`). 모드끼리 이름이 겹치지 않습니다.
 - **`Set` 동작:**
   - 같은 값이면 아무 일도 하지 않습니다. 할당도 없고 다시 그리지도 않습니다.
   - 값이 바뀌면 그 값을 쓰는 텍스트·도형만 다시 그립니다. 지금의 변경 비트 방식을 그대로 씁니다.
@@ -143,9 +160,9 @@ static class AfterHit
 {
     static void Postfix()
     {
-        var step = Planner.At(scrController.instance.currentSeqID);   // 레벨을 불러올 때 listFloors로 미리 분석
-        FingeringValues.LeftKeys.Set(step.Left);
-        FingeringValues.RightKeys.Set(step.Right);
+        var stretch = Plan.At(scrController.instance.currentSeqID);   // 레벨을 시작할 때 listFloors로 미리 분석
+        TabubValues.Hand.Set(stretch.HandName);
+        TabubValues.Pattern.Set(stretch.Pattern);                      // 같은 값이면 아무 일도 없음
     }
 }
 ```
@@ -174,7 +191,7 @@ dotnet new install ElementKit.Templates
 ```
 
 ```bash
-dotnet new element-mod -n Fingering
+dotnet new element-mod -n Tabub
 ```
 
 ```bash
@@ -183,7 +200,7 @@ dotnet build
 
 ```
 1. 로직 작성       평소 모드처럼 (얼불춤 참조, Harmony 패치). UI 코드 없음
-2. dotnet build    ADOFAI 경로 자동 탐지 → Mods/Fingering에 설치
+2. dotnet build    ADOFAI 경로 자동 탐지 → Mods/Tabub에 설치
 3. UMM에서 Reload  입력 독에 '타법' 값이 바로 생김
 4. 게임 안에서     Element 편집기로 텍스트·도형을 조립 (내 값 + 기본 값)
 5. 개발자 모드     선택한 요소 → 프리셋으로 내보내기 → Presets/타법 표시.json
@@ -217,7 +234,7 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 ┌ 요소 추가 ───────────────────────┐  ┌ 기타 ───────────────────────┐
 │ T  텍스트                         │  │ ✋ 타법 표시                  │
 │ ⌨  키뷰어                         │  │    왼손·오른손 키 수와 다음 타법 │
-│ ◼  도형                           │  │    Fingering                 │
+│ ◼  도형                           │  │    Tabub                 │
 │ ⋯  기타                       ›   │  │ …                            │
 │    다른 모드가 추가한 프리셋 2개    │  │                              │
 └───────────────────────────────────┘  └──────────────────────────────┘
@@ -226,12 +243,12 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 - **프리셋 추가:** 화면 가운데에 놓이고, 묶음 전체가 선택된 상태로 추가됩니다(실행 취소 한 번에 되돌림). 그다음은 평범한 텍스트·도형이라 무엇이든 고칠 수 있습니다.
 - **모드가 없을 때:**
   - 오버레이에서는 그 값 자리에 아무것도 표시하지 않습니다(지금의 "데이터가 아직 없으면 표시하지 않음" 규칙).
-  - 편집기에서는 회색 칩 "설치되지 않은 값 · Fingering"으로 보입니다.
+  - 편집기에서는 `[왼손 키]`처럼 이름을 괄호에 넣어 보여 줘서 찾고 지울 수 있습니다. 이번 실행에서 한 번도 등록되지 않은 값은 `[Tabub/left-keys]`처럼 키로 보여서 어느 모드가 필요한지 알 수 있습니다.
   - 저장된 내용은 지우지 않아서, 다시 설치하면 돌아옵니다.
 - **오류 메시지**([토스 원칙](https://toss.tech/article/21021): 무슨 일이 있었는지와 무엇을 하면 되는지):
-  - "Fingering 모드에서 오류가 나서 값을 멈췄어요. 모드를 업데이트하거나 만든 분께 알려 주세요."
-  - "Fingering은 Element 1.4 이상이 필요해요. 게임을 다시 켜면 업데이트가 적용돼요."
-  - 개발자 로그: "Fingering 폴더에 ElementKit.dll이 있어요. 이 파일을 지우면 정상 동작해요."
+  - "Tabub 모드에서 오류가 나서 값을 멈췄어요. 모드를 업데이트하거나 만든 분께 알려 주세요."
+  - "Tabub은 Element 1.4 이상이 필요해요. 게임을 다시 켜면 업데이트가 적용돼요."
+  - 개발자 로그: "Tabub 폴더에 ElementKit.dll이 있어요. 이 파일을 지우면 정상 동작해요."
 
 ## 품질 규칙 (등록할 때 검사)
 
@@ -246,21 +263,29 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 ## 첫 사례: 타법 오버레이
 
 ```
-Fingering 모드 (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
- ├ FingeringPlanner   순수 C#: 타일 목록 + 플레이어 키 수 → 구간별 왼손·오른손 키 수
- │                     Unity 없이 단위 테스트
- ├ 레벨 읽기·패치     scrLevelMaker.instance.listFloors, scrMarginTracker.AddHit 등
- ├ FingeringValues    왼손 키 · 오른손 키 · 다음 타법 · 다음 왼손/오른손 ×8
- └ Presets/           '타법 표시'
+Tabub/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
+ ├ Planning/TabubPlanner  순수 C#: 비트 목록 → 손 구간과 누르기 묶음. Unity 없이 단위 테스트
+ ├ Planning/TabubBeats    기준 BPM 2021로 비트 환산
+ ├ Game/LevelBeats        scrLevelMaker.instance.listFloors → 타격별 비트
+ ├ Game/TabubSession      레벨 시작에 한 번 계획, 타격마다 값만 갱신(할당 없음)
+ ├ Game/TabubPatches      scnGame.Play · scrPressToStart.ShowText · AddHit · 체크포인트 · 나가기
+ └ TabubValues            지금 손 · 지금 타법 · 지금 손 키 · 왼손 키 · 오른손 키 · 다음 손 · 다음 타법
 ```
 
-- **분석에 쓸 타일 정보:** `scrFloor`에 다 있습니다. 맞출 시각(`entryTime`), 각도(`angleLength`), BPM 배율(`speed`), 동시 입력 수(`tapsNeeded`), 롱노트(`holdLength`), 미드스핀(`midSpin`), 회전 방향(`isCCW`).
-  - Element 에디터 도구가 각도·박자·시간을 계산하는 방식([`EditorTweaksController.cs`](../Element/Infrastructure/Game/Editor/EditorTweaksController.cs))을 참고할 수 있습니다.
-- **분석 시점:** 레벨을 불러올 때 한 번 합니다. 큰 레벨이라 무거우면 백그라운드에서 계산하고 결과를 `Set`합니다.
+**규칙**(구현됨):
+
+1. **비트:** 기준 BPM을 2021로 고정합니다. `다음 타격까지의 비트 = (회전각 / 180°) × (2021 / 현재 BPM)`. 게임이 계산해 둔 타일 시각(`entryTime`)으로 `시간 × 2021 / 60`을 쓰면 같은 값이고, 소용돌이·변속·일시정지도 자동으로 반영됩니다. 첫 타격이 0비트입니다.
+2. **손 구간:** `[0, 4)`, `[4, 8)`, …처럼 4비트씩 나눠 짝수 구간은 왼손, 홀수 구간은 오른손이 맡습니다. 경계에 놓인 타격은 다음 손 몫입니다. 빈 구간도 순서를 차지합니다.
+3. **동타 묶기:** 구간 안에서 다음 타격이 `허용 오차 0.5비트 × 2` 안에 있으면 두 타격을 그 사이 시점에 2키로 함께 누릅니다. 아니면 1키입니다.
+4. **너무 바쁜 구간:** 한 손 최대 입력 8을 넘는 구간이 있으면 손 교대 간격을 반으로 줄여(4 → 2 → 1 → 0.5비트) 다시 나눕니다.
+5. **동시 입력 타일**(`tapsNeeded`)은 같은 비트의 타격 여러 개로 들어가 2키로 묶이고, 미드스핀 타일은 타격이 아니라서 뺍니다.
+6. **실제 키 배정**(어떤 손가락·키로 굴릴지)은 아직 하지 않습니다. 손 배치 설정이 필요해서 다음 단계로 남깁니다.
+
+예: 직각 5타 `0, 0.5, 1, 2, 3비트` → `2 + 2 + 1`(0.25, 1.5, 3비트). 빠른 8타 → `2 + 2 + 2 + 2`(0.25, 1.25, 2.25, 3.25비트). 둘 다 [TabubTests](../Element.Tests/TabubTests.cs)로 확인합니다.
 
 | 버전 | 화면 | 만드는 법 |
 | --- | --- | --- |
-| v1 | "왼손 3키 · 오른손 2키", 다음 타법 | 텍스트에 `{왼손 키}`, `{오른손 키}`, `{다음 타법}` |
+| v1 | "왼손 · 2 + 2 + 1", "다음 오른손 · 2 + 2 + 2 + 2" | 텍스트에 `{지금 손}`, `{지금 타법}`, `{다음 손}`, `{다음 타법}` |
 | v2 | 다음 8타일 손 순서 | 원 8개 × 2줄. 위 줄 채우기 불투명도 = `{다음 왼손 n} × 100`, 아래 줄은 오른손. 배경은 사각형 |
 
 v2까지 지금 Element의 "모든 숫자는 값을 받는다" 규칙만으로 만들 수 있습니다. 색을 손에 따라 바꾸려면 [조건 색](#element-기본-기능-확장)이 필요합니다.
@@ -282,7 +307,7 @@ v2까지 지금 Element의 "모든 숫자는 값을 받는다" 규칙만으로 �
 - **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../Element/Domain/Elements/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
 - **고칠 방법:**
   - `모드Id/키` 형식의 모르는 키는 "없는 값" 토큰으로 남겨, 저장할 때 그대로 다시 씁니다.
-  - 오버레이에서는 표시하지 않고, 편집기에서는 회색 칩으로 보입니다.
+  - 오버레이에서는 표시하지 않고, 편집기에서는 `[이름]`으로 보입니다.
   - 예전에 없어진 기본 값은 지금처럼 지웁니다.
 - **함께 확인할 것:** 설정에 저장된 모르는 요소 종류(`TemplateId`)는 지금도 지우지 않습니다([`OverlayCanvasHost.ConfigureLayouts`](../Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs)).
 

@@ -31,6 +31,10 @@ internal sealed partial class OverlayTextEditor : IDisposable
   private readonly TMP_FontAsset _uiFont;
   private readonly Func<bool> _reduceMotion;
   private readonly OverlayValues _values;
+  private readonly OverlayLiveValues _live;
+
+  // The values the text, its sizes and opacities, and the dock's formula use.
+  private ulong _liveMask;
   private readonly StringBuilder _builder = new(256);
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();
@@ -65,6 +69,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _uiFont = uiFont;
     _reduceMotion = reduceMotion;
     _values = values;
+    _live = new OverlayLiveValues(values);
   }
 
   public bool IsOpen => _screen != null;

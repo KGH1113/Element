@@ -360,6 +360,13 @@ namespace Element.Editor
       Assert(working.WidthFormula == "{progress-current}*3", "the keypad calculates with the value: " + working.WidthFormula);
       Assert(dock.FormulaText.Contains("×") && dock.ResultText.Contains("144"), "the dock shows the formula and its result: " + dock.FormulaText + " / " + dock.ResultText);
       Assert(widthField.Text == "144" && widthField.Computed, "W shows the result, marked as calculated");
+      // A level playing behind the editor (autoplay) moves the numbers live.
+      host.Values.Set(OverlayValueId.ProgressCurrent, new System.Text.StringBuilder("60"), 60);
+      Call(shapes, "FollowLiveValues");
+      Assert(widthField.Text == "180" && dock.ResultText.Contains("180"), "a live value moves W and the dock's result: " + widthField.Text);
+      host.Values.Clear(OverlayValueId.ProgressCurrent);
+      Call(shapes, "FollowLiveValues");
+      Assert(widthField.Text == "144", "without live data the example comes back");
       dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key clear").onClick.Invoke();
       Assert(editing.Working.IsEmpty && working.WidthFormula == "{progress-current}*3", "AC starts over without losing the width yet");
       Call(shapes, "KeypadPress", '9');
@@ -923,6 +930,12 @@ namespace Element.Editor
       Assert(document[9].Value == "{combo}*2" && preview.text.Contains("240") && !preview.text.Contains("×"),
         "the text shows the result: " + document[9].Value);
       Assert(dock.FormulaText.Contains("×") && dock.ResultText.Contains("240"), "the dock shows the formula and its result");
+      host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("50"), 50);
+      Call(text, "FollowLiveValues");
+      Assert(preview.text.Contains("100") && dock.ResultText.Contains("100"), "a live combo moves the text and the dock's result: " + dock.ResultText);
+      host.Values.Clear(OverlayValueId.Combo);
+      Call(text, "FollowLiveValues");
+      Assert(preview.text.Contains("240"), "without live data the example comes back");
       Call(text, "KeypadPress", '+');
       Vector2 line = ScreenCenter((RectTransform)dock.Root.Find("Formula line"));
       Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Miss), line);

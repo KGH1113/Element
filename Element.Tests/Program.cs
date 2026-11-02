@@ -38,6 +38,7 @@ internal static class Program
       Run("overlay layout hit bounds and eight anchored proportional resize handles", OverlayLayoutTests.Run);
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("aligns and distributes several layout boxes", LayoutArrangeTests.Run);
+      Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(

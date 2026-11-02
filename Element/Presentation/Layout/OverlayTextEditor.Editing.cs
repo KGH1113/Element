@@ -77,6 +77,31 @@ internal sealed partial class OverlayTextEditor
     _emptyCaret.enabled = _caret.enabled;
     _dock.Blink(blink);
     UpdateImePosition();
+    FollowLiveValues();
+  }
+
+  // A level playing behind the editor moves the values it shows.
+  private void FollowLiveValues()
+  {
+    if (!_live.Changed(_liveMask))
+      return;
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
+  }
+
+  private ulong LiveMask()
+  {
+    ulong mask = _editing.Active ? _editing.Working.Mask : 0;
+    for (int i = 0; i < _document.Count; i++)
+    {
+      OverlayTextItem item = _document[i];
+      if (item.IsValue)
+        mask |= OverlayFormulaText.Compile(item.Value)?.Mask ?? 0;
+      mask |= OverlayFormulaText.Compile(item.SizeFormula)?.Mask ?? 0;
+      mask |= OverlayFormulaText.Compile(item.Color.AlphaFormula)?.Mask ?? 0;
+    }
+    return mask;
   }
 
   private OverlayColorSettings TypingColor(int caret) =>
@@ -496,6 +521,7 @@ internal sealed partial class OverlayTextEditor
     RefreshDock();
     PlaceGrowMark();
     PlaceEmptyHint(center, empty);
+    _liveMask = LiveMask();
   }
 
   // While the grow popover is open, a dot marks the point that stays put.

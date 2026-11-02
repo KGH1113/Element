@@ -15,7 +15,9 @@ internal sealed class OverlayValues : IOverlayNumberSource
   private readonly StringBuilder[] _text = new StringBuilder[OverlayValueCatalog.Count];
   private readonly double[] _number = new double[OverlayValueCatalog.Count];
   private readonly bool[] _has = new bool[OverlayValueCatalog.Count];
+  private readonly long[] _stamp = new long[OverlayValueCatalog.Count];
   private ulong _dirty;
+  private long _stampNow;
 
   public OverlayValues()
   {
@@ -26,6 +28,25 @@ internal sealed class OverlayValues : IOverlayNumberSource
 
   /// <summary>Live numbers, falling back to each value's example for the editor.</summary>
   public IOverlayNumberSource WithSamples { get; }
+
+  /// <summary>
+  /// Advances on every change. With <see cref="ChangedSince"/> a second
+  /// reader, such as an open editor, sees what changed without taking the
+  /// canvas's changes.
+  /// </summary>
+  public long Stamp => _stampNow;
+
+  /// <summary>The values changed after <paramref name="stamp"/>, as catalog bits.</summary>
+  public ulong ChangedSince(long stamp)
+  {
+    if (stamp >= _stampNow)
+      return 0;
+    ulong changed = 0;
+    for (int i = 0; i < _stamp.Length; i++)
+      if (_stamp[i] > stamp)
+        changed |= OverlayValueCatalog.Bit((OverlayValueId)i);
+    return changed;
+  }
 
   /// <summary>Increments on every combo bump; text elements with the combo pulse once per step.</summary>
   public int ComboBumps { get; private set; }
@@ -39,7 +60,7 @@ internal sealed class OverlayValues : IOverlayNumberSource
     current.Clear().Append(value);
     _number[(int)id] = number;
     _has[(int)id] = true;
-    _dirty |= OverlayValueCatalog.Bit(id);
+    Changed(id);
   }
 
   /// <summary>Words such as the song title; they have no number.</summary>
@@ -51,7 +72,7 @@ internal sealed class OverlayValues : IOverlayNumberSource
     current.Clear().Append(value);
     _number[(int)id] = double.NaN;
     _has[(int)id] = true;
-    _dirty |= OverlayValueCatalog.Bit(id);
+    Changed(id);
   }
 
   public void Clear(OverlayValueId id)
@@ -60,7 +81,13 @@ internal sealed class OverlayValues : IOverlayNumberSource
       return;
     _has[(int)id] = false;
     _text[(int)id].Clear();
+    Changed(id);
+  }
+
+  private void Changed(OverlayValueId id)
+  {
     _dirty |= OverlayValueCatalog.Bit(id);
+    _stamp[(int)id] = ++_stampNow;
   }
 
   public bool TryGetNumber(OverlayValueId id, out double number)

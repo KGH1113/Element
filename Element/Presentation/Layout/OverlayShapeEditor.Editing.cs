@@ -41,10 +41,18 @@ internal sealed partial class OverlayShapeEditor
     HandleKeys();
     if (_screen == null)
       return;
-    // Live values move the preview while a level plays behind the editor.
-    if (_resolver.Mask != 0)
-      DrawShape();
+    FollowLiveValues();
     _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
+  }
+
+  // A level playing behind the editor moves the shape and its numbers.
+  private void FollowLiveValues()
+  {
+    if (!_live.Changed(_resolver.Mask | (_editing.Active ? _editing.Working.Mask : 0)))
+      return;
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
   }
 
   // Every number on the screen with the key of what it edits.

@@ -31,6 +31,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
   private readonly OverlayValues _values;
+  private readonly OverlayLiveValues _live;
   private readonly OverlayFormulaEditing _editing = new();
   private readonly OverlayShapeResolver _resolver = new();
   private readonly OverlayShapeSettings _resolved = new();
@@ -78,6 +79,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
     _font = font;
     _reduceMotion = reduceMotion;
     _values = values;
+    _live = new OverlayLiveValues(values);
   }
 
   public bool IsOpen => _screen != null;

@@ -79,27 +79,46 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   // them in the game. Unlike HiddenInApp, a closed app keeps the session waiting.
   private bool HiddenFromEditor => !_connected || _hiddenInApp;
 
-  public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
+  /// <summary>
+  /// Follows <paramref name="layouts"/>, such as a profile's: its viewers come,
+  /// and viewers it lacks go instead of being added to it.
+  /// </summary>
+  /// <param name="legacyEnabled">
+  /// At startup only: whether the old single hand and foot viewers were on,
+  /// for settings from before each viewer was its own element.
+  /// </param>
+  public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = false)
   {
     if (layouts == null)
       throw new ArgumentNullException(nameof(layouts));
     _layouts = layouts;
-    foreach (OverlayLayoutSettings settings in layouts.ToArray())
+    string before = EnabledViewers();
+    var removed = new List<string>();
+    var added = new List<KeyValuePair<string, string>>();
+    NativeViewerLayoutSync.Plan(
+      _layoutTargets.Select(target => target.Id),
+      _galleryTargets.Select(target => target.Id).ToArray(),
+      layouts,
+      removed,
+      added
+    );
+    foreach (string id in removed)
     {
-      if (settings == null || _layoutTargets.Any(target => target.Id == settings.Id))
-        continue;
-      string kind =
-        settings.TemplateId == "native-hand" ? "hand"
-        : settings.TemplateId == "native-foot" ? "foot"
-        : null;
-      if (kind == null)
-        continue;
-      NativeViewerLayoutTarget target = CreateTarget(kind, settings.Id);
-      _layoutTargets.Add(target);
+      NativeViewerLayoutTarget target = _layoutTargets.Find(item => item.Id == id);
+      _layoutTargets.Remove(target);
+      target.Dispose();
     }
+    foreach (KeyValuePair<string, string> viewer in added)
+      _layoutTargets.Add(CreateTarget(viewer.Value, viewer.Key));
     foreach (NativeViewerLayoutTarget target in _layoutTargets)
       target.Configure(layouts, legacyEnabled);
+    // The pages on screen follow; viewers that went close their page.
+    if (EnabledViewers() != before)
+      OnEnabledChanged();
   }
+
+  private string EnabledViewers() =>
+    string.Join(",", _layoutTargets.Where(target => target.Enabled).Select(target => target.NativeId));
 
   IOverlayLayoutTarget IKeyViewerElements.Add(string templateId) => AddElement(templateId);
 

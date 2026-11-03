@@ -26,6 +26,11 @@
       <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- ElementSettings derives from UMM's ModSettings; profile tests build whole settings. -->
+    <Reference Include="UnityModManager">
+      <HintPath>$(UnityModManagerDll)</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="Newtonsoft.Json">
       <HintPath>$(AdofaiManaged)/Newtonsoft.Json.dll</HintPath>
       <Private>true</Private>

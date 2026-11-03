@@ -22,7 +22,7 @@ internal sealed partial class SettingsPanel : IDisposable
   private readonly GameObject _root;
   private readonly RectTransform _window;
   private readonly Canvas _canvas;
-  private readonly GameObject[] _pages = new GameObject[9];
+  private readonly GameObject[] _pages = new GameObject[11];
   private readonly Button[] _homeCards = new Button[4];
   private readonly TextMeshProUGUI _title;
   private readonly TextMeshProUGUI _feedback;
@@ -48,8 +48,10 @@ internal sealed partial class SettingsPanel : IDisposable
     _previousSelection = EventSystem.current?.currentSelectedGameObject;
     SetVisible(true);
     ClearFeedback();
+    ClearProfileMessages();
     _ui.RefreshTheme();
     _galleryUi?.RefreshTheme();
+    _profileGalleryUi?.RefreshTheme();
     SelectPage(0);
     UpdateShortcutLabel();
     FitWindow();
@@ -215,6 +217,7 @@ internal sealed partial class SettingsPanel : IDisposable
     _apply();
     _ui.RefreshTheme();
     _galleryUi?.RefreshTheme();
+    _profileGalleryUi?.RefreshTheme();
   }
 
   private void SelectPage(int index)
@@ -236,6 +239,9 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 5 ? L("판정 표시", "Judgment visuals")
       : index == 6 ? L("행성", "Planets")
       : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
+      : index == ProfilesPage ? L("프로필", "Profiles")
+      : index == ProfileEditorPage
+        ? (_editingProfile == null ? L("새 프로필", "New profile") : L("프로필 편집", "Edit profile"))
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);
@@ -257,6 +263,18 @@ internal sealed partial class SettingsPanel : IDisposable
     if (previous == 7)
     {
       SelectPage(3);
+      return;
+    }
+    if (previous == ProfileEditorPage)
+    {
+      SelectPage(ProfilesPage);
+      return;
+    }
+    if (previous == ProfilesPage)
+    {
+      SelectPage(2);
+      if (_profileLink != null)
+        EventSystem.current?.SetSelectedGameObject(_profileLink.gameObject);
       return;
     }
     if (previous >= 4)
@@ -336,5 +354,6 @@ internal sealed partial class SettingsPanel : IDisposable
     _ui.Dispose();
     _planetPicker?.Dispose();
     _galleryUi?.Dispose();
+    _profileGalleryUi?.Dispose();
   }
 }

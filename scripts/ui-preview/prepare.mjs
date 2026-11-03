@@ -19,6 +19,9 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'))
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Application/Updates/IModUpdates.cs'));
+files.push(path.join(root, 'Element/Application/Files/IFileDialogs.cs'));
+for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles')).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Application/Profiles', name));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerMock.cs'));

@@ -1,10 +1,13 @@
 using System;
+using Element.Application.Profiles;
 using Element.Configuration;
 using Element.Configuration.Effects;
+using Element.Infrastructure.Files;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
+using Element.Infrastructure.Profiles;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -23,6 +26,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly Main _main;
   private readonly TMP_FontAsset _font;
   private readonly Action _apply;
+  private readonly Action _reloadSettings;
   private readonly Action _viewerModeChanged;
   private readonly DmNoteNativeIpcFeature _nativeViewers;
   private readonly PlanetAppearanceController _planets;
@@ -42,6 +46,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     DmNoteNativeIpcFeature nativeViewers,
     PlanetAppearanceController planets,
     Action apply,
+    Action reloadSettings,
     Action viewerModeChanged,
     Func<bool> judgementTextLinked
   )
@@ -52,6 +57,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _planets = planets;
     _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
     _apply = apply;
+    _reloadSettings = reloadSettings;
     _viewerModeChanged = viewerModeChanged;
     _font =
       overlayFont
@@ -88,8 +94,32 @@ internal sealed class SettingsUiRuntime : IDisposable
       RenderPlanetPreview,
       () => ChatterBlocker.Blocked,
       _main.Updates,
-      _judgementTextLinked
+      _judgementTextLinked,
+      CreateProfiles()
     );
+
+  // Built with the window, after the game has loaded its language: the first
+  // profile is named in it.
+  private IProfiles CreateProfiles()
+  {
+    try
+    {
+      return new ProfileService(
+        new ProfileLibrary(_main.Settings, L("기본", "Default")),
+        SystemFileDialogs.Create(_main.RuntimePath),
+        Save,
+        _reloadSettings,
+        new SettingsBackup(_main.Path, () => _main.Settings).Write,
+        _main.Version,
+        _main.LogException
+      );
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Profiles are unavailable", exception);
+      return null;
+    }
+  }
 
   public void Open() => Panel.Open();
 

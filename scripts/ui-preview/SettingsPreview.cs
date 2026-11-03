@@ -1196,6 +1196,26 @@ namespace Element.Editor
         Assert(label.font == Field<TMP_FontAsset>(editor, "_font"), "the font list itself stays in the UI font");
       SaveFrame(camera, texture, canvases, name + "-font");
 
+      // A font without Latin letters takes them from the OS's Latin font, as
+      // the OS draws it, not from the bundled font that was there before.
+      OverlayFontFace hebrew = library.Installed.FirstOrDefault(face => face.Family == "Arial Hebrew Scholar" && face.Style == "Regular");
+      if (hebrew != null)
+      {
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { hebrew.Key }));
+        host.TickLayoutPreview();
+        drawn.ForceMeshUpdate();
+        TMP_CharacterInfo[] glyphs = drawn.textInfo.characterInfo;
+        TMP_CharacterInfo letter = glyphs.First(c => c.character == 'F');
+        TMP_CharacterInfo digit = glyphs.First(c => char.IsDigit(c.character));
+        Assert(drawn.font == fonts.DefaultAsset && digit.fontAsset == fonts.DefaultAsset
+          && letter.fontAsset != null && letter.fontAsset != fonts.Bundled && letter.fontAsset.faceInfo.familyName == "Helvetica",
+          "a font without Latin letters draws them in the OS's Latin font: " + letter.fontAsset?.faceInfo.familyName
+            + " / digits " + digit.fontAsset?.faceInfo.familyName);
+        SaveFrame(camera, texture, canvases, name + "-font-latin-fallback");
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+        host.TickLayoutPreview();
+      }
+
       // A file chosen in the dialog is copied into the folder and applied.
       Call(popover, "Import");
       Assert(File.Exists(Path.Combine(_fonts, "Verdana.ttf")) && library.Imported.Any(face => face.Family == "Verdana")

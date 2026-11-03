@@ -26,6 +26,7 @@ internal sealed partial class OverlayTextEditor
   private string _clipboardText;
   private OverlayColorSettings _pendingColor;
   private float _pendingSize;
+  private string _pendingFont = "";
   private int _caretIndex;
   private int _anchor;
   private float _goalX = float.NaN;
@@ -37,6 +38,7 @@ internal sealed partial class OverlayTextEditor
   private float _lastTypingAt = -1;
   private bool _pickerSnapshotTaken;
   private float _previewScale = 1;
+  private int _fontVersion = -1;
 
   private bool HasSelection => _anchor != _caretIndex;
 
@@ -83,8 +85,12 @@ internal sealed partial class OverlayTextEditor
   // A level playing behind the editor moves the values it shows.
   private void FollowLiveValues()
   {
-    if (!_live.Changed(_liveMask))
+    // A font that finished loading (installed fonts are listed in the background) redraws too.
+    bool fonts = _element != null && _element.Fonts.Version != _fontVersion;
+    if (!_live.Changed(_liveMask) && !fonts)
       return;
+    if (fonts)
+      ApplyPreviewFont();
     float blinkStart = _blinkStart;
     Render();
     _blinkStart = blinkStart;
@@ -112,6 +118,8 @@ internal sealed partial class OverlayTextEditor
 
   private string TypingSizeFormula(int caret) =>
     _document.Count == 0 ? _pendingSizeFormula : _document.TypingSizeFormula(caret);
+
+  private string TypingFont(int caret) => _document.Count == 0 ? _pendingFont : _document.TypingFont(caret);
 
   // While a popover is open: Enter and Esc close it, and with a formula open
   // the keyboard types into it like the keypad. Other keys go back to the
@@ -341,7 +349,8 @@ internal sealed partial class OverlayTextEditor
       text,
       TypingColor(start),
       TypingSize(start),
-      TypingSizeFormula(start)
+      TypingSizeFormula(start),
+      TypingFont(start)
     );
     Changed();
   }
@@ -417,7 +426,8 @@ internal sealed partial class OverlayTextEditor
         system,
         TypingColor(start),
         TypingSize(start),
-        TypingSizeFormula(start)
+        TypingSizeFormula(start),
+        TypingFont(start)
       );
       Changed();
     }
@@ -580,12 +590,13 @@ internal sealed partial class OverlayTextEditor
     IOverlayNumberSource samples = _values.WithSamples;
     OverlayTextItem? open = null;
     float openSize = 0;
+    string openFont = null;
     for (int i = 0; i <= _document.Count; i++)
     {
       if (i == _caretIndex && _composition.Length > 0)
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         open = null;
         float typing = OverlayTextComposer.Size(
           TypingSize(i),
@@ -593,11 +604,17 @@ internal sealed partial class OverlayTextEditor
           samples,
           _elementScale
         );
-        OverlayTextComposer.OpenStyle(_builder, OverlayTextComposer.Resolve(TypingColor(i), highlight), typing);
+        string typingFont = FontTag(TypingFont(i));
+        OverlayTextComposer.OpenStyle(
+          _builder,
+          OverlayTextComposer.Resolve(TypingColor(i), highlight),
+          typing,
+          typingFont
+        );
         _builder.Append("<u>");
         OverlayTextComposer.AppendLiteral(_builder, _composition);
         _builder.Append("</u>");
-        OverlayTextComposer.CloseStyle(_builder, typing);
+        OverlayTextComposer.CloseStyle(_builder, typing, typingFont);
       }
       if (i == _document.Count)
         break;
@@ -605,31 +622,46 @@ internal sealed partial class OverlayTextEditor
       if (item.IsValue)
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         open = null;
         float size = ItemSize(item, samples);
-        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), size);
+        string font = FontTag(item.Font);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), size, font);
         _builder.Append("<link=\"").Append(OverlayTextComposer.ValueLink).Append("\">");
         int before = _builder.Length;
         OverlayFormulaText.Append(_builder, OverlayFormula.Parse(item.Value), _values, true);
         if (_builder.Length == before)
           _builder.Append(' ');
         _builder.Append("</link>");
-        OverlayTextComposer.CloseStyle(_builder, size);
+        OverlayTextComposer.CloseStyle(_builder, size, font);
         continue;
       }
       if (open == null || !open.Value.SameStyle(item))
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         openSize = ItemSize(item, samples);
-        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), openSize);
+        openFont = FontTag(item.Font);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), openSize, openFont);
         open = item;
       }
       OverlayTextComposer.AppendLiteral(_builder, item.Text);
     }
     if (open != null)
-      OverlayTextComposer.CloseStyle(_builder, openSize);
+      OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
+  }
+
+  // A run in another font than the default switches to it, as in the game.
+  private string FontTag(string font) => _element?.Fonts?.OpenTag(font);
+
+  private void ApplyPreviewFont()
+  {
+    OverlayFonts fonts = _element.Fonts;
+    _fontVersion = fonts.Version;
+    if (_preview.font != fonts.DefaultAsset)
+      _preview.font = fonts.DefaultAsset;
+    if (_preview.fontSharedMaterial != fonts.DefaultMaterial)
+      _preview.fontSharedMaterial = fonts.DefaultMaterial;
   }
 
   private float ItemSize(OverlayTextItem item, IOverlayNumberSource samples) =>

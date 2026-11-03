@@ -91,6 +91,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _pendingColor = null;
     _pendingSize = 0;
     _pendingSizeFormula = "";
+    _pendingFont = "";
     _fieldSlot = null;
     _chipPopover = -1;
     _editing.Deactivate();
@@ -141,11 +142,12 @@ internal sealed partial class OverlayTextEditor : IDisposable
     preview.pivot = new Vector2(.5f, .5f);
     _preview = OverlayTextFactory.AddText(
       preview.gameObject,
-      _element.Font,
-      _element.Material,
+      _element.Fonts.DefaultAsset,
+      _element.Fonts.DefaultMaterial,
       OverlayElementDefaults.TextSize,
       Horizontal(_element.Alignment)
     );
+    _fontVersion = _element.Fonts.Version;
     _preview.textWrappingMode = TextWrappingModes.NoWrap;
     _preview.overflowMode = TextOverflowModes.Overflow;
     _caret = _ui.Panel("Caret", preview, 0, 0, 2, 10, Color.white, false);

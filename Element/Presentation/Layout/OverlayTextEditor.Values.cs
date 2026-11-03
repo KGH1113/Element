@@ -432,7 +432,8 @@ internal sealed partial class OverlayTextEditor
       value.Key,
       InsertColor(value.Id),
       TypingSize(start),
-      TypingSizeFormula(start)
+      TypingSizeFormula(start),
+      TypingFont(start)
     );
     _anchor = start;
     _caretIndex = after;

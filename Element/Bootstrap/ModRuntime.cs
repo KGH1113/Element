@@ -234,6 +234,7 @@ internal sealed class ModRuntime : IDisposable
 
         SyncDmNoteApp();
         OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
+        _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
         _gameplayTweaks?.Apply();
         _effects?.ApplySettings();
         // Color drags only update the affected planet. Avoid rebuilding overlay

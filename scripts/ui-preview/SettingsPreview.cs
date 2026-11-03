@@ -1546,6 +1546,16 @@ namespace Element.Editor
         Assert(backIcon != null && backIcon.Kind == 4 && !backIcon.raycastTarget,
           "Back uses a left chevron with the full button hit area");
         CheckNavigationControls(panel, settings);
+        // A scene change destroys the selected object while the event system
+        // stays; that selection must read as nothing, not throw every frame.
+        GameObject previewEvents = new GameObject("Preview events", typeof(UnityEngine.EventSystems.EventSystem));
+        UnityEngine.EventSystems.EventSystem events = previewEvents.GetComponent<UnityEngine.EventSystems.EventSystem>();
+        GameObject doomed = new GameObject("Selection from a closed scene");
+        events.SetSelectedGameObject(doomed);
+        Object.DestroyImmediate(doomed);
+        Assert(!SettingsPanel.IsTyping(events), "a selection destroyed with its scene is not typing");
+        events.SetSelectedGameObject(null);
+        Object.DestroyImmediate(previewEvents);
         Call(panel, "Back");
         Assert(Field<int>(panel, "_page") == 0, "Back returns to home");
         cards[2].onClick.Invoke();

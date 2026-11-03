@@ -55,7 +55,7 @@
 <td width="33%" valign="top">
 
 ### 게임 내 키뷰어
-[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꿉니다.
+[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꾸거나 **키뷰어 편집**으로 ElementNote의 해당 탭을 엽니다.
 
 </td>
 </tr>

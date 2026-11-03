@@ -12,11 +12,11 @@ using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Layout;
 
-// A second toolbar that follows a selected key viewer with hand or foot, or
-// several selected elements with align and distribute. A single text or shape
-// has none: the main toolbar's Edit button, a double-click or Enter opens
-// its editor. It drags by its grip like the main toolbar and keeps its place;
-// it never blocks the canvas.
+// A second toolbar that follows a selected key viewer with hand or foot and
+// its Edit, or several selected elements with align and distribute. A single
+// text or shape has none: the main toolbar's Edit button, a double-click or
+// Enter opens its editor. It drags by its grip like the main toolbar and keeps
+// its place; it never blocks the canvas.
 internal sealed partial class OverlayLayoutEditor
 {
   private const float ElementBarHeight = 56;
@@ -179,7 +179,7 @@ internal sealed partial class OverlayLayoutEditor
 
   private void BuildKeyViewerSettings(IOverlayLayoutTarget target)
   {
-    RectTransform panel = BeginSettings(target, 216);
+    RectTransform panel = BeginSettings(target, 401);
     _kindControl = new SettingsSegmentedControl(
       _settingsUi,
       panel,
@@ -192,6 +192,62 @@ internal sealed partial class OverlayLayoutEditor
     );
     _elementBarControls.Add(_kindControl.Root);
     _kindControl.Selected = target.TemplateId == OverlayElementKinds.FootKeyViewer ? 1 : 0;
+    Divider(212);
+    // Hand or foot replaces the target without a rebuild: read it on click.
+    Button edit = Control(
+      _settingsUi.Button(
+        L("키뷰어 편집", "Edit key viewer"),
+        panel,
+        221,
+        8,
+        172,
+        40,
+        () => OpenKeyViewerInApp(_settingsTarget),
+        true
+      )
+    );
+    edit.name = "Edit key viewer";
+    string hint = L(
+      "ElementNote에서 이 키뷰어의 탭을 열어요 · 더블클릭, Enter",
+      "Opens this viewer's tab in ElementNote · Double-click, Enter"
+    );
+    edit.gameObject.AddComponent<LayoutActionHint>().Changed = visible => _actionHint = visible ? hint : "";
+  }
+
+  // ElementNote edits the viewer; the game brings it forward on the right tab.
+  private void OpenKeyViewerInApp(IOverlayLayoutTarget target)
+  {
+    KeyViewerEditResult result =
+      target == null ? KeyViewerEditResult.Failed : _keyViewers?.OpenInApp(target) ?? KeyViewerEditResult.Failed;
+    switch (result)
+    {
+      case KeyViewerEditResult.Opened:
+        return;
+      case KeyViewerEditResult.AppClosed:
+        ShowEditorError(
+          L(
+            "ElementNote가 꺼져 있어요. ElementNote를 켠 뒤 다시 눌러 주세요.",
+            "ElementNote is closed. Open it, then try again."
+          )
+        );
+        return;
+      case KeyViewerEditResult.AppOutdated:
+        ShowEditorError(
+          L(
+            "ElementNote를 업데이트해야 해요. ElementNote를 끄고 게임을 다시 시작해 주세요.",
+            "ElementNote needs an update. Quit it and restart the game."
+          )
+        );
+        return;
+      default:
+        ShowEditorError(
+          L(
+            "ElementNote를 열지 못했어요. 잠시 후 다시 눌러 주세요.",
+            "Couldn't open ElementNote. Try again in a moment."
+          )
+        );
+        return;
+    }
   }
 
   private void SwitchKeyViewer(string templateId)

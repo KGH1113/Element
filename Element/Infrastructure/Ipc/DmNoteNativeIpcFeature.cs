@@ -5,6 +5,7 @@ using AdofaiIpc.Contracts;
 using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
+using Element.Infrastructure.DmNoteApp;
 using Element.Infrastructure.Game.DmNote;
 using Element.Presentation.Layout;
 using TMPro;
@@ -21,6 +22,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   private readonly Func<Color> _highlight;
   private readonly Action<string, Exception> _logError;
   private readonly Action<string> _logWarning;
+  private readonly IDmNoteAppFocus _appFocus;
   private readonly bool _supported;
   private IFeatureRegistration _ipc;
   private INativeViewerHost _host;
@@ -45,7 +47,8 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     Func<INativeViewerHost> createHost,
     Func<Color> highlight,
     Action<string, Exception> logError,
-    Action<string> logWarning
+    Action<string> logWarning,
+    IDmNoteAppFocus appFocus = null
   )
   {
     _supported = supported;
@@ -54,6 +57,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     _highlight = highlight ?? (() => Color.white);
     _logError = logError ?? ((_, _) => { });
     _logWarning = logWarning ?? (_ => { });
+    _appFocus = appFocus;
     _galleryTargets = new[] { CreateTarget("hand", null), CreateTarget("foot", null) };
     _layoutTargets = new List<NativeViewerLayoutTarget>(_galleryTargets);
   }
@@ -119,6 +123,40 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     old.SetEnabled(false);
     OnEnabledChanged();
     return created;
+  }
+
+  // Unity main thread, from the editor's button: the game is in front.
+  public KeyViewerEditResult OpenInApp(IOverlayLayoutTarget target)
+  {
+    if (target is not NativeViewerLayoutTarget viewer)
+      return KeyViewerEditResult.Failed;
+    if (!_session.Connected)
+      return KeyViewerEditResult.AppClosed;
+    string peer = _session.EditPeer;
+    if (peer == null)
+      return KeyViewerEditResult.AppOutdated;
+    IFeatureRegistration ipc = _ipc;
+    if (ipc == null)
+      return KeyViewerEditResult.Failed;
+    try
+    {
+      _appFocus?.PassFocus();
+    }
+    catch (Exception error)
+    {
+      // The app still switches its tab; the player brings it forward.
+      _logWarning("Couldn't bring ElementNote forward: " + error.Message);
+    }
+    try
+    {
+      ipc.SendCommandToPeer(peer, NativeViewerSession.EditCommand, NativeViewerSession.EditPayload(viewer.Kind));
+      return KeyViewerEditResult.Opened;
+    }
+    catch (Exception error)
+    {
+      LogOnce("Open the key viewer in ElementNote", error);
+      return KeyViewerEditResult.Failed;
+    }
   }
 
   public IOverlayLayoutTarget AddElement(string templateId)

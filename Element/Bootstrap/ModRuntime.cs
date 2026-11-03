@@ -132,7 +132,8 @@ internal sealed class ModRuntime : IDisposable
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
         _main.LogException,
-        _main.LogWarning
+        _main.LogWarning,
+        DmNoteAppFocus.ForCurrentPlatform()
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());

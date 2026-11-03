@@ -1,93 +1,153 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Tabub.Planning;
 
 namespace Element.Tests;
 
-// Tabub's rules with the examples they were written from: beats at 2021 BPM,
-// four beats per hand, two hits within a beat pressed together.
+// Tabub counts keys the way the TabubuLabubu tag does: groups of 180° doubled
+// until the BPM is under 1050, written in pairs, four pairs a line, the latest
+// 34 groups at most.
 internal static class TabubTests
 {
-  private static readonly TabubSettings Settings = new();
-
   public static void Run()
   {
-    SpeedChangesCountTheSameBeats();
-    RightAngleFiveIsTwoTwoOne();
-    FastEightIsFourPairs();
-    HandsSwitchEveryFourBeats();
-    BusyStretchesSwitchHandsSooner();
-    TapsOnOneTileArePressedTogether();
+    GroupsGrowWithTheBpm();
+    KeysAreCountedPerGroup();
+    TextIsWrittenLikeTheTag();
+    PlayedTextMatchesTheTagHitByHit();
   }
 
-  private static void SpeedChangesCountTheSameBeats()
+  private static void GroupsGrowWithTheBpm()
   {
-    Check(Near(TabubBeats.FromTurn(180, 2021, 2021), 1), "180° at 2021 BPM is one beat");
-    Check(Near(TabubBeats.FromTurn(90, 2021, 2021), .5), "90° at 2021 BPM is half a beat");
-    Check(Near(TabubBeats.FromTurn(45, 1010.5, 2021), .5), "45° at half the speed is also half a beat");
-    double seconds = 45.0 / 180 * (60 / 1010.5);
-    Check(Near(TabubBeats.FromSeconds(seconds, 2021), .5), "a tile's time gives the same beats as its turn");
+    Check(TabubUnits.Threshold(1000) == 1 && TabubUnits.Threshold(1049.9) == 1, "under 1050 BPM a group is half a turn");
+    Check(TabubUnits.Threshold(1050) == 2 && TabubUnits.Threshold(2021) == 2, "1050 BPM and up: a full turn");
+    Check(TabubUnits.Threshold(2100) == 4 && TabubUnits.Threshold(4000) == 4, "and twice again past 2100");
+    Check(Near(TabubUnits.FromTurn(180, 1000), 1) && Near(TabubUnits.FromTurn(360, 2021), 1), "180° at 1000 and 360° at 2021 are one group");
+    Check(Near(TabubUnits.FromSeconds(60 / 1010.5, 2021), 1), "a tile's time gives the same groups as its turn");
   }
 
-  private static void RightAngleFiveIsTwoTwoOne()
+  private static void KeysAreCountedPerGroup()
   {
-    TabubPlan plan = TabubPlanner.Plan(new[] { 0, .5, 1, 2, 3.0 }, Settings);
-    TabubSection section = plan.Sections.Single();
-    Check(section.Hand == Hand.Left && section.HitCount == 5, "the first four beats are the left hand's");
-    Check(section.Pattern == "2 + 2 + 1", "right angles: 2 + 2 + 1, got " + section.Pattern);
+    TabubChart stream = Chart(1, .5, 1, .5, 1, .5, 1, .5, 1, .5, 1, .5);
+    Check(stream.Counts.SequenceEqual(new[] { 2, 2, 2 }), "two keys a group in a stream of quarter turns: " + Show(stream));
+
+    TabubChart rest = Chart(1, .5, 1, 2.5, 1, .5, 1, .5);
+    Check(rest.Counts.SequenceEqual(new[] { 2, 0, 0, 2 }), "a rest counts 0 keys: " + Show(rest));
+
+    TabubChart thirds = Chart(1, 1 / 3.0, 1, 1 / 3.0, 1, 1 / 3.0, 1, 0);
+    Check(thirds.Counts.SequenceEqual(new[] { 3, 1 }) && thirds.GroupOf(3) == 1, "a hit on a boundary, even a hair early, starts the next group");
+
+    TabubChart midspin = Chart(1, .5, 0, .5, 1, .5);
+    Check(midspin.Counts.SequenceEqual(new[] { 1, 1 }) && midspin.GroupOf(1) == -1, "a midspin is passed without a key, but its gap counts");
+
+    TabubChart taps = Chart(2, 1, 1, 0);
+    Check(taps.Counts.SequenceEqual(new[] { 2, 1 }), "a tile that needs two taps takes two keys");
+  }
+
+  private static void TextIsWrittenLikeTheTag()
+  {
+    StringBuilder builder = new();
+    int[] counts = { 4, 4, 3, 2, 10, 8, 1, 1, 2, 2 };
     Check(
-      section.Actions.Select(action => action.Beat).SequenceEqual(new[] { .25, 1.5, 3 }),
-      "pairs land between their hits: 0.25, 1.5, then 3"
+      TabubText.Played(counts, 10, builder) == "44 32 [10 8] 11 \n",
+      "pairs, [a b] past 8, a line after four pairs, the last pair once the next group is done"
     );
+    Check(TabubText.Played(counts, 0, builder) == "", "nothing before the first group is done");
+
+    int[] long_ = Enumerable.Range(0, 50).Select(i => i % 9).ToArray();
+    string from8 = TabubText.Played(long_, 35, builder);
+    Check(from8.StartsWith("" + long_[8] + long_[9] + " "), "past 34 groups the oldest eight go");
+    Check(TabubText.Played(long_, 42, builder).StartsWith("" + long_[8] + long_[9]), "until it holds 34 again");
+    Check(TabubText.Played(long_, 43, builder).StartsWith("" + long_[16] + long_[17]), "then eight more go");
+
+    int[] ahead = { 4, 4, 3, 2, 1, 1, 2, 2, 3, 3 };
+    Check(TabubText.Ahead(ahead, 1, 32, builder) == "44 32 11 22 \n33", "what comes, four pairs a line: " + TabubText.Ahead(ahead, 1, 32, builder));
+    Check(TabubText.Ahead(ahead, 2, 4, builder) == "32 11", "from the pair the next hit is in");
+    Check(TabubText.Pair(ahead, 3) == "32" && TabubText.Pair(new[] { 9, 4 }, 0) == "[9 4]", "the pair now");
+    Check(TabubText.Pair(ahead, 10) == null && TabubText.Pair(new[] { 5 }, 0) == "50", "nothing past the end; a lone group pairs with 0");
   }
 
-  private static void FastEightIsFourPairs()
+  // The tag itself, at a frame rate that sees every tile: on each tile it adds
+  // the turn to the next tile in whole degrees and counts a key; whenever the
+  // turn reaches 180° × threshold it writes down the keys so far.
+  private sealed class Tag
   {
-    double[] eight = Enumerable.Range(0, 8).Select(i => i * .5).ToArray();
-    TabubSection section = TabubPlanner.Plan(eight, Settings).Sections.Single();
-    Check(section.Pattern == "2 + 2 + 2 + 2", "fast eight: 2 + 2 + 2 + 2, got " + section.Pattern);
-    Check(section.Actions.Select(action => action.Beat).SequenceEqual(new[] { .25, 1.25, 2.25, 3.25 }), "at 0.25, 1.25, 2.25 and 3.25");
+    private readonly List<int> _keys = new();
+    private int _storage;
+    private int _current;
+
+    public void Tile(int degreesToNext, double tileBpm)
+    {
+      int threshold = TabubUnits.Threshold(tileBpm);
+      _storage += degreesToNext;
+      _current++;
+      // The tag checks every frame, so a long gap writes its empty groups one frame after another.
+      while (_storage >= 180 * threshold)
+      {
+        _storage -= 180 * threshold;
+        _keys.Add(_current);
+        _current = 0;
+        if (_keys.Count > 34)
+          _keys.RemoveRange(0, 8);
+      }
+    }
+
+    public string Text()
+    {
+      StringBuilder text = new();
+      for (int i = 0; i < Math.Min(_keys.Count, 34); i++)
+      {
+        if (i % 2 == 0 && i > 0)
+        {
+          int a = _keys[i - 2],
+            b = _keys[i - 1];
+          text.Append(a > 8 || b > 8 ? "[" + a + " " + b + "] " : "" + a + b + " ");
+        }
+        if (i % 8 == 0 && i > 0)
+          text.Append('\n');
+      }
+      return text.ToString();
+    }
   }
 
-  private static void HandsSwitchEveryFourBeats()
+  private static void PlayedTextMatchesTheTagHitByHit()
   {
-    List<double> beats = new() { 0, .5, 1, 2, 3 };
-    beats.AddRange(new[] { 3.9999999, 4.5, 5, 6, 7 });
-    beats.AddRange(new[] { 8.0, 8.5 });
-    TabubPlan plan = TabubPlanner.Plan(beats, Settings);
-    Check(plan.Sections.Count == 3, "three stretches");
-    Check(
-      plan.Sections.Select(section => section.Hand).SequenceEqual(new[] { Hand.Left, Hand.Right, Hand.Left }),
-      "left, right, left"
-    );
-    Check(plan.SectionOf(5) == 1, "a hit on the boundary belongs to the next hand, even a hair early from rounding");
-    Check(plan.Sections[1].Pattern == "2 + 2 + 1", "the right hand plays the same right angles");
+    int[] pattern = { 90, 90, 180, 45, 45, 90, 60, 60, 60, 30, 30, 120, 180, 360, 90, 90, 540, 45, 45, 45, 45, 30, 30, 30, 90 };
+    List<(int Degrees, double Bpm)> tiles = new();
+    for (int round = 0; round < 6; round++)
+      tiles.AddRange(pattern.Select(degrees => (degrees, 1000.0)));
+    // The speed changes on a group boundary, where the tag's turn is back at 0.
+    int sum = tiles.Sum(tile => tile.Degrees);
+    if (sum % 180 != 0)
+      tiles.Add((180 - sum % 180, 1000.0));
+    for (int round = 0; round < 6; round++)
+      tiles.AddRange(pattern.Select(degrees => (degrees, 2021.0)));
 
-    TabubPlan rest = TabubPlanner.Plan(new[] { 0, 8.0 }, Settings);
-    Check(
-      rest.Sections.Select(section => section.Hand).SequenceEqual(new[] { Hand.Left, Hand.Left }),
-      "an empty stretch still takes its turn, so beat 8 is the left hand's again"
-    );
+    TabubChart chart = TabubChart.Count(tiles.Select(tile => new TabubStep(1, TabubUnits.FromTurn(tile.Degrees, tile.Bpm))).ToList());
+    Tag tag = new();
+    StringBuilder builder = new();
+    for (int hit = 0; hit < tiles.Count - 1; hit++)
+    {
+      tag.Tile(tiles[hit].Degrees, tiles[hit].Bpm);
+      string expected = tag.Text();
+      // After a hit, every group before the next hit's is done.
+      string actual = TabubText.Played(chart.Counts, chart.GroupOf(hit + 1), builder);
+      Check(expected == actual, "after hit " + hit + " the tag shows\n" + expected + "\nbut Tabub shows\n" + actual);
+    }
   }
 
-  private static void BusyStretchesSwitchHandsSooner()
+  // Pairs of (keys, groups to the next tile).
+  private static TabubChart Chart(params double[] pairs)
   {
-    double[] twelve = Enumerable.Range(0, 12).Select(i => i / 3.0).ToArray();
-    TabubPlan plan = TabubPlanner.Plan(twelve, Settings);
-    Check(plan.HandInterval == 2 && !plan.TooBusy, "twelve inputs in four beats switch hands every two beats");
-    Check(plan.Sections.All(section => section.HitCount <= Settings.MaxInputsPerHand), "no hand plays more than eight");
-
-    double[] wall = Enumerable.Repeat(0.0, 20).ToArray();
-    TabubPlan tooBusy = TabubPlanner.Plan(wall, Settings);
-    Check(tooBusy.TooBusy && tooBusy.HandInterval >= Settings.MinimumHandInterval, "a chart too busy even then says so");
+    List<TabubStep> steps = new();
+    for (int i = 0; i + 1 < pairs.Length; i += 2)
+      steps.Add(new TabubStep((int)pairs[i], pairs[i + 1]));
+    return TabubChart.Count(steps);
   }
 
-  private static void TapsOnOneTileArePressedTogether()
-  {
-    TabubSection section = TabubPlanner.Plan(new[] { 0, 0, 2.0 }, Settings).Sections.Single();
-    Check(section.Pattern == "2 + 1" && section.Actions[0].Beat == 0, "a two-tap tile is one press of two keys");
-  }
+  private static string Show(TabubChart chart) => string.Join(",", chart.Counts);
 
   private static bool Near(double a, double b) => Math.Abs(a - b) < 1e-9;
 

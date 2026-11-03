@@ -2,32 +2,24 @@ using HarmonyLib;
 
 namespace Tabub.Game;
 
-// The same moments Element itself follows: a level starts, a hit lands, the
-// planet goes back to a checkpoint, the level is left.
+// Where play starts and where the level is left; the tiles in between are
+// followed each frame (TabubSession.Tick), as the tag reads CurTile.
 
 [HarmonyPatch(typeof(scnGame), nameof(scnGame.Play))]
 internal static class PlayPatch
 {
-  private static void Postfix() => TabubSession.Begin();
+  private static void Postfix(int seqID) => TabubSession.Begin(seqID);
 }
 
 // Practice and the level editor start here instead.
 [HarmonyPatch(typeof(scrPressToStart), nameof(scrPressToStart.ShowText))]
 internal static class PressToStartPatch
 {
-  private static void Postfix() => TabubSession.Begin();
-}
-
-[HarmonyPatch(typeof(scrMarginTracker), nameof(scrMarginTracker.AddHit))]
-internal static class HitPatch
-{
-  private static void Postfix() => TabubSession.Advance();
-}
-
-[HarmonyPatch(typeof(scrMarginTracker), nameof(scrMarginTracker.RevertToLastCheckpoint))]
-internal static class CheckpointPatch
-{
-  private static void Postfix() => TabubSession.Advance();
+  private static void Postfix()
+  {
+    scrController controller = scrController.instance;
+    TabubSession.Begin(controller != null ? controller.currentSeqID : 0);
+  }
 }
 
 [HarmonyPatch(typeof(scrUIController), nameof(scrUIController.WipeToBlack))]

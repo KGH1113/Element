@@ -1,120 +1,120 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Tabub.Planning;
-using UnityEngine;
 
 namespace Tabub.Game;
 
 /// <summary>
-/// The level being played: planned once when it starts, then on every hit
-/// only looked up, so playing allocates nothing.
+/// The level being played. Its groups are counted once when play starts;
+/// each frame then only checks whether the planet reached another tile, and
+/// the text is written again only when a group is done.
 /// </summary>
 internal static class TabubSession
 {
-  private static readonly TabubSettings Settings = new();
-  private static readonly List<double> Beats = new();
-  private static readonly List<int> HitFloors = new();
-  private static TabubPlan _plan;
-  private static int[] _nextHit = Array.Empty<int>();
-  private static string _left = "왼손";
-  private static string _right = "오른손";
+  // Four lines of pairs, like the played text.
+  private const int AheadGroups = 32;
 
-  /// <summary>A level starts or restarts: plan its chart, then show where it stands.</summary>
-  public static void Begin()
+  private static readonly List<TabubStep> Steps = new();
+  private static readonly StringBuilder Builder = new(256);
+  private static TabubChart _chart;
+  private static int[] _nextGroup = Array.Empty<int>();
+  private static int _start;
+  private static int _floor;
+  private static int _shown = -1;
+
+  /// <summary>Play starts on <paramref name="startFloor"/>: count from the tile after it, as the tag does.</summary>
+  public static void Begin(int startFloor)
   {
-    Plan();
+    _chart = null;
+    _shown = -1;
+    List<scrFloor> floors = scrLevelMaker.instance != null ? scrLevelMaker.instance.listFloors : null;
+    scrConductor conductor = scrConductor.instance;
+    if (floors == null || conductor == null || startFloor < 0 || startFloor >= floors.Count - 1)
+    {
+      TabubValues.Clear();
+      return;
+    }
+    LevelSteps.Read(floors, startFloor, conductor.bpm, Steps);
+    _chart = TabubChart.Count(Steps);
+    _start = startFloor;
+    _floor = startFloor;
+    _nextGroup = NextGroups(floors.Count - startFloor);
     Show();
   }
 
-  /// <summary>A hit or a checkpoint moved the planet.</summary>
-  public static void Advance() => Show();
+  /// <summary>Once a frame: one comparison unless the planet reached another tile.</summary>
+  public static void Tick()
+  {
+    if (_chart == null)
+      return;
+    scrController controller = scrController.instance;
+    if (controller == null)
+      return;
+    int floor = controller.currentSeqID;
+    if (floor == _floor)
+      return;
+    if (floor < _floor)
+    {
+      // Back to a checkpoint: count again from there, like a restart.
+      Begin(floor);
+      return;
+    }
+    _floor = floor;
+    Show();
+  }
 
   public static void End()
   {
-    _plan = null;
-    _nextHit = Array.Empty<int>();
+    _chart = null;
+    _nextGroup = Array.Empty<int>();
+    _shown = -1;
     TabubValues.Clear();
   }
 
-  private static void Plan()
+  // For each tile from the start, the group of the next hit after it; the
+  // group count once no hit is left.
+  private static int[] NextGroups(int length)
   {
-    _plan = null;
-    List<scrFloor> floors = scrLevelMaker.instance != null ? scrLevelMaker.instance.listFloors : null;
-    if (floors == null || floors.Count < 2)
-      return;
-    LevelBeats.Read(floors, Settings.ReferenceBpm, Beats, HitFloors);
-    if (Beats.Count == 0)
-      return;
-    _plan = TabubPlanner.Plan(Beats, Settings);
-    _nextHit = NextHits(floors.Count);
-    bool korean = RDString.language == SystemLanguage.Korean;
-    _left = korean ? "왼손" : "Left";
-    _right = korean ? "오른손" : "Right";
-  }
-
-  // For each tile, the first hit after it: what the planet plays next.
-  private static int[] NextHits(int floorCount)
-  {
-    int[] next = new int[floorCount];
-    int hit = 0;
-    for (int floor = 0; floor < floorCount; floor++)
+    int[] nextGroup = new int[length];
+    int next = _chart.GroupCount;
+    for (int offset = length - 1; offset >= 0; offset--)
     {
-      while (hit < HitFloors.Count && HitFloors[hit] <= floor)
-        hit++;
-      next[floor] = hit < HitFloors.Count ? hit : -1;
+      // The tile after start + offset is step offset.
+      int group = _chart.GroupOf(offset);
+      if (group >= 0)
+        next = group;
+      nextGroup[offset] = next;
     }
-    return next;
+    return nextGroup;
   }
 
   private static void Show()
   {
-    scrController controller = scrController.instance;
-    if (_plan == null || controller == null)
+    int offset = _floor - _start;
+    if (_chart == null || offset < 0 || offset >= _nextGroup.Length)
     {
       TabubValues.Clear();
       return;
     }
-    int floor = controller.currentSeqID;
-    int hit = floor >= 0 && floor < _nextHit.Length ? _nextHit[floor] : -1;
-    int index = _plan.SectionOf(hit);
-    if (index < 0)
+    // Every group before the next hit's is done.
+    int group = _nextGroup[offset];
+    if (group == _shown)
+      return;
+    _shown = group;
+    IReadOnlyList<int> counts = _chart.Counts;
+    TabubValues.Played.Set(TabubText.Played(counts, group, Builder));
+    if (group >= counts.Count)
     {
-      TabubValues.Clear();
+      TabubValues.Ahead.Clear();
+      TabubValues.Pair.Clear();
+      TabubValues.NextPair.Clear();
+      TabubValues.Keys.Clear();
       return;
     }
-    TabubSection now = _plan.Sections[index];
-    TabubValues.Hand.Set(Name(now.Hand));
-    TabubValues.Pattern.Set(now.Pattern);
-    TabubValues.Keys.Set(now.HitCount);
-    TabubSection other = NextOf(index, now.Hand == Hand.Left ? Hand.Right : Hand.Left);
-    Show(now.Hand == Hand.Left ? TabubValues.LeftKeys : TabubValues.RightKeys, now);
-    Show(now.Hand == Hand.Left ? TabubValues.RightKeys : TabubValues.LeftKeys, other);
-    TabubSection next = index + 1 < _plan.Sections.Count ? _plan.Sections[index + 1] : null;
-    if (next == null)
-    {
-      TabubValues.NextHand.Clear();
-      TabubValues.NextPattern.Clear();
-      return;
-    }
-    TabubValues.NextHand.Set(Name(next.Hand));
-    TabubValues.NextPattern.Set(next.Pattern);
+    TabubValues.Ahead.Set(TabubText.Ahead(counts, group, AheadGroups, Builder));
+    TabubValues.Pair.Set(TabubText.Pair(counts, group));
+    TabubValues.NextPair.Set(TabubText.Pair(counts, group - group % 2 + 2));
+    TabubValues.Keys.Set(counts[group]);
   }
-
-  private static void Show(ElementKit.Values.NumberValue keys, TabubSection section)
-  {
-    if (section == null)
-      keys.Clear();
-    else
-      keys.Set(section.HitCount);
-  }
-
-  private static TabubSection NextOf(int index, Hand hand)
-  {
-    for (int i = index + 1; i < _plan.Sections.Count; i++)
-      if (_plan.Sections[i].Hand == hand)
-        return _plan.Sections[i];
-    return null;
-  }
-
-  private static string Name(Hand hand) => hand == Hand.Left ? _left : _right;
 }

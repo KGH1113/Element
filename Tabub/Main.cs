@@ -6,9 +6,9 @@ using UnityModManagerNet;
 namespace Tabub;
 
 /// <summary>
-/// Tabub works out which hand plays each stretch of a chart and how many keys
-/// it presses together, and hands that to Element as values. It has no
-/// overlay of its own: players show the values in Element's texts and shapes.
+/// Tabub counts the keys in each group of a chart, the way the TabubuLabubu
+/// tag does, and hands the result to Element as values. It has no overlay of
+/// its own: players show the values in Element's texts.
 /// </summary>
 public static class Main
 {
@@ -31,6 +31,12 @@ public static class Main
     {
       Unpatch();
       return true;
+    };
+    // Follows the planet tile by tile; one comparison a frame otherwise.
+    mod.OnUpdate = (_, _) =>
+    {
+      if (_patched)
+        TabubSession.Tick();
     };
     return Kit.Attach(mod);
   }

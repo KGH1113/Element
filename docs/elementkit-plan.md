@@ -15,7 +15,7 @@
 | Element 연결: 프레임마다 바뀐 값만 반영(할당 0), 꺼진 모드 숨김, 리로드·새 캔버스 | 완료 |
 | 입력 독에 모드별 카테고리 | 완료 |
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
-| 예시 모드 [Tabub](../Tabub) (`./scripts/run.sh tabub-install`) | 완료 |
+| 예시 모드 [Tabub](../Tabub): TabubuLabubu 태그를 옮김 (`./scripts/run.sh tabub-install`) | 완료 |
 | 프리셋, 기타 메뉴, 프리셋 내보내기 | 남음 |
 | `Player.Keys`, 묶음 값(`Numbers`), 실행 중 API 수준 확인 | 남음 |
 | NuGet 패키지·템플릿, 개발자 모드 | 남음 |
@@ -136,15 +136,15 @@ public static class TabubValues
 {
     public static readonly ValueGroup Group = new("타법", "Tabub");   // 입력 독의 제목
 
-    public static readonly TextValue   Hand     = Group.Text("hand",        "지금 손",   "Hand",       sample: "왼손");
-    public static readonly TextValue   Pattern  = Group.Text("pattern",     "지금 타법", "Pattern",    sample: "2 + 2 + 1");
-    public static readonly NumberValue LeftKeys = Group.Number("left-keys", "왼손 키",   "Left keys",  sample: 5);
+    public static readonly TextValue   Played = Group.Text("tabub",  "타법",      "Tabub",          sample: "44 44 32 32");
+    public static readonly TextValue   Pair   = Group.Text("pair",   "지금 타법", "Pair now",       sample: "44");
+    public static readonly NumberValue Keys   = Group.Number("keys", "이번 박 키", "Keys this beat", sample: 4);
 }
 ```
 
 - **종류:** Element 기본 값과 같은 세 가지입니다. 숫자(`Number`), 시간(`Time`, 초 단위, m:ss로 표시), 글자(`Text`, 계산 불가). 글자 값 안의 `<b>` 같은 표시는 읽지 않고 그대로 보여 줍니다.
 - **묶음 값(남음):** `Numbers`는 "다음 8타일" 같은 이어진 값입니다. 입력 독에는 한 줄로 보이고 번호를 고릅니다.
-- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{Tabub/left-keys}`). 모드끼리 이름이 겹치지 않습니다.
+- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{Tabub/pair}`). 모드끼리 이름이 겹치지 않습니다.
 - **`Set` 동작:**
   - 같은 값이면 아무 일도 하지 않습니다. 할당도 없고 다시 그리지도 않습니다.
   - 값이 바뀌면 그 값을 쓰는 텍스트·도형만 다시 그립니다. 지금의 변경 비트 방식을 그대로 씁니다.
@@ -152,19 +152,15 @@ public static class TabubValues
   - 메인 스레드가 아닌 곳(입력 스레드 등)에서 불러도 다음 프레임에 반영됩니다.
 - **예시 값(`sample`) 필수:** 맵을 켜지 않아도 편집기 미리보기가 보여야 하기 때문입니다.
 
-값은 어디서든 `Set`할 수 있습니다. 보통은 자기 Harmony 패치 안에서 부릅니다.
+값은 어디서든 `Set`할 수 있습니다. 자기 Harmony 패치 안에서 불러도 되고, UMM의 `OnUpdate`처럼 매 프레임 불러도 됩니다.
 
 ```csharp
-[HarmonyPatch(typeof(scrMarginTracker), nameof(scrMarginTracker.AddHit))]
-static class AfterHit
+mod.OnUpdate = (_, _) =>
 {
-    static void Postfix()
-    {
-        var stretch = Plan.At(scrController.instance.currentSeqID);   // 레벨을 시작할 때 listFloors로 미리 분석
-        TabubValues.Hand.Set(stretch.HandName);
-        TabubValues.Pattern.Set(stretch.Pattern);                      // 같은 값이면 아무 일도 없음
-    }
-}
+    int tile = scrController.instance.currentSeqID;   // 레벨을 시작할 때 listFloors로 미리 세어 둠
+    TabubValues.Pair.Set(Chart.PairAt(tile));          // 같은 값이면 아무 일도 없음
+    TabubValues.Keys.Set(Chart.KeysAt(tile));
+};
 ```
 
 ### 프리셋
@@ -264,31 +260,36 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 
 ```
 Tabub/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
- ├ Planning/TabubPlanner  순수 C#: 비트 목록 → 손 구간과 누르기 묶음. Unity 없이 단위 테스트
- ├ Planning/TabubBeats    기준 BPM 2021로 비트 환산
- ├ Game/LevelBeats        scrLevelMaker.instance.listFloors → 타격별 비트
- ├ Game/TabubSession      레벨 시작에 한 번 계획, 타격마다 값만 갱신(할당 없음)
- ├ Game/TabubPatches      scnGame.Play · scrPressToStart.ShowText · AddHit · 체크포인트 · 나가기
- └ TabubValues            지금 손 · 지금 타법 · 지금 손 키 · 왼손 키 · 오른손 키 · 다음 손 · 다음 타법
+ ├ Planning/TabubUnits    묶음 단위: 180° × threshold, BPM 1050 이상이면 threshold를 두 배씩
+ ├ Planning/TabubChart    순수 C#: 타일(키 수, 다음 타일까지 묶음 수) → 묶음별 키 수
+ ├ Planning/TabubText     TabubuLabubu 태그와 같은 글 모양
+ ├ Game/LevelSteps        scrLevelMaker.instance.listFloors → 시작 타일 다음부터의 타일
+ ├ Game/TabubSession      시작할 때 한 번 세고, 매 프레임 타일 번호만 비교(묶음이 끝날 때만 글을 새로 씀)
+ ├ Game/TabubPatches      scnGame.Play · scrPressToStart.ShowText · 나가기
+ └ TabubValues            타법 · 앞으로 타법 · 지금 타법 · 다음 타법 · 이번 박 키
 ```
 
-**규칙**(구현됨):
+**규칙**(사용자의 Overlayer 태그 `TabubuLabubu`를 옮김):
 
-1. **비트:** 기준 BPM을 2021로 고정합니다. `다음 타격까지의 비트 = (회전각 / 180°) × (2021 / 현재 BPM)`. 게임이 계산해 둔 타일 시각(`entryTime`)으로 `시간 × 2021 / 60`을 쓰면 같은 값이고, 소용돌이·변속·일시정지도 자동으로 반영됩니다. 첫 타격이 0비트입니다.
-2. **손 구간:** `[0, 4)`, `[4, 8)`, …처럼 4비트씩 나눠 짝수 구간은 왼손, 홀수 구간은 오른손이 맡습니다. 경계에 놓인 타격은 다음 손 몫입니다. 빈 구간도 순서를 차지합니다.
-3. **동타 묶기:** 구간 안에서 다음 타격이 `허용 오차 0.5비트 × 2` 안에 있으면 두 타격을 그 사이 시점에 2키로 함께 누릅니다. 아니면 1키입니다.
-4. **너무 바쁜 구간:** 한 손 최대 입력 8을 넘는 구간이 있으면 손 교대 간격을 반으로 줄여(4 → 2 → 1 → 0.5비트) 다시 나눕니다.
-5. **동시 입력 타일**(`tapsNeeded`)은 같은 비트의 타격 여러 개로 들어가 2키로 묶이고, 미드스핀 타일은 타격이 아니라서 뺍니다.
-6. **실제 키 배정**(어떤 손가락·키로 굴릴지)은 아직 하지 않습니다. 손 배치 설정이 필요해서 다음 단계로 남깁니다.
+1. **묶음:** 반 바퀴(180°)가 한 묶음입니다. 타일 BPM(피치 제외)이 1050 이상이면 1050 아래가 될 때까지 묶음을 두 배씩 늘립니다(2021 BPM이면 360°). 묶음의 실제 길이는 BPM이 달라도 거의 같습니다.
+2. **세기:** 플레이를 시작한 타일 다음 타일이 0입니다. 타일마다 다음 타일까지 돈 만큼 쌓고, 각 타격은 그 순간이 들어 있는 묶음의 키로 셉니다. 경계에 놓인 타격은 다음 묶음 몫이고, 쉬는 묶음은 0입니다.
+3. **글 모양:** 묶음 두 개씩 `44`처럼 붙여 쓰고, 한쪽이 8을 넘으면 `[10 8]`로 씁니다. 짝마다 띄우고 네 짝마다 줄을 바꿉니다. 지난 묶음은 34개까지 두고, 넘으면 오래된 8개를 지웁니다. 마지막 짝은 그다음 묶음이 끝나야 보입니다.
+4. **다시 시작:** 체크포인트로 돌아가면 그 타일부터 다시 셉니다(태그가 재시작 때 초기화하는 것과 같음).
 
-예: 직각 5타 `0, 0.5, 1, 2, 3비트` → `2 + 2 + 1`(0.25, 1.5, 3비트). 빠른 8타 → `2 + 2 + 2 + 2`(0.25, 1.25, 2.25, 3.25비트). 둘 다 [TabubTests](../Element.Tests/TabubTests.cs)로 확인합니다.
+태그와 다른 점:
 
-| 버전 | 화면 | 만드는 법 |
-| --- | --- | --- |
-| v1 | "왼손 · 2 + 2 + 1", "다음 오른손 · 2 + 2 + 2 + 2" | 텍스트에 `{지금 손}`, `{지금 타법}`, `{다음 손}`, `{다음 타법}` |
-| v2 | 다음 8타일 손 순서 | 원 8개 × 2줄. 위 줄 채우기 불투명도 = `{다음 왼손 n} × 100`, 아래 줄은 오른손. 배경은 사각형 |
+- 태그는 매 프레임 `CurTile`이 바뀌었는지 보고 그 타일 하나만 더합니다. 빠른 채보에서 한 프레임에 타일이 둘 이상 지나가면 키와 각도를 빠뜨립니다. Tabub은 시작할 때 타일 시각으로 전부 세어 두므로 빠뜨리지 않습니다.
+- 태그는 타일마다 각도를 정수로 반올림해서 22.5° 같은 각도가 쌓이면 묶음 경계가 밀립니다. Tabub은 반올림하지 않습니다.
+- 미드스핀 타일은 누르지 않으므로 키로 세지 않습니다. 동시 입력이 필요한 타일(`tapsNeeded`)은 그 수만큼 셉니다.
 
-v2까지 지금 Element의 "모든 숫자는 값을 받는다" 규칙만으로 만들 수 있습니다. 색을 손에 따라 바꾸려면 [조건 색](#element-기본-기능-확장)이 필요합니다.
+모든 타일을 보는 조건에서 태그 로직을 C#으로 옮긴 모델과 비교했습니다. 1000 → 2021 BPM 변속이 있는 약 300타일 채보에서, 매 타격 뒤의 글이 한 글자도 다르지 않습니다([TabubTests](../Element.Tests/TabubTests.cs)).
+
+| 값 | 내용 |
+| --- | --- |
+| `{타법}` | 태그와 같은 글: 지난 묶음들, 네 짝마다 줄바꿈 |
+| `{앞으로 타법}` | 다음 타격이 든 짝부터 32묶음, 같은 모양 |
+| `{지금 타법}` / `{다음 타법}` | 다음 타격이 든 짝과 그다음 짝, 예: `44`, `[10 8]` |
+| `{이번 박 키}` | 다음 타격이 든 묶음의 키 수 |
 
 ## Element 쪽 변경
 

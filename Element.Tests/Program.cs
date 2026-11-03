@@ -42,7 +42,7 @@ internal static class Program
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
       Run("ElementKit values: checked on attach, shown, hidden while off, kept across reloads", ElementKitTests.Run);
-      Run("Tabub: beats at 2021 BPM, four beats per hand, close hits pressed together", TabubTests.Run);
+      Run("Tabub: keys per group like the TabubuLabubu tag, matched hit by hit", TabubTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",

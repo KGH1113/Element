@@ -90,7 +90,13 @@ internal sealed class ModRuntime : IDisposable
     _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
     _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
     _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
-    _pushHitTextHide = () => _hitTextSync?.Push();
+    // ADOFAI saves its Hide Judgment Text at once; the mod's choice behind it
+    // is saved with it, not only when the settings window closes.
+    _pushHitTextHide = () =>
+    {
+      if (_hitTextSync?.Push() == true)
+        _settingsUi?.Save();
+    };
   }
 
   public bool Initialize()

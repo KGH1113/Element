@@ -147,6 +147,7 @@ internal sealed class ModRuntime : IDisposable
         _nativeViewers,
         _gameplayTweaks.Planets,
         ApplySettings,
+        ReloadSettings,
         () => RefreshViewerMode(IsGameplayActive()),
         () => gameHitText.Applies
       );
@@ -256,6 +257,25 @@ internal sealed class ModRuntime : IDisposable
           RefreshViewerMode(false);
       }
     );
+  }
+
+  /// <summary>
+  /// The live settings were replaced, such as by a profile switch: give the
+  /// canvas its new elements and apply everything, layouts included.
+  /// </summary>
+  public void ReloadSettings()
+  {
+    Execute(
+      "Load profile layouts",
+      () =>
+      {
+        if (!_initialized)
+          return;
+        _overlay?.Canvas?.ConfigureLayouts(_main.Settings.OverlayLayouts);
+        _presentationSettingsApplied = false;
+      }
+    );
+    ApplySettings();
   }
 
   // Installs or updates the app once at startup, so players can open it on its

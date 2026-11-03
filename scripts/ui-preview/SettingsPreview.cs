@@ -13,6 +13,9 @@ using Element.Presentation.Layout;
 using Element.Domain.Input;
 using Element.Domain.Layout;
 using Element.Application.Updates;
+using Element.Application.Files;
+using Element.Application.Profiles;
+using Element.Configuration.Profiles;
 using Element.Infrastructure.Game.DmNote;
 using TMPro;
 using UnityEditor;
@@ -60,6 +63,12 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
       Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
       Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
+      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-720");
+      Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
+      Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
+      Render(1280, 720, SystemLanguage.English, 10, "profile-editor-en-720");
+      Render(760, 720, SystemLanguage.Korean, 10, "profile-editor-ko-narrow");
+      Render(360, 720, SystemLanguage.English, 10, "profile-editor-en-compact");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       Debug.Log("UI_PREVIEW_SCREEN " + Screen.width + "x" + Screen.height);
       RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
@@ -1342,7 +1351,9 @@ namespace Element.Editor
       OverlayTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates());
+      PreviewDialogs dialogs = new PreviewDialogs();
+      ProfileService profiles = PreviewProfiles(settings, dialogs);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles);
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");
@@ -1389,6 +1400,7 @@ namespace Element.Editor
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
         Call(panel, "SelectPage", page);
         if (page == 7) Call(panel, "EditPreset", settings.Effects.Presets[0]);
+        if (page == 10) Call(panel, "EditProfile", profiles.Profiles[1]);
         panel.Resize(width, height);
         Canvas.ForceUpdateCanvases();
         foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
@@ -1398,6 +1410,9 @@ namespace Element.Editor
         if (page == 5) CheckJudgmentChoices(panel, settings);
         if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
         if (page == 8) CheckChatterBlocking(panel, settings, width);
+        if (page == 2) CheckProfileLink(panel, profiles);
+        if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
+        if (page == 10) CheckProfileEditor(panel, profiles, width, height);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
@@ -1737,6 +1752,101 @@ namespace Element.Editor
     // This probe checks the UI/render-service boundary only. The deliberately
     // rectangular test textures are not ADOFAI artwork or a game-render test.
     // The longest status: a download that outlasted startup.
+    private sealed class PreviewDialogs : IFileDialogs
+    {
+      public int Opened;
+      public FileDialogResult Open(FileDialogRequest request) { Opened++; return FileDialogResult.Cancelled; }
+      public FileDialogResult Save(FileDialogRequest request) { Opened++; return FileDialogResult.Cancelled; }
+    }
+
+    // Three profiles, the newest in use, as a player who made two copies would have.
+    private static ProfileService PreviewProfiles(ElementSettings settings, PreviewDialogs dialogs)
+    {
+      bool korean = RDString.language == SystemLanguage.Korean;
+      ProfileLibrary library = new ProfileLibrary(settings, korean ? "기본" : "Default");
+      library.TryCreate(korean ? "방송용" : "Stream", out _, out _);
+      library.TryCreate(korean ? "연습 · 느린 곡과 긴 이름의 프로필" : "Practice · slow songs and a long name", out _, out _);
+      return new ProfileService(library, dialogs, () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
+    }
+
+    private static void CheckProfileLink(SettingsPanel panel, ProfileService profiles)
+    {
+      Button link = Field<Button>(panel, "_profileLink");
+      Assert(link != null && link.transform.IsChildOf(Field<GameObject[]>(panel, "_pages")[2].transform), "General starts with the profile link");
+      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(profiles.Active.Name), "the profile link names the profile in use");
+      RectTransform shortcut = Field<RectTransform>(panel, "_shortcutSection");
+      Assert(((RectTransform)link.transform).rect.height > 0 && -shortcut.anchoredPosition.y >= 80, "the shortcut card sits below the profile link");
+    }
+
+    private static void CheckProfiles(SettingsPanel panel, ElementSettings settings, ProfileService profiles, PreviewDialogs dialogs, int width, int height)
+    {
+      List<Button> cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(cards.Count == profiles.Profiles.Count, "one card per profile");
+      float pageWidth = ((RectTransform)Field<GameObject[]>(panel, "_pages")[9].transform).rect.width;
+      var rects = cards.Select(card => { RectTransform r = (RectTransform)card.transform; return new Rect(r.anchoredPosition.x, -r.anchoredPosition.y, r.rect.width, r.rect.height); }).ToList();
+      for (int i = 0; i < rects.Count; i++)
+      {
+        Assert(rects[i].xMin >= -.5f && rects[i].xMax <= pageWidth + .5f, "profile card fits the page: " + width);
+        for (int j = i + 1; j < rects.Count; j++)
+          Assert(!rects[i].Overlaps(rects[j]), "profile cards do not overlap: " + width);
+      }
+      RectTransform heading = Field<RectTransform>(panel, "_profilesHeading");
+      Rect newButton = ((RectTransform)Field<Button>(panel, "_newProfile").transform).rect;
+      Assert(newButton.width > 0 && ((RectTransform)Field<Button>(panel, "_importProfile").transform).anchoredPosition.x + 1 < ((RectTransform)Field<Button>(panel, "_newProfile").transform).anchoredPosition.x,
+        "Import sits before New profile");
+      foreach (TextMeshProUGUI label in heading.GetComponentsInChildren<TextMeshProUGUI>(false))
+        Assert(!label.isTextTruncated, "profile heading fits: " + label.text);
+
+      // Import whose window was closed: nothing happens and nothing is said.
+      Call(panel, "ImportProfile");
+      Assert(dialogs.Opened == 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a closed file window leaves no message");
+
+      // Switching from a card: the first profile comes back in place.
+      ElementProfile first = profiles.Profiles[0];
+      var planets = settings.Gameplay.Planets;
+      cards[0].onClick.Invoke();
+      Assert(profiles.Active == first && settings.Gameplay.Planets == planets, "a card switches profiles in place");
+      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(first.Name), "the switch is confirmed by name");
+      cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(cards.Count == profiles.Profiles.Count, "the gallery rebuilds after a switch");
+      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(first.Name), "General names the new profile in use");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
+      Assert(-message.anchoredPosition.y + message.rect.height <= -((RectTransform)Field<RectTransform>(panel, "_profileGallery")).anchoredPosition.y,
+        "the confirmation sits above the gallery");
+    }
+
+    private static void CheckProfileEditor(SettingsPanel panel, ProfileService profiles, int width, int height)
+    {
+      ElementProfile editing = Field<ElementProfile>(panel, "_editingProfile");
+      Assert(editing == profiles.Profiles[1], "editing the chosen profile");
+      TMP_InputField name = Field<TMP_InputField>(panel, "_profileName");
+      Button save = Field<Button>(panel, "_saveProfile");
+      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      Assert(!save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
+      name.text = editing.Name;
+      Assert(save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "its own name is fine");
+      Assert(Field<RectTransform>(panel, "_profileExportCard").gameObject.activeSelf, "a saved profile can be exported");
+      int count = profiles.Profiles.Count;
+      Call(panel, "DeleteProfile");
+      Assert(profiles.Profiles.Count == count && Field<TextMeshProUGUI>(panel, "_profileError").text.Contains(editing.Name),
+        "the first delete press only asks");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileExportCard").GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "export card text fits: " + label.text);
+      }
+      TextMeshProUGUI armed = Field<TextMeshProUGUI>(panel, "_profileError");
+      armed.ForceMeshUpdate();
+      Assert(!armed.isTextTruncated, "the delete question fits at " + width + ": " + armed.rectTransform.rect.height);
+      RectTransform header = Field<RectTransform>(panel, "_profileHeader");
+      RectTransform card = Field<RectTransform>(panel, "_profileExportCard");
+      Assert(-card.anchoredPosition.y >= header.rect.height, "the export card sits below the name and its message");
+    }
+
     private sealed class PreviewUpdates : IModUpdates
     {
       public ModUpdateStatus Status => new ModUpdateStatus(ModUpdateState.Downloading, "0.3.0", "0.3.1");

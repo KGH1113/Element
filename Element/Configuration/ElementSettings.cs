@@ -19,8 +19,13 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   /// <summary>Open the bundled ElementNote with the game; it closes when the game quits.</summary>
   public bool AutoOpenCloseDmNote = true;
 
+  /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
+  public const int CurrentSettingsVersion = 7;
+
+  public const string DefaultHighlightColor = "#BA712B";
+
   public int SettingsVersion;
-  public string HighlightColor = "#BA712B";
+  public string HighlightColor = DefaultHighlightColor;
   public List<string> RecentHighlightColors = new();
   public bool ReduceUiMotion;
   public bool LayoutSnapping = true;
@@ -35,6 +40,14 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public KeyCode SettingsShortcutModifier = DefaultSettingsShortcutModifier;
 
   public List<OverlayLayoutSettings> OverlayLayouts = new();
+
+  /// <summary>
+  /// Every profile, the one in use included. The values above belong to the
+  /// profile in use; the others keep theirs in <see cref="Profiles.ElementProfile.Content"/>.
+  /// </summary>
+  public List<Profiles.ElementProfile> Profiles = new();
+
+  public string ActiveProfileId = "";
 
   public void Migrate()
   {
@@ -79,7 +92,8 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       SettingsShortcutKey = DefaultSettingsShortcutKey;
       SettingsShortcutModifier = DefaultSettingsShortcutModifier;
     }
-    SettingsVersion = Math.Max(SettingsVersion, 7);
+    Profiles ??= new();
+    SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

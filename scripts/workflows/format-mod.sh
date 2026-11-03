@@ -15,6 +15,7 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element/Infrastructure/Assets/FontBundleLoader.cs \
   Element.Unity/Assets/Editor/FontBundleBuilder.cs Element.Unity/Assets/Editor/FontAssetGenerator.cs \
   Element/Infrastructure/Game/Recording \
+  Element/Infrastructure/Files Element/Infrastructure/Profiles \
   Element/Infrastructure/Game/Lifecycle/GameplayState.cs \
   Element/Infrastructure/Game/Input/DmNoteKeyResolver.cs \
   Element/Infrastructure/Game/Input/SettingsInputPatches.cs \
@@ -23,4 +24,5 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element.Tests/OverlayLayoutTests.cs Element.Tests/LayoutEditingTests.cs Element.Tests/OverlayElementTests.cs \
   Element.Tests/GameplayTweaksTests.cs Element.Tests/EffectSettingsTests.cs \
   Element.Tests/PerformanceTests.cs Element.Tests/EffectFilterTests.cs \
-  Element.Tests/NativeViewerSessionTests.cs Element.Tests/AttemptTests.cs
+  Element.Tests/NativeViewerSessionTests.cs Element.Tests/AttemptTests.cs \
+  Element.Tests/ProfileTests.cs

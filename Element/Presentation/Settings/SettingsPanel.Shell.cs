@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Profiles;
 using Element.Application.Updates;
 using Element.Configuration;
 using Element.Presentation.Layout;
@@ -32,7 +33,7 @@ internal sealed partial class SettingsPanel
   private readonly TextMeshProUGUI[] _cardActions = new TextMeshProUGUI[4];
   private readonly RectTransform[] _cardDividers = new RectTransform[4];
   private readonly RectTransform[] _cardArrows = new RectTransform[4];
-  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
   private readonly SettingsWindowMotion _windowMotion;
 
   public SettingsPanel(
@@ -45,10 +46,12 @@ internal sealed partial class SettingsPanel
     Func<int, PlanetAppearanceProfile, Texture> renderPlanetPreview = null,
     Func<long> blockedChatter = null,
     IModUpdates updates = null,
-    Func<bool> judgementTextLinked = null
+    Func<bool> judgementTextLinked = null,
+    IProfiles profiles = null
   )
   {
     _settings = settings;
+    _profiles = profiles;
     _blockedChatter = blockedChatter;
     _judgementTextLinked = judgementTextLinked;
     _updates = updates;
@@ -115,6 +118,8 @@ internal sealed partial class SettingsPanel
       "Planets",
       "Preset editor",
       "Chatter blocker",
+      "Profiles",
+      "Profile editor",
     };
     for (int i = 0; i < _pages.Length; i++)
       _pages[i] = _ui.Rect(pages[i], _viewport, 0, 0, 936, 480).gameObject;
@@ -148,10 +153,15 @@ internal sealed partial class SettingsPanel
     CreateHomeCard(
       3,
       L("일반", "General"),
-      L(
-        "설정 단축키, UI 움직임, ElementNote 자동 실행, 업데이트를 설정합니다.",
-        "Set your shortcut, motion, ElementNote and update preferences."
-      ),
+      profiles == null
+        ? L(
+          "설정 단축키, UI 움직임, ElementNote 자동 실행, 업데이트를 설정합니다.",
+          "Set your shortcut, motion, ElementNote and update preferences."
+        )
+        : L(
+          "프로필, 설정 단축키, UI 움직임, ElementNote 자동 실행, 업데이트를 설정합니다.",
+          "Profiles, your shortcut, motion, ElementNote and update preferences."
+        ),
       L("일반 설정", "Open general"),
       () => NavigateTo(2)
     );
@@ -191,6 +201,7 @@ internal sealed partial class SettingsPanel
           }
         )
       );
+    CreateProfileLink();
     _shortcutSection = _ui.Panel(
       "Settings shortcut",
       _pages[2].transform,
@@ -273,6 +284,7 @@ internal sealed partial class SettingsPanel
     );
     _retrySave.gameObject.SetActive(false);
     CreateEffectsPages(font);
+    CreateProfilePages(font);
     CreatePlanetPopover(font);
     SelectPage(0);
     FitWindow();
@@ -390,6 +402,7 @@ internal sealed partial class SettingsPanel
     float rowHeight = contentWidth < 520 ? 116 : 88;
     LayoutTweakPages(contentWidth);
     LayoutEffectsPages(contentWidth);
+    LayoutProfilePages(contentWidth);
     LayoutPopover();
     SettingsUiFactory.Place(_shortcutSection, 0, 0, contentWidth, 124);
     UpdateShortcutLabel();
@@ -400,12 +413,14 @@ internal sealed partial class SettingsPanel
   private void LayoutShortcutControls()
   {
     float contentWidth = _shortcutSection.rect.width;
+    float top = LayoutProfileLink(contentWidth);
     float fieldBottom = _settingsShortcut.Layout(60, contentWidth);
     float shortcutHeight = fieldBottom + (_settingsShortcut.Capturing ? 16 : 20);
-    _shortcutSection.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, shortcutHeight);
+    SettingsUiFactory.Place(_shortcutSection, 0, top, contentWidth, shortcutHeight);
     float rowHeight = contentWidth < 520 ? 116 : 88;
-    SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, shortcutHeight + 12, contentWidth, rowHeight);
-    float dmNoteTop = shortcutHeight + 12 + rowHeight + 12;
+    float motionTop = top + shortcutHeight + 12;
+    SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, motionTop, contentWidth, rowHeight);
+    float dmNoteTop = motionTop + rowHeight + 12;
     SettingsUiFactory.Place((RectTransform)_dmNoteRow.transform, 0, dmNoteTop, contentWidth, rowHeight);
     float bottom = dmNoteTop + rowHeight;
     if (_updateRow != null)

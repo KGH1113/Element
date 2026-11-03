@@ -17,4 +17,14 @@ internal static class SettingsXml
     using XmlReader reader = XmlReader.Create(stream, new XmlReaderSettings { IgnoreWhitespace = false });
     return new XmlSerializer(typeof(T)).Deserialize(reader) as T;
   }
+
+  /// <summary>A deep copy made the way settings are saved and loaded, so it holds exactly what a save would.</summary>
+  public static T Clone<T>(T value)
+    where T : class
+  {
+    using MemoryStream stream = new();
+    new XmlSerializer(typeof(T)).Serialize(stream, value);
+    stream.Position = 0;
+    return Read<T>(stream);
+  }
 }

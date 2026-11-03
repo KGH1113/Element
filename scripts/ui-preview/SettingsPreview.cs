@@ -77,6 +77,7 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-720");
       Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
       Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
+      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
       Render(1280, 720, SystemLanguage.English, 10, "profile-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 10, "profile-editor-ko-narrow");
       Render(360, 720, SystemLanguage.English, 10, "profile-editor-en-compact");
@@ -1568,7 +1569,7 @@ namespace Element.Editor
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
         Call(panel, "SelectPage", page);
         if (page == 7) Call(panel, "EditPreset", settings.Effects.Presets[0]);
-        if (page == 10) Call(panel, "EditProfile", profiles.Profiles[1]);
+        if (page == 10) Call(panel, "NewProfile");
         panel.Resize(width, height);
         Canvas.ForceUpdateCanvases();
         foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
@@ -1581,6 +1582,8 @@ namespace Element.Editor
         if (page == 2) CheckProfileLink(panel, profiles);
         if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
         if (page == 10) CheckProfileEditor(panel, profiles, width, height);
+        // One frame shows a name being changed on its card.
+        if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
@@ -1983,36 +1986,81 @@ namespace Element.Editor
       RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
       Assert(-message.anchoredPosition.y + message.rect.height <= -((RectTransform)Field<RectTransform>(panel, "_profileGallery")).anchoredPosition.y,
         "the confirmation sits above the gallery");
+
+      // Rename, export and delete sit on each card: one press each.
+      cards = Field<List<Button>>(panel, "_profileCards");
+      foreach (Button item in cards)
+        Assert(item.transform.Find("Rename profile") != null && item.transform.Find("Export profile") != null
+          && item.transform.Find("Delete profile") != null, "every card has rename, export and delete");
+      foreach (Button item in cards)
+      {
+        RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
+        Vector3[] titleCorners = new Vector3[4], actionCorners = new Vector3[4];
+        title.GetWorldCorners(titleCorners);
+        ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
+        Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
+      }
+
+      // Rename on the card: a taken name is refused and the old one stays.
+      ElementProfile second = profiles.Profiles[1];
+      string original = second.Name;
+      ((Button)cards[1].transform.Find("Rename profile").GetComponent<Button>()).onClick.Invoke();
+      TMP_InputField field = Field<TMP_InputField>(panel, "_renameInput");
+      Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(panel, "_profileCards")[1].transform) && field.text == original,
+        "the pencil turns the card's name into a field holding it");
+      field.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name is refused as it is typed");
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original && Field<TMP_InputField>(panel, "_renameInput") == null
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
+      field = Field<TMP_InputField>(panel, "_renameInput");
+      field.text = original + " 2";
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original + " 2" && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "a new name saves when the field is left");
+      Assert(Field<List<Button>>(panel, "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
+        "the card shows the new name");
+
+      // Export opens the save window at once; a closed window says nothing.
+      int opened = dialogs.Opened;
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
+      Assert(dialogs.Opened == opened + 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "export opens the save window from the card");
+
+      // Delete asks first, then removes the profile.
+      int count = profiles.Profiles.Count;
+      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      TextMeshProUGUI question = Field<TextMeshProUGUI>(panel, "_profilesMessage");
+      Assert(profiles.Profiles.Count == count && question.text.Contains(second.Name), "the first delete press only asks");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      question.ForceMeshUpdate();
+      Assert(!question.isTextTruncated, "the delete question fits at " + width);
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(second)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(original), "the second press deletes it");
     }
 
     private static void CheckProfileEditor(SettingsPanel panel, ProfileService profiles, int width, int height)
     {
-      ElementProfile editing = Field<ElementProfile>(panel, "_editingProfile");
-      Assert(editing == profiles.Profiles[1], "editing the chosen profile");
       TMP_InputField name = Field<TMP_InputField>(panel, "_profileName");
-      Button save = Field<Button>(panel, "_saveProfile");
+      Button create = Field<Button>(panel, "_saveProfile");
+      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
       name.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(!save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
-      name.text = editing.Name;
-      Assert(save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "its own name is fine");
-      Assert(Field<RectTransform>(panel, "_profileExportCard").gameObject.activeSelf, "a saved profile can be exported");
-      int count = profiles.Profiles.Count;
-      Call(panel, "DeleteProfile");
-      Assert(profiles.Profiles.Count == count && Field<TextMeshProUGUI>(panel, "_profileError").text.Contains(editing.Name),
-        "the first delete press only asks");
+      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
+      name.text = "Tournament";
+      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "a free name can be created");
       panel.Resize(width, height);
       Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileExportCard").GetComponentsInChildren<TextMeshProUGUI>(false))
+      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileHeader").GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "export card text fits: " + label.text);
+        Assert(!label.isTextTruncated, "the new profile page fits: " + label.text);
       }
-      TextMeshProUGUI armed = Field<TextMeshProUGUI>(panel, "_profileError");
-      armed.ForceMeshUpdate();
-      Assert(!armed.isTextTruncated, "the delete question fits at " + width + ": " + armed.rectTransform.rect.height);
-      RectTransform header = Field<RectTransform>(panel, "_profileHeader");
-      RectTransform card = Field<RectTransform>(panel, "_profileExportCard");
-      Assert(-card.anchoredPosition.y >= header.rect.height, "the export card sits below the name and its message");
     }
 
     private sealed class PreviewUpdates : IModUpdates

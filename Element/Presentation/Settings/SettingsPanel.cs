@@ -144,7 +144,7 @@ internal sealed partial class SettingsPanel : IDisposable
     EnsureEventSystem();
     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
     {
-      if (DismissPopover())
+      if (ProfileRenameTakesEscape() || DismissPopover())
         return;
       if (_page == 0)
         Close();
@@ -246,8 +246,7 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 6 ? L("행성", "Planets")
       : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
       : index == ProfilesPage ? L("프로필", "Profiles")
-      : index == ProfileEditorPage
-        ? (_editingProfile == null ? L("새 프로필", "New profile") : L("프로필 편집", "Edit profile"))
+      : index == ProfileEditorPage ? L("새 프로필", "New profile")
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);

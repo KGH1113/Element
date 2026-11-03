@@ -145,7 +145,7 @@ internal sealed partial class SettingsPanel : IDisposable
     EnsureEventSystem();
     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
     {
-      if (ProfileRenameTakesEscape() || DismissPopover())
+      if (ProfileRenameTakesEscape() || DismissFontPopover() || DismissPopover())
         return;
       if (_page == 0)
         Close();
@@ -166,6 +166,8 @@ internal sealed partial class SettingsPanel : IDisposable
       RefreshPlanetPreview();
     if (_page == ChatterPage)
       RefreshChatterCount();
+    if (_page == ProfilesPage)
+      TickFontReplacements();
     GameObject focused = Selected();
     if (focused != _lastFocused)
     {
@@ -382,5 +384,8 @@ internal sealed partial class SettingsPanel : IDisposable
     _planetPicker?.Dispose();
     _galleryUi?.Dispose();
     _profileGalleryUi?.Dispose();
+    _fontRowsUi?.Dispose();
+    _fontPopover?.Dispose();
+    _fontPopoverUi?.Dispose();
   }
 }

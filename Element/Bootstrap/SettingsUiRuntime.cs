@@ -24,6 +24,7 @@ namespace Element.Bootstrap;
 internal sealed class SettingsUiRuntime : IDisposable
 {
   private readonly Main _main;
+  private readonly OverlayCanvasHost _canvas;
   private readonly TMP_FontAsset _font;
   private readonly Action _apply;
   private readonly Action _reloadSettings;
@@ -70,6 +71,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     main.Settings.Gameplay.Normalize();
     main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(_font);
+    _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
     _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
@@ -95,7 +97,8 @@ internal sealed class SettingsUiRuntime : IDisposable
       () => ChatterBlocker.Blocked,
       _main.Updates,
       _judgementTextLinked,
-      CreateProfiles()
+      CreateProfiles(),
+      () => _canvas?.Fonts
     );
 
   // Built with the window, after the game has loaded its language: the first

@@ -78,6 +78,8 @@ namespace Element.Editor
       Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
       Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
       Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
+      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-fonts");
+      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-fonts");
       Render(1280, 720, SystemLanguage.English, 10, "profile-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 10, "profile-editor-ko-narrow");
       Render(360, 720, SystemLanguage.English, 10, "profile-editor-en-compact");
@@ -1522,7 +1524,13 @@ namespace Element.Editor
       using var planetPreview = new PlanetPreviewProbe();
       PreviewDialogs dialogs = new PreviewDialogs();
       ProfileService profiles = PreviewProfiles(settings, dialogs);
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles);
+      // Profiles look up the fonts an imported profile names.
+      OverlayFontCatalog fontCatalog = page == 9
+        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
+        : null;
+      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles,
+        overlayFonts: () => overlayFonts);
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");
@@ -1591,6 +1599,7 @@ namespace Element.Editor
         if (page == 8) CheckChatterBlocking(panel, settings, width);
         if (page == 2) CheckProfileLink(panel, profiles);
         if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
+        if (page == 9) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
         if (page == 10) CheckProfileEditor(panel, profiles, width, height);
         // One frame shows a name being changed on its card.
         if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
@@ -2053,6 +2062,50 @@ namespace Element.Editor
       cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
       Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(second)
         && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(original), "the second press deletes it");
+    }
+
+    // An imported profile names a font this PC lacks: the card offers a font to
+    // use instead, and a pick lands where the missing font was.
+    private static void CheckFontReplacement(SettingsPanel panel, ElementSettings settings, OverlayFonts fonts, int width, bool keepOpen)
+    {
+      const string missing = "Element Missing Font|Bold";
+      settings.OverlayFont = missing;
+      OverlayTextRun run = OverlayTextRun.Literal("Progress", OverlayColorSettings.Custom("#FFFFFF"));
+      run.Font = missing;
+      settings.OverlayLayouts.Add(new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new List<OverlayTextRun> { run } } });
+      IOverlayFontLibrary library = fonts.Library;
+      library.RequestInstalled();
+      var waited = System.Diagnostics.Stopwatch.StartNew();
+      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
+        System.Threading.Thread.Sleep(50);
+      Call(panel, "OfferFontReplacements");
+      for (int i = 0; i < 20 && Field<object>(panel, "_checkingFonts") != null; i++)
+        Call(panel, "CheckImportedFonts");
+      RectTransform card = Field<RectTransform>(panel, "_fontCard");
+      System.Collections.IList rows = Field<System.Collections.IList>(panel, "_missingFonts");
+      Assert(card.gameObject.activeSelf && rows.Count == 1, "an imported profile's missing font is offered once: " + rows.Count);
+      Canvas.ForceUpdateCanvases();
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
+      }
+      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
+      Assert(-gallery.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the gallery sits below the font card");
+
+      Call(panel, "OpenFontReplacement", 0);
+      OverlayFontPopover popover = Field<OverlayFontPopover>(panel, "_fontPopover");
+      Assert(popover.Visible, "Choose font opens the font list");
+      string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      Assert(settings.OverlayFont == georgia && run.Font == georgia, "a pick replaces the missing font where it was used");
+      if (keepOpen)
+        return;
+      popover.Hide();
+      Field<Button>(panel, "_fontCardDone").onClick.Invoke();
+      Assert(!card.gameObject.activeSelf, "Done puts the card away");
+      Call(panel, "OfferFontReplacements");
+      Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
     }
 
     private static void CheckProfileEditor(SettingsPanel panel, ProfileService profiles, int width, int height)

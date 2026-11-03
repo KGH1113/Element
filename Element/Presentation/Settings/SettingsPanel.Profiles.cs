@@ -94,6 +94,7 @@ internal sealed partial class SettingsPanel
       _importProfile = _ui.Button(L("가져오기", "Import"), _profilesHeading, 0, 0, 120, 44, ImportProfile);
     _newProfile = _ui.Button(L("새 프로필", "New profile"), _profilesHeading, 0, 0, 156, 44, NewProfile, true);
     _profilesMessage = _ui.Text("", gallery, 0, 56, 936, 24, 14, SettingsUiFactory.Muted);
+    CreateFontReplacementCard(gallery);
     _profileGallery = _ui.Rect("Profile gallery", gallery, 0, 96, 936, 160);
     _profilesHint = _ui.Text(
       L(
@@ -158,6 +159,8 @@ internal sealed partial class SettingsPanel
   /// <summary>After a switch replaced the live settings: show the new values everywhere.</summary>
   private void RefreshAfterProfileChange()
   {
+    // A switch replaces the values the font card points at.
+    ClearFontReplacements();
     _rotationInput?.SetTextWithoutNotify(_settings.Gameplay.Editor.RotationStep.ToString(CultureInfo.InvariantCulture));
     if (_rotationError != null)
       _rotationError.text = "";
@@ -360,6 +363,8 @@ internal sealed partial class SettingsPanel
       !outcome.Ok
     );
     AfterProfileSave(outcome);
+    if (outcome.Ok)
+      OfferFontReplacements();
   }
 
   // ---- Renaming on the card ----
@@ -685,6 +690,8 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Place(_profilesMessage.rectTransform, 0, top, width, messageHeight);
       top += messageHeight + 12;
     }
+    if (_fontCard != null && _fontCard.gameObject.activeSelf)
+      top += LayoutFontCard(top, width) + 12;
     int columns =
       width >= 600 ? 3
       : width >= 440 ? 2

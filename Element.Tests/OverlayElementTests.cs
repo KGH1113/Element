@@ -28,6 +28,7 @@ internal static class OverlayElementTests
     TextDocumentWordsAndCharacters();
     TextDocumentKeepsSizes();
     TextDocumentKeepsFonts();
+    FontUsesTouchOnlyTheirOwnPlaces();
     FontKeysNameOneFace();
     LegacyLabelsBecomeWords();
     ShapeDefaultsAndEdits();
@@ -665,6 +666,49 @@ internal static class OverlayElementTests
     serializer.Serialize(writer, saved);
     using StringReader reader = new(writer.ToString());
     Check(((OverlayTextRun)serializer.Deserialize(reader)).SameAs(saved), "a run's font survives the settings file");
+  }
+
+  // A font picked for a missing one goes exactly where the missing one was.
+  private static void FontUsesTouchOnlyTheirOwnPlaces()
+  {
+    OverlayTextRun missingRun = OverlayTextRun.Literal("A", OverlayColorSettings.Custom("#FFFFFF"));
+    missingRun.Font = "Gone Font|Bold";
+    OverlayTextRun keptRun = OverlayTextRun.Literal("B", OverlayColorSettings.Custom("#FFFFFF"));
+    keptRun.Font = "Georgia|Regular";
+    OverlayTextRun plainRun = OverlayTextRun.Literal("C", OverlayColorSettings.Custom("#FFFFFF"));
+    ElementSettings settings = new()
+    {
+      OverlayFont = "gone font|bold",
+      OverlayLayouts = new()
+      {
+        new OverlayLayoutSettings
+        {
+          Text = new OverlayTextSettings
+          {
+            Runs = new() { missingRun, plainRun },
+          },
+        },
+        new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new() { keptRun } } },
+        new OverlayLayoutSettings(),
+      },
+    };
+    List<OverlayFontUse> uses = OverlayFontUse.Find(settings);
+    Check(
+      uses.Count == 2 && uses[0].IsDefault && uses[0].Runs.Count == 1 && !uses[1].IsDefault && uses[1].Runs.Count == 1,
+      "each font is found once, the default font first, with the texts that use it"
+    );
+    uses[0].Set(settings, "Georgia");
+    Check(
+      settings.OverlayFont == "Georgia|Regular" && missingRun.Font == "Georgia|Regular" && plainRun.Font == "",
+      "a replacement goes where the missing font was"
+    );
+    uses[0].Set(settings, "Verdana|Regular");
+    Check(
+      missingRun.Font == "Verdana|Regular" && keptRun.Font == "Georgia|Regular",
+      "trying another font leaves texts that already used the first pick alone"
+    );
+    uses[0].Set(settings, "");
+    Check(settings.OverlayFont == "" && missingRun.Font == "", "the default row follows the default font again");
   }
 
   private static void FontKeysNameOneFace()

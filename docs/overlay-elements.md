@@ -55,7 +55,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 ## Text
 
 - Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The screen dims and the text floats in the middle at the size the game draws it.
-- The bar above the text has three labeled buttons: **Size**, **Text color** and **Grow from**. Size and color act on the selected characters, or on the whole text when nothing is selected. Size takes values too.
+- The bar above the text has four labeled buttons: **Font**, **Size**, **Text color** and **Grow from**. Font, size and color act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts).
 - A color button opens the color picker right above the input dock's keypad and stays lit while it is open. The text stays in sight; the dock's line says which color is picked. Clicking the button again, Esc or a click elsewhere closes it.
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
@@ -63,6 +63,17 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - ⌘/Ctrl + Enter or Esc finishes and saves, as Done does; only Cancel leaves without saving. A text left empty is removed.
 - Only texts that use a changed value are redrawn, so values that update every hit cost no more than before.
 - A combo, even inside a calculation, grows briefly on every hit like the old combo.
+
+## Fonts
+
+- **Default font.** **Default font** in the overlay editor's toolbar, beside the highlight color, picks the font every text uses. The first row is the built-in MapleStory font. Cancel puts the previous font back.
+- **A text's own font.** **Font** in the text editor's bar changes the selected characters, or the whole text when nothing is selected, like size and color. **Default font** makes them follow the overlay's default again. A pick shows on the text at once and the list stays open to try another; one undo takes back everything tried while it was open.
+- **Where fonts come from.** The list has the fonts added to the mod, then the fonts installed on this PC. Installed fonts are read in the background the first time the list opens.
+- **Adding a file.** **Add file** opens the system's file dialog for TTF, OTF and TTC files. The chosen files are copied into `Mods/Element/Fonts`, which updates keep, and the first one is applied. Files put in that folder by hand show up the next time the list opens; **Folder** opens it. Linux has no dialog, so the button opens the folder instead.
+- **Search.** Typing part of a name narrows the list; Enter applies the first match.
+- **Saved by name.** A font is saved by family and style, such as Pretendard Bold, so a layout finds the same font on another PC whether it is installed there or sits in the Fonts folder. A font this PC lacks is drawn in the default font, and the list says so with what to do.
+- **Missing characters.** Characters a font lacks, such as Hangul in a Latin font, come from the built-in font.
+- Every font keeps the overlay's black outline and shadow.
 
 ## Shape
 

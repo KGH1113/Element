@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using Element.Application;
 using Element.Application.Features;
 using Element.Infrastructure.Assets;
@@ -27,6 +28,7 @@ internal sealed class OverlayRuntime : IDisposable
 {
   private FontBundleLoader _fontLoader;
   private OverlayMaterialFactory _materials;
+  private OverlayFonts _fonts;
   private OverlayCoordinator _coordinator;
   private StatusTimeTicker _timeTicker;
 
@@ -47,7 +49,16 @@ internal sealed class OverlayRuntime : IDisposable
 
       TMP_FontAsset font = _fontLoader.FontAsset;
       _materials = new OverlayMaterialFactory(font);
-      Canvas.SetFont(font, _materials.Material);
+      // Chosen fonts live in the mod root, so updates keep them.
+      OverlayFontCatalog catalog = new(
+        Path.Combine(main.Path, FontsFolder),
+        FontFilePickers.ForPlatform(),
+        main.LogWarning,
+        main.LogException
+      );
+      _fonts = new OverlayFonts(font, _materials.Material, catalog, catalog);
+      _fonts.SetDefault(main.Settings.OverlayFont);
+      Canvas.SetFonts(_fonts);
       Canvas.ConfigureLayouts(main.Settings.OverlayLayouts);
       OverlayValues values = Canvas.Values;
       _coordinator = new OverlayCoordinator(
@@ -68,9 +79,16 @@ internal sealed class OverlayRuntime : IDisposable
     }
   }
 
+  public const string FontsFolder = "Fonts";
+
   public OverlayCanvasHost Canvas { get; private set; }
   public bool Available => _coordinator != null;
+
+  /// <summary>The bundled font, which the settings UI also uses.</summary>
   public TMP_FontAsset Font => _fontLoader?.FontAsset;
+
+  /// <summary>The fonts overlay texts draw with; null without the bundled font.</summary>
+  public OverlayFonts Fonts => _fonts;
 
   public void Show()
   {
@@ -107,8 +125,12 @@ internal sealed class OverlayRuntime : IDisposable
 
   public void RefreshTime(int framesPerSecond) => _coordinator?.RefreshTime(framesPerSecond);
 
-  /// <summary>Frees CJK glyphs pulled in for song titles. Only while the overlay is hidden.</summary>
-  public void ReleaseFallbackGlyphs() => _fontLoader?.ReleaseFallbackGlyphs();
+  /// <summary>Frees glyphs pulled in for song titles. Only while the overlay is hidden.</summary>
+  public void ReleaseFallbackGlyphs()
+  {
+    _fontLoader?.ReleaseFallbackGlyphs();
+    _fonts?.ReleaseGlyphs();
+  }
 
   public void Dispose()
   {
@@ -118,6 +140,8 @@ internal sealed class OverlayRuntime : IDisposable
     _timeTicker = null;
     Canvas?.Dispose();
     Canvas = null;
+    _fonts?.Dispose();
+    _fonts = null;
     _materials?.Dispose();
     _materials = null;
     _fontLoader?.Dispose();

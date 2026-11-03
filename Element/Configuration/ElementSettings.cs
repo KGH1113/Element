@@ -25,6 +25,9 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public bool ReduceUiMotion;
   public bool LayoutSnapping = true;
 
+  /// <summary>The overlay texts' default font as an OverlayFontKey; empty uses the bundled font.</summary>
+  public string OverlayFont = string.Empty;
+
   public GameplayTweaksSettings Gameplay = new();
   public Effects.EffectSettings Effects = new();
 
@@ -55,6 +58,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     Effects ??= new();
     Effects.Normalize();
     OverlayLayouts ??= new();
+    OverlayFont = OverlayFontKey.Normalize(OverlayFont);
     // Presets from before 1.1 become texts already in the current form; texts
     // saved by 1.1.0 are rewritten for split values and units.
     if (SettingsVersion < 3)

@@ -13,6 +13,7 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element/Infrastructure/Game/Editor/EditorTweaksController.cs \
   Element/Infrastructure/Ipc Element/Infrastructure/Game/DmNote \
   Element/Infrastructure/Assets/FontBundleLoader.cs \
+  Element/Infrastructure/Assets/OverlayFontCatalog.cs Element/Infrastructure/Assets/FontFilePickers.cs \
   Element.Unity/Assets/Editor/FontBundleBuilder.cs Element.Unity/Assets/Editor/FontAssetGenerator.cs \
   Element/Infrastructure/Game/Recording \
   Element/Infrastructure/Game/Lifecycle/GameplayState.cs \

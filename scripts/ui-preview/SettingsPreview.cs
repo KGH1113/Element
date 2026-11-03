@@ -14,6 +14,7 @@ using Element.Domain.Input;
 using Element.Domain.Layout;
 using Element.Application.Updates;
 using Element.Infrastructure.Game.DmNote;
+using Element.Infrastructure.Assets;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -28,10 +29,20 @@ namespace Element.Editor
     private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
     private static int _checks;
     private static string _output;
+    private static string _fonts;
+    private const string GeorgiaFile = "/System/Library/Fonts/Supplemental/Georgia.ttf",
+      TypewriterFile = "/System/Library/Fonts/Supplemental/AmericanTypewriter.ttc",
+      VerdanaFile = "/System/Library/Fonts/Supplemental/Verdana.ttf";
     public static void RenderAll()
     {
       _output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../../build/ui-preview"));
       Directory.CreateDirectory(_output);
+      _fonts = Path.Combine(_output, "Fonts");
+      if (Directory.Exists(_fonts))
+        Directory.Delete(_fonts, true);
+      Directory.CreateDirectory(_fonts);
+      foreach (string font in new[] { GeorgiaFile, TypewriterFile })
+        File.Copy(font, Path.Combine(_fonts, Path.GetFileName(font)));
       CheckMigration();
       CheckSpacingGuides();
       _checks += PlanetPreviewChecks.Run(_output);
@@ -83,7 +94,9 @@ namespace Element.Editor
       settings.Migrate();
       OverlayTheme.SetHighlight(settings.HighlightColor);
       var host = new OverlayCanvasHost();
-      host.SetFont(font, font.material);
+      var catalog = new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning,
+        (action, exception) => Debug.LogException(exception));
+      host.SetFonts(new OverlayFonts(font, font.material, catalog, catalog));
       host.ConfigureLayouts(settings.OverlayLayouts);
       var viewers = new PreviewKeyViewers(screenWidth);
       var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
@@ -99,7 +112,7 @@ namespace Element.Editor
       editor.Resize(width, height); Canvas.ForceUpdateCanvases();
       Rect toolbar = editor.ToolbarBounds;
       Assert(toolbar.xMin >= 0 && toolbar.xMax <= width && toolbar.yMax <= height, "layout toolbar fits viewport");
-      Assert(toolbar.width <= 640.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
+      Assert(toolbar.width <= 760.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
       RectTransform toolbarRect = Field<RectTransform>(editor, "_toolbar");
       Call(editor, "UpdateFrames");
       Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "no element toolbar without a selection");
@@ -211,6 +224,7 @@ namespace Element.Editor
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
+      CheckFonts(editor, host, settings, camera, texture, canvases, name);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();
@@ -228,6 +242,7 @@ namespace Element.Editor
           .Select(layout => layout.Id + (layout.Enabled ? "" : " (hidden)"))));
       editor.Close(false);
       Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "cancel restores the opening highlight and exits");
+      Assert(settings.OverlayFont == "" && host.Fonts.DefaultKey == "", "cancel restores the opening default font");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _)), "cancel discards added shapes");
       Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
     }
@@ -877,14 +892,15 @@ namespace Element.Editor
         "the input dock is always there, resting with a hint");
       RectTransform format = Field<RectTransform>(text, "_formatBar");
       OverlayBarButton sizeButton = Field<OverlayBarButton>(text, "_sizeButton"), colorButton = Field<OverlayBarButton>(text, "_colorButton"),
-        textGrow = Field<OverlayBarButton>(text, "_growButton");
+        textGrow = Field<OverlayBarButton>(text, "_growButton"), fontButton = Field<OverlayBarButton>(text, "_fontButton");
       Button[] barButtons = format.GetComponentsInChildren<Button>(true);
       Button growButton = textGrow.Button;
-      Assert(sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format) && textGrow.Root.IsChildOf(format) && barButtons.Length == 3
-        && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0,
-        "size, color and grow point share one bar; no opacity, no + Value");
-      string[] textLabels = Korean(name) ? new[] { "크기", "글자 색", "기준점" } : new[] { "Size", "Text color", "Grow from" };
-      OverlayBarButton[] textBar = { sizeButton, colorButton, textGrow };
+      Assert(fontButton.Root.IsChildOf(format) && sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format)
+        && textGrow.Root.IsChildOf(format) && barButtons.Length == 4
+        && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
+        "font, size, color and grow point share one bar; no opacity, no + Value");
+      string[] textLabels = Korean(name) ? new[] { "폰트", "크기", "글자 색", "기준점" } : new[] { "Font", "Size", "Text color", "Grow from" };
+      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, textGrow };
       for (int i = 0; i < textBar.Length; i++)
       {
         Assert(textBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
@@ -1118,6 +1134,96 @@ namespace Element.Editor
       Assert(popover.Commit() && settings.HighlightColor == "#204060", "a valid highlight commits");
       SaveFrame(camera, texture, canvases, name + "-color");
       popover.Hide();
+    }
+
+    // Fonts: a TTF and every face of a TTC from the Fonts folder, installed
+    // fonts listed in the background, the overlay's default font, a font on
+    // some characters only, importing a file, and a font this PC lacks.
+    private static void CheckFonts(OverlayLayoutEditor editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
+      RenderTexture texture, Canvas[] canvases, string name)
+    {
+      OverlayFonts fonts = host.Fonts;
+      IOverlayFontLibrary library = fonts.Library;
+      IReadOnlyList<OverlayFontFace> imported = library.Imported;
+      Assert(imported.Any(face => face.Family == "Georgia") && imported.Count(face => face.Path.EndsWith(".ttc")) > 1,
+        "the Fonts folder lists a TTF and every face of a TTC: " + string.Join(", ", imported.Select(face => face.Key)));
+      string georgia = imported.First(face => face.Family == "Georgia").Key;
+      OverlayFontFace typewriterFace = imported.First(face => face.Family.StartsWith("American Typewriter"));
+      string typewriter = typewriterFace.Key;
+
+      Call(editor, "ToggleFont");
+      OverlayFontPopover popover = Field<OverlayFontPopover>(editor, "_fontPopover");
+      Call(editor, "UpdatePopupPositions");
+      Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
+      Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
+        "native viewers leave the font list uncovered");
+      library.RequestInstalled();
+      var waited = System.Diagnostics.Stopwatch.StartNew();
+      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
+        System.Threading.Thread.Sleep(50);
+      Assert(library.Installed != null && library.Installed.Count > 20 && library.Installed.Count(face => face.Path != null) > 20,
+        "installed fonts are listed with their files: " + (library.Installed?.Count ?? -1));
+      popover.Refresh();
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      host.TickLayoutPreview();
+      TextOverlayElement fps = host.LayoutTargets.OfType<TextOverlayElement>().Single(element => element.Id == "fps");
+      TextMeshProUGUI drawn = Field<TextMeshProUGUI>(fps, "_text");
+      drawn.ForceMeshUpdate();
+      Assert(settings.OverlayFont == georgia && drawn.font == fonts.DefaultAsset && drawn.font.faceInfo.familyName == "Georgia",
+        "picking a default font redraws every text in it: " + settings.OverlayFont);
+      Assert(drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Outline)
+        && drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Underlay), "a chosen font keeps the overlay's outline and shadow");
+      foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
+        Assert(label.font == Field<TMP_FontAsset>(editor, "_font"), "the font list itself stays in the UI font");
+      SaveFrame(camera, texture, canvases, name + "-font");
+
+      // A file chosen in the dialog is copied into the folder and applied.
+      Call(popover, "Import");
+      Assert(File.Exists(Path.Combine(_fonts, "Verdana.ttf")) && library.Imported.Any(face => face.Family == "Verdana")
+        && settings.OverlayFont.StartsWith("Verdana|"), "an added file lands in the Fonts folder and is applied: " + settings.OverlayFont);
+      Assert(fonts.Status("Element Missing Font|Bold") == OverlayFontStatus.Missing, "a font this PC lacks reads as missing");
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      popover.Hide();
+      Assert(!popover.Visible, "the font list closes");
+
+      // In the text editor, a font goes to the selection, or the whole text.
+      Select(editor, IndexOf(editor, fps));
+      Call(editor, "UpdateToolbar");
+      Field<Button>(editor, "_editContent").onClick.Invoke();
+      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      SetField(text, "_anchor", 0);
+      SetField(text, "_caretIndex", 3);
+      Call(text, "ToggleFont");
+      OverlayFontPopover textFonts = Field<OverlayFontPopover>(text, "_fontPopover");
+      Assert(textFonts.Visible, "the text editor's Font opens its list");
+      Call(textFonts, "Pick", (int)textFonts.GetType().GetMethod("IndexOf", Private).Invoke(textFonts, new object[] { typewriter }));
+      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      preview.ForceMeshUpdate();
+      TMP_CharacterInfo[] characters = preview.textInfo.characterInfo;
+      Assert(characters[0].fontAsset != null && characters[0].fontAsset.faceInfo.familyName == typewriterFace.Family
+        && characters[3].fontAsset == fonts.DefaultAsset,
+        "a font picked for selected characters draws only them: " + characters[0].fontAsset?.faceInfo.familyName
+          + " / " + characters[3].fontAsset?.faceInfo.familyName);
+      Assert(Field<OverlayBarButton>(text, "_fontButton").Value.StartsWith("American"), "the bar names the selection's font");
+      SaveFrame(camera, texture, canvases, name + "-text-font");
+      Call(text, "Undo");
+      OverlayTextDocument document = Field<OverlayTextDocument>(text, "_document");
+      Assert(Enumerable.Range(0, document.Count).All(i => document[i].Font == ""), "one undo takes back the fonts tried");
+      text.Close(false, true);
+      Assert(fps.Settings.Text.Runs.All(run => string.IsNullOrEmpty(run.Font)), "cancel leaves the text's fonts as they were");
+    }
+
+    private static Vector2 ScreenCenter(OverlayLayoutEditor editor, RectTransform panel) =>
+      ((Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { panel })).center;
+
+    private static string L(string korean, string english) => RDString.language == SystemLanguage.Korean ? korean : english;
+
+    // The system dialog can't open in batch mode; this one picks a fixed file.
+    private sealed class PreviewFontPicker : IFontFilePicker
+    {
+      private readonly string _path;
+      public PreviewFontPicker(string path) { _path = path; }
+      public IReadOnlyList<string> Pick(string title) => new[] { _path };
     }
 
     private static bool PopoverInside(OverlayLayoutEditor editor, RectTransform popover, int width, int height)

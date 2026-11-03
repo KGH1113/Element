@@ -10,6 +10,11 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTheme.cs'
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFactory.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs'));
+files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
+files.push(path.join(root, 'Element/Presentation/Overlay/Shared/IOverlayFontSource.cs'));
+files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Assets/OverlayFontCatalog.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Assets/FontFilePickers.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));

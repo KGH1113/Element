@@ -1166,6 +1166,16 @@ namespace Element.Editor
       Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
       Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
         "native viewers leave the font list uncovered");
+      // An empty field draws its caret around a zero-width space; it must sit
+      // in the middle of the field, beside the hint, not on the field's top edge.
+      TMP_InputField search = Field<TMP_InputField>(popover, "_search");
+      search.ForceLabelUpdate();
+      search.textComponent.ForceMeshUpdate();
+      TMP_CharacterInfo emptyCaret = search.textComponent.textInfo.characterInfo[0];
+      float caretMiddle = (emptyCaret.ascender + emptyCaret.descender) * .5f;
+      Rect searchArea = search.textComponent.rectTransform.rect;
+      Assert(Mathf.Abs(caretMiddle - searchArea.center.y) < 3 && emptyCaret.ascender - emptyCaret.descender > 10,
+        "the empty font search's caret is centered in the field: " + caretMiddle + " in " + searchArea);
       library.RequestInstalled();
       var waited = System.Diagnostics.Stopwatch.StartNew();
       while (library.Installed == null && waited.ElapsedMilliseconds < 30000)

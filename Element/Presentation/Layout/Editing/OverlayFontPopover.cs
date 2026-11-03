@@ -145,8 +145,9 @@ internal sealed class OverlayFontPopover : IDisposable
     );
     _folder.gameObject.SetActive(pick);
     _search = ui.Input("Font search", "", Root, Padding, 0, 10, _ => Search(), null, 60);
+    // Keeps the input's middle alignment: a Midline caret centers on the top
+    // edge of the text rect, above the text, while the field is empty.
     _search.textComponent.fontSize = 15;
-    _search.textComponent.alignment = TextAlignmentOptions.MidlineLeft;
     TextMeshProUGUI hint = ui.Text(
       L("폰트 이름으로 찾기", "Search by name"),
       _search.textViewport,
@@ -159,6 +160,7 @@ internal sealed class OverlayFontPopover : IDisposable
     );
     SettingsUiFactory.Stretch(hint.rectTransform, 0, 0, 0, 0);
     hint.textWrappingMode = TextWrappingModes.NoWrap;
+    hint.alignment = _search.textComponent.alignment;
     _search.placeholder = hint;
     _search.onSubmit.AddListener(_ => PickFirst());
     _viewport = ui.Rect("Fonts", Root, Padding, 0, 10, 10);

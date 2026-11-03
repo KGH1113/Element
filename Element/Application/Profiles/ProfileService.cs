@@ -141,6 +141,7 @@ internal sealed class ProfileService : IProfiles
     try
     {
       profile = _library.Import(read.File);
+          AlsoOpens = new[] { ProfileFile.LegacyExtension },
     }
     catch (Exception exception)
     {
@@ -200,10 +201,14 @@ internal sealed class ProfileService : IProfiles
     return (trimmed.Length == 0 ? "Profile" : trimmed) + "." + ProfileFile.Extension;
   }
 
-  private static string WithExtension(string path) =>
-    path.EndsWith("." + ProfileFile.Extension, StringComparison.OrdinalIgnoreCase)
-      ? path
-      : path + "." + ProfileFile.Extension;
+  // One extension, however the save window treated the suggested name.
+  internal static string WithExtension(string path)
+  {
+    string extension = "." + ProfileFile.Extension;
+    while (path.EndsWith(extension + extension, StringComparison.OrdinalIgnoreCase))
+      path = path.Substring(0, path.Length - extension.Length);
+    return path.EndsWith(extension, StringComparison.OrdinalIgnoreCase) ? path : path + extension;
+  }
 
   private FileDialogResult Ask(Func<IFileDialogs, FileDialogResult> show)
   {

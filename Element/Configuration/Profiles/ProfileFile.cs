@@ -6,12 +6,15 @@ using System.Xml.Serialization;
 
 namespace Element.Configuration.Profiles;
 
-/// <summary>An exported profile: one .elementprofile file another player can import.</summary>
+/// <summary>An exported profile: one .eprofile file another player can import.</summary>
 [XmlRoot("ElementProfile")]
 public sealed class ProfileFile
 {
   public const int CurrentFormat = 1;
-  public const string Extension = "elementprofile";
+  public const string Extension = "eprofile";
+
+  /// <summary>What files exported by earlier versions end with; they still import.</summary>
+  public const string LegacyExtension = "elementprofile";
 
   public int Format = CurrentFormat;
 

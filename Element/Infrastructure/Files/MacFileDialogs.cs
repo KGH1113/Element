@@ -41,7 +41,9 @@ internal sealed class MacFileDialogs : IFileDialogs
   {
     Load();
     byte[] output = new byte[PathCapacity];
-    return Result(_open(Utf8(request.Title), Utf8(request.Extension), output, output.Length), output);
+    // The native side takes several extensions as one comma-separated list.
+    string extensions = string.Join(",", request.OpenExtensions());
+    return Result(_open(Utf8(request.Title), Utf8(extensions), output, output.Length), output);
   }
 
   public FileDialogResult Save(FileDialogRequest request)

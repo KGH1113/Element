@@ -415,6 +415,13 @@ internal static class ProfileTests
       Check(service.Active.Name == imported.Name && service.Profiles.Count == 2, "the import is in use");
 
       Check(
+        ProfileService.WithExtension("a." + ProfileFile.Extension + "." + ProfileFile.Extension)
+          == "a." + ProfileFile.Extension
+          && ProfileService.WithExtension("a." + ProfileFile.Extension.ToUpperInvariant())
+            == "a." + ProfileFile.Extension.ToUpperInvariant(),
+        "a name the save window gave the extension twice is saved with it once"
+      );
+      Check(
         service.Delete(service.Active.Id).Ok && backups == 2 && reloads == 2,
         "deleting the profile in use backs up and applies its neighbor"
       );

@@ -63,12 +63,18 @@ internal sealed class WindowsFileDialogs : IFileDialogs
   private static extern IntPtr GetActiveWindow();
 
   public FileDialogResult Open(FileDialogRequest request) =>
-    Show(request, "", PathMustExist | FileMustExist, save: false);
+    Show(request, "", PathMustExist | FileMustExist, save: false, request.OpenExtensions());
 
   public FileDialogResult Save(FileDialogRequest request) =>
-    Show(request, request.FileName, PathMustExist | OverwritePrompt, save: true);
+    Show(request, request.FileName, PathMustExist | OverwritePrompt, save: true, new[] { request.Extension });
 
-  private static FileDialogResult Show(FileDialogRequest request, string fileName, int flags, bool save)
+  private static FileDialogResult Show(
+    FileDialogRequest request,
+    string fileName,
+    int flags,
+    bool save,
+    string[] extensions
+  )
   {
     IntPtr buffer = Marshal.AllocHGlobal(PathCapacity * sizeof(char));
     try
@@ -84,7 +90,7 @@ internal sealed class WindowsFileDialogs : IFileDialogs
         Owner = GetActiveWindow(),
         // Pairs of display name and pattern; the marshaled string ends with the
         // second null the list needs.
-        Filter = request.TypeName + " (*." + extension + ")\0*." + extension + "\0",
+        Filter = request.TypeName + " (" + Patterns(extensions) + ")\0" + Patterns(extensions) + "\0",
         FilterIndex = 1,
         File = buffer,
         MaxFile = PathCapacity,
@@ -106,5 +112,14 @@ internal sealed class WindowsFileDialogs : IFileDialogs
     {
       Marshal.FreeHGlobal(buffer);
     }
+  }
+
+  // "*.eprofile;*.elementprofile": one filter row that shows every extension.
+  private static string Patterns(string[] extensions)
+  {
+    string[] patterns = new string[extensions.Length];
+    for (int i = 0; i < extensions.Length; i++)
+      patterns[i] = "*." + extensions[i];
+    return string.Join(";", patterns);
   }
 }

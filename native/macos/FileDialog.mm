@@ -14,12 +14,16 @@ static NSString *Text(const char *value) {
   return text ?: @"";
 }
 
-static int Run(NSSavePanel *panel, const char *title, const char *extension, char *output, int capacity) {
-  NSString *type = Text(extension);
-  if (type.length > 0) {
+// `extensions` is one extension or a comma-separated list; open windows show
+// every one, save windows save with the first.
+static int Run(NSSavePanel *panel, const char *title, const char *extensions, char *output, int capacity) {
+  NSMutableArray<UTType *> *types = [NSMutableArray array];
+  for (NSString *type in [Text(extensions) componentsSeparatedByString:@","]) {
+    if (type.length == 0) continue;
     UTType *contentType = [UTType typeWithFilenameExtension:type];
-    if (contentType) panel.allowedContentTypes = @[ contentType ];
+    if (contentType) [types addObject:contentType];
   }
+  if (types.count > 0) panel.allowedContentTypes = types;
   // Panels have no visible title on current macOS; the message carries it.
   panel.title = Text(title);
   panel.message = Text(title);
@@ -55,7 +59,13 @@ extern "C" __attribute__((visibility("default"))) int element_file_dialog_save(
   @autoreleasepool {
     NSSavePanel *panel = [NSSavePanel savePanel];
     panel.canCreateDirectories = YES;
-    panel.nameFieldStringValue = Text(fileName);
+    // The panel adds the extension of an unregistered type itself; a name
+    // that already ends with it would be saved as name.ext.ext.
+    NSString *name = Text(fileName);
+    NSString *type = Text(extension);
+    if (type.length > 0 && [name.pathExtension caseInsensitiveCompare:type] == NSOrderedSame)
+      name = name.stringByDeletingPathExtension;
+    panel.nameFieldStringValue = name;
     return Run(panel, title, extension, output, capacity);
   }
 }

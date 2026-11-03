@@ -38,7 +38,8 @@
 
 ## 파일 형식
 
-`.elementprofile`은 UTF-8 XML입니다. 루트는 `ElementProfile`이고 `Format`(파일
+`.eprofile`은 UTF-8 XML입니다. 예전에 내보낸 `.elementprofile`도 같은
+형식이라 그대로 가져옵니다. 루트는 `ElementProfile`이고 `Format`(파일
 형식 버전), `ModVersion`(만든 Element 버전), `Name`, `Content`(프로필 값과 그 값의
 `SettingsVersion`)를 담습니다.
 

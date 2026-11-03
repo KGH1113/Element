@@ -215,8 +215,8 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
     _presetShortcutDescription = _ui.Text(
       L(
-        "누르면 이 프리셋을 바로 적용합니다. 레벨을 플레이하는 중에는 동작하지 않습니다.",
-        "Press it to apply this preset right away. It does nothing while you play a level."
+        "누르면 이 프리셋을 적용하고, 한 번 더 누르면 이펙트 제거를 끕니다. 플레이 중에는 동작하지 않습니다.",
+        "Press it to apply this preset, and again to turn effect removal off. It does nothing during play."
       ),
       _presetShortcutCard,
       16,

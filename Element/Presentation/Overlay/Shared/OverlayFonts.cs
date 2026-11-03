@@ -97,6 +97,16 @@ internal sealed class OverlayFonts : IDisposable
 
   public const string CloseTag = "</font>";
 
+  /// <summary>A key as people read it: "Pretendard Bold", or the family alone for its regular face.</summary>
+  public static string DisplayName(string key)
+  {
+    if (!OverlayFontKey.TryParse(key, out string family, out string style))
+      return string.Empty;
+    return string.Equals(style, OverlayFontKey.RegularStyle, StringComparison.OrdinalIgnoreCase)
+      ? family
+      : family + " " + style;
+  }
+
   public OverlayFontStatus Status(string key)
   {
     key = OverlayFontKey.Normalize(key);

@@ -192,19 +192,29 @@ internal sealed partial class OverlayTextEditor : IDisposable
     );
     // The color picker opens right above the keypad.
     _picker.LayOutAsColumn(_dock.KeypadArea.width);
+    BuildFontControls();
     _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
     _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
   }
 
-  // One row of labeled buttons: the size, the color (with its opacity) and
-  // where the text grows from. Size and color act on the selection, or on the
-  // whole text when nothing is selected.
+  // One row of labeled buttons: the font, the size, the color (with its
+  // opacity) and where the text grows from. Font, size and color act on the
+  // selection, or on the whole text when nothing is selected.
   private void BuildFormatBar()
   {
     _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, OverlayEditorUi.Bar);
     _formatSurface.raycastTarget = true;
     _formatBar = _formatSurface.rectTransform;
+    _fontButton = new OverlayBarButton(
+      _ui,
+      _formatBar,
+      "Text font",
+      L("폰트", "Font"),
+      ToggleFont,
+      _reduceMotion(),
+      icon: LayoutAction.Font
+    );
     _sizeButton = new OverlayBarButton(
       _ui,
       _formatBar,

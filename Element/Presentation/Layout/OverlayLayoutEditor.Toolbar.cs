@@ -45,7 +45,8 @@ internal sealed partial class OverlayLayoutEditor
     _snap,
     _delete,
     _add,
-    _editColor;
+    _editColor,
+    _editFont;
   private Image _colorSwatch;
   private RectTransform _verticalGuide,
     _horizontalGuide;
@@ -61,7 +62,8 @@ internal sealed partial class OverlayLayoutEditor
   private int ViewWidth => _viewportWidth > 0 ? _viewportWidth : Screen.width;
   private int ViewHeight => _viewportHeight > 0 ? _viewportHeight : Screen.height;
   private float UiScale => Mathf.Clamp(ViewHeight / 1000f, 1f, 2f);
-  private float ToolbarScale => Mathf.Min(UiScale, Mathf.Max(.4f, (ViewWidth - 16) / 640f));
+  private const float ToolbarWidth = 760;
+  private float ToolbarScale => Mathf.Min(UiScale, Mathf.Max(.4f, (ViewWidth - 16) / ToolbarWidth));
 
   internal void Resize(int width, int height)
   {
@@ -86,7 +88,7 @@ internal sealed partial class OverlayLayoutEditor
   {
     get
     {
-      float width = 640 * ToolbarScale;
+      float width = ToolbarWidth * ToolbarScale;
       float height = 120 * ToolbarScale;
       Vector2 p = _toolbarPlaced ? _toolbarPosition : new Vector2((ViewWidth - width) * .5f, ViewHeight - height - 12);
       p.x = Mathf.Clamp(p.x, 0, Mathf.Max(0, ViewWidth - width));
@@ -178,7 +180,7 @@ internal sealed partial class OverlayLayoutEditor
       _root.transform,
       0,
       0,
-      640,
+      ToolbarWidth,
       120,
       new Color(.07f, .07f, .07f, 1)
     ).rectTransform;
@@ -188,16 +190,16 @@ internal sealed partial class OverlayLayoutEditor
     grip.Kind = LayoutAction.Grip;
     grip.color = SettingsUiFactory.Muted;
     grip.raycastTarget = false;
-    _instruction = _ui.Text("", _toolbar, 32, 12, 192, 36, 16);
-    Button resetAll = _ui.Button(L("전체 초기화", "Reset all"), _toolbar, 232, 12, 104, 36, OpenResetConfirmation);
+    _instruction = _ui.Text("", _toolbar, 32, 12, 312, 36, 16);
+    Button resetAll = _ui.Button(L("전체 초기화", "Reset all"), _toolbar, 352, 12, 104, 36, OpenResetConfirmation);
     _toolbarControls.Add((RectTransform)resetAll.transform);
-    _keyboardHelp = _ui.Text("", _toolbar, 12, 102, 616, 14, 11, SettingsUiFactory.Muted);
+    _keyboardHelp = _ui.Text("", _toolbar, 12, 102, ToolbarWidth - 24, 14, 11, SettingsUiFactory.Muted);
     _keyboardHelp.alignment = TextAlignmentOptions.Midline;
-    _undo = IconButton(LayoutAction.Undo, L("실행 취소", "Undo"), 344, 12, Undo, 36);
-    _redo = IconButton(LayoutAction.Redo, L("다시 실행", "Redo"), 384, 12, Redo, 36);
-    _cancel = _ui.Button(L("취소", "Cancel"), _toolbar, 428, 12, 88, 36, () => Close(false));
-    _save = _ui.Button(L("저장", "Save"), _toolbar, 524, 12, 104, 36, () => Close(true), true);
-    _ui.Panel("Divider", _toolbar, 12, 53, 616, 1, new Color(1, 1, 1, .08f), false);
+    _undo = IconButton(LayoutAction.Undo, L("실행 취소", "Undo"), 464, 12, Undo, 36);
+    _redo = IconButton(LayoutAction.Redo, L("다시 실행", "Redo"), 504, 12, Redo, 36);
+    _cancel = _ui.Button(L("취소", "Cancel"), _toolbar, 548, 12, 88, 36, () => Close(false));
+    _save = _ui.Button(L("저장", "Save"), _toolbar, 644, 12, 104, 36, () => Close(true), true);
+    _ui.Panel("Divider", _toolbar, 12, 53, ToolbarWidth - 24, 1, new Color(1, 1, 1, .08f), false);
     _plus = IconButton(LayoutAction.Plus, L("확대", "Increase size"), 12, 60, () => ScaleBy(1.05f), 40);
     _scaleInput = _ui.Input(
       "Scale percent",
@@ -255,8 +257,19 @@ internal sealed partial class OverlayLayoutEditor
     _editColor = _ui.Button(L("하이라이트 색", "Highlight"), _toolbar, 488, 60, 140, 40, ToggleColor);
     _colorSwatch = _ui.Panel("Highlight color", _editColor.transform, 12, 12, 16, 16, _ui.Accent);
     SettingsUiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
+    // The texts' default font sits beside their highlight color.
+    _editFont = _ui.Button(L("기본 폰트", "Font"), _toolbar, 636, 60, 112, 40, ToggleFont);
+    _editFont.name = "Default font";
+    LayoutActionIcon fontIcon = _ui.Rect("Icon", _editFont.transform, 10, 10, 20, 20)
+      .gameObject.AddComponent<LayoutActionIcon>();
+    fontIcon.Kind = LayoutAction.Font;
+    fontIcon.raycastTarget = false;
+    _actionIcons.Add(fontIcon);
+    SettingsUiFactory.Stretch(_editFont.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 34, 0, 8, 0);
+    _editFont.interactable = _host.Fonts != null;
     _toolbarControls.Add((RectTransform)_add.transform);
     _toolbarControls.Add((RectTransform)_editColor.transform);
+    _toolbarControls.Add((RectTransform)_editFont.transform);
     _toolbarControls.Add((RectTransform)_cancel.transform);
     _toolbarControls.Add((RectTransform)_save.transform);
     _toolbarControls.Add((RectTransform)_scaleInput.transform);

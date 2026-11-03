@@ -118,7 +118,8 @@ internal sealed partial class OverlayTextEditor
   private Anchor9 GrowPointNow() =>
     Domain.Layout.OverlayLayoutPosition.ValidGrowth(_growth) ? (Anchor9)(int)_growth : _element.GrowPoint;
 
-  private bool AnyPopover => _fieldSlot != null || _chipPopover >= 0 || _growPopover.Visible;
+  private bool AnyPopover =>
+    _fieldSlot != null || _chipPopover >= 0 || _growPopover.Visible || (_fontPopover?.Visible ?? false);
 
   private void ClosePopovers()
   {
@@ -127,6 +128,7 @@ internal sealed partial class OverlayTextEditor
     _editing.Deactivate();
     _dock?.Edit(null);
     _growPopover?.Hide();
+    _fontPopover?.Hide();
   }
 
   // Points the dock at what is being edited, or lets it rest once that is gone.
@@ -314,6 +316,7 @@ internal sealed partial class OverlayTextEditor
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     _sizeButton.Set(formula.IsEmpty ? "—" : OverlayFormulaField.Number(Result(formula)), computed, active);
     _colorButton.Set(null, false, _picker.Visible);
+    _fontButton.Set(FontLabel(), false, _fontPopover.Visible);
     _growButton.Set(OverlayGrowPicker.ShortName(_growth), false, _growPopover.Visible);
     if (!_picker.Visible)
       return;
@@ -505,6 +508,7 @@ internal sealed partial class OverlayTextEditor
       || _dragging
       || _dock.Contains(screen)
       || _growPopover.Contains(screen)
+      || _fontPopover.Contains(screen)
       || !TryValueAt(screen, out int index)
     )
     {

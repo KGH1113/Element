@@ -647,7 +647,10 @@ internal static class OverlayElementTests
       runs.Count == 3 && runs[0].Font == "Pretendard|Bold" && runs[1].Font == "Pretendard|Bold" && runs[2].Font == "",
       "fonts split runs: " + runs.Count
     );
-    Check(document.RangeFont(0, 3) == "Pretendard|Bold" && document.RangeFont(0, 5) == null, "a mixed range has no one font");
+    Check(
+      document.RangeFont(0, 3) == "Pretendard|Bold" && document.RangeFont(0, 5) == null,
+      "a mixed range has no one font"
+    );
     document.SetFont(0, document.Count, "Noto Sans KR");
     runs = document.ToRuns();
     Check(runs.Count == 3 && runs[0].Font == "Noto Sans KR|Regular", "a family alone is its regular face");

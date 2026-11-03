@@ -33,7 +33,7 @@ namespace Element.Editor
       OverlayCanvasHost host = new OverlayCanvasHost();
       try
       {
-        host.SetFont(font, material);
+        host.SetFonts(new OverlayFonts(font, material, null, null));
         List<OverlayLayoutSettings> layouts = new List<OverlayLayoutSettings>();
         OverlayElementMigration.Migrate(layouts);
         layouts.Add(new OverlayLayoutSettings

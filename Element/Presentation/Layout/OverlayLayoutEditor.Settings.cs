@@ -62,7 +62,11 @@ internal sealed partial class OverlayLayoutEditor
     }
     if (_settingsPanel == null)
       return;
-    bool hidden = (_dragging >= 0 && _pressMoved) || _addMenu != null || (_colorPopover?.Visible ?? false);
+    bool hidden =
+      (_dragging >= 0 && _pressMoved)
+      || _addMenu != null
+      || (_colorPopover?.Visible ?? false)
+      || (_fontPopover?.Visible ?? false);
     if (_settingsPanel.gameObject.activeSelf == hidden)
       _settingsPanel.gameObject.SetActive(!hidden);
     UpdateSettingsPosition();

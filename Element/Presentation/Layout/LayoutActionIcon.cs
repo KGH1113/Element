@@ -34,6 +34,7 @@ internal enum LayoutAction
   AlignBottom,
   DistributeHorizontal,
   DistributeVertical,
+  Font,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -51,6 +52,14 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         Line(mesh, 5, 5, 19, 5);
         Line(mesh, 12, 5, 12, 20);
         Line(mesh, 9, 20, 15, 20);
+        break;
+      case LayoutAction.Font:
+        // "Aa", the usual mark for a typeface.
+        Line(mesh, 3, 20, 8.5f, 5);
+        Line(mesh, 8.5f, 5, 14, 20);
+        Line(mesh, 5.2f, 14.5f, 11.8f, 14.5f);
+        Arc(mesh, 18, 16.5f, 3.2f, 0, 360);
+        Line(mesh, 21.2f, 12.5f, 21.2f, 20);
         break;
       case LayoutAction.KeyViewer:
         Box(mesh, 3, 5, 10, 12);

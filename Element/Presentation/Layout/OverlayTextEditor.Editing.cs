@@ -59,6 +59,18 @@ internal sealed partial class OverlayTextEditor
         _picker.Hide();
       return;
     }
+    _fontPopover.Tick();
+    // The font search takes the keyboard; Esc closes the list.
+    if (_fontPopover.IsTyping)
+    {
+      if (Input.GetKeyDown(KeyCode.Escape))
+      {
+        _fontPopover.Hide();
+        Render();
+      }
+      FollowLiveValues();
+      return;
+    }
     HandleMouse();
     HandleKeys();
     if (_screen == null)
@@ -271,6 +283,7 @@ internal sealed partial class OverlayTextEditor
       if (
         _dock.Contains(screen)
         || _growPopover.Contains(screen)
+        || _fontPopover.Contains(screen)
         || OverlayEditorUi.Contains(_formatBar, screen)
         || OverlayEditorUi.Contains(_picker.Root, screen)
       )
@@ -333,6 +346,8 @@ internal sealed partial class OverlayTextEditor
     foreach (RectTransform blocked in new[] { _dock.Root, _growPopover.Root, _formatBar, _picker.Root })
       if (OverlayEditorUi.Contains(blocked, screen))
         return false;
+    if (_fontPopover.Contains(screen))
+      return false;
     float y = _screen.ToFrame(screen).y;
     return y >= OverlayEditorFrame.TopBar && y < _bottomTop - 18;
   }
@@ -530,6 +545,7 @@ internal sealed partial class OverlayTextEditor
     swatch.a = 1;
     _colorButton.Swatch = swatch;
     PlacePicker();
+    PlaceFontPopover();
     RefreshDock();
     PlaceGrowMark();
     PlaceEmptyHint(center, empty);
@@ -558,7 +574,7 @@ internal sealed partial class OverlayTextEditor
   {
     float y = (FormatHeight - OverlayBarButton.Height) * .5f;
     float x = y;
-    foreach (OverlayBarButton button in new[] { _sizeButton, _colorButton, _growButton })
+    foreach (OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _growButton })
     {
       button.Place(x, y);
       x += button.Width + 4;

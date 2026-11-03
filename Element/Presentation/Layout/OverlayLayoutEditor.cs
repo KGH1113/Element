@@ -21,6 +21,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   private readonly List<TargetFrame> _frames = new();
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
+  private string _openingFont;
   private readonly TMP_FontAsset _font;
   private readonly Action<bool> _onClosed;
   private readonly LayoutCursors _cursors = new();
@@ -70,6 +71,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     RebuildFrames();
     _openingLayout = new LayoutSnapshot(_host.LayoutSettings);
     _openingColor = _preferences.HighlightColor;
+    _openingFont = _preferences.OverlayFont;
     _previousCursorVisible = Cursor.visible;
     _previousCursorLock = Cursor.lockState;
     Cursor.visible = true;
@@ -134,6 +136,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       _openingLayout.Restore(_host.LayoutSettings);
       _preferences.HighlightColor = _openingColor;
       OverlayTheme.SetHighlight(_openingColor);
+      _preferences.OverlayFont = _openingFont;
+      _host.Fonts?.SetDefault(_openingFont);
       RefreshLayouts();
     }
     foreach (TargetFrame frame in _frames)
@@ -189,6 +193,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     bool typing = (_scaleInput != null && _scaleInput.isFocused) || PopoverTyping;
     UIInteractionState.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
     UpdatePopupPositions();
+    _fontPopover?.Tick();
     if (_modalRoot != null || AnyPopoverVisible)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
@@ -415,6 +420,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     CloseElementSettings();
     CloseModal();
     _colorPopover?.Dispose();
+    _fontPopover?.Dispose();
+    _fontUi?.Dispose();
     _ui?.Dispose();
     UIInteractionState.SetTextEditing(false);
     if (_ownedEvents != null)

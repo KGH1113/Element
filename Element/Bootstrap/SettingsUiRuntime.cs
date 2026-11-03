@@ -24,6 +24,7 @@ namespace Element.Bootstrap;
 internal sealed class SettingsUiRuntime : IDisposable
 {
   private readonly Main _main;
+  private readonly OverlayCanvasHost _canvas;
   private readonly TMP_FontAsset _font;
   private readonly Action _apply;
   private readonly Action _reloadSettings;
@@ -70,6 +71,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     main.Settings.Gameplay.Normalize();
     main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(_font);
+    _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
     _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
@@ -95,7 +97,8 @@ internal sealed class SettingsUiRuntime : IDisposable
       () => ChatterBlocker.Blocked,
       _main.Updates,
       _judgementTextLinked,
-      CreateProfiles()
+      CreateProfiles(),
+      () => _canvas?.Fonts
     );
 
   // Built with the window, after the game has loaded its language: the first
@@ -163,26 +166,23 @@ internal sealed class SettingsUiRuntime : IDisposable
   private void ApplyPresetShortcut(EffectPreset preset)
   {
     EffectSettings effects = _main.Settings.Effects;
-    string detail;
-    bool saved = true;
-    if (effects.Enabled && effects.ActivePresetId == preset.Id)
-      detail = L("이미 적용 중이에요.", "Already on.");
-    else
-    {
-      effects.Activate(preset.Id);
-      _apply();
-      _panel?.RefreshPresets();
-      saved = Save();
-      detail = saved
-        ? L("레벨을 시작하거나 재시작하면 반영됩니다.", "Takes effect when a level starts or restarts.")
-        : L(
-          "저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인해주세요.",
-          "Not saved. Check write permission for the mod folder."
-        );
-    }
+    if (!effects.Toggle(preset.Id))
+      return;
+    _apply();
+    _panel?.RefreshPresets();
+    bool saved = Save();
+    string detail = saved
+      ? L("레벨을 시작하거나 재시작하면 반영됩니다.", "Takes effect when a level starts or restarts.")
+      : L(
+        "저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인해주세요.",
+        "Not saved. Check write permission for the mod folder."
+      );
+    string title = effects.Enabled
+      ? L("이펙트 프리셋: ", "Effect preset: ") + preset.Name
+      : L("이펙트 제거 꺼짐", "Effect removal off");
     // Record mode hides mod overlays; only a failed save still needs to be seen.
     if (!_main.Settings.RecordMode || !saved)
-      _toast.Show(L("이펙트 프리셋: ", "Effect preset: ") + preset.Name, detail);
+      _toast.Show(title, detail);
   }
 
   private static string L(string ko, string en) => RDString.language == SystemLanguage.Korean ? ko : en;

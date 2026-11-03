@@ -10,8 +10,9 @@ using UnityEngine.UI;
 namespace Element.Presentation.Settings;
 
 /// <summary>
-/// General → Profiles: the profile gallery, switching, import, and the editor
-/// for one profile's name, export and removal.
+/// General → Profiles: the profile gallery, switching and import. Each card
+/// renames its profile in place, exports it and deletes it; the editor page
+/// only names a new profile.
 /// </summary>
 internal sealed partial class SettingsPanel
 {
@@ -22,30 +23,35 @@ internal sealed partial class SettingsPanel
   private readonly IProfiles _profiles;
   private SettingsUiFactory _profileGalleryUi;
   private TMP_FontAsset _profilesFont;
+  private const float CardActionSize = 32,
+    CardActionGap = 4,
+    CardActionInset = 12;
+
   private Button _profileLink,
     _importProfile,
     _newProfile,
-    _saveProfile,
-    _deleteProfile,
-    _exportProfile;
+    _saveProfile;
   private TextMeshProUGUI _profileLinkDetail,
     _profilesTitle,
     _profilesMessage,
     _profilesHint,
     _profileError,
-    _profileIntro,
-    _profileExportDescription,
-    _profileExportMessage;
+    _profileIntro;
   private RectTransform _profilesHeading,
     _profileGallery,
-    _profileHeader,
-    _profileExportCard;
+    _profileHeader;
   private TMP_InputField _profileName;
   private readonly List<Button> _profileCards = new();
-  private ElementProfile _editingProfile;
+
+  // The profile whose card shows a name field, and that field.
+  private ElementProfile _renaming;
+  private TMP_InputField _renameInput;
+
+  // Escape ends a rename; that frame's Escape must not also leave the page.
+  private int _renameCancelledFrame = -1;
 
   // Delete asks twice: the first press arms it and says what will happen.
-  private bool _deleteArmed;
+  private string _deleteArmedId;
 
   private void CreateProfileLink()
   {
@@ -57,7 +63,10 @@ internal sealed partial class SettingsPanel
       "",
       () =>
       {
+        _deleteArmedId = null;
+        _renaming = null;
         ClearProfileMessages();
+        RefreshProfileGallery();
         NavigateTo(ProfilesPage);
       },
       out _profileLinkDetail
@@ -70,7 +79,6 @@ internal sealed partial class SettingsPanel
     if (_profilesMessage == null)
       return;
     _profilesMessage.text = "";
-    _profileExportMessage.text = "";
     LayoutProfilePages(_profileGallery.rect.width);
   }
 
@@ -84,17 +92,9 @@ internal sealed partial class SettingsPanel
     _profilesTitle = _ui.Text(L("프로필", "Profiles"), _profilesHeading, 0, 0, 400, 44, 18);
     if (_profiles.FilesSupported)
       _importProfile = _ui.Button(L("가져오기", "Import"), _profilesHeading, 0, 0, 120, 44, ImportProfile);
-    _newProfile = _ui.Button(
-      L("새 프로필", "New profile"),
-      _profilesHeading,
-      0,
-      0,
-      156,
-      44,
-      () => EditProfile(null),
-      true
-    );
+    _newProfile = _ui.Button(L("새 프로필", "New profile"), _profilesHeading, 0, 0, 156, 44, NewProfile, true);
     _profilesMessage = _ui.Text("", gallery, 0, 56, 936, 24, 14, SettingsUiFactory.Muted);
+    CreateFontReplacementCard(gallery);
     _profileGallery = _ui.Rect("Profile gallery", gallery, 0, 96, 936, 160);
     _profilesHint = _ui.Text(
       L(
@@ -138,45 +138,29 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
     _profileName.placeholder = placeholder;
     placeholder.alignment = _profileName.textComponent.alignment;
-    _saveProfile = _ui.Button(L("저장", "Save"), _profileHeader, 716, 0, 152, 40, SaveProfile, true);
-    _deleteProfile = ActionIconButton("Delete profile", _profileHeader, LayoutAction.Delete, DeleteProfile);
+    _saveProfile = _ui.Button(L("만들기", "Create"), _profileHeader, 716, 0, 152, 40, CreateProfile, true);
     _profileError = _ui.Text("", _profileHeader, 0, 52, 936, 24, 13, ErrorText);
-    _profileIntro = _ui.Text("", _profileHeader, 0, 52, 936, 24, 14, SettingsUiFactory.Muted);
-
-    _profileExportCard = _ui.Panel("Profile export", editor, 0, 100, 936, 160, SettingsUiFactory.Surface).rectTransform;
-    TextMeshProUGUI exportTitle = _ui.Text(
-      L("파일로 내보내기", "Export to a file"),
-      _profileExportCard,
-      16,
-      16,
-      700,
-      28,
-      17
-    );
-    SettingsUiFactory.StretchWidth(exportTitle.rectTransform, 16, 16);
-    _profileExportDescription = _ui.Text(
+    _profileIntro = _ui.Text(
       L(
-        "이 프로필을 ." + ProfileFile.Extension + " 파일로 저장합니다. 다른 PC에서 프로필 → 가져오기로 불러옵니다.",
-        "Saves this profile as a ." + ProfileFile.Extension + " file. Load it on another PC with Profiles → Import."
+        "지금 쓰는 설정을 복사해 새 프로필을 만들고 바로 사용합니다.",
+        "Copies your current settings into a new profile and switches to it."
       ),
-      _profileExportCard,
-      16,
-      48,
-      904,
+      _profileHeader,
+      0,
+      52,
+      936,
       24,
       14,
       SettingsUiFactory.Muted
     );
-    _profileExportDescription.alignment = TextAlignmentOptions.TopLeft;
-    // Primary: a Surface button would vanish into the Surface card.
-    _exportProfile = _ui.Button(L("내보내기", "Export"), _profileExportCard, 16, 88, 152, 40, ExportProfile, true);
-    _profileExportMessage = _ui.Text("", _profileExportCard, 184, 88, 700, 40, 14, SettingsUiFactory.Muted);
     RefreshProfileGallery();
   }
 
   /// <summary>After a switch replaced the live settings: show the new values everywhere.</summary>
   private void RefreshAfterProfileChange()
   {
+    // A switch replaces the values the font card points at.
+    ClearFontReplacements();
     _rotationInput?.SetTextWithoutNotify(_settings.Gameplay.Editor.RotationStep.ToString(CultureInfo.InvariantCulture));
     if (_rotationError != null)
       _rotationError.text = "";
@@ -197,6 +181,8 @@ internal sealed partial class SettingsPanel
     if (_profileGallery == null)
       return;
     RefreshProfileLink();
+    // The old name field goes with its card; it must not save on the way out.
+    _renameInput = null;
     for (int i = _profileGallery.childCount - 1; i >= 0; i--)
     {
       GameObject child = _profileGallery.GetChild(i).gameObject;
@@ -210,6 +196,8 @@ internal sealed partial class SettingsPanel
     // The window title already says Profiles; the heading counts them.
     _profilesTitle.text = L("프로필 " + count + "개", count + (count == 1 ? " profile" : " profiles"));
     ElementProfile active = _profiles.Active;
+    if (_renaming != null && !Contains(_profiles.Profiles, _renaming))
+      _renaming = null;
     foreach (ElementProfile item in _profiles.Profiles)
     {
       ElementProfile profile = item;
@@ -217,9 +205,13 @@ internal sealed partial class SettingsPanel
       Button card = _profileGalleryUi.Button("", _profileGallery, 0, 0, 300, 140, () => SwitchProfile(profile));
       card.gameObject.name = "Profile: " + profile.Name;
       card.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
+      bool renaming = profile == _renaming;
+      int actions = 1 + (_profiles.FilesSupported ? 1 : 0) + (_profiles.CanDelete ? 1 : 0);
+      float actionsWidth = actions * CardActionSize + (actions - 1) * CardActionGap;
       var title = _profileGalleryUi.Text(profile.Name, card.transform, 18, 18, 220, 54, 20);
-      SettingsUiFactory.StretchWidth(title.rectTransform, 18, 56);
+      SettingsUiFactory.StretchWidth(title.rectTransform, 18, CardActionInset + actionsWidth + 8);
       title.alignment = TextAlignmentOptions.TopLeft;
+      title.gameObject.SetActive(!renaming);
       ProfileSummary summary = _profiles.Summarize(profile);
       var contents = _profileGalleryUi.Text(
         L(
@@ -260,28 +252,80 @@ internal sealed partial class SettingsPanel
         marker.rectTransform.anchoredPosition = new Vector2(0, -14);
         _profileGalleryUi.Bind(() => marker.color = _ui.SoftAccent);
       }
-      Button edit = _profileGalleryUi.Button("", card.transform, 250, 12, 36, 36, () => EditProfile(profile));
-      edit.gameObject.name = "Edit " + profile.Name;
-      edit.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-      var editIcon = _profileGalleryUi
-        .Rect("Edit icon", edit.transform, 8, 8, 20, 20)
-        .gameObject.AddComponent<SettingsEditIcon>();
-      editIcon.color = SettingsUiFactory.Muted;
-      editIcon.raycastTarget = false;
-      ((RectTransform)edit.transform).anchorMin = ((RectTransform)edit.transform).anchorMax = new Vector2(1, 1);
-      ((RectTransform)edit.transform).pivot = new Vector2(1, 1);
-      ((RectTransform)edit.transform).anchoredPosition = new Vector2(-12, -12);
+      if (renaming)
+        _renameInput = CreateRenameField(card.transform, profile);
+      else
+      {
+        int slot = 0;
+        if (_profiles.CanDelete)
+        {
+          bool armed = profile.Id == _deleteArmedId;
+          var delete = CardAction(card.transform, "Delete profile", slot++, () => DeleteProfile(profile));
+          var icon = delete.gameObject.AddComponent<LayoutActionIcon>();
+          icon.Kind = LayoutAction.Delete;
+          icon.color = armed ? ErrorText : SettingsUiFactory.Muted;
+          icon.raycastTarget = false;
+        }
+        if (_profiles.FilesSupported)
+          AddIcon<SettingsExportIcon>(
+            CardAction(card.transform, "Export profile", slot++, () => ExportProfile(profile))
+          );
+        AddIcon<SettingsEditIcon>(CardAction(card.transform, "Rename profile", slot, () => StartRename(profile)));
+      }
       _profileCards.Add(card);
     }
     _ui.RefreshTheme();
     // Rebuilt cards begin at the origin; reflow now, as the preset gallery does.
     LayoutProfilePages(_profileGallery.rect.width);
+    if (_renameInput != null)
+    {
+      _renameInput.Select();
+      _renameInput.ActivateInputField();
+    }
+  }
+
+  // An icon button in the card's top right; slot 0 is the rightmost.
+  private RectTransform CardAction(Transform card, string name, int slot, System.Action action)
+  {
+    Button button = _profileGalleryUi.Button("", card, 0, 0, CardActionSize, CardActionSize, action);
+    button.gameObject.name = name;
+    button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
+    RectTransform rect = (RectTransform)button.transform;
+    rect.anchorMin = rect.anchorMax = new Vector2(1, 1);
+    rect.pivot = new Vector2(1, 1);
+    rect.anchoredPosition = new Vector2(-CardActionInset - slot * (CardActionSize + CardActionGap), -CardActionInset);
+    return _profileGalleryUi.Rect(name + " icon", rect, 7, 7, 18, 18);
+  }
+
+  private static void AddIcon<T>(RectTransform slot)
+    where T : SettingsVectorGraphic
+  {
+    T icon = slot.gameObject.AddComponent<T>();
+    icon.color = SettingsUiFactory.Muted;
+    icon.raycastTarget = false;
+  }
+
+  private static bool Contains(IReadOnlyList<ElementProfile> profiles, ElementProfile profile)
+  {
+    foreach (ElementProfile item in profiles)
+      if (item == profile)
+        return true;
+    return false;
   }
 
   private void SwitchProfile(ElementProfile profile)
   {
+    bool disarmed = _deleteArmedId != null;
+    _deleteArmedId = null;
     if (profile == _profiles.Active)
+    {
+      if (disarmed)
+      {
+        RefreshProfileGallery();
+        ShowProfilesMessage("", false);
+      }
       return;
+    }
     ProfileOutcome outcome = _profiles.Switch(profile.Id);
     RefreshAfterProfileChange();
     ShowProfilesMessage(
@@ -295,11 +339,23 @@ internal sealed partial class SettingsPanel
 
   private void ImportProfile()
   {
+    bool reset = _deleteArmedId != null || _renaming != null;
+    _deleteArmedId = null;
+    _renaming = null;
     ProfileOutcome outcome = _profiles.Import(L("가져올 Element 프로필 선택", "Choose an Element profile to import"));
     if (outcome.Problem == ProfileProblem.Cancelled)
+    {
+      if (reset)
+      {
+        RefreshProfileGallery();
+        ShowProfilesMessage("", false);
+      }
       return;
+    }
     if (outcome.Ok)
       RefreshAfterProfileChange();
+    else
+      RefreshProfileGallery();
     ShowProfilesMessage(
       outcome.Ok
         ? L("'" + outcome.Name + "' 프로필을 가져와 바꿨어요.", "Imported '" + outcome.Name + "' and switched to it.")
@@ -307,54 +363,121 @@ internal sealed partial class SettingsPanel
       !outcome.Ok
     );
     AfterProfileSave(outcome);
+    if (outcome.Ok)
+      OfferFontReplacements();
   }
 
-  private void EditProfile(ElementProfile profile)
+  // ---- Renaming on the card ----
+
+  private TMP_InputField CreateRenameField(Transform card, ElementProfile profile)
   {
-    _editingProfile = profile;
-    _deleteArmed = false;
-    _profileName.SetTextWithoutNotify(profile?.Name ?? "");
+    TMP_InputField input = null;
+    input = _profileGalleryUi.Input(
+      "Profile name",
+      profile.Name,
+      card,
+      12,
+      12,
+      200,
+      text => ShowRenameProblem(profile, text),
+      text => CommitRename(input, profile, text),
+      ElementProfile.MaximumNameLength
+    );
+    input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
+    SettingsUiFactory.StretchWidth((RectTransform)input.transform, 12, 12);
+    return input;
+  }
+
+  private void StartRename(ElementProfile profile)
+  {
+    _deleteArmedId = null;
+    _renaming = profile;
+    _profilesMessage.text = "";
+    RefreshProfileGallery();
+  }
+
+  // As the name is typed: a name that can't be used says why at once.
+  private void ShowRenameProblem(ElementProfile profile, string text)
+  {
+    bool valid = _profiles.ValidateName(text, profile.Id, out ProfileNameProblem problem);
+    ShowProfilesMessage(valid || text.Trim().Length == 0 ? "" : ProfileNameText(problem), true);
+  }
+
+  // Enter or a click elsewhere saves a usable new name; Escape, the same
+  // name or one that can't be used puts the old name back.
+  private void CommitRename(TMP_InputField input, ElementProfile profile, string text)
+  {
+    if (input == null || input != _renameInput)
+      return;
+    bool cancelled = input.wasCanceled;
+    if (cancelled)
+      _renameCancelledFrame = Time.frameCount;
+    _renaming = null;
+    _renameInput = null;
+    string name = (text ?? "").Trim();
+    if (cancelled || name == profile.Name)
+    {
+      RefreshProfileGallery();
+      ShowProfilesMessage("", false);
+      return;
+    }
+    ProfileOutcome outcome = _profiles.Rename(profile.Id, name);
+    RefreshProfileGallery();
+    if (outcome.Problem == ProfileProblem.Name)
+      ShowProfilesMessage(
+        L("이름을 바꾸지 않았어요. ", "The name wasn't changed. ") + ProfileNameText(outcome.NameProblem),
+        true
+      );
+    else if (!outcome.Ok)
+      ShowProfilesMessage(ProfileProblemText(outcome, ProfileAction.Save), true);
+    else
+      ShowProfilesMessage("", false);
+    AfterProfileSave(outcome);
+  }
+
+  /// <summary>Escape while renaming ends the rename and stays on the page.</summary>
+  private bool ProfileRenameTakesEscape()
+  {
+    if (_renameCancelledFrame == Time.frameCount)
+      return true;
+    if (_renaming == null)
+      return false;
+    _renaming = null;
+    _renameInput = null;
+    RefreshProfileGallery();
+    ShowProfilesMessage("", false);
+    return true;
+  }
+
+  // ---- A new profile ----
+
+  private void NewProfile()
+  {
+    _deleteArmedId = null;
+    _renaming = null;
+    _profileName.SetTextWithoutNotify("");
     _profileError.text = "";
-    _profileIntro.text =
-      profile == null
-        ? L(
-          "지금 쓰는 설정을 복사해 새 프로필을 만들고 바로 사용합니다.",
-          "Copies your current settings into a new profile and switches to it."
-        )
-      : profile == _profiles.Active ? L("지금 사용 중인 프로필입니다.", "This profile is in use.")
-      : L("카드를 누르면 이 프로필로 바뀝니다.", "Click its card to switch to this profile.");
     _profileIntro.gameObject.SetActive(true);
-    _profileExportMessage.text = "";
-    SetText(_saveProfile, profile == null ? L("만들기", "Create") : L("저장", "Save"));
-    _saveProfile.interactable = profile != null;
-    _deleteProfile.gameObject.SetActive(profile != null && _profiles.CanDelete);
-    _profileExportCard.gameObject.SetActive(profile != null && _profiles.FilesSupported);
+    _saveProfile.interactable = false;
     _ui.RefreshTheme();
     NavigateTo(ProfileEditorPage);
-    if (profile == null)
-    {
-      _profileName.Select();
-      _profileName.ActivateInputField();
-    }
+    _profileName.Select();
+    _profileName.ActivateInputField();
   }
 
   private void ValidateProfileName()
   {
     if (_saveProfile == null)
       return;
-    _deleteArmed = false;
-    bool valid = _profiles.ValidateName(_profileName.text, _editingProfile?.Id, out ProfileNameProblem problem);
+    bool valid = _profiles.ValidateName(_profileName.text, null, out ProfileNameProblem problem);
     _saveProfile.interactable = valid;
     _profileError.text = valid || _profileName.text.Length == 0 ? "" : ProfileNameText(problem);
     _profileIntro.gameObject.SetActive(_profileError.text.Length == 0);
   }
 
-  private void SaveProfile()
+  private void CreateProfile()
   {
-    ProfileOutcome outcome =
-      _editingProfile == null
-        ? _profiles.Create(_profileName.text)
-        : _profiles.Rename(_editingProfile.Id, _profileName.text);
+    ProfileOutcome outcome = _profiles.Create(_profileName.text);
     if (outcome.Problem == ProfileProblem.Name)
     {
       ShowProfileError(ProfileNameText(outcome.NameProblem));
@@ -366,80 +489,78 @@ internal sealed partial class SettingsPanel
       ShowProfileError(ProfileProblemText(outcome, ProfileAction.Save));
       return;
     }
-    bool created = _editingProfile == null;
     RefreshProfileGallery();
     SelectPage(ProfilesPage);
     ShowProfilesMessage(
-      created
-        ? L(
-          "'" + outcome.Name + "' 프로필을 만들었어요. 이제 바꾸는 설정은 이 프로필에 저장됩니다.",
-          "Created '" + outcome.Name + "'. Changes you make now are saved to it."
-        )
-        : "",
+      L(
+        "'" + outcome.Name + "' 프로필을 만들었어요. 이제 바꾸는 설정은 이 프로필에 저장됩니다.",
+        "Created '" + outcome.Name + "'. Changes you make now are saved to it."
+      ),
       false
     );
     AfterProfileSave(outcome);
   }
 
-  private void DeleteProfile()
+  // ---- Delete and export on the card ----
+
+  private void DeleteProfile(ElementProfile profile)
   {
-    if (_editingProfile == null)
-      return;
-    if (!_deleteArmed)
+    _renaming = null;
+    if (_deleteArmedId != profile.Id)
     {
-      _deleteArmed = true;
-      ShowProfileError(
+      _deleteArmedId = profile.Id;
+      RefreshProfileGallery();
+      ShowProfilesMessage(
         L(
-          "한 번 더 누르면 '" + _editingProfile.Name + "' 프로필을 삭제합니다. 삭제 전 설정은 Backups 폴더에 보관돼요.",
-          "Press again to delete '"
-            + _editingProfile.Name
-            + "'. Your settings are backed up to the Backups folder first."
-        )
+          "한 번 더 누르면 '" + profile.Name + "' 프로필을 삭제합니다. 삭제 전 설정은 Backups 폴더에 보관돼요.",
+          "Press again to delete '" + profile.Name + "'. Your settings are backed up to the Backups folder first."
+        ),
+        true
       );
       return;
     }
-    _deleteArmed = false;
-    bool wasActive = _editingProfile == _profiles.Active;
-    ProfileOutcome outcome = _profiles.Delete(_editingProfile.Id);
-    if (!outcome.Ok)
-    {
-      ShowProfileError(ProfileProblemText(outcome, ProfileAction.Delete));
-      return;
-    }
-    _editingProfile = null;
-    if (wasActive)
+    _deleteArmedId = null;
+    bool wasActive = profile == _profiles.Active;
+    ProfileOutcome outcome = _profiles.Delete(profile.Id);
+    if (outcome.Ok && wasActive)
       RefreshAfterProfileChange();
     else
       RefreshProfileGallery();
-    SelectPage(ProfilesPage);
     ShowProfilesMessage(
-      wasActive
-        ? L(
-          "'" + outcome.Name + "' 프로필을 삭제하고 '" + _profiles.Active?.Name + "' 프로필로 바꿨어요.",
-          "Deleted '" + outcome.Name + "' and switched to '" + _profiles.Active?.Name + "'."
-        )
+      !outcome.Ok ? ProfileProblemText(outcome, ProfileAction.Delete)
+        : wasActive
+          ? L(
+            "'" + outcome.Name + "' 프로필을 삭제하고 '" + _profiles.Active?.Name + "' 프로필로 바꿨어요.",
+            "Deleted '" + outcome.Name + "' and switched to '" + _profiles.Active?.Name + "'."
+          )
         : L("'" + outcome.Name + "' 프로필을 삭제했어요.", "Deleted '" + outcome.Name + "'."),
-      false
+      !outcome.Ok
     );
     AfterProfileSave(outcome);
   }
 
-  private void ExportProfile()
+  private void ExportProfile(ElementProfile profile)
   {
-    if (_editingProfile == null)
-      return;
-    _deleteArmed = false;
+    bool disarmed = _deleteArmedId != null;
+    _deleteArmedId = null;
+    if (disarmed)
+      RefreshProfileGallery();
     ProfileOutcome outcome = _profiles.Export(
-      _editingProfile.Id,
-      L("'" + _editingProfile.Name + "' 프로필 내보내기", "Export '" + _editingProfile.Name + "'")
+      profile.Id,
+      L("'" + profile.Name + "' 프로필 내보내기", "Export '" + profile.Name + "'")
     );
     if (outcome.Problem == ProfileProblem.Cancelled)
+    {
+      if (disarmed)
+        ShowProfilesMessage("", false);
       return;
-    _profileExportMessage.text = outcome.Ok
-      ? L("'" + outcome.Detail + "' 파일로 내보냈어요.", "Exported as '" + outcome.Detail + "'.")
-      : ProfileProblemText(outcome, ProfileAction.Export);
-    _profileExportMessage.color = outcome.Ok ? _ui.SoftAccent : ErrorText;
-    LayoutProfilePages(_profileGallery.rect.width);
+    }
+    ShowProfilesMessage(
+      outcome.Ok
+        ? L("'" + outcome.Detail + "' 파일로 내보냈어요.", "Exported as '" + outcome.Detail + "'.")
+        : ProfileProblemText(outcome, ProfileAction.Export),
+      !outcome.Ok
+    );
   }
 
   private void AfterProfileSave(ProfileOutcome outcome)
@@ -569,6 +690,8 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Place(_profilesMessage.rectTransform, 0, top, width, messageHeight);
       top += messageHeight + 12;
     }
+    if (_fontCard != null && _fontCard.gameObject.activeSelf)
+      top += LayoutFontCard(top, width) + 12;
     int columns =
       width >= 600 ? 3
       : width >= 440 ? 2
@@ -593,7 +716,7 @@ internal sealed partial class SettingsPanel
 
   private void LayoutProfileEditor(float width)
   {
-    if (_profileHeader == null || _profileExportCard == null)
+    if (_profileHeader == null)
       return;
     bool narrow = width < 600;
     float messageTop = narrow ? 104 : 52;
@@ -601,42 +724,11 @@ internal sealed partial class SettingsPanel
     float messageHeight = TextHeight(message, width, 24);
     float identityHeight = messageTop + messageHeight;
     SettingsUiFactory.Place(_profileHeader, 0, 0, width, identityHeight);
-    SettingsUiFactory.Place((RectTransform)_profileName.transform, 0, 0, narrow ? width : width - 216, 40);
-    SettingsUiFactory.Place(
-      (RectTransform)_saveProfile.transform,
-      narrow ? width - 152 : width - 200,
-      narrow ? 52 : 0,
-      152,
-      40
-    );
-    SettingsUiFactory.Place((RectTransform)_deleteProfile.transform, narrow ? 0 : width - 40, narrow ? 52 : 0, 40, 40);
+    SettingsUiFactory.Place((RectTransform)_profileName.transform, 0, 0, narrow ? width : width - 168, 40);
+    SettingsUiFactory.Place((RectTransform)_saveProfile.transform, width - 152, narrow ? 52 : 0, 152, 40);
     SettingsUiFactory.Place(_profileError.rectTransform, 0, messageTop, width, messageHeight);
     SettingsUiFactory.Place(_profileIntro.rectTransform, 0, messageTop, width, messageHeight);
-    float bottom = identityHeight;
-    if (_profileExportCard.gameObject.activeSelf)
-    {
-      float cardTop = identityHeight + 16;
-      float descriptionHeight = TextHeight(_profileExportDescription, width - 32, 20);
-      SettingsUiFactory.Place(_profileExportDescription.rectTransform, 16, 48, width - 32, descriptionHeight);
-      float buttonTop = 48 + descriptionHeight + 16;
-      SettingsUiFactory.Place((RectTransform)_exportProfile.transform, 16, buttonTop, 152, 40);
-      float cardHeight = buttonTop + 40 + 16;
-      if (_profileExportMessage.text.Length > 0)
-      {
-        float exportMessageHeight = TextHeight(_profileExportMessage, width - 32, 20);
-        SettingsUiFactory.Place(
-          _profileExportMessage.rectTransform,
-          16,
-          cardHeight - 4,
-          width - 32,
-          exportMessageHeight
-        );
-        cardHeight += exportMessageHeight + 12;
-      }
-      SettingsUiFactory.Place(_profileExportCard, 0, cardTop, width, cardHeight);
-      bottom = cardTop + cardHeight;
-    }
-    ((RectTransform)_pages[ProfileEditorPage].transform).sizeDelta = new Vector2(width, bottom);
+    ((RectTransform)_pages[ProfileEditorPage].transform).sizeDelta = new Vector2(width, identityHeight);
   }
 
   // Rounded up: Place rounds sizes, and a box a fraction short of the last

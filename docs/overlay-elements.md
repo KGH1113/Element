@@ -72,7 +72,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - **Adding a file.** **Add file** opens the system's file dialog for TTF, OTF and TTC files. The chosen files are copied into `Mods/Element/Fonts`, which updates keep, and the first one is applied. Files put in that folder by hand show up the next time the list opens; **Folder** opens it. Linux has no dialog, so the button opens the folder instead.
 - **Search.** Typing part of a name narrows the list; Enter applies the first match.
 - **Saved by name.** A font is saved by family and style, such as Pretendard Bold, so a layout finds the same font on another PC whether it is installed there or sits in the Fonts folder. A font this PC lacks is drawn in the default font, and the list says so with what to do.
-- **Missing characters.** Characters a font lacks, such as Hangul in a Latin font, come from the built-in font.
+- **Missing characters.** Characters a font lacks, such as Hangul in a Latin font, come from the built-in font. A font with no Latin letters, such as Arial Hebrew, takes them from the system's Latin font (Helvetica on macOS, Segoe UI on Windows) first, as other apps show it.
 - Every font keeps the overlay's black outline and shadow.
 
 ## Shape

@@ -4,6 +4,7 @@ using Element.Application.Profiles;
 using Element.Application.Updates;
 using Element.Configuration;
 using Element.Presentation.Layout;
+using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -47,11 +48,13 @@ internal sealed partial class SettingsPanel
     Func<long> blockedChatter = null,
     IModUpdates updates = null,
     Func<bool> judgementTextLinked = null,
-    IProfiles profiles = null
+    IProfiles profiles = null,
+    Func<OverlayFonts> overlayFonts = null
   )
   {
     _settings = settings;
     _profiles = profiles;
+    _overlayFonts = overlayFonts;
     _blockedChatter = blockedChatter;
     _judgementTextLinked = judgementTextLinked;
     _updates = updates;

@@ -53,14 +53,21 @@ internal sealed class HitTextHideSync
   }
 
   /// <summary>The mod's choices changed, or Competitive Mode was switched.</summary>
-  public void Push()
+  /// <returns>
+  /// True when the game's setting was written. ADOFAI saves it at once, so the
+  /// mod's settings must be saved with it; otherwise a restart finds the game
+  /// ahead of the mod and the next start sets the game back.
+  /// </returns>
+  public bool Push()
   {
     JudgementVisualOptions options = _options();
     if (!Started || options == null || !_game.Applies)
-      return;
+      return false;
     HitMarginHidePreset covered = HitTextHideLadder.Covered(options);
-    if (_game.Value != covered)
-      _game.Value = covered;
+    if (_game.Value == covered)
+      return false;
+    _game.Value = covered;
+    return true;
   }
 
   /// <summary>The player picked a step in the game's menu: the mod hides exactly that step.</summary>

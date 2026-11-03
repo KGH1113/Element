@@ -59,6 +59,7 @@ internal sealed class ModRuntime : IDisposable
   // Per-frame and per-hit callbacks reuse these delegates; a lambda per call
   // would add garbage, and every GC pause also stops the async input thread.
   private readonly Action _tickNativeViewers;
+  private readonly Action _tickSettingsUi;
   private readonly Action _tickKeyLimiter;
   private readonly Action<scrMarginTracker, HitMargin> _registerHit;
   private readonly Action _refreshAccuracy;
@@ -77,6 +78,7 @@ internal sealed class ModRuntime : IDisposable
   {
     _main = main;
     _tickNativeViewers = () => _nativeViewers?.Tick();
+    _tickSettingsUi = () => _settingsUi?.Tick();
     _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
@@ -88,7 +90,13 @@ internal sealed class ModRuntime : IDisposable
     _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
     _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
     _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
-    _pushHitTextHide = () => _hitTextSync?.Push();
+    // ADOFAI saves its Hide Judgment Text at once; the mod's choice behind it
+    // is saved with it, not only when the settings window closes.
+    _pushHitTextHide = () =>
+    {
+      if (_hitTextSync?.Push() == true)
+        _settingsUi?.Save();
+    };
   }
 
   public bool Initialize()
@@ -198,8 +206,10 @@ internal sealed class ModRuntime : IDisposable
   /// <summary>UnityModManager's per-frame update, in every scene.</summary>
   public void TickTrackpad()
   {
+    // Its own guard: a failure in the settings window must not stop the
+    // trackpad, the native viewers or the key limiter below.
     if (_initialized)
-      _settingsUi?.Tick();
+      Execute("Update the settings window", _tickSettingsUi);
     // The first frame comes after the game loaded its own settings.
     if (_initialized && _hitTextSync?.Started == false)
       Execute("Sync judgment text with ADOFAI", _hitTextSync.Start);

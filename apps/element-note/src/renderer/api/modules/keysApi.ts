@@ -52,24 +52,8 @@ export const keysApi = {
     subscribe<ModeChangePayload>('keys:mode-changed', listener),
   onKeyState: (listener: (payload: KeyStatePayload) => void) =>
     subscribe<KeyStatePayload>('keys:state', listener),
-  onRawInput: (listener: (payload: RawInputPayload) => void): Unsubscribe => {
-    let unsubscribeFn: (() => void) | null = null;
-
-    rawKeyEventBus
-      .subscribe(listener)
-      .then((unsub) => {
-        unsubscribeFn = unsub;
-      })
-      .catch((error) => {
-        console.error('[API] Failed to subscribe to raw input:', error);
-      });
-
-    return () => {
-      if (unsubscribeFn) {
-        unsubscribeFn();
-      }
-    };
-  },
+  onRawInput: (listener: (payload: RawInputPayload) => void): Unsubscribe =>
+    rawKeyEventBus.subscribe(listener),
   onCounterChanged: (listener: (payload: KeyCounterUpdate) => void) =>
     subscribe<KeyCounterUpdate>('keys:counter', listener),
   onCountersChanged: (listener: (payload: KeyCounters) => void) =>

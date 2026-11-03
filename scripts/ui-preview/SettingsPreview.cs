@@ -77,6 +77,9 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-720");
       Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
       Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
+      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
+      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-fonts");
+      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-fonts");
       Render(1280, 720, SystemLanguage.English, 10, "profile-editor-en-720");
       Render(760, 720, SystemLanguage.Korean, 10, "profile-editor-ko-narrow");
       Render(360, 720, SystemLanguage.English, 10, "profile-editor-en-compact");
@@ -1166,6 +1169,16 @@ namespace Element.Editor
       Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
       Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
         "native viewers leave the font list uncovered");
+      // An empty field draws its caret around a zero-width space; it must sit
+      // in the middle of the field, beside the hint, not on the field's top edge.
+      TMP_InputField search = Field<TMP_InputField>(popover, "_search");
+      search.ForceLabelUpdate();
+      search.textComponent.ForceMeshUpdate();
+      TMP_CharacterInfo emptyCaret = search.textComponent.textInfo.characterInfo[0];
+      float caretMiddle = (emptyCaret.ascender + emptyCaret.descender) * .5f;
+      Rect searchArea = search.textComponent.rectTransform.rect;
+      Assert(Mathf.Abs(caretMiddle - searchArea.center.y) < 3 && emptyCaret.ascender - emptyCaret.descender > 10,
+        "the empty font search's caret is centered in the field: " + caretMiddle + " in " + searchArea);
       library.RequestInstalled();
       var waited = System.Diagnostics.Stopwatch.StartNew();
       while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
@@ -1185,6 +1198,26 @@ namespace Element.Editor
       foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
         Assert(label.font == Field<TMP_FontAsset>(editor, "_font"), "the font list itself stays in the UI font");
       SaveFrame(camera, texture, canvases, name + "-font");
+
+      // A font without Latin letters takes them from the OS's Latin font, as
+      // the OS draws it, not from the bundled font that was there before.
+      OverlayFontFace hebrew = library.Installed.FirstOrDefault(face => face.Family == "Arial Hebrew Scholar" && face.Style == "Regular");
+      if (hebrew != null)
+      {
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { hebrew.Key }));
+        host.TickLayoutPreview();
+        drawn.ForceMeshUpdate();
+        TMP_CharacterInfo[] glyphs = drawn.textInfo.characterInfo;
+        TMP_CharacterInfo letter = glyphs.First(c => c.character == 'F');
+        TMP_CharacterInfo digit = glyphs.First(c => char.IsDigit(c.character));
+        Assert(drawn.font == fonts.DefaultAsset && digit.fontAsset == fonts.DefaultAsset
+          && letter.fontAsset != null && letter.fontAsset != fonts.Bundled && letter.fontAsset.faceInfo.familyName == "Helvetica",
+          "a font without Latin letters draws them in the OS's Latin font: " + letter.fontAsset?.faceInfo.familyName
+            + " / digits " + digit.fontAsset?.faceInfo.familyName);
+        SaveFrame(camera, texture, canvases, name + "-font-latin-fallback");
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+        host.TickLayoutPreview();
+      }
 
       // A file chosen in the dialog is copied into the folder and applied.
       Call(popover, "Import");
@@ -1392,7 +1425,7 @@ namespace Element.Editor
       });
       released.Migrate();
       released.Migrate();
-      Assert(released.SettingsVersion == 7 && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
+      Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
@@ -1418,11 +1451,12 @@ namespace Element.Editor
       Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
-      Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(window.minValue == ChatterFilter.MinimumWindowMs && window.maxValue == ChatterFilter.MaximumWindowMs && window.wholeNumbers,
+        "the threshold is whole milliseconds from 10 to 500");
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
-      CheckInputCaret(input, "chatter window", "", "5", "150");
+      CheckInputCaret(input, "chatter window", "", "10", "500");
       Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
       toggle.onClick.Invoke();
       Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
@@ -1432,12 +1466,12 @@ namespace Element.Editor
       Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
       input.onEndEdit.Invoke("72");
       Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
-      input.onEndEdit.Invoke("400");
-      Assert(chatter.WindowMs == 150 && window.value == 150 && input.text == "150", "a window above the range becomes the maximum");
+      input.onEndEdit.Invoke("4000");
+      Assert(chatter.WindowMs == 500 && window.value == 500 && input.text == "500", "a window above the range becomes the maximum");
       input.onEndEdit.Invoke("2");
-      Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
+      Assert(chatter.WindowMs == 10 && window.value == 10 && input.text == "10", "a window below the range becomes the minimum");
       input.onEndEdit.Invoke("");
-      Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
+      Assert(chatter.WindowMs == 10 && input.text == "10", "clearing the field restores the saved window");
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
       input.SetTextWithoutNotify(chatter.WindowMs.ToString());
       Assert(chatter.Enabled, "the page ends in the default state, blocking on");
@@ -1446,6 +1480,37 @@ namespace Element.Editor
       RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
       Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
       Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
+
+      // Keys never blocked: Change keys listens, each key goes on or comes off.
+      Button change = Field<Button>(panel, "_ignoredChange"), clear = Field<Button>(panel, "_ignoredClear");
+      TextMeshProUGUI keys = Field<TextMeshProUGUI>(panel, "_ignoredKeys");
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None") && !clear.interactable, "no key is ignored at first");
+      change.onClick.Invoke();
+      Assert(Field<bool>(panel, "_ignoredCapture") && change.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
+        "Change keys starts listening and becomes Done");
+      chatter.ToggleIgnored(KeyCode.Space);
+      chatter.ToggleIgnored(KeyCode.X);
+      Call(panel, "RefreshIgnoredKeys");
+      Assert(keys.text == "Space · X", "the ignored keys are listed: " + keys.text);
+      change.onClick.Invoke();
+      Assert(!Field<bool>(panel, "_ignoredCapture"), "Done stops listening");
+      Canvas.ForceUpdateCanvases();
+      RectTransform card = Field<RectTransform>(panel, "_ignoredCard");
+      Assert(card.rect.width <= width + .5f, "the ignored keys card fits the page");
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "ignored keys text fits: " + label.text);
+      }
+      RectTransform hint = Field<TextMeshProUGUI>(panel, "_chatterHint").rectTransform;
+      Assert(-card.anchoredPosition.y >= -hint.anchoredPosition.y + hint.rect.height, "the card sits below the hint");
+      Call(panel, "RefreshChatterCount");
+      RectTransform blocked = Field<TextMeshProUGUI>(panel, "_chatterBlocked").rectTransform;
+      Assert(-blocked.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the blocked count sits below the card");
+      Field<Button>(panel, "_ignoredClear").onClick.Invoke();
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None"), "Clear empties the list");
+      chatter.ToggleIgnored(KeyCode.Space);
+      Call(panel, "RefreshIgnoredKeys");
     }
 
     private static void Render(int width, int height, SystemLanguage language, int page, string name)
@@ -1459,7 +1524,13 @@ namespace Element.Editor
       using var planetPreview = new PlanetPreviewProbe();
       PreviewDialogs dialogs = new PreviewDialogs();
       ProfileService profiles = PreviewProfiles(settings, dialogs);
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles);
+      // Profiles look up the fonts an imported profile names.
+      OverlayFontCatalog fontCatalog = page == 9
+        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
+        : null;
+      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles,
+        overlayFonts: () => overlayFonts);
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");
@@ -1483,6 +1554,16 @@ namespace Element.Editor
         Assert(backIcon != null && backIcon.Kind == 4 && !backIcon.raycastTarget,
           "Back uses a left chevron with the full button hit area");
         CheckNavigationControls(panel, settings);
+        // A scene change destroys the selected object while the event system
+        // stays; that selection must read as nothing, not throw every frame.
+        GameObject previewEvents = new GameObject("Preview events", typeof(UnityEngine.EventSystems.EventSystem));
+        UnityEngine.EventSystems.EventSystem events = previewEvents.GetComponent<UnityEngine.EventSystems.EventSystem>();
+        GameObject doomed = new GameObject("Selection from a closed scene");
+        events.SetSelectedGameObject(doomed);
+        Object.DestroyImmediate(doomed);
+        Assert(!SettingsPanel.IsTyping(events), "a selection destroyed with its scene is not typing");
+        events.SetSelectedGameObject(null);
+        Object.DestroyImmediate(previewEvents);
         Call(panel, "Back");
         Assert(Field<int>(panel, "_page") == 0, "Back returns to home");
         cards[2].onClick.Invoke();
@@ -1506,7 +1587,7 @@ namespace Element.Editor
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
         Call(panel, "SelectPage", page);
         if (page == 7) Call(panel, "EditPreset", settings.Effects.Presets[0]);
-        if (page == 10) Call(panel, "EditProfile", profiles.Profiles[1]);
+        if (page == 10) Call(panel, "NewProfile");
         panel.Resize(width, height);
         Canvas.ForceUpdateCanvases();
         foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
@@ -1518,7 +1599,10 @@ namespace Element.Editor
         if (page == 8) CheckChatterBlocking(panel, settings, width);
         if (page == 2) CheckProfileLink(panel, profiles);
         if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
+        if (page == 9) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
         if (page == 10) CheckProfileEditor(panel, profiles, width, height);
+        // One frame shows a name being changed on its card.
+        if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
@@ -1921,36 +2005,125 @@ namespace Element.Editor
       RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
       Assert(-message.anchoredPosition.y + message.rect.height <= -((RectTransform)Field<RectTransform>(panel, "_profileGallery")).anchoredPosition.y,
         "the confirmation sits above the gallery");
+
+      // Rename, export and delete sit on each card: one press each.
+      cards = Field<List<Button>>(panel, "_profileCards");
+      foreach (Button item in cards)
+        Assert(item.transform.Find("Rename profile") != null && item.transform.Find("Export profile") != null
+          && item.transform.Find("Delete profile") != null, "every card has rename, export and delete");
+      foreach (Button item in cards)
+      {
+        RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
+        Vector3[] titleCorners = new Vector3[4], actionCorners = new Vector3[4];
+        title.GetWorldCorners(titleCorners);
+        ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
+        Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
+      }
+
+      // Rename on the card: a taken name is refused and the old one stays.
+      ElementProfile second = profiles.Profiles[1];
+      string original = second.Name;
+      ((Button)cards[1].transform.Find("Rename profile").GetComponent<Button>()).onClick.Invoke();
+      TMP_InputField field = Field<TMP_InputField>(panel, "_renameInput");
+      Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(panel, "_profileCards")[1].transform) && field.text == original,
+        "the pencil turns the card's name into a field holding it");
+      field.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name is refused as it is typed");
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original && Field<TMP_InputField>(panel, "_renameInput") == null
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
+      field = Field<TMP_InputField>(panel, "_renameInput");
+      field.text = original + " 2";
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original + " 2" && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "a new name saves when the field is left");
+      Assert(Field<List<Button>>(panel, "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
+        "the card shows the new name");
+
+      // Export opens the save window at once; a closed window says nothing.
+      int opened = dialogs.Opened;
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
+      Assert(dialogs.Opened == opened + 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "export opens the save window from the card");
+
+      // Delete asks first, then removes the profile.
+      int count = profiles.Profiles.Count;
+      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      TextMeshProUGUI question = Field<TextMeshProUGUI>(panel, "_profilesMessage");
+      Assert(profiles.Profiles.Count == count && question.text.Contains(second.Name), "the first delete press only asks");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      question.ForceMeshUpdate();
+      Assert(!question.isTextTruncated, "the delete question fits at " + width);
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(second)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(original), "the second press deletes it");
+    }
+
+    // An imported profile names a font this PC lacks: the card offers a font to
+    // use instead, and a pick lands where the missing font was.
+    private static void CheckFontReplacement(SettingsPanel panel, ElementSettings settings, OverlayFonts fonts, int width, bool keepOpen)
+    {
+      const string missing = "Element Missing Font|Bold";
+      settings.OverlayFont = missing;
+      OverlayTextRun run = OverlayTextRun.Literal("Progress", OverlayColorSettings.Custom("#FFFFFF"));
+      run.Font = missing;
+      settings.OverlayLayouts.Add(new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new List<OverlayTextRun> { run } } });
+      IOverlayFontLibrary library = fonts.Library;
+      library.RequestInstalled();
+      var waited = System.Diagnostics.Stopwatch.StartNew();
+      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
+        System.Threading.Thread.Sleep(50);
+      Call(panel, "OfferFontReplacements");
+      for (int i = 0; i < 20 && Field<object>(panel, "_checkingFonts") != null; i++)
+        Call(panel, "CheckImportedFonts");
+      RectTransform card = Field<RectTransform>(panel, "_fontCard");
+      System.Collections.IList rows = Field<System.Collections.IList>(panel, "_missingFonts");
+      Assert(card.gameObject.activeSelf && rows.Count == 1, "an imported profile's missing font is offered once: " + rows.Count);
+      Canvas.ForceUpdateCanvases();
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
+      }
+      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
+      Assert(-gallery.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the gallery sits below the font card");
+
+      Call(panel, "OpenFontReplacement", 0);
+      OverlayFontPopover popover = Field<OverlayFontPopover>(panel, "_fontPopover");
+      Assert(popover.Visible, "Choose font opens the font list");
+      string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      Assert(settings.OverlayFont == georgia && run.Font == georgia, "a pick replaces the missing font where it was used");
+      if (keepOpen)
+        return;
+      popover.Hide();
+      Field<Button>(panel, "_fontCardDone").onClick.Invoke();
+      Assert(!card.gameObject.activeSelf, "Done puts the card away");
+      Call(panel, "OfferFontReplacements");
+      Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
     }
 
     private static void CheckProfileEditor(SettingsPanel panel, ProfileService profiles, int width, int height)
     {
-      ElementProfile editing = Field<ElementProfile>(panel, "_editingProfile");
-      Assert(editing == profiles.Profiles[1], "editing the chosen profile");
       TMP_InputField name = Field<TMP_InputField>(panel, "_profileName");
-      Button save = Field<Button>(panel, "_saveProfile");
+      Button create = Field<Button>(panel, "_saveProfile");
+      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
       name.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(!save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
-      name.text = editing.Name;
-      Assert(save.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "its own name is fine");
-      Assert(Field<RectTransform>(panel, "_profileExportCard").gameObject.activeSelf, "a saved profile can be exported");
-      int count = profiles.Profiles.Count;
-      Call(panel, "DeleteProfile");
-      Assert(profiles.Profiles.Count == count && Field<TextMeshProUGUI>(panel, "_profileError").text.Contains(editing.Name),
-        "the first delete press only asks");
+      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
+      name.text = "Tournament";
+      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "a free name can be created");
       panel.Resize(width, height);
       Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileExportCard").GetComponentsInChildren<TextMeshProUGUI>(false))
+      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileHeader").GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "export card text fits: " + label.text);
+        Assert(!label.isTextTruncated, "the new profile page fits: " + label.text);
       }
-      TextMeshProUGUI armed = Field<TextMeshProUGUI>(panel, "_profileError");
-      armed.ForceMeshUpdate();
-      Assert(!armed.isTextTruncated, "the delete question fits at " + width + ": " + armed.rectTransform.rect.height);
-      RectTransform header = Field<RectTransform>(panel, "_profileHeader");
-      RectTransform card = Field<RectTransform>(panel, "_profileExportCard");
-      Assert(-card.anchoredPosition.y >= header.rect.height, "the export card sits below the name and its message");
     }
 
     private sealed class PreviewUpdates : IModUpdates

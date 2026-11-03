@@ -40,6 +40,10 @@ internal sealed class OverlayFonts : IDisposable
   private readonly Dictionary<string, Entry> _loaded = new(StringComparer.OrdinalIgnoreCase);
   private readonly Dictionary<string, OverlayFontLookup> _unresolved = new(StringComparer.OrdinalIgnoreCase);
   private readonly List<Entry> _releasing = new();
+
+  // The OS's Latin font by style, for chosen fonts without Latin letters; null
+  // where this PC has none. Small, so they stay until the overlay closes.
+  private readonly Dictionary<string, TMP_FontAsset> _latin = new(StringComparer.OrdinalIgnoreCase);
   private int _releaseFrame;
   private int _sourceRevision;
   private Entry _default;
@@ -58,7 +62,12 @@ internal sealed class OverlayFonts : IDisposable
     _sourceRevision = source?.Revision ?? 0;
   }
 
-  /// <summary>The font shipped with the mod: the default unless one is chosen, and every font's fallback.</summary>
+  /// <summary>
+  /// The font shipped with the mod: the default unless one is chosen, and every
+  /// font's fallback. A font without Latin letters, such as Arial Hebrew, takes
+  /// them from the OS's Latin font first, as the OS itself draws it; otherwise
+  /// labels like "Progress" would stay in this font.
+  /// </summary>
   public TMP_FontAsset Bundled => _bundled;
 
   /// <summary>What the font picker lists; null without a font source.</summary>
@@ -183,6 +192,9 @@ internal sealed class OverlayFonts : IDisposable
     foreach (Entry entry in _loaded.Values)
       if (entry.Asset != null && entry.Asset.characterTable.Count > 0)
         entry.Asset.ClearFontAssetData(setAtlasSizeToZero: true);
+    foreach (TMP_FontAsset latin in _latin.Values)
+      if (latin != null && latin.characterTable.Count > 0)
+        latin.ClearFontAssetData(setAtlasSizeToZero: true);
   }
 
   public void Dispose()
@@ -195,6 +207,13 @@ internal sealed class OverlayFonts : IDisposable
     _loaded.Clear();
     _unresolved.Clear();
     _default = null;
+    foreach (TMP_FontAsset latin in _latin.Values)
+      if (latin != null)
+      {
+        TMP_ResourceManager.RemoveFontAsset(latin);
+        Object.Destroy(latin);
+      }
+    _latin.Clear();
   }
 
   private Entry Load(string key)
@@ -212,16 +231,28 @@ internal sealed class OverlayFonts : IDisposable
       _unresolved[key] = lookup == OverlayFontLookup.Pending ? lookup : OverlayFontLookup.Missing;
       return null;
     }
-    entry = new Entry(asset, _bundled, ++s_serial);
+    TMP_FontAsset latin = _source.LacksLatin(face) ? LatinFallback(face.Style) : null;
+    entry = new Entry(asset, latin, _bundled, ++s_serial);
     _loaded[key] = entry;
     return entry;
+  }
+
+  private TMP_FontAsset LatinFallback(string style)
+  {
+    if (_latin.TryGetValue(style, out TMP_FontAsset latin))
+      return latin;
+    latin = _source.CreateLatinFallback(style);
+    if (latin != null)
+      latin.name = "ElementLatinFallback " + style;
+    _latin[style] = latin;
+    return latin;
   }
 
   private sealed class Entry : IDisposable
   {
     private readonly OverlayMaterialFactory _materials;
 
-    public Entry(TMP_FontAsset asset, TMP_FontAsset fallback, int serial)
+    public Entry(TMP_FontAsset asset, TMP_FontAsset latin, TMP_FontAsset fallback, int serial)
     {
       string name = "ElementFont" + serial;
       Asset = asset;
@@ -231,8 +262,11 @@ internal sealed class OverlayFonts : IDisposable
         asset.material.name = name + "Atlas";
       asset.materialHashCode = TMP_TextUtilities.GetSimpleHashCode(name + "Atlas");
       // Glyphs the font lacks, such as Hangul in a Latin font, come from the
-      // bundled font and its CJK fallbacks.
+      // bundled font and its CJK fallbacks; Latin letters it lacks, from the
+      // OS's Latin font before that.
       asset.fallbackFontAssetTable = new List<TMP_FontAsset>();
+      if (latin != null)
+        asset.fallbackFontAssetTable.Add(latin);
       if (fallback != null)
         asset.fallbackFontAssetTable.Add(fallback);
       _materials = new OverlayMaterialFactory(asset);

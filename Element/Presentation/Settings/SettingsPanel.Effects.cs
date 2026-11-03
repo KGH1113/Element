@@ -215,8 +215,8 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
     _presetShortcutDescription = _ui.Text(
       L(
-        "누르면 이 프리셋을 바로 적용합니다. 레벨을 플레이하는 중에는 동작하지 않습니다.",
-        "Press it to apply this preset right away. It does nothing while you play a level."
+        "누르면 이 프리셋을 적용하고, 한 번 더 누르면 이펙트 제거를 끕니다. 플레이 중에는 동작하지 않습니다.",
+        "Press it to apply this preset, and again to turn effect removal off. It does nothing during play."
       ),
       _presetShortcutCard,
       16,
@@ -592,6 +592,29 @@ internal sealed partial class SettingsPanel
     float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
     _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, top + cardHeight);
+  }
+}
+
+/// <summary>Export: an arrow out of a tray, like the system's share icon.</summary>
+internal sealed class SettingsExportIcon : SettingsVectorGraphic
+{
+  protected override void OnPopulateMesh(VertexHelper mesh)
+  {
+    mesh.Clear();
+    BeginPath();
+    PathPoint(8, 10);
+    PathPoint(5, 10);
+    PathPoint(5, 21);
+    PathPoint(19, 21);
+    PathPoint(19, 10);
+    PathPoint(16, 10);
+    Stroke(mesh);
+    Line(mesh, 12, 3, 12, 15);
+    BeginPath();
+    PathPoint(8, 7);
+    PathPoint(12, 3);
+    PathPoint(16, 7);
+    Stroke(mesh);
   }
 }
 

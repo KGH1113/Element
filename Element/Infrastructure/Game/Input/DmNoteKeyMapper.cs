@@ -44,39 +44,35 @@ internal static class DmNoteKeyMapper
     string key = Normalize(rawKey);
     if (string.IsNullOrEmpty(key) || !NamedKeys.TryGetValue(key, out KeyCode unityKey))
       return false;
+    resolved = Resolve(unityKey);
+    return true;
+  }
 
+  /// <summary>The Unity key and, where SkyHook knows it, the code async input reports for it.</summary>
+  public static ResolvedLimiterKey Resolve(KeyCode unityKey)
+  {
+    ResolvedLimiterKey resolved;
     KeyLabel label = SkyHookKeyMapper.UnityKeyToSkyHookKey(unityKey);
     if (label == KeyLabel.Unknown)
-    {
-      resolved = new ResolvedLimiterKey(unityKey, false, 0);
-      return true;
-    }
+      return new ResolvedLimiterKey(unityKey, false, 0);
 
     try
     {
-      if (
-        RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-        && TryGetMacAsyncKey(unityKey, out ushort macAsyncKey)
-      )
-      {
-        resolved = new ResolvedLimiterKey(unityKey, true, macAsyncKey);
-        return true;
-      }
+      if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && TryGetMacAsyncKey(unityKey, out ushort macAsyncKey))
+        return new ResolvedLimiterKey(unityKey, true, macAsyncKey);
 
       ushort asyncKey = SkyHookKeyMapper.KeyLabelToNativeKeyCode(label);
-      if (asyncKey == ushort.MaxValue)
-      {
-        resolved = new ResolvedLimiterKey(unityKey, false, 0);
-        return true;
-      }
-      resolved = new ResolvedLimiterKey(unityKey, true, asyncKey);
+      resolved =
+        asyncKey == ushort.MaxValue
+          ? new ResolvedLimiterKey(unityKey, false, 0)
+          : new ResolvedLimiterKey(unityKey, true, asyncKey);
     }
     catch
     {
       // Unity input can still be limited when a platform has no SkyHook mapping.
       resolved = new ResolvedLimiterKey(unityKey, false, 0);
     }
-    return true;
+    return resolved;
   }
 
   // SkyHook's macOS reverse mapper does not resolve Return, returns

@@ -24,6 +24,9 @@ internal sealed class OverlayFontCatalog : IOverlayFontSource, IOverlayFontLibra
   private const int NamedFontPointSize = 120;
   private const int MaximumFacesPerFile = 64;
 
+  // Labels such as "Progress" are made of these.
+  private const string LatinSample = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
   private readonly string _folder;
   private readonly IFontFilePicker _picker;
   private readonly Action<string> _warn;
@@ -109,6 +112,72 @@ internal sealed class OverlayFontCatalog : IOverlayFontSource, IOverlayFontLibra
       _error("Load the font " + face.Key, exception);
       return null;
     }
+  }
+
+  public bool LacksLatin(OverlayFontFace face)
+  {
+    if (face == null)
+      return false;
+    try
+    {
+      FontEngineError loaded =
+        face.Path == null
+          ? FontEngine.LoadFontFace(face.Family, face.Style)
+          : FontEngine.LoadFontFace(face.Path, OverlayFontSampling.PointSize, face.FaceIndex);
+      if (loaded != FontEngineError.Success)
+        return false;
+      foreach (char character in LatinSample)
+        if (!FontEngine.TryGetGlyphIndex(character, out uint glyph) || glyph == 0)
+          return true;
+    }
+    catch (Exception exception)
+    {
+      _error("Check the Latin letters of the font " + face.Key, exception);
+    }
+    return false;
+  }
+
+  public TMP_FontAsset CreateLatinFallback(string style)
+  {
+    foreach (string family in LatinFallbackFamilies())
+    {
+      OverlayFontFace face = SystemFace(family, style) ?? SystemFace(family, OverlayFontKey.RegularStyle);
+      TMP_FontAsset asset = face == null ? null : Create(face);
+      if (asset != null)
+        return asset;
+    }
+    return null;
+  }
+
+  // The fonts the OS itself draws Latin text with when a font has none:
+  // CoreText's cascade starts with Helvetica, DirectWrite's with Segoe UI.
+  private static string[] LatinFallbackFamilies() =>
+    UnityEngine.Application.platform switch
+    {
+      UnityEngine.RuntimePlatform.OSXPlayer or UnityEngine.RuntimePlatform.OSXEditor => new[]
+      {
+        "Helvetica",
+        "Helvetica Neue",
+        "Arial",
+      },
+      UnityEngine.RuntimePlatform.WindowsPlayer or UnityEngine.RuntimePlatform.WindowsEditor => new[]
+      {
+        "Segoe UI",
+        "Arial",
+      },
+      _ => new[] { "DejaVu Sans", "Liberation Sans", "Noto Sans" },
+    };
+
+  // From the installed list when it is ready; otherwise by name, which the OS
+  // resolves without the list.
+  private OverlayFontFace SystemFace(string family, string style)
+  {
+    Poll();
+    if (_installed != null)
+      return Match(_installed, family, style);
+    return FontEngine.LoadFontFace(family, style) == FontEngineError.Success
+      ? new OverlayFontFace(family, style, null, 0, false)
+      : null;
   }
 
   public void Poll()

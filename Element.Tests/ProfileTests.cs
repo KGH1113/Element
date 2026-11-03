@@ -95,7 +95,13 @@ internal static class ProfileTests
 
     Check(library.TryCreate("Stream", out ElementProfile stream, out _), "a new profile is created");
     Check(library.Active == stream && first.Content != null, "the new profile is in use; the first keeps its values");
-    Check(Values(settings) == original, "a new profile starts as a copy");
+    Check(Values(settings) == Values(Fresh()), "a new profile starts with the initial settings, not a copy");
+    Check(
+      settings.Gameplay.Chatter.WindowMs == ChatterFilter.MaximumWindowMs
+        && settings.Gameplay == gameplay
+        && settings.OverlayLayouts == layouts,
+      "a new profile keeps this PC's chatter filter and the objects the mod holds"
+    );
 
     settings.HighlightColor = "#FF0000";
     settings.OverlayFont = "Pretendard|Bold";
@@ -131,6 +137,26 @@ internal static class ProfileTests
     Check(library.Switch(stream.Id), "switching forward works");
     Check(Values(settings) == streamValues, "the second profile's values come back exactly");
     Check(!library.Switch(stream.Id), "switching to the profile in use does nothing");
+
+    // Duplicating copies values next to the original and leaves the profile in use alone.
+    ElementProfile streamCopy = library.Duplicate(stream.Id, "Stream copy");
+    ElementProfile firstCopy = library.Duplicate(first.Id, "Default copy");
+    ElementProfile again = library.Duplicate(stream.Id, "Stream copy");
+    Check(
+      library.Active == stream && Values(settings) == streamValues && again.Name == "Stream copy 2",
+      "duplicating keeps the profile in use and finds a free name"
+    );
+    Check(
+      library.Profiles.IndexOf(firstCopy) == library.Profiles.IndexOf(first) + 1
+        && library.Profiles.IndexOf(again) == library.Profiles.IndexOf(stream) + 1,
+      "a copy sits right after its original"
+    );
+    Check(
+      library.Switch(streamCopy.Id) && Values(settings) == streamValues,
+      "a copy of the profile in use has its values"
+    );
+    Check(library.Switch(firstCopy.Id) && Values(settings) == original, "a copy of a stored profile has its values");
+    Check(library.Duplicate("missing", "x") == null, "a missing profile can't be duplicated");
   }
 
   private static void ProfilesSurviveTheSettingsFile()
@@ -388,6 +414,13 @@ internal static class ProfileTests
         "the suggested name is safe on every system: " + dialogs.Last.FileName
       );
       Check(File.Exists(Path.Combine(directory, "stream." + ProfileFile.Extension)), "the file is written");
+      Check(
+        ProfileService.WithExtension("a." + ProfileFile.Extension + "." + ProfileFile.Extension)
+          == "a." + ProfileFile.Extension
+          && ProfileService.WithExtension("a." + ProfileFile.Extension.ToUpperInvariant())
+            == "a." + ProfileFile.Extension.ToUpperInvariant(),
+        "a name the save window gave the extension twice is saved with it once"
+      );
       Check(Directory.GetFiles(directory).Length == 1, "no temporary file is left behind");
 
       dialogs.Next = FileDialogResult.Cancelled;
@@ -414,13 +447,6 @@ internal static class ProfileTests
       Check(backups == 1 && reloads == 1 && saves == savesBefore + 1, "an import backs up, applies and saves once");
       Check(service.Active.Name == imported.Name && service.Profiles.Count == 2, "the import is in use");
 
-      Check(
-        ProfileService.WithExtension("a." + ProfileFile.Extension + "." + ProfileFile.Extension)
-          == "a." + ProfileFile.Extension
-          && ProfileService.WithExtension("a." + ProfileFile.Extension.ToUpperInvariant())
-            == "a." + ProfileFile.Extension.ToUpperInvariant(),
-        "a name the save window gave the extension twice is saved with it once"
-      );
       Check(
         service.Delete(service.Active.Id).Ok && backups == 2 && reloads == 2,
         "deleting the profile in use backs up and applies its neighbor"

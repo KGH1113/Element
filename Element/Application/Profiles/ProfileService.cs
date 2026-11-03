@@ -79,7 +79,26 @@ internal sealed class ProfileService : IProfiles
   {
     if (!_library.TryCreate(name, out ElementProfile profile, out ProfileNameProblem problem))
       return ProfileOutcome.InvalidName(problem);
+    _settingsReplaced();
     return ProfileOutcome.Done(profile.Name, _save());
+  }
+
+  public ProfileOutcome Duplicate(string id, string name)
+  {
+    ElementProfile source = _library.Find(id);
+    if (source == null)
+      return ProfileOutcome.Fail(ProfileProblem.Missing);
+    ElementProfile copy;
+    try
+    {
+      copy = _library.Duplicate(id, name);
+    }
+    catch (Exception exception)
+    {
+      _logError("Duplicate profile '" + source.Name + "'", exception);
+      return ProfileOutcome.Fail(ProfileProblem.Damaged);
+    }
+    return ProfileOutcome.Done(copy.Name, _save());
   }
 
   public ProfileOutcome Rename(string id, string name)
@@ -122,6 +141,7 @@ internal sealed class ProfileService : IProfiles
         {
           Title = dialogTitle,
           Extension = ProfileFile.Extension,
+          AlsoOpens = new[] { ProfileFile.LegacyExtension },
           TypeName = TypeName,
         }
       )
@@ -141,7 +161,6 @@ internal sealed class ProfileService : IProfiles
     try
     {
       profile = _library.Import(read.File);
-          AlsoOpens = new[] { ProfileFile.LegacyExtension },
     }
     catch (Exception exception)
     {

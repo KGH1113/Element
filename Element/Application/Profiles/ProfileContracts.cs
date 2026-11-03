@@ -90,7 +90,12 @@ internal interface IProfiles
   ProfileSummary Summarize(ElementProfile profile);
   bool ValidateName(string name, string exceptId, out ProfileNameProblem problem);
   ProfileOutcome Switch(string id);
+
+  /// <summary>A new profile with a first start's values, which becomes the profile in use.</summary>
   ProfileOutcome Create(string name);
+
+  /// <summary>A copy of a profile next to it; the profile in use stays.</summary>
+  ProfileOutcome Duplicate(string id, string name);
   ProfileOutcome Rename(string id, string name);
   ProfileOutcome Delete(string id);
 

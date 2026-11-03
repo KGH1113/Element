@@ -22,7 +22,7 @@ internal sealed partial class SettingsPanel : IDisposable
   private readonly GameObject _root;
   private readonly RectTransform _window;
   private readonly Canvas _canvas;
-  private readonly GameObject[] _pages = new GameObject[11];
+  private readonly GameObject[] _pages = new GameObject[10];
   private readonly Button[] _homeCards = new Button[4];
   private readonly TextMeshProUGUI _title;
   private readonly TextMeshProUGUI _feedback;
@@ -143,9 +143,10 @@ internal sealed partial class SettingsPanel : IDisposable
     if (!IsOpen)
       return;
     EnsureEventSystem();
+    SettleFocus();
     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
     {
-      if (ProfileRenameTakesEscape() || DismissFontPopover() || DismissPopover())
+      if (ProfileRenameTakesEscape() || DismissNewProfile() || DismissFontPopover() || DismissPopover())
         return;
       if (_page == 0)
         Close();
@@ -270,7 +271,6 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 6 ? L("행성", "Planets")
       : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
       : index == ProfilesPage ? L("프로필", "Profiles")
-      : index == ProfileEditorPage ? L("새 프로필", "New profile")
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);
@@ -292,11 +292,6 @@ internal sealed partial class SettingsPanel : IDisposable
     if (previous == 7)
     {
       SelectPage(3);
-      return;
-    }
-    if (previous == ProfileEditorPage)
-    {
-      SelectPage(ProfilesPage);
       return;
     }
     if (previous == ProfilesPage)

@@ -64,17 +64,39 @@ internal sealed class ProfileLibrary
     return true;
   }
 
-  /// <summary>A new profile with the current values, which becomes the profile in use.</summary>
+  /// <summary>
+  /// A new profile with the values of a first start, which becomes the profile
+  /// in use. The profile that was in use keeps its values.
+  /// </summary>
   public bool TryCreate(string name, out ElementProfile profile, out ProfileNameProblem problem)
   {
     profile = null;
     if (!ValidateName(name, null, out string normalized, out problem))
       return false;
+    // Migrated from nothing, as a fresh install is: the default overlay included.
+    ElementSettings initial = new ProfileContent().Prepare();
     Active.Content = ProfileContent.Capture(_settings);
     profile = new ElementProfile { Name = normalized };
     _settings.Profiles.Add(profile);
     _settings.ActiveProfileId = profile.Id;
+    ProfileContent.Apply(initial, _settings);
     return true;
+  }
+
+  /// <summary>
+  /// A copy of <paramref name="id"/>'s values right after it, under
+  /// <paramref name="name"/> or the next free "name 2". The profile in use stays.
+  /// </summary>
+  public ElementProfile Duplicate(string id, string name)
+  {
+    ElementProfile source = Find(id);
+    if (source == null)
+      return null;
+    ProfileContent content =
+      source.Content == null ? ProfileContent.Capture(_settings) : SettingsXml.Clone(source.Content);
+    ElementProfile copy = new() { Name = FreeName(name), Content = content };
+    _settings.Profiles.Insert(_settings.Profiles.IndexOf(source) + 1, copy);
+    return copy;
   }
 
   public bool TryRename(string id, string name, out ProfileNameProblem problem)

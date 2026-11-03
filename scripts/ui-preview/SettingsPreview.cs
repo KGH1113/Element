@@ -80,9 +80,9 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
       Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-fonts");
       Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-fonts");
-      Render(1280, 720, SystemLanguage.English, 10, "profile-editor-en-720");
-      Render(760, 720, SystemLanguage.Korean, 10, "profile-editor-ko-narrow");
-      Render(360, 720, SystemLanguage.English, 10, "profile-editor-en-compact");
+      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-new");
+      Render(760, 720, SystemLanguage.Korean, 9, "profiles-ko-narrow-new");
+      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-new");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       Debug.Log("UI_PREVIEW_SCREEN " + Screen.width + "x" + Screen.height);
       RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
@@ -1587,7 +1587,6 @@ namespace Element.Editor
         Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
         Call(panel, "SelectPage", page);
         if (page == 7) Call(panel, "EditPreset", settings.Effects.Presets[0]);
-        if (page == 10) Call(panel, "NewProfile");
         panel.Resize(width, height);
         Canvas.ForceUpdateCanvases();
         foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
@@ -1599,8 +1598,9 @@ namespace Element.Editor
         if (page == 8) CheckChatterBlocking(panel, settings, width);
         if (page == 2) CheckProfileLink(panel, profiles);
         if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
-        if (page == 9) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
-        if (page == 10) CheckProfileEditor(panel, profiles, width, height);
+        // Each of these frames shows one panel left open.
+        if (page == 9 && !name.EndsWith("-fonts")) CheckNewProfile(panel, settings, profiles, width, height, name.EndsWith("-new"));
+        if (page == 9 && !name.EndsWith("-new")) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
         // One frame shows a name being changed on its card.
         if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
         RectTransform window = Field<RectTransform>(panel, "_window");
@@ -1986,31 +1986,29 @@ namespace Element.Editor
         "Import sits before New profile");
       foreach (TextMeshProUGUI label in heading.GetComponentsInChildren<TextMeshProUGUI>(false))
         Assert(!label.isTextTruncated, "profile heading fits: " + label.text);
+      Assert(!Field<GameObject[]>(panel, "_pages")[9].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text.Contains("Each profile keeps") || t.text.Contains("프로필마다")),
+        "the page doesn't explain profiles");
 
       // Import whose window was closed: nothing happens and nothing is said.
       Call(panel, "ImportProfile");
       Assert(dialogs.Opened == 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a closed file window leaves no message");
 
-      // Switching from a card: the first profile comes back in place.
+      // Switching from a card: the card shows it; nothing above the cards moves.
       ElementProfile first = profiles.Profiles[0];
       var planets = settings.Gameplay.Planets;
+      Vector2 galleryBefore = Field<RectTransform>(panel, "_profileGallery").anchoredPosition;
       cards[0].onClick.Invoke();
       Assert(profiles.Active == first && settings.Gameplay.Planets == planets, "a card switches profiles in place");
-      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(first.Name), "the switch is confirmed by name");
+      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a switch shows on the card, not in a message");
+      Assert(Field<RectTransform>(panel, "_profileGallery").anchoredPosition == galleryBefore, "switching doesn't move the cards");
       cards = Field<List<Button>>(panel, "_profileCards");
       Assert(cards.Count == profiles.Profiles.Count, "the gallery rebuilds after a switch");
       Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(first.Name), "General names the new profile in use");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
-      Assert(-message.anchoredPosition.y + message.rect.height <= -((RectTransform)Field<RectTransform>(panel, "_profileGallery")).anchoredPosition.y,
-        "the confirmation sits above the gallery");
 
-      // Rename, export and delete sit on each card: one press each.
-      cards = Field<List<Button>>(panel, "_profileCards");
+      // Every card renames, duplicates, exports and deletes with one press.
       foreach (Button item in cards)
-        Assert(item.transform.Find("Rename profile") != null && item.transform.Find("Export profile") != null
-          && item.transform.Find("Delete profile") != null, "every card has rename, export and delete");
+        Assert(new[] { "Rename profile", "Duplicate profile", "Export profile", "Delete profile" }.All(n => item.transform.Find(n) != null),
+          "every card has rename, duplicate, export and delete");
       foreach (Button item in cards)
       {
         RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
@@ -2018,17 +2016,23 @@ namespace Element.Editor
         title.GetWorldCorners(titleCorners);
         ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
         Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
+        Button action = item.transform.Find("Rename profile").GetComponent<Button>();
+        Assert(action.targetGraphic.color.a == 0 && action.transition == Selectable.Transition.None,
+          "card buttons have no surface of their own; only the glyph reacts");
       }
 
-      // Rename on the card: a taken name is refused and the old one stays.
+      // Rename on the card: the card says why a taken name won't do, and the old name stays.
       ElementProfile second = profiles.Profiles[1];
       string original = second.Name;
-      ((Button)cards[1].transform.Find("Rename profile").GetComponent<Button>()).onClick.Invoke();
+      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
       TMP_InputField field = Field<TMP_InputField>(panel, "_renameInput");
       Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(panel, "_profileCards")[1].transform) && field.text == original,
         "the pencil turns the card's name into a field holding it");
+      Assert(!field.onFocusSelectAll, "the caret goes after the name instead of selecting it");
       field.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name is refused as it is typed");
+      TextMeshProUGUI problem = Field<TextMeshProUGUI>(panel, "_renameProblem");
+      Assert(problem.text.Length > 0 && problem.transform.IsChildOf(field.transform.parent) && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "a taken name is refused as it is typed, on the card");
       field.onEndEdit.Invoke(field.text);
       Assert(second.Name == original && Field<TMP_InputField>(panel, "_renameInput") == null
         && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
@@ -2037,31 +2041,77 @@ namespace Element.Editor
       field = Field<TMP_InputField>(panel, "_renameInput");
       field.text = original + " 2";
       field.onEndEdit.Invoke(field.text);
-      Assert(second.Name == original + " 2" && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
-        "a new name saves when the field is left");
+      Assert(second.Name == original + " 2", "a new name saves when the field is left");
       Assert(Field<List<Button>>(panel, "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
         "the card shows the new name");
 
-      // Export opens the save window at once; a closed window says nothing.
+      // Duplicate puts a copy next to the card and keeps the profile in use.
+      ElementProfile active = profiles.Active;
+      int count = profiles.Profiles.Count;
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Duplicate profile").GetComponent<Button>().onClick.Invoke();
+      ElementProfile copy = profiles.Profiles[2];
+      Assert(profiles.Profiles.Count == count + 1 && profiles.Active == active && copy.Name.StartsWith(second.Name)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "duplicate adds a copy after the card");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
+      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
+      Assert(-message.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "messages sit below the cards");
+
+      // Export opens the save window at once; a closed window says nothing new.
       int opened = dialogs.Opened;
       cards = Field<List<Button>>(panel, "_profileCards");
       cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
-      Assert(dialogs.Opened == opened + 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
-        "export opens the save window from the card");
+      Assert(dialogs.Opened == opened + 1, "export opens the save window from the card");
 
-      // Delete asks first, then removes the profile.
-      int count = profiles.Profiles.Count;
-      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      TextMeshProUGUI question = Field<TextMeshProUGUI>(panel, "_profilesMessage");
-      Assert(profiles.Profiles.Count == count && question.text.Contains(second.Name), "the first delete press only asks");
+      // Delete asks on the card first, then removes the profile.
+      count = profiles.Profiles.Count;
+      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(profiles.Profiles.Count == count
+        && cards[2].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text == L("한 번 더 누르면 삭제해요", "Press again to delete")),
+        "the first delete press only asks, on the card");
+      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(copy)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "the second press deletes it");
       panel.Resize(width, height);
       Canvas.ForceUpdateCanvases();
-      question.ForceMeshUpdate();
-      Assert(!question.isTextTruncated, "the delete question fits at " + width);
-      cards = Field<List<Button>>(panel, "_profileCards");
-      cards[1].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(second)
-        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(original), "the second press deletes it");
+      TextMeshProUGUI said = Field<TextMeshProUGUI>(panel, "_profilesMessage");
+      said.ForceMeshUpdate();
+      Assert(!said.isTextTruncated, "the message fits at " + width);
+    }
+
+    // New profile opens a small panel under its button; the profile starts from the initial settings.
+    private static void CheckNewProfile(SettingsPanel panel, ElementSettings settings, ProfileService profiles, int width, int height, bool keepOpen)
+    {
+      Field<Button>(panel, "_newProfile").onClick.Invoke();
+      RectTransform popover = Field<RectTransform>(panel, "_newProfilePopover");
+      TMP_InputField name = Field<TMP_InputField>(panel, "_newProfileName");
+      Button create = Field<Button>(panel, "_createProfile");
+      Assert(popover.gameObject.activeSelf && Field<int>(panel, "_page") == 9, "New profile opens a panel on the same page");
+      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
+      RectTransform window = Field<RectTransform>(panel, "_window");
+      Assert(popover.anchoredPosition.x >= 0 && popover.anchoredPosition.x + popover.rect.width <= window.rect.width + .5f
+        && -popover.anchoredPosition.y + popover.rect.height <= window.rect.height + .5f, "the panel stays inside the window at " + width);
+      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text.Length > 0, "a taken name is refused as it is typed");
+      foreach (TextMeshProUGUI label in popover.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the new profile panel fits at " + width + ": " + label.text);
+      }
+      name.text = "Tournament";
+      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text == "", "a free name can be created");
+      if (keepOpen)
+        return;
+      settings.HighlightColor = "#00FF00";
+      int count = profiles.Profiles.Count;
+      create.onClick.Invoke();
+      Assert(profiles.Profiles.Count == count + 1 && profiles.Active.Name == "Tournament" && !popover.gameObject.activeSelf,
+        "Create adds the profile, switches to it and closes the panel");
+      Assert(settings.HighlightColor == ElementSettings.DefaultHighlightColor && settings.OverlayLayouts.Count > 0,
+        "the new profile has the initial settings, default overlay included");
     }
 
     // An imported profile names a font this PC lacks: the card offers a font to
@@ -2091,7 +2141,7 @@ namespace Element.Editor
         Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
       }
       RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
-      Assert(-gallery.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the gallery sits below the font card");
+      Assert(-card.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "the font card sits below the cards");
 
       Call(panel, "OpenFontReplacement", 0);
       OverlayFontPopover popover = Field<OverlayFontPopover>(panel, "_fontPopover");
@@ -2106,24 +2156,6 @@ namespace Element.Editor
       Assert(!card.gameObject.activeSelf, "Done puts the card away");
       Call(panel, "OfferFontReplacements");
       Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
-    }
-
-    private static void CheckProfileEditor(SettingsPanel panel, ProfileService profiles, int width, int height)
-    {
-      TMP_InputField name = Field<TMP_InputField>(panel, "_profileName");
-      Button create = Field<Button>(panel, "_saveProfile");
-      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
-      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text.Length > 0, "a taken name is refused as it is typed");
-      name.text = "Tournament";
-      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_profileError").text == "", "a free name can be created");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in Field<RectTransform>(panel, "_profileHeader").GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "the new profile page fits: " + label.text);
-      }
     }
 
     private sealed class PreviewUpdates : IModUpdates

@@ -34,7 +34,7 @@ internal sealed partial class SettingsPanel
   private readonly TextMeshProUGUI[] _cardActions = new TextMeshProUGUI[4];
   private readonly RectTransform[] _cardDividers = new RectTransform[4];
   private readonly RectTransform[] _cardArrows = new RectTransform[4];
-  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
+  private readonly float[] _scrollPositions = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
   private readonly SettingsWindowMotion _windowMotion;
 
   public SettingsPanel(

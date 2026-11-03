@@ -376,14 +376,16 @@ internal sealed partial class SettingsPanel
         marker.rectTransform.anchoredPosition = new Vector2(0, -14);
         _galleryUi.Bind(() => marker.color = _ui.SoftAccent);
       }
-      Button edit = _galleryUi.Button("", card.transform, 250, 12, 36, 36, () => EditPreset(preset));
-      edit.gameObject.name = "Edit " + preset.Name;
-      edit.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-      var editIcon = _galleryUi
-        .Rect("Edit icon", edit.transform, 8, 8, 20, 20)
-        .gameObject.AddComponent<SettingsEditIcon>();
-      editIcon.color = SettingsUiFactory.Muted;
-      editIcon.raycastTarget = false;
+      Button edit = _galleryUi.GlyphButton(
+        "Edit " + preset.Name,
+        card.transform,
+        36,
+        20,
+        () => EditPreset(preset),
+        SettingsUiFactory.Muted,
+        SettingsUiFactory.Foreground,
+        out SettingsEditIcon _
+      );
       ((RectTransform)edit.transform).anchorMin = ((RectTransform)edit.transform).anchorMax = new Vector2(1, 1);
       ((RectTransform)edit.transform).pivot = new Vector2(1, 1);
       ((RectTransform)edit.transform).anchoredPosition = new Vector2(-12, -12);
@@ -592,6 +594,28 @@ internal sealed partial class SettingsPanel
     float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
     _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, top + cardHeight);
+  }
+}
+
+/// <summary>Duplicate: a second sheet behind the first.</summary>
+internal sealed class SettingsDuplicateIcon : SettingsVectorGraphic
+{
+  protected override void OnPopulateMesh(VertexHelper mesh)
+  {
+    mesh.Clear();
+    BeginPath();
+    PathPoint(4, 8);
+    PathPoint(16, 8);
+    PathPoint(16, 20);
+    PathPoint(4, 20);
+    Stroke(mesh, 2, true);
+    BeginPath();
+    PathPoint(8, 8);
+    PathPoint(8, 4);
+    PathPoint(20, 4);
+    PathPoint(20, 16);
+    PathPoint(16, 16);
+    Stroke(mesh);
   }
 }
 

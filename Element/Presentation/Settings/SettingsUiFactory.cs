@@ -189,8 +189,49 @@ internal sealed class SettingsUiFactory : IDisposable
     return button;
   }
 
-  public Button Switch(string title, string description, Transform parent, float y, Func<bool> read, Action<bool> write) =>
-    Switch(title, description, parent, y, read, write, out _);
+  /// <summary>
+  /// A button that is only its glyph, for actions inside a card: hover and
+  /// press change the glyph, so no second surface lights up inside the card.
+  /// </summary>
+  public Button GlyphButton<T>(
+    string name,
+    Transform parent,
+    float size,
+    float glyphSize,
+    Action onClick,
+    Color normal,
+    Color hover,
+    out T glyph
+  )
+    where T : Graphic
+  {
+    Button button = Button("", parent, 0, 0, size, size, onClick, themed: false);
+    button.name = name;
+    button.targetGraphic.color = Color.clear;
+    button.transition = Selectable.Transition.None;
+    button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
+    float inset = (size - glyphSize) * .5f;
+    glyph = Rect(name + " glyph", button.transform, inset, inset, glyphSize, glyphSize).gameObject.AddComponent<T>();
+    glyph.raycastTarget = false;
+    Outline focus = glyph.gameObject.AddComponent<Outline>();
+    focus.effectDistance = new Vector2(1.25f, -1.25f);
+    focus.enabled = false;
+    button.GetComponent<SettingsFocusRing>().Initialize(focus);
+    Bind(() => focus.effectColor = SoftAccent);
+    SettingsIconInteraction feedback = button.gameObject.AddComponent<SettingsIconInteraction>();
+    feedback.Initialize(button, glyph, ReduceMotion);
+    feedback.SetPalette(normal, hover);
+    return button;
+  }
+
+  public Button Switch(
+    string title,
+    string description,
+    Transform parent,
+    float y,
+    Func<bool> read,
+    Action<bool> write
+  ) => Switch(title, description, parent, y, read, write, out _);
 
   /// <summary>A switch row whose <paramref name="descriptionText"/> the caller keeps current.</summary>
   public Button Switch(

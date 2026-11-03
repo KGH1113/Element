@@ -98,6 +98,7 @@ internal static class ProfileTests
     Check(Values(settings) == original, "a new profile starts as a copy");
 
     settings.HighlightColor = "#FF0000";
+    settings.OverlayFont = "Pretendard|Bold";
     settings.Gameplay.Planets.Red.Body.ColorHex = "#00FF00";
     settings.Gameplay.Judgement.HideMiss = true;
     settings.Gameplay.Editor.FineRotation = true;

@@ -20,15 +20,19 @@ public sealed class ElementProfile
 }
 
 /// <summary>
-/// What a profile carries: the overlay, effect presets, gameplay tweaks and the
-/// highlight color. The chatter filter suits one keyboard, and general
-/// preferences such as shortcuts suit one PC, so every profile shares those.
+/// What a profile carries: the overlay, effect presets, gameplay tweaks, the
+/// highlight color and the overlay's default font. The chatter filter suits
+/// one keyboard, and general preferences such as shortcuts suit one PC, so
+/// every profile shares those.
 /// </summary>
 public sealed class ProfileContent
 {
   /// <summary>The settings version the values were saved in; applying them migrates from it.</summary>
   public int SettingsVersion;
   public string HighlightColor = ElementSettings.DefaultHighlightColor;
+
+  // An OverlayFontKey; the font itself stays on each PC, found by its name.
+  public string OverlayFont = "";
   public GameplayTweaksSettings Gameplay = new();
   public EffectSettings Effects = new();
   public List<OverlayLayoutSettings> OverlayLayouts = new();
@@ -41,6 +45,7 @@ public sealed class ProfileContent
       {
         SettingsVersion = settings.SettingsVersion,
         HighlightColor = settings.HighlightColor,
+        OverlayFont = settings.OverlayFont ?? "",
         Gameplay = settings.Gameplay,
         Effects = settings.Effects,
         OverlayLayouts = settings.OverlayLayouts,
@@ -63,6 +68,7 @@ public sealed class ProfileContent
       HighlightColor = string.IsNullOrWhiteSpace(copy.HighlightColor)
         ? ElementSettings.DefaultHighlightColor
         : copy.HighlightColor,
+      OverlayFont = copy.OverlayFont ?? "",
       Gameplay = copy.Gameplay ?? new(),
       Effects = copy.Effects ?? new(),
       OverlayLayouts = copy.OverlayLayouts ?? new(),
@@ -79,6 +85,7 @@ public sealed class ProfileContent
   public static void Apply(ElementSettings prepared, ElementSettings live)
   {
     live.HighlightColor = prepared.HighlightColor;
+    live.OverlayFont = prepared.OverlayFont;
     // The incoming values take this PC's chatter filter.
     SettingsCopy.Into(prepared.Gameplay.Chatter, live.Gameplay.Chatter);
     SettingsCopy.Into(live.Gameplay, prepared.Gameplay);

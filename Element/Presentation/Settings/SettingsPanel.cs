@@ -126,6 +126,11 @@ internal sealed partial class SettingsPanel : IDisposable
       capturing.Tick();
       return;
     }
+    if (_ignoredCapture)
+    {
+      TickIgnoredCapture();
+      return;
+    }
     if (!IsTyping() && ShortcutPressed())
     {
       if (IsOpen)
@@ -195,6 +200,7 @@ internal sealed partial class SettingsPanel : IDisposable
 
   private void CancelCapture()
   {
+    StopIgnoredCapture();
     _settingsShortcut?.Cancel();
     _presetShortcut?.Cancel();
   }

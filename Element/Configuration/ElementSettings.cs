@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Element.Domain.Input;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -20,7 +21,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public bool AutoOpenCloseDmNote = true;
 
   /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
-  public const int CurrentSettingsVersion = 7;
+  public const int CurrentSettingsVersion = 8;
 
   public const string DefaultHighlightColor = "#BA712B";
 
@@ -96,6 +97,11 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       SettingsShortcutKey = DefaultSettingsShortcutKey;
       SettingsShortcutModifier = DefaultSettingsShortcutModifier;
     }
+    // The chatter window used to count from the key's release; it now counts
+    // from the last press, as KeyboardChatterBlocker does. Only the untouched
+    // old default moves to the new one.
+    if (SettingsVersion < 8 && Gameplay.Chatter.WindowMs == ChatterBlockerOptions.ReleaseWindowDefaultMs)
+      Gameplay.Chatter.WindowMs = ChatterFilter.DefaultWindowMs;
     Profiles ??= new();
     SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
   }

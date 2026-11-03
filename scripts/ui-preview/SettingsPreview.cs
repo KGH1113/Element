@@ -1422,7 +1422,7 @@ namespace Element.Editor
       });
       released.Migrate();
       released.Migrate();
-      Assert(released.SettingsVersion == 7 && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
+      Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
@@ -1448,11 +1448,12 @@ namespace Element.Editor
       Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
-      Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(window.minValue == ChatterFilter.MinimumWindowMs && window.maxValue == ChatterFilter.MaximumWindowMs && window.wholeNumbers,
+        "the threshold is whole milliseconds from 10 to 500");
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
-      CheckInputCaret(input, "chatter window", "", "5", "150");
+      CheckInputCaret(input, "chatter window", "", "10", "500");
       Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
       toggle.onClick.Invoke();
       Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
@@ -1462,12 +1463,12 @@ namespace Element.Editor
       Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
       input.onEndEdit.Invoke("72");
       Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
-      input.onEndEdit.Invoke("400");
-      Assert(chatter.WindowMs == 150 && window.value == 150 && input.text == "150", "a window above the range becomes the maximum");
+      input.onEndEdit.Invoke("4000");
+      Assert(chatter.WindowMs == 500 && window.value == 500 && input.text == "500", "a window above the range becomes the maximum");
       input.onEndEdit.Invoke("2");
-      Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
+      Assert(chatter.WindowMs == 10 && window.value == 10 && input.text == "10", "a window below the range becomes the minimum");
       input.onEndEdit.Invoke("");
-      Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
+      Assert(chatter.WindowMs == 10 && input.text == "10", "clearing the field restores the saved window");
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
       input.SetTextWithoutNotify(chatter.WindowMs.ToString());
       Assert(chatter.Enabled, "the page ends in the default state, blocking on");
@@ -1476,6 +1477,37 @@ namespace Element.Editor
       RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
       Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
       Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
+
+      // Keys never blocked: Change keys listens, each key goes on or comes off.
+      Button change = Field<Button>(panel, "_ignoredChange"), clear = Field<Button>(panel, "_ignoredClear");
+      TextMeshProUGUI keys = Field<TextMeshProUGUI>(panel, "_ignoredKeys");
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None") && !clear.interactable, "no key is ignored at first");
+      change.onClick.Invoke();
+      Assert(Field<bool>(panel, "_ignoredCapture") && change.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
+        "Change keys starts listening and becomes Done");
+      chatter.ToggleIgnored(KeyCode.Space);
+      chatter.ToggleIgnored(KeyCode.X);
+      Call(panel, "RefreshIgnoredKeys");
+      Assert(keys.text == "Space · X", "the ignored keys are listed: " + keys.text);
+      change.onClick.Invoke();
+      Assert(!Field<bool>(panel, "_ignoredCapture"), "Done stops listening");
+      Canvas.ForceUpdateCanvases();
+      RectTransform card = Field<RectTransform>(panel, "_ignoredCard");
+      Assert(card.rect.width <= width + .5f, "the ignored keys card fits the page");
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "ignored keys text fits: " + label.text);
+      }
+      RectTransform hint = Field<TextMeshProUGUI>(panel, "_chatterHint").rectTransform;
+      Assert(-card.anchoredPosition.y >= -hint.anchoredPosition.y + hint.rect.height, "the card sits below the hint");
+      Call(panel, "RefreshChatterCount");
+      RectTransform blocked = Field<TextMeshProUGUI>(panel, "_chatterBlocked").rectTransform;
+      Assert(-blocked.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the blocked count sits below the card");
+      Field<Button>(panel, "_ignoredClear").onClick.Invoke();
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None"), "Clear empties the list");
+      chatter.ToggleIgnored(KeyCode.Space);
+      Call(panel, "RefreshIgnoredKeys");
     }
 
     private static void Render(int width, int height, SystemLanguage language, int page, string name)

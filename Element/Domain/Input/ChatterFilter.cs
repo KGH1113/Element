@@ -4,92 +4,72 @@ using System.Threading;
 namespace Element.Domain.Input;
 
 /// <summary>
-/// Drops switch bounce: a press that arrives within the window after the same
-/// key was released, together with that press's own release, so the game never
-/// sees a stray press or an orphan release. Measuring from the release catches
-/// bounce on both the press and the release of a long hold, while fast jacks
-/// on the same key still pass.
+/// Drops key chatter the way KeyboardChatterBlocker does: a press of a key that
+/// comes no later than the threshold after that key's last accepted press is
+/// dropped. A dropped press doesn't move that time, so a bouncing key is
+/// caught until it settles. Releases are never filtered, and keys on the
+/// ignored list always pass.
 /// </summary>
 /// <remarks>
 /// One thread feeds each instance (SkyHook's native thread or Unity's main
 /// thread). Nothing here allocates, locks, logs or touches Unity, so it is safe
-/// on the input hook and costs a few nanoseconds per event.
+/// on the input hook and costs a few nanoseconds per press.
 /// </remarks>
 internal sealed class ChatterFilter
 {
-  public const int MinimumWindowMs = 5;
-  public const int MaximumWindowMs = 150;
-  public const int DefaultWindowMs = 20;
+  public const int MinimumWindowMs = 10;
+  public const int MaximumWindowMs = 500;
+  public const int DefaultWindowMs = 100;
 
-  // Windows virtual keys, macOS key codes and Linux evdev codes all fit.
-  private const int KeyCount = 1024;
-  private const byte Released = 0;
-  private const byte Held = 1;
-  private const byte Swallowed = 2;
+  /// <summary>
+  /// Unity input asks for presses more than once a frame; a press this close
+  /// to the last accepted one is that same press asked again.
+  /// </summary>
+  public const int SameFrameMs = 5;
 
-  private readonly long[] _releasedAt = new long[KeyCount];
-  private readonly byte[] _state = new byte[KeyCount];
-  private long _windowTicks;
-  private int _generation;
-  private int _seenGeneration;
+  // Windows virtual keys, macOS HID usages and Unity key codes all fit.
+  public const int KeyCount = 1024;
+  private static readonly bool[] NoKeys = new bool[KeyCount];
+
+  private readonly long[] _acceptedAt = new long[KeyCount];
+  private readonly bool _sameFrame;
+  private bool[] _ignored = NoKeys;
+  private int _windowMs = -1;
   private long _blocked;
+
+  /// <param name="sameFrame">Accept presses within <see cref="SameFrameMs"/>, for Unity input.</param>
+  public ChatterFilter(bool sameFrame) => _sameFrame = sameFrame;
 
   /// <summary>Presses dropped since the mod loaded.</summary>
   public long Blocked => Interlocked.Read(ref _blocked);
 
-  public bool Enabled => Volatile.Read(ref _windowTicks) > 0;
+  public bool Enabled => Volatile.Read(ref _windowMs) >= 0;
 
-  public static int ClampWindow(int milliseconds) =>
-    Math.Max(MinimumWindowMs, Math.Min(MaximumWindowMs, milliseconds));
+  public static int ClampWindow(int milliseconds) => Math.Max(MinimumWindowMs, Math.Min(MaximumWindowMs, milliseconds));
 
-  /// <summary>Any thread. The feeding thread forgets per-key state on its next event.</summary>
-  public void Configure(bool enabled, int windowMs)
+  /// <summary>
+  /// Any thread. <paramref name="ignored"/> is indexed by key and is not
+  /// copied; pass a new array to change it. Press times are kept.
+  /// </summary>
+  public void Configure(bool enabled, int windowMs, bool[] ignored)
   {
-    long ticks = enabled ? ClampWindow(windowMs) * TimeSpan.TicksPerMillisecond : 0;
-    if (Interlocked.Exchange(ref _windowTicks, ticks) != ticks)
-      Interlocked.Increment(ref _generation);
+    Volatile.Write(ref _ignored, ignored != null && ignored.Length == KeyCount ? ignored : NoKeys);
+    Volatile.Write(ref _windowMs, enabled ? ClampWindow(windowMs) : -1);
   }
 
-  /// <summary>Feeding thread only. Returns false when the event is chatter.</summary>
-  public bool Accept(int key, bool press, long timeTicks)
+  /// <summary>Feeding thread only. Returns false when the press is chatter.</summary>
+  public bool AcceptPress(int key, long nowMs)
   {
-    int generation = Volatile.Read(ref _generation);
-    if (generation != _seenGeneration)
-    {
-      Array.Clear(_state, 0, KeyCount);
-      Array.Clear(_releasedAt, 0, KeyCount);
-      _seenGeneration = generation;
-    }
-    long window = Volatile.Read(ref _windowTicks);
-    if (window <= 0 || (uint)key >= KeyCount)
+    int window = Volatile.Read(ref _windowMs);
+    if (window < 0 || (uint)key >= KeyCount || Volatile.Read(ref _ignored)[key])
       return true;
-
-    if (!press)
+    long since = nowMs - _acceptedAt[key];
+    if (since > window || (_sameFrame && since <= SameFrameMs))
     {
-      bool pass = _state[key] != Swallowed;
-      _state[key] = Released;
-      // A swallowed release is still the latest physical release, so a bounce
-      // right after it is caught too.
-      _releasedAt[key] = timeTicks;
-      return pass;
+      _acceptedAt[key] = nowMs;
+      return true;
     }
-
-    switch (_state[key])
-    {
-      case Held:
-        // OS key repeat; the game ignores presses of a held key itself.
-        return true;
-      case Swallowed:
-        return false;
-    }
-    long gap = timeTicks - _releasedAt[key];
-    if (_releasedAt[key] != 0 && gap >= 0 && gap < window)
-    {
-      _state[key] = Swallowed;
-      Interlocked.Increment(ref _blocked);
-      return false;
-    }
-    _state[key] = Held;
-    return true;
+    Interlocked.Increment(ref _blocked);
+    return false;
   }
 }

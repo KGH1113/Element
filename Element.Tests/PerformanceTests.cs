@@ -14,8 +14,8 @@ internal static class PerformanceTests
   {
     FormatsNumbersLikeTheOriginalStrings();
     AppendsWithoutAllocating();
-    ChatterFilterDropsBounceAndItsRelease();
-    ChatterFilterKeepsFastJacksAndRepeats();
+    ChatterFilterDropsPressesWithinTheThreshold();
+    ChatterFilterFollowsSettings();
     ChatterFilterRunsOffTheMainThreadWithoutAllocating();
   }
 
@@ -56,70 +56,85 @@ internal static class PerformanceTests
     builder.AppendTwoDigits(7).Append(' ').AppendHexRgb(new Color(.2f, .4f, .6f));
   }
 
-  private const long Millisecond = TimeSpan.TicksPerMillisecond;
+  private static readonly bool[] NoIgnoredKeys = new bool[ChatterFilter.KeyCount];
 
-  private static void ChatterFilterDropsBounceAndItsRelease()
+  // KeyboardChatterBlocker's rule: a press within the threshold of the same
+  // key's last accepted press is dropped; releases never reach the filter.
+  private static void ChatterFilterDropsPressesWithinTheThreshold()
   {
-    var filter = new ChatterFilter();
-    filter.Configure(true, 20);
-    long t = 1_000_000 * Millisecond;
-    True(filter.Accept(30, true, t), "the first press passes");
-    True(filter.Accept(30, false, t + 80 * Millisecond), "its release passes");
-    True(!filter.Accept(30, true, t + 83 * Millisecond), "a press 3 ms after release is bounce");
-    True(!filter.Accept(30, false, t + 86 * Millisecond), "the bounce's release is swallowed too");
-    True(!filter.Accept(30, true, t + 95 * Millisecond), "bounce right after a swallowed release is caught");
-    True(!filter.Accept(30, false, t + 97 * Millisecond), "and its release");
-    True(filter.Accept(30, true, t + 140 * Millisecond), "a real press after the window passes");
-    True(filter.Accept(31, true, t + 141 * Millisecond), "other keys are independent");
-    True(filter.Blocked == 2, "two bounces were counted, got " + filter.Blocked);
+    var filter = new ChatterFilter(sameFrame: false);
+    filter.Configure(true, 100, NoIgnoredKeys);
+    long t = 1_700_000_000_000;
+    True(filter.AcceptPress(30, t), "the first press passes");
+    True(!filter.AcceptPress(30, t + 40), "a press 40 ms later is chatter");
+    True(!filter.AcceptPress(30, t + 100), "a press exactly at the threshold is chatter");
+    True(filter.AcceptPress(30, t + 101), "a press past the threshold passes");
+    True(!filter.AcceptPress(30, t + 150), "a dropped press doesn't move the time");
+    True(filter.AcceptPress(31, t + 150), "other keys are independent");
+    True(!filter.AcceptPress(30, t + 90), "async input drops a press from before the last one");
+    True(filter.Blocked == 4, "four presses were dropped, got " + filter.Blocked);
+
+    // 16th notes at 300 BPM are 50 ms apart: every other one is dropped, as
+    // with KeyboardChatterBlocker at 100 ms.
+    var jacks = new ChatterFilter(sameFrame: false);
+    jacks.Configure(true, 100, NoIgnoredKeys);
+    int passed = 0;
+    for (int i = 0; i < 8; i++)
+      if (jacks.AcceptPress(12, t + i * 50))
+        passed++;
+    True(passed == 3, "50 ms jacks on one key keep every third press at 100 ms, got " + passed);
   }
 
-  private static void ChatterFilterKeepsFastJacksAndRepeats()
+  private static void ChatterFilterFollowsSettings()
   {
-    var filter = new ChatterFilter();
-    filter.Configure(true, 20);
-    long t = 5_000_000 * Millisecond;
-    // 16th notes at 300 BPM: 50 ms apart, held 25 ms.
-    for (int i = 0; i < 8; i++)
-    {
-      True(filter.Accept(12, true, t + i * 50 * Millisecond), "jack press " + i + " passes");
-      True(filter.Accept(12, false, t + (i * 50 + 25) * Millisecond), "jack release " + i + " passes");
-    }
-    True(filter.Accept(13, true, t), "a held key passes");
-    True(filter.Accept(13, true, t + 500 * Millisecond), "OS key repeat of a held key passes");
-    True(filter.Accept(-1, true, t) && filter.Accept(5000, true, t), "out-of-range keys pass");
-    filter.Configure(false, 20);
-    True(filter.Accept(12, true, t + 401 * Millisecond), "a disabled filter passes everything");
-    True(filter.Blocked == 0, "nothing was blocked");
+    long t = 1_700_000_000_000;
+    var unity = new ChatterFilter(sameFrame: true);
+    unity.Configure(true, 100, NoIgnoredKeys);
+    True(unity.AcceptPress(5, t), "a Unity press passes");
+    True(unity.AcceptPress(5, t + 3), "Unity input asking again within 5 ms gets the same answer");
+    True(!unity.AcceptPress(5, t + 9), "past 5 ms it is chatter again");
+    True(unity.AcceptPress(5, t - 50), "Unity input accepts a press from before the last one");
 
-    True(ChatterFilter.ClampWindow(1) == 5 && ChatterFilter.ClampWindow(500) == 150, "the window is 5 to 150 ms");
-    filter.Configure(true, 150);
+    var ignored = new bool[ChatterFilter.KeyCount];
+    ignored[44] = true;
+    var filter = new ChatterFilter(sameFrame: false);
+    filter.Configure(true, 100, ignored);
+    True(filter.AcceptPress(44, t) && filter.AcceptPress(44, t + 1), "an ignored key always passes");
+    filter.Configure(true, 100, NoIgnoredKeys);
+    True(filter.AcceptPress(44, t + 2), "an ignored key left no press time behind");
+    True(!filter.AcceptPress(44, t + 3), "and is filtered once off the list");
+    filter.Configure(true, 200, NoIgnoredKeys);
+    True(!filter.AcceptPress(44, t + 150), "a new threshold keeps the press times");
+    True(filter.AcceptPress(-1, t) && filter.AcceptPress(5000, t), "out-of-range keys pass");
+    filter.Configure(false, 100, NoIgnoredKeys);
+    True(!filter.Enabled && filter.AcceptPress(44, t + 151), "a disabled filter passes everything");
     True(
-      filter.Accept(40, true, t) && filter.Accept(40, false, t + 30 * Millisecond),
-      "a 150 ms window still passes the first tap"
+      ChatterFilter.ClampWindow(1) == ChatterFilter.MinimumWindowMs
+        && ChatterFilter.ClampWindow(5000) == ChatterFilter.MaximumWindowMs
+        && ChatterFilter.DefaultWindowMs == 100,
+      "the threshold is clamped and starts at KeyboardChatterBlocker's 100 ms"
     );
-    True(!filter.Accept(40, true, t + 150 * Millisecond), "120 ms after release is inside a 150 ms window");
   }
 
   // SkyHook calls the filter on a native thread with no Unity runtime and
   // expects no allocation per event.
   private static void ChatterFilterRunsOffTheMainThreadWithoutAllocating()
   {
-    var filter = new ChatterFilter();
-    filter.Configure(true, 20);
+    var filter = new ChatterFilter(sameFrame: false);
+    filter.Configure(true, 100, NoIgnoredKeys);
     long allocated = -1;
     Exception failure = null;
     var thread = new Thread(() =>
     {
       try
       {
-        long t = 1_000_000 * Millisecond;
-        filter.Accept(1, true, t);
+        long t = 1_700_000_000_000;
+        filter.AcceptPress(1, t);
         long before = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < 10_000; i++)
         {
-          t += 7 * Millisecond;
-          filter.Accept(i & 255, (i & 1) == 0, t);
+          t += 7;
+          filter.AcceptPress(i & 255, t);
         }
         allocated = GC.GetAllocatedBytesForCurrentThread() - before;
       }

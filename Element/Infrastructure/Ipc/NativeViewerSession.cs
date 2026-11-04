@@ -28,6 +28,9 @@ internal readonly struct NativeViewerWork
 internal sealed class NativeViewerSession
 {
   public const string DescribeCommand = "mirror.native.describe";
+
+  /// <summary>Shows the tab a viewer kind displays in ElementNote. The app sends no reply.</summary>
+  public const string EditCommand = "mirror.native.edit";
   private static readonly TimeSpan PendingTimeout = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan PollWithoutPush = TimeSpan.FromSeconds(2);
 
@@ -50,6 +53,7 @@ internal sealed class NativeViewerSession
   private bool _hide;
   private volatile bool _hiddenInApp;
   private volatile bool _connected;
+  private bool _editSupported;
   private NativeViewerStatus _status;
 
   public NativeViewerSession(bool supported)
@@ -87,6 +91,18 @@ internal sealed class NativeViewerSession
         return _pushSupported;
     }
   }
+
+  /// <summary>The connected ElementNote when it takes <see cref="EditCommand"/>; otherwise null.</summary>
+  public string EditPeer
+  {
+    get
+    {
+      lock (_gate)
+        return _editSupported ? _peerId : null;
+    }
+  }
+
+  public static string EditPayload(string viewerKind) => JsonConvert.SerializeObject(new { viewerKind });
 
   internal string SessionId
   {
@@ -167,6 +183,7 @@ internal sealed class NativeViewerSession
       _peerId = null;
       _connected = false;
       _pushSupported = false;
+      _editSupported = false;
       _hiddenInApp = false;
       _pendingId = null;
       _surfaces = null;
@@ -235,6 +252,7 @@ internal sealed class NativeViewerSession
     _peerId = message.PeerId;
     _connected = true;
     _pushSupported = availability.NativePush;
+    _editSupported = availability.NativeEdit;
     // Older apps omit the flag and always show their viewers.
     _hiddenInApp = availability.InGame == false;
     _pendingId = null;
@@ -319,5 +337,6 @@ internal sealed class NativeViewerSession
     public int? NativeProtocolVersion { get; set; }
     public bool NativePush { get; set; }
     public bool? InGame { get; set; }
+    public bool NativeEdit { get; set; }
   }
 }

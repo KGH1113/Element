@@ -231,7 +231,7 @@ namespace Element.Editor
       Assert(Field<RectTransform>(editor, "_addMenu") == null, "Add Element closes its menu again");
 
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
-      CheckKeyViewers(editor, viewers);
+      CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
@@ -843,7 +843,7 @@ namespace Element.Editor
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "multi-select leaves the layout as it was");
     }
 
-    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers)
+    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
     {
       viewers.Availability = KeyViewerAvailability.Ready;
       Call(editor, "ToggleAddMenu");
@@ -859,6 +859,20 @@ namespace Element.Editor
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
       Assert(Field<int>(editor, "_selected") == IndexOf(editor, foot), "the switched viewer stays selected");
+      Button openInApp = Field<RectTransform>(editor, "_settingsPanel").GetComponentsInChildren<Button>(true).Single(button => button.name == "Edit key viewer");
+      TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
+      openLabel.ForceMeshUpdate();
+      Assert(!openLabel.isTextTruncated, "Edit key viewer fits its button: " + openLabel.text);
+      SaveFrame(camera, texture, canvases, name + "-keyviewer");
+      openInApp.onClick.Invoke();
+      Assert(viewers.OpenedInApp.Count == 1 && viewers.OpenedInApp[0] == foot,
+        "Edit key viewer opens the viewer it shows now, after switching to foot");
+      viewers.EditResult = KeyViewerEditResult.AppOutdated;
+      openInApp.onClick.Invoke();
+      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("ElementNote"),
+        "a refused open says what to do with ElementNote: " + Field<TextMeshProUGUI>(editor, "_keyboardHelp").text);
+      viewers.EditResult = KeyViewerEditResult.Opened;
+      SetField(editor, "_scaleErrorUntil", 0f);
       Call(editor, "UpdateFrames");
       Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf,
         "key viewers keep their scale");
@@ -1346,6 +1360,13 @@ namespace Element.Editor
         created.SetBounds(target.Bounds);
         target.SetEnabled(false);
         return created;
+      }
+      public KeyViewerEditResult EditResult { get; set; } = KeyViewerEditResult.Opened;
+      public List<IOverlayLayoutTarget> OpenedInApp { get; } = new List<IOverlayLayoutTarget>();
+      public KeyViewerEditResult OpenInApp(IOverlayLayoutTarget target)
+      {
+        OpenedInApp.Add(target);
+        return EditResult;
       }
     }
     private sealed class ExternalPreviewTarget : IOverlayLayoutTarget, IExternalLayoutOutline, IOverlayLayoutPointer

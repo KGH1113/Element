@@ -5,13 +5,14 @@ import {
 } from '../ipc/keyLimiterIpcCoordinator';
 import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
 import { NativeViewerIpcCoordinator } from '../nativeViewers/nativeViewerIpcCoordinator';
+import { requestViewerEdit } from '../nativeViewers/viewerEditRequests';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
 import { connectIpc, type IpcConnection } from 'adofai-ipc/transport';
 import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketTransport';
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import { quitWhenGameLeaves } from '../application/gameOwnedLifetime';
-import { appApi } from '@api/modules/appApi';
+import { appApi, windowApi } from '@api/modules/appApi';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { subscribe } from '@api/modules/shared';
@@ -119,6 +120,11 @@ export function startRenderMessages(): () => Promise<void> {
           if (state.inGameViewersEnabled !== previous.inGameViewersEnabled)
             listener();
         }),
+      // The tab switches first so the window comes forward already on it.
+      edit: async (viewerKind) => {
+        requestViewerEdit(viewerKind);
+        await windowApi.showMain();
+      },
     },
     wallClockScheduler,
   );

@@ -4,6 +4,7 @@ The overlay editor (Settings → Overlay) places three kinds of elements: **Text
 
 - **Texts and shapes** only move on the canvas; their size is set in their editor. While one is selected, the toolbar shows **Edit text** or **Edit shape** where the scale was. Double-clicking or pressing Enter opens the same editor. Scales from earlier versions stay as they were.
 - **Key viewers** keep the scale and resize handles. Selecting one opens a second toolbar with hand and foot; drag it by its grip. It keeps its place for the next selection and never blocks the canvas.
+- **Edit key viewer** in that toolbar, a double-click or Enter brings ElementNote in front of the game on the tab that viewer shows. If ElementNote is closed or too old to take the request, the help line under the main toolbar says what to do.
 
 ## Selecting several
 

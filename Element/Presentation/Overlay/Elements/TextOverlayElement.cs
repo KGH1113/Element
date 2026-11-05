@@ -69,8 +69,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
 
   public bool IsEmpty => Settings?.Text?.Runs == null || Settings.Text.Runs.Count == 0;
 
-  // Selection and resizing follow the drawn text, not the layout rectangle.
-  public override Rect Bounds => HasContent ? AnchorBounds : RectBounds;
+  // Selection, resizing and placement follow the drawn text, not the layout rectangle.
+  protected override bool BoundsFollowContent => HasContent;
 
   internal OverlayFonts Fonts => _fonts;
 

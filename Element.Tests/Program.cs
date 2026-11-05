@@ -39,20 +39,32 @@ internal static class Program
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("aligns and distributes several layout boxes", LayoutArrangeTests.Run);
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
+      Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",
         GameplayTweaksTests.Run
       );
-      Run("attempts count per start and speed, take back unplayed starts, follow skip rules and persist", AttemptTests.Run);
+      Run(
+        "attempts count per start and speed, take back unplayed starts, follow skip rules and persist",
+        AttemptTests.Run
+      );
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
       Run("profiles switch in place, survive saving, export, import, refuse bad files and back up", ProfileTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
+      Run(
+        "OrbitRender replay renders draw ElementNote key viewers frame by frame, in place and in order",
+        KeyViewerRenderTests.Run
+      );
+      Run("OrbitRender's overlay API 1 and 2 both deliver recorded keys", OrbitRenderProviderTests.Run);
       Run("bundled ElementNote installs once per build and opens only when closed", DmNoteAppTests.Run);
-      Run("auto update: versions, verified downloads, background finish, rollback and launcher switch", UpdateTests.Run);
+      Run(
+        "auto update: versions, verified downloads, background finish, rollback and launcher switch",
+        UpdateTests.Run
+      );
       Console.WriteLine("Element tests: " + _passed + " passed");
       return 0;
     }

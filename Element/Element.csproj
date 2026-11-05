@@ -70,6 +70,10 @@
       <HintPath>$(AdofaiManaged)/UnityEngine.IMGUIModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.TextRenderingModule">
       <HintPath>$(AdofaiManaged)/UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>false</Private>

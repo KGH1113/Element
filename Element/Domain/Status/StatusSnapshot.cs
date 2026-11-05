@@ -12,6 +12,10 @@ internal readonly struct StatusSnapshot
   public bool IsMapTime { get; }
   public int CurrentSeconds { get; }
   public int TotalSeconds { get; }
+
+  /// <summary>A frame rate that means nothing for what is shown, such as an OrbitRender video. Shown as "-".</summary>
+  public const int UnknownFps = 0;
+
   public bool HasFps { get; }
   public int Fps { get; }
   public SystemLanguage Language { get; }

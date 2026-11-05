@@ -19,13 +19,13 @@ internal sealed class ComboValues : IOverlayView<ComboSnapshot>
   private SongTitleMirror _songTitleMirror;
   private int _lastCount = -1;
 
-  public ComboValues(OverlayCanvasHost host)
+  public ComboValues(OverlayCanvasHost host, IRenderVideo video)
   {
     _values = host.Values;
     _songTitleRoot = new GameObject("Song title source");
     _songTitleRoot.transform.SetParent(host.Root.transform, false);
     _songTitleMirror = _songTitleRoot.AddComponent<SongTitleMirror>();
-    _songTitleMirror.Initialize(title => _values.Set(OverlayValueId.SongTitle, title));
+    _songTitleMirror.Initialize(title => _values.Set(OverlayValueId.SongTitle, title), video);
     _songTitleRoot.SetActive(false);
   }
 

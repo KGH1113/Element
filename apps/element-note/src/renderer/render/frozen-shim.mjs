@@ -5,6 +5,7 @@ export function installFrozenShim(
   assetUrls = {},
   pluginStorage = {},
   pluginElements = [],
+  counterBaseline = 'zero',
 ) {
   const bootstrap = structuredClone(snapshot);
   const settings = bootstrap.settings;
@@ -15,8 +16,13 @@ export function installFrozenShim(
   const callbacks = new Map(),
     listeners = new Map();
   let nextId = 1;
-  // Recordings have no original live counter baseline. Count only this run.
-  const counters = {};
+  // A recording carries no counter totals, so a render counts from zero unless
+  // the caller asks to continue from the live totals frozen at begin. Either
+  // way the render's presses stay here and never reach the live counters.
+  const counters =
+    counterBaseline === 'live'
+      ? structuredClone(bootstrap.keyCounters ?? {})
+      : {};
   const storage = structuredClone(pluginStorage);
   const emit = (event, payload) => {
     for (const [id, listener] of [...listeners])

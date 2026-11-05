@@ -17,6 +17,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   private readonly string _version;
   private readonly Action<string> _log;
   private DmNoteNativeIpcFeature _nativeViewers;
+  private KeyViewerRenderIpc _renders;
   private IFeatureRegistration _ipc;
 
   public KeyLimiterIpcFeature(KeyLimiterSessionController session, string modPath, string version, Action<string> log)
@@ -28,6 +29,9 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   }
 
   public void AttachNativeViewers(DmNoteNativeIpcFeature nativeViewers) => _nativeViewers = nativeViewers;
+
+  /// <summary>Call before <see cref="Enable"/>: the reply command is registered with the channel.</summary>
+  public void AttachRenders(KeyViewerRenderIpc renders) => _renders = renders;
 
   public void Enable()
   {
@@ -69,15 +73,28 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
             return Task.CompletedTask;
           }
         );
+        if (_renders != null)
+          // The game thread is blocked waiting for this reply, so it must not run there.
+          builder.OnCommand(
+            KeyViewerRenderIpc.ReplyCommand,
+            IpcExecutionContext.Background,
+            command =>
+            {
+              _renders.OnReply(command);
+              return Task.CompletedTask;
+            }
+          );
         builder.OnClientAttached(OnPeerSubscribed);
         builder.OnClientDetached(OnPeerDisconnected);
         builder.OnEvent(message =>
         {
           _nativeViewers?.OnPeerEvent(message);
+          _renders?.OnPeerEvent(message);
         });
       }
     );
     _nativeViewers?.Attach(_ipc);
+    _renders?.Attach(_ipc);
     _ipc.MarkReady();
     _log("[IPC] WebSocket namespace ready: " + Namespace);
   }
@@ -85,6 +102,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   public void Dispose()
   {
     _session.Clear();
+    _renders?.Attach(null);
     if (_ipc == null)
       return;
     _ipc.Dispose();
@@ -176,6 +194,7 @@ internal sealed class KeyLimiterIpcFeature : IDisposable
   private void OnPeerDisconnected(IClientConnection peer)
   {
     _nativeViewers?.OnPeerDisconnected(peer);
+    _renders?.OnPeerDisconnected(peer.PeerId);
     if (_session.PeerDisconnected(peer.PeerId))
       _ipc?.Publish("key-limiter.state.changed", JsonConvert.SerializeObject(State()));
   }

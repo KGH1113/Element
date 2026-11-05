@@ -357,8 +357,7 @@ internal sealed class OverlayCanvasHost : IDisposable
 internal sealed class OverlayViewportWatcher : MonoBehaviour
 {
   private OverlayCanvasHost _host;
-  private int _width;
-  private int _height;
+  private Vector2 _size;
   private Canvas _canvas;
   private float _scale;
   private bool _viewportDirty = true;
@@ -378,11 +377,14 @@ internal sealed class OverlayViewportWatcher : MonoBehaviour
     if (_host == null)
       return;
     _host.Tick();
+    // The canvas's size, not the screen's: OrbitRender draws the canvas into a
+    // video of its own size and aspect while the window stays as it is.
+    Vector2 size =
+      _canvas != null ? ((RectTransform)_canvas.transform).rect.size : new Vector2(Screen.width, Screen.height);
     float scale = _canvas != null ? _canvas.scaleFactor : 1;
-    if (_width == Screen.width && _height == Screen.height && _scale == scale)
+    if (_size == size && _scale == scale)
       return;
-    _width = Screen.width;
-    _height = Screen.height;
+    _size = size;
     _scale = scale;
     _viewportDirty = true;
   }

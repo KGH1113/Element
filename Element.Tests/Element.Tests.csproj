@@ -22,6 +22,11 @@
       <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- Canvas: OrbitRender's overlay provider hands it canvases to capture. -->
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.UIModule.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <Reference Include="AdofaiIpc.Contracts">
       <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
       <Private>true</Private>

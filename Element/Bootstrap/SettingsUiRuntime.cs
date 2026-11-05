@@ -163,6 +163,9 @@ internal sealed class SettingsUiRuntime : IDisposable
     }
   }
 
+  /// <summary>A short notice over the game, such as why a render lacks the key viewers.</summary>
+  public void ShowNotice(string title, string detail) => _toast.Show(title, detail);
+
   private void ApplyPresetShortcut(EffectPreset preset)
   {
     EffectSettings effects = _main.Settings.Effects;

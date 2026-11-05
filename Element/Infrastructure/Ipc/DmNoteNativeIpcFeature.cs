@@ -222,6 +222,32 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     return target;
   }
 
+  /// <summary>
+  /// The key viewers a replay render shows, placed in a video of the given size:
+  /// the ones on screen in the game. Empty while ElementNote is closed or hides
+  /// them. Unity main thread.
+  /// </summary>
+  public IReadOnlyList<RenderViewerPlacement> RenderPlacements(int videoWidth, int videoHeight)
+  {
+    var placements = new List<RenderViewerPlacement>();
+    if (!_supported || !_connected || _hiddenInApp)
+      return placements;
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+    {
+      // The last page descriptor's viewport, or the sample's; the page reports its own.
+      NativeViewerSurface known = Array.Find(_knownSurfaces, surface => surface.ViewerKind == target.Kind);
+      RenderViewerPlacement placement = target.RenderPlacement(
+        videoWidth,
+        videoHeight,
+        known?.Width ?? NativeViewerMock.Width(target.Kind),
+        known?.Height ?? NativeViewerMock.ViewportHeight
+      );
+      if (placement != null)
+        placements.Add(placement);
+    }
+    return placements;
+  }
+
   public void ConfigurePreview(TMP_FontAsset font)
   {
     _font = font;

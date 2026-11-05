@@ -33,7 +33,8 @@ internal sealed class OverlayRuntime : IDisposable
   private StatusTimeTicker _timeTicker;
 
   /// <param name="attempts">Null when attempt counting could not start.</param>
-  public OverlayRuntime(Main main, Action<int> onTimeTick, IAttemptSource attempts)
+  /// <param name="video">OrbitRender's video, which values follow while it renders.</param>
+  public OverlayRuntime(Main main, Action<int> onTimeTick, IAttemptSource attempts, IRenderVideo video)
   {
     try
     {
@@ -63,14 +64,14 @@ internal sealed class OverlayRuntime : IDisposable
       OverlayValues values = Canvas.Values;
       _coordinator = new OverlayCoordinator(
         new JudgementFeature(new JudgementReader(), new JudgementValues(values)),
-        new StatusFeature(new StatusReader(), new StatusValues(values)),
+        new StatusFeature(new StatusReader(video), new StatusValues(values)),
         new BpmFeature(new BpmReader(), new BpmValues(values)),
-        new ComboFeature(new ComboValues(Canvas)),
+        new ComboFeature(new ComboValues(Canvas, video)),
         new TimingScaleFeature(new TimingScaleReader(), new TimingScaleValues(values)),
         new AttemptFeature(attempts, new AttemptValues(values))
       );
       _timeTicker = Canvas.Root.AddComponent<StatusTimeTicker>();
-      _timeTicker.Initialize(onTimeTick);
+      _timeTicker.Initialize(onTimeTick, video);
     }
     catch
     {

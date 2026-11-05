@@ -38,6 +38,7 @@ async function start() {
     config.assetUrls,
     config.pluginStorage,
     config.pluginElements,
+    config.counterBaseline,
   );
   const [
     { createRoot },
@@ -135,7 +136,14 @@ async function start() {
       for (const event of request.events) {
         clock.advanceTo(event.outputTimeUs / 1000);
         sampleStyles();
-        const candidates = keyCandidates(event.key);
+        let candidates;
+        try {
+          candidates = keyCandidates(event.key);
+        } catch {
+          // A key the viewer cannot show (a gamepad button, say) must not
+          // end the whole render; the remaining keys still play.
+          continue;
+        }
         // Raw events reach plugins even if this preset has no visible mapped key.
         flushSync(() =>
           shim.emit('input:raw', {
@@ -192,6 +200,16 @@ async function start() {
       await acknowledge({}, String(error));
     }
   };
-  await acknowledge({ ready: true });
+  // The overlay publishes the viewport and padding it laid out, the same values
+  // the in-game host crops by; the backend sizes this surface to match.
+  const published = ['dmnViewerWidth', 'dmnViewerHeight', 'dmnViewerPadding'].map(
+    (name) => Number(container.dataset[name]),
+  );
+  const [width, height, padding] = published;
+  const layout =
+    published.every(Number.isFinite) && width > 0 && height > 0 && padding >= 0
+      ? { width, height, padding }
+      : null;
+  await acknowledge({ ready: true, layout });
 }
 start().catch((error) => acknowledge({}, String(error)));

@@ -330,6 +330,35 @@ internal sealed class NativeViewerLayoutTarget
     Apply();
   }
 
+  /// <summary>
+  /// This viewer in a video of the given size, or null while it is off. Uses the
+  /// last known geometry when no page is attached: a render can start from the
+  /// menu, before the in-game viewers open.
+  /// </summary>
+  public RenderViewerPlacement RenderPlacement(
+    int videoWidth,
+    int videoHeight,
+    float viewportWidth,
+    float viewportHeight
+  )
+  {
+    if (!Enabled || Hidden)
+      return null;
+    Rect bounds = Bounds;
+    return RenderViewerPlacement.Create(
+      _kind,
+      ToBounds(bounds),
+      _screenWidth,
+      _screenHeight,
+      SizeUnit * _effectiveScale,
+      _growthLayout,
+      viewportWidth,
+      viewportHeight,
+      videoWidth,
+      videoHeight
+    );
+  }
+
   public void ResetLayout()
   {
     _staged = false;

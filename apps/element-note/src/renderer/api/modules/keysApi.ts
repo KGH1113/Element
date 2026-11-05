@@ -1,5 +1,6 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, trackEditorSave } from '../invoke';
 import { subscribe } from './shared';
+import { editorApi, projectNativeKeyMappings } from './editorApi';
 import { rawKeyEventBus } from '@utils/core/rawKeyEventBus';
 
 import type {
@@ -10,6 +11,7 @@ import type {
   ModeChangePayload,
   TabsChangePayload,
   KeyStatePayload,
+  KeysResetPayload,
   TabResult,
   TabDeleteResult,
   TabMutationResult,
@@ -28,10 +30,25 @@ export const keysApi = {
   get: () => invoke<KeyMappings>('keys_get'),
   getCounters: () => invoke<KeyCounters>('keys_get_counters'),
   update: (mappings: KeyMappings) =>
-    invoke<KeyMappings>('keys_update', { mappings }),
+    trackEditorSave(invoke<KeyMappings>('keys_update', { mappings }), [
+      'editor:keys',
+    ]),
+  updateWithPositions: async (
+    mappings: KeyMappings,
+    positions: KeyPositions,
+  ) => {
+    await editorApi.commitChanges({ keys: mappings, keyPositions: positions });
+    const snapshot = await editorApi.get();
+    return {
+      keys: projectNativeKeyMappings(snapshot.document.keys),
+      positions: snapshot.document.keyPositions as KeyPositions,
+    };
+  },
   getPositions: () => invoke<KeyPositions>('positions_get'),
   updatePositions: (positions: KeyPositions) =>
-    invoke<KeyPositions>('positions_update', { positions }),
+    trackEditorSave(invoke<KeyPositions>('positions_update', { positions }), [
+      'editor:keyPositions',
+    ]),
   setMode: (mode: string) =>
     invoke<KeysModeResponse>('keys_set_mode', { mode }),
   resetAll: () => invoke<KeysResetAllResponse>('keys_reset_all'),
@@ -52,6 +69,8 @@ export const keysApi = {
     subscribe<ModeChangePayload>('keys:mode-changed', listener),
   onKeyState: (listener: (payload: KeyStatePayload) => void) =>
     subscribe<KeyStatePayload>('keys:state', listener),
+  onKeysReset: (listener: (payload: KeysResetPayload) => void) =>
+    subscribe<KeysResetPayload>('keys:reset', listener),
   onRawInput: (listener: (payload: RawInputPayload) => void): Unsubscribe =>
     rawKeyEventBus.subscribe(listener),
   onCounterChanged: (listener: (payload: KeyCounterUpdate) => void) =>

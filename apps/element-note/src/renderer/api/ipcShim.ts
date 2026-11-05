@@ -6,8 +6,8 @@
  * overlay/App.tsx가 코드 변경 없이 동작.
  *
  * 설계 원칙 (§12.4):
- * - 커맨드별 분기 없음. 3단계만: plugin:event → deny → WS RPC
- * - deny 리스트는 hello_ack에서 수신 (백엔드가 유일한 source of truth)
+ * - 커맨드별 분기 없음. 3단계만: plugin:event → allow → WS RPC
+ * - allow 리스트는 hello_ack에서 수신 (백엔드가 유일한 source of truth)
  */
 
 import { OBS_PROTOCOL_VERSION } from '@src/types/obs';
@@ -27,8 +27,8 @@ let connPort = '34891';
 let connToken = '';
 let windowLabel = 'obs-overlay';
 
-// deny 리스트 — hello_ack에서 수신 (백엔드가 유일한 source of truth)
-let denyList: string[] = [];
+// 허용 목록은 연결마다 서버가 전달하며 정확히 일치하는 커맨드만 호출한다.
+let allowedCommands = new Set<string>();
 
 // 콜백 레지스트리 (transformCallback/runCallback)
 const callbacks = new Map<number, (data: unknown) => void>();
@@ -50,15 +50,6 @@ const pendingRpc = new Map<
 
 // snapshot 수신 여부 (initIpcShim에서 연결 준비 확인용)
 let _snapshotReceived = false;
-
-// ── deny 체크 ──
-
-/** "|"로 끝나면 prefix 매칭, 아니면 exact 매칭 */
-function isDenied(cmd: string): boolean {
-  return denyList.some((entry) =>
-    entry.endsWith('|') ? cmd.startsWith(entry) : cmd === entry,
-  );
-}
 
 // ── 콜백 관리 (transformCallback / runCallback) ──
 
@@ -224,9 +215,9 @@ async function shimInvoke(
     return;
   }
 
-  // 2. deny 체크 (hello_ack에서 수신한 리스트)
-  if (isDenied(cmd)) {
-    return;
+  // 2. 허용 목록 검사. 차단한 요청을 성공처럼 반환하지 않는다.
+  if (!allowedCommands.has(cmd)) {
+    throw new Error(`[IPC Shim] Command is not available in OBS: ${cmd}`);
   }
 
   // 3. WS RPC (백엔드가 처리)
@@ -267,7 +258,7 @@ function shimConvertFileSrc(filePath: string, _protocol = 'asset'): string {
 // ── 공개 API ──
 
 /**
- * IPC shim 초기화. WS 연결 → hello_ack(denyList 수신) → snapshot 수신 → 글로벌 설치.
+ * IPC shim 초기화. WS 연결 → hello_ack(allowedList 수신) → snapshot 수신 → 글로벌 설치.
  * 반드시 dmnoteApi import 전에 호출.
  */
 export function initIpcShim(
@@ -295,6 +286,7 @@ export function initIpcShim(
     const connect = () => {
       if (disposed) return;
 
+      allowedCommands.clear();
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -316,11 +308,8 @@ export function initIpcShim(
         }
 
         if (envelope.type === 'hello_ack') {
-          // deny 리스트 수신 (없으면 기본값 유지)
           const payload = envelope.payload as HelloAckPayload;
-          if (payload.denyList) {
-            denyList = payload.denyList;
-          }
+          allowedCommands = new Set(payload.allowedList ?? []);
           return;
         }
 
@@ -331,11 +320,20 @@ export function initIpcShim(
 
         if (envelope.type === 'error') {
           const payload = envelope.payload as Record<string, unknown>;
-          if (payload?.code === 'AUTH_FAILED') {
+          if (
+            payload?.code === 'AUTH_FAILED' ||
+            payload?.code === 'PROTOCOL_MISMATCH'
+          ) {
             disposed = true;
             if (!resolved) {
               resolved = true;
-              reject(new Error('OBS auth failed'));
+              reject(
+                new Error(
+                  payload.code === 'AUTH_FAILED'
+                    ? 'OBS auth failed'
+                    : 'OBS protocol mismatch - refresh the browser source',
+                ),
+              );
             }
           }
           return;
@@ -378,6 +376,11 @@ export function initIpcShim(
     resolve = (value) => {
       clearTimeout(initTimeout);
       originalResolve(value);
+    };
+    const originalReject = reject;
+    reject = (reason) => {
+      clearTimeout(initTimeout);
+      originalReject(reason);
     };
 
     connect();
@@ -436,6 +439,6 @@ export function disposeIpcShim() {
   callbacks.clear();
   eventListeners.clear();
   eventListenersByName.clear();
-  denyList = [];
+  allowedCommands.clear();
   _snapshotReceived = false;
 }

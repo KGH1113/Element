@@ -12,8 +12,6 @@ import { useHistoryStore } from '@stores/data/useHistoryStore';
 import type { HistorySettingsSnapshot } from '@stores/data/useHistoryStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
 import { useFontStore, syncFontCSS } from '@stores/useFontStore';
-import { applyCounterSnapshot } from '@stores/signals/keyCounterSignals';
-import { applyCounterCacheSnapshot } from '@stores/signals/keyCounterCache';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 
 // ----------------------------------------------------------------------------
@@ -122,12 +120,6 @@ export function applyRestoredStateToStores(state: RestoredState): void {
   if (state.layerGroups !== undefined) {
     useLayerGroupStore.getState().setLayerGroups(state.layerGroups);
   }
-  if (state.keyCounters) {
-    applyCounterCacheSnapshot(state.keyCounters);
-    if (window.__dmn_window_type === 'overlay') {
-      applyCounterSnapshot(state.keyCounters);
-    }
-  }
   useKeyStore.getState().setTabs(state.tabs);
   useKeyStore.setState({
     selectedKeyType: state.selectedKeyType,
@@ -191,53 +183,21 @@ export function applyRestoredPluginElements(
 export async function persistRestoredState(
   state: RestoredState,
 ): Promise<void> {
-  // keys.update()가 counters를 sync하므로 먼저 실행
-  await window.api.keys.update(state.keyMappings);
-
-  // 나머지는 병렬 실행 (실패해도 핵심 복구를 막지 않음)
-  const promises: Promise<unknown>[] = [
-    window.api.keys.updatePositions(state.positions).catch((error) => {
-      console.error('Failed to persist positions', error);
-    }),
-    window.api.statItems.updatePositions(state.statPositions).catch((error) => {
-      console.error('Failed to persist stat positions', error);
-    }),
-    window.api.graphItems
-      .updatePositions(state.graphPositions)
-      .catch((error) => {
-        console.error('Failed to persist graph positions', error);
-      }),
-  ];
-
-  if (state.knobPositions !== undefined) {
-    promises.push(
-      window.api.knobItems
-        .updatePositions(state.knobPositions)
-        .catch((error) => {
-          console.error('Failed to persist knob positions', error);
-        }),
-    );
-  }
-
-  if (state.layerGroups !== undefined) {
-    promises.push(
-      window.api.layerGroups.update(state.layerGroups).catch((error) => {
-        console.error('Failed to persist layer groups', error);
-      }),
-    );
-  }
-  if (state.keyCounters) {
-    promises.push(window.api.keys.setCounters(state.keyCounters));
-  }
-  promises.push(
-    window.api.keys.tabs
-      .restore(state.tabs, state.selectedKeyType, state.selectedViewerTabs)
-      .catch((error) => {
-        console.error('Failed to restore viewer tabs', error);
-      }),
+  // 복구할 모드를 먼저 등록하고 인덱스로 결합된 컬렉션을 한 번에 커밋한다.
+  await window.api.keys.tabs.restore(
+    state.tabs,
+    state.selectedKeyType,
+    state.selectedViewerTabs,
   );
-
-  await Promise.all(promises);
+  await window.api.editor.commitChanges({
+    keys: state.keyMappings,
+    keyPositions: state.positions,
+    statPositions: state.statPositions,
+    graphPositions: state.graphPositions,
+    knobPositions: state.knobPositions,
+    layerGroups: state.layerGroups,
+  });
+  // 실시간 카운터는 v2 히스토리의 런타임 병합이 소유한다.
 
   // 오버레이 동기화
   try {

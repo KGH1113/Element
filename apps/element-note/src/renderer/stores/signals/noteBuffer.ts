@@ -1,7 +1,24 @@
 import { DEFAULT_NOTE_BORDER_RADIUS } from '@constants/overlayDefaults';
 import { toRgbHexColor } from '@utils/color/colorUtils';
+import {
+  hexRepresentative,
+  parseStrictStopColor,
+  type GradientSpec,
+} from '@src/types/color';
 
 const MAX_NOTES = 2048;
+
+// 테두리 그라데이션 LUT - 행마다 spec 하나를 256텍셀로 래스터라이즈
+const GRADIENT_LUT_WIDTH = 256;
+const GRADIENT_LUT_ROWS = 256;
+
+// GPU 시각은 Float32라 절대값이 커질수록 간격이 벌어진다. 노트 길이보다 간격이
+// 넓어지면 시작·종료가 같은 값으로 뭉개져 길이가 0이 되므로 epoch를 주기적으로 옮긴다.
+// 최소 노트 길이는 1px / 9999px/s ≈ 0.10001ms 이고 2^19ms 구간의 간격은 0.0625ms라,
+// 이 한도에서는 설정 범위 전체가 안전하다. 한도를 올리면 정밀도 테스트가 깨진다
+const EPOCH_REBASE_LIMIT_MS = 524_288;
+// 셰이더 sentinel(startTime 0.0 = 빈 슬롯, endTime 0.0 = 활성)과의 우연 충돌 방지
+const EPOCH_ZERO_NUDGE = 1e-4;
 
 const SRGB_TO_LINEAR = new Float32Array(256);
 for (let i = 0; i < 256; i += 1) {
@@ -30,6 +47,73 @@ const parseColor = (hex: string) => {
 
 const convertLinearToSRGB = (rgb: readonly number[]) =>
   [linearToSRGB(rgb[0]), linearToSRGB(rgb[1]), linearToSRGB(rgb[2])] as const;
+
+// spec 한 행을 premultiplied sRGB RGBA로 래스터라이즈 - CSS linear-gradient의
+// premultiplied 보간 규칙과 일치 (투명 스톱에서 회색 번짐 방지)
+const rasterizeGradientRow = (
+  spec: GradientSpec,
+  out: Uint8Array,
+  offset: number,
+) => {
+  const stops = spec.stops.map((stop) => {
+    // 검증과 같은 §2A 파서 공유 - canonical store 값은 항상 파싱된다.
+    // 방어 폴백(흰색)은 계약 밖 경로에서만 발동
+    const parsed = parseStrictStopColor(stop.color) ?? {
+      r: 255,
+      g: 255,
+      b: 255,
+      a: 1,
+    };
+    return {
+      pos: Math.min(Math.max(stop.pos, 0), 1),
+      r: parsed.r,
+      g: parsed.g,
+      b: parsed.b,
+      a: parsed.a,
+    };
+  });
+  if (stops.length === 0) {
+    // 도달 불가 방어 - 발동해도 이전 세대 잔여 바이트 대신 결정적 투명 행
+    out.fill(0, offset, offset + GRADIENT_LUT_WIDTH * 4);
+    return;
+  }
+  let segment = 0;
+  for (let x = 0; x < GRADIENT_LUT_WIDTH; x += 1) {
+    const t = x / (GRADIENT_LUT_WIDTH - 1);
+    while (segment < stops.length - 2 && t > stops[segment + 1].pos) {
+      segment += 1;
+    }
+    const from = stops[Math.min(segment, stops.length - 1)];
+    const to = stops[Math.min(segment + 1, stops.length - 1)];
+    const span = to.pos - from.pos;
+    const ratio =
+      span > 0
+        ? Math.min(Math.max((t - from.pos) / span, 0), 1)
+        : t < from.pos
+          ? 0
+          : 1;
+    const a = from.a + (to.a - from.a) * ratio;
+    // premultiplied 채널 보간 후 그대로 저장
+    const pr = from.r * from.a + (to.r * to.a - from.r * from.a) * ratio;
+    const pg = from.g * from.a + (to.g * to.a - from.g * from.a) * ratio;
+    const pb = from.b * from.a + (to.b * to.a - from.b * from.a) * ratio;
+    const base = offset + x * 4;
+    out[base] = Math.round(Math.min(Math.max(pr, 0), 255));
+    out[base + 1] = Math.round(Math.min(Math.max(pg, 0), 255));
+    out[base + 2] = Math.round(Math.min(Math.max(pb, 0), 255));
+    out[base + 3] = Math.round(Math.min(Math.max(a, 0), 1) * 255);
+  }
+};
+
+const gradientStopsKey = (spec: GradientSpec): string =>
+  JSON.stringify(
+    spec.stops.map((stop) => {
+      const parsed = parseStrictStopColor(stop.color);
+      return parsed
+        ? [parsed.r, parsed.g, parsed.b, parsed.a, stop.pos]
+        : [stop.color.trim(), stop.pos];
+    }),
+  );
 
 const extractColorStops = (
   color:
@@ -61,6 +145,8 @@ export type TrackLayoutInput = {
   trackKey: string;
   trackIndex: number;
   position: { dx: number; dy: number };
+  // 진행 방향 단위벡터(캔버스 좌표, y 아래 양수). 없으면 위로 자란다
+  direction?: { x: number; y: number };
   width: number;
   height: number;
   noteColor?: string | { type: string; top?: string; bottom?: string };
@@ -76,11 +162,18 @@ export type TrackLayoutInput = {
   borderRadius?: number;
   noteBorderWidth?: number;
   noteBorderColor?: string;
+  noteBorderGradient?: GradientSpec | null;
   noteBorderOpacity?: number;
   noteBorderSide?: 'all' | 'vertical' | 'horizontal';
+  // 신형 본체·글로우 (계약 §9) - 있으면 LUT 경로, 없으면 기존 direct 경로
+  noteGradient?: GradientSpec | null;
+  noteGlowGradient?: GradientSpec | null;
 };
 
 type ResolvedTrackStyle = {
+  // 노트별 진행 방향 - allocate 시점 스냅샷
+  dirX: number;
+  dirY: number;
   opacityTop: number;
   opacityBottom: number;
   glowSize: number;
@@ -94,6 +187,18 @@ type ResolvedTrackStyle = {
   borderWidth: number;
   borderColor: readonly number[];
   borderOpacity: number;
+  // LUT 행 인덱스 (-1 = 단색), CSS 각도의 라디안 값
+  borderGradientRow: number;
+  borderGradientAngleRad: number;
+  // 신형 본체·글로우 (-1 = 기존 direct 경로). 배율은 0~1
+  bodyGradientRow: number;
+  bodyGradientAngleRad: number;
+  bodyMultiplier: number;
+  glowGradientRow: number;
+  glowGradientAngleRad: number;
+  glowMultiplier: number;
+  // 1 = 글로우 알파를 LUT G.a × 배율로 (신형 글로우), 0 = 기존 per-end 프로파일
+  glowUseLUTAlpha: number;
 };
 
 type ResolvedTrackLayout = TrackLayoutInput & {
@@ -103,7 +208,27 @@ type ResolvedTrackLayout = TrackLayoutInput & {
 const clampPercentToUnit = (value: number) =>
   Math.min(Math.max(value / 100, 0), 1);
 
-const resolveTrackLayout = (layout: TrackLayoutInput): ResolvedTrackLayout => {
+// 본체 spec에서 색만 취한 글로우 상속용 spec - hex 대표색이라 알파가 제거됨
+const colorOnlyGradient = (spec: GradientSpec): GradientSpec => ({
+  angle: spec.angle,
+  stops: spec.stops.map((stop) => ({
+    color: hexRepresentative(stop.color) ?? '#FFFFFF',
+    pos: stop.pos,
+  })),
+});
+
+// 트랙의 실효 글로우 크기 — 캔버스 crop bounds 계산에서도 동일 규칙 사용
+export const resolvedGlowSize = (
+  layout: Pick<TrackLayoutInput, 'noteGlowEnabled' | 'noteGlowSize'>,
+): number => {
+  if (!(layout.noteGlowEnabled ?? false)) return 0;
+  return Math.min(Math.max(layout.noteGlowSize ?? 20, 0), 50);
+};
+
+const resolveTrackLayout = (
+  layout: TrackLayoutInput,
+  registerGradient: (spec: GradientSpec) => number,
+): ResolvedTrackLayout => {
   const baseOpacityPercent =
     layout.noteOpacity != null && Number.isFinite(layout.noteOpacity)
       ? layout.noteOpacity
@@ -119,8 +244,7 @@ const resolveTrackLayout = (layout: TrackLayoutInput): ResolvedTrackLayout => {
       : baseOpacityPercent;
 
   const glowEnabled = layout.noteGlowEnabled ?? false;
-  const rawGlowSize = layout.noteGlowSize ?? 20;
-  const glowSize = glowEnabled ? Math.min(Math.max(rawGlowSize, 0), 50) : 0;
+  const glowSize = resolvedGlowSize(layout);
 
   const baseGlowOpacityPercent =
     layout.noteGlowOpacity != null && Number.isFinite(layout.noteGlowOpacity)
@@ -156,6 +280,53 @@ const resolveTrackLayout = (layout: TrackLayoutInput): ResolvedTrackLayout => {
     Number.isFinite(layout.noteBorderOpacity)
       ? layout.noteBorderOpacity
       : 100;
+  const borderGradient = layout.noteBorderGradient ?? null;
+  // 행 확보 실패(-1)면 대표 단색으로 다운그레이드
+  const borderGradientRow = borderGradient
+    ? registerGradient(borderGradient)
+    : -1;
+  const borderGradientAngleRad = borderGradient
+    ? (borderGradient.angle * Math.PI) / 180
+    : 0;
+
+  // 신형 본체 - row=-1(만석·구형)이면 shadow 필드 기반 direct 경로가 폴백을
+  // 담당하므로 별도 대표값 산출이 필요 없다 (§9-3 동기가 폴백 그 자체)
+  const bodyGradient = layout.noteGradient ?? null;
+  const bodyGradientRow = bodyGradient ? registerGradient(bodyGradient) : -1;
+  const bodyGradientAngleRad = bodyGradient
+    ? (bodyGradient.angle * Math.PI) / 180
+    : 0;
+  const bodyMultiplier = bodyGradient
+    ? clampPercentToUnit(
+        layout.noteOpacity != null && Number.isFinite(layout.noteOpacity)
+          ? layout.noteOpacity
+          : 100,
+      )
+    : 1;
+
+  // 글로우 소스 우선순위 (§9-4): 신형 글로우 > 구형 글로우 색 > 본체 상속.
+  // 신형 본체를 상속할 때는 스톱 알파를 1로 치환한 color-only 행(알파 제곱 방지),
+  // 프로파일은 기존 per-end 경로가 담당
+  const glowGradient = layout.noteGlowGradient ?? null;
+  let glowGradientRow = -1;
+  let glowGradientAngleRad = 0;
+  let glowMultiplier = 1;
+  let glowUseLUTAlpha = 0;
+  if (glowGradient) {
+    glowGradientRow = registerGradient(glowGradient);
+    glowGradientAngleRad = (glowGradient.angle * Math.PI) / 180;
+    glowMultiplier = clampPercentToUnit(
+      layout.noteGlowOpacity != null && Number.isFinite(layout.noteGlowOpacity)
+        ? layout.noteGlowOpacity
+        : 100,
+    );
+    glowUseLUTAlpha = 1;
+  } else if (bodyGradient && layout.noteGlowColor == null) {
+    glowGradientRow = registerGradient(colorOnlyGradient(bodyGradient));
+    glowGradientAngleRad = bodyGradientAngleRad;
+  }
+
+  const direction = layout.direction ?? { x: 0, y: -1 };
 
   return {
     ...layout,
@@ -177,6 +348,17 @@ const resolveTrackLayout = (layout: TrackLayoutInput): ResolvedTrackLayout => {
       borderWidth,
       borderColor: borderColorSRGB,
       borderOpacity: clampPercentToUnit(borderOpacityPercent),
+      dirX: direction.x,
+      dirY: direction.y,
+      borderGradientRow,
+      borderGradientAngleRad,
+      bodyGradientRow,
+      bodyGradientAngleRad,
+      bodyMultiplier,
+      glowGradientRow,
+      glowGradientAngleRad,
+      glowMultiplier,
+      glowUseLUTAlpha,
     },
   };
 };
@@ -195,6 +377,16 @@ export class NoteBuffer {
   readonly noteGlowColorTop: Float32Array;
   readonly noteGlowColorBottom: Float32Array;
   readonly noteBorder: Float32Array;
+  // x: LUT 행 (-1 = 단색), y: 각도 라디안
+  readonly noteBorderGradientInfo: Float32Array;
+  // 신형 본체: x 행(-1 = direct), y 각도, z 배율
+  readonly noteBodyPaint: Float32Array;
+  // 신형 글로우: x 행(-1 = direct), y 각도, z 배율, w LUT 알파 사용 여부
+  readonly noteGlowPaint: Float32Array;
+  // 노트별 진행 방향 벡터 d (캔버스 좌표) - allocate 시점 스냅샷
+  readonly noteDir: Float32Array;
+  // premultiplied sRGB RGBA, 행 단위 append-only (활성 노트가 옛 행을 참조)
+  readonly gradientLUT: Uint8Array;
 
   private readonly noteIdByIndex: (string | null)[];
   private readonly trackKeyByIndex: (string | null)[];
@@ -202,9 +394,15 @@ export class NoteBuffer {
   private trackLayouts: Map<string, ResolvedTrackLayout>;
   // allocate() 시프트 후 Map이 오래된 첫 인덱스. Infinity = Map 최신 상태
   private dirtyIndexStart: number;
+  // noteInfo 시각의 기준점 - GPU에는 (원시 시각 - epoch)만 전달
+  private epoch: number;
+  private readonly gradientRowBySpec: Map<string, number>;
+  private gradientRowCount: number;
 
   activeCount: number;
   version: number;
+  // LUT 내용 변경 시 증가 - 렌더러가 텍스처 재업로드 시점 판단에 사용
+  gradientLUTVersion: number;
 
   constructor() {
     this.noteInfo = new Float32Array(MAX_NOTES * 3);
@@ -218,6 +416,16 @@ export class NoteBuffer {
     this.noteGlowColorTop = new Float32Array(MAX_NOTES * 3);
     this.noteGlowColorBottom = new Float32Array(MAX_NOTES * 3);
     this.noteBorder = new Float32Array(MAX_NOTES * 4);
+    this.noteBorderGradientInfo = new Float32Array(MAX_NOTES * 2).fill(-1);
+    this.noteBodyPaint = new Float32Array(MAX_NOTES * 3).fill(-1);
+    this.noteGlowPaint = new Float32Array(MAX_NOTES * 4).fill(-1);
+    this.noteDir = new Float32Array(MAX_NOTES * 2);
+    this.gradientLUT = new Uint8Array(
+      GRADIENT_LUT_ROWS * GRADIENT_LUT_WIDTH * 4,
+    );
+    this.gradientRowBySpec = new Map();
+    this.gradientRowCount = 0;
+    this.gradientLUTVersion = 0;
 
     this.noteIdByIndex = new Array<string | null>(MAX_NOTES).fill(null);
     this.trackKeyByIndex = new Array<string | null>(MAX_NOTES).fill(null);
@@ -227,6 +435,42 @@ export class NoteBuffer {
     this.activeCount = 0;
     this.version = 0;
     this.dirtyIndexStart = Infinity;
+    this.epoch = 0;
+  }
+
+  get timeEpoch(): number {
+    return this.epoch;
+  }
+
+  // 원시 시각(performance.now 기준) → GPU 저장 시각
+  private toGpuTime(t: number): number {
+    const v = t - this.epoch;
+    return v === 0 ? EPOCH_ZERO_NUDGE : v;
+  }
+
+  // 한도 초과 시 epoch를 nowMs로 이동하고 저장된 시각을 재기준화.
+  // true 반환 시 호출자가 noteInfo 전체 재업로드를 예약해야 함
+  maybeRebaseEpoch(nowMs: number): boolean {
+    const delta = nowMs - this.epoch;
+    if (delta <= EPOCH_REBASE_LIMIT_MS) return false;
+    for (let i = 0; i < this.activeCount; i += 1) {
+      const infoOffset = i * 3;
+      if (this.noteInfo[infoOffset] !== 0) {
+        this.noteInfo[infoOffset] -= delta;
+        if (this.noteInfo[infoOffset] === 0) {
+          this.noteInfo[infoOffset] = -EPOCH_ZERO_NUDGE;
+        }
+      }
+      if (this.noteInfo[infoOffset + 1] !== 0) {
+        this.noteInfo[infoOffset + 1] -= delta;
+        if (this.noteInfo[infoOffset + 1] === 0) {
+          this.noteInfo[infoOffset + 1] = -EPOCH_ZERO_NUDGE;
+        }
+      }
+    }
+    this.epoch = nowMs;
+    this.version += 1;
+    return true;
   }
 
   // allocate() 시프트로 오염된 Map 항목을 한 번에 재구축
@@ -239,12 +483,90 @@ export class NoteBuffer {
     this.dirtyIndexStart = Infinity;
   }
 
+  // 같은 스톱 배열은 같은 행 재사용 - 각도는 attribute로 가므로 행 identity에서
+  // 제외 (각도 드래그가 행을 소모하지 않음). 행이 가득 차면 -1(단색 다운그레이드)
+  private registerGradient = (spec: GradientSpec): number => {
+    const key = gradientStopsKey(spec);
+    const existing = this.gradientRowBySpec.get(key);
+    if (existing !== undefined) return existing;
+    if (this.gradientRowCount >= GRADIENT_LUT_ROWS) return -1;
+    const row = this.gradientRowCount;
+    rasterizeGradientRow(spec, this.gradientLUT, row * GRADIENT_LUT_WIDTH * 4);
+    this.gradientRowBySpec.set(key, row);
+    this.gradientRowCount += 1;
+    this.gradientLUTVersion += 1;
+    return row;
+  };
+
+  // 참조 노트가 없을 때 팔레트를 비우고 현재 레이아웃 전체를 재등록 -
+  // 캐시된 행 인덱스가 전부 이 시점에 다시 발급되므로 stale 참조가 없다
+  private rebuildGradientPalette(): void {
+    this.gradientRowBySpec.clear();
+    this.gradientRowCount = 0;
+    this.gradientLUTVersion += 1;
+    for (const layout of this.trackLayouts.values()) {
+      const border = layout.noteBorderGradient ?? null;
+      layout.resolved.borderGradientRow = border
+        ? this.registerGradient(border)
+        : -1;
+      const body = layout.noteGradient ?? null;
+      layout.resolved.bodyGradientRow = body ? this.registerGradient(body) : -1;
+      const glow = layout.noteGlowGradient ?? null;
+      layout.resolved.glowGradientRow = glow
+        ? this.registerGradient(glow)
+        : body && layout.noteGlowColor == null
+          ? this.registerGradient(colorOnlyGradient(body))
+          : -1;
+    }
+  }
+
+  // 그라데이션이 있는데 행을 못 받은(만석 다운그레이드) 표면이 있는지
+  private static hasDowngradedGradientRow(
+    layout: ResolvedTrackLayout,
+  ): boolean {
+    const wantsGlowRow =
+      layout.noteGlowGradient != null ||
+      (layout.noteGradient != null && layout.noteGlowColor == null);
+    return (
+      (layout.noteBorderGradient != null &&
+        layout.resolved.borderGradientRow === -1) ||
+      (layout.noteGradient != null && layout.resolved.bodyGradientRow === -1) ||
+      (wantsGlowRow && layout.resolved.glowGradientRow === -1)
+    );
+  }
+
+  private hasDowngradedGradientRows(): boolean {
+    for (const layout of this.trackLayouts.values()) {
+      if (NoteBuffer.hasDowngradedGradientRow(layout)) return true;
+    }
+    return false;
+  }
+
   updateTrackLayouts(tracks: TrackLayoutInput[]) {
     const nextLayouts = new Map<string, ResolvedTrackLayout>();
     tracks.forEach((track) => {
-      nextLayouts.set(track.trackKey, resolveTrackLayout(track));
+      nextLayouts.set(
+        track.trackKey,
+        resolveTrackLayout(track, this.registerGradient),
+      );
     });
     this.trackLayouts = nextLayouts;
+
+    // 참조하는 노트가 없고 새 레이아웃이 쓰지 않는 행이 남았을 때만 팔레트
+    // 재시작 - 편집 드래그로 쌓인 행 회수. 그라데이션과 무관한 레이아웃
+    // 갱신은 행 집합이 그대로라 LUT 재업로드를 만들지 않는다
+    if (this.activeCount === 0 && this.gradientRowCount > 0) {
+      const referenced = new Set<number>();
+      for (const layout of nextLayouts.values()) {
+        const rows = layout.resolved;
+        if (rows.borderGradientRow >= 0) referenced.add(rows.borderGradientRow);
+        if (rows.bodyGradientRow >= 0) referenced.add(rows.bodyGradientRow);
+        if (rows.glowGradientRow >= 0) referenced.add(rows.glowGradientRow);
+      }
+      if (referenced.size < this.gradientRowCount) {
+        this.rebuildGradientPalette();
+      }
+    }
 
     // 기존 노트들의 trackIndex 업데이트 (zIndex 동기화)
     for (let i = 0; i < this.activeCount; i++) {
@@ -267,6 +589,17 @@ export class NoteBuffer {
     if (this.activeCount >= MAX_NOTES) {
       return -1;
     }
+    // 만석 다운그레이드(-1) 회복 - 정상 행 트랙이 먼저 할당되어도 다른
+    // 트랙의 강등 상태까지 확인해 유휴 시점에 팔레트를 함께 재구축
+    if (
+      this.activeCount === 0 &&
+      this.gradientRowCount > 0 &&
+      this.hasDowngradedGradientRows()
+    ) {
+      this.rebuildGradientPalette();
+    }
+    // 'add' 이벤트가 전 속성 업로드를 예약하므로 여기서의 재기준화는 별도 예약 불필요
+    this.maybeRebaseEpoch(startTime);
     const {
       opacityTop,
       opacityBottom,
@@ -281,6 +614,17 @@ export class NoteBuffer {
       borderWidth,
       borderColor,
       borderOpacity,
+      borderGradientRow,
+      borderGradientAngleRad,
+      bodyGradientRow,
+      bodyGradientAngleRad,
+      bodyMultiplier,
+      glowGradientRow,
+      glowGradientAngleRad,
+      glowMultiplier,
+      glowUseLUTAlpha,
+      dirX,
+      dirY,
     } = layout.resolved;
     const trackIndex = layout.trackIndex;
 
@@ -349,6 +693,26 @@ export class NoteBuffer {
         insertIndex * 4,
         this.activeCount * 4,
       );
+      this.noteBorderGradientInfo.copyWithin(
+        (insertIndex + 1) * 2,
+        insertIndex * 2,
+        this.activeCount * 2,
+      );
+      this.noteBodyPaint.copyWithin(
+        (insertIndex + 1) * 3,
+        insertIndex * 3,
+        this.activeCount * 3,
+      );
+      this.noteGlowPaint.copyWithin(
+        (insertIndex + 1) * 4,
+        insertIndex * 4,
+        this.activeCount * 4,
+      );
+      this.noteDir.copyWithin(
+        (insertIndex + 1) * 2,
+        insertIndex * 2,
+        this.activeCount * 2,
+      );
 
       for (let i = this.activeCount; i > insertIndex; i -= 1) {
         this.noteIdByIndex[i] = this.noteIdByIndex[i - 1];
@@ -364,7 +728,7 @@ export class NoteBuffer {
     this.activeCount += 1;
 
     const infoOffset = insertIndex * 3;
-    this.noteInfo[infoOffset] = startTime;
+    this.noteInfo[infoOffset] = this.toGpuTime(startTime);
     this.noteInfo[infoOffset + 1] = 0;
     this.noteInfo[infoOffset + 2] = layout.position.dx;
 
@@ -403,6 +767,22 @@ export class NoteBuffer {
     this.noteBorder[borderOffset + 1] = borderColor[0];
     this.noteBorder[borderOffset + 2] = borderColor[1];
     this.noteBorder[borderOffset + 3] = borderColor[2];
+    const borderGradientOffset = insertIndex * 2;
+    this.noteBorderGradientInfo[borderGradientOffset] = borderGradientRow;
+    this.noteBorderGradientInfo[borderGradientOffset + 1] =
+      borderGradientAngleRad;
+    const bodyPaintOffset = insertIndex * 3;
+    this.noteBodyPaint[bodyPaintOffset] = bodyGradientRow;
+    this.noteBodyPaint[bodyPaintOffset + 1] = bodyGradientAngleRad;
+    this.noteBodyPaint[bodyPaintOffset + 2] = bodyMultiplier;
+    const glowPaintOffset = insertIndex * 4;
+    this.noteGlowPaint[glowPaintOffset] = glowGradientRow;
+    this.noteGlowPaint[glowPaintOffset + 1] = glowGradientAngleRad;
+    this.noteGlowPaint[glowPaintOffset + 2] = glowMultiplier;
+    this.noteGlowPaint[glowPaintOffset + 3] = glowUseLUTAlpha;
+    const dirOffset = insertIndex * 2;
+    this.noteDir[dirOffset] = dirX;
+    this.noteDir[dirOffset + 1] = dirY;
 
     this.noteIdByIndex[insertIndex] = noteId;
     this.trackKeyByIndex[insertIndex] = trackKey;
@@ -417,7 +797,7 @@ export class NoteBuffer {
     if (index === undefined) {
       return -1;
     }
-    this.noteInfo[index * 3 + 1] = endTime;
+    this.noteInfo[index * 3 + 1] = this.toGpuTime(endTime);
     this.version += 1;
     return index;
   }
@@ -459,6 +839,14 @@ export class NoteBuffer {
         (last + 1) * 3,
       );
       this.noteBorder.copyWithin(index * 4, nextIndex * 4, (last + 1) * 4);
+      this.noteBorderGradientInfo.copyWithin(
+        index * 2,
+        nextIndex * 2,
+        (last + 1) * 2,
+      );
+      this.noteBodyPaint.copyWithin(index * 3, nextIndex * 3, (last + 1) * 3);
+      this.noteGlowPaint.copyWithin(index * 4, nextIndex * 4, (last + 1) * 4);
+      this.noteDir.copyWithin(index * 2, nextIndex * 2, (last + 1) * 2);
 
       for (let i = index; i < last; i += 1) {
         const movedId = this.noteIdByIndex[i + 1];
@@ -495,6 +883,15 @@ export class NoteBuffer {
     this.noteGlowColorBottom.fill(0, glowColorOffset, glowColorOffset + 3);
     const borderClearOffset = last * 4;
     this.noteBorder.fill(0, borderClearOffset, borderClearOffset + 4);
+    const borderGradientClearOffset = last * 2;
+    this.noteBorderGradientInfo.fill(
+      -1,
+      borderGradientClearOffset,
+      borderGradientClearOffset + 2,
+    );
+    this.noteBodyPaint.fill(-1, last * 3, last * 3 + 3);
+    this.noteGlowPaint.fill(-1, last * 4, last * 4 + 4);
+    this.noteDir.fill(0, last * 2, last * 2 + 2);
 
     this.version += 1;
     return index;
@@ -556,6 +953,10 @@ export class NoteBuffer {
     this.noteGlowColorTop.fill(0, writeIndex * 3, previousCount * 3);
     this.noteGlowColorBottom.fill(0, writeIndex * 3, previousCount * 3);
     this.noteBorder.fill(0, writeIndex * 4, previousCount * 4);
+    this.noteBorderGradientInfo.fill(-1, writeIndex * 2, previousCount * 2);
+    this.noteBodyPaint.fill(-1, writeIndex * 3, previousCount * 3);
+    this.noteGlowPaint.fill(-1, writeIndex * 4, previousCount * 4);
+    this.noteDir.fill(0, writeIndex * 2, previousCount * 2);
 
     this.activeCount = writeIndex;
     this.version += 1;
@@ -580,6 +981,10 @@ export class NoteBuffer {
     this.noteGlowColorTop.fill(0);
     this.noteGlowColorBottom.fill(0);
     this.noteBorder.fill(0);
+    this.noteBorderGradientInfo.fill(-1);
+    this.noteBodyPaint.fill(-1);
+    this.noteGlowPaint.fill(-1);
+    this.noteDir.fill(0);
   }
 
   private copySlot(from: number, to: number) {
@@ -635,8 +1040,33 @@ export class NoteBuffer {
     this.noteBorder[toBorder + 1] = this.noteBorder[fromBorder + 1];
     this.noteBorder[toBorder + 2] = this.noteBorder[fromBorder + 2];
     this.noteBorder[toBorder + 3] = this.noteBorder[fromBorder + 3];
+
+    const fromBorderGradient = from * 2;
+    const toBorderGradient = to * 2;
+    this.noteBorderGradientInfo[toBorderGradient] =
+      this.noteBorderGradientInfo[fromBorderGradient];
+    this.noteBorderGradientInfo[toBorderGradient + 1] =
+      this.noteBorderGradientInfo[fromBorderGradient + 1];
+
+    const fromBodyPaint = from * 3;
+    const toBodyPaint = to * 3;
+    this.noteBodyPaint[toBodyPaint] = this.noteBodyPaint[fromBodyPaint];
+    this.noteBodyPaint[toBodyPaint + 1] = this.noteBodyPaint[fromBodyPaint + 1];
+    this.noteBodyPaint[toBodyPaint + 2] = this.noteBodyPaint[fromBodyPaint + 2];
+
+    const fromGlowPaint = from * 4;
+    const toGlowPaint = to * 4;
+    this.noteGlowPaint[toGlowPaint] = this.noteGlowPaint[fromGlowPaint];
+    this.noteGlowPaint[toGlowPaint + 1] = this.noteGlowPaint[fromGlowPaint + 1];
+    this.noteGlowPaint[toGlowPaint + 2] = this.noteGlowPaint[fromGlowPaint + 2];
+    this.noteGlowPaint[toGlowPaint + 3] = this.noteGlowPaint[fromGlowPaint + 3];
+
+    const fromDir = from * 2;
+    const toDir = to * 2;
+    this.noteDir[toDir] = this.noteDir[fromDir];
+    this.noteDir[toDir + 1] = this.noteDir[fromDir + 1];
   }
 }
 
 export const createNoteBuffer = () => new NoteBuffer();
-export { MAX_NOTES };
+export { MAX_NOTES, GRADIENT_LUT_WIDTH, GRADIENT_LUT_ROWS };

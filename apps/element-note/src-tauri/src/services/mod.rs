@@ -1,5 +1,10 @@
 pub mod css_watcher;
+pub mod event_publisher;
+pub mod font_metadata;
+pub mod macos_bundle;
 pub mod native_viewers;
 pub mod obs_bridge;
+pub mod overlay_hit;
+pub mod preview_broker;
 pub mod render;
 pub mod settings;

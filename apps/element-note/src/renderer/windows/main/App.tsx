@@ -29,7 +29,7 @@ import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
 
 import { useUIStore } from '@stores/useUIStore';
 
-type ToolbarAddItemType = 'key' | 'stat' | 'graph' | 'knob';
+type ToolbarAddItemType = 'key' | 'stat' | 'graph' | 'knob' | 'sprite';
 
 export default function App() {
   const setGridAreaHovered = useUIStore((state) => state.setGridAreaHovered);

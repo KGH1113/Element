@@ -114,7 +114,7 @@ function generateReport() {
     '',
     generateVendoredReport(),
     '',
-  ].join('\n');
+  ].join('\n').replace(/[\t ]+$/gm, '');
 }
 
 const report = generateReport();

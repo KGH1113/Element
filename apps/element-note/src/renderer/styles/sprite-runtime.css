@@ -1,0 +1,8 @@
+:where([data-sprite-element] > img) {
+  object-fit: fill;
+  transform: var(--sprite-transform, var(--dmn-sprite-transform-default, none));
+  transition: var(
+    --sprite-transition,
+    var(--dmn-sprite-transition-default, none)
+  );
+}

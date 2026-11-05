@@ -151,7 +151,7 @@ flowchart TB
 
 ## ElementNote
 
-[`apps/element-note`](apps/element-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
+[`apps/element-note`](apps/element-note)는 DM Note v2.1.0 기반의 키뷰어 데스크톱 앱입니다. 기존 v1 키뷰어 스타일을 유지하며 키 프로필을 모드와 동기화합니다.
 
 - 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다

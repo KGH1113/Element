@@ -120,6 +120,8 @@ const DraggableKey = React.memo(
       textStyle,
       currentImageSrc,
       hasCurrentImage,
+      imageReplaces,
+      borderRingStyle,
       isTransparent,
       labelText,
     } = computeKeyElementStyles({ position, active, label: displayName });
@@ -445,7 +447,7 @@ const DraggableKey = React.memo(
 
     const keyStyle = {
       ...visualKeyStyle,
-      transform: `translate(calc(${renderDx}px + var(--key-offset-x, 0px)), calc(${renderDy}px + var(--key-offset-y, 0px)))`,
+      transform: `translate(calc(${renderDx}px + var(--key-offset-x, 0px)), calc(${renderDy}px + var(--key-offset-y, 0px)))${position.rotation ? ` rotate(${position.rotation}deg)` : ''}`,
       willChange: shouldPromoteTransformLayer ? 'transform' : 'auto',
       zIndex: position.zIndex ?? zIndex,
       cursor: undefined,
@@ -476,6 +478,12 @@ const DraggableKey = React.memo(
           key="counter"
           count={displayValue}
           fillColor={counterFillColor}
+          fillGradient={
+            active
+              ? counterSettings.fillActiveGradient
+              : counterSettings.fillIdleGradient
+          }
+          fontBold={counterSettings.fontBold}
           strokeColor={counterStrokeColor}
           active={false}
           fontSize={counterSettings.fontSize}
@@ -559,7 +567,16 @@ const DraggableKey = React.memo(
         onContextMenu={handleContextMenu}
         onDragStart={(e) => e.preventDefault()}
       >
-        {hasCurrentImage ? (
+        {borderRingStyle && <span aria-hidden="true" style={borderRingStyle} />}
+        {hasCurrentImage && !imageReplaces && (
+          <img
+            src={currentImageSrc || ''}
+            alt=""
+            style={imageStyle}
+            draggable={false}
+          />
+        )}
+        {imageReplaces ? (
           <img
             src={currentImageSrc || ''}
             alt=""
@@ -614,6 +631,8 @@ export const Key = React.memo(function Key({
     activeImageSrc,
     currentImageSrc,
     hasCurrentImage,
+    imageReplaces,
+    borderRingStyle,
     isTransparent,
     labelText,
   } = computeKeyElementStyles({ position, active, label: keyName });
@@ -643,7 +662,16 @@ export const Key = React.memo(function Key({
       style={keyStyle}
       data-state={active ? 'active' : 'inactive'}
     >
-      {hasCurrentImage ? (
+      {borderRingStyle && <span aria-hidden="true" style={borderRingStyle} />}
+      {hasCurrentImage && !imageReplaces && (
+        <img
+          src={currentImageSrc || ''}
+          alt=""
+          style={imageStyle}
+          draggable={false}
+        />
+      )}
+      {imageReplaces ? (
         <img
           src={currentImageSrc || ''}
           alt=""

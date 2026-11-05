@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toCssRgba } from '@utils/color/colorUtils';
+import { gradientToCss, type GradientSpec } from '@src/types/color';
 import {
   COUNTER_DEFAULT_BEZIER,
   createCubicBezierEasing,
@@ -8,12 +9,14 @@ import {
 export interface CountDisplayProps {
   count: number;
   fillColor?: string;
+  fillGradient?: GradientSpec | null;
   strokeColor?: string;
   globalKey?: string;
   active?: boolean;
   fontSize?: number;
   fontFamily?: string;
   fontWeight?: number;
+  fontBold?: boolean;
   fontItalic?: boolean;
   fontUnderline?: boolean;
   fontStrikethrough?: boolean;
@@ -26,12 +29,14 @@ export interface CountDisplayProps {
 const CountDisplay = ({
   count,
   fillColor,
+  fillGradient,
   strokeColor,
   globalKey: _globalKey,
   active,
   fontSize,
   fontFamily,
   fontWeight,
+  fontBold,
   fontItalic,
   fontUnderline,
   fontStrikethrough,
@@ -141,7 +146,18 @@ const CountDisplay = ({
           fontFamily: fontFamily
             ? `"${fontFamily}", "SUIT-Regular", sans-serif`
             : undefined,
-          fontWeight: Number.isFinite(fontWeight) ? fontWeight : 400,
+          fontWeight:
+            fontBold === undefined
+              ? Number.isFinite(fontWeight)
+                ? fontWeight
+                : 400
+              : Math.min(
+                  1000,
+                  Math.max(
+                    1,
+                    Math.round(fontWeight ?? 400) + (fontBold ? 300 : 0),
+                  ),
+                ),
           fontStyle: fontItalic ? 'italic' : 'normal',
           textDecoration,
           textAlign: 'center',
@@ -151,6 +167,14 @@ const CountDisplay = ({
           '--counter-color-default': fill.css,
           '--counter-stroke-color-default': stroke.css,
           '--counter-stroke-width-default': strokeWidth,
+          ...(fillGradient
+            ? {
+                backgroundImage: gradientToCss(fillGradient),
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                '--counter-color-default': 'transparent',
+              }
+            : {}),
         } as React.CSSProperties
       }
     >

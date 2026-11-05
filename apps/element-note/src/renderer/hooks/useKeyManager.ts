@@ -1,10 +1,7 @@
 import { useState, useRef } from 'react';
 import { useKeyStore } from '@stores/data/useKeyStore';
-import { useStatItemStore } from '@stores/data/useStatItemStore';
-import { useGraphItemStore } from '@stores/data/useGraphItemStore';
-import { useKnobItemStore } from '@stores/data/useKnobItemStore';
-import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
-import { useHistoryStore } from '@stores/data/useHistoryStore';
+import { useHistoryStatusStore } from '@stores/data/useHistoryStatusStore';
+import { historyApi } from '@api/modules/historyApi';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { setUndoRedoInProgress } from '@api/pluginDisplayElements';
 import type {
@@ -15,7 +12,6 @@ import type {
   KeyCounterSettings,
   ImageFit,
 } from '@src/types/key/keys';
-import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 
 // editor/model — 순수 상태 변환 함수
 import {
@@ -38,12 +34,7 @@ import {
 } from '@src/renderer/editor/model/zOrder';
 
 // editor/runtime — store/API 연동
-import {
-  pushCurrentStateToHistory,
-  applyRestoredStateToStores,
-  applyRestoredPluginElements,
-  persistRestoredState,
-} from '@src/renderer/editor/runtime/editorSnapshot';
+import { pushCurrentStateToHistory } from '@src/renderer/editor/runtime/editorSnapshot';
 import {
   persistPositionsWithSync,
   persistMappingsAndPositions,
@@ -102,10 +93,12 @@ export function useKeyManager() {
     (state) => state.setLocalUpdateInProgress,
   );
 
-  const canUndo = useHistoryStore((state) => state.canUndo);
-  const canRedo = useHistoryStore((state) => state.canRedo);
-  const undo = useHistoryStore((state) => state.undo);
-  const redo = useHistoryStore((state) => state.redo);
+  const canUndo = useHistoryStatusStore((state) =>
+    Boolean(state.status?.canUndo && !state.status.busy),
+  );
+  const canRedo = useHistoryStatusStore((state) =>
+    Boolean(state.status?.canRedo && !state.status.busy),
+  );
 
   const [selectedKey, setSelectedKey] = useState<SelectedKey>(null);
 
@@ -784,54 +777,22 @@ export function useKeyManager() {
     }
   };
 
-  const executeHistoryAction = async (
-    action: typeof undo | typeof redo,
-    label: string,
-  ) => {
+  const executeHistoryAction = async (direction: 'undo' | 'redo') => {
+    if (useHistoryStatusStore.getState().status?.busy) return;
     setUndoRedoInProgress(true);
     try {
-      const currentKeyState = useKeyStore.getState();
-      const currentStatPositions = useStatItemStore.getState().positions;
-      const currentGraphPositions = useGraphItemStore.getState().positions;
-      const currentKnobPositions = useKnobItemStore.getState().positions;
-      const currentPluginElements =
-        usePluginDisplayElementStore.getState().elements;
-      const currentLayerGroups = useLayerGroupStore.getState().layerGroups;
-      const targetState = action({
-        keyMappings: currentKeyState.keyMappings,
-        positions: currentKeyState.positions,
-        statPositions: currentStatPositions,
-        graphPositions: currentGraphPositions,
-        knobPositions: currentKnobPositions,
-        pluginElements: currentPluginElements,
-        layerGroups: currentLayerGroups,
-      });
-
-      if (targetState) {
-        applyRestoredStateToStores(targetState);
-
-        applyRestoredPluginElements(
-          targetState.pluginElements as
-            PluginDisplayElementInternal[] | undefined,
-          currentPluginElements,
-          targetState.pluginElements
-            ? new Set(targetState.pluginElements.map((el) => el.fullId))
-            : undefined,
-        );
-
-        try {
-          await persistRestoredState(targetState);
-        } catch (error) {
-          console.error(`Failed to apply ${label}`, error);
-        }
-      }
+      const status = await historyApi[direction]();
+      useHistoryStatusStore.getState().applyStatus(status);
+      setSelectedKey(null);
+    } catch (error) {
+      console.error(`Failed to apply ${direction}`, error);
     } finally {
       setUndoRedoInProgress(false);
     }
   };
 
-  const handleUndo = () => executeHistoryAction(undo, 'undo');
-  const handleRedo = () => executeHistoryAction(redo, 'redo');
+  const handleUndo = () => executeHistoryAction('undo');
+  const handleRedo = () => executeHistoryAction('redo');
 
   return {
     selectedKey,
@@ -860,7 +821,7 @@ export function useKeyManager() {
     handleResetCurrentMode,
     handleUndo,
     handleRedo,
-    canUndo: canUndo(),
-    canRedo: canRedo(),
+    canUndo,
+    canRedo,
   };
 }

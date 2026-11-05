@@ -55,7 +55,7 @@ pub(crate) fn initial_state(app_data_dir: &Path) -> AppStoreData {
 
     let mut data = AppStoreData {
         selected_key_type: viewers.selected_viewer_tabs.hand.clone(),
-        tabs: viewers.tabs,
+        custom_tabs: viewers.tabs,
         selected_viewer_tabs: viewers.selected_viewer_tabs,
         keys: viewers.keys,
         key_positions: viewers.key_positions,
@@ -95,6 +95,7 @@ fn install_font(app_data_dir: &Path, font: &BundledFont) -> io::Result<CustomFon
         enabled: true,
         local_path: Some(path.to_string_lossy().to_string()),
         css_content: None,
+        weight_ranges: Vec::new(),
     })
 }
 
@@ -117,13 +118,19 @@ mod tests {
 
     fn with_initial_state(check: impl FnOnce(&AppStoreData, &Path)) {
         let dir = temp_app_data_dir();
-        let data = normalize_state(initial_state(&dir));
+        let mut data = normalize_state(initial_state(&dir));
+        crate::state::native_element_id::backfill_store_element_ids(&mut data);
         check(&data, &dir);
         let _ = fs::remove_dir_all(&dir);
     }
 
     fn keys(data: &AppStoreData, tab: &str) -> Vec<String> {
-        data.keys.get(tab).cloned().unwrap_or_default()
+        data.keys
+            .get(tab)
+            .into_iter()
+            .flatten()
+            .map(|slot| slot.canonical())
+            .collect()
     }
 
     fn strings(values: &[&str]) -> Vec<String> {
@@ -142,10 +149,41 @@ mod tests {
     ];
 
     #[test]
+    fn real_first_launch_has_native_element_ids_and_accepts_the_first_editor_commit() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = crate::state::AppStore::initialize_for_test(dir.path()).unwrap();
+        let before = store.snapshot();
+        crate::state::native_element_id::validate_document_element_ids(
+            &crate::models::EditorDocumentV1::from_store(&before),
+        )
+        .unwrap();
+        assert_eq!(before.selected_key_type, "hand-16k");
+        assert!(!before.key_positions["hand-16k"].is_empty());
+        let id = before.key_positions["hand-16k"][0].id.clone();
+        let result = store
+            .commit_legacy_editor_transaction(
+                crate::models::EditorCommitOrigin::LegacyAdapter("first-launch-edit".to_string()),
+                &[crate::models::EditorField::KeyPositions],
+                |data| {
+                    data.key_positions.get_mut("hand-16k").unwrap()[0].dx += 1.0;
+                    Ok(())
+                },
+            )
+            .unwrap();
+        assert_eq!(result.change.document.key_positions["hand-16k"][0].id, id);
+        assert_eq!(
+            result.change.document.key_positions["hand-16k"][0].dx,
+            before.key_positions["hand-16k"][0].dx + 1.0
+        );
+        drop(result);
+        store.flush_and_shutdown().unwrap();
+    }
+
+    #[test]
     fn opens_on_16k_hand_and_0k_foot() {
         with_initial_state(|data, _| {
             let tabs: Vec<(&str, &str, KeyViewerKind)> = data
-                .tabs
+                .custom_tabs
                 .iter()
                 .map(|tab| (tab.id.as_str(), tab.name.as_str(), tab.viewer_kind))
                 .collect();
@@ -219,7 +257,7 @@ mod tests {
     #[test]
     fn keys_show_their_own_names() {
         with_initial_state(|data, _| {
-            for tab in &data.tabs {
+            for tab in &data.custom_tabs {
                 let positions = &data.key_positions[&tab.id];
                 assert_eq!(positions.len(), keys(data, &tab.id).len(), "{}", tab.id);
                 for position in positions {
@@ -240,7 +278,7 @@ mod tests {
                 ("EQUALS".to_string(), "SQUARE BRACKET OPEN".to_string()),
             ];
             for tab in data
-                .tabs
+                .custom_tabs
                 .iter()
                 .filter(|tab| tab.viewer_kind == KeyViewerKind::Hand)
             {
@@ -262,7 +300,7 @@ mod tests {
     #[test]
     fn hand_tabs_show_kps_counter_and_graph() {
         with_initial_state(|data, _| {
-            for tab in &data.tabs {
+            for tab in &data.custom_tabs {
                 let stats = data
                     .stat_positions
                     .get(&tab.id)
@@ -316,16 +354,33 @@ mod tests {
             let path = dir.join("store.json");
             fs::write(&path, serde_json::to_string(first).unwrap()).unwrap();
 
-            let (mut second, _) = load_store_from_path(&path).unwrap();
+            let mut second = load_store_from_path(&path).unwrap().data;
+            migrate_local_fonts_to_app_data(dir, &mut second);
             assert!(!migrate_local_fonts_to_app_data(dir, &mut second));
-            assert_eq!(second.tabs, first.tabs);
+            assert_eq!(second.custom_tabs, first.custom_tabs);
             assert_eq!(second.selected_viewer_tabs, first.selected_viewer_tabs);
             assert_eq!(second.selected_key_type, first.selected_key_type);
             assert_eq!(second.keys, first.keys);
             assert_eq!(second.key_positions, first.key_positions);
             assert_eq!(second.stat_positions, first.stat_positions);
             assert_eq!(second.graph_positions, first.graph_positions);
-            assert_eq!(second.font_settings, first.font_settings);
+            assert_eq!(
+                second.font_settings.custom_fonts.len(),
+                first.font_settings.custom_fonts.len()
+            );
+            for (loaded, original) in second
+                .font_settings
+                .custom_fonts
+                .iter()
+                .zip(&first.font_settings.custom_fonts)
+            {
+                assert_eq!(loaded.name, original.name);
+                assert_eq!(loaded.enabled, original.enabled);
+                assert_eq!(
+                    fs::read(loaded.local_path.as_ref().unwrap()).unwrap(),
+                    INITIAL_FONT.bytes
+                );
+            }
         });
     }
 
@@ -341,7 +396,7 @@ mod tests {
             off.note_effect = false;
             off.obs_mode_enabled = false;
             fs::write(&path, serde_json::to_string(&off).unwrap()).unwrap();
-            let (reloaded, _) = load_store_from_path(&path).unwrap();
+            let reloaded = load_store_from_path(&path).unwrap().data;
             assert!(!reloaded.note_effect);
             assert!(!reloaded.obs_mode_enabled);
 
@@ -349,7 +404,7 @@ mod tests {
             let mut value = serde_json::to_value(first).unwrap();
             value.as_object_mut().unwrap().remove("obsModeEnabled");
             fs::write(&path, value.to_string()).unwrap();
-            let (older, _) = load_store_from_path(&path).unwrap();
+            let older = load_store_from_path(&path).unwrap().data;
             assert!(older.obs_mode_enabled);
         });
     }

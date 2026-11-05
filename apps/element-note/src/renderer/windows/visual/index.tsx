@@ -195,28 +195,27 @@ const fixtureId: FixtureId =
 
 function VisualViewer({ fixture }: { fixture: VisualFixture }) {
   const noteSettings = getDefaultNoteSettings();
-  const noteBuffer = useMemo(() => {
-    if (!fixture.noteEnabled) return null;
+  const { noteBuffer, noteTracks } = useMemo(() => {
+    if (!fixture.noteEnabled) return { noteBuffer: null, noteTracks: [] };
     const buffer = new NoteBuffer();
     const visibleTracks = fixture.positions
       .map((item, index) => ({ item, index }))
       .filter(({ item }) => !item.hidden);
-    buffer.updateTrackLayouts(
-      visibleTracks.map(({ item, index }) => ({
-        trackKey: `${fixture.viewerKind}:${fixture.keys[index]}`,
-        trackIndex: index,
-        position: { dx: item.dx, dy: item.dy },
-        width: item.noteWidth ?? item.width,
-        height: noteSettings.trackHeight,
-        noteColor: item.noteColor,
-        noteOpacity: item.noteOpacity,
-        noteGlowEnabled: item.noteGlowEnabled,
-        noteGlowSize: item.noteGlowSize,
-        noteGlowOpacity: item.noteGlowOpacity,
-        noteGlowColor: item.noteGlowColor,
-        borderRadius: item.noteBorderRadius,
-      })),
-    );
+    const tracks = visibleTracks.map(({ item, index }) => ({
+      trackKey: `${fixture.viewerKind}:${fixture.keys[index]}`,
+      trackIndex: index,
+      position: { dx: item.dx, dy: item.dy },
+      width: item.noteWidth ?? item.width,
+      height: noteSettings.trackHeight,
+      noteColor: item.noteColor,
+      noteOpacity: item.noteOpacity,
+      noteGlowEnabled: item.noteGlowEnabled,
+      noteGlowSize: item.noteGlowSize,
+      noteGlowOpacity: item.noteGlowOpacity,
+      noteGlowColor: item.noteGlowColor,
+      borderRadius: item.noteBorderRadius,
+    }));
+    buffer.updateTrackLayouts(tracks);
     visibleTracks.forEach(({ index }) => {
       const key = fixture.keys[index];
       buffer.allocate(
@@ -225,7 +224,7 @@ function VisualViewer({ fixture }: { fixture: VisualFixture }) {
         1,
       );
     });
-    return buffer;
+    return { noteBuffer: buffer, noteTracks: tracks };
   }, [fixture, noteSettings.trackHeight]);
 
   useEffect(() => {
@@ -286,7 +285,7 @@ function VisualViewer({ fixture }: { fixture: VisualFixture }) {
     >
       {noteBuffer ? (
         <WebGLTracksOGL
-          tracks={[]}
+          tracks={noteTracks}
           notesRef={null}
           subscribe={() => () => undefined}
           noteSettings={noteSettings}

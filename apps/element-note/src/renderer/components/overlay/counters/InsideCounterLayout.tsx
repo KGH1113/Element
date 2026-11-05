@@ -38,6 +38,10 @@ const InsideCounterLayout = ({
 
   const counterProps = {
     fillColor,
+    fillGradient: active
+      ? counterSettings.fillActiveGradient
+      : counterSettings.fillIdleGradient,
+    fontBold: counterSettings.fontBold,
     strokeColor,
     active,
     fontSize: counterSettings.fontSize,

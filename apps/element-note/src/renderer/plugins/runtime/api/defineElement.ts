@@ -9,7 +9,14 @@ import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { translatePluginMessage } from '@utils/plugin/pluginI18n';
 import { handlerRegistry } from '../handlers';
+import { removeDisplayElementInternal } from '../displayElement/displayElementApi';
+import { listen } from '@tauri-apps/api/event';
+import {
+  instancePersistence,
+  type SavedPluginInstance,
+} from './instancePersistence';
 import type { NamespacedStorage } from '../context';
+import { trackPluginWork } from '../pluginRuntimeReadiness';
 import type {
   PluginDefinition,
   PluginDefinitionInternal,
@@ -19,12 +26,7 @@ import type {
 } from '@src/types/plugin/api';
 import type { SettingsState } from '@src/types/settings/settings';
 
-interface SavedInstance {
-  position: { x: number; y: number };
-  settings?: Record<string, string | number | boolean>;
-  measuredSize?: { width: number; height: number };
-  tabId?: string;
-}
+type SavedInstance = SavedPluginInstance;
 
 interface DefineElementDependencies {
   pluginId: string;
@@ -40,13 +42,8 @@ interface DefineElementDependencies {
  * defineElement 함수를 생성합니다.
  */
 export const createDefineElement = (deps: DefineElementDependencies) => {
-  const {
-    pluginId,
-    namespacedStorage,
-    registerCleanup,
-    wrapFunctionWithContext,
-    isReloading,
-  } = deps;
+  const { pluginId, registerCleanup, wrapFunctionWithContext, isReloading } =
+    deps;
 
   return (definition: PluginDefinition) => {
     const defId = pluginId;
@@ -58,7 +55,14 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
 
     usePluginDisplayElementStore.getState().registerDefinition(internalDef);
 
-    const INSTANCES_KEY = 'instances';
+    const persistence = instancePersistence.forPlugin(pluginId);
+    let active = true;
+    let restoreVersion = 0;
+    let saveFailureShown = false;
+    registerCleanup(() => {
+      active = false;
+      persistence.dispose();
+    });
 
     // 복원 중에는 saveInstances가 호출되지 않도록 플래그 설정
     let isRestoring = true;
@@ -72,13 +76,18 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
         .elements.filter((el) => el.definitionId === defId);
 
       const instances = elements.map((el) => ({
+        instanceId: el.id,
         position: el.position,
         settings: el.settings,
         measuredSize: el.measuredSize,
         tabId: el.tabId,
+        hidden: el.hidden,
+        zIndex: el.zIndex,
+        groupId: el.groupId,
       }));
 
-      await namespacedStorage.set(INSTANCES_KEY, instances);
+      await persistence.save(instances);
+      saveFailureShown = false;
     };
 
     if (window.__dmn_window_type === 'main') {
@@ -94,7 +103,17 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
           if (
             JSON.stringify(currentElements) !== JSON.stringify(prevElements)
           ) {
-            saveInstances();
+            void saveInstances().catch((error: unknown) => {
+              console.error(
+                `[Plugin ${pluginId}] Failed to save instances:`,
+                error,
+              );
+              if (!active || saveFailureShown) return;
+              saveFailureShown = true;
+              void window.api.ui.dialog.alert(
+                '플러그인 배치를 저장하지 못했어요. 현재 배치는 화면에 남아 있습니다. 저장 공간을 확인한 뒤 요소를 다시 옮겨 저장해 주세요.',
+              );
+            });
           }
         },
       );
@@ -104,7 +123,7 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
     const defaultSettings: Record<string, string | number | boolean> = {};
     if (definition.settings) {
       Object.entries(definition.settings).forEach(([key, schema]) => {
-        if (schema.type !== 'divider') {
+        if (schema.type !== 'divider' && schema.type !== 'section') {
           defaultSettings[key] = schema.default;
         }
       });
@@ -292,7 +311,25 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
               | undefined,
             currentSettings,
           );
-          if (schema.type === 'divider') {
+          if (schema.type === 'divider' || schema.type === 'section') {
+            if (schema.type === 'section' && schema.label) {
+              const title = translate(
+                schema.label,
+                undefined,
+                schema.label,
+              ).replace(
+                /[&<>"']/g,
+                (character) =>
+                  ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                  })[character]!,
+              );
+              htmlContent += `<div class="text-[12px] font-semibold" style="${_vis ? '' : 'display:none'}">${title}</div>`;
+            }
             htmlContent += `<div data-setting-key="${key}" style="${
               _vis ? '' : 'display:none'
             }" class="w-full h-[1px] bg-[#3A3943]"></div>`;
@@ -584,13 +621,19 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
       window.__dmn_element_restorers?.delete(defId);
     });
 
-    // 인스턴스 복원
-    setTimeout(async () => {
+    // 초기 로드와 네이티브 실행 취소/다시 실행은 같은 복원 경로를 사용한다.
+    const restoreInstances = async () => {
+      const version = ++restoreVersion;
+      isRestoring = true;
       try {
         if (window.__dmn_window_type === 'main') {
-          const savedInstances = (await namespacedStorage.get(
-            INSTANCES_KEY,
-          )) as SavedInstance[] | null;
+          const { instances: savedInstances } = await persistence.load();
+          if (!active || version !== restoreVersion) return;
+          for (const element of usePluginDisplayElementStore.getState()
+            .elements) {
+            if (element.definitionId === defId)
+              removeDisplayElementInternal(element.fullId);
+          }
 
           if (savedInstances && Array.isArray(savedInstances)) {
             // maxInstances 제한 적용: 탭별로 제한 개수만큼만 복원
@@ -615,34 +658,70 @@ export const createDefineElement = (deps: DefineElementDependencies) => {
               });
             }
 
-            instancesToRestore.forEach((inst) => {
-              // 각 add 호출 직전에 plugin context 재설정 (비동기 경합 방지)
-              window.__dmn_current_plugin_id = pluginId;
+            const previousPluginId = window.__dmn_current_plugin_id;
+            try {
+              instancesToRestore.forEach((inst) => {
+                // 각 add 호출 직전에 plugin context 재설정 (비동기 경합 방지)
+                window.__dmn_current_plugin_id = pluginId;
 
-              window.api.ui.displayElement.add({
-                html: '<!-- plugin-element -->',
-                position: inst.position,
-                draggable: true,
-                definitionId: defId,
-                settings: inst.settings || { ...defaultSettings },
-                state: definition.previewState || {},
-                measuredSize: inst.measuredSize,
-                tabId: inst.tabId,
-                onClick: useModalSettings ? handleElementClick : undefined,
-                contextMenu: {
-                  enableDelete: true,
-                  deleteLabel: definition.contextMenu?.delete || '삭제',
-                  customItems: buildCustomContextMenuItems(),
-                },
-              } as unknown as PluginDisplayElementConfig);
-            });
+                window.api.ui.displayElement.add({
+                  html: '<!-- plugin-element -->',
+                  instanceId: inst.instanceId,
+                  hidden: inst.hidden,
+                  zIndex: inst.zIndex,
+                  groupId: inst.groupId,
+                  position: inst.position,
+                  draggable: true,
+                  definitionId: defId,
+                  settings: inst.settings || { ...defaultSettings },
+                  state: definition.previewState || {},
+                  measuredSize: inst.measuredSize,
+                  tabId: inst.tabId,
+                  onClick: useModalSettings ? handleElementClick : undefined,
+                  contextMenu: {
+                    enableDelete: true,
+                    deleteLabel: definition.contextMenu?.delete || '삭제',
+                    customItems: buildCustomContextMenuItems(),
+                  },
+                } as unknown as PluginDisplayElementConfig);
+              });
+            } finally {
+              window.__dmn_current_plugin_id = previousPluginId;
+            }
           }
         }
       } catch (err) {
         console.error(`[Plugin ${pluginId}] Failed to restore instances:`, err);
       } finally {
-        isRestoring = false;
+        if (version === restoreVersion) isRestoring = false;
       }
-    }, 0);
+    };
+    if (window.__dmn_window_type === 'main') {
+      void listen<{ pluginId: string; originMutationId?: string }>(
+        'pluginInstances:changed',
+        ({ payload }) => {
+          if (
+            !active ||
+            payload.pluginId !== pluginId ||
+            persistence.isOwnMutation(payload.originMutationId)
+          )
+            return;
+          trackPluginWork(restoreInstances());
+        },
+      )
+        .then((unsubscribe) => {
+          if (active) registerCleanup(unsubscribe);
+          else unsubscribe();
+        })
+        .catch((error: unknown) => {
+          console.error(
+            `[Plugin ${pluginId}] Failed to subscribe to saved instances:`,
+            error,
+          );
+        });
+      trackPluginWork(restoreInstances());
+    } else {
+      isRestoring = false;
+    }
   };
 };

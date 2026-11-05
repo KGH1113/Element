@@ -14,6 +14,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "title": "ElementNote - Settings",
         "width": 902,
         "height": 488,

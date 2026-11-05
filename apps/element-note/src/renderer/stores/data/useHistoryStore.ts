@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getCounterCacheSnapshot } from '@stores/signals/keyCounterCache';
 import { useKeyStore } from '@stores/data/useKeyStore';
+import { useHistoryStatusStore } from './useHistoryStatusStore';
 import type {
   KeyViewerTab,
   SelectedViewerTabs,
@@ -173,6 +174,9 @@ export const useHistoryStore = create<HistoryStore>((set, get) => ({
   canRedo: () => get().future.length > 0,
 
   pushState: (input: PushHistoryInput) => {
+    // 네이티브 연결 뒤에는 v2 트랜잭션이 히스토리를 소유한다.
+    // 로컬 스냅샷은 독립적인 프리뷰/테스트 환경에서만 사용한다.
+    if (useHistoryStatusStore.getState().initialized) return;
     set((state) => {
       const newState = buildHistoryState(input, true);
 

@@ -30,7 +30,7 @@ import type { GraphItemPosition } from '@src/types/key/graphItems';
 import type { KnobItemPosition } from '@src/types/key/knobs';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import OverlayScene from '@components/shared/OverlayScene';
-import { hasSpriteId } from '@components/shared/SpriteRuntimeLayer';
+import { hasSpriteId } from '@utils/sprite/spriteIdentity';
 import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { computeLayout } from '@hooks/shared/useLayoutComputation';
 import { publishViewerLayout } from '@api/viewerLayout';

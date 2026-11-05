@@ -1,14 +1,9 @@
 import { useMemo } from 'react';
 import OverlaySpriteItem from '@components/overlay/counters/OverlaySpriteItem';
-import type { CanonicalReactiveSpritePosition } from '@src/types/editor';
 import type { KeyPosition } from '@src/types/key/keys';
 import type { ReactiveSpritePosition } from '@src/types/key/sprites';
+import { hasSpriteId } from '@utils/sprite/spriteIdentity';
 import '@styles/sprite-runtime.css';
-
-export const hasSpriteId = (
-  position: ReactiveSpritePosition,
-): position is CanonicalReactiveSpritePosition =>
-  typeof position.id === 'string' && position.id.length > 0;
 
 export default function SpriteRuntimeLayer({
   sprites,

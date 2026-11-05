@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke, trackEditorSave } from '../invoke';
 import { subscribe } from './shared';
 
 import type { StatItemPositions } from '@src/types/key/statItems';
@@ -9,7 +9,10 @@ import type { LayerGroups } from '@src/types/layerGroups';
 export const statItemsApi = {
   getPositions: () => invoke<StatItemPositions>('stat_positions_get'),
   updatePositions: (positions: StatItemPositions) =>
-    invoke<StatItemPositions>('stat_positions_update', { positions }),
+    trackEditorSave(
+      invoke<StatItemPositions>('stat_positions_update', { positions }),
+      ['editor:statPositions'],
+    ),
   onPositionsChanged: (listener: (positions: StatItemPositions) => void) =>
     subscribe<StatItemPositions>('statPositions:changed', listener),
 };
@@ -17,7 +20,10 @@ export const statItemsApi = {
 export const graphItemsApi = {
   getPositions: () => invoke<GraphItemPositions>('graph_positions_get'),
   updatePositions: (positions: GraphItemPositions) =>
-    invoke<GraphItemPositions>('graph_positions_update', { positions }),
+    trackEditorSave(
+      invoke<GraphItemPositions>('graph_positions_update', { positions }),
+      ['editor:graphPositions'],
+    ),
   onPositionsChanged: (listener: (positions: GraphItemPositions) => void) =>
     subscribe<GraphItemPositions>('graphPositions:changed', listener),
 };
@@ -25,7 +31,10 @@ export const graphItemsApi = {
 export const knobItemsApi = {
   getPositions: () => invoke<KnobItemPositions>('knob_positions_get'),
   updatePositions: (positions: KnobItemPositions) =>
-    invoke<KnobItemPositions>('knob_positions_update', { positions }),
+    trackEditorSave(
+      invoke<KnobItemPositions>('knob_positions_update', { positions }),
+      ['editor:knobPositions'],
+    ),
   onPositionsChanged: (listener: (positions: KnobItemPositions) => void) =>
     subscribe<KnobItemPositions>('knobPositions:changed', listener),
 };
@@ -33,7 +42,9 @@ export const knobItemsApi = {
 export const layerGroupsApi = {
   get: () => invoke<LayerGroups>('layer_groups_get'),
   update: (groups: LayerGroups) =>
-    invoke<LayerGroups>('layer_groups_update', { groups }),
+    trackEditorSave(invoke<LayerGroups>('layer_groups_update', { groups }), [
+      'editor:layerGroups',
+    ]),
   onChanged: (listener: (groups: LayerGroups) => void) =>
     subscribe<LayerGroups>('layerGroups:changed', listener),
 };

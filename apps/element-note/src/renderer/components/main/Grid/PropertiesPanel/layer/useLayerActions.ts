@@ -922,8 +922,10 @@ export function useLayerActions({
           .setKeyMappingsAndPositions(updatedMappings, updatedPositions);
 
         try {
-          await window.api.keys.update(updatedMappings);
-          await window.api.keys.updatePositions(updatedPositions);
+          await window.api.editor.commitChanges({
+            keys: updatedMappings,
+            keyPositions: updatedPositions,
+          });
         } catch (error) {
           console.error('Failed to delete keys', error);
         } finally {

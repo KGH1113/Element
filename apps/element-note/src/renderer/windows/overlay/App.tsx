@@ -30,16 +30,16 @@ import type { GraphItemPosition } from '@src/types/key/graphItems';
 import type { KnobItemPosition } from '@src/types/key/knobs';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import OverlayScene from '@components/shared/OverlayScene';
+import { hasSpriteId } from '@components/shared/SpriteRuntimeLayer';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { computeLayout } from '@hooks/shared/useLayoutComputation';
 import { publishViewerLayout } from '@api/viewerLayout';
 import { isKeyMappedToViewer } from './keyStateRouting';
 import { expandGhostKeys } from '@src/renderer/editor/model/ghostKeys';
+import { noteInputTiming } from '@utils/core/noteInputTiming';
 
 type KeyDelayTimerEntry = { timers: Set<ReturnType<typeof setTimeout>> };
 
-// 입력 시각 보정용 age 상한(ms). 백엔드 stall/클럭 이상으로 비정상적으로 큰
-// 값이 와도 노트가 화면 위로 튀지 않도록 제한
-const MAX_EVENT_AGE_MS = 250;
 const NO_KEYS: string[] = [];
 const NO_POSITIONS: KeyPosition[] = [];
 
@@ -171,6 +171,7 @@ export default function App() {
   const statPositions = useStatItemStore((state) => state.positions);
   const graphPositions = useGraphItemStore((state) => state.positions);
   const knobPositions = useKnobItemStore((state) => state.positions);
+  const spritePositions = useSpriteStore((state) => state.positions);
   const pluginElements = usePluginDisplayElementStore(
     (state) => state.elements,
   );
@@ -414,6 +415,11 @@ export default function App() {
     noteSettings,
   });
 
+  useEffect(
+    () => window.api.keys.onKeysReset?.(() => finalizeAllActive()),
+    [finalizeAllActive],
+  );
+
   const trackHeight =
     noteSettings?.trackHeight ?? DEFAULT_NOTE_SETTINGS.trackHeight;
 
@@ -527,7 +533,7 @@ export default function App() {
       ({ keyEventBus }) => {
         if (disposed) return undefined;
         const unsubscribeKeyEvents = keyEventBus.subscribe(
-          ({ key, state, eventAgeMs }) => {
+          ({ key, state, eventAgeMs, holdDurationMs }) => {
             const context = keyEventContextRef.current;
             // 전용 viewer의 실제 선택 탭 매핑을 최종 라우팅 기준으로 삼는다.
             // 전역 편집 mode는 마지막으로 선택한 hand/foot 탭을 가리키므로,
@@ -558,15 +564,13 @@ export default function App() {
                 // 실제 입력 시각을 복원해 노트 시작 위치를 보정 (프레임 양자화 방지).
                 // requestAnimationFrame 래핑 시 노트 생성 시각이 프레임 경계로 양자화돼
                 // 주사율/OBS fps에 시간 해상도가 종속되던 문제 해결.
-                // age는 0~MAX_EVENT_AGE_MS로 clamp — 백엔드 stall/클럭 이상 시 노트가
-                // 화면 위로 튀는 것을 방지
-                const age = Math.min(
-                  Math.max(eventAgeMs ?? 0, 0),
-                  MAX_EVENT_AGE_MS,
+                const timing = noteInputTiming(
+                  eventAgeMs,
+                  holdDurationMs,
+                  performance.now(),
                 );
-                const inputTime = performance.now() - age;
-                if (isDown) context.handleKeyDown(key, inputTime);
-                else context.handleKeyUp(key, inputTime);
+                if (isDown) context.handleKeyDown(key, timing);
+                else context.handleKeyUp(key, timing);
               }
             }
           },
@@ -603,6 +607,9 @@ export default function App() {
   const currentStatPositions = statPositions[selectedKeyType] ?? [];
   const currentGraphPositions = graphPositions[selectedKeyType] ?? [];
   const currentKnobPositions = knobPositions[selectedKeyType] ?? [];
+  const currentSpritePositions = (
+    spritePositions[selectedKeyType] ?? []
+  ).filter(hasSpriteId);
 
   const {
     bounds,
@@ -610,6 +617,7 @@ export default function App() {
     displayStatPositions,
     displayGraphPositions,
     displayKnobPositions,
+    displaySpritePositions,
     positionOffset,
     webglTracks,
   } = computeLayout({
@@ -618,6 +626,7 @@ export default function App() {
     currentStatPositions,
     currentGraphPositions,
     currentKnobPositions,
+    currentSpritePositions,
     trackHeight,
     noteSettings,
     selectedKeyType,
@@ -716,6 +725,7 @@ export default function App() {
       displayStatPositions={displayStatPositions}
       displayGraphPositions={displayGraphPositions}
       displayKnobPositions={displayKnobPositions}
+      displaySpritePositions={displaySpritePositions}
       selectedKeyType={selectedKeyType}
       noteEffect={noteEffect}
       noteSettings={noteSettings}

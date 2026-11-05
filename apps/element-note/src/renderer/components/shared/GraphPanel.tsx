@@ -1,9 +1,14 @@
 import React, { forwardRef, useEffect, useRef, useState } from 'react';
+import type { KeyElementPosition } from '@hooks/overlay/useKeyElementStyles';
+import { gradientToCss, gradientRingStyle } from '@src/types/color';
+import { elementShadowToCss } from '@src/types/key/shadows';
+import { imageTransformToCss } from '@src/types/key/imageLayer';
 
 const BAR_ANIMATION_DURATION_MS = 150;
 const LINE_ANIMATION_DURATION_MS = 150;
 
 interface GraphPanelProps {
+  visualPosition?: Partial<KeyElementPosition>;
   dx?: number;
   dy?: number;
   width?: number;
@@ -159,6 +164,7 @@ const GraphPanel = forwardRef<HTMLDivElement, GraphPanelProps>(
   function GraphPanel(
     {
       dx = 0,
+      visualPosition,
       dy = 0,
       width = 200,
       height = 100,
@@ -398,6 +404,16 @@ const GraphPanel = forwardRef<HTMLDivElement, GraphPanelProps>(
       : `var(--graph-color, ${resolvedGraphColor})`;
 
     const avgY = 100 - Math.min((avg / safeMax) * 100, 100);
+    const gradient = visualPosition?.backgroundGradient;
+    const borderGradient = visualPosition?.borderGradient;
+    const ring =
+      borderGradient && resolvedBorderWidth > 0
+        ? {
+            ...gradientRingStyle(borderGradient, resolvedBorderWidth),
+            backgroundImage: gradientToCss(borderGradient),
+            zIndex: 2,
+          }
+        : null;
 
     return (
       <div
@@ -406,10 +422,16 @@ const GraphPanel = forwardRef<HTMLDivElement, GraphPanelProps>(
         style={{
           width: `${width}px`,
           height: `${height}px`,
-          transform,
-          background: resolvedBg,
+          transform: visualPosition?.rotation
+            ? `${transform} rotate(${visualPosition.rotation}deg)`
+            : transform,
+          background: gradient ? gradientToCss(gradient) : resolvedBg,
           color: '#FFFFFF',
-          border: resolvedBorder,
+          border: ring ? 'none' : resolvedBorder,
+          padding: ring ? `${resolvedBorderWidth}px` : undefined,
+          boxShadow: visualPosition?.shadow
+            ? elementShadowToCss(visualPosition.shadow)
+            : undefined,
           borderRadius: resolvedRadius,
           boxSizing: 'border-box',
           display: 'flex',
@@ -434,6 +456,7 @@ const GraphPanel = forwardRef<HTMLDivElement, GraphPanelProps>(
         onContextMenu={onContextMenu}
         onDragStart={onDragStart}
       >
+        {ring && <span aria-hidden="true" style={ring} />}
         {imageSrc ? (
           <img
             src={imageSrc}
@@ -446,6 +469,9 @@ const GraphPanel = forwardRef<HTMLDivElement, GraphPanelProps>(
               height: '100%',
               objectFit: (imageFit ||
                 'cover') as React.CSSProperties['objectFit'],
+              transform: visualPosition?.idleImageTransform
+                ? imageTransformToCss(visualPosition.idleImageTransform)
+                : undefined,
               pointerEvents: 'none',
               userSelect: 'none',
               zIndex: 0,

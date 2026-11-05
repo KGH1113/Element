@@ -4,6 +4,21 @@
  */
 
 import { resolveImageSource } from '@utils/core/imageSource';
+import {
+  gradientToCss,
+  gradientRingStyle,
+  resolveStatePair,
+  type GradientSpec,
+} from '@src/types/color';
+import {
+  elementShadowToCss,
+  type ElementShadowSpec,
+} from '@src/types/key/shadows';
+import {
+  imageTransformToCss,
+  type ImageMode,
+  type ImageTransform,
+} from '@src/types/key/imageLayer';
 
 export interface KeyElementPosition {
   hidden?: boolean;
@@ -11,6 +26,7 @@ export interface KeyElementPosition {
   dy: number;
   width: number;
   height?: number;
+  rotation?: number;
   activeImage?: string;
   inactiveImage?: string;
   activeTransparent?: boolean;
@@ -20,6 +36,14 @@ export interface KeyElementPosition {
   activeBackgroundColor?: string;
   borderColor?: string;
   activeBorderColor?: string;
+  backgroundGradient?: GradientSpec | null;
+  activeBackgroundGradient?: GradientSpec | null;
+  borderGradient?: GradientSpec | null;
+  activeBorderGradient?: GradientSpec | null;
+  fontGradient?: GradientSpec | null;
+  activeFontGradient?: GradientSpec | null;
+  shadow?: ElementShadowSpec;
+  activeShadow?: ElementShadowSpec;
   borderWidth?: number;
   borderRadius?: number;
   fontSize?: number;
@@ -29,9 +53,13 @@ export interface KeyElementPosition {
   idleImageFit?: string;
   activeImageFit?: string;
   imageFit?: string;
+  imageMode?: ImageMode;
+  idleImageTransform?: ImageTransform;
+  activeImageTransform?: ImageTransform;
   useInlineStyles?: boolean;
   displayText?: string;
   fontWeight?: number;
+  fontBold?: boolean;
   fontItalic?: boolean;
   fontUnderline?: boolean;
   fontStrikethrough?: boolean;
@@ -49,6 +77,8 @@ export interface KeyElementStyles {
   keyStyle: React.CSSProperties;
   imageStyle: React.CSSProperties;
   textStyle: React.CSSProperties;
+  borderRingStyle: React.CSSProperties | null;
+  imageReplaces: boolean;
   inactiveImageSrc: string | null;
   activeImageSrc: string | null;
   currentImageSrc: string | null;
@@ -113,13 +143,14 @@ export function computeKeyElementStyles({
   const currentImageSrc =
     (active && activeImageSrc ? activeImageSrc : inactiveImageSrc) || null;
   const hasCurrentImage = !!currentImageSrc;
+  const imageReplaces = hasCurrentImage && position.imageMode !== 'overlay';
   const isUsingActiveImage = active && !!activeImageSrc;
   const effectiveImageFit = isUsingActiveImage
     ? activeImageFit || imageFit || 'cover'
     : idleImageFit || imageFit || 'cover';
 
   // 기본 색상
-  const defaultBgColor = hasCurrentImage
+  const defaultBgColor = imageReplaces
     ? 'transparent'
     : active
       ? 'rgba(121, 121, 121, 0.9)'
@@ -199,10 +230,88 @@ export function computeKeyElementStyles({
       textDecorations.length > 0 ? textDecorations.join(' ') : 'none',
   };
 
+  // v2 properties are additive. The absent-property path above remains the
+  // v1 DOM/CSS contract, including its state colors, border and font defaults.
+  if (position.rotation) {
+    keyStyle.transform += ` rotate(${position.rotation}deg)`;
+  }
+  const shadow = active ? position.activeShadow : position.shadow;
+  if (shadow) keyStyle.boxShadow = elementShadowToCss(shadow);
+  if (position.fontBold !== undefined) {
+    textStyle.fontWeight = Math.min(
+      1000,
+      Math.max(
+        1,
+        Math.round(position.fontWeight ?? 400) + (position.fontBold ? 300 : 0),
+      ),
+    );
+  }
+  const background = resolveStatePair(
+    active,
+    { color: backgroundColor, gradient: position.backgroundGradient },
+    {
+      color: activeBackgroundColor,
+      gradient: position.activeBackgroundGradient,
+    },
+  ).gradient;
+  if (background && !imageReplaces) {
+    const paint = gradientToCss(background);
+    keyStyle.backgroundColor = 'transparent';
+    keyStyle.backgroundImage = useInline
+      ? paint
+      : `var(--key-bg-image, ${paint})`;
+  }
+  const font = resolveStatePair(
+    active,
+    { color: fontColor, gradient: position.fontGradient },
+    { color: activeFontColor, gradient: position.activeFontGradient },
+  ).gradient;
+  if (font) {
+    const paint = gradientToCss(font);
+    textStyle.backgroundImage = useInline
+      ? paint
+      : `var(--key-text-image, ${paint})`;
+    textStyle.backgroundClip = 'text';
+    textStyle.WebkitBackgroundClip = 'text';
+    textStyle.color = 'transparent';
+  }
+  const border = resolveStatePair(
+    active,
+    { color: borderColor, gradient: position.borderGradient },
+    { color: activeBorderColor, gradient: position.activeBorderGradient },
+  ).gradient;
+  let borderRingStyle: React.CSSProperties | null = null;
+  if (border && (borderWidth ?? 3) > 0) {
+    borderRingStyle = {
+      ...gradientRingStyle(border, borderWidth ?? 3),
+      backgroundImage: useInline
+        ? gradientToCss(border)
+        : `var(--key-border-image, ${gradientToCss(border)})`,
+      zIndex: 2,
+    };
+    keyStyle.border = useInline ? 'none' : 'var(--key-border, none)';
+    keyStyle.padding = `${borderWidth ?? 3}px`;
+  }
+  const imageTransform = isUsingActiveImage
+    ? position.activeImageTransform
+    : position.idleImageTransform;
+  if (imageTransform)
+    imageStyle.transform = imageTransformToCss(imageTransform);
+  if (hasCurrentImage && !imageReplaces) {
+    keyStyle.overflow = 'visible';
+    keyStyle.contain = 'layout style';
+    imageStyle.position = 'absolute';
+    imageStyle.inset = 0;
+    imageStyle.zIndex = 1;
+    imageStyle.filter = 'none';
+  }
+
   return {
     keyStyle,
     imageStyle,
     textStyle,
+    borderRingStyle,
+    imageReplaces,
     inactiveImageSrc,
     activeImageSrc,
     currentImageSrc,

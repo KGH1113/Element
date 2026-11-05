@@ -71,12 +71,11 @@ export const displayElementApi = {
     // 히스토리 저장 (요소 추가 전)
     saveToHistory();
 
-    const id = `element-${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(7)}`;
+    const id = element.instanceId ?? crypto.randomUUID();
     const fullId = `${pluginId}::${id}`;
 
     const {
+      instanceId: _instanceId,
       template,
       state: initialState,
       html: initialHtml,

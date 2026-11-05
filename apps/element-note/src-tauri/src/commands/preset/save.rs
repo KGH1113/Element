@@ -1,60 +1,86 @@
 use std::{
     collections::{HashMap, HashSet},
     fs,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
-use rfd::FileDialog;
-use tauri::State;
+use tauri::{AppHandle, Manager, WebviewWindow};
 
 use crate::{
-    errors::CmdResult,
+    commands::dialog::parented_file_dialog,
+    errors::{CmdResult, CommandError},
     models::{
-        FontSettings, FontType, GraphPositions, KeyMappings, KeyPositions, KnobPositions,
-        StatPositions, TabNoteOverrides,
+        rewrite_coupled_sprite_image_reference, FontSettings, FontType, GraphPositions,
+        KeyMappings, KeyPositions, KnobPositions, LayerGroups, SpritePositions, StatPositions,
+        TabCssOverrides, TabNoteOverrides,
     },
-    state::AppState,
+    state::{atomic_file::atomic_replace, AppState},
 };
 
 use super::{
-    decode_image_data_url, is_remote_or_virtual_image_ref, local_source_path_from_image_ref,
-    normalize_font_extension, normalize_image_extension, normalize_sound_extension,
-    EmbeddedLocalFont, EmbeddedLocalImage, EmbeddedLocalSound, PresetFile, PresetOperationResult,
-    PRESET_LOCAL_IMAGE_PREFIX, PRESET_LOCAL_SOUND_PREFIX,
+    decode_image_data_url, for_each_key_and_ghost_mut, is_remote_or_virtual_image_ref,
+    local_source_path_from_image_ref, normalize_font_extension, normalize_image_extension,
+    normalize_sound_extension, EmbeddedLocalFont, EmbeddedLocalImage, EmbeddedLocalSound,
+    PresetFile, PresetOperationResult, BUILTIN_TAB_IDS, PRESET_LOCAL_IMAGE_PREFIX,
+    PRESET_LOCAL_SOUND_PREFIX,
 };
 
 #[tauri::command]
-pub fn preset_save(state: State<'_, AppState>) -> CmdResult<PresetOperationResult> {
-    let preset_path = FileDialog::new()
+pub async fn preset_save(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> CmdResult<PresetOperationResult> {
+    let preset_file = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .set_file_name("preset.json")
-        .add_filter("ElementNote Preset", &["json"])
-        .save_file();
+        .save_file()
+        .await;
 
-    let Some(path) = preset_path else {
+    let Some(file) = preset_file else {
         return Ok(PresetOperationResult {
             success: false,
             error: None,
         });
     };
+    let path = file.path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || preset_save_from_path(app, path))
+        .await
+        .map_err(|error| CommandError::msg(format!("preset export task failed: {error}")))?
+}
+
+fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
+    let state = app.state::<AppState>();
 
     let snapshot = state.store.snapshot();
     let used_font_families = collect_used_font_families(
         &snapshot.key_positions,
         &snapshot.stat_positions,
         &snapshot.graph_positions,
+        &snapshot.knob_positions,
     );
     let (font_settings, embedded_local_fonts) =
         build_preset_font_payload(&snapshot.font_settings, &used_font_families)?;
-    let (key_positions, stat_positions, graph_positions, knob_positions, embedded_local_images) =
-        build_preset_image_payload(
-            &snapshot.key_positions,
-            &snapshot.stat_positions,
-            &snapshot.graph_positions,
-            &snapshot.knob_positions,
+    let (
+        key_positions,
+        stat_positions,
+        graph_positions,
+        knob_positions,
+        sprite_positions,
+        embedded_local_images,
+    ) = build_preset_image_payload(
+        &snapshot.key_positions,
+        &snapshot.stat_positions,
+        &snapshot.graph_positions,
+        &snapshot.knob_positions,
+        &snapshot.sprite_positions,
+    )?;
+    let (key_positions, stat_positions, graph_positions, knob_positions, embedded_local_sounds) =
+        build_preset_sound_payload(
+            &key_positions,
+            &stat_positions,
+            &graph_positions,
+            &knob_positions,
         )?;
-    let (key_positions, stat_positions, graph_positions, embedded_local_sounds) =
-        build_preset_sound_payload(&key_positions, &stat_positions, &graph_positions)?;
 
     let preset = PresetFile {
         keys: Some(snapshot.keys),
@@ -62,35 +88,32 @@ pub fn preset_save(state: State<'_, AppState>) -> CmdResult<PresetOperationResul
         stat_positions: Some(stat_positions),
         graph_positions: Some(graph_positions),
         knob_positions: Some(knob_positions),
+        sprite_positions: Some(sprite_positions),
         background_color: Some(snapshot.background_color),
         note_settings: Some(snapshot.note_settings),
         note_effect: Some(snapshot.note_effect),
         laboratory_enabled: Some(snapshot.laboratory_enabled),
-        tabs: Some(snapshot.tabs),
-        selected_key_type: Some(snapshot.selected_key_type),
+        custom_tabs: Some(snapshot.custom_tabs),
         selected_viewer_tabs: Some(snapshot.selected_viewer_tabs),
+        tab_order: Some(snapshot.tab_order),
+        bar_count: Some(snapshot.bar_count),
+        selected_key_type: Some(snapshot.selected_key_type),
         use_custom_css: Some(snapshot.use_custom_css),
         custom_css: Some(snapshot.custom_css),
         use_custom_js: Some(snapshot.use_custom_js),
         custom_js: Some(snapshot.custom_js),
         font_settings: Some(font_settings),
-        tab_note_overrides: {
-            let overrides = snapshot.tab_note_overrides;
-            if overrides.is_empty() {
-                None
-            } else {
-                Some(overrides)
-            }
-        },
-        tab_css_overrides: (!snapshot.tab_css_overrides.is_empty())
-            .then_some(snapshot.tab_css_overrides),
+        // 현재 형식은 빈 맵도 명시해 "필드 없음(과거 버전)"과 "비우기"를 구분
+        tab_note_overrides: Some(snapshot.tab_note_overrides),
+        layer_groups: Some(snapshot.layer_groups),
+        tab_css_overrides: Some(snapshot.tab_css_overrides),
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
     };
 
     let json = serde_json::to_string_pretty(&preset)?;
-    fs::write(&path, json)?;
+    write_preset_file(&path, &json)?;
 
     Ok(PresetOperationResult {
         success: true,
@@ -99,18 +122,29 @@ pub fn preset_save(state: State<'_, AppState>) -> CmdResult<PresetOperationResul
 }
 
 #[tauri::command]
-pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationResult> {
-    let preset_path = FileDialog::new()
+pub async fn preset_save_tab(
+    app: AppHandle,
+    window: WebviewWindow,
+) -> CmdResult<PresetOperationResult> {
+    let preset_file = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .set_file_name("preset-tab.json")
-        .add_filter("ElementNote Preset", &["json"])
-        .save_file();
+        .save_file()
+        .await;
 
-    let Some(path) = preset_path else {
+    let Some(file) = preset_file else {
         return Ok(PresetOperationResult {
             success: false,
             error: None,
         });
     };
+    let path = file.path().to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || preset_save_tab_from_path(app, path))
+        .await
+        .map_err(|error| CommandError::msg(format!("tab preset export task failed: {error}")))?
+}
+
+fn preset_save_tab_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
+    let state = app.state::<AppState>();
 
     let snapshot = state.store.snapshot();
     let tab_id = snapshot.selected_key_type.clone();
@@ -132,32 +166,45 @@ pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationR
     if let Some(positions) = snapshot.knob_positions.get(&tab_id) {
         tab_knob_positions.insert(tab_id.clone(), positions.clone());
     }
+    let mut tab_sprite_positions: SpritePositions = HashMap::new();
+    if let Some(positions) = snapshot.sprite_positions.get(&tab_id) {
+        tab_sprite_positions.insert(tab_id.clone(), positions.clone());
+    }
 
     let used_font_families = collect_used_font_families(
         &tab_key_positions,
         &tab_stat_positions,
         &tab_graph_positions,
+        &tab_knob_positions,
     );
-    let (_font_settings, embedded_local_fonts) =
+    let (font_settings, embedded_local_fonts) =
         build_preset_font_payload(&snapshot.font_settings, &used_font_families)?;
     let (
         tab_key_positions,
         tab_stat_positions,
         tab_graph_positions,
         tab_knob_positions,
+        tab_sprite_positions,
         embedded_local_images,
     ) = build_preset_image_payload(
         &tab_key_positions,
         &tab_stat_positions,
         &tab_graph_positions,
         &tab_knob_positions,
+        &tab_sprite_positions,
     )?;
-    let (tab_key_positions, tab_stat_positions, tab_graph_positions, embedded_local_sounds) =
-        build_preset_sound_payload(
-            &tab_key_positions,
-            &tab_stat_positions,
-            &tab_graph_positions,
-        )?;
+    let (
+        tab_key_positions,
+        tab_stat_positions,
+        tab_graph_positions,
+        tab_knob_positions,
+        embedded_local_sounds,
+    ) = build_preset_sound_payload(
+        &tab_key_positions,
+        &tab_stat_positions,
+        &tab_graph_positions,
+        &tab_knob_positions,
+    )?;
 
     // 단일 탭 키 매핑
     let mut tab_keys: KeyMappings = HashMap::new();
@@ -165,12 +212,17 @@ pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationR
         tab_keys.insert(tab_id.clone(), keys.clone());
     }
 
-    let tabs = snapshot
-        .tabs
-        .iter()
-        .find(|tab| tab.id == tab_id)
-        .cloned()
-        .map(|tab| vec![tab]);
+    // custom_tabs: 커스텀(비내장) 탭인 경우에만 포함
+    let custom_tabs = if BUILTIN_TAB_IDS.contains(&tab_id.as_str()) {
+        None
+    } else {
+        let found = snapshot
+            .custom_tabs
+            .iter()
+            .find(|ct| ct.id == tab_id)
+            .cloned();
+        found.map(|ct| vec![ct])
+    };
 
     // tab_note_overrides: 현재 탭 항목만 포함
     let tab_note_overrides = {
@@ -178,17 +230,23 @@ pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationR
         if let Some(settings) = snapshot.tab_note_overrides.get(&tab_id) {
             m.insert(tab_id.clone(), settings.clone());
         }
-        if m.is_empty() {
-            None
-        } else {
-            Some(m)
-        }
+        Some(m)
     };
-    let tab_css_overrides = snapshot
-        .tab_css_overrides
-        .get(&tab_id)
-        .cloned()
-        .map(|css| HashMap::from([(tab_id.clone(), css)]));
+
+    let mut tab_layer_groups = LayerGroups::new();
+    tab_layer_groups.insert(
+        tab_id.clone(),
+        snapshot
+            .layer_groups
+            .get(&tab_id)
+            .cloned()
+            .unwrap_or_default(),
+    );
+
+    let mut tab_css_overrides = TabCssOverrides::new();
+    if let Some(css) = snapshot.tab_css_overrides.get(&tab_id) {
+        tab_css_overrides.insert(tab_id.clone(), css.clone());
+    }
 
     let preset = PresetFile {
         keys: Some(tab_keys),
@@ -196,27 +254,32 @@ pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationR
         stat_positions: Some(tab_stat_positions),
         graph_positions: Some(tab_graph_positions),
         knob_positions: Some(tab_knob_positions),
+        sprite_positions: Some(tab_sprite_positions),
         background_color: None,
         note_settings: None,
         note_effect: None,
         laboratory_enabled: None,
-        tabs,
+        custom_tabs,
+        selected_viewer_tabs: None,
+        tab_order: None,
+        bar_count: None,
         selected_key_type: Some(tab_id),
-        selected_viewer_tabs: Some(snapshot.selected_viewer_tabs),
         use_custom_css: None,
         custom_css: None,
         use_custom_js: None,
         custom_js: None,
-        font_settings: None,
+        // 탭이 쓰는 폰트만 포함 — 로더가 현재 폰트 목록에 병합
+        font_settings: Some(font_settings),
         tab_note_overrides,
-        tab_css_overrides,
+        layer_groups: Some(tab_layer_groups),
+        tab_css_overrides: Some(tab_css_overrides),
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
     };
 
     let json = serde_json::to_string_pretty(&preset)?;
-    fs::write(&path, json)?;
+    write_preset_file(&path, &json)?;
 
     Ok(PresetOperationResult {
         success: true,
@@ -224,17 +287,28 @@ pub fn preset_save_tab(state: State<'_, AppState>) -> CmdResult<PresetOperationR
     })
 }
 
+fn write_preset_file(path: &Path, json: &str) -> CmdResult<()> {
+    atomic_replace(path, json.as_bytes(), "preset")?;
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn write_preset_file_for_simulation(path: &Path, preset: &PresetFile) -> CmdResult<()> {
+    let json = serde_json::to_string_pretty(preset)?;
+    write_preset_file(path, &json)
+}
+
 fn collect_used_font_families(
     key_positions: &KeyPositions,
     stat_positions: &StatPositions,
     graph_positions: &GraphPositions,
+    knob_positions: &KnobPositions,
 ) -> HashSet<String> {
     let mut used = HashSet::new();
 
     for positions in key_positions.values() {
         for position in positions {
-            maybe_insert_font_family(position.font_family.as_ref(), &mut used);
-            maybe_insert_font_family(position.counter.font_family.as_ref(), &mut used);
+            collect_key_and_ghost_fonts(position, &mut used);
         }
     }
 
@@ -258,7 +332,25 @@ fn collect_used_font_families(
         }
     }
 
+    for positions in knob_positions.values() {
+        for knob_position in positions {
+            maybe_insert_font_family(knob_position.position.font_family.as_ref(), &mut used);
+            maybe_insert_font_family(
+                knob_position.position.counter.font_family.as_ref(),
+                &mut used,
+            );
+        }
+    }
+
     used
+}
+
+fn collect_key_and_ghost_fonts(position: &crate::models::KeyPosition, used: &mut HashSet<String>) {
+    maybe_insert_font_family(position.font_family.as_ref(), used);
+    maybe_insert_font_family(position.counter.font_family.as_ref(), used);
+    if let Some(ghost) = &position.ghost {
+        collect_key_and_ghost_fonts(&ghost.settings, used);
+    }
 }
 
 fn maybe_insert_font_family(value: Option<&String>, target: &mut HashSet<String>) {
@@ -341,37 +433,43 @@ fn build_preset_font_payload(
     ))
 }
 
-fn build_preset_image_payload(
+pub(super) fn build_preset_image_payload(
     key_positions: &KeyPositions,
     stat_positions: &StatPositions,
     graph_positions: &GraphPositions,
     knob_positions: &KnobPositions,
+    sprite_positions: &SpritePositions,
 ) -> CmdResult<(
     KeyPositions,
     StatPositions,
     GraphPositions,
     KnobPositions,
+    SpritePositions,
     Vec<EmbeddedLocalImage>,
 )> {
     let mut exported_key_positions = key_positions.clone();
     let mut exported_stat_positions = stat_positions.clone();
     let mut exported_graph_positions = graph_positions.clone();
     let mut exported_knob_positions = knob_positions.clone();
+    let mut exported_sprite_positions = sprite_positions.clone();
     let mut embedded_local_images = Vec::new();
     let mut path_to_image_id: HashMap<String, String> = HashMap::new();
 
     for positions in exported_key_positions.values_mut() {
         for position in positions.iter_mut() {
-            rewrite_position_image_reference(
-                &mut position.active_image,
-                &mut embedded_local_images,
-                &mut path_to_image_id,
-            )?;
-            rewrite_position_image_reference(
-                &mut position.inactive_image,
-                &mut embedded_local_images,
-                &mut path_to_image_id,
-            )?;
+            for_each_key_and_ghost_mut(position, &mut |position| {
+                rewrite_position_image_reference(
+                    &mut position.active_image,
+                    &mut embedded_local_images,
+                    &mut path_to_image_id,
+                )?;
+                rewrite_position_image_reference(
+                    &mut position.inactive_image,
+                    &mut embedded_local_images,
+                    &mut path_to_image_id,
+                )?;
+                Ok(())
+            })?;
         }
     }
 
@@ -420,11 +518,33 @@ fn build_preset_image_payload(
         }
     }
 
+    for sprites in exported_sprite_positions.values_mut() {
+        for sprite in sprites {
+            rewrite_coupled_sprite_image_reference(sprite, |image_ref| {
+                rewrite_position_image_reference(
+                    image_ref,
+                    &mut embedded_local_images,
+                    &mut path_to_image_id,
+                )
+            })?;
+            for pose in &mut sprite.poses {
+                rewrite_coupled_sprite_image_reference(pose, |image_ref| {
+                    rewrite_position_image_reference(
+                        image_ref,
+                        &mut embedded_local_images,
+                        &mut path_to_image_id,
+                    )
+                })?;
+            }
+        }
+    }
+
     Ok((
         exported_key_positions,
         exported_stat_positions,
         exported_graph_positions,
         exported_knob_positions,
+        exported_sprite_positions,
         embedded_local_images,
     ))
 }
@@ -462,6 +582,11 @@ fn rewrite_position_image_reference(
         return Ok(());
     };
     if !source_path.exists() {
+        // 실물 없는 참조는 임베드 불가 — 진단용 흔적만 남김
+        log::warn!(
+            "[Preset] Skipping image embed for a file missing on this machine: {}",
+            source_path.display()
+        );
         return Ok(());
     }
 
@@ -494,29 +619,35 @@ fn rewrite_position_image_reference(
     Ok(())
 }
 
-fn build_preset_sound_payload(
+pub(super) fn build_preset_sound_payload(
     key_positions: &KeyPositions,
     stat_positions: &StatPositions,
     graph_positions: &GraphPositions,
+    knob_positions: &KnobPositions,
 ) -> CmdResult<(
     KeyPositions,
     StatPositions,
     GraphPositions,
+    KnobPositions,
     Vec<EmbeddedLocalSound>,
 )> {
     let mut exported_key_positions = key_positions.clone();
     let mut exported_stat_positions = stat_positions.clone();
     let mut exported_graph_positions = graph_positions.clone();
+    let mut exported_knob_positions = knob_positions.clone();
     let mut embedded_local_sounds = Vec::new();
     let mut path_to_sound_id: HashMap<String, String> = HashMap::new();
 
     for positions in exported_key_positions.values_mut() {
         for position in positions.iter_mut() {
-            rewrite_position_sound_reference(
-                &mut position.sound_path,
-                &mut embedded_local_sounds,
-                &mut path_to_sound_id,
-            )?;
+            for_each_key_and_ghost_mut(position, &mut |position| {
+                rewrite_position_sound_reference(
+                    &mut position.sound_path,
+                    &mut embedded_local_sounds,
+                    &mut path_to_sound_id,
+                )?;
+                Ok(())
+            })?;
         }
     }
 
@@ -540,10 +671,21 @@ fn build_preset_sound_payload(
         }
     }
 
+    for positions in exported_knob_positions.values_mut() {
+        for knob_position in positions.iter_mut() {
+            rewrite_position_sound_reference(
+                &mut knob_position.position.sound_path,
+                &mut embedded_local_sounds,
+                &mut path_to_sound_id,
+            )?;
+        }
+    }
+
     Ok((
         exported_key_positions,
         exported_stat_positions,
         exported_graph_positions,
+        exported_knob_positions,
         embedded_local_sounds,
     ))
 }
@@ -563,6 +705,8 @@ fn rewrite_position_sound_reference(
 
     let source_path = PathBuf::from(trimmed);
     if !source_path.is_absolute() || !source_path.exists() {
+        // 실물 없는 참조는 임베드 불가 — 진단용 흔적만 남김
+        log::warn!("[Preset] Skipping sound embed for a missing or non-absolute path: {trimmed}");
         return Ok(());
     }
 
@@ -593,4 +737,129 @@ fn rewrite_position_sound_reference(
     path_to_sound_id.insert(source_key, sound_id.clone());
     *sound_ref = Some(format!("{PRESET_LOCAL_SOUND_PREFIX}{sound_id}"));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{KeyPosition, KnobPosition};
+
+    #[test]
+    fn image_payload_embeds_percent_encoded_file_url() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "dmnote-preset-image-url-save-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let image_path = temp_dir.join("image with space.png");
+        std::fs::write(&image_path, b"image-bytes").unwrap();
+        let image_url = url::Url::from_file_path(&image_path).unwrap().to_string();
+        assert!(image_url.contains("%20"));
+
+        let position = KeyPosition {
+            active_image: Some(image_url),
+            ..KeyPosition::default()
+        };
+        let key_positions = KeyPositions::from([("4key".to_string(), vec![position])]);
+
+        let (exported, _, _, _, _, embedded) = build_preset_image_payload(
+            &key_positions,
+            &StatPositions::new(),
+            &GraphPositions::new(),
+            &KnobPositions::new(),
+            &SpritePositions::new(),
+        )
+        .unwrap();
+
+        assert_eq!(embedded.len(), 1);
+        assert_eq!(
+            BASE64_STANDARD.decode(&embedded[0].data_base64).unwrap(),
+            b"image-bytes"
+        );
+        assert_eq!(
+            exported["4key"][0].active_image.as_deref(),
+            Some(format!("{PRESET_LOCAL_IMAGE_PREFIX}{}", embedded[0].image_id).as_str())
+        );
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn sound_payload_embeds_knob_sound() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "dmnote-preset-knob-save-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let sound_path = temp_dir.join("knob.wav");
+        std::fs::write(&sound_path, b"knob-sound").unwrap();
+
+        let position = KeyPosition {
+            sound_path: Some(sound_path.to_string_lossy().to_string()),
+            ..KeyPosition::default()
+        };
+        let mut knob_positions = KnobPositions::new();
+        knob_positions.insert(
+            "4key".to_string(),
+            vec![KnobPosition {
+                axis_id: "axis".to_string(),
+                sensitivity: 1.0,
+                reverse: false,
+                position,
+            }],
+        );
+
+        let (_, _, _, exported_knobs, embedded) = build_preset_sound_payload(
+            &KeyPositions::new(),
+            &StatPositions::new(),
+            &GraphPositions::new(),
+            &knob_positions,
+        )
+        .unwrap();
+
+        assert_eq!(embedded.len(), 1);
+        let sound_ref = exported_knobs["4key"][0]
+            .position
+            .sound_path
+            .as_deref()
+            .unwrap();
+        let sound_id = sound_ref.strip_prefix(PRESET_LOCAL_SOUND_PREFIX).unwrap();
+        assert_eq!(sound_id, embedded[0].sound_id);
+        assert_eq!(
+            BASE64_STANDARD.decode(&embedded[0].data_base64).unwrap(),
+            b"knob-sound"
+        );
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    // 단독 실행: cargo test --lib commands::preset::save::tests::preset_atomic_write_survives_file_size_limit -- --ignored --exact
+    #[cfg(unix)]
+    #[test]
+    #[ignore = "RLIMIT_FSIZE는 프로세스 전역이므로 단독 실행"]
+    fn preset_atomic_write_survives_file_size_limit() {
+        use crate::state::atomic_file::test_support::FileSizeLimit;
+
+        let temp_dir = std::env::temp_dir().join(format!(
+            "dmnote-preset-rlimit-test-{}",
+            uuid::Uuid::new_v4()
+        ));
+        std::fs::create_dir_all(&temp_dir).unwrap();
+        let path = temp_dir.join("preset.json");
+        let original = vec![b'o'; 512];
+        std::fs::write(&path, &original).unwrap();
+
+        {
+            let _limit = FileSizeLimit::set(1_024);
+            let oversized = "x".repeat(4_096);
+            assert!(write_preset_file(&path, &oversized).is_err());
+            assert_eq!(std::fs::read(&path).unwrap(), original);
+        }
+
+        assert!(!std::fs::read_dir(&temp_dir).unwrap().any(|entry| {
+            entry
+                .ok()
+                .and_then(|entry| entry.file_name().into_string().ok())
+                .is_some_and(|name| name.ends_with(".tmp"))
+        }));
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
 }

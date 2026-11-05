@@ -26,7 +26,11 @@ Commands:
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
   desktop-native-check  Check/test/clippy native backend without installing
+  desktop-native-test   Run native tests, optionally filtered by test name
+  desktop-deps  Install locked npm dependencies and fetch native dependencies
   desktop-message-test  Run message/session application regressions
+  desktop-visual-check  Verify the unchanged v1 key-viewer appearance baselines
+  desktop-test [filter...]  Run frontend unit regressions, optionally filtered
   desktop-native-format  Format the changed native message boundaries
   desktop-format  Format the changed frontend message boundaries
   desktop-licenses  Generate bundled source and dependency notices
@@ -94,7 +98,7 @@ case "$command_name" in
   ipc-sync)
     exec node "$SCRIPTS_DIR/tasks/verify/sync-adofai-ipc.mjs" "${2:-}" "${3:-}"
     ;;
-  desktop-check|desktop-frontend-check|desktop-ipc-format|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-format|desktop-licenses|desktop-native-check|desktop-native-format)
+  desktop-check|desktop-frontend-check|desktop-ipc-format|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-visual-check|desktop-test|desktop-deps|desktop-format|desktop-licenses|desktop-native-check|desktop-native-test|desktop-native-format)
     exec "$SCRIPTS_DIR/workflows/desktop-render.sh" "$command_name" "${@:2}"
     ;;
   help|-h|--help)

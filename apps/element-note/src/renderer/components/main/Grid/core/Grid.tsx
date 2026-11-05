@@ -33,6 +33,9 @@ import KeyCounterPreviewLayer from '../layers/KeyCounterPreviewLayer';
 import StatCounterLayer from '../layers/StatCounterLayer';
 import GraphItem from '../layers/GraphItem';
 import KnobItem from '../layers/KnobItem';
+import SpriteRuntimeLayer from '@components/shared/SpriteRuntimeLayer';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
+import { useSpriteEditor } from '@hooks/Grid/useSpriteEditor';
 import {
   useGridSelectionStore,
   isElementInMarquee,
@@ -72,7 +75,7 @@ import {
 
 type ToolbarAddRequest = {
   id: number;
-  type: 'key' | 'stat' | 'graph' | 'knob';
+  type: 'key' | 'stat' | 'graph' | 'knob' | 'sprite';
 } | null;
 
 interface SelectedKeyInfo {
@@ -297,6 +300,8 @@ const Grid = ({
   const statPositions = useStatItemStore((state) => state.positions);
   const graphPositions = useGraphItemStore((state) => state.positions);
   const knobPositions = useKnobItemStore((state) => state.positions);
+  const spritePositions = useSpriteStore((state) => state.positions);
+  const spriteEditor = useSpriteEditor();
 
   // 선택 관련 로직 훅 사용
   const {
@@ -634,9 +639,11 @@ const Grid = ({
     };
 
     const defaultSize =
-      toolbarAddRequest.type === 'graph'
-        ? { width: 120, height: 60 }
-        : { width: 60, height: 60 };
+      toolbarAddRequest.type === 'sprite'
+        ? { width: 200, height: 200 }
+        : toolbarAddRequest.type === 'graph'
+          ? { width: 120, height: 60 }
+          : { width: 60, height: 60 };
     const targetPos = getViewportCenterSnappedPosition(
       defaultSize.width,
       defaultSize.height,
@@ -650,6 +657,8 @@ const Grid = ({
         addGraphAtPosition(targetPos.dx, targetPos.dy);
       } else if (toolbarAddRequest.type === 'knob') {
         addKnobAtPosition(targetPos.dx, targetPos.dy);
+      } else if (toolbarAddRequest.type === 'sprite') {
+        spriteEditor.openCreate(selectedKeyType, targetPos);
       }
     }
 
@@ -1562,6 +1571,43 @@ const Grid = ({
         {renderStatItems()}
         {renderGraphItems()}
         {renderKnobItems()}
+        <SpriteRuntimeLayer
+          sprites={spritePositions[selectedKeyType] ?? []}
+          positions={positions[selectedKeyType] ?? []}
+          keys={keyMappings[selectedKeyType] ?? []}
+          mode={selectedKeyType}
+        />
+        {(spritePositions[selectedKeyType] ?? [])
+          .filter((sprite) => !sprite.hidden)
+          .map((sprite, index) => (
+            <button
+              key={`sprite-edit-${sprite.id}`}
+              type="button"
+              aria-label={`${t('contextMenu.editSprite')}: ${sprite.layerName || index + 1}`}
+              title={t('contextMenu.editSprite')}
+              className="absolute border-0 bg-transparent p-0 hover:outline hover:outline-1 hover:outline-[var(--ui-selection-border)] focus-visible:outline focus-visible:outline-2"
+              style={{
+                left: sprite.dx,
+                top: sprite.dy,
+                width: sprite.width,
+                height: sprite.height,
+                transform: sprite.rotation
+                  ? `rotate(${sprite.rotation}deg)`
+                  : undefined,
+                zIndex: sprite.zIndex ?? index,
+              }}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                spriteEditor.openEdit(selectedKeyType, sprite);
+              }}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                spriteEditor.openEdit(selectedKeyType, sprite);
+              }}
+            />
+          ))}
         {/* Outside 카운터 미리보기 레이어 */}
         {keyCounterEnabled && (
           <KeyCounterPreviewLayer
@@ -2165,6 +2211,13 @@ const Grid = ({
               addGraphAtPosition(gridAddLocalPos.dx, gridAddLocalPos.dy);
             } else if (id === 'addKnob' && gridAddLocalPos) {
               addKnobAtPosition(gridAddLocalPos.dx, gridAddLocalPos.dy);
+            } else if (id === 'addSprite' && gridAddLocalPos) {
+              spriteEditor.openCreate(selectedKeyType, gridAddLocalPos);
+            } else if (id.startsWith('editSprite:')) {
+              const sprite = spritePositions[selectedKeyType]?.find(
+                (item) => item.id === id.slice('editSprite:'.length),
+              );
+              if (sprite) spriteEditor.openEdit(selectedKeyType, sprite);
             } else if (id === 'tabCss') {
               setIsTabCssModalOpen(true);
             } else if (id === 'tabNote') {
@@ -2228,6 +2281,7 @@ const Grid = ({
       {/* 줌 레벨 표시 - 미니맵 내부로 통합됨 */}
       {/* <ZoomIndicator zoom={zoom} /> */}
       {/* 탭 CSS 설정 모달 */}
+      {spriteEditor.modal}
       <TabCssModal
         isOpen={isTabCssModalOpen}
         onClose={() => setIsTabCssModalOpen(false)}

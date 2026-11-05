@@ -1,20 +1,48 @@
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, WebviewWindow};
 
-use crate::{errors::CmdResult, models::KnobPositions, state::AppState};
+use crate::{
+    commands::{
+        editor::state::{emit_best_effort, publish_legacy_editor_change},
+        run_blocking, run_history_mutation,
+    },
+    errors::CmdResult,
+    models::{EditorCommitOrigin, EditorField, KnobPositions},
+};
 
 #[tauri::command]
-pub fn knob_positions_get(state: State<'_, AppState>) -> CmdResult<KnobPositions> {
-    Ok(state.store.snapshot().knob_positions)
+pub async fn knob_positions_get(app: AppHandle) -> CmdResult<KnobPositions> {
+    run_blocking(app, |_, state| Ok(state.store.snapshot().knob_positions)).await
 }
 
 #[tauri::command]
-pub fn knob_positions_update(
-    state: State<'_, AppState>,
+pub async fn knob_positions_update(
     app: AppHandle,
+    window: WebviewWindow,
     positions: KnobPositions,
 ) -> CmdResult<KnobPositions> {
-    let updated = state.store.update_knob_positions(positions)?;
-    app.emit("knobPositions:changed", &updated)?;
-    state.refresh_obs_snapshot();
-    Ok(updated)
+    run_history_mutation(
+        app,
+        window.label().to_string(),
+        move |app, state, admission| {
+            let transaction = state
+                .store
+                .commit_legacy_editor_transaction_with_admission(
+                    EditorCommitOrigin::LegacyAdapter("knob_positions_update".to_string()),
+                    &[EditorField::KnobPositions],
+                    admission,
+                    move |store| {
+                        store.knob_positions = positions;
+                        Ok(())
+                    },
+                )?;
+            publish_legacy_editor_change(state, app, &transaction.change);
+            let updated = transaction.change.document.knob_positions;
+            emit_best_effort(app, "knobPositions:changed", &updated);
+            if transaction.change.event.is_none() {
+                state.refresh_obs_snapshot();
+            }
+            Ok(updated)
+        },
+    )
+    .await
 }

@@ -36,6 +36,8 @@ const StatItem = React.memo(
       activeImageSrc,
       currentImageSrc,
       hasCurrentImage,
+      imageReplaces,
+      borderRingStyle,
       isTransparent,
       labelText,
     } = computeKeyElementStyles({ position, active, label: label || '' });
@@ -64,7 +66,16 @@ const StatItem = React.memo(
         style={keyStyle}
         data-state={active ? 'active' : 'inactive'}
       >
-        {hasCurrentImage ? (
+        {borderRingStyle && <span aria-hidden="true" style={borderRingStyle} />}
+        {hasCurrentImage && !imageReplaces && (
+          <img
+            src={currentImageSrc || ''}
+            alt=""
+            style={imageStyle}
+            draggable={false}
+          />
+        )}
+        {imageReplaces ? (
           <img
             src={currentImageSrc!}
             alt=""

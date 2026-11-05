@@ -31,16 +31,18 @@ export async function persistPositionsWithSync(
 /**
  * mappings + positions 변경을 동시에 백엔드에 반영
  */
-export function persistMappingsAndPositions(
+export async function persistMappingsAndPositions(
   mappings: KeyMappings,
   positions: KeyPositions,
-): void {
-  Promise.all([
-    window.api.keys.update(mappings),
-    window.api.keys.updatePositions(positions),
-  ]).catch((error) => {
-    console.error('Failed to persist key data', error);
-  });
+): Promise<void> {
+  await window.api.editor
+    .commitChanges({
+      keys: mappings,
+      keyPositions: positions,
+    })
+    .catch((error) => {
+      console.error('Failed to persist key data', error);
+    });
 }
 
 /**

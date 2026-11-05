@@ -4,6 +4,10 @@ TASK_REPOSITORY="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TASK_DESKTOP="$TASK_REPOSITORY/apps/element-note"
 cd "$TASK_DESKTOP"
 case "${1:-}" in
+  desktop-deps)
+    npm ci --no-audit --no-fund
+    cargo fetch --manifest-path src-tauri/Cargo.toml
+    ;;
   desktop-ipc-format)
     npm exec -- prettier --write src/renderer/infrastructure/ipc/sdkMessagePort.ts src/renderer/infrastructure/ipc/sdkMessagePort.test.ts src/renderer/infrastructure/ipc/sdkTransport.test.ts
     ;;
@@ -22,9 +26,20 @@ case "${1:-}" in
     cargo clippy --offline --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
     ;;
   desktop-native-format)
+    if [ "$#" -gt 1 ]; then
+      rustfmt --edition 2021 "${@:2}"
+      exit
+    fi
     rustfmt --edition 2021 src-tauri/src/commands/app/adofai_ipc.rs src-tauri/src/commands/app/native_viewers.rs src-tauri/src/services/native_viewers.rs src-tauri/src/services/obs_bridge.rs src-tauri/src/services/render/mod.rs
     ;;
+  desktop-native-test)
+    cargo test --offline --manifest-path src-tauri/Cargo.toml "${@:2}"
+    ;;
   desktop-native-check)
+    if [ "${2:-}" = "--check-only" ]; then
+      cargo check --offline --manifest-path src-tauri/Cargo.toml
+      exit
+    fi
     if [ "${2:-}" != "--clippy-only" ]; then
       cargo check --offline --manifest-path src-tauri/Cargo.toml
       cargo test --offline --manifest-path src-tauri/Cargo.toml
@@ -34,7 +49,17 @@ case "${1:-}" in
   desktop-message-test)
     npm exec -- vitest run src/renderer/infrastructure/ipc/sdkMessagePort.test.ts src/renderer/infrastructure/ipc/sdkTransport.test.ts src/renderer/application/connectionSupervisor.test.ts src/renderer/ipc/keyLimiterIpcCoordinator.test.ts src/renderer/nativeViewers/nativeViewerIpcCoordinator.test.ts src/renderer/api/obsViewer.test.ts src/renderer/api/viewerLayout.test.ts src/renderer/render/renderIpcCoordinator.test.ts src/renderer/ipc/keyLimiterSnapshot.test.ts
     ;;
+  desktop-visual-check)
+    npm run test:visual
+    ;;
+  desktop-test)
+    npm exec -- vitest run "${@:2}"
+    ;;
   desktop-format)
+    if [ "$#" -gt 1 ]; then
+      npm exec -- prettier --write "${@:2}"
+      exit
+    fi
     npm exec -- prettier --write src/renderer/application src/renderer/bootstrap src/renderer/infrastructure src/renderer/ipc src/renderer/nativeViewers src/renderer/api/ipcShim.ts src/renderer/api/obsViewer.ts src/renderer/api/obsViewer.test.ts src/renderer/api/viewerLayout.ts src/renderer/api/viewerLayout.test.ts src/renderer/windows/obs/index.tsx src/renderer/windows/overlay/App.tsx src/renderer/render/renderIpcCoordinator.ts src/renderer/render/renderIpcCoordinator.test.ts src/renderer/__tests__/fakeMessagePort.ts src/renderer/hooks/app/useKeyLimiterSync.ts src/renderer/hooks/app/useKeyLimiterSync.test.ts src/renderer/windows/main/index.tsx src/renderer/stores/useKeyLimiterStatusStore.ts src/renderer/stores/useKeyLimiterStatusStore.test.ts src/renderer/render/virtual-clock.test.ts src/renderer/render/virtual-clock.mjs src/renderer/hooks/overlay/useNoteSystem.test.ts src/renderer/utils/core/styleElement.ts src/renderer/hooks/app/useCustomCssInjection.ts src/renderer/stores/useFontStore.ts src/renderer/windows/render/index.mjs
     ;;
   desktop-licenses)

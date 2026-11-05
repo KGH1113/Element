@@ -1,6 +1,6 @@
 // OBS WebSocket 프로토콜 타입
 
-export const OBS_PROTOCOL_VERSION = 1;
+export const OBS_PROTOCOL_VERSION = 2;
 export const DEFAULT_OBS_PORT = 34891;
 
 export interface ObsEnvelope<T = unknown> {
@@ -26,7 +26,7 @@ export interface HelloPayload {
 export interface HelloAckPayload {
   serverVersion: string;
   obsMode: boolean;
-  denyList?: string[];
+  allowedList?: string[];
 }
 
 export interface ObsStatus {

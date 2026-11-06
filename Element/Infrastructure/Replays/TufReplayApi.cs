@@ -1,47 +1,46 @@
 using System;
 using System.Reflection;
-using Element.Application;
 
-namespace Element.Infrastructure.Rendering;
+namespace Element.Infrastructure.Replays;
 
 /// <summary>
-/// OrbitRender's overlay API, bound by reflection so Element runs without it.
-/// OrbitRender may load before or after Element. Unity main thread.
+/// TUFReplay's replay API, bound by reflection so Element runs without TUFReplay.
+/// TUFReplay may load before or after Element. Unity main thread.
 /// </summary>
-internal sealed class OrbitRenderApi : IRenderVideo, IDisposable
+/// <remarks>
+/// TUFReplay calls a registered provider's public methods by name: it saves what
+/// <c>CaptureRunState</c> returns with every run it records, and calls <c>OnReplayBegin</c>,
+/// <c>OnReplayKey</c> and the others when it replays a run in the game or renders it to video.
+/// See TUFReplay's docs/replay-api.md.
+/// </remarks>
+internal sealed class TufReplayApi : IDisposable
 {
-  private const string AssemblyName = "OrbitRender";
-  private const string TypeName = "OrbitRender.OverlayApi";
+  private const string AssemblyName = "TUFReplay";
+  private const string TypeName = "TUFReplay.ReplayApi";
   private const int RequiredApiVersion = 1;
   private const BindingFlags Static = BindingFlags.Public | BindingFlags.Static;
 
   private MethodInfo _register;
   private MethodInfo _unregister;
   private MethodInfo _isRegistered;
-  private Func<bool> _isRendering;
-  private PropertyInfo _width;
-  private PropertyInfo _height;
-  private PropertyInfo _videoTicks;
+  private Func<int> _renderWidth;
+  private Func<int> _renderHeight;
 
   // Set on whatever thread loads an assembly; the next main-thread resolve reads it.
   private volatile bool _lookAgain = true;
   private bool _disposed;
 
-  public OrbitRenderApi() => AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+  public TufReplayApi() => AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
 
   public bool Resolved => _register != null;
 
-  // A compiled getter, not reflection: the overlay reads this every frame.
-  /// <summary>False when OrbitRender is not loaded, so plays count as usual.</summary>
-  public bool IsRendering => Call(_isRendering);
+  /// <summary>The video's width while TUFReplay renders a run, otherwise 0.</summary>
+  public int RenderWidth => Call(_renderWidth);
 
-  public int Width => Read(_width) is int value ? value : 0;
-  public int Height => Read(_height) is int value ? value : 0;
+  /// <summary>The video's height while TUFReplay renders a run, otherwise 0.</summary>
+  public int RenderHeight => Call(_renderHeight);
 
-  /// <summary>The replay's video time in 100 ns units, or null outside a replay render.</summary>
-  public long? VideoTicks => Read(_videoTicks) is long value ? value : null;
-
-  /// <summary>Binds the API once OrbitRender is loaded; cheap until a new assembly loads.</summary>
+  /// <summary>Binds the API once TUFReplay is loaded; cheap until a new assembly loads.</summary>
   public bool TryResolve()
   {
     if (Resolved)
@@ -50,11 +49,15 @@ internal sealed class OrbitRenderApi : IRenderVideo, IDisposable
       return false;
     _lookAgain = false;
     foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-      if (IsOrbitRender(assembly) && Bind(assembly.GetType(TypeName, false)))
+      if (IsTufReplay(assembly) && Bind(assembly.GetType(TypeName, false)))
         return true;
     return false;
   }
 
+  /// <summary>
+  /// Registers <paramref name="provider"/>. False when TUFReplay refused it; TUFReplay then
+  /// writes the reason to the mod log.
+  /// </summary>
   public bool Register(string id, object provider) => Invoke(_register, id, provider) is true;
 
   public bool IsRegistered(string id) => Invoke(_isRegistered, id) is true;
@@ -71,7 +74,7 @@ internal sealed class OrbitRenderApi : IRenderVideo, IDisposable
 
   private void OnAssemblyLoad(object sender, AssemblyLoadEventArgs loaded)
   {
-    if (IsOrbitRender(loaded.LoadedAssembly))
+    if (IsTufReplay(loaded.LoadedAssembly))
       _lookAgain = true;
   }
 
@@ -80,19 +83,19 @@ internal sealed class OrbitRenderApi : IRenderVideo, IDisposable
     if (type?.GetField("ApiVersion", Static)?.GetValue(null) is not int version || version < RequiredApiVersion)
       return false;
     MethodInfo register = type.GetMethod("Register", Static, null, new[] { typeof(string), typeof(object) }, null);
-    if (register == null)
+    MethodInfo unregister = type.GetMethod("Unregister", Static, null, new[] { typeof(string) }, null);
+    MethodInfo isRegistered = type.GetMethod("IsRegistered", Static, null, new[] { typeof(string) }, null);
+    if (register == null || unregister == null || isRegistered == null)
       return false;
-    _unregister = type.GetMethod("Unregister", Static, null, new[] { typeof(string) }, null);
-    _isRegistered = type.GetMethod("IsRegistered", Static, null, new[] { typeof(string) }, null);
-    _isRendering = Getter<bool>(type, "IsRendering");
-    _width = type.GetProperty("Width", Static);
-    _height = type.GetProperty("Height", Static);
-    _videoTicks = type.GetProperty("VideoTicks", Static);
+    _unregister = unregister;
+    _isRegistered = isRegistered;
+    _renderWidth = Getter<int>(type, "RenderWidth");
+    _renderHeight = Getter<int>(type, "RenderHeight");
     _register = register;
     return true;
   }
 
-  private static bool IsOrbitRender(Assembly assembly)
+  private static bool IsTufReplay(Assembly assembly)
   {
     try
     {
@@ -111,27 +114,15 @@ internal sealed class OrbitRenderApi : IRenderVideo, IDisposable
     return getter?.ReturnType == typeof(T) ? (Func<T>)Delegate.CreateDelegate(typeof(Func<T>), getter, false) : null;
   }
 
-  private static bool Call(Func<bool> getter)
+  private static int Call(Func<int> getter)
   {
     try
     {
-      return getter != null && getter();
+      return getter?.Invoke() ?? 0;
     }
     catch (Exception)
     {
-      return false;
-    }
-  }
-
-  private static object Read(PropertyInfo property)
-  {
-    try
-    {
-      return property?.GetValue(null);
-    }
-    catch (Exception)
-    {
-      return null;
+      return 0;
     }
   }
 

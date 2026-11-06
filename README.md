@@ -129,12 +129,13 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 
 ```mermaid
 flowchart TB
-    ren["TUFReplay-Renderer"] -->|리플레이 렌더링| app["ElementNote"]
     subgraph game["A Dance of Fire and Ice"]
+        tr["TUFReplay"]
         mod["Element"]
         view["게임 내 키뷰어"]
     end
-    app <-->|ADOFAI-IPC| mod
+    tr -->|리플레이·렌더 ReplayApi| mod
+    app["ElementNote"] <-->|ADOFAI-IPC| mod
     app -->|키뷰어 화면| view
 
     classDef accent fill:#ba712b,stroke:#ba712b,color:#fff
@@ -158,7 +159,7 @@ flowchart TB
 - 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
 - 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
 - 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/bundled-element-note.md)
-- TUFReplay-Renderer와 연동한 리플레이 영상 렌더링
+- TUFReplay가 렌더링하는 리플레이 영상에 키뷰어를 프레임마다 그려 넣기 ([자세히](docs/orbitrender.md))
 
 ```bash
 npm install

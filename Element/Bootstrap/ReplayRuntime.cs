@@ -5,28 +5,28 @@ using Element.Infrastructure.Replays;
 namespace Element.Bootstrap;
 
 /// <summary>
-/// Element's state in TUFReplay's runs: the attempt counts and ElementNote key counts each
-/// run was played at, shown again when TUFReplay replays or renders that run. Registers with
-/// TUFReplay once it loads, and again after it is turned off and on. Unity main thread.
+/// Element in TUFReplay's runs: the attempt counts and ElementNote key counts each run was
+/// played at, shown again when TUFReplay replays or renders that run, and the overlay and key
+/// viewers in the videos it renders. Registers with TUFReplay once it loads, and again after it
+/// is turned off and on. Unity main thread.
 /// </summary>
-internal sealed class RunStateRuntime : IDisposable
+internal sealed class ReplayRuntime : IDisposable
 {
   private static readonly TimeSpan RegisterInterval = TimeSpan.FromSeconds(2);
 
-  private readonly TufReplayRunStateApi _api = new();
+  private readonly TufReplayApi _api;
   private readonly KeyValuePair<string, object>[] _providers;
   private readonly Action<string> _log;
   private DateTime _nextRegisterCheck;
   private bool _announced;
   private bool _disposed;
 
-  public RunStateRuntime(AttemptRunStateProvider attempts, KeyCountRunStateProvider keyCounts, Action<string> log)
+  /// <param name="api">TUFReplay's API; its owner disposes it.</param>
+  /// <param name="providers">Each provider by the id TUFReplay keeps it under.</param>
+  public ReplayRuntime(TufReplayApi api, KeyValuePair<string, object>[] providers, Action<string> log)
   {
-    _providers = new[]
-    {
-      new KeyValuePair<string, object>(AttemptRunStateProvider.Id, attempts),
-      new KeyValuePair<string, object>(KeyCountRunStateProvider.Id, keyCounts),
-    };
+    _api = api ?? throw new ArgumentNullException(nameof(api));
+    _providers = providers ?? throw new ArgumentNullException(nameof(providers));
     _log = log ?? (_ => { });
   }
 
@@ -48,7 +48,7 @@ internal sealed class RunStateRuntime : IDisposable
     if (registered && !_announced)
     {
       _announced = true;
-      _log("[TUFReplay] Element's attempts and key counts are saved with TUFReplay's runs.");
+      _log("[TUFReplay] Element follows TUFReplay's replays and renders.");
     }
   }
 
@@ -57,8 +57,9 @@ internal sealed class RunStateRuntime : IDisposable
     if (_disposed)
       return;
     _disposed = true;
+    if (!_api.Resolved)
+      return;
     foreach (KeyValuePair<string, object> provider in _providers)
       _api.Unregister(provider.Key);
-    _api.Dispose();
   }
 }

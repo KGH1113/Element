@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Element.Application;
 using Element.Application.Rendering;
 using Element.Domain.DmNote;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Rendering;
+using Element.Infrastructure.Replays;
 using Element.Presentation.Rendering;
 using Element.Presentation.Settings;
 using UnityEngine;
@@ -12,101 +14,164 @@ using UnityEngine;
 namespace Element.Bootstrap;
 
 /// <summary>
-/// Element in OrbitRender's renders: the overlay in every render, and in replay
-/// renders ElementNote's key viewers, drawn frame by frame from the recorded
-/// keys. Plays OrbitRender renders stay out of the attempt count.
+/// Element in the videos TUFReplay renders: the overlay, and ElementNote's key viewers drawn
+/// frame by frame from the run's recorded keys. Plays in any offline render stay out of the
+/// attempt count. Normal renders find the overlay on their own and show no key viewers.
 /// </summary>
 internal sealed class RenderRuntime : IRenderOverlay, IDisposable
 {
-  private const string ProviderId = "Element";
-  private const string SkipRuleOwner = "OrbitRender";
-  private static readonly TimeSpan RegisterInterval = TimeSpan.FromSeconds(2);
+  private const string SkipRuleOwner = "OfflineRender";
 
   // ElementNote opens its pages and loads fonts before the first frame.
   private static readonly TimeSpan BeginTimeout = TimeSpan.FromSeconds(30);
   private static readonly TimeSpan FrameTimeout = TimeSpan.FromSeconds(15);
 
-  private readonly OrbitRenderApi _api;
-  private readonly OrbitRenderProvider _provider;
+  private readonly TufReplayApi _api;
   private readonly KeyViewerRenderIpc _renders;
   private readonly KeyViewerRenderSession _session;
   private readonly Func<Canvas> _overlayCanvas;
   private readonly Func<int, int, IReadOnlyList<RenderViewerPlacement>> _placements;
   private readonly Func<bool> _appConnected;
   private readonly Action<string, string> _notify;
-  private readonly Action<string> _log;
   private readonly Action<string> _logWarning;
   private readonly RecordedKeyCounts _recordedCounts;
+  private readonly List<Canvas> _canvases = new(2);
   private RenderKeyViewerCanvas _keyViewers;
   private RenderFailure _startFailure;
+  private bool _pending;
   private bool _configured;
   private long _ticks;
-  private DateTime _nextRegisterCheck;
   private bool _disposed;
 
-  /// <param name="api">OrbitRender's API; the overlay reads it too, so its owner disposes it.</param>
+  /// <param name="api">TUFReplay's API, for the video's size; its owner disposes it.</param>
+  /// <param name="video">Whether a video is being rendered offline now.</param>
   /// <param name="placements">The key viewers to show in a video of the given size.</param>
   /// <param name="appConnected">ElementNote is connected for the in-game viewers.</param>
   /// <param name="recordedCounts">The key counts of the run TUFReplay renders, if it saved them.</param>
   public RenderRuntime(
-    OrbitRenderApi api,
+    TufReplayApi api,
+    IRenderVideo video,
     KeyViewerRenderIpc renders,
     RecordedKeyCounts recordedCounts,
     Func<Canvas> overlayCanvas,
     Func<int, int, IReadOnlyList<RenderViewerPlacement>> placements,
     Func<bool> appConnected,
     Action<string, string> notify,
-    Action<string> log,
     Action<string> logWarning
   )
   {
     _api = api ?? throw new ArgumentNullException(nameof(api));
+    if (video == null)
+      throw new ArgumentNullException(nameof(video));
     _renders = renders ?? throw new ArgumentNullException(nameof(renders));
     _overlayCanvas = overlayCanvas;
     _placements = placements;
     _appConnected = appConnected;
     _notify = notify;
-    _log = log ?? (_ => { });
     _logWarning = logWarning ?? (_ => { });
     _recordedCounts = recordedCounts;
     _session = new KeyViewerRenderSession(renders, renders.Replies);
-    _provider = new OrbitRenderProvider(this);
-    // OrbitRender plays the recorded level itself; those plays are not attempts.
-    AttemptCounter.Rules.Set(SkipRuleOwner, () => _api.IsRendering);
+    Provider = new ReplayRenderProvider(this);
+    // The renderer plays the level itself; those plays are not attempts.
+    AttemptCounter.Rules.Set(SkipRuleOwner, () => video.IsRendering);
   }
 
-  /// <summary>Unity's per-frame update: joins OrbitRender once it loads and keeps ElementNote's lease.</summary>
-  public void Tick()
-  {
-    DateTime now = DateTime.UtcNow;
-    _session.Pulse(now);
-    if (now < _nextRegisterCheck)
-      return;
-    _nextRegisterCheck = now + RegisterInterval;
-    // Registering again covers OrbitRender being turned off and on in UnityModManager.
-    if (_api.TryResolve() && !_api.IsRegistered(ProviderId) && _api.Register(ProviderId, _provider))
-      _log("[OrbitRender] Element's overlay and key viewers join OrbitRender renders.");
-  }
+  /// <summary>The object registered with TUFReplay under <see cref="ReplayRenderProvider.Id"/>.</summary>
+  public ReplayRenderProvider Provider { get; }
+
+  /// <summary>Unity's per-frame update: keeps ElementNote's lease.</summary>
+  public void Tick() => _session.Pulse(DateTime.UtcNow);
 
   public IEnumerable<Canvas> Canvases()
   {
+    StartIfPending();
+    _canvases.Clear();
     Canvas overlay = _overlayCanvas?.Invoke();
     if (overlay != null)
-      yield return overlay;
+      _canvases.Add(overlay);
     if (_keyViewers != null)
-      yield return _keyViewers.Canvas;
+      _canvases.Add(_keyViewers.Canvas);
+    return _canvases;
   }
 
-  public void Begin(bool replay)
+  // TUFReplay begins its providers one after another, so the key viewers start once the
+  // video is used: by then the run's recorded counts are in and the video has its size.
+  public void Begin()
   {
     EndKeyViewers();
     _startFailure = null;
     _ticks = 0;
-    // A normal render has no recorded keys, so the key viewers stay out of it.
-    if (!replay)
+    _pending = true;
+  }
+
+  public void Clock(long ticks)
+  {
+    _ticks = ticks;
+    StartIfPending();
+  }
+
+  public void Input(string key, bool down, long ticks) => _session.Input(key, down, ticks);
+
+  // Blocks until ElementNote has drawn this frame; the render waits, the video does not change.
+  public void BeforeCapture()
+  {
+    StartIfPending();
+    if (_keyViewers == null)
       return;
-    int width = _api.Width;
-    int height = _api.Height;
+    if (!_session.Running)
+    {
+      _keyViewers.Hide();
+      return;
+    }
+    IReadOnlyList<RenderFrame> frames = _session.Capture(_ticks, BeginTimeout, FrameTimeout);
+    if (frames == null)
+    {
+      _keyViewers.Hide();
+      return;
+    }
+    if (!_configured)
+    {
+      _keyViewers.Configure(_session.Surfaces);
+      _configured = true;
+    }
+    if (!_keyViewers.Show(frames, out string error))
+    {
+      _session.Fail(RenderFailure.FrameUnreadable, error);
+      _keyViewers.Hide();
+    }
+  }
+
+  public void End()
+  {
+    _pending = false;
+    RenderFailure failure = _startFailure ?? _session.Failure;
+    _startFailure = null;
+    _session.Stop();
+    EndKeyViewers();
+    if (failure != null)
+      Report(failure);
+  }
+
+  public void Dispose()
+  {
+    if (_disposed)
+      return;
+    _disposed = true;
+    _pending = false;
+    _session.Stop();
+    EndKeyViewers();
+    AttemptCounter.Rules.Remove(SkipRuleOwner);
+  }
+
+  private const string AppOutdated = "app-outdated";
+
+  private void StartIfPending()
+  {
+    if (!_pending)
+      return;
+    _pending = false;
+    int width = _api.RenderWidth;
+    int height = _api.RenderHeight;
     IReadOnlyList<RenderViewerPlacement> placements =
       width > 0 && height > 0 ? _placements(width, height) : Array.Empty<RenderViewerPlacement>();
     if (placements.Count == 0)
@@ -140,62 +205,6 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
     _configured = false;
   }
 
-  public void Clock(long ticks) => _ticks = ticks;
-
-  public void Input(string key, bool down, long ticks) => _session.Input(key, down, ticks);
-
-  // Blocks until ElementNote has drawn this frame; the render waits, the video does not change.
-  public void BeforeCapture()
-  {
-    if (_keyViewers == null)
-      return;
-    if (!_session.Running)
-    {
-      _keyViewers.Hide();
-      return;
-    }
-    IReadOnlyList<RenderFrame> frames = _session.Capture(_api.VideoTicks ?? _ticks, BeginTimeout, FrameTimeout);
-    if (frames == null)
-    {
-      _keyViewers.Hide();
-      return;
-    }
-    if (!_configured)
-    {
-      _keyViewers.Configure(_session.Surfaces);
-      _configured = true;
-    }
-    if (!_keyViewers.Show(frames, out string error))
-    {
-      _session.Fail(RenderFailure.FrameUnreadable, error);
-      _keyViewers.Hide();
-    }
-  }
-
-  public void End()
-  {
-    RenderFailure failure = _startFailure ?? _session.Failure;
-    _startFailure = null;
-    _session.Stop();
-    EndKeyViewers();
-    if (failure != null)
-      Report(failure);
-  }
-
-  public void Dispose()
-  {
-    if (_disposed)
-      return;
-    _disposed = true;
-    _session.Stop();
-    EndKeyViewers();
-    if (_api.Resolved)
-      _api.Unregister(ProviderId);
-    AttemptCounter.Rules.Remove(SkipRuleOwner);
-  }
-
-  private const string AppOutdated = "app-outdated";
-
   private void EndKeyViewers()
   {
     _keyViewers?.Dispose();
@@ -206,7 +215,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   // After the render: the notice must not appear in the video.
   private void Report(RenderFailure failure)
   {
-    _logWarning("[OrbitRender] Key viewers left the render (" + failure.Code + "): " + failure.Message);
+    _logWarning("[Render] Key viewers left the render (" + failure.Code + "): " + failure.Message);
     string title = failure.AfterFirstFrame
       ? SettingsLocale.L("영상 중간부터 키뷰어가 빠졌어요", "The key viewers stop partway through the video")
       : SettingsLocale.L("키뷰어 없이 렌더링했어요", "Rendered without the key viewers");

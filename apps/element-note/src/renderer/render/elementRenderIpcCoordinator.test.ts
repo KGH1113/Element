@@ -44,7 +44,7 @@ describe('Element render messages', () => {
     const { messages, coordinator } = setup();
     expect(messages.sent[0]).toMatchObject({
       name: 'render.available',
-      payload: { protocolVersion: 1 },
+      payload: { protocolVersion: 1, recordedCounters: true },
     });
     await coordinator.dispose();
   });

@@ -83,3 +83,44 @@ describe('frozen v2 plugin API', () => {
     ).toEqual(snapshot);
   });
 });
+
+describe('frozen key counts', () => {
+  function counts(counterBaseline?: Parameters<typeof installFrozenShim>[5]) {
+    const snapshot = {
+      settings: { language: 'ko', noteSettings: { frameLimit: 60 } },
+      keys: { hand: [] },
+      positions: { hand: [] },
+      keyCounters: { hand: { A: 5, B: 7 } },
+    };
+    const shim = installFrozenShim(
+      snapshot,
+      'hand',
+      {},
+      {},
+      [],
+      counterBaseline,
+    );
+    dispose = shim.dispose;
+    return shim.counters;
+  }
+
+  it('counts from zero, the live totals, or a run recorded counts', () => {
+    expect(counts(undefined)).toEqual({});
+    expect(counts('live')).toEqual({ hand: { A: 5, B: 7 } });
+    expect(
+      counts({
+        mode: 'recorded',
+        counters: { hand: { A: 40 }, foot: { F: 2 } },
+      }),
+    ).toEqual({ hand: { A: 40, B: 7 }, foot: { F: 2 } });
+  });
+
+  it('keeps the live totals for counts that are not whole presses', () => {
+    expect(
+      counts({ mode: 'recorded', counters: { hand: { A: -1, B: 1.5 } } }),
+    ).toEqual({ hand: { A: 5, B: 7 } });
+    expect(counts({ mode: 'recorded', counters: null })).toEqual({
+      hand: { A: 5, B: 7 },
+    });
+  });
+});

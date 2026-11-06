@@ -1,4 +1,8 @@
-/** A read-only, local Tauri surface. No RPC reaches the running desktop app. */
+/**
+ * A read-only, local Tauri surface. No RPC reaches the running desktop app.
+ * @param {string | { mode: 'recorded', counters?: Record<string, Record<string, number>> | null }} [counterBaseline]
+ *   'zero', 'live', or a run's recorded counts.
+ */
 export function installFrozenShim(
   snapshot,
   viewerKind,
@@ -16,13 +20,16 @@ export function installFrozenShim(
   const callbacks = new Map(),
     listeners = new Map();
   let nextId = 1;
-  // A recording carries no counter totals, so a render counts from zero unless
-  // the caller asks to continue from the live totals frozen at begin. Either
+  // A render counts from zero unless the caller asks to continue from the live
+  // totals frozen at begin, or from a run's recorded counts (TUFReplay saves
+  // them per run; slots the run lacks continue from the live totals). Either
   // way the render's presses stay here and never reach the live counters.
   const counters =
     counterBaseline === 'live'
       ? structuredClone(bootstrap.keyCounters ?? {})
-      : {};
+      : counterBaseline?.mode === 'recorded'
+        ? recordedOverLive(bootstrap.keyCounters, counterBaseline.counters)
+        : {};
   const storage = structuredClone(pluginStorage);
   const emit = (event, payload) => {
     for (const [id, listener] of [...listeners])
@@ -212,4 +219,17 @@ export function installFrozenShim(
       delete globalThis.__dmnRenderEventInternals;
     },
   };
+}
+
+/** `recorded` over a copy of `live`, keeping only whole, non-negative presses. */
+function recordedOverLive(live, recorded) {
+  const counters = structuredClone(live ?? {});
+  if (!recorded || typeof recorded !== 'object') return counters;
+  for (const [tab, keys] of Object.entries(recorded)) {
+    if (!keys || typeof keys !== 'object') continue;
+    const tabCounts = (counters[tab] ??= {});
+    for (const [key, presses] of Object.entries(keys))
+      if (Number.isInteger(presses) && presses >= 0) tabCounts[key] = presses;
+  }
+  return counters;
 }

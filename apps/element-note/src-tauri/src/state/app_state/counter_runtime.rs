@@ -10,6 +10,10 @@ impl AppState {
         if !self.key_counter_enabled.load(Ordering::Relaxed) {
             return None;
         }
+        // A TUFReplay replay's presses never reach the player's counts.
+        if let Some(count) = self.increment_replay_key_counter_and_emit(emitter, mode, key) {
+            return Some(count);
+        }
         {
             let mut barrier = self.counter_history_barrier.lock();
             if barrier.queueing {
@@ -259,7 +263,7 @@ impl AppState {
     }
 
     /// key_counters write lock 보유 중에만 호출 — 스냅샷과 이벤트 revision의 인과 순서 보장
-    fn next_key_counters_revision(&self) -> u64 {
+    pub(super) fn next_key_counters_revision(&self) -> u64 {
         self.key_counters_revision
             .fetch_add(1, Ordering::Relaxed)
             .wrapping_add(1)
@@ -348,9 +352,7 @@ impl AppState {
         }
         if counters_restored || replayed_count != 0 {
             let revision = self.next_key_counters_revision();
-            if let Err(error) =
-                emitter.emit_key_counters(&counters, &self.key_counters_session_id, revision)
-            {
+            if let Err(error) = self.emit_shown_key_counters(emitter, &counters, revision) {
                 log::error!("failed to emit restored key counters: {error:#}");
             }
         }
@@ -390,8 +392,7 @@ impl AppState {
         if publication_generation > publication.counters_generation {
             *guard = persisted.clone();
             let revision = self.next_key_counters_revision();
-            let emit_result =
-                emitter.emit_key_counters(&guard, &self.key_counters_session_id, revision);
+            let emit_result = self.emit_shown_key_counters(emitter, &guard, revision);
             publication.counters_generation = publication_generation;
             emit_result.map_err(|error| EditorCommitError::io(error.to_string()))?;
         }
@@ -571,8 +572,7 @@ impl AppState {
         }
         *counter_guard = counters.clone();
         let revision = self.next_key_counters_revision();
-        let emit_result =
-            emitter.emit_key_counters(counter_guard, &self.key_counters_session_id, revision);
+        let emit_result = self.emit_shown_key_counters(emitter, counter_guard, revision);
         publication.counters_generation = generation;
         emit_result
     }

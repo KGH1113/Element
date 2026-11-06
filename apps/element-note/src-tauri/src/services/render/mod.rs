@@ -109,7 +109,7 @@ impl RenderService {
         }
         crate::services::native_viewers::notify_changed(app);
         self.touch();
-        let prepare = (|| -> Result<Value, String> {
+        let prepare = (|| -> Result<(), String> {
             let state = app.state::<crate::state::AppState>();
             let bootstrap =
                 serde_json::to_value(state.bootstrap_payload()).map_err(|e| e.to_string())?;
@@ -132,14 +132,10 @@ impl RenderService {
             std::fs::create_dir_all(&directory).map_err(|e| e.to_string())?;
             let assets = freeze_local_assets(&bootstrap)?;
             let mut surfaces = Vec::new();
-            let mut descriptors = Vec::new();
             for mut config in configs {
                 let viewer = config["viewerKind"].as_str().unwrap().to_string();
                 let surface_directory = directory.join(&viewer);
                 std::fs::create_dir_all(&surface_directory).map_err(|e| e.to_string())?;
-                descriptors.push(json!({"viewerKind":viewer, "width":config["width"],
-                    "height":config["height"], "layout":config["layout"],
-                    "frameFormat":if rgba { "rgba" } else { "png" }, "frameDirectory":surface_directory}));
                 config["snapshot"] = bootstrap.clone();
                 config["pluginStorage"] = Value::Object(storage.clone());
                 config["assetUrls"] = assets.clone();
@@ -153,24 +149,108 @@ impl RenderService {
                 let _ = std::fs::remove_dir_all(&directory);
                 return Err(error);
             }
-            // Include the selected viewer descriptor alongside the explicit surface list.
-            let mut result = descriptors[0].clone();
-            result["surfaces"] = json!(descriptors);
-            result["sessionId"] = json!(id);
-            Ok(result)
+            Ok(())
         })();
-        let result = match prepare {
-            Ok(value) => value,
+        if let Err(error) = prepare {
+            self.end(app, Some(&id));
+            return Err(error);
+        }
+        if let Err(error) = self.create_surfaces(app).await {
+            self.end(app, Some(&id));
+            return Err(error);
+        }
+        // Described as created: an explicit surface takes its page's own viewport.
+        let descriptors = match self.describe_surfaces(&id, rgba) {
+            Ok(descriptors) => descriptors,
             Err(error) => {
                 self.end(app, Some(&id));
                 return Err(error);
             }
         };
-        if let Err(error) = self.create_surfaces(app).await {
-            self.end(app, Some(&id));
-            return Err(error);
-        }
+        // Include the selected viewer descriptor alongside the explicit surface list.
+        let mut result = descriptors[0].clone();
+        result["surfaces"] = json!(descriptors);
+        result["sessionId"] = json!(id);
         Ok(result)
+    }
+
+    fn describe_surfaces(&self, id: &str, rgba: bool) -> Result<Vec<Value>, String> {
+        let sessions = self.session.lock();
+        let session = sessions
+            .as_ref()
+            .filter(|session| session.id == id)
+            .ok_or("render-session-ended")?;
+        Ok(session
+            .surfaces
+            .iter()
+            .map(|surface| {
+                let config = &surface.config;
+                json!({"viewerKind":config["viewerKind"], "width":config["width"],
+                    "height":config["height"], "layout":config["layout"],
+                    "viewport":config["viewport"],
+                    "frameFormat":if rgba { "rgba" } else { "png" },
+                    "frameDirectory":surface.directory})
+            })
+            .collect())
+    }
+
+    /// Sizes an explicit surface to the viewport its page laid out, the one the
+    /// in-game host crops by, keeping the caller's output pixels per CSS pixel.
+    fn fit_surface(
+        &self,
+        id: &str,
+        label: &str,
+        window: &WebviewWindow,
+        scale: f64,
+        layout: &Value,
+    ) -> Result<(), String> {
+        let size = |name: &str| {
+            layout[name]
+                .as_f64()
+                .filter(|size| size.is_finite() && (1.0..=4096.0).contains(size))
+        };
+        let resize = {
+            let mut sessions = self.session.lock();
+            let session = sessions
+                .as_mut()
+                .filter(|session| session.id == id)
+                .ok_or("render-session-ended")?;
+            let surface = session
+                .surfaces
+                .iter_mut()
+                .find(|surface| surface.label == label)
+                .ok_or("render-surface-missing")?;
+            let config = Arc::make_mut(&mut surface.config);
+            let requested = (
+                config["surfaceWidth"].as_f64().unwrap_or(1.0),
+                config["surfaceHeight"].as_f64().unwrap_or(1.0),
+            );
+            // A page that published no layout keeps the viewport the game asked for.
+            let (width, height, padding) = match (size("width"), size("height")) {
+                (Some(width), Some(height)) => {
+                    let padding = layout["padding"]
+                        .as_f64()
+                        .filter(|padding| padding.is_finite())
+                        .unwrap_or(0.0)
+                        .clamp(0.0, (width.min(height) - 1.0) / 2.0);
+                    (width, height, padding)
+                }
+                _ => (requested.0, requested.1, 0.0),
+            };
+            let (pixels_width, pixels_height) = layout::scaled_size(width, height, scale)?;
+            config["surfaceWidth"] = json!(width);
+            config["surfaceHeight"] = json!(height);
+            config["width"] = json!(pixels_width);
+            config["height"] = json!(pixels_height);
+            config["viewport"] = json!({"width":width, "height":height, "padding":padding});
+            (requested != (width, height)).then_some((width, height))
+        };
+        if let Some((width, height)) = resize {
+            window
+                .set_size(tauri::LogicalSize::new(width, height))
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
     }
 
     fn install_prepared_surfaces(&self, id: &str, surfaces: Vec<Surface>) -> Result<(), String> {
@@ -235,8 +315,11 @@ impl RenderService {
             window
                 .set_zoom(crate::compute_compensating_zoom())
                 .map_err(|e| e.to_string())?;
-            await_ack(receiver).await?;
+            let ready = await_ack(receiver).await?;
             self.require_active(&id)?;
+            if let Some(scale) = config["scale"].as_f64() {
+                self.fit_surface(&id, &surface.label, &window, scale, &ready["layout"])?;
+            }
         }
         Ok(json!({"ready":true}))
     }

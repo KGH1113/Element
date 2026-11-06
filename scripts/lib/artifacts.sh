@@ -26,11 +26,11 @@ runtime_payload_names() {
   case "$target" in
     local)
       if is_macos; then
-        RUNTIME_PAYLOAD_NAMES+=(libElementTrackpad.dylib native/libElementGameWebView.dylib)
+        RUNTIME_PAYLOAD_NAMES+=(libElementTrackpad.dylib native/libElementGameWebView.dylib native/libElementFileDialog.dylib)
       fi
       ;;
     macos)
-      RUNTIME_PAYLOAD_NAMES+=(libElementTrackpad.dylib native/libElementGameWebView.dylib)
+      RUNTIME_PAYLOAD_NAMES+=(libElementTrackpad.dylib native/libElementGameWebView.dylib native/libElementFileDialog.dylib)
       ;;
     windows)
       RUNTIME_PAYLOAD_NAMES+=(native/ElementGameWebView.dll)

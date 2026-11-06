@@ -80,11 +80,9 @@ pub async fn adofai_ipc_ws_connect(
         "Sec-WebSocket-Protocol",
         HeaderValue::from_static("adofai-ipc.v3"),
     );
-    let config = WebSocketConfig {
-        max_message_size: Some(MAX_MESSAGE_BYTES),
-        max_frame_size: Some(MAX_MESSAGE_BYTES),
-        ..Default::default()
-    };
+    let config = WebSocketConfig::default()
+        .max_message_size(Some(MAX_MESSAGE_BYTES))
+        .max_frame_size(Some(MAX_MESSAGE_BYTES));
     let (socket, response) = tokio::time::timeout(
         Duration::from_millis(1500),
         tokio_tungstenite::connect_async_with_config(request, Some(config), false),
@@ -122,11 +120,11 @@ pub async fn adofai_ipc_ws_connect(
             tokio::select! {
                 _ = &mut closing => { let _ = write.send(Message::Close(None)).await; break "Connection closed".to_string(); }
                 text = receiver.recv() => match text {
-                    Some(text) => if let Err(error) = write.send(Message::Text(text)).await { break error.to_string(); },
+                    Some(text) => if let Err(error) = write.send(Message::Text(text.into())).await { break error.to_string(); },
                     None => break "Connection closed".to_string(),
                 },
                 incoming = read.next() => match incoming {
-                    Some(Ok(Message::Text(text))) => if events.send(NativeSocketEvent::Message { text }).is_err() { break "Main window closed".to_string(); },
+                    Some(Ok(Message::Text(text))) => if events.send(NativeSocketEvent::Message { text: text.to_string() }).is_err() { break "Main window closed".to_string(); },
                     Some(Ok(Message::Ping(bytes))) => if let Err(error) = write.send(Message::Pong(bytes)).await { break error.to_string(); },
                     Some(Ok(Message::Close(_))) | None => break "Game IPC disconnected".to_string(),
                     Some(Err(error)) => break error.to_string(),

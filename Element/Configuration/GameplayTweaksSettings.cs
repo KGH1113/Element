@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Xml.Serialization;
 using Element.Domain.Input;
+using UnityEngine;
 
 namespace Element.Configuration;
 
@@ -17,7 +19,7 @@ public sealed class GameplayTweaksSettings
     Judgement ??= new();
     Planets ??= new();
     Chatter ??= new();
-    Chatter.WindowMs = ChatterFilter.ClampWindow(Chatter.WindowMs);
+    Chatter.Normalize();
     Editor.RotationStep = FiniteClamp(Editor.RotationStep, 0.1f, 180f, 22.5f);
     Judgement.Normalize();
     Planets.Normalize();
@@ -44,10 +46,38 @@ public sealed class EditorTweaksOptions
 
 public sealed class ChatterBlockerOptions
 {
+  /// <summary>The window before version 8, measured from the key's release.</summary>
+  internal const int ReleaseWindowDefaultMs = 20;
+
   public bool Enabled = true;
 
-  /// <summary>A press this soon after the same key's release is switch bounce.</summary>
+  /// <summary>A press of a key no later than this after its last accepted press is chatter.</summary>
   public int WindowMs = ChatterFilter.DefaultWindowMs;
+
+  /// <summary>Keys never filtered, such as one used for fast jacks.</summary>
+  public List<KeyCode> IgnoredKeys = new();
+
+  public bool Ignores(KeyCode key) => IgnoredKeys != null && IgnoredKeys.Contains(key);
+
+  /// <summary>Adds the key to the ignored keys, or takes it off when it is already there.</summary>
+  public void ToggleIgnored(KeyCode key)
+  {
+    IgnoredKeys ??= new();
+    if (!IgnoredKeys.Remove(key) && IsIgnorable(key))
+      IgnoredKeys.Add(key);
+  }
+
+  /// <summary>Keyboard keys only, as KeyboardChatterBlocker lets you choose.</summary>
+  public static bool IsIgnorable(KeyCode key) =>
+    key != KeyCode.None && key < KeyCode.Mouse0 && (int)key < ChatterFilter.KeyCount;
+
+  public void Normalize()
+  {
+    WindowMs = ChatterFilter.ClampWindow(WindowMs);
+    IgnoredKeys ??= new();
+    var seen = new HashSet<KeyCode>();
+    IgnoredKeys.RemoveAll(key => !IsIgnorable(key) || !seen.Add(key));
+  }
 }
 
 public sealed class JudgementVisualOptions

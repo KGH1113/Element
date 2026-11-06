@@ -13,7 +13,11 @@ using Element.Presentation.Layout;
 using Element.Domain.Input;
 using Element.Domain.Layout;
 using Element.Application.Updates;
+using Element.Application.Files;
+using Element.Application.Profiles;
+using Element.Configuration.Profiles;
 using Element.Infrastructure.Game.DmNote;
+using Element.Infrastructure.Assets;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -28,10 +32,20 @@ namespace Element.Editor
     private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
     private static int _checks;
     private static string _output;
+    private static string _fonts;
+    private const string GeorgiaFile = "/System/Library/Fonts/Supplemental/Georgia.ttf",
+      TypewriterFile = "/System/Library/Fonts/Supplemental/AmericanTypewriter.ttc",
+      VerdanaFile = "/System/Library/Fonts/Supplemental/Verdana.ttf";
     public static void RenderAll()
     {
       _output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../../build/ui-preview"));
       Directory.CreateDirectory(_output);
+      _fonts = Path.Combine(_output, "Fonts");
+      if (Directory.Exists(_fonts))
+        Directory.Delete(_fonts, true);
+      Directory.CreateDirectory(_fonts);
+      foreach (string font in new[] { GeorgiaFile, TypewriterFile })
+        File.Copy(font, Path.Combine(_fonts, Path.GetFileName(font)));
       CheckMigration();
       CheckSpacingGuides();
       _checks += PlanetPreviewChecks.Run(_output);
@@ -60,6 +74,15 @@ namespace Element.Editor
       Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
       Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
       Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
+      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-720");
+      Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
+      Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
+      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
+      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-fonts");
+      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-fonts");
+      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-new");
+      Render(760, 720, SystemLanguage.Korean, 9, "profiles-ko-narrow-new");
+      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-new");
       Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
       Debug.Log("UI_PREVIEW_SCREEN " + Screen.width + "x" + Screen.height);
       RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
@@ -83,7 +106,9 @@ namespace Element.Editor
       settings.Migrate();
       OverlayTheme.SetHighlight(settings.HighlightColor);
       var host = new OverlayCanvasHost();
-      host.SetFont(font, font.material);
+      var catalog = new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning,
+        (action, exception) => Debug.LogException(exception));
+      host.SetFonts(new OverlayFonts(font, font.material, catalog, catalog));
       host.ConfigureLayouts(settings.OverlayLayouts);
       var viewers = new PreviewKeyViewers(screenWidth);
       var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
@@ -99,7 +124,7 @@ namespace Element.Editor
       editor.Resize(width, height); Canvas.ForceUpdateCanvases();
       Rect toolbar = editor.ToolbarBounds;
       Assert(toolbar.xMin >= 0 && toolbar.xMax <= width && toolbar.yMax <= height, "layout toolbar fits viewport");
-      Assert(toolbar.width <= 640.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
+      Assert(toolbar.width <= 760.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
       RectTransform toolbarRect = Field<RectTransform>(editor, "_toolbar");
       Call(editor, "UpdateFrames");
       Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "no element toolbar without a selection");
@@ -206,11 +231,12 @@ namespace Element.Editor
       Assert(Field<RectTransform>(editor, "_addMenu") == null, "Add Element closes its menu again");
 
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
-      CheckKeyViewers(editor, viewers);
+      CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
+      CheckFonts(editor, host, settings, camera, texture, canvases, name);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();
@@ -228,6 +254,7 @@ namespace Element.Editor
           .Select(layout => layout.Id + (layout.Enabled ? "" : " (hidden)"))));
       editor.Close(false);
       Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "cancel restores the opening highlight and exits");
+      Assert(settings.OverlayFont == "" && host.Fonts.DefaultKey == "", "cancel restores the opening default font");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _)), "cancel discards added shapes");
       Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
     }
@@ -816,7 +843,7 @@ namespace Element.Editor
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "multi-select leaves the layout as it was");
     }
 
-    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers)
+    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
     {
       viewers.Availability = KeyViewerAvailability.Ready;
       Call(editor, "ToggleAddMenu");
@@ -832,6 +859,20 @@ namespace Element.Editor
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
       Assert(Field<int>(editor, "_selected") == IndexOf(editor, foot), "the switched viewer stays selected");
+      Button openInApp = Field<RectTransform>(editor, "_settingsPanel").GetComponentsInChildren<Button>(true).Single(button => button.name == "Edit key viewer");
+      TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
+      openLabel.ForceMeshUpdate();
+      Assert(!openLabel.isTextTruncated, "Edit key viewer fits its button: " + openLabel.text);
+      SaveFrame(camera, texture, canvases, name + "-keyviewer");
+      openInApp.onClick.Invoke();
+      Assert(viewers.OpenedInApp.Count == 1 && viewers.OpenedInApp[0] == foot,
+        "Edit key viewer opens the viewer it shows now, after switching to foot");
+      viewers.EditResult = KeyViewerEditResult.AppOutdated;
+      openInApp.onClick.Invoke();
+      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("ElementNote"),
+        "a refused open says what to do with ElementNote: " + Field<TextMeshProUGUI>(editor, "_keyboardHelp").text);
+      viewers.EditResult = KeyViewerEditResult.Opened;
+      SetField(editor, "_scaleErrorUntil", 0f);
       Call(editor, "UpdateFrames");
       Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf,
         "key viewers keep their scale");
@@ -877,14 +918,15 @@ namespace Element.Editor
         "the input dock is always there, resting with a hint");
       RectTransform format = Field<RectTransform>(text, "_formatBar");
       OverlayBarButton sizeButton = Field<OverlayBarButton>(text, "_sizeButton"), colorButton = Field<OverlayBarButton>(text, "_colorButton"),
-        textGrow = Field<OverlayBarButton>(text, "_growButton");
+        textGrow = Field<OverlayBarButton>(text, "_growButton"), fontButton = Field<OverlayBarButton>(text, "_fontButton");
       Button[] barButtons = format.GetComponentsInChildren<Button>(true);
       Button growButton = textGrow.Button;
-      Assert(sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format) && textGrow.Root.IsChildOf(format) && barButtons.Length == 3
-        && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0,
-        "size, color and grow point share one bar; no opacity, no + Value");
-      string[] textLabels = Korean(name) ? new[] { "크기", "글자 색", "기준점" } : new[] { "Size", "Text color", "Grow from" };
-      OverlayBarButton[] textBar = { sizeButton, colorButton, textGrow };
+      Assert(fontButton.Root.IsChildOf(format) && sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format)
+        && textGrow.Root.IsChildOf(format) && barButtons.Length == 4
+        && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
+        "font, size, color and grow point share one bar; no opacity, no + Value");
+      string[] textLabels = Korean(name) ? new[] { "폰트", "크기", "글자 색", "기준점" } : new[] { "Font", "Size", "Text color", "Grow from" };
+      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, textGrow };
       for (int i = 0; i < textBar.Length; i++)
       {
         Assert(textBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
@@ -1120,6 +1162,126 @@ namespace Element.Editor
       popover.Hide();
     }
 
+    // Fonts: a TTF and every face of a TTC from the Fonts folder, installed
+    // fonts listed in the background, the overlay's default font, a font on
+    // some characters only, importing a file, and a font this PC lacks.
+    private static void CheckFonts(OverlayLayoutEditor editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
+      RenderTexture texture, Canvas[] canvases, string name)
+    {
+      OverlayFonts fonts = host.Fonts;
+      IOverlayFontLibrary library = fonts.Library;
+      IReadOnlyList<OverlayFontFace> imported = library.Imported;
+      Assert(imported.Any(face => face.Family == "Georgia") && imported.Count(face => face.Path.EndsWith(".ttc")) > 1,
+        "the Fonts folder lists a TTF and every face of a TTC: " + string.Join(", ", imported.Select(face => face.Key)));
+      string georgia = imported.First(face => face.Family == "Georgia").Key;
+      OverlayFontFace typewriterFace = imported.First(face => face.Family.StartsWith("American Typewriter"));
+      string typewriter = typewriterFace.Key;
+
+      Call(editor, "ToggleFont");
+      OverlayFontPopover popover = Field<OverlayFontPopover>(editor, "_fontPopover");
+      Call(editor, "UpdatePopupPositions");
+      Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
+      Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
+        "native viewers leave the font list uncovered");
+      // An empty field draws its caret around a zero-width space; it must sit
+      // in the middle of the field, beside the hint, not on the field's top edge.
+      TMP_InputField search = Field<TMP_InputField>(popover, "_search");
+      search.ForceLabelUpdate();
+      search.textComponent.ForceMeshUpdate();
+      TMP_CharacterInfo emptyCaret = search.textComponent.textInfo.characterInfo[0];
+      float caretMiddle = (emptyCaret.ascender + emptyCaret.descender) * .5f;
+      Rect searchArea = search.textComponent.rectTransform.rect;
+      Assert(Mathf.Abs(caretMiddle - searchArea.center.y) < 3 && emptyCaret.ascender - emptyCaret.descender > 10,
+        "the empty font search's caret is centered in the field: " + caretMiddle + " in " + searchArea);
+      library.RequestInstalled();
+      var waited = System.Diagnostics.Stopwatch.StartNew();
+      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
+        System.Threading.Thread.Sleep(50);
+      Assert(library.Installed != null && library.Installed.Count > 20 && library.Installed.Count(face => face.Path != null) > 20,
+        "installed fonts are listed with their files: " + (library.Installed?.Count ?? -1));
+      popover.Refresh();
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      host.TickLayoutPreview();
+      TextOverlayElement fps = host.LayoutTargets.OfType<TextOverlayElement>().Single(element => element.Id == "fps");
+      TextMeshProUGUI drawn = Field<TextMeshProUGUI>(fps, "_text");
+      drawn.ForceMeshUpdate();
+      Assert(settings.OverlayFont == georgia && drawn.font == fonts.DefaultAsset && drawn.font.faceInfo.familyName == "Georgia",
+        "picking a default font redraws every text in it: " + settings.OverlayFont);
+      Assert(drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Outline)
+        && drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Underlay), "a chosen font keeps the overlay's outline and shadow");
+      foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
+        Assert(label.font == Field<TMP_FontAsset>(editor, "_font"), "the font list itself stays in the UI font");
+      SaveFrame(camera, texture, canvases, name + "-font");
+
+      // A font without Latin letters takes them from the OS's Latin font, as
+      // the OS draws it, not from the bundled font that was there before.
+      OverlayFontFace hebrew = library.Installed.FirstOrDefault(face => face.Family == "Arial Hebrew Scholar" && face.Style == "Regular");
+      if (hebrew != null)
+      {
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { hebrew.Key }));
+        host.TickLayoutPreview();
+        drawn.ForceMeshUpdate();
+        TMP_CharacterInfo[] glyphs = drawn.textInfo.characterInfo;
+        TMP_CharacterInfo letter = glyphs.First(c => c.character == 'F');
+        TMP_CharacterInfo digit = glyphs.First(c => char.IsDigit(c.character));
+        Assert(drawn.font == fonts.DefaultAsset && digit.fontAsset == fonts.DefaultAsset
+          && letter.fontAsset != null && letter.fontAsset != fonts.Bundled && letter.fontAsset.faceInfo.familyName == "Helvetica",
+          "a font without Latin letters draws them in the OS's Latin font: " + letter.fontAsset?.faceInfo.familyName
+            + " / digits " + digit.fontAsset?.faceInfo.familyName);
+        SaveFrame(camera, texture, canvases, name + "-font-latin-fallback");
+        Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+        host.TickLayoutPreview();
+      }
+
+      // A file chosen in the dialog is copied into the folder and applied.
+      Call(popover, "Import");
+      Assert(File.Exists(Path.Combine(_fonts, "Verdana.ttf")) && library.Imported.Any(face => face.Family == "Verdana")
+        && settings.OverlayFont.StartsWith("Verdana|"), "an added file lands in the Fonts folder and is applied: " + settings.OverlayFont);
+      Assert(fonts.Status("Element Missing Font|Bold") == OverlayFontStatus.Missing, "a font this PC lacks reads as missing");
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      popover.Hide();
+      Assert(!popover.Visible, "the font list closes");
+
+      // In the text editor, a font goes to the selection, or the whole text.
+      Select(editor, IndexOf(editor, fps));
+      Call(editor, "UpdateToolbar");
+      Field<Button>(editor, "_editContent").onClick.Invoke();
+      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      SetField(text, "_anchor", 0);
+      SetField(text, "_caretIndex", 3);
+      Call(text, "ToggleFont");
+      OverlayFontPopover textFonts = Field<OverlayFontPopover>(text, "_fontPopover");
+      Assert(textFonts.Visible, "the text editor's Font opens its list");
+      Call(textFonts, "Pick", (int)textFonts.GetType().GetMethod("IndexOf", Private).Invoke(textFonts, new object[] { typewriter }));
+      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      preview.ForceMeshUpdate();
+      TMP_CharacterInfo[] characters = preview.textInfo.characterInfo;
+      Assert(characters[0].fontAsset != null && characters[0].fontAsset.faceInfo.familyName == typewriterFace.Family
+        && characters[3].fontAsset == fonts.DefaultAsset,
+        "a font picked for selected characters draws only them: " + characters[0].fontAsset?.faceInfo.familyName
+          + " / " + characters[3].fontAsset?.faceInfo.familyName);
+      Assert(Field<OverlayBarButton>(text, "_fontButton").Value.StartsWith("American"), "the bar names the selection's font");
+      SaveFrame(camera, texture, canvases, name + "-text-font");
+      Call(text, "Undo");
+      OverlayTextDocument document = Field<OverlayTextDocument>(text, "_document");
+      Assert(Enumerable.Range(0, document.Count).All(i => document[i].Font == ""), "one undo takes back the fonts tried");
+      text.Close(false, true);
+      Assert(fps.Settings.Text.Runs.All(run => string.IsNullOrEmpty(run.Font)), "cancel leaves the text's fonts as they were");
+    }
+
+    private static Vector2 ScreenCenter(OverlayLayoutEditor editor, RectTransform panel) =>
+      ((Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { panel })).center;
+
+    private static string L(string korean, string english) => RDString.language == SystemLanguage.Korean ? korean : english;
+
+    // The system dialog can't open in batch mode; this one picks a fixed file.
+    private sealed class PreviewFontPicker : IFontFilePicker
+    {
+      private readonly string _path;
+      public PreviewFontPicker(string path) { _path = path; }
+      public IReadOnlyList<string> Pick(string title) => new[] { _path };
+    }
+
     private static bool PopoverInside(OverlayLayoutEditor editor, RectTransform popover, int width, int height)
     {
       Rect bounds = (Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { popover });
@@ -1199,6 +1361,13 @@ namespace Element.Editor
         target.SetEnabled(false);
         return created;
       }
+      public KeyViewerEditResult EditResult { get; set; } = KeyViewerEditResult.Opened;
+      public List<IOverlayLayoutTarget> OpenedInApp { get; } = new List<IOverlayLayoutTarget>();
+      public KeyViewerEditResult OpenInApp(IOverlayLayoutTarget target)
+      {
+        OpenedInApp.Add(target);
+        return EditResult;
+      }
     }
     private sealed class ExternalPreviewTarget : IOverlayLayoutTarget, IExternalLayoutOutline, IOverlayLayoutPointer
     {
@@ -1277,7 +1446,7 @@ namespace Element.Editor
       });
       released.Migrate();
       released.Migrate();
-      Assert(released.SettingsVersion == 7 && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
+      Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
@@ -1303,11 +1472,12 @@ namespace Element.Editor
       Slider window = windowRow.Slider;
       Button toggle = Field<Button>(panel, "_chatterSwitch");
       Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
-      Assert(window.minValue == 5 && window.maxValue == 150 && window.wholeNumbers, "the window is whole milliseconds from 5 to 150");
+      Assert(window.minValue == ChatterFilter.MinimumWindowMs && window.maxValue == ChatterFilter.MaximumWindowMs && window.wholeNumbers,
+        "the threshold is whole milliseconds from 10 to 500");
       Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
       Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
       TMP_InputField input = windowRow.Field;
-      CheckInputCaret(input, "chatter window", "", "5", "150");
+      CheckInputCaret(input, "chatter window", "", "10", "500");
       Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
       toggle.onClick.Invoke();
       Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
@@ -1317,12 +1487,12 @@ namespace Element.Editor
       Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
       input.onEndEdit.Invoke("72");
       Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
-      input.onEndEdit.Invoke("400");
-      Assert(chatter.WindowMs == 150 && window.value == 150 && input.text == "150", "a window above the range becomes the maximum");
+      input.onEndEdit.Invoke("4000");
+      Assert(chatter.WindowMs == 500 && window.value == 500 && input.text == "500", "a window above the range becomes the maximum");
       input.onEndEdit.Invoke("2");
-      Assert(chatter.WindowMs == 5 && window.value == 5 && input.text == "5", "a window below the range becomes the minimum");
+      Assert(chatter.WindowMs == 10 && window.value == 10 && input.text == "10", "a window below the range becomes the minimum");
       input.onEndEdit.Invoke("");
-      Assert(chatter.WindowMs == 5 && input.text == "5", "clearing the field restores the saved window");
+      Assert(chatter.WindowMs == 10 && input.text == "10", "clearing the field restores the saved window");
       window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
       input.SetTextWithoutNotify(chatter.WindowMs.ToString());
       Assert(chatter.Enabled, "the page ends in the default state, blocking on");
@@ -1331,6 +1501,37 @@ namespace Element.Editor
       RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
       Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
       Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
+
+      // Keys never blocked: Change keys listens, each key goes on or comes off.
+      Button change = Field<Button>(panel, "_ignoredChange"), clear = Field<Button>(panel, "_ignoredClear");
+      TextMeshProUGUI keys = Field<TextMeshProUGUI>(panel, "_ignoredKeys");
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None") && !clear.interactable, "no key is ignored at first");
+      change.onClick.Invoke();
+      Assert(Field<bool>(panel, "_ignoredCapture") && change.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
+        "Change keys starts listening and becomes Done");
+      chatter.ToggleIgnored(KeyCode.Space);
+      chatter.ToggleIgnored(KeyCode.X);
+      Call(panel, "RefreshIgnoredKeys");
+      Assert(keys.text == "Space · X", "the ignored keys are listed: " + keys.text);
+      change.onClick.Invoke();
+      Assert(!Field<bool>(panel, "_ignoredCapture"), "Done stops listening");
+      Canvas.ForceUpdateCanvases();
+      RectTransform card = Field<RectTransform>(panel, "_ignoredCard");
+      Assert(card.rect.width <= width + .5f, "the ignored keys card fits the page");
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "ignored keys text fits: " + label.text);
+      }
+      RectTransform hint = Field<TextMeshProUGUI>(panel, "_chatterHint").rectTransform;
+      Assert(-card.anchoredPosition.y >= -hint.anchoredPosition.y + hint.rect.height, "the card sits below the hint");
+      Call(panel, "RefreshChatterCount");
+      RectTransform blocked = Field<TextMeshProUGUI>(panel, "_chatterBlocked").rectTransform;
+      Assert(-blocked.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the blocked count sits below the card");
+      Field<Button>(panel, "_ignoredClear").onClick.Invoke();
+      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None"), "Clear empties the list");
+      chatter.ToggleIgnored(KeyCode.Space);
+      Call(panel, "RefreshIgnoredKeys");
     }
 
     private static void Render(int width, int height, SystemLanguage language, int page, string name)
@@ -1342,7 +1543,15 @@ namespace Element.Editor
       OverlayTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates());
+      PreviewDialogs dialogs = new PreviewDialogs();
+      ProfileService profiles = PreviewProfiles(settings, dialogs);
+      // Profiles look up the fonts an imported profile names.
+      OverlayFontCatalog fontCatalog = page == 9
+        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
+        : null;
+      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles,
+        overlayFonts: () => overlayFonts);
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       {
         GameObject root = Field<GameObject>(panel, "_root");
@@ -1366,6 +1575,16 @@ namespace Element.Editor
         Assert(backIcon != null && backIcon.Kind == 4 && !backIcon.raycastTarget,
           "Back uses a left chevron with the full button hit area");
         CheckNavigationControls(panel, settings);
+        // A scene change destroys the selected object while the event system
+        // stays; that selection must read as nothing, not throw every frame.
+        GameObject previewEvents = new GameObject("Preview events", typeof(UnityEngine.EventSystems.EventSystem));
+        UnityEngine.EventSystems.EventSystem events = previewEvents.GetComponent<UnityEngine.EventSystems.EventSystem>();
+        GameObject doomed = new GameObject("Selection from a closed scene");
+        events.SetSelectedGameObject(doomed);
+        Object.DestroyImmediate(doomed);
+        Assert(!SettingsPanel.IsTyping(events), "a selection destroyed with its scene is not typing");
+        events.SetSelectedGameObject(null);
+        Object.DestroyImmediate(previewEvents);
         Call(panel, "Back");
         Assert(Field<int>(panel, "_page") == 0, "Back returns to home");
         cards[2].onClick.Invoke();
@@ -1398,6 +1617,13 @@ namespace Element.Editor
         if (page == 5) CheckJudgmentChoices(panel, settings);
         if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
         if (page == 8) CheckChatterBlocking(panel, settings, width);
+        if (page == 2) CheckProfileLink(panel, profiles);
+        if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
+        // Each of these frames shows one panel left open.
+        if (page == 9 && !name.EndsWith("-fonts")) CheckNewProfile(panel, settings, profiles, width, height, name.EndsWith("-new"));
+        if (page == 9 && !name.EndsWith("-new")) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
+        // One frame shows a name being changed on its card.
+        if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
         RectTransform window = Field<RectTransform>(panel, "_window");
         Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
         Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
@@ -1737,6 +1963,222 @@ namespace Element.Editor
     // This probe checks the UI/render-service boundary only. The deliberately
     // rectangular test textures are not ADOFAI artwork or a game-render test.
     // The longest status: a download that outlasted startup.
+    private sealed class PreviewDialogs : IFileDialogs
+    {
+      public int Opened;
+      public FileDialogResult Open(FileDialogRequest request) { Opened++; return FileDialogResult.Cancelled; }
+      public FileDialogResult Save(FileDialogRequest request) { Opened++; return FileDialogResult.Cancelled; }
+    }
+
+    // Three profiles, the newest in use, as a player who made two copies would have.
+    private static ProfileService PreviewProfiles(ElementSettings settings, PreviewDialogs dialogs)
+    {
+      bool korean = RDString.language == SystemLanguage.Korean;
+      ProfileLibrary library = new ProfileLibrary(settings, korean ? "기본" : "Default");
+      library.TryCreate(korean ? "방송용" : "Stream", out _, out _);
+      library.TryCreate(korean ? "연습 · 느린 곡과 긴 이름의 프로필" : "Practice · slow songs and a long name", out _, out _);
+      return new ProfileService(library, dialogs, () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
+    }
+
+    private static void CheckProfileLink(SettingsPanel panel, ProfileService profiles)
+    {
+      Button link = Field<Button>(panel, "_profileLink");
+      Assert(link != null && link.transform.IsChildOf(Field<GameObject[]>(panel, "_pages")[2].transform), "General starts with the profile link");
+      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(profiles.Active.Name), "the profile link names the profile in use");
+      RectTransform shortcut = Field<RectTransform>(panel, "_shortcutSection");
+      Assert(((RectTransform)link.transform).rect.height > 0 && -shortcut.anchoredPosition.y >= 80, "the shortcut card sits below the profile link");
+    }
+
+    private static void CheckProfiles(SettingsPanel panel, ElementSettings settings, ProfileService profiles, PreviewDialogs dialogs, int width, int height)
+    {
+      List<Button> cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(cards.Count == profiles.Profiles.Count, "one card per profile");
+      float pageWidth = ((RectTransform)Field<GameObject[]>(panel, "_pages")[9].transform).rect.width;
+      var rects = cards.Select(card => { RectTransform r = (RectTransform)card.transform; return new Rect(r.anchoredPosition.x, -r.anchoredPosition.y, r.rect.width, r.rect.height); }).ToList();
+      for (int i = 0; i < rects.Count; i++)
+      {
+        Assert(rects[i].xMin >= -.5f && rects[i].xMax <= pageWidth + .5f, "profile card fits the page: " + width);
+        for (int j = i + 1; j < rects.Count; j++)
+          Assert(!rects[i].Overlaps(rects[j]), "profile cards do not overlap: " + width);
+      }
+      RectTransform heading = Field<RectTransform>(panel, "_profilesHeading");
+      Rect newButton = ((RectTransform)Field<Button>(panel, "_newProfile").transform).rect;
+      Assert(newButton.width > 0 && ((RectTransform)Field<Button>(panel, "_importProfile").transform).anchoredPosition.x + 1 < ((RectTransform)Field<Button>(panel, "_newProfile").transform).anchoredPosition.x,
+        "Import sits before New profile");
+      foreach (TextMeshProUGUI label in heading.GetComponentsInChildren<TextMeshProUGUI>(false))
+        Assert(!label.isTextTruncated, "profile heading fits: " + label.text);
+      Assert(!Field<GameObject[]>(panel, "_pages")[9].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text.Contains("Each profile keeps") || t.text.Contains("프로필마다")),
+        "the page doesn't explain profiles");
+
+      // Import whose window was closed: nothing happens and nothing is said.
+      Call(panel, "ImportProfile");
+      Assert(dialogs.Opened == 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a closed file window leaves no message");
+
+      // Switching from a card: the card shows it; nothing above the cards moves.
+      ElementProfile first = profiles.Profiles[0];
+      var planets = settings.Gameplay.Planets;
+      Vector2 galleryBefore = Field<RectTransform>(panel, "_profileGallery").anchoredPosition;
+      cards[0].onClick.Invoke();
+      Assert(profiles.Active == first && settings.Gameplay.Planets == planets, "a card switches profiles in place");
+      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a switch shows on the card, not in a message");
+      Assert(Field<RectTransform>(panel, "_profileGallery").anchoredPosition == galleryBefore, "switching doesn't move the cards");
+      cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(cards.Count == profiles.Profiles.Count, "the gallery rebuilds after a switch");
+      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(first.Name), "General names the new profile in use");
+
+      // Every card renames, duplicates, exports and deletes with one press.
+      foreach (Button item in cards)
+        Assert(new[] { "Rename profile", "Duplicate profile", "Export profile", "Delete profile" }.All(n => item.transform.Find(n) != null),
+          "every card has rename, duplicate, export and delete");
+      foreach (Button item in cards)
+      {
+        RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
+        Vector3[] titleCorners = new Vector3[4], actionCorners = new Vector3[4];
+        title.GetWorldCorners(titleCorners);
+        ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
+        Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
+        Button action = item.transform.Find("Rename profile").GetComponent<Button>();
+        Assert(action.targetGraphic.color.a == 0 && action.transition == Selectable.Transition.None,
+          "card buttons have no surface of their own; only the glyph reacts");
+      }
+
+      // Rename on the card: the card says why a taken name won't do, and the old name stays.
+      ElementProfile second = profiles.Profiles[1];
+      string original = second.Name;
+      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
+      TMP_InputField field = Field<TMP_InputField>(panel, "_renameInput");
+      Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(panel, "_profileCards")[1].transform) && field.text == original,
+        "the pencil turns the card's name into a field holding it");
+      Assert(!field.onFocusSelectAll, "the caret goes after the name instead of selecting it");
+      field.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      TextMeshProUGUI problem = Field<TextMeshProUGUI>(panel, "_renameProblem");
+      Assert(problem.text.Length > 0 && problem.transform.IsChildOf(field.transform.parent) && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
+        "a taken name is refused as it is typed, on the card");
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original && Field<TMP_InputField>(panel, "_renameInput") == null
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
+      field = Field<TMP_InputField>(panel, "_renameInput");
+      field.text = original + " 2";
+      field.onEndEdit.Invoke(field.text);
+      Assert(second.Name == original + " 2", "a new name saves when the field is left");
+      Assert(Field<List<Button>>(panel, "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
+        "the card shows the new name");
+
+      // Duplicate puts a copy next to the card and keeps the profile in use.
+      ElementProfile active = profiles.Active;
+      int count = profiles.Profiles.Count;
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Duplicate profile").GetComponent<Button>().onClick.Invoke();
+      ElementProfile copy = profiles.Profiles[2];
+      Assert(profiles.Profiles.Count == count + 1 && profiles.Active == active && copy.Name.StartsWith(second.Name)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "duplicate adds a copy after the card");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
+      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
+      Assert(-message.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "messages sit below the cards");
+
+      // Export opens the save window at once; a closed window says nothing new.
+      int opened = dialogs.Opened;
+      cards = Field<List<Button>>(panel, "_profileCards");
+      cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
+      Assert(dialogs.Opened == opened + 1, "export opens the save window from the card");
+
+      // Delete asks on the card first, then removes the profile.
+      count = profiles.Profiles.Count;
+      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      cards = Field<List<Button>>(panel, "_profileCards");
+      Assert(profiles.Profiles.Count == count
+        && cards[2].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text == L("한 번 더 누르면 삭제해요", "Press again to delete")),
+        "the first delete press only asks, on the card");
+      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
+      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(copy)
+        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "the second press deletes it");
+      panel.Resize(width, height);
+      Canvas.ForceUpdateCanvases();
+      TextMeshProUGUI said = Field<TextMeshProUGUI>(panel, "_profilesMessage");
+      said.ForceMeshUpdate();
+      Assert(!said.isTextTruncated, "the message fits at " + width);
+    }
+
+    // New profile opens a small panel under its button; the profile starts from the initial settings.
+    private static void CheckNewProfile(SettingsPanel panel, ElementSettings settings, ProfileService profiles, int width, int height, bool keepOpen)
+    {
+      Field<Button>(panel, "_newProfile").onClick.Invoke();
+      RectTransform popover = Field<RectTransform>(panel, "_newProfilePopover");
+      TMP_InputField name = Field<TMP_InputField>(panel, "_newProfileName");
+      Button create = Field<Button>(panel, "_createProfile");
+      Assert(popover.gameObject.activeSelf && Field<int>(panel, "_page") == 9, "New profile opens a panel on the same page");
+      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
+      RectTransform window = Field<RectTransform>(panel, "_window");
+      Assert(popover.anchoredPosition.x >= 0 && popover.anchoredPosition.x + popover.rect.width <= window.rect.width + .5f
+        && -popover.anchoredPosition.y + popover.rect.height <= window.rect.height + .5f, "the panel stays inside the window at " + width);
+      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
+      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text.Length > 0, "a taken name is refused as it is typed");
+      foreach (TextMeshProUGUI label in popover.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the new profile panel fits at " + width + ": " + label.text);
+      }
+      name.text = "Tournament";
+      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text == "", "a free name can be created");
+      if (keepOpen)
+        return;
+      settings.HighlightColor = "#00FF00";
+      int count = profiles.Profiles.Count;
+      create.onClick.Invoke();
+      Assert(profiles.Profiles.Count == count + 1 && profiles.Active.Name == "Tournament" && !popover.gameObject.activeSelf,
+        "Create adds the profile, switches to it and closes the panel");
+      Assert(settings.HighlightColor == ElementSettings.DefaultHighlightColor && settings.OverlayLayouts.Count > 0,
+        "the new profile has the initial settings, default overlay included");
+    }
+
+    // An imported profile names a font this PC lacks: the card offers a font to
+    // use instead, and a pick lands where the missing font was.
+    private static void CheckFontReplacement(SettingsPanel panel, ElementSettings settings, OverlayFonts fonts, int width, bool keepOpen)
+    {
+      const string missing = "Element Missing Font|Bold";
+      settings.OverlayFont = missing;
+      OverlayTextRun run = OverlayTextRun.Literal("Progress", OverlayColorSettings.Custom("#FFFFFF"));
+      run.Font = missing;
+      settings.OverlayLayouts.Add(new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new List<OverlayTextRun> { run } } });
+      IOverlayFontLibrary library = fonts.Library;
+      library.RequestInstalled();
+      var waited = System.Diagnostics.Stopwatch.StartNew();
+      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
+        System.Threading.Thread.Sleep(50);
+      Call(panel, "OfferFontReplacements");
+      for (int i = 0; i < 20 && Field<object>(panel, "_checkingFonts") != null; i++)
+        Call(panel, "CheckImportedFonts");
+      RectTransform card = Field<RectTransform>(panel, "_fontCard");
+      System.Collections.IList rows = Field<System.Collections.IList>(panel, "_missingFonts");
+      Assert(card.gameObject.activeSelf && rows.Count == 1, "an imported profile's missing font is offered once: " + rows.Count);
+      Canvas.ForceUpdateCanvases();
+      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
+      }
+      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
+      Assert(-card.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "the font card sits below the cards");
+
+      Call(panel, "OpenFontReplacement", 0);
+      OverlayFontPopover popover = Field<OverlayFontPopover>(panel, "_fontPopover");
+      Assert(popover.Visible, "Choose font opens the font list");
+      string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
+      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
+      Assert(settings.OverlayFont == georgia && run.Font == georgia, "a pick replaces the missing font where it was used");
+      if (keepOpen)
+        return;
+      popover.Hide();
+      Field<Button>(panel, "_fontCardDone").onClick.Invoke();
+      Assert(!card.gameObject.activeSelf, "Done puts the card away");
+      Call(panel, "OfferFontReplacements");
+      Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
+    }
+
     private sealed class PreviewUpdates : IModUpdates
     {
       public ModUpdateStatus Status => new ModUpdateStatus(ModUpdateState.Downloading, "0.3.0", "0.3.1");

@@ -1,6 +1,6 @@
 # ElementNote
 
-ElementNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. DM Note v1.6.1을 기반으로 하며 Element와 localhost ADOFAI-IPC로 현재 키 리미터 프로필을 동기화합니다.
+ElementNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. DM Note v2.1.0을 기반으로 기존 v1 키뷰어 스타일을 유지하며 Element의 키 리미터 프로필을 동기화합니다.
 
 ## 주요 기능
 

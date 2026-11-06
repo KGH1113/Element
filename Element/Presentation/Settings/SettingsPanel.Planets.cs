@@ -254,6 +254,9 @@ internal sealed partial class SettingsPanel
   private void HidePopover()
   {
     _planetPicker?.Hide();
+    if (_fontPopover?.Visible == true)
+      _fontPopover.Hide();
+    HideNewProfile();
     if (_pickerShade != null)
       _pickerShade.gameObject.SetActive(false);
   }

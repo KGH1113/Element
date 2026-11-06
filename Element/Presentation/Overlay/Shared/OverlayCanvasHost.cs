@@ -27,8 +27,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   private Transform _shapeLayer;
   private Transform _textLayer;
   private List<OverlayLayoutSettings> _layoutSettings = new();
-  private TMP_FontAsset _font;
-  private Material _material;
+  private OverlayFonts _fonts;
   private bool _visible;
   private bool _layoutPreview;
   private bool _fitPending;
@@ -36,8 +35,10 @@ internal sealed class OverlayCanvasHost : IDisposable
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
-  public bool CanShowText => _font != null;
-  public TMP_FontAsset Font => _font;
+  public bool CanShowText => _fonts != null;
+
+  /// <summary>The fonts texts draw with; null when the bundled font could not load.</summary>
+  public OverlayFonts Fonts => _fonts;
 
   /// <summary>The converted built-ins: kept hidden when deleted, so Reset all can bring them back.</summary>
   public IReadOnlyCollection<string> DefaultIds => _defaultIds;
@@ -69,12 +70,8 @@ internal sealed class OverlayCanvasHost : IDisposable
     Root.SetActive(false);
   }
 
-  /// <summary>Text elements need the overlay font; without it only shapes are shown.</summary>
-  public void SetFont(TMP_FontAsset font, Material material)
-  {
-    _font = font;
-    _material = material;
-  }
+  /// <summary>Text elements need the overlay fonts; without them only shapes are shown.</summary>
+  public void SetFonts(OverlayFonts fonts) => _fonts = fonts;
 
   public void SetVisible(bool visible)
   {
@@ -137,7 +134,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   {
     if (!CanShowText)
       return null;
-    TextOverlayElement element = new(_textLayer, _font, _material, Values);
+    TextOverlayElement element = new(_textLayer, _fonts, Values);
     element.ContentChanged += OnContentChanged;
     _elements.Add(element);
     _texts.Add(element);
@@ -182,6 +179,8 @@ internal sealed class OverlayCanvasHost : IDisposable
       Remove(element);
       _layoutSettings.RemoveAll(settings => settings != null && settings.Id == id);
     }
+    // Fonts tried in the editor and no longer used go with them.
+    _fonts?.Retain(_layoutSettings);
   }
 
   public void SetLayoutPreview(bool preview)
@@ -208,6 +207,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   /// <summary>Once per frame while the canvas is shown: redraws what changed.</summary>
   internal void Tick()
   {
+    _fonts?.Tick();
     ulong changes = Values.TakeChanges();
     // Each refresh is a mask test unless its values, the theme or its scale changed.
     foreach (TextOverlayElement text in _texts)
@@ -357,8 +357,7 @@ internal sealed class OverlayCanvasHost : IDisposable
 internal sealed class OverlayViewportWatcher : MonoBehaviour
 {
   private OverlayCanvasHost _host;
-  private int _width;
-  private int _height;
+  private Vector2 _size;
   private Canvas _canvas;
   private float _scale;
   private bool _viewportDirty = true;
@@ -378,11 +377,14 @@ internal sealed class OverlayViewportWatcher : MonoBehaviour
     if (_host == null)
       return;
     _host.Tick();
+    // The canvas's size, not the screen's: OrbitRender draws the canvas into a
+    // video of its own size and aspect while the window stays as it is.
+    Vector2 size =
+      _canvas != null ? ((RectTransform)_canvas.transform).rect.size : new Vector2(Screen.width, Screen.height);
     float scale = _canvas != null ? _canvas.scaleFactor : 1;
-    if (_width == Screen.width && _height == Screen.height && _scale == scale)
+    if (_size == size && _scale == scale)
       return;
-    _width = Screen.width;
-    _height = Screen.height;
+    _size = size;
     _scale = scale;
     _viewportDirty = true;
   }

@@ -1,6 +1,7 @@
 import { appApi, windowApi } from './modules/appApi';
 import { settingsApi } from './modules/settingsApi';
 import { keysApi } from './modules/keysApi';
+import { editorApi } from './modules/editorApi';
 import {
   statItemsApi,
   graphItemsApi,
@@ -34,6 +35,7 @@ const api: DMNoteAPI = {
   window: windowApi,
   settings: settingsApi,
   keys: keysApi,
+  editor: editorApi,
   statItems: statItemsApi,
   graphItems: graphItemsApi,
   knobItems: knobItemsApi,

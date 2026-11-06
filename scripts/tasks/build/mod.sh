@@ -8,6 +8,7 @@ source "$TASK_DIR/../../lib/context.sh"
 configuration="${1:-Debug}"
 
 bash "$TASK_DIR/trackpad.sh"
+bash "$TASK_DIR/file-dialog.sh"
 bash "$TASK_DIR/game-webview.sh"
 
 # The mod, the launcher UMM starts, and the updater the launcher runs; all

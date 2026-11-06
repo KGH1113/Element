@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Element.Domain.Input;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -19,11 +20,19 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   /// <summary>Open the bundled ElementNote with the game; it closes when the game quits.</summary>
   public bool AutoOpenCloseDmNote = true;
 
+  /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
+  public const int CurrentSettingsVersion = 8;
+
+  public const string DefaultHighlightColor = "#BA712B";
+
   public int SettingsVersion;
-  public string HighlightColor = "#BA712B";
+  public string HighlightColor = DefaultHighlightColor;
   public List<string> RecentHighlightColors = new();
   public bool ReduceUiMotion;
   public bool LayoutSnapping = true;
+
+  /// <summary>The overlay texts' default font as an OverlayFontKey; empty uses the bundled font.</summary>
+  public string OverlayFont = string.Empty;
 
   public GameplayTweaksSettings Gameplay = new();
   public Effects.EffectSettings Effects = new();
@@ -35,6 +44,14 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public KeyCode SettingsShortcutModifier = DefaultSettingsShortcutModifier;
 
   public List<OverlayLayoutSettings> OverlayLayouts = new();
+
+  /// <summary>
+  /// Every profile, the one in use included. The values above belong to the
+  /// profile in use; the others keep theirs in <see cref="Profiles.ElementProfile.Content"/>.
+  /// </summary>
+  public List<Profiles.ElementProfile> Profiles = new();
+
+  public string ActiveProfileId = "";
 
   public void Migrate()
   {
@@ -55,6 +72,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     Effects ??= new();
     Effects.Normalize();
     OverlayLayouts ??= new();
+    OverlayFont = OverlayFontKey.Normalize(OverlayFont);
     // Presets from before 1.1 become texts already in the current form; texts
     // saved by 1.1.0 are rewritten for split values and units.
     if (SettingsVersion < 3)
@@ -79,7 +97,13 @@ public sealed class ElementSettings : UnityModManager.ModSettings
       SettingsShortcutKey = DefaultSettingsShortcutKey;
       SettingsShortcutModifier = DefaultSettingsShortcutModifier;
     }
-    SettingsVersion = Math.Max(SettingsVersion, 7);
+    // The chatter window used to count from the key's release; it now counts
+    // from the last press, as KeyboardChatterBlocker does. Only the untouched
+    // old default moves to the new one.
+    if (SettingsVersion < 8 && Gameplay.Chatter.WindowMs == ChatterBlockerOptions.ReleaseWindowDefaultMs)
+      Gameplay.Chatter.WindowMs = ChatterFilter.DefaultWindowMs;
+    Profiles ??= new();
+    SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
   }
 
   public override void Save(UnityModManager.ModEntry modEntry)

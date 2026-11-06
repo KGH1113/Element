@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using Element.Application;
+using Element.Domain.Status;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Status;
@@ -10,12 +12,15 @@ internal sealed class StatusTimeTicker : MonoBehaviour
 
   private readonly FrameRateSampler _frameRateSampler = new();
   private Action<int> _tick;
+  private IRenderVideo _video;
   private double _nextRefreshTime;
   private bool _running;
+  private bool _followingVideo;
 
-  public void Initialize(Action<int> tick)
+  public void Initialize(Action<int> tick, IRenderVideo video)
   {
     _tick = tick;
+    _video = video;
   }
 
   public void StartTicking()
@@ -41,6 +46,21 @@ internal sealed class StatusTimeTicker : MonoBehaviour
   {
     if (!_running)
       return;
+
+    // OrbitRender draws the video slower than real time and repeats frames for
+    // overlays, so the screen's frame rate says nothing about the video. FPS
+    // shows "-" and the time follows every frame.
+    if (_video?.IsRendering == true)
+    {
+      _followingVideo = true;
+      _tick?.Invoke(StatusSnapshot.UnknownFps);
+      return;
+    }
+    if (_followingVideo)
+    {
+      _followingVideo = false;
+      _frameRateSampler.Reset();
+    }
 
     double now = GetRealtimeSeconds();
     if (!_frameRateSampler.TryRecordFrame(now, out int framesPerSecond) || now < _nextRefreshTime)

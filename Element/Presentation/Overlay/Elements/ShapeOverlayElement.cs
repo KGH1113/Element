@@ -53,13 +53,16 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   /// <summary>The values this shape's numbers use, as catalog bits.</summary>
   public ulong ValueMask => _formulas.Mask;
 
-  /// <summary>Screen pixels per reference unit of the shape's box.</summary>
+  /// <summary>
+  /// Pixels per reference unit of the shape's box, in whatever the canvas is
+  /// drawn into: the game window, or OrbitRender's video while it renders.
+  /// </summary>
   public float PixelsPerUnit
   {
     get
     {
-      Rect bounds = RectBounds;
-      return _resolved.Width > 0 ? bounds.width / _resolved.Width : 1;
+      Rect bounds = CanvasRectBounds;
+      return _resolved.Width > 0 ? bounds.width * CanvasScale / _resolved.Width : 1;
     }
   }
 

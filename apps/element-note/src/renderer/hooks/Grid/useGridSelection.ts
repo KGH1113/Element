@@ -411,10 +411,12 @@ export function useGridSelection({
         .getState()
         .setKeyMappingsAndPositions(updatedMappings, updatedPositions);
 
-      // API 동기화 (순차 실행으로 일관성 보장)
+      // 매핑과 위치를 한 번에 검증하고 저장한다.
       try {
-        await window.api.keys.update(updatedMappings);
-        await window.api.keys.updatePositions(updatedPositions);
+        await window.api.editor.commitChanges({
+          keys: updatedMappings,
+          keyPositions: updatedPositions,
+        });
       } catch (error) {
         console.error('Failed to delete keys', error);
       } finally {
@@ -741,6 +743,7 @@ export function useGridSelection({
           keyCode: item.keyCode,
           position: {
             ...item.position,
+            id: undefined,
             groupId: remapGroupId(item.position.groupId),
             dx: (item.position.dx || 0) + PASTE_OFFSET,
             dy: (item.position.dy || 0) + PASTE_OFFSET,
@@ -750,6 +753,7 @@ export function useGridSelection({
         statsToAdd.push({
           position: {
             ...item.position,
+            id: undefined,
             groupId: remapGroupId(item.position.groupId),
             dx: (item.position.dx || 0) + PASTE_OFFSET,
             dy: (item.position.dy || 0) + PASTE_OFFSET,
@@ -759,6 +763,7 @@ export function useGridSelection({
         graphsToAdd.push({
           position: {
             ...item.position,
+            id: undefined,
             groupId: remapGroupId(item.position.groupId),
             dx: (item.position.dx || 0) + PASTE_OFFSET,
             dy: (item.position.dy || 0) + PASTE_OFFSET,
@@ -768,6 +773,7 @@ export function useGridSelection({
         knobsToAdd.push({
           position: {
             ...item.position,
+            id: undefined,
             groupId: remapGroupId(item.position.groupId),
             dx: (item.position.dx || 0) + PASTE_OFFSET,
             dy: (item.position.dy || 0) + PASTE_OFFSET,
@@ -815,10 +821,7 @@ export function useGridSelection({
         .getState()
         .setKeyMappingsAndPositions(updatedMappings, updatedPositions);
 
-      // 키 매핑 sync (동기 흐름을 깨지 않도록 fire-and-forget)
-      window.api.keys.update(updatedMappings).catch((error) => {
-        console.error('Failed to paste key mappings', error);
-      });
+      // 아래 통합 커밋에서 최종 zIndex와 함께 매핑을 저장한다.
     }
 
     // 통계 요소 추가
@@ -995,7 +998,10 @@ export function useGridSelection({
     useGraphItemStore.getState().setLocalUpdateInProgress(true);
     useKnobItemStore.getState().setLocalUpdateInProgress(true);
     try {
-      await window.api.keys.updatePositions(patch.keyPositions);
+      await window.api.editor.commitChanges({
+        keys: useKeyStore.getState().keyMappings,
+        keyPositions: patch.keyPositions,
+      });
       await window.api.statItems.updatePositions(patch.statPositions);
       await window.api.graphItems.updatePositions(patch.graphPositions);
       await window.api.knobItems.updatePositions(patch.knobPositions);

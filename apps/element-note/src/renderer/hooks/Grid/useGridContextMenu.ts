@@ -8,6 +8,7 @@ import type { ListItem } from '@components/main/Modal/ListPopup';
 import { usePluginMenuStore } from '@stores/plugin/usePluginMenuStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { translatePluginMessage } from '@utils/plugin/pluginI18n';
 import type { KeyPosition } from '@src/types/key/keys';
 import type {
@@ -83,6 +84,7 @@ export function useGridContextMenu({
 }: UseGridContextMenuParams): UseGridContextMenuReturn {
   // 전역 CSS 활성화 여부
   const useCustomCSS = useSettingsStore((state) => state.useCustomCSS);
+  const spritePositions = useSpriteStore((state) => state.positions);
   // OBS 모드는 데스크톱 오버레이 창을 없애므로 되돌릴 위치가 없다
   const obsModeEnabled = useSettingsStore((state) => state.obsModeEnabled);
 
@@ -203,6 +205,7 @@ export function useGridContextMenu({
       { id: 'addStat', label: t('contextMenu.addStat') },
       { id: 'addGraph', label: t('contextMenu.addGraph') },
       { id: 'addKnob', label: t('contextMenu.addKnob') },
+      { id: 'addSprite', label: t('contextMenu.addSprite') },
     ];
     // 묶음 안에서는 부모 행이 맥락을 주므로 라벨을 줄인다
     const tabItems: MenuItem[] = [
@@ -281,6 +284,22 @@ export function useGridContextMenu({
     return [
       ...topPluginItems,
       ...addItems,
+      ...((spritePositions[selectedKeyType]?.length ?? 0) > 0
+        ? [
+            {
+              id: 'spriteEditors',
+              label: t('contextMenu.editSprite'),
+              children: spritePositions[selectedKeyType].map(
+                (sprite, index) => ({
+                  id: `editSprite:${sprite.id}`,
+                  label:
+                    sprite.layerName?.trim() ||
+                    `${t('contextMenu.sprite')} ${index + 1}`,
+                }),
+              ),
+            },
+          ]
+        : []),
       ...bottomPluginItems,
       { id: 'separator', label: '', type: 'separator' },
       ...groupRows,

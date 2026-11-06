@@ -25,7 +25,9 @@ async function collectContract(page: Page) {
         speed: Number(root.getAttribute('data-note-speed')),
         trackHeight: Number(root.getAttribute('data-track-height')),
         glowSize: Number(root.getAttribute('data-note-glow-size')),
-        canvas: canvas ? { width: canvas.width, height: canvas.height } : null,
+        // v2 crops the backing canvas to the visible tracks. Compare the
+        // public viewport here; unchanged PNGs verify actual note placement.
+        canvas: canvas ? { width: window.innerWidth, height: window.innerHeight } : null,
       },
       keys: keys.map((key) => ({
         state: key.getAttribute('data-state'),

@@ -43,7 +43,7 @@
 <td width="33%" valign="top">
 
 ### 텍스트와 도형
-진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/overlay-elements.md)
+진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
@@ -55,7 +55,7 @@
 <td width="33%" valign="top">
 
 ### 게임 내 키뷰어
-[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꿉니다.
+[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꾸거나 **키뷰어 편집**으로 ElementNote의 해당 탭을 엽니다.
 
 </td>
 </tr>
@@ -63,7 +63,7 @@
 <td valign="top">
 
 ### Effect Remover
-22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 프리셋마다 단축키를 지정하면 플레이 중이 아닐 때 바로 바꿀 수 있습니다. 원본 맵은 바뀌지 않습니다.
+22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 프리셋마다 단축키를 지정하면 플레이 중이 아닐 때 바로 바꾸고, 한 번 더 누르면 끕니다. 원본 맵은 바뀌지 않습니다.
 
 </td>
 <td colspan="2" valign="top">
@@ -78,7 +78,7 @@
 </tr>
 </table>
 
-그 밖에 [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [프로필](docs/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 
@@ -151,7 +151,7 @@ flowchart TB
 
 ## ElementNote
 
-[`apps/element-note`](apps/element-note)는 DM Note v1.6.1을 기반으로 한 키뷰어 데스크톱 앱입니다. 모드와 따로 실행되며 키 프로필을 모드와 동기화합니다.
+[`apps/element-note`](apps/element-note)는 DM Note v2.1.0 기반의 키뷰어 데스크톱 앱입니다. 기존 v1 키뷰어 스타일을 유지하며 키 프로필을 모드와 동기화합니다.
 
 - 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다

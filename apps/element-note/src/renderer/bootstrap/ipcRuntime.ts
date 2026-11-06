@@ -4,14 +4,17 @@ import {
   type KeyLimiterCoordinatorOptions,
 } from '../ipc/keyLimiterIpcCoordinator';
 import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
+import { ElementRenderIpcCoordinator } from '../render/elementRenderIpcCoordinator';
+import type { RenderSurfacePort } from '../application/ports/renderSurfacePort';
 import { NativeViewerIpcCoordinator } from '../nativeViewers/nativeViewerIpcCoordinator';
+import { requestViewerEdit } from '../nativeViewers/viewerEditRequests';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
 import { connectIpc, type IpcConnection } from 'adofai-ipc/transport';
 import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketTransport';
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import { quitWhenGameLeaves } from '../application/gameOwnedLifetime';
-import { appApi } from '@api/modules/appApi';
+import { appApi, windowApi } from '@api/modules/appApi';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { subscribe } from '@api/modules/shared';
@@ -76,6 +79,28 @@ export function startRenderMessages(): () => Promise<void> {
     : /Windows/.test(navigator.userAgent)
       ? 'windows'
       : 'unsupported';
+  // One native render service; it refuses a second session while one runs.
+  const surface: RenderSurfacePort = {
+    begin: (request) =>
+      invoke('dmnote_render_begin', {
+        request: {
+          ...request,
+          pluginElements: JSON.parse(
+            JSON.stringify(usePluginDisplayElementStore.getState().elements),
+          ),
+          localStorage: Object.fromEntries(
+            Object.keys(localStorage).map((key) => [
+              key,
+              localStorage.getItem(key),
+            ]),
+          ),
+        },
+      }),
+    reset: (request) => invoke('dmnote_render_reset', { request }),
+    frame: (request) => invoke('dmnote_render_frame', { request }),
+    end: (sessionId) => invoke('dmnote_render_end', { sessionId }),
+    touch: () => invoke('dmnote_render_touch'),
+  };
   const coordinator = new RenderIpcCoordinator({
     messages: applicationMessages('tuf-replay-renderer'),
     scheduler: wallClockScheduler,
@@ -86,28 +111,14 @@ export function startRenderMessages(): () => Promise<void> {
       nativeCapture: platform !== 'unsupported',
       multiViewerCapture: true,
     },
-    surface: {
-      begin: (request) =>
-        invoke('dmnote_render_begin', {
-          request: {
-            ...request,
-            pluginElements: JSON.parse(
-              JSON.stringify(usePluginDisplayElementStore.getState().elements),
-            ),
-            localStorage: Object.fromEntries(
-              Object.keys(localStorage).map((key) => [
-                key,
-                localStorage.getItem(key),
-              ]),
-            ),
-          },
-        }),
-      reset: (request) => invoke('dmnote_render_reset', { request }),
-      frame: (request) => invoke('dmnote_render_frame', { request }),
-      end: (sessionId) => invoke('dmnote_render_end', { sessionId }),
-      touch: () => invoke('dmnote_render_touch'),
-    },
+    surface,
   });
+  // Element's own replay renders (OrbitRender) over the game's `element` channel.
+  const elementRenders = new ElementRenderIpcCoordinator(
+    applicationMessages('element'),
+    surface,
+    wallClockScheduler,
+  );
   const viewers = new NativeViewerIpcCoordinator(
     applicationMessages('element'),
     {
@@ -119,11 +130,17 @@ export function startRenderMessages(): () => Promise<void> {
           if (state.inGameViewersEnabled !== previous.inGameViewersEnabled)
             listener();
         }),
+      // The tab switches first so the window comes forward already on it.
+      edit: async (viewerKind) => {
+        requestViewerEdit(viewerKind);
+        await windowApi.showMain();
+      },
     },
     wallClockScheduler,
   );
   const stop = async () => {
     await viewers.dispose();
+    await elementRenders.dispose();
     await coordinator.dispose();
     await closeApplicationMessages();
   };

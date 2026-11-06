@@ -10,8 +10,12 @@ import {
   calculateGroupBounds,
 } from '@utils/grid/smartGuides';
 import { resolveImageSource } from '@utils/core/imageSource';
+import {
+  computeKeyElementStyles,
+  type KeyElementPosition,
+} from '@hooks/overlay/useKeyElementStyles';
 
-interface KnobPosition {
+interface KnobPosition extends Partial<KeyElementPosition> {
   hidden?: boolean;
   dx?: number;
   dy?: number;
@@ -412,6 +416,11 @@ const KnobItem = ({
   };
 
   const transform = `translate3d(calc(${draggable.dx}px + var(--key-offset-x, 0px)), calc(${draggable.dy}px + var(--key-offset-y, 0px)), 0)`;
+  const v2 = computeKeyElementStyles({
+    position: { ...position, dx, dy, width, height },
+    active: false,
+    label: '',
+  });
 
   return (
     <div
@@ -420,7 +429,9 @@ const KnobItem = ({
       style={{
         width: `${width}px`,
         height: `${height}px`,
-        transform,
+        transform: position.rotation
+          ? `${transform} rotate(${position.rotation}deg)`
+          : transform,
         zIndex: position.zIndex ?? zIndex,
         cursor: 'pointer',
         willChange:
@@ -449,8 +460,18 @@ const KnobItem = ({
                 }`
               : `1px solid ${borderColor || 'rgba(113, 113, 113, 0.9)'}`,
           boxSizing: 'border-box',
+          ...(v2.keyStyle.backgroundImage
+            ? { background: v2.keyStyle.backgroundImage }
+            : {}),
+          ...(v2.borderRingStyle
+            ? { border: 'none', padding: v2.keyStyle.padding }
+            : {}),
+          boxShadow: v2.keyStyle.boxShadow,
         }}
       >
+        {v2.borderRingStyle && (
+          <span aria-hidden="true" style={v2.borderRingStyle} />
+        )}
         {imageSrc ? (
           <img
             src={imageSrc}
@@ -460,6 +481,7 @@ const KnobItem = ({
               width: '100%',
               height: '100%',
               objectFit: resolvedFit,
+              transform: v2.imageStyle.transform,
               pointerEvents: 'none',
               userSelect: 'none',
             }}

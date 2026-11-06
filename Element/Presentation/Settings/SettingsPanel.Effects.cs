@@ -215,8 +215,8 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
     _presetShortcutDescription = _ui.Text(
       L(
-        "누르면 이 프리셋을 바로 적용합니다. 레벨을 플레이하는 중에는 동작하지 않습니다.",
-        "Press it to apply this preset right away. It does nothing while you play a level."
+        "누르면 이 프리셋을 적용하고, 한 번 더 누르면 이펙트 제거를 끕니다. 플레이 중에는 동작하지 않습니다.",
+        "Press it to apply this preset, and again to turn effect removal off. It does nothing during play."
       ),
       _presetShortcutCard,
       16,
@@ -376,14 +376,16 @@ internal sealed partial class SettingsPanel
         marker.rectTransform.anchoredPosition = new Vector2(0, -14);
         _galleryUi.Bind(() => marker.color = _ui.SoftAccent);
       }
-      Button edit = _galleryUi.Button("", card.transform, 250, 12, 36, 36, () => EditPreset(preset));
-      edit.gameObject.name = "Edit " + preset.Name;
-      edit.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-      var editIcon = _galleryUi
-        .Rect("Edit icon", edit.transform, 8, 8, 20, 20)
-        .gameObject.AddComponent<SettingsEditIcon>();
-      editIcon.color = SettingsUiFactory.Muted;
-      editIcon.raycastTarget = false;
+      Button edit = _galleryUi.GlyphButton(
+        "Edit " + preset.Name,
+        card.transform,
+        36,
+        20,
+        () => EditPreset(preset),
+        SettingsUiFactory.Muted,
+        SettingsUiFactory.Foreground,
+        out SettingsEditIcon _
+      );
       ((RectTransform)edit.transform).anchorMin = ((RectTransform)edit.transform).anchorMax = new Vector2(1, 1);
       ((RectTransform)edit.transform).pivot = new Vector2(1, 1);
       ((RectTransform)edit.transform).anchoredPosition = new Vector2(-12, -12);
@@ -592,6 +594,51 @@ internal sealed partial class SettingsPanel
     float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
     _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, top + cardHeight);
+  }
+}
+
+/// <summary>Duplicate: a second sheet behind the first.</summary>
+internal sealed class SettingsDuplicateIcon : SettingsVectorGraphic
+{
+  protected override void OnPopulateMesh(VertexHelper mesh)
+  {
+    mesh.Clear();
+    BeginPath();
+    PathPoint(4, 8);
+    PathPoint(16, 8);
+    PathPoint(16, 20);
+    PathPoint(4, 20);
+    Stroke(mesh, 2, true);
+    BeginPath();
+    PathPoint(8, 8);
+    PathPoint(8, 4);
+    PathPoint(20, 4);
+    PathPoint(20, 16);
+    PathPoint(16, 16);
+    Stroke(mesh);
+  }
+}
+
+/// <summary>Export: an arrow out of a tray, like the system's share icon.</summary>
+internal sealed class SettingsExportIcon : SettingsVectorGraphic
+{
+  protected override void OnPopulateMesh(VertexHelper mesh)
+  {
+    mesh.Clear();
+    BeginPath();
+    PathPoint(8, 10);
+    PathPoint(5, 10);
+    PathPoint(5, 21);
+    PathPoint(19, 21);
+    PathPoint(19, 10);
+    PathPoint(16, 10);
+    Stroke(mesh);
+    Line(mesh, 12, 3, 12, 15);
+    BeginPath();
+    PathPoint(8, 7);
+    PathPoint(12, 3);
+    PathPoint(16, 7);
+    Stroke(mesh);
   }
 }
 

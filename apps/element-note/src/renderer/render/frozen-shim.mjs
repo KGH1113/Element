@@ -5,6 +5,7 @@ export function installFrozenShim(
   assetUrls = {},
   pluginStorage = {},
   pluginElements = [],
+  counterBaseline = 'zero',
 ) {
   const bootstrap = structuredClone(snapshot);
   const settings = bootstrap.settings;
@@ -15,8 +16,13 @@ export function installFrozenShim(
   const callbacks = new Map(),
     listeners = new Map();
   let nextId = 1;
-  // Recordings have no original live counter baseline. Count only this run.
-  const counters = {};
+  // A recording carries no counter totals, so a render counts from zero unless
+  // the caller asks to continue from the live totals frozen at begin. Either
+  // way the render's presses stay here and never reach the live counters.
+  const counters =
+    counterBaseline === 'live'
+      ? structuredClone(bootstrap.keyCounters ?? {})
+      : {};
   const storage = structuredClone(pluginStorage);
   const emit = (event, payload) => {
     for (const [id, listener] of [...listeners])
@@ -31,10 +37,24 @@ export function installFrozenShim(
     settings_get: () => settings,
     keys_get: () => bootstrap.keys,
     keys_get_counters: () => counters,
+    editor_get: () => ({
+      revision: bootstrap.editorRevision ?? 0,
+      document: {
+        schemaVersion: 1,
+        keys: bootstrap.keys || {},
+        keyPositions: bootstrap.positions || {},
+        statPositions: bootstrap.statPositions || {},
+        graphPositions: bootstrap.graphPositions || {},
+        knobPositions: bootstrap.knobPositions || {},
+        spritePositions: bootstrap.spritePositions || {},
+        layerGroups: bootstrap.layerGroups || {},
+      },
+    }),
     positions_get: () => bootstrap.positions,
     stat_positions_get: () => bootstrap.statPositions || {},
     graph_positions_get: () => bootstrap.graphPositions || {},
     knob_positions_get: () => bootstrap.knobPositions || {},
+    sprite_positions_get: () => bootstrap.spritePositions || {},
     layer_groups_get: () => bootstrap.layerGroups || {},
     note_tab_get_all: () => bootstrap.tabNoteOverrides || {},
     css_get: () => settings.customCSS,
@@ -60,6 +80,15 @@ export function installFrozenShim(
       return;
     }
     if (getters[command]) return structuredClone(getters[command]());
+    if (command === 'plugin_instances_get') {
+      const saved = storage[`${args.pluginId}/instances`];
+      return structuredClone({
+        pluginId: args.pluginId,
+        instances: Array.isArray(saved) ? saved : [],
+        modelRevision: 0,
+        authorityGeneration: 0,
+      });
+    }
     if (command === 'plugin:window|current_monitor')
       return {
         name: 'Export',

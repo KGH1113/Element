@@ -66,6 +66,9 @@ public sealed class OverlayTextRun
   public float Size;
   public string SizeFormula = string.Empty;
 
+  // An OverlayFontKey; empty follows the overlay's default font.
+  public string Font = string.Empty;
+
   public bool IsValue => !string.IsNullOrEmpty(Value);
 
   public static OverlayTextRun Literal(string text, OverlayColorSettings color) =>
@@ -81,6 +84,7 @@ public sealed class OverlayTextRun
       Color = (Color ?? new OverlayColorSettings()).Clone(),
       Size = Size,
       SizeFormula = SizeFormula ?? string.Empty,
+      Font = Font ?? string.Empty,
     };
 
   public bool SameAs(OverlayTextRun other) =>
@@ -89,6 +93,7 @@ public sealed class OverlayTextRun
     && Value == other.Value
     && Size == other.Size
     && OverlayColorSettings.SameFormula(SizeFormula, other.SizeFormula)
+    && OverlayColorSettings.SameFormula(Font, other.Font)
     && (Color ?? new OverlayColorSettings()).SameAs(other.Color ?? new OverlayColorSettings());
 }
 

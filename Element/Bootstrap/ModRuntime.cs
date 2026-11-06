@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using HarmonyLib;
 using Element.Application.Attempts;
 using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
+using Element.Domain.DmNote;
 using Element.Domain.Judgement;
 using Element.Infrastructure.Attempts;
 using Element.Infrastructure.DmNoteApp;
@@ -16,8 +16,11 @@ using Element.Infrastructure.Game.Judgement;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
+using Element.Infrastructure.Rendering;
+using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -39,6 +42,9 @@ internal sealed class ModRuntime : IDisposable
   private GameKeyLimiter _gameKeyLimiter;
   private KeyLimiterIpcFeature _keyLimiterIpc;
   private DmNoteNativeIpcFeature _nativeViewers;
+  private KeyViewerRenderIpc _renderIpc;
+  private RenderRuntime _render;
+  private OrbitRenderApi _orbitRender;
   private DmNoteAppLauncher _dmNoteApp;
   private bool _dmNoteAutoOpen;
   private bool _dmNoteAppChecked;
@@ -59,7 +65,9 @@ internal sealed class ModRuntime : IDisposable
   // Per-frame and per-hit callbacks reuse these delegates; a lambda per call
   // would add garbage, and every GC pause also stops the async input thread.
   private readonly Action _tickNativeViewers;
+  private readonly Action _tickSettingsUi;
   private readonly Action _tickKeyLimiter;
+  private readonly Action _tickRender;
   private readonly Action<scrMarginTracker, HitMargin> _registerHit;
   private readonly Action _refreshAccuracy;
   private readonly Action _refreshFloor;
@@ -77,7 +85,9 @@ internal sealed class ModRuntime : IDisposable
   {
     _main = main;
     _tickNativeViewers = () => _nativeViewers?.Tick();
+    _tickSettingsUi = () => _settingsUi?.Tick();
     _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
+    _tickRender = () => _render?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
     _refreshFloor = () =>
@@ -88,7 +98,13 @@ internal sealed class ModRuntime : IDisposable
     _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
     _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
     _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
-    _pushHitTextHide = () => _hitTextSync?.Push();
+    // ADOFAI saves its Hide Judgment Text at once; the mod's choice behind it
+    // is saved with it, not only when the settings window closes.
+    _pushHitTextHide = () =>
+    {
+      if (_hitTextSync?.Push() == true)
+        _settingsUi?.Save();
+    };
   }
 
   public bool Initialize()
@@ -126,17 +142,21 @@ internal sealed class ModRuntime : IDisposable
       WarnIfKeyboardChatterBlockerIsLoaded();
 
       _attempts = CreateAttemptTracker();
-      _overlay = new OverlayRuntime(_main, OnTimeTick, _attempts);
+      _orbitRender = new OrbitRenderApi();
+      _overlay = new OverlayRuntime(_main, OnTimeTick, _attempts, _orbitRender);
       _nativeViewers = new DmNoteNativeIpcFeature(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
         _main.LogException,
-        _main.LogWarning
+        _main.LogWarning,
+        DmNoteAppFocus.ForCurrentPlatform()
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
+      _renderIpc = new KeyViewerRenderIpc();
+      _keyLimiterIpc.AttachRenders(_renderIpc);
       _keyLimiterIpc.Enable();
       _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
 
@@ -147,9 +167,11 @@ internal sealed class ModRuntime : IDisposable
         _nativeViewers,
         _gameplayTweaks.Planets,
         ApplySettings,
+        ReloadSettings,
         () => RefreshViewerMode(IsGameplayActive()),
         () => gameHitText.Applies
       );
+      _render = CreateRenderRuntime();
       _initialized = true;
       ApplySettings();
       return true;
@@ -197,8 +219,10 @@ internal sealed class ModRuntime : IDisposable
   /// <summary>UnityModManager's per-frame update, in every scene.</summary>
   public void TickTrackpad()
   {
+    // Its own guard: a failure in the settings window must not stop the
+    // trackpad, the native viewers or the key limiter below.
     if (_initialized)
-      _settingsUi?.Tick();
+      Execute("Update the settings window", _tickSettingsUi);
     // The first frame comes after the game loaded its own settings.
     if (_initialized && _hitTextSync?.Started == false)
       Execute("Sync judgment text with ADOFAI", _hitTextSync.Start);
@@ -206,6 +230,7 @@ internal sealed class ModRuntime : IDisposable
       _trackpad?.Tick();
     Execute("Update native ElementNote viewers", _tickNativeViewers);
     Execute("Apply the ElementNote key limiter", _tickKeyLimiter);
+    Execute("Join OrbitRender renders", _tickRender);
   }
 
   public void OpenSettings()
@@ -234,6 +259,7 @@ internal sealed class ModRuntime : IDisposable
 
         SyncDmNoteApp();
         OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
+        _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
         _gameplayTweaks?.Apply();
         _effects?.ApplySettings();
         // Color drags only update the affected planet. Avoid rebuilding overlay
@@ -256,6 +282,25 @@ internal sealed class ModRuntime : IDisposable
           RefreshViewerMode(false);
       }
     );
+  }
+
+  /// <summary>
+  /// The live settings were replaced, such as by a profile switch: give the
+  /// canvas its new elements and apply everything, layouts included.
+  /// </summary>
+  public void ReloadSettings()
+  {
+    Execute(
+      "Load profile layouts",
+      () =>
+      {
+        if (!_initialized)
+          return;
+        _overlay?.Canvas?.ConfigureLayouts(_main.Settings.OverlayLayouts);
+        _presentationSettingsApplied = false;
+      }
+    );
+    ApplySettings();
   }
 
   // Installs or updates the app once at startup, so players can open it on its
@@ -344,6 +389,10 @@ internal sealed class ModRuntime : IDisposable
     _disposed = true;
     _initialized = false;
 
+    // Before the canvases and the IPC channel it uses go away.
+    _render?.Dispose();
+    _render = null;
+
     _settingsUi?.Dispose();
     _settingsUi = null;
 
@@ -377,6 +426,8 @@ internal sealed class ModRuntime : IDisposable
 
     _overlay?.Dispose();
     _overlay = null;
+    _orbitRender?.Dispose();
+    _orbitRender = null;
 
     // Ends the play in progress and waits briefly for its save. Not through
     // Execute: it skips everything once the runtime is disposed.
@@ -493,6 +544,33 @@ internal sealed class ModRuntime : IDisposable
       && !ADOBase.controller.paused
       && ADOBase.conductor != null
       && ADOBase.conductor.isGameWorld;
+  }
+
+  // OrbitRender support is optional: a failure here leaves the rest of the mod running.
+  private RenderRuntime CreateRenderRuntime()
+  {
+    try
+    {
+      return new RenderRuntime(
+        _orbitRender,
+        _renderIpc,
+        () => _overlay?.Canvas?.Root != null ? _overlay.Canvas.Root.GetComponent<Canvas>() : null,
+        // The video shows the key viewers the game would show during this play.
+        (width, height) =>
+          IsRecording || scrController.coopMode
+            ? Array.Empty<RenderViewerPlacement>()
+            : _nativeViewers.RenderPlacements(width, height),
+        () => _nativeViewers?.Availability is KeyViewerAvailability.Ready or KeyViewerAvailability.HiddenInApp,
+        (title, detail) => _settingsUi?.ShowNotice(title, detail),
+        _main.Log,
+        _main.LogWarning
+      );
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("OrbitRender support is off because it could not start", exception);
+      return null;
+    }
   }
 
   // Counting is optional: a failure here leaves the rest of the mod running.

@@ -22,7 +22,7 @@ internal sealed partial class SettingsPanel : IDisposable
   private readonly GameObject _root;
   private readonly RectTransform _window;
   private readonly Canvas _canvas;
-  private readonly GameObject[] _pages = new GameObject[9];
+  private readonly GameObject[] _pages = new GameObject[10];
   private readonly Button[] _homeCards = new Button[4];
   private readonly TextMeshProUGUI _title;
   private readonly TextMeshProUGUI _feedback;
@@ -45,11 +45,13 @@ internal sealed partial class SettingsPanel : IDisposable
     _restoreSelectionFrame = -1;
     UnityModManagerNet.UnityModManager.UI.Instance?.ToggleWindow(false);
     EnsureEventSystem();
-    _previousSelection = EventSystem.current?.currentSelectedGameObject;
+    _previousSelection = Selected();
     SetVisible(true);
     ClearFeedback();
+    ClearProfileMessages();
     _ui.RefreshTheme();
     _galleryUi?.RefreshTheme();
+    _profileGalleryUi?.RefreshTheme();
     SelectPage(0);
     UpdateShortcutLabel();
     FitWindow();
@@ -114,14 +116,20 @@ internal sealed partial class SettingsPanel : IDisposable
   {
     if (!IsOpen && _restoreSelectionFrame >= 0 && Time.frameCount >= _restoreSelectionFrame)
     {
-      if (EventSystem.current?.currentSelectedGameObject == null)
-        EventSystem.current?.SetSelectedGameObject(_previousSelection);
+      // The selection from before opening may have gone with its scene.
+      if (EventSystem.current != null && Selected() == null && _previousSelection != null)
+        EventSystem.current.SetSelectedGameObject(_previousSelection);
       _restoreSelectionFrame = -1;
     }
     SettingsShortcutField capturing = CapturingShortcut;
     if (capturing != null)
     {
       capturing.Tick();
+      return;
+    }
+    if (_ignoredCapture)
+    {
+      TickIgnoredCapture();
       return;
     }
     if (!IsTyping() && ShortcutPressed())
@@ -135,9 +143,10 @@ internal sealed partial class SettingsPanel : IDisposable
     if (!IsOpen)
       return;
     EnsureEventSystem();
+    SettleFocus();
     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
     {
-      if (DismissPopover())
+      if (ProfileRenameTakesEscape() || DismissNewProfile() || DismissFontPopover() || DismissPopover())
         return;
       if (_page == 0)
         Close();
@@ -147,7 +156,9 @@ internal sealed partial class SettingsPanel : IDisposable
     }
     if (UnityEngine.Input.GetKeyDown(KeyCode.Tab))
     {
-      EventSystem.current?.currentSelectedGameObject?.GetComponent<TMP_InputField>()?.DeactivateInputField();
+      TMP_InputField field = Selected()?.GetComponent<TMP_InputField>();
+      if (field != null)
+        field.DeactivateInputField();
       MoveFocus();
     }
     if (_screenWidth != Screen.width || _screenHeight != Screen.height)
@@ -156,7 +167,9 @@ internal sealed partial class SettingsPanel : IDisposable
       RefreshPlanetPreview();
     if (_page == ChatterPage)
       RefreshChatterCount();
-    GameObject focused = EventSystem.current?.currentSelectedGameObject;
+    if (_page == ProfilesPage)
+      TickFontReplacements();
+    GameObject focused = Selected();
     if (focused != _lastFocused)
     {
       _lastFocused = focused;
@@ -172,8 +185,27 @@ internal sealed partial class SettingsPanel : IDisposable
   public static bool ShortcutPressed(ElementSettings settings) =>
     ShortcutKeys.Pressed(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
 
-  public static bool IsTyping() =>
-    EventSystem.current?.currentSelectedGameObject?.GetComponent<TMP_InputField>()?.isFocused == true;
+  public static bool IsTyping() => IsTyping(EventSystem.current);
+
+  internal static bool IsTyping(EventSystem events)
+  {
+    TMP_InputField field = Selected(events)?.GetComponent<TMP_InputField>();
+    return field != null && field.isFocused;
+  }
+
+  private static GameObject Selected() => Selected(EventSystem.current);
+
+  /// <summary>
+  /// The selected object, or null. A selection destroyed with its scene is
+  /// Unity's fake null, which <c>?.</c> lets through; it reads as none here.
+  /// </summary>
+  private static GameObject Selected(EventSystem events)
+  {
+    if (events == null)
+      return null;
+    GameObject selected = events.currentSelectedGameObject;
+    return selected != null ? selected : null;
+  }
 
   private SettingsShortcutField CapturingShortcut =>
     _settingsShortcut?.Capturing == true ? _settingsShortcut
@@ -193,6 +225,7 @@ internal sealed partial class SettingsPanel : IDisposable
 
   private void CancelCapture()
   {
+    StopIgnoredCapture();
     _settingsShortcut?.Cancel();
     _presetShortcut?.Cancel();
   }
@@ -215,6 +248,7 @@ internal sealed partial class SettingsPanel : IDisposable
     _apply();
     _ui.RefreshTheme();
     _galleryUi?.RefreshTheme();
+    _profileGalleryUi?.RefreshTheme();
   }
 
   private void SelectPage(int index)
@@ -236,6 +270,7 @@ internal sealed partial class SettingsPanel : IDisposable
       : index == 5 ? L("판정 표시", "Judgment visuals")
       : index == 6 ? L("행성", "Planets")
       : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
+      : index == ProfilesPage ? L("프로필", "Profiles")
       : _editingPreset == null ? L("새 프리셋", "New preset")
       : L("프리셋 편집", "Edit preset");
     _back.gameObject.SetActive(index != 0);
@@ -257,6 +292,13 @@ internal sealed partial class SettingsPanel : IDisposable
     if (previous == 7)
     {
       SelectPage(3);
+      return;
+    }
+    if (previous == ProfilesPage)
+    {
+      SelectPage(2);
+      if (_profileLink != null)
+        EventSystem.current?.SetSelectedGameObject(_profileLink.gameObject);
       return;
     }
     if (previous >= 4)
@@ -336,5 +378,9 @@ internal sealed partial class SettingsPanel : IDisposable
     _ui.Dispose();
     _planetPicker?.Dispose();
     _galleryUi?.Dispose();
+    _profileGalleryUi?.Dispose();
+    _fontRowsUi?.Dispose();
+    _fontPopover?.Dispose();
+    _fontPopoverUi?.Dispose();
   }
 }

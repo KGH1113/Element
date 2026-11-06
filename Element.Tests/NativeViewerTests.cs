@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.DmNote;
+using Element.Domain.Layout;
 
 namespace Element.Tests;
 
@@ -49,6 +50,37 @@ internal static class NativeViewerTests
     surface.Height = -1;
     Check(!surface.IsValid(), "Negative height is invalid.");
     ViewersFollowTheProfile();
+    UnmovedViewersStartFullSizeOnTheBottomLeft();
+  }
+
+  // A viewer the player has not moved (or reset) starts at 100% on the bottom
+  // left: the hand viewer raised from the edge, the foot viewer right of it.
+  private static void UnmovedViewersStartFullSizeOnTheBottomLeft()
+  {
+    OverlayLayoutSettings hand = NativeViewerDefaultLayout.For("hand");
+    OverlayLayoutSettings foot = NativeViewerDefaultLayout.For("foot");
+    Check(
+      OverlayLayoutPosition.IsAnchored(hand) && OverlayLayoutPosition.IsAnchored(foot),
+      "Default viewers must use the anchored placement every moved viewer uses."
+    );
+    Check(hand.Scale == 1 && foot.Scale == 1, "Default viewers must start at 100%, not the old 50% fit.");
+
+    LayoutBounds handBounds = OverlayLayoutPosition.Resolve(hand, 562, 176, 1920, 1080);
+    LayoutBounds footBounds = OverlayLayoutPosition.Resolve(foot, 149, 35, 1920, 1080);
+    Check(
+      handBounds.X == 0 && Math.Abs(handBounds.Y + handBounds.Height - (1080 - 202.04f)) < .01f,
+      "The hand viewer must sit on the left edge, raised from the bottom."
+    );
+    Check(
+      footBounds.X > 0 && footBounds.Y + footBounds.Height > handBounds.Y + handBounds.Height,
+      "The foot viewer must sit right of the hand viewer, nearer the bottom edge."
+    );
+
+    hand.OffsetY = 0;
+    Check(
+      NativeViewerDefaultLayout.For("hand").OffsetY != 0,
+      "Each viewer must get its own default, so moving one cannot move the others."
+    );
   }
 
   // Switching profiles: the old profile's viewers leave the screen and stay

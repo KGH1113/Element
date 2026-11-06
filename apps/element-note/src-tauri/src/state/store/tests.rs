@@ -18200,7 +18200,8 @@ fn missing_foreign_file_url_reference_marks_sweep_unresolved() {
         ..crate::test_support::fixture_store_data()
     };
     data.key_positions.get_mut("test-4key").unwrap()[0].active_image = Some(
-        "file:///C:/Users/me/AppData/Roaming/com.dmnote.desktop/images/missing.png".to_string(),
+        "file:///C:/Users/me/AppData/Roaming/io.github.kgh1113.elementnote/images/missing.png"
+            .to_string(),
     );
 
     // 외래 file URL이 이 기기에서 실존하지 않으면 sweep을 보류시켜야 함
@@ -18231,7 +18232,8 @@ fn missing_foreign_file_url_holds_sweep_and_keeps_unreferenced_image() {
         ..crate::test_support::fixture_store_data()
     };
     data.key_positions.get_mut("test-4key").unwrap()[0].active_image = Some(
-        "file:///C:/Users/me/AppData/Roaming/com.dmnote.desktop/images/missing.png".to_string(),
+        "file:///C:/Users/me/AppData/Roaming/io.github.kgh1113.elementnote/images/missing.png"
+            .to_string(),
     );
     std::fs::write(
         dir.join("store.json"),
@@ -18262,7 +18264,7 @@ fn foreign_asset_references_rehome_before_persist_and_sweep() {
         std::fs::write(path, b"portable-asset").unwrap();
     }
 
-    let foreign_root = r"C:\Users\Exporter\AppData\Roaming\com.dmnote.desktop";
+    let foreign_root = r"C:\Users\Exporter\AppData\Roaming\io.github.kgh1113.elementnote";
     let foreign_font = format!(r"{foreign_root}\fonts\portable.ttf");
     let foreign_image = format!(r"{foreign_root}\images\portable.png");
     let foreign_sound = format!(r"{foreign_root}\sounds\portable.wav");
@@ -18413,7 +18415,6 @@ fn tauri_1_6_1_literal_fixture_preserves_collections_and_assets_through_shutdown
   "laboratoryEnabled": false,
   "developerModeEnabled": false,
   "trayEnabled": false,
-  "autoUpdateEnabled": true,
   "mainWindowHidden": false,
   "keys": { "legacy-custom-tab": ["F5"] },
   "keyPositions": {

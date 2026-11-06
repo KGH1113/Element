@@ -307,6 +307,8 @@ pub fn run() {
             // 키 입력/설정
             commands::keys::keys::keys_get,
             commands::keys::keys::keys_get_counters,
+            commands::keys::keys::keys_replay_begin,
+            commands::keys::keys::keys_replay_end,
             commands::keys::keys::positions_get,
             commands::keys::keys::keys_set_mode,
             commands::keys::keys::keys_reset_all,

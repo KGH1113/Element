@@ -36,6 +36,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   private readonly Action<string, string> _notify;
   private readonly Action<string> _log;
   private readonly Action<string> _logWarning;
+  private readonly RecordedKeyCounts _recordedCounts;
   private RenderKeyViewerCanvas _keyViewers;
   private RenderFailure _startFailure;
   private bool _configured;
@@ -46,9 +47,11 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   /// <param name="api">OrbitRender's API; the overlay reads it too, so its owner disposes it.</param>
   /// <param name="placements">The key viewers to show in a video of the given size.</param>
   /// <param name="appConnected">ElementNote is connected for the in-game viewers.</param>
+  /// <param name="recordedCounts">The key counts of the run TUFReplay renders, if it saved them.</param>
   public RenderRuntime(
     OrbitRenderApi api,
     KeyViewerRenderIpc renders,
+    RecordedKeyCounts recordedCounts,
     Func<Canvas> overlayCanvas,
     Func<int, int, IReadOnlyList<RenderViewerPlacement>> placements,
     Func<bool> appConnected,
@@ -65,6 +68,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
     _notify = notify;
     _log = log ?? (_ => { });
     _logWarning = logWarning ?? (_ => { });
+    _recordedCounts = recordedCounts;
     _session = new KeyViewerRenderSession(renders, renders.Replies);
     _provider = new OrbitRenderProvider(this);
     // OrbitRender plays the recorded level itself; those plays are not attempts.
@@ -126,7 +130,11 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
         kind.First().ViewportHeight
       ))
       .ToArray();
-    if (!_session.Start(surfaces))
+    // An ElementNote that can't take recorded counts continues from the player's totals.
+    Dictionary<string, Dictionary<string, int>> recorded = _renders.TakesRecordedCounts
+      ? _recordedCounts?.Counts
+      : null;
+    if (!_session.Start(surfaces, recorded))
       return;
     _keyViewers = new RenderKeyViewerCanvas(placements);
     _configured = false;

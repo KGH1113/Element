@@ -139,6 +139,11 @@ pub async fn adofai_ipc_ws_connect(
             if sockets.is_empty() {
                 app.state::<crate::services::render::RenderService>()
                     .end(&app, None);
+                // Without the game, no replay is running: count the player's keys again.
+                let state = app.state::<crate::state::AppState>();
+                if state.end_replay_key_counters(&app) {
+                    state.obs_broadcast_counters();
+                }
             }
         }
         let _ = events.send(NativeSocketEvent::Closed { reason });

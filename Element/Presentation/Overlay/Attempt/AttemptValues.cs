@@ -27,6 +27,13 @@ internal sealed class AttemptValues : IOverlayView<AttemptCounts>
 
   public void Render(AttemptCounts counts)
   {
+    if (counts.IsUnknown)
+    {
+      // No number, so formulas that use it show nothing, as FPS does in renders.
+      _values.Set(OverlayValueId.Attempt, "-");
+      _values.Set(OverlayValueId.FullAttempt, "-");
+      return;
+    }
     _values.Set(OverlayValueId.Attempt, _builder.Clear().AppendInt(counts.Attempt), counts.Attempt);
     _values.Set(OverlayValueId.FullAttempt, _builder.Clear().AppendInt(counts.FullAttempt), counts.FullAttempt);
   }

@@ -78,7 +78,7 @@
 </tr>
 </table>
 
-그 밖에 [프로필](docs/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [프로필](docs/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), [TUFReplay 기록](docs/tufreplay.md)(리플레이와 영상에 그 플레이의 시도 횟수와 키 카운트), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 

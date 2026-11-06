@@ -587,9 +587,34 @@ pub async fn positions_get(app: AppHandle) -> CmdResult<KeyPositions> {
     run_blocking(app, |_, state| Ok(state.store.snapshot().key_positions)).await
 }
 
+/// The counts the windows show: during a TUFReplay replay, the replay's counts.
 #[tauri::command]
 pub fn keys_get_counters(state: State<'_, AppState>) -> CmdResult<KeyCounters> {
-    Ok(state.snapshot_key_counters())
+    Ok(state.displayed_key_counters())
+}
+
+/// Element reports that TUFReplay starts replaying a run. Until `keys_replay_end`, presses
+/// count from `counters`, the counts the run was recorded at, and stay out of the saved
+/// totals. Without `counters` the replay starts from the current counts.
+#[tauri::command]
+pub fn keys_replay_begin(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    counters: Option<KeyCounters>,
+) -> CmdResult<()> {
+    state.begin_replay_key_counters(&app, counters);
+    state.obs_broadcast_counters();
+    Ok(())
+}
+
+/// Element reports that the replay ended; the player's own counts show again.
+#[tauri::command]
+pub fn keys_replay_end(app: AppHandle, state: State<'_, AppState>) -> CmdResult<bool> {
+    let ended = state.end_replay_key_counters(&app);
+    if ended {
+        state.obs_broadcast_counters();
+    }
+    Ok(ended)
 }
 
 #[tauri::command]

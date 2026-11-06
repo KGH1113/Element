@@ -19,6 +19,7 @@ internal static class KeyViewerRenderTests
   public static void Run()
   {
     StartsWithLiveCountsAndExplicitSurfaces();
+    StartsFromARunsRecordedCounts();
     WaitsForTheAppToDrawEachFrame();
     KeepsTimesMonotonicAndAfterThePageStarts();
     StopsOnTimeoutAndEndsTheSession();
@@ -57,6 +58,21 @@ internal static class KeyViewerRenderTests
       "Scale and viewport go along."
     );
     Check(begin["automaticPlacement"] == null, "The game places viewers itself; no desktop window is read.");
+  }
+
+  private static void StartsFromARunsRecordedCounts()
+  {
+    var channel = new FakeChannel();
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    var recorded = new Dictionary<string, Dictionary<string, int>> { ["hand"] = new() { ["A"] = 40 } };
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, recorded);
+    JToken baseline = channel.Sent.Single(sent => sent.Name == KeyViewerRenderSession.BeginCommand).Payload[
+      "counterBaseline"
+    ];
+    Check(
+      (string)baseline["mode"] == "recorded" && (int)baseline["counters"]["hand"]["A"] == 40,
+      "TUFReplay's render of a run counts on from the key counts the run was recorded at."
+    );
   }
 
   private static void WaitsForTheAppToDrawEachFrame()

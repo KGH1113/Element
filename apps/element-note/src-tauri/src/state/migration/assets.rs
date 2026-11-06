@@ -22,7 +22,9 @@ use crate::{
     services::font_metadata::parse_font_metadata,
 };
 
-const APP_DATA_MARKER: &str = "com.dmnote.desktop";
+/// The app data folder name (the Tauri identifier) that portable asset
+/// references are resolved against.
+const APP_DATA_MARKER: &str = "io.github.kgh1113.elementnote";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum AssetCategory {
@@ -567,10 +569,9 @@ pub(super) fn parse_portable_asset_reference(raw: &str) -> Option<(AssetCategory
     {
         return None;
     }
-    let marker_index = components.iter().rposition(|component| {
-        component.eq_ignore_ascii_case(APP_DATA_MARKER)
-            || component.eq_ignore_ascii_case("io.github.kgh1113.elementnote")
-    })?;
+    let marker_index = components
+        .iter()
+        .rposition(|component| component.eq_ignore_ascii_case(APP_DATA_MARKER))?;
     if components.len() != marker_index + 3 {
         return None;
     }

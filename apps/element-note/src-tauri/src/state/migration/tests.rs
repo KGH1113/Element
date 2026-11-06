@@ -5044,12 +5044,12 @@ fn asset_data_url_mime_and_extension_fallback_order_is_stable() {
 #[test]
 fn portable_asset_reference_parser_accepts_cross_platform_absolute_forms() {
     let cases = [
-        r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\sounds\key.wav",
-        r"\\?\C:\Users\me\AppData\Roaming\com.dmnote.desktop\sounds\key.wav",
-        r"\\server\share\com.dmnote.desktop\sounds\key.wav",
-        r"\\?\UNC\server\share\com.dmnote.desktop\sounds\key.wav",
-        "/Users/me/Library/Application Support/com.dmnote.desktop/sounds/key.wav",
-        "file:///C:/Users/me/AppData/Roaming/com.dmnote.desktop/sounds/key.wav",
+        r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\sounds\key.wav",
+        r"\\?\C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\sounds\key.wav",
+        r"\\server\share\io.github.kgh1113.elementnote\sounds\key.wav",
+        r"\\?\UNC\server\share\io.github.kgh1113.elementnote\sounds\key.wav",
+        "/Users/me/Library/Application Support/io.github.kgh1113.elementnote/sounds/key.wav",
+        "file:///C:/Users/me/AppData/Roaming/io.github.kgh1113.elementnote/sounds/key.wav",
     ];
     for raw in cases {
         assert_eq!(
@@ -5135,9 +5135,10 @@ fn sprite_rehome_rewrites_coupled_metric_sources() {
     std::fs::write(images_dir.join("base.png"), b"base-image").unwrap();
     std::fs::write(images_dir.join("override.png"), b"override-image").unwrap();
     let foreign_base =
-        r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\images\base.png".to_string();
+        r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\images\base.png".to_string();
     let foreign_override =
-        r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\images\override.png".to_string();
+        r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\images\override.png"
+            .to_string();
     let mut data = crate::test_support::fixture_store_data();
     data.sprite_positions.insert(
         "test-4key".to_string(),
@@ -5195,10 +5196,10 @@ fn cross_platform_asset_forms_rehome_to_existing_local_files() {
     let sounds_dir = dir.join("sounds");
     std::fs::create_dir_all(&sounds_dir).unwrap();
     let forms = [
-        r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\sounds\normal.wav",
-        r"\\?\C:\Users\me\AppData\Roaming\com.dmnote.desktop\sounds\verbatim.wav",
-        r"\\server\share\com.dmnote.desktop\sounds\unc.wav",
-        "file:///C:/Users/me/AppData/Roaming/com.dmnote.desktop/sounds/url.wav",
+        r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\sounds\normal.wav",
+        r"\\?\C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\sounds\verbatim.wav",
+        r"\\server\share\io.github.kgh1113.elementnote\sounds\unc.wav",
+        "file:///C:/Users/me/AppData/Roaming/io.github.kgh1113.elementnote/sounds/url.wav",
     ];
     for name in ["normal.wav", "verbatim.wav", "unc.wav", "url.wav"] {
         std::fs::write(sounds_dir.join(name), b"sound").unwrap();
@@ -5226,10 +5227,10 @@ fn missing_external_and_traversal_asset_references_remain_unchanged() {
     std::fs::create_dir_all(dir.join("sounds")).unwrap();
     std::fs::write(dir.join("sounds").join("evil.wav"), b"sound").unwrap();
     for raw in [
-        r"C:\Users\me\com.dmnote.desktop\sounds\missing.wav",
+        r"C:\Users\me\io.github.kgh1113.elementnote\sounds\missing.wav",
         r"D:\music\evil.wav",
-        r"C:\Users\me\com.dmnote.desktop\sounds\..\evil.wav",
-        r"C:\Users\me\com.dmnote.desktop\sounds\..",
+        r"C:\Users\me\io.github.kgh1113.elementnote\sounds\..\evil.wav",
+        r"C:\Users\me\io.github.kgh1113.elementnote\sounds\..",
     ] {
         let mut data = data_with_one_position();
         data.key_positions.get_mut("test-4key").unwrap()[0].sound_path = Some(raw.to_string());
@@ -5252,8 +5253,9 @@ fn normalized_unicode_file_name_rehomes_only_on_unique_match() {
     let actual_path = images_dir.join(&nfd_name);
     std::fs::write(&actual_path, b"image").unwrap();
     let mut data = data_with_one_position();
-    data.key_positions.get_mut("test-4key").unwrap()[0].active_image =
-        Some(format!(r"C:\Users\me\com.dmnote.desktop\images\{nfc_name}"));
+    data.key_positions.get_mut("test-4key").unwrap()[0].active_image = Some(format!(
+        r"C:\Users\me\io.github.kgh1113.elementnote\images\{nfc_name}"
+    ));
 
     assert!(rehome_foreign_asset_references(&dir, &mut data));
     let rehomed = std::path::PathBuf::from(
@@ -5281,7 +5283,7 @@ fn normalized_unicode_file_name_rehomes_only_on_unique_match() {
 fn foreign_font_reference_stays_enabled_and_heals_after_files_arrive() {
     let dir = rehome_test_directory("font-heal");
     std::fs::create_dir_all(dir.join("fonts")).unwrap();
-    let foreign = r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\fonts\portable.ttf";
+    let foreign = r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\fonts\portable.ttf";
     let mut data = crate::test_support::fixture_store_data();
     data.font_settings.custom_fonts.push(CustomFont {
         id: "font".to_string(),
@@ -5321,7 +5323,7 @@ fn foreign_font_reference_stays_enabled_and_heals_after_files_arrive() {
 fn dangling_local_font_reference_is_still_disabled() {
     // 현재 appData 루트가 마커명을 포함하는 실제 구조 재현
     let root = rehome_test_directory("font-dangling");
-    let dir = root.join("com.dmnote.desktop");
+    let dir = root.join("io.github.kgh1113.elementnote");
     std::fs::create_dir_all(dir.join("fonts")).unwrap();
     let missing_local = dir.join("fonts").join("gone.ttf");
     let mut data = crate::test_support::fixture_store_data();
@@ -5347,7 +5349,7 @@ fn dangling_local_font_reference_is_still_disabled() {
 #[cfg(target_os = "windows")]
 #[test]
 fn windows_identity_variants_of_current_app_data_are_not_foreign() {
-    let root = rehome_test_directory("win-identity").join("com.dmnote.desktop");
+    let root = rehome_test_directory("win-identity").join("io.github.kgh1113.elementnote");
     std::fs::create_dir_all(root.join("fonts")).unwrap();
     let missing = root.join("fonts").join("gone.ttf");
     let plain = missing.to_string_lossy().into_owned();
@@ -5364,7 +5366,8 @@ fn windows_identity_variants_of_current_app_data_are_not_foreign() {
     }
 
     // 다른 사용자 경로는 외래 판정 유지
-    let other = r"C:\Users\dmnote-other\AppData\Roaming\com.dmnote.desktop\fonts\gone.ttf";
+    let other =
+        r"C:\Users\dmnote-other\AppData\Roaming\io.github.kgh1113.elementnote\fonts\gone.ttf";
     assert!(super::is_foreign_portable_asset_reference(&root, other));
 
     let _ = std::fs::remove_dir_all(root.parent().unwrap());
@@ -5373,8 +5376,9 @@ fn windows_identity_variants_of_current_app_data_are_not_foreign() {
 #[test]
 fn corrupt_entries_with_foreign_managed_paths_survive_recovery() {
     // 사운드: 외래 관리 경로 키 + 손상 값 → 삭제 대신 기본 메타데이터로 재건
-    let foreign_sound = r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\sounds\key.wav";
-    let posix_sound = "/Users/me/Library/Application Support/com.dmnote.desktop/sounds/k2.wav";
+    let foreign_sound = r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\sounds\key.wav";
+    let posix_sound =
+        "/Users/me/Library/Application Support/io.github.kgh1113.elementnote/sounds/k2.wav";
     let mut entries = serde_json::Map::new();
     entries.insert(foreign_sound.to_string(), json!(42));
     entries.insert(posix_sound.to_string(), json!(42));
@@ -5394,7 +5398,9 @@ fn corrupt_entries_with_foreign_managed_paths_survive_recovery() {
         name: "Font".to_string(),
         display_name: "Font".to_string(),
         enabled: true,
-        local_path: Some(r"C:\Users\me\AppData\Roaming\com.dmnote.desktop\fonts\p.ttf".to_string()),
+        local_path: Some(
+            r"C:\Users\me\AppData\Roaming\io.github.kgh1113.elementnote\fonts\p.ttf".to_string(),
+        ),
         css_content: None,
         weight_ranges: Vec::new(),
     })
@@ -5416,7 +5422,7 @@ fn sound_library_rekey_preserves_metadata_and_conflicts() {
     let local_path = dir.join("sounds").join("library.wav");
     std::fs::create_dir_all(local_path.parent().unwrap()).unwrap();
     std::fs::write(&local_path, b"sound").unwrap();
-    let foreign = r"C:\Users\me\com.dmnote.desktop\sounds\library.wav".to_string();
+    let foreign = r"C:\Users\me\io.github.kgh1113.elementnote\sounds\library.wav".to_string();
     let mut metadata = SoundLibraryEntry {
         display_name: Some("보존 이름".to_string()),
         trim_start_ratio: Some(0.25),
@@ -5440,7 +5446,8 @@ fn sound_library_rekey_preserves_metadata_and_conflicts() {
     assert_eq!(data.sound_library[&foreign], metadata);
     assert_ne!(data.sound_library[&local_key], metadata);
 
-    let alternate_foreign = r"\\server\share\com.dmnote.desktop\sounds\library.wav".to_string();
+    let alternate_foreign =
+        r"\\server\share\io.github.kgh1113.elementnote\sounds\library.wav".to_string();
     let mut candidates_only = crate::test_support::fixture_store_data();
     candidates_only
         .sound_library

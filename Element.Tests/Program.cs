@@ -60,6 +60,7 @@ internal static class Program
         KeyViewerRenderTests.Run
       );
       Run("OrbitRender's overlay API 1 and 2 both deliver recorded keys", OrbitRenderProviderTests.Run);
+      Run("TUFReplay replays and renders show the attempts and key counts their run was played at", RunStateTests.Run);
       Run("bundled ElementNote installs once per build and opens only when closed", DmNoteAppTests.Run);
       Run(
         "auto update: versions, verified downloads, background finish, rollback and launcher switch",

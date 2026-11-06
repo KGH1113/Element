@@ -122,6 +122,9 @@ internal sealed class OverlayRuntime : IDisposable
 
   public void RefreshAccuracy() => _coordinator?.RefreshAccuracy();
 
+  /// <summary>Redraws every value while the overlay is shown; nothing while it is hidden.</summary>
+  public void RefreshAll() => _coordinator?.RefreshAll();
+
   public void RefreshFloor() => _coordinator?.RefreshFloor();
 
   public void RefreshTime(int framesPerSecond) => _coordinator?.RefreshTime(framesPerSecond);

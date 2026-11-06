@@ -9,10 +9,11 @@
 |---|---|---|
 | 오버레이 (텍스트·도형) | 들어감 | OrbitRender의 **Mod Overlay**를 켜면 들어감 |
 | ElementNote 키뷰어 | 게임에서 보이는 손·발 키뷰어가 같은 자리에 들어감 | 들어가지 않음 (기록된 키 입력이 없음) |
-| 시도 횟수 | 늘지 않음 | 늘지 않음 |
+| 시도 횟수 | 늘지 않음. TUFReplay에서 시작한 렌더는 기록한 플레이의 시도 횟수 | 늘지 않음 |
 
-- 키뷰어의 키 카운트는 렌더를 시작할 때 ElementNote에 쌓여 있던 값에서 이어집니다.
-  렌더 중에 눌린 횟수는 영상에만 쓰이고 ElementNote의 카운트에는 더해지지 않습니다.
+- 키뷰어의 키 카운트는 TUFReplay가 그 기록과 함께 저장한 카운트에서 이어집니다
+  ([TUFReplay 기록](tufreplay.md)). 저장된 값이 없으면 렌더를 시작할 때 ElementNote에 쌓여 있던
+  값에서 이어집니다. 렌더 중에 눌린 횟수는 영상에만 쓰이고 ElementNote의 카운트에는 더해지지 않습니다.
 - 녹화 모드나 협동 모드에서는 게임처럼 키뷰어를 넣지 않습니다.
 - 직접 옮긴 오버레이 요소는 영상에서도 고정한 기준점(위·아래·모서리)에서 같은 거리에 놓입니다.
   게임 창과 영상의 화면비가 달라도(예: 16:10 화면, 16:9 영상) 가장자리에 붙인 요소가 영상 밖으로
@@ -58,8 +59,8 @@ OrbitRender는 실시간이 아니라 한 프레임씩 렌더링하므로, Eleme
 
 | 방향 | 이름 | 내용 |
 |---|---|---|
-| 앱 → 게임 이벤트 | `render.available` | `{ protocolVersion: 1 }`. 연결될 때마다 보냄 |
-| 게임 → 앱 명령 | `render.begin` | `sessionId`(32자리 hex), `surfaces[]`(`viewerKind`, `scale`: 영상 픽셀/CSS 픽셀, `surfaceWidth`·`surfaceHeight`: 뷰포트 추정값), `frameFormat`, `initialOutputTimeUs`, `counterBaseline: "live"` |
+| 앱 → 게임 이벤트 | `render.available` | `{ protocolVersion: 1, recordedCounters: true }`. 연결될 때마다 보냄. `recordedCounters`가 없는 앱에는 기록한 카운트를 보내지 않음 |
+| 게임 → 앱 명령 | `render.begin` | `sessionId`(32자리 hex), `surfaces[]`(`viewerKind`, `scale`: 영상 픽셀/CSS 픽셀, `surfaceWidth`·`surfaceHeight`: 뷰포트 추정값), `frameFormat`, `initialOutputTimeUs`, `counterBaseline`: `"live"` 또는 `{ mode: "recorded", counters }`(기록에 없는 슬롯은 지금 값) |
 | 게임 → 앱 명령 | `render.frame` | `sessionId`, `frameIndex`(0부터 하나씩), `outputTimeUs`, `events[]`(`key`: Unity KeyCode 이름, `down`, `sequence`, `outputTimeUs`) |
 | 게임 → 앱 명령 | `render.pulse` · `render.end` | `sessionId`. 답하지 않음 |
 | 앱 → 게임 명령 | `render.reply` | `requestId`(위 명령의 id), `ok`, `result` 또는 `error{code,message}` |

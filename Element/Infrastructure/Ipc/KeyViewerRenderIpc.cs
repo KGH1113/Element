@@ -21,8 +21,22 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
   private readonly object _gate = new();
   private IFeatureRegistration _ipc;
   private string _peerId;
+  private bool _takesRecordedCounts;
 
   public RenderReplies Replies { get; } = new();
+
+  /// <summary>
+  /// The connected ElementNote can start a render's key counts from a run's recorded counts
+  /// (<c>render.available</c> carries <c>recordedCounters: true</c>).
+  /// </summary>
+  public bool TakesRecordedCounts
+  {
+    get
+    {
+      lock (_gate)
+        return _peerId != null && _takesRecordedCounts;
+    }
+  }
 
   /// <summary>An ElementNote that takes renders is connected.</summary>
   public bool Available
@@ -43,10 +57,17 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
   // Unity main thread: IPC events are dispatched there.
   public void OnPeerEvent(PeerEvent message)
   {
-    if (message?.Name != AvailableEvent || Read(message.Json)?.Value<int?>("protocolVersion") != ProtocolVersion)
+    if (message?.Name != AvailableEvent)
+      return;
+    JObject available = Read(message.Json);
+    if (available?.Value<int?>("protocolVersion") != ProtocolVersion)
       return;
     lock (_gate)
+    {
       _peerId ??= message.PeerId;
+      if (message.PeerId == _peerId)
+        _takesRecordedCounts = available.Value<bool?>("recordedCounters") == true;
+    }
   }
 
   public void OnPeerDisconnected(string peerId)

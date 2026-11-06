@@ -52,7 +52,14 @@ internal sealed class KeyViewerRenderSession
   public IReadOnlyList<RenderSurface> Surfaces => _surfaces;
 
   /// <summary>Asks ElementNote to prepare the pages. False when no ElementNote takes renders.</summary>
-  public bool Start(IReadOnlyList<RenderSurfaceRequest> surfaces)
+  /// <param name="recordedCounts">
+  /// The key counts the rendered run was recorded at (tab id → key slot label → presses), or
+  /// null to continue from the player's current totals.
+  /// </param>
+  public bool Start(
+    IReadOnlyList<RenderSurfaceRequest> surfaces,
+    IReadOnlyDictionary<string, Dictionary<string, int>> recordedCounts = null
+  )
   {
     Stop();
     Failure = null;
@@ -75,8 +82,11 @@ internal sealed class KeyViewerRenderSession
           .ToArray(),
         frameFormat = "rgba",
         initialOutputTimeUs = 0,
-        // The video continues the player's key counts instead of starting from zero.
-        counterBaseline = "live",
+        // The video counts on from the run's recorded key counts, or else from the
+        // player's current totals, never from zero.
+        counterBaseline = recordedCounts == null
+          ? (object)"live"
+          : new { mode = "recorded", counters = recordedCounts },
       }
     );
     if (_beginRequest == null)

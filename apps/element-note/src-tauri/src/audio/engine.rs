@@ -732,6 +732,38 @@ struct OpenedAudioSink {
     backend: KeySoundOutputBackend,
 }
 
+/// cpal keeps one WASAPI device enumerator for the whole process, made in the
+/// COM apartment of the first thread that asks for a device. When that thread
+/// exits, COM is uninitialized under it, and device calls from other threads can
+/// crash with STATUS_ACCESS_VIOLATION (seen with the Windows audio service
+/// stopped, as on CI runners). Asking first from a thread that never exits keeps
+/// the enumerator valid.
+fn keep_device_enumerator_alive() {
+    #[cfg(target_os = "windows")]
+    {
+        static STARTED: std::sync::Once = std::sync::Once::new();
+        STARTED.call_once(|| {
+            let (ready_tx, ready_rx) = mpsc::channel();
+            let spawned = thread::Builder::new()
+                .name("audio-device-enumerator".to_string())
+                .spawn(move || {
+                    use cpal::traits::HostTrait;
+                    let _ = cpal::default_host().default_output_device();
+                    let _ = ready_tx.send(());
+                    loop {
+                        thread::park();
+                    }
+                });
+            match spawned {
+                Ok(_) => {
+                    let _ = ready_rx.recv();
+                }
+                Err(err) => warn!("[KeySound] failed to start the device enumerator thread: {err}"),
+            }
+        });
+    }
+}
+
 fn open_audio_sink(backend: &KeySoundOutputBackend) -> AudioSinkResult<OpenedAudioSink> {
     match backend {
         KeySoundOutputBackend::DefaultDevice => {
@@ -755,6 +787,7 @@ fn open_audio_sink(backend: &KeySoundOutputBackend) -> AudioSinkResult<OpenedAud
 }
 
 fn open_default_audio_sink() -> AudioSinkResult<StreamHandler> {
+    keep_device_enumerator_alive();
     let (error, callback) = stream_error_callback("stream");
 
     let sink = DeviceSinkBuilder::from_default_device()
@@ -770,6 +803,7 @@ fn open_default_audio_sink() -> AudioSinkResult<StreamHandler> {
 
 fn open_system_device_audio_sink(id: &str, stored_name: &str) -> AudioSinkResult<OpenedAudioSink> {
     use cpal::traits::{DeviceTrait, HostTrait};
+    keep_device_enumerator_alive();
 
     let device_id = cpal::DeviceId::from_str(id).map_err(|_| AudioSinkOpenError::DeviceNotFound)?;
     let host = cpal::default_host();
@@ -823,6 +857,7 @@ fn open_system_device_audio_sink(id: &str, stored_name: &str) -> AudioSinkResult
 
 fn list_system_output_devices() -> Vec<KeySoundOutputDevice> {
     use cpal::traits::{DeviceTrait, HostTrait};
+    keep_device_enumerator_alive();
 
     let host = cpal::default_host();
     let host_id = host.id();

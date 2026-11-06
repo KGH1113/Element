@@ -384,7 +384,8 @@ internal sealed class NativeViewerLayoutTarget
     ReadReferenceSize();
     if (_growthLayout == null || !_growthKey.Equals(GrowthKey))
     {
-      Rect initial = InitialBounds();
+      OverlayLayoutSettings placement = AnchoredPlacement;
+      Rect initial = InitialBounds(placement);
       float denominator = _referenceSize.x * SizeUnit;
       if (denominator <= 0 || initial.width <= 0)
         return;
@@ -393,11 +394,7 @@ internal sealed class NativeViewerLayoutTarget
         _screenWidth,
         _screenHeight,
         initial.width / denominator,
-        _settings.Customized
-        && OverlayLayoutPosition.IsAnchored(_settings)
-        && NativeViewerGrowth.IsAnchor(_settings.Anchor)
-          ? _settings.Anchor
-          : null
+        placement != null && NativeViewerGrowth.IsAnchor(placement.Anchor) ? placement.Anchor : null
       );
       _growthKey = GrowthKey;
     }
@@ -471,16 +468,23 @@ internal sealed class NativeViewerLayoutTarget
       _settings.Scale
     );
 
+  // The saved anchored placement, or the default one until the player moves
+  // this viewer. Null for a legacy centered placement, which the host lays out.
+  private OverlayLayoutSettings AnchoredPlacement =>
+    !_settings.Customized ? NativeViewerDefaultLayout.For(_kind)
+    : OverlayLayoutPosition.IsAnchored(_settings) ? _settings
+    : null;
+
   // Capture the visible placement once. Content/viewport changes do not select
   // a new growth anchor or rewrite saved settings. Undo/redo changes the key.
-  private Rect InitialBounds()
+  private Rect InitialBounds(OverlayLayoutSettings placement)
   {
-    if (_settings.Customized && OverlayLayoutPosition.IsAnchored(_settings))
+    if (placement != null)
     {
-      float scale = PositiveScale(_settings.Scale) * SizeUnit;
+      float scale = PositiveScale(placement.Scale) * SizeUnit;
       LayoutBounds resolved = OverlayLayoutGeometry.KeepVisible(
         OverlayLayoutPosition.Resolve(
-          _settings,
+          placement,
           _referenceSize.x * scale,
           _referenceSize.y * scale,
           _screenWidth,
@@ -494,7 +498,7 @@ internal sealed class NativeViewerLayoutTarget
 
     _host?.Layout(
       NativeId,
-      _settings.Customized,
+      true,
       FiniteClamp(_settings.CenterX, -4, 5, .5f),
       FiniteClamp(_settings.CenterY, -4, 5, .5f),
       FiniteClamp(_settings.Scale, .2f, 5, 1)
@@ -513,16 +517,11 @@ internal sealed class NativeViewerLayoutTarget
       float width = NativeViewerMock.Width(_kind);
       float height = NativeViewerMock.ViewportHeight;
       float fit = Mathf.Min(1, Mathf.Min(430 / width, 270 / height));
-      _effectiveScale = _settings.Customized ? FiniteClamp(_settings.Scale, .2f, 5, 1) : 1;
+      _effectiveScale = FiniteClamp(_settings.Scale, .2f, 5, 1);
       width *= fit * _effectiveScale * SizeUnit;
       height *= fit * _effectiveScale * SizeUnit;
-      float x =
-        _settings.Customized ? FiniteClamp(_settings.CenterX, -4, 5, .5f) * _screenWidth - width / 2
-        : _kind == "hand" ? 16
-        : _screenWidth - width - 16;
-      float y = _settings.Customized
-        ? FiniteClamp(_settings.CenterY, -4, 5, .5f) * _screenHeight - height / 2
-        : _screenHeight - height - 16;
+      float x = FiniteClamp(_settings.CenterX, -4, 5, .5f) * _screenWidth - width / 2;
+      float y = FiniteClamp(_settings.CenterY, -4, 5, .5f) * _screenHeight - height / 2;
       LayoutBounds fitted = OverlayLayoutGeometry.KeepVisible(
         new LayoutBounds(x, y, width, height),
         _screenWidth,

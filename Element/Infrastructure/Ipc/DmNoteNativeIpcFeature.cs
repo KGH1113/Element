@@ -194,9 +194,10 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
         Id = id,
         TemplateId = templateId,
         Enabled = true,
+        // Centered at full size, the size the default viewers start at.
         Customized = true,
-        CenterX = .5f,
-        CenterY = .5f,
+        LayoutVersion = OverlayLayoutPosition.CurrentVersion,
+        Anchor = Anchor9.Center,
       }
     );
     _layoutTargets.Add(target);

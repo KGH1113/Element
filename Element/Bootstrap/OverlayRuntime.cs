@@ -33,7 +33,7 @@ internal sealed class OverlayRuntime : IDisposable
   private StatusTimeTicker _timeTicker;
 
   /// <param name="attempts">Null when attempt counting could not start.</param>
-  /// <param name="video">OrbitRender's video, which values follow while it renders.</param>
+  /// <param name="video">A video rendered offline, which values follow while it renders.</param>
   public OverlayRuntime(Main main, Action<int> onTimeTick, IAttemptSource attempts, IRenderVideo video)
   {
     try

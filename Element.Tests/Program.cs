@@ -56,10 +56,13 @@ internal static class Program
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
       Run(
-        "OrbitRender replay renders draw ElementNote key viewers frame by frame, in place and in order",
+        "replay renders draw ElementNote key viewers frame by frame, in place and in order",
         KeyViewerRenderTests.Run
       );
-      Run("OrbitRender's overlay API 1 and 2 both deliver recorded keys", OrbitRenderProviderTests.Run);
+      Run(
+        "rendered TUFReplay runs deliver recorded keys; replays in the game are left alone",
+        ReplayRenderProviderTests.Run
+      );
       Run("TUFReplay replays and renders show the attempts and key counts their run was played at", RunStateTests.Run);
       Run("bundled ElementNote installs once per build and opens only when closed", DmNoteAppTests.Run);
       Run(

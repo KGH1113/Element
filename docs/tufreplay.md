@@ -3,7 +3,7 @@
 [TUFReplay](https://github.com/KGH1113/TUFReplay)가 기록한 플레이를 다시 보거나 영상으로 만들면,
 Element는 그 플레이를 할 때의 값을 보여 줍니다.
 
-| | 게임 안 리플레이 | OrbitRender 렌더 (TUFReplay에서 시작) |
+| | 게임 안 리플레이 | 영상 렌더 (TUFReplay에서 시작) |
 |---|---|---|
 | 시도 횟수 (Attempt, Full attempt) | 기록한 플레이의 시도 횟수 | 기록한 플레이의 시도 횟수 |
 | ElementNote 키 카운트 | 기록을 시작할 때의 카운트에서 이어짐 | 기록을 시작할 때의 카운트에서 이어짐 |
@@ -57,10 +57,10 @@ TUFReplay가 플레이를 기록하기 시작할 때 저장합니다. 카운트�
 
 ## 동작
 
-1. Element는 TUFReplay의 `RunStateApi`에 리플렉션으로 등록합니다. 상태 id는 `Element.Attempts`와 `Element.KeyCounts`입니다.
+1. Element는 TUFReplay의 `ReplayApi`에 리플렉션으로 등록합니다. 상태를 저장하는 provider id는 `Element.Attempts`와 `Element.KeyCounts`입니다. 렌더용 `Element.Render`는 상태를 저장하지 않습니다([OrbitRender 렌더](orbitrender.md)).
    - TUFReplay가 없어도 Element는 그대로 동작합니다.
    - TUFReplay가 나중에 로드되거나 껐다 켜져도 2초 안에 다시 등록합니다.
-   - 저장 형식은 `AttemptRunState`와 `KeyCountRunState`의 public 필드입니다. 필드 이름이나 타입을 바꾸려면 provider에 `UpgradeRunState`가 있어야 합니다. 자세한 내용은 TUFReplay의 `docs/run-state-api.md`에 있습니다.
+   - 저장 형식은 `AttemptRunState`와 `KeyCountRunState`의 public 필드입니다. 필드 이름이나 타입을 바꾸려면 provider에 `UpgradeRunState`가 있어야 합니다. 자세한 내용은 TUFReplay의 `docs/replay-api.md`에 있습니다.
 2. 녹화가 시작되면 TUFReplay가 `CaptureRunState`를 부릅니다.
    - 시도 횟수는 바로 돌려줍니다.
    - 키 카운트는 `counters.read`의 답을 `Task`로 돌려줍니다.

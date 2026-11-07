@@ -12,6 +12,7 @@ internal static class OverlayLayoutTests
   {
     AnchoredPositions();
     NativeGrowth();
+    NativeShrunkToFit();
     LayoutBounds start = new(100f, 80f, 200f, 100f);
     LayoutHandle[] handles =
     {
@@ -356,6 +357,25 @@ internal static class OverlayLayoutTests
       NativeViewerGrowth.Capture(new(0, 0, 0, 60), 1920, 1080, 1) == null,
       "unavailable native geometry cannot initialize growth"
     );
+  }
+
+  // A 600x200 viewer at 300% asked for 1000% shows at 320%, the most a
+  // 1920x1080 view holds. The toolbar scales it at its center from there.
+  private static void NativeShrunkToFit()
+  {
+    LayoutBounds shown = new(60, 400, 1800, 600);
+    LayoutBounds grown = OverlayLayoutGeometry.ScaleAtCenter(shown, 10 / 3f, 1920, 1080, .2f / 3, 10 / 3f);
+    OverlayLayoutSettings placement = NativeViewerGrowth.Capture(grown, 1920, 1080, 10, Anchor9.BottomLeft);
+    LayoutBounds fitted = NativeViewerGrowth.Place(placement, 1920, 640, 1920, 1080, true);
+    Check(
+      fitted.X >= 0 && fitted.Y >= 0 && fitted.Right <= 1920.01f && fitted.Bottom <= 1080.01f,
+      "a viewer shrunk to fit stays inside the view"
+    );
+    Near(1080, fitted.Bottom, "a viewer shrunk to fit keeps to its anchored corner");
+    LayoutBounds smaller = OverlayLayoutGeometry.ScaleAtCenter(fitted, 1 / 3.2f, 1920, 1080, .2f / 3.2f, 10 / 3.2f);
+    Near(600, smaller.Width, "a viewer shrunk to fit can be scaled down again");
+    LayoutBounds unshrunk = NativeViewerGrowth.Place(placement, 600, 200, 1920, 1080, false);
+    Near(60, unshrunk.Right, "a viewer that fits may still sit mostly off screen");
   }
 
   private static void AnchorPersistence()

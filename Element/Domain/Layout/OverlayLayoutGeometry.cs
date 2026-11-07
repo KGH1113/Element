@@ -140,6 +140,15 @@ internal static class OverlayLayoutGeometry
       bounds.Height
     );
 
+  /// <summary>Moves bounds that fit the screen wholly onto it; larger ones start at its top left.</summary>
+  public static LayoutBounds KeepInside(LayoutBounds bounds, float screenWidth, float screenHeight) =>
+    new(
+      Clamp(bounds.X, 0, Math.Max(0, screenWidth - bounds.Width)),
+      Clamp(bounds.Y, 0, Math.Max(0, screenHeight - bounds.Height)),
+      bounds.Width,
+      bounds.Height
+    );
+
   public static LayoutBounds ScaleAtCenter(
     LayoutBounds start,
     float ratio,

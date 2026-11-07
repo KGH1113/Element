@@ -103,42 +103,28 @@ internal sealed class RenderViewerPlacement
 
   /// <summary>
   /// The viewer's content, <paramref name="contentWidth"/> by <paramref name="contentHeight"/>
-  /// CSS pixels, as fractions of the video from its top left.
+  /// CSS pixels, as fractions of the video from its top left. It covers whole video
+  /// pixels, so a frame drawn at this viewer's scale shows one texel per pixel; a
+  /// frame between pixels would be resampled and blur.
   /// </summary>
   public LayoutBounds Place(float contentWidth, float contentHeight)
   {
-    float width = contentWidth * Scale;
-    float height = contentHeight * Scale;
+    float width = WholePixels(contentWidth * Scale);
+    float height = WholePixels(contentHeight * Scale);
     LayoutBounds placed =
       _anchor != null
         ? OverlayLayoutPosition.Resolve(_anchor, width, height, VideoWidth, VideoHeight)
         : new LayoutBounds(_centerX * VideoWidth - width * .5f, _centerY * VideoHeight - height * .5f, width, height);
     placed = OverlayLayoutGeometry.KeepVisible(placed, VideoWidth, VideoHeight);
     return new LayoutBounds(
-      placed.X / VideoWidth,
-      placed.Y / VideoHeight,
-      placed.Width / VideoWidth,
-      placed.Height / VideoHeight
+      (float)Math.Round(placed.X) / VideoWidth,
+      (float)Math.Round(placed.Y) / VideoHeight,
+      width / VideoWidth,
+      height / VideoHeight
     );
   }
 
-  /// <summary>
-  /// The part of a drawn frame to show: the page minus its padding, as UVs
-  /// (x, y, width, height). Raw frames list rows from the top, so they flip.
-  /// </summary>
-  public static (float X, float Y, float Width, float Height) ContentUv(
-    float viewportWidth,
-    float viewportHeight,
-    float padding,
-    bool rowsFromTop
-  )
-  {
-    float u = padding / viewportWidth;
-    float v = padding / viewportHeight;
-    float width = 1 - 2 * u;
-    float height = 1 - 2 * v;
-    return rowsFromTop ? (u, 1 - v, width, -height) : (u, v, width, height);
-  }
+  private static float WholePixels(float pixels) => Math.Max(1, (float)Math.Round(pixels));
 
   private static bool Positive(float value) => !float.IsNaN(value) && !float.IsInfinity(value) && value > 0;
 }

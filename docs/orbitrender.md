@@ -79,6 +79,10 @@ OrbitRender는 실시간이 아니라 한 프레임씩 렌더링하므로, Eleme
   `render.reply`는 백그라운드 스레드에서 처리됩니다.
 - `render.begin`의 답에는 화면마다 `width`·`height`(픽셀), `frameFormat`(`rgba`: 위쪽 줄부터인
   RGBA, macOS / `png`: Windows), `viewport{width,height,padding}`(CSS 픽셀)이 있습니다.
+- 영상에는 프레임의 텍셀 하나가 영상 픽셀 하나에 맞게 들어갑니다. Element는 `padding`을 정수
+  텍셀로 잘라내고 키뷰어를 정수 픽셀 위치·크기에 둡니다. macOS의 ElementNote는 WebKit
+  스냅숏이 Retina(2x)에서 1픽셀 작게 와도 늘리지 않고 그대로 복사합니다. 어느 한쪽이라도
+  어긋나면 매 프레임을 다시 샘플링해서 글자가 흐려집니다.
 - `render.frame`의 답에는 `frames[]`(`viewerKind`, `framePath`)가 있습니다. 파일은 다음 프레임에
   덮어쓰므로 바로 읽습니다.
 - 페이지 시계는 뒤로 가지 않고 시작할 때 100ms를 쓰므로, Element는 모든 시각에 1초를 더해 보냅니다.

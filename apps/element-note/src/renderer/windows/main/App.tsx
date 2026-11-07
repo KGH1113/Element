@@ -20,6 +20,7 @@ import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useKeyLimiterSync } from '@hooks/app/useKeyLimiterSync';
+import { onKeySaveFailed } from '@src/renderer/editor/runtime/keySaveRecovery';
 import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
 import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
@@ -520,6 +521,15 @@ export default function App() {
       delete window.__dmn_getColorPickerState;
     };
   });
+
+  // 키 변경을 저장하지 못하면 무슨 일이 있었고 어떻게 하면 되는지 알린다.
+  useEffect(() =>
+    onKeySaveFailed(({ restored }) =>
+      showAlert(
+        t(restored ? 'keySetting.saveFailedReverted' : 'keySetting.saveFailed'),
+      ),
+    ),
+  );
 
   return (
     <div

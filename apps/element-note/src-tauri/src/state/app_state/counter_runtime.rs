@@ -240,6 +240,27 @@ impl AppState {
         })
     }
 
+    /// A legacy adapter commit that may change key mappings, such as `keys_update`.
+    pub(crate) fn commit_legacy_editor_transaction_preserving_runtime_counters<T>(
+        &self,
+        emitter: &dyn KeyCounterEventEmitter,
+        origin: crate::models::EditorCommitOrigin,
+        touched_fields: &[crate::models::EditorField],
+        admission: HistoryAdmissionLease,
+        updater: impl FnOnce(&mut AppStoreData) -> std::result::Result<T, EditorCommitError>,
+    ) -> std::result::Result<(AdmittedEditorTransaction<T>, bool), EditorCommitError> {
+        self.commit_editor_transaction_preserving_runtime_counters(emitter, |runtime_counters| {
+            self.store
+                .commit_legacy_editor_transaction_with_runtime_counters_admission(
+                    origin,
+                    touched_fields,
+                    admission,
+                    runtime_counters,
+                    updater,
+                )
+        })
+    }
+
     pub(crate) fn commit_legacy_editor_reset_preserving_runtime_counters<T>(
         &self,
         emitter: &dyn KeyCounterEventEmitter,

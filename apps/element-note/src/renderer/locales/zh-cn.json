@@ -174,7 +174,9 @@
     "noteBorderColor": "边框颜色",
     "borderSideAll": "全部",
     "borderSideVertical": "垂直",
-    "borderSideHorizontal": "水平"
+    "borderSideHorizontal": "水平",
+    "saveFailedReverted": "无法保存按键更改，已恢复为之前的按键。请重新更改。",
+    "saveFailed": "无法保存按键更改。切换到其他标签页再返回即可查看已保存的按键。"
   },
   "imagePicker": {
     "idle": "闲置",

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Application.Attempts;
 using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
+using Element.Application.Rendering;
 using Element.Domain.DmNote;
 using Element.Domain.Judgement;
 using Element.Infrastructure.Attempts;
@@ -17,6 +18,7 @@ using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Rendering;
+using Element.Infrastructure.Replays;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -43,8 +45,13 @@ internal sealed class ModRuntime : IDisposable
   private KeyLimiterIpcFeature _keyLimiterIpc;
   private DmNoteNativeIpcFeature _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
+  private KeyCounterIpc _counterIpc;
   private RenderRuntime _render;
-  private OrbitRenderApi _orbitRender;
+  private ReplayRuntime _replays;
+  private ReplayedAttempts _replayedAttempts;
+  private readonly RecordedKeyCounts _recordedKeyCounts = new();
+  private TufReplayApi _tufReplay;
+  private readonly OfflineRender _offlineRender = new();
   private DmNoteAppLauncher _dmNoteApp;
   private bool _dmNoteAutoOpen;
   private bool _dmNoteAppChecked;
@@ -68,6 +75,7 @@ internal sealed class ModRuntime : IDisposable
   private readonly Action _tickSettingsUi;
   private readonly Action _tickKeyLimiter;
   private readonly Action _tickRender;
+  private readonly Action _tickReplays;
   private readonly Action<scrMarginTracker, HitMargin> _registerHit;
   private readonly Action _refreshAccuracy;
   private readonly Action _refreshFloor;
@@ -88,6 +96,7 @@ internal sealed class ModRuntime : IDisposable
     _tickSettingsUi = () => _settingsUi?.Tick();
     _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
     _tickRender = () => _render?.Tick();
+    _tickReplays = () => _replays?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
     _refreshFloor = () =>
@@ -142,8 +151,10 @@ internal sealed class ModRuntime : IDisposable
       WarnIfKeyboardChatterBlockerIsLoaded();
 
       _attempts = CreateAttemptTracker();
-      _orbitRender = new OrbitRenderApi();
-      _overlay = new OverlayRuntime(_main, OnTimeTick, _attempts, _orbitRender);
+      // During TUFReplay's replays and renders the overlay shows the run's recorded attempts.
+      _replayedAttempts = new ReplayedAttempts(_attempts);
+      _tufReplay = new TufReplayApi();
+      _overlay = new OverlayRuntime(_main, OnTimeTick, _replayedAttempts, _offlineRender);
       _nativeViewers = new DmNoteNativeIpcFeature(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
@@ -157,6 +168,8 @@ internal sealed class ModRuntime : IDisposable
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _renderIpc = new KeyViewerRenderIpc();
       _keyLimiterIpc.AttachRenders(_renderIpc);
+      _counterIpc = new KeyCounterIpc();
+      _keyLimiterIpc.AttachCounters(_counterIpc);
       _keyLimiterIpc.Enable();
       _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
 
@@ -172,6 +185,7 @@ internal sealed class ModRuntime : IDisposable
         () => gameHitText.Applies
       );
       _render = CreateRenderRuntime();
+      _replays = new ReplayRuntime(_tufReplay, CreateReplayProviders(), _main.Log);
       _initialized = true;
       ApplySettings();
       return true;
@@ -230,7 +244,8 @@ internal sealed class ModRuntime : IDisposable
       _trackpad?.Tick();
     Execute("Update native ElementNote viewers", _tickNativeViewers);
     Execute("Apply the ElementNote key limiter", _tickKeyLimiter);
-    Execute("Join OrbitRender renders", _tickRender);
+    Execute("Keep ElementNote's render lease", _tickRender);
+    Execute("Join TUFReplay runs", _tickReplays);
   }
 
   public void OpenSettings()
@@ -389,6 +404,12 @@ internal sealed class ModRuntime : IDisposable
     _disposed = true;
     _initialized = false;
 
+    // TUFReplay stops calling Element before anything it uses goes away.
+    _replays?.Dispose();
+    _replays = null;
+    // ElementNote counts the player's keys again even if a replay is still running.
+    _counterIpc?.EndReplay();
+
     // Before the canvases and the IPC channel it uses go away.
     _render?.Dispose();
     _render = null;
@@ -426,8 +447,8 @@ internal sealed class ModRuntime : IDisposable
 
     _overlay?.Dispose();
     _overlay = null;
-    _orbitRender?.Dispose();
-    _orbitRender = null;
+    _tufReplay?.Dispose();
+    _tufReplay = null;
 
     // Ends the play in progress and waits briefly for its save. Not through
     // Execute: it skips everything once the runtime is disposed.
@@ -546,14 +567,32 @@ internal sealed class ModRuntime : IDisposable
       && ADOBase.conductor.isGameWorld;
   }
 
-  // OrbitRender support is optional: a failure here leaves the rest of the mod running.
+  // Without a render runtime, Element stays out of rendered replays but keeps its run states.
+  private KeyValuePair<string, object>[] CreateReplayProviders()
+  {
+    var providers = new List<KeyValuePair<string, object>>(3)
+    {
+      new(
+        AttemptRunStateProvider.Id,
+        new AttemptRunStateProvider(_attempts, _replayedAttempts, () => _overlay?.RefreshAll())
+      ),
+      new(KeyCountRunStateProvider.Id, new KeyCountRunStateProvider(_counterIpc, _recordedKeyCounts)),
+    };
+    if (_render != null)
+      providers.Add(new(ReplayRenderProvider.Id, _render.Provider));
+    return providers.ToArray();
+  }
+
+  // Render support is optional: a failure here leaves the rest of the mod running.
   private RenderRuntime CreateRenderRuntime()
   {
     try
     {
       return new RenderRuntime(
-        _orbitRender,
+        _tufReplay,
+        _offlineRender,
         _renderIpc,
+        _recordedKeyCounts,
         () => _overlay?.Canvas?.Root != null ? _overlay.Canvas.Root.GetComponent<Canvas>() : null,
         // The video shows the key viewers the game would show during this play.
         (width, height) =>
@@ -562,13 +601,12 @@ internal sealed class ModRuntime : IDisposable
             : _nativeViewers.RenderPlacements(width, height),
         () => _nativeViewers?.Availability is KeyViewerAvailability.Ready or KeyViewerAvailability.HiddenInApp,
         (title, detail) => _settingsUi?.ShowNotice(title, detail),
-        _main.Log,
         _main.LogWarning
       );
     }
     catch (Exception exception)
     {
-      _main.LogException("OrbitRender support is off because it could not start", exception);
+      _main.LogException("Render support is off because it could not start", exception);
       return null;
     }
   }

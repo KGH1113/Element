@@ -7,6 +7,10 @@ import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
 import { ElementRenderIpcCoordinator } from '../render/elementRenderIpcCoordinator';
 import type { RenderSurfacePort } from '../application/ports/renderSurfacePort';
 import { NativeViewerIpcCoordinator } from '../nativeViewers/nativeViewerIpcCoordinator';
+import {
+  KeyCounterIpcCoordinator,
+  type KeyCounts,
+} from '../ipc/keyCounterIpcCoordinator';
 import { requestViewerEdit } from '../nativeViewers/viewerEditRequests';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
@@ -138,7 +142,17 @@ export function startRenderMessages(): () => Promise<void> {
     },
     wallClockScheduler,
   );
+  // TUFReplay saves these counts with each run and replays count apart from them.
+  const keyCounters = new KeyCounterIpcCoordinator(
+    applicationMessages('element'),
+    {
+      read: () => invoke<KeyCounts>('keys_get_counters'),
+      beginReplay: (counters) => invoke('keys_replay_begin', { counters }),
+      endReplay: () => invoke('keys_replay_end'),
+    },
+  );
   const stop = async () => {
+    await keyCounters.dispose();
     await viewers.dispose();
     await elementRenders.dispose();
     await coordinator.dispose();

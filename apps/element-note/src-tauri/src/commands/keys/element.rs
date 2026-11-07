@@ -1,12 +1,20 @@
 //! Compatibility commands for Element's existing editor, backed by v2 transactions.
 use crate::{
     commands::{
-        editor::state::{emit_best_effort, publish_legacy_editor_change},
+        editor::state::{
+            emit_best_effort, publish_legacy_editor_change,
+            publish_legacy_editor_change_after_counters,
+        },
         run_blocking, run_history_mutation,
     },
     errors::{CmdResult, EditorCommitError},
     models::*,
-    state::{history::HistoryScope, store::AuxEditorTransactionOptions},
+    state::{
+        app_state::KeyCounterEventEmitter,
+        history::{HistoryAdmissionLease, HistoryScope},
+        store::{AdmittedEditorTransaction, AuxEditorTransactionOptions},
+        AppState,
+    },
 };
 use serde_json::{json, Value};
 use std::collections::HashSet;
@@ -340,31 +348,14 @@ pub async fn keys_update(
     mappings: KeyMappings,
 ) -> CmdResult<std::collections::HashMap<String, Vec<String>>> {
     run_history_mutation(app, window.label().into(), move |app, state, admission| {
-        let transaction = state
-            .store
-            .commit_legacy_editor_transaction_with_admission(
-                EditorCommitOrigin::LegacyAdapter("keys_update".into()),
-                &[EditorField::Keys],
-                admission,
-                move |store| {
-                    let mut mappings = mappings;
-                    for (mode, slots) in &mut mappings {
-                        if let Some(existing) = store.keys.get(mode) {
-                            for slot in slots {
-                                if let Some(original) = existing
-                                    .iter()
-                                    .find(|old| old.canonical() == slot.canonical())
-                                {
-                                    *slot = original.clone();
-                                }
-                            }
-                        }
-                    }
-                    store.keys = mappings;
-                    Ok(())
-                },
-            )?;
-        publish_legacy_editor_change(state, app, &transaction.change);
+        let (transaction, key_runtime_applied) =
+            commit_key_mappings(state, app, mappings, admission)?;
+        publish_legacy_editor_change_after_counters(
+            state,
+            app,
+            &transaction.change,
+            key_runtime_applied,
+        );
         state.refresh_viewer_keyboards();
         let keys = transaction.change.document.keys;
         emit_best_effort(app, "keys:changed", &project_legacy_keys(&keys));
@@ -372,6 +363,39 @@ pub async fn keys_update(
         Ok(project_legacy_keys(&keys))
     })
     .await
+}
+
+/// Saves the key mappings the editor sends. A slot whose label is unchanged keeps its stored
+/// form, so combined keys survive. Key changes go through the live counters, so presses not
+/// saved yet stay counted.
+pub(crate) fn commit_key_mappings(
+    state: &AppState,
+    emitter: &dyn KeyCounterEventEmitter,
+    mut mappings: KeyMappings,
+    admission: HistoryAdmissionLease,
+) -> Result<(AdmittedEditorTransaction<()>, bool), EditorCommitError> {
+    state.commit_legacy_editor_transaction_preserving_runtime_counters(
+        emitter,
+        EditorCommitOrigin::LegacyAdapter("keys_update".into()),
+        &[EditorField::Keys],
+        admission,
+        move |store| {
+            for (mode, slots) in &mut mappings {
+                if let Some(existing) = store.keys.get(mode) {
+                    for slot in slots {
+                        if let Some(original) = existing
+                            .iter()
+                            .find(|old| old.canonical() == slot.canonical())
+                        {
+                            *slot = original.clone();
+                        }
+                    }
+                }
+            }
+            store.keys = mappings;
+            Ok(())
+        },
+    )
 }
 
 #[tauri::command]

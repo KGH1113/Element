@@ -40,6 +40,7 @@ internal sealed class NativeViewerLayoutTarget
   private ulong _geometryRevision;
   private Vector2 _referenceSize;
   private OverlayLayoutSettings _growthLayout;
+  private bool _shrunkToFit;
   private (bool, int, Anchor9, float, float, float, float, float) _growthKey;
   private bool _staged;
   private Rect _stagedBounds;
@@ -345,13 +346,17 @@ internal sealed class NativeViewerLayoutTarget
     if (!Enabled || Hidden)
       return null;
     Rect bounds = Bounds;
+    // Shrunk to fit, the viewer renders where the game shows it, not from its saved corner.
+    OverlayLayoutSettings placement = _shrunkToFit
+      ? NativeViewerGrowth.Capture(ToBounds(bounds), _screenWidth, _screenHeight, _effectiveScale, _growthLayout.Anchor)
+      : _growthLayout;
     return RenderViewerPlacement.Create(
       _kind,
       ToBounds(bounds),
       _screenWidth,
       _screenHeight,
       SizeUnit * _effectiveScale,
-      _growthLayout,
+      placement,
       viewportWidth,
       viewportHeight,
       videoWidth,
@@ -379,6 +384,7 @@ internal sealed class NativeViewerLayoutTarget
     _screenScale = OverlayLayoutPosition.ScreenScale(_screenWidth, _screenHeight);
     _geometryRevision = _host?.GeometryRevision ?? 0;
     _bounds = default;
+    _shrunkToFit = false;
     if (_screenWidth <= 0 || _screenHeight <= 0)
       return;
     ReadReferenceSize();
@@ -400,15 +406,20 @@ internal sealed class NativeViewerLayoutTarget
     }
     if (_growthLayout != null)
     {
-      _effectiveScale = _staged
-        ? _stagedBounds.width / (_referenceSize.x * SizeUnit)
-        : Mathf.Min(PositiveScale(_growthLayout.Scale), FitScale());
+      float saved = PositiveScale(_growthLayout.Scale);
+      float fit = FitScale();
+      // Larger than the view holds by more than rounding.
+      _shrunkToFit = !_staged && saved > fit * 1.0001f;
+      _effectiveScale = _staged ? _stagedBounds.width / (_referenceSize.x * SizeUnit) : Mathf.Min(saved, fit);
       float width = _referenceSize.x * SizeUnit * _effectiveScale;
       float height = _referenceSize.y * SizeUnit * _effectiveScale;
-      LayoutBounds desired = _staged
-        ? new LayoutBounds(_stagedBounds.center.x - width * .5f, _stagedBounds.center.y - height * .5f, width, height)
-        : OverlayLayoutPosition.Resolve(_growthLayout, width, height, _screenWidth, _screenHeight);
-      LayoutBounds fitted = OverlayLayoutGeometry.KeepVisible(desired, _screenWidth, _screenHeight);
+      LayoutBounds fitted = _staged
+        ? OverlayLayoutGeometry.KeepVisible(
+          new LayoutBounds(_stagedBounds.center.x - width * .5f, _stagedBounds.center.y - height * .5f, width, height),
+          _screenWidth,
+          _screenHeight
+        )
+        : NativeViewerGrowth.Place(_growthLayout, width, height, _screenWidth, _screenHeight, _shrunkToFit);
       _bounds = new Rect(fitted.X, fitted.Y, fitted.Width, fitted.Height);
       _host?.LayoutBounds(
         NativeId,

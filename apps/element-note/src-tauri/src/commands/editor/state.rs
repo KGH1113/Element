@@ -135,6 +135,24 @@ pub(crate) fn publish_legacy_editor_change(
     }
 }
 
+/// Publishes a legacy commit made through the live key counters. When that commit already
+/// applied the key runtime and its counters, only the remaining events go out.
+pub(crate) fn publish_legacy_editor_change_after_counters(
+    state: &AppState,
+    app: &AppHandle,
+    change: &CommittedEditorChange,
+    key_runtime_applied: bool,
+) {
+    if !key_runtime_applied {
+        publish_legacy_editor_change(state, app, change);
+        return;
+    }
+    publish_editor_change_after_key_runtime(state, app, change);
+    if let Some(history_status) = change.history_status.as_ref() {
+        emit_best_effort(app, "history:status", history_status);
+    }
+}
+
 fn publish_editor_change_with_options(
     state: &AppState,
     app: &AppHandle,

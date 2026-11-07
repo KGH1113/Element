@@ -10,6 +10,10 @@ impl AppState {
         if !self.key_counter_enabled.load(Ordering::Relaxed) {
             return None;
         }
+        // A TUFReplay replay's presses never reach the player's counts.
+        if let Some(count) = self.increment_replay_key_counter_and_emit(emitter, mode, key) {
+            return Some(count);
+        }
         {
             let mut barrier = self.counter_history_barrier.lock();
             if barrier.queueing {
@@ -236,6 +240,27 @@ impl AppState {
         })
     }
 
+    /// A legacy adapter commit that may change key mappings, such as `keys_update`.
+    pub(crate) fn commit_legacy_editor_transaction_preserving_runtime_counters<T>(
+        &self,
+        emitter: &dyn KeyCounterEventEmitter,
+        origin: crate::models::EditorCommitOrigin,
+        touched_fields: &[crate::models::EditorField],
+        admission: HistoryAdmissionLease,
+        updater: impl FnOnce(&mut AppStoreData) -> std::result::Result<T, EditorCommitError>,
+    ) -> std::result::Result<(AdmittedEditorTransaction<T>, bool), EditorCommitError> {
+        self.commit_editor_transaction_preserving_runtime_counters(emitter, |runtime_counters| {
+            self.store
+                .commit_legacy_editor_transaction_with_runtime_counters_admission(
+                    origin,
+                    touched_fields,
+                    admission,
+                    runtime_counters,
+                    updater,
+                )
+        })
+    }
+
     pub(crate) fn commit_legacy_editor_reset_preserving_runtime_counters<T>(
         &self,
         emitter: &dyn KeyCounterEventEmitter,
@@ -259,7 +284,7 @@ impl AppState {
     }
 
     /// key_counters write lock 보유 중에만 호출 — 스냅샷과 이벤트 revision의 인과 순서 보장
-    fn next_key_counters_revision(&self) -> u64 {
+    pub(super) fn next_key_counters_revision(&self) -> u64 {
         self.key_counters_revision
             .fetch_add(1, Ordering::Relaxed)
             .wrapping_add(1)
@@ -348,9 +373,7 @@ impl AppState {
         }
         if counters_restored || replayed_count != 0 {
             let revision = self.next_key_counters_revision();
-            if let Err(error) =
-                emitter.emit_key_counters(&counters, &self.key_counters_session_id, revision)
-            {
+            if let Err(error) = self.emit_shown_key_counters(emitter, &counters, revision) {
                 log::error!("failed to emit restored key counters: {error:#}");
             }
         }
@@ -390,8 +413,7 @@ impl AppState {
         if publication_generation > publication.counters_generation {
             *guard = persisted.clone();
             let revision = self.next_key_counters_revision();
-            let emit_result =
-                emitter.emit_key_counters(&guard, &self.key_counters_session_id, revision);
+            let emit_result = self.emit_shown_key_counters(emitter, &guard, revision);
             publication.counters_generation = publication_generation;
             emit_result.map_err(|error| EditorCommitError::io(error.to_string()))?;
         }
@@ -571,8 +593,7 @@ impl AppState {
         }
         *counter_guard = counters.clone();
         let revision = self.next_key_counters_revision();
-        let emit_result =
-            emitter.emit_key_counters(counter_guard, &self.key_counters_session_id, revision);
+        let emit_result = self.emit_shown_key_counters(emitter, counter_guard, revision);
         publication.counters_generation = generation;
         emit_result
     }

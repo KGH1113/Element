@@ -33,6 +33,7 @@ import type {
 } from '@src/types/key/graphItems';
 import type { KnobItemPosition, KnobItemPositions } from '@src/types/key/knobs';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
+import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
 import {
   normalizeLayerGroupsForMode,
   buildNextLayerGroupName,
@@ -418,7 +419,7 @@ export function useGridSelection({
           keyPositions: updatedPositions,
         });
       } catch (error) {
-        console.error('Failed to delete keys', error);
+        await revertUnsavedKeyChange(error, ['keys', 'keyPositions']);
       } finally {
         // 플래그 해제
         useKeyStore.getState().setLocalUpdateInProgress(false);

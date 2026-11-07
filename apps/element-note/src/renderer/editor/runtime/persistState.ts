@@ -3,6 +3,7 @@
  */
 
 import type { KeyMappings, KeyPositions } from '@src/types/key/keys';
+import { revertUnsavedKeyChange } from './keySaveRecovery';
 
 /**
  * positions 변경을 로컬 스토어 + 백엔드 + 오버레이에 반영
@@ -40,9 +41,7 @@ export async function persistMappingsAndPositions(
       keys: mappings,
       keyPositions: positions,
     })
-    .catch((error) => {
-      console.error('Failed to persist key data', error);
-    });
+    .catch((error) => revertUnsavedKeyChange(error, ['keys', 'keyPositions']));
 }
 
 /**

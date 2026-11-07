@@ -46,8 +46,8 @@ use crate::{
     models::{
         AppStoreData, CustomCss, CustomTab, EditorCommitOrigin, EditorCommitRequest, EditorField,
         EditorFrozenKeySlotV1, EditorOpV1, GestureCommitRequest, GesturePluginInstancesChange,
-        KeyCounters, KeySlot, OverlayBounds, OverlayResizeAnchor, PanelBounds, PluginPoint,
-        SavedPluginInstance, StoredOverlayBounds, StoredOverlayNativePosition, TabCss,
+        KeyCounters, KeyMappings, KeySlot, OverlayBounds, OverlayResizeAnchor, PanelBounds,
+        PluginPoint, SavedPluginInstance, StoredOverlayBounds, StoredOverlayNativePosition, TabCss,
         EDITOR_OPS_VERSION,
     },
     state::{
@@ -343,6 +343,67 @@ fn key_mapping_commit_preserves_unflushed_runtime_counters() {
     state.shutdown();
     drop(state);
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn properties_panel_key_change_saves_and_keeps_unsaved_presses() {
+    let directory = tempfile::tempdir().unwrap();
+    let state =
+        AppState::initialize(AppStore::initialize_for_test(directory.path()).unwrap()).unwrap();
+    state.key_counter_enabled.store(true, Ordering::SeqCst);
+    let emitter = NoopCounterEmitter;
+    let snapshot = state.store.snapshot();
+    let mode = snapshot.selected_key_type.clone();
+    let preserved_key = snapshot.keys[&mode][0].canonical();
+    let replaced_key = snapshot.keys[&mode][1].canonical();
+    for expected in 1..=7 {
+        assert_eq!(
+            state.increment_key_counter_and_emit(&emitter, &mode, &preserved_key),
+            Some(expected)
+        );
+    }
+
+    // The properties panel sends every tab's labels with one slot rebound.
+    let mut mappings: KeyMappings = snapshot
+        .keys
+        .iter()
+        .map(|(mode, slots)| {
+            let labels = slots
+                .iter()
+                .map(|slot| KeySlot::from(slot.canonical().as_str()))
+                .collect();
+            (mode.clone(), labels)
+        })
+        .collect();
+    mappings.get_mut(&mode).unwrap()[1] = KeySlot::from("QA NEW KEY");
+    let admission = state.store.admit_editor_mutation().unwrap();
+    let (transaction, runtime_applied) =
+        crate::commands::keys::element::commit_key_mappings(&state, &emitter, mappings, admission)
+            .unwrap();
+
+    assert!(runtime_applied);
+    assert!(transaction
+        .change
+        .result
+        .changed_fields
+        .contains(&EditorField::Keys));
+    assert_eq!(
+        state.store.snapshot().keys[&mode][1].canonical(),
+        "QA NEW KEY"
+    );
+    assert_eq!(state.snapshot_key_counters()[&mode][&preserved_key], 7);
+    let persisted = state.store.snapshot().key_counters;
+    assert_eq!(persisted[&mode][&preserved_key], 7);
+    assert_eq!(persisted[&mode]["QA NEW KEY"], 0);
+    assert!(!persisted[&mode].contains_key(&replaced_key));
+
+    drop(transaction);
+    state.shutdown();
+    drop(state);
+    let reloaded = AppStore::initialize_for_test(directory.path()).unwrap();
+    assert_eq!(reloaded.snapshot().keys[&mode][1].canonical(), "QA NEW KEY");
+    assert_eq!(reloaded.snapshot().key_counters[&mode][&preserved_key], 7);
+    reloaded.flush_and_shutdown().unwrap();
 }
 
 #[test]
@@ -701,7 +762,11 @@ fn custom_tab_restore_history_preserves_unflushed_runtime_counters() {
         );
     }
     let mut restored_tabs = state.store.snapshot().custom_tabs;
-    restored_tabs.iter_mut().find(|tab| tab.id == tab_id).unwrap().name = "After".to_string();
+    restored_tabs
+        .iter_mut()
+        .find(|tab| tab.id == tab_id)
+        .unwrap()
+        .name = "After".to_string();
     let admission = state.store.admit_editor_mutation().unwrap();
     let (transaction, runtime_applied) = state
         .commit_editor_transaction_preserving_runtime_counters(&emitter, |runtime_counters| {
@@ -731,7 +796,17 @@ fn custom_tab_restore_history_preserves_unflushed_runtime_counters() {
         state.store.snapshot().key_counters[&mode][&preserved_key],
         7
     );
-    assert_eq!(state.store.snapshot().custom_tabs.iter().find(|tab| tab.id == tab_id).unwrap().name, "After");
+    assert_eq!(
+        state
+            .store
+            .snapshot()
+            .custom_tabs
+            .iter()
+            .find(|tab| tab.id == tab_id)
+            .unwrap()
+            .name,
+        "After"
+    );
     drop(transaction);
 
     assert_eq!(
@@ -757,7 +832,17 @@ fn custom_tab_restore_history_preserves_unflushed_runtime_counters() {
         8
     );
     assert_eq!(state.snapshot_key_counters()[&mode][&preserved_key], 8);
-    assert_eq!(state.store.snapshot().custom_tabs.iter().find(|tab| tab.id == tab_id).unwrap().name, "Before");
+    assert_eq!(
+        state
+            .store
+            .snapshot()
+            .custom_tabs
+            .iter()
+            .find(|tab| tab.id == tab_id)
+            .unwrap()
+            .name,
+        "Before"
+    );
 
     state.shutdown();
     drop(state);
@@ -3366,4 +3451,143 @@ fn mixed_dpi_windows_monitors() -> MonitorData {
         ],
         primary_index: Some(0),
     }
+}
+
+#[derive(Default)]
+struct LastCountersEmitter(std::sync::Mutex<Option<KeyCounters>>);
+
+impl KeyCounterEventEmitter for LastCountersEmitter {
+    fn emit_key_counters(
+        &self,
+        counters: &KeyCounters,
+        _session_id: &str,
+        _revision: u64,
+    ) -> anyhow::Result<()> {
+        *self.0.lock().unwrap() = Some(counters.clone());
+        Ok(())
+    }
+
+    fn emit_key_counter(
+        &self,
+        _mode: &str,
+        _key: &str,
+        _count: u32,
+        _session_id: &str,
+        _revision: u64,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+fn replay_test_state(directory: &Path) -> AppState {
+    let store = AppStore::initialize_for_test(directory).unwrap();
+    store
+        .update(|data| data.key_counter_enabled = true)
+        .unwrap();
+    AppState::initialize(store).unwrap()
+}
+
+#[test]
+fn replay_presses_count_from_the_recorded_counts_and_never_reach_the_players() {
+    let directory = tempfile::tempdir().unwrap();
+    let state = replay_test_state(directory.path());
+    let emitter = NoopCounterEmitter;
+    let mode = state.store.snapshot().selected_key_type;
+    let recorded_key = state.store.snapshot().keys[&mode][0].canonical();
+    let other_key = state.store.snapshot().keys[&mode][1].canonical();
+    assert_eq!(
+        state.increment_key_counter_and_emit(&emitter, &mode, &other_key),
+        Some(1)
+    );
+
+    let mut recorded = KeyCounters::new();
+    recorded
+        .entry(mode.clone())
+        .or_default()
+        .insert(recorded_key.clone(), 40);
+    state.begin_replay_key_counters(&emitter, Some(recorded));
+
+    assert_eq!(
+        state.increment_key_counter_and_emit(&emitter, &mode, &recorded_key),
+        Some(41)
+    );
+    // A slot the recording lacks starts from the player's count.
+    assert_eq!(
+        state.increment_key_counter_and_emit(&emitter, &mode, &other_key),
+        Some(2)
+    );
+    assert_eq!(state.displayed_key_counters()[&mode][&recorded_key], 41);
+    assert_eq!(
+        state.bootstrap_payload().key_counters[&mode][&recorded_key],
+        41
+    );
+    assert_eq!(state.snapshot_key_counters()[&mode][&other_key], 1);
+    let persisted = state.persist_key_counters().unwrap();
+    assert_eq!(persisted[&mode].get(&recorded_key).copied().unwrap_or(0), 0);
+    assert_eq!(persisted[&mode][&other_key], 1);
+
+    assert!(state.end_replay_key_counters(&emitter));
+    assert!(!state.end_replay_key_counters(&emitter));
+    assert_eq!(state.displayed_key_counters()[&mode][&other_key], 1);
+    assert_eq!(
+        state.increment_key_counter_and_emit(&emitter, &mode, &other_key),
+        Some(2)
+    );
+}
+
+#[test]
+fn a_replay_without_recorded_counts_starts_from_the_players() {
+    let directory = tempfile::tempdir().unwrap();
+    let state = replay_test_state(directory.path());
+    let emitter = LastCountersEmitter::default();
+    let mode = state.store.snapshot().selected_key_type;
+    let key = state.store.snapshot().keys[&mode][0].canonical();
+    state.increment_key_counter_and_emit(&emitter, &mode, &key);
+
+    state.begin_replay_key_counters(&emitter, None);
+    assert_eq!(
+        emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&key],
+        1,
+        "the windows did not get the replay's starting counts"
+    );
+    assert_eq!(
+        state.increment_key_counter_and_emit(&emitter, &mode, &key),
+        Some(2)
+    );
+    assert!(state.end_replay_key_counters(&emitter));
+    assert_eq!(
+        emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&key],
+        1,
+        "the windows did not get the player's counts back"
+    );
+}
+
+#[test]
+fn counters_reset_during_a_replay_show_once_it_ends() {
+    let directory = tempfile::tempdir().unwrap();
+    let state = replay_test_state(directory.path());
+    let emitter = LastCountersEmitter::default();
+    let mode = state.store.snapshot().selected_key_type;
+    let key = state.store.snapshot().keys[&mode][0].canonical();
+    state.increment_key_counter_and_emit(&emitter, &mode, &key);
+    let mut recorded = KeyCounters::new();
+    recorded
+        .entry(mode.clone())
+        .or_default()
+        .insert(key.clone(), 40);
+    state.begin_replay_key_counters(&emitter, Some(recorded));
+
+    let admission = state.store.admit_editor_mutation().unwrap();
+    state
+        .reset_key_counters_with_admission(&emitter, None, admission)
+        .unwrap();
+    assert_eq!(
+        emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&key],
+        40,
+        "a reset during the replay replaced the replay's counts on screen"
+    );
+    assert_eq!(state.snapshot_key_counters()[&mode][&key], 0);
+
+    state.end_replay_key_counters(&emitter);
+    assert_eq!(emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&key], 0);
 }

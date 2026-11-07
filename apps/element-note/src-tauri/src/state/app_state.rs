@@ -37,6 +37,7 @@ mod lifecycle_runtime;
 mod native_window;
 mod overlay_runtime;
 mod panel_runtime;
+mod replay_counter_runtime;
 mod window_geometry;
 
 use css_runtime::collect_authorized_css_paths;
@@ -678,6 +679,9 @@ pub struct AppState {
     key_counters: Arc<RwLock<KeyCounters>>,
     key_counters_session_id: String,
     key_counters_revision: AtomicU64,
+    /// The counts shown while Element reports a TUFReplay replay; see replay_counter_runtime.
+    replay_key_counters: Mutex<Option<KeyCounters>>,
+    replay_key_counting: AtomicBool,
     counter_history_barrier: Mutex<CounterHistoryBarrierState>,
     counter_history_ready: Condvar,
     runtime_publication: Mutex<RuntimePublicationState>,
@@ -898,6 +902,8 @@ impl AppState {
             key_counters,
             key_counters_session_id: uuid::Uuid::new_v4().simple().to_string(),
             key_counters_revision: AtomicU64::new(0),
+            replay_key_counters: Mutex::new(None),
+            replay_key_counting: AtomicBool::new(false),
             counter_history_barrier: Mutex::new(CounterHistoryBarrierState::default()),
             counter_history_ready: Condvar::new(),
             runtime_publication: Mutex::new(RuntimePublicationState::default()),
@@ -1088,7 +1094,7 @@ impl AppState {
         let (key_counters, key_counters_revision) = {
             let counters = self.key_counters.read();
             (
-                counters.clone(),
+                self.shown_key_counters_locked(&counters),
                 self.key_counters_revision.load(Ordering::Relaxed),
             )
         };

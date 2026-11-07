@@ -72,6 +72,8 @@ export class ElementRenderIpcCoordinator {
   private announce(): void {
     this.messages.emit('render.available', {
       protocolVersion: elementRenderProtocolVersion,
+      // render.begin may start the counts from a run's recorded ones.
+      recordedCounters: true,
     });
   }
 

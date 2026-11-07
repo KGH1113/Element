@@ -174,7 +174,9 @@
     "noteBorderColor": "邊框顏色",
     "borderSideAll": "全部",
     "borderSideVertical": "垂直",
-    "borderSideHorizontal": "水平"
+    "borderSideHorizontal": "水平",
+    "saveFailedReverted": "無法儲存按鍵變更，已還原為先前的按鍵。請重新變更。",
+    "saveFailed": "無法儲存按鍵變更。切換到其他分頁再返回即可查看已儲存的按鍵。"
   },
   "imagePicker": {
     "idle": "閒置",

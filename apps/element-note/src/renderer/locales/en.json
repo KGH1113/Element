@@ -174,7 +174,9 @@
     "noteBorderColor": "Border Color",
     "borderSideAll": "All",
     "borderSideVertical": "Vertical",
-    "borderSideHorizontal": "Horizontal"
+    "borderSideHorizontal": "Horizontal",
+    "saveFailedReverted": "Couldn't save the key change, so the previous keys are back. Try changing them again.",
+    "saveFailed": "Couldn't save the key change. Switch to another tab and back to see the saved keys."
   },
   "imagePicker": {
     "idle": "Idle",

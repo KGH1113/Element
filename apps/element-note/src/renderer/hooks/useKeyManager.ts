@@ -41,6 +41,7 @@ import {
   persistPositions,
   persistPositionsWithFlag,
 } from '@src/renderer/editor/runtime/persistState';
+import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
 
 type SelectedKey = { key: string; index: number } | null;
 
@@ -707,7 +708,7 @@ export function useKeyManager() {
     );
     setKeyMappings(updatedMappings);
     window.api.keys.update(updatedMappings).catch((error) => {
-      console.error('Failed to update key mapping', error);
+      void revertUnsavedKeyChange(error, ['keys']);
     });
   };
 

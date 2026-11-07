@@ -7,7 +7,7 @@ use crate::{
     commands::{
         editor::state::{
             emit_best_effort, publish_editor_change, publish_editor_change_after_key_runtime,
-            publish_legacy_editor_change,
+            publish_legacy_editor_change_after_counters,
         },
         plugin::instances::publish_plugin_instances_changed,
         run_blocking, run_history_mutation,
@@ -58,25 +58,21 @@ fn publish_legacy_reset_editor_change(
     change: &CommittedEditorChange,
     key_runtime_applied: bool,
 ) {
-    if key_runtime_applied {
-        publish_editor_change_after_key_runtime(state, app, change);
-        emit_aux_history_status(app, change);
-        if !change.result.changed_fields.contains(&EditorField::Keys) {
-            state.apply_committed_editor_keys_without_counters(
-                change.runtime_publication_generation,
-                &change.document.keys,
-                &change.selected_key_type,
-            );
-            if change.event.is_none() || change.result.changed_fields.is_empty() {
-                state.refresh_obs_snapshot();
-            }
-        }
+    publish_legacy_editor_change_after_counters(state, app, change, key_runtime_applied);
+    if change.result.changed_fields.contains(&EditorField::Keys) {
         return;
     }
-
-    publish_legacy_editor_change(state, app, change);
-    if !change.result.changed_fields.contains(&EditorField::Keys) {
+    if !key_runtime_applied {
         publish_legacy_key_noop_runtime(state, app, change);
+        return;
+    }
+    state.apply_committed_editor_keys_without_counters(
+        change.runtime_publication_generation,
+        &change.document.keys,
+        &change.selected_key_type,
+    );
+    if change.event.is_none() || change.result.changed_fields.is_empty() {
+        state.refresh_obs_snapshot();
     }
 }
 

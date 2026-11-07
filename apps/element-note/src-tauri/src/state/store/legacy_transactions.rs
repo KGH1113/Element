@@ -38,6 +38,28 @@ impl AppStore {
         )
     }
 
+    /// A legacy adapter commit that may change key mappings. The live counters keep presses
+    /// that are not saved yet when the mapping changes.
+    pub(in crate::state) fn commit_legacy_editor_transaction_with_runtime_counters_admission<T>(
+        &self,
+        origin: EditorCommitOrigin,
+        touched_fields: &[EditorField],
+        admission: HistoryAdmissionLease,
+        runtime_counters: &KeyCounters,
+        updater: impl FnOnce(&mut AppStoreData) -> std::result::Result<T, EditorCommitError>,
+    ) -> std::result::Result<AdmittedEditorTransaction<T>, EditorCommitError> {
+        self.commit_editor_transaction_with_history_admission(
+            origin,
+            touched_fields,
+            EditorTransactionHistoryOptions {
+                key_counters: Some(runtime_counters.clone()),
+                ..EditorTransactionHistoryOptions::default()
+            },
+            admission,
+            updater,
+        )
+    }
+
     #[cfg(test)]
     pub(crate) fn commit_legacy_editor_reset_transaction_with_admission<T>(
         &self,

@@ -12,3 +12,5 @@ export {
   persistPositions,
   persistPositionsWithFlag,
 } from './persistState';
+
+export { revertUnsavedKeyChange, onKeySaveFailed } from './keySaveRecovery';

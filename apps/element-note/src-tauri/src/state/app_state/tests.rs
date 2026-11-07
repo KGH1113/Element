@@ -46,8 +46,8 @@ use crate::{
     models::{
         AppStoreData, CustomCss, CustomTab, EditorCommitOrigin, EditorCommitRequest, EditorField,
         EditorFrozenKeySlotV1, EditorOpV1, GestureCommitRequest, GesturePluginInstancesChange,
-        KeyCounters, KeySlot, OverlayBounds, OverlayResizeAnchor, PanelBounds, PluginPoint,
-        SavedPluginInstance, StoredOverlayBounds, StoredOverlayNativePosition, TabCss,
+        KeyCounters, KeyMappings, KeySlot, OverlayBounds, OverlayResizeAnchor, PanelBounds,
+        PluginPoint, SavedPluginInstance, StoredOverlayBounds, StoredOverlayNativePosition, TabCss,
         EDITOR_OPS_VERSION,
     },
     state::{
@@ -343,6 +343,67 @@ fn key_mapping_commit_preserves_unflushed_runtime_counters() {
     state.shutdown();
     drop(state);
     std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn properties_panel_key_change_saves_and_keeps_unsaved_presses() {
+    let directory = tempfile::tempdir().unwrap();
+    let state =
+        AppState::initialize(AppStore::initialize_for_test(directory.path()).unwrap()).unwrap();
+    state.key_counter_enabled.store(true, Ordering::SeqCst);
+    let emitter = NoopCounterEmitter;
+    let snapshot = state.store.snapshot();
+    let mode = snapshot.selected_key_type.clone();
+    let preserved_key = snapshot.keys[&mode][0].canonical();
+    let replaced_key = snapshot.keys[&mode][1].canonical();
+    for expected in 1..=7 {
+        assert_eq!(
+            state.increment_key_counter_and_emit(&emitter, &mode, &preserved_key),
+            Some(expected)
+        );
+    }
+
+    // The properties panel sends every tab's labels with one slot rebound.
+    let mut mappings: KeyMappings = snapshot
+        .keys
+        .iter()
+        .map(|(mode, slots)| {
+            let labels = slots
+                .iter()
+                .map(|slot| KeySlot::from(slot.canonical().as_str()))
+                .collect();
+            (mode.clone(), labels)
+        })
+        .collect();
+    mappings.get_mut(&mode).unwrap()[1] = KeySlot::from("QA NEW KEY");
+    let admission = state.store.admit_editor_mutation().unwrap();
+    let (transaction, runtime_applied) =
+        crate::commands::keys::element::commit_key_mappings(&state, &emitter, mappings, admission)
+            .unwrap();
+
+    assert!(runtime_applied);
+    assert!(transaction
+        .change
+        .result
+        .changed_fields
+        .contains(&EditorField::Keys));
+    assert_eq!(
+        state.store.snapshot().keys[&mode][1].canonical(),
+        "QA NEW KEY"
+    );
+    assert_eq!(state.snapshot_key_counters()[&mode][&preserved_key], 7);
+    let persisted = state.store.snapshot().key_counters;
+    assert_eq!(persisted[&mode][&preserved_key], 7);
+    assert_eq!(persisted[&mode]["QA NEW KEY"], 0);
+    assert!(!persisted[&mode].contains_key(&replaced_key));
+
+    drop(transaction);
+    state.shutdown();
+    drop(state);
+    let reloaded = AppStore::initialize_for_test(directory.path()).unwrap();
+    assert_eq!(reloaded.snapshot().keys[&mode][1].canonical(), "QA NEW KEY");
+    assert_eq!(reloaded.snapshot().key_counters[&mode][&preserved_key], 7);
+    reloaded.flush_and_shutdown().unwrap();
 }
 
 #[test]

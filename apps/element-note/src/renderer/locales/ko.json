@@ -174,7 +174,9 @@
     "noteBorderColor": "테두리 색상",
     "borderSideAll": "전체",
     "borderSideVertical": "수직",
-    "borderSideHorizontal": "수평"
+    "borderSideHorizontal": "수평",
+    "saveFailedReverted": "키 변경을 저장하지 못해 이전 키로 되돌렸습니다. 다시 바꿔 주세요.",
+    "saveFailed": "키 변경을 저장하지 못했습니다. 다른 탭으로 갔다가 돌아오면 저장된 키를 볼 수 있습니다."
   },
   "imagePicker": {
     "idle": "대기",

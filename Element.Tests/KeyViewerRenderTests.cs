@@ -31,6 +31,7 @@ internal static class KeyViewerRenderTests
     ParsesReplies();
     PlacesViewersInTheVideo();
     CropsThePagePadding();
+    MapsAFrameTexelForPixel();
   }
 
   private static void StartsWithLiveCountsAndExplicitSurfaces()
@@ -350,15 +351,61 @@ internal static class KeyViewerRenderTests
 
   private static void CropsThePagePadding()
   {
-    (float x, float y, float width, float height) = RenderViewerPlacement.ContentUv(200, 100, 10, false);
+    RenderFrameCrop crop = RenderFrameCrop.Of(200, 100, 200, 100, 10);
+    (float x, float y, float width, float height) = crop.Uv(false);
     Near(.05f, x, "Left padding.");
     Near(.1f, y, "Bottom padding.");
     Near(.9f, width, "Content width.");
     Near(.8f, height, "Content height.");
-    (float _, float flippedY, float _, float flippedHeight) = RenderViewerPlacement.ContentUv(200, 100, 10, true);
+    (float _, float flippedY, float _, float flippedHeight) = crop.Uv(true);
     Near(.9f, flippedY, "Raw rows start at the top, so the image samples from the far edge.");
     Near(-.8f, flippedHeight, "Flipped content has negative height.");
+    // 30 CSS px of padding at 0.75 px per CSS px is 22.5 texels.
+    RenderFrameCrop half = RenderFrameCrop.Of(645, 240, 860, 320, 30);
+    Check(half.X == 22 && half.Width == 601, "A crop between texels moves to a whole texel.");
+    Check(half.Y == 22 && half.Height == 196, "So does the vertical crop.");
+    Near(601 / .75f, half.CssWidth, "The shown texels in CSS pixels.");
+    RenderFrameCrop tiny = RenderFrameCrop.Of(3, 3, 3, 3, 1.4f);
+    Check(tiny.Width == 1 && tiny.Height == 1, "At least one texel stays.");
   }
+
+  // A 5K Retina game view (2 screen pixels per CSS pixel) rendered to 1080p draws the
+  // viewer at 0.75 video pixels per CSS pixel. ElementNote draws the 860x320 page into
+  // 645x240 texels; the video must show those texels one per pixel, or they blur.
+  private static void MapsAFrameTexelForPixel()
+  {
+    var screen = new LayoutBounds(17.3f, 2880 - 600 - 41.7f, 1600, 600);
+    OverlayLayoutSettings anchor = NativeViewerGrowth.Capture(screen, 5120, 2880, 1, Anchor9.BottomLeft);
+    RenderViewerPlacement placement = RenderViewerPlacement.Create(
+      "hand",
+      screen,
+      5120,
+      2880,
+      2,
+      anchor,
+      860,
+      320,
+      1920,
+      1080
+    );
+    Near(.75f, placement.Scale, "Video pixels per CSS pixel.");
+    RenderFrameCrop crop = RenderFrameCrop.Of(645, 240, 860, 320, 30);
+    LayoutBounds placed = placement.Place(crop.CssWidth, crop.CssHeight);
+    Pixels(crop.Width, placed.Width * 1920, "One video pixel per texel across.");
+    Pixels(crop.Height, placed.Height * 1080, "And down.");
+    Whole(placed.X * 1920, "The left edge sits on a pixel boundary.");
+    Whole(placed.Y * 1080, "So does the top edge.");
+    LayoutBounds centered = RenderViewerPlacement
+      .Create("foot", screen, 5120, 2880, 2, null, 860, 320, 1920, 1080)
+      .Place(crop.CssWidth, crop.CssHeight);
+    Whole(centered.X * 1920, "A centered viewer snaps too.");
+    Whole(centered.Y * 1080, "Vertically as well.");
+  }
+
+  private static void Pixels(float expected, float actual, string message) =>
+    Check(Math.Abs(expected - actual) < 1e-3, message + " Expected " + expected + ", got " + actual + ".");
+
+  private static void Whole(float pixels, string message) => Pixels((float)Math.Round(pixels), pixels, message);
 
   private static object AnswerFrames(string name, JObject payload)
   {

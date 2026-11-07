@@ -43,7 +43,10 @@ internal sealed class RenderKeyViewerCanvas : IDisposable
 
   public Canvas Canvas { get; }
 
-  /// <summary>Sizes each image to its page's content and crops the page's padding away.</summary>
+  /// <summary>
+  /// Sizes each image to its page's content and crops the page's padding away. A
+  /// viewer drawn at its page's scale lands texel for pixel on the video.
+  /// </summary>
   public void Configure(IReadOnlyList<RenderSurface> surfaces)
   {
     foreach (RenderSurface surface in surfaces)
@@ -54,21 +57,20 @@ internal sealed class RenderKeyViewerCanvas : IDisposable
       if (!_pages.TryGetValue(slot.Placement.ViewerKind, out Page page))
         continue;
       RenderSurface surface = page.Surface;
-      LayoutBounds bounds = slot.Placement.Place(
-        surface.ViewportWidth - surface.Padding * 2,
-        surface.ViewportHeight - surface.Padding * 2
+      RenderFrameCrop crop = RenderFrameCrop.Of(
+        surface.Width,
+        surface.Height,
+        surface.ViewportWidth,
+        surface.ViewportHeight,
+        surface.Padding
       );
+      LayoutBounds bounds = slot.Placement.Place(crop.CssWidth, crop.CssHeight);
       RectTransform rect = slot.Image.rectTransform;
       // Anchors are fractions of the video, so the image follows whatever size OrbitRender draws at.
       rect.anchorMin = new Vector2(bounds.X, 1 - bounds.Y - bounds.Height);
       rect.anchorMax = new Vector2(bounds.X + bounds.Width, 1 - bounds.Y);
       rect.offsetMin = rect.offsetMax = Vector2.zero;
-      (float x, float y, float width, float height) = RenderViewerPlacement.ContentUv(
-        surface.ViewportWidth,
-        surface.ViewportHeight,
-        surface.Padding,
-        surface.FrameFormat == "rgba"
-      );
+      (float x, float y, float width, float height) = crop.Uv(surface.FrameFormat == "rgba");
       slot.Image.uvRect = new Rect(x, y, width, height);
       slot.Image.texture = page.Texture;
     }

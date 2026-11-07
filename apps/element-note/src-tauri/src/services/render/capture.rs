@@ -211,6 +211,8 @@ mod raw {
         ) -> *mut c_void;
         fn CGContextDrawImage(context: *mut c_void, rect: Rect, image: *const c_void);
         fn CGContextRelease(context: *mut c_void);
+        fn CGImageGetWidth(image: *const c_void) -> usize;
+        fn CGImageGetHeight(image: *const c_void) -> usize;
     }
     pub unsafe fn retain(image: *const c_void) -> *const c_void {
         CGImageRetain(image)
@@ -240,17 +242,12 @@ mod raw {
             if context.is_null() {
                 return Err("render-bitmap-allocation-failed".into());
             }
-            CGContextDrawImage(
-                context,
-                Rect {
-                    origin: Point { x: 0.0, y: 0.0 },
-                    size: Size {
-                        width: width as f64,
-                        height: height as f64,
-                    },
-                },
-                image as *const c_void,
+            let image = image as *const c_void;
+            let drawn = placement(
+                (CGImageGetWidth(image), CGImageGetHeight(image)),
+                (width, height),
             );
+            CGContextDrawImage(context, drawn, image);
             CGContextRelease(context);
         }
         // FFmpeg overlay expects straight alpha, unlike the native bitmap.
@@ -263,5 +260,56 @@ mod raw {
             }
         }
         Ok(bytes)
+    }
+
+    /// Where the snapshot goes in the frame, in Core Graphics coordinates (origin
+    /// bottom left). WebKit sizes snapshots in whole points, so on a 2x display an
+    /// odd pixel width comes back a pixel short. Stretching it over the frame
+    /// resampled, and softened, every frame; it is copied one to one instead and
+    /// the missing edge stays clear, inside the page's cropped padding. Only an
+    /// image off by more than that rounding is scaled to fit.
+    fn placement(image: (usize, usize), frame: (u32, u32)) -> Rect {
+        const ROUNDING: usize = 2;
+        let (frame_width, frame_height) = (frame.0 as usize, frame.1 as usize);
+        let (width, height) = if image.0.abs_diff(frame_width) <= ROUNDING
+            && image.1.abs_diff(frame_height) <= ROUNDING
+        {
+            image
+        } else {
+            (frame_width, frame_height)
+        };
+        Rect {
+            // Pinned to the top left, where the page starts.
+            origin: Point {
+                x: 0.0,
+                y: frame_height as f64 - height as f64,
+            },
+            size: Size {
+                width: width as f64,
+                height: height as f64,
+            },
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::placement;
+
+        #[test]
+        fn a_snapshot_a_pixel_short_is_copied_one_to_one_from_the_top_left() {
+            let drawn = placement((644, 240), (645, 240));
+            assert_eq!((drawn.origin.x, drawn.origin.y), (0.0, 0.0));
+            assert_eq!((drawn.size.width, drawn.size.height), (644.0, 240.0));
+            let short = placement((646, 238), (647, 240));
+            assert_eq!(short.origin.y, 2.0, "the missing rows are at the bottom");
+            assert_eq!((short.size.width, short.size.height), (646.0, 238.0));
+        }
+
+        #[test]
+        fn a_snapshot_of_another_size_is_scaled_to_the_frame() {
+            let drawn = placement((322, 120), (645, 240));
+            assert_eq!((drawn.origin.x, drawn.origin.y), (0.0, 0.0));
+            assert_eq!((drawn.size.width, drawn.size.height), (645.0, 240.0));
+        }
     }
 }

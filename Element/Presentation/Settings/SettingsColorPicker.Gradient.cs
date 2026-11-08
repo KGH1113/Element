@@ -70,13 +70,64 @@ internal sealed partial class SettingsColorPicker
   /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
   public RectTransform PositionSlot => _positionSlot;
 
-  // Room the bar (and with a gradient, the pill and kind rows) takes above the rest.
-  private float GradientTop =>
-    !GradientAvailable ? 0
-    : IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap
-    : BarHeight + GradientGap + 4;
+  // An editor's picker is two columns: the color bar with its pill above it,
+  // the kinds and Highlight/Custom on the left; the color's own controls on
+  // the right. The bar keeps its place whether the color is solid or not.
+  private const float ColumnWidth = 256,
+    ColumnGap = 20,
+    TwoColumnWidth = ColumnWidth * 2 + ColumnGap,
+    RightColumn = ColumnWidth + ColumnGap;
 
-  private float GradientExtra => GradientTop + (IsGradient && _followsHighlight ? NoteHeight : 0);
+  // Where Highlight/Custom sits in the left column.
+  private float SourceTop =>
+    IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap : PillRow + BarHeight + GradientGap + 4;
+
+  private float ColumnHeight
+  {
+    get
+    {
+      bool custom = !_followsHighlight;
+      if (!GradientAvailable)
+        return custom ? 334 : 142;
+      float left = SourceTop + 36 + (IsGradient && _followsHighlight ? 8 + NoteHeight : 0);
+      float right = custom ? 290 : 98;
+      return Mathf.Max(left, right);
+    }
+  }
+
+  private void LayoutTwoColumns(bool custom)
+  {
+    const float column = ColumnWidth,
+      x = RightColumn;
+    LayoutGradient(0, column);
+    float source = SourceTop;
+    SettingsUiFactory.Place(_source.Root, 0, source, column, 36);
+    SettingsUiFactory.Place(_highlightNote.rectTransform, 0, source + 44, column, NoteHeight);
+    if (custom)
+    {
+      const float square = 156;
+      SettingsUiFactory.Place(_planeRect, x, 0, column, square);
+      SettingsUiFactory.Place((RectTransform)_hue.transform, x - 10, square + 6, column + 20, 36);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, x - 10, square + 38, column + 20, 36);
+      SettingsUiFactory.Place(_error.rectTransform, x, square + 76, column, 14);
+      float bottom = ColumnHeight - 40;
+      SettingsUiFactory.Place((RectTransform)_hex.transform, x, bottom, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, x + 184, bottom, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, x + 184, bottom, 72, 40);
+    }
+    else
+    {
+      _opacityLabel.text = IsGradient
+        ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
+        : L("불투명도", "Opacity");
+      SettingsUiFactory.Place(_opacityLabel.rectTransform, x, 0, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, x + 184, 0, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, x + 184, 0, 72, 40);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, x - 10, 48, column + 20, 36);
+      SettingsUiFactory.Place(_error.rectTransform, x, 84, column, 14);
+    }
+    Resize();
+  }
 
   private void BuildGradient()
   {
@@ -187,8 +238,7 @@ internal sealed partial class SettingsColorPicker
 
   // ---- Layout ----
 
-  // Lays the gradient controls out from the top of a column centered at
-  // `left`; the rest of the picker starts at GradientTop.
+  // Lays the bar and, with a gradient, the kinds out in the column at `left`.
   private void LayoutGradient(float left, float column)
   {
     bool shown = GradientAvailable;
@@ -203,7 +253,7 @@ internal sealed partial class SettingsColorPicker
       _tip.gameObject.SetActive(false);
       return;
     }
-    float y = gradient ? PillRow : 0;
+    float y = PillRow;
     SettingsUiFactory.Place(_bar, left, y, column, BarHeight);
     y += BarHeight + GradientGap;
     if (gradient)

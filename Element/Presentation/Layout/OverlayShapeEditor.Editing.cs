@@ -128,7 +128,8 @@ internal sealed partial class OverlayShapeEditor
     float width = _screen.Width;
     float top = OverlayEditorFrame.TopBar + 8 + BarHeight + 56,
       bottom = _dock.Top - 28;
-    float availableWidth = Mathf.Max(60, width - OverlayEditorFrame.Margin * 2 - 260);
+    PreviewSpace(out float spaceLeft, out float spaceRight);
+    float availableWidth = Mathf.Max(60, spaceRight - spaceLeft - 260);
     float availableHeight = Mathf.Max(40, bottom - top - OverlayFormulaField.Height - MeasureGap - 20);
     float units = _elementScale * ScreenScale / _screen.Scale;
     float fit = Mathf.Min(
@@ -139,7 +140,7 @@ internal sealed partial class OverlayShapeEditor
     _unitsToFrame = units * fit;
     float boxWidth = _resolved.Width * _unitsToFrame,
       boxHeight = _resolved.Height * _unitsToFrame;
-    _boxTopLeft = new Vector2((width - boxWidth) * .5f, top + (availableHeight - boxHeight) * .5f);
+    _boxTopLeft = new Vector2((spaceLeft + spaceRight - boxWidth) * .5f, top + (availableHeight - boxHeight) * .5f);
     float pixels = _unitsToFrame * _screen.Scale;
     _shapeRect.anchorMin = _shapeRect.anchorMax = _shapeRect.pivot = new Vector2(0, 1);
     _shapeRect.anchoredPosition = new Vector2(_boxTopLeft.x * _screen.Scale, -_boxTopLeft.y * _screen.Scale);
@@ -177,7 +178,10 @@ internal sealed partial class OverlayShapeEditor
       x += button.Width + 4;
     }
     x += y - 4;
-    SettingsUiFactory.Place(_bar, (_screen.Width - x) * .5f, OverlayEditorFrame.TopBar + 8, x, BarHeight);
+    // The bar stays over the shape, clear of an open picker.
+    PreviewSpace(out float spaceLeft, out float spaceRight);
+    float barLeft = Mathf.Max(OverlayEditorFrame.Margin, (spaceLeft + spaceRight - x) * .5f);
+    SettingsUiFactory.Place(_bar, barLeft, OverlayEditorFrame.TopBar + 8, x, BarHeight);
     PlacePicker();
   }
 
@@ -272,6 +276,16 @@ internal sealed partial class OverlayShapeEditor
       radius.Place(center.x - radius.Width * .5f, center.y - OverlayFormulaField.Height * .5f);
       radius.Root.SetAsLastSibling();
     }
+  }
+
+  // The width the shape and its bar center in: the screen, or the space left
+  // of an open picker.
+  private void PreviewSpace(out float left, out float right)
+  {
+    left = OverlayEditorFrame.Margin;
+    right = _screen.Width - OverlayEditorFrame.Margin;
+    if (_picker != null && _picker.Visible)
+      right = Mathf.Min(right, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
   }
 
   // A box-space point in frame units.

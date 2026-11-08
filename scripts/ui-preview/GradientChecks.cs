@@ -59,6 +59,7 @@ namespace Element.Editor
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
       Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
+      OverlayInputDock dock0 = Field<OverlayInputDock>(shapes, "_dock");
       OverlayFormulaField position = Field<OverlayFormulaField>(shapes, "_position");
       Assert(position.Text == "70", "the picked color's position pill says where it is: " + position.Text);
       Rect pill = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
@@ -70,7 +71,14 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "picker label fits: " + label.text);
       }
-      Assert(ScreenRectOf(picker.Root).yMax <= Screen.height && ScreenRectOf(picker.Root).yMin >= 0, "the taller picker stays on screen");
+      Assert(ScreenRectOf(picker.Root).yMax <= Screen.height && ScreenRectOf(picker.Root).yMin >= 0, "the picker stays on screen");
+      // 16:9 and 16:10 screens leave 310 frame units above the keypad.
+      Assert(picker.Height <= 310 && picker.CurrentWidth > 500, "the two-column picker fits above the keypad on wide screens: " + picker.Height);
+      Rect pickerRect = ScreenRectOf(picker.Root);
+      Assert(!pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect")))
+        && !pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_bar")))
+        && !pickerRect.Overlaps(ScreenRectOf(dock0.Keypad.Root)),
+        "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
 
       // The ends of the line are handles only: nothing covers them.

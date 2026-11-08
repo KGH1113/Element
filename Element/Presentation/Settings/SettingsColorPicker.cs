@@ -52,22 +52,24 @@ internal sealed partial class SettingsColorPicker : IDisposable
   private const float SourceRow = 44;
   public RectTransform Root { get; }
   public float Height =>
-    _column ? (_followsHighlight ? 142 : 334) + GradientExtra
+    _column ? ColumnHeight
     : !_sourceMode ? (_allowOpacity ? 358 : 318)
     : _followsHighlight ? 206
     : 358 + SourceRow;
 
   /// <summary>The width as laid out now.</summary>
-  public float CurrentWidth => _column ? _columnWidth : Width;
+  public float CurrentWidth => _column ? (GradientAvailable ? TwoColumnWidth : _columnWidth) : Width;
 
   public bool Column => _column;
 
   /// <summary>
-  /// Lays the picker out as a borderless column <paramref name="width"/>
-  /// wide that belongs to the panel beside it, such as the keypad below it:
-  /// no card, title or close. Highlight/Custom on top, then the color square
-  /// at full size, the sliders, and HEX with opacity at the bottom. Whoever
-  /// places it names the color and closes it.
+  /// Lays the picker out borderless for the panel beside it, such as the
+  /// keypad below it: no card, title or close. An overlay editor's picker
+  /// (<see cref="ShowSource"/>) takes two columns, the color bar and
+  /// Highlight/Custom on the left and the color square, sliders and HEX with
+  /// opacity on the right, so it stays short; others are one column
+  /// <paramref name="width"/> wide. Whoever places it names the color and
+  /// closes it.
   /// </summary>
   public void LayOutAsColumn(float width)
   {
@@ -358,9 +360,14 @@ internal sealed partial class SettingsColorPicker : IDisposable
   private void LayoutColumn(bool custom)
   {
     const float column = 256;
+    if (GradientAvailable)
+    {
+      LayoutTwoColumns(custom);
+      return;
+    }
     float left = (_columnWidth - column) * .5f;
     LayoutGradient(left, column);
-    float top = GradientTop;
+    float top = 0;
     SettingsUiFactory.Place(_source.Root, left, top, column, 36);
     if (custom)
     {

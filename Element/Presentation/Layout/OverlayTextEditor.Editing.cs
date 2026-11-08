@@ -519,13 +519,19 @@ internal sealed partial class OverlayTextEditor
     float frameWidth = _screen.Width;
     float top = OverlayEditorFrame.TopBar + 64,
       bottom = _bottomTop - 40;
-    Vector2 available = new Vector2(frameWidth - OverlayEditorFrame.Margin * 2, Mathf.Max(40, bottom - top)) * _scale;
+    // The text and its bar keep to the space left of an open picker.
+    float spaceLeft = OverlayEditorFrame.Margin,
+      spaceRight = frameWidth - OverlayEditorFrame.Margin;
+    if (_picker.Visible)
+      spaceRight = Mathf.Min(spaceRight, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+    float middle = (spaceLeft + spaceRight) * .5f;
+    Vector2 available = new Vector2(Mathf.Max(40, spaceRight - spaceLeft), Mathf.Max(40, bottom - top)) * _scale;
     // The game's size, unless the text would not fit on screen.
     _previewScale = Mathf.Min(_elementScale * ScreenScale, available.x / preferred.x, available.y / preferred.y);
     RectTransform rect = _preview.rectTransform;
     rect.sizeDelta = preferred;
     rect.localScale = new Vector3(_previewScale, _previewScale, 1);
-    Vector2 center = new Vector2(frameWidth * .5f, (top + bottom) * .5f) * _scale;
+    Vector2 center = new Vector2(middle, (top + bottom) * .5f) * _scale;
     rect.anchoredPosition = new Vector2(center.x, -center.y);
     _preview.ForceMeshUpdate();
     Map();
@@ -537,7 +543,7 @@ internal sealed partial class OverlayTextEditor
     float barWidth = LayoutFormatBar();
     SettingsUiFactory.Place(
       _formatBar,
-      frameWidth * .5f - barWidth * .5f,
+      Mathf.Max(OverlayEditorFrame.Margin, middle - barWidth * .5f),
       Mathf.Max(OverlayEditorFrame.TopBar, textTop - FormatHeight - 18),
       barWidth,
       FormatHeight

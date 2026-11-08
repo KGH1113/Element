@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -17,11 +18,19 @@ internal interface IRenderOverlay
 
   /// <summary>Runs right before a video frame is captured.</summary>
   void BeforeCapture();
+
+  /// <summary>
+  /// After the last frame: hands over the videos to lay over the finished video, each as
+  /// <c>add(path, source, target)</c> in pixels from the top left.
+  /// </summary>
+  void AddVideos(Action<string, RectInt, RectInt> add);
 }
 
 /// <summary>
 /// The object Element registers with TUFReplay's ReplayApi so its overlay and ElementNote's
 /// key viewers appear in rendered replays. TUFReplay finds these public methods by name.
+/// The overlay is a canvas the renderer captures; the key viewers are videos ElementNote
+/// draws alongside the render, which the renderer lays over the finished video.
 /// Replays played in the game are left alone: ElementNote shows them in its own window.
 /// </summary>
 internal sealed class ReplayRenderProvider
@@ -68,4 +77,11 @@ internal sealed class ReplayRenderProvider
   public IEnumerable<Canvas> GetReplayCanvases() => _overlay.Canvases();
 
   public void OnBeforeFrameCapture() => _overlay.BeforeCapture();
+
+  // Once, after the last frame of a completed render; it may wait for ElementNote.
+  public void AddReplayOverlayVideos(Action<string, RectInt, RectInt> add)
+  {
+    if (_rendering && add != null)
+      _overlay.AddVideos(add);
+  }
 }

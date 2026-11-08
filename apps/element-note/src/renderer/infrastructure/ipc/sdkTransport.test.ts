@@ -65,7 +65,6 @@ class GameTransport implements IpcTransport {
 describe('ADOFAI-IPC 2.1 transport compatibility', () => {
   for (const [namespace, major, command, reply] of [
     ['element', 1, 'mirror.native.describe', 'mirror.native.ready'],
-    ['tuf-replay-renderer', 2, 'dmnote.frame', 'dmnote.frame.ready'],
   ] as const) {
     it(`preserves commands and correlated replies for ${namespace}`, async () => {
       const transport = new GameTransport(major);

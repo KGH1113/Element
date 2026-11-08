@@ -107,10 +107,15 @@ internal sealed class RenderViewerPlacement
   /// pixels, so a frame drawn at this viewer's scale shows one texel per pixel; a
   /// frame between pixels would be resampled and blur.
   /// </summary>
-  public LayoutBounds Place(float contentWidth, float contentHeight)
+  public LayoutBounds Place(float contentWidth, float contentHeight) =>
+    PlaceAtSize(WholePixels(contentWidth * Scale), WholePixels(contentHeight * Scale));
+
+  /// <summary>
+  /// The viewer as <paramref name="width"/> by <paramref name="height"/> whole video pixels,
+  /// placed like <see cref="Place"/>, as fractions of the video from its top left.
+  /// </summary>
+  public LayoutBounds PlaceAtSize(float width, float height)
   {
-    float width = WholePixels(contentWidth * Scale);
-    float height = WholePixels(contentHeight * Scale);
     LayoutBounds placed =
       _anchor != null
         ? OverlayLayoutPosition.Resolve(_anchor, width, height, VideoWidth, VideoHeight)

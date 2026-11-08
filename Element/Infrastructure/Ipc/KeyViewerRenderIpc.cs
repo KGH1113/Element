@@ -12,11 +12,13 @@ namespace Element.Infrastructure.Ipc;
 /// Its answers come back as <see cref="ReplyCommand"/>, which runs off the game
 /// thread: the game thread is the one waiting for them.
 /// </summary>
-internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
+internal sealed class KeyViewerRenderIpc : IKeyViewerRenderApp
 {
   public const string ReplyCommand = "render.reply";
   public const string AvailableEvent = "render.available";
-  private const int ProtocolVersion = 1;
+
+  /// <summary>2: ElementNote draws a render's key viewers into videos on its own.</summary>
+  internal const int ProtocolVersion = 2;
 
   private readonly object _gate = new();
   private IFeatureRegistration _ipc;
@@ -103,6 +105,7 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
     message.Reply("render.reply.received", "{}");
   }
 
+  // Any thread: the render lease is kept from a timer.
   public string Send(string name, object payload)
   {
     lock (_gate)
@@ -140,15 +143,8 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
       return reply;
     if (result["surfaces"] is JArray surfaces)
       reply.Surfaces = surfaces.OfType<JObject>().Select(ReadSurface).ToArray();
-    if (result["frames"] is JArray frames)
-      reply.Frames = frames
-        .OfType<JObject>()
-        .Select(frame => new RenderFrame
-        {
-          ViewerKind = frame.Value<string>("viewerKind"),
-          FramePath = frame.Value<string>("framePath"),
-        })
-        .ToArray();
+    if (result["videos"] is JArray videos)
+      reply.Videos = videos.OfType<JObject>().Select(ReadVideo).ToArray();
     return reply;
   }
 
@@ -161,12 +157,22 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderChannel
       ViewerKind = surface.Value<string>("viewerKind"),
       Width = surface.Value<int?>("width") ?? 0,
       Height = surface.Value<int?>("height") ?? 0,
-      FrameFormat = surface.Value<string>("frameFormat"),
       ViewportWidth = viewport?.Value<float?>("width") ?? 0,
       ViewportHeight = viewport?.Value<float?>("height") ?? 0,
       Padding = viewport?.Value<float?>("padding") ?? 0,
     };
   }
+
+  // Without a path or a size a video cannot be laid over the render; IsValid rejects it.
+  private static RenderVideo ReadVideo(JObject video) =>
+    new()
+    {
+      ViewerKind = video.Value<string>("viewerKind"),
+      Path = video.Value<string>("path"),
+      Width = video.Value<int?>("width") ?? 0,
+      Height = video.Value<int?>("height") ?? 0,
+      Frames = video.Value<long?>("frames") ?? 0,
+    };
 
   private static JObject Read(string json)
   {

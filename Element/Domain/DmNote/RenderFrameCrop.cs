@@ -4,7 +4,7 @@ namespace Element.Domain.DmNote;
 
 /// <summary>
 /// The part of a key viewer frame a video shows: the page minus its padding, in
-/// whole texels. A crop that starts between texels makes the texture filter blend
+/// whole texels. A crop that starts between texels makes the scaler blend
 /// neighbours and softens every frame.
 /// </summary>
 internal readonly struct RenderFrameCrop
@@ -58,19 +58,6 @@ internal readonly struct RenderFrameCrop
   /// <summary>The shown texels in the page's CSS pixels.</summary>
   public float CssWidth => Width * _viewportWidth / _frameWidth;
   public float CssHeight => Height * _viewportHeight / _frameHeight;
-
-  /// <summary>
-  /// The crop as UVs (x, y, width, height). Raw frames list rows from the top,
-  /// so they flip.
-  /// </summary>
-  public (float X, float Y, float Width, float Height) Uv(bool rowsFromTop)
-  {
-    float u = (float)X / _frameWidth;
-    float v = (float)Y / _frameHeight;
-    float width = (float)Width / _frameWidth;
-    float height = (float)Height / _frameHeight;
-    return rowsFromTop ? (u, 1 - v, width, -height) : (u, v, width, height);
-  }
 
   // Keeps at least one texel.
   private static int Inset(float padding, int texels, float cssPixels) =>

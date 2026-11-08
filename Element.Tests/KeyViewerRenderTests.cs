@@ -1,12 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using AdofaiIpc.Contracts;
 using Element.Application.Rendering;
 using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
 using Element.Infrastructure.Ipc;
+using Element.Presentation.Rendering;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -15,23 +18,34 @@ namespace Element.Tests;
 internal static class KeyViewerRenderTests
 {
   private static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(200);
+  private const string Ffmpeg = "/mods/OrbitRender/FFmpeg/ffmpeg";
 
   public static void Run()
   {
     StartsWithLiveCountsAndExplicitSurfaces();
     StartsFromARunsRecordedCounts();
-    WaitsForTheAppToDrawEachFrame();
+    SendsFramesWithoutWaitingForThem();
+    NumbersFramesByVideoTime();
     KeepsTimesMonotonicAndAfterThePageStarts();
-    StopsOnTimeoutAndEndsTheSession();
+    StopsWhenBeginTimesOut();
     ReportsTheAppsFailure();
     FailsWithoutAnApp();
     RejectsSurfacesWithoutAViewport();
+    FinishesWithAVideoPerPage();
+    RejectsFinishWithoutEveryVideo();
+    AllowsSlowFinishes();
     PulsesOncePerSecond();
+    PulsesFromATimerThread();
     RepliesMayArriveBeforeTheWaiter();
     ParsesReplies();
+    SpeaksProtocolTwoOnly();
     PlacesViewersInTheVideo();
     CropsThePagePadding();
     MapsAFrameTexelForPixel();
+    KeepsAHalfPixelPageOneToOne();
+    OverlaysEveryViewerOnItsPage();
+    NeedsARendererThatTakesVideos();
+    ExplainsWhyKeyViewersAreMissing();
   }
 
   private static void StartsWithLiveCountsAndExplicitSurfaces()
@@ -40,7 +54,9 @@ internal static class KeyViewerRenderTests
     var session = new KeyViewerRenderSession(channel, channel.Replies);
     Check(
       session.Start(
-        new[] { new RenderSurfaceRequest("hand", 1.5f, 400, 250), new RenderSurfaceRequest("foot", 2, 210, 270) }
+        new[] { new RenderSurfaceRequest("hand", 1.5f, 400, 250), new RenderSurfaceRequest("foot", 2, 210, 270) },
+        60,
+        Ffmpeg
       ),
       "A connected app takes the session."
     );
@@ -50,7 +66,9 @@ internal static class KeyViewerRenderTests
       "The id is 32 hex digits."
     );
     Check((string)begin["counterBaseline"] == "live", "The video continues the player's key counts.");
-    Check((string)begin["frameFormat"] == "rgba", "Raw frames skip PNG encoding where the app can.");
+    Check((int)begin["fps"] == 60, "The videos match the render's frame rate.");
+    Check((string)begin["ffmpegPath"] == Ffmpeg, "ElementNote encodes with the FFmpeg TUFReplay shares.");
+    Check(begin["frameFormat"] == null, "ElementNote picks its capture format itself.");
     Check((long)begin["initialOutputTimeUs"] == 0, "The page starts at zero.");
     JArray surfaces = (JArray)begin["surfaces"];
     Check(surfaces.Count == 2 && (string)surfaces[1]["viewerKind"] == "foot", "Each viewer is its own surface.");
@@ -66,7 +84,7 @@ internal static class KeyViewerRenderTests
     var channel = new FakeChannel();
     var session = new KeyViewerRenderSession(channel, channel.Replies);
     var recorded = new Dictionary<string, Dictionary<string, int>> { ["hand"] = new() { ["A"] = 40 } };
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, recorded);
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg, recorded);
     JToken baseline = channel.Sent.Single(sent => sent.Name == KeyViewerRenderSession.BeginCommand).Payload[
       "counterBaseline"
     ];
@@ -76,42 +94,69 @@ internal static class KeyViewerRenderTests
     );
   }
 
-  private static void WaitsForTheAppToDrawEachFrame()
+  // Frames get no answer; a session that waited for one would sit out its timeout.
+  private static void SendsFramesWithoutWaitingForThem()
   {
-    var channel = new FakeChannel { Answer = AnswerFrames };
+    var channel = new FakeChannel { Answer = AnswerBegin };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
-    IReadOnlyList<RenderFrame> first = session.Capture(0, Quick, Quick);
-    Check(
-      first?.Count == 1 && first[0].FramePath == "/frames/hand/0",
-      "The first frame waits for begin, then its frame."
-    );
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    Check(session.SendFrame(0, Quick), "The first frame waits for begin, then goes.");
     Check(session.Surfaces?.Count == 1 && session.Surfaces[0].Padding == 10, "The page's own viewport is kept.");
-    IReadOnlyList<RenderFrame> second = session.Capture(166_666, Quick, Quick);
-    Check(second?[0].FramePath == "/frames/hand/1", "Frames count up.");
-    long[] indexes = channel
-      .Sent.Where(sent => sent.Name == KeyViewerRenderSession.FrameCommand)
-      .Select(sent => (long)sent.Payload["frameIndex"])
-      .ToArray();
-    Check(indexes.SequenceEqual(new long[] { 0, 1 }), "ElementNote requires frames in order from zero.");
+    var watch = Stopwatch.StartNew();
+    for (int frame = 1; frame <= 50; frame++)
+      Check(session.SendFrame(frame * 166_667L, TimeSpan.FromSeconds(10)), "Later frames go out too.");
+    Check(watch.Elapsed < TimeSpan.FromSeconds(1), "Frames never wait for ElementNote to draw them.");
+    Check(
+      channel.Sent.Count(sent => sent.Name == KeyViewerRenderSession.FrameCommand) == 51,
+      "Every video frame is sent."
+    );
     Check(session.Failure == null && session.Running, "A healthy render keeps running.");
+    Check(session.FramesSpanned == 51, "The video spans every frame sent.");
+  }
+
+  private static void NumbersFramesByVideoTime()
+  {
+    Check(KeyViewerRenderSession.FrameIndex(0, 60) == 0, "The video's first frame is frame zero.");
+    Check(KeyViewerRenderSession.FrameIndex(166_667, 60) == 1, "One sixtieth of a second is frame one.");
+    Check(KeyViewerRenderSession.FrameIndex(10_000_000, 60) == 60, "One second is sixty frames.");
+    Check(KeyViewerRenderSession.FrameIndex(10_000_000, 24) == 24, "The rate is the video's.");
+    // 144 Hz simulation sampled for 60 fps video: frame 7 at 7/60 s comes from 17/144 s.
+    Check(
+      KeyViewerRenderSession.FrameIndex(17 * 10_000_000L / 144, 60) == 7,
+      "A nearby game frame rounds to its video frame."
+    );
+    Check(KeyViewerRenderSession.FrameIndex(-5, 60) == 0, "Time before the video is its first frame.");
+
+    var channel = new FakeChannel { Answer = AnswerBegin };
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    session.SendFrame(0, Quick);
+    session.Input("Z", true, 100_000);
+    // Still output frame 0: nothing is sent and the key waits for the next frame.
+    session.SendFrame(10_000, Quick);
+    session.SendFrame(3 * 166_667L, Quick);
+    JObject[] frames = Frames(channel);
+    Check(
+      frames.Select(frame => (long)frame["frameIndex"]).SequenceEqual(new long[] { 0, 3 }),
+      "Indices follow the video and may skip."
+    );
+    Check(frames[1]["events"].Single()["key"].Value<string>() == "Z", "A key held back goes with the next frame.");
+    Check(session.FramesSpanned == 4, "Skipped frames still count toward the video's length.");
   }
 
   private static void KeepsTimesMonotonicAndAfterThePageStarts()
   {
-    var channel = new FakeChannel { Answer = AnswerFrames };
+    var channel = new FakeChannel { Answer = AnswerBegin };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
     session.Input("Z", true, 5_000_000);
     session.Input("X", true, 2_000_000);
     session.Input("Z", false, 9_000_000);
-    session.Capture(10_000_000, Quick, Quick);
+    session.SendFrame(10_000_000, Quick);
     session.Input("X", false, 1_000);
-    session.Capture(5_000_000, Quick, Quick);
-    JObject[] frames = channel
-      .Sent.Where(sent => sent.Name == KeyViewerRenderSession.FrameCommand)
-      .Select(sent => sent.Payload)
-      .ToArray();
+    // Time that went back still makes a later video frame, never an earlier time.
+    session.SendFrame(10_200_000, Quick);
+    JObject[] frames = Frames(channel);
     long firstTime = (long)frames[0]["outputTimeUs"];
     Check(firstTime == KeyViewerRenderSession.TimeOffsetUs + 1_000_000, "Ticks are 100 ns; times start one second in.");
     long[] eventTimes = frames[0]["events"].Select(e => (long)e["outputTimeUs"]).ToArray();
@@ -123,27 +168,26 @@ internal static class KeyViewerRenderTests
       frames[0]["events"].Select(e => (int)e["sequence"]).SequenceEqual(new[] { 0, 1, 2 }),
       "Keys keep their order."
     );
-    Check((long)frames[1]["outputTimeUs"] == firstTime, "A frame never precedes the last one.");
-    Check((long)frames[1]["events"][0]["outputTimeUs"] == firstTime, "A late key lands on the frame, not before it.");
+    Check(
+      (long)frames[1]["events"][0]["outputTimeUs"] == firstTime,
+      "A late key lands on the last frame, not before it."
+    );
     Check(!frames[1]["events"].Any(e => (string)e["key"] == "Z"), "Sent keys are not sent again.");
   }
 
-  private static void StopsOnTimeoutAndEndsTheSession()
+  private static void StopsWhenBeginTimesOut()
   {
     var channel = new FakeChannel { Answer = (_, _) => null };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
-    Check(session.Capture(0, Quick, Quick) == null, "No answer, no frame.");
-    Check(
-      session.Failure?.Code == RenderFailure.Timeout && !session.Failure.AfterFirstFrame,
-      "A silent app times out."
-    );
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    Check(!session.SendFrame(0, Quick), "No begin, no frame.");
+    Check(session.Failure?.Code == RenderFailure.Timeout, "A silent app times out.");
     Check(!session.Running, "The session closes.");
     Check(channel.Sent.Last().Name == KeyViewerRenderSession.EndCommand, "ElementNote is told to give input back.");
     int sent = channel.Sent.Count;
     Check(
-      session.Capture(0, Quick, Quick) == null && channel.Sent.Count == sent,
-      "Later frames neither wait nor send."
+      !session.SendFrame(0, Quick) && session.Finish(Quick) == null && channel.Sent.Count == sent,
+      "Later frames and finish neither wait nor send."
     );
   }
 
@@ -153,23 +197,25 @@ internal static class KeyViewerRenderTests
     {
       Answer = (name, payload) =>
         name == KeyViewerRenderSession.BeginCommand
-          ? AnswerFrames(name, payload)
-          : new { ok = false, error = new { code = "render-frame-timeout", message = "late" } },
+          ? AnswerBegin(name, payload)
+          : new { ok = false, error = new { code = "render-ffmpeg-failed", message = "exit 1" } },
     };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
-    Check(session.Capture(0, Quick, Quick) == null, "A failed frame returns nothing.");
-    Check(session.Failure?.Code == "render-frame-timeout", "The app's code is kept for the notice.");
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    session.SendFrame(0, Quick);
+    Check(session.Finish(Quick) == null, "A failed finish has no videos.");
+    Check(session.Failure?.Code == "render-ffmpeg-failed", "The app's code is kept for the notice.");
+    Check(channel.Sent.Last().Name == KeyViewerRenderSession.EndCommand, "The session ends.");
   }
 
   private static void FailsWithoutAnApp()
   {
     var channel = new FakeChannel { Connected = false };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    Check(!session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }), "No app, no session.");
+    Check(!session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg), "No app, no session.");
     Check(session.Failure?.Code == RenderFailure.AppUnavailable, "The notice says to open ElementNote.");
     Check(
-      !session.Start(Array.Empty<RenderSurfaceRequest>()) && session.Failure == null,
+      !session.Start(Array.Empty<RenderSurfaceRequest>(), 60, Ffmpeg) && session.Failure == null,
       "No viewers is not a failure."
     );
   }
@@ -192,7 +238,6 @@ internal static class KeyViewerRenderTests
                   viewerKind = "hand",
                   width = 400,
                   height = 250,
-                  frameFormat = "rgba",
                 },
               },
             },
@@ -200,9 +245,81 @@ internal static class KeyViewerRenderTests
           : null,
     };
     var session = new KeyViewerRenderSession(channel, channel.Replies);
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
-    Check(session.Capture(0, Quick, Quick) == null, "An older app's surfaces cannot be cropped or placed.");
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    Check(!session.SendFrame(0, Quick), "An older app's surfaces cannot be cropped or placed.");
     Check(session.Failure?.Code == RenderFailure.Incompatible, "The notice says to update ElementNote.");
+  }
+
+  private static void FinishesWithAVideoPerPage()
+  {
+    var channel = new FakeChannel { Answer = AnswerBeginAndFinish };
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    session.Start(
+      new[] { new RenderSurfaceRequest("hand", 1, 400, 250), new RenderSurfaceRequest("foot", 1, 300, 200) },
+      60,
+      Ffmpeg
+    );
+    Check(
+      session.Finish(Quick) == null && session.Failure == null && session.Running,
+      "Nothing sent, nothing to finish."
+    );
+    session.SendFrame(0, Quick);
+    session.SendFrame(166_667, Quick);
+    IReadOnlyList<RenderVideo> videos = session.Finish(Quick);
+    Check(videos?.Count == 2, "One video per page.");
+    Check(videos.Single(video => video.ViewerKind == "foot").Path == "/render/s/foot.mov", "Each names its file.");
+    JObject finish = channel.Sent.Single(sent => sent.Name == KeyViewerRenderSession.FinishCommand).Payload;
+    Check((string)finish["sessionId"] == (string)channel.Sent[0].Payload["sessionId"], "Finish names the session.");
+    Check(session.Running, "The session stays open so the renderer can read the videos.");
+    session.Stop();
+    Check(channel.Sent.Last().Name == KeyViewerRenderSession.EndCommand, "Stop lets ElementNote delete them.");
+  }
+
+  private static void RejectsFinishWithoutEveryVideo()
+  {
+    var channel = new FakeChannel
+    {
+      Answer = (name, payload) =>
+        name == KeyViewerRenderSession.FinishCommand
+          ? new
+          {
+            ok = true,
+            result = new
+            {
+              videos = new[]
+              {
+                new
+                {
+                  viewerKind = "hand",
+                  path = "/render/s/hand.mov",
+                  width = 400,
+                  height = 250,
+                  frames = 1,
+                },
+              },
+            },
+          }
+          : AnswerBegin(name, payload),
+    };
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    session.Start(
+      new[] { new RenderSurfaceRequest("hand", 1, 400, 250), new RenderSurfaceRequest("foot", 1, 300, 200) },
+      60,
+      Ffmpeg
+    );
+    session.SendFrame(0, Quick);
+    Check(session.Finish(Quick) == null, "A missing page video drops the key viewers.");
+    Check(session.Failure?.Code == RenderFailure.Incompatible, "The notice says to update ElementNote.");
+  }
+
+  private static void AllowsSlowFinishes()
+  {
+    Check(KeyViewerRenderSession.FinishTimeout(0) == TimeSpan.FromMinutes(2), "A short video waits two minutes.");
+    Check(
+      KeyViewerRenderSession.FinishTimeout(14_400) == TimeSpan.FromMinutes(2) + TimeSpan.FromMinutes(120),
+      "A four-minute 60 fps video allows ElementNote two frames a second."
+    );
+    Check(KeyViewerRenderSession.FinishTimeout(long.MaxValue / 2) == TimeSpan.FromHours(3), "The wait has a ceiling.");
   }
 
   private static void PulsesOncePerSecond()
@@ -212,12 +329,44 @@ internal static class KeyViewerRenderTests
     DateTime now = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
     session.Pulse(now);
     Check(channel.Sent.Count == 0, "No session, no pulse.");
-    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) });
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
     for (int frame = 0; frame < 120; frame++)
       session.Pulse(now.AddMilliseconds(frame * 16.7));
     Check(
       channel.Sent.Count(sent => sent.Name == KeyViewerRenderSession.PulseCommand) == 2,
       "One pulse a second, not one a frame."
+    );
+  }
+
+  // The lease is kept from a timer while the game thread waits for finish.
+  private static void PulsesFromATimerThread()
+  {
+    var channel = new FakeChannel { Answer = AnswerBegin };
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    string id = (string)channel.Sent[0].Payload["sessionId"];
+    DateTime now = DateTime.UtcNow;
+    var pulses = new Thread(() =>
+    {
+      for (int i = 0; i < 200; i++)
+        session.Pulse(now.AddSeconds(i));
+    });
+    pulses.Start();
+    for (int frame = 0; frame < 200; frame++)
+      session.SendFrame(frame * 166_667L, Quick);
+    pulses.Join();
+    session.Stop();
+    (string Name, JObject Payload)[] sent = channel.Snapshot();
+    Check(
+      sent.Where(message => message.Name == KeyViewerRenderSession.PulseCommand)
+        .All(message => (string)message.Payload["sessionId"] == id),
+      "Pulses from another thread name the session."
+    );
+    int pulsesBefore = sent.Count(message => message.Name == KeyViewerRenderSession.PulseCommand);
+    session.Pulse(now.AddHours(1));
+    Check(
+      channel.Snapshot().Count(message => message.Name == KeyViewerRenderSession.PulseCommand) == pulsesBefore,
+      "No pulse after the session ends."
     );
   }
 
@@ -268,7 +417,6 @@ internal static class KeyViewerRenderTests
                 viewerKind = "foot",
                 width = 300,
                 height = 200,
-                frameFormat = "png",
                 viewport = new
                 {
                   width = 150,
@@ -282,21 +430,40 @@ internal static class KeyViewerRenderTests
       )
     );
     RenderSurface surface = begun?.Surfaces?.SingleOrDefault();
+    Check(surface != null && surface.IsValid() && surface.Padding == 12.5f, "Surfaces keep their viewport.");
+    RenderReply finished = KeyViewerRenderIpc.Parse(
+      "{\"requestId\":\"b\",\"ok\":true,\"result\":{\"videos\":[{\"viewerKind\":\"hand\",\"path\":\"/v/hand.mov\",\"width\":645,\"height\":240,\"frames\":3600}]}}"
+    );
+    RenderVideo video = finished?.Videos?.Single();
     Check(
-      surface != null && surface.IsValid() && surface.Padding == 12.5f && surface.FrameFormat == "png",
-      "Surfaces keep their viewport."
+      video != null && video.IsValid() && video.Path == "/v/hand.mov" && video.Width == 645 && video.Frames == 3600,
+      "Videos name their file, size and length."
     );
-    RenderReply frame = KeyViewerRenderIpc.Parse(
-      "{\"requestId\":\"b\",\"ok\":true,\"result\":{\"frames\":[{\"viewerKind\":\"hand\",\"framePath\":\"/f\"}]}}"
-    );
-    Check(frame?.Frames?.Single().FramePath == "/f", "Frames name their file.");
+    RenderVideo pathless = KeyViewerRenderIpc
+      .Parse(
+        "{\"requestId\":\"c\",\"ok\":true,\"result\":{\"videos\":[{\"viewerKind\":\"hand\",\"width\":1,\"height\":1,\"frames\":1}]}}"
+      )
+      ?.Videos?.Single();
+    Check(pathless != null && !pathless.IsValid(), "A video without a file is not laid over the render.");
     RenderReply failed = KeyViewerRenderIpc.Parse(
-      "{\"requestId\":\"c\",\"ok\":false,\"error\":{\"code\":\"render-busy\",\"message\":\"m\"}}"
+      "{\"requestId\":\"d\",\"ok\":false,\"error\":{\"code\":\"render-busy\",\"message\":\"m\"}}"
     );
     Check(failed?.Ok == false && failed.ErrorCode == "render-busy", "Failures keep their code.");
     Check(KeyViewerRenderIpc.Parse("{\"ok\":true}") == null, "A reply names its request.");
-    Check(KeyViewerRenderIpc.Parse("{\"requestId\":\"d\"}") == null, "A reply says whether it worked.");
+    Check(KeyViewerRenderIpc.Parse("{\"requestId\":\"e\"}") == null, "A reply says whether it worked.");
     Check(KeyViewerRenderIpc.Parse("not json") == null, "Garbage is not a reply.");
+  }
+
+  // An ElementNote that answers each frame with a file (protocol 1) can't make videos.
+  private static void SpeaksProtocolTwoOnly()
+  {
+    var older = new KeyViewerRenderIpc();
+    older.OnPeerEvent(Available("old", 1));
+    Check(!older.TakesRecordedCounts, "Protocol 1 is not taken.");
+    var current = new KeyViewerRenderIpc();
+    current.OnPeerEvent(Available("new", 2));
+    Check(current.TakesRecordedCounts, "Protocol 2 is.");
+    Check(!current.Available, "Without the game's IPC channel nothing is sent.");
   }
 
   private static void PlacesViewersInTheVideo()
@@ -352,14 +519,7 @@ internal static class KeyViewerRenderTests
   private static void CropsThePagePadding()
   {
     RenderFrameCrop crop = RenderFrameCrop.Of(200, 100, 200, 100, 10);
-    (float x, float y, float width, float height) = crop.Uv(false);
-    Near(.05f, x, "Left padding.");
-    Near(.1f, y, "Bottom padding.");
-    Near(.9f, width, "Content width.");
-    Near(.8f, height, "Content height.");
-    (float _, float flippedY, float _, float flippedHeight) = crop.Uv(true);
-    Near(.9f, flippedY, "Raw rows start at the top, so the image samples from the far edge.");
-    Near(-.8f, flippedHeight, "Flipped content has negative height.");
+    Check(crop.X == 10 && crop.Y == 10 && crop.Width == 180 && crop.Height == 80, "The padding goes on every side.");
     // 30 CSS px of padding at 0.75 px per CSS px is 22.5 texels.
     RenderFrameCrop half = RenderFrameCrop.Of(645, 240, 860, 320, 30);
     Check(half.X == 22 && half.Width == 601, "A crop between texels moves to a whole texel.");
@@ -371,7 +531,7 @@ internal static class KeyViewerRenderTests
 
   // A 5K Retina game view (2 screen pixels per CSS pixel) rendered to 1080p draws the
   // viewer at 0.75 video pixels per CSS pixel. ElementNote draws the 860x320 page into
-  // 645x240 texels; the video must show those texels one per pixel, or they blur.
+  // 645x240 pixels; the video must show those pixels one to one, or they blur.
   private static void MapsAFrameTexelForPixel()
   {
     var screen = new LayoutBounds(17.3f, 2880 - 600 - 41.7f, 1600, 600);
@@ -400,49 +560,272 @@ internal static class KeyViewerRenderTests
       .Place(crop.CssWidth, crop.CssHeight);
     Whole(centered.X * 1920, "A centered viewer snaps too.");
     Whole(centered.Y * 1080, "Vertically as well.");
+
+    RenderOverlayRects rects = RenderOverlayRects.Of(placement, placement.Scale, 645, 240, 860, 320, 30);
+    Check(
+      rects.Source.X == 22 && rects.Source.Y == 22 && rects.Source.Width == 601 && rects.Source.Height == 196,
+      "The video shows the page minus its padding: " + rects.Source
+    );
+    Check(
+      rects.Target.Width == rects.Source.Width && rects.Target.Height == rects.Source.Height,
+      "And lays it one pixel per pixel: " + rects.Target
+    );
+    Check(
+      rects.Target.X == (int)Math.Round(placed.X * 1920) && rects.Target.Y == (int)Math.Round(placed.Y * 1080),
+      "At the viewer's place: " + rects.Target
+    );
+    Check(rects.Target.Y + rects.Target.Height <= 1080 && rects.Target.X >= 0, "Inside the video.");
   }
+
+  // A 200 CSS px page at 0.5625 is 112.5 pixels: ElementNote rounds it up to 113, while
+  // C# rounds the same half down to 112. Without padding, a target recomputed from CSS
+  // pixels came out a pixel narrower than the page, and the compositor rescaled every frame.
+  private static void KeepsAHalfPixelPageOneToOne()
+  {
+    var screen = new LayoutBounds(100, 100, 400, 240);
+    RenderViewerPlacement placement = RenderViewerPlacement.Create(
+      "foot",
+      screen,
+      5120,
+      2880,
+      2,
+      null,
+      200,
+      120,
+      1440,
+      810
+    );
+    Near(.5625f, placement.Scale, "Video pixels per CSS pixel.");
+    RenderOverlayRects rects = RenderOverlayRects.Of(placement, placement.Scale, 113, 68, 200, 120, 0);
+    Check(
+      rects.Source.Width == 113 && rects.Target.Width == 113 && rects.Target.Height == rects.Source.Height,
+      "A viewer at its page's scale takes the page's pixels one for one: " + rects.Source + " -> " + rects.Target
+    );
+  }
+
+  // Two hand viewers share one page, drawn at the larger one's scale.
+  private static void OverlaysEveryViewerOnItsPage()
+  {
+    var big = new LayoutBounds(20, 2880 - 600 - 40, 1600, 600);
+    var small = new LayoutBounds(3000, 100, 800, 300);
+    RenderViewerPlacement large = RenderViewerPlacement.Create(
+      "hand",
+      big,
+      5120,
+      2880,
+      2,
+      NativeViewerGrowth.Capture(big, 5120, 2880, 1, Anchor9.BottomLeft),
+      860,
+      320,
+      1920,
+      1080
+    );
+    RenderViewerPlacement smaller = RenderViewerPlacement.Create(
+      "hand",
+      small,
+      5120,
+      2880,
+      1,
+      NativeViewerGrowth.Capture(small, 5120, 2880, 1, Anchor9.TopRight),
+      860,
+      320,
+      1920,
+      1080
+    );
+    RenderViewerPlacement foot = RenderViewerPlacement.Create("foot", big, 5120, 2880, 2, null, 400, 300, 1920, 1080);
+    var surfaces = new[]
+    {
+      new RenderSurface
+      {
+        ViewerKind = "hand",
+        Width = 645,
+        Height = 240,
+        ViewportWidth = 860,
+        ViewportHeight = 320,
+        Padding = 30,
+      },
+      new RenderSurface
+      {
+        ViewerKind = "foot",
+        Width = 300,
+        Height = 225,
+        ViewportWidth = 400,
+        ViewportHeight = 300,
+        Padding = 0,
+      },
+    };
+    var videos = new[]
+    {
+      new RenderVideo
+      {
+        ViewerKind = "hand",
+        Path = "/v/hand.mov",
+        Width = 645,
+        Height = 240,
+        Frames = 10,
+      },
+      new RenderVideo
+      {
+        ViewerKind = "foot",
+        Path = "/v/foot.mov",
+        Width = 300,
+        Height = 225,
+        Frames = 10,
+      },
+    };
+    IReadOnlyList<KeyViewerOverlay> overlays = KeyViewerRenderPlan.Overlays(
+      new[] { large, smaller, foot },
+      surfaces,
+      videos
+    );
+    Check(overlays.Count == 3, "Every placed viewer goes over the video.");
+    Check(
+      overlays[0].Path == "/v/hand.mov" && overlays[1].Path == "/v/hand.mov" && overlays[2].Path == "/v/foot.mov",
+      "Viewers of a kind share their page's video."
+    );
+    Check(overlays[0].Source.Equals(overlays[1].Source), "Both show the same part of the page.");
+    Check(
+      overlays[1].Target.Width < overlays[0].Target.Width && overlays[1].Target.Height < overlays[0].Target.Height,
+      "The smaller viewer gets a smaller target: " + overlays[0].Target + " vs " + overlays[1].Target
+    );
+    Check(
+      Math.Abs(overlays[1].Target.Width - overlays[0].Source.Width / 2) <= 1,
+      "Half the scale, half the size: " + overlays[1].Target
+    );
+    Check(overlays[1].Target.X > 960, "Each viewer keeps its own place.");
+    Check(
+      KeyViewerRenderPlan.Overlays(new[] { large }, surfaces, Array.Empty<RenderVideo>()).Count == 0,
+      "No video, nothing to lay over."
+    );
+  }
+
+  private static void NeedsARendererThatTakesVideos()
+  {
+    var ready = new FakeTarget();
+    Check(KeyViewerRenderPlan.Blocker(ready, true, true) == null, "Everything is in place.");
+    Check(
+      KeyViewerRenderPlan.Blocker(new FakeTarget { TakesVideos = false }, true, true)?.Code
+        == RenderFailure.RendererOutdated,
+      "OrbitRender that can't lay videos over the render needs an update."
+    );
+    Check(
+      KeyViewerRenderPlan.Blocker(new FakeTarget { Ffmpeg = null }, true, true)?.Code == RenderFailure.RendererOutdated,
+      "So does a TUFReplay that shares no FFmpeg."
+    );
+    Check(
+      KeyViewerRenderPlan.Blocker(new FakeTarget { Fps = 0 }, true, true)?.Code == RenderFailure.RendererOutdated,
+      "Or reports no frame rate."
+    );
+    Check(
+      KeyViewerRenderPlan.Blocker(new FakeTarget { TakesVideos = false }, false, false)?.Code
+        == RenderFailure.RendererOutdated,
+      "The renderer comes first: opening ElementNote wouldn't help."
+    );
+    Check(
+      KeyViewerRenderPlan.Blocker(ready, false, true)?.Code == RenderFailure.AppOutdated,
+      "A connected ElementNote without protocol 2 needs an update."
+    );
+    Check(
+      KeyViewerRenderPlan.Blocker(ready, false, false)?.Code == RenderFailure.AppUnavailable,
+      "No ElementNote at all needs opening."
+    );
+  }
+
+  private static void ExplainsWhyKeyViewersAreMissing()
+  {
+    (string title, string detail) = RenderNotices.For(RenderFailure.RendererOutdated, true);
+    Check(title == "키뷰어 없이 렌더링했어요", "The title says what happened.");
+    Check(detail == "TUFReplay와 OrbitRender를 업데이트한 뒤 다시 렌더링해주세요.", "The detail says what to do.");
+    Check(
+      RenderNotices.For(RenderFailure.RendererOutdated, false).Detail
+        == "Update TUFReplay and OrbitRender, then render again.",
+      "And in English."
+    );
+    Check(
+      RenderNotices.For(RenderFailure.AppOutdated, false).Detail == "Update ElementNote, then render again.",
+      "An old ElementNote is updated."
+    );
+    Check(
+      RenderNotices.For(RenderFailure.AppUnavailable, false).Detail.StartsWith("Open ElementNote"),
+      "A closed one is opened."
+    );
+    Check(
+      RenderNotices
+        .For("render-ffmpeg-failed", false)
+        .Detail.StartsWith("ElementNote couldn't make the key viewer video"),
+      "An encoding failure says the video wasn't made."
+    );
+  }
+
+  private static JObject[] Frames(FakeChannel channel) =>
+    channel
+      .Snapshot()
+      .Where(sent => sent.Name == KeyViewerRenderSession.FrameCommand)
+      .Select(sent => sent.Payload)
+      .ToArray();
+
+  private static PeerEvent Available(string peer, int protocol) =>
+    new(
+      peer,
+      "connection",
+      KeyViewerRenderIpc.AvailableEvent,
+      "id",
+      null,
+      JsonConvert.SerializeObject(new { protocolVersion = protocol, recordedCounters = true })
+    );
 
   private static void Pixels(float expected, float actual, string message) =>
     Check(Math.Abs(expected - actual) < 1e-3, message + " Expected " + expected + ", got " + actual + ".");
 
   private static void Whole(float pixels, string message) => Pixels((float)Math.Round(pixels), pixels, message);
 
-  private static object AnswerFrames(string name, JObject payload)
+  private static object AnswerBegin(string name, JObject payload)
   {
-    if (name == KeyViewerRenderSession.BeginCommand)
-      return new
+    if (name != KeyViewerRenderSession.BeginCommand)
+      return null;
+    return new
+    {
+      ok = true,
+      result = new
+      {
+        surfaces = payload["surfaces"]
+          .Select(surface => new
+          {
+            viewerKind = (string)surface["viewerKind"],
+            width = 400,
+            height = 250,
+            viewport = new
+            {
+              width = 400,
+              height = 250,
+              padding = 10,
+            },
+          })
+          .ToArray(),
+      },
+    };
+  }
+
+  private static object AnswerBeginAndFinish(string name, JObject payload) =>
+    name == KeyViewerRenderSession.FinishCommand
+      ? new
       {
         ok = true,
         result = new
         {
-          surfaces = payload["surfaces"]
-            .Select(surface => new
+          videos = new[] { "hand", "foot" }
+            .Select(kind => new
             {
-              viewerKind = (string)surface["viewerKind"],
+              viewerKind = kind,
+              path = "/render/s/" + kind + ".mov",
               width = 400,
               height = 250,
-              frameFormat = "rgba",
-              viewport = new
-              {
-                width = 400,
-                height = 250,
-                padding = 10,
-              },
+              frames = 2,
             })
             .ToArray(),
         },
-      };
-    if (name == KeyViewerRenderSession.FrameCommand)
-      return new
-      {
-        ok = true,
-        result = new
-        {
-          frames = new[] { new { viewerKind = "hand", framePath = "/frames/hand/" + (long)payload["frameIndex"] } },
-        },
-      };
-    return null;
-  }
+      }
+      : AnswerBegin(name, payload);
 
   private static void Near(float expected, float actual, string message) =>
     Check(Math.Abs(expected - actual) < 1e-4f, message + " Expected " + expected + ", got " + actual + ".");
@@ -453,9 +836,22 @@ internal static class KeyViewerRenderTests
       throw new InvalidOperationException(message);
   }
 
+  private sealed class FakeTarget : IReplayRenderTarget
+  {
+    public int RenderWidth { get; set; } = 1920;
+    public int RenderHeight { get; set; } = 1080;
+    public int Fps { get; set; } = 60;
+    public bool TakesVideos { get; set; } = true;
+    public string Ffmpeg { get; set; } = KeyViewerRenderTests.Ffmpeg;
+    public int RenderFps => Fps;
+    public bool RenderTakesOverlayVideos => TakesVideos;
+    public string RenderFfmpegPath => Ffmpeg;
+  }
+
   // Answers each command from another thread, like ElementNote's reply command.
   private sealed class FakeChannel : IKeyViewerRenderChannel
   {
+    private readonly object _gate = new();
     private int _sequence;
 
     public RenderReplies Replies { get; } = new();
@@ -463,13 +859,23 @@ internal static class KeyViewerRenderTests
     public bool Connected { get; set; } = true;
     public Func<string, JObject, object> Answer { get; set; } = (_, _) => null;
 
+    public (string Name, JObject Payload)[] Snapshot()
+    {
+      lock (_gate)
+        return Sent.ToArray();
+    }
+
     public string Send(string name, object payload)
     {
       if (!Connected)
         return null;
       JObject json = JObject.FromObject(payload);
-      Sent.Add((name, json));
-      string id = "command-" + ++_sequence;
+      string id;
+      lock (_gate)
+      {
+        Sent.Add((name, json));
+        id = "command-" + ++_sequence;
+      }
       object answer = Answer(name, json);
       if (answer != null)
       {

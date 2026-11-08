@@ -7,8 +7,9 @@ import {
 
 const sessionId = '123456789012345678901234567890ab';
 const otherSession = 'ffffffffffffffffffffffffffffffff';
+const videos = [{ viewerKind: 'hand', path: '/cache/hand.mov', frames: 2 }];
 const settle = async () => {
-  for (let i = 0; i < 5; i++) await Promise.resolve();
+  for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 
 function setup() {
@@ -16,8 +17,8 @@ function setup() {
   let clock = 0;
   const surface = {
     begin: vi.fn().mockResolvedValue({ surfaces: [{ viewerKind: 'hand' }] }),
-    reset: vi.fn().mockResolvedValue({}),
-    frame: vi.fn().mockResolvedValue({ frames: [] }),
+    frame: vi.fn().mockResolvedValue(null),
+    finish: vi.fn().mockResolvedValue({ videos }),
     end: vi.fn().mockResolvedValue({ ended: true }),
     touch: vi.fn().mockResolvedValue(undefined),
   };
@@ -33,31 +34,40 @@ function setup() {
     clock += milliseconds;
     vi.advanceTimersByTime(milliseconds);
   };
-  return { messages, surface, coordinator, replies, advance };
+  const frame = (frameIndex: number, session = sessionId) =>
+    messages.command('render.frame', {
+      sessionId: session,
+      frameIndex,
+      outputTimeUs: 1_000_000 + frameIndex * 16_667,
+      events: [],
+    });
+  return { messages, surface, coordinator, replies, advance, frame };
 }
 
 describe('Element render messages', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('announces renders when the game channel is ready', async () => {
+  it('announces video renders when the game channel is ready', async () => {
     const { messages, coordinator } = setup();
     expect(messages.sent[0]).toMatchObject({
       name: 'render.available',
-      payload: { protocolVersion: 1, recordedCounters: true },
+      payload: { protocolVersion: 2, recordedCounters: true },
     });
     await coordinator.dispose();
   });
 
-  it('answers begin and frames with commands matched to the request', async () => {
-    const { messages, surface, coordinator, replies } = setup();
+  it('queues frames without answers and answers finish with the videos', async () => {
+    const { messages, surface, coordinator, replies, frame } = setup();
     const begin = messages.command('render.begin', {
       sessionId,
+      fps: 60,
+      ffmpegPath: '/ffmpeg',
       surfaces: [{ viewerKind: 'hand' }],
     });
     await settle();
     expect(surface.begin).toHaveBeenCalledWith(
-      expect.objectContaining({ sessionId }),
+      expect.objectContaining({ sessionId, fps: 60, ffmpegPath: '/ffmpeg' }),
     );
     expect(replies()[0].payload).toMatchObject({
       requestId: begin,
@@ -65,26 +75,77 @@ describe('Element render messages', () => {
       ok: true,
       result: { surfaces: [{ viewerKind: 'hand' }] },
     });
-    const frame = messages.command('render.frame', {
-      sessionId,
-      frameIndex: 0,
-      outputTimeUs: 1_000_000,
-      events: [],
-    });
+    frame(0);
+    frame(2);
     await settle();
+    expect(
+      surface.frame.mock.calls.map(([request]) => request.frameIndex),
+    ).toEqual([0, 2]);
+    expect(replies()).toHaveLength(1);
+    const finish = messages.command('render.finish', { sessionId });
+    await settle();
+    expect(surface.finish).toHaveBeenCalledWith({ sessionId });
     expect(replies()[1].payload).toMatchObject({
-      requestId: frame,
+      requestId: finish,
+      sessionId,
       ok: true,
+      result: { videos },
     });
     // Answers are commands to the game, never events it would read late.
     expect(replies().every((reply) => reply.correlationId === undefined)).toBe(
       true,
     );
+    expect(surface.end).not.toHaveBeenCalled();
+    await coordinator.dispose();
+  });
+
+  it('hands frames on in order, after begin, even when one is slow', async () => {
+    const { messages, surface, coordinator, frame } = setup();
+    let began!: (value: unknown) => void;
+    surface.begin.mockReturnValueOnce(
+      new Promise((resolve) => (began = resolve)),
+    );
+    let queued!: (value: unknown) => void;
+    surface.frame.mockReturnValueOnce(
+      new Promise((resolve) => (queued = resolve)),
+    );
+    messages.command('render.begin', { sessionId });
+    frame(0);
+    frame(1);
+    await settle();
+    expect(surface.frame).not.toHaveBeenCalled();
+    began({ surfaces: [] });
+    await settle();
+    expect(surface.frame).toHaveBeenCalledTimes(1);
+    queued(null);
+    await settle();
+    expect(
+      surface.frame.mock.calls.map(([request]) => request.frameIndex),
+    ).toEqual([0, 1]);
+    await coordinator.dispose();
+  });
+
+  it('waits for queued frames before finishing', async () => {
+    const { messages, surface, coordinator, replies, frame } = setup();
+    let queued!: (value: unknown) => void;
+    surface.frame.mockReturnValueOnce(
+      new Promise((resolve) => (queued = resolve)),
+    );
+    messages.command('render.begin', { sessionId });
+    await settle();
+    frame(0);
+    messages.command('render.finish', { sessionId });
+    await settle();
+    expect(surface.finish).not.toHaveBeenCalled();
+    queued(null);
+    await settle();
+    expect(surface.finish).toHaveBeenCalledTimes(1);
+    expect(replies()[1].payload).toMatchObject({ ok: true });
     await coordinator.dispose();
   });
 
   it('keeps the running session when another begin arrives', async () => {
-    const { messages, surface, coordinator, replies } = setup();
+    const { messages, surface, coordinator, replies, frame } = setup();
     messages.command('render.begin', { sessionId });
     await settle();
     messages.command('render.begin', { sessionId: otherSession });
@@ -95,37 +156,52 @@ describe('Element render messages', () => {
     });
     expect(surface.begin).toHaveBeenCalledTimes(1);
     expect(surface.end).not.toHaveBeenCalled();
-    messages.command('render.frame', { sessionId, frameIndex: 0 });
+    frame(0);
     await settle();
-    expect(replies()[2].payload).toMatchObject({ ok: true });
+    expect(surface.frame).toHaveBeenCalledTimes(1);
     await coordinator.dispose();
   });
 
-  it('ends the session and reports the code when a frame fails', async () => {
-    const { messages, surface, coordinator, replies } = setup();
+  it('drops frames after a failed one and finishes with its code', async () => {
+    const { messages, surface, coordinator, replies, frame } = setup();
     surface.frame.mockRejectedValueOnce(
-      'render-frame-timeout: /Users/someone/cache',
+      'render-frame-out-of-sequence: /Users/someone/cache',
     );
     messages.command('render.begin', { sessionId });
     await settle();
-    messages.command('render.frame', { sessionId, frameIndex: 0 });
+    frame(0);
+    frame(1);
     await settle();
-    expect(surface.end).toHaveBeenCalledWith(sessionId);
+    expect(surface.frame).toHaveBeenCalledTimes(1);
+    expect(replies()).toHaveLength(1);
+    messages.command('render.finish', { sessionId });
+    await settle();
+    expect(surface.finish).not.toHaveBeenCalled();
     expect(replies()[1].payload).toMatchObject({
       ok: false,
-      error: { code: 'render-frame-timeout' },
+      error: { code: 'render-frame-out-of-sequence' },
     });
-    messages.command('render.frame', { sessionId, frameIndex: 1 });
-    await settle();
-    expect(replies()[2].payload).toMatchObject({
-      ok: false,
-      error: { code: 'render-session-ended' },
-    });
+    expect(surface.end).toHaveBeenCalledWith(sessionId);
     await coordinator.dispose();
   });
 
-  it('refuses frames for other sessions and malformed ids', async () => {
-    const { messages, coordinator, replies } = setup();
+  it('reports a failed finish and ends the session', async () => {
+    const { messages, surface, coordinator, replies } = setup();
+    surface.finish.mockRejectedValueOnce('render-ffmpeg-failed: exit status 1');
+    messages.command('render.begin', { sessionId });
+    await settle();
+    messages.command('render.finish', { sessionId });
+    await settle();
+    expect(replies()[1].payload).toMatchObject({
+      ok: false,
+      error: { code: 'render-ffmpeg-failed' },
+    });
+    expect(surface.end).toHaveBeenCalledWith(sessionId);
+    await coordinator.dispose();
+  });
+
+  it('ignores frames of other sessions and refuses malformed ids', async () => {
+    const { messages, surface, coordinator, replies, frame } = setup();
     messages.command('render.begin', { sessionId: 'not-a-session' });
     await settle();
     expect(replies()[0].payload).toMatchObject({
@@ -134,7 +210,10 @@ describe('Element render messages', () => {
     });
     messages.command('render.begin', { sessionId });
     await settle();
-    messages.command('render.frame', { sessionId: otherSession });
+    frame(0, otherSession);
+    await settle();
+    expect(surface.frame).not.toHaveBeenCalled();
+    messages.command('render.finish', { sessionId: otherSession });
     await settle();
     expect(replies()[2].payload).toMatchObject({
       ok: false,
@@ -170,6 +249,28 @@ describe('Element render messages', () => {
     advance(31_000);
     await settle();
     expect(surface.end).toHaveBeenCalledWith(sessionId);
+    await coordinator.dispose();
+  });
+
+  it('keeps finishing the videos while the game waits in silence', async () => {
+    const { messages, surface, coordinator, replies, advance } = setup();
+    let finished!: (value: unknown) => void;
+    surface.finish.mockReturnValueOnce(
+      new Promise((resolve) => (finished = resolve)),
+    );
+    messages.command('render.begin', { sessionId });
+    await settle();
+    messages.command('render.finish', { sessionId });
+    await settle();
+    advance(60_000);
+    await settle();
+    expect(surface.end).not.toHaveBeenCalled();
+    finished({ videos });
+    await settle();
+    expect(replies()[1].payload).toMatchObject({
+      ok: true,
+      result: { videos },
+    });
     await coordinator.dispose();
   });
 

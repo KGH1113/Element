@@ -28,6 +28,18 @@ namespace Element.Editor
       Call(shapes, "Write", "width", OverlayFormula.FromNumber(420));
       Call(shapes, "Write", "height", OverlayFormula.FromNumber(240));
       Call(shapes, "Render");
+      // With motion, opening the picker glides the shape aside from where it was.
+      ElementSettings preferences = Field<ElementSettings>(editor, "_preferences");
+      bool reduceMotion = preferences.ReduceUiMotion;
+      preferences.ReduceUiMotion = false;
+      Rect resting = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      Call(shapes, "OpenColor", false);
+      OverlayGlide glide = Field<OverlayGlide>(shapes, "_space");
+      Assert(glide.Moving && ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect")) == resting,
+        "opening the picker starts the shape gliding from where it was, without a jump");
+      Call(shapes, "OpenColor", false);
+      // The checks below measure where things land, so they settle at once.
+      preferences.ReduceUiMotion = true;
       Call(shapes, "OpenColor", false);
       SettingsColorPicker picker = Field<SettingsColorPicker>(shapes, "_picker");
       OverlayGradientHandles handles = Field<OverlayGradientHandles>(shapes, "_handles");
@@ -205,6 +217,7 @@ namespace Element.Editor
       Assert(ScreenRectOf(textHandles.Angle.Root) == angleRect, "the handles stay put whatever camera draws the editor");
       text.Close(false, true);
       Assert(!text.IsOpen && !fps.Settings.Text.Runs.Any(run => run.Color.IsGradient), "Cancel leaves the text's colors as they were");
+      preferences.ReduceUiMotion = reduceMotion;
     }
 
     private static Vector2 BarPoint(RectTransform bar, float position)

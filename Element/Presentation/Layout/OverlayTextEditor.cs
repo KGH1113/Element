@@ -39,6 +39,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();
   private OverlayEditorFrame _screen;
+  private readonly OverlayGlide _space = new();
   private SettingsUiFactory _ui;
   private RectTransform _frame;
   private TextMeshProUGUI _preview;
@@ -121,6 +122,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _selectionRects.Clear();
     _pillRects.Clear();
     _dragValue = null;
+    _space.Snap();
     _screen = new OverlayEditorFrame(
       "Text editor",
       _parent,

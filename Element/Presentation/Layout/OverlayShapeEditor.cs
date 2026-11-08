@@ -33,6 +33,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
   private readonly OverlayValues _values;
   private readonly OverlayLiveValues _live;
   private readonly OverlayFormulaEditing _editing = new();
+  private readonly OverlayGlide _space = new();
   private readonly OverlayShapeResolver _resolver = new();
   private readonly OverlayShapeSettings _resolved = new();
   private readonly List<OverlayShapeSettings> _undo = new();
@@ -116,6 +117,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
     _radiusFields.Clear();
     _arcs.Clear();
     _dragValue = null;
+    _space.Snap();
     _screen = new OverlayEditorFrame(
       "Shape editor",
       _parent,

@@ -92,6 +92,12 @@ internal sealed partial class OverlayTextEditor
     _dock.Blink(blink);
     UpdateImePosition();
     FollowLiveValues();
+    if (_space.Moving)
+    {
+      float blinkStart = _blinkStart;
+      Render();
+      _blinkStart = blinkStart;
+    }
   }
 
   // A level playing behind the editor moves the values it shows.
@@ -524,6 +530,8 @@ internal sealed partial class OverlayTextEditor
       spaceRight = frameWidth - OverlayEditorFrame.Margin;
     if (_picker.Visible)
       spaceRight = Mathf.Min(spaceRight, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+    // It glides aside as the picker opens, and back as it closes.
+    spaceRight = _space.Toward(spaceRight, _reduceMotion());
     float middle = (spaceLeft + spaceRight) * .5f;
     Vector2 available = new Vector2(Mathf.Max(40, spaceRight - spaceLeft), Mathf.Max(40, bottom - top)) * _scale;
     // The game's size, unless the text would not fit on screen.

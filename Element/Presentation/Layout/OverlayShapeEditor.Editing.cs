@@ -42,7 +42,17 @@ internal sealed partial class OverlayShapeEditor
     if (_screen == null)
       return;
     FollowLiveValues();
+    // The shape glides aside as the picker opens, and back as it closes.
+    if (_space.Moving)
+      RenderKeepingBlink();
     _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
+  }
+
+  private void RenderKeepingBlink()
+  {
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
   }
 
   // A level playing behind the editor moves the shape and its numbers.
@@ -286,6 +296,7 @@ internal sealed partial class OverlayShapeEditor
     right = _screen.Width - OverlayEditorFrame.Margin;
     if (_picker != null && _picker.Visible)
       right = Mathf.Min(right, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+    right = _space.Toward(right, _reduceMotion());
   }
 
   // A box-space point in frame units.

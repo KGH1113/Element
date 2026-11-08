@@ -1,25 +1,46 @@
 //! Capture the whole native webview, including DOM text, CSS and WebGL, with alpha.
 use tauri::WebviewWindow;
 
+/// What one captured frame holds.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Format {
+    /// `width * height * 4` bytes, top row first, straight alpha.
+    Rgba,
+    /// One PNG image.
+    Png,
+}
+
+/// macOS copies WebKit's snapshot pixels as they are. WebView2 only hands out
+/// encoded images, so Windows frames stay PNG and FFmpeg decodes them.
+pub const FORMAT: Format = if cfg!(target_os = "macos") {
+    Format::Rgba
+} else {
+    Format::Png
+};
+
 pub fn supported() -> bool {
     cfg!(any(target_os = "macos", target_os = "windows"))
 }
 
-pub async fn frame(
-    window: &WebviewWindow,
-    width: u32,
-    height: u32,
-    rgba: bool,
-) -> Result<Vec<u8>, String> {
+pub async fn frame(window: &WebviewWindow, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let snapshot_width = width as f64 / window.scale_factor().map_err(|e| e.to_string())?;
     let (sender, receiver) = tokio::sync::oneshot::channel();
     window
-        .with_webview(move |webview| capture(webview, sender, width, height, rgba, snapshot_width))
+        .with_webview(move |webview| capture(webview, sender, width, height, snapshot_width))
         .map_err(|e| e.to_string())?;
     tokio::time::timeout(std::time::Duration::from_secs(15), receiver)
         .await
         .map_err(|_| "render-native-capture-timeout".to_string())?
         .map_err(|_| "render-native-capture-closed".to_string())?
+}
+
+/// The size a PNG says it has, from its header.
+pub fn png_size(png: &[u8]) -> Option<(u32, u32)> {
+    if png.len() < 24 || &png[..8] != b"\x89PNG\r\n\x1a\n" || &png[12..16] != b"IHDR" {
+        return None;
+    }
+    let read = |at: usize| u32::from_be_bytes([png[at], png[at + 1], png[at + 2], png[at + 3]]);
+    Some((read(16), read(20)))
 }
 
 #[cfg(target_os = "macos")]
@@ -28,7 +49,6 @@ fn capture(
     sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
     width: u32,
     height: u32,
-    rgba: bool,
     snapshot_width: f64,
 ) {
     use block2::RcBlock;
@@ -41,51 +61,26 @@ fn capture(
     // WKWebView retains its completion block until the compositor snapshot completes.
     let sender = Arc::new(Mutex::new(Some(sender)));
     let block = RcBlock::new(move |image: *mut c_void, error: *mut c_void| {
-        if rgba && error.is_null() && !image.is_null() {
-            // Retain only the immutable CGImage, then copy pixels off the UI thread.
-            // This avoids NSImage -> TIFF -> PNG -> FFmpeg PNG decoding per frame.
-            unsafe {
-                let image: *mut Object = msg_send![image.cast::<Object>(), CGImageForProposedRect:std::ptr::null_mut::<c_void>() context:std::ptr::null_mut::<Object>() hints:std::ptr::null_mut::<Object>()];
-                if !image.is_null() {
-                    let retained = raw::retain(image.cast()) as usize;
-                    let sender = sender.lock().unwrap().take();
-                    tauri::async_runtime::spawn_blocking(move || {
-                        let result = raw::pixels(retained, width, height);
-                        raw::release(retained);
-                        if let Some(sender) = sender {
-                            let _ = sender.send(result);
-                        }
-                    });
-                    return;
-                }
-                if let Some(sender) = sender.lock().unwrap().take() {
-                    let _ = sender.send(Err("render-image-conversion-failed".into()));
-                }
+        let Some(sender) = sender.lock().unwrap().take() else {
+            return;
+        };
+        if !error.is_null() || image.is_null() {
+            let _ = sender.send(Err("render-native-capture-failed".into()));
+            return;
+        }
+        // Retain only the immutable CGImage, then copy pixels off the UI thread.
+        unsafe {
+            let image: *mut Object = msg_send![image.cast::<Object>(), CGImageForProposedRect:std::ptr::null_mut::<c_void>() context:std::ptr::null_mut::<Object>() hints:std::ptr::null_mut::<Object>()];
+            if image.is_null() {
+                let _ = sender.send(Err("render-image-conversion-failed".into()));
                 return;
             }
-        }
-        let result = if !error.is_null() || image.is_null() {
-            Err("render-native-capture-failed".into())
-        } else {
-            unsafe {
-                let image = image.cast::<Object>();
-                let tiff: *mut Object = msg_send![image, TIFFRepresentation];
-                let bitmap: *mut Object =
-                    msg_send![class!(NSBitmapImageRep), imageRepWithData:tiff];
-                let properties: *mut Object = msg_send![class!(NSDictionary), dictionary];
-                let data: *mut Object =
-                    msg_send![bitmap, representationUsingType:4usize properties:properties];
-                if data.is_null() {
-                    Err("render-png-encoding-failed".into())
-                } else {
-                    let bytes: *const u8 = msg_send![data, bytes];
-                    let length: usize = msg_send![data, length];
-                    Ok(std::slice::from_raw_parts(bytes, length).to_vec())
-                }
-            }
-        };
-        if let Some(sender) = sender.lock().unwrap().take() {
-            let _ = sender.send(result);
+            let retained = raw::retain(image.cast()) as usize;
+            tauri::async_runtime::spawn_blocking(move || {
+                let result = raw::pixels(retained, width, height);
+                raw::release(retained);
+                let _ = sender.send(result);
+            });
         }
     });
     unsafe {
@@ -106,7 +101,6 @@ fn capture(
     sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
     _width: u32,
     _height: u32,
-    _rgba: bool,
     _snapshot_width: f64,
 ) {
     use webview2_com::{
@@ -170,7 +164,6 @@ fn capture(
     sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
     _width: u32,
     _height: u32,
-    _rgba: bool,
     _snapshot_width: f64,
 ) {
     let _ = sender.send(Err("render-platform-unsupported".into()));
@@ -311,5 +304,20 @@ mod raw {
             assert_eq!((drawn.origin.x, drawn.origin.y), (0.0, 0.0));
             assert_eq!((drawn.size.width, drawn.size.height), (645.0, 240.0));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::png_size;
+
+    #[test]
+    fn a_png_header_names_its_size() {
+        let mut png = b"\x89PNG\r\n\x1a\n\0\0\0\x0dIHDR".to_vec();
+        png.extend_from_slice(&645u32.to_be_bytes());
+        png.extend_from_slice(&240u32.to_be_bytes());
+        assert_eq!(png_size(&png), Some((645, 240)));
+        assert_eq!(png_size(&png[..20]), None);
+        assert_eq!(png_size(b"not a png at all, not a png at all"), None);
     }
 }

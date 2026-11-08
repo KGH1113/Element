@@ -16,22 +16,21 @@ pub async fn dmnote_render_begin(
     service.begin(&app, request).await
 }
 
+/// Queues a frame and returns at once; the viewers draw it on their own.
 #[tauri::command]
-pub async fn dmnote_render_reset(
-    app: AppHandle,
+pub fn dmnote_render_frame(
     service: State<'_, RenderService>,
     request: Value,
-) -> Result<Value, String> {
-    service.reset(&app, request).await
+) -> Result<(), String> {
+    service.frame(request)
 }
 
 #[tauri::command]
-pub async fn dmnote_render_frame(
-    app: AppHandle,
+pub async fn dmnote_render_finish(
     service: State<'_, RenderService>,
     request: Value,
 ) -> Result<Value, String> {
-    service.frame(&app, request).await
+    service.finish(request).await
 }
 
 #[tauri::command]

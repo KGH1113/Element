@@ -1,9 +1,11 @@
 //! A render surface owns frozen data and never touches the live overlay stores.
+//! Each surface draws the game's frames into its own alpha video, apart from the
+//! game and from the other surface, so the game never waits for a frame.
 use parking_lot::Mutex;
 use serde_json::{json, Value};
 use std::{
     collections::HashMap,
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -11,10 +13,12 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 pub mod capture;
+mod encoder;
 mod layout;
+mod track;
 const LABEL: &str = "dmnote-render";
 type Ack = oneshot::Sender<Result<Value, String>>;
 
@@ -31,15 +35,39 @@ struct Session {
     id: String,
     surfaces: Vec<Surface>,
     directory: PathBuf,
+    video: VideoSettings,
+    tracks: Vec<Track>,
+    phase: Phase,
+    /// The smallest output frame the game may ask for next.
     next_frame: u64,
-    rgba: bool,
+    /// Why a viewer stopped taking frames; finish reports it.
+    failure: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Phase {
+    Rendering,
+    Finishing,
+    Finished,
+}
+
+/// How the game wants the videos.
+struct VideoSettings {
+    fps: u32,
+    ffmpeg: PathBuf,
 }
 
 #[derive(Clone)]
 struct Surface {
     label: String,
     config: Arc<Value>,
-    directory: PathBuf,
+}
+
+/// One viewer's worker: the frames it still has to draw, and its FFmpeg.
+struct Track {
+    requests: Option<mpsc::UnboundedSender<Arc<Value>>>,
+    worker: Option<tauri::async_runtime::JoinHandle<Result<track::Video, String>>>,
+    encoder: encoder::Killer,
 }
 
 impl RenderService {
@@ -57,7 +85,13 @@ impl RenderService {
                     .lock()
                     .as_ref()
                     .is_some_and(|time| time.elapsed() > Duration::from_secs(15));
-                if service.input_gated.load(Ordering::Acquire) && expired {
+                // Closing the videos needs no game; the game is waiting for them.
+                let finishing = service
+                    .session
+                    .lock()
+                    .as_ref()
+                    .is_some_and(|session| session.phase == Phase::Finishing);
+                if service.input_gated.load(Ordering::Acquire) && expired && !finishing {
                     log::warn!("[render] IPC lease expired; releasing render input gate");
                     service.end(&app, None);
                 }
@@ -73,8 +107,8 @@ impl RenderService {
         if id.len() != 32 || !id.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return Err("render-invalid-session".into());
         }
-        let configs = layout::prepare_surfaces(app, &request)?;
-        let rgba = cfg!(target_os = "macos") && request["frameFormat"].as_str() == Some("rgba");
+        let video = video_settings(&request)?;
+        let configs = layout::prepare_surfaces(&request)?;
         for config in &configs {
             for dimension in ["width", "height"] {
                 config[dimension]
@@ -86,12 +120,12 @@ impl RenderService {
         if !capture::supported() {
             return Err("render-platform-unsupported".into());
         }
-        let directory = app
+        let root = app
             .path()
             .app_cache_dir()
             .map_err(|e| e.to_string())?
-            .join("render")
-            .join(&id);
+            .join("render");
+        let directory = root.join(&id);
         {
             let _input = self.live_input.lock();
             if self.input_gated.swap(true, Ordering::AcqRel) {
@@ -99,16 +133,12 @@ impl RenderService {
             }
             app.state::<crate::state::AppState>().release_live_keys(app);
             // Reserve ownership before preparing assets so end/disconnect can cancel setup.
-            *self.session.lock() = Some(Session {
-                id: id.clone(),
-                surfaces: Vec::new(),
-                directory: directory.clone(),
-                next_frame: 0,
-                rgba,
-            });
+            *self.session.lock() = Some(Session::new(id.clone(), directory.clone(), video));
         }
         crate::services::native_viewers::notify_changed(app);
         self.touch();
+        // Videos of renders that never ended, such as when the game quit mid-render.
+        remove_stale_sessions(&root, &id);
         let prepare = (|| -> Result<(), String> {
             let state = app.state::<crate::state::AppState>();
             let bootstrap =
@@ -134,15 +164,15 @@ impl RenderService {
             let mut surfaces = Vec::new();
             for mut config in configs {
                 let viewer = config["viewerKind"].as_str().unwrap().to_string();
-                let surface_directory = directory.join(&viewer);
-                std::fs::create_dir_all(&surface_directory).map_err(|e| e.to_string())?;
+                if let Some(config) = config.as_object_mut() {
+                    config.remove("ffmpegPath");
+                }
                 config["snapshot"] = bootstrap.clone();
                 config["pluginStorage"] = Value::Object(storage.clone());
                 config["assetUrls"] = assets.clone();
                 surfaces.push(Surface {
                     label: format!("{LABEL}-{viewer}"),
                     config: Arc::new(config),
-                    directory: surface_directory,
                 });
             }
             if let Err(error) = self.install_prepared_surfaces(&id, surfaces) {
@@ -160,7 +190,10 @@ impl RenderService {
             return Err(error);
         }
         // Described as created: an explicit surface takes its page's own viewport.
-        let descriptors = match self.describe_surfaces(&id, rgba) {
+        let descriptors = match self
+            .describe_surfaces(&id)
+            .and_then(|descriptors| self.start_tracks(app, &id).map(|()| descriptors))
+        {
             Ok(descriptors) => descriptors,
             Err(error) => {
                 self.end(app, Some(&id));
@@ -174,7 +207,7 @@ impl RenderService {
         Ok(result)
     }
 
-    fn describe_surfaces(&self, id: &str, rgba: bool) -> Result<Vec<Value>, String> {
+    fn describe_surfaces(&self, id: &str) -> Result<Vec<Value>, String> {
         let sessions = self.session.lock();
         let session = sessions
             .as_ref()
@@ -187,11 +220,75 @@ impl RenderService {
                 let config = &surface.config;
                 json!({"viewerKind":config["viewerKind"], "width":config["width"],
                     "height":config["height"], "layout":config["layout"],
-                    "viewport":config["viewport"],
-                    "frameFormat":if rgba { "rgba" } else { "png" },
-                    "frameDirectory":surface.directory})
+                    "viewport":config["viewport"]})
             })
             .collect())
+    }
+
+    /// Starts each viewer's FFmpeg and worker, now that its page has its final size.
+    fn start_tracks(&self, app: &AppHandle, id: &str) -> Result<(), String> {
+        let mut sessions = self.session.lock();
+        let session = sessions
+            .as_mut()
+            .filter(|session| session.id == id)
+            .ok_or("render-session-ended")?;
+        let mut tracks: Vec<Track> = Vec::new();
+        for surface in &session.surfaces {
+            let started = (|| -> Result<Track, String> {
+                let config = &surface.config;
+                let viewer = config["viewerKind"]
+                    .as_str()
+                    .ok_or("render-invalid-viewer")?
+                    .to_string();
+                let size = |name: &str| {
+                    config[name]
+                        .as_u64()
+                        .and_then(|size| u32::try_from(size).ok())
+                        .ok_or("render-invalid-size")
+                };
+                let (width, height) = (size("width")?, size("height")?);
+                let path = session.directory.join(format!("{viewer}.mov"));
+                let encoder = encoder::Encoder::start(&encoder::Settings {
+                    ffmpeg: &session.video.ffmpeg,
+                    format: capture::FORMAT,
+                    width,
+                    height,
+                    fps: session.video.fps,
+                    output: &path,
+                    log: &session.directory.join(format!("{viewer}.ffmpeg.log")),
+                })?;
+                let killer = encoder.killer();
+                let (requests, receiver) = mpsc::unbounded_channel();
+                let surface = track::Surface {
+                    label: surface.label.clone(),
+                    viewer,
+                    width,
+                    height,
+                    path,
+                };
+                let worker = tauri::async_runtime::spawn(track::run(
+                    app.clone(),
+                    surface,
+                    session.video.fps,
+                    receiver,
+                    encoder,
+                ));
+                Ok(Track {
+                    requests: Some(requests),
+                    worker: Some(worker),
+                    encoder: killer,
+                })
+            })();
+            match started {
+                Ok(track) => tracks.push(track),
+                Err(error) => {
+                    tracks.iter().for_each(Track::stop);
+                    return Err(error);
+                }
+            }
+        }
+        session.tracks = tracks;
+        Ok(())
     }
 
     /// Sizes an explicit surface to the viewport its page laid out, the one the
@@ -337,78 +434,70 @@ impl RenderService {
         }
     }
 
-    pub async fn reset(&self, app: &AppHandle, request: Value) -> Result<Value, String> {
-        {
-            let mut sessions = self.session.lock();
-            let session = sessions.as_mut().ok_or("render-no-session")?;
-            require_id(session, &request)?;
-            for surface in &mut session.surfaces {
-                Arc::make_mut(&mut surface.config)["initialOutputTimeUs"] =
-                    request["initialOutputTimeUs"].clone();
-            }
-            session.next_frame = 0;
-        }
+    /// Hands a frame to every viewer and returns at once; the game does not wait
+    /// for it. A failed viewer is reported by finish, so later frames are ignored.
+    pub fn frame(&self, request: Value) -> Result<(), String> {
+        self.session
+            .lock()
+            .as_mut()
+            .ok_or("render-no-session")?
+            .queue(request)?;
         self.touch();
-        self.create_surfaces(app).await
+        Ok(())
     }
 
-    pub async fn frame(&self, app: &AppHandle, request: Value) -> Result<Value, String> {
-        let index = request["frameIndex"]
-            .as_u64()
-            .ok_or("render-invalid-frame")?;
-        let (surfaces, rgba);
-        {
-            let sessions = self.session.lock();
-            let session = sessions.as_ref().ok_or("render-no-session")?;
-            require_id(session, &request)?;
-            if index != session.next_frame {
-                return Err("render-frame-out-of-sequence".into());
-            }
-            surfaces = session.surfaces.clone();
-            rgba = session.rgba;
-        }
+    /// Draws one frame on a surface's page and waits until the page drew it.
+    async fn draw(&self, app: &AppHandle, label: &str, request: &Value) -> Result<Value, String> {
+        let window = app
+            .get_webview_window(label)
+            .ok_or("render-surface-missing")?;
+        let (sender, receiver) = oneshot::channel();
+        self.waiters.lock().insert(label.to_string(), sender);
+        window
+            .eval(format!("void window.__dmnRenderFrame({request});"))
+            .map_err(|e| e.to_string())?;
+        await_ack(receiver).await
+    }
+
+    /// Waits until every frame the game asked for is in its viewer's video, then
+    /// closes the videos and describes them.
+    pub async fn finish(&self, request: Value) -> Result<Value, String> {
+        let workers = self
+            .session
+            .lock()
+            .as_mut()
+            .ok_or("render-no-session")?
+            .begin_finishing(&request)?;
         self.touch();
-        let mut frames = Vec::new();
-        for surface in &surfaces {
-            let width = surface.config["width"].as_u64().unwrap() as u32;
-            let height = surface.config["height"].as_u64().unwrap() as u32;
-            let window = app
-                .get_webview_window(&surface.label)
-                .ok_or("render-surface-missing")?;
-            let (sender, receiver) = oneshot::channel();
-            self.waiters.lock().insert(surface.label.clone(), sender);
-            window
-                .eval(format!("void window.__dmnRenderFrame({request});"))
-                .map_err(|e| e.to_string())?;
-            let mut result = await_ack(receiver).await?;
-            if result["frameIndex"] != request["frameIndex"]
-                || result["outputTimeUs"] != request["outputTimeUs"]
+        let mut videos = Vec::new();
+        let mut failure = None;
+        for worker in workers {
+            match worker
+                .await
+                .map_err(|e| e.to_string())
+                .and_then(|video| video)
             {
-                return Err("render-wrong-frame-ack".into());
+                Ok(video) => videos.push(video.describe()),
+                Err(error) => {
+                    failure.get_or_insert(error);
+                }
             }
-            let pixels = capture::frame(&window, width, height, rgba).await?;
-            let path = surface
-                .directory
-                .join(if rgba { "frame.rgba" } else { "frame.png" });
-            let temporary = surface.directory.join("frame.partial");
-            std::fs::write(&temporary, pixels).map_err(|e| e.to_string())?;
-            if path.exists() {
-                std::fs::remove_file(&path).map_err(|e| e.to_string())?;
-            }
-            std::fs::rename(temporary, &path).map_err(|e| e.to_string())?;
-            result["viewerKind"] = surface.config["viewerKind"].clone();
-            result["framePath"] = json!(path);
-            frames.push(result);
         }
-        {
+        let stopped = {
             let mut sessions = self.session.lock();
-            let session = sessions.as_mut().ok_or("render-no-session")?;
-            require_id(session, &request)?;
-            session.next_frame += 1;
+            let session = sessions
+                .as_mut()
+                .filter(|session| request["sessionId"].as_str() == Some(&session.id))
+                .ok_or("render-session-ended")?;
+            session.phase = Phase::Finished;
+            session.failure.clone()
+        };
+        self.touch();
+        if let Some(error) = failure.or(stopped) {
+            log::warn!("[render] key viewer videos failed: {error}");
+            return Err(error);
         }
-        let mut result = frames[0].clone();
-        result["frames"] = json!(frames);
-        Ok(result)
+        Ok(json!({"videos": videos}))
     }
 
     pub fn acknowledge(
@@ -438,6 +527,9 @@ impl RenderService {
             }
             sessions.take()
         };
+        if let Some(session) = &session {
+            session.tracks.iter().for_each(Track::stop);
+        }
         for (_, sender) in self.waiters.lock().drain() {
             let _ = sender.send(Err("render-session-ended".into()));
         }
@@ -454,6 +546,108 @@ impl RenderService {
         *self.last_contact.lock() = None;
         let _ = app.emit("render:mode", json!({"active":false}));
         crate::services::native_viewers::notify_changed(app);
+    }
+}
+
+impl Session {
+    fn new(id: String, directory: PathBuf, video: VideoSettings) -> Self {
+        Self {
+            id,
+            surfaces: Vec::new(),
+            directory,
+            video,
+            tracks: Vec::new(),
+            phase: Phase::Rendering,
+            next_frame: 0,
+            failure: None,
+        }
+    }
+
+    fn queue(&mut self, request: Value) -> Result<(), String> {
+        require_id(self, &request)?;
+        if self.phase != Phase::Rendering {
+            return Err("render-session-finishing".into());
+        }
+        if self.tracks.is_empty() {
+            return Err("render-not-ready".into());
+        }
+        if self.failure.is_some() {
+            return Ok(());
+        }
+        let frame = request["frameIndex"]
+            .as_u64()
+            .ok_or("render-invalid-frame")?;
+        if frame < self.next_frame {
+            return Err("render-frame-out-of-sequence".into());
+        }
+        self.next_frame = frame + 1;
+        let request = Arc::new(request);
+        let stopped = self.tracks.iter().any(|track| {
+            track
+                .requests
+                .as_ref()
+                .is_none_or(|requests| requests.send(request.clone()).is_err())
+        });
+        if stopped {
+            self.failure = Some("render-surface-failed".into());
+        }
+        Ok(())
+    }
+
+    /// Closes the frame queues; each worker drains its queue and its video.
+    fn begin_finishing(
+        &mut self,
+        request: &Value,
+    ) -> Result<Vec<tauri::async_runtime::JoinHandle<Result<track::Video, String>>>, String> {
+        require_id(self, request)?;
+        if self.phase != Phase::Rendering {
+            return Err("render-session-finishing".into());
+        }
+        if self.tracks.is_empty() {
+            return Err("render-not-ready".into());
+        }
+        self.phase = Phase::Finishing;
+        Ok(self
+            .tracks
+            .iter_mut()
+            .filter_map(|track| {
+                track.requests = None;
+                track.worker.take()
+            })
+            .collect())
+    }
+}
+
+impl Track {
+    fn stop(&self) {
+        self.encoder.kill();
+        if let Some(worker) = &self.worker {
+            worker.abort();
+        }
+    }
+}
+
+fn video_settings(request: &Value) -> Result<VideoSettings, String> {
+    let fps = request["fps"]
+        .as_u64()
+        .filter(|fps| (1..=1000).contains(fps))
+        .ok_or("render-invalid-fps")? as u32;
+    let ffmpeg = request["ffmpegPath"]
+        .as_str()
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute() && path.is_file())
+        .ok_or("render-ffmpeg-unavailable")?;
+    Ok(VideoSettings { fps, ffmpeg })
+}
+
+fn remove_stale_sessions(root: &Path, current: &str) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if entry.file_name() != current {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
     }
 }
 
@@ -529,16 +723,31 @@ fn freeze_local_assets(snapshot: &Value) -> Result<Value, String> {
 }
 
 #[cfg(test)]
-mod session_cancellation_tests {
+mod session_tests {
     use super::*;
     fn reserved(id: &str) -> Session {
-        Session {
-            id: id.into(),
-            surfaces: Vec::new(),
-            directory: PathBuf::new(),
-            next_frame: 0,
-            rgba: true,
-        }
+        Session::new(
+            id.into(),
+            PathBuf::new(),
+            VideoSettings {
+                fps: 60,
+                ffmpeg: PathBuf::new(),
+            },
+        )
+    }
+    fn frame(id: &str, index: u64) -> Value {
+        json!({"sessionId": id, "frameIndex": index, "outputTimeUs": index * 1000, "events": []})
+    }
+    /// A session whose one viewer's frames land in the returned queue.
+    fn rendering(id: &str) -> (Session, mpsc::UnboundedReceiver<Arc<Value>>) {
+        let mut session = reserved(id);
+        let (requests, receiver) = mpsc::unbounded_channel();
+        session.tracks.push(Track {
+            requests: Some(requests),
+            worker: None,
+            encoder: encoder::Killer::detached(),
+        });
+        (session, receiver)
     }
     #[test]
     fn canceled_setup_cannot_restore_session_or_input_gate() {
@@ -567,5 +776,87 @@ mod session_cancellation_tests {
             .is_err());
         assert_eq!(service.session.lock().as_ref().unwrap().id, "new");
         assert!(service.install_prepared_surfaces("new", Vec::new()).is_ok());
+    }
+    #[test]
+    fn frames_reach_every_viewer_in_order_and_never_go_back() {
+        let (mut session, mut queue) = rendering("a");
+        assert_eq!(
+            reserved("a").queue(frame("a", 0)).unwrap_err(),
+            "render-not-ready"
+        );
+        session.queue(frame("a", 0)).unwrap();
+        session.queue(frame("a", 2)).unwrap();
+        assert_eq!(
+            session.queue(frame("a", 2)).unwrap_err(),
+            "render-frame-out-of-sequence"
+        );
+        assert_eq!(
+            session.queue(frame("b", 3)).unwrap_err(),
+            "render-wrong-session"
+        );
+        assert_eq!(queue.try_recv().unwrap()["frameIndex"], 0);
+        assert_eq!(queue.try_recv().unwrap()["frameIndex"], 2);
+        assert!(queue.try_recv().is_err());
+    }
+    #[test]
+    fn a_stopped_viewer_fails_the_render_quietly() {
+        let (mut session, queue) = rendering("a");
+        drop(queue);
+        session.queue(frame("a", 0)).unwrap();
+        assert_eq!(session.failure.as_deref(), Some("render-surface-failed"));
+        // Later frames are ignored; finish reports the failure.
+        session.queue(frame("a", 1)).unwrap();
+        assert_eq!(session.next_frame, 1);
+    }
+    #[test]
+    fn finishing_closes_the_queues_and_refuses_more_frames() {
+        let (mut session, mut queue) = rendering("a");
+        session.queue(frame("a", 0)).unwrap();
+        assert!(session
+            .begin_finishing(&json!({"sessionId": "a"}))
+            .unwrap()
+            .is_empty());
+        assert_eq!(session.phase, Phase::Finishing);
+        assert_eq!(queue.try_recv().unwrap()["frameIndex"], 0);
+        assert!(matches!(
+            queue.try_recv(),
+            Err(mpsc::error::TryRecvError::Disconnected)
+        ));
+        assert_eq!(
+            session.queue(frame("a", 1)).unwrap_err(),
+            "render-session-finishing"
+        );
+        assert_eq!(
+            session
+                .begin_finishing(&json!({"sessionId": "a"}))
+                .unwrap_err(),
+            "render-session-finishing"
+        );
+    }
+    #[test]
+    fn video_settings_need_a_rate_and_an_existing_ffmpeg() {
+        let ffmpeg = std::env::current_exe().unwrap();
+        let ffmpeg = ffmpeg.to_str().unwrap();
+        assert!(video_settings(&json!({"fps": 60, "ffmpegPath": ffmpeg})).is_ok());
+        assert_eq!(
+            video_settings(&json!({"ffmpegPath": ffmpeg}))
+                .err()
+                .unwrap(),
+            "render-invalid-fps"
+        );
+        assert_eq!(
+            video_settings(&json!({"fps": 0, "ffmpegPath": ffmpeg}))
+                .err()
+                .unwrap(),
+            "render-invalid-fps"
+        );
+        for path in [json!(null), json!("ffmpeg"), json!("/nonexistent/ffmpeg")] {
+            assert_eq!(
+                video_settings(&json!({"fps": 60, "ffmpegPath": path}))
+                    .err()
+                    .unwrap(),
+                "render-ffmpeg-unavailable"
+            );
+        }
     }
 }

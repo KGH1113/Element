@@ -4,14 +4,25 @@ using UnityEngine.UI;
 
 namespace Element.Presentation.Layout;
 
-// One rounded, dashed perimeter. Rebuilt only when the selected target changes
-// size, or its viewport scale changes; hidden targets don't submit any geometry.
+// One rounded, dashed perimeter, with handles where dragging resizes. Rebuilt
+// only when the selected target changes size, or its viewport scale changes;
+// hidden targets don't submit any geometry.
 [RequireComponent(typeof(CanvasRenderer))]
 internal sealed class LayoutOutlineGraphic : MaskableGraphic
 {
   private readonly List<Vector2> _path = new(40);
   private float _uiScale = 1;
   private Rect _exclusion;
+  private bool _handles = true;
+
+  /// <summary>Shows the resize handles; off for elements dragging only moves.</summary>
+  public void SetHandles(bool handles)
+  {
+    if (_handles == handles)
+      return;
+    _handles = handles;
+    SetVerticesDirty();
+  }
 
   public void SetExclusion(Rect exclusion)
   {
@@ -81,6 +92,8 @@ internal sealed class LayoutOutlineGraphic : MaskableGraphic
           phase = 0;
       }
     }
+    if (!_handles)
+      return;
     Handle(mesh, new Vector2(bounds.xMin, bounds.yMin));
     Handle(mesh, new Vector2(bounds.xMax, bounds.yMin));
     Handle(mesh, new Vector2(bounds.xMin, bounds.yMax));

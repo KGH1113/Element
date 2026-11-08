@@ -586,7 +586,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (bounds.width <= 0 || bounds.height <= 0)
         continue;
       Vector2 localPointer = PointerFor(target, pointer);
-      bool resizable = index == _selected && !MultiSelected && !SizedInEditor(target);
+      bool resizable = index == _selected && Resizable(target);
       LayoutHandle handle = OverlayLayoutGeometry.HitTest(
         ToBounds(bounds),
         localPointer.x,
@@ -609,6 +609,10 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     return best;
   }
+
+  // Dragging an edge resizes one selected element, except texts and shapes,
+  // which are sized in their editor. Several selected only move.
+  private bool Resizable(IOverlayLayoutTarget target) => !MultiSelected && !SizedInEditor(target);
 
   private static Vector2 PointerFor(IOverlayLayoutTarget target, Vector2 fallback) =>
     target is IOverlayLayoutPointer native ? native.PointerInLayoutSpace(fallback) : fallback;
@@ -633,6 +637,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       Rect bounds = frame.Target.Bounds;
       SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(UiScale);
+      frame.Outline.SetHandles(Resizable(frame.Target));
       Rect panel = NativeExclusionBounds;
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }

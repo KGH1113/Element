@@ -17,6 +17,9 @@ internal sealed class OverlayCompiledRun
 
   // The run's OverlayFontKey in saved form; empty follows the default font.
   public string Font;
+
+  // The run's slot in the text's OverlayTextGradients; -1 for a solid color.
+  public int Gradient = -1;
 }
 
 // Turns text runs into TMP rich text. Literal text never becomes markup, and
@@ -26,10 +29,18 @@ internal static class OverlayTextComposer
   public const string ComboLink = "combo";
   public const string ValueLink = "v";
 
-  /// <summary>Parses every formula in <paramref name="runs"/>; returns the values they use as catalog bits.</summary>
-  public static ulong Compile(IReadOnlyList<OverlayTextRun> runs, List<OverlayCompiledRun> output)
+  /// <summary>
+  /// Parses every formula in <paramref name="runs"/>; returns the values they
+  /// use as catalog bits. Gradient runs take a slot in <paramref name="gradients"/>.
+  /// </summary>
+  public static ulong Compile(
+    IReadOnlyList<OverlayTextRun> runs,
+    List<OverlayCompiledRun> output,
+    OverlayTextGradients gradients = null
+  )
   {
     output.Clear();
+    gradients?.Clear();
     ulong mask = 0;
     if (runs == null)
       return mask;
@@ -47,10 +58,12 @@ internal static class OverlayTextComposer
       };
       if (run.IsValue && compiled.Value == null)
         continue;
+      if (gradients != null && run.Color != null && run.Color.IsGradient)
+        compiled.Gradient = gradients.Add(run.Color);
       mask |= (compiled.Value?.Mask ?? 0) | (compiled.Size?.Mask ?? 0) | (compiled.Alpha?.Mask ?? 0);
       output.Add(compiled);
     }
-    return mask;
+    return mask | (gradients?.Mask ?? 0);
   }
 
   /// <summary>
@@ -78,7 +91,11 @@ internal static class OverlayTextComposer
       OverlayTextRun run = compiled.Run;
       float size = Size(run.Size, compiled.Size, source, elementScale);
       string font = fonts?.OpenTag(compiled.Font);
-      OpenStyle(output, Resolve(run.Color, highlight, compiled.Alpha, source), size, font);
+      Color color =
+        compiled.Gradient >= 0
+          ? OverlayTextGradients.Marker(compiled.Gradient)
+          : OverlayTextGradients.AvoidMarker(Resolve(run.Color, highlight, compiled.Alpha, source));
+      OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
         bool combo = (compiled.Value.Mask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;

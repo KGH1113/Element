@@ -23,6 +23,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   private readonly StringBuilder _builder = new(128);
   private readonly List<OverlayCompiledRun> _runs = new();
   private readonly OverlayTextPulse _pulse;
+  private readonly OverlayTextGradients _gradients;
   private bool _preview;
   private bool _hasLegacy;
   private LegacyOverlayPlacement _legacy;
@@ -58,6 +59,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     );
     _pulse = Rect.gameObject.AddComponent<OverlayTextPulse>();
     _pulse.Initialize(_text);
+    _gradients = Rect.gameObject.AddComponent<OverlayTextGradients>();
+    _gradients.Initialize(_text);
   }
 
   public override string Label => L("텍스트", "Text");
@@ -95,7 +98,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       if (_text.alignment != alignment)
         _text.alignment = alignment;
     }
-    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs);
+    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs, _gradients);
     _hasSizeFormula = _runs.Exists(run => run.Size != null);
     Render();
   }
@@ -157,7 +160,12 @@ internal sealed class TextOverlayElement : OverlayElementTarget
         _text.fontSharedMaterial = _fonts.DefaultMaterial;
     }
     OverlayTextComposer.Compose(_builder, _runs, _values, _preview, OverlayTheme.Accent, _renderedScale, _fonts);
+    _gradients.SetSource(_preview ? _values?.WithSamples : _values, OverlayTheme.Accent);
+    string before = _text.text;
     _text.Assign(_builder);
+    // A new text is colored as TMP lays it out; the same text is recolored now.
+    if (ReferenceEquals(before, _text.text))
+      _gradients.Repaint();
     if (_hasLegacy && _legacy.FitsText)
     {
       // The combo's number and title were fitted to their text.

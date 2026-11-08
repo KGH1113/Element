@@ -131,10 +131,13 @@ internal sealed partial class OverlayShapeEditor
     _shapeRect.sizeDelta = new Vector2(_resolved.Width, _resolved.Height);
     _shapeRect.localScale = new Vector3(pixels, pixels, 1);
     IOverlayNumberSource samples = _values.WithSamples;
+    _resolver.ResolvePaints(_resolved, samples, OverlayTheme.Accent);
     _graphic.SetShape(
       _resolved,
       OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _resolver.FillAlpha, samples),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _resolver.StrokeAlpha, samples)
+      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _resolver.StrokeAlpha, samples),
+      _resolver.FillGradient,
+      _resolver.StrokeGradient
     );
     _graphic.SetPixelsPerUnit(pixels);
   }

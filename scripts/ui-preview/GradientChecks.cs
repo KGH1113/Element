@@ -40,6 +40,8 @@ namespace Element.Editor
       // A new shape follows the highlight; a custom color shows the whole picker.
       Call(picker, "SetSource", false);
 
+      Rect solidBar = ScreenRectOf(bar), solidPicker = ScreenRectOf(picker.Root);
+
       // Hovering the solid bar says what a click does, right under it.
       Invoke(picker, "BarHover", Pointer(BarPoint(bar, .7f)));
       RectTransform tip = Field<RectTransform>(picker, "_tip");
@@ -54,6 +56,8 @@ namespace Element.Editor
       OverlayColorSettings fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.IsGradient && picker.SelectedStop == 1,
         "a click on the bar adds a color, picks it and makes a gradient");
+      Assert(ScreenRectOf(bar) == solidBar && ScreenRectOf(picker.Root) == solidPicker,
+        "turning into a gradient keeps the picker and its bar in place");
       Assert(fill.Gradient.Stops[1].Alpha > .99f && Mathf.Abs(fill.Gradient.Stops[1].Position - .7f) < .03f,
         "the new color is opaque and lands where it was clicked: " + fill.Gradient.Stops[1].Alpha + " at " + fill.Gradient.Stops[1].Position);
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
@@ -118,8 +122,11 @@ namespace Element.Editor
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(OverlayGradientMath.Angle(fill.Gradient, 420, 240)) < .5f, "a typed angle turns the gradient");
 
-      // Following the highlight leaves only opacities.
+      // Following the highlight leaves only opacities; nothing on the left moves.
+      Rect barBefore = ScreenRectOf(bar), pickerBefore = ScreenRectOf(picker.Root);
       Call(picker, "SetSource", true);
+      Assert(ScreenRectOf(bar) == barBefore && ScreenRectOf(picker.Root) == pickerBefore,
+        "switching to the highlight keeps the picker and its bar in place");
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       List<int> order = OverlayGradientEdits.Order(fill.Gradient);
       Assert(fill.Highlight && fill.IsGradient && fill.Gradient.Stops[order[order.Count - 1]].Alpha < fill.Gradient.Stops[order[0]].Alpha,

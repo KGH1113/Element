@@ -82,18 +82,15 @@ internal sealed partial class SettingsColorPicker
   private float SourceTop =>
     IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap : PillRow + BarHeight + GradientGap + 4;
 
-  private float ColumnHeight
-  {
-    get
-    {
-      bool custom = !_followsHighlight;
-      if (!GradientAvailable)
-        return custom ? 334 : 142;
-      float left = SourceTop + 36 + (IsGradient && _followsHighlight ? 8 + NoteHeight : 0);
-      float right = custom ? 290 : 98;
-      return Mathf.Max(left, right);
-    }
-  }
+  // An editor's picker keeps one height, that of the custom color's column,
+  // so switching Highlight/Custom or adding a color moves nothing; following
+  // the highlight leaves room under its opacity.
+  private const float TwoColumnHeight = 290;
+
+  private float ColumnHeight =>
+    GradientAvailable ? TwoColumnHeight
+    : _followsHighlight ? 142
+    : 334;
 
   private void LayoutTwoColumns(bool custom)
   {

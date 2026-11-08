@@ -223,7 +223,7 @@ internal sealed class SettingsSwatchGraphic : MaskableGraphic
       mesh.AddVert(bottom - side * 5, _edge, Vector2.zero);
       mesh.AddTriangle(notch, notch + 1, notch + 2);
     }
-    RoundedRect(mesh, rect, Radius + .8f, -.8f, Shadow);
+    RoundedRect(mesh, rect, Radius, .8f, Shadow);
     RoundedRect(mesh, rect, Radius, 0, _edge);
     // The color over a checkerboard, inside the edge.
     Rect inner = new(rect.x + Ring, rect.y + Ring, rect.width - Ring * 2, rect.height - Ring * 2);
@@ -371,6 +371,28 @@ internal sealed class SettingsGradientIcon : SettingsVectorGraphic
         Line(mesh, 7.5f, 19.5f, 16.5f, 19.5f);
         Line(mesh, 16.5f, 19.5f, 17.5f, 7);
         break;
+    }
+  }
+}
+
+/// <summary>
+/// Alt and Shift for dragging handles. Where the legacy input isn't active
+/// (as in the editor's UI preview) they read as not held.
+/// </summary>
+internal static class SettingsModifierKeys
+{
+  public static bool Alt => Held(KeyCode.LeftAlt) || Held(KeyCode.RightAlt);
+  public static bool Shift => Held(KeyCode.LeftShift) || Held(KeyCode.RightShift);
+
+  private static bool Held(KeyCode key)
+  {
+    try
+    {
+      return Input.GetKey(key);
+    }
+    catch (InvalidOperationException)
+    {
+      return false;
     }
   }
 }

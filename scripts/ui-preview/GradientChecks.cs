@@ -37,6 +37,9 @@ namespace Element.Editor
       Assert(bar.gameObject.activeInHierarchy && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf == false,
         "a solid color shows only the bar; the kinds wait for a second color");
 
+      // A new shape follows the highlight; a custom color shows the whole picker.
+      Call(picker, "SetSource", false);
+
       // Hovering the solid bar says what a click does, right under it.
       Invoke(picker, "BarHover", Pointer(BarPoint(bar, .7f)));
       RectTransform tip = Field<RectTransform>(picker, "_tip");
@@ -52,7 +55,8 @@ namespace Element.Editor
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.IsGradient && picker.SelectedStop == 1,
         "a click on the bar adds a color, picks it and makes a gradient");
       Assert(fill.Gradient.Stops[1].Alpha > .99f && Mathf.Abs(fill.Gradient.Stops[1].Position - .7f) < .03f,
-        "the new color is opaque and lands where it was clicked");
+        "the new color is opaque and lands where it was clicked: " + fill.Gradient.Stops[1].Alpha + " at " + fill.Gradient.Stops[1].Position);
+      Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
       Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
       OverlayFormulaField position = Field<OverlayFormulaField>(shapes, "_position");
@@ -87,7 +91,9 @@ namespace Element.Editor
       object grips = Field<object>(handles, "_grips");
       Vector2 end = new Vector2(shapeRect.xMax, shapeRect.center.y);
       Invoke(handles, "GripDown", 1, Pointer(end));
-      Invoke(handles, "GripDrag", 1, Pointer(new Vector2(shapeRect.xMax - 4, shapeRect.yMax - 5)));
+      // A few frame units short of the corner, whatever the screen's scale.
+      float near = 3 * Field<OverlayEditorFrame>(shapes, "_screen").Scale;
+      Invoke(handles, "GripDrag", 1, Pointer(new Vector2(shapeRect.xMax - near, shapeRect.yMax - near * 1.3f)));
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(fill.Gradient.EndX - 1) < .001f && Mathf.Abs(fill.Gradient.EndY) < .001f,
         "the end handle sticks to the box's corner: " + fill.Gradient.EndX + ", " + fill.Gradient.EndY);
@@ -127,6 +133,7 @@ namespace Element.Editor
       OverlayColorSettings textColor = OverlayColorSettings.Custom("#FFFFFF");
       OverlayGradientEdits.AddStop(textColor, 1, "#BA712B");
       textColor.Gradient.Stops[1].Hex = "#4F8DF7";
+      List<OverlayColorSettings> original = fps.Settings.Text.Runs.Select(run => run.Color.Clone()).ToList();
       foreach (OverlayTextRun run in fps.Settings.Text.Runs)
         run.Color = textColor.Clone();
       fps.Apply();
@@ -146,6 +153,10 @@ namespace Element.Editor
       }
       Assert(first.r > 200 && first.b > 200 && last.b > last.r, "the text runs from white into blue: " + first + " → " + last);
       SaveFrame(camera, texture, canvases, name + "-gradient-text");
+      // The checks after these expect the text as the layout's history knows it.
+      for (int i = 0; i < original.Count; i++)
+        fps.Settings.Text.Runs[i].Color = original[i];
+      fps.Apply();
     }
 
     private static Vector2 BarPoint(RectTransform bar, float position)

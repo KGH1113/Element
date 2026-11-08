@@ -397,8 +397,8 @@ internal sealed class OverlayGradientHandles
     if (_dragging != index || _color == null)
       return;
     NVector2 pointer = ToUnits(_toFrame(data.position));
-    bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
-    bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+    bool shift = SettingsModifierKeys.Shift;
+    bool alt = SettingsModifierKeys.Alt;
     bool stick = !alt && !shift;
     _free = !stick;
     _guideX = _guideY = float.NaN;
@@ -587,7 +587,7 @@ internal sealed class OverlayGradientHandles
     if (_dragStop < 0 || _color == null || _dragStop >= Gradient.Stops.Count)
       return;
     float position = Mathf.Clamp01(PositionAt(_toFrame(data.position)) - _dragGrab);
-    bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+    bool alt = SettingsModifierKeys.Alt;
     if (!alt)
       position = OverlayGradientEdits.Snap(Gradient, _dragStop, position);
     OverlayGradientStop stop = Gradient.Stops[_dragStop];
@@ -602,7 +602,7 @@ internal sealed class OverlayGradientHandles
     if (_color == null || Gradient.Stops.Count >= OverlayGradient.MaximumStops)
       return;
     float position = PositionAt(_toFrame(data.position));
-    bool alt = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+    bool alt = SettingsModifierKeys.Alt;
     if (!alt)
       position = OverlayGradientEdits.Snap(Gradient, -1, position);
     int before = Gradient.Stops.Count;

@@ -415,7 +415,7 @@ internal sealed partial class SettingsColorPicker
   }
 
   // Alt held: no snapping, as in the layout editor.
-  private static bool FreeMove() => Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+  private static bool FreeMove() => SettingsModifierKeys.Alt;
 
   private static string AccentHex => "#" + ColorUtility.ToHtmlStringRGB(OverlayTheme.Accent);
 

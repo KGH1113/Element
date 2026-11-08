@@ -41,6 +41,7 @@ internal static class Program
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",

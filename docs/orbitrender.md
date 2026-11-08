@@ -30,7 +30,7 @@
 - 다음 경우에는 키뷰어 없이 렌더링하고, 렌더가 끝나면 이유와 해결 방법을 알림으로 보여줍니다.
   - ElementNote가 꺼져 있거나 **Show inside ADOFAI**가 꺼져 있을 때
   - ElementNote가 렌더 프로토콜 2보다 오래된 버전일 때 (ElementNote 업데이트 안내)
-  - TUFReplay나 OrbitRender가 키뷰어 영상을 덧씌우지 못하는 버전일 때 (둘 다 업데이트 안내)
+  - TUFReplay가 1.2.2보다, 또는 OrbitRender가 2.8.3보다 오래되어 키뷰어 영상을 덧씌우지 못할 때 (둘 다 업데이트 안내)
   - ElementNote가 키뷰어 영상을 끝까지 만들지 못했을 때. 이때는 영상 전체에 키뷰어가 없습니다.
 
 ## 동작
@@ -123,5 +123,5 @@ ElementNote가 게임보다 느리면 마지막 5단계에서 그만큼 기다�
 - Windows 캡처(WebView2 `CapturePreview`, PNG)는 아직 실제 Windows에서 확인하지 않았습니다.
   ElementNote가 남기는 단계별 시간 로그(`[render]`)로 어느 단계가 느린지 확인해야 합니다.
 - 게임에서 TUFReplay로 리플레이를 렌더링해 키뷰어 위치·크기·카운트와 렌더 속도를 확인하는 단계는
-  아직 하지 않았습니다. TUFReplay의 `ReplayApi.AddReplayOverlayVideos`와 OrbitRender의
-  `OverlayVideoVersion` 1이 필요합니다.
+  아직 하지 않았습니다. TUFReplay의 `ReplayApi.AddReplayOverlayVideos`(1.2.2부터)와 OrbitRender의
+  `OverlayVideoVersion` 1(2.8.3부터)이 필요합니다.

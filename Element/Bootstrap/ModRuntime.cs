@@ -74,7 +74,6 @@ internal sealed class ModRuntime : IDisposable
   private readonly Action _tickNativeViewers;
   private readonly Action _tickSettingsUi;
   private readonly Action _tickKeyLimiter;
-  private readonly Action _tickRender;
   private readonly Action _tickReplays;
   private readonly Action<scrMarginTracker, HitMargin> _registerHit;
   private readonly Action _refreshAccuracy;
@@ -95,7 +94,6 @@ internal sealed class ModRuntime : IDisposable
     _tickNativeViewers = () => _nativeViewers?.Tick();
     _tickSettingsUi = () => _settingsUi?.Tick();
     _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
-    _tickRender = () => _render?.Tick();
     _tickReplays = () => _replays?.Tick();
     _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
     _refreshAccuracy = () => _overlay?.RefreshAccuracy();
@@ -244,7 +242,6 @@ internal sealed class ModRuntime : IDisposable
       _trackpad?.Tick();
     Execute("Update native ElementNote viewers", _tickNativeViewers);
     Execute("Apply the ElementNote key limiter", _tickKeyLimiter);
-    Execute("Keep ElementNote's render lease", _tickRender);
     Execute("Join TUFReplay runs", _tickReplays);
   }
 

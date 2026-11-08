@@ -41,6 +41,7 @@ internal static class Program
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",
@@ -56,11 +57,11 @@ internal static class Program
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
       Run(
-        "replay renders draw ElementNote key viewers frame by frame, in place and in order",
+        "replay renders send key viewer frames without waiting and lay ElementNote's videos in place",
         KeyViewerRenderTests.Run
       );
       Run(
-        "rendered TUFReplay runs deliver recorded keys; replays in the game are left alone",
+        "rendered TUFReplay runs deliver recorded keys and hand over videos; replays in the game are left alone",
         ReplayRenderProviderTests.Run
       );
       Run("TUFReplay replays and renders show the attempts and key counts their run was played at", RunStateTests.Run);

@@ -7,6 +7,7 @@ use crate::{
     },
     errors::CmdResult,
     models::{EditorCommitOrigin, EditorField, StatPositions},
+    state::native_element_id::adapt_legacy_stat_positions,
 };
 
 #[tauri::command]
@@ -31,7 +32,7 @@ pub async fn stat_positions_update(
                     &[EditorField::StatPositions],
                     admission,
                     move |store| {
-                        store.stat_positions = positions;
+                        store.stat_positions = adapt_legacy_stat_positions(store, positions)?;
                         Ok(())
                     },
                 )?;

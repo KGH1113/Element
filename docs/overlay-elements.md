@@ -90,6 +90,19 @@ The default layout has a **progress bar** made of three shapes, as JipperResourc
 - On the canvas a shape only moves, like a text. Shapes are drawn behind all texts.
 - ⌘/Ctrl + Z undoes inside the editor. Done is one undo step in the overlay editor. Cancelling a new shape removes it.
 
+## Gradients
+
+A shape's fill and border and a text's color can be gradients, as in Figma: linear, radial, angular or diamond.
+
+- There is no switch between solid and gradient. The color picker in either editor has a color bar on top; one color is solid, and clicking the bar adds a color and makes a gradient. The first added color is a neighbor of the current one (a little further round the color wheel, a little brighter), so the gradient shows at once.
+- The bar's squares are the colors. Drag one to move it; it sticks to 0, 25, 50, 75 and 100% and to the other colors (Alt lets go). The picked one shows its position above it, typed in the input dock like W and H, with a delete button beside it. Delete also removes it in the shape editor, and ←/→ move it 1% (10% with Shift). One color left is solid again.
+- Four tiles drawn in the current colors pick the kind, beside flip and a quarter turn.
+- Over the preview, circles are handles and squares are colors. The round start and end handles (and a width handle for radial, angular and diamond) only move the gradient. They stick to the box's edges, middle and center and line up with each other, with guides as in the layout editor; Alt lets go and Shift turns in 15° steps. Colors hang just off the line as squares pointing at where they sit; dragging one moves its color, and clicking the line adds one. The angle shows beside the line; 90° runs left to right, as in ElementNote.
+- Positions, opacities and the angle take values, so a color can follow progress.
+- Following the highlight color, the whole gradient is that one color and each stop sets only its opacity.
+- A text's gradient spans the whole text's box, so a gradient on part of a text carries on across it. Colors are worked out at the corners of each character, which is exact for two-color linear gradients.
+- Shapes read their gradient from a small texture built only when it changes, so the game's stock UI shader draws them on every platform. Earlier versions show a gradient's first color.
+
 ## Grow from
 
 When a text or shape changes size (a value grows longer, a width follows progress), one point of it stays put and the rest grows away from it. The **Grow from** button in either editor's bar names the current point and picks it from nine, with arrows showing where it grows; the editor marks the point on the preview. **Auto** uses the point nearest to where the element sits on screen: an element near the right edge grows to the left. The choice is saved with the element when you press Done.

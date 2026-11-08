@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using Element.Application.Rendering;
 
 namespace Element.Infrastructure.Replays;
 
@@ -13,7 +14,7 @@ namespace Element.Infrastructure.Replays;
 /// <c>OnReplayKey</c> and the others when it replays a run in the game or renders it to video.
 /// See TUFReplay's docs/replay-api.md.
 /// </remarks>
-internal sealed class TufReplayApi : IDisposable
+internal sealed class TufReplayApi : IReplayRenderTarget, IDisposable
 {
   private const string AssemblyName = "TUFReplay";
   private const string TypeName = "TUFReplay.ReplayApi";
@@ -25,6 +26,9 @@ internal sealed class TufReplayApi : IDisposable
   private MethodInfo _isRegistered;
   private Func<int> _renderWidth;
   private Func<int> _renderHeight;
+  private Func<int> _renderFps;
+  private Func<bool> _renderTakesOverlayVideos;
+  private Func<string> _renderFfmpegPath;
 
   // Set on whatever thread loads an assembly; the next main-thread resolve reads it.
   private volatile bool _lookAgain = true;
@@ -39,6 +43,18 @@ internal sealed class TufReplayApi : IDisposable
 
   /// <summary>The video's height while TUFReplay renders a run, otherwise 0.</summary>
   public int RenderHeight => Call(_renderHeight);
+
+  /// <summary>The video's frames per second while TUFReplay renders a run, otherwise 0.</summary>
+  public int RenderFps => Call(_renderFps);
+
+  /// <summary>
+  /// The renderer lays providers' videos over the finished video. False with a TUFReplay
+  /// from before overlay videos.
+  /// </summary>
+  public bool RenderTakesOverlayVideos => Call(_renderTakesOverlayVideos);
+
+  /// <summary>The FFmpeg TUFReplay shares with the renderer while it renders a run, or null.</summary>
+  public string RenderFfmpegPath => Call(_renderFfmpegPath);
 
   /// <summary>Binds the API once TUFReplay is loaded; cheap until a new assembly loads.</summary>
   public bool TryResolve()
@@ -91,6 +107,10 @@ internal sealed class TufReplayApi : IDisposable
     _isRegistered = isRegistered;
     _renderWidth = Getter<int>(type, "RenderWidth");
     _renderHeight = Getter<int>(type, "RenderHeight");
+    _renderFps = Getter<int>(type, "RenderFps");
+    // Optional: an older TUFReplay lacks them, and its renders have no key viewers.
+    _renderTakesOverlayVideos = Getter<bool>(type, "RenderTakesOverlayVideos");
+    _renderFfmpegPath = Getter<string>(type, "RenderFfmpegPath");
     _register = register;
     return true;
   }
@@ -114,15 +134,15 @@ internal sealed class TufReplayApi : IDisposable
     return getter?.ReturnType == typeof(T) ? (Func<T>)Delegate.CreateDelegate(typeof(Func<T>), getter, false) : null;
   }
 
-  private static int Call(Func<int> getter)
+  private static T Call<T>(Func<T> getter)
   {
     try
     {
-      return getter?.Invoke() ?? 0;
+      return getter == null ? default : getter();
     }
     catch (Exception)
     {
-      return 0;
+      return default;
     }
   }
 

@@ -23,6 +23,8 @@ files.push(path.join(root, 'Element/Application/Files/IFileDialogs.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles')).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Application/Profiles', name));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
+files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
+files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerMock.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayoutTarget.cs'));
@@ -38,6 +40,7 @@ for (const source of files) {
   fs.writeFileSync(path.join(target, path.basename(source)), code);
 }
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/SettingsPreview.cs'), path.join(target, 'Editor/SettingsPreview.cs'));
+fs.copyFileSync(path.join(root, 'scripts/ui-preview/GradientChecks.cs'), path.join(target, 'Editor/GradientChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/OverlayTargetChecks.cs'), path.join(target, 'Editor/OverlayTargetChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/NativeLayoutChecks.cs'), path.join(target, 'Editor/NativeLayoutChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/PlanetPreviewChecks.cs'), path.join(target, 'Editor/PlanetPreviewChecks.cs'));

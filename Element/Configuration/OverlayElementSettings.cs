@@ -20,6 +20,11 @@ public static class OverlayElementKinds
 // to it, an optional formula (see OverlayFormula): values in braces with
 // + - * /, such as "{progress-current}*3". An empty formula uses the number.
 // Formulas give pixels as the game draws them at 1080p, or percent for opacity.
+//
+// With a gradient, its stops carry the colors and Hex/Alpha keep the first
+// stop's, so a version without gradients still shows a sensible solid color.
+// Highlight then applies to the whole gradient: every stop is the highlight
+// color and only their opacities differ.
 [Serializable]
 public sealed class OverlayColorSettings
 {
@@ -27,6 +32,11 @@ public sealed class OverlayColorSettings
   public string Hex = "#FFFFFF";
   public float Alpha = 1f;
   public string AlphaFormula = string.Empty;
+
+  /// <summary>Null for a solid color.</summary>
+  public OverlayGradient Gradient;
+
+  public bool IsGradient => Gradient != null && Gradient.Stops != null && Gradient.Stops.Count > 1;
 
   public static OverlayColorSettings HighlightColor(float alpha = 1f) => new() { Highlight = true, Alpha = alpha };
 
@@ -39,16 +49,123 @@ public sealed class OverlayColorSettings
       Hex = Hex,
       Alpha = Alpha,
       AlphaFormula = AlphaFormula ?? string.Empty,
+      Gradient = IsGradient ? Gradient.Clone() : null,
     };
 
   public bool SameAs(OverlayColorSettings other) =>
     other != null
     && Highlight == other.Highlight
-    && Alpha == other.Alpha
-    && SameFormula(AlphaFormula, other.AlphaFormula)
-    && (Highlight || Hex == other.Hex);
+    && IsGradient == other.IsGradient
+    && (
+      IsGradient
+        ? Gradient.SameAs(other.Gradient, Highlight)
+        : Alpha == other.Alpha && SameFormula(AlphaFormula, other.AlphaFormula) && (Highlight || Hex == other.Hex)
+    );
 
   internal static bool SameFormula(string a, string b) => (a ?? string.Empty) == (b ?? string.Empty);
+}
+
+public enum OverlayGradientKind
+{
+  Linear,
+  Radial,
+  Angular,
+  Diamond,
+}
+
+// Position is 0–1 along the gradient; its formula gives percent. Alpha's
+// formula gives percent too. Hex is unused while the color follows the
+// highlight.
+[Serializable]
+public sealed class OverlayGradientStop
+{
+  public float Position;
+  public string PositionFormula = string.Empty;
+  public string Hex = "#FFFFFF";
+  public float Alpha = 1f;
+  public string AlphaFormula = string.Empty;
+
+  public OverlayGradientStop Clone() =>
+    new()
+    {
+      Position = Position,
+      PositionFormula = PositionFormula ?? string.Empty,
+      Hex = Hex,
+      Alpha = Alpha,
+      AlphaFormula = AlphaFormula ?? string.Empty,
+    };
+
+  public bool SameAs(OverlayGradientStop other, bool highlight) =>
+    other != null
+    && Position == other.Position
+    && OverlayColorSettings.SameFormula(PositionFormula, other.PositionFormula)
+    && Alpha == other.Alpha
+    && OverlayColorSettings.SameFormula(AlphaFormula, other.AlphaFormula)
+    && (highlight || Hex == other.Hex);
+}
+
+// The gradient's three handles, as Figma keeps them: where it starts (the
+// center for radial, angular and diamond), where it ends, and how wide it
+// reaches across. They are fractions of the element's box, y down. A linear
+// gradient doesn't use the width handle. AngleFormula, in degrees with 90
+// running left to right, turns the gradient with a live value.
+[Serializable]
+public sealed class OverlayGradient
+{
+  public const int MaximumStops = 8;
+
+  public OverlayGradientKind Kind = OverlayGradientKind.Linear;
+  public List<OverlayGradientStop> Stops = new();
+  public float StartX;
+  public float StartY = .5f;
+  public float EndX = 1;
+  public float EndY = .5f;
+  public float WidthX;
+  public float WidthY = 1;
+  public string AngleFormula = string.Empty;
+
+  public OverlayGradient Clone()
+  {
+    OverlayGradient copy = new()
+    {
+      Kind = Kind,
+      StartX = StartX,
+      StartY = StartY,
+      EndX = EndX,
+      EndY = EndY,
+      WidthX = WidthX,
+      WidthY = WidthY,
+      AngleFormula = AngleFormula ?? string.Empty,
+    };
+    if (Stops != null)
+      foreach (OverlayGradientStop stop in Stops)
+        if (stop != null)
+          copy.Stops.Add(stop.Clone());
+    return copy;
+  }
+
+  public bool SameAs(OverlayGradient other, bool highlight)
+  {
+    if (
+      other == null
+      || Kind != other.Kind
+      || StartX != other.StartX
+      || StartY != other.StartY
+      || EndX != other.EndX
+      || EndY != other.EndY
+      || WidthX != other.WidthX
+      || WidthY != other.WidthY
+      || !OverlayColorSettings.SameFormula(AngleFormula, other.AngleFormula)
+    )
+      return false;
+    int count = Stops?.Count ?? 0;
+    if (count != (other.Stops?.Count ?? 0))
+      return false;
+    for (int i = 0; i < count; i++)
+      if (!(Stops[i]?.SameAs(other.Stops[i], highlight) ?? other.Stops[i] == null))
+        return false;
+    return true;
+  }
 }
 
 // One run is either literal text in one color, or one value: Value is a

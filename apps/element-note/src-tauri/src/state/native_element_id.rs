@@ -14,7 +14,10 @@ use crate::{
 mod v1_adapter;
 
 use v1_adapter::collect_collection_ids_outside_target;
-pub(crate) use v1_adapter::{prepare_commit_patch_element_ids, validate_document_element_ids};
+pub(crate) use v1_adapter::{
+    adapt_legacy_graph_positions, adapt_legacy_key_positions, adapt_legacy_knob_positions,
+    adapt_legacy_stat_positions, prepare_commit_patch_element_ids, validate_document_element_ids,
+};
 
 pub(crate) const INVALID_ELEMENT_ID: &str = "INVALID_ELEMENT_ID";
 pub(crate) const MISSING_ELEMENT_ID: &str = "MISSING_ELEMENT_ID";

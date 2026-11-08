@@ -122,10 +122,13 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     bool resized = Rect.sizeDelta != size;
     if (resized)
       Rect.sizeDelta = size;
+    _formulas.ResolvePaints(_resolved, source, OverlayTheme.Accent);
     _graphic.SetShape(
       _resolved,
       OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _formulas.FillAlpha, source),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _formulas.StrokeAlpha, source)
+      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _formulas.StrokeAlpha, source),
+      _formulas.FillGradient,
+      _formulas.StrokeGradient
     );
     _graphic.SetPixelsPerUnit(PixelsPerUnit);
     // A size that follows a value grows away from the point that stays put.

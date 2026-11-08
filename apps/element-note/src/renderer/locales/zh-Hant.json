@@ -178,6 +178,13 @@
     "saveFailedReverted": "無法儲存按鍵變更，已還原為先前的按鍵。請重新變更。",
     "saveFailed": "無法儲存按鍵變更。切換到其他分頁再返回即可查看已儲存的按鍵。"
   },
+  "itemSave": {
+    "statPositions": "統計",
+    "graphPositions": "圖表",
+    "knobPositions": "旋鈕",
+    "failedReverted": "無法儲存{{item}}變更，已還原為先前的狀態。請重新變更。",
+    "failed": "無法儲存{{item}}變更。請稍後重新變更。"
+  },
   "imagePicker": {
     "idle": "閒置",
     "active": "按下",

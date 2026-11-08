@@ -5,15 +5,17 @@ using System.Linq;
 namespace Element.Application.Rendering;
 
 /// <summary>
-/// One render's key viewers in ElementNote: begin, a frame per captured video
-/// frame with the keys pressed since the last, then end. Unity main thread;
-/// <see cref="Capture"/> blocks until ElementNote has drawn the frame, which an
-/// offline render can afford.
+/// One render's key viewers in ElementNote: begin, a frame per captured video frame
+/// with the keys pressed since the last, finish, then end. ElementNote draws the
+/// frames on its own into a video per page, so the game sends them and moves on;
+/// only the first frame waits for begin, and finish waits for the videos.
+/// Unity main thread, except <see cref="Pulse"/>.
 /// </summary>
 internal sealed class KeyViewerRenderSession
 {
   public const string BeginCommand = "render.begin";
   public const string FrameCommand = "render.frame";
+  public const string FinishCommand = "render.finish";
   public const string EndCommand = "render.end";
   public const string PulseCommand = "render.pulse";
 
@@ -28,13 +30,18 @@ internal sealed class KeyViewerRenderSession
   private readonly IKeyViewerRenderChannel _channel;
   private readonly RenderReplies _replies;
   private readonly List<KeyEvent> _keys = new();
+
+  // The lease timer reads the session id and its next pulse.
+  private readonly object _pulseGate = new();
   private string _sessionId;
+  private DateTime _nextPulse;
+
   private string _beginRequest;
   private RenderSurface[] _surfaces;
-  private long _frameIndex;
+  private int _fps;
+  private long _lastFrameIndex = -1;
   private long _lastTimeUs;
   private int _sequence;
-  private DateTime _nextPulse;
 
   public KeyViewerRenderSession(IKeyViewerRenderChannel channel, RenderReplies replies)
   {
@@ -46,18 +53,32 @@ internal sealed class KeyViewerRenderSession
   public RenderFailure Failure { get; private set; }
 
   /// <summary>A session is open and has not failed.</summary>
-  public bool Running => _sessionId != null;
+  public bool Running
+  {
+    get
+    {
+      lock (_pulseGate)
+        return _sessionId != null;
+    }
+  }
 
   /// <summary>The pages as ElementNote prepared them; null until its first frame.</summary>
   public IReadOnlyList<RenderSurface> Surfaces => _surfaces;
 
+  /// <summary>Frames sent so far, counting the output frames the video spans.</summary>
+  public long FramesSpanned => _lastFrameIndex + 1;
+
   /// <summary>Asks ElementNote to prepare the pages. False when no ElementNote takes renders.</summary>
+  /// <param name="fps">The video's frames per second; ElementNote's videos match it.</param>
+  /// <param name="ffmpegPath">The FFmpeg ElementNote encodes the videos with.</param>
   /// <param name="recordedCounts">
   /// The key counts the rendered run was recorded at (tab id → key slot label → presses), or
   /// null to continue from the player's current totals.
   /// </param>
   public bool Start(
     IReadOnlyList<RenderSurfaceRequest> surfaces,
+    int fps,
+    string ffmpegPath,
     IReadOnlyDictionary<string, Dictionary<string, int>> recordedCounts = null
   )
   {
@@ -65,12 +86,22 @@ internal sealed class KeyViewerRenderSession
     Failure = null;
     if (surfaces == null || surfaces.Count == 0)
       return false;
-    _sessionId = Guid.NewGuid().ToString("N");
+    if (fps <= 0)
+      throw new ArgumentOutOfRangeException(nameof(fps));
+    if (string.IsNullOrEmpty(ffmpegPath))
+      throw new ArgumentException("FFmpeg's path is required.", nameof(ffmpegPath));
+    string sessionId = Guid.NewGuid().ToString("N");
+    _fps = fps;
+    lock (_pulseGate)
+    {
+      _sessionId = sessionId;
+      _nextPulse = DateTime.MinValue;
+    }
     _beginRequest = _channel.Send(
       BeginCommand,
       new
       {
-        sessionId = _sessionId,
+        sessionId,
         surfaces = surfaces
           .Select(surface => new
           {
@@ -80,7 +111,8 @@ internal sealed class KeyViewerRenderSession
             surfaceHeight = surface.ViewportHeight,
           })
           .ToArray(),
-        frameFormat = "rgba",
+        fps,
+        ffmpegPath,
         initialOutputTimeUs = 0,
         // The video counts on from the run's recorded key counts, or else from the
         // player's current totals, never from zero.
@@ -106,16 +138,21 @@ internal sealed class KeyViewerRenderSession
   }
 
   /// <summary>
-  /// Draws the frame at <paramref name="ticks"/> with the keys pressed since the
-  /// last one. Null when the session failed, leaving the reason in <see cref="Failure"/>.
+  /// Sends the video frame at <paramref name="ticks"/> with the keys pressed since the last
+  /// one, without waiting for ElementNote to draw it. The first frame waits for begin. False
+  /// when the session failed, leaving the reason in <see cref="Failure"/>.
   /// </summary>
-  public IReadOnlyList<RenderFrame> Capture(long ticks, TimeSpan beginTimeout, TimeSpan frameTimeout)
+  public bool SendFrame(long ticks, TimeSpan beginTimeout)
   {
     if (!Running)
-      return null;
+      return false;
     if (_surfaces == null && !AwaitBegin(beginTimeout))
-      return null;
+      return false;
 
+    long frameIndex = FrameIndex(ticks, _fps);
+    // Still the same output frame: its keys go with the next one.
+    if (frameIndex <= _lastFrameIndex)
+      return true;
     long timeUs = Math.Max(_lastTimeUs, ToTimeUs(ticks));
     long eventTimeUs = _lastTimeUs;
     var events = new object[_keys.Count];
@@ -133,14 +170,12 @@ internal sealed class KeyViewerRenderSession
         replayTimeUs = eventTimeUs,
       };
     }
-    _keys.Clear();
-    _lastTimeUs = timeUs;
     string request = _channel.Send(
       FrameCommand,
       new
       {
-        sessionId = _sessionId,
-        frameIndex = _frameIndex,
+        sessionId = SessionId,
+        frameIndex,
         outputTimeUs = timeUs,
         replayTimeUs = timeUs,
         events,
@@ -149,56 +184,107 @@ internal sealed class KeyViewerRenderSession
     if (request == null)
     {
       Fail(RenderFailure.AppUnavailable, "ElementNote disconnected during the render.");
+      return false;
+    }
+    _keys.Clear();
+    _lastTimeUs = timeUs;
+    _lastFrameIndex = frameIndex;
+    return true;
+  }
+
+  /// <summary>
+  /// Asks ElementNote to finish drawing every frame sent and waits for the videos, one per
+  /// page. Null when no frame was sent, or when the session failed (see <see cref="Failure"/>).
+  /// </summary>
+  public IReadOnlyList<RenderVideo> Finish(TimeSpan timeout)
+  {
+    if (!Running || _surfaces == null || _lastFrameIndex < 0)
+      return null;
+    string request = _channel.Send(FinishCommand, new { sessionId = SessionId });
+    if (request == null)
+    {
+      Fail(RenderFailure.AppUnavailable, "ElementNote disconnected before the key viewer videos were done.");
       return null;
     }
-    RenderReply reply = _replies.Wait(request, frameTimeout);
-    if (!Accept(reply, "draw a frame"))
+    RenderReply reply = _replies.Wait(request, timeout);
+    if (!Accept(reply, "finish the key viewer videos"))
       return null;
-    RenderFrame[] frames = reply.Frames;
+    RenderVideo[] videos = reply.Videos;
     if (
-      frames == null
-      || frames.Length != _surfaces.Length
-      || frames.Any(frame =>
-        frame?.FramePath == null || _surfaces.All(surface => surface.ViewerKind != frame.ViewerKind)
-      )
+      videos == null
+      || videos.Length != _surfaces.Length
+      || videos.Any(video => video == null || !video.IsValid())
+      || _surfaces.Any(surface => videos.Count(video => video.ViewerKind == surface.ViewerKind) != 1)
     )
     {
-      Fail(RenderFailure.Incompatible, "ElementNote answered a frame without the expected viewers.");
+      Fail(RenderFailure.Incompatible, "ElementNote finished without a video for each key viewer.");
       return null;
     }
-    _frameIndex++;
-    return frames;
+    return videos;
   }
 
-  /// <summary>Keeps ElementNote's lease while the render runs between frames.</summary>
+  /// <summary>Keeps ElementNote's lease while the render runs. Any thread.</summary>
   public void Pulse(DateTime now)
   {
-    if (!Running || now < _nextPulse)
-      return;
-    _nextPulse = now + PulseInterval;
-    _channel.Send(PulseCommand, new { sessionId = _sessionId });
+    string sessionId;
+    lock (_pulseGate)
+    {
+      if (_sessionId == null || now < _nextPulse)
+        return;
+      _nextPulse = now + PulseInterval;
+      sessionId = _sessionId;
+    }
+    _channel.Send(PulseCommand, new { sessionId });
   }
 
-  /// <summary>The key viewers stop with the rest of the frame from here on.</summary>
+  /// <summary>The key viewers leave the video.</summary>
   public void Fail(string code, string message)
   {
-    Failure ??= new RenderFailure(code, message, _frameIndex > 0);
+    Failure ??= new RenderFailure(code, message);
     Stop();
   }
 
-  /// <summary>Ends the session in ElementNote, which gives live input back.</summary>
+  /// <summary>Ends the session in ElementNote, which deletes its videos and gives live input back.</summary>
   public void Stop()
   {
-    if (_sessionId != null)
-      _channel.Send(EndCommand, new { sessionId = _sessionId });
-    _sessionId = null;
+    string sessionId;
+    lock (_pulseGate)
+    {
+      sessionId = _sessionId;
+      _sessionId = null;
+    }
+    if (sessionId != null)
+      _channel.Send(EndCommand, new { sessionId });
     _beginRequest = null;
     _surfaces = null;
-    _frameIndex = 0;
+    _fps = 0;
+    _lastFrameIndex = -1;
     _lastTimeUs = 0;
     _sequence = 0;
     _keys.Clear();
     _replies.Clear();
+  }
+
+  /// <summary>
+  /// How long finish may take for a video of <paramref name="frames"/> frames. ElementNote
+  /// draws alongside the game and may lag far behind a fast render, so this allows two
+  /// frames a second plus two minutes. ElementNote times out its own stuck pages, and a
+  /// disconnect ends the wait at once.
+  /// </summary>
+  public static TimeSpan FinishTimeout(long frames) =>
+    TimeSpan.FromSeconds(Math.Min(3 * 60 * 60, 120 + Math.Max(0, frames) * .5));
+
+  /// <summary>The output frame at <paramref name="ticks"/> of video time, at <paramref name="fps"/>.</summary>
+  internal static long FrameIndex(long ticks, int fps) =>
+    (long)Math.Round(Math.Max(0, ticks) * (double)fps / TimeSpan.TicksPerSecond, MidpointRounding.AwayFromZero);
+
+  private string SessionId
+  {
+    get
+    {
+      lock (_pulseGate)
+        return _sessionId;
+    }
   }
 
   private bool AwaitBegin(TimeSpan timeout)
@@ -220,6 +306,7 @@ internal sealed class KeyViewerRenderSession
   {
     if (reply == null)
     {
+      // A disconnect clears the replies; the session is gone either way.
       Fail(RenderFailure.Timeout, "ElementNote did not " + action + " in time.");
       return false;
     }

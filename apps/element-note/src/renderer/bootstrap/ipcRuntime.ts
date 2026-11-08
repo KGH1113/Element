@@ -3,7 +3,6 @@ import {
   KeyLimiterIpcCoordinator,
   type KeyLimiterCoordinatorOptions,
 } from '../ipc/keyLimiterIpcCoordinator';
-import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
 import { ElementRenderIpcCoordinator } from '../render/elementRenderIpcCoordinator';
 import type { RenderSurfacePort } from '../application/ports/renderSurfacePort';
 import { NativeViewerIpcCoordinator } from '../nativeViewers/nativeViewerIpcCoordinator';
@@ -78,11 +77,6 @@ export function createKeyLimiterCoordinator(
   });
 }
 export function startRenderMessages(): () => Promise<void> {
-  const platform = /Mac/.test(navigator.userAgent)
-    ? 'macos'
-    : /Windows/.test(navigator.userAgent)
-      ? 'windows'
-      : 'unsupported';
   // One native render service; it refuses a second session while one runs.
   const surface: RenderSurfacePort = {
     begin: (request) =>
@@ -100,24 +94,12 @@ export function startRenderMessages(): () => Promise<void> {
           ),
         },
       }),
-    reset: (request) => invoke('dmnote_render_reset', { request }),
     frame: (request) => invoke('dmnote_render_frame', { request }),
+    finish: (request) => invoke('dmnote_render_finish', { request }),
     end: (sessionId) => invoke('dmnote_render_end', { sessionId }),
     touch: () => invoke('dmnote_render_touch'),
   };
-  const coordinator = new RenderIpcCoordinator({
-    messages: applicationMessages('tuf-replay-renderer'),
-    scheduler: wallClockScheduler,
-    capabilities: {
-      applicationId: crypto.randomUUID(),
-      applicationVersion: __APP_VERSION__,
-      platform,
-      nativeCapture: platform !== 'unsupported',
-      multiViewerCapture: true,
-    },
-    surface,
-  });
-  // Element's own replay renders (OrbitRender) over the game's `element` channel.
+  // Element's replay renders (OrbitRender) over the game's `element` channel.
   const elementRenders = new ElementRenderIpcCoordinator(
     applicationMessages('element'),
     surface,
@@ -155,7 +137,6 @@ export function startRenderMessages(): () => Promise<void> {
     await keyCounters.dispose();
     await viewers.dispose();
     await elementRenders.dispose();
-    await coordinator.dispose();
     await closeApplicationMessages();
   };
   window.addEventListener(

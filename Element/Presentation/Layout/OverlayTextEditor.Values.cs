@@ -20,6 +20,8 @@ internal sealed partial class OverlayTextEditor
     None,
     Size,
     Opacity,
+    Position,
+    Angle,
     Formula,
     Join,
     Insert,
@@ -43,6 +45,9 @@ internal sealed partial class OverlayTextEditor
   // A clicked number field, or the clicked value while it stays selected.
   private OverlayFormulaSlot CurrentSlot()
   {
+    OverlayFormulaSlot gradient = GradientSlot();
+    if (gradient != null)
+      return gradient;
     if (_fieldSlot == SizeKey)
       return new OverlayFormulaSlot(SizeKey, false, ReadSize, WriteSize);
     if (_fieldSlot == OpacityKey)
@@ -148,7 +153,12 @@ internal sealed partial class OverlayTextEditor
 
   private void RefreshDock()
   {
-    string hint = _picker.Visible
+    string hint = _picker.Visible && _picker.IsGradient
+      ? L(
+        "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+        "Picking the text color · Drop a value on an opacity, position or angle to calculate it"
+      )
+      : _picker.Visible
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on the opacity to calculate it"
@@ -158,9 +168,9 @@ internal sealed partial class OverlayTextEditor
         "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
       );
     string name =
-      _fieldSlot == SizeKey ? L("글자 크기", "Text size")
+      GradientFieldName() ?? (_fieldSlot == SizeKey ? L("글자 크기", "Text size")
       : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
-      : L("값", "Value");
+      : L("값", "Value"));
     _dock.Refresh(_editing, name, DockResult(), hint);
   }
 
@@ -178,7 +188,12 @@ internal sealed partial class OverlayTextEditor
       OverlayFormulaText.Append(_builder, formula, _values, true);
       return _builder.Length > 0 ? _builder.ToString() : null;
     }
-    return OverlayFormulaField.Number(Result(formula)) + (_fieldSlot == OpacityKey ? "%" : " px");
+    return OverlayFormulaField.Number(Result(formula))
+      + (
+        _fieldSlot == OpacityKey || _fieldSlot == PositionKey ? "%"
+        : _fieldSlot == AngleKey ? "°"
+        : " px"
+      );
   }
 
   private double Result(OverlayFormula formula) =>
@@ -234,6 +249,8 @@ internal sealed partial class OverlayTextEditor
         _screen?.Notice(L("글자 크기는 4–400px 사이로 맞췄어요", "Text size was kept between 4 and 400px"));
       else if (key == OpacityKey && OverlayOpacityField.OutOfRange(typed))
         _screen?.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
+      else if (key == PositionKey && (number < 0 || number > 100))
+        _screen?.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
     }
   }
 
@@ -293,10 +310,16 @@ internal sealed partial class OverlayTextEditor
     }
   }
 
-  private OverlayFormula ReadOpacity() => OverlayOpacityField.Read(RangeColor());
+  private OverlayFormula ReadOpacity() =>
+    PickedStop(RangeColor()) != null ? ReadStop(false) : OverlayOpacityField.Read(RangeColor());
 
   private void WriteOpacity(OverlayFormula formula)
   {
+    if (PickedStop(RangeColor()) != null)
+    {
+      WriteStop(false, formula);
+      return;
+    }
     RememberFormula(OpacityKey);
     Range(out int start, out int end);
     OverlayColorSettings color = OverlayOpacityField.Write(RangeColor(), formula);
@@ -323,7 +346,7 @@ internal sealed partial class OverlayTextEditor
     // The picker's opacity shows its result the same way.
     bool opacity = _fieldSlot == OpacityKey;
     OverlayFormula alpha = opacity && _editing.Active ? _editing.Working.Trimmed() : ReadOpacity();
-    _opacity.Show(alpha, Result(alpha), RangeColor().Alpha, opacity);
+    _opacity.Show(alpha, Result(alpha), PickedStop(RangeColor())?.Alpha ?? RangeColor().Alpha, opacity);
   }
 
   private bool SameSize(int start, int end)
@@ -358,6 +381,8 @@ internal sealed partial class OverlayTextEditor
     _dropTarget = FindDrop(screen, out _dropIndex, out bool accepted);
     _sizeButton.SetDrop(_dropTarget == DropTarget.Size ? (accepted ? 1 : -1) : 0);
     _opacity.Field.SetDrop(_dropTarget == DropTarget.Opacity ? (accepted ? 1 : -1) : 0);
+    _position.SetDrop(_dropTarget == DropTarget.Position && _dropIndex < 0 ? (accepted ? 1 : -1) : 0);
+    _handles.Angle.SetDrop(_dropTarget == DropTarget.Angle ? (accepted ? 1 : -1) : 0);
     _dock.SetDrop(_dropTarget == DropTarget.Formula ? (accepted ? 1 : -1) : 0);
     _screen.ShowGhost(OverlayKeypad.ValueName(_dragValue), screen, accepted || _dropTarget == DropTarget.None ? 1 : -1);
     PlaceDropCaret();
@@ -374,10 +399,21 @@ internal sealed partial class OverlayTextEditor
     _dropTarget = DropTarget.None;
     _sizeButton.SetDrop(0);
     _opacity.Field.SetDrop(0);
+    _position.SetDrop(0);
+    _handles.Angle.SetDrop(0);
     _dock.SetDrop(0);
     _screen.HideGhost();
     switch (target)
     {
+      case DropTarget.Position:
+        // Onto a square: that color's position.
+        if (index >= 0)
+          _picker.SelectStop(index);
+        DropOn(PositionKey, value);
+        break;
+      case DropTarget.Angle:
+        DropOn(AngleKey, value);
+        break;
       case DropTarget.Size:
         DropOn(SizeKey, value);
         break;
@@ -447,12 +483,30 @@ internal sealed partial class OverlayTextEditor
   {
     index = -1;
     accepted = true;
-    // The picker sits over everything else; only its opacity takes a value.
+    // The picker sits over everything else; only its numbers take a value.
     if (_picker.Visible && OverlayEditorUi.Contains(_picker.Root, screen))
     {
-      bool opacity = _opacity.Contains(screen);
-      accepted = !opacity || _dragValue.IsNumeric;
-      return opacity ? DropTarget.Opacity : DropTarget.None;
+      bool opacity = _opacity.Contains(screen),
+        position = _picker.IsGradient && _position.Contains(screen);
+      accepted = !(opacity || position) || _dragValue.IsNumeric;
+      return opacity ? DropTarget.Opacity
+        : position ? DropTarget.Position
+        : DropTarget.None;
+    }
+    if (_handles.Visible)
+    {
+      if (_handles.Angle.Contains(screen))
+      {
+        accepted = _dragValue.IsNumeric;
+        return DropTarget.Angle;
+      }
+      int square = _handles.SquareAt(screen);
+      if (square >= 0)
+      {
+        index = square;
+        accepted = _dragValue.IsNumeric;
+        return DropTarget.Position;
+      }
     }
     if (_sizeButton.Contains(screen))
     {

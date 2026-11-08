@@ -6,8 +6,12 @@ import type {
 } from '../application/ports/messagePort';
 import type { RenderSurfacePort } from '../application/ports/renderSurfacePort';
 
-/** Bumped when Element's render messages change incompatibly. */
-export const elementRenderProtocolVersion = 1;
+/**
+ * Bumped when Element's render messages change incompatibly.
+ * 2: the viewers draw into videos; frames get no answer and `render.finish`
+ * returns the videos.
+ */
+export const elementRenderProtocolVersion = 2;
 
 /** Every answer goes back to Element as this command. */
 export const elementRenderReply = 'render.reply';
@@ -19,19 +23,27 @@ const leaseMs = 30_000;
 const requests = [
   'render.begin',
   'render.frame',
+  'render.finish',
   'render.end',
   'render.pulse',
 ] as const;
 type Request = (typeof requests)[number];
 
 /**
- * Element's replay renders on the `element` channel. Element waits for each
- * frame on the game thread, where events from the app would only arrive after
- * it stops waiting, so answers go back as a command Element runs off that thread.
+ * Element's replay renders on the `element` channel. The game never waits for a
+ * frame: frames are queued in the order they arrive and answered by nothing.
+ * The viewers draw them into videos, and `render.finish` answers with the
+ * videos once every frame is in, or with why they failed. Answers go back as a
+ * command, which Element runs off its game thread, where it is waiting.
  */
 export class ElementRenderIpcCoordinator {
   private sessionId: string | null = null;
-  private framePending = false;
+  // Settles with whether the current session began; frames wait for it.
+  private began: Promise<boolean> = Promise.resolve(false);
+  // The frames handed to the backend, one after another.
+  private frames: Promise<void> = Promise.resolve();
+  private failure: unknown = null;
+  private finishing = false;
   private lastContact = 0;
   private disposed = false;
   private readonly subscriptions: Unsubscribe[] = [];
@@ -79,7 +91,8 @@ export class ElementRenderIpcCoordinator {
 
   private keepAlive(): void {
     if (!this.sessionId) return;
-    if (this.now() - this.lastContact > leaseMs) {
+    // Closing the videos goes on without the game, which waits for them.
+    if (!this.finishing && this.now() - this.lastContact > leaseMs) {
       void this.end();
       return;
     }
@@ -89,15 +102,17 @@ export class ElementRenderIpcCoordinator {
   private async end(): Promise<void> {
     const current = this.sessionId;
     this.sessionId = null;
-    this.framePending = false;
+    this.began = Promise.resolve(false);
+    this.failure = null;
+    this.finishing = false;
     if (current) await this.surface.end(current).catch(() => {});
   }
 
-  private async handle(
+  private handle(
     name: Request,
     payload: Record<string, unknown>,
     message: MessageMetadata,
-  ): Promise<void> {
+  ): Promise<void> | void {
     if (this.disposed) return;
     const session =
       typeof payload.sessionId === 'string' &&
@@ -108,9 +123,39 @@ export class ElementRenderIpcCoordinator {
       // Neither expects an answer; only the current session's count.
       if (!session || session !== this.sessionId) return;
       if (name === 'render.pulse') this.lastContact = this.now();
-      else await this.end();
+      else return this.end();
       return;
     }
+    if (name === 'render.frame') return this.queueFrame(session, payload);
+    return this.answerRequest(name, session, payload, message);
+  }
+
+  // Synchronous up to the queue, so frames keep the order they arrived in.
+  private queueFrame(
+    session: string | null,
+    payload: Record<string, unknown>,
+  ): void {
+    if (!session || session !== this.sessionId || this.finishing) return;
+    this.lastContact = this.now();
+    const began = this.began;
+    this.frames = this.frames
+      .then(() => began)
+      .then((ready) => {
+        if (ready && this.sessionId === session && this.failure === null)
+          return this.surface.frame(payload).then(() => {});
+      })
+      .catch((error: unknown) => {
+        // Later frames are dropped; finish answers with this.
+        if (this.sessionId === session) this.failure ??= error;
+      });
+  }
+
+  private async answerRequest(
+    name: 'render.begin' | 'render.finish',
+    session: string | null,
+    payload: Record<string, unknown>,
+    message: MessageMetadata,
+  ): Promise<void> {
     try {
       if (!session) throw new Error('render-invalid-session');
       let result: unknown;
@@ -118,16 +163,27 @@ export class ElementRenderIpcCoordinator {
         if (this.sessionId) throw new Error('render-busy');
         this.sessionId = session;
         this.lastContact = this.now();
-        result = await this.surface.begin(payload);
+        this.failure = null;
+        const beginning = this.surface.begin(payload);
+        this.began = beginning.then(
+          () => true,
+          () => false,
+        );
+        result = await beginning;
       } else {
         if (this.sessionId !== session) throw new Error('render-session-ended');
-        if (this.framePending) throw new Error('render-frame-busy');
+        if (this.finishing) throw new Error('render-session-finishing');
+        this.finishing = true;
         this.lastContact = this.now();
-        this.framePending = true;
         try {
-          result = await this.surface.frame(payload);
+          await this.frames;
+          if (this.failure !== null) throw this.failure;
+          result = await this.surface.finish(payload);
         } finally {
-          if (this.sessionId === session) this.framePending = false;
+          if (this.sessionId === session) {
+            this.finishing = false;
+            this.lastContact = this.now();
+          }
         }
       }
       if (this.sessionId !== session) throw new Error('render-session-ended');

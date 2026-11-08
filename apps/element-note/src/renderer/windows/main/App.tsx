@@ -21,6 +21,10 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useKeyLimiterSync } from '@hooks/app/useKeyLimiterSync';
 import { onKeySaveFailed } from '@src/renderer/editor/runtime/keySaveRecovery';
+import {
+  onItemSaveFailed,
+  startItemSaveRecovery,
+} from '@src/renderer/editor/runtime/itemSaveRecovery';
 import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
 import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
@@ -527,6 +531,18 @@ export default function App() {
     onKeySaveFailed(({ restored }) =>
       showAlert(
         t(restored ? 'keySetting.saveFailedReverted' : 'keySetting.saveFailed'),
+      ),
+    ),
+  );
+
+  // 통계·그래프·노브 저장이 실패하면 화면을 저장된 배치로 되돌린다.
+  useEffect(() => startItemSaveRecovery(), []);
+  useEffect(() =>
+    onItemSaveFailed(({ field, restored }) =>
+      showAlert(
+        t(restored ? 'itemSave.failedReverted' : 'itemSave.failed', {
+          item: t(`itemSave.${field}`),
+        }),
       ),
     ),
   );

@@ -18,6 +18,7 @@ internal static class ReplayRenderProviderTests
     FollowsTheContract();
     LeavesReplaysInTheGameAlone();
     DeliversRenderedKeys();
+    HandsOverVideosOnlyWhileRendering();
   }
 
   private static void FollowsTheContract()
@@ -29,6 +30,7 @@ internal static class ReplayRenderProviderTests
     Has(type, "OnReplayKey", typeof(void), typeof(KeyCode), typeof(int?), typeof(bool), typeof(long));
     Has(type, "GetReplayCanvases", typeof(IEnumerable<Canvas>));
     Has(type, "OnBeforeFrameCapture", typeof(void));
+    Has(type, "AddReplayOverlayVideos", typeof(void), typeof(Action<string, RectInt, RectInt>));
     Check(type.GetMethod("CaptureRunState", Public) == null, "the render provider saves no state with runs");
     Check(ReplayRenderProvider.Id == "Element.Render", "the render provider keeps its id");
   }
@@ -66,6 +68,40 @@ internal static class ReplayRenderProviderTests
     );
   }
 
+  private static void HandsOverVideosOnlyWhileRendering()
+  {
+    var overlay = new FakeOverlay();
+    var provider = new ReplayRenderProvider(overlay);
+    var added = new List<string>();
+    Action<string, RectInt, RectInt> add = (path, source, target) =>
+      added.Add(
+        path
+          + " "
+          + source.x
+          + ","
+          + source.y
+          + " -> "
+          + target.x
+          + ","
+          + target.y
+          + " "
+          + target.width
+          + "x"
+          + target.height
+      );
+    provider.AddReplayOverlayVideos(add);
+    Check(added.Count == 0, "no render, no videos");
+    provider.OnReplayBegin(true);
+    provider.AddReplayOverlayVideos(add);
+    provider.AddReplayOverlayVideos(null);
+    provider.OnReplayEnd();
+    provider.AddReplayOverlayVideos(add);
+    Check(
+      added.SequenceEqual(new[] { "/v/hand.mov 22,22 -> 40,860 601x196" }),
+      "a render's videos go to TUFReplay with their source and target: " + string.Join(", ", added)
+    );
+  }
+
   private static void Has(Type type, string name, Type returns, params Type[] parameters)
   {
     MethodInfo method = type.GetMethod(name, Public, null, parameters, null);
@@ -87,6 +123,9 @@ internal static class ReplayRenderProviderTests
     public void Input(string key, bool down, long ticks) => Calls.Add(key + (down ? " down " : " up ") + ticks);
 
     public void BeforeCapture() => Calls.Add("capture");
+
+    public void AddVideos(Action<string, RectInt, RectInt> add) =>
+      add("/v/hand.mov", new RectInt(22, 22, 601, 196), new RectInt(40, 860, 601, 196));
   }
 
   private static void Check(bool value, string message)

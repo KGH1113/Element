@@ -15,10 +15,20 @@ internal sealed class OverlayShapeResolver
     _height,
     _stroke;
   private readonly List<OverlayFormula> _radius = new(4);
+  private readonly OverlayGradientFormulas _fillGradient = new(),
+    _strokeGradient = new();
+  private readonly OverlayResolvedGradient _fillPaint = new(),
+    _strokePaint = new();
 
   public ulong Mask { get; private set; }
   public OverlayFormula FillAlpha { get; private set; }
   public OverlayFormula StrokeAlpha { get; private set; }
+
+  /// <summary>The fill's gradient as last resolved by <see cref="ResolvePaints"/>; null when solid.</summary>
+  public OverlayResolvedGradient FillGradient { get; private set; }
+
+  /// <summary>The border's gradient as last resolved; null when solid.</summary>
+  public OverlayResolvedGradient StrokeGradient { get; private set; }
 
   public void Compile(OverlayShapeSettings shape)
   {
@@ -27,7 +37,16 @@ internal sealed class OverlayShapeResolver
     _stroke = Parse(shape.StrokeWidthFormula);
     FillAlpha = Parse(shape.Fill?.AlphaFormula);
     StrokeAlpha = Parse(shape.Stroke?.AlphaFormula);
-    Mask = Bits(_width) | Bits(_height) | Bits(_stroke) | Bits(FillAlpha) | Bits(StrokeAlpha);
+    _fillGradient.Compile(shape.Fill);
+    _strokeGradient.Compile(shape.Stroke);
+    Mask =
+      Bits(_width)
+      | Bits(_height)
+      | Bits(_stroke)
+      | Bits(FillAlpha)
+      | Bits(StrokeAlpha)
+      | _fillGradient.Mask
+      | _strokeGradient.Mask;
     _radius.Clear();
     foreach (OverlayShapePoint point in shape.Points)
     {
@@ -62,6 +81,27 @@ internal sealed class OverlayShapeResolver
       resolved.Y = point.Y;
       resolved.Radius = Mathf.Max(0, Number(_radius[i], source, point.Radius * scale) / scale);
     }
+  }
+
+  /// <summary>
+  /// Works out the fill's and the border's gradients for <paramref name="resolved"/>'s
+  /// box into <see cref="FillGradient"/> and <see cref="StrokeGradient"/>.
+  /// </summary>
+  public void ResolvePaints(OverlayShapeSettings resolved, IOverlayNumberSource source, Color highlight)
+  {
+    FillGradient = _fillGradient.Resolve(resolved.Fill, highlight, source, resolved.Width, resolved.Height, _fillPaint)
+      ? _fillPaint
+      : null;
+    StrokeGradient = _strokeGradient.Resolve(
+      resolved.Stroke,
+      highlight,
+      source,
+      resolved.Width,
+      resolved.Height,
+      _strokePaint
+    )
+      ? _strokePaint
+      : null;
   }
 
   private static float Number(OverlayFormula formula, IOverlayNumberSource source, float fallback)

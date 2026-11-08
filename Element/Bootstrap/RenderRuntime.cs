@@ -167,7 +167,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
       .GroupBy(placement => placement.ViewerKind)
       .Select(kind => new RenderSurfaceRequest(
         kind.Key,
-        kind.Max(placement => placement.Scale),
+        KeyViewerRenderPlan.PageScale(kind, kind.Key),
         kind.First().ViewportWidth,
         kind.First().ViewportHeight
       ))

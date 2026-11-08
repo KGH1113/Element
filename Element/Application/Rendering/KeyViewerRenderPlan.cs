@@ -69,9 +69,11 @@ internal static class KeyViewerRenderPlan
       RenderVideo video = Find(videos, viewer.ViewerKind);
       if (surface == null || video == null)
         continue;
-      // The video's own size: ElementNote draws the whole viewport into each frame.
+      // The video's own size: ElementNote draws the whole viewport into each frame, at the
+      // largest scale of the page's viewers.
       RenderOverlayRects rects = RenderOverlayRects.Of(
         viewer,
+        PageScale(viewers, viewer.ViewerKind),
         video.Width,
         video.Height,
         surface.ViewportWidth,
@@ -81,6 +83,16 @@ internal static class KeyViewerRenderPlan
       overlays.Add(new KeyViewerOverlay(video.Path, rects.Source, rects.Target));
     }
     return overlays;
+  }
+
+  /// <summary>The scale a kind's page is drawn at: the largest of its viewers'.</summary>
+  public static float PageScale(IEnumerable<RenderViewerPlacement> viewers, string kind)
+  {
+    float scale = 0;
+    foreach (RenderViewerPlacement viewer in viewers)
+      if (viewer.ViewerKind == kind && viewer.Scale > scale)
+        scale = viewer.Scale;
+    return scale;
   }
 
   private static RenderSurface Find(IReadOnlyList<RenderSurface> surfaces, string kind)

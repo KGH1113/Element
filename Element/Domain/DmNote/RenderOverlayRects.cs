@@ -43,11 +43,13 @@ internal readonly struct RenderOverlayRects
   /// <summary>In the rendered video's pixels.</summary>
   public PixelRect Target { get; }
 
+  /// <param name="pageScale">Video pixels per CSS pixel the page was drawn at: the largest scale of its viewers.</param>
   /// <param name="frameWidth">The page video's frame in pixels; ElementNote draws the whole viewport into it.</param>
   /// <param name="viewportWidth">The page's CSS viewport.</param>
   /// <param name="padding">CSS pixels around the content on each side.</param>
   public static RenderOverlayRects Of(
     RenderViewerPlacement placement,
+    float pageScale,
     int frameWidth,
     int frameHeight,
     float viewportWidth,
@@ -57,16 +59,19 @@ internal readonly struct RenderOverlayRects
   {
     if (placement == null)
       throw new ArgumentNullException(nameof(placement));
+    if (!(pageScale > 0))
+      throw new ArgumentOutOfRangeException(nameof(pageScale));
     RenderFrameCrop crop = RenderFrameCrop.Of(frameWidth, frameHeight, viewportWidth, viewportHeight, padding);
-    LayoutBounds placed = placement.Place(crop.CssWidth, crop.CssHeight);
+    // The target comes from the cropped pixels, not from CSS pixels again: a viewer drawn at
+    // its page's scale takes them one for one. ElementNote and Element round a half pixel
+    // differently, so recomputing could end a pixel off and make the compositor rescale.
+    float ratio = placement.Scale / pageScale;
+    int width = ratio == 1 ? crop.Width : Math.Max(1, Pixels(crop.Width * ratio));
+    int height = ratio == 1 ? crop.Height : Math.Max(1, Pixels(crop.Height * ratio));
+    LayoutBounds placed = placement.PlaceAtSize(width, height);
     return new RenderOverlayRects(
       new PixelRect(crop.X, crop.Y, crop.Width, crop.Height),
-      new PixelRect(
-        Pixels(placed.X * placement.VideoWidth),
-        Pixels(placed.Y * placement.VideoHeight),
-        Math.Max(1, Pixels(placed.Width * placement.VideoWidth)),
-        Math.Max(1, Pixels(placed.Height * placement.VideoHeight))
-      )
+      new PixelRect(Pixels(placed.X * placement.VideoWidth), Pixels(placed.Y * placement.VideoHeight), width, height)
     );
   }
 

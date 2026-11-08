@@ -42,6 +42,7 @@ internal static class KeyViewerRenderTests
     PlacesViewersInTheVideo();
     CropsThePagePadding();
     MapsAFrameTexelForPixel();
+    KeepsAHalfPixelPageOneToOne();
     OverlaysEveryViewerOnItsPage();
     NeedsARendererThatTakesVideos();
     ExplainsWhyKeyViewersAreMissing();
@@ -560,7 +561,7 @@ internal static class KeyViewerRenderTests
     Whole(centered.X * 1920, "A centered viewer snaps too.");
     Whole(centered.Y * 1080, "Vertically as well.");
 
-    RenderOverlayRects rects = RenderOverlayRects.Of(placement, 645, 240, 860, 320, 30);
+    RenderOverlayRects rects = RenderOverlayRects.Of(placement, placement.Scale, 645, 240, 860, 320, 30);
     Check(
       rects.Source.X == 22 && rects.Source.Y == 22 && rects.Source.Width == 601 && rects.Source.Height == 196,
       "The video shows the page minus its padding: " + rects.Source
@@ -574,6 +575,32 @@ internal static class KeyViewerRenderTests
       "At the viewer's place: " + rects.Target
     );
     Check(rects.Target.Y + rects.Target.Height <= 1080 && rects.Target.X >= 0, "Inside the video.");
+  }
+
+  // A 200 CSS px page at 0.5625 is 112.5 pixels: ElementNote rounds it up to 113, while
+  // C# rounds the same half down to 112. Without padding, a target recomputed from CSS
+  // pixels came out a pixel narrower than the page, and the compositor rescaled every frame.
+  private static void KeepsAHalfPixelPageOneToOne()
+  {
+    var screen = new LayoutBounds(100, 100, 400, 240);
+    RenderViewerPlacement placement = RenderViewerPlacement.Create(
+      "foot",
+      screen,
+      5120,
+      2880,
+      2,
+      null,
+      200,
+      120,
+      1440,
+      810
+    );
+    Near(.5625f, placement.Scale, "Video pixels per CSS pixel.");
+    RenderOverlayRects rects = RenderOverlayRects.Of(placement, placement.Scale, 113, 68, 200, 120, 0);
+    Check(
+      rects.Source.Width == 113 && rects.Target.Width == 113 && rects.Target.Height == rects.Source.Height,
+      "A viewer at its page's scale takes the page's pixels one for one: " + rects.Source + " -> " + rects.Target
+    );
   }
 
   // Two hand viewers share one page, drawn at the larger one's scale.

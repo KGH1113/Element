@@ -111,12 +111,19 @@ internal static class OverlayEditorUi
   {
     if (picker == null || !picker.Visible)
       return;
-    Rect keypad = dock.KeypadArea;
     float height = picker.Height;
     float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, dock.Top - 12 - height);
-    SettingsUiFactory.Place(picker.Root, keypad.x, y, keypad.width, height);
+    SettingsUiFactory.Place(picker.Root, PickerLeft(picker, dock), y, picker.CurrentWidth, height);
     picker.Root.SetAsLastSibling();
   }
+
+  /// <summary>
+  /// Where the picker above the keypad starts (frame units). It ends with the
+  /// keypad; an editor's two-column picker reaches further left, so the
+  /// preview and its bar keep to the space before it while it is open.
+  /// </summary>
+  public static float PickerLeft(SettingsColorPicker picker, OverlayInputDock dock) =>
+    dock.KeypadArea.xMax - picker.CurrentWidth;
 
   /// <summary>
   /// Places a popover right under the control that opened it (frame units),

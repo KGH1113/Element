@@ -42,7 +42,17 @@ internal sealed partial class OverlayShapeEditor
     if (_screen == null)
       return;
     FollowLiveValues();
+    // The shape glides aside as the picker opens, and back as it closes.
+    if (_space.Moving)
+      RenderKeepingBlink();
     _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
+  }
+
+  private void RenderKeepingBlink()
+  {
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
   }
 
   // A level playing behind the editor moves the shape and its numbers.
@@ -64,6 +74,10 @@ internal sealed partial class OverlayShapeEditor
       yield return (_radiusFields[i], "radius:" + i);
     if (_picker != null && _picker.Visible)
       yield return (_opacity.Field, OpacityKey);
+    if (_picker != null && _picker.IsGradient)
+      yield return (_position, PositionKey);
+    if (_handles != null && _handles.Visible)
+      yield return (_handles.Angle, AngleKey);
   }
 
   // The picker's opacity edits the color it shows.
@@ -80,6 +94,7 @@ internal sealed partial class OverlayShapeEditor
     SyncDock();
     DrawShape();
     LayoutBar();
+    ShowGradient();
     LayoutMeasures();
     ShowOpacity();
     PlaceGrowMark();
@@ -87,7 +102,17 @@ internal sealed partial class OverlayShapeEditor
       _editing,
       _field == null ? "" : FieldName(_field),
       _field == null ? null : ResultText(_field),
-      _picker.Visible
+      _picker.Visible && _picker.IsGradient
+        ? _pickerForStroke
+          ? L(
+            "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+            "Picking the border color · Drop a value on an opacity, position or angle to calculate it"
+          )
+          : L(
+            "채우기 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+            "Picking the fill color · Drop a value on an opacity, position or angle to calculate it"
+          )
+      : _picker.Visible
         ? _pickerForStroke
           ? L(
             "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
@@ -113,7 +138,8 @@ internal sealed partial class OverlayShapeEditor
     float width = _screen.Width;
     float top = OverlayEditorFrame.TopBar + 8 + BarHeight + 56,
       bottom = _dock.Top - 28;
-    float availableWidth = Mathf.Max(60, width - OverlayEditorFrame.Margin * 2 - 260);
+    PreviewSpace(out float spaceLeft, out float spaceRight);
+    float availableWidth = Mathf.Max(60, spaceRight - spaceLeft - 260);
     float availableHeight = Mathf.Max(40, bottom - top - OverlayFormulaField.Height - MeasureGap - 20);
     float units = _elementScale * ScreenScale / _screen.Scale;
     float fit = Mathf.Min(
@@ -124,17 +150,20 @@ internal sealed partial class OverlayShapeEditor
     _unitsToFrame = units * fit;
     float boxWidth = _resolved.Width * _unitsToFrame,
       boxHeight = _resolved.Height * _unitsToFrame;
-    _boxTopLeft = new Vector2((width - boxWidth) * .5f, top + (availableHeight - boxHeight) * .5f);
+    _boxTopLeft = new Vector2((spaceLeft + spaceRight - boxWidth) * .5f, top + (availableHeight - boxHeight) * .5f);
     float pixels = _unitsToFrame * _screen.Scale;
     _shapeRect.anchorMin = _shapeRect.anchorMax = _shapeRect.pivot = new Vector2(0, 1);
     _shapeRect.anchoredPosition = new Vector2(_boxTopLeft.x * _screen.Scale, -_boxTopLeft.y * _screen.Scale);
     _shapeRect.sizeDelta = new Vector2(_resolved.Width, _resolved.Height);
     _shapeRect.localScale = new Vector3(pixels, pixels, 1);
     IOverlayNumberSource samples = _values.WithSamples;
+    _resolver.ResolvePaints(_resolved, samples, OverlayTheme.Accent);
     _graphic.SetShape(
       _resolved,
       OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _resolver.FillAlpha, samples),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _resolver.StrokeAlpha, samples)
+      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _resolver.StrokeAlpha, samples),
+      _resolver.FillGradient,
+      _resolver.StrokeGradient
     );
     _graphic.SetPixelsPerUnit(pixels);
   }
@@ -143,8 +172,10 @@ internal sealed partial class OverlayShapeEditor
   {
     float y = (BarHeight - OverlayBarButton.Height) * .5f;
     _fillButton.Swatch = Opaque(_resolved.Fill);
+    _fillButton.SwatchGradient = _resolver.FillGradient;
     _fillButton.Set(null, false, _picker.Visible && !_pickerForStroke);
     _strokeButton.Swatch = Opaque(_resolved.Stroke);
+    _strokeButton.SwatchGradient = _resolver.StrokeGradient;
     _strokeButton.Set(null, false, _picker.Visible && _pickerForStroke);
     OverlayFormula stroke = _field == "stroke" && _editing.Active ? _editing.Working.Trimmed() : Read("stroke");
     bool computed = !stroke.IsEmpty && !stroke.IsPlainNumber(out _);
@@ -157,7 +188,10 @@ internal sealed partial class OverlayShapeEditor
       x += button.Width + 4;
     }
     x += y - 4;
-    SettingsUiFactory.Place(_bar, (_screen.Width - x) * .5f, OverlayEditorFrame.TopBar + 8, x, BarHeight);
+    // The bar stays over the shape, clear of an open picker.
+    PreviewSpace(out float spaceLeft, out float spaceRight);
+    float barLeft = Mathf.Max(OverlayEditorFrame.Margin, (spaceLeft + spaceRight - x) * .5f);
+    SettingsUiFactory.Place(_bar, barLeft, OverlayEditorFrame.TopBar + 8, x, BarHeight);
     PlacePicker();
   }
 
@@ -181,7 +215,7 @@ internal sealed partial class OverlayShapeEditor
     string key = OpacityKey;
     OverlayFormula formula = _field == key && _editing.Active ? _editing.Working.Trimmed() : Read(key);
     OverlayColorSettings color = _pickerForStroke ? _shape.Stroke : _shape.Fill;
-    _opacity.Show(formula, Result(formula), color?.Alpha ?? 1, _field == key);
+    _opacity.Show(formula, Result(formula), PickedStop?.Alpha ?? color?.Alpha ?? 1, _field == key);
   }
 
   private double Result(OverlayFormula formula) =>
@@ -192,7 +226,13 @@ internal sealed partial class OverlayShapeEditor
     OverlayFormula formula = _editing.Active ? _editing.Working.Trimmed() : Read(key);
     if (formula.IsEmpty)
       return null;
-    return OverlayFormulaField.Number(Result(formula)) + (Kind(key, out _).EndsWith("opacity") ? "%" : " px");
+    string kind = Kind(key, out _);
+    return OverlayFormulaField.Number(Result(formula))
+      + (
+        kind.EndsWith("opacity") || kind.EndsWith("position") ? "%"
+        : kind.EndsWith("angle") ? "°"
+        : " px"
+      );
   }
 
   private static Color Opaque(OverlayColorSettings color)
@@ -218,7 +258,8 @@ internal sealed partial class OverlayShapeEditor
     OverlayShapeGeometry.Corners(_resolved, _corners);
     for (int i = 0; i < _arcs.Count; i++)
     {
-      bool corner = HasCorners && i < _corners.Count;
+      // Gradient handles may sit on a corner; its arc steps aside meanwhile.
+      bool corner = HasCorners && i < _corners.Count && !_handles.Visible;
       string key = "radius:" + i;
       bool editing = corner && _field == key;
       _arcs[i].gameObject.SetActive(corner);
@@ -245,6 +286,17 @@ internal sealed partial class OverlayShapeEditor
       radius.Place(center.x - radius.Width * .5f, center.y - OverlayFormulaField.Height * .5f);
       radius.Root.SetAsLastSibling();
     }
+  }
+
+  // The width the shape and its bar center in: the screen, or the space left
+  // of an open picker.
+  private void PreviewSpace(out float left, out float right)
+  {
+    left = OverlayEditorFrame.Margin;
+    right = _screen.Width - OverlayEditorFrame.Margin;
+    if (_picker != null && _picker.Visible)
+      right = Mathf.Min(right, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+    right = _space.Toward(right, _reduceMotion());
   }
 
   // A box-space point in frame units.
@@ -296,8 +348,8 @@ internal sealed partial class OverlayShapeEditor
       return;
     bool open = _field == key;
     CloseEditing();
-    // The picker's own opacity keeps it open.
-    if (_picker.Visible && !key.EndsWith("opacity"))
+    // The picker's own numbers keep it open.
+    if (_picker.Visible && !PickerKey(key))
       _picker.Hide();
     if (!open)
       _field = key;
@@ -354,8 +406,9 @@ internal sealed partial class OverlayShapeEditor
     Render();
   }
 
-  private static string FieldName(string key) =>
-    Kind(key, out int index) switch
+  private string FieldName(string key) =>
+    GradientFieldName(Kind(key, out _), PickedRank)
+    ?? Kind(key, out int index) switch
     {
       "width" => L("너비", "Width"),
       "height" => L("높이", "Height"),
@@ -364,6 +417,18 @@ internal sealed partial class OverlayShapeEditor
       "stroke-opacity" => L("테두리 불투명도", "Border opacity"),
       _ => L("꼭짓점 ", "Corner ") + (index + 1) + L(" 둥글기", " rounding"),
     };
+
+  // The picked color's place from the start of the gradient, counting from 1.
+  private int PickedRank
+  {
+    get
+    {
+      OverlayColorSettings color = PickedColor;
+      return color != null && color.IsGradient
+        ? OverlayGradientEdits.Order(color.Gradient).IndexOf(_picker.SelectedStop) + 1
+        : 1;
+    }
+  }
 
   // A value picked in the dock joins or replaces the open number's formula.
   private void PickValue(OverlayValueDefinition value)
@@ -386,6 +451,9 @@ internal sealed partial class OverlayShapeEditor
 
   private OverlayFormula Read(string key)
   {
+    OverlayFormula gradient = ReadGradient(Kind(key, out _));
+    if (gradient != null)
+      return gradient;
     float scale = _elementScale;
     switch (Kind(key, out int index))
     {
@@ -415,6 +483,8 @@ internal sealed partial class OverlayShapeEditor
   private void Write(string key, OverlayFormula formula)
   {
     Remember(key);
+    if (WriteGradient(Kind(key, out _), formula))
+      return;
     float scale = _elementScale;
     bool plain = formula.IsPlainNumber(out double value);
     string text = plain ? "" : formula.Serialize();
@@ -482,6 +552,8 @@ internal sealed partial class OverlayShapeEditor
       _screen.Notice(L("테두리 두께는 0–100px 사이로 맞췄어요", "Border width was kept between 0 and 100px"));
     else if (kind.EndsWith("opacity") && OverlayOpacityField.OutOfRange(typed))
       _screen.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
+    else if (kind.EndsWith("position") && (number < 0 || number > 100))
+      _screen.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
     else if (kind == "radius" && !Read(key).SameAs(OverlayFormula.FromNumber(number)))
       _screen.Notice(L("둥글기는 이 꼭짓점에 들어가는 만큼만 적용돼요", "Rounding was kept to what fits this corner"));
   }
@@ -544,6 +616,8 @@ internal sealed partial class OverlayShapeEditor
         Render();
         continue;
       }
+      if (GradientKey(code, _event.shift))
+        continue;
       if (_editing.Active && OverlayKeypad.TryKeyboard(_event, out char key))
         KeypadPress(key);
     }
@@ -552,7 +626,7 @@ internal sealed partial class OverlayShapeEditor
   // A click on the empty dim closes what is open.
   private void HandleMouse()
   {
-    if (_dragValue != null || _dock.Dragging || !Input.GetMouseButtonDown(0))
+    if (_dragValue != null || _dock.Dragging || _handles.Dragging || !Input.GetMouseButtonDown(0))
       return;
     Vector2 screen = Input.mousePosition;
     if (OverControl(screen))
@@ -573,6 +647,7 @@ internal sealed partial class OverlayShapeEditor
       || _dock.Contains(screen)
       || _growPopover.Contains(screen)
       || OverlayEditorUi.Contains(_picker.Root, screen)
+      || _handles.Contains(screen)
       || _screen.ToFrame(screen).y < OverlayEditorFrame.TopBar
     )
       return true;
@@ -627,6 +702,12 @@ internal sealed partial class OverlayShapeEditor
     }
     else if (key != null)
     {
+      // A value dropped on a gradient square drives that color's position.
+      if (Kind(key, out int stop).EndsWith("position") && stop >= 0)
+      {
+        _picker.SelectStop(stop);
+        key = PositionKey;
+      }
       if (!value.IsNumeric)
         RefuseWords(value);
       else
@@ -659,8 +740,18 @@ internal sealed partial class OverlayShapeEditor
     {
       if (_opacity.Contains(screen))
         return OpacityKey;
+      if (_picker.IsGradient && _position.Contains(screen))
+        return PositionKey;
       accepted = true;
       return null;
+    }
+    if (_handles.Visible)
+    {
+      if (_handles.Angle.Contains(screen))
+        return AngleKey;
+      int square = _handles.SquareAt(screen);
+      if (square >= 0)
+        return PositionKey + ":" + square;
     }
     if (_dock.FormulaContains(screen))
     {
@@ -729,7 +820,7 @@ internal sealed partial class OverlayShapeEditor
     _field = field;
     _pickerSnapshotTaken = false;
     if (_picker.Visible)
-      ShowPicker();
+      ShowPicker(keepStop: true);
     Render();
   }
 }

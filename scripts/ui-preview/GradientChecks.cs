@@ -157,6 +157,39 @@ namespace Element.Editor
       for (int i = 0; i < original.Count; i++)
         fps.Settings.Text.Runs[i].Color = original[i];
       fps.Apply();
+
+      // The text editor: the same bar makes the whole text a gradient, with
+      // handles over the text's box; Cancel leaves the text as it was.
+      Select(editor, IndexOf(editor, fps));
+      Call(editor, "UpdateToolbar");
+      Field<Button>(editor, "_editContent").onClick.Invoke();
+      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      Assert(text.IsOpen, "Edit text opens the text editor");
+      Call(text, "OpenPicker");
+      SettingsColorPicker textPicker = Field<SettingsColorPicker>(text, "_picker");
+      Call(textPicker, "SetSource", false);
+      RectTransform textBar = Field<RectTransform>(textPicker, "_bar");
+      Invoke(textPicker, "BarDown", Pointer(BarPoint(textBar, 1)));
+      Invoke(textPicker, "BarDrag", Pointer(BarPoint(textBar, 1)));
+      OverlayColorSettings range = (OverlayColorSettings)text.GetType().GetMethod("RangeColor", Private).Invoke(text, null);
+      OverlayGradientHandles textHandles = Field<OverlayGradientHandles>(text, "_handles");
+      Assert(range.IsGradient && textPicker.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
+      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      Assert(OverlayTextGradients.Box(preview.textInfo, out Rect box) && box.width > 0, "the handles measure the text's box");
+      Rect textRect = ScreenRectOf(preview.rectTransform);
+      Vector2 origin = Field<Vector2>(textHandles, "_origin");
+      float unitScale = Field<float>(textHandles, "_scale");
+      Vector2 originScreen = new Vector2(origin.x, Screen.height / Field<OverlayEditorFrame>(text, "_screen").Scale - origin.y) * Field<OverlayEditorFrame>(text, "_screen").Scale;
+      RectTransform handleRoot = Field<RectTransform>(textHandles, "_root");
+      Rect angleRect = ScreenRectOf(textHandles.Angle.Root);
+      Assert(Mathf.Abs(originScreen.x - textRect.xMin) < 3 && originScreen.y >= textRect.yMax - 3 && originScreen.y <= textRect.yMax + 6
+        && angleRect.Overlaps(new Rect(textRect.x - 80, textRect.y - 80, textRect.width + 160, textRect.height + 160)),
+        "the handles and the angle sit over the text: origin " + origin + " (" + originScreen + ") scale " + unitScale + " text " + textRect
+        + " box " + box + " root " + handleRoot.rect + " " + ScreenRectOf(handleRoot) + " angle " + angleRect + " " + textHandles.Angle.Root.anchoredPosition);
+      SaveFrame(camera, texture, canvases, name + "-gradient-text-editor");
+      Assert(ScreenRectOf(textHandles.Angle.Root) == angleRect, "the handles stay put whatever camera draws the editor");
+      text.Close(false, true);
+      Assert(!text.IsOpen && !fps.Settings.Text.Runs.Any(run => run.Color.IsGradient), "Cancel leaves the text's colors as they were");
     }
 
     private static Vector2 BarPoint(RectTransform bar, float position)

@@ -140,13 +140,8 @@ internal sealed partial class OverlayTextEditor
     // The handles keep the color they move until they let go.
     if (!_handles.Dragging || _handleColor == null)
       _handleColor = color.Clone();
-    RectTransform rect = _preview.rectTransform;
-    Vector2 topLeft = _screen.ToFrame(
-      RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector3(box.xMin, box.yMax, 0)))
-    );
-    Vector2 bottomRight = _screen.ToFrame(
-      RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(new Vector3(box.xMax, box.yMin, 0)))
-    );
+    Vector2 topLeft = InFrame(new Vector3(box.xMin, box.yMax, 0));
+    Vector2 bottomRight = InFrame(new Vector3(box.xMax, box.yMin, 0));
     float scale = (bottomRight.x - topLeft.x) / Mathf.Max(.001f, box.width);
     _handles.Show(
       _handleColor,
@@ -163,6 +158,15 @@ internal sealed partial class OverlayTextEditor
     ShowNumber(_position, PositionKey, () => ReadStop(true));
     _picker.PlacePosition(_position.Width);
     _position.Place(0, 0);
+  }
+
+  // A point of the text (its local space) in frame units from the top left,
+  // through the transforms alone, so it holds whatever camera draws the canvas.
+  private Vector2 InFrame(Vector3 local)
+  {
+    Vector3 point = _frame.InverseTransformPoint(_preview.rectTransform.TransformPoint(local));
+    Rect frame = _frame.rect;
+    return new Vector2(point.x - frame.xMin, frame.yMax - point.y);
   }
 
   private void ShowNumber(OverlayFormulaField field, string key, System.Func<OverlayFormula> read)

@@ -169,6 +169,8 @@ namespace Element.Editor
       Assert(cutouts.Count == 1 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
         "native viewers get the toolbar as a rounded cutout: " + cutouts.Count);
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 1, "only the selected element has an outline");
+      Assert(!Field<bool>(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Single(), "_handles"),
+        "a text's outline has no resize handles");
       // Without a selection the scale shows again; key viewers use it.
       Select(editor, -1);
       Assert(Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf && !Field<Button>(editor, "_editContent").gameObject.activeSelf,
@@ -696,6 +698,8 @@ namespace Element.Editor
       Assert(selection.Count == 2 && selection.Contains(texts[0]) && selection.Contains(texts[1]) && Field<int>(editor, "_selected") == b,
         "Cmd/Ctrl + click adds an element");
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 2, "each selected element has its outline");
+      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).All(outline => !Field<bool>(outline, "_handles")),
+        "several selected show no resize handles");
       Assert(Field<TextMeshProUGUI>(editor, "_instruction").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
       TMP_InputField scaleInput = Field<TMP_InputField>(editor, "_scaleInput");
       Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && scaleInput.gameObject.activeSelf && !scaleInput.interactable

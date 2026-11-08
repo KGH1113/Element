@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Element.Configuration;
+using Element.Domain.Elements;
 using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
@@ -11,7 +12,7 @@ namespace Element.Presentation.Settings;
 
 // One retained picker serves the shared overlay highlight and independent RGBA
 // planet colors. It owns gesture state; consumers decide what the color affects.
-internal sealed class SettingsColorPicker : IDisposable
+internal sealed partial class SettingsColorPicker : IDisposable
 {
   public const float Width = 288;
   private readonly SettingsUiFactory _ui;
@@ -51,7 +52,7 @@ internal sealed class SettingsColorPicker : IDisposable
   private const float SourceRow = 44;
   public RectTransform Root { get; }
   public float Height =>
-    _column ? (_followsHighlight ? 142 : 334)
+    _column ? (_followsHighlight ? 142 : 334) + GradientExtra
     : !_sourceMode ? (_allowOpacity ? 358 : 318)
     : _followsHighlight ? 206
     : 358 + SourceRow;
@@ -221,6 +222,7 @@ internal sealed class SettingsColorPicker : IDisposable
     resetText.fontSize = 14;
     resetText.textWrappingMode = TextWrappingModes.NoWrap;
     _error = _ui.Text("", Root, 16, 297, 256, 16, 11, new Color(1, .66f, .53f));
+    BuildGradient();
     Root.gameObject.SetActive(false);
   }
 
@@ -235,6 +237,7 @@ internal sealed class SettingsColorPicker : IDisposable
     _sourceMode = false;
     _followsHighlight = false;
     _sourceChanged = null;
+    _working = null;
     _changed = changed;
     _allowOpacity = opacity;
     _title.text = title;
@@ -245,9 +248,16 @@ internal sealed class SettingsColorPicker : IDisposable
 
   /// <summary>
   /// Overlay element colors: follow the highlight color, keeping only their own
-  /// opacity, or a custom color with opacity.
+  /// opacity, or a custom color with opacity. Laid out as a column, the color
+  /// bar on top makes gradients; <paramref name="keepStop"/> stays on the
+  /// picked stop when the same color shows again, as after undo.
   /// </summary>
-  public void ShowSource(string title, OverlayColorSettings value, Action<OverlayColorSettings> changed)
+  public void ShowSource(
+    string title,
+    OverlayColorSettings value,
+    Action<OverlayColorSettings> changed,
+    bool keepStop = false
+  )
   {
     value ??= OverlayColorSettings.HighlightColor();
     _sourceMode = true;
@@ -256,8 +266,18 @@ internal sealed class SettingsColorPicker : IDisposable
     _sourceChanged = changed;
     _allowOpacity = true;
     _title.text = title;
+    _working = value.Clone();
+    _dragging = -1;
+    if (_working.IsGradient && !(keepStop && _stop >= 0 && _stop < _working.Gradient.Stops.Count))
+      _stop = OverlayGradientEdits.Order(_working.Gradient)[0];
     Color color = value.Highlight ? OverlayTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(value.Hex);
     color.a = Mathf.Clamp01(value.Alpha);
+    if (IsGradient)
+    {
+      OverlayGradientStop stop = _working.Gradient.Stops[_stop];
+      color = value.Highlight ? OverlayTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(stop.Hex);
+      color.a = Mathf.Clamp01(ShownAlpha?.Invoke(_stop) ?? stop.Alpha);
+    }
     _source.Selected = value.Highlight ? 0 : 1;
     Open(color);
   }
@@ -274,6 +294,8 @@ internal sealed class SettingsColorPicker : IDisposable
   private void SetSource(bool highlight)
   {
     if (!_sourceMode || _followsHighlight == highlight)
+      return;
+    if (SetGradientSource(highlight))
       return;
     _followsHighlight = highlight;
     Color color = highlight ? OverlayTheme.Accent : _value;
@@ -298,6 +320,8 @@ internal sealed class SettingsColorPicker : IDisposable
     _opacity.gameObject.SetActive(_allowOpacity && !_externalOpacity);
     _opacitySlot.gameObject.SetActive(_allowOpacity && _externalOpacity);
     _reset.gameObject.SetActive(!_sourceMode && !_allowOpacity && _hasDefault);
+    if (!_column)
+      LayoutGradient(0, 0);
     if (_column)
     {
       LayoutColumn(custom);
@@ -335,12 +359,14 @@ internal sealed class SettingsColorPicker : IDisposable
   {
     const float column = 256;
     float left = (_columnWidth - column) * .5f;
-    SettingsUiFactory.Place(_source.Root, left, 0, column, 36);
+    LayoutGradient(left, column);
+    float top = GradientTop;
+    SettingsUiFactory.Place(_source.Root, left, top, column, 36);
     if (custom)
     {
       const float square = 156;
-      float y = 44 + square + 6;
-      SettingsUiFactory.Place(_planeRect, left, 44, column, square);
+      float y = top + 44 + square + 6;
+      SettingsUiFactory.Place(_planeRect, left, top + 44, column, square);
       SettingsUiFactory.Place((RectTransform)_hue.transform, left - 10, y, column + 20, 36);
       SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, y + 32, column + 20, 36);
       SettingsUiFactory.Place(_error.rectTransform, left, y + 70, column, 14);
@@ -351,12 +377,17 @@ internal sealed class SettingsColorPicker : IDisposable
     }
     else
     {
-      // Following the highlight leaves only its opacity.
-      SettingsUiFactory.Place(_opacityLabel.rectTransform, left, 44, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, 44, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, left + 184, 44, 72, 40);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, 92, column + 20, 36);
-      SettingsUiFactory.Place(_error.rectTransform, left, 128, column, 14);
+      // Following the highlight leaves only its opacity: a gradient's stops
+      // differ only in opacity, which the label names for the picked stop.
+      _opacityLabel.text = IsGradient
+        ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
+        : L("불투명도", "Opacity");
+      SettingsUiFactory.Place(_opacityLabel.rectTransform, left, top + 44, 176, 40);
+      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, top + 44, 72, 40);
+      SettingsUiFactory.Place(_opacitySlot, left + 184, top + 44, 72, 40);
+      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, top + 92, column + 20, 36);
+      SettingsUiFactory.Place(_error.rectTransform, left, top + 128, column, 14);
+      SettingsUiFactory.Place(_highlightNote.rectTransform, left, top + 142, column, NoteHeight);
     }
     Resize();
   }
@@ -499,6 +530,7 @@ internal sealed class SettingsColorPicker : IDisposable
   {
     if (!_allowOpacity)
       color.a = 1;
+    float alphaBefore = _value.a;
     _value = color;
     _syncing = true;
     _plane.Set(_h, _s, _v);
@@ -519,12 +551,10 @@ internal sealed class SettingsColorPicker : IDisposable
     if (notify)
     {
       _changed?.Invoke(color);
-      _sourceChanged?.Invoke(
-        _followsHighlight
-          ? OverlayColorSettings.HighlightColor(color.a)
-          : OverlayColorSettings.Custom("#" + ColorUtility.ToHtmlStringRGB(color), color.a)
-      );
+      if (_sourceChanged != null)
+        _sourceChanged(SourceValue(color, alphaBefore));
     }
+    RefreshGradient();
     _ui.RefreshTheme();
     _syncing = false;
   }

@@ -119,7 +119,7 @@ internal sealed partial class OverlayTextEditor
       mask |= OverlayFormulaText.Compile(item.SizeFormula)?.Mask ?? 0;
       mask |= OverlayFormulaText.Compile(item.Color.AlphaFormula)?.Mask ?? 0;
     }
-    return mask;
+    return mask | (_previewGradients?.Mask ?? 0);
   }
 
   private OverlayColorSettings TypingColor(int caret) =>
@@ -275,17 +275,18 @@ internal sealed partial class OverlayTextEditor
   private void HandleMouse()
   {
     Vector2 screen = Input.mousePosition;
-    if (_dragValue != null || _dock.Dragging)
+    if (_dragValue != null || _dock.Dragging || _handles.Dragging)
       return;
     if (Input.GetMouseButtonDown(0))
     {
-      // Popovers, the bar and the picker handle their own clicks.
+      // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         _dock.Contains(screen)
         || _growPopover.Contains(screen)
         || _fontPopover.Contains(screen)
         || OverlayEditorUi.Contains(_formatBar, screen)
         || OverlayEditorUi.Contains(_picker.Root, screen)
+        || _handles.Contains(screen)
       )
         return;
       bool popover = AnyPopover;
@@ -544,7 +545,9 @@ internal sealed partial class OverlayTextEditor
     Color swatch = OverlayTextComposer.Resolve(RangeColor(), OverlayTheme.Accent);
     swatch.a = 1;
     _colorButton.Swatch = swatch;
+    ShowSwatchGradient(RangeColor());
     PlacePicker();
+    ShowGradient();
     PlaceFontPopover();
     RefreshDock();
     PlaceGrowMark();
@@ -604,6 +607,7 @@ internal sealed partial class OverlayTextEditor
     _builder.Clear();
     Color highlight = OverlayTheme.Accent;
     IOverlayNumberSource samples = _values.WithSamples;
+    BeginComposeGradients(highlight);
     OverlayTextItem? open = null;
     float openSize = 0;
     string openFont = null;
@@ -621,12 +625,7 @@ internal sealed partial class OverlayTextEditor
           _elementScale
         );
         string typingFont = FontTag(TypingFont(i));
-        OverlayTextComposer.OpenStyle(
-          _builder,
-          OverlayTextComposer.Resolve(TypingColor(i), highlight),
-          typing,
-          typingFont
-        );
+        OverlayTextComposer.OpenStyle(_builder, PaintColor(TypingColor(i), highlight, samples), typing, typingFont);
         _builder.Append("<u>");
         OverlayTextComposer.AppendLiteral(_builder, _composition);
         _builder.Append("</u>");
@@ -683,8 +682,8 @@ internal sealed partial class OverlayTextEditor
   private float ItemSize(OverlayTextItem item, IOverlayNumberSource samples) =>
     OverlayTextComposer.Size(item.Size, OverlayFormulaText.Compile(item.SizeFormula), samples, _elementScale);
 
-  private static Color ItemColor(OverlayTextItem item, Color highlight, IOverlayNumberSource samples) =>
-    OverlayTextComposer.Resolve(item.Color, highlight, OverlayFormulaText.Compile(item.Color.AlphaFormula), samples);
+  private Color ItemColor(OverlayTextItem item, Color highlight, IOverlayNumberSource samples) =>
+    PaintColor(item.Color, highlight, samples);
 
   // Where each item's characters are in the laid-out text.
   private void Map()

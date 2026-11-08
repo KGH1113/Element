@@ -155,6 +155,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _dropCaret = _ui.Panel("Drop caret", preview, 0, 0, 3, 10, SettingsPalette.SoftAccent, false);
     Anchor(_dropCaret.rectTransform);
     _dropCaret.enabled = false;
+    BuildGradient();
 
     BuildFormatBar();
     _bottomTop = _screen.Height - 40;
@@ -175,6 +176,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _picker = new SettingsColorPicker(_frame, _uiFont, _reduceMotion);
     _picker.Hidden = PickerHidden;
     _opacity = new OverlayOpacityField(_ui, _picker, () => ActivateField(OpacityKey), _reduceMotion());
+    BuildGradientPicker();
     _dock = new OverlayInputDock(
       _ui,
       _frame,
@@ -298,7 +300,9 @@ internal sealed partial class OverlayTextEditor : IDisposable
           _pickerSnapshotTaken = true;
         }
         OverlayColorSettings before = RangeColor();
-        color = _opacity.Keep(before, color);
+        // A gradient's stops keep their own calculated opacities.
+        if (!color.IsGradient)
+          color = _opacity.Keep(before, color);
         if (start < end)
           _document.SetColor(start, end, color);
         else
@@ -318,8 +322,8 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _pickerSnapshotTaken = false;
     if (_screen == null || _picker == null)
       return;
-    // Its opacity goes with it.
-    if (_fieldSlot == OpacityKey)
+    // Its numbers go with it.
+    if (_fieldSlot == OpacityKey || GradientKey(_fieldSlot))
       ClosePopovers();
     Render();
   }

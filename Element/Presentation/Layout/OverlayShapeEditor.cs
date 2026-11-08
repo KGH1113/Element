@@ -151,6 +151,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
       );
       _radiusFields.Add(Field(L("꼭짓점 둥글기 값 ", "Corner radius ") + (i + 1), "radius:" + i, "R"));
     }
+    BuildGradient();
 
     BuildBar();
     _dock = new OverlayInputDock(
@@ -173,6 +174,7 @@ internal sealed partial class OverlayShapeEditor : IDisposable
     // The color picker opens right above the keypad.
     _picker.LayOutAsColumn(_dock.KeypadArea.width);
     _opacity = new OverlayOpacityField(_ui, _picker, () => Activate(OpacityKey), _reduceMotion());
+    BuildGradientPicker();
     _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
     _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
@@ -244,8 +246,9 @@ internal sealed partial class OverlayShapeEditor : IDisposable
     Render();
   }
 
-  // Shows the fill's or the border's color; undo shows it again as restored.
-  private void ShowPicker()
+  // Shows the fill's or the border's color; undo shows it again as restored,
+  // on the same gradient stop.
+  private void ShowPicker(bool keepStop = false)
   {
     bool stroke = _pickerForStroke;
     _picker.ShowSource(
@@ -259,7 +262,9 @@ internal sealed partial class OverlayShapeEditor : IDisposable
           _pickerSnapshotTaken = true;
         }
         OverlayColorSettings before = stroke ? _shape.Stroke : _shape.Fill;
-        color = _opacity.Keep(before, color);
+        // A gradient's stops keep their own calculated opacities.
+        if (!color.IsGradient)
+          color = _opacity.Keep(before, color);
         // A moved slider replaces the opacity the dock is calculating.
         if (_field == OpacityKey && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
           _editing.Deactivate();
@@ -273,7 +278,8 @@ internal sealed partial class OverlayShapeEditor : IDisposable
         else
           _shape.Fill = color;
         Render();
-      }
+      },
+      keepStop
     );
   }
 
@@ -290,8 +296,8 @@ internal sealed partial class OverlayShapeEditor : IDisposable
     _pickerSnapshotTaken = false;
     if (_screen == null || _picker == null)
       return;
-    // Its opacity goes with it.
-    if (_field != null && Kind(_field, out _).EndsWith("opacity"))
+    // Its numbers go with it.
+    if (_field != null && PickerKey(_field))
       CloseEditing();
     Render();
   }

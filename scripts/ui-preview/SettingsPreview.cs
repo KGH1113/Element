@@ -27,7 +27,7 @@ using Object = UnityEngine.Object;
 
 namespace Element.Editor
 {
-  public static class SettingsPreview
+  public static partial class SettingsPreview
   {
     private const BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
     private static int _checks;
@@ -237,6 +237,7 @@ namespace Element.Editor
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
+      CheckGradients(editor, host, camera, texture, canvases, name);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();

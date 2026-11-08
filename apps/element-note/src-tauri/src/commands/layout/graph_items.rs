@@ -7,6 +7,7 @@ use crate::{
     },
     errors::CmdResult,
     models::{EditorCommitOrigin, EditorField, GraphPositions},
+    state::native_element_id::adapt_legacy_graph_positions,
 };
 
 #[tauri::command]
@@ -31,7 +32,7 @@ pub async fn graph_positions_update(
                     &[EditorField::GraphPositions],
                     admission,
                     move |store| {
-                        store.graph_positions = positions;
+                        store.graph_positions = adapt_legacy_graph_positions(store, positions)?;
                         Ok(())
                     },
                 )?;

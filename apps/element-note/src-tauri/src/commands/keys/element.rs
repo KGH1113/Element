@@ -412,7 +412,10 @@ pub async fn positions_update(
                 &[EditorField::KeyPositions],
                 admission,
                 move |store| {
-                    store.key_positions = positions;
+                    store.key_positions =
+                        crate::state::native_element_id::adapt_legacy_key_positions(
+                            store, positions,
+                        )?;
                     Ok(())
                 },
             )?;

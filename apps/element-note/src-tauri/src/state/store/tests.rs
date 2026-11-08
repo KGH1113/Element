@@ -19603,3 +19603,239 @@ fn orphan_sweep_continues_recovery_and_protects_failed_backup() {
 
     let _ = std::fs::remove_dir_all(dir);
 }
+
+// 기존 편집기의 위치 저장 명령과 같은 커밋: 컬렉션 전체를 바꾸고, ID는 저장 경계에서 정한다
+fn save_like_legacy_editor(
+    store: &AppStore,
+    command: &str,
+    field: EditorField,
+    replace: impl FnOnce(&mut AppStoreData) -> std::result::Result<(), EditorCommitError>,
+) -> std::result::Result<(), EditorCommitError> {
+    store
+        .commit_legacy_editor_transaction(
+            EditorCommitOrigin::LegacyAdapter(command.to_string()),
+            &[field],
+            replace,
+        )
+        .map(|_| ())
+}
+
+fn save_stat_positions_like_editor(
+    store: &AppStore,
+    positions: HashMap<String, Vec<StatPosition>>,
+) -> std::result::Result<(), EditorCommitError> {
+    save_like_legacy_editor(
+        store,
+        "stat_positions_update",
+        EditorField::StatPositions,
+        |data| {
+            data.stat_positions =
+                crate::state::native_element_id::adapt_legacy_stat_positions(data, positions)?;
+            Ok(())
+        },
+    )
+}
+
+// addStatAtPosition이 보내는 새 KPS 항목 그대로 - 편집기는 ID를 만들지 않는다
+fn editor_new_kps_item(dx: f64) -> StatPosition {
+    serde_json::from_value(json!({
+        "statType": "kps", "dx": dx, "dy": 120, "width": 60, "height": 60,
+        "hidden": false, "activeImage": "", "inactiveImage": "", "soundPath": "",
+        "soundVolume": 100, "activeTransparent": false, "idleTransparent": false,
+        "count": 0, "noteColor": "#FFFFFF", "noteOpacity": 80, "noteAlignment": "center",
+        "noteEffectEnabled": true, "noteGlowEnabled": false, "noteGlowSize": 20,
+        "noteGlowOpacity": 70, "noteGlowColor": "#FFFFFF", "noteAutoYCorrection": true,
+        "className": "",
+        "counter": crate::models::KeyCounterSettings::default(),
+    }))
+    .unwrap()
+}
+
+#[test]
+fn editor_saves_a_new_kps_item_in_every_tab_and_keeps_the_other_ids() {
+    let dir = test_directory("legacy-editor-new-kps");
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::initialize_for_test(&dir).unwrap();
+    let mut modes = store.snapshot().keys.keys().cloned().collect::<Vec<_>>();
+    modes.sort();
+    assert!(!modes.is_empty());
+
+    for mode in modes {
+        let before = store.snapshot().stat_positions;
+        let mut positions = before.clone();
+        positions
+            .entry(mode.clone())
+            .or_default()
+            .push(editor_new_kps_item(40.0));
+        save_stat_positions_like_editor(&store, positions)
+            .unwrap_or_else(|error| panic!("adding KPS to {mode} failed: {error:?}"));
+
+        let saved = store.snapshot().stat_positions;
+        let previous = before.get(&mode).cloned().unwrap_or_default();
+        let current = &saved[&mode];
+        assert_eq!(current.len(), previous.len() + 1);
+        for (old, new) in previous.iter().zip(current) {
+            assert_eq!(old.position.id, new.position.id);
+        }
+        let added = &current.last().unwrap().position.id;
+        assert!(crate::state::native_element_id::is_valid_element_id(added));
+        assert!(before
+            .values()
+            .flatten()
+            .all(|item| &item.position.id != added));
+    }
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn editor_saves_a_duplicated_kps_item_under_its_own_id() {
+    let dir = test_directory("legacy-editor-duplicate-kps");
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::initialize_for_test(&dir).unwrap();
+    let mode = "hand-4k";
+    let mut positions = store.snapshot().stat_positions;
+    positions
+        .entry(mode.to_string())
+        .or_default()
+        .push(editor_new_kps_item(40.0));
+    save_stat_positions_like_editor(&store, positions).unwrap();
+
+    // 복제는 원본을 펼쳐 복사하므로 원본 ID를 그대로 들고 온다
+    let mut positions = store.snapshot().stat_positions;
+    let source = positions[mode].last().unwrap().clone();
+    let mut copy = source.clone();
+    copy.position.dx += 60.0;
+    positions.get_mut(mode).unwrap().push(copy);
+    save_stat_positions_like_editor(&store, positions).unwrap();
+
+    let saved = &store.snapshot().stat_positions[mode];
+    assert_eq!(saved[saved.len() - 2].position.id, source.position.id);
+    let copy_id = &saved.last().unwrap().position.id;
+    assert_ne!(copy_id, &source.position.id);
+    assert!(crate::state::native_element_id::is_valid_element_id(
+        copy_id
+    ));
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn editor_saving_a_kps_item_again_before_it_learns_the_id_keeps_that_id() {
+    let dir = test_directory("legacy-editor-resave-kps");
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::initialize_for_test(&dir).unwrap();
+    let mode = "hand-4k";
+    let mut positions = store.snapshot().stat_positions;
+    positions
+        .entry(mode.to_string())
+        .or_default()
+        .push(editor_new_kps_item(40.0));
+    save_stat_positions_like_editor(&store, positions.clone()).unwrap();
+    let saved_id = store.snapshot().stat_positions[mode]
+        .last()
+        .unwrap()
+        .position
+        .id
+        .clone();
+
+    // 같은 목록을 ID 없는 새 항목째로 한 번 더 저장한다
+    save_stat_positions_like_editor(&store, positions).unwrap();
+
+    let saved = &store.snapshot().stat_positions[mode];
+    assert_eq!(saved.last().unwrap().position.id, saved_id);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn editor_saves_new_graph_and_knob_items() {
+    let dir = test_directory("legacy-editor-new-graph-knob");
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::initialize_for_test(&dir).unwrap();
+    let mode = "hand-4k";
+
+    let graph: GraphPosition = serde_json::from_value(json!({
+        "statType": "kps", "graphType": "line", "graphSpeed": 1000,
+        "graphColor": "#86EFAC", "showAvgLine": true,
+        "dx": 40, "dy": 120, "width": 120, "height": 60, "count": 0,
+    }))
+    .unwrap();
+    let mut graphs = store.snapshot().graph_positions;
+    graphs.entry(mode.to_string()).or_default().push(graph);
+    save_like_legacy_editor(
+        &store,
+        "graph_positions_update",
+        EditorField::GraphPositions,
+        |data| {
+            data.graph_positions =
+                crate::state::native_element_id::adapt_legacy_graph_positions(data, graphs)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let knob: KnobPosition = serde_json::from_value(json!({
+        "dx": 200, "dy": 120, "width": 60, "height": 60, "count": 0,
+    }))
+    .unwrap();
+    let mut knobs = store.snapshot().knob_positions;
+    knobs.entry(mode.to_string()).or_default().push(knob);
+    save_like_legacy_editor(
+        &store,
+        "knob_positions_update",
+        EditorField::KnobPositions,
+        |data| {
+            data.knob_positions =
+                crate::state::native_element_id::adapt_legacy_knob_positions(data, knobs)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let snapshot = store.snapshot();
+    let graph_id = &snapshot.graph_positions[mode].last().unwrap().position.id;
+    let knob_id = &snapshot.knob_positions[mode].last().unwrap().position.id;
+    assert!(crate::state::native_element_id::is_valid_element_id(
+        graph_id
+    ));
+    assert!(crate::state::native_element_id::is_valid_element_id(
+        knob_id
+    ));
+    assert_ne!(graph_id, knob_id);
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn editor_moves_a_pasted_key_it_has_no_id_for() {
+    let dir = test_directory("legacy-editor-key-without-id");
+    std::fs::create_dir_all(&dir).unwrap();
+    let store = AppStore::initialize_for_test(&dir).unwrap();
+    let mode = "hand-4k";
+    let before = store.snapshot().key_positions;
+    let saved_id = before[mode][0].id.clone();
+
+    // 붙여넣은 키는 편집기 쪽에 ID가 돌아오지 않은 채 남을 수 있다
+    let mut positions = before.clone();
+    let key = &mut positions.get_mut(mode).unwrap()[0];
+    key.id.clear();
+    key.dx += 20.0;
+    save_like_legacy_editor(
+        &store,
+        "positions_update",
+        EditorField::KeyPositions,
+        |data| {
+            data.key_positions =
+                crate::state::native_element_id::adapt_legacy_key_positions(data, positions)?;
+            Ok(())
+        },
+    )
+    .unwrap();
+
+    let saved = &store.snapshot().key_positions[mode][0];
+    assert_eq!(saved.id, saved_id);
+    assert_eq!(saved.dx, before[mode][0].dx + 20.0);
+
+    let _ = std::fs::remove_dir_all(dir);
+}

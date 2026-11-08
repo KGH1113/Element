@@ -35,6 +35,10 @@ import type { KnobItemPosition, KnobItemPositions } from '@src/types/key/knobs';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
 import {
+  saveItemPositions,
+  syncItemPositionsToOverlay,
+} from '@src/renderer/editor/runtime/itemPositions';
+import {
   normalizeLayerGroupsForMode,
   buildNextLayerGroupName,
   buildLayerItemsForMode,
@@ -888,15 +892,8 @@ export function useGridSelection({
         ...current,
         [selectedKeyType]: posArray,
       };
+      // 아래 통합 저장에서 최종 zIndex와 함께 저장하고 오버레이에 보낸다.
       useKnobItemStore.getState().setPositions(updatedPositions);
-      window.api.knobItems.updatePositions(updatedPositions).catch(() => {});
-      try {
-        window.api.bridge.sendTo('overlay', 'knobPositions:sync', {
-          positions: updatedPositions,
-        });
-      } catch {
-        // 무시
-      }
     }
 
     // 플러그인 요소 추가
@@ -998,16 +995,27 @@ export function useGridSelection({
     useStatItemStore.getState().setLocalUpdateInProgress(true);
     useGraphItemStore.getState().setLocalUpdateInProgress(true);
     useKnobItemStore.getState().setLocalUpdateInProgress(true);
+    // 하나가 실패해도 나머지는 저장한다. 실패한 쪽은 저장된 상태로 되돌린다.
+    // 순서대로 저장해야 키 커밋이 읽은 편집 revision이 중간에 바뀌지 않는다.
     try {
-      await window.api.editor.commitChanges({
-        keys: useKeyStore.getState().keyMappings,
-        keyPositions: patch.keyPositions,
-      });
-      await window.api.statItems.updatePositions(patch.statPositions);
-      await window.api.graphItems.updatePositions(patch.graphPositions);
-      await window.api.knobItems.updatePositions(patch.knobPositions);
-    } catch (error) {
-      console.error('Failed to sync zIndex after paste', error);
+      try {
+        await window.api.editor.commitChanges({
+          keys: useKeyStore.getState().keyMappings,
+          keyPositions: patch.keyPositions,
+        });
+      } catch (error) {
+        await revertUnsavedKeyChange(error, ['keys', 'keyPositions']);
+      }
+      const itemSaves = [
+        () => saveItemPositions('statPositions', patch.statPositions),
+        () => saveItemPositions('graphPositions', patch.graphPositions),
+        () => saveItemPositions('knobPositions', patch.knobPositions),
+      ];
+      for (const save of itemSaves) {
+        await save().catch((error: unknown) => {
+          console.error('Failed to save pasted elements', error);
+        });
+      }
     } finally {
       useKeyStore.getState().setLocalUpdateInProgress(false);
       useStatItemStore.getState().setLocalUpdateInProgress(false);
@@ -1017,24 +1025,12 @@ export function useGridSelection({
 
     try {
       window.api.bridge.sendTo('overlay', 'positions:sync', {
-        positions: patch.keyPositions,
+        positions: useKeyStore.getState().positions,
       });
     } catch {}
-    try {
-      window.api.bridge.sendTo('overlay', 'statPositions:sync', {
-        positions: patch.statPositions,
-      });
-    } catch {}
-    try {
-      window.api.bridge.sendTo('overlay', 'graphPositions:sync', {
-        positions: patch.graphPositions,
-      });
-    } catch {}
-    try {
-      window.api.bridge.sendTo('overlay', 'knobPositions:sync', {
-        positions: patch.knobPositions,
-      });
-    } catch {}
+    syncItemPositionsToOverlay('statPositions');
+    syncItemPositionsToOverlay('graphPositions');
+    syncItemPositionsToOverlay('knobPositions');
     try {
       const pluginEls = usePluginDisplayElementStore.getState().elements;
       window.api.bridge.sendTo('overlay', 'plugin:displayElements:sync', {

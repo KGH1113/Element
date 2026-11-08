@@ -178,6 +178,13 @@
     "saveFailedReverted": "Couldn't save the key change, so the previous keys are back. Try changing them again.",
     "saveFailed": "Couldn't save the key change. Switch to another tab and back to see the saved keys."
   },
+  "itemSave": {
+    "statPositions": "stat",
+    "graphPositions": "graph",
+    "knobPositions": "knob",
+    "failedReverted": "Couldn't save the {{item}} change, so it's back to how it was. Try changing it again.",
+    "failed": "Couldn't save the {{item}} change. Try changing it again in a moment."
+  },
   "imagePicker": {
     "idle": "Idle",
     "active": "Pressed",

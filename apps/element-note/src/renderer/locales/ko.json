@@ -178,6 +178,13 @@
     "saveFailedReverted": "키 변경을 저장하지 못해 이전 키로 되돌렸습니다. 다시 바꿔 주세요.",
     "saveFailed": "키 변경을 저장하지 못했습니다. 다른 탭으로 갔다가 돌아오면 저장된 키를 볼 수 있습니다."
   },
+  "itemSave": {
+    "statPositions": "통계",
+    "graphPositions": "그래프",
+    "knobPositions": "노브",
+    "failedReverted": "{{item}} 변경을 저장하지 못해 이전 상태로 되돌렸습니다. 다시 바꿔 주세요.",
+    "failed": "{{item}} 변경을 저장하지 못했습니다. 잠시 후 다시 바꿔 주세요."
+  },
   "imagePicker": {
     "idle": "대기",
     "active": "입력",

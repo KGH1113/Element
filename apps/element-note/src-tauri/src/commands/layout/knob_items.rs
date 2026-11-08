@@ -7,6 +7,7 @@ use crate::{
     },
     errors::CmdResult,
     models::{EditorCommitOrigin, EditorField, KnobPositions},
+    state::native_element_id::adapt_legacy_knob_positions,
 };
 
 #[tauri::command]
@@ -31,7 +32,7 @@ pub async fn knob_positions_update(
                     &[EditorField::KnobPositions],
                     admission,
                     move |store| {
-                        store.knob_positions = positions;
+                        store.knob_positions = adapt_legacy_knob_positions(store, positions)?;
                         Ok(())
                     },
                 )?;

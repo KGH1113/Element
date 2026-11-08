@@ -807,3 +807,45 @@ pub(crate) fn prepare_commit_patch_element_ids(
     candidate.apply_patch(patch);
     validate_document_element_ids(&candidate)
 }
+
+// 기존 편집기는 위치 컬렉션 전체를 한 번에 저장하고 요소 ID를 모른다. 새로 만든
+// 요소에는 ID가 없고, 복제한 요소는 원본 ID를 그대로 들고 온다. v1 편집 커밋과
+// 같은 규칙으로 ID를 정해 나머지 요소의 ID는 그대로 둔다
+pub(crate) fn adapt_legacy_key_positions(
+    store: &AppStoreData,
+    positions: HashMap<String, Vec<KeyPosition>>,
+) -> Result<HashMap<String, Vec<KeyPosition>>, EditorCommitError> {
+    adapt_legacy_collection(store, positions, |patch| &mut patch.key_positions)
+}
+
+pub(crate) fn adapt_legacy_stat_positions(
+    store: &AppStoreData,
+    positions: HashMap<String, Vec<StatPosition>>,
+) -> Result<HashMap<String, Vec<StatPosition>>, EditorCommitError> {
+    adapt_legacy_collection(store, positions, |patch| &mut patch.stat_positions)
+}
+
+pub(crate) fn adapt_legacy_graph_positions(
+    store: &AppStoreData,
+    positions: HashMap<String, Vec<GraphPosition>>,
+) -> Result<HashMap<String, Vec<GraphPosition>>, EditorCommitError> {
+    adapt_legacy_collection(store, positions, |patch| &mut patch.graph_positions)
+}
+
+pub(crate) fn adapt_legacy_knob_positions(
+    store: &AppStoreData,
+    positions: HashMap<String, Vec<KnobPosition>>,
+) -> Result<HashMap<String, Vec<KnobPosition>>, EditorCommitError> {
+    adapt_legacy_collection(store, positions, |patch| &mut patch.knob_positions)
+}
+
+fn adapt_legacy_collection<T: NativeElement>(
+    store: &AppStoreData,
+    collection: HashMap<String, Vec<T>>,
+    field: impl Fn(&mut EditorPatchV1) -> &mut Option<HashMap<String, Vec<T>>>,
+) -> Result<HashMap<String, Vec<T>>, EditorCommitError> {
+    let mut patch = EditorPatchV1::default();
+    *field(&mut patch) = Some(collection);
+    adapt_v1_patch_ids(store, &mut patch)?;
+    Ok(field(&mut patch).take().unwrap_or_default())
+}

@@ -178,6 +178,13 @@
     "saveFailedReverted": "无法保存按键更改，已恢复为之前的按键。请重新更改。",
     "saveFailed": "无法保存按键更改。切换到其他标签页再返回即可查看已保存的按键。"
   },
+  "itemSave": {
+    "statPositions": "统计",
+    "graphPositions": "图表",
+    "knobPositions": "旋钮",
+    "failedReverted": "无法保存{{item}}更改，已恢复为之前的状态。请重新更改。",
+    "failed": "无法保存{{item}}更改。请稍后重新更改。"
+  },
   "imagePicker": {
     "idle": "闲置",
     "active": "按下",

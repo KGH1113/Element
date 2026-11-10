@@ -149,11 +149,23 @@ internal sealed class OverlayTextGradients : MonoBehaviour
         int index = character.vertexIndex + corner;
         if (index >= mesh.vertices.Length || index >= mesh.colors32.Length)
           break;
-        Vector3 position = mesh.vertices[index];
+        Vector3 position = Corner(character, corner);
         mesh.colors32[index] = gradient.Sample32(frame.At(position.x - box.xMin, box.yMax - position.y));
       }
     }
   }
+
+  // Where TMP laid the corner out, in its mesh order: bottom left, top left,
+  // top right, bottom right. Not the mesh itself, which a growing value
+  // (OverlayTextPulse) moves; the gradient belongs to the text at rest.
+  private static Vector3 Corner(in TMP_CharacterInfo character, int corner) =>
+    corner switch
+    {
+      0 => character.vertex_BL.position,
+      1 => character.vertex_TL.position,
+      2 => character.vertex_TR.position,
+      _ => character.vertex_BR.position,
+    };
 
   private void OnDestroy()
   {

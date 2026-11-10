@@ -17,7 +17,7 @@ internal sealed class ComboFeature : IOverlayFeature
   {
     _count = 0;
     _view.Show();
-    Render(false);
+    Render();
   }
 
   public void Hide()
@@ -41,18 +41,18 @@ internal sealed class ComboFeature : IOverlayFeature
       _count = 0;
     }
 
-    Render(continuesCombo);
+    Render();
   }
 
   public void Reset()
   {
     _count = 0;
-    Render(false);
+    Render();
   }
 
   public void Refresh()
   {
-    Render(false);
+    Render();
   }
 
   public void Dispose()
@@ -60,8 +60,8 @@ internal sealed class ComboFeature : IOverlayFeature
     _view.Dispose();
   }
 
-  private void Render(bool bump)
+  private void Render()
   {
-    _view.Render(new ComboSnapshot(_count, bump));
+    _view.Render(new ComboSnapshot(_count));
   }
 }

@@ -50,7 +50,9 @@ internal sealed partial class OverlayTextEditor : IDisposable
   private SettingsCapsuleGraphic _formatSurface;
   private OverlayBarButton _sizeButton;
   private OverlayBarButton _colorButton;
+  private OverlayBarButton _animateButton;
   private OverlayBarButton _growButton;
+  private OverlayTextPulse _previewPulse;
   private OverlayOpacityField _opacity;
   private Image _emptyCaret;
   private SettingsColorPicker _picker;
@@ -152,6 +154,8 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _fontVersion = _element.Fonts.Version;
     _preview.textWrappingMode = TextWrappingModes.NoWrap;
     _preview.overflowMode = TextOverflowModes.Overflow;
+    _previewPulse = preview.gameObject.AddComponent<OverlayTextPulse>();
+    _previewPulse.Initialize(_preview);
     _caret = _ui.Panel("Caret", preview, 0, 0, 2, 10, Color.white, false);
     Anchor(_caret.rectTransform);
     _dropCaret = _ui.Panel("Drop caret", preview, 0, 0, 3, 10, SettingsPalette.SoftAccent, false);
@@ -203,8 +207,9 @@ internal sealed partial class OverlayTextEditor : IDisposable
   }
 
   // One row of labeled buttons: the font, the size, the color (with its
-  // opacity) and where the text grows from. Font, size and color act on the
-  // selection, or on the whole text when nothing is selected.
+  // opacity), the values' animation and where the text grows from. Font,
+  // size, color and animation act on the selection, or on the whole text when
+  // nothing is selected.
   private void BuildFormatBar()
   {
     _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, OverlayEditorUi.Bar);
@@ -237,6 +242,16 @@ internal sealed partial class OverlayTextEditor : IDisposable
       OpenPicker,
       _reduceMotion(),
       swatch: true
+    );
+    _animateButton = new OverlayBarButton(
+      _ui,
+      _formatBar,
+      "Text animation",
+      L("애니메이션", "Animate"),
+      ToggleAnimate,
+      _reduceMotion(),
+      icon: LayoutAction.Animate,
+      toggle: true
     );
     _growButton = new OverlayBarButton(
       _ui,
@@ -278,6 +293,55 @@ internal sealed partial class OverlayTextEditor : IDisposable
   {
     Range(out int start, out int end);
     return start < end ? _document[start].Color : TypingColor(_caretIndex);
+  }
+
+  // Values in the range grow briefly each time what they show changes; text
+  // between them never moves. Turning it on plays it once on the preview.
+  private void ToggleAnimate()
+  {
+    ClosePopovers();
+    if (_picker.Visible)
+      _picker.Hide();
+    Range(out int start, out int end);
+    OverlayAnimateState state = _document.AnimateState(start, end);
+    if (state == OverlayAnimateState.NoValues)
+    {
+      _screen.Notice(
+        HasSelection
+          ? L(
+            "고른 부분에 값이 없어요. 값까지 함께 고르면 그 값이 바뀔 때마다 움직여요.",
+            "The selection has no value. Include a value to make it move each time it changes."
+          )
+          : L(
+            "아직 움직일 값이 없어요. 값을 넣으면 그 값이 바뀔 때마다 움직여요.",
+            "There's no value to move yet. Add one and it moves each time it changes."
+          )
+      );
+      return;
+    }
+    bool animate = state != OverlayAnimateState.On;
+    Remember(false);
+    _document.SetAnimate(start, end, animate);
+    Render();
+    if (!animate)
+      return;
+    _screen.Notice(
+      L(
+        "값이 바뀔 때마다 잠깐 커졌다가 돌아와요.",
+        "Each time the value changes, it grows for a moment and settles back."
+      ),
+      false
+    );
+    // Every value in the preview is a link, in order.
+    int link = 0;
+    for (int i = 0; i < end; i++)
+    {
+      if (!_document[i].IsValue)
+        continue;
+      if (i >= start)
+        _previewPulse.Play(link);
+      link++;
+    }
   }
 
   private void OpenPicker()

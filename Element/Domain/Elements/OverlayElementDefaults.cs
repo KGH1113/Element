@@ -76,7 +76,7 @@ internal static class OverlayElementDefaults
     new("current-bpm", 1, () => Prefixed("CBPM | ", "current-bpm")),
     new("keys-per-second", 1, () => Prefixed("KPS | ", "kps")),
     new("song-title", 24f / TextSize, () => new() { Value("song-title", Custom(White)) }),
-    new(ComboId, 78f / TextSize, () => new() { Value("combo", OverlayColorSettings.HighlightColor()) }),
+    new(ComboId, 78f / TextSize, () => new() { Animated(Value("combo", OverlayColorSettings.HighlightColor())) }),
     new(ComboTitleId, 40f / TextSize, () => new() { OverlayTextRun.Literal("Perfect", Custom(White)) }),
     new("judgement", 1, () => OverlayElementMigration.Judgements(Custom(JudgementBase), 0)),
     new(
@@ -263,6 +263,13 @@ internal static class OverlayElementDefaults
 
   private static OverlayTextRun Value(string key, OverlayColorSettings color) => OverlayTextRun.ValueRun(key, color);
 
+  // The combo grows on every hit, as it always has.
+  private static OverlayTextRun Animated(OverlayTextRun run)
+  {
+    run.Animate = true;
+    return run;
+  }
+
   private static OverlayColorSettings Custom(string hex) => OverlayColorSettings.Custom(hex);
 }
 
@@ -378,6 +385,27 @@ internal static class OverlayElementMigration
         }
       }
       layout.Text.Runs = rewritten;
+    }
+  }
+
+  /// <summary>
+  /// Before animation could be turned on per value, every combo grew on each
+  /// hit, even inside a calculation. Those values keep doing so; nothing else
+  /// starts moving.
+  /// </summary>
+  public static void AnimateCombos(List<OverlayLayoutSettings> layouts)
+  {
+    if (layouts == null)
+      return;
+    ulong combo = OverlayValueCatalog.Bit(OverlayValueId.Combo);
+    foreach (OverlayLayoutSettings layout in layouts)
+    {
+      List<OverlayTextRun> runs = layout?.Text?.Runs;
+      if (runs == null)
+        continue;
+      foreach (OverlayTextRun run in runs)
+        if (run != null && run.IsValue && (OverlayFormula.Parse(run.Value).Mask & combo) != 0)
+          run.Animate = true;
     }
   }
 

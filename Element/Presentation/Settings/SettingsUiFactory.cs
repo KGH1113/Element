@@ -305,6 +305,9 @@ internal sealed class SettingsUiFactory : IDisposable
   {
     Image box = Panel(name, parent, x, y, width, 40, new Color(.28f, .28f, .28f));
     box.raycastTarget = true;
+    // TMP makes the caret when the field turns on with its text already set; a
+    // field built on and never hidden would have none. It turns on below.
+    box.gameObject.SetActive(false);
     Image inset = Panel("Input surface", box.transform, 1, 1, width - 2, 38, new Color(.075f, .075f, .075f));
     Stretch(inset.rectTransform, 1, 1, 1, 1);
     TMP_InputField input = box.gameObject.AddComponent<TMP_InputField>();
@@ -337,6 +340,7 @@ internal sealed class SettingsUiFactory : IDisposable
       input.selectionColor = Color.Lerp(Surface, SoftAccent, .3f);
       input.caretColor = Foreground;
     });
+    box.gameObject.SetActive(true);
     return input;
   }
 

@@ -227,7 +227,9 @@ internal sealed class OverlayModEditor : IDisposable
     string after = Save();
     if (after != before)
     {
-      bool merge = key != null && key == _lastKey && Time.unscaledTime - _lastAt < 1f && _undo.Count > 0;
+      // Typing in a field is one step for as long as it stays focused.
+      bool typing = key is TMPro.TMP_InputField field && field.isFocused;
+      bool merge = key != null && key == _lastKey && (typing || Time.unscaledTime - _lastAt < 1f) && _undo.Count > 0;
       if (!merge)
       {
         _undo.Add(before);

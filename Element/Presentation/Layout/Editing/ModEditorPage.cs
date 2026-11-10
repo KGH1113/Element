@@ -241,6 +241,14 @@ internal sealed class ModEditorPage : EditorPage
     float x = Caption(control, label);
     float current = Mathf.Clamp(value, min, max);
     TMP_InputField input = null;
+    void Apply(float next)
+    {
+      if (Mathf.Approximately(next, current))
+        return;
+      current = next;
+      float now = current;
+      _change(input, () => changed?.Invoke(now), false);
+    }
     input = _ui.Input(
       "Number " + label,
       Format(current, 0),
@@ -248,21 +256,19 @@ internal sealed class ModEditorPage : EditorPage
       x,
       0,
       160,
-      null,
+      // As it is typed: a number within the limits shows at once; one outside
+      // them waits, so the preview doesn't jump while it is still being typed.
       typed =>
       {
-        float next =
-          float.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
-          && !float.IsNaN(parsed)
-          && !float.IsInfinity(parsed)
-            ? Mathf.Clamp(parsed, min, max)
-            : current;
-        input.SetTextWithoutNotify(Format(next, 0));
-        if (Mathf.Approximately(next, current))
-          return;
-        current = next;
-        float now = current;
-        _change(input, () => changed?.Invoke(now), false);
+        if (TryNumber(typed, out float parsed) && parsed >= min && parsed <= max)
+          Apply(parsed);
+      },
+      // Typing done: whatever was typed is kept within the limits and shown so.
+      typed =>
+      {
+        if (TryNumber(typed, out float parsed))
+          Apply(Mathf.Clamp(parsed, min, max));
+        input.SetTextWithoutNotify(Format(current, 0));
       },
       12
     );
@@ -292,7 +298,7 @@ internal sealed class ModEditorPage : EditorPage
       x,
       0,
       240,
-      null,
+      // Each letter shows on the preview as it is typed.
       typed =>
       {
         if (typed == current)
@@ -301,6 +307,7 @@ internal sealed class ModEditorPage : EditorPage
         string now = current;
         _change(input, () => changed?.Invoke(now), false);
       },
+      null,
       200
     );
     _inputs.Add(input);
@@ -473,6 +480,11 @@ internal sealed class ModEditorPage : EditorPage
     Layout();
     return control;
   }
+
+  private static bool TryNumber(string typed, out float number) =>
+    float.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
+    && !float.IsNaN(number)
+    && !float.IsInfinity(number);
 
   private static string Format(float value, float step) =>
     step >= 1 || Mathf.Approximately(value, Mathf.Round(value))

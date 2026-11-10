@@ -64,10 +64,14 @@ public abstract class EditorPage
     float step = 0
   );
 
-  /// <summary>A number typed in, kept between <paramref name="min"/> and <paramref name="max"/>.</summary>
+  /// <summary>
+  /// A number typed in. <paramref name="changed"/> runs as it is typed while the
+  /// number is between <paramref name="min"/> and <paramref name="max"/>; when
+  /// typing is done, a number outside them is brought to the nearest.
+  /// </summary>
   public abstract EditorControl Number(string label, float value, float min, float max, Action<float> changed);
 
-  /// <summary>Words typed in; <paramref name="changed"/> runs when typing is done.</summary>
+  /// <summary>Words typed in; <paramref name="changed"/> runs with each letter.</summary>
   public abstract EditorControl TextField(string label, string value, Action<string> changed);
 
   /// <summary>One option out of a few, side by side.</summary>

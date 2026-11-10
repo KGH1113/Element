@@ -143,12 +143,16 @@ namespace Element.Editor
         TMP_InputField[] inputs = pageRoot.GetComponentsInChildren<TMP_InputField>(true);
         TMP_InputField title = inputs.First(input => input.name.StartsWith("Text "));
         title.text = "Hello";
-        title.onEndEdit.Invoke("Hello");
-        Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting when typing is done");
+        Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting as it is typed");
         TMP_InputField widthField = inputs.First(input => input.name.StartsWith("Number "));
+        // TMP makes carets only while the game plays, so the preview checks where the caret goes.
+        CheckInputCaret(widthField, "mod number", "", "480", "1920");
+        widthField.text = "500";
+        Assert(Working().Contains("\"Width\":500"), "a number shows as it is typed, before Enter: " + Working());
         widthField.text = "5000";
+        Assert(Working().Contains("\"Width\":500"), "a number past its limit waits while it is typed");
         widthField.onEndEdit.Invoke("5000");
-        Assert(Working().Contains("\"Width\":960") && widthField.text == "960", "a number past its limit is kept within it");
+        Assert(Working().Contains("\"Width\":960") && widthField.text == "960", "and is kept within it when typing is done");
         RectTransform previewRoot = Field<RectTransform>(mods2, "_previewRoot");
         Assert(Mathf.Abs(previewRoot.sizeDelta.x - 960) < .01f, "the preview follows each change");
         Canvas.ForceUpdateCanvases();

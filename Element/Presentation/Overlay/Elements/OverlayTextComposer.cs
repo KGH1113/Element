@@ -23,10 +23,10 @@ internal sealed class OverlayCompiledRun
 }
 
 // Turns text runs into TMP rich text. Literal text never becomes markup, and
-// each value is wrapped in a link so its characters can be found after layout.
+// a value is wrapped in a link so its characters can be found after layout:
+// every value in the editor, animated ones in the overlay.
 internal static class OverlayTextComposer
 {
-  public const string ComboLink = "combo";
   public const string ValueLink = "v";
 
   /// <summary>
@@ -70,7 +70,10 @@ internal static class OverlayTextComposer
   /// Live overlay text. Values without data show their sample only when
   /// <paramref name="samples"/>. Size formulas give pixels as drawn, so they are
   /// divided by <paramref name="elementScale"/>. Runs in another font than the
-  /// default switch to it through <paramref name="fonts"/>.
+  /// default switch to it through <paramref name="fonts"/>. Each animated
+  /// value adds where its text sits in <paramref name="output"/> to
+  /// <paramref name="animated"/>, in order; one showing something is a link,
+  /// one showing nothing has no link and a length of zero.
   /// </summary>
   public static void Compose(
     StringBuilder output,
@@ -79,10 +82,12 @@ internal static class OverlayTextComposer
     bool samples,
     Color highlight,
     float elementScale,
-    OverlayFonts fonts = null
+    OverlayFonts fonts = null,
+    List<(int Start, int Length)> animated = null
   )
   {
     output.Clear();
+    animated?.Clear();
     if (runs == null)
       return;
     IOverlayNumberSource source = samples ? values?.WithSamples : values;
@@ -98,17 +103,39 @@ internal static class OverlayTextComposer
       OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
-        bool combo = (compiled.Value.Mask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;
-        if (combo)
-          output.Append("<link=\"").Append(ComboLink).Append("\">");
-        OverlayFormulaText.Append(output, compiled.Value, values, samples);
-        if (combo)
-          output.Append("</link>");
+        if (run.Animate)
+          AppendAnimated(output, compiled.Value, values, samples, animated);
+        else
+          OverlayFormulaText.Append(output, compiled.Value, values, samples);
       }
       else
         AppendLiteral(output, run.Text);
       CloseStyle(output, size, font);
     }
+  }
+
+  private static void AppendAnimated(
+    StringBuilder output,
+    OverlayFormula value,
+    OverlayValues values,
+    bool samples,
+    List<(int Start, int Length)> animated
+  )
+  {
+    int tag = output.Length;
+    output.Append("<link=\"").Append(ValueLink).Append("\">");
+    int start = output.Length;
+    OverlayFormulaText.Append(output, value, values, samples);
+    int length = output.Length - start;
+    if (length == 0)
+    {
+      // Nothing to grow: no link, so the links stay one per value shown.
+      output.Length = tag;
+      animated?.Add((tag, 0));
+      return;
+    }
+    output.Append("</link>");
+    animated?.Add((start, length));
   }
 
   /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>

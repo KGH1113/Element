@@ -180,6 +180,21 @@ namespace Element.Editor
       }
       Assert(first.r > 200 && first.b > 200 && last.b > last.r, "the text runs from white into blue: " + first + " → " + last);
       SaveFrame(camera, texture, canvases, name + "-gradient-text");
+      // A growing value keeps the colors it has at rest.
+      OverlayTextRun fpsRun = fps.Settings.Text.Runs.Last(run => run.IsValue);
+      fpsRun.Animate = true;
+      fps.Apply();
+      host.Values.Set(OverlayValueId.Fps, new System.Text.StringBuilder("87654"), 87654);
+      host.Tick();
+      fpsText.ForceMeshUpdate();
+      OverlayTextPulse fpsPulse = Field<OverlayTextPulse>(fps, "_pulse");
+      Assert(fpsPulse.Playing, "an animated FPS grows on a new value");
+      Color32[] growingColors = GlyphColors(fpsText.textInfo);
+      fpsPulse.Stop();
+      fpsText.ForceMeshUpdate();
+      Color32[] restingColors = GlyphColors(fpsText.textInfo);
+      Assert(growingColors.Length > 0 && growingColors.SequenceEqual(restingColors), "a growing value keeps the gradient it has at rest");
+      fpsRun.Animate = false;
       // The checks after these expect the text as the layout's history knows it.
       for (int i = 0; i < original.Count; i++)
         fps.Settings.Text.Runs[i].Color = original[i];
@@ -218,6 +233,20 @@ namespace Element.Editor
       text.Close(false, true);
       Assert(!text.IsOpen && !fps.Settings.Text.Runs.Any(run => run.Color.IsGradient), "Cancel leaves the text's colors as they were");
       preferences.ReduceUiMotion = reduceMotion;
+    }
+
+    private static Color32[] GlyphColors(TMP_TextInfo info)
+    {
+      List<Color32> colors = new List<Color32>();
+      for (int i = 0; i < info.characterCount; i++)
+      {
+        TMP_CharacterInfo character = info.characterInfo[i];
+        if (!character.isVisible)
+          continue;
+        for (int corner = 0; corner < 4; corner++)
+          colors.Add(info.meshInfo[character.materialReferenceIndex].colors32[character.vertexIndex + corner]);
+      }
+      return colors.ToArray();
     }
 
     private static Vector2 BarPoint(RectTransform bar, float position)

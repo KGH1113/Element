@@ -3,11 +3,9 @@ namespace Element.Domain.Combo;
 internal readonly struct ComboSnapshot
 {
   public int Count { get; }
-  public bool Bump { get; }
 
-  public ComboSnapshot(int count, bool bump)
+  public ComboSnapshot(int count)
   {
     Count = count;
-    Bump = bump;
   }
 }

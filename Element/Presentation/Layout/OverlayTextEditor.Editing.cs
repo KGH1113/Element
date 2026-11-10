@@ -586,12 +586,14 @@ internal sealed partial class OverlayTextEditor
     _growMark.transform.SetAsLastSibling();
   }
 
-  // Size, color and grow point side by side; returns the bar's width.
+  // Font, size, color, animation and grow point side by side; returns the bar's width.
   private float LayoutFormatBar()
   {
     float y = (FormatHeight - OverlayBarButton.Height) * .5f;
     float x = y;
-    foreach (OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _growButton })
+    foreach (
+      OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton }
+    )
     {
       button.Place(x, y);
       x += button.Width + 4;

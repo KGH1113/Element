@@ -186,6 +186,10 @@ public sealed class OverlayTextRun
   // An OverlayFontKey; empty follows the overlay's default font.
   public string Font = string.Empty;
 
+  // A value run grows briefly each time what it shows changes. Literal text
+  // shows no live value, so it never moves.
+  public bool Animate;
+
   public bool IsValue => !string.IsNullOrEmpty(Value);
 
   public static OverlayTextRun Literal(string text, OverlayColorSettings color) =>
@@ -202,12 +206,14 @@ public sealed class OverlayTextRun
       Size = Size,
       SizeFormula = SizeFormula ?? string.Empty,
       Font = Font ?? string.Empty,
+      Animate = Animate,
     };
 
   public bool SameAs(OverlayTextRun other) =>
     other != null
     && Text == other.Text
     && Value == other.Value
+    && Animate == other.Animate
     && Size == other.Size
     && OverlayColorSettings.SameFormula(SizeFormula, other.SizeFormula)
     && OverlayColorSettings.SameFormula(Font, other.Font)

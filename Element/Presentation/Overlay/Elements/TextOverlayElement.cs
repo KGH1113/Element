@@ -24,6 +24,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   private readonly List<OverlayCompiledRun> _runs = new();
   private readonly OverlayTextPulse _pulse;
   private readonly OverlayTextGradients _gradients;
+  private readonly List<(int Start, int Length)> _animated = new();
+  private readonly OverlayShownValues _shown = new();
   private bool _preview;
   private bool _hasLegacy;
   private LegacyOverlayPlacement _legacy;
@@ -68,8 +70,6 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   /// <summary>The values this text shows, as OverlayValueCatalog bits.</summary>
   public ulong ValueMask { get; private set; }
 
-  public bool UsesCombo => (ValueMask & OverlayValueCatalog.Bit(OverlayValueId.Combo)) != 0;
-
   public bool IsEmpty => Settings?.Text?.Runs == null || Settings.Text.Runs.Count == 0;
 
   // Selection, resizing and placement follow the drawn text, not the layout rectangle.
@@ -100,6 +100,9 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     }
     ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs, _gradients);
     _hasSizeFormula = _runs.Exists(run => run.Size != null);
+    // Edited runs start over: what they showed before is no change to grow on.
+    _pulse.Stop();
+    _shown.Clear();
     Render();
   }
 
@@ -126,11 +129,16 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     if (_preview == preview)
       return;
     _preview = preview;
-    Render();
+    // Examples and live values swapping places is no change to grow on.
+    Render(true);
   }
 
-  /// <summary>Rebuilds the text when one of <paramref name="changes"/> or the theme affects it.</summary>
-  public void Refresh(ulong changes)
+  /// <summary>
+  /// Rebuilds the text when one of <paramref name="changes"/> or the theme
+  /// affects it. While <paramref name="settle"/> (a level starting or
+  /// restarting), values take their new text without growing.
+  /// </summary>
+  public void Refresh(ulong changes, bool settle = false)
   {
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (
@@ -139,12 +147,12 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       || _fontVersion != _fonts.Version
       || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))
     )
-      Render();
+      Render(settle);
   }
 
-  public void Pulse() => _pulse.Play();
+  public void Render() => Render(false);
 
-  public void Render()
+  private void Render(bool settle)
   {
     if (Settings == null)
       return;
@@ -159,7 +167,16 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       if (_text.fontSharedMaterial != _fonts.DefaultMaterial)
         _text.fontSharedMaterial = _fonts.DefaultMaterial;
     }
-    OverlayTextComposer.Compose(_builder, _runs, _values, _preview, OverlayTheme.Accent, _renderedScale, _fonts);
+    OverlayTextComposer.Compose(
+      _builder,
+      _runs,
+      _values,
+      _preview,
+      OverlayTheme.Accent,
+      _renderedScale,
+      _fonts,
+      _animated
+    );
     _gradients.SetSource(_preview ? _values?.WithSamples : _values, OverlayTheme.Accent);
     string before = _text.text;
     _text.Assign(_builder);
@@ -172,6 +189,22 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       Vector2 preferred = _text.GetPreferredValues();
       if (Rect.sizeDelta != preferred)
         Rect.sizeDelta = preferred;
+    }
+    PulseChanged(settle);
+  }
+
+  // An animated value that shows something new grows. The links in the text
+  // are the animated values that show something, in order.
+  private void PulseChanged(bool settle)
+  {
+    int link = 0;
+    for (int slot = 0; slot < _animated.Count; slot++)
+    {
+      (int start, int length) = _animated[slot];
+      if (_shown.Update(slot, _builder, start, length) && !settle && Enabled)
+        _pulse.Play(link);
+      if (length > 0)
+        link++;
     }
   }
 

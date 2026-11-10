@@ -103,7 +103,7 @@ namespace Element.Editor
           {
             Runs =
             {
-              OverlayTextRun.ValueRun("{combo}*2+1", OverlayColorSettings.Custom("#FFFFFF")),
+              new OverlayTextRun { Value = "{combo}*2+1", Color = OverlayColorSettings.Custom("#FFFFFF"), Animate = true },
               OverlayTextRun.Literal(" ", OverlayColorSettings.Custom("#FFFFFF")),
               OverlayTextRun.ValueRun("{time-total}-{time-current}", OverlayColorSettings.Custom("#FFFFFF")),
             },
@@ -117,7 +117,23 @@ namespace Element.Editor
         host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("10"), 10);
         host.Tick();
         check(mathText.text.Contains(">21<") || mathText.text.Contains("21</"), "a live value recalculates: " + mathText.text);
-        check(mathElement.UsesCombo, "a calculated combo still pulses");
+        OverlayTextPulse mathPulse = Field<OverlayTextPulse>(mathElement, "_pulse");
+        check(mathPulse.Playing, "an animated calculation that shows something new grows");
+        check(mathText.text.Split(new[] { "<link" }, StringSplitOptions.None).Length == 2,
+          "only the animated value is a link: " + mathText.text);
+        mathPulse.Stop();
+        host.Values.Settle();
+        host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("11"), 11);
+        host.Tick();
+        check(mathText.text.Contains(">23<"), "a level starting still shows the new value: " + mathText.text);
+        check(!mathPulse.Playing, "a level starting changes values without growing them");
+        host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("12"), 12);
+        host.Tick();
+        check(mathPulse.Playing, "after the start, a change grows again");
+        mathPulse.Stop();
+        host.Values.Set(OverlayValueId.CurrentTime, new System.Text.StringBuilder("0:30"), 30.4);
+        host.Tick();
+        check(!mathPulse.Playing, "a value that isn't animated never grows its text");
         mathElement.SetPreview(false);
         host.Values.Clear(OverlayValueId.TotalTime);
         host.Tick();
@@ -136,9 +152,23 @@ namespace Element.Editor
         check(title.Bounds.yMax <= combo.Bounds.center.y && Mathf.Abs(title.Bounds.center.x - combo.Bounds.center.x) < 4 * unit,
           "the combo title stays above its number");
         check(Mathf.Abs(combo.Settings.Scale - 1.5f * 78f / 25f) < .05f, "the fitted number keeps the old scale and font size");
+        check(combo.Settings.Text.Runs.Any(run => run.IsValue && run.Animate), "the built-in combo animates");
         OverlayTextPulse pulse = Field<OverlayTextPulse>(combo, "_pulse");
-        combo.Pulse();
-        check(pulse.enabled, "a combo bump pulses the number");
+        TextMeshProUGUI comboText = Field<TextMeshProUGUI>(combo, "_text");
+        host.Values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("13"), 13);
+        host.Tick();
+        Canvas.ForceUpdateCanvases();
+        Rect growing = combo.Bounds;
+        check(pulse.Playing, "a combo hit grows the number");
+        TMP_CharacterInfo first = comboText.textInfo.characterInfo[comboText.textInfo.linkInfo[0].linkTextfirstCharacterIndex];
+        Vector3[] glyphs = comboText.textInfo.meshInfo[first.materialReferenceIndex].vertices;
+        float laid = (first.vertex_TR.position - first.vertex_BL.position).magnitude;
+        check((glyphs[first.vertexIndex + 2] - glyphs[first.vertexIndex]).magnitude > laid * 1.2f,
+          "the number's glyphs are drawn larger while it grows");
+        pulse.Stop();
+        check(glyphs[first.vertexIndex] == first.vertex_BL.position && glyphs[first.vertexIndex + 2] == first.vertex_TR.position,
+          "stopping puts the glyphs back where they were laid out");
+        check(Same(growing, combo.Bounds, .5f), "a growing value leaves the element's bounds at rest");
 
         ShapeOverlayElement shape = host.AddShape();
         Canvas.ForceUpdateCanvases();

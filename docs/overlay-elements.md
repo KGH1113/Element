@@ -56,14 +56,26 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 ## Text
 
 - Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The screen dims and the text floats in the middle at the size the game draws it.
-- The bar above the text has four labeled buttons: **Font**, **Size**, **Text color** and **Grow from**. Font, size and color act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts).
+- The bar above the text has five labeled buttons: **Font**, **Size**, **Text color**, **Animate** and **Grow from**. Font, size, color and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts) and [Animation](#animation).
 - A color button opens the color picker right above the input dock's keypad and stays lit while it is open. The text stays in sight; the dock's line says which color is picked. Clicking the button again, Esc or a click elsewhere closes it.
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
 - Sizes are what the game draws at 1080p.
 - ⌘/Ctrl + Enter or Esc finishes and saves, as Done does; only Cancel leaves without saving. A text left empty is removed.
 - Only texts that use a changed value are redrawn, so values that update every hit cost no more than before.
-- A combo, even inside a calculation, grows briefly on every hit like the old combo.
+
+## Animation
+
+**Animate** in the text editor's bar is a switch. A value with it on grows for a moment and settles back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes.
+
+- **What it acts on.** Values in the selection, or every value in the text when nothing is selected. Typed text never moves. A selection of only text has nothing to move, so the switch reads dimmed and a press says why.
+- **Mixed.** When the selection holds values that move and values that don't, the switch sits halfway; a press turns them all on.
+- **Turning it on** plays it once on the text in the editor.
+- **New values** follow the nearest value in the text, the one before the caret first. In a text without values they start still.
+- **What counts as a change** is the text as shown. Elapsed time changes every frame but reads differently once a second, so it grows once a second. Accuracy that rounds to the same two decimals doesn't grow.
+- **When it stays still.** A value that appears (the game had no data yet) or goes away doesn't grow, and neither does anything when a level starts or restarts. A combo that breaks to 0 grows, as any change does.
+- Each value grows around its own middle; the text's place, size and selection outline stay as they are, and a gradient keeps its colors while a value grows.
+- The built-in combo has it on. Texts from before this switch keep their combos growing; nothing else starts moving.
 
 ## Fonts
 

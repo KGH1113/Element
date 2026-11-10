@@ -26,4 +26,4 @@ cd "$ELEMENT_PROJECT_ROOT"
   Element.Tests/GameplayTweaksTests.cs Element.Tests/EffectSettingsTests.cs \
   Element.Tests/PerformanceTests.cs Element.Tests/EffectFilterTests.cs \
   Element.Tests/NativeViewerSessionTests.cs Element.Tests/AttemptTests.cs \
-  Element.Tests/ProfileTests.cs
+  Element.Tests/ProfileTests.cs Element.Tests/ValueAnimationTests.cs

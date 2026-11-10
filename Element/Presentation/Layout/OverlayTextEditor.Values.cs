@@ -339,6 +339,13 @@ internal sealed partial class OverlayTextEditor
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     _sizeButton.Set(formula.IsEmpty ? "—" : OverlayFormulaField.Number(Result(formula)), computed, active);
     _colorButton.Set(null, false, _picker.Visible);
+    Range(out int start, out int end);
+    OverlayAnimateState animate = _document.AnimateState(start, end);
+    _animateButton.Set(null, false, false);
+    _animateButton.SetSwitch(
+      animate == OverlayAnimateState.Mixed ? null : animate == OverlayAnimateState.On,
+      animate != OverlayAnimateState.NoValues
+    );
     _fontButton.Set(FontLabel(), false, _fontPopover.Visible);
     _growButton.Set(OverlayGrowPicker.ShortName(_growth), false, _growPopover.Visible);
     if (!_picker.Visible)
@@ -472,7 +479,8 @@ internal sealed partial class OverlayTextEditor
       InsertColor(value.Id),
       TypingSize(start),
       TypingSizeFormula(start),
-      TypingFont(start)
+      TypingFont(start),
+      _document.TypingAnimate(start)
     );
     _anchor = start;
     _caretIndex = after;

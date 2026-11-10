@@ -10,7 +10,8 @@ namespace Element.Presentation.Layout;
 /// One control in an editor's top bar: a button that says what it is and
 /// what it holds, such as <c>● Fill</c> or <c>═ Border width 2 px</c>. It
 /// looks clickable at rest, lights up as a whole on hover, and stays lit while
-/// what it opened is open.
+/// what it opened is open. A switch button shows its state in a small switch
+/// after the name, as the settings' switches do.
 /// </summary>
 internal sealed class OverlayBarButton
 {
@@ -18,7 +19,11 @@ internal sealed class OverlayBarButton
   private const float Padding = 12,
     LeadSize = 18,
     LeadGap = 7,
-    ValueGap = 6;
+    ValueGap = 6,
+    TrackWidth = 30,
+    TrackHeight = 18,
+    ThumbInset = 4,
+    ThumbSize = TrackHeight - ThumbInset * 2;
 
   private readonly Button _button;
   private readonly bool _reduceMotion;
@@ -30,10 +35,15 @@ internal sealed class OverlayBarButton
     _unit;
   private readonly SettingsCapsuleGraphic _swatch;
   private readonly SettingsGradientPreview _swatchGradient;
+  private readonly LayoutActionIcon _icon;
+  private readonly SettingsCapsuleGraphic _track,
+    _thumb;
+  private readonly SettingsSwitchMotion _thumbMotion;
   private bool _active;
   private int _drop;
 
   /// <param name="lead">A swatch (<paramref name="swatch"/>), an icon or a glyph before the name; none when all are unset.</param>
+  /// <param name="toggle">A switch after the name, set with <see cref="SetSwitch"/>.</param>
   public OverlayBarButton(
     SettingsUiFactory ui,
     Transform parent,
@@ -44,7 +54,8 @@ internal sealed class OverlayBarButton
     string unit = "",
     bool swatch = false,
     LayoutAction? icon = null,
-    string glyph = null
+    string glyph = null,
+    bool toggle = false
   )
   {
     _reduceMotion = reduceMotion;
@@ -72,6 +83,7 @@ internal sealed class OverlayBarButton
       graphic.color = SettingsUiFactory.Foreground;
       graphic.raycastTarget = false;
       _lead = graphic.rectTransform;
+      _icon = graphic;
     }
     else if (!string.IsNullOrEmpty(glyph))
     {
@@ -86,8 +98,18 @@ internal sealed class OverlayBarButton
     _label = Text(ui, label, 14, SettingsUiFactory.Foreground);
     _value = Text(ui, "", 14, SettingsUiFactory.Foreground);
     _unit = Text(ui, unit, 12, SettingsUiFactory.Muted);
+    if (toggle)
+    {
+      _track = ui.Capsule("Switch", Root, 0, 0, TrackWidth, TrackHeight, SwitchOff);
+      _track.raycastTarget = false;
+      _thumb = ui.Capsule("Thumb", _track.transform, ThumbInset, ThumbInset, ThumbSize, ThumbSize, Color.white);
+      _thumb.raycastTarget = false;
+      _thumbMotion = _thumb.gameObject.AddComponent<SettingsSwitchMotion>();
+    }
     Set(null, false, false);
   }
+
+  private static Color SwitchOff => new(.3f, .3f, .3f);
 
   public RectTransform Root { get; }
 
@@ -151,6 +173,12 @@ internal sealed class OverlayBarButton
       if (_unit.text.Length > 0)
         x = Place(_unit, x + 2);
     }
+    if (_track != null)
+    {
+      x += ValueGap + 2;
+      SettingsUiFactory.Place(_track.rectTransform, x, (Height - TrackHeight) * .5f, TrackWidth, TrackHeight);
+      x += TrackWidth - 2;
+    }
     Width = x + Padding;
     SettingsUiFactory.Place(Root, Root.anchoredPosition.x, -Root.anchoredPosition.y, Width, Height);
     if (_active != active)
@@ -158,6 +186,31 @@ internal sealed class OverlayBarButton
       _active = active;
       Paint();
     }
+  }
+
+  /// <summary>
+  /// The switch on, off, or (null) halfway for a selection that mixes both.
+  /// Unless <paramref name="available"/>, the button reads muted: there is
+  /// nothing for it to act on, and a click only says why.
+  /// </summary>
+  public void SetSwitch(bool? on, bool available)
+  {
+    if (_track == null)
+      return;
+    Color accent = SettingsPalette.SoftAccent;
+    float alpha = available ? 1 : .4f;
+    Color track = on == false ? SwitchOff : SettingsPalette.AccentSurface,
+      thumb = on == false ? SettingsUiFactory.Foreground : accent;
+    track.a *= alpha;
+    thumb.a *= alpha;
+    _track.color = track;
+    _thumb.color = thumb;
+    float travel = TrackWidth - ThumbSize - ThumbInset * 2;
+    _thumbMotion.Set(ThumbInset + (on == null ? travel * .5f : on.Value ? travel : 0), _reduceMotion);
+    Color label = available ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+    _label.color = label;
+    if (_icon != null)
+      _icon.color = label;
   }
 
   public void Place(float x, float y) => SettingsUiFactory.Place(Root, x, y, Width, Height);

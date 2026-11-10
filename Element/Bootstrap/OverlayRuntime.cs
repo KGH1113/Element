@@ -95,6 +95,7 @@ internal sealed class OverlayRuntime : IDisposable
   {
     Canvas?.SetVisible(true);
     _coordinator?.Show();
+    Canvas?.Values.Settle();
     _timeTicker?.StartTicking();
   }
 
@@ -110,6 +111,7 @@ internal sealed class OverlayRuntime : IDisposable
   public void RefreshAfterReset(scrMarginTracker tracker)
   {
     _coordinator?.RefreshAfterReset(tracker);
+    Canvas?.Values.Settle();
     if (_coordinator is { IsVisible: true })
       _timeTicker?.StartTicking();
   }
@@ -118,6 +120,7 @@ internal sealed class OverlayRuntime : IDisposable
   {
     _timeTicker?.StopTicking();
     _coordinator?.RefreshAfterReset(tracker);
+    Canvas?.Values.Settle();
   }
 
   public void RefreshAccuracy() => _coordinator?.RefreshAccuracy();

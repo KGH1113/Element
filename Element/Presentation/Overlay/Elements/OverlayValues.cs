@@ -48,8 +48,11 @@ internal sealed class OverlayValues : IOverlayNumberSource
     return changed;
   }
 
-  /// <summary>Increments on every combo bump; text elements with the combo pulse once per step.</summary>
-  public int ComboBumps { get; private set; }
+  /// <summary>
+  /// Advances when a level starts or restarts. Values set then are a fresh
+  /// start, not a change: animated values take them without growing.
+  /// </summary>
+  public int Settles { get; private set; }
 
   /// <summary>A number as shown (<paramref name="value"/>) and as calculated with (<paramref name="number"/>).</summary>
   public void Set(OverlayValueId id, StringBuilder value, double number)
@@ -96,7 +99,7 @@ internal sealed class OverlayValues : IOverlayNumberSource
     return _has[(int)id] && !double.IsNaN(number);
   }
 
-  public void BumpCombo() => ComboBumps++;
+  public void Settle() => Settles++;
 
   public bool TryGet(OverlayValueId id, out StringBuilder value)
   {

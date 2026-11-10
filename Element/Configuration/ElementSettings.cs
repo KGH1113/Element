@@ -21,7 +21,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public bool AutoOpenCloseDmNote = true;
 
   /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
-  public const int CurrentSettingsVersion = 8;
+  public const int CurrentSettingsVersion = 9;
 
   public const string DefaultHighlightColor = "#BA712B";
 
@@ -102,6 +102,9 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     // old default moves to the new one.
     if (SettingsVersion < 8 && Gameplay.Chatter.WindowMs == ChatterBlockerOptions.ReleaseWindowDefaultMs)
       Gameplay.Chatter.WindowMs = ChatterFilter.DefaultWindowMs;
+    // Animation became a switch on each value; the combos that always grew keep growing.
+    if (SettingsVersion < 9)
+      Domain.Elements.OverlayElementMigration.AnimateCombos(OverlayLayouts);
     Profiles ??= new();
     SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
   }

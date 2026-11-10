@@ -35,6 +35,7 @@ internal enum LayoutAction
   DistributeHorizontal,
   DistributeVertical,
   Font,
+  Animate,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -60,6 +61,14 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         Line(mesh, 5.2f, 14.5f, 11.8f, 14.5f);
         Arc(mesh, 18, 16.5f, 3.2f, 0, 360);
         Line(mesh, 21.2f, 12.5f, 21.2f, 20);
+        break;
+      case LayoutAction.Animate:
+        // A value with waves on both sides: it pulses.
+        Dot(mesh, 12, 12, 3);
+        Arc(mesh, 12, 12, 7, -40, 40);
+        Arc(mesh, 12, 12, 7, 140, 220);
+        Arc(mesh, 12, 12, 10.5f, -32, 32);
+        Arc(mesh, 12, 12, 10.5f, 148, 212);
         break;
       case LayoutAction.KeyViewer:
         Box(mesh, 3, 5, 10, 12);

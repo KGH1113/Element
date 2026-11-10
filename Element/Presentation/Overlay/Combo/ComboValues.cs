@@ -9,8 +9,8 @@ using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Overlay.Combo;
 
-// The combo count and its bump, and the song title mirrored from ADOFAI's own
-// level name, which stays hidden while the overlay is shown.
+// The combo count, and the song title mirrored from ADOFAI's own level name,
+// which stays hidden while the overlay is shown.
 internal sealed class ComboValues : IOverlayView<ComboSnapshot>
 {
   private readonly OverlayValues _values;
@@ -49,8 +49,6 @@ internal sealed class ComboValues : IOverlayView<ComboSnapshot>
       _values.Set(OverlayValueId.Combo, _builder.Clear().AppendInt(snapshot.Count), snapshot.Count);
       _lastCount = snapshot.Count;
     }
-    if (snapshot.Bump)
-      _values.BumpCombo();
   }
 
   public void Dispose()

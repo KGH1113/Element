@@ -31,7 +31,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   private bool _visible;
   private bool _layoutPreview;
   private bool _fitPending;
-  private int _comboBumps;
+  private int _settles;
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
@@ -209,18 +209,13 @@ internal sealed class OverlayCanvasHost : IDisposable
   {
     _fonts?.Tick();
     ulong changes = Values.TakeChanges();
+    bool settle = _settles != Values.Settles;
+    _settles = Values.Settles;
     // Each refresh is a mask test unless its values, the theme or its scale changed.
     foreach (TextOverlayElement text in _texts)
-      text.Refresh(changes);
+      text.Refresh(changes, settle);
     foreach (ShapeOverlayElement shape in _shapes)
       shape.Refresh(changes);
-    if (_comboBumps != Values.ComboBumps)
-    {
-      _comboBumps = Values.ComboBumps;
-      foreach (TextOverlayElement text in _texts)
-        if (text.UsesCombo && text.Enabled)
-          text.Pulse();
-    }
     if (_fitPending)
       FitPendingGroups();
   }

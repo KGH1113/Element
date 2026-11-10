@@ -924,15 +924,20 @@ namespace Element.Editor
         "the input dock is always there, resting with a hint");
       RectTransform format = Field<RectTransform>(text, "_formatBar");
       OverlayBarButton sizeButton = Field<OverlayBarButton>(text, "_sizeButton"), colorButton = Field<OverlayBarButton>(text, "_colorButton"),
-        textGrow = Field<OverlayBarButton>(text, "_growButton"), fontButton = Field<OverlayBarButton>(text, "_fontButton");
+        textGrow = Field<OverlayBarButton>(text, "_growButton"), fontButton = Field<OverlayBarButton>(text, "_fontButton"),
+        animateButton = Field<OverlayBarButton>(text, "_animateButton");
       Button[] barButtons = format.GetComponentsInChildren<Button>(true);
       Button growButton = textGrow.Button;
       Assert(fontButton.Root.IsChildOf(format) && sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format)
-        && textGrow.Root.IsChildOf(format) && barButtons.Length == 4
+        && animateButton.Root.IsChildOf(format) && textGrow.Root.IsChildOf(format) && barButtons.Length == 5
         && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
-        "font, size, color and grow point share one bar; no opacity, no + Value");
-      string[] textLabels = Korean(name) ? new[] { "폰트", "크기", "글자 색", "기준점" } : new[] { "Font", "Size", "Text color", "Grow from" };
-      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, textGrow };
+        "font, size, color, animation and grow point share one bar; no opacity, no + Value");
+      Assert(animateButton.Root.anchoredPosition.x > colorButton.Root.anchoredPosition.x
+        && animateButton.Root.anchoredPosition.x < textGrow.Root.anchoredPosition.x, "animation sits between the color and the grow point");
+      string[] textLabels = Korean(name)
+        ? new[] { "폰트", "크기", "글자 색", "애니메이션", "기준점" }
+        : new[] { "Font", "Size", "Text color", "Animate", "Grow from" };
+      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
       for (int i = 0; i < textBar.Length; i++)
       {
         Assert(textBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
@@ -951,6 +956,30 @@ namespace Element.Editor
       Assert(document.Count == 7 && document[6].IsValue, "the editor reads FPS | {fps}");
       Assert(sizeButton.Value.Length > 0 && !sizeButton.Computed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
+
+      // The animation switch acts on values: the whole text's with nothing selected.
+      OverlayTextPulse previewPulse = Field<OverlayTextPulse>(text, "_previewPulse");
+      Assert(!document[6].Animate, "FPS starts still");
+      animateButton.Button.onClick.Invoke();
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
+      Assert(screen.NoticeText.Length > 0, "turning it on says what it does");
+      SettingsSwitchMotion animateThumb = Field<SettingsSwitchMotion>(animateButton, "_thumbMotion");
+      Assert(Field<float>(animateThumb, "_target") > 12, "the switch slides over to on");
+      SaveFrame(camera, texture, canvases, name + "-text-animate");
+      previewPulse.Stop();
+      SetField(text, "_caretIndex", 3); SetField(text, "_anchor", 0);
+      Call(text, "Render");
+      animateButton.Button.onClick.Invoke();
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(document[6].Animate && screen.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
+        "letters alone stay as they are and say why: " + screen.NoticeText);
+      SetField(text, "_caretIndex", 7); SetField(text, "_anchor", 7);
+      Call(text, "Render");
+      animateButton.Button.onClick.Invoke();
+      document = Field<OverlayTextDocument>(text, "_document");
+      Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
+      Assert(Field<float>(animateThumb, "_target") < 6, "the switch slides back to off");
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.

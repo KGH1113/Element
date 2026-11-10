@@ -9,7 +9,8 @@ namespace Element.Domain.Elements;
 // value, with its color, size (zero for the text's base size) and font (an
 // OverlayFontKey; empty follows the overlay's default font). A value is a
 // saved formula (OverlayFormula), usually one value's key. A size formula,
-// when set, gives the size in pixels as drawn and replaces Size.
+// when set, gives the size in pixels as drawn and replaces Size. Only a value
+// animates: it grows briefly each time what it shows changes.
 internal readonly struct OverlayTextItem
 {
   public readonly string Text;
@@ -18,6 +19,7 @@ internal readonly struct OverlayTextItem
   public readonly float Size;
   public readonly string SizeFormula;
   public readonly string Font;
+  public readonly bool Animate;
   public bool IsValue => Value != null;
 
   private OverlayTextItem(
@@ -26,7 +28,8 @@ internal readonly struct OverlayTextItem
     OverlayColorSettings color,
     float size,
     string sizeFormula,
-    string font
+    string font,
+    bool animate
   )
   {
     Text = text;
@@ -35,6 +38,7 @@ internal readonly struct OverlayTextItem
     Size = size;
     SizeFormula = sizeFormula ?? string.Empty;
     Font = font ?? string.Empty;
+    Animate = value != null && animate;
   }
 
   public static OverlayTextItem Character(
@@ -43,27 +47,45 @@ internal readonly struct OverlayTextItem
     float size = 0,
     string sizeFormula = null,
     string font = null
-  ) => new(text, null, color, size, sizeFormula, font);
+  ) => new(text, null, color, size, sizeFormula, font, false);
 
   public static OverlayTextItem ValueItem(
     string formula,
     OverlayColorSettings color,
     float size = 0,
     string sizeFormula = null,
-    string font = null
-  ) => new(null, formula, color, size, sizeFormula, font);
+    string font = null,
+    bool animate = false
+  ) => new(null, formula, color, size, sizeFormula, font, animate);
 
-  public OverlayTextItem WithColor(OverlayColorSettings color) => new(Text, Value, color, Size, SizeFormula, Font);
+  public OverlayTextItem WithColor(OverlayColorSettings color) =>
+    new(Text, Value, color, Size, SizeFormula, Font, Animate);
 
   public OverlayTextItem WithSize(float size, string sizeFormula = null) =>
-    new(Text, Value, Color, size, sizeFormula, Font);
+    new(Text, Value, Color, size, sizeFormula, Font, Animate);
 
-  public OverlayTextItem WithFont(string font) => new(Text, Value, Color, Size, SizeFormula, font);
+  public OverlayTextItem WithFont(string font) => new(Text, Value, Color, Size, SizeFormula, font, Animate);
 
-  public OverlayTextItem WithValue(string formula) => new(Text, formula, Color, Size, SizeFormula, Font);
+  public OverlayTextItem WithValue(string formula) => new(Text, formula, Color, Size, SizeFormula, Font, Animate);
+
+  public OverlayTextItem WithAnimate(bool animate) => new(Text, Value, Color, Size, SizeFormula, Font, animate);
 
   public bool SameStyle(OverlayTextItem other) =>
-    Size == other.Size && SizeFormula == other.SizeFormula && Font == other.Font && Color.SameAs(other.Color);
+    Size == other.Size
+    && SizeFormula == other.SizeFormula
+    && Font == other.Font
+    && Animate == other.Animate
+    && Color.SameAs(other.Color);
+}
+
+// Whether a range's values animate. A range of only literal text has nothing
+// that could.
+internal enum OverlayAnimateState
+{
+  NoValues,
+  Off,
+  On,
+  Mixed,
 }
 
 /// <summary>
@@ -97,7 +119,7 @@ internal sealed class OverlayTextDocument
       {
         string formula = Formula(run.Value);
         if (formula.Length > 0)
-          document._items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula, font));
+          document._items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula, font, run.Animate));
       }
       else
         AppendCharacters(document._items, run.Text, color, size, sizeFormula, font);
@@ -124,6 +146,7 @@ internal sealed class OverlayTextDocument
         run.Size = item.Size;
         run.SizeFormula = item.SizeFormula;
         run.Font = item.Font;
+        run.Animate = item.Animate;
         runs.Add(run);
       }
       else
@@ -220,7 +243,8 @@ internal sealed class OverlayTextDocument
     OverlayColorSettings color,
     float size = 0,
     string sizeFormula = null,
-    string font = null
+    string font = null,
+    bool animate = false
   )
   {
     formula = Formula(formula);
@@ -236,7 +260,8 @@ internal sealed class OverlayTextDocument
           color ?? DefaultColor,
           ValidSize(size),
           Formula(sizeFormula),
-          OverlayFontKey.Normalize(font)
+          OverlayFontKey.Normalize(font),
+          animate
         ),
       }
     );
@@ -327,6 +352,45 @@ internal sealed class OverlayTextDocument
       if (_items[i].Font != font)
         return null;
     return font;
+  }
+
+  /// <summary>Turns animation on or off for the range's values; the text between them never moves.</summary>
+  public void SetAnimate(int start, int end, bool animate)
+  {
+    Order(ref start, ref end);
+    for (int i = start; i < end; i++)
+      if (_items[i].IsValue)
+        _items[i] = _items[i].WithAnimate(animate);
+  }
+
+  public OverlayAnimateState AnimateState(int start, int end)
+  {
+    Order(ref start, ref end);
+    bool on = false,
+      off = false;
+    for (int i = start; i < end; i++)
+      if (_items[i].IsValue)
+      {
+        on |= _items[i].Animate;
+        off |= !_items[i].Animate;
+      }
+    return on && off ? OverlayAnimateState.Mixed
+      : on ? OverlayAnimateState.On
+      : off ? OverlayAnimateState.Off
+      : OverlayAnimateState.NoValues;
+  }
+
+  /// <summary>A new value animates like the nearest value, before the caret first; with none, it doesn't.</summary>
+  public bool TypingAnimate(int caret)
+  {
+    caret = Clamp(caret);
+    for (int i = caret - 1; i >= 0; i--)
+      if (_items[i].IsValue)
+        return _items[i].Animate;
+    for (int i = caret; i < _items.Count; i++)
+      if (_items[i].IsValue)
+        return _items[i].Animate;
+    return false;
   }
 
   /// <summary>New typing continues the nearest literal text's color, size and font.</summary>

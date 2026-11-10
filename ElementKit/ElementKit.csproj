@@ -21,7 +21,7 @@
     <Version>1.0.0</Version>
     <Product>ElementKit</Product>
     <Company>impl</Company>
-    <Description>Lets other ADOFAI mods add values to Element's overlay.</Description>
+    <Description>Lets other ADOFAI mods add values and overlay elements to Element.</Description>
   </PropertyGroup>
 
   <ItemGroup>

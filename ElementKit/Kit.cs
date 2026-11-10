@@ -8,7 +8,8 @@ namespace ElementKit;
 
 /// <summary>
 /// Connects your mod to Element. Write your mod as usual (read the game,
-/// patch it with Harmony) and hand what you work out to Element as values;
+/// patch it with Harmony) and hand what you work out to Element as values,
+/// or as overlay elements of your own (<see cref="Elements.ElementType"/>);
 /// players place and style them with Element's editor.
 /// </summary>
 /// <example>
@@ -23,17 +24,18 @@ namespace ElementKit;
 public static class Kit
 {
   /// <summary>What this ElementKit offers. It only grows; a mod can check it before using something newer.</summary>
-  public const int ApiLevel = 1;
+  public const int ApiLevel = 2;
 
   /// <summary>
-  /// Adds the values your mod keeps in static fields. Call it once from your
-  /// mod's <c>Load</c>. A UMM reload attaches again and replaces what the
-  /// earlier load added; texts that use your values keep them.
+  /// Adds the values and element types your mod keeps in static fields. Call
+  /// it once from your mod's <c>Load</c>. A UMM reload attaches again and
+  /// replaces what the earlier load added; texts that use your values and
+  /// elements of your types keep them.
   /// </summary>
   /// <returns>True, so <c>return Kit.Attach(mod);</c> can end <c>Load</c>.</returns>
   /// <remarks>
   /// Problems, such as a key texts can't save, are written to your mod's
-  /// log; only the value with the problem is left out.
+  /// log; only the value, property or element type with the problem is left out.
   /// </remarks>
   [MethodImpl(MethodImplOptions.NoInlining)]
   public static bool Attach(UnityModManager.ModEntry mod)
@@ -56,7 +58,10 @@ public static class Kit
     return true;
   }
 
-  /// <summary>Takes your mod's values out of Element. Texts keep them and show nothing until you attach again.</summary>
+  /// <summary>
+  /// Takes your mod's values and element types out of Element. Texts and
+  /// elements keep them and show nothing until you attach again.
+  /// </summary>
   public static void Detach(UnityModManager.ModEntry mod)
   {
     if (mod != null)

@@ -67,7 +67,7 @@ internal static class ValueScanner
     return found.OrderBy(group => group.Order).ToList();
   }
 
-  private static IEnumerable<Type> LoadableTypes(Assembly assembly, Action<string> report)
+  internal static IEnumerable<Type> LoadableTypes(Assembly assembly, Action<string> report)
   {
     if (assembly == null)
       return Array.Empty<Type>();
@@ -77,7 +77,7 @@ internal static class ValueScanner
     }
     catch (ReflectionTypeLoadException exception)
     {
-      report("[ElementKit] Some types in " + assembly.GetName().Name + " couldn't load; values in them were skipped.");
+      report("[ElementKit] Some types in " + assembly.GetName().Name + " couldn't load; what they add was skipped.");
       return exception.Types.Where(type => type != null);
     }
   }

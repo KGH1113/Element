@@ -5,6 +5,8 @@ using Element.Domain.Elements;
 using Element.Domain.Layout;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Mods;
+using ElementKit.Elements;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,8 +15,9 @@ using Object = UnityEngine.Object;
 namespace Element.Presentation.Overlay.Shared;
 
 /// <summary>
-/// The overlay canvas and its text and shape elements, kept in step with the
-/// saved layout list. Shapes draw on a layer below every text.
+/// The overlay canvas and its text, shape and mod elements, kept in step with
+/// the saved layout list. Shapes draw on a layer below other mods' elements,
+/// and those below every text.
 /// </summary>
 internal sealed class OverlayCanvasHost : IDisposable
 {
@@ -23,8 +26,10 @@ internal sealed class OverlayCanvasHost : IDisposable
   private readonly List<OverlayElementTarget> _elements = new();
   private readonly List<TextOverlayElement> _texts = new();
   private readonly List<ShapeOverlayElement> _shapes = new();
+  private readonly List<ModOverlayElement> _mods = new();
   private readonly HashSet<string> _defaultIds = new();
   private Transform _shapeLayer;
+  private Transform _modLayer;
   private Transform _textLayer;
   private List<OverlayLayoutSettings> _layoutSettings = new();
   private OverlayFonts _fonts;
@@ -35,6 +40,9 @@ internal sealed class OverlayCanvasHost : IDisposable
 
   /// <summary>Values from outside the game's events, written into <see cref="Values"/> each frame.</summary>
   public IOverlayValueFeed Feed { get; set; }
+
+  /// <summary>The element types other mods add; without it their elements wait as if the mod were missing.</summary>
+  public ModElements ModElements { get; set; }
 
   public IReadOnlyList<IOverlayLayoutTarget> LayoutTargets => _elements;
   internal List<OverlayLayoutSettings> LayoutSettings => _layoutSettings;
@@ -64,6 +72,7 @@ internal sealed class OverlayCanvasHost : IDisposable
     scaler.matchWidthOrHeight = 0.5f;
 
     _shapeLayer = CreateLayer("Shapes");
+    _modLayer = CreateLayer("Mod elements");
     _textLayer = CreateLayer("Texts");
     foreach (OverlayDefaultElement element in OverlayElementDefaults.All)
       _defaultIds.Add(element.Id);
@@ -74,7 +83,12 @@ internal sealed class OverlayCanvasHost : IDisposable
   }
 
   /// <summary>Text elements need the overlay fonts; without them only shapes are shown.</summary>
-  public void SetFonts(OverlayFonts fonts) => _fonts = fonts;
+  public void SetFonts(OverlayFonts fonts)
+  {
+    _fonts = fonts;
+    foreach (ModOverlayElement element in _mods)
+      element.SetFonts(fonts);
+  }
 
   public void SetVisible(bool visible)
   {
@@ -103,6 +117,8 @@ internal sealed class OverlayCanvasHost : IDisposable
         CreateText(settings);
       else if (settings.TemplateId == OverlayElementKinds.Shape)
         CreateShape(settings);
+      else if (OverlayElementKinds.IsMod(settings.TemplateId))
+        CreateMod(settings);
     }
     _fitPending = true;
   }
@@ -131,6 +147,32 @@ internal sealed class OverlayCanvasHost : IDisposable
     };
     _layoutSettings.Add(settings);
     return CreateShape(settings);
+  }
+
+  /// <summary>A new element of another mod's <paramref name="type"/>, its properties at their defaults.</summary>
+  public ModOverlayElement AddModElement(ElementType type)
+  {
+    if (type?.FullKey == null)
+      return null;
+    OverlayLayoutSettings settings = new()
+    {
+      Id = "mod:" + Guid.NewGuid().ToString("N"),
+      TemplateId = type.FullKey,
+      Mod = new OverlayModSettings(),
+    };
+    _layoutSettings.Add(settings);
+    return CreateMod(settings);
+  }
+
+  private ModOverlayElement CreateMod(OverlayLayoutSettings settings)
+  {
+    ModElements?.Refresh();
+    ModOverlayElement element = new(_modLayer, Values, ModElements, _fonts);
+    _elements.Add(element);
+    _mods.Add(element);
+    element.SetPreview(_layoutPreview);
+    element.Configure(settings);
+    return element;
   }
 
   private TextOverlayElement CreateText(OverlayLayoutSettings settings)
@@ -165,6 +207,8 @@ internal sealed class OverlayCanvasHost : IDisposable
       _texts.Remove(text);
     if (element is ShapeOverlayElement shape)
       _shapes.Remove(shape);
+    if (element is ModOverlayElement mod)
+      _mods.Remove(mod);
   }
 
   /// <summary>
@@ -218,6 +262,12 @@ internal sealed class OverlayCanvasHost : IDisposable
       text.Refresh(changes);
     foreach (ShapeOverlayElement shape in _shapes)
       shape.Refresh(changes);
+    if (_mods.Count > 0)
+    {
+      ModElements?.Refresh();
+      foreach (ModOverlayElement mod in _mods)
+        mod.Refresh(changes);
+    }
     if (_comboBumps != Values.ComboBumps)
     {
       _comboBumps = Values.ComboBumps;
@@ -353,6 +403,7 @@ internal sealed class OverlayCanvasHost : IDisposable
     _elements.Clear();
     _texts.Clear();
     _shapes.Clear();
+    _mods.Clear();
     Settings.SettingsUiFactory.Destroy(Root);
     Root = null;
   }

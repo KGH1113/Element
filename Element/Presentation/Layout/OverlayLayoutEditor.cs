@@ -111,6 +111,12 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (_shapeEditor.IsOpen)
         return;
     }
+    if (_propertyEditor != null && _propertyEditor.IsOpen)
+    {
+      _propertyEditor.Close(save, true);
+      if (_propertyEditor.IsOpen)
+        return;
+    }
     if (save && !CommitPopovers())
       return;
     if (save && HasSelection && _scalePending)
@@ -185,6 +191,15 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     {
       UIInteractionState.SetTextEditing(true);
       _shapeEditor.Tick();
+      _host.TickLayoutPreview();
+      UpdateFrames();
+      _cursors.Set(LayoutHandle.None);
+      return;
+    }
+    if (_propertyEditor != null && _propertyEditor.IsOpen)
+    {
+      UIInteractionState.SetTextEditing(true);
+      _propertyEditor.Tick();
       _host.TickLayoutPreview();
       UpdateFrames();
       _cursors.Set(LayoutHandle.None);
@@ -401,6 +416,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     // an open text or shape edit included; only Cancel throws edits away.
     _textEditor?.Dispose();
     _shapeEditor?.Dispose();
+    _propertyEditor?.Dispose();
     if (IsOpen)
     {
       FinishDrag();

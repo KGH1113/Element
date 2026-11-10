@@ -2,6 +2,7 @@ using System;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
@@ -32,6 +33,7 @@ internal sealed partial class OverlayLayoutEditor
     {
       TextOverlayElement => L("텍스트", "Text"),
       ShapeOverlayElement shape => shape.Label,
+      ModOverlayElement mod => mod.Label,
       _ => target.TemplateId switch
       {
         OverlayElementKinds.HandKeyViewer => L("손 키뷰어", "Hand key viewer"),
@@ -75,6 +77,8 @@ internal sealed partial class OverlayLayoutEditor
       yield return _addMenu;
     if (_shapeMenu != null)
       yield return _shapeMenu;
+    if (_modMenu != null)
+      yield return _modMenu;
     if (_settingsPanel != null && _settingsPanel.gameObject.activeSelf)
       yield return _settingsPanel;
   }
@@ -126,6 +130,8 @@ internal sealed partial class OverlayLayoutEditor
   {
     if (_shapeMenu != null)
       CloseShapeMenu();
+    else if (_modMenu != null)
+      CloseModMenu();
     else if (_addMenu != null)
       CloseAddMenu();
     else
@@ -156,6 +162,7 @@ internal sealed partial class OverlayLayoutEditor
       _fontPopover.Root.SetAsLastSibling();
     _addMenu?.SetAsLastSibling();
     _shapeMenu?.SetAsLastSibling();
+    _modMenu?.SetAsLastSibling();
     _settingsPanel?.SetAsLastSibling();
     if (_modalRoot != null)
       _modalRoot.transform.SetAsLastSibling();
@@ -163,6 +170,8 @@ internal sealed partial class OverlayLayoutEditor
       _textEditor.Raise();
     if (_shapeEditor != null && _shapeEditor.IsOpen)
       _shapeEditor.Raise();
+    if (_propertyEditor != null && _propertyEditor.IsOpen)
+      _propertyEditor.Raise();
   }
 
   private float PopupScale(float width, float height) =>
@@ -222,6 +231,7 @@ internal sealed partial class OverlayLayoutEditor
       float height = AddMenuHeight;
       PlacePopover(_addMenu, PopoverAboveToolbar(AddMenuWidth, height, 348, false), AddMenuWidth, height);
       PlaceShapeMenu();
+      PlaceModMenu();
     }
     UpdateSettingsPosition();
     if (_modalRoot != null && (_modalWidth != ViewWidth || _modalHeight != ViewHeight))
@@ -305,7 +315,8 @@ internal sealed partial class OverlayLayoutEditor
     UpdateFrames();
   }
 
-  private float AddMenuHeight => 16 + AddMenuRow * 3;
+  // Other mods' elements get a fourth row once a mod offers one.
+  private float AddMenuHeight => 16 + AddMenuRow * (OfferedModElements > 0 ? 4 : 3);
 
   private void ToggleAddMenu()
   {
@@ -373,6 +384,19 @@ internal sealed partial class OverlayLayoutEditor
       true,
       ToggleShapeMenu
     );
+    int offered = OfferedModElements;
+    if (offered > 0)
+      AddMenuRowButton(
+        3,
+        LayoutAction.Extension,
+        L("기타", "More"),
+        L(
+          "다른 모드가 추가한 요소 " + offered + "개",
+          offered == 1 ? "1 element from other mods" : offered + " elements from other mods"
+        ),
+        true,
+        ToggleModMenu
+      );
     UpdatePopupPositions();
     EventSystem.current?.SetSelectedGameObject(text.gameObject);
   }
@@ -415,6 +439,7 @@ internal sealed partial class OverlayLayoutEditor
   private void CloseAddMenu()
   {
     CloseShapeMenu();
+    CloseModMenu();
     if (_addMenu == null)
       return;
     _addMenu.gameObject.SetActive(false);

@@ -240,6 +240,7 @@ namespace Element.Editor
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
       CheckGradients(editor, host, camera, texture, canvases, name);
+      CheckModElements(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();

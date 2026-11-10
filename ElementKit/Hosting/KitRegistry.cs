@@ -3,22 +3,35 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using ElementKit.Elements;
 using ElementKit.Values;
 
 namespace ElementKit.Hosting;
 
-// A mod that attached, with the value groups found in it.
+// A mod that attached, with the value groups and element types found in it.
 internal sealed class AttachedMod
 {
   public AttachedMod(string id, IReadOnlyList<ValueGroup> groups, Func<bool> isActive)
+    : this(id, groups, Array.Empty<ElementType>(), isActive) { }
+
+  public AttachedMod(
+    string id,
+    IReadOnlyList<ValueGroup> groups,
+    IReadOnlyList<ElementType> elements,
+    Func<bool> isActive
+  )
   {
     Id = id;
     Groups = groups;
+    Elements = elements ?? Array.Empty<ElementType>();
     IsActive = isActive ?? (() => true);
   }
 
   public string Id { get; }
   public IReadOnlyList<ValueGroup> Groups { get; }
+
+  /// <summary>The element types players can add; ones Attach refused are left out.</summary>
+  public IReadOnlyList<ElementType> Elements { get; }
 
   // Element hides a turned-off mod's values; UMM keeps its assembly loaded.
   public Func<bool> IsActive { get; }
@@ -57,7 +70,12 @@ internal static class KitRegistry
     Validate(groups, report);
     foreach (ValueGroup group in groups)
       group.ModId = modId;
-    AttachedMod attached = new(modId, groups, isActive);
+    List<ElementType> elements = ElementScanner.Find(assembly, report);
+    ElementRules.Validate(elements, report);
+    elements.RemoveAll(element => !element.Accepted);
+    foreach (ElementType element in elements)
+      element.ModId = modId;
+    AttachedMod attached = new(modId, groups, elements, isActive);
     lock (Sync)
     {
       int index = Mods.FindIndex(mod => mod.Id == modId);
@@ -130,13 +148,17 @@ internal static class KitRegistry
     }
     if (keys.Contains(value.Key))
     {
-      report("[ElementKit] Two values use the key " + name + ". Give each value its own key; the second one was skipped.");
+      report(
+        "[ElementKit] Two values use the key " + name + ". Give each value its own key; the second one was skipped."
+      );
       return false;
     }
     if (string.IsNullOrWhiteSpace(value.KoreanName) || string.IsNullOrWhiteSpace(value.EnglishName))
     {
       report(
-        "[ElementKit] The value " + name + " needs a short Korean and English name, such as \"왼손 키\" and \"Left keys\". The value was skipped."
+        "[ElementKit] The value "
+          + name
+          + " needs a short Korean and English name, such as \"왼손 키\" and \"Left keys\". The value was skipped."
       );
       return false;
     }
@@ -150,7 +172,9 @@ internal static class KitRegistry
     if (!sample)
     {
       report(
-        "[ElementKit] The value " + name + " needs an example so the editor can show it before your mod sets it. The value was skipped."
+        "[ElementKit] The value "
+          + name
+          + " needs an example so the editor can show it before your mod sets it. The value was skipped."
       );
       return false;
     }

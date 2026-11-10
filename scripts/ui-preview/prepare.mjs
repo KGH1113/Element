@@ -31,7 +31,11 @@ files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayou
 files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
-for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Elements'])
+for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
+  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
+    files.push(path.join(root, folder, name));
+// ElementKit, minus Kit.cs: the preview attaches through KitRegistry, without UMM.
+for (const folder of ['ElementKit/Values', 'ElementKit/Elements', 'ElementKit/Hosting'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
 for (const source of files) {
@@ -41,6 +45,7 @@ for (const source of files) {
 }
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/SettingsPreview.cs'), path.join(target, 'Editor/SettingsPreview.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/GradientChecks.cs'), path.join(target, 'Editor/GradientChecks.cs'));
+fs.copyFileSync(path.join(root, 'scripts/ui-preview/ModElementChecks.cs'), path.join(target, 'Editor/ModElementChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/OverlayTargetChecks.cs'), path.join(target, 'Editor/OverlayTargetChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/NativeLayoutChecks.cs'), path.join(target, 'Editor/NativeLayoutChecks.cs'));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/PlanetPreviewChecks.cs'), path.join(target, 'Editor/PlanetPreviewChecks.cs'));

@@ -35,6 +35,7 @@ internal enum LayoutAction
   DistributeHorizontal,
   DistributeVertical,
   Font,
+  Extension,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -82,6 +83,13 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
         break;
       case LayoutAction.Circle:
         Arc(mesh, 12, 12, 8, 0, 360);
+        break;
+      case LayoutAction.Extension:
+        // Three blocks and a fourth set apart: pieces another mod adds.
+        Box(mesh, 3, 3, 10.5f, 10.5f);
+        Box(mesh, 13.5f, 3, 21, 10.5f);
+        Box(mesh, 3, 13.5f, 10.5f, 21);
+        Arc(mesh, 17.25f, 17.25f, 3.75f, 0, 360);
         break;
       case LayoutAction.Back:
         Line(mesh, 15, 5, 8, 12);

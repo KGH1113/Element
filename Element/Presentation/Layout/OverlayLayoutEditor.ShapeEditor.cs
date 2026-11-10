@@ -18,11 +18,12 @@ internal sealed partial class OverlayLayoutEditor
   private RectTransform _shapeMenu;
   private SettingsUiFactory _shapeMenuUi;
 
-  private bool ContentEditorOpen => (_textEditor?.IsOpen ?? false) || (_shapeEditor?.IsOpen ?? false);
+  private bool ContentEditorOpen =>
+    (_textEditor?.IsOpen ?? false) || (_shapeEditor?.IsOpen ?? false) || (_propertyEditor?.IsOpen ?? false);
 
   /// <summary>
-  /// Opens the editor for a text or a shape, or ElementNote for a key viewer;
-  /// false for other elements.
+  /// Opens the editor for a text, a shape or another mod's element, or
+  /// ElementNote for a key viewer; false for other elements.
   /// </summary>
   private bool OpenContentEditor(IOverlayLayoutTarget target)
   {
@@ -33,6 +34,9 @@ internal sealed partial class OverlayLayoutEditor
         return true;
       case ShapeOverlayElement shape:
         OpenShapeEditor(shape, false);
+        return true;
+      case Overlay.Mods.ModOverlayElement mod:
+        OpenPropertyEditor(mod, false);
         return true;
       case not null when OverlayElementKinds.IsKeyViewer(target.TemplateId):
         OpenKeyViewerInApp(target);

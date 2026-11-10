@@ -170,8 +170,8 @@ internal sealed partial class OverlayLayoutEditor
       _textEditor.Raise();
     if (_shapeEditor != null && _shapeEditor.IsOpen)
       _shapeEditor.Raise();
-    if (_propertyEditor != null && _propertyEditor.IsOpen)
-      _propertyEditor.Raise();
+    if (_modEditor != null && _modEditor.IsOpen)
+      _modEditor.Raise();
   }
 
   private float PopupScale(float width, float height) =>

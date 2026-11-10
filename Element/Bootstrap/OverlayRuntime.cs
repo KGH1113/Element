@@ -43,7 +43,7 @@ internal sealed class OverlayRuntime : IDisposable
       // Values other mods add through ElementKit; shapes use them even without the font.
       Canvas.Feed = new ModValues(main.LogWarning);
       // Element types other mods add; their elements draw without the font too, minus words.
-      Canvas.ModElements = new ModElements(main.LogWarning);
+      Canvas.ModElements = new ModElements(new Infrastructure.Mods.UmmModAssemblies(), main.LogWarning);
       _fontLoader = new FontBundleLoader(main);
       if (!_fontLoader.Load())
       {

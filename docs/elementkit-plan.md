@@ -1,10 +1,11 @@
 # ElementKit 계획
 
-> 상태: P0 완료, P1 중 값 구현(`feat/elementkit`), 요소 종류 프로토타입(`feat/elementkit-elements`) · 2026-11-10
+> 상태: P0 완료, P1 중 값 구현(`feat/elementkit`), 오버레이 요소 프로토타입(`feat/elementkit-elements`) · 2026-11-10
 
 다른 모드가 만든 오버레이도 Element 안에서 보이고, Element 방식대로 고칠 수 있게 합니다.
-모드는 **값**, **프리셋**, **요소 종류**를 넣습니다. 배치와 편집 화면의 틀·부품은 Element가 맡고,
-요소를 그리는 일과 편집 화면에 어떤 부품을 둘지는 모드가 정합니다([요소 종류](#요소-종류)).
+모드는 **값**, **프리셋**, **오버레이 요소**를 넣습니다. 배치와 편집 화면의 틀, 그리고 라벨·버튼·색 선택기 같은
+부품은 Element가 줍니다. 요소를 그리고 부품으로 편집 화면을 꾸미는 일은 모드가 자유롭게 합니다. 요소만 넣는 모드는
+Element를 필수로 두지 않아도 됩니다([오버레이 요소](#오버레이-요소)).
 
 ## 진행 상황
 
@@ -17,11 +18,13 @@
 | 입력 독에 모드별 카테고리 | 완료 |
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
 | 예시 모드 [Sample](../Sample): SampleTag 태그를 옮김 (`./scripts/run.sh sample-install`) | 완료 |
-| 요소 종류: `ElementType`, 숫자·색·고르기·켜기 속성, 편집 화면 자리(`EditorLayout`), 그리기(`Surface`) | 프로토타입 |
-| 요소 추가 → 기타 → 모드별 종류 목록, 모드 요소 편집 화면(`OverlayPropertyEditor`), 모드가 없을 때 상자 | 프로토타입 |
-| Sample 예시 요소 `SampleBars`(예시 막대) | 프로토타입 |
-| 글자·폰트 속성, 미리보기 위 그라디언트 손잡이, 종류가 6개를 넘을 때 목록 스크롤 | 남음 |
-| 텍스트·도형 편집기를 같은 공통 틀로 옮기기 | 남음 |
+| 오버레이 요소: `[Element]` + `OverlayElement<TSettings>`, Element가 스스로 찾음(호출·필수 모드 없음) | 프로토타입 |
+| 편집 화면 부품(`EditorPage`): 라벨·버튼·스위치·슬라이더·숫자·글자·고르기·색 선택기, 자유 배치(`At`) | 프로토타입 |
+| 그리기 도우미(`Drawing`): 오버레이 폰트 글자, 둥근 상자, 하이라이트 색 | 프로토타입 |
+| 요소 추가 → 기타 → 모드별 목록, 편집 화면(실시간 미리보기·실행 취소), 모드가 없을 때 상자 | 프로토타입 |
+| Sample: 예시 막대 요소, Element 없이도 실행(`LoadAfter`, `ElementLink`) | 프로토타입 |
+| 색 선택기의 하이라이트 따르기·그라디언트, 종류가 6개를 넘을 때 목록 스크롤 | 남음 |
+| Element 없이 Sample을 켠 실제 게임 확인 | 남음 |
 | 프리셋, 기타 메뉴, 프리셋 내보내기 | 남음 |
 | `Player.Keys`, 묶음 값(`Numbers`), 실행 중 API 수준 확인 | 남음 |
 | NuGet 패키지·템플릿, 개발자 모드 | 남음 |
@@ -36,7 +39,7 @@
 ## 원칙
 
 1. **편집 경험은 Element가 가집니다.** 배치, 편집 화면의 틀(어두운 배경, 취소·완료, 입력 독·키패드, 색 선택기, 실행 취소)과 그 안의 부품은 Element 것입니다.
-2. **서드파티는 조합하고 그립니다.** 값·프리셋을 넣고, 요소 종류를 넣을 때는 속성을 선언해 편집 화면의 정해진 자리에 꽂고, 요소를 그립니다.
+2. **서드파티는 그리고 조합합니다.** 값·프리셋을 넣고, 요소를 넣을 때는 직접 그리고 Element 부품으로 편집 화면을 자유롭게 꾸밉니다.
 3. **서드파티 코드는 평소 모드와 같습니다.** 얼불춤(Assembly-CSharp)을 참조하고 Harmony로 패치해도 됩니다.
 4. **게임을 느리게 하지 않습니다.** 바뀐 것만 다시 그리고, 서드파티 쪽 문제는 그 모드 안에서 멈춥니다.
 5. **모드를 지워도 플레이어가 꾸민 것은 남습니다.** 다시 설치하면 그대로 돌아옵니다.
@@ -58,7 +61,7 @@
      게임 데이터: 서드파티가 얼불춤에서 직접 읽음 (Harmony 등)
 ```
 
-텍스트·도형 조립으로 되는 오버레이는 값과 프리셋으로 만들고, 그걸로 부족한 것만 요소 종류로 만듭니다. 여러 모드에 흔히 필요한 것은 **Element 기본 기능을 늘려서** 메웁니다([Element 기본 기능 확장](#element-기본-기능-확장)). 그러면 모든 플레이어가 덕을 봅니다.
+텍스트·도형 조립으로 되는 오버레이는 값과 프리셋으로 만들고, 그걸로 부족한 것만 오버레이 요소로 만듭니다. 여러 모드에 흔히 필요한 것은 **Element 기본 기능을 늘려서** 메웁니다([Element 기본 기능 확장](#element-기본-기능-확장)). 그러면 모든 플레이어가 덕을 봅니다.
 
 ## 서드파티가 할 수 있는 것, 하면 안 되는 것
 
@@ -229,58 +232,68 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 - 모드별 `Set` 횟수와 비용(개발자 모드일 때만 측정)
 - 선택한 요소를 프리셋으로 내보내기
 
-## 요소 종류
+## 오버레이 요소
 
-값이나 텍스트·도형 조립으로 부족한 오버레이(타임라인, 막대 그래프 등)는 모드가 요소 종류를 직접 넣습니다.
-Element는 배치와 편집 화면을 맡고, 모드는 그리기와 편집 화면 조합을 맡습니다.
+평소 모드처럼 개발합니다. 얼불춤을 참조하고 Harmony로 패치하고, 결과를 그리는 클래스 하나에 `[Element]`를 붙이면
+Element가 그 요소를 배치하고 편집할 수 있게 합니다. 모드가 Element에서 정보를 가져올 필요는 없습니다.
 
 ```csharp
-public sealed class SampleBars : ElementType
+[Serializable]
+public sealed class BarsSettings            // JsonUtility로 저장: 숫자, bool, 문자열, Color, 리스트…
 {
-    public static readonly SampleBars Shared = new();   // Redraw를 부를 인스턴스. Attach가 이것을 씀
+    public Color Left = new(1f, .62f, .26f);
+    public int Groups = 16;
+}
 
-    public static readonly ColorProperty Left = new("left", "왼손 색", "Left hand", "#FF9F43");
-    public static readonly NumberProperty Groups = new("groups", "묶음 수", "Groups", 16, 2, 64, NumberUnit.None);
-    public static readonly ChoiceProperty Grow = new("grow", "막대 방향", "Bars grow",
-        new ChoiceOption("up", "아래에서 위로", "Upward"), new ChoiceOption("middle", "가운데에서", "From the middle"));
-    public static readonly NumberProperty Width = new("width", "너비", "Width", 480, 40, 1920);
+[Element("bars", "예시 막대", "Sample bars")]
+public sealed class SampleBars : OverlayElement<BarsSettings>
+{
+    protected override void OnCreate() { /* Root 아래에 UGUI를 만듦. Drawing.Box/Text 도우미 */ }
+    protected override void OnSettingsChanged() => Size = new Vector2(480, 96);
+    protected override void OnUpdate() { /* 매 프레임 모드 상태를 읽어 갱신 */ }
 
-    public SampleBars() : base("bars", "예시 막대", "Sample bars") { }
-
-    protected override void Edit(EditorLayout editor)
+    protected override void OnEdit(EditorPage page)   // Element 부품으로 편집 화면을 꾸밈
     {
-        editor.Bar(Left, Groups, Grow);   // 위쪽 버튼 줄, 최대 6개, 끝에 기준점이 자동으로 붙음
-        editor.Below(Width);              // 미리보기 아래, 도형의 W처럼
+        page.ColorPicker(page.L("왼손 색", "Left hand"), Settings.Left, c => Settings.Left = c);
+        page.Slider(page.L("묶음 수", "Groups"), Settings.Groups, 2, 64, v => Settings.Groups = (int)v, step: 1);
+        page.Label("…").At(x, y);                    // 아무 데나 놓기도 됨
     }
-
-    protected override Vector2 Measure(Props props) => new((float)props[Width], 96);
-
-    protected override void Draw(Surface surface, Props props) =>
-        surface.Box(new Rect(0, 0, 40, 60), props[Left], rounding: 6);   // 바뀐 것이 있을 때만 불림
 }
 ```
 
-**속성:** `NumberProperty`(수식·값 가능, 최소·최대 필수), `ColorProperty`(하이라이트/직접 색, 불투명도, 그라디언트), `ChoiceProperty`, `ToggleProperty`. 값처럼 `static readonly`로 선언하면 `Kit.Attach`가 찾습니다.
+**순서:** 놓인 요소마다 인스턴스 하나. `LoadSettings` → `OnCreate` → `OnSettingsChanged` → 보이는 동안 매 프레임 `OnUpdate`.
+`IsPreview`는 Element 편집기에서 보일 때 참이라, 데이터가 없으면 예시를 그리면 됩니다.
 
-**편집 화면:** Element의 틀에 모드는 자리만 고릅니다. 틀은 텍스트·도형 편집기와 같은 부품으로 만듭니다.
+**편집 화면:** Element가 틀(어두운 배경, 취소·완료, Esc, 실행 취소, 기준점)과 **실시간 미리보기**를 맡습니다.
+미리보기는 같은 클래스의 두 번째 인스턴스라, 모드는 따로 만들 것이 없습니다. `OnEdit`는 그 인스턴스에서 불리고,
+부품 콜백에서 `Settings`를 바꾸면 Element가 실행 취소를 기록하고 미리보기를 갱신합니다. 완료하면 요소에 저장합니다.
 
-| 자리 | 부품 | 누르면 |
-| --- | --- | --- |
-| 위쪽 버튼 줄 (`Bar`) | `OverlayBarButton` | 색 → 키패드 위 색 선택기, 숫자 → 입력 독, 고르기 → 버튼 아래 목록(`OverlayChoicePopover`), 켜기 → 바로 바뀜 |
-| 미리보기 아래·옆 (`Below`·`Beside`) | `OverlayFormulaField` | 입력 독 |
-| 항상 | 기준점 버튼, 입력 독·키패드, 실행 취소, 취소·완료, Esc 저장 | |
+| 부품 | 쓰는 것 |
+| --- | --- |
+| `Label`, `Button` | 설명 글, 버튼(누른 뒤 부품을 다시 만들어 바뀐 값을 보여 줌) |
+| `Switch`, `Slider`, `Number`, `TextField`, `Choice` | 설정 화면의 스위치·슬라이더·입력칸·세그먼트 |
+| `ColorPicker` | Element 색 선택기(단색·불투명도) |
+| `Gap`, `.At(x, y)`, `.Width(w)`, `Root` | 칸 띄우기, 자유 배치, 직접 만든 UI |
 
-**그리기:** `Surface.Box`(Element 도형이라 그라디언트·하이라이트 그대로), `Surface.Text`(오버레이 기본 폰트), 그리고 직접 UGUI를 쓰는 `Surface.Root`. 좌표는 왼쪽 위 (0, 0), 1080p 기준 픽셀. 같은 순서로 그리면 Element가 지난번 것을 재사용합니다.
+부품은 기본으로 미리보기 아래 세로줄(가득 차면 다음 줄)에 놓이고, 좌표는 편집 화면 단위(약 1120×760, 왼쪽 위 0)입니다.
 
-**다시 그리는 때:** 속성, 속성이 쓰는 값, 하이라이트 색이 바뀔 때와 모드가 `Redraw()`를 부를 때만. 매 프레임 움직이는 요소만 `DrawsEveryFrame`을 켭니다.
+**그리기 도우미(`Drawing`):** `Text`(오버레이 기본 폰트, 플레이어가 폰트를 바꾸면 따라감), `Box`(크기를 바꾸면 바로 따라가는 둥근 상자),
+`Highlight`, `Place`(왼쪽 위 기준 배치). 그 밖은 UGUI를 그대로 씁니다. 그린 것은 오버레이 캔버스 안이라 녹화 모드·렌더를 따릅니다.
 
-**저장:** `OverlayLayoutSettings.Mod`에 속성 키별로 저장합니다(`TemplateId`는 `모드Id/종류`). 실행 취소, 취소 버튼, 프로필, 내보내기를 그대로 따릅니다. 모드가 모르는 속성은 지우지 않습니다.
+**저장:** 설정은 요소마다 `OverlayLayoutSettings.Mod.Data`에 문자열로 저장되어 실행 취소, 취소 버튼, 프로필, 내보내기를 따릅니다.
+나중 버전에 필드를 더하면 예전 요소에서는 기본값으로 시작합니다.
 
-**모드가 없거나 꺼졌을 때:** 게임에서는 보이지 않고, 편집기에서는 마지막 크기의 상자에 "Sample 모드가 필요해요"(꺼졌으면 "꺼져 있어요")를 띄웁니다. 옮기고 지울 수 있고, 편집을 누르면 무엇을 하면 되는지 알려 줍니다. 다시 설치하면 그대로 돌아옵니다.
+**Element 없이 실행:** 요소만 넣는 모드는 Element를 필수로 두지 않습니다.
+- ElementKit은 컴파일할 때만 참조(`Private=false`)하고, `Info.json`에 `"LoadAfter": ["Element"]`만 둡니다.
+- Element가 켜질 때와 모드가 나중에 로드될 때 UMM 모드 목록에서 ElementKit을 참조한 어셈블리를 찾아 `[Element]` 클래스를 등록합니다. 모드는 아무것도 부르지 않습니다.
+- Element가 없으면 아무도 그 클래스를 만들지 않습니다. 모드 본체가 그 클래스를 부르지 않고, 요소가 모드 상태를 읽어 가는 방향이면 됩니다.
+- Harmony `PatchAll`은 ElementKit이 없을 때 그 클래스만 건너뛰고 나머지를 패치합니다(이 게임의 0Harmony 2.3.6으로 확인).
+- 값(`Kit.Attach`, `Value.Set`)은 ElementKit을 직접 부르므로, Element 없이도 돌려면 Sample의 `ElementLink`처럼 한 클래스에 모아 Element가 있을 때만 부릅니다.
 
-**오류:** 크기 재기·그리기에서 난 오류는 그 요소만 멈추고 상자로 바꿉니다. 모드 로그에 한 번 남깁니다.
+**모드가 없거나 꺼졌을 때, 오류:** 게임에서는 보이지 않고 편집기에서는 마지막 크기의 상자에 "Sample 모드가 필요해요"를 띄웁니다.
+이름·위치·설정은 그대로라 다시 설치하면 돌아옵니다. 모드 코드에서 난 오류는 그 요소만 멈추고 모드 로그에 한 번 남깁니다.
 
-**품질 규칙(Attach 때 검사):** 종류·속성 키 형식과 중복, 한국어·영어 이름, 숫자의 최소 < 최대와 시작값, 색 형식(`#RRGGBB` 또는 하이라이트), 고르기 옵션 2개 이상, 위쪽 줄 6개 이하, 편집 화면에 없는 속성 알림.
+**등록 검사:** 키 형식과 중복, 한국어·영어 이름, 인자 없는 생성자. `[Element]`가 빠진 `OverlayElement`도 알려 줍니다.
 
 ## 플레이어 경험
 
@@ -418,7 +431,7 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 | **P0** Element 내부 준비 | 값 목록 동적화(`ValueMask`), 없는 값 보존, 프리셋 형식(기본 배치도 같은 형식으로), 테스트. 플레이어가 보기엔 변화 없음 | 없음 |
 | **P1** ElementKit 1.0 (Element 1.3.0) | ElementKit.dll, `Attach`, 값 등록·`Set`, 입력 독 카테고리, 프리셋 등록과 기타 메뉴, 프리셋 내보내기, `Player.Keys`, 오류 격리·버전 확인·중복 DLL 감지, NuGet·템플릿·핫 리로드, 빠른 시작 문서 | **v1: 텍스트** |
 | **P2** | 개발자 모드 전체(값 보기·덮어쓰기, 오류, 비용), 묶음 값(`Numbers`), 값 따라 위치, 조건 색, 묶음 | **v2: 손 타임라인** |
-| **P3** | 요소 종류 정식화: 글자·폰트 속성, 그라디언트 손잡이, 텍스트·도형 편집기를 같은 공통 틀로, 개발자 모드에서 요소 미리보기 | **예시 막대** 정식 |
+| **P3** | 오버레이 요소 정식화: 색 선택기의 하이라이트·그라디언트, 부품 추가(폰트 목록, 숫자 키패드), NuGet 템플릿 | **예시 막대** 정식 |
 
 ## 정할 것
 
@@ -436,7 +449,8 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 
 ## 검토했다가 뺀 것
 
-- ~~코드로 그리는 요소 종류~~ → 2026-11-10 다시 넣었습니다. 걱정이던 "편집 경험이 모드마다 달라짐"은 편집 화면의 틀과 부품을 Element가 쥐고, 모드는 정해진 자리에만 꽂게 해서 막습니다([요소 종류](#요소-종류)).
+- ~~코드로 그리는 요소 종류~~ → 2026-11-10 다시 넣었습니다. 편집 화면의 틀과 부품은 Element 것이라 모양과 조작은 같고, 무엇을 어디에 둘지는 모드가 정합니다([오버레이 요소](#오버레이-요소)).
+- **속성을 선언하면 Element가 편집 화면을 짜 주는 방식**(2026-11-10 첫 프로토타입): 모드의 창의성을 막아서 부품을 주는 방식으로 바꿨습니다.
 - **ElementKit이 타일·히트 이벤트 API 제공**(`ElementKit.Game`):
   - 서드파티가 얼불춤을 직접 읽으면 됩니다.
   - ElementKit이 얼불춤 업데이트를 따라가야 하는 부담만 생깁니다.

@@ -2,410 +2,213 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
-using Element.Domain.Elements;
 using Element.Domain.Layout;
-using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
-using ElementKit.Elements;
+using ElementKit;
 using ElementKit.Hosting;
-using UnityEngine;
 
 namespace Element.Tests;
 
-// Overlay elements other mods add through ElementKit: found and checked on
-// attach, offered while their mod is on, their properties saved, worked out
-// and kept through undo, profiles and a missing mod.
+// Overlay elements other mods draw: found by Element in a mod's assembly with
+// no call from the mod, checked, offered while their mod is on, and their
+// settings kept through undo, saving and a missing mod.
 internal static class ModElementTests
 {
   private const string ModId = "Bars";
 
-  // A well-made type: the instance it keeps is the one Element uses.
-  internal sealed class GoodBars : ElementType
+  [ElementKit.Element("bars", "막대", "Bars")]
+  internal sealed class Bars : OverlayElement
   {
-    public static readonly GoodBars Shared = new();
-    public static readonly ColorProperty Fill = new("fill", "채우기", "Fill", ColorProperty.Highlight, .5f);
-    public static readonly NumberProperty Count = new("count", "개수", "Count", 8, 2, 32, NumberUnit.None);
-    public static readonly ChoiceProperty Grow = new(
-      "grow",
-      "방향",
-      "Grow",
-      new ChoiceOption("up", "위로", "Up"),
-      new ChoiceOption("middle", "가운데", "Middle")
-    );
-    public static readonly ToggleProperty Labels = new("labels", "숫자", "Labels", true);
-    public static readonly NumberProperty Width = new("width", "너비", "Width", 300, 40, 1920);
-    public static readonly NumberProperty Height = new("height", "높이", "Height", 60, 10, 400);
+    public string Kept = "";
 
-    public int Draws;
+    protected override string SaveSettings() => Kept;
 
-    public GoodBars()
-      : base("good-bars", "막대", "Bars") { }
-
-    protected override void Edit(EditorLayout editor)
-    {
-      editor.Bar(Fill, Count, Grow, Labels);
-      editor.Below(Width);
-      editor.Beside(Height);
-    }
-
-    protected override Vector2 Measure(Props props) => new((float)props[Width], (float)props[Height]);
-
-    protected override void Draw(Surface surface, Props props)
-    {
-      Draws++;
-      int count = (int)props[Count];
-      for (int i = 0; i < count; i++)
-        surface.Box(new Rect(i * 10, 0, 8, surface.Size.y), props[Fill]);
-    }
+    protected override void LoadSettings(string data) => Kept = data;
   }
 
-  // Lays its properties out by default: every one in the bar.
-  internal sealed class Plain : ElementType
+  [ElementKit.Element("bars", "또 막대", "Bars again")]
+  internal sealed class Twin : OverlayElement { }
+
+  [ElementKit.Element("Bad Key", "나쁨", "Bad")]
+  internal sealed class BadKey : OverlayElement { }
+
+  [ElementKit.Element("unnamed", "", "")]
+  internal sealed class Unnamed : OverlayElement { }
+
+  [ElementKit.Element("needs-argument", "인자", "Argument")]
+  internal sealed class NeedsArgument : OverlayElement
   {
-    public static readonly ToggleProperty On = new("on", "켜기", "On", false);
-
-    public Plain()
-      : base("plain", "기본", "Plain") { }
-
-    protected override Vector2 Measure(Props props) => new(10, 10);
-
-    protected override void Draw(Surface surface, Props props) { }
+    public NeedsArgument(int size) => _ = size;
   }
 
-  internal sealed class BadKey : ElementType
+  [ElementKit.Element("throws", "실패", "Throws")]
+  internal sealed class Throws : OverlayElement
   {
-    public BadKey()
-      : base("Bad Key", "나쁨", "Bad") { }
-
-    protected override Vector2 Measure(Props props) => Vector2.one;
-
-    protected override void Draw(Surface surface, Props props) { }
+    public Throws() => throw new InvalidOperationException("no element today");
   }
 
-  internal sealed class NeedsArgument : ElementType
-  {
-    public NeedsArgument(int size)
-      : base("needs-argument", "인자", "Argument") { }
+  // Not offered, and said so.
+  internal sealed class Unmarked : OverlayElement { }
 
-    protected override Vector2 Measure(Props props) => Vector2.one;
-
-    protected override void Draw(Surface surface, Props props) { }
-  }
-
-  internal sealed class BrokenScreen : ElementType
-  {
-    public BrokenScreen()
-      : base("broken-screen", "고장", "Broken") { }
-
-    protected override void Edit(EditorLayout editor) => throw new InvalidOperationException("no screen today");
-
-    protected override Vector2 Measure(Props props) => Vector2.one;
-
-    protected override void Draw(Surface surface, Props props) { }
-  }
-
-  // Properties that break the rules are left out; the type still attaches.
-  internal sealed class Faulty : ElementType
-  {
-    public static readonly NumberProperty Upside = new("upside", "거꾸로", "Upside", 5, 10, 1);
-    public static readonly ColorProperty Named = new("named", "이름 색", "Named", "red");
-    public static readonly ChoiceProperty Single = new(
-      "single",
-      "하나",
-      "Single",
-      new ChoiceOption("only", "하나", "Only")
-    );
-    public static readonly ToggleProperty Twin = new("twin", "쌍", "Twin", true);
-    public static readonly ToggleProperty TwinAgain = new("twin", "쌍 2", "Twin 2", true);
-    public static readonly ToggleProperty Hidden = new("hidden", "숨김", "Hidden", true);
-
-    public Faulty()
-      : base("faulty", "고장 난 속성", "Faulty") { }
-
-    protected override void Edit(EditorLayout editor) => editor.Bar(Upside, Named, Single, Twin, TwinAgain);
-
-    protected override Vector2 Measure(Props props) => Vector2.one;
-
-    protected override void Draw(Surface surface, Props props) { }
-  }
-
-  // Counts what a type draws, without Unity.
-  private sealed class CountingSurface : Surface
-  {
-    public int Boxes;
-    public Color LastColor;
-
-    public override Vector2 Size => new(300, 60);
-
-    public override RectTransform Root => null;
-
-    public override void Box(Rect rect, ElementColor fill, float rounding = 0)
-    {
-      Boxes++;
-      LastColor = fill.Solid;
-    }
-
-    public override void Text(
-      Rect rect,
-      string text,
-      float size,
-      ElementColor color,
-      TextAlign align = TextAlign.Center
-    ) { }
-  }
+  // A base of the mod's own; left alone.
+  internal abstract class Base : OverlayElement { }
 
   private static bool _active = true;
 
   public static void Run()
   {
-    KitRegistry.Clear();
-    try
-    {
-      List<string> reports = new();
-      KitRegistry.Attach(ModId, typeof(ModElementTests).Assembly, () => _active, reports.Add);
-      TypesAreFoundAndChecked(reports);
-      ModElements types = new(_ => { });
-      TheCatalogOffersTypesWhileTheirModIsOn(types);
-      PropertiesStartAtTheirDefaults();
-      SavedPropertiesAreWorkedOut();
-      EditsAreWrittenWithinLimits();
-      ElementsKeepPropertiesThroughUndoAndProfiles();
-      AMissingModLeavesTheElementAsItWas(types);
-    }
-    finally
-    {
-      KitRegistry.Clear();
-      _active = true;
-    }
+    _active = true;
+    ElementsAreFoundAndChecked();
+    InstancesAreMadeAndTheirFailuresKept();
+    TheCatalogFollowsTheMods();
+    SamplesBarsAreFoundWithoutACall();
+    SettingsAreKeptThroughUndoAndSaving();
   }
 
-  private static void TypesAreFoundAndChecked(List<string> reports)
+  private static void ElementsAreFoundAndChecked()
   {
-    AttachedMod mod = KitRegistry.Snapshot.Single(m => m.Id == ModId);
+    List<string> reports = new();
+    List<ElementClass> found = ElementClasses.Find(ModId, typeof(ModElementTests).Assembly, reports.Add);
     string all = string.Join(" | ", reports);
-    Check(mod.Elements.Contains(GoodBars.Shared), "the instance a type keeps is the one attached; got " + all);
-    Check(GoodBars.Shared.FullKey == "Bars/good-bars", "a type learns its mod's id");
     Check(
-      GoodBars
-        .Shared.Properties.Select(p => p.Key)
-        .SequenceEqual(new[] { "fill", "count", "grow", "labels", "width", "height" }),
-      "properties keep the order they are written"
+      found.Select(type => type.FullKey).SequenceEqual(new[] { "Bars/bars", "Bars/throws" }),
+      "only well-made elements are offered: " + string.Join(",", found.Select(type => type.FullKey)) + " / " + all
     );
+    Check(found[0].Type == typeof(Bars) && found[0].Info.KoreanName == "막대", "an element keeps its class and names");
     Check(
-      GoodBars.Shared.Layout.BarItems.Count == 4
-        && GoodBars.Shared.Layout.BelowItem == GoodBars.Width
-        && GoodBars.Shared.Layout.BesideItem == GoodBars.Height,
-      "the editing screen holds what Edit placed"
-    );
-    ElementType plain = mod.Elements.Single(t => t.Key == "plain");
-    Check(
-      plain.Layout.BarItems.SequenceEqual(new Property[] { Plain.On }),
-      "without Edit every property goes in the bar"
-    );
-
-    Check(
-      mod.Elements.All(t => t.Key != "Bad Key")
-        && reports.Any(r => r.Contains("\"Bad Key\"") && r.Contains("hand-bars")),
+      reports.Any(r => r.Contains("\"Bad Key\"") && r.Contains("hand-bars")),
       "a key layouts can't keep is explained"
     );
+    Check(reports.Any(r => r.Contains("Twin") && r.Contains("\"bars\"")), "a repeated key is explained");
+    Check(reports.Any(r => r.Contains("Unnamed") && r.Contains("Korean and English")), "a missing name is explained");
     Check(
       reports.Any(r => r.Contains("NeedsArgument") && r.Contains("constructor that takes nothing")),
-      "a type without a plain constructor is explained"
+      "a class Element can't make is explained"
     );
     Check(
-      reports.Any(r => r.Contains("BrokenScreen") && r.Contains("no screen today")),
-      "a type whose screen fails is named"
+      reports.Any(r => r.Contains("Unmarked") && r.Contains("[Element(")),
+      "an unmarked element says how to offer it"
     );
-    Check(mod.Elements.All(t => t.Key != "broken-screen" && t.Key != "needs-argument"), "failing types are left out");
-
-    ElementType faulty = mod.Elements.Single(t => t.Key == "faulty");
+    Check(reports.All(r => !r.Contains("+Base")), "an abstract base of the mod's own is left alone");
     Check(
-      faulty.Properties.Select(p => p.Key).SequenceEqual(new[] { "twin", "hidden" }),
-      "only the faulty properties are left out; kept " + string.Join(",", faulty.Properties.Select(p => p.Key))
-    );
-    Check(reports.Any(r => r.Contains("\"upside\"") && r.Contains("min")), "upside-down limits are explained");
-    Check(
-      reports.Any(r => r.Contains("\"named\"") && r.Contains("#FF9F43")),
-      "a color name is explained with an example"
-    );
-    Check(reports.Any(r => r.Contains("\"single\"") && r.Contains("two or more")), "a choice of one is explained");
-    Check(reports.Any(r => r.Contains("two properties with the key \"twin\"")), "a repeated property key is explained");
-    Check(
-      reports.Any(r => r.Contains("\"hidden\"") && r.Contains("isn't on its editing screen")),
-      "a property players can't reach is pointed out"
-    );
-    Check(
-      faulty.Layout.BarItems.SequenceEqual(new Property[] { Faulty.Twin }),
-      "the screen drops properties that were left out"
+      ElementClasses.Find("bad id!", typeof(ModElementTests).Assembly, reports.Add).Count == 0,
+      "a mod id layouts can't keep offers nothing"
     );
   }
 
-  private static void TheCatalogOffersTypesWhileTheirModIsOn(ModElements types)
+  private static void InstancesAreMadeAndTheirFailuresKept()
   {
-    types.Refresh();
-    Check(types.Find("Bars/good-bars") == GoodBars.Shared, "a saved key finds its type");
+    List<ElementClass> found = ElementClasses.Find(ModId, typeof(ModElementTests).Assembly, _ => { });
+    OverlayElement bars = found.Single(type => type.Info.Key == "bars").Create(out Exception none);
+    Check(bars is Bars && none == null, "Element makes an instance per placed element");
+    bars.RunLoad("{\"groups\":12}");
+    Check(bars.RunSave() == "{\"groups\":12}", "an element's settings come back as it wrote them");
+    bars.RunLoad(null);
+    Check(bars.RunSave() == "", "a new element starts with empty settings");
+    OverlayElement failed = found.Single(type => type.Info.Key == "throws").Create(out Exception error);
     Check(
-      types.Offered.Contains(GoodBars.Shared) && types.Offered.All(t => t.ModId == ModId),
-      "the add menu offers attached types"
+      failed == null && error is InvalidOperationException && error.Message == "no element today",
+      "a constructor's own failure is kept, unwrapped"
     );
+
+    List<string> warned = new();
+    ModElements types = new(new ListedModAssemblies(), warned.Add);
+    ElementClass throws = found.Single(type => type.Info.Key == "throws");
+    types.Failed(throws, "drawing", error);
+    types.Failed(throws, "drawing", error);
+    Check(
+      warned.Count == 1
+        && warned[0].Contains("[Bars]")
+        && warned[0].Contains("Throws")
+        && warned[0].Contains("no element today"),
+      "a failure is logged once, naming the mod"
+    );
+  }
+
+  private static void TheCatalogFollowsTheMods()
+  {
+    ListedModAssemblies mods = new();
+    ModElements types = new(mods, _ => { });
+    types.Refresh();
+    Check(
+      types.Offered.Count == 0 && types.Find("Bars/bars") == null,
+      "nothing is offered before a mod declares elements"
+    );
+    mods.Add(new ModAssembly(ModId, typeof(ModElementTests).Assembly, () => _active));
+    types.Refresh();
+    Check(types.Find("Bars/bars")?.Type == typeof(Bars) && types.Offered.Count == 2, "a mod that loads later is found");
     int version = types.Version;
     types.Refresh();
     Check(types.Version == version, "nothing new changes nothing");
     _active = false;
     types.Refresh();
     Check(
-      types.Find("Bars/good-bars") == null && types.IsTurnedOff("Bars/good-bars") && types.Offered.Count == 0,
-      "a turned-off mod's types step aside"
+      types.Find("Bars/bars") == null && types.IsTurnedOff("Bars/bars") && types.Offered.Count == 0,
+      "a turned-off mod's elements step aside"
     );
     _active = true;
     types.Refresh();
-    Check(types.Find("Bars/good-bars") == GoodBars.Shared && types.Version > version, "turning it on brings them back");
+    Check(types.Find("Bars/bars") != null && types.Version > version, "turning it on brings them back");
+    mods.Remove(ModId);
+    types.Refresh();
+    Check(
+      types.Find("Bars/bars") == null && !types.IsTurnedOff("Bars/bars"),
+      "an unloaded mod's elements are gone, not off"
+    );
   }
 
-  private static void PropertiesStartAtTheirDefaults()
+  private static void SamplesBarsAreFoundWithoutACall()
   {
-    ModProps props = new();
-    props.Compile(GoodBars.Shared, new OverlayModSettings());
-    props.Use(new OverlayValues(), false, Color.red);
-    Check(props[GoodBars.Count] == 8 && props[GoodBars.Width] == 300, "numbers start at their defaults");
+    System.Reflection.Assembly sample = typeof(Sample.SampleBars).Assembly;
     Check(
-      props[GoodBars.Grow] == 0 && props[GoodBars.Labels],
-      "choices start at the first option, toggles as declared"
+      ElementClasses.UsesKit(sample) && !ElementClasses.UsesKit(typeof(string).Assembly),
+      "only mods built against ElementKit are read"
     );
-    Color fill = props[GoodBars.Fill].Solid;
+    List<string> reports = new();
+    List<ElementClass> found = ElementClasses.Find("Sample", sample, reports.Add);
     Check(
-      fill.r == 1 && fill.g == 0 && Mathf.Approximately(fill.a, .5f),
-      "a highlight color follows the highlight with its own opacity"
+      found.Count == 1
+        && found[0].FullKey == "Sample/bars"
+        && found[0].Info.EnglishName == "Sample bars"
+        && reports.Count == 0,
+      "Sample's bars are found as they are: " + string.Join(" | ", reports)
     );
-    CountingSurface surface = new();
-    GoodBars.Shared.Draws = 0;
-    GoodBars.Shared.RunDraw(surface, props);
-    Check(surface.Boxes == 8 && GoodBars.Shared.Draws == 1, "the type draws from its properties");
-
-    ElementColor picked = props[GoodBars.Fill];
-    ElementColor faded = picked.Faded(.5f).Faded(.5f);
-    Check(
-      Mathf.Approximately(faded.Opacity, .25f)
-        && faded.Paint == picked.Paint
-        && Mathf.Approximately(faded.Solid.a, .125f),
-      "fading twice multiplies, and keeps the picked color's gradient"
-    );
-    Check(Mathf.Approximately(default(ElementColor).Opacity, 1), "a color made any way starts unfaded");
-    ElementColor fading = picked.Faded(.99f);
-    long before = GC.GetAllocatedBytesForCurrentThread();
-    for (int i = 0; i < 10000; i++)
-      fading = fading.Faded(.9999f);
-    long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-    Check(allocated == 0 && fading.Opacity > 0, "fading a color allocates nothing (" + allocated + " bytes)");
-
-    // Sample's bars, outside a level, draw their sample only in the editors.
-    CountingSurface bars = new();
-    ModProps sample = new();
-    sample.Compile(Sample.SampleBars.Shared, new OverlayModSettings());
-    sample.Use(new OverlayValues(), false, Color.white);
-    Sample.SampleBars.Shared.RunDraw(bars, sample);
-    Check(bars.Boxes == 0, "outside a level the game shows no bars");
-    sample.Use(new OverlayValues().WithSamples, true, Color.white);
-    Sample.SampleBars.Shared.RunDraw(bars, sample);
-    Check(bars.Boxes == 16, "the editor shows a sample bar a group; drew " + bars.Boxes);
   }
 
-  private static void SavedPropertiesAreWorkedOut()
-  {
-    OverlayValues values = new();
-    OverlayModSettings saved = new();
-    saved.Properties.Add(
-      new OverlayPropertySetting
-      {
-        Key = "count",
-        Value = "4",
-        Formula = "{combo}*2",
-      }
-    );
-    saved.Properties.Add(new OverlayPropertySetting { Key = "width", Value = "99999" });
-    saved.Properties.Add(new OverlayPropertySetting { Key = "grow", Value = "middle" });
-    saved.Properties.Add(new OverlayPropertySetting { Key = "labels", Value = "false" });
-    saved.Properties.Add(new OverlayPropertySetting { Key = "from-a-newer-version", Value = "x" });
-    ModProps props = new();
-    props.Compile(GoodBars.Shared, saved);
-    props.Use(values, false, Color.white);
-    Check(props[GoodBars.Count] == 4, "a formula without data falls back to the saved number");
-    Check(props.Mask.Contains(OverlayValueId.Combo), "the element knows the values its properties use");
-    values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("7"), 7);
-    Check(props[GoodBars.Count] == 14, "a formula follows its value");
-    values.Set(OverlayValueId.Combo, new System.Text.StringBuilder("100"), 100);
-    Check(props[GoodBars.Count] == 32, "a worked-out number stays within its limits");
-    Check(props[GoodBars.Width] == 1920, "a saved number past today's limit reads as the limit");
-    Check(props[GoodBars.Grow] == 1 && !props[GoodBars.Labels], "choices and toggles read as saved");
-
-    saved.Find("grow").Value = "gone";
-    props.Compile(GoodBars.Shared, saved);
-    Check(props[GoodBars.Grow] == 0, "an option the mod dropped reads as the first");
-    props.Use(values.WithSamples, true, Color.white);
-    Check(props.IsPreview, "the editors draw with samples");
-  }
-
-  private static void EditsAreWrittenWithinLimits()
-  {
-    OverlayModSettings settings = new();
-    Check(
-      ModPropertyValues.WriteNumber(settings, GoodBars.Count, OverlayFormula.FromNumber(50)),
-      "a number past the limit says so"
-    );
-    Check(settings.Find("count").Value == "32" && settings.Find("count").Formula == "", "and is kept within it");
-    ModPropertyValues.WriteNumber(settings, GoodBars.Count, OverlayFormula.Parse("{combo}+1"));
-    Check(
-      settings.Find("count").Formula == "{combo}+1" && settings.Find("count").Value == "32",
-      "a formula keeps the number underneath"
-    );
-    Check(
-      ModPropertyValues.NumberFormula(GoodBars.Count, settings.Find("count")).Serialize() == "{combo}+1",
-      "the dock reads the formula back"
-    );
-    ModPropertyValues.WriteChoice(settings, GoodBars.Grow, 1);
-    ModPropertyValues.WriteToggle(settings, GoodBars.Labels, false);
-    ModPropertyValues.WriteColor(settings, GoodBars.Fill, OverlayColorSettings.Custom("#123456", .25f));
-    Check(
-      settings.Find("grow").Value == "middle" && settings.Find("labels").Value == "false",
-      "choices save their key, toggles true or false"
-    );
-    Check(settings.Find("fill").Color.Hex == "#123456" && settings.Properties.Count == 4, "one entry a property");
-  }
-
-  private static void ElementsKeepPropertiesThroughUndoAndProfiles()
+  private static void SettingsAreKeptThroughUndoAndSaving()
   {
     OverlayLayoutSettings element = new()
     {
       Id = "mod:1",
-      TemplateId = "Bars/good-bars",
-      Mod = new OverlayModSettings { Width = 300, Height = 60 },
+      TemplateId = "Bars/bars",
+      Mod = new OverlayModSettings
+      {
+        Data = "{\"groups\":16}",
+        Width = 480,
+        Height = 96,
+      },
     };
     List<OverlayLayoutSettings> layouts = new() { element };
     LayoutHistory history = new();
     history.Reset(layouts);
-    element.Mod.Get("count").Value = "12";
+    element.Mod.Data = "{\"groups\":32}";
     history.Commit(layouts);
-    Check(history.CanUndo, "a property change is its own undo step");
+    Check(history.CanUndo, "a settings change is its own undo step");
     history.Undo(layouts);
-    Check(layouts[0].Mod.Find("count") == null, "undo brings the properties back");
+    Check(layouts[0].Mod.Data == "{\"groups\":16}", "undo brings the settings back");
     history.Redo(layouts);
-    Check(layouts[0].Mod.Find("count")?.Value == "12", "and redo takes them forward");
+    Check(layouts[0].Mod.Data == "{\"groups\":32}", "and redo takes them forward");
 
     OverlayLayoutSettings drawnAgain = layouts[0].Clone();
     drawnAgain.Mod.Width = 500;
     drawnAgain.Mod.KoreanName = "다른 이름";
     Check(drawnAgain.SameAs(layouts[0]), "the size and names it last drew with are not an edit");
 
-    layouts[0].Mod.Get("fill").Color = OverlayColorSettings.HighlightColor(.3f);
-    ElementSettings settings = new() { OverlayLayouts = layouts };
-    ElementSettings copy = SettingsXml.Clone(settings);
+    ElementSettings copy = SettingsXml.Clone(new ElementSettings { OverlayLayouts = layouts });
     OverlayLayoutSettings saved = copy.OverlayLayouts.Single();
     Check(
-      saved.TemplateId == "Bars/good-bars"
-        && saved.Mod.Find("count").Value == "12"
-        && saved.Mod.Find("fill").Color.Highlight
-        && saved.Mod.Width == 300,
-      "properties survive saving, as profiles and Settings.xml do"
+      saved.TemplateId == "Bars/bars" && saved.Mod.Data == "{\"groups\":32}" && saved.Mod.Width == 480,
+      "settings survive saving, as profiles and Settings.xml do"
     );
     Check(
       OverlayElementKinds.IsMod(saved.TemplateId) && OverlayElementKinds.ModOf(saved.TemplateId) == ModId,
@@ -414,24 +217,6 @@ internal static class ModElementTests
     Check(
       !OverlayElementKinds.IsMod(OverlayElementKinds.Text) && !OverlayElementKinds.IsMod(""),
       "Element's own kinds are not mods'"
-    );
-  }
-
-  private static void AMissingModLeavesTheElementAsItWas(ModElements types)
-  {
-    KitRegistry.Detach(ModId);
-    types.Refresh();
-    Check(
-      types.Find("Bars/good-bars") == null && !types.IsTurnedOff("Bars/good-bars"),
-      "a detached mod's types are gone, not off"
-    );
-    OverlayModSettings saved = new();
-    saved.Properties.Add(new OverlayPropertySetting { Key = "count", Value = "5" });
-    ModProps props = new();
-    props.Compile(null, saved);
-    Check(
-      props.Mask.IsEmpty && saved.Properties.Count == 1,
-      "without its type nothing is worked out and nothing is dropped"
     );
   }
 

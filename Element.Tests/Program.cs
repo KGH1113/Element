@@ -44,10 +44,7 @@ internal static class Program
       Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
       Run("ElementKit values: checked on attach, shown, hidden while off, kept across reloads", ElementKitTests.Run);
-      Run(
-        "ElementKit elements: checked on attach, offered while on, properties saved, worked out and kept",
-        ModElementTests.Run
-      );
+      Run("ElementKit elements: found without a call, checked, offered while on, settings kept", ModElementTests.Run);
       Run("Sample: keys per group like the SampleTag tag, matched hit by hit", SampleTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(

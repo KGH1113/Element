@@ -6,7 +6,7 @@ using Element.Domain.Layout;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
-using ElementKit.Elements;
+using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -149,16 +149,16 @@ internal sealed class OverlayCanvasHost : IDisposable
     return CreateShape(settings);
   }
 
-  /// <summary>A new element of another mod's <paramref name="type"/>, its properties at their defaults.</summary>
-  public ModOverlayElement AddModElement(ElementType type)
+  /// <summary>A new element of another mod's <paramref name="type"/>, its settings at the mod's defaults.</summary>
+  public ModOverlayElement AddModElement(ElementClass type)
   {
-    if (type?.FullKey == null)
+    if (type == null)
       return null;
     OverlayLayoutSettings settings = new()
     {
       Id = "mod:" + Guid.NewGuid().ToString("N"),
       TemplateId = type.FullKey,
-      Mod = new OverlayModSettings(),
+      Mod = new OverlayModSettings { KoreanName = type.Info.KoreanName, EnglishName = type.Info.EnglishName },
     };
     _layoutSettings.Add(settings);
     return CreateMod(settings);
@@ -167,7 +167,7 @@ internal sealed class OverlayCanvasHost : IDisposable
   private ModOverlayElement CreateMod(OverlayLayoutSettings settings)
   {
     ModElements?.Refresh();
-    ModOverlayElement element = new(_modLayer, Values, ModElements, _fonts);
+    ModOverlayElement element = new(_modLayer, ModElements, _fonts);
     _elements.Add(element);
     _mods.Add(element);
     element.SetPreview(_layoutPreview);
@@ -266,7 +266,7 @@ internal sealed class OverlayCanvasHost : IDisposable
     {
       ModElements?.Refresh();
       foreach (ModOverlayElement mod in _mods)
-        mod.Refresh(changes);
+        mod.Refresh();
     }
     if (_comboBumps != Values.ComboBumps)
     {

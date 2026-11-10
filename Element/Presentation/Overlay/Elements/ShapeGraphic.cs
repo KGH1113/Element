@@ -33,7 +33,17 @@ internal sealed class ShapeGraphic : MaskableGraphic
   private bool _textured;
   private float _pixelsPerUnit = 1;
 
-  public void SetShape(OverlayShapeSettings shape, Color fill, Color stroke) => SetShape(shape, fill, stroke, null, null);
+  /// <summary>
+  /// Draws the shape as large as the rect, so it follows a resize at once,
+  /// with every corner rounded by <see cref="FitRounding"/> at most half the
+  /// shorter side. For boxes other mods draw; Element's own shapes size the rect.
+  /// </summary>
+  public bool FitsRect;
+
+  public float FitRounding;
+
+  public void SetShape(OverlayShapeSettings shape, Color fill, Color stroke) =>
+    SetShape(shape, fill, stroke, null, null);
 
   /// <summary>Null gradients are solid layers in <paramref name="fill"/> and <paramref name="stroke"/>.</summary>
   public void SetShape(
@@ -108,6 +118,14 @@ internal sealed class ShapeGraphic : MaskableGraphic
     if (_shape == null)
       return;
     Rect rect = rectTransform.rect;
+    if (FitsRect)
+    {
+      _shape.Width = Mathf.Max(OverlayShapeGeometry.MinimumSize, rect.width);
+      _shape.Height = Mathf.Max(OverlayShapeGeometry.MinimumSize, rect.height);
+      float radius = Mathf.Clamp(FitRounding, 0, Mathf.Min(_shape.Width, _shape.Height) * .5f);
+      foreach (OverlayShapePoint point in _shape.Points)
+        point.Radius = radius;
+    }
     float width = _shape.Width,
       height = _shape.Height;
     if (_shape.Kind == OverlayShapeKind.Circle)

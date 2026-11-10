@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Settings;
-using ElementKit.Elements;
+using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -17,7 +17,7 @@ internal sealed partial class OverlayLayoutEditor
   private const float ModMenuWidth = 240,
     ModMenuRow = 56;
   private const int ModMenuRows = 6;
-  private OverlayPropertyEditor _propertyEditor;
+  private OverlayModEditor _modEditor;
   private RectTransform _modMenu;
   private SettingsUiFactory _modMenuUi;
 
@@ -48,7 +48,7 @@ internal sealed partial class OverlayLayoutEditor
     if (types == null)
       return;
     types.Refresh();
-    IReadOnlyList<ElementType> offered = types.Offered;
+    IReadOnlyList<ElementClass> offered = types.Offered;
     _modMenuUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
     float height = ModMenuHeight;
     Image panel = _modMenuUi.Panel(
@@ -65,7 +65,7 @@ internal sealed partial class OverlayLayoutEditor
     Button first = null;
     for (int i = 0; i < offered.Count && i < ModMenuRows; i++)
     {
-      ElementType type = offered[i];
+      ElementClass type = offered[i];
       Button button = _modMenuUi.Button(
         "",
         _modMenu,
@@ -85,7 +85,7 @@ internal sealed partial class OverlayLayoutEditor
       glyph.color = SettingsPalette.SoftAccent;
       glyph.raycastTarget = false;
       TextMeshProUGUI name = _modMenuUi.Text(
-        L(type.KoreanName, type.EnglishName),
+        L(type.Info.KoreanName, type.Info.EnglishName),
         button.transform,
         50,
         6,
@@ -151,7 +151,7 @@ internal sealed partial class OverlayLayoutEditor
   }
 
   // Like a shape: placed in the middle, its editor open right away.
-  private void AddModElement(ElementType type)
+  private void AddModElement(ElementClass type)
   {
     CloseAddMenu();
     ModOverlayElement element = _host.AddModElement(type);
@@ -160,24 +160,24 @@ internal sealed partial class OverlayLayoutEditor
     element.SetPreview(true);
     PlaceNewElement(element, false);
     // History records the element when its editor is done; cancelling removes it.
-    OpenPropertyEditor(element, true);
+    OpenModEditor(element, true);
   }
 
-  private void OpenPropertyEditor(ModOverlayElement element, bool isNew)
+  private void OpenModEditor(ModOverlayElement element, bool isNew)
   {
     if (!CommitPopovers())
       return;
     ClosePopovers();
     FinishDrag();
     _toolbarDragging = false;
-    _propertyEditor ??= new OverlayPropertyEditor(
+    _modEditor ??= new OverlayModEditor(
       _root.transform,
       _font,
       () => _preferences.ReduceUiMotion,
-      _host.Values,
-      () => _host.Fonts
+      () => _host.Fonts,
+      (type, doing, exception) => _host.ModElements?.Failed(type, doing, exception)
     );
-    if (!_propertyEditor.Open(element, committed => PropertyEditorClosed(element, isNew, committed)))
+    if (!_modEditor.Open(element, committed => ModEditorClosed(element, isNew, committed)))
     {
       // Its mod is missing, off or failing: say which and what to do.
       _keyboardHelp.text = element.Unavailable;
@@ -188,7 +188,7 @@ internal sealed partial class OverlayLayoutEditor
     UpdateFrames();
   }
 
-  private void PropertyEditorClosed(ModOverlayElement element, bool isNew, bool committed)
+  private void ModEditorClosed(ModOverlayElement element, bool isNew, bool committed)
   {
     if (committed)
       _history.Commit(_host.LayoutSettings);

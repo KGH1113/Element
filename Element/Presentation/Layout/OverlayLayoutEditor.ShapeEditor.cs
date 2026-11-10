@@ -19,7 +19,7 @@ internal sealed partial class OverlayLayoutEditor
   private SettingsUiFactory _shapeMenuUi;
 
   private bool ContentEditorOpen =>
-    (_textEditor?.IsOpen ?? false) || (_shapeEditor?.IsOpen ?? false) || (_propertyEditor?.IsOpen ?? false);
+    (_textEditor?.IsOpen ?? false) || (_shapeEditor?.IsOpen ?? false) || (_modEditor?.IsOpen ?? false);
 
   /// <summary>
   /// Opens the editor for a text, a shape or another mod's element, or
@@ -36,7 +36,7 @@ internal sealed partial class OverlayLayoutEditor
         OpenShapeEditor(shape, false);
         return true;
       case Overlay.Mods.ModOverlayElement mod:
-        OpenPropertyEditor(mod, false);
+        OpenModEditor(mod, false);
         return true;
       case not null when OverlayElementKinds.IsKeyViewer(target.TemplateId):
         OpenKeyViewerInApp(target);

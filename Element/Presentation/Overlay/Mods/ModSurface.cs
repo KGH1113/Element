@@ -183,14 +183,8 @@ internal sealed class ModSurface : Surface, IDisposable
 
   private static void Unwrap(ElementColor color, out ModPaint paint, out float factor)
   {
-    factor = 1;
-    object source = color.Paint;
-    while (source is ElementColor.FadedPaint faded)
-    {
-      factor *= faded.Factor;
-      source = faded.Paint;
-    }
-    paint = source as ModPaint;
+    paint = color.Paint as ModPaint;
+    factor = color.Opacity;
   }
 
   private static void Fade(OverlayResolvedGradient gradient, float factor)

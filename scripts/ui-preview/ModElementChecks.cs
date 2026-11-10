@@ -46,12 +46,12 @@ namespace Element.Editor
       int groups = (int)props[Groups];
       float gap = (float)props[Gap], bar = (surface.Size.x - gap * (groups - 1)) / groups;
       float label = props[Numbers] ? Mathf.Min(surface.Size.y * .3f, 30) : 0, area = surface.Size.y - label;
+      ElementColor left = props[Left], right = props[Right];
+      ElementColor leftAhead = left.Faded(.45f), rightAhead = right.Faded(.45f);
       for (int i = 0; i < groups && i < Sample.Length; i++)
       {
         int keys = Sample[i];
-        ElementColor color = i % 2 == 0 ? props[Left] : props[Right];
-        if (i >= 2)
-          color = color.Faded(.45f);
+        ElementColor color = i % 2 == 0 ? (i < 2 ? left : leftAhead) : (i < 2 ? right : rightAhead);
         float tall = keys <= 0 ? Mathf.Min(3, area) : Mathf.Max(3, area * Mathf.Min(keys, 8) / 8f);
         float y = props[Grow] == 1 ? (area - tall) * .5f : area - tall;
         surface.Box(new Rect(i * (bar + gap), y, bar, tall), color, Mathf.Min(6, bar * .25f));

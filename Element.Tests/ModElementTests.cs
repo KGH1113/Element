@@ -282,6 +282,22 @@ internal static class ModElementTests
     GoodBars.Shared.RunDraw(surface, props);
     Check(surface.Boxes == 8 && GoodBars.Shared.Draws == 1, "the type draws from its properties");
 
+    ElementColor picked = props[GoodBars.Fill];
+    ElementColor faded = picked.Faded(.5f).Faded(.5f);
+    Check(
+      Mathf.Approximately(faded.Opacity, .25f)
+        && faded.Paint == picked.Paint
+        && Mathf.Approximately(faded.Solid.a, .125f),
+      "fading twice multiplies, and keeps the picked color's gradient"
+    );
+    Check(Mathf.Approximately(default(ElementColor).Opacity, 1), "a color made any way starts unfaded");
+    ElementColor fading = picked.Faded(.99f);
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int i = 0; i < 10000; i++)
+      fading = fading.Faded(.9999f);
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+    Check(allocated == 0 && fading.Opacity > 0, "fading a color allocates nothing (" + allocated + " bytes)");
+
     // Sample's bars, outside a level, draw their sample only in the editors.
     CountingSurface bars = new();
     ModProps sample = new();

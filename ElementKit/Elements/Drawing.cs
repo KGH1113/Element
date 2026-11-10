@@ -22,10 +22,15 @@ public enum TextAlign
 /// </summary>
 public readonly struct ElementColor
 {
-  internal ElementColor(Color solid, object paint)
+  // How much of the picked opacity is taken away: zero by default, so a
+  // color made any way starts unfaded. Kept as a number, so fading allocates nothing.
+  private readonly float _dim;
+
+  internal ElementColor(Color solid, object paint, float dim = 0)
   {
     Solid = solid;
     Paint = paint;
+    _dim = dim;
   }
 
   /// <summary>
@@ -37,28 +42,19 @@ public readonly struct ElementColor
   // Element's own description of the color, gradient included; null for From.
   internal object Paint { get; }
 
+  // The share of the picked opacity Element draws Paint with.
+  internal float Opacity => 1 - _dim;
+
   /// <summary>A color of your own, drawn as it is.</summary>
   public static ElementColor From(Color color) => new(color, null);
 
-  /// <summary>The same color with its opacity multiplied by <paramref name="factor"/>.</summary>
+  /// <summary>The same color with its opacity multiplied by <paramref name="factor"/>. Allocates nothing.</summary>
   public ElementColor Faded(float factor)
   {
+    factor = Mathf.Clamp01(factor);
     Color solid = Solid;
-    solid.a *= Mathf.Clamp01(factor);
-    return new ElementColor(solid, Paint == null ? null : new FadedPaint(Paint, Mathf.Clamp01(factor)));
-  }
-
-  // A picked color drawn at part of its opacity.
-  internal sealed class FadedPaint
-  {
-    public FadedPaint(object paint, float factor)
-    {
-      Paint = paint;
-      Factor = factor;
-    }
-
-    public object Paint { get; }
-    public float Factor { get; }
+    solid.a *= factor;
+    return new ElementColor(solid, Paint, 1 - Opacity * factor);
   }
 }
 

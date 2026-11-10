@@ -36,6 +36,9 @@ internal enum LayoutAction
   DistributeVertical,
   Font,
   Extension,
+  Check,
+  Up,
+  Down,
 }
 
 // Vector controls don't depend on Unicode coverage in the overlay font.
@@ -94,6 +97,18 @@ internal sealed class LayoutActionIcon : SettingsVectorGraphic
       case LayoutAction.Back:
         Line(mesh, 15, 5, 8, 12);
         Line(mesh, 8, 12, 15, 19);
+        break;
+      case LayoutAction.Up:
+        Line(mesh, 5, 15, 12, 8);
+        Line(mesh, 12, 8, 19, 15);
+        break;
+      case LayoutAction.Down:
+        Line(mesh, 5, 9, 12, 16);
+        Line(mesh, 12, 16, 19, 9);
+        break;
+      case LayoutAction.Check:
+        Line(mesh, 5, 12.5f, 10, 17.5f, 2.4f);
+        Line(mesh, 10, 17.5f, 19.5f, 7, 2.4f);
         break;
       case LayoutAction.Forward:
         Line(mesh, 9, 5, 16, 12);

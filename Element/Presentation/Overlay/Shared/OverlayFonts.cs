@@ -106,6 +106,26 @@ internal sealed class OverlayFonts : IDisposable
 
   public const string CloseTag = "</font>";
 
+  /// <summary>
+  /// The font asset for <paramref name="key"/>, for drawing a whole text in it
+  /// as other mods' elements do; false for the default font or one still
+  /// loading or missing, which draw with <see cref="DefaultAsset"/>.
+  /// </summary>
+  public bool TryFont(string key, out TMP_FontAsset asset, out Material material)
+  {
+    asset = null;
+    material = null;
+    key = OverlayFontKey.Normalize(key);
+    if (key.Length == 0 || string.Equals(key, DefaultKey, StringComparison.OrdinalIgnoreCase))
+      return false;
+    Entry entry = Load(key);
+    if (entry == null)
+      return false;
+    asset = entry.Asset;
+    material = entry.Material;
+    return asset != null;
+  }
+
   /// <summary>A key as people read it: "Pretendard Bold", or the family alone for its regular face.</summary>
   public static string DisplayName(string key)
   {
@@ -155,14 +175,19 @@ internal sealed class OverlayFonts : IDisposable
   }
 
   /// <summary>
-  /// Frees every loaded font none of <paramref name="layouts"/> nor the
-  /// default uses. Call when no editor holds fonts of its own.
+  /// Frees every loaded font none of <paramref name="layouts"/>, the default,
+  /// nor <paramref name="alsoUsed"/> (other mods' elements) uses. Call when no
+  /// editor holds fonts of its own.
   /// </summary>
-  public void Retain(IEnumerable<OverlayLayoutSettings> layouts)
+  public void Retain(IEnumerable<OverlayLayoutSettings> layouts, IEnumerable<string> alsoUsed = null)
   {
     HashSet<string> used = new(StringComparer.OrdinalIgnoreCase);
     if (DefaultKey.Length > 0)
       used.Add(DefaultKey);
+    if (alsoUsed != null)
+      foreach (string key in alsoUsed)
+        if (!string.IsNullOrEmpty(key))
+          used.Add(OverlayFontKey.Normalize(key));
     if (layouts != null)
       foreach (OverlayLayoutSettings layout in layouts)
         if (layout?.Text?.Runs != null)

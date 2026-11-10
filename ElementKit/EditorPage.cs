@@ -84,8 +84,113 @@ public abstract class EditorPage
   /// <param name="opacity">Whether players can pick the color's opacity too.</param>
   public abstract EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true);
 
+  /// <summary>
+  /// A color swatch that opens Element's color picker with all it offers: the
+  /// player's highlight color, a color of their own with opacity, or a gradient.
+  /// </summary>
+  public abstract EditorControl ColorPicker(string label, Paint value, Action<Paint> changed);
+
+  /// <summary>One option out of many, picked from a list that opens under it.</summary>
+  public abstract EditorControl Dropdown(
+    string label,
+    IReadOnlyList<string> options,
+    int selected,
+    Action<int> changed
+  );
+
+  /// <summary>A box to tick, with <paramref name="text"/> beside it.</summary>
+  public abstract EditorControl Checkbox(string text, bool on, Action<bool> changed);
+
+  /// <summary>Several options, each on or off, as chips that wrap onto more lines.</summary>
+  /// <param name="label">What they are, left of the chips.</param>
+  /// <param name="options">The options' names.</param>
+  /// <param name="on">Which options start on, by index; missing ones start off.</param>
+  /// <param name="changed">Runs with the option's index and whether it is now on.</param>
+  public abstract EditorControl MultiChoice(
+    string label,
+    IReadOnlyList<string> options,
+    IReadOnlyList<bool> on,
+    Action<int, bool> changed
+  );
+
+  /// <summary>A whole number with − and + beside it.</summary>
+  public abstract EditorControl Stepper(string label, int value, int min, int max, Action<int> changed, int step = 1);
+
+  /// <summary>Two numbers on one slider, the lower always at most the higher.</summary>
+  /// <param name="label">What they are, left of the slider.</param>
+  /// <param name="low">The lower number to start at.</param>
+  /// <param name="high">The higher number to start at.</param>
+  /// <param name="min">The smallest number.</param>
+  /// <param name="max">The largest number.</param>
+  /// <param name="changed">Runs with the lower and the higher as either handle moves.</param>
+  /// <param name="step">What the numbers move by; 0 moves freely.</param>
+  public abstract EditorControl RangeSlider(
+    string label,
+    float low,
+    float high,
+    float min,
+    float max,
+    Action<float, float> changed,
+    float step = 0
+  );
+
+  /// <summary>
+  /// A shortcut, set the way Element's own are: click, then press a key with at
+  /// most one modifier; Esc cancels and the × clears it.
+  /// </summary>
+  public abstract EditorControl Shortcut(string label, Shortcut value, Action<Shortcut> changed);
+
+  /// <summary>
+  /// A font from the ones on this PC or added to Element; empty for the overlay's
+  /// default font. Draw with it through <see cref="Drawing.SetFont"/>.
+  /// </summary>
+  public abstract EditorControl FontPicker(string label, string font, Action<string> changed);
+
+  /// <summary>One of nine points of a box, picked on a grid like Element's Grow from.</summary>
+  public abstract EditorControl AnchorPicker(string label, Anchor value, Action<Anchor> changed);
+
+  /// <summary>A small button showing only <paramref name="icon"/>; <paramref name="hint"/> says what it does on hover.</summary>
+  public abstract EditorControl IconButton(EditorIcon icon, string hint, Action clicked);
+
+  /// <summary>
+  /// Words players can add to, remove from, reorder and type in. The parts
+  /// change <paramref name="items"/> themselves; <paramref name="changed"/> runs after.
+  /// </summary>
+  public abstract EditorControl List(string label, List<string> items, Action changed = null, string newItem = "");
+
+  /// <summary>A heading over the parts that follow.</summary>
+  public abstract EditorControl Section(string title);
+
+  /// <summary>A thin line across the column.</summary>
+  public abstract EditorControl Divider();
+
+  /// <summary>
+  /// A card that holds the parts made until it is disposed, with an optional
+  /// title: <c>using (page.Card("Colors")) { page.ColorPicker(...); }</c>
+  /// </summary>
+  public abstract IDisposable Card(string title = null);
+
+  /// <summary>
+  /// Tabs with these names; parts made inside <c>using (tabs.Page(i))</c> show
+  /// only while that tab is picked. The picked tab stays across undo.
+  /// </summary>
+  public abstract EditorTabs Tabs(IReadOnlyList<string> names);
+
   /// <summary>Empty space in the column before the next part.</summary>
   public abstract void Gap(float height = 16);
+}
+
+/// <summary>Tabs on the editing screen; see <see cref="EditorPage.Tabs"/>.</summary>
+public abstract class EditorTabs
+{
+  /// <summary>The tab bar.</summary>
+  public abstract EditorControl Bar { get; }
+
+  /// <summary>The picked tab.</summary>
+  public abstract int Selected { get; set; }
+
+  /// <summary>Parts made until this is disposed belong to tab <paramref name="index"/>.</summary>
+  public abstract IDisposable Page(int index);
 }
 
 /// <summary>A part on the editing screen.</summary>
@@ -99,6 +204,9 @@ public abstract class EditorControl
 
   /// <summary>Makes the part <paramref name="width"/> wide.</summary>
   public abstract EditorControl Width(float width);
+
+  /// <summary>Shows <paramref name="text"/> above the part while the pointer is over it.</summary>
+  public abstract EditorControl Hint(string text);
 
   /// <summary>Whether the part shows. A hidden part keeps its place in the column.</summary>
   public abstract bool Visible { get; set; }

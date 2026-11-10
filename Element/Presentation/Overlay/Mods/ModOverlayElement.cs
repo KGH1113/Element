@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Element.Configuration;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
@@ -49,6 +50,9 @@ internal sealed class ModOverlayElement : OverlayElementTarget
 
   /// <summary>The kind that draws this element; null while its mod is missing or off.</summary>
   public ElementClass Class => _class;
+
+  /// <summary>The fonts its mod draws with, so Element keeps them loaded.</summary>
+  public IEnumerable<string> UsedFonts => _drawing.UsedFonts;
 
   /// <summary>Whether its mod draws it right now.</summary>
   public bool Drawn => _instance != null && !_faulted;

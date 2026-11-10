@@ -13,16 +13,17 @@ namespace Element.Presentation.Layout;
 /// The parts a mod builds its element's editing screen from, made with the
 /// settings UI's own pieces. Parts flow into a column under the preview (a
 /// second column when it is full) unless the mod puts them somewhere with
-/// <see cref="EditorControl.At"/>. Every change goes through the editor, which
-/// records undo and shows it on the preview.
+/// <see cref="EditorControl.At"/>; cards and tab pages group them. Every
+/// change goes through the editor, which records undo and shows it on the preview.
 /// </summary>
-internal sealed class ModEditorPage : EditorPage
+internal sealed partial class ModEditorPage : EditorPage
 {
   public const float RowHeight = 40,
     RowGap = 10,
     LabelWidth = 170,
     ColumnWidth = 480,
-    ColumnGap = 32;
+    ColumnGap = 32,
+    CardPadding = 14;
 
   private readonly SettingsUiFactory _ui;
   private readonly RectTransform _root;
@@ -30,16 +31,12 @@ internal sealed class ModEditorPage : EditorPage
   private readonly Rect _preview;
   private readonly Rect _flow;
   private readonly bool _reduceMotion;
-  private readonly Action<object, Action, bool> _change;
-  private readonly Action<ModColorRequest> _openColor;
+  private readonly IModEditorHost _host;
   private readonly List<ModEditorControl> _items = new();
   private readonly List<TMP_InputField> _inputs = new();
+  private readonly Stack<ModEditorGroup> _groups = new();
   private int _count;
 
-  /// <param name="change">
-  /// Runs a part's change as one edit: undo, then the mod's callback, then the
-  /// preview; true lays the parts out again so they show what it changed.
-  /// </param>
   public ModEditorPage(
     SettingsUiFactory ui,
     RectTransform frame,
@@ -47,8 +44,7 @@ internal sealed class ModEditorPage : EditorPage
     Rect preview,
     Rect flow,
     bool reduceMotion,
-    Action<object, Action, bool> change,
-    Action<ModColorRequest> openColor
+    IModEditorHost host
   )
   {
     _ui = ui;
@@ -56,10 +52,9 @@ internal sealed class ModEditorPage : EditorPage
     _preview = preview;
     _flow = flow;
     _reduceMotion = reduceMotion;
-    _change = change;
-    _openColor = openColor;
+    _host = host;
+    // Clicks on the page's empty space reach the dim behind.
     _root = ui.Rect("Mod editor page", frame, 0, 0, size.x, size.y);
-    // The page holds parts; clicks on its empty space reach the dim behind.
   }
 
   public override RectTransform Root => _root;
@@ -70,11 +65,13 @@ internal sealed class ModEditorPage : EditorPage
 
   public override bool Korean => SettingsLocale.Korean;
 
-  /// <summary>Whether players are typing in one of the page's fields.</summary>
+  /// <summary>Whether the keyboard belongs to the page: typing in a field, or recording a shortcut.</summary>
   public bool Typing
   {
     get
     {
+      if (_capture != null)
+        return true;
       foreach (TMP_InputField input in _inputs)
         if (input != null && input.isFocused)
           return true;
@@ -82,347 +79,156 @@ internal sealed class ModEditorPage : EditorPage
     }
   }
 
-  public override EditorControl Label(string text)
+  /// <summary>Once a frame: records a shortcut while one is being set.</summary>
+  public void Tick() => TickShortcut();
+
+  // ---- Structure ----
+
+  public override EditorControl Section(string title)
   {
-    ModEditorControl control = Row("Label", 0);
-    TextMeshProUGUI label = _ui.Text(text ?? "", control.Rect, 0, 0, ColumnWidth, 24, 15, SettingsUiFactory.Foreground);
-    label.textWrappingMode = TextWrappingModes.Normal;
-    control.Layout = width =>
-    {
-      label.rectTransform.sizeDelta = new Vector2(width, 24);
-      float height = Mathf.Max(24, label.GetPreferredValues(label.text, width, 0).y);
-      label.rectTransform.sizeDelta = new Vector2(width, height);
-      control.Height = height;
-    };
+    ModEditorControl control = Row("Section", 30);
+    TextMeshProUGUI text = _ui.Text(title ?? "", control.Rect, 0, 6, ColumnWidth, 24, 13, SettingsUiFactory.Muted);
+    text.fontStyle = FontStyles.Bold;
+    text.textWrappingMode = TextWrappingModes.NoWrap;
+    text.overflowMode = TextOverflowModes.Ellipsis;
+    control.Layout = width => text.rectTransform.sizeDelta = new Vector2(width, 24);
     return Add(control);
   }
 
-  public override EditorControl Button(string text, Action clicked)
+  public override EditorControl Divider()
   {
-    ModEditorControl control = Row("Button", 0);
-    Button button = null;
-    button = OverlayEditorUi.CapsuleButton(
-      _ui,
-      control.Rect,
-      "Button " + text,
-      text ?? "",
-      0,
-      2,
-      120,
-      36,
-      14,
-      () => _change(button, () => clicked?.Invoke(), true),
-      false,
-      _reduceMotion
-    );
-    TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>();
-    float preferred = label != null ? label.GetPreferredValues(text ?? "", 1000, 36).x : 0;
-    control.Layout = width =>
-      SettingsUiFactory.Place(
-        (RectTransform)button.transform,
-        0,
-        2,
-        Mathf.Min(width, Mathf.Max(96, preferred + 36)),
-        36
-      );
-    return Add(control);
-  }
-
-  public override EditorControl Switch(string label, bool on, Action<bool> changed)
-  {
-    ModEditorControl control = Row("Switch", 0);
-    float x = Caption(control, label);
-    bool state = on;
-    SettingsCapsuleGraphic track = null;
-    SettingsCapsuleGraphic thumb = null;
-    SettingsSwitchMotion motion = null;
-    void Show(bool immediate)
-    {
-      track.color = state ? SettingsPalette.AccentSurface : new Color(.3f, .3f, .3f);
-      thumb.color = state ? SettingsPalette.SoftAccent : SettingsUiFactory.Foreground;
-      motion.Set(state ? 24 : 4, immediate || _reduceMotion);
-    }
-    Button hit = null;
-    hit = OverlayEditorUi.CapsuleButton(
-      _ui,
-      control.Rect,
-      "Switch " + label,
-      "",
-      x,
-      2,
-      56,
-      36,
-      14,
-      () =>
-      {
-        state = !state;
-        Show(false);
-        bool now = state;
-        _change(hit, () => changed?.Invoke(now), false);
-      },
-      true,
-      _reduceMotion
-    );
-    track = _ui.Capsule("Track", hit.transform, 4, 4, 48, 28, SettingsUiFactory.Surface);
-    track.raycastTarget = false;
-    thumb = _ui.Capsule("Thumb", track.transform, 4, 4, 20, 20, SettingsUiFactory.Foreground);
-    thumb.raycastTarget = false;
-    motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
-    Show(true);
-    return Add(control);
-  }
-
-  public override EditorControl Slider(
-    string label,
-    float value,
-    float min,
-    float max,
-    Action<float> changed,
-    float step = 0
-  )
-  {
-    if (!(max > min))
-      max = min + 1;
-    ModEditorControl control = Row("Slider", 0);
-    float x = Caption(control, label);
-    float Snap(float v)
-    {
-      v = Mathf.Clamp(v, min, max);
-      return step > 0 ? Mathf.Clamp(min + Mathf.Round((v - min) / step) * step, min, max) : v;
-    }
-    float current = Snap(value);
-    TextMeshProUGUI shown = _ui.Text(
-      Format(current, step),
-      control.Rect,
-      0,
-      0,
-      64,
-      RowHeight,
-      14,
-      SettingsUiFactory.Muted
-    );
-    shown.alignment = TextAlignmentOptions.MidlineRight;
-    shown.textWrappingMode = TextWrappingModes.NoWrap;
-    Slider slider = null;
-    slider = _ui.Slider(
-      "Slider " + label,
-      control.Rect,
-      x,
-      2,
-      200,
-      (current - min) / (max - min),
-      normalized =>
-      {
-        float next = Snap(min + normalized * (max - min));
-        if (Mathf.Approximately(next, current))
-          return;
-        current = next;
-        shown.text = Format(current, step);
-        float now = current;
-        _change(slider, () => changed?.Invoke(now), false);
-      }
-    );
-    if (slider is SettingsSlider settings)
-      settings.Step = step > 0 ? step / (max - min) : 1f / 255f;
-    control.Layout = width =>
-    {
-      float room = Mathf.Max(80, width - x - 72);
-      SettingsUiFactory.Place((RectTransform)slider.transform, x, 2, room, 36);
-      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 64, RowHeight);
-    };
-    return Add(control);
-  }
-
-  public override EditorControl Number(string label, float value, float min, float max, Action<float> changed)
-  {
-    if (!(max >= min))
-      max = min;
-    ModEditorControl control = Row("Number", 0);
-    float x = Caption(control, label);
-    float current = Mathf.Clamp(value, min, max);
-    TMP_InputField input = null;
-    void Apply(float next)
-    {
-      if (Mathf.Approximately(next, current))
-        return;
-      current = next;
-      float now = current;
-      _change(input, () => changed?.Invoke(now), false);
-    }
-    input = _ui.Input(
-      "Number " + label,
-      Format(current, 0),
-      control.Rect,
-      x,
-      0,
-      160,
-      // As it is typed: a number within the limits shows at once; one outside
-      // them waits, so the preview doesn't jump while it is still being typed.
-      typed =>
-      {
-        if (TryNumber(typed, out float parsed) && parsed >= min && parsed <= max)
-          Apply(parsed);
-      },
-      // Typing done: whatever was typed is kept within the limits and shown so.
-      typed =>
-      {
-        if (TryNumber(typed, out float parsed))
-          Apply(Mathf.Clamp(parsed, min, max));
-        input.SetTextWithoutNotify(Format(current, 0));
-      },
-      12
-    );
-    input.contentType = TMP_InputField.ContentType.DecimalNumber;
-    _inputs.Add(input);
-    control.Layout = width =>
-      SettingsUiFactory.Place(
-        (RectTransform)input.transform,
-        x,
-        0,
-        Mathf.Min(160, Mathf.Max(80, width - x)),
-        RowHeight
-      );
-    return Add(control);
-  }
-
-  public override EditorControl TextField(string label, string value, Action<string> changed)
-  {
-    ModEditorControl control = Row("Text", 0);
-    float x = Caption(control, label);
-    string current = value ?? "";
-    TMP_InputField input = null;
-    input = _ui.Input(
-      "Text " + label,
-      current,
-      control.Rect,
-      x,
-      0,
-      240,
-      // Each letter shows on the preview as it is typed.
-      typed =>
-      {
-        if (typed == current)
-          return;
-        current = typed;
-        string now = current;
-        _change(input, () => changed?.Invoke(now), false);
-      },
-      null,
-      200
-    );
-    _inputs.Add(input);
-    control.Layout = width =>
-      SettingsUiFactory.Place((RectTransform)input.transform, x, 0, Mathf.Max(80, width - x), RowHeight);
-    return Add(control);
-  }
-
-  public override EditorControl Choice(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
-  {
-    ModEditorControl control = Row("Choice", 0);
-    float x = Caption(control, label);
-    List<string> names = new();
-    if (options != null)
-      foreach (string option in options)
-        names.Add(option ?? "");
-    if (names.Count == 0)
-      names.Add("");
-    SettingsSegmentedControl segments = null;
-    segments = new SettingsSegmentedControl(
-      _ui,
-      control.Rect,
-      x,
-      2,
-      240,
-      36,
-      names,
-      index => _change(segments, () => changed?.Invoke(index), false)
-    );
-    segments.Select(Mathf.Clamp(selected, 0, names.Count - 1), false);
-    control.Layout = width =>
-    {
-      float room = Mathf.Max(120, width - x);
-      SettingsUiFactory.Place(segments.Root, x, 2, room, 36);
-      float segment = (room - 6) / names.Count;
-      for (int i = 0; i < segments.Buttons.Count; i++)
-        SettingsUiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
-    };
-    return Add(control);
-  }
-
-  public override EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true)
-  {
-    ModEditorControl control = Row("Color", 0);
-    float x = Caption(control, label);
-    Color current = value;
-    if (!opacity)
-      current.a = 1;
-    TextMeshProUGUI hex = _ui.Text("", control.Rect, x + 40, 0, 160, RowHeight, 14, SettingsUiFactory.Muted);
-    hex.textWrappingMode = TextWrappingModes.NoWrap;
-    SettingsCapsuleGraphic swatch = null;
-    void Show()
-    {
-      Color opaque = current;
-      opaque.a = 1;
-      swatch.color = opaque;
-      hex.text =
-        "#"
-        + ColorUtility.ToHtmlStringRGB(current)
-        + (opacity && current.a < .995f ? "  " + Mathf.RoundToInt(current.a * 100) + "%" : "");
-    }
-    Button button = null;
-    swatch = OverlayEditorUi.Swatch(
-      _ui,
-      control.Rect,
-      "Color " + label,
-      x,
-      4,
-      () =>
-        _openColor(
-          new ModColorRequest(
-            string.IsNullOrEmpty(label) ? SettingsLocale.L("색", "Color") : label,
-            current,
-            opacity,
-            (RectTransform)button.transform,
-            picked =>
-            {
-              current = picked;
-              Show();
-              Color now = current;
-              _change(button, () => changed?.Invoke(now), false);
-            }
-          )
-        ),
-      _reduceMotion,
-      out button
-    );
-    Show();
-    control.Layout = width =>
-      SettingsUiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), RowHeight);
+    ModEditorControl control = Row("Divider", 9);
+    Image line = _ui.Panel("Line", control.Rect, 0, 4, ColumnWidth, 1, new Color(1, 1, 1, .12f), false);
+    control.Layout = width => SettingsUiFactory.Place(line.rectTransform, 0, 4, width, 1);
     return Add(control);
   }
 
   public override void Gap(float height = 16)
   {
-    ModEditorControl gap = Row("Gap", Mathf.Max(0, height));
+    ModEditorControl gap = Row("Gap", Mathf.Max(1, height));
     gap.Height = Mathf.Max(0, Mathf.Max(0, height) - RowGap);
     Add(gap);
   }
 
+  public override IDisposable Card(string title = null)
+  {
+    bool titled = !string.IsNullOrEmpty(title);
+    RectTransform rect = _ui.Rect("Card " + ++_count, CurrentParent, 0, 0, ColumnWidth, 10);
+    Image surface = _ui.Panel("Card surface", rect, 0, 0, ColumnWidth, 10, new Color(1, 1, 1, .045f));
+    SettingsUiFactory.Stretch(surface.rectTransform, 0, 0, 0, 0);
+    if (titled)
+    {
+      TextMeshProUGUI heading = _ui.Text(
+        title,
+        rect,
+        CardPadding,
+        CardPadding - 4,
+        ColumnWidth - CardPadding * 2,
+        24,
+        14
+      );
+      heading.fontStyle = FontStyles.Bold;
+      heading.textWrappingMode = TextWrappingModes.NoWrap;
+      heading.overflowMode = TextOverflowModes.Ellipsis;
+    }
+    ModEditorGroup card = new(this, rect, CardPadding, titled ? 30 : 0, null);
+    Add(card);
+    return Into(card);
+  }
+
+  public override EditorTabs Tabs(IReadOnlyList<string> names)
+  {
+    List<string> labels = new();
+    if (names != null)
+      foreach (string name in names)
+        labels.Add(name ?? "");
+    if (labels.Count == 0)
+      labels.Add("");
+    string key = string.Join("\u001f", labels);
+    ModEditorTabs tabs = new(this, key, Mathf.Clamp(_host.TabOf(key), 0, labels.Count - 1));
+    ModEditorControl bar = Row("Tabs", RowHeight);
+    SettingsSegmentedControl segments = new(
+      _ui,
+      bar.Rect,
+      0,
+      2,
+      ColumnWidth,
+      36,
+      labels,
+      index => tabs.Selected = index
+    );
+    segments.Select(tabs.Selected, false);
+    bar.Layout = width =>
+    {
+      SettingsUiFactory.Place(segments.Root, 0, 2, width, 36);
+      float segment = (width - 6) / labels.Count;
+      for (int i = 0; i < segments.Buttons.Count; i++)
+        SettingsUiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
+    };
+    tabs.BarControl = Add(bar);
+    tabs.Segments = segments;
+    for (int i = 0; i < labels.Count; i++)
+    {
+      int index = i;
+      RectTransform rect = _ui.Rect("Tab page " + ++_count, CurrentParent, 0, 0, ColumnWidth, 10);
+      // At the top of the column a tab's parts flow one by one; inside a card it is one block.
+      ModEditorGroup page = new(this, rect, 0, 0, () => tabs.Selected == index, _groups.Count == 0);
+      tabs.Pages.Add(page);
+      Add(page);
+    }
+    return tabs;
+  }
+
+  /// <summary>Parts made until the scope ends go into <paramref name="group"/>.</summary>
+  internal IDisposable Into(ModEditorGroup group)
+  {
+    if (group == null)
+      return new Scope(null);
+    _groups.Push(group);
+    return new Scope(() =>
+    {
+      if (_groups.Count > 0 && _groups.Peek() == group)
+        _groups.Pop();
+      Layout();
+    });
+  }
+
+  internal void TabPicked(string key, int index)
+  {
+    _host.SetTab(key, index);
+    HideTip();
+    Layout();
+  }
+
+  internal void ShowTip(string text, RectTransform anchor) => _host.ShowTip(text, anchor);
+
+  internal void HideTip() => _host.HideTip();
+
+  // ---- Layout ----
+
   /// <summary>
   /// Puts the flowing parts in columns under the preview, centered, starting a
-  /// new column when one is full. Parts placed with At stay where they are.
+  /// new column when one is full. Cards and tab pages lay out their own parts
+  /// and take one place; parts placed with At stay where they are.
   /// </summary>
   public void Layout()
   {
-    foreach (ModEditorControl item in _items)
-      item.Layout?.Invoke(item.WidthOverride ?? ColumnWidth);
     List<(ModEditorControl Item, int Column, float Y)> placed = new();
     int column = 0;
     float y = _flow.y;
-    foreach (ModEditorControl item in _items)
+    foreach (ModEditorControl item in Flowing(_items))
     {
       if (!item.Flows)
+      {
+        item.Layout?.Invoke(item.WidthOverride ?? ColumnWidth);
         continue;
+      }
+      bool shown = item.Shown;
+      if (item is ModEditorGroup && item.Rect.gameObject.activeSelf != shown)
+        item.Rect.gameObject.SetActive(shown);
+      if (!shown)
+        continue;
+      item.Layout?.Invoke(item.WidthOverride ?? ColumnWidth);
       float height = item.Height;
       if (y > _flow.y && y + height > _flow.yMax)
       {
@@ -445,15 +251,45 @@ internal sealed class ModEditorPage : EditorPage
       );
   }
 
+  /// <summary>Lays the parts out again after one changed its width or place.</summary>
+  internal void Changed() => Layout();
+
+  // The column's parts in order, a picked tab's parts in its place; the
+  // other tabs' pages are hidden.
+  private IEnumerable<ModEditorControl> Flowing(List<ModEditorControl> items)
+  {
+    foreach (ModEditorControl item in items)
+    {
+      if (item is not ModEditorGroup { Transparent: true } tab)
+      {
+        yield return item;
+        continue;
+      }
+      bool shown = tab.Shown;
+      if (tab.Rect.gameObject.activeSelf != shown)
+        tab.Rect.gameObject.SetActive(shown);
+      if (!shown)
+        continue;
+      // Spans the screen so its parts are placed in the screen's own units.
+      SettingsUiFactory.Place(tab.Rect, 0, 0, _size.x, _size.y);
+      foreach (ModEditorControl child in Flowing(tab.Children))
+        yield return child;
+    }
+  }
+
+  // The card or tab page parts go into now, or the screen.
+  private Transform CurrentParent => _groups.Count > 0 ? _groups.Peek().Rect : _root;
+
   // A row in the column; parts lay themselves out across its width.
   private ModEditorControl Row(string kind, float height)
   {
-    RectTransform rect = _ui.Rect(kind + " " + ++_count, _root, 0, 0, ColumnWidth, height > 0 ? height : RowHeight);
-    return new ModEditorControl(this, rect, height > 0 ? height : RowHeight);
+    float rowHeight = height > 0 ? height : RowHeight;
+    RectTransform rect = _ui.Rect(kind + " " + ++_count, CurrentParent, 0, 0, ColumnWidth, rowHeight);
+    return new ModEditorControl(this, rect, rowHeight);
   }
 
   // The label left of a control; where the control starts.
-  private float Caption(ModEditorControl control, string label)
+  private float Caption(ModEditorControl control, string label, float height = RowHeight)
   {
     if (string.IsNullOrEmpty(label))
       return 0;
@@ -463,7 +299,7 @@ internal sealed class ModEditorPage : EditorPage
       0,
       0,
       LabelWidth - 12,
-      RowHeight,
+      height,
       15,
       SettingsUiFactory.Foreground
     );
@@ -475,7 +311,14 @@ internal sealed class ModEditorPage : EditorPage
 
   private ModEditorControl Add(ModEditorControl control)
   {
-    _items.Add(control);
+    if (_groups.Count > 0)
+    {
+      ModEditorGroup group = _groups.Peek();
+      control.Group = group;
+      group.Children.Add(control);
+    }
+    else
+      _items.Add(control);
     control.Layout?.Invoke(control.WidthOverride ?? ColumnWidth);
     Layout();
     return control;
@@ -491,77 +334,16 @@ internal sealed class ModEditorPage : EditorPage
       ? Mathf.RoundToInt(value).ToString(CultureInfo.InvariantCulture)
       : value.ToString("0.##", CultureInfo.InvariantCulture);
 
-  /// <summary>Lays the parts out again after one changed its width.</summary>
-  internal void Changed() => Layout();
-}
-
-/// <summary>A part on a mod's editing screen.</summary>
-internal sealed class ModEditorControl : EditorControl
-{
-  private readonly ModEditorPage _page;
-
-  public ModEditorControl(ModEditorPage page, RectTransform rect, float height)
+  private sealed class Scope : IDisposable
   {
-    _page = page;
-    Rect = rect;
-    Height = height;
-  }
+    private Action _end;
 
-  public override RectTransform Rect { get; }
+    public Scope(Action end) => _end = end;
 
-  /// <summary>Lays the part's pieces across a row this wide.</summary>
-  public Action<float> Layout { get; set; }
-
-  public float Height { get; set; }
-
-  public float? WidthOverride { get; private set; }
-
-  public bool Flows { get; private set; } = true;
-
-  public override EditorControl At(float x, float y)
-  {
-    Flows = false;
-    SettingsUiFactory.Place(Rect, x, y, WidthOverride ?? ModEditorPage.ColumnWidth, Height);
-    _page.Changed();
-    return this;
-  }
-
-  public override EditorControl Width(float width)
-  {
-    WidthOverride = Mathf.Max(40, width);
-    Layout?.Invoke(WidthOverride.Value);
-    if (!Flows)
-      Rect.sizeDelta = new Vector2(WidthOverride.Value, Height);
-    _page.Changed();
-    return this;
-  }
-
-  public override bool Visible
-  {
-    get => Rect.gameObject.activeSelf;
-    set
+    public void Dispose()
     {
-      if (Rect.gameObject.activeSelf != value)
-        Rect.gameObject.SetActive(value);
+      _end?.Invoke();
+      _end = null;
     }
   }
-}
-
-/// <summary>A color part asking the editor to open the picker beside it.</summary>
-internal sealed class ModColorRequest
-{
-  public ModColorRequest(string title, Color color, bool opacity, RectTransform anchor, Action<Color> changed)
-  {
-    Title = title;
-    Color = color;
-    Opacity = opacity;
-    Anchor = anchor;
-    Changed = changed;
-  }
-
-  public string Title { get; }
-  public Color Color { get; }
-  public bool Opacity { get; }
-  public RectTransform Anchor { get; }
-  public Action<Color> Changed { get; }
 }

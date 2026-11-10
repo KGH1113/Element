@@ -19,11 +19,12 @@ Element를 필수로 두지 않아도 됩니다([오버레이 요소](#오버레
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
 | 예시 모드 [Sample](../Sample): SampleTag 태그를 옮김 (`./scripts/run.sh sample-install`) | 완료 |
 | 오버레이 요소: `[Element]` + `OverlayElement<TSettings>`, Element가 스스로 찾음(호출·필수 모드 없음) | 프로토타입 |
-| 편집 화면 부품(`EditorPage`): 라벨·버튼·스위치·슬라이더·숫자·글자·고르기·색 선택기, 자유 배치(`At`) | 프로토타입 |
+| 편집 화면 부품(`EditorPage`): 입력·고르기·색·폰트·단축키·목록 부품, 카드·탭·구역, 도움말, 자유 배치(`At`) | 프로토타입 |
 | 그리기 도우미(`Drawing`): 오버레이 폰트 글자, 둥근 상자, 하이라이트 색 | 프로토타입 |
 | 요소 추가 → 기타 → 모드별 목록, 편집 화면(실시간 미리보기·실행 취소), 모드가 없을 때 상자 | 프로토타입 |
 | Sample: 예시 막대 요소, Element 없이도 실행(`LoadAfter`, `ElementLink`) | 프로토타입 |
-| 색 선택기의 하이라이트 따르기·그라디언트, 종류가 6개를 넘을 때 목록 스크롤 | 남음 |
+| 색 선택기의 하이라이트 따르기·그라디언트(`Paint`) | 프로토타입 |
+| 종류가 6개를 넘을 때 기타 목록 스크롤 | 남음 |
 | Element 없이 Sample을 켠 실제 게임 확인 | 남음 |
 | 프리셋, 기타 메뉴, 프리셋 내보내기 | 남음 |
 | `Player.Keys`, 묶음 값(`Numbers`), 실행 중 API 수준 확인 | 남음 |
@@ -270,15 +271,32 @@ public sealed class SampleBars : OverlayElement<BarsSettings>
 
 | 부품 | 쓰는 것 |
 | --- | --- |
-| `Label`, `Button` | 설명 글, 버튼(누른 뒤 부품을 다시 만들어 바뀐 값을 보여 줌) |
-| `Switch`, `Slider`, `Number`, `TextField`, `Choice` | 설정 화면의 스위치·슬라이더·입력칸·세그먼트 |
-| `ColorPicker` | Element 색 선택기(단색·불투명도) |
-| `Gap`, `.At(x, y)`, `.Width(w)`, `Root` | 칸 띄우기, 자유 배치, 직접 만든 UI |
+| `Label`, `Button`, `IconButton` | 설명 글, 버튼, 아이콘 버튼(`EditorIcon`, 도움말이 이름). 버튼은 누른 뒤 부품을 다시 만들어 바뀐 값을 보여 줌 |
+| `Switch`, `Checkbox` | 켜고 끄기. 체크박스는 긴 문장 옆에 |
+| `Slider`, `RangeSlider`, `Number`, `Stepper` | 끌어서 고르는 값, 두 손잡이 구간, 입력하는 숫자(입력 중 바로 반영, 끝나면 범위로), −/+ 정수 |
+| `TextField`, `List` | 글자 한 줄, 글자 목록(추가·순서 바꾸기·지우기) |
+| `Choice`, `Dropdown`, `MultiChoice` | 2~4개 세그먼트, 많은 선택지 목록, 여러 개 켜는 칩 |
+| `ColorPicker(Color)`, `ColorPicker(Paint)` | 단색(불투명도), 하이라이트 따르기·그라디언트까지 고르는 Element 색 선택기 |
+| `FontPicker`, `Shortcut`, `AnchorPicker` | Element 폰트 목록, 단축키 녹화(보조 키 하나, Esc 취소), 9점 기준점 |
+| `Section`, `Divider`, `Card`, `Tabs`, `Gap` | 구역 제목, 구분선, 묶음 카드, 탭(실행 취소해도 고른 탭 유지), 칸 띄우기 |
+| `.Hint(text)`, `.At(x, y)`, `.Width(w)`, `.Visible`, `Root` | 마우스를 올리면 뜨는 도움말, 자유 배치, 너비, 숨기기, 직접 만든 UI |
+
+`Card`와 탭 페이지는 `using`으로 감싸 그 안에서 만든 부품을 담습니다.
+
+```csharp
+EditorTabs tabs = page.Tabs(new[] { page.L("모양", "Look"), page.L("내용", "Content") });
+using (tabs.Page(0))
+using (page.Card(page.L("색", "Colors")))
+    page.ColorPicker(page.L("강조 색", "Accent"), Settings.Accent, paint => Settings.Accent = paint);
+```
+
+`Paint`는 하이라이트 색·단색·그라디언트를 담는 저장용 클래스입니다. `Drawing.Box(...).Paint`에 넣으면 그라디언트와 하이라이트 따르기까지 그려 주고,
+글자처럼 한 색만 필요하면 `Drawing.Solid(paint)`로 지금 색을 얻습니다. `Shortcut`은 `Pressed`로 이번 프레임에 눌렸는지 알려 줍니다.
 
 부품은 기본으로 미리보기 아래 세로줄(가득 차면 다음 줄)에 놓이고, 좌표는 편집 화면 단위(약 1120×760, 왼쪽 위 0)입니다.
 
-**그리기 도우미(`Drawing`):** `Text`(오버레이 기본 폰트, 플레이어가 폰트를 바꾸면 따라감), `Box`(크기를 바꾸면 바로 따라가는 둥근 상자),
-`Highlight`, `Place`(왼쪽 위 기준 배치). 그 밖은 UGUI를 그대로 씁니다. 그린 것은 오버레이 캔버스 안이라 녹화 모드·렌더를 따릅니다.
+**그리기 도우미(`Drawing`):** `Text`(오버레이 기본 폰트, 플레이어가 폰트를 바꾸면 따라감), `SetFont`(폰트 선택기에서 고른 폰트),
+`Box`(크기를 바꾸면 바로 따라가는 둥근 상자, `Color` 또는 `Paint`), `Highlight`, `Solid`, `Place`(왼쪽 위 기준 배치). 그 밖은 UGUI를 그대로 씁니다. 그린 것은 오버레이 캔버스 안이라 녹화 모드·렌더를 따릅니다.
 
 **저장:** 설정은 요소마다 `OverlayLayoutSettings.Mod.Data`에 문자열로 저장되어 실행 취소, 취소 버튼, 프로필, 내보내기를 따릅니다.
 나중 버전에 필드를 더하면 예전 요소에서는 기본값으로 시작합니다.

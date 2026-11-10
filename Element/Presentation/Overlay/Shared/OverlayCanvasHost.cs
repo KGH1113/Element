@@ -226,8 +226,8 @@ internal sealed class OverlayCanvasHost : IDisposable
       Remove(element);
       _layoutSettings.RemoveAll(settings => settings != null && settings.Id == id);
     }
-    // Fonts tried in the editor and no longer used go with them.
-    _fonts?.Retain(_layoutSettings);
+    // Fonts tried in the editor and no longer used go with them; other mods' elements keep theirs.
+    _fonts?.Retain(_layoutSettings, ModFonts());
   }
 
   public void SetLayoutPreview(bool preview)
@@ -277,6 +277,13 @@ internal sealed class OverlayCanvasHost : IDisposable
     }
     if (_fitPending)
       FitPendingGroups();
+  }
+
+  private IEnumerable<string> ModFonts()
+  {
+    foreach (ModOverlayElement mod in _mods)
+    foreach (string font in mod.UsedFonts)
+      yield return font;
   }
 
   private void OnContentChanged(OverlayElementTarget element)

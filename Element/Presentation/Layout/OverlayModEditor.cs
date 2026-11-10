@@ -18,9 +18,10 @@ namespace Element.Presentation.Layout;
 /// every editing screen has: the dim, Cancel and Done, Esc to finish, undo,
 /// Grow from, and a live preview, a second instance of the mod's element
 /// that shows each change as it happens. The mod builds the rest from
-/// <see cref="ModEditorPage"/>'s parts.
+/// <see cref="ModEditorPage"/>'s parts, and the editor opens what those
+/// parts ask for beside them: color pickers, a dropdown's list, the font list.
 /// </summary>
-internal sealed class OverlayModEditor : IDisposable
+internal sealed class OverlayModEditor : IModEditorHost, IDisposable
 {
   private const float BarHeight = 40;
 
@@ -42,6 +43,13 @@ internal sealed class OverlayModEditor : IDisposable
   private SettingsCapsuleGraphic _growMark;
   private SettingsColorPicker _picker;
   private ModColorRequest _pickerFor;
+  private SettingsColorPicker _paintPicker;
+  private ModPaintRequest _paintFor;
+  private ModListPopover _list;
+  private OverlayFontPopover _fontPopover;
+  private SettingsUiFactory _fontUi;
+  private ModFontRequest _fontFor;
+  private readonly Dictionary<string, int> _tabs = new();
   private RectTransform _previewHolder;
   private RectTransform _previewRoot;
   private ModDrawing _drawing;
@@ -99,6 +107,7 @@ internal sealed class OverlayModEditor : IDisposable
     _undo.Clear();
     _redo.Clear();
     _failed.Clear();
+    _tabs.Clear();
     _lastKey = null;
     Build();
     return true;
@@ -128,6 +137,10 @@ internal sealed class OverlayModEditor : IDisposable
     _previewHolder.anchorMin = _previewHolder.anchorMax = _previewHolder.pivot = new Vector2(0, 1);
     _drawing = new ModDrawing(_fonts?.Invoke());
     _picker = new SettingsColorPicker(_frame, _font, _reduceMotion);
+    // The full picker, laid out as the overlay editors' column so it offers gradients.
+    _paintPicker = new SettingsColorPicker(_frame, _font, _reduceMotion);
+    _paintPicker.LayOutAsColumn(300);
+    _list = new ModListPopover(_ui, _frame, _reduceMotion());
     _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
     _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
@@ -203,21 +216,37 @@ internal sealed class OverlayModEditor : IDisposable
         _screen.Height - flowTop - OverlayEditorFrame.Margin
       ),
       _reduceMotion(),
-      Change,
-      OpenColor
+      this
     );
     Run("laying out its editing screen", () => _instance.RunEdit(_page));
     _page.Layout();
     _picker.Root.SetAsLastSibling();
+    _paintPicker.Root.SetAsLastSibling();
     _growPopover.Root.SetAsLastSibling();
   }
+
+  OverlayFonts IModEditorHost.Fonts => _fonts?.Invoke();
+
+  int IModEditorHost.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
+
+  void IModEditorHost.SetTab(string key, int index) => _tabs[key] = index;
+
+  void IModEditorHost.ShowTip(string text, RectTransform anchor)
+  {
+    if (_screen == null || anchor == null)
+      return;
+    Rect rect = _screen.FrameRect(anchor);
+    _screen.ShowTip(text, new Vector2(rect.center.x, rect.y));
+  }
+
+  void IModEditorHost.HideTip() => _screen?.HideTip();
 
   /// <summary>
   /// One edit: what it changes is one undo step (a part's edits within a
   /// second merge), and the preview shows it right away. A button may change
   /// several settings, so the parts are made again to show them.
   /// </summary>
-  private void Change(object key, Action apply, bool rebuild)
+  public void Change(object key, Action apply, bool rebuild)
   {
     if (_instance == null)
       return;
@@ -254,25 +283,110 @@ internal sealed class OverlayModEditor : IDisposable
     return data ?? string.Empty;
   }
 
-  private void OpenColor(ModColorRequest request)
+  public void OpenColor(ModColorRequest request)
   {
-    CloseGrow();
-    if (_picker.Visible && _pickerFor != null && _pickerFor.Anchor == request.Anchor)
-    {
-      _picker.Hide();
+    bool same = _picker.Visible && _pickerFor != null && _pickerFor.Anchor == request.Anchor;
+    ClosePopovers();
+    if (same)
       return;
-    }
     _pickerFor = request;
     _picker.Show(request.Title, request.Color, request.Opacity, request.Changed);
+    Beside(_picker.Root, request.Anchor, _picker.CurrentWidth, _picker.Height);
+  }
+
+  public void OpenPaint(ModPaintRequest request)
+  {
+    bool same = _paintPicker.Visible && _paintFor != null && _paintFor.Anchor == request.Anchor;
+    ClosePopovers();
+    if (same)
+      return;
+    _paintFor = request;
+    _paintPicker.ShowSource(
+      request.Title,
+      ModPaints.ToSettings(request.Paint),
+      color => request.Changed(ModPaints.FromSettings(color))
+    );
+    Beside(_paintPicker.Root, request.Anchor, _paintPicker.CurrentWidth, _paintPicker.Height);
+  }
+
+  public void OpenList(ModListRequest request)
+  {
+    bool same = _list.Visible && _list.Anchor == request.Anchor;
+    ClosePopovers();
+    if (same || request.Options == null || request.Options.Count == 0)
+      return;
+    _list.Show(request, _screen.FrameRect(request.Anchor), _screen.Width, _screen.Height);
+  }
+
+  public void OpenFont(ModFontRequest request)
+  {
+    bool same = _fontPopover != null && _fontPopover.Visible && _fontFor != null && _fontFor.Anchor == request.Anchor;
+    ClosePopovers();
+    OverlayFonts fonts = _fonts?.Invoke();
+    if (same || fonts == null)
+      return;
+    if (_fontPopover == null)
+    {
+      _fontUi = new SettingsUiFactory(_font) { ReduceMotion = _reduceMotion };
+      _fontPopover = new OverlayFontPopover(_fontUi, _frame, fonts, _reduceMotion(), PickFont);
+    }
+    _fontFor = request;
+    _fontPopover.Show(
+      request.Title,
+      request.Font,
+      L("기본 폰트", "Default font"),
+      L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font")
+    );
     Rect anchor = _screen.FrameRect(request.Anchor);
-    float width = _picker.CurrentWidth,
-      height = _picker.Height;
+    float width = OverlayFontPopover.PreferredWidth,
+      height = Mathf.Min(OverlayFontPopover.PreferredHeight, _screen.Height - 16);
+    float x = anchor.xMax + 16;
+    if (x + width > _screen.Width - 8)
+      x = anchor.x - width - 16;
+    _fontPopover.Place(
+      Mathf.Clamp(x, 8, Mathf.Max(8, _screen.Width - width - 8)),
+      Mathf.Clamp(anchor.center.y - height * .5f, 8, Mathf.Max(8, _screen.Height - height - 8)),
+      width,
+      height
+    );
+    _fontPopover.Root.SetAsLastSibling();
+  }
+
+  private void PickFont(string key)
+  {
+    ModFontRequest request = _fontFor;
+    _fontPopover?.Hide();
+    _fontFor = null;
+    request?.Picked(key);
+  }
+
+  // Beside the part that opened it, on the side with room, kept on screen.
+  private void Beside(RectTransform popover, RectTransform anchorRect, float width, float height)
+  {
+    Rect anchor = _screen.FrameRect(anchorRect);
     float x = anchor.xMax + 16;
     if (x + width > _screen.Width - 8)
       x = anchor.x - width - 16;
     float y = Mathf.Clamp(anchor.center.y - height * .5f, 8, Mathf.Max(8, _screen.Height - height - 8));
-    SettingsUiFactory.Place(_picker.Root, Mathf.Clamp(x, 8, Mathf.Max(8, _screen.Width - width - 8)), y, width, height);
-    _picker.Root.SetAsLastSibling();
+    SettingsUiFactory.Place(popover, Mathf.Clamp(x, 8, Mathf.Max(8, _screen.Width - width - 8)), y, width, height);
+    popover.SetAsLastSibling();
+  }
+
+  private bool AnyPopover =>
+    _picker.Visible
+    || _paintPicker.Visible
+    || _list.Visible
+    || (_fontPopover?.Visible ?? false)
+    || _growPopover.Visible;
+
+  private void ClosePopovers()
+  {
+    _picker.Hide();
+    _paintPicker.Hide();
+    _list.Hide();
+    _fontPopover?.Hide();
+    _fontFor = null;
+    CloseGrow();
   }
 
   public void Tick()
@@ -286,6 +400,8 @@ internal sealed class OverlayModEditor : IDisposable
         return;
     }
     _screen.Tick();
+    _page?.Tick();
+    _fontPopover?.Tick();
     if (_instance != null)
     {
       // A preview that fails to update stays as it last drew.
@@ -295,7 +411,12 @@ internal sealed class OverlayModEditor : IDisposable
       FitPreview();
     }
     // Typing goes to the field; Esc there only ends the typing.
-    if ((_picker.Visible && _picker.IsTyping) || (_page != null && _page.Typing))
+    if (
+      (_picker.Visible && _picker.IsTyping)
+      || (_paintPicker.Visible && _paintPicker.IsTyping)
+      || (_fontPopover?.IsTyping ?? false)
+      || (_page != null && _page.Typing)
+    )
       return;
     HandleMouse();
     HandleKeys();
@@ -346,7 +467,7 @@ internal sealed class OverlayModEditor : IDisposable
       CloseGrow();
       return;
     }
-    _picker.Hide();
+    ClosePopovers();
     _growPopover.Show(_screen.FrameRect(_growButton.Root), _screen.Width, _screen.Height);
     _growPopover.Refresh(_growth, GrowPointNow());
   }
@@ -394,10 +515,8 @@ internal sealed class OverlayModEditor : IDisposable
         continue;
       // Esc closes what is open; with nothing open it finishes like Done.
       // Only Cancel leaves without saving.
-      if (_picker.Visible)
-        _picker.Hide();
-      else if (_growPopover.Visible)
-        CloseGrow();
+      if (AnyPopover)
+        ClosePopovers();
       else
       {
         Close(true, true);
@@ -414,6 +533,24 @@ internal sealed class OverlayModEditor : IDisposable
     Vector2 screen = Input.mousePosition;
     if (_picker.Visible && !OverlayEditorUi.Contains(_picker.Root, screen) && !Over(_pickerFor?.Anchor, screen))
       _picker.Hide();
+    if (
+      _paintPicker.Visible
+      && !OverlayEditorUi.Contains(_paintPicker.Root, screen)
+      && !Over(_paintFor?.Anchor, screen)
+    )
+      _paintPicker.Hide();
+    if (_list.Visible && !_list.Contains(screen) && !Over(_list.Anchor, screen))
+      _list.Hide();
+    if (
+      _fontPopover != null
+      && _fontPopover.Visible
+      && !OverlayEditorUi.Contains(_fontPopover.Root, screen)
+      && !Over(_fontFor?.Anchor, screen)
+    )
+    {
+      _fontPopover.Hide();
+      _fontFor = null;
+    }
     if (_growPopover.Visible && !_growPopover.Contains(screen) && !Over(_growButton.Root, screen))
       CloseGrow();
   }
@@ -443,7 +580,7 @@ internal sealed class OverlayModEditor : IDisposable
   {
     _working = data;
     _lastKey = null;
-    _picker.Hide();
+    ClosePopovers();
     Run(
       "loading its settings",
       () =>
@@ -462,6 +599,8 @@ internal sealed class OverlayModEditor : IDisposable
     if (_screen == null)
       return;
     if (commit && _picker.Visible && !_picker.Commit())
+      return;
+    if (commit && _paintPicker.Visible && !_paintPicker.Commit())
       return;
     ModOverlayElement element = _element;
     Action<bool> closed = _closed;
@@ -495,9 +634,20 @@ internal sealed class OverlayModEditor : IDisposable
     _page = null;
     _previewRoot = null;
     _pickerFor = null;
+    _paintFor = null;
+    _fontFor = null;
     SettingsColorPicker picker = _picker;
     _picker = null;
     picker?.Dispose();
+    SettingsColorPicker paintPicker = _paintPicker;
+    _paintPicker = null;
+    paintPicker?.Dispose();
+    _list?.Hide();
+    _list = null;
+    _fontPopover?.Hide();
+    _fontPopover = null;
+    _fontUi?.Dispose();
+    _fontUi = null;
     _screen?.Dispose();
     _screen = null;
     _ui = null;

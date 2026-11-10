@@ -23,6 +23,16 @@ public abstract class Drawing
   public abstract RoundedBox Box(Transform parent);
 
   /// <summary>
+  /// Draws <paramref name="text"/> in <paramref name="font"/>, a font
+  /// <see cref="EditorPage.FontPicker"/> gave; empty for the overlay's default.
+  /// A font still loading or missing on this PC shows as the default until it is there.
+  /// </summary>
+  public abstract void SetFont(TextMeshProUGUI text, string font);
+
+  /// <summary><paramref name="paint"/> as one color for your own drawing: the highlight worked out, a gradient's first color.</summary>
+  public Color Solid(Paint paint) => paint == null ? Color.white : paint.ToColor(Highlight);
+
+  /// <summary>
   /// Puts <paramref name="rect"/>'s top left at (<paramref name="x"/>, <paramref name="y"/>)
   /// in its parent, y down, <paramref name="width"/> by <paramref name="height"/>.
   /// </summary>
@@ -52,8 +62,15 @@ public abstract class RoundedBox
   /// <summary>The box's UI object; place it with <see cref="Drawing.Place"/>.</summary>
   public abstract RectTransform Rect { get; }
 
-  /// <summary>The fill, opacity included.</summary>
+  /// <summary>The fill as one color, opacity included.</summary>
   public abstract Color Color { get; set; }
+
+  /// <summary>
+  /// The fill as players picked it: the highlight color (following it when it
+  /// changes), a color of their own, or a gradient across the box. Setting it
+  /// replaces <see cref="Color"/>.
+  /// </summary>
+  public abstract Paint Paint { get; set; }
 
   /// <summary>The corners' radius in the box's units; kept within half its shorter side.</summary>
   public abstract float Rounding { get; set; }

@@ -35,6 +35,12 @@ import {
   clearExposedActions,
 } from '@utils/displayElementActions';
 import { setupPluginDropdownInteractions } from '@utils/plugin/pluginDropdownManager';
+import {
+  normalizeStateKeys,
+  getPluginMenuRuntimeState,
+} from '@utils/plugin/menu/pluginMenuRuntimeState';
+import { evaluatePluginMenuItems } from '@utils/plugin/menu/pluginElementContextMenu';
+import { obsApi } from '@api/modules/obsApi';
 
 const DEFAULT_POSITION_OFFSET = { x: 0, y: 0 };
 const EMPTY_SELECTED_ELEMENTS: SelectedElement[] = [];
@@ -1100,18 +1106,58 @@ export const PluginElement: React.FC<PluginElementProps> = ({
     clearExposedActions(element.fullId);
 
     const cleanups: (() => void)[] = [];
+    let disposed = false;
+    const menuStateKeys = normalizeStateKeys(definition.contextMenuStateKeys);
+    const latestState = { ...element.state };
+    const sentMenuState: Record<string, unknown> = {};
+    const sendMenuState = () => {
+      if (disposed || menuStateKeys.length === 0) return;
+      const changed: Record<string, unknown> = {};
+      for (const key of menuStateKeys) {
+        if (!Object.hasOwn(latestState, key)) continue;
+        if (
+          Object.hasOwn(sentMenuState, key) &&
+          Object.is(sentMenuState[key], latestState[key])
+        )
+          continue;
+        changed[key] = latestState[key];
+        sentMenuState[key] = latestState[key];
+      }
+      if (Object.keys(changed).length > 0) {
+        void window.api.bridge
+          .sendTo('main', 'plugin:displayElement:syncMenuState', {
+            fullId: element.fullId,
+            state: changed,
+          })
+          .catch((error) => {
+            console.warn('[PluginElement] Failed to sync menu state', error);
+          });
+      }
+    };
+    if (menuStateKeys.length > 0)
+      cleanups.push(
+        obsApi.onResync(() => {
+          Object.keys(sentMenuState).forEach(
+            (key) => delete sentMenuState[key],
+          );
+          sendMenuState();
+        }),
+      );
 
     const context = {
       setState: (updates: Record<string, unknown>) => {
+        if (disposed) return;
+        Object.assign(latestState, updates);
         // rAF 기반 배치 업데이트 사용 (성능 최적화)
         const currentElement = usePluginDisplayElementStore
           .getState()
           .elements.find((el) => el.fullId === element.fullId);
         if (currentElement) {
           updateElementBatched(element.fullId, {
-            state: { ...currentElement.state, ...updates },
+            state: { ...latestState },
           });
         }
+        sendMenuState();
       },
       getSettings: () => {
         const currentElement = usePluginDisplayElementStore
@@ -1147,6 +1193,7 @@ export const PluginElement: React.FC<PluginElementProps> = ({
         if (event === 'key') {
           // 백엔드 재구독 대신 키 이벤트 버스 사용
           import('@utils/core/keyEventBus').then(({ keyEventBus }) => {
+            if (disposed) return;
             const unsub = keyEventBus.subscribe((payload) => {
               // console.log(`[PluginElement] Key event received via hook`, payload);
               callback(payload);
@@ -1156,19 +1203,11 @@ export const PluginElement: React.FC<PluginElementProps> = ({
         } else if (event === 'rawKey') {
           // Raw key 이벤트 버스 사용 (구독 기반 - 구독자가 있을 때만 백엔드가 emit)
           import('@utils/core/rawKeyEventBus').then(({ rawKeyEventBus }) => {
-            rawKeyEventBus
-              .subscribe((payload) => {
-                callback(payload);
-              })
-              .then((unsub) => {
-                cleanups.push(unsub);
-              })
-              .catch((error) => {
-                console.error(
-                  `[PluginElement] Failed to subscribe to rawKey:`,
-                  error,
-                );
-              });
+            if (disposed) return;
+            const unsub = rawKeyEventBus.subscribe((payload) => {
+              callback(payload);
+            });
+            cleanups.push(unsub);
           });
         }
       },
@@ -1212,11 +1251,13 @@ export const PluginElement: React.FC<PluginElementProps> = ({
     console.warn(`[PluginElement] Mounting ${element.fullId}`);
 
     const mountCleanup = definition.onMount(context);
+    sendMenuState();
     if (typeof mountCleanup === 'function') {
       cleanups.push(mountCleanup);
     }
 
     return () => {
+      disposed = true;
       clearExposedActions(element.fullId);
       exposedActionsRef.current = {};
       cleanups.forEach((fn) => fn());
@@ -1483,43 +1524,6 @@ export const PluginElement: React.FC<PluginElementProps> = ({
     }
   };
 
-  // 컨텍스트 메뉴 항목 생성
-  const contextMenuItems: ListItem[] = (() => {
-    if (!element.contextMenu) return [];
-
-    const {
-      enableDelete = true,
-      deleteLabel = '삭제',
-      customItems = [],
-    } = element.contextMenu;
-    const items: ListItem[] = [];
-
-    if (enableDelete) {
-      items.push({
-        id: 'delete',
-        label: pluginTranslate(deleteLabel, undefined, deleteLabel),
-      });
-    }
-
-    // 커스텀 항목 추가
-    customItems.forEach((item, index) => {
-      items.push({
-        id: `custom-${index}`,
-        label: pluginTranslate(item.label, undefined, item.label),
-      });
-    });
-
-    // z-order 항목 추가
-    items.push(
-      { id: 'bringToFront', label: t('contextMenu.bringToFront') },
-      // { id: "bringForward", label: t("contextMenu.bringForward") },
-      // { id: "sendBackward", label: t("contextMenu.sendBackward") },
-      { id: 'sendToBack', label: t('contextMenu.sendToBack') },
-    );
-
-    return items;
-  })();
-
   const createActionsProxy = (elementId: string) =>
     new Proxy(
       {},
@@ -1548,6 +1552,51 @@ export const PluginElement: React.FC<PluginElementProps> = ({
       },
     );
 
+  const menuStateKeys = normalizeStateKeys(definition?.contextMenuStateKeys);
+  const menuElement =
+    menuStateKeys.length > 0
+      ? {
+          ...element,
+          state: {
+            ...element.state,
+            ...getPluginMenuRuntimeState(element.fullId, menuStateKeys),
+          },
+        }
+      : element;
+  const menuContext = {
+    element: menuElement,
+    actions: createActionsProxy(element.fullId),
+  };
+  const contextMenuItems: ListItem[] = (() => {
+    if (!element.contextMenu) return [];
+    const {
+      enableDelete = true,
+      deleteLabel = '삭제',
+      customItems = [],
+    } = element.contextMenu;
+    const { top, bottom } = evaluatePluginMenuItems(
+      customItems,
+      menuContext,
+      (label) => pluginTranslate(label, undefined, label),
+      (index, kind, error) =>
+        console.warn(`[PluginElement] Menu ${index} ${kind} failed`, error),
+    );
+    return [
+      ...top,
+      ...(enableDelete
+        ? [
+            {
+              id: 'delete',
+              label: pluginTranslate(deleteLabel, undefined, deleteLabel),
+            },
+          ]
+        : []),
+      ...bottom,
+      { id: 'bringToFront', label: t('contextMenu.bringToFront') },
+      { id: 'sendToBack', label: t('contextMenu.sendToBack') },
+    ];
+  })();
+
   // 컨텍스트 메뉴 항목 선택
   const handleContextMenuSelect = (itemId: string) => {
     if (itemId === 'delete') {
@@ -1563,12 +1612,9 @@ export const PluginElement: React.FC<PluginElementProps> = ({
     } else if (itemId.startsWith('custom-')) {
       const index = parseInt(itemId.replace('custom-', ''), 10);
       const customItem = element.contextMenu?.customItems?.[index];
-      if (customItem) {
-        // 커스텀 메뉴 실행 (자동 래핑되어 있음)
-        customItem.onClick({
-          element,
-          actions: createActionsProxy(element.fullId),
-        });
+      const evaluated = contextMenuItems.find((item) => item.id === itemId);
+      if (customItem && evaluated && !evaluated.disabled) {
+        customItem.onClick(menuContext);
       }
     }
   };

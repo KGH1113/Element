@@ -161,7 +161,22 @@ internal static class GameplayTweaksTests
       !settings.Planets.Enabled && !settings.Editor.HasSelectionInfo,
       "new opt-in gameplay tweaks leave gameplay unchanged"
     );
-    Check(settings.Chatter.Enabled, "the chatter blocker starts on");
+    Check(
+      settings.Chatter.Enabled && settings.Chatter.WindowMs == 100 && settings.Chatter.IgnoredKeys.Count == 0,
+      "the chatter blocker starts on at KeyboardChatterBlocker's 100 ms with no ignored keys"
+    );
+    settings.Chatter.ToggleIgnored(UnityEngine.KeyCode.Space);
+    settings.Chatter.ToggleIgnored(UnityEngine.KeyCode.Z);
+    settings.Chatter.ToggleIgnored(UnityEngine.KeyCode.Z);
+    settings.Chatter.ToggleIgnored(UnityEngine.KeyCode.Mouse0);
+    Check(
+      settings.Chatter.IgnoredKeys.Count == 1 && settings.Chatter.Ignores(UnityEngine.KeyCode.Space),
+      "pressing a key adds it, pressing it again takes it off, and mouse buttons can't be added"
+    );
+    settings.Chatter.IgnoredKeys.Add(UnityEngine.KeyCode.Space);
+    settings.Chatter.IgnoredKeys.Add(UnityEngine.KeyCode.Mouse1);
+    settings.Chatter.Normalize();
+    Check(settings.Chatter.IgnoredKeys.Count == 1, "saved ignored keys drop duplicates and mouse buttons");
     settings.Editor.RotationStep = float.NaN;
     settings.Planets.Red.Body.Opacity = -10;
     settings.Planets.Blue.Tail.Opacity = 180;
@@ -198,8 +213,10 @@ internal static class GameplayTweaksTests
         && restored.Planets.Green.Body.Opacity == 37
         && restored.Judgement.HideTooEarly
         && restored.Editor.SyncEventPositions
-        && !restored.Chatter.Enabled,
-      "nested tweak and RGBA choices survive XML roundtrips, including a chatter blocker turned off"
+        && !restored.Chatter.Enabled
+        && restored.Chatter.IgnoredKeys.Count == 1
+        && restored.Chatter.Ignores(UnityEngine.KeyCode.Space),
+      "nested tweak and RGBA choices survive XML roundtrips, including a chatter blocker turned off and its ignored keys"
     );
     using StringReader missing = new("<GameplayTweaksSettings />");
     GameplayTweaksSettings defaults = (GameplayTweaksSettings)serializer.Deserialize(missing);
@@ -208,8 +225,28 @@ internal static class GameplayTweaksTests
       defaults.Judgement.HidePerfect
         && defaults.Judgement.HideXPerfect
         && defaults.Planets.Red.Body.Opacity == 100
-        && defaults.Chatter.Enabled,
+        && defaults.Chatter.Enabled
+        && defaults.Chatter.IgnoredKeys != null
+        && defaults.Chatter.IgnoredKeys.Count == 0,
       "older or empty settings preserve expected nested defaults"
+    );
+
+    // The chatter window counted from the key's release before version 8. Its
+    // untouched old default moves to the new one; a chosen value stays.
+    ElementSettings old = new() { SettingsVersion = 7 };
+    old.Gameplay.Chatter.WindowMs = 20;
+    old.Migrate();
+    ElementSettings chosen = new() { SettingsVersion = 7 };
+    chosen.Gameplay.Chatter.WindowMs = 45;
+    chosen.Migrate();
+    ElementSettings current = new() { SettingsVersion = ElementSettings.CurrentSettingsVersion };
+    current.Gameplay.Chatter.WindowMs = 20;
+    current.Migrate();
+    Check(
+      old.Gameplay.Chatter.WindowMs == 100
+        && chosen.Gameplay.Chatter.WindowMs == 45
+        && current.Gameplay.Chatter.WindowMs == 20,
+      "only the untouched old chatter window moves to 100 ms"
     );
   }
 

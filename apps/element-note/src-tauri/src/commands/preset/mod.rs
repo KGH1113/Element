@@ -6,11 +6,13 @@ use std::path::PathBuf;
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
 
+pub(crate) use crate::models::BUILTIN_TAB_IDS;
 use crate::models::{
-    CustomCss, CustomJs, FontSettings, GraphPositions, KeyMappings, KeyPositions, KeyViewerTab,
-    KnobPositions, NoteSettings, SelectedViewerTabs, StatPositions, TabCssOverrides,
-    TabNoteOverrides,
+    CustomCss, CustomJs, CustomTab, FontSettings, GraphPositions, KeyMappings, KeyPositions,
+    KnobPositions, LayerGroups, NoteSettings, SelectedViewerTabs, SpritePositions, StatPositions,
+    TabCssOverrides, TabNoteOverrides,
 };
+use crate::state::assets::local_asset_path::{file_url_to_path, FileUrlPath};
 
 #[derive(Serialize)]
 pub struct PresetOperationResult {
@@ -28,8 +30,12 @@ pub struct PresetSnapshot {
     pub stat_positions: StatPositions,
     pub graph_positions: GraphPositions,
     pub knob_positions: KnobPositions,
-    pub tabs: Vec<KeyViewerTab>,
+    pub sprite_positions: SpritePositions,
+    #[serde(rename = "tabs")]
+    pub custom_tabs: Vec<CustomTab>,
     pub selected_viewer_tabs: SelectedViewerTabs,
+    pub tab_order: Vec<String>,
+    pub bar_count: u8,
     pub selected_key_type: String,
     pub tab_note_overrides: TabNoteOverrides,
     pub tab_css_overrides: TabCssOverrides,
@@ -44,14 +50,21 @@ pub(crate) struct PresetFile {
     pub graph_positions: Option<GraphPositions>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub knob_positions: Option<KnobPositions>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sprite_positions: Option<SpritePositions>,
     pub background_color: Option<String>,
     pub note_settings: Option<NoteSettings>,
     pub note_effect: Option<bool>,
     pub laboratory_enabled: Option<bool>,
-    #[serde(default, alias = "customTabs")]
-    pub tabs: Option<Vec<KeyViewerTab>>,
-    pub selected_key_type: Option<String>,
+    #[serde(default, rename = "tabs", alias = "customTabs")]
+    pub custom_tabs: Option<Vec<CustomTab>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_viewer_tabs: Option<SelectedViewerTabs>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_order: Option<Vec<String>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bar_count: Option<u8>,
+    pub selected_key_type: Option<String>,
     #[serde(rename = "useCustomCSS")]
     pub use_custom_css: Option<bool>,
     #[serde(rename = "customCSS")]
@@ -63,6 +76,8 @@ pub(crate) struct PresetFile {
     pub font_settings: Option<FontSettings>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tab_note_overrides: Option<TabNoteOverrides>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub layer_groups: Option<LayerGroups>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tab_css_overrides: Option<TabCssOverrides>,
     pub embedded_local_fonts: Option<Vec<EmbeddedLocalFont>>,
@@ -97,10 +112,21 @@ pub(crate) struct EmbeddedLocalSound {
     pub data_base64: String,
 }
 
+// Ghost keys carry their own appearance and media. Apply the same asset handling
+// as the owning key so exported Element presets remain portable.
+fn for_each_key_and_ghost_mut(
+    position: &mut crate::models::KeyPosition,
+    visit: &mut impl FnMut(&mut crate::models::KeyPosition) -> crate::errors::CmdResult<()>,
+) -> crate::errors::CmdResult<()> {
+    visit(position)?;
+    if let Some(ghost) = position.ghost.as_mut() {
+        for_each_key_and_ghost_mut(&mut ghost.settings, visit)?;
+    }
+    Ok(())
+}
+
 pub(crate) const PRESET_LOCAL_IMAGE_PREFIX: &str = "dmnote-local-image://";
 pub(crate) const PRESET_LOCAL_SOUND_PREFIX: &str = "dmnote-local-sound://";
-pub(crate) const LEGACY_BUILTIN_TAB_IDS: &[&str] = &["4key", "5key", "6key", "8key"];
-
 pub(crate) fn decode_image_data_url(value: &str) -> Option<(Vec<u8>, String)> {
     let (header, payload) = value.split_once(',')?;
     let header_lower = header.to_ascii_lowercase();
@@ -188,18 +214,10 @@ pub(crate) fn local_source_path_from_image_ref(value: &str) -> Option<PathBuf> {
         return None;
     }
 
-    if let Some(stripped) = trimmed
-        .strip_prefix("file:///")
-        .or_else(|| trimmed.strip_prefix("file://"))
-    {
-        let mut candidate = stripped.to_string();
-        if cfg!(target_os = "windows") {
-            if candidate.starts_with('/') && candidate.as_bytes().get(2) == Some(&b':') {
-                candidate = candidate[1..].to_string();
-            }
-            candidate = candidate.replace('/', "\\");
-        }
-        return Some(PathBuf::from(candidate));
+    match file_url_to_path(trimmed) {
+        FileUrlPath::Path(path) => return Some(path),
+        FileUrlPath::Invalid => return legacy_file_url_path(trimmed),
+        FileUrlPath::NotFileUrl => {}
     }
 
     let path = PathBuf::from(trimmed);
@@ -208,6 +226,27 @@ pub(crate) fn local_source_path_from_image_ref(value: &str) -> Option<PathBuf> {
     } else {
         None
     }
+}
+
+fn legacy_file_url_path(value: &str) -> Option<PathBuf> {
+    let scheme_end = value.find(':')?;
+    if !value[..scheme_end].eq_ignore_ascii_case("file") {
+        return None;
+    }
+    let remainder = &value[scheme_end + 1..];
+    let stripped = remainder
+        .strip_prefix("///")
+        .or_else(|| remainder.strip_prefix("//"))?;
+    let mut candidate = stripped.to_string();
+    if cfg!(target_os = "windows") {
+        if candidate.starts_with('/') && candidate.as_bytes().get(2) == Some(&b':') {
+            candidate = candidate[1..].to_string();
+        }
+        candidate = candidate.replace('/', "\\");
+    } else if remainder.starts_with("///") {
+        candidate.insert(0, '/');
+    }
+    Some(PathBuf::from(candidate))
 }
 
 pub(crate) fn is_remote_or_virtual_image_ref(value: &str) -> bool {
@@ -225,3 +264,6 @@ pub(crate) fn option_has_non_empty_text(value: &Option<String>) -> bool {
         .map(|text| !text.trim().is_empty())
         .unwrap_or(false)
 }
+
+#[cfg(test)]
+mod tests;

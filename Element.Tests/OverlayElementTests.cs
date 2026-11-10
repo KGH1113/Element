@@ -27,6 +27,9 @@ internal static class OverlayElementTests
     TextDocumentMergesRunsAndColors();
     TextDocumentWordsAndCharacters();
     TextDocumentKeepsSizes();
+    TextDocumentKeepsFonts();
+    FontUsesTouchOnlyTheirOwnPlaces();
+    FontKeysNameOneFace();
     LegacyLabelsBecomeWords();
     ShapeDefaultsAndEdits();
     GrowFromKeepsItsPoint();
@@ -630,6 +633,105 @@ internal static class OverlayElementTests
     document.SetSize(0, 3, float.NaN);
     Check(document[0].Size == 0, "invalid sizes fall back to the base size");
     Check(OverlayTextDocument.FromRuns(runs).SameAs(OverlayTextDocument.FromRuns(runs)), "sizes round-trip");
+  }
+
+  private static void TextDocumentKeepsFonts()
+  {
+    OverlayTextDocument document = new();
+    int caret = document.InsertText(0, 0, "Big", null, 0, null, "Pretendard|Bold");
+    caret = document.InsertValue(caret, caret, "combo", null, 0, null, document.TypingFont(caret));
+    document.InsertText(caret, caret, " plain", null);
+    Check(document.TypingFont(3) == "Pretendard|Bold", "typing keeps the nearest text's font");
+    Check(document[3].Font == "Pretendard|Bold" && document[4].Font == "", "values carry their font");
+    List<OverlayTextRun> runs = document.ToRuns();
+    Check(
+      runs.Count == 3 && runs[0].Font == "Pretendard|Bold" && runs[1].Font == "Pretendard|Bold" && runs[2].Font == "",
+      "fonts split runs: " + runs.Count
+    );
+    Check(
+      document.RangeFont(0, 3) == "Pretendard|Bold" && document.RangeFont(0, 5) == null,
+      "a mixed range has no one font"
+    );
+    document.SetFont(0, document.Count, "Noto Sans KR");
+    runs = document.ToRuns();
+    Check(runs.Count == 3 && runs[0].Font == "Noto Sans KR|Regular", "a family alone is its regular face");
+    Check(OverlayTextDocument.FromRuns(runs).SameAs(document), "fonts round-trip");
+    document.SetFont(0, document.Count, "");
+    Check(document.ToRuns()[0].Font == "", "an empty font follows the default again");
+
+    OverlayTextRun saved = OverlayTextRun.Literal("가", OverlayColorSettings.Custom("#FFFFFF"));
+    saved.Font = "Pretendard|Bold";
+    XmlSerializer serializer = new(typeof(OverlayTextRun));
+    using StringWriter writer = new();
+    serializer.Serialize(writer, saved);
+    using StringReader reader = new(writer.ToString());
+    Check(((OverlayTextRun)serializer.Deserialize(reader)).SameAs(saved), "a run's font survives the settings file");
+  }
+
+  // A font picked for a missing one goes exactly where the missing one was.
+  private static void FontUsesTouchOnlyTheirOwnPlaces()
+  {
+    OverlayTextRun missingRun = OverlayTextRun.Literal("A", OverlayColorSettings.Custom("#FFFFFF"));
+    missingRun.Font = "Gone Font|Bold";
+    OverlayTextRun keptRun = OverlayTextRun.Literal("B", OverlayColorSettings.Custom("#FFFFFF"));
+    keptRun.Font = "Georgia|Regular";
+    OverlayTextRun plainRun = OverlayTextRun.Literal("C", OverlayColorSettings.Custom("#FFFFFF"));
+    ElementSettings settings = new()
+    {
+      OverlayFont = "gone font|bold",
+      OverlayLayouts = new()
+      {
+        new OverlayLayoutSettings
+        {
+          Text = new OverlayTextSettings
+          {
+            Runs = new() { missingRun, plainRun },
+          },
+        },
+        new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new() { keptRun } } },
+        new OverlayLayoutSettings(),
+      },
+    };
+    List<OverlayFontUse> uses = OverlayFontUse.Find(settings);
+    Check(
+      uses.Count == 2 && uses[0].IsDefault && uses[0].Runs.Count == 1 && !uses[1].IsDefault && uses[1].Runs.Count == 1,
+      "each font is found once, the default font first, with the texts that use it"
+    );
+    uses[0].Set(settings, "Georgia");
+    Check(
+      settings.OverlayFont == "Georgia|Regular" && missingRun.Font == "Georgia|Regular" && plainRun.Font == "",
+      "a replacement goes where the missing font was"
+    );
+    uses[0].Set(settings, "Verdana|Regular");
+    Check(
+      missingRun.Font == "Verdana|Regular" && keptRun.Font == "Georgia|Regular",
+      "trying another font leaves texts that already used the first pick alone"
+    );
+    uses[0].Set(settings, "");
+    Check(settings.OverlayFont == "" && missingRun.Font == "", "the default row follows the default font again");
+  }
+
+  private static void FontKeysNameOneFace()
+  {
+    Check(OverlayFontKey.Create("Pretendard", "Bold") == "Pretendard|Bold", "family and style make a key");
+    Check(OverlayFontKey.Create("Pretendard", "") == "Pretendard|Regular", "no style is the regular face");
+    Check(OverlayFontKey.Create(" ", "Bold") == "", "a font needs a family");
+    Check(OverlayFontKey.Create("A|B", "Bold") == "A B|Bold", "separators in names can't split the key");
+    Check(
+      OverlayFontKey.TryParse("A B|Bold", out string family, out string style) && family == "A B" && style == "Bold",
+      "keys read back"
+    );
+    Check(OverlayFontKey.Normalize(null) == "" && OverlayFontKey.Normalize("|Bold") == "", "nothing names no font");
+    Check(OverlayFontKey.Same("pretendard|bold", "Pretendard|Bold"), "keys compare without case");
+    Check(OverlayFontKey.Normalize(" Pretendard ") == "Pretendard|Regular", "a typed family is saved in key form");
+    Check(
+      OverlayFontFace.StyleRank("Thin") < OverlayFontFace.StyleRank("Regular")
+        && OverlayFontFace.StyleRank("Regular") < OverlayFontFace.StyleRank("Italic")
+        && OverlayFontFace.StyleRank("SemiBold") < OverlayFontFace.StyleRank("Bold")
+        && OverlayFontFace.StyleRank("Bold") < OverlayFontFace.StyleRank("ExtraBold")
+        && OverlayFontFace.StyleRank("Extra Light") < OverlayFontFace.StyleRank("Light"),
+      "styles sort from thin to black"
+    );
   }
 
   private static void LegacyLabelsBecomeWords()

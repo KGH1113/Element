@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../invoke';
 import { listen } from '@tauri-apps/api/event';
 
 import type {
@@ -15,7 +15,9 @@ export const bridgeApi = (() => {
 
   // 백엔드에서 브로드캐스트한 메시지 수신
   listen<BridgeMessage>('plugin-bridge:message', ({ payload }) => {
-    const { type, data } = payload;
+    const { type, data, target } = payload;
+    // v2는 한 번만 발행하고 논리 창 역할로 수신 대상을 구분한다.
+    if (target && target !== window.__dmn_window_type) return;
 
     // 타입별 리스너 호출
     const typeListeners = listeners.get(type);

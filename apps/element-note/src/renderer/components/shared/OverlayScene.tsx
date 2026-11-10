@@ -12,6 +12,8 @@ import type { KeyPosition } from '@src/types/key/keys';
 import { FALLBACK_POSITION } from '@constants/overlayDefaults';
 import type { NoteSettings } from '@src/types/settings/noteSettings';
 import type { NoteBuffer } from '@stores/signals/noteBuffer';
+import SpriteRuntimeLayer from '@components/shared/SpriteRuntimeLayer';
+import type { ReactiveSpritePosition } from '@src/types/key/sprites';
 
 // 타입 별칭 (공용)
 interface OverlayKeyProps {
@@ -77,6 +79,7 @@ interface OverlaySceneProps {
   displayStatPositions: Record<string, unknown>[];
   displayGraphPositions: Record<string, unknown>[];
   displayKnobPositions: Record<string, unknown>[];
+  displaySpritePositions?: ReactiveSpritePosition[];
   selectedKeyType: string;
 
   // 노트 이펙트
@@ -108,6 +111,7 @@ const OverlayScene = ({
   displayStatPositions,
   displayGraphPositions,
   displayKnobPositions,
+  displaySpritePositions = [],
   selectedKeyType,
   noteEffect,
   noteSettings,
@@ -233,6 +237,12 @@ const OverlayScene = ({
           />
         );
       })}
+      <SpriteRuntimeLayer
+        sprites={displaySpritePositions}
+        positions={currentPositions}
+        keys={currentKeys}
+        mode={selectedKeyType}
+      />
       {keyCounterEnabled ? (
         <KeyCounterLayer
           keys={currentKeys}

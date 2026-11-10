@@ -1,12 +1,39 @@
-import { invoke } from '@tauri-apps/api/core';
-import { subscribe } from './shared';
+import { invoke } from '../invoke';
+import { getCachedLocale, subscribe } from './shared';
 
 import type {
   CssLoadResult,
   CssSetContentResult,
   CssTogglePayload,
+  CssHistoryMutationResult,
+  CustomCssHistoryEntry,
+  TabCssLoadResult,
 } from '@src/types/plugin/api';
 import type { CustomCss } from '@src/types/plugin/css';
+
+interface NativeCssActivation {
+  success: boolean;
+  code?: string;
+  content?: string;
+  path?: string;
+}
+
+function historyError(code?: string): string {
+  const korean = (getCachedLocale() ?? 'ko') === 'ko';
+  if (code === 'NOT_FOUND') {
+    return korean
+      ? 'CSS 파일을 찾지 못했습니다. 파일 위치를 확인하고 다시 불러와 주세요.'
+      : 'The CSS file was not found. Check its location and load it again.';
+  }
+  if (code === 'PATH_NOT_AUTHORIZED') {
+    return korean
+      ? '이 CSS 파일을 다시 불러온 뒤 적용해 주세요.'
+      : 'Load this CSS file again before applying it.';
+  }
+  return korean
+    ? 'CSS 파일을 적용하지 못했습니다. 읽을 수 있는 UTF-8 CSS 파일인지 확인하고 다시 불러와 주세요.'
+    : 'The CSS file could not be applied. Check that it is a readable UTF-8 CSS file and load it again.';
+}
 
 export const cssApi = {
   get: () => invoke<CustomCss>('css_get'),
@@ -22,16 +49,21 @@ export const cssApi = {
       invoke<import('@src/types/plugin/api').CustomCssHistoryEntry[]>(
         'css_history_get',
       ),
-    activate: (path: string) =>
-      invoke<import('@src/types/plugin/api').CssHistoryMutationResult>(
-        'css_history_activate',
-        { path },
-      ),
-    remove: (path: string) =>
-      invoke<import('@src/types/plugin/api').CssHistoryMutationResult>(
-        'css_history_remove',
-        { path },
-      ),
+    activate: async (path: string): Promise<CssHistoryMutationResult> => {
+      const result = await invoke<NativeCssActivation>('css_history_activate', {
+        path,
+      });
+      return result.success
+        ? {
+            success: true,
+            css: { content: result.content ?? '', path: result.path ?? path },
+          }
+        : { success: false, error: historyError(result.code) };
+    },
+    remove: async (path: string): Promise<CssHistoryMutationResult> => {
+      await invoke<CustomCssHistoryEntry[]>('css_history_remove', { path });
+      return { success: true };
+    },
   },
   onUse: (listener: (payload: CssTogglePayload) => void) =>
     subscribe<CssTogglePayload>('css:use', listener),
@@ -50,11 +82,18 @@ export const cssApi = {
       invoke<import('@src/types/plugin/api').TabCssLoadResult>('css_tab_load', {
         tabId,
       }),
-    applyHistory: (tabId: string, path: string) =>
-      invoke<import('@src/types/plugin/api').TabCssLoadResult>(
-        'css_tab_apply_history',
+    applyHistory: async (
+      tabId: string,
+      path: string,
+    ): Promise<TabCssLoadResult> => {
+      const result = await invoke<TabCssLoadResult & { code?: string }>(
+        'css_tab_activate_history',
         { tabId, path },
-      ),
+      );
+      return result.success
+        ? result
+        : { ...result, error: historyError(result.code) };
+    },
     export: (tabId: string) =>
       invoke<import('@src/types/plugin/api').CssSetContentResult>(
         'css_tab_export',

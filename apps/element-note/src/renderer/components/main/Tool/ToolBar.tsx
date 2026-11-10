@@ -11,7 +11,7 @@ import { useSettingsStore } from '@stores/useSettingsStore';
 import KeyLimiterStatus from './KeyLimiterStatus';
 
 interface ToolBarProps {
-  onAddItem: (type: 'key' | 'stat' | 'graph' | 'knob') => void;
+  onAddItem: (type: 'key' | 'stat' | 'graph' | 'knob' | 'sprite') => void;
   onTogglePalette: () => void;
   isPaletteOpen: boolean;
   onResetCurrentMode: () => void;

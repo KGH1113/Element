@@ -1,5 +1,4 @@
 use std::net::SocketAddr;
-use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,80 +6,92 @@ use std::time::Duration;
 use futures_util::{SinkExt, StreamExt};
 use parking_lot::RwLock;
 use serde_json::Value;
-use tauri::ipc::{CallbackFn, InvokeBody, InvokeResponse, InvokeResponseBody};
-use tauri::webview::InvokeRequest;
-use tauri::{AppHandle, Listener, Manager, Wry};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tauri::{AppHandle, Manager, Wry};
+#[cfg(test)]
+use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{broadcast, oneshot};
-use tokio_tungstenite::tungstenite::Message;
-
-use crate::models::obs::{
-    make_envelope, HelloAckPayload, InvokeRequestPayload, ObsBroadcast, ObsEnvelope, ObsStatus,
+#[cfg(test)]
+use tokio_tungstenite::tungstenite::http::{header, StatusCode};
+use tokio_tungstenite::{
+    accept_hdr_async,
+    tungstenite::{
+        handshake::server::{Request as WsRequest, Response as WsResponse},
+        Message,
+    },
+    WebSocketStream,
 };
 
-/// OBS 클라이언트에서 실행 불가능한 커맨드 목록
-/// `|`로 끝나는 항목은 prefix 매칭 (예: "plugin:window|" → "plugin:window|*" 전부 차단)
-const DENIED_WS_COMMANDS: &[&str] = &[
-    // 오버레이 제어 (OBS에서 조작 불가)
-    "overlay_resize",
-    "overlay_reset_position",
-    "overlay_set_visible",
-    "overlay_set_lock",
-    "overlay_set_anchor",
-    "overlay_get",
-    // 윈도우/앱 제어
-    "window_minimize",
-    "window_close",
-    "window_show_main",
-    "window_open_devtools_all",
-    "app_quit",
-    "app_restart",
-    "app_open_external",
-    // OBS 서버 제어 (자기 자신 종료/재시작 방지)
-    "obs_start",
-    "obs_stop",
-    "obs_regenerate_token",
-    // 파일 대화상자 / 파일 쓰기 (로컬 파일 시스템 접근)
-    "image_load",
-    "font_load",
-    "sound_load",
-    "sound_save_processed_wav",
-    "css_load",
-    "css_history_get",
-    "css_history_activate",
-    "css_history_remove",
-    "css_tab_apply_history",
-    "css_tab_export",
-    "css_reset",
-    "js_load",
-    "js_reset",
-    "js_reload",
-    "preset_load",
-    "preset_load_tab",
-    // Tauri 플러그인 (네이티브 윈도우/메뉴/리소스)
-    "plugin:window|",
-    "plugin:menu|",
-    "plugin:resources|",
+use crate::models::obs::{
+    make_envelope, ObsBroadcast, ObsEnvelope, ObsStatus, OBS_PROTOCOL_VERSION,
+};
+
+mod media;
+mod rpc;
+mod transport;
+mod websocket;
+
+#[cfg(test)]
+use media::{guess_mime, percent_decode};
+
+use rpc::is_allowed_command;
+#[cfg(test)]
+use rpc::{build_allowed_list, ALLOWED_WS_COMMANDS};
+use transport::{
+    bind_address, has_allowed_http_host, http_header_end, is_local_machine_ip,
+    is_websocket_upgrade_request, read_http_request_headers, validate_websocket_request,
+    websocket_forbidden_response, write_empty_http_response, PrefixedStream,
+};
+#[cfg(test)]
+use transport::{http_header_values, is_allowed_host_header};
+use websocket::WebSocketSessionProtocol;
+
+// OBS 브라우저 소스는 overlay 창을 대신한다 - main만을 향한 브릿지 메시지는 전달하지 않는다
+fn is_forwarded_to_obs(event: &str, data: &Value) -> bool {
+    if !FORWARDED_EVENTS.contains(&event) {
+        return false;
+    }
+    !(event == "plugin-bridge:message"
+        && data.get("target").and_then(Value::as_str) == Some("main"))
+}
+
+const FORWARDED_EVENTS: &[&str] = &[
+    "settings:changed",
+    "editor:committed",
+    "keys:state",
+    "keys:reset",
+    "keys:changed",
+    "keys:counters",
+    "keys:counter",
+    "keys:counters-state",
+    "keys:mode-changed",
+    "customTabs:changed",
+    "tabs:changed",
+    "positions:changed",
+    "statPositions:changed",
+    "graphPositions:changed",
+    "knobPositions:changed",
+    "spritePositions:changed",
+    "layerGroups:changed",
+    "overlay:visibility",
+    "overlay:lock",
+    "overlay:anchor",
+    "overlay:resized",
+    "input:raw",
+    "input:press",
+    "input:axis",
+    "css:use",
+    "css:content",
+    "js:use",
+    "js:content",
+    "tabNote:changed",
+    "tabNote:changed_all",
+    "tabCss:changed",
+    "counterAnimation:changed",
+    "preset:snapshot",
+    "plugin-bridge:message",
 ];
-
-/// 커맨드가 deny list에 해당하는지 확인
-fn is_denied(cmd: &str) -> bool {
-    DENIED_WS_COMMANDS.iter().any(|entry| {
-        if let Some(prefix) = entry.strip_suffix('|') {
-            cmd.starts_with(prefix)
-                && cmd.len() > prefix.len()
-                && cmd.as_bytes()[prefix.len()] == b'|'
-        } else {
-            cmd == *entry
-        }
-    })
-}
-
-/// deny list를 Vec<String>으로 변환 (hello_ack 전송용)
-fn build_deny_list() -> Vec<String> {
-    DENIED_WS_COMMANDS.iter().map(|s| s.to_string()).collect()
-}
 
 /// 임베딩 에셋 조회 함수 타입 (path → Option<(bytes, mime_type)>)
 pub type AssetFetcher = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String)> + Send + Sync>;
@@ -104,8 +115,6 @@ pub struct ObsBridgeService {
     session_token: RwLock<String>,
     /// Tauri AppHandle (invoke_request 디스패치용)
     app_handle: RwLock<Option<AppHandle<Wry>>>,
-    /// 이벤트 포워딩용 리스너 ID (stop 시 해제)
-    event_listener_ids: RwLock<Vec<tauri::EventId>>,
 }
 
 impl ObsBridgeService {
@@ -124,7 +133,6 @@ impl ObsBridgeService {
             server_version: version.to_string(),
             session_token: RwLock::new(String::new()),
             app_handle: RwLock::new(None),
-            event_listener_ids: RwLock::new(Vec::new()),
         }
     }
 
@@ -138,63 +146,6 @@ impl ObsBridgeService {
 
     pub fn set_app_handle(&self, handle: AppHandle<Wry>) {
         *self.app_handle.write() = Some(handle);
-    }
-
-    /// Tauri 이벤트를 OBS WS 클라이언트에 포워딩하는 리스너 등록
-    pub fn register_event_forwarding(&self, app: &AppHandle<Wry>) {
-        // 기존 리스너 해제 (중복 호출 시 누적 방지)
-        for id in self.event_listener_ids.write().drain(..) {
-            app.unlisten(id);
-        }
-
-        // OBS 오버레이가 수신하는 이벤트 목록
-        let forwarded_events = [
-            "settings:changed",
-            "keys:state",
-            "keys:changed",
-            "keys:counters",
-            "keys:counter",
-            "keys:mode-changed",
-            "positions:changed",
-            "statPositions:changed",
-            "graphPositions:changed",
-            "knobPositions:changed",
-            "layerGroups:changed",
-            "overlay:visibility",
-            "overlay:lock",
-            "overlay:anchor",
-            "input:raw",
-            "input:axis",
-            "css:use",
-            "css:content",
-            "js:use",
-            "js:content",
-            "tabNote:changed",
-            "tabNote:changed_all",
-            "tabCss:changed",
-            "plugin-bridge:message",
-        ];
-
-        // listen_any: 모든 타깃(App/Window/Webview)의 이벤트를 캡처
-        // emit_to()로 특정 윈도우에 보낸 이벤트도 포워딩됨
-        let mut ids = Vec::with_capacity(forwarded_events.len());
-        for event_name in &forwarded_events {
-            let tx = self.broadcast_tx.clone();
-            let name = event_name.to_string();
-            let id = app.listen_any(*event_name, move |evt| {
-                let data: Value = serde_json::from_str(evt.payload()).unwrap_or(Value::Null);
-                let _ = tx.send(ObsBroadcast::TauriEvent {
-                    event: name.clone(),
-                    data,
-                });
-            });
-            ids.push(id);
-        }
-        *self.event_listener_ids.write() = ids;
-        log::info!(
-            "[ObsBridge] 이벤트 포워딩 등록: {}개 이벤트",
-            forwarded_events.len()
-        );
     }
 
     pub fn is_running(&self) -> bool {
@@ -214,6 +165,7 @@ impl ObsBridgeService {
                 Some(t.clone())
             }
         };
+        // 같은 네트워크의 다른 PC 접속 안내용 LAN IP (조회 실패 시 프론트가 localhost로 fallback)
         let local_ip = local_ip_address::local_ip().ok().map(|ip| ip.to_string());
         ObsStatus {
             running: self.is_running(),
@@ -224,8 +176,8 @@ impl ObsBridgeService {
         }
     }
 
-    /// Authenticated loopback entry point for an embedded local viewer.
-    /// Unlike status(), this does not perform network interface discovery.
+    /// Authenticated loopback entry for the game's embedded hand/foot viewers.
+    /// Avoid network-interface discovery on the IPC describe path.
     pub fn local_http_url(&self) -> Option<tauri::Url> {
         if !self.is_running() {
             return None;
@@ -244,11 +196,23 @@ impl ObsBridgeService {
         *self.cached_snapshot.write() = snapshot;
     }
 
-    /// 범용 Tauri 이벤트 포워딩 (OBS 클라이언트에 tauri_event로 전달)
-    pub fn broadcast_tauri_event(&self, event: String, data: Value) {
-        let _ = self
+    pub fn publish(&self, event: &str, data: Value) {
+        if !self.is_running() || !is_forwarded_to_obs(event, &data) {
+            return;
+        }
+
+        let receiver_count = self.broadcast_tx.receiver_count();
+        if self
             .broadcast_tx
-            .send(ObsBroadcast::TauriEvent { event, data });
+            .send(ObsBroadcast::TauriEvent {
+                event: event.to_string(),
+                data,
+            })
+            .is_err()
+            && receiver_count > 0
+        {
+            log::warn!("[ObsBridge] {event} 전송 실패: receiver_count={receiver_count}");
+        }
     }
 
     /// 전체 스냅샷 재전송 (프리셋 로드 등 대규모 변경 시)
@@ -284,7 +248,7 @@ impl ObsBridgeService {
         let mut last_err = String::new();
         for offset in 0u16..10 {
             let try_port = port.saturating_add(offset);
-            let addr = SocketAddr::from(([0, 0, 0, 0], try_port));
+            let addr = bind_address(try_port);
             match TcpListener::bind(addr).await {
                 Ok(l) => {
                     if offset > 0 {
@@ -328,13 +292,6 @@ impl ObsBridgeService {
         if !self.running.load(Ordering::Relaxed) {
             return;
         }
-        // 이벤트 포워딩 리스너 해제
-        if let Some(app) = self.app_handle.read().as_ref() {
-            use tauri::Listener;
-            for id in self.event_listener_ids.write().drain(..) {
-                app.unlisten(id);
-            }
-        }
         // 기존 클라이언트 세션에 종료 신호 전송
         let _ = self.broadcast_tx.send(ObsBroadcast::Shutdown);
         if let Some(tx) = self.shutdown_tx.write().take() {
@@ -348,6 +305,12 @@ impl ObsBridgeService {
     /// 세션 토큰 교체 (실행 중 호출 가능)
     pub fn set_token(&self, token: String) {
         *self.session_token.write() = token;
+        // 기존 인증 세션 종료
+        let _ = self.broadcast_tx.send(ObsBroadcast::Shutdown);
+    }
+
+    fn is_current_session_token(&self, token: &str) -> bool {
+        self.session_token.read().as_str() == token
     }
 
     async fn server_loop(
@@ -360,8 +323,8 @@ impl ObsBridgeService {
                 result = listener.accept() => {
                     match result {
                         Ok((stream, addr)) => {
-                            // 작은 키 이벤트 연속 전송이 Nagle 지연에 묶이지 않도록 한다.
-                            if let Err(error) = enable_tcp_nodelay(&stream) {
+                            // 작은 키 이벤트 연속 전송의 Nagle 지연 방지
+                            if let Err(error) = stream.set_nodelay(true) {
                                 log::warn!(
                                     "[ObsBridge] TCP_NODELAY 설정 실패 from {addr}: {error}"
                                 );
@@ -386,22 +349,47 @@ impl ObsBridgeService {
     }
 
     async fn handle_connection(self: &Arc<Self>, mut stream: TcpStream, addr: SocketAddr) {
-        // TCP 스트림을 peek하여 WebSocket upgrade 요청인지 판별
-        let mut peek_buf = [0u8; 4096];
-        let n = match stream.peek(&mut peek_buf).await {
-            Ok(n) if n > 0 => n,
-            _ => return,
+        let request_bytes = match tokio::time::timeout(
+            Duration::from_secs(5),
+            read_http_request_headers(&mut stream),
+        )
+        .await
+        {
+            Ok(Ok(request)) => request,
+            Ok(Err(error)) => {
+                log::debug!("[ObsBridge] HTTP 요청 헤더 파싱 실패 from {addr}: {error}");
+                write_empty_http_response(&mut stream, "400 Bad Request").await;
+                return;
+            }
+            Err(_) => {
+                log::debug!("[ObsBridge] HTTP 요청 헤더 타임아웃 from {addr}");
+                write_empty_http_response(&mut stream, "408 Request Timeout").await;
+                return;
+            }
         };
 
-        let request_preview = String::from_utf8_lossy(&peek_buf[..n]);
-        let is_websocket = request_preview.lines().any(|line| {
-            line.to_ascii_lowercase().starts_with("upgrade:")
-                && line.to_ascii_lowercase().contains("websocket")
-        });
+        let header_end = http_header_end(&request_bytes).unwrap_or(request_bytes.len());
+        let request = match std::str::from_utf8(&request_bytes[..header_end]) {
+            Ok(request) => request,
+            Err(error) => {
+                log::debug!("[ObsBridge] HTTP 요청 헤더 인코딩 오류 from {addr}: {error}");
+                write_empty_http_response(&mut stream, "400 Bad Request").await;
+                return;
+            }
+        };
 
-        if is_websocket {
+        if is_websocket_upgrade_request(request) {
             // WebSocket 핸드셰이크
-            let ws_stream = match tokio_tungstenite::accept_async(stream).await {
+            #[allow(clippy::result_large_err)]
+            let callback = move |request: &WsRequest, response: WsResponse| {
+                if let Err(reason) = validate_websocket_request(request) {
+                    log::warn!("[ObsBridge] WS 요청 거부 from {addr}: {reason}");
+                    return Err(websocket_forbidden_response(reason));
+                }
+                Ok(response)
+            };
+            let prefixed_stream = PrefixedStream::new(request_bytes, stream);
+            let ws_stream = match accept_hdr_async(prefixed_stream, callback).await {
                 Ok(ws) => ws,
                 Err(e) => {
                     log::debug!("[ObsBridge] WS 핸드셰이크 실패 from {addr}: {e}");
@@ -411,16 +399,17 @@ impl ObsBridgeService {
             self.handle_ws_client(ws_stream, addr).await;
         } else {
             // HTTP 정적 파일 서빙
-            self.handle_http_request(&mut stream, &request_preview)
-                .await;
+            self.handle_http_request(&mut stream, addr, request).await;
         }
     }
 
     /// HTTP GET 요청에 대해 정적 파일 서빙
-    async fn handle_http_request(&self, stream: &mut TcpStream, request: &str) {
-        // 요청 소비 (peek 데이터를 실제로 읽어야 함)
-        let mut discard = vec![0u8; request.len()];
-        let _ = stream.read(&mut discard).await;
+    async fn handle_http_request(&self, stream: &mut TcpStream, addr: SocketAddr, request: &str) {
+        if !has_allowed_http_host(request) {
+            log::warn!("[ObsBridge] HTTP 요청 거부 from {addr}: 허용되지 않은 Host");
+            write_empty_http_response(stream, "403 Forbidden").await;
+            return;
+        }
 
         // GET 경로 파싱
         let path = request
@@ -431,9 +420,24 @@ impl ObsBridgeService {
         let route = path.split('?').next().unwrap_or(path);
         let query = path.split_once('?').map(|(_, q)| q).unwrap_or("");
 
+        // /media/<base64-encoded-path>?token=xxx — 사용자 로컬 미디어 파일 서빙
+        // dev 리다이렉트보다 먼저 처리 — 미디어는 Vite가 아니라 브릿지가 직접 서빙
+        if let Some(rest) = path.strip_prefix("/media/") {
+            self.handle_media_request(stream, rest).await;
+            return;
+        }
+
         // dev 모드: Vite dev server로 리다이렉트
         let dev_url = self.dev_url.read().clone();
         if let Some(dev_base) = &dev_url {
+            // 리다이렉트가 token을 쿼리로 전달하므로 이 머신 자신의 요청에만 허용 —
+            // 원격 LAN peer가 debug 서버에서 무인증 토큰을 얻는 경로 차단.
+            // 같은 PC가 자기 LAN IP로 접속하는 경우(URL 복사 기본값)는 peer도 로컬 인터페이스 IP라 유지됨
+            if !is_local_machine_ip(&addr.ip()) {
+                log::warn!("[ObsBridge] dev 리다이렉트 거부 from {addr}: 원격 peer");
+                write_empty_http_response(stream, "403 Forbidden").await;
+                return;
+            }
             let is_root_route = route == "/" || route.is_empty();
             let redirect_path = if is_root_route {
                 if query.is_empty() {
@@ -459,12 +463,6 @@ impl ObsBridgeService {
                 "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             );
             let _ = stream.write_all(response.as_bytes()).await;
-            return;
-        }
-
-        // /media/<base64-encoded-path>?token=xxx — 사용자 로컬 미디어 파일 서빙
-        if let Some(rest) = path.strip_prefix("/media/") {
-            self.handle_media_request(stream, rest).await;
             return;
         }
 
@@ -531,11 +529,10 @@ impl ObsBridgeService {
         None
     }
 
-    async fn handle_ws_client(
-        self: &Arc<Self>,
-        ws: tokio_tungstenite::WebSocketStream<TcpStream>,
-        addr: SocketAddr,
-    ) {
+    async fn handle_ws_client<S>(self: &Arc<Self>, ws: WebSocketStream<S>, addr: SocketAddr)
+    where
+        S: AsyncRead + AsyncWrite + Unpin + Send,
+    {
         self.client_count.fetch_add(1, Ordering::Relaxed);
         log::info!(
             "[ObsBridge] 클라이언트 연결: {addr} (총 {})",
@@ -546,12 +543,7 @@ impl ObsBridgeService {
         let mut broadcast_rx = self.broadcast_tx.subscribe();
 
         // 클라이언트별 시퀀스 카운터
-        let mut client_seq: u64 = 0;
-        let mut next_seq = || {
-            let s = client_seq;
-            client_seq += 1;
-            s
-        };
+        let mut protocol = WebSocketSessionProtocol::new();
 
         // hello 핸드셰이크 대기 (5초 타임아웃)
         let hello_result = tokio::time::timeout(Duration::from_secs(5), async {
@@ -581,6 +573,30 @@ impl ObsBridgeService {
             }
         };
 
+        // 프로토콜 버전 검증 — handshake 계약이 다른 클라이언트는 fail-closed로 거부
+        let client_protocol = hello.payload.get("protocol").and_then(Value::as_u64);
+        if hello.v != OBS_PROTOCOL_VERSION
+            || client_protocol != Some(u64::from(OBS_PROTOCOL_VERSION))
+        {
+            log::warn!(
+                "[ObsBridge] {addr}: 프로토콜 버전 불일치 (v={}, protocol={client_protocol:?}), 연결 거부",
+                hello.v
+            );
+            let err_msg = make_envelope(
+                "error",
+                0,
+                serde_json::json!({
+                    "code": "PROTOCOL_MISMATCH",
+                    "message": format!(
+                        "Unsupported protocol version (expected {OBS_PROTOCOL_VERSION})"
+                    ),
+                }),
+            );
+            let _ = ws_tx.send(Message::text(err_msg.to_string())).await;
+            self.client_count.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
+
         // 보안 토큰 검증
         let expected_token = self.session_token.read().clone();
         if !expected_token.is_empty() {
@@ -596,22 +612,20 @@ impl ObsBridgeService {
                     0,
                     serde_json::json!({"code": "AUTH_FAILED", "message": "Invalid token"}),
                 );
-                let _ = ws_tx.send(Message::Text(err_msg.to_string())).await;
+                let _ = ws_tx.send(Message::text(err_msg.to_string())).await;
                 self.client_count.fetch_sub(1, Ordering::Relaxed);
                 return;
             }
         }
 
-        // hello_ack 전송 (deny list 포함)
-        let ack_payload = serde_json::to_value(HelloAckPayload {
-            server_version: self.server_version.clone(),
-            obs_mode: true,
-            deny_list: build_deny_list(),
-        })
-        .unwrap_or_default();
-        let ack_msg = make_envelope("hello_ack", next_seq(), ack_payload);
+        // hello_ack 전송 (allowlist 포함)
+        if !self.is_current_session_token(&expected_token) {
+            self.client_count.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
+        let ack_msg = protocol.hello_ack(self.server_version.clone());
         if ws_tx
-            .send(Message::Text(ack_msg.to_string()))
+            .send(Message::text(ack_msg.to_string()))
             .await
             .is_err()
         {
@@ -620,10 +634,14 @@ impl ObsBridgeService {
         }
 
         // snapshot 전송
+        if !self.is_current_session_token(&expected_token) {
+            self.client_count.fetch_sub(1, Ordering::Relaxed);
+            return;
+        }
         let snapshot = self.cached_snapshot.read().clone();
-        let snapshot_msg = make_envelope("snapshot", next_seq(), snapshot);
+        let snapshot_msg = protocol.snapshot(snapshot);
         if ws_tx
-            .send(Message::Text(snapshot_msg.to_string()))
+            .send(Message::text(snapshot_msg.to_string()))
             .await
             .is_err()
         {
@@ -642,19 +660,22 @@ impl ObsBridgeService {
             tokio::select! {
                 // broadcast 채널에서 메시지 수신 → 클라이언트에 전송
                 result = broadcast_rx.recv() => {
+                    if !self.is_current_session_token(&expected_token) {
+                        break;
+                    }
                     match result {
                         Ok(ObsBroadcast::Shutdown) => break,
                         Ok(broadcast) => {
-                            let msg = broadcast_to_envelope(&broadcast, next_seq());
-                            if ws_tx.send(Message::Text(msg.to_string())).await.is_err() {
+                            let msg = protocol.broadcast(&broadcast);
+                            if ws_tx.send(Message::text(msg.to_string())).await.is_err() {
                                 break;
                             }
                         }
                         Err(broadcast::error::RecvError::Lagged(n)) => {
                             log::warn!("[ObsBridge] {addr}: {n}개 메시지 누락, 스냅샷 재전송");
                             let snapshot = self.cached_snapshot.read().clone();
-                            let msg = make_envelope("snapshot", next_seq(), snapshot);
-                            if ws_tx.send(Message::Text(msg.to_string())).await.is_err() {
+                            let msg = protocol.snapshot(snapshot);
+                            if ws_tx.send(Message::text(msg.to_string())).await.is_err() {
                                 break;
                             }
                         }
@@ -664,20 +685,23 @@ impl ObsBridgeService {
                 }
                 // 클라이언트에서 메시지 수신
                 msg = ws_rx.next() => {
+                    if !self.is_current_session_token(&expected_token) {
+                        break;
+                    }
                     match msg {
                         Some(Ok(Message::Text(text))) => {
                             if let Ok(envelope) = serde_json::from_str::<ObsEnvelope>(&text) {
                                 match envelope.msg_type.as_str() {
                                     "ping" => {
-                                        let pong = make_envelope("pong", next_seq(), Value::Null);
-                                        if ws_tx.send(Message::Text(pong.to_string())).await.is_err() {
+                                        let pong = protocol.pong();
+                                        if ws_tx.send(Message::text(pong.to_string())).await.is_err() {
                                             break;
                                         }
                                     }
                                     "resync_request" => {
                                         let snapshot = self.cached_snapshot.read().clone();
-                                        let msg = make_envelope("snapshot", next_seq(), snapshot);
-                                        if ws_tx.send(Message::Text(msg.to_string())).await.is_err() {
+                                        let msg = protocol.snapshot(snapshot);
+                                        if ws_tx.send(Message::text(msg.to_string())).await.is_err() {
                                             break;
                                         }
                                     }
@@ -701,19 +725,21 @@ impl ObsBridgeService {
                 }
                 // RPC 응답 전송 (invoke_request → invoke_response)
                 Some((request_id, result)) = rpc_rx.recv() => {
-                    let payload = match result {
-                        Ok(data) => serde_json::json!({ "requestId": request_id, "result": data }),
-                        Err(err) => serde_json::json!({ "requestId": request_id, "error": err }),
-                    };
-                    let msg = make_envelope("invoke_response", next_seq(), payload);
-                    if ws_tx.send(Message::Text(msg.to_string())).await.is_err() {
+                    if !self.is_current_session_token(&expected_token) {
+                        break;
+                    }
+                    let msg = protocol.invoke_response(request_id, result);
+                    if ws_tx.send(Message::text(msg.to_string())).await.is_err() {
                         break;
                     }
                 }
                 // 서버 주도 ping (연결 유지)
                 _ = ping_interval.tick() => {
-                    let ping_msg = make_envelope("ping", next_seq(), Value::Null);
-                    if ws_tx.send(Message::Text(ping_msg.to_string())).await.is_err() {
+                    if !self.is_current_session_token(&expected_token) {
+                        break;
+                    }
+                    let ping_msg = protocol.ping();
+                    if ws_tx.send(Message::text(ping_msg.to_string())).await.is_err() {
                         break;
                     }
                 }
@@ -728,37 +754,31 @@ impl ObsBridgeService {
     }
 
     /// invoke_request 처리: webview.on_message()로 Tauri 커맨드 파이프라인에 주입
-    fn handle_invoke_request(
-        &self,
-        payload: &Value,
-        addr: &SocketAddr,
-        rpc_tx: tokio::sync::mpsc::UnboundedSender<(String, Result<Value, Value>)>,
-    ) {
-        let req: InvokeRequestPayload = match serde_json::from_value(payload.clone()) {
+    fn handle_invoke_request(&self, payload: &Value, addr: &SocketAddr, rpc_tx: rpc::RpcSender) {
+        let req = match rpc::parse_invoke_request(payload) {
             Ok(r) => r,
             Err(e) => {
                 log::warn!("[ObsBridge] {addr}: invoke_request 파싱 실패: {e}");
                 // requestId를 추출 시도하여 에러 응답 전송 (파싱 실패여도 클라이언트 대기 방지)
                 if let Some(request_id) = payload.get("requestId").and_then(|v| v.as_str()) {
-                    let _ = rpc_tx.send((
+                    rpc::send_rpc_response(
+                        &rpc_tx,
                         request_id.to_string(),
-                        Err(serde_json::json!(format!("Invalid invoke_request: {e}"))),
-                    ));
+                        Err(rpc::invalid_invoke_request_error(&e)),
+                    );
                 }
                 return;
             }
         };
 
-        // deny 체크 (이중 안전망 — 프론트엔드에서도 차단하지만 백엔드에서 한번 더)
-        if is_denied(&req.command) {
-            log::debug!("[ObsBridge] {addr}: denied cmd={}", req.command);
-            let _ = rpc_tx.send((
+        // allowlist 검사 (클라이언트 검사와 별도인 백엔드 안전망)
+        if !is_allowed_command(&req.command) {
+            log::debug!("[ObsBridge] {addr}: 허용되지 않은 cmd={}", req.command);
+            rpc::send_rpc_response(
+                &rpc_tx,
                 req.request_id,
-                Err(serde_json::json!(format!(
-                    "Command denied: {}",
-                    req.command
-                ))),
-            ));
+                Err(rpc::command_not_allowed_error(&req.command)),
+            );
             return;
         }
 
@@ -767,48 +787,41 @@ impl ObsBridgeService {
             Some(h) => h,
             None => {
                 log::warn!("[ObsBridge] {addr}: AppHandle 미설정");
-                let _ = rpc_tx.send((
+                rpc::send_rpc_response(
+                    &rpc_tx,
                     req.request_id,
-                    Err(serde_json::json!("AppHandle not available")),
-                ));
+                    Err(serde_json::json!(rpc::APP_HANDLE_NOT_AVAILABLE)),
+                );
                 return;
             }
         };
 
         // OBS 모드에서 오버레이가 destroy된 상태일 수 있으므로 main window로 fallback
-        let webview_window = match app_handle
-            .get_webview_window("hand-overlay")
-            .or_else(|| app_handle.get_webview_window("foot-overlay"))
-            .or_else(|| app_handle.get_webview_window("main"))
-        {
+        let webview_window = match rpc::select_overlay_or_main(
+            || {
+                app_handle
+                    .get_webview_window("hand-overlay")
+                    .or_else(|| app_handle.get_webview_window("foot-overlay"))
+            },
+            || app_handle.get_webview_window("main"),
+        ) {
             Some(w) => w,
             None => {
                 log::warn!("[ObsBridge] {addr}: webview 없음 (overlay/main 모두)");
-                let _ = rpc_tx.send((
+                rpc::send_rpc_response(
+                    &rpc_tx,
                     req.request_id,
-                    Err(serde_json::json!("No webview window available")),
-                ));
+                    Err(serde_json::json!(rpc::NO_WEBVIEW_AVAILABLE)),
+                );
                 return;
             }
         };
 
         // InvokeRequest 구성
-        // 플랫폼별 로컬 URL (Windows: http://tauri.localhost, macOS/Linux: tauri://localhost)
-        let local_url = if cfg!(windows) || cfg!(target_os = "android") {
-            tauri::Url::parse("http://tauri.localhost").unwrap()
-        } else {
-            tauri::Url::parse("tauri://localhost").unwrap()
-        };
+        let local_url = rpc::local_invoke_url();
         let invoke_key = app_handle.invoke_key().to_string();
-        let request = InvokeRequest {
-            cmd: req.command.clone(),
-            callback: CallbackFn(0),
-            error: CallbackFn(1),
-            url: local_url,
-            body: InvokeBody::Json(req.args),
-            headers: Default::default(),
-            invoke_key,
-        };
+        let request =
+            rpc::build_invoke_request(req.command.clone(), req.args, local_url, invoke_key);
 
         let request_id = req.request_id;
         let cmd = req.command.clone();
@@ -817,25 +830,8 @@ impl ObsBridgeService {
         // OwnedInvokeResponder: 응답을 rpc_tx 채널로 전송
         let responder: Box<tauri::ipc::OwnedInvokeResponder<Wry>> =
             Box::new(move |_webview, _cmd, response, _callback, _error| {
-                let result = match response {
-                    InvokeResponse::Ok(body) => {
-                        let value = match body {
-                            InvokeResponseBody::Json(json_str) => {
-                                serde_json::from_str(&json_str).unwrap_or(Value::Null)
-                            }
-                            InvokeResponseBody::Raw(bytes) => {
-                                // Raw bytes → base64 인코딩
-                                use base64::Engine;
-                                Value::String(
-                                    base64::engine::general_purpose::STANDARD.encode(&bytes),
-                                )
-                            }
-                        };
-                        Ok(value)
-                    }
-                    InvokeResponse::Err(err) => Err(err.0),
-                };
-                let _ = rpc_tx.send((request_id, result));
+                let result = rpc::project_invoke_response(response);
+                rpc::send_rpc_response(&rpc_tx, request_id, result);
             });
 
         log::debug!("[ObsBridge] {addr_clone}: invoke cmd={cmd}");
@@ -844,188 +840,20 @@ impl ObsBridgeService {
 
     /// /media/<base64url-encoded-path>?token=xxx — 사용자 로컬 미디어 파일 서빙
     async fn handle_media_request(&self, stream: &mut TcpStream, rest: &str) {
-        use base64::Engine;
-
-        // 경로와 쿼리 분리: "base64path?token=xxx"
-        let (encoded, query) = rest.split_once('?').unwrap_or((rest, ""));
-
-        // 토큰 검증
-        let expected_token = self.session_token.read().clone();
-        if !expected_token.is_empty() {
-            let client_token = query
-                .split('&')
-                .find_map(|pair| pair.strip_prefix("token="))
-                .unwrap_or("");
-            if client_token != expected_token {
-                let _ = stream
-                    .write_all(
-                        b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                    )
-                    .await;
-                return;
-            }
-        }
-
-        // URL 디코딩 (%2F 등) + base64url → 절대 파일 경로
-        let decoded_url = percent_decode(encoded);
-        let file_path = match base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .decode(decoded_url.as_bytes())
-        {
-            Ok(bytes) => match String::from_utf8(bytes) {
-                Ok(path) => PathBuf::from(path),
-                Err(_) => {
-                    let _ = stream
-                        .write_all(
-                            b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                        )
-                        .await;
-                    return;
-                }
+        media::handle_media_request(
+            stream,
+            rest,
+            || self.session_token.read().clone(),
+            || {
+                self.app_handle
+                    .read()
+                    .clone()
+                    .and_then(|app| app.path().app_data_dir().ok())
             },
-            Err(_) => {
-                let _ = stream
-                    .write_all(
-                        b"HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                    )
-                    .await;
-                return;
-            }
-        };
-
-        // 허용 확장자 화이트리스트 (미디어/폰트 파일만)
-        let ext = file_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_ascii_lowercase();
-        if !matches!(
-            ext.as_str(),
-            "png"
-                | "jpg"
-                | "jpeg"
-                | "gif"
-                | "webp"
-                | "svg"
-                | "mp4"
-                | "webm"
-                | "ogg"
-                | "woff"
-                | "woff2"
-                | "ttf"
-                | "otf"
-        ) {
-            let _ = stream
-                .write_all(
-                    b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                )
-                .await;
-            return;
-        }
-
-        // 파일 읽기 및 서빙
-        match tokio::fs::read(&file_path).await {
-            Ok(content) => {
-                let mime = guess_mime(&file_path.to_string_lossy());
-                let response = format!(
-                    "HTTP/1.1 200 OK\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: max-age=3600\r\nConnection: close\r\n\r\n",
-                    content.len()
-                );
-                let _ = stream.write_all(response.as_bytes()).await;
-                let _ = stream.write_all(&content).await;
-            }
-            Err(_) => {
-                let _ = stream
-                    .write_all(
-                        b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
-                    )
-                    .await;
-            }
-        }
-    }
-}
-
-fn enable_tcp_nodelay(stream: &TcpStream) -> std::io::Result<()> {
-    stream.set_nodelay(true)
-}
-
-/// 파일 확장자로 MIME 타입 추정
-fn guess_mime(path: &str) -> &'static str {
-    match path
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "html" | "htm" => "text/html; charset=utf-8",
-        "js" | "mjs" => "application/javascript; charset=utf-8",
-        "css" => "text/css; charset=utf-8",
-        "json" => "application/json; charset=utf-8",
-        "png" => "image/png",
-        "jpg" | "jpeg" => "image/jpeg",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "svg" => "image/svg+xml",
-        "mp4" => "video/mp4",
-        "webm" => "video/webm",
-        "ogg" => "video/ogg",
-        "woff2" => "font/woff2",
-        "woff" => "font/woff",
-        "ttf" => "font/ttf",
-        "otf" => "font/otf",
-        "wasm" => "application/wasm",
-        _ => "application/octet-stream",
-    }
-}
-
-/// 간단한 percent-decoding (%XX → 바이트)
-fn percent_decode(input: &str) -> String {
-    let mut result = Vec::with_capacity(input.len());
-    let bytes = input.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Ok(byte) = u8::from_str_radix(&input[i + 1..i + 3], 16) {
-                result.push(byte);
-                i += 3;
-                continue;
-            }
-        }
-        result.push(bytes[i]);
-        i += 1;
-    }
-    String::from_utf8_lossy(&result).into_owned()
-}
-
-/// ObsBroadcast → JSON envelope 변환
-fn broadcast_to_envelope(broadcast: &ObsBroadcast, seq: u64) -> Value {
-    match broadcast {
-        ObsBroadcast::Snapshot(snapshot) => make_envelope("snapshot", seq, snapshot.clone()),
-        ObsBroadcast::TauriEvent { event, data } => make_envelope(
-            "tauri_event",
-            seq,
-            serde_json::json!({ "event": event, "data": data }),
-        ),
-        ObsBroadcast::Shutdown => unreachable!("Shutdown은 직접 처리됨"),
+        )
+        .await;
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::enable_tcp_nodelay;
-    use tokio::net::{TcpListener, TcpStream};
-
-    #[tokio::test]
-    async fn accepted_stream_enables_tcp_nodelay() {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let client = TcpStream::connect(address);
-        let accepted = listener.accept();
-        let (_client, accepted) = tokio::join!(client, accepted);
-        let (server, _) = accepted.unwrap();
-
-        enable_tcp_nodelay(&server).unwrap();
-
-        assert!(server.nodelay().unwrap());
-    }
-}
+mod tests;

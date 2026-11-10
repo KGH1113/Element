@@ -20,15 +20,21 @@ import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useKeyLimiterSync } from '@hooks/app/useKeyLimiterSync';
+import { onKeySaveFailed } from '@src/renderer/editor/runtime/keySaveRecovery';
+import {
+  onItemSaveFailed,
+  startItemSaveRecovery,
+} from '@src/renderer/editor/runtime/itemSaveRecovery';
 import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
 import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
+import { useViewerEditRequests } from '@hooks/app/useViewerEditRequests';
 import { usePropertiesPanelStore } from '@stores/grid/usePropertiesPanelStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
 
 import { useUIStore } from '@stores/useUIStore';
 
-type ToolbarAddItemType = 'key' | 'stat' | 'graph' | 'knob';
+type ToolbarAddItemType = 'key' | 'stat' | 'graph' | 'knob' | 'sprite';
 
 export default function App() {
   const setGridAreaHovered = useUIStore((state) => state.setGridAreaHovered);
@@ -125,6 +131,13 @@ export default function App() {
   const [skipModalAnimationOnReturn, setSkipModalAnimationOnReturn] =
     useState(false);
   const selectedKeyTypeAtSettingsOpenRef = useRef(selectedKeyType);
+  const closeSettings = () => {
+    if (selectedKeyTypeAtSettingsOpenRef.current !== selectedKeyType) {
+      useGridSelectionStore.getState().clearSelection();
+    }
+    setIsSettingsOpen(false);
+  };
+  useViewerEditRequests(isSettingsOpen, closeSettings);
   const {
     noteEffect,
     angleMode: _angleMode,
@@ -513,6 +526,27 @@ export default function App() {
     };
   });
 
+  // 키 변경을 저장하지 못하면 무슨 일이 있었고 어떻게 하면 되는지 알린다.
+  useEffect(() =>
+    onKeySaveFailed(({ restored }) =>
+      showAlert(
+        t(restored ? 'keySetting.saveFailedReverted' : 'keySetting.saveFailed'),
+      ),
+    ),
+  );
+
+  // 통계·그래프·노브 저장이 실패하면 화면을 저장된 배치로 되돌린다.
+  useEffect(() => startItemSaveRecovery(), []);
+  useEffect(() =>
+    onItemSaveFailed(({ field, restored }) =>
+      showAlert(
+        t(restored ? 'itemSave.failedReverted' : 'itemSave.failed', {
+          item: t(`itemSave.${field}`),
+        }),
+      ),
+    ),
+  );
+
   return (
     <div
       data-dmn-app-chrome
@@ -617,12 +651,7 @@ export default function App() {
           if (selectedKey) setSkipModalAnimationOnReturn(true);
           setIsSettingsOpen(true);
         }}
-        onCloseSettings={() => {
-          if (selectedKeyTypeAtSettingsOpenRef.current !== selectedKeyType) {
-            useGridSelectionStore.getState().clearSelection();
-          }
-          setIsSettingsOpen(false);
-        }}
+        onCloseSettings={closeSettings}
         showAlert={showAlert}
         onOpenNoteSetting={() => setIsNoteSettingOpen(true)}
         primaryButtonRef={primaryButtonRef}

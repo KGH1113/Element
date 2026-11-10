@@ -1,3 +1,5 @@
+import { slotMembers } from './key-router.mjs';
+
 const labels = {
   Apostrophe: ['QUOTE'],
   ArrowDown: ['DOWN ARROW'],
@@ -198,9 +200,10 @@ export function mapEvents(manifest, events = manifest.events) {
     );
   const result = [];
   for (const event of ordered) {
-    const matches = keyCandidates(event.key).filter((candidate) =>
-      selected.includes(candidate),
+    const member = keyCandidates(event.key).find((candidate) =>
+      selected.some((slot) => slotMembers(slot).includes(candidate)),
     );
+    const matches = member ? [member] : [];
     if (!matches.length) continue;
     let segment = timeline[0];
     for (const candidate of timeline) {

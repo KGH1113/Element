@@ -3,6 +3,8 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
+import type { SpritePositions } from '@src/types/key/sprites';
 import { useFontStore, syncFontCSS } from '@stores/useFontStore';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
 import {
@@ -17,10 +19,19 @@ import {
   applyCounterCacheSnapshot,
   setCachedKeyCounter,
 } from '@stores/signals/keyCounterCache';
-import { resetAllKeySignals, setKeyActive } from '@stores/signals/keySignals';
+import {
+  resetAllKeySignals,
+  applyEventKeyState,
+} from '@stores/signals/keySignals';
 import { getUndoRedoInProgress } from '@api/pluginDisplayElements';
 import { obsApi } from '@api/modules/obsApi';
-import { notifyLocaleChanged } from '@api/modules/shared';
+import { historyApi } from '@api/modules/historyApi';
+import { useHistoryStatusStore } from '@stores/data/useHistoryStatusStore';
+import { notifyLocaleChanged, subscribe } from '@api/modules/shared';
+import {
+  flushEditorBeforeClose,
+  type EditorCloseRequest,
+} from '@api/editorLifecycle';
 import { stableStringify } from '@utils/core/stableStringify';
 import type { BootstrapPayload } from '@src/types/app';
 import type {
@@ -354,6 +365,7 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
           positions: nextGraph,
         }));
       }
+      useSpriteStore.getState().setPositions(bootstrap.spritePositions ?? {});
       const nextKnob = bootstrap.knobPositions ?? {};
       if (
         stableStringify(useKnobItemStore.getState().positions) !==
@@ -444,6 +456,7 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
           ...state,
           positions: bootstrap.knobPositions ?? {},
         }));
+        useSpriteStore.getState().setPositions(bootstrap.spritePositions ?? {});
         applyCounterCacheSnapshot(bootstrap.keyCounters);
         if (isOverlayWindow) {
           applyCounterSnapshot(bootstrap.keyCounters);
@@ -582,6 +595,13 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
         if (disposed) return;
         useSettingsStore.setState({ tabNoteOverrides });
       }),
+      subscribe<SpritePositions>('spritePositions:changed', (positions) => {
+        if (!disposed) useSpriteStore.getState().setPositions(positions);
+      }),
+      window.api.keys.onKeysReset(() => {
+        resetAllKeySignals();
+        clearCounterDelayTimers();
+      }),
       window.api.presets.onSnapshot((snapshot) => {
         if (disposed) return;
         useKeyStore.setState((state) => ({
@@ -608,6 +628,7 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
           ...state,
           positions: snapshot.knobPositions ?? {},
         }));
+        useSpriteStore.getState().setPositions(snapshot.spritePositions ?? {});
         useSettingsStore.setState({
           tabNoteOverrides: snapshot.tabNoteOverrides,
         });
@@ -652,6 +673,45 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
       }),
     ];
 
+    if (!isOverlayWindow) {
+      const applyHistoryStatus = useHistoryStatusStore.getState().applyStatus;
+      void historyApi
+        .status()
+        .then(applyHistoryStatus)
+        .catch((error) => {
+          console.error('히스토리 상태 조회 실패', error);
+        });
+      unsubscribers.push(
+        historyApi.onStatus(applyHistoryStatus),
+        historyApi.onRestored(() => {
+          void runResync();
+        }),
+      );
+      unsubscribers.push(
+        subscribe<EditorCloseRequest>('app:close-requested', (request) => {
+          if (disposed) return;
+          void flushEditorBeforeClose(request)
+            .catch(async (error) => {
+              console.error('편집 상태 저장 후 종료 처리 실패', error);
+              if (disposed) return;
+              await window.api.window.showMain();
+              await window.api.ui.dialog.alert(
+                useSettingsStore.getState().language === 'ko'
+                  ? request.action === 'history'
+                    ? '변경 내용을 저장하지 못해 실행 취소·다시 실행을 중단했습니다.\n변경 내용을 확인하고 다시 시도해 주세요.'
+                    : '변경 내용을 저장하지 못해 종료·재시작을 중단했습니다.\n변경 내용을 확인하고 다시 시도해 주세요.'
+                  : request.action === 'history'
+                    ? "Couldn't save your changes, so undo or redo was canceled.\nCheck your changes and try again."
+                    : "Couldn't save your changes, so quitting or restarting was canceled.\nCheck your changes and try again.",
+              );
+            })
+            .catch((error) => {
+              console.error('저장 오류 안내 실패', error);
+            });
+        }),
+      );
+    }
+
     if (isOverlayWindow) {
       unsubscribers.push(
         window.api.keys.onCounterChanged(({ mode, key, count }) => {
@@ -662,7 +722,7 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
       unsubscribers.push(
         window.api.keys.onKeyState(({ key, state, mode }) => {
           if (mode && mode !== useKeyStore.getState().selectedKeyType) return;
-          setKeyActive(key, state === 'DOWN');
+          applyEventKeyState(key, state === 'DOWN');
         }),
         window.api.keys.onCounterChanged(({ mode, key, count }) => {
           setCachedKeyCounter(mode, key, count);

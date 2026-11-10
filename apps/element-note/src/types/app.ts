@@ -1,3 +1,4 @@
+import type { SpritePositions } from './key/sprites';
 import { SettingsState } from '@src/types/settings/settings';
 import {
   KeyViewerTab,
@@ -27,6 +28,7 @@ export interface BootstrapPayload {
   statPositions: StatItemPositions;
   graphPositions: GraphItemPositions;
   knobPositions: KnobItemPositions;
+  spritePositions?: SpritePositions;
   tabs: KeyViewerTab[];
   selectedViewerTabs: SelectedViewerTabs;
   selectedKeyType: string;

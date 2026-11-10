@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use anyhow::{anyhow, Result};
 
 use super::super::labels::{
@@ -8,6 +6,8 @@ use super::super::labels::{
 };
 use crate::ipc::{pipe_client_connect, DaemonCommand, HookKeyState, HookMessage, InputDeviceKind};
 use crate::models::ShortcutBinding;
+
+use super::WindowsPhysicalInputId;
 
 /// 글로벌 단축키 상태 추적기
 struct HotkeyState {
@@ -185,6 +185,28 @@ fn vk_from_key_code(code: &str) -> Option<u32> {
         "Backquote" => Some(0xC0),
         "Minus" => Some(0xBD),
         "Equal" => Some(0xBB),
+        "CapsLock" => Some(0x14),
+        "ScrollLock" => Some(0x91),
+        "NumLock" => Some(0x90),
+        "Pause" => Some(0x13),
+        "PrintScreen" => Some(0x2C),
+        "ContextMenu" => Some(0x5D),
+        // 넘패드 숫자 — NumLock 켜짐 기준 VK
+        "Numpad0" => Some(0x60),
+        "Numpad1" => Some(0x61),
+        "Numpad2" => Some(0x62),
+        "Numpad3" => Some(0x63),
+        "Numpad4" => Some(0x64),
+        "Numpad5" => Some(0x65),
+        "Numpad6" => Some(0x66),
+        "Numpad7" => Some(0x67),
+        "Numpad8" => Some(0x68),
+        "Numpad9" => Some(0x69),
+        "NumpadMultiply" => Some(0x6A),
+        "NumpadAdd" => Some(0x6B),
+        "NumpadSubtract" => Some(0x6D),
+        "NumpadDecimal" => Some(0x6E),
+        "NumpadDivide" => Some(0x6F),
         _ => None,
     }
 }
@@ -208,10 +230,12 @@ pub(super) fn run_raw_input() -> Result<()> {
     };
 
     // Named pipe 연결 시도; 불가 시 stdout으로 폴백
-    let mut sink: Box<dyn Write + Send> = match pipe_client_connect("element_note_keys_v1") {
+    let sink: Box<dyn std::io::Write + Send> = match pipe_client_connect("element_note_keys_v1") {
         Ok(file) => Box::new(file),
         Err(_) => Box::new(std::io::stdout()),
     };
+    let output = super::start_output_writer(sink)?;
+    let wheel = super::wheel::spawn_wheel_engine(output.clone())?;
 
     // 글로벌 단축키 상태 추적기
     let hotkeys = super::load_hotkeys_from_env();
@@ -232,9 +256,6 @@ pub(super) fn run_raw_input() -> Result<()> {
     const RI_MOUSE_BUTTON_4_UP: u16 = 0x0080;
     const RI_MOUSE_BUTTON_5_DOWN: u16 = 0x0100;
     const RI_MOUSE_BUTTON_5_UP: u16 = 0x0200;
-    // 휠 상수 — 완전성을 위해 유지하나 미사용 (휠 이벤트 비활성화)
-    const _RI_MOUSE_WHEEL: u16 = 0x0400;
-    const _RI_MOUSE_HWHEEL: u16 = 0x0800;
 
     unsafe extern "system" fn wndproc(
         hwnd: HWND,
@@ -329,10 +350,12 @@ pub(super) fn run_raw_input() -> Result<()> {
 
         // HID 입력 처리기 (버튼/축 동적 디코딩)
         let mut hid = super::windows_hid::HidProcessor::new();
+        let mut hold_tracker = super::HoldTracker::<WindowsPhysicalInputId>::default();
 
         // 메시지 루프: WM_INPUT 처리 후 HookMessage로 변환
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).into() {
+            let captured = super::InputCapture::now();
             if msg.message == WM_INPUT {
                 // 필요한 버퍼 크기 먼저 조회
                 let mut size: u32 = 0;
@@ -450,7 +473,7 @@ pub(super) fn run_raw_input() -> Result<()> {
 
                         // 글로벌 단축키 확인 (Ctrl+Shift+O로 오버레이 토글)
                         if let Some(command) = hotkey_state.update(vk_norm, !is_break) {
-                            let _ = super::write_command(&mut sink, &command);
+                            output.send(super::DaemonOutput::Command(command));
                             // 키 이벤트는 계속 정상 처리
                         }
 
@@ -477,86 +500,149 @@ pub(super) fn run_raw_input() -> Result<()> {
                             continue;
                         }
 
-                        let labels = build_key_labels(&event);
-                        if labels.is_empty() {
-                            let _ = TranslateMessage(&msg);
-                            DispatchMessageW(&msg);
-                            continue;
-                        }
-
                         let state = match event.pressed {
                             KeyPress::Down(_) => HookKeyState::Down,
                             KeyPress::Up(_) => HookKeyState::Up,
+                        };
+                        let physical_id =
+                            WindowsPhysicalInputId::Keyboard(super::windows_keyboard_physical_id(
+                                raw.header.hDevice.0 as usize,
+                                scan_code,
+                                is_e0,
+                                is_e1,
+                                vk_norm,
+                            ));
+                        let opaque_physical_id = physical_id.opaque();
+                        let current_labels = build_key_labels(&event);
+                        let (labels, hold_duration_ms) = match state {
+                            HookKeyState::Down => {
+                                if current_labels.is_empty() {
+                                    let _ = TranslateMessage(&msg);
+                                    DispatchMessageW(&msg);
+                                    continue;
+                                }
+                                (
+                                    hold_tracker.press(
+                                        physical_id,
+                                        captured.instant,
+                                        current_labels,
+                                    ),
+                                    None,
+                                )
+                            }
+                            HookKeyState::Up => {
+                                let release = hold_tracker.release(
+                                    physical_id,
+                                    captured.instant,
+                                    current_labels,
+                                );
+                                if release.labels.is_empty() {
+                                    let _ = TranslateMessage(&msg);
+                                    DispatchMessageW(&msg);
+                                    continue;
+                                }
+                                (release.labels, release.hold_duration_ms)
+                            }
                         };
 
                         let message = HookMessage {
                             device: InputDeviceKind::Keyboard,
                             labels,
                             state,
+                            physical_id: Some(opaque_physical_id),
                             vk_code: event.vk_code,
                             scan_code: event.scan_code,
                             flags: event.flags,
+                            hold_duration_ms,
+                            input_ts_ms: captured.input_ts_ms,
                         };
 
-                        let _ = super::write_message(&mut sink, &message);
+                        output.send(super::DaemonOutput::Hook(message));
                     }
                     t if t == RIM_TYPEMOUSE.0 => {
                         let mouse = raw.data.mouse;
                         let button_flags = mouse.Anonymous.Anonymous.usButtonFlags;
+                        if let Some(sample) = super::wheel::windows_wheel_sample(
+                            button_flags,
+                            mouse.Anonymous.Anonymous.usButtonData,
+                        ) {
+                            wheel.send(captured, sample);
+                        }
 
-                        let mut events: Vec<(String, HookKeyState)> = Vec::new();
-                        let mut push = |label: &str, state: HookKeyState| {
-                            events.push((label.to_string(), state));
+                        let mut events: Vec<(u8, String, HookKeyState)> = Vec::new();
+                        let mut push = |button: u8, label: &str, state: HookKeyState| {
+                            events.push((button, label.to_string(), state));
                         };
 
                         if (button_flags & RI_MOUSE_LEFT_BUTTON_DOWN) != 0 {
-                            push("MOUSE1", HookKeyState::Down);
+                            push(1, "MOUSE1", HookKeyState::Down);
                         }
                         if (button_flags & RI_MOUSE_LEFT_BUTTON_UP) != 0 {
-                            push("MOUSE1", HookKeyState::Up);
+                            push(1, "MOUSE1", HookKeyState::Up);
                         }
                         if (button_flags & RI_MOUSE_RIGHT_BUTTON_DOWN) != 0 {
-                            push("MOUSE2", HookKeyState::Down);
+                            push(2, "MOUSE2", HookKeyState::Down);
                         }
                         if (button_flags & RI_MOUSE_RIGHT_BUTTON_UP) != 0 {
-                            push("MOUSE2", HookKeyState::Up);
+                            push(2, "MOUSE2", HookKeyState::Up);
                         }
                         if (button_flags & RI_MOUSE_MIDDLE_BUTTON_DOWN) != 0 {
-                            push("MOUSE3", HookKeyState::Down);
+                            push(3, "MOUSE3", HookKeyState::Down);
                         }
                         if (button_flags & RI_MOUSE_MIDDLE_BUTTON_UP) != 0 {
-                            push("MOUSE3", HookKeyState::Up);
+                            push(3, "MOUSE3", HookKeyState::Up);
                         }
                         if (button_flags & RI_MOUSE_BUTTON_4_DOWN) != 0 {
-                            push("MOUSE4", HookKeyState::Down);
+                            push(4, "MOUSE4", HookKeyState::Down);
                         }
                         if (button_flags & RI_MOUSE_BUTTON_4_UP) != 0 {
-                            push("MOUSE4", HookKeyState::Up);
+                            push(4, "MOUSE4", HookKeyState::Up);
                         }
                         if (button_flags & RI_MOUSE_BUTTON_5_DOWN) != 0 {
-                            push("MOUSE5", HookKeyState::Down);
+                            push(5, "MOUSE5", HookKeyState::Down);
                         }
                         if (button_flags & RI_MOUSE_BUTTON_5_UP) != 0 {
-                            push("MOUSE5", HookKeyState::Up);
+                            push(5, "MOUSE5", HookKeyState::Up);
                         }
 
-                        for (label, state) in events {
-                            let _ = super::write_message(
-                                &mut sink,
-                                &HookMessage {
-                                    device: InputDeviceKind::Mouse,
-                                    labels: vec![label],
-                                    state,
-                                    vk_code: None,
-                                    scan_code: None,
-                                    flags: None,
-                                },
-                            );
+                        for (button, label, state) in events {
+                            let physical_id = WindowsPhysicalInputId::MouseButton(button);
+                            let opaque_physical_id = physical_id.opaque();
+                            let current_labels = vec![label];
+                            let (labels, hold_duration_ms) = match state {
+                                HookKeyState::Down => (
+                                    hold_tracker.press(
+                                        physical_id,
+                                        captured.instant,
+                                        current_labels,
+                                    ),
+                                    None,
+                                ),
+                                HookKeyState::Up => {
+                                    let release = hold_tracker.release(
+                                        physical_id,
+                                        captured.instant,
+                                        current_labels,
+                                    );
+                                    (release.labels, release.hold_duration_ms)
+                                }
+                            };
+                            output.send(super::DaemonOutput::Hook(HookMessage {
+                                device: InputDeviceKind::Mouse,
+                                labels,
+                                state,
+                                physical_id: Some(opaque_physical_id),
+                                vk_code: None,
+                                scan_code: None,
+                                flags: None,
+                                hold_duration_ms,
+                                input_ts_ms: captured.input_ts_ms,
+                            }));
                         }
                     }
                     t if t == RIM_TYPEHID.0 => {
                         // HID 버튼/축 디코딩 → 파이프 전송 (버튼=HookMessage, 축=HidAxisMessage)
-                        hid.handle_hid(raw, raw.header.hDevice, &mut sink);
+                        hid.handle_hid(raw, raw.header.hDevice, captured, &output);
                     }
                     _ => {}
                 }
@@ -572,4 +658,37 @@ pub(super) fn run_raw_input() -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn binding(key: &str, ctrl: bool) -> ShortcutBinding {
+        ShortcutBinding {
+            key: key.to_string(),
+            ctrl,
+            shift: false,
+            alt: false,
+            meta: false,
+        }
+    }
+
+    #[test]
+    fn ctrl_capslock_toggles_overlay() {
+        let unbound = binding("", false);
+        let mut state = HotkeyState::new(binding("CapsLock", true), unbound.clone(), unbound);
+        assert!(state.update(0x14, true).is_none());
+        assert!(state.update(0xA2, true).is_none());
+        assert!(matches!(
+            state.update(0x14, true),
+            Some(DaemonCommand::ToggleOverlay)
+        ));
+    }
+
+    #[test]
+    fn unknown_key_code_stays_unbound() {
+        assert_eq!(vk_from_key_code("Lang1"), None);
+        assert!(ParsedHotkey::from_binding(&binding("", false)).is_none());
+    }
 }

@@ -1,10 +1,15 @@
-/** A read-only, local Tauri surface. No RPC reaches the running desktop app. */
+/**
+ * A read-only, local Tauri surface. No RPC reaches the running desktop app.
+ * @param {string | { mode: 'recorded', counters?: Record<string, Record<string, number>> | null }} [counterBaseline]
+ *   'zero', 'live', or a run's recorded counts.
+ */
 export function installFrozenShim(
   snapshot,
   viewerKind,
   assetUrls = {},
   pluginStorage = {},
   pluginElements = [],
+  counterBaseline = 'zero',
 ) {
   const bootstrap = structuredClone(snapshot);
   const settings = bootstrap.settings;
@@ -15,8 +20,16 @@ export function installFrozenShim(
   const callbacks = new Map(),
     listeners = new Map();
   let nextId = 1;
-  // Recordings have no original live counter baseline. Count only this run.
-  const counters = {};
+  // A render counts from zero unless the caller asks to continue from the live
+  // totals frozen at begin, or from a run's recorded counts (TUFReplay saves
+  // them per run; slots the run lacks continue from the live totals). Either
+  // way the render's presses stay here and never reach the live counters.
+  const counters =
+    counterBaseline === 'live'
+      ? structuredClone(bootstrap.keyCounters ?? {})
+      : counterBaseline?.mode === 'recorded'
+        ? recordedOverLive(bootstrap.keyCounters, counterBaseline.counters)
+        : {};
   const storage = structuredClone(pluginStorage);
   const emit = (event, payload) => {
     for (const [id, listener] of [...listeners])
@@ -31,10 +44,24 @@ export function installFrozenShim(
     settings_get: () => settings,
     keys_get: () => bootstrap.keys,
     keys_get_counters: () => counters,
+    editor_get: () => ({
+      revision: bootstrap.editorRevision ?? 0,
+      document: {
+        schemaVersion: 1,
+        keys: bootstrap.keys || {},
+        keyPositions: bootstrap.positions || {},
+        statPositions: bootstrap.statPositions || {},
+        graphPositions: bootstrap.graphPositions || {},
+        knobPositions: bootstrap.knobPositions || {},
+        spritePositions: bootstrap.spritePositions || {},
+        layerGroups: bootstrap.layerGroups || {},
+      },
+    }),
     positions_get: () => bootstrap.positions,
     stat_positions_get: () => bootstrap.statPositions || {},
     graph_positions_get: () => bootstrap.graphPositions || {},
     knob_positions_get: () => bootstrap.knobPositions || {},
+    sprite_positions_get: () => bootstrap.spritePositions || {},
     layer_groups_get: () => bootstrap.layerGroups || {},
     note_tab_get_all: () => bootstrap.tabNoteOverrides || {},
     css_get: () => settings.customCSS,
@@ -60,6 +87,15 @@ export function installFrozenShim(
       return;
     }
     if (getters[command]) return structuredClone(getters[command]());
+    if (command === 'plugin_instances_get') {
+      const saved = storage[`${args.pluginId}/instances`];
+      return structuredClone({
+        pluginId: args.pluginId,
+        instances: Array.isArray(saved) ? saved : [],
+        modelRevision: 0,
+        authorityGeneration: 0,
+      });
+    }
     if (command === 'plugin:window|current_monitor')
       return {
         name: 'Export',
@@ -183,4 +219,17 @@ export function installFrozenShim(
       delete globalThis.__dmnRenderEventInternals;
     },
   };
+}
+
+/** `recorded` over a copy of `live`, keeping only whole, non-negative presses. */
+function recordedOverLive(live, recorded) {
+  const counters = structuredClone(live ?? {});
+  if (!recorded || typeof recorded !== 'object') return counters;
+  for (const [tab, keys] of Object.entries(recorded)) {
+    if (!keys || typeof keys !== 'object') continue;
+    const tabCounts = (counters[tab] ??= {});
+    for (const [key, presses] of Object.entries(keys))
+      if (Number.isInteger(presses) && presses >= 0) tabCounts[key] = presses;
+  }
+  return counters;
 }

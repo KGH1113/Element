@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Element.Application;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,14 +10,20 @@ namespace Element.Presentation.Overlay.Combo;
 internal sealed class SongTitleMirror : MonoBehaviour
 {
   private Action<string> _target;
+  private IRenderVideo _video;
   private Text _source;
   private string _lastText;
   private int _lastSourceFontSize;
   private bool _sourceWasEnabled;
+  private string _playCaption;
+  private float _playSpeed;
+  private bool _playPractice;
+  private string _playTitle;
 
-  public void Initialize(Action<string> target)
+  public void Initialize(Action<string> target, IRenderVideo video)
   {
     _target = target;
+    _video = video;
   }
 
   public void Release()
@@ -67,7 +75,10 @@ internal sealed class SongTitleMirror : MonoBehaviour
     if (_target == null)
       return;
 
-    string text = _source != null ? _source.text : string.Empty;
+    string text =
+      _video?.IsRendering == true ? PlayModeTitle()
+      : _source != null ? _source.text
+      : string.Empty;
     int sourceFontSize = _source != null ? _source.fontSize : 0;
     if (_lastText == text && _lastSourceFontSize == sourceFontSize)
       return;
@@ -75,6 +86,38 @@ internal sealed class SongTitleMirror : MonoBehaviour
     _target(SongTitleMarkupNormalizer.Normalize(text, sourceFontSize));
     _lastText = text;
     _lastSourceFontSize = sourceFontSize;
+  }
+
+  // OrbitRender plays the level in the editor, which never writes ADOFAI's
+  // level name. This is the name play mode shows (scrController.WaitForStartCo).
+  private string PlayModeTitle()
+  {
+    string caption = scrController.instance?.caption ?? string.Empty;
+    float speed = GCS.speedTrialMode ? GCS.currentSpeedTrial : 0f;
+    bool practice = !GCS.speedTrialMode && GCS.practiceMode;
+    if (
+      _playTitle != null
+      && ReferenceEquals(caption, _playCaption)
+      && speed == _playSpeed
+      && practice == _playPractice
+    )
+      return _playTitle;
+
+    _playCaption = caption;
+    _playSpeed = speed;
+    _playPractice = practice;
+    _playTitle =
+      speed > 0f
+        ? caption
+          + " ("
+          + RDString.Get(
+            "levelSelect.multiplier",
+            new Dictionary<string, object> { { "multiplier", speed.ToString("0.0#") } }
+          )
+          + ")"
+      : practice ? caption + "\n(" + RDString.Get("status.practiceMode") + ")"
+      : caption;
+    return _playTitle;
   }
 
   private void RestoreSource()

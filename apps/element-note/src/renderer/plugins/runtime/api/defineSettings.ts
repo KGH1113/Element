@@ -33,7 +33,7 @@ export const createDefineSettings = (deps: DefineSettingsDependencies) => {
     const defaultSettings: Record<string, unknown> = {};
     if (definition.settings) {
       for (const [key, schema] of Object.entries(definition.settings)) {
-        if (schema.type !== 'divider') {
+        if (schema.type !== 'divider' && schema.type !== 'section') {
           defaultSettings[key] = schema.default;
         }
       }
@@ -203,7 +203,25 @@ export const createDefineSettings = (deps: DefineSettingsDependencies) => {
               | undefined,
             dialogSettings,
           );
-          if (schema.type === 'divider') {
+          if (schema.type === 'divider' || schema.type === 'section') {
+            if (schema.type === 'section' && schema.label) {
+              const title = translate(
+                schema.label,
+                undefined,
+                schema.label,
+              ).replace(
+                /[&<>"']/g,
+                (character) =>
+                  ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;',
+                  })[character]!,
+              );
+              htmlContent += `<div class="text-[12px] font-semibold" style="${_vis ? '' : 'display:none'}">${title}</div>`;
+            }
             htmlContent += `<div data-setting-key="${key}" style="${
               _vis ? '' : 'display:none'
             }" class="w-full h-[1px] bg-[#3A3943]"></div>`;

@@ -1,5 +1,6 @@
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 
+use crate::commands::run_blocking;
 use crate::cursor::{get_macos_cursor_settings, rgb_to_hex};
 use crate::errors::{CmdResult, CommandError};
 use crate::launch::LaunchContext;
@@ -37,25 +38,49 @@ fn validate_external_url(value: &str) -> CmdResult<()> {
 }
 
 #[tauri::command]
-pub fn app_restart(app: AppHandle) -> CmdResult<()> {
-    app.request_restart();
-    Ok(())
-}
-
-#[tauri::command]
-pub fn window_show_main(app: AppHandle) -> CmdResult<()> {
-    crate::state::app_state::show_main_window(&app)?;
-    Ok(())
-}
-
-#[tauri::command]
 pub fn app_launch_context(launch: State<'_, LaunchContext>) -> CmdResult<LaunchContext> {
     Ok(*launch)
 }
 
 #[tauri::command]
+pub fn app_restart(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    state.request_frontend_restart(app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn window_show_main(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
+    state.show_main_window(&app)?;
+    Ok(())
+}
+
+#[tauri::command]
 pub fn app_quit(app: AppHandle, state: State<'_, AppState>) -> CmdResult<()> {
-    state.request_shutdown(app);
+    state.request_frontend_shutdown(app);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn app_quit_after_editor_flush(
+    app: AppHandle,
+    window: WebviewWindow,
+    handshake_id: String,
+) -> CmdResult<()> {
+    let window_label = window.label().to_string();
+    run_blocking(app, move |app, state| {
+        state.acknowledge_frontend_lifecycle(app.clone(), &handshake_id, &window_label);
+        Ok(())
+    })
+    .await
+}
+
+#[tauri::command]
+pub fn app_cancel_editor_flush(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    handshake_id: String,
+) -> CmdResult<()> {
+    state.cancel_frontend_lifecycle(app, &handshake_id);
     Ok(())
 }
 
@@ -115,7 +140,6 @@ pub fn get_cursor_settings() -> CursorSettingsResponse {
         is_macos: false,
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::validate_external_url;

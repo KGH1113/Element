@@ -3,6 +3,7 @@ import type {
   SchedulerPort,
   Unsubscribe,
 } from '../application/ports/messagePort';
+import type { KeyViewerKind } from '@src/types/key/keys';
 
 export interface NativeViewerSurfacePort {
   describe(sessionId: string): Promise<unknown>;
@@ -11,6 +12,8 @@ export interface NativeViewerSurfacePort {
   /** Whether the player wants the viewers inside ADOFAI at all. */
   inGameEnabled?(): boolean;
   onInGameChanged?(listener: () => void): Unsubscribe;
+  /** Brings the app forward on the tab this viewer shows, to edit it there. */
+  edit?(viewerKind: KeyViewerKind): Promise<void>;
 }
 
 const failures = {
@@ -74,6 +77,12 @@ export class NativeViewerIpcCoordinator {
         if (state === 'ready') this.announce();
       }),
     );
+    if (surface.edit)
+      this.subscriptions.push(
+        messages.onCommand('mirror.native.edit', (payload) =>
+          this.edit(payload),
+        ),
+      );
     if (surface.onChanged && scheduler)
       this.subscriptions.push(
         surface.onChanged(() => this.scheduleChange(changeDebounceMs)),
@@ -92,6 +101,16 @@ export class NativeViewerIpcCoordinator {
       nativeProtocolVersion: 1,
       nativePush: this.canPush,
       inGame: this.surface.inGameEnabled?.() ?? true,
+      nativeEdit: Boolean(this.surface.edit),
+    });
+  }
+
+  /** The game's Edit in ElementNote on a hand or foot viewer. Needs no reply. */
+  private edit(payload: unknown): void {
+    const kind = (payload as { viewerKind?: unknown } | undefined)?.viewerKind;
+    if (this.disposed || (kind !== 'hand' && kind !== 'foot')) return;
+    this.surface.edit(kind).catch((error: unknown) => {
+      console.error('Failed to open the key viewer for the game', error);
     });
   }
 

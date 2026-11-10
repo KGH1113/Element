@@ -23,6 +23,7 @@ import type { LayerGroupDef } from '@src/types/layerGroups';
 import type { ListItem } from '@components/main/Modal/ListPopup';
 import type { LayerItem, DisplayItem } from '../types';
 import type { SelectedElement } from '@stores/grid/useGridSelectionStore';
+import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
 
 // ============================================================================
 // 파라미터 / 반환 타입
@@ -922,10 +923,12 @@ export function useLayerActions({
           .setKeyMappingsAndPositions(updatedMappings, updatedPositions);
 
         try {
-          await window.api.keys.update(updatedMappings);
-          await window.api.keys.updatePositions(updatedPositions);
+          await window.api.editor.commitChanges({
+            keys: updatedMappings,
+            keyPositions: updatedPositions,
+          });
         } catch (error) {
-          console.error('Failed to delete keys', error);
+          await revertUnsavedKeyChange(error, ['keys', 'keyPositions']);
         } finally {
           useKeyStore.getState().setLocalUpdateInProgress(false);
         }

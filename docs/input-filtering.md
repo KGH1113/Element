@@ -23,15 +23,16 @@ ElementNote의 **Enable Key Limiter** 토글을 끄면 `enabled: false` 프로�
 
 ## 채터 블로커 (Tweaks > Chatter blocker)
 
-KeyboardChatterBlocker에는 라이선스가 없어 코드를 가져오지 않고 새로 구현했다.
+KeyboardChatterBlocker 0.1.3의 동작을 그대로 따른다. 라이선스가 없어 코드는 가져오지 않고 같은 규칙으로 새로 구현했다.
 
-- 기본값: 켜짐(`ChatterBlockerOptions.Enabled = true`). 저장된 설정이 있으면 그 값을 따른다.
-
-- 알고리즘: 같은 키를 **뗀 시각부터** 다음 누름까지의 간격이 창(기본 20ms, 5~150ms)보다 짧으면 그 누름과 짝이 되는 뗌을 함께 버린다. 원본은 누름-누름 간격만 보므로 길게 누른 키를 뗄 때 생기는 채터를 놓치고, 같은 간격이면 빠른 연타를 더 많이 막는다.
-- 막힌 뗌 직후의 튐도 잡도록, 버린 뗌도 마지막 뗌 시각으로 기록한다.
-- 비동기 입력: `SkyHookManager.HookCallback` 접두 패치. SkyHook 이벤트 시각(`GetTimeInTicks`)을 쓰고, 키별 상태는 고정 배열에 둔다. 할당·잠금·로그·Unity 호출이 없고 예외는 네이티브로 나가지 않는다. 원본의 문제(훅 스레드 로그 → UMM 로그 리스트 경쟁, 스레드 간 `List` 공유, 벽시계 사용, Windows 전용 Escape 판정)는 모두 없다.
-- Unity 입력: `RDInputType_Keyboard.MainIgnoreActive(WentDown)` 후처리로 게임의 프레임별 누름 캐시에서 채터를 뺀다. 뗌은 눌린 키만 `Input.GetKey`로 확인하며 프레임 단위 정밀도다.
-- 한계: 홀드 도중 튐이 생기면 홀드가 일찍 끝난다(원본과 동일). KeyboardChatterBlocker가 함께 로드되면 설정 화면에 경고를 띄운다.
+- 기본값: 켜짐, 임계값 100ms(원본 기본값). 범위는 10~500ms. 설정 버전 8 이전의 기본값 20ms(뗀 시각 기준이던 값)는 한 번만 100ms로 옮기고, 직접 고른 값은 그대로 둔다.
+- 규칙: 같은 키의 **마지막으로 받은 누름**부터 이번 누름까지가 임계값 이하(`<=`)면 버린다. 버린 누름은 기준 시각을 옮기지 않는다. 뗌은 거르지 않는다(원본과 같음). 그래서 같은 키를 임계값보다 빠르게 연타하면 입력이 빠진다.
+- 막지 않을 키: 원본의 Ignored Keys. KeyCode 목록 하나로 저장하고, 비동기 입력용 SkyHook 코드는 `DmNoteKeyMapper.Resolve`로 만든다. 원본처럼 비동기·Unity 목록을 따로 두지 않는다. 마우스 버튼은 넣을 수 없다.
+- 시각: 원본처럼 입력을 처리하는 순간의 벽시계 밀리초(`DateTime.UtcNow`)를 쓴다.
+- 비동기 입력: `SkyHookManager.HookCallback` 접두 패치. 누름만 보고 Escape는 통과시킨다(원본의 `Key == 27`은 Windows 전용이라 macOS에서는 X가 통과하므로 `KeyLabel.Escape`로 판정). 키별 시각은 고정 배열에 둔다. 할당·잠금·로그·Unity 호출이 없고 예외는 네이티브로 나가지 않는다.
+- Unity 입력: 원본처럼 `scrPlayer.CountValidKeysPressed` 후처리. 이번 프레임 누름(`RDInput.GetMainPressKeys`) 중 KeyCode 누름을 거르고, 버린 수만큼 결과에서 뺀다. 원본은 결과를 다시 세면서 게임패드·터치 입력을 빠뜨리지만 여기서는 그대로 둔다. 게임이 한 프레임에 여러 번 묻기 때문에 원본은 5ms 안의 재질문을 받아 주는데, 같은 규칙을 두고 프레임마다 한 번만 판정한다. 메뉴 입력은 원본처럼 거르지 않는다. 코옵은 플레이어별 수를 나눌 수 없어 거르지 않는다.
+- 결과가 0이면(설정 창이 입력을 막는 중 등) 판정하지 않아 기준 시각이 움직이지 않는다.
+- KeyboardChatterBlocker가 함께 로드되면 설정 화면에 경고를 띄운다.
 
 ## 고스트 키 (ElementNote)
 

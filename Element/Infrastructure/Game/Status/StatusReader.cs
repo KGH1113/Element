@@ -7,8 +7,11 @@ namespace Element.Infrastructure.Game.Status;
 
 internal sealed class StatusReader : IStatusSource
 {
+  private readonly IRenderVideo _video;
   private bool _songStarted;
   private float _startProgress;
+
+  public StatusReader(IRenderVideo video) => _video = video;
 
   public void ResetRunState()
   {
@@ -45,12 +48,22 @@ internal sealed class StatusReader : IStatusSource
     if (song != null && song.clip != null)
     {
       int totalSeconds = Math.Max(0, (int)song.clip.length);
-      int currentSeconds = Math.Max(0, (int)song.time);
-
-      if (song.time > 0f)
-        _songStarted = true;
-      else if (_songStarted)
-        currentSeconds = totalSeconds;
+      int currentSeconds;
+      if (_video?.IsRendering == true)
+      {
+        // OrbitRender moves the conductor to every video frame and plays the
+        // song only for its audio capture, so the song's position in the clip
+        // comes from the conductor.
+        currentSeconds = (int)Math.Max(0d, conductor.addoffset + conductor.songposition_minusi);
+      }
+      else
+      {
+        currentSeconds = Math.Max(0, (int)song.time);
+        if (song.time > 0f)
+          _songStarted = true;
+        else if (_songStarted)
+          currentSeconds = totalSeconds;
+      }
 
       currentSeconds = Math.Min(currentSeconds, totalSeconds);
       return current.WithTime(false, currentSeconds, totalSeconds, RDString.language);

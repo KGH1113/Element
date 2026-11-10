@@ -1,3 +1,4 @@
+import type { SpritePositions } from '../key/sprites';
 import { BootstrapPayload } from '@src/types/app';
 import { CustomCss } from '@src/types/plugin/css';
 import { CustomJs, JsPlugin } from '@src/types/plugin/js';
@@ -36,7 +37,9 @@ export type KeyStatePayload = {
   mode: string;
   /** 입력 수신~emit 경과 시간(ms). performance.now() - eventAgeMs로 실제 입력 시각 복원 */
   eventAgeMs?: number;
+  holdDurationMs?: number;
 };
+export type KeysResetPayload = { reason: string };
 export type InputDevice = 'keyboard' | 'mouse' | 'gamepad' | 'unknown';
 export type RawInputPayload = {
   device: InputDevice;
@@ -83,8 +86,9 @@ export type CssLoadResult = {
 };
 export type CustomCssHistoryEntry = {
   path: string;
-  loadedAt: number;
+  loadedAt?: number;
   lastUsedAt: number;
+  status?: 'available' | 'missing' | 'invalid' | 'tooLarge';
 };
 export type CssHistoryMutationResult = {
   success: boolean;
@@ -287,13 +291,18 @@ export type PresetSnapshot = {
   statPositions: StatItemPositions;
   graphPositions: GraphItemPositions;
   knobPositions: KnobItemPositions;
+  spritePositions?: SpritePositions;
   tabs: KeyViewerTab[];
   selectedViewerTabs: SelectedViewerTabs;
   selectedKeyType: string;
   tabNoteOverrides: import('@src/types/settings/noteSettings').TabNoteOverrides;
   tabCssOverrides: import('@src/types/plugin/css').TabCssOverrides;
 };
-export type BridgeMessage<T = unknown> = { type: string; data?: T };
+export type BridgeMessage<T = unknown> = {
+  type: string;
+  data?: T;
+  target?: WindowTarget;
+};
 export type BridgeMessageListener<T = unknown> = (data: T) => void;
 export type BridgeAnyListener = (type: string, data: unknown) => void;
 export type WindowTarget = 'main' | 'overlay';
@@ -431,7 +440,7 @@ export interface PluginDefinitionContextMenuItem {
 }
 
 export type PluginSettingType =
-  'boolean' | 'color' | 'number' | 'string' | 'select' | 'divider';
+  'boolean' | 'color' | 'number' | 'string' | 'select' | 'divider' | 'section';
 
 export type PluginSettingSchema =
   | {
@@ -440,7 +449,12 @@ export type PluginSettingSchema =
       visible?: boolean | ((settings: Record<string, unknown>) => boolean);
     }
   | {
-      type: Exclude<PluginSettingType, 'divider'>;
+      type: 'section';
+      label?: string;
+      visible?: boolean | ((settings: Record<string, unknown>) => boolean);
+    }
+  | {
+      type: Exclude<PluginSettingType, 'divider' | 'section'>;
       default: string | number | boolean;
       label: string;
       min?: number; // for number
@@ -548,6 +562,7 @@ export interface PluginDefinition {
    * - "panel": 속성 패널 (기본값)
    * - "modal": 기존 모달
    */
+  contextMenuStateKeys?: string[];
   settingsUI?: 'panel' | 'modal';
   settings?: Record<string, PluginSettingSchema>;
   messages?: PluginMessages;
@@ -684,11 +699,14 @@ export type DisplayElementTemplateFactory = (
 export type DisplayElementTemplate = DisplayElementTemplateFunction;
 
 export type PluginDisplayElementConfig = Omit<PluginDisplayElement, 'id'> & {
+  /** 저장·실행 취소 이후에도 유지되는 네이티브 요소 ID. */
+  instanceId?: string;
   state?: Record<string, unknown>;
   template?: DisplayElementTemplateFunction;
 };
 
 export type Unsubscribe = () => void;
+export type ReadyUnsubscribe = Unsubscribe & { ready: Promise<void> };
 
 // UI Components Options
 export interface ButtonOptions {
@@ -739,7 +757,37 @@ export interface PanelOptions {
   width?: number;
 }
 
+/** The scoped plugin surface preserves v2 compound slots without UI projection. */
+export type PluginScopedAPI = Omit<DMNoteAPI, 'keys' | 'editor'> & {
+  editor: Pick<
+    import('@src/types/editor').EditorAPI,
+    'get' | 'commit' | 'onCommitted'
+  >;
+  keys: Omit<
+    DMNoteAPI['keys'],
+    'get' | 'update' | 'updateWithPositions' | 'onChanged'
+  > & {
+    get(): Promise<import('@src/types/editor').NativeKeyMappings>;
+    update(
+      mappings: import('@src/types/editor').NativeKeyMappings,
+      options?: { multiKey?: boolean },
+    ): Promise<import('@src/types/editor').NativeKeyMappings>;
+    updateWithPositions(
+      mappings: import('@src/types/editor').NativeKeyMappings,
+      positions: import('@src/types/editor').NativeElementPositions,
+      options?: { multiKey?: boolean },
+    ): Promise<{
+      keys: import('@src/types/editor').NativeKeyMappings;
+      positions: import('@src/types/editor').NativeElementPositions;
+    }>;
+    onChanged(
+      listener: (keys: import('@src/types/editor').NativeKeyMappings) => void,
+    ): ReadyUnsubscribe;
+  };
+};
+
 export interface DMNoteAPI {
+  editor: import('@src/types/editor').EditorAPI;
   app: {
     bootstrap(): Promise<BootstrapPayload>;
     openExternal(url: string): Promise<void>;
@@ -761,7 +809,15 @@ export interface DMNoteAPI {
   keys: {
     get(): Promise<KeyMappings>;
     getCounters(): Promise<KeyCounters>;
-    update(mappings: KeyMappings): Promise<KeyMappings>;
+    update(
+      mappings: KeyMappings,
+      options?: { multiKey?: boolean },
+    ): Promise<KeyMappings>;
+    updateWithPositions(
+      mappings: KeyMappings,
+      positions: KeyPositions,
+      options?: { multiKey?: boolean },
+    ): Promise<{ keys: KeyMappings; positions: KeyPositions }>;
     getPositions(): Promise<KeyPositions>;
     updatePositions(positions: KeyPositions): Promise<KeyPositions>;
     setMode(mode: string): Promise<KeysModeResponse>;
@@ -773,7 +829,10 @@ export interface DMNoteAPI {
       listener: (positions: KeyPositions) => void,
     ): Unsubscribe;
     onModeChanged(listener: (payload: ModeChangePayload) => void): Unsubscribe;
-    onKeyState(listener: (payload: KeyStatePayload) => void): Unsubscribe;
+    onKeyState(listener: (payload: KeyStatePayload) => void): ReadyUnsubscribe;
+    onKeysReset(
+      listener: (payload: KeysResetPayload) => void,
+    ): ReadyUnsubscribe;
     onRawInput(listener: (payload: RawInputPayload) => void): Unsubscribe;
     resetCounters(): Promise<KeyCounters>;
     resetCountersMode(mode: string): Promise<KeyCounters>;

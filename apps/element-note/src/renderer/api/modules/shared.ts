@@ -1,18 +1,43 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '../invoke';
 import { listen } from '@tauri-apps/api/event';
 
-import type { Unsubscribe } from '@src/types/plugin/api';
+import type { ReadyUnsubscribe } from '@src/types/plugin/api';
 import type { SettingsState, SettingsDiff } from '@src/types/settings/settings';
 
 // ── subscribe helper ────────────────────────────────────────────────
 export function subscribe<T>(
   event: string,
   listener: (payload: T) => void,
-): Unsubscribe {
-  const registration = listen<T>(event, ({ payload }) => listener(payload));
-  return () => {
-    registration.then((unlisten) => unlisten()).catch(() => undefined);
+): ReadyUnsubscribe {
+  let unsubscribed = false;
+  const registration = listen<T>(event, ({ payload }) => {
+    if (!unsubscribed) listener(payload);
+  });
+  const ready = registration.then(() => undefined);
+
+  void ready.catch((error) => {
+    console.error(`[API] Failed to subscribe to event "${event}":`, error);
+  });
+
+  const unsubscribe = () => {
+    if (unsubscribed) return;
+    unsubscribed = true;
+    void registration.then(
+      (unlisten) => {
+        void Promise.resolve()
+          .then(() => unlisten())
+          .catch((error) => {
+            console.error(
+              `[API] Failed to unsubscribe from event "${event}":`,
+              error,
+            );
+          });
+      },
+      () => undefined,
+    );
   };
+
+  return Object.assign(unsubscribe, { ready });
 }
 
 // ── i18n internals (shared between i18nApi and the settings listener) ──

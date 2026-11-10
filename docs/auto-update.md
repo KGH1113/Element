@@ -13,6 +13,7 @@ Mods/Element/
   Settings.xml                  모드 설정 (업데이트해도 그대로)
   UpdateSettings.json           자동 업데이트 설정 (없으면 켜짐)
   Attempts.dat                  맵별 시도 횟수 (업데이트해도 그대로)
+  Backups/                      프로필 가져오기·삭제 전 설정 백업 (업데이트해도 그대로)
   AdofaiIpc.*.dll, ipc/         다른 모드가 찾는 IPC 번들
   Runtime/state.json            Current · Previous · Trial · Failed
   Runtime/launchers/<v>/        Element.Launcher.dll

@@ -39,7 +39,9 @@ internal static class Program
       Run("layout history, native viewer recovery and alignment snapping", LayoutEditingTests.Run);
       Run("aligns and distributes several layout boxes", LayoutArrangeTests.Run);
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
+      Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
       Run("ElementKit values: checked on attach, shown, hidden while off, kept across reloads", ElementKitTests.Run);
       Run("Sample: keys per group like the SampleTag tag, matched hit by hit", SampleTests.Run);
@@ -48,13 +50,29 @@ internal static class Program
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",
         GameplayTweaksTests.Run
       );
-      Run("attempts count per start and speed, take back unplayed starts, follow skip rules and persist", AttemptTests.Run);
+      Run(
+        "attempts count per start and speed, take back unplayed starts, follow skip rules and persist",
+        AttemptTests.Run
+      );
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
+      Run("profiles switch in place, survive saving, export, import, refuse bad files and back up", ProfileTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
+      Run(
+        "replay renders send key viewer frames without waiting and lay ElementNote's videos in place",
+        KeyViewerRenderTests.Run
+      );
+      Run(
+        "rendered TUFReplay runs deliver recorded keys and hand over videos; replays in the game are left alone",
+        ReplayRenderProviderTests.Run
+      );
+      Run("TUFReplay replays and renders show the attempts and key counts their run was played at", RunStateTests.Run);
       Run("bundled ElementNote installs once per build and opens only when closed", DmNoteAppTests.Run);
-      Run("auto update: versions, verified downloads, background finish, rollback and launcher switch", UpdateTests.Run);
+      Run(
+        "auto update: versions, verified downloads, background finish, rollback and launcher switch",
+        UpdateTests.Run
+      );
       Console.WriteLine("Element tests: " + _passed + " passed");
       return 0;
     }

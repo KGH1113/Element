@@ -432,6 +432,7 @@ const GraphItem = ({
 
   return (
     <GraphPanel
+      visualPosition={position}
       ref={attachRef}
       dx={draggable.dx}
       dy={draggable.dy}

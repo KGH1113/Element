@@ -61,6 +61,9 @@ public sealed class Main
       modEntry.OnSaveGUI = OnSaveGUI;
       modEntry.OnUnload = OnUnload;
       modEntry.OnUpdate = (_, _) => Instance?.Runtime?.TickTrackpad();
+      // Settings are written when their window closes; quitting with it open
+      // must not lose what the player already sees in the game.
+      UnityEngine.Application.quitting += OnQuitting;
       Instance.Enable();
       return true;
     }
@@ -125,8 +128,32 @@ public sealed class Main
     Instance?.Settings?.Save(modEntry);
   }
 
+  private static void OnQuitting()
+  {
+    Main main = Instance;
+    if (main == null)
+      return;
+    try
+    {
+      // As on unload: open editors close and keep their edits, then save.
+      try
+      {
+        main.Disable();
+      }
+      finally
+      {
+        main.Settings?.Save(main.ModEntry);
+      }
+    }
+    catch (Exception exception)
+    {
+      main.ModEntry.Logger.Error("[Save settings on quit] " + exception);
+    }
+  }
+
   private static bool OnUnload(UnityModManager.ModEntry modEntry)
   {
+    UnityEngine.Application.quitting -= OnQuitting;
     try
     {
       // Disabling closes open editors, which keep their edits; save after.

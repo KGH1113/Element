@@ -1,6 +1,9 @@
+mod app;
+
 pub mod audio;
 pub mod commands;
 pub mod cursor;
+pub mod custom_css;
 pub mod defaults;
 pub mod errors;
 pub mod ipc;
@@ -9,6 +12,11 @@ pub mod launch;
 pub mod models;
 pub mod services;
 pub mod state;
+
+#[cfg(test)]
+pub(crate) mod test_support;
+
+pub use app::run;
 
 /// Windows 접근성 "텍스트 크기" 설정에 의한 WebView2 스케일링을 보상하는 줌 레벨을 계산
 ///
@@ -34,6 +42,16 @@ pub fn compute_compensating_zoom() -> f64 {
     {
         1.0
     }
+}
+
+fn should_apply_zoom_for_platform(zoom: f64, is_macos: bool) -> bool {
+    !is_macos || (zoom - 1.0).abs() >= f64::EPSILON
+}
+
+/// macOS WKWebView의 identity zoom은 선택·캐럿을 리셋하므로 생략
+/// Windows는 이전 보정값에서 1.0으로 복귀할 수 있어 항상 적용
+pub fn should_apply_compensating_zoom(zoom: f64) -> bool {
+    should_apply_zoom_for_platform(zoom, cfg!(target_os = "macos"))
 }
 
 /// Windows 레지스트리에서 접근성 텍스트 크기 비율을 읽습니다.
@@ -85,5 +103,22 @@ fn get_windows_text_scale_factor() -> f64 {
         } else {
             1.0
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_apply_zoom_for_platform;
+
+    #[test]
+    fn macos_skips_only_identity_zoom() {
+        assert!(!should_apply_zoom_for_platform(1.0, true));
+        assert!(should_apply_zoom_for_platform(0.8, true));
+    }
+
+    #[test]
+    fn windows_applies_identity_zoom_after_a_previous_compensation() {
+        assert!(should_apply_zoom_for_platform(0.8, false));
+        assert!(should_apply_zoom_for_platform(1.0, false));
     }
 }

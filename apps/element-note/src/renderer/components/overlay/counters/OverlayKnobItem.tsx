@@ -2,8 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useSignals } from '@preact/signals-react/runtime';
 import { getAxisSignal } from '@stores/signals/axisSignals';
 import { resolveImageSource } from '@utils/core/imageSource';
+import {
+  computeKeyElementStyles,
+  type KeyElementPosition,
+} from '@hooks/overlay/useKeyElementStyles';
 
-interface KnobPosition {
+interface KnobPosition extends Partial<KeyElementPosition> {
   hidden?: boolean;
   axisId?: string;
   sensitivity?: number;
@@ -121,6 +125,11 @@ const OverlayKnobItem = ({ position, index = 0 }: OverlayKnobItemProps) => {
   const resolvedRadius = borderRadius != null ? `${borderRadius}px` : '50%';
 
   const transform = `translate3d(calc(${dx}px + var(--key-offset-x, 0px)), calc(${dy}px + var(--key-offset-y, 0px)), 0)`;
+  const v2 = computeKeyElementStyles({
+    position: { ...position, dx, dy, width, height },
+    active: isActive,
+    label: '',
+  });
 
   return (
     <div
@@ -128,7 +137,9 @@ const OverlayKnobItem = ({ position, index = 0 }: OverlayKnobItemProps) => {
       style={{
         width: `${width}px`,
         height: `${height}px`,
-        transform,
+        transform: position.rotation
+          ? `${transform} rotate(${position.rotation}deg)`
+          : transform,
         zIndex: position.zIndex ?? index,
         contain: 'layout style paint',
       }}
@@ -146,12 +157,22 @@ const OverlayKnobItem = ({ position, index = 0 }: OverlayKnobItemProps) => {
               ? `${borderWidth}px solid ${stateBorderColor}`
               : undefined,
           boxSizing: 'border-box',
+          ...(v2.keyStyle.backgroundImage
+            ? { background: v2.keyStyle.backgroundImage }
+            : {}),
+          ...(v2.borderRingStyle
+            ? { border: 'none', padding: v2.keyStyle.padding }
+            : {}),
+          boxShadow: v2.keyStyle.boxShadow,
           transform: `rotate(${angle}deg)`,
           transition: 'transform 0.1s linear',
           willChange: 'transform',
           backfaceVisibility: 'hidden',
         }}
       >
+        {v2.borderRingStyle && (
+          <span aria-hidden="true" style={v2.borderRingStyle} />
+        )}
         {imageSrc ? (
           <img
             src={imageSrc}
@@ -161,6 +182,7 @@ const OverlayKnobItem = ({ position, index = 0 }: OverlayKnobItemProps) => {
               width: '100%',
               height: '100%',
               objectFit: resolvedFit,
+              transform: v2.imageStyle.transform,
               pointerEvents: 'none',
               userSelect: 'none',
             }}

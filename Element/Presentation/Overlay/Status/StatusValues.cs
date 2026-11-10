@@ -63,7 +63,9 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
       RenderMetrics(snapshot);
     if (snapshot.HasTime)
       RenderTime(snapshot, languageChanged);
-    if (snapshot.HasFps)
+    if (snapshot.HasFps && snapshot.Fps == StatusSnapshot.UnknownFps)
+      _values.Set(OverlayValueId.Fps, "-");
+    else if (snapshot.HasFps)
       _values.Set(OverlayValueId.Fps, _builder.Clear().AppendInt(snapshot.Fps), snapshot.Fps);
     else
       _values.Clear(OverlayValueId.Fps);

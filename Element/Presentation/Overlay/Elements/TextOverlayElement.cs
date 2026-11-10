@@ -12,34 +12,36 @@ namespace Element.Presentation.Overlay.Elements;
 
 /// <summary>
 /// One TMP text built from runs. It is rebuilt only when a value it uses
-/// changes, the highlight color changes, or its runs are edited.
+/// changes, the highlight color or fonts change, or its runs are edited.
 /// </summary>
 internal sealed class TextOverlayElement : OverlayElementTarget
 {
   private readonly OverlayValues _values;
-  private readonly TMP_FontAsset _font;
+  private readonly OverlayFonts _fonts;
   private readonly TextMeshProUGUI _text;
   private readonly OverlayContentGeometry _geometry;
   private readonly StringBuilder _builder = new(128);
   private readonly List<OverlayCompiledRun> _runs = new();
   private readonly OverlayTextPulse _pulse;
+  private readonly OverlayTextGradients _gradients;
   private bool _preview;
   private bool _hasLegacy;
   private LegacyOverlayPlacement _legacy;
   private string _legacyKey;
   private int _themeVersion = -1;
+  private int _fontVersion = -1;
   private float _renderedScale = -1;
   private bool _hasSizeFormula;
 
-  public TextOverlayElement(Transform parent, TMP_FontAsset font, Material material, OverlayValues values)
+  public TextOverlayElement(Transform parent, OverlayFonts fonts, OverlayValues values)
     : base(parent, "Text element")
   {
     _values = values;
-    _font = font;
+    _fonts = fonts;
     _text = OverlayTextFactory.AddText(
       Rect.gameObject,
-      font,
-      material,
+      fonts.DefaultAsset,
+      fonts.DefaultMaterial,
       OverlayElementDefaults.TextSize,
       TextAlignmentOptions.Center
     );
@@ -57,6 +59,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     );
     _pulse = Rect.gameObject.AddComponent<OverlayTextPulse>();
     _pulse.Initialize(_text);
+    _gradients = Rect.gameObject.AddComponent<OverlayTextGradients>();
+    _gradients.Initialize(_text);
   }
 
   public override string Label => L("텍스트", "Text");
@@ -68,12 +72,10 @@ internal sealed class TextOverlayElement : OverlayElementTarget
 
   public bool IsEmpty => Settings?.Text?.Runs == null || Settings.Text.Runs.Count == 0;
 
-  // Selection and resizing follow the drawn text, not the layout rectangle.
-  public override Rect Bounds => HasContent ? AnchorBounds : RectBounds;
+  // Selection, resizing and placement follow the drawn text, not the layout rectangle.
+  protected override bool BoundsFollowContent => HasContent;
 
-  internal TMP_FontAsset Font => _font;
-
-  internal Material Material => _text.fontSharedMaterial;
+  internal OverlayFonts Fonts => _fonts;
 
   internal TextAlignmentOptions Alignment => _text.alignment;
 
@@ -90,12 +92,13 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     if (key != _legacyKey)
     {
       _legacyKey = key;
-      _hasLegacy = !string.IsNullOrEmpty(key) && LegacyOverlayPlacement.TryGet(key, _font, out _legacy);
+      // Built-ins sit where they did in the bundled font, whatever the default font is now.
+      _hasLegacy = !string.IsNullOrEmpty(key) && LegacyOverlayPlacement.TryGet(key, _fonts.Bundled, out _legacy);
       TextAlignmentOptions alignment = _hasLegacy ? _legacy.Alignment : TextAlignmentOptions.Center;
       if (_text.alignment != alignment)
         _text.alignment = alignment;
     }
-    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs);
+    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs, _gradients);
     _hasSizeFormula = _runs.Exists(run => run.Size != null);
     Render();
   }
@@ -133,6 +136,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     if (
       changes.Overlaps(ValueMask)
       || _themeVersion != OverlayTheme.Version
+      || _fontVersion != _fonts.Version
       || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))
     )
       Render();
@@ -146,8 +150,22 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       return;
     _themeVersion = OverlayTheme.Version;
     _renderedScale = EffectiveScale;
-    OverlayTextComposer.Compose(_builder, _runs, _values, _preview, OverlayTheme.Accent, _renderedScale);
+    if (_fontVersion != _fonts.Version)
+    {
+      _fontVersion = _fonts.Version;
+      // The material goes after the font, which resets it.
+      if (_text.font != _fonts.DefaultAsset)
+        _text.font = _fonts.DefaultAsset;
+      if (_text.fontSharedMaterial != _fonts.DefaultMaterial)
+        _text.fontSharedMaterial = _fonts.DefaultMaterial;
+    }
+    OverlayTextComposer.Compose(_builder, _runs, _values, _preview, OverlayTheme.Accent, _renderedScale, _fonts);
+    _gradients.SetSource(_preview ? _values?.WithSamples : _values, OverlayTheme.Accent);
+    string before = _text.text;
     _text.Assign(_builder);
+    // A new text is colored as TMP lays it out; the same text is recolored now.
+    if (ReferenceEquals(before, _text.text))
+      _gradients.Repaint();
     if (_hasLegacy && _legacy.FitsText)
     {
       // The combo's number and title were fitted to their text.

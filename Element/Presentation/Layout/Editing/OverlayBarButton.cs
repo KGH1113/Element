@@ -29,6 +29,7 @@ internal sealed class OverlayBarButton
     _value,
     _unit;
   private readonly SettingsCapsuleGraphic _swatch;
+  private readonly SettingsGradientPreview _swatchGradient;
   private bool _active;
   private int _drop;
 
@@ -54,6 +55,14 @@ internal sealed class OverlayBarButton
       _lead = ui.Rect("Swatch", Root, 0, 0, LeadSize, LeadSize);
       ui.Capsule("Ring", _lead, 0, 0, LeadSize, LeadSize, new Color(1, 1, 1, .5f));
       _swatch = ui.Capsule("Color", _lead, 2, 2, LeadSize - 4, LeadSize - 4, Color.white);
+      // A gradient shows inside the same circle.
+      _swatch.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+      _swatchGradient = ui.Rect("Gradient", _swatch.transform, 0, 0, LeadSize - 4, LeadSize - 4)
+        .gameObject.AddComponent<SettingsGradientPreview>();
+      _swatchGradient.raycastTarget = false;
+      _swatchGradient.Columns = _swatchGradient.Rows = 6;
+      _swatchGradient.Cell = 4;
+      _swatchGradient.gameObject.SetActive(false);
     }
     else if (icon.HasValue)
     {
@@ -100,6 +109,19 @@ internal sealed class OverlayBarButton
     {
       if (_swatch != null)
         _swatch.color = value;
+    }
+  }
+
+  /// <summary>A gradient in the swatch instead of its color; null shows the color.</summary>
+  public Overlay.Elements.OverlayResolvedGradient SwatchGradient
+  {
+    set
+    {
+      if (_swatchGradient == null)
+        return;
+      _swatchGradient.gameObject.SetActive(value != null);
+      if (value != null)
+        _swatchGradient.SetGradient(value);
     }
   }
 

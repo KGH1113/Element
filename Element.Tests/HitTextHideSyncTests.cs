@@ -102,11 +102,12 @@ internal static class HitTextHideSyncTests
     sync.Start();
 
     options.HideEarlyPerfect = options.HideLatePerfect = true;
-    sync.Push();
-    Check(game.Stored == HitMarginHidePreset.HideEarlyOrLatePerfect, "the mod's changes reach the game");
+    Check(
+      sync.Push() && game.Stored == HitMarginHidePreset.HideEarlyOrLatePerfect,
+      "the mod's changes reach the game, and say so to be saved with it"
+    );
     int writes = game.Writes;
-    sync.Push();
-    Check(game.Writes == writes, "an unchanged step is not written again");
+    Check(!sync.Push() && game.Writes == writes, "an unchanged step is not written again or saved");
 
     options.HideMiss = true;
     game.Stored = HitMarginHidePreset.HideXPerfect;

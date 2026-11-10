@@ -283,3 +283,58 @@ describe('native viewer change pushes', () => {
     },
   );
 });
+
+describe('editing a viewer from the game', () => {
+  it('announces edit support only with an edit port', async () => {
+    const without = new FakeMessagePort();
+    const plain = new NativeViewerIpcCoordinator(without, {
+      describe: vi.fn(),
+    });
+    expect(without.sent[0].payload).toMatchObject({ nativeEdit: false });
+    const messages = new FakeMessagePort();
+    const coordinator = new NativeViewerIpcCoordinator(messages, {
+      describe: vi.fn(),
+      edit: vi.fn().mockResolvedValue(undefined),
+    });
+    expect(messages.sent[0].payload).toMatchObject({ nativeEdit: true });
+    await plain.dispose();
+    await coordinator.dispose();
+  });
+
+  it('opens the requested viewer and ignores anything else', async () => {
+    const messages = new FakeMessagePort();
+    const surface = {
+      describe: vi.fn(),
+      edit: vi.fn().mockResolvedValue(undefined),
+    };
+    const coordinator = new NativeViewerIpcCoordinator(messages, surface);
+    messages.command('mirror.native.edit', { viewerKind: 'foot' });
+    for (const payload of [{ viewerKind: 'both' }, {}, null, 'hand'])
+      messages.command('mirror.native.edit', payload);
+    await settle();
+    expect(surface.edit).toHaveBeenCalledTimes(1);
+    expect(surface.edit).toHaveBeenCalledWith('foot');
+    // The game expects no reply.
+    const sent = messages.sent.length;
+    await coordinator.dispose();
+    messages.command('mirror.native.edit', { viewerKind: 'hand' });
+    expect(surface.edit).toHaveBeenCalledTimes(1);
+    expect(messages.sent).toHaveLength(sent);
+  });
+
+  it('keeps a failed window request off the game connection', async () => {
+    const messages = new FakeMessagePort();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const coordinator = new NativeViewerIpcCoordinator(messages, {
+      describe: vi.fn(),
+      edit: vi.fn().mockRejectedValue(new Error('window gone')),
+    });
+    const sent = messages.sent.length;
+    messages.command('mirror.native.edit', { viewerKind: 'hand' });
+    await settle();
+    expect(messages.sent).toHaveLength(sent);
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+    await coordinator.dispose();
+  });
+});

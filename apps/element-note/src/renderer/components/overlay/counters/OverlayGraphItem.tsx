@@ -160,6 +160,7 @@ const OverlayGraphItem = ({ position, index = 0 }: OverlayGraphItemProps) => {
 
   return (
     <GraphPanel
+      visualPosition={position}
       dx={dx}
       dy={dy}
       width={width}

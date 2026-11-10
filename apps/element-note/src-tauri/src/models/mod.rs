@@ -1,18 +1,216 @@
+pub mod editor;
+pub mod gesture;
 pub mod obs;
+pub mod plugin;
+
+mod bootstrap;
+mod element;
+pub use element::*;
+mod counter;
+mod element_positions;
+mod key_position_normalization;
+mod key_slot;
+mod note_settings;
+mod settings;
+mod shortcuts;
+
+pub use bootstrap::*;
+pub use counter::{
+    default_counter_animation_builtin_presets, default_counter_animation_preset_id,
+    find_builtin_counter_animation_preset_by_id, infer_builtin_counter_animation_preset_id,
+    normalize_user_counter_animation_presets, CounterAnimationPreset, CounterAnimationSource,
+    KeyCounterAlign, KeyCounterAlignMode, KeyCounterAnimationSettings, KeyCounterColor,
+    KeyCounterPlacement, KeyCounterSettings,
+};
+use counter::{default_counter_font_size, default_counter_font_weight, default_gap};
+pub use editor::*;
+use element_positions::default_true;
+pub(crate) use element_positions::{
+    default_sprite_press_duration_ms, default_sprite_transition_ms, is_renderable_image_ref,
+    rewrite_coupled_sprite_image_reference,
+};
+// 테스트 기대값 조립에서만 참조
+#[cfg(test)]
+pub(crate) use element_positions::default_sprite_transition_easing;
+pub use element_positions::{
+    ElementShadowSpec, GraphPosition, GraphPositions, GraphStatType, GraphType, ImageMode,
+    ImageTransform, KeyPosition, KeyPositions, KnobPosition, KnobPositions, NoteAlignment,
+    ReactiveSpritePosition, SpriteActivation, SpriteAnchor, SpriteImageMetrics, SpritePose,
+    SpritePositions, SpriteReferenceNaturalSize, SpriteTransform, StatPosition, StatPositions,
+    StatType, ELEMENT_ROTATION_MAX, ELEMENT_ROTATION_MIN, IMAGE_TRANSFORM_OFFSET_MAX,
+    IMAGE_TRANSFORM_OFFSET_MIN, IMAGE_TRANSFORM_ROTATION_MAX, IMAGE_TRANSFORM_ROTATION_MIN,
+    IMAGE_TRANSFORM_SCALE_MAX, IMAGE_TRANSFORM_SCALE_MIN, MAX_SPRITE_POSES,
+    MAX_SPRITE_POSE_TRIGGERS, POSITION_COLLECTION_FIELDS, SHADOW_BLUR_MAX, SHADOW_BLUR_MIN,
+    SHADOW_OFFSET_MAX, SHADOW_OFFSET_MIN, SPRITE_IMAGE_DIMENSION_MAX, SPRITE_IMAGE_DIMENSION_MIN,
+    SPRITE_PRESS_DURATION_MS_MAX, SPRITE_PRESS_DURATION_MS_MIN, SPRITE_TRANSFORM_OFFSET_MAX,
+    SPRITE_TRANSFORM_OFFSET_MIN, SPRITE_TRANSFORM_ROTATION_MAX, SPRITE_TRANSFORM_ROTATION_MIN,
+    SPRITE_TRANSFORM_SCALE_MAX, SPRITE_TRANSFORM_SCALE_MIN, SPRITE_TRANSITION_MS_MAX,
+};
+pub use gesture::*;
+pub use key_slot::{
+    key_mappings_contain_multi, normalize_key_mappings, normalize_key_slot, KeyMappings, KeySlot,
+    SlotMatch, MAX_SLOT_KEYS,
+};
+use note_settings::{
+    default_element_rotation, default_key_height, default_key_note_color, default_key_note_opacity,
+    default_note_auto_y_correction, default_note_border_opacity, default_note_effect_enabled,
+    default_note_glow_enabled, default_note_glow_opacity, default_note_glow_size,
+};
+pub use note_settings::{FadePosition, ImageFit, NoteSettings, TabNoteOverrides, TabNoteSettings};
+pub use plugin::*;
+pub use settings::*;
+pub use shortcuts::*;
+
+pub(crate) use key_position_normalization::{
+    compact_canonical_rgba, default_missing_note_gradient_multipliers,
+    note_border_representative_hex, note_gradient_shadow, scrub_removed_text_outline_fields,
+    NoteGradientShadow,
+};
 
 use serde::de::Error as DeError;
-use serde::ser::SerializeMap;
+use serde::ser::{Error as SerError, SerializeMap};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
 
-pub type KeyMappings = HashMap<String, Vec<String>>;
-pub type KeyPositions = HashMap<String, Vec<KeyPosition>>;
 pub type KeyCounters = HashMap<String, HashMap<String, u32>>;
-pub type StatPositions = HashMap<String, Vec<StatPosition>>;
-pub type GraphPositions = HashMap<String, Vec<GraphPosition>>;
-pub type KnobPositions = HashMap<String, Vec<KnobPosition>>;
+
+const DEFAULT_GRADIENT_ANGLE: f64 = 90.0;
+const MAX_GRADIENT_STOPS: usize = 8;
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct GradientStop {
+    pub color: String,
+    pub pos: f64,
+}
+
+#[derive(Debug, Clone)]
+pub struct GradientSpec {
+    pub angle: f64,
+    pub stops: Vec<GradientStop>,
+    normalized_on_read: bool,
+    note_border_invalid_stop_index_on_read: Option<usize>,
+}
+
+impl PartialEq for GradientSpec {
+    fn eq(&self, other: &Self) -> bool {
+        self.angle == other.angle && self.stops == other.stops
+    }
+}
+
+impl GradientSpec {
+    pub(crate) fn from_canonical_parts(angle: f64, stops: Vec<GradientStop>) -> Self {
+        let note_border_invalid_stop_index_on_read = stops
+            .iter()
+            .position(|stop| note_border_representative_hex(&stop.color).is_none());
+        Self {
+            angle,
+            stops,
+            normalized_on_read: false,
+            note_border_invalid_stop_index_on_read,
+        }
+    }
+
+    pub(crate) fn note_border_invalid_stop_index(&self) -> Option<usize> {
+        self.note_border_invalid_stop_index_on_read.or_else(|| {
+            self.stops
+                .iter()
+                .position(|stop| note_border_representative_hex(&stop.color).is_none())
+        })
+    }
+
+    fn normalize(&mut self) -> bool {
+        let previous_angle = self.angle;
+        let previous_stops = self.stops.clone();
+
+        self.angle = self.angle.rem_euclid(360.0);
+        if self.angle == 0.0 {
+            self.angle = 0.0;
+        }
+        for stop in &mut self.stops {
+            stop.pos = stop.pos.clamp(0.0, 1.0);
+            if stop.pos == 0.0 {
+                stop.pos = 0.0;
+            }
+        }
+        self.stops
+            .sort_by(|left, right| left.pos.total_cmp(&right.pos));
+        self.stops.truncate(MAX_GRADIENT_STOPS);
+
+        self.angle != previous_angle || self.stops != previous_stops
+    }
+
+    fn canonicalize(&mut self) -> bool {
+        let normalized_on_read = std::mem::take(&mut self.normalized_on_read);
+        self.normalize() | normalized_on_read
+    }
+}
+
+impl Serialize for GradientSpec {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if self.stops.len() < 2 {
+            return Err(S::Error::custom("gradient must contain at least two stops"));
+        }
+        if !self.angle.is_finite() || self.stops.iter().any(|stop| !stop.pos.is_finite()) {
+            return Err(S::Error::custom("gradient values must be finite"));
+        }
+
+        let mut canonical = self.clone();
+        canonical.normalize();
+        let mut map = serializer.serialize_map(Some(2))?;
+        map.serialize_entry("angle", &canonical.angle)?;
+        map.serialize_entry("stops", &canonical.stops)?;
+        map.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for GradientSpec {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let serde_json::Value::Object(mut input) = value else {
+            return Err(D::Error::custom("gradient must be an object"));
+        };
+        let angle_value = input.remove("angle");
+        let angle = match angle_value.as_ref() {
+            Some(value) => serde_json::from_value::<f64>(value.clone())
+                .map_err(|error| D::Error::custom(format!("invalid gradient angle: {error}")))?,
+            None => DEFAULT_GRADIENT_ANGLE,
+        };
+        let stops = input
+            .remove("stops")
+            .ok_or_else(|| D::Error::custom("gradient stops are required"))
+            .and_then(|value| {
+                serde_json::from_value::<Vec<GradientStop>>(value)
+                    .map_err(|error| D::Error::custom(format!("invalid gradient stops: {error}")))
+            })?;
+        if stops.len() < 2 {
+            return Err(D::Error::custom("gradient must contain at least two stops"));
+        }
+        if !angle.is_finite() || stops.iter().any(|stop| !stop.pos.is_finite()) {
+            return Err(D::Error::custom("gradient values must be finite"));
+        }
+
+        let note_border_invalid_stop_index_on_read = stops
+            .iter()
+            .position(|stop| note_border_representative_hex(&stop.color).is_none());
+        let mut gradient = Self {
+            angle,
+            stops,
+            normalized_on_read: angle_value.is_none() || !input.is_empty(),
+            note_border_invalid_stop_index_on_read,
+        };
+        gradient.normalized_on_read |= gradient.normalize();
+        Ok(gradient)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum NoteColor {
@@ -28,6 +226,13 @@ pub enum FontType {
     Web,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct FontWeightRange {
+    pub min: u16,
+    pub max: u16,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomFont {
@@ -41,6 +246,8 @@ pub struct CustomFont {
     pub local_path: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub css_content: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub weight_ranges: Vec<FontWeightRange>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -62,15 +269,11 @@ fn default_sound_source() -> SoundSource {
     SoundSource::Local
 }
 
-fn default_sound_enabled() -> bool {
-    true
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SoundLibraryEntry {
-    #[serde(default = "default_sound_enabled")]
-    pub enabled: bool,
+    #[serde(default)]
+    pub hidden: bool,
     #[serde(default = "default_sound_source")]
     pub source: SoundSource,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -86,7 +289,7 @@ pub struct SoundLibraryEntry {
 impl Default for SoundLibraryEntry {
     fn default() -> Self {
         Self {
-            enabled: true,
+            hidden: false,
             source: SoundSource::Local,
             original_path: None,
             trim_start_ratio: None,
@@ -94,6 +297,13 @@ impl Default for SoundLibraryEntry {
             display_name: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingProcessedWavReplacement {
+    pub sound_path: String,
+    pub had_original: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -171,878 +381,6 @@ impl<'de> Deserialize<'de> for NoteColor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum NoteAlignment {
-    Left,
-    #[default]
-    Center,
-    Right,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct KeyPosition {
-    pub dx: f64,
-    pub dy: f64,
-    pub width: f64,
-    pub height: f64,
-    /// 레이어 표시 여부 (true면 숨김)
-    #[serde(default)]
-    pub hidden: bool,
-    #[serde(default)]
-    pub active_image: Option<String>,
-    #[serde(default)]
-    pub inactive_image: Option<String>,
-    /// 키별 사운드 활성화 여부 (기본값 false)
-    #[serde(default)]
-    pub sound_enabled: Option<bool>,
-    /// 키 입력 시 재생할 로컬 사운드 파일 경로
-    #[serde(default)]
-    pub sound_path: Option<String>,
-    /// 키별 사운드 볼륨 (0~200, 기본값 100)
-    #[serde(default)]
-    pub sound_volume: Option<f64>,
-    #[serde(default)]
-    pub active_transparent: bool,
-    #[serde(default)]
-    pub idle_transparent: bool,
-    pub count: u32,
-    pub note_color: NoteColor,
-    pub note_opacity: u32,
-    #[serde(default)]
-    pub note_border_radius: Option<f64>,
-    /// 노트 넓이(px). None이면 키 width를 사용(자동).
-    #[serde(default)]
-    pub note_width: Option<f64>,
-    /// 노트 정렬 (left/center/right). 기본값 center.
-    #[serde(default)]
-    pub note_alignment: NoteAlignment,
-    #[serde(default = "default_note_effect_enabled")]
-    pub note_effect_enabled: bool,
-    #[serde(default = "default_note_glow_enabled")]
-    pub note_glow_enabled: bool,
-    #[serde(default = "default_note_glow_size")]
-    pub note_glow_size: f64,
-    #[serde(default = "default_note_glow_opacity")]
-    pub note_glow_opacity: u32,
-    #[serde(default)]
-    pub note_glow_color: Option<NoteColor>,
-    #[serde(default = "default_note_auto_y_correction")]
-    pub note_auto_y_correction: bool,
-    /// 노트 오프셋 X (px). 기본 정렬에 추가 보정값.
-    #[serde(default)]
-    pub note_offset_x: Option<f64>,
-    /// 노트 오프셋 Y (px). 기본 정렬에 추가 보정값.
-    #[serde(default)]
-    pub note_offset_y: Option<f64>,
-    /// 노트 테두리 굵기 (px). 0이면 테두리 없음.
-    #[serde(default)]
-    pub note_border_width: Option<f64>,
-    /// 노트 테두리 색상
-    #[serde(default)]
-    pub note_border_color: Option<String>,
-    /// 노트 테두리 투명도 (0~100). 노트 배경 투명도와 독립. 기본 100.
-    #[serde(default = "default_note_border_opacity")]
-    pub note_border_opacity: u32,
-    /// 노트 테두리 방향 (all/vertical/horizontal)
-    #[serde(default)]
-    pub note_border_side: Option<String>,
-    /// Element 키 리미터에서 제외할 키. CSS className과 독립적으로 저장한다.
-    #[serde(default)]
-    pub key_limiter_excluded: bool,
-    #[serde(default)]
-    pub class_name: Option<String>,
-    #[serde(default)]
-    pub z_index: Option<i32>,
-    #[serde(default)]
-    pub counter: KeyCounterSettings,
-    // 스타일 관련 속성들
-    #[serde(default)]
-    pub background_color: Option<String>,
-    #[serde(default)]
-    pub active_background_color: Option<String>,
-    #[serde(default)]
-    pub border_color: Option<String>,
-    #[serde(default)]
-    pub active_border_color: Option<String>,
-    #[serde(default)]
-    pub border_width: Option<f64>,
-    #[serde(default)]
-    pub border_radius: Option<f64>,
-    #[serde(default)]
-    pub font_size: Option<f64>,
-    #[serde(default)]
-    pub font_color: Option<String>,
-    #[serde(default)]
-    pub active_font_color: Option<String>,
-    #[serde(default)]
-    pub graph_animation_enabled: Option<bool>,
-    /// 글꼴 패밀리 (커스텀 폰트 이름)
-    #[serde(default)]
-    pub font_family: Option<String>,
-    #[serde(default)]
-    pub image_fit: Option<ImageFit>,
-    /// 이미지 맞춤(대기/입력 개별). 없으면 image_fit을 fallback으로 사용.
-    #[serde(default)]
-    pub idle_image_fit: Option<ImageFit>,
-    #[serde(default)]
-    pub active_image_fit: Option<ImageFit>,
-    /// 인라인 스타일 우선 여부 (true: 속성 패널 스타일 우선, false: 커스텀 CSS 우선)
-    #[serde(default)]
-    pub use_inline_styles: Option<bool>,
-    /// 키에 표시할 커스텀 텍스트 (None이면 기본 키 이름 표시)
-    #[serde(default)]
-    pub display_text: Option<String>,
-    /// 글꼴 굵기 (CSS font-weight 값, 예: 400, 700)
-    #[serde(default)]
-    pub font_weight: Option<u32>,
-    /// 이탤릭체 여부
-    #[serde(default)]
-    pub font_italic: Option<bool>,
-    /// 밑줄 여부
-    #[serde(default)]
-    pub font_underline: Option<bool>,
-    /// 취소선 여부
-    #[serde(default)]
-    pub font_strikethrough: Option<bool>,
-    /// 레이어 패널에서 표시할 커스텀 이름
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub layer_name: Option<String>,
-    /// 레이어 그룹 ID
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub group_id: Option<String>,
-    /// 같은 요소에 연결한 두 번째 키(고스트 키). 키 리미터에 포함되지 않는다.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ghost: Option<GhostKey>,
-}
-
-/// A second keyboard key drawn on its owner with its own style, note and
-/// counter. Geometry always follows the owner.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct GhostKey {
-    #[serde(default)]
-    pub enabled: bool,
-    #[serde(default)]
-    pub key: Option<String>,
-    pub settings: Box<KeyPosition>,
-}
-
-impl GhostKey {
-    /// The bound keyboard key when this ghost receives input.
-    pub fn active_key<'a>(&'a self, owner_key: &str) -> Option<&'a str> {
-        self.key
-            .as_deref()
-            .filter(|key| self.enabled && !key.is_empty() && *key != owner_key)
-    }
-}
-
-impl KeyPosition {
-    /// Ghost keys never nest; a ghost's own settings carry no ghost.
-    pub fn strip_nested_ghost(&mut self) {
-        if let Some(ghost) = self.ghost.as_mut() {
-            ghost.settings.ghost = None;
-        }
-    }
-}
-
-/// Ghost keys bound in one tab, in key order.
-pub fn ghost_key_labels<'a>(
-    keys: &'a [String],
-    positions: &'a [KeyPosition],
-) -> impl Iterator<Item = &'a str> + 'a {
-    keys.iter()
-        .zip(positions.iter())
-        .filter_map(|(key, position)| position.ghost.as_ref()?.active_key(key))
-}
-
-/// Labels that keep a counter per tab: owner keys followed by their ghosts.
-pub fn counter_labels(keys: &KeyMappings, positions: &KeyPositions) -> KeyMappings {
-    keys.iter()
-        .map(|(mode, list)| {
-            let mut labels = list.clone();
-            if let Some(mode_positions) = positions.get(mode) {
-                labels.extend(ghost_key_labels(list, mode_positions).map(str::to_string));
-            }
-            (mode.clone(), labels)
-        })
-        .collect()
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum StatType {
-    Kps,
-    Total,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct StatPosition {
-    pub stat_type: StatType,
-    #[serde(flatten)]
-    pub position: KeyPosition,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub enum GraphStatType {
-    Kps,
-    KpsAvg,
-    KpsMax,
-    Total,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum GraphType {
-    Line,
-    Bar,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct GraphPosition {
-    pub stat_type: GraphStatType,
-    pub graph_type: GraphType,
-    pub graph_speed: u32,
-    pub graph_color: String,
-    #[serde(default = "default_true")]
-    pub show_avg_line: bool,
-    #[serde(flatten)]
-    pub position: KeyPosition,
-}
-
-fn default_knob_sensitivity() -> f64 {
-    // 순수 배율 — 1이면 축 해상도와 무관하게 물리 1회전 ≈ 화면 1회전
-    // (프론트엔드가 wrap 델타를 축 해상도로 정규화해 회전수 단위로 누적)
-    1.0
-}
-
-/// 회전(노브) 요소 — HID 축에 바인딩. KeyPosition 상속(표시명/스타일/클래스/이미지) + 노브 전용 필드.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct KnobPosition {
-    /// 바인딩된 HID 축 식별자 "HIDA:vid:pid:usagePage:usage"
-    #[serde(default)]
-    pub axis_id: String,
-    /// 회전 배율 (물리 1회전당 화면 회전 수)
-    #[serde(default = "default_knob_sensitivity")]
-    pub sensitivity: f64,
-    /// 회전 방향 반전
-    #[serde(default)]
-    pub reverse: bool,
-    #[serde(flatten)]
-    pub position: KeyPosition,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum KeyCounterPlacement {
-    #[default]
-    Inside,
-    Outside,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum KeyCounterAlign {
-    #[default]
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum KeyCounterAlignMode {
-    #[default]
-    Center,
-    Between,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct KeyCounterColor {
-    pub idle: String,
-    pub active: String,
-}
-
-impl Default for KeyCounterColor {
-    fn default() -> Self {
-        Self {
-            // 렌더러 기본값과 일치 (src/types/keys.ts)
-            idle: "rgba(121, 121, 121, 0.9)".to_string(),
-            active: "#FFFFFF".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum CounterAnimationSource {
-    Builtin,
-    User,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct CounterAnimationPreset {
-    pub id: String,
-    pub name: String,
-    #[serde(rename = "source")]
-    pub source: CounterAnimationSource,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label_key: Option<String>,
-    pub bezier: [f64; 4],
-    pub scale: f64,
-    pub duration_ms: u32,
-}
-
-impl CounterAnimationPreset {
-    pub fn normalize(&mut self) {
-        let mut animation = KeyCounterAnimationSettings {
-            enabled: true,
-            preset_id: None,
-            bezier: self.bezier,
-            scale: self.scale,
-            duration_ms: self.duration_ms,
-        };
-        animation.normalize();
-        self.bezier = animation.bezier;
-        self.scale = animation.scale;
-        self.duration_ms = animation.duration_ms;
-        self.name = self.name.trim().to_string();
-    }
-
-    pub fn is_valid_user_entry(&self) -> bool {
-        self.source == CounterAnimationSource::User
-            && !self.id.trim().is_empty()
-            && !self.name.trim().is_empty()
-    }
-}
-
-fn builtin_counter_animation_presets() -> Vec<CounterAnimationPreset> {
-    vec![
-        CounterAnimationPreset {
-            id: "builtin-ease-out".to_string(),
-            name: "Default".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.25, 0.46, 0.45, 0.94],
-            scale: 1.1,
-            duration_ms: 300,
-        },
-        CounterAnimationPreset {
-            id: "builtin-linear".to_string(),
-            name: "Linear".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.0, 0.0, 1.0, 1.0],
-            scale: 1.1,
-            duration_ms: 300,
-        },
-        CounterAnimationPreset {
-            id: "builtin-ease-out-css".to_string(),
-            name: "Ease Out".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.0, 0.0, 0.58, 1.0],
-            scale: 1.1,
-            duration_ms: 300,
-        },
-        CounterAnimationPreset {
-            id: "builtin-ease-in".to_string(),
-            name: "Ease In".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.42, 0.0, 1.0, 1.0],
-            scale: 1.1,
-            duration_ms: 300,
-        },
-        CounterAnimationPreset {
-            id: "builtin-ease-in-out".to_string(),
-            name: "Ease In-Out".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.42, 0.0, 0.58, 1.0],
-            scale: 1.1,
-            duration_ms: 300,
-        },
-        CounterAnimationPreset {
-            id: "builtin-overshoot".to_string(),
-            name: "Overshoot".to_string(),
-            source: CounterAnimationSource::Builtin,
-            label_key: None,
-            bezier: [0.34, 1.56, 0.64, 1.0],
-            scale: 1.15,
-            duration_ms: 360,
-        },
-    ]
-}
-
-pub fn default_counter_animation_preset_id() -> &'static str {
-    "builtin-ease-out"
-}
-
-pub fn default_counter_animation_builtin_presets() -> Vec<CounterAnimationPreset> {
-    builtin_counter_animation_presets()
-}
-
-pub fn find_builtin_counter_animation_preset_by_id(id: &str) -> Option<CounterAnimationPreset> {
-    builtin_counter_animation_presets()
-        .into_iter()
-        .find(|preset| preset.id == id)
-}
-
-pub fn infer_builtin_counter_animation_preset_id(
-    bezier: [f64; 4],
-    scale: f64,
-    duration_ms: u32,
-) -> Option<String> {
-    const BEZIER_EPSILON: f64 = 0.001;
-    const SCALE_EPSILON: f64 = 0.001;
-
-    builtin_counter_animation_presets()
-        .into_iter()
-        .find(|preset| {
-            let bezier_matches = preset
-                .bezier
-                .iter()
-                .zip(bezier.iter())
-                .all(|(a, b)| (*a - *b).abs() <= BEZIER_EPSILON);
-            let scale_matches = (preset.scale - scale).abs() <= SCALE_EPSILON;
-            let duration_matches = preset.duration_ms == duration_ms;
-            bezier_matches && scale_matches && duration_matches
-        })
-        .map(|preset| preset.id)
-}
-
-pub fn normalize_user_counter_animation_presets(
-    presets: Vec<CounterAnimationPreset>,
-) -> Vec<CounterAnimationPreset> {
-    let mut seen_ids = std::collections::HashSet::new();
-    let mut normalized: Vec<CounterAnimationPreset> = presets
-        .into_iter()
-        .filter_map(|mut preset| {
-            preset.normalize();
-            if !preset.is_valid_user_entry() {
-                return None;
-            }
-            if !seen_ids.insert(preset.id.clone()) {
-                return None;
-            }
-            preset.source = CounterAnimationSource::User;
-            preset.label_key = None;
-            Some(preset)
-        })
-        .collect();
-
-    normalized.sort_by_key(|item| item.name.to_lowercase());
-    normalized
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct KeyCounterAnimationSettings {
-    #[serde(default = "default_counter_animation_enabled")]
-    pub enabled: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub preset_id: Option<String>,
-    #[serde(default = "default_counter_animation_bezier")]
-    pub bezier: [f64; 4],
-    #[serde(default = "default_counter_animation_scale")]
-    pub scale: f64,
-    #[serde(default = "default_counter_animation_duration_ms")]
-    pub duration_ms: u32,
-}
-
-impl Default for KeyCounterAnimationSettings {
-    fn default() -> Self {
-        Self {
-            enabled: default_counter_animation_enabled(),
-            preset_id: Some(default_counter_animation_preset_id().to_string()),
-            bezier: default_counter_animation_bezier(),
-            scale: default_counter_animation_scale(),
-            duration_ms: default_counter_animation_duration_ms(),
-        }
-    }
-}
-
-impl KeyCounterAnimationSettings {
-    pub fn normalize(&mut self) {
-        let fallback = default_counter_animation_bezier();
-        for i in [0, 2] {
-            let value = self.bezier[i];
-            self.bezier[i] = if value.is_finite() {
-                value.clamp(0.0, 1.0)
-            } else {
-                fallback[i]
-            };
-        }
-        for i in [1, 3] {
-            let value = self.bezier[i];
-            self.bezier[i] = if value.is_finite() {
-                value.clamp(-2.0, 2.0)
-            } else {
-                fallback[i]
-            };
-        }
-
-        self.scale = if self.scale.is_finite() {
-            self.scale
-        } else {
-            default_counter_animation_scale()
-        };
-        self.duration_ms = self.duration_ms.clamp(1, 5000);
-
-        self.preset_id = self
-            .preset_id
-            .as_ref()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-
-        if self.preset_id.is_none() {
-            self.preset_id = infer_builtin_counter_animation_preset_id(
-                self.bezier,
-                self.scale,
-                self.duration_ms,
-            );
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct KeyCounterSettings {
-    #[serde(default = "default_counter_enabled")]
-    pub enabled: bool,
-    #[serde(default)]
-    pub placement: KeyCounterPlacement,
-    #[serde(default)]
-    pub align: KeyCounterAlign,
-    #[serde(default)]
-    pub align_mode: KeyCounterAlignMode,
-    #[serde(default)]
-    pub fill: KeyCounterColor,
-    #[serde(default = "default_stroke_color")]
-    pub stroke: KeyCounterColor,
-    #[serde(default = "default_gap")]
-    pub gap: u32,
-    #[serde(default = "default_counter_font_size")]
-    pub font_size: u32,
-    #[serde(default = "default_counter_font_weight")]
-    pub font_weight: u32,
-    /// 카운터 글꼴 패밀리 (커스텀 폰트 이름)
-    #[serde(default)]
-    pub font_family: Option<String>,
-    #[serde(default)]
-    pub font_italic: bool,
-    #[serde(default)]
-    pub font_underline: bool,
-    #[serde(default)]
-    pub font_strikethrough: bool,
-    #[serde(default)]
-    pub animation: KeyCounterAnimationSettings,
-}
-
-fn default_stroke_color() -> KeyCounterColor {
-    KeyCounterColor {
-        // 기본값: 외곽선 없음 (렌더러 기본값과 일치)
-        idle: "transparent".to_string(),
-        active: "transparent".to_string(),
-    }
-}
-
-impl Default for KeyCounterSettings {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            placement: KeyCounterPlacement::Inside,
-            align: KeyCounterAlign::Top,
-            align_mode: KeyCounterAlignMode::Center,
-            fill: KeyCounterColor::default(),
-            stroke: default_stroke_color(),
-            gap: default_gap(),
-            font_size: default_counter_font_size(),
-            font_weight: default_counter_font_weight(),
-            font_family: None,
-            font_italic: false,
-            font_underline: false,
-            font_strikethrough: false,
-            animation: KeyCounterAnimationSettings::default(),
-        }
-    }
-}
-
-impl KeyCounterSettings {
-    pub fn normalize(&mut self) {
-        self.animation.normalize();
-    }
-
-    /// Migrate legacy defaults that were previously serialized into store.json.
-    /// This keeps existing user customizations intact, while fixing the old default
-    /// active fill/stroke values (black text / outlined) that diverged from the renderer.
-    pub fn migrate_legacy_defaults(&mut self) -> bool {
-        let looks_like_legacy_default = self.fill.idle == "#FFFFFF"
-            && self.fill.active == "#000000"
-            && self.stroke.idle == "#000000"
-            && self.stroke.active == "#FFFFFF"
-            && self.gap == default_gap()
-            && self.font_size == default_counter_font_size()
-            && self.font_weight == 400
-            && self.font_family.is_none()
-            && !self.font_italic
-            && !self.font_underline
-            && !self.font_strikethrough;
-
-        if !looks_like_legacy_default {
-            self.normalize();
-            return false;
-        }
-
-        self.fill = KeyCounterColor::default();
-        self.stroke = default_stroke_color();
-        self.font_weight = default_counter_font_weight();
-        self.animation = KeyCounterAnimationSettings::default();
-        self.normalize();
-        true
-    }
-}
-
-fn default_counter_animation_enabled() -> bool {
-    false
-}
-
-fn default_counter_animation_bezier() -> [f64; 4] {
-    [0.25, 0.46, 0.45, 0.94]
-}
-
-fn default_counter_animation_scale() -> f64 {
-    1.1
-}
-
-fn default_counter_animation_duration_ms() -> u32 {
-    300
-}
-
-fn default_gap() -> u32 {
-    6
-}
-fn default_counter_font_size() -> u32 {
-    16
-}
-fn default_counter_font_weight() -> u32 {
-    700
-}
-
-fn default_counter_enabled() -> bool {
-    true
-}
-fn default_note_effect_enabled() -> bool {
-    true
-}
-fn default_note_glow_enabled() -> bool {
-    false
-}
-fn default_note_glow_size() -> f64 {
-    20.0
-}
-
-fn default_note_border_opacity() -> u32 {
-    100
-}
-fn default_note_glow_opacity() -> u32 {
-    70
-}
-fn default_note_auto_y_correction() -> bool {
-    true
-}
-fn default_note_frame_limit() -> u32 {
-    0
-}
-
-fn default_fade_top_px() -> u32 {
-    50
-}
-
-fn default_reverse_fade_bottom_px() -> u32 {
-    50
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct NoteSettings {
-    // Legacy: 전역 노트 라운딩 (개별 키 noteBorderRadius로 마이그레이션됨)
-    #[serde(default, skip_serializing)]
-    pub border_radius: Option<u32>,
-    #[serde(default = "default_note_frame_limit")]
-    pub frame_limit: u32,
-    pub speed: u32,
-    pub track_height: u32,
-    pub reverse: bool,
-    pub fade_position: FadePosition,
-    #[serde(default = "default_fade_top_px")]
-    pub fade_top_px: u32,
-    #[serde(default)]
-    pub fade_bottom_px: u32,
-    #[serde(default)]
-    pub reverse_fade_top_px: u32,
-    #[serde(default = "default_reverse_fade_bottom_px")]
-    pub reverse_fade_bottom_px: u32,
-    pub delayed_note_enabled: bool,
-    pub short_note_threshold_ms: u32,
-    pub short_note_min_length_px: u32,
-    #[serde(default)]
-    pub key_display_delay_ms: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-pub enum FadePosition {
-    Auto,
-    Top,
-    Bottom,
-    None,
-    Both,
-}
-
-/// 이미지 맞춤 설정 (CSS object-fit과 동일)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "kebab-case")]
-#[derive(Default)]
-pub enum ImageFit {
-    #[default]
-    Cover,
-    Contain,
-    Fill,
-    None,
-}
-
-impl Default for NoteSettings {
-    fn default() -> Self {
-        Self {
-            border_radius: None,
-            frame_limit: default_note_frame_limit(),
-            speed: 180,
-            track_height: 150,
-            reverse: false,
-            fade_position: FadePosition::Auto,
-            fade_top_px: 50,
-            fade_bottom_px: 0,
-            reverse_fade_top_px: 0,
-            reverse_fade_bottom_px: 50,
-            delayed_note_enabled: false,
-            short_note_threshold_ms: 50,
-            short_note_min_length_px: 30,
-            key_display_delay_ms: 0,
-        }
-    }
-}
-
-impl NoteSettings {
-    /// Legacy migration: fadePosition enum → pixel-based fade values
-    /// serde defaults로 채워진 새 필드가 auto 기본값과 동일하고
-    /// fadePosition이 non-auto면 레거시 store로 판단하여 변환
-    pub fn migrate_fade_position(&mut self) {
-        let d = Self::default();
-        let at_auto_defaults = self.fade_top_px == d.fade_top_px
-            && self.fade_bottom_px == d.fade_bottom_px
-            && self.reverse_fade_top_px == d.reverse_fade_top_px
-            && self.reverse_fade_bottom_px == d.reverse_fade_bottom_px;
-
-        if !at_auto_defaults {
-            return;
-        }
-
-        match self.fade_position {
-            FadePosition::Auto => {}
-            FadePosition::Top => {
-                // 항상 상단 페이드
-                self.reverse_fade_top_px = d.fade_top_px;
-                self.reverse_fade_bottom_px = 0;
-            }
-            FadePosition::Bottom => {
-                // 항상 하단 페이드
-                self.fade_top_px = 0;
-                self.fade_bottom_px = d.reverse_fade_bottom_px;
-            }
-            FadePosition::None => {
-                // 페이드 없음
-                self.fade_top_px = 0;
-                self.reverse_fade_bottom_px = 0;
-            }
-            FadePosition::Both => {
-                // 양방향 페이드
-                self.fade_bottom_px = d.fade_top_px;
-                self.reverse_fade_top_px = d.reverse_fade_bottom_px;
-            }
-        }
-        self.fade_position = FadePosition::Auto;
-    }
-}
-
-impl TabNoteSettings {
-    /// Legacy migration: 탭 오버라이드의 fadePosition → pixel-based fade values
-    /// Option<u32> 기반이라 None = 필드 부재 확실 (heuristic 불필요)
-    pub fn migrate_fade_position(&mut self) {
-        let fp = match self.fade_position.take() {
-            Some(fp) => fp,
-            None => return,
-        };
-
-        let has_new_fields = self.fade_top_px.is_some()
-            || self.fade_bottom_px.is_some()
-            || self.reverse_fade_top_px.is_some()
-            || self.reverse_fade_bottom_px.is_some();
-
-        if has_new_fields {
-            return; // 이미 새 필드가 설정됨
-        }
-
-        let d = NoteSettings::default();
-        match fp {
-            FadePosition::Auto => {
-                // 명시적 auto 오버라이드 → 전역과 무관하게 auto 동작 보장
-                self.fade_top_px = Some(d.fade_top_px);
-                self.fade_bottom_px = Some(d.fade_bottom_px);
-                self.reverse_fade_top_px = Some(d.reverse_fade_top_px);
-                self.reverse_fade_bottom_px = Some(d.reverse_fade_bottom_px);
-            }
-            FadePosition::Top => {
-                self.fade_top_px = Some(d.fade_top_px);
-                self.fade_bottom_px = Some(0);
-                self.reverse_fade_top_px = Some(d.fade_top_px);
-                self.reverse_fade_bottom_px = Some(0);
-            }
-            FadePosition::Bottom => {
-                self.fade_top_px = Some(0);
-                self.fade_bottom_px = Some(d.reverse_fade_bottom_px);
-                self.reverse_fade_top_px = Some(0);
-                self.reverse_fade_bottom_px = Some(d.reverse_fade_bottom_px);
-            }
-            FadePosition::None => {
-                self.fade_top_px = Some(0);
-                self.fade_bottom_px = Some(0);
-                self.reverse_fade_top_px = Some(0);
-                self.reverse_fade_bottom_px = Some(0);
-            }
-            FadePosition::Both => {
-                self.fade_top_px = Some(d.fade_top_px);
-                self.fade_bottom_px = Some(d.fade_top_px);
-                self.reverse_fade_top_px = Some(d.reverse_fade_bottom_px);
-                self.reverse_fade_bottom_px = Some(d.reverse_fade_bottom_px);
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 #[derive(Default)]
 pub struct CustomCss {
@@ -1050,12 +388,13 @@ pub struct CustomCss {
     pub content: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomCssHistoryEntry {
     pub path: String,
-    pub loaded_at: u64,
-    pub last_used_at: u64,
+    #[serde(default)]
+    pub loaded_at: i64,
+    pub last_used_at: i64,
 }
 
 /// 탭별 CSS 설정
@@ -1085,42 +424,6 @@ impl Default for TabCss {
 
 /// 탭별 CSS 오버라이드 맵 (키: 탭 ID, 값: TabCss)
 pub type TabCssOverrides = HashMap<String, TabCss>;
-
-/// 탭별 노트 트랙 설정 (전역 NoteSettings를 탭별로 오버라이드)
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-#[derive(Default)]
-pub struct TabNoteSettings {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub frame_limit: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub speed: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub track_height: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reverse: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fade_position: Option<FadePosition>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fade_top_px: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fade_bottom_px: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reverse_fade_top_px: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub reverse_fade_bottom_px: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub delayed_note_enabled: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub short_note_threshold_ms: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub short_note_min_length_px: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub key_display_delay_ms: Option<u32>,
-}
-
-/// 탭별 노트 트랙 설정 오버라이드 맵 (키: 탭 ID, 값: TabNoteSettings)
-pub type TabNoteOverrides = HashMap<String, TabNoteSettings>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -1219,7 +522,7 @@ pub struct GridSettings {
     /// 미니맵 표시 여부
     #[serde(default = "default_true")]
     pub minimap_enabled: bool,
-    /// 그리드 스냅 크기 (1-10px)
+    /// 그리드 스냅 크기 (0-10px, 0은 끄기)
     #[serde(default = "default_grid_snap_size")]
     pub grid_snap_size: u32,
     /// 오버레이 여백 (0-30px)
@@ -1227,8 +530,17 @@ pub struct GridSettings {
     pub overlay_padding: u32,
 }
 
-fn default_true() -> bool {
+fn default_auto_update_enabled() -> bool {
     true
+}
+
+// 렌더러 백엔드 기본값, macOS는 metal 고정 그 외는 d3d11
+pub(crate) fn default_angle_mode() -> String {
+    if cfg!(target_os = "macos") {
+        "metal".to_string()
+    } else {
+        "d3d11".to_string()
+    }
 }
 
 fn default_obs_port() -> u16 {
@@ -1265,22 +577,57 @@ pub struct OverlayBounds {
     pub height: f64,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayWindowLayout {
-    pub bounds: Option<OverlayBounds>,
-    pub last_content_top_offset: Option<f64>,
-    #[serde(default)]
-    pub bounds_are_logical: bool,
+pub struct StoredOverlayNativePosition {
+    pub x: f64,
+    pub y: f64,
+    pub logical_echo_x: f64,
+    pub logical_echo_y: f64,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct OverlayWindowLayouts {
-    #[serde(default)]
-    pub hand: OverlayWindowLayout,
-    #[serde(default)]
-    pub foot: OverlayWindowLayout,
+pub struct StoredOverlayBounds {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_position: Option<StoredOverlayNativePosition>,
+}
+
+impl StoredOverlayBounds {
+    pub fn public_bounds(&self) -> OverlayBounds {
+        OverlayBounds {
+            x: self.x,
+            y: self.y,
+            width: self.width,
+            height: self.height,
+        }
+    }
+}
+
+impl From<OverlayBounds> for StoredOverlayBounds {
+    fn from(bounds: OverlayBounds) -> Self {
+        Self {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            native_position: None,
+        }
+    }
+}
+
+/// 분리 패널의 마지막 기하 정보. 복원에 쓰는 값은 height뿐이고
+/// x/y는 이동 기록으로만 남는다 - 패널은 열 때마다 메인 창 옆에 다시 배치된다
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PanelBounds {
+    pub x: f64,
+    pub y: f64,
+    pub height: f64,
 }
 impl OverlayResizeAnchor {
     pub fn as_str(&self) -> &'static str {
@@ -1306,37 +653,19 @@ pub fn overlay_resize_anchor_from_str(value: &str) -> Option<OverlayResizeAnchor
         _ => None,
     }
 }
-#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum KeyViewerKind {
-    #[default]
-    Hand,
-    Foot,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct KeyViewerTab {
-    pub id: String,
-    pub name: String,
+pub struct CustomTab {
     #[serde(default)]
     pub viewer_kind: KeyViewerKind,
+    pub id: String,
+    pub name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SelectedViewerTabs {
-    pub hand: String,
-    pub foot: String,
-}
+pub const BUILTIN_TAB_IDS: [&str; 4] = ["4key", "5key", "6key", "8key"];
 
-impl Default for SelectedViewerTabs {
-    fn default() -> Self {
-        Self {
-            hand: "hand-default".to_string(),
-            foot: "foot-default".to_string(),
-        }
-    }
+pub(crate) fn default_bar_count() -> u8 {
+    crate::state::tab_metadata::MAX_BAR_SLOTS
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1353,6 +682,8 @@ pub type LayerGroups = HashMap<String, Vec<LayerGroupDef>>;
 pub struct AppStoreData {
     pub hardware_acceleration: bool,
     pub always_on_top: bool,
+    #[serde(default)]
+    pub ui_theme: UiTheme,
     pub overlay_locked: bool,
     #[serde(default)]
     pub overlay_visible: bool,
@@ -1360,14 +691,27 @@ pub struct AppStoreData {
     #[serde(default)]
     pub note_settings: NoteSettings,
     pub selected_key_type: String,
-    #[serde(default, alias = "customTabs")]
-    pub tabs: Vec<KeyViewerTab>,
+    #[serde(default)]
+    #[serde(alias = "tabs")]
+    pub custom_tabs: Vec<CustomTab>,
     #[serde(default)]
     pub selected_viewer_tabs: SelectedViewerTabs,
     #[serde(default)]
     pub key_viewer_tabs_migrated: bool,
     #[serde(default)]
     pub key_viewer_data_recovered: bool,
+    #[serde(default)]
+    pub ghost_keys_folded: bool,
+    #[serde(default)]
+    pub overlay_windows: OverlayWindowLayouts,
+    #[serde(default = "default_true")]
+    pub key_limiter_enabled: bool,
+    #[serde(default = "default_true")]
+    pub in_game_viewers_enabled: bool,
+    #[serde(default)]
+    pub tab_order: Vec<String>,
+    #[serde(default = "default_bar_count")]
+    pub bar_count: u8,
     pub angle_mode: String,
     pub language: String,
     pub laboratory_enabled: bool,
@@ -1375,8 +719,12 @@ pub struct AppStoreData {
     pub developer_mode_enabled: bool,
     #[serde(default)]
     pub tray_enabled: bool,
+    #[serde(default = "default_auto_update_enabled")]
+    pub auto_update_enabled: bool,
     #[serde(default)]
     pub main_window_hidden: bool,
+    #[serde(default)]
+    pub editor_revision: u64,
     #[serde(default)]
     pub keys: KeyMappings,
     #[serde(default)]
@@ -1387,6 +735,8 @@ pub struct AppStoreData {
     pub graph_positions: GraphPositions,
     #[serde(default)]
     pub knob_positions: KnobPositions,
+    #[serde(default)]
+    pub sprite_positions: SpritePositions,
     #[serde(default)]
     pub layer_groups: LayerGroups,
     #[serde(default)]
@@ -1412,15 +762,15 @@ pub struct AppStoreData {
     #[serde(default)]
     pub custom_js: CustomJs,
     pub overlay_resize_anchor: OverlayResizeAnchor,
+    pub overlay_bounds: Option<StoredOverlayBounds>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub panel_bounds: Option<PanelBounds>,
+    /// 분리 패널 창 존재 여부 (재시작 복원용)
     #[serde(default)]
-    pub overlay_windows: OverlayWindowLayouts,
-    // Legacy single-overlay fields. They are read once and folded into
-    // `overlay_windows.hand` by normalize_state, then omitted from new stores.
-    #[serde(default, skip_serializing)]
-    pub overlay_bounds: Option<OverlayBounds>,
-    #[serde(default, skip_serializing)]
+    pub panel_detached: bool,
+    pub overlay_last_content_left_offset: Option<f64>,
     pub overlay_last_content_top_offset: Option<f64>,
-    #[serde(default, skip_serializing)]
+    #[serde(default)]
     pub overlay_bounds_are_logical: bool,
     #[serde(default)]
     pub key_counter_enabled: bool,
@@ -1433,20 +783,14 @@ pub struct AppStoreData {
     /// 사운드 라이브러리 메타데이터 (키: 절대 경로, 값: 메타데이터)
     #[serde(default)]
     pub sound_library: HashMap<String, SoundLibraryEntry>,
+    /// WAV 파일과 메타데이터 커밋 사이의 크래시 복구 저널
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pending_processed_wav_replacement: Option<PendingProcessedWavReplacement>,
     #[serde(default)]
     pub key_sound_output_backend: Option<KeySoundOutputBackendPersist>,
     /// OBS 모드 활성화 여부
     #[serde(default = "default_true")]
     pub obs_mode_enabled: bool,
-    /// Element 키 리미터로 선택한 탭의 키를 보낼지 여부
-    #[serde(default = "default_true")]
-    pub key_limiter_enabled: bool,
-    /// 얼불춤 화면 안에 키뷰어를 표시할지 여부
-    #[serde(default = "default_true")]
-    pub in_game_viewers_enabled: bool,
-    /// 겹쳐 둔 레거시 고스트 키를 키별 고스트 키로 옮겼는지 여부
-    #[serde(default)]
-    pub ghost_keys_folded: bool,
     /// OBS WebSocket 서버 포트
     #[serde(default = "default_obs_port")]
     pub obs_port: u16,
@@ -1463,41 +807,47 @@ impl Default for AppStoreData {
         Self {
             hardware_acceleration: true,
             always_on_top: true,
+            ui_theme: UiTheme::Dark,
             overlay_locked: false,
             overlay_visible: false,
             note_effect: true,
             note_settings: NoteSettings::default(),
             selected_key_type: "hand-default".to_string(),
-            tabs: vec![
-                KeyViewerTab {
-                    id: "hand-default".to_string(),
-                    name: "손 1".to_string(),
+            custom_tabs: vec![
+                CustomTab {
+                    id: "hand-default".into(),
+                    name: "손 1".into(),
                     viewer_kind: KeyViewerKind::Hand,
                 },
-                KeyViewerTab {
-                    id: "foot-default".to_string(),
-                    name: "발 1".to_string(),
+                CustomTab {
+                    id: "foot-default".into(),
+                    name: "발 1".into(),
                     viewer_kind: KeyViewerKind::Foot,
                 },
             ],
             selected_viewer_tabs: SelectedViewerTabs::default(),
-            key_viewer_tabs_migrated: true,
-            key_viewer_data_recovered: true,
-            angle_mode: if cfg!(target_os = "macos") {
-                "metal".to_string()
-            } else {
-                "d3d11".to_string()
-            },
+            key_viewer_tabs_migrated: false,
+            key_viewer_data_recovered: false,
+            ghost_keys_folded: false,
+            overlay_windows: OverlayWindowLayouts::default(),
+            key_limiter_enabled: true,
+            in_game_viewers_enabled: true,
+            tab_order: BUILTIN_TAB_IDS.iter().map(|id| (*id).to_string()).collect(),
+            bar_count: default_bar_count(),
+            angle_mode: default_angle_mode(),
             language: "ko".to_string(),
             laboratory_enabled: false,
             developer_mode_enabled: false,
             tray_enabled: false,
+            auto_update_enabled: false,
             main_window_hidden: false,
+            editor_revision: 0,
             keys: KeyMappings::new(),
             key_positions: KeyPositions::new(),
             stat_positions: StatPositions::new(),
             graph_positions: GraphPositions::new(),
             knob_positions: KnobPositions::new(),
+            sprite_positions: SpritePositions::new(),
             layer_groups: LayerGroups::new(),
             key_counters: KeyCounters::new(),
             background_color: "transparent".to_string(),
@@ -1511,19 +861,19 @@ impl Default for AppStoreData {
             use_custom_js: false,
             custom_js: CustomJs::default(),
             overlay_resize_anchor: OverlayResizeAnchor::TopLeft,
-            overlay_windows: OverlayWindowLayouts::default(),
             overlay_bounds: None,
+            panel_bounds: None,
+            panel_detached: false,
+            overlay_last_content_left_offset: None,
             overlay_last_content_top_offset: None,
             overlay_bounds_are_logical: false,
             key_counter_enabled: false,
             grid_settings: GridSettings::default(),
             shortcuts: ShortcutsState::default(),
             sound_library: HashMap::new(),
+            pending_processed_wav_replacement: None,
             key_sound_output_backend: None,
             obs_mode_enabled: true,
-            key_limiter_enabled: true,
-            in_game_viewers_enabled: true,
-            ghost_keys_folded: true,
             obs_port: default_obs_port(),
             obs_token: None,
             plugin_data: HashMap::new(),
@@ -1531,532 +881,41 @@ impl Default for AppStoreData {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ShortcutBinding {
-    pub key: String,
-    #[serde(default)]
-    pub ctrl: bool,
-    #[serde(default)]
-    pub shift: bool,
-    #[serde(default)]
-    pub alt: bool,
-    #[serde(default)]
-    pub meta: bool,
-}
+impl AppStoreData {
+    /// 설정 사영, store 필드가 설정 기본값의 단일 원천이고 SettingsState는 파생 뷰
+    pub(crate) fn settings_state(&self) -> SettingsState {
+        let mut custom_js = self.custom_js.clone();
+        let _ = custom_js.normalize();
 
-fn default_toggle_overlay_shortcut() -> ShortcutBinding {
-    // 기본 단축키 — Windows/Linux: Ctrl+Shift+O, macOS: Cmd+Shift+O
-    if cfg!(target_os = "macos") {
-        ShortcutBinding {
-            key: "KeyO".to_string(),
-            ctrl: false,
-            shift: true,
-            alt: false,
-            meta: true,
-        }
-    } else {
-        ShortcutBinding {
-            key: "KeyO".to_string(),
-            ctrl: true,
-            shift: true,
-            alt: false,
-            meta: false,
-        }
-    }
-}
-
-fn default_switch_key_mode_shortcut() -> ShortcutBinding {
-    ShortcutBinding {
-        key: "Tab".to_string(),
-        ctrl: false,
-        shift: false,
-        alt: false,
-        meta: false,
-    }
-}
-
-fn default_unbound_shortcut() -> ShortcutBinding {
-    ShortcutBinding {
-        key: "".to_string(),
-        ctrl: false,
-        shift: false,
-        alt: false,
-        meta: false,
-    }
-}
-
-fn default_toggle_settings_panel_shortcut() -> ShortcutBinding {
-    if cfg!(target_os = "macos") {
-        ShortcutBinding {
-            key: "KeyB".to_string(),
-            ctrl: false,
-            shift: false,
-            alt: false,
-            meta: true,
-        }
-    } else {
-        ShortcutBinding {
-            key: "KeyB".to_string(),
-            ctrl: true,
-            shift: false,
-            alt: false,
-            meta: false,
+        SettingsState {
+            hardware_acceleration: self.hardware_acceleration,
+            always_on_top: self.always_on_top,
+            ui_theme: self.ui_theme,
+            overlay_locked: self.overlay_locked,
+            note_effect: self.note_effect,
+            note_settings: self.note_settings.clone(),
+            angle_mode: self.angle_mode.clone(),
+            language: self.language.clone(),
+            laboratory_enabled: self.laboratory_enabled,
+            developer_mode_enabled: self.developer_mode_enabled,
+            tray_enabled: self.tray_enabled,
+            auto_update_enabled: self.auto_update_enabled,
+            background_color: self.background_color.clone(),
+            use_custom_css: self.use_custom_css,
+            custom_css: self.custom_css.clone(),
+            font_settings: self.font_settings.clone(),
+            use_custom_js: self.use_custom_js,
+            custom_js,
+            overlay_resize_anchor: self.overlay_resize_anchor.clone(),
+            key_counter_enabled: self.key_counter_enabled,
+            grid_settings: self.grid_settings.clone(),
+            shortcuts: self.shortcuts.clone(),
+            obs_mode_enabled: self.obs_mode_enabled,
+            key_limiter_enabled: self.key_limiter_enabled,
+            in_game_viewers_enabled: self.in_game_viewers_enabled,
         }
     }
-}
-
-fn default_zoom_in_shortcut() -> ShortcutBinding {
-    if cfg!(target_os = "macos") {
-        ShortcutBinding {
-            key: "Equal".to_string(),
-            ctrl: false,
-            shift: false,
-            alt: false,
-            meta: true,
-        }
-    } else {
-        ShortcutBinding {
-            key: "Equal".to_string(),
-            ctrl: true,
-            shift: false,
-            alt: false,
-            meta: false,
-        }
-    }
-}
-
-fn default_zoom_out_shortcut() -> ShortcutBinding {
-    if cfg!(target_os = "macos") {
-        ShortcutBinding {
-            key: "Minus".to_string(),
-            ctrl: false,
-            shift: false,
-            alt: false,
-            meta: true,
-        }
-    } else {
-        ShortcutBinding {
-            key: "Minus".to_string(),
-            ctrl: true,
-            shift: false,
-            alt: false,
-            meta: false,
-        }
-    }
-}
-
-fn default_zoom_reset_shortcut() -> ShortcutBinding {
-    if cfg!(target_os = "macos") {
-        ShortcutBinding {
-            key: "Digit0".to_string(),
-            ctrl: false,
-            shift: false,
-            alt: false,
-            meta: true,
-        }
-    } else {
-        ShortcutBinding {
-            key: "Digit0".to_string(),
-            ctrl: true,
-            shift: false,
-            alt: false,
-            meta: false,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct ShortcutsState {
-    #[serde(default = "default_toggle_overlay_shortcut")]
-    pub toggle_overlay: ShortcutBinding,
-    #[serde(default = "default_unbound_shortcut")]
-    pub toggle_overlay_lock: ShortcutBinding,
-    #[serde(default = "default_unbound_shortcut")]
-    pub toggle_always_on_top: ShortcutBinding,
-    #[serde(default = "default_switch_key_mode_shortcut")]
-    pub switch_key_mode: ShortcutBinding,
-    #[serde(default = "default_toggle_settings_panel_shortcut")]
-    pub toggle_settings_panel: ShortcutBinding,
-    #[serde(default = "default_zoom_in_shortcut")]
-    pub zoom_in: ShortcutBinding,
-    #[serde(default = "default_zoom_out_shortcut")]
-    pub zoom_out: ShortcutBinding,
-    #[serde(default = "default_zoom_reset_shortcut")]
-    pub reset_zoom: ShortcutBinding,
-}
-
-impl Default for ShortcutsState {
-    fn default() -> Self {
-        Self {
-            toggle_overlay: default_toggle_overlay_shortcut(),
-            toggle_overlay_lock: default_unbound_shortcut(),
-            toggle_always_on_top: default_unbound_shortcut(),
-            switch_key_mode: default_switch_key_mode_shortcut(),
-            toggle_settings_panel: default_toggle_settings_panel_shortcut(),
-            zoom_in: default_zoom_in_shortcut(),
-            zoom_out: default_zoom_out_shortcut(),
-            reset_zoom: default_zoom_reset_shortcut(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct ShortcutsPatchInput {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub toggle_overlay: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub toggle_overlay_lock: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub toggle_always_on_top: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub switch_key_mode: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub toggle_settings_panel: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub zoom_in: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub zoom_out: Option<ShortcutBinding>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reset_zoom: Option<ShortcutBinding>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BootstrapOverlayState {
-    pub visible: bool,
-    pub locked: bool,
-    pub anchor: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BootstrapPayload {
-    pub settings: SettingsState,
-    pub defaults: DefaultsPayload,
-    pub keys: KeyMappings,
-    pub positions: KeyPositions,
-    pub stat_positions: StatPositions,
-    pub graph_positions: GraphPositions,
-    pub knob_positions: KnobPositions,
-    pub tabs: Vec<KeyViewerTab>,
-    pub selected_viewer_tabs: SelectedViewerTabs,
-    pub selected_key_type: String,
-    pub current_mode: String,
-    pub overlay: BootstrapOverlayState,
-    pub key_counters: KeyCounters,
-    pub layer_groups: LayerGroups,
-    pub tab_note_overrides: TabNoteOverrides,
-    pub tab_css_overrides: TabCssOverrides,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DefaultsPayload {
-    pub settings: SettingsState,
-    pub counter_settings: KeyCounterSettings,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct SettingsState {
-    pub hardware_acceleration: bool,
-    pub always_on_top: bool,
-    pub overlay_locked: bool,
-    pub note_effect: bool,
-    #[serde(default)]
-    pub note_settings: NoteSettings,
-    pub angle_mode: String,
-    pub language: String,
-    pub laboratory_enabled: bool,
-    #[serde(default)]
-    pub developer_mode_enabled: bool,
-    #[serde(default)]
-    pub tray_enabled: bool,
-    pub background_color: String,
-    #[serde(rename = "useCustomCSS")]
-    pub use_custom_css: bool,
-    #[serde(rename = "customCSS")]
-    #[serde(default)]
-    pub custom_css: CustomCss,
-    #[serde(default)]
-    pub font_settings: FontSettings,
-    #[serde(rename = "useCustomJS")]
-    pub use_custom_js: bool,
-    #[serde(rename = "customJS")]
-    #[serde(default)]
-    pub custom_js: CustomJs,
-    pub overlay_resize_anchor: OverlayResizeAnchor,
-    #[serde(default)]
-    pub key_counter_enabled: bool,
-    #[serde(default)]
-    pub grid_settings: GridSettings,
-    #[serde(default)]
-    pub shortcuts: ShortcutsState,
-    #[serde(default = "default_true")]
-    pub obs_mode_enabled: bool,
-    #[serde(default = "default_true")]
-    pub key_limiter_enabled: bool,
-    #[serde(default = "default_true")]
-    pub in_game_viewers_enabled: bool,
-}
-
-impl Default for SettingsState {
-    fn default() -> Self {
-        Self {
-            hardware_acceleration: true,
-            always_on_top: true,
-            overlay_locked: false,
-            note_effect: true,
-            note_settings: NoteSettings::default(),
-            angle_mode: if cfg!(target_os = "macos") {
-                "metal".to_string()
-            } else {
-                "d3d11".to_string()
-            },
-            language: "ko".to_string(),
-            laboratory_enabled: false,
-            developer_mode_enabled: false,
-            tray_enabled: false,
-            background_color: "transparent".to_string(),
-            use_custom_css: false,
-            custom_css: CustomCss::default(),
-            font_settings: FontSettings::default(),
-            use_custom_js: false,
-            custom_js: CustomJs::default(),
-            overlay_resize_anchor: OverlayResizeAnchor::TopLeft,
-            key_counter_enabled: false,
-            grid_settings: GridSettings::default(),
-            shortcuts: ShortcutsState::default(),
-            obs_mode_enabled: true,
-            key_limiter_enabled: true,
-            in_game_viewers_enabled: true,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
-#[derive(Default)]
-pub struct NoteSettingsPatch {
-    pub frame_limit: Option<u32>,
-    pub speed: Option<u32>,
-    pub track_height: Option<u32>,
-    pub reverse: Option<bool>,
-    pub fade_position: Option<FadePosition>,
-    pub fade_top_px: Option<u32>,
-    pub fade_bottom_px: Option<u32>,
-    pub reverse_fade_top_px: Option<u32>,
-    pub reverse_fade_bottom_px: Option<u32>,
-    pub delayed_note_enabled: Option<bool>,
-    pub short_note_threshold_ms: Option<u32>,
-    pub short_note_min_length_px: Option<u32>,
-    pub key_display_delay_ms: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct SettingsPatchInput {
-    pub hardware_acceleration: Option<bool>,
-    pub always_on_top: Option<bool>,
-    pub overlay_locked: Option<bool>,
-    pub note_effect: Option<bool>,
-    pub note_settings: Option<NoteSettingsPatch>,
-    pub angle_mode: Option<String>,
-    pub language: Option<String>,
-    pub laboratory_enabled: Option<bool>,
-    pub developer_mode_enabled: Option<bool>,
-    pub tray_enabled: Option<bool>,
-    pub background_color: Option<String>,
-    #[serde(rename = "useCustomCSS")]
-    pub use_custom_css: Option<bool>,
-    #[serde(rename = "customCSS")]
-    pub custom_css: Option<CustomCssPatch>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_settings: Option<FontSettings>,
-    #[serde(rename = "useCustomJS")]
-    pub use_custom_js: Option<bool>,
-    #[serde(rename = "customJS")]
-    pub custom_js: Option<CustomJsPatch>,
-    pub overlay_resize_anchor: Option<OverlayResizeAnchor>,
-    pub key_counter_enabled: Option<bool>,
-    pub grid_settings: Option<GridSettings>,
-    pub shortcuts: Option<ShortcutsPatchInput>,
-    pub obs_mode_enabled: Option<bool>,
-    pub key_limiter_enabled: Option<bool>,
-    pub in_game_viewers_enabled: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomCssPatch {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<Option<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomJsPatch {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub path: Option<Option<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub plugins: Option<Vec<JsPlugin>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SettingsDiff {
-    pub changed: SettingsPatch,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub full: Option<SettingsState>,
-}
-
-impl SettingsDiff {
-    pub fn changed_count(&self) -> usize {
-        let p = &self.changed;
-        [
-            p.hardware_acceleration.is_some(),
-            p.always_on_top.is_some(),
-            p.overlay_locked.is_some(),
-            p.note_effect.is_some(),
-            p.note_settings.is_some(),
-            p.angle_mode.is_some(),
-            p.language.is_some(),
-            p.laboratory_enabled.is_some(),
-            p.developer_mode_enabled.is_some(),
-            p.tray_enabled.is_some(),
-            p.background_color.is_some(),
-            p.use_custom_css.is_some(),
-            p.custom_css.is_some(),
-            p.font_settings.is_some(),
-            p.use_custom_js.is_some(),
-            p.custom_js.is_some(),
-            p.overlay_resize_anchor.is_some(),
-            p.key_counter_enabled.is_some(),
-            p.grid_settings.is_some(),
-            p.shortcuts.is_some(),
-            p.obs_mode_enabled.is_some(),
-            p.key_limiter_enabled.is_some(),
-            p.in_game_viewers_enabled.is_some(),
-        ]
-        .iter()
-        .filter(|&&x| x)
-        .count()
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct SettingsPatch {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hardware_acceleration: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub always_on_top: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub overlay_locked: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note_effect: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note_settings: Option<NoteSettings>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub angle_mode: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub language: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub laboratory_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub developer_mode_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tray_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub background_color: Option<String>,
-    #[serde(rename = "useCustomCSS")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_custom_css: Option<bool>,
-    #[serde(rename = "customCSS")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub custom_css: Option<CustomCss>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font_settings: Option<FontSettings>,
-    #[serde(rename = "useCustomJS")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub use_custom_js: Option<bool>,
-    #[serde(rename = "customJS")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub custom_js: Option<CustomJs>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub overlay_resize_anchor: Option<OverlayResizeAnchor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_counter_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub grid_settings: Option<GridSettings>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub shortcuts: Option<ShortcutsState>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub obs_mode_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub key_limiter_enabled: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub in_game_viewers_enabled: Option<bool>,
 }
 
 #[cfg(test)]
-mod tests {
-    use super::KeyPosition;
-
-    // 필수 필드만 채운 최소 KeyPosition JSON. 시각 px 필드는 호출부에서 주입
-    fn key_position_json(visual_px: &str) -> String {
-        format!(
-            r##"{{
-                "dx": 0.0, "dy": 0.0, "width": 60.0, "height": 60.0,
-                "count": 0, "noteColor": "#FFFFFF", "noteOpacity": 80,
-                {visual_px}
-            }}"##
-        )
-    }
-
-    // 기존 정수 저장값이 f64 필드로 그대로 역직렬화되는지 (하위 호환)
-    #[test]
-    fn visual_px_fields_accept_integer_json() {
-        let json =
-            key_position_json(r#""noteWidth": 100, "noteBorderRadius": 8, "noteGlowSize": 20"#);
-        let pos: KeyPosition = serde_json::from_str(&json).unwrap();
-        assert_eq!(pos.note_width, Some(100.0));
-        assert_eq!(pos.note_border_radius, Some(8.0));
-        assert_eq!(pos.note_glow_size, 20.0);
-    }
-
-    // 소수 저장값이 정상 역직렬화되는지
-    #[test]
-    fn visual_px_fields_accept_decimal_json() {
-        let json = key_position_json(
-            r#""noteWidth": 100.5, "noteBorderRadius": 8.5, "noteGlowSize": 20.5"#,
-        );
-        let pos: KeyPosition = serde_json::from_str(&json).unwrap();
-        assert_eq!(pos.note_width, Some(100.5));
-        assert_eq!(pos.note_border_radius, Some(8.5));
-        assert_eq!(pos.note_glow_size, 20.5);
-    }
-
-    // note_glow_size 미지정 시 기본값(20.0) 적용
-    #[test]
-    fn note_glow_size_defaults_to_20() {
-        let json = key_position_json(r#""noteWidth": null"#);
-        let pos: KeyPosition = serde_json::from_str(&json).unwrap();
-        assert_eq!(pos.note_glow_size, 20.0);
-        assert_eq!(pos.note_width, None);
-    }
-
-    #[test]
-    fn key_limiter_excluded_defaults_to_false() {
-        let json = key_position_json(r#""noteWidth": null"#);
-        let pos: KeyPosition = serde_json::from_str(&json).unwrap();
-        assert!(!pos.key_limiter_excluded);
-    }
-}
+mod tests;

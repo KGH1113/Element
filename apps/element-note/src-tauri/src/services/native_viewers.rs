@@ -93,7 +93,7 @@ fn native_surfaces(store: &AppStoreData, base_url: &tauri::Url) -> Vec<Value> {
         ),
     ] {
         if !store
-            .tabs
+            .custom_tabs
             .iter()
             .any(|tab| tab.viewer_kind == kind && &tab.id == selected)
         {
@@ -177,7 +177,7 @@ mod tests {
             assert_eq!(surface["width"], 860);
             assert_eq!(surface["height"], 320);
         }
-        store.tabs.clear();
+        store.custom_tabs.clear();
         assert!(native_surfaces(&store, &base).is_empty());
     }
 

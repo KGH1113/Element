@@ -1,5 +1,6 @@
 import type {
   DMNoteAPI,
+  PluginScopedAPI,
   PluginDisplayElementInternal,
 } from '@src/types/plugin/api';
 
@@ -59,7 +60,7 @@ declare global {
   }
 
   // dmn 전역 변수 (window. 없이 바로 접근 가능)
-  const dmn: DMNoteAPI;
+  const dmn: PluginScopedAPI;
 }
 
 export {};

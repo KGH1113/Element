@@ -53,13 +53,16 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   /// <summary>The values this shape's numbers use.</summary>
   public OverlayValueMask ValueMask => _formulas.Mask;
 
-  /// <summary>Screen pixels per reference unit of the shape's box.</summary>
+  /// <summary>
+  /// Pixels per reference unit of the shape's box, in whatever the canvas is
+  /// drawn into: the game window, or OrbitRender's video while it renders.
+  /// </summary>
   public float PixelsPerUnit
   {
     get
     {
-      Rect bounds = RectBounds;
-      return _resolved.Width > 0 ? bounds.width / _resolved.Width : 1;
+      Rect bounds = CanvasRectBounds;
+      return _resolved.Width > 0 ? bounds.width * CanvasScale / _resolved.Width : 1;
     }
   }
 
@@ -119,10 +122,13 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     bool resized = Rect.sizeDelta != size;
     if (resized)
       Rect.sizeDelta = size;
+    _formulas.ResolvePaints(_resolved, source, OverlayTheme.Accent);
     _graphic.SetShape(
       _resolved,
       OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _formulas.FillAlpha, source),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _formulas.StrokeAlpha, source)
+      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _formulas.StrokeAlpha, source),
+      _formulas.FillGradient,
+      _formulas.StrokeGradient
     );
     _graphic.SetPixelsPerUnit(PixelsPerUnit);
     // A size that follows a value grows away from the point that stays put.

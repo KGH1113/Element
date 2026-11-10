@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
+using Element.Configuration;
 using Element.Domain.DmNote;
+using Element.Domain.Layout;
 
 namespace Element.Tests;
 
@@ -46,6 +49,75 @@ internal static class NativeViewerTests
     surface.Width = 860;
     surface.Height = -1;
     Check(!surface.IsValid(), "Negative height is invalid.");
+    ViewersFollowTheProfile();
+    UnmovedViewersStartFullSizeOnTheBottomLeft();
+  }
+
+  // A viewer the player has not moved (or reset) starts at 100% on the bottom
+  // left: the hand viewer raised from the edge, the foot viewer right of it.
+  private static void UnmovedViewersStartFullSizeOnTheBottomLeft()
+  {
+    OverlayLayoutSettings hand = NativeViewerDefaultLayout.For("hand");
+    OverlayLayoutSettings foot = NativeViewerDefaultLayout.For("foot");
+    Check(
+      OverlayLayoutPosition.IsAnchored(hand) && OverlayLayoutPosition.IsAnchored(foot),
+      "Default viewers must use the anchored placement every moved viewer uses."
+    );
+    Check(hand.Scale == 1 && foot.Scale == 1, "Default viewers must start at 100%, not the old 50% fit.");
+
+    LayoutBounds handBounds = OverlayLayoutPosition.Resolve(hand, 562, 176, 1920, 1080);
+    LayoutBounds footBounds = OverlayLayoutPosition.Resolve(foot, 149, 35, 1920, 1080);
+    Check(
+      handBounds.X == 0 && Math.Abs(handBounds.Y + handBounds.Height - (1080 - 202.04f)) < .01f,
+      "The hand viewer must sit on the left edge, raised from the bottom."
+    );
+    Check(
+      footBounds.X > 0 && footBounds.Y + footBounds.Height > handBounds.Y + handBounds.Height,
+      "The foot viewer must sit right of the hand viewer, nearer the bottom edge."
+    );
+
+    hand.OffsetY = 0;
+    Check(
+      NativeViewerDefaultLayout.For("hand").OffsetY != 0,
+      "Each viewer must get its own default, so moving one cannot move the others."
+    );
+  }
+
+  // Switching profiles: the old profile's viewers leave the screen and stay
+  // out of the new profile's list; the new profile's viewers come.
+  private static void ViewersFollowTheProfile()
+  {
+    string[] gallery = { "dmnote-hand", "dmnote-foot" };
+    var current = new List<string>(gallery) { "native-hand:old", "native-foot:kept" };
+    var layouts = new List<OverlayLayoutSettings>
+    {
+      new() { Id = "text", TemplateId = OverlayElementKinds.Text },
+      new() { Id = "native-foot:kept", TemplateId = OverlayElementKinds.FootKeyViewer },
+      new() { Id = "native-hand:new", TemplateId = OverlayElementKinds.HandKeyViewer },
+      null,
+    };
+    var removed = new List<string>();
+    var added = new List<KeyValuePair<string, string>>();
+    NativeViewerLayoutSync.Plan(current, gallery, layouts, removed, added);
+    Check(
+      removed.Count == 1 && removed[0] == "native-hand:old",
+      "A viewer the new profile lacks must leave, and the gallery viewers stay."
+    );
+    Check(
+      added.Count == 1 && added[0].Key == "native-hand:new" && added[0].Value == "hand",
+      "A viewer only the new profile has must come, with its kind."
+    );
+    Check(layouts.Count == 4, "Following a profile must not add other viewers to its list.");
+
+    removed.Clear();
+    added.Clear();
+    NativeViewerLayoutSync.Plan(new[] { "native-foot:kept", "native-hand:new" }, gallery, layouts, removed, added);
+    Check(removed.Count == 0 && added.Count == 0, "Viewers already following the list change nothing.");
+    Check(
+      NativeViewerLayoutSync.Kind(OverlayElementKinds.Text) == null
+        && NativeViewerLayoutSync.Kind(OverlayElementKinds.FootKeyViewer) == "foot",
+      "Only key viewer templates are viewers."
+    );
   }
 
   private static void Check(bool value, string message)

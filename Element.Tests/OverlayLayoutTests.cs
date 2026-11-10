@@ -12,6 +12,7 @@ internal static class OverlayLayoutTests
   {
     AnchoredPositions();
     NativeGrowth();
+    NativeShrunkToFit();
     LayoutBounds start = new(100f, 80f, 200f, 100f);
     LayoutHandle[] handles =
     {
@@ -243,6 +244,53 @@ internal static class OverlayLayoutTests
       "unavailable geometry cannot produce a persisted capture"
     );
     AnchorPersistence();
+    CanvasPlacement();
+  }
+
+  // OrbitRender draws the overlay canvas into its video, whose aspect can differ
+  // from the game window's. A 3600x2260 window is about 1817x1141 canvas units;
+  // a 16:9 video is 1920x1080 at any resolution.
+  private static void CanvasPlacement()
+  {
+    float scale = OverlayLayoutPosition.ScreenScale(3600, 2260);
+    float windowWidth = 3600 / scale;
+    float windowHeight = 2260 / scale;
+    Near(1, OverlayLayoutPosition.ScreenScale(windowWidth, windowHeight), "canvas units are reference pixels");
+
+    OverlayLayoutSettings bottom = Anchored(new AnchoredLayoutPosition(Anchor9.Bottom, 0, -4.1875f));
+    LayoutBounds pixels = OverlayLayoutPosition.Resolve(bottom, 300 * scale, 30 * scale, 3600, 2260);
+    LayoutBounds window = OverlayLayoutPosition.ResolveInCanvas(bottom, 300, 30, windowWidth, windowHeight);
+    Near(pixels.X / scale, window.X, "canvas units place an element where the window's pixels do, across");
+    Near(pixels.Y / scale, window.Y, "canvas units place an element where the window's pixels do, down");
+
+    // Kept at its distance from its anchor, the element lands in the video where
+    // resolving for the video puts it: at the bottom, not below the frame.
+    (float x, float y) = OverlayLayoutPosition.AnchorPoint(bottom);
+    Near(.5f, x, "a bottom anchor is centered across");
+    Near(1, y, "a bottom anchor is at the bottom");
+    LayoutBounds video = OverlayLayoutPosition.ResolveInCanvas(bottom, 300, 30, 1920, 1080);
+    Near(video.X, x * 1920 + window.X - x * windowWidth, "the pinned element matches the video's layout across");
+    Near(video.Y, y * 1080 + window.Y - y * windowHeight, "the pinned element matches the video's layout down");
+    Near(1080 - 4.1875f, video.Bottom, "an element at the window's bottom stays at the video's bottom");
+    float fromCenter = window.Y - windowHeight * .5f;
+    Check(1080 * .5f + fromCenter + 30 > 1080, "measured from the center, as before, it fell below the video");
+
+    OverlayLayoutSettings top = Anchored(new AnchoredLayoutPosition(Anchor9.Top, 0, 43.875f));
+    Near(
+      43.875f,
+      OverlayLayoutPosition.ResolveInCanvas(top, 400, 40, 1920, 1080).Y,
+      "a title under the top edge keeps its margin in the video"
+    );
+
+    OverlayLayoutSettings legacy = new()
+    {
+      Customized = true,
+      CenterX = .25f,
+      CenterY = .9f,
+    };
+    (x, y) = OverlayLayoutPosition.AnchorPoint(legacy);
+    Near(.25f, x, "a legacy placement keeps its saved center across");
+    Near(.9f, y, "a legacy placement keeps its saved center down");
   }
 
   private static void NativeGrowth()
@@ -309,6 +357,25 @@ internal static class OverlayLayoutTests
       NativeViewerGrowth.Capture(new(0, 0, 0, 60), 1920, 1080, 1) == null,
       "unavailable native geometry cannot initialize growth"
     );
+  }
+
+  // A 600x200 viewer at 300% asked for 1000% shows at 320%, the most a
+  // 1920x1080 view holds. The toolbar scales it at its center from there.
+  private static void NativeShrunkToFit()
+  {
+    LayoutBounds shown = new(60, 400, 1800, 600);
+    LayoutBounds grown = OverlayLayoutGeometry.ScaleAtCenter(shown, 10 / 3f, 1920, 1080, .2f / 3, 10 / 3f);
+    OverlayLayoutSettings placement = NativeViewerGrowth.Capture(grown, 1920, 1080, 10, Anchor9.BottomLeft);
+    LayoutBounds fitted = NativeViewerGrowth.Place(placement, 1920, 640, 1920, 1080, true);
+    Check(
+      fitted.X >= 0 && fitted.Y >= 0 && fitted.Right <= 1920.01f && fitted.Bottom <= 1080.01f,
+      "a viewer shrunk to fit stays inside the view"
+    );
+    Near(1080, fitted.Bottom, "a viewer shrunk to fit keeps to its anchored corner");
+    LayoutBounds smaller = OverlayLayoutGeometry.ScaleAtCenter(fitted, 1 / 3.2f, 1920, 1080, .2f / 3.2f, 10 / 3.2f);
+    Near(600, smaller.Width, "a viewer shrunk to fit can be scaled down again");
+    LayoutBounds unshrunk = NativeViewerGrowth.Place(placement, 600, 200, 1920, 1080, false);
+    Near(60, unshrunk.Right, "a viewer that fits may still sit mostly off screen");
   }
 
   private static void AnchorPersistence()

@@ -21,6 +21,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   private readonly List<TargetFrame> _frames = new();
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
+  private string _openingFont;
   private readonly TMP_FontAsset _font;
   private readonly Action<bool> _onClosed;
   private readonly LayoutCursors _cursors = new();
@@ -70,6 +71,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     RebuildFrames();
     _openingLayout = new LayoutSnapshot(_host.LayoutSettings);
     _openingColor = _preferences.HighlightColor;
+    _openingFont = _preferences.OverlayFont;
     _previousCursorVisible = Cursor.visible;
     _previousCursorLock = Cursor.lockState;
     Cursor.visible = true;
@@ -134,6 +136,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       _openingLayout.Restore(_host.LayoutSettings);
       _preferences.HighlightColor = _openingColor;
       OverlayTheme.SetHighlight(_openingColor);
+      _preferences.OverlayFont = _openingFont;
+      _host.Fonts?.SetDefault(_openingFont);
       RefreshLayouts();
     }
     foreach (TargetFrame frame in _frames)
@@ -189,6 +193,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     bool typing = (_scaleInput != null && _scaleInput.isFocused) || PopoverTyping;
     UIInteractionState.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
     UpdatePopupPositions();
+    _fontPopover?.Tick();
     if (_modalRoot != null || AnyPopoverVisible)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
@@ -415,6 +420,8 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     CloseElementSettings();
     CloseModal();
     _colorPopover?.Dispose();
+    _fontPopover?.Dispose();
+    _fontUi?.Dispose();
     _ui?.Dispose();
     UIInteractionState.SetTextEditing(false);
     if (_ownedEvents != null)
@@ -579,7 +586,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       if (bounds.width <= 0 || bounds.height <= 0)
         continue;
       Vector2 localPointer = PointerFor(target, pointer);
-      bool resizable = index == _selected && !MultiSelected && !SizedInEditor(target);
+      bool resizable = index == _selected && Resizable(target);
       LayoutHandle handle = OverlayLayoutGeometry.HitTest(
         ToBounds(bounds),
         localPointer.x,
@@ -602,6 +609,10 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     return best;
   }
+
+  // Dragging an edge resizes one selected element, except texts and shapes,
+  // which are sized in their editor. Several selected only move.
+  private bool Resizable(IOverlayLayoutTarget target) => !MultiSelected && !SizedInEditor(target);
 
   private static Vector2 PointerFor(IOverlayLayoutTarget target, Vector2 fallback) =>
     target is IOverlayLayoutPointer native ? native.PointerInLayoutSpace(fallback) : fallback;
@@ -626,6 +637,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       Rect bounds = frame.Target.Bounds;
       SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(UiScale);
+      frame.Outline.SetHandles(Resizable(frame.Target));
       Rect panel = NativeExclusionBounds;
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }

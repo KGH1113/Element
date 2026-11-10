@@ -116,7 +116,7 @@ fn extract_fn_name(line: &str) -> Option<String> {
 
 /// 빌드 프로필에 따라 tauri-build를 실행합니다.
 /// 릴리즈 빌드에서는 Windows 관리자 권한을 요청하는 manifest를 적용하고,
-/// 개발 서버(tauri dev)에서는 기본 설정을 사용합니다.
+/// 그 밖의 Windows 빌드(테스트 포함)는 링커가 app.manifest를 넣습니다.
 fn build_tauri() {
     #[cfg(target_os = "windows")]
     {
@@ -134,7 +134,24 @@ fn build_tauri() {
                 return;
             }
         }
+
+        // Test executables link Common Controls v6 (TaskDialogIndirect) like
+        // the app, but tauri-build's resource manifest reaches only the app.
+        // Without a manifest they exit with STATUS_ENTRYPOINT_NOT_FOUND, so the
+        // linker embeds one into every executable of a non-release build.
+        println!("cargo:rerun-if-changed=app.manifest");
+        let manifest = std::path::Path::new(&std::env::var("CARGO_MANIFEST_DIR").unwrap())
+            .join("app.manifest");
+        println!("cargo:rustc-link-arg=/MANIFEST:EMBED");
+        println!("cargo:rustc-link-arg=/MANIFESTINPUT:{}", manifest.display());
+        tauri_build::try_build(
+            tauri_build::Attributes::new()
+                .windows_attributes(tauri_build::WindowsAttributes::new_without_app_manifest()),
+        )
+        .expect("tauri 빌드 실패");
+        return;
     }
+    #[allow(unreachable_code)]
     tauri_build::build();
 }
 

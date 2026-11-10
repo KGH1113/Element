@@ -1,11 +1,21 @@
 # Differences from DM Note
 
-ElementNote is based on DM Note 1.6.1 at commit
-`167f7c8223d790f8d1240737293dba46bedf4753`. The exact upstream provenance and
+ElementNote uses the DM Note 2.1.0 runtime at commit
+`7b4b9cf524ceca4a2c98abb6011094c2b6e38085`. The exact upstream provenance and
 copyright information are recorded in [`UPSTREAM.md`](UPSTREAM.md).
 
 This document records the intentional product-level differences from that
 upstream snapshot.
+
+## Presentation compatibility
+
+- Element's existing desktop UI and shadcn components are retained.
+- Key viewers retain DM Note v1 appearance, including the key DOM, custom CSS
+  variables, border/radius defaults, images, notes, and counter typography.
+- The existing editor connects to the v2 revisioned editor document through an
+  adapter that preserves fields not exposed by the current UI.
+- Existing visual baselines remain unchanged. Migration boundaries and checks
+  are described in [`docs/element-note-dmnote-v2.md`](../../docs/element-note-dmnote-v2.md).
 
 ## Identity and storage
 

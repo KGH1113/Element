@@ -110,6 +110,49 @@ internal static class OverlayLayoutPosition
     float elementHeight,
     float viewportWidth,
     float viewportHeight
+  ) =>
+    Resolve(
+      settings,
+      elementWidth,
+      elementHeight,
+      viewportWidth,
+      viewportHeight,
+      ScreenScale(SafeSize(viewportWidth), SafeSize(viewportHeight))
+    );
+
+  /// <summary>
+  /// <see cref="Resolve(OverlayLayoutSettings, float, float, float, float)"/> in
+  /// canvas units, which CanvasScaler has already scaled to the viewport, so the
+  /// saved offsets apply as they are. The overlay canvas uses these units whatever
+  /// it is drawn into: the game window, or OrbitRender's video.
+  /// </summary>
+  public static LayoutBounds ResolveInCanvas(
+    OverlayLayoutSettings settings,
+    float elementWidth,
+    float elementHeight,
+    float canvasWidth,
+    float canvasHeight
+  ) => Resolve(settings, elementWidth, elementHeight, canvasWidth, canvasHeight, 1);
+
+  /// <summary>
+  /// The point of the viewport an element keeps its distance to, normalized with
+  /// the origin at the top left: its anchor, or a legacy placement's saved center.
+  /// </summary>
+  public static (float X, float Y) AnchorPoint(OverlayLayoutSettings settings) =>
+    IsAnchored(settings)
+      ? (AnchorX(settings.Anchor), AnchorY(settings.Anchor))
+      : (
+        Math.Max(0, Math.Min(1, LegacyCenter(settings?.CenterX ?? .5f))),
+        Math.Max(0, Math.Min(1, LegacyCenter(settings?.CenterY ?? .5f)))
+      );
+
+  private static LayoutBounds Resolve(
+    OverlayLayoutSettings settings,
+    float elementWidth,
+    float elementHeight,
+    float viewportWidth,
+    float viewportHeight,
+    float scale
   )
   {
     float width = SafeSize(elementWidth);
@@ -118,7 +161,6 @@ internal static class OverlayLayoutPosition
     float screenHeight = SafeSize(viewportHeight);
     if (IsAnchored(settings))
     {
-      float scale = ScreenScale(screenWidth, screenHeight);
       Anchor9 pivot = GrowPoint(settings.GrowFrom, settings.Anchor);
       return new LayoutBounds(
         AnchorX(settings.Anchor) * screenWidth - AnchorX(pivot) * width + settings.OffsetX * scale,

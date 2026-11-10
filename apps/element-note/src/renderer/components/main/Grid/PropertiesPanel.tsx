@@ -1061,7 +1061,8 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       Object.entries(selectedPluginDefinition.settings).forEach(
         ([key, schema]) => {
           const schemaValue = schema as PluginSettingSchema;
-          if (schemaValue.type === 'divider') return;
+          if (schemaValue.type === 'divider' || schemaValue.type === 'section')
+            return;
           defaults[key] = schemaValue.default;
         },
       );
@@ -2199,8 +2200,17 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         if (!vis) return null;
       }
 
-      if (schemaValue.type === 'divider') {
-        return <SectionDivider key={`divider-${key}`} />;
+      if (schemaValue.type === 'divider' || schemaValue.type === 'section') {
+        return (
+          <div key={`section-${key}`} className="w-full">
+            {schemaValue.type === 'section' && schemaValue.label ? (
+              <div className="mb-2 text-[12px] font-semibold">
+                {translate(schemaValue.label, schemaValue.label)}
+              </div>
+            ) : null}
+            <SectionDivider />
+          </div>
+        );
       }
       const rawValue =
         values[key] !== undefined ? values[key] : schemaValue.default;

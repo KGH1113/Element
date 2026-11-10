@@ -174,7 +174,16 @@
     "noteBorderColor": "테두리 색상",
     "borderSideAll": "전체",
     "borderSideVertical": "수직",
-    "borderSideHorizontal": "수평"
+    "borderSideHorizontal": "수평",
+    "saveFailedReverted": "키 변경을 저장하지 못해 이전 키로 되돌렸습니다. 다시 바꿔 주세요.",
+    "saveFailed": "키 변경을 저장하지 못했습니다. 다른 탭으로 갔다가 돌아오면 저장된 키를 볼 수 있습니다."
+  },
+  "itemSave": {
+    "statPositions": "통계",
+    "graphPositions": "그래프",
+    "knobPositions": "노브",
+    "failedReverted": "{{item}} 변경을 저장하지 못해 이전 상태로 되돌렸습니다. 다시 바꿔 주세요.",
+    "failed": "{{item}} 변경을 저장하지 못했습니다. 잠시 후 다시 바꿔 주세요."
   },
   "imagePicker": {
     "idle": "대기",
@@ -341,6 +350,9 @@
     "addStat": "통계 추가",
     "addGraph": "그래프 추가",
     "addKnob": "노브 추가",
+    "addSprite": "스프라이트 추가",
+    "editSprite": "스프라이트 편집",
+    "sprite": "스프라이트",
     "rename": "이름 변경",
     "quitApp": "프로그램 종료",
     "snapToEdge": "화면 모서리에 맞추기",

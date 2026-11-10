@@ -10,6 +10,16 @@ internal enum KeyViewerAvailability
   HiddenInApp,
 }
 
+internal enum KeyViewerEditResult
+{
+  Opened,
+  AppClosed,
+
+  /// <summary>The running ElementNote predates editing from the game.</summary>
+  AppOutdated,
+  Failed,
+}
+
 /// <summary>ElementNote's in-game key viewers, as the layout editor adds and switches them.</summary>
 internal interface IKeyViewerElements
 {
@@ -28,4 +38,7 @@ internal interface IKeyViewerElements
   /// The old viewer is hidden, not removed, so undo can bring it back.
   /// </summary>
   IOverlayLayoutTarget Switch(IOverlayLayoutTarget target, string templateId);
+
+  /// <summary>Brings ElementNote in front of the game on the tab <paramref name="target"/> shows.</summary>
+  KeyViewerEditResult OpenInApp(IOverlayLayoutTarget target);
 }

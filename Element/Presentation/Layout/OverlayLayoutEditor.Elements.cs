@@ -19,6 +19,8 @@ internal sealed partial class OverlayLayoutEditor
   private GameObject _modalRoot;
   private SettingsUiFactory _modalUi;
   private OverlayColorPopover _colorPopover;
+  private OverlayFontPopover _fontPopover;
+  private SettingsUiFactory _fontUi;
   private RectTransform _addMenu;
   private SettingsUiFactory _addMenuUi;
   private int _modalWidth,
@@ -67,6 +69,8 @@ internal sealed partial class OverlayLayoutEditor
   {
     if (_colorPopover?.Visible ?? false)
       yield return _colorPopover.Root;
+    if (_fontPopover?.Visible ?? false)
+      yield return _fontPopover.Root;
     if (_addMenu != null)
       yield return _addMenu;
     if (_shapeMenu != null)
@@ -105,9 +109,10 @@ internal sealed partial class OverlayLayoutEditor
 
   // Popovers that close on an outside click. The selection's settings popup
   // stays open and never blocks the canvas.
-  private bool AnyPopoverVisible => (_colorPopover?.Visible ?? false) || _addMenu != null;
+  private bool AnyPopoverVisible =>
+    (_colorPopover?.Visible ?? false) || (_fontPopover?.Visible ?? false) || _addMenu != null;
 
-  private bool PopoverTyping => _colorPopover?.IsTyping ?? false;
+  private bool PopoverTyping => (_colorPopover?.IsTyping ?? false) || (_fontPopover?.IsTyping ?? false);
 
   private bool PopoverContains(Vector2 point)
   {
@@ -124,13 +129,17 @@ internal sealed partial class OverlayLayoutEditor
     else if (_addMenu != null)
       CloseAddMenu();
     else
+    {
       _colorPopover?.Hide();
+      _fontPopover?.Hide();
+    }
   }
 
   private void ClosePopovers()
   {
     CloseAddMenu();
     _colorPopover?.Hide();
+    _fontPopover?.Hide();
   }
 
   /// <summary>Applies typed popover values; false keeps the editor open to fix them.</summary>
@@ -143,6 +152,8 @@ internal sealed partial class OverlayLayoutEditor
   {
     if (_colorPopover?.Visible ?? false)
       _colorPopover.Root.SetAsLastSibling();
+    if (_fontPopover?.Visible ?? false)
+      _fontPopover.Root.SetAsLastSibling();
     _addMenu?.SetAsLastSibling();
     _shapeMenu?.SetAsLastSibling();
     _settingsPanel?.SetAsLastSibling();
@@ -198,6 +209,14 @@ internal sealed partial class OverlayLayoutEditor
         OverlayColorPopover.Width,
         OverlayColorPopover.Height
       );
+    if (_fontPopover?.Visible ?? false)
+    {
+      float width = OverlayFontPopover.PreferredWidth,
+        height = OverlayFontPopover.PreferredHeight;
+      Rect bounds = PopoverAboveToolbar(width, height, 0, true);
+      _fontPopover.Place(bounds.x, bounds.y, width, height);
+      _fontPopover.Root.localScale = Vector3.one * (bounds.width / width);
+    }
     if (_addMenu != null)
     {
       float height = AddMenuHeight;
@@ -207,6 +226,47 @@ internal sealed partial class OverlayLayoutEditor
     UpdateSettingsPosition();
     if (_modalRoot != null && (_modalWidth != ViewWidth || _modalHeight != ViewHeight))
       _rebuildModal?.Invoke();
+  }
+
+  // The default font of every text; a text's own fonts stay as they are.
+  private void ToggleFont()
+  {
+    if (_host.Fonts == null)
+      return;
+    if (_fontPopover == null)
+    {
+      _fontUi = new SettingsUiFactory(_font) { ReduceMotion = () => _preferences.ReduceUiMotion };
+      _fontPopover = new OverlayFontPopover(
+        _fontUi,
+        _root.transform,
+        _host.Fonts,
+        _preferences.ReduceUiMotion,
+        PickDefaultFont
+      );
+    }
+    if (_fontPopover.Visible)
+      _fontPopover.Hide();
+    else
+    {
+      if (!CommitPopovers())
+        return;
+      ClosePopovers();
+      _fontPopover.Show(
+        L("오버레이 기본 폰트", "Overlay default font"),
+        _preferences.OverlayFont ?? "",
+        L("메이플스토리", "MapleStory"),
+        L("기본 제공", "Built-in")
+      );
+      UpdatePopupPositions();
+    }
+    FinishDrag();
+    _toolbarDragging = false;
+  }
+
+  private void PickDefaultFont(string key)
+  {
+    _preferences.OverlayFont = Configuration.OverlayFontKey.Normalize(key);
+    _host.Fonts?.SetDefault(_preferences.OverlayFont);
   }
 
   private void ToggleColor()

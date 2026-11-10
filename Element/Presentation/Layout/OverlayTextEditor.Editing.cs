@@ -26,6 +26,7 @@ internal sealed partial class OverlayTextEditor
   private string _clipboardText;
   private OverlayColorSettings _pendingColor;
   private float _pendingSize;
+  private string _pendingFont = "";
   private int _caretIndex;
   private int _anchor;
   private float _goalX = float.NaN;
@@ -37,6 +38,7 @@ internal sealed partial class OverlayTextEditor
   private float _lastTypingAt = -1;
   private bool _pickerSnapshotTaken;
   private float _previewScale = 1;
+  private int _fontVersion = -1;
 
   private bool HasSelection => _anchor != _caretIndex;
 
@@ -55,6 +57,18 @@ internal sealed partial class OverlayTextEditor
     {
       if (Input.GetKeyDown(KeyCode.Escape))
         _picker.Hide();
+      return;
+    }
+    _fontPopover.Tick();
+    // The font search takes the keyboard; Esc closes the list.
+    if (_fontPopover.IsTyping)
+    {
+      if (Input.GetKeyDown(KeyCode.Escape))
+      {
+        _fontPopover.Hide();
+        Render();
+      }
+      FollowLiveValues();
       return;
     }
     HandleMouse();
@@ -78,13 +92,23 @@ internal sealed partial class OverlayTextEditor
     _dock.Blink(blink);
     UpdateImePosition();
     FollowLiveValues();
+    if (_space.Moving)
+    {
+      float blinkStart = _blinkStart;
+      Render();
+      _blinkStart = blinkStart;
+    }
   }
 
   // A level playing behind the editor moves the values it shows.
   private void FollowLiveValues()
   {
-    if (!_live.Changed(_liveMask))
+    // A font that finished loading (installed fonts are listed in the background) redraws too.
+    bool fonts = _element != null && _element.Fonts.Version != _fontVersion;
+    if (!_live.Changed(_liveMask) && !fonts)
       return;
+    if (fonts)
+      ApplyPreviewFont();
     float blinkStart = _blinkStart;
     Render();
     _blinkStart = blinkStart;
@@ -101,7 +125,7 @@ internal sealed partial class OverlayTextEditor
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
     }
-    return mask;
+    return mask | (_previewGradients?.Mask ?? OverlayValueMask.None);
   }
 
   private OverlayColorSettings TypingColor(int caret) =>
@@ -112,6 +136,8 @@ internal sealed partial class OverlayTextEditor
 
   private string TypingSizeFormula(int caret) =>
     _document.Count == 0 ? _pendingSizeFormula : _document.TypingSizeFormula(caret);
+
+  private string TypingFont(int caret) => _document.Count == 0 ? _pendingFont : _document.TypingFont(caret);
 
   // While a popover is open: Enter and Esc close it, and with a formula open
   // the keyboard types into it like the keypad. Other keys go back to the
@@ -255,16 +281,18 @@ internal sealed partial class OverlayTextEditor
   private void HandleMouse()
   {
     Vector2 screen = Input.mousePosition;
-    if (_dragValue != null || _dock.Dragging)
+    if (_dragValue != null || _dock.Dragging || _handles.Dragging)
       return;
     if (Input.GetMouseButtonDown(0))
     {
-      // Popovers, the bar and the picker handle their own clicks.
+      // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         _dock.Contains(screen)
         || _growPopover.Contains(screen)
+        || _fontPopover.Contains(screen)
         || OverlayEditorUi.Contains(_formatBar, screen)
         || OverlayEditorUi.Contains(_picker.Root, screen)
+        || _handles.Contains(screen)
       )
         return;
       bool popover = AnyPopover;
@@ -325,6 +353,8 @@ internal sealed partial class OverlayTextEditor
     foreach (RectTransform blocked in new[] { _dock.Root, _growPopover.Root, _formatBar, _picker.Root })
       if (OverlayEditorUi.Contains(blocked, screen))
         return false;
+    if (_fontPopover.Contains(screen))
+      return false;
     float y = _screen.ToFrame(screen).y;
     return y >= OverlayEditorFrame.TopBar && y < _bottomTop - 18;
   }
@@ -341,7 +371,8 @@ internal sealed partial class OverlayTextEditor
       text,
       TypingColor(start),
       TypingSize(start),
-      TypingSizeFormula(start)
+      TypingSizeFormula(start),
+      TypingFont(start)
     );
     Changed();
   }
@@ -417,7 +448,8 @@ internal sealed partial class OverlayTextEditor
         system,
         TypingColor(start),
         TypingSize(start),
-        TypingSizeFormula(start)
+        TypingSizeFormula(start),
+        TypingFont(start)
       );
       Changed();
     }
@@ -493,13 +525,21 @@ internal sealed partial class OverlayTextEditor
     float frameWidth = _screen.Width;
     float top = OverlayEditorFrame.TopBar + 64,
       bottom = _bottomTop - 40;
-    Vector2 available = new Vector2(frameWidth - OverlayEditorFrame.Margin * 2, Mathf.Max(40, bottom - top)) * _scale;
+    // The text and its bar keep to the space left of an open picker.
+    float spaceLeft = OverlayEditorFrame.Margin,
+      spaceRight = frameWidth - OverlayEditorFrame.Margin;
+    if (_picker.Visible)
+      spaceRight = Mathf.Min(spaceRight, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+    // It glides aside as the picker opens, and back as it closes.
+    spaceRight = _space.Toward(spaceRight, _reduceMotion());
+    float middle = (spaceLeft + spaceRight) * .5f;
+    Vector2 available = new Vector2(Mathf.Max(40, spaceRight - spaceLeft), Mathf.Max(40, bottom - top)) * _scale;
     // The game's size, unless the text would not fit on screen.
     _previewScale = Mathf.Min(_elementScale * ScreenScale, available.x / preferred.x, available.y / preferred.y);
     RectTransform rect = _preview.rectTransform;
     rect.sizeDelta = preferred;
     rect.localScale = new Vector3(_previewScale, _previewScale, 1);
-    Vector2 center = new Vector2(frameWidth * .5f, (top + bottom) * .5f) * _scale;
+    Vector2 center = new Vector2(middle, (top + bottom) * .5f) * _scale;
     rect.anchoredPosition = new Vector2(center.x, -center.y);
     _preview.ForceMeshUpdate();
     Map();
@@ -511,7 +551,7 @@ internal sealed partial class OverlayTextEditor
     float barWidth = LayoutFormatBar();
     SettingsUiFactory.Place(
       _formatBar,
-      frameWidth * .5f - barWidth * .5f,
+      Mathf.Max(OverlayEditorFrame.Margin, middle - barWidth * .5f),
       Mathf.Max(OverlayEditorFrame.TopBar, textTop - FormatHeight - 18),
       barWidth,
       FormatHeight
@@ -519,7 +559,10 @@ internal sealed partial class OverlayTextEditor
     Color swatch = OverlayTextComposer.Resolve(RangeColor(), OverlayTheme.Accent);
     swatch.a = 1;
     _colorButton.Swatch = swatch;
+    ShowSwatchGradient(RangeColor());
     PlacePicker();
+    ShowGradient();
+    PlaceFontPopover();
     RefreshDock();
     PlaceGrowMark();
     PlaceEmptyHint(center, empty);
@@ -548,7 +591,7 @@ internal sealed partial class OverlayTextEditor
   {
     float y = (FormatHeight - OverlayBarButton.Height) * .5f;
     float x = y;
-    foreach (OverlayBarButton button in new[] { _sizeButton, _colorButton, _growButton })
+    foreach (OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _growButton })
     {
       button.Place(x, y);
       x += button.Width + 4;
@@ -578,14 +621,16 @@ internal sealed partial class OverlayTextEditor
     _builder.Clear();
     Color highlight = OverlayTheme.Accent;
     IOverlayNumberSource samples = _values.WithSamples;
+    BeginComposeGradients(highlight);
     OverlayTextItem? open = null;
     float openSize = 0;
+    string openFont = null;
     for (int i = 0; i <= _document.Count; i++)
     {
       if (i == _caretIndex && _composition.Length > 0)
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         open = null;
         float typing = OverlayTextComposer.Size(
           TypingSize(i),
@@ -593,11 +638,12 @@ internal sealed partial class OverlayTextEditor
           samples,
           _elementScale
         );
-        OverlayTextComposer.OpenStyle(_builder, OverlayTextComposer.Resolve(TypingColor(i), highlight), typing);
+        string typingFont = FontTag(TypingFont(i));
+        OverlayTextComposer.OpenStyle(_builder, PaintColor(TypingColor(i), highlight, samples), typing, typingFont);
         _builder.Append("<u>");
         OverlayTextComposer.AppendLiteral(_builder, _composition);
         _builder.Append("</u>");
-        OverlayTextComposer.CloseStyle(_builder, typing);
+        OverlayTextComposer.CloseStyle(_builder, typing, typingFont);
       }
       if (i == _document.Count)
         break;
@@ -605,38 +651,53 @@ internal sealed partial class OverlayTextEditor
       if (item.IsValue)
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         open = null;
         float size = ItemSize(item, samples);
-        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), size);
+        string font = FontTag(item.Font);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), size, font);
         _builder.Append("<link=\"").Append(OverlayTextComposer.ValueLink).Append("\">");
         int before = _builder.Length;
         OverlayFormulaText.Append(_builder, OverlayFormula.Parse(item.Value), _values, true);
         if (_builder.Length == before)
           _builder.Append(' ');
         _builder.Append("</link>");
-        OverlayTextComposer.CloseStyle(_builder, size);
+        OverlayTextComposer.CloseStyle(_builder, size, font);
         continue;
       }
       if (open == null || !open.Value.SameStyle(item))
       {
         if (open != null)
-          OverlayTextComposer.CloseStyle(_builder, openSize);
+          OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
         openSize = ItemSize(item, samples);
-        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), openSize);
+        openFont = FontTag(item.Font);
+        OverlayTextComposer.OpenStyle(_builder, ItemColor(item, highlight, samples), openSize, openFont);
         open = item;
       }
       OverlayTextComposer.AppendLiteral(_builder, item.Text);
     }
     if (open != null)
-      OverlayTextComposer.CloseStyle(_builder, openSize);
+      OverlayTextComposer.CloseStyle(_builder, openSize, openFont);
+  }
+
+  // A run in another font than the default switches to it, as in the game.
+  private string FontTag(string font) => _element?.Fonts?.OpenTag(font);
+
+  private void ApplyPreviewFont()
+  {
+    OverlayFonts fonts = _element.Fonts;
+    _fontVersion = fonts.Version;
+    if (_preview.font != fonts.DefaultAsset)
+      _preview.font = fonts.DefaultAsset;
+    if (_preview.fontSharedMaterial != fonts.DefaultMaterial)
+      _preview.fontSharedMaterial = fonts.DefaultMaterial;
   }
 
   private float ItemSize(OverlayTextItem item, IOverlayNumberSource samples) =>
     OverlayTextComposer.Size(item.Size, OverlayFormulaText.Compile(item.SizeFormula), samples, _elementScale);
 
-  private static Color ItemColor(OverlayTextItem item, Color highlight, IOverlayNumberSource samples) =>
-    OverlayTextComposer.Resolve(item.Color, highlight, OverlayFormulaText.Compile(item.Color.AlphaFormula), samples);
+  private Color ItemColor(OverlayTextItem item, Color highlight, IOverlayNumberSource samples) =>
+    PaintColor(item.Color, highlight, samples);
 
   // Where each item's characters are in the laid-out text.
   private void Map()

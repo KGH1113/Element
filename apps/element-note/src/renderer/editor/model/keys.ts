@@ -157,6 +157,7 @@ export function duplicateKey(
 
   const clonedPosition: KeyPosition = {
     ...sourcePosition,
+    id: undefined,
     dx: Math.round(targetDx),
     dy: Math.round(targetDy),
     counter: clonedCounter,

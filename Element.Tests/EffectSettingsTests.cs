@@ -99,6 +99,23 @@ internal static class EffectSettingsTests
       !settings.Activate("missing") && settings.ActivePresetId == second.Id,
       "Activating a missing preset must leave the active one."
     );
+
+    Check(
+      settings.Toggle(second.Id) && !settings.Enabled && settings.ActivePresetId == second.Id,
+      "Pressing the shortcut of the preset that is on must turn effect removal off and keep it selected."
+    );
+    Check(
+      settings.Toggle(second.Id) && settings.Enabled && settings.ActivePresetId == second.Id,
+      "Pressing it again must turn the same preset back on."
+    );
+    Check(
+      settings.Toggle(first.Id) && settings.Enabled && settings.ActivePresetId == first.Id,
+      "Another preset's shortcut must switch to that preset, not turn effect removal off."
+    );
+    Check(
+      !settings.Toggle("missing") && settings.Enabled && settings.ActivePresetId == first.Id,
+      "A missing preset's shortcut must change nothing."
+    );
   }
 
   private static void CameraZoomFollowsThePreset()

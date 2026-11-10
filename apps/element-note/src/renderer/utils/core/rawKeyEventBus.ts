@@ -20,6 +20,10 @@ class RawKeyEventBus {
   private listeners: Set<RawKeyEventListener> = new Set();
   private initialized = false;
   private unlistenFn: (() => void) | null = null;
+  // Whether the backend streams raw input to this window right now.
+  private backendSubscribed = false;
+  // Backend subscribe/unsubscribe calls run one at a time, in order.
+  private backendSync: Promise<void> = Promise.resolve();
 
   /**
    * 백엔드 raw input 이벤트 구독 초기화
@@ -54,48 +58,37 @@ class RawKeyEventBus {
 
   /**
    * Raw key 이벤트 리스너 등록
-   * 첫 번째 구독자일 경우 백엔드에 구독 시작 알림
+   * The returned function removes the listener at once, even while the
+   * backend is still answering, so a removed listener never hears a key.
    */
-  async subscribe(listener: RawKeyEventListener): Promise<() => void> {
-    const wasEmpty = this.listeners.size === 0;
+  subscribe(listener: RawKeyEventListener): () => void {
     this.listeners.add(listener);
+    this.syncBackend();
 
-    // 첫 번째 구독자면 백엔드에 알림 및 초기화
-    if (wasEmpty) {
-      await this.initialize();
-      try {
-        await invoke('raw_input_subscribe');
-      } catch (error) {
-        console.error(
-          '[RawKeyEventBus] Failed to subscribe to backend:',
-          error,
-        );
-      }
-    }
-
-    // unsubscribe 함수 반환
     return () => {
-      this.unsubscribe(listener);
+      if (!this.listeners.delete(listener)) return;
+      this.syncBackend();
     };
   }
 
-  /**
-   * 리스너 제거
-   * 마지막 구독자면 백엔드에 구독 중지 알림
-   */
-  private async unsubscribe(listener: RawKeyEventListener) {
-    this.listeners.delete(listener);
+  /** Keeps the backend streaming raw input exactly while someone listens. */
+  private syncBackend() {
+    this.backendSync = this.backendSync.then(() => this.reconcileBackend());
+  }
 
-    // 마지막 구독자가 제거되면 백엔드에 알림
-    if (this.listeners.size === 0) {
-      try {
-        await invoke('raw_input_unsubscribe');
-      } catch (error) {
-        console.error(
-          '[RawKeyEventBus] Failed to unsubscribe from backend:',
-          error,
-        );
-      }
+  private async reconcileBackend() {
+    const wanted = this.listeners.size > 0;
+    if (wanted === this.backendSubscribed) return;
+
+    try {
+      if (wanted) await this.initialize();
+      await invoke(wanted ? 'raw_input_subscribe' : 'raw_input_unsubscribe');
+      this.backendSubscribed = wanted;
+    } catch (error) {
+      console.error(
+        '[RawKeyEventBus] Failed to update the backend subscription:',
+        error,
+      );
     }
   }
 
@@ -110,16 +103,9 @@ class RawKeyEventBus {
    * 모든 리스너 제거 및 정리
    */
   async dispose() {
-    const hadListeners = this.listeners.size > 0;
     this.listeners.clear();
-
-    if (hadListeners) {
-      try {
-        await invoke('raw_input_unsubscribe');
-      } catch {
-        // 무시 - 앱 종료 시 발생할 수 있음
-      }
-    }
+    this.syncBackend();
+    await this.backendSync;
 
     if (this.unlistenFn) {
       this.unlistenFn();

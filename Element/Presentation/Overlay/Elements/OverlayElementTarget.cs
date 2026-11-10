@@ -16,6 +16,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 {
   private readonly Vector3[] _corners = new Vector3[4];
   private readonly OverlayLayoutSettings _stagedSettings = new();
+  private Canvas _canvas;
   private bool _staged;
   private Rect _stageOrigin;
   private bool _applying;
@@ -40,8 +41,53 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   public bool PendingFit => !string.IsNullOrEmpty(Settings?.PendingGroup);
 
   // Physical pixels, origin at the top left.
-  public virtual Rect Bounds => RectBounds;
+  public virtual Rect Bounds => BoundsFollowContent ? AnchorBounds : RectBounds;
   public virtual Rect SelectionBounds => Enabled ? Bounds : default;
+
+  /// <summary>Whether <see cref="Bounds"/> measures the drawn content instead of the layout rectangle.</summary>
+  protected virtual bool BoundsFollowContent => false;
+
+  // The layer this element sits in fills the canvas, so its rect is the viewport
+  // in canvas units: the game window, or OrbitRender's video while it renders.
+  private Rect Viewport => Rect.parent is RectTransform layer ? layer.rect : default;
+
+  /// <summary>Canvas pixels per canvas unit: the window's, or the video's while OrbitRender renders.</summary>
+  protected float CanvasScale
+  {
+    get
+    {
+      if (_canvas == null)
+        _canvas = Rect.GetComponentInParent<Canvas>()?.rootCanvas;
+      return _canvas != null && _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1f;
+    }
+  }
+
+  // Bounds, the layout rectangle and the content in canvas units, origin at the
+  // viewport's top left. Unlike the pixel bounds above, these hold whatever
+  // camera draws the canvas.
+  private Rect CanvasBounds => BoundsFollowContent ? CanvasAnchorBounds : CanvasRectBounds;
+
+  protected Rect CanvasRectBounds => Rect == null ? default : InCanvas(Rect.rect);
+
+  private Rect CanvasAnchorBounds => TryGetLocalContent(out Rect local) ? InCanvas(local) : CanvasRectBounds;
+
+  private Rect InCanvas(Rect local)
+  {
+    Rect viewport = Viewport;
+    Matrix4x4 toLayer = Matrix4x4.TRS(Rect.localPosition, Rect.localRotation, Rect.localScale);
+    Vector2 minimum = new(float.PositiveInfinity, float.PositiveInfinity);
+    Vector2 maximum = new(float.NegativeInfinity, float.NegativeInfinity);
+    for (int i = 0; i < 4; i++)
+    {
+      Vector3 point = toLayer.MultiplyPoint3x4(
+        new Vector3((i & 1) == 0 ? local.xMin : local.xMax, i < 2 ? local.yMin : local.yMax, 0)
+      );
+      Vector2 canvas = new(point.x - viewport.xMin, viewport.yMax - point.y);
+      minimum = Vector2.Min(minimum, canvas);
+      maximum = Vector2.Max(maximum, canvas);
+    }
+    return UnityEngine.Rect.MinMaxRect(minimum.x, minimum.y, maximum.x, maximum.y);
+  }
 
   protected Rect RectBounds
   {
@@ -140,24 +186,35 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
       bool anchored = OverlayLayoutPosition.IsAnchored(settings);
       float scale = ValidScale(settings.Scale, anchored);
       Rect.localScale = new Vector3(scale, scale, 1);
-      FitVisibleSize();
+      // Canvas units, not screen pixels: while OrbitRender renders, the canvas
+      // is its video, drawn by its own camera at the video's size and aspect.
+      Rect viewport = Viewport;
+      FitVisibleSize(CanvasBounds, viewport.width, viewport.height);
       // Legacy centers refer to the edit rectangle; anchors refer to content.
-      Rect positioned = anchored ? AnchorBounds : RectBounds;
-      LayoutBounds resolved = OverlayLayoutPosition.Resolve(
+      Rect positioned = anchored ? CanvasAnchorBounds : CanvasRectBounds;
+      LayoutBounds resolved = OverlayLayoutPosition.ResolveInCanvas(
         settings,
         positioned.width,
         positioned.height,
-        Screen.width,
-        Screen.height
+        viewport.width,
+        viewport.height
       );
-      Rect.position += new Vector3(resolved.X - positioned.x, positioned.y - resolved.Y, 0);
-      Rect bounds = Bounds;
+      Rect bounds = CanvasBounds;
       LayoutBounds visible = OverlayLayoutGeometry.KeepVisible(
-        new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height),
-        Screen.width,
-        Screen.height
+        new LayoutBounds(
+          bounds.x + resolved.X - positioned.x,
+          bounds.y + resolved.Y - positioned.y,
+          bounds.width,
+          bounds.height
+        ),
+        viewport.width,
+        viewport.height
       );
-      MoveCenter(new Vector2(visible.X + visible.Width * .5f, visible.Y + visible.Height * .5f));
+      Rect.anchoredPosition += new Vector2(visible.X - bounds.x, bounds.y - visible.Y);
+      // Kept at its distance from the anchor, the element stays in place when
+      // the canvas changes size before the next layout, as the built-ins do.
+      (float x, float y) = OverlayLayoutPosition.AnchorPoint(settings);
+      PinTo(new Vector2(x, 1 - y));
     }
     finally
     {
@@ -188,7 +245,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     BeginStage();
     float scale = ValidScale(Rect.localScale.x * bounds.width / current.width, true);
     Rect.localScale = new Vector3(scale, scale, 1);
-    FitVisibleSize();
+    FitVisibleSize(Bounds, Screen.width, Screen.height);
     StageCenter(bounds.center);
   }
 
@@ -327,17 +384,29 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     Rect.position += new Vector3(center.x - bounds.center.x, bounds.center.y - center.y, 0f);
   }
 
-  private void FitVisibleSize()
+  // Shrinks an element too large to keep a tenth of it inside the viewport.
+  private void FitVisibleSize(Rect bounds, float viewportWidth, float viewportHeight)
   {
-    Rect bounds = Bounds;
-    if (bounds.width <= 0 || bounds.height <= 0 || Screen.width <= 0 || Screen.height <= 0)
+    if (bounds.width <= 0 || bounds.height <= 0 || viewportWidth <= 0 || viewportHeight <= 0)
       return;
     float visible = OverlayLayoutGeometry.MinimumVisibleFraction;
     float fit = Mathf.Min(
       1,
-      Mathf.Min(Screen.width / (bounds.width * visible), Screen.height / (bounds.height * visible))
+      Mathf.Min(viewportWidth / (bounds.width * visible), viewportHeight / (bounds.height * visible))
     );
     Rect.localScale *= fit;
+  }
+
+  // Moves the anchor to a point of the viewport, origin at the bottom left as
+  // Unity's anchors are, without moving the element. Poses use point anchors.
+  private void PinTo(Vector2 anchor)
+  {
+    if (Rect.anchorMin != Rect.anchorMax || Rect.anchorMin == anchor)
+      return;
+    Vector2 position = Rect.anchoredPosition + Vector2.Scale(Rect.anchorMin - anchor, Viewport.size);
+    Rect.anchorMin = anchor;
+    Rect.anchorMax = anchor;
+    Rect.anchoredPosition = position;
   }
 
   private static float ValidScale(float scale, bool anchored) =>

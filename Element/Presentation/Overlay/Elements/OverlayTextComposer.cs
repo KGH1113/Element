@@ -14,6 +14,12 @@ internal sealed class OverlayCompiledRun
   public OverlayFormula Value;
   public OverlayFormula Size;
   public OverlayFormula Alpha;
+
+  // The run's OverlayFontKey in saved form; empty follows the default font.
+  public string Font;
+
+  // The run's slot in the text's OverlayTextGradients; -1 for a solid color.
+  public int Gradient = -1;
 }
 
 // Turns text runs into TMP rich text. Literal text never becomes markup, and
@@ -23,10 +29,18 @@ internal static class OverlayTextComposer
   public const string ComboLink = "combo";
   public const string ValueLink = "v";
 
-  /// <summary>Parses every formula in <paramref name="runs"/>; returns the values they use.</summary>
-  public static OverlayValueMask Compile(IReadOnlyList<OverlayTextRun> runs, List<OverlayCompiledRun> output)
+  /// <summary>
+  /// Parses every formula in <paramref name="runs"/>; returns the values they
+  /// use. Gradient runs take a slot in <paramref name="gradients"/>.
+  /// </summary>
+  public static OverlayValueMask Compile(
+    IReadOnlyList<OverlayTextRun> runs,
+    List<OverlayCompiledRun> output,
+    OverlayTextGradients gradients = null
+  )
   {
     output.Clear();
+    gradients?.Clear();
     OverlayValueMask mask = OverlayValueMask.None;
     if (runs == null)
       return mask;
@@ -40,19 +54,23 @@ internal static class OverlayTextComposer
         Value = run.IsValue ? OverlayFormulaText.Compile(run.Value) : null,
         Size = OverlayFormulaText.Compile(run.SizeFormula),
         Alpha = OverlayFormulaText.Compile(run.Color?.AlphaFormula),
+        Font = OverlayFontKey.Normalize(run.Font),
       };
       if (run.IsValue && compiled.Value == null)
         continue;
+      if (gradients != null && run.Color != null && run.Color.IsGradient)
+        compiled.Gradient = gradients.Add(run.Color);
       mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha);
       output.Add(compiled);
     }
-    return mask;
+    return mask | (gradients?.Mask ?? OverlayValueMask.None);
   }
 
   /// <summary>
   /// Live overlay text. Values without data show their sample only when
   /// <paramref name="samples"/>. Size formulas give pixels as drawn, so they are
-  /// divided by <paramref name="elementScale"/>.
+  /// divided by <paramref name="elementScale"/>. Runs in another font than the
+  /// default switch to it through <paramref name="fonts"/>.
   /// </summary>
   public static void Compose(
     StringBuilder output,
@@ -60,7 +78,8 @@ internal static class OverlayTextComposer
     OverlayValues values,
     bool samples,
     Color highlight,
-    float elementScale
+    float elementScale,
+    OverlayFonts fonts = null
   )
   {
     output.Clear();
@@ -71,7 +90,12 @@ internal static class OverlayTextComposer
     {
       OverlayTextRun run = compiled.Run;
       float size = Size(run.Size, compiled.Size, source, elementScale);
-      OpenStyle(output, Resolve(run.Color, highlight, compiled.Alpha, source), size);
+      string font = fonts?.OpenTag(compiled.Font);
+      Color color =
+        compiled.Gradient >= 0
+          ? OverlayTextGradients.Marker(compiled.Gradient)
+          : OverlayTextGradients.AvoidMarker(Resolve(run.Color, highlight, compiled.Alpha, source));
+      OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
         bool combo = compiled.Value.Mask.Contains(OverlayValueId.Combo);
@@ -83,7 +107,7 @@ internal static class OverlayTextComposer
       }
       else
         AppendLiteral(output, run.Text);
-      CloseStyle(output, size);
+      CloseStyle(output, size, font);
     }
   }
 
@@ -147,19 +171,26 @@ internal static class OverlayTextComposer
       OverlayValues.AppendSample(output, id);
   }
 
-  /// <summary>Opens a run's color and, unless it is the base size, its size in reference pixels.</summary>
-  internal static void OpenStyle(StringBuilder output, Color color, float size)
+  /// <summary>
+  /// Opens a run's font tag (none for the default font), its color and, unless
+  /// it is the base size, its size in reference pixels.
+  /// </summary>
+  internal static void OpenStyle(StringBuilder output, Color color, float size, string fontTag = null)
   {
+    if (fontTag != null)
+      output.Append(fontTag);
     OpenColor(output, color);
     if (HasSize(size))
       output.Append("<size=").AppendRounded(size, 2).Append('>');
   }
 
-  internal static void CloseStyle(StringBuilder output, float size)
+  internal static void CloseStyle(StringBuilder output, float size, string fontTag = null)
   {
     if (HasSize(size))
       output.Append("</size>");
     output.Append("</color>");
+    if (fontTag != null)
+      output.Append(OverlayFonts.CloseTag);
   }
 
   private static bool HasSize(float size) =>

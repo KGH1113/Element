@@ -1,0 +1,58 @@
+{
+  "test-4key": [
+    "LEFT SHIFT",
+    "RIGHT SHIFT",
+    "S",
+    "D",
+    "L",
+    "SEMICOLON",
+    "1",
+    "2"
+  ],
+  "test-5key": [
+    "LEFT SHIFT",
+    "RIGHT SHIFT",
+    "A",
+    "S",
+    {
+      "keys": [
+        "D",
+        "L"
+      ],
+      "match": "any"
+    },
+    "SEMICOLON",
+    "1",
+    "2",
+    "QUOTE",
+    ""
+  ],
+  "test-6key": [
+    "LEFT SHIFT",
+    "RIGHT SHIFT",
+    "A",
+    "D",
+    "L",
+    "SEMICOLON",
+    "1",
+    "2",
+    "S",
+    "QUOTE",
+    "",
+    ""
+  ],
+  "test-8key": [
+    "LEFT SHIFT",
+    "RIGHT SHIFT",
+    "A",
+    "D",
+    "L",
+    "SEMICOLON",
+    "1",
+    "2",
+    "S",
+    "QUOTE",
+    "SPACE",
+    "21"
+  ]
+}

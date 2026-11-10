@@ -22,6 +22,14 @@ import {
 } from './displayElement';
 import { createPluginApiProxy, createPluginWindowProxy } from './api';
 import type { JsPlugin } from '@src/types/plugin/js';
+import {
+  beginPluginWork,
+  isLocalPluginRuntimeReady,
+  noteEnabledPluginCount,
+  notePluginFetchSettled,
+  resetPluginRuntimeReadiness,
+  subscribePluginReadiness,
+} from './pluginRuntimeReadiness';
 
 const SCRIPT_ID_PREFIX = 'dmn-custom-js-';
 
@@ -33,7 +41,12 @@ export interface CustomJsRuntime {
 export function createCustomJsRuntime(): CustomJsRuntime {
   const activeElements = new Map<
     string,
-    { element: HTMLScriptElement; cleanup?: () => void; pluginId?: string }
+    {
+      element: HTMLScriptElement;
+      cleanup?: () => void;
+      pluginId?: string;
+      revoke: () => void;
+    }
   >();
   const cleanupRegistry = new Map<string, (() => void)[]>();
   const unsubscribers: Array<() => void> = [];
@@ -81,8 +94,9 @@ export function createCustomJsRuntime(): CustomJsRuntime {
   const removeAll = () => {
     for (const [
       id,
-      { element, cleanup, pluginId },
+      { element, cleanup, pluginId, revoke },
     ] of activeElements.entries()) {
+      revoke();
       if (pluginId) {
         const previousPluginId = window.__dmn_current_plugin_id;
         window.__dmn_current_plugin_id = pluginId;
@@ -122,6 +136,10 @@ export function createCustomJsRuntime(): CustomJsRuntime {
   };
 
   const injectPlugin = (plugin: JsPlugin) => {
+    let revoked = false;
+    const revoke = () => {
+      revoked = true;
+    };
     try {
       const previousCleanup = window.__dmn_custom_js_cleanup;
       if (previousCleanup) {
@@ -156,6 +174,7 @@ export function createCustomJsRuntime(): CustomJsRuntime {
         pluginId,
         registerCleanup: (cleanup) => registerCleanup(pluginId, cleanup),
         isReloading: getIsReloading,
+        isRevoked: () => revoked || disposed,
       });
 
       // 플러그인용 Window 프록시 생성
@@ -216,6 +235,7 @@ ${plugin.content}
     })();
   } catch (e) {
     console.error('Failed to run JS plugin: ${plugin.name}', e);
+    window.dispatchEvent(new CustomEvent('dmn:plugin-load-failed', { detail: __PLUGIN_ID__ }));
   }
   
   __autoWrapAsync__();
@@ -226,7 +246,15 @@ ${plugin.content}
       element.id = `${SCRIPT_ID_PREFIX}${plugin.id}`;
       element.type = 'text/javascript';
       element.textContent = wrappedContent;
-      document.head.appendChild(element);
+      const onFailure = (event: Event) => {
+        if ((event as CustomEvent<string>).detail === pluginId) revoke();
+      };
+      window.addEventListener('dmn:plugin-load-failed', onFailure);
+      try {
+        document.head.appendChild(element);
+      } finally {
+        window.removeEventListener('dmn:plugin-load-failed', onFailure);
+      }
 
       const pluginCleanup = window.__dmn_custom_js_cleanup;
 
@@ -245,43 +273,45 @@ ${plugin.content}
 
       activeElements.set(plugin.id, {
         element,
+        revoke,
         cleanup:
           typeof pluginCleanup === 'function' ? pluginCleanup : undefined,
         pluginId,
       });
+      if (revoked) {
+        runPluginCleanups(pluginId);
+        safeRun(
+          typeof pluginCleanup === 'function' ? pluginCleanup : undefined,
+          pluginId,
+        );
+        element.remove();
+        activeElements.delete(plugin.id);
+      }
     } catch (error) {
+      revoke();
       console.error(`Failed to inject JS plugin '${plugin.name}'`, error);
     }
   };
 
   const injectAll = () => {
+    const endWork = beginPluginWork();
     isReloading = true;
     setInitialLoading(true);
-    removeAll();
-    if (!enabled) {
-      isReloading = false;
-      setInitialLoading(false);
-      return;
+    const plugins = enabled
+      ? currentPlugins.filter((plugin) => plugin.enabled && plugin.content)
+      : [];
+    noteEnabledPluginCount(plugins.length);
+    try {
+      removeAll();
+      plugins.forEach((plugin) => injectPlugin(plugin));
+    } finally {
+      endWork();
     }
-
-    currentPlugins
-      .filter((plugin) => plugin.enabled && plugin.content)
-      .forEach((plugin) => injectPlugin(plugin));
-
-    // 모든 플러그인의 복원이 완료될 때까지 딜레이 후 리로드 플래그 해제
-    setTimeout(() => {
-      isReloading = false;
-      setInitialLoading(false);
-    }, 100);
   };
 
   const syncPlugins = (next: JsPlugin[]) => {
     currentPlugins = next.map((plugin) => ({ ...plugin }));
-    if (enabled) {
-      injectAll();
-    } else {
-      removeAll();
-    }
+    injectAll();
   };
 
   const fetchInitialState = () => {
@@ -293,6 +323,9 @@ ${plugin.content}
       })
       .catch((error) => {
         console.error('Failed to fetch JS plugins', error);
+      })
+      .finally(() => {
+        if (!disposed) notePluginFetchSettled();
       });
 
     window.api.js
@@ -300,25 +333,20 @@ ${plugin.content}
       .then((value) => {
         if (disposed) return;
         enabled = value;
-        if (enabled) {
-          injectAll();
-        } else {
-          removeAll();
-        }
+        injectAll();
       })
       .catch((error) => {
         console.error('Failed to fetch JS plugin toggle state', error);
+      })
+      .finally(() => {
+        if (!disposed) notePluginFetchSettled();
       });
   };
 
   const setupListeners = () => {
     const unsubUse = window.api.js.onUse(({ enabled: next }) => {
       enabled = next;
-      if (enabled) {
-        injectAll();
-      } else {
-        removeAll();
-      }
+      injectAll();
     });
 
     const unsubState = window.api.js.onState((payload) => {
@@ -338,14 +366,24 @@ ${plugin.content}
   };
 
   const initialize = () => {
-    fetchInitialState();
+    resetPluginRuntimeReadiness();
+    unsubscribers.push(
+      subscribePluginReadiness(() => {
+        isReloading = !isLocalPluginRuntimeReady();
+        setInitialLoading(isReloading);
+      }),
+    );
+    isReloading = true;
+    setInitialLoading(true);
     setupListeners();
+    fetchInitialState();
   };
 
   const dispose = () => {
     disposed = true;
     cleanupSubscriptions();
     removeAll();
+    setInitialLoading(false);
   };
 
   return { initialize, dispose };

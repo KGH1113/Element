@@ -200,6 +200,18 @@ public sealed class EffectSettings
     return true;
   }
 
+  /// <summary>
+  /// Turns effect removal off when this preset is the one on; otherwise activates
+  /// it. A preset's shortcut does this, so pressing it again undoes it.
+  /// </summary>
+  public bool Toggle(string id)
+  {
+    if (!Enabled || ActivePresetId != id)
+      return Activate(id);
+    Enabled = false;
+    return true;
+  }
+
   /// <summary>The preset other than <paramref name="exceptId"/> that this shortcut applies, or null.</summary>
   public EffectPreset FindShortcut(KeyCode key, KeyCode modifier, string exceptId = null) =>
     Presets.Find(p => p != null && p.Id != exceptId && p.UsesShortcut(key, modifier));

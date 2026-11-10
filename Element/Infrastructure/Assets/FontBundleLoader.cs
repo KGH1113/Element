@@ -15,10 +15,9 @@ internal sealed class FontBundleLoader : IDisposable
   private const string KoreanFontAssetName = "MAPLESTORY_OTF_BOLD KR SDF";
   private const string DynamicFallbackName = "Element CJK Fallback";
 
-  // (padding + 1) / point size matches the bundled assets, so outline and underlay offsets look the same.
-  private const int DynamicFallbackPointSize = 48;
-  private const int DynamicFallbackPadding = 3;
-  private const int DynamicFallbackAtlasSize = 1024;
+  private const int DynamicFallbackPointSize = OverlayFontSampling.PointSize;
+  private const int DynamicFallbackPadding = OverlayFontSampling.Padding;
+  private const int DynamicFallbackAtlasSize = OverlayFontSampling.AtlasSize;
 
   private readonly Main _main;
   private readonly List<TMP_FontAsset> _addedFallbacks = new();

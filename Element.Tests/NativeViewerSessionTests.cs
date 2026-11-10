@@ -24,6 +24,28 @@ internal static class NativeViewerSessionTests
     StopsOnIncompatibleReplies();
     DisconnectResetsTheHost();
     FollowsShowInsideAdofai();
+    SendsEditsOnlyToAppsThatTakeThem();
+  }
+
+  private static void SendsEditsOnlyToAppsThatTakeThem()
+  {
+    var session = new NativeViewerSession(true);
+    Check(session.EditPeer == null, "No app, no one to edit in.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1, nativePush = true }), Start);
+    Check(session.Connected && session.EditPeer == null, "An app without nativeEdit predates editing from the game.");
+    session.OnPeerEvent(Event("mirror.available", new { nativeProtocolVersion = 1, nativeEdit = true }), Start);
+    Check(session.EditPeer == App, "An app announcing nativeEdit takes the request.");
+    session.OnPeerEvent(
+      Event("mirror.available", new { nativeProtocolVersion = 1, nativeEdit = true }, peer: "another-app"),
+      Start
+    );
+    Check(session.EditPeer == App, "A second app cannot take over the edit requests.");
+    session.OnPeerDisconnected(App);
+    Check(session.EditPeer == null, "A disconnected app takes no request.");
+    Check(
+      NativeViewerSession.EditPayload("foot") == "{\"viewerKind\":\"foot\"}",
+      "The request names the viewer kind as ElementNote reads it."
+    );
   }
 
   private static void ClassifiesFailures()

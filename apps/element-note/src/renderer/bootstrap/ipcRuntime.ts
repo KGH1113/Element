@@ -3,15 +3,21 @@ import {
   KeyLimiterIpcCoordinator,
   type KeyLimiterCoordinatorOptions,
 } from '../ipc/keyLimiterIpcCoordinator';
-import { RenderIpcCoordinator } from '../render/renderIpcCoordinator';
+import { ElementRenderIpcCoordinator } from '../render/elementRenderIpcCoordinator';
+import type { RenderSurfacePort } from '../application/ports/renderSurfacePort';
 import { NativeViewerIpcCoordinator } from '../nativeViewers/nativeViewerIpcCoordinator';
+import {
+  KeyCounterIpcCoordinator,
+  type KeyCounts,
+} from '../ipc/keyCounterIpcCoordinator';
+import { requestViewerEdit } from '../nativeViewers/viewerEditRequests';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
 import { connectIpc, type IpcConnection } from 'adofai-ipc/transport';
 import { NativeWebSocketTransport } from '../infrastructure/ipc/nativeWebSocketTransport';
 import { ConnectionSupervisor } from '../application/connectionSupervisor';
 import { quitWhenGameLeaves } from '../application/gameOwnedLifetime';
-import { appApi } from '@api/modules/appApi';
+import { appApi, windowApi } from '@api/modules/appApi';
 import type { MessageState } from '../application/ports/messagePort';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { subscribe } from '@api/modules/shared';
@@ -71,43 +77,34 @@ export function createKeyLimiterCoordinator(
   });
 }
 export function startRenderMessages(): () => Promise<void> {
-  const platform = /Mac/.test(navigator.userAgent)
-    ? 'macos'
-    : /Windows/.test(navigator.userAgent)
-      ? 'windows'
-      : 'unsupported';
-  const coordinator = new RenderIpcCoordinator({
-    messages: applicationMessages('tuf-replay-renderer'),
-    scheduler: wallClockScheduler,
-    capabilities: {
-      applicationId: crypto.randomUUID(),
-      applicationVersion: __APP_VERSION__,
-      platform,
-      nativeCapture: platform !== 'unsupported',
-      multiViewerCapture: true,
-    },
-    surface: {
-      begin: (request) =>
-        invoke('dmnote_render_begin', {
-          request: {
-            ...request,
-            pluginElements: JSON.parse(
-              JSON.stringify(usePluginDisplayElementStore.getState().elements),
-            ),
-            localStorage: Object.fromEntries(
-              Object.keys(localStorage).map((key) => [
-                key,
-                localStorage.getItem(key),
-              ]),
-            ),
-          },
-        }),
-      reset: (request) => invoke('dmnote_render_reset', { request }),
-      frame: (request) => invoke('dmnote_render_frame', { request }),
-      end: (sessionId) => invoke('dmnote_render_end', { sessionId }),
-      touch: () => invoke('dmnote_render_touch'),
-    },
-  });
+  // One native render service; it refuses a second session while one runs.
+  const surface: RenderSurfacePort = {
+    begin: (request) =>
+      invoke('dmnote_render_begin', {
+        request: {
+          ...request,
+          pluginElements: JSON.parse(
+            JSON.stringify(usePluginDisplayElementStore.getState().elements),
+          ),
+          localStorage: Object.fromEntries(
+            Object.keys(localStorage).map((key) => [
+              key,
+              localStorage.getItem(key),
+            ]),
+          ),
+        },
+      }),
+    frame: (request) => invoke('dmnote_render_frame', { request }),
+    finish: (request) => invoke('dmnote_render_finish', { request }),
+    end: (sessionId) => invoke('dmnote_render_end', { sessionId }),
+    touch: () => invoke('dmnote_render_touch'),
+  };
+  // Element's replay renders (OrbitRender) over the game's `element` channel.
+  const elementRenders = new ElementRenderIpcCoordinator(
+    applicationMessages('element'),
+    surface,
+    wallClockScheduler,
+  );
   const viewers = new NativeViewerIpcCoordinator(
     applicationMessages('element'),
     {
@@ -119,12 +116,27 @@ export function startRenderMessages(): () => Promise<void> {
           if (state.inGameViewersEnabled !== previous.inGameViewersEnabled)
             listener();
         }),
+      // The tab switches first so the window comes forward already on it.
+      edit: async (viewerKind) => {
+        requestViewerEdit(viewerKind);
+        await windowApi.showMain();
+      },
     },
     wallClockScheduler,
   );
+  // TUFReplay saves these counts with each run and replays count apart from them.
+  const keyCounters = new KeyCounterIpcCoordinator(
+    applicationMessages('element'),
+    {
+      read: () => invoke<KeyCounts>('keys_get_counters'),
+      beginReplay: (counters) => invoke('keys_replay_begin', { counters }),
+      endReplay: () => invoke('keys_replay_end'),
+    },
+  );
   const stop = async () => {
+    await keyCounters.dispose();
     await viewers.dispose();
-    await coordinator.dispose();
+    await elementRenders.dispose();
     await closeApplicationMessages();
   };
   window.addEventListener(

@@ -24,6 +24,7 @@ import type {
   CounterAnimationBezier,
 } from '@src/types/key/keys';
 import { createDefaultCounterSettings } from '@src/types/key/keys';
+import { persistItemPositions } from '@src/renderer/editor/runtime/itemPositions';
 
 // 공통: zIndex 목록 수집
 function collectAllZIndexes(mode: string) {
@@ -107,76 +108,38 @@ function pushHistorySnapshot(
   });
 }
 
-// Stat positions persist 헬퍼
-async function persistStatPositions(
+// 추가·복제한 항목은 저장되며 ID를 받으므로 저장 결과를 화면에 받아 온다.
+function persistStatPositions(
   nextPositions: StatItemPositions,
   errorMessage?: string,
 ): Promise<void> {
-  const store = useStatItemStore.getState();
-  store.setLocalUpdateInProgress(true);
-  store.setPositions(nextPositions);
-  try {
-    await window.api.statItems.updatePositions(nextPositions);
-  } catch (error) {
-    console.error(errorMessage || 'Failed to update stat items', error);
-  } finally {
-    store.setLocalUpdateInProgress(false);
-  }
-  try {
-    window.api.bridge.sendTo('overlay', 'statPositions:sync', {
-      positions: nextPositions,
-    });
-  } catch {
-    /* 무시 */
-  }
+  return persistItemPositions(
+    'statPositions',
+    nextPositions,
+    errorMessage || 'Failed to update stat items',
+  );
 }
 
-// Graph positions persist 헬퍼
-async function persistGraphPositions(
+function persistGraphPositions(
   nextPositions: GraphItemPositions,
   errorMessage?: string,
 ): Promise<void> {
-  const store = useGraphItemStore.getState();
-  store.setLocalUpdateInProgress(true);
-  store.setPositions(nextPositions);
-  try {
-    await window.api.graphItems.updatePositions(nextPositions);
-  } catch (error) {
-    console.error(errorMessage || 'Failed to update graph items', error);
-  } finally {
-    store.setLocalUpdateInProgress(false);
-  }
-  try {
-    window.api.bridge.sendTo('overlay', 'graphPositions:sync', {
-      positions: nextPositions,
-    });
-  } catch {
-    /* 무시 */
-  }
+  return persistItemPositions(
+    'graphPositions',
+    nextPositions,
+    errorMessage || 'Failed to update graph items',
+  );
 }
 
-// Knob positions persist 헬퍼
-async function persistKnobPositions(
+function persistKnobPositions(
   nextPositions: KnobItemPositions,
   errorMessage?: string,
 ): Promise<void> {
-  const store = useKnobItemStore.getState();
-  store.setLocalUpdateInProgress(true);
-  store.setPositions(nextPositions);
-  try {
-    await window.api.knobItems.updatePositions(nextPositions);
-  } catch (error) {
-    console.error(errorMessage || 'Failed to update knob items', error);
-  } finally {
-    store.setLocalUpdateInProgress(false);
-  }
-  try {
-    window.api.bridge.sendTo('overlay', 'knobPositions:sync', {
-      positions: nextPositions,
-    });
-  } catch {
-    /* 무시 */
-  }
+  return persistItemPositions(
+    'knobPositions',
+    nextPositions,
+    errorMessage || 'Failed to update knob items',
+  );
 }
 
 export interface CanvasActions {

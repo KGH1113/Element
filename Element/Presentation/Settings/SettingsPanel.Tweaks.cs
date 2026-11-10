@@ -71,13 +71,23 @@ internal sealed partial class SettingsPanel
     CreateChatterPage();
   }
 
-  private Button DetailLink(Transform parent, string title, string description, Action action)
+  private Button DetailLink(Transform parent, string title, string description, Action action) =>
+    DetailLink(parent, title, description, action, out _);
+
+  /// <summary>A link row whose <paramref name="detail"/> the caller keeps current.</summary>
+  private Button DetailLink(
+    Transform parent,
+    string title,
+    string description,
+    Action action,
+    out TextMeshProUGUI detail
+  )
   {
     Button link = _ui.Button(title, parent, 0, 0, 936, 80, action);
     link.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     var label = _ui.Text(title, link.transform, 20, 13, 820, 26, 18);
     SettingsUiFactory.StretchWidth(label.rectTransform, 20, 64);
-    var detail = _ui.Text(description, link.transform, 20, 43, 820, 24, 14, SettingsUiFactory.Muted);
+    detail = _ui.Text(description, link.transform, 20, 43, 820, 24, 14, SettingsUiFactory.Muted);
     SettingsUiFactory.StretchWidth(detail.rectTransform, 20, 64);
     var arrow = _ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<SettingsNavigationIcon>();
     arrow.Kind = 3;

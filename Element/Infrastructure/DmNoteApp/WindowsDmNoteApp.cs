@@ -12,7 +12,7 @@ namespace Element.Infrastructure.DmNoteApp;
 internal sealed class WindowsDmNoteApp : BundledDmNoteApp
 {
   private const string AppName = "ElementNote";
-  private const string ProcessName = "element-note";
+  internal const string ProcessName = "element-note";
   private const string ExecutableName = ProcessName + ".exe";
 
   public WindowsDmNoteApp(string modPath)

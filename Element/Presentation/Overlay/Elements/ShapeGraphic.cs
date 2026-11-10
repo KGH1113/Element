@@ -10,7 +10,9 @@ namespace Element.Presentation.Overlay.Elements;
 
 // A filled, optionally stroked shape. Canvas UI has no MSAA, so every edge
 // gets a one-pixel fade. The mesh is rebuilt only when the shape, its colors
-// or its size on screen change.
+// or its size on screen change. A gradient layer reads its colors from a
+// small texture (OverlayGradientTexture); solid layers keep theirs in the
+// vertices.
 [RequireComponent(typeof(CanvasRenderer))]
 internal sealed class ShapeGraphic : MaskableGraphic
 {
@@ -21,15 +23,33 @@ internal sealed class ShapeGraphic : MaskableGraphic
   private readonly List<Vector2> _normals = new(128);
   private readonly List<int> _triangles = new(384);
   private OverlayShapeSettings _shape;
+  private readonly OverlayGradientTexture _gradients = new();
   private Color _fill,
     _stroke;
+  private OverlayResolvedGradient _fillGradient,
+    _strokeGradient;
+  private OverlayGradientLayer _fillLayer,
+    _strokeLayer;
+  private bool _textured;
   private float _pixelsPerUnit = 1;
 
-  public void SetShape(OverlayShapeSettings shape, Color fill, Color stroke)
+  public void SetShape(OverlayShapeSettings shape, Color fill, Color stroke) => SetShape(shape, fill, stroke, null, null);
+
+  /// <summary>Null gradients are solid layers in <paramref name="fill"/> and <paramref name="stroke"/>.</summary>
+  public void SetShape(
+    OverlayShapeSettings shape,
+    Color fill,
+    Color stroke,
+    OverlayResolvedGradient fillGradient,
+    OverlayResolvedGradient strokeGradient
+  )
   {
     _shape = shape;
     _fill = fill;
     _stroke = stroke;
+    _fillGradient = fillGradient;
+    _strokeGradient = strokeGradient;
+    UpdateTexture();
     SetVerticesDirty();
   }
 
@@ -39,7 +59,47 @@ internal sealed class ShapeGraphic : MaskableGraphic
     if (pixelsPerUnit <= 0 || Mathf.Abs(pixelsPerUnit - _pixelsPerUnit) < .01f)
       return;
     _pixelsPerUnit = pixelsPerUnit;
+    UpdateTexture();
     SetVerticesDirty();
+  }
+
+  public override Texture mainTexture => _textured && _gradients.Texture != null ? _gradients.Texture : s_WhiteTexture;
+
+  private void UpdateTexture()
+  {
+    bool textured = _shape != null && (_fillGradient != null || _strokeGradient != null);
+    if (!textured)
+    {
+      _fillLayer = _strokeLayer = default;
+      if (_textured)
+      {
+        _textured = false;
+        SetMaterialDirty();
+      }
+      return;
+    }
+    Texture before = _gradients.Texture;
+    _gradients.Update(
+      _fillGradient,
+      _strokeGradient,
+      _shape.Width,
+      _shape.Height,
+      _shape.Height * _pixelsPerUnit,
+      out _fillLayer,
+      out _strokeLayer
+    );
+    // A new texture goes to the renderer; new colors in the same one are already there.
+    if (!_textured || before != _gradients.Texture)
+    {
+      _textured = true;
+      SetMaterialDirty();
+    }
+  }
+
+  protected override void OnDestroy()
+  {
+    _gradients.Dispose();
+    base.OnDestroy();
   }
 
   protected override void OnPopulateMesh(VertexHelper mesh)
@@ -81,27 +141,40 @@ internal sealed class ShapeGraphic : MaskableGraphic
     OverlayShapeGeometry.Triangulate(_outline, _triangles);
     float feather = 1f / Mathf.Max(.01f, _pixelsPerUnit);
     float stroke = Mathf.Min(_shape.StrokeWidth, Mathf.Min(width, height) * .5f);
+    _box = rect;
     AddFill(mesh, feather);
-    if (stroke > 0 && _stroke.a > 0)
-      AddRing(mesh, 0, stroke, _stroke, feather);
+    if (stroke > 0 && (_strokeLayer.Gradient || _stroke.a > 0))
+      AddRing(mesh, 0, stroke, _strokeLayer.Gradient ? Color.white : _stroke, _strokeLayer, feather);
   }
+
+  private Rect _box;
+
+  // A vertex of a layer: its texture coordinate comes from where it sits in the box.
+  private void Vert(VertexHelper mesh, Vector2 position, Color color, in OverlayGradientLayer layer) =>
+    mesh.AddVert(
+      position,
+      color,
+      layer.Uv(position.x - _box.xMin, _box.yMax - position.y, _shape.Width, _shape.Height)
+    );
 
   private void AddFill(VertexHelper mesh, float feather)
   {
-    if (_fill.a <= 0)
+    bool gradient = _fillLayer.Gradient;
+    if (!gradient && _fill.a <= 0)
       return;
-    Color clear = _fill;
+    Color color = gradient ? Color.white : _fill;
+    Color clear = color;
     clear.a = 0;
     int start = mesh.currentVertCount;
     int count = _local.Count;
     // Solid core pulled half a fade inward, then a ring fading outward.
     for (int i = 0; i < count; i++)
-      mesh.AddVert(_local[i] - _normals[i] * feather * .5f, _fill, Vector2.zero);
+      Vert(mesh, _local[i] - _normals[i] * feather * .5f, color, _fillLayer);
     for (int i = 0; i < _triangles.Count; i += 3)
       mesh.AddTriangle(start + _triangles[i], start + _triangles[i + 1], start + _triangles[i + 2]);
     int outer = mesh.currentVertCount;
     for (int i = 0; i < count; i++)
-      mesh.AddVert(_local[i] + _normals[i] * feather * .5f, clear, Vector2.zero);
+      Vert(mesh, _local[i] + _normals[i] * feather * .5f, clear, _fillLayer);
     for (int i = 0; i < count; i++)
     {
       int next = (i + 1) % count;
@@ -111,7 +184,14 @@ internal sealed class ShapeGraphic : MaskableGraphic
   }
 
   // A band from `inset` to `inset + width` inside the outline, faded on both sides.
-  private void AddRing(VertexHelper mesh, float inset, float width, Color color, float feather)
+  private void AddRing(
+    VertexHelper mesh,
+    float inset,
+    float width,
+    Color color,
+    in OverlayGradientLayer layer,
+    float feather
+  )
   {
     Color clear = color;
     clear.a = 0;
@@ -128,7 +208,7 @@ internal sealed class ShapeGraphic : MaskableGraphic
     int start = mesh.currentVertCount;
     for (int i = 0; i < count; i++)
     for (int band = 0; band < 4; band++)
-      mesh.AddVert(_local[i] - _normals[i] * offsets[band], band == 0 || band == 3 ? clear : color, Vector2.zero);
+      Vert(mesh, _local[i] - _normals[i] * offsets[band], band == 0 || band == 3 ? clear : color, layer);
     for (int i = 0; i < count; i++)
     {
       int a = start + i * 4,

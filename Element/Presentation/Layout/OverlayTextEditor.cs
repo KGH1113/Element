@@ -39,6 +39,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();
   private OverlayEditorFrame _screen;
+  private readonly OverlayGlide _space = new();
   private SettingsUiFactory _ui;
   private RectTransform _frame;
   private TextMeshProUGUI _preview;
@@ -91,6 +92,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _pendingColor = null;
     _pendingSize = 0;
     _pendingSizeFormula = "";
+    _pendingFont = "";
     _fieldSlot = null;
     _chipPopover = -1;
     _editing.Deactivate();
@@ -120,6 +122,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _selectionRects.Clear();
     _pillRects.Clear();
     _dragValue = null;
+    _space.Snap();
     _screen = new OverlayEditorFrame(
       "Text editor",
       _parent,
@@ -141,11 +144,12 @@ internal sealed partial class OverlayTextEditor : IDisposable
     preview.pivot = new Vector2(.5f, .5f);
     _preview = OverlayTextFactory.AddText(
       preview.gameObject,
-      _element.Font,
-      _element.Material,
+      _element.Fonts.DefaultAsset,
+      _element.Fonts.DefaultMaterial,
       OverlayElementDefaults.TextSize,
       Horizontal(_element.Alignment)
     );
+    _fontVersion = _element.Fonts.Version;
     _preview.textWrappingMode = TextWrappingModes.NoWrap;
     _preview.overflowMode = TextOverflowModes.Overflow;
     _caret = _ui.Panel("Caret", preview, 0, 0, 2, 10, Color.white, false);
@@ -153,6 +157,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _dropCaret = _ui.Panel("Drop caret", preview, 0, 0, 3, 10, SettingsPalette.SoftAccent, false);
     Anchor(_dropCaret.rectTransform);
     _dropCaret.enabled = false;
+    BuildGradient();
 
     BuildFormatBar();
     _bottomTop = _screen.Height - 40;
@@ -173,6 +178,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _picker = new SettingsColorPicker(_frame, _uiFont, _reduceMotion);
     _picker.Hidden = PickerHidden;
     _opacity = new OverlayOpacityField(_ui, _picker, () => ActivateField(OpacityKey), _reduceMotion());
+    BuildGradientPicker();
     _dock = new OverlayInputDock(
       _ui,
       _frame,
@@ -190,19 +196,29 @@ internal sealed partial class OverlayTextEditor : IDisposable
     );
     // The color picker opens right above the keypad.
     _picker.LayOutAsColumn(_dock.KeypadArea.width);
+    BuildFontControls();
     _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
     _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
   }
 
-  // One row of labeled buttons: the size, the color (with its opacity) and
-  // where the text grows from. Size and color act on the selection, or on the
-  // whole text when nothing is selected.
+  // One row of labeled buttons: the font, the size, the color (with its
+  // opacity) and where the text grows from. Font, size and color act on the
+  // selection, or on the whole text when nothing is selected.
   private void BuildFormatBar()
   {
     _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, OverlayEditorUi.Bar);
     _formatSurface.raycastTarget = true;
     _formatBar = _formatSurface.rectTransform;
+    _fontButton = new OverlayBarButton(
+      _ui,
+      _formatBar,
+      "Text font",
+      L("폰트", "Font"),
+      ToggleFont,
+      _reduceMotion(),
+      icon: LayoutAction.Font
+    );
     _sizeButton = new OverlayBarButton(
       _ui,
       _formatBar,
@@ -286,7 +302,9 @@ internal sealed partial class OverlayTextEditor : IDisposable
           _pickerSnapshotTaken = true;
         }
         OverlayColorSettings before = RangeColor();
-        color = _opacity.Keep(before, color);
+        // A gradient's stops keep their own calculated opacities.
+        if (!color.IsGradient)
+          color = _opacity.Keep(before, color);
         if (start < end)
           _document.SetColor(start, end, color);
         else
@@ -306,8 +324,8 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _pickerSnapshotTaken = false;
     if (_screen == null || _picker == null)
       return;
-    // Its opacity goes with it.
-    if (_fieldSlot == OpacityKey)
+    // Its numbers go with it.
+    if (_fieldSlot == OpacityKey || GradientKey(_fieldSlot))
       ClosePopovers();
     Render();
   }

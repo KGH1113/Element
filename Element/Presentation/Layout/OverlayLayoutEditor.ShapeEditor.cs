@@ -20,7 +20,10 @@ internal sealed partial class OverlayLayoutEditor
 
   private bool ContentEditorOpen => (_textEditor?.IsOpen ?? false) || (_shapeEditor?.IsOpen ?? false);
 
-  /// <summary>Opens the editor for a text or a shape; false for other elements.</summary>
+  /// <summary>
+  /// Opens the editor for a text or a shape, or ElementNote for a key viewer;
+  /// false for other elements.
+  /// </summary>
   private bool OpenContentEditor(IOverlayLayoutTarget target)
   {
     switch (target)
@@ -30,6 +33,9 @@ internal sealed partial class OverlayLayoutEditor
         return true;
       case ShapeOverlayElement shape:
         OpenShapeEditor(shape, false);
+        return true;
+      case not null when OverlayElementKinds.IsKeyViewer(target.TemplateId):
+        OpenKeyViewerInApp(target);
         return true;
       default:
         return false;

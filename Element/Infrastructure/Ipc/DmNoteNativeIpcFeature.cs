@@ -5,6 +5,7 @@ using AdofaiIpc.Contracts;
 using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
+using Element.Infrastructure.DmNoteApp;
 using Element.Infrastructure.Game.DmNote;
 using Element.Presentation.Layout;
 using TMPro;
@@ -21,6 +22,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   private readonly Func<Color> _highlight;
   private readonly Action<string, Exception> _logError;
   private readonly Action<string> _logWarning;
+  private readonly IDmNoteAppFocus _appFocus;
   private readonly bool _supported;
   private IFeatureRegistration _ipc;
   private INativeViewerHost _host;
@@ -45,7 +47,8 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     Func<INativeViewerHost> createHost,
     Func<Color> highlight,
     Action<string, Exception> logError,
-    Action<string> logWarning
+    Action<string> logWarning,
+    IDmNoteAppFocus appFocus = null
   )
   {
     _supported = supported;
@@ -54,6 +57,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     _highlight = highlight ?? (() => Color.white);
     _logError = logError ?? ((_, _) => { });
     _logWarning = logWarning ?? (_ => { });
+    _appFocus = appFocus;
     _galleryTargets = new[] { CreateTarget("hand", null), CreateTarget("foot", null) };
     _layoutTargets = new List<NativeViewerLayoutTarget>(_galleryTargets);
   }
@@ -79,27 +83,46 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   // them in the game. Unlike HiddenInApp, a closed app keeps the session waiting.
   private bool HiddenFromEditor => !_connected || _hiddenInApp;
 
-  public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = true)
+  /// <summary>
+  /// Follows <paramref name="layouts"/>, such as a profile's: its viewers come,
+  /// and viewers it lacks go instead of being added to it.
+  /// </summary>
+  /// <param name="legacyEnabled">
+  /// At startup only: whether the old single hand and foot viewers were on,
+  /// for settings from before each viewer was its own element.
+  /// </param>
+  public void ConfigureLayouts(List<OverlayLayoutSettings> layouts, bool legacyEnabled = false)
   {
     if (layouts == null)
       throw new ArgumentNullException(nameof(layouts));
     _layouts = layouts;
-    foreach (OverlayLayoutSettings settings in layouts.ToArray())
+    string before = EnabledViewers();
+    var removed = new List<string>();
+    var added = new List<KeyValuePair<string, string>>();
+    NativeViewerLayoutSync.Plan(
+      _layoutTargets.Select(target => target.Id),
+      _galleryTargets.Select(target => target.Id).ToArray(),
+      layouts,
+      removed,
+      added
+    );
+    foreach (string id in removed)
     {
-      if (settings == null || _layoutTargets.Any(target => target.Id == settings.Id))
-        continue;
-      string kind =
-        settings.TemplateId == "native-hand" ? "hand"
-        : settings.TemplateId == "native-foot" ? "foot"
-        : null;
-      if (kind == null)
-        continue;
-      NativeViewerLayoutTarget target = CreateTarget(kind, settings.Id);
-      _layoutTargets.Add(target);
+      NativeViewerLayoutTarget target = _layoutTargets.Find(item => item.Id == id);
+      _layoutTargets.Remove(target);
+      target.Dispose();
     }
+    foreach (KeyValuePair<string, string> viewer in added)
+      _layoutTargets.Add(CreateTarget(viewer.Value, viewer.Key));
     foreach (NativeViewerLayoutTarget target in _layoutTargets)
       target.Configure(layouts, legacyEnabled);
+    // The pages on screen follow; viewers that went close their page.
+    if (EnabledViewers() != before)
+      OnEnabledChanged();
   }
+
+  private string EnabledViewers() =>
+    string.Join(",", _layoutTargets.Where(target => target.Enabled).Select(target => target.NativeId));
 
   IOverlayLayoutTarget IKeyViewerElements.Add(string templateId) => AddElement(templateId);
 
@@ -121,6 +144,40 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     return created;
   }
 
+  // Unity main thread, from the editor's button: the game is in front.
+  public KeyViewerEditResult OpenInApp(IOverlayLayoutTarget target)
+  {
+    if (target is not NativeViewerLayoutTarget viewer)
+      return KeyViewerEditResult.Failed;
+    if (!_session.Connected)
+      return KeyViewerEditResult.AppClosed;
+    string peer = _session.EditPeer;
+    if (peer == null)
+      return KeyViewerEditResult.AppOutdated;
+    IFeatureRegistration ipc = _ipc;
+    if (ipc == null)
+      return KeyViewerEditResult.Failed;
+    try
+    {
+      _appFocus?.PassFocus();
+    }
+    catch (Exception error)
+    {
+      // The app still switches its tab; the player brings it forward.
+      _logWarning("Couldn't bring ElementNote forward: " + error.Message);
+    }
+    try
+    {
+      ipc.SendCommandToPeer(peer, NativeViewerSession.EditCommand, NativeViewerSession.EditPayload(viewer.Kind));
+      return KeyViewerEditResult.Opened;
+    }
+    catch (Exception error)
+    {
+      LogOnce("Open the key viewer in ElementNote", error);
+      return KeyViewerEditResult.Failed;
+    }
+  }
+
   public IOverlayLayoutTarget AddElement(string templateId)
   {
     string kind =
@@ -137,9 +194,10 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
         Id = id,
         TemplateId = templateId,
         Enabled = true,
+        // Centered at full size, the size the default viewers start at.
         Customized = true,
-        CenterX = .5f,
-        CenterY = .5f,
+        LayoutVersion = OverlayLayoutPosition.CurrentVersion,
+        Anchor = Anchor9.Center,
       }
     );
     _layoutTargets.Add(target);
@@ -163,6 +221,32 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     target.ConfigurePreview(_font);
     target.Bind(_host);
     return target;
+  }
+
+  /// <summary>
+  /// The key viewers a replay render shows, placed in a video of the given size:
+  /// the ones on screen in the game. Empty while ElementNote is closed or hides
+  /// them. Unity main thread.
+  /// </summary>
+  public IReadOnlyList<RenderViewerPlacement> RenderPlacements(int videoWidth, int videoHeight)
+  {
+    var placements = new List<RenderViewerPlacement>();
+    if (!_supported || !_connected || _hiddenInApp)
+      return placements;
+    foreach (NativeViewerLayoutTarget target in _layoutTargets)
+    {
+      // The last page descriptor's viewport, or the sample's; the page reports its own.
+      NativeViewerSurface known = Array.Find(_knownSurfaces, surface => surface.ViewerKind == target.Kind);
+      RenderViewerPlacement placement = target.RenderPlacement(
+        videoWidth,
+        videoHeight,
+        known?.Width ?? NativeViewerMock.Width(target.Kind),
+        known?.Height ?? NativeViewerMock.ViewportHeight
+      );
+      if (placement != null)
+        placements.Add(placement);
+    }
+    return placements;
   }
 
   public void ConfigurePreview(TMP_FontAsset font)

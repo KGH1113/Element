@@ -6,8 +6,9 @@ using Element.Configuration;
 namespace Element.Domain.Elements;
 
 // One caret step: a displayed character (one or two UTF-16 units) or a whole
-// value, with its color and size (zero for the text's base size). A value is
-// a saved formula (OverlayFormula), usually one value's key. A size formula,
+// value, with its color, size (zero for the text's base size) and font (an
+// OverlayFontKey; empty follows the overlay's default font). A value is a
+// saved formula (OverlayFormula), usually one value's key. A size formula,
 // when set, gives the size in pixels as drawn and replaces Size.
 internal readonly struct OverlayTextItem
 {
@@ -16,39 +17,53 @@ internal readonly struct OverlayTextItem
   public readonly OverlayColorSettings Color;
   public readonly float Size;
   public readonly string SizeFormula;
+  public readonly string Font;
   public bool IsValue => Value != null;
 
-  private OverlayTextItem(string text, string value, OverlayColorSettings color, float size, string sizeFormula)
+  private OverlayTextItem(
+    string text,
+    string value,
+    OverlayColorSettings color,
+    float size,
+    string sizeFormula,
+    string font
+  )
   {
     Text = text;
     Value = value;
     Color = color;
     Size = size;
     SizeFormula = sizeFormula ?? string.Empty;
+    Font = font ?? string.Empty;
   }
 
   public static OverlayTextItem Character(
     string text,
     OverlayColorSettings color,
     float size = 0,
-    string sizeFormula = null
-  ) => new(text, null, color, size, sizeFormula);
+    string sizeFormula = null,
+    string font = null
+  ) => new(text, null, color, size, sizeFormula, font);
 
   public static OverlayTextItem ValueItem(
     string formula,
     OverlayColorSettings color,
     float size = 0,
-    string sizeFormula = null
-  ) => new(null, formula, color, size, sizeFormula);
+    string sizeFormula = null,
+    string font = null
+  ) => new(null, formula, color, size, sizeFormula, font);
 
-  public OverlayTextItem WithColor(OverlayColorSettings color) => new(Text, Value, color, Size, SizeFormula);
+  public OverlayTextItem WithColor(OverlayColorSettings color) => new(Text, Value, color, Size, SizeFormula, Font);
 
-  public OverlayTextItem WithSize(float size, string sizeFormula = null) => new(Text, Value, Color, size, sizeFormula);
+  public OverlayTextItem WithSize(float size, string sizeFormula = null) =>
+    new(Text, Value, Color, size, sizeFormula, Font);
 
-  public OverlayTextItem WithValue(string formula) => new(Text, formula, Color, Size, SizeFormula);
+  public OverlayTextItem WithFont(string font) => new(Text, Value, Color, Size, SizeFormula, font);
+
+  public OverlayTextItem WithValue(string formula) => new(Text, formula, Color, Size, SizeFormula, Font);
 
   public bool SameStyle(OverlayTextItem other) =>
-    Size == other.Size && SizeFormula == other.SizeFormula && Color.SameAs(other.Color);
+    Size == other.Size && SizeFormula == other.SizeFormula && Font == other.Font && Color.SameAs(other.Color);
 }
 
 /// <summary>
@@ -77,14 +92,15 @@ internal sealed class OverlayTextDocument
       OverlayColorSettings color = (run.Color ?? DefaultColor).Clone();
       float size = ValidSize(run.Size);
       string sizeFormula = Formula(run.SizeFormula);
+      string font = OverlayFontKey.Normalize(run.Font);
       if (run.IsValue)
       {
         string formula = Formula(run.Value);
         if (formula.Length > 0)
-          document._items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula));
+          document._items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula, font));
       }
       else
-        AppendCharacters(document._items, run.Text, color, size, sizeFormula);
+        AppendCharacters(document._items, run.Text, color, size, sizeFormula, font);
     }
     return document;
   }
@@ -107,6 +123,7 @@ internal sealed class OverlayTextDocument
         OverlayTextRun run = OverlayTextRun.ValueRun(item.Value, item.Color.Clone());
         run.Size = item.Size;
         run.SizeFormula = item.SizeFormula;
+        run.Font = item.Font;
         runs.Add(run);
       }
       else
@@ -125,6 +142,7 @@ internal sealed class OverlayTextDocument
         OverlayTextRun run = OverlayTextRun.Literal(literal.ToString(), style.Value.Color.Clone());
         run.Size = style.Value.Size;
         run.SizeFormula = style.Value.SizeFormula;
+        run.Font = style.Value.Font;
         runs.Add(run);
       }
       literal.Clear();
@@ -163,7 +181,7 @@ internal sealed class OverlayTextDocument
       if (text == null)
         continue;
       List<OverlayTextItem> characters = new();
-      AppendCharacters(characters, text, item.Color, item.Size, item.SizeFormula);
+      AppendCharacters(characters, text, item.Color, item.Size, item.SizeFormula, item.Font);
       _items.RemoveAt(i);
       _items.InsertRange(i, characters);
     }
@@ -178,11 +196,19 @@ internal sealed class OverlayTextDocument
     string text,
     OverlayColorSettings color,
     float size = 0,
-    string sizeFormula = null
+    string sizeFormula = null,
+    string font = null
   )
   {
     List<OverlayTextItem> items = new();
-    AppendCharacters(items, text, color ?? DefaultColor, ValidSize(size), Formula(sizeFormula));
+    AppendCharacters(
+      items,
+      text,
+      color ?? DefaultColor,
+      ValidSize(size),
+      Formula(sizeFormula),
+      OverlayFontKey.Normalize(font)
+    );
     return InsertItems(start, end, items);
   }
 
@@ -193,7 +219,8 @@ internal sealed class OverlayTextDocument
     string formula,
     OverlayColorSettings color,
     float size = 0,
-    string sizeFormula = null
+    string sizeFormula = null,
+    string font = null
   )
   {
     formula = Formula(formula);
@@ -202,7 +229,16 @@ internal sealed class OverlayTextDocument
     return InsertItems(
       start,
       end,
-      new[] { OverlayTextItem.ValueItem(formula, color ?? DefaultColor, ValidSize(size), Formula(sizeFormula)) }
+      new[]
+      {
+        OverlayTextItem.ValueItem(
+          formula,
+          color ?? DefaultColor,
+          ValidSize(size),
+          Formula(sizeFormula),
+          OverlayFontKey.Normalize(font)
+        ),
+      }
     );
   }
 
@@ -271,12 +307,36 @@ internal sealed class OverlayTextDocument
       _items[i] = _items[i].WithSize(size, sizeFormula);
   }
 
-  /// <summary>New typing continues the nearest literal text's color and size.</summary>
+  /// <summary>Gives the range one font (an OverlayFontKey); empty follows the default font.</summary>
+  public void SetFont(int start, int end, string font)
+  {
+    Order(ref start, ref end);
+    font = OverlayFontKey.Normalize(font);
+    for (int i = start; i < end; i++)
+      _items[i] = _items[i].WithFont(font);
+  }
+
+  /// <summary>The range's font, or null when it mixes fonts or is empty.</summary>
+  public string RangeFont(int start, int end)
+  {
+    Order(ref start, ref end);
+    if (start == end)
+      return null;
+    string font = _items[start].Font;
+    for (int i = start + 1; i < end; i++)
+      if (_items[i].Font != font)
+        return null;
+    return font;
+  }
+
+  /// <summary>New typing continues the nearest literal text's color, size and font.</summary>
   public OverlayColorSettings TypingColor(int caret) => TypingItem(caret)?.Color ?? DefaultColor;
 
   public float TypingSize(int caret) => TypingItem(caret)?.Size ?? 0;
 
   public string TypingSizeFormula(int caret) => TypingItem(caret)?.SizeFormula ?? string.Empty;
+
+  public string TypingFont(int caret) => TypingItem(caret)?.Font ?? string.Empty;
 
   private OverlayTextItem? TypingItem(int caret)
   {
@@ -355,7 +415,8 @@ internal sealed class OverlayTextDocument
     string text,
     OverlayColorSettings color,
     float size,
-    string sizeFormula = null
+    string sizeFormula = null,
+    string font = null
   )
   {
     if (string.IsNullOrEmpty(text))
@@ -371,13 +432,13 @@ internal sealed class OverlayTextDocument
       }
       if (char.IsHighSurrogate(c) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
       {
-        items.Add(OverlayTextItem.Character(text.Substring(i, 2), color, size, sizeFormula));
+        items.Add(OverlayTextItem.Character(text.Substring(i, 2), color, size, sizeFormula, font));
         i++;
         continue;
       }
       if (char.IsSurrogate(c) || (char.IsControl(c) && c != '\n' && c != '\t'))
         continue;
-      items.Add(OverlayTextItem.Character(c.ToString(), color, size, sizeFormula));
+      items.Add(OverlayTextItem.Character(c.ToString(), color, size, sizeFormula, font));
     }
   }
 }

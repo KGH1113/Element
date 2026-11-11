@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;

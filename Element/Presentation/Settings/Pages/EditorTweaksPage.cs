@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;

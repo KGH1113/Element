@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Element.Application.Fonts;
-using Element.Domain.Elements;
 using Element.Infrastructure.Platform;
+using Element.Domain.Overlay.Fonts;
 
 namespace Element.Infrastructure.Storage;
 

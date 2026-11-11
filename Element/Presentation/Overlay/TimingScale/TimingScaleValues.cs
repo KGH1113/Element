@@ -1,8 +1,8 @@
 using System;
 using System.Text;
 using Element.Application.Overlay;
-using Element.Domain.Elements;
-using Element.Domain.TimingScale;
+using Element.Domain.Judgement;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 

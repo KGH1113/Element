@@ -1,4 +1,5 @@
-using Element.Configuration;
+using Element.Application.Layout;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Overlay.Canvas;
@@ -8,7 +9,6 @@ using Element.Presentation.Ui.Popovers;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 

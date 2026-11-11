@@ -1,7 +1,8 @@
 using ADOFAI;
 using Element.Configuration;
-using Element.Domain.Editor;
 using UnityEngine;
+using Element.Configuration.Gameplay;
+using Element.Domain.Tweaks;
 
 namespace Element.Infrastructure.Game.Editor;
 

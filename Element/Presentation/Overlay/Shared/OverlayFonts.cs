@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Application.Fonts;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Fonts;
 using TMPro;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using Element.Application.Fonts;
 
 namespace Element.Presentation.Overlay.Shared;
 

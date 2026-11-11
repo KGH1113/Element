@@ -1,5 +1,6 @@
 using System;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 

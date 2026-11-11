@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Domain.Input;
+using Element.Domain.Tweaks;
 using Element.Infrastructure.ElementNote.Keys;
 using SkyHook;
 using UnityEngine;

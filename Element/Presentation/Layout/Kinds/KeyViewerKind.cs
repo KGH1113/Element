@@ -1,12 +1,12 @@
-using Element.Configuration;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.KeyViewer;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 

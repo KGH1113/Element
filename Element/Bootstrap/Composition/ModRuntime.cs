@@ -10,7 +10,6 @@ using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
 using Element.Configuration;
-using Element.Domain.DmNote;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;
@@ -33,6 +32,8 @@ using Element.Presentation.Settings;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Element.Configuration.Gameplay;
+using Element.Domain.Rendering;
 
 namespace Element.Bootstrap.Composition;
 

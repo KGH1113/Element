@@ -1,6 +1,7 @@
 using System;
 using System.Text;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shared;
 
 namespace Element.Presentation.Overlay.Elements;

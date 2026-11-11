@@ -1,7 +1,7 @@
 using System;
 using Element.Application.KeyViewer;
-using Element.Domain.DmNote;
 using UnityEngine;
+using Element.Domain.KeyViewer;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 

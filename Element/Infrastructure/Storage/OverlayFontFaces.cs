@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Fonts;
+using Element.Configuration.Overlay;
 
 namespace Element.Infrastructure.Storage;
 

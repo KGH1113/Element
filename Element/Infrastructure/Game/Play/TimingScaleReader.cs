@@ -1,5 +1,5 @@
-using Element.Application.TimingScale;
-using Element.Domain.TimingScale;
+using Element.Application.Judgement;
+using Element.Domain.Judgement;
 
 namespace Element.Infrastructure.Game.Play;
 

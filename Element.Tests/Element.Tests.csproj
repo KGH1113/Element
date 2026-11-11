@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Saved files written by an earlier build, read back by SavedFormatTests. -->
+    <EmbeddedResource Include="Configuration/Fixtures/*" LogicalName="Fixtures/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Element/Element.csproj" />
     <!-- Aliased: both also compile the shared update sources the mod has. -->
     <ProjectReference Include="../Element.Launcher/Element.Launcher.csproj" Aliases="launcher" />

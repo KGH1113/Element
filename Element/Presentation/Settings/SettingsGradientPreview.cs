@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using UnityEngine;
 using UnityEngine.UI;

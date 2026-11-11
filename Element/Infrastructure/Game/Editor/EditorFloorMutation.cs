@@ -1,5 +1,5 @@
 using System;
-using Element.Domain.Editor;
+using Element.Domain.Tweaks;
 
 namespace Element.Infrastructure.Game.Editor;
 

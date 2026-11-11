@@ -11,13 +11,17 @@ using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Elements;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Fonts;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Domain.Input;
+using Element.Domain.Tweaks;
 using Element.Domain.Layout;
 using Element.Application.Updates;
 using Element.Application.Fonts;
@@ -38,6 +42,8 @@ using Object = UnityEngine.Object;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Layout.Graphics;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 
 namespace Element.Editor
 {

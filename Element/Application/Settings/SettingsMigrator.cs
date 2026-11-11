@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Defaults;
 using UnityEngine;
 
 namespace Element.Application.Settings;

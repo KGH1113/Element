@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Application.Mods;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Infrastructure.Mods;
 using Element.Presentation.Layout;
 using Element.Presentation.Layout.Canvas;

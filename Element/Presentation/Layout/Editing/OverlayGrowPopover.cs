@@ -1,5 +1,5 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using TMPro;

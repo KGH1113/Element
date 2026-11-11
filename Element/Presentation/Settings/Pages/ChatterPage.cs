@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Input;
+using Element.Configuration.Gameplay;
+using Element.Domain.Tweaks;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;

@@ -1,5 +1,6 @@
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;

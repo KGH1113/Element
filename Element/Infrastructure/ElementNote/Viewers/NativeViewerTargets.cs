@@ -4,8 +4,9 @@ using System.Linq;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
 using Element.Configuration;
-using Element.Domain.DmNote;
 using Element.Domain.Layout;
+using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 

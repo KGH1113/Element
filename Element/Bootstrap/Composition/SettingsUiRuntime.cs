@@ -1,8 +1,8 @@
 using System;
 using Element.Application.Input;
 using Element.Application.Profiles;
-using Element.Configuration;
 using Element.Configuration.Effects;
+using Element.Configuration.Gameplay;
 using Element.Infrastructure.ElementNote.Viewers;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;

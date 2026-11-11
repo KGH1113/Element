@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using Element.Domain.DmNote;
+using Element.Domain.KeyViewer;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 

@@ -4,6 +4,7 @@ using Element.Configuration;
 using Element.Domain.Tweaks;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Planets;
 

@@ -19,6 +19,7 @@ using Element.Application.Settings;
 using Element.Configuration.Profiles;
 using Element.Infrastructure.Game.DmNote;
 using Element.Infrastructure.Assets;
+using Element.Infrastructure.Storage;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
@@ -2030,7 +2031,7 @@ namespace Element.Editor
       ProfileLibrary library = new ProfileLibrary(settings, korean ? "기본" : "Default");
       library.TryCreate(korean ? "방송용" : "Stream", out _, out _);
       library.TryCreate(korean ? "연습 · 느린 곡과 긴 이름의 프로필" : "Practice · slow songs and a long name", out _, out _);
-      return new ProfileService(library, dialogs, () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
+      return new ProfileService(library, dialogs, new ProfileFileStore(), () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
     }
 
     private static void CheckProfileLink(SettingsPanel panel, ProfileService profiles)

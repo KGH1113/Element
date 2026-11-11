@@ -15,6 +15,7 @@ using Element.Domain.Layout;
 using Element.Application.Updates;
 using Element.Application.Files;
 using Element.Application.Profiles;
+using Element.Application.Settings;
 using Element.Configuration.Profiles;
 using Element.Infrastructure.Game.DmNote;
 using Element.Infrastructure.Assets;
@@ -103,7 +104,7 @@ namespace Element.Editor
       // fixture's screen; the narrow pass checks the toolbar at its own width.
       int screenWidth = Screen.width, screenHeight = Screen.height;
       var settings = new ElementSettings { ReduceUiMotion = true };
-      settings.Migrate();
+      SettingsMigrator.Migrate(settings);
       OverlayTheme.SetHighlight(settings.HighlightColor);
       var host = new OverlayCanvasHost();
       var catalog = new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning,
@@ -1458,34 +1459,34 @@ namespace Element.Editor
       var fresh = new ElementSettings();
       Assert(fresh.HighlightColor == "#BA712B" && OverlayTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
       var legacy = new ElementSettings { HighlightColor = " #7cce00 " };
-      legacy.Migrate();
+      SettingsMigrator.Migrate(legacy);
       Assert(legacy.HighlightColor == "#BA712B" && legacy.SettingsVersion >= 1, "old default migrates once");
-      legacy.HighlightColor = "#7CCE00"; legacy.Migrate();
+      legacy.HighlightColor = "#7CCE00"; SettingsMigrator.Migrate(legacy);
       Assert(legacy.HighlightColor == "#7CCE00", "explicit green after migration is preserved");
       var custom = new ElementSettings { HighlightColor = "#336699" };
-      custom.Migrate(); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
+      SettingsMigrator.Migrate(custom); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
       Assert(fresh.SettingsShortcutKey == KeyCode.F9 && fresh.SettingsShortcutModifier == KeyCode.LeftControl,
         "new settings open with Left Ctrl + F9");
       var oldShortcut = new ElementSettings { SettingsVersion = 6, SettingsShortcutKey = KeyCode.Tab, SettingsShortcutModifier = KeyCode.LeftAlt };
-      oldShortcut.Migrate();
+      SettingsMigrator.Migrate(oldShortcut);
       Assert(oldShortcut.SettingsShortcutKey == KeyCode.F9 && oldShortcut.SettingsShortcutModifier == KeyCode.LeftControl
         && oldShortcut.SettingsVersion >= 7, "old Left Alt + Tab default moves to Left Ctrl + F9");
-      oldShortcut.SettingsShortcutKey = KeyCode.Tab; oldShortcut.SettingsShortcutModifier = KeyCode.LeftAlt; oldShortcut.Migrate();
+      oldShortcut.SettingsShortcutKey = KeyCode.Tab; oldShortcut.SettingsShortcutModifier = KeyCode.LeftAlt; SettingsMigrator.Migrate(oldShortcut);
       Assert(oldShortcut.SettingsShortcutKey == KeyCode.Tab, "Left Alt + Tab chosen after migration is preserved");
       var customShortcut = new ElementSettings { SettingsVersion = 6, SettingsShortcutKey = KeyCode.BackQuote, SettingsShortcutModifier = KeyCode.None };
-      customShortcut.Migrate();
+      SettingsMigrator.Migrate(customShortcut);
       Assert(customShortcut.SettingsShortcutKey == KeyCode.BackQuote && customShortcut.SettingsShortcutModifier == KeyCode.None,
         "migration preserves a custom shortcut");
       foreach (bool hidden in new[] { false, true })
       foreach (int version in new[] { 0, 1 })
       {
         var old = new ElementSettings { SettingsVersion = version, HidePerfectJudgmentText = hidden };
-        old.Migrate();
+        SettingsMigrator.Migrate(old);
         Assert(old.Gameplay.Judgement.HidePerfect == hidden && old.Gameplay.Judgement.HideXPerfect == hidden,
           "outer legacy Perfect visibility migrates to Perfect +/- and XP before normalization: " + version + " / " + hidden);
         old.Gameplay.Judgement.HidePerfect = !hidden;
         old.HidePerfectJudgmentText = !hidden;
-        old.Migrate();
+        SettingsMigrator.Migrate(old);
         Assert(old.Gameplay.Judgement.HidePerfect == !hidden && old.Gameplay.Judgement.HideXPerfect == hidden,
           "subsequent settings loads preserve independent XP visibility");
       }
@@ -1496,22 +1497,22 @@ namespace Element.Editor
         TemplateId = OverlayElementKinds.Text,
         Text = new OverlayTextSettings { Runs = { OverlayTextRun.ValueRun("accuracy", OverlayColorSettings.HighlightColor()) } },
       });
-      released.Migrate();
-      released.Migrate();
+      SettingsMigrator.Migrate(released);
+      SettingsMigrator.Migrate(released);
       Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
         "earlier layouts get the progress bar once");
       var presets = new ElementSettings { SettingsVersion = 2 };
-      presets.Migrate();
+      SettingsMigrator.Migrate(presets);
       Assert(presets.OverlayLayouts.Single(layout => layout.Id == "accuracy").Text.Runs.Count(run => run.Text == "%") == 1,
         "presets from before 1.1 convert straight to the new form");
       foreach (bool hidden in new[] { false, true })
       {
         var grouped = new ElementSettings { SettingsVersion = 2 };
         grouped.Gameplay.Judgement.HidePerfect = hidden;
-        grouped.Migrate();
+        SettingsMigrator.Migrate(grouped);
         Assert(grouped.Gameplay.Judgement.HidePerfect == hidden && grouped.Gameplay.Judgement.HideXPerfect == hidden,
           "existing gameplay Perfect group migrates its XP visibility without consulting the obsolete outer switch");
       }

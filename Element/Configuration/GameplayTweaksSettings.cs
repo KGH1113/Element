@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Xml.Serialization;
-using Element.Domain.Input;
 using UnityEngine;
 
 namespace Element.Configuration;
@@ -22,7 +21,6 @@ public sealed class GameplayTweaksSettings
     Chatter ??= new();
     Chatter.Normalize();
     Editor.RotationStep = FiniteClamp(Editor.RotationStep, 0.1f, 180f, 22.5f);
-    Judgement.Normalize();
     Planets.Normalize();
   }
 
@@ -49,13 +47,17 @@ public sealed class EditorTweaksOptions
 [CopiedInPlace]
 public sealed class ChatterBlockerOptions
 {
-  /// <summary>The window before version 8, measured from the key's release.</summary>
-  internal const int ReleaseWindowDefaultMs = 20;
+  public const int MinimumWindowMs = 10;
+  public const int MaximumWindowMs = 500;
+  public const int DefaultWindowMs = 100;
+
+  /// <summary>The keys the chatter filter tells apart; one past them can't be ignored.</summary>
+  public const int KeyCount = 1024;
 
   public bool Enabled = true;
 
   /// <summary>A press of a key no later than this after its last accepted press is chatter.</summary>
-  public int WindowMs = ChatterFilter.DefaultWindowMs;
+  public int WindowMs = DefaultWindowMs;
 
   /// <summary>Keys never filtered, such as one used for fast jacks.</summary>
   public List<KeyCode> IgnoredKeys = new();
@@ -71,12 +73,13 @@ public sealed class ChatterBlockerOptions
   }
 
   /// <summary>Keyboard keys only, as KeyboardChatterBlocker lets you choose.</summary>
-  public static bool IsIgnorable(KeyCode key) =>
-    key != KeyCode.None && key < KeyCode.Mouse0 && (int)key < ChatterFilter.KeyCount;
+  public static bool IsIgnorable(KeyCode key) => key != KeyCode.None && key < KeyCode.Mouse0 && (int)key < KeyCount;
+
+  public static int ClampWindow(int milliseconds) => Math.Max(MinimumWindowMs, Math.Min(MaximumWindowMs, milliseconds));
 
   public void Normalize()
   {
-    WindowMs = ChatterFilter.ClampWindow(WindowMs);
+    WindowMs = ClampWindow(WindowMs);
     IgnoredKeys ??= new();
     var seen = new HashSet<KeyCode>();
     IgnoredKeys.RemoveAll(key => !IsIgnorable(key) || !seen.Add(key));
@@ -86,6 +89,7 @@ public sealed class ChatterBlockerOptions
 [CopiedInPlace]
 public sealed class JudgementVisualOptions
 {
+  /// <summary>1 once X-Perfect has its own switch; SettingsMigrator splits it from Perfect.</summary>
   public int Version;
   public bool HidePerfect = true;
   public bool HideXPerfect = true;
@@ -97,16 +101,6 @@ public sealed class JudgementVisualOptions
   public bool HideTooLate;
   public bool HideMiss;
   public bool HideOverload;
-
-  public void Normalize()
-  {
-    if (Version >= 1)
-      return;
-    // Previously PerfectMinus, XPerfect and PerfectPlus shared HidePerfect.
-    // Keep that visibility on upgrade, then let the two controls vary separately.
-    HideXPerfect = HidePerfect;
-    Version = 1;
-  }
 }
 
 [CopiedInPlace]

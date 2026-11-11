@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Serialization;
+using Element.Application.Settings;
 using Element.Configuration;
 using Element.Domain.Elements;
 
@@ -41,12 +42,18 @@ internal static class ValueAnimationTests
     List<OverlayTextRun> before = document.ToRuns();
     document.SetAnimate(0, document.Count, true);
     Check(document[4].Animate && document[7].Animate, "the whole text turns every value on");
-    Check(Enumerable.Range(0, document.Count).All(i => document[i].IsValue || !document[i].Animate), "letters never animate");
+    Check(
+      Enumerable.Range(0, document.Count).All(i => document[i].IsValue || !document[i].Animate),
+      "letters never animate"
+    );
     List<OverlayTextRun> after = document.ToRuns();
     Check(after.Count == before.Count, "turning values on doesn't split the text between them: " + after.Count);
     document.SetAnimate(5, 8, false);
     Check(document[4].Animate && !document[7].Animate, "a selection turns only its own values off");
-    Check(!document.SameAs(FpsAndCombo()) && document.Clone().SameAs(document), "the switch is part of the text's content");
+    Check(
+      !document.SameAs(FpsAndCombo()) && document.Clone().SameAs(document),
+      "the switch is part of the text's content"
+    );
   }
 
   private static void RangeSaysWhetherItsValuesAnimate()
@@ -80,8 +87,10 @@ internal static class ValueAnimationTests
     document.SetAnimate(7, 8, true);
     List<OverlayTextRun> runs = document.ToRuns();
     Check(runs.Single(run => run.Value == "combo").Animate, "the run keeps the switch");
-    Check(!runs.Single(run => run.Value == "fps").Animate && runs.Where(run => !run.IsValue).All(run => !run.Animate),
-      "others stay still");
+    Check(
+      !runs.Single(run => run.Value == "fps").Animate && runs.Where(run => !run.IsValue).All(run => !run.Animate),
+      "others stay still"
+    );
     Check(OverlayTextDocument.FromRuns(runs).SameAs(document), "reading the runs back gives the same text");
     OverlayTextRun combo = runs.Single(run => run.Value == "combo");
     Check(combo.Clone().SameAs(combo) && combo.Clone().Animate, "a copy keeps it");
@@ -114,7 +123,8 @@ internal static class ValueAnimationTests
       "the built-in combo grows on every hit"
     );
     Check(
-      OverlayElementDefaults.All.Where(other => other.Id != OverlayElementDefaults.ComboId)
+      OverlayElementDefaults
+        .All.Where(other => other.Id != OverlayElementDefaults.ComboId)
         .SelectMany(other => other.CreateRuns())
         .All(run => !run.Animate),
       "no other built-in moves"
@@ -136,14 +146,14 @@ internal static class ValueAnimationTests
       },
     };
     settings.OverlayLayouts.Add(text);
-    settings.Migrate();
+    SettingsMigrator.Migrate(settings);
     List<OverlayTextRun> runs = settings.OverlayLayouts.Single(layout => layout.Id == "text:combo").Text.Runs;
     Check(runs[1].Animate, "a combo, even calculated, keeps growing after the update");
     Check(!runs[0].Animate && !runs[2].Animate, "nothing else starts moving");
     Check(settings.SettingsVersion == ElementSettings.CurrentSettingsVersion, "the settings are current");
 
     runs[1].Animate = false;
-    settings.Migrate();
+    SettingsMigrator.Migrate(settings);
     Check(!runs[1].Animate, "a combo turned off stays off on the next load");
   }
 

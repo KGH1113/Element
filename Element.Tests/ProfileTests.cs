@@ -5,6 +5,7 @@ using System.Text;
 using System.Xml.Serialization;
 using Element.Application.Files;
 using Element.Application.Profiles;
+using Element.Application.Settings;
 using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Configuration.Profiles;
@@ -172,7 +173,7 @@ internal static class ProfileTests
     new XmlSerializer(typeof(ElementSettings)).Serialize(file, settings);
     file.Position = 0;
     ElementSettings loaded = SettingsXml.Read<ElementSettings>(file);
-    loaded.Migrate();
+    SettingsMigrator.Migrate(loaded);
     ProfileLibrary reloaded = new(loaded, "Default");
     Check(reloaded.Profiles.Count == 2 && reloaded.Active.Name == "Other", "profiles and the one in use load back");
     Check(reloaded.Switch(reloaded.Profiles[0].Id), "a loaded profile switches");
@@ -514,7 +515,7 @@ internal static class ProfileTests
   private static ElementSettings Fresh()
   {
     ElementSettings settings = new();
-    settings.Migrate();
+    SettingsMigrator.Migrate(settings);
     settings.Gameplay.Normalize();
     settings.Effects.Normalize();
     return settings;

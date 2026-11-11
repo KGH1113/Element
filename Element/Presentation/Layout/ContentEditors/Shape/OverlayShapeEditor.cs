@@ -1,18 +1,14 @@
 using System;
-using System.Collections.Generic;
 using Element.Application.Input;
+using Element.Application.Layout;
 using Element.Configuration;
 using Element.Domain.Elements;
-using Element.Domain.Layout;
-using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -23,71 +19,77 @@ namespace Element.Presentation.Layout.ContentEditors.Shape;
 /// grows from float above. Clicking a number types it in the input dock along
 /// the bottom, which is always there.
 /// </summary>
-internal sealed partial class OverlayShapeEditor : IContentEditor
+/// <remarks>
+/// The editor puts its parts together and runs them: <see cref="ShapePreview"/>,
+/// <see cref="ShapeMeasures"/>, <see cref="ShapeNumbers"/>, <see cref="ShapeColors"/>,
+/// <see cref="ShapeGradient"/>, <see cref="ShapeValueDrops"/> and <see cref="ShapeInput"/>,
+/// with the bar, the grow point and undo it shares with the text editor.
+/// </remarks>
+internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
 {
-  private const float BarHeight = 40,
-    MeasureGap = 22,
-    RadiusOffset = 48,
-    MaximumSize = 10000,
-    MaximumStroke = 100;
-
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
-  private readonly OverlayValues _values;
   private readonly OverlayLiveValues _live;
-  private readonly OverlayFormulaEditing _editing = new();
-  private readonly OverlayGlide _space = new();
-  private readonly OverlayShapeResolver _resolver = new();
-  private readonly OverlayShapeSettings _resolved = new();
-  private readonly UndoStack<OverlayShapeSettings> _history = new(100);
-  private readonly List<OverlayFormulaField> _radiusFields = new();
-  private readonly List<Button> _arcs = new();
-  private readonly List<System.Numerics.Vector2> _corners = new(4);
-  private readonly Event _event = new();
+  private readonly OverlayPreviewSpace _space = new();
+  private readonly OverlayEditorHistory<OverlayShapeSettings> _history;
+  private readonly ShapePreview _preview;
+  private readonly ShapeMeasures _measures = new();
+  private readonly ShapeNumbers _numbers;
+  private readonly ShapeColors _colors;
+  private readonly ShapeGradient _gradient;
+  private readonly OverlayGrowFrom _grow;
+  private readonly ShapeValueDrops _drops;
+  private readonly ShapeInput _input;
   private OverlayEditorFrame _screen;
-  private SettingsUiFactory _ui;
-  private RectTransform _frame;
-  private RectTransform _shapeRect;
-  private ShapeGraphic _graphic;
-  private RectTransform _bar;
-  private OverlayBarButton _fillButton,
-    _strokeButton,
-    _strokeWidth,
-    _growButton;
-  private OverlayBarButton[] _barButtons;
-  private bool _pickerForStroke;
-  private OverlayOpacityField _opacity;
-  private SettingsCapsuleGraphic _growMark;
-  private OverlayFormulaField _widthField,
-    _heightField;
+  private OverlayEditorBar _bar;
   private OverlayInputDock _dock;
-  private OverlayGrowPopover _growPopover;
-  private SettingsColorPicker _picker;
   private ShapeOverlayElement _element;
   private Action<bool> _closed;
   private OverlayShapeSettings _shape;
   private OverlayShapeSettings _opening;
-  private OverlayGrowth _growth;
   private float _elementScale = 1;
   private float _blinkStart;
-  private string _field;
-  private bool _pickerSnapshotTaken;
-  private OverlayValueDefinition _dragValue;
-  private string _dropKey;
 
   public OverlayShapeEditor(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
   {
     _parent = parent;
     _font = font;
     _reduceMotion = reduceMotion;
-    _values = values;
     _live = new OverlayLiveValues(values);
+    _history = new OverlayEditorHistory<OverlayShapeSettings>(() => _shape.Clone(), Restore);
+    _preview = new ShapePreview(values);
+    _numbers = new ShapeNumbers(this, values, _history);
+    _colors = new ShapeColors(this, _numbers, _history, font, reduceMotion);
+    _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
+    _numbers.Use(_gradient);
+    _grow = new OverlayGrowFrom(CloseEditing, Render);
+    ShapeFieldList fields = new(_measures, _colors, _gradient);
+    _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures, fields);
+    _input = new ShapeInput(this, _numbers, _colors, _gradient, _measures, fields, _drops, _grow, _history);
   }
 
   public bool IsOpen => _screen != null;
 
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+
+  OverlayEditorFrame IShapeEditorHost.Screen => _screen;
+
+  OverlayInputDock IShapeEditorHost.Dock => _dock;
+
+  OverlayEditorBar IShapeEditorHost.Bar => _bar;
+
+  OverlayShapeSettings IShapeEditorHost.Shape => _shape;
+
+  float IShapeEditorHost.ElementScale => _elementScale;
+
+  bool IShapeEditorHost.AnyOpen => AnyOpen;
+
+  void IShapeEditorHost.Activate(string key) => Activate(key);
+
+  void IShapeEditorHost.CloseEditing() => CloseEditing();
+
+  void IShapeEditorHost.Render() => Render();
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
   {
@@ -106,25 +108,19 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
     _shape = (element.Shape ?? OverlayShapeGeometry.Create()).Clone();
     OverlayShapeGeometry.Normalize(_shape);
     _opening = _shape.Clone();
-    _growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
+    _grow.Open(element);
     _history.Clear();
-    _field = null;
-    _editing.Deactivate();
+    _numbers.Field = null;
+    _numbers.Editing.Deactivate();
     Build();
     Render();
   }
 
-  private bool HasCorners => OverlayShapeGeometry.HasCorners(_shape.Kind);
-
   private void Build()
   {
-    SettingsColorPicker oldPicker = _picker;
-    _picker = null;
-    oldPicker?.Dispose();
+    _colors.DisposePicker();
     _screen?.Dispose();
-    _radiusFields.Clear();
-    _arcs.Clear();
-    _dragValue = null;
+    _drops.Cancel();
     _space.Snap();
     _screen = new OverlayEditorFrame(
       "Shape editor",
@@ -138,178 +134,226 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
       () => Close(false, true),
       () => Close(true, true)
     );
-    _ui = _screen.Ui;
-    _frame = _screen.Frame;
-
-    _shapeRect = _ui.Rect("Shape", _screen.Stage, 0, 0, 10, 10);
-    _graphic = _shapeRect.gameObject.AddComponent<ShapeGraphic>();
-    _graphic.raycastTarget = false;
-    _widthField = Field("Width", "width", "W");
-    _heightField = Field("Height", "height", "H");
-    int corners = OverlayShapeGeometry.DefaultPoints(_shape.Kind).Count;
-    for (int i = 0; i < corners; i++)
-    {
-      int index = i;
-      _arcs.Add(
-        OverlayCornerArc.Create(
-          _ui,
-          _frame,
-          L("꼭짓점 둥글기 ", "Corner rounding ") + (i + 1),
-          () => Activate("radius:" + index),
-          _reduceMotion()
-        )
-      );
-      _radiusFields.Add(Field(L("꼭짓점 둥글기 값 ", "Corner radius ") + (i + 1), "radius:" + i, "R"));
-    }
-    BuildGradient();
-
+    _preview.Build(_screen);
+    _measures.Build(_screen, _shape.Kind, Activate, _reduceMotion());
+    _gradient.BuildHandles(_screen, _reduceMotion());
     BuildBar();
     _dock = new OverlayInputDock(
-      _ui,
-      _frame,
+      _screen.Ui,
+      _screen.Frame,
       _screen.Width,
       _screen.Height,
       _screen.Measure,
       _reduceMotion,
-      KeypadPress,
-      ClearFormula,
-      FinishEditing,
-      PickValue,
-      BeginValueDrag,
-      MoveValueDrag,
-      EndValueDrag
+      _numbers.KeypadPress,
+      _numbers.ClearFormula,
+      _numbers.FinishEditing,
+      _numbers.PickValue,
+      _drops.BeginValueDrag,
+      _drops.MoveValueDrag,
+      _drops.EndValueDrag
     );
-    _picker = new SettingsColorPicker(_frame, _font, _reduceMotion);
-    _picker.Hidden = PickerHidden;
-    // The color picker opens right above the keypad.
-    _picker.LayOutAsColumn(_dock.KeypadArea.width);
-    _opacity = new OverlayOpacityField(_ui, _picker, () => Activate(OpacityKey), _reduceMotion());
-    BuildGradientPicker();
-    _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
-    _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
-    _growMark.gameObject.SetActive(false);
+    _colors.BuildPicker(_screen, _dock);
+    _gradient.BuildPicker(_screen.Ui, _reduceMotion());
+    _grow.Build(_screen, _reduceMotion());
   }
-
-  private OverlayFormulaField Field(string name, string key, string prefix) =>
-    new(_ui, _frame, name, "px", () => Activate(key), _reduceMotion(), prefix);
 
   // One row of labeled buttons: fill, border, border width and grow point.
-  // Colors open their picker (with opacity) right under the button.
+  // Colors open their picker (with opacity) right above the keypad.
   private void BuildBar()
   {
-    SettingsCapsuleGraphic surface = _ui.Capsule("Shape bar", _frame, 0, 0, 10, BarHeight, LayoutColors.Bar);
-    surface.raycastTarget = true;
-    _bar = surface.rectTransform;
+    _bar = new OverlayEditorBar(_screen.Ui, _screen.Frame, "Shape bar");
     bool motion = _reduceMotion();
-    _fillButton = new OverlayBarButton(
-      _ui,
-      _bar,
-      "Shape fill",
-      L("채우기", "Fill"),
-      () => OpenColor(false),
-      motion,
-      swatch: true
-    );
-    _strokeButton = new OverlayBarButton(
-      _ui,
-      _bar,
-      "Shape border",
-      L("테두리", "Border"),
-      () => OpenColor(true),
-      motion,
-      swatch: true
-    );
-    _strokeWidth = new OverlayBarButton(
-      _ui,
-      _bar,
-      "Border width",
-      L("테두리 두께", "Border width"),
-      () => Activate("stroke"),
-      motion,
-      "px",
-      icon: LayoutAction.StrokeWidth
-    );
-    _growButton = new OverlayBarButton(
-      _ui,
-      _bar,
-      "Grow from",
-      L("기준점", "Grow from"),
-      ToggleGrow,
-      motion,
-      icon: LayoutAction.GrowFrom
-    );
-    _barButtons = new[] { _fillButton, _strokeButton, _strokeWidth, _growButton };
+    _bar.Add(_colors.BuildFill(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_colors.BuildStroke(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_numbers.BuildStrokeWidth(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_grow.BuildButton(_screen.Ui, _bar.Root, motion));
   }
 
-  private void OpenColor(bool stroke)
+  public void Tick()
   {
-    CloseEditing();
-    // The same button closes its picker; the other one moves it over.
-    if (_picker.Visible && _pickerForStroke == stroke)
+    if (_screen == null)
+      return;
+    if (_screen.ViewChanged)
     {
-      _picker.Hide();
+      CloseEditing();
+      Build();
       Render();
+    }
+    _screen.Tick();
+    SettingsColorPicker picker = _colors.Picker;
+    if (picker.Visible && picker.IsTyping)
+    {
+      if (Input.GetKeyDown(KeyCode.Escape))
+        picker.Hide();
       return;
     }
-    _pickerForStroke = stroke;
-    _pickerSnapshotTaken = false;
-    ShowPicker();
+    _input.HandleMouse();
+    _input.HandleKeys();
+    if (_screen == null)
+      return;
+    FollowLiveValues();
+    // The shape glides aside as the picker opens, and back as it closes.
+    if (_space.Moving)
+      RenderKeepingBlink();
+    _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
+  }
+
+  private void RenderKeepingBlink()
+  {
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
+  }
+
+  // A level playing behind the editor moves the shape and its numbers.
+  private void FollowLiveValues()
+  {
+    OverlayFormulaEditing editing = _numbers.Editing;
+    if (!_live.Changed(_preview.Mask | (editing.Active ? editing.Working.Mask : OverlayValueMask.None)))
+      return;
+    RenderKeepingBlink();
+  }
+
+  private void Render()
+  {
+    if (_screen == null)
+      return;
+    _blinkStart = Time.unscaledTime;
+    _numbers.Sync();
+    _dock.Edit(_numbers.Field);
+    // The shape and its bar center in the space left of an open picker.
+    _space.Measure(_screen, _colors.Picker, _dock, _reduceMotion(), out float left, out float right);
+    _preview.Draw(
+      _shape,
+      _elementScale,
+      _screen,
+      _dock,
+      OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 56,
+      left,
+      right
+    );
+    LayOutBar(left, right);
+    if (_gradient.Show())
+      _gradient.ShowNumbers(_numbers);
+    _measures.LayOut(
+      _preview,
+      _numbers,
+      OverlayShapeGeometry.HasCorners(_shape.Kind),
+      _gradient.Handles.Visible,
+      _reduceMotion()
+    );
+    _colors.ShowOpacity(_gradient.PickedStop);
+    PlaceGrowMark();
+    string field = _numbers.Field;
+    _dock.Refresh(
+      _numbers.Editing,
+      field == null ? "" : _numbers.Name(field),
+      field == null ? null : _numbers.ResultText(field),
+      _colors.Hint()
+        ?? L(
+          "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
+          "Click a number (W, H, border or a corner's arc) to type it here"
+        )
+    );
+  }
+
+  // The bar stays over the shape, clear of an open picker.
+  private void LayOutBar(float left, float right)
+  {
+    _colors.ShowButtons(_preview);
+    _numbers.ShowStrokeWidth();
+    _grow.ShowButton();
+    float width = _bar.LayOut();
+    _bar.Place(
+      Mathf.Max(OverlayEditorFrame.Margin, (left + right - width) * .5f),
+      OverlayEditorFrame.TopBar + 8,
+      width
+    );
+    _colors.PlacePicker(_dock);
+  }
+
+  // While the grow popover is open, a dot marks the point that stays put.
+  private void PlaceGrowMark()
+  {
+    if (!_grow.Visible)
+    {
+      _grow.HideMark();
+      return;
+    }
+    OverlayShapeSettings resolved = _preview.Resolved;
+    _grow.PlaceMark(
+      _preview.TopLeft.x,
+      _preview.TopLeft.y,
+      resolved.Width * _preview.UnitsToFrame,
+      resolved.Height * _preview.UnitsToFrame
+    );
+  }
+
+  // Clicking a number edits it in the dock; another number switches the dock
+  // to it, and the same one again closes it.
+  private void Activate(string key)
+  {
+    if (key == null)
+      return;
+    bool open = _numbers.Field == key;
+    CloseEditing();
+    // The picker's own numbers keep it open.
+    SettingsColorPicker picker = _colors.Picker;
+    if (picker.Visible && !ShapeGradient.PickerKey(key))
+      picker.Hide();
+    if (!open)
+      _numbers.Field = key;
     Render();
   }
 
-  // Shows the fill's or the border's color; undo shows it again as restored,
-  // on the same gradient stop.
-  private void ShowPicker(bool keepStop = false)
+  // The dock was typing the previous color's number.
+  private void StopSelected()
   {
-    bool stroke = _pickerForStroke;
-    _picker.ShowSource(
-      stroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color"),
-      stroke ? _shape.Stroke : _shape.Fill,
-      color =>
-      {
-        if (!_pickerSnapshotTaken)
-        {
-          Remember(null);
-          _pickerSnapshotTaken = true;
-        }
-        OverlayColorSettings before = stroke ? _shape.Stroke : _shape.Fill;
-        // A gradient's stops keep their own calculated opacities.
-        if (!color.IsGradient)
-          color = _opacity.Keep(before, color);
-        // A moved slider replaces the opacity the dock is calculating.
-        if (_field == OpacityKey && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
-          _editing.Deactivate();
-        if (stroke)
-        {
-          _shape.Stroke = color;
-          // A visible border needs a width; start from a thin one.
-          if (_shape.StrokeWidth <= 0 && string.IsNullOrEmpty(_shape.StrokeWidthFormula))
-            _shape.StrokeWidth = 4 / _elementScale;
-        }
-        else
-          _shape.Fill = color;
-        Render();
-      },
-      keepStop
-    );
-  }
-
-  // Right under the button that opened it, like the grow popover.
-  private void PlacePicker()
-  {
-    if (_dock != null)
-      KeypadPicker.Place(_picker, _dock);
-  }
-
-  // The color button lets go of its lit state once the picker closes.
-  private void PickerHidden()
-  {
-    _pickerSnapshotTaken = false;
-    if (_screen == null || _picker == null)
-      return;
-    // Its numbers go with it.
-    if (_field != null && PickerKey(_field))
+    string field = _numbers.Field;
+    if (
+      field != null
+      && (ShapeNumbers.Kind(field, out _).EndsWith("position") || ShapeNumbers.Kind(field, out _).EndsWith("opacity"))
+    )
       CloseEditing();
+    Render();
+  }
+
+  private bool AnyOpen => _numbers.Field != null || _grow.Visible;
+
+  private void CloseEditing()
+  {
+    _numbers.Finish();
+    _grow.Hide();
+  }
+
+  /// <summary>
+  /// Esc closes what is open; with nothing open it finishes like Done. Only
+  /// Cancel leaves without saving.
+  /// </summary>
+  public void Escape()
+  {
+    SettingsColorPicker picker = _colors.Picker;
+    if (picker.Visible)
+      picker.Hide();
+    else if (AnyOpen)
+      CloseEditing();
+    else
+    {
+      Close(true, true);
+      return;
+    }
+    Render();
+  }
+
+  // Undo puts a copy back; the dock reads the restored number afresh, and an
+  // open picker shows the restored color.
+  private void Restore(OverlayShapeSettings shape)
+  {
+    _shape = shape;
+    _history.Break();
+    _numbers.Editing.Deactivate();
+    _colors.Restored();
     Render();
   }
 
@@ -318,7 +362,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
   {
     if (_screen == null)
       return;
-    if (commit && _picker.Visible && !_picker.Commit())
+    if (commit && _colors.Picker.Visible && !_colors.Picker.Commit())
       return;
     CloseEditing();
     ShapeOverlayElement element = _element;
@@ -330,16 +374,13 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
         element.Settings.Shape = _shape.Clone();
         element.Apply();
       }
-      element.SetGrowFrom(_growth);
+      element.SetGrowFrom(_grow.Growth);
     }
-    SettingsColorPicker picker = _picker;
-    _picker = null;
-    picker?.Dispose();
+    _colors.DisposePicker();
     _screen.Dispose();
     _screen = null;
-    _ui = null;
-    _dragValue = null;
-    _editing.Deactivate();
+    _drops.Cancel();
+    _numbers.Editing.Deactivate();
     _element = null;
     _closed = null;
     InputGate.SetTextEditing(false);
@@ -354,7 +395,4 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
     Close(true, false);
     Close(false, false);
   }
-
-  // Screen pixels per reference unit of the overlay canvas.
-  private static float ScreenScale => OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
 }

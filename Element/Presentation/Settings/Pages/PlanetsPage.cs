@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;

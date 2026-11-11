@@ -1,5 +1,6 @@
 using System;
-using Element.Configuration;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
@@ -8,7 +9,6 @@ using Element.Presentation.Settings;
 using ElementKit;
 using ElementKit.Hosting;
 using UnityEngine;
-using Element.Application.Mods;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 

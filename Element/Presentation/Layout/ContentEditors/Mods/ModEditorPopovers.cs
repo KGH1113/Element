@@ -1,5 +1,5 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;

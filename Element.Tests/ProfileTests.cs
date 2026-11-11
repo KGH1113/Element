@@ -9,6 +9,8 @@ using Element.Application.Profiles;
 using Element.Application.Settings;
 using Element.Configuration;
 using Element.Configuration.Effects;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 using Element.Configuration.Profiles;
 using Element.Domain.Tweaks;
 using Element.Infrastructure.Storage;

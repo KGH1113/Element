@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // The gradient's three handles, as Figma keeps them: where it starts (the
 // center for radial, angular and diamond), where it ends, and how wide it

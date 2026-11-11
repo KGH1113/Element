@@ -1,4 +1,4 @@
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // The point of an element that stays put when its content changes size, such
 // as a shape whose width follows a value; it grows away from that point. Auto

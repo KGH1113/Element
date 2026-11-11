@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 [Serializable]
 [CopiedInPlace]

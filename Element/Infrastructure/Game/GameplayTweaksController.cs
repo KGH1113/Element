@@ -1,5 +1,5 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Planets;

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 [Serializable]
 [CopiedInPlace]

@@ -1,4 +1,4 @@
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 
 namespace Element.Domain.KeyViewer;

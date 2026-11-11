@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 
 namespace Element.Domain.Overlay.Text;

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Gameplay;
 
 [CopiedInPlace]
 public sealed class ChatterBlockerOptions

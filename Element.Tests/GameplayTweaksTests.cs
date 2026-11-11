@@ -3,6 +3,7 @@ using System.IO;
 using System.Xml.Serialization;
 using Element.Application.Settings;
 using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
 using Element.Domain.Tweaks;
 

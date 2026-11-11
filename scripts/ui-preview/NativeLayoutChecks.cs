@@ -4,7 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Xml.Serialization;
 using Element.Application.KeyViewer;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.KeyViewers;
 using TMPro;

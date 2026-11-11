@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using AdofaiIpc.Contracts;
 using Element.Application.Rendering;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using Element.Domain.Rendering;

@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // X and Y are fractions of the shape's box; Radius is in reference units and
 // its formula gives pixels as drawn. Corners sit where their kind puts them;

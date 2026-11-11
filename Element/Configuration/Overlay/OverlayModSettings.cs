@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // An element another mod draws (TemplateId "ModId/key"): the settings that
 // mod keeps for it, as the text it wrote. Element never reads them, so a mod

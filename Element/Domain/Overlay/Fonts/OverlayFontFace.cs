@@ -1,5 +1,5 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 
 namespace Element.Domain.Overlay.Fonts;
 

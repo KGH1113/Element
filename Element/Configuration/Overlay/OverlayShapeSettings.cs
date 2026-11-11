@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // Width, Height and StrokeWidth are reference units (1920x1080) before the
 // element's Scale, which grows the whole shape uniformly.

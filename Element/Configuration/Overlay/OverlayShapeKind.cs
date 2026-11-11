@@ -1,4 +1,4 @@
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 public enum OverlayShapeKind
 {

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Input;
 using Element.Application.Layout;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;

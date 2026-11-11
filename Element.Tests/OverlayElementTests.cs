@@ -5,6 +5,7 @@ using System.Linq;
 using System.Numerics;
 using System.Xml.Serialization;
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Fonts;

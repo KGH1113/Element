@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using UnityEngine;
 using Element.Infrastructure.Game.Planets;
 using Object = UnityEngine.Object;

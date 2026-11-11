@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The installed mod layout (docs/auto-update.md): user data at the root, the
+# The installed mod layout (docs/features/auto-update.md): user data at the root, the
 # launcher UMM starts under Runtime/launchers/<v>/, and everything a version
 # runs from under Runtime/versions/<v>/. Installs, the Windows test install
 # and release packages all stage it the same way.

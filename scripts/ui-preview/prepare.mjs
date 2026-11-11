@@ -38,9 +38,9 @@ for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Eleme
     files.push(path.join(root, folder, name));
 // ElementKit, minus Kit.cs: the preview attaches values through KitRegistry and
 // lists its element's mod itself, without UMM.
-for (const folder of ['ElementKit', 'ElementKit/Values', 'ElementKit/Hosting'])
-  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs') && name !== 'Kit.cs'))
-    files.push(path.join(root, folder, name));
+for (const name of fs.readdirSync(path.join(root, 'ElementKit'), { recursive: true }))
+  if (name.endsWith('.cs') && name !== 'Kit.cs' && !/^(bin|obj)[\\/]/.test(name))
+    files.push(path.join(root, 'ElementKit', name));
 for (const source of files) {
   let code = fs.readFileSync(source, 'utf8');
   if (/^namespace [\w.]+;$/m.test(code)) code = code.replace(/^namespace ([\w.]+);$/m, 'namespace $1\n{') + '\n}\n';

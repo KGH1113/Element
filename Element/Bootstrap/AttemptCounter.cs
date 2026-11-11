@@ -13,7 +13,7 @@ namespace Element;
 /// Bind by reflection: the type <c>Element.AttemptCounter</c> in the
 /// assembly named <c>Element</c>, after checking <see cref="ApiVersion"/>.
 /// Rules stay set while this mod is turned off and on in UnityModManager.
-/// See docs/attempt-counter-api.md.
+/// See docs/integrations/attempt-counter-api.md.
 /// </remarks>
 public static class AttemptCounter
 {

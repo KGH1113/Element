@@ -283,7 +283,6 @@ Element.Tests/
 
 남은 것:
 - 위 표의 멈춤 항목
-- 찾았지만 아직 안 고친 버그: Element를 끌 때 게임 키 리미터 복원이 실행되지 않음(`ModRuntime.Dispose`)
 - 배치 편집기가 열려 있는 동안 `SetEditorExclusions`·`GameWebView.ExcludeEditor`가 매 프레임 메모리를 잡음
 - `SettingsUiRuntime`에 남은 기능 코드(프리셋 단축키, 행성 미리보기 만들기)를 Presentation으로
 

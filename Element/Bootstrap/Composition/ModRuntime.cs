@@ -10,6 +10,8 @@ using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
 using Element.Configuration;
+using Element.Configuration.Gameplay;
+using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;
@@ -32,8 +34,6 @@ using Element.Presentation.Settings;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using Element.Configuration.Gameplay;
-using Element.Domain.Rendering;
 
 namespace Element.Bootstrap.Composition;
 
@@ -77,7 +77,6 @@ internal sealed class ModRuntime : IDisposable
   private GameEvents _events;
   private FrameLoop _frameLoop;
   private Action _applySettings;
-  private readonly Action _disposeGameKeyLimiter;
   private bool _sceneHooked;
   private bool _initialized;
   private bool _disposed;
@@ -90,7 +89,6 @@ internal sealed class ModRuntime : IDisposable
   {
     _main = main;
     _guard = new FailureGuard(main.LogException, main.LogWarning);
-    _disposeGameKeyLimiter = () => _gameKeyLimiter?.Dispose();
   }
 
   public bool Initialize()
@@ -355,8 +353,16 @@ internal sealed class ModRuntime : IDisposable
     _ipcChannel = null;
     _keyLimiter?.Clear();
     _keyLimiter = null;
-    // Gives the game the player's own saved keys back.
-    _guard.Run("Restore the game key limiter", _disposeGameKeyLimiter);
+    // Gives the game the player's own saved keys back. The guard has stopped
+    // by now, so this runs on its own.
+    try
+    {
+      _gameKeyLimiter?.Dispose();
+    }
+    catch (Exception exception)
+    {
+      _main.LogException("Restore the game key limiter", exception);
+    }
     _gameKeyLimiter = null;
 
     _recordingMode?.Dispose();

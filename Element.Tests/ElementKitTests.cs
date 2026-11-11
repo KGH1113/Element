@@ -21,7 +21,7 @@ internal static class ElementKitTests
     public static readonly ValueGroup Group = new("예시", "Sample");
     public static readonly NumberValue LeftKeys = Group.Number("left-keys", "왼손 키", "Left keys", 3);
     public static readonly TimeValue Rest = Group.Time("rest", "남은 시간", "Rest", 87);
-    public static readonly TextValue Pattern = Group.Text("pattern", "지금 예시", "Pattern", "2 + 2 + 1");
+    public static readonly TextValue Pattern = Group.Text("pattern", "지금 패턴", "Pattern", "2 + 2 + 1");
     public static readonly NumberValue Spaced = Group.Number("Left Keys", "왼손", "Left", 1);
     public static readonly NumberValue Twice = Group.Number("left-keys", "왼손 2", "Left 2", 1);
     public static readonly TextValue NoSample = Group.Text("empty", "빈 값", "Empty", "");

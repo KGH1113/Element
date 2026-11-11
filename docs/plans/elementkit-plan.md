@@ -17,24 +17,24 @@ Element를 필수로 두지 않아도 됩니다([오버레이 요소](#오버레
 | Element 연결: 프레임마다 바뀐 값만 반영(할당 0), 꺼진 모드 숨김, 리로드·새 캔버스 | 완료 |
 | 입력 독에 모드별 카테고리 | 완료 |
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
-| 예시 모드 [Sample](../../Sample): SampleTag 태그를 옮김 (`./scripts/run.sh sample-install`) | 완료 |
+| 예시 모드로 값 등록부터 화면 표시까지 확인 | 완료 |
 | 오버레이 요소: `[Element]` + `OverlayElement<TSettings>`, Element가 스스로 찾음(호출·필수 모드 없음) | 프로토타입 |
 | 편집 화면 부품(`EditorPage`): 입력·고르기·색·폰트·단축키·목록 부품, 카드·탭·구역, 도움말, 자유 배치(`At`) | 프로토타입 |
 | 그리기 도우미(`Drawing`): 오버레이 폰트 글자, 둥근 상자, 하이라이트 색 | 프로토타입 |
 | 요소 추가 → 기타 → 모드별 목록, 편집 화면(실시간 미리보기·실행 취소), 모드가 없을 때 상자 | 프로토타입 |
-| Sample: 예시 막대 요소, Element 없이도 실행(`LoadAfter`, `ElementLink`) | 프로토타입 |
+| 예시 모드의 오버레이 요소, Element 없이도 실행(`LoadAfter`, ElementKit 호출을 한 클래스에) | 프로토타입 |
 | 색 선택기의 하이라이트 따르기·그라디언트(`Paint`) | 프로토타입 |
 | 종류가 6개를 넘을 때 기타 목록 스크롤 | 남음 |
-| Element 없이 Sample을 켠 실제 게임 확인 | 남음 |
+| Element 없이 예시 모드를 켠 실제 게임 확인 | 남음 |
 | 프리셋, 기타 메뉴, 프리셋 내보내기 | 남음 |
 | `Player.Keys`, 묶음 값(`Numbers`), 실행 중 API 수준 확인 | 남음 |
 | NuGet 패키지·템플릿, 개발자 모드 | 남음 |
-| Element 버전 올리기(다음 버전, 1.5.0 예정)와 Sample의 `Requirements`를 그 버전으로 | 릴리스 때 |
+| Element 버전 올리기(다음 버전, 1.5.0 예정)와 예시 모드의 `Requirements`를 그 버전으로 | 릴리스 때 |
 
 ## 왜 만드나
 
 - 지금은 오버레이 모드마다 배치 방식이 따로 있습니다. 플레이어는 모드마다 다른 방법을 배워야 하고, 개발자는 매번 배치 UI를 새로 만듭니다.
-- 복잡한 로직이 필요한 오버레이는 지금의 텍스트·도형 꾸미기만으로 만들 수 없습니다. 첫 사례는 **예시 오버레이**입니다. 타일 각도를 읽어 왼손·오른손을 각각 몇 키로 넘길지 보여 줍니다.
+- 복잡한 로직이 필요한 오버레이는 지금의 텍스트·도형 꾸미기만으로 만들 수 없습니다. 예를 들어 채보를 미리 읽어 구간마다 다른 정보를 보여 주는 오버레이가 그렇습니다.
 - 목표: 개발은 평소 오버레이 모드처럼 하고, 결과가 보이는 곳은 Element로 모읍니다. Element의 사용자 경험(무엇이든 고칠 수 있고, 일곱 살도 쓸 수 있음)은 그대로 지킵니다.
 
 ## 원칙
@@ -96,10 +96,10 @@ Mods/Element/
   Runtime/versions/<v>/
     Element.dll         구현 (internal, 업데이트마다 바뀜)
     ElementKit.dll      공개 API (MIT, AssemblyVersion 1.0.0.0 고정)
-Mods/Sample/
+Mods/MyMod/
   Info.json             "Requirements": ["Element-1.3.0"]   ← 빌드가 자동으로 채움
-  Sample.dll         ElementKit은 컴파일 때만 참조, 배포하지 않음
-  Presets/예시 표시.json
+  MyMod.dll             ElementKit은 컴파일 때만 참조, 배포하지 않음
+  Presets/내 표시.json
 ```
 
 ### 로딩과 버전
@@ -144,19 +144,19 @@ public static class Main
 
 ```csharp
 // static readonly라서 null이 될 일이 없습니다. Attach가 이 필드들을 찾아 등록합니다.
-public static class SampleValues
+public static class MyValues
 {
-    public static readonly ValueGroup Group = new("예시", "Sample");   // 입력 독의 제목
+    public static readonly ValueGroup Group = new("내 모드", "My mod");   // 입력 독의 제목
 
-    public static readonly TextValue   Played = Group.Text("sample",  "예시",      "Sample",          sample: "44 44 32 32");
-    public static readonly TextValue   Pair   = Group.Text("pair",   "지금 예시", "Pair now",       sample: "44");
-    public static readonly NumberValue Keys   = Group.Number("keys", "이번 박 키", "Keys this beat", sample: 4);
+    public static readonly TextValue   Section = Group.Text("section",  "구간",      "Section",   sample: "후렴");
+    public static readonly NumberValue Streak  = Group.Number("streak", "연속 타격", "Streak",    sample: 12);
+    public static readonly TimeValue   Left    = Group.Time("left",     "남은 시간", "Time left", sampleSeconds: 87);
 }
 ```
 
 - **종류:** Element 기본 값과 같은 세 가지입니다. 숫자(`Number`), 시간(`Time`, 초 단위, m:ss로 표시), 글자(`Text`, 계산 불가). 글자 값 안의 `<b>` 같은 표시는 읽지 않고 그대로 보여 줍니다.
 - **묶음 값(남음):** `Numbers`는 "다음 8타일" 같은 이어진 값입니다. 입력 독에는 한 줄로 보이고 번호를 고릅니다.
-- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{Sample/pair}`). 모드끼리 이름이 겹치지 않습니다.
+- **저장 키:** `<모드Id>/<키>` 형식으로 저장합니다(예: `{MyMod/section}`). 모드끼리 이름이 겹치지 않습니다.
 - **`Set` 동작:**
   - 같은 값이면 아무 일도 하지 않습니다. 할당도 없고 다시 그리지도 않습니다.
   - 값이 바뀌면 그 값을 쓰는 텍스트·도형만 다시 그립니다. 지금의 변경 비트 방식을 그대로 씁니다.
@@ -170,8 +170,8 @@ public static class SampleValues
 mod.OnUpdate = (_, _) =>
 {
     int tile = scrController.instance.currentSeqID;   // 레벨을 시작할 때 listFloors로 미리 세어 둠
-    SampleValues.Pair.Set(Chart.PairAt(tile));          // 같은 값이면 아무 일도 없음
-    SampleValues.Keys.Set(Chart.KeysAt(tile));
+    MyValues.Section.Set(Chart.SectionAt(tile));       // 같은 값이면 아무 일도 없음
+    MyValues.Streak.Set(Chart.StreakAt(tile));
 };
 ```
 
@@ -199,7 +199,7 @@ dotnet new install ElementKit.Templates
 ```
 
 ```bash
-dotnet new element-mod -n Sample
+dotnet new element-mod -n MyMod
 ```
 
 ```bash
@@ -208,11 +208,11 @@ dotnet build
 
 ```
 1. 로직 작성       평소 모드처럼 (얼불춤 참조, Harmony 패치). UI 코드 없음
-2. dotnet build    ADOFAI 경로 자동 탐지 → Mods/Sample에 설치
-3. UMM에서 Reload  입력 독에 '예시' 값이 바로 생김
+2. dotnet build    ADOFAI 경로 자동 탐지 → Mods/MyMod에 설치
+3. UMM에서 Reload  입력 독에 '내 모드' 값이 바로 생김
 4. 게임 안에서     Element 편집기로 텍스트·도형을 조립 (내 값 + 기본 값)
-5. 개발자 모드     선택한 요소 → 프리셋으로 내보내기 → Presets/예시 표시.json
-6. 배포            플레이어: 요소 추가 → 기타 → '예시 표시'
+5. 개발자 모드     선택한 요소 → 프리셋으로 내보내기 → Presets/내 표시.json
+6. 배포            플레이어: 요소 추가 → 기타 → '내 표시'
 ```
 
 NuGet 패키지(`ElementKit`)가 해 주는 일:
@@ -242,12 +242,12 @@ Element가 그 요소를 배치하고 편집할 수 있게 합니다. 모드가 
 [Serializable]
 public sealed class BarsSettings            // JsonUtility로 저장: 숫자, bool, 문자열, Color, 리스트…
 {
-    public Color Left = new(1f, .62f, .26f);
-    public int Groups = 16;
+    public Color Fill = new(1f, .62f, .26f);
+    public int Count = 16;
 }
 
-[Element("bars", "예시 막대", "Sample bars")]
-public sealed class SampleBars : OverlayElement<BarsSettings>
+[Element("bars", "진행 막대", "Progress bars")]
+public sealed class ProgressBars : OverlayElement<BarsSettings>
 {
     protected override void OnCreate() { /* Root 아래에 UGUI를 만듦. Drawing.Box/Text 도우미 */ }
     protected override void OnSettingsChanged() => Size = new Vector2(480, 96);
@@ -255,8 +255,8 @@ public sealed class SampleBars : OverlayElement<BarsSettings>
 
     protected override void OnEdit(EditorPage page)   // Element 부품으로 편집 화면을 꾸밈
     {
-        page.ColorPicker(page.L("왼손 색", "Left hand"), Settings.Left, c => Settings.Left = c);
-        page.Slider(page.L("묶음 수", "Groups"), Settings.Groups, 2, 64, v => Settings.Groups = (int)v, step: 1);
+        page.ColorPicker(page.L("채우기 색", "Fill"), Settings.Fill, c => Settings.Fill = c);
+        page.Slider(page.L("막대 수", "Bars"), Settings.Count, 2, 64, v => Settings.Count = (int)v, step: 1);
         page.Label("…").At(x, y);                    // 아무 데나 놓기도 됨
     }
 }
@@ -306,9 +306,9 @@ using (page.Card(page.L("색", "Colors")))
 - Element가 켜질 때와 모드가 나중에 로드될 때 UMM 모드 목록에서 ElementKit을 참조한 어셈블리를 찾아 `[Element]` 클래스를 등록합니다. 모드는 아무것도 부르지 않습니다.
 - Element가 없으면 아무도 그 클래스를 만들지 않습니다. 모드 본체가 그 클래스를 부르지 않고, 요소가 모드 상태를 읽어 가는 방향이면 됩니다.
 - Harmony `PatchAll`은 ElementKit이 없을 때 그 클래스만 건너뛰고 나머지를 패치합니다(이 게임의 0Harmony 2.3.6으로 확인).
-- 값(`Kit.Attach`, `Value.Set`)은 ElementKit을 직접 부르므로, Element 없이도 돌려면 Sample의 `ElementLink`처럼 한 클래스에 모아 Element가 있을 때만 부릅니다.
+- 값(`Kit.Attach`, `Value.Set`)은 ElementKit을 직접 부르므로, Element 없이도 돌려면 ElementKit을 부르는 코드를 한 클래스에 모으고, Element가 있을 때만 그 클래스를 부릅니다(그 클래스의 메서드는 인라인되지 않게 표시).
 
-**모드가 없거나 꺼졌을 때, 오류:** 게임에서는 보이지 않고 편집기에서는 마지막 크기의 상자에 "Sample 모드가 필요해요"를 띄웁니다.
+**모드가 없거나 꺼졌을 때, 오류:** 게임에서는 보이지 않고 편집기에서는 마지막 크기의 상자에 "내 모드가 필요해요"를 띄웁니다.
 이름·위치·설정은 그대로라 다시 설치하면 돌아옵니다. 모드 코드에서 난 오류는 그 요소만 멈추고 모드 로그에 한 번 남깁니다.
 
 **등록 검사:** 키 형식과 중복, 한국어·영어 이름, 인자 없는 생성자. `[Element]`가 빠진 `OverlayElement`도 알려 줍니다.
@@ -320,9 +320,9 @@ using (page.Card(page.L("색", "Colors")))
 
 ```
 ┌ 요소 추가 ───────────────────────┐  ┌ 기타 ───────────────────────┐
-│ T  텍스트                         │  │ ✋ 예시 표시                  │
-│ ⌨  키뷰어                         │  │    왼손·오른손 키 수와 다음 예시 │
-│ ◼  도형                           │  │    Sample                 │
+│ T  텍스트                         │  │ ★ 내 표시                    │
+│ ⌨  키뷰어                         │  │    구간 이름과 연속 타격      │
+│ ◼  도형                           │  │    MyMod                     │
 │ ⋯  기타                       ›   │  │ …                            │
 │    다른 모드가 추가한 프리셋 2개    │  │                              │
 └───────────────────────────────────┘  └──────────────────────────────┘
@@ -331,12 +331,12 @@ using (page.Card(page.L("색", "Colors")))
 - **프리셋 추가:** 화면 가운데에 놓이고, 묶음 전체가 선택된 상태로 추가됩니다(실행 취소 한 번에 되돌림). 그다음은 평범한 텍스트·도형이라 무엇이든 고칠 수 있습니다.
 - **모드가 없을 때:**
   - 오버레이에서는 그 값 자리에 아무것도 표시하지 않습니다(지금의 "데이터가 아직 없으면 표시하지 않음" 규칙).
-  - 편집기에서는 `[왼손 키]`처럼 이름을 괄호에 넣어 보여 줘서 찾고 지울 수 있습니다. 이번 실행에서 한 번도 등록되지 않은 값은 `[Sample/left-keys]`처럼 키로 보여서 어느 모드가 필요한지 알 수 있습니다.
+  - 편집기에서는 `[연속 타격]`처럼 이름을 괄호에 넣어 보여 줘서 찾고 지울 수 있습니다. 이번 실행에서 한 번도 등록되지 않은 값은 `[MyMod/streak]`처럼 키로 보여서 어느 모드가 필요한지 알 수 있습니다.
   - 저장된 내용은 지우지 않아서, 다시 설치하면 돌아옵니다.
 - **오류 메시지**([토스 원칙](https://toss.tech/article/21021): 무슨 일이 있었는지와 무엇을 하면 되는지):
-  - "Sample 모드에서 오류가 나서 값을 멈췄어요. 모드를 업데이트하거나 만든 분께 알려 주세요."
-  - "Sample은 Element 1.4 이상이 필요해요. 게임을 다시 켜면 업데이트가 적용돼요."
-  - 개발자 로그: "Sample 폴더에 ElementKit.dll이 있어요. 이 파일을 지우면 정상 동작해요."
+  - "MyMod 모드에서 오류가 나서 값을 멈췄어요. 모드를 업데이트하거나 만든 분께 알려 주세요."
+  - "MyMod는 Element 1.4 이상이 필요해요. 게임을 다시 켜면 업데이트가 적용돼요."
+  - 개발자 로그: "MyMod 폴더에 ElementKit.dll이 있어요. 이 파일을 지우면 정상 동작해요."
 
 ## 품질 규칙 (등록할 때 검사)
 
@@ -347,41 +347,6 @@ using (page.Card(page.L("색", "Colors")))
 - **단위 금지:** `%`, `키` 같은 단위는 값에 넣지 않습니다. 단위는 플레이어가 글자로 쓰는 것이 Element 규칙입니다.
 - **키 형식:** 소문자와 `-`만 씁니다. 한 모드 안에서 겹치면 안 됩니다.
 - **프리셋:** 있는 값만 참조해야 하고, 요소는 20개 이하여야 합니다.
-
-## 첫 사례: 예시 오버레이
-
-```
-Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
- ├ Planning/SampleUnits    묶음 단위: 180° × threshold, BPM 1050 이상이면 threshold를 두 배씩
- ├ Planning/SampleChart    순수 C#: 타일(키 수, 다음 타일까지 묶음 수) → 묶음별 키 수
- ├ Planning/SampleText     SampleTag 태그와 같은 글 모양
- ├ Game/LevelSteps        scrLevelMaker.instance.listFloors → 시작 타일 다음부터의 타일
- ├ Game/SampleSession      시작할 때 한 번 세고, 매 프레임 타일 번호만 비교(묶음이 끝날 때만 글을 새로 씀)
- ├ Game/SamplePatches      scnGame.Play · scrPressToStart.ShowText · 나가기
- └ SampleValues            예시 · 앞으로 예시 · 지금 예시 · 다음 예시 · 이번 박 키
-```
-
-**규칙**(사용자의 Overlayer 태그 `SampleTag`를 옮김):
-
-1. **묶음:** 반 바퀴(180°)가 한 묶음입니다. 타일 BPM(피치 제외)이 1050 이상이면 1050 아래가 될 때까지 묶음을 두 배씩 늘립니다(2021 BPM이면 360°). 묶음의 실제 길이는 BPM이 달라도 거의 같습니다.
-2. **세기:** 플레이를 시작한 타일 다음 타일이 0입니다. 타일마다 다음 타일까지 돈 만큼 쌓고, 각 타격은 그 순간이 들어 있는 묶음의 키로 셉니다. 경계에 놓인 타격은 다음 묶음 몫이고, 쉬는 묶음은 0입니다.
-3. **글 모양:** 묶음 두 개씩 `44`처럼 붙여 쓰고, 한쪽이 8을 넘으면 `[10 8]`로 씁니다. 짝마다 띄우고 네 짝마다 줄을 바꿉니다. 지난 묶음은 34개까지 두고, 넘으면 오래된 8개를 지웁니다. 마지막 짝은 그다음 묶음이 끝나야 보입니다.
-4. **다시 시작:** 체크포인트로 돌아가면 그 타일부터 다시 셉니다(태그가 재시작 때 초기화하는 것과 같음).
-
-태그와 다른 점:
-
-- 태그는 매 프레임 `CurTile`이 바뀌었는지 보고 그 타일 하나만 더합니다. 빠른 채보에서 한 프레임에 타일이 둘 이상 지나가면 키와 각도를 빠뜨립니다. Sample은 시작할 때 타일 시각으로 전부 세어 두므로 빠뜨리지 않습니다.
-- 태그는 타일마다 각도를 정수로 반올림해서 22.5° 같은 각도가 쌓이면 묶음 경계가 밀립니다. Sample은 반올림하지 않습니다.
-- 미드스핀 타일은 누르지 않으므로 키로 세지 않습니다. 동시 입력이 필요한 타일(`tapsNeeded`)은 그 수만큼 셉니다.
-
-모든 타일을 보는 조건에서 태그 로직을 C#으로 옮긴 모델과 비교했습니다. 1000 → 2021 BPM 변속이 있는 약 300타일 채보에서, 매 타격 뒤의 글이 한 글자도 다르지 않습니다([SampleTests](../../Element.Tests/SampleTests.cs)).
-
-| 값 | 내용 |
-| --- | --- |
-| `{예시}` | 태그와 같은 글: 지난 묶음들, 네 짝마다 줄바꿈 |
-| `{앞으로 예시}` | 다음 타격이 든 짝부터 32묶음, 같은 모양 |
-| `{지금 예시}` / `{다음 예시}` | 다음 타격이 든 짝과 그다음 짝, 예: `44`, `[10 8]` |
-| `{이번 박 키}` | 다음 타격이 든 묶음의 키 수 |
 
 ## Element 쪽 변경
 
@@ -448,8 +413,8 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 | --- | --- | --- |
 | **P0** Element 내부 준비 | 값 목록 동적화(`ValueMask`), 없는 값 보존, 프리셋 형식(기본 배치도 같은 형식으로), 테스트. 플레이어가 보기엔 변화 없음 | 없음 |
 | **P1** ElementKit 1.0 (Element 1.3.0) | ElementKit.dll, `Attach`, 값 등록·`Set`, 입력 독 카테고리, 프리셋 등록과 기타 메뉴, 프리셋 내보내기, `Player.Keys`, 오류 격리·버전 확인·중복 DLL 감지, NuGet·템플릿·핫 리로드, 빠른 시작 문서 | **v1: 텍스트** |
-| **P2** | 개발자 모드 전체(값 보기·덮어쓰기, 오류, 비용), 묶음 값(`Numbers`), 값 따라 위치, 조건 색, 묶음 | **v2: 손 타임라인** |
-| **P3** | 오버레이 요소 정식화: 색 선택기의 하이라이트·그라디언트, 부품 추가(폰트 목록, 숫자 키패드), NuGet 템플릿 | **예시 막대** 정식 |
+| **P2** | 개발자 모드 전체(값 보기·덮어쓰기, 오류, 비용), 묶음 값(`Numbers`), 값 따라 위치, 조건 색, 묶음 | **v2: 타임라인** |
+| **P3** | 오버레이 요소 정식화: 색 선택기의 하이라이트·그라디언트, 부품 추가(폰트 목록, 숫자 키패드), NuGet 템플릿 | **막대 요소** 정식 |
 
 ## 정할 것
 
@@ -461,9 +426,9 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 | 이름 | `ElementKit` + `Values` / `Presets` | 패키지 하나, `Attach` 한 번. `Element.` 접두어는 Element.dll 네임스페이스와 헷갈림 |
 | 프리셋 | 추가할 때 복사본 | 모드 업데이트가 플레이어가 꾸민 것을 덮어쓰지 않음 |
 | 값 한도 | 128(기본 + 모드) | 마스크 비교 비용은 거의 같고 당분간 충분 |
-| 예시 모드 | 이 저장소의 별도 모드, ElementKit 공개 API만 사용 | API가 정말 충분한지 바로 드러남. Element에 같이 넣을지 따로 배포할지는 나중에 |
+| 예시 모드 | 저장소 밖의 별도 모드, ElementKit 공개 API만 사용 | API가 정말 충분한지 바로 드러남 |
 | 기본 기능 확장 순서 | 위치 → 조건 색 → 묶음 | 판정 바·타임라인 같은 흔한 오버레이에 먼저 필요 |
-| 첫 릴리스 | P0 + P1 = Element 1.3.0 | 예시 v1이 가장 빨리 나옴 |
+| 첫 릴리스 | P0 + P1 = Element 1.3.0 | 예시 모드 v1이 가장 빨리 나옴 |
 
 ## 검토했다가 뺀 것
 

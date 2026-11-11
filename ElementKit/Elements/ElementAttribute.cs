@@ -9,7 +9,7 @@ namespace ElementKit;
 /// </summary>
 /// <example>
 /// <code>
-/// [Element("bars", "예시 막대", "Sample bars")]
+/// [Element("bars", "진행 막대", "Progress bars")]
 /// public sealed class BarsElement : OverlayElement&lt;BarsSettings&gt; { ... }
 /// </code>
 /// </example>
@@ -17,8 +17,8 @@ namespace ElementKit;
 public sealed class ElementAttribute : Attribute
 {
   /// <param name="key">What layouts save: lowercase letters, digits and dashes, such as "bars". Never change it once released.</param>
-  /// <param name="koreanName">The name players see in Korean, such as "예시 막대".</param>
-  /// <param name="englishName">The name players see in English, such as "Sample bars".</param>
+  /// <param name="koreanName">The name players see in Korean, such as "진행 막대".</param>
+  /// <param name="englishName">The name players see in English, such as "Progress bars".</param>
   public ElementAttribute(string key, string koreanName, string englishName)
   {
     Key = key;

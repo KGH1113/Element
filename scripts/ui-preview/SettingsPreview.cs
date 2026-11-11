@@ -928,7 +928,7 @@ namespace Element.Editor
       OverlayValueGroup sample = new OverlayValueGroup("Sample", "예시", "Sample");
       OverlayValueCatalog.Register("Sample/hand", sample, OverlayValueKind.Text, "지금 손", "Hand", double.NaN, "왼손");
       OverlayValueCatalog.Register("Sample/left-keys", sample, OverlayValueKind.Number, "왼손 키", "Left keys", 5, null);
-      OverlayValueCatalog.Register("Sample/pattern", sample, OverlayValueKind.Text, "지금 예시", "Pattern", double.NaN, "2 + 2 + 1");
+      OverlayValueCatalog.Register("Sample/pattern", sample, OverlayValueKind.Text, "지금 패턴", "Pattern", double.NaN, "2 + 2 + 1");
       OverlayValueCatalog.TryResolve("Gone/value", out _);
       Toolbar(editor).Refresh();
       Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();

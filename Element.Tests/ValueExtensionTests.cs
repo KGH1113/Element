@@ -77,7 +77,7 @@ internal static class ValueExtensionTests
   {
     OverlayValueCatalog.TryResolve("Fingering/right-keys", out OverlayValueDefinition missing);
     OverlayFormula formula = OverlayFormula.Parse("{Fingering/right-keys}*2");
-    OverlayValueGroup group = new("Fingering", "예시", "Fingering");
+    OverlayValueGroup group = new("Sample", "예시", "Sample");
     OverlayValueDefinition added = OverlayValueCatalog.Register(
       "Fingering/right-keys",
       group,

@@ -129,7 +129,7 @@ public abstract class OverlayElement
 ///     public int Groups = 16;
 /// }
 ///
-/// [Element("bars", "예시 막대", "Sample bars")]
+/// [Element("bars", "진행 막대", "Progress bars")]
 /// public sealed class BarsElement : OverlayElement&lt;BarsSettings&gt;
 /// {
 ///     protected override void OnCreate() => Size = new Vector2(480, 96);

@@ -46,7 +46,6 @@ internal static class Program
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
       Run("ElementKit values: checked on attach, shown, hidden while off, kept across reloads", ElementKitTests.Run);
       Run("ElementKit elements: found without a call, checked, offered while on, settings kept", ModElementTests.Run);
-      Run("Sample: keys per group like the SampleTag tag, matched hit by hit", SampleTests.Run);
       Run("native viewers accept only bounded loopback OBS surfaces", NativeViewerTests.Run);
       Run(
         "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence",

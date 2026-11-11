@@ -246,7 +246,6 @@ Element.Tests/
 **저장소:**
 - `docs/`를 `features/`, `integrations/`, `research/`, `plans/`, `process/`, `releases/`, `media/`로 나눕니다.
 - `scripts/`는 모든 명령이 `run.sh` → `workflows/` → `tasks/`를 거치게 하고, 제품 이름은 `element-note` 하나만 씁니다.
-- 예시 모드는 `examples/Sample/`에 둡니다.
 
 ## 6. 옮기기 전에 먼저 막을 함정
 

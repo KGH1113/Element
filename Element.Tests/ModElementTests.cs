@@ -63,7 +63,7 @@ internal static class ModElementTests
     ElementsAreFoundAndChecked();
     InstancesAreMadeAndTheirFailuresKept();
     TheCatalogFollowsTheMods();
-    SamplesBarsAreFoundWithoutACall();
+    OnlyKitModsAreRead();
     SettingsAreKeptThroughUndoAndSaving();
   }
 
@@ -159,21 +159,11 @@ internal static class ModElementTests
     );
   }
 
-  private static void SamplesBarsAreFoundWithoutACall()
+  private static void OnlyKitModsAreRead()
   {
-    System.Reflection.Assembly sample = typeof(Sample.SampleBars).Assembly;
     Check(
-      ElementClasses.UsesKit(sample) && !ElementClasses.UsesKit(typeof(string).Assembly),
+      ElementClasses.UsesKit(typeof(Bars).Assembly) && !ElementClasses.UsesKit(typeof(string).Assembly),
       "only mods built against ElementKit are read"
-    );
-    List<string> reports = new();
-    List<ElementClass> found = ElementClasses.Find("Sample", sample, reports.Add);
-    Check(
-      found.Count == 1
-        && found[0].FullKey == "Sample/bars"
-        && found[0].Info.EnglishName == "Sample bars"
-        && reports.Count == 0,
-      "Sample's bars are found as they are: " + string.Join(" | ", reports)
     );
   }
 

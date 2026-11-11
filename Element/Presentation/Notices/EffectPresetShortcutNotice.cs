@@ -1,7 +1,7 @@
 using Element.Configuration.Effects;
 using Element.Presentation.Ui.Theme;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Notices;
 
 /// <summary>What the notice says after an effect preset's shortcut switched it.</summary>
 internal static class EffectPresetShortcutNotice

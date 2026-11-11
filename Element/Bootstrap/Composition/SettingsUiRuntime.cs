@@ -13,9 +13,12 @@ using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout;
 using Element.Presentation.Layout.KeyViewers;
+using Element.Presentation.Notices;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Screens;
 using Element.Presentation.Settings;
+using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -25,28 +28,21 @@ using UnityEngine;
 namespace Element.Bootstrap.Composition;
 
 /// <summary>
-/// The settings window, the overlay layout editor, the planet preview they use
-/// and the effect preset shortcuts. Nothing here runs during gameplay except a
-/// shortcut check per frame.
+/// Builds and connects the settings window, the layout editor, the planet
+/// preview they use and the effect preset shortcuts. Nothing here runs during
+/// gameplay except a shortcut check per frame.
 /// </summary>
 internal sealed class SettingsUiRuntime : IDisposable
 {
   private readonly Main _main;
   private readonly OverlayCanvasHost _canvas;
-  private readonly TMP_FontAsset _font;
-  private readonly Action _apply;
   private readonly Action _reloadSettings;
-  private readonly Action _viewerModeChanged;
-  private readonly ElementNoteNativeViewers _nativeViewers;
-  private readonly PlanetAppearanceController _planets;
-  private readonly TufReplayInputPause _tufReplayInput;
   private readonly Func<bool> _judgementTextLinked;
-  private readonly EffectPresetShortcuts _presetShortcuts;
+  private readonly TufReplayInputPause _tufReplayInput;
+  private readonly PlanetPreviews _planetPreviews;
+  private readonly SettingsScreens _screens;
   private readonly UiToast _toast;
-  private OverlayLayoutEditor _layoutEditor;
-  private SettingsPanel _panel;
-  private PlanetPreviewRenderer _planetPreview;
-  private bool _planetPreviewFailed;
+  private readonly EffectPresetShortcuts _presetShortcuts;
 
   public SettingsUiRuntime(
     Main main,
@@ -62,48 +58,50 @@ internal sealed class SettingsUiRuntime : IDisposable
   )
   {
     _main = main;
-    _judgementTextLinked = judgementTextLinked;
-    _nativeViewers = nativeViewers;
-    _planets = planets;
-    _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
-    _apply = apply;
-    _reloadSettings = reloadSettings;
-    _viewerModeChanged = viewerModeChanged;
-    _font = UiFonts.Choose(overlayFont);
-    nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
-    _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
-    _toast = new UiToast(_font, () => main.Settings.ReduceUiMotion);
+    _judgementTextLinked = judgementTextLinked;
+    _reloadSettings = reloadSettings;
+    _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
+    TMP_FontAsset font = UiFonts.Choose(overlayFont);
+    nativeViewers.ConfigurePreview(new NativeViewerSamples(font));
+    _planetPreviews = new PlanetPreviews(() => new PlanetPreviewRenderer(planets), main.LogException);
+    _screens = new SettingsScreens(
+      main.Settings,
+      font,
+      canvas,
+      nativeViewers,
+      nativeViewers,
+      _planetPreviews,
+      apply,
+      Save,
+      viewerModeChanged,
+      CreateFeatures
+    );
+    _toast = new UiToast(font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
-      () => main.Settings.Effects,
+      main.Settings,
       playing,
-      () => IsOpen || SettingsPanel.IsTyping(),
-      ApplyPresetShortcut
+      () => _screens.IsOpen || SettingsPanel.IsTyping(),
+      apply,
+      _screens.RefreshPresets,
+      Save,
+      _toast
     );
   }
 
-  public bool IsEditingLayout => _layoutEditor?.IsOpen == true;
-  public bool IsOpen => IsEditingLayout || _panel?.IsOpen == true;
+  public bool IsEditingLayout => _screens.IsEditingLayout;
+  public bool IsOpen => _screens.IsOpen;
 
-  // About 500 objects; build the window the first time it opens.
-  private SettingsPanel Panel =>
-    _panel ??= new SettingsPanel(
-      _main.Settings,
-      _font,
-      _apply,
-      Save,
-      OpenLayout,
-      OnVisibilityChanged,
-      new SettingsFeatures
-      {
-        RenderPlanetPreview = RenderPlanetPreview,
-        BlockedChatter = () => _main.Chatter.Blocked,
-        Updates = _main.Updates,
-        JudgementTextLinked = _judgementTextLinked,
-        Profiles = CreateProfiles(),
-        OverlayFonts = () => _canvas?.Fonts,
-      }
-    );
+  private SettingsFeatures CreateFeatures() =>
+    new()
+    {
+      RenderPlanetPreview = _planetPreviews.Render,
+      BlockedChatter = () => _main.Chatter.Blocked,
+      Updates = _main.Updates,
+      JudgementTextLinked = _judgementTextLinked,
+      Profiles = CreateProfiles(),
+      OverlayFonts = () => _canvas?.Fonts,
+    };
 
   // Built with the window, after the game has loaded its language: the first
   // profile is named in it.
@@ -129,25 +127,12 @@ internal sealed class SettingsUiRuntime : IDisposable
     }
   }
 
-  public void Open() => Panel.Open();
+  public void Open() => _screens.Open();
 
-  /// <summary>Runs every frame: shortcut handling and the open editor/window.</summary>
+  /// <summary>Runs every frame: the open editor or window, then the preset shortcuts.</summary>
   public void Tick()
   {
-    if (_layoutEditor?.IsOpen == true)
-    {
-      if (SettingsPanel.ShortcutPressed(_main.Settings))
-        _layoutEditor.Close(true);
-      else
-        _layoutEditor.Tick();
-      if (_layoutEditor.IsOpen)
-        _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
-      UiInputCapture.RestoreCursor();
-    }
-    else if (_panel != null)
-      _panel.Tick();
-    else if (SettingsPanel.ShortcutPressed(_main.Settings) && !SettingsPanel.IsTyping())
-      Open();
+    _screens.Tick();
     _presetShortcuts.Tick();
     // Exactly when the game stops getting keys: the layout editor lets them through
     // during play, and TUFReplay must keep recording keys the game judges.
@@ -171,84 +156,10 @@ internal sealed class SettingsUiRuntime : IDisposable
   /// <summary>A short notice over the game, such as why a render lacks the key viewers.</summary>
   public void ShowNotice(string title, string detail) => _toast.Show(title, detail);
 
-  private void ApplyPresetShortcut(EffectPreset preset)
-  {
-    EffectSettings effects = _main.Settings.Effects;
-    if (!effects.Toggle(preset.Id))
-      return;
-    _apply();
-    _panel?.RefreshPresets();
-    bool saved = Save();
-    (string title, string detail) = EffectPresetShortcutNotice.For(preset, effects.Enabled, saved);
-    // Record mode hides mod overlays; only a failed save still needs to be seen.
-    if (!_main.Settings.RecordMode || !saved)
-      _toast.Show(title, detail);
-  }
-
-  private Texture RenderPlanetPreview(int index, PlanetAppearanceProfile profile)
-  {
-    if (_planetPreviewFailed)
-      return null;
-    try
-    {
-      _planetPreview ??= new PlanetPreviewRenderer(_planets);
-      return _planetPreview.Render(index, profile);
-    }
-    catch (Exception exception)
-    {
-      _planetPreviewFailed = true;
-      ReleasePlanetPreview();
-      _main.LogException("Render planet preview", exception);
-      return null;
-    }
-  }
-
-  private void OnVisibilityChanged(bool visible)
-  {
-    if (visible)
-      UiInputCapture.Begin();
-    else
-    {
-      UiInputCapture.End();
-      // The preview target and its cloned planet visuals are only needed while
-      // settings are open; the planet page recreates them on demand.
-      ReleasePlanetPreview();
-    }
-    _nativeViewers.SetVisible(!visible);
-  }
-
-  private void OpenLayout()
-  {
-    UiInputCapture.Begin(layoutEditing: true);
-    _layoutEditor.Open();
-    _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
-    _viewerModeChanged();
-  }
-
-  private void OnLayoutClosed(bool save)
-  {
-    bool saved = !save || Save();
-    _viewerModeChanged();
-    Panel.Open();
-    if (!saved)
-      Panel.ShowSaveError();
-  }
-
-  private void ReleasePlanetPreview()
-  {
-    _planetPreview?.Dispose();
-    _planetPreview = null;
-  }
-
   public void Dispose()
   {
-    _layoutEditor?.Dispose();
-    _layoutEditor = null;
-    _panel?.Dispose();
-    _panel = null;
-    ReleasePlanetPreview();
+    _screens.Dispose();
     _toast.Dispose();
-    UiInputCapture.Reset();
     _tufReplayInput.Dispose();
   }
 }

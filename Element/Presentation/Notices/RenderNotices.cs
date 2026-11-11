@@ -1,7 +1,7 @@
 using Element.Application.Rendering;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Rendering;
+namespace Element.Presentation.Notices;
 
 /// <summary>
 /// The notice after a render whose video has no key viewers: what happened, then what

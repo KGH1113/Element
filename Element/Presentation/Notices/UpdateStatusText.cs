@@ -1,7 +1,7 @@
 using Element.Application.Updates;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Notices;
 
 /// <summary>One line for Settings and the UMM mod list: what happened to updates, and what to do about it.</summary>
 internal static class UpdateStatusText

@@ -1,6 +1,7 @@
 using Element.Application.Updates;
 using Element.Configuration;
 using Element.Configuration.Effects;
+using Element.Presentation.Notices;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;

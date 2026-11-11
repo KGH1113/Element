@@ -8,6 +8,7 @@ using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.Updates;
+using Element.Presentation.Notices;
 using Element.Presentation.Settings;
 using UnityEngine;
 using UnityModManagerNet;

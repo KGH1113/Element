@@ -1,9 +1,10 @@
 using System;
 using Element.Application.Updates;
-using Element.Bootstrap;
+using Element.Bootstrap.Api;
+using Element.Bootstrap.Composition;
 using Element.Configuration;
+using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.Game.Input;
-using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Updates;
 using Element.Presentation.Settings;
 using UnityEngine;

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Element.Infrastructure.Rendering;
+using Element.Infrastructure.TufReplay;
 using UnityEngine;
 
 namespace Element.Tests;

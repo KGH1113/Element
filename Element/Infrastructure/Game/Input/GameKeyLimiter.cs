@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using HarmonyLib;
 using Element.Domain.Input;
+using Element.Infrastructure.Game.Settings;
+using HarmonyLib;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Input;

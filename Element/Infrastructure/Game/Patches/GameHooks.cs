@@ -1,8 +1,7 @@
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
-using Element.Infrastructure.Game.Judgement;
-using Element.Infrastructure.Game.Tweaks;
+using Element.Infrastructure.Game.Settings;
 
 namespace Element.Infrastructure.Game.Patches;
 

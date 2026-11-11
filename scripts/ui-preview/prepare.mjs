@@ -12,8 +12,8 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalizat
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Assets/OverlayFontCatalog.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Assets/FontFilePickers.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontCatalog.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Platform/FontFilePickers.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
@@ -29,9 +29,9 @@ for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles'
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerHost.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayoutTarget.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
+files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerHost.cs'));
+files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Game/Planets/PlanetPreviewRenderer.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
 for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])

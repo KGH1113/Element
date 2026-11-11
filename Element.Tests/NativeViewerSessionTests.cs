@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using AdofaiIpc.Contracts;
 using Element.Domain.DmNote;
-using Element.Infrastructure.Game.DmNote;
-using Element.Infrastructure.Ipc;
+using Element.Infrastructure.ElementNote.Viewers;
 using Newtonsoft.Json;
 
 namespace Element.Tests;

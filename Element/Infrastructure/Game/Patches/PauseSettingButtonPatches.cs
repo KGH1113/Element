@@ -1,4 +1,5 @@
 using Element.Infrastructure.Game.Input;
+using Element.Infrastructure.Game.Settings;
 using HarmonyLib;
 
 namespace Element.Infrastructure.Game.Patches;

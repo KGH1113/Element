@@ -2,9 +2,9 @@ using System;
 using System.Threading;
 using Element.Application.KeyLimiter;
 using Element.Domain.Judgement;
+using Element.Infrastructure.ElementNote.Keys;
 using Element.Infrastructure.Game.Input;
-using Element.Infrastructure.Game.Judgement;
-using Element.Infrastructure.Game.Status;
+using Element.Infrastructure.Game.Play;
 using Element.Presentation.Overlay.Combo;
 using UnityEngine;
 

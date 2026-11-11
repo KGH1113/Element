@@ -72,7 +72,7 @@ internal sealed class GuardedPlanetAppearance : IDisposable
     }
   }
 
-  public PlanetAppearanceController.PlanetState BeginPlanetAppearance(PlanetRenderer renderer)
+  public PlanetOriginalAppearance BeginPlanetAppearance(PlanetRenderer renderer)
   {
     if (!On)
       return null;
@@ -87,7 +87,7 @@ internal sealed class GuardedPlanetAppearance : IDisposable
     }
   }
 
-  public void FinishPlanetAppearance(PlanetAppearanceController.PlanetState state)
+  public void FinishPlanetAppearance(PlanetOriginalAppearance state)
   {
     if (!On)
       return;

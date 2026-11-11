@@ -1,8 +1,11 @@
 using System;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -32,7 +35,7 @@ internal sealed class HomePage : SettingsPage
     _close = close;
     CreateCard(
       0,
-      SettingsNavigationIconKind.Overlay,
+      UiIconKind.Overlay,
       "Overlay",
       L("요소를 추가하고 색상과 배치를 편집합니다.", "Add elements and adjust their color and layout."),
       L("오버레이 설정", "Edit overlays"),
@@ -40,7 +43,7 @@ internal sealed class HomePage : SettingsPage
     );
     CreateCard(
       1,
-      SettingsNavigationIconKind.Tweaks,
+      UiIconKind.Tweaks,
       "Tweaks",
       L("판정 표시와 게임플레이 동작을 설정합니다.", "Adjust judgment display and gameplay behavior."),
       L("게임플레이 설정", "Open tweaks"),
@@ -49,7 +52,7 @@ internal sealed class HomePage : SettingsPage
     Adopt(tweaks, _homeCards[1]);
     CreateCard(
       2,
-      SettingsNavigationIconKind.Effects,
+      UiIconKind.Effects,
       "Effects",
       L("필요한 이펙트만 남기는 나만의 프리셋.", "Keep the effects you want with personal presets."),
       L("프리셋 선택", "Choose a preset"),
@@ -58,7 +61,7 @@ internal sealed class HomePage : SettingsPage
     Adopt(effects, _homeCards[2]);
     CreateCard(
       3,
-      SettingsNavigationIconKind.General,
+      UiIconKind.General,
       L("일반", "General"),
       profiles
         ? L(
@@ -77,26 +80,18 @@ internal sealed class HomePage : SettingsPage
 
   public override string Title => L("설정", "Settings");
 
-  private void CreateCard(
-    int index,
-    SettingsNavigationIconKind kind,
-    string title,
-    string description,
-    string action,
-    Action onClick
-  )
+  private void CreateCard(int index, UiIconKind kind, string title, string description, string action, Action onClick)
   {
     Button card = Ui.Button(title, Root, 0, 0, 300, 280, onClick);
     card.gameObject.name = title + " category";
     card.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     _homeCards[index] = card;
-    SettingsNavigationIcon icon = Ui.Rect("Category icon", card.transform, 24, 24, 36, 36)
-      .gameObject.AddComponent<SettingsNavigationIcon>();
+    UiIcon icon = Ui.Rect("Category icon", card.transform, 24, 24, 36, 36).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.raycastTarget = false;
     _cardIcons[index] = icon.rectTransform;
     _cardTitles[index] = Ui.Text(title, card.transform, 24, 84, 252, 36, 25);
-    _cardDescriptions[index] = Ui.Text(description, card.transform, 24, 136, 252, 68, 15, SettingsUiFactory.Muted);
+    _cardDescriptions[index] = Ui.Text(description, card.transform, 24, 136, 252, 68, 15, UiPalette.Muted);
     _cardDescriptions[index].alignment = TextAlignmentOptions.TopLeft;
     _cardDividers[index] = Ui.Panel(
       "Action divider",
@@ -109,14 +104,13 @@ internal sealed class HomePage : SettingsPage
       false
     ).rectTransform;
     _cardActions[index] = Ui.Text(action, card.transform, 24, 239, 224, 24, 15, Ui.SoftAccent);
-    SettingsNavigationIcon arrow = Ui.Rect("Open category", card.transform, 260, 240, 16, 24)
-      .gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = SettingsNavigationIconKind.Forward;
+    UiIcon arrow = Ui.Rect("Open category", card.transform, 260, 240, 16, 24).gameObject.AddComponent<UiIcon>();
+    arrow.Kind = UiIconKind.PageForward;
     arrow.raycastTarget = false;
     _cardArrows[index] = arrow.rectTransform;
     Ui.Bind(() =>
     {
-      icon.color = SettingsUiFactory.Muted;
+      icon.color = UiPalette.Muted;
       arrow.color = Ui.SoftAccent;
       _cardActions[index].color = Ui.SoftAccent;
     });
@@ -131,19 +125,19 @@ internal sealed class HomePage : SettingsPage
     Root.sizeDelta = new Vector2(width, homeHeight);
     for (int i = 0; i < _homeCards.Length; i++)
     {
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_homeCards[i].transform,
         stacked ? 0 : i % 2 * (cardWidth + 16),
         stacked ? i * (cardHeight + 12) : i / 2 * (cardHeight + 16),
         cardWidth,
         cardHeight
       );
-      SettingsUiFactory.Place(_cardIcons[i], 20, 20, 32, 32);
-      SettingsUiFactory.Place(_cardTitles[i].rectTransform, 68, 18, cardWidth - 88, 36);
-      SettingsUiFactory.Place(_cardDescriptions[i].rectTransform, 20, 66, cardWidth - 40, cardHeight - 126);
-      SettingsUiFactory.Place(_cardDividers[i], 20, cardHeight - 52, cardWidth - 40, 1);
-      SettingsUiFactory.Place(_cardActions[i].rectTransform, 20, cardHeight - 38, cardWidth - 66, 24);
-      SettingsUiFactory.Place(_cardArrows[i], cardWidth - 36, cardHeight - 38, 16, 24);
+      UiFactory.Place(_cardIcons[i], 20, 20, 32, 32);
+      UiFactory.Place(_cardTitles[i].rectTransform, 68, 18, cardWidth - 88, 36);
+      UiFactory.Place(_cardDescriptions[i].rectTransform, 20, 66, cardWidth - 40, cardHeight - 126);
+      UiFactory.Place(_cardDividers[i], 20, cardHeight - 52, cardWidth - 40, 1);
+      UiFactory.Place(_cardActions[i].rectTransform, 20, cardHeight - 38, cardWidth - 66, 24);
+      UiFactory.Place(_cardArrows[i], cardWidth - 36, cardHeight - 38, 16, 24);
       _homeCards[i].navigation = new Navigation
       {
         mode = Navigation.Mode.Explicit,

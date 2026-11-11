@@ -1,8 +1,8 @@
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
-using Element.Domain.Overlay.Values;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -114,7 +114,7 @@ internal sealed class TextValueDrops
       case DropTarget.Position:
         // Onto a square: that color's position.
         if (index >= 0)
-          _color.Picker.SelectStop(index);
+          _color.Picker.Gradient.SelectStop(index);
         _formulas.DropOn(TextFormulas.PositionKey, value);
         break;
       case DropTarget.Angle:
@@ -135,7 +135,7 @@ internal sealed class TextValueDrops
         break;
       case DropTarget.Insert:
         // A value dropped into the text lands there; typing goes on after it.
-        _host.ClosePopovers();
+        _host.CloseOpen();
         _text.InsertValue(value, index, index);
         _text.Anchor = _text.Caret;
         break;
@@ -147,12 +147,12 @@ internal sealed class TextValueDrops
   {
     index = -1;
     accepted = true;
-    SettingsColorPicker picker = _color.Picker;
+    UiColorPicker picker = _color.Picker;
     // The picker sits over everything else; only its numbers take a value.
     if (picker.Visible && PopoverPlacement.Contains(picker.Root, screen))
     {
       bool opacity = _color.Opacity.Contains(screen),
-        position = picker.IsGradient && _gradient.Position.Contains(screen);
+        position = picker.Gradient.IsGradient && _gradient.Position.Contains(screen);
       accepted = !(opacity || position) || _dragValue.IsNumeric;
       return opacity ? DropTarget.Opacity
         : position ? DropTarget.Position

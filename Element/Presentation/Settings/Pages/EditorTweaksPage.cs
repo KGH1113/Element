@@ -2,10 +2,13 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Element.Configuration.Gameplay;
+using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -15,7 +18,7 @@ internal sealed class EditorTweaksPage : SettingsPage
   private readonly List<Button> _selectionOptions = new();
   private readonly List<Button> _editingOptions = new();
   private readonly List<Button> _rotationPresets = new();
-  private readonly SettingsSegmentedControl _editorTabs;
+  private readonly UiSegmentedControl _editorTabs;
   private readonly RectTransform _selectionPane,
     _editingPane,
     _rotationRow;
@@ -79,8 +82,8 @@ internal sealed class EditorTweaksPage : SettingsPage
         }
       )
     );
-    _rotationRow = Ui.Panel("Rotation step", _editingPane, 0, 100, 936, 76, SettingsUiFactory.Surface).rectTransform;
-    Ui.Text(L("회전 각도", "Step angle"), _rotationRow, 16, 8, 200, 24, 14, SettingsUiFactory.Muted);
+    _rotationRow = Ui.Panel("Rotation step", _editingPane, 0, 100, 936, 76, UiPalette.Surface).rectTransform;
+    Ui.Text(L("회전 각도", "Step angle"), _rotationRow, 16, 8, 200, 24, 14, UiPalette.Muted);
     float[] steps = { 22.5f, 15, 7.5f, 1 };
     for (int i = 0; i < steps.Length; i++)
     {
@@ -114,7 +117,7 @@ internal sealed class EditorTweaksPage : SettingsPage
       CommitRotationStep,
       6
     );
-    _rotationError = Ui.Text("", _editingPane, 16, 190, 900, 24, 13, SettingsPalette.Error);
+    _rotationError = Ui.Text("", _editingPane, 16, 190, 900, 24, 13, UiPalette.Error);
     _editingOptions.Add(
       Ui.Switch(
         L("이벤트 좌표 함께 변환", "Transform event positions"),
@@ -190,7 +193,7 @@ internal sealed class EditorTweaksPage : SettingsPage
     float cell = (width - (columns - 1) * 12) / columns;
     float row = width >= 600 ? 88 : 100;
     for (int i = 0; i < 4; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_selectionOptions[i].transform,
         i % columns * (cell + 12),
         i / columns * (row + 12),
@@ -198,30 +201,24 @@ internal sealed class EditorTweaksPage : SettingsPage
         row
       );
     float selectionBottom = (4 / columns) * (row + 12);
-    SettingsUiFactory.Place((RectTransform)_selectionOptions[4].transform, 0, selectionBottom, width, 100);
-    SettingsUiFactory.Place(_selectionPane, 0, 60, width, selectionBottom + 100);
-    SettingsUiFactory.Place((RectTransform)_editingOptions[0].transform, 0, 0, width, row);
+    UiFactory.Place((RectTransform)_selectionOptions[4].transform, 0, selectionBottom, width, 100);
+    UiFactory.Place(_selectionPane, 0, 60, width, selectionBottom + 100);
+    UiFactory.Place((RectTransform)_editingOptions[0].transform, 0, 0, width, row);
     float angleHeight = width < 480 ? 128 : 88;
-    SettingsUiFactory.Place(_rotationRow, 0, row + 12, width, angleHeight);
+    UiFactory.Place(_rotationRow, 0, row + 12, width, angleHeight);
     for (int i = 0; i < _rotationPresets.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_rotationPresets[i].transform,
         16 + i * (width < 480 ? 58 : 72),
         36,
         width < 480 ? 52 : 64,
         36
       );
-    SettingsUiFactory.Place(
-      (RectTransform)_rotationInput.transform,
-      width < 480 ? 16 : 320,
-      width < 480 ? 80 : 34,
-      92,
-      40
-    );
-    SettingsUiFactory.Place(_rotationError.rectTransform, 16, row + angleHeight + 14, width - 32, 28);
+    UiFactory.Place((RectTransform)_rotationInput.transform, width < 480 ? 16 : 320, width < 480 ? 80 : 34, 92, 40);
+    UiFactory.Place(_rotationError.rectTransform, 16, row + angleHeight + 14, width - 32, 28);
     float syncTop = row + angleHeight + 52;
-    SettingsUiFactory.Place((RectTransform)_editingOptions[1].transform, 0, syncTop, width, width < 520 ? 132 : 100);
-    SettingsUiFactory.Place(_editingPane, 0, 60, width, syncTop + (width < 520 ? 132 : 100));
+    UiFactory.Place((RectTransform)_editingOptions[1].transform, 0, syncTop, width, width < 520 ? 132 : 100);
+    UiFactory.Place(_editingPane, 0, 60, width, syncTop + (width < 520 ? 132 : 100));
     Root.sizeDelta = new Vector2(
       width,
       60 + (_editorTabs.Selected == 0 ? _selectionPane.rect.height : _editingPane.rect.height)

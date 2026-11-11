@@ -1,7 +1,8 @@
 using System;
 using System.Globalization;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -36,7 +37,7 @@ internal sealed class OverlayFormulaField
   private int _drop = int.MinValue;
 
   public OverlayFormulaField(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     string name,
     string unit,
@@ -46,16 +47,16 @@ internal sealed class OverlayFormulaField
   )
   {
     _reduceMotion = reduceMotion;
-    _body = EditorCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
+    _body = UiCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
     Root = (RectTransform)_body.transform;
-    _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 12, SettingsUiFactory.Muted);
+    _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _prefix.textWrappingMode = TextWrappingModes.NoWrap;
     _prefixWidth = Measure(_prefix, 5);
     _text = ui.Text("", Root, 0, 0, 10, Height, 15);
     _text.alignment = TextAlignmentOptions.MidlineRight;
     _text.textWrappingMode = TextWrappingModes.NoWrap;
     _text.overflowMode = TextOverflowModes.Ellipsis;
-    _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, SettingsUiFactory.Muted);
+    _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _unit.textWrappingMode = TextWrappingModes.NoWrap;
     _unitWidth = Measure(_unit, 3);
     SetDrop(0);
@@ -81,7 +82,7 @@ internal sealed class OverlayFormulaField
     text ??= "";
     Computed = computed;
     _text.text = text;
-    _text.color = computed ? SettingsPalette.SoftAccent : SettingsUiFactory.Foreground;
+    _text.color = computed ? UiPalette.SoftAccent : UiPalette.Foreground;
     _textWidth = Mathf.Min(MaximumText, Mathf.Ceil(_text.GetPreferredValues(text).x) + 1);
     // A field made while hidden (as in a closed color picker) is measured
     // once it shows.
@@ -91,9 +92,9 @@ internal sealed class OverlayFormulaField
       _unitWidth = Measure(_unit, 3);
     Width = Mathf.Max(MinimumBody, _prefixWidth + _textWidth + _unitWidth + 22);
     float left = (Width - _prefixWidth - _textWidth - _unitWidth) * .5f;
-    SettingsUiFactory.Place(_prefix.rectTransform, left, 0, _prefixWidth, Height);
-    SettingsUiFactory.Place(_text.rectTransform, left + _prefixWidth, 0, _textWidth, Height);
-    SettingsUiFactory.Place(_unit.rectTransform, left + _prefixWidth + _textWidth + 3, 0, _unitWidth, Height);
+    UiFactory.Place(_prefix.rectTransform, left, 0, _prefixWidth, Height);
+    UiFactory.Place(_text.rectTransform, left + _prefixWidth, 0, _textWidth, Height);
+    UiFactory.Place(_unit.rectTransform, left + _prefixWidth + _textWidth + 3, 0, _unitWidth, Height);
     if (_active != active)
     {
       _active = active;
@@ -107,7 +108,7 @@ internal sealed class OverlayFormulaField
       ? Mathf.Ceil(label.GetPreferredValues(label.text).x) + gap
       : 0;
 
-  public void Place(float x, float y) => SettingsUiFactory.Place(Root, x, y, Width, Height);
+  public void Place(float x, float y) => UiFactory.Place(Root, x, y, Width, Height);
 
   /// <summary>A result as a field shows it: up to one decimal.</summary>
   public static string Number(double value) =>
@@ -133,10 +134,10 @@ internal sealed class OverlayFormulaField
   // The pill itself carries every state, so hover covers exactly what is drawn.
   private void Paint()
   {
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     Color rest =
       _drop > 0 ? Color.Lerp(Rest, accent, .5f)
-      : _drop < 0 ? Color.Lerp(Rest, LayoutColors.Warning, .4f)
+      : _drop < 0 ? Color.Lerp(Rest, UiPalette.Error, .4f)
       : _active ? Color.Lerp(Rest, accent, .38f)
       : Rest;
     ColorBlock colors = _body.colors;
@@ -144,6 +145,6 @@ internal sealed class OverlayFormulaField
     colors.highlightedColor = _active ? Color.Lerp(Rest, accent, .5f) : Hover;
     colors.pressedColor = Color.Lerp(Hover, Color.white, .1f);
     colors.fadeDuration = _reduceMotion ? 0 : .08f;
-    ((SettingsButton)_body).SetPalette(colors);
+    ((UiButton)_body).SetPalette(colors);
   }
 }

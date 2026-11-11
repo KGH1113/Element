@@ -1,12 +1,12 @@
 using System;
-using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
-using UnityEngine;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -74,7 +74,7 @@ internal sealed class ShapeGradient
       AddStopAt
     );
 
-  public void BuildPicker(SettingsUiFactory ui, bool reduceMotion) =>
+  public void BuildPicker(UiFactory ui, bool reduceMotion) =>
     _gradient.BuildPicker(
       ui,
       _colors.Picker,
@@ -188,13 +188,13 @@ internal sealed class ShapeGradient
   /// <summary>Arrows move the picked color 1% (10% with Shift); Delete removes it.</summary>
   public bool Key(KeyCode code, bool shift, bool typing)
   {
-    SettingsColorPicker picker = _colors.Picker;
-    if (typing || !picker.Visible || !picker.IsGradient || picker.IsTyping)
+    UiColorPicker picker = _colors.Picker;
+    if (typing || !picker.Visible || !picker.Gradient.IsGradient || picker.IsTyping)
       return false;
     if (code == KeyCode.Delete || code == KeyCode.Backspace)
     {
       _history.Remember((string)null);
-      picker.RemoveSelectedStop();
+      picker.Gradient.RemoveSelectedStop();
       return true;
     }
     if (code != KeyCode.LeftArrow && code != KeyCode.RightArrow)

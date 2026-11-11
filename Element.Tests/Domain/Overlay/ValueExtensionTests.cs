@@ -6,7 +6,8 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 

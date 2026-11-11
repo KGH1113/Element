@@ -1,5 +1,8 @@
 using System;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,7 +13,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// is the corner's rounding control: hovering lights it, clicking edits it.
 /// </summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class OverlayCornerArc : SettingsVectorGraphic
+internal sealed class OverlayCornerArc : UiVectorGraphic
 {
   public const float Size = 44;
   private const float Radius = 14,
@@ -40,17 +43,17 @@ internal sealed class OverlayCornerArc : SettingsVectorGraphic
   }
 
   /// <summary>An arc centered on its corner that calls <paramref name="click"/>.</summary>
-  public static Button Create(SettingsUiFactory ui, Transform parent, string name, Action click, bool reduceMotion)
+  public static Button Create(UiFactory ui, Transform parent, string name, Action click, bool reduceMotion)
   {
     RectTransform rect = ui.Rect(name, parent, 0, 0, Size, Size);
     OverlayCornerArc arc = rect.gameObject.AddComponent<OverlayCornerArc>();
     arc.color = Color.white;
     arc.raycastTarget = true;
-    SettingsButton button = rect.gameObject.AddComponent<SettingsButton>();
+    UiButton button = rect.gameObject.AddComponent<UiButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = arc;
     Paint(button, false, reduceMotion);
-    SettingsCursor.Attach(button.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(button.gameObject, UiCursorKind.Pointer);
     button.onClick.AddListener(() => click());
     return button;
   }
@@ -58,9 +61,9 @@ internal sealed class OverlayCornerArc : SettingsVectorGraphic
   /// <summary>Muted at rest, the accent while hovered or edited.</summary>
   public static void Paint(Button button, bool selected, bool reduceMotion)
   {
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     Color rest = selected ? accent : new Color(1, 1, 1, .5f);
-    ((SettingsButton)button).SetPalette(
+    ((UiButton)button).SetPalette(
       new ColorBlock
       {
         normalColor = rest,

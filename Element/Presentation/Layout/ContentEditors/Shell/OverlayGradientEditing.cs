@@ -1,13 +1,14 @@
 using System;
-using Element.Configuration;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -24,7 +25,7 @@ internal sealed class OverlayGradientEditing
   private readonly Func<int, float> _shownPosition;
   private readonly Func<int, float> _shownAlpha;
   private readonly Func<int, Color> _stopShown;
-  private SettingsColorPicker _picker;
+  private UiColorPicker _picker;
 
   /// <param name="color">The color the picker shows.</param>
   public OverlayGradientEditing(OverlayValues values, Func<OverlayColorSettings> color)
@@ -42,7 +43,7 @@ internal sealed class OverlayGradientEditing
   public OverlayFormulaField Position { get; private set; }
 
   /// <summary>A color added on the line starts in the highlight.</summary>
-  public static string NewStopHex => "#" + ColorUtility.ToHtmlStringRGB(OverlayTheme.Accent);
+  public static string NewStopHex => "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
 
   /// <summary>The handles over the preview, with the editor's undo and redraw.</summary>
   public void BuildHandles(
@@ -57,7 +58,7 @@ internal sealed class OverlayGradientEditing
     Handles = new OverlayGradientHandles(screen.Ui, screen.Frame, screen.ToFrame, activateAngle, reduceMotion);
     Handles.Began = began;
     Handles.Changed = changed;
-    Handles.Picked = index => _picker.SelectStop(index);
+    Handles.Picked = index => _picker.Gradient.SelectStop(index);
     Handles.Added = added;
   }
 
@@ -66,8 +67,8 @@ internal sealed class OverlayGradientEditing
   /// of the gradient: the box it spans and its stops as shown.
   /// </summary>
   public void BuildPicker(
-    SettingsUiFactory ui,
-    SettingsColorPicker picker,
+    UiFactory ui,
+    UiColorPicker picker,
     Action activatePosition,
     bool reduceMotion,
     Func<Vector2> box,
@@ -75,17 +76,24 @@ internal sealed class OverlayGradientEditing
   )
   {
     _picker = picker;
-    Position = new OverlayFormulaField(ui, picker.PositionSlot, "Color position", "%", activatePosition, reduceMotion);
-    picker.GradientBox = box;
-    picker.ShownPosition = _shownPosition;
-    picker.ShownAlpha = _shownAlpha;
-    picker.StopSelected = stopSelected;
+    Position = new OverlayFormulaField(
+      ui,
+      picker.Gradient.PositionSlot,
+      "Color position",
+      "%",
+      activatePosition,
+      reduceMotion
+    );
+    picker.Gradient.GradientBox = box;
+    picker.Gradient.ShownPosition = _shownPosition;
+    picker.Gradient.ShownAlpha = _shownAlpha;
+    picker.Gradient.StopSelected = stopSelected;
   }
 
   /// <summary>The picked color of <paramref name="color"/>'s gradient; null without one.</summary>
   public OverlayGradientStop PickedStop(OverlayColorSettings color)
   {
-    int index = _picker?.SelectedStop ?? -1;
+    int index = _picker?.Gradient.SelectedStop ?? -1;
     return color != null && color.IsGradient && index >= 0 && index < color.Gradient.Stops.Count
       ? color.Gradient.Stops[index]
       : null;
@@ -95,7 +103,7 @@ internal sealed class OverlayGradientEditing
   public void Pick(OverlayColorSettings color, int index)
   {
     _picker.Refresh(color);
-    _picker.SelectStop(index);
+    _picker.Gradient.SelectStop(index);
   }
 
   /// <summary>
@@ -124,13 +132,13 @@ internal sealed class OverlayGradientEditing
   /// units per box unit. Set the angle's and position's numbers, then <see cref="PlaceNumbers"/>.
   /// </summary>
   public void ShowHandles(OverlayColorSettings color, Vector2 topLeft, float scale, float width, float height) =>
-    Handles.Show(color, _picker.SelectedStop, topLeft, scale, width, height, _shownPosition, _stopShown);
+    Handles.Show(color, _picker.Gradient.SelectedStop, topLeft, scale, width, height, _shownPosition, _stopShown);
 
   /// <summary>The angle beside the line and the position over the picker's bar, once their numbers are set.</summary>
   public void PlaceNumbers()
   {
     Handles.PlaceAngle();
-    _picker.PlacePosition(Position.Width);
+    _picker.Gradient.PlacePosition(Position.Width);
     Position.Place(0, 0);
   }
 
@@ -139,7 +147,7 @@ internal sealed class OverlayGradientEditing
   {
     int rank =
       color != null && color.IsGradient
-        ? OverlayGradientEdits.Order(color.Gradient).IndexOf(_picker.SelectedStop) + 1
+        ? OverlayGradientEdits.Order(color.Gradient).IndexOf(_picker.Gradient.SelectedStop) + 1
         : 1;
     return number switch
     {
@@ -223,7 +231,7 @@ internal sealed class OverlayGradientEditing
   {
     OverlayColorSettings color = _color();
     OverlayGradientStop stop = color.Gradient.Stops[index];
-    Color shown = color.Highlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+    Color shown = color.Highlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     shown.a = ShownStop(index, false);
     return shown;
   }

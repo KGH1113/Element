@@ -1,9 +1,10 @@
+using Element.Application.Layout;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Elements;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Ui.Graphics;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -21,7 +22,7 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
   {
     bool available = Editing.Session.Host.CanShowText;
     return new AddMenuRow(
-      LayoutAction.Text,
+      UiIconKind.Text,
       L("텍스트", "Text"),
       available
         ? L("글자에 FPS·정확도 같은 값을 넣어요", "Words with values like FPS or accuracy")

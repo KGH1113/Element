@@ -1,11 +1,12 @@
 using System;
 using System.Text;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -117,7 +118,7 @@ internal sealed class TextFormulas
   public void Activate(string key)
   {
     bool open = _fieldSlot == key;
-    _host.ClosePopovers();
+    _host.CloseOpen();
     if (!open)
       _fieldSlot = key;
     _host.Render();
@@ -126,7 +127,7 @@ internal sealed class TextFormulas
   // A click on a value selects it whole and opens its formula beside it.
   public void OpenChip(int index)
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     _text.Anchor = index;
     _text.Caret = index + 1;
     _chipPopover = index;
@@ -257,7 +258,7 @@ internal sealed class TextFormulas
 
   public void FinishEditing()
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     _host.Render();
   }
 
@@ -292,7 +293,7 @@ internal sealed class TextFormulas
     }
     if (_fieldSlot != key)
     {
-      _host.ClosePopovers();
+      _host.CloseOpen();
       _fieldSlot = key;
     }
     _editing.Drop(CurrentSlot(), value);

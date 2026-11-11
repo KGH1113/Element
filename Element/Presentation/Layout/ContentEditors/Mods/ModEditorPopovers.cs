@@ -1,13 +1,14 @@
 using System;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
@@ -31,8 +32,8 @@ internal sealed class ModEditorPopovers : IDisposable
   private readonly OverlayGrowPopover _grow;
   private ModColorRequest _pickerFor;
   private ModPaintRequest _paintFor;
-  private OverlayFontPopover _fontPopover;
-  private SettingsUiFactory _fontUi;
+  private UiFontPopover _fontPopover;
+  private UiFactory _fontUi;
   private ModFontRequest _fontFor;
 
   public ModEditorPopovers(
@@ -49,9 +50,9 @@ internal sealed class ModEditorPopovers : IDisposable
     _reduceMotion = reduceMotion;
     _fonts = fonts;
     _growButton = growButton;
-    _picker = new PickerPopover(new SettingsColorPicker(screen.Frame, font, reduceMotion));
+    _picker = new PickerPopover(new UiColorPicker(screen.Frame, font, reduceMotion));
     // The full picker, laid out as the overlay editors' column so it offers gradients.
-    _paintPicker = new PickerPopover(new SettingsColorPicker(screen.Frame, font, reduceMotion));
+    _paintPicker = new PickerPopover(new UiColorPicker(screen.Frame, font, reduceMotion));
     _paintPicker.Picker.LayOutAsColumn(300);
     _list = new ModListPopover(screen.Ui, screen.Frame, reduceMotion());
     _grow = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion(), pickGrowth) { Anchor = growButton.Root };
@@ -114,8 +115,8 @@ internal sealed class ModEditorPopovers : IDisposable
       return;
     if (_fontPopover == null)
     {
-      _fontUi = EditorUiFactory.Create(_font, _reduceMotion);
-      _fontPopover = new OverlayFontPopover(_fontUi, _screen.Frame, fonts, _reduceMotion(), PickFont);
+      _fontUi = new UiFactory(_font, _reduceMotion);
+      _fontPopover = new UiFontPopover(_fontUi, _screen.Frame, fonts, _reduceMotion(), PickFont);
       _fontPopover.Hidden = () => _fontFor = null;
       _stack.Add(_fontPopover);
     }
@@ -128,8 +129,8 @@ internal sealed class ModEditorPopovers : IDisposable
       L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font")
     );
     Rect anchor = _screen.FrameRect(request.Anchor);
-    float width = OverlayFontPopover.PreferredWidth,
-      height = Mathf.Min(OverlayFontPopover.PreferredHeight, _screen.Height - 16);
+    float width = UiFontPopover.PreferredWidth,
+      height = Mathf.Min(UiFontPopover.PreferredHeight, _screen.Height - 16);
     Rect bounds = PopoverPlacement.Beside(
       anchor,
       anchor.center.y - height * .5f,

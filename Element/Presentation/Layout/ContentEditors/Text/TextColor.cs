@@ -1,14 +1,16 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Domain.Overlay.Formula;
-using Element.Configuration.Overlay;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -51,13 +53,13 @@ internal sealed class TextColor
       () => _host.Screen != null,
       // Its numbers go with it.
       () => _formulas.Field == TextFormulas.OpacityKey || TextGradient.IsKey(_formulas.Field),
-      _host.ClosePopovers,
+      _host.CloseOpen,
       _host.Render
     );
     OpacitySlot = new OverlayFormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
   }
 
-  public SettingsColorPicker Picker => _picker.Picker;
+  public UiColorPicker Picker => _picker.Picker;
 
   public OverlayOpacityField Opacity => _picker.Opacity;
 
@@ -66,7 +68,7 @@ internal sealed class TextColor
   /// <summary>How the keypad reads and writes the picker's opacity.</summary>
   public OverlayFormulaSlot OpacitySlot { get; }
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _colorButton = new OverlayBarButton(
       ui,
       bar,
@@ -91,8 +93,8 @@ internal sealed class TextColor
 
   private void OpenPicker()
   {
-    _host.ClosePopovers();
-    SettingsColorPicker picker = _picker.Picker;
+    _host.CloseOpen();
+    UiColorPicker picker = _picker.Picker;
     if (picker.Visible)
     {
       picker.Hide();
@@ -124,12 +126,12 @@ internal sealed class TextColor
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
   {
-    Color swatch = OverlayTextComposer.Resolve(_text.RangeColor(), OverlayTheme.Accent);
+    Color swatch = OverlayTextComposer.Resolve(_text.RangeColor(), UiTheme.Accent);
     swatch.a = 1;
     _colorButton.Swatch = swatch;
     OverlayColorSettings color = _text.RangeColor();
     _swatchFormulas.Compile(color);
-    bool gradient = _swatchFormulas.Resolve(color, OverlayTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
+    bool gradient = _swatchFormulas.Resolve(color, UiTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
     _colorButton.SwatchGradient = gradient ? _swatchGradient : null;
   }
 
@@ -146,7 +148,7 @@ internal sealed class TextColor
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
   public string Hint() =>
-    Picker.Visible && Picker.IsGradient
+    Picker.Visible && Picker.Gradient.IsGradient
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on an opacity, position or angle to calculate it"

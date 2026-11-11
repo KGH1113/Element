@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Defaults;
 using Element.Presentation.Layout.Kinds;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 

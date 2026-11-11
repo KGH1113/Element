@@ -2,11 +2,16 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Presentation.Settings.Pages;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
@@ -23,7 +28,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
   private readonly Action _editLayout;
   private readonly Action<bool> _visibility;
   private readonly TMP_FontAsset _font;
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly GameObject _root;
   private readonly Canvas _canvas;
   private readonly RectTransform _window;
@@ -38,7 +43,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _retrySave;
   private readonly TextMeshProUGUI _title,
     _feedback;
-  private readonly SettingsPopoverShade _shade;
+  private readonly UiPopoverShade _shade;
   private readonly HomePage _home;
   private readonly TweaksPage _tweaks;
   private readonly GeneralPage _general;
@@ -87,7 +92,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _editLayout = editLayout;
     _visibility = visibility;
     _font = font;
-    _ui = new SettingsUiFactory(font) { ReduceMotion = () => settings.ReduceUiMotion };
+    _ui = new UiFactory(font) { ReduceMotion = () => settings.ReduceUiMotion };
     _root = new GameObject("Element Settings", typeof(RectTransform));
     if (UnityEngine.Application.isPlaying)
       Object.DontDestroyOnLoad(_root);
@@ -96,7 +101,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _canvas.sortingOrder = 32760;
     _root.AddComponent<GraphicRaycaster>();
     Image scrim = _ui.Panel("Backdrop", _root.transform, 0, 0, 0, 0, new Color(0, 0, 0, .42f), false);
-    SettingsUiFactory.Stretch(scrim.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(scrim.rectTransform, 0, 0, 0, 0);
     scrim.raycastTarget = true;
     _window = _ui.Panel("Settings window", _root.transform, 0, 0, 1000, 600, new Color(.22f, .22f, .22f)).rectTransform;
     _window.anchorMin = _window.anchorMax = _window.pivot = new Vector2(.5f, .5f);
@@ -104,10 +109,10 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _windowGroup = _window.gameObject.AddComponent<CanvasGroup>();
     _windowMotion = _window.gameObject.AddComponent<SettingsWindowMotion>();
     _windowMotion.Initialize(_windowGroup, () => _settings.ReduceUiMotion);
-    _surface = _ui.Panel("Surface", _window, 1, 1, 998, 598, SettingsUiFactory.Background).rectTransform;
-    _back = _ui.IconButton("Back", _window, 32, 24, 40, Back, SettingsNavigationIconKind.Back);
+    _surface = _ui.Panel("Surface", _window, 1, 1, 998, 598, UiPalette.Background).rectTransform;
+    _back = _ui.IconButton("Back", _window, 32, 24, 40, Back, UiIconKind.PageBack);
     _title = _ui.Text(L("설정", "Settings"), _window, 32, 24, 700, 40, 27);
-    _close = _ui.IconButton("Close", _window, 928, 24, 40, Close, SettingsNavigationIconKind.Close);
+    _close = _ui.IconButton("Close", _window, 928, 24, 40, Close, UiIconKind.WindowClose);
     _viewport = _ui.Panel("Content viewport", _window, 32, 96, 936, 480, Color.clear, false).rectTransform;
     _viewport.GetComponent<Image>().raycastTarget = true;
     _viewport.gameObject.AddComponent<RectMask2D>();
@@ -124,7 +129,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _scrollbar.direction = Scrollbar.Direction.BottomToTop;
     _scrollbar.transition = Selectable.Transition.None;
     RectTransform slideArea = _ui.Rect("Slide area", scrollTrack.transform, 4, 0, 4, 480);
-    SettingsUiFactory.Stretch(slideArea, 4, 0, 4, 0);
+    UiFactory.Stretch(slideArea, 4, 0, 4, 0);
     Image scrollHandle = _ui.Panel("Scroll thumb", slideArea, 0, 0, 4, 40, new Color(.32f, .32f, .32f));
     scrollHandle.rectTransform.sizeDelta = Vector2.zero;
     scrollHandle.rectTransform.anchoredPosition = Vector2.zero;
@@ -132,7 +137,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _scrollbar.targetGraphic = scrollHandle;
     _scroll.verticalScrollbar = _scrollbar;
     _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
-    _feedback = _ui.Text("", _window, 32, 540, 780, 40, 14, SettingsUiFactory.Muted);
+    _feedback = _ui.Text("", _window, 32, 540, 780, 40, 14, UiPalette.Muted);
     _retrySave = _ui.Button(
       L("다시 저장", "Retry save"),
       _window,
@@ -147,7 +152,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       }
     );
     _retrySave.gameObject.SetActive(false);
-    _shade = new SettingsPopoverShade(
+    _shade = new UiPopoverShade(
       _ui,
       _window,
       () =>
@@ -191,11 +196,11 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
   public bool IsOpen => _root != null && _root.activeSelf;
 
   ElementSettings ISettingsWindow.Settings => _settings;
-  SettingsUiFactory ISettingsWindow.Ui => _ui;
+  UiFactory ISettingsWindow.Ui => _ui;
   TMP_FontAsset ISettingsWindow.Font => _font;
   RectTransform ISettingsWindow.Frame => _window;
   RectTransform ISettingsWindow.Viewport => _viewport;
-  SettingsPopoverShade ISettingsWindow.Shade => _shade;
+  UiPopoverShade ISettingsWindow.Shade => _shade;
 
   public void Open()
   {
@@ -250,7 +255,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       "설정을 저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인하고 다시 닫아주세요.",
       "Settings could not be saved. Check write permission for the mod folder, then close again."
     );
-    _feedback.color = SettingsPalette.Error;
+    _feedback.color = UiPalette.Error;
     _retrySave.gameObject.SetActive(true);
     FitWindow();
   }
@@ -330,7 +335,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       if (focused != null)
         RevealControl(focused.transform, 8);
     }
-    SettingsInputCapture.RestoreCursor();
+    UiInputCapture.RestoreCursor();
   }
 
   // Static so the runtime can watch the shortcut before the window is built.
@@ -518,7 +523,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       return;
     GameObject selected = EventSystem.current?.currentSelectedGameObject;
     int current = active.FindIndex(x => x.gameObject == selected);
-    int next = (current + (SettingsModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
+    int next = (current + (UiModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
     EventSystem.current?.SetSelectedGameObject(active[next].gameObject);
     RevealControl(active[next].transform, 8);
   }
@@ -554,22 +559,22 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     float width = Mathf.Max(280, Mathf.Min(1000, pixelWidth / scale - 32));
     float height = Mathf.Max(240, Mathf.Min(600, pixelHeight / scale - 32));
     _window.sizeDelta = new Vector2(width, height);
-    SettingsUiFactory.Place(_surface, 1, 1, width - 2, height - 2);
+    UiFactory.Place(_surface, 1, 1, width - 2, height - 2);
     float inset = width < 600 ? 20 : 32;
     float contentWidth = width - inset * 2;
     float titleLeft = _current.Parent == null ? inset : inset + 52;
-    SettingsUiFactory.Place((RectTransform)_back.transform, inset, 24, 40, 40);
-    SettingsUiFactory.Place(_title.rectTransform, titleLeft, 24, width - titleLeft - inset - 48, 40);
-    SettingsUiFactory.Place((RectTransform)_close.transform, width - inset - 40, 24, 40, 40);
+    UiFactory.Place((RectTransform)_back.transform, inset, 24, 40, 40);
+    UiFactory.Place(_title.rectTransform, titleLeft, 24, width - titleLeft - inset - 48, 40);
+    UiFactory.Place((RectTransform)_close.transform, width - inset - 40, 24, 40, 40);
     float bottom = string.IsNullOrEmpty(_feedback.text) ? 24 : 80;
     float viewHeight = Mathf.Max(80, height - 96 - bottom);
-    SettingsUiFactory.Place(_viewport, inset, 96, contentWidth, viewHeight);
-    SettingsUiFactory.Place((RectTransform)_scrollbar.transform, width - inset + 6, 96, 12, viewHeight);
+    UiFactory.Place(_viewport, inset, 96, contentWidth, viewHeight);
+    UiFactory.Place((RectTransform)_scrollbar.transform, width - inset + 6, 96, 12, viewHeight);
     _shade.Layout();
     foreach (SettingsPage page in _pages)
       page.Layout(contentWidth, viewHeight);
-    SettingsUiFactory.Place(_feedback.rectTransform, inset, height - 64, contentWidth - 132, 48);
-    SettingsUiFactory.Place((RectTransform)_retrySave.transform, width - inset - 120, height - 60, 120, 40);
+    UiFactory.Place(_feedback.rectTransform, inset, height - 64, contentWidth - 132, 48);
+    UiFactory.Place((RectTransform)_retrySave.transform, width - inset - 120, height - 60, 120, 40);
   }
 
   public void Dispose()

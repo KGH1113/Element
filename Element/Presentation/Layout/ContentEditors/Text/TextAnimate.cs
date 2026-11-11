@@ -1,8 +1,10 @@
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Domain.Overlay.Text;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -27,7 +29,7 @@ internal sealed class TextAnimate
     _preview = preview;
   }
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _animateButton = new OverlayBarButton(
       ui,
       bar,
@@ -35,7 +37,7 @@ internal sealed class TextAnimate
       L("애니메이션", "Animate"),
       Toggle,
       reduceMotion,
-      icon: LayoutAction.Animate,
+      icon: UiIconKind.Animate,
       toggle: true
     );
 
@@ -53,8 +55,8 @@ internal sealed class TextAnimate
 
   private void Toggle()
   {
-    _host.ClosePopovers();
-    SettingsColorPicker picker = _color.Picker;
+    _host.CloseOpen();
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     _text.Range(out int start, out int end);

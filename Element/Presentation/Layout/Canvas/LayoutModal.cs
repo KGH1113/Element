@@ -1,9 +1,10 @@
 using System;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -12,7 +13,7 @@ internal sealed class LayoutModal
 {
   private readonly LayoutSession _session;
   private GameObject _root;
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private int _width,
     _height;
   private Action _rebuild;
@@ -50,7 +51,7 @@ internal sealed class LayoutModal
       (viewHeight - height * scale) * .5f,
       width,
       height,
-      SettingsUiFactory.Background
+      UiPalette.Background
     ).rectTransform;
     panel.localScale = Vector3.one * scale;
     return panel;
@@ -61,7 +62,7 @@ internal sealed class LayoutModal
   {
     RectTransform panel = Open(name, 500, 260, rebuild);
     _ui.Text(title, panel, 28, 24, 444, 40, 23);
-    _ui.Text(body, panel, 28, 80, 444, 100, 15, SettingsUiFactory.Muted);
+    _ui.Text(body, panel, 28, 80, 444, 100, 15, UiPalette.Muted);
     Button cancel = _ui.Button(L("취소", "Cancel"), panel, 232, 196, 112, 40, Close);
     _ui.Button(
       confirm,
@@ -85,7 +86,7 @@ internal sealed class LayoutModal
     if (_root == null)
       return;
     _root.SetActive(false);
-    SettingsUiFactory.Destroy(_root);
+    UiFactory.Destroy(_root);
     _root = null;
     _rebuild = null;
     _ui?.Dispose();

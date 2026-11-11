@@ -1,5 +1,5 @@
 using Element.Configuration.Effects;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings;
 

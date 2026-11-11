@@ -1,9 +1,8 @@
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
-using Element.Configuration.Overlay;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -73,7 +72,7 @@ internal sealed class ShapeInput
         continue;
       }
       KeyCode code = _event.keyCode;
-      SettingsColorPicker picker = _colors.Picker;
+      UiColorPicker picker = _colors.Picker;
       if (code == KeyCode.Escape)
       {
         bool finishing = !picker.Visible && !_host.AnyOpen;
@@ -88,7 +87,7 @@ internal sealed class ShapeInput
         if (picker.Visible)
           picker.Hide();
         else if (_host.AnyOpen)
-          _host.CloseEditing();
+          _host.CloseOpen();
         _host.Render();
         continue;
       }
@@ -107,13 +106,13 @@ internal sealed class ShapeInput
     Vector2 screen = Input.mousePosition;
     if (OverControl(screen))
       return;
-    SettingsColorPicker colors = _colors.Picker;
+    UiColorPicker colors = _colors.Picker;
     bool picker = colors.Visible;
     if (picker)
       colors.Hide();
     if (!_host.AnyOpen && !picker)
       return;
-    _host.CloseEditing();
+    _host.CloseOpen();
     _host.Render();
   }
 

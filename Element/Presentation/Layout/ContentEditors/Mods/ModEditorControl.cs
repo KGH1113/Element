@@ -1,10 +1,7 @@
 using System;
-using System.Collections.Generic;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
@@ -50,7 +47,7 @@ internal class ModEditorControl : EditorControl
       Group = null;
       Rect.SetParent(_page.Root, false);
     }
-    SettingsUiFactory.Place(Rect, x, y, WidthOverride ?? ModEditorPage.ColumnWidth, Height);
+    UiFactory.Place(Rect, x, y, WidthOverride ?? ModEditorPage.ColumnWidth, Height);
     _page.Changed();
     return this;
   }

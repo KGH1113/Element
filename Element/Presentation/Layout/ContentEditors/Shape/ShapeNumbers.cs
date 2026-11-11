@@ -1,15 +1,15 @@
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using NVector2 = System.Numerics.Vector2;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
-using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Values;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
+using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -52,7 +52,7 @@ internal sealed class ShapeNumbers
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  public OverlayBarButton BuildStrokeWidth(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildStrokeWidth(UiFactory ui, Transform bar, bool reduceMotion) =>
     _strokeWidth = new OverlayBarButton(
       ui,
       bar,
@@ -61,7 +61,7 @@ internal sealed class ShapeNumbers
       () => _host.Activate(StrokeKey),
       reduceMotion,
       "px",
-      icon: LayoutAction.StrokeWidth
+      icon: UiIconKind.StrokeWidth
     );
 
   /// <summary>Points the keypad at the open number, or lets it rest.</summary>
@@ -213,7 +213,7 @@ internal sealed class ShapeNumbers
 
   public void FinishEditing()
   {
-    _host.CloseEditing();
+    _host.CloseOpen();
     _host.Render();
   }
 

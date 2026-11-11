@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -32,7 +33,7 @@ internal sealed class LayoutAddMenu
     _session = session;
     _toolbar = toolbar;
     _popovers = popovers;
-    _menu = new ListMenu(session.NewUi, "Add element menu", Width, Row, LayoutColors.Menu)
+    _menu = new ListMenu(session.NewUi, "Add element menu", Width, Row, UiPalette.Menu)
     {
       Hiding = CloseSubmenus,
       Hidden = FocusAddButton,
@@ -75,14 +76,14 @@ internal sealed class LayoutAddMenu
 
   private Button AddRow(int index, AddMenuRow row)
   {
-    SettingsUiFactory ui = _menu.Ui;
+    UiFactory ui = _menu.Ui;
     Button button = _menu.AddRow(
       index,
       "Add " + row.Icon,
       row.Icon,
       18,
       28,
-      row.Enabled ? SettingsPalette.SoftAccent : SettingsUiFactory.Muted,
+      row.Enabled ? UiPalette.SoftAccent : UiPalette.Muted,
       row.Enabled,
       row.Pressed
     );
@@ -95,7 +96,7 @@ internal sealed class LayoutAddMenu
       Width - 88,
       20,
       12,
-      row.Enabled ? SettingsUiFactory.Muted : LayoutColors.Warning
+      row.Enabled ? UiPalette.Muted : UiPalette.Error
     );
     detail.textWrappingMode = TextWrappingModes.NoWrap;
     return button;

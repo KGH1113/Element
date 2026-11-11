@@ -1,16 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -101,31 +102,23 @@ internal sealed class LayoutToolbar
 
   public void Build(LayoutCommands commands)
   {
-    SettingsUiFactory ui = _session.Ui;
-    _toolbar = ui.Panel(
-      "Layout actions",
-      _session.Root.transform,
-      0,
-      0,
-      Width,
-      120,
-      LayoutColors.Toolbar
-    ).rectTransform;
+    UiFactory ui = _session.Ui;
+    _toolbar = ui.Panel("Layout actions", _session.Root.transform, 0, 0, Width, 120, UiPalette.Toolbar).rectTransform;
     _toolbar.anchorMin = _toolbar.anchorMax = Vector2.zero;
-    LayoutActionIcon grip = ui.Rect("Drag panel", _toolbar, 10, 18, 14, 24).gameObject.AddComponent<LayoutActionIcon>();
-    grip.Kind = LayoutAction.Grip;
-    grip.color = SettingsUiFactory.Muted;
+    UiIcon grip = ui.Rect("Drag panel", _toolbar, 10, 18, 14, 24).gameObject.AddComponent<UiIcon>();
+    grip.Kind = UiIconKind.Grip;
+    grip.color = UiPalette.Muted;
     grip.raycastTarget = false;
     _instruction = ui.Text("", _toolbar, 32, 12, 312, 36, 16);
     Button resetAll = ui.Button(L("전체 초기화", "Reset all"), _toolbar, 352, 12, 104, 36, commands.ResetAll);
     _controls.Add((RectTransform)resetAll.transform);
     _status.Build(ui, _toolbar);
-    _undo = IconButton(LayoutAction.Undo, L("실행 취소", "Undo"), 464, 12, commands.Undo, 36);
-    _redo = IconButton(LayoutAction.Redo, L("다시 실행", "Redo"), 504, 12, commands.Redo, 36);
+    _undo = IconButton(UiIconKind.Undo, L("실행 취소", "Undo"), 464, 12, commands.Undo, 36);
+    _redo = IconButton(UiIconKind.Redo, L("다시 실행", "Redo"), 504, 12, commands.Redo, 36);
     _cancel = ui.Button(L("취소", "Cancel"), _toolbar, 548, 12, 88, 36, commands.Cancel);
     _save = ui.Button(L("저장", "Save"), _toolbar, 644, 12, 104, 36, commands.Save, true);
     ui.Panel("Divider", _toolbar, 12, 53, Width - 24, 1, new Color(1, 1, 1, .08f), false);
-    _plus = IconButton(LayoutAction.Plus, L("확대", "Increase size"), 12, 60, () => ScaleBy(1.05f), 40);
+    _plus = IconButton(UiIconKind.Plus, L("확대", "Increase size"), 12, 60, () => ScaleBy(1.05f), 40);
     _scaleInput = ui.Input(
       "Scale percent",
       "100",
@@ -148,25 +141,18 @@ internal sealed class LayoutToolbar
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     _scaleInput.textComponent.margin = new Vector4(0, 0, 2, 0);
     _scaleInput.gameObject.AddComponent<LayoutTextCapture>();
-    _scaleSuffix = ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
+    _scaleSuffix = ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, UiPalette.Muted);
     AlignScaleValue();
-    _minus = IconButton(LayoutAction.Minus, L("축소", "Decrease size"), 148, 60, () => ScaleBy(.95f), 40);
+    _minus = IconButton(UiIconKind.Minus, L("축소", "Decrease size"), 148, 60, () => ScaleBy(.95f), 40);
     // Elements sized in their editor show its Edit button in the scale's place.
     _editContent = ui.Button(L("텍스트 편집", "Edit text"), _toolbar, 12, 60, 172, 40, commands.Edit, true);
     _editContent.name = "Edit element";
     _editLabel = _editContent.GetComponentInChildren<TextMeshProUGUI>();
     _controls.Add((RectTransform)_editContent.transform);
     ui.Panel("Selection divider", _toolbar, 196, 68, 1, 24, new Color(1, 1, 1, .1f), false);
-    _reset = IconButton(
-      LayoutAction.Reset,
-      L("선택 요소 초기화", "Reset element"),
-      208,
-      60,
-      commands.ResetSelected,
-      40
-    );
+    _reset = IconButton(UiIconKind.Reset, L("선택 요소 초기화", "Reset element"), 208, 60, commands.ResetSelected, 40);
     _snap = IconButton(
-      LayoutAction.Snap,
+      UiIconKind.Snap,
       L("자동 맞춤", "Snapping"),
       248,
       60,
@@ -178,7 +164,7 @@ internal sealed class LayoutToolbar
       40
     );
     _delete = IconButton(
-      LayoutAction.Delete,
+      UiIconKind.Delete,
       L("요소 삭제 · Cmd/Ctrl + Delete", "Delete element · Cmd/Ctrl + Delete"),
       288,
       60,
@@ -189,16 +175,15 @@ internal sealed class LayoutToolbar
     _add = ui.Button(L("요소 추가", "Add Element"), _toolbar, 348, 60, 132, 40, commands.Add, true);
     _editColor = ui.Button(L("하이라이트 색", "Highlight"), _toolbar, 488, 60, 140, 40, commands.Color);
     _colorSwatch = ui.Panel("Highlight color", _editColor.transform, 12, 12, 16, 16, ui.Accent);
-    SettingsUiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
+    UiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
     // The texts' default font sits beside their highlight color.
     _editFont = ui.Button(L("기본 폰트", "Font"), _toolbar, 636, 60, 112, 40, commands.Font);
     _editFont.name = "Default font";
-    LayoutActionIcon fontIcon = ui.Rect("Icon", _editFont.transform, 10, 10, 20, 20)
-      .gameObject.AddComponent<LayoutActionIcon>();
-    fontIcon.Kind = LayoutAction.Font;
+    UiIcon fontIcon = ui.Rect("Icon", _editFont.transform, 10, 10, 20, 20).gameObject.AddComponent<UiIcon>();
+    fontIcon.Kind = UiIconKind.Font;
     fontIcon.raycastTarget = false;
     _icons.Add(new LayoutIcon(fontIcon, _editFont));
-    SettingsUiFactory.Stretch(_editFont.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 34, 0, 8, 0);
+    UiFactory.Stretch(_editFont.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 34, 0, 8, 0);
     _editFont.interactable = _session.Fonts != null;
     _controls.Add((RectTransform)_add.transform);
     _controls.Add((RectTransform)_editColor.transform);
@@ -208,13 +193,13 @@ internal sealed class LayoutToolbar
     _controls.Add((RectTransform)_scaleInput.transform);
   }
 
-  private Button IconButton(LayoutAction kind, string hint, float x, float y, Action onClick, float height = 32)
+  private Button IconButton(UiIconKind kind, string hint, float x, float y, Action onClick, float height = 32)
   {
-    SettingsUiFactory ui = _session.Ui;
+    UiFactory ui = _session.Ui;
     Button button = ui.Button("", _toolbar, x, y, 36, height, onClick);
     button.gameObject.name = hint;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    LayoutActionIcon icon = ui.Rect("Icon", button.transform, 8, 6, 20, 20).gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon icon = ui.Rect("Icon", button.transform, 8, 6, 20, 20).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, .5f);
     icon.rectTransform.anchoredPosition = Vector2.zero;
@@ -319,8 +304,8 @@ internal sealed class LayoutToolbar
       width - suffix - 18
     );
     float left = (width - number - 2 - suffix) * .5f;
-    SettingsUiFactory.Place(_scaleInput.textViewport, left, 4, number, 32);
-    SettingsUiFactory.Place(_scaleSuffix.rectTransform, left + number + 2, 0, suffix + 1, 40);
+    UiFactory.Place(_scaleInput.textViewport, left, 4, number, 32);
+    UiFactory.Place(_scaleSuffix.rectTransform, left + number + 2, 0, suffix + 1, 40);
   }
 
   private void CommitScale(string value)
@@ -430,9 +415,9 @@ internal sealed class LayoutToolbar
     }
     _instruction.text = any ? SelectionLabel() : L("요소 선택", "Select overlay");
     _status.Refresh();
-    if (_themeVersion != OverlayTheme.Version)
+    if (_themeVersion != UiTheme.Version)
     {
-      _themeVersion = OverlayTheme.Version;
+      _themeVersion = UiTheme.Version;
       _session.Ui.RefreshTheme();
       _colorSwatch.color = _session.Ui.Accent;
     }
@@ -442,10 +427,10 @@ internal sealed class LayoutToolbar
       if (!icon.Icon.gameObject.activeInHierarchy)
         continue;
       icon.Icon.color =
-        !icon.Button.interactable ? LayoutColors.Disabled
-        : icon.Icon.Kind == LayoutAction.Snap
-          ? (_session.Preferences.LayoutSnapping ? SettingsPalette.SoftAccent : SettingsUiFactory.Muted)
-        : SettingsUiFactory.Foreground;
+        !icon.Button.interactable ? UiPalette.Disabled
+        : icon.Icon.Kind == UiIconKind.Snap
+          ? (_session.Preferences.LayoutSnapping ? UiPalette.SoftAccent : UiPalette.Muted)
+        : UiPalette.Foreground;
     }
   }
 

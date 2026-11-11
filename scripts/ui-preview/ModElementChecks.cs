@@ -11,7 +11,6 @@ using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using ElementKit;
@@ -19,6 +18,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Presentation.Ui.ColorPicker;
 
 namespace Element.Editor
 {
@@ -173,7 +173,7 @@ namespace Element.Editor
         Tab("Grow from " + OverlayGrowth.Top).onClick.Invoke();
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
         Find("Paint ").onClick.Invoke();
-        SettingsColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
+        UiColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
         Assert(paint.Visible && paint.GradientAvailable && InsideScreen(ScreenRectOf(paint.Root)),
           "a paint opens the full picker, gradients included, on screen");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");
@@ -194,7 +194,7 @@ namespace Element.Editor
         Find("Chip ").onClick.Invoke();
         Assert(Working().Contains("\"Show\":[false,false,true]"), "a chip turns its option on or off: " + Working());
         Find("Font ").onClick.Invoke();
-        OverlayFontPopover fonts = Field<OverlayFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
+        UiFontPopover fonts = Field<UiFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
         Assert(fonts != null && fonts.Visible && InsideScreen(ScreenRectOf(fonts.Root)), "a font part opens Element's font list beside it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");

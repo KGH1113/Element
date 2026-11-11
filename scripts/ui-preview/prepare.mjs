@@ -35,6 +35,8 @@ files.push(path.join(root, 'Element/Infrastructure/Game/Planets/PlanetPreviewRen
 for (const name of ['PlanetPreviewSource', 'PlanetPreviewSources', 'PlanetPreviewVisual', 'PlanetPreviewObjects'])
   files.push(path.join(root, 'Element/Infrastructure/Game/Planets', name + '.cs'));
 files.push(path.join(root, 'Element/Domain/Tweaks/PlanetColorRule.cs'));
+files.push(path.join(root, 'Element/Application/Gameplay/IPlanetPreview.cs'));
+files.push(path.join(root, 'Element/Presentation/Notices/UpdateStatusText.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Ui'), { recursive: true }).filter(name => name.endsWith('.cs')))

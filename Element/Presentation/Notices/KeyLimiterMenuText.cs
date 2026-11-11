@@ -1,6 +1,6 @@
 using Element.Presentation.Ui.Theme;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Notices;
 
 /// <summary>What ADOFAI's Key Limiter row in the pause settings says while ElementNote's keys apply.</summary>
 internal static class KeyLimiterMenuText

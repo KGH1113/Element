@@ -4,13 +4,13 @@ using Element.Application.Gameplay;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using UnityEngine;
-using Element.Configuration.Overlay;
-using Element.Domain.KeyViewer;
-using Element.Domain.Rendering;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 
@@ -20,7 +20,7 @@ namespace Element.Infrastructure.ElementNote.Viewers;
 /// together (the describe session and its IPC endpoint, the layout targets, the
 /// native host) and applies what ElementNote reported once per frame.
 /// </summary>
-internal sealed class ElementNoteNativeViewers : IKeyViewerElements, IInGameKeyViewers, IDisposable
+internal sealed class ElementNoteNativeViewers : IKeyViewerElements, IInGameKeyViewers, INativeViewerLayer, IDisposable
 {
   private readonly bool _supported;
   private readonly NativeViewerSession _session;

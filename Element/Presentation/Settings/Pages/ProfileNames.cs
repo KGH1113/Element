@@ -1,6 +1,6 @@
 using Element.Presentation.Ui.Theme;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Settings.Pages;
 
 /// <summary>Names the mod gives profiles.</summary>
 internal static class ProfileNames

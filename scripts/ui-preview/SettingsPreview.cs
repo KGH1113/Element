@@ -305,18 +305,18 @@ namespace Element.Editor
         "the input dock is always there, resting with a hint until a number is clicked");
       dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value combo").onClick.Invoke();
       Assert(Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
-      OverlayFormulaField widthField = Field<OverlayFormulaField>(shapes, "_widthField"), heightField = Field<OverlayFormulaField>(shapes, "_heightField");
+      OverlayFormulaField widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
       Rect restingDock = ScreenRectOf(dock.Root);
       Assert(InsideScreen(restingDock) && restingDock.yMax < ScreenRectOf(widthField.Root).yMin, "the shape and its numbers stay above the dock");
-      Rect shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
       Rect wRect = ScreenRectOf(widthField.Root), hRect = ScreenRectOf(heightField.Root);
       Assert(wRect.yMax < shapeRect.yMin && Mathf.Abs(wRect.center.x - shapeRect.center.x) < 1, "W sits under the shape");
       Assert(hRect.xMin > shapeRect.xMax && Mathf.Abs(hRect.center.y - shapeRect.center.y) < 1, "H sits to its right");
-      Assert(shapes.GetType().GetField("_widthLine", Private) == null, "no dimension lines");
-      List<Button> arcs = Field<List<Button>>(shapes, "_arcs");
+      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeMeasures) }.All(type => type.GetField("_widthLine", Private) == null), "no dimension lines");
+      List<Button> arcs = Field<List<Button>>(Measures(shapes), "_arcs");
       Assert(arcs.Count == 4 && arcs.All(arc => arc.gameObject.activeSelf), "a square has an arc at each corner");
-      Assert(Field<List<OverlayFormulaField>>(shapes, "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
+      Assert(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
         "rounding values stay hidden until an arc is clicked");
       foreach (Button arc in arcs)
       {
@@ -335,10 +335,10 @@ namespace Element.Editor
           Assert(Vector2.Dot(outward, away) > 0, "an arc faces away from the shape");
         }
       }
-      OverlayBarButton fillButton = Field<OverlayBarButton>(shapes, "_fillButton"), strokeButton = Field<OverlayBarButton>(shapes, "_strokeButton"),
-        strokeWidth = Field<OverlayBarButton>(shapes, "_strokeWidth"), shapeGrow = Field<OverlayBarButton>(shapes, "_growButton");
+      OverlayBarButton fillButton = Field<OverlayBarButton>(ShapeColorsOf(shapes), "_fillButton"), strokeButton = Field<OverlayBarButton>(ShapeColorsOf(shapes), "_strokeButton"),
+        strokeWidth = ShapeNumbersOf(shapes).StrokeWidth, shapeGrow = Grow(shapes).Button;
       Assert(shapeGrow.Value.Contains(Korean(name) ? "자동" : "Auto"), "the grow button says where the shape grows from");
-      Assert(shapes.GetType().GetField("_fillOpacity", Private) == null && shapes.GetType().GetField("_strokeOpacity", Private) == null,
+      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
         "opacity lives in the color picker, not the bar");
       OverlayBarButton[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
       string[] shapeLabels = Korean(name) ? new[] { "채우기", "테두리", "테두리 두께", "기준점" } : new[] { "Fill", "Border", "Border width", "Grow from" };
@@ -354,9 +354,9 @@ namespace Element.Editor
       foreach (OverlayFormulaField measure in new[] { widthField, heightField })
         Assert(measure.Root.GetComponent<Button>().targetGraphic.transform == measure.Root,
           "W and H light up exactly where the pill is drawn: " + measure.Name);
-      Assert(!Field<RectTransform>(shapes, "_bar").GetComponentsInChildren<Button>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
+      Assert(!Field<OverlayEditorBar>(shapes, "_bar").Root.GetComponentsInChildren<Button>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
         "numbers have no − and + buttons");
-      RectTransform bar = Field<RectTransform>(shapes, "_bar");
+      RectTransform bar = Field<OverlayEditorBar>(shapes, "_bar").Root;
       foreach (TextMeshProUGUI label in bar.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
@@ -367,11 +367,11 @@ namespace Element.Editor
 
       // Clicking W opens the input dock; the shape moves up to stay in sight.
       Click(widthField.Root, "Width");
-      OverlayFormulaEditing editing = Field<OverlayFormulaEditing>(shapes, "_editing");
+      OverlayFormulaEditing editing = ShapeNumbersOf(shapes).Editing;
       Assert(dock.Owner == "width" && editing.Active && editing.Working.Serialize() == "160",
         "W opens the input dock with its number");
       Rect dockRect = ScreenRectOf(dock.Root);
-      shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      shapeRect = ScreenRectOf(ShapeRect(shapes));
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
@@ -388,24 +388,24 @@ namespace Element.Editor
       }
       SaveFrame(camera, texture, canvases, name + "-shape-dock");
       foreach (char key in "\b\b\b240")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       OverlayShapeSettings working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 240) < .01f && widthField.Text == "240", "keypad digits set the width as they are typed");
-      Call(shapes, "KeypadPress", '0');
-      Call(shapes, "KeypadPress", '0');
+      ShapeNumbersOf(shapes).KeypadPress('0');
+      ShapeNumbersOf(shapes).KeypadPress('0');
       dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key done").onClick.Invoke();
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
         && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Contains("10000"),
         "Done lets the dock rest; a width past the limit is kept in range and says so");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 160) < .01f, "keypad typing undoes as one step");
 
       // A value picked in the dock: the formula in the dock, the result on W.
       Click(widthField.Root, "Width");
       dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value progress-current").onClick.Invoke();
-      Call(shapes, "KeypadPress", '*');
-      Call(shapes, "KeypadPress", '3');
+      ShapeNumbersOf(shapes).KeypadPress('*');
+      ShapeNumbersOf(shapes).KeypadPress('3');
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.WidthFormula == "{progress-current}*3", "the keypad calculates with the value: " + working.WidthFormula);
       Assert(dock.FormulaText.Contains("×") && dock.ResultText.Contains("144"), "the dock shows the formula and its result: " + dock.FormulaText + " / " + dock.ResultText);
@@ -419,10 +419,10 @@ namespace Element.Editor
       Assert(widthField.Text == "144", "without live data the example comes back");
       dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key clear").onClick.Invoke();
       Assert(editing.Working.IsEmpty && working.WidthFormula == "{progress-current}*3", "AC starts over without losing the width yet");
-      Call(shapes, "KeypadPress", '9');
-      Call(shapes, "KeypadPress", '0');
+      ShapeNumbersOf(shapes).KeypadPress('9');
+      ShapeNumbersOf(shapes).KeypadPress('0');
       Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing after AC replaces the formula");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.WidthFormula == "{progress-current}*3", "undo brings the formula back");
       Click(heightField.Root, "Height");
@@ -432,27 +432,27 @@ namespace Element.Editor
 
       // Dragging still works: words are refused, numbers land on the number.
       Vector2 heightPoint = ScreenCenter(heightField.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
-      Call(shapes, "EndValueDrag", heightPoint);
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
+      ShapeDrops(shapes).EndValueDrag(heightPoint);
       Assert(working.HeightFormula == "" && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
       Vector2 strokePoint = ScreenCenter(strokeWidth.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
       Assert(Field<int>(strokeWidth, "_drop") == 1, "the border width lights up for a number dragged over it");
-      Call(shapes, "EndValueDrag", strokePoint);
+      ShapeDrops(shapes).EndValueDrag(strokePoint);
       Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active,
         "a value dropped on the border width opens it in the dock");
       Assert(strokeWidth.Computed && strokeWidth.Value == "99.5", "the border width shows the result, marked as calculated: " + strokeWidth.Value);
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Call(shapes, "CloseEditing");
 
       // A corner's arc opens its rounding, shown beside the arc.
       arcs[2].onClick.Invoke();
-      OverlayFormulaField radius = Field<List<OverlayFormulaField>>(shapes, "_radiusFields")[2];
+      OverlayFormulaField radius = Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields")[2];
       Assert(dock.Owner == "radius:2" && radius.Root.gameObject.activeSelf, "an arc opens its corner's rounding with its value");
       foreach (char key in "\b\b\b20")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       Assert(radius.Text == "20", "the rounding value follows the keypad");
       CheckShapeLayout(shapes, width, height);
       SaveFrame(camera, texture, canvases, name + "-shape-corner");
@@ -464,7 +464,7 @@ namespace Element.Editor
       // Colors open right above the keypad: the keypad below types the
       // opacity and the values beside it can be dropped on it.
       fillButton.Button.onClick.Invoke();
-      SettingsColorPicker picker = Field<SettingsColorPicker>(shapes, "_picker");
+      SettingsColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
       Rect keypadRect = ScreenRectOf(dock.Keypad.Root);
@@ -472,9 +472,9 @@ namespace Element.Editor
       Assert(picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy && pickerRect.xMin < keypadRect.xMin
         && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1 && pickerRect.yMin - dockArea.yMax < 20
         && InsideScreen(pickerRect), "the picker opens right above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
-      Assert(!pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
+      Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
         "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
-      OverlayOpacityField opacity = Field<OverlayOpacityField>(shapes, "_opacity");
+      OverlayOpacityField opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
         && !Field<TMP_InputField>(picker, "_opacity").gameObject.activeSelf && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
@@ -503,20 +503,20 @@ namespace Element.Editor
       Assert(picker.Commit() && working.Fill.Hex == "#2050A0", "the fill takes the new color");
       Slider alphaSlider = Field<Slider>(picker, "_alpha");
       opacity.Field.Root.GetComponent<Button>().onClick.Invoke();
-      Assert(picker.Visible && dock.Owner == "fill-opacity" && Field<OverlayFormulaEditing>(shapes, "_editing").Working.Serialize() == "100",
+      Assert(picker.Visible && dock.Owner == "fill-opacity" && ShapeNumbersOf(shapes).Editing.Working.Serialize() == "100",
         "clicking the opacity types it in the dock, with the picker still open");
       Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "the keypad below types the opacity, the picker staying open");
       foreach (char key in "\b\b\b50")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f && working.Fill.AlphaFormula == "" && Mathf.Abs(alphaSlider.value - .5f) < .001f
         && opacity.Field.Text == "50", "a typed opacity moves the slider");
-      Call(shapes, "FinishEditing");
+      ShapeNumbersOf(shapes).FinishEditing();
       Assert(picker.Visible && dock.Owner == null, "done typing, the picker stays open for the color");
       Vector2 opacityPoint = ScreenCenter(opacity.Field.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Accuracy), opacityPoint);
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), opacityPoint);
       Assert(picker.Visible && Field<int>(opacity.Field, "_drop") == 1, "the picker stays open while a value is dragged, and its opacity lights up");
-      Call(shapes, "EndValueDrag", opacityPoint);
+      ShapeDrops(shapes).EndValueDrag(opacityPoint);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "accuracy" && dock.Owner == "fill-opacity" && opacity.Field.Computed && opacity.Field.Text == "99.5",
         "a value dropped on the opacity calculates it: " + working.Fill.AlphaFormula + " / " + opacity.Field.Text);
@@ -528,10 +528,10 @@ namespace Element.Editor
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.Hex == "#3060B0" && working.Fill.AlphaFormula == "accuracy", "a new color keeps the calculated opacity");
       Assert(picker.Commit() && Field<OverlayShapeSettings>(shapes, "_shape").Fill.AlphaFormula == "accuracy", "confirming the picker keeps it too");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       Assert(picker.Visible && Field<OverlayShapeSettings>(shapes, "_shape").Fill.Hex == "#2050A0"
         && Field<TMP_InputField>(picker, "_hex").text == "2050A0", "undo keeps the picker open, showing the restored color");
-      Call(shapes, "Redo");
+      ShapeHistory(shapes).Redo();
       alphaSlider.value = .3f;
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "" && Mathf.Abs(working.Fill.Alpha - .3f) < .01f && !opacity.Field.Computed && opacity.Field.Text == "30",
@@ -547,11 +547,11 @@ namespace Element.Editor
 
       // Where the shape grows from.
       shapeGrow.Button.onClick.Invoke();
-      OverlayGrowPopover grow = Field<OverlayGrowPopover>(shapes, "_growPopover");
+      OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(shapes), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its own popover, on screen");
       Assert(ScreenRectOf(grow.Root).yMax <= ScreenRectOf(shapeGrow.Root).yMin, "the grow popover hangs under its button");
-      Call(shapes, "PickGrowth", OverlayGrowth.TopLeft);
-      Assert(Field<SettingsCapsuleGraphic>(shapes, "_growMark").gameObject.activeSelf, "the preview marks the point that stays put");
+      Call(Grow(shapes), "Pick", OverlayGrowth.TopLeft);
+      Assert(Field<SettingsCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
       Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
       SaveFrame(camera, texture, canvases, name + "-shape-grow");
       Call(shapes, "CloseEditing");
@@ -586,18 +586,18 @@ namespace Element.Editor
         "a selected shape offers Edit shape where the scale was");
       editContent.onClick.Invoke();
       Assert(shapes.IsOpen, "Edit shape opens the shape editor");
-      heightField = Field<OverlayFormulaField>(shapes, "_heightField");
+      heightField = Measures(shapes).HeightField;
       Click(heightField.Root, "Height");
-      Call(shapes, "KeypadPress", '9');
-      Call(shapes, "PickGrowth", OverlayGrowth.Center);
+      ShapeNumbersOf(shapes).KeypadPress('9');
+      Call(Grow(shapes), "Pick", OverlayGrowth.Center);
       shapes.Close(false, true);
       Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
       // Only Cancel throws an edit away: one open when the editor is torn down
       // (the mod turned off) is kept.
       editContent.onClick.Invoke();
-      Click(Field<OverlayFormulaField>(shapes, "_heightField").Root, "Height");
-      Call(shapes, "KeypadPress", '9');
+      Click(Measures(shapes).HeightField.Root, "Height");
+      ShapeNumbersOf(shapes).KeypadPress('9');
       shapes.Dispose();
       Assert(!shapes.IsOpen && Mathf.Abs(shape.Shape.Height * shape.EffectiveScale - 1609) < .01f,
         "an edit open when the editor is torn down is kept: " + shape.Shape.Height * shape.EffectiveScale);
@@ -606,20 +606,31 @@ namespace Element.Editor
 
       // Triangles and circles.
       Kind<ShapeKind>(editor).Add(OverlayShapeKind.Triangle);
-      Assert(Field<List<Button>>(shapes, "_arcs").Count == 3, "a triangle has three corners");
+      Assert(Field<List<Button>>(Measures(shapes), "_arcs").Count == 3, "a triangle has three corners");
       ShapeOverlayElement triangle = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       CheckShapeLayout(shapes, width, height);
       SaveFrame(camera, texture, canvases, name + "-shape-triangle");
       shapes.Close(false, true);
       Assert(!triangle.Enabled, "cancelling a new shape removes it");
       Kind<ShapeKind>(editor).Add(OverlayShapeKind.Circle);
-      Assert(Field<List<Button>>(shapes, "_arcs").Count == 0, "circles have only W and H");
+      Assert(Field<List<Button>>(Measures(shapes), "_arcs").Count == 0, "circles have only W and H");
       SaveFrame(camera, texture, canvases, name + "-shape-circle");
       shapes.Close(false, true);
       Call(editor, "ClosePopovers");
     }
 
     private static bool Korean(string name) => name.Contains("-ko");
+
+    // The shape editor is made of parts; the checks reach each through its field.
+    private static ShapeMeasures Measures(OverlayShapeEditor shapes) => Field<ShapeMeasures>(shapes, "_measures");
+    private static ShapeNumbers ShapeNumbersOf(OverlayShapeEditor shapes) => Field<ShapeNumbers>(shapes, "_numbers");
+    private static ShapeColors ShapeColorsOf(OverlayShapeEditor shapes) => Field<ShapeColors>(shapes, "_colors");
+    private static ShapeGradient ShapeGradientOf(OverlayShapeEditor shapes) => Field<ShapeGradient>(shapes, "_gradient");
+    private static ShapeValueDrops ShapeDrops(OverlayShapeEditor shapes) => Field<ShapeValueDrops>(shapes, "_drops");
+    private static OverlayEditorHistory<OverlayShapeSettings> ShapeHistory(OverlayShapeEditor shapes) =>
+      Field<OverlayEditorHistory<OverlayShapeSettings>>(shapes, "_history");
+    private static RectTransform ShapeRect(OverlayShapeEditor shapes) => Field<RectTransform>(Field<ShapePreview>(shapes, "_preview"), "_shapeRect");
+    private static OverlayGrowFrom Grow(object editor) => Field<OverlayGrowFrom>(editor, "_grow");
 
     // Presses a field's number (its body button is named after the field).
     private static void Click(RectTransform field, string buttonName)
@@ -651,12 +662,12 @@ namespace Element.Editor
       }
       List<OverlayFormulaField> measures = new List<OverlayFormulaField>
       {
-        Field<OverlayFormulaField>(shapes, "_widthField"), Field<OverlayFormulaField>(shapes, "_heightField"),
+        Measures(shapes).WidthField, Measures(shapes).HeightField,
       };
-      Rect shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
       foreach (OverlayFormulaField field in measures)
         Assert(!ScreenRectOf(field.Root).Overlaps(shapeRect), "W and H stay off the shape: " + field.Name);
-      measures.AddRange(Field<List<OverlayFormulaField>>(shapes, "_radiusFields"));
+      measures.AddRange(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields"));
       List<OverlayFormulaField> shown = measures.Where(field => field.Root.gameObject.activeInHierarchy).ToList();
       for (int i = 0; i < shown.Count; i++)
       for (int j = i + 1; j < shown.Count; j++)

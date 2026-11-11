@@ -1,0 +1,246 @@
+using System;
+using Element.Configuration;
+using Element.Domain.Elements;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Settings;
+using TMPro;
+using UnityEngine;
+using static Element.Presentation.Settings.SettingsLocale;
+
+namespace Element.Presentation.Layout.ContentEditors.Shape;
+
+/// <summary>
+/// The fill's and the border's colors: their bar buttons with a swatch, and
+/// the color picker right above the keypad, which carries the color's
+/// opacity as a number like W and H.
+/// </summary>
+internal sealed class ShapeColors
+{
+  private readonly IShapeEditorHost _host;
+  private readonly ShapeNumbers _numbers;
+  private readonly OverlayEditorHistory<OverlayShapeSettings> _history;
+  private readonly TMP_FontAsset _font;
+  private readonly Func<bool> _reduceMotion;
+  private SettingsColorPicker _picker;
+  private OverlayOpacityField _opacity;
+  private OverlayBarButton _fillButton,
+    _strokeButton;
+  private bool _pickerForStroke;
+  private bool _pickerSnapshotTaken;
+
+  public ShapeColors(
+    IShapeEditorHost host,
+    ShapeNumbers numbers,
+    OverlayEditorHistory<OverlayShapeSettings> history,
+    TMP_FontAsset font,
+    Func<bool> reduceMotion
+  )
+  {
+    _host = host;
+    _numbers = numbers;
+    _history = history;
+    _font = font;
+    _reduceMotion = reduceMotion;
+  }
+
+  public SettingsColorPicker Picker => _picker;
+
+  public OverlayOpacityField Opacity => _opacity;
+
+  /// <summary>The color the picker shows: the fill's or the border's.</summary>
+  public OverlayColorSettings Picked
+  {
+    get => _pickerForStroke ? _host.Shape.Stroke : _host.Shape.Fill;
+    set
+    {
+      if (_pickerForStroke)
+        _host.Shape.Stroke = value;
+      else
+        _host.Shape.Fill = value;
+    }
+  }
+
+  /// <summary>Whether the picker shows the border's color.</summary>
+  public bool ForStroke => _pickerForStroke;
+
+  /// <summary>The picker's opacity edits the color it shows.</summary>
+  public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
+
+  public OverlayBarButton BuildFill(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+    _fillButton = new OverlayBarButton(
+      ui,
+      bar,
+      "Shape fill",
+      L("채우기", "Fill"),
+      () => Open(false),
+      reduceMotion,
+      swatch: true
+    );
+
+  public OverlayBarButton BuildStroke(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+    _strokeButton = new OverlayBarButton(
+      ui,
+      bar,
+      "Shape border",
+      L("테두리", "Border"),
+      () => Open(true),
+      reduceMotion,
+      swatch: true
+    );
+
+  /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
+  public void BuildPicker(OverlayEditorFrame screen, OverlayInputDock dock)
+  {
+    _picker = new SettingsColorPicker(screen.Frame, _font, _reduceMotion);
+    _picker.Hidden = PickerHidden;
+    // The color picker opens right above the keypad.
+    _picker.LayOutAsColumn(dock.KeypadArea.width);
+    _opacity = new OverlayOpacityField(screen.Ui, _picker, () => _host.Activate(OpacityKey), _reduceMotion());
+  }
+
+  public void DisposePicker()
+  {
+    SettingsColorPicker picker = _picker;
+    _picker = null;
+    picker?.Dispose();
+  }
+
+  // The same button closes its picker; the other one moves it over.
+  private void Open(bool stroke)
+  {
+    _host.CloseEditing();
+    if (_picker.Visible && _pickerForStroke == stroke)
+    {
+      _picker.Hide();
+      _host.Render();
+      return;
+    }
+    _pickerForStroke = stroke;
+    _pickerSnapshotTaken = false;
+    Show();
+    _host.Render();
+  }
+
+  /// <summary>
+  /// Shows the fill's or the border's color; after undo, shows it again as
+  /// restored, on the same gradient stop.
+  /// </summary>
+  public void Show(bool keepStop = false)
+  {
+    bool stroke = _pickerForStroke;
+    _picker.ShowSource(
+      stroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color"),
+      stroke ? _host.Shape.Stroke : _host.Shape.Fill,
+      color =>
+      {
+        if (!_pickerSnapshotTaken)
+        {
+          _history.Remember((string)null);
+          _pickerSnapshotTaken = true;
+        }
+        OverlayShapeSettings shape = _host.Shape;
+        OverlayColorSettings before = stroke ? shape.Stroke : shape.Fill;
+        // A gradient's stops keep their own calculated opacities.
+        if (!color.IsGradient)
+          color = _opacity.Keep(before, color);
+        // A moved slider replaces the opacity the dock is calculating.
+        if (_numbers.Field == OpacityKey && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
+          _numbers.Editing.Deactivate();
+        if (stroke)
+        {
+          shape.Stroke = color;
+          // A visible border needs a width; start from a thin one.
+          if (shape.StrokeWidth <= 0 && string.IsNullOrEmpty(shape.StrokeWidthFormula))
+            shape.StrokeWidth = 4 / _host.ElementScale;
+        }
+        else
+          shape.Fill = color;
+        _host.Render();
+      },
+      keepStop
+    );
+  }
+
+  /// <summary>Undo starts a new picker session: its next change is its own step.</summary>
+  public void Restored()
+  {
+    _pickerSnapshotTaken = false;
+    if (_picker.Visible)
+      Show(keepStop: true);
+  }
+
+  // The color button lets go of its lit state once the picker closes.
+  private void PickerHidden()
+  {
+    _pickerSnapshotTaken = false;
+    if (_host.Screen == null || _picker == null)
+      return;
+    // Its numbers go with it.
+    if (_numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field))
+      _host.CloseEditing();
+    _host.Render();
+  }
+
+  /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
+  public void ShowButtons(ShapePreview preview)
+  {
+    _fillButton.Swatch = Opaque(preview.Resolved.Fill);
+    _fillButton.SwatchGradient = preview.FillGradient;
+    _fillButton.Set(null, false, _picker.Visible && !_pickerForStroke);
+    _strokeButton.Swatch = Opaque(preview.Resolved.Stroke);
+    _strokeButton.SwatchGradient = preview.StrokeGradient;
+    _strokeButton.Set(null, false, _picker.Visible && _pickerForStroke);
+  }
+
+  private static Color Opaque(OverlayColorSettings color)
+  {
+    Color resolved = OverlayTextComposer.Resolve(color, OverlayTheme.Accent);
+    resolved.a = 1;
+    return resolved;
+  }
+
+  public void PlacePicker(OverlayInputDock dock)
+  {
+    if (dock != null)
+      KeypadPicker.Place(_picker, dock);
+  }
+
+  /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
+  public void ShowOpacity(OverlayGradientStop pickedStop)
+  {
+    if (!_picker.Visible)
+      return;
+    string key = OpacityKey;
+    OverlayFormula formula = _numbers.Shown(key);
+    OverlayColorSettings color = _pickerForStroke ? _host.Shape.Stroke : _host.Shape.Fill;
+    _opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
+  }
+
+  /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
+  public string Hint()
+  {
+    if (!_picker.Visible)
+      return null;
+    if (_picker.IsGradient)
+      return _pickerForStroke
+        ? L(
+          "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+          "Picking the border color · Drop a value on an opacity, position or angle to calculate it"
+        )
+        : L(
+          "채우기 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+          "Picking the fill color · Drop a value on an opacity, position or angle to calculate it"
+        );
+    return _pickerForStroke
+      ? L(
+        "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
+        "Picking the border color · Drop a value on the opacity to calculate it"
+      )
+      : L(
+        "채우기 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
+        "Picking the fill color · Drop a value on the opacity to calculate it"
+      );
+  }
+}

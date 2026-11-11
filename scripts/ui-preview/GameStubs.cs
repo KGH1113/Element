@@ -13,6 +13,8 @@ public static class ADOBase
 }
 public sealed class RDConstants
 {
+  public static RDConstants data = new RDConstants();
+  public TMPro.TMP_FontAsset koreanFontTMPro, latinFontTMPro;
   public GameObject prefab_colorsScreen;
   public Texture tex_planetRed, tex_planetBlue, tex_planetWhite;
 }

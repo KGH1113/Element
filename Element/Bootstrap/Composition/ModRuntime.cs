@@ -26,6 +26,7 @@ using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Rendering;
 using Element.Presentation.Settings;
 using HarmonyLib;
 using UnityEngine;
@@ -52,7 +53,7 @@ internal sealed class ModRuntime : IDisposable
   private DmNoteNativeIpcFeature _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
   private KeyCounterIpc _counterIpc;
-  private RenderRuntime _render;
+  private RenderSession _render;
   private ReplayRuntime _replays;
   private ReplayedAttempts _replayedAttempts;
   private readonly RecordedKeyCounts _recordedKeyCounts = new();
@@ -190,7 +191,7 @@ internal sealed class ModRuntime : IDisposable
         ApplyLook,
         ApplyLayouts
       );
-      _render = CreateRenderRuntime();
+      _render = CreateRenderSession();
       _replays = new ReplayRuntime(_tufReplay, CreateReplayProviders(), _main.Log);
       _events = new GameEvents(
         _guard,
@@ -385,16 +386,16 @@ internal sealed class ModRuntime : IDisposable
       new(KeyCountRunStateProvider.Id, new KeyCountRunStateProvider(_counterIpc, _recordedKeyCounts)),
     };
     if (_render != null)
-      providers.Add(new(ReplayRenderProvider.Id, _render.Provider));
+      providers.Add(new(ReplayRenderProvider.Id, new ReplayRenderProvider(_render)));
     return providers.ToArray();
   }
 
   // Render support is optional: a failure here leaves the rest of the mod running.
-  private RenderRuntime CreateRenderRuntime()
+  private RenderSession CreateRenderSession()
   {
     try
     {
-      return new RenderRuntime(
+      return new RenderSession(
         _tufReplay,
         _offlineRender,
         _renderIpc,
@@ -406,7 +407,12 @@ internal sealed class ModRuntime : IDisposable
             ? _nativeViewers.RenderPlacements(width, height)
             : Array.Empty<RenderViewerPlacement>(),
         () => _nativeViewers?.Availability is KeyViewerAvailability.Ready or KeyViewerAvailability.HiddenInApp,
-        (title, detail) => _settingsUi?.ShowNotice(title, detail),
+        AttemptCounter.Rules,
+        failure =>
+        {
+          (string title, string detail) = RenderNotices.For(failure.Code, SettingsLocale.Korean);
+          _settingsUi?.ShowNotice(title, detail);
+        },
         _main.LogWarning
       );
     }

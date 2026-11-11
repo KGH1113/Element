@@ -1,15 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Element.Application;
-using Element.Application.Rendering;
+using Element.Application.Attempts;
 using Element.Domain.DmNote;
-using Element.Infrastructure.TufReplay;
-using Element.Presentation.Rendering;
-using Element.Presentation.Settings;
 using UnityEngine;
 
-namespace Element.Bootstrap.Composition;
+namespace Element.Application.Rendering;
 
 /// <summary>
 /// Element in the videos TUFReplay renders. The overlay is a canvas the renderer captures.
@@ -18,7 +14,7 @@ namespace Element.Bootstrap.Composition;
 /// video. Plays in any offline render stay out of the attempt count. Normal renders find
 /// the overlay on their own and show no key viewers.
 /// </summary>
-internal sealed class RenderRuntime : IRenderOverlay, IDisposable
+internal sealed class RenderSession : IRenderOverlay, IDisposable
 {
   private const string SkipRuleOwner = "OfflineRender";
 
@@ -34,7 +30,8 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   private readonly Func<Canvas> _overlayCanvas;
   private readonly Func<int, int, IReadOnlyList<RenderViewerPlacement>> _placements;
   private readonly Func<bool> _appConnected;
-  private readonly Action<string, string> _notify;
+  private readonly AttemptSkipRules _skipRules;
+  private readonly Action<RenderFailure> _notify;
   private readonly Action<string> _logWarning;
   private readonly RecordedKeyCounts _recordedCounts;
   private readonly List<Canvas> _canvases = new(1);
@@ -50,7 +47,9 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   /// <param name="placements">The key viewers to show in a video of the given size.</param>
   /// <param name="appConnected">ElementNote is connected for the in-game viewers.</param>
   /// <param name="recordedCounts">The key counts of the run TUFReplay renders, if it saved them.</param>
-  public RenderRuntime(
+  /// <param name="skipRules">The attempt counter's skip rules, which other mods set through its API too.</param>
+  /// <param name="notify">Tells the player why a render lacks the key viewers, after the render.</param>
+  public RenderSession(
     IReplayRenderTarget target,
     IRenderVideo video,
     IKeyViewerRenderApp app,
@@ -58,7 +57,8 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
     Func<Canvas> overlayCanvas,
     Func<int, int, IReadOnlyList<RenderViewerPlacement>> placements,
     Func<bool> appConnected,
-    Action<string, string> notify,
+    AttemptSkipRules skipRules,
+    Action<RenderFailure> notify,
     Action<string> logWarning
   )
   {
@@ -73,13 +73,10 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
     _logWarning = logWarning ?? (_ => { });
     _recordedCounts = recordedCounts;
     _session = new KeyViewerRenderSession(app, app.Replies);
-    Provider = new ReplayRenderProvider(this);
+    _skipRules = skipRules ?? throw new ArgumentNullException(nameof(skipRules));
     // The renderer plays the level itself; those plays are not attempts.
-    AttemptCounter.Rules.Set(SkipRuleOwner, () => video.IsRendering);
+    _skipRules.Set(SkipRuleOwner, () => video.IsRendering);
   }
-
-  /// <summary>The object registered with TUFReplay under <see cref="ReplayRenderProvider.Id"/>.</summary>
-  public ReplayRenderProvider Provider { get; }
 
   public IEnumerable<Canvas> Canvases()
   {
@@ -145,7 +142,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
     _disposed = true;
     _pending = false;
     StopKeyViewers();
-    AttemptCounter.Rules.Remove(SkipRuleOwner);
+    _skipRules.Remove(SkipRuleOwner);
   }
 
   private void StartIfPending()
@@ -205,8 +202,7 @@ internal sealed class RenderRuntime : IRenderOverlay, IDisposable
   private void Report(RenderFailure failure)
   {
     _logWarning("[Render] Key viewers left the render (" + failure.Code + "): " + failure.Message);
-    (string title, string detail) = RenderNotices.For(failure.Code, SettingsLocale.Korean);
-    _notify?.Invoke(title, detail);
+    _notify?.Invoke(failure);
   }
 
   private static RectInt ToRect(PixelRect rect) => new(rect.X, rect.Y, rect.Width, rect.Height);

@@ -18,13 +18,11 @@ internal sealed partial class SettingsPanel
 
   // True while ADOFAI's Competitive Mode is on and its Hide Judgment Text follows this page.
   private readonly Func<bool> _judgementTextLinked;
-  private RectTransform _editorTabs,
-    _selectionPane,
+  private SettingsSegmentedControl _editorTabs;
+  private RectTransform _selectionPane,
     _editingPane,
     _rotationRow,
     _judgementHeader;
-  private readonly List<Button> _editorTabButtons = new();
-  private int _editorTab;
   private TMP_InputField _rotationInput;
   private TextMeshProUGUI _rotationError;
   private readonly List<Button> _rotationPresets = new();
@@ -100,63 +98,32 @@ internal sealed partial class SettingsPanel
     return link;
   }
 
-  private RectTransform Tabs(Transform parent, string[] names, List<Button> buttons, Func<int> read, Action<int> write)
+  private SettingsSegmentedControl Tabs(Transform parent, string[] names, Action<int> changed)
   {
-    RectTransform root = _ui.Panel("Sections", parent, 0, 0, 936, 44, new Color(.085f, .085f, .085f)).rectTransform;
-    for (int i = 0; i < names.Length; i++)
-    {
-      int index = i;
-      Button tab = _ui.Button(
-        names[i],
-        root,
-        4,
-        4,
-        120,
-        36,
-        () =>
-        {
-          write(index);
-          _ui.RefreshTheme();
-        }
-      );
-      tab.GetComponentInChildren<TextMeshProUGUI>().fontSize = 14;
-      buttons.Add(tab);
-      _ui.Bind(() =>
+    var tabs = new SettingsSegmentedControl(
+      _ui,
+      parent,
+      0,
+      0,
+      936,
+      44,
+      names,
+      index =>
       {
-        bool selected = read() == index;
-        ColorBlock colors = tab.colors;
-        colors.normalColor = colors.selectedColor = selected ? _ui.AccentSurface : new Color(.085f, .085f, .085f);
-        colors.highlightedColor = Color.Lerp(colors.normalColor, Color.white, .1f);
-        ((SettingsButton)tab).SetPalette(colors);
-        tab.GetComponentInChildren<TextMeshProUGUI>().color = selected ? _ui.SoftAccent : SettingsUiFactory.Muted;
-      });
-    }
-    return root;
-  }
-
-  private static void LayoutTabs(RectTransform root, List<Button> buttons, float width, float y = 0)
-  {
-    SettingsUiFactory.Place(root, 0, y, width, 44);
-    float w = (width - 8) / buttons.Count;
-    for (int i = 0; i < buttons.Count; i++)
-      SettingsUiFactory.Place((RectTransform)buttons[i].transform, 4 + i * w, 4, w, 36);
+        changed(index);
+        _ui.RefreshTheme();
+      },
+      style: SettingsSegmentStyle.Tabs
+    );
+    tabs.Selected = 0;
+    return tabs;
   }
 
   private void CreateEditorPage()
   {
     EditorTweaksOptions editor = _settings.Gameplay.Editor;
     Transform page = _pages[4].transform;
-    _editorTabs = Tabs(
-      page,
-      new[] { L("선택 정보", "Selection"), L("편집 동작", "Editing") },
-      _editorTabButtons,
-      () => _editorTab,
-      value =>
-      {
-        _editorTab = value;
-        FitWindow();
-      }
-    );
+    _editorTabs = Tabs(page, new[] { L("선택 정보", "Selection"), L("편집 동작", "Editing") }, _ => FitWindow());
     _selectionPane = _ui.Rect("Selection options", page, 0, 60, 936, 320);
     _editingPane = _ui.Rect("Editing options", page, 0, 60, 936, 320);
     AddSelection(
@@ -412,9 +379,9 @@ internal sealed partial class SettingsPanel
       tweaksTop + (wide ? 88 : _tweakRows.Count * 100 - 12)
     );
 
-    LayoutTabs(_editorTabs, _editorTabButtons, width);
-    _selectionPane.gameObject.SetActive(_editorTab == 0);
-    _editingPane.gameObject.SetActive(_editorTab == 1);
+    _editorTabs.Place(0, 0, width, 44);
+    _selectionPane.gameObject.SetActive(_editorTabs.Selected == 0);
+    _editingPane.gameObject.SetActive(_editorTabs.Selected == 1);
     int columns = width >= 600 ? 2 : 1;
     float cell = (width - (columns - 1) * 12) / columns;
     float row = width >= 600 ? 88 : 100;
@@ -453,7 +420,7 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Place(_editingPane, 0, 60, width, syncTop + (width < 520 ? 132 : 100));
     ((RectTransform)_pages[4].transform).sizeDelta = new Vector2(
       width,
-      60 + (_editorTab == 0 ? _selectionPane.rect.height : _editingPane.rect.height)
+      60 + (_editorTabs.Selected == 0 ? _selectionPane.rect.height : _editingPane.rect.height)
     );
 
     bool compact = width < 600;

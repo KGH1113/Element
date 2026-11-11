@@ -13,10 +13,9 @@ internal sealed partial class SettingsPanel
 {
   private Button _planetEnabled,
     _planetProfileEnabled;
-  private RectTransform _planetTabs,
-    _planetPreview,
+  private SettingsSegmentedControl _planetTabs;
+  private RectTransform _planetPreview,
     _planetComponents;
-  private readonly List<Button> _planetTabButtons = new();
   private readonly List<Button> _planetColorButtons = new();
   private readonly List<Button> _planetSourceButtons = new();
   private readonly List<RectTransform> _planetRows = new();
@@ -57,13 +56,10 @@ internal sealed partial class SettingsPanel
     _planetTabs = Tabs(
       page,
       new[] { L("불", "Fire"), L("얼음", "Ice"), L("세 번째 공", "Third planet") },
-      _planetTabButtons,
-      () => _planetIndex,
       value =>
       {
         HidePopover();
         _planetIndex = value;
-        _ui.RefreshTheme();
       }
     );
     _planetPreview = _ui.Panel("Planet preview", page, 0, 156, 300, 248, SettingsUiFactory.Surface).rectTransform;
@@ -297,7 +293,7 @@ internal sealed partial class SettingsPanel
     bool wide = width >= 600;
     float headerHeight = width < 480 ? 116 : 88;
     SettingsUiFactory.Place((RectTransform)_planetEnabled.transform, 0, 0, width, headerHeight);
-    LayoutTabs(_planetTabs, _planetTabButtons, width, headerHeight + 12);
+    _planetTabs.Place(0, headerHeight + 12, width, 44);
     float top = headerHeight + 68;
     float previewWidth = wide ? (width >= 760 ? 268 : 200) : width;
     float previewHeight = wide ? 268 : 168;

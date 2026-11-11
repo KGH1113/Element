@@ -1713,7 +1713,7 @@ namespace Element.Editor
         }
         OverlayTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
         if (name == "editor-editing-en-720")
-          Field<System.Collections.Generic.List<Button>>(panel, "_editorTabButtons")[1].onClick.Invoke();
+          Field<SettingsSegmentedControl>(panel, "_editorTabs").Buttons[1].onClick.Invoke();
         if (name.StartsWith("preset-shortcut"))
           ShowPresetShortcut(panel, settings, name.EndsWith("narrow"));
         // Force layout after checks; colors must be rendered using the same live components.
@@ -1842,7 +1842,7 @@ namespace Element.Editor
 
     private static void CheckEditorSections(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
-      var tabs = Field<List<Button>>(panel, "_editorTabButtons");
+      var tabs = Field<SettingsSegmentedControl>(panel, "_editorTabs").Buttons;
       RectTransform selection = Field<RectTransform>(panel, "_selectionPane");
       RectTransform editing = Field<RectTransform>(panel, "_editingPane");
       Assert(selection.gameObject.activeSelf && !editing.gameObject.activeSelf,
@@ -1902,7 +1902,7 @@ namespace Element.Editor
       var enabled = Field<Button>(panel, "_planetEnabled");
       var sources = Field<List<Button>>(panel, "_planetSourceButtons");
       var colors = Field<List<Button>>(panel, "_planetColorButtons");
-      var tabs = Field<List<Button>>(panel, "_planetTabButtons");
+      var tabs = Field<SettingsSegmentedControl>(panel, "_planetTabs").Buttons;
       var ui = Field<SettingsUiFactory>(panel, "_ui");
       var image = Field<RawImage>(panel, "_planetImage");
       Assert(preview.Calls > 0 && preview.Index == 0 && ReferenceEquals(preview.Profile, settings.Gameplay.Planets.Red),
@@ -2665,7 +2665,7 @@ namespace Element.Editor
       EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
       other.ShortcutKey = KeyCode.Alpha1; other.ShortcutModifier = KeyCode.LeftAlt;
       Call(panel, "EditPreset", target);
-      var tabs = Field<List<Button>>(panel, "_effectTabButtons");
+      var tabs = Field<SettingsSegmentedControl>(panel, "_effectTabs").Buttons;
       Assert(tabs.Count == 6, "the preset editor adds a Shortcut tab after the five effect groups");
       tabs[5].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
       RectTransform card = Field<RectTransform>(panel, "_presetShortcutCard");
@@ -2714,7 +2714,7 @@ namespace Element.Editor
     {
       EffectPreset draft = Field<EffectPreset>(panel, "_presetDraft");
       draft.ShortcutKey = KeyCode.Alpha1; draft.ShortcutModifier = KeyCode.LeftAlt;
-      Field<List<Button>>(panel, "_effectTabButtons")[5].onClick.Invoke();
+      Field<SettingsSegmentedControl>(panel, "_effectTabs").Buttons[5].onClick.Invoke();
       if (!conflict) return;
       settings.Effects.Presets[1].ShortcutKey = KeyCode.Alpha2; settings.Effects.Presets[1].ShortcutModifier = KeyCode.LeftAlt;
       var field = Field<SettingsShortcutField>(panel, "_presetShortcut");

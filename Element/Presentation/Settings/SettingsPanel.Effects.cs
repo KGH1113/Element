@@ -19,7 +19,6 @@ internal sealed partial class SettingsPanel
   private RectTransform _presetGallery,
     _effectsHeading,
     _presetHeader,
-    _effectTabs,
     _effectOptions,
     _presetShortcutCard;
   private Button _effectEnabled,
@@ -33,7 +32,7 @@ internal sealed partial class SettingsPanel
     _presetShortcutDescription;
   private TMP_InputField _presetName;
   private readonly List<Button> _presetCards = new();
-  private readonly List<Button> _effectTabButtons = new();
+  private SettingsSegmentedControl _effectTabs;
   private readonly List<Button> _effectRows = new();
   private readonly List<EffectDefinition> _effectDefinitions = new();
   private EffectPreset _editingPreset,
@@ -149,8 +148,6 @@ internal sealed partial class SettingsPanel
     _effectTabs = Tabs(
       editor,
       names,
-      _effectTabButtons,
-      () => _presetShortcutTab ? groups.Length : (int)_effectGroup,
       value =>
       {
         _presetShortcutTab = value == groups.Length;
@@ -411,6 +408,7 @@ internal sealed partial class SettingsPanel
     _deletePreset.gameObject.SetActive(preset != null);
     _effectGroup = EffectGroup.Screen;
     _presetShortcutTab = false;
+    _effectTabs.Selected = (int)_effectGroup;
     _presetShortcut.Cancel();
     _presetShortcut.Refresh();
     _cameraZoom.Sync(DraftRemovesCamera);
@@ -525,19 +523,10 @@ internal sealed partial class SettingsPanel
     SettingsUiFactory.Place(_presetError.rectTransform, 0, narrow ? 104 : 52, width, 24);
     SettingsUiFactory.Place(_presetIntro.rectTransform, 0, narrow ? 104 : 52, width, 24);
     // Two rows on compact screens keep the six tab labels legible.
-    int tabColumns = narrow ? 3 : _effectTabButtons.Count;
-    int tabRows = Mathf.CeilToInt(_effectTabButtons.Count / (float)tabColumns);
+    int tabColumns = narrow ? 3 : _effectTabs.Buttons.Count;
+    int tabRows = Mathf.CeilToInt(_effectTabs.Buttons.Count / (float)tabColumns);
     float tabsHeight = tabRows * 40 + 8;
-    SettingsUiFactory.Place(_effectTabs, 0, identityHeight + 12, width, tabsHeight);
-    float tabWidth = (width - 8) / tabColumns;
-    for (int i = 0; i < _effectTabButtons.Count; i++)
-      SettingsUiFactory.Place(
-        (RectTransform)_effectTabButtons[i].transform,
-        4 + i % tabColumns * tabWidth,
-        4 + i / tabColumns * 40,
-        tabWidth,
-        36
-      );
+    _effectTabs.Place(0, identityHeight + 12, width, tabsHeight, tabColumns);
     float optionsTop = identityHeight + tabsHeight + 24;
     _presetShortcutCard.gameObject.SetActive(_presetShortcutTab);
     if (_presetShortcutTab)

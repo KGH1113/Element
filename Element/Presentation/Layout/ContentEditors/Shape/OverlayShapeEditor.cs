@@ -53,6 +53,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
     _strokeButton,
     _strokeWidth,
     _growButton;
+  private OverlayBarButton[] _barButtons;
   private bool _pickerForStroke;
   private OverlayOpacityField _opacity;
   private SettingsCapsuleGraphic _growMark;
@@ -235,6 +236,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
       motion,
       icon: LayoutAction.GrowFrom
     );
+    _barButtons = new[] { _fillButton, _strokeButton, _strokeWidth, _growButton };
   }
 
   private void OpenColor(bool stroke)

@@ -184,7 +184,7 @@ internal sealed partial class OverlayShapeEditor
     _strokeWidth.Set(stroke.IsEmpty ? "—" : OverlayFormulaField.Number(Result(stroke)), computed, _field == "stroke");
     _growButton.Set(OverlayGrowPicker.ShortName(_growth), false, _growPopover.Visible);
     float x = y;
-    foreach (OverlayBarButton button in new[] { _fillButton, _strokeButton, _strokeWidth, _growButton })
+    foreach (OverlayBarButton button in _barButtons)
     {
       button.Place(x, y);
       x += button.Width + 4;

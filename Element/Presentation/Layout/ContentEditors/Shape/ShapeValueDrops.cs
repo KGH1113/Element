@@ -101,7 +101,7 @@ internal sealed class ShapeValueDrops
       {
         if (_numbers.Field != key)
         {
-          _host.CloseEditing();
+          _host.CloseOpen();
           _numbers.Field = key;
         }
         editing.Activate(_numbers.Slot(key));

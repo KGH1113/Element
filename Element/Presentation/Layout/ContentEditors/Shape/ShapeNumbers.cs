@@ -214,7 +214,7 @@ internal sealed class ShapeNumbers
 
   public void FinishEditing()
   {
-    _host.CloseEditing();
+    _host.CloseOpen();
     _host.Render();
   }
 

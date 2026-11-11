@@ -44,7 +44,7 @@ internal sealed class ShapeColors
       () => _host.Screen != null,
       // Its numbers go with it.
       () => _numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field),
-      _host.CloseEditing,
+      _host.CloseOpen,
       _host.Render
     );
   }
@@ -108,7 +108,7 @@ internal sealed class ShapeColors
   // The same button closes its picker; the other one moves it over.
   private void Open(bool stroke)
   {
-    _host.CloseEditing();
+    _host.CloseOpen();
     if (Picker.Visible && _pickerForStroke == stroke)
     {
       Picker.Hide();

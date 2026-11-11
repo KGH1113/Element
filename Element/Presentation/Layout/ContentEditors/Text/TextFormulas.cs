@@ -118,7 +118,7 @@ internal sealed class TextFormulas
   public void Activate(string key)
   {
     bool open = _fieldSlot == key;
-    _host.ClosePopovers();
+    _host.CloseOpen();
     if (!open)
       _fieldSlot = key;
     _host.Render();
@@ -127,7 +127,7 @@ internal sealed class TextFormulas
   // A click on a value selects it whole and opens its formula beside it.
   public void OpenChip(int index)
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     _text.Anchor = index;
     _text.Caret = index + 1;
     _chipPopover = index;
@@ -258,7 +258,7 @@ internal sealed class TextFormulas
 
   public void FinishEditing()
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     _host.Render();
   }
 
@@ -293,7 +293,7 @@ internal sealed class TextFormulas
     }
     if (_fieldSlot != key)
     {
-      _host.ClosePopovers();
+      _host.CloseOpen();
       _fieldSlot = key;
     }
     _editing.Drop(CurrentSlot(), value);

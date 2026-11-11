@@ -54,7 +54,7 @@ internal sealed class TextColor
       () => _host.Screen != null,
       // Its numbers go with it.
       () => _formulas.Field == TextFormulas.OpacityKey || TextGradient.IsKey(_formulas.Field),
-      _host.ClosePopovers,
+      _host.CloseOpen,
       _host.Render
     );
     OpacitySlot = new OverlayFormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
@@ -94,7 +94,7 @@ internal sealed class TextColor
 
   private void OpenPicker()
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     UiColorPicker picker = _picker.Picker;
     if (picker.Visible)
     {

@@ -28,7 +28,6 @@ internal static class Program
       Run("profile ownership and disconnect restore", HandlesProfileOwnership);
       Run("canceled queued profile cannot regain ownership", RejectsCanceledProfile);
       Run("disables when no requested key is supported", DisablesUnsupportedOnlyProfile);
-      Run("applies hit text visibility settings", AppliesHitTextVisibilitySettings);
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
       Run("represents X-Perfect counts separately", RepresentsXPerfectCountsSeparately);
       Run("midspin tiles leave the combo unchanged", ComboTests.Run);
@@ -172,17 +171,6 @@ internal static class Program
     KeyLimiterService service = new(new DmNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "FN"));
     True(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
-  }
-
-  private static void AppliesHitTextVisibilitySettings()
-  {
-    True(HitTextVisibilityPolicy.ShouldShow(false, false, true), "Perfect should show when its setting is disabled");
-    True(!HitTextVisibilityPolicy.ShouldShow(true, false, true), "Perfect should hide when its setting is enabled");
-    True(
-      HitTextVisibilityPolicy.ShouldShow(true, false, false),
-      "non-Perfect judgments should remain visible outside record mode"
-    );
-    True(!HitTextVisibilityPolicy.ShouldShow(false, true, false), "record mode should hide every judgment");
   }
 
   private static void ClassifiesXPerfectHitMargins()

@@ -11,8 +11,8 @@ using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
-using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -34,7 +34,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly Action _apply;
   private readonly Action _reloadSettings;
   private readonly Action _viewerModeChanged;
-  private readonly DmNoteNativeIpcFeature _nativeViewers;
+  private readonly ElementNoteNativeViewers _nativeViewers;
   private readonly PlanetAppearanceController _planets;
   private readonly TufReplayInputPause _tufReplayInput;
   private readonly Func<bool> _judgementTextLinked;
@@ -49,7 +49,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     Main main,
     OverlayCanvasHost canvas,
     TMP_FontAsset overlayFont,
-    DmNoteNativeIpcFeature nativeViewers,
+    ElementNoteNativeViewers nativeViewers,
     PlanetAppearanceController planets,
     Action apply,
     Action reloadSettings,

@@ -1,35 +1,32 @@
+using Element.Application.KeyViewer;
 using Element.Domain.DmNote;
-using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Infrastructure.Game.DmNote;
+namespace Element.Presentation.Layout.KeyViewers;
 
 // A visual-only key sample for the gallery, and for the editor while a viewer
 // has no live page. It never captures keys, opens IPC sessions, or appears
 // during ordinary gameplay.
-internal sealed class NativeViewerMock : MonoBehaviour
+internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
 {
-  public const float ViewportHeight = 270;
   private SettingsUiFactory _ui;
   private int _themeVersion = -1;
   private TextMeshProUGUI _statusText;
   private GameObject _statusPanel;
   private NativeViewerStatus? _status;
 
-  public static float Width(string kind) => kind == "hand" ? 430 : 210;
-
   public static RectTransform Create(string kind, Transform parent, TMP_FontAsset font, bool expanded)
   {
     SettingsUiFactory ui = new(font);
-    float width = Width(kind);
-    float height = ViewportHeight * .45f;
-    RectTransform root = ui.Rect(kind + " key viewer sample", parent, 0, 0, width, expanded ? ViewportHeight : height);
+    float width = KeyViewerSampleSize.Width(kind);
+    float height = KeyViewerSampleSize.ViewportHeight * .45f;
+    RectTransform root = ui.Rect(kind + " key viewer sample", parent, 0, 0, width, expanded ? KeyViewerSampleSize.ViewportHeight : height);
     root.gameObject.AddComponent<NativeViewerMock>()._ui = ui;
-    float top = expanded ? ViewportHeight - height : 0;
+    float top = expanded ? KeyViewerSampleSize.ViewportHeight - height : 0;
     bool hand = kind == "hand";
     int columns = hand ? 8 : 2;
     int rows = hand ? 2 : 1;
@@ -76,6 +73,8 @@ internal sealed class NativeViewerMock : MonoBehaviour
     }
     return root;
   }
+
+  public RectTransform Root => (RectTransform)transform;
 
   public void SetStatus(NativeViewerStatus status)
   {

@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Application.Layout;
 
 internal interface IOverlayLayoutTarget
 {
@@ -28,19 +28,4 @@ internal interface IOverlayLayoutTarget
   void SetPreview(bool preview);
   void RefreshLayout();
   void ResetLayout();
-}
-
-// An external renderer owns this target's selection border. Unity must not
-// draw a second copy underneath native/WebKit content.
-internal interface IExternalLayoutOutline
-{
-  bool OwnsSelectionOutline { get; }
-  void SetSelected(bool selected);
-}
-
-// Native AppKit content and Unity's drawable can have different vertical origins
-// in a window. Evaluate native borders and pointers in the same host space.
-internal interface IOverlayLayoutPointer
-{
-  Vector2 PointerInLayoutSpace(Vector2 fallback);
 }

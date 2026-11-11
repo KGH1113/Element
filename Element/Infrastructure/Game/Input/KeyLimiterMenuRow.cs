@@ -1,5 +1,5 @@
 using HarmonyLib;
-using Element.Bootstrap;
+using Element.Infrastructure.Game.Patches;
 using Element.Presentation.Settings;
 
 namespace Element.Infrastructure.Game.Input;

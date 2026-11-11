@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Xml.Serialization;
+using Element.Application.KeyViewer;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Infrastructure.Game.DmNote;
+using Element.Presentation.Layout.KeyViewers;
 using TMPro;
 using UnityEngine;
 
@@ -61,8 +63,8 @@ namespace Element.Editor
       var values = new List<OverlayLayoutSettings> { settings };
       var opening = new LayoutSnapshot(values);
       string originalSettings = Serialized(settings);
-      using var target = new NativeViewerLayoutTarget(kind, kind, _ => { }, () => { });
-      target.ConfigurePreview(font);
+      using var target = new NativeViewerLayoutTarget(kind, () => kind, _ => { }, () => { });
+      target.ConfigurePreview(new NativeViewerSamples(font));
       target.Configure(values);
       target.Bind(host);
       Same(original, target.Bounds, "legacy native points normalize into the actual Unity viewport");
@@ -141,9 +143,9 @@ namespace Element.Editor
       Canvas.ForceUpdateCanvases();
       RectTransform mock = (RectTransform)target.GetType().GetField("_previewRoot", Private).GetValue(target);
       Check(mock != null && mock.gameObject.activeInHierarchy, "disconnected preview creates the production mock visual");
-      Near(changedContent.width, NativeViewerMock.Width(kind) * mock.localScale.x,
+      Near(changedContent.width, KeyViewerSampleSize.Width(kind) * mock.localScale.x,
         "mock horizontal scaling fills the cached native content rectangle");
-      Near(changedContent.height, NativeViewerMock.ViewportHeight * mock.localScale.y,
+      Near(changedContent.height, KeyViewerSampleSize.ViewportHeight * mock.localScale.y,
         "mock vertical scaling preserves arbitrary native content aspect ratios");
       Near(changedContent.x, mock.anchoredPosition.x, "mock uses the same top-left horizontal coordinate");
       Near(-changedContent.y, mock.anchoredPosition.y, "mock converts top-left downward coordinates to Unity UI coordinates");
@@ -206,7 +208,7 @@ namespace Element.Editor
       Check(Serialized(settings) == originalSettings, "cancel restores the exact legacy format and all original fields");
 
       var addedSettings = new OverlayLayoutSettings { Id = "added-" + kind, TemplateId = "native-" + kind };
-      using var added = new NativeViewerLayoutTarget(kind, kind, _ => { }, () => { }, addedSettings.Id);
+      using var added = new NativeViewerLayoutTarget(kind, () => kind, _ => { }, () => { }, addedSettings.Id);
       added.Configure(new List<OverlayLayoutSettings> { addedSettings });
       added.Bind(host);
       Rect addedBounds = added.Bounds;

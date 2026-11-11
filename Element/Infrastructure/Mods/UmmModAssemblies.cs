@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Element.Presentation.Overlay.Mods;
-using ElementKit.Hosting;
+using System;
+using Element.Application.Mods;
 using UnityModManagerNet;
 
 namespace Element.Infrastructure.Mods;
@@ -35,6 +35,9 @@ internal sealed class UmmModAssemblies : IModAssemblies
       return _mods;
     }
   }
+
+  public List<ElementClass> FindElements(ModAssembly mod, Action<string> report) =>
+    ElementClasses.Find(mod.Id, mod.Assembly, report);
 
   private void Update()
   {

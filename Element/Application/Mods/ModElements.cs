@@ -2,33 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Element.Configuration;
-using ElementKit.Hosting;
 
-namespace Element.Presentation.Overlay.Mods;
-
-/// <summary>A loaded mod that may declare overlay elements.</summary>
-internal sealed class ModAssembly
-{
-  public ModAssembly(string id, Assembly assembly, Func<bool> isActive)
-  {
-    Id = id;
-    Assembly = assembly;
-    IsActive = isActive ?? (() => true);
-  }
-
-  public string Id { get; }
-  public Assembly Assembly { get; }
-  public Func<bool> IsActive { get; }
-}
-
-/// <summary>The mods that may declare elements: UMM's, or given directly in tests and the UI preview.</summary>
-internal interface IModAssemblies
-{
-  /// <summary>Changes when a mod loads, unloads or reloads; reading it is cheap.</summary>
-  int Version { get; }
-
-  IReadOnlyList<ModAssembly> Current { get; }
-}
+namespace Element.Application.Mods;
 
 /// <summary>
 /// The overlay elements other mods declare, by the key layouts save
@@ -152,7 +127,7 @@ internal sealed class ModElements
       return new List<ElementClass>();
     if (_scanned.TryGetValue(mod.Assembly, out List<ElementClass> found))
       return found;
-    found = ElementClasses.Find(mod.Id, mod.Assembly, message => _warn("[" + mod.Id + "] " + message));
+    found = _source.FindElements(mod, message => _warn("[" + mod.Id + "] " + message));
     _scanned[mod.Assembly] = found;
     return found;
   }
@@ -169,27 +144,5 @@ internal sealed class ModElements
         _warn("Couldn't tell whether " + mod.Id + " is on, so its elements are hidden. " + exception.Message);
       return false;
     }
-  }
-}
-
-/// <summary>A fixed list of mods, for tests and the UI preview.</summary>
-internal sealed class ListedModAssemblies : IModAssemblies
-{
-  private readonly List<ModAssembly> _mods = new();
-
-  public int Version { get; private set; }
-
-  public IReadOnlyList<ModAssembly> Current => _mods;
-
-  public void Add(ModAssembly mod)
-  {
-    _mods.Add(mod);
-    Version++;
-  }
-
-  public void Remove(string id)
-  {
-    if (_mods.RemoveAll(mod => mod.Id == id) > 0)
-      Version++;
   }
 }

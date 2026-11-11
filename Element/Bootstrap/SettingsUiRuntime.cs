@@ -6,10 +6,12 @@ using Element.Configuration.Effects;
 using Element.Infrastructure.Files;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
+using Element.Infrastructure.Game.Lifecycle;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Profiles;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;
@@ -71,12 +73,13 @@ internal sealed class SettingsUiRuntime : IDisposable
     // before the lazily built settings window first opens.
     main.Settings.Gameplay.Normalize();
     main.Settings.Effects.Normalize();
-    nativeViewers.ConfigurePreview(_font);
+    nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
     _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
       () => main.Settings.Effects,
+      () => GameplayState.IsPlaying,
       () => IsOpen || SettingsPanel.IsTyping(),
       ApplyPresetShortcut
     );

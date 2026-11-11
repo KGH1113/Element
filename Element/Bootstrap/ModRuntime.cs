@@ -21,11 +21,13 @@ using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Rendering;
 using Element.Infrastructure.Replays;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Element.Application.KeyViewer;
 
 namespace Element.Bootstrap;
 
@@ -159,6 +161,7 @@ internal sealed class ModRuntime : IDisposable
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
+        KeyViewerLabels.For,
         _main.LogException,
         _main.LogWarning,
         DmNoteAppFocus.ForCurrentPlatform()

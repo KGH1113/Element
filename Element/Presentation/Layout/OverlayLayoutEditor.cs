@@ -11,6 +11,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+using Element.Application.Layout;
+using Element.Application.KeyViewer;
 
 namespace Element.Presentation.Layout;
 

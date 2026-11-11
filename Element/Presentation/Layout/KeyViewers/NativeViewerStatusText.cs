@@ -2,7 +2,7 @@ using Element.Domain.DmNote;
 using Element.Presentation.Settings;
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.KeyViewers;
 
 /// <summary>
 /// What the editor's offline key viewer sample tells the player. Each message

@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -45,7 +46,7 @@ internal sealed class OverlayFormulaField
   )
   {
     _reduceMotion = reduceMotion;
-    _body = OverlayEditorUi.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
+    _body = EditorCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
     Root = (RectTransform)_body.transform;
     _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 12, SettingsUiFactory.Muted);
     _prefix.textWrappingMode = TextWrappingModes.NoWrap;
@@ -121,7 +122,7 @@ internal sealed class OverlayFormulaField
     Paint();
   }
 
-  public bool Contains(Vector2 screen) => OverlayEditorUi.Contains(Root, screen);
+  public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
   public void SetVisible(bool visible)
   {
@@ -135,7 +136,7 @@ internal sealed class OverlayFormulaField
     Color accent = SettingsPalette.SoftAccent;
     Color rest =
       _drop > 0 ? Color.Lerp(Rest, accent, .5f)
-      : _drop < 0 ? Color.Lerp(Rest, OverlayEditorUi.Warning, .4f)
+      : _drop < 0 ? Color.Lerp(Rest, LayoutColors.Warning, .4f)
       : _active ? Color.Lerp(Rest, accent, .38f)
       : Rest;
     ColorBlock colors = _body.colors;

@@ -126,7 +126,7 @@ internal sealed class OverlayEditorFrame : IDisposable
   public void Notice(string message, bool warning = true)
   {
     _hint.text = message;
-    _hint.color = warning ? OverlayEditorUi.Warning : SettingsUiFactory.Foreground;
+    _hint.color = warning ? LayoutColors.Warning : SettingsUiFactory.Foreground;
     _noticeUntil = Time.unscaledTime + NoticeSeconds;
   }
 

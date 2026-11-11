@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -59,7 +60,7 @@ internal sealed class OverlayBarButton
   )
   {
     _reduceMotion = reduceMotion;
-    _button = OverlayEditorUi.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, click, false, reduceMotion);
+    _button = EditorCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, click, false, reduceMotion);
     Root = (RectTransform)_button.transform;
     if (swatch)
     {
@@ -223,7 +224,7 @@ internal sealed class OverlayBarButton
 
   public void Place(float x, float y) => SettingsUiFactory.Place(Root, x, y, Width, Height);
 
-  public bool Contains(Vector2 screen) => OverlayEditorUi.Contains(Root, screen);
+  public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
   /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
   public void SetDrop(int state)
@@ -239,7 +240,7 @@ internal sealed class OverlayBarButton
     Color accent = SettingsPalette.SoftAccent;
     Color rest =
       _drop > 0 ? new Color(accent.r, accent.g, accent.b, .38f)
-      : _drop < 0 ? new Color(OverlayEditorUi.Warning.r, OverlayEditorUi.Warning.g, OverlayEditorUi.Warning.b, .3f)
+      : _drop < 0 ? new Color(LayoutColors.Warning.r, LayoutColors.Warning.g, LayoutColors.Warning.b, .3f)
       : _active ? new Color(accent.r, accent.g, accent.b, .3f)
       : new Color(1, 1, 1, .07f);
     ColorBlock colors = _button.colors;

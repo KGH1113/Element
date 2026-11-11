@@ -95,7 +95,7 @@ internal sealed class LayoutAddMenu
       Width - 88,
       20,
       12,
-      row.Enabled ? SettingsUiFactory.Muted : OverlayEditorUi.Warning
+      row.Enabled ? SettingsUiFactory.Muted : LayoutColors.Warning
     );
     detail.textWrappingMode = TextWrappingModes.NoWrap;
     return button;

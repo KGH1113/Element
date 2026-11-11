@@ -4,6 +4,7 @@ using System.Text;
 using Element.Domain.Elements;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -181,10 +182,10 @@ internal sealed class OverlayInputDock
 
   public void Blink(bool visible) => _caret.enabled = _editing && visible;
 
-  public bool Contains(Vector2 screen) => OverlayEditorUi.Contains(Root, screen);
+  public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
   /// <summary>The formula line, where a dropped value joins the formula.</summary>
-  public bool FormulaContains(Vector2 screen) => Owner != null && OverlayEditorUi.Contains(_line, screen);
+  public bool FormulaContains(Vector2 screen) => Owner != null && PopoverPlacement.Contains(_line, screen);
 
   /// <summary>0 nothing, 1 a dragged value can join here, -1 it can't.</summary>
   public void SetDrop(int state)
@@ -195,7 +196,7 @@ internal sealed class OverlayInputDock
     Color accent = SettingsPalette.SoftAccent;
     _underline.color =
       state > 0 ? accent
-      : state < 0 ? OverlayEditorUi.Warning
+      : state < 0 ? LayoutColors.Warning
       : new Color(1, 1, 1, .16f);
   }
 
@@ -241,7 +242,7 @@ internal sealed class OverlayInputDock
       if (section.Values.Count == 0)
         continue;
       TextMeshProUGUI label = ui.Text(
-        OverlayEditorUi.SectionName(section),
+        ValueSectionNames.SectionName(section),
         Content,
         0,
         0,
@@ -258,7 +259,7 @@ internal sealed class OverlayInputDock
         string text = OverlayKeypad.ValueName(value);
         float width = Mathf.Ceil(measure.GetPreferredValues(text).x) + 28;
         OverlayValueDefinition picked = value;
-        Button chip = OverlayEditorUi.CapsuleButton(
+        Button chip = EditorCapsules.CapsuleButton(
           ui,
           Content,
           "Value " + value.Key,

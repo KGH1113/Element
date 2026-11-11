@@ -61,7 +61,7 @@ internal sealed class ModPickerParts
       hex.text = "#" + ColorUtility.ToHtmlStringRGB(current) + Percent(opacity ? current.a : 1);
     }
     Button button = null;
-    swatch = OverlayEditorUi.Swatch(
+    swatch = EditorCapsules.Swatch(
       _ui,
       control.Rect,
       "Color " + label,
@@ -121,7 +121,7 @@ internal sealed class ModPickerParts
         : "#" + ColorUtility.ToHtmlStringRGB(current.Color) + Percent(current.Color.a);
     }
     Button button = null;
-    swatch = OverlayEditorUi.Swatch(
+    swatch = EditorCapsules.Swatch(
       _ui,
       control.Rect,
       "Paint " + label,
@@ -167,9 +167,9 @@ internal sealed class ModPickerParts
         : status == OverlayFontStatus.Missing
           ? OverlayFonts.DisplayName(current) + L(" · 이 PC에 없음", " · not on this PC")
         : OverlayFonts.DisplayName(current);
-      shown.color = status == OverlayFontStatus.Missing ? OverlayEditorUi.Warning : SettingsUiFactory.Foreground;
+      shown.color = status == OverlayFontStatus.Missing ? LayoutColors.Warning : SettingsUiFactory.Foreground;
     }
-    button = OverlayEditorUi.CapsuleButton(
+    button = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Font " + label,
@@ -222,7 +222,7 @@ internal sealed class ModPickerParts
     float x = _page.Caption(control, label);
     ModShortcutCapture capture = new() { Current = value };
     Button field = null;
-    field = OverlayEditorUi.CapsuleButton(
+    field = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Shortcut " + label,
@@ -253,7 +253,7 @@ internal sealed class ModPickerParts
     shown.overflowMode = TextOverflowModes.Ellipsis;
     shown.raycastTarget = false;
     Button clear = null;
-    clear = OverlayEditorUi.CapsuleButton(
+    clear = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Shortcut clear " + label,

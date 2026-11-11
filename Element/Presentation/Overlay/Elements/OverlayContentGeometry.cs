@@ -2,7 +2,7 @@ using System;
 using TMPro;
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Overlay.Elements;
 
 // Read geometry when TMP has already prepared it. Ordinary frames do not
 // measure text or rebuild a Canvas; animation-only changes reuse resting bounds.

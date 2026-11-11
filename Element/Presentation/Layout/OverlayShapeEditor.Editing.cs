@@ -6,6 +6,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -296,7 +297,7 @@ internal sealed partial class OverlayShapeEditor
     left = OverlayEditorFrame.Margin;
     right = _screen.Width - OverlayEditorFrame.Margin;
     if (_picker != null && _picker.Visible)
-      right = Mathf.Min(right, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+      right = Mathf.Min(right, KeypadPicker.Left(_picker, _dock) - 16);
     right = _space.Toward(right, _reduceMotion());
   }
 
@@ -659,10 +660,10 @@ internal sealed partial class OverlayShapeEditor
   private bool OverControl(Vector2 screen)
   {
     if (
-      OverlayEditorUi.Contains(_bar, screen)
+      PopoverPlacement.Contains(_bar, screen)
       || _dock.Contains(screen)
       || _growPopover.Contains(screen)
-      || OverlayEditorUi.Contains(_picker.Root, screen)
+      || PopoverPlacement.Contains(_picker.Root, screen)
       || _handles.Contains(screen)
       || _screen.ToFrame(screen).y < OverlayEditorFrame.TopBar
     )
@@ -671,7 +672,7 @@ internal sealed partial class OverlayShapeEditor
       if (field.Contains(screen))
         return true;
     foreach (Button arc in _arcs)
-      if (OverlayEditorUi.Contains((RectTransform)arc.transform, screen))
+      if (PopoverPlacement.Contains((RectTransform)arc.transform, screen))
         return true;
     return false;
   }
@@ -752,7 +753,7 @@ internal sealed partial class OverlayShapeEditor
   {
     accepted = _dragValue.IsNumeric;
     // The picker sits over everything else; only its opacity takes a value.
-    if (_picker.Visible && OverlayEditorUi.Contains(_picker.Root, screen))
+    if (_picker.Visible && PopoverPlacement.Contains(_picker.Root, screen))
     {
       if (_opacity.Contains(screen))
         return OpacityKey;
@@ -785,7 +786,7 @@ internal sealed partial class OverlayShapeEditor
       if (field.Root.gameObject.activeInHierarchy && field.Contains(screen))
         return key;
     for (int i = 0; i < _arcs.Count; i++)
-      if (_arcs[i].gameObject.activeSelf && OverlayEditorUi.Contains((RectTransform)_arcs[i].transform, screen))
+      if (_arcs[i].gameObject.activeSelf && PopoverPlacement.Contains((RectTransform)_arcs[i].transform, screen))
         return "radius:" + i;
     accepted = true;
     return null;

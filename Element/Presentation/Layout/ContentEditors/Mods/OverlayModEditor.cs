@@ -128,7 +128,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 
   private void BuildBar(SettingsUiFactory ui)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, OverlayEditorUi.Bar);
+    SettingsCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, LayoutColors.Bar);
     surface.raycastTarget = true;
     _bar = surface.rectTransform;
     _growButton = new OverlayBarButton(

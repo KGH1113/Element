@@ -194,7 +194,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
   // Colors open their picker (with opacity) right under the button.
   private void BuildBar()
   {
-    SettingsCapsuleGraphic surface = _ui.Capsule("Shape bar", _frame, 0, 0, 10, BarHeight, OverlayEditorUi.Bar);
+    SettingsCapsuleGraphic surface = _ui.Capsule("Shape bar", _frame, 0, 0, 10, BarHeight, LayoutColors.Bar);
     surface.raycastTarget = true;
     _bar = surface.rectTransform;
     bool motion = _reduceMotion();
@@ -294,7 +294,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
   private void PlacePicker()
   {
     if (_dock != null)
-      OverlayEditorUi.PlaceAboveKeypad(_picker, _dock);
+      KeypadPicker.Place(_picker, _dock);
   }
 
   // The color button lets go of its lit state once the picker closes.

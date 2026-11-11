@@ -141,7 +141,8 @@ namespace Element.Editor
       Check(Serialized(settings) == anchoredSettings, "disconnect preserves layout version, anchor, offsets and scale");
       target.SetPreview(true);
       Canvas.ForceUpdateCanvases();
-      RectTransform mock = (RectTransform)target.GetType().GetField("_previewRoot", Private).GetValue(target);
+      object samplePreview = target.GetType().GetField("_samplePreview", Private).GetValue(target);
+      RectTransform mock = (RectTransform)samplePreview.GetType().GetField("_root", Private).GetValue(samplePreview);
       Check(mock != null && mock.gameObject.activeInHierarchy, "disconnected preview creates the production mock visual");
       Near(changedContent.width, KeyViewerSampleSize.Width(kind) * mock.localScale.x,
         "mock horizontal scaling fills the cached native content rectangle");

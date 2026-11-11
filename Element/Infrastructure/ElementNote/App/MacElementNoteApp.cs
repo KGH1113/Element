@@ -8,7 +8,7 @@ namespace Element.Infrastructure.ElementNote.App;
 /// The mod ships <c>ElementNote/macos/ElementNote.app.zip</c>, made by <c>ditto</c>,
 /// and installs it to <c>~/Applications</c>, which Launchpad and Spotlight list.
 /// </summary>
-internal sealed class MacDmNoteApp : BundledDmNoteApp
+internal sealed class MacElementNoteApp : BundledElementNoteApp
 {
   private const string AppName = "ElementNote.app";
 
@@ -17,13 +17,13 @@ internal sealed class MacDmNoteApp : BundledDmNoteApp
   private static readonly TimeSpan QuickTimeout = TimeSpan.FromSeconds(10);
   private static readonly TimeSpan UnpackTimeout = TimeSpan.FromSeconds(60);
 
-  public MacDmNoteApp(string modPath)
+  public MacElementNoteApp(string modPath)
     : this(modPath, Environment.GetEnvironmentVariable("HOME") ?? "") { }
 
   // The stamp stays in the mod's support folder, where 1.0.0 also kept the app.
   // The app is signed with an identifier-only requirement, so its macOS
   // permissions follow it to the new place.
-  private MacDmNoteApp(string modPath, string home)
+  private MacElementNoteApp(string modPath, string home)
     : base(
       Path.Combine(modPath, "ElementNote", "macos", AppName + ".zip"),
       Path.Combine(home, "Applications", AppName),

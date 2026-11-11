@@ -151,7 +151,7 @@ namespace Element.Editor
         target = Render(renderer, 0, profile);
         snapshot.Check(source);
 
-        appearance.States[source.Renderer] = new PlanetAppearanceController.PlanetState {
+        appearance.States[source.Renderer] = new PlanetOriginalAppearance {
           SourceTexture = source.Texture, BodySource = new Color(.1f, .4f, .9f, .8f),
           Glow = Color.clear, RingSource = new Color(.2f, .3f, .9f, 1), TailSource = Color.white, CoreSource = Color.clear
         };

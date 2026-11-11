@@ -70,7 +70,7 @@ internal static class Program
         ReplayRenderProviderTests.Run
       );
       Run("TUFReplay replays and renders show the attempts and key counts their run was played at", RunStateTests.Run);
-      Run("bundled ElementNote installs once per build and opens only when closed", DmNoteAppTests.Run);
+      Run("bundled ElementNote installs once per build and opens only when closed", ElementNoteAppTests.Run);
       Run(
         "auto update: versions, verified downloads, background finish, rollback and launcher switch",
         UpdateTests.Run
@@ -89,8 +89,8 @@ internal static class Program
 
   private static void NormalizeNames()
   {
-    Equal("LEFTSHIFT", DmNoteKeyMapper.Normalize(" left shift "));
-    Equal("GPA", DmNoteKeyMapper.Normalize("GP_A"));
+    Equal("LEFTSHIFT", ElementNoteKeyMapper.Normalize(" left shift "));
+    Equal("GPA", ElementNoteKeyMapper.Normalize("GP_A"));
   }
 
   private static void MapsRepresentativeKeys()
@@ -115,7 +115,7 @@ internal static class Program
     MacModifierMapsTo(KeyCode.RightShift, 0xE5);
     MacModifierMapsTo(KeyCode.RightAlt, 0xE6);
     MacModifierMapsTo(KeyCode.RightMeta, 0xE7);
-    True(!DmNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _), "ordinary keys must not use the modifier fallback");
+    True(!ElementNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _), "ordinary keys must not use the modifier fallback");
     MapsAsyncTo("LEFT SHIFT", KeyCode.LeftShift, 0xE1);
     MapsAsyncTo("RIGHT SHIFT", KeyCode.RightShift, 0xE5);
   }
@@ -128,7 +128,7 @@ internal static class Program
 
   private static void AppliesSupportedSubset()
   {
-    KeyLimiterService service = new(new DmNoteKeyResolver());
+    KeyLimiterService service = new(new ElementNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "A", "FN", "DOT"));
     True(response.Ok && response.Applied && response.Enabled, "request should be applied");
     Sequence(new[] { "A", "DOT" }, response.SupportedKeys);
@@ -143,7 +143,7 @@ internal static class Program
   {
     foreach (string name in new[] { "BACKSLASH", "\\" })
     {
-      KeyLimiterService service = new(new DmNoteKeyResolver());
+      KeyLimiterService service = new(new ElementNoteKeyResolver());
       service.Apply(Request(1, true, name));
       True(service.Current.Allows(KeyCode.Backslash), "backslash should be allowed");
       if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
@@ -160,7 +160,7 @@ internal static class Program
 
   private static void HandlesRevisionOrdering()
   {
-    KeyLimiterService service = new(new DmNoteKeyResolver());
+    KeyLimiterService service = new(new ElementNoteKeyResolver());
     service.Apply(Request(2, true, "A"));
     Equal("duplicate", service.Apply(Request(2, true, "S")).Reason);
     Equal("stale_revision", service.Apply(Request(1, true, "S")).Reason);
@@ -169,7 +169,7 @@ internal static class Program
 
   private static void DisablesUnsupportedOnlyProfile()
   {
-    KeyLimiterService service = new(new DmNoteKeyResolver());
+    KeyLimiterService service = new(new ElementNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "FN"));
     True(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
   }
@@ -226,7 +226,7 @@ internal static class Program
 
   private static void HandlesProfileOwnership()
   {
-    KeyLimiterService profiles = new(new DmNoteKeyResolver());
+    KeyLimiterService profiles = new(new ElementNoteKeyResolver());
     KeyLimiterSessionController session = new(profiles);
     True(session.Apply("first-app", Request(1, true, "A")).Applied, "First app must own the profile.");
     True(
@@ -257,7 +257,7 @@ internal static class Program
 
   private static void RejectsCanceledProfile()
   {
-    KeyLimiterService profiles = new(new DmNoteKeyResolver());
+    KeyLimiterService profiles = new(new ElementNoteKeyResolver());
     KeyLimiterSessionController session = new(profiles);
     using CancellationTokenSource disconnected = new();
     session.Apply("old-app", Request(1, true, "A"));
@@ -292,19 +292,19 @@ internal static class Program
 
   private static void MapsTo(string input, KeyCode expected)
   {
-    True(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
+    True(ElementNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
     Equal(expected, actual.UnityKey);
   }
 
   private static void MacModifierMapsTo(KeyCode key, ushort expected)
   {
-    True(DmNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual), key + " should have a macOS async fallback");
+    True(ElementNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual), key + " should have a macOS async fallback");
     Equal(expected, actual);
   }
 
   private static void MapsAsyncTo(string input, KeyCode expectedKey, ushort expectedAsyncKey)
   {
-    True(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
+    True(ElementNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
     Equal(expectedKey, actual.UnityKey);
     True(actual.HasAsyncKey, input + " should have an async key");
     Equal(expectedAsyncKey, actual.AsyncKey);

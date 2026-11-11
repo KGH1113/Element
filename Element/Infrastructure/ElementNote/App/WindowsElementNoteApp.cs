@@ -10,13 +10,13 @@ namespace Element.Infrastructure.ElementNote.App;
 /// to <c>%LOCALAPPDATA%\io.github.kgh1113.element\ElementNote</c> and lists it
 /// in the Start Menu.
 /// </summary>
-internal sealed class WindowsDmNoteApp : BundledDmNoteApp
+internal sealed class WindowsElementNoteApp : BundledElementNoteApp
 {
   private const string AppName = "ElementNote";
   internal const string ProcessName = "element-note";
   private const string ExecutableName = ProcessName + ".exe";
 
-  public WindowsDmNoteApp(string modPath)
+  public WindowsElementNoteApp(string modPath)
     : this(
       modPath,
       Path.Combine(
@@ -26,7 +26,7 @@ internal sealed class WindowsDmNoteApp : BundledDmNoteApp
     ) { }
 
   // The folder stays where 1.0.0 put it: Windows Firewall remembers the app by its path.
-  private WindowsDmNoteApp(string modPath, string dataFolder)
+  private WindowsElementNoteApp(string modPath, string dataFolder)
     : base(
       Path.Combine(modPath, "ElementNote", "windows", ExecutableName),
       Path.Combine(dataFolder, AppName),

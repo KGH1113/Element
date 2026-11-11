@@ -56,13 +56,13 @@ namespace Element.Infrastructure.Game.Planets
   // production appearance controller's mutation/restoration implementation.
   internal sealed class PlanetAppearanceController
   {
-    internal readonly Dictionary<PlanetRenderer, PlanetState> States = new Dictionary<PlanetRenderer, PlanetState>();
-    internal PlanetState GetPreviewState(PlanetRenderer renderer) => States.TryGetValue(renderer, out PlanetState state) ? state : null;
-    internal sealed class PlanetState
-    {
-      internal Texture SourceTexture;
-      internal Color BodySource, Glow, RingSource, TailSource, CoreSource;
-    }
+    internal readonly Dictionary<PlanetRenderer, PlanetOriginalAppearance> States = new Dictionary<PlanetRenderer, PlanetOriginalAppearance>();
+    internal PlanetOriginalAppearance GetPreviewState(PlanetRenderer renderer) => States.TryGetValue(renderer, out PlanetOriginalAppearance state) ? state : null;
+  }
+  internal sealed class PlanetOriginalAppearance
+  {
+    internal Texture SourceTexture;
+    internal Color BodySource, Glow, RingSource, TailSource, CoreSource;
   }
 }
 namespace Element.Infrastructure.ElementNote.Viewers

@@ -4,7 +4,7 @@ using System.IO;
 namespace Element.Infrastructure.ElementNote.App;
 
 /// <summary>The ElementNote copy this mod ships for the current operating system.</summary>
-internal interface IDmNoteApp
+internal interface IBundledElementNoteApp
 {
   /// <summary>False when this mod build carries no ElementNote for this OS.</summary>
   bool IsBundled { get; }

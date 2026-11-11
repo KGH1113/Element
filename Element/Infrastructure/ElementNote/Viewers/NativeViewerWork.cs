@@ -1,8 +1,4 @@
-using System;
-using System.Linq;
-using AdofaiIpc.Contracts;
 using Element.Domain.DmNote;
-using Newtonsoft.Json;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 

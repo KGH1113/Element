@@ -21,11 +21,12 @@ internal static class PlanetRendererPatches
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
     private static void Prefix(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color) =>
-      GameHooks.Tweaks?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
+      GameHooks.PlanetAppearance?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix(PlanetRenderer __instance) => GameHooks.Tweaks?.AfterPlanetBodyColor(__instance);
+    private static void Postfix(PlanetRenderer __instance) =>
+      GameHooks.PlanetAppearance?.AfterPlanetBodyColor(__instance);
   }
 
   [HarmonyPatch]
@@ -37,7 +38,7 @@ internal static class PlanetRendererPatches
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
     private static void Prefix(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color) =>
-      GameHooks.Tweaks?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
+      GameHooks.PlanetAppearance?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
   }
 
   [HarmonyPatch]
@@ -49,7 +50,7 @@ internal static class PlanetRendererPatches
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
     private static void Prefix(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color) =>
-      GameHooks.Tweaks?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
+      GameHooks.PlanetAppearance?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
   }
 
   [HarmonyPatch]
@@ -61,7 +62,7 @@ internal static class PlanetRendererPatches
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
     private static void Prefix(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color) =>
-      GameHooks.Tweaks?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
+      GameHooks.PlanetAppearance?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
   }
 
   [HarmonyPatch]
@@ -73,7 +74,7 @@ internal static class PlanetRendererPatches
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
     private static void Prefix(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color) =>
-      GameHooks.Tweaks?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
+      GameHooks.PlanetAppearance?.BeforePlanetColor(__instance, __originalMethod.Name, ref color);
   }
 
   [HarmonyPatch]
@@ -84,14 +85,14 @@ internal static class PlanetRendererPatches
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
-    private static void Prefix(PlanetRenderer __instance, out PlanetAppearanceController.PlanetState __state) =>
-      __state = GameHooks.Tweaks?.BeginPlanetAppearance(__instance);
+    private static void Prefix(PlanetRenderer __instance, out PlanetOriginalAppearance __state) =>
+      __state = GameHooks.PlanetAppearance?.BeginPlanetAppearance(__instance);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
-    private static Exception Finalizer(Exception __exception, PlanetAppearanceController.PlanetState __state)
+    private static Exception Finalizer(Exception __exception, PlanetOriginalAppearance __state)
     {
-      GameHooks.Tweaks?.FinishPlanetAppearance(__state);
+      GameHooks.PlanetAppearance?.FinishPlanetAppearance(__state);
       return __exception;
     }
   }
@@ -104,14 +105,14 @@ internal static class PlanetRendererPatches
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
-    private static void Prefix(PlanetRenderer __instance, out PlanetAppearanceController.PlanetState __state) =>
-      __state = GameHooks.Tweaks?.BeginPlanetAppearance(__instance);
+    private static void Prefix(PlanetRenderer __instance, out PlanetOriginalAppearance __state) =>
+      __state = GameHooks.PlanetAppearance?.BeginPlanetAppearance(__instance);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
-    private static Exception Finalizer(Exception __exception, PlanetAppearanceController.PlanetState __state)
+    private static Exception Finalizer(Exception __exception, PlanetOriginalAppearance __state)
     {
-      GameHooks.Tweaks?.FinishPlanetAppearance(__state);
+      GameHooks.PlanetAppearance?.FinishPlanetAppearance(__state);
       return __exception;
     }
   }
@@ -124,14 +125,14 @@ internal static class PlanetRendererPatches
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
-    private static void Prefix(PlanetRenderer __instance, out PlanetAppearanceController.PlanetState __state) =>
-      __state = GameHooks.Tweaks?.BeginPlanetAppearance(__instance);
+    private static void Prefix(PlanetRenderer __instance, out PlanetOriginalAppearance __state) =>
+      __state = GameHooks.PlanetAppearance?.BeginPlanetAppearance(__instance);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
-    private static Exception Finalizer(Exception __exception, PlanetAppearanceController.PlanetState __state)
+    private static Exception Finalizer(Exception __exception, PlanetOriginalAppearance __state)
     {
-      GameHooks.Tweaks?.FinishPlanetAppearance(__state);
+      GameHooks.PlanetAppearance?.FinishPlanetAppearance(__state);
       return __exception;
     }
   }
@@ -145,14 +146,14 @@ internal static class PlanetRendererPatches
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
-    private static void Prefix(PlanetRenderer __instance, out PlanetAppearanceController.PlanetState __state) =>
-      __state = GameHooks.Tweaks?.BeginPlanetAppearance(__instance);
+    private static void Prefix(PlanetRenderer __instance, out PlanetOriginalAppearance __state) =>
+      __state = GameHooks.PlanetAppearance?.BeginPlanetAppearance(__instance);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
-    private static Exception Finalizer(Exception __exception, PlanetAppearanceController.PlanetState __state)
+    private static Exception Finalizer(Exception __exception, PlanetOriginalAppearance __state)
     {
-      GameHooks.Tweaks?.FinishPlanetAppearance(__state);
+      GameHooks.PlanetAppearance?.FinishPlanetAppearance(__state);
       return __exception;
     }
   }
@@ -165,14 +166,14 @@ internal static class PlanetRendererPatches
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]
-    private static void Prefix(PlanetRenderer __instance, out PlanetAppearanceController.PlanetState __state) =>
-      __state = GameHooks.Tweaks?.BeginPlanetAppearance(__instance);
+    private static void Prefix(PlanetRenderer __instance, out PlanetOriginalAppearance __state) =>
+      __state = GameHooks.PlanetAppearance?.BeginPlanetAppearance(__instance);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
-    private static Exception Finalizer(Exception __exception, PlanetAppearanceController.PlanetState __state)
+    private static Exception Finalizer(Exception __exception, PlanetOriginalAppearance __state)
     {
-      GameHooks.Tweaks?.FinishPlanetAppearance(__state);
+      GameHooks.PlanetAppearance?.FinishPlanetAppearance(__state);
       return __exception;
     }
   }
@@ -185,6 +186,6 @@ internal static class PlanetRendererPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix(PlanetRenderer __instance) => GameHooks.Tweaks?.AfterPlanetFrame(__instance);
+    private static void Postfix(PlanetRenderer __instance) => GameHooks.PlanetAppearance?.AfterPlanetFrame(__instance);
   }
 }

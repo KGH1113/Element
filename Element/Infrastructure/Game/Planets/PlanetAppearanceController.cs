@@ -10,7 +10,7 @@ namespace Element.Infrastructure.Game.Planets;
 internal sealed class PlanetAppearanceController : IDisposable
 {
   private readonly PlanetAppearanceOptions _settings;
-  private readonly Dictionary<PlanetRenderer, PlanetState> _states = new();
+  private readonly Dictionary<PlanetRenderer, PlanetOriginalAppearance> _states = new();
   private readonly List<PlanetRenderer> _removed = new();
   private readonly Profile[] _profiles = new Profile[3];
   private bool _applying;
@@ -89,12 +89,12 @@ internal sealed class PlanetAppearanceController : IDisposable
     return index >= 0 && _profiles[index].Enabled ? _profiles[index] : null;
   }
 
-  private PlanetState GetState(PlanetRenderer renderer)
+  private PlanetOriginalAppearance GetState(PlanetRenderer renderer)
   {
     if (renderer == null || renderer.sprite == null || renderer.sprite.meshRenderer == null)
       return null;
-    if (!_states.TryGetValue(renderer, out PlanetState state))
-      _states.Add(renderer, state = new PlanetState(renderer));
+    if (!_states.TryGetValue(renderer, out PlanetOriginalAppearance state))
+      _states.Add(renderer, state = new PlanetOriginalAppearance(renderer));
     return state;
   }
 
@@ -103,18 +103,18 @@ internal sealed class PlanetAppearanceController : IDisposable
     Profile profile = Resolve(renderer);
     if (profile == null || _states.ContainsKey(renderer))
       return;
-    PlanetState state = GetState(renderer);
+    PlanetOriginalAppearance state = GetState(renderer);
     if (state != null)
       Render(state, profile);
   }
 
   // A preset/load can replace the sprite and particle systems. Suspend individual
   // overrides until the outer operation finishes, then capture its complete result.
-  public PlanetState BeginAppearanceChange(PlanetRenderer renderer)
+  public PlanetOriginalAppearance BeginAppearanceChange(PlanetRenderer renderer)
   {
     if (_applying || Resolve(renderer) == null)
       return null;
-    PlanetState state = GetState(renderer);
+    PlanetOriginalAppearance state = GetState(renderer);
     if (state == null)
       return null;
     if (state.Depth++ == 0)
@@ -122,7 +122,7 @@ internal sealed class PlanetAppearanceController : IDisposable
     return state;
   }
 
-  public void EndAppearanceChange(PlanetState state)
+  public void EndAppearanceChange(PlanetOriginalAppearance state)
   {
     if (state == null || --state.Depth != 0 || state.Renderer == null)
       return;
@@ -139,7 +139,7 @@ internal sealed class PlanetAppearanceController : IDisposable
     Profile profile = Resolve(renderer);
     if (profile == null)
       return;
-    PlanetState state = GetState(renderer);
+    PlanetOriginalAppearance state = GetState(renderer);
     if (state == null || state.Depth > 0)
       return;
     switch (method)
@@ -177,7 +177,7 @@ internal sealed class PlanetAppearanceController : IDisposable
 
   public void AfterBodyColor(PlanetRenderer renderer)
   {
-    if (_applying || !_states.TryGetValue(renderer, out PlanetState state) || state.Depth > 0)
+    if (_applying || !_states.TryGetValue(renderer, out PlanetOriginalAppearance state) || state.Depth > 0)
       return;
     Profile profile = Resolve(renderer);
     if (profile != null)
@@ -188,7 +188,7 @@ internal sealed class PlanetAppearanceController : IDisposable
   {
     if (_applying || !renderer.rainbow || Resolve(renderer) is not Profile profile)
       return;
-    PlanetState state = GetState(renderer);
+    PlanetOriginalAppearance state = GetState(renderer);
     if (state == null || state.Depth > 0)
       return;
     // The game writes rainbow body RGB directly each frame; retain that source
@@ -197,7 +197,7 @@ internal sealed class PlanetAppearanceController : IDisposable
     RenderBody(state, profile);
   }
 
-  private static void RenderBody(PlanetState state, Profile profile)
+  private static void RenderBody(PlanetOriginalAppearance state, Profile profile)
   {
     PlanetRenderer renderer = state.Renderer;
     if (renderer.sprite == null)
@@ -207,7 +207,7 @@ internal sealed class PlanetAppearanceController : IDisposable
     renderer.sprite.color = profile.Body.Apply(state.BodySource);
   }
 
-  private void Render(PlanetState state, Profile profile)
+  private void Render(PlanetOriginalAppearance state, Profile profile)
   {
     PlanetRenderer renderer = state.Renderer;
     if (renderer == null)
@@ -241,7 +241,7 @@ internal sealed class PlanetAppearanceController : IDisposable
     }
   }
 
-  private void Restore(PlanetState state)
+  private void Restore(PlanetOriginalAppearance state)
   {
     PlanetRenderer renderer = state.Renderer;
     if (renderer == null)
@@ -278,12 +278,12 @@ internal sealed class PlanetAppearanceController : IDisposable
 
   // Preview rendering must use the game's input colors/texture, not the already
   // overridden player visuals (which would apply opacity a second time).
-  internal PlanetState GetPreviewState(PlanetRenderer renderer) =>
-    renderer != null && _states.TryGetValue(renderer, out PlanetState state) ? state : null;
+  internal PlanetOriginalAppearance GetPreviewState(PlanetRenderer renderer) =>
+    renderer != null && _states.TryGetValue(renderer, out PlanetOriginalAppearance state) ? state : null;
 
   public void Dispose()
   {
-    foreach (PlanetState state in _states.Values)
+    foreach (PlanetOriginalAppearance state in _states.Values)
       Restore(state);
     _states.Clear();
   }
@@ -331,107 +331,6 @@ internal sealed class PlanetAppearanceController : IDisposable
       Color result = PlanetColorRule.UsesChosenColor(Override, _colorRead) ? _color : original;
       result.a = PlanetColorRule.Alpha(original.a, _opacity);
       return result;
-    }
-  }
-
-  internal sealed class PlanetState
-  {
-    internal readonly PlanetRenderer Renderer;
-    internal int Depth;
-    internal Color BodySource,
-      TailSource,
-      CoreSource,
-      RingSource,
-      FaceSource,
-      Glow;
-    internal bool CoreChanged,
-      TailChanged;
-    private Texture _texture;
-    internal Texture SourceTexture => _texture;
-    private PlanetSprite _sprite;
-    private ParticleColors _core,
-      _tail,
-      _explosion;
-
-    internal PlanetState(PlanetRenderer renderer)
-    {
-      Renderer = renderer;
-      Capture();
-    }
-
-    internal void Capture()
-    {
-      _sprite = Renderer.sprite;
-      _texture = _sprite != null ? _sprite.sprite : null;
-      BodySource = _sprite != null ? _sprite.color : Color.white;
-      TailSource = Renderer.tailParticles != null ? Renderer.GetTailColor() : BodySource;
-      if (Renderer.tailParticles != null)
-      {
-        var lifetime = Renderer.tailParticles.colorOverLifetime.color;
-        Gradient gradient =
-          lifetime.mode == ParticleSystemGradientMode.TwoGradients ? lifetime.gradientMin : lifetime.gradient;
-        if (gradient != null)
-        {
-          float alpha = TailSource.a;
-          TailSource = gradient.Evaluate(0);
-          TailSource.a = alpha;
-        }
-      }
-      CoreSource = Renderer.coreParticles != null ? Renderer.coreParticles.main.startColor.color : BodySource;
-      RingSource = Renderer.ringComp != null ? Renderer.ringComp.color : BodySource;
-      RingSource.a /= 0.4f;
-      FaceSource = Renderer.faceSprite != null ? Renderer.faceSprite.color : BodySource;
-      Glow = Renderer.glow != null ? Renderer.glow.color : Color.white;
-      _core = new(Renderer.coreParticles);
-      _tail = new(Renderer.tailParticles);
-      _explosion = new(Renderer.deathExplosion);
-      CoreChanged = TailChanged = false;
-    }
-
-    internal void Restore()
-    {
-      if (_sprite != null)
-      {
-        _sprite.sprite = _texture;
-        _sprite.color = BodySource;
-      }
-      if (Renderer.ringComp != null)
-      {
-        Color ring = RingSource;
-        ring.a *= 0.4f;
-        Renderer.ringComp.color = ring;
-      }
-      if (Renderer.faceSprite != null)
-        Renderer.faceSprite.color = FaceSource;
-      if (Renderer.glow != null)
-        Renderer.glow.color = Glow;
-      _core.Restore();
-      _tail.Restore();
-      _explosion.Restore();
-    }
-  }
-
-  private readonly struct ParticleColors
-  {
-    private readonly ParticleSystem _system;
-    private readonly ParticleSystem.MinMaxGradient _start,
-      _lifetime;
-
-    internal ParticleColors(ParticleSystem system)
-    {
-      _system = system;
-      _start = system != null ? system.main.startColor : default;
-      _lifetime = system != null ? system.colorOverLifetime.color : default;
-    }
-
-    internal void Restore()
-    {
-      if (_system == null)
-        return;
-      var main = _system.main;
-      main.startColor = _start;
-      var lifetime = _system.colorOverLifetime;
-      lifetime.color = _lifetime;
     }
   }
 }

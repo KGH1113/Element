@@ -11,12 +11,12 @@ namespace Element.Infrastructure.ElementNote.App;
 /// auto opens it with the game unless it is already running. The app closes
 /// itself once the game is gone.
 /// </summary>
-internal sealed class DmNoteAppLauncher : IElementNoteApp
+internal sealed class ElementNoteAppLauncher : IElementNoteApp
 {
   // ShellExecute reports a declined UAC prompt as ERROR_CANCELLED.
   private const int ErrorCancelled = 1223;
 
-  private readonly IDmNoteApp _app;
+  private readonly IBundledElementNoteApp _app;
   private readonly Action<Action> _runInBackground;
   private readonly Action<string> _log;
   private readonly Action<string> _logWarning;
@@ -25,8 +25,8 @@ internal sealed class DmNoteAppLauncher : IElementNoteApp
   // One request at a time: a later one finds the app installed or running.
   private readonly object _gate = new();
 
-  public DmNoteAppLauncher(
-    IDmNoteApp app,
+  public ElementNoteAppLauncher(
+    IBundledElementNoteApp app,
     Action<Action> runInBackground,
     Action<string> log,
     Action<string> logWarning,
@@ -40,7 +40,7 @@ internal sealed class DmNoteAppLauncher : IElementNoteApp
     _logError = logError ?? ((_, _) => { });
   }
 
-  public static DmNoteAppLauncher Create(
+  public static ElementNoteAppLauncher Create(
     string modPath,
     Action<string> log,
     Action<string> logWarning,
@@ -100,11 +100,11 @@ internal sealed class DmNoteAppLauncher : IElementNoteApp
     }
   }
 
-  private static IDmNoteApp ForCurrentPlatform(string modPath) =>
+  private static IBundledElementNoteApp ForCurrentPlatform(string modPath) =>
     UnityEngine.Application.platform switch
     {
-      RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor => new MacDmNoteApp(modPath),
-      RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor => new WindowsDmNoteApp(modPath),
+      RuntimePlatform.OSXPlayer or RuntimePlatform.OSXEditor => new MacElementNoteApp(modPath),
+      RuntimePlatform.WindowsPlayer or RuntimePlatform.WindowsEditor => new WindowsElementNoteApp(modPath),
       _ => null,
     };
 

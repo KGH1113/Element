@@ -49,7 +49,7 @@ internal sealed class ChatterBlocker
         {
           if ((uint)key < ChatterFilter.KeyCount)
             _ignoredSync[(int)key] = true;
-          DmNoteKeyMapper.AddAsyncKeys(DmNoteKeyMapper.Resolve(key), asyncKeys);
+          ElementNoteKeyMapper.AddAsyncKeys(ElementNoteKeyMapper.Resolve(key), asyncKeys);
         }
       foreach (ushort key in asyncKeys)
         if (key < ChatterFilter.KeyCount)

@@ -11,7 +11,7 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 
 # dev → pull request (CI checks) → main → CD builds ElementNote and the Windows
 # in-game viewer → this script, on the Mac with the game: builds the mod around
-# those builds, packages it and publishes it. See docs/releasing.md.
+# those builds, packages it and publishes it. See docs/process/releasing.md.
 app_env="$ELEMENT_PROJECT_ROOT/build/release/cd-builds.env"
 mkdir -p "$(dirname "$app_env")"
 

@@ -3,7 +3,7 @@ name: CD
 # Merging to main builds what a release ships: ElementNote for macOS and
 # Windows and the Windows in-game viewer library. `./scripts/run.sh release`,
 # on the Mac with the game, downloads them, builds the mod around them and
-# publishes the release (docs/releasing.md). Run it by hand on another branch
+# publishes the release (docs/process/releasing.md). Run it by hand on another branch
 # (gh workflow run cd.yml --ref dev) to get test builds for windows-install.
 on:
   push:

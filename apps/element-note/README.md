@@ -20,11 +20,11 @@ macOS 11 이상에서 Element 모드와 ElementNote를 함께 실행하면 앱�
 
 게임 창 안의 웹뷰(macOS는 WKWebView, Windows는 WebView2)가 OBS 페이지를 직접 렌더링합니다. 프레임 캡처·임시 파일 전송·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. 리플레이 렌더링 중에는 게임 내 뷰어를 잠시 숨기고, 끝나면 페이지를 다시 불러오지 않고 표시합니다. macOS의 Discord·OBS와 Windows OBS 윈도우 캡처의 **Windows 10 (1903 이상)** 방식에서는 얼불춤 창만 선택해도 키뷰어가 함께 캡처됩니다. 앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 게임에 키뷰어 정보를 보냅니다(`mirror.native.changed`·`mirror.native.unavailable`).
 
-`./scripts/run.sh desktop-bundle --release`로 만든 앱을 사용하세요. Debug 앱은 OBS 페이지를 Vite 개발 서버로 리다이렉트하므로 독립 실행 검증에 적합하지 않습니다. [게임·Discord·OBS 검증 절차](../../docs/native-webview.md)를 참고하세요.
+`./scripts/run.sh desktop-bundle --release`로 만든 앱을 사용하세요. Debug 앱은 OBS 페이지를 Vite 개발 서버로 리다이렉트하므로 독립 실행 검증에 적합하지 않습니다. [게임·Discord·OBS 검증 절차](../../docs/features/native-webview.md)를 참고하세요.
 
 ## 리플레이 렌더링
 
-TUFReplay가 OrbitRender로 기록을 영상으로 만들 때 Element가 ElementNote에 렌더 세션을 요청합니다. ElementNote는 현재 프리셋, 손·발 탭, CSS, JavaScript 플러그인을 한 번 고정하고, 숨겨진 전용 화면에서 기록된 키를 재생해 손·발 키뷰어를 각각 투명 영상으로 그립니다. 게임은 키뷰어를 기다리지 않고, 두 키뷰어도 서로 따로 동시에 그려집니다. 렌더가 끝나면 OrbitRender가 이 영상을 완성된 영상 위에 겹칩니다. 메시지 형식은 [OrbitRender 렌더 문서](../../docs/orbitrender.md)를 참고하세요.
+TUFReplay가 OrbitRender로 기록을 영상으로 만들 때 Element가 ElementNote에 렌더 세션을 요청합니다. ElementNote는 현재 프리셋, 손·발 탭, CSS, JavaScript 플러그인을 한 번 고정하고, 숨겨진 전용 화면에서 기록된 키를 재생해 손·발 키뷰어를 각각 투명 영상으로 그립니다. 게임은 키뷰어를 기다리지 않고, 두 키뷰어도 서로 따로 동시에 그려집니다. 렌더가 끝나면 OrbitRender가 이 영상을 완성된 영상 위에 겹칩니다. 메시지 형식은 [OrbitRender 렌더 문서](../../docs/features/orbitrender.md)를 참고하세요.
 
 렌더 세션 동안 실제 키보드·마우스·HID 입력과 전역 단축키는 키뷰어 입력 경로에서 제외됩니다. 기록된 키는 숨겨진 전용 화면에서만 재생하며 앱의 누적 카운터나 플러그인 저장소에는 저장하지 않습니다. 카운터는 Element가 보낸 기준값(기록 당시 또는 현재 누적값)에서 이어집니다. 종료·취소 시 실제 입력으로 돌아오며, 연결이 끊어지면 최대 15초 안에 앱 자체의 실시간 감시가 세션을 정리합니다. 세션 경계에서는 눌림 표시를 해제하여 키가 계속 눌린 채 남지 않게 합니다.
 

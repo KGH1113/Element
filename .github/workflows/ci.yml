@@ -28,7 +28,7 @@ jobs:
           node-version: 22
 
       - name: The mod and ElementNote share one version
-        run: node scripts/tasks/version/version.mjs check
+        run: ./scripts/run.sh version
 
       - name: Shell scripts
         run: ./scripts/run.sh check

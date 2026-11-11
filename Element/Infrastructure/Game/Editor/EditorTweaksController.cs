@@ -6,7 +6,7 @@ using System.Text;
 using ADOFAI;
 using Element.Application.Input;
 using Element.Configuration;
-using Element.Domain.Editor;
+using Element.Domain.Tweaks;
 using HarmonyLib;
 using UnityEngine;
 

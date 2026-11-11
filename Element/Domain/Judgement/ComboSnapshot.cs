@@ -1,4 +1,4 @@
-namespace Element.Domain.Combo;
+namespace Element.Domain.Judgement;
 
 internal readonly struct ComboSnapshot
 {

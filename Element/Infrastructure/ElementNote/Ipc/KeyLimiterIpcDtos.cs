@@ -1,5 +1,5 @@
 using System;
-using Element.Domain.Input;
+using Element.Domain.KeyLimiter;
 using Newtonsoft.Json;
 
 namespace Element.Infrastructure.ElementNote.Ipc;

@@ -1,5 +1,5 @@
 using Element.Application.Overlay;
-using Element.Domain.TimingScale;
+using Element.Domain.Judgement;
 
 namespace Element.Application.TimingScale;
 

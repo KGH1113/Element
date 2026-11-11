@@ -3,9 +3,8 @@ using System.IO;
 using System.Xml.Serialization;
 using Element.Application.Settings;
 using Element.Configuration;
-using Element.Domain.Editor;
-using Element.Domain.Input;
 using Element.Domain.Judgement;
+using Element.Domain.Tweaks;
 
 namespace Element.Tests;
 

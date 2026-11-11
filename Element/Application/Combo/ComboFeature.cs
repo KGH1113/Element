@@ -1,5 +1,5 @@
 using Element.Application.Overlay;
-using Element.Domain.Combo;
+using Element.Domain.Judgement;
 
 namespace Element.Application.Combo;
 

@@ -1,4 +1,4 @@
-namespace Element.Domain.TimingScale;
+namespace Element.Domain.Judgement;
 
 internal readonly struct TimingScaleSnapshot
 {

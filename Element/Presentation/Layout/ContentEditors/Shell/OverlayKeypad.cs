@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -79,7 +80,7 @@ internal sealed class OverlayKeypad
       );
       // Operators read as a group in the accent.
       if (symbol)
-        button.GetComponentInChildren<TextMeshProUGUI>().color = SettingsPalette.SoftAccent;
+        button.GetComponentInChildren<TextMeshProUGUI>().color = UiPalette.SoftAccent;
       if (key == '\b')
         Icon(ui, button.transform, LayoutAction.Backspace, 24);
       _buttons.Add((button, key));
@@ -114,7 +115,7 @@ internal sealed class OverlayKeypad
       reduceMotion
     );
     // Done is the one filled key: the way out of the keypad.
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     ColorBlock colors = finish.colors;
     colors.normalColor = colors.selectedColor = new Color(accent.r, accent.g, accent.b, .32f);
     colors.highlightedColor = new Color(accent.r, accent.g, accent.b, .46f);
@@ -164,7 +165,7 @@ internal sealed class OverlayKeypad
     icon.Kind = kind;
     icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, .5f);
     icon.rectTransform.anchoredPosition = Vector2.zero;
-    icon.color = SettingsUiFactory.Foreground;
+    icon.color = UiPalette.Foreground;
     icon.raycastTarget = false;
   }
 }

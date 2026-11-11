@@ -1,16 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -102,19 +102,11 @@ internal sealed class LayoutToolbar
   public void Build(LayoutCommands commands)
   {
     SettingsUiFactory ui = _session.Ui;
-    _toolbar = ui.Panel(
-      "Layout actions",
-      _session.Root.transform,
-      0,
-      0,
-      Width,
-      120,
-      LayoutColors.Toolbar
-    ).rectTransform;
+    _toolbar = ui.Panel("Layout actions", _session.Root.transform, 0, 0, Width, 120, UiPalette.Toolbar).rectTransform;
     _toolbar.anchorMin = _toolbar.anchorMax = Vector2.zero;
     LayoutActionIcon grip = ui.Rect("Drag panel", _toolbar, 10, 18, 14, 24).gameObject.AddComponent<LayoutActionIcon>();
     grip.Kind = LayoutAction.Grip;
-    grip.color = SettingsUiFactory.Muted;
+    grip.color = UiPalette.Muted;
     grip.raycastTarget = false;
     _instruction = ui.Text("", _toolbar, 32, 12, 312, 36, 16);
     Button resetAll = ui.Button(L("전체 초기화", "Reset all"), _toolbar, 352, 12, 104, 36, commands.ResetAll);
@@ -148,7 +140,7 @@ internal sealed class LayoutToolbar
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     _scaleInput.textComponent.margin = new Vector4(0, 0, 2, 0);
     _scaleInput.gameObject.AddComponent<LayoutTextCapture>();
-    _scaleSuffix = ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, SettingsUiFactory.Muted);
+    _scaleSuffix = ui.Text("%", _scaleInput.transform, 63, 0, 14, 40, 14, UiPalette.Muted);
     AlignScaleValue();
     _minus = IconButton(LayoutAction.Minus, L("축소", "Decrease size"), 148, 60, () => ScaleBy(.95f), 40);
     // Elements sized in their editor show its Edit button in the scale's place.
@@ -430,9 +422,9 @@ internal sealed class LayoutToolbar
     }
     _instruction.text = any ? SelectionLabel() : L("요소 선택", "Select overlay");
     _status.Refresh();
-    if (_themeVersion != OverlayTheme.Version)
+    if (_themeVersion != UiTheme.Version)
     {
-      _themeVersion = OverlayTheme.Version;
+      _themeVersion = UiTheme.Version;
       _session.Ui.RefreshTheme();
       _colorSwatch.color = _session.Ui.Accent;
     }
@@ -442,10 +434,10 @@ internal sealed class LayoutToolbar
       if (!icon.Icon.gameObject.activeInHierarchy)
         continue;
       icon.Icon.color =
-        !icon.Button.interactable ? LayoutColors.Disabled
+        !icon.Button.interactable ? UiPalette.Disabled
         : icon.Icon.Kind == LayoutAction.Snap
-          ? (_session.Preferences.LayoutSnapping ? SettingsPalette.SoftAccent : SettingsUiFactory.Muted)
-        : SettingsUiFactory.Foreground;
+          ? (_session.Preferences.LayoutSnapping ? UiPalette.SoftAccent : UiPalette.Muted)
+        : UiPalette.Foreground;
     }
   }
 

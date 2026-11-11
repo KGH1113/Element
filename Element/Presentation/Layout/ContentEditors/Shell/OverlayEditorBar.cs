@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -20,7 +21,7 @@ internal sealed class OverlayEditorBar
 
   public OverlayEditorBar(SettingsUiFactory ui, Transform parent, string name)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule(name, parent, 0, 0, 10, Height, LayoutColors.Bar);
+    SettingsCapsuleGraphic surface = ui.Capsule(name, parent, 0, 0, 10, Height, UiPalette.Bar);
     surface.raycastTarget = true;
     Root = surface.rectTransform;
   }

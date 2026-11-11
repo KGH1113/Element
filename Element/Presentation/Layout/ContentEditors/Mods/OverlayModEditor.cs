@@ -9,10 +9,11 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
@@ -131,7 +132,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 
   private void BuildBar(SettingsUiFactory ui)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, LayoutColors.Bar);
+    SettingsCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, UiPalette.Bar);
     surface.raycastTarget = true;
     _bar = surface.rectTransform;
     _growButton = new OverlayBarButton(

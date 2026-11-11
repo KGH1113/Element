@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -132,7 +132,8 @@ internal sealed partial class SettingsColorPicker
     SettingsCapsuleGraphic track = _ui.Capsule("Color bar track", _bar, 0, 0, 256, BarHeight, Color.white);
     track.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     SettingsUiFactory.Stretch(track.rectTransform, 0, 0, 0, 0);
-    _barPreview = _ui.Rect("Colors", track.transform, 0, 0, 256, BarHeight).gameObject.AddComponent<SettingsGradientPreview>();
+    _barPreview = _ui.Rect("Colors", track.transform, 0, 0, 256, BarHeight)
+      .gameObject.AddComponent<SettingsGradientPreview>();
     SettingsUiFactory.Stretch(_barPreview.rectTransform, 0, 0, 0, 0);
     _barPreview.raycastTarget = false;
     _barPreview.AlongX = true;
@@ -191,14 +192,17 @@ internal sealed partial class SettingsColorPicker
     _tip.gameObject.SetActive(false);
 
     _highlightNote = _ui.Text(
-      L("하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.", "One highlight color: each stop sets only its opacity."),
+      L(
+        "하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.",
+        "One highlight color: each stop sets only its opacity."
+      ),
       Root,
       0,
       0,
       256,
       NoteHeight,
       12,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     _highlightNote.alignment = TextAlignmentOptions.TopLeft;
   }
@@ -225,10 +229,17 @@ internal sealed partial class SettingsColorPicker
     button.onClick.AddListener(() => click());
     SettingsCursor.Attach(surface.gameObject, SettingsCursorKind.Pointer);
     float glyph = Mathf.Round(size * .53f);
-    SettingsGradientIcon icon = _ui.Rect("Icon", surface.transform, (size - glyph) * .5f, (size - glyph) * .5f, glyph, glyph)
+    SettingsGradientIcon icon = _ui.Rect(
+        "Icon",
+        surface.transform,
+        (size - glyph) * .5f,
+        (size - glyph) * .5f,
+        glyph,
+        glyph
+      )
       .gameObject.AddComponent<SettingsGradientIcon>();
     icon.Kind = kind;
-    icon.color = SettingsUiFactory.Foreground;
+    icon.color = UiPalette.Foreground;
     icon.raycastTarget = false;
     return button;
   }
@@ -345,14 +356,14 @@ internal sealed partial class SettingsColorPicker
       OverlayGradientMath.ResetHandles(_previewGradient.Geometry, (OverlayGradientKind)i);
       _kindPreviews[i].SetGradient(_previewGradient);
       bool current = (int)_working.Gradient.Kind == i;
-      _kindFrames[i].color = current ? SettingsPalette.SoftAccent : new Color(.12f, .12f, .12f);
+      _kindFrames[i].color = current ? UiPalette.SoftAccent : new Color(.12f, .12f, .12f);
     }
   }
 
   private OverlayRgba StopColor(int index)
   {
     OverlayGradientStop stop = _working.Gradient.Stops[index];
-    Color color = _followsHighlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     return new OverlayRgba(color.r, color.g, color.b, StopAlpha(index));
   }
 
@@ -360,7 +371,7 @@ internal sealed partial class SettingsColorPicker
   {
     float size = picked ? StopSize + 4 : StopSize;
     SettingsUiFactory.Place(stop.rectTransform, x - size * .5f, (BarHeight - size) * .5f, size, size);
-    stop.Set(color, picked ? SettingsPalette.SoftAccent : Color.white);
+    stop.Set(color, picked ? UiPalette.SoftAccent : Color.white);
   }
 
   // ---- The bar ----
@@ -464,7 +475,7 @@ internal sealed partial class SettingsColorPicker
   // Alt held: no snapping, as in the layout editor.
   private static bool FreeMove() => SettingsModifierKeys.Alt;
 
-  private static string AccentHex => "#" + ColorUtility.ToHtmlStringRGB(OverlayTheme.Accent);
+  private static string AccentHex => "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
 
   // ---- Edits ----
 
@@ -547,8 +558,8 @@ internal sealed partial class SettingsColorPicker
     // Undo can change the color underneath; the controls show it again. A
     // color that already shows keeps its hue, which grays would lose.
     Color shown = IsGradient
-      ? (_followsHighlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(_working.Gradient.Stops[_stop].Hex))
-      : (_followsHighlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex));
+      ? (_followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Gradient.Stops[_stop].Hex))
+      : (_followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex));
     bool differs =
       Mathf.Abs(shown.r - _value.r) > .002f
       || Mathf.Abs(shown.g - _value.g) > .002f
@@ -571,7 +582,7 @@ internal sealed partial class SettingsColorPicker
     if (!IsGradient)
       return;
     OverlayGradientStop stop = _working.Gradient.Stops[_stop];
-    Color color = _followsHighlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     color.a = StopAlpha(_stop);
     Color.RGBToHSV(color, out _h, out _s, out _v);
     Apply(color, true, false);
@@ -579,7 +590,7 @@ internal sealed partial class SettingsColorPicker
 
   private void ShowSolid()
   {
-    Color color = _followsHighlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex);
+    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex);
     color.a = Mathf.Clamp01(_working.Alpha);
     Color.RGBToHSV(color, out _h, out _s, out _v);
     Apply(color, true, false);

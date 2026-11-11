@@ -44,6 +44,7 @@ using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Layout.Graphics;
 using Element.Configuration.Gameplay;
 using Element.Configuration.Overlay;
+using Element.Presentation.Ui.Theme;
 
 namespace Element.Editor
 {
@@ -124,7 +125,7 @@ namespace Element.Editor
       int screenWidth = Screen.width, screenHeight = Screen.height;
       var settings = new ElementSettings { ReduceUiMotion = true };
       SettingsMigrator.Migrate(settings);
-      OverlayTheme.SetHighlight(settings.HighlightColor);
+      UiTheme.SetHighlight(settings.HighlightColor);
       var host = new OverlayCanvasHost();
       var catalog = new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning,
         (action, exception) => Debug.LogException(exception));
@@ -864,7 +865,7 @@ namespace Element.Editor
       Toolbar(editor).Refresh();
       TextMeshProUGUI help = Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text");
       Assert(column.Select((t, i) => t.Bounds == columnStart[i]).All(same => same) && help.text.Length > 0
-        && help.color == SettingsUiFactory.Foreground && Session(editor).History.CanUndo == couldUndo,
+        && help.color == UiPalette.Foreground && Session(editor).History.CanUndo == couldUndo,
         "spacing an evenly spaced column says it already is, without an undo step: " + help.text);
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "nothing moved");
       foreach (int index in new[] { a, b, c })
@@ -1505,7 +1506,7 @@ namespace Element.Editor
     private static void CheckMigration()
     {
       var fresh = new ElementSettings();
-      Assert(fresh.HighlightColor == "#BA712B" && OverlayTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
+      Assert(fresh.HighlightColor == "#BA712B" && UiTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
       var legacy = new ElementSettings { HighlightColor = " #7cce00 " };
       SettingsMigrator.Migrate(legacy);
       Assert(legacy.HighlightColor == "#BA712B" && legacy.SettingsVersion >= 1, "old default migrates once");
@@ -1641,7 +1642,7 @@ namespace Element.Editor
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
       Assert(font != null, "overlay font exists");
       ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
-      OverlayTheme.SetHighlight(settings.HighlightColor);
+      UiTheme.SetHighlight(settings.HighlightColor);
       bool overlayOpened = false;
       using var planetPreview = new PlanetPreviewProbe();
       PreviewDialogs dialogs = new PreviewDialogs();
@@ -1754,14 +1755,14 @@ namespace Element.Editor
           "a rebuilt preset gallery shares the window's rounded sprite instead of making its own");
         foreach (string sample in new[] { "#000000", "#FFFFFF", "#0000FF", "#FF0000", "#BA712B" })
         {
-          OverlayTheme.SetHighlight(sample); ui.RefreshTheme();
-          Color c = SettingsPalette.SoftAccent.linear;
+          UiTheme.SetHighlight(sample); ui.RefreshTheme();
+          Color c = UiPalette.SoftAccent.linear;
           float lum = c.r * .2126f + c.g * .7152f + c.b * .0722f;
           Assert(lum >= .45f, "readable UI accent for " + sample);
           foreach (TextMeshProUGUI action in Field<TextMeshProUGUI[]>(Page(panel, "_home"), "_cardActions"))
-            Assert(action.color == SettingsPalette.SoftAccent, "category action follows current highlight without tween lag");
+            Assert(action.color == UiPalette.SoftAccent, "category action follows current highlight without tween lag");
         }
-        OverlayTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
+        UiTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
         if (name == "editor-editing-en-720")
           Field<SettingsSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons[1].onClick.Invoke();
         if (name.StartsWith("preset-shortcut"))
@@ -2333,14 +2334,14 @@ namespace Element.Editor
       var icon = back.GetComponentInChildren<SettingsNavigationIcon>();
       var feedback = back.GetComponent<SettingsIconInteraction>();
       feedback.OnPointerEnter(pointer);
-      Assert(icon.color == SettingsPalette.SoftAccent && back.targetGraphic.color.a == 0,
+      Assert(icon.color == UiPalette.SoftAccent && back.targetGraphic.color.a == 0,
         "borderless back glyph gains the soft highlight on pointer hover");
       feedback.OnPointerDown(pointer);
-      Assert(icon.color != SettingsPalette.SoftAccent && icon.rectTransform.localScale == Vector3.one,
+      Assert(icon.color != UiPalette.SoftAccent && icon.rectTransform.localScale == Vector3.one,
         "pointer down responds immediately and respects reduced motion");
       feedback.OnPointerUp(pointer);
       feedback.OnPointerExit(pointer);
-      Assert(icon.color == SettingsUiFactory.Foreground, "back glyph restores its neutral color on exit");
+      Assert(icon.color == UiPalette.Foreground, "back glyph restores its neutral color on exit");
       Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<SettingsNavigationIcon>().Kind == SettingsNavigationIconKind.Close
         && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
       Assert(back.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer
@@ -2492,7 +2493,7 @@ namespace Element.Editor
       var root = new GameObject("Input caret fixture", typeof(RectTransform), typeof(Canvas));
       var cameraRoot = new GameObject("Input caret camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
-      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = SettingsUiFactory.Background;
+      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = UiPalette.Background;
       var texture = new RenderTexture(640, 280, 24); camera.targetTexture = texture;
       Canvas canvas = root.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
@@ -2530,7 +2531,7 @@ namespace Element.Editor
       var texture = new RenderTexture(512, 480, 24); camera.targetTexture = texture;
       Canvas canvas = root.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-      Color current = new Color(.73f, .44f, .17f, .5f), original = current, theme = OverlayTheme.Accent;
+      Color current = new Color(.73f, .44f, .17f, .5f), original = current, theme = UiTheme.Accent;
       int changed = 0;
       var picker = new SettingsColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
@@ -2571,7 +2572,7 @@ namespace Element.Editor
       Color.RGBToHSV(current, out float h, out float s, out float v);
       Assert(Mathf.Abs(h - .77f) < .01f && Mathf.Abs(current.a - .25f) < .001f,
         "HSV gestures preserve hue through black and retain opacity");
-      Assert(OverlayTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
+      Assert(UiTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
       hex.text = "BA712B"; opacity.text = "50"; picker.Commit();
       CheckInputCaret(hex, "HEX color", "", "BA712B");
       CheckInputCaret(opacity, "opacity", "", "0", "50", "100");
@@ -2774,7 +2775,7 @@ namespace Element.Editor
     {
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-      OverlayTheme.SetHighlight(new ElementSettings().HighlightColor);
+      UiTheme.SetHighlight(new ElementSettings().HighlightColor);
       var notice = new SettingsToast(font, () => true);
       Assert(notice.Root == null, "the notice builds nothing until it is first shown");
       bool korean = language == SystemLanguage.Korean;

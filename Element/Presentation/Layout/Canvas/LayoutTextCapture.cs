@@ -1,5 +1,4 @@
 using Element.Application.Input;
-using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.EventSystems;
 

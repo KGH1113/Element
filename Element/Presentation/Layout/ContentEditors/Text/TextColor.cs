@@ -1,14 +1,14 @@
 using System;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Domain.Overlay.Formula;
-using Element.Configuration.Overlay;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -124,12 +124,12 @@ internal sealed class TextColor
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
   {
-    Color swatch = OverlayTextComposer.Resolve(_text.RangeColor(), OverlayTheme.Accent);
+    Color swatch = OverlayTextComposer.Resolve(_text.RangeColor(), UiTheme.Accent);
     swatch.a = 1;
     _colorButton.Swatch = swatch;
     OverlayColorSettings color = _text.RangeColor();
     _swatchFormulas.Compile(color);
-    bool gradient = _swatchFormulas.Resolve(color, OverlayTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
+    bool gradient = _swatchFormulas.Resolve(color, UiTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
     _colorButton.SwatchGradient = gradient ? _swatchGradient : null;
   }
 

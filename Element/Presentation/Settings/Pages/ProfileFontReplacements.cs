@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -60,7 +61,7 @@ internal sealed class ProfileFontReplacements : IDisposable
     _overlayFonts = overlayFonts;
     _resized = resized;
     SettingsUiFactory ui = window.Ui;
-    _fontCard = ui.Panel("Missing fonts", page, 0, 0, 936, 160, SettingsUiFactory.Surface).rectTransform;
+    _fontCard = ui.Panel("Missing fonts", page, 0, 0, 936, 160, UiPalette.Surface).rectTransform;
     TextMeshProUGUI title = ui.Text(
       L("이 PC에 없는 폰트가 있어요", "Some fonts aren't on this PC"),
       _fontCard,
@@ -82,7 +83,7 @@ internal sealed class ProfileFontReplacements : IDisposable
       904,
       24,
       14,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     _fontCardDescription.alignment = TextAlignmentOptions.TopLeft;
     _fontCardDone = ui.Button(L("완료", "Done"), _fontCard, 16, 0, 120, 40, Clear);
@@ -138,7 +139,7 @@ internal sealed class ProfileFontReplacements : IDisposable
       font.Name = _fontRowsUi.Text("", font.Row, 0, 4, 600, 24, 16);
       font.Name.textWrappingMode = TextWrappingModes.NoWrap;
       font.Name.overflowMode = TextOverflowModes.Ellipsis;
-      font.State = _fontRowsUi.Text("", font.Row, 0, 28, 600, 20, 13, SettingsUiFactory.Muted);
+      font.State = _fontRowsUi.Text("", font.Row, 0, 28, 600, 20, 13, UiPalette.Muted);
       font.State.textWrappingMode = TextWrappingModes.NoWrap;
       font.State.overflowMode = TextOverflowModes.Ellipsis;
       font.Pick = _fontRowsUi.Button(
@@ -169,7 +170,7 @@ internal sealed class ProfileFontReplacements : IDisposable
           OverlayFonts.DisplayName(font.Current) + "로 바꿨어요",
           "Changed to " + OverlayFonts.DisplayName(font.Current)
         );
-      font.State.color = replaced ? _window.Ui.SoftAccent : SettingsUiFactory.Muted;
+      font.State.color = replaced ? _window.Ui.SoftAccent : UiPalette.Muted;
     }
     _window.Ui.RefreshTheme();
     _resized();

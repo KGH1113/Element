@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -139,7 +140,7 @@ internal sealed class LayoutMarquee
       _outline.raycastTarget = false;
       SettingsUiFactory.Stretch(_outline.rectTransform, 0, 0, 0, 0);
     }
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     _fill.color = new Color(accent.r, accent.g, accent.b, .06f);
     _outline.color = accent;
     _outline.SetScale(_session.UiScale * .6f);

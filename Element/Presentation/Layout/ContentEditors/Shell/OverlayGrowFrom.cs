@@ -1,11 +1,12 @@
 using System;
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Configuration.Overlay;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -63,7 +64,7 @@ internal sealed class OverlayGrowFrom
   {
     _screen = screen;
     _popover = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion, Pick);
-    _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, SettingsPalette.SoftAccent);
+    _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }
 

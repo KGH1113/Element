@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -117,7 +118,7 @@ internal sealed class SettingsSegmentedControl
         button.SetPalette(colors);
       else
         _buttons[i].colors = colors;
-      _labels[i].color = selected ? _ui.SoftAccent : SettingsUiFactory.Muted;
+      _labels[i].color = selected ? _ui.SoftAccent : UiPalette.Muted;
     }
   }
 }

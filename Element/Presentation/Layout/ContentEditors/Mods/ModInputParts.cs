@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
@@ -37,7 +38,7 @@ internal sealed class ModInputParts
       ModEditorPage.ColumnWidth,
       24,
       15,
-      SettingsUiFactory.Foreground
+      UiPalette.Foreground
     );
     label.textWrappingMode = TextWrappingModes.Normal;
     control.Layout = width =>
@@ -98,7 +99,7 @@ internal sealed class ModInputParts
       false,
       _reduceMotion
     );
-    _page.Icon(button.transform, LayoutIcon(icon), 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(button.transform, LayoutIcon(icon), 6, 6, 24, UiPalette.Foreground);
     control.Layout = _ => SettingsUiFactory.Place((RectTransform)button.transform, 0, 2, 36, 36);
     _page.Add(control);
     control.Hint(hint);
@@ -115,8 +116,8 @@ internal sealed class ModInputParts
     SettingsSwitchMotion motion = null;
     void Show(bool immediate)
     {
-      track.color = state ? SettingsPalette.AccentSurface : new Color(.3f, .3f, .3f);
-      thumb.color = state ? SettingsPalette.SoftAccent : SettingsUiFactory.Foreground;
+      track.color = state ? UiPalette.AccentSurface : new Color(.3f, .3f, .3f);
+      thumb.color = state ? UiPalette.SoftAccent : UiPalette.Foreground;
       motion.Set(state ? 24 : 4, immediate || _reduceMotion);
     }
     Button hit = null;
@@ -140,9 +141,9 @@ internal sealed class ModInputParts
       true,
       _reduceMotion
     );
-    track = _ui.Capsule("Track", hit.transform, 4, 4, 48, 28, SettingsUiFactory.Surface);
+    track = _ui.Capsule("Track", hit.transform, 4, 4, 48, 28, UiPalette.Surface);
     track.raycastTarget = false;
-    thumb = _ui.Capsule("Thumb", track.transform, 4, 4, 20, 20, SettingsUiFactory.Foreground);
+    thumb = _ui.Capsule("Thumb", track.transform, 4, 4, 20, 20, UiPalette.Foreground);
     thumb.raycastTarget = false;
     motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
     Show(true);
@@ -157,7 +158,7 @@ internal sealed class ModInputParts
     LayoutActionIcon check = null;
     void Show()
     {
-      box.color = state ? SettingsPalette.SoftAccent : new Color(.3f, .3f, .3f);
+      box.color = state ? UiPalette.SoftAccent : new Color(.3f, .3f, .3f);
       check.gameObject.SetActive(state);
     }
     Button hit = null;
@@ -182,7 +183,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     box = _ui.Panel("Box", hit.transform, 8, 7, 22, 22, Color.white);
-    check = _page.Icon(box.transform, LayoutAction.Check, 1, 1, 20, SettingsUiFactory.Background);
+    check = _page.Icon(box.transform, LayoutAction.Check, 1, 1, 20, UiPalette.Background);
     TextMeshProUGUI label = _ui.Text(
       text ?? "",
       hit.transform,
@@ -191,7 +192,7 @@ internal sealed class ModInputParts
       ModEditorPage.ColumnWidth - 50,
       36,
       15,
-      SettingsUiFactory.Foreground
+      UiPalette.Foreground
     );
     label.alignment = TextAlignmentOptions.MidlineLeft;
     label.textWrappingMode = TextWrappingModes.NoWrap;
@@ -223,7 +224,7 @@ internal sealed class ModInputParts
       64,
       ModEditorPage.RowHeight,
       14,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     shown.alignment = TextAlignmentOptions.MidlineRight;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
@@ -280,12 +281,12 @@ internal sealed class ModInputParts
     RectTransform track = _ui.Rect("Track area", area, 10, 0, 180, 36);
     SettingsCapsuleGraphic line = _ui.Capsule("Track", track, 0, 15, 180, 6, new Color(.28f, .28f, .28f));
     line.raycastTarget = false;
-    SettingsCapsuleGraphic fill = _ui.Capsule("Fill", track, 0, 15, 10, 6, SettingsPalette.SoftAccent);
+    SettingsCapsuleGraphic fill = _ui.Capsule("Fill", track, 0, 15, 10, 6, UiPalette.SoftAccent);
     fill.raycastTarget = false;
-    SettingsCapsuleGraphic lowHandle = _ui.Capsule("Low handle", track, 0, 8, 20, 20, SettingsUiFactory.Foreground);
-    SettingsCapsuleGraphic highHandle = _ui.Capsule("High handle", track, 0, 8, 20, 20, SettingsUiFactory.Foreground);
+    SettingsCapsuleGraphic lowHandle = _ui.Capsule("Low handle", track, 0, 8, 20, 20, UiPalette.Foreground);
+    SettingsCapsuleGraphic highHandle = _ui.Capsule("High handle", track, 0, 8, 20, 20, UiPalette.Foreground);
     lowHandle.raycastTarget = highHandle.raycastTarget = false;
-    TextMeshProUGUI shown = _ui.Text("", control.Rect, 0, 0, 96, ModEditorPage.RowHeight, 14, SettingsUiFactory.Muted);
+    TextMeshProUGUI shown = _ui.Text("", control.Rect, 0, 0, 96, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     shown.alignment = TextAlignmentOptions.MidlineRight;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     void Show()
@@ -404,7 +405,7 @@ internal sealed class ModInputParts
       64,
       ModEditorPage.RowHeight,
       16,
-      SettingsUiFactory.Foreground
+      UiPalette.Foreground
     );
     shown.alignment = TextAlignmentOptions.Midline;
     void Show()
@@ -437,7 +438,7 @@ internal sealed class ModInputParts
       false,
       _reduceMotion
     );
-    _page.Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, UiPalette.Foreground);
     plus = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
@@ -452,7 +453,7 @@ internal sealed class ModInputParts
       false,
       _reduceMotion
     );
-    _page.Icon(plus.transform, LayoutAction.Plus, 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(plus.transform, LayoutAction.Plus, 6, 6, 24, UiPalette.Foreground);
     Show();
     return _page.Add(control);
   }
@@ -496,7 +497,7 @@ internal sealed class ModInputParts
     TextMeshProUGUI heading = null;
     if (!string.IsNullOrEmpty(label))
     {
-      heading = _ui.Text(label, control.Rect, 0, 0, ModEditorPage.ColumnWidth, 28, 15, SettingsUiFactory.Foreground);
+      heading = _ui.Text(label, control.Rect, 0, 0, ModEditorPage.ColumnWidth, 28, 15, UiPalette.Foreground);
       heading.alignment = TextAlignmentOptions.MidlineLeft;
       heading.textWrappingMode = TextWrappingModes.NoWrap;
       top = 32;
@@ -631,7 +632,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     button.interactable = enabled;
-    _page.Icon(button.transform, icon, 6, 6, 24, enabled ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted);
+    _page.Icon(button.transform, icon, 6, 6, 24, enabled ? UiPalette.Foreground : UiPalette.Muted);
     return button;
   }
 

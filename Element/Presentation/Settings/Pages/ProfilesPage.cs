@@ -4,10 +4,11 @@ using Element.Application.Profiles;
 using Element.Configuration.Profiles;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -60,7 +61,7 @@ internal sealed class ProfilesPage : SettingsPage
       _importProfile = Ui.Button(L("가져오기", "Import"), _profilesHeading, 0, 0, 120, 44, ImportProfile);
     _newProfile = Ui.Button(L("새 프로필", "New profile"), _profilesHeading, 0, 0, 156, 44, ToggleNewProfile, true);
     _profileGallery = Ui.Rect("Profile gallery", Root, 0, 56, 936, 160);
-    _profilesMessage = Ui.Text("", Root, 0, 0, 936, 24, 14, SettingsUiFactory.Muted);
+    _profilesMessage = Ui.Text("", Root, 0, 0, 936, 24, 14, UiPalette.Muted);
     _profilesMessage.alignment = TextAlignmentOptions.TopLeft;
     _fonts = new ProfileFontReplacements(window, Root, overlayFonts, Relayout);
     _newProfilePopover = new NewProfilePopover(Ui, Window.Frame, Window.Shade, ValidateNewProfileName, CreateProfile);
@@ -178,7 +179,7 @@ internal sealed class ProfilesPage : SettingsPage
         + summary.Presets
         + (summary.Presets == 1 ? " preset" : " presets")
     );
-    var contents = _profileGalleryUi.Text(summaryText, card.transform, 18, 82, 220, 22, 13, SettingsUiFactory.Muted);
+    var contents = _profileGalleryUi.Text(summaryText, card.transform, 18, 82, 220, 22, 13, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(contents.rectTransform, 18, 18);
     var state = _profileGalleryUi.Text(
       armed ? L("한 번 더 누르면 삭제해요", "Press again to delete")
@@ -194,9 +195,9 @@ internal sealed class ProfilesPage : SettingsPage
     SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
     _profileGalleryUi.Bind(() =>
       state.color =
-        armed ? SettingsPalette.Error
+        armed ? UiPalette.Error
         : inUse ? Ui.SoftAccent
-        : SettingsUiFactory.Muted
+        : UiPalette.Muted
     );
     if (inUse)
     {
@@ -223,8 +224,8 @@ internal sealed class ProfilesPage : SettingsPage
           "Delete profile",
           slot++,
           () => DeleteProfile(profile),
-          armed ? SettingsPalette.Error : SettingsUiFactory.Muted,
-          armed ? SettingsPalette.Error : SettingsUiFactory.Foreground
+          armed ? UiPalette.Error : UiPalette.Muted,
+          armed ? UiPalette.Error : UiPalette.Foreground
         ).Kind = LayoutAction.Delete;
       if (_profiles.FilesSupported)
         CardAction<SettingsExportIcon>(card.transform, "Export profile", slot++, () => ExportProfile(profile));
@@ -251,8 +252,8 @@ internal sealed class ProfilesPage : SettingsPage
       CardActionSize,
       CardGlyphSize,
       action,
-      normal ?? SettingsUiFactory.Muted,
-      hover ?? SettingsUiFactory.Foreground,
+      normal ?? UiPalette.Muted,
+      hover ?? UiPalette.Foreground,
       out T glyph
     );
     RectTransform rect = (RectTransform)button.transform;
@@ -430,7 +431,7 @@ internal sealed class ProfilesPage : SettingsPage
     bool valid = _profiles.ValidateName(text, profile.Id, out ProfileNameProblem problem);
     bool shown = !valid && text.Trim().Length > 0;
     _renameProblem.text = shown ? ProfileProblemText.Name(problem) : _renameSummary;
-    _renameProblem.color = shown ? SettingsPalette.Error : SettingsUiFactory.Muted;
+    _renameProblem.color = shown ? UiPalette.Error : UiPalette.Muted;
   }
 
   // Enter or a click elsewhere saves a usable new name; Escape, the same
@@ -563,7 +564,7 @@ internal sealed class ProfilesPage : SettingsPage
   private void ShowProfilesMessage(string text, bool error)
   {
     _profilesMessage.text = text;
-    _profilesMessage.color = error ? SettingsPalette.Error : Ui.SoftAccent;
+    _profilesMessage.color = error ? UiPalette.Error : Ui.SoftAccent;
     Relayout();
   }
 

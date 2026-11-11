@@ -7,10 +7,11 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout;
 
@@ -115,7 +116,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     Image panel = ui.Panel("Font popover", parent, 0, 0, _width, _height, new Color(.09f, .09f, .09f, .98f));
     panel.raycastTarget = true;
     Root = panel.rectTransform;
-    _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, SettingsUiFactory.Muted);
+    _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, UiPalette.Muted);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
     bool pick = _library?.CanPickFiles ?? false;
     _add = EditorCapsules.CapsuleButton(
@@ -170,7 +171,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     _viewport.gameObject.AddComponent<RectMask2D>();
     _track = ui.Rect("Scroll track", Root, 0, 0, TrackWidth, 10);
     _thumb = ui.Capsule("Scroll thumb", _track, 0, 0, TrackWidth, 24, new Color(1, 1, 1, .28f));
-    _status = ui.Text("", Root, Padding, 0, 10, StatusHeight, 12, SettingsUiFactory.Muted);
+    _status = ui.Text("", Root, Padding, 0, 10, StatusHeight, 12, UiPalette.Muted);
     _status.textWrappingMode = TextWrappingModes.Normal;
     _status.overflowMode = TextOverflowModes.Ellipsis;
     Root.gameObject.SetActive(false);
@@ -391,7 +392,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     else
       text = L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
     _status.text = text;
-    _status.color = warning ? LayoutColors.Warning : SettingsUiFactory.Muted;
+    _status.color = warning ? UiPalette.Error : UiPalette.Muted;
   }
 
   private bool HasFonts()
@@ -557,11 +558,11 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
         _reduceMotion
       );
       RectTransform root = (RectTransform)row.Button.transform;
-      row.Selected = _ui.Capsule("Current", root, 0, 0, width, RowHeight - 2, SettingsPalette.SoftAccent);
+      row.Selected = _ui.Capsule("Current", root, 0, 0, width, RowHeight - 2, UiPalette.SoftAccent);
       row.Selected.transform.SetAsFirstSibling();
       row.Name = _ui.Text("", root, 12, 0, 10, RowHeight - 2, 15);
       row.Name.textWrappingMode = TextWrappingModes.NoWrap;
-      row.Detail = _ui.Text("", root, 0, 0, 10, RowHeight - 2, 12, SettingsUiFactory.Muted);
+      row.Detail = _ui.Text("", root, 0, 0, 10, RowHeight - 2, 12, UiPalette.Muted);
       row.Detail.textWrappingMode = TextWrappingModes.NoWrap;
       row.Detail.alignment = TextAlignmentOptions.MidlineRight;
       _rows.Add(row);
@@ -625,21 +626,16 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
       bool current = !header && IsCurrent(entry);
       row.Button.interactable = !header;
       row.Selected.gameObject.SetActive(current);
-      row.Selected.color = new Color(
-        SettingsPalette.SoftAccent.r,
-        SettingsPalette.SoftAccent.g,
-        SettingsPalette.SoftAccent.b,
-        .22f
-      );
+      row.Selected.color = new Color(UiPalette.SoftAccent.r, UiPalette.SoftAccent.g, UiPalette.SoftAccent.b, .22f);
       SettingsUiFactory.Place(row.Selected.rectTransform, 0, 0, width, RowHeight - 2);
       row.Name.text = entry.Name;
       row.Name.fontSize = header ? 12 : 15;
       row.Name.color =
-        header ? SettingsUiFactory.Muted
-        : current ? SettingsPalette.SoftAccent
-        : SettingsUiFactory.Foreground;
+        header ? UiPalette.Muted
+        : current ? UiPalette.SoftAccent
+        : UiPalette.Foreground;
       row.Detail.text = entry.Detail ?? "";
-      row.Detail.color = entry.Warning ? LayoutColors.Warning : SettingsUiFactory.Muted;
+      row.Detail.color = entry.Warning ? UiPalette.Error : UiPalette.Muted;
       float detailWidth = string.IsNullOrEmpty(row.Detail.text)
         ? 0
         : Mathf.Min(width * .45f, Mathf.Ceil(row.Detail.GetPreferredValues(row.Detail.text).x) + 2);

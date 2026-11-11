@@ -1,13 +1,13 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -42,7 +42,7 @@ internal sealed class OverlayGradientEditing
   public OverlayFormulaField Position { get; private set; }
 
   /// <summary>A color added on the line starts in the highlight.</summary>
-  public static string NewStopHex => "#" + ColorUtility.ToHtmlStringRGB(OverlayTheme.Accent);
+  public static string NewStopHex => "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
 
   /// <summary>The handles over the preview, with the editor's undo and redraw.</summary>
   public void BuildHandles(
@@ -223,7 +223,7 @@ internal sealed class OverlayGradientEditing
   {
     OverlayColorSettings color = _color();
     OverlayGradientStop stop = color.Gradient.Stops[index];
-    Color shown = color.Highlight ? OverlayTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+    Color shown = color.Highlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     shown.a = ShownStop(index, false);
     return shown;
   }

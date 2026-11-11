@@ -1,14 +1,14 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
-using TMPro;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
+using TMPro;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -175,7 +175,7 @@ internal sealed class ShapeColors
 
   private static Color Opaque(OverlayColorSettings color)
   {
-    Color resolved = OverlayTextComposer.Resolve(color, OverlayTheme.Accent);
+    Color resolved = OverlayTextComposer.Resolve(color, UiTheme.Accent);
     resolved.a = 1;
     return resolved;
   }

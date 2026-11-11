@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -75,7 +76,7 @@ internal sealed class ModChoiceParts
       () =>
         _host.OpenList(
           new ModListRequest(
-            string.IsNullOrEmpty(label) ? SettingsLocale.L("고르기", "Choose") : label,
+            string.IsNullOrEmpty(label) ? UiLocale.L("고르기", "Choose") : label,
             names,
             current,
             (RectTransform)button.transform,
@@ -93,12 +94,12 @@ internal sealed class ModChoiceParts
       false,
       _reduceMotion
     );
-    shown = _ui.Text(names[current], button.transform, 14, 0, 200, 36, 14, SettingsUiFactory.Foreground);
+    shown = _ui.Text(names[current], button.transform, 14, 0, 200, 36, 14, UiPalette.Foreground);
     shown.alignment = TextAlignmentOptions.MidlineLeft;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
     shown.raycastTarget = false;
-    LayoutActionIcon chevron = _page.Icon(button.transform, LayoutAction.Down, 0, 9, 18, SettingsUiFactory.Muted);
+    LayoutActionIcon chevron = _page.Icon(button.transform, LayoutAction.Down, 0, 9, 18, UiPalette.Muted);
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);
@@ -203,7 +204,7 @@ internal sealed class ModChoiceParts
   {
     if (chip is not SettingsButton button)
       return;
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     button.SetPalette(
       new ColorBlock
       {

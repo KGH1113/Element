@@ -1,4 +1,4 @@
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 
 namespace Element.Presentation.Layout.KeyViewers;
 
@@ -6,5 +6,5 @@ namespace Element.Presentation.Layout.KeyViewers;
 internal static class KeyViewerLabels
 {
   public static string For(string kind) =>
-    kind == "hand" ? SettingsLocale.L("손 키뷰어", "Hand keyviewer") : SettingsLocale.L("발 키뷰어", "Foot keyviewer");
+    kind == "hand" ? UiLocale.L("손 키뷰어", "Hand keyviewer") : UiLocale.L("발 키뷰어", "Foot keyviewer");
 }

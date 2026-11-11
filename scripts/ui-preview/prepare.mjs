@@ -6,7 +6,6 @@ const files = fs.readdirSync(settings, { recursive: true }).filter(name => name.
 const configuration = path.join(root, 'Element/Configuration');
 for (const name of fs.readdirSync(configuration, { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(configuration, name));
-files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTheme.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFactory.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));

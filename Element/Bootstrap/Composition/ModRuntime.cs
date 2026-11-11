@@ -28,9 +28,9 @@ using Element.Infrastructure.Mods;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout.KeyViewers;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Rendering;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -150,7 +150,7 @@ internal sealed class ModRuntime : IDisposable
       _nativeViewers = new ElementNoteNativeViewers(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
-        () => OverlayTheme.Accent,
+        () => UiTheme.Accent,
         KeyViewerLabels.For,
         _main.LogException,
         _main.LogWarning,
@@ -293,7 +293,7 @@ internal sealed class ModRuntime : IDisposable
   // Cheap enough for every sample of a color drag.
   private void ApplyLook()
   {
-    OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
+    UiTheme.SetHighlight(_main.Settings.HighlightColor);
     _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
     ChatterBlockerOptions chatter = _main.Settings.Gameplay.Chatter;
     _main.Chatter.Configure(chatter.Enabled, chatter.WindowMs, chatter.IgnoredKeys);
@@ -435,7 +435,7 @@ internal sealed class ModRuntime : IDisposable
         AttemptCounter.Rules,
         failure =>
         {
-          (string title, string detail) = RenderNotices.For(failure.Code, SettingsLocale.Korean);
+          (string title, string detail) = RenderNotices.For(failure.Code, UiLocale.Korean);
           _settingsUi?.ShowNotice(title, detail);
         },
         _main.LogWarning

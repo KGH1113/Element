@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -98,7 +99,7 @@ internal abstract class SettingsPage : IDisposable
     link.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     var label = Ui.Text(title, link.transform, 20, 13, 820, 26, 18);
     SettingsUiFactory.StretchWidth(label.rectTransform, 20, 64);
-    detail = Ui.Text(description, link.transform, 20, 43, 820, 24, 14, SettingsUiFactory.Muted);
+    detail = Ui.Text(description, link.transform, 20, 43, 820, 24, 14, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(detail.rectTransform, 20, 64);
     var arrow = Ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<SettingsNavigationIcon>();
     arrow.Kind = SettingsNavigationIconKind.Forward;

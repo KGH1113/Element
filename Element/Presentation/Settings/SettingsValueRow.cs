@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -44,8 +45,8 @@ internal sealed class SettingsValueRow
     _write = write;
     int value = Clamp(read());
 
-    Row = ui.Panel(name, parent, 0, 0, 936, Height, SettingsUiFactory.Surface).rectTransform;
-    ui.Text(label, Row, 16, 12, 300, 24, 14, SettingsUiFactory.Muted);
+    Row = ui.Panel(name, parent, 0, 0, 936, Height, UiPalette.Surface).rectTransform;
+    ui.Text(label, Row, 16, 12, 300, 24, 14, UiPalette.Muted);
     Slider = ui.Slider(name + " slider", Row, 8, 44, 920 - FieldWidth - 8, 0, Slide, step);
     // Unity reports a range change that clamps the value as a user change. Place
     // the saved value before raising the minimum so building the row never
@@ -72,7 +73,7 @@ internal sealed class SettingsValueRow
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     Field.textComponent.margin = new Vector4(0, 0, 2, 0);
     Field.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
-    ui.Text(unit, Field.transform, FieldWidth - 32, 0, 22, 40, 13, SettingsUiFactory.Muted);
+    ui.Text(unit, Field.transform, FieldWidth - 32, 0, 22, 40, 13, UiPalette.Muted);
   }
 
   /// <summary>Shows the saved value unless the player is typing.</summary>
@@ -80,7 +81,7 @@ internal sealed class SettingsValueRow
   {
     Slider.interactable = interactable;
     Field.interactable = interactable;
-    Field.textComponent.color = interactable ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+    Field.textComponent.color = interactable ? UiPalette.Foreground : UiPalette.Muted;
     if (Field.isFocused)
       return;
     int value = Clamp(_read());

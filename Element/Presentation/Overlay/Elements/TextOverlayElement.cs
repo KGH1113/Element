@@ -5,9 +5,10 @@ using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Overlay.Elements;
 
@@ -144,7 +145,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (
       changes.Overlaps(ValueMask)
-      || _themeVersion != OverlayTheme.Version
+      || _themeVersion != UiTheme.Version
       || _fontVersion != _fonts.Version
       || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))
     )
@@ -157,7 +158,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   {
     if (Settings == null)
       return;
-    _themeVersion = OverlayTheme.Version;
+    _themeVersion = UiTheme.Version;
     _renderedScale = EffectiveScale;
     if (_fontVersion != _fonts.Version)
     {
@@ -168,17 +169,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       if (_text.fontSharedMaterial != _fonts.DefaultMaterial)
         _text.fontSharedMaterial = _fonts.DefaultMaterial;
     }
-    OverlayTextComposer.Compose(
-      _builder,
-      _runs,
-      _values,
-      _preview,
-      OverlayTheme.Accent,
-      _renderedScale,
-      _fonts,
-      _animated
-    );
-    _gradients.SetSource(_preview ? _values?.WithSamples : _values, OverlayTheme.Accent);
+    OverlayTextComposer.Compose(_builder, _runs, _values, _preview, UiTheme.Accent, _renderedScale, _fonts, _animated);
+    _gradients.SetSource(_preview ? _values?.WithSamples : _values, UiTheme.Accent);
     string before = _text.text;
     _text.Assign(_builder);
     // A new text is colored as TMP lays it out; the same text is recolored now.

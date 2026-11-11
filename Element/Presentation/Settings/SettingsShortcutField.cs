@@ -1,11 +1,12 @@
 using System;
 using Element.Configuration;
 using Element.Presentation.Layout;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -89,21 +90,19 @@ internal sealed class SettingsShortcutField
     // The field is sized to this one line; a rounding wrap would push "…" below.
     _label.textWrappingMode = TextWrappingModes.NoWrap;
     // Registered after the button's own theme so an empty field stays muted.
-    ui.Bind(() =>
-      _label.color = !Capturing && _key() == KeyCode.None ? SettingsUiFactory.Muted : SettingsUiFactory.Foreground
-    );
+    ui.Bind(() => _label.color = !Capturing && _key() == KeyCode.None ? UiPalette.Muted : UiPalette.Foreground);
     Keycaps = ui.Rect("Shortcut keys", Capture.transform, 12, 6, 214, 30);
     SettingsUiFactory.StretchWidth(Keycaps, 12, 12);
     Image modifierCap = ui.Panel("Modifier", Keycaps, 0, 0, 136, 30, new Color(.21f, .21f, .21f));
     _modifierKey = ui.Text("", modifierCap.transform, 8, 0, 120, 30, 15);
     SettingsUiFactory.Stretch(_modifierKey.rectTransform, 8, 0, 8, 0);
     _modifierKey.alignment = TextAlignmentOptions.Midline;
-    _modifierSide = ui.Text("L", modifierCap.transform, 8, 0, 14, 30, 11, SettingsUiFactory.Muted);
+    _modifierSide = ui.Text("L", modifierCap.transform, 8, 0, 14, 30, 11, UiPalette.Muted);
     _modifierSymbol = ui.Rect("Modifier symbol", modifierCap.transform, 28, 4, 22, 22)
       .gameObject.AddComponent<SettingsKeySymbol>();
-    _modifierSymbol.color = SettingsUiFactory.Foreground;
+    _modifierSymbol.color = UiPalette.Foreground;
     _modifierSymbol.raycastTarget = false;
-    _keyPlus = ui.Text("+", Keycaps, 144, 0, 20, 30, 14, SettingsUiFactory.Muted);
+    _keyPlus = ui.Text("+", Keycaps, 144, 0, 20, 30, 14, UiPalette.Muted);
     _keyPlus.alignment = TextAlignmentOptions.Midline;
     Image mainCap = ui.Panel("Key", Keycaps, 172, 0, 80, 30, new Color(.21f, .21f, .21f));
     _mainKey = ui.Text("", mainCap.transform, 8, 0, 64, 30, 15);
@@ -116,11 +115,11 @@ internal sealed class SettingsShortcutField
     LayoutActionIcon icon = ui.Rect(actionName + " icon", Action.transform, 10, 10, 24, 24)
       .gameObject.AddComponent<LayoutActionIcon>();
     icon.Kind = actionIcon;
-    icon.color = SettingsUiFactory.Foreground;
+    icon.color = UiPalette.Foreground;
     icon.raycastTarget = false;
     StyleKeyButton(ui, Action);
 
-    Hint = ui.Text("", card, Inset, 114, 904, HintHeight, 14, SettingsUiFactory.Muted);
+    Hint = ui.Text("", card, Inset, 114, 904, HintHeight, 14, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(Hint.rectTransform, Inset, Inset);
     Refresh();
   }
@@ -130,7 +129,7 @@ internal sealed class SettingsShortcutField
     Capturing = true;
     Keycaps.gameObject.SetActive(false);
     _label.gameObject.SetActive(true);
-    _label.color = SettingsUiFactory.Foreground;
+    _label.color = UiPalette.Foreground;
     EventSystem.current?.SetSelectedGameObject(null);
     _captureStarted = Time.frameCount;
     _label.text = L("새 단축키를 입력하세요…", "Press a shortcut…");
@@ -203,7 +202,7 @@ internal sealed class SettingsShortcutField
     bool empty = key == KeyCode.None;
     Action.interactable = !_actionNeedsShortcut || !empty;
     _label.text = empty ? _emptyLabel : ShortcutKeys.Label(key, modifier);
-    _label.color = empty ? SettingsUiFactory.Muted : SettingsUiFactory.Foreground;
+    _label.color = empty ? UiPalette.Muted : UiPalette.Foreground;
     _label.gameObject.SetActive(empty);
     Keycaps.gameObject.SetActive(!empty);
     if (empty)

@@ -1,11 +1,11 @@
 using System;
 using System.Text;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Domain.Overlay.Formula;
-using Element.Domain.Overlay.Values;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 

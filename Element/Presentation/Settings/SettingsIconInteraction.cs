@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -90,7 +91,7 @@ internal sealed class SettingsIconInteraction
       return;
     bool available = _button != null && _button.IsInteractable();
     _targetColor =
-      !available ? SettingsUiFactory.Muted
+      !available ? UiPalette.Muted
       : _inside ? _hover
       : _normal;
     if (_pressed && _inside && available)

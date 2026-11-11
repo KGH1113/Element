@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -64,28 +65,11 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.fontSize = 13;
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
-    _hint = Ui.Text(hint, Frame, Margin, 26, Width - Margin * 2 - 230, 28, 13, SettingsUiFactory.Muted);
+    _hint = Ui.Text(hint, Frame, Margin, 26, Width - Margin * 2 - 230, 28, 13, UiPalette.Muted);
     _hint.textWrappingMode = TextWrappingModes.NoWrap;
-    Button cancelButton = Ui.Button(
-      SettingsLocale.L("취소", "Cancel"),
-      Frame,
-      Width - Margin - 212,
-      20,
-      100,
-      38,
-      cancel
-    );
+    Button cancelButton = Ui.Button(UiLocale.L("취소", "Cancel"), Frame, Width - Margin - 212, 20, 100, 38, cancel);
     cancelButton.name = name + " cancel";
-    Button doneButton = Ui.Button(
-      SettingsLocale.L("완료", "Done"),
-      Frame,
-      Width - Margin - 104,
-      20,
-      104,
-      38,
-      done,
-      true
-    );
+    Button doneButton = Ui.Button(UiLocale.L("완료", "Done"), Frame, Width - Margin - 104, 20, 104, 38, done, true);
     doneButton.name = name + " done";
     Root.transform.SetAsLastSibling();
     EventSystem.current?.SetSelectedGameObject(null);
@@ -118,7 +102,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     {
       _noticeUntil = 0;
       _hint.text = _hintText;
-      _hint.color = SettingsUiFactory.Muted;
+      _hint.color = UiPalette.Muted;
     }
   }
 
@@ -126,7 +110,7 @@ internal sealed class OverlayEditorFrame : IDisposable
   public void Notice(string message, bool warning = true)
   {
     _hint.text = message;
-    _hint.color = warning ? LayoutColors.Warning : SettingsUiFactory.Foreground;
+    _hint.color = warning ? UiPalette.Error : UiPalette.Foreground;
     _noticeUntil = Time.unscaledTime + NoticeSeconds;
   }
 
@@ -162,7 +146,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     float width = Mathf.Ceil(_ghostText.GetPreferredValues(text).x) + 28;
     Vector2 at = ToFrame(screen);
     SettingsUiFactory.Place(_ghost, at.x + 10, at.y + 12, width, 30);
-    _ghostSurface.color = state < 0 ? new Color(1, 1, 1, .45f) : SettingsPalette.SoftAccent;
+    _ghostSurface.color = state < 0 ? new Color(1, 1, 1, .45f) : UiPalette.SoftAccent;
     _ghost.SetAsLastSibling();
   }
 

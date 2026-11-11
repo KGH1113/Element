@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -11,18 +12,14 @@ namespace Element.Presentation.Settings;
 // Retained uGUI controls. The rounded sprite is shared; theme bindings are created once, never in Update.
 internal sealed class SettingsUiFactory : IDisposable
 {
-  public static readonly Color Background = new(0.067f, 0.067f, 0.067f, 1f);
-  public static readonly Color Surface = new(0.115f, 0.115f, 0.115f, 1f);
-  public static readonly Color Muted = new(0.66f, 0.66f, 0.66f, 1f);
-  public static readonly Color Foreground = new(0.96f, 0.96f, 0.96f, 1f);
   private readonly TMP_FontAsset _font;
   private readonly Sprite _rounded;
   private readonly List<Action> _themeBindings = new();
   private bool _disposed;
-  public Color Accent => Overlay.Shared.OverlayTheme.Accent;
-  public Color OnAccent => SettingsPalette.OnAction;
-  public Color SoftAccent => SettingsPalette.SoftAccent;
-  public Color AccentSurface => SettingsPalette.AccentSurface;
+  public Color Accent => UiTheme.Accent;
+  public Color OnAccent => UiPalette.OnAction;
+  public Color SoftAccent => UiPalette.SoftAccent;
+  public Color AccentSurface => UiPalette.AccentSurface;
   public Func<bool> ReduceMotion = () => false;
 
   public SettingsUiFactory(TMP_FontAsset font)
@@ -83,7 +80,7 @@ internal sealed class SettingsUiFactory : IDisposable
     label.fontSize = size;
     // MapleStory's supplied face is already bold; don't synthesize extra weight.
     label.fontWeight = FontWeight.Regular;
-    label.color = color ?? Foreground;
+    label.color = color ?? UiPalette.Foreground;
     label.raycastTarget = false;
     label.richText = false;
     label.textWrappingMode = TextWrappingModes.Normal;
@@ -104,7 +101,7 @@ internal sealed class SettingsUiFactory : IDisposable
     bool themed = true
   )
   {
-    Image image = Panel(text, parent, x, y, width, height, Surface);
+    Image image = Panel(text, parent, x, y, width, height, UiPalette.Surface);
     image.color = Color.white;
     image.raycastTarget = true;
     image.gameObject.AddComponent<CanvasGroup>();
@@ -121,18 +118,18 @@ internal sealed class SettingsUiFactory : IDisposable
       return button;
     Bind(() =>
     {
-      Color fill = primary ? AccentSurface : Surface;
+      Color fill = primary ? AccentSurface : UiPalette.Surface;
       image.color = Color.white;
       ColorBlock colors = button.colors;
       colors.normalColor = fill;
-      colors.highlightedColor = Color.Lerp(fill, Foreground, .13f);
+      colors.highlightedColor = Color.Lerp(fill, UiPalette.Foreground, .13f);
       // Keyboard focus has its own ring; selection must not look like hover.
       colors.selectedColor = fill;
       colors.pressedColor = Color.Lerp(fill, Color.black, .2f);
-      colors.disabledColor = Color.Lerp(fill, Background, .45f);
+      colors.disabledColor = Color.Lerp(fill, UiPalette.Background, .45f);
       colors.fadeDuration = ReduceMotion() ? 0 : .1f;
       button.SetPalette(colors);
-      label.color = primary ? SettingsPalette.SoftAccent : Foreground;
+      label.color = primary ? UiPalette.SoftAccent : UiPalette.Foreground;
     });
     return button;
   }
@@ -171,7 +168,7 @@ internal sealed class SettingsUiFactory : IDisposable
     Bind(() => focus.effectColor = SoftAccent);
     SettingsIconInteraction feedback = button.gameObject.AddComponent<SettingsIconInteraction>();
     feedback.Initialize(button, icon, ReduceMotion);
-    Bind(() => feedback.SetPalette(Foreground, SoftAccent));
+    Bind(() => feedback.SetPalette(UiPalette.Foreground, SoftAccent));
     return button;
   }
 
@@ -260,18 +257,18 @@ internal sealed class SettingsUiFactory : IDisposable
     ContentSizeFitter fit = copy.gameObject.AddComponent<ContentSizeFitter>();
     fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     Text(title, copy, 0, 0, 532, 24, 17);
-    descriptionText = Text(description, copy, 0, 0, 532, 24, 14, Muted);
-    SettingsCapsuleGraphic track = Capsule("Switch", row.transform, 0, 0, 48, 28, Surface);
+    descriptionText = Text(description, copy, 0, 0, 532, 24, 14, UiPalette.Muted);
+    SettingsCapsuleGraphic track = Capsule("Switch", row.transform, 0, 0, 48, 28, UiPalette.Surface);
     track.rectTransform.anchorMin = track.rectTransform.anchorMax = new Vector2(1, .5f);
     track.rectTransform.pivot = new Vector2(0, .5f);
     track.rectTransform.anchoredPosition = new Vector2(-64, 0);
-    SettingsCapsuleGraphic thumb = Capsule("Thumb", track.transform, 4, 4, 20, 20, Foreground);
+    SettingsCapsuleGraphic thumb = Capsule("Thumb", track.transform, 4, 4, 20, 20, UiPalette.Foreground);
     SettingsSwitchMotion motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
     Bind(() =>
     {
       bool enabled = read();
       track.color = enabled ? AccentSurface : new Color(.3f, .3f, .3f);
-      thumb.color = enabled ? SoftAccent : Foreground;
+      thumb.color = enabled ? SoftAccent : UiPalette.Foreground;
       motion.Set(enabled ? 24 : 4, ReduceMotion());
     });
     return row;
@@ -323,8 +320,8 @@ internal sealed class SettingsUiFactory : IDisposable
     input.onEndEdit.AddListener(v => committed?.Invoke(v));
     Bind(() =>
     {
-      input.selectionColor = Color.Lerp(Surface, SoftAccent, .3f);
-      input.caretColor = Foreground;
+      input.selectionColor = Color.Lerp(UiPalette.Surface, SoftAccent, .3f);
+      input.caretColor = UiPalette.Foreground;
     });
     box.gameObject.SetActive(true);
     return input;
@@ -362,7 +359,7 @@ internal sealed class SettingsUiFactory : IDisposable
     fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
     RectTransform handleArea = Rect("Handle area", root, 10, 8, width - 20, 20);
     StretchWidth(handleArea, 10, 10);
-    SettingsCapsuleGraphic handle = Capsule("Handle", handleArea, 0, 0, 20, 20, Foreground);
+    SettingsCapsuleGraphic handle = Capsule("Handle", handleArea, 0, 0, 20, 20, UiPalette.Foreground);
     handle.rectTransform.pivot = new Vector2(.5f, .5f);
     handle.rectTransform.anchorMin = handle.rectTransform.anchorMax = new Vector2(0, .5f);
     handle.rectTransform.anchoredPosition = Vector2.zero;

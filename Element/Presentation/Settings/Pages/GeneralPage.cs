@@ -2,10 +2,11 @@ using Element.Application.Updates;
 using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Presentation.Layout;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -32,7 +33,7 @@ internal sealed class GeneralPage : SettingsPage
       _profileLink = profiles.CreateLink(Root);
       Adopt(profiles, _profileLink);
     }
-    _shortcutSection = Ui.Panel("Settings shortcut", Root, 0, 0, 936, 124, SettingsUiFactory.Surface).rectTransform;
+    _shortcutSection = Ui.Panel("Settings shortcut", Root, 0, 0, 936, 124, UiPalette.Surface).rectTransform;
     TextMeshProUGUI shortcutTitle = Ui.Text(
       L("설정 단축키", "Settings shortcut"),
       _shortcutSection,

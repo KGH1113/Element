@@ -3,9 +3,9 @@ using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Overlay.Elements;
 
@@ -117,7 +117,7 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   {
     if (Shape == null)
       return;
-    _themeVersion = OverlayTheme.Version;
+    _themeVersion = UiTheme.Version;
     _resolvedScale = EffectiveScale;
     IOverlayNumberSource source = _preview ? _values?.WithSamples : _values;
     _formulas.Resolve(Shape, source, _resolvedScale, _resolved);
@@ -125,11 +125,11 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     bool resized = Rect.sizeDelta != size;
     if (resized)
       Rect.sizeDelta = size;
-    _formulas.ResolvePaints(_resolved, source, OverlayTheme.Accent);
+    _formulas.ResolvePaints(_resolved, source, UiTheme.Accent);
     _graphic.SetShape(
       _resolved,
-      OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _formulas.FillAlpha, source),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _formulas.StrokeAlpha, source),
+      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _formulas.FillAlpha, source),
+      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _formulas.StrokeAlpha, source),
       _formulas.FillGradient,
       _formulas.StrokeGradient
     );
@@ -143,7 +143,7 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   public override void Refresh(OverlayValueMask changes, bool settle = false)
   {
     if (
-      _themeVersion != OverlayTheme.Version
+      _themeVersion != UiTheme.Version
       || changes.Overlaps(_formulas.Mask)
       || (!_formulas.Mask.IsEmpty && !Mathf.Approximately(_resolvedScale, EffectiveScale))
     )

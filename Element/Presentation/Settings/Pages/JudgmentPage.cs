@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -20,7 +21,7 @@ internal sealed class JudgmentPage : SettingsPage
   {
     JudgementVisualOptions j = Settings.Gameplay.Judgement;
     _judgementHeader = Ui.Rect("Judgment controls", Root, 0, 0, 936, 52);
-    var hint = Ui.Text("", _judgementHeader, 0, 0, 580, 40, 15, SettingsUiFactory.Muted);
+    var hint = Ui.Text("", _judgementHeader, 0, 0, 580, 40, 15, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(hint.rectTransform, 0, 232);
     // Competitive Mode changes in the game's pause menu; read it each time the window opens.
     Ui.Bind(() =>
@@ -75,8 +76,8 @@ internal sealed class JudgmentPage : SettingsPage
     Ui.Bind(() =>
     {
       state.text = hidden() ? L("숨김", "Hidden") : L("표시", "Shown");
-      state.color = hidden() ? SettingsUiFactory.Muted : Ui.SoftAccent;
-      name.color = hidden() ? SettingsUiFactory.Muted : SettingsUiFactory.Foreground;
+      state.color = hidden() ? UiPalette.Muted : Ui.SoftAccent;
+      name.color = hidden() ? UiPalette.Muted : UiPalette.Foreground;
     });
     _judgementOptions.Add(tile);
   }

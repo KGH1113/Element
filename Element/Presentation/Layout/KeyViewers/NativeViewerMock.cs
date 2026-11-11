@@ -1,7 +1,7 @@
 using Element.Application.KeyViewer;
 using Element.Domain.KeyViewer;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +24,14 @@ internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
     SettingsUiFactory ui = new(font);
     float width = KeyViewerSampleSize.Width(kind);
     float height = KeyViewerSampleSize.ViewportHeight * .45f;
-    RectTransform root = ui.Rect(kind + " key viewer sample", parent, 0, 0, width, expanded ? KeyViewerSampleSize.ViewportHeight : height);
+    RectTransform root = ui.Rect(
+      kind + " key viewer sample",
+      parent,
+      0,
+      0,
+      width,
+      expanded ? KeyViewerSampleSize.ViewportHeight : height
+    );
     root.gameObject.AddComponent<NativeViewerMock>()._ui = ui;
     float top = expanded ? KeyViewerSampleSize.ViewportHeight - height : 0;
     bool hand = kind == "hand";
@@ -44,15 +51,15 @@ internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
         top + (i / columns) * (keyHeight + 4),
         keyWidth,
         keyHeight,
-        OverlayTheme.Accent
+        UiTheme.Accent
       );
       bool pressed = i == (hand ? 3 : 0);
-      ui.Bind(() => key.color = Color.Lerp(new Color(.06f, .06f, .06f), OverlayTheme.Accent, pressed ? .9f : .55f));
+      ui.Bind(() => key.color = Color.Lerp(new Color(.06f, .06f, .06f), UiTheme.Accent, pressed ? .9f : .55f));
       TextMeshProUGUI text = ui.Text(labels[i], key.transform, 0, 0, keyWidth, keyHeight, hand ? 15 : 23);
       text.alignment = TextAlignmentOptions.Midline;
     }
-    Image stats = ui.Panel("KPS sample", root, 0, top + height - 20, width, 20, OverlayTheme.Accent);
-    ui.Bind(() => stats.color = Color.Lerp(new Color(.06f, .06f, .06f), OverlayTheme.Accent, .4f));
+    Image stats = ui.Panel("KPS sample", root, 0, top + height - 20, width, 20, UiTheme.Accent);
+    ui.Bind(() => stats.color = Color.Lerp(new Color(.06f, .06f, .06f), UiTheme.Accent, .4f));
     ui.Text("KPS", stats.transform, 8, 0, 60, 20, 14);
     TextMeshProUGUI value = ui.Text(hand ? "12" : "4", stats.transform, width - 48, 0, 40, 20, 14);
     value.alignment = TextAlignmentOptions.MidlineRight;
@@ -88,9 +95,9 @@ internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
 
   private void Update()
   {
-    if (_themeVersion == OverlayTheme.Version)
+    if (_themeVersion == UiTheme.Version)
       return;
-    _themeVersion = OverlayTheme.Version;
+    _themeVersion = UiTheme.Version;
     _ui?.RefreshTheme();
   }
 

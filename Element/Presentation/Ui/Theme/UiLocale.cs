@@ -1,9 +1,9 @@
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Theme;
 
 /// <summary>Picks the Korean or English wording, following the game's language.</summary>
-internal static class SettingsLocale
+internal static class UiLocale
 {
   public static bool Korean => RDString.language == SystemLanguage.Korean;
 

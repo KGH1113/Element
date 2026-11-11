@@ -4,11 +4,12 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
@@ -43,16 +44,7 @@ internal sealed class ModPickerParts
     Color current = value;
     if (!opacity)
       current.a = 1;
-    TextMeshProUGUI hex = _ui.Text(
-      "",
-      control.Rect,
-      x + 40,
-      0,
-      160,
-      ModEditorPage.RowHeight,
-      14,
-      SettingsUiFactory.Muted
-    );
+    TextMeshProUGUI hex = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     hex.textWrappingMode = TextWrappingModes.NoWrap;
     SettingsCapsuleGraphic swatch = null;
     void Show()
@@ -99,22 +91,13 @@ internal sealed class ModPickerParts
     ModEditorControl control = _page.Row("Paint", 0);
     float x = _page.Caption(control, label);
     Paint current = value?.Clone() ?? Paint.Solid(Color.white);
-    TextMeshProUGUI shown = _ui.Text(
-      "",
-      control.Rect,
-      x + 40,
-      0,
-      160,
-      ModEditorPage.RowHeight,
-      14,
-      SettingsUiFactory.Muted
-    );
+    TextMeshProUGUI shown = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
     SettingsCapsuleGraphic swatch = null;
     void Show()
     {
-      Color opaque = current.ToColor(OverlayTheme.Accent);
+      Color opaque = current.ToColor(UiTheme.Accent);
       opaque.a = 1;
       swatch.color = opaque;
       shown.text =
@@ -169,7 +152,7 @@ internal sealed class ModPickerParts
         : status == OverlayFontStatus.Missing
           ? OverlayFonts.DisplayName(current) + L(" · 이 PC에 없음", " · not on this PC")
         : OverlayFonts.DisplayName(current);
-      shown.color = status == OverlayFontStatus.Missing ? LayoutColors.Warning : SettingsUiFactory.Foreground;
+      shown.color = status == OverlayFontStatus.Missing ? UiPalette.Error : UiPalette.Foreground;
     }
     button = EditorCapsules.CapsuleButton(
       _ui,
@@ -202,8 +185,8 @@ internal sealed class ModPickerParts
       false,
       _reduceMotion
     );
-    _page.Icon(button.transform, LayoutAction.Font, 10, 8, 20, SettingsUiFactory.Muted);
-    shown = _ui.Text("", button.transform, 38, 0, 200, 36, 14, SettingsUiFactory.Foreground);
+    _page.Icon(button.transform, LayoutAction.Font, 10, 8, 20, UiPalette.Muted);
+    shown = _ui.Text("", button.transform, 38, 0, 200, 36, 14, UiPalette.Foreground);
     shown.alignment = TextAlignmentOptions.MidlineLeft;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
@@ -249,7 +232,7 @@ internal sealed class ModPickerParts
       false,
       _reduceMotion
     );
-    TextMeshProUGUI shown = _ui.Text("", field.transform, 12, 0, 176, 36, 14, SettingsUiFactory.Foreground);
+    TextMeshProUGUI shown = _ui.Text("", field.transform, 12, 0, 176, 36, 14, UiPalette.Foreground);
     shown.alignment = TextAlignmentOptions.Midline;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
@@ -273,7 +256,7 @@ internal sealed class ModPickerParts
       true,
       _reduceMotion
     );
-    LayoutActionIcon cross = _page.Icon(clear.transform, LayoutAction.Close, 8, 8, 20, SettingsUiFactory.Muted);
+    LayoutActionIcon cross = _page.Icon(clear.transform, LayoutAction.Close, 8, 8, 20, UiPalette.Muted);
     capture.Show = () =>
     {
       bool recording = _capture == capture;
@@ -282,10 +265,10 @@ internal sealed class ModPickerParts
         recording ? capture.Prompt ?? L("새 단축키를 누르세요… (Esc 취소)", "Press a shortcut… (Esc cancels)")
         : current.IsSet ? ShortcutKeys.Label(current.Key, current.Modifier)
         : L("없음", "None");
-      shown.color = recording || current.IsSet ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+      shown.color = recording || current.IsSet ? UiPalette.Foreground : UiPalette.Muted;
       clear.interactable = current.IsSet;
       // Nothing to clear: the cross fades with its button.
-      cross.color = current.IsSet ? SettingsUiFactory.Foreground : new Color(1, 1, 1, .22f);
+      cross.color = current.IsSet ? UiPalette.Foreground : new Color(1, 1, 1, .22f);
     };
     capture.Assign = next =>
     {

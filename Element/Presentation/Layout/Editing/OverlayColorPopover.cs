@@ -1,11 +1,11 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout;
 
@@ -26,21 +26,21 @@ internal sealed class OverlayColorPopover : IPopover, IDisposable
   {
     _settings = settings;
     _picker = new SettingsColorPicker(parent, font, () => settings.ReduceUiMotion);
-    OverlayTheme.TryParseHighlight(OverlayTheme.DefaultHighlight, out Color defaultColor);
+    UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out Color defaultColor);
     _picker.SetDefault(defaultColor);
   }
 
   public void Show()
   {
-    if (!OverlayTheme.TryParseHighlight(_settings.HighlightColor, out Color color))
-      OverlayTheme.TryParseHighlight(OverlayTheme.DefaultHighlight, out color);
+    if (!UiTheme.TryParseHighlight(_settings.HighlightColor, out Color color))
+      UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out color);
     _picker.Show(L("하이라이트 색상", "Highlight color"), color, false, Apply);
   }
 
   private void Apply(Color color)
   {
     _settings.HighlightColor = "#" + ColorUtility.ToHtmlStringRGB(color);
-    OverlayTheme.SetHighlight(_settings.HighlightColor);
+    UiTheme.SetHighlight(_settings.HighlightColor);
   }
 
   public bool Commit() => _picker.Commit();

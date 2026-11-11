@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -145,7 +146,7 @@ internal sealed class LayoutArrangeBar
     bool distribute = _selection.Count >= 3;
     _distributeHorizontal.interactable = _distributeVertical.interactable = distribute;
     foreach (LayoutIcon icon in _icons)
-      icon.Icon.color = icon.Button.interactable ? SettingsUiFactory.Foreground : LayoutColors.Disabled;
+      icon.Icon.color = icon.Button.interactable ? UiPalette.Foreground : UiPalette.Disabled;
   }
 
   // Lines the selection up in one space: native viewers measure from their

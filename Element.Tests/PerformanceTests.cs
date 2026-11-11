@@ -2,8 +2,9 @@ using System;
 using System.Globalization;
 using System.Text;
 using System.Threading;
-using Element.Domain.Elements;
 using Element.Domain.Input;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 

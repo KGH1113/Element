@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Element.Configuration;
-using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
 
 namespace Element.Tests;
 

@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Threading;
 using Element.Application.Fonts;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Fonts;
 using Element.Infrastructure.Platform;
 using TMPro;
 using UnityEngine.TextCore.LowLevel;

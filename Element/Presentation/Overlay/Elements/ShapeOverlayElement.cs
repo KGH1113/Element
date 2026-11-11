@@ -1,5 +1,8 @@
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;

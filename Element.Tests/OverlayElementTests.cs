@@ -5,8 +5,13 @@ using System.Linq;
 using System.Numerics;
 using System.Xml.Serialization;
 using Element.Configuration;
-using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Fonts;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 
 namespace Element.Tests;
 

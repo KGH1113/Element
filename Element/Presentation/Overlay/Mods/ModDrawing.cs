@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Shape;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using ElementKit;

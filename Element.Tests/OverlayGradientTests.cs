@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Shape;
 
 namespace Element.Tests;
 
@@ -79,25 +80,26 @@ internal static class OverlayGradientTests
 
   private static void ColorsMixWithTheirOpacity()
   {
-    List<OverlayGradientSample> stops =
-      new()
-      {
-        new(0, new OverlayRgba(1, 0, 0, 1)),
-        new(1, new OverlayRgba(0, 0, 0, 0)),
-      };
+    List<OverlayGradientSample> stops = new()
+    {
+      new(0, new OverlayRgba(1, 0, 0, 1)),
+      new(1, new OverlayRgba(0, 0, 0, 0)),
+    };
     OverlayRgba middle = OverlayGradientMath.Sample(stops, .5f);
     Check(Near(middle.R, 1) && Near(middle.A, .5f), "fading out keeps the color instead of darkening it");
     Check(Near(OverlayGradientMath.Sample(stops, -1).R, 1), "before the first stop is its color");
     Check(Near(OverlayGradientMath.Sample(stops, 2).A, 0), "after the last stop is its color");
-    List<OverlayGradientSample> hard =
-      new()
-      {
-        new(.5f, new OverlayRgba(1, 0, 0, 1)),
-        new(.5f, new OverlayRgba(0, 0, 1, 1)),
-      };
+    List<OverlayGradientSample> hard = new()
+    {
+      new(.5f, new OverlayRgba(1, 0, 0, 1)),
+      new(.5f, new OverlayRgba(0, 0, 1, 1)),
+    };
     OverlayGradientMath.Sort(hard);
     Check(hard[0].Color.R == 1, "stops at one place keep their order");
-    Check(OverlayGradientMath.Sample(hard, .49f).R == 1 && OverlayGradientMath.Sample(hard, .51f).B == 1, "a hard edge");
+    Check(
+      OverlayGradientMath.Sample(hard, .49f).R == 1 && OverlayGradientMath.Sample(hard, .51f).B == 1,
+      "a hard edge"
+    );
   }
 
   private static void EachKindMeasuresItsOwnWay()
@@ -105,16 +107,25 @@ internal static class OverlayGradientTests
     OverlayGradient gradient = new();
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Linear);
     OverlayGradientFrame linear = OverlayGradientMath.Frame(gradient, 200, 100);
-    Check(Near(linear.At(0, 0), 0) && Near(linear.At(100, 80), .5f) && Near(linear.At(200, 10), 1), "linear runs left to right");
+    Check(
+      Near(linear.At(0, 0), 0) && Near(linear.At(100, 80), .5f) && Near(linear.At(200, 10), 1),
+      "linear runs left to right"
+    );
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Radial);
     OverlayGradientFrame radial = OverlayGradientMath.Frame(gradient, 200, 100);
-    Check(Near(radial.At(100, 50), 0) && Near(radial.At(200, 50), 1) && Near(radial.At(100, 100), 1), "radial fills the box");
+    Check(
+      Near(radial.At(100, 50), 0) && Near(radial.At(200, 50), 1) && Near(radial.At(100, 100), 1),
+      "radial fills the box"
+    );
     gradient.Kind = OverlayGradientKind.Diamond;
     OverlayGradientFrame diamond = OverlayGradientMath.Frame(gradient, 200, 100);
     Check(Near(diamond.At(150, 75), 1) && Near(diamond.At(150, 50), .5f), "diamond adds both directions");
     gradient.Kind = OverlayGradientKind.Angular;
     OverlayGradientFrame angular = OverlayGradientMath.Frame(gradient, 200, 100);
-    Check(Near(angular.At(200, 50), 0) && Near(angular.At(100, 100), .25f), "angular turns clockwise from the end handle");
+    Check(
+      Near(angular.At(200, 50), 0) && Near(angular.At(100, 100), .25f),
+      "angular turns clockwise from the end handle"
+    );
     Check(Near(angular.At(0, 50), .5f) && Near(angular.At(100, 0), .75f), "and comes round");
     gradient.EndX = gradient.StartX;
     gradient.EndY = gradient.StartY;
@@ -148,9 +159,15 @@ internal static class OverlayGradientTests
     Check(color.Gradient.Stops[0].Position == 0, "a stop following a value stays with it");
     color.Gradient.AngleFormula = "{bpm}";
     OverlayGradientEdits.Rotate(color.Gradient, 100, 100);
-    Check(color.Gradient.AngleFormula == "" && Near(OverlayGradientMath.Angle(color.Gradient, 100, 100), 180), "rotate turns a quarter");
+    Check(
+      color.Gradient.AngleFormula == "" && Near(OverlayGradientMath.Angle(color.Gradient, 100, 100), 180),
+      "rotate turns a quarter"
+    );
     OverlayGradientEdits.SetKind(color.Gradient, OverlayGradientKind.Angular);
-    Check(color.Gradient.Kind == OverlayGradientKind.Angular && Near(color.Gradient.StartX, .5f), "a new kind starts from its own handles");
+    Check(
+      color.Gradient.Kind == OverlayGradientKind.Angular && Near(color.Gradient.StartX, .5f),
+      "a new kind starts from its own handles"
+    );
   }
 
   private static void SwitchingToTheHighlightKeepsAFade()
@@ -170,7 +187,10 @@ internal static class OverlayGradientTests
       "equal opacities would vanish, so they fade"
     );
     OverlayGradientEdits.SetHighlight(color, false, "#BA712B");
-    Check(!color.Highlight && color.Gradient.Stops.TrueForAll(stop => stop.Hex == "#BA712B"), "custom starts from the highlight");
+    Check(
+      !color.Highlight && color.Gradient.Stops.TrueForAll(stop => stop.Hex == "#BA712B"),
+      "custom starts from the highlight"
+    );
     Check(Near(color.Gradient.Stops[order[2]].Alpha, .4f), "and keeps the opacities");
   }
 
@@ -208,7 +228,8 @@ internal static class OverlayGradientTests
     OverlayLayoutSettings loaded = (OverlayLayoutSettings)serializer.Deserialize(reader);
     Check(loaded.SameAs(original) && loaded.Shape.Fill.IsGradient, "gradients round-trip through the settings file");
     Check(
-      loaded.Shape.Fill.Gradient.AngleFormula == "{bpm}" && loaded.Shape.Fill.Gradient.Stops[1].PositionFormula == "{progress-current}",
+      loaded.Shape.Fill.Gradient.AngleFormula == "{bpm}"
+        && loaded.Shape.Fill.Gradient.Stops[1].PositionFormula == "{progress-current}",
       "their formulas load back"
     );
     Check(loaded.Shape.Stroke.Gradient == null, "solid colors stay solid");
@@ -224,7 +245,8 @@ internal static class OverlayGradientTests
     Check(other.SameAs(fill), "following the highlight, stop colors don't matter");
   }
 
-  private static float Vector2Dot(System.Numerics.Vector2 a, System.Numerics.Vector2 b) => System.Numerics.Vector2.Dot(a, b);
+  private static float Vector2Dot(System.Numerics.Vector2 a, System.Numerics.Vector2 b) =>
+    System.Numerics.Vector2.Dot(a, b);
 
   private static bool Near(float a, float b) => Math.Abs(a - b) < .01f;
 

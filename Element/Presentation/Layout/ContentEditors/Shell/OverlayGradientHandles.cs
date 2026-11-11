@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;

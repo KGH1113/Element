@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
 using UnityEngine;
 
 namespace Element.Application.Settings;

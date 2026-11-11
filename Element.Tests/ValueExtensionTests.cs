@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 
 namespace Element.Tests;
@@ -33,8 +35,14 @@ internal static class ValueExtensionTests
 
   private static void MissingModValuesSurviveSaving()
   {
-    Check(OverlayFormula.Parse("{Fingering/left-keys}+1").Serialize() == "{Fingering/left-keys}+1", "a formula keeps a mod's value");
-    Check(OverlayFormula.Parse("Fingering/left-keys").Serialize() == "Fingering/left-keys", "a run keeps a mod's value");
+    Check(
+      OverlayFormula.Parse("{Fingering/left-keys}+1").Serialize() == "{Fingering/left-keys}+1",
+      "a formula keeps a mod's value"
+    );
+    Check(
+      OverlayFormula.Parse("Fingering/left-keys").Serialize() == "Fingering/left-keys",
+      "a run keeps a mod's value"
+    );
     List<OverlayTextRun> runs = new()
     {
       OverlayTextRun.Literal("L ", OverlayColorSettings.Custom("#FFFFFF")),
@@ -52,7 +60,10 @@ internal static class ValueExtensionTests
     OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, false);
     Check(output.Length == 0, "the overlay shows nothing for a missing value");
     OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, true);
-    Check(output.ToString() == "[Fingering/left-keys]", "the editor names a missing value by its key, so it can be found");
+    Check(
+      output.ToString() == "[Fingering/left-keys]",
+      "the editor names a missing value by its key, so it can be found"
+    );
   }
 
   private static void RemovedBuiltInValuesAreStillDropped()
@@ -130,7 +141,10 @@ internal static class ValueExtensionTests
     OverlayValueDefinition withdrawn = OverlayValueCatalog.Get(left.Id);
     Check(!withdrawn.Available && withdrawn.KoreanName == "왼손", "a withdrawn value keeps its name for texts");
     Check(!Section(group).Any(), "and leaves the dock");
-    Check(OverlayValueCatalog.Sections().Take(OverlayValueCatalog.Categories.Length).All(s => s.Group == null), "built-in headings come first");
+    Check(
+      OverlayValueCatalog.Sections().Take(OverlayValueCatalog.Categories.Length).All(s => s.Group == null),
+      "built-in headings come first"
+    );
     OverlayValueDefinition back = OverlayValueCatalog.Register(
       "Hands/left",
       group,
@@ -164,20 +178,40 @@ internal static class ValueExtensionTests
   {
     OverlayValueGroup group = new("Full", "가득", "Full");
     while (OverlayValueCatalog.Count < OverlayValueCatalog.Capacity)
-      OverlayValueCatalog.Register("Full/v" + OverlayValueCatalog.Count, group, OverlayValueKind.Number, "v", "v", 1, null);
+      OverlayValueCatalog.Register(
+        "Full/v" + OverlayValueCatalog.Count,
+        group,
+        OverlayValueKind.Number,
+        "v",
+        "v",
+        1,
+        null
+      );
     Check(
       OverlayValueCatalog.Register("Full/one-more", group, OverlayValueKind.Number, "v", "v", 1, null) == null,
       "a full catalog adds nothing"
     );
     Check(!OverlayValueCatalog.TryResolve("Other/missing", out _), "nor keeps a place for a missing value");
     Check(
-      OverlayValueCatalog.Register("Hands/left", new OverlayValueGroup("Hands", "손", "Hands"), OverlayValueKind.Number, "왼손", "Left", 1, null) != null,
+      OverlayValueCatalog.Register(
+        "Hands/left",
+        new OverlayValueGroup("Hands", "손", "Hands"),
+        OverlayValueKind.Number,
+        "왼손",
+        "Left",
+        1,
+        null
+      ) != null,
       "a value that already has a place can still come back"
     );
   }
 
   private static List<OverlayValueDefinition> Section(OverlayValueGroup group) =>
-    OverlayValueCatalog.Sections().Where(section => section.Group == group).SelectMany(section => section.Values).ToList();
+    OverlayValueCatalog
+      .Sections()
+      .Where(section => section.Group == group)
+      .SelectMany(section => section.Values)
+      .ToList();
 
   private static void Check(bool value, string message)
   {

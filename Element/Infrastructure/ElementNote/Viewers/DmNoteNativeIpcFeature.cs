@@ -24,7 +24,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
   private readonly Func<string, string> _viewerLabel;
   private readonly Action<string, Exception> _logError;
   private readonly Action<string> _logWarning;
-  private readonly IDmNoteAppFocus _appFocus;
+  private readonly IElementNoteAppFocus _appFocus;
   private readonly bool _supported;
   private IFeatureRegistration _ipc;
   private INativeViewerHost _host;
@@ -52,7 +52,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
     Func<string, string> viewerLabel,
     Action<string, Exception> logError,
     Action<string> logWarning,
-    IDmNoteAppFocus appFocus = null
+    IElementNoteAppFocus appFocus = null
   )
   {
     _supported = supported;

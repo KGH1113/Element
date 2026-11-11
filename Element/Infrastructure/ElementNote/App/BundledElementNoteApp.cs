@@ -10,7 +10,7 @@ namespace Element.Infrastructure.ElementNote.App;
 /// players can open it themselves, and granted OS permissions and saved
 /// settings keep applying.
 /// </summary>
-internal abstract class BundledDmNoteApp : IDmNoteApp
+internal abstract class BundledElementNoteApp : IBundledElementNoteApp
 {
   /// <summary>Tells ElementNote to start in the background and close with the game.</summary>
   public const string LaunchedByGameArgument = "--launched-by-game";
@@ -23,7 +23,12 @@ internal abstract class BundledDmNoteApp : IDmNoteApp
   /// <param name="installedPath">Where players find the app.</param>
   /// <param name="stateFolder">Holds the install stamp and staging copy, out of the players' sight.</param>
   /// <param name="formerInstalledPath">An earlier install location, removed once the app moved.</param>
-  protected BundledDmNoteApp(string source, string installedPath, string stateFolder, string formerInstalledPath = null)
+  protected BundledElementNoteApp(
+    string source,
+    string installedPath,
+    string stateFolder,
+    string formerInstalledPath = null
+  )
   {
     _source = source;
     InstalledPath = installedPath;

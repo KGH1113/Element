@@ -8,7 +8,7 @@ using Element.Infrastructure.Platform;
 
 namespace Element.Tests;
 
-internal static class DmNoteAppTests
+internal static class ElementNoteAppTests
 {
   public static void Run()
   {
@@ -114,7 +114,7 @@ internal static class DmNoteAppTests
   private static void ReportsADeclinedAdministratorPrompt()
   {
     var app = new FakeApp { LaunchError = new Win32Exception(1223) };
-    DmNoteAppLauncher launcher = Launcher(app, out List<string> warnings);
+    ElementNoteAppLauncher launcher = Launcher(app, out List<string> warnings);
     launcher.OpenIfClosed();
     Check(warnings.Count == 1, "A declined UAC prompt is a warning, not an error.");
     app.LaunchError = null;
@@ -144,11 +144,11 @@ internal static class DmNoteAppTests
     );
   }
 
-  private static DmNoteAppLauncher Launcher(IDmNoteApp app, out List<string> warnings)
+  private static ElementNoteAppLauncher Launcher(IBundledElementNoteApp app, out List<string> warnings)
   {
     var logged = new List<string>();
     warnings = logged;
-    return new DmNoteAppLauncher(
+    return new ElementNoteAppLauncher(
       app,
       work => work(),
       _ => { },
@@ -157,7 +157,7 @@ internal static class DmNoteAppTests
     );
   }
 
-  private sealed class FakeApp : IDmNoteApp
+  private sealed class FakeApp : IBundledElementNoteApp
   {
     public bool Bundled = true;
     public bool Running;
@@ -188,7 +188,7 @@ internal static class DmNoteAppTests
     }
   }
 
-  private sealed class FolderApp : BundledDmNoteApp
+  private sealed class FolderApp : BundledElementNoteApp
   {
     public FolderApp(Folders folders)
       : base(folders.Source, folders.Installed, folders.State, folders.Former) { }

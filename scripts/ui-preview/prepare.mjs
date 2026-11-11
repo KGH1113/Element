@@ -34,6 +34,8 @@ files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeVi
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerSamplePreview.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/Planets/PlanetPreviewRenderer.cs'));
+for (const name of ['PlanetPreviewSource', 'PlanetPreviewSources', 'PlanetPreviewVisual', 'PlanetPreviewObjects'])
+  files.push(path.join(root, 'Element/Infrastructure/Game/Planets', name + '.cs'));
 files.push(path.join(root, 'Element/Domain/Tweaks/PlanetColorRule.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));

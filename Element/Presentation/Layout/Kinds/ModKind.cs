@@ -5,6 +5,7 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using ElementKit.Hosting;
@@ -57,7 +58,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   {
     int offered = Offered;
     return new AddMenuRow(
-      LayoutAction.Extension,
+      UiIconKind.Extension,
       L("기타", "More"),
       L(
         "다른 모드가 추가한 요소 " + offered + "개",
@@ -90,7 +91,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
       Button button = _menu.AddRow(
         i,
         "Add " + type.FullKey,
-        LayoutAction.Extension,
+        UiIconKind.Extension,
         15,
         22,
         UiPalette.SoftAccent,

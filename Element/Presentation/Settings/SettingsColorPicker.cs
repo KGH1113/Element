@@ -3,6 +3,7 @@ using System.Globalization;
 using Element.Application.Input;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -113,7 +114,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _surface = surface;
     Root = surface.rectTransform;
     _title = _ui.Text("", Root, 16, 10, 208, 32, 16);
-    _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, SettingsNavigationIconKind.Close);
+    _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, UiIconKind.WindowClose);
     _source = new SettingsSegmentedControl(
       _ui,
       Root,

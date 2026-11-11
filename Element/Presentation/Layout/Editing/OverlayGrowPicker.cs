@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using TMPro;
@@ -185,7 +186,7 @@ internal sealed class OverlayGrowPicker
 
 /// <summary>A short arrow from the middle of its square toward a neighbouring point.</summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class OverlayGrowArrow : SettingsVectorGraphic
+internal sealed class OverlayGrowArrow : UiVectorGraphic
 {
   private Vector2 _direction = Vector2.right;
 

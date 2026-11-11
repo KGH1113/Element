@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
@@ -155,7 +156,7 @@ internal sealed class ModInputParts
     ModEditorControl control = _page.Row("Checkbox", 0);
     bool state = on;
     Image box = null;
-    LayoutActionIcon check = null;
+    UiIcon check = null;
     void Show()
     {
       box.color = state ? UiPalette.SoftAccent : new Color(.3f, .3f, .3f);
@@ -183,7 +184,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     box = _ui.Panel("Box", hit.transform, 8, 7, 22, 22, Color.white);
-    check = _page.Icon(box.transform, LayoutAction.Check, 1, 1, 20, UiPalette.Background);
+    check = _page.Icon(box.transform, UiIconKind.Check, 1, 1, 20, UiPalette.Background);
     TextMeshProUGUI label = _ui.Text(
       text ?? "",
       hit.transform,
@@ -438,7 +439,7 @@ internal sealed class ModInputParts
       false,
       _reduceMotion
     );
-    _page.Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, UiPalette.Foreground);
+    _page.Icon(minus.transform, UiIconKind.Minus, 6, 6, 24, UiPalette.Foreground);
     plus = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
@@ -453,7 +454,7 @@ internal sealed class ModInputParts
       false,
       _reduceMotion
     );
-    _page.Icon(plus.transform, LayoutAction.Plus, 6, 6, 24, UiPalette.Foreground);
+    _page.Icon(plus.transform, UiIconKind.Plus, 6, 6, 24, UiPalette.Foreground);
     Show();
     return _page.Add(control);
   }
@@ -535,10 +536,10 @@ internal sealed class ModInputParts
       Button up = null,
         down = null,
         delete = null;
-      up = ListButton(control, LayoutAction.Up, "Move up", index > 0, () => Swap(index, index - 1), () => up);
+      up = ListButton(control, UiIconKind.Up, "Move up", index > 0, () => Swap(index, index - 1), () => up);
       down = ListButton(
         control,
-        LayoutAction.Down,
+        UiIconKind.Down,
         "Move down",
         index < items.Count - 1,
         () => Swap(index, index + 1),
@@ -546,7 +547,7 @@ internal sealed class ModInputParts
       );
       delete = ListButton(
         control,
-        LayoutAction.Delete,
+        UiIconKind.Delete,
         "Remove",
         true,
         () =>
@@ -610,7 +611,7 @@ internal sealed class ModInputParts
   // A list row's icon button; reordering and removing make the parts again.
   private Button ListButton(
     ModEditorControl control,
-    LayoutAction icon,
+    UiIconKind icon,
     string name,
     bool enabled,
     Action apply,
@@ -636,22 +637,22 @@ internal sealed class ModInputParts
     return button;
   }
 
-  private static LayoutAction LayoutIcon(EditorIcon icon) =>
+  private static UiIconKind LayoutIcon(EditorIcon icon) =>
     icon switch
     {
-      EditorIcon.Add => LayoutAction.Plus,
-      EditorIcon.Remove => LayoutAction.Minus,
-      EditorIcon.Delete => LayoutAction.Delete,
-      EditorIcon.Reset => LayoutAction.Reset,
-      EditorIcon.Close => LayoutAction.Close,
-      EditorIcon.Left => LayoutAction.Back,
-      EditorIcon.Right => LayoutAction.Forward,
-      EditorIcon.Up => LayoutAction.Up,
-      EditorIcon.Down => LayoutAction.Down,
-      EditorIcon.Undo => LayoutAction.Undo,
-      EditorIcon.Redo => LayoutAction.Redo,
-      EditorIcon.Text => LayoutAction.Text,
-      _ => LayoutAction.Font,
+      EditorIcon.Add => UiIconKind.Plus,
+      EditorIcon.Remove => UiIconKind.Minus,
+      EditorIcon.Delete => UiIconKind.Delete,
+      EditorIcon.Reset => UiIconKind.Reset,
+      EditorIcon.Close => UiIconKind.Close,
+      EditorIcon.Left => UiIconKind.Back,
+      EditorIcon.Right => UiIconKind.Forward,
+      EditorIcon.Up => UiIconKind.Up,
+      EditorIcon.Down => UiIconKind.Down,
+      EditorIcon.Undo => UiIconKind.Undo,
+      EditorIcon.Redo => UiIconKind.Redo,
+      EditorIcon.Text => UiIconKind.Text,
+      _ => UiIconKind.Font,
     };
 
   private static float Snap(float value, float min, float max, float step)

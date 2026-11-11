@@ -1,6 +1,7 @@
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -35,7 +36,7 @@ internal sealed class TextAnimate
       L("애니메이션", "Animate"),
       Toggle,
       reduceMotion,
-      icon: LayoutAction.Animate,
+      icon: UiIconKind.Animate,
       toggle: true
     );
 

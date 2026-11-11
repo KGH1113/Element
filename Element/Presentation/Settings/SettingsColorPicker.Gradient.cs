@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -171,14 +172,14 @@ internal sealed partial class SettingsColorPicker
       _kindFrames[i] = frame;
       _kindPreviews[i] = preview;
     }
-    _flip = IconButton(L("뒤집기", "Flip"), _kindRow, SettingsGradientIconKind.Flip, Flip, KindRow);
-    _rotate = IconButton(L("90° 돌리기", "Turn 90°"), _kindRow, SettingsGradientIconKind.Rotate, Rotate, KindRow);
+    _flip = IconButton(L("뒤집기", "Flip"), _kindRow, UiIconKind.Flip, Flip, KindRow);
+    _rotate = IconButton(L("90° 돌리기", "Turn 90°"), _kindRow, UiIconKind.Rotate, Rotate, KindRow);
 
     _positionSlot = _ui.Rect("Position slot", Root, 0, 0, 10, 32);
     _delete = IconButton(
       L("이 색 지우기", "Remove this color"),
       Root,
-      SettingsGradientIconKind.Delete,
+      UiIconKind.RemoveStop,
       RemoveSelectedStop,
       DeleteSize
     );
@@ -207,7 +208,7 @@ internal sealed partial class SettingsColorPicker
     _highlightNote.alignment = TextAlignmentOptions.TopLeft;
   }
 
-  private Button IconButton(string name, Transform parent, SettingsGradientIconKind kind, Action click, float size)
+  private Button IconButton(string name, Transform parent, UiIconKind kind, Action click, float size)
   {
     SettingsCapsuleGraphic surface = _ui.Capsule(name, parent, 0, 0, size, size, new Color(1, 1, 1, .07f));
     surface.raycastTarget = true;
@@ -229,15 +230,8 @@ internal sealed partial class SettingsColorPicker
     button.onClick.AddListener(() => click());
     SettingsCursor.Attach(surface.gameObject, SettingsCursorKind.Pointer);
     float glyph = Mathf.Round(size * .53f);
-    SettingsGradientIcon icon = _ui.Rect(
-        "Icon",
-        surface.transform,
-        (size - glyph) * .5f,
-        (size - glyph) * .5f,
-        glyph,
-        glyph
-      )
-      .gameObject.AddComponent<SettingsGradientIcon>();
+    UiIcon icon = _ui.Rect("Icon", surface.transform, (size - glyph) * .5f, (size - glyph) * .5f, glyph, glyph)
+      .gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.color = UiPalette.Foreground;
     icon.raycastTarget = false;

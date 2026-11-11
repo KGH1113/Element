@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using NVector2 = System.Numerics.Vector2;
@@ -61,7 +62,7 @@ internal sealed class ShapeNumbers
       () => _host.Activate(StrokeKey),
       reduceMotion,
       "px",
-      icon: LayoutAction.StrokeWidth
+      icon: UiIconKind.StrokeWidth
     );
 
   /// <summary>Points the keypad at the open number, or lets it rest.</summary>

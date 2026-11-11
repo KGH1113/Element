@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +12,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// is the corner's rounding control: hovering lights it, clicking edits it.
 /// </summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class OverlayCornerArc : SettingsVectorGraphic
+internal sealed class OverlayCornerArc : UiVectorGraphic
 {
   public const float Size = 44;
   private const float Radius = 14,

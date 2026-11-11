@@ -9,6 +9,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit.Hosting;
 using TMPro;
@@ -142,7 +143,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       L("기준점", "Grow from"),
       ToggleGrow,
       _reduceMotion(),
-      icon: LayoutAction.GrowFrom
+      icon: UiIconKind.GrowFrom
     );
   }
 

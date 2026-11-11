@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -33,7 +34,7 @@ internal sealed class HomePage : SettingsPage
     _close = close;
     CreateCard(
       0,
-      SettingsNavigationIconKind.Overlay,
+      UiIconKind.Overlay,
       "Overlay",
       L("요소를 추가하고 색상과 배치를 편집합니다.", "Add elements and adjust their color and layout."),
       L("오버레이 설정", "Edit overlays"),
@@ -41,7 +42,7 @@ internal sealed class HomePage : SettingsPage
     );
     CreateCard(
       1,
-      SettingsNavigationIconKind.Tweaks,
+      UiIconKind.Tweaks,
       "Tweaks",
       L("판정 표시와 게임플레이 동작을 설정합니다.", "Adjust judgment display and gameplay behavior."),
       L("게임플레이 설정", "Open tweaks"),
@@ -50,7 +51,7 @@ internal sealed class HomePage : SettingsPage
     Adopt(tweaks, _homeCards[1]);
     CreateCard(
       2,
-      SettingsNavigationIconKind.Effects,
+      UiIconKind.Effects,
       "Effects",
       L("필요한 이펙트만 남기는 나만의 프리셋.", "Keep the effects you want with personal presets."),
       L("프리셋 선택", "Choose a preset"),
@@ -59,7 +60,7 @@ internal sealed class HomePage : SettingsPage
     Adopt(effects, _homeCards[2]);
     CreateCard(
       3,
-      SettingsNavigationIconKind.General,
+      UiIconKind.General,
       L("일반", "General"),
       profiles
         ? L(
@@ -78,21 +79,13 @@ internal sealed class HomePage : SettingsPage
 
   public override string Title => L("설정", "Settings");
 
-  private void CreateCard(
-    int index,
-    SettingsNavigationIconKind kind,
-    string title,
-    string description,
-    string action,
-    Action onClick
-  )
+  private void CreateCard(int index, UiIconKind kind, string title, string description, string action, Action onClick)
   {
     Button card = Ui.Button(title, Root, 0, 0, 300, 280, onClick);
     card.gameObject.name = title + " category";
     card.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     _homeCards[index] = card;
-    SettingsNavigationIcon icon = Ui.Rect("Category icon", card.transform, 24, 24, 36, 36)
-      .gameObject.AddComponent<SettingsNavigationIcon>();
+    UiIcon icon = Ui.Rect("Category icon", card.transform, 24, 24, 36, 36).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.raycastTarget = false;
     _cardIcons[index] = icon.rectTransform;
@@ -110,9 +103,8 @@ internal sealed class HomePage : SettingsPage
       false
     ).rectTransform;
     _cardActions[index] = Ui.Text(action, card.transform, 24, 239, 224, 24, 15, Ui.SoftAccent);
-    SettingsNavigationIcon arrow = Ui.Rect("Open category", card.transform, 260, 240, 16, 24)
-      .gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = SettingsNavigationIconKind.Forward;
+    UiIcon arrow = Ui.Rect("Open category", card.transform, 260, 240, 16, 24).gameObject.AddComponent<UiIcon>();
+    arrow.Kind = UiIconKind.PageForward;
     arrow.raycastTarget = false;
     _cardArrows[index] = arrow.rectTransform;
     Ui.Bind(() =>

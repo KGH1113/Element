@@ -1,7 +1,7 @@
 using Element.Application.Updates;
 using Element.Configuration;
 using Element.Configuration.Effects;
-using Element.Presentation.Layout;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -52,7 +52,7 @@ internal sealed class GeneralPage : SettingsPage
       () => settings.SettingsShortcutModifier,
       AssignSettingsShortcut,
       "Reset shortcut",
-      LayoutAction.Reset,
+      UiIconKind.Reset,
       () =>
       {
         settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey;

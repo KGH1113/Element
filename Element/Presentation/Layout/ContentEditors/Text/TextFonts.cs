@@ -3,6 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -46,7 +47,7 @@ internal sealed class TextFonts
       L("폰트", "Font"),
       ToggleFont,
       reduceMotion,
-      icon: LayoutAction.Font
+      icon: UiIconKind.Font
     );
 
   public void Build(OverlayEditorFrame screen, OverlayFonts fonts, bool reduceMotion)

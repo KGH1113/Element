@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
@@ -306,9 +307,9 @@ internal sealed class ModEditorPage : EditorPage
   /// <summary>Records <paramref name="input"/>: the page has the keyboard while it is focused.</summary>
   internal void TrackInput(TMP_InputField input) => _inputs.Add(input);
 
-  internal LayoutActionIcon Icon(Transform parent, LayoutAction kind, float x, float y, float size, Color color)
+  internal UiIcon Icon(Transform parent, UiIconKind kind, float x, float y, float size, Color color)
   {
-    LayoutActionIcon icon = _ui.Rect("Icon", parent, x, y, size, size).gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon icon = _ui.Rect("Icon", parent, x, y, size, size).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.color = color;
     icon.raycastTarget = false;

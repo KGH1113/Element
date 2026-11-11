@@ -28,6 +28,10 @@ Element.Unity/[Oo]bj/
 Element.Unity/[Ll]ogs/
 Element.Unity/[Uu]ser[Ss]ettings/
 Element.Unity/[Mm]emoryCaptures/
+# Unity writes its C# project files again whenever it opens the project.
+Element.Unity/*.csproj
+Element.Unity/*.sln
+Element.Unity/*.slnx
 
 # Verified bundled IPC binaries are source dependencies.
 !vendor/adofai-ipc-runtime/*.dll

@@ -1,6 +1,7 @@
 using Element.Application.Updates;
 using TMPro;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -51,7 +52,10 @@ internal sealed partial class SettingsPanel
     string target = status.Target;
     return status.State switch
     {
-      ModUpdateState.Updated => L($"이번 실행에서 {version} 버전으로 업데이트했습니다.", $"Updated to {version} this launch."),
+      ModUpdateState.Updated => L(
+        $"이번 실행에서 {version} 버전으로 업데이트했습니다.",
+        $"Updated to {version} this launch."
+      ),
       ModUpdateState.UpToDate => L(
         $"최신 버전({version})입니다. 게임을 켤 때마다 새 버전을 확인합니다.",
         $"{version} is the latest version. Checked each time the game starts."

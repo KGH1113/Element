@@ -5,6 +5,7 @@ using Element.Configuration;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -90,7 +91,7 @@ internal sealed partial class SettingsPanel
     detail = _ui.Text(description, link.transform, 20, 43, 820, 24, 14, SettingsUiFactory.Muted);
     SettingsUiFactory.StretchWidth(detail.rectTransform, 20, 64);
     var arrow = _ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = 3;
+    arrow.Kind = SettingsNavigationIconKind.Forward;
     arrow.raycastTarget = false;
     arrow.rectTransform.anchorMin = arrow.rectTransform.anchorMax = new Vector2(1, .5f);
     arrow.rectTransform.pivot = new Vector2(1, .5f);
@@ -243,7 +244,7 @@ internal sealed partial class SettingsPanel
       CommitRotationStep,
       6
     );
-    _rotationError = _ui.Text("", _editingPane, 16, 190, 900, 24, 13, new Color(1, .66f, .53f));
+    _rotationError = _ui.Text("", _editingPane, 16, 190, 900, 24, 13, SettingsPalette.Error);
     _editingOptions.Add(
       _ui.Switch(
         L("이벤트 좌표 함께 변환", "Transform event positions"),

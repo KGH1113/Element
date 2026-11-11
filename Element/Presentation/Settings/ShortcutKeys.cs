@@ -1,13 +1,12 @@
 using Element.Configuration;
 using UnityEngine;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
 /// <summary>Reads shortcuts from the keyboard and names their keys for display.</summary>
 internal static class ShortcutKeys
 {
-  private static bool Korean => RDString.language == SystemLanguage.Korean;
-
   internal static bool IsMac =>
     UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
     || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
@@ -18,7 +17,7 @@ internal static class ShortcutKeys
     if (key == KeyCode.None || !UnityEngine.Input.GetKeyDown(key))
       return false;
     foreach (KeyCode candidate in KeyShortcut.Modifiers)
-      if (UnityEngine.Input.GetKey(candidate) != (candidate == modifier))
+      if (SettingsModifierKeys.IsHeld(candidate) != (candidate == modifier))
         return false;
     return true;
   }
@@ -29,7 +28,7 @@ internal static class ShortcutKeys
     KeyCode modifier = KeyCode.None;
     count = 0;
     foreach (KeyCode candidate in KeyShortcut.Modifiers)
-      if (UnityEngine.Input.GetKey(candidate))
+      if (SettingsModifierKeys.IsHeld(candidate))
       {
         modifier = candidate;
         count++;
@@ -97,6 +96,4 @@ internal static class ShortcutKeys
       _ => key.ToString(),
     };
   }
-
-  private static string L(string ko, string en) => Korean ? ko : en;
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Domain.Tweaks;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Planets;
@@ -310,6 +311,7 @@ internal sealed class PlanetAppearanceController : IDisposable
   {
     internal readonly bool Override;
     private readonly Color _color;
+    private readonly bool _colorRead;
     private readonly float _opacity;
     private readonly string _hex;
 
@@ -317,17 +319,17 @@ internal sealed class PlanetAppearanceController : IDisposable
     {
       Override = source.OverrideColor;
       _hex = source.ColorHex;
-      ColorUtility.TryParseHtmlString(source.ColorHex, out _color);
-      _opacity = source.Opacity / 100;
+      _colorRead = ColorUtility.TryParseHtmlString(source.ColorHex, out _color);
+      _opacity = source.Opacity;
     }
 
     internal bool Matches(PlanetComponentAppearance source) =>
-      Override == source.OverrideColor && _hex == source.ColorHex && _opacity == source.Opacity / 100;
+      Override == source.OverrideColor && _hex == source.ColorHex && _opacity == source.Opacity;
 
     internal Color Apply(Color original)
     {
-      Color result = Override ? _color : original;
-      result.a = original.a * _opacity;
+      Color result = PlanetColorRule.UsesChosenColor(Override, _colorRead) ? _color : original;
+      result.a = PlanetColorRule.Alpha(original.a, _opacity);
       return result;
     }
   }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Domain.Tweaks;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
@@ -296,11 +297,9 @@ internal sealed class PlanetPreviewRenderer : IDisposable
 
   private static Color ApplyColor(Color source, PlanetComponentAppearance component)
   {
-    Color result =
-      component.OverrideColor && ColorUtility.TryParseHtmlString(component.ColorHex, out Color parsed)
-        ? parsed
-        : source;
-    result.a = source.a * Mathf.Clamp01(component.Opacity / 100);
+    bool read = ColorUtility.TryParseHtmlString(component.ColorHex, out Color parsed);
+    Color result = PlanetColorRule.UsesChosenColor(component.OverrideColor, read) ? parsed : source;
+    result.a = PlanetColorRule.Alpha(source.a, component.Opacity);
     return result;
   }
 

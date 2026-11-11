@@ -12,6 +12,7 @@ using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Overlay.Attempt;
 using Element.Presentation.Overlay.Elements;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -156,12 +157,6 @@ internal static class RunStateTests
 
   private static void Same(AttemptCounts counts, int attempt, int full, string message) =>
     Check(!counts.IsUnknown && counts.Attempt == attempt && counts.FullAttempt == full, message);
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 
   private sealed class FixedAttempts : IAttemptSource
   {

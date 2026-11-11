@@ -4,6 +4,7 @@ using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -46,31 +47,31 @@ internal static class OverlayLayoutTests
         1920f,
         1080f
       );
-      Near(240f, result.Width, handle + " grows in the grabbed direction");
-      Near(120f, result.Height, handle + " preserves aspect ratio");
+      Equal(240f, result.Width, 0.001f, handle + " grows in the grabbed direction");
+      Equal(120f, result.Height, 0.001f, handle + " preserves aspect ratio");
       if (left)
-        Near(start.Right, result.Right, handle + " anchors right");
+        Equal(start.Right, result.Right, 0.001f, handle + " anchors right");
       else if (right)
-        Near(start.X, result.X, handle + " anchors left");
+        Equal(start.X, result.X, 0.001f, handle + " anchors left");
       else
-        Near(start.X + start.Width / 2f, result.X + result.Width / 2f, handle + " anchors horizontal center");
+        Equal(start.X + start.Width / 2f, result.X + result.Width / 2f, 0.001f, handle + " anchors horizontal center");
       if (top)
-        Near(start.Bottom, result.Bottom, handle + " anchors bottom");
+        Equal(start.Bottom, result.Bottom, 0.001f, handle + " anchors bottom");
       else if (bottom)
-        Near(start.Y, result.Y, handle + " anchors top");
+        Equal(start.Y, result.Y, 0.001f, handle + " anchors top");
       else
-        Near(start.Y + start.Height / 2f, result.Y + result.Height / 2f, handle + " anchors vertical center");
+        Equal(start.Y + start.Height / 2f, result.Y + result.Height / 2f, 0.001f, handle + " anchors vertical center");
 
       LayoutBounds stationary = OverlayLayoutGeometry.Drag(start, handle, 0f, 0f, 1920f, 1080f);
-      Near(start.X, stationary.X, "pointer-down must not snap to an anchor");
-      Near(start.Y, stationary.Y, "pointer-down must preserve grab offset");
-      Near(start.Width, stationary.Width, "zero delta keeps scale");
+      Equal(start.X, stationary.X, 0.001f, "pointer-down must not snap to an anchor");
+      Equal(start.Y, stationary.Y, 0.001f, "pointer-down must preserve grab offset");
+      Equal(start.Width, stationary.Width, 0.001f, "zero delta keeps scale");
     }
 
     LayoutBounds shrunk = OverlayLayoutGeometry.Drag(start, LayoutHandle.TopLeft, 2000f, 2000f, 1920f, 1080f);
-    Near(40f, shrunk.Width, "minimum scale prevents inverted bounds");
-    Near(start.Right, shrunk.Right, "minimum clamp preserves opposite X anchor");
-    Near(start.Bottom, shrunk.Bottom, "minimum clamp preserves opposite Y anchor");
+    Equal(40f, shrunk.Width, 0.001f, "minimum scale prevents inverted bounds");
+    Equal(start.Right, shrunk.Right, 0.001f, "minimum clamp preserves opposite X anchor");
+    Equal(start.Bottom, shrunk.Bottom, 0.001f, "minimum clamp preserves opposite Y anchor");
     LayoutBounds enlarged = OverlayLayoutGeometry.Drag(
       start,
       LayoutHandle.BottomRight,
@@ -81,28 +82,28 @@ internal static class OverlayLayoutTests
       0.1f,
       2f
     );
-    Near(400f, enlarged.Width, "absolute scale limit supplied relative to drag start");
-    Near(start.X, enlarged.X, "maximum clamp preserves opposite anchor");
+    Equal(400f, enlarged.Width, 0.001f, "absolute scale limit supplied relative to drag start");
+    Equal(start.X, enlarged.X, 0.001f, "maximum clamp preserves opposite anchor");
     LayoutBounds nearEdge = new(800f, 400f, 200f, 100f);
     LayoutBounds viewport = OverlayLayoutGeometry.Drag(nearEdge, LayoutHandle.BottomRight, 1000f, 1000f, 1024f, 600f);
-    Near(1000f, viewport.Width, "growth can extend beyond the viewport");
-    Near(500f, viewport.Height, "offscreen growth preserves ratio");
-    Near(800f, viewport.X, "viewport clamp does not move opposite corner");
-    Near(400f, viewport.Y, "viewport clamp does not move opposite corner vertically");
+    Equal(1000f, viewport.Width, 0.001f, "growth can extend beyond the viewport");
+    Equal(500f, viewport.Height, 0.001f, "offscreen growth preserves ratio");
+    Equal(800f, viewport.X, 0.001f, "viewport clamp does not move opposite corner");
+    Equal(400f, viewport.Y, 0.001f, "viewport clamp does not move opposite corner vertically");
     viewport = OverlayLayoutGeometry.Drag(nearEdge, LayoutHandle.Left, -1000f, 0f, 1024f, 600f);
-    Near(1000f, viewport.Width, "edge drag can extend beyond its other axis");
-    Near(1000f, viewport.Right, "edge growth preserves opposite edge");
-    Near(450f, viewport.Y + viewport.Height * 0.5f, "edge growth preserves other axis center");
+    Equal(1000f, viewport.Width, 0.001f, "edge drag can extend beyond its other axis");
+    Equal(1000f, viewport.Right, 0.001f, "edge growth preserves opposite edge");
+    Equal(450f, viewport.Y + viewport.Height * 0.5f, 0.001f, "edge growth preserves other axis center");
 
     LayoutBounds moved = OverlayLayoutGeometry.Drag(start, LayoutHandle.Move, 35f, -20f, 1920f, 1080f);
-    Near(135f, moved.X, "drag is one-to-one in X");
-    Near(60f, moved.Y, "drag is one-to-one in Y");
+    Equal(135f, moved.X, 0.001f, "drag is one-to-one in X");
+    Equal(60f, moved.Y, 0.001f, "drag is one-to-one in Y");
     moved = OverlayLayoutGeometry.Drag(start, LayoutHandle.Move, -999f, 9999f, 1920f, 1080f);
-    Near(-180f, moved.X, "left edge keeps 10 percent visible");
-    Near(1070f, moved.Y, "bottom edge keeps 10 percent visible");
+    Equal(-180f, moved.X, 0.001f, "left edge keeps 10 percent visible");
+    Equal(1070f, moved.Y, 0.001f, "bottom edge keeps 10 percent visible");
     moved = OverlayLayoutGeometry.Drag(start, LayoutHandle.Move, 99999, -99999, 1920, 1080);
-    Near(1900, moved.X, "right edge keeps 10 percent visible");
-    Near(-90, moved.Y, "top edge keeps 10 percent visible");
+    Equal(1900, moved.X, 0.001f, "right edge keeps 10 percent visible");
+    Equal(-90, moved.Y, 0.001f, "top edge keeps 10 percent visible");
 
     // Exercise every fixed anchor from partially offscreen starting positions.
     // Shrinking is just as important: it must not hide the last visible sliver.
@@ -129,10 +130,10 @@ internal static class OverlayLayoutTests
         600
       );
       Visible(result, 1024, 600);
-      Near(sample.Width / sample.Height, result.Width / result.Height, "random resize preserves ratio");
+      Equal(sample.Width / sample.Height, result.Width / result.Height, 0.001f, "random resize preserves ratio");
       LayoutBounds scaled = OverlayLayoutGeometry.ScaleAtCenter(sample, i % 2 == 0 ? .1f : 50f, 1024, 600, .2f, 5f);
       Visible(scaled, 1024, 600);
-      Near(sample.X + sample.Width * .5f, scaled.X + scaled.Width * .5f, "size input preserves center");
+      Equal(sample.X + sample.Width * .5f, scaled.X + scaled.Width * .5f, 0.001f, "size input preserves center");
     }
 
     Hit(LayoutHandle.TopLeft, start, 103f, 83f);
@@ -147,7 +148,7 @@ internal static class OverlayLayoutTests
     Hit(LayoutHandle.None, start, 80f, 130f);
 
     LayoutBounds invalid = OverlayLayoutGeometry.Drag(start, LayoutHandle.Left, float.NaN, 0f, 1920f, 1080f);
-    Near(start.Width, invalid.Width, "invalid pointer positions cannot poison saved layout");
+    Equal(start.Width, invalid.Width, 0.001f, "invalid pointer positions cannot poison saved layout");
     LayoutBounds empty = OverlayLayoutGeometry.Drag(
       new LayoutBounds(1f, 2f, 0f, 0f),
       LayoutHandle.Right,
@@ -156,16 +157,17 @@ internal static class OverlayLayoutTests
       1920f,
       1080f
     );
-    Near(0f, empty.Width, "unavailable zero-sized targets are safe");
+    Equal(0f, empty.Width, 0.001f, "unavailable zero-sized targets are safe");
   }
 
   private static void AnchoredPositions()
   {
-    Near(1, OverlayLayoutPosition.ScreenScale(1920, 1080), "reference viewport has unit scale");
-    Near(2, OverlayLayoutPosition.ScreenScale(3840, 2160), "uniform viewport growth scales both axes equally");
-    Near(
+    Equal(1, OverlayLayoutPosition.ScreenScale(1920, 1080), 0.001f, "reference viewport has unit scale");
+    Equal(2, OverlayLayoutPosition.ScreenScale(3840, 2160), 0.001f, "uniform viewport growth scales both axes equally");
+    Equal(
       (float)Math.Sqrt(4d / 3),
       OverlayLayoutPosition.ScreenScale(2560, 1080),
+      0.001f,
       "ultrawide scale matches the existing half-width half-height CanvasScaler"
     );
     foreach (Anchor9 anchor in Enum.GetValues(typeof(Anchor9)))
@@ -177,21 +179,23 @@ internal static class OverlayLayoutTests
       Check(captured.IsValid && captured.Anchor == anchor, "normalized center selects all nine anchors");
       OverlayLayoutSettings settings = Anchored(captured);
       LayoutBounds restored = OverlayLayoutPosition.Resolve(settings, 200, 100, 1920, 1080);
-      Near(source.X, restored.X, anchor + " captures and restores without horizontal displacement");
-      Near(source.Y, restored.Y, anchor + " captures and restores without vertical displacement");
+      Equal(source.X, restored.X, 0.001f, anchor + " captures and restores without horizontal displacement");
+      Equal(source.Y, restored.Y, 0.001f, anchor + " captures and restores without vertical displacement");
 
       foreach (var viewport in new[] { (1280f, 720f), (2560f, 1080f), (1080f, 1920f), (800f, 600f) })
       {
         float scale = OverlayLayoutPosition.ScreenScale(viewport.Item1, viewport.Item2);
         restored = OverlayLayoutPosition.Resolve(settings, 200 * scale, 100 * scale, viewport.Item1, viewport.Item2);
-        Near(
+        Equal(
           captured.OffsetX,
           (restored.X + ax * restored.Width - ax * viewport.Item1) / scale,
+          0.001f,
           anchor + " retains the horizontal logical margin across aspect ratios"
         );
-        Near(
+        Equal(
           captured.OffsetY,
           (restored.Y + ay * restored.Height - ay * viewport.Item2) / scale,
+          0.001f,
           anchor + " retains the vertical logical margin across aspect ratios"
         );
       }
@@ -211,14 +215,24 @@ internal static class OverlayLayoutTests
 
     LayoutBounds bottomRight = new(1696, 956, 200, 100);
     OverlayLayoutSettings edge = Anchored(OverlayLayoutPosition.Capture(bottomRight, 1920, 1080));
-    Near(-24, edge.OffsetX, "right anchor stores a signed 24px inward margin");
-    Near(-24, edge.OffsetY, "bottom anchor stores a signed 24px inward margin");
+    Equal(-24, edge.OffsetX, 0.001f, "right anchor stores a signed 24px inward margin");
+    Equal(-24, edge.OffsetY, 0.001f, "bottom anchor stores a signed 24px inward margin");
     LayoutBounds larger = OverlayLayoutPosition.Resolve(edge, 400, 200, 3840, 2160);
-    Near(48, 3840 - larger.Right, "right margin scales with the shared viewport scale");
-    Near(48, 2160 - larger.Bottom, "bottom margin scales with the same viewport scale");
+    Equal(48, 3840 - larger.Right, 0.001f, "right margin scales with the shared viewport scale");
+    Equal(48, 2160 - larger.Bottom, 0.001f, "bottom margin scales with the same viewport scale");
     LayoutBounds widerContent = OverlayLayoutPosition.Resolve(edge, 700, 80, 1920, 1080);
-    Near(bottomRight.Right, widerContent.Right, "restoration applies current content width before right alignment");
-    Near(bottomRight.Bottom, widerContent.Bottom, "restoration applies current content height before bottom alignment");
+    Equal(
+      bottomRight.Right,
+      widerContent.Right,
+      0.001f,
+      "restoration applies current content width before right alignment"
+    );
+    Equal(
+      bottomRight.Bottom,
+      widerContent.Bottom,
+      0.001f,
+      "restoration applies current content height before bottom alignment"
+    );
 
     LayoutBounds movedAcrossCenter = new(80, 60, 300, 120);
     AnchoredLayoutPosition resize = OverlayLayoutPosition.Capture(movedAcrossCenter, 1920, 1080, edge.Anchor);
@@ -230,13 +244,23 @@ internal static class OverlayLayoutTests
 
     OverlayLayoutSettings offscreen = Anchored(OverlayLayoutPosition.Capture(new(-180, -90, 200, 100), 1920, 1080));
     LayoutBounds raw = OverlayLayoutPosition.Resolve(offscreen, 400, 200, 3840, 2160);
-    Near(-360, raw.X, "signed offsets preserve deliberate horizontal offscreen placement");
-    Near(-180, raw.Y, "signed offsets preserve deliberate vertical offscreen placement");
+    Equal(-360, raw.X, 0.001f, "signed offsets preserve deliberate horizontal offscreen placement");
+    Equal(-180, raw.Y, 0.001f, "signed offsets preserve deliberate vertical offscreen placement");
     float savedOffsetX = offscreen.OffsetX;
     float savedOffsetY = offscreen.OffsetY;
     OverlayLayoutGeometry.KeepVisible(OverlayLayoutPosition.Resolve(offscreen, 40, 20, 400, 300), 400, 300);
-    Near(savedOffsetX, offscreen.OffsetX, "display-only visibility fitting never rewrites horizontal persistence");
-    Near(savedOffsetY, offscreen.OffsetY, "display-only visibility fitting never rewrites vertical persistence");
+    Equal(
+      savedOffsetX,
+      offscreen.OffsetX,
+      0.001f,
+      "display-only visibility fitting never rewrites horizontal persistence"
+    );
+    Equal(
+      savedOffsetY,
+      offscreen.OffsetY,
+      0.001f,
+      "display-only visibility fitting never rewrites vertical persistence"
+    );
     Check(
       !OverlayLayoutPosition.Capture(new(0, 0, 0, 100), 1920, 1080).IsValid
         && !OverlayLayoutPosition.Capture(new(float.NaN, 0, 100, 100), 1920, 1080).IsValid
@@ -256,30 +280,41 @@ internal static class OverlayLayoutTests
     float scale = OverlayLayoutPosition.ScreenScale(3600, 2260);
     float windowWidth = 3600 / scale;
     float windowHeight = 2260 / scale;
-    Near(1, OverlayLayoutPosition.ScreenScale(windowWidth, windowHeight), "canvas units are reference pixels");
+    Equal(1, OverlayLayoutPosition.ScreenScale(windowWidth, windowHeight), 0.001f, "canvas units are reference pixels");
 
     OverlayLayoutSettings bottom = Anchored(new AnchoredLayoutPosition(Anchor9.Bottom, 0, -4.1875f));
     LayoutBounds pixels = OverlayLayoutPosition.Resolve(bottom, 300 * scale, 30 * scale, 3600, 2260);
     LayoutBounds window = OverlayLayoutPosition.ResolveInCanvas(bottom, 300, 30, windowWidth, windowHeight);
-    Near(pixels.X / scale, window.X, "canvas units place an element where the window's pixels do, across");
-    Near(pixels.Y / scale, window.Y, "canvas units place an element where the window's pixels do, down");
+    Equal(pixels.X / scale, window.X, 0.001f, "canvas units place an element where the window's pixels do, across");
+    Equal(pixels.Y / scale, window.Y, 0.001f, "canvas units place an element where the window's pixels do, down");
 
     // Kept at its distance from its anchor, the element lands in the video where
     // resolving for the video puts it: at the bottom, not below the frame.
     (float x, float y) = OverlayLayoutPosition.AnchorPoint(bottom);
-    Near(.5f, x, "a bottom anchor is centered across");
-    Near(1, y, "a bottom anchor is at the bottom");
+    Equal(.5f, x, 0.001f, "a bottom anchor is centered across");
+    Equal(1, y, 0.001f, "a bottom anchor is at the bottom");
     LayoutBounds video = OverlayLayoutPosition.ResolveInCanvas(bottom, 300, 30, 1920, 1080);
-    Near(video.X, x * 1920 + window.X - x * windowWidth, "the pinned element matches the video's layout across");
-    Near(video.Y, y * 1080 + window.Y - y * windowHeight, "the pinned element matches the video's layout down");
-    Near(1080 - 4.1875f, video.Bottom, "an element at the window's bottom stays at the video's bottom");
+    Equal(
+      video.X,
+      x * 1920 + window.X - x * windowWidth,
+      0.001f,
+      "the pinned element matches the video's layout across"
+    );
+    Equal(
+      video.Y,
+      y * 1080 + window.Y - y * windowHeight,
+      0.001f,
+      "the pinned element matches the video's layout down"
+    );
+    Equal(1080 - 4.1875f, video.Bottom, 0.001f, "an element at the window's bottom stays at the video's bottom");
     float fromCenter = window.Y - windowHeight * .5f;
     Check(1080 * .5f + fromCenter + 30 > 1080, "measured from the center, as before, it fell below the video");
 
     OverlayLayoutSettings top = Anchored(new AnchoredLayoutPosition(Anchor9.Top, 0, 43.875f));
-    Near(
+    Equal(
       43.875f,
       OverlayLayoutPosition.ResolveInCanvas(top, 400, 40, 1920, 1080).Y,
+      0.001f,
       "a title under the top edge keeps its margin in the video"
     );
 
@@ -290,8 +325,8 @@ internal static class OverlayLayoutTests
       CenterY = .9f,
     };
     (x, y) = OverlayLayoutPosition.AnchorPoint(legacy);
-    Near(.25f, x, "a legacy placement keeps its saved center across");
-    Near(.9f, y, "a legacy placement keeps its saved center down");
+    Equal(.25f, x, 0.001f, "a legacy placement keeps its saved center across");
+    Equal(.9f, y, 0.001f, "a legacy placement keeps its saved center down");
   }
 
   private static void NativeGrowth()
@@ -317,11 +352,11 @@ internal static class OverlayLayoutTests
       foreach (var size in new[] { (800f, 500f), (1600f, 900f), (70f, 40f), (100f, 60f) })
       {
         LayoutBounds resized = OverlayLayoutPosition.Resolve(placement, size.Item1, size.Item2, 1920, 1080);
-        Near(fixedX, resized.X + ax * resized.Width, "growth and shrinkage retain the horizontal anchor");
-        Near(fixedY, resized.Y + ay * resized.Height, "growth and shrinkage retain the vertical anchor");
-        Near(size.Item1, resized.Width, "growth beyond 430px does not fit or shrink content");
-        Near(size.Item2, resized.Height, "growth beyond 270px does not fit or shrink content");
-        Near(.75f, placement.Scale, "automatic content changes preserve the user scale");
+        Equal(fixedX, resized.X + ax * resized.Width, 0.001f, "growth and shrinkage retain the horizontal anchor");
+        Equal(fixedY, resized.Y + ay * resized.Height, 0.001f, "growth and shrinkage retain the vertical anchor");
+        Equal(size.Item1, resized.Width, 0.001f, "growth beyond 430px does not fit or shrink content");
+        Equal(size.Item2, resized.Height, 0.001f, "growth beyond 270px does not fit or shrink content");
+        Equal(.75f, placement.Scale, 0.001f, "automatic content changes preserve the user scale");
         Check(placement.Anchor == sample.Item1, "growing center cannot reselect the captured anchor");
       }
     }
@@ -372,11 +407,11 @@ internal static class OverlayLayoutTests
       fitted.X >= 0 && fitted.Y >= 0 && fitted.Right <= 1920.01f && fitted.Bottom <= 1080.01f,
       "a viewer shrunk to fit stays inside the view"
     );
-    Near(1080, fitted.Bottom, "a viewer shrunk to fit keeps to its anchored corner");
+    Equal(1080, fitted.Bottom, 0.001f, "a viewer shrunk to fit keeps to its anchored corner");
     LayoutBounds smaller = OverlayLayoutGeometry.ScaleAtCenter(fitted, 1 / 3.2f, 1920, 1080, .2f / 3.2f, 10 / 3.2f);
-    Near(600, smaller.Width, "a viewer shrunk to fit can be scaled down again");
+    Equal(600, smaller.Width, 0.001f, "a viewer shrunk to fit can be scaled down again");
     LayoutBounds unshrunk = NativeViewerGrowth.Place(placement, 600, 200, 1920, 1080, false);
-    Near(60, unshrunk.Right, "a viewer that fits may still sit mostly off screen");
+    Equal(60, unshrunk.Right, 0.001f, "a viewer that fits may still sit mostly off screen");
   }
 
   private static void AnchorPersistence()
@@ -392,8 +427,8 @@ internal static class OverlayLayoutTests
       "missing version retains legacy format"
     );
     LayoutBounds before = OverlayLayoutPosition.Resolve(legacy, 200, 100, 1920, 1080);
-    Near(1436, before.X, "legacy horizontal normalized center retains its original pixel placement");
-    Near(220, before.Y, "legacy vertical normalized center retains its original pixel placement");
+    Equal(1436, before.X, 0.001f, "legacy horizontal normalized center retains its original pixel placement");
+    Equal(220, before.Y, 0.001f, "legacy vertical normalized center retains its original pixel placement");
     OverlayLayoutPosition.Resolve(legacy, 350, 150, 2560, 1440);
     Check(
       legacy.LayoutVersion == 0 && legacy.CenterX == .8f && legacy.CenterY == .25f && legacy.Scale == 1.7f,
@@ -407,8 +442,8 @@ internal static class OverlayLayoutTests
     legacy.OffsetX = capture.OffsetX;
     legacy.OffsetY = capture.OffsetY;
     LayoutBounds after = OverlayLayoutPosition.Resolve(legacy, 200, 100, 1920, 1080);
-    Near(before.X, after.X, "explicit legacy migration is visually stationary horizontally");
-    Near(before.Y, after.Y, "explicit legacy migration is visually stationary vertically");
+    Equal(before.X, after.X, 0.001f, "explicit legacy migration is visually stationary horizontally");
+    Equal(before.Y, after.Y, 0.001f, "explicit legacy migration is visually stationary vertically");
 
     using StringWriter writer = new();
     serializer.Serialize(writer, legacy);
@@ -434,7 +469,12 @@ internal static class OverlayLayoutTests
         scaled.Scale == migratedScale && scaled.LayoutVersion == 1,
         "migrated native scales outside the old slider range survive storage and rendering unchanged"
       );
-      Near(350, resolved.Width, "position resolution uses the current rendered size without applying scale twice");
+      Equal(
+        350,
+        resolved.Width,
+        0.001f,
+        "position resolution uses the current rendered size without applying scale twice"
+      );
     }
     restored.LayoutVersion = 99;
     Check(!OverlayLayoutPosition.IsAnchored(restored), "unknown future layout formats are not silently reinterpreted");
@@ -452,12 +492,6 @@ internal static class OverlayLayoutTests
       OffsetY = position.OffsetY,
     };
 
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
-  }
-
   private static void Hit(LayoutHandle expected, LayoutBounds bounds, float x, float y)
   {
     LayoutHandle actual = OverlayLayoutGeometry.HitTest(bounds, x, y);
@@ -471,11 +505,5 @@ internal static class OverlayLayoutTests
     float visibleHeight = Math.Min(height, value.Bottom) - Math.Max(0, value.Y);
     if (visibleWidth + .002f < value.Width * .1f || visibleHeight + .002f < value.Height * .1f)
       throw new InvalidOperationException("Resize must keep at least 10 percent of both axes visible");
-  }
-
-  private static void Near(float expected, float actual, string message)
-  {
-    if (Math.Abs(expected - actual) > 0.001f)
-      throw new InvalidOperationException(message + ": expected " + expected + ", got " + actual);
   }
 }

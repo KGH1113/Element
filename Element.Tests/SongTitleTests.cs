@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Overlay.Combo;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -10,9 +11,15 @@ internal static class SongTitleTests
   public static void Run()
   {
     // Sizes are the game's pixels, kept in proportion to its size.
-    Equal("<size=150%>large</size> <size=50%>small</size>", Normalize("<size=150>large</size> <size=50>small</size>", 100));
+    Equal(
+      "<size=150%>large</size> <size=50%>small</size>",
+      Normalize("<size=150>large</size> <size=50>small</size>", 100)
+    );
     Equal("<size=145.833333%>scaled</size>", Normalize("<size=70>scaled</size>", 48));
-    Equal("<size=60%>percent</size> <size=1.2em>em</size>", Normalize("<size=60%>percent</size> <size=1.2em>em</size>", 100));
+    Equal(
+      "<size=60%>percent</size> <size=1.2em>em</size>",
+      Normalize("<size=60%>percent</size> <size=1.2em>em</size>", 100)
+    );
     Equal("<size=25%>signed</size>", Normalize("<size=+25>signed</size>", 100));
     Equal("plain", Normalize("plain", 0));
 
@@ -44,7 +51,10 @@ internal static class SongTitleTests
     // A seven-digit color is dropped with its closing tag; a stray closing tag too.
     Equal(
       "<b><size=130%><color=#81F7F3>F</color>o<color=#F7FE2E>u</color></size></b>",
-      Normalize("</size><b><size=65><color=#81F7F3>F</color><color=#F4FA588>o</color><color=#F7FE2E>u</color></size></b>", 50)
+      Normalize(
+        "</size><b><size=65><color=#81F7F3>F</color><color=#F4FA588>o</color><color=#F7FE2E>u</color></size></b>",
+        50
+      )
     );
     // A tiny size hides the separator, as the level meant.
     Equal(
@@ -61,10 +71,4 @@ internal static class SongTitleTests
   }
 
   private static string Normalize(string text, int size) => SongTitleMarkupNormalizer.Normalize(text, size);
-
-  private static void Equal(string expected, string actual)
-  {
-    if (expected != actual)
-      throw new InvalidOperationException("Expected '" + expected + "' but got '" + actual + "'");
-  }
 }

@@ -4,6 +4,8 @@ using System.IO;
 using Element.Application.Attempts;
 using Element.Domain.Attempts;
 using Element.Infrastructure.Storage;
+using Element.Tests.Support;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -191,45 +193,44 @@ internal static class AttemptTests
     Same(read.Read(MapA, new AttemptKey(12, 1.1d)), 1, 3, "speeds survive a save");
     Same(read.Read(MapB, new AttemptKey(3, 0.9d)), 1, 1, "every map survives a save");
 
-    Throws(() => AttemptBookCodec.Decode(new byte[] { 1, 2, 3, 4, 1 }), "a file of another kind is rejected");
+    Throws<InvalidDataException, EndOfStreamException>(
+      () => AttemptBookCodec.Decode(new byte[] { 1, 2, 3, 4, 1 }),
+      "a file of another kind is rejected"
+    );
     byte[] cut = new byte[data.Length - 3];
     Array.Copy(data, cut, cut.Length);
-    Throws(() => AttemptBookCodec.Decode(cut), "a cut-off file is rejected");
+    Throws<InvalidDataException, EndOfStreamException>(
+      () => AttemptBookCodec.Decode(cut),
+      "a cut-off file is rejected"
+    );
   }
 
   private static void FileStore()
   {
-    string root = Path.Combine(Path.GetTempPath(), "element-attempts-" + Guid.NewGuid().ToString("N"));
-    Directory.CreateDirectory(root);
-    try
-    {
-      List<string> warnings = new();
-      List<string> errors = new();
-      AttemptFileStore store = new(root, (context, _) => errors.Add(context), warnings.Add);
-      Check(store.Load().Maps.Count == 0, "no file means no attempts yet");
+    using TempFolder folder = new("element-attempts-");
+    string root = folder.Path;
+    List<string> warnings = new();
+    List<string> errors = new();
+    AttemptFileStore store = new(root, (context, _) => errors.Add(context), warnings.Add);
+    Check(store.Load().Maps.Count == 0, "no file means no attempts yet");
 
-      AttemptBook book = new();
-      book.Add(MapA, new AttemptKey(0, 1));
-      store.Save(book);
-      book.Add(MapA, new AttemptKey(0, 1));
-      store.Save(book);
-      store.Flush();
-      Same(store.Load().Read(MapA, new AttemptKey(0, 1)), 2, 2, "the latest save is on disk after a flush");
-      Check(errors.Count == 0, "saving reports no errors");
+    AttemptBook book = new();
+    book.Add(MapA, new AttemptKey(0, 1));
+    store.Save(book);
+    book.Add(MapA, new AttemptKey(0, 1));
+    store.Save(book);
+    store.Flush();
+    Same(store.Load().Read(MapA, new AttemptKey(0, 1)), 2, 2, "the latest save is on disk after a flush");
+    Check(errors.Count == 0, "saving reports no errors");
 
-      string path = Path.Combine(root, AttemptFileStore.FileName);
-      File.WriteAllBytes(path, new byte[] { 9, 9 });
-      Check(store.Load().Maps.Count == 0, "an unreadable file starts from zero");
-      Check(
-        File.Exists(path + ".broken") && errors.Count == 1 && errors[0].Contains(".broken"),
-        "the unreadable file is kept aside and the log says where"
-      );
-      Check(warnings.Count == 0, "a finished save leaves nothing to warn about");
-    }
-    finally
-    {
-      Directory.Delete(root, true);
-    }
+    string path = Path.Combine(root, AttemptFileStore.FileName);
+    File.WriteAllBytes(path, new byte[] { 9, 9 });
+    Check(store.Load().Maps.Count == 0, "an unreadable file starts from zero");
+    Check(
+      File.Exists(path + ".broken") && errors.Count == 1 && errors[0].Contains(".broken"),
+      "the unreadable file is kept aside and the log says where"
+    );
+    Check(warnings.Count == 0, "a finished save leaves nothing to warn about");
   }
 
   private static void Same(AttemptCounts counts, int attempt, int full, string message) =>
@@ -237,39 +238,6 @@ internal static class AttemptTests
       counts.Attempt == attempt && counts.FullAttempt == full,
       message + " (got " + counts.Attempt + "/" + counts.FullAttempt + ", expected " + attempt + "/" + full + ")"
     );
-
-  private static void Throws<T>(Action action, string message)
-    where T : Exception
-  {
-    try
-    {
-      action();
-    }
-    catch (T)
-    {
-      return;
-    }
-    throw new InvalidOperationException(message);
-  }
-
-  private static void Throws(Action action, string message)
-  {
-    try
-    {
-      action();
-    }
-    catch (Exception exception) when (exception is InvalidDataException or EndOfStreamException)
-    {
-      return;
-    }
-    throw new InvalidOperationException(message);
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 
   private sealed class FakeRuns : IAttemptRunSource
   {

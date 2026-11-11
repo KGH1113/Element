@@ -1,6 +1,7 @@
 using System;
 using Element.Application.Gameplay;
 using Element.Configuration;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -20,12 +21,12 @@ internal static class GameplaySessionTests
   {
     var parts = new Parts();
     parts.Session.Show();
-    True(parts.Overlay.Shown && parts.Viewers.Active, "a play shows the overlay and the key viewers");
+    Check(parts.Overlay.Shown && parts.Viewers.Active, "a play shows the overlay and the key viewers");
     parts.Session.Hide();
-    True(!parts.Overlay.Shown && !parts.Viewers.Active, "the end of a play hides both");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "the end of a play hides both");
     parts.Viewers.Enabled = false;
     parts.Session.Show();
-    True(parts.Overlay.Shown && !parts.Viewers.Active, "no viewer on: only the overlay shows");
+    Check(parts.Overlay.Shown && !parts.Viewers.Active, "no viewer on: only the overlay shows");
   }
 
   private static void RecordModeAndCoopHideBoth()
@@ -33,14 +34,14 @@ internal static class GameplaySessionTests
     var parts = new Parts();
     parts.Recording.IsActive = true;
     parts.Session.Show();
-    True(!parts.Overlay.Shown && !parts.Viewers.Active, "record mode keeps the overlay and key viewers hidden");
-    True(parts.Recording.Reapplied == 1, "record mode hides the game's UI of the new play again");
-    True(!parts.Session.ShowsKeyViewersInPlay, "a rendered video of a recorded play shows no key viewers");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "record mode keeps the overlay and key viewers hidden");
+    Check(parts.Recording.Reapplied == 1, "record mode hides the game's UI of the new play again");
+    Check(!parts.Session.ShowsKeyViewersInPlay, "a rendered video of a recorded play shows no key viewers");
 
     parts = new Parts();
     parts.Play.IsCoop = true;
     parts.Session.Show();
-    True(!parts.Overlay.Shown && !parts.Viewers.Active, "co-op keeps the overlay and key viewers hidden");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "co-op keeps the overlay and key viewers hidden");
   }
 
   private static void LayoutEditorShowsViewersOutsideAPlay()
@@ -49,14 +50,14 @@ internal static class GameplaySessionTests
     parts.Editing = true;
     parts.Play.IsCoop = true;
     parts.Session.RefreshViewers();
-    True(parts.Viewers.Active, "the layout editor shows the key viewers outside a play, even in co-op");
+    Check(parts.Viewers.Active, "the layout editor shows the key viewers outside a play, even in co-op");
     parts.Editing = false;
     parts.Session.RefreshViewers();
-    True(!parts.Viewers.Active, "closing the editor outside a play hides them again");
+    Check(!parts.Viewers.Active, "closing the editor outside a play hides them again");
     parts.Viewers.Supported = false;
     parts.Editing = true;
     parts.Session.RefreshViewers();
-    True(!parts.Viewers.Active, "a system without in-game viewers never shows them");
+    Check(!parts.Viewers.Active, "a system without in-game viewers never shows them");
   }
 
   private static void ApplyingRebuildsLayoutsOnlyWhenNeeded()
@@ -64,18 +65,18 @@ internal static class GameplaySessionTests
     var parts = new Parts();
     parts.Session.ApplySettings();
     parts.Session.ApplySettings();
-    True(parts.Looks == 2 && parts.Layouts == 1, "a color drag applies the look each sample and the layouts once");
-    True(!parts.Overlay.Shown && !parts.Viewers.Active, "outside a play, applying shows nothing");
+    Check(parts.Looks == 2 && parts.Layouts == 1, "a color drag applies the look each sample and the layouts once");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "outside a play, applying shows nothing");
     parts.Settings.RecordMode = true;
     parts.Session.ApplySettings();
-    True(parts.Layouts == 2 && parts.Recording.IsActive, "switching record mode rebuilds the layouts and applies it");
+    Check(parts.Layouts == 2 && parts.Recording.IsActive, "switching record mode rebuilds the layouts and applies it");
     parts.Session.LayoutsReplaced();
     parts.Session.ApplySettings();
-    True(parts.Layouts == 3, "a profile's layouts are built on the next apply");
+    Check(parts.Layouts == 3, "a profile's layouts are built on the next apply");
     parts.Settings.RecordMode = false;
     parts.Play.IsInGameWorld = true;
     parts.Session.ApplySettings();
-    True(parts.Overlay.Shown, "turning record mode off during a play shows the overlay again");
+    Check(parts.Overlay.Shown, "turning record mode off during a play shows the overlay again");
   }
 
   private static void ElementNoteOpensWhenAutoOpenTurnsOn()
@@ -83,17 +84,11 @@ internal static class GameplaySessionTests
     var parts = new Parts();
     parts.Session.ApplySettings();
     parts.Session.ApplySettings();
-    True(parts.App.Installs == 1 && parts.App.Opens == 0, "the bundled app is checked once at startup");
+    Check(parts.App.Installs == 1 && parts.App.Opens == 0, "the bundled app is checked once at startup");
     parts.Settings.AutoOpenCloseDmNote = true;
     parts.Session.ApplySettings();
     parts.Session.ApplySettings();
-    True(parts.App.Opens == 1 && parts.App.Installs == 1, "turning auto open on opens it once");
-  }
-
-  private static void True(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
+    Check(parts.App.Opens == 1 && parts.App.Installs == 1, "turning auto open on opens it once");
   }
 
   private sealed class Parts

@@ -5,6 +5,7 @@ using System.Reflection;
 using Element.Application.Rendering;
 using Element.Infrastructure.TufReplay;
 using UnityEngine;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -127,11 +128,5 @@ internal static class ReplayRenderProviderTests
 
     public void AddVideos(Action<string, RectInt, RectInt> add) =>
       add("/v/hand.mov", new RectInt(22, 22, 601, 196), new RectInt(40, 860, 601, 196));
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

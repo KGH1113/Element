@@ -2,6 +2,7 @@ using System;
 using Element.Application.Judgement;
 using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -178,11 +179,5 @@ internal static class HitTextHideSyncTests
         Writes++;
       }
     }
-  }
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

@@ -7,6 +7,7 @@ using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Play;
 using Element.Presentation.Overlay.Combo;
 using UnityEngine;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -119,7 +120,7 @@ internal static class Program
     MacModifierMapsTo(KeyCode.RightShift, 0xE5);
     MacModifierMapsTo(KeyCode.RightAlt, 0xE6);
     MacModifierMapsTo(KeyCode.RightMeta, 0xE7);
-    True(!DmNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _), "ordinary keys must not use the modifier fallback");
+    Check(!DmNoteKeyMapper.TryGetMacAsyncKey(KeyCode.A, out _), "ordinary keys must not use the modifier fallback");
     MapsAsyncTo("LEFT SHIFT", KeyCode.LeftShift, 0xE1);
     MapsAsyncTo("RIGHT SHIFT", KeyCode.RightShift, 0xE5);
   }
@@ -134,13 +135,13 @@ internal static class Program
   {
     KeyLimiterService service = new(new DmNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "A", "FN", "DOT"));
-    True(response.Ok && response.Applied && response.Enabled, "request should be applied");
+    Check(response.Ok && response.Applied && response.Enabled, "request should be applied");
     Sequence(new[] { "A", "DOT" }, response.SupportedKeys);
     Sequence(new[] { "FN" }, response.UnsupportedKeys);
-    True(service.Current.Allows(KeyCode.A), "A should be allowed");
-    True(!service.Current.Allows(KeyCode.B), "B should be blocked");
+    Check(service.Current.Allows(KeyCode.A), "A should be allowed");
+    Check(!service.Current.Allows(KeyCode.B), "B should be blocked");
     // ADOFAI keeps Escape out of main input itself, so the profile never needs it.
-    True(!service.Current.Allows(KeyCode.Escape), "Escape is not part of the profile");
+    Check(!service.Current.Allows(KeyCode.Escape), "Escape is not part of the profile");
   }
 
   private static void AllowsBackslashInput()
@@ -149,15 +150,15 @@ internal static class Program
     {
       KeyLimiterService service = new(new DmNoteKeyResolver());
       service.Apply(Request(1, true, name));
-      True(service.Current.Allows(KeyCode.Backslash), "backslash should be allowed");
+      Check(service.Current.Allows(KeyCode.Backslash), "backslash should be allowed");
       if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
       {
-        True(service.Current.AllowsAsync(0x31), "ANSI backslash should be allowed");
-        True(service.Current.AllowsAsync(0x64), "ISO backslash should be allowed");
-        True(!service.Current.AllowsAsync(0x38), "forward slash must remain blocked");
+        Check(service.Current.AllowsAsync(0x31), "ANSI backslash should be allowed");
+        Check(service.Current.AllowsAsync(0x64), "ISO backslash should be allowed");
+        Check(!service.Current.AllowsAsync(0x38), "forward slash must remain blocked");
         service.Apply(Request(2, true, "A"));
-        True(!service.Current.AllowsAsync(0x31), "removed ANSI backslash must be blocked");
-        True(!service.Current.AllowsAsync(0x64), "removed ISO backslash must be blocked");
+        Check(!service.Current.AllowsAsync(0x31), "removed ANSI backslash must be blocked");
+        Check(!service.Current.AllowsAsync(0x64), "removed ISO backslash must be blocked");
       }
     }
   }
@@ -168,28 +169,28 @@ internal static class Program
     service.Apply(Request(2, true, "A"));
     Equal("duplicate", service.Apply(Request(2, true, "S")).Reason);
     Equal("stale_revision", service.Apply(Request(1, true, "S")).Reason);
-    True(service.Current.Allows(KeyCode.A), "stale requests must not replace state");
+    Check(service.Current.Allows(KeyCode.A), "stale requests must not replace state");
   }
 
   private static void DisablesUnsupportedOnlyProfile()
   {
     KeyLimiterService service = new(new DmNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "FN"));
-    True(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
+    Check(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
   }
 
   private static void ClassifiesXPerfectHitMargins()
   {
     foreach (HitMargin hit in new[] { HitMargin.PerfectMinus, HitMargin.XPerfect, HitMargin.PerfectPlus })
     {
-      True(HitMarginPolicy.IsPerfect(hit), hit + " should be a perfect judgment");
-      True(HitMarginPolicy.ContinuesCombo(hit), hit + " should continue the combo");
+      Check(HitMarginPolicy.IsPerfect(hit), hit + " should be a perfect judgment");
+      Check(HitMarginPolicy.ContinuesCombo(hit), hit + " should continue the combo");
     }
 
-    True(!HitMarginPolicy.IsPerfect(HitMargin.Auto), "Auto should not be shown as a perfect judgment");
-    True(HitMarginPolicy.ContinuesCombo(HitMargin.Auto), "Auto should continue the combo");
-    True(!HitMarginPolicy.IsPerfect(HitMargin.Multipress), "Multipress should remain distinct");
-    True(!HitMarginPolicy.ContinuesCombo(HitMargin.EarlyPerfect), "EarlyPerfect should reset the combo");
+    Check(!HitMarginPolicy.IsPerfect(HitMargin.Auto), "Auto should not be shown as a perfect judgment");
+    Check(HitMarginPolicy.ContinuesCombo(HitMargin.Auto), "Auto should continue the combo");
+    Check(!HitMarginPolicy.IsPerfect(HitMargin.Multipress), "Multipress should remain distinct");
+    Check(!HitMarginPolicy.ContinuesCombo(HitMargin.EarlyPerfect), "EarlyPerfect should reset the combo");
   }
 
   private static void RepresentsXPerfectCountsSeparately()
@@ -215,7 +216,7 @@ internal static class Program
       sampler.TryRecordFrame(now, out measured);
     }
 
-    True(measured >= 58 && measured <= 60, "one missed refresh must not be exaggerated as 50 FPS");
+    Check(measured >= 58 && measured <= 60, "one missed refresh must not be exaggerated as 50 FPS");
   }
 
   private static int MeasureFrameRate(double rate, double duration)
@@ -232,31 +233,31 @@ internal static class Program
   {
     KeyLimiterService profiles = new(new DmNoteKeyResolver());
     KeyLimiterSessionController session = new(profiles);
-    True(session.Apply("first-app", Request(1, true, "A")).Applied, "First app must own the profile.");
-    True(
+    Check(session.Apply("first-app", Request(1, true, "A")).Applied, "First app must own the profile.");
+    Check(
       session.Apply("second-app", Request(2, true, "B")).Reason == "profile_owned_by_another_app",
       "A second app cannot replace the profile."
     );
-    True(
+    Check(
       !session.PeerDisconnected("second-app") && profiles.Current.Enabled,
       "An unrelated disconnect must preserve the owner."
     );
-    True(
+    Check(
       session.PeerDisconnected("first-app") && !profiles.Current.Enabled,
       "Owner disconnect must release the key limiter."
     );
-    True(
+    Check(
       session.Apply("second-app", Request(1, true, "B")).Applied,
       "A new connection can become owner after release."
     );
     KeyLimiterUpdate invalid = Request(2, true, "A");
     invalid.SchemaVersion = 1;
-    True(
+    Check(
       session.Apply("second-app", invalid).Reason == "unsupported_schema",
       "The old profile schema must be rejected."
     );
     session.Clear();
-    True(!profiles.Current.Enabled, "Mod shutdown must release the profile.");
+    Check(!profiles.Current.Enabled, "Mod shutdown must release the profile.");
   }
 
   private static void RejectsCanceledProfile()
@@ -276,8 +277,8 @@ internal static class Program
     {
       rejected = true;
     }
-    True(rejected && !profiles.Current.Enabled, "Disconnected queued work must not re-enable input blocking.");
-    True(session.Apply("new-app", Request(1, true, "B")).Applied, "A new app must remain able to own the profile.");
+    Check(rejected && !profiles.Current.Enabled, "Disconnected queued work must not re-enable input blocking.");
+    Check(session.Apply("new-app", Request(1, true, "B")).Applied, "A new app must remain able to own the profile.");
   }
 
   private static KeyLimiterUpdate Request(long revision, bool enabled, params string[] keys) =>
@@ -296,21 +297,21 @@ internal static class Program
 
   private static void MapsTo(string input, KeyCode expected)
   {
-    True(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
+    Check(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
     Equal(expected, actual.UnityKey);
   }
 
   private static void MacModifierMapsTo(KeyCode key, ushort expected)
   {
-    True(DmNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual), key + " should have a macOS async fallback");
+    Check(DmNoteKeyMapper.TryGetMacAsyncKey(key, out ushort actual), key + " should have a macOS async fallback");
     Equal(expected, actual);
   }
 
   private static void MapsAsyncTo(string input, KeyCode expectedKey, ushort expectedAsyncKey)
   {
-    True(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
+    Check(DmNoteKeyMapper.TryResolve(input, out ResolvedLimiterKey actual), input + " should map");
     Equal(expectedKey, actual.UnityKey);
-    True(actual.HasAsyncKey, input + " should have an async key");
+    Check(actual.HasAsyncKey, input + " should have an async key");
     Equal(expectedAsyncKey, actual.AsyncKey);
   }
 
@@ -319,22 +320,5 @@ internal static class Program
     test();
     _passed++;
     Console.WriteLine("PASS " + name);
-  }
-
-  private static void True(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
-
-  private static void Equal<T>(T expected, T actual)
-  {
-    if (!Equals(expected, actual))
-      throw new InvalidOperationException("Expected " + expected + ", got " + actual);
-  }
-
-  private static void Sequence(string[] expected, string[] actual)
-  {
-    Equal(string.Join("|", expected), string.Join("|", actual));
   }
 }

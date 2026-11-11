@@ -5,6 +5,7 @@ using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Shape;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -32,7 +33,10 @@ internal static class OverlayGradientTests
     OverlayGradientStop stop = color.Gradient.Stops[added];
     Check(stop.Alpha == 1, "the new color starts opaque, not see-through");
     Check(stop.Hex != "#BA712B", "the new color is a neighbor, so the gradient shows at once: " + stop.Hex);
-    Check(Near(stop.Position, .7f) && color.Gradient.Stops[0].Position == 0, "it lands where the bar was clicked");
+    Check(
+      Near(stop.Position, .7f, .01f) && color.Gradient.Stops[0].Position == 0,
+      "it lands where the bar was clicked"
+    );
     OverlayColorSettings gray = OverlayColorSettings.Custom("#FFFFFF");
     OverlayGradientEdits.AddStop(gray, .5f, "#4F8DF7");
     Check(gray.Gradient.Stops[1].Hex == "#4F8DF7", "white has no hue to turn, so it meets the highlight color");
@@ -55,7 +59,7 @@ internal static class OverlayGradientTests
     OverlayGradientEdits.AddStop(color, 1, "#BA712B");
     Check(color.Highlight && color.IsGradient, "the highlight color makes a gradient too");
     Check(
-      Near(color.Gradient.Stops[1].Alpha, OverlayGradientEdits.HighlightFade),
+      Near(color.Gradient.Stops[1].Alpha, OverlayGradientEdits.HighlightFade, .01f),
       "its second color is the highlight at a lighter opacity"
     );
     OverlayColorSettings faint = OverlayColorSettings.HighlightColor(.3f);
@@ -74,7 +78,7 @@ internal static class OverlayGradientTests
     color.Gradient.Stops[1].Alpha = .5f;
     OverlayGradientEdits.RemoveStop(color, 0);
     Check(!color.IsGradient && color.Gradient == null, "one color left is solid again");
-    Check(color.Hex == "#ABCDEF" && Near(color.Alpha, .5f), "the color left keeps its color and opacity");
+    Check(color.Hex == "#ABCDEF" && Near(color.Alpha, .5f, .01f), "the color left keeps its color and opacity");
     Check(OverlayGradientEdits.RemoveStop(color, 0) == -1, "the last color can't be removed");
   }
 
@@ -86,9 +90,9 @@ internal static class OverlayGradientTests
       new(1, new OverlayRgba(0, 0, 0, 0)),
     };
     OverlayRgba middle = OverlayGradientMath.Sample(stops, .5f);
-    Check(Near(middle.R, 1) && Near(middle.A, .5f), "fading out keeps the color instead of darkening it");
-    Check(Near(OverlayGradientMath.Sample(stops, -1).R, 1), "before the first stop is its color");
-    Check(Near(OverlayGradientMath.Sample(stops, 2).A, 0), "after the last stop is its color");
+    Check(Near(middle.R, 1, .01f) && Near(middle.A, .5f, .01f), "fading out keeps the color instead of darkening it");
+    Check(Near(OverlayGradientMath.Sample(stops, -1).R, 1, .01f), "before the first stop is its color");
+    Check(Near(OverlayGradientMath.Sample(stops, 2).A, 0, .01f), "after the last stop is its color");
     List<OverlayGradientSample> hard = new()
     {
       new(.5f, new OverlayRgba(1, 0, 0, 1)),
@@ -108,25 +112,25 @@ internal static class OverlayGradientTests
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Linear);
     OverlayGradientFrame linear = OverlayGradientMath.Frame(gradient, 200, 100);
     Check(
-      Near(linear.At(0, 0), 0) && Near(linear.At(100, 80), .5f) && Near(linear.At(200, 10), 1),
+      Near(linear.At(0, 0), 0, .01f) && Near(linear.At(100, 80), .5f, .01f) && Near(linear.At(200, 10), 1, .01f),
       "linear runs left to right"
     );
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Radial);
     OverlayGradientFrame radial = OverlayGradientMath.Frame(gradient, 200, 100);
     Check(
-      Near(radial.At(100, 50), 0) && Near(radial.At(200, 50), 1) && Near(radial.At(100, 100), 1),
+      Near(radial.At(100, 50), 0, .01f) && Near(radial.At(200, 50), 1, .01f) && Near(radial.At(100, 100), 1, .01f),
       "radial fills the box"
     );
     gradient.Kind = OverlayGradientKind.Diamond;
     OverlayGradientFrame diamond = OverlayGradientMath.Frame(gradient, 200, 100);
-    Check(Near(diamond.At(150, 75), 1) && Near(diamond.At(150, 50), .5f), "diamond adds both directions");
+    Check(Near(diamond.At(150, 75), 1, .01f) && Near(diamond.At(150, 50), .5f, .01f), "diamond adds both directions");
     gradient.Kind = OverlayGradientKind.Angular;
     OverlayGradientFrame angular = OverlayGradientMath.Frame(gradient, 200, 100);
     Check(
-      Near(angular.At(200, 50), 0) && Near(angular.At(100, 100), .25f),
+      Near(angular.At(200, 50), 0, .01f) && Near(angular.At(100, 100), .25f, .01f),
       "angular turns clockwise from the end handle"
     );
-    Check(Near(angular.At(0, 50), .5f) && Near(angular.At(100, 0), .75f), "and comes round");
+    Check(Near(angular.At(0, 50), .5f, .01f) && Near(angular.At(100, 0), .75f, .01f), "and comes round");
     gradient.EndX = gradient.StartX;
     gradient.EndY = gradient.StartY;
     Check(!OverlayGradientMath.Frame(gradient, 200, 100).Valid, "handles on one point show the first color");
@@ -136,16 +140,19 @@ internal static class OverlayGradientTests
   {
     OverlayGradient gradient = new();
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Linear);
-    Check(Near(OverlayGradientMath.Angle(gradient, 300, 100), 90), "left to right is 90°");
+    Check(Near(OverlayGradientMath.Angle(gradient, 300, 100), 90, .01f), "left to right is 90°");
     OverlayGradientMath.SetAngle(gradient, 180, 300, 100);
-    Check(Near(OverlayGradientMath.Angle(gradient, 300, 100), 180), "180° runs top to bottom");
-    Check(Near(gradient.StartX, (gradient.EndX + gradient.StartX) * .5f), "a linear gradient turns about its middle");
+    Check(Near(OverlayGradientMath.Angle(gradient, 300, 100), 180, .01f), "180° runs top to bottom");
+    Check(
+      Near(gradient.StartX, (gradient.EndX + gradient.StartX) * .5f, .01f),
+      "a linear gradient turns about its middle"
+    );
     OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Radial);
     OverlayGradientMath.SetAngle(gradient, 0, 200, 200);
-    Check(Near(gradient.StartX, .5f) && Near(gradient.StartY, .5f), "the others turn about their center");
-    Check(Near(OverlayGradientMath.Angle(gradient, 200, 200), 0), "0° points up");
+    Check(Near(gradient.StartX, .5f, .01f) && Near(gradient.StartY, .5f, .01f), "the others turn about their center");
+    Check(Near(OverlayGradientMath.Angle(gradient, 200, 200), 0, .01f), "0° points up");
     OverlayGradientMath.Handles(gradient, 200, 200, out var start, out var end, out var across);
-    Check(Near(Vector2Dot(end - start, across - start), 0), "the width handle stays square to the end handle");
+    Check(Near(Vector2Dot(end - start, across - start), 0, .01f), "the width handle stays square to the end handle");
   }
 
   private static void FlipRotateAndKindKeepTheGradientUsable()
@@ -155,17 +162,17 @@ internal static class OverlayGradientTests
     color.Gradient.Stops[1].Position = .8f;
     color.Gradient.Stops[0].PositionFormula = "{progress-current}";
     OverlayGradientEdits.Flip(color);
-    Check(Near(color.Gradient.Stops[1].Position, .2f), "flipping mirrors positions");
+    Check(Near(color.Gradient.Stops[1].Position, .2f, .01f), "flipping mirrors positions");
     Check(color.Gradient.Stops[0].Position == 0, "a stop following a value stays with it");
     color.Gradient.AngleFormula = "{bpm}";
     OverlayGradientEdits.Rotate(color.Gradient, 100, 100);
     Check(
-      color.Gradient.AngleFormula == "" && Near(OverlayGradientMath.Angle(color.Gradient, 100, 100), 180),
+      color.Gradient.AngleFormula == "" && Near(OverlayGradientMath.Angle(color.Gradient, 100, 100), 180, .01f),
       "rotate turns a quarter"
     );
     OverlayGradientEdits.SetKind(color.Gradient, OverlayGradientKind.Angular);
     Check(
-      color.Gradient.Kind == OverlayGradientKind.Angular && Near(color.Gradient.StartX, .5f),
+      color.Gradient.Kind == OverlayGradientKind.Angular && Near(color.Gradient.StartX, .5f, .01f),
       "a new kind starts from its own handles"
     );
   }
@@ -182,8 +189,8 @@ internal static class OverlayGradientTests
     Check(color.Highlight, "the whole gradient follows the highlight");
     Check(
       color.Gradient.Stops[order[0]].Alpha == 1
-        && Near(color.Gradient.Stops[order[1]].Alpha, .7f)
-        && Near(color.Gradient.Stops[order[2]].Alpha, .4f),
+        && Near(color.Gradient.Stops[order[1]].Alpha, .7f, .01f)
+        && Near(color.Gradient.Stops[order[2]].Alpha, .4f, .01f),
       "equal opacities would vanish, so they fade"
     );
     OverlayGradientEdits.SetHighlight(color, false, "#BA712B");
@@ -191,7 +198,7 @@ internal static class OverlayGradientTests
       !color.Highlight && color.Gradient.Stops.TrueForAll(stop => stop.Hex == "#BA712B"),
       "custom starts from the highlight"
     );
-    Check(Near(color.Gradient.Stops[order[2]].Alpha, .4f), "and keeps the opacities");
+    Check(Near(color.Gradient.Stops[order[2]].Alpha, .4f, .01f), "and keeps the opacities");
   }
 
   private static void StopsSnapToQuartersAndEachOther()
@@ -201,7 +208,7 @@ internal static class OverlayGradientTests
     OverlayGradientEdits.AddStop(color, .6f, "#BA712B");
     Check(OverlayGradientEdits.Snap(color.Gradient, 2, .51f) == .5f, "a quarter pulls");
     Check(OverlayGradientEdits.Snap(color.Gradient, 1, .61f) == .6f, "another stop pulls");
-    Check(Near(OverlayGradientEdits.Snap(color.Gradient, 2, .4f), .4f), "far from both, it stays");
+    Check(Near(OverlayGradientEdits.Snap(color.Gradient, 2, .4f), .4f, .01f), "far from both, it stays");
   }
 
   private static void GradientsSurviveTheSettingsFileAndOldVersions()
@@ -247,12 +254,4 @@ internal static class OverlayGradientTests
 
   private static float Vector2Dot(System.Numerics.Vector2 a, System.Numerics.Vector2 b) =>
     System.Numerics.Vector2.Dot(a, b);
-
-  private static bool Near(float a, float b) => Math.Abs(a - b) < .01f;
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
-  }
 }

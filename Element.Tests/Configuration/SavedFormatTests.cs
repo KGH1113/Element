@@ -6,6 +6,7 @@ using System.Text;
 using System.Xml.Serialization;
 using Element.Configuration;
 using Element.Configuration.Profiles;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests.Configuration;
 
@@ -143,11 +144,5 @@ internal static class SavedFormatTests
       return value;
     }
     throw new InvalidOperationException("No sample value for " + type.Name + " " + name);
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

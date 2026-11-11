@@ -7,8 +7,10 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Infrastructure.Mods;
 using Element.Presentation.Overlay.Mods;
+using Element.Tests.Support.Fakes;
 using ElementKit;
 using ElementKit.Hosting;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -211,11 +213,5 @@ internal static class ModElementTests
       !OverlayElementKinds.IsMod(OverlayElementKinds.Text) && !OverlayElementKinds.IsMod(""),
       "Element's own kinds are not mods'"
     );
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

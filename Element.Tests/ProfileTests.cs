@@ -14,6 +14,8 @@ using Element.Configuration.Overlay;
 using Element.Configuration.Profiles;
 using Element.Domain.Tweaks;
 using Element.Infrastructure.Storage;
+using Element.Tests.Support;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -257,25 +259,19 @@ internal static class ProfileTests
     );
     Check(migrated.Problem == ProfileFileProblem.NewerVersion, "values from newer settings are refused");
 
-    string directory = TempDirectory();
-    try
-    {
-      string large = Path.Combine(directory, "large." + ProfileFile.Extension);
-      using (FileStream file = File.Create(large))
-        file.SetLength(ProfileFileStore.MaximumBytes + 1);
-      Check(
-        new ProfileFileStore().Read(large).Problem == ProfileFileProblem.TooLarge,
-        "a huge file is not read into memory"
-      );
-      Check(
-        new ProfileFileStore().Read(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
-        "a missing file reports a read failure"
-      );
-    }
-    finally
-    {
-      Directory.Delete(directory, true);
-    }
+    using TempFolder folder = new("element-profile-tests-");
+    string directory = folder.Path;
+    string large = Path.Combine(directory, "large." + ProfileFile.Extension);
+    using (FileStream file = File.Create(large))
+      file.SetLength(ProfileFileStore.MaximumBytes + 1);
+    Check(
+      new ProfileFileStore().Read(large).Problem == ProfileFileProblem.TooLarge,
+      "a huge file is not read into memory"
+    );
+    Check(
+      new ProfileFileStore().Read(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
+      "a missing file reports a read failure"
+    );
   }
 
   private static void DeletingTheProfileInUseSwitchesFirst()
@@ -383,118 +379,106 @@ internal static class ProfileTests
 
   private static void ServiceAsksForFilesAndBacksUp()
   {
-    string directory = TempDirectory();
-    try
-    {
-      ElementSettings settings = Fresh();
-      FakeDialogs dialogs = new();
-      int backups = 0,
-        reloads = 0,
-        saves = 0;
-      ProfileService service = new(
-        new ProfileLibrary(settings, "Default"),
-        dialogs,
-        new ProfileFileStore(),
-        () =>
-        {
-          saves++;
-          return true;
-        },
-        () => reloads++,
-        () => backups++,
-        "1.2.3",
-        (_, _) => { }
-      );
-      Check(service.FilesSupported, "a platform with file windows offers import and export");
-      service.Rename(service.Active.Id, "Stream: main?");
+    using TempFolder folder = new("element-profile-tests-");
+    string directory = folder.Path;
+    ElementSettings settings = Fresh();
+    FakeDialogs dialogs = new();
+    int backups = 0,
+      reloads = 0,
+      saves = 0;
+    ProfileService service = new(
+      new ProfileLibrary(settings, "Default"),
+      dialogs,
+      new ProfileFileStore(),
+      () =>
+      {
+        saves++;
+        return true;
+      },
+      () => reloads++,
+      () => backups++,
+      "1.2.3",
+      (_, _) => { }
+    );
+    Check(service.FilesSupported, "a platform with file windows offers import and export");
+    service.Rename(service.Active.Id, "Stream: main?");
 
-      dialogs.Next = FileDialogResult.Chosen(Path.Combine(directory, "stream"));
-      ProfileOutcome exported = service.Export(service.Active.Id, "Export");
-      Check(
-        exported.Ok && exported.Detail == "stream." + ProfileFile.Extension,
-        "the extension is added: " + exported.Detail
-      );
-      Check(
-        dialogs.Last.FileName == "Stream_ main_." + ProfileFile.Extension,
-        "the suggested name is safe on every system: " + dialogs.Last.FileName
-      );
-      Check(File.Exists(Path.Combine(directory, "stream." + ProfileFile.Extension)), "the file is written");
-      Check(
-        ProfileService.WithExtension("a." + ProfileFile.Extension + "." + ProfileFile.Extension)
-          == "a." + ProfileFile.Extension
-          && ProfileService.WithExtension("a." + ProfileFile.Extension.ToUpperInvariant())
-            == "a." + ProfileFile.Extension.ToUpperInvariant(),
-        "a name the save window gave the extension twice is saved with it once"
-      );
-      Check(Directory.GetFiles(directory).Length == 1, "no temporary file is left behind");
+    dialogs.Next = FileDialogResult.Chosen(Path.Combine(directory, "stream"));
+    ProfileOutcome exported = service.Export(service.Active.Id, "Export");
+    Check(
+      exported.Ok && exported.Detail == "stream." + ProfileFile.Extension,
+      "the extension is added: " + exported.Detail
+    );
+    Check(
+      dialogs.Last.FileName == "Stream_ main_." + ProfileFile.Extension,
+      "the suggested name is safe on every system: " + dialogs.Last.FileName
+    );
+    Check(File.Exists(Path.Combine(directory, "stream." + ProfileFile.Extension)), "the file is written");
+    Check(
+      ProfileService.WithExtension("a." + ProfileFile.Extension + "." + ProfileFile.Extension)
+        == "a." + ProfileFile.Extension
+        && ProfileService.WithExtension("a." + ProfileFile.Extension.ToUpperInvariant())
+          == "a." + ProfileFile.Extension.ToUpperInvariant(),
+      "a name the save window gave the extension twice is saved with it once"
+    );
+    Check(Directory.GetFiles(directory).Length == 1, "no temporary file is left behind");
 
-      dialogs.Next = FileDialogResult.Cancelled;
-      Check(
-        service.Import("Import").Problem == ProfileProblem.Cancelled && backups == 0,
-        "closing the window changes nothing"
-      );
+    dialogs.Next = FileDialogResult.Cancelled;
+    Check(
+      service.Import("Import").Problem == ProfileProblem.Cancelled && backups == 0,
+      "closing the window changes nothing"
+    );
 
-      string notProfile = Path.Combine(directory, "notes.txt");
-      File.WriteAllText(notProfile, "hello");
-      dialogs.Next = FileDialogResult.Chosen(notProfile);
-      Check(
-        service.Import("Import").Problem == ProfileProblem.NotProfile && backups == 0,
-        "a wrong file is refused before any backup"
-      );
+    string notProfile = Path.Combine(directory, "notes.txt");
+    File.WriteAllText(notProfile, "hello");
+    dialogs.Next = FileDialogResult.Chosen(notProfile);
+    Check(
+      service.Import("Import").Problem == ProfileProblem.NotProfile && backups == 0,
+      "a wrong file is refused before any backup"
+    );
 
-      int savesBefore = saves;
-      dialogs.Next = FileDialogResult.Chosen(Path.Combine(directory, "stream." + ProfileFile.Extension));
-      ProfileOutcome imported = service.Import("Import");
-      Check(
-        imported.Ok && imported.Saved && imported.Name == "Stream: main? 2",
-        "the import is named freely: " + imported.Name
-      );
-      Check(backups == 1 && reloads == 1 && saves == savesBefore + 1, "an import backs up, applies and saves once");
-      Check(service.Active.Name == imported.Name && service.Profiles.Count == 2, "the import is in use");
+    int savesBefore = saves;
+    dialogs.Next = FileDialogResult.Chosen(Path.Combine(directory, "stream." + ProfileFile.Extension));
+    ProfileOutcome imported = service.Import("Import");
+    Check(
+      imported.Ok && imported.Saved && imported.Name == "Stream: main? 2",
+      "the import is named freely: " + imported.Name
+    );
+    Check(backups == 1 && reloads == 1 && saves == savesBefore + 1, "an import backs up, applies and saves once");
+    Check(service.Active.Name == imported.Name && service.Profiles.Count == 2, "the import is in use");
 
-      Check(
-        service.Delete(service.Active.Id).Ok && backups == 2 && reloads == 2,
-        "deleting the profile in use backs up and applies its neighbor"
-      );
+    Check(
+      service.Delete(service.Active.Id).Ok && backups == 2 && reloads == 2,
+      "deleting the profile in use backs up and applies its neighbor"
+    );
 
-      dialogs.Throw = true;
-      Check(
-        service.Import("Import").Problem == ProfileProblem.DialogUnavailable,
-        "a file window that cannot open is reported"
-      );
+    dialogs.Throw = true;
+    Check(
+      service.Import("Import").Problem == ProfileProblem.DialogUnavailable,
+      "a file window that cannot open is reported"
+    );
 
-      ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, null, "", null);
-      Check(
-        !noFiles.FilesSupported && noFiles.Import("Import").Problem == ProfileProblem.DialogUnavailable,
-        "no file windows, no import"
-      );
-    }
-    finally
-    {
-      Directory.Delete(directory, true);
-    }
+    ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, null, "", null);
+    Check(
+      !noFiles.FilesSupported && noFiles.Import("Import").Problem == ProfileProblem.DialogUnavailable,
+      "no file windows, no import"
+    );
   }
 
   private static void BackupsKeepTheNewest()
   {
-    string directory = TempDirectory();
-    try
-    {
-      ElementSettings settings = Fresh();
-      new ProfileLibrary(settings, "Default");
-      SettingsBackup backup = new(directory, () => settings);
-      for (int i = 0; i < SettingsBackup.Kept + 3; i++)
-        backup.Write();
-      string[] files = Directory.GetFiles(Path.Combine(directory, SettingsBackup.FolderName));
-      Check(files.Length == SettingsBackup.Kept, "only the newest backups are kept: " + files.Length);
-      using FileStream file = File.OpenRead(files[0]);
-      ElementSettings restored = SettingsXml.Read<ElementSettings>(file);
-      Check(restored.Profiles.Count == 1, "a backup is a whole settings file");
-    }
-    finally
-    {
-      Directory.Delete(directory, true);
-    }
+    using TempFolder folder = new("element-profile-tests-");
+    string directory = folder.Path;
+    ElementSettings settings = Fresh();
+    new ProfileLibrary(settings, "Default");
+    SettingsBackup backup = new(directory, () => settings);
+    for (int i = 0; i < SettingsBackup.Kept + 3; i++)
+      backup.Write();
+    string[] files = Directory.GetFiles(Path.Combine(directory, SettingsBackup.FolderName));
+    Check(files.Length == SettingsBackup.Kept, "only the newest backups are kept: " + files.Length);
+    using FileStream file = File.OpenRead(files[0]);
+    ElementSettings restored = SettingsXml.Read<ElementSettings>(file);
+    Check(restored.Profiles.Count == 1, "a backup is a whole settings file");
   }
 
   private sealed class FakeDialogs : IFileDialogs
@@ -557,18 +541,5 @@ internal static class ProfileTests
   {
     ProfileFileProblem actual = Read(xml).Problem;
     Check(actual == expected, what + " is refused as " + expected + ", got " + actual);
-  }
-
-  private static string TempDirectory()
-  {
-    string path = Path.Combine(Path.GetTempPath(), "element-profile-tests-" + Guid.NewGuid().ToString("N"));
-    Directory.CreateDirectory(path);
-    return path;
-  }
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

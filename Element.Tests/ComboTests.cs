@@ -2,6 +2,7 @@ using System;
 using Element.Application.Judgement;
 using Element.Application.Overlay;
 using Element.Domain.Judgement;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -14,8 +15,8 @@ internal static class ComboTests
 
   private static void MidspinNeitherExtendsNorBreaksTheCombo()
   {
-    True(!HitMarginPolicy.AffectsCombo(HitMargin.Midspin), "Midspin should not touch the combo");
-    True(HitMarginPolicy.AffectsCombo(HitMargin.XPerfect), "XPerfect should count toward the combo");
+    Check(!HitMarginPolicy.AffectsCombo(HitMargin.Midspin), "Midspin should not touch the combo");
+    Check(HitMarginPolicy.AffectsCombo(HitMargin.XPerfect), "XPerfect should count toward the combo");
 
     RecordingView view = new();
     ComboFeature combo = new(view);
@@ -51,17 +52,5 @@ internal static class ComboTests
     }
 
     public void Dispose() { }
-  }
-
-  private static void True(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
-
-  private static void Equal<T>(T expected, T actual)
-  {
-    if (!Equals(expected, actual))
-      throw new InvalidOperationException("Expected " + expected + ", got " + actual);
   }
 }

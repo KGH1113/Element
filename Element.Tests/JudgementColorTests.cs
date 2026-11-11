@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Judgement;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -74,11 +75,5 @@ internal static class JudgementColorTests
       !JudgementColors.TryGet(OverlayValueId.Overload, out _) && !JudgementColors.TryGet(OverlayValueId.Miss, out _),
       "Overload and Miss take the text's color"
     );
-  }
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

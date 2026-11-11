@@ -8,8 +8,9 @@ using ADOFAI;
 using Element.Application.Effects;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
-using UnityEngine;
 using Element.Infrastructure.Game.Patches;
+using UnityEngine;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -475,12 +476,6 @@ internal static class EffectSettingsTests
       .GetField("data", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
       .SetValue(result, data);
     return result;
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 
   private static void DefaultPresets()

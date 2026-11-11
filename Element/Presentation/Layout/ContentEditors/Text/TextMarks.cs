@@ -1,9 +1,10 @@
 using System.Collections.Generic;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -20,7 +21,7 @@ internal sealed class TextMarks
   private readonly TextLayoutMap _map;
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private Image _caret;
   private Image _dropCaret;
   private TextMeshProUGUI _placeholder;
@@ -34,7 +35,7 @@ internal sealed class TextMarks
   }
 
   /// <summary>The carets on the preview, built after it.</summary>
-  public void BuildCarets(SettingsUiFactory ui)
+  public void BuildCarets(UiFactory ui)
   {
     _ui = ui;
     _selectionRects.Clear();
@@ -42,13 +43,13 @@ internal sealed class TextMarks
     RectTransform preview = _preview.Text.rectTransform;
     _caret = ui.Panel("Caret", preview, 0, 0, 2, 10, Color.white, false);
     Anchor(_caret.rectTransform);
-    _dropCaret = ui.Panel("Drop caret", preview, 0, 0, 3, 10, SettingsPalette.SoftAccent, false);
+    _dropCaret = ui.Panel("Drop caret", preview, 0, 0, 3, 10, UiPalette.SoftAccent, false);
     Anchor(_dropCaret.rectTransform);
     _dropCaret.enabled = false;
   }
 
   /// <summary>The empty text's hint and its caret, over the controls.</summary>
-  public void BuildHint(SettingsUiFactory ui, RectTransform frame)
+  public void BuildHint(UiFactory ui, RectTransform frame)
   {
     _placeholder = ui.Text(
       L("텍스트를 입력하세요", "Type your text"),
@@ -111,7 +112,7 @@ internal sealed class TextMarks
     RectTransform caret = _dropCaret.rectTransform;
     caret.anchoredPosition = new Vector2(x - width * .5f, bottom);
     caret.sizeDelta = new Vector2(width, top - bottom);
-    _dropCaret.color = SettingsPalette.SoftAccent;
+    _dropCaret.color = UiPalette.SoftAccent;
     _dropCaret.transform.SetAsLastSibling();
   }
 
@@ -121,7 +122,7 @@ internal sealed class TextMarks
     int used = 0;
     int start = Mathf.Min(_text.Anchor, _text.Caret),
       end = Mathf.Max(_text.Anchor, _text.Caret);
-    Color selection = SettingsPalette.SoftAccent;
+    Color selection = UiPalette.SoftAccent;
     selection.a = .38f;
     for (int i = start; i < end; i++)
       used = AddItemRect(_selectionRects, used, i, selection, 0);
@@ -130,7 +131,7 @@ internal sealed class TextMarks
     float padding = 3 / Mathf.Max(.01f, _preview.Scale);
     // The value the keypad edits glows in the accent; a value waiting for a
     // dropped value does too while one is carried over it.
-    Color active = SettingsPalette.SoftAccent;
+    Color active = UiPalette.SoftAccent;
     active.a = joining ? .55f : .3f;
     int count = _text.Document.Count;
     for (int i = 0; i < count; i++)
@@ -183,8 +184,8 @@ internal sealed class TextMarks
     float width = Mathf.Ceil(_placeholder.GetPreferredValues(_placeholder.text).x) + 2;
     float x = (center.x / frameScale) - width * .5f,
       y = center.y / frameScale;
-    SettingsUiFactory.Place(_placeholder.rectTransform, x, y - 14, width, 28);
-    SettingsUiFactory.Place(_emptyCaret.rectTransform, x - 6, y - 11, 2, 22);
+    UiFactory.Place(_placeholder.rectTransform, x, y - 14, width, 28);
+    UiFactory.Place(_emptyCaret.rectTransform, x - 6, y - 11, 2, 22);
   }
 
   private static void Anchor(RectTransform rect)

@@ -1,7 +1,7 @@
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
-using Element.Domain.Overlay.Values;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -92,7 +92,7 @@ internal sealed class ShapeValueDrops
       // A value dropped on a gradient square drives that color's position.
       if (ShapeNumbers.Kind(key, out int stop).EndsWith("position") && stop >= 0)
       {
-        _colors.Picker.SelectStop(stop);
+        _colors.Picker.Gradient.SelectStop(stop);
         key = _gradient.PositionKey;
       }
       if (!value.IsNumeric)
@@ -101,7 +101,7 @@ internal sealed class ShapeValueDrops
       {
         if (_numbers.Field != key)
         {
-          _host.CloseEditing();
+          _host.CloseOpen();
           _numbers.Field = key;
         }
         editing.Activate(_numbers.Slot(key));
@@ -119,7 +119,7 @@ internal sealed class ShapeValueDrops
     {
       if (_colors.Opacity.Contains(screen))
         return _colors.OpacityKey;
-      if (_colors.Picker.IsGradient && _gradient.Position.Contains(screen))
+      if (_colors.Picker.Gradient.IsGradient && _gradient.Position.Contains(screen))
         return _gradient.PositionKey;
       accepted = true;
       return null;

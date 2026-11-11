@@ -1,10 +1,10 @@
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
-using Element.Presentation.Ui.Popovers;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Popovers;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -58,7 +58,7 @@ internal sealed class TextPointer
       return;
     if (Input.GetMouseButtonDown(0))
     {
-      SettingsColorPicker picker = _color.Picker;
+      UiColorPicker picker = _color.Picker;
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         dock.Contains(screen)
@@ -69,8 +69,8 @@ internal sealed class TextPointer
         || _gradient.Handles.Contains(screen)
       )
         return;
-      bool popover = _host.AnyPopover;
-      _host.ClosePopovers();
+      bool popover = _host.AnyOpen;
+      _host.CloseOpen();
       if (!_host.InTextArea(screen))
       {
         if (popover)

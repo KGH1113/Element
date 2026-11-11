@@ -2,9 +2,8 @@ using System;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
-using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;
@@ -456,7 +455,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   public virtual void Dispose()
   {
     if (Rect != null)
-      Presentation.Settings.SettingsUiFactory.Destroy(Rect.gameObject);
+      UiFactory.Destroy(Rect.gameObject);
     Rect = null;
   }
 }

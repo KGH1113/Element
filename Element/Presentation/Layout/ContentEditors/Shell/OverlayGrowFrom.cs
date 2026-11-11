@@ -1,11 +1,13 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Configuration.Overlay;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -23,7 +25,7 @@ internal sealed class OverlayGrowFrom
   private OverlayElementTarget _element;
   private OverlayEditorFrame _screen;
   private OverlayGrowPopover _popover;
-  private SettingsCapsuleGraphic _mark;
+  private UiCapsuleGraphic _mark;
 
   /// <param name="closeOthers">Closes what else is open before the popover opens.</param>
   /// <param name="changed">Redraws the editor after a click.</param>
@@ -39,6 +41,9 @@ internal sealed class OverlayGrowFrom
 
   public bool Visible => _popover.Visible;
 
+  /// <summary>The popover with the nine points; made by <see cref="Build"/>.</summary>
+  public IPopover Popover => _popover;
+
   /// <summary>Starts from what <paramref name="element"/> has saved.</summary>
   public void Open(OverlayElementTarget element)
   {
@@ -47,7 +52,7 @@ internal sealed class OverlayGrowFrom
   }
 
   /// <summary>The Grow from button, added where the bar has it.</summary>
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     Button = new OverlayBarButton(
       ui,
       bar,
@@ -55,7 +60,7 @@ internal sealed class OverlayGrowFrom
       L("기준점", "Grow from"),
       Toggle,
       reduceMotion,
-      icon: LayoutAction.GrowFrom
+      icon: UiIconKind.GrowFrom
     );
 
   /// <summary>The popover and the dot, over the editor's controls.</summary>
@@ -63,7 +68,7 @@ internal sealed class OverlayGrowFrom
   {
     _screen = screen;
     _popover = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion, Pick);
-    _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, SettingsPalette.SoftAccent);
+    _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }
 
@@ -109,7 +114,7 @@ internal sealed class OverlayGrowFrom
       y + height * OverlayLayoutPosition.AnchorY(point)
     );
     _mark.gameObject.SetActive(true);
-    SettingsUiFactory.Place(_mark.rectTransform, at.x - MarkSize * .5f, at.y - MarkSize * .5f, MarkSize, MarkSize);
+    UiFactory.Place(_mark.rectTransform, at.x - MarkSize * .5f, at.y - MarkSize * .5f, MarkSize, MarkSize);
     _mark.transform.SetAsLastSibling();
   }
 

@@ -1,17 +1,18 @@
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
-using Element.Domain.Layout;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using TMPro;
-using UnityEngine;
 using Element.Configuration.Overlay;
+using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
-using Element.Domain.Overlay.Defaults;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.Theme;
+using TMPro;
+using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -150,7 +151,7 @@ internal sealed class TextPreview
   private void Compose(float elementScale)
   {
     _builder.Clear();
-    Color highlight = OverlayTheme.Accent;
+    Color highlight = UiTheme.Accent;
     IOverlayNumberSource samples = _values.WithSamples;
     BeginComposeGradients(highlight);
     OverlayTextDocument document = _text.Document;

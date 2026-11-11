@@ -1,6 +1,6 @@
-using Element.Configuration;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Fonts;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Canvas;
@@ -38,7 +38,7 @@ internal abstract class OverlayElementKind
   /// <summary>After every element was placed again.</summary>
   public virtual void Applied() { }
 
-  public virtual void SetFonts(Shared.OverlayFonts fonts) { }
+  public virtual void SetFonts(OverlayFonts fonts) { }
 
   public abstract void Clear();
 }

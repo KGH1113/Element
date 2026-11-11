@@ -1,5 +1,5 @@
 using Element.Application.Rendering;
-using Element.Presentation.Rendering;
+using Element.Presentation.Notices;
 using static Element.Tests.Application.Rendering.RenderFixtures;
 using static Element.Tests.Support.Assert;
 

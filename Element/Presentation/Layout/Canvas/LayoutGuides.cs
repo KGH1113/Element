@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Graphics;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.Canvas;
@@ -17,7 +18,7 @@ internal sealed class LayoutGuides
   private LayoutSpacingGuide _horizontalSpacing,
     _verticalSpacing;
 
-  public void Build(SettingsUiFactory ui, Transform root)
+  public void Build(UiFactory ui, Transform root)
   {
     _vertical = ui.Panel(
       "Vertical alignment",
@@ -42,7 +43,7 @@ internal sealed class LayoutGuides
     _spacing = ui.Rect("Equal spacing guides", root, 0, 0, Screen.width, Screen.height)
       .gameObject.AddComponent<LayoutSpacingGraphic>();
     _spacing.raycastTarget = false;
-    SettingsUiFactory.Stretch(_spacing.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(_spacing.rectTransform, 0, 0, 0, 0);
   }
 
   /// <summary>Hides the alignment lines.</summary>
@@ -71,13 +72,13 @@ internal sealed class LayoutGuides
   /// <summary>Once a frame: draws what the last snap found.</summary>
   public void Refresh(float uiScale)
   {
-    _spacing.color = SettingsPalette.SoftAccent;
+    _spacing.color = UiPalette.SoftAccent;
     _spacing.SetGuides(_horizontalSpacing, _verticalSpacing, uiScale);
     _vertical.gameObject.SetActive(!float.IsNaN(_x));
     _horizontal.gameObject.SetActive(!float.IsNaN(_y));
     if (!float.IsNaN(_x))
-      SettingsUiFactory.Place(_vertical, _x, 0, 1, Screen.height);
+      UiFactory.Place(_vertical, _x, 0, 1, Screen.height);
     if (!float.IsNaN(_y))
-      SettingsUiFactory.Place(_horizontal, 0, _y, Screen.width, 1);
+      UiFactory.Place(_horizontal, 0, _y, Screen.width, 1);
   }
 }

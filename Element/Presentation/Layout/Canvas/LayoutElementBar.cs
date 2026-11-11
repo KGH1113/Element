@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -25,7 +27,7 @@ internal sealed class LayoutElementBar : IPopover
   private readonly LayoutArrangeBar _arrange;
   private readonly List<RectTransform> _controls = new();
   private RectTransform _panel;
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private float _width,
     _height;
   private bool _stale;
@@ -54,7 +56,7 @@ internal sealed class LayoutElementBar : IPopover
   public IOverlayLayoutTarget Target { get; set; }
 
   /// <summary>The open bar's factory.</summary>
-  public SettingsUiFactory Ui => _ui;
+  public UiFactory Ui => _ui;
 
   public RectTransform Root => _panel;
 
@@ -169,13 +171,12 @@ internal sealed class LayoutElementBar : IPopover
     _width = width;
     _height = Height;
     _ui = _session.NewUi();
-    Image panel = _ui.Panel("Element toolbar", _session.Root.transform, 0, 0, width, Height, LayoutColors.Toolbar);
+    Image panel = _ui.Panel("Element toolbar", _session.Root.transform, 0, 0, width, Height, UiPalette.Toolbar);
     panel.raycastTarget = true;
     _panel = panel.rectTransform;
-    LayoutActionIcon grip = _ui.Rect("Drag element toolbar", _panel, 10, 16, 14, 24)
-      .gameObject.AddComponent<LayoutActionIcon>();
-    grip.Kind = LayoutAction.Grip;
-    grip.color = SettingsUiFactory.Muted;
+    UiIcon grip = _ui.Rect("Drag element toolbar", _panel, 10, 16, 14, 24).gameObject.AddComponent<UiIcon>();
+    grip.Kind = UiIconKind.Grip;
+    grip.color = UiPalette.Muted;
     grip.raycastTarget = false;
     return _panel;
   }
@@ -207,7 +208,7 @@ internal sealed class LayoutElementBar : IPopover
     if (_panel == null)
       return;
     _panel.gameObject.SetActive(false);
-    SettingsUiFactory.Destroy(_panel.gameObject);
+    UiFactory.Destroy(_panel.gameObject);
     _panel = null;
     _ui?.Dispose();
     _ui = null;

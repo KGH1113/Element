@@ -138,12 +138,12 @@ internal sealed class TextKeyboard
   // text; after a value, typing continues behind it.
   private bool HandlePopoverKey(bool command)
   {
-    if (command || !_host.AnyPopover)
+    if (command || !_host.AnyOpen)
       return false;
     KeyCode code = _event.keyCode;
     if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
     {
-      _host.ClosePopovers();
+      _host.CloseOpen();
       _host.Render();
       return true;
     }
@@ -155,7 +155,7 @@ internal sealed class TextKeyboard
     if (_formulas.Field != null)
       return true;
     bool chip = _formulas.ChipOpen(out _);
-    _host.ClosePopovers();
+    _host.CloseOpen();
     if (chip)
       _text.Anchor = _text.Caret = Mathf.Max(_text.Anchor, _text.Caret);
     _host.Render();

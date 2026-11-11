@@ -1,10 +1,12 @@
-using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Configuration.Overlay;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -21,7 +23,7 @@ internal sealed class TextFonts
   private readonly TextDocumentEditing _text;
   private readonly TextColor _color;
   private OverlayBarButton _fontButton;
-  private OverlayFontPopover _fontPopover;
+  private UiFontPopover _fontPopover;
   private bool _fontSnapshotTaken;
 
   public TextFonts(ITextEditorHost host, TextDocumentEditing text, TextColor color)
@@ -33,12 +35,15 @@ internal sealed class TextFonts
 
   public bool Visible => _fontPopover?.Visible ?? false;
 
+  /// <summary>The font list; made by <see cref="Build"/>.</summary>
+  public IPopover Popover => _fontPopover;
+
   /// <summary>The font search has the keyboard.</summary>
   public bool IsTyping => _fontPopover.IsTyping;
 
   public bool Contains(Vector2 screen) => _fontPopover.Contains(screen);
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _fontButton = new OverlayBarButton(
       ui,
       bar,
@@ -46,13 +51,13 @@ internal sealed class TextFonts
       L("폰트", "Font"),
       ToggleFont,
       reduceMotion,
-      icon: LayoutAction.Font
+      icon: UiIconKind.Font
     );
 
   public void Build(OverlayEditorFrame screen, OverlayFonts fonts, bool reduceMotion)
   {
     // Whoever closes it redraws the bar; the next session is its own undo step.
-    _fontPopover = new OverlayFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont)
+    _fontPopover = new UiFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont)
     {
       Hidden = () => _fontSnapshotTaken = false,
     };
@@ -65,8 +70,8 @@ internal sealed class TextFonts
   private void ToggleFont()
   {
     bool open = _fontPopover.Visible;
-    _host.ClosePopovers();
-    SettingsColorPicker picker = _color.Picker;
+    _host.CloseOpen();
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     if (!open)
@@ -123,9 +128,9 @@ internal sealed class TextFonts
     if (_fontPopover == null || !_fontPopover.Visible || dock == null)
       return;
     Rect keypad = dock.KeypadArea;
-    float width = Mathf.Max(keypad.width, OverlayFontPopover.PreferredWidth);
+    float width = Mathf.Max(keypad.width, UiFontPopover.PreferredWidth);
     float top = OverlayEditorFrame.TopBar + 8;
-    float height = Mathf.Min(OverlayFontPopover.PreferredHeight, dock.Top - 12 - top);
+    float height = Mathf.Min(UiFontPopover.PreferredHeight, dock.Top - 12 - top);
     _fontPopover.Place(keypad.xMax - width, Mathf.Max(top, dock.Top - 12 - height), width, height);
     _fontPopover.Root.SetAsLastSibling();
   }

@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using UnityEngine;
 using Element.Configuration.Overlay;
+using Element.Domain.Judgement;
+using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
-using Element.Domain.Overlay.Defaults;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -276,7 +277,7 @@ internal sealed class TextDocumentEditing
       OverlayValueId.VeryEarly or OverlayValueId.VeryLate => OverlayColorSettings.Custom("#FF6F4E"),
       OverlayValueId.EarlyPerfect or OverlayValueId.LatePerfect => OverlayColorSettings.Custom("#A0FF4E"),
       OverlayValueId.PerfectEarly or OverlayValueId.PurePerfect or OverlayValueId.PerfectLate =>
-        OverlayColorSettings.Custom("#" + JudgementColors.Perfect),
+        OverlayColorSettings.Custom(JudgementColors.Perfect),
       OverlayValueId.Overload or OverlayValueId.Miss => OverlayColorSettings.Custom(
         OverlayElementDefaults.JudgementBase
       ),

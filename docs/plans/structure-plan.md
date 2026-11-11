@@ -189,27 +189,31 @@ Element/
     Storage/           모드 폴더의 파일: 시도 기록, 설정 백업, 폰트 묶음
     Updates/
   Presentation/
-    Ui/                두 화면 이상이 쓰는 UI 부품. 기능도 ElementSettings도 모름
-      Theme/             팔레트, 강조색, L(ko,en) 하나, 오류 색 하나
-      Widgets/           팩토리, 버튼, 스위치, 슬라이더, 세그먼트, 값 줄, 단축키 칸, 토스트
-      Popovers/          IPopover, PopoverStack, PopoverPlacement, ListMenu, 색·폰트·기준점 팝업
-      Graphics/          벡터 그래픽 기반 + 아이콘 enum 하나
-      ColorPicker/
-    Settings/          설정 창만. 패널(틀·이동·Esc) + Pages/(탭 하나에 클래스 하나)
+    Ui/                두 화면 이상이 쓰는 UI 부품. 화면 이름 대신 Ui를 달고, ElementSettings를 모름 (docs/plans/ui-renames.md)
+      Theme/             UiPalette(이름 붙은 색 전부, 오류 색 하나), UiTheme(하이라이트 색), UiLocale(L(ko,en) 하나), UiFonts
+      Widgets/           UiFactory와 그 부품: 버튼, 스위치, 슬라이더, 세그먼트, 값 줄, 캡슐, 토스트
+      Popovers/          IPopover, PopoverStack, PopoverPlacement, ListMenu, 그늘, 폰트 팝업
+      Graphics/          벡터 그래픽 기반, 아이콘 하나(UiIcon + UiIconKind), 키 기호
+      ColorPicker/       UiColorPicker와 색 막대 UiGradientBar, 색 평면·알파·견본 그래픽
+      Input/             단축키 읽기, 키 받기, 보조 키, 커서, 입력 잡기
+    Settings/          설정 창만. 패널(틀·이동·Esc), Pages/(탭 하나에 클래스 하나), 창에만 쓰는 부품
     Layout/            배치 편집기
-      Canvas/            편집 세션: 선택, 끌기, 도구 막대, 요소 막대, 추가 메뉴, 상태 줄 (조각이 아니라 클래스로)
+      Canvas/            편집 세션: 선택, 끌기, 도구 막대, 요소 막대, 추가 메뉴, 상태 줄, 하이라이트 색 팝업
       Kinds/             요소 종류마다 설명서 하나. 종류를 아는 유일한 곳
       ContentEditors/    전체 화면 편집기 (IContentEditor)
-        Shell/             공용 틀: OverlayEditorFrame, 편집기 키 처리
-        Blocks/            작업대, 팔레트, 모양(TextLook, ShapeLook 따로), 미리보기
+        Shell/             공용 틀: OverlayEditorFrame, IContentEditorHost, 편집기 키 처리, 기준점 팝업
+        Text/  Shape/      편집기마다 부품 하나에 클래스 하나
         Mods/              모드 요소 편집 화면, 부품 하나에 파일 하나
       Graphics/          테두리, 간격 같은 그리기 전용
+      KeyViewers/        배치 편집기 안의 키뷰어 미리보기
     Overlay/           게임 화면에 그리기. Layout과 Settings를 참조하지 않음
       Canvas/            캔버스, 종류별 생성 목록
-      Elements/  Text/  Shape/  Mods/  Blocks/
-      Values/            값 쓰기 (기능마다 하나)
+      Elements/          모든 종류가 함께 쓰는 것: 배치 대상, 값 받기, 그라디언트
+      Text/  Shape/  Mods/   종류마다 그 종류만 쓰는 것
+      Values/            값 쓰기(기능마다 하나), 값 저장소, 숫자 글자, 값 이름
       Fonts/  Migration/
-    Notices/           플레이어에게 보이는 결과 문구 (지금의 Rendering/)
+    Notices/           설정 창 밖에서 플레이어에게 보이는 문구: 렌더·프리셋·업데이트 알림, 키 리미터 줄
+    Screens/           어느 화면이 열려 있는지, 화면이 닫혀 있을 때 듣는 키: 설정 단축키, 프리셋 단축키
   Bootstrap/         조립만: 만들고, 잇고, 정리. 게임 읽기·화면·규칙 없음
     Main.cs            UMM 입구 (공개 계약이라 이름과 네임스페이스 유지)
     Api/               다른 모드가 리플렉션으로 붙는 API (AttemptCounter)
@@ -279,12 +283,11 @@ Element.Tests/
 | 2 | runtime2 | ElementNote 뷰어 코드를 일별로, 큰 Infrastructure 클래스 나누기, 내부 이름 ElementNote로 | 완료 |
 | 2 | core2 | Domain·Application·Configuration을 기능 폴더로, 저장 형식 왕복 검사, 테스트를 층별 폴더·`[Suite]`·`Support/`로 | 완료 |
 | 2 | editors | 글자·도형 편집기를 일별 클래스로(공통 부분은 `ContentEditors/Shell`) | 완료 |
-| 2 | ui | 공용 UI 부품을 `Presentation/Ui`로, 아이콘 하나로, 색 선택기 나누기, `Layout/Editing` 정리 | 멈춤 |
+| 2 | ui | 공용 UI 부품을 `Presentation/Ui`로(이름 규칙은 `ui-renames.md`), 아이콘 하나로, 색 선택기를 클래스로, `Layout/Editing` 정리, Overlay를 부분별 폴더로, `Notices`·`Screens`, 편집기 호스트 하나, `SettingsUiRuntime`은 조립만, 네이티브 뷰어 잘라내기의 매 프레임 할당 없애기 | 완료 |
 
 남은 것:
-- 위 표의 멈춤 항목
-- 배치 편집기가 열려 있는 동안 `SetEditorExclusions`·`GameWebView.ExcludeEditor`가 매 프레임 메모리를 잡음
-- `SettingsUiRuntime`에 남은 기능 코드(프리셋 단축키, 행성 미리보기 만들기)를 Presentation으로
+- `Ui`가 아직 Overlay를 조금 읽습니다. 폰트 팝업은 `Overlay/Fonts`의 `OverlayFonts`를, 색 선택기는 `Overlay/Elements`의 `OverlayResolvedGradient`와 `Overlay/Text`의 `OverlayTextComposer.ParseHex`를 씁니다. 폰트 목록과 그라디언트 모양을 포트나 Domain으로 내리면 끊깁니다.
+- 500줄이 넘는 파일: `OverlayGradientHandles`, `OverlayLayoutEditor`, `UiColorPicker`, `UiFontPopover`, `ModInputParts`, `ProfilesPage`, `SettingsPanel`, `UiGradientBar`, `NativeViewerLayoutTarget`.
 
 ## 9. 작업 규칙
 

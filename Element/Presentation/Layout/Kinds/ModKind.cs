@@ -1,18 +1,18 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
+using Element.Application.Mods;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
-using ElementKit.Hosting;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
-using Element.Application.Mods;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -30,7 +30,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   public ModKind(ILayoutEditing editing)
     : base(editing)
   {
-    _menu = new ListMenu(editing.Session.NewUi, "Mod element menu", MenuWidth, MenuRow, LayoutColors.Menu);
+    _menu = new ListMenu(editing.Session.NewUi, "Mod element menu", MenuWidth, MenuRow, UiPalette.Menu);
     editing.AddMenu.AddSubmenu(_menu, () => _menu.HeightFor(Mathf.Min(MenuRows, Mathf.Max(1, Offered))));
   }
 
@@ -57,7 +57,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   {
     int offered = Offered;
     return new AddMenuRow(
-      LayoutAction.Extension,
+      UiIconKind.Extension,
       L("기타", "More"),
       L(
         "다른 모드가 추가한 요소 " + offered + "개",
@@ -90,10 +90,10 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
       Button button = _menu.AddRow(
         i,
         "Add " + type.FullKey,
-        LayoutAction.Extension,
+        UiIconKind.Extension,
         15,
         22,
-        SettingsPalette.SoftAccent,
+        UiPalette.SoftAccent,
         true,
         () => Add(type)
       );
@@ -115,7 +115,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
         MenuWidth - 76,
         18,
         12,
-        SettingsUiFactory.Muted
+        UiPalette.Muted
       );
       mod.textWrappingMode = TextWrappingModes.NoWrap;
       first ??= button;

@@ -3,12 +3,13 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Overlay.Shape;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -22,7 +23,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
   public ShapeKind(ILayoutEditing editing)
     : base(editing)
   {
-    _menu = new ListMenu(editing.Session.NewUi, "Shape kind menu", MenuWidth, MenuRow, LayoutColors.Menu);
+    _menu = new ListMenu(editing.Session.NewUi, "Shape kind menu", MenuWidth, MenuRow, UiPalette.Menu);
     editing.AddMenu.AddSubmenu(_menu, () => _menu.HeightFor(3));
   }
 
@@ -32,7 +33,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
 
   public override AddMenuRow Row() =>
     new(
-      LayoutAction.Shape,
+      UiIconKind.Shape,
       L("도형", "Shape"),
       L("사각형·삼각형·원으로 글자 뒤 배경을 깔아요", "A square, triangle or circle behind text"),
       true,
@@ -48,11 +49,11 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
       return;
     }
     _menu.Open(Editing.Session.Root.transform, 3);
-    (OverlayShapeKind Kind, LayoutAction Icon, string Name)[] kinds =
+    (OverlayShapeKind Kind, UiIconKind Icon, string Name)[] kinds =
     {
-      (OverlayShapeKind.Square, LayoutAction.Square, L("사각형", "Square")),
-      (OverlayShapeKind.Triangle, LayoutAction.Triangle, L("삼각형", "Triangle")),
-      (OverlayShapeKind.Circle, LayoutAction.Circle, L("원", "Circle")),
+      (OverlayShapeKind.Square, UiIconKind.Square, L("사각형", "Square")),
+      (OverlayShapeKind.Triangle, UiIconKind.Triangle, L("삼각형", "Triangle")),
+      (OverlayShapeKind.Circle, UiIconKind.Circle, L("원", "Circle")),
     };
     Button first = null;
     for (int i = 0; i < kinds.Length; i++)
@@ -64,7 +65,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
         kinds[i].Icon,
         11,
         22,
-        SettingsPalette.SoftAccent,
+        UiPalette.SoftAccent,
         true,
         () => Add(kind)
       );

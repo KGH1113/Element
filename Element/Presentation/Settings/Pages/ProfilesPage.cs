@@ -2,12 +2,14 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Profiles;
 using Element.Configuration.Profiles;
-using Element.Presentation.Layout;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -33,7 +35,7 @@ internal sealed class ProfilesPage : SettingsPage
   private readonly ProfileFontReplacements _fonts;
   private readonly NewProfilePopover _newProfilePopover;
   private readonly List<Button> _profileCards = new();
-  private SettingsUiFactory _profileGalleryUi;
+  private UiFactory _profileGalleryUi;
   private TextMeshProUGUI _profileLinkDetail;
 
   // The profile whose card shows a name field, that field, and the card line
@@ -60,7 +62,7 @@ internal sealed class ProfilesPage : SettingsPage
       _importProfile = Ui.Button(L("가져오기", "Import"), _profilesHeading, 0, 0, 120, 44, ImportProfile);
     _newProfile = Ui.Button(L("새 프로필", "New profile"), _profilesHeading, 0, 0, 156, 44, ToggleNewProfile, true);
     _profileGallery = Ui.Rect("Profile gallery", Root, 0, 56, 936, 160);
-    _profilesMessage = Ui.Text("", Root, 0, 0, 936, 24, 14, SettingsUiFactory.Muted);
+    _profilesMessage = Ui.Text("", Root, 0, 0, 936, 24, 14, UiPalette.Muted);
     _profilesMessage.alignment = TextAlignmentOptions.TopLeft;
     _fonts = new ProfileFontReplacements(window, Root, overlayFonts, Relayout);
     _newProfilePopover = new NewProfilePopover(Ui, Window.Frame, Window.Shade, ValidateNewProfileName, CreateProfile);
@@ -137,10 +139,10 @@ internal sealed class ProfilesPage : SettingsPage
     {
       GameObject child = _profileGallery.GetChild(i).gameObject;
       child.SetActive(false);
-      SettingsUiFactory.Destroy(child);
+      UiFactory.Destroy(child);
     }
     _profileGalleryUi?.Dispose();
-    _profileGalleryUi = new SettingsUiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
+    _profileGalleryUi = new UiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
     _profileCards.Clear();
     int count = _profiles.Profiles.Count;
     // The window title already says Profiles; the heading counts them.
@@ -167,7 +169,7 @@ internal sealed class ProfilesPage : SettingsPage
     int actions = 2 + (_profiles.FilesSupported ? 1 : 0) + (_profiles.CanDelete ? 1 : 0);
     float actionsWidth = actions * CardActionSize + (actions - 1) * CardActionGap;
     var title = _profileGalleryUi.Text(profile.Name, card.transform, 18, 18, 220, 54, 20);
-    SettingsUiFactory.StretchWidth(title.rectTransform, 18, CardActionInset + actionsWidth + 8);
+    UiFactory.StretchWidth(title.rectTransform, 18, CardActionInset + actionsWidth + 8);
     title.alignment = TextAlignmentOptions.TopLeft;
     title.gameObject.SetActive(!renaming);
     ProfileSummary summary = _profiles.Summarize(profile);
@@ -178,8 +180,8 @@ internal sealed class ProfilesPage : SettingsPage
         + summary.Presets
         + (summary.Presets == 1 ? " preset" : " presets")
     );
-    var contents = _profileGalleryUi.Text(summaryText, card.transform, 18, 82, 220, 22, 13, SettingsUiFactory.Muted);
-    SettingsUiFactory.StretchWidth(contents.rectTransform, 18, 18);
+    var contents = _profileGalleryUi.Text(summaryText, card.transform, 18, 82, 220, 22, 13, UiPalette.Muted);
+    UiFactory.StretchWidth(contents.rectTransform, 18, 18);
     var state = _profileGalleryUi.Text(
       armed ? L("한 번 더 누르면 삭제해요", "Press again to delete")
         : inUse ? L("사용 중", "In use")
@@ -191,12 +193,12 @@ internal sealed class ProfilesPage : SettingsPage
       22,
       13
     );
-    SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
+    UiFactory.StretchWidth(state.rectTransform, 18, 18);
     _profileGalleryUi.Bind(() =>
       state.color =
-        armed ? SettingsPalette.Error
+        armed ? UiPalette.Error
         : inUse ? Ui.SoftAccent
-        : SettingsUiFactory.Muted
+        : UiPalette.Muted
     );
     if (inUse)
     {
@@ -218,48 +220,48 @@ internal sealed class ProfilesPage : SettingsPage
     {
       int slot = 0;
       if (_profiles.CanDelete)
-        CardAction<LayoutActionIcon>(
+        CardAction(
           card.transform,
           "Delete profile",
           slot++,
+          UiIconKind.Delete,
           () => DeleteProfile(profile),
-          armed ? SettingsPalette.Error : SettingsUiFactory.Muted,
-          armed ? SettingsPalette.Error : SettingsUiFactory.Foreground
-        ).Kind = LayoutAction.Delete;
+          armed ? UiPalette.Error : UiPalette.Muted,
+          armed ? UiPalette.Error : UiPalette.Foreground
+        );
       if (_profiles.FilesSupported)
-        CardAction<SettingsExportIcon>(card.transform, "Export profile", slot++, () => ExportProfile(profile));
-      CardAction<SettingsDuplicateIcon>(card.transform, "Duplicate profile", slot++, () => DuplicateProfile(profile));
-      CardAction<SettingsEditIcon>(card.transform, "Rename profile", slot, () => StartRename(profile));
+        CardAction(card.transform, "Export profile", slot++, UiIconKind.Export, () => ExportProfile(profile));
+      CardAction(card.transform, "Duplicate profile", slot++, UiIconKind.Duplicate, () => DuplicateProfile(profile));
+      CardAction(card.transform, "Rename profile", slot, UiIconKind.Edit, () => StartRename(profile));
     }
     return card;
   }
 
   // A glyph button in the card's top right; slot 0 is the rightmost.
-  private T CardAction<T>(
+  private void CardAction(
     Transform card,
     string name,
     int slot,
+    UiIconKind icon,
     Action action,
     Color? normal = null,
     Color? hover = null
   )
-    where T : Graphic
   {
     Button button = _profileGalleryUi.GlyphButton(
       name,
       card,
       CardActionSize,
       CardGlyphSize,
+      icon,
       action,
-      normal ?? SettingsUiFactory.Muted,
-      hover ?? SettingsUiFactory.Foreground,
-      out T glyph
+      normal ?? UiPalette.Muted,
+      hover ?? UiPalette.Foreground
     );
     RectTransform rect = (RectTransform)button.transform;
     rect.anchorMin = rect.anchorMax = new Vector2(1, 1);
     rect.pivot = new Vector2(1, 1);
     rect.anchoredPosition = new Vector2(-CardActionInset - slot * (CardActionSize + CardActionGap), -CardActionInset);
-    return glyph;
   }
 
   private static bool Contains(IReadOnlyList<ElementProfile> profiles, ElementProfile profile)
@@ -410,7 +412,7 @@ internal sealed class ProfilesPage : SettingsPage
     input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     // The caret goes after the name, where typing continues.
     input.onFocusSelectAll = false;
-    SettingsUiFactory.StretchWidth((RectTransform)input.transform, 12, 12);
+    UiFactory.StretchWidth((RectTransform)input.transform, 12, 12);
     return input;
   }
 
@@ -430,7 +432,7 @@ internal sealed class ProfilesPage : SettingsPage
     bool valid = _profiles.ValidateName(text, profile.Id, out ProfileNameProblem problem);
     bool shown = !valid && text.Trim().Length > 0;
     _renameProblem.text = shown ? ProfileProblemText.Name(problem) : _renameSummary;
-    _renameProblem.color = shown ? SettingsPalette.Error : SettingsUiFactory.Muted;
+    _renameProblem.color = shown ? UiPalette.Error : UiPalette.Muted;
   }
 
   // Enter or a click elsewhere saves a usable new name; Escape, the same
@@ -563,7 +565,7 @@ internal sealed class ProfilesPage : SettingsPage
   private void ShowProfilesMessage(string text, bool error)
   {
     _profilesMessage.text = text;
-    _profilesMessage.color = error ? SettingsPalette.Error : Ui.SoftAccent;
+    _profilesMessage.color = error ? UiPalette.Error : Ui.SoftAccent;
     Relayout();
   }
 
@@ -574,13 +576,13 @@ internal sealed class ProfilesPage : SettingsPage
     bool stackedButtons = width < 440;
     float buttonsTop = stackedButtons ? 52 : 0;
     float headingHeight = stackedButtons ? 96 : 44;
-    SettingsUiFactory.Place(_profilesHeading, 0, 0, width, headingHeight);
-    SettingsUiFactory.Place(_profilesTitle.rectTransform, 0, 0, stackedButtons ? width : width - 300, 44);
+    UiFactory.Place(_profilesHeading, 0, 0, width, headingHeight);
+    UiFactory.Place(_profilesTitle.rectTransform, 0, 0, stackedButtons ? width : width - 300, 44);
     float newWidth = stackedButtons && _importProfile != null ? (width - 8) / 2 : 156;
     float importWidth = stackedButtons ? newWidth : 120;
-    SettingsUiFactory.Place((RectTransform)_newProfile.transform, width - newWidth, buttonsTop, newWidth, 44);
+    UiFactory.Place((RectTransform)_newProfile.transform, width - newWidth, buttonsTop, newWidth, 44);
     if (_importProfile != null)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_importProfile.transform,
         width - newWidth - 8 - importWidth,
         buttonsTop,
@@ -594,9 +596,9 @@ internal sealed class ProfilesPage : SettingsPage
       : 1;
     float cardWidth = (width - (columns - 1) * 12) / columns;
     float galleryHeight = Mathf.Max(140, Mathf.CeilToInt(_profileCards.Count / (float)columns) * 152 - 12);
-    SettingsUiFactory.Place(_profileGallery, 0, top, width, galleryHeight);
+    UiFactory.Place(_profileGallery, 0, top, width, galleryHeight);
     for (int i = 0; i < _profileCards.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_profileCards[i].transform,
         i % columns * (cardWidth + 12),
         i / columns * 152,
@@ -608,8 +610,8 @@ internal sealed class ProfilesPage : SettingsPage
     _profilesMessage.gameObject.SetActive(hasMessage);
     if (hasMessage)
     {
-      float messageHeight = SettingsUiFactory.TextHeight(_profilesMessage, width, 20);
-      SettingsUiFactory.Place(_profilesMessage.rectTransform, 0, top + 16, width, messageHeight);
+      float messageHeight = UiFactory.TextHeight(_profilesMessage, width, 20);
+      UiFactory.Place(_profilesMessage.rectTransform, 0, top + 16, width, messageHeight);
       top += 16 + messageHeight;
     }
     if (_fonts.Visible)

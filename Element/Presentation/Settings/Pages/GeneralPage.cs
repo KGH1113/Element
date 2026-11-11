@@ -1,11 +1,14 @@
 using Element.Application.Updates;
 using Element.Configuration;
 using Element.Configuration.Effects;
-using Element.Presentation.Layout;
+using Element.Presentation.Notices;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -32,7 +35,7 @@ internal sealed class GeneralPage : SettingsPage
       _profileLink = profiles.CreateLink(Root);
       Adopt(profiles, _profileLink);
     }
-    _shortcutSection = Ui.Panel("Settings shortcut", Root, 0, 0, 936, 124, SettingsUiFactory.Surface).rectTransform;
+    _shortcutSection = Ui.Panel("Settings shortcut", Root, 0, 0, 936, 124, UiPalette.Surface).rectTransform;
     TextMeshProUGUI shortcutTitle = Ui.Text(
       L("설정 단축키", "Settings shortcut"),
       _shortcutSection,
@@ -42,7 +45,7 @@ internal sealed class GeneralPage : SettingsPage
       28,
       17
     );
-    SettingsUiFactory.StretchWidth(shortcutTitle.rectTransform, 16, 16);
+    UiFactory.StretchWidth(shortcutTitle.rectTransform, 16, 16);
     ElementSettings settings = Settings;
     _settingsShortcut = new SettingsShortcutField(
       Ui,
@@ -51,7 +54,7 @@ internal sealed class GeneralPage : SettingsPage
       () => settings.SettingsShortcutModifier,
       AssignSettingsShortcut,
       "Reset shortcut",
-      LayoutAction.Reset,
+      UiIconKind.Reset,
       () =>
       {
         settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey;
@@ -144,7 +147,7 @@ internal sealed class GeneralPage : SettingsPage
 
   public override void Layout(float width, float height)
   {
-    SettingsUiFactory.Place(_shortcutSection, 0, 0, width, 124);
+    UiFactory.Place(_shortcutSection, 0, 0, width, 124);
     UpdateShortcutLabel();
   }
 
@@ -155,21 +158,21 @@ internal sealed class GeneralPage : SettingsPage
     // The profiles link leads the page.
     if (_profileLink != null)
     {
-      SettingsUiFactory.Place((RectTransform)_profileLink.transform, 0, 0, contentWidth, 80);
+      UiFactory.Place((RectTransform)_profileLink.transform, 0, 0, contentWidth, 80);
       top = 92;
     }
     float fieldBottom = _settingsShortcut.Layout(60, contentWidth);
     float shortcutHeight = fieldBottom + (_settingsShortcut.Capturing ? 16 : 20);
-    SettingsUiFactory.Place(_shortcutSection, 0, top, contentWidth, shortcutHeight);
+    UiFactory.Place(_shortcutSection, 0, top, contentWidth, shortcutHeight);
     float rowHeight = contentWidth < 520 ? 116 : 88;
     float motionTop = top + shortcutHeight + 12;
-    SettingsUiFactory.Place((RectTransform)_motionRow.transform, 0, motionTop, contentWidth, rowHeight);
+    UiFactory.Place((RectTransform)_motionRow.transform, 0, motionTop, contentWidth, rowHeight);
     float dmNoteTop = motionTop + rowHeight + 12;
-    SettingsUiFactory.Place((RectTransform)_dmNoteRow.transform, 0, dmNoteTop, contentWidth, rowHeight);
+    UiFactory.Place((RectTransform)_dmNoteRow.transform, 0, dmNoteTop, contentWidth, rowHeight);
     float bottom = dmNoteTop + rowHeight;
     if (_updateRow != null)
     {
-      SettingsUiFactory.Place((RectTransform)_updateRow.transform, 0, bottom + 12, contentWidth, rowHeight);
+      UiFactory.Place((RectTransform)_updateRow.transform, 0, bottom + 12, contentWidth, rowHeight);
       bottom += 12 + rowHeight;
     }
     Root.sizeDelta = new Vector2(contentWidth, bottom);

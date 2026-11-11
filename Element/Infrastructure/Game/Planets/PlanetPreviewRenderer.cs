@@ -1,8 +1,7 @@
-using System;
-using Element.Configuration;
+using Element.Application.Gameplay;
+using Element.Configuration.Gameplay;
 using UnityEngine;
 using Object = UnityEngine.Object;
-using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Planets;
 
@@ -10,7 +9,7 @@ namespace Element.Infrastructure.Game.Planets;
 /// Renders the game's planet assets without creating a scrPlanet, PlanetRenderer,
 /// or any other gameplay behaviour. Preview objects are inactive between renders.
 /// </summary>
-internal sealed class PlanetPreviewRenderer : IDisposable
+internal sealed class PlanetPreviewRenderer : IPlanetPreview
 {
   private readonly PlanetPreviewSources _sources;
   private readonly PlanetPreviewVisual[] _previews = new PlanetPreviewVisual[3];

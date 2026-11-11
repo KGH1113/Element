@@ -1,5 +1,8 @@
 using System;
 using Element.Configuration;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,7 +25,7 @@ internal abstract class SettingsPage : IDisposable
   }
 
   protected ISettingsWindow Window { get; }
-  protected SettingsUiFactory Ui { get; }
+  protected UiFactory Ui { get; }
   protected ElementSettings Settings { get; }
 
   /// <summary>Holds the page's controls; the window scrolls it.</summary>
@@ -97,11 +100,11 @@ internal abstract class SettingsPage : IDisposable
     Button link = Ui.Button(title, parent, 0, 0, 936, 80, action);
     link.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     var label = Ui.Text(title, link.transform, 20, 13, 820, 26, 18);
-    SettingsUiFactory.StretchWidth(label.rectTransform, 20, 64);
-    detail = Ui.Text(description, link.transform, 20, 43, 820, 24, 14, SettingsUiFactory.Muted);
-    SettingsUiFactory.StretchWidth(detail.rectTransform, 20, 64);
-    var arrow = Ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = SettingsNavigationIconKind.Forward;
+    UiFactory.StretchWidth(label.rectTransform, 20, 64);
+    detail = Ui.Text(description, link.transform, 20, 43, 820, 24, 14, UiPalette.Muted);
+    UiFactory.StretchWidth(detail.rectTransform, 20, 64);
+    var arrow = Ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<UiIcon>();
+    arrow.Kind = UiIconKind.PageForward;
     arrow.raycastTarget = false;
     arrow.rectTransform.anchorMin = arrow.rectTransform.anchorMax = new Vector2(1, .5f);
     arrow.rectTransform.pivot = new Vector2(1, .5f);
@@ -111,9 +114,9 @@ internal abstract class SettingsPage : IDisposable
   }
 
   /// <summary>Section tabs across the page; the first starts chosen.</summary>
-  protected SettingsSegmentedControl Tabs(Transform parent, string[] names, Action<int> changed)
+  protected UiSegmentedControl Tabs(Transform parent, string[] names, Action<int> changed)
   {
-    var tabs = new SettingsSegmentedControl(
+    var tabs = new UiSegmentedControl(
       Ui,
       parent,
       0,
@@ -126,7 +129,7 @@ internal abstract class SettingsPage : IDisposable
         changed(index);
         Ui.RefreshTheme();
       },
-      style: SettingsSegmentStyle.Tabs
+      style: UiSegmentStyle.Tabs
     );
     tabs.Selected = 0;
     return tabs;

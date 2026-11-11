@@ -1,14 +1,14 @@
 using System;
-using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
-using TMPro;
-using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
+using TMPro;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -43,12 +43,12 @@ internal sealed class ShapeColors
       () => _host.Screen != null,
       // Its numbers go with it.
       () => _numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field),
-      _host.CloseEditing,
+      _host.CloseOpen,
       _host.Render
     );
   }
 
-  public SettingsColorPicker Picker => _picker.Picker;
+  public UiColorPicker Picker => _picker.Picker;
 
   public OverlayOpacityField Opacity => _picker.Opacity;
 
@@ -71,7 +71,7 @@ internal sealed class ShapeColors
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
 
-  public OverlayBarButton BuildFill(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildFill(UiFactory ui, Transform bar, bool reduceMotion) =>
     _fillButton = new OverlayBarButton(
       ui,
       bar,
@@ -82,7 +82,7 @@ internal sealed class ShapeColors
       swatch: true
     );
 
-  public OverlayBarButton BuildStroke(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildStroke(UiFactory ui, Transform bar, bool reduceMotion) =>
     _strokeButton = new OverlayBarButton(
       ui,
       bar,
@@ -107,7 +107,7 @@ internal sealed class ShapeColors
   // The same button closes its picker; the other one moves it over.
   private void Open(bool stroke)
   {
-    _host.CloseEditing();
+    _host.CloseOpen();
     if (Picker.Visible && _pickerForStroke == stroke)
     {
       Picker.Hide();
@@ -175,7 +175,7 @@ internal sealed class ShapeColors
 
   private static Color Opaque(OverlayColorSettings color)
   {
-    Color resolved = OverlayTextComposer.Resolve(color, OverlayTheme.Accent);
+    Color resolved = OverlayTextComposer.Resolve(color, UiTheme.Accent);
     resolved.a = 1;
     return resolved;
   }
@@ -198,7 +198,7 @@ internal sealed class ShapeColors
   {
     if (!Picker.Visible)
       return null;
-    if (Picker.IsGradient)
+    if (Picker.Gradient.IsGradient)
       return _pickerForStroke
         ? L(
           "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",

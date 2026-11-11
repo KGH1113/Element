@@ -11,7 +11,6 @@ using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using TMPro;
@@ -21,6 +20,9 @@ using UnityEngine.UI;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Configuration.Overlay;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Overlay.Shape;
+using Element.Presentation.Overlay.Text;
 
 namespace Element.Editor
 {
@@ -52,12 +54,12 @@ namespace Element.Editor
       // The checks below measure where things land, so they settle at once.
       preferences.ReduceUiMotion = true;
       Call(ShapeColorsOf(shapes), "Open", false);
-      SettingsColorPicker picker = ShapeColorsOf(shapes).Picker;
+      UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       OverlayGradientHandles handles = ShapeGradientOf(shapes).Handles;
-      Assert(picker.Visible && picker.GradientAvailable && !picker.IsGradient && !handles.Visible,
+      Assert(picker.Visible && picker.GradientAvailable && !picker.Gradient.IsGradient && !handles.Visible,
         "the fill picker has a color bar and starts solid, with no handles");
-      RectTransform bar = Field<RectTransform>(picker, "_bar");
-      Assert(bar.gameObject.activeInHierarchy && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf == false,
+      RectTransform bar = Field<RectTransform>(picker.Gradient, "_bar");
+      Assert(bar.gameObject.activeInHierarchy && Field<RectTransform>(picker.Gradient, "_kindRow").gameObject.activeSelf == false,
         "a solid color shows only the bar; the kinds wait for a second color");
 
       // A new shape follows the highlight; a custom color shows the whole picker.
@@ -66,31 +68,31 @@ namespace Element.Editor
       Rect solidBar = ScreenRectOf(bar), solidPicker = ScreenRectOf(picker.Root);
 
       // Hovering the solid bar says what a click does, right under it.
-      Invoke(picker, "BarHover", Pointer(BarPoint(bar, .7f)));
-      RectTransform tip = Field<RectTransform>(picker, "_tip");
+      Invoke(picker.Gradient, "BarHover", Pointer(BarPoint(bar, .7f)));
+      RectTransform tip = Field<RectTransform>(picker.Gradient, "_tip");
       Assert(tip.gameObject.activeSelf && ScreenRectOf(tip).yMax <= ScreenRectOf(bar).yMin + .5f
         && Mathf.Abs(ScreenRectOf(tip).center.x - BarPoint(bar, .7f).x) < ScreenRectOf(tip).width,
         "hovering the bar shows the add tip under the pointer");
       SaveFrame(camera, texture, canvases, name + "-gradient-hover");
 
       // A click makes a gradient whose new color shows at once.
-      Invoke(picker, "BarDown", Pointer(BarPoint(bar, .7f)));
-      Invoke(picker, "BarDrag", Pointer(BarPoint(bar, .7f)));
+      Invoke(picker.Gradient, "BarDown", Pointer(BarPoint(bar, .7f)));
+      Invoke(picker.Gradient, "BarDrag", Pointer(BarPoint(bar, .7f)));
       OverlayColorSettings fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
-      Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.IsGradient && picker.SelectedStop == 1,
+      Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.Gradient.IsGradient && picker.Gradient.SelectedStop == 1,
         "a click on the bar adds a color, picks it and makes a gradient");
       Assert(ScreenRectOf(bar) == solidBar && ScreenRectOf(picker.Root) == solidPicker,
         "turning into a gradient keeps the picker and its bar in place");
       Assert(fill.Gradient.Stops[1].Alpha > .99f && Mathf.Abs(fill.Gradient.Stops[1].Position - .7f) < .03f,
         "the new color is opaque and lands where it was clicked: " + fill.Gradient.Stops[1].Alpha + " at " + fill.Gradient.Stops[1].Position);
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
-      Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf && handles.Visible,
+      Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker.Gradient, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
       OverlayInputDock dock0 = Field<OverlayInputDock>(shapes, "_dock");
       OverlayFormulaField position = ShapeGradientOf(shapes).Position;
       Assert(position.Text == "70", "the picked color's position pill says where it is: " + position.Text);
       Rect pill = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
-      Rect delete = ScreenRectOf((RectTransform)Field<Button>(picker, "_delete").transform);
+      Rect delete = ScreenRectOf((RectTransform)Field<Button>(picker.Gradient, "_delete").transform);
       Assert(pill.yMin >= barRect.yMax - .5f && delete.xMin >= pill.xMax && Mathf.Abs(delete.center.y - pill.center.y) < 2,
         "the pill sits over the bar with the delete button beside it");
       foreach (TextMeshProUGUI label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -118,7 +120,7 @@ namespace Element.Editor
       Assert(handles.SquareAt(start + new Vector2(0, -24)) == 0 || square == 0, "the first color hangs just below its end of the line");
 
       // Each kind is a tile drawn in the colors; radial adds a width handle.
-      Field<Image[]>(picker, "_kindFrames")[1].GetComponent<Button>().onClick.Invoke();
+      Field<Image[]>(picker.Gradient, "_kindFrames")[1].GetComponent<Button>().onClick.Invoke();
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(fill.Gradient.Kind == OverlayGradientKind.Radial && Mathf.Abs(fill.Gradient.StartX - .5f) < .01f, "a kind tile switches the kind");
 
@@ -154,7 +156,7 @@ namespace Element.Editor
       List<int> order = OverlayGradientEdits.Order(fill.Gradient);
       Assert(fill.Highlight && fill.IsGradient && fill.Gradient.Stops[order[order.Count - 1]].Alpha < fill.Gradient.Stops[order[0]].Alpha,
         "the highlight gradient fades instead of vanishing");
-      Assert(!Field<RectTransform>(picker, "_planeRect").gameObject.activeSelf && Field<TextMeshProUGUI>(picker, "_highlightNote").gameObject.activeSelf,
+      Assert(!Field<RectTransform>(picker, "_planeRect").gameObject.activeSelf && Field<TextMeshProUGUI>(picker.Gradient, "_highlightNote").gameObject.activeSelf,
         "only the opacity and a note show while following the highlight");
       SaveFrame(camera, texture, canvases, name + "-gradient-highlight");
       Call(picker, "SetSource", false);
@@ -219,14 +221,14 @@ namespace Element.Editor
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "Edit text opens the text editor");
       Call(TextColorOf(text), "OpenPicker");
-      SettingsColorPicker textPicker = TextColorOf(text).Picker;
+      UiColorPicker textPicker = TextColorOf(text).Picker;
       Call(textPicker, "SetSource", false);
-      RectTransform textBar = Field<RectTransform>(textPicker, "_bar");
-      Invoke(textPicker, "BarDown", Pointer(BarPoint(textBar, 1)));
-      Invoke(textPicker, "BarDrag", Pointer(BarPoint(textBar, 1)));
+      RectTransform textBar = Field<RectTransform>(textPicker.Gradient, "_bar");
+      Invoke(textPicker.Gradient, "BarDown", Pointer(BarPoint(textBar, 1)));
+      Invoke(textPicker.Gradient, "BarDrag", Pointer(BarPoint(textBar, 1)));
       OverlayColorSettings range = TextDocumentOf(text).RangeColor();
       OverlayGradientHandles textHandles = Field<TextGradient>(text, "_gradient").Handles;
-      Assert(range.IsGradient && textPicker.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
+      Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Assert(OverlayTextGradients.Box(preview.textInfo, out Rect box) && box.width > 0, "the handles measure the text's box");
       Rect textRect = ScreenRectOf(preview.rectTransform);

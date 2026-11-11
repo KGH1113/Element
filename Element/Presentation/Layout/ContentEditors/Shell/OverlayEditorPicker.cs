@@ -1,9 +1,9 @@
 using System;
-using Element.Configuration;
-using Element.Presentation.Settings;
+using Element.Configuration.Overlay;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using Element.Configuration.Overlay;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -49,19 +49,19 @@ internal sealed class OverlayEditorPicker
     _render = render;
   }
 
-  public SettingsColorPicker Picker { get; private set; }
+  public UiColorPicker Picker { get; private set; }
 
   public OverlayOpacityField Opacity { get; private set; }
 
   /// <summary>The picker over <paramref name="frame"/>; then its opacity and its place above the keypad.</summary>
   public void Build(RectTransform frame)
   {
-    Picker = new SettingsColorPicker(frame, _font, _reduceMotion);
+    Picker = new UiColorPicker(frame, _font, _reduceMotion);
     Picker.Hidden = Hidden;
   }
 
   /// <summary>The opacity as a number; a click types it in the dock.</summary>
-  public void BuildOpacity(SettingsUiFactory ui, Action activate) =>
+  public void BuildOpacity(UiFactory ui, Action activate) =>
     Opacity = new OverlayOpacityField(ui, Picker, activate, _reduceMotion());
 
   /// <summary>The color picker opens right above the keypad, in its column.</summary>
@@ -75,7 +75,7 @@ internal sealed class OverlayEditorPicker
 
   public void Dispose()
   {
-    SettingsColorPicker picker = Picker;
+    UiColorPicker picker = Picker;
     Picker = null;
     picker?.Dispose();
   }

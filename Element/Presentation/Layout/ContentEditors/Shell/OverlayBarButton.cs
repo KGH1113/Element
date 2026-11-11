@@ -1,6 +1,9 @@
 using System;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -34,19 +37,19 @@ internal sealed class OverlayBarButton
   private readonly TextMeshProUGUI _label,
     _value,
     _unit;
-  private readonly SettingsCapsuleGraphic _swatch;
-  private readonly SettingsGradientPreview _swatchGradient;
-  private readonly LayoutActionIcon _icon;
-  private readonly SettingsCapsuleGraphic _track,
+  private readonly UiCapsuleGraphic _swatch;
+  private readonly UiGradientPreview _swatchGradient;
+  private readonly UiIcon _icon;
+  private readonly UiCapsuleGraphic _track,
     _thumb;
-  private readonly SettingsSwitchMotion _thumbMotion;
+  private readonly UiSwitchMotion _thumbMotion;
   private bool _active;
   private int _drop;
 
   /// <param name="lead">A swatch (<paramref name="swatch"/>), an icon or a glyph before the name; none when all are unset.</param>
   /// <param name="toggle">A switch after the name, set with <see cref="SetSwitch"/>.</param>
   public OverlayBarButton(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     string name,
     string label,
@@ -54,13 +57,13 @@ internal sealed class OverlayBarButton
     bool reduceMotion,
     string unit = "",
     bool swatch = false,
-    LayoutAction? icon = null,
+    UiIconKind? icon = null,
     string glyph = null,
     bool toggle = false
   )
   {
     _reduceMotion = reduceMotion;
-    _button = EditorCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, click, false, reduceMotion);
+    _button = UiCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, click, false, reduceMotion);
     Root = (RectTransform)_button.transform;
     if (swatch)
     {
@@ -70,7 +73,7 @@ internal sealed class OverlayBarButton
       // A gradient shows inside the same circle.
       _swatch.gameObject.AddComponent<Mask>().showMaskGraphic = true;
       _swatchGradient = ui.Rect("Gradient", _swatch.transform, 0, 0, LeadSize - 4, LeadSize - 4)
-        .gameObject.AddComponent<SettingsGradientPreview>();
+        .gameObject.AddComponent<UiGradientPreview>();
       _swatchGradient.raycastTarget = false;
       _swatchGradient.Columns = _swatchGradient.Rows = 6;
       _swatchGradient.Cell = 4;
@@ -78,17 +81,16 @@ internal sealed class OverlayBarButton
     }
     else if (icon.HasValue)
     {
-      LayoutActionIcon graphic = ui.Rect("Icon", Root, 0, 0, LeadSize, LeadSize)
-        .gameObject.AddComponent<LayoutActionIcon>();
+      UiIcon graphic = ui.Rect("Icon", Root, 0, 0, LeadSize, LeadSize).gameObject.AddComponent<UiIcon>();
       graphic.Kind = icon.Value;
-      graphic.color = SettingsUiFactory.Foreground;
+      graphic.color = UiPalette.Foreground;
       graphic.raycastTarget = false;
       _lead = graphic.rectTransform;
       _icon = graphic;
     }
     else if (!string.IsNullOrEmpty(glyph))
     {
-      TextMeshProUGUI text = ui.Text(glyph, Root, 0, 0, LeadSize, Height, 15, SettingsUiFactory.Muted);
+      TextMeshProUGUI text = ui.Text(glyph, Root, 0, 0, LeadSize, Height, 15, UiPalette.Muted);
       text.alignment = TextAlignmentOptions.Midline;
       text.textWrappingMode = TextWrappingModes.NoWrap;
       _lead = text.rectTransform;
@@ -96,16 +98,16 @@ internal sealed class OverlayBarButton
       _leadWidth = Mathf.Max(LeadSize, Mathf.Ceil(text.GetPreferredValues(glyph).x) + 1);
       _leadHeight = Height;
     }
-    _label = Text(ui, label, 14, SettingsUiFactory.Foreground);
-    _value = Text(ui, "", 14, SettingsUiFactory.Foreground);
-    _unit = Text(ui, unit, 12, SettingsUiFactory.Muted);
+    _label = Text(ui, label, 14, UiPalette.Foreground);
+    _value = Text(ui, "", 14, UiPalette.Foreground);
+    _unit = Text(ui, unit, 12, UiPalette.Muted);
     if (toggle)
     {
       _track = ui.Capsule("Switch", Root, 0, 0, TrackWidth, TrackHeight, SwitchOff);
       _track.raycastTarget = false;
       _thumb = ui.Capsule("Thumb", _track.transform, ThumbInset, ThumbInset, ThumbSize, ThumbSize, Color.white);
       _thumb.raycastTarget = false;
-      _thumbMotion = _thumb.gameObject.AddComponent<SettingsSwitchMotion>();
+      _thumbMotion = _thumb.gameObject.AddComponent<UiSwitchMotion>();
     }
     Set(null, false, false);
   }
@@ -159,7 +161,7 @@ internal sealed class OverlayBarButton
     float x = Padding;
     if (_lead != null)
     {
-      SettingsUiFactory.Place(_lead, x, (Height - _leadHeight) * .5f, _leadWidth, _leadHeight);
+      UiFactory.Place(_lead, x, (Height - _leadHeight) * .5f, _leadWidth, _leadHeight);
       x += _leadWidth + LeadGap;
     }
     x = Place(_label, x);
@@ -169,7 +171,7 @@ internal sealed class OverlayBarButton
     if (hasValue)
     {
       _value.text = value;
-      _value.color = computed ? SettingsPalette.SoftAccent : SettingsUiFactory.Foreground;
+      _value.color = computed ? UiPalette.SoftAccent : UiPalette.Foreground;
       x = Place(_value, x + ValueGap);
       if (_unit.text.Length > 0)
         x = Place(_unit, x + 2);
@@ -177,11 +179,11 @@ internal sealed class OverlayBarButton
     if (_track != null)
     {
       x += ValueGap + 2;
-      SettingsUiFactory.Place(_track.rectTransform, x, (Height - TrackHeight) * .5f, TrackWidth, TrackHeight);
+      UiFactory.Place(_track.rectTransform, x, (Height - TrackHeight) * .5f, TrackWidth, TrackHeight);
       x += TrackWidth - 2;
     }
     Width = x + Padding;
-    SettingsUiFactory.Place(Root, Root.anchoredPosition.x, -Root.anchoredPosition.y, Width, Height);
+    UiFactory.Place(Root, Root.anchoredPosition.x, -Root.anchoredPosition.y, Width, Height);
     if (_active != active)
     {
       _active = active;
@@ -198,10 +200,10 @@ internal sealed class OverlayBarButton
   {
     if (_track == null)
       return;
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     float alpha = available ? 1 : .4f;
-    Color track = on == false ? SwitchOff : SettingsPalette.AccentSurface,
-      thumb = on == false ? SettingsUiFactory.Foreground : accent;
+    Color track = on == false ? SwitchOff : UiPalette.AccentSurface,
+      thumb = on == false ? UiPalette.Foreground : accent;
     track.a *= alpha;
     thumb.a *= alpha;
     _track.color = track;
@@ -216,13 +218,13 @@ internal sealed class OverlayBarButton
         ),
       _reduceMotion
     );
-    Color label = available ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+    Color label = available ? UiPalette.Foreground : UiPalette.Muted;
     _label.color = label;
     if (_icon != null)
       _icon.color = label;
   }
 
-  public void Place(float x, float y) => SettingsUiFactory.Place(Root, x, y, Width, Height);
+  public void Place(float x, float y) => UiFactory.Place(Root, x, y, Width, Height);
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
@@ -237,20 +239,20 @@ internal sealed class OverlayBarButton
 
   private void Paint()
   {
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     Color rest =
       _drop > 0 ? new Color(accent.r, accent.g, accent.b, .38f)
-      : _drop < 0 ? new Color(LayoutColors.Warning.r, LayoutColors.Warning.g, LayoutColors.Warning.b, .3f)
+      : _drop < 0 ? new Color(UiPalette.Error.r, UiPalette.Error.g, UiPalette.Error.b, .3f)
       : _active ? new Color(accent.r, accent.g, accent.b, .3f)
       : new Color(1, 1, 1, .07f);
     ColorBlock colors = _button.colors;
     colors.normalColor = colors.selectedColor = rest;
     colors.highlightedColor = _active ? new Color(accent.r, accent.g, accent.b, .42f) : new Color(1, 1, 1, .15f);
     colors.fadeDuration = _reduceMotion ? 0 : .08f;
-    ((SettingsButton)_button).SetPalette(colors);
+    ((UiButton)_button).SetPalette(colors);
   }
 
-  private TextMeshProUGUI Text(SettingsUiFactory ui, string text, float size, Color color)
+  private TextMeshProUGUI Text(UiFactory ui, string text, float size, Color color)
   {
     TextMeshProUGUI label = ui.Text(text, Root, 0, 0, 10, Height, size, color);
     label.textWrappingMode = TextWrappingModes.NoWrap;
@@ -261,7 +263,7 @@ internal sealed class OverlayBarButton
   private static float Place(TextMeshProUGUI text, float x)
   {
     float width = Mathf.Ceil(text.GetPreferredValues(text.text).x) + 1;
-    SettingsUiFactory.Place(text.rectTransform, x, 0, width, Height);
+    UiFactory.Place(text.rectTransform, x, 0, width, Height);
     return x + width;
   }
 }

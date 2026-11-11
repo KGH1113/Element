@@ -11,14 +11,14 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Layout;
@@ -167,7 +167,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     {
       _openingLayout.Restore(_session.Host.LayoutSettings);
       _session.Preferences.HighlightColor = _openingColor;
-      OverlayTheme.SetHighlight(_openingColor);
+      UiTheme.SetHighlight(_openingColor);
       _session.Preferences.OverlayFont = _openingFont;
       _session.Fonts?.SetDefault(_openingFont);
       RefreshLayouts();
@@ -181,7 +181,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     if (_ownedEvents != null)
     {
       _ownedEvents.SetActive(false);
-      SettingsUiFactory.Destroy(_ownedEvents);
+      UiFactory.Destroy(_ownedEvents);
       _ownedEvents = null;
     }
     _session.Closing = false;
@@ -492,7 +492,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     canvas.sortingOrder = 32760;
     root.AddComponent<GraphicRaycaster>();
     Image blocker = _session.Ui.Panel("Block game clicks", root.transform, 0, 0, 0, 0, UnityEngine.Color.clear, false);
-    SettingsUiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
     blocker.raycastTarget = true;
     _guides.Build(_session.Ui, root.transform);
     _toolbar.Build(_commands);
@@ -634,7 +634,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
   {
     if (_session.Fonts == null)
       return;
-    OverlayFontPopover font = _popovers.Font(PickDefaultFont);
+    UiFontPopover font = _popovers.Font(PickDefaultFont);
     if (font.Visible)
       font.Hide();
     else
@@ -693,9 +693,9 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     _session.Ui?.Dispose();
     InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
-      SettingsUiFactory.Destroy(_ownedEvents);
+      UiFactory.Destroy(_ownedEvents);
     if (_session.Root != null)
-      SettingsUiFactory.Destroy(_session.Root);
+      UiFactory.Destroy(_session.Root);
     _session.Root = null;
   }
 }

@@ -48,6 +48,7 @@ using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Widgets;
+using Element.Presentation.Ui.ColorPicker;
 
 namespace Element.Editor
 {
@@ -474,7 +475,7 @@ namespace Element.Editor
       // Colors open right above the keypad: the keypad below types the
       // opacity and the values beside it can be dropped on it.
       fillButton.Button.onClick.Invoke();
-      SettingsColorPicker picker = ShapeColorsOf(shapes).Picker;
+      UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
       Rect keypadRect = ScreenRectOf(dock.Keypad.Root);
@@ -1149,7 +1150,7 @@ namespace Element.Editor
       document = TextDocumentOf(text).Document;
       Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
       colorButton.Button.onClick.Invoke();
-      SettingsColorPicker picker = TextColorOf(text).Picker;
+      UiColorPicker picker = TextColorOf(text).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root);
       Assert(picker.Visible && colorButton.Active && picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy
         && Mathf.Abs(pickerRect.xMax - ScreenRectOf(dock.Keypad.Root).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
@@ -1241,7 +1242,7 @@ namespace Element.Editor
     {
       Call(editor, "ToggleColor");
       OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
-      SettingsColorPicker controls = Field<SettingsColorPicker>(popover, "_picker");
+      UiColorPicker controls = Field<UiColorPicker>(popover, "_picker");
       Assert(popover.Visible && !Field<UiSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
         "the highlight color itself has no Highlight/Custom choice");
       TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
@@ -1973,7 +1974,7 @@ namespace Element.Editor
       Assert(preview.Calls > before && !preview.Snapshot.Body.OverrideColor,
         "switching Body to map colors immediately reaches the preview renderer");
       colors[0].onClick.Invoke();
-      var picker = Field<SettingsColorPicker>(Page(panel, "_planets"), "_planetPicker");
+      var picker = Field<UiColorPicker>(Page(panel, "_planets"), "_planetPicker");
       var shade = Field<UiPopoverShade>(panel, "_shade");
       Assert(picker.Visible && shade.Visible, "planet color opens an anchored picker with a dismiss backdrop");
       before = preview.Calls;
@@ -2536,12 +2537,12 @@ namespace Element.Editor
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
       Color current = new Color(.73f, .44f, .17f, .5f), original = current, theme = UiTheme.Accent;
       int changed = 0;
-      var picker = new SettingsColorPicker(root.transform, font, () => true);
+      var picker = new UiColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
-      UiFactory.Place(picker.Root, 112, 52, SettingsColorPicker.Width, picker.Height);
+      UiFactory.Place(picker.Root, 112, 52, UiColorPicker.Width, picker.Height);
       var opacity = Field<TMP_InputField>(picker, "_opacity");
       var hex = Field<TMP_InputField>(picker, "_hex");
-      var plane = Field<SettingsColorPlane>(picker, "_plane");
+      var plane = Field<UiColorPlane>(picker, "_plane");
       var hue = Field<Slider>(picker, "_hue");
       var alpha = Field<Slider>(picker, "_alpha");
       var error = Field<TextMeshProUGUI>(picker, "_error");

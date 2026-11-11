@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -24,7 +25,7 @@ internal sealed class PlanetsPage : SettingsPage
   private readonly Func<int, PlanetAppearanceProfile, Texture> _renderPlanetPreview;
   private readonly RawImage _planetImage;
   private readonly TextMeshProUGUI _planetPreviewLabel;
-  private readonly SettingsColorPicker _planetPicker;
+  private readonly UiColorPicker _planetPicker;
   private float _nextPlanetPreview;
   private int _planetIndex;
   private RectTransform _pickerAnchor;
@@ -95,7 +96,7 @@ internal sealed class PlanetsPage : SettingsPage
       _planetProfileEnabled.interactable = Settings.Gameplay.Planets.Enabled;
       RefreshPlanetPreview();
     });
-    _planetPicker = new SettingsColorPicker(Window.Frame, Window.Font, () => Settings.ReduceUiMotion);
+    _planetPicker = new UiColorPicker(Window.Frame, Window.Font, () => Settings.ReduceUiMotion);
     _planetPicker.Hidden = Window.Shade.Hide;
   }
 
@@ -254,13 +255,13 @@ internal sealed class PlanetsPage : SettingsPage
     float y = window.rect.yMax - local.y + _pickerAnchor.rect.height + 8;
     float scale = Mathf.Min(
       1,
-      (window.rect.width - 20) / SettingsColorPicker.Width,
+      (window.rect.width - 20) / UiColorPicker.Width,
       (window.rect.height - 20) / _planetPicker.Height
     );
     _planetPicker.Root.localScale = Vector3.one * scale;
-    x = Mathf.Clamp(x, 10, window.rect.width - SettingsColorPicker.Width * scale - 10);
+    x = Mathf.Clamp(x, 10, window.rect.width - UiColorPicker.Width * scale - 10);
     y = Mathf.Clamp(y, 10, window.rect.height - _planetPicker.Height * scale - 10);
-    UiFactory.Place(_planetPicker.Root, x, y, SettingsColorPicker.Width, _planetPicker.Height);
+    UiFactory.Place(_planetPicker.Root, x, y, UiColorPicker.Width, _planetPicker.Height);
     _planetPicker.Root.SetAsLastSibling();
   }
 

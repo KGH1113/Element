@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 /// <summary>
 /// A color square: a rounded edge (white, or the accent when picked) around
@@ -9,7 +9,7 @@ namespace Element.Presentation.Settings;
 /// notch it points at where its color sits on a gradient line.
 /// </summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsSwatchGraphic : MaskableGraphic
+internal sealed class UiSwatchGraphic : MaskableGraphic
 {
   private static readonly Color CheckerDark = new(.42f, .42f, .42f),
     CheckerLight = new(.80f, .80f, .80f),

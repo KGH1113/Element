@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
@@ -15,10 +15,10 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// </summary>
 internal sealed class OverlayOpacityField
 {
-  private readonly SettingsColorPicker _picker;
+  private readonly UiColorPicker _picker;
   private float _shown = -1;
 
-  public OverlayOpacityField(UiFactory ui, SettingsColorPicker picker, Action activate, bool reduceMotion)
+  public OverlayOpacityField(UiFactory ui, UiColorPicker picker, Action activate, bool reduceMotion)
   {
     _picker = picker;
     picker.ExternalOpacity = true;

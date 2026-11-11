@@ -3,7 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -50,9 +50,9 @@ internal sealed class ModEditorPopovers : IDisposable
     _reduceMotion = reduceMotion;
     _fonts = fonts;
     _growButton = growButton;
-    _picker = new PickerPopover(new SettingsColorPicker(screen.Frame, font, reduceMotion));
+    _picker = new PickerPopover(new UiColorPicker(screen.Frame, font, reduceMotion));
     // The full picker, laid out as the overlay editors' column so it offers gradients.
-    _paintPicker = new PickerPopover(new SettingsColorPicker(screen.Frame, font, reduceMotion));
+    _paintPicker = new PickerPopover(new UiColorPicker(screen.Frame, font, reduceMotion));
     _paintPicker.Picker.LayOutAsColumn(300);
     _list = new ModListPopover(screen.Ui, screen.Frame, reduceMotion());
     _grow = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion(), pickGrowth) { Anchor = growButton.Root };

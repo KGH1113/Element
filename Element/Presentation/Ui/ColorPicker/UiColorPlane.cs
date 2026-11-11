@@ -4,14 +4,14 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
-internal sealed class SettingsColorPlane : Selectable, IDragHandler
+internal sealed class UiColorPlane : Selectable, IDragHandler
 {
   public Action<float, float> Changed;
   public Action Finished;
   public RectTransform Marker;
-  public SettingsGradientGraphic Gradient;
+  public UiGradientGraphic Gradient;
   private float _saturation,
     _value;
 

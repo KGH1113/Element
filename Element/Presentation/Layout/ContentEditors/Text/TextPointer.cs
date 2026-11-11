@@ -1,7 +1,7 @@
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -58,7 +58,7 @@ internal sealed class TextPointer
       return;
     if (Input.GetMouseButtonDown(0))
     {
-      SettingsColorPicker picker = _color.Picker;
+      UiColorPicker picker = _color.Picker;
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         dock.Contains(screen)

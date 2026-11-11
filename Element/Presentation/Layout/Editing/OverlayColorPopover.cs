@@ -1,6 +1,6 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using TMPro;
@@ -14,18 +14,18 @@ namespace Element.Presentation.Layout;
 internal sealed class OverlayColorPopover : IPopover, IDisposable
 {
   private readonly ElementSettings _settings;
-  private readonly SettingsColorPicker _picker;
+  private readonly UiColorPicker _picker;
   public RectTransform Root => _picker.Root;
   public bool Visible => _picker.Visible;
   public bool IsTyping => _picker.IsTyping;
   public RectTransform Anchor => null;
-  public const float Width = SettingsColorPicker.Width,
+  public const float Width = UiColorPicker.Width,
     Height = 318;
 
   public OverlayColorPopover(Transform parent, TMP_FontAsset font, ElementSettings settings)
   {
     _settings = settings;
-    _picker = new SettingsColorPicker(parent, font, () => settings.ReduceUiMotion);
+    _picker = new UiColorPicker(parent, font, () => settings.ReduceUiMotion);
     UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out Color defaultColor);
     _picker.SetDefault(defaultColor);
   }

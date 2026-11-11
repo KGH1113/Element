@@ -1,6 +1,6 @@
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
@@ -56,7 +56,7 @@ internal sealed class TextAnimate
   private void Toggle()
   {
     _host.ClosePopovers();
-    SettingsColorPicker picker = _color.Picker;
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     _text.Range(out int start, out int end);

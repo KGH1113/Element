@@ -1,12 +1,12 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 // A geometric stencil avoids magnifying the few corner texels in the shared
 // small nine-slice sprite across the large saturation/value surface.
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsColorMask : MaskableGraphic
+internal sealed class UiColorMask : MaskableGraphic
 {
   protected override void OnPopulateMesh(VertexHelper mesh)
   {

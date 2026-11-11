@@ -12,17 +12,17 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 // One retained picker serves the shared overlay highlight and independent RGBA
 // planet colors. It owns gesture state; consumers decide what the color affects.
-internal sealed partial class SettingsColorPicker : IDisposable
+internal sealed class UiColorPicker : IDisposable, IGradientBarHost
 {
   public const float Width = 288;
   private readonly UiFactory _ui;
   private readonly TextMeshProUGUI _title,
     _error;
-  private readonly SettingsColorPlane _plane;
+  private readonly UiColorPlane _plane;
   private readonly Slider _hue,
     _alpha;
   private readonly TMP_InputField _hex,
@@ -30,7 +30,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
   private readonly Image _swatch;
   private readonly UiCapsuleGraphic _markerColor,
     _hueMarker;
-  private readonly SettingsAlphaGraphic _alphaGraphic;
+  private readonly UiAlphaGraphic _alphaGraphic;
   private readonly Button _reset;
   private readonly Button _close;
   private readonly Image _surface;
@@ -54,7 +54,32 @@ internal sealed partial class SettingsColorPicker : IDisposable
   private bool _externalOpacity;
   private Action<OverlayColorSettings> _sourceChanged;
   private const float SourceRow = 44;
+
+  // An editor's picker is two columns: the color bar with its pill above it,
+  // the kinds and Highlight/Custom on the left; the color's own controls on
+  // the right. The bar keeps its place whether the color is solid or not.
+  private const float ColumnWidth = 256,
+    ColumnGap = 20,
+    TwoColumnWidth = ColumnWidth * 2 + ColumnGap,
+    RightColumn = ColumnWidth + ColumnGap;
+
+  // An editor's picker keeps one height, that of the custom color's column,
+  // so switching Highlight/Custom or adding a color moves nothing; following
+  // the highlight leaves room under its opacity.
+  private const float TwoColumnHeight = 290;
+
   public RectTransform Root { get; }
+
+  /// <summary>The color bar of an overlay editor's picker: its stops, kinds and the picked stop.</summary>
+  public UiGradientBar Gradient { get; }
+
+  /// <summary>The color bar shows: in an overlay editor's picker.</summary>
+  public bool GradientAvailable => _sourceMode && _column;
+
+  private float ColumnHeight =>
+    GradientAvailable ? TwoColumnHeight
+    : _followsHighlight ? 142
+    : 334;
   public float Height =>
     _column ? ColumnHeight
     : !_sourceMode ? (_allowOpacity ? 358 : 318)
@@ -108,7 +133,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     }
   }
 
-  public SettingsColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion)
+  public UiColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion)
   {
     _ui = new UiFactory(font) { ReduceMotion = reduceMotion };
     Image surface = _ui.Panel("Color picker", parent, 0, 0, Width, Height, new Color(.105f, .105f, .105f));
@@ -129,20 +154,20 @@ internal sealed partial class SettingsColorPicker : IDisposable
       13
     );
 
-    SettingsColorMask plane = _ui.Rect("Saturation and brightness", Root, 16, 52, 256, 156)
-      .gameObject.AddComponent<SettingsColorMask>();
+    UiColorMask plane = _ui.Rect("Saturation and brightness", Root, 16, 52, 256, 156)
+      .gameObject.AddComponent<UiColorMask>();
     _planeRect = plane.rectTransform;
     plane.color = Color.white;
     plane.raycastTarget = true;
     plane.gameObject.AddComponent<Mask>().showMaskGraphic = true;
-    _plane = plane.gameObject.AddComponent<SettingsColorPlane>();
+    _plane = plane.gameObject.AddComponent<UiColorPlane>();
     _plane.navigation = new Navigation { mode = Navigation.Mode.None };
     _plane.transition = Selectable.Transition.None;
     _plane.targetGraphic = plane;
     UiCursor.Attach(plane.gameObject, UiCursorKind.Crosshair);
     RectTransform gradient = _ui.Rect("HSV gradient", plane.transform, 0, 0, 256, 156);
     UiFactory.Stretch(gradient, 0, 0, 0, 0);
-    _plane.Gradient = gradient.gameObject.AddComponent<SettingsGradientGraphic>();
+    _plane.Gradient = gradient.gameObject.AddComponent<UiGradientGraphic>();
     _plane.Gradient.raycastTarget = false;
     _plane.Marker = _ui.Capsule("Color position", plane.transform, 0, 0, 18, 18, Color.white).rectTransform;
     _plane.Marker.pivot = new Vector2(.5f, .5f);
@@ -176,7 +201,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     spectrumMask.transform.SetSiblingIndex(2);
     spectrumMask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     RectTransform spectrum = _ui.Rect("Spectrum", spectrumMask.transform, 0, 0, 256, 12);
-    SettingsGradientGraphic hueGraphic = spectrum.gameObject.AddComponent<SettingsGradientGraphic>();
+    UiGradientGraphic hueGraphic = spectrum.gameObject.AddComponent<UiGradientGraphic>();
     hueGraphic.HueStrip = true;
     hueGraphic.raycastTarget = false;
     _hueMarker = _ui.Capsule("Hue marker center", _hue.handleRect, 4, 4, 12, 12, Color.white);
@@ -204,7 +229,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     opacityMask.transform.SetSiblingIndex(2);
     opacityMask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     RectTransform alphaGradient = _ui.Rect("Alpha checkerboard", opacityMask.transform, 0, 0, 256, 12);
-    _alphaGraphic = alphaGradient.gameObject.AddComponent<SettingsAlphaGraphic>();
+    _alphaGraphic = alphaGradient.gameObject.AddComponent<UiAlphaGraphic>();
     _alphaGraphic.raycastTarget = false;
 
     _hex = _ui.Input("HEX color", "", Root, 16, 254, 176, HexChanged, _ => Commit(), 7);
@@ -228,7 +253,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     resetText.fontSize = 14;
     resetText.textWrappingMode = TextWrappingModes.NoWrap;
     _error = _ui.Text("", Root, 16, 297, 256, 16, 11, UiPalette.Error);
-    BuildGradient();
+    Gradient = new UiGradientBar(_ui, Root, this);
     Root.gameObject.SetActive(false);
   }
 
@@ -243,7 +268,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _sourceMode = false;
     _followsHighlight = false;
     _sourceChanged = null;
-    _working = null;
+    Gradient.Clear();
     _changed = changed;
     _allowOpacity = opacity;
     _title.text = title;
@@ -272,18 +297,8 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _sourceChanged = changed;
     _allowOpacity = true;
     _title.text = title;
-    _working = value.Clone();
-    _dragging = -1;
-    if (_working.IsGradient && !(keepStop && _stop >= 0 && _stop < _working.Gradient.Stops.Count))
-      _stop = OverlayGradientEdits.Order(_working.Gradient)[0];
-    Color color = value.Highlight ? UiTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(value.Hex);
-    color.a = Mathf.Clamp01(value.Alpha);
-    if (IsGradient)
-    {
-      OverlayGradientStop stop = _working.Gradient.Stops[_stop];
-      color = value.Highlight ? UiTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(stop.Hex);
-      color.a = Mathf.Clamp01(ShownAlpha?.Invoke(_stop) ?? stop.Alpha);
-    }
+    Gradient.Load(value.Clone(), keepStop);
+    Color color = Gradient.WorkingColor();
     _source.Selected = value.Highlight ? 0 : 1;
     Open(color);
   }
@@ -301,9 +316,16 @@ internal sealed partial class SettingsColorPicker : IDisposable
   {
     if (!_sourceMode || _followsHighlight == highlight)
       return;
-    if (SetGradientSource(highlight))
-      return;
     _followsHighlight = highlight;
+    // Following the highlight or not changes the whole gradient at once.
+    if (Gradient.IsGradient)
+    {
+      Gradient.SetHighlight(highlight);
+      Layout();
+      ShowColor(Gradient.WorkingColor());
+      Gradient.Emit();
+      return;
+    }
     Color color = highlight ? UiTheme.Accent : _value;
     color.a = _value.a;
     Color.RGBToHSV(color, out _h, out _s, out _v);
@@ -327,7 +349,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _opacitySlot.gameObject.SetActive(_allowOpacity && _externalOpacity);
     _reset.gameObject.SetActive(!_sourceMode && !_allowOpacity && _hasDefault);
     if (!_column)
-      LayoutGradient(0, 0);
+      Gradient.Layout(0, 0);
     if (_column)
     {
       LayoutColumn(custom);
@@ -370,7 +392,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
       return;
     }
     float left = (_columnWidth - column) * .5f;
-    LayoutGradient(left, column);
+    Gradient.Layout(left, column);
     float top = 0;
     UiFactory.Place(_source.Root, left, top, column, 36);
     if (custom)
@@ -390,23 +412,97 @@ internal sealed partial class SettingsColorPicker : IDisposable
     {
       // Following the highlight leaves only its opacity: a gradient's stops
       // differ only in opacity, which the label names for the picked stop.
-      _opacityLabel.text = IsGradient
-        ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
-        : L("불투명도", "Opacity");
+      _opacityLabel.text = OpacityName();
       UiFactory.Place(_opacityLabel.rectTransform, left, top + 44, 176, 40);
       UiFactory.Place((RectTransform)_opacity.transform, left + 184, top + 44, 72, 40);
       UiFactory.Place(_opacitySlot, left + 184, top + 44, 72, 40);
       UiFactory.Place((RectTransform)_alpha.transform, left - 10, top + 92, column + 20, 36);
       UiFactory.Place(_error.rectTransform, left, top + 128, column, 14);
-      UiFactory.Place(_highlightNote.rectTransform, left, top + 142, column, NoteHeight);
+      UiFactory.Place(Gradient.Note, left, top + 142, column, UiGradientBar.NoteHeight);
     }
     Resize();
+  }
+
+  private void LayoutTwoColumns(bool custom)
+  {
+    const float column = ColumnWidth,
+      x = RightColumn;
+    Gradient.Layout(0, column);
+    // Highlight/Custom sits under the bar in the left column.
+    float source = Gradient.Height;
+    UiFactory.Place(_source.Root, 0, source, column, 36);
+    UiFactory.Place(Gradient.Note, 0, source + 44, column, UiGradientBar.NoteHeight);
+    if (custom)
+    {
+      const float square = 156;
+      UiFactory.Place(_planeRect, x, 0, column, square);
+      UiFactory.Place((RectTransform)_hue.transform, x - 10, square + 6, column + 20, 36);
+      UiFactory.Place((RectTransform)_alpha.transform, x - 10, square + 38, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, x, square + 76, column, 14);
+      float bottom = ColumnHeight - 40;
+      UiFactory.Place((RectTransform)_hex.transform, x, bottom, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, x + 184, bottom, 72, 40);
+      UiFactory.Place(_opacitySlot, x + 184, bottom, 72, 40);
+    }
+    else
+    {
+      _opacityLabel.text = OpacityName();
+      UiFactory.Place(_opacityLabel.rectTransform, x, 0, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, x + 184, 0, 72, 40);
+      UiFactory.Place(_opacitySlot, x + 184, 0, 72, 40);
+      UiFactory.Place((RectTransform)_alpha.transform, x - 10, 48, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, x, 84, column, 14);
+    }
+    Resize();
+  }
+
+  // Following the highlight leaves only the opacity; a gradient's label names
+  // the picked stop.
+  private string OpacityName()
+  {
+    if (!Gradient.IsGradient)
+      return L("불투명도", "Opacity");
+    int rank = Gradient.PickedRank;
+    return L(rank + "번째 색 불투명도", "Color " + rank + " opacity");
   }
 
   private void Resize()
   {
     Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, CurrentWidth);
     Root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, Height);
+  }
+
+  /// <summary>
+  /// Takes the color again after the editor changed it (handles, the dock,
+  /// undo), keeping the picked stop. The controls follow without reporting.
+  /// </summary>
+  public void Refresh(OverlayColorSettings value)
+  {
+    if (!Visible || !_sourceMode || value == null)
+      return;
+    bool wasGradient = Gradient.IsGradient;
+    Gradient.Reload(value.Clone());
+    bool layout = wasGradient != Gradient.IsGradient;
+    if (_followsHighlight != value.Highlight)
+    {
+      _followsHighlight = value.Highlight;
+      _source.Selected = value.Highlight ? 0 : 1;
+      layout = true;
+    }
+    if (layout)
+      Layout();
+    // Undo can change the color underneath; the controls show it again. A
+    // color that already shows keeps its hue, which grays would lose.
+    Color shown = Gradient.WorkingColor();
+    bool differs =
+      Mathf.Abs(shown.r - _value.r) > .002f
+      || Mathf.Abs(shown.g - _value.g) > .002f
+      || Mathf.Abs(shown.b - _value.b) > .002f
+      || (Gradient.IsGradient && Mathf.Abs(shown.a - _value.a) > .002f);
+    if (differs)
+      ShowColor(shown);
+    else
+      Gradient.Refresh();
   }
 
   /// <summary>Moves the opacity to <paramref name="alpha"/> without reporting a change.</summary>
@@ -563,12 +659,31 @@ internal sealed partial class SettingsColorPicker : IDisposable
     {
       _changed?.Invoke(color);
       if (_sourceChanged != null)
-        _sourceChanged(SourceValue(color, alphaBefore));
+        _sourceChanged(Gradient.TakeColor(color, alphaBefore));
     }
-    RefreshGradient();
+    Gradient.Refresh();
     _ui.RefreshTheme();
     _syncing = false;
   }
+
+  /// <summary>Shows <paramref name="color"/> in the controls without reporting a change.</summary>
+  private void ShowColor(Color color)
+  {
+    Color.RGBToHSV(color, out _h, out _s, out _v);
+    Apply(color, true, false);
+  }
+
+  bool IGradientBarHost.GradientShown => GradientAvailable;
+
+  bool IGradientBarHost.FollowsHighlight => _followsHighlight;
+
+  Color IGradientBarHost.Value => _value;
+
+  void IGradientBarHost.ShowColor(Color color) => ShowColor(color);
+
+  void IGradientBarHost.Relayout() => Layout();
+
+  void IGradientBarHost.Report(OverlayColorSettings value) => _sourceChanged?.Invoke(value);
 
   public void Dispose()
   {

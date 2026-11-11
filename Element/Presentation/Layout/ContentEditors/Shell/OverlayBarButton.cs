@@ -1,5 +1,5 @@
 using System;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
@@ -38,7 +38,7 @@ internal sealed class OverlayBarButton
     _value,
     _unit;
   private readonly UiCapsuleGraphic _swatch;
-  private readonly SettingsGradientPreview _swatchGradient;
+  private readonly UiGradientPreview _swatchGradient;
   private readonly UiIcon _icon;
   private readonly UiCapsuleGraphic _track,
     _thumb;
@@ -73,7 +73,7 @@ internal sealed class OverlayBarButton
       // A gradient shows inside the same circle.
       _swatch.gameObject.AddComponent<Mask>().showMaskGraphic = true;
       _swatchGradient = ui.Rect("Gradient", _swatch.transform, 0, 0, LeadSize - 4, LeadSize - 4)
-        .gameObject.AddComponent<SettingsGradientPreview>();
+        .gameObject.AddComponent<UiGradientPreview>();
       _swatchGradient.raycastTarget = false;
       _swatchGradient.Columns = _swatchGradient.Rows = 6;
       _swatchGradient.Cell = 4;

@@ -7,7 +7,7 @@ using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -183,7 +183,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       Render();
     }
     _screen.Tick();
-    SettingsColorPicker picker = _colors.Picker;
+    UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
@@ -301,7 +301,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     bool open = _numbers.Field == key;
     CloseEditing();
     // The picker's own numbers keep it open.
-    SettingsColorPicker picker = _colors.Picker;
+    UiColorPicker picker = _colors.Picker;
     if (picker.Visible && !ShapeGradient.PickerKey(key))
       picker.Hide();
     if (!open)
@@ -335,7 +335,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   /// </summary>
   public void Escape()
   {
-    SettingsColorPicker picker = _colors.Picker;
+    UiColorPicker picker = _colors.Picker;
     if (picker.Visible)
       picker.Hide();
     else if (AnyOpen)

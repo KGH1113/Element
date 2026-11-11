@@ -13,7 +13,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 // The color bar on top of an overlay editor's picker. One color is solid;
 // clicking the bar adds a color and makes a gradient. Its squares move along
@@ -22,29 +22,32 @@ namespace Element.Presentation.Settings;
 // edit the picked color. Four tiles drawn in the current colors pick the
 // kind, beside flip and a quarter turn. Following the highlight, only
 // opacities differ.
-internal sealed partial class SettingsColorPicker
+internal sealed class UiGradientBar
 {
+  public const float NoteHeight = 34;
+
   private const float BarHeight = 26,
     BarInset = 11,
     StopSize = 18,
     PillRow = 36,
     KindRow = 34,
     GradientGap = 10,
-    NoteHeight = 34,
     DeleteSize = 28;
 
-  private RectTransform _bar,
+  private readonly UiFactory _ui;
+  private readonly IGradientBarHost _host;
+  private readonly RectTransform _bar,
     _kindRow,
     _positionSlot,
     _tip;
-  private SettingsGradientPreview _barPreview;
-  private readonly List<SettingsSwatchGraphic> _barStops = new();
+  private readonly UiGradientPreview _barPreview;
+  private readonly List<UiSwatchGraphic> _barStops = new();
   private readonly Image[] _kindFrames = new Image[4];
-  private readonly SettingsGradientPreview[] _kindPreviews = new SettingsGradientPreview[4];
-  private Button _flip,
+  private readonly UiGradientPreview[] _kindPreviews = new UiGradientPreview[4];
+  private readonly Button _flip,
     _rotate,
     _delete;
-  private TextMeshProUGUI _tipText,
+  private readonly TextMeshProUGUI _tipText,
     _highlightNote;
   private OverlayColorSettings _working;
   private int _stop;
@@ -62,81 +65,16 @@ internal sealed partial class SettingsColorPicker
   public Func<int, float> ShownPosition,
     ShownAlpha;
 
-  /// <summary>The color bar shows: in an overlay editor's picker.</summary>
-  public bool GradientAvailable => _sourceMode && _column;
-
-  public bool IsGradient => GradientAvailable && _working != null && _working.IsGradient;
-
-  /// <summary>The picked stop's index in the gradient's stops; -1 for a solid color.</summary>
-  public int SelectedStop => IsGradient ? _stop : -1;
-
-  /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
-  public RectTransform PositionSlot => _positionSlot;
-
-  // An editor's picker is two columns: the color bar with its pill above it,
-  // the kinds and Highlight/Custom on the left; the color's own controls on
-  // the right. The bar keeps its place whether the color is solid or not.
-  private const float ColumnWidth = 256,
-    ColumnGap = 20,
-    TwoColumnWidth = ColumnWidth * 2 + ColumnGap,
-    RightColumn = ColumnWidth + ColumnGap;
-
-  // Where Highlight/Custom sits in the left column.
-  private float SourceTop =>
-    IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap : PillRow + BarHeight + GradientGap + 4;
-
-  // An editor's picker keeps one height, that of the custom color's column,
-  // so switching Highlight/Custom or adding a color moves nothing; following
-  // the highlight leaves room under its opacity.
-  private const float TwoColumnHeight = 290;
-
-  private float ColumnHeight =>
-    GradientAvailable ? TwoColumnHeight
-    : _followsHighlight ? 142
-    : 334;
-
-  private void LayoutTwoColumns(bool custom)
+  public UiGradientBar(UiFactory ui, RectTransform root, IGradientBarHost host)
   {
-    const float column = ColumnWidth,
-      x = RightColumn;
-    LayoutGradient(0, column);
-    float source = SourceTop;
-    UiFactory.Place(_source.Root, 0, source, column, 36);
-    UiFactory.Place(_highlightNote.rectTransform, 0, source + 44, column, NoteHeight);
-    if (custom)
-    {
-      const float square = 156;
-      UiFactory.Place(_planeRect, x, 0, column, square);
-      UiFactory.Place((RectTransform)_hue.transform, x - 10, square + 6, column + 20, 36);
-      UiFactory.Place((RectTransform)_alpha.transform, x - 10, square + 38, column + 20, 36);
-      UiFactory.Place(_error.rectTransform, x, square + 76, column, 14);
-      float bottom = ColumnHeight - 40;
-      UiFactory.Place((RectTransform)_hex.transform, x, bottom, 176, 40);
-      UiFactory.Place((RectTransform)_opacity.transform, x + 184, bottom, 72, 40);
-      UiFactory.Place(_opacitySlot, x + 184, bottom, 72, 40);
-    }
-    else
-    {
-      _opacityLabel.text = IsGradient
-        ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
-        : L("불투명도", "Opacity");
-      UiFactory.Place(_opacityLabel.rectTransform, x, 0, 176, 40);
-      UiFactory.Place((RectTransform)_opacity.transform, x + 184, 0, 72, 40);
-      UiFactory.Place(_opacitySlot, x + 184, 0, 72, 40);
-      UiFactory.Place((RectTransform)_alpha.transform, x - 10, 48, column + 20, 36);
-      UiFactory.Place(_error.rectTransform, x, 84, column, 14);
-    }
-    Resize();
-  }
-
-  private void BuildGradient()
-  {
-    _bar = _ui.Rect("Color bar", Root, 0, 0, 256, BarHeight);
+    _ui = ui;
+    _host = host;
+    _bar = _ui.Rect("Color bar", root, 0, 0, 256, BarHeight);
     UiCapsuleGraphic track = _ui.Capsule("Color bar track", _bar, 0, 0, 256, BarHeight, Color.white);
     track.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     UiFactory.Stretch(track.rectTransform, 0, 0, 0, 0);
     _barPreview = _ui.Rect("Colors", track.transform, 0, 0, 256, BarHeight)
-      .gameObject.AddComponent<SettingsGradientPreview>();
+      .gameObject.AddComponent<UiGradientPreview>();
     UiFactory.Stretch(_barPreview.rectTransform, 0, 0, 0, 0);
     _barPreview.raycastTarget = false;
     _barPreview.AlongX = true;
@@ -151,7 +89,7 @@ internal sealed partial class SettingsColorPicker
     area.Exited = () => _tip.gameObject.SetActive(false);
     UiCursor.Attach(area.gameObject, UiCursorKind.Pointer);
 
-    _kindRow = _ui.Rect("Gradient kinds", Root, 0, 0, 256, KindRow);
+    _kindRow = _ui.Rect("Gradient kinds", root, 0, 0, 256, KindRow);
     string[] names = { L("선형", "Linear"), L("방사형", "Radial"), L("회전형", "Angular"), L("다이아몬드", "Diamond") };
     for (int i = 0; i < 4; i++)
     {
@@ -166,8 +104,8 @@ internal sealed partial class SettingsColorPicker
       Image mask = _ui.Panel("Mask", frame.transform, 3, 3, 32, KindRow - 6, Color.white);
       mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
       UiFactory.Stretch(mask.rectTransform, 3, 3, 3, 3);
-      SettingsGradientPreview preview = _ui.Rect("Preview", mask.transform, 0, 0, 32, KindRow - 6)
-        .gameObject.AddComponent<SettingsGradientPreview>();
+      UiGradientPreview preview = _ui.Rect("Preview", mask.transform, 0, 0, 32, KindRow - 6)
+        .gameObject.AddComponent<UiGradientPreview>();
       UiFactory.Stretch(preview.rectTransform, 0, 0, 0, 0);
       preview.raycastTarget = false;
       preview.Cell = 4;
@@ -177,16 +115,16 @@ internal sealed partial class SettingsColorPicker
     _flip = IconButton(L("뒤집기", "Flip"), _kindRow, UiIconKind.Flip, Flip, KindRow);
     _rotate = IconButton(L("90° 돌리기", "Turn 90°"), _kindRow, UiIconKind.Rotate, Rotate, KindRow);
 
-    _positionSlot = _ui.Rect("Position slot", Root, 0, 0, 10, 32);
+    _positionSlot = _ui.Rect("Position slot", root, 0, 0, 10, 32);
     _delete = IconButton(
       L("이 색 지우기", "Remove this color"),
-      Root,
+      root,
       UiIconKind.RemoveStop,
       RemoveSelectedStop,
       DeleteSize
     );
 
-    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", Root, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
+    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", root, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
     _tip = tip.rectTransform;
     _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, 26, 12);
     _tipText.alignment = TextAlignmentOptions.Midline;
@@ -199,7 +137,7 @@ internal sealed partial class SettingsColorPicker
         "하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.",
         "One highlight color: each stop sets only its opacity."
       ),
-      Root,
+      root,
       0,
       0,
       256,
@@ -208,6 +146,62 @@ internal sealed partial class SettingsColorPicker
       UiPalette.Muted
     );
     _highlightNote.alignment = TextAlignmentOptions.TopLeft;
+  }
+
+  public bool IsGradient => _host.GradientShown && _working != null && _working.IsGradient;
+
+  /// <summary>The picked stop's index in the gradient's stops; -1 for a solid color.</summary>
+  public int SelectedStop => IsGradient ? _stop : -1;
+
+  /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
+  public RectTransform PositionSlot => _positionSlot;
+
+  /// <summary>The line under Highlight/Custom while a gradient follows the highlight.</summary>
+  public RectTransform Note => _highlightNote.rectTransform;
+
+  /// <summary>How far down the bar, its pill and the kinds reach in the column.</summary>
+  public float Height =>
+    IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap : PillRow + BarHeight + GradientGap + 4;
+
+  /// <summary>The picked stop's place among the stops in order, counting from 1.</summary>
+  public int PickedRank => OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1;
+
+  /// <summary>
+  /// Takes the color an editor shows; <paramref name="keepStop"/> stays on the
+  /// picked stop when it still exists, as after undo.
+  /// </summary>
+  public void Load(OverlayColorSettings working, bool keepStop)
+  {
+    _working = working;
+    _dragging = -1;
+    if (_working.IsGradient && !(keepStop && _stop >= 0 && _stop < _working.Gradient.Stops.Count))
+      _stop = OverlayGradientEdits.Order(_working.Gradient)[0];
+  }
+
+  /// <summary>Takes the color again after the editor changed it, keeping the picked stop.</summary>
+  public void Reload(OverlayColorSettings working)
+  {
+    _working = working;
+    if (IsGradient)
+      _stop = Mathf.Clamp(_stop, 0, _working.Gradient.Stops.Count - 1);
+  }
+
+  /// <summary>No color is being edited: the picker shows a plain color.</summary>
+  public void Clear() => _working = null;
+
+  /// <summary>The picked stop's color, or the solid color, as the controls show it.</summary>
+  public Color WorkingColor()
+  {
+    if (IsGradient)
+    {
+      OverlayGradientStop stop = _working.Gradient.Stops[_stop];
+      Color picked = _host.FollowsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+      picked.a = StopAlpha(_stop);
+      return picked;
+    }
+    Color color = _host.FollowsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex);
+    color.a = Mathf.Clamp01(_working.Alpha);
+    return color;
   }
 
   private Button IconButton(string name, Transform parent, UiIconKind kind, Action click, float size)
@@ -242,16 +236,16 @@ internal sealed partial class SettingsColorPicker
 
   // ---- Layout ----
 
-  // Lays the bar and, with a gradient, the kinds out in the column at `left`.
-  private void LayoutGradient(float left, float column)
+  /// <summary>Lays the bar and, with a gradient, the kinds out in the column at <paramref name="left"/>.</summary>
+  public void Layout(float left, float column)
   {
-    bool shown = GradientAvailable;
+    bool shown = _host.GradientShown;
     bool gradient = IsGradient;
     _bar.gameObject.SetActive(shown);
     _kindRow.gameObject.SetActive(gradient);
     _positionSlot.gameObject.SetActive(gradient);
     _delete.gameObject.SetActive(gradient);
-    _highlightNote.gameObject.SetActive(gradient && _followsHighlight);
+    _highlightNote.gameObject.SetActive(gradient && _host.FollowsHighlight);
     if (!shown)
     {
       _tip.gameObject.SetActive(false);
@@ -272,7 +266,7 @@ internal sealed partial class SettingsColorPicker
       UiFactory.Place((RectTransform)_flip.transform, column - icon * 2 - gap, 0, icon, icon);
       UiFactory.Place((RectTransform)_rotate.transform, column - icon, 0, icon, icon);
     }
-    RefreshGradient();
+    Refresh();
   }
 
   /// <summary>
@@ -308,20 +302,20 @@ internal sealed partial class SettingsColorPicker
   private float StopAlpha(int index)
   {
     if (!IsGradient)
-      return _value.a;
+      return _host.Value.a;
     return Mathf.Clamp01(ShownAlpha?.Invoke(index) ?? _working.Gradient.Stops[index].Alpha);
   }
 
-  // Redraws the bar, its squares and the kind tiles from the working color.
-  private void RefreshGradient()
+  /// <summary>Redraws the bar, its squares and the kind tiles from the working color.</summary>
+  public void Refresh()
   {
-    if (!GradientAvailable || _working == null)
+    if (!_host.GradientShown || _working == null)
       return;
     int count = IsGradient ? _working.Gradient.Stops.Count : 1;
     while (_barStops.Count < count)
     {
-      SettingsSwatchGraphic stop = _ui.Rect("Color stop", _bar, 0, 0, StopSize, StopSize)
-        .gameObject.AddComponent<SettingsSwatchGraphic>();
+      UiSwatchGraphic stop = _ui.Rect("Color stop", _bar, 0, 0, StopSize, StopSize)
+        .gameObject.AddComponent<UiSwatchGraphic>();
       stop.raycastTarget = false;
       stop.Radius = 4.5f;
       _barStops.Add(stop);
@@ -330,7 +324,7 @@ internal sealed partial class SettingsColorPicker
       _barStops[i].gameObject.SetActive(i < count);
     if (!IsGradient)
     {
-      Color solid = _value;
+      Color solid = _host.Value;
       _barPreview.SetSolid(solid);
       PlaceStop(_barStops[0], BarInset, solid, false);
       return;
@@ -359,11 +353,11 @@ internal sealed partial class SettingsColorPicker
   private OverlayRgba StopColor(int index)
   {
     OverlayGradientStop stop = _working.Gradient.Stops[index];
-    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
+    Color color = _host.FollowsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     return new OverlayRgba(color.r, color.g, color.b, StopAlpha(index));
   }
 
-  private void PlaceStop(SettingsSwatchGraphic stop, float x, Color color, bool picked)
+  private void PlaceStop(UiSwatchGraphic stop, float x, Color color, bool picked)
   {
     float size = picked ? StopSize + 4 : StopSize;
     UiFactory.Place(stop.rectTransform, x - size * .5f, (BarHeight - size) * .5f, size, size);
@@ -374,7 +368,7 @@ internal sealed partial class SettingsColorPicker
 
   private void BarDown(PointerEventData data)
   {
-    if (!GradientAvailable || !BarPoint(data, out float x))
+    if (!_host.GradientShown || !BarPoint(data, out float x))
       return;
     _tip.gameObject.SetActive(false);
     int hit = HitStop(x);
@@ -394,7 +388,7 @@ internal sealed partial class SettingsColorPicker
     _stop = added;
     _dragging = added;
     _grab = 0;
-    Layout();
+    _host.Relayout();
     ShowStop();
     Emit();
     StopSelected?.Invoke();
@@ -420,7 +414,7 @@ internal sealed partial class SettingsColorPicker
   private void BarHover(PointerEventData data)
   {
     float x = 0;
-    bool show = GradientAvailable && !IsGradient && _dragging < 0 && BarPoint(data, out x) && HitStop(x) < 0;
+    bool show = _host.GradientShown && !IsGradient && _dragging < 0 && BarPoint(data, out x) && HitStop(x) < 0;
     _tip.gameObject.SetActive(show);
     if (!show)
       return;
@@ -495,11 +489,8 @@ internal sealed partial class SettingsColorPicker
       return;
     _stop = next;
     _dragging = -1;
-    Layout();
-    if (IsGradient)
-      ShowStop();
-    else
-      ShowSolid();
+    _host.Relayout();
+    _host.ShowColor(WorkingColor());
     Emit();
     StopSelected?.Invoke();
   }
@@ -510,14 +501,14 @@ internal sealed partial class SettingsColorPicker
       return;
     OverlayGradientEdits.SetKind(_working.Gradient, kind);
     Emit();
-    RefreshGradient();
+    Refresh();
   }
 
   private void Flip()
   {
     OverlayGradientEdits.Flip(_working);
     Emit();
-    RefreshGradient();
+    Refresh();
   }
 
   private void Rotate()
@@ -527,92 +518,36 @@ internal sealed partial class SettingsColorPicker
     Vector2 box = GradientBox?.Invoke() ?? Vector2.one;
     OverlayGradientEdits.Rotate(_working.Gradient, Mathf.Max(1, box.x), Mathf.Max(1, box.y));
     Emit();
-    RefreshGradient();
-  }
-
-  /// <summary>
-  /// Takes the color again after the editor changed it (handles, the dock,
-  /// undo), keeping the picked stop. The controls follow without reporting.
-  /// </summary>
-  public void Refresh(OverlayColorSettings value)
-  {
-    if (!Visible || !_sourceMode || value == null)
-      return;
-    bool wasGradient = IsGradient;
-    _working = value.Clone();
-    if (IsGradient)
-      _stop = Mathf.Clamp(_stop, 0, _working.Gradient.Stops.Count - 1);
-    bool layout = wasGradient != IsGradient;
-    if (_followsHighlight != value.Highlight)
-    {
-      _followsHighlight = value.Highlight;
-      _source.Selected = value.Highlight ? 0 : 1;
-      layout = true;
-    }
-    if (layout)
-      Layout();
-    // Undo can change the color underneath; the controls show it again. A
-    // color that already shows keeps its hue, which grays would lose.
-    Color shown = IsGradient
-      ? (_followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Gradient.Stops[_stop].Hex))
-      : (_followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex));
-    bool differs =
-      Mathf.Abs(shown.r - _value.r) > .002f
-      || Mathf.Abs(shown.g - _value.g) > .002f
-      || Mathf.Abs(shown.b - _value.b) > .002f
-      || (IsGradient && Mathf.Abs(StopAlpha(_stop) - _value.a) > .002f);
-    if (differs)
-    {
-      if (IsGradient)
-        ShowStop();
-      else
-        ShowSolid();
-    }
-    else
-      RefreshGradient();
+    Refresh();
   }
 
   // The picked stop's color in the controls, without reporting a change.
   private void ShowStop()
   {
-    if (!IsGradient)
-      return;
-    OverlayGradientStop stop = _working.Gradient.Stops[_stop];
-    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
-    color.a = StopAlpha(_stop);
-    Color.RGBToHSV(color, out _h, out _s, out _v);
-    Apply(color, true, false);
+    if (IsGradient)
+      _host.ShowColor(WorkingColor());
   }
 
-  private void ShowSolid()
-  {
-    Color color = _followsHighlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(_working.Hex);
-    color.a = Mathf.Clamp01(_working.Alpha);
-    Color.RGBToHSV(color, out _h, out _s, out _v);
-    Apply(color, true, false);
-  }
-
-  private void Emit() => _sourceChanged?.Invoke(_working.Clone());
-
-  private static string StopOpacityName(int rank) => L(rank + "번째 색 불투명도", "Color " + rank + " opacity");
+  /// <summary>Tells the picker's owner the working color changed.</summary>
+  public void Emit() => _host.Report(_working.Clone());
 
   /// <summary>
   /// The color as the editor gets it after the controls moved to
   /// <paramref name="color"/>: the picked stop changes, or the solid color.
   /// A stop's calculated opacity stays unless the opacity itself moved.
   /// </summary>
-  private OverlayColorSettings SourceValue(Color color, float alphaBefore)
+  public OverlayColorSettings TakeColor(Color color, float alphaBefore)
   {
     if (!IsGradient)
     {
-      OverlayColorSettings solid = _followsHighlight
+      OverlayColorSettings solid = _host.FollowsHighlight
         ? OverlayColorSettings.HighlightColor(color.a)
         : OverlayColorSettings.Custom("#" + ColorUtility.ToHtmlStringRGB(color), color.a);
       _working = solid.Clone();
       return solid;
     }
     OverlayGradientStop stop = _working.Gradient.Stops[_stop];
-    if (!_followsHighlight)
+    if (!_host.FollowsHighlight)
       stop.Hex = "#" + ColorUtility.ToHtmlStringRGB(color);
     if (Mathf.Abs(color.a - alphaBefore) > .0005f || string.IsNullOrEmpty(stop.AlphaFormula))
     {
@@ -623,16 +558,6 @@ internal sealed partial class SettingsColorPicker
     return _working.Clone();
   }
 
-  // Following the highlight or not changes the whole gradient at once.
-  private bool SetGradientSource(bool highlight)
-  {
-    if (!IsGradient)
-      return false;
-    _followsHighlight = highlight;
-    OverlayGradientEdits.SetHighlight(_working, highlight, AccentHex);
-    Layout();
-    ShowStop();
-    Emit();
-    return true;
-  }
+  /// <summary>Makes every stop follow the highlight color, or each its own color again.</summary>
+  public void SetHighlight(bool highlight) => OverlayGradientEdits.SetHighlight(_working, highlight, AccentHex);
 }

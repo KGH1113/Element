@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.UI;

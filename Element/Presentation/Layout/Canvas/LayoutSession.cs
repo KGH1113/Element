@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;

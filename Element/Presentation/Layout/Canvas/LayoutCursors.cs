@@ -4,7 +4,7 @@ using Element.Presentation.Settings;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.Canvas;
 
 internal sealed class LayoutCursors : IDisposable
 {

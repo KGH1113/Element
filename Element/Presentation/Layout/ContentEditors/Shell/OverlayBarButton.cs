@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using TMPro;
@@ -37,7 +38,7 @@ internal sealed class OverlayBarButton
     _unit;
   private readonly SettingsCapsuleGraphic _swatch;
   private readonly SettingsGradientPreview _swatchGradient;
-  private readonly LayoutActionIcon _icon;
+  private readonly UiIcon _icon;
   private readonly SettingsCapsuleGraphic _track,
     _thumb;
   private readonly SettingsSwitchMotion _thumbMotion;
@@ -55,7 +56,7 @@ internal sealed class OverlayBarButton
     bool reduceMotion,
     string unit = "",
     bool swatch = false,
-    LayoutAction? icon = null,
+    UiIconKind? icon = null,
     string glyph = null,
     bool toggle = false
   )
@@ -79,8 +80,7 @@ internal sealed class OverlayBarButton
     }
     else if (icon.HasValue)
     {
-      LayoutActionIcon graphic = ui.Rect("Icon", Root, 0, 0, LeadSize, LeadSize)
-        .gameObject.AddComponent<LayoutActionIcon>();
+      UiIcon graphic = ui.Rect("Icon", Root, 0, 0, LeadSize, LeadSize).gameObject.AddComponent<UiIcon>();
       graphic.Kind = icon.Value;
       graphic.color = UiPalette.Foreground;
       graphic.raycastTarget = false;

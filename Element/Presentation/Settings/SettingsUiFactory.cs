@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -141,7 +142,7 @@ internal sealed class SettingsUiFactory : IDisposable
     float y,
     float size,
     Action onClick,
-    SettingsNavigationIconKind iconKind
+    UiIconKind iconKind
   )
   {
     Button button = Button("", parent, x, y, size, size, onClick, themed: false);
@@ -150,7 +151,7 @@ internal sealed class SettingsUiFactory : IDisposable
     button.transition = Selectable.Transition.None;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     float iconSize = Mathf.Min(24, size - 12);
-    SettingsNavigationIcon icon = Rect(
+    UiIcon icon = Rect(
       name + " icon",
       button.transform,
       (size - iconSize) * .5f,
@@ -158,7 +159,7 @@ internal sealed class SettingsUiFactory : IDisposable
       iconSize,
       iconSize
     )
-      .gameObject.AddComponent<SettingsNavigationIcon>();
+      .gameObject.AddComponent<UiIcon>();
     icon.Kind = iconKind;
     icon.raycastTarget = false;
     Outline focus = icon.gameObject.AddComponent<Outline>();
@@ -176,17 +177,16 @@ internal sealed class SettingsUiFactory : IDisposable
   /// A button that is only its glyph, for actions inside a card: hover and
   /// press change the glyph, so no second surface lights up inside the card.
   /// </summary>
-  public Button GlyphButton<T>(
+  public Button GlyphButton(
     string name,
     Transform parent,
     float size,
     float glyphSize,
+    UiIconKind icon,
     Action onClick,
     Color normal,
-    Color hover,
-    out T glyph
+    Color hover
   )
-    where T : Graphic
   {
     Button button = Button("", parent, 0, 0, size, size, onClick, themed: false);
     button.name = name;
@@ -194,7 +194,9 @@ internal sealed class SettingsUiFactory : IDisposable
     button.transition = Selectable.Transition.None;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     float inset = (size - glyphSize) * .5f;
-    glyph = Rect(name + " glyph", button.transform, inset, inset, glyphSize, glyphSize).gameObject.AddComponent<T>();
+    UiIcon glyph = Rect(name + " glyph", button.transform, inset, inset, glyphSize, glyphSize)
+      .gameObject.AddComponent<UiIcon>();
+    glyph.Kind = icon;
     glyph.raycastTarget = false;
     Outline focus = glyph.gameObject.AddComponent<Outline>();
     focus.effectDistance = new Vector2(1.25f, -1.25f);

@@ -1,13 +1,13 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Graphics;
 
 // Continuous stroke strips with a one-screen-pixel coverage fringe. Canvas UI
 // does not receive the camera's MSAA, so hard-edged triangles alone shimmer at
 // small UI scales. Each graphic retains its path buffer for the next rebuild.
 [RequireComponent(typeof(CanvasRenderer))]
-internal abstract class SettingsVectorGraphic : MaskableGraphic
+internal abstract class UiVectorGraphic : MaskableGraphic
 {
   private readonly Vector2[] _points = new Vector2[96];
   private int _count;

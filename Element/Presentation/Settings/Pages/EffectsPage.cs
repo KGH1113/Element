@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Element.Configuration.Effects;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -197,10 +198,10 @@ internal sealed class EffectsPage : SettingsPage
       card.transform,
       36,
       20,
+      UiIconKind.Edit,
       () => _editor.Edit(preset),
       UiPalette.Muted,
-      UiPalette.Foreground,
-      out SettingsEditIcon _
+      UiPalette.Foreground
     );
     ((RectTransform)edit.transform).anchorMin = ((RectTransform)edit.transform).anchorMax = new Vector2(1, 1);
     ((RectTransform)edit.transform).pivot = new Vector2(1, 1);

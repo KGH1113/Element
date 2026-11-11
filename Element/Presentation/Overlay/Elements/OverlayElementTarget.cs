@@ -4,7 +4,6 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;

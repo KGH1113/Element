@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -82,7 +83,7 @@ internal sealed class OverlayKeypad
       if (symbol)
         button.GetComponentInChildren<TextMeshProUGUI>().color = UiPalette.SoftAccent;
       if (key == '\b')
-        Icon(ui, button.transform, LayoutAction.Backspace, 24);
+        Icon(ui, button.transform, UiIconKind.Backspace, 24);
       _buttons.Add((button, key));
     }
     float last = 4 * (KeyHeight + Gap);
@@ -159,9 +160,9 @@ internal sealed class OverlayKeypad
 
   public static string ValueName(OverlayValueDefinition value) => Korean ? value.KoreanName : value.EnglishName;
 
-  private static void Icon(SettingsUiFactory ui, Transform parent, LayoutAction kind, float size)
+  private static void Icon(SettingsUiFactory ui, Transform parent, UiIconKind kind, float size)
   {
-    LayoutActionIcon icon = ui.Rect("Icon", parent, 0, 0, size, size).gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon icon = ui.Rect("Icon", parent, 0, 0, size, size).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, .5f);
     icon.rectTransform.anchoredPosition = Vector2.zero;

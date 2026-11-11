@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -44,7 +45,7 @@ internal sealed class KeyViewerKind : IElementKind
   {
     KeyViewerAvailability viewers = Viewers?.Availability ?? KeyViewerAvailability.Unsupported;
     return new AddMenuRow(
-      LayoutAction.KeyViewer,
+      UiIconKind.KeyViewer,
       L("키뷰어", "Key viewer"),
       viewers switch
       {

@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
@@ -185,7 +186,7 @@ internal sealed class ModPickerParts
       false,
       _reduceMotion
     );
-    _page.Icon(button.transform, LayoutAction.Font, 10, 8, 20, UiPalette.Muted);
+    _page.Icon(button.transform, UiIconKind.Font, 10, 8, 20, UiPalette.Muted);
     shown = _ui.Text("", button.transform, 38, 0, 200, 36, 14, UiPalette.Foreground);
     shown.alignment = TextAlignmentOptions.MidlineLeft;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
@@ -256,7 +257,7 @@ internal sealed class ModPickerParts
       true,
       _reduceMotion
     );
-    LayoutActionIcon cross = _page.Icon(clear.transform, LayoutAction.Close, 8, 8, 20, UiPalette.Muted);
+    UiIcon cross = _page.Icon(clear.transform, UiIconKind.Close, 8, 8, 20, UiPalette.Muted);
     capture.Show = () =>
     {
       bool recording = _capture == capture;

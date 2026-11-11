@@ -45,6 +45,7 @@ using Element.Presentation.Layout.Graphics;
 using Element.Configuration.Gameplay;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Graphics;
 
 namespace Element.Editor
 {
@@ -205,10 +206,10 @@ namespace Element.Editor
         && Mathf.Abs(CenterIn((RectTransform)minus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f,
         "plus, minus and percentage field share one vertical center");
       CheckInputCaret(sizeInput, "overlay scale", "", "100", "99.9");
-      foreach (LayoutActionIcon icon in root.GetComponentsInChildren<LayoutActionIcon>(true))
+      foreach (UiIcon icon in root.GetComponentsInChildren<UiIcon>(true))
         using (var mesh = new VertexHelper())
         {
-          typeof(LayoutActionIcon).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(icon, new object[] { mesh });
+          typeof(UiIcon).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(icon, new object[] { mesh });
           Assert(mesh.currentVertCount > 0, "vector icon renders: " + icon.Kind);
         }
       foreach (TextMeshProUGUI label in toolbarRect.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -747,10 +748,10 @@ namespace Element.Editor
         "several selected: no Edit, the scale greys out, delete and reset stay");
       RectTransform bar = Field<RectTransform>(ElementBar(editor), "_panel");
       Assert(bar != null && bar.gameObject.activeSelf, "several selected get the align toolbar");
-      Func<LayoutAction, Button> arrange = kind =>
-        bar.GetComponentsInChildren<Button>(true).Single(button => button.GetComponentInChildren<LayoutActionIcon>()?.Kind == kind);
-      Assert(arrange(LayoutAction.AlignLeft).interactable && !arrange(LayoutAction.DistributeHorizontal).interactable
-        && !arrange(LayoutAction.DistributeVertical).interactable, "two can be aligned; spacing waits for three");
+      Func<UiIconKind, Button> arrange = kind =>
+        bar.GetComponentsInChildren<Button>(true).Single(button => button.GetComponentInChildren<UiIcon>()?.Kind == kind);
+      Assert(arrange(UiIconKind.AlignLeft).interactable && !arrange(UiIconKind.DistributeHorizontal).interactable
+        && !arrange(UiIconKind.DistributeVertical).interactable, "two can be aligned; spacing waits for three");
       Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
       object[] hit = { texts[0].Bounds.center, null };
       Assert((int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
@@ -829,8 +830,8 @@ namespace Element.Editor
       // Align and distribute.
       Call(editor, "UpdateFrames");
       bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      Assert(arrange(LayoutAction.DistributeHorizontal).interactable, "three can be spaced evenly");
-      arrange(LayoutAction.AlignLeft).onClick.Invoke();
+      Assert(arrange(UiIconKind.DistributeHorizontal).interactable, "three can be spaced evenly");
+      arrange(UiIconKind.AlignLeft).onClick.Invoke();
       float left = start.Min(r => r.x);
       Assert(texts.All(t => Mathf.Abs(t.Bounds.x - left) < 1.5f), "align left lines them up on the leftmost edge");
       Assert(selection.Count == 3, "aligning keeps the selection");
@@ -838,12 +839,12 @@ namespace Element.Editor
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
       bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      arrange(LayoutAction.AlignMiddle).onClick.Invoke();
+      arrange(UiIconKind.AlignMiddle).onClick.Invoke();
       Assert(texts.Select(t => t.Bounds.center.y).Max() - texts.Select(t => t.Bounds.center.y).Min() < 1.5f, "align middle shares one vertical center");
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
       bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      arrange(LayoutAction.DistributeHorizontal).onClick.Invoke();
+      arrange(UiIconKind.DistributeHorizontal).onClick.Invoke();
       Rect[] spaced = texts.Select(t => t.Bounds).OrderBy(r => r.x).ToArray();
       Assert(Mathf.Abs((spaced[1].x - spaced[0].xMax) - (spaced[2].x - spaced[1].xMax)) < 1.5f, "distribute leaves the same gaps: "
         + string.Join(" | ", start.Select(r => r.ToString())) + " -> " + string.Join(" | ", spaced.Select(r => r.ToString()))
@@ -861,7 +862,7 @@ namespace Element.Editor
       bar = Field<RectTransform>(ElementBar(editor), "_panel");
       Rect[] columnStart = column.Select(t => t.Bounds).ToArray();
       bool couldUndo = Session(editor).History.CanUndo;
-      arrange(LayoutAction.DistributeVertical).onClick.Invoke();
+      arrange(UiIconKind.DistributeVertical).onClick.Invoke();
       Toolbar(editor).Refresh();
       TextMeshProUGUI help = Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text");
       Assert(column.Select((t, i) => t.Bounds == columnStart[i]).All(same => same) && help.text.Length > 0
@@ -1673,8 +1674,8 @@ namespace Element.Editor
         Button back = Field<Button>(panel, "_back");
         Assert(back.targetGraphic.color.a == 0 && back.transition == Selectable.Transition.None,
           "Back has no button background or hover fill");
-        SettingsNavigationIcon backIcon = back.GetComponentInChildren<SettingsNavigationIcon>();
-        Assert(backIcon != null && backIcon.Kind == SettingsNavigationIconKind.Back && !backIcon.raycastTarget,
+        UiIcon backIcon = back.GetComponentInChildren<UiIcon>();
+        Assert(backIcon != null && backIcon.Kind == UiIconKind.PageBack && !backIcon.raycastTarget,
           "Back uses a left chevron with the full button hit area");
         CheckNavigationControls(panel, settings);
         // A scene change destroys the selected object while the event system
@@ -2331,7 +2332,7 @@ namespace Element.Editor
       var eventRoot = new GameObject("Navigation fixture events", typeof(EventSystem));
       var pointer = new PointerEventData(eventRoot.GetComponent<EventSystem>());
       Button back = Field<Button>(panel, "_back"), close = Field<Button>(panel, "_close");
-      var icon = back.GetComponentInChildren<SettingsNavigationIcon>();
+      var icon = back.GetComponentInChildren<UiIcon>();
       var feedback = back.GetComponent<SettingsIconInteraction>();
       feedback.OnPointerEnter(pointer);
       Assert(icon.color == UiPalette.SoftAccent && back.targetGraphic.color.a == 0,
@@ -2342,17 +2343,17 @@ namespace Element.Editor
       feedback.OnPointerUp(pointer);
       feedback.OnPointerExit(pointer);
       Assert(icon.color == UiPalette.Foreground, "back glyph restores its neutral color on exit");
-      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<SettingsNavigationIcon>().Kind == SettingsNavigationIconKind.Close
+      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<UiIcon>().Kind == UiIconKind.WindowClose
         && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
       Assert(back.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer
         && close.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer,
         "navigation controls advertise their click cursor");
       CheckAntialias(icon);
-      var iconRoot = new GameObject("Low resolution action icon", typeof(RectTransform), typeof(LayoutActionIcon));
-      var action = iconRoot.GetComponent<LayoutActionIcon>();
+      var iconRoot = new GameObject("Low resolution action icon", typeof(RectTransform), typeof(UiIcon));
+      var action = iconRoot.GetComponent<UiIcon>();
       action.rectTransform.sizeDelta = new Vector2(16, 16);
       action.color = Color.white;
-      action.Kind = LayoutAction.Reset;
+      action.Kind = UiIconKind.Reset;
       CheckAntialias(action);
       using (var mesh = new VertexHelper())
       {
@@ -2647,7 +2648,7 @@ namespace Element.Editor
       Assert(ShortcutKeys.KeyLabel(KeyCode.BackQuote) == "`" && ShortcutKeys.KeyLabel(KeyCode.Backslash) == "\\"
         && ShortcutKeys.KeyLabel(KeyCode.Slash) == "/" && ShortcutKeys.KeyLabel(KeyCode.Alpha1) == "1",
         "printable keys use their actual characters instead of enum names");
-      SettingsKeySymbol symbol = Field<SettingsKeySymbol>(field, "_modifierSymbol");
+      UiKeySymbol symbol = Field<UiKeySymbol>(field, "_modifierSymbol");
       foreach (KeyCode modifier in new[] { KeyCode.LeftCommand, KeyCode.RightAlt, KeyCode.LeftControl, KeyCode.RightShift })
       {
         settings.SettingsShortcutModifier = modifier;

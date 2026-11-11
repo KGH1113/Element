@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Profiles;
 using Element.Configuration.Profiles;
-using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -219,48 +219,48 @@ internal sealed class ProfilesPage : SettingsPage
     {
       int slot = 0;
       if (_profiles.CanDelete)
-        CardAction<LayoutActionIcon>(
+        CardAction(
           card.transform,
           "Delete profile",
           slot++,
+          UiIconKind.Delete,
           () => DeleteProfile(profile),
           armed ? UiPalette.Error : UiPalette.Muted,
           armed ? UiPalette.Error : UiPalette.Foreground
-        ).Kind = LayoutAction.Delete;
+        );
       if (_profiles.FilesSupported)
-        CardAction<SettingsExportIcon>(card.transform, "Export profile", slot++, () => ExportProfile(profile));
-      CardAction<SettingsDuplicateIcon>(card.transform, "Duplicate profile", slot++, () => DuplicateProfile(profile));
-      CardAction<SettingsEditIcon>(card.transform, "Rename profile", slot, () => StartRename(profile));
+        CardAction(card.transform, "Export profile", slot++, UiIconKind.Export, () => ExportProfile(profile));
+      CardAction(card.transform, "Duplicate profile", slot++, UiIconKind.Duplicate, () => DuplicateProfile(profile));
+      CardAction(card.transform, "Rename profile", slot, UiIconKind.Edit, () => StartRename(profile));
     }
     return card;
   }
 
   // A glyph button in the card's top right; slot 0 is the rightmost.
-  private T CardAction<T>(
+  private void CardAction(
     Transform card,
     string name,
     int slot,
+    UiIconKind icon,
     Action action,
     Color? normal = null,
     Color? hover = null
   )
-    where T : Graphic
   {
     Button button = _profileGalleryUi.GlyphButton(
       name,
       card,
       CardActionSize,
       CardGlyphSize,
+      icon,
       action,
       normal ?? UiPalette.Muted,
-      hover ?? UiPalette.Foreground,
-      out T glyph
+      hover ?? UiPalette.Foreground
     );
     RectTransform rect = (RectTransform)button.transform;
     rect.anchorMin = rect.anchorMax = new Vector2(1, 1);
     rect.pivot = new Vector2(1, 1);
     rect.anchoredPosition = new Vector2(-CardActionInset - slot * (CardActionSize + CardActionGap), -CardActionInset);
-    return glyph;
   }
 
   private static bool Contains(IReadOnlyList<ElementProfile> profiles, ElementProfile profile)

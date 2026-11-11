@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -56,7 +57,7 @@ internal sealed class OverlayGrowFrom
       L("기준점", "Grow from"),
       Toggle,
       reduceMotion,
-      icon: LayoutAction.GrowFrom
+      icon: UiIconKind.GrowFrom
     );
 
   /// <summary>The popover and the dot, over the editor's controls.</summary>

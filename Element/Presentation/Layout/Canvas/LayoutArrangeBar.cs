@@ -4,6 +4,7 @@ using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -59,16 +60,16 @@ internal sealed class LayoutArrangeBar
     RectTransform panel = _bar.Begin(null, width);
     _built = true;
     _icons.Clear();
-    (LayoutAction Icon, string Hint, LayoutAlignment Alignment)[] aligns =
+    (UiIconKind Icon, string Hint, LayoutAlignment Alignment)[] aligns =
     {
-      (LayoutAction.AlignLeft, L("왼쪽 맞춤", "Align left"), LayoutAlignment.Left),
-      (LayoutAction.AlignCenter, L("가로 가운데 맞춤", "Align centers horizontally"), LayoutAlignment.Center),
-      (LayoutAction.AlignRight, L("오른쪽 맞춤", "Align right"), LayoutAlignment.Right),
-      (LayoutAction.AlignTop, L("위쪽 맞춤", "Align top"), LayoutAlignment.Top),
-      (LayoutAction.AlignMiddle, L("세로 가운데 맞춤", "Align centers vertically"), LayoutAlignment.Middle),
-      (LayoutAction.AlignBottom, L("아래쪽 맞춤", "Align bottom"), LayoutAlignment.Bottom),
+      (UiIconKind.AlignLeft, L("왼쪽 맞춤", "Align left"), LayoutAlignment.Left),
+      (UiIconKind.AlignCenter, L("가로 가운데 맞춤", "Align centers horizontally"), LayoutAlignment.Center),
+      (UiIconKind.AlignRight, L("오른쪽 맞춤", "Align right"), LayoutAlignment.Right),
+      (UiIconKind.AlignTop, L("위쪽 맞춤", "Align top"), LayoutAlignment.Top),
+      (UiIconKind.AlignMiddle, L("세로 가운데 맞춤", "Align centers vertically"), LayoutAlignment.Middle),
+      (UiIconKind.AlignBottom, L("아래쪽 맞춤", "Align bottom"), LayoutAlignment.Bottom),
     };
-    foreach ((LayoutAction icon, string hint, LayoutAlignment alignment) in aligns)
+    foreach ((UiIconKind icon, string hint, LayoutAlignment alignment) in aligns)
     {
       ButtonAt(
         panel,
@@ -84,7 +85,7 @@ internal sealed class LayoutArrangeBar
     x += 9;
     _distributeHorizontal = ButtonAt(
       panel,
-      LayoutAction.DistributeHorizontal,
+      UiIconKind.DistributeHorizontal,
       L("가로 간격 똑같이 · 3개 이상", "Space evenly across · 3 or more"),
       x,
       () =>
@@ -99,7 +100,7 @@ internal sealed class LayoutArrangeBar
     x += Button + Gap;
     _distributeVertical = ButtonAt(
       panel,
-      LayoutAction.DistributeVertical,
+      UiIconKind.DistributeVertical,
       L("세로 간격 똑같이 · 3개 이상", "Space evenly down · 3 or more"),
       x,
       () =>
@@ -122,13 +123,13 @@ internal sealed class LayoutArrangeBar
     _icons.Clear();
   }
 
-  private Button ButtonAt(RectTransform panel, LayoutAction kind, string hint, float x, Action click)
+  private Button ButtonAt(RectTransform panel, UiIconKind kind, string hint, float x, Action click)
   {
     SettingsUiFactory ui = _bar.Ui;
     Button button = ui.Button("", panel, x, 10, Button, Button, click);
     button.gameObject.name = hint;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    LayoutActionIcon icon = ui.Rect("Icon", button.transform, 8, 8, 20, 20).gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon icon = ui.Rect("Icon", button.transform, 8, 8, 20, 20).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;
     icon.rectTransform.anchorMin = icon.rectTransform.anchorMax = icon.rectTransform.pivot = new Vector2(.5f, .5f);
     icon.rectTransform.anchoredPosition = Vector2.zero;

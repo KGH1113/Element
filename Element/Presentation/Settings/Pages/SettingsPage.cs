@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -101,8 +102,8 @@ internal abstract class SettingsPage : IDisposable
     SettingsUiFactory.StretchWidth(label.rectTransform, 20, 64);
     detail = Ui.Text(description, link.transform, 20, 43, 820, 24, 14, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(detail.rectTransform, 20, 64);
-    var arrow = Ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = SettingsNavigationIconKind.Forward;
+    var arrow = Ui.Rect("Open", link.transform, 892, 28, 20, 24).gameObject.AddComponent<UiIcon>();
+    arrow.Kind = UiIconKind.PageForward;
     arrow.raycastTarget = false;
     arrow.rectTransform.anchorMin = arrow.rectTransform.anchorMax = new Vector2(1, .5f);
     arrow.rectTransform.pivot = new Vector2(1, .5f);

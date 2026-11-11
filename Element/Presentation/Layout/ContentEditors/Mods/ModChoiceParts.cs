@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
@@ -99,7 +100,7 @@ internal sealed class ModChoiceParts
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
     shown.raycastTarget = false;
-    LayoutActionIcon chevron = _page.Icon(button.transform, LayoutAction.Down, 0, 9, 18, UiPalette.Muted);
+    UiIcon chevron = _page.Icon(button.transform, UiIconKind.Down, 0, 9, 18, UiPalette.Muted);
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);

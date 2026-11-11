@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Effects;
 using Element.Configuration.Effects;
-using Element.Presentation.Layout;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -72,7 +72,7 @@ internal sealed class PresetEditorPage : SettingsPage
     _presetName.placeholder = placeholder;
     placeholder.alignment = _presetName.textComponent.alignment;
     _savePreset = Ui.Button(L("저장", "Save preset"), _presetHeader, 716, 0, 152, 40, SavePreset, true);
-    _deletePreset = ActionIconButton("Delete preset", _presetHeader, LayoutAction.Delete, DeletePreset);
+    _deletePreset = ActionIconButton("Delete preset", _presetHeader, UiIconKind.Delete, DeletePreset);
     _presetError = Ui.Text("", _presetHeader, 0, 44, 936, 24, 13, UiPalette.Error);
     _presetIntro = Ui.Text(
       L("이 프리셋에서 제거할 이펙트를 선택하세요.", "Choose the effects this preset removes."),
@@ -167,7 +167,7 @@ internal sealed class PresetEditorPage : SettingsPage
       () => _presetDraft?.ShortcutModifier ?? KeyCode.None,
       AssignPresetShortcut,
       "Remove shortcut",
-      LayoutAction.Close,
+      UiIconKind.Close,
       () =>
       {
         _presetDraft?.ClearShortcut();
@@ -232,12 +232,12 @@ internal sealed class PresetEditorPage : SettingsPage
     return null;
   }
 
-  private Button ActionIconButton(string name, Transform parent, LayoutAction icon, Action action)
+  private Button ActionIconButton(string name, Transform parent, UiIconKind icon, Action action)
   {
     Button button = Ui.Button("", parent, 0, 0, 40, 40, action);
     button.gameObject.name = name;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    var graphic = Ui.Rect(name + " icon", button.transform, 10, 10, 20, 20).gameObject.AddComponent<LayoutActionIcon>();
+    var graphic = Ui.Rect(name + " icon", button.transform, 10, 10, 20, 20).gameObject.AddComponent<UiIcon>();
     graphic.Kind = icon;
     graphic.raycastTarget = false;
     graphic.color = UiPalette.Foreground;

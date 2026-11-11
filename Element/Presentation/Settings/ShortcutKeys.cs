@@ -1,4 +1,5 @@
 using Element.Configuration;
+using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -46,8 +47,8 @@ internal static class ShortcutKeys
 
   internal static string ModifierLabel(KeyCode key)
   {
-    if (IsMac && SettingsKeySymbol.Symbol(key).Length > 0)
-      return (IsRightModifier(key) ? L("오른쪽 ", "Right ") : L("왼쪽 ", "Left ")) + SettingsKeySymbol.Symbol(key);
+    if (IsMac && UiKeySymbol.Symbol(key).Length > 0)
+      return (IsRightModifier(key) ? L("오른쪽 ", "Right ") : L("왼쪽 ", "Left ")) + UiKeySymbol.Symbol(key);
     return ModifierName(key);
   }
 

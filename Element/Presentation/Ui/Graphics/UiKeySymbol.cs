@@ -1,11 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Graphics;
 
 // macOS modifier glyphs drawn as vectors: the overlay font has no ⌘/⌥ atlas glyphs.
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsKeySymbol : SettingsVectorGraphic
+internal sealed class UiKeySymbol : UiVectorGraphic
 {
   private KeyCode _key;
 

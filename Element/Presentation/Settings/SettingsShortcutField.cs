@@ -1,6 +1,6 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Layout;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -34,7 +34,7 @@ internal sealed class SettingsShortcutField
     _modifierSide,
     _keyPlus,
     _mainKey;
-  private readonly SettingsKeySymbol _modifierSymbol;
+  private readonly UiKeySymbol _modifierSymbol;
   private int _captureStarted;
   private float _desiredWidth = 240,
     _firstWidth,
@@ -59,7 +59,7 @@ internal sealed class SettingsShortcutField
     Func<KeyCode> modifier,
     Func<KeyCode, KeyCode, string> assign,
     string actionName,
-    LayoutAction actionIcon,
+    UiIconKind actionIcon,
     Action action,
     string modifierExample,
     Action resized,
@@ -99,7 +99,7 @@ internal sealed class SettingsShortcutField
     _modifierKey.alignment = TextAlignmentOptions.Midline;
     _modifierSide = ui.Text("L", modifierCap.transform, 8, 0, 14, 30, 11, UiPalette.Muted);
     _modifierSymbol = ui.Rect("Modifier symbol", modifierCap.transform, 28, 4, 22, 22)
-      .gameObject.AddComponent<SettingsKeySymbol>();
+      .gameObject.AddComponent<UiKeySymbol>();
     _modifierSymbol.color = UiPalette.Foreground;
     _modifierSymbol.raycastTarget = false;
     _keyPlus = ui.Text("+", Keycaps, 144, 0, 20, 30, 14, UiPalette.Muted);
@@ -112,8 +112,7 @@ internal sealed class SettingsShortcutField
     Action = ui.Button("", card, 328, 60, FieldHeight, FieldHeight, action);
     Action.gameObject.name = actionName;
     Action.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    LayoutActionIcon icon = ui.Rect(actionName + " icon", Action.transform, 10, 10, 24, 24)
-      .gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon icon = ui.Rect(actionName + " icon", Action.transform, 10, 10, 24, 24).gameObject.AddComponent<UiIcon>();
     icon.Kind = actionIcon;
     icon.color = UiPalette.Foreground;
     icon.raycastTarget = false;
@@ -214,7 +213,7 @@ internal sealed class SettingsShortcutField
     _modifierKey.transform.parent.gameObject.SetActive(hasModifier);
     _keyPlus.gameObject.SetActive(hasModifier);
     _modifierKey.text = ShortcutKeys.ModifierLabel(modifier);
-    bool symbol = hasModifier && ShortcutKeys.IsMac && SettingsKeySymbol.Symbol(modifier).Length > 0;
+    bool symbol = hasModifier && ShortcutKeys.IsMac && UiKeySymbol.Symbol(modifier).Length > 0;
     _modifierKey.gameObject.SetActive(!symbol);
     _modifierSymbol.gameObject.SetActive(symbol);
     _modifierSide.gameObject.SetActive(symbol);

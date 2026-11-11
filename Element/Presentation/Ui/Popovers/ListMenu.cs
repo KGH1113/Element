@@ -1,6 +1,6 @@
 using System;
-using Element.Presentation.Layout;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Graphics;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -65,7 +65,7 @@ internal sealed class ListMenu : IPopover
   public Button AddRow(
     int index,
     string name,
-    LayoutAction icon,
+    UiIconKind icon,
     float iconTop,
     float iconSize,
     Color iconColor,
@@ -78,8 +78,8 @@ internal sealed class ListMenu : IPopover
     button.navigation = new Navigation { mode = Navigation.Mode.Automatic };
     button.interactable = enabled;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    LayoutActionIcon glyph = _ui.Rect("Icon", button.transform, 14, iconTop, iconSize, iconSize)
-      .gameObject.AddComponent<LayoutActionIcon>();
+    UiIcon glyph = _ui.Rect("Icon", button.transform, 14, iconTop, iconSize, iconSize)
+      .gameObject.AddComponent<UiIcon>();
     glyph.Kind = icon;
     glyph.color = iconColor;
     glyph.raycastTarget = false;

@@ -67,8 +67,8 @@ internal sealed class TextOverlayElement : OverlayElementTarget
 
   public override string Label => L("텍스트", "Text");
 
-  /// <summary>The values this text shows, as OverlayValueCatalog bits.</summary>
-  public ulong ValueMask { get; private set; }
+  /// <summary>The values this text shows.</summary>
+  public OverlayValueMask ValueMask { get; private set; }
 
   public bool IsEmpty => Settings?.Text?.Runs == null || Settings.Text.Runs.Count == 0;
 
@@ -138,11 +138,11 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   /// affects it. While <paramref name="settle"/> (a level starting or
   /// restarting), values take their new text without growing.
   /// </summary>
-  public void Refresh(ulong changes, bool settle = false)
+  public void Refresh(OverlayValueMask changes, bool settle = false)
   {
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (
-      (changes & ValueMask) != 0
+      changes.Overlaps(ValueMask)
       || _themeVersion != OverlayTheme.Version
       || _fontVersion != _fonts.Version
       || (_hasSizeFormula && !Mathf.Approximately(_renderedScale, EffectiveScale))

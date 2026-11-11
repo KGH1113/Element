@@ -28,8 +28,8 @@ internal sealed class OverlayTextGradients : MonoBehaviour
 
   public int Count => _colors.Count;
 
-  /// <summary>The values the gradients use, as catalog bits.</summary>
-  public ulong Mask { get; private set; }
+  /// <summary>The values the gradients use, by catalog id.</summary>
+  public OverlayValueMask Mask { get; private set; }
 
   public void Initialize(TMP_Text text)
   {
@@ -40,7 +40,7 @@ internal sealed class OverlayTextGradients : MonoBehaviour
   public void Clear()
   {
     _colors.Clear();
-    Mask = 0;
+    Mask = OverlayValueMask.None;
   }
 
   /// <summary>Adds a gradient color and returns its slot, which <see cref="Marker"/> turns into the run's color.</summary>

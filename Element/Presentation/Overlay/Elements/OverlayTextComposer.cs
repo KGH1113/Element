@@ -31,9 +31,9 @@ internal static class OverlayTextComposer
 
   /// <summary>
   /// Parses every formula in <paramref name="runs"/>; returns the values they
-  /// use as catalog bits. Gradient runs take a slot in <paramref name="gradients"/>.
+  /// use. Gradient runs take a slot in <paramref name="gradients"/>.
   /// </summary>
-  public static ulong Compile(
+  public static OverlayValueMask Compile(
     IReadOnlyList<OverlayTextRun> runs,
     List<OverlayCompiledRun> output,
     OverlayTextGradients gradients = null
@@ -41,7 +41,7 @@ internal static class OverlayTextComposer
   {
     output.Clear();
     gradients?.Clear();
-    ulong mask = 0;
+    OverlayValueMask mask = OverlayValueMask.None;
     if (runs == null)
       return mask;
     foreach (OverlayTextRun run in runs)
@@ -60,10 +60,10 @@ internal static class OverlayTextComposer
         continue;
       if (gradients != null && run.Color != null && run.Color.IsGradient)
         compiled.Gradient = gradients.Add(run.Color);
-      mask |= (compiled.Value?.Mask ?? 0) | (compiled.Size?.Mask ?? 0) | (compiled.Alpha?.Mask ?? 0);
+      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha);
       output.Add(compiled);
     }
-    return mask | (gradients?.Mask ?? 0);
+    return mask | (gradients?.Mask ?? OverlayValueMask.None);
   }
 
   /// <summary>
@@ -137,6 +137,9 @@ internal static class OverlayTextComposer
     output.Append("</link>");
     animated?.Add((start, length));
   }
+
+  /// <summary>The values <paramref name="formula"/> uses; none without a formula.</summary>
+  public static OverlayValueMask Mask(OverlayFormula formula) => formula?.Mask ?? OverlayValueMask.None;
 
   /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>
   public static float Size(float size, OverlayFormula formula, IOverlayNumberSource source, float elementScale)

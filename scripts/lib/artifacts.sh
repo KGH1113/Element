@@ -21,8 +21,9 @@ source "${BASH_SOURCE[0]%/*}/windows-webview.sh"
 # that passed the smoke probe.
 runtime_payload_names() {
   local target="${1:-local}"
-  # Every version carries its own launcher and updater (see docs/auto-update.md).
-  RUNTIME_PAYLOAD_NAMES=(Element.dll Element.Launcher.dll Element.Updater.dll)
+  # Every version carries its own launcher and updater (see docs/auto-update.md),
+  # and ElementKit, which other mods bind to through Element (docs/elementkit-plan.md).
+  RUNTIME_PAYLOAD_NAMES=(Element.dll ElementKit.dll Element.Launcher.dll Element.Updater.dll)
   case "$target" in
     local)
       if is_macos; then

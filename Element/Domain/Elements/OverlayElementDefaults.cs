@@ -397,14 +397,13 @@ internal static class OverlayElementMigration
   {
     if (layouts == null)
       return;
-    ulong combo = OverlayValueCatalog.Bit(OverlayValueId.Combo);
     foreach (OverlayLayoutSettings layout in layouts)
     {
       List<OverlayTextRun> runs = layout?.Text?.Runs;
       if (runs == null)
         continue;
       foreach (OverlayTextRun run in runs)
-        if (run != null && run.IsValue && (OverlayFormula.Parse(run.Value).Mask & combo) != 0)
+        if (run != null && run.IsValue && OverlayFormula.Parse(run.Value).Mask.Contains(OverlayValueId.Combo))
           run.Animate = true;
     }
   }

@@ -50,8 +50,8 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
 
   internal OverlayValues Values => _values;
 
-  /// <summary>The values this shape's numbers use, as catalog bits.</summary>
-  public ulong ValueMask => _formulas.Mask;
+  /// <summary>The values this shape's numbers use.</summary>
+  public OverlayValueMask ValueMask => _formulas.Mask;
 
   /// <summary>
   /// Pixels per reference unit of the shape's box, in whatever the canvas is
@@ -106,7 +106,7 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     if (_preview == preview)
       return;
     _preview = preview;
-    if (Shape != null && _formulas.Mask != 0)
+    if (Shape != null && !_formulas.Mask.IsEmpty)
       Redraw();
   }
 
@@ -137,12 +137,12 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   }
 
   /// <summary>Redraws when its values, the highlight color or (for formulas) its scale changed; a mask test otherwise.</summary>
-  public void Refresh(ulong changes)
+  public void Refresh(OverlayValueMask changes)
   {
     if (
       _themeVersion != OverlayTheme.Version
-      || (changes & _formulas.Mask) != 0
-      || (_formulas.Mask != 0 && !Mathf.Approximately(_resolvedScale, EffectiveScale))
+      || changes.Overlaps(_formulas.Mask)
+      || (!_formulas.Mask.IsEmpty && !Mathf.Approximately(_resolvedScale, EffectiveScale))
     )
       Redraw();
   }

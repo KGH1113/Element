@@ -7,6 +7,7 @@ using UnityModManagerNet;
 
 namespace Element.Configuration;
 
+[CopiedInPlace]
 public sealed class ElementSettings : UnityModManager.ModSettings
 {
   public bool HidePerfectJudgmentText = true;
@@ -88,11 +89,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
     }
     // Left Alt + Tab was the old default and also switches windows on Windows.
     // Move only that untouched default; a custom shortcut stays as chosen.
-    if (
-      SettingsVersion < 7
-      && SettingsShortcutKey == KeyCode.Tab
-      && SettingsShortcutModifier == KeyCode.LeftAlt
-    )
+    if (SettingsVersion < 7 && SettingsShortcutKey == KeyCode.Tab && SettingsShortcutModifier == KeyCode.LeftAlt)
     {
       SettingsShortcutKey = DefaultSettingsShortcutKey;
       SettingsShortcutModifier = DefaultSettingsShortcutModifier;

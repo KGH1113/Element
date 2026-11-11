@@ -8,6 +8,7 @@ namespace Element.Configuration.Profiles;
 
 /// <summary>An exported profile: one .eprofile file another player can import.</summary>
 [XmlRoot("ElementProfile")]
+[CopiedInPlace]
 public sealed class ProfileFile
 {
   public const int CurrentFormat = 1;

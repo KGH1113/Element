@@ -2,7 +2,7 @@ using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
@@ -68,7 +68,7 @@ internal sealed class TextFonts
   {
     bool open = _fontPopover.Visible;
     _host.ClosePopovers();
-    SettingsColorPicker picker = _color.Picker;
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     if (!open)

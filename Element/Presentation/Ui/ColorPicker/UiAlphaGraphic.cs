@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsAlphaGraphic : MaskableGraphic
+internal sealed class UiAlphaGraphic : MaskableGraphic
 {
   private Color _value;
 

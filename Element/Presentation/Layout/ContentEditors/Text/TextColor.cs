@@ -4,7 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -58,7 +58,7 @@ internal sealed class TextColor
     OpacitySlot = new OverlayFormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
   }
 
-  public SettingsColorPicker Picker => _picker.Picker;
+  public UiColorPicker Picker => _picker.Picker;
 
   public OverlayOpacityField Opacity => _picker.Opacity;
 
@@ -93,7 +93,7 @@ internal sealed class TextColor
   private void OpenPicker()
   {
     _host.ClosePopovers();
-    SettingsColorPicker picker = _picker.Picker;
+    UiColorPicker picker = _picker.Picker;
     if (picker.Visible)
     {
       picker.Hide();
@@ -147,7 +147,7 @@ internal sealed class TextColor
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
   public string Hint() =>
-    Picker.Visible && Picker.IsGradient
+    Picker.Visible && Picker.Gradient.IsGradient
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on an opacity, position or angle to calculate it"

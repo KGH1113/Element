@@ -5,7 +5,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
@@ -82,7 +82,7 @@ internal sealed class TextGradient
       AddStopAt
     );
 
-  public void BuildPicker(UiFactory ui, SettingsColorPicker picker, bool reduceMotion) =>
+  public void BuildPicker(UiFactory ui, UiColorPicker picker, bool reduceMotion) =>
     _gradient.BuildPicker(
       ui,
       picker,

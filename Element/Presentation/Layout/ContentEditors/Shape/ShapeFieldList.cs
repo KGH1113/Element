@@ -40,7 +40,7 @@ internal sealed class ShapeFieldList
       Add(_measures.RadiusFields[i], _measures.RadiusKey(i));
     if (_colors.Picker != null && _colors.Picker.Visible)
       Add(_colors.Opacity.Field, _colors.OpacityKey);
-    if (_colors.Picker != null && _colors.Picker.IsGradient)
+    if (_colors.Picker != null && _colors.Picker.Gradient.IsGradient)
       Add(_gradient.Position, _gradient.PositionKey);
     if (_gradient.Handles != null && _gradient.Handles.Visible)
       Add(_gradient.Handles.Angle, _gradient.AngleKey);

@@ -4,7 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -49,7 +49,7 @@ internal sealed class ShapeColors
     );
   }
 
-  public SettingsColorPicker Picker => _picker.Picker;
+  public UiColorPicker Picker => _picker.Picker;
 
   public OverlayOpacityField Opacity => _picker.Opacity;
 
@@ -199,7 +199,7 @@ internal sealed class ShapeColors
   {
     if (!Picker.Visible)
       return null;
-    if (Picker.IsGradient)
+    if (Picker.Gradient.IsGradient)
       return _pickerForStroke
         ? L(
           "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",

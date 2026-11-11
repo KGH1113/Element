@@ -1,10 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsGradientGraphic : MaskableGraphic
+internal sealed class UiGradientGraphic : MaskableGraphic
 {
   public bool HueStrip;
   private float _hue = -1;

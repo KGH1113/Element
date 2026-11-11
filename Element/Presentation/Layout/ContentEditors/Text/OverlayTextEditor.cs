@@ -7,7 +7,7 @@ using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
@@ -205,7 +205,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       Render();
     }
     _screen.Tick();
-    SettingsColorPicker picker = _color.Picker;
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible && picker.IsTyping)
     {
       if (Input.GetKeyDown(KeyCode.Escape))
@@ -367,7 +367,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   /// <summary>Esc closes the picker first, then finishes like Done; only Cancel leaves without saving.</summary>
   public void Escape()
   {
-    SettingsColorPicker picker = _color.Picker;
+    UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     else

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
@@ -699,7 +699,7 @@ internal sealed class OverlayGradientHandles
     public Square(UiFactory ui, Transform parent, OverlayGradientHandles owner)
     {
       Rect = ui.Rect("Gradient color", parent, 0, 0, SquareSize, SquareSize);
-      Graphic = Rect.gameObject.AddComponent<SettingsSwatchGraphic>();
+      Graphic = Rect.gameObject.AddComponent<UiSwatchGraphic>();
       Graphic.raycastTarget = false;
       Graphic.Radius = 5;
       Graphic.Ring = 3;
@@ -713,7 +713,7 @@ internal sealed class OverlayGradientHandles
     }
 
     public RectTransform Rect { get; }
-    public SettingsSwatchGraphic Graphic { get; }
+    public UiSwatchGraphic Graphic { get; }
     public int Stop;
   }
 }

@@ -19,6 +19,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Presentation.Ui.ColorPicker;
 
 namespace Element.Editor
 {
@@ -173,7 +174,7 @@ namespace Element.Editor
         Tab("Grow from " + OverlayGrowth.Top).onClick.Invoke();
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
         Find("Paint ").onClick.Invoke();
-        SettingsColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
+        UiColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
         Assert(paint.Visible && paint.GradientAvailable && InsideScreen(ScreenRectOf(paint.Root)),
           "a paint opens the full picker, gradients included, on screen");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");

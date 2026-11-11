@@ -1,4 +1,4 @@
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.ColorPicker;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -21,7 +21,7 @@ internal sealed class OverlayPreviewSpace
   /// <summary>Where the space is this frame, in frame units.</summary>
   public void Measure(
     OverlayEditorFrame screen,
-    SettingsColorPicker picker,
+    UiColorPicker picker,
     OverlayInputDock dock,
     bool reduceMotion,
     out float left,

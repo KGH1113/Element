@@ -4,7 +4,7 @@ using Element.Presentation.Overlay.Elements;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.ColorPicker;
 
 /// <summary>
 /// A gradient drawn into its rect over a checkerboard, for the color bar, the
@@ -12,7 +12,7 @@ namespace Element.Presentation.Settings;
 /// bar the grid also has a column at every stop, so the bar is exact.
 /// </summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsGradientPreview : MaskableGraphic
+internal sealed class UiGradientPreview : MaskableGraphic
 {
   private static readonly Color CheckerDark = new(.30f, .30f, .30f),
     CheckerLight = new(.48f, .48f, .48f);

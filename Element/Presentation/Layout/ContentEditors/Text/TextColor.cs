@@ -23,14 +23,10 @@ internal sealed class TextColor
   private readonly TextFormulas _formulas;
   private readonly TextGradient _gradient;
   private readonly OverlayValues _values;
-  private readonly TMP_FontAsset _font;
-  private readonly Func<bool> _reduceMotion;
+  private readonly OverlayEditorPicker _picker;
   private readonly OverlayGradientFormulas _swatchFormulas = new();
   private readonly OverlayResolvedGradient _swatchGradient = new();
   private OverlayBarButton _colorButton;
-  private SettingsColorPicker _picker;
-  private OverlayOpacityField _opacity;
-  private bool _pickerSnapshotTaken;
 
   public TextColor(
     ITextEditorHost host,
@@ -47,14 +43,22 @@ internal sealed class TextColor
     _formulas = formulas;
     _gradient = gradient;
     _values = values;
-    _font = font;
-    _reduceMotion = reduceMotion;
+    _picker = new OverlayEditorPicker(
+      font,
+      reduceMotion,
+      () => _text.Remember(false),
+      () => _host.Screen != null,
+      // Its numbers go with it.
+      () => _formulas.Field == TextFormulas.OpacityKey || TextGradient.IsKey(_formulas.Field),
+      _host.ClosePopovers,
+      _host.Render
+    );
     OpacitySlot = new OverlayFormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
   }
 
-  public SettingsColorPicker Picker => _picker;
+  public SettingsColorPicker Picker => _picker.Picker;
 
-  public OverlayOpacityField Opacity => _opacity;
+  public OverlayOpacityField Opacity => _picker.Opacity;
 
   public OverlayBarButton Button => _colorButton;
 
@@ -75,83 +79,46 @@ internal sealed class TextColor
   /// <summary>The picker over the controls, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen)
   {
-    _picker = new SettingsColorPicker(screen.Frame, _font, _reduceMotion);
-    _picker.Hidden = PickerHidden;
-    _opacity = new OverlayOpacityField(
-      screen.Ui,
-      _picker,
-      () => _formulas.Activate(TextFormulas.OpacityKey),
-      _reduceMotion()
-    );
+    _picker.Build(screen.Frame);
+    _picker.BuildOpacity(screen.Ui, () => _formulas.Activate(TextFormulas.OpacityKey));
   }
 
   /// <summary>The color picker opens right above the keypad, in its column.</summary>
-  public void LayOutAbove(OverlayInputDock dock) => _picker.LayOutAsColumn(dock.KeypadArea.width);
+  public void LayOutAbove(OverlayInputDock dock) => _picker.LayOutAbove(dock);
 
-  public void DisposePicker()
-  {
-    SettingsColorPicker picker = _picker;
-    _picker = null;
-    picker?.Dispose();
-  }
+  public void DisposePicker() => _picker.Dispose();
 
   private void OpenPicker()
   {
     _host.ClosePopovers();
-    if (_picker.Visible)
+    SettingsColorPicker picker = _picker.Picker;
+    if (picker.Visible)
     {
-      _picker.Hide();
+      picker.Hide();
       _host.Render();
       return;
     }
     _text.Range(out int start, out int end);
     OverlayColorSettings current = _text.RangeColor();
-    _picker.ShowSource(
+    picker.ShowSource(
       _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color"),
       current,
       color =>
       {
-        if (!_pickerSnapshotTaken)
-        {
-          _text.Remember(false);
-          _pickerSnapshotTaken = true;
-        }
-        OverlayColorSettings before = _text.RangeColor();
-        // A gradient's stops keep their own calculated opacities.
-        if (!color.IsGradient)
-          color = _opacity.Keep(before, color);
-        _text.SetColor(start, end, color);
-        // A moved slider replaces the opacity the dock is calculating.
-        if (
-          _formulas.Field == TextFormulas.OpacityKey
-          && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color))
-        )
-          _formulas.Editing.Deactivate();
+        _text.SetColor(
+          start,
+          end,
+          _picker.Changed(_text.RangeColor(), color, _formulas.Field == TextFormulas.OpacityKey, _formulas.Editing)
+        );
         _host.Render();
       }
     );
     _host.Render();
   }
 
-  // The color button lets go of its lit state once the picker closes.
-  private void PickerHidden()
-  {
-    _pickerSnapshotTaken = false;
-    if (_host.Screen == null || _picker == null)
-      return;
-    // Its numbers go with it.
-    if (_formulas.Field == TextFormulas.OpacityKey || TextGradient.IsKey(_formulas.Field))
-      _host.ClosePopovers();
-    _host.Render();
-  }
+  public void Place(OverlayInputDock dock) => _picker.Place(dock);
 
-  public void Place(OverlayInputDock dock)
-  {
-    if (dock != null)
-      KeypadPicker.Place(_picker, dock);
-  }
-
-  public void ShowButton() => _colorButton.Set(null, false, _picker.Visible);
+  public void ShowButton() => _colorButton.Set(null, false, Picker.Visible);
 
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
@@ -168,22 +135,22 @@ internal sealed class TextColor
   // The picker's opacity shows its result like the size.
   public void ShowOpacity()
   {
-    if (!_picker.Visible)
+    if (!Picker.Visible)
       return;
     bool opacity = _formulas.Edits(TextFormulas.OpacityKey, out OverlayFormula typed);
     OverlayFormula alpha = typed ?? ReadOpacity();
     OverlayColorSettings color = _text.RangeColor();
-    _opacity.Show(alpha, _formulas.Result(alpha), _gradient.PickedStop(color)?.Alpha ?? color.Alpha, opacity);
+    Opacity.Show(alpha, _formulas.Result(alpha), _gradient.PickedStop(color)?.Alpha ?? color.Alpha, opacity);
   }
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
   public string Hint() =>
-    _picker.Visible && _picker.IsGradient
+    Picker.Visible && Picker.IsGradient
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on an opacity, position or angle to calculate it"
       )
-    : _picker.Visible
+    : Picker.Visible
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on the opacity to calculate it"

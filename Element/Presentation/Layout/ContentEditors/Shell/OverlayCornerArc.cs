@@ -3,7 +3,7 @@ using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// A 120° arc just outside a shape's corner, facing away from the shape. It

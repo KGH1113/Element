@@ -1,12 +1,13 @@
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Elements;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 // Gradients in text: the preview colors gradient runs across the whole
 // text's box as the game does, and while the picker shows a gradient its

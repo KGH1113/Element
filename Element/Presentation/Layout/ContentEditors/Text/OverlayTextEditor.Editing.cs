@@ -13,7 +13,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 // Caret, selection, typing (including IME composition), mouse, clipboard and undo.
 internal sealed partial class OverlayTextEditor

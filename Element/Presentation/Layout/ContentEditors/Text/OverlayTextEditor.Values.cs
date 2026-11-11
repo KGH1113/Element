@@ -1,12 +1,13 @@
 using Element.Configuration;
 using Element.Domain.Elements;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 // Values: the input dock and the formula it edits, picking or dragging values
 // into the text or the bar's numbers, where the text grows from, and naming

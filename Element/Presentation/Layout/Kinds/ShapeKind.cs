@@ -1,5 +1,6 @@
 using Element.Configuration;
 using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;

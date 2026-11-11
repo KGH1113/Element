@@ -2,7 +2,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>Where the text and shape editors' color picker opens: in the input dock's keypad column.</summary>
 internal static class KeypadPicker

@@ -4,7 +4,7 @@ using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 // Fonts: like size and color, a font goes to the selected characters, or to
 // the whole text when nothing is selected. Each pick shows on the text at

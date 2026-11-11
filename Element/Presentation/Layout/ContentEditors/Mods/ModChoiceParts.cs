@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using ElementKit;
 using TMPro;

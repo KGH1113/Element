@@ -14,7 +14,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 /// <summary>
 /// Text editing over a dimmed screen. Nothing sits on a card: the text floats

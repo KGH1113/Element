@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Elements;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;

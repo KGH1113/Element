@@ -12,7 +12,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shape;
 
 /// <summary>
 /// Shape editing over a dimmed screen, like the text editor. The shape sits in

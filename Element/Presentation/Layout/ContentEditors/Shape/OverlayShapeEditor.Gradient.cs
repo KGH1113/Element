@@ -1,11 +1,12 @@
 using Element.Configuration;
 using Element.Domain.Elements;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shape;
 
 // Gradients: the picked color's position and opacity in the picker, the
 // handles and angle over the shape, and the numbers they put in the dock.

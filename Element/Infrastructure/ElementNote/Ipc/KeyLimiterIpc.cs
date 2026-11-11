@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using AdofaiIpc.Contracts;
 using Element.Application.KeyLimiter;
-using Element.Domain.Input;
+using Element.Domain.KeyLimiter;
 using Newtonsoft.Json;
 
 namespace Element.Infrastructure.ElementNote.Ipc;

@@ -17,7 +17,7 @@ for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', '
   files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/ProfileFileStore.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
-files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
+files.push(path.join(root, 'Element/Domain/Tweaks/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Domain/Judgement/JudgementColors.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Mods/ElementClasses.cs'));
 // Ports and use cases the settings UI, the layout editor and the overlay use.

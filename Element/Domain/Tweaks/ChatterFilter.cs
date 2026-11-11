@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 
-namespace Element.Domain.Input;
+namespace Element.Domain.Tweaks;
 
 /// <summary>
 /// Drops key chatter the way KeyboardChatterBlocker does: a press of a key that

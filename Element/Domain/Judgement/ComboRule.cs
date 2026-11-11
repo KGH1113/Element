@@ -1,6 +1,4 @@
-using Element.Domain.Judgement;
-
-namespace Element.Domain.Combo;
+namespace Element.Domain.Judgement;
 
 /// <summary>How a hit changes the combo.</summary>
 internal static class ComboRule

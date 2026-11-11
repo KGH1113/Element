@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Element.Domain.Input;
+namespace Element.Domain.KeyLimiter;
 
 internal sealed class KeyLimiterSnapshot
 {

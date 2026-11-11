@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Domain.Editor;
+namespace Element.Domain.Tweaks;
 
 internal static class EditorTransform
 {

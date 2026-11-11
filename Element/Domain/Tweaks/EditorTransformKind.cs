@@ -1,4 +1,4 @@
-namespace Element.Domain.Editor;
+namespace Element.Domain.Tweaks;
 
 internal enum EditorTransformKind
 {

@@ -1,6 +1,6 @@
 using System.Text;
 using Element.Application.Overlay;
-using Element.Domain.Combo;
+using Element.Domain.Judgement;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;

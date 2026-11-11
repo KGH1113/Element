@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration;
 using Element.Configuration.Overlay;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;

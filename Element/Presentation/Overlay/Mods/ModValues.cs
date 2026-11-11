@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
 using ElementKit.Hosting;
 using ElementKit.Values;
 
@@ -210,7 +212,10 @@ internal sealed class ModValues : IOverlayValueFeed
     }
     catch (Exception exception)
     {
-      WarnOnce(mod.Id + " active", "Couldn't tell whether " + mod.Id + " is on, so its values are hidden. " + exception.Message);
+      WarnOnce(
+        mod.Id + " active",
+        "Couldn't tell whether " + mod.Id + " is on, so its values are hidden. " + exception.Message
+      );
       return false;
     }
   }

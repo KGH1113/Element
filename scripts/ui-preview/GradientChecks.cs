@@ -11,7 +11,6 @@ using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using TMPro;
@@ -22,6 +21,8 @@ using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Overlay.Shape;
+using Element.Presentation.Overlay.Text;
 
 namespace Element.Editor
 {

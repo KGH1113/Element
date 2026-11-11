@@ -15,7 +15,7 @@ using Element.Presentation.Layout;
 using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Notices;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Screens;
 using Element.Presentation.Settings;
 using Element.Presentation.Settings.Pages;

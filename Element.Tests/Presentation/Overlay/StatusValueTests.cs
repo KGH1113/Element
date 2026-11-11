@@ -1,8 +1,7 @@
 using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Status;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Status;
+using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 

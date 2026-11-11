@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
-using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Popovers;

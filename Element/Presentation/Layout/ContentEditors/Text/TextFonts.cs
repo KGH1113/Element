@@ -1,7 +1,7 @@
 using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;

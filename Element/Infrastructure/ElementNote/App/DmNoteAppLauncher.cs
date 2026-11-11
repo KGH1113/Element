@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Threading;
+using Element.Application.Gameplay;
 using UnityEngine;
 
 namespace Element.Infrastructure.ElementNote.App;
@@ -10,7 +11,7 @@ namespace Element.Infrastructure.ElementNote.App;
 /// auto opens it with the game unless it is already running. The app closes
 /// itself once the game is gone.
 /// </summary>
-internal sealed class DmNoteAppLauncher
+internal sealed class DmNoteAppLauncher : IElementNoteApp
 {
   // ShellExecute reports a declined UAC prompt as ERROR_CANCELLED.
   private const int ErrorCancelled = 1223;

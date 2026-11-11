@@ -64,7 +64,7 @@ public sealed class Main
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;
       modEntry.OnUnload = OnUnload;
-      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.TickTrackpad();
+      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.Tick();
       // Settings are written when their window closes; quitting with it open
       // must not lose what the player already sees in the game.
       UnityEngine.Application.quitting += OnQuitting;

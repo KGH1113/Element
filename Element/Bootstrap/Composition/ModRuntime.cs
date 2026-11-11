@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Application.Attempts;
+using Element.Application.Gameplay;
 using Element.Application.Input;
 using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
@@ -9,7 +10,6 @@ using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
 using Element.Domain.DmNote;
-using Element.Domain.Judgement;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;
@@ -24,7 +24,6 @@ using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Settings;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
-using Element.Presentation.Layout;
 using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -35,16 +34,17 @@ using UnityEngine.SceneManagement;
 namespace Element.Bootstrap.Composition;
 
 /// <summary>
-/// Composes the mod: patches, input limiting, IPC and gameplay tweaks here; the
-/// overlay and the settings UI in their own runtimes. Game callbacks enter
-/// through this facade, which isolates their failures from the game.
+/// Composes the mod: makes its parts, connects them to each other and to the game,
+/// and takes them apart again. The overlay and the settings UI are composed in their
+/// own runtimes; what the game tells the mod goes through <see cref="GameEvents"/>.
 /// </summary>
-internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
+internal sealed class ModRuntime : IDisposable
 {
   private const string HarmonyId = "Element";
 
   private readonly Main _main;
-  private readonly Dictionary<string, int> _failures = new(StringComparer.Ordinal);
+  private readonly FailureGuard _guard;
+  private readonly GameplayState _playState = new();
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
   private GameKeyLimiter _gameKeyLimiter;
@@ -59,8 +59,6 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
   private TufReplayApi _tufReplay;
   private readonly OfflineRender _offlineRender = new();
   private DmNoteAppLauncher _dmNoteApp;
-  private bool _dmNoteAutoOpen;
-  private bool _dmNoteAppChecked;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
   private GameplayTweaksController _gameplayTweaks;
@@ -70,64 +68,24 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
   private HitTextHideSync _hitTextSync;
   private OverlayRuntime _overlay;
   private SettingsUiRuntime _settingsUi;
+  private GameplaySession _session;
+  private GameEvents _events;
+  private FrameLoop _frameLoop;
+  private Action _applySettings;
+  private readonly Action _disposeGameKeyLimiter;
   private bool _sceneHooked;
   private bool _initialized;
   private bool _disposed;
-  private bool _presentationSettingsApplied;
-
-  // Per-frame and per-hit callbacks reuse these delegates; a lambda per call
-  // would add garbage, and every GC pause also stops the async input thread.
-  private readonly Action _tickNativeViewers;
-  private readonly Action _tickSettingsUi;
-  private readonly Action _tickKeyLimiter;
-  private readonly Action _tickReplays;
-  private readonly Action<scrMarginTracker, HitMargin> _registerHit;
-  private readonly Action _refreshAccuracy;
-  private readonly Action _refreshFloor;
-  private readonly Action<int> _refreshTime;
-  private readonly Action<scrMissIndicator> _hideMissIndicator;
-  private readonly Action _releaseFallbackGlyphs;
-  private readonly Action _pushHitTextHide;
 
   internal KeyLimiterService KeyLimiter => _keyLimiter;
   internal IReadOnlyList<string> FailedPatchGroups { get; private set; } = Array.Empty<string>();
   public bool OverlaysAvailable => _overlay?.Available == true;
-  public bool IsRecording => _recordingMode?.IsActive ?? false;
-
-  public bool SuppressNextFlash
-  {
-    get => _recordingMode?.SuppressNextFlash ?? false;
-    set
-    {
-      if (_recordingMode != null)
-        _recordingMode.SuppressNextFlash = value;
-    }
-  }
 
   public ModRuntime(Main main)
   {
     _main = main;
-    _tickNativeViewers = () => _nativeViewers?.Tick();
-    _tickSettingsUi = () => _settingsUi?.Tick();
-    _tickKeyLimiter = () => _gameKeyLimiter?.Tick();
-    _tickReplays = () => _replays?.Tick();
-    _registerHit = (tracker, hit) => _overlay?.RegisterHit(tracker, hit);
-    _refreshAccuracy = () => _overlay?.RefreshAccuracy();
-    _refreshFloor = () =>
-    {
-      _attempts?.MarkPlayed();
-      _overlay?.RefreshFloor();
-    };
-    _refreshTime = framesPerSecond => _overlay?.RefreshTime(framesPerSecond);
-    _hideMissIndicator = indicator => _recordingMode?.HideMissIndicator(indicator);
-    _releaseFallbackGlyphs = () => _overlay?.ReleaseFallbackGlyphs();
-    // ADOFAI saves its Hide Judgment Text at once; the mod's choice behind it
-    // is saved with it, not only when the settings window closes.
-    _pushHitTextHide = () =>
-    {
-      if (_hitTextSync?.Push() == true)
-        _settingsUi?.Save();
-    };
+    _guard = new FailureGuard(main.LogException, main.LogWarning);
+    _disposeGameKeyLimiter = () => _gameKeyLimiter?.Dispose();
   }
 
   public bool Initialize()
@@ -140,9 +98,6 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     try
     {
       InputGate.Connect(GameAsyncInput.Clear);
-      // Game calls reach the runtime from the first patch on; it ignores them until its parts exist.
-      GameHooks.Gameplay = this;
-      GameHooks.Recording = this;
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       GameHooks.KeyLimiter = _gameKeyLimiter;
@@ -169,7 +124,10 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
       _effects = new EffectsController(() => _main.Settings.Effects);
       GameHooks.Effects = _effects;
       _recordingMode = new RecordingModeController();
-      var gameHitText = new GameHitTextHide(OnGameHitTextHideChanged, OnCompetitiveModeChanged);
+      var gameHitText = new GameHitTextHide(
+        () => _events?.OnGameHitTextHideChanged(),
+        () => _events?.OnCompetitiveModeChanged()
+      );
       GameHooks.HitTextHide = gameHitText;
       _hitTextSync = new HitTextHideSync(
         () => _main.Settings.Gameplay.Judgement,
@@ -184,7 +142,12 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
       // During TUFReplay's replays and renders the overlay shows the run's recorded attempts.
       _replayedAttempts = new ReplayedAttempts(_attempts);
       _tufReplay = new TufReplayApi();
-      _overlay = new OverlayRuntime(_main, OnTimeTick, _replayedAttempts, _offlineRender);
+      _overlay = new OverlayRuntime(
+        _main,
+        framesPerSecond => _events?.OnTimeTick(framesPerSecond),
+        _replayedAttempts,
+        _offlineRender
+      );
       _nativeViewers = new DmNoteNativeIpcFeature(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
@@ -195,7 +158,7 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
         DmNoteAppFocus.ForCurrentPlatform()
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
-      _nativeViewers.EnabledChanged = () => RefreshViewerMode(IsGameplayActive());
+      _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
       _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _renderIpc = new KeyViewerRenderIpc();
       _keyLimiterIpc.AttachRenders(_renderIpc);
@@ -212,11 +175,63 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
         _gameplayTweaks.Planets,
         ApplySettings,
         ReloadSettings,
-        () => RefreshViewerMode(IsGameplayActive()),
-        () => gameHitText.Applies
+        () => _session?.RefreshViewers(),
+        () => gameHitText.Applies,
+        () => _playState.IsPlaying
+      );
+      _session = new GameplaySession(
+        () => _main.Settings,
+        _playState,
+        _overlay,
+        _nativeViewers,
+        _recordingMode,
+        _dmNoteApp,
+        () => _settingsUi?.IsEditingLayout == true,
+        ApplyLook,
+        ApplyLayouts
       );
       _render = CreateRenderRuntime();
       _replays = new ReplayRuntime(_tufReplay, CreateReplayProviders(), _main.Log);
+      _events = new GameEvents(
+        _guard,
+        () => _main.Settings,
+        _session,
+        _overlay,
+        _attempts,
+        _recordingMode,
+        _hitTextSync,
+        () => _settingsUi?.Save() == true,
+        () => _settingsUi?.IsOpen == true
+      );
+      GameHooks.Gameplay = _events;
+      GameHooks.Recording = _events;
+      _applySettings = _session.ApplySettings;
+      _frameLoop = new FrameLoop(
+        _guard,
+        // Its own guard: a failure in the settings window must not stop the
+        // trackpad, the native viewers or the key limiter below.
+        new FrameTask("Update the settings window", _settingsUi.Tick),
+        // The first frame comes after the game loaded its own settings.
+        new FrameTask(
+          "Sync judgment text with ADOFAI",
+          () =>
+          {
+            if (!_hitTextSync.Started)
+              _hitTextSync.Start();
+          }
+        ),
+        new FrameTask(
+          "Move the editor with the trackpad",
+          () =>
+          {
+            if (!InputGate.BlocksPointerInput)
+              _trackpad?.Tick();
+          }
+        ),
+        new FrameTask("Update native ElementNote viewers", _nativeViewers.Tick),
+        new FrameTask("Apply the ElementNote key limiter", () => _gameKeyLimiter?.Tick()),
+        new FrameTask("Join TUFReplay runs", _replays.Tick)
+      );
       _initialized = true;
       ApplySettings();
       return true;
@@ -228,55 +243,8 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     }
   }
 
-  /// <summary>A play started from <paramref name="startFloor"/>: count it, then show the overlay.</summary>
-  public void BeginGameplay(int startFloor)
-  {
-    Execute("Count attempt", () => _attempts?.Begin(startFloor));
-    ShowGameplay();
-  }
-
-  public void ShowGameplay()
-  {
-    Execute(
-      "Show overlay",
-      () =>
-      {
-        if (!_initialized || _overlay == null)
-          return;
-        if (IsRecording)
-        {
-          HideCore();
-          _recordingMode.ReapplyCurrentScene();
-          return;
-        }
-        if (scrController.coopMode)
-        {
-          HideCore();
-          return;
-        }
-
-        RefreshViewerMode(true);
-        _overlay.Show();
-      }
-    );
-  }
-
   /// <summary>UnityModManager's per-frame update, in every scene.</summary>
-  public void TickTrackpad()
-  {
-    // Its own guard: a failure in the settings window must not stop the
-    // trackpad, the native viewers or the key limiter below.
-    if (_initialized)
-      Execute("Update the settings window", _tickSettingsUi);
-    // The first frame comes after the game loaded its own settings.
-    if (_initialized && _hitTextSync?.Started == false)
-      Execute("Sync judgment text with ADOFAI", _hitTextSync.Start);
-    if (!InputGate.BlocksPointerInput)
-      _trackpad?.Tick();
-    Execute("Update native ElementNote viewers", _tickNativeViewers);
-    Execute("Apply the ElementNote key limiter", _tickKeyLimiter);
-    Execute("Join TUFReplay runs", _tickReplays);
-  }
+  public void Tick() => _frameLoop?.Tick();
 
   public void OpenSettings()
   {
@@ -284,49 +252,13 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
       _settingsUi?.Open();
   }
 
-  /// <summary>The play ended or its scene is going away.</summary>
-  public void HideGameplay()
-  {
-    Execute("Finish attempt", () => _attempts?.End());
-    Execute("Hide overlay", HideCore);
-  }
-
   public void ApplySettings()
   {
+    if (!_initialized)
+      return;
     // Its own guard: a failure here must not stop the rest of the settings applying.
-    Execute("Sync judgment text with ADOFAI", _pushHitTextHide);
-    Execute(
-      "Apply visual settings",
-      () =>
-      {
-        if (!_initialized)
-          return;
-
-        SyncDmNoteApp();
-        OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
-        _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
-        _gameplayTweaks?.Apply();
-        _effects?.ApplySettings();
-        // Color drags only update the affected planet. Avoid rebuilding overlay
-        // layouts, refreshing all counters or scanning the recording HUD per sample.
-        if (_presentationSettingsApplied && IsRecording == _main.Settings.RecordMode)
-          return;
-        _presentationSettingsApplied = true;
-        _overlay?.Canvas?.ApplyLayouts();
-        _nativeViewers?.ConfigureLayouts(_main.Settings.OverlayLayouts);
-        _recordingMode?.Apply(_main.Settings.RecordMode);
-        if (IsRecording)
-        {
-          HideCore();
-          return;
-        }
-
-        if (IsGameplayActive())
-          ShowGameplay();
-        else
-          RefreshViewerMode(false);
-      }
-    );
+    _guard.Run("Sync judgment text with ADOFAI", _events.PushHitTextHide);
+    _guard.Run("Apply visual settings", _applySettings);
   }
 
   /// <summary>
@@ -335,101 +267,32 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
   /// </summary>
   public void ReloadSettings()
   {
-    Execute(
+    _guard.Run(
       "Load profile layouts",
       () =>
       {
         if (!_initialized)
           return;
         _overlay?.Canvas?.ConfigureLayouts(_main.Settings.OverlayLayouts);
-        _presentationSettingsApplied = false;
+        _session.LayoutsReplaced();
       }
     );
     ApplySettings();
   }
 
-  // Installs or updates the app once at startup, so players can open it on its
-  // own even with auto open off. Opens it then and again when the option is
-  // switched on; settings changes such as color drags do not start the app check again.
-  private void SyncDmNoteApp()
+  // Cheap enough for every sample of a color drag.
+  private void ApplyLook()
   {
-    bool enabled = _main.Settings.AutoOpenCloseDmNote;
-    if (enabled && !_dmNoteAutoOpen)
-      _dmNoteApp?.OpenIfClosed();
-    else if (!_dmNoteAppChecked)
-      _dmNoteApp?.InstallIfClosed();
-    _dmNoteAppChecked = true;
-    _dmNoteAutoOpen = enabled;
+    OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
+    _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
+    _gameplayTweaks?.Apply();
+    _effects?.ApplySettings();
   }
 
-  public bool ShouldShowHitText(HitMargin hitMargin)
+  private void ApplyLayouts()
   {
-    return JudgementVisualPolicy.ShouldShow(_main.Settings.Gameplay.Judgement, IsRecording, (int)hitMargin);
-  }
-
-  /// <summary>The player changed Hide Judgment Text in the game's pause settings.</summary>
-  public void OnGameHitTextHideChanged()
-  {
-    Execute("Sync judgment text from ADOFAI", () => _hitTextSync?.PullFromGame());
-  }
-
-  /// <summary>Competitive Mode decides whether the game applies Hide Judgment Text.</summary>
-  public void OnCompetitiveModeChanged()
-  {
-    Execute("Sync judgment text with ADOFAI", _pushHitTextHide);
-  }
-
-  public void ReapplyUi() => ReapplyRecordingUi();
-
-  public void HideErrorMeter() => HideRecordingErrorMeter();
-
-  public void HideMissIndicator(scrMissIndicator indicator) => HideRecordingMissIndicator(indicator);
-
-  public void ReapplyRecordingUi()
-  {
-    Execute("Reapply recording UI", () => _recordingMode?.ReapplyCurrentScene());
-  }
-
-  public void HideRecordingMissIndicator(scrMissIndicator indicator)
-  {
-    Execute("Hide recording miss indicator", _hideMissIndicator, indicator);
-  }
-
-  public void HideRecordingErrorMeter()
-  {
-    Execute("Hide recording error meter", () => _recordingMode?.HideErrorMeter());
-  }
-
-  public void OnHit(scrMarginTracker tracker, HitMargin hit)
-  {
-    Execute("Update judgement and combo", _registerHit, tracker, hit);
-  }
-
-  public void OnTrackerReset(scrMarginTracker tracker)
-  {
-    Execute("Refresh overlay after reset", () => _overlay?.RefreshAfterReset(tracker));
-  }
-
-  public void OnPlayerDied(scrMarginTracker tracker)
-  {
-    Execute(
-      "Refresh overlay after death",
-      () =>
-      {
-        _attempts?.MarkPlayed();
-        _overlay?.RefreshAfterDeath(tracker);
-      }
-    );
-  }
-
-  public void OnAccuracyChanged()
-  {
-    Execute("Update XAccuracy", _refreshAccuracy);
-  }
-
-  public void OnFloorChanged()
-  {
-    Execute("Update progress, BPM and timing scale", _refreshFloor);
+    _overlay?.Canvas?.ApplyLayouts();
+    _nativeViewers?.ConfigureLayouts(_main.Settings.OverlayLayouts);
   }
 
   public void Dispose()
@@ -439,8 +302,10 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
 
     _disposed = true;
     _initialized = false;
+    _guard.Stop();
     // The patches stay until the end; from now on they leave the game as it is.
     GameHooks.Clear();
+    _frameLoop = null;
 
     // TUFReplay stops calling Element before anything it uses goes away.
     _replays?.Dispose();
@@ -462,6 +327,7 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     _effects?.Dispose();
     _effects = null;
 
+    _session = null;
     _nativeViewers?.Dispose();
     _nativeViewers = null;
 
@@ -470,7 +336,7 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     _keyLimiter?.Clear();
     _keyLimiter = null;
     // Gives the game the player's own saved keys back.
-    Execute("Restore the game key limiter", () => _gameKeyLimiter?.Dispose());
+    _guard.Run("Restore the game key limiter", _disposeGameKeyLimiter);
     _gameKeyLimiter = null;
 
     _recordingMode?.Dispose();
@@ -488,8 +354,7 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     _tufReplay?.Dispose();
     _tufReplay = null;
 
-    // Ends the play in progress and waits briefly for its save. Not through
-    // Execute: it skips everything once the runtime is disposed.
+    // Ends the play in progress and waits briefly for its save.
     try
     {
       _attempts?.Dispose();
@@ -506,104 +371,7 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
     _harmony = null;
   }
 
-  private void OnTimeTick(int framesPerSecond)
-  {
-    Execute("Update status time", _refreshTime, framesPerSecond);
-  }
-
-  private void OnSceneUnloaded(Scene scene)
-  {
-    _recordingMode?.ForgetDestroyedSceneObjects();
-    HideGameplay();
-    // Overlay texts are inactive now, so they rebuild their glyphs on the next
-    // show. Open settings texts share the font and would keep blank glyphs.
-    if (_settingsUi?.IsOpen != true)
-      Execute("Release overlay fallback glyphs", _releaseFallbackGlyphs);
-  }
-
-  private void HideCore()
-  {
-    RefreshViewerMode(false);
-    _overlay?.Hide();
-  }
-
-  private void RefreshViewerMode(bool gameplay)
-  {
-    if (_nativeViewers == null)
-      return;
-    bool supported = NativeViewerPlatform.IsSupported;
-    bool editing = _settingsUi?.IsEditingLayout == true;
-    bool enabled =
-      supported && _nativeViewers.HasEnabledViewers && (editing || (!IsRecording && !scrController.coopMode));
-    _nativeViewers.SetActive(enabled && (gameplay || editing));
-  }
-
-  private void Execute(string context, Action action)
-  {
-    if (_disposed)
-      return;
-
-    try
-    {
-      action();
-    }
-    catch (Exception exception)
-    {
-      ReportFailure(context, exception);
-    }
-  }
-
-  private void Execute<T>(string context, Action<T> action, T argument)
-  {
-    if (_disposed)
-      return;
-
-    try
-    {
-      action(argument);
-    }
-    catch (Exception exception)
-    {
-      ReportFailure(context, exception);
-    }
-  }
-
-  private void Execute<T1, T2>(string context, Action<T1, T2> action, T1 first, T2 second)
-  {
-    if (_disposed)
-      return;
-
-    try
-    {
-      action(first, second);
-    }
-    catch (Exception exception)
-    {
-      ReportFailure(context, exception);
-    }
-  }
-
-  // Per-frame callbacks can fail every frame. Log the first stack trace, then
-  // only a short count so a persistent error cannot flood the log.
-  private void ReportFailure(string context, Exception exception)
-  {
-    _failures.TryGetValue(context, out int count);
-    _failures[context] = ++count;
-    if (count == 1)
-      _main.LogException(context, exception);
-    else if (count == 10 || count == 100 || count % 1000 == 0)
-      _main.LogWarning(
-        "[" + context + "] failed " + count + " times. Latest: " + exception.GetType().Name + ": " + exception.Message
-      );
-  }
-
-  private static bool IsGameplayActive()
-  {
-    return ADOBase.controller != null
-      && !ADOBase.controller.paused
-      && ADOBase.conductor != null
-      && ADOBase.conductor.isGameWorld;
-  }
+  private void OnSceneUnloaded(Scene scene) => _events?.OnSceneUnloaded();
 
   // Without a render runtime, Element stays out of rendered replays but keeps its run states.
   private KeyValuePair<string, object>[] CreateReplayProviders()
@@ -634,9 +402,9 @@ internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
         () => _overlay?.Canvas?.Root != null ? _overlay.Canvas.Root.GetComponent<Canvas>() : null,
         // The video shows the key viewers the game would show during this play.
         (width, height) =>
-          IsRecording || scrController.coopMode
-            ? Array.Empty<RenderViewerPlacement>()
-            : _nativeViewers.RenderPlacements(width, height),
+          _session?.ShowsKeyViewersInPlay == true
+            ? _nativeViewers.RenderPlacements(width, height)
+            : Array.Empty<RenderViewerPlacement>(),
         () => _nativeViewers?.Availability is KeyViewerAvailability.Ready or KeyViewerAvailability.HiddenInApp,
         (title, detail) => _settingsUi?.ShowNotice(title, detail),
         _main.LogWarning

@@ -76,6 +76,7 @@ internal static class Program
         UpdateTests.Run
       );
       Run("game patches: one folder, named groups, documented order", PatchGroupTests.Run);
+      Run("record mode, co-op and the layout editor decide what a play shows", GameplaySessionTests.Run);
       Console.WriteLine("Element tests: " + _passed + " passed");
       return 0;
     }

@@ -32,7 +32,7 @@ internal sealed class ModEditorPopovers : IDisposable
   private readonly OverlayGrowPopover _grow;
   private ModColorRequest _pickerFor;
   private ModPaintRequest _paintFor;
-  private OverlayFontPopover _fontPopover;
+  private UiFontPopover _fontPopover;
   private UiFactory _fontUi;
   private ModFontRequest _fontFor;
 
@@ -116,7 +116,7 @@ internal sealed class ModEditorPopovers : IDisposable
     if (_fontPopover == null)
     {
       _fontUi = new UiFactory(_font, _reduceMotion);
-      _fontPopover = new OverlayFontPopover(_fontUi, _screen.Frame, fonts, _reduceMotion(), PickFont);
+      _fontPopover = new UiFontPopover(_fontUi, _screen.Frame, fonts, _reduceMotion(), PickFont);
       _fontPopover.Hidden = () => _fontFor = null;
       _stack.Add(_fontPopover);
     }
@@ -129,8 +129,8 @@ internal sealed class ModEditorPopovers : IDisposable
       L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font")
     );
     Rect anchor = _screen.FrameRect(request.Anchor);
-    float width = OverlayFontPopover.PreferredWidth,
-      height = Mathf.Min(OverlayFontPopover.PreferredHeight, _screen.Height - 16);
+    float width = UiFontPopover.PreferredWidth,
+      height = Mathf.Min(UiFontPopover.PreferredHeight, _screen.Height - 16);
     Rect bounds = PopoverPlacement.Beside(
       anchor,
       anchor.center.y - height * .5f,

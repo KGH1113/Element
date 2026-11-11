@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
-using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -33,7 +33,7 @@ internal sealed class ProfileFontReplacements : IDisposable
   private List<OverlayFontUse> _checkingFonts;
   private UiFactory _fontRowsUi;
   private UiFactory _fontPopoverUi;
-  private OverlayFontPopover _fontPopover;
+  private UiFontPopover _fontPopover;
   private RectTransform _fontPopoverAnchor;
   private int _fontPickerRow = -1;
 
@@ -185,7 +185,7 @@ internal sealed class ProfileFontReplacements : IDisposable
     if (_fontPopover == null)
     {
       _fontPopoverUi = new UiFactory(_window.Font) { ReduceMotion = () => _window.Settings.ReduceUiMotion };
-      _fontPopover = new OverlayFontPopover(
+      _fontPopover = new UiFontPopover(
         _fontPopoverUi,
         _window.Frame,
         fonts,
@@ -304,8 +304,8 @@ internal sealed class ProfileFontReplacements : IDisposable
       return;
     _window.Shade.Layout();
     RectTransform window = _window.Frame;
-    float width = Mathf.Min(OverlayFontPopover.PreferredWidth, window.rect.width - 20);
-    float height = Mathf.Min(OverlayFontPopover.PreferredHeight, window.rect.height - 20);
+    float width = Mathf.Min(UiFontPopover.PreferredWidth, window.rect.width - 20);
+    float height = Mathf.Min(UiFontPopover.PreferredHeight, window.rect.height - 20);
     Vector3 local = window.InverseTransformPoint(_fontPopoverAnchor.position);
     float x = Mathf.Clamp(
       local.x - window.rect.xMin + _fontPopoverAnchor.rect.width - width,

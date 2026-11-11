@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// Which point of the element stays put when it changes size: the nine-point

@@ -634,7 +634,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
   {
     if (_session.Fonts == null)
       return;
-    OverlayFontPopover font = _popovers.Font(PickDefaultFont);
+    UiFontPopover font = _popovers.Font(PickDefaultFont);
     if (font.Visible)
       font.Hide();
     else

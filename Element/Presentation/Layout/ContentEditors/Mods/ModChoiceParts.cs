@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;

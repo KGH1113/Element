@@ -12,7 +12,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Ui.Popovers;
 
 /// <summary>
 /// Picks a font for overlay texts: the default first, then fonts added to the
@@ -21,7 +21,7 @@ namespace Element.Presentation.Layout;
 /// rows in view exist, so a PC with a thousand fonts scrolls as lightly as one
 /// with ten.
 /// </summary>
-internal sealed class OverlayFontPopover : IPopover, IDisposable
+internal sealed class UiFontPopover : IPopover, IDisposable
 {
   public const float PreferredWidth = 360,
     PreferredHeight = 440,
@@ -99,13 +99,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   private bool _scrollPending;
   private float _grab;
 
-  public OverlayFontPopover(
-    UiFactory ui,
-    Transform parent,
-    OverlayFonts fonts,
-    bool reduceMotion,
-    Action<string> picked
-  )
+  public UiFontPopover(UiFactory ui, Transform parent, OverlayFonts fonts, bool reduceMotion, Action<string> picked)
   {
     _ui = ui;
     _fonts = fonts;
@@ -278,14 +272,14 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   // The wheel scrolls over the list; the thumb drags, and a click on the track jumps there.
   private void HandlePointer()
   {
-    Vector2 mouse = Input.mousePosition;
+    Vector2 mouse = UnityEngine.Input.mousePosition;
     if (PopoverPlacement.Contains(_viewport, mouse) || PopoverPlacement.Contains(_track, mouse))
     {
-      float wheel = Input.mouseScrollDelta.y;
+      float wheel = UnityEngine.Input.mouseScrollDelta.y;
       if (Mathf.Abs(wheel) > .001f)
         ScrollTo(_scroll - wheel * RowHeight * 2);
     }
-    if (Input.GetMouseButtonDown(0) && PopoverPlacement.Contains(_track, mouse))
+    if (UnityEngine.Input.GetMouseButtonDown(0) && PopoverPlacement.Contains(_track, mouse))
     {
       _dragging = true;
       float thumbTop = -_thumb.rectTransform.anchoredPosition.y;
@@ -295,7 +289,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     }
     if (_dragging)
     {
-      if (!Input.GetMouseButton(0))
+      if (!UnityEngine.Input.GetMouseButton(0))
         _dragging = false;
       else
       {

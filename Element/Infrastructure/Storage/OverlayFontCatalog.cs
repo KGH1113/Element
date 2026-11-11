@@ -4,7 +4,7 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using Element.Application.Fonts;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Fonts;
 using Element.Infrastructure.Platform;
 using TMPro;

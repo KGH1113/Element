@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using TMPro;

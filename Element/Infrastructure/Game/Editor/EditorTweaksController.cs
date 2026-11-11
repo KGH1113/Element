@@ -5,7 +5,7 @@ using System.Reflection;
 using System.Text;
 using ADOFAI;
 using Element.Application.Input;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Domain.Tweaks;
 using HarmonyLib;
 using UnityEngine;

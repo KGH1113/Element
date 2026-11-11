@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // One run is either literal text in one color, or one value: Value is a
 // formula, usually a single value's key ("combo"), or values with numbers and

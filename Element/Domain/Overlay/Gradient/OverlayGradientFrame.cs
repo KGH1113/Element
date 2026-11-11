@@ -1,6 +1,6 @@
 using System;
 using System.Numerics;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 
 namespace Element.Domain.Overlay.Gradient;
 

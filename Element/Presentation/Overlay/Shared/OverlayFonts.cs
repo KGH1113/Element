@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Application.Fonts;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Fonts;
 using TMPro;
 using UnityEngine;

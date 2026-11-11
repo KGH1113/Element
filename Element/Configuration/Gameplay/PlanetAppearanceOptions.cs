@@ -1,4 +1,4 @@
-namespace Element.Configuration;
+namespace Element.Configuration.Gameplay;
 
 [CopiedInPlace]
 public sealed class PlanetAppearanceOptions

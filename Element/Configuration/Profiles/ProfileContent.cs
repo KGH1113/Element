@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Element.Configuration.Effects;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 
 namespace Element.Configuration.Profiles;
 

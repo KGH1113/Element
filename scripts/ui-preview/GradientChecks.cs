@@ -20,6 +20,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
+using Element.Configuration.Overlay;
 
 namespace Element.Editor
 {

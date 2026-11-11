@@ -1,7 +1,7 @@
 using System;
 using System.Globalization;
 using Element.Application.Input;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Shared;
 using TMPro;

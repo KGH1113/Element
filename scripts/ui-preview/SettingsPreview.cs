@@ -42,6 +42,8 @@ using Object = UnityEngine.Object;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Layout.Graphics;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 
 namespace Element.Editor
 {

@@ -1,6 +1,6 @@
 using System;
 using Element.Application.Judgement;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
 
 namespace Element.Tests;

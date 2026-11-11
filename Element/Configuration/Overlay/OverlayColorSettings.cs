@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // Every overlay color either follows the highlight color, keeping only its own
 // opacity, or is a fixed custom color.

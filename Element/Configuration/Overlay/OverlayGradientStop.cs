@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // Position is 0–1 along the gradient; its formula gives percent. Alpha's
 // formula gives percent too. Hex is unused while the color follows the

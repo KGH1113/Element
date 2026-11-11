@@ -1,6 +1,6 @@
 using System.Xml.Serialization;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Gameplay;
 
 [CopiedInPlace]
 public sealed class EditorTweaksOptions

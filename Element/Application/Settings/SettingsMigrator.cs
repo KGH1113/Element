@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Defaults;
 using UnityEngine;
 

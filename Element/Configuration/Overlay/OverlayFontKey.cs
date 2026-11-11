@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 // A saved font names one face by family and style, such as "Pretendard|Bold".
 // The same layout then finds it on another PC whether the font is installed

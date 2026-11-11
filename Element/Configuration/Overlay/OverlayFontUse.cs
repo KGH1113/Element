@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Element.Configuration;
+namespace Element.Configuration.Overlay;
 
 /// <summary>
 /// Where one font is set in the overlay: as its default font, in text runs, or

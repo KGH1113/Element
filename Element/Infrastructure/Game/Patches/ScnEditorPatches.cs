@@ -75,7 +75,7 @@ internal static class ScnEditorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix(scnEditor __instance) => GameHooks.Tweaks?.AfterEditorUpdate(__instance);
+    private static void Postfix(scnEditor __instance) => GameHooks.EditorTweaks?.AfterEditorUpdate(__instance);
   }
 
   [HarmonyPatch]
@@ -106,7 +106,7 @@ internal static class ScnEditorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix() => GameHooks.Tweaks?.InvalidateEditor();
+    private static void Postfix() => GameHooks.EditorTweaks?.InvalidateEditor();
   }
 
   [HarmonyPatch]
@@ -117,7 +117,7 @@ internal static class ScnEditorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix() => GameHooks.Tweaks?.InvalidateEditor();
+    private static void Postfix() => GameHooks.EditorTweaks?.InvalidateEditor();
   }
 
   [HarmonyPatch]
@@ -128,7 +128,7 @@ internal static class ScnEditorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix() => GameHooks.Tweaks?.InvalidateEditor();
+    private static void Postfix() => GameHooks.EditorTweaks?.InvalidateEditor();
   }
 
   [HarmonyPatch]
@@ -154,7 +154,7 @@ internal static class ScnEditorPatches
       bool remakePath,
       bool __runOriginal,
       EditorTweaksController.Mutation __state
-    ) => GameHooks.Tweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
+    ) => GameHooks.EditorTweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
@@ -185,7 +185,7 @@ internal static class ScnEditorPatches
       bool remakePath,
       bool __runOriginal,
       EditorTweaksController.Mutation __state
-    ) => GameHooks.Tweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
+    ) => GameHooks.EditorTweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
@@ -216,7 +216,7 @@ internal static class ScnEditorPatches
       bool remakePath,
       bool __runOriginal,
       EditorTweaksController.Mutation __state
-    ) => GameHooks.Tweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
+    ) => GameHooks.EditorTweaks?.AfterEditorTransform(__instance, remakePath, __runOriginal, __state);
 
     [HarmonyFinalizer]
     [HarmonyPriority(Priority.Last)]
@@ -256,7 +256,7 @@ internal static class ScnEditorPatches
     scrFloor floor,
     MethodBase original,
     object[] args
-  ) => GameHooks.Tweaks?.BeginEditorTransform(editor, floor, original.Name, args);
+  ) => GameHooks.EditorTweaks?.BeginEditorTransform(editor, floor, original.Name, args);
 
   private static Exception FinishTransform(Exception exception, EditorTweaksController.Mutation mutation)
   {

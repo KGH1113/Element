@@ -1,6 +1,7 @@
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
+using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Game.Settings;
 
 namespace Element.Infrastructure.Game.Patches;
@@ -25,7 +26,9 @@ internal static class GameHooks
 
   public static EffectsController Effects { get; set; }
 
-  public static GameplayTweaksController Tweaks { get; set; }
+  public static GuardedEditorTweaks EditorTweaks { get; set; }
+
+  public static GuardedPlanetAppearance PlanetAppearance { get; set; }
 
   public static EditorTrackpadController Trackpad { get; set; }
 
@@ -37,7 +40,8 @@ internal static class GameHooks
     KeyLimiter = null;
     Chatter = null;
     Effects = null;
-    Tweaks = null;
+    EditorTweaks = null;
+    PlanetAppearance = null;
     Trackpad = null;
   }
 }

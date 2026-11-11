@@ -4,6 +4,7 @@ using Element.Domain.Overlay.Values;
 using Element.Domain.Status;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Status;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -31,10 +32,4 @@ internal static class StatusValueTests
 
   private static string Shown(OverlayValues values) =>
     values.TryGet(OverlayValueId.Fps, out StringBuilder text) ? text.ToString() : null;
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 }

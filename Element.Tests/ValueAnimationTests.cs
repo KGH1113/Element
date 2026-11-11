@@ -10,6 +10,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -177,11 +178,5 @@ internal static class ValueAnimationTests
     text.Clear().Append("ab999");
     Check(!shown.Update(0, text, 2, 3), "after clearing, the first text only records");
     Check(!shown.Update(-1, text, 0, 1), "no slot, no change");
-  }
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

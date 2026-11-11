@@ -3,6 +3,7 @@ using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -32,11 +33,5 @@ internal static class LiveValueTests
     Check((values.TakeChanges() & (progress | combo)) == (progress | combo), "the canvas still gets every change");
     values.Clear(OverlayValueId.ProgressCurrent);
     Check(editor.Changed(progress), "a value going away counts as a change");
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

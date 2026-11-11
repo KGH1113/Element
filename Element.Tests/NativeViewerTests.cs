@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -118,11 +119,5 @@ internal static class NativeViewerTests
         && NativeViewerLayoutSync.Kind(OverlayElementKinds.FootKeyViewer) == "foot",
       "Only key viewer templates are viewers."
     );
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

@@ -5,6 +5,7 @@ using System.Runtime.CompilerServices;
 using ADOFAI;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -19,10 +20,7 @@ internal static class EffectFilterTests
 
   private static void FollowingCameraUsesTheChosenZoom()
   {
-    LevelEvent camera = EffectLevelFilter.FollowingCamera(
-      Fixture(LevelEventType.CameraSettings, ("zoom", 100f)),
-      300
-    );
+    LevelEvent camera = EffectLevelFilter.FollowingCamera(Fixture(LevelEventType.CameraSettings, ("zoom", 100f)), 300);
     // The game reads it with (float)cameraSettings["zoom"]; any other boxed type throws.
     Check(camera["zoom"] is float zoom && zoom == 300f, "The camera zoom must be stored as a float percent.");
     Check(
@@ -86,11 +84,5 @@ internal static class EffectFilterTests
       .GetField("data", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)
       .SetValue(result, data);
     return result;
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

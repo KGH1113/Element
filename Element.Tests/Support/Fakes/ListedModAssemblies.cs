@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Element.Application.Mods;
 using Element.Infrastructure.Mods;
 
-namespace Element.Tests;
+namespace Element.Tests.Support.Fakes;
 
 /// <summary>A fixed list of mods, for tests.</summary>
 internal sealed class ListedModAssemblies : IModAssemblies

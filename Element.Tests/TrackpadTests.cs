@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.InteropServices;
 using Element.Infrastructure.Game.Editor;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -27,26 +28,20 @@ internal static class TrackpadTests
     Check(!canvas.Route(1, 0, () => false) && !canvas.BlocksUi, "new UI gesture must recover ordinary scrolling");
     Check(!new TrackpadGesture().Route(0, 4, () => true), "orphan momentum must not acquire canvas");
 
-    Near(1, TrackpadGesture.ZoomSize(2, 1));
-    Near(4, TrackpadGesture.ZoomSize(2, -0.5));
-    Near(2, TrackpadGesture.ZoomSize(2, 0));
+    Equal(1, TrackpadGesture.ZoomSize(2, 1), 1e-9);
+    Equal(4, TrackpadGesture.ZoomSize(2, -0.5), 1e-9);
+    Equal(2, TrackpadGesture.ZoomSize(2, 0), 1e-9);
     double zoom = 2;
-    for (int i = 0; i < 100; i++) zoom = TrackpadGesture.ZoomSize(zoom, 0.001);
-    Near(2 / Math.Pow(1.001, 100), zoom); // Tiny events must accumulate, never become wheel steps.
-    Near(0.5, TrackpadGesture.ZoomSize(0.5, 1));
-    Near(1, TrackpadGesture.ZoomSize(0.5, -0.5)); // Reverse immediately at a limit.
-    Near(15, TrackpadGesture.ZoomSize(14, -0.9));
-    Near(2, TrackpadGesture.ZoomSize(2, double.NaN));
-    Near(2, TrackpadGesture.ZoomSize(2, double.PositiveInfinity));
-    Near(2, TrackpadGesture.ZoomSize(2, -1));
+    for (int i = 0; i < 100; i++)
+      zoom = TrackpadGesture.ZoomSize(zoom, 0.001);
+    Equal(2 / Math.Pow(1.001, 100), zoom, 1e-9); // Tiny events must accumulate, never become wheel steps.
+    Equal(0.5, TrackpadGesture.ZoomSize(0.5, 1), 1e-9);
+    Equal(1, TrackpadGesture.ZoomSize(0.5, -0.5), 1e-9); // Reverse immediately at a limit.
+    Equal(15, TrackpadGesture.ZoomSize(14, -0.9), 1e-9);
+    Equal(2, TrackpadGesture.ZoomSize(2, double.NaN), 1e-9);
+    Equal(2, TrackpadGesture.ZoomSize(2, double.PositiveInfinity), 1e-9);
+    Equal(2, TrackpadGesture.ZoomSize(2, -1), 1e-9);
     Check(Marshal.SizeOf<TrackpadEvent>() == 56, "native event stride must match C ABI");
     Check(Marshal.OffsetOf<TrackpadEvent>(nameof(TrackpadEvent.X)).ToInt32() == 16, "native doubles must start at 16");
   }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value) throw new InvalidOperationException(message);
-  }
-  private static void Near(double expected, double actual) =>
-    Check(Math.Abs(expected - actual) < 1e-9, "Expected " + expected + ", got " + actual);
 }

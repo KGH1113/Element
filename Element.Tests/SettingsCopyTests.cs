@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Element.Configuration;
 using Element.Configuration.Profiles;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -91,10 +92,4 @@ internal static class SettingsCopyTests
   }
 
   private static bool IsMarked(Type type) => type.IsDefined(typeof(CopiedInPlaceAttribute), false);
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
-  }
 }

@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Values;
 using Element.Domain.Tweaks;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -38,8 +39,8 @@ internal static class PerformanceTests
     Equal("59", new StringBuilder().AppendTwoDigits(59).ToString());
     Equal("FF8000", new StringBuilder().AppendHexRgb(new Color(1f, .5f, 0f)).ToString());
     Equal("D958FF", new StringBuilder().AppendHexRgb(new Color(0.8509804f, 0.345098f, 1f)).ToString());
-    True(NumberText.Scaled(99.571, 2) == NumberText.Scaled(99.569, 2), "equal displayed values must compare equal");
-    True(NumberText.Scaled(double.NaN, 2) == 0, "non-finite values must not overflow");
+    Check(NumberText.Scaled(99.571, 2) == NumberText.Scaled(99.569, 2), "equal displayed values must compare equal");
+    Check(NumberText.Scaled(double.NaN, 2) == 0, "non-finite values must not overflow");
   }
 
   private static void AppendsWithoutAllocating()
@@ -50,7 +51,7 @@ internal static class PerformanceTests
     for (int index = 0; index < 1000; index++)
       Fill(builder);
     long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-    True(allocated == 0, "overlay number formatting allocated " + allocated + " bytes");
+    Check(allocated == 0, "overlay number formatting allocated " + allocated + " bytes");
   }
 
   // A text with a formula works it out every frame; its numbers were read when it was parsed.
@@ -58,7 +59,7 @@ internal static class PerformanceTests
   {
     OverlayFormula formula = OverlayFormula.Parse("{combo}*2.5+12-3/4");
     ComboOf120 source = new();
-    True(
+    Check(
       formula.TryEvaluate(source, out double result, out _) && Math.Abs(result - 311.25) < 1e-9,
       "the formula works out to " + result
     );
@@ -66,7 +67,7 @@ internal static class PerformanceTests
     for (int index = 0; index < 1000; index++)
       formula.TryEvaluate(source, out result, out _);
     long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-    True(allocated == 0, "working out a formula allocated " + allocated + " bytes");
+    Check(allocated == 0, "working out a formula allocated " + allocated + " bytes");
   }
 
   private sealed class ComboOf120 : IOverlayNumberSource
@@ -93,14 +94,14 @@ internal static class PerformanceTests
     var filter = new ChatterFilter(sameFrame: false);
     filter.Configure(true, 100, NoIgnoredKeys);
     long t = 1_700_000_000_000;
-    True(filter.AcceptPress(30, t), "the first press passes");
-    True(!filter.AcceptPress(30, t + 40), "a press 40 ms later is chatter");
-    True(!filter.AcceptPress(30, t + 100), "a press exactly at the threshold is chatter");
-    True(filter.AcceptPress(30, t + 101), "a press past the threshold passes");
-    True(!filter.AcceptPress(30, t + 150), "a dropped press doesn't move the time");
-    True(filter.AcceptPress(31, t + 150), "other keys are independent");
-    True(!filter.AcceptPress(30, t + 90), "async input drops a press from before the last one");
-    True(filter.Blocked == 4, "four presses were dropped, got " + filter.Blocked);
+    Check(filter.AcceptPress(30, t), "the first press passes");
+    Check(!filter.AcceptPress(30, t + 40), "a press 40 ms later is chatter");
+    Check(!filter.AcceptPress(30, t + 100), "a press exactly at the threshold is chatter");
+    Check(filter.AcceptPress(30, t + 101), "a press past the threshold passes");
+    Check(!filter.AcceptPress(30, t + 150), "a dropped press doesn't move the time");
+    Check(filter.AcceptPress(31, t + 150), "other keys are independent");
+    Check(!filter.AcceptPress(30, t + 90), "async input drops a press from before the last one");
+    Check(filter.Blocked == 4, "four presses were dropped, got " + filter.Blocked);
 
     // 16th notes at 300 BPM are 50 ms apart: every other one is dropped, as
     // with KeyboardChatterBlocker at 100 ms.
@@ -110,7 +111,7 @@ internal static class PerformanceTests
     for (int i = 0; i < 8; i++)
       if (jacks.AcceptPress(12, t + i * 50))
         passed++;
-    True(passed == 3, "50 ms jacks on one key keep every third press at 100 ms, got " + passed);
+    Check(passed == 3, "50 ms jacks on one key keep every third press at 100 ms, got " + passed);
   }
 
   private static void ChatterFilterFollowsSettings()
@@ -118,25 +119,25 @@ internal static class PerformanceTests
     long t = 1_700_000_000_000;
     var unity = new ChatterFilter(sameFrame: true);
     unity.Configure(true, 100, NoIgnoredKeys);
-    True(unity.AcceptPress(5, t), "a Unity press passes");
-    True(unity.AcceptPress(5, t + 3), "Unity input asking again within 5 ms gets the same answer");
-    True(!unity.AcceptPress(5, t + 9), "past 5 ms it is chatter again");
-    True(unity.AcceptPress(5, t - 50), "Unity input accepts a press from before the last one");
+    Check(unity.AcceptPress(5, t), "a Unity press passes");
+    Check(unity.AcceptPress(5, t + 3), "Unity input asking again within 5 ms gets the same answer");
+    Check(!unity.AcceptPress(5, t + 9), "past 5 ms it is chatter again");
+    Check(unity.AcceptPress(5, t - 50), "Unity input accepts a press from before the last one");
 
     var ignored = new bool[ChatterFilter.KeyCount];
     ignored[44] = true;
     var filter = new ChatterFilter(sameFrame: false);
     filter.Configure(true, 100, ignored);
-    True(filter.AcceptPress(44, t) && filter.AcceptPress(44, t + 1), "an ignored key always passes");
+    Check(filter.AcceptPress(44, t) && filter.AcceptPress(44, t + 1), "an ignored key always passes");
     filter.Configure(true, 100, NoIgnoredKeys);
-    True(filter.AcceptPress(44, t + 2), "an ignored key left no press time behind");
-    True(!filter.AcceptPress(44, t + 3), "and is filtered once off the list");
+    Check(filter.AcceptPress(44, t + 2), "an ignored key left no press time behind");
+    Check(!filter.AcceptPress(44, t + 3), "and is filtered once off the list");
     filter.Configure(true, 200, NoIgnoredKeys);
-    True(!filter.AcceptPress(44, t + 150), "a new threshold keeps the press times");
-    True(filter.AcceptPress(-1, t) && filter.AcceptPress(5000, t), "out-of-range keys pass");
+    Check(!filter.AcceptPress(44, t + 150), "a new threshold keeps the press times");
+    Check(filter.AcceptPress(-1, t) && filter.AcceptPress(5000, t), "out-of-range keys pass");
     filter.Configure(false, 100, NoIgnoredKeys);
-    True(!filter.Enabled && filter.AcceptPress(44, t + 151), "a disabled filter passes everything");
-    True(
+    Check(!filter.Enabled && filter.AcceptPress(44, t + 151), "a disabled filter passes everything");
+    Check(
       ChatterFilter.ClampWindow(1) == ChatterFilter.MinimumWindowMs
         && ChatterFilter.ClampWindow(5000) == ChatterFilter.MaximumWindowMs
         && ChatterFilter.DefaultWindowMs == 100,
@@ -175,18 +176,6 @@ internal static class PerformanceTests
     thread.Join();
     if (failure != null)
       throw new InvalidOperationException("The chatter filter failed off the main thread.", failure);
-    True(allocated == 0, "the chatter filter allocated " + allocated + " bytes");
-  }
-
-  private static void True(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
-
-  private static void Equal(string expected, string actual)
-  {
-    if (expected != actual)
-      throw new InvalidOperationException("Expected " + expected + ", got " + actual);
+    Check(allocated == 0, "the chatter filter allocated " + allocated + " bytes");
   }
 }

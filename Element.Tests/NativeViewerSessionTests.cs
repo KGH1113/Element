@@ -4,6 +4,7 @@ using AdofaiIpc.Contracts;
 using Element.Domain.KeyViewer;
 using Element.Infrastructure.ElementNote.Viewers;
 using Newtonsoft.Json;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -331,10 +332,4 @@ internal static class NativeViewerSessionTests
       Width = width,
       Height = 320,
     };
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 }

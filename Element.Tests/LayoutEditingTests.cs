@@ -5,6 +5,7 @@ using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -379,11 +380,5 @@ internal static class LayoutEditingTests
     List<LayoutBounds> touching = new() { new(100, 100, 80, 40), new(180, 100, 120, 40) };
     LayoutSpacingSnap.Find(new(302, 100, 60, 40), touching, false, 1000, 7, out guide);
     Check(!guide.Visible, "touching elements do not create zero-length spacing markers");
-  }
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

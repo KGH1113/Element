@@ -9,6 +9,7 @@ using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
 using ElementKit.Hosting;
 using ElementKit.Values;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -240,11 +241,5 @@ internal static class ElementKitTests
     ModFields.LeftKeys.Clear();
     ModFields.Rest.Clear();
     ModFields.Pattern.Clear();
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
   }
 }

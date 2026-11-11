@@ -6,6 +6,7 @@ using Element.Configuration;
 using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
 using Element.Domain.Tweaks;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -163,13 +164,16 @@ internal static class GameplayTweaksTests
     Check(vertical.X == 2 && vertical.Y == -3, "vertical flip changes only y");
     var clockwise = EditorTransform.Position(2, 3, EditorTransformKind.Rotate, -90);
     Check(
-      Near(clockwise.X, 3) && Near(clockwise.Y, -2),
+      Near(clockwise.X, 3, 0.0001f) && Near(clockwise.Y, -2, 0.0001f),
       "event vectors rotate around the origin in the tile direction"
     );
     var back = EditorTransform.Position(clockwise.X, clockwise.Y, EditorTransformKind.Rotate, 90);
-    Check(Near(back.X, 2) && Near(back.Y, 3), "opposite rotations restore event offsets");
+    Check(Near(back.X, 2, 0.0001f) && Near(back.Y, 3, 0.0001f), "opposite rotations restore event offsets");
     var partial = EditorTransform.Position(float.NaN, 2, EditorTransformKind.Rotate, 90);
-    Check(Near(partial.X, -2) && Near(partial.Y, 0), "blank event axes resolve to origin during rotation");
+    Check(
+      Near(partial.X, -2, 0.0001f) && Near(partial.Y, 0, 0.0001f),
+      "blank event axes resolve to origin during rotation"
+    );
     var flippedBlank = EditorTransform.Position(float.NaN, 2, EditorTransformKind.FlipVertical, 0);
     Check(float.IsNaN(flippedBlank.X) && flippedBlank.Y == -2, "flips preserve unrelated blank axes");
   }
@@ -268,13 +272,5 @@ internal static class GameplayTweaksTests
         && current.Gameplay.Chatter.WindowMs == 20,
       "only the untouched old chatter window moves to 100 ms"
     );
-  }
-
-  private static bool Near(float a, float b) => Math.Abs(a - b) < 0.0001f;
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
   }
 }

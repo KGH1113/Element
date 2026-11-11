@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -212,10 +213,4 @@ internal static class ValueExtensionTests
       .Where(section => section.Group == group)
       .SelectMany(section => section.Values)
       .ToList();
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 }

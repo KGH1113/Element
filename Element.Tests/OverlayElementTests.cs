@@ -13,6 +13,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -825,7 +826,10 @@ internal static class OverlayElementTests
       GrowFrom = OverlayGrowth.Left,
     };
     LayoutBounds wider = OverlayLayoutPosition.Resolve(settings, 300, 40, 1920, 1080);
-    Check(Near(wider.X, 300) && Near(wider.Y, 200), "growing from the left keeps the left edge: " + wider.X);
+    Check(
+      Near(wider.X, 300, .01f) && Near(wider.Y, 200, .01f),
+      "growing from the left keeps the left edge: " + wider.X
+    );
     settings.GrowFrom = OverlayGrowth.BottomRight;
     AnchoredLayoutPosition corner = OverlayLayoutPosition.Capture(
       bounds,
@@ -838,7 +842,7 @@ internal static class OverlayElementTests
     settings.OffsetY = corner.OffsetY;
     LayoutBounds bigger = OverlayLayoutPosition.Resolve(settings, 200, 80, 1920, 1080);
     Check(
-      Near(bigger.X + bigger.Width, 400) && Near(bigger.Y + bigger.Height, 240),
+      Near(bigger.X + bigger.Width, 400, .01f) && Near(bigger.Y + bigger.Height, 240, .01f),
       "growing from a corner keeps that corner"
     );
     Check(
@@ -851,7 +855,7 @@ internal static class OverlayElementTests
   private static void ShapeRadiiStayInsideTheCorner()
   {
     List<Vector2> square = new() { new(0, 0), new(100, 0), new(100, 100), new(0, 100) };
-    Check(Near(OverlayShapeGeometry.MaxRadius(square, 0), 50), "a square's corner rounds to half its side");
+    Check(Near(OverlayShapeGeometry.MaxRadius(square, 0), 50, .01f), "a square's corner rounds to half its side");
     Check(OverlayShapeGeometry.ClampRadius(square, 0, 80) == OverlayShapeGeometry.MaxRadius(square, 0), "radii clamp");
     Check(OverlayShapeGeometry.ClampRadius(square, 0, -3) == 0, "negative radii clear");
     List<Vector2> straight = new() { new(0, 0), new(50, 0), new(100, 0), new(50, 50) };
@@ -868,22 +872,25 @@ internal static class OverlayElementTests
       outline.Contains(new Vector2(0, 0)) && !outline.Contains(new Vector2(100, 0)),
       "only the rounded corner is replaced"
     );
-    Check(Near(outline[1].X, 70) && Near(outline[1].Y, 0), "the arc starts tangent to the edge");
+    Check(Near(outline[1].X, 70, .01f) && Near(outline[1].Y, 0, .01f), "the arc starts tangent to the edge");
     List<int> triangles = new();
     OverlayShapeGeometry.Triangulate(outline, triangles);
     Check(
-      Near(Area(outline, triangles), Math.Abs(OverlayShapeGeometry.SignedArea(outline))),
+      Near(Area(outline, triangles), Math.Abs(OverlayShapeGeometry.SignedArea(outline)), .01f),
       "convex outlines fill exactly"
     );
     List<Vector2> arrow = new() { new(0, 0), new(100, 0), new(40, 40), new(100, 100), new(0, 100) };
     OverlayShapeGeometry.Triangulate(arrow, triangles);
     Check(triangles.Count == 9, "a concave pentagon becomes three triangles");
     Check(
-      Near(Area(arrow, triangles), Math.Abs(OverlayShapeGeometry.SignedArea(arrow))),
+      Near(Area(arrow, triangles), Math.Abs(OverlayShapeGeometry.SignedArea(arrow)), .01f),
       "concave outlines fill exactly"
     );
     OverlayShapeGeometry.Ellipse(200, 100, 32, outline);
-    Check(outline.Count == 32 && Near(outline[0].X, 200) && Near(outline[0].Y, 50), "ellipses fill their box");
+    Check(
+      outline.Count == 32 && Near(outline[0].X, 200, .01f) && Near(outline[0].Y, 50, .01f),
+      "ellipses fill their box"
+    );
   }
 
   private static float Area(List<Vector2> points, List<int> triangles)
@@ -910,12 +917,4 @@ internal static class OverlayElementTests
 
   private static OverlayLayoutSettings Find(List<OverlayLayoutSettings> layouts, string id) =>
     layouts.Find(layout => layout.Id == id);
-
-  private static bool Near(float a, float b) => Math.Abs(a - b) < .01f;
-
-  private static void Check(bool condition, string message)
-  {
-    if (!condition)
-      throw new InvalidOperationException(message);
-  }
 }

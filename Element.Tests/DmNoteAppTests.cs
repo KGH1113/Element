@@ -5,6 +5,8 @@ using System.IO;
 using System.Text;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.Platform;
+using Element.Tests.Support;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -212,27 +214,21 @@ internal static class DmNoteAppTests
   // folder that also held the former copy.
   private sealed class Folders : IDisposable
   {
+    private readonly TempFolder _root = new("element-note-app-");
+
     public Folders()
     {
-      Root = Path.Combine(Path.GetTempPath(), "element-note-app-" + Guid.NewGuid().ToString("N"));
-      Directory.CreateDirectory(Root);
       Source = Path.Combine(Root, "bundled.bin");
       File.WriteAllText(Source, "v1");
     }
 
-    public string Root { get; }
+    public string Root => _root.Path;
     public string Source { get; }
     public string Apps => Path.Combine(Root, "Applications");
     public string Installed => Path.Combine(Apps, "App");
     public string State => Path.Combine(Root, "State");
     public string Former => Path.Combine(State, "App");
 
-    public void Dispose() => Directory.Delete(Root, true);
-  }
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
+    public void Dispose() => _root.Dispose();
   }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Element.Infrastructure.Game.Patches;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -25,12 +26,12 @@ internal static class PatchGroupTests
   private static void EveryPatchLivesInPatchesAndNamesItsGroup()
   {
     List<Type> patches = PatchClasses();
-    True(patches.Count >= 60, "every patch class is found: " + patches.Count);
+    Check(patches.Count >= 60, "every patch class is found: " + patches.Count);
     foreach (Type patch in patches)
     {
-      True(patch.Namespace == PatchesNamespace, patch.FullName + " lives in Game/Patches");
-      True(patch.DeclaringType != null, patch.FullName + " sits in its game class's patch file");
-      True(patch.GetCustomAttribute<PatchGroupAttribute>() != null, patch.FullName + " names its group");
+      Check(patch.Namespace == PatchesNamespace, patch.FullName + " lives in Game/Patches");
+      Check(patch.DeclaringType != null, patch.FullName + " sits in its game class's patch file");
+      Check(patch.GetCustomAttribute<PatchGroupAttribute>() != null, patch.FullName + " names its group");
     }
   }
 
@@ -52,7 +53,7 @@ internal static class PatchGroupTests
     {
       if (patch.GetCustomAttribute<PatchGroupAttribute>()?.Name != PatchGroupNames.Trackpad)
         continue;
-      True(
+      Check(
         patch.GetMethod("Prepare", BindingFlags.Static | BindingFlags.NonPublic) != null,
         patch.FullName + " checks the platform before patching"
       );
@@ -62,18 +63,14 @@ internal static class PatchGroupTests
   private static List<Type> PatchClasses() =>
     typeof(GameHooks)
       .Assembly.GetTypes()
-      .Where(type => type.GetCustomAttributesData().Any(data => data.AttributeType.FullName == "HarmonyLib.HarmonyPatch"))
+      .Where(type =>
+        type.GetCustomAttributesData().Any(data => data.AttributeType.FullName == "HarmonyLib.HarmonyPatch")
+      )
       .ToList();
 
   private static void Before(string first, string second) =>
-    True(
+    Check(
       string.CompareOrdinal(first, second) < 0,
       first + " is applied before " + second + ", as the patch files say"
     );
-
-  private static void True(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 }

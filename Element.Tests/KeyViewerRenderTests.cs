@@ -13,6 +13,7 @@ using Element.Infrastructure.ElementNote.Ipc;
 using Element.Presentation.Rendering;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
@@ -469,7 +470,12 @@ internal static class KeyViewerRenderTests
 
   private static void PlacesViewersInTheVideo()
   {
-    Near(2, RenderViewerPlacement.VideoScale(960, 540, 1920, 1080), "A video twice the game view doubles everything.");
+    Equal(
+      2,
+      RenderViewerPlacement.VideoScale(960, 540, 1920, 1080),
+      1e-4f,
+      "A video twice the game view doubles everything."
+    );
     // A 200x100 viewer 16 px from the bottom left of a 960x540 game view.
     var screen = new LayoutBounds(16, 540 - 100 - 16, 200, 100);
     OverlayLayoutSettings anchor = NativeViewerGrowth.Capture(screen, 960, 540, 1, Anchor9.BottomLeft);
@@ -485,18 +491,18 @@ internal static class KeyViewerRenderTests
       1920,
       1080
     );
-    Near(4, placement.Scale, "Video pixels per CSS pixel: game pixels per CSS pixel times the video scale.");
+    Equal(4, placement.Scale, 1e-4f, "Video pixels per CSS pixel: game pixels per CSS pixel times the video scale.");
     LayoutBounds placed = placement.Place(100, 50);
-    Near(400f / 1920, placed.Width, "Content width in CSS pixels times the scale.");
-    Near(32f / 1920, placed.X, "The anchored left margin doubles with the video.");
-    Near(1 - 32f / 1080, placed.Y + placed.Height, "The bottom margin doubles too.");
+    Equal(400f / 1920, placed.Width, 1e-4f, "Content width in CSS pixels times the scale.");
+    Equal(32f / 1920, placed.X, 1e-4f, "The anchored left margin doubles with the video.");
+    Equal(1 - 32f / 1080, placed.Y + placed.Height, 1e-4f, "The bottom margin doubles too.");
     // A wider video keeps the corner; margins and size grow by the same factor.
     float k = RenderViewerPlacement.VideoScale(960, 540, 2560, 1080);
     RenderViewerPlacement wide = RenderViewerPlacement.Create("hand", screen, 960, 540, 2, anchor, 120, 70, 2560, 1080);
     LayoutBounds wider = wide.Place(100, 50);
-    Near(16 * k / 2560, wider.X, "The left margin scales with the video.");
-    Near(1 - 16 * k / 1080, wider.Y + wider.Height, "The bottom margin scales the same way.");
-    Near(100 * 2 * k / 2560, wider.Width, "So does the viewer.");
+    Equal(16 * k / 2560, wider.X, 1e-4f, "The left margin scales with the video.");
+    Equal(1 - 16 * k / 1080, wider.Y + wider.Height, 1e-4f, "The bottom margin scales the same way.");
+    Equal(100 * 2 * k / 2560, wider.Width, 1e-4f, "So does the viewer.");
     RenderViewerPlacement centered = RenderViewerPlacement.Create(
       "foot",
       screen,
@@ -510,7 +516,7 @@ internal static class KeyViewerRenderTests
       1080
     );
     LayoutBounds middle = centered.Place(100, 50);
-    Near((16 + 100f) / 960, middle.X + middle.Width / 2, "Without an anchor, the center stays.");
+    Equal((16 + 100f) / 960, middle.X + middle.Width / 2, 1e-4f, "Without an anchor, the center stays.");
     Check(
       RenderViewerPlacement.Create("hand", screen, 0, 540, 2, anchor, 120, 70, 1920, 1080) == null,
       "No game view, no placement."
@@ -525,7 +531,7 @@ internal static class KeyViewerRenderTests
     RenderFrameCrop half = RenderFrameCrop.Of(645, 240, 860, 320, 30);
     Check(half.X == 22 && half.Width == 601, "A crop between texels moves to a whole texel.");
     Check(half.Y == 22 && half.Height == 196, "So does the vertical crop.");
-    Near(601 / .75f, half.CssWidth, "The shown texels in CSS pixels.");
+    Equal(601 / .75f, half.CssWidth, 1e-4f, "The shown texels in CSS pixels.");
     RenderFrameCrop tiny = RenderFrameCrop.Of(3, 3, 3, 3, 1.4f);
     Check(tiny.Width == 1 && tiny.Height == 1, "At least one texel stays.");
   }
@@ -549,7 +555,7 @@ internal static class KeyViewerRenderTests
       1920,
       1080
     );
-    Near(.75f, placement.Scale, "Video pixels per CSS pixel.");
+    Equal(.75f, placement.Scale, 1e-4f, "Video pixels per CSS pixel.");
     RenderFrameCrop crop = RenderFrameCrop.Of(645, 240, 860, 320, 30);
     LayoutBounds placed = placement.Place(crop.CssWidth, crop.CssHeight);
     Pixels(crop.Width, placed.Width * 1920, "One video pixel per texel across.");
@@ -596,7 +602,7 @@ internal static class KeyViewerRenderTests
       1440,
       810
     );
-    Near(.5625f, placement.Scale, "Video pixels per CSS pixel.");
+    Equal(.5625f, placement.Scale, 1e-4f, "Video pixels per CSS pixel.");
     RenderOverlayRects rects = RenderOverlayRects.Of(placement, placement.Scale, 113, 68, 200, 120, 0);
     Check(
       rects.Source.Width == 113 && rects.Target.Width == 113 && rects.Target.Height == rects.Source.Height,
@@ -827,15 +833,6 @@ internal static class KeyViewerRenderTests
         },
       }
       : AnswerBegin(name, payload);
-
-  private static void Near(float expected, float actual, string message) =>
-    Check(Math.Abs(expected - actual) < 1e-4f, message + " Expected " + expected + ", got " + actual + ".");
-
-  private static void Check(bool value, string message)
-  {
-    if (!value)
-      throw new InvalidOperationException(message);
-  }
 
   private sealed class FakeTarget : IReplayRenderTarget
   {

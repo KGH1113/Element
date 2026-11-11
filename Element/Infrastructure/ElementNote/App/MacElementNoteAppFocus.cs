@@ -8,7 +8,7 @@ namespace Element.Infrastructure.ElementNote.App;
 // ElementNote has no Dock icon, so only an activation brings it forward; its
 // own request would be refused while the game is in front (macOS 14 and later).
 // Through the Objective-C runtime, so no native library is needed.
-internal sealed class MacDmNoteAppFocus : IDmNoteAppFocus
+internal sealed class MacElementNoteAppFocus : IElementNoteAppFocus
 {
   private const string ObjC = "/usr/lib/libobjc.A.dylib";
   private const string BundleIdentifier = "io.github.kgh1113.elementnote";

@@ -21,9 +21,8 @@ internal sealed class NativeViewerLayoutTarget
   private readonly Func<string> _label;
   private readonly Action<bool> _setPreview;
   private readonly Action _enabledChanged;
-  private readonly Func<NativeViewerStatus> _status;
   private readonly Func<bool> _hidden;
-  private IKeyViewerSample _sample;
+  private readonly NativeViewerSamplePreview _samplePreview;
   private OverlayLayoutSettings _settings;
   private INativeViewerLayoutHost _host;
   private Rect _bounds;
@@ -48,10 +47,6 @@ internal sealed class NativeViewerLayoutTarget
   private bool _selected;
   private bool _preview;
   private bool _lastEnabled = true;
-  private IKeyViewerSamples _samples;
-  private GameObject _previewCanvas;
-  private RectTransform _previewRoot;
-  private Rect _previewBounds = new(float.NaN, 0, 0, 0);
 
   public NativeViewerLayoutTarget(
     string kind,
@@ -63,9 +58,9 @@ internal sealed class NativeViewerLayoutTarget
     Func<bool> hidden = null
   )
   {
-    _status = status;
     _hidden = hidden;
     _kind = kind;
+    _samplePreview = new NativeViewerSamplePreview(kind, status);
     Id = id ?? "dmnote-" + kind;
     TemplateId = "native-" + kind;
     NativeId = kind + ":" + Id;
@@ -148,7 +143,7 @@ internal sealed class NativeViewerLayoutTarget
   }
 
   /// <summary>Where the sample shown while this viewer has no live page comes from.</summary>
-  public void ConfigurePreview(IKeyViewerSamples samples) => _samples = samples;
+  public void ConfigurePreview(IKeyViewerSamples samples) => _samplePreview.Configure(samples);
 
   public void SetEnabled(bool enabled)
   {
@@ -283,46 +278,7 @@ internal sealed class NativeViewerLayoutTarget
     // Connected viewers also need geometry refresh: their CSS crop and AppKit
     // backing can change without a Unity resolution change or an IPC message.
     EnsureLayoutCurrent();
-    bool visible = _preview && Enabled && !OwnsSelectionOutline && !Hidden;
-    if (visible && _previewCanvas == null && _samples != null)
-    {
-      _previewCanvas = new GameObject("ElementNote offline preview", typeof(RectTransform), typeof(Canvas));
-      if (UnityEngine.Application.isPlaying)
-        UnityEngine.Object.DontDestroyOnLoad(_previewCanvas);
-      Canvas canvas = _previewCanvas.GetComponent<Canvas>();
-      canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-      canvas.sortingOrder = 32758;
-      _sample = _samples.Create(_kind, _previewCanvas.transform);
-      _previewRoot = _sample.Root;
-      _previewBounds = new Rect(float.NaN, 0, 0, 0);
-    }
-    if (_previewCanvas == null)
-      return;
-    if (_previewCanvas.activeSelf != visible)
-      _previewCanvas.SetActive(visible);
-    if (!visible)
-      return;
-    // Runs every editor frame; touching the RectTransform would rebuild the
-    // preview canvas each frame even when nothing moved.
-    if (_previewBounds != _bounds)
-    {
-      _previewBounds = _bounds;
-      _previewRoot.anchorMin = _previewRoot.anchorMax = new Vector2(0, 1);
-      _previewRoot.pivot = new Vector2(0, 1);
-      _previewRoot.anchoredPosition = new Vector2(_bounds.x, -_bounds.y);
-      _previewRoot.localScale = new Vector3(
-        _bounds.width / KeyViewerSampleSize.Width(_kind),
-        _bounds.height / KeyViewerSampleSize.ViewportHeight,
-        1
-      );
-    }
-    if (_status != null)
-    {
-      // The sample is shown only while this viewer has no live page, so an
-      // attached session means ElementNote has no tab for this kind.
-      NativeViewerStatus status = _status();
-      _sample?.SetStatus(status == NativeViewerStatus.Attached ? NativeViewerStatus.NoViewerTab : status);
-    }
+    _samplePreview.Tick(_preview && Enabled && !OwnsSelectionOutline && !Hidden, _bounds);
   }
 
   public void RefreshLayout()
@@ -564,19 +520,7 @@ internal sealed class NativeViewerLayoutTarget
     && Mathf.Abs(left.width - right.width) < .01f
     && Mathf.Abs(left.height - right.height) < .01f;
 
-  public void Dispose()
-  {
-    if (_previewCanvas != null)
-    {
-      if (UnityEngine.Application.isPlaying)
-        UnityEngine.Object.Destroy(_previewCanvas);
-      else
-        UnityEngine.Object.DestroyImmediate(_previewCanvas);
-    }
-    _previewCanvas = null;
-    _previewRoot = null;
-    _sample = null;
-  }
+  public void Dispose() => _samplePreview.Dispose();
 
   private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 

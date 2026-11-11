@@ -11,7 +11,8 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFacto
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontCatalog.cs'));
+for (const name of ['OverlayFontCatalog', 'OverlayFontFolder', 'InstalledFontList', 'OverlayFontFiles', 'OverlayFontFaces'])
+  files.push(path.join(root, 'Element/Infrastructure/Storage', name + '.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontSampling.cs'));
 for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', 'WindowsFontFilePicker'])
   files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));
@@ -32,7 +33,10 @@ files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs')
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerLayoutHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));
+files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerSamplePreview.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/Planets/PlanetPreviewRenderer.cs'));
+for (const name of ['PlanetPreviewSource', 'PlanetPreviewSources', 'PlanetPreviewVisual', 'PlanetPreviewObjects'])
+  files.push(path.join(root, 'Element/Infrastructure/Game/Planets', name + '.cs'));
 files.push(path.join(root, 'Element/Domain/Tweaks/PlanetColorRule.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));

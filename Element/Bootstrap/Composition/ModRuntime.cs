@@ -9,19 +9,21 @@ using Element.Application.KeyLimiter;
 using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
+using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;
 using Element.Infrastructure.ElementNote.Viewers;
-using Element.Infrastructure.Game;
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Patches;
+using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Settings;
+using Element.Infrastructure.Mods;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout.KeyViewers;
@@ -50,7 +52,7 @@ internal sealed class ModRuntime : IDisposable
   private KeyLimiterService _keyLimiter;
   private GameKeyLimiter _gameKeyLimiter;
   private ElementIpcChannel _ipcChannel;
-  private DmNoteNativeIpcFeature _nativeViewers;
+  private ElementNoteNativeViewers _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
   private KeyCounterIpc _counterIpc;
   private RenderSession _render;
@@ -59,10 +61,11 @@ internal sealed class ModRuntime : IDisposable
   private readonly RecordedKeyCounts _recordedKeyCounts = new();
   private TufReplayApi _tufReplay;
   private readonly OfflineRender _offlineRender = new();
-  private DmNoteAppLauncher _dmNoteApp;
+  private ElementNoteAppLauncher _elementNoteApp;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
-  private GameplayTweaksController _gameplayTweaks;
+  private GuardedEditorTweaks _editorTweaks;
+  private GuardedPlanetAppearance _planetAppearance;
   private EffectsController _effects;
   private AttemptRunReader _attemptRuns;
   private AttemptTracker _attempts;
@@ -99,7 +102,7 @@ internal sealed class ModRuntime : IDisposable
     try
     {
       InputGate.Connect(GameAsyncInput.Clear);
-      _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
+      _keyLimiter = new KeyLimiterService(new ElementNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       GameHooks.KeyLimiter = _gameKeyLimiter;
 
@@ -114,8 +117,10 @@ internal sealed class ModRuntime : IDisposable
         );
       GameHooks.Trackpad = _trackpad;
       GameHooks.Chatter = _main.Chatter;
-      _gameplayTweaks = new GameplayTweaksController(() => _main.Settings.Gameplay, _main.Chatter, _main.LogException);
-      GameHooks.Tweaks = _gameplayTweaks;
+      _editorTweaks = new GuardedEditorTweaks(_main.Settings.Gameplay.Editor, _main.LogException);
+      GameHooks.EditorTweaks = _editorTweaks;
+      _planetAppearance = new GuardedPlanetAppearance(_main.Settings.Gameplay.Planets, _main.LogException);
+      GameHooks.PlanetAppearance = _planetAppearance;
       _effects = new EffectsController(() => _main.Settings.Effects);
       GameHooks.Effects = _effects;
       _recordingMode = new RecordingModeController();
@@ -131,7 +136,7 @@ internal sealed class ModRuntime : IDisposable
       );
       SceneManager.sceneUnloaded += OnSceneUnloaded;
       _sceneHooked = true;
-      WarnIfKeyboardChatterBlockerIsLoaded();
+      KeyboardChatterBlockerCheck.WarnIfLoaded(_main.LogWarning);
 
       _attempts = CreateAttemptTracker();
       // During TUFReplay's replays and renders the overlay shows the run's recorded attempts.
@@ -143,14 +148,14 @@ internal sealed class ModRuntime : IDisposable
         _replayedAttempts,
         _offlineRender
       );
-      _nativeViewers = new DmNoteNativeIpcFeature(
+      _nativeViewers = new ElementNoteNativeViewers(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
         KeyViewerLabels.For,
         _main.LogException,
         _main.LogWarning,
-        DmNoteAppFocus.ForCurrentPlatform()
+        ElementNoteAppFocus.ForCurrentPlatform()
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
@@ -161,19 +166,24 @@ internal sealed class ModRuntime : IDisposable
         _main.Version,
         _main.Log,
         new KeyLimiterIpc(new KeyLimiterSessionController(_keyLimiter)),
-        _nativeViewers,
+        _nativeViewers.Endpoint,
         _renderIpc,
         _counterIpc
       );
       _ipcChannel.Enable();
-      _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
+      _elementNoteApp = ElementNoteAppLauncher.Create(
+        _main.RuntimePath,
+        _main.Log,
+        _main.LogWarning,
+        _main.LogException
+      );
 
       _settingsUi = new SettingsUiRuntime(
         _main,
         _overlay.Canvas,
         _overlay.Font,
         _nativeViewers,
-        _gameplayTweaks.Planets,
+        _planetAppearance.Planets,
         ApplySettings,
         ReloadSettings,
         () => _session?.RefreshViewers(),
@@ -186,7 +196,7 @@ internal sealed class ModRuntime : IDisposable
         _overlay,
         _nativeViewers,
         _recordingMode,
-        _dmNoteApp,
+        _elementNoteApp,
         () => _settingsUi?.IsEditingLayout == true,
         ApplyLook,
         ApplyLayouts
@@ -286,7 +296,10 @@ internal sealed class ModRuntime : IDisposable
   {
     OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
     _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
-    _gameplayTweaks?.Apply();
+    ChatterBlockerOptions chatter = _main.Settings.Gameplay.Chatter;
+    _main.Chatter.Configure(chatter.Enabled, chatter.WindowMs, chatter.IgnoredKeys);
+    _editorTweaks?.Apply();
+    _planetAppearance?.Apply();
     _effects?.ApplySettings();
   }
 
@@ -323,8 +336,13 @@ internal sealed class ModRuntime : IDisposable
 
     _trackpad?.Dispose();
     _trackpad = null;
-    _gameplayTweaks?.Dispose();
-    _gameplayTweaks = null;
+    // The chatter blocker outlives the mod; its Tweaks setting stops with it.
+    if (_editorTweaks != null)
+      _main.Chatter.Configure(false, 0, null);
+    _editorTweaks?.Dispose();
+    _editorTweaks = null;
+    _planetAppearance?.Dispose();
+    _planetAppearance = null;
     _effects?.Dispose();
     _effects = null;
 
@@ -461,20 +479,6 @@ internal sealed class ModRuntime : IDisposable
     {
       _main.LogException("Key limiter is off because this game version has no built-in key limiter", exception);
       return null;
-    }
-  }
-
-  private void WarnIfKeyboardChatterBlockerIsLoaded()
-  {
-    foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-    {
-      if (!string.Equals(assembly.GetName().Name, "KeyboardChatterBlocker", StringComparison.OrdinalIgnoreCase))
-        continue;
-
-      _main.LogWarning(
-        "[Input] KeyboardChatterBlocker is loaded. ADOFAI's key limiter now carries ElementNote's keys, and Tweaks > Chatter blocker replaces its chatter filter; turn its limiter and chatter filter off to avoid filtering input twice."
-      );
-      return;
     }
   }
 }

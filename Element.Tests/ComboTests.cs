@@ -1,13 +1,14 @@
-using System;
 using Element.Application.Judgement;
 using Element.Application.Overlay;
 using Element.Domain.Judgement;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class ComboTests
 {
+  [Suite("midspin tiles leave the combo unchanged")]
   public static void Run()
   {
     MidspinNeitherExtendsNorBreaksTheCombo();

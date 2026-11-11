@@ -1,16 +1,17 @@
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using ADOFAI;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class EffectFilterTests
 {
+  [Suite("effect filter copies only changed tracks and ignores NONE tags")]
   public static void Run()
   {
     CopiesOnlyTracksThatChangeOpacity();

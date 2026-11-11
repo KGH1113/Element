@@ -15,6 +15,7 @@ internal static class AttemptTests
   private static readonly MapId MapA = new(1, 2);
   private static readonly MapId MapB = new(3, 4);
 
+  [Suite("attempts count per start and speed, take back unplayed starts, follow skip rules and persist")]
   public static void Run()
   {
     Keys();

@@ -1,5 +1,5 @@
-using System;
 using Element.Presentation.Overlay.Combo;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -8,6 +8,7 @@ namespace Element.Tests;
 // parts of it and sometimes break it. Cases are taken from real levels.
 internal static class SongTitleTests
 {
+  [Suite("song titles read the way the game shows them")]
   public static void Run()
   {
     // Sizes are the game's pixels, kept in proportion to its size.

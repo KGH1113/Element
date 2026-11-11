@@ -6,6 +6,7 @@ using System.Text;
 using System.Xml.Serialization;
 using Element.Configuration;
 using Element.Configuration.Profiles;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests.Configuration;
@@ -18,6 +19,7 @@ namespace Element.Tests.Configuration;
 /// </summary>
 internal static class SavedFormatTests
 {
+  [Suite("settings and profile files written before still read and write the same")]
   public static void Run()
   {
     SettingsFileKeepsItsFormat();

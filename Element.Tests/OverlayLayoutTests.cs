@@ -4,12 +4,14 @@ using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class OverlayLayoutTests
 {
+  [Suite("overlay layout hit bounds and eight anchored proportional resize handles")]
   public static void Run()
   {
     AnchoredPositions();

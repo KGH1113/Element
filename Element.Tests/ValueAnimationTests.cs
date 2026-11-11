@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,6 +9,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -18,6 +18,7 @@ namespace Element.Tests;
 // "every combo grows" and when a shown value counts as changed.
 internal static class ValueAnimationTests
 {
+  [Suite("values animate by their own switch, and only when what they show changes")]
   public static void Run()
   {
     SwitchTouchesOnlyValues();

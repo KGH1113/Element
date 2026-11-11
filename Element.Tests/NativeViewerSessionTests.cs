@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using AdofaiIpc.Contracts;
 using Element.Domain.KeyViewer;
 using Element.Infrastructure.ElementNote.Viewers;
+using Element.Tests.Support;
 using Newtonsoft.Json;
 using static Element.Tests.Support.Assert;
 
@@ -13,6 +14,7 @@ internal static class NativeViewerSessionTests
   private const string App = "element-note";
   private static readonly DateTime Start = new(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
+  [Suite("native viewer sessions follow pushes and keep pages on transient failures")]
   public static void Run()
   {
     ClassifiesFailures();

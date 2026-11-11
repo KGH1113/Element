@@ -1,12 +1,14 @@
 using System;
 using System.Runtime.InteropServices;
 using Element.Infrastructure.Game.Editor;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class TrackpadTests
 {
+  [Suite("trackpad gesture ownership, zoom and native ABI")]
   public static void Run()
   {
     var canvas = new TrackpadGesture();

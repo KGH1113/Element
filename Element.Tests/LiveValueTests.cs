@@ -1,8 +1,8 @@
-using System;
 using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -11,6 +11,7 @@ namespace Element.Tests;
 // shows, without taking the changes the canvas behind it redraws from.
 internal static class LiveValueTests
 {
+  [Suite("open editors follow live values without taking the canvas's changes")]
   public static void Run()
   {
     OverlayValues values = new();

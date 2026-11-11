@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Element.Application.Rendering;
 using Element.Infrastructure.TufReplay;
+using Element.Tests.Support;
 using UnityEngine;
 using static Element.Tests.Support.Assert;
 
@@ -15,6 +16,7 @@ internal static class ReplayRenderProviderTests
 {
   private const BindingFlags Public = BindingFlags.Public | BindingFlags.Instance;
 
+  [Suite("rendered TUFReplay runs deliver recorded keys and hand over videos; replays in the game are left alone")]
   public static void Run()
   {
     FollowsTheContract();

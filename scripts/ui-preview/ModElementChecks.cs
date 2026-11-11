@@ -25,7 +25,7 @@ namespace Element.Editor
   [Serializable]
   public sealed class PreviewCardSettings
   {
-    public string Title = "Sample";
+    public string Title = "Card";
     public Color Fill = new Color(.12f, .12f, .14f, .9f);
     public Paint Accent = Paint.Solid(new Color(1f, .62f, .26f));
     public float Progress = .6f;
@@ -235,7 +235,7 @@ namespace Element.Editor
           "a part's hint shows on hover");
         box.transform.parent.GetComponent<ModHint>().OnPointerExit(null);
         Find("Icon Reset").onClick.Invoke();
-        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Sample\""), "an icon button runs its action");
+        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "an icon button runs its action");
 
         // Undo keeps the picked tab.
         Call(mods2, "Undo");

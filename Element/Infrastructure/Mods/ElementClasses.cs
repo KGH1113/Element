@@ -68,7 +68,7 @@ internal static class ElementClasses
         report(
           "[ElementKit] "
             + name
-            + " needs a short Korean and English name, such as \"예시 막대\" and \"Sample bars\". It was left out."
+            + " needs a short Korean and English name, such as \"진행 막대\" and \"Progress bars\". It was left out."
         );
         continue;
       }

@@ -105,7 +105,7 @@ internal static class KitRegistry
       bool named = !string.IsNullOrWhiteSpace(group.KoreanName) && !string.IsNullOrWhiteSpace(group.EnglishName);
       if (!named)
         report(
-          "[ElementKit] A value group needs a Korean and an English heading, such as new ValueGroup(\"예시\", \"Fingering\"). Its values were skipped."
+          "[ElementKit] A value group needs a Korean and an English heading, such as new ValueGroup(\"내 모드\", \"My mod\"). Its values were skipped."
         );
       foreach (Value value in group.Values.ToArray())
       {

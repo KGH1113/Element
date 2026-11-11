@@ -26,7 +26,6 @@ Commands:
   windows-install  Make build/Element-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
   dmnote-windows-build  Build the Windows ElementNote for packages on ELEMENT_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload and ElementNote
-  sample-install  Build and install Sample, the sample mod that adds values through ElementKit
   package     Build the macOS and Windows release packages and their update manifest
   version [x.y.z]  Check that the mod and ElementNote share one version, or set it
   release [--yes]  On main: build the mod around CD's builds, package and publish (docs/process/releasing.md)
@@ -61,10 +60,6 @@ case "$command_name" in
   assets | build | mod-check | ui-check | native-webview-check | windows-webview-check | windows-install | \
     install | package | version | release | check | hooks | ipc-sync | mod-format)
     exec "$WORKFLOWS_DIR/$command_name.sh" "${@:2}"
-    ;;
-  sample-install)
-    # Kept as it was: the sample mod leaves this repository.
-    exec bash "$SCRIPTS_DIR/tasks/install/sample.sh"
     ;;
   dmnote-windows-build)
     exec "$WORKFLOWS_DIR/element-note-windows-build.sh" "${@:2}"

@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 using UnityEngine;
 using UnityModManagerNet;
 

@@ -2,6 +2,7 @@ using System;
 using Element.Configuration;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Planets;
 

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.Kinds;
@@ -18,6 +20,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Layout.ContentEditors.Shape;
+using Element.Configuration.Overlay;
 
 namespace Element.Editor
 {

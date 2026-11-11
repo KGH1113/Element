@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Editor;
 

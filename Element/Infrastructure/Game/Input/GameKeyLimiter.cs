@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Domain.Input;
+using Element.Domain.KeyLimiter;
 using Element.Infrastructure.Game.Settings;
 using HarmonyLib;
 using UnityEngine;

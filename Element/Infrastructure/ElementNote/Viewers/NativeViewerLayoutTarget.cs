@@ -2,9 +2,10 @@ using System;
 using System.Collections.Generic;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
-using Element.Configuration;
-using Element.Domain.DmNote;
+using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using Element.Domain.Rendering;
 using UnityEngine;
 
 namespace Element.Infrastructure.ElementNote.Viewers;

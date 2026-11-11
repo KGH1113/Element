@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Application.Layout;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Migration;
@@ -11,8 +14,6 @@ using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-using Element.Application.Layout;
-using Element.Application.Mods;
 
 namespace Element.Presentation.Overlay.Canvas;
 

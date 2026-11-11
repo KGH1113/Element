@@ -1,7 +1,7 @@
-using Element.Configuration;
+using Element.Application.Layout;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -75,7 +75,7 @@ internal abstract class ContentElementKind<T> : IElementKind
     else if (isNew)
     {
       if (settings != null)
-        Domain.Elements.OverlayElementDefaults.ResetPlacement(settings);
+        Domain.Overlay.Defaults.OverlayElementDefaults.ResetPlacement(settings);
       target.SetEnabled(false);
       Editing.Selection.Selected = -1;
     }

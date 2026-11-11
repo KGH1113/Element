@@ -1,7 +1,7 @@
 using System;
 using Element.Application.Profiles;
 using Element.Application.Updates;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 

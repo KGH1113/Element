@@ -1,4 +1,4 @@
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 
@@ -221,7 +223,7 @@ internal static class OverlayTextComposer
   }
 
   private static bool HasSize(float size) =>
-    size > 0 && Mathf.Abs(size - Domain.Elements.OverlayElementDefaults.TextSize) > .005f;
+    size > 0 && Mathf.Abs(size - Domain.Overlay.Defaults.OverlayElementDefaults.TextSize) > .005f;
 
   internal static void OpenColor(StringBuilder output, Color resolved)
   {

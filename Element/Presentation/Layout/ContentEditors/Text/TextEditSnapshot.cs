@@ -1,4 +1,4 @@
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Text;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 

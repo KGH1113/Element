@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 using Element.Configuration;
-using Element.Domain.Elements;
 using UnityEngine.TextCore.LowLevel;
+using Element.Domain.Overlay.Fonts;
+using Element.Configuration.Overlay;
 
 namespace Element.Infrastructure.Storage;
 

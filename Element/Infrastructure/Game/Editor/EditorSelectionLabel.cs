@@ -5,6 +5,7 @@ using System.Text;
 using ADOFAI;
 using Element.Configuration;
 using UnityEngine;
+using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Editor;
 

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Element.Application.Input;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
@@ -17,8 +20,6 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 using Object = UnityEngine.Object;
-using Element.Application.Layout;
-using Element.Application.KeyViewer;
 
 namespace Element.Presentation.Layout;
 

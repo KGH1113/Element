@@ -18,18 +18,16 @@ for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', '
   files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/ProfileFileStore.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerFailure.cs'));
-files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
+files.push(path.join(root, 'Element/Domain/Tweaks/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Domain/Judgement/JudgementColors.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Mods/ElementClasses.cs'));
 // Ports and use cases the settings UI, the layout editor and the overlay use.
 for (const folder of ['Element/Application/Updates', 'Element/Application/Files', 'Element/Application/Profiles', 'Element/Application/Settings', 'Element/Application/Effects', 'Element/Application/Input', 'Element/Application/Fonts', 'Element/Application/Layout', 'Element/Application/KeyViewer', 'Element/Application/Mods'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
+files.push(path.join(root, 'Element/Domain/Rendering/RenderViewerPlacement.cs'));
+for (const name of fs.readdirSync(path.join(root, 'Element/Domain/KeyViewer')).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Domain/KeyViewer', name));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerLayoutHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));
@@ -42,7 +40,9 @@ for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout')
   files.push(path.join(root, 'Element/Presentation/Layout', name));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Ui'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Ui', name));
-for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Canvas', 'Element/Presentation/Overlay/Migration', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
+for (const name of fs.readdirSync(path.join(root, 'Element/Domain/Overlay'), { recursive: true }).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Domain/Overlay', name));
+for (const folder of ['Element/Domain/Layout', 'Element/Presentation/Overlay/Canvas', 'Element/Presentation/Overlay/Migration', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
 // ElementKit, minus Kit.cs: the preview attaches values through KitRegistry and

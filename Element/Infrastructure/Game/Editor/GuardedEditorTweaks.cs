@@ -1,6 +1,7 @@
 using System;
 using Element.Configuration;
 using UnityEngine.SceneManagement;
+using Element.Configuration.Gameplay;
 
 namespace Element.Infrastructure.Game.Editor;
 

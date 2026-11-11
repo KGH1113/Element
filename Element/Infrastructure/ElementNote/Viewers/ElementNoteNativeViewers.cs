@@ -4,11 +4,13 @@ using Element.Application.Gameplay;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
 using Element.Configuration;
-using Element.Domain.DmNote;
 using Element.Domain.Layout;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using UnityEngine;
+using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
+using Element.Domain.Rendering;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 

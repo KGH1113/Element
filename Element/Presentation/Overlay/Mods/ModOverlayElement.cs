@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using ElementKit;
@@ -10,7 +11,6 @@ using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 using UiFactory = Element.Presentation.Settings.SettingsUiFactory;
-using Element.Application.Mods;
 
 namespace Element.Presentation.Overlay.Mods;
 

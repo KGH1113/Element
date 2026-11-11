@@ -1,5 +1,5 @@
 using System;
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
 
 namespace Element.Application.Judgement;

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Domain.DmNote;
+using Element.Domain.Rendering;
 
 namespace Element.Application.Rendering;
 

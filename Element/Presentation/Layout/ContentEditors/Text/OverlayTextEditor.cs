@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Element.Application.Input;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Application.Layout;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
@@ -14,7 +17,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 

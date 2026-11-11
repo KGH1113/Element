@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Application.Fonts;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Fonts;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -10,7 +11,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Fonts;
 
 namespace Element.Presentation.Layout;
 

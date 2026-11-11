@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 
 namespace Element.Presentation.Overlay.Canvas;

@@ -1,7 +1,9 @@
-using Element.Application.Input;
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Application.Input;
+using Element.Application.Layout;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
@@ -11,8 +13,6 @@ using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
-using Element.Application.Mods;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 

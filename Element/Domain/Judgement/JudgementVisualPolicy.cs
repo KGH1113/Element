@@ -1,4 +1,4 @@
-using Element.Configuration;
+using Element.Configuration.Gameplay;
 
 namespace Element.Domain.Judgement;
 

@@ -1,7 +1,10 @@
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;

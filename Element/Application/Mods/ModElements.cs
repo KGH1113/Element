@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 
 namespace Element.Application.Mods;
 

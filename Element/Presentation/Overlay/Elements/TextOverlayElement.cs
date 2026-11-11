@@ -1,7 +1,8 @@
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using TMPro;

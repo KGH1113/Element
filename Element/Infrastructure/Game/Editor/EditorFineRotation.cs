@@ -1,9 +1,10 @@
 using System.Reflection;
 using Element.Application.Input;
 using Element.Configuration;
-using Element.Domain.Editor;
 using HarmonyLib;
 using UnityEngine;
+using Element.Configuration.Gameplay;
+using Element.Domain.Tweaks;
 
 namespace Element.Infrastructure.Game.Editor;
 

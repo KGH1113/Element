@@ -28,7 +28,6 @@ internal static class Program
       Run("profile ownership and disconnect restore", HandlesProfileOwnership);
       Run("canceled queued profile cannot regain ownership", RejectsCanceledProfile);
       Run("disables when no requested key is supported", DisablesUnsupportedOnlyProfile);
-      Run("applies hit text visibility settings", AppliesHitTextVisibilitySettings);
       Run("classifies X-Perfect hit margins", ClassifiesXPerfectHitMargins);
       Run("represents X-Perfect counts separately", RepresentsXPerfectCountsSeparately);
       Run("midspin tiles leave the combo unchanged", ComboTests.Run);
@@ -41,6 +40,7 @@ internal static class Program
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("judgment counts keep their colors", JudgementColorTests.Run);
       Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("values animate by their own switch, and only when what they show changes", ValueAnimationTests.Run);
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);
@@ -58,6 +58,7 @@ internal static class Program
       );
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
       Run("profiles switch in place, survive saving, export, import, refuse bad files and back up", ProfileTests.Run);
+      Run("profile switches fill every saved settings class in place", SettingsCopyTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);
@@ -170,17 +171,6 @@ internal static class Program
     KeyLimiterService service = new(new DmNoteKeyResolver());
     KeyLimiterApplyResult response = service.Apply(Request(1, true, "FN"));
     True(response.Applied && !response.Enabled, "unsupported-only profile must fail open");
-  }
-
-  private static void AppliesHitTextVisibilitySettings()
-  {
-    True(HitTextVisibilityPolicy.ShouldShow(false, false, true), "Perfect should show when its setting is disabled");
-    True(!HitTextVisibilityPolicy.ShouldShow(true, false, true), "Perfect should hide when its setting is enabled");
-    True(
-      HitTextVisibilityPolicy.ShouldShow(true, false, false),
-      "non-Perfect judgments should remain visible outside record mode"
-    );
-    True(!HitTextVisibilityPolicy.ShouldShow(false, true, false), "record mode should hide every judgment");
   }
 
   private static void ClassifiesXPerfectHitMargins()

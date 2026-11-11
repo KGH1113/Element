@@ -34,6 +34,7 @@ public enum RemovedEffects : long
 }
 
 [Serializable]
+[CopiedInPlace]
 public sealed class EffectPreset
 {
   public const int MinimumCameraZoom = 100;
@@ -79,6 +80,7 @@ public sealed class EffectPreset
 }
 
 [Serializable]
+[CopiedInPlace]
 public sealed class EffectSettings
 {
   public const int MaximumNameLength = 40;

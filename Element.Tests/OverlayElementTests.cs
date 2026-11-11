@@ -568,7 +568,7 @@ internal static class OverlayElementTests
       Customized = true,
       Text = new OverlayTextSettings(),
     };
-    judgement.Text.Runs.AddRange(OverlayElementMigration.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
+    judgement.Text.Runs.AddRange(OverlayDefaultRuns.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
     judgement.Text.Runs.Add(OverlayTextRun.Literal("  ", OverlayColorSettings.HighlightColor()));
     layouts.Add(judgement);
     using MemoryStream file = new();
@@ -755,7 +755,9 @@ internal static class OverlayElementTests
       "a converted label becomes plain words; other values stay"
     );
     Check(
-      OverlayValueCatalog.BuiltIn.All(value => value.Key != "progress" && value.Key != "time" && value.Key != "judgements"),
+      OverlayValueCatalog.BuiltIn.All(value =>
+        value.Key != "progress" && value.Key != "time" && value.Key != "judgements"
+      ),
       "values made of other values are gone"
     );
     Check(

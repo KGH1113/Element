@@ -1,46 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Domain.Judgement;
 
 namespace Element.Domain.Elements;
-
-internal sealed class OverlayDefaultElement
-{
-  public readonly string Id;
-  public readonly string TemplateId;
-
-  // The built-in overlay's font size over the text element's base size.
-  public readonly float BaseScale;
-
-  // The point a built-in shape keeps when its size follows a value.
-  public readonly OverlayGrowth GrowFrom;
-  private readonly Func<List<OverlayTextRun>> _runs;
-  private readonly Func<OverlayShapeSettings> _shape;
-
-  public OverlayDefaultElement(string id, float baseScale, Func<List<OverlayTextRun>> runs)
-  {
-    Id = id;
-    TemplateId = OverlayElementKinds.Text;
-    BaseScale = baseScale;
-    GrowFrom = OverlayGrowth.Auto;
-    _runs = runs;
-  }
-
-  public OverlayDefaultElement(string id, OverlayGrowth growFrom, Func<OverlayShapeSettings> shape)
-  {
-    Id = id;
-    TemplateId = OverlayElementKinds.Shape;
-    BaseScale = 1;
-    GrowFrom = growFrom;
-    _shape = shape;
-  }
-
-  public bool IsShape => _shape != null;
-
-  public List<OverlayTextRun> CreateRuns() => _runs?.Invoke() ?? new List<OverlayTextRun>();
-
-  public OverlayShapeSettings CreateShape() => _shape?.Invoke();
-}
 
 // The overlays that used to be fixed presets, now ordinary text elements with
 // values. Ids are the old preset ids so saved placements carry over.
@@ -64,13 +27,13 @@ internal static class OverlayElementDefaults
     ProgressBarHeight = 16,
     ProgressBarEdge = 2,
     ProgressBarRadius = 3;
-  internal const string JudgementBase = "#D958FF";
+  internal const string JudgementBase = JudgementColors.Base;
 
   private static readonly OverlayDefaultElement[] Elements =
   {
-    new("progress", 1, () => Labelled("progress-label", Highlighted(OverlayElementMigration.Progress))),
-    new("accuracy", 1, () => Labelled("accuracy-label", Highlighted(OverlayElementMigration.Percent("accuracy")))),
-    new("time", 1, () => Labelled("time-label", Highlighted(OverlayElementMigration.Time))),
+    new("progress", 1, () => Labelled("progress-label", Highlighted(OverlayDefaultRuns.Progress))),
+    new("accuracy", 1, () => Labelled("accuracy-label", Highlighted(OverlayDefaultRuns.Percent("accuracy")))),
+    new("time", 1, () => Labelled("time-label", Highlighted(OverlayDefaultRuns.Time))),
     new("fps", 1, () => Prefixed("FPS | ", "fps")),
     new("tile-bpm", 1, () => Prefixed("TBPM | ", "tile-bpm")),
     new("current-bpm", 1, () => Prefixed("CBPM | ", "current-bpm")),
@@ -78,12 +41,8 @@ internal static class OverlayElementDefaults
     new("song-title", 24f / TextSize, () => new() { Value("song-title", Custom(White)) }),
     new(ComboId, 78f / TextSize, () => new() { Animated(Value("combo", OverlayColorSettings.HighlightColor())) }),
     new(ComboTitleId, 40f / TextSize, () => new() { OverlayTextRun.Literal("Perfect", Custom(White)) }),
-    new("judgement", 1, () => OverlayElementMigration.Judgements(Custom(JudgementBase), 0)),
-    new(
-      "timing-scale",
-      20f / TextSize,
-      () => Plain("Timing Scale - ", OverlayElementMigration.Percent("timing-scale"))
-    ),
+    new("judgement", 1, () => OverlayDefaultRuns.Judgements(Custom(JudgementColors.Base), 0)),
+    new("timing-scale", 20f / TextSize, () => Plain("Timing Scale - ", OverlayDefaultRuns.Percent("timing-scale"))),
     new("attempt", 1, () => Plain("Attempt ", Single("attempt"))),
     new("full-attempt", 1, () => Plain("Full Attempt ", Single("full-attempt"))),
     // In drawing order: the black bar, the track over it, the fill on top.
@@ -259,7 +218,7 @@ internal static class OverlayElementDefaults
     value(OverlayColorSettings.HighlightColor(), 0);
 
   private static Func<OverlayColorSettings, float, List<OverlayTextRun>> Single(string key) =>
-    (color, size) => new() { OverlayElementMigration.Run(key, color, size) };
+    (color, size) => new() { OverlayDefaultRuns.Run(key, color, size) };
 
   private static OverlayTextRun Value(string key, OverlayColorSettings color) => OverlayTextRun.ValueRun(key, color);
 
@@ -271,232 +230,4 @@ internal static class OverlayElementDefaults
   }
 
   private static OverlayColorSettings Custom(string hex) => OverlayColorSettings.Custom(hex);
-}
-
-// Settings saved before 1.1 list fixed presets. Turn each into the equivalent
-// text element in place, keeping whether it is shown and where it sits.
-// Texts saved by 1.1.0 use values that were later split up or lost their unit;
-// MigrateFormulas rewrites them so they still read the same.
-internal static class OverlayElementMigration
-{
-  private static readonly (string Key, string Color)[] JudgementRow =
-  {
-    ("overload", null),
-    ("too-early", "#FF0000"),
-    ("very-early", "#FF6F4E"),
-    ("early-perfect", "#A0FF4E"),
-    ("perfect-early", "#60FF4E"),
-    ("pure-perfect", "#60FF4E"),
-    ("perfect-late", "#60FF4E"),
-    ("late-perfect", "#A0FF4E"),
-    ("very-late", "#FF6F4E"),
-    ("too-late", "#FF0000"),
-    ("miss", null),
-  };
-
-  // Values that used to end in "%".
-  private static readonly HashSet<string> PercentValues = new()
-  {
-    "progress-start",
-    "progress-current",
-    "accuracy",
-    "timing-scale",
-  };
-
-  /// <summary>"0%-48%": start and current progress with their percent signs.</summary>
-  public static List<OverlayTextRun> Progress(OverlayColorSettings color, float size) =>
-    new()
-    {
-      Run("progress-start", color, size),
-      Literal("%-", color, size),
-      Run("progress-current", color, size),
-      Literal("%", color, size),
-    };
-
-  /// <summary>"1:27~3:48": elapsed and total time.</summary>
-  public static List<OverlayTextRun> Time(OverlayColorSettings color, float size) =>
-    new() { Run("time-current", color, size), Literal("~", color, size), Run("time-total", color, size) };
-
-  public static Func<OverlayColorSettings, float, List<OverlayTextRun>> Percent(string key) =>
-    (color, size) => new() { Run(key, color, size), Literal("%", color, size) };
-
-  /// <summary>The colored row of every judgment count; <paramref name="color"/> is its base color.</summary>
-  public static List<OverlayTextRun> Judgements(OverlayColorSettings color, float size)
-  {
-    List<OverlayTextRun> runs = new();
-    for (int i = 0; i < JudgementRow.Length; i++)
-    {
-      if (i > 0)
-        runs.Add(Literal(" ", color, size));
-      (string key, string hex) = JudgementRow[i];
-      runs.Add(Run(key, hex == null ? color.Clone() : OverlayColorSettings.Custom(hex, color.Alpha), size));
-    }
-    return runs;
-  }
-
-  public static OverlayTextRun Run(string key, OverlayColorSettings color, float size)
-  {
-    OverlayTextRun run = OverlayTextRun.ValueRun(key, color.Clone());
-    run.Size = size;
-    return run;
-  }
-
-  private static OverlayTextRun Literal(string text, OverlayColorSettings color, float size)
-  {
-    OverlayTextRun run = OverlayTextRun.Literal(text, color.Clone());
-    run.Size = size;
-    return run;
-  }
-
-  /// <summary>Rewrites 1.1.0 texts: split values become their parts, and lost units come back as text.</summary>
-  public static void MigrateFormulas(List<OverlayLayoutSettings> layouts)
-  {
-    if (layouts == null)
-      return;
-    foreach (OverlayLayoutSettings layout in layouts)
-    {
-      List<OverlayTextRun> runs = layout?.Text?.Runs;
-      if (runs == null)
-        continue;
-      List<OverlayTextRun> rewritten = new(runs.Count);
-      foreach (OverlayTextRun run in runs)
-      {
-        if (run == null)
-          continue;
-        OverlayColorSettings color = run.Color ?? OverlayColorSettings.Custom("#FFFFFF");
-        switch (run.IsValue ? run.Value : null)
-        {
-          case "progress":
-            rewritten.AddRange(Progress(color, run.Size));
-            break;
-          case "time":
-            rewritten.AddRange(Time(color, run.Size));
-            break;
-          case "judgements":
-            rewritten.AddRange(Judgements(color, run.Size));
-            break;
-          case string key when PercentValues.Contains(key):
-            rewritten.Add(run);
-            rewritten.Add(Literal("%", color, run.Size));
-            break;
-          default:
-            rewritten.Add(run);
-            break;
-        }
-      }
-      layout.Text.Runs = rewritten;
-    }
-  }
-
-  /// <summary>
-  /// Before animation could be turned on per value, every combo grew on each
-  /// hit, even inside a calculation. Those values keep doing so; nothing else
-  /// starts moving.
-  /// </summary>
-  public static void AnimateCombos(List<OverlayLayoutSettings> layouts)
-  {
-    if (layouts == null)
-      return;
-    foreach (OverlayLayoutSettings layout in layouts)
-    {
-      List<OverlayTextRun> runs = layout?.Text?.Runs;
-      if (runs == null)
-        continue;
-      foreach (OverlayTextRun run in runs)
-        if (run != null && run.IsValue && OverlayFormula.Parse(run.Value).Mask.Contains(OverlayValueId.Combo))
-          run.Animate = true;
-    }
-  }
-
-  public static void Migrate(List<OverlayLayoutSettings> layouts)
-  {
-    if (layouts == null)
-      return;
-    for (int i = 0; i < layouts.Count; i++)
-    {
-      OverlayLayoutSettings layout = layouts[i];
-      if (layout == null)
-        continue;
-      string template = string.IsNullOrEmpty(layout.TemplateId) ? layout.Id : layout.TemplateId;
-      if (
-        template == OverlayElementDefaults.ComboTitleId
-        || !OverlayElementDefaults.TryGet(template, out OverlayDefaultElement element)
-        || element.IsShape
-      )
-        continue;
-      bool copy = layout.Id != template;
-      layout.TemplateId = OverlayElementKinds.Text;
-      layout.Text = new OverlayTextSettings { Runs = element.CreateRuns() };
-      // Copies were placed when added, so they never used a built-in position.
-      layout.DefaultPlacement = copy ? string.Empty : template;
-      layout.PendingGroup = string.Empty;
-      if (template == OverlayElementDefaults.ComboId)
-      {
-        layouts.Insert(++i, ComboTitleFor(layout, copy));
-        if (layout.Customized)
-          layout.PendingGroup = layout.Id;
-        // Both halves are measured in their built-in arrangement first.
-        layout.DefaultPlacement = template;
-        continue;
-      }
-      if (layout.Customized)
-        layout.Scale *= element.BaseScale;
-    }
-    OverlayElementDefaults.AddMissing(layouts);
-  }
-
-  /// <summary>
-  /// The first progress bar, one bordered shape of JRP's prefab size, becomes
-  /// JRP's three pieces as they show. Each piece still as it came is
-  /// replaced; a changed one is left as it is. The new track follows whether
-  /// the bar is shown.
-  /// </summary>
-  public static void UpgradeProgressBar(List<OverlayLayoutSettings> layouts)
-  {
-    if (layouts == null)
-      return;
-    int edgeIndex = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressBarId);
-    if (edgeIndex < 0)
-      return;
-    OverlayLayoutSettings edge = layouts[edgeIndex];
-    OverlayShapeSettings old = edge.Shape;
-    if (
-      old != null
-      && old.StrokeWidth == 2
-      && old.Width == 642
-      && old.Height == 18
-      && string.IsNullOrEmpty(old.WidthFormula)
-    )
-      edge.Shape = OverlayElementDefaults.ProgressEdge();
-    int fillIndex = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressFillId);
-    OverlayShapeSettings fill = fillIndex >= 0 ? layouts[fillIndex].Shape : null;
-    if (fill != null && fill.Height == 14 && fill.WidthFormula == "{progress-current}*6.38")
-    {
-      OverlayColorSettings color = fill.Fill;
-      layouts[fillIndex].Shape = OverlayElementDefaults.ProgressFill();
-      // A color picked by hand stays; the first purple becomes the highlight.
-      if (color != null && !color.Highlight && !string.Equals(color.Hex, "#EBCDF9", StringComparison.OrdinalIgnoreCase))
-        layouts[fillIndex].Shape.Fill = color;
-    }
-    if (OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressTrackId) >= 0)
-      return;
-    OverlayElementDefaults.TryGet(OverlayElementDefaults.ProgressTrackId, out OverlayDefaultElement track);
-    OverlayLayoutSettings created = OverlayElementDefaults.Create(track);
-    created.Enabled = edge.Enabled;
-    layouts.Insert(edgeIndex + 1, created);
-  }
-
-  private static OverlayLayoutSettings ComboTitleFor(OverlayLayoutSettings combo, bool copy)
-  {
-    OverlayElementDefaults.TryGet(OverlayElementDefaults.ComboTitleId, out OverlayDefaultElement title);
-    OverlayLayoutSettings settings = OverlayElementDefaults.Create(title);
-    settings.Id = copy ? combo.Id + "/title" : OverlayElementDefaults.ComboTitleId;
-    settings.Enabled = combo.Enabled;
-    if (combo.Customized)
-    {
-      settings.CopyPlacementFrom(combo);
-      settings.PendingGroup = combo.Id;
-    }
-    return settings;
-  }
 }

@@ -1,8 +1,10 @@
 using System;
 using System.IO;
 using System.Xml.Serialization;
+using Element.Application.Settings;
 using Element.Configuration;
 using Element.Domain.Editor;
+using Element.Domain.Input;
 using Element.Domain.Judgement;
 
 namespace Element.Tests;
@@ -16,6 +18,24 @@ internal static class GameplayTweaksTests
     HitTextHideSyncTests.Run();
     Rotations();
     Persistence();
+    ChatterWindowFollowsTheFilter();
+  }
+
+  // The saved window and the filter that uses it keep separate copies of these limits.
+  private static void ChatterWindowFollowsTheFilter()
+  {
+    Check(
+      ChatterBlockerOptions.MinimumWindowMs == ChatterFilter.MinimumWindowMs
+        && ChatterBlockerOptions.MaximumWindowMs == ChatterFilter.MaximumWindowMs
+        && ChatterBlockerOptions.DefaultWindowMs == ChatterFilter.DefaultWindowMs
+        && ChatterBlockerOptions.KeyCount == ChatterFilter.KeyCount,
+      "the saved chatter window has the filter's limits"
+    );
+    foreach (int window in new[] { int.MinValue, 0, 10, 45, 500, 501, int.MaxValue })
+      Check(
+        ChatterBlockerOptions.ClampWindow(window) == ChatterFilter.ClampWindow(window),
+        "the saved chatter window is clamped as the filter clamps it"
+      );
   }
 
   private static void Judgements()
@@ -84,23 +104,23 @@ internal static class GameplayTweaksTests
         "<JudgementVisualOptions><HidePerfect>" + (hide ? "true" : "false") + "</HidePerfect></JudgementVisualOptions>"
       );
       JudgementVisualOptions migrated = (JudgementVisualOptions)serializer.Deserialize(old);
-      migrated.Normalize();
+      SettingsMigrator.MigrateJudgement(migrated);
       Check(
         migrated.Version == 1 && migrated.HidePerfect == hide && migrated.HideXPerfect == hide,
         "old combined Perfect visibility migrates to both the signed pair and XPerfect"
       );
       migrated.HideXPerfect = !hide;
-      migrated.Normalize();
+      SettingsMigrator.MigrateJudgement(migrated);
       Check(migrated.HideXPerfect == !hide, "repeated migration preserves an independent XPerfect choice");
 
       using StringWriter writer = new();
       serializer.Serialize(writer, migrated);
       using StringReader current = new(writer.ToString());
       JudgementVisualOptions restored = (JudgementVisualOptions)serializer.Deserialize(current);
-      restored.Normalize();
+      SettingsMigrator.MigrateJudgement(restored);
       Check(
         restored.HidePerfect == hide && restored.HideXPerfect == !hide,
-        "different Perfect and XPerfect visibility survives XML and normalization"
+        "different Perfect and XPerfect visibility survives XML and migration"
       );
     }
     using StringReader oldGameplay = new(
@@ -108,10 +128,10 @@ internal static class GameplayTweaksTests
     );
     GameplayTweaksSettings oldSettings = (GameplayTweaksSettings)
       new XmlSerializer(typeof(GameplayTweaksSettings)).Deserialize(oldGameplay);
-    oldSettings.Normalize();
+    SettingsMigrator.MigrateGameplay(oldSettings);
     Check(
       !oldSettings.Judgement.HidePerfect && !oldSettings.Judgement.HideXPerfect,
-      "normalizing old gameplay settings performs the nested judgement migration"
+      "migrating old gameplay settings performs the nested judgement migration"
     );
   }
 
@@ -235,13 +255,13 @@ internal static class GameplayTweaksTests
     // untouched old default moves to the new one; a chosen value stays.
     ElementSettings old = new() { SettingsVersion = 7 };
     old.Gameplay.Chatter.WindowMs = 20;
-    old.Migrate();
+    SettingsMigrator.Migrate(old);
     ElementSettings chosen = new() { SettingsVersion = 7 };
     chosen.Gameplay.Chatter.WindowMs = 45;
-    chosen.Migrate();
+    SettingsMigrator.Migrate(chosen);
     ElementSettings current = new() { SettingsVersion = ElementSettings.CurrentSettingsVersion };
     current.Gameplay.Chatter.WindowMs = 20;
-    current.Migrate();
+    SettingsMigrator.Migrate(current);
     Check(
       old.Gameplay.Chatter.WindowMs == 100
         && chosen.Gameplay.Chatter.WindowMs == 45

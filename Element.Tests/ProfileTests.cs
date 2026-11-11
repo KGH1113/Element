@@ -5,11 +5,13 @@ using System.Text;
 using System.Xml.Serialization;
 using Element.Application.Files;
 using Element.Application.Profiles;
+using Element.Application.Settings;
 using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Configuration.Profiles;
 using Element.Domain.Input;
 using Element.Infrastructure.Profiles;
+using Element.Infrastructure.Storage;
 
 namespace Element.Tests;
 
@@ -172,7 +174,7 @@ internal static class ProfileTests
     new XmlSerializer(typeof(ElementSettings)).Serialize(file, settings);
     file.Position = 0;
     ElementSettings loaded = SettingsXml.Read<ElementSettings>(file);
-    loaded.Migrate();
+    SettingsMigrator.Migrate(loaded);
     ProfileLibrary reloaded = new(loaded, "Default");
     Check(reloaded.Profiles.Count == 2 && reloaded.Active.Name == "Other", "profiles and the one in use load back");
     Check(reloaded.Switch(reloaded.Profiles[0].Id), "a loaded profile switches");
@@ -258,13 +260,13 @@ internal static class ProfileTests
     {
       string large = Path.Combine(directory, "large." + ProfileFile.Extension);
       using (FileStream file = File.Create(large))
-        file.SetLength(ProfileFileCodec.MaximumBytes + 1);
+        file.SetLength(ProfileFileStore.MaximumBytes + 1);
       Check(
-        ProfileFileCodec.ReadFile(large).Problem == ProfileFileProblem.TooLarge,
+        new ProfileFileStore().Read(large).Problem == ProfileFileProblem.TooLarge,
         "a huge file is not read into memory"
       );
       Check(
-        ProfileFileCodec.ReadFile(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
+        new ProfileFileStore().Read(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
         "a missing file reports a read failure"
       );
     }
@@ -390,6 +392,7 @@ internal static class ProfileTests
       ProfileService service = new(
         new ProfileLibrary(settings, "Default"),
         dialogs,
+        new ProfileFileStore(),
         () =>
         {
           saves++;
@@ -458,7 +461,7 @@ internal static class ProfileTests
         "a file window that cannot open is reported"
       );
 
-      ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, "", null);
+      ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, null, "", null);
       Check(
         !noFiles.FilesSupported && noFiles.Import("Import").Problem == ProfileProblem.DialogUnavailable,
         "no file windows, no import"
@@ -514,7 +517,7 @@ internal static class ProfileTests
   private static ElementSettings Fresh()
   {
     ElementSettings settings = new();
-    settings.Migrate();
+    SettingsMigrator.Migrate(settings);
     settings.Gameplay.Normalize();
     settings.Effects.Normalize();
     return settings;

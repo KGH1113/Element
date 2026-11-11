@@ -665,7 +665,7 @@ namespace Element.Editor
       {
         new OverlayLayoutSettings { Id = "judgement", Customized = true, Text = new OverlayTextSettings() },
       };
-      layouts[0].Text.Runs.AddRange(OverlayElementMigration.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
+      layouts[0].Text.Runs.AddRange(OverlayDefaultRuns.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
       var serializer = new System.Xml.Serialization.XmlSerializer(typeof(List<OverlayLayoutSettings>));
       using (var file = new MemoryStream())
       {

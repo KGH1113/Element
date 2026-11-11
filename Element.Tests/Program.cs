@@ -41,6 +41,7 @@ internal static class Program
       Run("open editors follow live values without taking the canvas's changes", LiveValueTests.Run);
       Run("an OrbitRender video shows FPS as -", StatusValueTests.Run);
       Run("overlay elements: values, migration, text editing and shape geometry", OverlayElementTests.Run);
+      Run("judgment counts keep their colors", JudgementColorTests.Run);
       Run("overlay gradients: colors, geometry, edits and saving", OverlayGradientTests.Run);
       Run("values animate by their own switch, and only when what they show changes", ValueAnimationTests.Run);
       Run("values other mods add: kept while missing, back on register, past one mask word", ValueExtensionTests.Run);

@@ -1,6 +1,7 @@
 using System;
 using Element.Configuration;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -12,7 +13,7 @@ namespace Element.Presentation.Layout;
 /// Which point of the element stays put when it changes size: the nine-point
 /// picker, Auto, and a line saying what the choice does.
 /// </summary>
-internal sealed class OverlayGrowPopover
+internal sealed class OverlayGrowPopover : IPopover
 {
   private const float Width = 312,
     Padding = 14,
@@ -61,15 +62,9 @@ internal sealed class OverlayGrowPopover
   public void Show(Rect anchor, float viewWidth, float viewHeight)
   {
     Root.gameObject.SetActive(true);
-    float y = anchor.yMax + 10;
-    if (y + Height > viewHeight - 8)
-      y = anchor.y - 10 - Height;
-    SettingsUiFactory.Place(
+    PopoverPlacement.Place(
       Root,
-      Mathf.Clamp(anchor.center.x - Width * .5f, 8, Mathf.Max(8, viewWidth - Width - 8)),
-      Mathf.Clamp(y, 8, Mathf.Max(8, viewHeight - Height - 8)),
-      Width,
-      Height
+      PopoverPlacement.Under(anchor, anchor.center.x - Width * .5f, Width, Height, 10, viewWidth, viewHeight)
     );
     Root.SetAsLastSibling();
   }
@@ -83,5 +78,10 @@ internal sealed class OverlayGrowPopover
       Root.gameObject.SetActive(false);
   }
 
-  public bool Contains(Vector2 screen) => OverlayEditorUi.Contains(Root, screen);
+  public bool IsTyping => false;
+
+  /// <summary>The button that opens it, when its owner says so.</summary>
+  public RectTransform Anchor { get; set; }
+
+  public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 }

@@ -13,6 +13,7 @@ using Element.Presentation.Overlay.Combo;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Judgement;
 using Element.Presentation.Overlay.Mods;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Status;
 using Element.Presentation.Overlay.TimingScale;

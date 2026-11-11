@@ -6,6 +6,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -66,7 +67,7 @@ internal sealed class TextColor
   /// <summary>How the keypad reads and writes the picker's opacity.</summary>
   public OverlayFormulaSlot OpacitySlot { get; }
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _colorButton = new OverlayBarButton(
       ui,
       bar,

@@ -47,6 +47,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Widgets;
 
 namespace Element.Editor
 {
@@ -489,7 +490,7 @@ namespace Element.Editor
         "the picker carries the opacity as a number like W and H");
       RectTransform plane = Field<RectTransform>(picker, "_planeRect");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
-      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
+      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
       Call(shapes, "Render");
       pickerRect = ScreenRectOf(picker.Root);
       Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_hue").transform),
@@ -560,7 +561,7 @@ namespace Element.Editor
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its own popover, on screen");
       Assert(ScreenRectOf(grow.Root).yMax <= ScreenRectOf(shapeGrow.Root).yMin, "the grow popover hangs under its button");
       Call(Grow(shapes), "Pick", OverlayGrowth.TopLeft);
-      Assert(Field<SettingsCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
+      Assert(Field<UiCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
       Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
       SaveFrame(camera, texture, canvases, name + "-shape-grow");
       Call(shapes, "CloseEditing");
@@ -670,7 +671,7 @@ namespace Element.Editor
     private static void CheckShapeLayout(OverlayShapeEditor shapes, int width, int height)
     {
       GameObject root = Field<OverlayEditorFrame>(shapes, "_screen").Root;
-      foreach (RectTransform rect in root.GetComponentsInChildren<SettingsCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
+      foreach (RectTransform rect in root.GetComponentsInChildren<UiCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
       {
         if (rect.name == "Dragged value" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
           continue;
@@ -900,7 +901,7 @@ namespace Element.Editor
       Assert(hand.TemplateId == OverlayElementKinds.HandKeyViewer && Selection(editor).Selected == IndexOf(editor, hand),
         "a key viewer is added at once, as a hand viewer");
       Call(editor, "UpdateFrames");
-      SettingsSegmentedControl kind = Field<SettingsSegmentedControl>(Kind<KeyViewerKind>(editor), "_kindControl");
+      UiSegmentedControl kind = Field<UiSegmentedControl>(Kind<KeyViewerKind>(editor), "_kindControl");
       Assert(kind.Selected == 0, "key viewer settings show hand selected");
       kind.Select(1, true);
       IOverlayLayoutTarget foot = viewers.Targets.Last();
@@ -1012,7 +1013,7 @@ namespace Element.Editor
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
       Assert(screen.NoticeText.Length > 0, "turning it on says what it does");
-      SettingsSwitchMotion animateThumb = Field<SettingsSwitchMotion>(animateButton, "_thumbMotion");
+      UiSwitchMotion animateThumb = Field<UiSwitchMotion>(animateButton, "_thumbMotion");
       Assert(Field<float>(animateThumb, "_target") > 12, "the switch slides over to on");
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
@@ -1153,7 +1154,7 @@ namespace Element.Editor
       Assert(picker.Visible && colorButton.Active && picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy
         && Mathf.Abs(pickerRect.xMax - ScreenRectOf(dock.Keypad.Root).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
         && InsideScreen(pickerRect), "the color picker opens right above the keypad: " + pickerRect);
-      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
+      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
       Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
       picker.Commit();
       SaveFrame(camera, texture, canvases, name + "-text-color");
@@ -1182,7 +1183,7 @@ namespace Element.Editor
       OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(text), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)), "the grow point opens its own popover, on screen");
       Call(Grow(text), "Pick", OverlayGrowth.Right);
-      Assert(Field<SettingsCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
+      Assert(Field<UiCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
       SaveFrame(camera, texture, canvases, name + "-text-grow");
       Call(text, "ClosePopovers");
 
@@ -1241,7 +1242,7 @@ namespace Element.Editor
       Call(editor, "ToggleColor");
       OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
       SettingsColorPicker controls = Field<SettingsColorPicker>(popover, "_picker");
-      Assert(popover.Visible && !Field<SettingsSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
+      Assert(popover.Visible && !Field<UiSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
         "the highlight color itself has no Highlight/Custom choice");
       TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
       string before = settings.HighlightColor;
@@ -1572,7 +1573,7 @@ namespace Element.Editor
     private static void CheckChatterBlocking(SettingsPanel panel, ElementSettings settings, int width)
     {
       ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
-      SettingsValueRow windowRow = Field<SettingsValueRow>(Page(panel, "_chatter"), "_chatterWindow");
+      UiValueRow windowRow = Field<UiValueRow>(Page(panel, "_chatter"), "_chatterWindow");
       Slider window = windowRow.Slider;
       Button toggle = Field<Button>(Page(panel, "_chatter"), "_chatterSwitch");
       Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
@@ -1700,10 +1701,10 @@ namespace Element.Editor
         cards[0].onClick.Invoke();
         Assert(overlayOpened && !root.activeSelf, "Overlay card hands off directly to overlay editor");
         root.SetActive(true);
-        Assert(Page(panel, "_tweaks").Root.GetComponentsInChildren<SettingsSwitchMotion>(true).Length ==
+        Assert(Page(panel, "_tweaks").Root.GetComponentsInChildren<UiSwitchMotion>(true).Length ==
           (UnityEngine.Application.platform == RuntimePlatform.OSXEditor || UnityEngine.Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
           "Tweaks contains trackpad only on macOS");
-        Assert(Page(panel, "_general").Root.GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 3
+        Assert(Page(panel, "_general").Root.GetComponentsInChildren<UiSwitchMotion>(true).Length == 3
           && Field<SettingsShortcutField>(Page(panel, "_general"), "_settingsShortcut").Capture.transform.IsChildOf(Page(panel, "_general").Root),
           "General contains shortcut, motion, ElementNote auto open and automatic update preferences");
         Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
@@ -1752,8 +1753,8 @@ namespace Element.Editor
           foreach (TextMeshProUGUI text in copy.GetComponentsInChildren<TextMeshProUGUI>())
             Assert(!text.isTextTruncated, "switch copy fits intrinsic text height");
         }
-        SettingsUiFactory ui = Field<SettingsUiFactory>(panel, "_ui");
-        Assert(Field<Sprite>(Field<SettingsUiFactory>(Page(panel, "_effects"), "_galleryUi"), "_rounded") == Field<Sprite>(ui, "_rounded"),
+        UiFactory ui = Field<UiFactory>(panel, "_ui");
+        Assert(Field<Sprite>(Field<UiFactory>(Page(panel, "_effects"), "_galleryUi"), "_rounded") == Field<Sprite>(ui, "_rounded"),
           "a rebuilt preset gallery shares the window's rounded sprite instead of making its own");
         foreach (string sample in new[] { "#000000", "#FFFFFF", "#0000FF", "#FF0000", "#BA712B" })
         {
@@ -1766,7 +1767,7 @@ namespace Element.Editor
         }
         UiTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
         if (name == "editor-editing-en-720")
-          Field<SettingsSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons[1].onClick.Invoke();
+          Field<UiSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons[1].onClick.Invoke();
         if (name.StartsWith("preset-shortcut"))
           ShowPresetShortcut(panel, settings, name.EndsWith("narrow"));
         // Force layout after checks; colors must be rendered using the same live components.
@@ -1815,7 +1816,7 @@ namespace Element.Editor
       name.text = "Fixture calm";
       options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
       RemovedEffects expected = Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").Effects;
-      SettingsValueRow zoom = Field<SettingsValueRow>(Page(panel, "_presetEditor"), "_cameraZoom");
+      UiValueRow zoom = Field<UiValueRow>(Page(panel, "_presetEditor"), "_cameraZoom");
       Assert((expected & RemovedEffects.CameraMotion) != 0 && zoom.Row.gameObject.activeSelf && zoom.Field.interactable
         && zoom.Field.text == "250", "removing camera movement offers its zoom, starting at 250%");
       RectTransform zoomRect = zoom.Row, cameraRect = (RectTransform)options[0].transform;
@@ -1893,7 +1894,7 @@ namespace Element.Editor
 
     private static void CheckEditorSections(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
-      var tabs = Field<SettingsSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons;
+      var tabs = Field<UiSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons;
       RectTransform selection = Field<RectTransform>(Page(panel, "_editorTweaks"), "_selectionPane");
       RectTransform editing = Field<RectTransform>(Page(panel, "_editorTweaks"), "_editingPane");
       Assert(selection.gameObject.activeSelf && !editing.gameObject.activeSelf,
@@ -1902,7 +1903,7 @@ namespace Element.Editor
       Assert(!selection.gameObject.activeSelf && editing.gameObject.activeSelf, "editor section navigation swaps its suboptions");
       var editor = settings.Gameplay.Editor;
       var rotation = Field<TMP_InputField>(Page(panel, "_editorTweaks"), "_rotationInput");
-      editor.FineRotation = false; Field<SettingsUiFactory>(panel, "_ui").RefreshTheme();
+      editor.FineRotation = false; Field<UiFactory>(panel, "_ui").RefreshTheme();
       Assert(!rotation.interactable, "rotation step is disabled when fine rotation is off");
       Field<List<Button>>(Page(panel, "_editorTweaks"), "_editingOptions")[0].onClick.Invoke();
       Assert(editor.FineRotation && rotation.interactable, "enabling fine rotation activates its nested step control");
@@ -1953,8 +1954,8 @@ namespace Element.Editor
       var enabled = Field<Button>(Page(panel, "_planets"), "_planetEnabled");
       var sources = Field<List<Button>>(Page(panel, "_planets"), "_planetSourceButtons");
       var colors = Field<List<Button>>(Page(panel, "_planets"), "_planetColorButtons");
-      var tabs = Field<SettingsSegmentedControl>(Page(panel, "_planets"), "_planetTabs").Buttons;
-      var ui = Field<SettingsUiFactory>(panel, "_ui");
+      var tabs = Field<UiSegmentedControl>(Page(panel, "_planets"), "_planetTabs").Buttons;
+      var ui = Field<UiFactory>(panel, "_ui");
       var image = Field<RawImage>(Page(panel, "_planets"), "_planetImage");
       Assert(preview.Calls > 0 && preview.Index == 0 && ReferenceEquals(preview.Profile, settings.Gameplay.Planets.Red),
         "opening Planets immediately requests the Fire profile from the injected game renderer");
@@ -1973,7 +1974,7 @@ namespace Element.Editor
         "switching Body to map colors immediately reaches the preview renderer");
       colors[0].onClick.Invoke();
       var picker = Field<SettingsColorPicker>(Page(panel, "_planets"), "_planetPicker");
-      var shade = Field<SettingsPopoverShade>(panel, "_shade");
+      var shade = Field<UiPopoverShade>(panel, "_shade");
       Assert(picker.Visible && shade.Visible, "planet color opens an anchored picker with a dismiss backdrop");
       before = preview.Calls;
       Field<TMP_InputField>(picker, "_opacity").text = "50";
@@ -2334,7 +2335,7 @@ namespace Element.Editor
       var pointer = new PointerEventData(eventRoot.GetComponent<EventSystem>());
       Button back = Field<Button>(panel, "_back"), close = Field<Button>(panel, "_close");
       var icon = back.GetComponentInChildren<UiIcon>();
-      var feedback = back.GetComponent<SettingsIconInteraction>();
+      var feedback = back.GetComponent<UiIconInteraction>();
       feedback.OnPointerEnter(pointer);
       Assert(icon.color == UiPalette.SoftAccent && back.targetGraphic.color.a == 0,
         "borderless back glyph gains the soft highlight on pointer hover");
@@ -2499,7 +2500,7 @@ namespace Element.Editor
       var texture = new RenderTexture(640, 280, 24); camera.targetTexture = texture;
       Canvas canvas = root.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-      var ui = new SettingsUiFactory(font);
+      var ui = new UiFactory(font);
       ui.Text("Input caret", root.transform, 28, 18, 300, 32, 20);
       string[] samples = { "Remove All", "한글 이름", "" };
       for (int i = 0; i < samples.Length; i++)
@@ -2509,7 +2510,7 @@ namespace Element.Editor
         TMP_Text text = input.textComponent;
         UIVertex[] vertices = GenerateNativeCaret(input, text.textInfo.characterCount - 1);
         RectTransform rect = ui.Rect("Native TMP caret", input.textViewport, 0, 0, input.textViewport.rect.width, input.textViewport.rect.height);
-        SettingsUiFactory.Stretch(rect, 0, 0, 0, 0);
+        UiFactory.Stretch(rect, 0, 0, 0, 0);
         rect.gameObject.AddComponent<CanvasRenderer>();
         var graphic = rect.gameObject.AddComponent<PreviewNativeCaret>();
         graphic.Vertices = vertices; graphic.raycastTarget = false;
@@ -2537,7 +2538,7 @@ namespace Element.Editor
       int changed = 0;
       var picker = new SettingsColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
-      SettingsUiFactory.Place(picker.Root, 112, 52, SettingsColorPicker.Width, picker.Height);
+      UiFactory.Place(picker.Root, 112, 52, SettingsColorPicker.Width, picker.Height);
       var opacity = Field<TMP_InputField>(picker, "_opacity");
       var hex = Field<TMP_InputField>(picker, "_hex");
       var plane = Field<SettingsColorPlane>(picker, "_plane");
@@ -2625,7 +2626,7 @@ namespace Element.Editor
     private static void CheckShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
     {
       var field = Field<SettingsShortcutField>(Page(panel, "_general"), "_settingsShortcut");
-      var capture = (SettingsButton)field.Capture;
+      var capture = (UiButton)field.Capture;
       var reset = field.Action;
       var frame = field.Frame;
       RectTransform section = Field<RectTransform>(Page(panel, "_general"), "_shortcutSection");
@@ -2674,7 +2675,7 @@ namespace Element.Editor
       capture.OnPointerExit(pointer); capture.SetPalette(capture.colors);
       Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.normalColor,
         "clicked selection cannot leave hover fill behind after pointer exit");
-      var focus = capture.GetComponent<SettingsFocusRing>();
+      var focus = capture.GetComponent<UiFocusRing>();
       focus.OnSelect(pointer);
       Assert(!Field<Outline>(focus, "_outline").enabled, "pointer selection does not leave a keyboard focus ring");
       focus.OnSelect(keyboard);
@@ -2716,7 +2717,7 @@ namespace Element.Editor
       EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
       other.ShortcutKey = KeyCode.Alpha1; other.ShortcutModifier = KeyCode.LeftAlt;
       Call(Page(panel, "_presetEditor"), "Edit", target);
-      var tabs = Field<SettingsSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons;
+      var tabs = Field<UiSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons;
       Assert(tabs.Count == 6, "the preset editor adds a Shortcut tab after the five effect groups");
       tabs[5].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
       RectTransform card = Field<RectTransform>(Page(panel, "_presetEditor"), "_presetShortcutCard");
@@ -2765,7 +2766,7 @@ namespace Element.Editor
     {
       EffectPreset draft = Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft");
       draft.ShortcutKey = KeyCode.Alpha1; draft.ShortcutModifier = KeyCode.LeftAlt;
-      Field<SettingsSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons[5].onClick.Invoke();
+      Field<UiSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons[5].onClick.Invoke();
       if (!conflict) return;
       settings.Effects.Presets[1].ShortcutKey = KeyCode.Alpha2; settings.Effects.Presets[1].ShortcutModifier = KeyCode.LeftAlt;
       var field = Field<SettingsShortcutField>(Page(panel, "_presetEditor"), "_presetShortcut");
@@ -2778,7 +2779,7 @@ namespace Element.Editor
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
       UiTheme.SetHighlight(new ElementSettings().HighlightColor);
-      var notice = new SettingsToast(font, () => true);
+      var notice = new UiToast(font, () => true);
       Assert(notice.Root == null, "the notice builds nothing until it is first shown");
       bool korean = language == SystemLanguage.Korean;
       notice.Show((korean ? "이펙트 프리셋: " : "Effect preset: ") + "Remove All",

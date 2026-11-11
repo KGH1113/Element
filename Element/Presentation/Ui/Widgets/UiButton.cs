@@ -2,11 +2,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 // Theme changes must not start a new hover tween on every slider event. Ordinary
 // pointer/focus transitions still use Button's normal animation between states.
-internal sealed class SettingsButton : Button
+internal sealed class UiButton : Button
 {
   private bool _hovered;
   private CanvasGroup _disabledGroup;

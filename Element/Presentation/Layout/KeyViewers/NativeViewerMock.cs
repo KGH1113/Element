@@ -1,7 +1,7 @@
 using Element.Application.KeyViewer;
 using Element.Domain.KeyViewer;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,7 +13,7 @@ namespace Element.Presentation.Layout.KeyViewers;
 // during ordinary gameplay.
 internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
 {
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private int _themeVersion = -1;
   private TextMeshProUGUI _statusText;
   private GameObject _statusPanel;
@@ -21,7 +21,7 @@ internal sealed class NativeViewerMock : MonoBehaviour, IKeyViewerSample
 
   public static RectTransform Create(string kind, Transform parent, TMP_FontAsset font, bool expanded)
   {
-    SettingsUiFactory ui = new(font);
+    UiFactory ui = new(font);
     float width = KeyViewerSampleSize.Width(kind);
     float height = KeyViewerSampleSize.ViewportHeight * .45f;
     RectTransform root = ui.Rect(

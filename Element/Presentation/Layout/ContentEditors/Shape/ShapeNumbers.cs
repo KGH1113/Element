@@ -6,8 +6,8 @@ using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using NVector2 = System.Numerics.Vector2;
@@ -53,7 +53,7 @@ internal sealed class ShapeNumbers
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  public OverlayBarButton BuildStrokeWidth(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildStrokeWidth(UiFactory ui, Transform bar, bool reduceMotion) =>
     _strokeWidth = new OverlayBarButton(
       ui,
       bar,

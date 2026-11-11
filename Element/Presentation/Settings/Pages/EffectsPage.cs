@@ -3,6 +3,7 @@ using Element.Configuration.Effects;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,7 +22,7 @@ internal sealed class EffectsPage : SettingsPage
   private readonly RectTransform _effectsHeading,
     _presetGallery;
   private readonly List<Button> _presetCards = new();
-  private SettingsUiFactory _galleryUi;
+  private UiFactory _galleryUi;
 
   public EffectsPage(ISettingsWindow window, PresetEditorPage editor)
     : base(window, "Effects")
@@ -95,10 +96,10 @@ internal sealed class EffectsPage : SettingsPage
     {
       GameObject child = _presetGallery.GetChild(i).gameObject;
       child.SetActive(false);
-      SettingsUiFactory.Destroy(child);
+      UiFactory.Destroy(child);
     }
     _galleryUi?.Dispose();
-    _galleryUi = new SettingsUiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
+    _galleryUi = new UiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
     _presetCards.Clear();
     foreach (EffectPreset item in Settings.Effects.Presets)
       _presetCards.Add(CreateCard(item));
@@ -139,7 +140,7 @@ internal sealed class EffectsPage : SettingsPage
     card.gameObject.name = "Preset: " + preset.Name;
     card.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     var title = _galleryUi.Text(preset.Name, card.transform, 18, 18, 220, 54, 20);
-    SettingsUiFactory.StretchWidth(title.rectTransform, 18, 56);
+    UiFactory.StretchWidth(title.rectTransform, 18, 56);
     title.alignment = TextAlignmentOptions.TopLeft;
     var count = _galleryUi.Text(
       EffectCatalog.Count(preset.Effects) + L("개 효과 제거", " effects removed"),
@@ -151,7 +152,7 @@ internal sealed class EffectsPage : SettingsPage
       13,
       UiPalette.Muted
     );
-    SettingsUiFactory.StretchWidth(count.rectTransform, 18, 18);
+    UiFactory.StretchWidth(count.rectTransform, 18, 18);
     if (preset.HasShortcut)
     {
       var shortcut = _galleryUi.Text(
@@ -166,8 +167,8 @@ internal sealed class EffectsPage : SettingsPage
       );
       shortcut.alignment = TextAlignmentOptions.MidlineRight;
       float shortcutWidth = Mathf.Min(shortcut.preferredWidth, 150);
-      SettingsUiFactory.StretchWidth(shortcut.rectTransform, 18, 18);
-      SettingsUiFactory.StretchWidth(count.rectTransform, 18, 18 + shortcutWidth + 12);
+      UiFactory.StretchWidth(shortcut.rectTransform, 18, 18);
+      UiFactory.StretchWidth(count.rectTransform, 18, 18 + shortcutWidth + 12);
     }
     bool selected = Settings.Effects.ActivePresetId == preset.Id;
     var state = _galleryUi.Text(
@@ -182,7 +183,7 @@ internal sealed class EffectsPage : SettingsPage
       13,
       selected ? Ui.SoftAccent : UiPalette.Muted
     );
-    SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
+    UiFactory.StretchWidth(state.rectTransform, 18, 18);
     _galleryUi.Bind(() => state.color = selected ? Ui.SoftAccent : UiPalette.Muted);
     if (selected)
     {
@@ -212,26 +213,26 @@ internal sealed class EffectsPage : SettingsPage
 
   public override void Layout(float width, float height)
   {
-    SettingsUiFactory.Place((RectTransform)_effectEnabled.transform, 0, 0, width, width < 480 ? 116 : 88);
+    UiFactory.Place((RectTransform)_effectEnabled.transform, 0, 0, width, width < 480 ? 116 : 88);
     float top = width < 480 ? 128 : 100;
-    SettingsUiFactory.Place(_effectsHeading, 0, top, width, 44);
-    SettingsUiFactory.Place((RectTransform)_newPreset.transform, width - 156, 0, 156, 44);
+    UiFactory.Place(_effectsHeading, 0, top, width, 44);
+    UiFactory.Place((RectTransform)_newPreset.transform, width - 156, 0, 156, 44);
     int columns =
       width >= 600 ? 3
       : width >= 440 ? 2
       : 1;
     float cardWidth = (width - (columns - 1) * 12) / columns;
     float galleryHeight = Mathf.Max(152, Mathf.CeilToInt(_presetCards.Count / (float)columns) * 152 - 12);
-    SettingsUiFactory.Place(_presetGallery, 0, top + 60, width, galleryHeight);
+    UiFactory.Place(_presetGallery, 0, top + 60, width, galleryHeight);
     for (int i = 0; i < _presetCards.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_presetCards[i].transform,
         i % columns * (cardWidth + 12),
         i / columns * 152,
         cardWidth,
         140
       );
-    SettingsUiFactory.Place(_effectHint.rectTransform, 0, top + galleryHeight + 72, width, 44);
+    UiFactory.Place(_effectHint.rectTransform, 0, top + galleryHeight + 72, width, 44);
     Root.sizeDelta = new Vector2(width, top + galleryHeight + 116);
   }
 }

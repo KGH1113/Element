@@ -6,6 +6,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -71,7 +72,7 @@ internal sealed class ShapeColors
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
 
-  public OverlayBarButton BuildFill(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildFill(UiFactory ui, Transform bar, bool reduceMotion) =>
     _fillButton = new OverlayBarButton(
       ui,
       bar,
@@ -82,7 +83,7 @@ internal sealed class ShapeColors
       swatch: true
     );
 
-  public OverlayBarButton BuildStroke(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildStroke(UiFactory ui, Transform bar, bool reduceMotion) =>
     _strokeButton = new OverlayBarButton(
       ui,
       bar,

@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,7 +21,7 @@ internal sealed class OverlayGrowPopover : IPopover
 
   private readonly OverlayGrowPicker _picker;
 
-  public OverlayGrowPopover(SettingsUiFactory ui, Transform parent, bool reduceMotion, Action<OverlayGrowth> picked)
+  public OverlayGrowPopover(UiFactory ui, Transform parent, bool reduceMotion, Action<OverlayGrowth> picked)
   {
     Image panel = ui.Panel("Grow popover", parent, 0, 0, Width, Height, new Color(.09f, .09f, .09f, .98f));
     panel.raycastTarget = true;
@@ -37,10 +37,10 @@ internal sealed class OverlayGrowPopover : IPopover
     );
     title.textWrappingMode = TextWrappingModes.NoWrap;
     _picker = new OverlayGrowPicker(ui, Root, reduceMotion, picked);
-    SettingsUiFactory.Place(_picker.Root, Padding, Padding + Title + 6, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
+    UiFactory.Place(_picker.Root, Padding, Padding + Title + 6, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
     float right = Padding + OverlayGrowPicker.Size + 14;
-    SettingsUiFactory.Place((RectTransform)_picker.Auto.transform, right, Padding + Title + 6, _picker.AutoWidth, 26);
-    SettingsUiFactory.Place(
+    UiFactory.Place((RectTransform)_picker.Auto.transform, right, Padding + Title + 6, _picker.AutoWidth, 26);
+    UiFactory.Place(
       _picker.Caption.rectTransform,
       right,
       Padding + Title + 38,

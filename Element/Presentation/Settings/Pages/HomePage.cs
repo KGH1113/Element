@@ -1,6 +1,7 @@
 using System;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -124,19 +125,19 @@ internal sealed class HomePage : SettingsPage
     Root.sizeDelta = new Vector2(width, homeHeight);
     for (int i = 0; i < _homeCards.Length; i++)
     {
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_homeCards[i].transform,
         stacked ? 0 : i % 2 * (cardWidth + 16),
         stacked ? i * (cardHeight + 12) : i / 2 * (cardHeight + 16),
         cardWidth,
         cardHeight
       );
-      SettingsUiFactory.Place(_cardIcons[i], 20, 20, 32, 32);
-      SettingsUiFactory.Place(_cardTitles[i].rectTransform, 68, 18, cardWidth - 88, 36);
-      SettingsUiFactory.Place(_cardDescriptions[i].rectTransform, 20, 66, cardWidth - 40, cardHeight - 126);
-      SettingsUiFactory.Place(_cardDividers[i], 20, cardHeight - 52, cardWidth - 40, 1);
-      SettingsUiFactory.Place(_cardActions[i].rectTransform, 20, cardHeight - 38, cardWidth - 66, 24);
-      SettingsUiFactory.Place(_cardArrows[i], cardWidth - 36, cardHeight - 38, 16, 24);
+      UiFactory.Place(_cardIcons[i], 20, 20, 32, 32);
+      UiFactory.Place(_cardTitles[i].rectTransform, 68, 18, cardWidth - 88, 36);
+      UiFactory.Place(_cardDescriptions[i].rectTransform, 20, 66, cardWidth - 40, cardHeight - 126);
+      UiFactory.Place(_cardDividers[i], 20, cardHeight - 52, cardWidth - 40, 1);
+      UiFactory.Place(_cardActions[i].rectTransform, 20, cardHeight - 38, cardWidth - 66, 24);
+      UiFactory.Place(_cardArrows[i], cardWidth - 36, cardHeight - 38, 16, 24);
       _homeCards[i].navigation = new Navigation
       {
         mode = Navigation.Mode.Explicit,

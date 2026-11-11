@@ -1,13 +1,13 @@
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>
 /// The sliced rounded-corner sprite behind every settings panel and button.
-/// Made once and shared by every <see cref="SettingsUiFactory"/>; it goes when
+/// Made once and shared by every <see cref="UiFactory"/>; it goes when
 /// the last one is disposed.
 /// </summary>
-internal static class SettingsRoundedSprite
+internal static class UiRoundedSprite
 {
   private const int Size = 40;
   private const float Radius = 16f;
@@ -29,15 +29,15 @@ internal static class SettingsRoundedSprite
     if (--s_users > 0)
       return;
     s_users = 0;
-    SettingsUiFactory.Destroy(s_sprite);
-    SettingsUiFactory.Destroy(s_texture);
+    UiFactory.Destroy(s_sprite);
+    UiFactory.Destroy(s_texture);
     s_sprite = null;
     s_texture = null;
   }
 
   private static void Create()
   {
-    SettingsUiFactory.Destroy(s_texture);
+    UiFactory.Destroy(s_texture);
     s_texture = new Texture2D(Size, Size, TextureFormat.RGBA32, false) { name = "Settings rounded corners" };
     Color[] pixels = new Color[Size * Size];
     for (int y = 0; y < Size; y++)

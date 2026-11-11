@@ -10,6 +10,7 @@ using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Migration;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -268,7 +269,7 @@ internal sealed class OverlayCanvasHost : IDisposable
     _elements.Clear();
     foreach (OverlayElementKind kind in _kinds)
       kind.Clear();
-    Settings.SettingsUiFactory.Destroy(Root);
+    UiFactory.Destroy(Root);
     Root = null;
   }
 }

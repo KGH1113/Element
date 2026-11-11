@@ -1,20 +1,19 @@
 using System;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Input;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Ui.Widgets;
 
 // Buttons of the full-screen editors, which float on a dim instead of
 // sitting on cards: light, see-through capsules over the dark.
-internal static class EditorCapsules
+internal static class UiCapsules
 {
   /// <summary>A see-through capsule button; <paramref name="flat"/> hides it until hovered.</summary>
   public static Button CapsuleButton(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     string name,
     string text,
@@ -28,9 +27,9 @@ internal static class EditorCapsules
     bool reduceMotion
   )
   {
-    SettingsCapsuleGraphic surface = ui.Capsule(name, parent, x, y, width, height, Color.white);
+    UiCapsuleGraphic surface = ui.Capsule(name, parent, x, y, width, height, Color.white);
     surface.raycastTarget = true;
-    SettingsButton button = surface.gameObject.AddComponent<SettingsButton>();
+    UiButton button = surface.gameObject.AddComponent<UiButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = surface;
     float rest = flat ? 0 : .07f;
@@ -66,14 +65,14 @@ internal static class EditorCapsules
       label.alignment = TextAlignmentOptions.Midline;
       label.textWrappingMode = TextWrappingModes.NoWrap;
       label.overflowMode = TextOverflowModes.Overflow;
-      SettingsUiFactory.Stretch(label.rectTransform, 0, 0, 0, 0);
+      UiFactory.Stretch(label.rectTransform, 0, 0, 0, 0);
     }
     return button;
   }
 
   /// <summary>A color dot in a ring, for opening a color picker.</summary>
-  public static SettingsCapsuleGraphic Swatch(
-    SettingsUiFactory ui,
+  public static UiCapsuleGraphic Swatch(
+    UiFactory ui,
     Transform parent,
     string name,
     float x,

@@ -3,7 +3,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -37,7 +37,7 @@ internal sealed class TextSize
 
   public OverlayBarButton Button => _sizeButton;
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _sizeButton = new OverlayBarButton(
       ui,
       bar,

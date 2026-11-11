@@ -11,9 +11,9 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -181,7 +181,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     if (_ownedEvents != null)
     {
       _ownedEvents.SetActive(false);
-      SettingsUiFactory.Destroy(_ownedEvents);
+      UiFactory.Destroy(_ownedEvents);
       _ownedEvents = null;
     }
     _session.Closing = false;
@@ -492,7 +492,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     canvas.sortingOrder = 32760;
     root.AddComponent<GraphicRaycaster>();
     Image blocker = _session.Ui.Panel("Block game clicks", root.transform, 0, 0, 0, 0, UnityEngine.Color.clear, false);
-    SettingsUiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
     blocker.raycastTarget = true;
     _guides.Build(_session.Ui, root.transform);
     _toolbar.Build(_commands);
@@ -693,9 +693,9 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     _session.Ui?.Dispose();
     InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
-      SettingsUiFactory.Destroy(_ownedEvents);
+      UiFactory.Destroy(_ownedEvents);
     if (_session.Root != null)
-      SettingsUiFactory.Destroy(_session.Root);
+      UiFactory.Destroy(_session.Root);
     _session.Root = null;
   }
 }

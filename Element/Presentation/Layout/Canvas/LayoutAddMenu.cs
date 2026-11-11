@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -76,7 +76,7 @@ internal sealed class LayoutAddMenu
 
   private Button AddRow(int index, AddMenuRow row)
   {
-    SettingsUiFactory ui = _menu.Ui;
+    UiFactory ui = _menu.Ui;
     Button button = _menu.AddRow(
       index,
       "Add " + row.Icon,

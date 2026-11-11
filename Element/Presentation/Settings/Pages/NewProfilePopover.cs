@@ -1,6 +1,8 @@
 using System;
 using Element.Configuration.Profiles;
+using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,20 +17,14 @@ internal sealed class NewProfilePopover
     NewProfilePadding = 14;
 
   private readonly RectTransform _window;
-  private readonly SettingsPopoverShade _shade;
+  private readonly UiPopoverShade _shade;
   private readonly RectTransform _newProfilePopover;
   private readonly TextMeshProUGUI _newProfileHint,
     _newProfileError;
   private readonly TMP_InputField _newProfileName;
   private readonly Button _createProfile;
 
-  public NewProfilePopover(
-    SettingsUiFactory ui,
-    RectTransform window,
-    SettingsPopoverShade shade,
-    Action nameChanged,
-    Action create
-  )
+  public NewProfilePopover(UiFactory ui, RectTransform window, UiPopoverShade shade, Action nameChanged, Action create)
   {
     _window = window;
     _shade = shade;
@@ -68,7 +64,7 @@ internal sealed class NewProfilePopover
       16,
       UiPalette.Muted
     );
-    SettingsUiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
     _newProfileName.placeholder = placeholder;
     placeholder.alignment = _newProfileName.textComponent.alignment;
     _newProfileName.onSubmit.AddListener(_ => create());
@@ -126,18 +122,18 @@ internal sealed class NewProfilePopover
     _shade.Layout();
     float width = Mathf.Min(NewProfileWidth, _window.rect.width - 20);
     float inner = width - NewProfilePadding * 2;
-    float hintHeight = SettingsUiFactory.TextHeight(_newProfileHint, inner, 20);
-    SettingsUiFactory.Place(_newProfileHint.rectTransform, NewProfilePadding, NewProfilePadding, inner, hintHeight);
+    float hintHeight = UiFactory.TextHeight(_newProfileHint, inner, 20);
+    UiFactory.Place(_newProfileHint.rectTransform, NewProfilePadding, NewProfilePadding, inner, hintHeight);
     float y = NewProfilePadding + hintHeight + 8;
-    SettingsUiFactory.Place((RectTransform)_newProfileName.transform, NewProfilePadding, y, inner - 96, 40);
-    SettingsUiFactory.Place((RectTransform)_createProfile.transform, width - NewProfilePadding - 88, y, 88, 40);
+    UiFactory.Place((RectTransform)_newProfileName.transform, NewProfilePadding, y, inner - 96, 40);
+    UiFactory.Place((RectTransform)_createProfile.transform, width - NewProfilePadding - 88, y, 88, 40);
     y += 40;
     bool hasError = _newProfileError.text.Length > 0;
     _newProfileError.gameObject.SetActive(hasError);
     if (hasError)
     {
-      float errorHeight = SettingsUiFactory.TextHeight(_newProfileError, inner, 20);
-      SettingsUiFactory.Place(_newProfileError.rectTransform, NewProfilePadding, y + 8, inner, errorHeight);
+      float errorHeight = UiFactory.TextHeight(_newProfileError, inner, 20);
+      UiFactory.Place(_newProfileError.rectTransform, NewProfilePadding, y + 8, inner, errorHeight);
       y += 8 + errorHeight;
     }
     float height = y + NewProfilePadding;
@@ -148,7 +144,7 @@ internal sealed class NewProfilePopover
       10,
       _window.rect.height - height - 10
     );
-    SettingsUiFactory.Place(_newProfilePopover, x, top, width, height);
+    UiFactory.Place(_newProfilePopover, x, top, width, height);
     _newProfilePopover.SetAsLastSibling();
   }
 }

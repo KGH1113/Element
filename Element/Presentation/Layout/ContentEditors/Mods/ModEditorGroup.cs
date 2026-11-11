@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -62,7 +62,7 @@ internal sealed class ModEditorGroup : ModEditorControl
       if (!shown)
         continue;
       child.Layout?.Invoke(child.WidthOverride ?? inner);
-      SettingsUiFactory.Place(child.Rect, Padding, y, child.WidthOverride ?? inner, child.Height);
+      UiFactory.Place(child.Rect, Padding, y, child.WidthOverride ?? inner, child.Height);
       y += child.Height + ModEditorPage.RowGap;
       any = true;
     }

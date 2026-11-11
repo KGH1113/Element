@@ -6,6 +6,7 @@ using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,7 +19,7 @@ namespace Element.Presentation.Settings;
 internal sealed partial class SettingsColorPicker : IDisposable
 {
   public const float Width = 288;
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly TextMeshProUGUI _title,
     _error;
   private readonly SettingsColorPlane _plane;
@@ -27,7 +28,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
   private readonly TMP_InputField _hex,
     _opacity;
   private readonly Image _swatch;
-  private readonly SettingsCapsuleGraphic _markerColor,
+  private readonly UiCapsuleGraphic _markerColor,
     _hueMarker;
   private readonly SettingsAlphaGraphic _alphaGraphic;
   private readonly Button _reset;
@@ -47,7 +48,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _sourceMode,
     _followsHighlight;
   private readonly RectTransform _planeRect;
-  private readonly SettingsSegmentedControl _source;
+  private readonly UiSegmentedControl _source;
   private readonly TextMeshProUGUI _opacityLabel;
   private readonly RectTransform _opacitySlot;
   private bool _externalOpacity;
@@ -109,14 +110,14 @@ internal sealed partial class SettingsColorPicker : IDisposable
 
   public SettingsColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion)
   {
-    _ui = new SettingsUiFactory(font) { ReduceMotion = reduceMotion };
+    _ui = new UiFactory(font) { ReduceMotion = reduceMotion };
     Image surface = _ui.Panel("Color picker", parent, 0, 0, Width, Height, new Color(.105f, .105f, .105f));
     surface.raycastTarget = true;
     _surface = surface;
     Root = surface.rectTransform;
     _title = _ui.Text("", Root, 16, 10, 208, 32, 16);
     _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, UiIconKind.WindowClose);
-    _source = new SettingsSegmentedControl(
+    _source = new UiSegmentedControl(
       _ui,
       Root,
       16,
@@ -140,7 +141,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _plane.targetGraphic = plane;
     UiCursor.Attach(plane.gameObject, UiCursorKind.Crosshair);
     RectTransform gradient = _ui.Rect("HSV gradient", plane.transform, 0, 0, 256, 156);
-    SettingsUiFactory.Stretch(gradient, 0, 0, 0, 0);
+    UiFactory.Stretch(gradient, 0, 0, 0, 0);
     _plane.Gradient = gradient.gameObject.AddComponent<SettingsGradientGraphic>();
     _plane.Gradient.raycastTarget = false;
     _plane.Marker = _ui.Capsule("Color position", plane.transform, 0, 0, 18, 18, Color.white).rectTransform;
@@ -171,7 +172,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     );
     _hue.fillRect.gameObject.SetActive(false);
     _hue.transform.Find("Track").gameObject.SetActive(false);
-    SettingsCapsuleGraphic spectrumMask = _ui.Capsule("Hue spectrum", _hue.transform, 10, 12, 256, 12, Color.white);
+    UiCapsuleGraphic spectrumMask = _ui.Capsule("Hue spectrum", _hue.transform, 10, 12, 256, 12, Color.white);
     spectrumMask.transform.SetSiblingIndex(2);
     spectrumMask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     RectTransform spectrum = _ui.Rect("Spectrum", spectrumMask.transform, 0, 0, 256, 12);
@@ -199,7 +200,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     );
     _alpha.fillRect.gameObject.SetActive(false);
     _alpha.transform.Find("Track").gameObject.SetActive(false);
-    SettingsCapsuleGraphic opacityMask = _ui.Capsule("Opacity track", _alpha.transform, 10, 12, 256, 12, Color.white);
+    UiCapsuleGraphic opacityMask = _ui.Capsule("Opacity track", _alpha.transform, 10, 12, 256, 12, Color.white);
     opacityMask.transform.SetSiblingIndex(2);
     opacityMask.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     RectTransform alphaGradient = _ui.Rect("Alpha checkerboard", opacityMask.transform, 0, 0, 256, 12);
@@ -207,12 +208,12 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _alphaGraphic.raycastTarget = false;
 
     _hex = _ui.Input("HEX color", "", Root, 16, 254, 176, HexChanged, _ => Commit(), 7);
-    SettingsUiFactory.Stretch(_hex.textViewport, 38, 4, 8, 4);
+    UiFactory.Stretch(_hex.textViewport, 38, 4, 8, 4);
     _hex.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     _swatch = _ui.Panel("Current color", _hex.transform, 12, 12, 16, 16, Color.white);
     _opacity = _ui.Input("Opacity percentage", "100", Root, 200, 294, 72, OpacityChanged, _ => Commit(), 3);
     _opacity.contentType = TMP_InputField.ContentType.IntegerNumber;
-    SettingsUiFactory.Stretch(_opacity.textViewport, 10, 4, 23, 4);
+    UiFactory.Stretch(_opacity.textViewport, 10, 4, 23, 4);
     _opacity.textComponent.alignment = TextAlignmentOptions.Right;
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     _opacity.textComponent.margin = new Vector4(0, 0, 2, 0);
@@ -223,7 +224,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _opacitySlot.gameObject.SetActive(false);
     _reset = _ui.Button(L("기본값", "Default"), Root, 200, 254, 72, 40, ResetColor);
     TextMeshProUGUI resetText = _reset.GetComponentInChildren<TextMeshProUGUI>();
-    SettingsUiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
+    UiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
     resetText.fontSize = 14;
     resetText.textWrappingMode = TextWrappingModes.NoWrap;
     _error = _ui.Text("", Root, 16, 297, 256, 16, 11, UiPalette.Error);
@@ -332,28 +333,28 @@ internal sealed partial class SettingsColorPicker : IDisposable
       LayoutColumn(custom);
       return;
     }
-    SettingsUiFactory.Place(_title.rectTransform, 16, 10, 208, 32);
-    SettingsUiFactory.Place((RectTransform)_close.transform, 236, 6, 40, 40);
-    SettingsUiFactory.Place(_source.Root, 16, 52, 256, 36);
+    UiFactory.Place(_title.rectTransform, 16, 10, 208, 32);
+    UiFactory.Place((RectTransform)_close.transform, 236, 6, 40, 40);
+    UiFactory.Place(_source.Root, 16, 52, 256, 36);
     if (custom)
     {
-      SettingsUiFactory.Place(_planeRect, 16, 52 + top, 256, 156);
-      SettingsUiFactory.Place((RectTransform)_hue.transform, 6, 214 + top, 276, 36);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, 6, 250 + top, 276, 36);
+      UiFactory.Place(_planeRect, 16, 52 + top, 256, 156);
+      UiFactory.Place((RectTransform)_hue.transform, 6, 214 + top, 276, 36);
+      UiFactory.Place((RectTransform)_alpha.transform, 6, 250 + top, 276, 36);
       float bottom = (_allowOpacity ? 294 : 254) + top;
       float hexWidth = _allowOpacity || _reset.gameObject.activeSelf ? 176 : 256;
-      SettingsUiFactory.Place((RectTransform)_hex.transform, 16, bottom, hexWidth, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, bottom, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, 200, bottom, 72, 40);
-      SettingsUiFactory.Place(_error.rectTransform, 16, bottom + 43, 256, 16);
+      UiFactory.Place((RectTransform)_hex.transform, 16, bottom, hexWidth, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, 200, bottom, 72, 40);
+      UiFactory.Place(_opacitySlot, 200, bottom, 72, 40);
+      UiFactory.Place(_error.rectTransform, 16, bottom + 43, 256, 16);
     }
     else
     {
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, 6, 52 + top, 276, 36);
-      SettingsUiFactory.Place(_opacityLabel.rectTransform, 16, 96 + top, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, 200, 96 + top, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, 200, 96 + top, 72, 40);
-      SettingsUiFactory.Place(_error.rectTransform, 16, 139 + top, 256, 16);
+      UiFactory.Place((RectTransform)_alpha.transform, 6, 52 + top, 276, 36);
+      UiFactory.Place(_opacityLabel.rectTransform, 16, 96 + top, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, 200, 96 + top, 72, 40);
+      UiFactory.Place(_opacitySlot, 200, 96 + top, 72, 40);
+      UiFactory.Place(_error.rectTransform, 16, 139 + top, 256, 16);
     }
     Resize();
   }
@@ -371,19 +372,19 @@ internal sealed partial class SettingsColorPicker : IDisposable
     float left = (_columnWidth - column) * .5f;
     LayoutGradient(left, column);
     float top = 0;
-    SettingsUiFactory.Place(_source.Root, left, top, column, 36);
+    UiFactory.Place(_source.Root, left, top, column, 36);
     if (custom)
     {
       const float square = 156;
       float y = top + 44 + square + 6;
-      SettingsUiFactory.Place(_planeRect, left, top + 44, column, square);
-      SettingsUiFactory.Place((RectTransform)_hue.transform, left - 10, y, column + 20, 36);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, y + 32, column + 20, 36);
-      SettingsUiFactory.Place(_error.rectTransform, left, y + 70, column, 14);
+      UiFactory.Place(_planeRect, left, top + 44, column, square);
+      UiFactory.Place((RectTransform)_hue.transform, left - 10, y, column + 20, 36);
+      UiFactory.Place((RectTransform)_alpha.transform, left - 10, y + 32, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, left, y + 70, column, 14);
       float bottom = Height - 40;
-      SettingsUiFactory.Place((RectTransform)_hex.transform, left, bottom, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, bottom, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, left + 184, bottom, 72, 40);
+      UiFactory.Place((RectTransform)_hex.transform, left, bottom, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, left + 184, bottom, 72, 40);
+      UiFactory.Place(_opacitySlot, left + 184, bottom, 72, 40);
     }
     else
     {
@@ -392,12 +393,12 @@ internal sealed partial class SettingsColorPicker : IDisposable
       _opacityLabel.text = IsGradient
         ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
         : L("불투명도", "Opacity");
-      SettingsUiFactory.Place(_opacityLabel.rectTransform, left, top + 44, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, left + 184, top + 44, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, left + 184, top + 44, 72, 40);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, left - 10, top + 92, column + 20, 36);
-      SettingsUiFactory.Place(_error.rectTransform, left, top + 128, column, 14);
-      SettingsUiFactory.Place(_highlightNote.rectTransform, left, top + 142, column, NoteHeight);
+      UiFactory.Place(_opacityLabel.rectTransform, left, top + 44, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, left + 184, top + 44, 72, 40);
+      UiFactory.Place(_opacitySlot, left + 184, top + 44, 72, 40);
+      UiFactory.Place((RectTransform)_alpha.transform, left - 10, top + 92, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, left, top + 128, column, 14);
+      UiFactory.Place(_highlightNote.rectTransform, left, top + 142, column, NoteHeight);
     }
     Resize();
   }
@@ -572,6 +573,6 @@ internal sealed partial class SettingsColorPicker : IDisposable
   public void Dispose()
   {
     _ui.Dispose();
-    SettingsUiFactory.Destroy(Root.gameObject);
+    UiFactory.Destroy(Root.gameObject);
   }
 }

@@ -5,6 +5,7 @@ using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -32,7 +33,7 @@ internal sealed class ModEditorPopovers : IDisposable
   private ModColorRequest _pickerFor;
   private ModPaintRequest _paintFor;
   private OverlayFontPopover _fontPopover;
-  private SettingsUiFactory _fontUi;
+  private UiFactory _fontUi;
   private ModFontRequest _fontFor;
 
   public ModEditorPopovers(
@@ -114,7 +115,7 @@ internal sealed class ModEditorPopovers : IDisposable
       return;
     if (_fontPopover == null)
     {
-      _fontUi = EditorUiFactory.Create(_font, _reduceMotion);
+      _fontUi = new UiFactory(_font, _reduceMotion);
       _fontPopover = new OverlayFontPopover(_fontUi, _screen.Frame, fonts, _reduceMotion(), PickFont);
       _fontPopover.Hidden = () => _fontFor = null;
       _stack.Add(_fontPopover);

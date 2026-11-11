@@ -5,14 +5,14 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>
 /// A labeled slider with a field for typing the exact whole number. The field
 /// applies on Enter or when focus leaves, so typing "1" on the way to "15" is
 /// never rejected. A number outside the range becomes the nearest end.
 /// </summary>
-internal sealed class SettingsValueRow
+internal sealed class UiValueRow
 {
   public const float Height = 92;
   private const float FieldWidth = 84;
@@ -26,8 +26,8 @@ internal sealed class SettingsValueRow
   public Slider Slider { get; }
   public TMP_InputField Field { get; }
 
-  public SettingsValueRow(
-    SettingsUiFactory ui,
+  public UiValueRow(
+    UiFactory ui,
     Transform parent,
     string name,
     string label,
@@ -68,7 +68,7 @@ internal sealed class SettingsValueRow
       maximum.ToString(CultureInfo.InvariantCulture).Length
     );
     Field.contentType = TMP_InputField.ContentType.IntegerNumber;
-    SettingsUiFactory.Stretch(Field.textViewport, 10, 4, 36, 4);
+    UiFactory.Stretch(Field.textViewport, 10, 4, 36, 4);
     Field.textComponent.alignment = TextAlignmentOptions.Right;
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     Field.textComponent.margin = new Vector4(0, 0, 2, 0);
@@ -93,9 +93,9 @@ internal sealed class SettingsValueRow
 
   public void Layout(float x, float y, float width)
   {
-    SettingsUiFactory.Place(Row, x, y, width, Height);
-    SettingsUiFactory.Place((RectTransform)Slider.transform, 8, 44, width - 16 - FieldWidth - 8, 36);
-    SettingsUiFactory.Place((RectTransform)Field.transform, width - 16 - FieldWidth, 42, FieldWidth, 40);
+    UiFactory.Place(Row, x, y, width, Height);
+    UiFactory.Place((RectTransform)Slider.transform, 8, 44, width - 16 - FieldWidth - 8, 36);
+    UiFactory.Place((RectTransform)Field.transform, width - 16 - FieldWidth, 42, FieldWidth, 40);
   }
 
   private void Slide(float value)

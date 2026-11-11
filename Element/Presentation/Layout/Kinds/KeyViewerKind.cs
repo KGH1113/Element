@@ -3,8 +3,8 @@ using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -19,7 +19,7 @@ internal sealed class KeyViewerKind : IElementKind
 {
   private const float BarWidth = 401;
   private readonly ILayoutEditing _editing;
-  private SettingsSegmentedControl _kindControl;
+  private UiSegmentedControl _kindControl;
   private LayoutElementBar _bar;
 
   public KeyViewerKind(ILayoutEditing editing) => _editing = editing;
@@ -98,7 +98,7 @@ internal sealed class KeyViewerKind : IElementKind
   {
     _bar = bar;
     RectTransform panel = bar.Begin(target, BarWidth);
-    _kindControl = new SettingsSegmentedControl(
+    _kindControl = new UiSegmentedControl(
       bar.Ui,
       panel,
       32,

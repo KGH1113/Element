@@ -1,9 +1,10 @@
 using System;
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using Element.Configuration.Overlay;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -61,7 +62,7 @@ internal sealed class OverlayEditorPicker
   }
 
   /// <summary>The opacity as a number; a click types it in the dock.</summary>
-  public void BuildOpacity(SettingsUiFactory ui, Action activate) =>
+  public void BuildOpacity(UiFactory ui, Action activate) =>
     Opacity = new OverlayOpacityField(ui, Picker, activate, _reduceMotion());
 
   /// <summary>The color picker opens right above the keypad, in its column.</summary>

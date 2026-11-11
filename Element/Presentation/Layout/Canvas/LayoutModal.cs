@@ -1,6 +1,6 @@
 using System;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -13,7 +13,7 @@ internal sealed class LayoutModal
 {
   private readonly LayoutSession _session;
   private GameObject _root;
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private int _width,
     _height;
   private Action _rebuild;
@@ -86,7 +86,7 @@ internal sealed class LayoutModal
     if (_root == null)
       return;
     _root.SetActive(false);
-    SettingsUiFactory.Destroy(_root);
+    UiFactory.Destroy(_root);
     _root = null;
     _rebuild = null;
     _ui?.Dispose();

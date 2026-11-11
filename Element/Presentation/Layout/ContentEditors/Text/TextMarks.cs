@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -21,7 +21,7 @@ internal sealed class TextMarks
   private readonly TextLayoutMap _map;
   private readonly List<Image> _selectionRects = new();
   private readonly List<Image> _pillRects = new();
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private Image _caret;
   private Image _dropCaret;
   private TextMeshProUGUI _placeholder;
@@ -35,7 +35,7 @@ internal sealed class TextMarks
   }
 
   /// <summary>The carets on the preview, built after it.</summary>
-  public void BuildCarets(SettingsUiFactory ui)
+  public void BuildCarets(UiFactory ui)
   {
     _ui = ui;
     _selectionRects.Clear();
@@ -49,7 +49,7 @@ internal sealed class TextMarks
   }
 
   /// <summary>The empty text's hint and its caret, over the controls.</summary>
-  public void BuildHint(SettingsUiFactory ui, RectTransform frame)
+  public void BuildHint(UiFactory ui, RectTransform frame)
   {
     _placeholder = ui.Text(
       L("텍스트를 입력하세요", "Type your text"),
@@ -184,8 +184,8 @@ internal sealed class TextMarks
     float width = Mathf.Ceil(_placeholder.GetPreferredValues(_placeholder.text).x) + 2;
     float x = (center.x / frameScale) - width * .5f,
       y = center.y / frameScale;
-    SettingsUiFactory.Place(_placeholder.rectTransform, x, y - 14, width, 28);
-    SettingsUiFactory.Place(_emptyCaret.rectTransform, x - 6, y - 11, 2, 22);
+    UiFactory.Place(_placeholder.rectTransform, x, y - 14, width, 28);
+    UiFactory.Place(_emptyCaret.rectTransform, x - 6, y - 11, 2, 22);
   }
 
   private static void Anchor(RectTransform rect)

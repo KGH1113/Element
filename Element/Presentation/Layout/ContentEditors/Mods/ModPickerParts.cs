@@ -1,12 +1,11 @@
 using System;
 using Element.Configuration;
 using Element.Configuration.Overlay;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -24,7 +23,7 @@ internal sealed class ModPickerParts
   private ModShortcutCapture _capture;
 
   private readonly ModEditorPage _page;
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly IModEditorHost _host;
   private readonly bool _reduceMotion;
 
@@ -48,7 +47,7 @@ internal sealed class ModPickerParts
       current.a = 1;
     TextMeshProUGUI hex = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     hex.textWrappingMode = TextWrappingModes.NoWrap;
-    SettingsCapsuleGraphic swatch = null;
+    UiCapsuleGraphic swatch = null;
     void Show()
     {
       Color opaque = current;
@@ -57,7 +56,7 @@ internal sealed class ModPickerParts
       hex.text = "#" + ColorUtility.ToHtmlStringRGB(current) + Percent(opacity ? current.a : 1);
     }
     Button button = null;
-    swatch = EditorCapsules.Swatch(
+    swatch = UiCapsules.Swatch(
       _ui,
       control.Rect,
       "Color " + label,
@@ -84,7 +83,7 @@ internal sealed class ModPickerParts
     );
     Show();
     control.Layout = width =>
-      SettingsUiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
+      UiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
     return _page.Add(control);
   }
 
@@ -96,7 +95,7 @@ internal sealed class ModPickerParts
     TextMeshProUGUI shown = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
-    SettingsCapsuleGraphic swatch = null;
+    UiCapsuleGraphic swatch = null;
     void Show()
     {
       Color opaque = current.ToColor(UiTheme.Accent);
@@ -108,7 +107,7 @@ internal sealed class ModPickerParts
         : "#" + ColorUtility.ToHtmlStringRGB(current.Color) + Percent(current.Color.a);
     }
     Button button = null;
-    swatch = EditorCapsules.Swatch(
+    swatch = UiCapsules.Swatch(
       _ui,
       control.Rect,
       "Paint " + label,
@@ -134,7 +133,7 @@ internal sealed class ModPickerParts
     );
     Show();
     control.Layout = width =>
-      SettingsUiFactory.Place(shown.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
+      UiFactory.Place(shown.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
     return _page.Add(control);
   }
 
@@ -156,7 +155,7 @@ internal sealed class ModPickerParts
         : OverlayFonts.DisplayName(current);
       shown.color = status == OverlayFontStatus.Missing ? UiPalette.Error : UiPalette.Foreground;
     }
-    button = EditorCapsules.CapsuleButton(
+    button = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Font " + label,
@@ -197,7 +196,7 @@ internal sealed class ModPickerParts
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);
-      SettingsUiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
+      UiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
       shown.rectTransform.sizeDelta = new Vector2(room - 50, 36);
     };
     return _page.Add(control);
@@ -209,7 +208,7 @@ internal sealed class ModPickerParts
     float x = _page.Caption(control, label);
     ModShortcutCapture capture = new() { Current = value };
     Button field = null;
-    field = EditorCapsules.CapsuleButton(
+    field = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Shortcut " + label,
@@ -240,7 +239,7 @@ internal sealed class ModPickerParts
     shown.overflowMode = TextOverflowModes.Ellipsis;
     shown.raycastTarget = false;
     Button clear = null;
-    clear = EditorCapsules.CapsuleButton(
+    clear = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Shortcut clear " + label,
@@ -284,9 +283,9 @@ internal sealed class ModPickerParts
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x - 40);
-      SettingsUiFactory.Place((RectTransform)field.transform, x, 2, room, 36);
+      UiFactory.Place((RectTransform)field.transform, x, 2, room, 36);
       shown.rectTransform.sizeDelta = new Vector2(room - 24, 36);
-      SettingsUiFactory.Place((RectTransform)clear.transform, x + room + 4, 2, 36, 36);
+      UiFactory.Place((RectTransform)clear.transform, x + room + 4, 2, 36, 36);
     };
     return _page.Add(control);
   }

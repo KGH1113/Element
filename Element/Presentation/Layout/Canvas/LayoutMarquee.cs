@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Graphics;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -138,7 +138,7 @@ internal sealed class LayoutMarquee
         .Ui.Rect("Selection area outline", _fill.transform, 0, 0, 10, 10)
         .gameObject.AddComponent<LayoutOutlineGraphic>();
       _outline.raycastTarget = false;
-      SettingsUiFactory.Stretch(_outline.rectTransform, 0, 0, 0, 0);
+      UiFactory.Stretch(_outline.rectTransform, 0, 0, 0, 0);
     }
     Color accent = UiPalette.SoftAccent;
     _fill.color = new Color(accent.r, accent.g, accent.b, .06f);

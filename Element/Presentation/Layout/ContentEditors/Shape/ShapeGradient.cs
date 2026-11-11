@@ -1,12 +1,13 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
-using UnityEngine;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
+using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -74,7 +75,7 @@ internal sealed class ShapeGradient
       AddStopAt
     );
 
-  public void BuildPicker(SettingsUiFactory ui, bool reduceMotion) =>
+  public void BuildPicker(UiFactory ui, bool reduceMotion) =>
     _gradient.BuildPicker(
       ui,
       _colors.Picker,

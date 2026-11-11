@@ -3,9 +3,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
-internal sealed class SettingsSlider : Slider
+internal sealed class UiSlider : Slider
 {
   public float Step = 1f / 255f;
 

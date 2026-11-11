@@ -4,6 +4,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -39,7 +40,7 @@ internal sealed class TextFonts
 
   public bool Contains(Vector2 screen) => _fontPopover.Contains(screen);
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _fontButton = new OverlayBarButton(
       ui,
       bar,

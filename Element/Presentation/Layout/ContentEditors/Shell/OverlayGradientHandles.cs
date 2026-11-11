@@ -7,6 +7,7 @@ using Element.Presentation.Settings;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -35,7 +36,7 @@ internal sealed class OverlayGradientHandles
     SquareHalf = SquareSize * .5f,
     LineHit = 18;
 
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly Func<Vector2, Vector2> _toFrame;
   private readonly RectTransform _root;
   private readonly OverlayGradientLines _lines;
@@ -79,7 +80,7 @@ internal sealed class OverlayGradientHandles
   public Action<float> Added;
 
   public OverlayGradientHandles(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     Func<Vector2, Vector2> toFrame,
     Action activateAngle,
@@ -89,13 +90,13 @@ internal sealed class OverlayGradientHandles
     _ui = ui;
     _toFrame = toFrame;
     _root = ui.Rect("Gradient handles", parent, 0, 0, 10, 10);
-    SettingsUiFactory.Stretch(_root, 0, 0, 0, 0);
+    UiFactory.Stretch(_root, 0, 0, 0, 0);
     _lines = ui.Rect("Gradient lines", _root, 0, 0, 10, 10).gameObject.AddComponent<OverlayGradientLines>();
-    SettingsUiFactory.Stretch(_lines.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(_lines.rectTransform, 0, 0, 0, 0);
     _lines.raycastTarget = false;
     _lineArea = ui.Rect("Gradient line", _root, 0, 0, 10, LineHit);
     _lineArea.pivot = new Vector2(0, .5f);
-    SettingsPointerArea line = _lineArea.gameObject.AddComponent<SettingsPointerArea>();
+    UiPointerArea line = _lineArea.gameObject.AddComponent<UiPointerArea>();
     line.raycastTarget = true;
     line.Down = LineDown;
     line.Dragged = SquareDrag;
@@ -283,7 +284,7 @@ internal sealed class OverlayGradientHandles
       }
       float k = SquareHalf / Mathf.Max(Mathf.Abs(n.x), Mathf.Abs(n.y));
       Vector2 center = at + n * (k + 9);
-      SettingsUiFactory.Place(square.Rect, center.x - SquareHalf, center.y - SquareHalf, SquareSize, SquareSize);
+      UiFactory.Place(square.Rect, center.x - SquareHalf, center.y - SquareHalf, SquareSize, SquareSize);
       Color color = _stopColor?.Invoke(i) ?? Color.white;
       square.Graphic.Set(color, i == _selected ? UiPalette.SoftAccent : Color.white);
       // Local space has y up.
@@ -305,7 +306,7 @@ internal sealed class OverlayGradientHandles
         i == 0 ? a
         : i == 1 ? b
         : c;
-      SettingsUiFactory.Place(grip.Rect, at.x - GripSize * .5f, at.y - GripSize * .5f, GripSize, GripSize);
+      UiFactory.Place(grip.Rect, at.x - GripSize * .5f, at.y - GripSize * .5f, GripSize, GripSize);
       bool stuck = _dragging == i && !_free && (!float.IsNaN(_guideX) || !float.IsNaN(_guideY) || (_even && i == 2));
       grip.Paint(stuck, i == 2);
       grip.Rect.SetAsLastSibling();
@@ -651,10 +652,10 @@ internal sealed class OverlayGradientHandles
 
   private sealed class Grip
   {
-    private readonly SettingsCapsuleGraphic _ring,
+    private readonly UiCapsuleGraphic _ring,
       _dot;
 
-    public Grip(SettingsUiFactory ui, Transform parent, int index, OverlayGradientHandles owner)
+    public Grip(UiFactory ui, Transform parent, int index, OverlayGradientHandles owner)
     {
       Rect = ui.Rect(
         index == 0 ? "Gradient start"
@@ -668,8 +669,7 @@ internal sealed class OverlayGradientHandles
       );
       _ring = ui.Capsule("Edge", Rect, 4.5f, 4.5f, 15, 15, new Color(0, 0, 0, .55f));
       _dot = ui.Capsule("Handle", Rect, 5.5f, 5.5f, 13, 13, Color.white);
-      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, GripSize, GripSize)
-        .gameObject.AddComponent<SettingsPointerArea>();
+      UiPointerArea area = ui.Rect("Input", Rect, 0, 0, GripSize, GripSize).gameObject.AddComponent<UiPointerArea>();
       area.raycastTarget = true;
       area.Down = data => owner.GripDown(index, data);
       area.Dragged = data => owner.GripDrag(index, data);
@@ -682,8 +682,8 @@ internal sealed class OverlayGradientHandles
     public void Paint(bool stuck, bool small)
     {
       float size = small ? 10 : 13;
-      SettingsUiFactory.Place(_dot.rectTransform, (GripSize - size) * .5f, (GripSize - size) * .5f, size, size);
-      SettingsUiFactory.Place(
+      UiFactory.Place(_dot.rectTransform, (GripSize - size) * .5f, (GripSize - size) * .5f, size, size);
+      UiFactory.Place(
         _ring.rectTransform,
         (GripSize - size - 2) * .5f,
         (GripSize - size - 2) * .5f,
@@ -696,15 +696,15 @@ internal sealed class OverlayGradientHandles
 
   private sealed class Square
   {
-    public Square(SettingsUiFactory ui, Transform parent, OverlayGradientHandles owner)
+    public Square(UiFactory ui, Transform parent, OverlayGradientHandles owner)
     {
       Rect = ui.Rect("Gradient color", parent, 0, 0, SquareSize, SquareSize);
       Graphic = Rect.gameObject.AddComponent<SettingsSwatchGraphic>();
       Graphic.raycastTarget = false;
       Graphic.Radius = 5;
       Graphic.Ring = 3;
-      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, SquareSize, SquareSize)
-        .gameObject.AddComponent<SettingsPointerArea>();
+      UiPointerArea area = ui.Rect("Input", Rect, 0, 0, SquareSize, SquareSize)
+        .gameObject.AddComponent<UiPointerArea>();
       area.raycastTarget = true;
       area.Down = data => owner.SquareDown(Stop, data);
       area.Dragged = owner.SquareDrag;

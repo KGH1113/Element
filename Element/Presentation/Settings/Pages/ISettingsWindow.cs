@@ -1,4 +1,6 @@
 using Element.Configuration;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 
@@ -10,7 +12,7 @@ internal interface ISettingsWindow
   ElementSettings Settings { get; }
 
   /// <summary>Builds the pages' controls and keeps them in the current theme.</summary>
-  SettingsUiFactory Ui { get; }
+  UiFactory Ui { get; }
   TMP_FontAsset Font { get; }
 
   /// <summary>The window itself: popovers are placed in it, over the pages.</summary>
@@ -20,7 +22,7 @@ internal interface ISettingsWindow
   RectTransform Viewport { get; }
 
   /// <summary>The dimmed layer under an open popover.</summary>
-  SettingsPopoverShade Shade { get; }
+  UiPopoverShade Shade { get; }
 
   /// <summary>The window is open on this page.</summary>
   bool IsShowing(SettingsPage page);

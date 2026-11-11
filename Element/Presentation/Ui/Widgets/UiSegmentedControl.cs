@@ -5,21 +5,21 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
-/// <summary>One track of segments, the chosen one raised in the accent surface; <see cref="SettingsSegmentStyle"/> sets the look.</summary>
-internal sealed class SettingsSegmentedControl
+/// <summary>One track of segments, the chosen one raised in the accent surface; <see cref="UiSegmentStyle"/> sets the look.</summary>
+internal sealed class UiSegmentedControl
 {
-  private readonly SettingsUiFactory _ui;
-  private readonly SettingsSegmentStyle _style;
+  private readonly UiFactory _ui;
+  private readonly UiSegmentStyle _style;
   private readonly List<Button> _buttons = new();
   private readonly List<TextMeshProUGUI> _labels = new();
   private readonly Action<int> _changed;
   private readonly float _segmentHeight;
   private int _selected = -1;
 
-  public SettingsSegmentedControl(
-    SettingsUiFactory ui,
+  public UiSegmentedControl(
+    UiFactory ui,
     Transform parent,
     float x,
     float y,
@@ -28,11 +28,11 @@ internal sealed class SettingsSegmentedControl
     IReadOnlyList<string> labels,
     Action<int> changed,
     float fontSize = 14,
-    SettingsSegmentStyle style = null
+    UiSegmentStyle style = null
   )
   {
     _ui = ui;
-    _style = style ?? SettingsSegmentStyle.Toggle;
+    _style = style ?? UiSegmentStyle.Toggle;
     _changed = changed;
     float inset = _style.Inset;
     _segmentHeight = height - inset * 2;
@@ -58,7 +58,7 @@ internal sealed class SettingsSegmentedControl
       label.fontSize = fontSize;
       if (!_style.LabelWraps)
         label.textWrappingMode = TextWrappingModes.NoWrap;
-      SettingsUiFactory.Stretch(label.rectTransform, _style.LabelInset, 0, _style.LabelInset, 0);
+      UiFactory.Stretch(label.rectTransform, _style.LabelInset, 0, _style.LabelInset, 0);
       _buttons.Add(button);
       _labels.Add(label);
     }
@@ -92,13 +92,13 @@ internal sealed class SettingsSegmentedControl
   /// </summary>
   public void Place(float x, float y, float width, float height, int columns = 0)
   {
-    SettingsUiFactory.Place(Root, x, y, width, height);
+    UiFactory.Place(Root, x, y, width, height);
     if (columns <= 0)
       columns = _buttons.Count;
     float inset = _style.Inset;
     float segment = (width - inset * 2) / columns;
     for (int i = 0; i < _buttons.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_buttons[i].transform,
         inset + i % columns * segment,
         inset + i / columns * (_segmentHeight + inset),
@@ -114,7 +114,7 @@ internal sealed class SettingsSegmentedControl
       bool selected = i == _selected;
       ColorBlock colors = _style.Colors(_buttons[i].colors, selected, _ui);
       _buttons[i].targetGraphic.color = Color.white;
-      if (_buttons[i] is SettingsButton button)
+      if (_buttons[i] is UiButton button)
         button.SetPalette(colors);
       else
         _buttons[i].colors = colors;

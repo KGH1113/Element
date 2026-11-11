@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -28,7 +28,7 @@ internal sealed class ModEditorPage : EditorPage
     ColumnGap = 32,
     CardPadding = 14;
 
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly RectTransform _root;
   private readonly Vector2 _size;
   private readonly Rect _preview;
@@ -44,7 +44,7 @@ internal sealed class ModEditorPage : EditorPage
   private int _count;
 
   public ModEditorPage(
-    SettingsUiFactory ui,
+    UiFactory ui,
     RectTransform frame,
     Vector2 size,
     Rect preview,
@@ -66,7 +66,7 @@ internal sealed class ModEditorPage : EditorPage
     _pickerParts = new ModPickerParts(this);
   }
 
-  internal SettingsUiFactory Ui => _ui;
+  internal UiFactory Ui => _ui;
 
   internal IModEditorHost Host => _host;
 
@@ -114,7 +114,7 @@ internal sealed class ModEditorPage : EditorPage
   {
     ModEditorControl control = Row("Divider", 9);
     Image line = _ui.Panel("Line", control.Rect, 0, 4, ColumnWidth, 1, new Color(1, 1, 1, .12f), false);
-    control.Layout = width => SettingsUiFactory.Place(line.rectTransform, 0, 4, width, 1);
+    control.Layout = width => UiFactory.Place(line.rectTransform, 0, 4, width, 1);
     return Add(control);
   }
 
@@ -130,7 +130,7 @@ internal sealed class ModEditorPage : EditorPage
     bool titled = !string.IsNullOrEmpty(title);
     RectTransform rect = _ui.Rect("Card " + ++_count, CurrentParent, 0, 0, ColumnWidth, 10);
     Image surface = _ui.Panel("Card surface", rect, 0, 0, ColumnWidth, 10, new Color(1, 1, 1, .045f));
-    SettingsUiFactory.Stretch(surface.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(surface.rectTransform, 0, 0, 0, 0);
     if (titled)
     {
       TextMeshProUGUI heading = _ui.Text(
@@ -162,23 +162,14 @@ internal sealed class ModEditorPage : EditorPage
     string key = string.Join("\u001f", labels);
     ModEditorTabs tabs = new(this, key, Mathf.Clamp(_host.TabOf(key), 0, labels.Count - 1));
     ModEditorControl bar = Row("Tabs", RowHeight);
-    SettingsSegmentedControl segments = new(
-      _ui,
-      bar.Rect,
-      0,
-      2,
-      ColumnWidth,
-      36,
-      labels,
-      index => tabs.Selected = index
-    );
+    UiSegmentedControl segments = new(_ui, bar.Rect, 0, 2, ColumnWidth, 36, labels, index => tabs.Selected = index);
     segments.Select(tabs.Selected, false);
     bar.Layout = width =>
     {
-      SettingsUiFactory.Place(segments.Root, 0, 2, width, 36);
+      UiFactory.Place(segments.Root, 0, 2, width, 36);
       float segment = (width - 6) / labels.Count;
       for (int i = 0; i < segments.Buttons.Count; i++)
-        SettingsUiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
+        UiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
     };
     tabs.BarControl = Add(bar);
     tabs.Segments = segments;
@@ -372,7 +363,7 @@ internal sealed class ModEditorPage : EditorPage
     float total = columns * ColumnWidth + (columns - 1) * ColumnGap;
     float left = Mathf.Max(OverlayEditorFrame.Margin, _flow.center.x - total * .5f);
     foreach ((ModEditorControl item, int at, float top) in placed)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         item.Rect,
         left + at * (ColumnWidth + ColumnGap),
         top,
@@ -401,7 +392,7 @@ internal sealed class ModEditorPage : EditorPage
       if (!shown)
         continue;
       // Spans the screen so its parts are placed in the screen's own units.
-      SettingsUiFactory.Place(tab.Rect, 0, 0, _size.x, _size.y);
+      UiFactory.Place(tab.Rect, 0, 0, _size.x, _size.y);
       foreach (ModEditorControl child in Flowing(tab.Children))
         yield return child;
     }

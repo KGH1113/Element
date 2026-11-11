@@ -3,6 +3,7 @@ using Element.Configuration;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -54,7 +55,7 @@ internal sealed class SettingsShortcutField
   /// <param name="actionNeedsShortcut">The action only applies while a shortcut is set, as removing does.</param>
   /// <param name="resized">The field's height changed; the owner lays out again.</param>
   public SettingsShortcutField(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform card,
     Func<KeyCode> key,
     Func<KeyCode> modifier,
@@ -93,10 +94,10 @@ internal sealed class SettingsShortcutField
     // Registered after the button's own theme so an empty field stays muted.
     ui.Bind(() => _label.color = !Capturing && _key() == KeyCode.None ? UiPalette.Muted : UiPalette.Foreground);
     Keycaps = ui.Rect("Shortcut keys", Capture.transform, 12, 6, 214, 30);
-    SettingsUiFactory.StretchWidth(Keycaps, 12, 12);
+    UiFactory.StretchWidth(Keycaps, 12, 12);
     Image modifierCap = ui.Panel("Modifier", Keycaps, 0, 0, 136, 30, new Color(.21f, .21f, .21f));
     _modifierKey = ui.Text("", modifierCap.transform, 8, 0, 120, 30, 15);
-    SettingsUiFactory.Stretch(_modifierKey.rectTransform, 8, 0, 8, 0);
+    UiFactory.Stretch(_modifierKey.rectTransform, 8, 0, 8, 0);
     _modifierKey.alignment = TextAlignmentOptions.Midline;
     _modifierSide = ui.Text("L", modifierCap.transform, 8, 0, 14, 30, 11, UiPalette.Muted);
     _modifierSymbol = ui.Rect("Modifier symbol", modifierCap.transform, 28, 4, 22, 22)
@@ -107,7 +108,7 @@ internal sealed class SettingsShortcutField
     _keyPlus.alignment = TextAlignmentOptions.Midline;
     Image mainCap = ui.Panel("Key", Keycaps, 172, 0, 80, 30, new Color(.21f, .21f, .21f));
     _mainKey = ui.Text("", mainCap.transform, 8, 0, 64, 30, 15);
-    SettingsUiFactory.Stretch(_mainKey.rectTransform, 8, 0, 8, 0);
+    UiFactory.Stretch(_mainKey.rectTransform, 8, 0, 8, 0);
     _mainKey.alignment = TextAlignmentOptions.Midline;
 
     Action = ui.Button("", card, 328, 60, FieldHeight, FieldHeight, action);
@@ -120,7 +121,7 @@ internal sealed class SettingsShortcutField
     StyleKeyButton(ui, Action);
 
     Hint = ui.Text("", card, Inset, 114, 904, HintHeight, 14, UiPalette.Muted);
-    SettingsUiFactory.StretchWidth(Hint.rectTransform, Inset, Inset);
+    UiFactory.StretchWidth(Hint.rectTransform, Inset, Inset);
     Refresh();
   }
 
@@ -237,9 +238,9 @@ internal sealed class SettingsShortcutField
     float desired = Capturing ? _label.preferredWidth + 30 : _desiredWidth;
     float captureWidth = Mathf.Max(0, Mathf.Min(desired, width - Inset * 2));
     bool stacked = captureWidth + FieldHeight + 8 > width - Inset * 2;
-    SettingsUiFactory.Place(Frame, Inset, top, captureWidth, FieldHeight);
-    SettingsUiFactory.Place((RectTransform)Capture.transform, 1, 1, Mathf.Max(0, captureWidth - 2), FieldHeight - 2);
-    SettingsUiFactory.Place(
+    UiFactory.Place(Frame, Inset, top, captureWidth, FieldHeight);
+    UiFactory.Place((RectTransform)Capture.transform, 1, 1, Mathf.Max(0, captureWidth - 2), FieldHeight - 2);
+    UiFactory.Place(
       (RectTransform)Action.transform,
       stacked ? Inset : Inset + captureWidth + 8,
       stacked ? top + FieldHeight + 12 : top,
@@ -247,15 +248,15 @@ internal sealed class SettingsShortcutField
       FieldHeight
     );
     float bottom = top + FieldHeight + (stacked ? FieldHeight + 12 : 0);
-    SettingsUiFactory.Place(Hint.rectTransform, Inset, bottom + HintGap, width - Inset * 2, HintHeight);
+    UiFactory.Place(Hint.rectTransform, Inset, bottom + HintGap, width - Inset * 2, HintHeight);
     float secondWidth = Mathf.Clamp(_naturalKeyWidth, 44, Mathf.Max(44, captureWidth - 26 - _firstWidth - _gap));
-    SettingsUiFactory.Place((RectTransform)_modifierKey.transform.parent, 0, 0, _firstWidth, 30);
-    SettingsUiFactory.Place(_keyPlus.rectTransform, _firstWidth + 4, 0, 20, 30);
-    SettingsUiFactory.Place((RectTransform)_mainKey.transform.parent, _firstWidth + _gap, 0, secondWidth, 30);
+    UiFactory.Place((RectTransform)_modifierKey.transform.parent, 0, 0, _firstWidth, 30);
+    UiFactory.Place(_keyPlus.rectTransform, _firstWidth + 4, 0, 20, 30);
+    UiFactory.Place((RectTransform)_mainKey.transform.parent, _firstWidth + _gap, 0, secondWidth, 30);
     return Capturing ? bottom + HintGap + HintHeight : bottom;
   }
 
-  private static void StyleKeyButton(SettingsUiFactory ui, Button button)
+  private static void StyleKeyButton(UiFactory ui, Button button)
   {
     ui.Bind(() =>
     {
@@ -263,7 +264,7 @@ internal sealed class SettingsShortcutField
       colors.normalColor = colors.selectedColor = new Color(.075f, .075f, .075f);
       colors.highlightedColor = new Color(.16f, .16f, .16f);
       colors.pressedColor = new Color(.05f, .05f, .05f);
-      ((SettingsButton)button).SetPalette(colors);
+      ((UiButton)button).SetPalette(colors);
     });
   }
 }

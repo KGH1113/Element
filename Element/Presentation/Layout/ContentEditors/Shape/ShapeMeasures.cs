@@ -4,8 +4,8 @@ using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -111,7 +111,7 @@ internal sealed class ShapeMeasures
       Vector2 point = preview.Frame(_corners[i]);
       Vector2 outward = Outward(i);
       RectTransform arc = (RectTransform)_arcs[i].transform;
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         arc,
         point.x - OverlayCornerArc.Size * .5f,
         point.y - OverlayCornerArc.Size * .5f,

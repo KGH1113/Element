@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;
@@ -121,7 +121,7 @@ internal sealed class OverlayGradientTexture : IDisposable
 
     if (_texture == null || _texture.height != total)
     {
-      SettingsUiFactory.Destroy(_texture);
+      UiFactory.Destroy(_texture);
       _texture = new Texture2D(Columns, total, TextureFormat.RGBA32, false)
       {
         name = "Element gradient",
@@ -142,8 +142,7 @@ internal sealed class OverlayGradientTexture : IDisposable
     return true;
   }
 
-  private int Rows(OverlayResolvedGradient gradient) =>
-    gradient.Kind == OverlayGradientKind.Linear ? 3 : _rasterRows;
+  private int Rows(OverlayResolvedGradient gradient) => gradient.Kind == OverlayGradientKind.Linear ? 3 : _rasterRows;
 
   private static OverlayGradientLayer Layer(OverlayResolvedGradient gradient, int top, int rows, int total)
   {
@@ -199,7 +198,7 @@ internal sealed class OverlayGradientTexture : IDisposable
 
   public void Dispose()
   {
-    SettingsUiFactory.Destroy(_texture);
+    UiFactory.Destroy(_texture);
     _texture = null;
   }
 }

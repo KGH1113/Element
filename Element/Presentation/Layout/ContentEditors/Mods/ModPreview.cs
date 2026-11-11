@@ -5,8 +5,8 @@ using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using ElementKit.Hosting;
 using UnityEngine;
@@ -26,7 +26,7 @@ internal sealed class ModPreview
   private ModDrawing _drawing;
   private OverlayElement _instance;
   private Action _update;
-  private SettingsCapsuleGraphic _growMark;
+  private UiCapsuleGraphic _growMark;
   private Rect _area;
   private float _elementScale = 1;
   private Vector2 _boxTopLeft;
@@ -47,7 +47,7 @@ internal sealed class ModPreview
   public Rect Area => _area;
 
   /// <summary>Its holder on the stage, in <paramref name="area"/>.</summary>
-  public void BuildHolder(SettingsUiFactory ui, OverlayEditorFrame screen, Rect area, OverlayFonts fonts)
+  public void BuildHolder(UiFactory ui, OverlayEditorFrame screen, Rect area, OverlayFonts fonts)
   {
     _area = area;
     _holder = ui.Rect("Preview", screen.Stage, 0, 0, 10, 10);
@@ -55,7 +55,7 @@ internal sealed class ModPreview
     _drawing = new ModDrawing(fonts);
   }
 
-  public void BuildGrowMark(SettingsUiFactory ui, RectTransform frame)
+  public void BuildGrowMark(UiFactory ui, RectTransform frame)
   {
     _growMark = ui.Capsule("Grow point", frame, 0, 0, 12, 12, UiPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
@@ -131,7 +131,7 @@ internal sealed class ModPreview
     Vector2 at =
       _boxTopLeft
       + new Vector2(box.x * OverlayLayoutPosition.AnchorX(point), box.y * OverlayLayoutPosition.AnchorY(point));
-    SettingsUiFactory.Place(_growMark.rectTransform, at.x - 6, at.y - 6, 12, 12);
+    UiFactory.Place(_growMark.rectTransform, at.x - 6, at.y - 6, 12, 12);
     _growMark.transform.SetAsLastSibling();
   }
 

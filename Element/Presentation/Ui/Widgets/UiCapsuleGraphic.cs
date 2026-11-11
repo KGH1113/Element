@@ -1,12 +1,12 @@
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 // Small tracks and circular thumbs cannot share the large panels' sliced sprite:
 // squeezing its borders distorts the end caps. Build a fixed-radius capsule instead.
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsCapsuleGraphic : MaskableGraphic
+internal sealed class UiCapsuleGraphic : MaskableGraphic
 {
   protected override void OnPopulateMesh(VertexHelper mesh)
   {

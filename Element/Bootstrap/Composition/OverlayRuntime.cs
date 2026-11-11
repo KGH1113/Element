@@ -52,7 +52,7 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
       Canvas.Feed = new ModValues(main.LogWarning);
       // Element types other mods add; their elements draw without the font too, minus words.
       Canvas.ModElements = new ModElements(new Infrastructure.Mods.UmmModAssemblies(), main.LogWarning);
-      _fontLoader = new FontBundleLoader(main);
+      _fontLoader = new FontBundleLoader(main.RuntimePath, main.Log, main.LogWarning, main.LogException);
       if (!_fontLoader.Load())
       {
         _fontLoader.Dispose();

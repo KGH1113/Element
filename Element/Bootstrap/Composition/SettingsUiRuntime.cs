@@ -53,7 +53,8 @@ internal sealed class SettingsUiRuntime : IDisposable
     Action apply,
     Action reloadSettings,
     Action viewerModeChanged,
-    Func<bool> judgementTextLinked
+    Func<bool> judgementTextLinked,
+    Func<bool> playing
   )
   {
     _main = main;
@@ -76,7 +77,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
       () => main.Settings.Effects,
-      () => GameplayState.IsPlaying,
+      playing,
       () => IsOpen || SettingsPanel.IsTyping(),
       ApplyPresetShortcut
     );

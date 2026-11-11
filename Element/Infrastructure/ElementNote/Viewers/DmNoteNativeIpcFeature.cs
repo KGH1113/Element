@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AdofaiIpc.Contracts;
+using Element.Application.Gameplay;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
 using Element.Configuration;
@@ -12,7 +13,7 @@ using UnityEngine;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 
-internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
+internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyViewers, IDisposable
 {
   private static readonly TimeSpan ErrorCheckInterval = TimeSpan.FromMilliseconds(500);
 
@@ -75,6 +76,8 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     : !_connected ? KeyViewerAvailability.AppClosed
     : _hiddenInApp ? KeyViewerAvailability.HiddenInApp
     : KeyViewerAvailability.Ready;
+
+  public bool Supported => _supported;
 
   public bool HasEnabledViewers => !_hiddenInApp && _layoutTargets.Any(target => target.Enabled);
 

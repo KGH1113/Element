@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
+using Element.Application.Gameplay;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Recording;
 
-internal sealed class RecordingModeController
+internal sealed class RecordingModeController : IRecordMode
 {
   private readonly Dictionary<int, GameObjectState> _gameObjectStates = new();
   private readonly Dictionary<int, BehaviourState> _behaviourStates = new();

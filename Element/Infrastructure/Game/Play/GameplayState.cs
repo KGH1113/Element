@@ -1,18 +1,22 @@
+using Element.Application.Gameplay;
+
 namespace Element.Infrastructure.Game.Play;
 
-/// <summary>Whether the player is in the middle of a level.</summary>
-internal static class GameplayState
+/// <summary>Where the player is in the game, read from ADOFAI.</summary>
+internal sealed class GameplayState : IPlayState
 {
-  /// <summary>
-  /// A level is running and not paused: playing, waiting for the first key, or
-  /// on its result. Menus, level select, the pause menu and the editor while
-  /// editing are not play.
-  /// </summary>
-  public static bool IsPlaying =>
+  public bool IsCoop => scrController.coopMode;
+
+  public bool IsInGameWorld =>
     ADOBase.controller != null
     && !ADOBase.controller.paused
     && ADOBase.conductor != null
-    && ADOBase.conductor.isGameWorld
-    && !ADOBase.isLevelSelect
-    && !ADOBase.isCLS;
+    && ADOBase.conductor.isGameWorld;
+
+  /// <summary>
+  /// A level is running and not paused: playing, waiting for the first key, or
+  /// on its result. Menus, level select, the custom level select, the pause menu
+  /// and the editor while editing are not play.
+  /// </summary>
+  public bool IsPlaying => IsInGameWorld && !ADOBase.isLevelSelect && !ADOBase.isCLS;
 }

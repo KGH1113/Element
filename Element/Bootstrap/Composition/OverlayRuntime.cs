@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using Element.Application;
 using Element.Application.Features;
+using Element.Application.Gameplay;
 using Element.Application.Mods;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
@@ -24,7 +25,7 @@ namespace Element.Bootstrap.Composition;
 /// and the status clock. The canvas exists even without the font so the layout
 /// editor still works.
 /// </summary>
-internal sealed class OverlayRuntime : IDisposable
+internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
 {
   private FontBundleLoader _fontLoader;
   private OverlayMaterialFactory _materials;

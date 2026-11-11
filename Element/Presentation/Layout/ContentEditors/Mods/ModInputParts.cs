@@ -9,13 +9,35 @@ using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-// Words, buttons, on/off, and numbers and words typed or dragged.
-internal sealed partial class ModEditorPage
+/// <summary>The page's inputs: labels, buttons, switches, sliders, numbers, text fields and lists.</summary>
+internal sealed class ModInputParts
 {
-  public override EditorControl Label(string text)
+  private readonly ModEditorPage _page;
+  private readonly SettingsUiFactory _ui;
+  private readonly IModEditorHost _host;
+  private readonly bool _reduceMotion;
+
+  public ModInputParts(ModEditorPage page)
   {
-    ModEditorControl control = Row("Label", 0);
-    TextMeshProUGUI label = _ui.Text(text ?? "", control.Rect, 0, 0, ColumnWidth, 24, 15, SettingsUiFactory.Foreground);
+    _page = page;
+    _ui = page.Ui;
+    _host = page.Host;
+    _reduceMotion = page.ReduceMotion;
+  }
+
+  public EditorControl Label(string text)
+  {
+    ModEditorControl control = _page.Row("Label", 0);
+    TextMeshProUGUI label = _ui.Text(
+      text ?? "",
+      control.Rect,
+      0,
+      0,
+      ModEditorPage.ColumnWidth,
+      24,
+      15,
+      SettingsUiFactory.Foreground
+    );
     label.textWrappingMode = TextWrappingModes.Normal;
     control.Layout = width =>
     {
@@ -24,12 +46,12 @@ internal sealed partial class ModEditorPage
       label.rectTransform.sizeDelta = new Vector2(width, height);
       control.Height = height;
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Button(string text, Action clicked)
+  public EditorControl Button(string text, Action clicked)
   {
-    ModEditorControl control = Row("Button", 0);
+    ModEditorControl control = _page.Row("Button", 0);
     Button button = null;
     button = OverlayEditorUi.CapsuleButton(
       _ui,
@@ -45,7 +67,7 @@ internal sealed partial class ModEditorPage
       false,
       _reduceMotion
     );
-    Func<float> preferred = Preferred(button.GetComponentInChildren<TextMeshProUGUI>(), text);
+    Func<float> preferred = ModEditorPage.Preferred(button.GetComponentInChildren<TextMeshProUGUI>(), text);
     control.Layout = width =>
       SettingsUiFactory.Place(
         (RectTransform)button.transform,
@@ -54,12 +76,12 @@ internal sealed partial class ModEditorPage
         Mathf.Min(width, Mathf.Max(96, preferred() + 36)),
         36
       );
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl IconButton(EditorIcon icon, string hint, Action clicked)
+  public EditorControl IconButton(EditorIcon icon, string hint, Action clicked)
   {
-    ModEditorControl control = Row("Icon button", 0);
+    ModEditorControl control = _page.Row("Icon button", 0);
     Button button = null;
     button = OverlayEditorUi.CapsuleButton(
       _ui,
@@ -75,17 +97,17 @@ internal sealed partial class ModEditorPage
       false,
       _reduceMotion
     );
-    Icon(button.transform, LayoutIcon(icon), 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(button.transform, LayoutIcon(icon), 6, 6, 24, SettingsUiFactory.Foreground);
     control.Layout = _ => SettingsUiFactory.Place((RectTransform)button.transform, 0, 2, 36, 36);
-    Add(control);
+    _page.Add(control);
     control.Hint(hint);
     return control;
   }
 
-  public override EditorControl Switch(string label, bool on, Action<bool> changed)
+  public EditorControl Switch(string label, bool on, Action<bool> changed)
   {
-    ModEditorControl control = Row("Switch", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Switch", 0);
+    float x = _page.Caption(control, label);
     bool state = on;
     SettingsCapsuleGraphic track = null;
     SettingsCapsuleGraphic thumb = null;
@@ -123,12 +145,12 @@ internal sealed partial class ModEditorPage
     thumb.raycastTarget = false;
     motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
     Show(true);
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Checkbox(string text, bool on, Action<bool> changed)
+  public EditorControl Checkbox(string text, bool on, Action<bool> changed)
   {
-    ModEditorControl control = Row("Checkbox", 0);
+    ModEditorControl control = _page.Row("Checkbox", 0);
     bool state = on;
     Image box = null;
     LayoutActionIcon check = null;
@@ -145,7 +167,7 @@ internal sealed partial class ModEditorPage
       "",
       0,
       2,
-      ColumnWidth,
+      ModEditorPage.ColumnWidth,
       36,
       14,
       () =>
@@ -159,13 +181,13 @@ internal sealed partial class ModEditorPage
       _reduceMotion
     );
     box = _ui.Panel("Box", hit.transform, 8, 7, 22, 22, Color.white);
-    check = Icon(box.transform, LayoutAction.Check, 1, 1, 20, SettingsUiFactory.Background);
+    check = _page.Icon(box.transform, LayoutAction.Check, 1, 1, 20, SettingsUiFactory.Background);
     TextMeshProUGUI label = _ui.Text(
       text ?? "",
       hit.transform,
       42,
       0,
-      ColumnWidth - 50,
+      ModEditorPage.ColumnWidth - 50,
       36,
       15,
       SettingsUiFactory.Foreground
@@ -174,7 +196,7 @@ internal sealed partial class ModEditorPage
     label.textWrappingMode = TextWrappingModes.NoWrap;
     label.overflowMode = TextOverflowModes.Ellipsis;
     label.raycastTarget = false;
-    Func<float> preferred = Preferred(label, text);
+    Func<float> preferred = ModEditorPage.Preferred(label, text);
     control.Layout = width =>
     {
       float room = Mathf.Min(width, preferred() + 58);
@@ -182,30 +204,23 @@ internal sealed partial class ModEditorPage
       label.rectTransform.sizeDelta = new Vector2(room - 50, 36);
     };
     Show();
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Slider(
-    string label,
-    float value,
-    float min,
-    float max,
-    Action<float> changed,
-    float step = 0
-  )
+  public EditorControl Slider(string label, float value, float min, float max, Action<float> changed, float step = 0)
   {
     if (!(max > min))
       max = min + 1;
-    ModEditorControl control = Row("Slider", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Slider", 0);
+    float x = _page.Caption(control, label);
     float current = Snap(value, min, max, step);
     TextMeshProUGUI shown = _ui.Text(
-      Format(current, step),
+      ModEditorPage.Format(current, step),
       control.Rect,
       0,
       0,
       64,
-      RowHeight,
+      ModEditorPage.RowHeight,
       14,
       SettingsUiFactory.Muted
     );
@@ -225,7 +240,7 @@ internal sealed partial class ModEditorPage
         if (Mathf.Approximately(next, current))
           return;
         current = next;
-        shown.text = Format(current, step);
+        shown.text = ModEditorPage.Format(current, step);
         float now = current;
         _host.Change(slider, () => changed?.Invoke(now), false);
       }
@@ -236,12 +251,12 @@ internal sealed partial class ModEditorPage
     {
       float room = Mathf.Max(80, width - x - 72);
       SettingsUiFactory.Place((RectTransform)slider.transform, x, 2, room, 36);
-      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 64, RowHeight);
+      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 64, ModEditorPage.RowHeight);
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl RangeSlider(
+  public EditorControl RangeSlider(
     string label,
     float low,
     float high,
@@ -253,8 +268,8 @@ internal sealed partial class ModEditorPage
   {
     if (!(max > min))
       max = min + 1;
-    ModEditorControl control = Row("Range", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Range", 0);
+    float x = _page.Caption(control, label);
     float lower = Snap(Mathf.Min(low, high), min, max, step),
       upper = Snap(Mathf.Max(low, high), min, max, step);
     // The track with its fill and two handles; a clear area takes the pointer.
@@ -269,7 +284,7 @@ internal sealed partial class ModEditorPage
     SettingsCapsuleGraphic lowHandle = _ui.Capsule("Low handle", track, 0, 8, 20, 20, SettingsUiFactory.Foreground);
     SettingsCapsuleGraphic highHandle = _ui.Capsule("High handle", track, 0, 8, 20, 20, SettingsUiFactory.Foreground);
     lowHandle.raycastTarget = highHandle.raycastTarget = false;
-    TextMeshProUGUI shown = _ui.Text("", control.Rect, 0, 0, 96, RowHeight, 14, SettingsUiFactory.Muted);
+    TextMeshProUGUI shown = _ui.Text("", control.Rect, 0, 0, 96, ModEditorPage.RowHeight, 14, SettingsUiFactory.Muted);
     shown.alignment = TextAlignmentOptions.MidlineRight;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     void Show()
@@ -280,7 +295,7 @@ internal sealed partial class ModEditorPage
       SettingsUiFactory.Place(fill.rectTransform, a, 15, Mathf.Max(1, b - a), 6);
       SettingsUiFactory.Place(lowHandle.rectTransform, a - 10, 8, 20, 20);
       SettingsUiFactory.Place(highHandle.rectTransform, b - 10, 8, 20, 20);
-      shown.text = Format(lower, step) + " – " + Format(upper, step);
+      shown.text = ModEditorPage.Format(lower, step) + " – " + ModEditorPage.Format(upper, step);
     }
     bool movingUpper = false;
     ModRangeDrag drag = area.gameObject.AddComponent<ModRangeDrag>();
@@ -312,18 +327,18 @@ internal sealed partial class ModEditorPage
       SettingsUiFactory.Place(area, x, 2, room, 36);
       SettingsUiFactory.Place(track, 10, 0, room - 20, 36);
       line.rectTransform.sizeDelta = new Vector2(room - 20, 6);
-      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 96, RowHeight);
+      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 96, ModEditorPage.RowHeight);
       Show();
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Number(string label, float value, float min, float max, Action<float> changed)
+  public EditorControl Number(string label, float value, float min, float max, Action<float> changed)
   {
     if (!(max >= min))
       max = min;
-    ModEditorControl control = Row("Number", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Number", 0);
+    float x = _page.Caption(control, label);
     float current = Mathf.Clamp(value, min, max);
     TMP_InputField input = null;
     void Apply(float next)
@@ -336,7 +351,7 @@ internal sealed partial class ModEditorPage
     }
     input = _ui.Input(
       "Number " + label,
-      Format(current, 0),
+      ModEditorPage.Format(current, 0),
       control.Rect,
       x,
       0,
@@ -345,42 +360,51 @@ internal sealed partial class ModEditorPage
       // them waits, so the preview doesn't jump while it is still being typed.
       typed =>
       {
-        if (TryNumber(typed, out float parsed) && parsed >= min && parsed <= max)
+        if (ModEditorPage.TryNumber(typed, out float parsed) && parsed >= min && parsed <= max)
           Apply(parsed);
       },
       // Typing done: whatever was typed is kept within the limits and shown so.
       typed =>
       {
-        if (TryNumber(typed, out float parsed))
+        if (ModEditorPage.TryNumber(typed, out float parsed))
           Apply(Mathf.Clamp(parsed, min, max));
-        input.SetTextWithoutNotify(Format(current, 0));
+        input.SetTextWithoutNotify(ModEditorPage.Format(current, 0));
       },
       12
     );
     input.contentType = TMP_InputField.ContentType.DecimalNumber;
-    _inputs.Add(input);
+    _page.TrackInput(input);
     control.Layout = width =>
       SettingsUiFactory.Place(
         (RectTransform)input.transform,
         x,
         0,
         Mathf.Min(160, Mathf.Max(80, width - x)),
-        RowHeight
+        ModEditorPage.RowHeight
       );
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Stepper(string label, int value, int min, int max, Action<int> changed, int step = 1)
+  public EditorControl Stepper(string label, int value, int min, int max, Action<int> changed, int step = 1)
   {
     if (max < min)
       max = min;
     step = Mathf.Max(1, step);
-    ModEditorControl control = Row("Stepper", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Stepper", 0);
+    float x = _page.Caption(control, label);
     int current = Mathf.Clamp(value, min, max);
     Button minus = null,
       plus = null;
-    TextMeshProUGUI shown = _ui.Text("", control.Rect, x + 40, 0, 64, RowHeight, 16, SettingsUiFactory.Foreground);
+    TextMeshProUGUI shown = _ui.Text(
+      "",
+      control.Rect,
+      x + 40,
+      0,
+      64,
+      ModEditorPage.RowHeight,
+      16,
+      SettingsUiFactory.Foreground
+    );
     shown.alignment = TextAlignmentOptions.Midline;
     void Show()
     {
@@ -412,7 +436,7 @@ internal sealed partial class ModEditorPage
       false,
       _reduceMotion
     );
-    Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, SettingsUiFactory.Foreground);
     plus = OverlayEditorUi.CapsuleButton(
       _ui,
       control.Rect,
@@ -427,15 +451,15 @@ internal sealed partial class ModEditorPage
       false,
       _reduceMotion
     );
-    Icon(plus.transform, LayoutAction.Plus, 6, 6, 24, SettingsUiFactory.Foreground);
+    _page.Icon(plus.transform, LayoutAction.Plus, 6, 6, 24, SettingsUiFactory.Foreground);
     Show();
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl TextField(string label, string value, Action<string> changed)
+  public EditorControl TextField(string label, string value, Action<string> changed)
   {
-    ModEditorControl control = Row("Text", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Text", 0);
+    float x = _page.Caption(control, label);
     string current = value ?? "";
     TMP_InputField input = null;
     input = _ui.Input(
@@ -457,21 +481,21 @@ internal sealed partial class ModEditorPage
       null,
       200
     );
-    _inputs.Add(input);
+    _page.TrackInput(input);
     control.Layout = width =>
-      SettingsUiFactory.Place((RectTransform)input.transform, x, 0, Mathf.Max(80, width - x), RowHeight);
-    return Add(control);
+      SettingsUiFactory.Place((RectTransform)input.transform, x, 0, Mathf.Max(80, width - x), ModEditorPage.RowHeight);
+    return _page.Add(control);
   }
 
-  public override EditorControl List(string label, List<string> items, Action changed = null, string newItem = "")
+  public EditorControl List(string label, List<string> items, Action changed = null, string newItem = "")
   {
     items ??= new List<string>();
-    ModEditorControl control = Row("List", 0);
+    ModEditorControl control = _page.Row("List", 0);
     float top = 0;
     TextMeshProUGUI heading = null;
     if (!string.IsNullOrEmpty(label))
     {
-      heading = _ui.Text(label, control.Rect, 0, 0, ColumnWidth, 28, 15, SettingsUiFactory.Foreground);
+      heading = _ui.Text(label, control.Rect, 0, 0, ModEditorPage.ColumnWidth, 28, 15, SettingsUiFactory.Foreground);
       heading.alignment = TextAlignmentOptions.MidlineLeft;
       heading.textWrappingMode = TextWrappingModes.NoWrap;
       top = 32;
@@ -505,7 +529,7 @@ internal sealed partial class ModEditorPage
         null,
         200
       );
-      _inputs.Add(input);
+      _page.TrackInput(input);
       Button up = null,
         down = null,
         delete = null;
@@ -569,16 +593,16 @@ internal sealed partial class ModEditorPage
       foreach ((TMP_InputField input, Button up, Button down, Button delete) in rows)
       {
         float field = Mathf.Max(80, width - 3 * 40);
-        SettingsUiFactory.Place((RectTransform)input.transform, 0, y, field, RowHeight);
+        SettingsUiFactory.Place((RectTransform)input.transform, 0, y, field, ModEditorPage.RowHeight);
         SettingsUiFactory.Place((RectTransform)up.transform, field + 4, y + 2, 36, 36);
         SettingsUiFactory.Place((RectTransform)down.transform, field + 44, y + 2, 36, 36);
         SettingsUiFactory.Place((RectTransform)delete.transform, field + 84, y + 2, 36, 36);
-        y += RowHeight + 6;
+        y += ModEditorPage.RowHeight + 6;
       }
       SettingsUiFactory.Place((RectTransform)add.transform, 0, y + 2, 96, 36);
-      control.Height = y + RowHeight;
+      control.Height = y + ModEditorPage.RowHeight;
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
   // A list row's icon button; reordering and removing make the parts again.
@@ -606,17 +630,8 @@ internal sealed partial class ModEditorPage
       _reduceMotion
     );
     button.interactable = enabled;
-    Icon(button.transform, icon, 6, 6, 24, enabled ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted);
+    _page.Icon(button.transform, icon, 6, 6, 24, enabled ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted);
     return button;
-  }
-
-  private LayoutActionIcon Icon(Transform parent, LayoutAction kind, float x, float y, float size, Color color)
-  {
-    LayoutActionIcon icon = _ui.Rect("Icon", parent, x, y, size, size).gameObject.AddComponent<LayoutActionIcon>();
-    icon.Kind = kind;
-    icon.color = color;
-    icon.raycastTarget = false;
-    return icon;
   }
 
   private static LayoutAction LayoutIcon(EditorIcon icon) =>
@@ -641,23 +656,5 @@ internal sealed partial class ModEditorPage
   {
     value = Mathf.Clamp(value, min, max);
     return step > 0 ? Mathf.Clamp(min + Mathf.Round((value - min) / step) * step, min, max) : value;
-  }
-
-  // A label's one-line width, kept once it has been measured on screen: text
-  // in a tab not picked yet measures short.
-  private static Func<float> Preferred(TextMeshProUGUI label, string text)
-  {
-    float? measured = null;
-    return () =>
-    {
-      if (measured.HasValue)
-        return measured.Value;
-      if (label == null)
-        return 0;
-      float width = label.GetPreferredValues(text ?? "", 1000, 36).x;
-      if (label.gameObject.activeInHierarchy)
-        measured = width;
-      return width;
-    };
   }
 }

@@ -10,22 +10,47 @@ using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-// Colors, fonts and shortcuts, picked the way Element's own are.
-internal sealed partial class ModEditorPage
+/// <summary>The page's pickers: colors, paints, fonts and shortcuts, picked the way Element's own are.</summary>
+internal sealed class ModPickerParts
 {
   private static readonly KeyCode[] Keys = (KeyCode[])Enum.GetValues(typeof(KeyCode));
 
   // The shortcut part recording the next key, if any.
-  private ShortcutCapture _capture;
+  private ModShortcutCapture _capture;
 
-  public override EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true)
+  private readonly ModEditorPage _page;
+  private readonly SettingsUiFactory _ui;
+  private readonly IModEditorHost _host;
+  private readonly bool _reduceMotion;
+
+  public ModPickerParts(ModEditorPage page)
   {
-    ModEditorControl control = Row("Color", 0);
-    float x = Caption(control, label);
+    _page = page;
+    _ui = page.Ui;
+    _host = page.Host;
+    _reduceMotion = page.ReduceMotion;
+  }
+
+  /// <summary>Whether a shortcut part is recording the next key.</summary>
+  public bool Capturing => _capture != null;
+
+  public EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true)
+  {
+    ModEditorControl control = _page.Row("Color", 0);
+    float x = _page.Caption(control, label);
     Color current = value;
     if (!opacity)
       current.a = 1;
-    TextMeshProUGUI hex = _ui.Text("", control.Rect, x + 40, 0, 160, RowHeight, 14, SettingsUiFactory.Muted);
+    TextMeshProUGUI hex = _ui.Text(
+      "",
+      control.Rect,
+      x + 40,
+      0,
+      160,
+      ModEditorPage.RowHeight,
+      14,
+      SettingsUiFactory.Muted
+    );
     hex.textWrappingMode = TextWrappingModes.NoWrap;
     SettingsCapsuleGraphic swatch = null;
     void Show()
@@ -63,16 +88,25 @@ internal sealed partial class ModEditorPage
     );
     Show();
     control.Layout = width =>
-      SettingsUiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), RowHeight);
-    return Add(control);
+      SettingsUiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
+    return _page.Add(control);
   }
 
-  public override EditorControl ColorPicker(string label, Paint value, Action<Paint> changed)
+  public EditorControl ColorPicker(string label, Paint value, Action<Paint> changed)
   {
-    ModEditorControl control = Row("Paint", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Paint", 0);
+    float x = _page.Caption(control, label);
     Paint current = value?.Clone() ?? Paint.Solid(Color.white);
-    TextMeshProUGUI shown = _ui.Text("", control.Rect, x + 40, 0, 160, RowHeight, 14, SettingsUiFactory.Muted);
+    TextMeshProUGUI shown = _ui.Text(
+      "",
+      control.Rect,
+      x + 40,
+      0,
+      160,
+      ModEditorPage.RowHeight,
+      14,
+      SettingsUiFactory.Muted
+    );
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
     SettingsCapsuleGraphic swatch = null;
@@ -113,14 +147,14 @@ internal sealed partial class ModEditorPage
     );
     Show();
     control.Layout = width =>
-      SettingsUiFactory.Place(shown.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), RowHeight);
-    return Add(control);
+      SettingsUiFactory.Place(shown.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
+    return _page.Add(control);
   }
 
-  public override EditorControl FontPicker(string label, string font, Action<string> changed)
+  public EditorControl FontPicker(string label, string font, Action<string> changed)
   {
-    ModEditorControl control = Row("Font", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Font", 0);
+    float x = _page.Caption(control, label);
     string current = OverlayFontKey.Normalize(font);
     Button button = null;
     TextMeshProUGUI shown = null;
@@ -166,7 +200,7 @@ internal sealed partial class ModEditorPage
       false,
       _reduceMotion
     );
-    Icon(button.transform, LayoutAction.Font, 10, 8, 20, SettingsUiFactory.Muted);
+    _page.Icon(button.transform, LayoutAction.Font, 10, 8, 20, SettingsUiFactory.Muted);
     shown = _ui.Text("", button.transform, 38, 0, 200, 36, 14, SettingsUiFactory.Foreground);
     shown.alignment = TextAlignmentOptions.MidlineLeft;
     shown.textWrappingMode = TextWrappingModes.NoWrap;
@@ -179,14 +213,14 @@ internal sealed partial class ModEditorPage
       SettingsUiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
       shown.rectTransform.sizeDelta = new Vector2(room - 50, 36);
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Shortcut(string label, ElementKit.Shortcut value, Action<ElementKit.Shortcut> changed)
+  public EditorControl Shortcut(string label, ElementKit.Shortcut value, Action<ElementKit.Shortcut> changed)
   {
-    ModEditorControl control = Row("Shortcut", 0);
-    float x = Caption(control, label);
-    ShortcutCapture capture = new() { Current = value };
+    ModEditorControl control = _page.Row("Shortcut", 0);
+    float x = _page.Caption(control, label);
+    ModShortcutCapture capture = new() { Current = value };
     Button field = null;
     field = OverlayEditorUi.CapsuleButton(
       _ui,
@@ -237,7 +271,7 @@ internal sealed partial class ModEditorPage
       true,
       _reduceMotion
     );
-    LayoutActionIcon cross = Icon(clear.transform, LayoutAction.Close, 8, 8, 20, SettingsUiFactory.Muted);
+    LayoutActionIcon cross = _page.Icon(clear.transform, LayoutAction.Close, 8, 8, 20, SettingsUiFactory.Muted);
     capture.Show = () =>
     {
       bool recording = _capture == capture;
@@ -267,14 +301,15 @@ internal sealed partial class ModEditorPage
       shown.rectTransform.sizeDelta = new Vector2(room - 24, 36);
       SettingsUiFactory.Place((RectTransform)clear.transform, x + room + 4, 2, 36, 36);
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
   // While a shortcut part records: the next key with at most one modifier,
   // or Esc to stop, as Element's own shortcut fields do.
-  private void TickShortcut()
+  /// <summary>Once a frame: records the next key while a shortcut part waits for one.</summary>
+  public void TickShortcut()
   {
-    ShortcutCapture capture = _capture;
+    ModShortcutCapture capture = _capture;
     if (capture == null)
       return;
     if (Input.GetKeyDown(KeyCode.Escape))
@@ -302,7 +337,7 @@ internal sealed partial class ModEditorPage
 
   private void StopCapture()
   {
-    ShortcutCapture capture = _capture;
+    ModShortcutCapture capture = _capture;
     _capture = null;
     if (capture == null)
       return;
@@ -311,12 +346,4 @@ internal sealed partial class ModEditorPage
   }
 
   private static string Percent(float alpha) => alpha < .995f ? "  " + Mathf.RoundToInt(alpha * 100) + "%" : "";
-
-  private sealed class ShortcutCapture
-  {
-    public ElementKit.Shortcut Current;
-    public string Prompt;
-    public Action Show;
-    public Action<ElementKit.Shortcut> Assign;
-  }
 }

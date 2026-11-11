@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.Graphics;
 
 // One rounded, dashed perimeter, with handles where dragging resizes. Rebuilt
 // only when the selected target changes size, or its viewport scale changes;

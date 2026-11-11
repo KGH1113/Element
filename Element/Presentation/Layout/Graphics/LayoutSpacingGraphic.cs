@@ -2,7 +2,7 @@ using Element.Domain.Layout;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.Graphics;
 
 // Paired dimension lines show exactly which two empty gaps are equal.
 [RequireComponent(typeof(CanvasRenderer))]

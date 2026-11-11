@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using UnityEngine;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

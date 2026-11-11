@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Domain.Layout;
@@ -13,6 +14,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -441,7 +443,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
     _editing.Deactivate();
     _element = null;
     _closed = null;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (notify)
       closed?.Invoke(commit);
   }

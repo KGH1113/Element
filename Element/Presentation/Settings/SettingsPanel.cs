@@ -330,7 +330,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       if (focused != null)
         RevealControl(focused.transform, 8);
     }
-    UIInteractionState.RestoreCursor();
+    SettingsInputCapture.RestoreCursor();
   }
 
   // Static so the runtime can watch the shortcut before the window is built.

@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
-using HarmonyLib;
 using Element.Domain.Input;
+using Element.Infrastructure.Game.Settings;
+using HarmonyLib;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Input;
@@ -25,14 +26,30 @@ internal sealed class GameKeyLimiter : IDisposable
   >("_asyncKeysCache");
 
   private readonly Func<KeyLimiterSnapshot> _current;
+  private readonly Func<string> _menuLabel;
+  private readonly Func<string> _menuDescription;
   private KeyLimiterSnapshot _applied;
   private HashSet<KeyCode> _unityKeys;
   private HashSet<ushort> _asyncKeys;
 
-  public GameKeyLimiter(Func<KeyLimiterSnapshot> current) => _current = current;
+  /// <param name="menuLabel">What the pause menu's Key Limiter row reads while ElementNote's keys apply.</param>
+  /// <param name="menuDescription">The row's description then: where to change the keys.</param>
+  public GameKeyLimiter(Func<KeyLimiterSnapshot> current, Func<string> menuLabel, Func<string> menuDescription)
+  {
+    _current = current;
+    _menuLabel = menuLabel;
+    _menuDescription = menuDescription;
+  }
 
   /// <summary>True while the game's limiter uses ElementNote's keys. Main thread only.</summary>
-  public static bool Active { get; private set; }
+  public bool Active { get; private set; }
+
+  public string MenuLabel => _menuLabel();
+
+  public string MenuDescription => _menuDescription();
+
+  /// <summary>Whether <paramref name="setting"/> is the pause menu's Key Limiter row and shows ElementNote's keys.</summary>
+  public bool OwnsMenuRow(PauseSettingButton setting) => Active && KeyLimiterMenuRow.IsRow(setting);
 
   /// <summary>Main thread, once per frame: two reference checks unless the profile changed.</summary>
   public void Tick()
@@ -107,11 +124,11 @@ internal sealed class GameKeyLimiter : IDisposable
     SetActive(false);
   }
 
-  private static void SetActive(bool active)
+  private void SetActive(bool active)
   {
     if (Active == active)
       return;
     Active = active;
-    KeyLimiterMenuRow.Refresh();
+    KeyLimiterMenuRow.Refresh(active);
   }
 }

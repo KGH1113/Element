@@ -5,6 +5,7 @@ using Element.Domain.Layout;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using ElementKit.Hosting;
+using Element.Application.Mods;
 
 namespace Element.Presentation.Overlay.Canvas;
 

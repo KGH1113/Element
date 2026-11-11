@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Canvas;
@@ -16,6 +17,8 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 using Object = UnityEngine.Object;
+using Element.Application.Layout;
+using Element.Application.KeyViewer;
 
 namespace Element.Presentation.Layout;
 
@@ -173,7 +176,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     _cursors.Set(LayoutHandle.None);
     Cursor.visible = _previousCursorVisible;
     Cursor.lockState = _previousCursorLock;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
     {
       _ownedEvents.SetActive(false);
@@ -199,7 +202,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     IContentEditor editor = _kinds.OpenEditor;
     if (editor != null)
     {
-      UIInteractionState.SetTextEditing(true);
+      InputGate.SetTextEditing(true);
       editor.Tick();
       host.TickLayoutPreview();
       UpdateFrames();
@@ -209,7 +212,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     PopoverStack popovers = _popovers.Stack;
     bool typing = _toolbar.Typing || popovers.Typing;
     bool popoverOpen = popovers.AnyOpen;
-    UIInteractionState.SetTextEditing(typing || _modal.IsOpen || popoverOpen);
+    InputGate.SetTextEditing(typing || _modal.IsOpen || popoverOpen);
     UpdatePopupPositions();
     _popovers.Tick();
     if (_modal.IsOpen || popoverOpen)
@@ -687,7 +690,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     _modal.Close();
     _popovers.Dispose();
     _session.Ui?.Dispose();
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
       SettingsUiFactory.Destroy(_ownedEvents);
     if (_session.Root != null)

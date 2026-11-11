@@ -8,7 +8,7 @@ using Element.Application.Rendering;
 using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
-using Element.Infrastructure.Ipc;
+using Element.Infrastructure.ElementNote.Ipc;
 using Element.Presentation.Rendering;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;

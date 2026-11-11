@@ -1,3 +1,4 @@
+using Element.Application.Input;
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
@@ -10,6 +11,8 @@ using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
+using Element.Application.Mods;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
@@ -377,7 +380,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     _type = null;
     _guard.Type = null;
     _closed = null;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (notify)
       closed?.Invoke(commit);
   }

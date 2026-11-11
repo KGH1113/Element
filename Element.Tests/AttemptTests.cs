@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using Element.Application.Attempts;
 using Element.Domain.Attempts;
-using Element.Infrastructure.Attempts;
+using Element.Infrastructure.Storage;
 
 namespace Element.Tests;
 

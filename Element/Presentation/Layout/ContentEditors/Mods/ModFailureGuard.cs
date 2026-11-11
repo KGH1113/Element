@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using ElementKit.Hosting;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Mods;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 

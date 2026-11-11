@@ -2,6 +2,7 @@ using System;
 using Element.Application.Updates;
 using Element.Bootstrap;
 using Element.Configuration;
+using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Updates;
 using Element.Presentation.Settings;
@@ -33,6 +34,9 @@ public sealed class Main
 
   internal ModRuntime Runtime { get; private set; }
 
+  /// <summary>Lives as long as the game, so its count covers the whole run across the mod turning off and on.</summary>
+  internal ChatterBlocker Chatter { get; } = new();
+
   private bool _enabled;
 
   private Main(UnityModManager.ModEntry modEntry)
@@ -55,7 +59,6 @@ public sealed class Main
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
       Instance.Settings = ElementSettings.Load(modEntry);
       Instance.Settings.Migrate();
-      Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;

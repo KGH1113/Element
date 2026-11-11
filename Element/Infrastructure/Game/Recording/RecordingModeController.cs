@@ -14,6 +14,9 @@ internal sealed class RecordingModeController
 
   public bool IsActive => _active;
 
+  /// <summary>The flash of the level's last floor is skipped once while recording.</summary>
+  public bool SuppressNextFlash { get; set; }
+
   public void Apply(bool active)
   {
     if (_active == active)
@@ -33,7 +36,7 @@ internal sealed class RecordingModeController
     }
 
     _active = false;
-    RecordingUiPatchState.SuppressNextFlash = false;
+    SuppressNextFlash = false;
     RestoreSceneObjects();
     RestoreNoHud();
   }
@@ -121,7 +124,7 @@ internal sealed class RecordingModeController
   public void Dispose()
   {
     _active = false;
-    RecordingUiPatchState.SuppressNextFlash = false;
+    SuppressNextFlash = false;
     RestoreSceneObjects();
     RestoreNoHud();
   }

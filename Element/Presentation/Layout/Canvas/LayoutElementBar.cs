@@ -4,6 +4,7 @@ using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using UnityEngine.UI;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

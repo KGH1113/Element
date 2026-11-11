@@ -1,6 +1,7 @@
 using Element.Configuration;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 

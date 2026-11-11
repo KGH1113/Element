@@ -1,9 +1,11 @@
 using System;
 using Element.Application.Settings;
 using Element.Application.Updates;
-using Element.Bootstrap;
+using Element.Bootstrap.Api;
+using Element.Bootstrap.Composition;
 using Element.Configuration;
-using Element.Infrastructure.Ipc;
+using Element.Infrastructure.ElementNote.Ipc;
+using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.Updates;
 using Element.Presentation.Settings;
@@ -35,6 +37,9 @@ public sealed class Main
 
   internal ModRuntime Runtime { get; private set; }
 
+  /// <summary>Lives as long as the game, so its count covers the whole run across the mod turning off and on.</summary>
+  internal ChatterBlocker Chatter { get; } = new();
+
   private bool _enabled;
 
   private Main(UnityModManager.ModEntry modEntry)
@@ -62,7 +67,7 @@ public sealed class Main
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;
       modEntry.OnUnload = OnUnload;
-      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.TickTrackpad();
+      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.Tick();
       // Settings are written when their window closes; quitting with it open
       // must not lose what the player already sees in the game.
       UnityEngine.Application.quitting += OnQuitting;

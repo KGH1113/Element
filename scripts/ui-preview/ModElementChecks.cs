@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Element.Application.Mods;
 using Element.Configuration;
+using Element.Infrastructure.Mods;
 using Element.Presentation.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.Kinds;
@@ -134,7 +136,7 @@ namespace Element.Editor
     private static void CheckModElements(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name, int width, int height)
     {
-      ListedModAssemblies mods = new ListedModAssemblies();
+      PreviewModAssemblies mods = new PreviewModAssemblies();
       List<string> warnings = new List<string>();
       mods.Add(new ModAssembly("Preview", typeof(PreviewCard).Assembly, () => true));
       host.ModElements = new ModElements(mods, warnings.Add);
@@ -293,6 +295,31 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, tab + ": label fits: " + label.text + " width " + label.rectTransform.rect.width + " needs " + label.GetPreferredValues(label.text, 1000, 36).x + " font " + (label.font != null ? label.font.name : "none") + " size " + label.fontSize);
       }
+    }
+  }
+
+  // The preview lists its element's mod itself, without UMM.
+  internal sealed class PreviewModAssemblies : IModAssemblies
+  {
+    private readonly List<ModAssembly> _mods = new List<ModAssembly>();
+
+    public int Version { get; private set; }
+
+    public IReadOnlyList<ModAssembly> Current => _mods;
+
+    public List<ElementClass> FindElements(ModAssembly mod, Action<string> report) =>
+      ElementClasses.Find(mod.Id, mod.Assembly, report);
+
+    public void Add(ModAssembly mod)
+    {
+      _mods.Add(mod);
+      Version++;
+    }
+
+    public void Remove(string id)
+    {
+      if (_mods.RemoveAll(mod => mod.Id == id) > 0)
+        Version++;
     }
   }
 }

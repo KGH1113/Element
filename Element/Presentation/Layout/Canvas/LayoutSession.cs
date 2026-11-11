@@ -8,6 +8,8 @@ using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

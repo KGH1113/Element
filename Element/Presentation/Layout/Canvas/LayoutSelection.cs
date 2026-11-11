@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

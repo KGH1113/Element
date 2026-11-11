@@ -3,6 +3,7 @@ using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 

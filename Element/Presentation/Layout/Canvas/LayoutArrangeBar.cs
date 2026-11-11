@@ -7,6 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

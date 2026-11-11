@@ -1,4 +1,5 @@
 using Element.Presentation.Layout.Graphics;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

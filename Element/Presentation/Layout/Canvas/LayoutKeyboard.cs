@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Layout.Kinds;
 using UnityEngine;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 

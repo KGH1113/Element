@@ -4,13 +4,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using Element.Application;
 using Element.Application.Attempts;
 using Element.Application.Rendering;
 using Element.Domain.Attempts;
 using Element.Domain.Elements;
-using Element.Infrastructure.Ipc;
-using Element.Infrastructure.Replays;
+using Element.Infrastructure.ElementNote.Ipc;
+using Element.Infrastructure.TufReplay;
 using Element.Presentation.Overlay.Attempt;
 using Element.Presentation.Overlay.Elements;
 
@@ -100,7 +99,10 @@ internal static class RunStateTests
     MethodInfo begin = provider.GetMethod("OnReplayBegin", Public);
     Check(
       begin != null
-        && begin.GetParameters().Select(parameter => parameter.ParameterType).SequenceEqual(new[] { state, typeof(bool) }),
+        && begin
+          .GetParameters()
+          .Select(parameter => parameter.ParameterType)
+          .SequenceEqual(new[] { state, typeof(bool) }),
       provider.Name + " has OnReplayBegin(" + state.Name + ", bool)"
     );
     MethodInfo end = provider.GetMethod("OnReplayEnd", Public);
@@ -142,7 +144,10 @@ internal static class RunStateTests
     );
     Check(counts?["hand-default"]["NUMPAD 1"] == 12, "ElementNote's counts are read");
     Check(KeyCounterIpc.ParseCounts("{\"ok\":false,\"code\":\"x\"}") == null, "a failed read saves nothing");
-    Check(KeyCounterIpc.ParseCounts("{\"ok\":true,\"counters\":{\"hand\":{\"A\":-1.5}}}") == null, "a bad count saves nothing");
+    Check(
+      KeyCounterIpc.ParseCounts("{\"ok\":true,\"counters\":{\"hand\":{\"A\":-1.5}}}") == null,
+      "a bad count saves nothing"
+    );
     Check(KeyCounterIpc.ParseCounts("not json") == null, "an unreadable reply saves nothing");
   }
 

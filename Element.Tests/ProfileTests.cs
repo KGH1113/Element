@@ -11,7 +11,6 @@ using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Configuration.Profiles;
 using Element.Domain.Input;
-using Element.Infrastructure.Profiles;
 using Element.Infrastructure.Storage;
 
 namespace Element.Tests;

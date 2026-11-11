@@ -10,6 +10,7 @@ using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 using UiFactory = Element.Presentation.Settings.SettingsUiFactory;
+using Element.Application.Mods;
 
 namespace Element.Presentation.Overlay.Mods;
 

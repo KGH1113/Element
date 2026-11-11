@@ -8,6 +8,7 @@ using Element.Presentation.Ui.Popovers;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 

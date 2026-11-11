@@ -4,10 +4,10 @@ using System.Globalization;
 using System.Reflection;
 using System.Text;
 using ADOFAI;
-using HarmonyLib;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Editor;
-using Element.Presentation.Settings;
+using HarmonyLib;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Editor;
@@ -104,7 +104,7 @@ internal sealed class EditorTweaksController : IDisposable
   }
 
   private static bool CanEdit(scnEditor editor) =>
-    !UIInteractionState.BlocksPointerInput
+    !InputGate.BlocksPointerInput
     && !editor.playMode
     && !editor.lockPathEditing
     && !editor.userIsEditingAnInputField

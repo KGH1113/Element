@@ -1,7 +1,7 @@
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// Tells an open editor when a value it shows has changed, so a level

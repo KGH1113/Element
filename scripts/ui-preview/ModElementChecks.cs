@@ -195,7 +195,7 @@ namespace Element.Editor
         Find("Chip ").onClick.Invoke();
         Assert(Working().Contains("\"Show\":[false,false,true]"), "a chip turns its option on or off: " + Working());
         Find("Font ").onClick.Invoke();
-        OverlayFontPopover fonts = Field<OverlayFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
+        UiFontPopover fonts = Field<UiFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
         Assert(fonts != null && fonts.Visible && InsideScreen(ScreenRectOf(fonts.Root)), "a font part opens Element's font list beside it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");

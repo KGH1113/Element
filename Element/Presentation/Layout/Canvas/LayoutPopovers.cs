@@ -14,7 +14,7 @@ internal sealed class LayoutPopovers
   private readonly LayoutSession _session;
   private readonly LayoutToolbar _toolbar;
   private OverlayColorPopover _colorPopover;
-  private OverlayFontPopover _fontPopover;
+  private UiFontPopover _fontPopover;
   private UiFactory _fontUi;
 
   public LayoutPopovers(LayoutSession session, LayoutToolbar toolbar)
@@ -40,12 +40,12 @@ internal sealed class LayoutPopovers
   }
 
   /// <summary>The default font's list; made on first use, with the overlay fonts.</summary>
-  public OverlayFontPopover Font(System.Action<string> picked)
+  public UiFontPopover Font(System.Action<string> picked)
   {
     if (_fontPopover == null)
     {
       _fontUi = _session.NewUi();
-      _fontPopover = new OverlayFontPopover(
+      _fontPopover = new UiFontPopover(
         _fontUi,
         _session.Root.transform,
         _session.Fonts,
@@ -76,8 +76,8 @@ internal sealed class LayoutPopovers
       );
     if (_fontPopover?.Visible ?? false)
     {
-      float width = OverlayFontPopover.PreferredWidth,
-        height = OverlayFontPopover.PreferredHeight;
+      float width = UiFontPopover.PreferredWidth,
+        height = UiFontPopover.PreferredHeight;
       Rect bounds = _toolbar.PopoverAbove(width, height, 0, true);
       _fontPopover.Place(bounds.x, bounds.y, width, height);
       _fontPopover.Root.localScale = Vector3.one * (bounds.width / width);

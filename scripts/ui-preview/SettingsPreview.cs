@@ -1271,7 +1271,7 @@ namespace Element.Editor
       string typewriter = typewriterFace.Key;
 
       Call(editor, "ToggleFont");
-      OverlayFontPopover popover = Field<OverlayFontPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_fontPopover");
+      UiFontPopover popover = Field<UiFontPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_fontPopover");
       Call(editor, "UpdatePopupPositions");
       Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
       Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
@@ -1343,7 +1343,7 @@ namespace Element.Editor
       SetField(TextDocumentOf(text), "_anchor", 0);
       SetField(TextDocumentOf(text), "_caretIndex", 3);
       Call(Field<TextFonts>(text, "_fonts"), "ToggleFont");
-      OverlayFontPopover textFonts = Field<OverlayFontPopover>(Field<TextFonts>(text, "_fonts"), "_fontPopover");
+      UiFontPopover textFonts = Field<UiFontPopover>(Field<TextFonts>(text, "_fonts"), "_fontPopover");
       Assert(textFonts.Visible, "the text editor's Font opens its list");
       Call(textFonts, "Pick", (int)textFonts.GetType().GetMethod("IndexOf", Private).Invoke(textFonts, new object[] { typewriter }));
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
@@ -2270,7 +2270,7 @@ namespace Element.Editor
       Assert(-card.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "the font card sits below the cards");
 
       Call(Fonts(panel), "OpenFontReplacement", 0);
-      OverlayFontPopover popover = Field<OverlayFontPopover>(Fonts(panel), "_fontPopover");
+      UiFontPopover popover = Field<UiFontPopover>(Fonts(panel), "_fontPopover");
       Assert(popover.Visible, "Choose font opens the font list");
       string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
       Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));

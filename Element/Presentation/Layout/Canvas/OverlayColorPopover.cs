@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.Canvas;
 
 // Overlay highlights use the shared picker in RGB mode. Planet customization
 // uses the same controls with its independent alpha channel enabled.

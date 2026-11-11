@@ -6,13 +6,15 @@ using UnityEngine.UI;
 
 namespace Element.Presentation.Settings;
 
-// shadcn's toggle group: one track, the chosen segment raised in the accent surface.
+/// <summary>One track of segments, the chosen one raised in the accent surface; <see cref="SettingsSegmentStyle"/> sets the look.</summary>
 internal sealed class SettingsSegmentedControl
 {
   private readonly SettingsUiFactory _ui;
+  private readonly SettingsSegmentStyle _style;
   private readonly List<Button> _buttons = new();
   private readonly List<TextMeshProUGUI> _labels = new();
   private readonly Action<int> _changed;
+  private readonly float _segmentHeight;
   private int _selected = -1;
 
   public SettingsSegmentedControl(
@@ -24,33 +26,38 @@ internal sealed class SettingsSegmentedControl
     float height,
     IReadOnlyList<string> labels,
     Action<int> changed,
-    float fontSize = 14
+    float fontSize = 14,
+    SettingsSegmentStyle style = null
   )
   {
     _ui = ui;
+    _style = style ?? SettingsSegmentStyle.Toggle;
     _changed = changed;
-    Image track = ui.Panel("Segments", parent, x, y, width, height, new Color(.16f, .16f, .16f));
-    track.raycastTarget = true;
+    float inset = _style.Inset;
+    _segmentHeight = height - inset * 2;
+    Image track = ui.Panel(_style.Name, parent, x, y, width, height, _style.Track);
+    track.raycastTarget = _style.TrackTakesClicks;
     Root = track.rectTransform;
-    float segment = (width - 6) / Mathf.Max(1, labels.Count);
+    float segment = (width - inset * 2) / Mathf.Max(1, labels.Count);
     for (int i = 0; i < labels.Count; i++)
     {
       int index = i;
       Button button = ui.Button(
         labels[i],
         Root,
-        3 + segment * i,
-        3,
+        inset + segment * i,
+        inset,
         segment,
-        height - 6,
+        _segmentHeight,
         () => Select(index, true),
         themed: false
       );
       button.name = labels[i];
       TextMeshProUGUI label = button.GetComponentInChildren<TextMeshProUGUI>();
       label.fontSize = fontSize;
-      label.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
-      SettingsUiFactory.Stretch(label.rectTransform, 6, 0, 6, 0);
+      if (!_style.LabelWraps)
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+      SettingsUiFactory.Stretch(label.rectTransform, _style.LabelInset, 0, _style.LabelInset, 0);
       _buttons.Add(button);
       _labels.Add(label);
     }
@@ -74,8 +81,29 @@ internal sealed class SettingsSegmentedControl
     bool changed = _selected != index;
     _selected = index;
     Restyle();
-    if (notify && changed)
+    if (notify && (changed || _style.ClicksRepeat))
       _changed?.Invoke(index);
+  }
+
+  /// <summary>
+  /// Places the control again, its segments in rows of <paramref name="columns"/>
+  /// (all in one row when 0) that keep their first height.
+  /// </summary>
+  public void Place(float x, float y, float width, float height, int columns = 0)
+  {
+    SettingsUiFactory.Place(Root, x, y, width, height);
+    if (columns <= 0)
+      columns = _buttons.Count;
+    float inset = _style.Inset;
+    float segment = (width - inset * 2) / columns;
+    for (int i = 0; i < _buttons.Count; i++)
+      SettingsUiFactory.Place(
+        (RectTransform)_buttons[i].transform,
+        inset + i % columns * segment,
+        inset + i / columns * (_segmentHeight + inset),
+        segment,
+        _segmentHeight
+      );
   }
 
   private void Restyle()
@@ -83,14 +111,7 @@ internal sealed class SettingsSegmentedControl
     for (int i = 0; i < _buttons.Count; i++)
     {
       bool selected = i == _selected;
-      Color fill = selected ? _ui.AccentSurface : new Color(.16f, .16f, .16f, 0);
-      ColorBlock colors = _buttons[i].colors;
-      colors.normalColor = fill;
-      colors.selectedColor = fill;
-      colors.highlightedColor = selected ? fill : new Color(1, 1, 1, .06f);
-      colors.pressedColor = Color.Lerp(_ui.AccentSurface, Color.black, .2f);
-      colors.disabledColor = new Color(0, 0, 0, 0);
-      colors.fadeDuration = _ui.ReduceMotion() ? 0 : .1f;
+      ColorBlock colors = _style.Colors(_buttons[i].colors, selected, _ui);
       _buttons[i].targetGraphic.color = Color.white;
       if (_buttons[i] is SettingsButton button)
         button.SetPalette(colors);

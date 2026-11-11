@@ -54,6 +54,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
   private OverlayBarButton _colorButton;
   private OverlayBarButton _animateButton;
   private OverlayBarButton _growButton;
+  private OverlayBarButton[] _formatButtons;
   private OverlayTextPulse _previewPulse;
   private OverlayOpacityField _opacity;
   private Image _emptyCaret;
@@ -271,6 +272,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
       _reduceMotion(),
       icon: LayoutAction.GrowFrom
     );
+    _formatButtons = new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton };
   }
 
   // Values keep their meaning's color when inserted: judgment counts their

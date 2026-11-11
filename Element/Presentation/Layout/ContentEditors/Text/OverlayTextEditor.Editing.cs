@@ -586,7 +586,7 @@ internal sealed partial class OverlayTextEditor
   {
     float y = (FormatHeight - OverlayBarButton.Height) * .5f;
     float x = y;
-    foreach (OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton })
+    foreach (OverlayBarButton button in _formatButtons)
     {
       button.Place(x, y);
       x += button.Width + 4;

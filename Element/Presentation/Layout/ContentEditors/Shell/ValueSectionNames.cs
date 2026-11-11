@@ -1,6 +1,6 @@
 using Element.Presentation.Settings;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>The names of the input dock's value sections.</summary>
 internal static class ValueSectionNames

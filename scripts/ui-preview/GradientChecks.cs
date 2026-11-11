@@ -16,6 +16,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Presentation.Layout.ContentEditors.Text;
+using Element.Presentation.Layout.ContentEditors.Shape;
 
 namespace Element.Editor
 {

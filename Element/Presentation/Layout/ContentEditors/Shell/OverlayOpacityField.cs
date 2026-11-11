@@ -4,7 +4,7 @@ using Element.Domain.Elements;
 using Element.Presentation.Settings;
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// The color picker's opacity box in the text and shape editors. It works like

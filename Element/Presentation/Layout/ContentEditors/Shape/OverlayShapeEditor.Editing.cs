@@ -13,7 +13,7 @@ using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 using NVector2 = System.Numerics.Vector2;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shape;
 
 // Drawing, the numbers the dock edits, keys, picked and dropped values,
 // where the shape grows from, and undo.

@@ -1,7 +1,7 @@
 using System;
 using Element.Domain.Elements;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// One place a formula can be edited: a value in a text, or a number field.

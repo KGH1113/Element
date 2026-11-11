@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 // Buttons of the full-screen editors, which float on a dim instead of
 // sitting on cards: light, see-through capsules over the dark.

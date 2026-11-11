@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// A number that glides to where it is told over a short ease-out, starting

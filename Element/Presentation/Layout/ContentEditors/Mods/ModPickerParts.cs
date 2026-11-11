@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using ElementKit;

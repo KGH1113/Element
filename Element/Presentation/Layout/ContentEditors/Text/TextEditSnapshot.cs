@@ -1,6 +1,6 @@
 using Element.Domain.Elements;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Text;
 
 /// <summary>A text editor's undo step: the text and where the caret and selection were.</summary>
 internal readonly struct TextEditSnapshot

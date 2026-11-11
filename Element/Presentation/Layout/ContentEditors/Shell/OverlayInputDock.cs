@@ -11,7 +11,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// Where formulas are typed: a wide dock along the bottom of an editor, always

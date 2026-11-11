@@ -30,6 +30,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+using Element.Presentation.Layout.ContentEditors.Text;
+using Element.Presentation.Layout.ContentEditors.Shape;
 
 namespace Element.Editor
 {

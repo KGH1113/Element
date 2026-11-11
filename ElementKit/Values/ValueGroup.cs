@@ -12,7 +12,7 @@ namespace ElementKit.Values;
 /// <code>
 /// public static class FingeringValues
 /// {
-///     public static readonly ValueGroup Group = new("예시", "Fingering");
+///     public static readonly ValueGroup Group = new("내 모드", "My mod");
 ///     public static readonly NumberValue LeftKeys = Group.Number("left-keys", "왼손 키", "Left keys", sample: 3);
 /// }
 /// </code>
@@ -22,7 +22,7 @@ public sealed class ValueGroup
   private static int _created;
   private readonly List<Value> _values = new();
 
-  /// <param name="koreanName">The heading in Korean, such as "예시".</param>
+  /// <param name="koreanName">The heading in Korean, such as "내 모드".</param>
   /// <param name="englishName">The heading in English, such as "Fingering".</param>
   public ValueGroup(string koreanName, string englishName)
   {

@@ -7,7 +7,8 @@ source "$TASK_DIR/../../lib/windows-host.sh"
 # shellcheck source=../../lib/windows-webview.sh
 source "$TASK_DIR/../../lib/windows-webview.sh"
 
-bash "$TASK_DIR/../build/game-webview-windows.sh"
+# Tests the library build/game-webview-windows.sh made on the Windows PC.
+require_windows_host
 
 # The probe stands in for ADOFAI: a UnityWndClass window with a flip-model swap
 # chain and a loopback OBS fixture. It checks composed screen pixels and real

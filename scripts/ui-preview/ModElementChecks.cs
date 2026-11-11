@@ -1,23 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Element.Configuration;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
+using Element.Infrastructure.Mods;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.Canvas;
+using Element.Presentation.Layout.Kinds;
+using Element.Presentation.Layout.ContentEditors.Mods;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using ElementKit;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Presentation.Ui.ColorPicker;
 
 namespace Element.Editor
 {
   [Serializable]
   public sealed class PreviewCardSettings
   {
-    public string Title = "Sample";
+    public string Title = "Card";
     public Color Fill = new Color(.12f, .12f, .14f, .9f);
     public Paint Accent = Paint.Solid(new Color(1f, .62f, .26f));
     public float Progress = .6f;
@@ -128,26 +136,26 @@ namespace Element.Editor
     private static void CheckModElements(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name, int width, int height)
     {
-      ListedModAssemblies mods = new ListedModAssemblies();
+      PreviewModAssemblies mods = new PreviewModAssemblies();
       List<string> warnings = new List<string>();
       mods.Add(new ModAssembly("Preview", typeof(PreviewCard).Assembly, () => true));
       host.ModElements = new ModElements(mods, warnings.Add);
       try
       {
         Call(editor, "ToggleAddMenu");
-        RectTransform menu = Field<RectTransform>(editor, "_addMenu");
+        RectTransform menu = AddMenu(editor);
         Button[] rows = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
         Assert(rows.Length == 4 && rows[3].name == "Add Extension" && rows[3].interactable, "Add Element gains More once a mod declares an element");
         Assert(warnings.Count == 0, "the preview element is found without problems: " + string.Join(" | ", warnings));
         rows[3].onClick.Invoke();
-        RectTransform list = Field<RectTransform>(editor, "_modMenu");
+        RectTransform list = Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root;
         Assert(list != null && list.GetComponentsInChildren<Button>(true).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card" }),
           "More lists each element other mods declare");
         SaveFrame(camera, texture, canvases, name + "-mod-types");
 
         list.GetComponentsInChildren<Button>(true).Single().onClick.Invoke();
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
-        OverlayModEditor mods2 = Field<OverlayModEditor>(editor, "_modEditor");
+        OverlayModEditor mods2 = (OverlayModEditor)Kind<ModKind>(editor).Editor;
         Assert(element.Enabled && element.Drawn && mods2.IsOpen, "a new element opens its editing screen at once");
         string Working() => Field<string>(mods2, "_working");
         Button Find(string prefix) => mods2.Page.Root.GetComponentsInChildren<Button>(true).First(button => button.name.StartsWith(prefix));
@@ -165,7 +173,7 @@ namespace Element.Editor
         Tab("Grow from " + OverlayGrowth.Top).onClick.Invoke();
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
         Find("Paint ").onClick.Invoke();
-        SettingsColorPicker paint = Field<SettingsColorPicker>(mods2, "_paintPicker");
+        UiColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
         Assert(paint.Visible && paint.GradientAvailable && InsideScreen(ScreenRectOf(paint.Root)),
           "a paint opens the full picker, gradients included, on screen");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");
@@ -178,7 +186,7 @@ namespace Element.Editor
         title.text = "Hello";
         Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting as it is typed");
         Find("Dropdown ").onClick.Invoke();
-        ModListPopover dropdown = Field<ModListPopover>(mods2, "_list");
+        ModListPopover dropdown = Field<ModListPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_list");
         Assert(dropdown.Visible && InsideScreen(ScreenRectOf(dropdown.Root)), "a dropdown opens its list under it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-dropdown");
         dropdown.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Option 3").onClick.Invoke();
@@ -186,7 +194,7 @@ namespace Element.Editor
         Find("Chip ").onClick.Invoke();
         Assert(Working().Contains("\"Show\":[false,false,true]"), "a chip turns its option on or off: " + Working());
         Find("Font ").onClick.Invoke();
-        OverlayFontPopover fonts = Field<OverlayFontPopover>(mods2, "_fontPopover");
+        UiFontPopover fonts = Field<UiFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
         Assert(fonts != null && fonts.Visible && InsideScreen(ScreenRectOf(fonts.Root)), "a font part opens Element's font list beside it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");
@@ -227,7 +235,7 @@ namespace Element.Editor
           "a part's hint shows on hover");
         box.transform.parent.GetComponent<ModHint>().OnPointerExit(null);
         Find("Icon Reset").onClick.Invoke();
-        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Sample\""), "an icon button runs its action");
+        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "an icon button runs its action");
 
         // Undo keeps the picked tab.
         Call(mods2, "Undo");
@@ -265,7 +273,7 @@ namespace Element.Editor
     private static void CheckVisibleParts(OverlayModEditor editor, string name, string tab)
     {
       ModEditorPage page = editor.Page;
-      Rect preview = ScreenRectOf(Field<RectTransform>(editor, "_previewHolder"));
+      Rect preview = ScreenRectOf(Field<RectTransform>(Field<ModPreview>(editor, "_preview"), "_holder"));
       // A tab page at the top of the column is only a holder; its parts stand in the column themselves.
       IEnumerable<RectTransform> Children(Transform parent) => Enumerable.Range(0, parent.childCount)
         .Select(i => (RectTransform)parent.GetChild(i))
@@ -287,6 +295,31 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, tab + ": label fits: " + label.text + " width " + label.rectTransform.rect.width + " needs " + label.GetPreferredValues(label.text, 1000, 36).x + " font " + (label.font != null ? label.font.name : "none") + " size " + label.fontSize);
       }
+    }
+  }
+
+  // The preview lists its element's mod itself, without UMM.
+  internal sealed class PreviewModAssemblies : IModAssemblies
+  {
+    private readonly List<ModAssembly> _mods = new List<ModAssembly>();
+
+    public int Version { get; private set; }
+
+    public IReadOnlyList<ModAssembly> Current => _mods;
+
+    public List<ElementClass> FindElements(ModAssembly mod, Action<string> report) =>
+      ElementClasses.Find(mod.Id, mod.Assembly, report);
+
+    public void Add(ModAssembly mod)
+    {
+      _mods.Add(mod);
+      Version++;
+    }
+
+    public void Remove(string id)
+    {
+      if (_mods.RemoveAll(mod => mod.Id == id) > 0)
+        Version++;
     }
   }
 }

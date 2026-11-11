@@ -15,7 +15,7 @@ upstream snapshot.
 - The existing editor connects to the v2 revisioned editor document through an
   adapter that preserves fields not exposed by the current UI.
 - Existing visual baselines remain unchanged. Migration boundaries and checks
-  are described in [`docs/element-note-dmnote-v2.md`](../../docs/element-note-dmnote-v2.md).
+  are described in [`docs/features/element-note-upstream.md`](../../docs/features/element-note-upstream.md).
 
 ## Identity and storage
 

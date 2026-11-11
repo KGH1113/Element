@@ -1,12 +1,12 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
-using Element.Domain.Input;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
 using UnityEngine;
 using UnityModManagerNet;
 
 namespace Element.Configuration;
 
+[CopiedInPlace]
 public sealed class ElementSettings : UnityModManager.ModSettings
 {
   public bool HidePerfectJudgmentText = true;
@@ -20,7 +20,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   /// <summary>Open the bundled ElementNote with the game; it closes when the game quits.</summary>
   public bool AutoOpenCloseDmNote = true;
 
-  /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
+  /// <summary>The version SettingsMigrator brings settings to. Raise it with each new migration step.</summary>
   public const int CurrentSettingsVersion = 9;
 
   public const string DefaultHighlightColor = "#BA712B";
@@ -43,6 +43,21 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public KeyCode SettingsShortcutKey = DefaultSettingsShortcutKey;
   public KeyCode SettingsShortcutModifier = DefaultSettingsShortcutModifier;
 
+  /// <summary>
+  /// Whether the shortcut already opens settings or applies a preset, since one
+  /// shortcut does one thing. <paramref name="presetId"/> is the preset being
+  /// given the shortcut, or null for the settings shortcut. <paramref name="owner"/>
+  /// is the preset that has it, or null when it opens settings.
+  /// </summary>
+  public bool ShortcutTaken(KeyCode key, KeyCode modifier, string presetId, out Effects.EffectPreset owner)
+  {
+    owner = null;
+    if (presetId != null && key == SettingsShortcutKey && modifier == SettingsShortcutModifier)
+      return true;
+    owner = Effects.FindShortcut(key, modifier, presetId);
+    return owner != null;
+  }
+
   public List<OverlayLayoutSettings> OverlayLayouts = new();
 
   /// <summary>
@@ -53,87 +68,8 @@ public sealed class ElementSettings : UnityModManager.ModSettings
 
   public string ActiveProfileId = "";
 
-  public void Migrate()
-  {
-    // Only replace the previous default. After the first migration users can
-    // deliberately choose that green again without a later load changing it.
-    if (
-      SettingsVersion < 1
-      && string.Equals(HighlightColor?.Trim().TrimStart('#'), "7CCE00", StringComparison.OrdinalIgnoreCase)
-    )
-      HighlightColor = "#BA712B";
-    Gameplay ??= new();
-    Gameplay.Judgement ??= new();
-    if (SettingsVersion < 2)
-    {
-      Gameplay.Judgement.HidePerfect = HidePerfectJudgmentText;
-    }
-    Gameplay.Normalize();
-    Effects ??= new();
-    Effects.Normalize();
-    OverlayLayouts ??= new();
-    OverlayFont = OverlayFontKey.Normalize(OverlayFont);
-    // Presets from before 1.1 become texts already in the current form; texts
-    // saved by 1.1.0 are rewritten for split values and units.
-    if (SettingsVersion < 3)
-      Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
-    else if (SettingsVersion < 4)
-      Domain.Elements.OverlayElementMigration.MigrateFormulas(OverlayLayouts);
-    // Built-ins added by an update, such as the progress bar, arrive once;
-    // deleting one afterwards keeps it gone.
-    if (SettingsVersion < 6)
-    {
-      Domain.Elements.OverlayElementMigration.UpgradeProgressBar(OverlayLayouts);
-      Domain.Elements.OverlayElementDefaults.AddMissing(OverlayLayouts);
-    }
-    // Left Alt + Tab was the old default and also switches windows on Windows.
-    // Move only that untouched default; a custom shortcut stays as chosen.
-    if (
-      SettingsVersion < 7
-      && SettingsShortcutKey == KeyCode.Tab
-      && SettingsShortcutModifier == KeyCode.LeftAlt
-    )
-    {
-      SettingsShortcutKey = DefaultSettingsShortcutKey;
-      SettingsShortcutModifier = DefaultSettingsShortcutModifier;
-    }
-    // The chatter window used to count from the key's release; it now counts
-    // from the last press, as KeyboardChatterBlocker does. Only the untouched
-    // old default moves to the new one.
-    if (SettingsVersion < 8 && Gameplay.Chatter.WindowMs == ChatterBlockerOptions.ReleaseWindowDefaultMs)
-      Gameplay.Chatter.WindowMs = ChatterFilter.DefaultWindowMs;
-    // Animation became a switch on each value; the combos that always grew keep growing.
-    if (SettingsVersion < 9)
-      Domain.Elements.OverlayElementMigration.AnimateCombos(OverlayLayouts);
-    Profiles ??= new();
-    SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
-  }
-
   public override void Save(UnityModManager.ModEntry modEntry)
   {
     Save(this, modEntry);
-  }
-
-  /// <summary>
-  /// Reads the saved settings. Unity Mod Manager's own loader drops text that
-  /// is only spaces, such as the space between two values in an overlay text,
-  /// so the same file is read here with whitespace kept.
-  /// </summary>
-  public static ElementSettings Load(UnityModManager.ModEntry modEntry)
-  {
-    ElementSettings fresh = new();
-    string path = fresh.GetPath(modEntry);
-    if (!File.Exists(path))
-      return fresh;
-    try
-    {
-      using FileStream stream = File.OpenRead(path);
-      return SettingsXml.Read<ElementSettings>(stream) ?? fresh;
-    }
-    catch (Exception exception)
-    {
-      modEntry.Logger.Warning("Settings were read without keeping spaces: " + exception.Message);
-      return Load<ElementSettings>(modEntry) ?? fresh;
-    }
   }
 }

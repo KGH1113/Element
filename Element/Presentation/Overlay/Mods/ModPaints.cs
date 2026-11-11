@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using Element.Configuration;
-using Element.Presentation.Overlay.Elements;
+using Element.Configuration.Overlay;
+using Element.Presentation.Overlay.Text;
 using ElementKit;
 using UnityEngine;
 

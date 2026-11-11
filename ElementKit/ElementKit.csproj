@@ -7,6 +7,12 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AssemblyName>ElementKit</AssemblyName>
+    <!--
+      Folders only sort the files (Elements, Editing, Drawing, Input, Values,
+      Hosting); they add no namespace segment. Every public type stays in
+      ElementKit, values in ElementKit.Values, so moving a file never changes
+      the names other mods compile against.
+    -->
     <RootNamespace>ElementKit</RootNamespace>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

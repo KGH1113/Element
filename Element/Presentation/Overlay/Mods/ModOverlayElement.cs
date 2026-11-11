@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Application.Mods;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
-using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using UiFactory = Element.Presentation.Settings.SettingsUiFactory;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Overlay.Mods;
 
@@ -145,7 +146,7 @@ internal sealed class ModOverlayElement : OverlayElementTarget
   }
 
   /// <summary>Once a frame while the overlay is shown: the mod updates what it drew, Element follows its size.</summary>
-  public void Refresh()
+  public override void Refresh(OverlayValueMask changes, bool settle)
   {
     if (Settings == null)
       return;

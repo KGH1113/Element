@@ -8,8 +8,8 @@ source "$TASK_DIR/../../lib/context.sh"
 source "$TASK_DIR/../../lib/guards.sh"
 # shellcheck source=../../lib/mod-layout.sh
 source "$TASK_DIR/../../lib/mod-layout.sh"
-# shellcheck source=../../lib/dmnote-app.sh
-source "$TASK_DIR/../../lib/dmnote-app.sh"
+# shellcheck source=../../lib/element-note-app.sh
+source "$TASK_DIR/../../lib/element-note-app.sh"
 
 # stage.sh <macos|windows>: one OS's mod folder with only its native
 # libraries, fonts and ElementNote build, laid out as a fresh install.
@@ -31,7 +31,7 @@ mkdir -p "$stage"
 
 stage_mod "$stage" "$payload" "$fonts"
 if [ "${ELEMENT_SKIP_DMNOTE:-0}" != "1" ]; then
-  "stage_dmnote_$platform" "$(mod_runtime_dir "$stage")"
+  "stage_element_note_$platform" "$(mod_runtime_dir "$stage")"
 fi
 
 printf 'Staged %s package at %s\n' "$platform" "$stage"

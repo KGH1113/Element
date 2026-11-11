@@ -33,6 +33,7 @@ public static class OverlayElementKinds
 // Highlight then applies to the whole gradient: every stop is the highlight
 // color and only their opacities differ.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayColorSettings
 {
   public bool Highlight;
@@ -84,6 +85,7 @@ public enum OverlayGradientKind
 // formula gives percent too. Hex is unused while the color follows the
 // highlight.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayGradientStop
 {
   public float Position;
@@ -117,6 +119,7 @@ public sealed class OverlayGradientStop
 // gradient doesn't use the width handle. AngleFormula, in degrees with 90
 // running left to right, turns the gradient with a live value.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayGradient
 {
   public const int MaximumStops = 8;
@@ -179,6 +182,7 @@ public sealed class OverlayGradient
 // formula, usually a single value's key ("combo"), or values with numbers and
 // + - * / ("{combo}*2").
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayTextRun
 {
   public string Text = string.Empty;
@@ -228,6 +232,7 @@ public sealed class OverlayTextRun
 }
 
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayTextSettings
 {
   public List<OverlayTextRun> Runs = new();
@@ -267,6 +272,7 @@ public enum OverlayShapeKind
 // its formula gives pixels as drawn. Corners sit where their kind puts them;
 // shapes from 1.1.0 may keep corners that were dragged elsewhere.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayShapePoint
 {
   public float X;
@@ -294,6 +300,7 @@ public sealed class OverlayShapePoint
 // Width, Height and StrokeWidth are reference units (1920x1080) before the
 // element's Scale, which grows the whole shape uniformly.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayShapeSettings
 {
   public OverlayShapeKind Kind = OverlayShapeKind.Square;

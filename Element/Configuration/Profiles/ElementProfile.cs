@@ -5,6 +5,7 @@ using Element.Configuration.Effects;
 namespace Element.Configuration.Profiles;
 
 /// <summary>A named set of settings the player switches between and shares as a file.</summary>
+[CopiedInPlace]
 public sealed class ElementProfile
 {
   public const int MaximumNameLength = 40;
@@ -25,6 +26,7 @@ public sealed class ElementProfile
 /// one keyboard, and general preferences such as shortcuts suit one PC, so
 /// every profile shares those.
 /// </summary>
+[CopiedInPlace]
 public sealed class ProfileContent
 {
   /// <summary>The settings version the values were saved in; applying them migrates from it.</summary>

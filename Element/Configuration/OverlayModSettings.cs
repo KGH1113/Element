@@ -7,6 +7,7 @@ namespace Element.Configuration;
 // that isn't installed leaves them as they are and reinstalling brings the
 // element back as it was.
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayModSettings
 {
   public string Data = string.Empty;

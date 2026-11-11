@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace Element.Configuration;
 
+[CopiedInPlace]
 public sealed class GameplayTweaksSettings
 {
   public EditorTweaksOptions Editor = new();
@@ -29,6 +30,7 @@ public sealed class GameplayTweaksSettings
     float.IsNaN(value) || float.IsInfinity(value) ? fallback : Math.Max(minimum, Math.Min(maximum, value));
 }
 
+[CopiedInPlace]
 public sealed class EditorTweaksOptions
 {
   public bool ShowAngle;
@@ -44,6 +46,7 @@ public sealed class EditorTweaksOptions
   public bool HasSelectionInfo => ShowAngle || ShowBeats || ShowCount || ShowDuration;
 }
 
+[CopiedInPlace]
 public sealed class ChatterBlockerOptions
 {
   /// <summary>The window before version 8, measured from the key's release.</summary>
@@ -80,6 +83,7 @@ public sealed class ChatterBlockerOptions
   }
 }
 
+[CopiedInPlace]
 public sealed class JudgementVisualOptions
 {
   public int Version;
@@ -105,6 +109,7 @@ public sealed class JudgementVisualOptions
   }
 }
 
+[CopiedInPlace]
 public sealed class PlanetAppearanceOptions
 {
   public bool Enabled;
@@ -123,6 +128,7 @@ public sealed class PlanetAppearanceOptions
   }
 }
 
+[CopiedInPlace]
 public sealed class PlanetAppearanceProfile
 {
   public bool Enabled = true;
@@ -148,6 +154,7 @@ public sealed class PlanetAppearanceProfile
   }
 }
 
+[CopiedInPlace]
 public sealed class PlanetComponentAppearance
 {
   public bool OverrideColor = true;

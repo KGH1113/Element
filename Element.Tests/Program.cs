@@ -58,6 +58,7 @@ internal static class Program
       );
       Run("effect presets, source preservation and stable editor filtering", EffectSettingsTests.Run);
       Run("profiles switch in place, survive saving, export, import, refuse bad files and back up", ProfileTests.Run);
+      Run("profile switches fill every saved settings class in place", SettingsCopyTests.Run);
       Run("allocation-free overlay text and hook-thread chatter filtering", PerformanceTests.Run);
       Run("effect filter copies only changed tracks and ignores NONE tags", EffectFilterTests.Run);
       Run("native viewer sessions follow pushes and keep pages on transient failures", NativeViewerSessionTests.Run);

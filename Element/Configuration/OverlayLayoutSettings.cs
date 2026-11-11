@@ -33,6 +33,7 @@ public enum OverlayGrowth
 }
 
 [Serializable]
+[CopiedInPlace]
 public sealed class OverlayLayoutSettings
 {
   public string Id = string.Empty;

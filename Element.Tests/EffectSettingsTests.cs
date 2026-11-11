@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Xml.Serialization;
 using ADOFAI;
+using Element.Application.Effects;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
 using UnityEngine;
@@ -89,6 +90,23 @@ internal static class EffectSettingsTests
     settings.Normalize();
     Check(second.UsesShortcut(KeyCode.F5, KeyCode.None), "A single key without a modifier is a valid shortcut.");
 
+    var element = new Element.Configuration.ElementSettings { Effects = settings };
+    Check(
+      element.ShortcutTaken(KeyCode.F5, KeyCode.None, null, out EffectPreset owner) && owner == second,
+      "The settings shortcut can't take a preset's shortcut, and the preset is named."
+    );
+    Check(
+      element.ShortcutTaken(element.SettingsShortcutKey, element.SettingsShortcutModifier, first.Id, out owner)
+        && owner == null,
+      "A preset can't take the settings shortcut."
+    );
+    Check(
+      !element.ShortcutTaken(KeyCode.F5, KeyCode.None, second.Id, out _)
+        && element.ShortcutTaken(KeyCode.F5, KeyCode.None, first.Id, out owner)
+        && owner == second,
+      "A preset keeps its own shortcut but can't take another preset's."
+    );
+
     settings.Enabled = false;
     settings.ActivePresetId = first.Id;
     Check(
@@ -169,28 +187,39 @@ internal static class EffectSettingsTests
   private static void NamesAndSelection()
   {
     var settings = new EffectSettings();
+    var presets = new EffectPresetLibrary(settings);
     Check(!settings.Enabled && settings.ActiveEffects == RemovedEffects.None, "Effects must be opt-in.");
-    Check(!settings.TryAdd(" remove all ", out _, out _), "Names must be case-insensitively unique after trimming.");
-    Check(!settings.TryAdd(" \t ", out _, out _), "Blank names must be rejected.");
-    Check(!settings.TryAdd(new string('A', 41), out _, out _), "Overlong names must be rejected.");
-    Check(settings.TryAdd("  My quiet map  ", out EffectPreset added, out _), "A valid name must be accepted.");
+    Check(
+      !presets.TryAdd(" remove all ", out _, out PresetNameProblem taken) && taken == PresetNameProblem.Taken,
+      "Names must be case-insensitively unique after trimming."
+    );
+    Check(
+      !presets.TryAdd(" \t ", out _, out PresetNameProblem empty) && empty == PresetNameProblem.Empty,
+      "Blank names must be rejected."
+    );
+    Check(
+      !presets.TryAdd(new string('A', 41), out _, out PresetNameProblem tooLong)
+        && tooLong == PresetNameProblem.TooLong,
+      "Overlong names must be rejected."
+    );
+    Check(presets.TryAdd("  My quiet map  ", out EffectPreset added, out _), "A valid name must be accepted.");
     Check(added.Name == "My quiet map", "Names must be trimmed before persistence.");
     added.Effects = RemovedEffects.Backgrounds | RemovedEffects.ScreenFlash;
     Check(settings.Select(added.Id), "The new preset must be selectable.");
     settings.Enabled = true;
     Check(settings.ActiveEffects == added.Effects, "Only the selected preset controls removal.");
-    Check(settings.TryRename(added.Id, " MY QUIET MAP ", out _), "A case-only self rename is valid.");
-    Check(!settings.TryRename(added.Id, "No Filters", out _), "Renaming must not collide with a sibling.");
+    Check(presets.TryRename(added.Id, " MY QUIET MAP ", out _), "A case-only self rename is valid.");
+    Check(!presets.TryRename(added.Id, "No Filters", out _), "Renaming must not collide with a sibling.");
     Check(
       !settings.Select("missing") && settings.ActivePresetId == added.Id,
       "Invalid selection must preserve the active preset."
     );
     Check(
-      settings.Remove(added.Id) && settings.ActivePreset != null,
+      presets.Remove(added.Id) && settings.ActivePreset != null,
       "Deleting the active preset must select a remaining preset."
     );
     while (settings.Presets.Count > 0)
-      settings.Remove(settings.Presets[0].Id);
+      presets.Remove(settings.Presets[0].Id);
     Check(!settings.Enabled && settings.ActivePreset == null, "Deleting the final preset must disable removal.");
     settings.Normalize();
     Check(settings.Presets.Count == 0, "An intentionally empty gallery must survive normalization.");
@@ -623,7 +652,7 @@ internal static class EffectSettingsTests
     );
 
     EffectSettings deleted = ReadLegacy();
-    deleted.Remove("focus");
+    new EffectPresetLibrary(deleted).Remove("focus");
     deleted.Normalize();
     Check(
       deleted.Presets.Count == 2 && !deleted.Presets.Exists(p => p.Id == EffectSettings.RemoveAllId),

@@ -212,9 +212,8 @@ internal sealed partial class SettingsPanel : IDisposable
 
   private string AssignSettingsShortcut(KeyCode key, KeyCode modifier)
   {
-    EffectPreset owner = _settings.Effects.FindShortcut(key, modifier);
-    if (owner != null)
-      return ShortcutInUse(owner);
+    if (_settings.ShortcutTaken(key, modifier, null, out EffectPreset owner))
+      return ShortcutTakenText.For(owner);
     _settings.SettingsShortcutKey = key;
     _settings.SettingsShortcutModifier = modifier;
     Changed();

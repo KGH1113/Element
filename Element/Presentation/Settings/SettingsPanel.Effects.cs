@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Effects;
 using Element.Configuration.Effects;
 using Element.Presentation.Layout;
 using TMPro;
@@ -12,6 +13,7 @@ namespace Element.Presentation.Settings;
 
 internal sealed partial class SettingsPanel
 {
+  private EffectPresetLibrary _presets;
   private SettingsUiFactory _galleryUi;
   private TMP_FontAsset _effectsFont;
   private RectTransform _presetGallery,
@@ -46,6 +48,7 @@ internal sealed partial class SettingsPanel
   private void CreateEffectsPages(TMP_FontAsset font)
   {
     _effectsFont = font;
+    _presets = new EffectPresetLibrary(_settings.Effects);
     Transform gallery = _pages[3].transform;
     _effectEnabled = _ui.Switch(
       L("이펙트 제거", "Effect removal"),
@@ -253,24 +256,12 @@ internal sealed partial class SettingsPanel
   {
     if (_presetDraft == null)
       return "";
-    if (key == _settings.SettingsShortcutKey && modifier == _settings.SettingsShortcutModifier)
-      return L(
-        "설정 화면을 여는 단축키예요. 다른 키를 눌러주세요.",
-        "This shortcut opens settings. Press another one."
-      );
-    EffectPreset owner = _settings.Effects.FindShortcut(key, modifier, _editingPreset?.Id);
-    if (owner != null)
-      return ShortcutInUse(owner);
+    if (_settings.ShortcutTaken(key, modifier, _presetDraft.Id, out EffectPreset owner))
+      return ShortcutTakenText.For(owner);
     _presetDraft.ShortcutKey = key;
     _presetDraft.ShortcutModifier = modifier;
     return null;
   }
-
-  private static string ShortcutInUse(EffectPreset owner) =>
-    L(
-      "'" + owner.Name + "' 프리셋이 이 단축키를 쓰고 있어요. 다른 키를 눌러주세요.",
-      "'" + owner.Name + "' already uses this shortcut. Press another one."
-    );
 
   /// <summary>Shows a preset applied from outside the window, such as by its shortcut.</summary>
   public void RefreshPresets() => RefreshPresetGallery();
@@ -436,35 +427,43 @@ internal sealed partial class SettingsPanel
   {
     if (_savePreset == null)
       return;
-    bool valid = _settings.Effects.ValidateName(_presetName.text, _editingPreset?.Id, out _, out string error);
+    bool valid = _presets.ValidateName(_presetName.text, _editingPreset?.Id, out _, out PresetNameProblem problem);
     _savePreset.interactable = valid;
-    _presetError.text = valid || _presetName.text.Length == 0 ? "" : PresetNameError(error);
+    _presetError.text = valid || _presetName.text.Length == 0 ? "" : PresetNameText(problem);
     if (_presetIntro != null)
       _presetIntro.gameObject.SetActive(_presetError.text.Length == 0);
   }
 
-  private static string PresetNameError(string error) =>
-    !Korean ? error
-    : error.StartsWith("Give") ? "프리셋 이름을 입력하세요."
-    : error.StartsWith("Use") ? "이름은 40자 이내로 입력하세요."
-    : "같은 이름의 프리셋이 있어요. 다른 이름을 입력하세요.";
+  private static string PresetNameText(PresetNameProblem problem) =>
+    problem switch
+    {
+      PresetNameProblem.Empty => L("프리셋 이름을 입력하세요.", "Give this preset a name."),
+      PresetNameProblem.TooLong => L(
+        "이름은 " + EffectSettings.MaximumNameLength + "자 이내로 입력하세요.",
+        "Use " + EffectSettings.MaximumNameLength + " characters or fewer."
+      ),
+      _ => L(
+        "같은 이름의 프리셋이 있어요. 다른 이름을 입력하세요.",
+        "A preset already uses this name. Choose another."
+      ),
+    };
 
   private void SavePreset()
   {
-    if (!_settings.Effects.ValidateName(_presetName.text, _editingPreset?.Id, out string name, out string error))
+    if (!_presets.ValidateName(_presetName.text, _editingPreset?.Id, out string name, out PresetNameProblem problem))
     {
-      _presetError.text = PresetNameError(error);
+      _presetError.text = PresetNameText(problem);
       _presetIntro.gameObject.SetActive(false);
       _presetName.Select();
       return;
     }
     if (_editingPreset == null)
     {
-      if (!_settings.Effects.TryAdd(name, out _editingPreset, out error))
+      if (!_presets.TryAdd(name, out _editingPreset, out _))
         return;
     }
     else
-      _settings.Effects.TryRename(_editingPreset.Id, name, out _);
+      _presets.TryRename(_editingPreset.Id, name, out _);
     _editingPreset.Effects = _presetDraft.Effects;
     _editingPreset.CameraZoom = _presetDraft.CameraZoom;
     _editingPreset.ShortcutKey = _presetDraft.ShortcutKey;
@@ -478,7 +477,7 @@ internal sealed partial class SettingsPanel
   {
     if (_editingPreset == null)
       return;
-    _settings.Effects.Remove(_editingPreset.Id);
+    _presets.Remove(_editingPreset.Id);
     Changed();
     RefreshPresetGallery();
     SelectPage(3);

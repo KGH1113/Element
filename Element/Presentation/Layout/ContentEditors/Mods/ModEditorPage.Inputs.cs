@@ -7,7 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 // Words, buttons, on/off, and numbers and words typed or dragged.
 internal sealed partial class ModEditorPage

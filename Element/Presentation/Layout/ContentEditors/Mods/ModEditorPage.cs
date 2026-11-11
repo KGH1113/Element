@@ -1,13 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using ElementKit;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
 /// The parts a mod builds its element's editing screen from, made with the

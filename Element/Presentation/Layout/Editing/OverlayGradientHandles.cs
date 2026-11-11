@@ -217,8 +217,7 @@ internal sealed class OverlayGradientHandles
     return side;
   }
 
-  private float Shown(int index) =>
-    Mathf.Clamp01(_shownPosition?.Invoke(index) ?? Gradient.Stops[index].Position);
+  private float Shown(int index) => Mathf.Clamp01(_shownPosition?.Invoke(index) ?? Gradient.Stops[index].Position);
 
   // ---- Drawing ----
 
@@ -233,7 +232,11 @@ internal sealed class OverlayGradientHandles
     _lines.Begin(_root.rect);
     // Snap targets and guides only while a handle moves.
     if (_dragging >= 0 && !_free)
-      DrawSnaps(_dragging == 0 ? a : _dragging == 1 ? b : c);
+      DrawSnaps(
+        _dragging == 0 ? a
+        : _dragging == 1 ? b
+        : c
+      );
     if (!linear)
     {
       Color outline = _even ? SettingsPalette.SoftAccent : new Color(1, 1, 1, angular ? .95f : .75f);
@@ -295,7 +298,10 @@ internal sealed class OverlayGradientHandles
         grip.Rect.gameObject.SetActive(shown);
       if (!shown)
         continue;
-      Vector2 at = i == 0 ? a : i == 1 ? b : c;
+      Vector2 at =
+        i == 0 ? a
+        : i == 1 ? b
+        : c;
       SettingsUiFactory.Place(grip.Rect, at.x - GripSize * .5f, at.y - GripSize * .5f, GripSize, GripSize);
       bool stuck = _dragging == i && !_free && (!float.IsNaN(_guideX) || !float.IsNaN(_guideY) || (_even && i == 2));
       grip.Paint(stuck, i == 2);
@@ -578,8 +584,7 @@ internal sealed class OverlayGradientHandles
     Began?.Invoke();
     _dragStop = stop;
     // Keep the point under the pointer where it was grabbed on the square.
-    _dragGrab =
-      Gradient.Kind == OverlayGradientKind.Angular ? 0 : PositionAt(_toFrame(data.position)) - Shown(stop);
+    _dragGrab = Gradient.Kind == OverlayGradientKind.Angular ? 0 : PositionAt(_toFrame(data.position)) - Shown(stop);
   }
 
   private void SquareDrag(PointerEventData data)
@@ -648,10 +653,20 @@ internal sealed class OverlayGradientHandles
 
     public Grip(SettingsUiFactory ui, Transform parent, int index, OverlayGradientHandles owner)
     {
-      Rect = ui.Rect(index == 0 ? "Gradient start" : index == 1 ? "Gradient end" : "Gradient width", parent, 0, 0, GripSize, GripSize);
+      Rect = ui.Rect(
+        index == 0 ? "Gradient start"
+          : index == 1 ? "Gradient end"
+          : "Gradient width",
+        parent,
+        0,
+        0,
+        GripSize,
+        GripSize
+      );
       _ring = ui.Capsule("Edge", Rect, 4.5f, 4.5f, 15, 15, new Color(0, 0, 0, .55f));
       _dot = ui.Capsule("Handle", Rect, 5.5f, 5.5f, 13, 13, Color.white);
-      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, GripSize, GripSize).gameObject.AddComponent<SettingsPointerArea>();
+      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, GripSize, GripSize)
+        .gameObject.AddComponent<SettingsPointerArea>();
       area.raycastTarget = true;
       area.Down = data => owner.GripDown(index, data);
       area.Dragged = data => owner.GripDrag(index, data);
@@ -665,7 +680,13 @@ internal sealed class OverlayGradientHandles
     {
       float size = small ? 10 : 13;
       SettingsUiFactory.Place(_dot.rectTransform, (GripSize - size) * .5f, (GripSize - size) * .5f, size, size);
-      SettingsUiFactory.Place(_ring.rectTransform, (GripSize - size - 2) * .5f, (GripSize - size - 2) * .5f, size + 2, size + 2);
+      SettingsUiFactory.Place(
+        _ring.rectTransform,
+        (GripSize - size - 2) * .5f,
+        (GripSize - size - 2) * .5f,
+        size + 2,
+        size + 2
+      );
       _dot.color = stuck ? SettingsPalette.SoftAccent : Color.white;
     }
   }
@@ -679,7 +700,8 @@ internal sealed class OverlayGradientHandles
       Graphic.raycastTarget = false;
       Graphic.Radius = 5;
       Graphic.Ring = 3;
-      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, SquareSize, SquareSize).gameObject.AddComponent<SettingsPointerArea>();
+      SettingsPointerArea area = ui.Rect("Input", Rect, 0, 0, SquareSize, SquareSize)
+        .gameObject.AddComponent<SettingsPointerArea>();
       area.raycastTarget = true;
       area.Down = data => owner.SquareDown(Stop, data);
       area.Dragged = owner.SquareDrag;

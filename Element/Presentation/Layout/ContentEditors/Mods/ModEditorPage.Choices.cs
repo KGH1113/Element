@@ -7,7 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 // Options: side by side, in a list, several at once, and a point of a box.
 internal sealed partial class ModEditorPage

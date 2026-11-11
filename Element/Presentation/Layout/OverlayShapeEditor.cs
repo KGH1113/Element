@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Presentation.Layout.ContentEditors;
 
 namespace Element.Presentation.Layout;
 
@@ -37,8 +38,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
   private readonly OverlayGlide _space = new();
   private readonly OverlayShapeResolver _resolver = new();
   private readonly OverlayShapeSettings _resolved = new();
-  private readonly List<OverlayShapeSettings> _undo = new();
-  private readonly List<OverlayShapeSettings> _redo = new();
+  private readonly UndoStack<OverlayShapeSettings> _history = new(100);
   private readonly List<OverlayFormulaField> _radiusFields = new();
   private readonly List<Button> _arcs = new();
   private readonly List<System.Numerics.Vector2> _corners = new(4);
@@ -68,9 +68,7 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
   private OverlayGrowth _growth;
   private float _elementScale = 1;
   private float _blinkStart;
-  private float _lastAt = -1;
   private string _field;
-  private string _lastKey;
   private bool _pickerSnapshotTaken;
   private OverlayValueDefinition _dragValue;
   private string _dropKey;
@@ -106,10 +104,8 @@ internal sealed partial class OverlayShapeEditor : IContentEditor
     OverlayShapeGeometry.Normalize(_shape);
     _opening = _shape.Clone();
     _growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
-    _undo.Clear();
-    _redo.Clear();
+    _history.Clear();
     _field = null;
-    _lastKey = null;
     _editing.Deactivate();
     Build();
     Render();

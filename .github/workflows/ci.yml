@@ -2,7 +2,7 @@ name: CI
 
 # dev → pull request → main. Every pull request to main is checked here and
 # nothing is kept. Merging runs CD (cd.yml), which builds what a release ships
-# (docs/releasing.md). The mod itself references the game's DLLs, so it is
+# (docs/process/releasing.md). The mod itself references the game's DLLs, so it is
 # built and tested on the developer's machine (`./scripts/run.sh mod-check`).
 on:
   pull_request:

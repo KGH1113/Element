@@ -94,7 +94,7 @@ Windows에서 앱 위치가 새로 바뀐 뒤 처음 OBS 모드가 켜지면(첫
   (`winget install LLVM.LLVM` 한 번, 또는 `LIBCLANG_PATH`). Node 22는 없으면
   빌드 캐시에 받아 씁니다.
 - 릴리스(`./scripts/run.sh release`)는 두 OS 앱 모두 main의 CD 빌드를
-  씁니다([릴리스](releasing.md)).
+  씁니다([릴리스](../process/releasing.md)).
 - CD는 Windows 포터블 zip을 `element-note-windows-portable` 아티팩트로
   올립니다. 로컬 `package`에서 이를 쓰려면 `ELEMENT_DMNOTE_WINDOWS_ZIP`,
   앱 없이 패키징하려면 `ELEMENT_SKIP_DMNOTE=1`을 지정합니다.

@@ -17,7 +17,7 @@ Element를 필수로 두지 않아도 됩니다([오버레이 요소](#오버레
 | Element 연결: 프레임마다 바뀐 값만 반영(할당 0), 꺼진 모드 숨김, 리로드·새 캔버스 | 완료 |
 | 입력 독에 모드별 카테고리 | 완료 |
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
-| 예시 모드 [Sample](../Sample): SampleTag 태그를 옮김 (`./scripts/run.sh sample-install`) | 완료 |
+| 예시 모드 [Sample](../../Sample): SampleTag 태그를 옮김 (`./scripts/run.sh sample-install`) | 완료 |
 | 오버레이 요소: `[Element]` + `OverlayElement<TSettings>`, Element가 스스로 찾음(호출·필수 모드 없음) | 프로토타입 |
 | 편집 화면 부품(`EditorPage`): 입력·고르기·색·폰트·단축키·목록 부품, 카드·탭·구역, 도움말, 자유 배치(`At`) | 프로토타입 |
 | 그리기 도우미(`Drawing`): 오버레이 폰트 글자, 둥근 상자, 하이라이트 색 | 프로토타입 |
@@ -106,7 +106,7 @@ Mods/Sample/
 
 아래는 이 저장소 코드와 UMM(`UserLibs/UnityModManager.dll`) 디컴파일로 확인한 사실입니다.
 
-- **Element 로딩:** 런처가 `Runtime/versions/<v>/Element.dll`을 `Assembly.LoadFrom`으로 불러옵니다. 의존 DLL은 같은 폴더에서 이름으로 찾습니다([`PayloadLoader.cs`](../Element.Launcher/PayloadLoader.cs)). ElementKit.dll도 이 폴더에 두면 Element가 그대로 불러옵니다.
+- **Element 로딩:** 런처가 `Runtime/versions/<v>/Element.dll`을 `Assembly.LoadFrom`으로 불러옵니다. 의존 DLL은 같은 폴더에서 이름으로 찾습니다([`PayloadLoader.cs`](../../Element.Launcher/PayloadLoader.cs)). ElementKit.dll도 이 폴더에 두면 Element가 그대로 불러옵니다.
 - **최소 버전 표기:** UMM은 `Requirements`의 `Id-1.2.3` 형식을 읽습니다. 필요한 모드를 먼저 로드하고(위상 정렬), 꺼져 있으면 켭니다. 버전이 모자라면 그 모드는 로드하지 않습니다.
 - **어셈블리 연결:** UMM의 `AssemblyResolve`는 이미 로드된 어셈블리를 **FullName(버전 포함)** 으로 찾습니다. `AssemblyVersion`을 고정하면 서드파티의 `ElementKit` 참조가 Element가 불러온 것에 그대로 연결됩니다. Element도 이름만으로 찾는 자체 리졸버를 하나 더 둡니다.
 - **두 번 로드되는 함정:** UMM은 모드 DLL을 `.cache` 복사본으로 `LoadFrom` 합니다. 모드 폴더에 ElementKit.dll이 있으면 그 사본이 따로 로드되어 타입이 갈라질 수 있습니다. 세 겹으로 막습니다.
@@ -187,7 +187,7 @@ mod.OnUpdate = (_, _) =>
 
 얼불춤에서 직접 읽을 수 있는 것은 넣지 않고, Element만 가진 것만 엽니다.
 
-- **`Player.Keys`:** ElementNote의 현재 키 목록입니다(몇 키를 쓰는지, 키 이름). Element가 이미 키 리미터로 받고 있습니다([`KeyLimiterContracts.cs`](../Element/Application/KeyLimiter/KeyLimiterContracts.cs)). ElementNote가 연결되지 않았으면 `null`입니다.
+- **`Player.Keys`:** ElementNote의 현재 키 목록입니다(몇 키를 쓰는지, 키 이름). Element가 이미 키 리미터로 받고 있습니다([`KeyLimiterContracts.cs`](../../Element/Application/KeyLimiter/KeyLimiterContracts.cs)). ElementNote가 연결되지 않았으면 `null`입니다.
 - **기본 값 읽기:** 정확도, 진행도처럼 Element가 이미 계산한 값을 읽습니다.
 
 ## 개발 흐름
@@ -374,7 +374,7 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 - 태그는 타일마다 각도를 정수로 반올림해서 22.5° 같은 각도가 쌓이면 묶음 경계가 밀립니다. Sample은 반올림하지 않습니다.
 - 미드스핀 타일은 누르지 않으므로 키로 세지 않습니다. 동시 입력이 필요한 타일(`tapsNeeded`)은 그 수만큼 셉니다.
 
-모든 타일을 보는 조건에서 태그 로직을 C#으로 옮긴 모델과 비교했습니다. 1000 → 2021 BPM 변속이 있는 약 300타일 채보에서, 매 타격 뒤의 글이 한 글자도 다르지 않습니다([SampleTests](../Element.Tests/SampleTests.cs)).
+모든 타일을 보는 조건에서 태그 로직을 C#으로 옮긴 모델과 비교했습니다. 1000 → 2021 BPM 변속이 있는 약 300타일 채보에서, 매 타격 뒤의 글이 한 글자도 다르지 않습니다([SampleTests](../../Element.Tests/SampleTests.cs)).
 
 | 값 | 내용 |
 | --- | --- |
@@ -387,7 +387,7 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 
 ### 값 목록 동적화
 
-- **지금 구조:** `OverlayValueId` enum과 64비트 `ulong` 마스크이고, 28칸을 씁니다([`OverlayValueCatalog.cs`](../Element/Domain/Elements/OverlayValueCatalog.cs)).
+- **지금 구조:** `OverlayValueId` enum과 64비트 `ulong` 마스크이고, 28칸을 씁니다([`OverlayValueCatalog.cs`](../../Element/Domain/Elements/OverlayValueCatalog.cs)).
 - **바꿀 점:**
   - 기본 값은 지금 번호(0~27)를 유지합니다. 모드 값은 등록할 때 28번부터 번호를 받습니다.
   - `OverlayValues` 배열은 필요한 만큼 늘어납니다.
@@ -397,17 +397,17 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 
 ### 없는 값 보존
 
-- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../Element/Domain/Elements/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
+- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../../Element/Domain/Elements/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
 - **고칠 방법:**
   - `모드Id/키` 형식의 모르는 키는 "없는 값" 토큰으로 남겨, 저장할 때 그대로 다시 씁니다.
   - 오버레이에서는 표시하지 않고, 편집기에서는 `[이름]`으로 보입니다.
   - 예전에 없어진 기본 값은 지금처럼 지웁니다.
-- **함께 확인할 것:** 설정에 저장된 모르는 요소 종류(`TemplateId`)는 지금도 지우지 않습니다([`OverlayCanvasHost.ConfigureLayouts`](../Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs)).
+- **함께 확인할 것:** 설정에 저장된 모르는 요소 종류(`TemplateId`)는 지금도 지우지 않습니다([`OverlayCanvasHost.ConfigureLayouts`](../../Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs)).
 
 ### 프리셋
 
-- **형식:** 프리셋 JSON 형식을 정의합니다. 기본 배치([`OverlayElementDefaults`](../Element/Domain/Elements/OverlayElementDefaults.cs), 진행도 바 3개 도형 등)도 같은 형식으로 옮겨, Element도 자기 기능을 같은 길로 씁니다.
-- **추가 메뉴:** 요소 추가 메뉴에 "기타" 행과 옆 목록을 붙입니다. 도형 종류 메뉴([`OverlayLayoutEditor.ShapeEditor.cs`](../Element/Presentation/Layout/OverlayLayoutEditor.ShapeEditor.cs)의 `ToggleShapeMenu`) 방식을 재사용하고, 메뉴 높이는 3행 또는 4행이 됩니다.
+- **형식:** 프리셋 JSON 형식을 정의합니다. 기본 배치([`OverlayElementDefaults`](../../Element/Domain/Elements/OverlayElementDefaults.cs), 진행도 바 3개 도형 등)도 같은 형식으로 옮겨, Element도 자기 기능을 같은 길로 씁니다.
+- **추가 메뉴:** 요소 추가 메뉴에 "기타" 행과 옆 목록을 붙입니다. 도형 종류 메뉴([`OverlayLayoutEditor.ShapeEditor.cs`](../../Element/Presentation/Layout/OverlayLayoutEditor.ShapeEditor.cs)의 `ToggleShapeMenu`) 방식을 재사용하고, 메뉴 높이는 3행 또는 4행이 됩니다.
 - **추가 동작:** 프리셋을 추가하면 요소들을 화면 가운데에 놓고 모두 선택합니다. 히스토리에는 한 번만 기록해서 실행 취소 한 번에 되돌립니다.
 - **내보내기:** 개발자 모드에서 선택한 요소를 상대 위치로 바꿔 JSON으로 씁니다. 파일로 저장하고 경로를 보여 주며, 클립보드에도 복사합니다.
 
@@ -423,7 +423,7 @@ Sample/ (이 저장소 안의 별도 모드, ElementKit 공개 API만 사용)
 
 - **ElementKit 구현:** Element.dll에 둡니다. ElementKit의 등록 정보를 읽어 값 목록, 입력 독, 기타 메뉴에 반영합니다.
 - **어셈블리:** ElementKit 리졸버와 중복 로드 감지를 추가합니다.
-- **패키징:** [`ModLayout`](../Element.Updater/Shared/ModLayout.cs)과 `./scripts/run.sh`에 ElementKit.dll을 추가하고, NuGet 패키지와 템플릿을 만드는 명령을 넣습니다.
+- **패키징:** [`ModLayout`](../../Element.Updater/Shared/ModLayout.cs)과 `./scripts/run.sh`에 ElementKit.dll을 추가하고, NuGet 패키지와 템플릿을 만드는 명령을 넣습니다.
 - **테스트(`Element.Tests`):**
   - 값 등록·해제·리로드
   - 없는 값의 저장 왕복

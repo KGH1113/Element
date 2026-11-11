@@ -43,7 +43,7 @@
 <td width="33%" valign="top">
 
 ### 텍스트와 도형
-진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 값마다 바뀔 때 잠깐 커지는 애니메이션을 켤 수 있습니다. 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/overlay-elements.md)
+진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 값마다 바뀔 때 잠깐 커지는 애니메이션을 켤 수 있습니다. 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/features/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
@@ -78,7 +78,7 @@
 </tr>
 </table>
 
-그 밖에 [프로필](docs/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), [TUFReplay 기록](docs/tufreplay.md)(리플레이와 영상에 그 플레이의 시도 횟수와 키 카운트), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [프로필](docs/features/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/features/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/features/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), [TUFReplay 기록](docs/features/tufreplay.md)(리플레이와 영상에 그 플레이의 시도 횟수와 키 카운트), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 
@@ -158,8 +158,8 @@ flowchart TB
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다
 - 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
 - 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
-- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/bundled-element-note.md)
-- TUFReplay가 렌더링하는 리플레이 영상에 키뷰어를 프레임마다 그려 넣기 ([자세히](docs/orbitrender.md))
+- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/features/bundled-element-note.md)
+- TUFReplay가 렌더링하는 리플레이 영상에 키뷰어를 프레임마다 그려 넣기 ([자세히](docs/features/orbitrender.md))
 
 ```bash
 npm install

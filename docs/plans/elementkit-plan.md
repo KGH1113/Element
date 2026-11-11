@@ -352,7 +352,7 @@ using (page.Card(page.L("색", "Colors")))
 
 ### 값 목록 동적화
 
-- **지금 구조:** `OverlayValueId` enum과 64비트 `ulong` 마스크이고, 28칸을 씁니다([`OverlayValueCatalog.cs`](../../Element/Domain/Elements/OverlayValueCatalog.cs)).
+- **지금 구조:** `OverlayValueId` enum과 64비트 `ulong` 마스크이고, 28칸을 씁니다([`OverlayValueCatalog.cs`](../../Element/Domain/Overlay/Values/OverlayValueCatalog.cs)).
 - **바꿀 점:**
   - 기본 값은 지금 번호(0~27)를 유지합니다. 모드 값은 등록할 때 28번부터 번호를 받습니다.
   - `OverlayValues` 배열은 필요한 만큼 늘어납니다.
@@ -362,7 +362,7 @@ using (page.Card(page.L("색", "Colors")))
 
 ### 없는 값 보존
 
-- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../../Element/Domain/Elements/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
+- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../../Element/Domain/Overlay/Formula/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
 - **고칠 방법:**
   - `모드Id/키` 형식의 모르는 키는 "없는 값" 토큰으로 남겨, 저장할 때 그대로 다시 씁니다.
   - 오버레이에서는 표시하지 않고, 편집기에서는 `[이름]`으로 보입니다.
@@ -371,7 +371,7 @@ using (page.Card(page.L("색", "Colors")))
 
 ### 프리셋
 
-- **형식:** 프리셋 JSON 형식을 정의합니다. 기본 배치([`OverlayElementDefaults`](../../Element/Domain/Elements/OverlayElementDefaults.cs), 진행도 바 3개 도형 등)도 같은 형식으로 옮겨, Element도 자기 기능을 같은 길로 씁니다.
+- **형식:** 프리셋 JSON 형식을 정의합니다. 기본 배치([`OverlayElementDefaults`](../../Element/Domain/Overlay/Defaults/OverlayElementDefaults.cs), 진행도 바 3개 도형 등)도 같은 형식으로 옮겨, Element도 자기 기능을 같은 길로 씁니다.
 - **추가 메뉴:** 요소 추가 메뉴에 "기타" 행과 옆 목록을 붙입니다. 도형 종류 메뉴([`OverlayLayoutEditor.ShapeEditor.cs`](../../Element/Presentation/Layout/OverlayLayoutEditor.ShapeEditor.cs)의 `ToggleShapeMenu`) 방식을 재사용하고, 메뉴 높이는 3행 또는 4행이 됩니다.
 - **추가 동작:** 프리셋을 추가하면 요소들을 화면 가운데에 놓고 모두 선택합니다. 히스토리에는 한 번만 기록해서 실행 취소 한 번에 되돌립니다.
 - **내보내기:** 개발자 모드에서 선택한 요소를 상대 위치로 바꿔 JSON으로 씁니다. 파일로 저장하고 경로를 보여 주며, 클립보드에도 복사합니다.

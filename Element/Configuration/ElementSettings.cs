@@ -43,6 +43,21 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public KeyCode SettingsShortcutKey = DefaultSettingsShortcutKey;
   public KeyCode SettingsShortcutModifier = DefaultSettingsShortcutModifier;
 
+  /// <summary>
+  /// Whether the shortcut already opens settings or applies a preset, since one
+  /// shortcut does one thing. <paramref name="presetId"/> is the preset being
+  /// given the shortcut, or null for the settings shortcut. <paramref name="owner"/>
+  /// is the preset that has it, or null when it opens settings.
+  /// </summary>
+  public bool ShortcutTaken(KeyCode key, KeyCode modifier, string presetId, out Effects.EffectPreset owner)
+  {
+    owner = null;
+    if (presetId != null && key == SettingsShortcutKey && modifier == SettingsShortcutModifier)
+      return true;
+    owner = Effects.FindShortcut(key, modifier, presetId);
+    return owner != null;
+  }
+
   public List<OverlayLayoutSettings> OverlayLayouts = new();
 
   /// <summary>

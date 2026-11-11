@@ -20,8 +20,9 @@ files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Application/Updates/IModUpdates.cs'));
 files.push(path.join(root, 'Element/Application/Files/IFileDialogs.cs'));
-for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles')).filter(name => name.endsWith('.cs')))
-  files.push(path.join(root, 'Element/Application/Profiles', name));
+for (const folder of ['Element/Application/Profiles', 'Element/Application/Effects'])
+  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
+    files.push(path.join(root, folder, name));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));

@@ -1,4 +1,5 @@
 using System;
+using Element.Application.Settings;
 using Element.Application.Updates;
 using Element.Bootstrap;
 using Element.Configuration;
@@ -54,7 +55,7 @@ public sealed class Main
       BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
       Instance.Settings = ElementSettings.Load(modEntry);
-      Instance.Settings.Migrate();
+      SettingsMigrator.Migrate(Instance.Settings);
       Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;

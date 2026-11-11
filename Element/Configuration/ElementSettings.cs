@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Element.Domain.Input;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -21,7 +20,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   /// <summary>Open the bundled ElementNote with the game; it closes when the game quits.</summary>
   public bool AutoOpenCloseDmNote = true;
 
-  /// <summary>The version <see cref="Migrate"/> brings settings to. Raise it with each new migration step.</summary>
+  /// <summary>The version SettingsMigrator brings settings to. Raise it with each new migration step.</summary>
   public const int CurrentSettingsVersion = 9;
 
   public const string DefaultHighlightColor = "#BA712B";
@@ -53,58 +52,6 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public List<Profiles.ElementProfile> Profiles = new();
 
   public string ActiveProfileId = "";
-
-  public void Migrate()
-  {
-    // Only replace the previous default. After the first migration users can
-    // deliberately choose that green again without a later load changing it.
-    if (
-      SettingsVersion < 1
-      && string.Equals(HighlightColor?.Trim().TrimStart('#'), "7CCE00", StringComparison.OrdinalIgnoreCase)
-    )
-      HighlightColor = "#BA712B";
-    Gameplay ??= new();
-    Gameplay.Judgement ??= new();
-    if (SettingsVersion < 2)
-    {
-      Gameplay.Judgement.HidePerfect = HidePerfectJudgmentText;
-    }
-    Gameplay.Normalize();
-    Effects ??= new();
-    Effects.Normalize();
-    OverlayLayouts ??= new();
-    OverlayFont = OverlayFontKey.Normalize(OverlayFont);
-    // Presets from before 1.1 become texts already in the current form; texts
-    // saved by 1.1.0 are rewritten for split values and units.
-    if (SettingsVersion < 3)
-      Domain.Elements.OverlayElementMigration.Migrate(OverlayLayouts);
-    else if (SettingsVersion < 4)
-      Domain.Elements.OverlayElementMigration.MigrateFormulas(OverlayLayouts);
-    // Built-ins added by an update, such as the progress bar, arrive once;
-    // deleting one afterwards keeps it gone.
-    if (SettingsVersion < 6)
-    {
-      Domain.Elements.OverlayElementMigration.UpgradeProgressBar(OverlayLayouts);
-      Domain.Elements.OverlayElementDefaults.AddMissing(OverlayLayouts);
-    }
-    // Left Alt + Tab was the old default and also switches windows on Windows.
-    // Move only that untouched default; a custom shortcut stays as chosen.
-    if (SettingsVersion < 7 && SettingsShortcutKey == KeyCode.Tab && SettingsShortcutModifier == KeyCode.LeftAlt)
-    {
-      SettingsShortcutKey = DefaultSettingsShortcutKey;
-      SettingsShortcutModifier = DefaultSettingsShortcutModifier;
-    }
-    // The chatter window used to count from the key's release; it now counts
-    // from the last press, as KeyboardChatterBlocker does. Only the untouched
-    // old default moves to the new one.
-    if (SettingsVersion < 8 && Gameplay.Chatter.WindowMs == ChatterBlockerOptions.ReleaseWindowDefaultMs)
-      Gameplay.Chatter.WindowMs = ChatterFilter.DefaultWindowMs;
-    // Animation became a switch on each value; the combos that always grew keep growing.
-    if (SettingsVersion < 9)
-      Domain.Elements.OverlayElementMigration.AnimateCombos(OverlayLayouts);
-    Profiles ??= new();
-    SettingsVersion = Math.Max(SettingsVersion, CurrentSettingsVersion);
-  }
 
   public override void Save(UnityModManager.ModEntry modEntry)
   {

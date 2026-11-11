@@ -58,10 +58,10 @@ public sealed class ProfileContent
   }
 
   /// <summary>
-  /// A migrated, normalized copy of these values, ready for <see cref="Apply"/>.
-  /// Throws when the values cannot be used, before anything live changes.
+  /// A copy of these values as settings, still in the version they were saved
+  /// in. Throws when the values cannot be read back.
   /// </summary>
-  public ElementSettings Prepare()
+  public ElementSettings ToSettings()
   {
     ProfileContent copy = SettingsXml.Clone(this);
     ElementSettings settings = new()
@@ -76,7 +76,6 @@ public sealed class ProfileContent
       OverlayLayouts = copy.OverlayLayouts ?? new(),
     };
     settings.OverlayLayouts.RemoveAll(layout => layout == null);
-    settings.Migrate();
     return settings;
   }
 

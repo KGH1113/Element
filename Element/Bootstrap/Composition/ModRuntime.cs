@@ -50,7 +50,7 @@ internal sealed class ModRuntime : IDisposable
   private KeyLimiterService _keyLimiter;
   private GameKeyLimiter _gameKeyLimiter;
   private ElementIpcChannel _ipcChannel;
-  private DmNoteNativeIpcFeature _nativeViewers;
+  private ElementNoteNativeViewers _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
   private KeyCounterIpc _counterIpc;
   private RenderSession _render;
@@ -143,7 +143,7 @@ internal sealed class ModRuntime : IDisposable
         _replayedAttempts,
         _offlineRender
       );
-      _nativeViewers = new DmNoteNativeIpcFeature(
+      _nativeViewers = new ElementNoteNativeViewers(
         NativeViewerPlatform.IsSupported,
         () => NativeViewerPlatform.CreateHost(_main.RuntimePath),
         () => OverlayTheme.Accent,
@@ -161,7 +161,7 @@ internal sealed class ModRuntime : IDisposable
         _main.Version,
         _main.Log,
         new KeyLimiterIpc(new KeyLimiterSessionController(_keyLimiter)),
-        _nativeViewers,
+        _nativeViewers.Endpoint,
         _renderIpc,
         _counterIpc
       );

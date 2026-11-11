@@ -4,7 +4,7 @@ using Element.Application.KeyLimiter;
 
 namespace Element.Infrastructure.ElementNote.Keys;
 
-internal sealed class DmNoteKeyResolver : IKeyLimiterKeyResolver
+internal sealed class ElementNoteKeyResolver : IKeyLimiterKeyResolver
 {
   public KeyLimiterKeySelection Resolve(string[] requestedKeys, bool enabled)
   {
@@ -19,14 +19,14 @@ internal sealed class DmNoteKeyResolver : IKeyLimiterKeyResolver
       string key = rawKey?.Trim() ?? string.Empty;
       if (string.IsNullOrEmpty(key) || !seen.Add(key))
         continue;
-      if (!DmNoteKeyMapper.TryResolve(key, out ResolvedLimiterKey resolved))
+      if (!ElementNoteKeyMapper.TryResolve(key, out ResolvedLimiterKey resolved))
       {
         unsupported.Add(key);
         continue;
       }
       supported.Add(key);
       result.AllowedKeys.Add(resolved.UnityKey);
-      DmNoteKeyMapper.AddAsyncKeys(resolved, result.AllowedAsyncKeys);
+      ElementNoteKeyMapper.AddAsyncKeys(resolved, result.AllowedAsyncKeys);
     }
     result.Supported = supported.ToArray();
     result.Unsupported = unsupported.ToArray();

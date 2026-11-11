@@ -27,7 +27,7 @@ KeyboardChatterBlocker 0.1.3의 동작을 그대로 따른다. 라이선스가 �
 
 - 기본값: 켜짐, 임계값 100ms(원본 기본값). 범위는 10~500ms. 설정 버전 8 이전의 기본값 20ms(뗀 시각 기준이던 값)는 한 번만 100ms로 옮기고, 직접 고른 값은 그대로 둔다.
 - 규칙: 같은 키의 **마지막으로 받은 누름**부터 이번 누름까지가 임계값 이하(`<=`)면 버린다. 버린 누름은 기준 시각을 옮기지 않는다. 뗌은 거르지 않는다(원본과 같음). 그래서 같은 키를 임계값보다 빠르게 연타하면 입력이 빠진다.
-- 막지 않을 키: 원본의 Ignored Keys. KeyCode 목록 하나로 저장하고, 비동기 입력용 SkyHook 코드는 `DmNoteKeyMapper.Resolve`로 만든다. 원본처럼 비동기·Unity 목록을 따로 두지 않는다. 마우스 버튼은 넣을 수 없다.
+- 막지 않을 키: 원본의 Ignored Keys. KeyCode 목록 하나로 저장하고, 비동기 입력용 SkyHook 코드는 `ElementNoteKeyMapper.Resolve`로 만든다. 원본처럼 비동기·Unity 목록을 따로 두지 않는다. 마우스 버튼은 넣을 수 없다.
 - 시각: 원본처럼 입력을 처리하는 순간의 벽시계 밀리초(`DateTime.UtcNow`)를 쓴다.
 - 비동기 입력: `SkyHookManager.HookCallback` 접두 패치. 누름만 보고 Escape는 통과시킨다(원본의 `Key == 27`은 Windows 전용이라 macOS에서는 X가 통과하므로 `KeyLabel.Escape`로 판정). 키별 시각은 고정 배열에 둔다. 할당·잠금·로그·Unity 호출이 없고 예외는 네이티브로 나가지 않는다.
 - Unity 입력: 원본처럼 `scrPlayer.CountValidKeysPressed` 후처리. 이번 프레임 누름(`RDInput.GetMainPressKeys`) 중 KeyCode 누름을 거르고, 버린 수만큼 결과에서 뺀다. 원본은 결과를 다시 세면서 게임패드·터치 입력을 빠뜨리지만 여기서는 그대로 둔다. 게임이 한 프레임에 여러 번 묻기 때문에 원본은 5ms 안의 재질문을 받아 주는데, 같은 규칙을 두고 프레임마다 한 번만 판정한다. 메뉴 입력은 원본처럼 거르지 않는다. 코옵은 플레이어별 수를 나눌 수 없어 거르지 않는다.

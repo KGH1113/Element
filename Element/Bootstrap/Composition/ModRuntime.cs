@@ -59,7 +59,7 @@ internal sealed class ModRuntime : IDisposable
   private readonly RecordedKeyCounts _recordedKeyCounts = new();
   private TufReplayApi _tufReplay;
   private readonly OfflineRender _offlineRender = new();
-  private DmNoteAppLauncher _dmNoteApp;
+  private ElementNoteAppLauncher _elementNoteApp;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
   private GameplayTweaksController _gameplayTweaks;
@@ -99,7 +99,7 @@ internal sealed class ModRuntime : IDisposable
     try
     {
       InputGate.Connect(GameAsyncInput.Clear);
-      _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
+      _keyLimiter = new KeyLimiterService(new ElementNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       GameHooks.KeyLimiter = _gameKeyLimiter;
 
@@ -150,7 +150,7 @@ internal sealed class ModRuntime : IDisposable
         KeyViewerLabels.For,
         _main.LogException,
         _main.LogWarning,
-        DmNoteAppFocus.ForCurrentPlatform()
+        ElementNoteAppFocus.ForCurrentPlatform()
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
@@ -166,7 +166,12 @@ internal sealed class ModRuntime : IDisposable
         _counterIpc
       );
       _ipcChannel.Enable();
-      _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
+      _elementNoteApp = ElementNoteAppLauncher.Create(
+        _main.RuntimePath,
+        _main.Log,
+        _main.LogWarning,
+        _main.LogException
+      );
 
       _settingsUi = new SettingsUiRuntime(
         _main,
@@ -186,7 +191,7 @@ internal sealed class ModRuntime : IDisposable
         _overlay,
         _nativeViewers,
         _recordingMode,
-        _dmNoteApp,
+        _elementNoteApp,
         () => _settingsUi?.IsEditingLayout == true,
         ApplyLook,
         ApplyLayouts

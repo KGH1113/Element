@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Element.Infrastructure.ElementNote.Keys;
 
-internal static class DmNoteKeyMapper
+internal static class ElementNoteKeyMapper
 {
   private static readonly Dictionary<string, KeyCode> NamedKeys = CreateNamedKeys();
 

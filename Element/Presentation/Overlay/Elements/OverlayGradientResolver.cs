@@ -96,15 +96,15 @@ internal sealed class OverlayGradientFormulas
   private readonly List<OverlayFormula> _alphas = new(OverlayGradient.MaximumStops);
   private OverlayFormula _angle;
 
-  /// <summary>The values the gradient uses, as catalog bits.</summary>
-  public ulong Mask { get; private set; }
+  /// <summary>The values the gradient uses, by catalog id.</summary>
+  public OverlayValueMask Mask { get; private set; }
 
   public void Compile(OverlayColorSettings color)
   {
     _positions.Clear();
     _alphas.Clear();
     _angle = null;
-    Mask = 0;
+    Mask = OverlayValueMask.None;
     if (color == null || !color.IsGradient)
       return;
     foreach (OverlayGradientStop stop in color.Gradient.Stops)
@@ -113,10 +113,10 @@ internal sealed class OverlayGradientFormulas
       OverlayFormula alpha = OverlayFormulaText.Compile(stop.AlphaFormula);
       _positions.Add(position);
       _alphas.Add(alpha);
-      Mask |= (position?.Mask ?? 0) | (alpha?.Mask ?? 0);
+      Mask |= (position?.Mask ?? OverlayValueMask.None) | (alpha?.Mask ?? OverlayValueMask.None);
     }
     _angle = OverlayFormulaText.Compile(color.Gradient.AngleFormula);
-    Mask |= _angle?.Mask ?? 0;
+    Mask |= _angle?.Mask ?? OverlayValueMask.None;
   }
 
   /// <summary>

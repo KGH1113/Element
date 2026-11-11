@@ -300,9 +300,9 @@ internal sealed partial class OverlayLayoutEditor
       OpenContentEditor(_frames[_selected].Target);
   }
 
-  // Texts and shapes take their size from their editor, not from a scale.
+  // Texts, shapes and other mods' elements take their size from their editor, not from a scale.
   private static bool SizedInEditor(IOverlayLayoutTarget target) =>
-    target is TextOverlayElement || target is ShapeOverlayElement;
+    target is TextOverlayElement || target is ShapeOverlayElement || target is Overlay.Mods.ModOverlayElement;
 
   private bool HasSelection =>
     _selected >= 0
@@ -450,8 +450,12 @@ internal sealed partial class OverlayLayoutEditor
       _scaleInput.gameObject.SetActive(!edit);
     }
     if (edit)
-      _editContent.GetComponentInChildren<TextMeshProUGUI>().text =
-        selection is ShapeOverlayElement ? L("도형 편집", "Edit shape") : L("텍스트 편집", "Edit text");
+      _editContent.GetComponentInChildren<TextMeshProUGUI>().text = selection switch
+      {
+        ShapeOverlayElement => L("도형 편집", "Edit shape"),
+        Overlay.Mods.ModOverlayElement => L("요소 편집", "Edit element"),
+        _ => L("텍스트 편집", "Edit text"),
+      };
     _scaleInput.interactable = _minus.interactable = _plus.interactable = HasSelection && !several;
     _reset.interactable = _delete.interactable = HasSelection;
     float scale =

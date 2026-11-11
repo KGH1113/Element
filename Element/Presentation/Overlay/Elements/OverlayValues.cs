@@ -12,11 +12,13 @@ namespace Element.Presentation.Overlay.Elements;
 /// </summary>
 internal sealed class OverlayValues : IOverlayNumberSource
 {
-  private readonly StringBuilder[] _text = new StringBuilder[OverlayValueCatalog.Count];
-  private readonly double[] _number = new double[OverlayValueCatalog.Count];
-  private readonly bool[] _has = new bool[OverlayValueCatalog.Count];
-  private readonly long[] _stamp = new long[OverlayValueCatalog.Count];
-  private ulong _dirty;
+  // Room for every value the catalog can hold, so values other mods add
+  // later never resize these.
+  private readonly StringBuilder[] _text = new StringBuilder[OverlayValueCatalog.Capacity];
+  private readonly double[] _number = new double[OverlayValueCatalog.Capacity];
+  private readonly bool[] _has = new bool[OverlayValueCatalog.Capacity];
+  private readonly long[] _stamp = new long[OverlayValueCatalog.Capacity];
+  private OverlayValueMask _dirty;
   private long _stampNow;
 
   public OverlayValues()
@@ -36,13 +38,14 @@ internal sealed class OverlayValues : IOverlayNumberSource
   /// </summary>
   public long Stamp => _stampNow;
 
-  /// <summary>The values changed after <paramref name="stamp"/>, as catalog bits.</summary>
-  public ulong ChangedSince(long stamp)
+  /// <summary>The values changed after <paramref name="stamp"/>.</summary>
+  public OverlayValueMask ChangedSince(long stamp)
   {
     if (stamp >= _stampNow)
-      return 0;
-    ulong changed = 0;
-    for (int i = 0; i < _stamp.Length; i++)
+      return OverlayValueMask.None;
+    OverlayValueMask changed = OverlayValueMask.None;
+    int count = System.Math.Min(_stamp.Length, OverlayValueCatalog.Count);
+    for (int i = 0; i < count; i++)
       if (_stamp[i] > stamp)
         changed |= OverlayValueCatalog.Bit((OverlayValueId)i);
     return changed;
@@ -108,14 +111,18 @@ internal sealed class OverlayValues : IOverlayNumberSource
   }
 
   /// <summary>The values changed since the last call.</summary>
-  public ulong TakeChanges()
+  public OverlayValueMask TakeChanges()
   {
-    ulong changes = _dirty;
-    _dirty = 0;
+    OverlayValueMask changes = _dirty;
+    _dirty = OverlayValueMask.None;
     return changes;
   }
 
-  /// <summary>An example for the editor while the game has no live value.</summary>
+  /// <summary>
+  /// An example for the editor while the game has no live value. A value whose
+  /// mod is missing or off shows its name in brackets, so it can still be
+  /// found, selected and deleted; the overlay itself shows nothing there.
+  /// </summary>
   public static void AppendSample(StringBuilder output, OverlayValueId id)
   {
     OverlayLabels labels = OverlayLocalization.Get(RDString.language);
@@ -131,7 +138,18 @@ internal sealed class OverlayValues : IOverlayNumberSource
         output.Append(labels.MusicTime);
         break;
       default:
-        output.Append(OverlayValueCatalog.Get(id).Sample);
+        OverlayValueDefinition value = OverlayValueCatalog.Get(id);
+        if (value.Available)
+        {
+          output.Append(value.Sample);
+          break;
+        }
+        output.Append('[');
+        OverlayTextComposer.AppendLiteral(
+          output,
+          RDString.language == SystemLanguage.Korean ? value.KoreanName : value.EnglishName
+        );
+        output.Append(']');
         break;
     }
   }

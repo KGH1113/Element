@@ -68,6 +68,9 @@ public sealed class OverlayLayoutSettings
   public OverlayTextSettings Text;
   public OverlayShapeSettings Shape;
 
+  // Set for an element another mod draws (OverlayElementKinds.IsMod).
+  public OverlayModSettings Mod;
+
   public OverlayLayoutSettings Clone()
   {
     OverlayLayoutSettings copy = new();
@@ -85,6 +88,7 @@ public sealed class OverlayLayoutSettings
     PendingGroup = source.PendingGroup;
     Text = source.Text?.Clone();
     Shape = source.Shape?.Clone();
+    Mod = source.Mod?.Clone();
   }
 
   public void CopyPlacementFrom(OverlayLayoutSettings source)
@@ -117,5 +121,6 @@ public sealed class OverlayLayoutSettings
     && DefaultPlacement == other.DefaultPlacement
     && PendingGroup == other.PendingGroup
     && (Text?.SameAs(other.Text) ?? other.Text == null)
-    && (Shape?.SameAs(other.Shape) ?? other.Shape == null);
+    && (Shape?.SameAs(other.Shape) ?? other.Shape == null)
+    && (Mod?.SameAs(other.Mod) ?? other.Mod == null);
 }

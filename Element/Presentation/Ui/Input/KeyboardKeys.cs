@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Input;
 
 /// <summary>Finds the keyboard keys pressed this frame, for fields that record keys.</summary>
 internal static class KeyboardKeys
@@ -17,7 +17,7 @@ internal static class KeyboardKeys
   public static bool NextPressed(ref int index, out KeyCode key)
   {
     while (++index < All.Length)
-      if (Input.GetKeyDown(All[index]))
+      if (UnityEngine.Input.GetKeyDown(All[index]))
       {
         key = All[index];
         return true;

@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Ui.Input;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,7 +17,7 @@ internal sealed class SettingsPopoverShade
     _window = window;
     _button = ui.Button("", window, 0, 0, 1000, 600, clicked, false, false);
     _button.gameObject.name = "Dismiss color picker";
-    _button.GetComponent<SettingsCursor>().enabled = false;
+    _button.GetComponent<UiCursor>().enabled = false;
     _button.targetGraphic.color = new Color(0, 0, 0, .18f);
     _button.transition = Selectable.Transition.None;
     _button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);

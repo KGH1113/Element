@@ -1,6 +1,6 @@
 using System;
 using Element.Domain.Layout;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Input;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -25,18 +25,18 @@ internal sealed class LayoutCursors : IDisposable
     _current = index;
     if (index < 0)
     {
-      if (!SettingsCursor.Restore())
-        SettingsCursor.Apply(null, Vector2.zero);
+      if (!UiCursor.Restore())
+        UiCursor.Apply(null, Vector2.zero);
       return;
     }
     if (_textures[index] == null)
       _textures[index] = Create(index);
-    SettingsCursor.Apply(_textures[index], new Vector2(16f, 16f));
+    UiCursor.Apply(_textures[index], new Vector2(16f, 16f));
   }
 
   public void Dispose()
   {
-    SettingsCursor.Apply(null, Vector2.zero);
+    UiCursor.Apply(null, Vector2.zero);
     foreach (Texture2D texture in _textures)
       if (texture != null)
         Object.Destroy(texture);

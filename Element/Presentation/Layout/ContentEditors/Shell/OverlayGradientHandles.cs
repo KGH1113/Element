@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using UnityEngine;
@@ -99,7 +100,7 @@ internal sealed class OverlayGradientHandles
     line.Down = LineDown;
     line.Dragged = SquareDrag;
     line.Up = _ => EndDrag();
-    SettingsCursor.Attach(line.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(line.gameObject, UiCursorKind.Pointer);
     for (int i = 0; i < 3; i++)
       _grips[i] = new Grip(ui, _root, i, this);
     Angle = new OverlayFormulaField(ui, _root, "Gradient angle", "°", activateAngle, reduceMotion);
@@ -405,8 +406,8 @@ internal sealed class OverlayGradientHandles
     if (_dragging != index || _color == null)
       return;
     NVector2 pointer = ToUnits(_toFrame(data.position));
-    bool shift = SettingsModifierKeys.Shift;
-    bool alt = SettingsModifierKeys.Alt;
+    bool shift = UiModifierKeys.Shift;
+    bool alt = UiModifierKeys.Alt;
     bool stick = !alt && !shift;
     _free = !stick;
     _guideX = _guideY = float.NaN;
@@ -594,7 +595,7 @@ internal sealed class OverlayGradientHandles
     if (_dragStop < 0 || _color == null || _dragStop >= Gradient.Stops.Count)
       return;
     float position = Mathf.Clamp01(PositionAt(_toFrame(data.position)) - _dragGrab);
-    bool alt = SettingsModifierKeys.Alt;
+    bool alt = UiModifierKeys.Alt;
     if (!alt)
       position = OverlayGradientEdits.Snap(Gradient, _dragStop, position);
     OverlayGradientStop stop = Gradient.Stops[_dragStop];
@@ -609,7 +610,7 @@ internal sealed class OverlayGradientHandles
     if (_color == null || Gradient.Stops.Count >= OverlayGradient.MaximumStops)
       return;
     float position = PositionAt(_toFrame(data.position));
-    bool alt = SettingsModifierKeys.Alt;
+    bool alt = UiModifierKeys.Alt;
     if (!alt)
       position = OverlayGradientEdits.Snap(Gradient, -1, position);
     int before = Gradient.Stops.Count;
@@ -673,7 +674,7 @@ internal sealed class OverlayGradientHandles
       area.Down = data => owner.GripDown(index, data);
       area.Dragged = data => owner.GripDrag(index, data);
       area.Up = _ => owner.EndDrag();
-      SettingsCursor.Attach(area.gameObject, SettingsCursorKind.Pointer);
+      UiCursor.Attach(area.gameObject, UiCursorKind.Pointer);
     }
 
     public RectTransform Rect { get; }
@@ -708,7 +709,7 @@ internal sealed class OverlayGradientHandles
       area.Down = data => owner.SquareDown(Stop, data);
       area.Dragged = owner.SquareDrag;
       area.Up = _ => owner.EndDrag();
-      SettingsCursor.Attach(area.gameObject, SettingsCursorKind.Pointer);
+      UiCursor.Attach(area.gameObject, UiCursorKind.Pointer);
     }
 
     public RectTransform Rect { get; }

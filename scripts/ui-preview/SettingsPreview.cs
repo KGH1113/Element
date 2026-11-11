@@ -46,6 +46,7 @@ using Element.Configuration.Gameplay;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 
 namespace Element.Editor
 {
@@ -2345,8 +2346,8 @@ namespace Element.Editor
       Assert(icon.color == UiPalette.Foreground, "back glyph restores its neutral color on exit");
       Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<UiIcon>().Kind == UiIconKind.WindowClose
         && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
-      Assert(back.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer
-        && close.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer,
+      Assert(back.GetComponent<UiCursor>().Kind == UiCursorKind.Pointer
+        && close.GetComponent<UiCursor>().Kind == UiCursorKind.Pointer,
         "navigation controls advertise their click cursor");
       CheckAntialias(icon);
       var iconRoot = new GameObject("Low resolution action icon", typeof(RectTransform), typeof(UiIcon));
@@ -2546,10 +2547,10 @@ namespace Element.Editor
       Assert(changed == 0 && current == original, "opening an RGBA picker does not mutate its consumer");
       Assert(picker.Height == 358 && opacity.gameObject.activeSelf && alpha.gameObject.activeSelf,
         "RGBA mode adds an opacity track and a numeric field beside HEX");
-      Assert(plane.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Crosshair
-        && hue.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Horizontal
-        && alpha.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Horizontal
-        && hex.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Text,
+      Assert(plane.GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
+        && hue.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && alpha.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && hex.GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "color controls expose crosshair, adjustment and text cursor affordances");
       foreach (int percent in new[] { 0, 50, 100 })
       {

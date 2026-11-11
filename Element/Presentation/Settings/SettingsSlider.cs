@@ -1,3 +1,4 @@
+using Element.Presentation.Ui.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -13,7 +14,7 @@ internal sealed class SettingsSlider : Slider
     if (!IsActive() || !IsInteractable())
       return;
     float delta = eventData.moveDir == MoveDirection.Left || eventData.moveDir == MoveDirection.Down ? -Step : Step;
-    value += delta * (SettingsModifierKeys.Shift ? 10 : 1);
+    value += delta * (UiModifierKeys.Shift ? 10 : 1);
     eventData.Use();
   }
 }

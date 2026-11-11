@@ -1,13 +1,13 @@
 using System;
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Input;
 
 /// <summary>
 /// The modifier keys held now. Where the legacy input isn't active (as in the
 /// editor's UI preview) they read as not held.
 /// </summary>
-internal static class SettingsModifierKeys
+internal static class UiModifierKeys
 {
   public static bool Alt => IsHeld(KeyCode.LeftAlt) || IsHeld(KeyCode.RightAlt);
   public static bool Shift => IsHeld(KeyCode.LeftShift) || IsHeld(KeyCode.RightShift);
@@ -16,7 +16,7 @@ internal static class SettingsModifierKeys
   {
     try
     {
-      return Input.GetKey(key);
+      return UnityEngine.Input.GetKey(key);
     }
     catch (InvalidOperationException)
     {

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -25,7 +26,7 @@ internal sealed class SettingsUiFactory : IDisposable
 
   public SettingsUiFactory(TMP_FontAsset font)
   {
-    SettingsCursor.Retain();
+    UiCursor.Retain();
     _font = font;
     _rounded = SettingsRoundedSprite.Retain();
   }
@@ -109,7 +110,7 @@ internal sealed class SettingsUiFactory : IDisposable
     SettingsButton button = image.gameObject.AddComponent<SettingsButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = image;
-    SettingsCursor.Attach(button.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(button.gameObject, UiCursorKind.Pointer);
     AddFocusRing(image);
     TextMeshProUGUI label = Text(text, image.transform, 12, 0, width - 24, height, 16);
     Stretch(label.rectTransform, 12, 0, 12, 0);
@@ -296,7 +297,7 @@ internal sealed class SettingsUiFactory : IDisposable
     Image inset = Panel("Input surface", box.transform, 1, 1, width - 2, 38, new Color(.075f, .075f, .075f));
     Stretch(inset.rectTransform, 1, 1, 1, 1);
     TMP_InputField input = box.gameObject.AddComponent<TMP_InputField>();
-    SettingsCursor.Attach(input.gameObject, SettingsCursorKind.Text);
+    UiCursor.Attach(input.gameObject, UiCursorKind.Text);
     input.navigation = new Navigation { mode = Navigation.Mode.None };
     RectTransform viewport = Rect("Text area", box.transform, 10, 4, width - 20, 32);
     Stretch(viewport, 10, 4, 10, 4);
@@ -345,7 +346,7 @@ internal sealed class SettingsUiFactory : IDisposable
   {
     RectTransform root = Rect(name, parent, x, y, width, 36);
     SettingsSlider slider = root.gameObject.AddComponent<SettingsSlider>();
-    SettingsCursor.Attach(slider.gameObject, SettingsCursorKind.Horizontal);
+    UiCursor.Attach(slider.gameObject, UiCursorKind.Horizontal);
     slider.Step = step;
     slider.navigation = new Navigation { mode = Navigation.Mode.None };
     Image hit = root.gameObject.AddComponent<Image>();
@@ -421,7 +422,7 @@ internal sealed class SettingsUiFactory : IDisposable
     if (_disposed)
       return;
     _disposed = true;
-    SettingsCursor.Release();
+    UiCursor.Release();
     _themeBindings.Clear();
     SettingsRoundedSprite.Release();
   }

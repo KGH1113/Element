@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -147,7 +148,7 @@ internal sealed partial class SettingsColorPicker
     area.Up = _ => _dragging = -1;
     area.Moved = BarHover;
     area.Exited = () => _tip.gameObject.SetActive(false);
-    SettingsCursor.Attach(area.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(area.gameObject, UiCursorKind.Pointer);
 
     _kindRow = _ui.Rect("Gradient kinds", Root, 0, 0, 256, KindRow);
     string[] names = { L("선형", "Linear"), L("방사형", "Radial"), L("회전형", "Angular"), L("다이아몬드", "Diamond") };
@@ -160,7 +161,7 @@ internal sealed partial class SettingsColorPicker
       button.transition = Selectable.Transition.None;
       button.navigation = new Navigation { mode = Navigation.Mode.None };
       button.onClick.AddListener(() => SetKind(kind));
-      SettingsCursor.Attach(frame.gameObject, SettingsCursorKind.Pointer);
+      UiCursor.Attach(frame.gameObject, UiCursorKind.Pointer);
       Image mask = _ui.Panel("Mask", frame.transform, 3, 3, 32, KindRow - 6, Color.white);
       mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
       SettingsUiFactory.Stretch(mask.rectTransform, 3, 3, 3, 3);
@@ -228,7 +229,7 @@ internal sealed partial class SettingsColorPicker
       }
     );
     button.onClick.AddListener(() => click());
-    SettingsCursor.Attach(surface.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(surface.gameObject, UiCursorKind.Pointer);
     float glyph = Mathf.Round(size * .53f);
     UiIcon icon = _ui.Rect("Icon", surface.transform, (size - glyph) * .5f, (size - glyph) * .5f, glyph, glyph)
       .gameObject.AddComponent<UiIcon>();
@@ -467,7 +468,7 @@ internal sealed partial class SettingsColorPicker
   }
 
   // Alt held: no snapping, as in the layout editor.
-  private static bool FreeMove() => SettingsModifierKeys.Alt;
+  private static bool FreeMove() => UiModifierKeys.Alt;
 
   private static string AccentHex => "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
 

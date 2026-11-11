@@ -23,6 +23,7 @@ using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Settings;
+using Element.Infrastructure.Mods;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout.KeyViewers;
@@ -135,7 +136,7 @@ internal sealed class ModRuntime : IDisposable
       );
       SceneManager.sceneUnloaded += OnSceneUnloaded;
       _sceneHooked = true;
-      WarnIfKeyboardChatterBlockerIsLoaded();
+      KeyboardChatterBlockerCheck.WarnIfLoaded(_main.LogWarning);
 
       _attempts = CreateAttemptTracker();
       // During TUFReplay's replays and renders the overlay shows the run's recorded attempts.
@@ -478,20 +479,6 @@ internal sealed class ModRuntime : IDisposable
     {
       _main.LogException("Key limiter is off because this game version has no built-in key limiter", exception);
       return null;
-    }
-  }
-
-  private void WarnIfKeyboardChatterBlockerIsLoaded()
-  {
-    foreach (System.Reflection.Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-    {
-      if (!string.Equals(assembly.GetName().Name, "KeyboardChatterBlocker", StringComparison.OrdinalIgnoreCase))
-        continue;
-
-      _main.LogWarning(
-        "[Input] KeyboardChatterBlocker is loaded. ADOFAI's key limiter now carries ElementNote's keys, and Tweaks > Chatter blocker replaces its chatter filter; turn its limiter and chatter filter off to avoid filtering input twice."
-      );
-      return;
     }
   }
 }

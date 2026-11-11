@@ -20,15 +20,10 @@ internal sealed class ShapeColors
 {
   private readonly IShapeEditorHost _host;
   private readonly ShapeNumbers _numbers;
-  private readonly OverlayEditorHistory<OverlayShapeSettings> _history;
-  private readonly TMP_FontAsset _font;
-  private readonly Func<bool> _reduceMotion;
-  private SettingsColorPicker _picker;
-  private OverlayOpacityField _opacity;
+  private readonly OverlayEditorPicker _picker;
   private OverlayBarButton _fillButton,
     _strokeButton;
   private bool _pickerForStroke;
-  private bool _pickerSnapshotTaken;
 
   public ShapeColors(
     IShapeEditorHost host,
@@ -40,14 +35,21 @@ internal sealed class ShapeColors
   {
     _host = host;
     _numbers = numbers;
-    _history = history;
-    _font = font;
-    _reduceMotion = reduceMotion;
+    _picker = new OverlayEditorPicker(
+      font,
+      reduceMotion,
+      () => history.Remember((string)null),
+      () => _host.Screen != null,
+      // Its numbers go with it.
+      () => _numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field),
+      _host.CloseEditing,
+      _host.Render
+    );
   }
 
-  public SettingsColorPicker Picker => _picker;
+  public SettingsColorPicker Picker => _picker.Picker;
 
-  public OverlayOpacityField Opacity => _opacity;
+  public OverlayOpacityField Opacity => _picker.Opacity;
 
   /// <summary>The color the picker shows: the fill's or the border's.</summary>
   public OverlayColorSettings Picked
@@ -93,32 +95,26 @@ internal sealed class ShapeColors
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen, OverlayInputDock dock)
   {
-    _picker = new SettingsColorPicker(screen.Frame, _font, _reduceMotion);
-    _picker.Hidden = PickerHidden;
+    _picker.Build(screen.Frame);
     // The color picker opens right above the keypad.
-    _picker.LayOutAsColumn(dock.KeypadArea.width);
-    _opacity = new OverlayOpacityField(screen.Ui, _picker, () => _host.Activate(OpacityKey), _reduceMotion());
+    _picker.LayOutAbove(dock);
+    _picker.BuildOpacity(screen.Ui, () => _host.Activate(OpacityKey));
   }
 
-  public void DisposePicker()
-  {
-    SettingsColorPicker picker = _picker;
-    _picker = null;
-    picker?.Dispose();
-  }
+  public void DisposePicker() => _picker.Dispose();
 
   // The same button closes its picker; the other one moves it over.
   private void Open(bool stroke)
   {
     _host.CloseEditing();
-    if (_picker.Visible && _pickerForStroke == stroke)
+    if (Picker.Visible && _pickerForStroke == stroke)
     {
-      _picker.Hide();
+      Picker.Hide();
       _host.Render();
       return;
     }
     _pickerForStroke = stroke;
-    _pickerSnapshotTaken = false;
+    _picker.NewSession();
     Show();
     _host.Render();
   }
@@ -130,24 +126,18 @@ internal sealed class ShapeColors
   public void Show(bool keepStop = false)
   {
     bool stroke = _pickerForStroke;
-    _picker.ShowSource(
+    Picker.ShowSource(
       stroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color"),
       stroke ? _host.Shape.Stroke : _host.Shape.Fill,
-      color =>
+      picked =>
       {
-        if (!_pickerSnapshotTaken)
-        {
-          _history.Remember((string)null);
-          _pickerSnapshotTaken = true;
-        }
         OverlayShapeSettings shape = _host.Shape;
-        OverlayColorSettings before = stroke ? shape.Stroke : shape.Fill;
-        // A gradient's stops keep their own calculated opacities.
-        if (!color.IsGradient)
-          color = _opacity.Keep(before, color);
-        // A moved slider replaces the opacity the dock is calculating.
-        if (_numbers.Field == OpacityKey && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
-          _numbers.Editing.Deactivate();
+        OverlayColorSettings color = _picker.Changed(
+          stroke ? shape.Stroke : shape.Fill,
+          picked,
+          _numbers.Field == OpacityKey,
+          _numbers.Editing
+        );
         if (stroke)
         {
           shape.Stroke = color;
@@ -166,21 +156,9 @@ internal sealed class ShapeColors
   /// <summary>Undo starts a new picker session: its next change is its own step.</summary>
   public void Restored()
   {
-    _pickerSnapshotTaken = false;
-    if (_picker.Visible)
+    _picker.NewSession();
+    if (Picker.Visible)
       Show(keepStop: true);
-  }
-
-  // The color button lets go of its lit state once the picker closes.
-  private void PickerHidden()
-  {
-    _pickerSnapshotTaken = false;
-    if (_host.Screen == null || _picker == null)
-      return;
-    // Its numbers go with it.
-    if (_numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field))
-      _host.CloseEditing();
-    _host.Render();
   }
 
   /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
@@ -188,10 +166,10 @@ internal sealed class ShapeColors
   {
     _fillButton.Swatch = Opaque(preview.Resolved.Fill);
     _fillButton.SwatchGradient = preview.FillGradient;
-    _fillButton.Set(null, false, _picker.Visible && !_pickerForStroke);
+    _fillButton.Set(null, false, Picker.Visible && !_pickerForStroke);
     _strokeButton.Swatch = Opaque(preview.Resolved.Stroke);
     _strokeButton.SwatchGradient = preview.StrokeGradient;
-    _strokeButton.Set(null, false, _picker.Visible && _pickerForStroke);
+    _strokeButton.Set(null, false, Picker.Visible && _pickerForStroke);
   }
 
   private static Color Opaque(OverlayColorSettings color)
@@ -201,29 +179,25 @@ internal sealed class ShapeColors
     return resolved;
   }
 
-  public void PlacePicker(OverlayInputDock dock)
-  {
-    if (dock != null)
-      KeypadPicker.Place(_picker, dock);
-  }
+  public void PlacePicker(OverlayInputDock dock) => _picker.Place(dock);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)
   {
-    if (!_picker.Visible)
+    if (!Picker.Visible)
       return;
     string key = OpacityKey;
     OverlayFormula formula = _numbers.Shown(key);
     OverlayColorSettings color = _pickerForStroke ? _host.Shape.Stroke : _host.Shape.Fill;
-    _opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
+    Opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
   }
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
   public string Hint()
   {
-    if (!_picker.Visible)
+    if (!Picker.Visible)
       return null;
-    if (_picker.IsGradient)
+    if (Picker.IsGradient)
       return _pickerForStroke
         ? L(
           "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",

@@ -171,7 +171,7 @@ namespace Element.Editor
         Tab("Grow from " + OverlayGrowth.Top).onClick.Invoke();
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
         Find("Paint ").onClick.Invoke();
-        SettingsColorPicker paint = Field<SettingsColorPicker>(mods2, "_paintPicker");
+        SettingsColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
         Assert(paint.Visible && paint.GradientAvailable && InsideScreen(ScreenRectOf(paint.Root)),
           "a paint opens the full picker, gradients included, on screen");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");
@@ -184,7 +184,7 @@ namespace Element.Editor
         title.text = "Hello";
         Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting as it is typed");
         Find("Dropdown ").onClick.Invoke();
-        ModListPopover dropdown = Field<ModListPopover>(mods2, "_list");
+        ModListPopover dropdown = Field<ModListPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_list");
         Assert(dropdown.Visible && InsideScreen(ScreenRectOf(dropdown.Root)), "a dropdown opens its list under it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-dropdown");
         dropdown.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Option 3").onClick.Invoke();
@@ -192,7 +192,7 @@ namespace Element.Editor
         Find("Chip ").onClick.Invoke();
         Assert(Working().Contains("\"Show\":[false,false,true]"), "a chip turns its option on or off: " + Working());
         Find("Font ").onClick.Invoke();
-        OverlayFontPopover fonts = Field<OverlayFontPopover>(mods2, "_fontPopover");
+        OverlayFontPopover fonts = Field<OverlayFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
         Assert(fonts != null && fonts.Visible && InsideScreen(ScreenRectOf(fonts.Root)), "a font part opens Element's font list beside it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");
@@ -271,7 +271,7 @@ namespace Element.Editor
     private static void CheckVisibleParts(OverlayModEditor editor, string name, string tab)
     {
       ModEditorPage page = editor.Page;
-      Rect preview = ScreenRectOf(Field<RectTransform>(editor, "_previewHolder"));
+      Rect preview = ScreenRectOf(Field<RectTransform>(Field<ModPreview>(editor, "_preview"), "_holder"));
       // A tab page at the top of the column is only a holder; its parts stand in the column themselves.
       IEnumerable<RectTransform> Children(Transform parent) => Enumerable.Range(0, parent.childCount)
         .Select(i => (RectTransform)parent.GetChild(i))

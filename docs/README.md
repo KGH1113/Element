@@ -11,3 +11,5 @@
 | [process/](process) | 개발 절차: 릴리스 |
 | [releases/](releases) | 버전마다 릴리스 노트 (`./scripts/run.sh release`가 읽음) |
 | [media/](media) | README의 배너와 쇼케이스 영상 |
+
+다른 모드가 Element에 값과 요소를 더하는 방법은 [ElementKit/README.md](../ElementKit/README.md)에 있습니다.

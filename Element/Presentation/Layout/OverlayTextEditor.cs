@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Domain.Layout;
@@ -430,7 +431,7 @@ internal sealed partial class OverlayTextEditor : IDisposable
     _editing.Deactivate();
     _element = null;
     _closed = null;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (notify)
       closed?.Invoke(commit);
   }

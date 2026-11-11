@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
@@ -522,11 +523,11 @@ internal sealed partial class OverlayLayoutEditor
 
 internal sealed class LayoutTextCapture : MonoBehaviour, ISelectHandler, IDeselectHandler
 {
-  public void OnSelect(BaseEventData data) => UIInteractionState.SetTextEditing(true);
+  public void OnSelect(BaseEventData data) => InputGate.SetTextEditing(true);
 
-  public void OnDeselect(BaseEventData data) => UIInteractionState.SetTextEditing(false);
+  public void OnDeselect(BaseEventData data) => InputGate.SetTextEditing(false);
 
-  private void OnDisable() => UIInteractionState.SetTextEditing(false);
+  private void OnDisable() => InputGate.SetTextEditing(false);
 }
 
 internal sealed class LayoutActionHint

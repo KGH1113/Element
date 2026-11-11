@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 public static class RDString { public static SystemLanguage language = SystemLanguage.Korean; }
-namespace Element.Presentation.Settings { internal static class UIInteractionState { public static void RestoreCursor() { } public static void SetTextEditing(bool value) { } } }
 public static class ADOBase
 {
   public class Controller { public bool paused; }

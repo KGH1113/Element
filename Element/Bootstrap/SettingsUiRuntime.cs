@@ -1,4 +1,5 @@
 using System;
+using Element.Application.Input;
 using Element.Application.Profiles;
 using Element.Configuration;
 using Element.Configuration.Effects;
@@ -137,7 +138,7 @@ internal sealed class SettingsUiRuntime : IDisposable
         _layoutEditor.Tick();
       if (_layoutEditor.IsOpen)
         _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
-      UIInteractionState.RestoreCursor();
+      SettingsInputCapture.RestoreCursor();
     }
     else if (_panel != null)
       _panel.Tick();
@@ -146,7 +147,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _presetShortcuts.Tick();
     // Exactly when the game stops getting keys: the layout editor lets them through
     // during play, and TUFReplay must keep recording keys the game judges.
-    _tufReplayInput.Set(UIInteractionState.BlocksAsyncKeyboard);
+    _tufReplayInput.Set(InputGate.BlocksAsyncKeyboard);
   }
 
   public bool Save()
@@ -211,10 +212,10 @@ internal sealed class SettingsUiRuntime : IDisposable
   private void OnVisibilityChanged(bool visible)
   {
     if (visible)
-      UIInteractionState.Begin();
+      SettingsInputCapture.Begin();
     else
     {
-      UIInteractionState.End();
+      SettingsInputCapture.End();
       // The preview target and its cloned planet visuals are only needed while
       // settings are open; the planet page recreates them on demand.
       ReleasePlanetPreview();
@@ -224,7 +225,7 @@ internal sealed class SettingsUiRuntime : IDisposable
 
   private void OpenLayout()
   {
-    UIInteractionState.Begin(layoutEditing: true);
+    SettingsInputCapture.Begin(layoutEditing: true);
     _layoutEditor.Open();
     _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
     _viewerModeChanged();
@@ -253,7 +254,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _panel = null;
     ReleasePlanetPreview();
     _toast.Dispose();
-    UIInteractionState.Reset();
+    SettingsInputCapture.Reset();
     _tufReplayInput.Dispose();
   }
 }

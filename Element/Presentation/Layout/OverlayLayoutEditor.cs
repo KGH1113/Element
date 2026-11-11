@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
@@ -156,7 +157,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     _cursors.Set(LayoutHandle.None);
     Cursor.visible = _previousCursorVisible;
     Cursor.lockState = _previousCursorLock;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
     {
       _ownedEvents.SetActive(false);
@@ -180,7 +181,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       Resize(Screen.width, Screen.height);
     if (_textEditor != null && _textEditor.IsOpen)
     {
-      UIInteractionState.SetTextEditing(true);
+      InputGate.SetTextEditing(true);
       _textEditor.Tick();
       _host.TickLayoutPreview();
       UpdateFrames();
@@ -189,7 +190,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     if (_shapeEditor != null && _shapeEditor.IsOpen)
     {
-      UIInteractionState.SetTextEditing(true);
+      InputGate.SetTextEditing(true);
       _shapeEditor.Tick();
       _host.TickLayoutPreview();
       UpdateFrames();
@@ -198,7 +199,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     }
     if (_modEditor != null && _modEditor.IsOpen)
     {
-      UIInteractionState.SetTextEditing(true);
+      InputGate.SetTextEditing(true);
       _modEditor.Tick();
       _host.TickLayoutPreview();
       UpdateFrames();
@@ -206,7 +207,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
       return;
     }
     bool typing = (_scaleInput != null && _scaleInput.isFocused) || PopoverTyping;
-    UIInteractionState.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
+    InputGate.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
     UpdatePopupPositions();
     _fontPopover?.Tick();
     if (_modalRoot != null || AnyPopoverVisible)
@@ -439,7 +440,7 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     _fontPopover?.Dispose();
     _fontUi?.Dispose();
     _ui?.Dispose();
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
       SettingsUiFactory.Destroy(_ownedEvents);
     if (_root != null)

@@ -1,6 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.Attempts;
 
-namespace Element.Application.Features;
+namespace Element.Application.Attempts;
 
 internal sealed class AttemptFeature : IOverlayFeature
 {

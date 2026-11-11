@@ -1,4 +1,4 @@
-using Element.Application;
+using Element.Application.Judgement;
 using Element.Domain.Judgement;
 
 namespace Element.Infrastructure.Game.Play;
@@ -11,6 +11,7 @@ internal sealed class JudgementReader : IJudgementSource
     return TryGetSinglePlayerTracker(out scrMarginTracker tracker) && TryRead(tracker, out snapshot);
   }
 
+  /// <summary>The counts of <paramref name="tracker"/>, when it is the single player's.</summary>
   public bool TryRead(scrMarginTracker tracker, out JudgementSnapshot snapshot)
   {
     snapshot = default;

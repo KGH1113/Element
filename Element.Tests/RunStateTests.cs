@@ -4,7 +4,6 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
-using Element.Application;
 using Element.Application.Attempts;
 using Element.Application.Rendering;
 using Element.Domain.Attempts;

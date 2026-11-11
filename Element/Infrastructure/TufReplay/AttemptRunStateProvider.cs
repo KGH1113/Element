@@ -1,5 +1,4 @@
 using System;
-using Element.Application;
 using Element.Application.Attempts;
 using Element.Domain.Attempts;
 

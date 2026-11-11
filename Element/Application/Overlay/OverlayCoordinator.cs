@@ -1,8 +1,18 @@
 using System;
-using Element.Application.Features;
+using Element.Application.Attempts;
+using Element.Application.Bpm;
+using Element.Application.Combo;
+using Element.Application.Judgement;
+using Element.Application.Status;
+using Element.Application.TimingScale;
+using Element.Domain.Judgement;
 
-namespace Element.Application;
+namespace Element.Application.Overlay;
 
+/// <summary>
+/// The overlay's values as one: all of them show, hide and refresh together, and each
+/// game event refreshes the ones it changes.
+/// </summary>
 internal sealed class OverlayCoordinator : IDisposable
 {
   private readonly JudgementFeature _judgement;
@@ -10,7 +20,7 @@ internal sealed class OverlayCoordinator : IDisposable
   private readonly BpmFeature _bpm;
   private readonly ComboFeature _combo;
   private readonly TimingScaleFeature _timingScale;
-  private readonly AttemptFeature _attempt;
+  private readonly IOverlayFeature[] _all;
   private bool _visible;
   private bool _disposed;
 
@@ -30,7 +40,7 @@ internal sealed class OverlayCoordinator : IDisposable
     _bpm = bpm;
     _combo = combo;
     _timingScale = timingScale;
-    _attempt = attempt;
+    _all = new IOverlayFeature[] { judgement, status, bpm, combo, timingScale, attempt };
   }
 
   public void Show()
@@ -44,12 +54,8 @@ internal sealed class OverlayCoordinator : IDisposable
     }
 
     _visible = true;
-    _judgement.Show();
-    _status.Show();
-    _bpm.Show();
-    _combo.Show();
-    _timingScale.Show();
-    _attempt.Show();
+    for (int i = 0; i < _all.Length; i++)
+      _all[i].Show();
   }
 
   public void Hide()
@@ -58,12 +64,8 @@ internal sealed class OverlayCoordinator : IDisposable
       return;
 
     _visible = false;
-    _judgement.Hide();
-    _status.Hide();
-    _bpm.Hide();
-    _combo.Hide();
-    _timingScale.Hide();
-    _attempt.Hide();
+    for (int i = 0; i < _all.Length; i++)
+      _all[i].Hide();
   }
 
   public void RefreshAll()
@@ -71,20 +73,18 @@ internal sealed class OverlayCoordinator : IDisposable
     if (!IsVisible)
       return;
 
-    _judgement.Refresh();
-    _status.RefreshAll();
-    _bpm.Refresh();
-    _combo.Refresh();
-    _timingScale.Refresh();
-    _attempt.Refresh();
+    for (int i = 0; i < _all.Length; i++)
+      _all[i].Refresh();
   }
 
-  public void RegisterHit(scrMarginTracker tracker, HitMargin hit)
+  /// <param name="counts">The judgement counts after the hit; null when they are not the single player's.</param>
+  public void RegisterHit(JudgementSnapshot? counts, HitMargin hit)
   {
     if (!IsVisible)
       return;
 
-    _judgement.Refresh(tracker);
+    if (counts.HasValue)
+      _judgement.Refresh(counts.Value);
     _combo.RegisterHit(hit);
   }
 
@@ -110,13 +110,15 @@ internal sealed class OverlayCoordinator : IDisposable
       _status.RefreshTime(framesPerSecond);
   }
 
-  public void RefreshAfterReset(scrMarginTracker tracker)
+  /// <param name="counts">The judgement counts after the reset; null when they are not the single player's.</param>
+  public void RefreshAfterReset(JudgementSnapshot? counts)
   {
     if (!IsVisible)
       return;
 
-    _judgement.Refresh(tracker);
-    _status.RefreshAll();
+    if (counts.HasValue)
+      _judgement.Refresh(counts.Value);
+    _status.Refresh();
     _bpm.Refresh();
     _combo.Reset();
     _timingScale.Refresh();
@@ -129,11 +131,7 @@ internal sealed class OverlayCoordinator : IDisposable
 
     Hide();
     _disposed = true;
-    _judgement.Dispose();
-    _status.Dispose();
-    _bpm.Dispose();
-    _combo.Dispose();
-    _timingScale.Dispose();
-    _attempt.Dispose();
+    for (int i = 0; i < _all.Length; i++)
+      _all[i].Dispose();
   }
 }

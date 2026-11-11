@@ -1,7 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.Combo;
-using Element.Domain.Judgement;
 
-namespace Element.Application.Features;
+namespace Element.Application.Combo;
 
 internal sealed class ComboFeature : IOverlayFeature
 {
@@ -27,20 +27,10 @@ internal sealed class ComboFeature : IOverlayFeature
 
   public void RegisterHit(HitMargin hit)
   {
-    if (!HitMarginPolicy.AffectsCombo(hit))
+    if (!ComboRule.Affects(hit))
       return;
 
-    bool continuesCombo = HitMarginPolicy.ContinuesCombo(hit);
-    if (continuesCombo)
-    {
-      if (_count < int.MaxValue)
-        _count++;
-    }
-    else
-    {
-      _count = 0;
-    }
-
+    _count = ComboRule.After(_count, hit);
     Render();
   }
 

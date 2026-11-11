@@ -1,10 +1,8 @@
 using System;
 using Element.Application.Attempts;
 using Element.Application.Bpm;
-using Element.Application.Combo;
 using Element.Application.Judgement;
 using Element.Application.Status;
-using Element.Application.TimingScale;
 using Element.Domain.Judgement;
 
 namespace Element.Application.Overlay;

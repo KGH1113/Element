@@ -1,5 +1,5 @@
 using System;
-using Element.Application.Combo;
+using Element.Application.Judgement;
 using Element.Application.Overlay;
 using Element.Domain.Judgement;
 

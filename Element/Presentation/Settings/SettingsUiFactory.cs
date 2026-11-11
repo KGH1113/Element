@@ -8,7 +8,7 @@ using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
 
-// Retained uGUI controls. Textures, sprites and theme bindings are created once, never in Update.
+// Retained uGUI controls. The rounded sprite is shared; theme bindings are created once, never in Update.
 internal sealed class SettingsUiFactory : IDisposable
 {
   public static readonly Color Background = new(0.067f, 0.067f, 0.067f, 1f);
@@ -16,9 +16,9 @@ internal sealed class SettingsUiFactory : IDisposable
   public static readonly Color Muted = new(0.66f, 0.66f, 0.66f, 1f);
   public static readonly Color Foreground = new(0.96f, 0.96f, 0.96f, 1f);
   private readonly TMP_FontAsset _font;
-  private readonly Texture2D _texture;
   private readonly Sprite _rounded;
   private readonly List<Action> _themeBindings = new();
+  private bool _disposed;
   public Color Accent => Overlay.Shared.OverlayTheme.Accent;
   public Color OnAccent => SettingsPalette.OnAction;
   public Color SoftAccent => SettingsPalette.SoftAccent;
@@ -29,29 +29,7 @@ internal sealed class SettingsUiFactory : IDisposable
   {
     SettingsCursor.Retain();
     _font = font;
-    const int size = 40;
-    const float radius = 16f;
-    _texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Settings rounded corners" };
-    Color[] pixels = new Color[size * size];
-    for (int y = 0; y < size; y++)
-    for (int x = 0; x < size; x++)
-    {
-      float dx = Mathf.Max(radius - x - .5f, x + .5f - (size - radius));
-      float dy = Mathf.Max(radius - y - .5f, y + .5f - (size - radius));
-      float distance = new Vector2(Mathf.Max(0, dx), Mathf.Max(0, dy)).magnitude;
-      pixels[y * size + x] = new Color(1, 1, 1, Mathf.Clamp01(radius - distance));
-    }
-    _texture.SetPixels(pixels);
-    _texture.Apply(false, true);
-    _rounded = Sprite.Create(
-      _texture,
-      new Rect(0, 0, size, size),
-      new Vector2(.5f, .5f),
-      100,
-      0,
-      SpriteMeshType.FullRect,
-      new Vector4(18, 18, 18, 18)
-    );
+    _rounded = SettingsRoundedSprite.Retain();
   }
 
   public RectTransform Rect(string name, Transform parent, float x, float y, float width, float height)
@@ -440,10 +418,13 @@ internal sealed class SettingsUiFactory : IDisposable
 
   public void Dispose()
   {
+    // A second Dispose must not release what other factories still share.
+    if (_disposed)
+      return;
+    _disposed = true;
     SettingsCursor.Release();
     _themeBindings.Clear();
-    Destroy(_rounded);
-    Destroy(_texture);
+    SettingsRoundedSprite.Release();
   }
 
   internal static void Destroy(Object value)

@@ -112,7 +112,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _surface = surface;
     Root = surface.rectTransform;
     _title = _ui.Text("", Root, 16, 10, 208, 32, 16);
-    _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, 5);
+    _close = _ui.IconButton("Close color picker", Root, 236, 6, 40, Hide, SettingsNavigationIconKind.Close);
     _source = new SettingsSegmentedControl(
       _ui,
       Root,
@@ -223,7 +223,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     SettingsUiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
     resetText.fontSize = 14;
     resetText.textWrappingMode = TextWrappingModes.NoWrap;
-    _error = _ui.Text("", Root, 16, 297, 256, 16, 11, new Color(1, .66f, .53f));
+    _error = _ui.Text("", Root, 16, 297, 256, 16, 11, SettingsPalette.Error);
     BuildGradient();
     Root.gameObject.SetActive(false);
   }
@@ -570,78 +570,5 @@ internal sealed partial class SettingsColorPicker : IDisposable
   {
     _ui.Dispose();
     SettingsUiFactory.Destroy(Root.gameObject);
-  }
-}
-
-// A geometric stencil avoids magnifying the few corner texels in the shared
-// small nine-slice sprite across the large saturation/value surface.
-[RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsColorMask : MaskableGraphic
-{
-  protected override void OnPopulateMesh(VertexHelper mesh)
-  {
-    mesh.Clear();
-    Rect r = rectTransform.rect;
-    float radius = Mathf.Min(12, Mathf.Min(r.width, r.height) * .5f);
-    mesh.AddVert(r.center, color, Vector2.zero);
-    const int segments = 12;
-    int count = 0;
-    for (int corner = 0; corner < 4; corner++)
-    {
-      Vector2 center = new(
-        corner == 0 || corner == 3 ? r.xMax - radius : r.xMin + radius,
-        corner < 2 ? r.yMax - radius : r.yMin + radius
-      );
-      for (int step = 0; step <= segments; step++)
-      {
-        float angle = (corner + step / (float)segments) * Mathf.PI * .5f;
-        mesh.AddVert(center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius, color, Vector2.zero);
-        if (count > 0)
-          mesh.AddTriangle(0, count, count + 1);
-        count++;
-      }
-    }
-    mesh.AddTriangle(0, count, 1);
-  }
-}
-
-[RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsAlphaGraphic : MaskableGraphic
-{
-  private Color _value;
-
-  public void SetColor(Color color)
-  {
-    if (_value == color)
-      return;
-    _value = color;
-    SetVerticesDirty();
-  }
-
-  protected override void OnPopulateMesh(VertexHelper mesh)
-  {
-    mesh.Clear();
-    Rect rect = rectTransform.rect;
-    const float cell = 6;
-    int columns = Mathf.CeilToInt(rect.width / cell),
-      rows = Mathf.CeilToInt(rect.height / cell);
-    for (int y = 0; y < rows; y++)
-    for (int x = 0; x < columns; x++)
-    {
-      float left = x * cell,
-        right = Mathf.Min(rect.width, left + cell);
-      float bottom = y * cell,
-        top = Mathf.Min(rect.height, bottom + cell);
-      Color checker = (x + y) % 2 == 0 ? new Color(.30f, .30f, .30f) : new Color(.48f, .48f, .48f);
-      Color startColor = Color.Lerp(checker, _value, left / rect.width);
-      Color endColor = Color.Lerp(checker, _value, right / rect.width);
-      int start = mesh.currentVertCount;
-      mesh.AddVert(new Vector2(rect.xMin + left, rect.yMin + bottom), startColor, Vector2.zero);
-      mesh.AddVert(new Vector2(rect.xMin + left, rect.yMin + top), startColor, Vector2.zero);
-      mesh.AddVert(new Vector2(rect.xMin + right, rect.yMin + top), endColor, Vector2.zero);
-      mesh.AddVert(new Vector2(rect.xMin + right, rect.yMin + bottom), endColor, Vector2.zero);
-      mesh.AddTriangle(start, start + 1, start + 2);
-      mesh.AddTriangle(start, start + 2, start + 3);
-    }
   }
 }

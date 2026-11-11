@@ -159,7 +159,15 @@ internal sealed class SettingsUiFactory : IDisposable
     return button;
   }
 
-  public Button IconButton(string name, Transform parent, float x, float y, float size, Action onClick, int iconKind)
+  public Button IconButton(
+    string name,
+    Transform parent,
+    float x,
+    float y,
+    float size,
+    Action onClick,
+    SettingsNavigationIconKind iconKind
+  )
   {
     Button button = Button("", parent, x, y, size, size, onClick, themed: false);
     button.name = name;
@@ -470,148 +478,5 @@ internal sealed class SettingsUiFactory : IDisposable
     rect.anchorMax = Vector2.one;
     rect.offsetMin = new Vector2(left, bottom);
     rect.offsetMax = new Vector2(-right, -top);
-  }
-}
-
-internal sealed class SettingsSlider : Slider
-{
-  public float Step = 1f / 255f;
-
-  public override void OnMove(AxisEventData eventData)
-  {
-    if (!IsActive() || !IsInteractable())
-      return;
-    float delta = eventData.moveDir == MoveDirection.Left || eventData.moveDir == MoveDirection.Down ? -Step : Step;
-    value += delta * (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 10 : 1);
-    eventData.Use();
-  }
-}
-
-internal sealed class SettingsSwitchMotion : MonoBehaviour
-{
-  private float _target = float.NaN;
-
-  public void Set(float target, bool immediate)
-  {
-    if (_target == target && !immediate)
-      return;
-    RectTransform rect = (RectTransform)transform;
-    bool first = float.IsNaN(_target);
-    _target = target;
-    if (immediate || first)
-      rect.anchoredPosition = new Vector2(target, -4);
-    enabled = !immediate && !first;
-  }
-
-  private void Update()
-  {
-    RectTransform rect = (RectTransform)transform;
-    float x = Mathf.Lerp(rect.anchoredPosition.x, _target, 1 - Mathf.Exp(-24 * Time.unscaledDeltaTime));
-    if (Mathf.Abs(x - _target) < .05f)
-    {
-      x = _target;
-      enabled = false;
-    }
-    rect.anchoredPosition = new Vector2(x, -4);
-  }
-}
-
-// Theme changes must not start a new hover tween on every slider event. Ordinary
-// pointer/focus transitions still use Button's normal animation between states.
-internal sealed class SettingsButton : Button
-{
-  private bool _hovered;
-  private CanvasGroup _disabledGroup;
-  private static int _pointerSelectionFrame = -1;
-  internal static bool PointerSelectedThisFrame => _pointerSelectionFrame == Time.frameCount;
-
-  protected override void Awake()
-  {
-    base.Awake();
-    _disabledGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
-  }
-
-  protected override void OnEnable()
-  {
-    _hovered = false;
-    base.OnEnable();
-  }
-
-  protected override void OnDisable()
-  {
-    _hovered = false;
-    base.OnDisable();
-  }
-
-  public override void OnPointerEnter(PointerEventData data)
-  {
-    _hovered = true;
-    base.OnPointerEnter(data);
-  }
-
-  public override void OnPointerExit(PointerEventData data)
-  {
-    _hovered = false;
-    base.OnPointerExit(data);
-  }
-
-  public override void OnPointerDown(PointerEventData data)
-  {
-    if (data.button == PointerEventData.InputButton.Left)
-      _pointerSelectionFrame = Time.frameCount;
-    base.OnPointerDown(data);
-  }
-
-  public override void OnPointerClick(PointerEventData data)
-  {
-    // Navigation callbacks select the next page's first control without
-    // forwarding PointerEventData. Preserve the source of that selection.
-    if (data.button == PointerEventData.InputButton.Left)
-      _pointerSelectionFrame = Time.frameCount;
-    base.OnPointerClick(data);
-  }
-
-  protected override void DoStateTransition(SelectionState state, bool instant)
-  {
-    // Unity keeps a clicked control selected after the pointer leaves it.
-    // Reopened pages can also carry cached pointer state from before hiding.
-    if (state == SelectionState.Selected || state == SelectionState.Highlighted)
-      state = _hovered ? SelectionState.Highlighted : SelectionState.Normal;
-    if (_disabledGroup == null)
-      _disabledGroup = GetComponent<CanvasGroup>();
-    if (_disabledGroup != null)
-      _disabledGroup.alpha = state == SelectionState.Disabled ? .5f : 1;
-    base.DoStateTransition(state, instant);
-  }
-
-  public void SetPalette(ColorBlock palette)
-  {
-    colors = palette;
-    DoStateTransition(currentSelectionState, true);
-  }
-}
-
-internal sealed class SettingsFocusRing : MonoBehaviour, ISelectHandler, IDeselectHandler
-{
-  private Outline _outline;
-
-  public void Initialize(Outline outline) => _outline = outline;
-
-  public void OnSelect(BaseEventData eventData)
-  {
-    if (_outline != null)
-      _outline.enabled = eventData is not PointerEventData && !SettingsButton.PointerSelectedThisFrame;
-  }
-
-  public void OnDeselect(BaseEventData eventData)
-  {
-    if (_outline != null)
-      _outline.enabled = false;
-  }
-
-  private void OnDisable()
-  {
-    if (_outline != null)
-      _outline.enabled = false;
   }
 }

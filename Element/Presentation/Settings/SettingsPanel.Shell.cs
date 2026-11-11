@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
@@ -83,9 +84,9 @@ internal sealed partial class SettingsPanel
     _windowMotion = _window.gameObject.AddComponent<SettingsWindowMotion>();
     _windowMotion.Initialize(_windowGroup, () => _settings.ReduceUiMotion);
     _surface = _ui.Panel("Surface", _window, 1, 1, 998, 598, SettingsUiFactory.Background).rectTransform;
-    _back = _ui.IconButton("Back", _window, 32, 24, 40, Back, 4);
+    _back = _ui.IconButton("Back", _window, 32, 24, 40, Back, SettingsNavigationIconKind.Back);
     _title = _ui.Text(L("설정", "Settings"), _window, 32, 24, 700, 40, 27);
-    _close = _ui.IconButton("Close", _window, 928, 24, 40, Close, 5);
+    _close = _ui.IconButton("Close", _window, 928, 24, 40, Close, SettingsNavigationIconKind.Close);
     _viewport = _ui.Panel("Content viewport", _window, 32, 96, 936, 480, Color.clear, false).rectTransform;
     _viewport.GetComponent<Image>().raycastTarget = true;
     _viewport.gameObject.AddComponent<RectMask2D>();
@@ -128,6 +129,7 @@ internal sealed partial class SettingsPanel
       _pages[i] = _ui.Rect(pages[i], _viewport, 0, 0, 936, 480).gameObject;
     CreateHomeCard(
       0,
+      SettingsNavigationIconKind.Overlay,
       "Overlay",
       L("요소를 추가하고 색상과 배치를 편집합니다.", "Add elements and adjust their color and layout."),
       L("오버레이 설정", "Edit overlays"),
@@ -141,6 +143,7 @@ internal sealed partial class SettingsPanel
     );
     CreateHomeCard(
       1,
+      SettingsNavigationIconKind.Tweaks,
       "Tweaks",
       L("판정 표시와 게임플레이 동작을 설정합니다.", "Adjust judgment display and gameplay behavior."),
       L("게임플레이 설정", "Open tweaks"),
@@ -148,6 +151,7 @@ internal sealed partial class SettingsPanel
     );
     CreateHomeCard(
       2,
+      SettingsNavigationIconKind.Effects,
       "Effects",
       L("필요한 이펙트만 남기는 나만의 프리셋.", "Keep the effects you want with personal presets."),
       L("프리셋 선택", "Choose a preset"),
@@ -155,6 +159,7 @@ internal sealed partial class SettingsPanel
     );
     CreateHomeCard(
       3,
+      SettingsNavigationIconKind.General,
       L("일반", "General"),
       profiles == null
         ? L(
@@ -295,7 +300,14 @@ internal sealed partial class SettingsPanel
     _root.SetActive(false);
   }
 
-  private void CreateHomeCard(int index, string title, string description, string action, Action onClick)
+  private void CreateHomeCard(
+    int index,
+    SettingsNavigationIconKind kind,
+    string title,
+    string description,
+    string action,
+    Action onClick
+  )
   {
     Button card = _ui.Button(title, _pages[0].transform, 0, 0, 300, 280, onClick);
     card.gameObject.name = title + " category";
@@ -303,10 +315,7 @@ internal sealed partial class SettingsPanel
     _homeCards[index] = card;
     SettingsNavigationIcon icon = _ui.Rect("Category icon", card.transform, 24, 24, 36, 36)
       .gameObject.AddComponent<SettingsNavigationIcon>();
-    icon.Kind =
-      index == 2 ? 6
-      : index == 3 ? 2
-      : index;
+    icon.Kind = kind;
     icon.raycastTarget = false;
     _cardIcons[index] = icon.rectTransform;
     _cardTitles[index] = _ui.Text(title, card.transform, 24, 84, 252, 36, 25);
@@ -325,7 +334,7 @@ internal sealed partial class SettingsPanel
     _cardActions[index] = _ui.Text(action, card.transform, 24, 239, 224, 24, 15, _ui.SoftAccent);
     SettingsNavigationIcon arrow = _ui.Rect("Open category", card.transform, 260, 240, 16, 24)
       .gameObject.AddComponent<SettingsNavigationIcon>();
-    arrow.Kind = 3;
+    arrow.Kind = SettingsNavigationIconKind.Forward;
     arrow.raycastTarget = false;
     _cardArrows[index] = arrow.rectTransform;
     _ui.Bind(() =>

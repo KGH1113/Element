@@ -5,6 +5,7 @@ using Element.Domain.Input;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -26,7 +27,6 @@ internal sealed partial class SettingsPanel
 
   // While on, each key pressed goes onto the ignored keys or comes off them.
   private bool _ignoredCapture;
-  private static KeyCode[] s_keyboardKeys;
 
   private void CreateChatterPage()
   {
@@ -87,7 +87,7 @@ internal sealed partial class SettingsPanel
       936,
       44,
       13,
-      new Color(1, .66f, .53f)
+      SettingsPalette.Error
     );
     _chatterConflict.textWrappingMode = TextWrappingModes.Normal;
     _chatterConflict.gameObject.SetActive(IsAssemblyLoaded("KeyboardChatterBlocker"));
@@ -158,10 +158,10 @@ internal sealed partial class SettingsPanel
       StopIgnoredCapture();
       return;
     }
-    s_keyboardKeys ??= KeyboardKeys();
     bool changed = false;
-    foreach (KeyCode key in s_keyboardKeys)
-      if (UnityEngine.Input.GetKeyDown(key))
+    int index = -1;
+    while (KeyboardKeys.NextPressed(ref index, out KeyCode key))
+      if (key != KeyCode.Escape && ChatterBlockerOptions.IsIgnorable(key))
       {
         _settings.Gameplay.Chatter.ToggleIgnored(key);
         changed = true;
@@ -170,15 +170,6 @@ internal sealed partial class SettingsPanel
       return;
     Changed();
     RefreshIgnoredKeys();
-  }
-
-  private static KeyCode[] KeyboardKeys()
-  {
-    var keys = new List<KeyCode>();
-    foreach (KeyCode key in (KeyCode[])Enum.GetValues(typeof(KeyCode)))
-      if (key != KeyCode.Escape && ChatterBlockerOptions.IsIgnorable(key) && !keys.Contains(key))
-        keys.Add(key);
-    return keys.ToArray();
   }
 
   private void RefreshIgnoredKeys()

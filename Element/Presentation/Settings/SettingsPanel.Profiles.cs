@@ -6,6 +6,7 @@ using Element.Presentation.Layout;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -17,7 +18,6 @@ namespace Element.Presentation.Settings;
 internal sealed partial class SettingsPanel
 {
   private const int ProfilesPage = 9;
-  private static readonly Color ErrorText = new(1, .66f, .53f);
 
   private const float CardActionSize = 30,
     CardActionGap = 2,
@@ -155,7 +155,7 @@ internal sealed partial class SettingsPanel
       CreateProfile,
       true
     );
-    _newProfileError = _ui.Text("", _newProfilePopover, NewProfilePadding, 90, inner, 20, 13, ErrorText);
+    _newProfileError = _ui.Text("", _newProfilePopover, NewProfilePadding, 90, inner, 20, 13, SettingsPalette.Error);
     _newProfileError.alignment = TextAlignmentOptions.TopLeft;
     _newProfilePopover.gameObject.SetActive(false);
   }
@@ -242,7 +242,7 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
       _profileGalleryUi.Bind(() =>
         state.color =
-          armed ? ErrorText
+          armed ? SettingsPalette.Error
           : inUse ? _ui.SoftAccent
           : SettingsUiFactory.Muted
       );
@@ -271,8 +271,8 @@ internal sealed partial class SettingsPanel
             "Delete profile",
             slot++,
             () => DeleteProfile(profile),
-            armed ? ErrorText : SettingsUiFactory.Muted,
-            armed ? ErrorText : SettingsUiFactory.Foreground
+            armed ? SettingsPalette.Error : SettingsUiFactory.Muted,
+            armed ? SettingsPalette.Error : SettingsUiFactory.Foreground
           ).Kind = LayoutAction.Delete;
         if (_profiles.FilesSupported)
           CardAction<SettingsExportIcon>(card.transform, "Export profile", slot++, () => ExportProfile(profile));
@@ -543,7 +543,7 @@ internal sealed partial class SettingsPanel
     bool valid = _profiles.ValidateName(text, profile.Id, out ProfileNameProblem problem);
     bool shown = !valid && text.Trim().Length > 0;
     _renameProblem.text = shown ? ProfileNameText(problem) : _renameSummary;
-    _renameProblem.color = shown ? ErrorText : SettingsUiFactory.Muted;
+    _renameProblem.color = shown ? SettingsPalette.Error : SettingsUiFactory.Muted;
   }
 
   // Enter or a click elsewhere saves a usable new name; Escape, the same
@@ -691,7 +691,7 @@ internal sealed partial class SettingsPanel
   private void ShowProfilesMessage(string text, bool error)
   {
     _profilesMessage.text = text;
-    _profilesMessage.color = error ? ErrorText : _ui.SoftAccent;
+    _profilesMessage.color = error ? SettingsPalette.Error : _ui.SoftAccent;
     LayoutProfilePages(_profileGallery.rect.width);
   }
 

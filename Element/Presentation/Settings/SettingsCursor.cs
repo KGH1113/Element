@@ -4,14 +4,6 @@ using UnityEngine.UI;
 
 namespace Element.Presentation.Settings;
 
-internal enum SettingsCursorKind
-{
-  Pointer,
-  Text,
-  Horizontal,
-  Crosshair,
-}
-
 // Cursor ownership follows pointer events, including drag capture. Hardware
 // textures are shared and generated once; ordinary frames do not raycast or
 // allocate. The same cursor setter is used by layout editing to avoid stale

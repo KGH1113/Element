@@ -1624,7 +1624,7 @@ namespace Element.Editor
         Assert(back.targetGraphic.color.a == 0 && back.transition == Selectable.Transition.None,
           "Back has no button background or hover fill");
         SettingsNavigationIcon backIcon = back.GetComponentInChildren<SettingsNavigationIcon>();
-        Assert(backIcon != null && backIcon.Kind == 4 && !backIcon.raycastTarget,
+        Assert(backIcon != null && backIcon.Kind == SettingsNavigationIconKind.Back && !backIcon.raycastTarget,
           "Back uses a left chevron with the full button hit area");
         CheckNavigationControls(panel, settings);
         // A scene change destroys the selected object while the event system
@@ -2293,7 +2293,7 @@ namespace Element.Editor
       feedback.OnPointerUp(pointer);
       feedback.OnPointerExit(pointer);
       Assert(icon.color == SettingsUiFactory.Foreground, "back glyph restores its neutral color on exit");
-      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<SettingsNavigationIcon>().Kind == 5
+      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<SettingsNavigationIcon>().Kind == SettingsNavigationIconKind.Close
         && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
       Assert(back.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer
         && close.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer,

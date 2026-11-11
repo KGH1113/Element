@@ -6,6 +6,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -125,7 +126,7 @@ internal sealed partial class SettingsPanel
     placeholder.alignment = _presetName.textComponent.alignment;
     _savePreset = _ui.Button(L("저장", "Save preset"), _presetHeader, 716, 0, 152, 40, SavePreset, true);
     _deletePreset = ActionIconButton("Delete preset", _presetHeader, LayoutAction.Delete, DeletePreset);
-    _presetError = _ui.Text("", _presetHeader, 0, 44, 936, 24, 13, new Color(1, .66f, .53f));
+    _presetError = _ui.Text("", _presetHeader, 0, 44, 936, 24, 13, SettingsPalette.Error);
     _presetIntro = _ui.Text(
       L("이 프리셋에서 제거할 이펙트를 선택하세요.", "Choose the effects this preset removes."),
       _presetHeader,
@@ -594,67 +595,5 @@ internal sealed partial class SettingsPanel
     float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
     _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);
     ((RectTransform)_pages[7].transform).sizeDelta = new Vector2(width, top + cardHeight);
-  }
-}
-
-/// <summary>Duplicate: a second sheet behind the first.</summary>
-internal sealed class SettingsDuplicateIcon : SettingsVectorGraphic
-{
-  protected override void OnPopulateMesh(VertexHelper mesh)
-  {
-    mesh.Clear();
-    BeginPath();
-    PathPoint(4, 8);
-    PathPoint(16, 8);
-    PathPoint(16, 20);
-    PathPoint(4, 20);
-    Stroke(mesh, 2, true);
-    BeginPath();
-    PathPoint(8, 8);
-    PathPoint(8, 4);
-    PathPoint(20, 4);
-    PathPoint(20, 16);
-    PathPoint(16, 16);
-    Stroke(mesh);
-  }
-}
-
-/// <summary>Export: an arrow out of a tray, like the system's share icon.</summary>
-internal sealed class SettingsExportIcon : SettingsVectorGraphic
-{
-  protected override void OnPopulateMesh(VertexHelper mesh)
-  {
-    mesh.Clear();
-    BeginPath();
-    PathPoint(8, 10);
-    PathPoint(5, 10);
-    PathPoint(5, 21);
-    PathPoint(19, 21);
-    PathPoint(19, 10);
-    PathPoint(16, 10);
-    Stroke(mesh);
-    Line(mesh, 12, 3, 12, 15);
-    BeginPath();
-    PathPoint(8, 7);
-    PathPoint(12, 3);
-    PathPoint(16, 7);
-    Stroke(mesh);
-  }
-}
-
-internal sealed class SettingsEditIcon : SettingsVectorGraphic
-{
-  protected override void OnPopulateMesh(VertexHelper mesh)
-  {
-    mesh.Clear();
-    BeginPath();
-    PathPoint(4, 16);
-    PathPoint(15, 5);
-    PathPoint(19, 9);
-    PathPoint(8, 20);
-    PathPoint(3, 21);
-    PathPoint(4, 16);
-    Stroke(mesh);
-    Line(mesh, 12, 8, 16, 12);
   }
 }

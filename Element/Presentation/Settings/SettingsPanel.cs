@@ -7,6 +7,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
@@ -34,9 +35,6 @@ internal sealed partial class SettingsPanel : IDisposable
   private int _screenWidth;
   private int _screenHeight;
   public bool IsOpen => _root != null && _root.activeSelf;
-  private static bool Korean => RDString.language == SystemLanguage.Korean;
-
-  private static string L(string ko, string en) => Korean ? ko : en;
 
   public void Open()
   {
@@ -90,7 +88,7 @@ internal sealed partial class SettingsPanel : IDisposable
       "설정을 저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인하고 다시 닫아주세요.",
       "Settings could not be saved. Check write permission for the mod folder, then close again."
     );
-    _feedback.color = new Color(1, .66f, .53f);
+    _feedback.color = SettingsPalette.Error;
     _retrySave.gameObject.SetActive(true);
     FitWindow();
   }
@@ -342,12 +340,7 @@ internal sealed partial class SettingsPanel : IDisposable
       return;
     GameObject selected = EventSystem.current?.currentSelectedGameObject;
     int current = active.FindIndex(x => x.gameObject == selected);
-    int next =
-      (
-        current
-        + (UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift) ? -1 : 1)
-        + active.Count
-      ) % active.Count;
+    int next = (current + (SettingsModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
     EventSystem.current?.SetSelectedGameObject(active[next].gameObject);
     RevealControl(active[next].transform, 8);
   }

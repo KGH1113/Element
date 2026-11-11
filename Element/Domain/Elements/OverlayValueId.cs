@@ -1,0 +1,34 @@
+namespace Element.Domain.Elements;
+
+// Array indexes for live values. Keys, not these numbers, are saved.
+internal enum OverlayValueId
+{
+  ProgressStart,
+  ProgressCurrent,
+  Accuracy,
+  Overload,
+  TooEarly,
+  VeryEarly,
+  EarlyPerfect,
+  PerfectEarly,
+  PurePerfect,
+  PerfectLate,
+  LatePerfect,
+  VeryLate,
+  TooLate,
+  Miss,
+  Combo,
+  TimingScale,
+  CurrentTime,
+  TotalTime,
+  TileBpm,
+  CurrentBpm,
+  KeysPerSecond,
+  SongTitle,
+  Attempt,
+  FullAttempt,
+  Fps,
+  ProgressLabel,
+  AccuracyLabel,
+  TimeLabel,
+}

@@ -1,67 +1,7 @@
-using System;
 using System.Threading;
 using Element.Domain.Input;
 
 namespace Element.Application.KeyLimiter;
-
-internal sealed class KeyLimiterProfile
-{
-  public string Id;
-  public string Name;
-}
-
-internal sealed class KeyLimiterUpdate
-{
-  public int SchemaVersion;
-  public string Source;
-  public string ClientVersion;
-  public string SessionId;
-  public long Revision;
-  public bool Enabled;
-  public KeyLimiterProfile Profile;
-  public string[] Keys;
-  public string[] ExcludedGhostKeys;
-}
-
-internal sealed class KeyLimiterApplyResult
-{
-  public bool Ok;
-  public bool Applied;
-  public string Reason;
-  public bool Enabled;
-  public string SessionId;
-  public long Revision;
-  public string[] SupportedKeys;
-  public string[] UnsupportedKeys;
-
-  public static KeyLimiterApplyResult From(KeyLimiterSnapshot snapshot, bool applied, string reason) =>
-    new()
-    {
-      Ok = true,
-      Applied = applied,
-      Reason = reason,
-      Enabled = snapshot.Enabled,
-      SessionId = snapshot.SessionId,
-      Revision = snapshot.Revision,
-      SupportedKeys = snapshot.SupportedKeys,
-      UnsupportedKeys = snapshot.UnsupportedKeys,
-    };
-
-  public static KeyLimiterApplyResult Invalid(string reason) =>
-    new()
-    {
-      Reason = reason,
-      SupportedKeys = Array.Empty<string>(),
-      UnsupportedKeys = Array.Empty<string>(),
-    };
-}
-
-internal interface IKeyLimiterProfileApplier
-{
-  KeyLimiterSnapshot Current { get; }
-  KeyLimiterApplyResult Apply(KeyLimiterUpdate update);
-  void Clear();
-}
 
 /** Application policy owns the profile and disconnect lifecycle, independently of sockets. */
 internal sealed class KeyLimiterSessionController
@@ -134,16 +74,5 @@ internal sealed class KeyLimiterSessionController
     if (update.Keys == null || update.Keys.Length > 512 || update.Keys.AnyTooLong())
       return "invalid_keys";
     return null;
-  }
-}
-
-internal static class KeyLimiterKeyBounds
-{
-  public static bool AnyTooLong(this string[] keys)
-  {
-    foreach (string key in keys)
-      if (key == null || key.Length > 128)
-        return true;
-    return false;
   }
 }

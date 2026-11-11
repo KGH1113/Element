@@ -19,13 +19,13 @@ using Element.Application.Layout;
 using Element.Application.Files;
 using Element.Application.Profiles;
 using Element.Configuration.Profiles;
-using Element.Infrastructure.Game.DmNote;
-using Element.Infrastructure.Assets;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Infrastructure.Platform;
+using Element.Infrastructure.Storage;
 using Object = UnityEngine.Object;
 
 namespace Element.Editor

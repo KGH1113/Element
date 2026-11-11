@@ -1,6 +1,6 @@
 using System;
 using System.Reflection;
-using Element.Infrastructure.Game.Tweaks;
+using Element.Infrastructure.Game.Planets;
 using HarmonyLib;
 using UnityEngine;
 
@@ -140,7 +140,8 @@ internal static class PlanetRendererPatches
   [PatchGroup(PatchGroupNames.PlanetAppearance + "EnableDefaultFireAndIceColor")]
   private static class EnableDefaultFireAndIceColor
   {
-    private static MethodBase TargetMethod() => AccessTools.Method(typeof(PlanetRenderer), "EnableDefaultFireAndIceColor");
+    private static MethodBase TargetMethod() =>
+      AccessTools.Method(typeof(PlanetRenderer), "EnableDefaultFireAndIceColor");
 
     [HarmonyPrefix]
     [HarmonyPriority(Priority.Last)]

@@ -48,7 +48,7 @@ public static class FixtureColorExtensions
 {
   public static Color WithAlpha(this Color color, float alpha) { color.a = alpha; return color; }
 }
-namespace Element.Infrastructure.Game.Tweaks
+namespace Element.Infrastructure.Game.Planets
 {
   // Snapshot injection models the game-owned appearance boundary, not the
   // production appearance controller's mutation/restoration implementation.
@@ -63,7 +63,7 @@ namespace Element.Infrastructure.Game.Tweaks
     }
   }
 }
-namespace Element.Infrastructure.Game.DmNote
+namespace Element.Infrastructure.ElementNote.Viewers
 {
   // Only the native transport is replaced. The production managed target owns
   // anchor selection, scaling, visibility fitting, staging and persistence.

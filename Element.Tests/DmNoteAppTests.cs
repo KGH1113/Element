@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Text;
-using Element.Infrastructure.DmNoteApp;
+using Element.Infrastructure.ElementNote.App;
+using Element.Infrastructure.Platform;
 
 namespace Element.Tests;
 

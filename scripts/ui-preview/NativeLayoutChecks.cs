@@ -6,10 +6,10 @@ using System.Xml.Serialization;
 using Element.Application.KeyViewer;
 using Element.Configuration;
 using Element.Domain.Layout;
-using Element.Infrastructure.Game.DmNote;
 using Element.Presentation.Layout.KeyViewers;
 using TMPro;
 using UnityEngine;
+using Element.Infrastructure.ElementNote.Viewers;
 
 namespace Element.Editor
 {

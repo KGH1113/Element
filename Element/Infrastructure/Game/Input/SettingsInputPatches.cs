@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using Element.Application.Input;
 using HarmonyLib;
-using Element.Presentation.Settings;
 using SkyHook;
 using UnityEngine;
 
@@ -14,7 +14,7 @@ internal static class SettingsMainInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref int __result)
   {
-    if (!UIInteractionState.BlocksGameInput)
+    if (!InputGate.BlocksGameInput)
       return true;
 
     __result = 0;
@@ -28,7 +28,7 @@ internal static class SettingsMouseInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref int __result)
   {
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       return true;
 
     __result = 0;
@@ -42,7 +42,7 @@ internal static class SettingsActionInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref bool __result)
   {
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       return true;
 
     __result = false;
@@ -56,7 +56,7 @@ internal static class SettingsInputKeysPatch
   [HarmonyPrefix]
   private static bool Prefix(List<AnyKeyCode> keys)
   {
-    if (!UIInteractionState.BlocksGameInput)
+    if (!InputGate.BlocksGameInput)
       return true;
 
     keys.Clear();
@@ -66,7 +66,7 @@ internal static class SettingsInputKeysPatch
   [HarmonyPostfix]
   private static void Postfix(List<AnyKeyCode> keys)
   {
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       return;
 
     // GetStateKeys reads each input's cached list, even when Main returned zero.
@@ -85,7 +85,7 @@ internal static class SettingsNavigationInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref Vector2 __result)
   {
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       return true;
 
     __result = Vector2.zero;
@@ -99,7 +99,7 @@ internal static class SettingsScrollInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref Vector2 __result)
   {
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       return true;
 
     __result = Vector2.zero;
@@ -113,7 +113,7 @@ internal static class SettingsPlayerInputPatch
   [HarmonyPrefix]
   private static bool Prefix(ref int __result)
   {
-    if (!UIInteractionState.BlocksGameInput)
+    if (!InputGate.BlocksGameInput)
       return true;
 
     __result = 0;
@@ -152,7 +152,7 @@ internal static class SettingsPlayerPointerPatch
   {
     // ADOFAI normally rejects all input on a mouse-down over UI, including
     // a simultaneous keyboard note. A captured drag must not reject that note.
-    if (UIInteractionState.BlocksPointerInput && key >= KeyCode.Mouse0 && key <= KeyCode.Mouse6)
+    if (InputGate.BlocksPointerInput && key >= KeyCode.Mouse0 && key <= KeyCode.Mouse6)
       return false;
     return UnityEngine.Input.GetKeyDown(key);
   }
@@ -164,8 +164,8 @@ internal static class SettingsAsyncInputPatch
   [HarmonyPrefix]
   private static void Prefix()
   {
-    if (UIInteractionState.BlocksGameInput)
-      UIInteractionState.ClearAsyncInput();
+    if (InputGate.BlocksGameInput)
+      GameAsyncInput.Clear();
   }
 }
 
@@ -177,7 +177,7 @@ internal static class SettingsHookInputPatch
   private static bool Prefix(SkyHookEvent ev)
   {
     // Releases must reach the game's hook state even while a modal is open.
-    return ev.Type != SkyHook.EventType.KeyPressed || !UIInteractionState.BlocksAsyncKeyboard;
+    return ev.Type != SkyHook.EventType.KeyPressed || !InputGate.BlocksAsyncKeyboard;
   }
 }
 
@@ -189,7 +189,7 @@ internal static class SettingsEditorInputPatch
   {
     // The editor reads raw Unity keyboard/mouse input throughout Update,
     // including Escape before HandleKeyboardActions / HandleMouseActions.
-    return !UIInteractionState.BlocksPointerInput;
+    return !InputGate.BlocksPointerInput;
   }
 }
 
@@ -238,11 +238,11 @@ internal static class SettingsControllerShortcutPatch
 
   private static bool ReadKeyDown(KeyCode key)
   {
-    return !UIInteractionState.BlocksPointerInput && UnityEngine.Input.GetKeyDown(key);
+    return !InputGate.BlocksPointerInput && UnityEngine.Input.GetKeyDown(key);
   }
 
   private static bool ReadKey(KeyCode key)
   {
-    return !UIInteractionState.BlocksPointerInput && UnityEngine.Input.GetKey(key);
+    return !InputGate.BlocksPointerInput && UnityEngine.Input.GetKey(key);
   }
 }

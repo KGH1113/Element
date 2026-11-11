@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Application.Attempts;
+using Element.Application.Input;
 using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
 using Element.Application.Rendering;
@@ -123,6 +124,7 @@ internal sealed class ModRuntime : IDisposable
 
     try
     {
+      InputGate.Connect(GameAsyncInput.Clear);
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       _keyLimiterIpc = new KeyLimiterIpcFeature(
@@ -238,7 +240,7 @@ internal sealed class ModRuntime : IDisposable
     // The first frame comes after the game loaded its own settings.
     if (_initialized && _hitTextSync?.Started == false)
       Execute("Sync judgment text with ADOFAI", _hitTextSync.Start);
-    if (!UIInteractionState.BlocksPointerInput)
+    if (!InputGate.BlocksPointerInput)
       _trackpad?.Tick();
     Execute("Update native ElementNote viewers", _tickNativeViewers);
     Execute("Apply the ElementNote key limiter", _tickKeyLimiter);

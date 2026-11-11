@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Overlay.Shared;
@@ -421,7 +422,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     if (!Visible)
       return;
     Root.gameObject.SetActive(false);
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     Hidden?.Invoke();
   }
 

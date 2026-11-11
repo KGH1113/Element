@@ -176,7 +176,7 @@ internal sealed partial class SettingsPanel : IDisposable
       if (focused != null)
         RevealControl(focused.transform, 8);
     }
-    UIInteractionState.RestoreCursor();
+    SettingsInputCapture.RestoreCursor();
   }
 
   public bool ShortcutPressed() => ShortcutPressed(_settings);

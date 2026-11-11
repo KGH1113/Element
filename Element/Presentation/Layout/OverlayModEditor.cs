@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Input;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Mods;
@@ -619,7 +620,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IDisposable
     _element = null;
     _type = null;
     _closed = null;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (notify)
       closed?.Invoke(commit);
   }

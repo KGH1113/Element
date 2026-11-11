@@ -4,15 +4,6 @@ using Element.Domain.Judgement;
 
 namespace Element.Application.Judgement;
 
-/// <summary>ADOFAI's own Hide Judgment Text setting.</summary>
-internal interface IGameHitTextHide
-{
-  /// <summary>False outside Competitive Mode, where the game ignores the setting.</summary>
-  bool Applies { get; }
-
-  HitMarginHidePreset Value { get; set; }
-}
-
 /// <summary>
 /// Keeps the judgments the mod hides and ADOFAI's Hide Judgment Text in agreement,
 /// so both settings screens describe what the player sees. The game gets the

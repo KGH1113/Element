@@ -2,13 +2,6 @@ using System;
 
 namespace Element.Domain.Editor;
 
-internal enum EditorTransformKind
-{
-  Rotate,
-  FlipHorizontal,
-  FlipVertical,
-}
-
 internal static class EditorTransform
 {
   // Legacy paths only have fifteen-degree steps. Relative and midspin codes

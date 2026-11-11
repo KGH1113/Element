@@ -17,7 +17,7 @@ namespace Element.Infrastructure.ElementNote.Ipc;
 /// Counts are ElementNote tab id → key slot label → presses. Events arrive on the Unity main
 /// thread; reads complete there too, and their timeouts on a worker.
 /// </remarks>
-internal sealed class KeyCounterIpc
+internal sealed class KeyCounterIpc : IElementIpcEndpoint
 {
   public const string AvailableEvent = "counters.available";
   public const string ReadCommand = "counters.read";
@@ -42,6 +42,12 @@ internal sealed class KeyCounterIpc
         return _ipc != null && _peerId != null;
     }
   }
+
+  public void AddCommands(IFeatureBuilder builder) { }
+
+  public void OnPeerAttached(IClientConnection peer) { }
+
+  public void OnPeerDetached(IClientConnection peer) => OnPeerDisconnected(peer.PeerId);
 
   public void Attach(IFeatureRegistration ipc)
   {

@@ -49,7 +49,7 @@ internal sealed class ModRuntime : IDisposable
   private Harmony _harmony;
   private KeyLimiterService _keyLimiter;
   private GameKeyLimiter _gameKeyLimiter;
-  private KeyLimiterIpcFeature _keyLimiterIpc;
+  private ElementIpcChannel _ipcChannel;
   private DmNoteNativeIpcFeature _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
   private KeyCounterIpc _counterIpc;
@@ -102,12 +102,6 @@ internal sealed class ModRuntime : IDisposable
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
       GameHooks.KeyLimiter = _gameKeyLimiter;
-      _keyLimiterIpc = new KeyLimiterIpcFeature(
-        new KeyLimiterSessionController(_keyLimiter),
-        _main.Path,
-        _main.Version,
-        _main.Log
-      );
 
       _harmony = new Harmony(HarmonyId);
       FailedPatchGroups = PatchGroups.Apply(_harmony, typeof(Main).Assembly, _main.LogException);
@@ -160,12 +154,18 @@ internal sealed class ModRuntime : IDisposable
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
-      _keyLimiterIpc.AttachNativeViewers(_nativeViewers);
       _renderIpc = new KeyViewerRenderIpc();
-      _keyLimiterIpc.AttachRenders(_renderIpc);
       _counterIpc = new KeyCounterIpc();
-      _keyLimiterIpc.AttachCounters(_counterIpc);
-      _keyLimiterIpc.Enable();
+      _ipcChannel = new ElementIpcChannel(
+        _main.Path,
+        _main.Version,
+        _main.Log,
+        new KeyLimiterIpc(new KeyLimiterSessionController(_keyLimiter)),
+        _nativeViewers,
+        _renderIpc,
+        _counterIpc
+      );
+      _ipcChannel.Enable();
       _dmNoteApp = DmNoteAppLauncher.Create(_main.RuntimePath, _main.Log, _main.LogWarning, _main.LogException);
 
       _settingsUi = new SettingsUiRuntime(
@@ -332,8 +332,8 @@ internal sealed class ModRuntime : IDisposable
     _nativeViewers?.Dispose();
     _nativeViewers = null;
 
-    _keyLimiterIpc?.Dispose();
-    _keyLimiterIpc = null;
+    _ipcChannel?.Dispose();
+    _ipcChannel = null;
     _keyLimiter?.Clear();
     _keyLimiter = null;
     // Gives the game the player's own saved keys back.

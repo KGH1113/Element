@@ -2,7 +2,7 @@ using System;
 using System.Globalization;
 using Element.Application.Input;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;

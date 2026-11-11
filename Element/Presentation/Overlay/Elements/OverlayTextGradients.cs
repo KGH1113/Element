@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Values;
 using TMPro;
 using UnityEngine;
 

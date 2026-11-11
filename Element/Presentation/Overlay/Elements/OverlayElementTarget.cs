@@ -1,10 +1,11 @@
 using System;
+using Element.Application.Layout;
 using Element.Configuration;
-using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
 using UnityEngine;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Overlay.Elements;
 
@@ -175,7 +176,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if (Settings == null)
       return;
-    Domain.Elements.OverlayElementDefaults.ResetPlacement(Settings);
+    Domain.Overlay.Defaults.OverlayElementDefaults.ResetPlacement(Settings);
     Apply();
   }
 

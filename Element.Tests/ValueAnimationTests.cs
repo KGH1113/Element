@@ -6,7 +6,9 @@ using System.Text;
 using System.Xml.Serialization;
 using Element.Application.Settings;
 using Element.Configuration;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 
 namespace Element.Tests;
 

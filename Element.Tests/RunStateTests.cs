@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Element.Application.Attempts;
 using Element.Application.Rendering;
 using Element.Domain.Attempts;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Values;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Overlay.Attempt;

@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
 using ElementKit.Hosting;
@@ -70,27 +71,43 @@ internal static class ElementKitTests
 
   private static void ProblemsAreReportedAndSkipped(List<string> reports)
   {
-    Check(reports.Any(r => r.Contains("\"Left Keys\"") && r.Contains("left-keys")), "a key texts can't save is explained");
+    Check(
+      reports.Any(r => r.Contains("\"Left Keys\"") && r.Contains("left-keys")),
+      "a key texts can't save is explained"
+    );
     Check(reports.Any(r => r.Contains("Two values use the key \"left-keys\"")), "a repeated key is explained");
     Check(reports.Any(r => r.Contains("\"empty\"") && r.Contains("example")), "a missing example is explained");
     Check(
       reports.Any(r => r.Contains("Broken") && r.Contains("no values today")),
       "a class that fails is named; reported: " + string.Join(" | ", reports)
     );
-    Check(ModFields.LeftKeys.Accepted && !ModFields.Spaced.Accepted && !ModFields.Twice.Accepted, "only the faulty values are left out");
+    Check(
+      ModFields.LeftKeys.Accepted && !ModFields.Spaced.Accepted && !ModFields.Twice.Accepted,
+      "only the faulty values are left out"
+    );
     Check(ModFields.LeftKeys.FullKey == "Sample/left-keys", "values learn their mod's id");
   }
 
   private static void AttachedValuesJoinTheDock()
   {
-    OverlayValueSection section = OverlayValueCatalog.Sections().Single(s => s.Group != null && s.Group.Source == "Sample");
+    OverlayValueSection section = OverlayValueCatalog
+      .Sections()
+      .Single(s => s.Group != null && s.Group.Source == "Sample");
     Check(section.Group.KoreanName == "예시" && section.Group.EnglishName == "Sample", "the group names its heading");
     Check(
-      section.Values.Select(value => value.Key).SequenceEqual(new[] { "Sample/left-keys", "Sample/rest", "Sample/pattern" }),
+      section
+        .Values.Select(value => value.Key)
+        .SequenceEqual(new[] { "Sample/left-keys", "Sample/rest", "Sample/pattern" }),
       "accepted values are offered in the order they were made"
     );
-    Check(Definition("Sample/rest").Sample == "1:27" && Definition("Sample/rest").Kind == OverlayValueKind.Time, "a time shows m:ss");
-    Check(Definition("Sample/pattern").Sample == "2 + 2 + 1" && !Definition("Sample/pattern").IsNumeric, "words stay words");
+    Check(
+      Definition("Sample/rest").Sample == "1:27" && Definition("Sample/rest").Kind == OverlayValueKind.Time,
+      "a time shows m:ss"
+    );
+    Check(
+      Definition("Sample/pattern").Sample == "2 + 2 + 1" && !Definition("Sample/pattern").IsNumeric,
+      "words stay words"
+    );
   }
 
   private static void SetValuesReachTheOverlay(ModValues feed, OverlayValues values)
@@ -101,10 +118,14 @@ internal static class ElementKitTests
     ModFields.Rest.Set(65.4);
     ModFields.Pattern.Set("<b>2</b> + 1");
     feed.Pump(values);
-    Check(Text(values, "Sample/left-keys") == "5" && values.TryGetNumber(left, out double number) && number == 5, "a number shows");
+    Check(
+      Text(values, "Sample/left-keys") == "5" && values.TryGetNumber(left, out double number) && number == 5,
+      "a number shows"
+    );
     Check(Text(values, "Sample/rest") == "1:05", "a time shows as m:ss");
     Check(
-      !Text(values, "Sample/pattern").Contains("<b>") && Text(values, "Sample/pattern").StartsWith("<noparse><</noparse>b>2"),
+      !Text(values, "Sample/pattern").Contains("<b>")
+        && Text(values, "Sample/pattern").StartsWith("<noparse><</noparse>b>2"),
       "markup in words is never read"
     );
     Check(
@@ -144,11 +165,17 @@ internal static class ElementKitTests
     OverlayValueId left = Definition("Sample/left-keys").Id;
     _active = false;
     feed.Pump(values);
-    Check(!Definition("Sample/left-keys").Available && !values.TryGet(left, out _), "a turned-off mod's values show nothing");
+    Check(
+      !Definition("Sample/left-keys").Available && !values.TryGet(left, out _),
+      "a turned-off mod's values show nothing"
+    );
     Check(OverlayValueCatalog.Sections().All(s => s.Group == null || s.Group.Source != "Sample"), "and leave the dock");
     _active = true;
     feed.Pump(values);
-    Check(Definition("Sample/left-keys").Available && Text(values, "Sample/left-keys") == "6", "turning it on brings the latest value back");
+    Check(
+      Definition("Sample/left-keys").Available && Text(values, "Sample/left-keys") == "6",
+      "turning it on brings the latest value back"
+    );
   }
 
   private static void ReloadsAndDetachesKeepTexts(ModValues feed, OverlayValues values)
@@ -156,28 +183,43 @@ internal static class ElementKitTests
     OverlayValueId left = Definition("Sample/left-keys").Id;
     Attach();
     feed.Pump(values);
-    Check(Definition("Sample/left-keys").Id == left && Text(values, "Sample/left-keys") == "6", "a reload keeps the value's place");
+    Check(
+      Definition("Sample/left-keys").Id == left && Text(values, "Sample/left-keys") == "6",
+      "a reload keeps the value's place"
+    );
 
     KitRegistry.Detach("Sample");
     feed.Pump(values);
-    Check(!Definition("Sample/left-keys").Available && !values.TryGet(left, out _), "a detached mod's values show nothing");
+    Check(
+      !Definition("Sample/left-keys").Available && !values.TryGet(left, out _),
+      "a detached mod's values show nothing"
+    );
     Check(OverlayFormula.Parse("{Sample/left-keys}+1").Serialize() == "{Sample/left-keys}+1", "texts keep them");
     Attach();
     feed.Pump(values);
-    Check(Definition("Sample/left-keys").Available && Definition("Sample/left-keys").Id == left, "attaching again brings them back in place");
+    Check(
+      Definition("Sample/left-keys").Available && Definition("Sample/left-keys").Id == left,
+      "attaching again brings them back in place"
+    );
   }
 
   private static void ANewCanvasGetsEveryValue(ModValues feed)
   {
     OverlayValues fresh = new();
     feed.Pump(fresh);
-    Check(Text(fresh, "Sample/left-keys") == "6" && Text(fresh, "Sample/rest") == "1:05", "a new canvas shows the latest values");
+    Check(
+      Text(fresh, "Sample/left-keys") == "6" && Text(fresh, "Sample/rest") == "1:05",
+      "a new canvas shows the latest values"
+    );
   }
 
   private static void AnInvalidModIdAddsNothing()
   {
     List<string> reports = new();
-    Check(KitRegistry.Attach("2fast", typeof(ElementKitTests).Assembly, () => true, reports.Add) == null, "a mod id texts can't save adds nothing");
+    Check(
+      KitRegistry.Attach("2fast", typeof(ElementKitTests).Assembly, () => true, reports.Add) == null,
+      "a mod id texts can't save adds nothing"
+    );
     Check(reports.Count == 1 && reports[0].Contains("\"2fast\""), "and says why");
   }
 

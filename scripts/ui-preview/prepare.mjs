@@ -38,7 +38,9 @@ for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout')
   files.push(path.join(root, 'Element/Presentation/Layout', name));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Ui'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Ui', name));
-for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Canvas', 'Element/Presentation/Overlay/Migration', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
+for (const name of fs.readdirSync(path.join(root, 'Element/Domain/Overlay'), { recursive: true }).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Domain/Overlay', name));
+for (const folder of ['Element/Domain/Layout', 'Element/Presentation/Overlay/Canvas', 'Element/Presentation/Overlay/Migration', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
 // ElementKit, minus Kit.cs: the preview attaches values through KitRegistry and

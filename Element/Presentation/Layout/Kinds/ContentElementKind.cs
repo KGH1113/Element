@@ -75,7 +75,7 @@ internal abstract class ContentElementKind<T> : IElementKind
     else if (isNew)
     {
       if (settings != null)
-        Domain.Elements.OverlayElementDefaults.ResetPlacement(settings);
+        Domain.Overlay.Defaults.OverlayElementDefaults.ResetPlacement(settings);
       target.SetEnabled(false);
       Editing.Selection.Selected = -1;
     }

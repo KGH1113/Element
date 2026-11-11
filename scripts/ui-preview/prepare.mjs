@@ -15,13 +15,15 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/IOverlayFontSour
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/OverlayFontCatalog.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/FontFilePickers.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Storage/ProfileFileStore.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
+files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerFailure.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
-files.push(path.join(root, 'Element/Application/Updates/IModUpdates.cs'));
-files.push(path.join(root, 'Element/Application/Files/IFileDialogs.cs'));
-for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles')).filter(name => name.endsWith('.cs')))
-  files.push(path.join(root, 'Element/Application/Profiles', name));
+files.push(path.join(root, 'Element/Domain/Judgement/JudgementColors.cs'));
+for (const folder of ['Element/Application/Updates', 'Element/Application/Files', 'Element/Application/Profiles', 'Element/Application/Settings'])
+  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
+    files.push(path.join(root, folder, name));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));

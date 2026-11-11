@@ -42,10 +42,5 @@ internal static class SettingsCopy
     }
   }
 
-  private static bool IsSettingsObject(Type type) =>
-    type.IsClass
-    && type != typeof(string)
-    && !typeof(IEnumerable).IsAssignableFrom(type)
-    && type.Namespace != null
-    && type.Namespace.StartsWith("Element.Configuration", StringComparison.Ordinal);
+  private static bool IsSettingsObject(Type type) => Attribute.IsDefined(type, typeof(CopiedInPlaceAttribute), false);
 }

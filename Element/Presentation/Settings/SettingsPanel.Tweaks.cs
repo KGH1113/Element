@@ -305,7 +305,6 @@ internal sealed partial class SettingsPanel
   private void CreateJudgementPage()
   {
     var j = _settings.Gameplay.Judgement;
-    j.Normalize();
     Transform page = _pages[5].transform;
     _judgementHeader = _ui.Rect("Judgment controls", page, 0, 0, 936, 52);
     var hint = _ui.Text("", _judgementHeader, 0, 0, 580, 40, 15, SettingsUiFactory.Muted);

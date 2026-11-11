@@ -1,8 +1,10 @@
 using System;
+using Element.Application.Settings;
 using Element.Application.Updates;
 using Element.Bootstrap;
 using Element.Configuration;
 using Element.Infrastructure.Ipc;
+using Element.Infrastructure.Storage;
 using Element.Infrastructure.Updates;
 using Element.Presentation.Settings;
 using UnityEngine;
@@ -53,8 +55,8 @@ public sealed class Main
       // Other mods' IPC loaders look for this mod's runtime at the mod root.
       BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
-      Instance.Settings = ElementSettings.Load(modEntry);
-      Instance.Settings.Migrate();
+      Instance.Settings = SettingsFile.Load(modEntry);
+      SettingsMigrator.Migrate(Instance.Settings);
       Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;

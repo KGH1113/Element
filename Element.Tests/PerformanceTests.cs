@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Text;
 using System.Threading;
+using Element.Domain.Elements;
 using Element.Domain.Input;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
@@ -14,6 +15,7 @@ internal static class PerformanceTests
   {
     FormatsNumbersLikeTheOriginalStrings();
     AppendsWithoutAllocating();
+    FormulasWorkOutWithoutAllocating();
     ChatterFilterDropsPressesWithinTheThreshold();
     ChatterFilterFollowsSettings();
     ChatterFilterRunsOffTheMainThreadWithoutAllocating();
@@ -48,6 +50,31 @@ internal static class PerformanceTests
       Fill(builder);
     long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
     True(allocated == 0, "overlay number formatting allocated " + allocated + " bytes");
+  }
+
+  // A text with a formula works it out every frame; its numbers were read when it was parsed.
+  private static void FormulasWorkOutWithoutAllocating()
+  {
+    OverlayFormula formula = OverlayFormula.Parse("{combo}*2.5+12-3/4");
+    ComboOf120 source = new();
+    True(
+      formula.TryEvaluate(source, out double result, out _) && Math.Abs(result - 311.25) < 1e-9,
+      "the formula works out to " + result
+    );
+    long before = GC.GetAllocatedBytesForCurrentThread();
+    for (int index = 0; index < 1000; index++)
+      formula.TryEvaluate(source, out result, out _);
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+    True(allocated == 0, "working out a formula allocated " + allocated + " bytes");
+  }
+
+  private sealed class ComboOf120 : IOverlayNumberSource
+  {
+    public bool TryGetNumber(OverlayValueId id, out double number)
+    {
+      number = id == OverlayValueId.Combo ? 120 : 0;
+      return true;
+    }
   }
 
   private static void Fill(StringBuilder builder)

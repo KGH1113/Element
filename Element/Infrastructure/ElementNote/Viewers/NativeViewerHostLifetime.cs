@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using UnityEngine;
-using Element.Domain.KeyViewer;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 
@@ -23,7 +23,9 @@ internal sealed class NativeViewerHostLifetime
   private readonly NativeViewerErrorLog _log;
   private INativeViewerHost _host;
   private NativeViewerSurface[] _knownSurfaces = Array.Empty<NativeViewerSurface>();
-  private IReadOnlyList<LayoutExclusion> _editorExclusions = Array.Empty<LayoutExclusion>();
+
+  // Filled again each frame the layout editor is open, without a new list.
+  private readonly List<LayoutExclusion> _editorExclusions = new();
   private DateTime _nextErrorCheckAt;
   private bool _suspended;
   private bool _visible = true;
@@ -65,10 +67,12 @@ internal sealed class NativeViewerHostLifetime
   {
     int width = Screen.width;
     int height = Screen.height;
-    List<LayoutExclusion> normalized = new(screenTopLeftPixels.Count);
+    _editorExclusions.Clear();
     if (width > 0 && height > 0)
-      foreach (LayoutExclusion exclusion in screenTopLeftPixels)
-        normalized.Add(
+      for (int i = 0; i < screenTopLeftPixels.Count; i++)
+      {
+        LayoutExclusion exclusion = screenTopLeftPixels[i];
+        _editorExclusions.Add(
           new LayoutExclusion(
             new LayoutBounds(
               exclusion.Bounds.X / width,
@@ -79,7 +83,7 @@ internal sealed class NativeViewerHostLifetime
             exclusion.Radius / height
           )
         );
-    _editorExclusions = normalized;
+      }
     _host?.ExcludeEditor(_editorExclusions);
   }
 

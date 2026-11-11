@@ -7,7 +7,7 @@ source "$TASK_DIR/../../lib/context.sh"
 # shellcheck source=../../lib/guards.sh
 source "$TASK_DIR/../../lib/guards.sh"
 
-bash "$TASK_DIR/../build/game-webview.sh"
+# Verifies the library build/game-webview.sh made.
 if ! is_macos; then
   exit 0
 fi

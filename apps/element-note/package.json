@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,json}\"",
     "type-check": "tsc --noEmit",
-    "check": "npm run sdk:check && npm run type-check && npm run lint && npm run format:check && npm run test",
+    "check": "npm run sdk:check && npm run type-check && npm run lint -- --max-warnings=0 && npm run format:check && npm run test",
     "type-check:watch": "tsc --noEmit --watch",
     "tauri:dev": "tauri dev -f asio-backend",
     "tauri:dev:no-asio": "tauri dev",

@@ -133,12 +133,12 @@ jobs:
 
       - name: Build with MSVC
         shell: pwsh
-        run: ./scripts/windows/build-game-webview.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
+        run: ./scripts/tasks/build/game-webview-windows.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
 
       # A release ships only a library that passed the probe.
       - name: Smoke probe
         shell: pwsh
-        run: ./scripts/windows/smoke-game-webview.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
+        run: ./scripts/tasks/test/game-webview-windows.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
 
       - name: Upload the library
         uses: actions/upload-artifact@v4

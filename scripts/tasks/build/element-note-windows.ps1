@@ -1,6 +1,6 @@
 # Builds the ElementNote portable archive on the Windows build host from an
 # archive of the committed app sources. Invoked over SSH by
-# scripts/tasks/build/dmnote-windows.sh; nothing here touches the desktop.
+# scripts/tasks/build/element-note-windows.sh; nothing here touches the desktop.
 param(
   [Parameter(Mandatory = $true)] [string] $Sources,
   [Parameter(Mandatory = $true)] [string] $Work,

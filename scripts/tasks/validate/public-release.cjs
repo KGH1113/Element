@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const repoRoot = path.resolve(__dirname, "..");
+const repoRoot = path.resolve(__dirname, "../../..");
 const appRoot = path.join(repoRoot, "apps", "element-note");
 const ignoredDirectories = new Set([
   ".git",

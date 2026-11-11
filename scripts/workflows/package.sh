@@ -10,7 +10,7 @@ source "$SCRIPTS_DIR/lib/context.sh"
 source "$SCRIPTS_DIR/lib/logging.sh"
 
 run_task "Validate release package inputs" "$TASKS_DIR/validate/release-package-inputs.sh"
-run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/verify/adofai-ipc.sh"
+run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/validate/adofai-ipc.sh"
 run_task "Build mod (Release)" "$TASKS_DIR/build/mod.sh" Release
 if packages_platform windows; then
   run_task "Prepare Windows game WebView host" "$TASKS_DIR/package/windows-webview.sh"

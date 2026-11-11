@@ -2,7 +2,7 @@ using Element.Application.Layout;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.Graphics;
 using static Element.Presentation.Ui.Theme.UiLocale;
 

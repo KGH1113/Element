@@ -4,7 +4,7 @@ using Element.Application.Mods;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using ElementKit.Hosting;

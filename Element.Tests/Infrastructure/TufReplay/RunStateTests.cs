@@ -10,8 +10,7 @@ using Element.Domain.Attempts;
 using Element.Domain.Overlay.Values;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.TufReplay;
-using Element.Presentation.Overlay.Attempt;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 

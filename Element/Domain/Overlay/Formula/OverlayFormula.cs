@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.Overlay.Values;
 
 namespace Element.Domain.Overlay.Formula;
 

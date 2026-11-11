@@ -2,7 +2,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Shape;
 
 namespace Element.Presentation.Overlay.Canvas;
 

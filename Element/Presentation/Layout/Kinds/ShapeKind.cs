@@ -3,7 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;

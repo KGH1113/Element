@@ -12,16 +12,10 @@ using Element.Domain.Judgement;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
-using Element.Presentation.Overlay.Attempt;
-using Element.Presentation.Overlay.Bpm;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Combo;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Judgement;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Overlay.Status;
-using Element.Presentation.Overlay.TimingScale;
+using Element.Presentation.Overlay.Values;
 using TMPro;
 
 namespace Element.Bootstrap.Composition;

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
 
 namespace Element.Presentation.Overlay.Canvas;
 

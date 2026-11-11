@@ -3,7 +3,8 @@ using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 

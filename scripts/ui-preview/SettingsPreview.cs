@@ -9,7 +9,6 @@ using Element.Presentation.Settings;
 using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Elements;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Fonts;
@@ -49,6 +48,9 @@ using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Widgets;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Overlay.Shape;
+using Element.Presentation.Overlay.Text;
 
 namespace Element.Editor
 {

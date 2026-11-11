@@ -2,7 +2,6 @@ using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;

@@ -2,7 +2,7 @@ using System;
 using Element.Application.Profiles;
 using Element.Application.Updates;
 using Element.Configuration.Gameplay;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using UnityEngine;
 
 namespace Element.Presentation.Settings;

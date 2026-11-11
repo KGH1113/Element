@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Element.Application.Fonts;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Fonts;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;

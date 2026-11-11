@@ -3,7 +3,7 @@ using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;

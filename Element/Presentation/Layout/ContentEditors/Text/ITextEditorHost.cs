@@ -1,5 +1,5 @@
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Text;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;

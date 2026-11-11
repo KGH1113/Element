@@ -11,7 +11,6 @@ using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using ElementKit;

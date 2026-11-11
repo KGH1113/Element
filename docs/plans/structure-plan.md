@@ -231,7 +231,7 @@ ElementKit/          네임스페이스는 ElementKit 하나 (폴더는 파일 �
 ```
 
 - `Hosting/ElementClasses`는 Element만 쓰므로 `Element/Infrastructure/Mods`로 옮깁니다.
-- `EditorPage`, `EditorControl`, `Drawing` 등은 다른 모드가 상속하지 못하게 생성자를 `private protected`로 막습니다. 상속을 허용하면 나중에 추상 멤버를 더할 때마다 그 모드들이 깨집니다.
+- `EditorPage`, `EditorControl`, `Drawing` 등은 다른 모드가 상속하지 못하게 생성자를 `internal`로 막습니다(Element는 InternalsVisibleTo로 접근). 상속을 허용하면 나중에 추상 멤버를 더할 때마다 그 모드들이 깨집니다.
 - 다른 모드가 쓰는 공개 API가 `Element.AttemptCounter`와 ElementKit 두 가지입니다. 하나로 모을지 정해야 합니다.
 
 **테스트:**
@@ -267,30 +267,33 @@ Element.Tests/
 
 ## 8. 진행
 
-dev에서 `refactor/structure` 브랜치를 만들고, 영역마다 작업 폴더(워크트리)를 하나씩 둡니다.
-영역은 파일이 되도록 겹치지 않게 나눴습니다. 끝난 영역부터 `refactor/structure`에 합치고, 합칠 때마다 검사를 다시 돌립니다.
+`refactor/structure` 브랜치에서 영역마다 작업 폴더를 따로 두고 나눠 고친 뒤 합쳤습니다. 합칠 때마다 `mod-check`와 `ui-check`를 다시 돌렸고, 화면은 작업 전 스크린샷과 픽셀까지 같습니다.
 
-| 영역 | 맡는 것 |
-| --- | --- |
-| core | Domain·Configuration·Application(아래 runtime 몫 제외). 설정 이전을 `SettingsMigrator` 하나로, `SettingsCopy` 표식, 저장 클래스에서 파일 입출력 빼기, `OverlayFormula`·`OverlayElementDefaults` 나누기, 여러 타입 파일 나누기, 판정 색 한 곳, 쓰이지 않는 코드 지우기 |
-| runtime | Infrastructure·Bootstrap, Application의 `Features`·`OverlayCoordinator`·`OverlaySources`·`Rendering`. 패치 연결 방식 하나, 같은 게임 메서드에 패치 하나, `ModRuntime` 나누기(`FrameLoop`, `GameplaySession`), `RenderSession`, `InputGate`, 포트를 Application으로, IPC 묶음, ElementNote·TUFReplay 코드 모으기, 행성 색 규칙 |
-| settings | 설정 창: `SettingsPanel`을 페이지 클래스로, 설정 창 안의 중복(문구 함수, 탭, 키 입력, 단축키 겹침 규칙), 이펙트 프리셋 편집을 Application으로, 둥근 모서리 텍스처 공유 |
-| layout | 배치 편집기와 오버레이 캔버스: 요소 종류 설명서(`IElementKind`), `OverlayCanvasHost` 종류별 생성, 조각 파일을 클래스로, 팝업 하나로(`IPopover`), `UndoStack<T>`, 글자·도형·모드 편집기 나누기 |
-| tooling | `scripts/` 규칙 하나, `docs/` 폴더 나누기 |
+| 단계 | 영역 | 한 일 | 상태 |
+| --- | --- | --- | --- |
+| 1 | core | `SettingsMigrator` 하나, `[CopiedInPlace]` 표식, 설정·프로필 파일 입출력을 Infrastructure로, `OverlayFormula`·`OverlayElementDefaults` 나누기, 판정 색 한 곳 | 완료 |
+| 1 | runtime | 패치는 `Game/Patches`에서 `GameHooks`로, `ModRuntime`은 조립만(`FrameLoop`, `GameplaySession`), `RenderSession`, `InputGate`, 포트를 Application으로, IPC 채널 하나, Infrastructure를 상대별 폴더로 | 완료 |
+| 1 | settings | `SettingsPanel`은 창 틀만, 페이지마다 클래스(`Pages/`), 설정 창 안 중복 정리, 프리셋 편집을 `Application/Effects`로 | 완료 |
+| 1 | layout | 요소 종류(`Layout/Kinds`), 편집기 자리(`IContentEditor`), 배치 편집기를 부품 클래스로(`Layout/Canvas`), 팝업 하나(`Ui/Popovers`), `UndoStack<T>`, 모드 편집기 나누기 | 완료 |
+| 1 | tooling | `scripts/` 규칙 하나, `docs/` 폴더, ElementKit 폴더와 `internal` 생성자 | 완료 |
+| 2 | runtime2 | ElementNote 뷰어 코드를 일별로, 큰 Infrastructure 클래스 나누기, 내부 이름 ElementNote로 | 완료 |
+| 2 | core2 | Domain·Application·Configuration을 기능 폴더로, 저장 형식 왕복 검사, 테스트를 층별 폴더·`[Suite]`·`Support/`로 | 완료 |
+| 2 | editors | 글자·도형 편집기를 일별 클래스로 | 진행 중 |
+| 2 | ui | 공용 UI 부품을 `Presentation/Ui`로, 아이콘 하나로, 색 선택기 나누기, `Layout/Editing` 정리 | 멈춤 |
 
-그다음 순서대로 합니다.
-1. 공용 UI 부품을 `Presentation/Ui`로 모으고, 아이콘·색·문구를 하나로 합칩니다.
-2. 테스트를 정리합니다: `Support/`, 자동 등록, Element와 같은 폴더 모양.
-3. 폴더와 네임스페이스를 목표 구조로 옮깁니다.
-4. 문서를 고치고, `mod-check`·`ui-check`를 돌린 뒤 설치합니다.
+남은 것:
+- 위 표의 진행 중·멈춤 항목
+- 찾았지만 아직 안 고친 버그: Element를 끌 때 게임 키 리미터 복원이 실행되지 않음(`ModRuntime.Dispose`)
+- 배치 편집기가 열려 있는 동안 `SetEditorExclusions`·`GameWebView.ExcludeEditor`가 매 프레임 메모리를 잡음
+- `SettingsUiRuntime`에 남은 기능 코드(프리셋 단축키, 행성 미리보기 만들기)를 Presentation으로
 
 ## 9. 작업 규칙
 
 - **동작은 그대로 둡니다.** 화면, 문구, 저장 파일 형식, 설정 XML이 바뀌면 안 됩니다. 고치기로 한 버그만 예외이고, 커밋 메시지에 따로 적습니다.
 - **공개 이름은 바꾸지 않습니다.** `Element.Main`, `Element.AttemptCounter`, ElementKit의 공개 API, `Element.Configuration` 네임스페이스가 그 대상입니다(`SettingsCopy` 표식을 바꾸기 전까지).
 - **의존 방향을 지킵니다.**
-  - Domain은 Element의 다른 층을 모릅니다. Unity·게임의 enum은 쓸 수 있지만, 객체는 쓰지 않습니다.
-  - Configuration은 Element의 다른 층을 모릅니다.
+  - Configuration(저장되는 설정 클래스)은 Element의 다른 층을 모릅니다. 가장 안쪽입니다.
+  - Domain은 Configuration만 압니다. 저장 설정 클래스를 그대로 작업 모델로 씁니다. Unity·게임의 enum은 쓸 수 있지만, 객체는 쓰지 않습니다.
   - Application은 Domain과 Configuration만 압니다.
   - Infrastructure와 Presentation은 Application·Domain·Configuration만 알고, 서로는 모릅니다.
   - Bootstrap은 모두를 압니다.

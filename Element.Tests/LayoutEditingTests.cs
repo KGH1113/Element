@@ -5,12 +5,14 @@ using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class LayoutEditingTests
 {
+  [Suite("layout history, native viewer recovery and alignment snapping")]
   public static void Run()
   {
     XmlSerializer serializer = new(typeof(OverlayLayoutSettings));

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using Element.Configuration;
 using Element.Configuration.Profiles;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -16,6 +17,7 @@ namespace Element.Tests;
 /// </summary>
 internal static class SettingsCopyTests
 {
+  [Suite("profile switches fill every saved settings class in place")]
   public static void Run()
   {
     SavedClassesAreMarked();

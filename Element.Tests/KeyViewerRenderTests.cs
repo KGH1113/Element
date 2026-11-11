@@ -11,6 +11,7 @@ using Element.Domain.Layout;
 using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Presentation.Rendering;
+using Element.Tests.Support;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using static Element.Tests.Support.Assert;
@@ -22,6 +23,7 @@ internal static class KeyViewerRenderTests
   private static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(200);
   private const string Ffmpeg = "/mods/OrbitRender/FFmpeg/ffmpeg";
 
+  [Suite("replay renders send key viewer frames without waiting and lay ElementNote's videos in place")]
   public static void Run()
   {
     StartsWithLiveCountsAndExplicitSurfaces();

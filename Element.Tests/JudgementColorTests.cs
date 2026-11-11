@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Judgement;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -11,6 +12,7 @@ namespace Element.Tests;
 /// <summary>Judgment counts keep the colors they have always had, wherever they are colored.</summary>
 internal static class JudgementColorTests
 {
+  [Suite("judgment counts keep their colors")]
   public static void Run()
   {
     BuiltInRowKeepsItsColors();

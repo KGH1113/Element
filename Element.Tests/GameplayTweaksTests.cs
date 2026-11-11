@@ -6,12 +6,16 @@ using Element.Configuration;
 using Element.Configuration.Gameplay;
 using Element.Domain.Judgement;
 using Element.Domain.Tweaks;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class GameplayTweaksTests
 {
+  [Suite(
+    "gameplay tweaks, judgement filtering and ADOFAI judgment text sync, editor transforms and planet persistence"
+  )]
   public static void Run()
   {
     Judgements();

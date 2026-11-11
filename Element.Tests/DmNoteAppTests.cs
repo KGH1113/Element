@@ -12,6 +12,7 @@ namespace Element.Tests;
 
 internal static class DmNoteAppTests
 {
+  [Suite("bundled ElementNote installs once per build and opens only when closed")]
   public static void Run()
   {
     InstallsOncePerBundledBuild();

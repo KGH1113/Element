@@ -12,6 +12,7 @@ using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Overlay.Attempt;
 using Element.Presentation.Overlay.Elements;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -20,6 +21,7 @@ namespace Element.Tests;
 // them back while it replays or renders that run.
 internal static class RunStateTests
 {
+  [Suite("TUFReplay replays and renders show the attempts and key counts their run was played at")]
   public static void Run()
   {
     ReplaysShowTheRecordedAttempts();

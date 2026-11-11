@@ -1,6 +1,6 @@
-using System;
 using Element.Application.Gameplay;
 using Element.Configuration;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -8,6 +8,7 @@ namespace Element.Tests;
 /// <summary>When the overlay and the in-game key viewers show, and what applying settings redoes.</summary>
 internal static class GameplaySessionTests
 {
+  [Suite("record mode, co-op and the layout editor decide what a play shows")]
   public static void Run()
   {
     PlayShowsOverlayAndViewers();

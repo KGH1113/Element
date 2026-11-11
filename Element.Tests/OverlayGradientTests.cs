@@ -1,16 +1,17 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Shape;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class OverlayGradientTests
 {
+  [Suite("overlay gradients: colors, geometry, edits and saving")]
   public static void Run()
   {
     ASecondColorMakesAGradientThatShowsAtOnce();

@@ -6,6 +6,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Tweaks;
 using Element.Presentation.Overlay.Shared;
+using Element.Tests.Support;
 using UnityEngine;
 using static Element.Tests.Support.Assert;
 
@@ -13,6 +14,7 @@ namespace Element.Tests;
 
 internal static class PerformanceTests
 {
+  [Suite("allocation-free overlay text and hook-thread chatter filtering")]
   public static void Run()
   {
     FormatsNumbersLikeTheOriginalStrings();

@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class NativeViewerTests
 {
+  [Suite("native viewers accept only bounded loopback OBS surfaces")]
   public static void Run()
   {
     var surface = new NativeViewerSurface

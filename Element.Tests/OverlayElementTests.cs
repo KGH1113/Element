@@ -13,12 +13,14 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class OverlayElementTests
 {
+  [Suite("overlay elements: values, migration, text editing and shape geometry")]
   public static void Run()
   {
     ValueCatalogKeysAreUniqueAndIndexed();

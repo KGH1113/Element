@@ -6,10 +6,9 @@ using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Infrastructure.Mods;
-using Element.Presentation.Overlay.Mods;
+using Element.Tests.Support;
 using Element.Tests.Support.Fakes;
 using ElementKit;
-using ElementKit.Hosting;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -21,7 +20,7 @@ internal static class ModElementTests
 {
   private const string ModId = "Bars";
 
-  [ElementKit.Element("bars", "막대", "Bars")]
+  [global::ElementKit.Element("bars", "막대", "Bars")]
   internal sealed class Bars : OverlayElement
   {
     public string Kept = "";
@@ -31,22 +30,22 @@ internal static class ModElementTests
     protected override void LoadSettings(string data) => Kept = data;
   }
 
-  [ElementKit.Element("bars", "또 막대", "Bars again")]
+  [global::ElementKit.Element("bars", "또 막대", "Bars again")]
   internal sealed class Twin : OverlayElement { }
 
-  [ElementKit.Element("Bad Key", "나쁨", "Bad")]
+  [global::ElementKit.Element("Bad Key", "나쁨", "Bad")]
   internal sealed class BadKey : OverlayElement { }
 
-  [ElementKit.Element("unnamed", "", "")]
+  [global::ElementKit.Element("unnamed", "", "")]
   internal sealed class Unnamed : OverlayElement { }
 
-  [ElementKit.Element("needs-argument", "인자", "Argument")]
+  [global::ElementKit.Element("needs-argument", "인자", "Argument")]
   internal sealed class NeedsArgument : OverlayElement
   {
     public NeedsArgument(int size) => _ = size;
   }
 
-  [ElementKit.Element("throws", "실패", "Throws")]
+  [global::ElementKit.Element("throws", "실패", "Throws")]
   internal sealed class Throws : OverlayElement
   {
     public Throws() => throw new InvalidOperationException("no element today");
@@ -60,6 +59,7 @@ internal static class ModElementTests
 
   private static bool _active = true;
 
+  [Suite("ElementKit elements: found without a call, checked, offered while on, settings kept")]
   public static void Run()
   {
     _active = true;

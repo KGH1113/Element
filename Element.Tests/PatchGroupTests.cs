@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Element.Infrastructure.Game.Patches;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -16,6 +17,7 @@ internal static class PatchGroupTests
 {
   private const string PatchesNamespace = "Element.Infrastructure.Game.Patches";
 
+  [Suite("game patches: one folder, named groups, documented order")]
   public static void Run()
   {
     EveryPatchLivesInPatchesAndNamesItsGroup();

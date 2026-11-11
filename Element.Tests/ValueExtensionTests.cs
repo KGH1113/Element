@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -15,6 +16,7 @@ namespace Element.Tests;
 // back when it registers, and they fit the same masks as the built-in values.
 internal static class ValueExtensionTests
 {
+  [Suite("values other mods add: kept while missing, back on register, past one mask word")]
   public static void Run()
   {
     OverlayValueCatalog.ForgetExtensions();

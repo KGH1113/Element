@@ -1,12 +1,13 @@
-using System;
 using System.Collections.Generic;
 using Element.Domain.Layout;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
 
 internal static class LayoutArrangeTests
 {
+  [Suite("aligns and distributes several layout boxes")]
   public static void Run()
   {
     List<LayoutBounds> boxes = Boxes();

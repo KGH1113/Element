@@ -21,6 +21,7 @@ namespace Element.Tests;
 
 internal static class ProfileTests
 {
+  [Suite("profiles switch in place, survive saving, export, import, refuse bad files and back up")]
   public static void Run()
   {
     CopyKeepsHeldObjects();

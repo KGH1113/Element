@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
+using Element.Tests.Support;
 using ElementKit.Hosting;
 using ElementKit.Values;
 using static Element.Tests.Support.Assert;
@@ -39,6 +40,7 @@ internal static class ElementKitTests
 
   private static bool _active = true;
 
+  [Suite("ElementKit values: checked on attach, shown, hidden while off, kept across reloads")]
   public static void Run()
   {
     Reset();

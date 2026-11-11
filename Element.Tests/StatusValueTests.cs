@@ -1,9 +1,9 @@
-using System;
 using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Status;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Status;
+using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
 namespace Element.Tests;
@@ -12,6 +12,7 @@ namespace Element.Tests;
 // so FPS shows "-" instead of a number that looks real.
 internal static class StatusValueTests
 {
+  [Suite("an OrbitRender video shows FPS as -")]
   public static void Run()
   {
     OverlayValues values = new();

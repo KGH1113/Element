@@ -9,6 +9,7 @@ using Element.Application.Effects;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Patches;
+using Element.Tests.Support;
 using UnityEngine;
 using static Element.Tests.Support.Assert;
 
@@ -16,6 +17,7 @@ namespace Element.Tests;
 
 internal static class EffectSettingsTests
 {
+  [Suite("effect presets, source preservation and stable editor filtering")]
   public static void Run()
   {
     DefaultPresets();

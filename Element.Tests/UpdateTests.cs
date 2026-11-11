@@ -32,6 +32,7 @@ internal static class UpdateTests
 {
   private const string Platform = "macos";
 
+  [Suite("auto update: versions, verified downloads, background finish, rollback and launcher switch")]
   public static void Run()
   {
     ComparesVersions();

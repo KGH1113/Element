@@ -1,4 +1,5 @@
 using Element.Application.Rendering;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Rendering;
 
@@ -50,6 +51,4 @@ internal static class RenderNotices
         "ElementNote couldn't make the key viewer video. Reopen ElementNote, then render again."
       ),
     };
-
-  private static string L(bool korean, string ko, string en) => korean ? ko : en;
 }

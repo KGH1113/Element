@@ -6,26 +6,29 @@ using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Settings.Pages;
 
 /// <summary>
 /// Profiles, right after an import: the fonts the profile uses that this PC
 /// lacks, each with a font list to pick one to use instead. Until then those
 /// texts draw in the default font.
 /// </summary>
-internal sealed partial class SettingsPanel
+internal sealed class ProfileFontReplacements : IDisposable
 {
   private const float FontRowHeight = 56;
 
+  private readonly ISettingsWindow _window;
   private readonly Func<OverlayFonts> _overlayFonts;
+  private readonly Action _resized;
   private readonly List<MissingFont> _missingFonts = new();
+  private readonly RectTransform _fontCard;
+  private readonly TextMeshProUGUI _fontCardDescription;
+  private readonly Button _fontCardDone;
 
   // Fonts found in the imported profile while installed fonts are still listed.
   private List<OverlayFontUse> _checkingFonts;
-  private RectTransform _fontCard;
-  private TextMeshProUGUI _fontCardDescription;
-  private Button _fontCardDone;
   private SettingsUiFactory _fontRowsUi;
   private SettingsUiFactory _fontPopoverUi;
   private OverlayFontPopover _fontPopover;
@@ -44,10 +47,21 @@ internal sealed partial class SettingsPanel
     public Button Pick;
   }
 
-  private void CreateFontReplacementCard(Transform page)
+  /// <param name="overlayFonts">The overlay's fonts; null, or none yet, offers nothing.</param>
+  /// <param name="resized">The card's height changed; the page lays out again.</param>
+  public ProfileFontReplacements(
+    ISettingsWindow window,
+    Transform page,
+    Func<OverlayFonts> overlayFonts,
+    Action resized
+  )
   {
-    _fontCard = _ui.Panel("Missing fonts", page, 0, 0, 936, 160, SettingsUiFactory.Surface).rectTransform;
-    TextMeshProUGUI title = _ui.Text(
+    _window = window;
+    _overlayFonts = overlayFonts;
+    _resized = resized;
+    SettingsUiFactory ui = window.Ui;
+    _fontCard = ui.Panel("Missing fonts", page, 0, 0, 936, 160, SettingsUiFactory.Surface).rectTransform;
+    TextMeshProUGUI title = ui.Text(
       L("이 PC에 없는 폰트가 있어요", "Some fonts aren't on this PC"),
       _fontCard,
       16,
@@ -57,7 +71,7 @@ internal sealed partial class SettingsPanel
       17
     );
     SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
-    _fontCardDescription = _ui.Text(
+    _fontCardDescription = ui.Text(
       L(
         "가져온 프로필이 쓰는 폰트예요. 대신 쓸 폰트를 고르면 바로 바뀝니다. 그대로 두면 폰트를 설치하거나 추가할 때까지 기본 폰트로 보여요.",
         "The profile you imported uses these fonts. Pick one to use instead and it changes right away. Left as is, they show in the default font until you install or add them."
@@ -71,18 +85,22 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Muted
     );
     _fontCardDescription.alignment = TextAlignmentOptions.TopLeft;
-    _fontCardDone = _ui.Button(L("완료", "Done"), _fontCard, 16, 0, 120, 40, ClearFontReplacements);
+    _fontCardDone = ui.Button(L("완료", "Done"), _fontCard, 16, 0, 120, 40, Clear);
     _fontCard.gameObject.SetActive(false);
   }
 
+  public bool Visible => _fontCard.gameObject.activeSelf;
+
+  public bool PopoverVisible => _fontPopover?.Visible == true;
+
   /// <summary>After an import: looks for fonts the new profile uses that this PC lacks.</summary>
-  private void OfferFontReplacements()
+  public void Offer()
   {
-    ClearFontReplacements();
+    Clear();
     OverlayFonts fonts = _overlayFonts?.Invoke();
-    if (fonts == null || _fontCard == null)
+    if (fonts == null)
       return;
-    List<OverlayFontUse> uses = OverlayFontUse.Find(_settings);
+    List<OverlayFontUse> uses = OverlayFontUse.Find(_window.Settings);
     if (uses.Count == 0)
       return;
     _checkingFonts = uses;
@@ -111,7 +129,7 @@ internal sealed partial class SettingsPanel
   private void BuildFontRows()
   {
     _fontRowsUi?.Dispose();
-    _fontRowsUi = new SettingsUiFactory(_profilesFont) { ReduceMotion = () => _settings.ReduceUiMotion };
+    _fontRowsUi = new SettingsUiFactory(_window.Font) { ReduceMotion = () => _window.Settings.ReduceUiMotion };
     for (int i = 0; i < _missingFonts.Count; i++)
     {
       int index = i;
@@ -151,10 +169,10 @@ internal sealed partial class SettingsPanel
           OverlayFonts.DisplayName(font.Current) + "로 바꿨어요",
           "Changed to " + OverlayFonts.DisplayName(font.Current)
         );
-      font.State.color = replaced ? _ui.SoftAccent : SettingsUiFactory.Muted;
+      font.State.color = replaced ? _window.Ui.SoftAccent : SettingsUiFactory.Muted;
     }
-    _ui.RefreshTheme();
-    LayoutProfilePages(_profileGallery.rect.width);
+    _window.Ui.RefreshTheme();
+    _resized();
   }
 
   private void OpenFontReplacement(int index)
@@ -164,20 +182,24 @@ internal sealed partial class SettingsPanel
       return;
     if (_fontPopover == null)
     {
-      _fontPopoverUi = new SettingsUiFactory(_profilesFont) { ReduceMotion = () => _settings.ReduceUiMotion };
-      _fontPopover = new OverlayFontPopover(_fontPopoverUi, _window, fonts, _settings.ReduceUiMotion, PickReplacement);
+      _fontPopoverUi = new SettingsUiFactory(_window.Font) { ReduceMotion = () => _window.Settings.ReduceUiMotion };
+      _fontPopover = new OverlayFontPopover(
+        _fontPopoverUi,
+        _window.Frame,
+        fonts,
+        _window.Settings.ReduceUiMotion,
+        PickReplacement
+      );
       _fontPopover.Hidden = () =>
       {
         _fontPickerRow = -1;
-        if (_planetPicker?.Visible != true)
-          _pickerShade.gameObject.SetActive(false);
+        _window.Shade.Hide();
       };
     }
     MissingFont font = _missingFonts[index];
     _fontPickerRow = index;
     _fontPopoverAnchor = (RectTransform)font.Pick.transform;
-    _pickerShade.gameObject.SetActive(true);
-    _pickerShade.transform.SetAsLastSibling();
+    _window.Shade.Show();
     bool isDefault = font.Use.IsDefault;
     _fontPopover.Show(
       L("대신 쓸 폰트", "Font to use instead"),
@@ -195,15 +217,15 @@ internal sealed partial class SettingsPanel
       return;
     MissingFont font = _missingFonts[_fontPickerRow];
     key = OverlayFontKey.Normalize(key);
-    font.Use.Set(_settings, key);
+    font.Use.Set(_window.Settings, key);
     font.Current = key;
-    Changed();
-    if (!_save())
-      ShowSaveError();
+    _window.Changed();
+    _window.Save();
     RefreshFontRows();
   }
 
-  private void ClearFontReplacements()
+  /// <summary>Puts the card away, with any rows and the font list.</summary>
+  public void Clear()
   {
     _checkingFonts = null;
     _missingFonts.Clear();
@@ -211,8 +233,6 @@ internal sealed partial class SettingsPanel
       _fontPopover.Hide();
     _fontRowsUi?.Dispose();
     _fontRowsUi = null;
-    if (_fontCard == null)
-      return;
     for (int i = _fontCard.childCount - 1; i >= 0; i--)
     {
       GameObject child = _fontCard.GetChild(i).gameObject;
@@ -222,11 +242,10 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Destroy(child);
     }
     _fontCard.gameObject.SetActive(false);
-    if (_profileGallery != null)
-      LayoutProfilePages(_profileGallery.rect.width);
+    _resized();
   }
 
-  private bool DismissFontPopover()
+  public bool DismissPopover()
   {
     if (_fontPopover?.Visible != true)
       return false;
@@ -234,7 +253,14 @@ internal sealed partial class SettingsPanel
     return true;
   }
 
-  private void TickFontReplacements()
+  public void HidePopover()
+  {
+    if (_fontPopover?.Visible == true)
+      _fontPopover.Hide();
+  }
+
+  /// <summary>Every frame while Profiles is shown.</summary>
+  public void Tick()
   {
     if (_checkingFonts != null)
       CheckImportedFonts();
@@ -242,10 +268,11 @@ internal sealed partial class SettingsPanel
       _fontPopover.Tick();
   }
 
-  private float LayoutFontCard(float top, float width)
+  /// <summary>Places the card <paramref name="top"/> down the page; returns its height.</summary>
+  public float Layout(float top, float width)
   {
     float inner = width - 32;
-    float descriptionHeight = TextHeight(_fontCardDescription, inner, 20);
+    float descriptionHeight = SettingsUiFactory.TextHeight(_fontCardDescription, inner, 20);
     SettingsUiFactory.Place(_fontCardDescription.rectTransform, 16, 48, inner, descriptionHeight);
     float y = 48 + descriptionHeight + 12;
     bool narrow = width < 480;
@@ -273,21 +300,29 @@ internal sealed partial class SettingsPanel
   {
     if (_fontPopover?.Visible != true || _fontPopoverAnchor == null)
       return;
-    SettingsUiFactory.Place((RectTransform)_pickerShade.transform, 0, 0, _window.rect.width, _window.rect.height);
-    float width = Mathf.Min(OverlayFontPopover.PreferredWidth, _window.rect.width - 20);
-    float height = Mathf.Min(OverlayFontPopover.PreferredHeight, _window.rect.height - 20);
-    Vector3 local = _window.InverseTransformPoint(_fontPopoverAnchor.position);
+    _window.Shade.Layout();
+    RectTransform window = _window.Frame;
+    float width = Mathf.Min(OverlayFontPopover.PreferredWidth, window.rect.width - 20);
+    float height = Mathf.Min(OverlayFontPopover.PreferredHeight, window.rect.height - 20);
+    Vector3 local = window.InverseTransformPoint(_fontPopoverAnchor.position);
     float x = Mathf.Clamp(
-      local.x - _window.rect.xMin + _fontPopoverAnchor.rect.width - width,
+      local.x - window.rect.xMin + _fontPopoverAnchor.rect.width - width,
       10,
-      _window.rect.width - width - 10
+      window.rect.width - width - 10
     );
     float y = Mathf.Clamp(
-      _window.rect.yMax - local.y + _fontPopoverAnchor.rect.height + 8,
+      window.rect.yMax - local.y + _fontPopoverAnchor.rect.height + 8,
       10,
-      _window.rect.height - height - 10
+      window.rect.height - height - 10
     );
     _fontPopover.Place(x, y, width, height);
     _fontPopover.Root.SetAsLastSibling();
+  }
+
+  public void Dispose()
+  {
+    _fontRowsUi?.Dispose();
+    _fontPopover?.Dispose();
+    _fontPopoverUi?.Dispose();
   }
 }

@@ -8,7 +8,7 @@ using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
 
-// Retained uGUI controls. Textures, sprites and theme bindings are created once, never in Update.
+// Retained uGUI controls. The rounded sprite is shared; theme bindings are created once, never in Update.
 internal sealed class SettingsUiFactory : IDisposable
 {
   public static readonly Color Background = new(0.067f, 0.067f, 0.067f, 1f);
@@ -16,9 +16,9 @@ internal sealed class SettingsUiFactory : IDisposable
   public static readonly Color Muted = new(0.66f, 0.66f, 0.66f, 1f);
   public static readonly Color Foreground = new(0.96f, 0.96f, 0.96f, 1f);
   private readonly TMP_FontAsset _font;
-  private readonly Texture2D _texture;
   private readonly Sprite _rounded;
   private readonly List<Action> _themeBindings = new();
+  private bool _disposed;
   public Color Accent => Overlay.Shared.OverlayTheme.Accent;
   public Color OnAccent => SettingsPalette.OnAction;
   public Color SoftAccent => SettingsPalette.SoftAccent;
@@ -29,29 +29,7 @@ internal sealed class SettingsUiFactory : IDisposable
   {
     SettingsCursor.Retain();
     _font = font;
-    const int size = 40;
-    const float radius = 16f;
-    _texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "Settings rounded corners" };
-    Color[] pixels = new Color[size * size];
-    for (int y = 0; y < size; y++)
-    for (int x = 0; x < size; x++)
-    {
-      float dx = Mathf.Max(radius - x - .5f, x + .5f - (size - radius));
-      float dy = Mathf.Max(radius - y - .5f, y + .5f - (size - radius));
-      float distance = new Vector2(Mathf.Max(0, dx), Mathf.Max(0, dy)).magnitude;
-      pixels[y * size + x] = new Color(1, 1, 1, Mathf.Clamp01(radius - distance));
-    }
-    _texture.SetPixels(pixels);
-    _texture.Apply(false, true);
-    _rounded = Sprite.Create(
-      _texture,
-      new Rect(0, 0, size, size),
-      new Vector2(.5f, .5f),
-      100,
-      0,
-      SpriteMeshType.FullRect,
-      new Vector4(18, 18, 18, 18)
-    );
+    _rounded = SettingsRoundedSprite.Retain();
   }
 
   public RectTransform Rect(string name, Transform parent, float x, float y, float width, float height)
@@ -159,7 +137,15 @@ internal sealed class SettingsUiFactory : IDisposable
     return button;
   }
 
-  public Button IconButton(string name, Transform parent, float x, float y, float size, Action onClick, int iconKind)
+  public Button IconButton(
+    string name,
+    Transform parent,
+    float x,
+    float y,
+    float size,
+    Action onClick,
+    SettingsNavigationIconKind iconKind
+  )
   {
     Button button = Button("", parent, x, y, size, size, onClick, themed: false);
     button.name = name;
@@ -432,10 +418,13 @@ internal sealed class SettingsUiFactory : IDisposable
 
   public void Dispose()
   {
+    // A second Dispose must not release what other factories still share.
+    if (_disposed)
+      return;
+    _disposed = true;
     SettingsCursor.Release();
     _themeBindings.Clear();
-    Destroy(_rounded);
-    Destroy(_texture);
+    SettingsRoundedSprite.Release();
   }
 
   internal static void Destroy(Object value)
@@ -471,147 +460,8 @@ internal sealed class SettingsUiFactory : IDisposable
     rect.offsetMin = new Vector2(left, bottom);
     rect.offsetMax = new Vector2(-right, -top);
   }
-}
 
-internal sealed class SettingsSlider : Slider
-{
-  public float Step = 1f / 255f;
-
-  public override void OnMove(AxisEventData eventData)
-  {
-    if (!IsActive() || !IsInteractable())
-      return;
-    float delta = eventData.moveDir == MoveDirection.Left || eventData.moveDir == MoveDirection.Down ? -Step : Step;
-    value += delta * (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 10 : 1);
-    eventData.Use();
-  }
-}
-
-internal sealed class SettingsSwitchMotion : MonoBehaviour
-{
-  private float _target = float.NaN;
-
-  public void Set(float target, bool immediate)
-  {
-    if (_target == target && !immediate)
-      return;
-    RectTransform rect = (RectTransform)transform;
-    bool first = float.IsNaN(_target);
-    _target = target;
-    if (immediate || first)
-      rect.anchoredPosition = new Vector2(target, -4);
-    enabled = !immediate && !first;
-  }
-
-  private void Update()
-  {
-    RectTransform rect = (RectTransform)transform;
-    float x = Mathf.Lerp(rect.anchoredPosition.x, _target, 1 - Mathf.Exp(-24 * Time.unscaledDeltaTime));
-    if (Mathf.Abs(x - _target) < .05f)
-    {
-      x = _target;
-      enabled = false;
-    }
-    rect.anchoredPosition = new Vector2(x, -4);
-  }
-}
-
-// Theme changes must not start a new hover tween on every slider event. Ordinary
-// pointer/focus transitions still use Button's normal animation between states.
-internal sealed class SettingsButton : Button
-{
-  private bool _hovered;
-  private CanvasGroup _disabledGroup;
-  private static int _pointerSelectionFrame = -1;
-  internal static bool PointerSelectedThisFrame => _pointerSelectionFrame == Time.frameCount;
-
-  protected override void Awake()
-  {
-    base.Awake();
-    _disabledGroup = GetComponent<CanvasGroup>() ?? gameObject.AddComponent<CanvasGroup>();
-  }
-
-  protected override void OnEnable()
-  {
-    _hovered = false;
-    base.OnEnable();
-  }
-
-  protected override void OnDisable()
-  {
-    _hovered = false;
-    base.OnDisable();
-  }
-
-  public override void OnPointerEnter(PointerEventData data)
-  {
-    _hovered = true;
-    base.OnPointerEnter(data);
-  }
-
-  public override void OnPointerExit(PointerEventData data)
-  {
-    _hovered = false;
-    base.OnPointerExit(data);
-  }
-
-  public override void OnPointerDown(PointerEventData data)
-  {
-    if (data.button == PointerEventData.InputButton.Left)
-      _pointerSelectionFrame = Time.frameCount;
-    base.OnPointerDown(data);
-  }
-
-  public override void OnPointerClick(PointerEventData data)
-  {
-    // Navigation callbacks select the next page's first control without
-    // forwarding PointerEventData. Preserve the source of that selection.
-    if (data.button == PointerEventData.InputButton.Left)
-      _pointerSelectionFrame = Time.frameCount;
-    base.OnPointerClick(data);
-  }
-
-  protected override void DoStateTransition(SelectionState state, bool instant)
-  {
-    // Unity keeps a clicked control selected after the pointer leaves it.
-    // Reopened pages can also carry cached pointer state from before hiding.
-    if (state == SelectionState.Selected || state == SelectionState.Highlighted)
-      state = _hovered ? SelectionState.Highlighted : SelectionState.Normal;
-    if (_disabledGroup == null)
-      _disabledGroup = GetComponent<CanvasGroup>();
-    if (_disabledGroup != null)
-      _disabledGroup.alpha = state == SelectionState.Disabled ? .5f : 1;
-    base.DoStateTransition(state, instant);
-  }
-
-  public void SetPalette(ColorBlock palette)
-  {
-    colors = palette;
-    DoStateTransition(currentSelectionState, true);
-  }
-}
-
-internal sealed class SettingsFocusRing : MonoBehaviour, ISelectHandler, IDeselectHandler
-{
-  private Outline _outline;
-
-  public void Initialize(Outline outline) => _outline = outline;
-
-  public void OnSelect(BaseEventData eventData)
-  {
-    if (_outline != null)
-      _outline.enabled = eventData is not PointerEventData && !SettingsButton.PointerSelectedThisFrame;
-  }
-
-  public void OnDeselect(BaseEventData eventData)
-  {
-    if (_outline != null)
-      _outline.enabled = false;
-  }
-
-  private void OnDisable()
-  {
-    if (_outline != null)
-      _outline.enabled = false;
-  }
+  /// <summary>The height <paramref name="text"/> needs when <paramref name="width"/> wide, and at least <paramref name="minimum"/>.</summary>
+  public static float TextHeight(TextMeshProUGUI text, float width, float minimum) =>
+    Mathf.Max(minimum, Mathf.Ceil(text.GetPreferredValues(width, 0).y) + 1);
 }

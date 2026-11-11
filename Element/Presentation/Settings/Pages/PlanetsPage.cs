@@ -5,72 +5,61 @@ using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Settings.Pages;
 
-internal sealed partial class SettingsPanel
+/// <summary>Tweaks → Planets: each planet's body, trail and ring colors, with the game's own preview.</summary>
+internal sealed class PlanetsPage : SettingsPage
 {
-  private Button _planetEnabled,
+  private readonly Button _planetEnabled,
     _planetProfileEnabled;
-  private RectTransform _planetTabs,
-    _planetPreview,
+  private readonly SettingsSegmentedControl _planetTabs;
+  private readonly RectTransform _planetPreview,
     _planetComponents;
-  private readonly List<Button> _planetTabButtons = new();
   private readonly List<Button> _planetColorButtons = new();
   private readonly List<Button> _planetSourceButtons = new();
   private readonly List<RectTransform> _planetRows = new();
   private readonly Func<int, PlanetAppearanceProfile, Texture> _renderPlanetPreview;
-  private RawImage _planetImage;
+  private readonly RawImage _planetImage;
+  private readonly TextMeshProUGUI _planetPreviewLabel;
+  private readonly SettingsColorPicker _planetPicker;
   private float _nextPlanetPreview;
-  private TextMeshProUGUI _planetPreviewLabel;
   private int _planetIndex;
-  private SettingsColorPicker _planetPicker;
-  private Button _pickerShade;
   private RectTransform _pickerAnchor;
 
-  private PlanetAppearanceProfile CurrentPlanet =>
-    _planetIndex == 0 ? _settings.Gameplay.Planets.Red
-    : _planetIndex == 1 ? _settings.Gameplay.Planets.Blue
-    : _settings.Gameplay.Planets.Green;
-
-  private PlanetComponentAppearance PlanetPart(int index) =>
-    index == 0 ? CurrentPlanet.Body
-    : index == 1 ? CurrentPlanet.Tail
-    : CurrentPlanet.Ring;
-
-  private void CreatePlanetPage()
+  /// <param name="renderPreview">Draws planet <c>index</c> as the game would; null shows that the preview is unavailable.</param>
+  public PlanetsPage(ISettingsWindow window, Func<int, PlanetAppearanceProfile, Texture> renderPreview)
+    : base(window, "Planets")
   {
-    Transform page = _pages[6].transform;
-    _planetEnabled = _ui.Switch(
+    _renderPlanetPreview = renderPreview;
+    _planetEnabled = Ui.Switch(
       L("행성 꾸미기", "Custom planets"),
       L("행성별 색상과 불투명도를 직접 설정합니다.", "Set color and opacity for each planet."),
-      page,
+      Root,
       0,
-      () => _settings.Gameplay.Planets.Enabled,
+      () => Settings.Gameplay.Planets.Enabled,
       value =>
       {
-        _settings.Gameplay.Planets.Enabled = value;
-        Changed();
+        Settings.Gameplay.Planets.Enabled = value;
+        Window.Changed();
       }
     );
     _planetTabs = Tabs(
-      page,
+      Root,
       new[] { L("불", "Fire"), L("얼음", "Ice"), L("세 번째 공", "Third planet") },
-      _planetTabButtons,
-      () => _planetIndex,
       value =>
       {
-        HidePopover();
+        Window.HidePopovers();
         _planetIndex = value;
-        _ui.RefreshTheme();
       }
     );
-    _planetPreview = _ui.Panel("Planet preview", page, 0, 156, 300, 248, SettingsUiFactory.Surface).rectTransform;
-    RectTransform artwork = _ui.Rect("Game planet preview", _planetPreview, 16, 16, 268, 168);
+    _planetPreview = Ui.Panel("Planet preview", Root, 0, 156, 300, 248, SettingsUiFactory.Surface).rectTransform;
+    RectTransform artwork = Ui.Rect("Game planet preview", _planetPreview, 16, 16, 268, 168);
     _planetImage = artwork.gameObject.AddComponent<RawImage>();
     _planetImage.raycastTarget = false;
     _planetImage.enabled = false;
-    _planetPreviewLabel = _ui.Text(
+    _planetPreviewLabel = Ui.Text(
       L("색상 미리보기", "Color preview"),
       _planetPreview,
       16,
@@ -81,8 +70,8 @@ internal sealed partial class SettingsPanel
       SettingsUiFactory.Muted
     );
     _planetPreviewLabel.alignment = TextAlignmentOptions.Midline;
-    _planetComponents = _ui.Rect("Planet components", page, 316, 156, 620, 248);
-    _planetProfileEnabled = _ui.Switch(
+    _planetComponents = Ui.Rect("Planet components", Root, 316, 156, 620, 248);
+    _planetProfileEnabled = Ui.Switch(
       L("이 행성에 적용", "Customize this planet"),
       "",
       _planetComponents,
@@ -91,7 +80,7 @@ internal sealed partial class SettingsPanel
       value =>
       {
         CurrentPlanet.Enabled = value;
-        Changed();
+        Window.Changed();
       }
     );
     // A compact single-line switch does not reserve a second empty copy line.
@@ -99,64 +88,80 @@ internal sealed partial class SettingsPanel
     profileLabels[1].gameObject.SetActive(false);
     string[] names = { L("공", "Body"), L("꼬리", "Trail"), L("고리", "Ring") };
     for (int i = 0; i < names.Length; i++)
+      CreatePartRow(i, names[i]);
+    Ui.Bind(() =>
     {
-      int part = i;
-      var row = _ui.Panel(
-        names[i],
-        _planetComponents,
-        0,
-        72 + i * 68,
-        620,
-        60,
-        SettingsUiFactory.Surface
-      ).rectTransform;
-      _planetRows.Add(row);
-      _ui.Text(names[i], row, 16, 10, 112, 40, 16);
-      Button source = _ui.Button(
-        "",
-        row,
-        132,
-        10,
-        120,
-        40,
-        () =>
-        {
-          PlanetPart(part).OverrideColor = !PlanetPart(part).OverrideColor;
-          Changed();
-        }
-      );
-      source.gameObject.name = names[i] + " color source";
-      _planetSourceButtons.Add(source);
-      Button colorButton = _ui.Button("", row, 264, 10, 180, 40, () => OpenPlanetColor(part));
-      colorButton.gameObject.name = "Edit " + names[i] + " color and opacity";
-      _planetColorButtons.Add(colorButton);
-      TextMeshProUGUI value = colorButton.GetComponentInChildren<TextMeshProUGUI>();
-      SettingsUiFactory.Stretch(value.rectTransform, 40, 0, 10, 0);
-      value.fontSize = 14;
-      var swatch = _ui.Panel("Color swatch", colorButton.transform, 12, 12, 16, 16, Color.white);
-      _ui.Bind(() =>
-      {
-        var appearance = PlanetPart(part);
-        Color parsed = ParsePlanetColor(appearance);
-        swatch.color = new Color(parsed.r, parsed.g, parsed.b, 1);
-        value.text = appearance.Opacity.ToString("0") + "%";
-        source.GetComponentInChildren<TextMeshProUGUI>().text = appearance.OverrideColor
-          ? L("직접 지정", "Custom color")
-          : L("맵 색상", "Map color");
-        bool active = _settings.Gameplay.Planets.Enabled && CurrentPlanet.Enabled;
-        source.interactable = colorButton.interactable = active;
-      });
-    }
-    _ui.Bind(() =>
-    {
-      _planetProfileEnabled.interactable = _settings.Gameplay.Planets.Enabled;
+      _planetProfileEnabled.interactable = Settings.Gameplay.Planets.Enabled;
       RefreshPlanetPreview();
     });
+    _planetPicker = new SettingsColorPicker(Window.Frame, Window.Font, () => Settings.ReduceUiMotion);
+    _planetPicker.Hidden = Window.Shade.Hide;
+  }
+
+  public override string Title => L("행성", "Planets");
+
+  private PlanetAppearanceProfile CurrentPlanet =>
+    _planetIndex == 0 ? Settings.Gameplay.Planets.Red
+    : _planetIndex == 1 ? Settings.Gameplay.Planets.Blue
+    : Settings.Gameplay.Planets.Green;
+
+  private PlanetComponentAppearance PlanetPart(int index) =>
+    index == 0 ? CurrentPlanet.Body
+    : index == 1 ? CurrentPlanet.Tail
+    : CurrentPlanet.Ring;
+
+  private void CreatePartRow(int part, string name)
+  {
+    var row = Ui.Panel(name, _planetComponents, 0, 72 + part * 68, 620, 60, SettingsUiFactory.Surface).rectTransform;
+    _planetRows.Add(row);
+    Ui.Text(name, row, 16, 10, 112, 40, 16);
+    Button source = Ui.Button(
+      "",
+      row,
+      132,
+      10,
+      120,
+      40,
+      () =>
+      {
+        PlanetPart(part).OverrideColor = !PlanetPart(part).OverrideColor;
+        Window.Changed();
+      }
+    );
+    source.gameObject.name = name + " color source";
+    _planetSourceButtons.Add(source);
+    Button colorButton = Ui.Button("", row, 264, 10, 180, 40, () => OpenPlanetColor(part));
+    colorButton.gameObject.name = "Edit " + name + " color and opacity";
+    _planetColorButtons.Add(colorButton);
+    TextMeshProUGUI value = colorButton.GetComponentInChildren<TextMeshProUGUI>();
+    SettingsUiFactory.Stretch(value.rectTransform, 40, 0, 10, 0);
+    value.fontSize = 14;
+    var swatch = Ui.Panel("Color swatch", colorButton.transform, 12, 12, 16, 16, Color.white);
+    Ui.Bind(() =>
+    {
+      var appearance = PlanetPart(part);
+      Color parsed = ParsePlanetColor(appearance);
+      swatch.color = new Color(parsed.r, parsed.g, parsed.b, 1);
+      value.text = appearance.Opacity.ToString("0") + "%";
+      source.GetComponentInChildren<TextMeshProUGUI>().text = appearance.OverrideColor
+        ? L("직접 지정", "Custom color")
+        : L("맵 색상", "Map color");
+      bool active = Settings.Gameplay.Planets.Enabled && CurrentPlanet.Enabled;
+      source.interactable = colorButton.interactable = active;
+    });
+  }
+
+  public override void Shown() => RefreshPlanetPreview();
+
+  public override void Tick()
+  {
+    if (Time.unscaledTime >= _nextPlanetPreview)
+      RefreshPlanetPreview();
   }
 
   private void RefreshPlanetPreview()
   {
-    if (_page != 6 || !IsOpen || _planetImage == null)
+    if (!Window.IsShowing(this))
       return;
     _nextPlanetPreview = Time.unscaledTime + .1f;
     Texture texture = _renderPlanetPreview?.Invoke(_planetIndex, CurrentPlanet);
@@ -165,7 +170,7 @@ internal sealed partial class SettingsPanel
     LayoutPlanetArtwork();
     _planetPreviewLabel.text =
       texture == null ? L("공 미리보기를 불러올 수 없습니다.", "Planet preview is unavailable.")
-      : !_settings.Gameplay.Planets.Enabled || !CurrentPlanet.Enabled
+      : !Settings.Gameplay.Planets.Enabled || !CurrentPlanet.Enabled
         ? L("미리보기 · 게임에는 적용 안 됨", "Preview · not applied")
       : L("색상 미리보기", "Color preview");
   }
@@ -195,33 +200,6 @@ internal sealed partial class SettingsPanel
     return color;
   }
 
-  private void CreatePlanetPopover(TMP_FontAsset font)
-  {
-    _pickerShade = _ui.Button(
-      "",
-      _window,
-      0,
-      0,
-      1000,
-      600,
-      () =>
-      {
-        if (CommitPopover())
-          HidePopover();
-      },
-      false,
-      false
-    );
-    _pickerShade.gameObject.name = "Dismiss color picker";
-    _pickerShade.GetComponent<SettingsCursor>().enabled = false;
-    _pickerShade.targetGraphic.color = new Color(0, 0, 0, .18f);
-    _pickerShade.transition = Selectable.Transition.None;
-    _pickerShade.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
-    _pickerShade.gameObject.SetActive(false);
-    _planetPicker = new SettingsColorPicker(_window, font, () => _settings.ReduceUiMotion);
-    _planetPicker.Hidden = () => _pickerShade.gameObject.SetActive(false);
-  }
-
   private void OpenPlanetColor(int index)
   {
     PlanetComponentAppearance part = PlanetPart(index);
@@ -230,8 +208,7 @@ internal sealed partial class SettingsPanel
       : index == 1 ? L("꼬리 색상", "Trail color")
       : L("고리 색상", "Ring color");
     _pickerAnchor = (RectTransform)_planetColorButtons[index].transform;
-    _pickerShade.gameObject.SetActive(true);
-    _pickerShade.transform.SetAsLastSibling();
+    Window.Shade.Show();
     _planetPicker.Show(
       title,
       ParsePlanetColor(part),
@@ -243,60 +220,55 @@ internal sealed partial class SettingsPanel
           part.OverrideColor = true;
         part.ColorHex = hex;
         part.Opacity = Mathf.Round(value.a * 100);
-        Changed();
+        Window.Changed();
       }
     );
     LayoutPopover();
   }
 
-  private bool CommitPopover() => _planetPicker == null || !_planetPicker.Visible || _planetPicker.Commit();
+  public override bool CommitPopovers() => !_planetPicker.Visible || _planetPicker.Commit();
 
-  private void HidePopover()
-  {
-    _planetPicker?.Hide();
-    if (_fontPopover?.Visible == true)
-      _fontPopover.Hide();
-    HideNewProfile();
-    if (_pickerShade != null)
-      _pickerShade.gameObject.SetActive(false);
-  }
+  public override void HidePopovers() => _planetPicker.Hide();
 
-  private bool DismissPopover()
+  public override bool HandleEscape()
   {
-    if (_planetPicker?.Visible != true)
+    if (!_planetPicker.Visible)
       return false;
-    HidePopover();
+    Window.HidePopovers();
     return true;
   }
 
+  public override GameObject FocusScope => _planetPicker.Visible ? _planetPicker.Root.gameObject : null;
+
+  public override void Dispose() => _planetPicker.Dispose();
+
   private void LayoutPopover()
   {
-    if (_pickerShade == null)
+    Window.Shade.Layout();
+    if (!_planetPicker.Visible)
       return;
-    SettingsUiFactory.Place((RectTransform)_pickerShade.transform, 0, 0, _window.rect.width, _window.rect.height);
-    if (_planetPicker?.Visible != true)
-      return;
-    Vector3 local = _window.InverseTransformPoint(_pickerAnchor.position);
-    float x = local.x - _window.rect.xMin;
-    float y = _window.rect.yMax - local.y + _pickerAnchor.rect.height + 8;
+    RectTransform window = Window.Frame;
+    Vector3 local = window.InverseTransformPoint(_pickerAnchor.position);
+    float x = local.x - window.rect.xMin;
+    float y = window.rect.yMax - local.y + _pickerAnchor.rect.height + 8;
     float scale = Mathf.Min(
       1,
-      (_window.rect.width - 20) / SettingsColorPicker.Width,
-      (_window.rect.height - 20) / _planetPicker.Height
+      (window.rect.width - 20) / SettingsColorPicker.Width,
+      (window.rect.height - 20) / _planetPicker.Height
     );
     _planetPicker.Root.localScale = Vector3.one * scale;
-    x = Mathf.Clamp(x, 10, _window.rect.width - SettingsColorPicker.Width * scale - 10);
-    y = Mathf.Clamp(y, 10, _window.rect.height - _planetPicker.Height * scale - 10);
+    x = Mathf.Clamp(x, 10, window.rect.width - SettingsColorPicker.Width * scale - 10);
+    y = Mathf.Clamp(y, 10, window.rect.height - _planetPicker.Height * scale - 10);
     SettingsUiFactory.Place(_planetPicker.Root, x, y, SettingsColorPicker.Width, _planetPicker.Height);
     _planetPicker.Root.SetAsLastSibling();
   }
 
-  private void LayoutPlanetPage(float width)
+  public override void Layout(float width, float height)
   {
     bool wide = width >= 600;
     float headerHeight = width < 480 ? 116 : 88;
     SettingsUiFactory.Place((RectTransform)_planetEnabled.transform, 0, 0, width, headerHeight);
-    LayoutTabs(_planetTabs, _planetTabButtons, width, headerHeight + 12);
+    _planetTabs.Place(0, headerHeight + 12, width, 44);
     float top = headerHeight + 68;
     float previewWidth = wide ? (width >= 760 ? 268 : 200) : width;
     float previewHeight = wide ? 268 : 168;
@@ -333,6 +305,7 @@ internal sealed partial class SettingsPanel
         40
       );
     }
-    ((RectTransform)_pages[6].transform).sizeDelta = new Vector2(width, controlsTop + _planetComponents.rect.height);
+    Root.sizeDelta = new Vector2(width, controlsTop + _planetComponents.rect.height);
+    LayoutPopover();
   }
 }

@@ -4,7 +4,7 @@ namespace Element.Presentation.Settings;
 
 internal sealed class SettingsNavigationIcon : SettingsVectorGraphic
 {
-  public int Kind;
+  public SettingsNavigationIconKind Kind;
   protected override float DesignSize => 32;
 
   protected override void OnPopulateMesh(VertexHelper mesh)
@@ -12,7 +12,7 @@ internal sealed class SettingsNavigationIcon : SettingsVectorGraphic
     mesh.Clear();
     switch (Kind)
     {
-      case 0:
+      case SettingsNavigationIconKind.Overlay:
         BeginPath();
         PathPoint(5, 6);
         PathPoint(27, 6);
@@ -22,7 +22,7 @@ internal sealed class SettingsNavigationIcon : SettingsVectorGraphic
         Line(mesh, 14, 6, 14, 26);
         Line(mesh, 14, 16, 27, 16);
         break;
-      case 1:
+      case SettingsNavigationIconKind.Tweaks:
         Line(mesh, 5, 8, 27, 8);
         Line(mesh, 5, 16, 27, 16);
         Line(mesh, 5, 24, 27, 24);
@@ -30,7 +30,7 @@ internal sealed class SettingsNavigationIcon : SettingsVectorGraphic
         Dot(mesh, 23, 16, 3.2f);
         Dot(mesh, 15, 24, 3.2f);
         break;
-      case 2:
+      case SettingsNavigationIconKind.General:
         // An uninterrupted gear contour stays legible at a small display scale.
         BeginPath();
         for (int i = 0; i < 32; i++)
@@ -42,19 +42,20 @@ internal sealed class SettingsNavigationIcon : SettingsVectorGraphic
         Stroke(mesh, 2, true);
         Arc(mesh, 16, 16, 3.8f, 0, 360);
         break;
-      case 3:
-      case 4:
+      case SettingsNavigationIconKind.Forward:
+      case SettingsNavigationIconKind.Back:
         BeginPath();
-        PathPoint(Kind == 4 ? 22 : 10, 5);
-        PathPoint(Kind == 4 ? 11 : 21, 16);
-        PathPoint(Kind == 4 ? 22 : 10, 27);
-        Stroke(mesh, Kind == 4 ? 4 : 2.8f);
+        bool back = Kind == SettingsNavigationIconKind.Back;
+        PathPoint(back ? 22 : 10, 5);
+        PathPoint(back ? 11 : 21, 16);
+        PathPoint(back ? 22 : 10, 27);
+        Stroke(mesh, back ? 4 : 2.8f);
         break;
-      case 5:
+      case SettingsNavigationIconKind.Close:
         Line(mesh, 8, 8, 24, 24, 3.2f);
         Line(mesh, 24, 8, 8, 24, 3.2f);
         break;
-      case 6:
+      case SettingsNavigationIconKind.Effects:
         BeginPath();
         PathPoint(16, 4);
         PathPoint(19.5f, 12.5f);

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 const [root, target] = process.argv.slice(2);
 const settings = path.join(root, 'Element/Presentation/Settings');
-const files = fs.readdirSync(settings).filter(name => name.endsWith('.cs') && name !== 'UIInteractionState.cs').map(name => path.join(settings, name));
+const files = fs.readdirSync(settings, { recursive: true }).filter(name => name.endsWith('.cs') && name !== 'UIInteractionState.cs').map(name => path.join(settings, name));
 const configuration = path.join(root, 'Element/Configuration');
 for (const name of fs.readdirSync(configuration, { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(configuration, name));
@@ -21,7 +21,7 @@ files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerFailure.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Domain/Judgement/JudgementColors.cs'));
-for (const folder of ['Element/Application/Updates', 'Element/Application/Files', 'Element/Application/Profiles', 'Element/Application/Settings'])
+for (const folder of ['Element/Application/Updates', 'Element/Application/Files', 'Element/Application/Profiles', 'Element/Application/Settings', 'Element/Application/Effects'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));

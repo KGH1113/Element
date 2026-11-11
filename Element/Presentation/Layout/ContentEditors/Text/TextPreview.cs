@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text;
-using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;

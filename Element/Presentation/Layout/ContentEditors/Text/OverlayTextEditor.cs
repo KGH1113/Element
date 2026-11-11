@@ -1,7 +1,6 @@
 using System;
 using Element.Application.Input;
 using Element.Application.Layout;
-using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;

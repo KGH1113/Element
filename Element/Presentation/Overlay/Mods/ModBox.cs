@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Presentation.Overlay.Elements;
@@ -6,7 +5,6 @@ using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
-using TMPro;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Mods;

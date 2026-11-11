@@ -2,7 +2,6 @@ using System.Text;
 using Element.Application.Overlay;
 using Element.Domain.Judgement;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Overlay.Canvas;
 
 namespace Element.Presentation.Overlay.Values;
 

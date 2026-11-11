@@ -1,5 +1,4 @@
 using System;
-using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;

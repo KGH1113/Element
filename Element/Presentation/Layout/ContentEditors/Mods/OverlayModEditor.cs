@@ -11,7 +11,6 @@ using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
-using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;

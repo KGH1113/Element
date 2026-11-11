@@ -3,13 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 

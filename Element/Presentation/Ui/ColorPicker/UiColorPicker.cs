@@ -2,7 +2,6 @@ using System;
 using System.Globalization;
 using Element.Application.Input;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;

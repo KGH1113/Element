@@ -5,7 +5,6 @@ using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
-using ElementKit.Hosting;
 
 namespace Element.Presentation.Overlay.Canvas;
 

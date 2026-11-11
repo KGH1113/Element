@@ -1,4 +1,3 @@
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;

@@ -1,12 +1,3 @@
-using System;
-using System.Collections.Generic;
-using Element.Application.Fonts;
-using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Fonts;
-using TMPro;
-using UnityEngine;
-using Object = UnityEngine.Object;
-
 namespace Element.Presentation.Overlay.Fonts;
 
 internal enum OverlayFontStatus

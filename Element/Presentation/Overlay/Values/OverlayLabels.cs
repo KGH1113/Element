@@ -1,5 +1,3 @@
-using UnityEngine;
-
 namespace Element.Presentation.Overlay.Values;
 
 internal readonly struct OverlayLabels

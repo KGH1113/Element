@@ -1,11 +1,9 @@
 using System.Text;
-using Element.Application;
+using Element.Application.Overlay;
 using Element.Domain.Combo;
 using Element.Domain.Elements;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
-using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Overlay.Combo;
 
@@ -15,28 +13,26 @@ internal sealed class ComboValues : IOverlayView<ComboSnapshot>
 {
   private readonly OverlayValues _values;
   private readonly StringBuilder _builder = new(16);
-  private GameObject _songTitleRoot;
-  private SongTitleMirror _songTitleMirror;
+  private ISongTitleMirror _songTitle;
   private int _lastCount = -1;
 
-  public ComboValues(OverlayCanvasHost host, IRenderVideo video)
+  public ComboValues(OverlayValues values, ISongTitleMirror songTitle)
   {
-    _values = host.Values;
-    _songTitleRoot = new GameObject("Song title source");
-    _songTitleRoot.transform.SetParent(host.Root.transform, false);
-    _songTitleMirror = _songTitleRoot.AddComponent<SongTitleMirror>();
-    _songTitleMirror.Initialize(title => _values.Set(OverlayValueId.SongTitle, title), video);
-    _songTitleRoot.SetActive(false);
+    _values = values;
+    _songTitle = songTitle;
+    _songTitle.Follow(
+      (title, size) => _values.Set(OverlayValueId.SongTitle, SongTitleMarkupNormalizer.Normalize(title, size))
+    );
   }
 
   public void Show()
   {
-    _songTitleRoot?.SetActive(true);
+    _songTitle?.SetActive(true);
   }
 
   public void Hide()
   {
-    _songTitleRoot?.SetActive(false);
+    _songTitle?.SetActive(false);
     _values.Clear(OverlayValueId.Combo);
     _values.Clear(OverlayValueId.SongTitle);
     _lastCount = -1;
@@ -53,10 +49,7 @@ internal sealed class ComboValues : IOverlayView<ComboSnapshot>
 
   public void Dispose()
   {
-    _songTitleMirror?.Release();
-    if (_songTitleRoot != null)
-      Object.Destroy(_songTitleRoot);
-    _songTitleRoot = null;
-    _songTitleMirror = null;
+    _songTitle?.Release();
+    _songTitle = null;
   }
 }

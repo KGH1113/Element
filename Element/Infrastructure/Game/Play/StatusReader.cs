@@ -1,5 +1,6 @@
 using System;
-using Element.Application;
+using Element.Application.Rendering;
+using Element.Application.Status;
 using Element.Domain.Status;
 using UnityEngine;
 

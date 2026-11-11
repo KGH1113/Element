@@ -1,4 +1,4 @@
-using Element.Application;
+using Element.Application.Bpm;
 using Element.Domain.Bpm;
 
 namespace Element.Infrastructure.Game.Play;

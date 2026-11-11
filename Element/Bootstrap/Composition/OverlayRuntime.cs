@@ -1,9 +1,16 @@
 using System;
 using System.IO;
-using Element.Application;
-using Element.Application.Features;
+using Element.Application.Attempts;
+using Element.Application.Bpm;
+using Element.Application.Combo;
 using Element.Application.Gameplay;
+using Element.Application.Judgement;
 using Element.Application.Mods;
+using Element.Application.Overlay;
+using Element.Application.Rendering;
+using Element.Application.Status;
+using Element.Application.TimingScale;
+using Element.Domain.Judgement;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
@@ -32,6 +39,7 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
   private OverlayFonts _fonts;
   private OverlayCoordinator _coordinator;
   private StatusTimeTicker _timeTicker;
+  private readonly JudgementReader _judgements = new();
 
   /// <param name="attempts">Null when attempt counting could not start.</param>
   /// <param name="video">A video rendered offline, which values follow while it renders.</param>
@@ -68,10 +76,10 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
       Canvas.ConfigureLayouts(main.Settings.OverlayLayouts);
       OverlayValues values = Canvas.Values;
       _coordinator = new OverlayCoordinator(
-        new JudgementFeature(new JudgementReader(), new JudgementValues(values)),
+        new JudgementFeature(_judgements, new JudgementValues(values)),
         new StatusFeature(new StatusReader(video), new StatusValues(values)),
         new BpmFeature(new BpmReader(), new BpmValues(values)),
-        new ComboFeature(new ComboValues(Canvas, video)),
+        new ComboFeature(new ComboValues(values, SongTitleMirror.Create(Canvas.Root.transform, video))),
         new TimingScaleFeature(new TimingScaleReader(), new TimingScaleValues(values)),
         new AttemptFeature(attempts, new AttemptValues(values))
       );
@@ -111,11 +119,16 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
     Canvas?.SetVisible(false);
   }
 
-  public void RegisterHit(scrMarginTracker tracker, HitMargin hit) => _coordinator?.RegisterHit(tracker, hit);
+  public void RegisterHit(scrMarginTracker tracker, HitMargin hit)
+  {
+    if (_coordinator is { IsVisible: true })
+      _coordinator.RegisterHit(CountsOf(tracker), hit);
+  }
 
   public void RefreshAfterReset(scrMarginTracker tracker)
   {
-    _coordinator?.RefreshAfterReset(tracker);
+    if (_coordinator is { IsVisible: true })
+      _coordinator.RefreshAfterReset(CountsOf(tracker));
     Canvas?.Values.Settle();
     if (_coordinator is { IsVisible: true })
       _timeTicker?.StartTicking();
@@ -124,7 +137,8 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
   public void RefreshAfterDeath(scrMarginTracker tracker)
   {
     _timeTicker?.StopTicking();
-    _coordinator?.RefreshAfterReset(tracker);
+    if (_coordinator is { IsVisible: true })
+      _coordinator.RefreshAfterReset(CountsOf(tracker));
     Canvas?.Values.Settle();
   }
 
@@ -143,6 +157,10 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
     _fontLoader?.ReleaseFallbackGlyphs();
     _fonts?.ReleaseGlyphs();
   }
+
+  // The game reports the tracker that changed; the overlay shows only the single player's.
+  private JudgementSnapshot? CountsOf(scrMarginTracker tracker) =>
+    _judgements.TryRead(tracker, out JudgementSnapshot counts) ? counts : null;
 
   public void Dispose()
   {

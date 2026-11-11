@@ -1,6 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.Status;
 
-namespace Element.Application.Features;
+namespace Element.Application.Status;
 
 internal sealed class StatusFeature : IOverlayFeature
 {
@@ -19,7 +20,7 @@ internal sealed class StatusFeature : IOverlayFeature
     _reader.ResetRunState();
     _snapshot = default;
     _view.Show();
-    RefreshAll();
+    Refresh();
   }
 
   public void Hide()
@@ -27,7 +28,7 @@ internal sealed class StatusFeature : IOverlayFeature
     _view.Hide();
   }
 
-  public void RefreshAll()
+  public void Refresh()
   {
     _snapshot = _reader.ReadMetrics(_snapshot);
     _snapshot = _reader.ReadTime(_snapshot);

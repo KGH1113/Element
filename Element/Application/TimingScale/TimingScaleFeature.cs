@@ -1,6 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.TimingScale;
 
-namespace Element.Application.Features;
+namespace Element.Application.TimingScale;
 
 internal sealed class TimingScaleFeature : IOverlayFeature
 {

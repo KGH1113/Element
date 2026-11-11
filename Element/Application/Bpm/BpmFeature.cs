@@ -1,6 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.Bpm;
 
-namespace Element.Application.Features;
+namespace Element.Application.Bpm;
 
 internal sealed class BpmFeature : IOverlayFeature
 {

@@ -1,15 +1,19 @@
 using System;
 using System.Collections.Generic;
-using Element.Application;
-using TMPro;
+using Element.Application.Overlay;
+using Element.Application.Rendering;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Overlay.Combo;
+namespace Element.Infrastructure.Game.Play;
 
-internal sealed class SongTitleMirror : MonoBehaviour
+/// <summary>
+/// ADOFAI's level name, hidden while active and its text handed on as it changes.
+/// During an offline render, the name play mode shows instead.
+/// </summary>
+internal sealed class SongTitleMirror : MonoBehaviour, ISongTitleMirror
 {
-  private Action<string> _target;
+  private Action<string, int> _target;
   private IRenderVideo _video;
   private Text _source;
   private string _lastText;
@@ -20,15 +24,26 @@ internal sealed class SongTitleMirror : MonoBehaviour
   private bool _playPractice;
   private string _playTitle;
 
-  public void Initialize(Action<string> target, IRenderVideo video)
+  /// <summary>Starts inactive under <paramref name="parent"/>.</summary>
+  public static SongTitleMirror Create(Transform parent, IRenderVideo video)
   {
-    _target = target;
-    _video = video;
+    GameObject root = new("Song title source");
+    root.SetActive(false);
+    root.transform.SetParent(parent, false);
+    SongTitleMirror mirror = root.AddComponent<SongTitleMirror>();
+    mirror._video = video;
+    return mirror;
   }
+
+  public void Follow(Action<string, int> changed) => _target = changed;
+
+  public void SetActive(bool active) => gameObject.SetActive(active);
 
   public void Release()
   {
     RestoreSource();
+    if (this != null)
+      Destroy(gameObject);
   }
 
   private void OnEnable()
@@ -83,7 +98,7 @@ internal sealed class SongTitleMirror : MonoBehaviour
     if (_lastText == text && _lastSourceFontSize == sourceFontSize)
       return;
 
-    _target(SongTitleMarkupNormalizer.Normalize(text, sourceFontSize));
+    _target(text, sourceFontSize);
     _lastText = text;
     _lastSourceFontSize = sourceFontSize;
   }

@@ -1,6 +1,7 @@
+using Element.Application.Overlay;
 using Element.Domain.Judgement;
 
-namespace Element.Application.Features;
+namespace Element.Application.Judgement;
 
 internal sealed class JudgementFeature : IOverlayFeature
 {
@@ -30,11 +31,8 @@ internal sealed class JudgementFeature : IOverlayFeature
       _view.Render(snapshot);
   }
 
-  public void Refresh(scrMarginTracker tracker)
-  {
-    if (_reader.TryRead(tracker, out JudgementSnapshot snapshot))
-      _view.Render(snapshot);
-  }
+  /// <summary>Shows the counts the game just changed, read where they changed.</summary>
+  public void Refresh(JudgementSnapshot counts) => _view.Render(counts);
 
   public void Dispose()
   {

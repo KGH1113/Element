@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Application;
+namespace Element.Application.Overlay;
 
 internal interface IOverlayView<TSnapshot> : IDisposable
 {

@@ -9,11 +9,12 @@ using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
 using Element.Infrastructure.ElementNote.App;
+using Element.Infrastructure.ElementNote.Ipc;
 using UnityEngine;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 
-internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyViewers, IDisposable
+internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyViewers, IElementIpcEndpoint, IDisposable
 {
   private static readonly TimeSpan ErrorCheckInterval = TimeSpan.FromMilliseconds(500);
 
@@ -41,6 +42,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
   private string _lastLoggedError;
   private bool _hiddenInApp;
   private bool _connected;
+  private readonly Func<string, string, string> _requestDescriptor;
   public Action EnabledChanged { get; set; }
 
   public DmNoteNativeIpcFeature(
@@ -61,6 +63,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
     _logError = logError ?? ((_, _) => { });
     _logWarning = logWarning ?? (_ => { });
     _appFocus = appFocus;
+    _requestDescriptor = (peer, json) => _ipc.SendCommandToPeer(peer, NativeViewerSession.DescribeCommand, json);
     _galleryTargets = new[] { CreateTarget("hand", null), CreateTarget("foot", null) };
     _layoutTargets = new List<NativeViewerLayoutTarget>(_galleryTargets);
   }
@@ -340,7 +343,13 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
 
   public NativeViewerStatus Status => _session.Status;
 
+  public void AddCommands(IFeatureBuilder builder) { }
+
   public void Attach(IFeatureRegistration ipc) => _ipc = ipc;
+
+  public void OnPeerAttached(IClientConnection peer) { }
+
+  public void OnPeerDetached(IClientConnection peer) => OnPeerDisconnected(peer);
 
   public void SetActive(bool active)
   {
@@ -393,11 +402,8 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IInGameKeyVie
       _host.ApplyHighlight(_highlight());
       CheckPageErrors();
     }
-    IFeatureRegistration ipc = _ipc;
-    Exception error = _session.RequestIfDue(
-      DateTime.UtcNow,
-      ipc == null ? null : (peer, json) => ipc.SendCommandToPeer(peer, NativeViewerSession.DescribeCommand, json)
-    );
+    // A delegate made once: a lambda here would allocate every frame.
+    Exception error = _session.RequestIfDue(DateTime.UtcNow, _ipc == null ? null : _requestDescriptor);
     if (error != null)
       LogOnce("Request native ElementNote viewers", error);
   }

@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using AdofaiIpc.Contracts;
 using Element.Application.Rendering;
 using Newtonsoft.Json;
@@ -12,7 +13,7 @@ namespace Element.Infrastructure.ElementNote.Ipc;
 /// Its answers come back as <see cref="ReplyCommand"/>, which runs off the game
 /// thread: the game thread is the one waiting for them.
 /// </summary>
-internal sealed class KeyViewerRenderIpc : IKeyViewerRenderApp
+internal sealed class KeyViewerRenderIpc : IKeyViewerRenderApp, IElementIpcEndpoint
 {
   public const string ReplyCommand = "render.reply";
   public const string AvailableEvent = "render.available";
@@ -49,6 +50,22 @@ internal sealed class KeyViewerRenderIpc : IKeyViewerRenderApp
         return _ipc != null && _peerId != null;
     }
   }
+
+  // The game thread is blocked waiting for this reply, so it must not run there.
+  public void AddCommands(IFeatureBuilder builder) =>
+    builder.OnCommand(
+      ReplyCommand,
+      IpcExecutionContext.Background,
+      command =>
+      {
+        OnReply(command);
+        return Task.CompletedTask;
+      }
+    );
+
+  public void OnPeerAttached(IClientConnection peer) { }
+
+  public void OnPeerDetached(IClientConnection peer) => OnPeerDisconnected(peer.PeerId);
 
   public void Attach(IFeatureRegistration ipc)
   {

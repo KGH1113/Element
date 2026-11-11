@@ -16,6 +16,7 @@ using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 
@@ -66,7 +67,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _apply = apply;
     _reloadSettings = reloadSettings;
     _viewerModeChanged = viewerModeChanged;
-    _font = SettingsFonts.Choose(overlayFont);
+    _font = UiFonts.Choose(overlayFont);
     nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);

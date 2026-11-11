@@ -1,9 +1,10 @@
 using System.Collections.Generic;
 using Element.Configuration.Effects;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -72,7 +73,7 @@ internal sealed class EffectsPage : SettingsPage
       936,
       44,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     RefreshPresetGallery();
   }
@@ -108,7 +109,7 @@ internal sealed class EffectsPage : SettingsPage
         600,
         44,
         18,
-        SettingsUiFactory.Muted
+        UiPalette.Muted
       );
     Ui.RefreshTheme();
     // Rebuilt cards begin at the origin. Reflow immediately, including when only
@@ -146,7 +147,7 @@ internal sealed class EffectsPage : SettingsPage
       220,
       22,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     SettingsUiFactory.StretchWidth(count.rectTransform, 18, 18);
     if (preset.HasShortcut)
@@ -159,7 +160,7 @@ internal sealed class EffectsPage : SettingsPage
         220,
         22,
         13,
-        SettingsUiFactory.Muted
+        UiPalette.Muted
       );
       shortcut.alignment = TextAlignmentOptions.MidlineRight;
       float shortcutWidth = Mathf.Min(shortcut.preferredWidth, 150);
@@ -177,10 +178,10 @@ internal sealed class EffectsPage : SettingsPage
       240,
       22,
       13,
-      selected ? Ui.SoftAccent : SettingsUiFactory.Muted
+      selected ? Ui.SoftAccent : UiPalette.Muted
     );
     SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
-    _galleryUi.Bind(() => state.color = selected ? Ui.SoftAccent : SettingsUiFactory.Muted);
+    _galleryUi.Bind(() => state.color = selected ? Ui.SoftAccent : UiPalette.Muted);
     if (selected)
     {
       var marker = _galleryUi.Panel("Selected preset", card.transform, 0, 0, 3, 140, Ui.SoftAccent, false);
@@ -197,8 +198,8 @@ internal sealed class EffectsPage : SettingsPage
       36,
       20,
       () => _editor.Edit(preset),
-      SettingsUiFactory.Muted,
-      SettingsUiFactory.Foreground,
+      UiPalette.Muted,
+      UiPalette.Foreground,
       out SettingsEditIcon _
     );
     ((RectTransform)edit.transform).anchorMin = ((RectTransform)edit.transform).anchorMax = new Vector2(1, 1);

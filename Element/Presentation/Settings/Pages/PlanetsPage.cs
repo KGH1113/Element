@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -54,7 +54,7 @@ internal sealed class PlanetsPage : SettingsPage
         _planetIndex = value;
       }
     );
-    _planetPreview = Ui.Panel("Planet preview", Root, 0, 156, 300, 248, SettingsUiFactory.Surface).rectTransform;
+    _planetPreview = Ui.Panel("Planet preview", Root, 0, 156, 300, 248, UiPalette.Surface).rectTransform;
     RectTransform artwork = Ui.Rect("Game planet preview", _planetPreview, 16, 16, 268, 168);
     _planetImage = artwork.gameObject.AddComponent<RawImage>();
     _planetImage.raycastTarget = false;
@@ -67,7 +67,7 @@ internal sealed class PlanetsPage : SettingsPage
       268,
       28,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     _planetPreviewLabel.alignment = TextAlignmentOptions.Midline;
     _planetComponents = Ui.Rect("Planet components", Root, 316, 156, 620, 248);
@@ -112,7 +112,7 @@ internal sealed class PlanetsPage : SettingsPage
 
   private void CreatePartRow(int part, string name)
   {
-    var row = Ui.Panel(name, _planetComponents, 0, 72 + part * 68, 620, 60, SettingsUiFactory.Surface).rectTransform;
+    var row = Ui.Panel(name, _planetComponents, 0, 72 + part * 68, 620, 60, UiPalette.Surface).rectTransform;
     _planetRows.Add(row);
     Ui.Text(name, row, 16, 10, 112, 40, 16);
     Button source = Ui.Button(
@@ -194,7 +194,7 @@ internal sealed class PlanetsPage : SettingsPage
 
   private static Color ParsePlanetColor(PlanetComponentAppearance appearance)
   {
-    if (!OverlayTheme.TryParseHighlight(appearance.ColorHex, out Color color))
+    if (!UiTheme.TryParseHighlight(appearance.ColorHex, out Color color))
       color = Color.white;
     color.a = appearance.Opacity / 100;
     return color;

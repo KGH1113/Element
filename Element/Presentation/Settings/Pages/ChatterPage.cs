@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
 using Element.Domain.Tweaks;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -74,11 +75,11 @@ internal sealed class ChatterPage : SettingsPage
       936,
       44,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     _chatterHint.textWrappingMode = TextWrappingModes.Normal;
     CreateIgnoredKeysCard(chatter);
-    _chatterBlocked = Ui.Text("", Root, 0, 256, 936, 24, 14, SettingsUiFactory.Muted);
+    _chatterBlocked = Ui.Text("", Root, 0, 256, 936, 24, 14, UiPalette.Muted);
     _chatterConflict = Ui.Text(
       L(
         "KeyboardChatterBlocker도 켜져 있어요. 입력이 두 번 걸러지지 않도록 한쪽만 사용하세요.",
@@ -90,7 +91,7 @@ internal sealed class ChatterPage : SettingsPage
       936,
       44,
       13,
-      SettingsPalette.Error
+      UiPalette.Error
     );
     _chatterConflict.textWrappingMode = TextWrappingModes.Normal;
     _chatterConflict.gameObject.SetActive(IsAssemblyLoaded("KeyboardChatterBlocker"));
@@ -107,10 +108,10 @@ internal sealed class ChatterPage : SettingsPage
 
   private void CreateIgnoredKeysCard(ChatterBlockerOptions chatter)
   {
-    _ignoredCard = Ui.Panel("Ignored keys", Root, 0, 0, 936, 160, SettingsUiFactory.Surface).rectTransform;
+    _ignoredCard = Ui.Panel("Ignored keys", Root, 0, 0, 936, 160, UiPalette.Surface).rectTransform;
     TextMeshProUGUI title = Ui.Text(L("막지 않을 키", "Keys never blocked"), _ignoredCard, 16, 16, 700, 28, 17);
     SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
-    _ignoredDescription = Ui.Text("", _ignoredCard, 16, 48, 904, 24, 14, SettingsUiFactory.Muted);
+    _ignoredDescription = Ui.Text("", _ignoredCard, 16, 48, 904, 24, 14, UiPalette.Muted);
     _ignoredDescription.alignment = TextAlignmentOptions.TopLeft;
     _ignoredKeys = Ui.Text("", _ignoredCard, 16, 0, 904, 24, 15);
     _ignoredKeys.alignment = TextAlignmentOptions.TopLeft;
@@ -200,7 +201,7 @@ internal sealed class ChatterPage : SettingsPage
     foreach (KeyCode key in keys)
       names.Add(ShortcutKeys.KeyLabel(key));
     _ignoredKeys.text = names.Count == 0 ? L("없음", "None") : string.Join(" · ", names);
-    _ignoredKeys.color = names.Count == 0 ? SettingsUiFactory.Muted : SettingsUiFactory.Foreground;
+    _ignoredKeys.color = names.Count == 0 ? UiPalette.Muted : UiPalette.Foreground;
     TextMeshProUGUI change = _ignoredChange.GetComponentInChildren<TextMeshProUGUI>(true);
     if (change != null)
       change.text = _ignoredCapture ? L("완료", "Done") : L("키 바꾸기", "Change keys");

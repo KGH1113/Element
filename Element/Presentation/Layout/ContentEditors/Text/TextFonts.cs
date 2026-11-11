@@ -1,10 +1,10 @@
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Configuration.Overlay;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 

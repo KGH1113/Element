@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 
@@ -18,7 +19,7 @@ internal sealed class LayoutStatusLine
 
   public void Build(SettingsUiFactory ui, RectTransform toolbar)
   {
-    _text = ui.Text("", toolbar, 12, 102, LayoutSession.ToolbarWidth - 24, 14, 11, SettingsUiFactory.Muted);
+    _text = ui.Text("", toolbar, 12, 102, LayoutSession.ToolbarWidth - 24, 14, 11, UiPalette.Muted);
     _text.alignment = TextAlignmentOptions.Midline;
   }
 
@@ -51,9 +52,9 @@ internal sealed class LayoutStatusLine
   {
     bool message = Showing;
     _text.color =
-      !message ? SettingsUiFactory.Muted
-      : _note ? SettingsUiFactory.Foreground
-      : LayoutColors.Warning;
+      !message ? UiPalette.Muted
+      : _note ? UiPalette.Foreground
+      : UiPalette.Error;
     if (!message)
       _note = false;
     if (Time.unscaledTime >= _until)

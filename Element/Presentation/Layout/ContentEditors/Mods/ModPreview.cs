@@ -6,6 +6,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementKit.Hosting;
 using UnityEngine;
@@ -56,7 +57,7 @@ internal sealed class ModPreview
 
   public void BuildGrowMark(SettingsUiFactory ui, RectTransform frame)
   {
-    _growMark = ui.Capsule("Grow point", frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
+    _growMark = ui.Capsule("Grow point", frame, 0, 0, 12, 12, UiPalette.SoftAccent);
     _growMark.gameObject.SetActive(false);
   }
 

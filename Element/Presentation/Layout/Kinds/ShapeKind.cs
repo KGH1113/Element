@@ -4,11 +4,11 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shape;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -22,7 +22,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
   public ShapeKind(ILayoutEditing editing)
     : base(editing)
   {
-    _menu = new ListMenu(editing.Session.NewUi, "Shape kind menu", MenuWidth, MenuRow, LayoutColors.Menu);
+    _menu = new ListMenu(editing.Session.NewUi, "Shape kind menu", MenuWidth, MenuRow, UiPalette.Menu);
     editing.AddMenu.AddSubmenu(_menu, () => _menu.HeightFor(3));
   }
 
@@ -64,7 +64,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
         kinds[i].Icon,
         11,
         22,
-        SettingsPalette.SoftAccent,
+        UiPalette.SoftAccent,
         true,
         () => Add(kind)
       );

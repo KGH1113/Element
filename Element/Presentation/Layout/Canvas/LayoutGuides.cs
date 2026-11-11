@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.Canvas;
@@ -71,7 +72,7 @@ internal sealed class LayoutGuides
   /// <summary>Once a frame: draws what the last snap found.</summary>
   public void Refresh(float uiScale)
   {
-    _spacing.color = SettingsPalette.SoftAccent;
+    _spacing.color = UiPalette.SoftAccent;
     _spacing.SetGuides(_horizontalSpacing, _verticalSpacing, uiScale);
     _vertical.gameObject.SetActive(!float.IsNaN(_x));
     _horizontal.gameObject.SetActive(!float.IsNaN(_y));

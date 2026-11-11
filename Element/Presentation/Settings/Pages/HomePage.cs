@@ -1,8 +1,9 @@
 using System;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -96,7 +97,7 @@ internal sealed class HomePage : SettingsPage
     icon.raycastTarget = false;
     _cardIcons[index] = icon.rectTransform;
     _cardTitles[index] = Ui.Text(title, card.transform, 24, 84, 252, 36, 25);
-    _cardDescriptions[index] = Ui.Text(description, card.transform, 24, 136, 252, 68, 15, SettingsUiFactory.Muted);
+    _cardDescriptions[index] = Ui.Text(description, card.transform, 24, 136, 252, 68, 15, UiPalette.Muted);
     _cardDescriptions[index].alignment = TextAlignmentOptions.TopLeft;
     _cardDividers[index] = Ui.Panel(
       "Action divider",
@@ -116,7 +117,7 @@ internal sealed class HomePage : SettingsPage
     _cardArrows[index] = arrow.rectTransform;
     Ui.Bind(() =>
     {
-      icon.color = SettingsUiFactory.Muted;
+      icon.color = UiPalette.Muted;
       arrow.color = Ui.SoftAccent;
       _cardActions[index].color = Ui.SoftAccent;
     });

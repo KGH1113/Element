@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
 using NVector2 = System.Numerics.Vector2;
@@ -272,5 +272,5 @@ internal sealed class ShapeGraphic : MaskableGraphic
       points.RemoveAt(points.Count - 1);
   }
 
-  public static Color Resolve(OverlayColorSettings color) => OverlayTextComposer.Resolve(color, OverlayTheme.Accent);
+  public static Color Resolve(OverlayColorSettings color) => OverlayTextComposer.Resolve(color, UiTheme.Accent);
 }

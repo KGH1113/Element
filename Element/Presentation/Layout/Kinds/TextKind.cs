@@ -1,9 +1,9 @@
+using Element.Application.Layout;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 

@@ -11,14 +11,14 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Layout;
@@ -167,7 +167,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     {
       _openingLayout.Restore(_session.Host.LayoutSettings);
       _session.Preferences.HighlightColor = _openingColor;
-      OverlayTheme.SetHighlight(_openingColor);
+      UiTheme.SetHighlight(_openingColor);
       _session.Preferences.OverlayFont = _openingFont;
       _session.Fonts?.SetDefault(_openingFont);
       RefreshLayouts();

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -62,7 +63,7 @@ internal sealed class ModListPopover : IPopover
       width - Padding * 2,
       Title,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     heading.textWrappingMode = TextWrappingModes.NoWrap;
 
@@ -104,8 +105,7 @@ internal sealed class ModListPopover : IPopover
         _reduceMotion
       );
       if (i == request.Selected)
-        _ui.Capsule("Picked", row.transform, 12, (Row - 2) * .5f - 4, 8, 8, SettingsPalette.SoftAccent).raycastTarget =
-          false;
+        _ui.Capsule("Picked", row.transform, 12, (Row - 2) * .5f - 4, 8, 8, UiPalette.SoftAccent).raycastTarget = false;
       TextMeshProUGUI label = _ui.Text(
         options[i],
         row.transform,
@@ -114,7 +114,7 @@ internal sealed class ModListPopover : IPopover
         width - Padding * 2 - 30,
         Row - 2,
         14,
-        i == request.Selected ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted
+        i == request.Selected ? UiPalette.Foreground : UiPalette.Muted
       );
       label.alignment = TextAlignmentOptions.MidlineLeft;
       label.textWrappingMode = TextWrappingModes.NoWrap;

@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -58,7 +59,7 @@ internal sealed class OverlayCornerArc : SettingsVectorGraphic
   /// <summary>Muted at rest, the accent while hovered or edited.</summary>
   public static void Paint(Button button, bool selected, bool reduceMotion)
   {
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     Color rest = selected ? accent : new Color(1, 1, 1, .5f);
     ((SettingsButton)button).SetPalette(
       new ColorBlock

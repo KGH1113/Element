@@ -3,11 +3,11 @@ using System.Globalization;
 using Element.Application.Input;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -215,8 +215,8 @@ internal sealed partial class SettingsColorPicker : IDisposable
     // Right-aligned text puts the caret on the field's edge; keep room for it.
     _opacity.textComponent.margin = new Vector4(0, 0, 2, 0);
     _opacity.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
-    _ui.Text("%", _opacity.transform, 49, 0, 17, 40, 13, SettingsUiFactory.Muted);
-    _opacityLabel = _ui.Text(L("불투명도", "Opacity"), Root, 16, 140, 176, 40, 14, SettingsUiFactory.Muted);
+    _ui.Text("%", _opacity.transform, 49, 0, 17, 40, 13, UiPalette.Muted);
+    _opacityLabel = _ui.Text(L("불투명도", "Opacity"), Root, 16, 140, 176, 40, 14, UiPalette.Muted);
     _opacitySlot = _ui.Rect("Opacity slot", Root, 200, 294, 72, 40);
     _opacitySlot.gameObject.SetActive(false);
     _reset = _ui.Button(L("기본값", "Default"), Root, 200, 254, 72, 40, ResetColor);
@@ -224,7 +224,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     SettingsUiFactory.Stretch(resetText.rectTransform, 6, 0, 6, 0);
     resetText.fontSize = 14;
     resetText.textWrappingMode = TextWrappingModes.NoWrap;
-    _error = _ui.Text("", Root, 16, 297, 256, 16, 11, SettingsPalette.Error);
+    _error = _ui.Text("", Root, 16, 297, 256, 16, 11, UiPalette.Error);
     BuildGradient();
     Root.gameObject.SetActive(false);
   }
@@ -273,12 +273,12 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _dragging = -1;
     if (_working.IsGradient && !(keepStop && _stop >= 0 && _stop < _working.Gradient.Stops.Count))
       _stop = OverlayGradientEdits.Order(_working.Gradient)[0];
-    Color color = value.Highlight ? OverlayTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(value.Hex);
+    Color color = value.Highlight ? UiTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(value.Hex);
     color.a = Mathf.Clamp01(value.Alpha);
     if (IsGradient)
     {
       OverlayGradientStop stop = _working.Gradient.Stops[_stop];
-      color = value.Highlight ? OverlayTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(stop.Hex);
+      color = value.Highlight ? UiTheme.Accent : Overlay.Elements.OverlayTextComposer.ParseHex(stop.Hex);
       color.a = Mathf.Clamp01(ShownAlpha?.Invoke(_stop) ?? stop.Alpha);
     }
     _source.Selected = value.Highlight ? 0 : 1;
@@ -301,7 +301,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     if (SetGradientSource(highlight))
       return;
     _followsHighlight = highlight;
-    Color color = highlight ? OverlayTheme.Accent : _value;
+    Color color = highlight ? UiTheme.Accent : _value;
     color.a = _value.a;
     Color.RGBToHSV(color, out _h, out _s, out _v);
     Layout();
@@ -439,7 +439,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
         Focus(_opacity);
         return false;
       }
-      Color accent = OverlayTheme.Accent;
+      Color accent = UiTheme.Accent;
       accent.a = alpha;
       Apply(accent, true, true);
       return true;

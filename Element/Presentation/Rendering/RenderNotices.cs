@@ -1,5 +1,5 @@
 using Element.Application.Rendering;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Rendering;
 

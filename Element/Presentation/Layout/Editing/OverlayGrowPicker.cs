@@ -4,10 +4,11 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout;
 
@@ -29,7 +30,7 @@ internal sealed class OverlayGrowPicker
 
   public OverlayGrowPicker(SettingsUiFactory ui, Transform parent, bool reduceMotion, Action<OverlayGrowth> picked)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule("Grow from", parent, 0, 0, Size, Size, LayoutColors.Bar);
+    SettingsCapsuleGraphic surface = ui.Capsule("Grow from", parent, 0, 0, Size, Size, UiPalette.Bar);
     surface.raycastTarget = true;
     Root = surface.rectTransform;
     // The box the points belong to.
@@ -62,7 +63,7 @@ internal sealed class OverlayGrowPicker
       OverlayGrowArrow arrow = ui.Rect("Arrow", button.transform, 0, 0, Cell - 2, Cell - 2)
         .gameObject.AddComponent<OverlayGrowArrow>();
       arrow.raycastTarget = false;
-      arrow.color = SettingsUiFactory.Foreground;
+      arrow.color = UiPalette.Foreground;
       _cells.Add((button, dot, arrow));
     }
     Auto = EditorCapsules.CapsuleButton(
@@ -82,7 +83,7 @@ internal sealed class OverlayGrowPicker
     _autoSurface = (SettingsCapsuleGraphic)Auto.targetGraphic;
     _autoLabel = Auto.GetComponentInChildren<TextMeshProUGUI>();
     AutoWidth = Mathf.Ceil(_autoLabel.GetPreferredValues(_autoLabel.text).x) + 26;
-    Caption = ui.Text("", parent, 0, 0, 10, 10, 12, SettingsUiFactory.Muted);
+    Caption = ui.Text("", parent, 0, 0, 10, 10, 12, UiPalette.Muted);
     Caption.textWrappingMode = TextWrappingModes.Normal;
     Caption.alignment = TextAlignmentOptions.TopLeft;
   }
@@ -102,7 +103,7 @@ internal sealed class OverlayGrowPicker
     int chosen = auto ? (int)point : (int)growth;
     int row = chosen / 3,
       column = chosen % 3;
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     for (int i = 0; i < 9; i++)
     {
       (Button _, SettingsCapsuleGraphic dot, OverlayGrowArrow arrow) = _cells[i];
@@ -116,16 +117,14 @@ internal sealed class OverlayGrowPicker
         arrow.Point(new Vector2(dx, dy));
       float size = selected ? 12 : 5;
       Center(dot.rectTransform, size);
-      dot.color = selected
-        ? (auto ? Color.Lerp(SettingsUiFactory.Muted, accent, .6f) : accent)
-        : new Color(1, 1, 1, .32f);
+      dot.color = selected ? (auto ? Color.Lerp(UiPalette.Muted, accent, .6f) : accent) : new Color(1, 1, 1, .32f);
     }
     _autoSurface.color = Color.white;
     ColorBlock colors = Auto.colors;
     Color on = new(accent.r, accent.g, accent.b, .3f);
     colors.normalColor = colors.selectedColor = auto ? on : new Color(1, 1, 1, .07f);
     ((SettingsButton)Auto).SetPalette(colors);
-    _autoLabel.color = auto ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+    _autoLabel.color = auto ? UiPalette.Foreground : UiPalette.Muted;
     Caption.text = auto
       ? L("자동: 화면에 놓인 자리에 맞춰요. 지금은 ", "Auto: follows where it sits. For now, ")
         + PointName((Anchor9)chosen, false)

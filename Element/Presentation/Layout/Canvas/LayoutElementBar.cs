@@ -1,10 +1,11 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -169,13 +170,13 @@ internal sealed class LayoutElementBar : IPopover
     _width = width;
     _height = Height;
     _ui = _session.NewUi();
-    Image panel = _ui.Panel("Element toolbar", _session.Root.transform, 0, 0, width, Height, LayoutColors.Toolbar);
+    Image panel = _ui.Panel("Element toolbar", _session.Root.transform, 0, 0, width, Height, UiPalette.Toolbar);
     panel.raycastTarget = true;
     _panel = panel.rectTransform;
     LayoutActionIcon grip = _ui.Rect("Drag element toolbar", _panel, 10, 16, 14, 24)
       .gameObject.AddComponent<LayoutActionIcon>();
     grip.Kind = LayoutAction.Grip;
-    grip.color = SettingsUiFactory.Muted;
+    grip.color = UiPalette.Muted;
     grip.raycastTarget = false;
     return _panel;
   }

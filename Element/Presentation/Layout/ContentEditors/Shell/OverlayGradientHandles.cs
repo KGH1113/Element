@@ -5,6 +5,7 @@ using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -240,7 +241,7 @@ internal sealed class OverlayGradientHandles
       );
     if (!linear)
     {
-      Color outline = _even ? SettingsPalette.SoftAccent : new Color(1, 1, 1, angular ? .95f : .75f);
+      Color outline = _even ? UiPalette.SoftAccent : new Color(1, 1, 1, angular ? .95f : .75f);
       _lines.Outline(Reach(start, end, across), outline, angular ? 1.6f : 1.3f, !angular);
     }
     _lines.Segment(a, b, new Color(1, 1, 1, .95f), 1.6f);
@@ -283,7 +284,7 @@ internal sealed class OverlayGradientHandles
       Vector2 center = at + n * (k + 9);
       SettingsUiFactory.Place(square.Rect, center.x - SquareHalf, center.y - SquareHalf, SquareSize, SquareSize);
       Color color = _stopColor?.Invoke(i) ?? Color.white;
-      square.Graphic.Set(color, i == _selected ? SettingsPalette.SoftAccent : Color.white);
+      square.Graphic.Set(color, i == _selected ? UiPalette.SoftAccent : Color.white);
       // Local space has y up.
       square.Graphic.SetNotch(new Vector2(-n.x, n.y), k + 6);
     }
@@ -379,7 +380,7 @@ internal sealed class OverlayGradientHandles
         uy = _height * row * .5f;
       bool hit = _guideX == ux && _guideY == uy;
       Vector2 at = _origin + new Vector2(ux, uy) * _scale;
-      _lines.Dot(at, hit ? 4.5f : 2.5f, hit ? SettingsPalette.SoftAccent : new Color(1, 1, 1, .55f));
+      _lines.Dot(at, hit ? 4.5f : 2.5f, hit ? UiPalette.SoftAccent : new Color(1, 1, 1, .55f));
     }
   }
 
@@ -688,7 +689,7 @@ internal sealed class OverlayGradientHandles
         size + 2,
         size + 2
       );
-      _dot.color = stuck ? SettingsPalette.SoftAccent : Color.white;
+      _dot.color = stuck ? UiPalette.SoftAccent : Color.white;
     }
   }
 

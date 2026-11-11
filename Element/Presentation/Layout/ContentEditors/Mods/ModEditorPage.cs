@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -76,7 +77,7 @@ internal sealed class ModEditorPage : EditorPage
 
   public override Rect PreviewArea => _preview;
 
-  public override bool Korean => SettingsLocale.Korean;
+  public override bool Korean => UiLocale.Korean;
 
   /// <summary>Whether the keyboard belongs to the page: typing in a field, or recording a shortcut.</summary>
   public bool Typing
@@ -100,7 +101,7 @@ internal sealed class ModEditorPage : EditorPage
   public override EditorControl Section(string title)
   {
     ModEditorControl control = Row("Section", 30);
-    TextMeshProUGUI text = _ui.Text(title ?? "", control.Rect, 0, 6, ColumnWidth, 24, 13, SettingsUiFactory.Muted);
+    TextMeshProUGUI text = _ui.Text(title ?? "", control.Rect, 0, 6, ColumnWidth, 24, 13, UiPalette.Muted);
     text.fontStyle = FontStyles.Bold;
     text.textWrappingMode = TextWrappingModes.NoWrap;
     text.overflowMode = TextOverflowModes.Ellipsis;
@@ -421,16 +422,7 @@ internal sealed class ModEditorPage : EditorPage
   {
     if (string.IsNullOrEmpty(label))
       return 0;
-    TextMeshProUGUI text = _ui.Text(
-      label,
-      control.Rect,
-      0,
-      0,
-      LabelWidth - 12,
-      height,
-      15,
-      SettingsUiFactory.Foreground
-    );
+    TextMeshProUGUI text = _ui.Text(label, control.Rect, 0, 0, LabelWidth - 12, height, 15, UiPalette.Foreground);
     text.alignment = TextAlignmentOptions.MidlineLeft;
     text.textWrappingMode = TextWrappingModes.NoWrap;
     text.overflowMode = TextOverflowModes.Ellipsis;

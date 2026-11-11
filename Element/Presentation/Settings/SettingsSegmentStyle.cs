@@ -1,3 +1,4 @@
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -35,7 +36,7 @@ internal sealed class SettingsSegmentStyle
     idleHover: null,
     hoverLift: .1f,
     pressAccent: false,
-    disabled: Color.Lerp(SettingsUiFactory.Surface, SettingsUiFactory.Background, .45f),
+    disabled: Color.Lerp(UiPalette.Surface, UiPalette.Background, .45f),
     labelInset: 12,
     labelWraps: true,
     clicksRepeat: true
@@ -96,7 +97,7 @@ internal sealed class SettingsSegmentStyle
     colors.selectedColor = fill;
     colors.highlightedColor =
       selected || _idleHover == null ? Color.Lerp(fill, Color.white, _hoverLift) : _idleHover.Value;
-    colors.pressedColor = Color.Lerp(_pressAccent ? ui.AccentSurface : SettingsUiFactory.Surface, Color.black, .2f);
+    colors.pressedColor = Color.Lerp(_pressAccent ? ui.AccentSurface : UiPalette.Surface, Color.black, .2f);
     colors.disabledColor = _disabled;
     colors.fadeDuration = ui.ReduceMotion() ? 0 : .1f;
     return colors;

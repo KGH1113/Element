@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Shape;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using NVector2 = System.Numerics.Vector2;
-using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Shape;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 

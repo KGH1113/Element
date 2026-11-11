@@ -3,6 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -27,7 +28,7 @@ internal sealed class ModDrawing : Drawing
 
   public ModDrawing(OverlayFonts fonts) => _fonts = fonts;
 
-  public override Color Highlight => OverlayTheme.Accent;
+  public override Color Highlight => UiTheme.Accent;
 
   /// <summary>The fonts this element's texts were set to, so Element keeps them loaded.</summary>
   public IEnumerable<string> UsedFonts => _fontOf.Values;
@@ -102,8 +103,8 @@ internal sealed class ModDrawing : Drawing
     }
     if (_fontOf.Count > 0 && fontChanged)
       DropDestroyedFonts();
-    bool themeChanged = _themeVersion != OverlayTheme.Version;
-    _themeVersion = OverlayTheme.Version;
+    bool themeChanged = _themeVersion != UiTheme.Version;
+    _themeVersion = UiTheme.Version;
     bool pixelsChanged = pixelsPerUnit > 0 && Mathf.Abs(pixelsPerUnit - _pixelsPerUnit) > .01f;
     if (pixelsChanged)
       _pixelsPerUnit = pixelsPerUnit;
@@ -259,11 +260,11 @@ internal sealed class ModBox : RoundedBox
       _graphic.SetShape(_shape, _color, Color.clear);
       return;
     }
-    _color = OverlayTextComposer.Resolve(_paintSettings, OverlayTheme.Accent);
+    _color = OverlayTextComposer.Resolve(_paintSettings, UiTheme.Accent);
     Vector2 size = Rect.rect.size;
     bool gradient = _formulas.Resolve(
       _paintSettings,
-      OverlayTheme.Accent,
+      UiTheme.Accent,
       null,
       Mathf.Max(1, size.x),
       Mathf.Max(1, size.y),

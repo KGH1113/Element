@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using Element.Configuration.Gameplay;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -79,8 +80,8 @@ internal sealed class EditorTweaksPage : SettingsPage
         }
       )
     );
-    _rotationRow = Ui.Panel("Rotation step", _editingPane, 0, 100, 936, 76, SettingsUiFactory.Surface).rectTransform;
-    Ui.Text(L("회전 각도", "Step angle"), _rotationRow, 16, 8, 200, 24, 14, SettingsUiFactory.Muted);
+    _rotationRow = Ui.Panel("Rotation step", _editingPane, 0, 100, 936, 76, UiPalette.Surface).rectTransform;
+    Ui.Text(L("회전 각도", "Step angle"), _rotationRow, 16, 8, 200, 24, 14, UiPalette.Muted);
     float[] steps = { 22.5f, 15, 7.5f, 1 };
     for (int i = 0; i < steps.Length; i++)
     {
@@ -114,7 +115,7 @@ internal sealed class EditorTweaksPage : SettingsPage
       CommitRotationStep,
       6
     );
-    _rotationError = Ui.Text("", _editingPane, 16, 190, 900, 24, 13, SettingsPalette.Error);
+    _rotationError = Ui.Text("", _editingPane, 16, 190, 900, 24, 13, UiPalette.Error);
     _editingOptions.Add(
       Ui.Switch(
         L("이벤트 좌표 함께 변환", "Transform event positions"),

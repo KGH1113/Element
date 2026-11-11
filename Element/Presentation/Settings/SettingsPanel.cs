@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Presentation.Settings.Pages;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
@@ -104,7 +105,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _windowGroup = _window.gameObject.AddComponent<CanvasGroup>();
     _windowMotion = _window.gameObject.AddComponent<SettingsWindowMotion>();
     _windowMotion.Initialize(_windowGroup, () => _settings.ReduceUiMotion);
-    _surface = _ui.Panel("Surface", _window, 1, 1, 998, 598, SettingsUiFactory.Background).rectTransform;
+    _surface = _ui.Panel("Surface", _window, 1, 1, 998, 598, UiPalette.Background).rectTransform;
     _back = _ui.IconButton("Back", _window, 32, 24, 40, Back, SettingsNavigationIconKind.Back);
     _title = _ui.Text(L("설정", "Settings"), _window, 32, 24, 700, 40, 27);
     _close = _ui.IconButton("Close", _window, 928, 24, 40, Close, SettingsNavigationIconKind.Close);
@@ -132,7 +133,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
     _scrollbar.targetGraphic = scrollHandle;
     _scroll.verticalScrollbar = _scrollbar;
     _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
-    _feedback = _ui.Text("", _window, 32, 540, 780, 40, 14, SettingsUiFactory.Muted);
+    _feedback = _ui.Text("", _window, 32, 540, 780, 40, 14, UiPalette.Muted);
     _retrySave = _ui.Button(
       L("다시 저장", "Retry save"),
       _window,
@@ -250,7 +251,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       "설정을 저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인하고 다시 닫아주세요.",
       "Settings could not be saved. Check write permission for the mod folder, then close again."
     );
-    _feedback.color = SettingsPalette.Error;
+    _feedback.color = UiPalette.Error;
     _retrySave.gameObject.SetActive(true);
     FitWindow();
   }

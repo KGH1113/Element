@@ -1,6 +1,7 @@
 using System;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -81,14 +82,14 @@ internal sealed class OverlayBarButton
       LayoutActionIcon graphic = ui.Rect("Icon", Root, 0, 0, LeadSize, LeadSize)
         .gameObject.AddComponent<LayoutActionIcon>();
       graphic.Kind = icon.Value;
-      graphic.color = SettingsUiFactory.Foreground;
+      graphic.color = UiPalette.Foreground;
       graphic.raycastTarget = false;
       _lead = graphic.rectTransform;
       _icon = graphic;
     }
     else if (!string.IsNullOrEmpty(glyph))
     {
-      TextMeshProUGUI text = ui.Text(glyph, Root, 0, 0, LeadSize, Height, 15, SettingsUiFactory.Muted);
+      TextMeshProUGUI text = ui.Text(glyph, Root, 0, 0, LeadSize, Height, 15, UiPalette.Muted);
       text.alignment = TextAlignmentOptions.Midline;
       text.textWrappingMode = TextWrappingModes.NoWrap;
       _lead = text.rectTransform;
@@ -96,9 +97,9 @@ internal sealed class OverlayBarButton
       _leadWidth = Mathf.Max(LeadSize, Mathf.Ceil(text.GetPreferredValues(glyph).x) + 1);
       _leadHeight = Height;
     }
-    _label = Text(ui, label, 14, SettingsUiFactory.Foreground);
-    _value = Text(ui, "", 14, SettingsUiFactory.Foreground);
-    _unit = Text(ui, unit, 12, SettingsUiFactory.Muted);
+    _label = Text(ui, label, 14, UiPalette.Foreground);
+    _value = Text(ui, "", 14, UiPalette.Foreground);
+    _unit = Text(ui, unit, 12, UiPalette.Muted);
     if (toggle)
     {
       _track = ui.Capsule("Switch", Root, 0, 0, TrackWidth, TrackHeight, SwitchOff);
@@ -169,7 +170,7 @@ internal sealed class OverlayBarButton
     if (hasValue)
     {
       _value.text = value;
-      _value.color = computed ? SettingsPalette.SoftAccent : SettingsUiFactory.Foreground;
+      _value.color = computed ? UiPalette.SoftAccent : UiPalette.Foreground;
       x = Place(_value, x + ValueGap);
       if (_unit.text.Length > 0)
         x = Place(_unit, x + 2);
@@ -198,10 +199,10 @@ internal sealed class OverlayBarButton
   {
     if (_track == null)
       return;
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     float alpha = available ? 1 : .4f;
-    Color track = on == false ? SwitchOff : SettingsPalette.AccentSurface,
-      thumb = on == false ? SettingsUiFactory.Foreground : accent;
+    Color track = on == false ? SwitchOff : UiPalette.AccentSurface,
+      thumb = on == false ? UiPalette.Foreground : accent;
     track.a *= alpha;
     thumb.a *= alpha;
     _track.color = track;
@@ -216,7 +217,7 @@ internal sealed class OverlayBarButton
         ),
       _reduceMotion
     );
-    Color label = available ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
+    Color label = available ? UiPalette.Foreground : UiPalette.Muted;
     _label.color = label;
     if (_icon != null)
       _icon.color = label;
@@ -237,10 +238,10 @@ internal sealed class OverlayBarButton
 
   private void Paint()
   {
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     Color rest =
       _drop > 0 ? new Color(accent.r, accent.g, accent.b, .38f)
-      : _drop < 0 ? new Color(LayoutColors.Warning.r, LayoutColors.Warning.g, LayoutColors.Warning.b, .3f)
+      : _drop < 0 ? new Color(UiPalette.Error.r, UiPalette.Error.g, UiPalette.Error.b, .3f)
       : _active ? new Color(accent.r, accent.g, accent.b, .3f)
       : new Color(1, 1, 1, .07f);
     ColorBlock colors = _button.colors;

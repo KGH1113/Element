@@ -2,15 +2,15 @@ using System;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Shape;
-using Element.Domain.Overlay.Values;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 

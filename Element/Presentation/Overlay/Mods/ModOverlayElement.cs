@@ -9,7 +9,7 @@ using ElementKit;
 using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using UiFactory = Element.Presentation.Settings.SettingsUiFactory;
 
 namespace Element.Presentation.Overlay.Mods;

@@ -6,7 +6,7 @@ using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
 

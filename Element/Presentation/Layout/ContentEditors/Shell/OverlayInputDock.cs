@@ -6,11 +6,12 @@ using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -79,7 +80,7 @@ internal sealed class OverlayInputDock
     _line = ui.Rect("Formula line", Root, 0, 0, _width, LineHeight);
     Image hit = _line.gameObject.AddComponent<Image>();
     hit.color = Color.clear;
-    _name = ui.Text("", _line, 0, 0, 10, LineHeight, 17, SettingsUiFactory.Muted);
+    _name = ui.Text("", _line, 0, 0, 10, LineHeight, 17, UiPalette.Muted);
     _name.textWrappingMode = TextWrappingModes.NoWrap;
     _name.overflowMode = TextOverflowModes.Ellipsis;
     _formulaViewport = ui.Rect("Formula", _line, 0, 0, 10, LineHeight);
@@ -89,7 +90,7 @@ internal sealed class OverlayInputDock
     _formula.textWrappingMode = TextWrappingModes.NoWrap;
     _formula.overflowMode = TextOverflowModes.Overflow;
     _caret = ui.Panel("Caret", _formulaViewport, 0, 14, 2, LineHeight - 28, Color.white, false);
-    _result = ui.Text("", _line, 0, 0, 10, LineHeight, 22, SettingsPalette.SoftAccent);
+    _result = ui.Text("", _line, 0, 0, 10, LineHeight, 22, UiPalette.SoftAccent);
     _result.textWrappingMode = TextWrappingModes.NoWrap;
     _result.alignment = TextAlignmentOptions.MidlineRight;
     _underline = ui.Panel("Underline", Root, 0, LineHeight, _width, 1, new Color(1, 1, 1, .16f), false);
@@ -153,7 +154,7 @@ internal sealed class OverlayInputDock
     _editing = Owner != null && editing.Active;
     float x = 0;
     _name.text = _editing ? name + "  =" : hint;
-    _name.color = _editing ? SettingsUiFactory.Muted : new Color(1, 1, 1, .5f);
+    _name.color = _editing ? UiPalette.Muted : new Color(1, 1, 1, .5f);
     float nameWidth = Mathf.Min(_width, Mathf.Ceil(_name.GetPreferredValues(_name.text).x) + 4);
     SettingsUiFactory.Place(_name.rectTransform, x, 0, nameWidth, LineHeight);
     x += nameWidth + 12;
@@ -170,7 +171,7 @@ internal sealed class OverlayInputDock
       _formula.color = new Color(1, 1, 1, .32f);
     }
     else
-      _formula.color = SettingsUiFactory.Foreground;
+      _formula.color = UiPalette.Foreground;
     // A long formula keeps its end in view, where the caret is.
     float textWidth = Mathf.Ceil(_formula.GetPreferredValues(_formula.text).x) + 2;
     float left = editing.Working != null && !editing.Working.IsEmpty ? Mathf.Min(0, available - textWidth - 6) : 0;
@@ -194,10 +195,10 @@ internal sealed class OverlayInputDock
     if (_drop == state)
       return;
     _drop = state;
-    Color accent = SettingsPalette.SoftAccent;
+    Color accent = UiPalette.SoftAccent;
     _underline.color =
       state > 0 ? accent
-      : state < 0 ? LayoutColors.Warning
+      : state < 0 ? UiPalette.Error
       : new Color(1, 1, 1, .16f);
   }
 
@@ -250,7 +251,7 @@ internal sealed class OverlayInputDock
         10,
         ChipHeight,
         13,
-        SettingsUiFactory.Muted
+        UiPalette.Muted
       );
       label.textWrappingMode = TextWrappingModes.NoWrap;
       _categories.Add(label);

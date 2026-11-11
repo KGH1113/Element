@@ -2,16 +2,16 @@ using System;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Domain.Overlay.Values;
-using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Text;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 

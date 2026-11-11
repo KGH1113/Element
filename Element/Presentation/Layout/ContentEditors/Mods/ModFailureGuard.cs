@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Mods;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using ElementKit.Hosting;
-using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Mods;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 

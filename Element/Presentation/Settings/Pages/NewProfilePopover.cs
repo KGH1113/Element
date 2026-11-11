@@ -1,9 +1,10 @@
 using System;
 using Element.Configuration.Profiles;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Settings.SettingsLocale;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -43,7 +44,7 @@ internal sealed class NewProfilePopover
       inner,
       20,
       13,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     _newProfileName = ui.Input(
       "Profile name",
@@ -65,7 +66,7 @@ internal sealed class NewProfilePopover
       300,
       32,
       16,
-      SettingsUiFactory.Muted
+      UiPalette.Muted
     );
     SettingsUiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
     _newProfileName.placeholder = placeholder;
@@ -81,7 +82,7 @@ internal sealed class NewProfilePopover
       create,
       true
     );
-    _newProfileError = ui.Text("", _newProfilePopover, NewProfilePadding, 90, inner, 20, 13, SettingsPalette.Error);
+    _newProfileError = ui.Text("", _newProfilePopover, NewProfilePadding, 90, inner, 20, 13, UiPalette.Error);
     _newProfileError.alignment = TextAlignmentOptions.TopLeft;
     _newProfilePopover.gameObject.SetActive(false);
   }

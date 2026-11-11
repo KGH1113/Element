@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -38,7 +39,7 @@ internal sealed class SettingsToast : IDisposable
     Build();
     _title.text = title;
     _detail.text = detail;
-    _marker.color = SettingsPalette.SoftAccent;
+    _marker.color = UiPalette.SoftAccent;
     Resize(Screen.width, Screen.height);
     _root.SetActive(true);
     _motion.Play(_reduceMotion());
@@ -72,7 +73,7 @@ internal sealed class SettingsToast : IDisposable
     _card = _ui.Panel("Notice", _root.transform, 0, 0, 320, Height, new Color(.115f, .115f, .115f, .97f)).rectTransform;
     _card.anchorMin = _card.anchorMax = _card.pivot = new Vector2(.5f, 1);
     _card.anchoredPosition = new Vector2(0, -24);
-    _marker = _ui.Panel("Accent", _card, 0, 0, 3, Height, SettingsPalette.SoftAccent, false);
+    _marker = _ui.Panel("Accent", _card, 0, 0, 3, Height, UiPalette.SoftAccent, false);
     _marker.rectTransform.anchorMin = new Vector2(0, 0);
     _marker.rectTransform.anchorMax = new Vector2(0, 1);
     _marker.rectTransform.sizeDelta = new Vector2(3, -28);
@@ -80,7 +81,7 @@ internal sealed class SettingsToast : IDisposable
     _title = _ui.Text("", _card, 20, 14, 280, 24, 17);
     SettingsUiFactory.StretchWidth(_title.rectTransform, 20, 20);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
-    _detail = _ui.Text("", _card, 20, 40, 280, 20, 13, SettingsUiFactory.Muted);
+    _detail = _ui.Text("", _card, 20, 40, 280, 20, 13, UiPalette.Muted);
     SettingsUiFactory.StretchWidth(_detail.rectTransform, 20, 20);
     _detail.textWrappingMode = TextWrappingModes.NoWrap;
     CanvasGroup group = _card.gameObject.AddComponent<CanvasGroup>();

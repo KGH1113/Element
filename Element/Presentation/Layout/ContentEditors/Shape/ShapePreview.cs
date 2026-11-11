@@ -1,13 +1,13 @@
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using NVector2 = System.Numerics.Vector2;
-using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Values;
-using Element.Domain.Overlay.Formula;
 
 namespace Element.Presentation.Layout.ContentEditors.Shape;
 
@@ -87,11 +87,11 @@ internal sealed class ShapePreview
     _shapeRect.sizeDelta = new Vector2(_resolved.Width, _resolved.Height);
     _shapeRect.localScale = new Vector3(pixels, pixels, 1);
     IOverlayNumberSource samples = _values.WithSamples;
-    _resolver.ResolvePaints(_resolved, samples, OverlayTheme.Accent);
+    _resolver.ResolvePaints(_resolved, samples, UiTheme.Accent);
     _graphic.SetShape(
       _resolved,
-      OverlayTextComposer.Resolve(_resolved.Fill, OverlayTheme.Accent, _resolver.FillAlpha, samples),
-      OverlayTextComposer.Resolve(_resolved.Stroke, OverlayTheme.Accent, _resolver.StrokeAlpha, samples),
+      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _resolver.FillAlpha, samples),
+      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _resolver.StrokeAlpha, samples),
       _resolver.FillGradient,
       _resolver.StrokeGradient
     );

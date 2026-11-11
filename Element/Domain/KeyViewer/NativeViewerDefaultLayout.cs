@@ -1,7 +1,7 @@
 using Element.Configuration;
 using Element.Domain.Layout;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.KeyViewer;
 
 /// <summary>
 /// Where a key viewer sits until the player moves it, and after a reset: full

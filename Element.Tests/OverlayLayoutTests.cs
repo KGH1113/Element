@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Xml.Serialization;
 using Element.Configuration;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 
 namespace Element.Tests;

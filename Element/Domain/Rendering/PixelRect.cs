@@ -1,4 +1,4 @@
-namespace Element.Domain.DmNote;
+namespace Element.Domain.Rendering;
 
 /// <summary>Whole pixels from the top left.</summary>
 internal readonly struct PixelRect

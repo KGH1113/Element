@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.KeyViewer;
 
 internal sealed class NativeViewerSurface
 {

@@ -2,7 +2,7 @@ using System;
 using Element.Configuration;
 using Element.Domain.Layout;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.Rendering;
 
 /// <summary>
 /// Where a key viewer goes in a rendered video. The layout keeps the viewer's

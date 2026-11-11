@@ -1,4 +1,4 @@
-using Element.Domain.DmNote;
+using Element.Domain.KeyViewer;
 using UnityEngine;
 
 namespace Element.Application.KeyViewer;

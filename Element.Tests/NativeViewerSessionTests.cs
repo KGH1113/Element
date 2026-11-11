@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using AdofaiIpc.Contracts;
-using Element.Domain.DmNote;
+using Element.Domain.KeyViewer;
 using Element.Infrastructure.ElementNote.Viewers;
 using Newtonsoft.Json;
 

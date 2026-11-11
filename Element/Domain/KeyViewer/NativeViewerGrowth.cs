@@ -1,6 +1,7 @@
 using Element.Configuration;
+using Element.Domain.Layout;
 
-namespace Element.Domain.Layout;
+namespace Element.Domain.KeyViewer;
 
 // Native viewers grow from a screen corner or their center, never an edge
 // midpoint. Compare distances in actual game pixels, including on ultrawide.

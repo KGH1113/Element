@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.Rendering;
 
 /// <summary>
 /// The part of a key viewer frame a video shows: the page minus its padding, in

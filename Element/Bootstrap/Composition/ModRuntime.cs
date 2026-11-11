@@ -9,7 +9,7 @@ using Element.Application.KeyLimiter;
 using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
-using Element.Domain.DmNote;
+using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;

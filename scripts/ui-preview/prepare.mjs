@@ -17,8 +17,6 @@ for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', '
   files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/ProfileFileStore.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerFailure.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Domain/Judgement/JudgementColors.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Mods/ElementClasses.cs'));
@@ -26,9 +24,9 @@ files.push(path.join(root, 'Element/Infrastructure/Mods/ElementClasses.cs'));
 for (const folder of ['Element/Application/Updates', 'Element/Application/Files', 'Element/Application/Profiles', 'Element/Application/Settings', 'Element/Application/Effects', 'Element/Application/Input', 'Element/Application/Fonts', 'Element/Application/Layout', 'Element/Application/KeyViewer', 'Element/Application/Mods'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
-files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
+files.push(path.join(root, 'Element/Domain/Rendering/RenderViewerPlacement.cs'));
+for (const name of fs.readdirSync(path.join(root, 'Element/Domain/KeyViewer')).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Domain/KeyViewer', name));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerLayoutHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));

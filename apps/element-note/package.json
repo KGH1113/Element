@@ -24,7 +24,7 @@
     "sync-version": "node scripts/sync-version.cjs",
     "licenses:generate": "node scripts/generate-third-party-licenses.cjs",
     "licenses:check": "node scripts/generate-third-party-licenses.cjs --check",
-    "version": "npm run sync-version && git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml",
+    "version": "npm run sync-version && git add -- package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock THIRD_PARTY_LICENSES.txt ../../Element/Info.json ../../package-lock.json",
     "test": "vitest run && node --test scripts/*.test.cjs",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",

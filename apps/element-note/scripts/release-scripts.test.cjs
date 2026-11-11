@@ -29,20 +29,38 @@ test('portable artifact uses the ElementNote identity and Rust binary path', () 
   ]);
 });
 
-test('version sync changes only package, Cargo, and Tauri identities', () => {
+test('version sync writes the app version everywhere through the one version writer', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'element-note-version-'));
-  fs.mkdirSync(path.join(root, 'src-tauri'));
-  fs.writeFileSync(path.join(root, 'package.json'), '{"version":"2.3.4"}\n');
-  fs.writeFileSync(
-    path.join(root, 'src-tauri', 'tauri.conf.json'),
-    '{"version":"0.0.0"}\n',
+  const write = (file, text) => {
+    fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+    fs.writeFileSync(path.join(root, file), text);
+  };
+  const writer = 'scripts/tasks/version/version.mjs';
+  write(
+    writer,
+    fs.readFileSync(path.join(__dirname, '../../..', writer), 'utf8'),
   );
-  fs.writeFileSync(
-    path.join(root, 'src-tauri', 'Cargo.toml'),
+  write('apps/element-note/package.json', '{\n  "version": "2.3.4"\n}\n');
+  write('Element/Info.json', '{\n  "Version": "0.0.0"\n}\n');
+  write(
+    'apps/element-note/src-tauri/tauri.conf.json',
+    '{\n  "version": "0.0.0"\n}\n',
+  );
+  write(
+    'apps/element-note/src-tauri/Cargo.toml',
     '[package]\nversion = "0.0.0"\n',
   );
-  fs.writeFileSync(
-    path.join(root, 'README.md'),
+  write(
+    'apps/element-note/src-tauri/Cargo.lock',
+    '[[package]]\nname = "element-note"\nversion = "0.0.0"\n',
+  );
+  write(
+    'package-lock.json',
+    '{\n  "packages": {\n    "apps/element-note": {\n      "name": "@element/element-note",\n      "version": "0.0.0"\n    }\n  }\n}\n',
+  );
+  write('apps/element-note/THIRD_PARTY_LICENSES.txt', '- element-note 0.0.0\n');
+  write(
+    'apps/element-note/README.md',
     'upstream release URL must stay untouched\n',
   );
 
@@ -51,17 +69,30 @@ test('version sync changes only package, Cargo, and Tauri identities', () => {
     result.portableArtifact,
     'ElementNote-v2.3.4-windows-x64-portable.zip',
   );
+  const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+  assert.equal(JSON.parse(read('Element/Info.json')).Version, '2.3.4');
   assert.equal(
-    JSON.parse(fs.readFileSync(path.join(root, 'src-tauri', 'tauri.conf.json')))
-      .version,
+    JSON.parse(read('apps/element-note/src-tauri/tauri.conf.json')).version,
     '2.3.4',
   );
   assert.match(
-    fs.readFileSync(path.join(root, 'src-tauri', 'Cargo.toml'), 'utf8'),
+    read('apps/element-note/src-tauri/Cargo.toml'),
+    /version = "2\.3\.4"/,
+  );
+  assert.match(
+    read('apps/element-note/src-tauri/Cargo.lock'),
     /version = "2\.3\.4"/,
   );
   assert.equal(
-    fs.readFileSync(path.join(root, 'README.md'), 'utf8'),
+    JSON.parse(read('package-lock.json')).packages['apps/element-note'].version,
+    '2.3.4',
+  );
+  assert.equal(
+    read('apps/element-note/THIRD_PARTY_LICENSES.txt'),
+    '- element-note 2.3.4\n',
+  );
+  assert.equal(
+    read('apps/element-note/README.md'),
     'upstream release URL must stay untouched\n',
   );
 });

@@ -19,7 +19,10 @@ internal sealed class FontBundleLoader : IDisposable
   private const int DynamicFallbackPadding = OverlayFontSampling.Padding;
   private const int DynamicFallbackAtlasSize = OverlayFontSampling.AtlasSize;
 
-  private readonly Main _main;
+  private readonly string _runtimePath;
+  private readonly Action<string> _log;
+  private readonly Action<string> _logWarning;
+  private readonly Action<string, Exception> _logException;
   private readonly List<TMP_FontAsset> _addedFallbacks = new();
   private AssetBundle _bundle;
   private TMP_FontAsset _koreanFontAsset;
@@ -27,9 +30,18 @@ internal sealed class FontBundleLoader : IDisposable
 
   public TMP_FontAsset FontAsset { get; private set; }
 
-  public FontBundleLoader(Main main)
+  /// <param name="runtimePath">This version's folder, which holds the font bundles.</param>
+  public FontBundleLoader(
+    string runtimePath,
+    Action<string> log,
+    Action<string> logWarning,
+    Action<string, Exception> logException
+  )
   {
-    _main = main;
+    _runtimePath = runtimePath;
+    _log = log;
+    _logWarning = logWarning;
+    _logException = logException;
   }
 
   public bool Load()
@@ -41,24 +53,24 @@ internal sealed class FontBundleLoader : IDisposable
     if (platformDirectory == null)
       return false;
 
-    string bundlePath = Path.Combine(_main.RuntimePath, "Assets", "Font", platformDirectory, BundleName);
+    string bundlePath = Path.Combine(_runtimePath, "Assets", "Font", platformDirectory, BundleName);
     if (!File.Exists(bundlePath))
     {
-      _main.LogWarning("Font AssetBundle was not found: " + bundlePath);
+      _logWarning("Font AssetBundle was not found: " + bundlePath);
       return false;
     }
 
     _bundle = AssetBundle.LoadFromFile(bundlePath);
     if (_bundle == null)
     {
-      _main.LogWarning("Font AssetBundle could not be opened: " + bundlePath);
+      _logWarning("Font AssetBundle could not be opened: " + bundlePath);
       return false;
     }
 
     FontAsset = _bundle.LoadAsset<TMP_FontAsset>(FontAssetName);
     if (FontAsset == null)
     {
-      _main.LogWarning("TMP font asset was not found in the bundle: " + FontAssetName);
+      _logWarning("TMP font asset was not found in the bundle: " + FontAssetName);
       _bundle.Unload(true);
       _bundle = null;
       return false;
@@ -67,11 +79,11 @@ internal sealed class FontBundleLoader : IDisposable
     FontAsset.fallbackFontAssetTable ??= new List<TMP_FontAsset>();
     _koreanFontAsset = _bundle.LoadAsset<TMP_FontAsset>(KoreanFontAssetName);
     if (_koreanFontAsset == null)
-      _main.LogWarning("TMP font asset was not found in the bundle: " + KoreanFontAssetName);
+      _logWarning("TMP font asset was not found in the bundle: " + KoreanFontAssetName);
     AddFallback(_koreanFontAsset, 0);
     AddFallback(CreateDynamicFallback(), FontAsset.fallbackFontAssetTable.Count);
 
-    _main.Log("Loaded overlay font from " + bundlePath);
+    _log("Loaded overlay font from " + bundlePath);
     return true;
   }
 
@@ -147,13 +159,13 @@ internal sealed class FontBundleLoader : IDisposable
     catch (Exception exception)
     {
       // The overlay still works with the shared game font, so a failed fallback must not stop loading.
-      _main.LogException("Create the CJK fallback font", exception);
+      _logException("Create the CJK fallback font", exception);
       _dynamicFallback = null;
     }
 
     if (_dynamicFallback == null)
     {
-      _main.LogWarning("The CJK fallback font could not be created. The game's font atlas is shared instead.");
+      _logWarning("The CJK fallback font could not be created. The game's font atlas is shared instead.");
       return gameFont;
     }
 
@@ -175,7 +187,7 @@ internal sealed class FontBundleLoader : IDisposable
       case RuntimePlatform.OSXEditor:
         return "Mac";
       default:
-        _main.LogWarning("Unsupported runtime platform for the font AssetBundle: " + UnityEngine.Application.platform);
+        _logWarning("Unsupported runtime platform for the font AssetBundle: " + UnityEngine.Application.platform);
         return null;
     }
   }

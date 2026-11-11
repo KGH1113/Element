@@ -8,6 +8,7 @@ using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Profiles;
+using Element.Infrastructure.Storage;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -110,6 +111,7 @@ internal sealed class SettingsUiRuntime : IDisposable
       return new ProfileService(
         new ProfileLibrary(_main.Settings, L("기본", "Default")),
         SystemFileDialogs.Create(_main.RuntimePath),
+        new ProfileFileStore(),
         Save,
         _reloadSettings,
         new SettingsBackup(_main.Path, () => _main.Settings).Write,

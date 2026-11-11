@@ -18,17 +18,20 @@ internal sealed class ProfileService : IProfiles
 
   private readonly ProfileLibrary _library;
   private readonly IFileDialogs _dialogs;
+  private readonly IProfileFiles _files;
   private readonly Func<bool> _save;
   private readonly Action _settingsReplaced;
   private readonly Action _backup;
   private readonly string _modVersion;
   private readonly Action<string, Exception> _logError;
 
+  /// <param name="files">Reads and writes the picked files. Without it or <paramref name="dialogs"/>, import and export are hidden.</param>
   /// <param name="settingsReplaced">Applies the live settings after a switch changed them.</param>
   /// <param name="backup">Copies the current settings aside before an import or a delete.</param>
   public ProfileService(
     ProfileLibrary library,
     IFileDialogs dialogs,
+    IProfileFiles files,
     Func<bool> save,
     Action settingsReplaced,
     Action backup,
@@ -38,6 +41,7 @@ internal sealed class ProfileService : IProfiles
   {
     _library = library ?? throw new ArgumentNullException(nameof(library));
     _dialogs = dialogs;
+    _files = files;
     _save = save ?? (() => true);
     _settingsReplaced = settingsReplaced ?? (() => { });
     _backup = backup ?? (() => { });
@@ -48,7 +52,7 @@ internal sealed class ProfileService : IProfiles
   public IReadOnlyList<ElementProfile> Profiles => _library.Profiles;
   public ElementProfile Active => _library.Active;
   public bool CanDelete => _library.CanDelete;
-  public bool FilesSupported => _dialogs != null;
+  public bool FilesSupported => _dialogs != null && _files != null;
 
   public ProfileSummary Summarize(ElementProfile profile) => _library.Summarize(profile);
 
@@ -149,7 +153,7 @@ internal sealed class ProfileService : IProfiles
     if (picked.Status != FileDialogStatus.Chosen)
       return DialogClosed(picked);
 
-    ProfileFileResult read = ProfileFileCodec.ReadFile(picked.Path);
+    ProfileFileResult read = _files.Read(picked.Path);
     if (!read.Ok)
     {
       if (read.Exception != null)
@@ -201,7 +205,7 @@ internal sealed class ProfileService : IProfiles
       _logError("Export profile '" + profile.Name + "'", exception);
       return ProfileOutcome.Fail(ProfileProblem.Damaged);
     }
-    Exception failure = ProfileFileCodec.WriteFile(path, file);
+    Exception failure = _files.Write(path, file);
     if (failure != null)
     {
       _logError("Write profile file " + path, failure);
@@ -231,7 +235,7 @@ internal sealed class ProfileService : IProfiles
 
   private FileDialogResult Ask(Func<IFileDialogs, FileDialogResult> show)
   {
-    if (_dialogs == null)
+    if (!FilesSupported)
       return FileDialogResult.Unavailable(new PlatformNotSupportedException("No system file window on this platform."));
     try
     {

@@ -15,6 +15,7 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/IOverlayFontSour
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/OverlayFontCatalog.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/FontFilePickers.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Storage/ProfileFileStore.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));

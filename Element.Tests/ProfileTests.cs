@@ -11,6 +11,7 @@ using Element.Configuration.Effects;
 using Element.Configuration.Profiles;
 using Element.Domain.Input;
 using Element.Infrastructure.Profiles;
+using Element.Infrastructure.Storage;
 
 namespace Element.Tests;
 
@@ -259,13 +260,13 @@ internal static class ProfileTests
     {
       string large = Path.Combine(directory, "large." + ProfileFile.Extension);
       using (FileStream file = File.Create(large))
-        file.SetLength(ProfileFileCodec.MaximumBytes + 1);
+        file.SetLength(ProfileFileStore.MaximumBytes + 1);
       Check(
-        ProfileFileCodec.ReadFile(large).Problem == ProfileFileProblem.TooLarge,
+        new ProfileFileStore().Read(large).Problem == ProfileFileProblem.TooLarge,
         "a huge file is not read into memory"
       );
       Check(
-        ProfileFileCodec.ReadFile(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
+        new ProfileFileStore().Read(Path.Combine(directory, "missing")).Problem == ProfileFileProblem.ReadFailed,
         "a missing file reports a read failure"
       );
     }
@@ -391,6 +392,7 @@ internal static class ProfileTests
       ProfileService service = new(
         new ProfileLibrary(settings, "Default"),
         dialogs,
+        new ProfileFileStore(),
         () =>
         {
           saves++;
@@ -459,7 +461,7 @@ internal static class ProfileTests
         "a file window that cannot open is reported"
       );
 
-      ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, "", null);
+      ProfileService noFiles = new(new ProfileLibrary(Fresh(), "Default"), null, null, null, null, null, "", null);
       Check(
         !noFiles.FilesSupported && noFiles.Import("Import").Problem == ProfileProblem.DialogUnavailable,
         "no file windows, no import"

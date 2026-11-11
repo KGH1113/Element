@@ -87,7 +87,12 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetHighlight _setHighlight;
   private readonly SetEditorExclusion _setEditorExclusion;
   private readonly SetEditorExclusions _setEditorExclusions;
+
+  // The cutouts the library has, and the buffer the next ones are written to:
+  // the two swap, so an open layout editor allocates nothing per frame.
   private double[] _exclusionValues = Array.Empty<double>();
+  private int _exclusionLength;
+  private double[] _nextExclusionValues = Array.Empty<double>();
   private readonly DisposeViews _dispose;
   private readonly LastError _lastError;
   private bool _disposed;
@@ -194,7 +199,10 @@ internal sealed class GameWebView : INativeViewerHost
   {
     if (_disposed)
       return;
-    double[] values = new double[normalized.Count * 5];
+    int length = normalized.Count * 5;
+    if (_nextExclusionValues.Length < length)
+      _nextExclusionValues = new double[length];
+    double[] values = _nextExclusionValues;
     for (int i = 0; i < normalized.Count; i++)
     {
       LayoutBounds bounds = normalized[i].Bounds;
@@ -204,9 +212,11 @@ internal sealed class GameWebView : INativeViewerHost
       values[i * 5 + 3] = bounds.Height;
       values[i * 5 + 4] = normalized[i].Radius;
     }
-    if (Same(values, _exclusionValues))
+    if (Same(values, length, _exclusionValues, _exclusionLength))
       return;
+    _nextExclusionValues = _exclusionValues;
     _exclusionValues = values;
+    _exclusionLength = length;
     if (_setEditorExclusions != null)
     {
       _setEditorExclusions(values, normalized.Count);
@@ -217,8 +227,9 @@ internal sealed class GameWebView : INativeViewerHost
       top = float.PositiveInfinity,
       right = float.NegativeInfinity,
       bottom = float.NegativeInfinity;
-    foreach (LayoutExclusion exclusion in normalized)
+    for (int i = 0; i < normalized.Count; i++)
     {
+      LayoutExclusion exclusion = normalized[i];
       left = Math.Min(left, exclusion.Bounds.X);
       top = Math.Min(top, exclusion.Bounds.Y);
       right = Math.Max(right, exclusion.Bounds.Right);
@@ -230,11 +241,12 @@ internal sealed class GameWebView : INativeViewerHost
       _setEditorExclusion(left, top, right - left, bottom - top);
   }
 
-  private static bool Same(double[] a, double[] b)
+  // The first aLength values of a against the first bLength of b.
+  private static bool Same(double[] a, int aLength, double[] b, int bLength)
   {
-    if (a.Length != b.Length)
+    if (aLength != bLength)
       return false;
-    for (int i = 0; i < a.Length; i++)
+    for (int i = 0; i < aLength; i++)
       if (a[i] != b[i])
         return false;
     return true;

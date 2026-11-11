@@ -5,37 +5,34 @@ using Element.Domain.Elements;
 using Element.Domain.Layout;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Migration;
 using Element.Presentation.Overlay.Mods;
-using ElementKit.Hosting;
-using TMPro;
+using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace Element.Presentation.Overlay.Shared;
+namespace Element.Presentation.Overlay.Canvas;
 
 /// <summary>
-/// The overlay canvas and its text, shape and mod elements, kept in step with
-/// the saved layout list. Shapes draw on a layer below other mods' elements,
-/// and those below every text.
+/// The overlay canvas and its elements, kept in step with the saved layout
+/// list. Each kind of element makes its own elements on its own layer:
+/// shapes below other mods' elements, and those below every text.
 /// </summary>
 internal sealed class OverlayCanvasHost : IDisposable
 {
   public GameObject Root { get; private set; }
   public OverlayValues Values { get; } = new();
   private readonly List<OverlayElementTarget> _elements = new();
-  private readonly List<TextOverlayElement> _texts = new();
-  private readonly List<ShapeOverlayElement> _shapes = new();
-  private readonly List<ModOverlayElement> _mods = new();
   private readonly HashSet<string> _defaultIds = new();
-  private Transform _shapeLayer;
-  private Transform _modLayer;
-  private Transform _textLayer;
+  private readonly OverlayElementKind[] _kinds;
+  private readonly ModElementKind _mods;
+  private readonly ComboGroupFit _comboFit;
+  private readonly Action<OverlayElementTarget> _contentChanged;
   private List<OverlayLayoutSettings> _layoutSettings = new();
   private OverlayFonts _fonts;
   private bool _visible;
   private bool _layoutPreview;
-  private bool _fitPending;
   private int _settles;
 
   /// <summary>Values from outside the game's events, written into <see cref="Values"/> each frame.</summary>
@@ -60,7 +57,7 @@ internal sealed class OverlayCanvasHost : IDisposable
     if (UnityEngine.Application.isPlaying)
       Object.DontDestroyOnLoad(Root);
 
-    Canvas canvas = Root.AddComponent<Canvas>();
+    UnityEngine.Canvas canvas = Root.AddComponent<UnityEngine.Canvas>();
     canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 
     CanvasScaler scaler = Root.AddComponent<CanvasScaler>();
@@ -71,9 +68,16 @@ internal sealed class OverlayCanvasHost : IDisposable
     );
     scaler.matchWidthOrHeight = 0.5f;
 
-    _shapeLayer = CreateLayer("Shapes");
-    _modLayer = CreateLayer("Mod elements");
-    _textLayer = CreateLayer("Texts");
+    // Frame order: texts, shapes, then other mods' elements.
+    TextElementKind texts = new(this);
+    _mods = new ModElementKind(this);
+    _kinds = new OverlayElementKind[] { texts, new ShapeElementKind(this), _mods };
+    for (int depth = 0; depth < _kinds.Length; depth++)
+      foreach (OverlayElementKind kind in _kinds)
+        if (kind.LayerDepth == depth)
+          kind.Layer = CreateLayer(kind.LayerName);
+    _comboFit = new ComboGroupFit(texts.Elements);
+    _contentChanged = OnContentChanged;
     foreach (OverlayDefaultElement element in OverlayElementDefaults.All)
       _defaultIds.Add(element.Id);
 
@@ -86,8 +90,8 @@ internal sealed class OverlayCanvasHost : IDisposable
   public void SetFonts(OverlayFonts fonts)
   {
     _fonts = fonts;
-    foreach (ModOverlayElement element in _mods)
-      element.SetFonts(fonts);
+    foreach (OverlayElementKind kind in _kinds)
+      kind.SetFonts(fonts);
   }
 
   public void SetVisible(bool visible)
@@ -113,102 +117,54 @@ internal sealed class OverlayCanvasHost : IDisposable
     {
       if (settings == null || string.IsNullOrEmpty(settings.Id) || Find(settings.Id) != null)
         continue;
-      if (settings.TemplateId == OverlayElementKinds.Text)
-        CreateText(settings);
-      else if (settings.TemplateId == OverlayElementKinds.Shape)
-        CreateShape(settings);
-      else if (OverlayElementKinds.IsMod(settings.TemplateId))
-        CreateMod(settings);
+      Create(settings);
     }
-    _fitPending = true;
+    _comboFit.Pending = true;
   }
 
-  public TextOverlayElement AddText(List<OverlayTextRun> runs)
+  /// <summary>
+  /// Adds <paramref name="settings"/>, made by its kind (see
+  /// <see cref="TextElementKind.NewSettings"/> and the others), and its
+  /// element; null when no kind can draw it now.
+  /// </summary>
+  public OverlayElementTarget Add(OverlayLayoutSettings settings)
   {
-    if (!CanShowText)
+    OverlayElementKind kind = settings == null ? null : KindOf(settings.TemplateId);
+    if (kind == null || !kind.CanCreate)
       return null;
-    OverlayLayoutSettings settings = new()
-    {
-      Id = OverlayElementKinds.Text + ":" + Guid.NewGuid().ToString("N"),
-      TemplateId = OverlayElementKinds.Text,
-      Text = new OverlayTextSettings { Runs = runs ?? new List<OverlayTextRun>() },
-    };
     _layoutSettings.Add(settings);
-    return CreateText(settings);
+    return Create(settings);
   }
 
-  public ShapeOverlayElement AddShape(OverlayShapeKind kind = OverlayShapeKind.Square)
+  private OverlayElementTarget Create(OverlayLayoutSettings settings)
   {
-    OverlayLayoutSettings settings = new()
-    {
-      Id = OverlayElementKinds.Shape + ":" + Guid.NewGuid().ToString("N"),
-      TemplateId = OverlayElementKinds.Shape,
-      Shape = OverlayShapeGeometry.Create(kind),
-    };
-    _layoutSettings.Add(settings);
-    return CreateShape(settings);
-  }
-
-  /// <summary>A new element of another mod's <paramref name="type"/>, its settings at the mod's defaults.</summary>
-  public ModOverlayElement AddModElement(ElementClass type)
-  {
-    if (type == null)
+    OverlayElementKind kind = KindOf(settings.TemplateId);
+    if (kind == null || !kind.CanCreate)
       return null;
-    OverlayLayoutSettings settings = new()
-    {
-      Id = "mod:" + Guid.NewGuid().ToString("N"),
-      TemplateId = type.FullKey,
-      Mod = new OverlayModSettings { KoreanName = type.Info.KoreanName, EnglishName = type.Info.EnglishName },
-    };
-    _layoutSettings.Add(settings);
-    return CreateMod(settings);
-  }
-
-  private ModOverlayElement CreateMod(OverlayLayoutSettings settings)
-  {
-    ModElements?.Refresh();
-    ModOverlayElement element = new(_modLayer, ModElements, _fonts);
+    OverlayElementTarget element = kind.Create();
+    element.ContentChanged += _contentChanged;
     _elements.Add(element);
-    _mods.Add(element);
     element.SetPreview(_layoutPreview);
     element.Configure(settings);
     return element;
   }
 
-  private TextOverlayElement CreateText(OverlayLayoutSettings settings)
+  private OverlayElementKind KindOf(string templateId)
   {
-    if (!CanShowText)
-      return null;
-    TextOverlayElement element = new(_textLayer, _fonts, Values);
-    element.ContentChanged += OnContentChanged;
-    _elements.Add(element);
-    _texts.Add(element);
-    element.SetPreview(_layoutPreview);
-    element.Configure(settings);
-    return element;
-  }
-
-  private ShapeOverlayElement CreateShape(OverlayLayoutSettings settings)
-  {
-    ShapeOverlayElement element = new(_shapeLayer, Values);
-    _elements.Add(element);
-    _shapes.Add(element);
-    element.SetPreview(_layoutPreview);
-    element.Configure(settings);
-    return element;
+    foreach (OverlayElementKind kind in _kinds)
+      if (kind.Owns(templateId))
+        return kind;
+    return null;
   }
 
   private void Remove(OverlayElementTarget element)
   {
-    element.ContentChanged -= OnContentChanged;
+    element.ContentChanged -= _contentChanged;
     element.Dispose();
     _elements.Remove(element);
-    if (element is TextOverlayElement text)
-      _texts.Remove(text);
-    if (element is ShapeOverlayElement shape)
-      _shapes.Remove(shape);
-    if (element is ModOverlayElement mod)
-      _mods.Remove(mod);
+    foreach (OverlayElementKind kind in _kinds)
+      if (kind.Forget(element))
+        break;
   }
 
   /// <summary>
@@ -227,7 +183,7 @@ internal sealed class OverlayCanvasHost : IDisposable
       _layoutSettings.RemoveAll(settings => settings != null && settings.Id == id);
     }
     // Fonts tried in the editor and no longer used go with them; other mods' elements keep theirs.
-    _fonts?.Retain(_layoutSettings, ModFonts());
+    _fonts?.Retain(_layoutSettings, _mods.UsedFonts());
   }
 
   public void SetLayoutPreview(bool preview)
@@ -242,11 +198,8 @@ internal sealed class OverlayCanvasHost : IDisposable
   {
     foreach (OverlayElementTarget element in _elements)
       element.Apply();
-    foreach (ShapeOverlayElement shape in _shapes)
-    {
-      shape.Refresh(OverlayValueMask.None);
-      shape.RefreshPixels();
-    }
+    foreach (OverlayElementKind kind in _kinds)
+      kind.Applied();
   }
 
   public void TickLayoutPreview() => Tick();
@@ -260,108 +213,16 @@ internal sealed class OverlayCanvasHost : IDisposable
     bool settle = _settles != Values.Settles;
     _settles = Values.Settles;
     // Each refresh is a mask test unless its values, the theme or its scale changed.
-    foreach (TextOverlayElement text in _texts)
-      text.Refresh(changes, settle);
-    foreach (ShapeOverlayElement shape in _shapes)
-      shape.Refresh(changes);
-    if (_mods.Count > 0)
-    {
-      ModElements?.Refresh();
-      foreach (ModOverlayElement mod in _mods)
-        mod.Refresh();
-    }
-    if (_fitPending)
-      FitPendingGroups();
-  }
-
-  private IEnumerable<string> ModFonts()
-  {
-    foreach (ModOverlayElement mod in _mods)
-    foreach (string font in mod.UsedFonts)
-      yield return font;
+    for (int i = 0; i < _kinds.Length; i++)
+      _kinds[i].Tick(changes, settle);
+    if (_comboFit.Pending)
+      _comboFit.Fit();
   }
 
   private void OnContentChanged(OverlayElementTarget element)
   {
     if (element.PendingFit)
-      _fitPending = true;
-  }
-
-  // A moved combo was one element. Measure its title and number where the
-  // built-in drew them, then place both as the old combo was placed.
-  private void FitPendingGroups()
-  {
-    _fitPending = false;
-    foreach (TextOverlayElement first in _texts)
-    {
-      if (!first.PendingFit)
-        continue;
-      string group = first.Settings.PendingGroup;
-      List<TextOverlayElement> members = _texts.FindAll(text => text.PendingFit && text.Settings.PendingGroup == group);
-      bool ready = true;
-      Rect union = default;
-      for (int i = 0; i < members.Count; i++)
-      {
-        if (!members[i].Enabled || !members[i].HasContent)
-        {
-          ready = false;
-          break;
-        }
-        Rect bounds = members[i].AnchorBounds;
-        union =
-          i == 0
-            ? bounds
-            : Rect.MinMaxRect(
-              Mathf.Min(union.xMin, bounds.xMin),
-              Mathf.Min(union.yMin, bounds.yMin),
-              Mathf.Max(union.xMax, bounds.xMax),
-              Mathf.Max(union.yMax, bounds.yMax)
-            );
-      }
-      if (!ready)
-        continue;
-      OverlayLayoutSettings old = first.Settings;
-      bool anchored = OverlayLayoutPosition.IsAnchored(old);
-      float scale =
-        OverlayLayoutGeometry.Finite(old.Scale) && old.Scale > 0
-          ? (anchored ? old.Scale : Mathf.Clamp(old.Scale, .2f, 5f))
-          : 1;
-      Vector2 from,
-        to;
-      if (anchored)
-      {
-        LayoutBounds target = OverlayLayoutPosition.Resolve(
-          old,
-          union.width * scale,
-          union.height * scale,
-          Screen.width,
-          Screen.height
-        );
-        from = union.min;
-        to = new Vector2(target.X, target.Y);
-      }
-      else
-      {
-        float unit = OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
-        LegacyOverlayPlacement root = LegacyOverlayPlacement.ComboRoot;
-        from = new Vector2(Screen.width * .5f, (-root.Position.y + root.Size.y * .5f) * unit);
-        to = new Vector2(old.CenterX * Screen.width, old.CenterY * Screen.height);
-      }
-      List<Rect> targets = new(members.Count);
-      foreach (TextOverlayElement member in members)
-      {
-        Rect bounds = member.AnchorBounds;
-        Vector2 center = to + (bounds.center - from) * scale;
-        targets.Add(new Rect(center - bounds.size * scale * .5f, bounds.size * scale));
-      }
-      for (int i = 0; i < members.Count; i++)
-      {
-        members[i].PlaceContent(targets[i], members[i].EffectiveScale * scale);
-        members[i].CommitLayout(true, initialize: true);
-      }
-      _fitPending = true;
-      return;
-    }
+      _comboFit.Pending = true;
   }
 
   private Transform CreateLayer(string name)
@@ -399,60 +260,13 @@ internal sealed class OverlayCanvasHost : IDisposable
     Root.SetActive(false);
     foreach (OverlayElementTarget element in _elements)
     {
-      element.ContentChanged -= OnContentChanged;
+      element.ContentChanged -= _contentChanged;
       element.Dispose();
     }
     _elements.Clear();
-    _texts.Clear();
-    _shapes.Clear();
-    _mods.Clear();
+    foreach (OverlayElementKind kind in _kinds)
+      kind.Clear();
     Settings.SettingsUiFactory.Destroy(Root);
     Root = null;
-  }
-}
-
-internal sealed class OverlayViewportWatcher : MonoBehaviour
-{
-  private OverlayCanvasHost _host;
-  private Vector2 _size;
-  private Canvas _canvas;
-  private float _scale;
-  private bool _viewportDirty = true;
-
-  public void Initialize(OverlayCanvasHost host)
-  {
-    _host = host;
-    _canvas = GetComponent<Canvas>();
-  }
-
-  private void OnEnable() => Canvas.willRenderCanvases += ApplyViewport;
-
-  private void OnDisable() => Canvas.willRenderCanvases -= ApplyViewport;
-
-  private void LateUpdate()
-  {
-    if (_host == null)
-      return;
-    _host.Tick();
-    // The canvas's size, not the screen's: OrbitRender draws the canvas into a
-    // video of its own size and aspect while the window stays as it is.
-    Vector2 size =
-      _canvas != null ? ((RectTransform)_canvas.transform).rect.size : new Vector2(Screen.width, Screen.height);
-    float scale = _canvas != null ? _canvas.scaleFactor : 1;
-    if (_size == size && _scale == scale)
-      return;
-    _size = size;
-    _scale = scale;
-    _viewportDirty = true;
-  }
-
-  private void ApplyViewport()
-  {
-    if (!_viewportDirty || _host == null)
-      return;
-    _viewportDirty = false;
-    // CanvasScaler has applied the viewport scale before this render callback.
-    // Reposition only on a viewport change; never force a global Canvas rebuild.
-    _host.ApplyLayouts();
   }
 }

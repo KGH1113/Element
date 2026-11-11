@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Settings;
 using ElementKit.Hosting;
@@ -154,7 +155,7 @@ internal sealed partial class OverlayLayoutEditor
   private void AddModElement(ElementClass type)
   {
     CloseAddMenu();
-    ModOverlayElement element = _host.AddModElement(type);
+    ModOverlayElement element = (ModOverlayElement)_host.Add(ModElementKind.NewSettings(type));
     if (element == null)
       return;
     element.SetPreview(true);

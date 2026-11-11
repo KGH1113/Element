@@ -4,6 +4,7 @@ using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;

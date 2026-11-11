@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Domain.Elements;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using ElementKit;
@@ -145,7 +146,7 @@ internal sealed class ModOverlayElement : OverlayElementTarget
   }
 
   /// <summary>Once a frame while the overlay is shown: the mod updates what it drew, Element follows its size.</summary>
-  public void Refresh()
+  public override void Refresh(OverlayValueMask changes, bool settle)
   {
     if (Settings == null)
       return;

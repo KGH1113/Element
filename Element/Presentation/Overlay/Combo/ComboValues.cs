@@ -2,6 +2,7 @@ using System.Text;
 using Element.Application;
 using Element.Domain.Combo;
 using Element.Domain.Elements;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;

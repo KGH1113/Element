@@ -1,6 +1,7 @@
 using System;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Settings;
@@ -454,7 +455,7 @@ internal sealed partial class OverlayLayoutEditor
   private void AddText()
   {
     CloseAddMenu();
-    TextOverlayElement text = _host.AddText(null);
+    TextOverlayElement text = (TextOverlayElement)_host.Add(TextElementKind.NewSettings(null));
     if (text == null)
       return;
     text.SetPreview(true);
@@ -467,7 +468,7 @@ internal sealed partial class OverlayLayoutEditor
   private void AddShape(OverlayShapeKind kind)
   {
     CloseAddMenu();
-    ShapeOverlayElement shape = _host.AddShape(kind);
+    ShapeOverlayElement shape = (ShapeOverlayElement)_host.Add(ShapeElementKind.NewSettings(kind));
     shape.SetPreview(true);
     PlaceNewElement(shape, false);
     // History records the shape when its editor is done; cancelling removes it.

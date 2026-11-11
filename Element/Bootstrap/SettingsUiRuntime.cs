@@ -9,6 +9,7 @@ using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
 using Element.Infrastructure.Profiles;
 using Element.Presentation.Layout;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using TMPro;

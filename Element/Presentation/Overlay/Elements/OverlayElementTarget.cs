@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration;
+using Element.Domain.Elements;
 using Element.Domain.Layout;
 using Element.Presentation.Layout;
 using UnityEngine;
@@ -16,7 +17,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 {
   private readonly Vector3[] _corners = new Vector3[4];
   private readonly OverlayLayoutSettings _stagedSettings = new();
-  private Canvas _canvas;
+  private UnityEngine.Canvas _canvas;
   private bool _staged;
   private Rect _stageOrigin;
   private bool _applying;
@@ -57,7 +58,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     get
     {
       if (_canvas == null)
-        _canvas = Rect.GetComponentInParent<Canvas>()?.rootCanvas;
+        _canvas = Rect.GetComponentInParent<UnityEngine.Canvas>()?.rootCanvas;
       return _canvas != null && _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1f;
     }
   }
@@ -153,6 +154,13 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   protected abstract void ResetPose();
 
   public virtual void SetPreview(bool preview) { }
+
+  /// <summary>
+  /// Once a frame while the overlay is shown: redraws when one of
+  /// <paramref name="changes"/> affects it. While <paramref name="settle"/>
+  /// (a level starting or restarting), values take their new look at once.
+  /// </summary>
+  public abstract void Refresh(OverlayValueMask changes, bool settle);
 
   public void SetEnabled(bool enabled)
   {

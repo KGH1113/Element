@@ -460,4 +460,8 @@ internal sealed class SettingsUiFactory : IDisposable
     rect.offsetMin = new Vector2(left, bottom);
     rect.offsetMax = new Vector2(-right, -top);
   }
+
+  /// <summary>The height <paramref name="text"/> needs when <paramref name="width"/> wide, and at least <paramref name="minimum"/>.</summary>
+  public static float TextHeight(TextMeshProUGUI text, float width, float minimum) =>
+    Mathf.Max(minimum, Mathf.Ceil(text.GetPreferredValues(width, 0).y) + 1);
 }

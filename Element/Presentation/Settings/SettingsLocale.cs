@@ -9,6 +9,6 @@ internal static class SettingsLocale
 
   public static string L(string ko, string en) => Korean ? ko : en;
 
-  /// <summary>For text chosen before the game's language is known, as in tests.</summary>
+  /// <summary>The same choice for a language the caller already knows.</summary>
   public static string L(bool korean, string ko, string en) => korean ? ko : en;
 }

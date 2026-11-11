@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 const [root, target] = process.argv.slice(2);
 const settings = path.join(root, 'Element/Presentation/Settings');
-const files = fs.readdirSync(settings).filter(name => name.endsWith('.cs') && name !== 'UIInteractionState.cs').map(name => path.join(settings, name));
+const files = fs.readdirSync(settings, { recursive: true }).filter(name => name.endsWith('.cs') && name !== 'UIInteractionState.cs').map(name => path.join(settings, name));
 const configuration = path.join(root, 'Element/Configuration');
 for (const name of fs.readdirSync(configuration, { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(configuration, name));

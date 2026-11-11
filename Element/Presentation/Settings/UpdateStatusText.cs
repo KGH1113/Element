@@ -1,44 +1,12 @@
 using Element.Application.Updates;
-using TMPro;
-using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
-/// <summary>General → Automatic updates: the switch and what happened this launch.</summary>
-internal sealed partial class SettingsPanel
+/// <summary>One line for Settings and the UMM mod list: what happened to updates, and what to do about it.</summary>
+internal static class UpdateStatusText
 {
-  private readonly IModUpdates _updates;
-  private Button _updateRow;
-  private TextMeshProUGUI _updateDescription;
-
-  private void CreateUpdateRow(float y)
-  {
-    if (_updates == null)
-      return;
-    _updateRow = _ui.Switch(
-      L("자동 업데이트", "Automatic updates"),
-      UpdateStatusText(_updates),
-      _pages[2].transform,
-      y,
-      () => _updates.AutomaticUpdates,
-      v =>
-      {
-        _updates.AutomaticUpdates = v;
-        RefreshUpdateRow();
-      },
-      out _updateDescription
-    );
-  }
-
-  private void RefreshUpdateRow()
-  {
-    if (_updateDescription != null)
-      _updateDescription.text = UpdateStatusText(_updates);
-  }
-
-  /// <summary>One line for Settings and the UMM mod list: what happened, and what to do about it.</summary>
-  public static string UpdateStatusText(IModUpdates updates)
+  public static string For(IModUpdates updates)
   {
     if (updates == null)
       return L("자동 업데이트를 쓸 수 없는 설치입니다.", "This install can't update itself.");

@@ -115,7 +115,7 @@ public sealed class Main
       return;
 
     GUILayout.Label("Element · " + SettingsPanel.ShortcutLabel(Instance.Settings));
-    GUILayout.Label(SettingsPanel.UpdateStatusText(Instance.Updates));
+    GUILayout.Label(UpdateStatusText.For(Instance.Updates));
     bool wasEnabled = GUI.enabled;
     GUI.enabled = wasEnabled && Instance.Runtime != null;
     if (GUILayout.Button(RDString.language == SystemLanguage.Korean ? "설정 열기" : "Open settings"))

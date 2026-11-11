@@ -38,7 +38,7 @@ ELEMENT_PACKAGE_BUILD_ROOT="${ELEMENT_PACKAGE_ROOT:-$ELEMENT_PROJECT_ROOT/build/
 # ELEMENT_PACKAGE_PLATFORMS=macos packages one OS, e.g. for a test.
 ELEMENT_PACKAGE_OUTPUT_DIR="${ELEMENT_PACKAGE_DIR:-$ELEMENT_PROJECT_ROOT/build}"
 ELEMENT_PACKAGE_PLATFORMS="${ELEMENT_PACKAGE_PLATFORMS:-macos windows}"
-# The in-game updater reads this from the latest release (docs/auto-update.md).
+# The in-game updater reads this from the latest release (docs/features/auto-update.md).
 ELEMENT_UPDATE_MANIFEST_PATH="${ELEMENT_UPDATE_MANIFEST:-$ELEMENT_PACKAGE_OUTPUT_DIR/Element.update.json}"
 ELEMENT_PLATFORM="$(uname -s)"
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The mod and ElementNote share one version. `check` fails when the files
-// disagree; `set <x.y.z>` writes it everywhere.
+// disagree; `set <x.y.z>` writes it everywhere. This is the only writer: the
+// app's `npm version` hook (apps/element-note/scripts/sync-version.cjs) calls it.
 //   node scripts/tasks/version/version.mjs [check]
 //   node scripts/tasks/version/version.mjs set 0.3.0
 import fs from 'node:fs';

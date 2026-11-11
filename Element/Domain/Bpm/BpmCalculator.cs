@@ -1,5 +1,3 @@
-using System;
-
 namespace Element.Domain.Bpm;
 
 internal static class BpmCalculator

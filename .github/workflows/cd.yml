@@ -3,7 +3,7 @@ name: CD
 # Merging to main builds what a release ships: ElementNote for macOS and
 # Windows and the Windows in-game viewer library. `./scripts/run.sh release`,
 # on the Mac with the game, downloads them, builds the mod around them and
-# publishes the release (docs/releasing.md). Run it by hand on another branch
+# publishes the release (docs/process/releasing.md). Run it by hand on another branch
 # (gh workflow run cd.yml --ref dev) to get test builds for windows-install.
 on:
   push:
@@ -29,7 +29,7 @@ jobs:
           node-version: 22
 
       - name: The mod and ElementNote share one version
-        run: node scripts/tasks/version/version.mjs check
+        run: ./scripts/run.sh version
 
   element-note:
     name: ElementNote (${{ matrix.os }})
@@ -133,12 +133,12 @@ jobs:
 
       - name: Build with MSVC
         shell: pwsh
-        run: ./scripts/windows/build-game-webview.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
+        run: ./scripts/tasks/build/game-webview-windows.ps1 -Source (Resolve-Path native/game-webview) -Output (Join-Path $env:RUNNER_TEMP game-webview)
 
       # A release ships only a library that passed the probe.
       - name: Smoke probe
         shell: pwsh
-        run: ./scripts/windows/smoke-game-webview.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
+        run: ./scripts/tasks/test/game-webview-windows.ps1 -Build (Join-Path $env:RUNNER_TEMP game-webview) -Shots (Join-Path $env:RUNNER_TEMP smoke-shots)
 
       - name: Upload the library
         uses: actions/upload-artifact@v4

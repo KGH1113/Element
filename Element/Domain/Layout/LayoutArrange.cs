@@ -3,16 +3,6 @@ using System.Collections.Generic;
 
 namespace Element.Domain.Layout;
 
-internal enum LayoutAlignment
-{
-  Left,
-  Center,
-  Right,
-  Top,
-  Middle,
-  Bottom,
-}
-
 /// <summary>
 /// Lines several boxes up with each other, or spaces them evenly, within the
 /// box they cover together, as a design tool's align and distribute do.

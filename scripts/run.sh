@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# The one entry for builds, checks, installs and releases. Every command takes
+# the same path:
+#   run.sh                 picks the workflow of the command
+#   workflows/<command>.sh the steps of that command, in order
+#   tasks/<verb>/<thing>   one job each: build, test, validate, install, package,
+#                          release, sync, version, assets (a step may also be one
+#                          npm, cargo or dotnet tool command)
+#   lib/                   helpers the tasks share
 SCRIPTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=lib/logging.sh
-source "$SCRIPTS_DIR/lib/logging.sh"
+WORKFLOWS_DIR="$SCRIPTS_DIR/workflows"
 
 usage() {
   cat <<'USAGE'
@@ -19,94 +26,46 @@ Commands:
   windows-install  Make build/Element-windows-install.zip; run its Install.ps1 on the Windows PC (game closed)
   dmnote-windows-build  Build the Windows ElementNote for packages on ELEMENT_WINDOWS_HOST (no desktop input)
   install     Install the already verified mod payload and ElementNote
-  sample-install  Build and install Sample, the sample mod that adds values through ElementKit
   package     Build the macOS and Windows release packages and their update manifest
   version [x.y.z]  Check that the mod and ElementNote share one version, or set it
-  release [--yes]  On main: build the mod around CD's builds, package and publish (docs/releasing.md)
+  release [--yes]  On main: build the mod around CD's builds, package and publish (docs/process/releasing.md)
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
-  desktop-native-check  Check/test/clippy native backend without installing
-  desktop-native-test   Run native tests, optionally filtered by test name
+  mod-format [files...]  Format the C# files you changed (or the given ones)
   desktop-deps  Install locked npm dependencies and fetch native dependencies
-  desktop-message-test  Run message/session application regressions
-  desktop-visual-check  Verify the unchanged v1 key-viewer appearance baselines
-  desktop-test [filter...]  Run frontend unit regressions, optionally filtered
-  desktop-native-format  Format the changed native message boundaries
-  desktop-format  Format the changed frontend message boundaries
-  desktop-licenses  Generate bundled source and dependency notices
-  mod-format  Format the changed C# message boundaries
   desktop-check  Check the ElementNote frontend and native backend without installing
   desktop-frontend-check  Verify SDK, types, lint, formatting, tests, and frontend build
-  desktop-ipc-format  Format the IPC lifecycle adapter and its regression tests
+  desktop-native-check [--check-only|--clippy-only]  Check/test/clippy native backend without installing
+  desktop-native-test [filter]  Run native tests, optionally filtered by test name
+  desktop-test [filter...]  Run frontend unit regressions, optionally filtered
+  desktop-message-test  Run the tests of the code that carries messages (API, IPC, viewers)
+  desktop-visual-check  Verify the unchanged v1 key-viewer appearance baselines
+  desktop-render-test  Run isolated native render fixtures without live inputs
+  desktop-format [files...]  Format the frontend files you changed (or the given ones)
+  desktop-ipc-format  Same as desktop-format (old name)
+  desktop-native-format [files...]  Format the Rust files you changed (or the given ones)
+  desktop-licenses  Generate bundled source and dependency notices
   desktop-build  Build the ElementNote frontend and native backend without installing
   desktop-bundle [--release]  Package the native app without installing (default: Debug)
-  desktop-render-test  Run isolated native render fixtures without live inputs
   help        Show this help
 USAGE
 }
 
 command_name="${1:-help}"
 case "$command_name" in
-  assets)
-    exec "$SCRIPTS_DIR/workflows/build-assets.sh"
+  help | -h | --help)
+    usage
     ;;
-  build)
-    exec "$SCRIPTS_DIR/workflows/build-install.sh"
-    ;;
-  mod-format)
-    exec "$SCRIPTS_DIR/workflows/format-mod.sh"
-    ;;
-  mod-check)
-    exec "$SCRIPTS_DIR/workflows/build-install.sh" check
-    ;;
-  ui-check)
-    exec bash "$SCRIPTS_DIR/tasks/test/ui-preview.sh"
-    ;;
-  native-webview-check)
-    exec bash "$SCRIPTS_DIR/tasks/test/game-webview.sh"
-    ;;
-  windows-webview-check)
-    exec bash "$SCRIPTS_DIR/tasks/test/game-webview-windows.sh"
-    ;;
-  windows-install)
-    exec bash "$SCRIPTS_DIR/tasks/install/windows-mod.sh"
+  assets | build | mod-check | ui-check | native-webview-check | windows-webview-check | windows-install | \
+    install | package | version | release | check | hooks | ipc-sync | mod-format)
+    exec "$WORKFLOWS_DIR/$command_name.sh" "${@:2}"
     ;;
   dmnote-windows-build)
-    exec bash "$SCRIPTS_DIR/tasks/build/dmnote-windows.sh"
+    exec "$WORKFLOWS_DIR/element-note-windows-build.sh" "${@:2}"
     ;;
-  install)
-    exec "$SCRIPTS_DIR/tasks/install/mod.sh"
-    ;;
-  sample-install)
-    exec bash "$SCRIPTS_DIR/tasks/install/sample.sh"
-    ;;
-  package)
-    exec "$SCRIPTS_DIR/workflows/package-release.sh"
-    ;;
-  version)
-    if [ -n "${2:-}" ]; then
-      exec node "$SCRIPTS_DIR/tasks/version/version.mjs" set "$2"
-    fi
-    exec node "$SCRIPTS_DIR/tasks/version/version.mjs" check
-    ;;
-  release)
-    exec "$SCRIPTS_DIR/workflows/release.sh" "${2:-}"
-    ;;
-  check)
-    exec "$SCRIPTS_DIR/workflows/check-scripts.sh"
-    ;;
-  hooks)
-    exec bash "$SCRIPTS_DIR/tasks/install/git-hooks.sh"
-    ;;
-  ipc-sync)
-    exec node "$SCRIPTS_DIR/tasks/verify/sync-adofai-ipc.mjs" "${2:-}" "${3:-}"
-    ;;
-  desktop-check|desktop-frontend-check|desktop-ipc-format|desktop-build|desktop-bundle|desktop-render-test|desktop-message-test|desktop-visual-check|desktop-test|desktop-deps|desktop-format|desktop-licenses|desktop-native-check|desktop-native-test|desktop-native-format)
-    exec "$SCRIPTS_DIR/workflows/desktop-render.sh" "$command_name" "${@:2}"
-    ;;
-  help|-h|--help)
-    usage
+  desktop-*)
+    exec "$WORKFLOWS_DIR/element-note.sh" "$command_name" "${@:2}"
     ;;
   *)
     printf 'Unknown command: %s\n\n' "$command_name" >&2

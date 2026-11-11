@@ -4,6 +4,7 @@ using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -159,13 +160,13 @@ internal sealed class OverlayGradientHandles
   {
     if (!Visible)
       return false;
-    if (Angle.Contains(screen) || OverlayEditorUi.Contains(_lineArea, screen))
+    if (Angle.Contains(screen) || PopoverPlacement.Contains(_lineArea, screen))
       return true;
     foreach (Grip grip in _grips)
-      if (OverlayEditorUi.Contains(grip.Rect, screen))
+      if (PopoverPlacement.Contains(grip.Rect, screen))
         return true;
     foreach (Square square in _squares)
-      if (OverlayEditorUi.Contains(square.Rect, screen))
+      if (PopoverPlacement.Contains(square.Rect, screen))
         return true;
     return false;
   }
@@ -176,7 +177,7 @@ internal sealed class OverlayGradientHandles
     if (!Visible)
       return -1;
     for (int i = _squares.Count - 1; i >= 0; i--)
-      if (_squares[i].Rect.gameObject.activeSelf && OverlayEditorUi.Contains(_squares[i].Rect, screen))
+      if (_squares[i].Rect.gameObject.activeSelf && PopoverPlacement.Contains(_squares[i].Rect, screen))
         return _squares[i].Stop;
     return -1;
   }

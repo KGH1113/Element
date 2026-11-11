@@ -221,7 +221,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
   // nothing is selected.
   private void BuildFormatBar()
   {
-    _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, OverlayEditorUi.Bar);
+    _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, LayoutColors.Bar);
     _formatSurface.raycastTarget = true;
     _formatBar = _formatSurface.rectTransform;
     _fontButton = new OverlayBarButton(
@@ -406,7 +406,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
   private void PlacePicker()
   {
     if (_dock != null)
-      OverlayEditorUi.PlaceAboveKeypad(_picker, _dock);
+      KeypadPicker.Place(_picker, _dock);
   }
 
   /// <summary>Done writes the runs to the element; cancel leaves it as it was.</summary>

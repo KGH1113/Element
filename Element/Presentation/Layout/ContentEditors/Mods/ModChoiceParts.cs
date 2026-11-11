@@ -61,7 +61,7 @@ internal sealed class ModChoiceParts
     int current = Mathf.Clamp(selected, 0, names.Count - 1);
     Button button = null;
     TextMeshProUGUI shown = null;
-    button = OverlayEditorUi.CapsuleButton(
+    button = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Dropdown " + label,
@@ -124,7 +124,7 @@ internal sealed class ModChoiceParts
       int index = i;
       bool state = on != null && index < on.Count && on[index];
       Button chip = null;
-      chip = OverlayEditorUi.CapsuleButton(
+      chip = EditorCapsules.CapsuleButton(
         _ui,
         control.Rect,
         "Chip " + names[i],

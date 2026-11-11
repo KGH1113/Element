@@ -62,7 +62,7 @@ internal sealed class OverlayKeypad
       int row = i / 4,
         column = i % 4;
       bool symbol = column == 3;
-      Button button = OverlayEditorUi.CapsuleButton(
+      Button button = EditorCapsules.CapsuleButton(
         ui,
         Root,
         "Key " + (key == '\b' ? "backspace" : label),
@@ -84,7 +84,7 @@ internal sealed class OverlayKeypad
       _buttons.Add((button, key));
     }
     float last = 4 * (KeyHeight + Gap);
-    _clear = OverlayEditorUi.CapsuleButton(
+    _clear = EditorCapsules.CapsuleButton(
       ui,
       Root,
       "Key clear",
@@ -98,7 +98,7 @@ internal sealed class OverlayKeypad
       false,
       reduceMotion
     );
-    Button finish = _done = OverlayEditorUi.CapsuleButton(
+    Button finish = _done = EditorCapsules.CapsuleButton(
       ui,
       Root,
       "Key done",

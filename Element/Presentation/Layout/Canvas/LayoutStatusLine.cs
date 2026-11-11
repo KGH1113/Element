@@ -53,7 +53,7 @@ internal sealed class LayoutStatusLine
     _text.color =
       !message ? SettingsUiFactory.Muted
       : _note ? SettingsUiFactory.Foreground
-      : OverlayEditorUi.Warning;
+      : LayoutColors.Warning;
     if (!message)
       _note = false;
     if (Time.unscaledTime >= _until)

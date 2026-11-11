@@ -88,7 +88,7 @@ internal sealed class ModListPopover : IPopover
     for (int i = 0; i < options.Count; i++)
     {
       int index = i;
-      Button row = OverlayEditorUi.CapsuleButton(
+      Button row = EditorCapsules.CapsuleButton(
         _ui,
         content,
         "Option " + (i + 1),

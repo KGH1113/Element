@@ -53,7 +53,7 @@ internal sealed class ModInputParts
   {
     ModEditorControl control = _page.Row("Button", 0);
     Button button = null;
-    button = OverlayEditorUi.CapsuleButton(
+    button = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Button " + text,
@@ -83,7 +83,7 @@ internal sealed class ModInputParts
   {
     ModEditorControl control = _page.Row("Icon button", 0);
     Button button = null;
-    button = OverlayEditorUi.CapsuleButton(
+    button = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Icon " + icon,
@@ -119,7 +119,7 @@ internal sealed class ModInputParts
       motion.Set(state ? 24 : 4, immediate || _reduceMotion);
     }
     Button hit = null;
-    hit = OverlayEditorUi.CapsuleButton(
+    hit = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Switch " + label,
@@ -160,7 +160,7 @@ internal sealed class ModInputParts
       check.gameObject.SetActive(state);
     }
     Button hit = null;
-    hit = OverlayEditorUi.CapsuleButton(
+    hit = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Checkbox " + text,
@@ -422,7 +422,7 @@ internal sealed class ModInputParts
       int now = current;
       _host.Change(key, () => changed?.Invoke(now), false);
     }
-    minus = OverlayEditorUi.CapsuleButton(
+    minus = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Step down " + label,
@@ -437,7 +437,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     _page.Icon(minus.transform, LayoutAction.Minus, 6, 6, 24, SettingsUiFactory.Foreground);
-    plus = OverlayEditorUi.CapsuleButton(
+    plus = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Step up " + label,
@@ -557,7 +557,7 @@ internal sealed class ModInputParts
       rows.Add((input, up, down, delete));
     }
     Button add = null;
-    add = OverlayEditorUi.CapsuleButton(
+    add = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "List add",
@@ -615,7 +615,7 @@ internal sealed class ModInputParts
     Func<Button> self
   )
   {
-    Button button = OverlayEditorUi.CapsuleButton(
+    Button button = EditorCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "List " + name,

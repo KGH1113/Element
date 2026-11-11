@@ -2,6 +2,7 @@ using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
@@ -496,7 +497,7 @@ internal sealed partial class OverlayTextEditor
     index = -1;
     accepted = true;
     // The picker sits over everything else; only its numbers take a value.
-    if (_picker.Visible && OverlayEditorUi.Contains(_picker.Root, screen))
+    if (_picker.Visible && PopoverPlacement.Contains(_picker.Root, screen))
     {
       bool opacity = _opacity.Contains(screen),
         position = _picker.IsGradient && _position.Contains(screen);

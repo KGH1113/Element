@@ -7,6 +7,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -291,8 +292,8 @@ internal sealed partial class OverlayTextEditor
         _dock.Contains(screen)
         || _growPopover.Contains(screen)
         || _fontPopover.Contains(screen)
-        || OverlayEditorUi.Contains(_formatBar, screen)
-        || OverlayEditorUi.Contains(_picker.Root, screen)
+        || PopoverPlacement.Contains(_formatBar, screen)
+        || PopoverPlacement.Contains(_picker.Root, screen)
         || _handles.Contains(screen)
       )
         return;
@@ -352,7 +353,7 @@ internal sealed partial class OverlayTextEditor
   private bool InTextArea(Vector2 screen)
   {
     foreach (RectTransform blocked in new[] { _dock.Root, _growPopover.Root, _formatBar, _picker.Root })
-      if (OverlayEditorUi.Contains(blocked, screen))
+      if (PopoverPlacement.Contains(blocked, screen))
         return false;
     if (_fontPopover.Contains(screen))
       return false;
@@ -523,7 +524,7 @@ internal sealed partial class OverlayTextEditor
     float spaceLeft = OverlayEditorFrame.Margin,
       spaceRight = frameWidth - OverlayEditorFrame.Margin;
     if (_picker.Visible)
-      spaceRight = Mathf.Min(spaceRight, OverlayEditorUi.PickerLeft(_picker, _dock) - 16);
+      spaceRight = Mathf.Min(spaceRight, KeypadPicker.Left(_picker, _dock) - 16);
     // It glides aside as the picker opens, and back as it closes.
     spaceRight = _space.Toward(spaceRight, _reduceMotion());
     float middle = (spaceLeft + spaceRight) * .5f;

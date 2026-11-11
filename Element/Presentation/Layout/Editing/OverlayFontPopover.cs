@@ -116,7 +116,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, SettingsUiFactory.Muted);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
     bool pick = _library?.CanPickFiles ?? false;
-    _add = OverlayEditorUi.CapsuleButton(
+    _add = EditorCapsules.CapsuleButton(
       ui,
       Root,
       "Add font file",
@@ -130,7 +130,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
       false,
       reduceMotion
     );
-    _folder = OverlayEditorUi.CapsuleButton(
+    _folder = EditorCapsules.CapsuleButton(
       ui,
       Root,
       "Open fonts folder",
@@ -277,13 +277,13 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   private void HandlePointer()
   {
     Vector2 mouse = Input.mousePosition;
-    if (OverlayEditorUi.Contains(_viewport, mouse) || OverlayEditorUi.Contains(_track, mouse))
+    if (PopoverPlacement.Contains(_viewport, mouse) || PopoverPlacement.Contains(_track, mouse))
     {
       float wheel = Input.mouseScrollDelta.y;
       if (Mathf.Abs(wheel) > .001f)
         ScrollTo(_scroll - wheel * RowHeight * 2);
     }
-    if (Input.GetMouseButtonDown(0) && OverlayEditorUi.Contains(_track, mouse))
+    if (Input.GetMouseButtonDown(0) && PopoverPlacement.Contains(_track, mouse))
     {
       _dragging = true;
       float thumbTop = -_thumb.rectTransform.anchoredPosition.y;
@@ -389,7 +389,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     else
       text = L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
     _status.text = text;
-    _status.color = warning ? OverlayEditorUi.Warning : SettingsUiFactory.Muted;
+    _status.color = warning ? LayoutColors.Warning : SettingsUiFactory.Muted;
   }
 
   private bool HasFonts()
@@ -540,7 +540,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     while (_rows.Count < count)
     {
       Row row = new();
-      row.Button = OverlayEditorUi.CapsuleButton(
+      row.Button = EditorCapsules.CapsuleButton(
         _ui,
         _viewport,
         "Font row",
@@ -637,7 +637,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
         : current ? SettingsPalette.SoftAccent
         : SettingsUiFactory.Foreground;
       row.Detail.text = entry.Detail ?? "";
-      row.Detail.color = entry.Warning ? OverlayEditorUi.Warning : SettingsUiFactory.Muted;
+      row.Detail.color = entry.Warning ? LayoutColors.Warning : SettingsUiFactory.Muted;
       float detailWidth = string.IsNullOrEmpty(row.Detail.text)
         ? 0
         : Mathf.Min(width * .45f, Mathf.Ceil(row.Detail.GetPreferredValues(row.Detail.text).x) + 2);

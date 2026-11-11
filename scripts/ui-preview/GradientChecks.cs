@@ -36,24 +36,24 @@ namespace Element.Editor
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       OverlayShapeEditor shapes = (OverlayShapeEditor)Kind<ShapeKind>(editor).Editor;
       Assert(shapes.IsOpen, "a new square opens its editor");
-      Call(shapes, "Write", "width", OverlayFormula.FromNumber(420));
-      Call(shapes, "Write", "height", OverlayFormula.FromNumber(240));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(420));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(240));
       Call(shapes, "Render");
       // With motion, opening the picker glides the shape aside from where it was.
       ElementSettings preferences = Session(editor).Preferences;
       bool reduceMotion = preferences.ReduceUiMotion;
       preferences.ReduceUiMotion = false;
-      Rect resting = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
-      Call(shapes, "OpenColor", false);
-      OverlayGlide glide = Field<OverlayGlide>(shapes, "_space");
-      Assert(glide.Moving && ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect")) == resting,
+      Rect resting = ScreenRectOf(ShapeRect(shapes));
+      Call(ShapeColorsOf(shapes), "Open", false);
+      OverlayGlide glide = Field<OverlayGlide>(Field<OverlayPreviewSpace>(shapes, "_space"), "_glide");
+      Assert(glide.Moving && ScreenRectOf(ShapeRect(shapes)) == resting,
         "opening the picker starts the shape gliding from where it was, without a jump");
-      Call(shapes, "OpenColor", false);
+      Call(ShapeColorsOf(shapes), "Open", false);
       // The checks below measure where things land, so they settle at once.
       preferences.ReduceUiMotion = true;
-      Call(shapes, "OpenColor", false);
-      SettingsColorPicker picker = Field<SettingsColorPicker>(shapes, "_picker");
-      OverlayGradientHandles handles = Field<OverlayGradientHandles>(shapes, "_handles");
+      Call(ShapeColorsOf(shapes), "Open", false);
+      SettingsColorPicker picker = ShapeColorsOf(shapes).Picker;
+      OverlayGradientHandles handles = ShapeGradientOf(shapes).Handles;
       Assert(picker.Visible && picker.GradientAvailable && !picker.IsGradient && !handles.Visible,
         "the fill picker has a color bar and starts solid, with no handles");
       RectTransform bar = Field<RectTransform>(picker, "_bar");
@@ -87,7 +87,7 @@ namespace Element.Editor
       Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
       OverlayInputDock dock0 = Field<OverlayInputDock>(shapes, "_dock");
-      OverlayFormulaField position = Field<OverlayFormulaField>(shapes, "_position");
+      OverlayFormulaField position = ShapeGradientOf(shapes).Position;
       Assert(position.Text == "70", "the picked color's position pill says where it is: " + position.Text);
       Rect pill = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
       Rect delete = ScreenRectOf((RectTransform)Field<Button>(picker, "_delete").transform);
@@ -102,15 +102,15 @@ namespace Element.Editor
       // 16:9 and 16:10 screens leave 310 frame units above the keypad.
       Assert(picker.Height <= 310 && picker.CurrentWidth > 500, "the two-column picker fits above the keypad on wide screens: " + picker.Height);
       Rect pickerRect = ScreenRectOf(picker.Root);
-      Assert(!pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect")))
-        && !pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_bar")))
+      Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes)))
+        && !pickerRect.Overlaps(ScreenRectOf(Field<OverlayEditorBar>(shapes, "_bar").Root))
         && !pickerRect.Overlaps(ScreenRectOf(dock0.Keypad.Root)),
         "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
 
       // The ends of the line are handles only: nothing covers them.
-      Rect shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
-      List<Button> arcs = Field<List<Button>>(shapes, "_arcs");
+      Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
+      List<Button> arcs = Field<List<Button>>(Measures(shapes), "_arcs");
       Assert(arcs.All(arc => !arc.gameObject.activeSelf), "corner arcs step aside while the handles show");
       Vector2 start = new Vector2(shapeRect.xMin, shapeRect.center.y);
       Assert(handles.Contains(start) && handles.SquareAt(start) < 0, "the start handle is a handle, not a color");
@@ -140,8 +140,8 @@ namespace Element.Editor
       Call(shapes, "Activate", "fill-angle");
       OverlayInputDock dock = Field<OverlayInputDock>(shapes, "_dock");
       Assert(dock.Owner == "fill-angle", "the angle opens in the dock");
-      Call(shapes, "Write", "fill-angle", OverlayFormula.FromNumber(0));
-      Call(shapes, "FinishEditing");
+      Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayFormula.FromNumber(0));
+      ShapeNumbersOf(shapes).FinishEditing();
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(OverlayGradientMath.Angle(fill.Gradient, 420, 240)) < .5f, "a typed angle turns the gradient");
 
@@ -218,16 +218,16 @@ namespace Element.Editor
       Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "Edit text opens the text editor");
-      Call(text, "OpenPicker");
-      SettingsColorPicker textPicker = Field<SettingsColorPicker>(text, "_picker");
+      Call(TextColorOf(text), "OpenPicker");
+      SettingsColorPicker textPicker = TextColorOf(text).Picker;
       Call(textPicker, "SetSource", false);
       RectTransform textBar = Field<RectTransform>(textPicker, "_bar");
       Invoke(textPicker, "BarDown", Pointer(BarPoint(textBar, 1)));
       Invoke(textPicker, "BarDrag", Pointer(BarPoint(textBar, 1)));
-      OverlayColorSettings range = (OverlayColorSettings)text.GetType().GetMethod("RangeColor", Private).Invoke(text, null);
-      OverlayGradientHandles textHandles = Field<OverlayGradientHandles>(text, "_handles");
+      OverlayColorSettings range = TextDocumentOf(text).RangeColor();
+      OverlayGradientHandles textHandles = Field<TextGradient>(text, "_gradient").Handles;
       Assert(range.IsGradient && textPicker.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
-      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Assert(OverlayTextGradients.Box(preview.textInfo, out Rect box) && box.width > 0, "the handles measure the text's box");
       Rect textRect = ScreenRectOf(preview.rectTransform);
       Vector2 origin = Field<Vector2>(textHandles, "_origin");

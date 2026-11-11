@@ -30,6 +30,8 @@ files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayou
 files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Presentation/Layout', name));
+for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Ui'), { recursive: true }).filter(name => name.endsWith('.cs')))
+  files.push(path.join(root, 'Element/Presentation/Ui', name));
 for (const folder of ['Element/Domain/Layout', 'Element/Domain/Elements', 'Element/Presentation/Overlay/Canvas', 'Element/Presentation/Overlay/Migration', 'Element/Presentation/Overlay/Elements', 'Element/Presentation/Overlay/Mods'])
   for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
     files.push(path.join(root, folder, name));

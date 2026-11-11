@@ -11,6 +11,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Presentation.Layout.ContentEditors;
 
 namespace Element.Presentation.Layout;
 
@@ -21,7 +22,7 @@ namespace Element.Presentation.Layout;
 /// clicking one of its values adds it at the caret, and clicking a value in
 /// the text or a number in the bar types its formula there.
 /// </summary>
-internal sealed partial class OverlayTextEditor : IDisposable
+internal sealed partial class OverlayTextEditor : IContentEditor
 {
   private const float FormatHeight = 40,
     MinimumSize = 4,
@@ -79,6 +80,14 @@ internal sealed partial class OverlayTextEditor : IDisposable
 
   /// <summary>Keeps the editor above the layout toolbar and handles, which raise themselves.</summary>
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+
+  bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
+  {
+    if (target is not TextOverlayElement text)
+      return false;
+    Open(text, closed);
+    return true;
+  }
 
   public void Open(TextOverlayElement element, Action<bool> closed)
   {

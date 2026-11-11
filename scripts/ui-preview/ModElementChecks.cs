@@ -3,10 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.Canvas;
+using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -136,19 +139,19 @@ namespace Element.Editor
       try
       {
         Call(editor, "ToggleAddMenu");
-        RectTransform menu = Field<RectTransform>(editor, "_addMenu");
+        RectTransform menu = AddMenu(editor);
         Button[] rows = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
         Assert(rows.Length == 4 && rows[3].name == "Add Extension" && rows[3].interactable, "Add Element gains More once a mod declares an element");
         Assert(warnings.Count == 0, "the preview element is found without problems: " + string.Join(" | ", warnings));
         rows[3].onClick.Invoke();
-        RectTransform list = Field<RectTransform>(editor, "_modMenu");
+        RectTransform list = Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root;
         Assert(list != null && list.GetComponentsInChildren<Button>(true).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card" }),
           "More lists each element other mods declare");
         SaveFrame(camera, texture, canvases, name + "-mod-types");
 
         list.GetComponentsInChildren<Button>(true).Single().onClick.Invoke();
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
-        OverlayModEditor mods2 = Field<OverlayModEditor>(editor, "_modEditor");
+        OverlayModEditor mods2 = (OverlayModEditor)Kind<ModKind>(editor).Editor;
         Assert(element.Enabled && element.Drawn && mods2.IsOpen, "a new element opens its editing screen at once");
         string Working() => Field<string>(mods2, "_working");
         Button Find(string prefix) => mods2.Page.Root.GetComponentsInChildren<Button>(true).First(button => button.name.StartsWith(prefix));

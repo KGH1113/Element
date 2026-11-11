@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -21,7 +23,7 @@ namespace Element.Presentation.Layout;
 /// <see cref="ModEditorPage"/>'s parts, and the editor opens what those
 /// parts ask for beside them: color pickers, a dropdown's list, the font list.
 /// </summary>
-internal sealed class OverlayModEditor : IModEditorHost, IDisposable
+internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 {
   private const float BarHeight = 40;
 
@@ -90,6 +92,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IDisposable
 
   /// <summary>The page the mod built last; for checks.</summary>
   internal ModEditorPage Page => _page;
+
+  bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed) =>
+    target is ModOverlayElement element && Open(element, closed);
 
   /// <summary>Opens <paramref name="element"/>; false when its mod can't draw it now.</summary>
   public bool Open(ModOverlayElement element, Action<bool> closed)
@@ -483,19 +488,26 @@ internal sealed class OverlayModEditor : IModEditorHost, IDisposable
   private Anchor9 GrowPointNow() =>
     OverlayLayoutPosition.ValidGrowth(_growth) ? (Anchor9)(int)_growth : _element.GrowPoint;
 
+  /// <summary>
+  /// Esc closes what is open; with nothing open it finishes like Done. Only
+  /// Cancel leaves without saving.
+  /// </summary>
+  public void Escape()
+  {
+    if (AnyPopover)
+      ClosePopovers();
+    else
+      Close(true, true);
+  }
+
   private void HandleKeys()
   {
-    bool mac =
-      UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
-      || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-    while (_screen != null && Event.PopEvent(_event))
+    bool mac = EditorKeys.Mac;
+    while (_screen != null && EditorKeys.NextKeyDown(_event))
     {
-      if (_event.rawType != EventType.KeyDown)
-        continue;
-      bool command = mac ? _event.command : _event.control;
-      if (command)
+      if (EditorKeys.Command(_event, mac))
       {
-        if (_event.keyCode == KeyCode.Return || _event.keyCode == KeyCode.KeypadEnter)
+        if (EditorKeys.IsEnter(_event.keyCode))
         {
           Close(true, true);
           return;
@@ -513,15 +525,10 @@ internal sealed class OverlayModEditor : IModEditorHost, IDisposable
       }
       if (_event.keyCode != KeyCode.Escape)
         continue;
-      // Esc closes what is open; with nothing open it finishes like Done.
-      // Only Cancel leaves without saving.
-      if (AnyPopover)
-        ClosePopovers();
-      else
-      {
-        Close(true, true);
+      bool finishing = !AnyPopover;
+      Escape();
+      if (finishing)
         return;
-      }
     }
   }
 

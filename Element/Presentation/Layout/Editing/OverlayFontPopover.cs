@@ -4,6 +4,7 @@ using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -18,7 +19,7 @@ namespace Element.Presentation.Layout;
 /// rows in view exist, so a PC with a thousand fonts scrolls as lightly as one
 /// with ten.
 /// </summary>
-internal sealed class OverlayFontPopover : IDisposable
+internal sealed class OverlayFontPopover : IPopover, IDisposable
 {
   public const float PreferredWidth = 360,
     PreferredHeight = 440,
@@ -241,7 +242,10 @@ internal sealed class OverlayFontPopover : IDisposable
     RefreshRows();
   }
 
-  public bool Contains(Vector2 screen) => Visible && OverlayEditorUi.Contains(Root, screen);
+  /// <summary>The control it opened from, when its owner says so.</summary>
+  public RectTransform Anchor { get; set; }
+
+  public bool Contains(Vector2 screen) => Visible && PopoverPlacement.Contains(Root, screen);
 
   /// <summary>Once per frame while open: fonts that finished listing, and scrolling.</summary>
   public void Tick()

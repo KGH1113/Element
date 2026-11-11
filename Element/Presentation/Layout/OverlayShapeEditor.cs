@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Presentation.Layout.ContentEditors;
 
 namespace Element.Presentation.Layout;
 
@@ -19,7 +20,7 @@ namespace Element.Presentation.Layout;
 /// grows from float above. Clicking a number types it in the input dock along
 /// the bottom, which is always there.
 /// </summary>
-internal sealed partial class OverlayShapeEditor : IDisposable
+internal sealed partial class OverlayShapeEditor : IContentEditor
 {
   private const float BarHeight = 40,
     MeasureGap = 22,
@@ -86,6 +87,14 @@ internal sealed partial class OverlayShapeEditor : IDisposable
   public bool IsOpen => _screen != null;
 
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+
+  bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
+  {
+    if (target is not ShapeOverlayElement shape)
+      return false;
+    Open(shape, closed);
+    return true;
+  }
 
   public void Open(ShapeOverlayElement element, Action<bool> closed)
   {

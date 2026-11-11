@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Presentation.Layout.ContentEditors.Shell;
 
 namespace Element.Presentation.Layout;
 
@@ -168,29 +169,29 @@ internal sealed partial class OverlayTextEditor
     return false;
   }
 
+  /// <summary>Esc closes the picker first, then finishes like Done; only Cancel leaves without saving.</summary>
+  public void Escape()
+  {
+    if (_picker.Visible)
+      _picker.Hide();
+    else
+      Close(true, true);
+  }
+
   private void HandleKeys()
   {
-    bool mac =
-      UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
-      || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-    while (_screen != null && Event.PopEvent(_event))
+    bool mac = EditorKeys.Mac;
+    while (_screen != null && EditorKeys.NextKeyDown(_event))
     {
-      if (_event.rawType != EventType.KeyDown)
-        continue;
-      bool command = mac ? _event.command : _event.control;
-      bool word = mac ? _event.alt : _event.control;
+      bool command = EditorKeys.Command(_event, mac);
+      bool word = EditorKeys.Word(_event, mac);
       bool shift = _event.shift;
       if (HandlePopoverKey(command))
         continue;
       switch (_event.keyCode)
       {
         case KeyCode.Escape:
-          // Esc closes the picker first, then finishes like Done; only
-          // Cancel leaves without saving.
-          if (_picker.Visible)
-            _picker.Hide();
-          else
-            Close(true, true);
+          Escape();
           return;
         case KeyCode.Return:
         case KeyCode.KeypadEnter:

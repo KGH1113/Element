@@ -9,6 +9,8 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Layout;
+using Element.Application.KeyViewer;
 
 namespace Element.Presentation.Layout;
 

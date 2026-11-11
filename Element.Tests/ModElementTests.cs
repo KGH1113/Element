@@ -6,6 +6,8 @@ using Element.Domain.Layout;
 using Element.Presentation.Overlay.Mods;
 using ElementKit;
 using ElementKit.Hosting;
+using Element.Infrastructure.Mods;
+using Element.Application.Mods;
 
 namespace Element.Tests;
 

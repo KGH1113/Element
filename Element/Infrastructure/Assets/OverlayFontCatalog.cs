@@ -5,9 +5,9 @@ using System.Reflection;
 using System.Threading;
 using Element.Configuration;
 using Element.Domain.Elements;
-using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine.TextCore.LowLevel;
+using Element.Application.Fonts;
 
 namespace Element.Infrastructure.Assets;
 

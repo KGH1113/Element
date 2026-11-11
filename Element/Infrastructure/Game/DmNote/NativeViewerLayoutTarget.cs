@@ -3,10 +3,9 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Domain.Layout;
-using Element.Presentation.Layout;
-using Element.Presentation.Settings;
-using TMPro;
 using UnityEngine;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 
 namespace Element.Infrastructure.Game.DmNote;
 
@@ -19,12 +18,12 @@ internal sealed class NativeViewerLayoutTarget
     IDisposable
 {
   private readonly string _kind;
-  private readonly string _label;
+  private readonly Func<string> _label;
   private readonly Action<bool> _setPreview;
   private readonly Action _enabledChanged;
   private readonly Func<NativeViewerStatus> _status;
   private readonly Func<bool> _hidden;
-  private NativeViewerMock _mock;
+  private IKeyViewerSample _sample;
   private OverlayLayoutSettings _settings;
   private INativeViewerLayoutHost _host;
   private Rect _bounds;
@@ -49,14 +48,14 @@ internal sealed class NativeViewerLayoutTarget
   private bool _selected;
   private bool _preview;
   private bool _lastEnabled = true;
-  private TMP_FontAsset _font;
+  private IKeyViewerSamples _samples;
   private GameObject _previewCanvas;
   private RectTransform _previewRoot;
   private Rect _previewBounds = new(float.NaN, 0, 0, 0);
 
   public NativeViewerLayoutTarget(
     string kind,
-    string label,
+    Func<string> label,
     Action<bool> setPreview,
     Action enabledChanged,
     string id = null,
@@ -80,7 +79,7 @@ internal sealed class NativeViewerLayoutTarget
   public string TemplateId { get; }
   public string Kind => _kind;
   public string NativeId { get; }
-  public string Label => SettingsLocale.L(_label, _kind == "hand" ? "Hand keyviewer" : "Foot keyviewer");
+  public string Label => _label();
   public bool Enabled => _settings.Enabled;
 
   // While ElementNote is closed or hides its viewers, the editor neither draws nor selects them.
@@ -148,7 +147,8 @@ internal sealed class NativeViewerLayoutTarget
     Apply();
   }
 
-  public void ConfigurePreview(TMP_FontAsset font) => _font = font;
+  /// <summary>Where the sample shown while this viewer has no live page comes from.</summary>
+  public void ConfigurePreview(IKeyViewerSamples samples) => _samples = samples;
 
   public void SetEnabled(bool enabled)
   {
@@ -284,7 +284,7 @@ internal sealed class NativeViewerLayoutTarget
     // backing can change without a Unity resolution change or an IPC message.
     EnsureLayoutCurrent();
     bool visible = _preview && Enabled && !OwnsSelectionOutline && !Hidden;
-    if (visible && _previewCanvas == null)
+    if (visible && _previewCanvas == null && _samples != null)
     {
       _previewCanvas = new GameObject("ElementNote offline preview", typeof(RectTransform), typeof(Canvas));
       if (UnityEngine.Application.isPlaying)
@@ -292,8 +292,8 @@ internal sealed class NativeViewerLayoutTarget
       Canvas canvas = _previewCanvas.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceOverlay;
       canvas.sortingOrder = 32758;
-      _previewRoot = NativeViewerMock.Create(_kind, _previewCanvas.transform, _font, true);
-      _mock = _previewRoot.GetComponent<NativeViewerMock>();
+      _sample = _samples.Create(_kind, _previewCanvas.transform);
+      _previewRoot = _sample.Root;
       _previewBounds = new Rect(float.NaN, 0, 0, 0);
     }
     if (_previewCanvas == null)
@@ -311,8 +311,8 @@ internal sealed class NativeViewerLayoutTarget
       _previewRoot.pivot = new Vector2(0, 1);
       _previewRoot.anchoredPosition = new Vector2(_bounds.x, -_bounds.y);
       _previewRoot.localScale = new Vector3(
-        _bounds.width / NativeViewerMock.Width(_kind),
-        _bounds.height / NativeViewerMock.ViewportHeight,
+        _bounds.width / KeyViewerSampleSize.Width(_kind),
+        _bounds.height / KeyViewerSampleSize.ViewportHeight,
         1
       );
     }
@@ -321,7 +321,7 @@ internal sealed class NativeViewerLayoutTarget
       // The sample is shown only while this viewer has no live page, so an
       // attached session means ElementNote has no tab for this kind.
       NativeViewerStatus status = _status();
-      _mock?.SetStatus(status == NativeViewerStatus.Attached ? NativeViewerStatus.NoViewerTab : status);
+      _sample?.SetStatus(status == NativeViewerStatus.Attached ? NativeViewerStatus.NoViewerTab : status);
     }
   }
 
@@ -458,7 +458,7 @@ internal sealed class NativeViewerLayoutTarget
       return;
     }
     if (_referenceSize.x <= 0 || _referenceSize.y <= 0)
-      _referenceSize = new Vector2(NativeViewerMock.Width(_kind), NativeViewerMock.ViewportHeight);
+      _referenceSize = new Vector2(KeyViewerSampleSize.Width(_kind), KeyViewerSampleSize.ViewportHeight);
     if (desktopUnit > 0)
       _sizeUnit = desktopUnit;
   }
@@ -525,8 +525,8 @@ internal sealed class NativeViewerLayoutTarget
     }
     else
     {
-      float width = NativeViewerMock.Width(_kind);
-      float height = NativeViewerMock.ViewportHeight;
+      float width = KeyViewerSampleSize.Width(_kind);
+      float height = KeyViewerSampleSize.ViewportHeight;
       float fit = Mathf.Min(1, Mathf.Min(430 / width, 270 / height));
       _effectiveScale = FiniteClamp(_settings.Scale, .2f, 5, 1);
       width *= fit * _effectiveScale * SizeUnit;
@@ -575,7 +575,7 @@ internal sealed class NativeViewerLayoutTarget
     }
     _previewCanvas = null;
     _previewRoot = null;
-    _mock = null;
+    _sample = null;
   }
 
   private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);

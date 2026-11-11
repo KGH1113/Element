@@ -11,6 +11,7 @@ using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Mods;
 
 namespace Element.Presentation.Layout;
 

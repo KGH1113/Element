@@ -11,7 +11,6 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFacto
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
-files.push(path.join(root, 'Element/Presentation/Overlay/Shared/IOverlayFontSource.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/OverlayFontCatalog.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Assets/FontFilePickers.cs'));
@@ -19,7 +18,11 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'))
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
 files.push(path.join(root, 'Element/Application/Updates/IModUpdates.cs'));
-files.push(path.join(root, 'Element/Application/Input/InputGate.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Mods/ElementClasses.cs'));
+// Ports the settings UI, the layout editor and the overlay use.
+for (const folder of ['Element/Application/Input', 'Element/Application/Fonts', 'Element/Application/Layout', 'Element/Application/KeyViewer', 'Element/Application/Mods'])
+  for (const name of fs.readdirSync(path.join(root, folder)).filter(name => name.endsWith('.cs')))
+    files.push(path.join(root, folder, name));
 files.push(path.join(root, 'Element/Application/Files/IFileDialogs.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles')).filter(name => name.endsWith('.cs')))
   files.push(path.join(root, 'Element/Application/Profiles', name));
@@ -27,7 +30,6 @@ files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerHost.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerMock.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/DmNote/NativeViewerLayoutTarget.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/Tweaks/PlanetPreviewRenderer.cs'));
 for (const name of fs.readdirSync(path.join(root, 'Element/Presentation/Layout'), { recursive: true }).filter(name => name.endsWith('.cs')))

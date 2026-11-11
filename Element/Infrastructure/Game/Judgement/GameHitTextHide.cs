@@ -1,5 +1,5 @@
 using Element.Application.Judgement;
-using Element.Bootstrap;
+using Element.Infrastructure.Game.Patches;
 using HarmonyLib;
 
 namespace Element.Infrastructure.Game.Judgement;

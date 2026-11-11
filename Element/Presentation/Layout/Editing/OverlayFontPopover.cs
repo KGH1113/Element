@@ -8,6 +8,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
+using Element.Application.Fonts;
 
 namespace Element.Presentation.Layout;
 

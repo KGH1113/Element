@@ -2,18 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Element.Infrastructure.Game.Patches;
 using HarmonyLib;
 
 namespace Element.Bootstrap;
-
-/// <summary>Names the feature a Harmony patch class belongs to when its namespace is too broad.</summary>
-[AttributeUsage(AttributeTargets.Class)]
-internal sealed class PatchGroupAttribute : Attribute
-{
-  public PatchGroupAttribute(string name) => Name = name;
-
-  public string Name { get; }
-}
 
 /// <summary>
 /// Applies patches one feature at a time. A game update that renames one target

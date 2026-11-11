@@ -1,24 +1,7 @@
 using System.Collections.Generic;
+using Element.Application.Layout;
 
-namespace Element.Presentation.Layout;
-
-internal enum KeyViewerAvailability
-{
-  Ready,
-  Unsupported,
-  AppClosed,
-  HiddenInApp,
-}
-
-internal enum KeyViewerEditResult
-{
-  Opened,
-  AppClosed,
-
-  /// <summary>The running ElementNote predates editing from the game.</summary>
-  AppOutdated,
-  Failed,
-}
+namespace Element.Application.KeyViewer;
 
 /// <summary>ElementNote's in-game key viewers, as the layout editor adds and switches them.</summary>
 internal interface IKeyViewerElements

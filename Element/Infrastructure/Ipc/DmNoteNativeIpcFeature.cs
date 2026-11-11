@@ -7,9 +7,9 @@ using Element.Domain.DmNote;
 using Element.Domain.Layout;
 using Element.Infrastructure.DmNoteApp;
 using Element.Infrastructure.Game.DmNote;
-using Element.Presentation.Layout;
-using TMPro;
 using UnityEngine;
+using Element.Application.Layout;
+using Element.Application.KeyViewer;
 
 namespace Element.Infrastructure.Ipc;
 
@@ -20,6 +20,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   private readonly NativeViewerSession _session;
   private readonly Func<INativeViewerHost> _createHost;
   private readonly Func<Color> _highlight;
+  private readonly Func<string, string> _viewerLabel;
   private readonly Action<string, Exception> _logError;
   private readonly Action<string> _logWarning;
   private readonly IDmNoteAppFocus _appFocus;
@@ -36,7 +37,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   private readonly List<NativeViewerLayoutTarget> _layoutTargets;
   private readonly NativeViewerLayoutTarget[] _galleryTargets;
   private List<OverlayLayoutSettings> _layouts;
-  private TMP_FontAsset _font;
+  private IKeyViewerSamples _samples;
   private string _lastLoggedError;
   private bool _hiddenInApp;
   private bool _connected;
@@ -46,6 +47,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     bool supported,
     Func<INativeViewerHost> createHost,
     Func<Color> highlight,
+    Func<string, string> viewerLabel,
     Action<string, Exception> logError,
     Action<string> logWarning,
     IDmNoteAppFocus appFocus = null
@@ -55,6 +57,7 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     _session = new NativeViewerSession(supported);
     _createHost = createHost ?? throw new ArgumentNullException(nameof(createHost));
     _highlight = highlight ?? (() => Color.white);
+    _viewerLabel = viewerLabel ?? (kind => kind);
     _logError = logError ?? ((_, _) => { });
     _logWarning = logWarning ?? (_ => { });
     _appFocus = appFocus;
@@ -211,14 +214,14 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
   {
     NativeViewerLayoutTarget target = new(
       kind,
-      kind == "hand" ? "손 키뷰어" : "발 키뷰어",
+      () => _viewerLabel(kind),
       SetEditing,
       OnEnabledChanged,
       id,
       () => Status,
       () => HiddenFromEditor
     );
-    target.ConfigurePreview(_font);
+    target.ConfigurePreview(_samples);
     target.Bind(_host);
     return target;
   }
@@ -240,8 +243,8 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
       RenderViewerPlacement placement = target.RenderPlacement(
         videoWidth,
         videoHeight,
-        known?.Width ?? NativeViewerMock.Width(target.Kind),
-        known?.Height ?? NativeViewerMock.ViewportHeight
+        known?.Width ?? KeyViewerSampleSize.Width(target.Kind),
+        known?.Height ?? KeyViewerSampleSize.ViewportHeight
       );
       if (placement != null)
         placements.Add(placement);
@@ -249,11 +252,11 @@ internal sealed class DmNoteNativeIpcFeature : IKeyViewerElements, IDisposable
     return placements;
   }
 
-  public void ConfigurePreview(TMP_FontAsset font)
+  public void ConfigurePreview(IKeyViewerSamples samples)
   {
-    _font = font;
+    _samples = samples;
     foreach (NativeViewerLayoutTarget target in _layoutTargets)
-      target.ConfigurePreview(font);
+      target.ConfigurePreview(samples);
   }
 
   private void OnEnabledChanged()

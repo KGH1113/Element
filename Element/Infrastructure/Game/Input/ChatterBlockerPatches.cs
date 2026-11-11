@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Bootstrap;
+using Element.Infrastructure.Game.Patches;
 using Element.Domain.Input;
 using HarmonyLib;
 using SkyHook;

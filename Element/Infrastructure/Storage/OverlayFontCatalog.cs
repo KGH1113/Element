@@ -554,14 +554,3 @@ internal sealed class OverlayFontCatalog : IOverlayFontSource, IOverlayFontLibra
     public List<OverlayFontFace> Faces { get; }
   }
 }
-
-/// <summary>
-/// How overlay font atlases are sampled. (padding + 1) / point size matches the
-/// bundled assets, so outline and underlay offsets look the same in every font.
-/// </summary>
-internal static class OverlayFontSampling
-{
-  public const int PointSize = 48;
-  public const int Padding = 3;
-  public const int AtlasSize = 1024;
-}

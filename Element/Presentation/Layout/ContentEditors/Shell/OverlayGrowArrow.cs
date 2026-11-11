@@ -1,14 +1,6 @@
-using System;
-using System.Collections.Generic;
-using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Popovers;
-using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 

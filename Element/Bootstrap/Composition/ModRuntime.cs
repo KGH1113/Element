@@ -9,7 +9,6 @@ using Element.Application.KeyLimiter;
 using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
-using Element.Configuration;
 using Element.Configuration.Gameplay;
 using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.App;

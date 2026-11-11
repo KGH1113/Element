@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Shape;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.Theme;

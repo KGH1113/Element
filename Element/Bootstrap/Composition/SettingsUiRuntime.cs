@@ -1,29 +1,19 @@
 using System;
 using Element.Application.Input;
 using Element.Application.Profiles;
-using Element.Configuration.Effects;
-using Element.Configuration.Gameplay;
 using Element.Infrastructure.ElementNote.Viewers;
-using Element.Infrastructure.Game.Effects;
-using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Planets;
-using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
-using Element.Presentation.Layout;
 using Element.Presentation.Layout.KeyViewers;
-using Element.Presentation.Notices;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Screens;
 using Element.Presentation.Settings;
 using Element.Presentation.Settings.Pages;
-using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
-using UnityEngine;
 
 namespace Element.Bootstrap.Composition;
 

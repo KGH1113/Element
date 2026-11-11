@@ -8,7 +8,6 @@ using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
-using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;

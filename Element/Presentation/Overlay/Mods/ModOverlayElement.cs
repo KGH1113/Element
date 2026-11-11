@@ -7,7 +7,6 @@ using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.Widgets;
 using ElementKit;
-using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;

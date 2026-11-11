@@ -8,7 +8,6 @@ using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using ElementKit;
-using ElementKit.Hosting;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;

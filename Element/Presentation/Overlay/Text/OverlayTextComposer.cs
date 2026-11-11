@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Fonts;

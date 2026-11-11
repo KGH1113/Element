@@ -1,7 +1,4 @@
-using System;
-using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;

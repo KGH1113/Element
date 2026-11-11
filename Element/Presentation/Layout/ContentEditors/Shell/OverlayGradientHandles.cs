@@ -9,7 +9,6 @@ using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using UnityEngine.UI;
 using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;

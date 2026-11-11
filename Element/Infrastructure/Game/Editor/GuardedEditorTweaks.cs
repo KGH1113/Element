@@ -68,12 +68,7 @@ internal sealed class GuardedEditorTweaks : IDisposable
   }
 
   /// <summary>Before the editor flips or rotates <paramref name="floor"/>; null when nothing follows it.</summary>
-  public EditorTweaksController.Mutation BeginEditorTransform(
-    scnEditor editor,
-    scrFloor floor,
-    string method,
-    object[] args
-  )
+  public EditorFloorMutation BeginEditorTransform(scnEditor editor, scrFloor floor, string method, object[] args)
   {
     if (!On)
       return null;
@@ -89,12 +84,7 @@ internal sealed class GuardedEditorTweaks : IDisposable
     }
   }
 
-  public void AfterEditorTransform(
-    scnEditor editor,
-    bool remakePath,
-    bool ranOriginal,
-    EditorTweaksController.Mutation mutation
-  )
+  public void AfterEditorTransform(scnEditor editor, bool remakePath, bool ranOriginal, EditorFloorMutation mutation)
   {
     if (!On || !ranOriginal)
       return;

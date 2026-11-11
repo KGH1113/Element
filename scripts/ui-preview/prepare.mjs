@@ -11,7 +11,8 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayTextFacto
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayLocalization.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontCatalog.cs'));
+for (const name of ['OverlayFontCatalog', 'OverlayFontFolder', 'InstalledFontList', 'OverlayFontFiles', 'OverlayFontFaces'])
+  files.push(path.join(root, 'Element/Infrastructure/Storage', name + '.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontSampling.cs'));
 for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', 'WindowsFontFilePicker'])
   files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));

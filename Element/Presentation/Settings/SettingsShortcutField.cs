@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static Element.Presentation.Settings.SettingsLocale;
 
 namespace Element.Presentation.Settings;
 
@@ -19,7 +20,6 @@ internal sealed class SettingsShortcutField
   private const float Inset = 16;
   private const float HintGap = 10;
   private const float HintHeight = 48;
-  private static readonly KeyCode[] Keys = (KeyCode[])Enum.GetValues(typeof(KeyCode));
 
   private readonly Func<KeyCode> _key,
     _modifier;
@@ -125,10 +125,6 @@ internal sealed class SettingsShortcutField
     Refresh();
   }
 
-  private static bool Korean => RDString.language == SystemLanguage.Korean;
-
-  private static string L(string ko, string en) => Korean ? ko : en;
-
   public void BeginCapture()
   {
     Capturing = true;
@@ -155,14 +151,10 @@ internal sealed class SettingsShortcutField
       Cancel();
       return;
     }
-    foreach (KeyCode key in Keys)
+    int index = -1;
+    while (KeyboardKeys.NextPressed(ref index, out KeyCode key))
     {
-      if (
-        key == KeyCode.None
-        || key >= KeyCode.Mouse0
-        || KeyShortcut.IsModifier(key)
-        || !UnityEngine.Input.GetKeyDown(key)
-      )
+      if (KeyShortcut.IsModifier(key))
         continue;
       KeyCode modifier = ShortcutKeys.HeldModifier(out int count);
       if (count > 1)

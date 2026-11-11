@@ -94,12 +94,15 @@ internal sealed class SettingsUiRuntime : IDisposable
       Save,
       OpenLayout,
       OnVisibilityChanged,
-      RenderPlanetPreview,
-      () => ChatterBlocker.Blocked,
-      _main.Updates,
-      _judgementTextLinked,
-      CreateProfiles(),
-      () => _canvas?.Fonts
+      new SettingsFeatures
+      {
+        RenderPlanetPreview = RenderPlanetPreview,
+        BlockedChatter = () => ChatterBlocker.Blocked,
+        Updates = _main.Updates,
+        JudgementTextLinked = _judgementTextLinked,
+        Profiles = CreateProfiles(),
+        OverlayFonts = () => _canvas?.Fonts,
+      }
     );
 
   // Built with the window, after the game has loaded its language: the first

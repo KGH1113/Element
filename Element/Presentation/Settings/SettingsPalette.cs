@@ -22,16 +22,12 @@ internal static class SettingsPalette
   public static Color Action => Color.Lerp(SoftAccent, Accent, .2f);
   public static Color OnAction => Luminance(Action) > .179f ? new Color(.04f, .05f, .03f) : Color.white;
 
+  /// <summary>Text that says what went wrong.</summary>
+  public static readonly Color Error = new(1, .66f, .53f);
+
   private static float Luminance(Color color)
   {
     Color linear = color.linear;
     return linear.r * .2126f + linear.g * .7152f + linear.b * .0722f;
   }
-}
-
-internal static class SettingsLocale
-{
-  public static bool Korean => RDString.language == SystemLanguage.Korean;
-
-  public static string L(string ko, string en) => Korean ? ko : en;
 }

@@ -159,32 +159,6 @@ public sealed class EffectSettings
       Enabled = false;
   }
 
-  public bool TryAdd(string name, out EffectPreset preset, out string error)
-  {
-    preset = null;
-    if (!ValidateName(name, null, out string normalized, out error))
-      return false;
-    preset = new EffectPreset { Name = normalized };
-    Presets.Add(preset);
-    if (ActivePreset == null)
-      ActivePresetId = preset.Id;
-    return true;
-  }
-
-  public bool TryRename(string id, string name, out string error)
-  {
-    EffectPreset preset = Presets.Find(p => p.Id == id);
-    if (preset == null)
-    {
-      error = "This preset no longer exists.";
-      return false;
-    }
-    if (!ValidateName(name, id, out string normalized, out error))
-      return false;
-    preset.Name = normalized;
-    return true;
-  }
-
   public bool Select(string id)
   {
     if (!Presets.Exists(p => p.Id == id))
@@ -217,35 +191,6 @@ public sealed class EffectSettings
   /// <summary>The preset other than <paramref name="exceptId"/> that this shortcut applies, or null.</summary>
   public EffectPreset FindShortcut(KeyCode key, KeyCode modifier, string exceptId = null) =>
     Presets.Find(p => p != null && p.Id != exceptId && p.UsesShortcut(key, modifier));
-
-  public bool Remove(string id)
-  {
-    int index = Presets.FindIndex(p => p.Id == id);
-    if (index < 0)
-      return false;
-    Presets.RemoveAt(index);
-    if (ActivePresetId == id)
-      ActivePresetId = Presets.Count > 0 ? Presets[Math.Min(index, Presets.Count - 1)].Id : "";
-    if (Presets.Count == 0)
-      Enabled = false;
-    return true;
-  }
-
-  public bool ValidateName(string name, string exceptId, out string normalized, out string error)
-  {
-    normalized = (name ?? "").Trim();
-    string candidate = normalized;
-    error = "";
-    if (normalized.Length == 0)
-      error = "Give this preset a name.";
-    else if (normalized.Length > MaximumNameLength)
-      error = "Use 40 characters or fewer.";
-    else if (
-      Presets.Exists(p => p.Id != exceptId && string.Equals(p.Name, candidate, StringComparison.OrdinalIgnoreCase))
-    )
-      error = "A preset already uses this name. Choose another.";
-    return error.Length == 0;
-  }
 
   private static List<EffectPreset> CreateDefaults()
   {

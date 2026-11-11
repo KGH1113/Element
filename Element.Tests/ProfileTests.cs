@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Xml.Serialization;
+using Element.Application.Effects;
 using Element.Application.Files;
 using Element.Application.Profiles;
 using Element.Application.Settings;
@@ -52,7 +53,7 @@ internal static class ProfileTests
 
     EffectSettings effects = new();
     EffectSettings other = new();
-    Check(other.TryAdd("Mine", out _, out _), "a preset can be added");
+    Check(new EffectPresetLibrary(other).TryAdd("Mine", out _, out _), "a preset can be added");
     other.Enabled = true;
     List<EffectPreset> presets = effects.Presets;
     SettingsCopy.Into(effects, other);
@@ -111,7 +112,7 @@ internal static class ProfileTests
     settings.Gameplay.Judgement.HideMiss = true;
     settings.Gameplay.Editor.FineRotation = true;
     settings.Effects.Enabled = true;
-    Check(settings.Effects.TryAdd("Stream only", out _, out _), "a preset can be added");
+    Check(new EffectPresetLibrary(settings.Effects).TryAdd("Stream only", out _, out _), "a preset can be added");
     settings.OverlayLayouts.RemoveAt(0);
     settings.Gameplay.Chatter.WindowMs = ChatterFilter.MinimumWindowMs;
     string streamValues = Values(settings);

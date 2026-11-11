@@ -11,7 +11,7 @@
     "desktop:build:windows": "npm run tauri:build:windows -w @element/element-note",
     "desktop:test": "npm run test -w @element/element-note",
     "desktop:check": "npm run check -w @element/element-note",
-    "desktop:audit": "node scripts/audit-public-release.cjs"
+    "desktop:audit": "node scripts/tasks/validate/public-release.cjs"
   },
   "overrides": {
     "minimatch": "^11.0.1"

@@ -4,55 +4,56 @@
 # from committed sources by CD or the Windows host). A build is current
 # when the app sources it stamps are the ones it would be built from now.
 
-if [ "${ELEMENT_DMNOTE_APP_LOADED:-0}" = "1" ]; then
+if [ "${ELEMENT_NOTE_APP_LOADED:-0}" = "1" ]; then
   return 0
 fi
-ELEMENT_DMNOTE_APP_LOADED=1
+ELEMENT_NOTE_APP_LOADED=1
 
 # shellcheck source=context.sh
 source "${BASH_SOURCE[0]%/*}/context.sh"
 # shellcheck source=guards.sh
 source "${BASH_SOURCE[0]%/*}/guards.sh"
 
-DMNOTE_APP_ROOT="$ELEMENT_PROJECT_ROOT/apps/element-note"
-DMNOTE_MAC_APP="${ELEMENT_DMNOTE_MAC_APP:-$DMNOTE_APP_ROOT/src-tauri/target/release/bundle/macos/ElementNote.app}"
-DMNOTE_MAC_STAMP="$DMNOTE_MAC_APP.sources"
+ELEMENT_NOTE_APP_ROOT="$ELEMENT_PROJECT_ROOT/apps/element-note"
+ELEMENT_NOTE_MAC_APP="${ELEMENT_DMNOTE_MAC_APP:-$ELEMENT_NOTE_APP_ROOT/src-tauri/target/release/bundle/macos/ElementNote.app}"
+ELEMENT_NOTE_MAC_STAMP="$ELEMENT_NOTE_MAC_APP.sources"
 # Inputs of an app build besides apps/element-note itself.
-DMNOTE_SOURCE_PATHS=(apps/element-note package.json package-lock.json)
-export DMNOTE_APP_ROOT DMNOTE_MAC_APP DMNOTE_MAC_STAMP
+ELEMENT_NOTE_SOURCE_PATHS=(apps/element-note package.json package-lock.json)
+export ELEMENT_NOTE_APP_ROOT ELEMENT_NOTE_MAC_APP ELEMENT_NOTE_MAC_STAMP
 
-dmnote_version() {
-  sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$DMNOTE_APP_ROOT/package.json" | head -n 1
+element_note_version() {
+  sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$ELEMENT_NOTE_APP_ROOT/package.json" | head -n 1
 }
 
-dmnote_windows_zip() {
-  printf '%s\n' "${ELEMENT_DMNOTE_WINDOWS_ZIP:-$DMNOTE_APP_ROOT/dist/portable/ElementNote-v$(dmnote_version)-windows-x64-portable.zip}"
+element_note_windows_zip() {
+  printf '%s\n' "${ELEMENT_DMNOTE_WINDOWS_ZIP:-$ELEMENT_NOTE_APP_ROOT/dist/portable/ElementNote-v$(element_note_version)-windows-x64-portable.zip}"
 }
 
 # Prints the committed source identity, or nothing when the app sources have
 # uncommitted changes (then no stamp can describe them).
-dmnote_source_stamp() {
-  if [ -n "$(git -C "$ELEMENT_PROJECT_ROOT" status --porcelain -- "${DMNOTE_SOURCE_PATHS[@]}")" ]; then
+element_note_source_stamp() {
+  if [ -n "$(git -C "$ELEMENT_PROJECT_ROOT" status --porcelain -- "${ELEMENT_NOTE_SOURCE_PATHS[@]}")" ]; then
     return 0
   fi
-  dmnote_source_stamp_at HEAD
+  element_note_source_stamp_at HEAD
 }
 
-# dmnote_source_stamp_at <commit>: the app source identity at that commit, so
-# a CI build of an older commit counts when the app has not changed since.
-dmnote_source_stamp_at() {
+# element_note_source_stamp_at <commit>: the app source identity at that
+# commit, so a CI build of an older commit counts when the app has not changed
+# since.
+element_note_source_stamp_at() {
   local path
-  for path in "${DMNOTE_SOURCE_PATHS[@]}"; do
-    git -C "$ELEMENT_PROJECT_ROOT" rev-parse "$1:$path"
+  for path in "${ELEMENT_NOTE_SOURCE_PATHS[@]}"; do
+    git -C "$ELEMENT_PROJECT_ROOT" rev-parse --verify --quiet "$1:$path" || printf 'missing %s\n' "$path"
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 
-# dmnote_worktree_stamp: the app sources as they are on disk, committed or
-# not, in the same form as dmnote_source_stamp (equal when nothing is
+# element_note_worktree_stamp: the app sources as they are on disk, committed
+# or not, in the same form as element_note_source_stamp (equal when nothing is
 # uncommitted). The macOS app builds from the working tree, so its stamp is this.
-dmnote_worktree_stamp() {
+element_note_worktree_stamp() {
   local stamp index tree path
-  stamp="$(dmnote_source_stamp)"
+  stamp="$(element_note_source_stamp)"
   if [ -n "$stamp" ]; then
     printf '%s\n' "$stamp"
     return 0
@@ -61,62 +62,62 @@ dmnote_worktree_stamp() {
   index="$(mktemp -d)"
   cp "$(git -C "$ELEMENT_PROJECT_ROOT" rev-parse --absolute-git-dir)/index" "$index/index"
   if ! tree="$(cd "$ELEMENT_PROJECT_ROOT" &&
-    GIT_INDEX_FILE="$index/index" git add -A -- "${DMNOTE_SOURCE_PATHS[@]}" &&
+    GIT_INDEX_FILE="$index/index" git add -A -- "${ELEMENT_NOTE_SOURCE_PATHS[@]}" &&
     GIT_INDEX_FILE="$index/index" git write-tree)"; then
     rm -rf "$index"
     return 1
   fi
   rm -rf "$index"
-  for path in "${DMNOTE_SOURCE_PATHS[@]}"; do
+  for path in "${ELEMENT_NOTE_SOURCE_PATHS[@]}"; do
     git -C "$ELEMENT_PROJECT_ROOT" rev-parse "$tree:$path"
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 
-# dmnote_build_current <build> <stamp file> <stamp>
-dmnote_build_current() {
+# element_note_build_current <build> <stamp file> <stamp>
+element_note_build_current() {
   [ -n "$3" ] && [ -e "$1" ] && [ -f "$2" ] && [ "$(cat "$2")" = "$3" ]
 }
 
-# ensure_dmnote_macos: a macOS app built from the app sources as they are now.
-# The last build is reused until they change; ELEMENT_DMNOTE_MAC_APP
+# ensure_element_note_macos: a macOS app built from the app sources as they
+# are now. The last build is reused until they change; ELEMENT_DMNOTE_MAC_APP
 # is used as it is.
-ensure_dmnote_macos() {
+ensure_element_note_macos() {
   local stamp
   if [ -n "${ELEMENT_DMNOTE_MAC_APP:-}" ]; then
-    require_dir "$DMNOTE_MAC_APP"
-    printf 'Using the macOS ElementNote at %s\n' "$DMNOTE_MAC_APP"
+    require_dir "$ELEMENT_NOTE_MAC_APP"
+    printf 'Using the macOS ElementNote at %s\n' "$ELEMENT_NOTE_MAC_APP"
     return 0
   fi
-  stamp="$(dmnote_worktree_stamp)"
-  if dmnote_build_current "$DMNOTE_MAC_APP" "$DMNOTE_MAC_STAMP" "$stamp"; then
-    printf 'The macOS ElementNote is already built from the current sources: %s\n' "$DMNOTE_MAC_APP"
+  stamp="$(element_note_worktree_stamp)"
+  if element_note_build_current "$ELEMENT_NOTE_MAC_APP" "$ELEMENT_NOTE_MAC_STAMP" "$stamp"; then
+    printf 'The macOS ElementNote is already built from the current sources: %s\n' "$ELEMENT_NOTE_MAC_APP"
     return 0
   fi
   is_macos || fail "The macOS ElementNote is built with Xcode tools. Run this on macOS, or set ELEMENT_DMNOTE_MAC_APP to a built ElementNote.app."
   require_command npm
   printf 'Building the macOS ElementNote: its sources changed since the last build. This takes a few minutes.\n'
   (cd "$ELEMENT_PROJECT_ROOT" && npm run desktop:build:mac)
-  require_dir "$DMNOTE_MAC_APP"
+  require_dir "$ELEMENT_NOTE_MAC_APP"
   # The stamp is from before the build, so edits made meanwhile build again.
-  printf '%s\n' "$stamp" > "$DMNOTE_MAC_STAMP"
+  printf '%s\n' "$stamp" > "$ELEMENT_NOTE_MAC_STAMP"
 }
 
 # An archive passed in explicitly (for example from CD) is trusted.
-dmnote_windows_current() {
+element_note_windows_current() {
   [ -n "${ELEMENT_DMNOTE_WINDOWS_ZIP:-}" ] && [ -f "$ELEMENT_DMNOTE_WINDOWS_ZIP" ] && return 0
-  dmnote_build_current "$(dmnote_windows_zip)" "$(dmnote_windows_zip).sources" "$(dmnote_source_stamp)"
+  element_note_build_current "$(element_note_windows_zip)" "$(element_note_windows_zip).sources" "$(element_note_source_stamp)"
 }
 
-# stage_dmnote_macos <mod folder>: ditto keeps the executable bit and code
-# signature through the zip; the mod unpacks it with ditto as well. An
+# stage_element_note_macos <mod folder>: ditto keeps the executable bit and
+# code signature through the zip; the mod unpacks it with ditto as well. An
 # unchanged app keeps its old zip, so the mod does not install it again.
-stage_dmnote_macos() {
+stage_element_note_macos() {
   local destination="$1/ElementNote/macos" temporary
   require_command ditto
-  require_dir "$DMNOTE_MAC_APP"
+  require_dir "$ELEMENT_NOTE_MAC_APP"
   mkdir -p "$destination"
   temporary="$(mktemp "$destination/.ElementNote.app.zip.XXXXXX")"
-  ditto -c -k --keepParent "$DMNOTE_MAC_APP" "$temporary"
+  ditto -c -k --keepParent "$ELEMENT_NOTE_MAC_APP" "$temporary"
   if cmp -s "$temporary" "$destination/ElementNote.app.zip"; then
     rm -f "$temporary"
   else
@@ -125,11 +126,11 @@ stage_dmnote_macos() {
   fi
 }
 
-# stage_dmnote_windows <mod folder>: the portable archive holds one folder
-# with element-note.exe and its notices.
-stage_dmnote_windows() {
+# stage_element_note_windows <mod folder>: the portable archive holds one
+# folder with element-note.exe and its notices.
+stage_element_note_windows() {
   local destination="$1/ElementNote/windows" archive unpacked folder
-  archive="$(dmnote_windows_zip)"
+  archive="$(element_note_windows_zip)"
   require_command unzip
   require_file "$archive"
   unpacked="$(mktemp -d)"

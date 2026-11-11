@@ -20,5 +20,5 @@ run_task "Download the CD builds" "$TASKS_DIR/release/cd-builds.sh" "$app_env"
 # shellcheck disable=SC1090
 source "$app_env"
 run_task "Run C# tests" "$TASKS_DIR/test/csharp.sh"
-run_task "Package the mod" "$WORKFLOW_DIR/package-release.sh"
+run_task "Package the mod" "$WORKFLOW_DIR/package.sh"
 run_task "Publish the release" "$TASKS_DIR/release/publish.sh" "${1:-}"

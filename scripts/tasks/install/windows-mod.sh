@@ -38,18 +38,18 @@ fetch_windows_viewer() {
   return 1
 }
 
-# fetch_windows_dmnote: a Windows ElementNote for the committed app sources,
+# fetch_windows_element_note: a Windows ElementNote for the committed app sources,
 # from CD when there is none here. Saved where `package` looks for it.
-fetch_windows_dmnote() {
+fetch_windows_element_note() {
   local stamp archive
-  dmnote_windows_current && return 0
-  stamp="$(dmnote_source_stamp)"
+  element_note_windows_current && return 0
+  stamp="$(element_note_source_stamp)"
   if [ -z "$stamp" ]; then
     warn "ElementNote has uncommitted changes, and CD builds only committed ones."
     return 1
   fi
-  archive="$(dmnote_windows_zip)"
-  cd_fetch dmnote_source_stamp_at "$stamp" "$CD_WINDOWS_APP" "${archive##*/}" "$archive" || return 1
+  archive="$(element_note_windows_zip)"
+  cd_fetch element_note_source_stamp_at "$stamp" "$CD_WINDOWS_APP" "${archive##*/}" "$archive" || return 1
   printf '%s\n' "$stamp" > "$archive.sources"
 }
 
@@ -63,13 +63,13 @@ mod="$stage/Element"
 stage_mod "$mod" windows "" development
 if [ "${ELEMENT_SKIP_DMNOTE:-0}" = "1" ]; then
   printf 'Leaving ElementNote out (ELEMENT_SKIP_DMNOTE=1). Install.ps1 keeps the copy that PC has.\n'
-elif fetch_windows_dmnote; then
-  stage_dmnote_windows "$(mod_runtime_dir "$mod")"
-  printf 'Added the Windows ElementNote: %s\n' "$(dmnote_windows_zip)"
+elif fetch_windows_element_note; then
+  stage_element_note_windows "$(mod_runtime_dir "$mod")"
+  printf 'Added the Windows ElementNote: %s\n' "$(element_note_windows_zip)"
 else
   warn "This zip has no ElementNote. Install.ps1 keeps the copy that PC already has."
 fi
-cp "$ELEMENT_PROJECT_ROOT/scripts/windows/install-mod.ps1" "$stage/Install.ps1"
+cp "$ELEMENT_PROJECT_ROOT/scripts/tasks/install/windows-mod.ps1" "$stage/Install.ps1"
 
 mkdir -p "$(dirname "$output")"
 rm -f "$output"

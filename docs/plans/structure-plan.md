@@ -278,11 +278,11 @@ Element.Tests/
 | 1 | tooling | `scripts/` 규칙 하나, `docs/` 폴더, ElementKit 폴더와 `internal` 생성자 | 완료 |
 | 2 | runtime2 | ElementNote 뷰어 코드를 일별로, 큰 Infrastructure 클래스 나누기, 내부 이름 ElementNote로 | 완료 |
 | 2 | core2 | Domain·Application·Configuration을 기능 폴더로, 저장 형식 왕복 검사, 테스트를 층별 폴더·`[Suite]`·`Support/`로 | 완료 |
-| 2 | editors | 글자·도형 편집기를 일별 클래스로 | 진행 중 |
+| 2 | editors | 글자·도형 편집기를 일별 클래스로(공통 부분은 `ContentEditors/Shell`) | 완료 |
 | 2 | ui | 공용 UI 부품을 `Presentation/Ui`로, 아이콘 하나로, 색 선택기 나누기, `Layout/Editing` 정리 | 멈춤 |
 
 남은 것:
-- 위 표의 진행 중·멈춤 항목
+- 위 표의 멈춤 항목
 - 찾았지만 아직 안 고친 버그: Element를 끌 때 게임 키 리미터 복원이 실행되지 않음(`ModRuntime.Dispose`)
 - 배치 편집기가 열려 있는 동안 `SetEditorExclusions`·`GameWebView.ExcludeEditor`가 매 프레임 메모리를 잡음
 - `SettingsUiRuntime`에 남은 기능 코드(프리셋 단축키, 행성 미리보기 만들기)를 Presentation으로

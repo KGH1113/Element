@@ -36,6 +36,9 @@ internal sealed class TextFonts
 
   public bool Visible => _fontPopover?.Visible ?? false;
 
+  /// <summary>The font list; made by <see cref="Build"/>.</summary>
+  public IPopover Popover => _fontPopover;
+
   /// <summary>The font search has the keyboard.</summary>
   public bool IsTyping => _fontPopover.IsTyping;
 
@@ -68,7 +71,7 @@ internal sealed class TextFonts
   private void ToggleFont()
   {
     bool open = _fontPopover.Visible;
-    _host.ClosePopovers();
+    _host.CloseOpen();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();

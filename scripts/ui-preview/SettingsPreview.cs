@@ -441,7 +441,7 @@ namespace Element.Editor
       Click(heightField.Root, "Height");
       Assert(dock.Owner == "height", "another number switches the dock to it");
       SaveFrame(camera, texture, canvases, name + "-shape-values");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
 
       // Dragging still works: words are refused, numbers land on the number.
       Vector2 heightPoint = ScreenCenter(heightField.Root);
@@ -458,7 +458,7 @@ namespace Element.Editor
       Assert(strokeWidth.Computed && strokeWidth.Value == "99.5", "the border width shows the result, marked as calculated: " + strokeWidth.Value);
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
 
       // A corner's arc opens its rounding, shown beside the arc.
       arcs[2].onClick.Invoke();
@@ -469,7 +469,7 @@ namespace Element.Editor
       Assert(radius.Text == "20", "the rounding value follows the keypad");
       CheckShapeLayout(shapes, width, height);
       SaveFrame(camera, texture, canvases, name + "-shape-corner");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
       Call(shapes, "Render");
       Assert(Mathf.Abs(working.Points[2].Radius * scale - 20) < .01f && working.Points[0].Radius == 0 && !radius.Root.gameObject.activeSelf,
         "one corner rounds; its value hides again");
@@ -549,7 +549,7 @@ namespace Element.Editor
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "" && Mathf.Abs(working.Fill.Alpha - .3f) < .01f && !opacity.Field.Computed && opacity.Field.Text == "30",
         "moving the slider makes it a plain number again: " + opacity.Field.Text);
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
       Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       strokeButton.Button.onClick.Invoke();
@@ -567,7 +567,7 @@ namespace Element.Editor
       Assert(Field<UiCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
       Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
       SaveFrame(camera, texture, canvases, name + "-shape-grow");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
       Call(shapes, "Render");
       SaveFrame(camera, texture, canvases, name + "-shape-edited");
 
@@ -1105,7 +1105,7 @@ namespace Element.Editor
       TextFormulasOf(text).OpenChip(9);
       Assert(dock.Owner == "value:9" && TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+{miss}",
         "clicking a value reopens its formula");
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
       Call(text, "Render");
 
       // Dragging a value into the text marks where it lands.
@@ -1120,7 +1120,7 @@ namespace Element.Editor
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[10].Value == "fps", "a dropped value lands in the text");
       TextDocumentOf(text).Undo();
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
 
       // The size in the bar: words are refused; values size the selection.
       SetField(TextDocumentOf(text), "_anchor", 9); SetField(TextDocumentOf(text), "_caretIndex", 10);
@@ -1136,7 +1136,7 @@ namespace Element.Editor
       Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active,
         "the size takes a value for the selection and opens in the dock");
       Assert(sizeButton.Value == "48" && sizeButton.Computed, "the size shows its result, marked as calculated: " + sizeButton.Value);
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
       TextDocumentOf(text).Undo();
 
       // Sizes: the keypad types pixels into the selection.
@@ -1148,7 +1148,7 @@ namespace Element.Editor
       Assert(dock.Owner == "size", "the size opens in the dock");
       foreach (char key in "\b\b\b\b40")
         TextFormulasOf(text).KeypadPress(key);
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
       document = TextDocumentOf(text).Document;
       Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
       colorButton.Button.onClick.Invoke();
@@ -1188,7 +1188,7 @@ namespace Element.Editor
       Call(Grow(text), "Pick", OverlayGrowth.Right);
       Assert(Field<UiCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
       SaveFrame(camera, texture, canvases, name + "-text-grow");
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
 
       TextDocumentOf(text).DeleteRange(8, 9);
       document = TextDocumentOf(text).Document;

@@ -88,7 +88,7 @@ internal sealed class ShapeInput
         if (picker.Visible)
           picker.Hide();
         else if (_host.AnyOpen)
-          _host.CloseEditing();
+          _host.CloseOpen();
         _host.Render();
         continue;
       }
@@ -113,7 +113,7 @@ internal sealed class ShapeInput
       colors.Hide();
     if (!_host.AnyOpen && !picker)
       return;
-    _host.CloseEditing();
+    _host.CloseOpen();
     _host.Render();
   }
 

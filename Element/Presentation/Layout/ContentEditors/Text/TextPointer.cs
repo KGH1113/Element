@@ -69,8 +69,8 @@ internal sealed class TextPointer
         || _gradient.Handles.Contains(screen)
       )
         return;
-      bool popover = _host.AnyPopover;
-      _host.ClosePopovers();
+      bool popover = _host.AnyOpen;
+      _host.CloseOpen();
       if (!_host.InTextArea(screen))
       {
         if (popover)

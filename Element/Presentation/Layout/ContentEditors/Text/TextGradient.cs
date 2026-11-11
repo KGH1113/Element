@@ -93,7 +93,7 @@ internal sealed class TextGradient
       {
         // The dock was typing the previous color's number.
         if (_formulas.Field == TextFormulas.PositionKey || _formulas.Field == TextFormulas.OpacityKey)
-          _host.ClosePopovers();
+          _host.CloseOpen();
         _host.Render();
       }
     );

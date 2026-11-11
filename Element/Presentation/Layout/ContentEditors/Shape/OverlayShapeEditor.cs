@@ -9,6 +9,7 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -42,6 +43,9 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   private readonly ShapeColors _colors;
   private readonly ShapeGradient _gradient;
   private readonly OverlayGrowFrom _grow;
+
+  // The grow-from point; Esc and a press elsewhere close it.
+  private readonly PopoverStack _popovers = new();
   private readonly ShapeValueDrops _drops;
   private readonly ShapeInput _input;
   private OverlayEditorFrame _screen;
@@ -66,7 +70,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _colors = new ShapeColors(this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
     _numbers.Use(_gradient);
-    _grow = new OverlayGrowFrom(CloseEditing, Render);
+    _grow = new OverlayGrowFrom(CloseOpen, Render);
     ShapeFieldList fields = new(_measures, _colors, _gradient);
     _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures, fields);
     _input = new ShapeInput(this, _numbers, _colors, _gradient, _measures, fields, _drops, _grow, _history);
@@ -76,23 +80,23 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
 
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
 
-  OverlayEditorFrame IShapeEditorHost.Screen => _screen;
+  OverlayEditorFrame IContentEditorHost.Screen => _screen;
 
-  OverlayInputDock IShapeEditorHost.Dock => _dock;
+  OverlayInputDock IContentEditorHost.Dock => _dock;
 
-  OverlayEditorBar IShapeEditorHost.Bar => _bar;
+  OverlayEditorBar IContentEditorHost.Bar => _bar;
 
   OverlayShapeSettings IShapeEditorHost.Shape => _shape;
 
-  float IShapeEditorHost.ElementScale => _elementScale;
+  float IContentEditorHost.ElementScale => _elementScale;
 
-  bool IShapeEditorHost.AnyOpen => AnyOpen;
+  bool IContentEditorHost.AnyOpen => AnyOpen;
 
   void IShapeEditorHost.Activate(string key) => Activate(key);
 
-  void IShapeEditorHost.CloseEditing() => CloseEditing();
+  void IContentEditorHost.CloseOpen() => CloseOpen();
 
-  void IShapeEditorHost.Render() => Render();
+  void IContentEditorHost.Render() => Render();
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
   {
@@ -159,6 +163,8 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _colors.BuildPicker(_screen, _dock);
     _gradient.BuildPicker(_screen.Ui, _reduceMotion());
     _grow.Build(_screen, _reduceMotion());
+    _popovers.Clear();
+    _popovers.Add(_grow.Popover);
   }
 
   // One row of labeled buttons: fill, border, border width and grow point.
@@ -179,7 +185,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       return;
     if (_screen.ViewChanged)
     {
-      CloseEditing();
+      CloseOpen();
       Build();
       Render();
     }
@@ -300,7 +306,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     if (key == null)
       return;
     bool open = _numbers.Field == key;
-    CloseEditing();
+    CloseOpen();
     // The picker's own numbers keep it open.
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && !ShapeGradient.PickerKey(key))
@@ -318,16 +324,16 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       field != null
       && (ShapeNumbers.Kind(field, out _).EndsWith("position") || ShapeNumbers.Kind(field, out _).EndsWith("opacity"))
     )
-      CloseEditing();
+      CloseOpen();
     Render();
   }
 
-  private bool AnyOpen => _numbers.Field != null || _grow.Visible;
+  private bool AnyOpen => _numbers.Field != null || _popovers.AnyOpen;
 
-  private void CloseEditing()
+  private void CloseOpen()
   {
     _numbers.Finish();
-    _grow.Hide();
+    _popovers.CloseAll();
   }
 
   /// <summary>
@@ -340,7 +346,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     if (picker.Visible)
       picker.Hide();
     else if (AnyOpen)
-      CloseEditing();
+      CloseOpen();
     else
     {
       Close(true, true);
@@ -367,7 +373,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       return;
     if (commit && _colors.Picker.Visible && !_colors.Picker.Commit())
       return;
-    CloseEditing();
+    CloseOpen();
     ShapeOverlayElement element = _element;
     Action<bool> closed = _closed;
     if (commit && element?.Settings != null)

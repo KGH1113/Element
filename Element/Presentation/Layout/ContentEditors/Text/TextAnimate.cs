@@ -55,7 +55,7 @@ internal sealed class TextAnimate
 
   private void Toggle()
   {
-    _host.ClosePopovers();
+    _host.CloseOpen();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();

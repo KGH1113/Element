@@ -51,6 +51,9 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private readonly TextFonts _fonts;
   private readonly TextAnimate _animate;
   private readonly OverlayGrowFrom _grow;
+
+  // The grow-from point and the font list; Esc and a press elsewhere close them.
+  private readonly PopoverStack _popovers = new();
   private readonly TextValueDrops _drops;
   private readonly TextPointer _pointer;
   private readonly TextKeyboard _keyboard;
@@ -83,7 +86,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _formulas.Use(_size, _color, _gradient);
     _fonts = new TextFonts(this, _text, _color);
     _animate = new TextAnimate(this, _text, _color, _preview);
-    _grow = new OverlayGrowFrom(ClosePopovers, Render);
+    _grow = new OverlayGrowFrom(CloseOpen, Render);
     _drops = new TextValueDrops(this, _text, _formulas, _map, _marks, _size, _color, _gradient);
     _pointer = new TextPointer(this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _drops);
     _keyboard = new TextKeyboard(this, _text, _formulas, _map, _preview);
@@ -94,21 +97,21 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   /// <summary>Keeps the editor above the layout toolbar and handles, which raise themselves.</summary>
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
 
-  OverlayEditorFrame ITextEditorHost.Screen => _screen;
+  OverlayEditorFrame IContentEditorHost.Screen => _screen;
 
-  OverlayInputDock ITextEditorHost.Dock => _dock;
+  OverlayInputDock IContentEditorHost.Dock => _dock;
 
-  OverlayEditorBar ITextEditorHost.Bar => _bar;
+  OverlayEditorBar IContentEditorHost.Bar => _bar;
 
   TextOverlayElement ITextEditorHost.Element => _element;
 
-  float ITextEditorHost.ElementScale => _elementScale;
+  float IContentEditorHost.ElementScale => _elementScale;
 
-  bool ITextEditorHost.AnyPopover => AnyPopover;
+  bool IContentEditorHost.AnyOpen => AnyOpen;
 
-  void ITextEditorHost.Render() => Render();
+  void IContentEditorHost.Render() => Render();
 
-  void ITextEditorHost.ClosePopovers() => ClosePopovers();
+  void IContentEditorHost.CloseOpen() => CloseOpen();
 
   bool ITextEditorHost.InTextArea(Vector2 screen) => InTextArea(screen);
 
@@ -178,6 +181,9 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _color.LayOutAbove(_dock);
     _fonts.Build(_screen, _element.Fonts, _reduceMotion());
     _grow.Build(_screen, _reduceMotion());
+    _popovers.Clear();
+    _popovers.Add(_grow.Popover);
+    _popovers.Add(_fonts.Popover);
   }
 
   // One row of labeled buttons: the font, the size, the color (with its
@@ -201,7 +207,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       return;
     if (_screen.ViewChanged)
     {
-      ClosePopovers();
+      CloseOpen();
       Build();
       Render();
     }
@@ -332,14 +338,13 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _grow.PlaceMark(text.x, text.y, text.width, text.height);
   }
 
-  private bool AnyPopover => _formulas.Open || _grow.Visible || _fonts.Visible;
+  private bool AnyOpen => _formulas.Open || _popovers.AnyOpen;
 
-  private void ClosePopovers()
+  private void CloseOpen()
   {
     _formulas.Close();
     _dock?.Edit(null);
-    _grow.Hide();
-    _fonts.Hide();
+    _popovers.CloseAll();
   }
 
   // The dimmed space around the text belongs to it; the top bar, the format
@@ -348,10 +353,9 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   {
     if (
       _dock.Contains(screen)
-      || _grow.Contains(screen)
+      || _popovers.Contains(screen)
       || _bar.Contains(screen)
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
-      || _fonts.Contains(screen)
     )
       return false;
     float y = _screen.ToFrame(screen).y;
@@ -382,7 +386,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       return;
     if (commit && _color.Picker.Visible && !_color.Picker.Commit())
       return;
-    ClosePopovers();
+    CloseOpen();
     TextOverlayElement element = _element;
     Action<bool> closed = _closed;
     if (commit && element?.Settings != null && _text.Edited)

@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
@@ -40,6 +41,9 @@ internal sealed class OverlayGrowFrom
   public OverlayBarButton Button { get; private set; }
 
   public bool Visible => _popover.Visible;
+
+  /// <summary>The popover with the nine points; made by <see cref="Build"/>.</summary>
+  public IPopover Popover => _popover;
 
   /// <summary>Starts from what <paramref name="element"/> has saved.</summary>
   public void Open(OverlayElementTarget element)

@@ -135,7 +135,7 @@ internal sealed class TextValueDrops
         break;
       case DropTarget.Insert:
         // A value dropped into the text lands there; typing goes on after it.
-        _host.ClosePopovers();
+        _host.CloseOpen();
         _text.InsertValue(value, index, index);
         _text.Anchor = _text.Caret;
         break;

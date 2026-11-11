@@ -27,6 +27,14 @@ internal sealed class PopoverStack
     _dismissible.Add(dismissible);
   }
 
+  /// <summary>Forgets every popover, as when the screen is built again.</summary>
+  public void Clear()
+  {
+    _popovers.Clear();
+    _dismissible.Clear();
+    _opened.Clear();
+  }
+
   public int Count => _popovers.Count;
 
   public IPopover this[int index] => _popovers[index];

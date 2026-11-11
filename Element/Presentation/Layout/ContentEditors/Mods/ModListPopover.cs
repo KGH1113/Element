@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +12,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// A dropdown's options, opened under it: its name, then a row per option
 /// with a dot by the picked one, scrolling when there are many. Picking closes it.
 /// </summary>
-internal sealed class ModListPopover
+internal sealed class ModListPopover : IPopover
 {
   private const float Width = 260,
     Padding = 10,
@@ -125,16 +126,7 @@ internal sealed class ModListPopover
       float hidden = Row * options.Count - listHeight;
       scroll.verticalNormalizedPosition = 1 - Mathf.Clamp01((request.Selected - VisibleRows + 1) * Row / hidden);
     }
-    float top = anchor.yMax + 6;
-    if (top + height > viewHeight - 8)
-      top = anchor.y - 6 - height;
-    SettingsUiFactory.Place(
-      _root,
-      Mathf.Clamp(anchor.x, 8, Mathf.Max(8, viewWidth - width - 8)),
-      Mathf.Clamp(top, 8, Mathf.Max(8, viewHeight - height - 8)),
-      width,
-      height
-    );
+    PopoverPlacement.Place(_root, PopoverPlacement.Under(anchor, anchor.x, width, height, 6, viewWidth, viewHeight));
     _root.SetAsLastSibling();
   }
 
@@ -148,7 +140,9 @@ internal sealed class ModListPopover
     _root = null;
   }
 
-  public bool Contains(Vector2 screen) => Visible && OverlayEditorUi.Contains(_root, screen);
+  public bool IsTyping => false;
+
+  public bool Contains(Vector2 screen) => Visible && PopoverPlacement.Contains(_root, screen);
 
   private void Pick(int index)
   {

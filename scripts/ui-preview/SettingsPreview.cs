@@ -1733,8 +1733,6 @@ namespace Element.Editor
         Object.DestroyImmediate(image); camera.targetTexture = null; Object.DestroyImmediate(target); Object.DestroyImmediate(cameraRoot);
         root.SetActive(false);
         Object.DestroyImmediate(root);
-        Object.DestroyImmediate(Field<Sprite>(ui, "_rounded"));
-        Object.DestroyImmediate(Field<Texture2D>(ui, "_texture"));
       }
     }
 

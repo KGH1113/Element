@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -332,7 +333,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       if (focused != null)
         RevealControl(focused.transform, 8);
     }
-    SettingsInputCapture.RestoreCursor();
+    UiInputCapture.RestoreCursor();
   }
 
   // Static so the runtime can watch the shortcut before the window is built.
@@ -520,7 +521,7 @@ internal sealed class SettingsPanel : ISettingsWindow, IDisposable
       return;
     GameObject selected = EventSystem.current?.currentSelectedGameObject;
     int current = active.FindIndex(x => x.gameObject == selected);
-    int next = (current + (SettingsModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
+    int next = (current + (UiModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
     EventSystem.current?.SetSelectedGameObject(active[next].gameObject);
     RevealControl(active[next].transform, 8);
   }

@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Ui.Input;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -65,7 +66,7 @@ internal sealed class SettingsColorPlane : Selectable, IDragHandler
 
   public override void OnMove(AxisEventData data)
   {
-    float step = SettingsModifierKeys.Shift ? .1f : .01f;
+    float step = UiModifierKeys.Shift ? .1f : .01f;
     float s =
       _saturation
       + (

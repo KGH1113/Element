@@ -3,7 +3,7 @@ using Element.Presentation.Ui.Graphics;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Input;
 
 /// <summary>Reads shortcuts from the keyboard and names their keys for display.</summary>
 internal static class ShortcutKeys
@@ -18,7 +18,7 @@ internal static class ShortcutKeys
     if (key == KeyCode.None || !UnityEngine.Input.GetKeyDown(key))
       return false;
     foreach (KeyCode candidate in KeyShortcut.Modifiers)
-      if (SettingsModifierKeys.IsHeld(candidate) != (candidate == modifier))
+      if (UiModifierKeys.IsHeld(candidate) != (candidate == modifier))
         return false;
     return true;
   }
@@ -29,7 +29,7 @@ internal static class ShortcutKeys
     KeyCode modifier = KeyCode.None;
     count = 0;
     foreach (KeyCode candidate in KeyShortcut.Modifiers)
-      if (SettingsModifierKeys.IsHeld(candidate))
+      if (UiModifierKeys.IsHeld(candidate))
       {
         modifier = candidate;
         count++;

@@ -1,13 +1,13 @@
 using Element.Application.Input;
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Input;
 
 /// <summary>
 /// Closes the input gate and shows the settings cursor while the settings window
 /// or the layout editor is open; puts the game's cursor back when they close.
 /// </summary>
-internal static class SettingsInputCapture
+internal static class UiInputCapture
 {
   private static bool _previousCursorVisible;
   private static CursorLockMode _previousCursorLock;
@@ -30,7 +30,7 @@ internal static class SettingsInputCapture
       return;
 
     InputGate.End();
-    SettingsCursor.ResetCursor();
+    UiCursor.ResetCursor();
     Cursor.lockState = _previousCursorLock;
     Cursor.visible = _previousCursorVisible;
   }
@@ -42,7 +42,7 @@ internal static class SettingsInputCapture
 
     Cursor.lockState = CursorLockMode.None;
     Cursor.visible = true;
-    SettingsCursor.Restore();
+    UiCursor.Restore();
   }
 
   public static void Reset()

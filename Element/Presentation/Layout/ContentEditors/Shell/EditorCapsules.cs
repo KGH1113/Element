@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Input;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -45,7 +46,7 @@ internal static class EditorCapsules
         fadeDuration = reduceMotion ? 0 : .08f,
       }
     );
-    SettingsCursor.Attach(button.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(button.gameObject, UiCursorKind.Pointer);
     // Let go of the selection, or Enter would press the last clicked key again
     // while it finishes a number.
     button.onClick.AddListener(() =>

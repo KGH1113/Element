@@ -1,6 +1,7 @@
 using System;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
@@ -52,7 +53,7 @@ internal sealed class OverlayCornerArc : UiVectorGraphic
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = arc;
     Paint(button, false, reduceMotion);
-    SettingsCursor.Attach(button.gameObject, SettingsCursorKind.Pointer);
+    UiCursor.Attach(button.gameObject, UiCursorKind.Pointer);
     button.onClick.AddListener(() => click());
     return button;
   }

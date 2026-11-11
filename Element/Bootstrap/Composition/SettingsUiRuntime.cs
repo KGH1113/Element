@@ -16,6 +16,7 @@ using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -140,7 +141,7 @@ internal sealed class SettingsUiRuntime : IDisposable
         _layoutEditor.Tick();
       if (_layoutEditor.IsOpen)
         _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
-      SettingsInputCapture.RestoreCursor();
+      UiInputCapture.RestoreCursor();
     }
     else if (_panel != null)
       _panel.Tick();
@@ -204,10 +205,10 @@ internal sealed class SettingsUiRuntime : IDisposable
   private void OnVisibilityChanged(bool visible)
   {
     if (visible)
-      SettingsInputCapture.Begin();
+      UiInputCapture.Begin();
     else
     {
-      SettingsInputCapture.End();
+      UiInputCapture.End();
       // The preview target and its cloned planet visuals are only needed while
       // settings are open; the planet page recreates them on demand.
       ReleasePlanetPreview();
@@ -217,7 +218,7 @@ internal sealed class SettingsUiRuntime : IDisposable
 
   private void OpenLayout()
   {
-    SettingsInputCapture.Begin(layoutEditing: true);
+    UiInputCapture.Begin(layoutEditing: true);
     _layoutEditor.Open();
     _nativeViewers.SetEditorExclusions(_layoutEditor.NativeExclusions);
     _viewerModeChanged();
@@ -246,7 +247,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _panel = null;
     ReleasePlanetPreview();
     _toast.Dispose();
-    SettingsInputCapture.Reset();
+    UiInputCapture.Reset();
     _tufReplayInput.Dispose();
   }
 }

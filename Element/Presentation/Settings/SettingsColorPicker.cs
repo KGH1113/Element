@@ -4,6 +4,7 @@ using Element.Application.Input;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
@@ -137,7 +138,7 @@ internal sealed partial class SettingsColorPicker : IDisposable
     _plane.navigation = new Navigation { mode = Navigation.Mode.None };
     _plane.transition = Selectable.Transition.None;
     _plane.targetGraphic = plane;
-    SettingsCursor.Attach(plane.gameObject, SettingsCursorKind.Crosshair);
+    UiCursor.Attach(plane.gameObject, UiCursorKind.Crosshair);
     RectTransform gradient = _ui.Rect("HSV gradient", plane.transform, 0, 0, 256, 156);
     SettingsUiFactory.Stretch(gradient, 0, 0, 0, 0);
     _plane.Gradient = gradient.gameObject.AddComponent<SettingsGradientGraphic>();

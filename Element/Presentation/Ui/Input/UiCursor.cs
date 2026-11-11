@@ -1,14 +1,15 @@
+using Element.Presentation.Settings;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Input;
 
 // Cursor ownership follows pointer events, including drag capture. Hardware
 // textures are shared and generated once; ordinary frames do not raycast or
 // allocate. The same cursor setter is used by layout editing to avoid stale
 // caches when crossing from an overlay handle into the settings controls.
-internal sealed class SettingsCursor
+internal sealed class UiCursor
   : MonoBehaviour,
     IPointerEnterHandler,
     IPointerExitHandler,
@@ -16,7 +17,7 @@ internal sealed class SettingsCursor
     IPointerUpHandler
 {
   private static readonly Texture2D[] Textures = new Texture2D[4];
-  private static SettingsCursor _owner;
+  private static UiCursor _owner;
   private static Texture2D _applied;
   private static Vector2 _hotspot;
   private static bool _appliedOnce;
@@ -24,11 +25,11 @@ internal sealed class SettingsCursor
   private Selectable _selectable;
   private bool _inside,
     _pressed;
-  public SettingsCursorKind Kind;
+  public UiCursorKind Kind;
 
-  public static SettingsCursor Attach(GameObject target, SettingsCursorKind kind)
+  public static UiCursor Attach(GameObject target, UiCursorKind kind)
   {
-    SettingsCursor cursor = target.GetComponent<SettingsCursor>() ?? target.AddComponent<SettingsCursor>();
+    UiCursor cursor = target.GetComponent<UiCursor>() ?? target.AddComponent<UiCursor>();
     cursor.Kind = kind;
     return cursor;
   }
@@ -109,7 +110,7 @@ internal sealed class SettingsCursor
     // Unity does not re-enter that parent, so restore its retained hover owner.
     for (Transform parent = transform.parent; parent != null; parent = parent.parent)
     {
-      SettingsCursor cursor = parent.GetComponent<SettingsCursor>();
+      UiCursor cursor = parent.GetComponent<UiCursor>();
       if (
         cursor == null
         || !cursor._inside
@@ -137,7 +138,7 @@ internal sealed class SettingsCursor
     int index = (int)_owner.Kind;
     if (Textures[index] == null)
       Textures[index] = Create(_owner.Kind);
-    Apply(Textures[index], _owner.Kind == SettingsCursorKind.Pointer ? new Vector2(11, 4) : new Vector2(16, 16));
+    Apply(Textures[index], _owner.Kind == UiCursorKind.Pointer ? new Vector2(11, 4) : new Vector2(16, 16));
     return true;
   }
 
@@ -157,7 +158,7 @@ internal sealed class SettingsCursor
     Cursor.SetCursor(texture, hotspot, CursorMode.Auto);
   }
 
-  private static Texture2D Create(SettingsCursorKind kind)
+  private static Texture2D Create(UiCursorKind kind)
   {
     Color32[] pixels = new Color32[32 * 32];
     for (int y = 0; y < 32; y++)
@@ -189,9 +190,9 @@ internal sealed class SettingsCursor
     return texture;
   }
 
-  private static float Distance(SettingsCursorKind kind, Vector2 p)
+  private static float Distance(UiCursorKind kind, Vector2 p)
   {
-    if (kind == SettingsCursorKind.Pointer)
+    if (kind == UiCursorKind.Pointer)
     {
       // Rounded raised index finger and a compact palm, with readable fingers.
       float d = Segment(p, 11, 5, 11, 19) - 1.7f;
@@ -201,13 +202,13 @@ internal sealed class SettingsCursor
       d = Mathf.Min(d, Segment(p, 23, 16.5f, 23, 22) - 1.8f);
       return Mathf.Min(d, Segment(p, 5.5f, 17, 10, 24) - 1.8f);
     }
-    if (kind == SettingsCursorKind.Text)
+    if (kind == UiCursorKind.Text)
     {
       float d = Segment(p, 16, 7, 16, 25);
       d = Mathf.Min(d, Segment(p, 12, 7, 20, 7));
       return Mathf.Min(d, Segment(p, 12, 25, 20, 25)) - .7f;
     }
-    if (kind == SettingsCursorKind.Horizontal)
+    if (kind == UiCursorKind.Horizontal)
     {
       float d = Segment(p, 6, 16, 26, 16);
       d = Mathf.Min(d, Segment(p, 6, 16, 11, 11));

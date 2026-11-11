@@ -8,6 +8,7 @@ using ADOFAI;
 using Element.Configuration.Effects;
 using Element.Infrastructure.Game.Effects;
 using UnityEngine;
+using Element.Infrastructure.Game.Patches;
 
 namespace Element.Tests;
 
@@ -144,15 +145,15 @@ internal static class EffectSettingsTests
 
     settings.ActivePreset.CameraZoom = 250;
     using var controller = new EffectsController(() => settings);
-    Check(EffectsController.CameraZoomForRendering == 250, "Playback must start with the preset's zoom.");
+    Check(controller.CameraZoomForRendering == 250, "Playback must start with the preset's zoom.");
     settings.ActivePreset.CameraZoom = 400;
     controller.ApplySettings();
     Check(
-      controller.RequiresRestart && EffectsController.CameraZoomForRendering == 250,
+      controller.RequiresRestart && controller.CameraZoomForRendering == 250,
       "A new zoom must wait for the next level start like any preset change."
     );
     Check(
-      controller.CommitForPlayback() && EffectsController.CameraZoomForRendering == 400,
+      controller.CommitForPlayback() && controller.CameraZoomForRendering == 400,
       "A level start must rebuild with the new zoom, since the first tile holds the camera."
     );
     settings.Select(EffectSettings.NoFiltersId);
@@ -248,7 +249,7 @@ internal static class EffectSettingsTests
   private static void FilteringAndPlaybackBoundary()
   {
     Check(
-      EffectsController.ForRendering == RemovedEffects.None,
+      (GameHooks.Effects?.ForRendering ?? RemovedEffects.None) == RemovedEffects.None,
       "An inactive remover must leave editor visuals intact."
     );
     foreach (LevelEventType type in Enum.GetValues(typeof(LevelEventType)))
@@ -296,38 +297,38 @@ internal static class EffectSettingsTests
 
     var settings = new EffectSettings { Enabled = true };
     using var controller = new EffectsController(() => settings);
-    RemovedEffects initial = EffectsController.Applied;
+    RemovedEffects initial = controller.Applied;
     settings.Select(EffectSettings.NoFiltersId);
     controller.ApplySettings();
     Check(
-      controller.RequiresRestart && EffectsController.Applied == initial,
+      controller.RequiresRestart && controller.Applied == initial,
       "Changing presets must not rebuild a running level."
     );
     Check(
       controller.CommitForPlayback() && !controller.RequiresRestart,
       "A playback boundary must apply the pending preset."
     );
-    Check(EffectsController.Applied == settings.ActiveEffects, "The playback snapshot must match the selected preset.");
+    Check(controller.Applied == settings.ActiveEffects, "The playback snapshot must match the selected preset.");
     settings.Enabled = false;
     controller.ApplySettings();
     Check(controller.RequiresRestart, "Disabling must schedule restoration at the next playback boundary.");
     controller.CommitForPlayback();
-    Check(EffectsController.Applied == RemovedEffects.None, "Disabling must restore vanilla event processing.");
+    Check(controller.Applied == RemovedEffects.None, "Disabling must restore vanilla event processing.");
     controller.Dispose();
-    Check(EffectsController.Active == null, "Disposal must release static patch ownership.");
+    Check(controller.ForRendering == RemovedEffects.None, "Disposal must release the patches' visual preset.");
   }
 
   private static void EditorReturnKeepsVisualPreset()
   {
     var settings = new EffectSettings { Enabled = true };
     using var controller = new EffectsController(() => settings);
-    RemovedEffects applied = EffectsController.Applied;
-    Check(EffectsController.ForRendering == applied, "Opening the editor must use the applied visual preset.");
+    RemovedEffects applied = controller.Applied;
+    Check(controller.ForRendering == applied, "Opening the editor must use the applied visual preset.");
     for (int retry = 0; retry < 11; retry++)
     {
       controller.CommitForPlayback();
       Check(
-        EffectsController.ForRendering == applied,
+        controller.ForRendering == applied,
         "Repeated failures must keep the same visual filter through asset reloads."
       );
     }
@@ -337,20 +338,20 @@ internal static class EffectSettingsTests
     using (controller.BeginEditorReturn())
     {
       Check(
-        !controller.CommitForPlayback() && EffectsController.Applied == applied && controller.RequiresRestart,
+        !controller.CommitForPlayback() && controller.Applied == applied && controller.RequiresRestart,
         "Editor return must defer pending settings instead of rebuilding the level with a different preset."
       );
       Check(
-        EffectsController.ForRendering == applied,
+        controller.ForRendering == applied,
         "ResetScene, ReloadAssets and decoration setup on return must keep removed images filtered out."
       );
     }
     Check(
-      !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      !controller.ReturningToEditor && controller.ForRendering == applied,
       "The editor must retain the filtered preview and decoration list after returning from play."
     );
     Check(
-      controller.CommitForPlayback() && EffectsController.ForRendering == RemovedEffects.None,
+      controller.CommitForPlayback() && controller.ForRendering == RemovedEffects.None,
       "The next level load or playback boundary must apply a requested disable."
     );
   }
@@ -402,15 +403,15 @@ internal static class EffectSettingsTests
   {
     var settings = new EffectSettings { Enabled = true };
     using var controller = new EffectsController(() => settings);
-    RemovedEffects applied = EffectsController.ForRendering;
+    RemovedEffects applied = controller.ForRendering;
     IDisposable outer = controller.BeginEditorReturn();
     using (controller.BeginEditorReturn())
-      Check(EffectsController.ForRendering == applied, "Nested editor return must not expose original effects.");
+      Check(controller.ForRendering == applied, "Nested editor return must not expose original effects.");
     Check(controller.ReturningToEditor, "Ending a nested return must keep the outer return boundary.");
     outer.Dispose();
     outer.Dispose();
     Check(
-      !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      !controller.ReturningToEditor && controller.ForRendering == applied,
       "Duplicate disposal must release the return boundary without disabling the visual preset."
     );
 
@@ -425,11 +426,11 @@ internal static class EffectSettingsTests
       failed = true;
     }
     Check(
-      failed && !controller.ReturningToEditor && EffectsController.ForRendering == applied,
+      failed && !controller.ReturningToEditor && controller.ForRendering == applied,
       "A failed transition must release its return boundary while retaining the applied visual preset."
     );
     controller.Dispose();
-    Check(EffectsController.ForRendering == RemovedEffects.None, "Mod disposal must release the visual preset.");
+    Check(controller.ForRendering == RemovedEffects.None, "Mod disposal must release the visual preset.");
   }
 
   private static LevelEvent EventFixture(LevelEventType type, params (string Key, string Value)[] properties)

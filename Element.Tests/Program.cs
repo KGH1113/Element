@@ -75,6 +75,7 @@ internal static class Program
         "auto update: versions, verified downloads, background finish, rollback and launcher switch",
         UpdateTests.Run
       );
+      Run("game patches: one folder, named groups, documented order", PatchGroupTests.Run);
       Console.WriteLine("Element tests: " + _passed + " passed");
       return 0;
     }

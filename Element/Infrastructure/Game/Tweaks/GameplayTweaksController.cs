@@ -1,19 +1,22 @@
 using System;
-using System.Reflection;
 using Element.Configuration;
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Input;
-using HarmonyLib;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 namespace Element.Infrastructure.Game.Tweaks;
 
+/// <summary>
+/// The Tweaks settings in the game: editor tweaks, planet appearance and the chatter
+/// blocker's settings. The game patches call it; an error stops only the tweak it
+/// came from, which gives the game its own behavior back.
+/// </summary>
 internal sealed class GameplayTweaksController : IDisposable
 {
-  private static GameplayTweaksController _current;
-  private readonly Main _main;
-  private readonly Harmony _harmony = new("Element.GameplayTweaks");
+  private readonly Func<GameplayTweaksSettings> _settings;
+  private readonly ChatterBlocker _chatter;
+  private readonly Action<string, Exception> _logException;
   private readonly EditorTweaksController _editor;
   private readonly PlanetAppearanceController _planets;
   internal PlanetAppearanceController Planets => _planets;
@@ -21,82 +24,28 @@ internal sealed class GameplayTweaksController : IDisposable
     _editorFailed,
     _planetsFailed;
 
-  public GameplayTweaksController(Main main)
+  /// <param name="settings">Normalized when they load; the settings window writes only valid values.</param>
+  public GameplayTweaksController(
+    Func<GameplayTweaksSettings> settings,
+    ChatterBlocker chatter,
+    Action<string, Exception> logException
+  )
   {
-    _main = main;
-    main.Settings.Gameplay.Normalize();
-    _editor = new(main.Settings.Gameplay.Editor);
-    _planets = new(main.Settings.Gameplay.Planets);
-    _current = this;
-    Hook(typeof(scnEditor), "Update", postfix: nameof(AfterEditorUpdate));
-    Hook(typeof(scnEditor), "OnSelectedFloorChange", postfix: nameof(InvalidateEditor));
-    Hook(typeof(scnEditor), "RemakePath", postfix: nameof(InvalidateEditor));
-    Hook(typeof(scnEditor), "DrawFloorNums", postfix: nameof(InvalidateEditor));
-    Hook(typeof(scrFloor), "OnBecameVisible", postfix: nameof(FloorVisibilityChanged));
-    Hook(typeof(scrFloor), "OnBecameInvisible", postfix: nameof(FloorVisibilityChanged));
-    foreach (string method in new[] { "FlipFloor", "RotateFloor", "RotateFloor180" })
-      Hook(
-        typeof(scnEditor),
-        method,
-        nameof(BeforeEditorTransform),
-        nameof(AfterEditorTransform),
-        nameof(FinishEditorTransform)
-      );
-    foreach (
-      string method in new[] { "SetPlanetColor", "SetCoreColor", "SetTailColor", "SetRingColor", "SetFaceColor" }
-    )
-      Hook(
-        typeof(PlanetRenderer),
-        method,
-        nameof(BeforePlanetColor),
-        method == "SetPlanetColor" ? nameof(AfterPlanetBodyColor) : null
-      );
-    foreach (
-      string method in new[]
-      {
-        "SetColor",
-        "LoadPlanetColor",
-        "EnableCustomColor",
-        "EnableDefaultFireAndIceColor",
-        "ToggleSpecialPlanet",
-      }
-    )
-      Hook(typeof(PlanetRenderer), method, nameof(BeforePlanetAppearance), finalizer: nameof(FinishPlanetAppearance));
-    Hook(typeof(PlanetRenderer), "LateUpdate", postfix: nameof(AfterPlanetFrame));
-    Hook(typeof(PlanetarySystem), "LoadPlanetColors", postfix: nameof(RefreshPlanets));
-    Hook(typeof(PlanetarySystem), "ApplyMultiplanetColors", postfix: nameof(RefreshPlanets));
+    _settings = settings;
+    _chatter = chatter;
+    _logException = logException;
+    GameplayTweaksSettings gameplay = settings();
+    _editor = new(gameplay.Editor);
+    _planets = new(gameplay.Planets);
     SceneManager.sceneUnloaded += SceneUnloaded;
   }
-
-  private void Hook(Type type, string method, string prefix = null, string postfix = null, string finalizer = null)
-  {
-    try
-    {
-      MethodInfo original = AccessTools.Method(type, method);
-      if (original == null)
-      {
-        _main.LogWarning($"Gameplay tweak hook unavailable: {type.Name}.{method}");
-        return;
-      }
-      _harmony.Patch(original, Method(prefix), Method(postfix), finalizer: Method(finalizer));
-    }
-    catch (Exception exception)
-    {
-      // An optional game-version hook must not prevent the mod or other tweaks loading.
-      _main.LogException($"Gameplay tweak hook unavailable: {type.Name}.{method}", exception);
-    }
-  }
-
-  private static HarmonyMethod Method(string name) =>
-    name == null ? null : new HarmonyMethod(typeof(GameplayTweaksController), name) { priority = Priority.Last };
 
   public void Apply()
   {
     if (_disposed)
       return;
-    _main.Settings.Gameplay.Normalize();
-    ChatterBlockerOptions chatter = _main.Settings.Gameplay.Chatter;
-    ChatterBlocker.Configure(chatter.Enabled, chatter.WindowMs, chatter.IgnoredKeys);
+    ChatterBlockerOptions chatter = _settings().Chatter;
+    _chatter.Configure(chatter.Enabled, chatter.WindowMs, chatter.IgnoredKeys);
     if (!_editorFailed)
     {
       _editor.ApplySettings();
@@ -112,9 +61,154 @@ internal sealed class GameplayTweaksController : IDisposable
     ApplyPlanets();
   }
 
+  private bool EditorOn => !_disposed && !_editorFailed;
+
+  private bool PlanetsOn => !_disposed && !_planetsFailed;
+
+  public void AfterEditorUpdate(scnEditor editor)
+  {
+    if (!EditorOn)
+      return;
+    try
+    {
+      _editor.Tick(editor);
+    }
+    catch (Exception exception)
+    {
+      FailEditor(exception);
+    }
+  }
+
+  public void InvalidateEditor()
+  {
+    if (!_disposed)
+      _editor.Invalidate();
+  }
+
+  public void OnFloorVisibilityChanged(scrFloor floor)
+  {
+    if (!_disposed)
+      _editor.OnFloorVisibilityChanged(floor);
+  }
+
+  /// <summary>Before the editor flips or rotates <paramref name="floor"/>; null when nothing follows it.</summary>
+  public EditorTweaksController.Mutation BeginEditorTransform(
+    scnEditor editor,
+    scrFloor floor,
+    string method,
+    object[] args
+  )
+  {
+    if (!EditorOn)
+      return null;
+    try
+    {
+      bool direction = method == "RotateFloor180" || (bool)args[1];
+      return _editor.BeginMutation(editor, floor, method, direction);
+    }
+    catch (Exception exception)
+    {
+      FailEditor(exception);
+      return null;
+    }
+  }
+
+  public void AfterEditorTransform(
+    scnEditor editor,
+    bool remakePath,
+    bool ranOriginal,
+    EditorTweaksController.Mutation mutation
+  )
+  {
+    if (!EditorOn || !ranOriginal)
+      return;
+    try
+    {
+      _editor.FinishMutation(editor, mutation, remakePath);
+    }
+    catch (Exception exception)
+    {
+      FailEditor(exception);
+    }
+  }
+
+  public void BeforePlanetColor(PlanetRenderer renderer, string method, ref Color color)
+  {
+    if (!PlanetsOn)
+      return;
+    try
+    {
+      _planets.BeforeColor(renderer, method, ref color);
+    }
+    catch (Exception exception)
+    {
+      FailPlanets(exception);
+    }
+  }
+
+  public void AfterPlanetBodyColor(PlanetRenderer renderer)
+  {
+    if (!PlanetsOn)
+      return;
+    try
+    {
+      _planets.AfterBodyColor(renderer);
+    }
+    catch (Exception exception)
+    {
+      FailPlanets(exception);
+    }
+  }
+
+  public PlanetAppearanceController.PlanetState BeginPlanetAppearance(PlanetRenderer renderer)
+  {
+    if (!PlanetsOn)
+      return null;
+    try
+    {
+      return _planets.BeginAppearanceChange(renderer);
+    }
+    catch (Exception exception)
+    {
+      FailPlanets(exception);
+      return null;
+    }
+  }
+
+  public void FinishPlanetAppearance(PlanetAppearanceController.PlanetState state)
+  {
+    if (!PlanetsOn)
+      return;
+    try
+    {
+      _planets.EndAppearanceChange(state);
+    }
+    catch (Exception exception)
+    {
+      FailPlanets(exception);
+    }
+  }
+
+  public void AfterPlanetFrame(PlanetRenderer renderer)
+  {
+    if (!PlanetsOn)
+      return;
+    try
+    {
+      _planets.AfterFrame(renderer);
+    }
+    catch (Exception exception)
+    {
+      FailPlanets(exception);
+    }
+  }
+
+  /// <summary>The game loaded or recolored its planets.</summary>
+  public void RefreshPlanets() => ApplyPlanets();
+
   private void ApplyPlanets()
   {
-    if (_disposed || _planetsFailed)
+    if (!PlanetsOn)
       return;
     try
     {
@@ -131,14 +225,14 @@ internal sealed class GameplayTweaksController : IDisposable
     if (_editorFailed)
       return;
     _editorFailed = true;
-    _main.LogException("Editor tweaks stopped after an error; original editor controls remain available", exception);
+    _logException("Editor tweaks stopped after an error; original editor controls remain available", exception);
     try
     {
       _editor.Dispose();
     }
     catch (Exception cleanup)
     {
-      _main.LogException("Restore editor selection text", cleanup);
+      _logException("Restore editor selection text", cleanup);
     }
   }
 
@@ -147,168 +241,16 @@ internal sealed class GameplayTweaksController : IDisposable
     if (_planetsFailed)
       return;
     _planetsFailed = true;
-    _main.LogException("Planet appearance stopped after an error; restoring the game's colors", exception);
+    _logException("Planet appearance stopped after an error; restoring the game's colors", exception);
     try
     {
       _planets.Dispose();
     }
     catch (Exception cleanup)
     {
-      _main.LogException("Restore planet appearance", cleanup);
+      _logException("Restore planet appearance", cleanup);
     }
   }
-
-  private static void AfterEditorUpdate(scnEditor __instance)
-  {
-    GameplayTweaksController current = _current;
-    if (current == null || current._editorFailed)
-      return;
-    try
-    {
-      current._editor.Tick(__instance);
-    }
-    catch (Exception exception)
-    {
-      current.FailEditor(exception);
-    }
-  }
-
-  private static void InvalidateEditor() => _current?._editor.Invalidate();
-
-  private static void FloorVisibilityChanged(scrFloor __instance) =>
-    _current?._editor.OnFloorVisibilityChanged(__instance);
-
-  private static void BeforeEditorTransform(
-    scnEditor __instance,
-    scrFloor floor,
-    MethodBase __originalMethod,
-    object[] __args,
-    out EditorTweaksController.Mutation __state
-  )
-  {
-    __state = null;
-    GameplayTweaksController current = _current;
-    if (current == null || current._editorFailed)
-      return;
-    try
-    {
-      bool direction = __originalMethod.Name == "RotateFloor180" || (bool)__args[1];
-      __state = current._editor.BeginMutation(__instance, floor, __originalMethod.Name, direction);
-    }
-    catch (Exception exception)
-    {
-      current.FailEditor(exception);
-    }
-  }
-
-  private static void AfterEditorTransform(
-    scnEditor __instance,
-    bool remakePath,
-    bool __runOriginal,
-    EditorTweaksController.Mutation __state
-  )
-  {
-    GameplayTweaksController current = _current;
-    if (current == null || current._editorFailed || !__runOriginal)
-      return;
-    try
-    {
-      current._editor.FinishMutation(__instance, __state, remakePath);
-    }
-    catch (Exception exception)
-    {
-      current.FailEditor(exception);
-    }
-  }
-
-  private static Exception FinishEditorTransform(Exception __exception, EditorTweaksController.Mutation __state)
-  {
-    __state?.Dispose();
-    return __exception;
-  }
-
-  private static void BeforePlanetColor(PlanetRenderer __instance, MethodBase __originalMethod, ref Color color)
-  {
-    GameplayTweaksController current = _current;
-    if (current == null || current._planetsFailed)
-      return;
-    try
-    {
-      current._planets.BeforeColor(__instance, __originalMethod.Name, ref color);
-    }
-    catch (Exception exception)
-    {
-      current.FailPlanets(exception);
-    }
-  }
-
-  private static void AfterPlanetBodyColor(PlanetRenderer __instance)
-  {
-    GameplayTweaksController current = _current;
-    if (current == null || current._planetsFailed)
-      return;
-    try
-    {
-      current._planets.AfterBodyColor(__instance);
-    }
-    catch (Exception exception)
-    {
-      current.FailPlanets(exception);
-    }
-  }
-
-  private static void BeforePlanetAppearance(
-    PlanetRenderer __instance,
-    out PlanetAppearanceController.PlanetState __state
-  )
-  {
-    __state = null;
-    GameplayTweaksController current = _current;
-    if (current == null || current._planetsFailed)
-      return;
-    try
-    {
-      __state = current._planets.BeginAppearanceChange(__instance);
-    }
-    catch (Exception exception)
-    {
-      current.FailPlanets(exception);
-    }
-  }
-
-  private static Exception FinishPlanetAppearance(Exception __exception, PlanetAppearanceController.PlanetState __state)
-  {
-    GameplayTweaksController current = _current;
-    if (current != null && !current._planetsFailed)
-    {
-      try
-      {
-        current._planets.EndAppearanceChange(__state);
-      }
-      catch (Exception exception)
-      {
-        current.FailPlanets(exception);
-      }
-    }
-    return __exception;
-  }
-
-  private static void AfterPlanetFrame(PlanetRenderer __instance)
-  {
-    GameplayTweaksController current = _current;
-    if (current == null || current._planetsFailed)
-      return;
-    try
-    {
-      current._planets.AfterFrame(__instance);
-    }
-    catch (Exception exception)
-    {
-      current.FailPlanets(exception);
-    }
-  }
-
-  private static void RefreshPlanets() => _current?.ApplyPlanets();
 
   private void SceneUnloaded(Scene scene)
   {
@@ -321,11 +263,8 @@ internal sealed class GameplayTweaksController : IDisposable
     if (_disposed)
       return;
     _disposed = true;
-    if (_current == this)
-      _current = null;
     SceneManager.sceneUnloaded -= SceneUnloaded;
-    _harmony.UnpatchAll(_harmony.Id);
-    ChatterBlocker.Configure(false, 0, null);
+    _chatter.Configure(false, 0, null);
     _editor.Dispose();
     _planets.Dispose();
   }

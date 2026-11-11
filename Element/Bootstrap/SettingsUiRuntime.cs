@@ -69,10 +69,6 @@ internal sealed class SettingsUiRuntime : IDisposable
         RDString.language == SystemLanguage.Korean ? RDConstants.data.koreanFontTMPro : RDConstants.data.latinFontTMPro
       )
       ?? TMP_Settings.defaultFontAsset;
-    // Normalize eagerly so runtime features never see legacy values, even
-    // before the lazily built settings window first opens.
-    main.Settings.Gameplay.Normalize();
-    main.Settings.Effects.Normalize();
     nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
@@ -98,7 +94,7 @@ internal sealed class SettingsUiRuntime : IDisposable
       OpenLayout,
       OnVisibilityChanged,
       RenderPlanetPreview,
-      () => ChatterBlocker.Blocked,
+      () => _main.Chatter.Blocked,
       _main.Updates,
       _judgementTextLinked,
       CreateProfiles(),

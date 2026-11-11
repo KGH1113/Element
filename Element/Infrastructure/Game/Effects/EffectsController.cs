@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ADOFAI;
 using Element.Configuration.Effects;
 
@@ -15,14 +16,13 @@ internal sealed class EffectsController : IDisposable
   private int _editorReturnDepth;
   private bool _disposed;
 
-  internal static EffectsController Active { get; private set; }
-  internal static RemovedEffects Applied => Active?._applied ?? RemovedEffects.None;
-  internal static bool Rendering => (Active?._renderDepth ?? 0) > 0;
+  internal RemovedEffects Applied => _applied;
+  internal bool Rendering => _renderDepth > 0;
 
   // Keep one visual preset through loading, editing, playback and editor return.
   // Temporarily restoring originals on return would reload every removed image.
-  internal static RemovedEffects ForRendering => Applied;
-  internal static int CameraZoomForRendering => Active?._appliedZoom ?? EffectPreset.DefaultCameraZoom;
+  internal RemovedEffects ForRendering => Applied;
+  internal int CameraZoomForRendering => _appliedZoom;
   public bool RequiresRestart => PendingChange;
 
   // The zoom only reaches the level through the camera reset, so it alone
@@ -37,7 +37,6 @@ internal sealed class EffectsController : IDisposable
     ApplySettings();
     _applied = _requested;
     _appliedZoom = _requestedZoom;
-    Active = this;
   }
 
   public void ApplySettings()
@@ -80,12 +79,54 @@ internal sealed class EffectsController : IDisposable
     return new EditorReturnScope(this);
   }
 
+  /// <summary>
+  /// A retry resets the level: applies the pending preset and renders filtered. The
+  /// scope goes into <paramref name="scope"/> first, so a failure after it still ends it.
+  /// </summary>
+  internal void BeforeReset(scnGame game, ref bool isResetCustomLevel, out IDisposable scope)
+  {
+    bool changed = CommitForPlayback();
+    scope = BeginRender(game);
+    if (!changed)
+      return;
+    // A full regeneration restores effects removed by the previous preset, too.
+    isResetCustomLevel = true;
+    game.UpdateDecorationObjects();
+    game.UpdateVideo();
+  }
+
+  /// <summary>A level starts playing; like <see cref="BeforeReset"/>, with the floors remade.</summary>
+  internal void BeforePlay(scnGame game, ref bool remakeFloors, out IDisposable scope)
+  {
+    bool changed = CommitForPlayback();
+    scope = BeginRender(game);
+    if (!changed)
+      return;
+    remakeFloors = true;
+    game.RemakePath();
+    game.UpdateDecorationObjects();
+    game.SetBackground();
+    game.UpdateVideo();
+  }
+
+  /// <summary>The level data floors are built from, filtered unless a render scope already did.</summary>
+  internal void FilterFloorInput(ref LevelData levelData, ref List<LevelEvent> events)
+  {
+    RemovedEffects effects = ForRendering;
+    if (Rendering || effects == RemovedEffects.None)
+      return;
+    levelData = EffectLevelFilter.Create(levelData, effects, CameraZoomForRendering, events);
+    events = levelData.levelEvents;
+  }
+
+  /// <summary>Filters only the decoration list's display entries; saving and undo still use originals.</summary>
+  internal void FilterEditorDecorations(List<LevelEvent> shown) =>
+    EffectLevelFilter.FilterEditorDecorations(shown, ADOBase.editor?.levelData, ForRendering);
+
   public void Dispose()
   {
     _disposed = true;
     _requested = _applied = RemovedEffects.None;
-    if (ReferenceEquals(Active, this))
-      Active = null;
   }
 
   private sealed class RenderScope : IDisposable

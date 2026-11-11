@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Reflection.Emit;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,12 +8,15 @@ using UnityEngine.UI;
 
 namespace Element.Infrastructure.Game.Editor;
 
+/// <summary>
+/// Two-finger pan and pinch zoom in the level editor on macOS. The game patches call
+/// it around the editor's update; an error turns it off and the original controls stay.
+/// </summary>
 internal sealed class EditorTrackpadController : IDisposable
 {
-  private static EditorTrackpadController _current;
-  private readonly Main _main;
+  private readonly Func<bool> _enabled;
+  private readonly Action<string, Exception> _logException;
   private readonly MacTrackpadNative _native;
-  private readonly Harmony _harmony = new("Element.Trackpad");
   private readonly TrackpadEvent[] _buffer = new TrackpadEvent[4096];
   private readonly List<TrackpadEvent> _pending = new();
   private readonly List<RaycastResult> _hits = new();
@@ -30,52 +32,39 @@ internal sealed class EditorTrackpadController : IDisposable
     _suppressUi,
     _disposed;
 
-  public static EditorTrackpadController TryCreate(Main main)
+  /// <summary>Null off macOS, or when the editor or the native library changed; the original controls stay.</summary>
+  /// <param name="enabled">The player's trackpad setting.</param>
+  public static EditorTrackpadController TryCreate(
+    string runtimePath,
+    Func<bool> enabled,
+    Action<string> log,
+    Action<string, Exception> logException
+  )
   {
     if (UnityEngine.Application.platform != RuntimePlatform.OSXPlayer)
       return null;
     EditorTrackpadController controller = null;
     try
     {
-      controller = new EditorTrackpadController(main);
-      controller.Install();
+      controller = new EditorTrackpadController(runtimePath, enabled, logException);
+      if (controller._popup == null || controller._dragCamera == null)
+        throw new MissingMemberException("Editor camera API changed");
+      log("macOS editor trackpad ready: two-finger pan and pinch zoom.");
       return controller;
     }
     catch (Exception exception)
     {
       controller?.Dispose();
-      main.LogException("Trackpad unavailable; keeping original controls", exception);
+      logException("Trackpad unavailable; keeping original controls", exception);
       return null;
     }
   }
 
-  private EditorTrackpadController(Main main)
+  private EditorTrackpadController(string runtimePath, Func<bool> enabled, Action<string, Exception> logException)
   {
-    _main = main;
-    _native = new MacTrackpadNative(main.RuntimePath);
-  }
-
-  private void Install()
-  {
-    if (_popup == null || _dragCamera == null)
-      throw new MissingMemberException("Editor camera API changed");
-    MethodInfo update = AccessTools.Method(typeof(scnEditor), "Update");
-    _harmony.Patch(
-      update,
-      prefix: new HarmonyMethod(typeof(EditorTrackpadController), nameof(BeforeEditorUpdate)),
-      postfix: new HarmonyMethod(typeof(EditorTrackpadController), nameof(AfterEditorUpdate)),
-      transpiler: new HarmonyMethod(typeof(EditorTrackpadController), nameof(ReplaceEditorScroll))
-    );
-    _harmony.Patch(
-      AccessTools.PropertyGetter(typeof(BaseInput), "mouseScrollDelta"),
-      postfix: new HarmonyMethod(typeof(EditorTrackpadController), nameof(FilterUiScroll))
-    );
-    _harmony.Patch(
-      AccessTools.Method(typeof(scnEditor), nameof(scnEditor.ZoomCamera)),
-      transpiler: new HarmonyMethod(typeof(EditorTrackpadController), nameof(ReplaceZoomPointer))
-    );
-    _current = this;
-    _main.Log("macOS editor trackpad ready: two-finger pan and pinch zoom.");
+    _enabled = enabled;
+    _logException = logException;
+    _native = new MacTrackpadNative(runtimePath);
   }
 
   public void Tick()
@@ -94,7 +83,7 @@ internal sealed class EditorTrackpadController : IDisposable
 
   private bool CanNavigate(scnEditor editor) =>
     !Element.Application.Input.InputGate.BlocksPointerInput
-    && _main.Settings.NativeEditorTrackpad
+    && _enabled()
     && editor != null
     && !editor.playMode
     && editor.camera != null
@@ -232,83 +221,40 @@ internal sealed class EditorTrackpadController : IDisposable
 
   private void Fail(Exception exception)
   {
-    _main.LogException("Trackpad disabled after an error; keeping original controls", exception);
+    _logException("Trackpad disabled after an error; keeping original controls", exception);
     Dispose();
   }
 
-  private static void BeforeEditorUpdate() => _current?.Tick();
+  /// <summary>Before the editor's update: reads this frame's gestures.</summary>
+  public void BeforeEditorUpdate() => Tick();
 
-  private static void AfterEditorUpdate(scnEditor __instance) => _current?.Apply(__instance);
+  /// <summary>After the editor's update: pans and zooms its camera.</summary>
+  public void AfterEditorUpdate(scnEditor editor) => Apply(editor);
 
-  private static Vector2 ReadEditorScroll()
+  /// <summary>The scroll the editor reads: none while a trackpad gesture moves the canvas.</summary>
+  public Vector2 EditorScroll()
   {
-    _current?.Tick();
-    return _current?._suppressEditor == true ? Vector2.zero : RDInput.mouseScrollDelta;
+    Tick();
+    return !_disposed && _suppressEditor ? Vector2.zero : RDInput.mouseScrollDelta;
   }
 
-  private static void FilterUiScroll(ref Vector2 __result)
+  /// <summary>The scroll the editor's UI reads: none while a gesture belongs to the canvas.</summary>
+  public void FilterUiScroll(ref Vector2 scroll)
   {
-    _current?.Tick();
-    if (_current?._suppressUi == true)
-      __result = Vector2.zero;
+    Tick();
+    if (!_disposed && _suppressUi)
+      scroll = Vector2.zero;
   }
 
-  private static Vector3 ReadZoomPointer() => _current?._zoomPointer ?? UnityEngine.Input.mousePosition;
-
-  private static IEnumerable<CodeInstruction> ReplaceZoomPointer(IEnumerable<CodeInstruction> instructions)
-  {
-    MethodInfo original = AccessTools.PropertyGetter(
-      typeof(UnityEngine.Input),
-      nameof(UnityEngine.Input.mousePosition)
-    );
-    MethodInfo replacement = AccessTools.Method(typeof(EditorTrackpadController), nameof(ReadZoomPointer));
-    int matches = 0;
-    var result = new List<CodeInstruction>();
-    foreach (CodeInstruction instruction in instructions)
-    {
-      if (instruction.Calls(original))
-      {
-        instruction.opcode = OpCodes.Call;
-        instruction.operand = replacement;
-        matches++;
-      }
-      result.Add(instruction);
-    }
-    if (matches != 1)
-      throw new InvalidOperationException("Editor zoom hook changed; expected exactly one pointer read");
-    return result;
-  }
-
-  private static IEnumerable<CodeInstruction> ReplaceEditorScroll(IEnumerable<CodeInstruction> instructions)
-  {
-    MethodInfo original = AccessTools.PropertyGetter(typeof(RDInput), nameof(RDInput.mouseScrollDelta));
-    MethodInfo replacement = AccessTools.Method(typeof(EditorTrackpadController), nameof(ReadEditorScroll));
-    int matches = 0;
-    var result = new List<CodeInstruction>();
-    foreach (CodeInstruction instruction in instructions)
-    {
-      if (instruction.Calls(original))
-      {
-        instruction.opcode = OpCodes.Call;
-        instruction.operand = replacement;
-        matches++;
-      }
-      result.Add(instruction);
-    }
-    if (matches != 1)
-      throw new InvalidOperationException("Editor scroll hook changed; expected exactly one call");
-    return result;
-  }
+  /// <summary>Where a pinch zooms around; the mouse otherwise.</summary>
+  public Vector3 ZoomPointer => _zoomPointer ?? UnityEngine.Input.mousePosition;
 
   public void Dispose()
   {
     if (_disposed)
       return;
     _disposed = true;
-    if (_current == this)
-      _current = null;
     _pending.Clear();
-    _harmony.UnpatchAll(_harmony.Id);
     _native.Dispose();
   }
 }

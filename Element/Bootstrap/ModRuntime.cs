@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Element.Application.Attempts;
 using Element.Application.Input;
 using Element.Application.Judgement;
@@ -15,6 +16,7 @@ using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Judgement;
+using Element.Infrastructure.Game.Patches;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Tweaks;
 using Element.Infrastructure.Ipc;
@@ -36,7 +38,7 @@ namespace Element.Bootstrap;
 /// overlay and the settings UI in their own runtimes. Game callbacks enter
 /// through this facade, which isolates their failures from the game.
 /// </summary>
-internal sealed class ModRuntime : IDisposable
+internal sealed class ModRuntime : IGameplayHooks, IRecordingHooks, IDisposable
 {
   private const string HarmonyId = "Element";
 
@@ -91,6 +93,16 @@ internal sealed class ModRuntime : IDisposable
   public bool OverlaysAvailable => _overlay?.Available == true;
   public bool IsRecording => _recordingMode?.IsActive ?? false;
 
+  public bool SuppressNextFlash
+  {
+    get => _recordingMode?.SuppressNextFlash ?? false;
+    set
+    {
+      if (_recordingMode != null)
+        _recordingMode.SuppressNextFlash = value;
+    }
+  }
+
   public ModRuntime(Main main)
   {
     _main = main;
@@ -127,8 +139,12 @@ internal sealed class ModRuntime : IDisposable
     try
     {
       InputGate.Connect(GameAsyncInput.Clear);
+      // Game calls reach the runtime from the first patch on; it ignores them until its parts exist.
+      GameHooks.Gameplay = this;
+      GameHooks.Recording = this;
       _keyLimiter = new KeyLimiterService(new DmNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
+      GameHooks.KeyLimiter = _gameKeyLimiter;
       _keyLimiterIpc = new KeyLimiterIpcFeature(
         new KeyLimiterSessionController(_keyLimiter),
         _main.Path,
@@ -138,11 +154,22 @@ internal sealed class ModRuntime : IDisposable
 
       _harmony = new Harmony(HarmonyId);
       FailedPatchGroups = PatchGroups.Apply(_harmony, typeof(Main).Assembly, _main.LogException);
-      _trackpad = EditorTrackpadController.TryCreate(_main);
-      _gameplayTweaks = new GameplayTweaksController(_main);
+      if (!FailedPatchGroups.Contains(PatchGroupNames.Trackpad))
+        _trackpad = EditorTrackpadController.TryCreate(
+          _main.RuntimePath,
+          () => _main.Settings.NativeEditorTrackpad,
+          _main.Log,
+          _main.LogException
+        );
+      GameHooks.Trackpad = _trackpad;
+      GameHooks.Chatter = _main.Chatter;
+      _gameplayTweaks = new GameplayTweaksController(() => _main.Settings.Gameplay, _main.Chatter, _main.LogException);
+      GameHooks.Tweaks = _gameplayTweaks;
       _effects = new EffectsController(() => _main.Settings.Effects);
+      GameHooks.Effects = _effects;
       _recordingMode = new RecordingModeController();
-      var gameHitText = new GameHitTextHide();
+      var gameHitText = new GameHitTextHide(OnGameHitTextHideChanged, OnCompetitiveModeChanged);
+      GameHooks.HitTextHide = gameHitText;
       _hitTextSync = new HitTextHideSync(
         () => _main.Settings.Gameplay.Judgement,
         gameHitText,
@@ -351,6 +378,12 @@ internal sealed class ModRuntime : IDisposable
     Execute("Sync judgment text with ADOFAI", _pushHitTextHide);
   }
 
+  public void ReapplyUi() => ReapplyRecordingUi();
+
+  public void HideErrorMeter() => HideRecordingErrorMeter();
+
+  public void HideMissIndicator(scrMissIndicator indicator) => HideRecordingMissIndicator(indicator);
+
   public void ReapplyRecordingUi()
   {
     Execute("Reapply recording UI", () => _recordingMode?.ReapplyCurrentScene());
@@ -405,6 +438,8 @@ internal sealed class ModRuntime : IDisposable
 
     _disposed = true;
     _initialized = false;
+    // The patches stay until the end; from now on they leave the game as it is.
+    GameHooks.Clear();
 
     // TUFReplay stops calling Element before anything it uses goes away.
     _replays?.Dispose();
@@ -641,7 +676,11 @@ internal sealed class ModRuntime : IDisposable
   {
     try
     {
-      return new GameKeyLimiter(() => profiles.Current);
+      return new GameKeyLimiter(
+        () => profiles.Current,
+        () => KeyLimiterMenuText.Label,
+        () => KeyLimiterMenuText.Description
+      );
     }
     catch (Exception exception)
     {

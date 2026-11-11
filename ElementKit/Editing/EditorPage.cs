@@ -24,6 +24,10 @@ namespace ElementKit;
 /// </remarks>
 public abstract class EditorPage
 {
+  // Only Element implements this: a mod uses the one Element hands it and
+  // cannot subclass it, so new members never break mods.
+  internal EditorPage() { }
+
   /// <summary>The whole screen, for parts you place yourself or UI of your own.</summary>
   public abstract RectTransform Root { get; }
 
@@ -178,36 +182,4 @@ public abstract class EditorPage
 
   /// <summary>Empty space in the column before the next part.</summary>
   public abstract void Gap(float height = 16);
-}
-
-/// <summary>Tabs on the editing screen; see <see cref="EditorPage.Tabs"/>.</summary>
-public abstract class EditorTabs
-{
-  /// <summary>The tab bar.</summary>
-  public abstract EditorControl Bar { get; }
-
-  /// <summary>The picked tab.</summary>
-  public abstract int Selected { get; set; }
-
-  /// <summary>Parts made until this is disposed belong to tab <paramref name="index"/>.</summary>
-  public abstract IDisposable Page(int index);
-}
-
-/// <summary>A part on the editing screen.</summary>
-public abstract class EditorControl
-{
-  /// <summary>The part's UI object; its pivot is its top left.</summary>
-  public abstract RectTransform Rect { get; }
-
-  /// <summary>Takes the part out of the column and puts its top left at (<paramref name="x"/>, <paramref name="y"/>).</summary>
-  public abstract EditorControl At(float x, float y);
-
-  /// <summary>Makes the part <paramref name="width"/> wide.</summary>
-  public abstract EditorControl Width(float width);
-
-  /// <summary>Shows <paramref name="text"/> above the part while the pointer is over it.</summary>
-  public abstract EditorControl Hint(string text);
-
-  /// <summary>Whether the part shows. A hidden part keeps its place in the column.</summary>
-  public abstract bool Visible { get; set; }
 }

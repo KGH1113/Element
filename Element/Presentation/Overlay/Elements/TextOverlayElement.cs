@@ -138,7 +138,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   /// affects it. While <paramref name="settle"/> (a level starting or
   /// restarting), values take their new text without growing.
   /// </summary>
-  public void Refresh(OverlayValueMask changes, bool settle = false)
+  public override void Refresh(OverlayValueMask changes, bool settle = false)
   {
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (

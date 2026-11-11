@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,7 +29,7 @@ internal sealed class OverlayGrowPicker
 
   public OverlayGrowPicker(SettingsUiFactory ui, Transform parent, bool reduceMotion, Action<OverlayGrowth> picked)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule("Grow from", parent, 0, 0, Size, Size, OverlayEditorUi.Bar);
+    SettingsCapsuleGraphic surface = ui.Capsule("Grow from", parent, 0, 0, Size, Size, LayoutColors.Bar);
     surface.raycastTarget = true;
     Root = surface.rectTransform;
     // The box the points belong to.
@@ -41,7 +43,7 @@ internal sealed class OverlayGrowPicker
     for (int i = 0; i < 9; i++)
     {
       OverlayGrowth growth = (OverlayGrowth)i;
-      Button button = OverlayEditorUi.CapsuleButton(
+      Button button = EditorCapsules.CapsuleButton(
         ui,
         Root,
         "Grow from " + growth,
@@ -63,7 +65,7 @@ internal sealed class OverlayGrowPicker
       arrow.color = SettingsUiFactory.Foreground;
       _cells.Add((button, dot, arrow));
     }
-    Auto = OverlayEditorUi.CapsuleButton(
+    Auto = EditorCapsules.CapsuleButton(
       ui,
       parent,
       "Grow automatically",
@@ -132,7 +134,7 @@ internal sealed class OverlayGrowPicker
   }
 
   public bool Contains(Vector2 screen) =>
-    OverlayEditorUi.Contains(Root, screen) || OverlayEditorUi.Contains((RectTransform)Auto.transform, screen);
+    PopoverPlacement.Contains(Root, screen) || PopoverPlacement.Contains((RectTransform)Auto.transform, screen);
 
   /// <summary>What a grow button says: "자동", "왼쪽 위" or "Top left".</summary>
   public static string ShortName(OverlayGrowth growth)

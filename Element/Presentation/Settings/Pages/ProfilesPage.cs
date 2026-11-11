@@ -5,6 +5,7 @@ using Element.Configuration.Profiles;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -34,7 +35,7 @@ internal sealed class ProfilesPage : SettingsPage
   private readonly ProfileFontReplacements _fonts;
   private readonly NewProfilePopover _newProfilePopover;
   private readonly List<Button> _profileCards = new();
-  private SettingsUiFactory _profileGalleryUi;
+  private UiFactory _profileGalleryUi;
   private TextMeshProUGUI _profileLinkDetail;
 
   // The profile whose card shows a name field, that field, and the card line
@@ -138,10 +139,10 @@ internal sealed class ProfilesPage : SettingsPage
     {
       GameObject child = _profileGallery.GetChild(i).gameObject;
       child.SetActive(false);
-      SettingsUiFactory.Destroy(child);
+      UiFactory.Destroy(child);
     }
     _profileGalleryUi?.Dispose();
-    _profileGalleryUi = new SettingsUiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
+    _profileGalleryUi = new UiFactory(Window.Font) { ReduceMotion = () => Settings.ReduceUiMotion };
     _profileCards.Clear();
     int count = _profiles.Profiles.Count;
     // The window title already says Profiles; the heading counts them.
@@ -168,7 +169,7 @@ internal sealed class ProfilesPage : SettingsPage
     int actions = 2 + (_profiles.FilesSupported ? 1 : 0) + (_profiles.CanDelete ? 1 : 0);
     float actionsWidth = actions * CardActionSize + (actions - 1) * CardActionGap;
     var title = _profileGalleryUi.Text(profile.Name, card.transform, 18, 18, 220, 54, 20);
-    SettingsUiFactory.StretchWidth(title.rectTransform, 18, CardActionInset + actionsWidth + 8);
+    UiFactory.StretchWidth(title.rectTransform, 18, CardActionInset + actionsWidth + 8);
     title.alignment = TextAlignmentOptions.TopLeft;
     title.gameObject.SetActive(!renaming);
     ProfileSummary summary = _profiles.Summarize(profile);
@@ -180,7 +181,7 @@ internal sealed class ProfilesPage : SettingsPage
         + (summary.Presets == 1 ? " preset" : " presets")
     );
     var contents = _profileGalleryUi.Text(summaryText, card.transform, 18, 82, 220, 22, 13, UiPalette.Muted);
-    SettingsUiFactory.StretchWidth(contents.rectTransform, 18, 18);
+    UiFactory.StretchWidth(contents.rectTransform, 18, 18);
     var state = _profileGalleryUi.Text(
       armed ? L("한 번 더 누르면 삭제해요", "Press again to delete")
         : inUse ? L("사용 중", "In use")
@@ -192,7 +193,7 @@ internal sealed class ProfilesPage : SettingsPage
       22,
       13
     );
-    SettingsUiFactory.StretchWidth(state.rectTransform, 18, 18);
+    UiFactory.StretchWidth(state.rectTransform, 18, 18);
     _profileGalleryUi.Bind(() =>
       state.color =
         armed ? UiPalette.Error
@@ -411,7 +412,7 @@ internal sealed class ProfilesPage : SettingsPage
     input.textComponent.textWrappingMode = TextWrappingModes.NoWrap;
     // The caret goes after the name, where typing continues.
     input.onFocusSelectAll = false;
-    SettingsUiFactory.StretchWidth((RectTransform)input.transform, 12, 12);
+    UiFactory.StretchWidth((RectTransform)input.transform, 12, 12);
     return input;
   }
 
@@ -575,13 +576,13 @@ internal sealed class ProfilesPage : SettingsPage
     bool stackedButtons = width < 440;
     float buttonsTop = stackedButtons ? 52 : 0;
     float headingHeight = stackedButtons ? 96 : 44;
-    SettingsUiFactory.Place(_profilesHeading, 0, 0, width, headingHeight);
-    SettingsUiFactory.Place(_profilesTitle.rectTransform, 0, 0, stackedButtons ? width : width - 300, 44);
+    UiFactory.Place(_profilesHeading, 0, 0, width, headingHeight);
+    UiFactory.Place(_profilesTitle.rectTransform, 0, 0, stackedButtons ? width : width - 300, 44);
     float newWidth = stackedButtons && _importProfile != null ? (width - 8) / 2 : 156;
     float importWidth = stackedButtons ? newWidth : 120;
-    SettingsUiFactory.Place((RectTransform)_newProfile.transform, width - newWidth, buttonsTop, newWidth, 44);
+    UiFactory.Place((RectTransform)_newProfile.transform, width - newWidth, buttonsTop, newWidth, 44);
     if (_importProfile != null)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_importProfile.transform,
         width - newWidth - 8 - importWidth,
         buttonsTop,
@@ -595,9 +596,9 @@ internal sealed class ProfilesPage : SettingsPage
       : 1;
     float cardWidth = (width - (columns - 1) * 12) / columns;
     float galleryHeight = Mathf.Max(140, Mathf.CeilToInt(_profileCards.Count / (float)columns) * 152 - 12);
-    SettingsUiFactory.Place(_profileGallery, 0, top, width, galleryHeight);
+    UiFactory.Place(_profileGallery, 0, top, width, galleryHeight);
     for (int i = 0; i < _profileCards.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_profileCards[i].transform,
         i % columns * (cardWidth + 12),
         i / columns * 152,
@@ -609,8 +610,8 @@ internal sealed class ProfilesPage : SettingsPage
     _profilesMessage.gameObject.SetActive(hasMessage);
     if (hasMessage)
     {
-      float messageHeight = SettingsUiFactory.TextHeight(_profilesMessage, width, 20);
-      SettingsUiFactory.Place(_profilesMessage.rectTransform, 0, top + 16, width, messageHeight);
+      float messageHeight = UiFactory.TextHeight(_profilesMessage, width, 20);
+      UiFactory.Place(_profilesMessage.rectTransform, 0, top + 16, width, messageHeight);
       top += 16 + messageHeight;
     }
     if (_fonts.Visible)

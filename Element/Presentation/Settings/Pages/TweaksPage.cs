@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -95,16 +96,16 @@ internal sealed class TweaksPage : SettingsPage
     for (int i = 0; i < _tweakLinks.Count; i++)
     {
       var link = _tweakLinks[i];
-      SettingsUiFactory.Place((RectTransform)link.transform, 0, i * (linkHeight + 12), width, linkHeight);
+      UiFactory.Place((RectTransform)link.transform, 0, i * (linkHeight + 12), width, linkHeight);
       var labels = link.GetComponentsInChildren<TextMeshProUGUI>();
       // The hidden button caption is excluded from this active-only query.
-      SettingsUiFactory.Place(labels[1].rectTransform, 20, 43, width - 84, linkHeight - 51);
+      UiFactory.Place(labels[1].rectTransform, 20, 43, width - 84, linkHeight - 51);
     }
     float tweaksTop = _tweakLinks.Count * (linkHeight + 12);
     bool wide = width >= 760;
     float toggleWidth = wide ? (width - 12) / 2 : width;
     for (int i = 0; i < _tweakRows.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_tweakRows[i].transform,
         wide ? i * (toggleWidth + 12) : 0,
         tweaksTop + (wide ? 0 : i * 100),

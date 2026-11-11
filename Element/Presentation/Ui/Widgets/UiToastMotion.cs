@@ -1,10 +1,10 @@
 using System;
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>Fades the notice in with a short drop, holds it, then fades it out and hides it.</summary>
-internal sealed class SettingsToastMotion : MonoBehaviour
+internal sealed class UiToastMotion : MonoBehaviour
 {
   private const float Enter = .18f;
   private const float Hold = 1.8f;

@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -16,7 +15,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 internal sealed class ModChoiceParts
 {
   private readonly ModEditorPage _page;
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly IModEditorHost _host;
   private readonly bool _reduceMotion;
 
@@ -33,8 +32,8 @@ internal sealed class ModChoiceParts
     ModEditorControl control = _page.Row("Choice", 0);
     float x = _page.Caption(control, label);
     List<string> names = Names(options);
-    SettingsSegmentedControl segments = null;
-    segments = new SettingsSegmentedControl(
+    UiSegmentedControl segments = null;
+    segments = new UiSegmentedControl(
       _ui,
       control.Rect,
       x,
@@ -48,10 +47,10 @@ internal sealed class ModChoiceParts
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);
-      SettingsUiFactory.Place(segments.Root, x, 2, room, 36);
+      UiFactory.Place(segments.Root, x, 2, room, 36);
       float segment = (room - 6) / names.Count;
       for (int i = 0; i < segments.Buttons.Count; i++)
-        SettingsUiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
+        UiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
     };
     return _page.Add(control);
   }
@@ -64,7 +63,7 @@ internal sealed class ModChoiceParts
     int current = Mathf.Clamp(selected, 0, names.Count - 1);
     Button button = null;
     TextMeshProUGUI shown = null;
-    button = EditorCapsules.CapsuleButton(
+    button = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Dropdown " + label,
@@ -104,9 +103,9 @@ internal sealed class ModChoiceParts
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);
-      SettingsUiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
+      UiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
       shown.rectTransform.sizeDelta = new Vector2(room - 48, 36);
-      SettingsUiFactory.Place(chevron.rectTransform, room - 30, 9, 18, 18);
+      UiFactory.Place(chevron.rectTransform, room - 30, 9, 18, 18);
     };
     return _page.Add(control);
   }
@@ -127,7 +126,7 @@ internal sealed class ModChoiceParts
       int index = i;
       bool state = on != null && index < on.Count && on[index];
       Button chip = null;
-      chip = EditorCapsules.CapsuleButton(
+      chip = UiCapsules.CapsuleButton(
         _ui,
         control.Rect,
         "Chip " + names[i],
@@ -164,7 +163,7 @@ internal sealed class ModChoiceParts
           left = 0;
           top += 38;
         }
-        SettingsUiFactory.Place((RectTransform)chip.transform, x + left, top, w, 32);
+        UiFactory.Place((RectTransform)chip.transform, x + left, top, w, 32);
         left += w + 6;
       }
       control.Height = top + 36;
@@ -196,14 +195,14 @@ internal sealed class ModChoiceParts
     picker.Auto.gameObject.SetActive(false);
     picker.Caption.gameObject.SetActive(false);
     picker.Show((OverlayGrowth)(int)current, (Anchor9)(int)current);
-    control.Layout = _ => SettingsUiFactory.Place(picker.Root, x, 2, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
+    control.Layout = _ => UiFactory.Place(picker.Root, x, 2, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
     return _page.Add(control);
   }
 
   // A picked chip is lit in the accent; others look like any capsule button.
   private void Tint(Button chip, bool on)
   {
-    if (chip is not SettingsButton button)
+    if (chip is not UiButton button)
       return;
     Color accent = UiPalette.SoftAccent;
     button.SetPalette(

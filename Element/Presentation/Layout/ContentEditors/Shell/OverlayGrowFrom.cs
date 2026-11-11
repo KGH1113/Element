@@ -3,9 +3,9 @@ using Element.Configuration;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -25,7 +25,7 @@ internal sealed class OverlayGrowFrom
   private OverlayElementTarget _element;
   private OverlayEditorFrame _screen;
   private OverlayGrowPopover _popover;
-  private SettingsCapsuleGraphic _mark;
+  private UiCapsuleGraphic _mark;
 
   /// <param name="closeOthers">Closes what else is open before the popover opens.</param>
   /// <param name="changed">Redraws the editor after a click.</param>
@@ -49,7 +49,7 @@ internal sealed class OverlayGrowFrom
   }
 
   /// <summary>The Grow from button, added where the bar has it.</summary>
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     Button = new OverlayBarButton(
       ui,
       bar,
@@ -111,7 +111,7 @@ internal sealed class OverlayGrowFrom
       y + height * OverlayLayoutPosition.AnchorY(point)
     );
     _mark.gameObject.SetActive(true);
-    SettingsUiFactory.Place(_mark.rectTransform, at.x - MarkSize * .5f, at.y - MarkSize * .5f, MarkSize, MarkSize);
+    UiFactory.Place(_mark.rectTransform, at.x - MarkSize * .5f, at.y - MarkSize * .5f, MarkSize, MarkSize);
     _mark.transform.SetAsLastSibling();
   }
 

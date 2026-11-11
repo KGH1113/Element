@@ -2,16 +2,16 @@ using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>
-/// How a <see cref="SettingsSegmentedControl"/> looks and answers clicks: the
+/// How a <see cref="UiSegmentedControl"/> looks and answers clicks: the
 /// toggle group of pickers and editors, or the section tabs of a settings page.
 /// </summary>
-internal sealed class SettingsSegmentStyle
+internal sealed class UiSegmentStyle
 {
   /// <summary>shadcn's toggle group: the chosen segment raised in the accent surface on a light track.</summary>
-  public static readonly SettingsSegmentStyle Toggle = new(
+  public static readonly UiSegmentStyle Toggle = new(
     "Segments",
     track: new Color(.16f, .16f, .16f),
     trackTakesClicks: true,
@@ -27,7 +27,7 @@ internal sealed class SettingsSegmentStyle
   );
 
   /// <summary>A settings page's sections: tabs on a dark track. Clicking the open tab runs it again.</summary>
-  public static readonly SettingsSegmentStyle Tabs = new(
+  public static readonly UiSegmentStyle Tabs = new(
     "Sections",
     track: new Color(.085f, .085f, .085f),
     trackTakesClicks: false,
@@ -48,7 +48,7 @@ internal sealed class SettingsSegmentStyle
   private readonly float _hoverLift;
   private readonly bool _pressAccent;
 
-  private SettingsSegmentStyle(
+  private UiSegmentStyle(
     string name,
     Color track,
     bool trackTakesClicks,
@@ -90,7 +90,7 @@ internal sealed class SettingsSegmentStyle
   public bool ClicksRepeat { get; }
 
   /// <summary>A segment's colors, chosen or not, in the current accent.</summary>
-  public ColorBlock Colors(ColorBlock colors, bool selected, SettingsUiFactory ui)
+  public ColorBlock Colors(ColorBlock colors, bool selected, UiFactory ui)
   {
     Color fill = selected ? ui.AccentSurface : _idle;
     colors.normalColor = fill;

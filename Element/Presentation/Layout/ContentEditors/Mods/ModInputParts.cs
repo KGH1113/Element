@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using TMPro;
 using UnityEngine;
@@ -16,7 +15,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 internal sealed class ModInputParts
 {
   private readonly ModEditorPage _page;
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly IModEditorHost _host;
   private readonly bool _reduceMotion;
 
@@ -56,7 +55,7 @@ internal sealed class ModInputParts
   {
     ModEditorControl control = _page.Row("Button", 0);
     Button button = null;
-    button = EditorCapsules.CapsuleButton(
+    button = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Button " + text,
@@ -72,13 +71,7 @@ internal sealed class ModInputParts
     );
     Func<float> preferred = ModEditorPage.Preferred(button.GetComponentInChildren<TextMeshProUGUI>(), text);
     control.Layout = width =>
-      SettingsUiFactory.Place(
-        (RectTransform)button.transform,
-        0,
-        2,
-        Mathf.Min(width, Mathf.Max(96, preferred() + 36)),
-        36
-      );
+      UiFactory.Place((RectTransform)button.transform, 0, 2, Mathf.Min(width, Mathf.Max(96, preferred() + 36)), 36);
     return _page.Add(control);
   }
 
@@ -86,7 +79,7 @@ internal sealed class ModInputParts
   {
     ModEditorControl control = _page.Row("Icon button", 0);
     Button button = null;
-    button = EditorCapsules.CapsuleButton(
+    button = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Icon " + icon,
@@ -101,7 +94,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     _page.Icon(button.transform, LayoutIcon(icon), 6, 6, 24, UiPalette.Foreground);
-    control.Layout = _ => SettingsUiFactory.Place((RectTransform)button.transform, 0, 2, 36, 36);
+    control.Layout = _ => UiFactory.Place((RectTransform)button.transform, 0, 2, 36, 36);
     _page.Add(control);
     control.Hint(hint);
     return control;
@@ -112,9 +105,9 @@ internal sealed class ModInputParts
     ModEditorControl control = _page.Row("Switch", 0);
     float x = _page.Caption(control, label);
     bool state = on;
-    SettingsCapsuleGraphic track = null;
-    SettingsCapsuleGraphic thumb = null;
-    SettingsSwitchMotion motion = null;
+    UiCapsuleGraphic track = null;
+    UiCapsuleGraphic thumb = null;
+    UiSwitchMotion motion = null;
     void Show(bool immediate)
     {
       track.color = state ? UiPalette.AccentSurface : new Color(.3f, .3f, .3f);
@@ -122,7 +115,7 @@ internal sealed class ModInputParts
       motion.Set(state ? 24 : 4, immediate || _reduceMotion);
     }
     Button hit = null;
-    hit = EditorCapsules.CapsuleButton(
+    hit = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Switch " + label,
@@ -146,7 +139,7 @@ internal sealed class ModInputParts
     track.raycastTarget = false;
     thumb = _ui.Capsule("Thumb", track.transform, 4, 4, 20, 20, UiPalette.Foreground);
     thumb.raycastTarget = false;
-    motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
+    motion = thumb.gameObject.AddComponent<UiSwitchMotion>();
     Show(true);
     return _page.Add(control);
   }
@@ -163,7 +156,7 @@ internal sealed class ModInputParts
       check.gameObject.SetActive(state);
     }
     Button hit = null;
-    hit = EditorCapsules.CapsuleButton(
+    hit = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Checkbox " + text,
@@ -203,7 +196,7 @@ internal sealed class ModInputParts
     control.Layout = width =>
     {
       float room = Mathf.Min(width, preferred() + 58);
-      SettingsUiFactory.Place((RectTransform)hit.transform, 0, 2, room, 36);
+      UiFactory.Place((RectTransform)hit.transform, 0, 2, room, 36);
       label.rectTransform.sizeDelta = new Vector2(room - 50, 36);
     };
     Show();
@@ -248,13 +241,13 @@ internal sealed class ModInputParts
         _host.Change(slider, () => changed?.Invoke(now), false);
       }
     );
-    if (slider is SettingsSlider settings)
+    if (slider is UiSlider settings)
       settings.Step = step > 0 ? step / (max - min) : 1f / 255f;
     control.Layout = width =>
     {
       float room = Mathf.Max(80, width - x - 72);
-      SettingsUiFactory.Place((RectTransform)slider.transform, x, 2, room, 36);
-      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 64, ModEditorPage.RowHeight);
+      UiFactory.Place((RectTransform)slider.transform, x, 2, room, 36);
+      UiFactory.Place(shown.rectTransform, x + room + 8, 0, 64, ModEditorPage.RowHeight);
     };
     return _page.Add(control);
   }
@@ -280,12 +273,12 @@ internal sealed class ModInputParts
     Image hit = area.gameObject.AddComponent<Image>();
     hit.color = Color.clear;
     RectTransform track = _ui.Rect("Track area", area, 10, 0, 180, 36);
-    SettingsCapsuleGraphic line = _ui.Capsule("Track", track, 0, 15, 180, 6, new Color(.28f, .28f, .28f));
+    UiCapsuleGraphic line = _ui.Capsule("Track", track, 0, 15, 180, 6, new Color(.28f, .28f, .28f));
     line.raycastTarget = false;
-    SettingsCapsuleGraphic fill = _ui.Capsule("Fill", track, 0, 15, 10, 6, UiPalette.SoftAccent);
+    UiCapsuleGraphic fill = _ui.Capsule("Fill", track, 0, 15, 10, 6, UiPalette.SoftAccent);
     fill.raycastTarget = false;
-    SettingsCapsuleGraphic lowHandle = _ui.Capsule("Low handle", track, 0, 8, 20, 20, UiPalette.Foreground);
-    SettingsCapsuleGraphic highHandle = _ui.Capsule("High handle", track, 0, 8, 20, 20, UiPalette.Foreground);
+    UiCapsuleGraphic lowHandle = _ui.Capsule("Low handle", track, 0, 8, 20, 20, UiPalette.Foreground);
+    UiCapsuleGraphic highHandle = _ui.Capsule("High handle", track, 0, 8, 20, 20, UiPalette.Foreground);
     lowHandle.raycastTarget = highHandle.raycastTarget = false;
     TextMeshProUGUI shown = _ui.Text("", control.Rect, 0, 0, 96, ModEditorPage.RowHeight, 14, UiPalette.Muted);
     shown.alignment = TextAlignmentOptions.MidlineRight;
@@ -295,9 +288,9 @@ internal sealed class ModInputParts
       float width = track.rect.width;
       float a = (lower - min) / (max - min) * width,
         b = (upper - min) / (max - min) * width;
-      SettingsUiFactory.Place(fill.rectTransform, a, 15, Mathf.Max(1, b - a), 6);
-      SettingsUiFactory.Place(lowHandle.rectTransform, a - 10, 8, 20, 20);
-      SettingsUiFactory.Place(highHandle.rectTransform, b - 10, 8, 20, 20);
+      UiFactory.Place(fill.rectTransform, a, 15, Mathf.Max(1, b - a), 6);
+      UiFactory.Place(lowHandle.rectTransform, a - 10, 8, 20, 20);
+      UiFactory.Place(highHandle.rectTransform, b - 10, 8, 20, 20);
       shown.text = ModEditorPage.Format(lower, step) + " – " + ModEditorPage.Format(upper, step);
     }
     bool movingUpper = false;
@@ -327,10 +320,10 @@ internal sealed class ModInputParts
     control.Layout = width =>
     {
       float room = Mathf.Max(80, width - x - 104);
-      SettingsUiFactory.Place(area, x, 2, room, 36);
-      SettingsUiFactory.Place(track, 10, 0, room - 20, 36);
+      UiFactory.Place(area, x, 2, room, 36);
+      UiFactory.Place(track, 10, 0, room - 20, 36);
       line.rectTransform.sizeDelta = new Vector2(room - 20, 6);
-      SettingsUiFactory.Place(shown.rectTransform, x + room + 8, 0, 96, ModEditorPage.RowHeight);
+      UiFactory.Place(shown.rectTransform, x + room + 8, 0, 96, ModEditorPage.RowHeight);
       Show();
     };
     return _page.Add(control);
@@ -378,7 +371,7 @@ internal sealed class ModInputParts
     input.contentType = TMP_InputField.ContentType.DecimalNumber;
     _page.TrackInput(input);
     control.Layout = width =>
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)input.transform,
         x,
         0,
@@ -425,7 +418,7 @@ internal sealed class ModInputParts
       int now = current;
       _host.Change(key, () => changed?.Invoke(now), false);
     }
-    minus = EditorCapsules.CapsuleButton(
+    minus = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Step down " + label,
@@ -440,7 +433,7 @@ internal sealed class ModInputParts
       _reduceMotion
     );
     _page.Icon(minus.transform, UiIconKind.Minus, 6, 6, 24, UiPalette.Foreground);
-    plus = EditorCapsules.CapsuleButton(
+    plus = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "Step up " + label,
@@ -486,7 +479,7 @@ internal sealed class ModInputParts
     );
     _page.TrackInput(input);
     control.Layout = width =>
-      SettingsUiFactory.Place((RectTransform)input.transform, x, 0, Mathf.Max(80, width - x), ModEditorPage.RowHeight);
+      UiFactory.Place((RectTransform)input.transform, x, 0, Mathf.Max(80, width - x), ModEditorPage.RowHeight);
     return _page.Add(control);
   }
 
@@ -560,7 +553,7 @@ internal sealed class ModInputParts
       rows.Add((input, up, down, delete));
     }
     Button add = null;
-    add = EditorCapsules.CapsuleButton(
+    add = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "List add",
@@ -596,13 +589,13 @@ internal sealed class ModInputParts
       foreach ((TMP_InputField input, Button up, Button down, Button delete) in rows)
       {
         float field = Mathf.Max(80, width - 3 * 40);
-        SettingsUiFactory.Place((RectTransform)input.transform, 0, y, field, ModEditorPage.RowHeight);
-        SettingsUiFactory.Place((RectTransform)up.transform, field + 4, y + 2, 36, 36);
-        SettingsUiFactory.Place((RectTransform)down.transform, field + 44, y + 2, 36, 36);
-        SettingsUiFactory.Place((RectTransform)delete.transform, field + 84, y + 2, 36, 36);
+        UiFactory.Place((RectTransform)input.transform, 0, y, field, ModEditorPage.RowHeight);
+        UiFactory.Place((RectTransform)up.transform, field + 4, y + 2, 36, 36);
+        UiFactory.Place((RectTransform)down.transform, field + 44, y + 2, 36, 36);
+        UiFactory.Place((RectTransform)delete.transform, field + 84, y + 2, 36, 36);
         y += ModEditorPage.RowHeight + 6;
       }
-      SettingsUiFactory.Place((RectTransform)add.transform, 0, y + 2, 96, 36);
+      UiFactory.Place((RectTransform)add.transform, 0, y + 2, 96, 36);
       control.Height = y + ModEditorPage.RowHeight;
     };
     return _page.Add(control);
@@ -618,7 +611,7 @@ internal sealed class ModInputParts
     Func<Button> self
   )
   {
-    Button button = EditorCapsules.CapsuleButton(
+    Button button = UiCapsules.CapsuleButton(
       _ui,
       control.Rect,
       "List " + name,

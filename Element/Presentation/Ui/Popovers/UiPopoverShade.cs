@@ -1,18 +1,19 @@
 using System;
 using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Popovers;
 
 /// <summary>The dimmed layer over the window under an open popover; clicking it closes the popover.</summary>
-internal sealed class SettingsPopoverShade
+internal sealed class UiPopoverShade
 {
   private readonly RectTransform _window;
   private readonly Button _button;
 
-  public SettingsPopoverShade(SettingsUiFactory ui, RectTransform window, Action clicked)
+  public UiPopoverShade(UiFactory ui, RectTransform window, Action clicked)
   {
     _window = window;
     _button = ui.Button("", window, 0, 0, 1000, 600, clicked, false, false);
@@ -36,5 +37,5 @@ internal sealed class SettingsPopoverShade
   public void Hide() => _button.gameObject.SetActive(false);
 
   public void Layout() =>
-    SettingsUiFactory.Place((RectTransform)_button.transform, 0, 0, _window.rect.width, _window.rect.height);
+    UiFactory.Place((RectTransform)_button.transform, 0, 0, _window.rect.width, _window.rect.height);
 }

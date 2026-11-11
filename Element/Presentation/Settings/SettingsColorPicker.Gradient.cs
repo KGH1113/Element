@@ -6,6 +6,7 @@ using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -100,30 +101,30 @@ internal sealed partial class SettingsColorPicker
       x = RightColumn;
     LayoutGradient(0, column);
     float source = SourceTop;
-    SettingsUiFactory.Place(_source.Root, 0, source, column, 36);
-    SettingsUiFactory.Place(_highlightNote.rectTransform, 0, source + 44, column, NoteHeight);
+    UiFactory.Place(_source.Root, 0, source, column, 36);
+    UiFactory.Place(_highlightNote.rectTransform, 0, source + 44, column, NoteHeight);
     if (custom)
     {
       const float square = 156;
-      SettingsUiFactory.Place(_planeRect, x, 0, column, square);
-      SettingsUiFactory.Place((RectTransform)_hue.transform, x - 10, square + 6, column + 20, 36);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, x - 10, square + 38, column + 20, 36);
-      SettingsUiFactory.Place(_error.rectTransform, x, square + 76, column, 14);
+      UiFactory.Place(_planeRect, x, 0, column, square);
+      UiFactory.Place((RectTransform)_hue.transform, x - 10, square + 6, column + 20, 36);
+      UiFactory.Place((RectTransform)_alpha.transform, x - 10, square + 38, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, x, square + 76, column, 14);
       float bottom = ColumnHeight - 40;
-      SettingsUiFactory.Place((RectTransform)_hex.transform, x, bottom, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, x + 184, bottom, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, x + 184, bottom, 72, 40);
+      UiFactory.Place((RectTransform)_hex.transform, x, bottom, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, x + 184, bottom, 72, 40);
+      UiFactory.Place(_opacitySlot, x + 184, bottom, 72, 40);
     }
     else
     {
       _opacityLabel.text = IsGradient
         ? StopOpacityName(OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1)
         : L("불투명도", "Opacity");
-      SettingsUiFactory.Place(_opacityLabel.rectTransform, x, 0, 176, 40);
-      SettingsUiFactory.Place((RectTransform)_opacity.transform, x + 184, 0, 72, 40);
-      SettingsUiFactory.Place(_opacitySlot, x + 184, 0, 72, 40);
-      SettingsUiFactory.Place((RectTransform)_alpha.transform, x - 10, 48, column + 20, 36);
-      SettingsUiFactory.Place(_error.rectTransform, x, 84, column, 14);
+      UiFactory.Place(_opacityLabel.rectTransform, x, 0, 176, 40);
+      UiFactory.Place((RectTransform)_opacity.transform, x + 184, 0, 72, 40);
+      UiFactory.Place(_opacitySlot, x + 184, 0, 72, 40);
+      UiFactory.Place((RectTransform)_alpha.transform, x - 10, 48, column + 20, 36);
+      UiFactory.Place(_error.rectTransform, x, 84, column, 14);
     }
     Resize();
   }
@@ -131,17 +132,17 @@ internal sealed partial class SettingsColorPicker
   private void BuildGradient()
   {
     _bar = _ui.Rect("Color bar", Root, 0, 0, 256, BarHeight);
-    SettingsCapsuleGraphic track = _ui.Capsule("Color bar track", _bar, 0, 0, 256, BarHeight, Color.white);
+    UiCapsuleGraphic track = _ui.Capsule("Color bar track", _bar, 0, 0, 256, BarHeight, Color.white);
     track.gameObject.AddComponent<Mask>().showMaskGraphic = true;
-    SettingsUiFactory.Stretch(track.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(track.rectTransform, 0, 0, 0, 0);
     _barPreview = _ui.Rect("Colors", track.transform, 0, 0, 256, BarHeight)
       .gameObject.AddComponent<SettingsGradientPreview>();
-    SettingsUiFactory.Stretch(_barPreview.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(_barPreview.rectTransform, 0, 0, 0, 0);
     _barPreview.raycastTarget = false;
     _barPreview.AlongX = true;
     _barPreview.Inset = BarInset;
-    SettingsPointerArea area = _ui.Rect("Color bar input", _bar, 0, -4, 256, BarHeight + 8)
-      .gameObject.AddComponent<SettingsPointerArea>();
+    UiPointerArea area = _ui.Rect("Color bar input", _bar, 0, -4, 256, BarHeight + 8)
+      .gameObject.AddComponent<UiPointerArea>();
     area.raycastTarget = true;
     area.Down = BarDown;
     area.Dragged = BarDrag;
@@ -164,10 +165,10 @@ internal sealed partial class SettingsColorPicker
       UiCursor.Attach(frame.gameObject, UiCursorKind.Pointer);
       Image mask = _ui.Panel("Mask", frame.transform, 3, 3, 32, KindRow - 6, Color.white);
       mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
-      SettingsUiFactory.Stretch(mask.rectTransform, 3, 3, 3, 3);
+      UiFactory.Stretch(mask.rectTransform, 3, 3, 3, 3);
       SettingsGradientPreview preview = _ui.Rect("Preview", mask.transform, 0, 0, 32, KindRow - 6)
         .gameObject.AddComponent<SettingsGradientPreview>();
-      SettingsUiFactory.Stretch(preview.rectTransform, 0, 0, 0, 0);
+      UiFactory.Stretch(preview.rectTransform, 0, 0, 0, 0);
       preview.raycastTarget = false;
       preview.Cell = 4;
       _kindFrames[i] = frame;
@@ -185,12 +186,12 @@ internal sealed partial class SettingsColorPicker
       DeleteSize
     );
 
-    SettingsCapsuleGraphic tip = _ui.Capsule("Add color tip", Root, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
+    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", Root, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
     _tip = tip.rectTransform;
     _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, 26, 12);
     _tipText.alignment = TextAlignmentOptions.Midline;
     _tipText.textWrappingMode = TextWrappingModes.NoWrap;
-    SettingsUiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
     _tip.gameObject.SetActive(false);
 
     _highlightNote = _ui.Text(
@@ -211,9 +212,9 @@ internal sealed partial class SettingsColorPicker
 
   private Button IconButton(string name, Transform parent, UiIconKind kind, Action click, float size)
   {
-    SettingsCapsuleGraphic surface = _ui.Capsule(name, parent, 0, 0, size, size, new Color(1, 1, 1, .07f));
+    UiCapsuleGraphic surface = _ui.Capsule(name, parent, 0, 0, size, size, new Color(1, 1, 1, .07f));
     surface.raycastTarget = true;
-    SettingsButton button = surface.gameObject.AddComponent<SettingsButton>();
+    UiButton button = surface.gameObject.AddComponent<UiButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = surface;
     button.SetPalette(
@@ -257,19 +258,19 @@ internal sealed partial class SettingsColorPicker
       return;
     }
     float y = PillRow;
-    SettingsUiFactory.Place(_bar, left, y, column, BarHeight);
+    UiFactory.Place(_bar, left, y, column, BarHeight);
     y += BarHeight + GradientGap;
     if (gradient)
     {
-      SettingsUiFactory.Place(_kindRow, left, y, column, KindRow);
+      UiFactory.Place(_kindRow, left, y, column, KindRow);
       const float icon = 34,
         gap = 6;
       float tiles = column - icon * 2 - gap - 10;
       float tile = Mathf.Floor((tiles - gap * 3) / 4);
       for (int i = 0; i < 4; i++)
-        SettingsUiFactory.Place(_kindFrames[i].rectTransform, i * (tile + gap), 0, tile, KindRow);
-      SettingsUiFactory.Place((RectTransform)_flip.transform, column - icon * 2 - gap, 0, icon, icon);
-      SettingsUiFactory.Place((RectTransform)_rotate.transform, column - icon, 0, icon, icon);
+        UiFactory.Place(_kindFrames[i].rectTransform, i * (tile + gap), 0, tile, KindRow);
+      UiFactory.Place((RectTransform)_flip.transform, column - icon * 2 - gap, 0, icon, icon);
+      UiFactory.Place((RectTransform)_rotate.transform, column - icon, 0, icon, icon);
     }
     RefreshGradient();
   }
@@ -286,8 +287,8 @@ internal sealed partial class SettingsColorPicker
     float column = _bar.sizeDelta.x;
     float x = StopX(_stop) - width * .5f;
     x = Mathf.Clamp(x, 0, Mathf.Max(0, column - width - 30));
-    SettingsUiFactory.Place(_positionSlot, bar.x + x, 0, width, 32);
-    SettingsUiFactory.Place((RectTransform)_delete.transform, bar.x + x + width + 4, 2, DeleteSize, DeleteSize);
+    UiFactory.Place(_positionSlot, bar.x + x, 0, width, 32);
+    UiFactory.Place((RectTransform)_delete.transform, bar.x + x + width + 4, 2, DeleteSize, DeleteSize);
   }
 
   // The x of a stop on the bar, from the bar's left.
@@ -365,7 +366,7 @@ internal sealed partial class SettingsColorPicker
   private void PlaceStop(SettingsSwatchGraphic stop, float x, Color color, bool picked)
   {
     float size = picked ? StopSize + 4 : StopSize;
-    SettingsUiFactory.Place(stop.rectTransform, x - size * .5f, (BarHeight - size) * .5f, size, size);
+    UiFactory.Place(stop.rectTransform, x - size * .5f, (BarHeight - size) * .5f, size, size);
     stop.Set(color, picked ? UiPalette.SoftAccent : Color.white);
   }
 
@@ -427,7 +428,7 @@ internal sealed partial class SettingsColorPicker
     Vector2 bar = _bar.anchoredPosition;
     float left = Mathf.Clamp(x - width * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
     // Anchored y is the negative of the top.
-    SettingsUiFactory.Place(_tip, bar.x + left, -bar.y + BarHeight + 6, width, 26);
+    UiFactory.Place(_tip, bar.x + left, -bar.y + BarHeight + 6, width, 26);
     _tip.SetAsLastSibling();
   }
 

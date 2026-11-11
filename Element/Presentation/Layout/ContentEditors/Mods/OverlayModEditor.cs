@@ -8,9 +8,9 @@ using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementKit.Hosting;
 using TMPro;
 using UnityEngine;
@@ -113,7 +113,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       () => Close(true, true)
     );
     _guard.Screen = _screen;
-    SettingsUiFactory ui = _screen.Ui;
+    UiFactory ui = _screen.Ui;
     BuildBar(ui);
     float top = OverlayEditorFrame.TopBar + 8 + BarHeight + 24;
     float height = Mathf.Clamp(_screen.Height * .3f, 120, 280);
@@ -131,9 +131,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     FitPreview();
   }
 
-  private void BuildBar(SettingsUiFactory ui)
+  private void BuildBar(UiFactory ui)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, UiPalette.Bar);
+    UiCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, UiPalette.Bar);
     surface.raycastTarget = true;
     _bar = surface.rectTransform;
     _growButton = new OverlayBarButton(
@@ -151,7 +151,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private void BuildPage()
   {
     if (_page != null)
-      SettingsUiFactory.Destroy(_page.Root.gameObject);
+      UiFactory.Destroy(_page.Root.gameObject);
     Rect preview = _preview.Area;
     float flowTop = preview.yMax + 28;
     _page = new ModEditorPage(
@@ -268,7 +268,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     float barWidth = (BarHeight - OverlayBarButton.Height) + _growButton.Width;
     _growButton.Set(OverlayGrowPicker.ShortName(_growth), false, _popovers.GrowOpen);
     _growButton.Place((BarHeight - OverlayBarButton.Height) * .5f, (BarHeight - OverlayBarButton.Height) * .5f);
-    SettingsUiFactory.Place(_bar, (_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8, barWidth, BarHeight);
+    UiFactory.Place(_bar, (_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8, barWidth, BarHeight);
     bool grow = _popovers.GrowOpen;
     _preview.PlaceGrowMark(box, grow, grow ? GrowPointNow() : default);
   }

@@ -1,6 +1,6 @@
 using System;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -29,7 +29,7 @@ internal sealed class OverlayEditorFrame : IDisposable
   private readonly float _openedAt;
   private RectTransform _ghost;
   private TextMeshProUGUI _ghostText;
-  private SettingsCapsuleGraphic _ghostSurface;
+  private UiCapsuleGraphic _ghostSurface;
   private RectTransform _tip;
   private TextMeshProUGUI _tipText;
   private float _noticeUntil;
@@ -49,7 +49,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     _openedAt = Time.unscaledTime;
     ViewWidth = Screen.width;
     ViewHeight = Screen.height;
-    Ui = new SettingsUiFactory(font) { ReduceMotion = reduceMotion };
+    Ui = new UiFactory(font) { ReduceMotion = reduceMotion };
     Root = Ui.Rect(name, parent, 0, 0, ViewWidth, ViewHeight).gameObject;
     _fade = Root.AddComponent<CanvasGroup>();
     _fade.alpha = reduceMotion() ? 1 : 0;
@@ -75,7 +75,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     EventSystem.current?.SetSelectedGameObject(null);
   }
 
-  public SettingsUiFactory Ui { get; }
+  public UiFactory Ui { get; }
   public GameObject Root { get; }
 
   /// <summary>Screen pixels from the top left, for content shown at its real size.</summary>
@@ -139,13 +139,13 @@ internal sealed class OverlayEditorFrame : IDisposable
       _ghostText = Ui.Text("", _ghost, 0, 0, 10, 30, 13, new Color(.08f, .08f, .08f));
       _ghostText.alignment = TextAlignmentOptions.Midline;
       _ghostText.textWrappingMode = TextWrappingModes.NoWrap;
-      SettingsUiFactory.Stretch(_ghostText.rectTransform, 0, 0, 0, 0);
+      UiFactory.Stretch(_ghostText.rectTransform, 0, 0, 0, 0);
     }
     _ghost.gameObject.SetActive(true);
     _ghostText.text = text;
     float width = Mathf.Ceil(_ghostText.GetPreferredValues(text).x) + 28;
     Vector2 at = ToFrame(screen);
-    SettingsUiFactory.Place(_ghost, at.x + 10, at.y + 12, width, 30);
+    UiFactory.Place(_ghost, at.x + 10, at.y + 12, width, 30);
     _ghostSurface.color = state < 0 ? new Color(1, 1, 1, .45f) : UiPalette.SoftAccent;
     _ghost.SetAsLastSibling();
   }
@@ -165,13 +165,13 @@ internal sealed class OverlayEditorFrame : IDisposable
       _tipText = Ui.Text("", _tip, 0, 0, 10, 26, 12);
       _tipText.alignment = TextAlignmentOptions.Midline;
       _tipText.textWrappingMode = TextWrappingModes.NoWrap;
-      SettingsUiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
+      UiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
     }
     _tip.gameObject.SetActive(true);
     _tipText.text = text;
     float width = Mathf.Ceil(_tipText.GetPreferredValues(text).x) + 24;
     float x = Mathf.Clamp(anchor.x - width * .5f, 8, Mathf.Max(8, Width - width - 8));
-    SettingsUiFactory.Place(_tip, x, Mathf.Max(8, anchor.y - 34), width, 26);
+    UiFactory.Place(_tip, x, Mathf.Max(8, anchor.y - 34), width, 26);
     _tip.SetAsLastSibling();
   }
 
@@ -186,6 +186,6 @@ internal sealed class OverlayEditorFrame : IDisposable
   public void Dispose()
   {
     Ui.Dispose();
-    SettingsUiFactory.Destroy(Root);
+    UiFactory.Destroy(Root);
   }
 }

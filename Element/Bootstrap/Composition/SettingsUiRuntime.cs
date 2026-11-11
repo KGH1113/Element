@@ -18,6 +18,7 @@ using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 
@@ -41,7 +42,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly TufReplayInputPause _tufReplayInput;
   private readonly Func<bool> _judgementTextLinked;
   private readonly EffectPresetShortcuts _presetShortcuts;
-  private readonly SettingsToast _toast;
+  private readonly UiToast _toast;
   private OverlayLayoutEditor _layoutEditor;
   private SettingsPanel _panel;
   private PlanetPreviewRenderer _planetPreview;
@@ -72,7 +73,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
-    _toast = new SettingsToast(_font, () => main.Settings.ReduceUiMotion);
+    _toast = new UiToast(_font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
       () => main.Settings.Effects,
       playing,

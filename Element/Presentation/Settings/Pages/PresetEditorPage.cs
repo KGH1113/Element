@@ -4,6 +4,7 @@ using Element.Application.Effects;
 using Element.Configuration.Effects;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,10 +29,10 @@ internal sealed class PresetEditorPage : SettingsPage
   private readonly TextMeshProUGUI _presetError,
     _presetIntro,
     _presetShortcutDescription;
-  private readonly SettingsSegmentedControl _effectTabs;
+  private readonly UiSegmentedControl _effectTabs;
   private readonly List<Button> _effectRows = new();
   private readonly List<EffectDefinition> _effectDefinitions = new();
-  private readonly SettingsValueRow _cameraZoom;
+  private readonly UiValueRow _cameraZoom;
   private readonly SettingsShortcutField _presetShortcut;
   private EffectPreset _editingPreset,
     _presetDraft;
@@ -68,7 +69,7 @@ internal sealed class PresetEditorPage : SettingsPage
       16,
       UiPalette.Muted
     );
-    SettingsUiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(placeholder.rectTransform, 0, 0, 0, 0);
     _presetName.placeholder = placeholder;
     placeholder.alignment = _presetName.textComponent.alignment;
     _savePreset = Ui.Button(L("저장", "Save preset"), _presetHeader, 716, 0, 152, 40, SavePreset, true);
@@ -125,7 +126,7 @@ internal sealed class PresetEditorPage : SettingsPage
       _effectRows.Add(row);
       _effectDefinitions.Add(entry);
     }
-    _cameraZoom = new SettingsValueRow(
+    _cameraZoom = new UiValueRow(
       Ui,
       _effectOptions,
       "Camera zoom",
@@ -145,7 +146,7 @@ internal sealed class PresetEditorPage : SettingsPage
     Ui.Bind(() => _cameraZoom.Sync(DraftRemovesCamera));
     _presetShortcutCard = Ui.Panel("Preset shortcut", Root, 0, 152, 936, 160, UiPalette.Surface).rectTransform;
     TextMeshProUGUI title = Ui.Text(L("단축키", "Shortcut"), _presetShortcutCard, 16, 16, 700, 28, 17);
-    SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
+    UiFactory.StretchWidth(title.rectTransform, 16, 16);
     _presetShortcutDescription = Ui.Text(
       L(
         "누르면 이 프리셋을 적용하고, 한 번 더 누르면 이펙트 제거를 끕니다. 플레이 중에는 동작하지 않습니다.",
@@ -159,7 +160,7 @@ internal sealed class PresetEditorPage : SettingsPage
       14,
       UiPalette.Muted
     );
-    SettingsUiFactory.StretchWidth(_presetShortcutDescription.rectTransform, 16, 16);
+    UiFactory.StretchWidth(_presetShortcutDescription.rectTransform, 16, 16);
     _presetShortcut = new SettingsShortcutField(
       Ui,
       _presetShortcutCard,
@@ -308,18 +309,12 @@ internal sealed class PresetEditorPage : SettingsPage
   {
     bool narrow = width < 600;
     float identityHeight = narrow ? 128 : 76;
-    SettingsUiFactory.Place(_presetHeader, 0, 0, width, identityHeight);
-    SettingsUiFactory.Place((RectTransform)_presetName.transform, 0, 0, narrow ? width : width - 216, 40);
-    SettingsUiFactory.Place(
-      (RectTransform)_savePreset.transform,
-      narrow ? width - 152 : width - 200,
-      narrow ? 52 : 0,
-      152,
-      40
-    );
-    SettingsUiFactory.Place((RectTransform)_deletePreset.transform, narrow ? 0 : width - 40, narrow ? 52 : 0, 40, 40);
-    SettingsUiFactory.Place(_presetError.rectTransform, 0, narrow ? 104 : 52, width, 24);
-    SettingsUiFactory.Place(_presetIntro.rectTransform, 0, narrow ? 104 : 52, width, 24);
+    UiFactory.Place(_presetHeader, 0, 0, width, identityHeight);
+    UiFactory.Place((RectTransform)_presetName.transform, 0, 0, narrow ? width : width - 216, 40);
+    UiFactory.Place((RectTransform)_savePreset.transform, narrow ? width - 152 : width - 200, narrow ? 52 : 0, 152, 40);
+    UiFactory.Place((RectTransform)_deletePreset.transform, narrow ? 0 : width - 40, narrow ? 52 : 0, 40, 40);
+    UiFactory.Place(_presetError.rectTransform, 0, narrow ? 104 : 52, width, 24);
+    UiFactory.Place(_presetIntro.rectTransform, 0, narrow ? 104 : 52, width, 24);
     // Two rows on compact screens keep the six tab labels legible.
     int tabColumns = narrow ? 3 : _effectTabs.Buttons.Count;
     int tabRows = Mathf.CeilToInt(_effectTabs.Buttons.Count / (float)tabColumns);
@@ -343,10 +338,10 @@ internal sealed class PresetEditorPage : SettingsPage
     float gridTop = 0;
     if (screen && camera >= 0)
     {
-      SettingsUiFactory.Place((RectTransform)_effectRows[camera].transform, 0, 0, width, optionHeight);
+      UiFactory.Place((RectTransform)_effectRows[camera].transform, 0, 0, width, optionHeight);
       gridTop = optionHeight + 12;
       _cameraZoom.Layout(0, gridTop, width);
-      gridTop += SettingsValueRow.Height + 12;
+      gridTop += UiValueRow.Height + 12;
     }
     int visible = 0;
     for (int i = 0; i < _effectRows.Count; i++)
@@ -355,7 +350,7 @@ internal sealed class PresetEditorPage : SettingsPage
       _effectRows[i].gameObject.SetActive(show);
       if (!show || i == camera)
         continue;
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_effectRows[i].transform,
         visible % optionColumns * (optionWidth + 12),
         gridTop + visible / optionColumns * (optionHeight + 12),
@@ -365,7 +360,7 @@ internal sealed class PresetEditorPage : SettingsPage
       visible++;
     }
     float optionsHeight = gridTop + Mathf.CeilToInt(visible / (float)optionColumns) * (optionHeight + 12) - 12;
-    SettingsUiFactory.Place(_effectOptions, 0, optionsTop, width, optionsHeight);
+    UiFactory.Place(_effectOptions, 0, optionsTop, width, optionsHeight);
     Root.sizeDelta = new Vector2(width, optionsTop + optionsHeight);
   }
 
@@ -373,10 +368,10 @@ internal sealed class PresetEditorPage : SettingsPage
   {
     _effectOptions.gameObject.SetActive(false);
     _presetShortcut.Refresh();
-    SettingsUiFactory.Place(_presetShortcutCard, 0, top, width, 160);
+    UiFactory.Place(_presetShortcutCard, 0, top, width, 160);
     // The description wraps on narrow windows; the field follows its height.
     float descriptionHeight = Mathf.Max(20, _presetShortcutDescription.GetPreferredValues(width - 32, 0).y);
-    SettingsUiFactory.Place(_presetShortcutDescription.rectTransform, 16, 48, width - 32, descriptionHeight);
+    UiFactory.Place(_presetShortcutDescription.rectTransform, 16, 48, width - 32, descriptionHeight);
     float fieldBottom = _presetShortcut.Layout(48 + descriptionHeight + 16, width);
     float cardHeight = fieldBottom + (_presetShortcut.Capturing ? 16 : 20);
     _presetShortcutCard.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cardHeight);

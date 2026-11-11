@@ -6,6 +6,7 @@ using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -66,7 +67,7 @@ internal sealed class OverlayGradientEditing
   /// of the gradient: the box it spans and its stops as shown.
   /// </summary>
   public void BuildPicker(
-    SettingsUiFactory ui,
+    UiFactory ui,
     SettingsColorPicker picker,
     Action activatePosition,
     bool reduceMotion,

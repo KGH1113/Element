@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -14,7 +14,7 @@ internal sealed class ModEditorTabs : EditorTabs
   private readonly ModEditorPage _page;
   private readonly string _key;
   private readonly List<ModEditorGroup> _pages = new();
-  private SettingsSegmentedControl _segments;
+  private UiSegmentedControl _segments;
   private int _selected;
 
   public ModEditorTabs(ModEditorPage page, string key, int selected)
@@ -28,7 +28,7 @@ internal sealed class ModEditorTabs : EditorTabs
 
   public ModEditorControl BarControl { get; set; }
 
-  public SettingsSegmentedControl Segments
+  public UiSegmentedControl Segments
   {
     set => _segments = value;
   }

@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using Element.Application.Fonts;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Fonts;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -64,13 +63,13 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   private sealed class Row
   {
     public Button Button;
-    public SettingsCapsuleGraphic Selected;
+    public UiCapsuleGraphic Selected;
     public TextMeshProUGUI Name;
     public TextMeshProUGUI Detail;
     public int Index = -1;
   }
 
-  private readonly SettingsUiFactory _ui;
+  private readonly UiFactory _ui;
   private readonly OverlayFonts _fonts;
   private readonly IOverlayFontLibrary _library;
   private readonly bool _reduceMotion;
@@ -81,7 +80,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   private readonly TMP_InputField _search;
   private readonly RectTransform _viewport;
   private readonly RectTransform _track;
-  private readonly SettingsCapsuleGraphic _thumb;
+  private readonly UiCapsuleGraphic _thumb;
   private readonly TextMeshProUGUI _status;
   private readonly List<Row> _rows = new();
   private readonly List<Entry> _entries = new();
@@ -101,7 +100,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   private float _grab;
 
   public OverlayFontPopover(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     OverlayFonts fonts,
     bool reduceMotion,
@@ -119,7 +118,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, UiPalette.Muted);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
     bool pick = _library?.CanPickFiles ?? false;
-    _add = EditorCapsules.CapsuleButton(
+    _add = UiCapsules.CapsuleButton(
       ui,
       Root,
       "Add font file",
@@ -133,7 +132,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
       false,
       reduceMotion
     );
-    _folder = EditorCapsules.CapsuleButton(
+    _folder = UiCapsules.CapsuleButton(
       ui,
       Root,
       "Open fonts folder",
@@ -162,7 +161,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
       15,
       new Color(1, 1, 1, .32f)
     );
-    SettingsUiFactory.Stretch(hint.rectTransform, 0, 0, 0, 0);
+    UiFactory.Stretch(hint.rectTransform, 0, 0, 0, 0);
     hint.textWrappingMode = TextWrappingModes.NoWrap;
     hint.alignment = _search.textComponent.alignment;
     _search.placeholder = hint;
@@ -218,7 +217,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     bool resized = !Mathf.Approximately(width, _width) || !Mathf.Approximately(height, _height);
     _width = width;
     _height = height;
-    SettingsUiFactory.Place(Root, x, y, width, height);
+    UiFactory.Place(Root, x, y, width, height);
     if (resized || _rows.Count == 0)
       Layout();
     if (_scrollPending)
@@ -310,7 +309,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
   public void Dispose()
   {
     if (Root != null)
-      SettingsUiFactory.Destroy(Root.gameObject);
+      UiFactory.Destroy(Root.gameObject);
   }
 
   // ---- Building the list ----
@@ -505,27 +504,21 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     float addWidth = Mathf.Ceil(Measure(_add)) + 28;
     float folderWidth = _folder.gameObject.activeSelf ? Mathf.Ceil(Measure(_folder)) + 24 : 0;
     float right = _width - Padding;
-    SettingsUiFactory.Place((RectTransform)_add.transform, right - addWidth, Padding, addWidth, HeaderHeight);
+    UiFactory.Place((RectTransform)_add.transform, right - addWidth, Padding, addWidth, HeaderHeight);
     right -= addWidth;
     if (folderWidth > 0)
     {
-      SettingsUiFactory.Place(
-        (RectTransform)_folder.transform,
-        right - 4 - folderWidth,
-        Padding,
-        folderWidth,
-        HeaderHeight
-      );
+      UiFactory.Place((RectTransform)_folder.transform, right - 4 - folderWidth, Padding, folderWidth, HeaderHeight);
       right -= folderWidth + 4;
     }
-    SettingsUiFactory.Place(_title.rectTransform, Padding, Padding, Mathf.Max(40, right - Padding - 8), HeaderHeight);
+    UiFactory.Place(_title.rectTransform, Padding, Padding, Mathf.Max(40, right - Padding - 8), HeaderHeight);
     float y = Padding + HeaderHeight + 8;
-    SettingsUiFactory.Place((RectTransform)_search.transform, Padding, y, inner, SearchHeight);
+    UiFactory.Place((RectTransform)_search.transform, Padding, y, inner, SearchHeight);
     y += SearchHeight + Gap;
     float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - StatusHeight - Padding);
-    SettingsUiFactory.Place(_viewport, Padding, y, inner - TrackWidth - 6, listHeight);
-    SettingsUiFactory.Place(_track, _width - Padding - TrackWidth, y, TrackWidth, listHeight);
-    SettingsUiFactory.Place(_status.rectTransform, Padding, y + listHeight + Gap, inner, StatusHeight);
+    UiFactory.Place(_viewport, Padding, y, inner - TrackWidth - 6, listHeight);
+    UiFactory.Place(_track, _width - Padding - TrackWidth, y, TrackWidth, listHeight);
+    UiFactory.Place(_status.rectTransform, Padding, y + listHeight + Gap, inner, StatusHeight);
     EnsureRows(Mathf.CeilToInt(listHeight / RowHeight) + 1);
     _scroll = Mathf.Clamp(_scroll, 0, MaxScroll);
     RefreshRows();
@@ -543,7 +536,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
     while (_rows.Count < count)
     {
       Row row = new();
-      row.Button = EditorCapsules.CapsuleButton(
+      row.Button = UiCapsules.CapsuleButton(
         _ui,
         _viewport,
         "Font row",
@@ -621,13 +614,13 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
         continue;
       Entry entry = _entries[index];
       RectTransform root = (RectTransform)row.Button.transform;
-      SettingsUiFactory.Place(root, 0, index * RowHeight - _scroll + 1, width, RowHeight - 2);
+      UiFactory.Place(root, 0, index * RowHeight - _scroll + 1, width, RowHeight - 2);
       bool header = entry.Kind == EntryKind.Header;
       bool current = !header && IsCurrent(entry);
       row.Button.interactable = !header;
       row.Selected.gameObject.SetActive(current);
       row.Selected.color = new Color(UiPalette.SoftAccent.r, UiPalette.SoftAccent.g, UiPalette.SoftAccent.b, .22f);
-      SettingsUiFactory.Place(row.Selected.rectTransform, 0, 0, width, RowHeight - 2);
+      UiFactory.Place(row.Selected.rectTransform, 0, 0, width, RowHeight - 2);
       row.Name.text = entry.Name;
       row.Name.fontSize = header ? 12 : 15;
       row.Name.color =
@@ -640,8 +633,8 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
         ? 0
         : Mathf.Min(width * .45f, Mathf.Ceil(row.Detail.GetPreferredValues(row.Detail.text).x) + 2);
       float left = header ? 4 : 12;
-      SettingsUiFactory.Place(row.Detail.rectTransform, width - 12 - detailWidth, 0, detailWidth, RowHeight - 2);
-      SettingsUiFactory.Place(
+      UiFactory.Place(row.Detail.rectTransform, width - 12 - detailWidth, 0, detailWidth, RowHeight - 2);
+      UiFactory.Place(
         row.Name.rectTransform,
         left,
         0,
@@ -657,7 +650,7 @@ internal sealed class OverlayFontPopover : IPopover, IDisposable
       return;
     float thumb = Mathf.Max(24, view * view / content);
     float top = MaxScroll <= 0 ? 0 : _scroll / MaxScroll * (view - thumb);
-    SettingsUiFactory.Place(_thumb.rectTransform, 0, top, TrackWidth, thumb);
+    UiFactory.Place(_thumb.rectTransform, 0, top, TrackWidth, thumb);
   }
 
   private bool IsCurrent(Entry entry) => Names(entry, _current);

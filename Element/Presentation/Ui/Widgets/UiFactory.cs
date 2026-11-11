@@ -9,10 +9,10 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 // Retained uGUI controls. The rounded sprite is shared; theme bindings are created once, never in Update.
-internal sealed class SettingsUiFactory : IDisposable
+internal sealed class UiFactory : IDisposable
 {
   private readonly TMP_FontAsset _font;
   private readonly Sprite _rounded;
@@ -24,12 +24,16 @@ internal sealed class SettingsUiFactory : IDisposable
   public Color AccentSurface => UiPalette.AccentSurface;
   public Func<bool> ReduceMotion = () => false;
 
-  public SettingsUiFactory(TMP_FontAsset font)
+  public UiFactory(TMP_FontAsset font)
   {
     UiCursor.Retain();
     _font = font;
-    _rounded = SettingsRoundedSprite.Retain();
+    _rounded = UiRoundedSprite.Retain();
   }
+
+  /// <summary>A factory whose motion follows <paramref name="reduceMotion"/>, as the editors use it.</summary>
+  public UiFactory(TMP_FontAsset font, Func<bool> reduceMotion)
+    : this(font) => ReduceMotion = reduceMotion;
 
   public RectTransform Rect(string name, Transform parent, float x, float y, float width, float height)
   {
@@ -107,7 +111,7 @@ internal sealed class SettingsUiFactory : IDisposable
     image.color = Color.white;
     image.raycastTarget = true;
     image.gameObject.AddComponent<CanvasGroup>();
-    SettingsButton button = image.gameObject.AddComponent<SettingsButton>();
+    UiButton button = image.gameObject.AddComponent<UiButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
     button.targetGraphic = image;
     UiCursor.Attach(button.gameObject, UiCursorKind.Pointer);
@@ -166,9 +170,9 @@ internal sealed class SettingsUiFactory : IDisposable
     Outline focus = icon.gameObject.AddComponent<Outline>();
     focus.effectDistance = new Vector2(1.25f, -1.25f);
     focus.enabled = false;
-    button.GetComponent<SettingsFocusRing>().Initialize(focus);
+    button.GetComponent<UiFocusRing>().Initialize(focus);
     Bind(() => focus.effectColor = SoftAccent);
-    SettingsIconInteraction feedback = button.gameObject.AddComponent<SettingsIconInteraction>();
+    UiIconInteraction feedback = button.gameObject.AddComponent<UiIconInteraction>();
     feedback.Initialize(button, icon, ReduceMotion);
     Bind(() => feedback.SetPalette(UiPalette.Foreground, SoftAccent));
     return button;
@@ -202,9 +206,9 @@ internal sealed class SettingsUiFactory : IDisposable
     Outline focus = glyph.gameObject.AddComponent<Outline>();
     focus.effectDistance = new Vector2(1.25f, -1.25f);
     focus.enabled = false;
-    button.GetComponent<SettingsFocusRing>().Initialize(focus);
+    button.GetComponent<UiFocusRing>().Initialize(focus);
     Bind(() => focus.effectColor = SoftAccent);
-    SettingsIconInteraction feedback = button.gameObject.AddComponent<SettingsIconInteraction>();
+    UiIconInteraction feedback = button.gameObject.AddComponent<UiIconInteraction>();
     feedback.Initialize(button, glyph, ReduceMotion);
     feedback.SetPalette(normal, hover);
     return button;
@@ -261,12 +265,12 @@ internal sealed class SettingsUiFactory : IDisposable
     fit.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
     Text(title, copy, 0, 0, 532, 24, 17);
     descriptionText = Text(description, copy, 0, 0, 532, 24, 14, UiPalette.Muted);
-    SettingsCapsuleGraphic track = Capsule("Switch", row.transform, 0, 0, 48, 28, UiPalette.Surface);
+    UiCapsuleGraphic track = Capsule("Switch", row.transform, 0, 0, 48, 28, UiPalette.Surface);
     track.rectTransform.anchorMin = track.rectTransform.anchorMax = new Vector2(1, .5f);
     track.rectTransform.pivot = new Vector2(0, .5f);
     track.rectTransform.anchoredPosition = new Vector2(-64, 0);
-    SettingsCapsuleGraphic thumb = Capsule("Thumb", track.transform, 4, 4, 20, 20, UiPalette.Foreground);
-    SettingsSwitchMotion motion = thumb.gameObject.AddComponent<SettingsSwitchMotion>();
+    UiCapsuleGraphic thumb = Capsule("Thumb", track.transform, 4, 4, 20, 20, UiPalette.Foreground);
+    UiSwitchMotion motion = thumb.gameObject.AddComponent<UiSwitchMotion>();
     Bind(() =>
     {
       bool enabled = read();
@@ -345,24 +349,24 @@ internal sealed class SettingsUiFactory : IDisposable
   )
   {
     RectTransform root = Rect(name, parent, x, y, width, 36);
-    SettingsSlider slider = root.gameObject.AddComponent<SettingsSlider>();
+    UiSlider slider = root.gameObject.AddComponent<UiSlider>();
     UiCursor.Attach(slider.gameObject, UiCursorKind.Horizontal);
     slider.Step = step;
     slider.navigation = new Navigation { mode = Navigation.Mode.None };
     Image hit = root.gameObject.AddComponent<Image>();
     hit.color = Color.clear;
     // Track and thumb use the same endpoints; caps keep a true half-height radius.
-    SettingsCapsuleGraphic track = Capsule("Track", root, 10, 15, width - 20, 6, new Color(.28f, .28f, .28f));
+    UiCapsuleGraphic track = Capsule("Track", root, 10, 15, width - 20, 6, new Color(.28f, .28f, .28f));
     StretchWidth(track.rectTransform, 10, 10);
     RectTransform fillArea = Rect("Fill area", root, 10, 15, width - 20, 6);
     StretchWidth(fillArea, 10, 10);
-    SettingsCapsuleGraphic fill = Capsule("Fill", fillArea, 0, 0, width - 20, 6, SoftAccent);
+    UiCapsuleGraphic fill = Capsule("Fill", fillArea, 0, 0, width - 20, 6, SoftAccent);
     fill.rectTransform.anchorMin = Vector2.zero;
     fill.rectTransform.anchorMax = Vector2.one;
     fill.rectTransform.offsetMin = fill.rectTransform.offsetMax = Vector2.zero;
     RectTransform handleArea = Rect("Handle area", root, 10, 8, width - 20, 20);
     StretchWidth(handleArea, 10, 10);
-    SettingsCapsuleGraphic handle = Capsule("Handle", handleArea, 0, 0, 20, 20, UiPalette.Foreground);
+    UiCapsuleGraphic handle = Capsule("Handle", handleArea, 0, 0, 20, 20, UiPalette.Foreground);
     handle.rectTransform.pivot = new Vector2(.5f, .5f);
     handle.rectTransform.anchorMin = handle.rectTransform.anchorMax = new Vector2(0, .5f);
     handle.rectTransform.anchoredPosition = Vector2.zero;
@@ -378,7 +382,7 @@ internal sealed class SettingsUiFactory : IDisposable
     return slider;
   }
 
-  public SettingsCapsuleGraphic Capsule(
+  public UiCapsuleGraphic Capsule(
     string name,
     Transform parent,
     float x,
@@ -388,8 +392,7 @@ internal sealed class SettingsUiFactory : IDisposable
     Color color
   )
   {
-    SettingsCapsuleGraphic graphic = Rect(name, parent, x, y, width, height)
-      .gameObject.AddComponent<SettingsCapsuleGraphic>();
+    UiCapsuleGraphic graphic = Rect(name, parent, x, y, width, height).gameObject.AddComponent<UiCapsuleGraphic>();
     graphic.color = color;
     graphic.raycastTarget = false;
     return graphic;
@@ -406,7 +409,7 @@ internal sealed class SettingsUiFactory : IDisposable
     Outline outline = image.gameObject.AddComponent<Outline>();
     outline.effectDistance = new Vector2(2, -2);
     outline.enabled = false;
-    (owner ?? image.gameObject).AddComponent<SettingsFocusRing>().Initialize(outline);
+    (owner ?? image.gameObject).AddComponent<UiFocusRing>().Initialize(outline);
     Bind(() => outline.effectColor = SoftAccent);
   }
 
@@ -424,7 +427,7 @@ internal sealed class SettingsUiFactory : IDisposable
     _disposed = true;
     UiCursor.Release();
     _themeBindings.Clear();
-    SettingsRoundedSprite.Release();
+    UiRoundedSprite.Release();
   }
 
   internal static void Destroy(Object value)

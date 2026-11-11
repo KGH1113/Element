@@ -1,8 +1,8 @@
 using UnityEngine;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
-internal sealed class SettingsSwitchMotion : MonoBehaviour
+internal sealed class UiSwitchMotion : MonoBehaviour
 {
   private float _target = float.NaN;
 

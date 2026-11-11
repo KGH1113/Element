@@ -2,9 +2,9 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
-internal sealed class SettingsFocusRing : MonoBehaviour, ISelectHandler, IDeselectHandler
+internal sealed class UiFocusRing : MonoBehaviour, ISelectHandler, IDeselectHandler
 {
   private Outline _outline;
 
@@ -13,7 +13,7 @@ internal sealed class SettingsFocusRing : MonoBehaviour, ISelectHandler, IDesele
   public void OnSelect(BaseEventData eventData)
   {
     if (_outline != null)
-      _outline.enabled = eventData is not PointerEventData && !SettingsButton.PointerSelectedThisFrame;
+      _outline.enabled = eventData is not PointerEventData && !UiButton.PointerSelectedThisFrame;
   }
 
   public void OnDeselect(BaseEventData eventData)

@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 using Element.Configuration;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using Element.Application.KeyViewer;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Canvas;
 
@@ -62,7 +62,7 @@ internal sealed class LayoutSession
   public GameObject Root { get; set; }
 
   /// <summary>The factory of the editor's own controls.</summary>
-  public SettingsUiFactory Ui { get; set; }
+  public UiFactory Ui { get; set; }
 
   public bool IsOpen { get; set; }
 
@@ -87,7 +87,7 @@ internal sealed class LayoutSession
   }
 
   /// <summary>A new factory for a panel that comes and goes.</summary>
-  public SettingsUiFactory NewUi() => EditorUiFactory.Create(Font, ReduceMotion);
+  public UiFactory NewUi() => new UiFactory(Font, ReduceMotion);
 
   public OverlayFonts Fonts => Host.Fonts;
 
@@ -117,7 +117,7 @@ internal sealed class LayoutSession
     foreach (LayoutFrame frame in Frames)
     {
       (frame.Target as IExternalLayoutOutline)?.SetSelected(false);
-      SettingsUiFactory.Destroy(frame.Outline.gameObject);
+      UiFactory.Destroy(frame.Outline.gameObject);
     }
     Frames.Clear();
     foreach (IOverlayLayoutTarget target in Host.LayoutTargets)

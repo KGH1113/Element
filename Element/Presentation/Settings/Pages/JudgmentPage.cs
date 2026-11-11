@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -22,7 +23,7 @@ internal sealed class JudgmentPage : SettingsPage
     JudgementVisualOptions j = Settings.Gameplay.Judgement;
     _judgementHeader = Ui.Rect("Judgment controls", Root, 0, 0, 936, 52);
     var hint = Ui.Text("", _judgementHeader, 0, 0, 580, 40, 15, UiPalette.Muted);
-    SettingsUiFactory.StretchWidth(hint.rectTransform, 0, 232);
+    UiFactory.StretchWidth(hint.rectTransform, 0, 232);
     // Competitive Mode changes in the game's pause menu; read it each time the window opens.
     Ui.Bind(() =>
       hint.text =
@@ -70,9 +71,9 @@ internal sealed class JudgmentPage : SettingsPage
     tile.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
     Ui.Capsule("Judgment color", tile.transform, 16, 21, 8, 8, tint);
     var name = Ui.Text(title, tile.transform, 36, 12, 244, 28, 16);
-    SettingsUiFactory.StretchWidth(name.rectTransform, 36, 16);
+    UiFactory.StretchWidth(name.rectTransform, 36, 16);
     var state = Ui.Text("", tile.transform, 36, 46, 244, 24, 13);
-    SettingsUiFactory.StretchWidth(state.rectTransform, 36, 16);
+    UiFactory.StretchWidth(state.rectTransform, 36, 16);
     Ui.Bind(() =>
     {
       state.text = hidden() ? L("숨김", "Hidden") : L("표시", "Shown");
@@ -102,12 +103,12 @@ internal sealed class JudgmentPage : SettingsPage
   public override void Layout(float width, float height)
   {
     bool compact = width < 600;
-    SettingsUiFactory.Place(_judgementHeader, 0, 0, width, compact ? 92 : 52);
+    UiFactory.Place(_judgementHeader, 0, 0, width, compact ? 92 : 52);
     TextMeshProUGUI hint = _judgementHeader.GetComponentInChildren<TextMeshProUGUI>();
-    SettingsUiFactory.Place(hint.rectTransform, 0, 0, compact ? width : width - 244, 40);
+    UiFactory.Place(hint.rectTransform, 0, 0, compact ? width : width - 244, 40);
     Button[] actions = _judgementHeader.GetComponentsInChildren<Button>();
     for (int i = 0; i < actions.Length; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)actions[i].transform,
         compact ? i * 120 : width - 232 + i * 120,
         compact ? 44 : 0,
@@ -120,7 +121,7 @@ internal sealed class JudgmentPage : SettingsPage
       : 1;
     float judgmentWidth = (width - (count - 1) * 12) / count;
     for (int i = 0; i < _judgementOptions.Count; i++)
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_judgementOptions[i].transform,
         i % count * (judgmentWidth + 12),
         _judgementHeader.rect.height + i / count * 98,

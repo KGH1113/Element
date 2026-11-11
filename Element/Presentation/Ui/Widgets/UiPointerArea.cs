@@ -3,11 +3,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>An invisible area that reports presses, drags and hovering, for handles and the color bar.</summary>
 [RequireComponent(typeof(CanvasRenderer))]
-internal sealed class SettingsPointerArea
+internal sealed class UiPointerArea
   : MaskableGraphic,
     IPointerDownHandler,
     IPointerUpHandler,

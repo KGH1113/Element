@@ -1,4 +1,4 @@
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Ui.Popovers;
@@ -73,7 +73,7 @@ internal static class PopoverPlacement
 
   /// <summary>Places <paramref name="popover"/> at <paramref name="bounds"/>.</summary>
   public static void Place(RectTransform popover, Rect bounds) =>
-    SettingsUiFactory.Place(popover, bounds.x, bounds.y, bounds.width, bounds.height);
+    UiFactory.Place(popover, bounds.x, bounds.y, bounds.width, bounds.height);
 
   /// <summary>
   /// Places a popover laid out at <paramref name="width"/> × <paramref name="height"/>
@@ -81,7 +81,7 @@ internal static class PopoverPlacement
   /// </summary>
   public static void PlaceScaled(RectTransform popover, Rect bounds, float width, float height)
   {
-    SettingsUiFactory.Place(popover, bounds.x, bounds.y, width, height);
+    UiFactory.Place(popover, bounds.x, bounds.y, width, height);
     popover.localScale = Vector3.one * (bounds.width / width);
   }
 

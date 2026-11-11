@@ -1,5 +1,6 @@
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -19,7 +20,7 @@ internal static class KeypadPicker
       return;
     float height = picker.Height;
     float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, dock.Top - 12 - height);
-    SettingsUiFactory.Place(picker.Root, Left(picker, dock), y, picker.CurrentWidth, height);
+    UiFactory.Place(picker.Root, Left(picker, dock), y, picker.CurrentWidth, height);
     picker.Root.SetAsLastSibling();
   }
 

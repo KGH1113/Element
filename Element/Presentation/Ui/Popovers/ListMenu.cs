@@ -1,6 +1,6 @@
 using System;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,14 +13,14 @@ namespace Element.Presentation.Ui.Popovers;
 /// </summary>
 internal sealed class ListMenu : IPopover
 {
-  private readonly Func<SettingsUiFactory> _newUi;
+  private readonly Func<UiFactory> _newUi;
   private readonly string _name;
   private readonly Color _color;
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
 
   /// <param name="newUi">Makes the factory for one opening; it is let go with the menu.</param>
   /// <param name="row">One row's height, its gap included.</param>
-  public ListMenu(Func<SettingsUiFactory> newUi, string name, float width, float row, Color color)
+  public ListMenu(Func<UiFactory> newUi, string name, float width, float row, Color color)
   {
     _newUi = newUi;
     _name = name;
@@ -42,7 +42,7 @@ internal sealed class ListMenu : IPopover
   public float RowHeight { get; }
 
   /// <summary>The factory of the open menu's rows.</summary>
-  public SettingsUiFactory Ui => _ui;
+  public UiFactory Ui => _ui;
 
   /// <summary>Runs as it hides, before it goes, even when it was not open.</summary>
   public Action Hiding { get; set; }
@@ -94,7 +94,7 @@ internal sealed class ListMenu : IPopover
     if (Root == null)
       return;
     Root.gameObject.SetActive(false);
-    SettingsUiFactory.Destroy(Root.gameObject);
+    UiFactory.Destroy(Root.gameObject);
     Root = null;
     _ui?.Dispose();
     _ui = null;

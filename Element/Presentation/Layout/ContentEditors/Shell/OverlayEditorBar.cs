@@ -1,7 +1,7 @@
 using System.Collections.Generic;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -19,9 +19,9 @@ internal sealed class OverlayEditorBar
 
   private readonly List<OverlayBarButton> _buttons = new();
 
-  public OverlayEditorBar(SettingsUiFactory ui, Transform parent, string name)
+  public OverlayEditorBar(UiFactory ui, Transform parent, string name)
   {
-    SettingsCapsuleGraphic surface = ui.Capsule(name, parent, 0, 0, 10, Height, UiPalette.Bar);
+    UiCapsuleGraphic surface = ui.Capsule(name, parent, 0, 0, 10, Height, UiPalette.Bar);
     surface.raycastTarget = true;
     Root = surface.rectTransform;
   }
@@ -44,7 +44,7 @@ internal sealed class OverlayEditorBar
   }
 
   /// <summary>Puts the bar at <paramref name="x"/>, <paramref name="y"/> (frame units).</summary>
-  public void Place(float x, float y, float width) => SettingsUiFactory.Place(Root, x, y, width, Height);
+  public void Place(float x, float y, float width) => UiFactory.Place(Root, x, y, width, Height);
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 }

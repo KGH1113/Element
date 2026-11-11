@@ -2,6 +2,7 @@ using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -28,7 +29,7 @@ internal sealed class TextAnimate
     _preview = preview;
   }
 
-  public OverlayBarButton BuildButton(SettingsUiFactory ui, Transform bar, bool reduceMotion) =>
+  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
     _animateButton = new OverlayBarButton(
       ui,
       bar,

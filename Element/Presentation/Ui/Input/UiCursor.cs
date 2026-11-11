@@ -1,4 +1,4 @@
-using Element.Presentation.Settings;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -44,7 +44,7 @@ internal sealed class UiCursor
     ResetCursor();
     for (int i = 0; i < Textures.Length; i++)
     {
-      SettingsUiFactory.Destroy(Textures[i]);
+      UiFactory.Destroy(Textures[i]);
       Textures[i] = null;
     }
   }

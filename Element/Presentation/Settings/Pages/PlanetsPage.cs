@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Gameplay;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,7 +15,7 @@ internal sealed class PlanetsPage : SettingsPage
 {
   private readonly Button _planetEnabled,
     _planetProfileEnabled;
-  private readonly SettingsSegmentedControl _planetTabs;
+  private readonly UiSegmentedControl _planetTabs;
   private readonly RectTransform _planetPreview,
     _planetComponents;
   private readonly List<Button> _planetColorButtons = new();
@@ -134,7 +135,7 @@ internal sealed class PlanetsPage : SettingsPage
     colorButton.gameObject.name = "Edit " + name + " color and opacity";
     _planetColorButtons.Add(colorButton);
     TextMeshProUGUI value = colorButton.GetComponentInChildren<TextMeshProUGUI>();
-    SettingsUiFactory.Stretch(value.rectTransform, 40, 0, 10, 0);
+    UiFactory.Stretch(value.rectTransform, 40, 0, 10, 0);
     value.fontSize = 14;
     var swatch = Ui.Panel("Color swatch", colorButton.transform, 12, 12, 16, 16, Color.white);
     Ui.Bind(() =>
@@ -183,7 +184,7 @@ internal sealed class PlanetsPage : SettingsPage
     float aspect = texture != null && texture.height > 0 ? texture.width / (float)texture.height : 1;
     float width = Mathf.Min(availableWidth, availableHeight * aspect);
     float height = width / aspect;
-    SettingsUiFactory.Place(
+    UiFactory.Place(
       _planetImage.rectTransform,
       (_planetPreview.rect.width - width) / 2,
       12 + (availableHeight - height) / 2,
@@ -259,7 +260,7 @@ internal sealed class PlanetsPage : SettingsPage
     _planetPicker.Root.localScale = Vector3.one * scale;
     x = Mathf.Clamp(x, 10, window.rect.width - SettingsColorPicker.Width * scale - 10);
     y = Mathf.Clamp(y, 10, window.rect.height - _planetPicker.Height * scale - 10);
-    SettingsUiFactory.Place(_planetPicker.Root, x, y, SettingsColorPicker.Width, _planetPicker.Height);
+    UiFactory.Place(_planetPicker.Root, x, y, SettingsColorPicker.Width, _planetPicker.Height);
     _planetPicker.Root.SetAsLastSibling();
   }
 
@@ -267,43 +268,37 @@ internal sealed class PlanetsPage : SettingsPage
   {
     bool wide = width >= 600;
     float headerHeight = width < 480 ? 116 : 88;
-    SettingsUiFactory.Place((RectTransform)_planetEnabled.transform, 0, 0, width, headerHeight);
+    UiFactory.Place((RectTransform)_planetEnabled.transform, 0, 0, width, headerHeight);
     _planetTabs.Place(0, headerHeight + 12, width, 44);
     float top = headerHeight + 68;
     float previewWidth = wide ? (width >= 760 ? 268 : 200) : width;
     float previewHeight = wide ? 268 : 168;
-    SettingsUiFactory.Place(_planetPreview, 0, top, previewWidth, previewHeight);
+    UiFactory.Place(_planetPreview, 0, top, previewWidth, previewHeight);
     LayoutPlanetArtwork();
-    SettingsUiFactory.Place(_planetPreviewLabel.rectTransform, 12, previewHeight - 44, previewWidth - 24, 28);
+    UiFactory.Place(_planetPreviewLabel.rectTransform, 12, previewHeight - 44, previewWidth - 24, 28);
     float controlsWidth = wide ? width - previewWidth - 16 : width;
     float controlsTop = wide ? top : top + previewHeight + 12;
     float rowHeight = controlsWidth < 400 ? 100 : 60;
-    SettingsUiFactory.Place(
+    UiFactory.Place(
       _planetComponents,
       wide ? previewWidth + 16 : 0,
       controlsTop,
       controlsWidth,
       64 + 3 * (rowHeight + 8)
     );
-    SettingsUiFactory.Place((RectTransform)_planetProfileEnabled.transform, 0, 0, controlsWidth, 56);
+    UiFactory.Place((RectTransform)_planetProfileEnabled.transform, 0, 0, controlsWidth, 56);
     for (int i = 0; i < _planetRows.Count; i++)
     {
-      SettingsUiFactory.Place(_planetRows[i], 0, 64 + i * (rowHeight + 8), controlsWidth, rowHeight);
+      UiFactory.Place(_planetRows[i], 0, 64 + i * (rowHeight + 8), controlsWidth, rowHeight);
       bool compact = controlsWidth < 400;
-      SettingsUiFactory.Place(
+      UiFactory.Place(
         (RectTransform)_planetSourceButtons[i].transform,
         compact ? 16 : controlsWidth - 270,
         compact ? 50 : 10,
         130,
         40
       );
-      SettingsUiFactory.Place(
-        (RectTransform)_planetColorButtons[i].transform,
-        controlsWidth - 124,
-        compact ? 50 : 10,
-        108,
-        40
-      );
+      UiFactory.Place((RectTransform)_planetColorButtons[i].transform, controlsWidth - 124, compact ? 50 : 10, 108, 40);
     }
     Root.sizeDelta = new Vector2(width, controlsTop + _planetComponents.rect.height);
     LayoutPopover();

@@ -4,10 +4,10 @@ using System.Globalization;
 using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -102,7 +102,7 @@ internal sealed class LayoutToolbar
 
   public void Build(LayoutCommands commands)
   {
-    SettingsUiFactory ui = _session.Ui;
+    UiFactory ui = _session.Ui;
     _toolbar = ui.Panel("Layout actions", _session.Root.transform, 0, 0, Width, 120, UiPalette.Toolbar).rectTransform;
     _toolbar.anchorMin = _toolbar.anchorMax = Vector2.zero;
     UiIcon grip = ui.Rect("Drag panel", _toolbar, 10, 18, 14, 24).gameObject.AddComponent<UiIcon>();
@@ -175,7 +175,7 @@ internal sealed class LayoutToolbar
     _add = ui.Button(L("요소 추가", "Add Element"), _toolbar, 348, 60, 132, 40, commands.Add, true);
     _editColor = ui.Button(L("하이라이트 색", "Highlight"), _toolbar, 488, 60, 140, 40, commands.Color);
     _colorSwatch = ui.Panel("Highlight color", _editColor.transform, 12, 12, 16, 16, ui.Accent);
-    SettingsUiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
+    UiFactory.Stretch(_editColor.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 32, 0, 8, 0);
     // The texts' default font sits beside their highlight color.
     _editFont = ui.Button(L("기본 폰트", "Font"), _toolbar, 636, 60, 112, 40, commands.Font);
     _editFont.name = "Default font";
@@ -183,7 +183,7 @@ internal sealed class LayoutToolbar
     fontIcon.Kind = UiIconKind.Font;
     fontIcon.raycastTarget = false;
     _icons.Add(new LayoutIcon(fontIcon, _editFont));
-    SettingsUiFactory.Stretch(_editFont.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 34, 0, 8, 0);
+    UiFactory.Stretch(_editFont.GetComponentInChildren<TextMeshProUGUI>().rectTransform, 34, 0, 8, 0);
     _editFont.interactable = _session.Fonts != null;
     _controls.Add((RectTransform)_add.transform);
     _controls.Add((RectTransform)_editColor.transform);
@@ -195,7 +195,7 @@ internal sealed class LayoutToolbar
 
   private Button IconButton(UiIconKind kind, string hint, float x, float y, Action onClick, float height = 32)
   {
-    SettingsUiFactory ui = _session.Ui;
+    UiFactory ui = _session.Ui;
     Button button = ui.Button("", _toolbar, x, y, 36, height, onClick);
     button.gameObject.name = hint;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);
@@ -304,8 +304,8 @@ internal sealed class LayoutToolbar
       width - suffix - 18
     );
     float left = (width - number - 2 - suffix) * .5f;
-    SettingsUiFactory.Place(_scaleInput.textViewport, left, 4, number, 32);
-    SettingsUiFactory.Place(_scaleSuffix.rectTransform, left + number + 2, 0, suffix + 1, 40);
+    UiFactory.Place(_scaleInput.textViewport, left, 4, number, 32);
+    UiFactory.Place(_scaleSuffix.rectTransform, left + number + 2, 0, suffix + 1, 40);
   }
 
   private void CommitScale(string value)

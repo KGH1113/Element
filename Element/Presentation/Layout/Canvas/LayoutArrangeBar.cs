@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Element.Application.Layout;
 using Element.Domain.Layout;
 using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -125,7 +125,7 @@ internal sealed class LayoutArrangeBar
 
   private Button ButtonAt(RectTransform panel, UiIconKind kind, string hint, float x, Action click)
   {
-    SettingsUiFactory ui = _bar.Ui;
+    UiFactory ui = _bar.Ui;
     Button button = ui.Button("", panel, x, 10, Button, Button, click);
     button.gameObject.name = hint;
     button.GetComponentInChildren<TextMeshProUGUI>().gameObject.SetActive(false);

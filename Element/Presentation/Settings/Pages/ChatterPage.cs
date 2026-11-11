@@ -4,6 +4,7 @@ using Element.Configuration.Gameplay;
 using Element.Domain.Tweaks;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -17,7 +18,7 @@ internal sealed class ChatterPage : SettingsPage
 {
   private readonly Func<long> _blockedChatter;
   private readonly Button _chatterSwitch;
-  private readonly SettingsValueRow _chatterWindow;
+  private readonly UiValueRow _chatterWindow;
   private readonly TextMeshProUGUI _chatterHint,
     _chatterBlocked,
     _chatterConflict;
@@ -49,7 +50,7 @@ internal sealed class ChatterPage : SettingsPage
         Window.Changed();
       }
     );
-    _chatterWindow = new SettingsValueRow(
+    _chatterWindow = new UiValueRow(
       Ui,
       Root,
       "Chatter threshold",
@@ -111,7 +112,7 @@ internal sealed class ChatterPage : SettingsPage
   {
     _ignoredCard = Ui.Panel("Ignored keys", Root, 0, 0, 936, 160, UiPalette.Surface).rectTransform;
     TextMeshProUGUI title = Ui.Text(L("막지 않을 키", "Keys never blocked"), _ignoredCard, 16, 16, 700, 28, 17);
-    SettingsUiFactory.StretchWidth(title.rectTransform, 16, 16);
+    UiFactory.StretchWidth(title.rectTransform, 16, 16);
     _ignoredDescription = Ui.Text("", _ignoredCard, 16, 48, 904, 24, 14, UiPalette.Muted);
     _ignoredDescription.alignment = TextAlignmentOptions.TopLeft;
     _ignoredKeys = Ui.Text("", _ignoredCard, 16, 0, 904, 24, 15);
@@ -215,41 +216,35 @@ internal sealed class ChatterPage : SettingsPage
   private float LayoutIgnoredKeys(float top, float width)
   {
     float inner = width - 32;
-    float descriptionHeight = SettingsUiFactory.TextHeight(_ignoredDescription, inner, 20);
-    SettingsUiFactory.Place(_ignoredDescription.rectTransform, 16, 48, inner, descriptionHeight);
+    float descriptionHeight = UiFactory.TextHeight(_ignoredDescription, inner, 20);
+    UiFactory.Place(_ignoredDescription.rectTransform, 16, 48, inner, descriptionHeight);
     float y = 48 + descriptionHeight + 8;
-    float keysHeight = SettingsUiFactory.TextHeight(_ignoredKeys, inner, 22);
-    SettingsUiFactory.Place(_ignoredKeys.rectTransform, 16, y, inner, keysHeight);
+    float keysHeight = UiFactory.TextHeight(_ignoredKeys, inner, 22);
+    UiFactory.Place(_ignoredKeys.rectTransform, 16, y, inner, keysHeight);
     y += keysHeight + 12;
-    SettingsUiFactory.Place((RectTransform)_ignoredChange.transform, 16, y, 152, 40);
-    SettingsUiFactory.Place((RectTransform)_ignoredClear.transform, 176, y, 120, 40);
+    UiFactory.Place((RectTransform)_ignoredChange.transform, 16, y, 152, 40);
+    UiFactory.Place((RectTransform)_ignoredClear.transform, 176, y, 120, 40);
     float height = y + 40 + 16;
-    SettingsUiFactory.Place(_ignoredCard, 0, top, width, height);
+    UiFactory.Place(_ignoredCard, 0, top, width, height);
     return height;
   }
 
   public override void Layout(float width, float height)
   {
     float switchHeight = width < 520 ? 100 : 88;
-    SettingsUiFactory.Place((RectTransform)_chatterSwitch.transform, 0, 0, width, switchHeight);
+    UiFactory.Place((RectTransform)_chatterSwitch.transform, 0, 0, width, switchHeight);
     float top = switchHeight + 12;
     _chatterWindow.Layout(0, top, width);
-    top += SettingsValueRow.Height + 12;
+    top += UiValueRow.Height + 12;
     float hintHeight = width < 600 ? 64 : 44;
-    SettingsUiFactory.Place(
-      _chatterHint.rectTransform,
-      0,
-      top,
-      width,
-      SettingsUiFactory.TextHeight(_chatterHint, width, hintHeight)
-    );
-    top += SettingsUiFactory.TextHeight(_chatterHint, width, hintHeight) + 12;
+    UiFactory.Place(_chatterHint.rectTransform, 0, top, width, UiFactory.TextHeight(_chatterHint, width, hintHeight));
+    top += UiFactory.TextHeight(_chatterHint, width, hintHeight) + 12;
     top += LayoutIgnoredKeys(top, width) + 16;
-    SettingsUiFactory.Place(_chatterBlocked.rectTransform, 0, top, width, 24);
+    UiFactory.Place(_chatterBlocked.rectTransform, 0, top, width, 24);
     top += 32;
     if (_chatterConflict.gameObject.activeSelf)
     {
-      SettingsUiFactory.Place(_chatterConflict.rectTransform, 0, top, width, hintHeight);
+      UiFactory.Place(_chatterConflict.rectTransform, 0, top, width, hintHeight);
       top += hintHeight;
     }
     Root.sizeDelta = new Vector2(width, top);

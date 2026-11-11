@@ -4,9 +4,9 @@ using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -52,7 +52,7 @@ internal sealed class OverlayInputDock
   private bool _editing;
 
   public OverlayInputDock(
-    SettingsUiFactory ui,
+    UiFactory ui,
     Transform parent,
     float frameWidth,
     float frameHeight,
@@ -113,7 +113,7 @@ internal sealed class OverlayInputDock
     _scroll.content = Content;
     BuildValues(ui, measure, reduceMotion(), pick);
     float valuesWidth = _width - OverlayKeypad.Width - KeypadGap;
-    SettingsUiFactory.Place(_values, 0, LineHeight + LineGap, valuesWidth, OverlayKeypad.Height);
+    UiFactory.Place(_values, 0, LineHeight + LineGap, valuesWidth, OverlayKeypad.Height);
     LayOutValues(valuesWidth);
   }
 
@@ -156,14 +156,14 @@ internal sealed class OverlayInputDock
     _name.text = _editing ? name + "  =" : hint;
     _name.color = _editing ? UiPalette.Muted : new Color(1, 1, 1, .5f);
     float nameWidth = Mathf.Min(_width, Mathf.Ceil(_name.GetPreferredValues(_name.text).x) + 4);
-    SettingsUiFactory.Place(_name.rectTransform, x, 0, nameWidth, LineHeight);
+    UiFactory.Place(_name.rectTransform, x, 0, nameWidth, LineHeight);
     x += nameWidth + 12;
     _result.text = _editing && !string.IsNullOrEmpty(result) ? "= " + result : "";
     _result.gameObject.SetActive(_result.text.Length > 0);
     float resultWidth = _result.text.Length > 0 ? Mathf.Ceil(_result.GetPreferredValues(_result.text).x) + 4 : 0;
-    SettingsUiFactory.Place(_result.rectTransform, _width - resultWidth, 0, resultWidth, LineHeight);
+    UiFactory.Place(_result.rectTransform, _width - resultWidth, 0, resultWidth, LineHeight);
     float available = Mathf.Max(40, _width - resultWidth - 24 - x);
-    SettingsUiFactory.Place(_formulaViewport, x, 0, available, LineHeight);
+    UiFactory.Place(_formulaViewport, x, 0, available, LineHeight);
     _formula.text = _editing ? Describe(editing.Working) : "";
     if (_editing && editing.Working.IsEmpty)
     {
@@ -175,9 +175,9 @@ internal sealed class OverlayInputDock
     // A long formula keeps its end in view, where the caret is.
     float textWidth = Mathf.Ceil(_formula.GetPreferredValues(_formula.text).x) + 2;
     float left = editing.Working != null && !editing.Working.IsEmpty ? Mathf.Min(0, available - textWidth - 6) : 0;
-    SettingsUiFactory.Place(_formula.rectTransform, left, 0, Mathf.Max(textWidth, 10), LineHeight);
+    UiFactory.Place(_formula.rectTransform, left, 0, Mathf.Max(textWidth, 10), LineHeight);
     float caretX = editing.Working != null && editing.Working.IsEmpty ? 0 : left + textWidth + 2;
-    SettingsUiFactory.Place(_caret.rectTransform, caretX, 15, 2, LineHeight - 30);
+    UiFactory.Place(_caret.rectTransform, caretX, 15, 2, LineHeight - 30);
     _caret.enabled = _editing;
     Keypad.Refresh(editing);
   }
@@ -233,7 +233,7 @@ internal sealed class OverlayInputDock
 
   // The built-in categories, then a heading for each mod that adds values.
   private void BuildValues(
-    SettingsUiFactory ui,
+    UiFactory ui,
     TextMeshProUGUI measure,
     bool reduceMotion,
     Action<OverlayValueDefinition> pick
@@ -261,7 +261,7 @@ internal sealed class OverlayInputDock
         string text = OverlayKeypad.ValueName(value);
         float width = Mathf.Ceil(measure.GetPreferredValues(text).x) + 28;
         OverlayValueDefinition picked = value;
-        Button chip = EditorCapsules.CapsuleButton(
+        Button chip = UiCapsules.CapsuleButton(
           ui,
           Content,
           "Value " + value.Key,
@@ -297,7 +297,7 @@ internal sealed class OverlayInputDock
     for (int section = 0; section < _categories.Count; section++)
     {
       TextMeshProUGUI label = _categories[section];
-      SettingsUiFactory.Place(label.rectTransform, 0, y, column, ChipHeight);
+      UiFactory.Place(label.rectTransform, 0, y, column, ChipHeight);
       float x = column;
       foreach ((int placedSection, _, Button chip, float chipWidth) in _placed)
       {
@@ -308,7 +308,7 @@ internal sealed class OverlayInputDock
           x = column;
           y += ChipHeight + RowGap;
         }
-        SettingsUiFactory.Place((RectTransform)chip.transform, x, y, chipWidth, ChipHeight);
+        UiFactory.Place((RectTransform)chip.transform, x, y, chipWidth, ChipHeight);
         x += chipWidth + ChipGap;
       }
       y += ChipHeight + RowGap + CategoryGap;

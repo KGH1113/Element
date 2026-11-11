@@ -1,5 +1,5 @@
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.Canvas;
@@ -15,7 +15,7 @@ internal sealed class LayoutPopovers
   private readonly LayoutToolbar _toolbar;
   private OverlayColorPopover _colorPopover;
   private OverlayFontPopover _fontPopover;
-  private SettingsUiFactory _fontUi;
+  private UiFactory _fontUi;
 
   public LayoutPopovers(LayoutSession session, LayoutToolbar toolbar)
   {

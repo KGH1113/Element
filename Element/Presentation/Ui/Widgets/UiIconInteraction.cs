@@ -4,11 +4,11 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 // Borderless navigation controls keep their generous target, but feedback
 // belongs to the glyph itself instead of introducing another button surface.
-internal sealed class SettingsIconInteraction
+internal sealed class UiIconInteraction
   : MonoBehaviour,
     IPointerEnterHandler,
     IPointerExitHandler,

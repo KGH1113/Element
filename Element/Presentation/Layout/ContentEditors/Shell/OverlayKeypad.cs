@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -49,14 +49,7 @@ internal sealed class OverlayKeypad
   private readonly Button _clear,
     _done;
 
-  public OverlayKeypad(
-    SettingsUiFactory ui,
-    Transform parent,
-    Action<char> press,
-    Action clear,
-    Action done,
-    bool reduceMotion
-  )
+  public OverlayKeypad(UiFactory ui, Transform parent, Action<char> press, Action clear, Action done, bool reduceMotion)
   {
     Root = ui.Rect("Keypad", parent, 0, 0, Width, Height);
     for (int i = 0; i < Keys.Length; i++)
@@ -65,7 +58,7 @@ internal sealed class OverlayKeypad
       int row = i / 4,
         column = i % 4;
       bool symbol = column == 3;
-      Button button = EditorCapsules.CapsuleButton(
+      Button button = UiCapsules.CapsuleButton(
         ui,
         Root,
         "Key " + (key == '\b' ? "backspace" : label),
@@ -87,7 +80,7 @@ internal sealed class OverlayKeypad
       _buttons.Add((button, key));
     }
     float last = 4 * (KeyHeight + Gap);
-    _clear = EditorCapsules.CapsuleButton(
+    _clear = UiCapsules.CapsuleButton(
       ui,
       Root,
       "Key clear",
@@ -101,7 +94,7 @@ internal sealed class OverlayKeypad
       false,
       reduceMotion
     );
-    Button finish = _done = EditorCapsules.CapsuleButton(
+    Button finish = _done = UiCapsules.CapsuleButton(
       ui,
       Root,
       "Key done",
@@ -121,12 +114,12 @@ internal sealed class OverlayKeypad
     colors.normalColor = colors.selectedColor = new Color(accent.r, accent.g, accent.b, .32f);
     colors.highlightedColor = new Color(accent.r, accent.g, accent.b, .46f);
     colors.pressedColor = new Color(accent.r, accent.g, accent.b, .58f);
-    ((SettingsButton)finish).SetPalette(colors);
+    ((UiButton)finish).SetPalette(colors);
   }
 
   public RectTransform Root { get; }
 
-  public void Place(float x, float y) => SettingsUiFactory.Place(Root, x, y, Width, Height);
+  public void Place(float x, float y) => UiFactory.Place(Root, x, y, Width, Height);
 
   public void Refresh(OverlayFormulaEditing editing)
   {
@@ -160,7 +153,7 @@ internal sealed class OverlayKeypad
 
   public static string ValueName(OverlayValueDefinition value) => Korean ? value.KoreanName : value.EnglishName;
 
-  private static void Icon(SettingsUiFactory ui, Transform parent, UiIconKind kind, float size)
+  private static void Icon(UiFactory ui, Transform parent, UiIconKind kind, float size)
   {
     UiIcon icon = ui.Rect("Icon", parent, 0, 0, size, size).gameObject.AddComponent<UiIcon>();
     icon.Kind = kind;

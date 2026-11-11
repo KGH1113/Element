@@ -5,28 +5,28 @@ using UnityEngine;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
-namespace Element.Presentation.Settings;
+namespace Element.Presentation.Ui.Widgets;
 
 /// <summary>
 /// A brief notice at the top of the screen that confirms an action taken
 /// without the settings window, such as a preset shortcut. Built on first use;
 /// it costs nothing while hidden.
 /// </summary>
-internal sealed class SettingsToast : IDisposable
+internal sealed class UiToast : IDisposable
 {
   private const float Height = 72;
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
-  private SettingsUiFactory _ui;
+  private UiFactory _ui;
   private GameObject _root;
   private Canvas _canvas;
   private RectTransform _card;
   private TextMeshProUGUI _title,
     _detail;
   private Image _marker;
-  private SettingsToastMotion _motion;
+  private UiToastMotion _motion;
 
-  public SettingsToast(TMP_FontAsset font, Func<bool> reduceMotion)
+  public UiToast(TMP_FontAsset font, Func<bool> reduceMotion)
   {
     _font = font;
     _reduceMotion = reduceMotion;
@@ -62,7 +62,7 @@ internal sealed class SettingsToast : IDisposable
   {
     if (_root != null)
       return;
-    _ui = new SettingsUiFactory(_font) { ReduceMotion = _reduceMotion };
+    _ui = new UiFactory(_font) { ReduceMotion = _reduceMotion };
     _root = new GameObject("Element Notice", typeof(RectTransform));
     if (UnityEngine.Application.isPlaying)
       Object.DontDestroyOnLoad(_root);
@@ -79,15 +79,15 @@ internal sealed class SettingsToast : IDisposable
     _marker.rectTransform.sizeDelta = new Vector2(3, -28);
     _marker.rectTransform.anchoredPosition = new Vector2(0, -14);
     _title = _ui.Text("", _card, 20, 14, 280, 24, 17);
-    SettingsUiFactory.StretchWidth(_title.rectTransform, 20, 20);
+    UiFactory.StretchWidth(_title.rectTransform, 20, 20);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
     _detail = _ui.Text("", _card, 20, 40, 280, 20, 13, UiPalette.Muted);
-    SettingsUiFactory.StretchWidth(_detail.rectTransform, 20, 20);
+    UiFactory.StretchWidth(_detail.rectTransform, 20, 20);
     _detail.textWrappingMode = TextWrappingModes.NoWrap;
     CanvasGroup group = _card.gameObject.AddComponent<CanvasGroup>();
     group.blocksRaycasts = false;
     group.interactable = false;
-    _motion = _card.gameObject.AddComponent<SettingsToastMotion>();
+    _motion = _card.gameObject.AddComponent<UiToastMotion>();
     _motion.Initialize(group, () => _root.SetActive(false));
     _root.SetActive(false);
   }
@@ -97,7 +97,7 @@ internal sealed class SettingsToast : IDisposable
     if (_root != null)
     {
       _root.SetActive(false);
-      SettingsUiFactory.Destroy(_root);
+      UiFactory.Destroy(_root);
       _root = null;
     }
     _ui?.Dispose();

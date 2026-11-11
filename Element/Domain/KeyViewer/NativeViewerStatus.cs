@@ -1,4 +1,4 @@
-namespace Element.Domain.DmNote;
+namespace Element.Domain.KeyViewer;
 
 /// <summary>Why a native key viewer is or is not showing, in user terms.</summary>
 internal enum NativeViewerStatus

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Application.Attempts;
-using Element.Domain.DmNote;
+using Element.Domain.Rendering;
 using UnityEngine;
 
 namespace Element.Application.Rendering;

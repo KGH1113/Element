@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Element.Configuration;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.KeyViewer;
 
 /// <summary>
 /// How the key viewers on screen follow a layout list, such as a profile's.

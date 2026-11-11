@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Element.Domain.DmNote;
 using Element.Domain.Layout;
 using UnityEngine;
 

@@ -1,7 +1,7 @@
 using System;
 using Element.Domain.Layout;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.Rendering;
 
 /// <summary>
 /// How one key viewer goes over a rendered video: the part of its page's video to

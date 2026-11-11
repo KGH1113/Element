@@ -1,6 +1,6 @@
 using System;
 
-namespace Element.Domain.DmNote;
+namespace Element.Domain.KeyViewer;
 
 /// <summary>How the game should react to a <c>mirror.failed</c> code from ElementNote.</summary>
 internal readonly struct NativeViewerFailure

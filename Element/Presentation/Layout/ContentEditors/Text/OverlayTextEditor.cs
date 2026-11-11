@@ -1,20 +1,15 @@
 using System;
-using System.Collections.Generic;
-using System.Text;
 using Element.Application.Input;
+using Element.Application.Layout;
 using Element.Configuration;
 using Element.Domain.Elements;
-using Element.Domain.Layout;
-using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
 
@@ -25,65 +20,94 @@ namespace Element.Presentation.Layout.ContentEditors.Text;
 /// clicking one of its values adds it at the caret, and clicking a value in
 /// the text or a number in the bar types its formula there.
 /// </summary>
-internal sealed partial class OverlayTextEditor : IContentEditor
+/// <remarks>
+/// The editor puts its parts together and runs them: the text being edited
+/// (<see cref="TextDocumentEditing"/>), how it is drawn (<see cref="TextPreview"/>,
+/// <see cref="TextLayoutMap"/>, <see cref="TextMarks"/>), what the dock types
+/// (<see cref="TextFormulas"/>), the bar's <see cref="TextFonts"/>,
+/// <see cref="TextSize"/>, <see cref="TextColor"/> with <see cref="TextGradient"/>
+/// and <see cref="TextAnimate"/>, and the input (<see cref="TextValueDrops"/>,
+/// <see cref="TextPointer"/>, <see cref="TextKeyboard"/>), with the bar, the
+/// grow point and undo it shares with the shape editor.
+/// </remarks>
+internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
 {
-  private const float FormatHeight = 40,
-    MinimumSize = 4,
-    MaximumSize = 400;
-
   private readonly Transform _parent;
   private readonly TMP_FontAsset _uiFont;
   private readonly Func<bool> _reduceMotion;
-  private readonly OverlayValues _values;
   private readonly OverlayLiveValues _live;
+  private readonly OverlayPreviewSpace _space = new();
+  private readonly TextDocumentEditing _text;
+  private readonly TextPreview _preview;
+  private readonly TextLayoutMap _map;
+  private readonly TextMarks _marks;
+  private readonly TextFormulas _formulas;
+  private readonly TextSize _size;
+  private readonly TextGradient _gradient;
+  private readonly TextColor _color;
+  private readonly TextFonts _fonts;
+  private readonly TextAnimate _animate;
+  private readonly OverlayGrowFrom _grow;
+  private readonly TextValueDrops _drops;
+  private readonly TextPointer _pointer;
+  private readonly TextKeyboard _keyboard;
 
   // The values the text, its sizes and opacities, and the dock's formula use.
   private OverlayValueMask _liveMask;
-  private readonly StringBuilder _builder = new(256);
-  private readonly List<Image> _selectionRects = new();
-  private readonly List<Image> _pillRects = new();
   private OverlayEditorFrame _screen;
-  private readonly OverlayGlide _space = new();
-  private SettingsUiFactory _ui;
-  private RectTransform _frame;
-  private TextMeshProUGUI _preview;
-  private TextMeshProUGUI _placeholder;
-  private Image _caret;
-  private Image _dropCaret;
-  private RectTransform _formatBar;
-  private SettingsCapsuleGraphic _formatSurface;
-  private OverlayBarButton _sizeButton;
-  private OverlayBarButton _colorButton;
-  private OverlayBarButton _animateButton;
-  private OverlayBarButton _growButton;
-  private OverlayBarButton[] _formatButtons;
-  private OverlayTextPulse _previewPulse;
-  private OverlayOpacityField _opacity;
-  private Image _emptyCaret;
-  private SettingsColorPicker _picker;
+  private OverlayEditorBar _bar;
   private OverlayInputDock _dock;
-  private OverlayGrowPopover _growPopover;
-  private SettingsCapsuleGraphic _growMark;
   private TextOverlayElement _element;
   private Action<bool> _closed;
-  private float _scale = 1;
   private float _elementScale = 1;
   private float _bottomTop;
-  private OverlayGrowth _growth;
+  private float _blinkStart;
 
   public OverlayTextEditor(Transform parent, TMP_FontAsset uiFont, Func<bool> reduceMotion, OverlayValues values)
   {
     _parent = parent;
     _uiFont = uiFont;
     _reduceMotion = reduceMotion;
-    _values = values;
     _live = new OverlayLiveValues(values);
+    _text = new TextDocumentEditing(values, Render, Restored);
+    _preview = new TextPreview(_text, values);
+    _map = new TextLayoutMap(_text, _preview);
+    _marks = new TextMarks(_text, _preview, _map);
+    _formulas = new TextFormulas(this, _text, values);
+    _size = new TextSize(this, _text, _formulas);
+    _gradient = new TextGradient(this, _text, _formulas, _preview, values);
+    _color = new TextColor(this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
+    _formulas.Use(_size, _color, _gradient);
+    _fonts = new TextFonts(this, _text, _color);
+    _animate = new TextAnimate(this, _text, _color, _preview);
+    _grow = new OverlayGrowFrom(ClosePopovers, Render);
+    _drops = new TextValueDrops(this, _text, _formulas, _map, _marks, _size, _color, _gradient);
+    _pointer = new TextPointer(this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _drops);
+    _keyboard = new TextKeyboard(this, _text, _formulas, _map, _preview);
   }
 
   public bool IsOpen => _screen != null;
 
   /// <summary>Keeps the editor above the layout toolbar and handles, which raise themselves.</summary>
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+
+  OverlayEditorFrame ITextEditorHost.Screen => _screen;
+
+  OverlayInputDock ITextEditorHost.Dock => _dock;
+
+  OverlayEditorBar ITextEditorHost.Bar => _bar;
+
+  TextOverlayElement ITextEditorHost.Element => _element;
+
+  float ITextEditorHost.ElementScale => _elementScale;
+
+  bool ITextEditorHost.AnyPopover => AnyPopover;
+
+  void ITextEditorHost.Render() => Render();
+
+  void ITextEditorHost.ClosePopovers() => ClosePopovers();
+
+  bool ITextEditorHost.InTextArea(Vector2 screen) => InTextArea(screen);
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
   {
@@ -99,43 +123,19 @@ internal sealed partial class OverlayTextEditor : IContentEditor
     _element = element;
     _closed = closed;
     _elementScale = Mathf.Max(.01f, element.EffectiveScale);
-    _document = OverlayTextDocument.FromRuns(element.Settings?.Text?.Runs);
-    _opening = _document.Clone();
-    // Labels from converted texts become words in the game's language.
-    _document.ReplaceValues(LegacyLabel);
-    _caretIndex = _anchor = _document.Count;
-    _pendingColor = null;
-    _pendingSize = 0;
-    _pendingSizeFormula = "";
-    _pendingFont = "";
-    _fieldSlot = null;
-    _chipPopover = -1;
-    _editing.Deactivate();
-    _growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
-    _history.Clear();
+    _text.Open(element.Settings?.Text);
+    _formulas.Reset();
+    _grow.Open(element);
     Build();
     Input.imeCompositionMode = IMECompositionMode.On;
     Render();
   }
 
-  private string LegacyLabel(string key)
-  {
-    if (!OverlayValueCatalog.TryGet(key, out OverlayValueDefinition value) || !OverlayValueCatalog.IsLegacy(value))
-      return null;
-    _builder.Clear();
-    OverlayTextComposer.AppendValue(_builder, value.Id, _values, true);
-    return _builder.ToString();
-  }
-
   private void Build()
   {
-    SettingsColorPicker oldPicker = _picker;
-    _picker = null;
-    oldPicker?.Dispose();
+    _color.DisposePicker();
     _screen?.Dispose();
-    _selectionRects.Clear();
-    _pillRects.Clear();
-    _dragValue = null;
+    _drops.Cancel();
     _space.Snap();
     _screen = new OverlayEditorFrame(
       "Text editor",
@@ -149,268 +149,227 @@ internal sealed partial class OverlayTextEditor : IContentEditor
       () => Close(false, true),
       () => Close(true, true)
     );
-    _ui = _screen.Ui;
-    _frame = _screen.Frame;
-    _scale = _screen.Scale;
-
-    // The text is placed in screen pixels at its in-game size.
-    RectTransform preview = _ui.Rect("Text", _screen.Stage, 0, 0, 10, 10);
-    preview.pivot = new Vector2(.5f, .5f);
-    _preview = OverlayTextFactory.AddText(
-      preview.gameObject,
-      _element.Fonts.DefaultAsset,
-      _element.Fonts.DefaultMaterial,
-      OverlayElementDefaults.TextSize,
-      Horizontal(_element.Alignment)
-    );
-    _fontVersion = _element.Fonts.Version;
-    _preview.textWrappingMode = TextWrappingModes.NoWrap;
-    _preview.overflowMode = TextOverflowModes.Overflow;
-    _previewPulse = preview.gameObject.AddComponent<OverlayTextPulse>();
-    _previewPulse.Initialize(_preview);
-    _caret = _ui.Panel("Caret", preview, 0, 0, 2, 10, Color.white, false);
-    Anchor(_caret.rectTransform);
-    _dropCaret = _ui.Panel("Drop caret", preview, 0, 0, 3, 10, SettingsPalette.SoftAccent, false);
-    Anchor(_dropCaret.rectTransform);
-    _dropCaret.enabled = false;
-    BuildGradient();
-
-    BuildFormatBar();
+    _preview.Build(_screen, _element);
+    _marks.BuildCarets(_screen.Ui);
+    _gradient.BuildHandles(_screen, _reduceMotion());
+    BuildBar();
     _bottomTop = _screen.Height - 40;
-    _placeholder = _ui.Text(
-      L("텍스트를 입력하세요", "Type your text"),
-      _frame,
-      0,
-      0,
-      10,
-      28,
-      16,
-      new Color(1, 1, 1, .38f)
-    );
-    _placeholder.alignment = TextAlignmentOptions.MidlineLeft;
-    _placeholder.textWrappingMode = TextWrappingModes.NoWrap;
-    // A caret in front of the hint, like an empty text field.
-    _emptyCaret = _ui.Panel("Empty caret", _frame, 0, 0, 2, 22, Color.white, false);
-    _picker = new SettingsColorPicker(_frame, _uiFont, _reduceMotion);
-    _picker.Hidden = PickerHidden;
-    _opacity = new OverlayOpacityField(_ui, _picker, () => ActivateField(OpacityKey), _reduceMotion());
-    BuildGradientPicker();
+    _marks.BuildHint(_screen.Ui, _screen.Frame);
+    _color.BuildPicker(_screen);
+    _gradient.BuildPicker(_screen.Ui, _color.Picker, _reduceMotion());
     _dock = new OverlayInputDock(
-      _ui,
-      _frame,
+      _screen.Ui,
+      _screen.Frame,
       _screen.Width,
       _screen.Height,
       _screen.Measure,
       _reduceMotion,
-      KeypadPress,
-      ClearFormula,
-      FinishEditing,
-      PickValue,
-      BeginValueDrag,
-      MoveValueDrag,
-      EndValueDrag
+      _formulas.KeypadPress,
+      _formulas.ClearFormula,
+      _formulas.FinishEditing,
+      _formulas.PickValue,
+      _drops.BeginValueDrag,
+      _drops.MoveValueDrag,
+      _drops.EndValueDrag
     );
-    // The color picker opens right above the keypad.
-    _picker.LayOutAsColumn(_dock.KeypadArea.width);
-    BuildFontControls();
-    _growPopover = new OverlayGrowPopover(_ui, _frame, _reduceMotion(), PickGrowth);
-    _growMark = _ui.Capsule("Grow point", _frame, 0, 0, 12, 12, SettingsPalette.SoftAccent);
-    _growMark.gameObject.SetActive(false);
+    _color.LayOutAbove(_dock);
+    _fonts.Build(_screen, _element.Fonts, _reduceMotion());
+    _grow.Build(_screen, _reduceMotion());
   }
 
   // One row of labeled buttons: the font, the size, the color (with its
   // opacity), the values' animation and where the text grows from. Font,
   // size, color and animation act on the selection, or on the whole text when
   // nothing is selected.
-  private void BuildFormatBar()
+  private void BuildBar()
   {
-    _formatSurface = _ui.Capsule("Format", _frame, 0, 0, 10, FormatHeight, LayoutColors.Bar);
-    _formatSurface.raycastTarget = true;
-    _formatBar = _formatSurface.rectTransform;
-    _fontButton = new OverlayBarButton(
-      _ui,
-      _formatBar,
-      "Text font",
-      L("폰트", "Font"),
-      ToggleFont,
-      _reduceMotion(),
-      icon: LayoutAction.Font
-    );
-    _sizeButton = new OverlayBarButton(
-      _ui,
-      _formatBar,
-      "Text size",
-      L("크기", "Size"),
-      () => ActivateField(SizeKey),
-      _reduceMotion(),
-      "px",
-      glyph: L("가", "Aa")
-    );
-    _colorButton = new OverlayBarButton(
-      _ui,
-      _formatBar,
-      "Text color",
-      L("글자 색", "Text color"),
-      OpenPicker,
-      _reduceMotion(),
-      swatch: true
-    );
-    _animateButton = new OverlayBarButton(
-      _ui,
-      _formatBar,
-      "Text animation",
-      L("애니메이션", "Animate"),
-      ToggleAnimate,
-      _reduceMotion(),
-      icon: LayoutAction.Animate,
-      toggle: true
-    );
-    _growButton = new OverlayBarButton(
-      _ui,
-      _formatBar,
-      "Grow from",
-      L("기준점", "Grow from"),
-      ToggleGrow,
-      _reduceMotion(),
-      icon: LayoutAction.GrowFrom
-    );
-    _formatButtons = new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton };
+    _bar = new OverlayEditorBar(_screen.Ui, _screen.Frame, "Format");
+    bool motion = _reduceMotion();
+    _bar.Add(_fonts.BuildButton(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_size.BuildButton(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_color.BuildButton(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_animate.BuildButton(_screen.Ui, _bar.Root, motion));
+    _bar.Add(_grow.BuildButton(_screen.Ui, _bar.Root, motion));
   }
 
-  // Values keep their meaning's color when inserted: judgment counts their
-  // judgment's color, plain counts white, the rest the highlight color.
-  private static OverlayColorSettings InsertColor(OverlayValueId id) =>
-    id switch
-    {
-      OverlayValueId.TooEarly or OverlayValueId.TooLate => OverlayColorSettings.Custom("#FF0000"),
-      OverlayValueId.VeryEarly or OverlayValueId.VeryLate => OverlayColorSettings.Custom("#FF6F4E"),
-      OverlayValueId.EarlyPerfect or OverlayValueId.LatePerfect => OverlayColorSettings.Custom("#A0FF4E"),
-      OverlayValueId.PerfectEarly or OverlayValueId.PurePerfect or OverlayValueId.PerfectLate =>
-        OverlayColorSettings.Custom("#" + JudgementColors.Perfect),
-      OverlayValueId.Overload or OverlayValueId.Miss => OverlayColorSettings.Custom(
-        OverlayElementDefaults.JudgementBase
-      ),
-      OverlayValueId.SongTitle or OverlayValueId.Attempt or OverlayValueId.FullAttempt or OverlayValueId.TimingScale =>
-        OverlayColorSettings.Custom("#FFFFFF"),
-      _ => OverlayColorSettings.HighlightColor(),
-    };
-
-  // The selection, or the whole text when nothing is selected.
-  private void Range(out int start, out int end)
+  public void Tick()
   {
-    start = HasSelection ? Mathf.Min(_anchor, _caretIndex) : 0;
-    end = HasSelection ? Mathf.Max(_anchor, _caretIndex) : _document.Count;
-  }
-
-  private OverlayColorSettings RangeColor()
-  {
-    Range(out int start, out int end);
-    return start < end ? _document[start].Color : TypingColor(_caretIndex);
-  }
-
-  // Values in the range grow briefly each time what they show changes; text
-  // between them never moves. Turning it on plays it once on the preview.
-  private void ToggleAnimate()
-  {
-    ClosePopovers();
-    if (_picker.Visible)
-      _picker.Hide();
-    Range(out int start, out int end);
-    OverlayAnimateState state = _document.AnimateState(start, end);
-    if (state == OverlayAnimateState.NoValues)
-    {
-      _screen.Notice(
-        HasSelection
-          ? L(
-            "고른 부분에 값이 없어요. 값까지 함께 고르면 그 값이 바뀔 때마다 움직여요.",
-            "The selection has no value. Include a value to make it move each time it changes."
-          )
-          : L(
-            "아직 움직일 값이 없어요. 값을 넣으면 그 값이 바뀔 때마다 움직여요.",
-            "There's no value to move yet. Add one and it moves each time it changes."
-          )
-      );
+    if (_screen == null)
       return;
-    }
-    bool animate = state != OverlayAnimateState.On;
-    Remember(false);
-    _document.SetAnimate(start, end, animate);
-    Render();
-    if (!animate)
-      return;
-    _screen.Notice(
-      L(
-        "값이 바뀔 때마다 잠깐 커졌다가 돌아와요.",
-        "Each time the value changes, it grows for a moment and settles back."
-      ),
-      false
-    );
-    // Every value in the preview is a link, in order.
-    int link = 0;
-    for (int i = 0; i < end; i++)
+    if (_screen.ViewChanged)
     {
-      if (!_document[i].IsValue)
-        continue;
-      if (i >= start)
-        _previewPulse.Play(link);
-      link++;
-    }
-  }
-
-  private void OpenPicker()
-  {
-    ClosePopovers();
-    if (_picker.Visible)
-    {
-      _picker.Hide();
+      ClosePopovers();
+      Build();
       Render();
+    }
+    _screen.Tick();
+    SettingsColorPicker picker = _color.Picker;
+    if (picker.Visible && picker.IsTyping)
+    {
+      if (Input.GetKeyDown(KeyCode.Escape))
+        picker.Hide();
       return;
     }
-    Range(out int start, out int end);
-    OverlayColorSettings current = RangeColor();
-    _picker.ShowSource(
-      HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color"),
-      current,
-      color =>
+    _fonts.Tick();
+    // The font search takes the keyboard; Esc closes the list.
+    if (_fonts.IsTyping)
+    {
+      if (Input.GetKeyDown(KeyCode.Escape))
       {
-        if (!_pickerSnapshotTaken)
-        {
-          Remember(false);
-          _pickerSnapshotTaken = true;
-        }
-        OverlayColorSettings before = RangeColor();
-        // A gradient's stops keep their own calculated opacities.
-        if (!color.IsGradient)
-          color = _opacity.Keep(before, color);
-        if (start < end)
-          _document.SetColor(start, end, color);
-        else
-          _pendingColor = color;
-        // A moved slider replaces the opacity the dock is calculating.
-        if (_fieldSlot == OpacityKey && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
-          _editing.Deactivate();
+        _fonts.Hide();
         Render();
       }
-    );
-    Render();
-  }
-
-  // The color button lets go of its lit state once the picker closes.
-  private void PickerHidden()
-  {
-    _pickerSnapshotTaken = false;
-    if (_screen == null || _picker == null)
+      FollowLiveValues();
       return;
-    // Its numbers go with it.
-    if (_fieldSlot == OpacityKey || GradientKey(_fieldSlot))
-      ClosePopovers();
+    }
+    _pointer.HandleMouse();
+    _keyboard.HandleKeys();
+    if (_screen == null)
+      return;
+    _pointer.UpdateHover(Input.mousePosition);
+    _keyboard.FollowComposition();
+    bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
+    // The text's caret rests while a formula has the input.
+    _marks.Blink(!_text.HasSelection && !_formulas.Editing.Active && blink);
+    _dock.Blink(blink);
+    _keyboard.UpdateImePosition();
+    FollowLiveValues();
+    if (_space.Moving)
+      RenderKeepingBlink();
+  }
+
+  // A level playing behind the editor moves the values it shows.
+  private void FollowLiveValues()
+  {
+    // A font that finished loading (installed fonts are listed in the background) redraws too.
+    bool fonts = _element != null && _preview.FontChanged;
+    if (!_live.Changed(_liveMask) && !fonts)
+      return;
+    if (fonts)
+      _preview.ApplyFont();
+    RenderKeepingBlink();
+  }
+
+  private void RenderKeepingBlink()
+  {
+    float blinkStart = _blinkStart;
+    Render();
+    _blinkStart = blinkStart;
+  }
+
+  private OverlayValueMask LiveMask()
+  {
+    OverlayFormulaEditing editing = _formulas.Editing;
+    OverlayValueMask mask = editing.Active ? editing.Working.Mask : OverlayValueMask.None;
+    OverlayTextDocument document = _text.Document;
+    for (int i = 0; i < document.Count; i++)
+    {
+      OverlayTextItem item = document[i];
+      if (item.IsValue)
+        mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Value));
+      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
+      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
+    }
+    return mask | _preview.GradientMask;
+  }
+
+  // Rebuilds the text at its game size and everything placed around it.
+  private void Render()
+  {
+    if (_screen == null)
+      return;
+    _blinkStart = Time.unscaledTime;
+    _formulas.Sync(_dock);
+    // The text stays above the dock.
+    _bottomTop = _dock.Top;
+    // The text and its bar keep to the space left of an open picker; it
+    // glides aside as the picker opens, and back as it closes.
+    _space.Measure(_screen, _color.Picker, _dock, _reduceMotion(), out float left, out float right);
+    _preview.Draw(left, right, OverlayEditorFrame.TopBar + 64, _bottomTop - 40, _screen.Scale, _elementScale);
+    _map.Map();
+    _marks.PlaceCaret();
+    _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
+    ShowFields();
+    float barWidth = _bar.LayOut();
+    _bar.Place(
+      Mathf.Max(OverlayEditorFrame.Margin, (left + right) * .5f - barWidth * .5f),
+      Mathf.Max(OverlayEditorFrame.TopBar, _preview.Top - OverlayEditorBar.Height - 18),
+      barWidth
+    );
+    _color.ShowSwatch();
+    _color.Place(_dock);
+    _gradient.Show();
+    _fonts.Place(_dock);
+    _formulas.Refresh(_dock);
+    PlaceGrowMark();
+    _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _screen.Scale);
+    _liveMask = LiveMask();
+  }
+
+  // The bar's buttons show the range's font, size, color, animation and grow point.
+  private void ShowFields()
+  {
+    _size.Show();
+    _color.ShowButton();
+    _animate.Show();
+    _fonts.ShowButton();
+    _grow.ShowButton();
+    _color.ShowOpacity();
+  }
+
+  // While the grow popover is open, a dot marks the point that stays put.
+  private void PlaceGrowMark()
+  {
+    if (!_grow.Visible)
+    {
+      _grow.HideMark();
+      return;
+    }
+    Rect text = _screen.FrameRect(_preview.Text.rectTransform);
+    _grow.PlaceMark(text.x, text.y, text.width, text.height);
+  }
+
+  private bool AnyPopover => _formulas.Open || _grow.Visible || _fonts.Visible;
+
+  private void ClosePopovers()
+  {
+    _formulas.Close();
+    _dock?.Edit(null);
+    _grow.Hide();
+    _fonts.Hide();
+  }
+
+  // The dimmed space around the text belongs to it; the top bar, the format
+  // bar, the popovers and the picker don't.
+  private bool InTextArea(Vector2 screen)
+  {
+    if (
+      _dock.Contains(screen)
+      || _grow.Contains(screen)
+      || _bar.Contains(screen)
+      || PopoverPlacement.Contains(_color.Picker.Root, screen)
+      || _fonts.Contains(screen)
+    )
+      return false;
+    float y = _screen.ToFrame(screen).y;
+    return y >= OverlayEditorFrame.TopBar && y < _bottomTop - 18;
+  }
+
+  // Undo or redo put an earlier text back; the keypad reads the restored formula afresh.
+  private void Restored()
+  {
+    _formulas.Editing.Deactivate();
     Render();
   }
 
-  private void PlacePicker()
+  /// <summary>Esc closes the picker first, then finishes like Done; only Cancel leaves without saving.</summary>
+  public void Escape()
   {
-    if (_dock != null)
-      KeypadPicker.Place(_picker, _dock);
+    SettingsColorPicker picker = _color.Picker;
+    if (picker.Visible)
+      picker.Hide();
+    else
+      Close(true, true);
   }
 
   /// <summary>Done writes the runs to the element; cancel leaves it as it was.</summary>
@@ -418,29 +377,26 @@ internal sealed partial class OverlayTextEditor : IContentEditor
   {
     if (_screen == null)
       return;
-    if (commit && _picker.Visible && !_picker.Commit())
+    if (commit && _color.Picker.Visible && !_color.Picker.Commit())
       return;
     ClosePopovers();
     TextOverlayElement element = _element;
     Action<bool> closed = _closed;
-    if (commit && element?.Settings != null && !_document.SameAs(_opening))
+    if (commit && element?.Settings != null && _text.Edited)
     {
       element.Settings.Text ??= new OverlayTextSettings();
-      element.Settings.Text.Runs = _document.ToRuns();
+      element.Settings.Text.Runs = _text.Document.ToRuns();
       element.Apply();
     }
     // Where it grows from is part of its placement, saved with the text.
     if (commit && element?.Settings != null)
-      element.SetGrowFrom(_growth);
+      element.SetGrowFrom(_grow.Growth);
     Input.imeCompositionMode = IMECompositionMode.Auto;
-    SettingsColorPicker picker = _picker;
-    _picker = null;
-    picker?.Dispose();
+    _color.DisposePicker();
     _screen.Dispose();
     _screen = null;
-    _ui = null;
-    _dragValue = null;
-    _editing.Deactivate();
+    _drops.Cancel();
+    _formulas.Editing.Deactivate();
     _element = null;
     _closed = null;
     InputGate.SetTextEditing(false);
@@ -455,24 +411,4 @@ internal sealed partial class OverlayTextEditor : IContentEditor
     Close(true, false);
     Close(false, false);
   }
-
-  private static TextAlignmentOptions Horizontal(TextAlignmentOptions alignment)
-  {
-    int value = (int)alignment & 0xFF;
-    return value switch
-    {
-      (int)HorizontalAlignmentOptions.Left => TextAlignmentOptions.MidlineLeft,
-      (int)HorizontalAlignmentOptions.Right => TextAlignmentOptions.MidlineRight,
-      _ => TextAlignmentOptions.Midline,
-    };
-  }
-
-  private static void Anchor(RectTransform rect)
-  {
-    rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
-    rect.pivot = Vector2.zero;
-  }
-
-  // Screen pixels per reference unit of the overlay canvas.
-  private static float ScreenScale => OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
 }

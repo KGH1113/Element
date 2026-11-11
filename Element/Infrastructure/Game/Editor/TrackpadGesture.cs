@@ -3,20 +3,6 @@ using System.Runtime.InteropServices;
 
 namespace Element.Infrastructure.Game.Editor;
 
-[StructLayout(LayoutKind.Sequential)]
-internal struct TrackpadEvent
-{
-  public int Kind,
-    Phase,
-    Momentum,
-    Reserved;
-  public double X,
-    Y,
-    DeltaX,
-    DeltaY,
-    Magnification;
-}
-
 // Pure state/math, also exercised without a running Unity player.
 internal sealed class TrackpadGesture
 {

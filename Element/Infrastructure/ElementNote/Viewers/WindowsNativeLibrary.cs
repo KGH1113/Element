@@ -5,47 +5,6 @@ using Element.Domain.DmNote;
 
 namespace Element.Infrastructure.ElementNote.Viewers;
 
-/// <summary>Resolves exports from a loaded native viewer library.</summary>
-internal interface INativeViewerLibrary
-{
-  IntPtr Symbol(string name);
-}
-
-internal sealed class MacNativeLibrary : INativeViewerLibrary
-{
-  [DllImport("/usr/lib/libSystem.B.dylib")]
-  private static extern IntPtr dlopen(string path, int mode);
-
-  [DllImport("/usr/lib/libSystem.B.dylib")]
-  private static extern IntPtr dlsym(IntPtr handle, string name);
-
-  // Objective-C classes and WebKit callbacks may outlive a view. Keep the image loaded.
-  private static IntPtr _handle;
-
-  private MacNativeLibrary() { }
-
-  public static MacNativeLibrary Load(string path)
-  {
-    if (_handle == IntPtr.Zero)
-    {
-      if (!File.Exists(path))
-        throw new NativeViewerHostException(
-          NativeViewerStatus.ComponentMissing,
-          "Native viewer library is missing: " + path
-        );
-      _handle = dlopen(path, 2);
-      if (_handle == IntPtr.Zero)
-        throw new NativeViewerHostException(
-          NativeViewerStatus.ComponentMissing,
-          "Native viewer library could not load: " + path
-        );
-    }
-    return new MacNativeLibrary();
-  }
-
-  public IntPtr Symbol(string name) => dlsym(_handle, name);
-}
-
 internal sealed class WindowsNativeLibrary : INativeViewerLibrary
 {
   private const int ProcedureNotFound = 127;

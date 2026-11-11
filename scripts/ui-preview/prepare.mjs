@@ -13,7 +13,9 @@ files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayCanvasHos
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayFonts.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/OverlayMaterialFactory.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontCatalog.cs'));
-files.push(path.join(root, 'Element/Infrastructure/Platform/FontFilePickers.cs'));
+files.push(path.join(root, 'Element/Infrastructure/Storage/OverlayFontSampling.cs'));
+for (const name of ['IFontFilePicker', 'FontFilePickers', 'MacFontFilePicker', 'WindowsFontFilePicker'])
+  files.push(path.join(root, 'Element/Infrastructure/Platform', name + '.cs'));
 files.push(path.join(root, 'Element/Presentation/Overlay/Shared/NumberText.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerStatus.cs'));
 files.push(path.join(root, 'Element/Domain/Input/ChatterFilter.cs'));
@@ -29,7 +31,8 @@ for (const name of fs.readdirSync(path.join(root, 'Element/Application/Profiles'
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerSurface.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/RenderViewerPlacement.cs'));
 files.push(path.join(root, 'Element/Domain/DmNote/NativeViewerDefaultLayout.cs'));
-files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerHost.cs'));
+files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerLayoutHost.cs'));
+files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/INativeViewerHost.cs'));
 files.push(path.join(root, 'Element/Infrastructure/ElementNote/Viewers/NativeViewerLayoutTarget.cs'));
 files.push(path.join(root, 'Element/Infrastructure/Game/Planets/PlanetPreviewRenderer.cs'));
 files.push(path.join(root, 'Element/Domain/Tweaks/PlanetColorRule.cs'));

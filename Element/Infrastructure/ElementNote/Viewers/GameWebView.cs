@@ -381,11 +381,3 @@ internal sealed class GameWebView : INativeViewerHost
     return Marshal.GetDelegateForFunctionPointer<T>(address);
   }
 }
-
-internal sealed class NativeViewerHostException : Exception
-{
-  public NativeViewerStatus Status { get; }
-
-  public NativeViewerHostException(NativeViewerStatus status, string message)
-    : base(message) => Status = status;
-}

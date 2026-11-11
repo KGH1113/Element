@@ -2,6 +2,7 @@ using System;
 using Element.Configuration;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
@@ -10,13 +11,14 @@ namespace Element.Presentation.Layout;
 
 // Overlay highlights use the shared picker in RGB mode. Planet customization
 // uses the same controls with its independent alpha channel enabled.
-internal sealed class OverlayColorPopover : IDisposable
+internal sealed class OverlayColorPopover : IPopover, IDisposable
 {
   private readonly ElementSettings _settings;
   private readonly SettingsColorPicker _picker;
   public RectTransform Root => _picker.Root;
   public bool Visible => _picker.Visible;
   public bool IsTyping => _picker.IsTyping;
+  public RectTransform Anchor => null;
   public const float Width = SettingsColorPicker.Width,
     Height = 318;
 
@@ -44,6 +46,8 @@ internal sealed class OverlayColorPopover : IDisposable
   public bool Commit() => _picker.Commit();
 
   public void Hide() => _picker.Hide();
+
+  public bool Contains(Vector2 screen) => Visible && PopoverPlacement.Contains(Root, screen);
 
   public void Dispose() => _picker.Dispose();
 }

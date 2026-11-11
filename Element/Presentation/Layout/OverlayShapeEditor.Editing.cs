@@ -10,6 +10,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 using NVector2 = System.Numerics.Vector2;
+using Element.Presentation.Layout.ContentEditors.Shell;
 
 namespace Element.Presentation.Layout;
 
@@ -571,19 +572,32 @@ internal sealed partial class OverlayShapeEditor
 
   // ---- Keys and clicks ----
 
+  /// <summary>
+  /// Esc closes what is open; with nothing open it finishes like Done. Only
+  /// Cancel leaves without saving.
+  /// </summary>
+  public void Escape()
+  {
+    if (_picker.Visible)
+      _picker.Hide();
+    else if (AnyOpen)
+      CloseEditing();
+    else
+    {
+      Close(true, true);
+      return;
+    }
+    Render();
+  }
+
   private void HandleKeys()
   {
-    bool mac =
-      UnityEngine.Application.platform == RuntimePlatform.OSXPlayer
-      || UnityEngine.Application.platform == RuntimePlatform.OSXEditor;
-    while (_screen != null && Event.PopEvent(_event))
+    bool mac = EditorKeys.Mac;
+    while (_screen != null && EditorKeys.NextKeyDown(_event))
     {
-      if (_event.rawType != EventType.KeyDown)
-        continue;
-      bool command = mac ? _event.command : _event.control;
-      if (command)
+      if (EditorKeys.Command(_event, mac))
       {
-        if (_event.keyCode == KeyCode.Return || _event.keyCode == KeyCode.KeypadEnter)
+        if (EditorKeys.IsEnter(_event.keyCode))
         {
           Close(true, true);
           return;
@@ -600,19 +614,21 @@ internal sealed partial class OverlayShapeEditor
         continue;
       }
       KeyCode code = _event.keyCode;
-      if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
+      if (code == KeyCode.Escape)
       {
-        // Enter and Esc close what is open; Esc with nothing open finishes
-        // like Done. Only Cancel leaves without saving.
+        bool finishing = !_picker.Visible && !AnyOpen;
+        Escape();
+        if (finishing)
+          return;
+        continue;
+      }
+      // Enter closes what is open.
+      if (EditorKeys.IsEnter(code))
+      {
         if (_picker.Visible)
           _picker.Hide();
         else if (AnyOpen)
           CloseEditing();
-        else if (code == KeyCode.Escape)
-        {
-          Close(true, true);
-          return;
-        }
         Render();
         continue;
       }

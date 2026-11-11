@@ -3,10 +3,13 @@ using System.Linq;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Presentation.Layout;
+using Element.Presentation.Layout.Canvas;
+using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Popovers;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -22,15 +25,15 @@ namespace Element.Editor
     private static void CheckGradients(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
-      Call(editor, "AddShape", OverlayShapeKind.Square);
+      Kind<ShapeKind>(editor).Add(OverlayShapeKind.Square);
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
-      OverlayShapeEditor shapes = Field<OverlayShapeEditor>(editor, "_shapeEditor");
+      OverlayShapeEditor shapes = (OverlayShapeEditor)Kind<ShapeKind>(editor).Editor;
       Assert(shapes.IsOpen, "a new square opens its editor");
       Call(shapes, "Write", "width", OverlayFormula.FromNumber(420));
       Call(shapes, "Write", "height", OverlayFormula.FromNumber(240));
       Call(shapes, "Render");
       // With motion, opening the picker glides the shape aside from where it was.
-      ElementSettings preferences = Field<ElementSettings>(editor, "_preferences");
+      ElementSettings preferences = Session(editor).Preferences;
       bool reduceMotion = preferences.ReduceUiMotion;
       preferences.ReduceUiMotion = false;
       Rect resting = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
@@ -204,9 +207,9 @@ namespace Element.Editor
       // The text editor: the same bar makes the whole text a gradient, with
       // handles over the text's box; Cancel leaves the text as it was.
       Select(editor, IndexOf(editor, fps));
-      Call(editor, "UpdateToolbar");
-      Field<Button>(editor, "_editContent").onClick.Invoke();
-      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      Toolbar(editor).Refresh();
+      Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
+      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "Edit text opens the text editor");
       Call(text, "OpenPicker");
       SettingsColorPicker textPicker = Field<SettingsColorPicker>(text, "_picker");

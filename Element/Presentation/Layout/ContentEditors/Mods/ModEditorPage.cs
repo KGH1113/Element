@@ -17,7 +17,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// <see cref="EditorControl.At"/>; cards and tab pages group them. Every
 /// change goes through the editor, which records undo and shows it on the preview.
 /// </summary>
-internal sealed partial class ModEditorPage : EditorPage
+internal sealed class ModEditorPage : EditorPage
 {
   public const float RowHeight = 40,
     RowGap = 10,
@@ -36,6 +36,9 @@ internal sealed partial class ModEditorPage : EditorPage
   private readonly List<ModEditorControl> _items = new();
   private readonly List<TMP_InputField> _inputs = new();
   private readonly Stack<ModEditorGroup> _groups = new();
+  private readonly ModInputParts _inputParts;
+  private readonly ModChoiceParts _choiceParts;
+  private readonly ModPickerParts _pickerParts;
   private int _count;
 
   public ModEditorPage(
@@ -56,7 +59,16 @@ internal sealed partial class ModEditorPage : EditorPage
     _host = host;
     // Clicks on the page's empty space reach the dim behind.
     _root = ui.Rect("Mod editor page", frame, 0, 0, size.x, size.y);
+    _inputParts = new ModInputParts(this);
+    _choiceParts = new ModChoiceParts(this);
+    _pickerParts = new ModPickerParts(this);
   }
+
+  internal SettingsUiFactory Ui => _ui;
+
+  internal IModEditorHost Host => _host;
+
+  internal bool ReduceMotion => _reduceMotion;
 
   public override RectTransform Root => _root;
 
@@ -71,7 +83,7 @@ internal sealed partial class ModEditorPage : EditorPage
   {
     get
     {
-      if (_capture != null)
+      if (_pickerParts.Capturing)
         return true;
       foreach (TMP_InputField input in _inputs)
         if (input != null && input.isFocused)
@@ -81,7 +93,7 @@ internal sealed partial class ModEditorPage : EditorPage
   }
 
   /// <summary>Once a frame: records a shortcut while one is being set.</summary>
-  public void Tick() => TickShortcut();
+  public void Tick() => _pickerParts.TickShortcut();
 
   // ---- Structure ----
 
@@ -205,6 +217,121 @@ internal sealed partial class ModEditorPage : EditorPage
 
   internal void HideTip() => _host.HideTip();
 
+  // ---- Parts ----
+
+  public override EditorControl Label(string text) => _inputParts.Label(text);
+
+  public override EditorControl Button(string text, Action clicked) => _inputParts.Button(text, clicked);
+
+  public override EditorControl IconButton(EditorIcon icon, string hint, Action clicked) =>
+    _inputParts.IconButton(icon, hint, clicked);
+
+  public override EditorControl Switch(string label, bool on, Action<bool> changed) =>
+    _inputParts.Switch(label, on, changed);
+
+  public override EditorControl Checkbox(string text, bool on, Action<bool> changed) =>
+    _inputParts.Checkbox(text, on, changed);
+
+  public override EditorControl Slider(
+    string label,
+    float value,
+    float min,
+    float max,
+    Action<float> changed,
+    float step = 0
+  ) => _inputParts.Slider(label, value, min, max, changed, step);
+
+  public override EditorControl RangeSlider(
+    string label,
+    float low,
+    float high,
+    float min,
+    float max,
+    Action<float, float> changed,
+    float step = 0
+  ) => _inputParts.RangeSlider(label, low, high, min, max, changed, step);
+
+  public override EditorControl Number(string label, float value, float min, float max, Action<float> changed) =>
+    _inputParts.Number(label, value, min, max, changed);
+
+  public override EditorControl Stepper(string label, int value, int min, int max, Action<int> changed, int step = 1) =>
+    _inputParts.Stepper(label, value, min, max, changed, step);
+
+  public override EditorControl TextField(string label, string value, Action<string> changed) =>
+    _inputParts.TextField(label, value, changed);
+
+  public override EditorControl List(string label, List<string> items, Action changed = null, string newItem = "") =>
+    _inputParts.List(label, items, changed, newItem);
+
+  public override EditorControl Choice(
+    string label,
+    IReadOnlyList<string> options,
+    int selected,
+    Action<int> changed
+  ) => _choiceParts.Choice(label, options, selected, changed);
+
+  public override EditorControl Dropdown(
+    string label,
+    IReadOnlyList<string> options,
+    int selected,
+    Action<int> changed
+  ) => _choiceParts.Dropdown(label, options, selected, changed);
+
+  public override EditorControl MultiChoice(
+    string label,
+    IReadOnlyList<string> options,
+    IReadOnlyList<bool> on,
+    Action<int, bool> changed
+  ) => _choiceParts.MultiChoice(label, options, on, changed);
+
+  public override EditorControl AnchorPicker(string label, Anchor value, Action<Anchor> changed) =>
+    _choiceParts.AnchorPicker(label, value, changed);
+
+  public override EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true) =>
+    _pickerParts.ColorPicker(label, value, changed, opacity);
+
+  public override EditorControl ColorPicker(string label, Paint value, Action<Paint> changed) =>
+    _pickerParts.ColorPicker(label, value, changed);
+
+  public override EditorControl FontPicker(string label, string font, Action<string> changed) =>
+    _pickerParts.FontPicker(label, font, changed);
+
+  public override EditorControl Shortcut(
+    string label,
+    ElementKit.Shortcut value,
+    Action<ElementKit.Shortcut> changed
+  ) => _pickerParts.Shortcut(label, value, changed);
+
+  /// <summary>Records <paramref name="input"/>: the page has the keyboard while it is focused.</summary>
+  internal void TrackInput(TMP_InputField input) => _inputs.Add(input);
+
+  internal LayoutActionIcon Icon(Transform parent, LayoutAction kind, float x, float y, float size, Color color)
+  {
+    LayoutActionIcon icon = _ui.Rect("Icon", parent, x, y, size, size).gameObject.AddComponent<LayoutActionIcon>();
+    icon.Kind = kind;
+    icon.color = color;
+    icon.raycastTarget = false;
+    return icon;
+  }
+
+  // A label's one-line width, kept once it has been measured on screen: text
+  // in a tab not picked yet measures short.
+  internal static Func<float> Preferred(TextMeshProUGUI label, string text)
+  {
+    float? measured = null;
+    return () =>
+    {
+      if (measured.HasValue)
+        return measured.Value;
+      if (label == null)
+        return 0;
+      float width = label.GetPreferredValues(text ?? "", 1000, 36).x;
+      if (label.gameObject.activeInHierarchy)
+        measured = width;
+      return width;
+    };
+  }
+
   // ---- Layout ----
 
   /// <summary>
@@ -282,7 +409,7 @@ internal sealed partial class ModEditorPage : EditorPage
   private Transform CurrentParent => _groups.Count > 0 ? _groups.Peek().Rect : _root;
 
   // A row in the column; parts lay themselves out across its width.
-  private ModEditorControl Row(string kind, float height)
+  internal ModEditorControl Row(string kind, float height)
   {
     float rowHeight = height > 0 ? height : RowHeight;
     RectTransform rect = _ui.Rect(kind + " " + ++_count, CurrentParent, 0, 0, ColumnWidth, rowHeight);
@@ -290,7 +417,7 @@ internal sealed partial class ModEditorPage : EditorPage
   }
 
   // The label left of a control; where the control starts.
-  private float Caption(ModEditorControl control, string label, float height = RowHeight)
+  internal float Caption(ModEditorControl control, string label, float height = RowHeight)
   {
     if (string.IsNullOrEmpty(label))
       return 0;
@@ -310,7 +437,7 @@ internal sealed partial class ModEditorPage : EditorPage
     return LabelWidth;
   }
 
-  private ModEditorControl Add(ModEditorControl control)
+  internal ModEditorControl Add(ModEditorControl control)
   {
     if (_groups.Count > 0)
     {
@@ -325,12 +452,12 @@ internal sealed partial class ModEditorPage : EditorPage
     return control;
   }
 
-  private static bool TryNumber(string typed, out float number) =>
+  internal static bool TryNumber(string typed, out float number) =>
     float.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
     && !float.IsNaN(number)
     && !float.IsInfinity(number);
 
-  private static string Format(float value, float step) =>
+  internal static string Format(float value, float step) =>
     step >= 1 || Mathf.Approximately(value, Mathf.Round(value))
       ? Mathf.RoundToInt(value).ToString(CultureInfo.InvariantCulture)
       : value.ToString("0.##", CultureInfo.InvariantCulture);

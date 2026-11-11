@@ -9,13 +9,26 @@ using UnityEngine.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-// Options: side by side, in a list, several at once, and a point of a box.
-internal sealed partial class ModEditorPage
+/// <summary>The page's choices: segments, dropdowns, chips and the anchor picker.</summary>
+internal sealed class ModChoiceParts
 {
-  public override EditorControl Choice(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
+  private readonly ModEditorPage _page;
+  private readonly SettingsUiFactory _ui;
+  private readonly IModEditorHost _host;
+  private readonly bool _reduceMotion;
+
+  public ModChoiceParts(ModEditorPage page)
   {
-    ModEditorControl control = Row("Choice", 0);
-    float x = Caption(control, label);
+    _page = page;
+    _ui = page.Ui;
+    _host = page.Host;
+    _reduceMotion = page.ReduceMotion;
+  }
+
+  public EditorControl Choice(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
+  {
+    ModEditorControl control = _page.Row("Choice", 0);
+    float x = _page.Caption(control, label);
     List<string> names = Names(options);
     SettingsSegmentedControl segments = null;
     segments = new SettingsSegmentedControl(
@@ -37,13 +50,13 @@ internal sealed partial class ModEditorPage
       for (int i = 0; i < segments.Buttons.Count; i++)
         SettingsUiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl Dropdown(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
+  public EditorControl Dropdown(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
   {
-    ModEditorControl control = Row("Dropdown", 0);
-    float x = Caption(control, label);
+    ModEditorControl control = _page.Row("Dropdown", 0);
+    float x = _page.Caption(control, label);
     List<string> names = Names(options);
     int current = Mathf.Clamp(selected, 0, names.Count - 1);
     Button button = null;
@@ -84,7 +97,7 @@ internal sealed partial class ModEditorPage
     shown.textWrappingMode = TextWrappingModes.NoWrap;
     shown.overflowMode = TextOverflowModes.Ellipsis;
     shown.raycastTarget = false;
-    LayoutActionIcon chevron = Icon(button.transform, LayoutAction.Down, 0, 9, 18, SettingsUiFactory.Muted);
+    LayoutActionIcon chevron = _page.Icon(button.transform, LayoutAction.Down, 0, 9, 18, SettingsUiFactory.Muted);
     control.Layout = width =>
     {
       float room = Mathf.Max(120, width - x);
@@ -92,18 +105,18 @@ internal sealed partial class ModEditorPage
       shown.rectTransform.sizeDelta = new Vector2(room - 48, 36);
       SettingsUiFactory.Place(chevron.rectTransform, room - 30, 9, 18, 18);
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl MultiChoice(
+  public EditorControl MultiChoice(
     string label,
     IReadOnlyList<string> options,
     IReadOnlyList<bool> on,
     Action<int, bool> changed
   )
   {
-    ModEditorControl control = Row("Multi choice", 0);
-    float x = Caption(control, label, 36);
+    ModEditorControl control = _page.Row("Multi choice", 0);
+    float x = _page.Caption(control, label, 36);
     List<string> names = Names(options);
     List<(Button Chip, Func<float> Width)> chips = new();
     for (int i = 0; i < names.Count; i++)
@@ -132,7 +145,7 @@ internal sealed partial class ModEditorPage
         _reduceMotion
       );
       Tint(chip, state);
-      chips.Add((chip, Preferred(chip.GetComponentInChildren<TextMeshProUGUI>(), names[i])));
+      chips.Add((chip, ModEditorPage.Preferred(chip.GetComponentInChildren<TextMeshProUGUI>(), names[i])));
     }
     control.Layout = width =>
     {
@@ -153,13 +166,13 @@ internal sealed partial class ModEditorPage
       }
       control.Height = top + 36;
     };
-    return Add(control);
+    return _page.Add(control);
   }
 
-  public override EditorControl AnchorPicker(string label, Anchor value, Action<Anchor> changed)
+  public EditorControl AnchorPicker(string label, Anchor value, Action<Anchor> changed)
   {
-    ModEditorControl control = Row("Anchor", OverlayGrowPicker.Size + 4);
-    float x = Caption(control, label, OverlayGrowPicker.Size);
+    ModEditorControl control = _page.Row("Anchor", OverlayGrowPicker.Size + 4);
+    float x = _page.Caption(control, label, OverlayGrowPicker.Size);
     Anchor current = value;
     OverlayGrowPicker picker = null;
     picker = new OverlayGrowPicker(
@@ -181,7 +194,7 @@ internal sealed partial class ModEditorPage
     picker.Caption.gameObject.SetActive(false);
     picker.Show((OverlayGrowth)(int)current, (Anchor9)(int)current);
     control.Layout = _ => SettingsUiFactory.Place(picker.Root, x, 2, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
-    return Add(control);
+    return _page.Add(control);
   }
 
   // A picked chip is lit in the accent; others look like any capsule button.

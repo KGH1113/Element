@@ -65,12 +65,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _apply = apply;
     _reloadSettings = reloadSettings;
     _viewerModeChanged = viewerModeChanged;
-    _font =
-      overlayFont
-      ?? (
-        RDString.language == SystemLanguage.Korean ? RDConstants.data.koreanFontTMPro : RDConstants.data.latinFontTMPro
-      )
-      ?? TMP_Settings.defaultFontAsset;
+    _font = SettingsFonts.Choose(overlayFont);
     nativeViewers.ConfigurePreview(new NativeViewerSamples(_font));
     _canvas = canvas;
     _layoutEditor = new OverlayLayoutEditor(canvas, nativeViewers, _font, OnLayoutClosed, main.Settings);
@@ -110,7 +105,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     try
     {
       return new ProfileService(
-        new ProfileLibrary(_main.Settings, L("기본", "Default")),
+        new ProfileLibrary(_main.Settings, ProfileNames.Default),
         SystemFileDialogs.Create(_main.RuntimePath),
         Save,
         _reloadSettings,
@@ -176,21 +171,11 @@ internal sealed class SettingsUiRuntime : IDisposable
     _apply();
     _panel?.RefreshPresets();
     bool saved = Save();
-    string detail = saved
-      ? L("레벨을 시작하거나 재시작하면 반영됩니다.", "Takes effect when a level starts or restarts.")
-      : L(
-        "저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인해주세요.",
-        "Not saved. Check write permission for the mod folder."
-      );
-    string title = effects.Enabled
-      ? L("이펙트 프리셋: ", "Effect preset: ") + preset.Name
-      : L("이펙트 제거 꺼짐", "Effect removal off");
+    (string title, string detail) = EffectPresetShortcutNotice.For(preset, effects.Enabled, saved);
     // Record mode hides mod overlays; only a failed save still needs to be seen.
     if (!_main.Settings.RecordMode || !saved)
       _toast.Show(title, detail);
   }
-
-  private static string L(string ko, string en) => RDString.language == SystemLanguage.Korean ? ko : en;
 
   private Texture RenderPlanetPreview(int index, PlanetAppearanceProfile profile)
   {

@@ -1,7 +1,7 @@
 # 구조 진단과 리팩터링 계획
 
 2026-11-11, `dev`(be03a1d) 기준. 코드는 아직 바꾸지 않았습니다.
-진행 중인 브랜치 8개(블록 편집기 5개, ElementKit 2개, replay-api-v2)가 건드리는 파일 186개를 함께 확인했습니다.
+블록 편집기 브랜치는 폐기하기로 해서 계획에서 뺐습니다(2026-11-11). ElementKit은 브랜치에서 함께 진단했고, 그 뒤 dev에 합쳤습니다.
 
 ## 한눈에
 
@@ -10,7 +10,7 @@ Element는 263개 파일, 약 45,000줄입니다. 층(Domain, Application, Confi
 
 | 문제 | 대표 사례 | 원칙 |
 | --- | --- | --- |
-| 한 클래스가 너무 많은 일을 함 | `SettingsPanel` 9조각 3,803줄, `OverlayLayoutEditor` 9조각 2,910줄, 블록 편집기 5조각 4,909줄 | 단일 책임 |
+| 한 클래스가 너무 많은 일을 함 | `SettingsPanel` 9조각 3,803줄, `OverlayLayoutEditor` 9조각 2,910줄 | 단일 책임 |
 | 새 종류를 하나 더하려면 여러 곳을 고쳐야 함 | 오버레이 요소 종류 하나에 6개 파일 약 14곳, 값 하나에 4개 층 약 8곳 | 개방-폐쇄 |
 | 의존 방향이 거꾸로 감 | Infrastructure → Presentation 9개 파일, Domain ↔ Configuration 순환 | 의존 역전 |
 | 같은 일을 하는 코드가 여러 벌 있음 | 실행 취소 3벌, 팝업 위치 계산 4벌, 한/영 문구 함수 5벌, 오류 색 7벌 | 한 일은 한 곳에서 |
@@ -18,8 +18,8 @@ Element는 263개 파일, 약 45,000줄입니다. 층(Domain, Application, Confi
 
 **결론:**
 - 규칙부터 정합니다(아래 "목표 구조").
-- 진행 중인 브랜치와 겹치지 않는 것은 지금 고칩니다.
-- 요소 종류, 팝업, 실행 취소, 오버레이 캔버스처럼 브랜치마다 고치고 있는 곳은 블록·ElementKit 브랜치를 dev에 합친 뒤에 한 번에 고칩니다.
+- dev에서 영역별로 나눠 고칩니다(아래 "8. 진행").
+- 마지막에 폴더와 네임스페이스를 목표 구조로 옮깁니다.
 
 ## 1. 층 사이 의존 방향
 
@@ -62,10 +62,9 @@ partial 파일로 나눠도 클래스는 하나입니다. 필드를 모든 조�
 | 클래스 | 크기 | 하는 일 |
 | --- | --- | --- |
 | `SettingsPanel` | 9조각 3,803줄, 필드 약 146개 | 설정 창 틀, 모든 탭, 팝업 3개, Esc 처리, 단축키 규칙 |
-| `OverlayBlockEditor` (overlay-blocks) | 5조각 4,909줄, 필드 약 97개 | 블록 작업대, 팔레트, 글자 모양과 도형 모양, 변수·목록 |
 | `OverlayLayoutEditor` | 9조각 2,910줄, 필드 약 83개 | 배치, 선택, 도구 막대, 요소 막대, 추가 메뉴, 팝업, 상태 줄, 편집기 열기 |
 | `ModRuntime` | 661줄 | 객체 조립, 게임 이벤트 14개 받기, 매 프레임 루프, 플레이 표시 규칙, 게임 직접 읽기 |
-| `OverlayModEditor` (elementkit) | 702줄, 필드 약 40개 | 편집 화면 틀, 미리보기, 실행 취소, 팝업 4종, 키·마우스, 모드 오류 격리 |
+| `OverlayModEditor` | 702줄, 필드 약 40개 | 편집 화면 틀, 미리보기, 실행 취소, 팝업 4종, 키·마우스, 모드 오류 격리 |
 | `DmNoteNativeIpcFeature` | 478줄 | IPC 세션, 네이티브 창 수명, 배치 편집기 대상, 렌더 위치, 포커스, 폰트 |
 | `OverlayFormula` | 520줄 | 토큰 모델, 해석, 키패드 편집, 계산, 표시 글자 |
 
@@ -87,7 +86,7 @@ partial 파일로 나눠도 클래스는 하나입니다. 필드를 모든 조�
 | `SettingsInputPatches.cs` | 12 |
 | `RecordingUiPatches.cs` | 10 |
 | `OverlayElementSettings.cs` | 10 |
-| `ModEditorControl.cs` (elementkit) | 10 |
+| `ModEditorControl.cs` | 10 |
 | `RenderContracts.cs` | 8 |
 | `GameplayTweaksSettings.cs` | 7 |
 | `SettingsGradientGraphics.cs` | 6 |
@@ -96,20 +95,20 @@ partial 파일로 나눠도 클래스는 하나입니다. 필드를 모든 조�
 
 | 더하는 것 | 지금 고치는 곳 | 바꿀 방향 |
 | --- | --- | --- |
-| 오버레이 요소 종류 | 6개 파일 약 14곳. 블록에서 편집하면 6개 파일이 더 늘어남. `TemplateId` 문자열 분기가 22곳 | 종류마다 설명서 하나(`IElementKind`: 이름, 아이콘, 만들기, 편집기 열기, 닫을 때 규칙). 전체 화면 편집기는 `IContentEditor` 한 자리 |
-| 오버레이 값 | 4개 층 약 8곳. `ulong` 마스크라 64개가 한계. blocks 브랜치는 두 번째 경로(`IGameplayValueSink`)를 추가함 | 경로 하나로(sink 쪽이 후계). 값 정의에 기본 색까지 담기 |
+| 오버레이 요소 종류 | 6개 파일 약 14곳. `TemplateId` 문자열 분기가 22곳 | 종류마다 설명서 하나(`IElementKind`: 이름, 아이콘, 만들기, 편집기 열기, 닫을 때 규칙). 전체 화면 편집기는 `IContentEditor` 한 자리 |
+| 오버레이 값 | 4개 층 약 8곳 | 값 정의 하나에 읽기·쓰기·기본 색까지 담아, 값을 더할 때 정의만 늘리기 |
 | 설정 탭 | 6곳 이상 | `ISettingsPage` 한 클래스 = 탭 하나. 패널은 페이지 사이를 오가기만 함 |
 | 게임 패치 | 연결 방식 3가지가 섞여 있음: `Main.Instance?.Runtime?.X()` 18곳, 생성자에서 넣는 정적 필드, 손으로 만든 Harmony 인스턴스 2개(실패 목록과 되돌리기에 빠짐) | 모든 패치를 `Game/Patches`의 특성 방식으로. 패치는 Bootstrap이 한 번 넣어 준 대상에 넘기기만 함 |
 | 같은 게임 메서드 패치 | `scnEditor.Update` 3곳, 그 밖에 6개 메서드가 2곳씩. 순서는 우선순위 숫자에 달림 | 게임 메서드 하나에 패치 하나, 그 안에서 처리할 목록을 순서대로 부름 |
 
-**`OverlayCanvasHost`가 충돌 지점입니다.** 요소 종류마다 분기와 목록이 늘어나서, elementkit과 overlay-blocks가 같은 메서드를 함께 고칩니다.
+**`OverlayCanvasHost`가 충돌 지점입니다.** 요소 종류마다 분기와 목록이 늘어나서, 종류를 더할 때마다 같은 메서드를 고칩니다(ElementKit 요소를 더할 때도 그랬습니다).
 요소들이 같은 프레임 메서드를 공유하지 않는 것이 원인입니다. Text는 `Refresh(changes, settle)`, Shape는 `Refresh(changes)`를 씁니다.
 
 ## 4. 같은 일을 하는 코드가 여러 벌
 
 | 일 | 벌 수 | 위치 |
 | --- | --- | --- |
-| 실행 취소 기록 | 3 | `LayoutHistory`, 블록 편집기(1.2초 안 묶음), 모드 편집기(1초 안 묶음) |
+| 실행 취소 기록 | 4 | `LayoutHistory`, 글자 편집기, 도형 편집기, 모드 편집기(1초 안 묶음) |
 | 팝업 위치 계산 | 4 | `OverlayEditorUi.PlaceUnder`, `OverlayGrowPopover.Show`, `PopoverAboveToolbar`, `PlaceShapeMenu` |
 | 목록 메뉴 | 4 | 추가 메뉴, 도형 메뉴, `BlockMenu`, `ModListPopover` |
 | 팝업 열고 닫기 목록 | 편집기마다 | `VisiblePanels`, `CloseTopPopover`, `RaisePopovers`… / `AnyControlOpen`, `LookPopupOpen`… |
@@ -218,7 +217,7 @@ Element/
     Hosting/           PatchGroups, FrameLoop (매 프레임 목록 하나), 실패 제한
 ```
 
-**ElementKit**(feat/elementkit-elements, 아직 공개 전이라 지금 바꾸기 좋음):
+**ElementKit**(아직 공개 전이라 지금 바꾸기 좋음):
 
 ```
 ElementKit/          네임스페이스는 ElementKit 하나 (폴더는 파일 정리용)
@@ -254,7 +253,6 @@ Element.Tests/
 - **프로필 전환이 소리 없이 깨질 수 있습니다.** `SettingsCopy.IsSettingsObject`는 네임스페이스가 `Element.Configuration`으로 시작하는 클래스만 "제자리에 복사"합니다. 설정 클래스를 다른 네임스페이스로 옮기면 객체가 통째로 바뀌어, 다른 곳에서 들고 있던 참조가 끊깁니다. 옮기기 전에 표식 특성으로 바꿉니다.
 - **UI 검사가 깨집니다.** `scripts/ui-preview/prepare.mjs`가 소스 경로 약 25개를 직접 적어 두었습니다. 폴더를 옮길 때 함께 고쳐야 합니다.
 - **다른 모드와의 연결이 끊길 수 있습니다.** `Element.Main`(런처가 리플렉션으로 부름)과 `Element.AttemptCounter`(다른 모드가 리플렉션으로 붙음)는 이름과 네임스페이스를 바꾸면 안 됩니다.
-- **블록 브랜치가 사라지는 코드를 고치지 않습니다.** `retire-classic-editors`가 예전 글자·도형 편집기(`OverlayTextEditor*`, `OverlayShapeEditor*`)와 `Editing/` 위젯 10개를 지웁니다.
 - **메인 체크아웃의 `Element.sln`은 커밋하지 않습니다.** 워크트리 경로가 들어간 변경이 커밋되지 않은 채 있어서, 커밋하면 솔루션이 깨집니다.
 
 ## 7. 구조를 보다가 찾은 성능 문제
@@ -266,41 +264,41 @@ Element.Tests/
 | `UpdateToolbar`가 매 프레임 아이콘 약 12개마다 `GetComponentInParent`를 부름 | 배치 편집기가 열려 있을 때 | 보고만 받음 |
 | `GameplayTweaksController`가 설정을 적용할 때마다 다시 정리함(색을 끄는 동안 매 샘플) | 설정 변경 중 | 보고만 받음 |
 | 갤러리를 새로 그릴 때마다 `SettingsUiFactory`를 새로 만들어 둥근 모서리 텍스처를 다시 만듦 | 설정 화면 | 보고만 받음 |
-| `OverlayFormula.TryEvaluate`가 계산할 때마다 숫자 문자열을 다시 해석함 | 수식이 있을 때 | blocks가 다시 씀 |
+| `OverlayFormula.TryEvaluate`가 계산할 때마다 숫자 문자열을 다시 해석함 | 수식이 있을 때 | 보고만 받음 |
 
-## 8. 순서
+## 8. 진행
 
-**0단계: 지금 할 수 있는 것.** 진행 중인 브랜치가 건드리지 않는 파일만 다룹니다(대조함).
+dev에서 `refactor/structure` 브랜치를 만들고, 영역마다 작업 폴더(워크트리)를 하나씩 둡니다.
+영역은 파일이 되도록 겹치지 않게 나눴습니다. 끝난 영역부터 `refactor/structure`에 합치고, 합칠 때마다 검사를 다시 돌립니다.
 
-1. `SettingsPanel`을 `ISettingsPage` 페이지 클래스로 나눕니다. "Profile editor" 페이지가 빠지는 문제도 함께 고칩니다.
-2. 설정 창 안을 정리합니다.
-   - 단축키 겹침 규칙을 `ElementSettings.ShortcutOwner` 하나로 합칩니다.
-   - 한/영 문구 함수, 탭, 아이콘, 오류 색을 하나씩만 남깁니다.
-3. 파일 하나에 여러 타입이 든 것을 나눕니다(Settings, Configuration, Infrastructure 쪽).
-4. 의존 방향을 바로잡습니다.
-   - `UIInteractionState`를 `Application/Input/InputGate`로 옮깁니다.
-   - `PatchGroupAttribute`를 Infrastructure로 옮깁니다.
-   - 키뷰어·폰트 포트를 Application으로 옮깁니다.
-   - `NativeViewerMock`과 배치 대상을 Presentation으로 옮깁니다.
-5. Configuration에서 동작을 빼냅니다.
-   - `EffectSettings`의 프리셋 편집을 Application으로 옮깁니다.
-   - `ProfileFileCodec`을 포트 뒤로 숨깁니다.
-   - `SettingsCopy`를 표식 특성 방식으로 바꿉니다.
-6. Domain을 정리합니다.
-   - `Input`, `Editor`, `DmNote` 폴더 이름을 내용에 맞게 바꿉니다.
-   - `Combo`와 `TimingScale`을 Judgement로 합칩니다.
-   - 쓰이지 않는 `HitTextVisibilityPolicy`를 지웁니다. 테스트에서만 부르고 있습니다.
-7. 성능: `DmNoteNativeIpcFeature`의 델리게이트를 한 번만 만들어 두고, `NativeExclusions`의 반복자를 없앱니다.
-8. 테스트를 정리합니다: `Support/` 공용 도우미를 만들고, 테스트 묶음을 자동으로 찾게 하고, 폴더를 Element와 같은 모양으로 맞춥니다.
-9. ElementKit 구조를 정리합니다(feat/elementkit-elements 안에서).
+| 영역 | 맡는 것 |
+| --- | --- |
+| core | Domain·Configuration·Application(아래 runtime 몫 제외). 설정 이전을 `SettingsMigrator` 하나로, `SettingsCopy` 표식, 저장 클래스에서 파일 입출력 빼기, `OverlayFormula`·`OverlayElementDefaults` 나누기, 여러 타입 파일 나누기, 판정 색 한 곳, 쓰이지 않는 코드 지우기 |
+| runtime | Infrastructure·Bootstrap, Application의 `Features`·`OverlayCoordinator`·`OverlaySources`·`Rendering`. 패치 연결 방식 하나, 같은 게임 메서드에 패치 하나, `ModRuntime` 나누기(`FrameLoop`, `GameplaySession`), `RenderSession`, `InputGate`, 포트를 Application으로, IPC 묶음, ElementNote·TUFReplay 코드 모으기, 행성 색 규칙 |
+| settings | 설정 창: `SettingsPanel`을 페이지 클래스로, 설정 창 안의 중복(문구 함수, 탭, 키 입력, 단축키 겹침 규칙), 이펙트 프리셋 편집을 Application으로, 둥근 모서리 텍스처 공유 |
+| layout | 배치 편집기와 오버레이 캔버스: 요소 종류 설명서(`IElementKind`), `OverlayCanvasHost` 종류별 생성, 조각 파일을 클래스로, 팝업 하나로(`IPopover`), `UndoStack<T>`, 글자·도형·모드 편집기 나누기 |
+| tooling | `scripts/` 규칙 하나, `docs/` 폴더 나누기 |
 
-**1단계: 블록·ElementKit 브랜치를 dev에 합친 뒤.** 이 브랜치들이 같은 파일을 고치고 있어서, 먼저 하면 충돌 정리가 커집니다.
+그다음 순서대로 합니다.
+1. 공용 UI 부품을 `Presentation/Ui`로 모으고, 아이콘·색·문구를 하나로 합칩니다.
+2. 테스트를 정리합니다: `Support/`, 자동 등록, Element와 같은 폴더 모양.
+3. 폴더와 네임스페이스를 목표 구조로 옮깁니다.
+4. 문서를 고치고, `mod-check`·`ui-check`를 돌린 뒤 설치합니다.
 
-1. 요소 종류 설명서(`IElementKind`)와 편집기 자리(`IContentEditor`)를 만듭니다. `OverlayCanvasHost`는 종류별 생성 목록을 쓰게 바꿉니다.
-2. `IPopover`, `PopoverStack`, `PopoverPlacement`, `ListMenu`로 팝업을 하나로 합칩니다.
-3. 실행 취소를 `UndoStack<T>` 하나로 합칩니다.
-4. 값 경로를 하나로 정합니다(`IGameplayValueSink`).
-5. `ModRuntime`을 조립, `FrameLoop`, `GameplaySession`으로 나눕니다. 패치 연결 방식도 하나로 맞춥니다.
-6. `OverlayLayoutEditor`와 블록 편집기의 조각 파일을 클래스로 나눕니다.
+## 9. 작업 규칙
 
-**2단계: 폴더 옮기기.** 이름만 바꾸는 기계적인 작업을 층마다 커밋 하나씩 합니다. 각 단계마다 `mod-check`, `ui-check`, 설치까지 확인합니다.
+- **동작은 그대로 둡니다.** 화면, 문구, 저장 파일 형식, 설정 XML이 바뀌면 안 됩니다. 고치기로 한 버그만 예외이고, 커밋 메시지에 따로 적습니다.
+- **공개 이름은 바꾸지 않습니다.** `Element.Main`, `Element.AttemptCounter`, ElementKit의 공개 API, `Element.Configuration` 네임스페이스가 그 대상입니다(`SettingsCopy` 표식을 바꾸기 전까지).
+- **의존 방향을 지킵니다.**
+  - Domain은 Element의 다른 층을 모릅니다. Unity·게임의 enum은 쓸 수 있지만, 객체는 쓰지 않습니다.
+  - Configuration은 Element의 다른 층을 모릅니다.
+  - Application은 Domain과 Configuration만 압니다.
+  - Infrastructure와 Presentation은 Application·Domain·Configuration만 알고, 서로는 모릅니다.
+  - Bootstrap은 모두를 압니다.
+- **파일 하나에 타입 하나를 둡니다.** 서로 붙어 다니는 작은 요청·응답 타입만 한 파일에 모으고, 파일 이름을 그 묶음 이름으로 짓습니다. MonoBehaviour는 항상 따로 둡니다.
+- **partial 조각을 새로 만들지 않습니다.** 일이 다르면 클래스를 나눕니다.
+- **포트는 그 포트가 필요한 기능 폴더(Application/<기능>)에 둡니다.**
+- **네임스페이스는 폴더 경로와 같게 합니다.**
+- **매 프레임 도는 코드에서는 메모리를 새로 잡지 않습니다.** LINQ, 클로저, `yield`, 박싱을 쓰지 않고, 델리게이트는 한 번 만들어 둡니다.
+- **UI 검사(`scripts/ui-preview`)는 비공개 필드와 메서드를 이름으로 찾습니다.** 이름을 바꾸거나 옮기면 검사도 함께 고치고 `ui-check`로 확인합니다.
+- **검사와 커밋:** 바꾼 C# 파일은 csharpier로 정리합니다. `./scripts/run.sh mod-check`를 통과해야 하고, 화면을 건드렸으면 `./scripts/run.sh ui-check`도 통과해야 합니다. 커밋은 작게 나눠 `refactor(<영역>): …` 형식으로 남깁니다.

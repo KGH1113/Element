@@ -14,7 +14,7 @@ internal static class ScrFloorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix(scrFloor __instance) => GameHooks.Tweaks?.OnFloorVisibilityChanged(__instance);
+    private static void Postfix(scrFloor __instance) => GameHooks.EditorTweaks?.OnFloorVisibilityChanged(__instance);
   }
 
   [HarmonyPatch]
@@ -25,6 +25,6 @@ internal static class ScrFloorPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix(scrFloor __instance) => GameHooks.Tweaks?.OnFloorVisibilityChanged(__instance);
+    private static void Postfix(scrFloor __instance) => GameHooks.EditorTweaks?.OnFloorVisibilityChanged(__instance);
   }
 }

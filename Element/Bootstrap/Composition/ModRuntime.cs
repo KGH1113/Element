@@ -9,16 +9,17 @@ using Element.Application.KeyLimiter;
 using Element.Application.KeyViewer;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
+using Element.Configuration;
 using Element.Domain.DmNote;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
 using Element.Infrastructure.ElementNote.Keys;
 using Element.Infrastructure.ElementNote.Viewers;
-using Element.Infrastructure.Game;
 using Element.Infrastructure.Game.Editor;
 using Element.Infrastructure.Game.Effects;
 using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Game.Patches;
+using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Game.Recording;
 using Element.Infrastructure.Game.Settings;
@@ -62,7 +63,8 @@ internal sealed class ModRuntime : IDisposable
   private ElementNoteAppLauncher _elementNoteApp;
   private RecordingModeController _recordingMode;
   private EditorTrackpadController _trackpad;
-  private GameplayTweaksController _gameplayTweaks;
+  private GuardedEditorTweaks _editorTweaks;
+  private GuardedPlanetAppearance _planetAppearance;
   private EffectsController _effects;
   private AttemptRunReader _attemptRuns;
   private AttemptTracker _attempts;
@@ -114,8 +116,10 @@ internal sealed class ModRuntime : IDisposable
         );
       GameHooks.Trackpad = _trackpad;
       GameHooks.Chatter = _main.Chatter;
-      _gameplayTweaks = new GameplayTweaksController(() => _main.Settings.Gameplay, _main.Chatter, _main.LogException);
-      GameHooks.Tweaks = _gameplayTweaks;
+      _editorTweaks = new GuardedEditorTweaks(_main.Settings.Gameplay.Editor, _main.LogException);
+      GameHooks.EditorTweaks = _editorTweaks;
+      _planetAppearance = new GuardedPlanetAppearance(_main.Settings.Gameplay.Planets, _main.LogException);
+      GameHooks.PlanetAppearance = _planetAppearance;
       _effects = new EffectsController(() => _main.Settings.Effects);
       GameHooks.Effects = _effects;
       _recordingMode = new RecordingModeController();
@@ -178,7 +182,7 @@ internal sealed class ModRuntime : IDisposable
         _overlay.Canvas,
         _overlay.Font,
         _nativeViewers,
-        _gameplayTweaks.Planets,
+        _planetAppearance.Planets,
         ApplySettings,
         ReloadSettings,
         () => _session?.RefreshViewers(),
@@ -291,7 +295,10 @@ internal sealed class ModRuntime : IDisposable
   {
     OverlayTheme.SetHighlight(_main.Settings.HighlightColor);
     _overlay?.Fonts?.SetDefault(_main.Settings.OverlayFont);
-    _gameplayTweaks?.Apply();
+    ChatterBlockerOptions chatter = _main.Settings.Gameplay.Chatter;
+    _main.Chatter.Configure(chatter.Enabled, chatter.WindowMs, chatter.IgnoredKeys);
+    _editorTweaks?.Apply();
+    _planetAppearance?.Apply();
     _effects?.ApplySettings();
   }
 
@@ -328,8 +335,13 @@ internal sealed class ModRuntime : IDisposable
 
     _trackpad?.Dispose();
     _trackpad = null;
-    _gameplayTweaks?.Dispose();
-    _gameplayTweaks = null;
+    // The chatter blocker outlives the mod; its Tweaks setting stops with it.
+    if (_editorTweaks != null)
+      _main.Chatter.Configure(false, 0, null);
+    _editorTweaks?.Dispose();
+    _editorTweaks = null;
+    _planetAppearance?.Dispose();
+    _planetAppearance = null;
     _effects?.Dispose();
     _effects = null;
 

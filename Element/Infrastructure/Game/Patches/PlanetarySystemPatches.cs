@@ -14,7 +14,7 @@ internal static class PlanetarySystemPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix() => GameHooks.Tweaks?.RefreshPlanets();
+    private static void Postfix() => GameHooks.PlanetAppearance?.Apply();
   }
 
   [HarmonyPatch]
@@ -25,6 +25,6 @@ internal static class PlanetarySystemPatches
 
     [HarmonyPostfix]
     [HarmonyPriority(Priority.Last)]
-    private static void Postfix() => GameHooks.Tweaks?.RefreshPlanets();
+    private static void Postfix() => GameHooks.PlanetAppearance?.Apply();
   }
 }

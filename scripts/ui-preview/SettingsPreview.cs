@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Presentation.Settings;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Overlay.Elements;
 using Element.Domain.Elements;

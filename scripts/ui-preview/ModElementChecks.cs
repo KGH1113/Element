@@ -4,6 +4,7 @@ using System.Linq;
 using Element.Configuration;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Mods;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
 using ElementKit;

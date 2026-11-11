@@ -7,6 +7,7 @@ using Element.Domain.Elements;
 using Element.Domain.Layout;
 using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shared;
 using TMPro;
 using UnityEngine;
@@ -170,7 +171,7 @@ namespace Element.Editor
           "stopping puts the glyphs back where they were laid out");
         check(Same(growing, combo.Bounds, .5f), "a growing value leaves the element's bounds at rest");
 
-        ShapeOverlayElement shape = host.AddShape();
+        ShapeOverlayElement shape = (ShapeOverlayElement)host.Add(ShapeElementKind.NewSettings(OverlayShapeKind.Square));
         Canvas.ForceUpdateCanvases();
         Rect box = shape.Bounds;
         check(Mathf.Abs(box.width - OverlayShapeGeometry.DefaultSize * unit) < 1, "a new shape is 160 reference units wide");

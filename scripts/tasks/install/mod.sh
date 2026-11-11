@@ -8,8 +8,8 @@ source "$TASK_DIR/../../lib/context.sh"
 source "$TASK_DIR/../../lib/guards.sh"
 # shellcheck source=../../lib/mod-layout.sh
 source "$TASK_DIR/../../lib/mod-layout.sh"
-# shellcheck source=../../lib/dmnote-app.sh
-source "$TASK_DIR/../../lib/dmnote-app.sh"
+# shellcheck source=../../lib/element-note-app.sh
+source "$TASK_DIR/../../lib/element-note-app.sh"
 
 assert_non_root_path "$ELEMENT_INSTALL_PATH"
 mkdir -p "$ELEMENT_INSTALL_PATH"
@@ -31,19 +31,19 @@ fi
 # ElementNote comes with the install so Auto open/close opens it. It is built
 # first: a failed build leaves the installed mod as it was.
 # ELEMENT_SKIP_DMNOTE=1 keeps the copy this version folder has.
-dmnote=""
+element_note=""
 if [ "${ELEMENT_SKIP_DMNOTE:-0}" = "1" ]; then
   printf 'Leaving ElementNote as it is (ELEMENT_SKIP_DMNOTE=1).\n'
 elif is_macos; then
-  ensure_dmnote_macos
-  dmnote=macos
+  ensure_element_note_macos
+  element_note=macos
 fi
 remove_legacy_payload "$ELEMENT_INSTALL_PATH"
 remove_other_versions "$ELEMENT_INSTALL_PATH"
 stage_mod "$ELEMENT_INSTALL_PATH" local "" "$development"
 copy_debug_symbols "$runtime"
-if [ "$dmnote" = "macos" ]; then
-  stage_dmnote_macos "$runtime"
+if [ "$element_note" = "macos" ]; then
+  stage_element_note_macos "$runtime"
 fi
 
 printf 'Installed %s to %s\n' "$(mod_version)" "$ELEMENT_INSTALL_PATH"

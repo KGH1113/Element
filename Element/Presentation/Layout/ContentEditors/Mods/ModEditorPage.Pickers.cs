@@ -8,7 +8,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 // Colors, fonts and shortcuts, picked the way Element's own are.
 internal sealed partial class ModEditorPage

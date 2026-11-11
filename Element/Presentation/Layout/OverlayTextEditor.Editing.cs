@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using Element.Configuration;
 using Element.Domain.Elements;
+using Element.Domain.Layout;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -9,7 +11,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Presentation.Layout.ContentEditors.Shell;
 
 namespace Element.Presentation.Layout;
 
@@ -18,8 +19,7 @@ internal sealed partial class OverlayTextEditor
 {
   private readonly List<int> _start = new();
   private readonly List<int> _length = new();
-  private readonly List<Snapshot> _undo = new();
-  private readonly List<Snapshot> _redo = new();
+  private readonly UndoStack<TextEditSnapshot> _history = new(100);
   private readonly Event _event = new();
   private OverlayTextDocument _document = new();
   private OverlayTextDocument _opening = new();
@@ -458,35 +458,28 @@ internal sealed partial class OverlayTextEditor
 
   private void Remember(bool coalesce)
   {
-    if (coalesce && _undo.Count > 0)
+    if (_history.Joins(coalesce))
       return;
-    _undo.Add(new Snapshot(_document.Clone(), _caretIndex, _anchor));
-    if (_undo.Count > 100)
-      _undo.RemoveAt(0);
-    _redo.Clear();
+    _history.Push(Snapshot());
     if (!coalesce)
       _lastTypingAt = -1;
   }
 
   private void Undo()
   {
-    if (_undo.Count == 0)
-      return;
-    _redo.Add(new Snapshot(_document.Clone(), _caretIndex, _anchor));
-    Restore(_undo[_undo.Count - 1]);
-    _undo.RemoveAt(_undo.Count - 1);
+    if (_history.CanUndo && _history.Undo(Snapshot(), out TextEditSnapshot snapshot))
+      Restore(snapshot);
   }
 
   private void Redo()
   {
-    if (_redo.Count == 0)
-      return;
-    _undo.Add(new Snapshot(_document.Clone(), _caretIndex, _anchor));
-    Restore(_redo[_redo.Count - 1]);
-    _redo.RemoveAt(_redo.Count - 1);
+    if (_history.CanRedo && _history.Redo(Snapshot(), out TextEditSnapshot snapshot))
+      Restore(snapshot);
   }
 
-  private void Restore(Snapshot snapshot)
+  private TextEditSnapshot Snapshot() => new(_document.Clone(), _caretIndex, _anchor);
+
+  private void Restore(TextEditSnapshot snapshot)
   {
     _document = snapshot.Document.Clone();
     _caretIndex = snapshot.Caret;
@@ -592,9 +585,7 @@ internal sealed partial class OverlayTextEditor
   {
     float y = (FormatHeight - OverlayBarButton.Height) * .5f;
     float x = y;
-    foreach (
-      OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton }
-    )
+    foreach (OverlayBarButton button in new[] { _fontButton, _sizeButton, _colorButton, _animateButton, _growButton })
     {
       button.Place(x, y);
       x += button.Width + 4;
@@ -993,19 +984,5 @@ internal sealed partial class OverlayTextEditor
       _preview.rectTransform.TransformPoint(new Vector3(x, bottom, 0))
     );
     Input.compositionCursorPos = new Vector2(screen.x, Screen.height - screen.y);
-  }
-
-  private readonly struct Snapshot
-  {
-    public readonly OverlayTextDocument Document;
-    public readonly int Caret;
-    public readonly int Anchor;
-
-    public Snapshot(OverlayTextDocument document, int caret, int anchor)
-    {
-      Document = document;
-      Caret = caret;
-      Anchor = anchor;
-    }
   }
 }

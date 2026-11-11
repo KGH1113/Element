@@ -48,9 +48,15 @@ internal sealed partial class OverlayTextEditor
 
   private void BuildGradientPicker()
   {
-    _position = new OverlayFormulaField(_ui, _picker.PositionSlot, "Color position", "%", () => ActivateField(PositionKey), _reduceMotion());
-    _picker.GradientBox = () =>
-      OverlayTextGradients.Box(_preview.textInfo, out Rect box) ? box.size : Vector2.one;
+    _position = new OverlayFormulaField(
+      _ui,
+      _picker.PositionSlot,
+      "Color position",
+      "%",
+      () => ActivateField(PositionKey),
+      _reduceMotion()
+    );
+    _picker.GradientBox = () => OverlayTextGradients.Box(_preview.textInfo, out Rect box) ? box.size : Vector2.one;
     _picker.ShownPosition = index => ShownStop(index, true);
     _picker.ShownAlpha = index => ShownStop(index, false);
     _picker.StopSelected = () =>
@@ -211,7 +217,12 @@ internal sealed partial class OverlayTextEditor
   private OverlayFormulaSlot GradientSlot() =>
     _fieldSlot switch
     {
-      PositionKey => new OverlayFormulaSlot(PositionKey, false, () => ReadStop(true), formula => WriteStop(true, formula)),
+      PositionKey => new OverlayFormulaSlot(
+        PositionKey,
+        false,
+        () => ReadStop(true),
+        formula => WriteStop(true, formula)
+      ),
       AngleKey => new OverlayFormulaSlot(AngleKey, false, ReadAngle, WriteAngle),
       _ => null,
     };

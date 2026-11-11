@@ -13,7 +13,7 @@ using TMPro;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;
 
-namespace Element.Presentation.Layout;
+namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
 /// The editing screen for an element another mod draws. Element keeps what
@@ -33,8 +33,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private readonly Func<OverlayFonts> _fonts;
   private readonly Action<ElementClass, string, Exception> _report;
   private readonly HashSet<string> _failed = new();
-  private readonly List<string> _undo = new();
-  private readonly List<string> _redo = new();
+  private readonly UndoStack<string> _history = new(100);
   private readonly Event _event = new();
   private OverlayEditorFrame _screen;
   private SettingsUiFactory _ui;
@@ -64,8 +63,6 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private string _opening;
   private string _working;
   private OverlayGrowth _growth;
-  private object _lastKey;
-  private float _lastAt = -1;
   private float _elementScale = 1;
   private Vector2 _boxTopLeft;
   private float _unitsToFrame = 1;
@@ -109,11 +106,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     _opening = element.Settings.Mod?.Data ?? string.Empty;
     _working = _opening;
     _growth = element.Settings.GrowFrom;
-    _undo.Clear();
-    _redo.Clear();
+    _history.Clear();
     _failed.Clear();
     _tabs.Clear();
-    _lastKey = null;
     Build();
     return true;
   }
@@ -259,22 +254,15 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     if (!Run("changing a setting", apply))
       return;
     string after = Save();
+    // Typing in a field is one step for as long as it stays focused.
+    bool typing = key is TMPro.TMP_InputField field && field.isFocused;
+    bool merge = _history.Continues(key, Time.unscaledTime, typing);
     if (after != before)
     {
-      // Typing in a field is one step for as long as it stays focused.
-      bool typing = key is TMPro.TMP_InputField field && field.isFocused;
-      bool merge = key != null && key == _lastKey && (typing || Time.unscaledTime - _lastAt < 1f) && _undo.Count > 0;
-      if (!merge)
-      {
-        _undo.Add(before);
-        if (_undo.Count > 100)
-          _undo.RemoveAt(0);
-      }
-      _redo.Clear();
+      _history.Record(before, merge);
+      _history.DropRedo();
       _working = after;
     }
-    _lastKey = key;
-    _lastAt = Time.unscaledTime;
     Run("showing a setting", _instance.RunSettingsChanged);
     FitPreview();
     if (rebuild && after != before)
@@ -567,26 +555,20 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 
   private void Undo()
   {
-    if (_undo.Count == 0)
-      return;
-    _redo.Add(_working);
-    Restore(_undo[_undo.Count - 1]);
-    _undo.RemoveAt(_undo.Count - 1);
+    if (_history.Undo(_working, out string data))
+      Restore(data);
   }
 
   private void Redo()
   {
-    if (_redo.Count == 0)
-      return;
-    _undo.Add(_working);
-    Restore(_redo[_redo.Count - 1]);
-    _redo.RemoveAt(_redo.Count - 1);
+    if (_history.Redo(_working, out string data))
+      Restore(data);
   }
 
   private void Restore(string data)
   {
     _working = data;
-    _lastKey = null;
+    _history.Break();
     ClosePopovers();
     Run(
       "loading its settings",

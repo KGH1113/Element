@@ -4,6 +4,8 @@ using System.Text;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -11,7 +13,6 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
-using Element.Presentation.Layout.ContentEditors;
 
 namespace Element.Presentation.Layout;
 
@@ -108,8 +109,7 @@ internal sealed partial class OverlayTextEditor : IContentEditor
     _chipPopover = -1;
     _editing.Deactivate();
     _growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
-    _undo.Clear();
-    _redo.Clear();
+    _history.Clear();
     Build();
     Input.imeCompositionMode = IMECompositionMode.On;
     Render();

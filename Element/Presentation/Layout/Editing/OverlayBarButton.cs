@@ -206,7 +206,15 @@ internal sealed class OverlayBarButton
     _track.color = track;
     _thumb.color = thumb;
     float travel = TrackWidth - ThumbSize - ThumbInset * 2;
-    _thumbMotion.Set(ThumbInset + (on == null ? travel * .5f : on.Value ? travel : 0), _reduceMotion);
+    _thumbMotion.Set(
+      ThumbInset
+        + (
+          on == null ? travel * .5f
+          : on.Value ? travel
+          : 0
+        ),
+      _reduceMotion
+    );
     Color label = available ? SettingsUiFactory.Foreground : SettingsUiFactory.Muted;
     _label.color = label;
     if (_icon != null)

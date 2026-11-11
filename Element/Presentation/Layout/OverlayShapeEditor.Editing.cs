@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Domain.Elements;
 using Element.Domain.Layout;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shared;
 using Element.Presentation.Settings;
@@ -10,7 +11,6 @@ using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Settings.SettingsLocale;
 using NVector2 = System.Numerics.Vector2;
-using Element.Presentation.Layout.ContentEditors.Shell;
 
 namespace Element.Presentation.Layout;
 
@@ -113,20 +113,20 @@ internal sealed partial class OverlayShapeEditor
             "채우기 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
             "Picking the fill color · Drop a value on an opacity, position or angle to calculate it"
           )
-      : _picker.Visible
-        ? _pickerForStroke
-          ? L(
-            "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-            "Picking the border color · Drop a value on the opacity to calculate it"
-          )
+        : _picker.Visible
+          ? _pickerForStroke
+            ? L(
+              "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
+              "Picking the border color · Drop a value on the opacity to calculate it"
+            )
+            : L(
+              "채우기 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
+              "Picking the fill color · Drop a value on the opacity to calculate it"
+            )
           : L(
-            "채우기 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-            "Picking the fill color · Drop a value on the opacity to calculate it"
+            "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
+            "Click a number (W, H, border or a corner's arc) to type it here"
           )
-        : L(
-          "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
-          "Click a number (W, H, border or a corner's arc) to type it here"
-        )
     );
   }
 
@@ -403,7 +403,7 @@ internal sealed partial class OverlayShapeEditor
   private void ClearFormula()
   {
     _editing.Clear();
-    _lastKey = null;
+    _history.Break();
     Render();
   }
 
@@ -796,40 +796,30 @@ internal sealed partial class OverlayShapeEditor
   // Edits of one number within a second make one undo step.
   private void Remember(string key)
   {
-    bool coalesce = key != null && key == _lastKey && Time.unscaledTime - _lastAt < 1f;
-    _lastKey = key;
-    _lastAt = Time.unscaledTime;
-    if (coalesce && _undo.Count > 0)
-      return;
-    _undo.Add(_shape.Clone());
-    if (_undo.Count > 100)
-      _undo.RemoveAt(0);
-    _redo.Clear();
+    bool coalesce = _history.Continues(key, Time.unscaledTime);
+    if (!_history.Joins(coalesce))
+      _history.Push(_shape.Clone());
   }
 
   private void Undo()
   {
-    if (_undo.Count == 0)
+    if (!_history.CanUndo)
       return;
-    _redo.Add(_shape.Clone());
-    _shape = _undo[_undo.Count - 1];
-    _undo.RemoveAt(_undo.Count - 1);
+    _history.Undo(_shape.Clone(), out _shape);
     Restored();
   }
 
   private void Redo()
   {
-    if (_redo.Count == 0)
+    if (!_history.CanRedo)
       return;
-    _undo.Add(_shape.Clone());
-    _shape = _redo[_redo.Count - 1];
-    _redo.RemoveAt(_redo.Count - 1);
+    _history.Redo(_shape.Clone(), out _shape);
     Restored();
   }
 
   private void Restored()
   {
-    _lastKey = null;
+    _history.Break();
     // The dock reads the restored number afresh.
     string field = _field;
     _editing.Deactivate();

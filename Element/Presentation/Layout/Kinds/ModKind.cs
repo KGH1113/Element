@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Settings;

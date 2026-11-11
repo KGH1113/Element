@@ -153,24 +153,28 @@ internal sealed partial class OverlayTextEditor
 
   private void RefreshDock()
   {
-    string hint = _picker.Visible && _picker.IsGradient
-      ? L(
-        "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the text color · Drop a value on an opacity, position or angle to calculate it"
-      )
+    string hint =
+      _picker.Visible && _picker.IsGradient
+        ? L(
+          "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
+          "Picking the text color · Drop a value on an opacity, position or angle to calculate it"
+        )
       : _picker.Visible
-      ? L(
-        "글자 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the text color · Drop a value on the opacity to calculate it"
-      )
+        ? L(
+          "글자 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
+          "Picking the text color · Drop a value on the opacity to calculate it"
+        )
       : L(
         "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
         "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
       );
     string name =
-      GradientFieldName() ?? (_fieldSlot == SizeKey ? L("글자 크기", "Text size")
-      : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
-      : L("값", "Value"));
+      GradientFieldName()
+      ?? (
+        _fieldSlot == SizeKey ? L("글자 크기", "Text size")
+        : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
+        : L("값", "Value")
+      );
     _dock.Refresh(_editing, name, DockResult(), hint);
   }
 

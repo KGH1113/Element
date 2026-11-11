@@ -53,7 +53,14 @@ internal sealed partial class OverlayShapeEditor
 
   private void BuildGradientPicker()
   {
-    _position = new OverlayFormulaField(_ui, _picker.PositionSlot, "Color position", "%", () => Activate(PositionKey), _reduceMotion());
+    _position = new OverlayFormulaField(
+      _ui,
+      _picker.PositionSlot,
+      "Color position",
+      "%",
+      () => Activate(PositionKey),
+      _reduceMotion()
+    );
     _picker.GradientBox = () => new Vector2(_resolved.Width, _resolved.Height);
     _picker.ShownPosition = index => ShownStop(index, true);
     _picker.ShownAlpha = index => ShownStop(index, false);

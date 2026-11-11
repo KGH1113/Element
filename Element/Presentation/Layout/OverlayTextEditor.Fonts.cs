@@ -1,4 +1,5 @@
 using Element.Configuration;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Shared;
 using UnityEngine;
 using static Element.Presentation.Settings.SettingsLocale;

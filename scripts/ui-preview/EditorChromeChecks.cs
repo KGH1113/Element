@@ -51,7 +51,9 @@ namespace Element.Editor
     private static void CheckEditorTopLine(object editor, string name, string title)
     {
       OverlayEditorFrame screen = EditorScreen(editor);
-      // A notice an earlier step left has been read.
+      // A notice an earlier step left is read first, and shown again after.
+      string notice = screen.NoticeText;
+      bool warning = screen.Top.Ink.Value.Equals(ElementUI.Colors.Danger);
       SetField(screen.Top, "_noticeUntil", -1f);
       screen.Tick();
       Settle();
@@ -88,6 +90,8 @@ namespace Element.Editor
       screen.Tick();
       Settle();
       Assert(screen.NoticeText == "" && line.text == hint && line.color == UiPalette.Muted, "the shortcuts come back once a notice has been read");
+      if (notice.Length > 0)
+        screen.Notice(notice, warning);
     }
 
     /// <summary>

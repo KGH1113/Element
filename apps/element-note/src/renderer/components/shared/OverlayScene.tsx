@@ -83,7 +83,8 @@ interface OverlaySceneProps {
   selectedKeyType: string;
 
   // 노트 이펙트
-  noteEffect: boolean;
+  /** @deprecated Accepted for older callers; each key controls its Raining. */
+  noteEffect?: boolean;
   noteSettings: NoteSettings;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   webglTracks: any[];
@@ -94,7 +95,8 @@ interface OverlaySceneProps {
 
   // 설정
   backgroundColor: string;
-  keyCounterEnabled: boolean;
+  /** @deprecated Accepted for older callers; each key controls its own count. */
+  keyCounterEnabled?: boolean;
 
   // 선택적
   positionOffset?: { x: number; y: number };
@@ -113,14 +115,12 @@ const OverlayScene = ({
   displayKnobPositions,
   displaySpritePositions = [],
   selectedKeyType,
-  noteEffect,
   noteSettings,
   webglTracks,
   notesRef,
   subscribe,
   noteBuffer,
   backgroundColor,
-  keyCounterEnabled,
   positionOffset,
   onMouseDownCapture,
   showPluginElements = true,
@@ -142,17 +142,15 @@ const OverlayScene = ({
       }}
       onMouseDownCapture={onMouseDownCapture}
     >
-      {noteEffect && (
-        <Suspense fallback={null}>
-          <Tracks
-            tracks={webglTracks}
-            notesRef={notesRef}
-            subscribe={subscribe}
-            noteSettings={noteSettings}
-            noteBuffer={noteBuffer}
-          />
-        </Suspense>
-      )}
+      <Suspense fallback={null}>
+        <Tracks
+          tracks={webglTracks}
+          notesRef={notesRef}
+          subscribe={subscribe}
+          noteSettings={noteSettings}
+          noteBuffer={noteBuffer}
+        />
+      </Suspense>
 
       {currentKeys.map((key, index) => {
         const { displayName } = getKeyInfoByGlobalKey(key);
@@ -174,7 +172,7 @@ const OverlayScene = ({
             pairedKey={pairedKeys?.[index]}
             position={position}
             mode={selectedKeyType}
-            counterEnabled={keyCounterEnabled}
+            counterEnabled={true}
           />
         );
       })}
@@ -243,15 +241,13 @@ const OverlayScene = ({
         keys={currentKeys}
         mode={selectedKeyType}
       />
-      {keyCounterEnabled ? (
-        <KeyCounterLayer
-          keys={currentKeys}
-          positions={
-            displayPositions.length ? displayPositions : currentPositions
-          }
-          mode={selectedKeyType}
-        />
-      ) : null}
+      <KeyCounterLayer
+        keys={currentKeys}
+        positions={
+          displayPositions.length ? displayPositions : currentPositions
+        }
+        mode={selectedKeyType}
+      />
       <OverlayStatCounterLayer positions={displayStatPositions} />
       {showPluginElements && positionOffset && (
         <PluginElementsRenderer

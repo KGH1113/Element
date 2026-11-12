@@ -50,8 +50,13 @@ upstream snapshot.
 ## Defaults
 
 - Note effects are on by default, and Reset Data turns them back on.
-- OBS mode is on by default, so in-game key viewers work without a trip to
-  Settings. A store without `obsModeEnabled` loads with it on.
+- The key viewer has three places to be shown, each with its own switch: inside
+  ADOFAI (on by default), on the desktop (off) and as an OBS browser source
+  (off). Upstream's OBS mode replaces the desktop overlay; here none of the
+  three turns another on or off.
+- The local page server runs while the in-game display or OBS is on. It is
+  bound to this PC only unless OBS is on. A store without `obsModeEnabled`
+  loads with OBS off.
 - Saved stores keep whatever the user chose.
 
 ## Removed upstream components

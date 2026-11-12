@@ -6,14 +6,15 @@ import {
   NumberInput,
   TextInput,
   FontStyleToggle,
-  SectionDivider,
 } from '../PropertyInputs';
 import ImagePicker from '../../../Modal/content/pickers/ImagePicker';
 import ColorPicker from '../../../Modal/content/pickers/ColorPicker';
 import FontPicker from '../../../Modal/content/pickers/FontPicker';
 import FontManagerModal from '../../../Modal/content/managers/FontManagerModal';
-import SoundPicker from '../../../Modal/content/pickers/SoundPicker';
+import PropertySection from '../PropertySection';
+import { useInspectorPages } from '../inspectorPageContext';
 import Checkbox from '../../../common/Checkbox';
+import StateSwatches from '../StateSwatches';
 
 // 피커 타겟 타입
 type PickerTarget =
@@ -29,53 +30,20 @@ type StyleColorProperty =
   | 'activeBorderColor'
   | 'activeFontColor';
 
-interface StyleTabContentInternalProps extends StyleTabContentProps {
-  // 로컬 상태 (단일 선택 시에만 사용, 개별 편집 모드에서는 사용하지 않음)
-  localDx?: number;
-  localDy?: number;
-  localWidth?: number;
-  localHeight?: number;
-  onLocalDxChange?: (value: number) => void;
-  onLocalDyChange?: (value: number) => void;
-  onLocalWidthChange?: (value: number) => void;
-  onLocalHeightChange?: (value: number) => void;
-  onSizeBlur?: () => void;
-}
-
-const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
+const StyleTabContent: React.FC<StyleTabContentProps> = ({
   keyIndex,
   keyPosition,
-  keyCode: _keyCode,
   keyInfo,
-  onPositionChange,
   onKeyUpdate,
   onKeyPreview,
-  onKeyMappingChange: _onKeyMappingChange,
-  isListening = false,
-  onKeyListen,
-  mappingControl,
-  mappingControlLayout,
-  mappingLabel,
   hideDisplayText = false,
   displayTextPlaceholder,
-  hideGeometry = false,
-  showSoundControls = true,
   showImagePicker = false,
   onToggleImagePicker,
   imageButtonRef,
   panelElement,
   useCustomCSS = false,
   t,
-  // 로컬 상태
-  localDx,
-  localDy,
-  localWidth,
-  localHeight,
-  onLocalDxChange,
-  onLocalDyChange,
-  onLocalWidthChange,
-  onLocalHeightChange,
-  onSizeBlur,
 }) => {
   const DEFAULT_KEY_BACKGROUND_COLOR = 'rgba(46, 46, 47, 0.9)';
   const DEFAULT_KEY_BORDER_COLOR = 'rgba(113, 113, 113, 0.9)';
@@ -84,23 +52,23 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
   const DEFAULT_KEY_ACTIVE_BORDER_COLOR = 'rgba(255, 255, 255, 0.9)';
   const DEFAULT_KEY_ACTIVE_FONT_COLOR = '#FFFFFF';
 
-  // 개별 편집 모드인지 확인 (로컬 상태 핸들러가 없으면 개별 편집 모드)
-  const isIndividualMode = !onLocalDxChange;
-
   // 통합 피커 상태
   const [pickerFor, setPickerFor] = useState<PickerTarget>(null);
   const [colorState, setColorState] = useState<ColorState>('idle');
 
   // 컬러 버튼 refs
-  const bgColorBtnRef = useRef<HTMLButtonElement>(null);
+  const bgColorBtnRef = useRef<HTMLDivElement>(null);
   // 폰트 버튼 ref
   const fontButtonRef = useRef<HTMLButtonElement>(null);
-  const soundButtonRef = useRef<HTMLButtonElement>(null);
   // 폰트 관리 모달 상태
   const [showFontManager, setShowFontManager] = useState(false);
-  const [showSoundPicker, setShowSoundPicker] = useState(false);
-  const borderColorBtnRef = useRef<HTMLButtonElement>(null);
-  const fontColorBtnRef = useRef<HTMLButtonElement>(null);
+  const activeInspectorPage = useInspectorPages()?.activePage;
+  useEffect(() => {
+    setPickerFor(null);
+    setShowFontManager(false);
+  }, [activeInspectorPage]);
+  const borderColorBtnRef = useRef<HTMLDivElement>(null);
+  const fontColorBtnRef = useRef<HTMLDivElement>(null);
   const internalImageButtonRef = useRef<HTMLButtonElement>(null);
 
   // 로컬 색상 상태 (드래그 중 UI 업데이트용)
@@ -173,7 +141,7 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
     bgColorBtnRef,
     borderColorBtnRef,
     fontColorBtnRef,
-  ];
+  ] as React.RefObject<HTMLElement>[];
 
   // 실제 사용할 이미지 버튼 ref (외부에서 제공되면 외부 것 사용)
   const _actualImageButtonRef = imageButtonRef || internalImageButtonRef;
@@ -182,6 +150,34 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
   const handlePickerToggle = (target: PickerTarget) => {
     setPickerFor((prev) => (prev === target ? null : target));
   };
+
+  // A color has two states, both in its row. Pressing one opens its chooser;
+  // pressing the one that is open closes it.
+  const handleColorPress = (target: StyleColorTarget, state: ColorState) => {
+    if (pickerFor === target && colorState === state) {
+      setPickerFor(null);
+      return;
+    }
+    setColorState(state);
+    setPickerFor(target);
+  };
+
+  const stateSwatches = (
+    target: StyleColorTarget,
+    ref: React.RefObject<HTMLDivElement | null>,
+    label: string,
+  ) => (
+    <StateSwatches
+      ref={ref}
+      label={label}
+      colors={{
+        idle: localColors[target],
+        active: localColors[activeColorPropertyFor(target)],
+      }}
+      open={pickerFor === target ? colorState : null}
+      onPress={(state) => handleColorPress(target, state)}
+    />
+  );
 
   // 이미지 피커 토글 (외부 핸들러가 있으면 사용, 없으면 내부 상태 사용)
   const _handleImagePickerToggle = () => {
@@ -259,40 +255,6 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
     }
 
     onKeyUpdate({ index: keyIndex, ...updates });
-  };
-
-  // 위치 변경 핸들러
-  const handlePositionXChange = (value: number) => {
-    if (onLocalDxChange) {
-      onLocalDxChange(value);
-    }
-    onPositionChange(keyIndex, value, localDy ?? keyPosition.dy);
-  };
-
-  const handlePositionYChange = (value: number) => {
-    if (onLocalDyChange) {
-      onLocalDyChange(value);
-    }
-    onPositionChange(keyIndex, localDx ?? keyPosition.dx, value);
-  };
-
-  // 크기 변경 핸들러
-  const handleWidthChange = (value: number) => {
-    if (onLocalWidthChange) {
-      onLocalWidthChange(value);
-      onKeyPreview?.(keyIndex, { width: value });
-    } else {
-      onKeyUpdate({ index: keyIndex, width: value });
-    }
-  };
-
-  const handleHeightChange = (value: number) => {
-    if (onLocalHeightChange) {
-      onLocalHeightChange(value);
-      onKeyPreview?.(keyIndex, { height: value });
-    } else {
-      onKeyUpdate({ index: keyIndex, height: value });
-    }
   };
 
   // 스타일 변경 핸들러
@@ -377,282 +339,246 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
     ? showImagePicker
     : pickerFor === 'image';
 
-  // 색상 표시용 헬퍼 함수
-  const getDisplayColor = (color: string): string => {
-    if (!color) return '#ffffff';
-    if (color.startsWith('rgba') || color.startsWith('rgb')) return color;
-    if (color.startsWith('#')) return color;
-    return '#ffffff';
-  };
+  const imagePicker = showImagePicker &&
+    onToggleImagePicker &&
+    imageButtonRef && (
+      <ImagePicker
+        open={showImagePicker}
+        referenceRef={imageButtonRef}
+        panelElement={panelElement}
+        idleImage={keyPosition.inactiveImage || ''}
+        activeImage={keyPosition.activeImage || ''}
+        idleTransparent={keyPosition.idleTransparent ?? false}
+        activeTransparent={keyPosition.activeTransparent ?? false}
+        idleImageFit={
+          keyPosition.idleImageFit ?? keyPosition.imageFit ?? 'cover'
+        }
+        activeImageFit={
+          keyPosition.activeImageFit ?? keyPosition.imageFit ?? 'cover'
+        }
+        onIdleImageChange={handleIdleImageChange}
+        onActiveImageChange={handleActiveImageChange}
+        onIdleTransparentChange={handleIdleTransparentChange}
+        onActiveTransparentChange={handleActiveTransparentChange}
+        onIdleImageFitChange={handleIdleImageFitChange}
+        onActiveImageFitChange={handleActiveImageFitChange}
+        onIdleImageReset={handleIdleImageReset}
+        onActiveImageReset={handleActiveImageReset}
+        onClose={onToggleImagePicker}
+      />
+    );
+
+  const colorPicker = pickerFor &&
+    pickerFor !== 'image' &&
+    pickerFor !== 'font' && (
+      <ColorPicker
+        open
+        referenceRef={
+          (pickerFor === 'backgroundColor'
+            ? bgColorBtnRef
+            : pickerFor === 'borderColor'
+              ? borderColorBtnRef
+              : fontColorBtnRef) as React.RefObject<HTMLElement>
+        }
+        panelElement={panelElement}
+        color={colorValueFor(pickerFor)}
+        onColorChange={(color: string) => handleColorChange(pickerFor, color)}
+        onColorChangeComplete={(color: string) =>
+          handleColorChangeComplete(pickerFor, color)
+        }
+        onClose={() => setPickerFor(null)}
+        solidOnly
+        interactiveRefs={colorPickerInteractiveRefs}
+      />
+    );
 
   return (
     <>
-      {/* 키 매핑(또는 통계 종류 등 대체 컨트롤) - 단일 선택 모드에서만 표시 */}
-      {mappingControlLayout ? (
-        <>
-          {mappingControlLayout}
-          <SectionDivider />
-        </>
-      ) : mappingControl ? (
-        <>
-          <PropertyRow
-            label={mappingLabel || t('propertiesPanel.keyMapping') || '키 매핑'}
-          >
-            {mappingControl}
-          </PropertyRow>
-          <SectionDivider />
-        </>
-      ) : onKeyListen ? (
-        <>
-          <PropertyRow label={t('propertiesPanel.keyMapping') || '키 매핑'}>
-            <button
-              onClick={onKeyListen}
-              className={`flex items-center justify-center h-[23px] min-w-[0px] px-[8.5px] bg-[#2A2A30] rounded-[7px] border-[1px] ${
-                isListening ? 'border-ui-accent' : 'border-[#3A3943]'
-              } text-[#DBDEE8] text-style-2`}
-            >
-              {isListening
-                ? t('propertiesPanel.pressAnyKey') || 'Press any key'
-                : keyInfo?.displayName ||
-                  t('propertiesPanel.clickToSet') ||
-                  'Click to set'}
-            </button>
-          </PropertyRow>
-          <SectionDivider />
-        </>
-      ) : null}
+      {/* The look of the key, in three cards: its colors, its form, a picture. */}
+      <PropertySection id="style-shape" title={t('partPage.color')} defaultOpen>
+        {/* 배경색 */}
+        <PropertyRow label={t('propertiesPanel.backgroundColor') || '배경색'}>
+          {stateSwatches(
+            'backgroundColor',
+            bgColorBtnRef,
+            t('propertiesPanel.backgroundColor') || '배경색',
+          )}
+        </PropertyRow>
 
-      {!hideGeometry && (
-        <>
-          {/* 위치 */}
-          <PropertyRow label={t('propertiesPanel.position') || '위치'}>
-            <NumberInput
-              value={
-                isIndividualMode ? keyPosition.dx : (localDx ?? keyPosition.dx)
-              }
-              onChange={handlePositionXChange}
-              prefix="X"
-              min={-9999}
-              max={9999}
-              allowDecimal
-              decimalScale={1}
-            />
-            <NumberInput
-              value={
-                isIndividualMode ? keyPosition.dy : (localDy ?? keyPosition.dy)
-              }
-              onChange={handlePositionYChange}
-              prefix="Y"
-              min={-9999}
-              max={9999}
-              allowDecimal
-              decimalScale={1}
-            />
-          </PropertyRow>
+        {/* 테두리 색상 */}
+        <PropertyRow label={t('propertiesPanel.borderColor') || '테두리 색상'}>
+          {stateSwatches(
+            'borderColor',
+            borderColorBtnRef,
+            t('propertiesPanel.borderColor') || '테두리 색상',
+          )}
+        </PropertyRow>
+        {pickerFor !== 'fontColor' && colorPicker}
+      </PropertySection>
 
-          {/* 크기 */}
-          <PropertyRow label={t('propertiesPanel.size') || '크기'}>
-            <NumberInput
-              value={
-                isIndividualMode
-                  ? (keyPosition.width ?? 60)
-                  : (localWidth ?? keyPosition.width ?? 60)
-              }
-              onChange={handleWidthChange}
-              onBlur={onSizeBlur}
-              prefix="W"
-              min={1}
-              max={999}
-              allowDecimal
-              decimalScale={1}
-            />
-            <NumberInput
-              value={
-                isIndividualMode
-                  ? (keyPosition.height ?? 60)
-                  : (localHeight ?? keyPosition.height ?? 60)
-              }
-              onChange={handleHeightChange}
-              onBlur={onSizeBlur}
-              prefix="H"
-              min={1}
-              max={999}
-              allowDecimal
-              decimalScale={1}
-            />
-          </PropertyRow>
+      <PropertySection id="style-form" title={t('partPage.shape')}>
+        {/* 테두리 두께 */}
+        <PropertyRow label={t('propertiesPanel.borderWidth') || '테두리 두께'}>
+          <NumberInput
+            visual="stroke"
+            value={keyPosition.borderWidth ?? 3}
+            onChange={(value) =>
+              handleStyleChangeComplete('borderWidth', value)
+            }
+            suffix="px"
+            min={0}
+            max={20}
+            allowDecimal
+            decimalScale={1}
+          />
+        </PropertyRow>
 
-          <SectionDivider />
-        </>
-      )}
-
-      {/* 배경색 */}
-      <PropertyRow label={t('propertiesPanel.backgroundColor') || '배경색'}>
-        <button
-          ref={bgColorBtnRef}
-          type="button"
-          onClick={() => handlePickerToggle('backgroundColor')}
-          className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
-            pickerFor === 'backgroundColor'
-              ? 'border-ui-accent'
-              : 'border-[#3A3943] hover:border-[#505058]'
-          }`}
-          style={{
-            backgroundColor: getDisplayColor(colorValueFor('backgroundColor')),
-          }}
-        />
-      </PropertyRow>
-
-      {/* 테두리 색상 */}
-      <PropertyRow label={t('propertiesPanel.borderColor') || '테두리 색상'}>
-        <button
-          ref={borderColorBtnRef}
-          type="button"
-          onClick={() => handlePickerToggle('borderColor')}
-          className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
-            pickerFor === 'borderColor'
-              ? 'border-ui-accent'
-              : 'border-[#3A3943] hover:border-[#505058]'
-          }`}
-          style={{
-            backgroundColor: getDisplayColor(colorValueFor('borderColor')),
-          }}
-        />
-      </PropertyRow>
-
-      {/* 테두리 두께 */}
-      <PropertyRow label={t('propertiesPanel.borderWidth') || '테두리 두께'}>
-        <NumberInput
-          value={keyPosition.borderWidth ?? 3}
-          onChange={(value) => handleStyleChangeComplete('borderWidth', value)}
-          suffix="px"
-          min={0}
-          max={20}
-          allowDecimal
-          decimalScale={1}
-        />
-      </PropertyRow>
-
-      {/* 모서리 반경 */}
-      <PropertyRow label={t('propertiesPanel.borderRadius') || '모서리 반경'}>
-        <NumberInput
-          value={keyPosition.borderRadius ?? 10}
-          onChange={(value) => handleStyleChangeComplete('borderRadius', value)}
-          suffix="px"
-          min={0}
-          max={100}
-          allowDecimal
-          decimalScale={1}
-        />
-      </PropertyRow>
+        {/* 모서리 반경 */}
+        <PropertyRow label={t('propertiesPanel.borderRadius') || '모서리 반경'}>
+          <NumberInput
+            visual="corner"
+            value={keyPosition.borderRadius ?? 10}
+            onChange={(value) =>
+              handleStyleChangeComplete('borderRadius', value)
+            }
+            suffix="px"
+            min={0}
+            max={100}
+            allowDecimal
+            decimalScale={1}
+          />
+        </PropertyRow>
+      </PropertySection>
 
       {/* 커스텀 이미지 - 단일 선택 모드에서만 표시 */}
       {onToggleImagePicker && imageButtonRef && (
-        <PropertyRow
-          label={t('propertiesPanel.customImage') || '커스텀 이미지'}
-        >
+        <PropertySection id="style-image" title={t('partPage.image')}>
+          <PropertyRow
+            label={t('propertiesPanel.customImage') || '커스텀 이미지'}
+          >
+            <button
+              ref={imageButtonRef}
+              type="button"
+              className="en-field-button"
+              data-open={showImagePicker || undefined}
+              onClick={onToggleImagePicker}
+            >
+              {t('propertiesPanel.configure') || '설정하기'}
+            </button>
+          </PropertyRow>
+          {imagePicker}
+        </PropertySection>
+      )}
+
+      <PropertySection
+        id="style-text"
+        title={t('propertiesPanel.sectionText') || 'Text on the key'}
+      >
+        {/* 표시 텍스트 */}
+        {!hideDisplayText && (
+          <PropertyRow
+            label={t('propertiesPanel.displayText') || '표시 텍스트'}
+          >
+            <TextInput
+              value={keyPosition.displayText || ''}
+              onChange={handleDisplayTextChange}
+              onBlur={handleDisplayTextBlur}
+              placeholder={displayTextPlaceholder ?? keyInfo?.displayName ?? ''}
+              width="54px"
+            />
+          </PropertyRow>
+        )}
+
+        {/* 폰트 */}
+        <PropertyRow label={t('propertiesPanel.font') || '폰트'}>
           <button
-            ref={imageButtonRef}
+            ref={fontButtonRef}
             type="button"
-            className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-              showImagePicker ? 'border-ui-accent' : 'border-[#3A3943]'
-            } text-[#DBDEE8] text-style-4`}
-            onClick={onToggleImagePicker}
+            className="en-field-button"
+            data-open={pickerFor === 'font' || undefined}
+            onClick={() => handlePickerToggle('font')}
           >
             {t('propertiesPanel.configure') || '설정하기'}
           </button>
         </PropertyRow>
-      )}
 
-      <SectionDivider />
-
-      {/* 표시 텍스트 */}
-      {!hideDisplayText && (
-        <PropertyRow label={t('propertiesPanel.displayText') || '표시 텍스트'}>
-          <TextInput
-            value={keyPosition.displayText || ''}
-            onChange={handleDisplayTextChange}
-            onBlur={handleDisplayTextBlur}
-            placeholder={displayTextPlaceholder ?? keyInfo?.displayName ?? ''}
-            width="54px"
+        {/* 글꼴 크기 */}
+        <PropertyRow label={t('propertiesPanel.fontSize') || '글꼴 크기'}>
+          <NumberInput
+            visual="text"
+            value={keyPosition.fontSize ?? 14}
+            onChange={(value) => handleStyleChangeComplete('fontSize', value)}
+            suffix="px"
+            min={8}
+            max={72}
+            allowDecimal
+            decimalScale={1}
           />
         </PropertyRow>
-      )}
 
-      {/* 폰트 */}
-      <PropertyRow label={t('propertiesPanel.font') || '폰트'}>
-        <button
-          ref={fontButtonRef}
-          type="button"
-          className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-            pickerFor === 'font' ? 'border-ui-accent' : 'border-[#3A3943]'
-          } text-[#DBDEE8] text-style-4`}
-          onClick={() => handlePickerToggle('font')}
-        >
-          {t('propertiesPanel.configure') || '설정하기'}
-        </button>
-      </PropertyRow>
+        {/* 글꼴 색상 */}
+        <PropertyRow label={t('propertiesPanel.fontColor') || '글꼴 색상'}>
+          {stateSwatches(
+            'fontColor',
+            fontColorBtnRef,
+            t('propertiesPanel.fontColor') || '글꼴 색상',
+          )}
+        </PropertyRow>
 
-      {/* 글꼴 크기 */}
-      <PropertyRow label={t('propertiesPanel.fontSize') || '글꼴 크기'}>
-        <NumberInput
-          value={keyPosition.fontSize ?? 14}
-          onChange={(value) => handleStyleChangeComplete('fontSize', value)}
-          suffix="px"
-          min={8}
-          max={72}
-          allowDecimal
-          decimalScale={1}
-        />
-      </PropertyRow>
-
-      {/* 글꼴 색상 */}
-      <PropertyRow label={t('propertiesPanel.fontColor') || '글꼴 색상'}>
-        <button
-          ref={fontColorBtnRef}
-          type="button"
-          onClick={() => handlePickerToggle('fontColor')}
-          className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
-            pickerFor === 'fontColor'
-              ? 'border-ui-accent'
-              : 'border-[#3A3943] hover:border-[#505058]'
-          }`}
-          style={{
-            backgroundColor: getDisplayColor(colorValueFor('fontColor')),
-          }}
-        />
-      </PropertyRow>
-
-      {/* 글꼴 스타일 */}
-      <PropertyRow label={t('propertiesPanel.fontStyle') || '글꼴 스타일'}>
-        <FontStyleToggle
-          isBold={(keyPosition.fontWeight ?? 700) >= 700}
-          isItalic={keyPosition.fontItalic ?? false}
-          isUnderline={keyPosition.fontUnderline ?? false}
-          isStrikethrough={keyPosition.fontStrikethrough ?? false}
-          onBoldChange={(value) =>
-            handleStyleChangeComplete('fontWeight', value ? 700 : 400)
-          }
-          onItalicChange={(value) =>
-            handleStyleChangeComplete('fontItalic', value)
-          }
-          onUnderlineChange={(value) =>
-            handleStyleChangeComplete('fontUnderline', value)
-          }
-          onStrikethroughChange={(value) =>
-            handleStyleChangeComplete('fontStrikethrough', value)
-          }
-        />
-      </PropertyRow>
+        {/* 글꼴 스타일 */}
+        <PropertyRow label={t('propertiesPanel.fontStyle') || '글꼴 스타일'}>
+          <FontStyleToggle
+            isBold={(keyPosition.fontWeight ?? 700) >= 700}
+            isItalic={keyPosition.fontItalic ?? false}
+            isUnderline={keyPosition.fontUnderline ?? false}
+            isStrikethrough={keyPosition.fontStrikethrough ?? false}
+            onBoldChange={(value) =>
+              handleStyleChangeComplete('fontWeight', value ? 700 : 400)
+            }
+            onItalicChange={(value) =>
+              handleStyleChangeComplete('fontItalic', value)
+            }
+            onUnderlineChange={(value) =>
+              handleStyleChangeComplete('fontUnderline', value)
+            }
+            onStrikethroughChange={(value) =>
+              handleStyleChangeComplete('fontStrikethrough', value)
+            }
+          />
+        </PropertyRow>
+        {pickerFor === 'fontColor' && colorPicker}
+        {pickerFor === 'font' && (
+          <FontPicker
+            open
+            referenceRef={fontButtonRef}
+            panelElement={panelElement}
+            selectedFont={keyPosition.fontFamily || null}
+            onFontSelect={(fontName) =>
+              handleStyleChangeComplete('fontFamily', fontName)
+            }
+            onClose={() => setPickerFor(null)}
+            onOpenManager={() => setShowFontManager(true)}
+            interactiveRefs={[fontButtonRef]}
+          />
+        )}
+        {showFontManager && (
+          <FontManagerModal
+            isOpen={showFontManager}
+            onClose={() => setShowFontManager(false)}
+            t={t}
+          />
+        )}
+      </PropertySection>
 
       {/* 커스텀 CSS 활성화 시에만 클래스명 및 CSS 우선순위 표시 */}
       {useCustomCSS && (
-        <>
-          <SectionDivider />
-
+        <PropertySection
+          id="style-css"
+          title={t('propertiesPanel.sectionCss') || 'Custom CSS'}
+        >
           {/* CSS 우선순위 토글 */}
-          <div className="flex justify-between items-center w-full h-[23px]">
-            <p className="text-white text-style-2">
+          <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+            <p className="dmn-property-row__label">
               {t('propertiesPanel.useInlineStyles') || '인라인 스타일 우선'}
             </p>
             <Checkbox
@@ -676,159 +602,7 @@ const StyleTabContent: React.FC<StyleTabContentInternalProps> = ({
               width="90px"
             />
           </PropertyRow>
-        </>
-      )}
-
-      {showSoundControls && (
-        <>
-          <SectionDivider />
-
-          <PropertyRow
-            label={t('propertiesPanel.keySoundEnabled') || '키 사운드 활성화'}
-          >
-            <Checkbox
-              checked={keyPosition.soundEnabled ?? false}
-              onChange={() => {
-                const nextEnabled = !(keyPosition.soundEnabled ?? false);
-                onKeyPreview?.(keyIndex, { soundEnabled: nextEnabled });
-                onKeyUpdate({ index: keyIndex, soundEnabled: nextEnabled });
-              }}
-            />
-          </PropertyRow>
-
-          <PropertyRow label={t('propertiesPanel.keySound') || '키 사운드'}>
-            <button
-              ref={soundButtonRef}
-              type="button"
-              className={`px-[7px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                showSoundPicker ? 'border-ui-accent' : 'border-[#3A3943]'
-              } text-[#DBDEE8] text-style-4`}
-              onClick={() => {
-                setPickerFor(null);
-                setShowSoundPicker((prev) => !prev);
-              }}
-            >
-              {t('propertiesPanel.configure') || '설정하기'}
-            </button>
-          </PropertyRow>
-
-          <PropertyRow
-            label={t('propertiesPanel.soundVolume') || '사운드 볼륨'}
-          >
-            <NumberInput
-              value={keyPosition.soundVolume ?? 100}
-              onChange={(value) =>
-                handleStyleChangeComplete(
-                  'soundVolume',
-                  Math.max(0, Math.min(200, value)),
-                )
-              }
-              suffix="%"
-              min={0}
-              max={200}
-            />
-          </PropertyRow>
-        </>
-      )}
-
-      {/* 이미지 픽커 팝업 - 단일 선택 모드에서만 */}
-      {showImagePicker && onToggleImagePicker && imageButtonRef && (
-        <ImagePicker
-          open={showImagePicker}
-          referenceRef={imageButtonRef}
-          panelElement={panelElement}
-          idleImage={keyPosition.inactiveImage || ''}
-          activeImage={keyPosition.activeImage || ''}
-          idleTransparent={keyPosition.idleTransparent ?? false}
-          activeTransparent={keyPosition.activeTransparent ?? false}
-          idleImageFit={
-            keyPosition.idleImageFit ?? keyPosition.imageFit ?? 'cover'
-          }
-          activeImageFit={
-            keyPosition.activeImageFit ?? keyPosition.imageFit ?? 'cover'
-          }
-          onIdleImageChange={handleIdleImageChange}
-          onActiveImageChange={handleActiveImageChange}
-          onIdleTransparentChange={handleIdleTransparentChange}
-          onActiveTransparentChange={handleActiveTransparentChange}
-          onIdleImageFitChange={handleIdleImageFitChange}
-          onActiveImageFitChange={handleActiveImageFitChange}
-          onIdleImageReset={handleIdleImageReset}
-          onActiveImageReset={handleActiveImageReset}
-          onClose={() => onToggleImagePicker()}
-        />
-      )}
-
-      {/* 통합 ColorPicker - 단일 인스턴스로 깜빡임 없이 전환 */}
-      {pickerFor && pickerFor !== 'image' && pickerFor !== 'font' && (
-        <ColorPicker
-          open={!!pickerFor}
-          referenceRef={
-            pickerFor === 'backgroundColor'
-              ? bgColorBtnRef
-              : pickerFor === 'borderColor'
-                ? borderColorBtnRef
-                : fontColorBtnRef
-          }
-          panelElement={panelElement}
-          color={colorValueFor(pickerFor as StyleColorTarget)}
-          onColorChange={(c: string) =>
-            handleColorChange(pickerFor as StyleColorTarget, c)
-          }
-          onColorChangeComplete={(c: string) =>
-            handleColorChangeComplete(pickerFor as StyleColorTarget, c)
-          }
-          onClose={() => setPickerFor(null)}
-          solidOnly={true}
-          stateMode={colorState}
-          onStateModeChange={setColorState}
-          interactiveRefs={colorPickerInteractiveRefs}
-        />
-      )}
-
-      {/* FontPicker */}
-      {pickerFor === 'font' && (
-        <FontPicker
-          open={true}
-          referenceRef={fontButtonRef}
-          panelElement={panelElement}
-          selectedFont={keyPosition.fontFamily || null}
-          onFontSelect={(fontName) => {
-            handleStyleChangeComplete('fontFamily', fontName);
-          }}
-          onClose={() => setPickerFor(null)}
-          onOpenManager={() => {
-            setShowFontManager(true);
-          }}
-          interactiveRefs={[fontButtonRef]}
-        />
-      )}
-
-      {/* SoundPicker */}
-      {showSoundControls && showSoundPicker && (
-        <SoundPicker
-          open={true}
-          referenceRef={soundButtonRef}
-          panelElement={panelElement}
-          selectedSound={keyPosition.soundPath || null}
-          onSoundSelect={(soundPath) => {
-            const nextPath = soundPath || '';
-            onKeyPreview?.(keyIndex, { soundPath: nextPath });
-            onKeyUpdate({ index: keyIndex, soundPath: nextPath });
-          }}
-          onClose={() => setShowSoundPicker(false)}
-          interactiveRefs={[soundButtonRef]}
-          previewVolume={keyPosition.soundVolume ?? 100}
-        />
-      )}
-
-      {/* FontManagerModal */}
-      {showFontManager && (
-        <FontManagerModal
-          isOpen={showFontManager}
-          onClose={() => setShowFontManager(false)}
-          t={t}
-        />
+        </PropertySection>
       )}
     </>
   );

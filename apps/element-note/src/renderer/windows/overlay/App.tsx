@@ -191,9 +191,6 @@ export default function App() {
     (state) => state.gridSettings.overlayPadding ?? 30,
   );
   const overlayAnchor = useSettingsStore((state) => state.overlayResizeAnchor);
-  const keyCounterEnabled = useSettingsStore(
-    (state) => state.keyCounterEnabled,
-  );
   const tabs = useKeyStore((state) => state.tabs);
   const resolveCanOpenMainSettings = async () => {
     if (!trayEnabled) {
@@ -734,7 +731,6 @@ export default function App() {
       subscribe={subscribe}
       noteBuffer={noteBuffer}
       backgroundColor={backgroundColor}
-      keyCounterEnabled={keyCounterEnabled}
       positionOffset={positionOffset}
       onMouseDownCapture={handleOverlayMouseDownCapture}
       showPluginElements={true}

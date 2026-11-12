@@ -43,6 +43,23 @@ export function createSpriteDraft(
   };
 }
 
+/** A copy that is a sprite of its own: it and its poses get new ids. */
+export function copySprite(
+  sprite: ReactiveSpritePosition,
+  changes: Partial<ReactiveSpritePosition> = {},
+): ReactiveSpritePosition {
+  const copy = structuredClone(sprite);
+  return {
+    ...copy,
+    ...changes,
+    id: crypto.randomUUID(),
+    poses: copy.poses.map((pose) => ({
+      ...pose,
+      poseId: crypto.randomUUID(),
+    })),
+  };
+}
+
 export function createSpritePose(): SpritePose {
   return {
     poseId: crypto.randomUUID(),

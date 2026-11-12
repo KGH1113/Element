@@ -1,5 +1,8 @@
 import type { KeyLimiterConnectionState } from '@src/renderer/ipc/keyLimiterIpcCoordinator';
-import type { KeyLimiterDeliveryState } from '@stores/useKeyLimiterStatusStore';
+import {
+  useKeyLimiterStatusStore,
+  type KeyLimiterDeliveryState,
+} from '@stores/useKeyLimiterStatusStore';
 
 export type StatusIcon = 'none' | 'progress' | 'check' | 'warning' | 'error';
 
@@ -63,4 +66,22 @@ export function getKeyLimiterStatusPresentation(
     return { labelKey: 'keyLimiter.partial', tone: 'warning', icon: 'warning' };
   }
   return { labelKey: 'keyLimiter.connected', tone: 'success', icon: 'none' };
+}
+
+/** The game connection as the top bar and the settings both show it. */
+export function useKeyLimiterStatusPresentation(): StatusPresentation {
+  const connectionState = useKeyLimiterStatusStore(
+    (state) => state.connectionState,
+  );
+  const deliveryState = useKeyLimiterStatusStore(
+    (state) => state.deliveryState,
+  );
+  const hasUnsupportedKeys = useKeyLimiterStatusStore(
+    (state) => (state.lastAcknowledgement?.unsupportedKeys.length ?? 0) > 0,
+  );
+  return getKeyLimiterStatusPresentation(
+    connectionState,
+    deliveryState,
+    hasUnsupportedKeys,
+  );
 }

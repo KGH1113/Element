@@ -12,13 +12,8 @@ import { useKeyStore as useKeyStoreForHistory } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useSmartGuidesElements } from '@hooks/Grid';
-import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
-import { useSettingsStore } from '@stores/useSettingsStore';
-import {
-  calculateBounds,
-  calculateSnapPoints,
-  calculateGroupBounds,
-} from '@utils/grid/smartGuides';
+import { calculateBounds } from '@utils/grid/smartGuides';
+import { startSelectionDrag } from '@hooks/Grid/selectionDrag';
 import {
   useGridSelectionStore,
   SelectedElement,
@@ -87,7 +82,6 @@ function calculateAnchorOffset(
 interface PluginElementProps {
   element: PluginDisplayElementInternal;
   windowType: 'main' | 'overlay';
-  activeTool?: string;
   positionOffset?: { x: number; y: number };
   zoom?: number;
   panX?: number;
@@ -111,7 +105,6 @@ interface PluginElementProps {
 export const PluginElement: React.FC<PluginElementProps> = ({
   element,
   windowType,
-  activeTool,
   positionOffset = DEFAULT_POSITION_OFFSET,
   zoom = 1,
   panX = 0,
@@ -424,26 +417,6 @@ export const PluginElement: React.FC<PluginElementProps> = ({
   // 스마트 가이드를 위한 다른 요소들의 bounds 가져오기
   const { getOtherElements } = useSmartGuidesElements();
 
-  // 그리드 스냅 크기 가져오기
-  const gridSnapSize = useSettingsStore(
-    (state) => state.gridSettings?.gridSnapSize || 5,
-  );
-
-  // 선택 드래그 상태
-  const multiDragRef = useRef<{
-    isDragging: boolean;
-    startX: number;
-    startY: number;
-    lastSnappedDeltaX: number;
-    lastSnappedDeltaY: number;
-  }>({
-    isDragging: false,
-    startX: 0,
-    startY: 0,
-    lastSnappedDeltaX: 0,
-    lastSnappedDeltaY: 0,
-  });
-
   // 선택된 상태면 선택 모드 활성화
   const isSelectionMode = isSelected;
 
@@ -454,7 +427,6 @@ export const PluginElement: React.FC<PluginElementProps> = ({
 
   // 드래그 지원 (main 윈도우에서만)
   const draggable = useDraggable({
-    gridSize: gridSnapSize,
     initialX: calculatedPosition.x,
     initialY: calculatedPosition.y,
     onDragStart: saveToHistory, // 드래그 시작 시 히스토리 저장
@@ -497,255 +469,23 @@ export const PluginElement: React.FC<PluginElementProps> = ({
 
   // 선택 요소 드래그 핸들러 (스마트 가이드 포함)
   const handleSelectionDragMouseDown = (e: React.MouseEvent) => {
-    if (!isSelectionMode || e.button !== 0) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    // 드래그 시작 전 기존 스마트 가이드 클리어 (이전 드래그가 정상 종료되지 않은 경우 대비)
-    useSmartGuidesStore.getState().clearGuides();
-
-    // 드래그 시작 시 애니메이션 비활성화
-    useGridSelectionStore.getState().setDraggingOrResizing(true);
-
-    // 드래그 시작 시 히스토리 저장
-    onMultiDragStart?.();
-
-    // 현재 요소의 시작 위치 저장 (스냅 계산용)
-    const startX = element.position.x;
-    const startY = element.position.y;
-    const currentWidth =
-      element.measuredSize?.width ?? element.estimatedSize?.width ?? 200;
-    const currentHeight =
-      element.measuredSize?.height ?? element.estimatedSize?.height ?? 150;
-    const elementId = element.fullId;
-
-    multiDragRef.current = {
-      isDragging: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      lastSnappedDeltaX: 0,
-      lastSnappedDeltaY: 0,
-    };
-
-    let rafId: number | null = null;
-    // 드래그 종료 플래그 (rAF 콜백에서 체크)
-    let dragEnded = false;
-    const smartGuidesStore = useSmartGuidesStore.getState();
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!multiDragRef.current.isDragging || dragEnded) return;
-
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-
-        // 드래그가 종료되었으면 rAF 콜백에서도 무시
-        if (dragEnded) return;
-
-        const currentZoom = zoom;
-        // raw delta (스냅 전)
-        const rawDeltaX =
-          (moveEvent.clientX - multiDragRef.current.startX) / currentZoom;
-        const rawDeltaY =
-          (moveEvent.clientY - multiDragRef.current.startY) / currentZoom;
-
-        // 이동 후 예상 위치
-        const newX = startX + rawDeltaX;
-        const newY = startY + rawDeltaY;
-
-        // 스마트 가이드 계산 (현재 요소 기준으로 다른 비선택 요소들과 스냅)
-        const otherElements = getOtherElements(elementId);
-
-        // gridSettings에서 정렬/간격 가이드 활성화 여부 확인
-        const gridSettings = useSettingsStore.getState().gridSettings;
-        const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-        const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-
-        // 선택된 다른 요소들도 제외 (자기 자신만 기준)
-        const nonSelectedElements = otherElements.filter(
-          (el) =>
-            !selectedElements.some(
-              (sel) =>
-                sel.id === el.id ||
-                (sel.type === 'key' && el.id === `key-${sel.index}`),
-            ),
-        );
-
-        const draggedBounds = calculateBounds(
-          newX,
-          newY,
-          currentWidth,
-          currentHeight,
-          elementId,
-        );
-
-        // 다중 선택 시 그룹 전체의 bounds 계산 (캔버스 중앙 스냅용)
-        let groupBounds = null;
-        if (selectedElements.length > 1) {
-          // 선택된 요소들의 현재 bounds 수집
-          const selectedBoundsArray = selectedElements
-            .map((sel) => {
-              // 현재 드래그 중인 요소인 경우 새 위치 사용
-              if (sel.id === elementId) {
-                return draggedBounds;
-              }
-              // 다른 선택된 요소들은 otherElements에서 찾아서 이동량 적용
-              const found = otherElements.find(
-                (el) =>
-                  el.id === sel.id ||
-                  (sel.type === 'key' && el.id === `key-${sel.index}`),
-              );
-              if (found) {
-                return calculateBounds(
-                  found.left + rawDeltaX,
-                  found.top + rawDeltaY,
-                  found.width,
-                  found.height,
-                  found.id,
-                );
-              }
-              return null;
-            })
-            .filter((b): b is NonNullable<typeof b> => b !== null);
-          groupBounds = calculateGroupBounds(selectedBoundsArray);
-        }
-
-        // 다중 선택 시 그룹 바운딩 박스를 스냅 기준으로 사용
-        const snapTargetBounds =
-          selectedElements.length > 1 && groupBounds
-            ? groupBounds
-            : draggedBounds;
-
-        const snapResult = alignmentGuidesEnabled
-          ? calculateSnapPoints(
-              snapTargetBounds,
-              nonSelectedElements,
-              undefined,
-              {
-                groupBounds,
-                disableSpacing: !spacingGuidesEnabled,
-              },
-            )
-          : null;
-
-        let finalX: number;
-        let finalY: number;
-
-        // 스마트 가이드 스냅 적용
-        if (snapResult?.didSnapX) {
-          // 다중 선택 시: 그룹 바운딩 박스의 스냅 이동량을 개별 요소에 적용
-          if (selectedElements.length > 1 && groupBounds) {
-            const groupSnapDeltaX = snapResult.snappedX - groupBounds.left;
-            finalX = newX + groupSnapDeltaX;
-          } else {
-            finalX = snapResult.snappedX;
-          }
-        } else {
-          // 그리드 스냅
-          const snapSize = gridSettings?.gridSnapSize || 5;
-          finalX = Math.round(newX / snapSize) * snapSize;
-        }
-
-        if (snapResult?.didSnapY) {
-          // 다중 선택 시: 그룹 바운딩 박스의 스냅 이동량을 개별 요소에 적용
-          if (selectedElements.length > 1 && groupBounds) {
-            const groupSnapDeltaY = snapResult.snappedY - groupBounds.top;
-            finalY = newY + groupSnapDeltaY;
-          } else {
-            finalY = snapResult.snappedY;
-          }
-        } else {
-          // 그리드 스냅
-          const snapSize = gridSettings?.gridSnapSize || 5;
-          finalY = Math.round(newY / snapSize) * snapSize;
-        }
-
-        // 스냅된 delta 계산
-        const snappedDeltaX = Math.round(finalX - startX);
-        const snappedDeltaY = Math.round(finalY - startY);
-
-        // 가이드라인 업데이트
-        if (snapResult && (snapResult.didSnapX || snapResult.didSnapY)) {
-          // 다중 선택 시 그룹 바운딩 박스를 표시
-          const displayBounds =
-            selectedElements.length > 1 && groupBounds
-              ? calculateBounds(
-                  groupBounds.left +
-                    (snapResult.didSnapX
-                      ? snapResult.snappedX - groupBounds.left
-                      : 0),
-                  groupBounds.top +
-                    (snapResult.didSnapY
-                      ? snapResult.snappedY - groupBounds.top
-                      : 0),
-                  groupBounds.width,
-                  groupBounds.height,
-                  'group',
-                )
-              : calculateBounds(
-                  finalX,
-                  finalY,
-                  currentWidth,
-                  currentHeight,
-                  elementId,
-                );
-          smartGuidesStore.setDraggedBounds(displayBounds);
-          smartGuidesStore.setActiveGuides(snapResult.guides);
-
-          // 간격 가이드도 업데이트
-          if (
-            spacingGuidesEnabled &&
-            snapResult.spacingGuides &&
-            snapResult.spacingGuides.length > 0
-          ) {
-            smartGuidesStore.setSpacingGuides(snapResult.spacingGuides);
-          } else {
-            smartGuidesStore.setSpacingGuides([]);
-          }
-        } else {
-          smartGuidesStore.clearGuides();
-        }
-
-        // 이전 delta와의 차이만큼 이동
-        const moveDeltaX =
-          snappedDeltaX - multiDragRef.current.lastSnappedDeltaX;
-        const moveDeltaY =
-          snappedDeltaY - multiDragRef.current.lastSnappedDeltaY;
-
-        if (moveDeltaX !== 0 || moveDeltaY !== 0) {
-          multiDragRef.current.lastSnappedDeltaX = snappedDeltaX;
-          multiDragRef.current.lastSnappedDeltaY = snappedDeltaY;
-          onMultiDrag?.(moveDeltaX, moveDeltaY);
-        }
-      });
-    };
-
-    const handleMouseUp = () => {
-      // 드래그 종료 플래그 설정 (rAF 콜백 무시)
-      dragEnded = true;
-      // 진행 중인 rAF 취소
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-      multiDragRef.current.isDragging = false;
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      // window blur 시에도 cleanup 되도록 이벤트 제거
-      window.removeEventListener('blur', handleMouseUp);
-      // 스마트 가이드 클리어
-      useSmartGuidesStore.getState().clearGuides();
-      // 드래그 종료 시 애니메이션 복원
-      useGridSelectionStore.getState().setDraggingOrResizing(false);
-      // 드래그 종료 시 오버레이 동기화
-      onMultiDragEnd?.();
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    // window blur 시에도 드래그 종료 처리 (창이 포커스를 잃었을 때)
-    window.addEventListener('blur', handleMouseUp);
+    if (!isSelectionMode) return;
+    startSelectionDrag({
+      event: e,
+      elementBox: calculateBounds(
+        element.position.x,
+        element.position.y,
+        element.measuredSize?.width ?? element.estimatedSize?.width ?? 200,
+        element.measuredSize?.height ?? element.estimatedSize?.height ?? 150,
+        element.fullId,
+      ),
+      selectedElements,
+      getOtherElements,
+      zoom,
+      onStart: onMultiDragStart,
+      onMove: onMultiDrag,
+      onEnd: onMultiDragEnd,
+    });
   };
 
   const { ref: draggableRef, dx: renderX, dy: renderY } = draggable;
@@ -1362,12 +1102,6 @@ export const PluginElement: React.FC<PluginElementProps> = ({
   const handleClick = (e: React.MouseEvent) => {
     // 우클릭은 컨텍스트 메뉴용이므로 제외
     if (e.button !== 0) return;
-
-    if (windowType === 'main' && activeTool === 'eraser') {
-      e.stopPropagation();
-      deletePluginElement();
-      return;
-    }
 
     // Ctrl+클릭으로 선택 토글 (메인 윈도우에서만) - 선택 모드에서도 동작해야 함 (선택 해제용)
     const macOS = isMac();

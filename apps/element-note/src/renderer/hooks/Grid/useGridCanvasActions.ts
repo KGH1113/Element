@@ -7,6 +7,7 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
 import type { KeyPosition } from '@src/types/key/keys';
@@ -25,6 +26,16 @@ import type {
 } from '@src/types/key/keys';
 import { createDefaultCounterSettings } from '@src/types/key/keys';
 import { persistItemPositions } from '@src/renderer/editor/runtime/itemPositions';
+import {
+  patchSpritesAt,
+  removeSpritesAt,
+  writeSpritesOf,
+} from '@src/renderer/editor/runtime/spritePositions';
+import type { ReactiveSpritePosition } from '@src/types/key/sprites';
+import {
+  copySprite,
+  createSpriteDraft,
+} from '@components/main/Modal/content/editors/spriteEditorDraft';
 
 // 공통: zIndex 목록 수집
 function collectAllZIndexes(mode: string) {
@@ -40,6 +51,9 @@ function collectAllZIndexes(mode: string) {
   const knobPos = useKnobItemStore.getState().positions[mode] || [];
   const knobZIndexes = knobPos.map((p, i) => p.zIndex ?? i);
 
+  const spritePos = useSpriteStore.getState().positions[mode] || [];
+  const spriteZIndexes = spritePos.map((p, i) => p.zIndex ?? i);
+
   const pluginEls = usePluginDisplayElementStore.getState().elements;
   const pluginZIndexes = pluginEls
     .filter((el) => !el.tabId || el.tabId === mode)
@@ -50,6 +64,7 @@ function collectAllZIndexes(mode: string) {
     statZIndexes,
     graphZIndexes,
     knobZIndexes,
+    spriteZIndexes,
     pluginZIndexes,
   };
 }
@@ -60,6 +75,7 @@ function getMaxZIndex(mode: string): number {
     statZIndexes,
     graphZIndexes,
     knobZIndexes,
+    spriteZIndexes,
     pluginZIndexes,
   } = collectAllZIndexes(mode);
   return Math.max(
@@ -68,6 +84,7 @@ function getMaxZIndex(mode: string): number {
     ...statZIndexes,
     ...graphZIndexes,
     ...knobZIndexes,
+    ...spriteZIndexes,
     ...pluginZIndexes,
   );
 }
@@ -78,6 +95,7 @@ function getMinZIndex(mode: string): number {
     statZIndexes,
     graphZIndexes,
     knobZIndexes,
+    spriteZIndexes,
     pluginZIndexes,
   } = collectAllZIndexes(mode);
   return Math.min(
@@ -86,6 +104,7 @@ function getMinZIndex(mode: string): number {
     ...statZIndexes,
     ...graphZIndexes,
     ...knobZIndexes,
+    ...spriteZIndexes,
     ...pluginZIndexes,
   );
 }
@@ -182,6 +201,19 @@ export interface CanvasActions {
     dx: number,
     dy: number,
   ) => void;
+  // Image (sprite)
+  deleteSpriteAtIndex: (index: number) => void;
+  moveSpriteToFront: (index: number) => void;
+  moveSpriteToBack: (index: number) => void;
+  moveSpriteForward: (index: number) => Promise<void>;
+  moveSpriteBackward: (index: number) => Promise<void>;
+  addSpriteAtPosition: (dx: number, dy: number) => void;
+  beginDuplicateSprite: (sourceIndex: number) => DuplicateState | null;
+  placeDuplicateSprite: (
+    templatePosition: ReactiveSpritePosition,
+    dx: number,
+    dy: number,
+  ) => void;
   // persist 헬퍼 (Grid에서 직접 사용)
   persistStatPositions: typeof persistStatPositions;
   persistGraphPositions: typeof persistGraphPositions;
@@ -189,13 +221,20 @@ export interface CanvasActions {
   pushHistorySnapshot: typeof pushHistorySnapshot;
 }
 
-export interface DuplicateState {
-  elementType: 'key' | 'stat' | 'graph' | 'knob';
-  sourceIndex: number;
-  keyName: string;
-  position:
-    KeyPosition | StatItemPosition | GraphItemPosition | KnobItemPosition;
-}
+export type DuplicateState =
+  | {
+      elementType: 'key' | 'stat' | 'graph' | 'knob';
+      sourceIndex: number;
+      keyName: string;
+      position:
+        KeyPosition | StatItemPosition | GraphItemPosition | KnobItemPosition;
+    }
+  | {
+      elementType: 'sprite';
+      sourceIndex: number;
+      keyName: string;
+      position: ReactiveSpritePosition;
+    };
 
 function getStatTypeLabel(type: string): string {
   if (type === 'kps') return 'KPS';
@@ -731,6 +770,62 @@ export function useGridCanvasActions(selectedKeyType: string): CanvasActions {
     persistKnobPositions(nextPositions, 'Failed to add knob item');
   };
 
+  // Images. Every change is one save, so one undo step.
+  const spriteAt = (index: number) =>
+    useSpriteStore.getState().positions[selectedKeyType]?.[index];
+
+  const deleteSpriteAtIndex = (index: number) => {
+    void removeSpritesAt(selectedKeyType, [index]);
+  };
+
+  const moveSpriteToFront = (index: number) => {
+    const zIndex = getMaxZIndex(selectedKeyType) + 1;
+    void patchSpritesAt(selectedKeyType, [index], () => ({ zIndex }));
+  };
+
+  const moveSpriteToBack = (index: number) => {
+    const zIndex = getMinZIndex(selectedKeyType) - 1;
+    void patchSpritesAt(selectedKeyType, [index], () => ({ zIndex }));
+  };
+
+  const moveSpriteForward = (index: number) =>
+    patchSpritesAt(selectedKeyType, [index], (sprite) => ({
+      zIndex: (sprite.zIndex ?? index) + 1,
+    }));
+
+  const moveSpriteBackward = (index: number) =>
+    patchSpritesAt(selectedKeyType, [index], (sprite) => ({
+      zIndex: (sprite.zIndex ?? index) - 1,
+    }));
+
+  const appendSprite = (sprite: ReactiveSpritePosition) => {
+    const zIndex = getMaxZIndex(selectedKeyType) + 1;
+    void writeSpritesOf(selectedKeyType, (sprites) => [
+      ...sprites,
+      { ...sprite, zIndex },
+    ]);
+  };
+
+  const addSpriteAtPosition = (dx: number, dy: number) =>
+    appendSprite(createSpriteDraft(null, { dx, dy }));
+
+  const beginDuplicateSprite = (sourceIndex: number): DuplicateState | null => {
+    const position = spriteAt(sourceIndex);
+    if (!position) return null;
+    return {
+      elementType: 'sprite',
+      sourceIndex,
+      keyName: position.layerName || '',
+      position: structuredClone(position),
+    };
+  };
+
+  const placeDuplicateSprite = (
+    templatePosition: ReactiveSpritePosition,
+    dx: number,
+    dy: number,
+  ) => appendSprite(copySprite(templatePosition, { dx, dy }));
+
   return {
     deleteStatAtIndex,
     moveStatToFront,
@@ -756,6 +851,14 @@ export function useGridCanvasActions(selectedKeyType: string): CanvasActions {
     addKnobAtPosition,
     beginDuplicateKnob,
     placeDuplicateKnob,
+    deleteSpriteAtIndex,
+    moveSpriteToFront,
+    moveSpriteToBack,
+    moveSpriteForward,
+    moveSpriteBackward,
+    addSpriteAtPosition,
+    beginDuplicateSprite,
+    placeDuplicateSprite,
     persistStatPositions,
     persistGraphPositions,
     persistKnobPositions,

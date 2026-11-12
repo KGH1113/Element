@@ -33,6 +33,8 @@ Commands:
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
   mod-format [files...]  Format the C# files you changed (or the given ones)
+  desktop-dev   Open ElementNote with live frontend updates
+  desktop-type-check  Check frontend types without building the app
   desktop-deps  Install locked npm dependencies and fetch native dependencies
   desktop-check  Check the ElementNote frontend and native backend without installing
   desktop-frontend-check  Verify SDK, types, lint, formatting, tests, and frontend build

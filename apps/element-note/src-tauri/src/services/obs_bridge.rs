@@ -47,7 +47,7 @@ use transport::{
 use transport::{http_header_values, is_allowed_host_header};
 use websocket::WebSocketSessionProtocol;
 
-// OBS 브라우저 소스는 overlay 창을 대신한다 - main만을 향한 브릿지 메시지는 전달하지 않는다
+// 페이지(게임 화면·OBS)는 overlay 창과 같은 것을 그린다 - main만을 향한 브릿지 메시지는 전달하지 않는다
 fn is_forwarded_to_obs(event: &str, data: &Value) -> bool {
     if !FORWARDED_EVENTS.contains(&event) {
         return false;
@@ -96,11 +96,44 @@ const FORWARDED_EVENTS: &[&str] = &[
 /// 임베딩 에셋 조회 함수 타입 (path → Option<(bytes, mime_type)>)
 pub type AssetFetcher = Arc<dyn Fn(&str) -> Option<(Vec<u8>, String)> + Send + Sync>;
 
-/// OBS WebSocket 서버
+/// 서버가 닿아야 하는 범위. 게임은 같은 PC에 있고, OBS는 다른 PC에 있을 수 있다
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ServerReach {
+    /// 이 PC 안에서만 (게임 화면 속 키뷰어)
+    Loopback,
+    /// 같은 네트워크의 다른 PC까지 (OBS 브라우저 소스)
+    Lan,
+}
+
+/// hello의 client 값 - 게임이 띄운 키뷰어 페이지가 자신을 밝히는 이름
+const GAME_CLIENT: &str = "game";
+
+/// 게임 화면 속 키뷰어 연결 하나를 세션이 끝날 때까지 센다
+struct GameViewGuard<'a>(&'a AtomicU32);
+
+impl<'a> GameViewGuard<'a> {
+    fn new(count: &'a AtomicU32) -> Self {
+        count.fetch_add(1, Ordering::Relaxed);
+        Self(count)
+    }
+}
+
+impl Drop for GameViewGuard<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// 키뷰어 페이지를 내주는 로컬 HTTP/WebSocket 서버.
+/// 게임 화면 속 키뷰어와 OBS 브라우저 소스가 같은 페이지를 여기서 받는다
 pub struct ObsBridgeService {
     running: AtomicBool,
+    /// 실행 중인 서버의 범위 (running일 때만 의미 있음)
+    reach: RwLock<ServerReach>,
     port: RwLock<u16>,
     client_count: AtomicU32,
+    /// client_count 중 게임이 띄운 키뷰어 수
+    game_client_count: AtomicU32,
     cached_snapshot: RwLock<Value>,
     broadcast_tx: broadcast::Sender<ObsBroadcast>,
     shutdown_tx: RwLock<Option<oneshot::Sender<()>>>,
@@ -122,8 +155,10 @@ impl ObsBridgeService {
         let (broadcast_tx, _) = broadcast::channel(256);
         Self {
             running: AtomicBool::new(false),
+            reach: RwLock::new(ServerReach::Loopback),
             port: RwLock::new(0),
             client_count: AtomicU32::new(0),
+            game_client_count: AtomicU32::new(0),
             cached_snapshot: RwLock::new(Value::Null),
             broadcast_tx,
             shutdown_tx: RwLock::new(None),
@@ -152,8 +187,19 @@ impl ObsBridgeService {
         self.running.load(Ordering::Relaxed)
     }
 
+    /// 실행 중인 서버의 범위. 꺼져 있으면 None
+    pub fn reach(&self) -> Option<ServerReach> {
+        self.is_running().then(|| *self.reach.read())
+    }
+
     pub fn client_count(&self) -> u32 {
         self.client_count.load(Ordering::Relaxed)
+    }
+
+    /// 게임이 띄운 키뷰어를 뺀 연결 수 - 설정 화면의 OBS 연결 표시용
+    pub fn obs_client_count(&self) -> u32 {
+        self.client_count()
+            .saturating_sub(self.game_client_count.load(Ordering::Relaxed))
     }
 
     pub fn status(&self) -> ObsStatus {
@@ -170,7 +216,7 @@ impl ObsBridgeService {
         ObsStatus {
             running: self.is_running(),
             port: *self.port.read(),
-            client_count: self.client_count(),
+            client_count: self.obs_client_count(),
             token,
             local_ip,
         }
@@ -222,7 +268,12 @@ impl ObsBridgeService {
     }
 
     /// WS 서버 시작 (토큰은 호출자가 전달, 포트 자동 fallback)
-    pub async fn start(self: &Arc<Self>, port: u16, token: String) -> Result<u16, String> {
+    pub async fn start(
+        self: &Arc<Self>,
+        port: u16,
+        token: String,
+        reach: ServerReach,
+    ) -> Result<u16, String> {
         // 원자적 check-and-set
         if self
             .running
@@ -231,6 +282,7 @@ impl ObsBridgeService {
         {
             return Err("OBS bridge already running".to_string());
         }
+        *self.reach.write() = reach;
 
         // 이전 서버 태스크 종료 대기 (stop→start 경쟁 조건 방지)
         {
@@ -248,7 +300,7 @@ impl ObsBridgeService {
         let mut last_err = String::new();
         for offset in 0u16..10 {
             let try_port = port.saturating_add(offset);
-            let addr = bind_address(try_port);
+            let addr = bind_address(try_port, reach);
             match TcpListener::bind(addr).await {
                 Ok(l) => {
                     if offset > 0 {
@@ -283,7 +335,10 @@ impl ObsBridgeService {
         });
         *self.server_handle.lock().await = Some(handle);
 
-        log::info!("[ObsBridge] 서버 시작: http://0.0.0.0:{actual_port}");
+        log::info!(
+            "[ObsBridge] 서버 시작: http://{}",
+            bind_address(actual_port, reach)
+        );
         Ok(actual_port)
     }
 
@@ -300,6 +355,17 @@ impl ObsBridgeService {
         self.running.store(false, Ordering::Relaxed);
         // 토큰은 유지 (재시작 시 동일 토큰 재사용)
         log::info!("[ObsBridge] 서버 종료");
+    }
+
+    /// 다시 띄우기 전에, 끊긴 세션이 소켓을 놓기를 잠깐 기다린다 -
+    /// 같은 포트를 다시 잡아야 이미 나눠 준 주소가 그대로 남는다
+    pub async fn wait_for_sessions_to_close(&self, limit: Duration) {
+        let _ = tokio::time::timeout(limit, async {
+            while self.client_count() > 0 {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
     }
 
     /// 세션 토큰 교체 (실행 중 호출 가능)
@@ -573,6 +639,10 @@ impl ObsBridgeService {
             }
         };
 
+        // 게임 화면 속 키뷰어는 OBS 연결 수에서 뺀다
+        let game_view = (hello.payload.get("client").and_then(Value::as_str) == Some(GAME_CLIENT))
+            .then(|| GameViewGuard::new(&self.game_client_count));
+
         // 프로토콜 버전 검증 — handshake 계약이 다른 클라이언트는 fail-closed로 거부
         let client_protocol = hello.payload.get("protocol").and_then(Value::as_u64);
         if hello.v != OBS_PROTOCOL_VERSION
@@ -746,6 +816,8 @@ impl ObsBridgeService {
             }
         }
 
+        // 게임 몫을 먼저 내려, 남은 OBS 연결 수가 잠깐이라도 줄어 보이지 않게 한다
+        drop(game_view);
         self.client_count.fetch_sub(1, Ordering::Relaxed);
         log::info!(
             "[ObsBridge] 클라이언트 연결 종료: {addr} (남은 {})",
@@ -796,7 +868,7 @@ impl ObsBridgeService {
             }
         };
 
-        // OBS 모드에서 오버레이가 destroy된 상태일 수 있으므로 main window로 fallback
+        // 바탕화면 오버레이를 꺼 두면 오버레이 창이 없으므로 main window로 fallback
         let webview_window = match rpc::select_overlay_or_main(
             || {
                 app_handle

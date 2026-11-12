@@ -8,6 +8,8 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
+import { writeSprites } from '@src/renderer/editor/runtime/spritePositions';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
@@ -487,6 +489,10 @@ export function useLayerDnD({
     const currentKnobModePositions = [
       ...(updatedKnobPositions[selectedKeyType] || []),
     ];
+    const currentSpritePositions = useSpriteStore.getState().positions;
+    const currentSpriteModePositions = [
+      ...(currentSpritePositions[selectedKeyType] || []),
+    ];
 
     newItems.forEach((item, idx) => {
       const newZIndex = maxZIndex - idx;
@@ -532,6 +538,24 @@ export function useLayerDnD({
               : {}),
           };
         }
+      } else if (item.type === 'sprite' && item.index !== undefined) {
+        const sprite = currentSpriteModePositions[item.index];
+        const groupId =
+          isDraggedItem && !preserveGroupIds.has(item.id)
+            ? newGroupId
+            : (sprite?.groupId ?? undefined);
+        // A sprite that keeps its place and group is not saved again.
+        if (
+          sprite &&
+          (sprite.zIndex !== newZIndex ||
+            (sprite.groupId ?? undefined) !== groupId)
+        ) {
+          currentSpriteModePositions[item.index] = {
+            ...sprite,
+            zIndex: newZIndex,
+            groupId,
+          };
+        }
       } else if (item.type === 'plugin') {
         usePluginDisplayElementStore.getState().updateElement(item.id, {
           zIndex: newZIndex,
@@ -550,6 +574,10 @@ export function useLayerDnD({
       statPositions: updatedStatPositions,
       graphPositions: updatedGraphPositions,
       knobPositions: updatedKnobPositions,
+      spritePositions: {
+        ...currentSpritePositions,
+        [selectedKeyType]: currentSpriteModePositions,
+      },
       layerGroups: currentLayerGroups,
     });
 
@@ -557,6 +585,8 @@ export function useLayerDnD({
     useKeyStore.getState().setPositions(normalized.keyPositions);
     useStatItemStore.getState().setPositions(normalized.statPositions);
     useKnobItemStore.getState().setPositions(normalized.knobPositions);
+    // Shown with the others now; its save is awaited with theirs below.
+    const spriteSave = writeSprites(normalized.spritePositions);
     if (normalized.groupsChanged) {
       useLayerGroupStore.getState().setLayerGroups(normalized.layerGroups);
     }
@@ -571,6 +601,7 @@ export function useLayerDnD({
       await window.api.statItems.updatePositions(normalized.statPositions);
       await window.api.graphItems.updatePositions(normalized.graphPositions);
       await window.api.knobItems.updatePositions(normalized.knobPositions);
+      await spriteSave;
       if (normalized.groupsChanged) {
         await window.api.layerGroups.update(normalized.layerGroups);
       }
@@ -693,6 +724,10 @@ export function useLayerDnD({
     const currentKnobModePositions = [
       ...(updatedKnobPositions[selectedKeyType] || []),
     ];
+    const currentSpritePositions = useSpriteStore.getState().positions;
+    const currentSpriteModePositions = [
+      ...(currentSpritePositions[selectedKeyType] || []),
+    ];
 
     newItems.forEach((item, idx) => {
       const newZIndex = maxZIndex - idx;
@@ -724,6 +759,14 @@ export function useLayerDnD({
             zIndex: newZIndex,
           };
         }
+      } else if (item.type === 'sprite' && item.index !== undefined) {
+        const sprite = currentSpriteModePositions[item.index];
+        if (sprite && sprite.zIndex !== newZIndex) {
+          currentSpriteModePositions[item.index] = {
+            ...sprite,
+            zIndex: newZIndex,
+          };
+        }
       } else if (item.type === 'plugin') {
         usePluginDisplayElementStore.getState().updateElement(item.id, {
           zIndex: newZIndex,
@@ -739,6 +782,10 @@ export function useLayerDnD({
     useGraphItemStore.getState().setPositions(updatedGraphPositions);
     updatedKnobPositions[selectedKeyType] = currentKnobModePositions;
     useKnobItemStore.getState().setPositions(updatedKnobPositions);
+    const spriteSave = writeSprites({
+      ...currentSpritePositions,
+      [selectedKeyType]: currentSpriteModePositions,
+    });
 
     // 백엔드 동기화
     useKeyStore.getState().setLocalUpdateInProgress(true);
@@ -750,6 +797,7 @@ export function useLayerDnD({
       await window.api.statItems.updatePositions(updatedStatPositions);
       await window.api.graphItems.updatePositions(updatedGraphPositions);
       await window.api.knobItems.updatePositions(updatedKnobPositions);
+      await spriteSave;
     } catch (error) {
       console.error('Failed to reorder group', error);
     } finally {

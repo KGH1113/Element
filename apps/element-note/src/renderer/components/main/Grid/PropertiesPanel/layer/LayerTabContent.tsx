@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '@contexts/useTranslation';
 import {
@@ -9,26 +9,27 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { isMac } from '@utils/core/platform';
-import { useLenis } from '@hooks/useLenis';
 import ListPopup from '@components/main/Modal/ListPopup';
 import CloseEyeIcon from '@assets/svgs/close_eye.svg';
 import OpenEyeIcon from '@assets/svgs/open_eye.svg';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
 import type { LayerItem } from '../types';
 import { buildLayerItems, buildDisplayItems } from './layerPanelModel';
-import {
-  FolderIcon,
-  ChevronIcon,
-  KeyIcon,
-  KnobIcon,
-  PluginIcon,
-  StatIcon,
-  GraphIcon,
-} from './LayerIcons';
+import { FolderIcon, ChevronIcon } from './LayerIcons';
+import LayerThumb from './LayerThumb';
 import { useLayerActions } from './useLayerActions';
 import { useLayerDnD } from './useLayerDnD';
+
+/** Scroll position of the element list of each tab, kept while the app runs. */
+const listScrollMemory = new Map<string, number>();
+
+// The same as `h-[48px]` of a row below.
+const LAYER_ROW_HEIGHT = 48;
+/** Room below the last row; being this close to the end counts as the end. */
+const LIST_END_SLACK = 12;
 
 function layerItemToSelectedElement(item: LayerItem): SelectedElement {
   return {
@@ -62,6 +63,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
   const statPositions = useStatItemStore((state) => state.positions);
   const graphPositions = useGraphItemStore((state) => state.positions);
   const knobPositions = useKnobItemStore((state) => state.positions);
+  const spritePositions = useSpriteStore((state) => state.positions);
   const pluginElements = usePluginDisplayElementStore(
     (state) => state.elements,
   );
@@ -101,47 +103,42 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
     return () => clearPendingDeselect();
   });
 
-  // 스크롤 상태
+  // The list scrolls natively inside the sidebar page, so that reaching its
+  // end hands the wheel on to the page.
   const scrollElementRef = useRef<HTMLDivElement | null>(null);
-  const thumbRef = useRef<HTMLDivElement | null>(null);
-
-  const calculateThumb = (el: HTMLDivElement) => {
-    const { scrollTop, scrollHeight, clientHeight } = el;
-    const canScroll = scrollHeight > clientHeight + 1;
-    if (!canScroll) return { top: 0, height: 0, visible: false };
-
-    const minThumbHeight = 16;
-    const height = Math.max(
-      minThumbHeight,
-      (clientHeight / scrollHeight) * clientHeight,
-    );
-    const maxTop = clientHeight - height;
-    const top =
-      maxTop <= 0 ? 0 : (scrollTop / (scrollHeight - clientHeight)) * maxTop;
-
-    return { top, height, visible: true };
-  };
-
-  const updateThumbDOM = () => {
-    if (!thumbRef.current || !scrollElementRef.current) return;
-    const thumb = calculateThumb(scrollElementRef.current);
-    thumbRef.current.style.top = `${thumb.top}px`;
-    thumbRef.current.style.height = `${thumb.height}px`;
-    thumbRef.current.style.display = thumb.visible ? 'block' : 'none';
-  };
-
-  const { scrollContainerRef: lenisRef, lenisInstance } = useLenis({
-    onScroll: updateThumbDOM,
-  });
-
   const setScrollRef = (node: HTMLDivElement | null) => {
     scrollElementRef.current = node;
-    lenisRef(node);
   };
+  // Coming back from an element's page returns to the same place in the list.
+  useLayoutEffect(() => {
+    const viewport = scrollElementRef.current;
+    if (!viewport) return;
+    viewport.scrollTop = listScrollMemory.get(selectedKeyType) ?? 0;
+  }, [selectedKeyType]);
 
+  // How many rows lie below the visible part. The list has no scrollbar; a
+  // button at its foot says how much more there is and scrolls to it.
+  const [rowsBelow, setRowsBelow] = useState(0);
+  const countRowsBelow = () => {
+    const viewport = scrollElementRef.current;
+    if (!viewport) return;
+    const hidden =
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    const next =
+      hidden > LIST_END_SLACK
+        ? Math.max(1, Math.round((hidden - LIST_END_SLACK) / LAYER_ROW_HEIGHT))
+        : 0;
+    setRowsBelow((current) => (current === next ? current : next));
+  };
+  // After every render: rows may have been added, removed or folded.
+  useLayoutEffect(countRowsBelow);
   useEffect(() => {
-    updateThumbDOM();
-  });
+    const viewport = scrollElementRef.current;
+    if (!viewport || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(countRowsBelow);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
 
   // 레이어 아이템 목록
   const layerItems = buildLayerItems({
@@ -151,6 +148,8 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
     statPositions,
     graphPositions,
     knobPositions,
+    spritePositions,
+    spriteName: t('sidebar.addSprite'),
     pluginElements,
   });
 
@@ -174,15 +173,6 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
   useEffect(() => {
     layerItemsRef.current = layerItems;
     displayItemsRef.current = displayItems;
-  });
-
-  // 콘텐츠 높이 변경 시 Lenis 갱신
-  useEffect(() => {
-    const rafId = requestAnimationFrame(() => {
-      lenisInstance.current?.resize();
-      updateThumbDOM();
-    });
-    return () => cancelAnimationFrame(rafId);
   });
 
   // 접기/펼치기 시 displayIndex 앵커 리셋 (stale 인덱스 방지)
@@ -362,7 +352,6 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
     }
 
     // Ctrl+클릭 또는 일반 클릭
-    const isAlreadySelected = selectedElements.some((el) => el.id === item.id);
     const element = layerItemToSelectedElement(item);
 
     if (isPrimaryModifierPressed) {
@@ -376,20 +365,10 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
         setFullSelection([...selectedElements, element], selectedGroupIds);
       }
     } else {
-      if (isAlreadySelected && selectedElements.length > 1) {
-        pendingDeselectTimerRef.current = window.setTimeout(() => {
-          setFullSelection([element], []);
-          pendingDeselectTimerRef.current = null;
-        }, 50);
-      } else if (isAlreadySelected) {
-        pendingDeselectTimerRef.current = window.setTimeout(() => {
-          clearSelection();
-          pendingDeselectTimerRef.current = null;
-        }, 50);
-      } else {
-        clearSelection();
-        toggleSelection(element);
-      }
+      // A plain press opens that element's page. Presses with Shift or
+      // Ctrl/Cmd stay on the list, so several can be picked first.
+      setFullSelection([element], []);
+      onSwitchToProperty?.();
     }
 
     setLastClickedIndex(index);
@@ -487,6 +466,10 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
       }
     } else {
       setFullSelection(childElements, [groupId]);
+      setLastClickedDisplayIndex(thisDisplayIdx);
+      setLastClickedIndex(null);
+      onSwitchToProperty?.();
+      return;
     }
 
     setLastClickedDisplayIndex(thisDisplayIdx);
@@ -517,6 +500,10 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
         ref={setScrollRef}
         className="properties-panel-overlay-viewport"
         onMouseDown={handleEmptySpaceMouseDown}
+        onScroll={(event) => {
+          listScrollMemory.set(selectedKeyType, event.currentTarget.scrollTop);
+          countRowsBelow();
+        }}
       >
         {layerItems.length === 0 ? (
           <div className="flex items-center justify-center h-full p-[16px]">
@@ -546,7 +533,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       handleGroupHeaderClick(gh.groupId, e);
                     }}
                     className={`
-                      group relative flex items-center gap-[8px] pl-[12px] pr-[4px] h-[34px]
+                      group relative flex items-center gap-[8px] pl-[24px] pr-[4px] h-[48px]
                       select-none cursor-grab
                       ${gh.allHidden && !isBeingDragged ? 'opacity-60' : ''}
                       ${isBeingDragged ? 'opacity-30' : ''}
@@ -576,7 +563,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       )}
                     {/* 접기/펼치기 토글 */}
                     <div
-                      className="absolute left-0 top-0 bottom-0 w-[34px] flex items-center pl-[1px] cursor-pointer z-[1]"
+                      className="absolute left-0 top-0 bottom-0 w-[24px] flex items-center justify-center cursor-pointer z-[1]"
                       onClick={(e) => {
                         e.stopPropagation();
                         toggleCollapsed(gh.groupId);
@@ -597,7 +584,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       <input
                         ref={actions.renameInputRef}
                         type="text"
-                        className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
+                        className="flex-1 text-[14px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
                         value={actions.renameValue}
                         onChange={(e) => actions.setRenameValue(e.target.value)}
                         onBlur={() => {
@@ -624,7 +611,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                         onDoubleClick={(e) => e.stopPropagation()}
                       />
                     ) : (
-                      <span className="flex-1 text-[12px] truncate font-medium">
+                      <span className="flex-1 text-[14px] truncate font-medium">
                         {gh.groupName}
                       </span>
                     )}
@@ -670,7 +657,9 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
 
               // ── 레이어 아이템 렌더링 ──
               const { item, groupDepth, flatIndex } = displayItem;
-              const paddingLeft = groupDepth > 0 ? 28 : 12;
+              // 24px of gutter at the left holds the grip (rows) or the
+              // fold arrow (group headers), so every icon starts in one line.
+              const paddingLeft = groupDepth > 0 ? 40 : 24;
               const isInDraggedGroup =
                 dnd.draggedGroupId != null &&
                 item.groupId === dnd.draggedGroupId;
@@ -688,7 +677,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                   }
                   style={{ paddingLeft }}
                   className={`
-                    group relative flex items-center gap-[8px] pr-[4px] h-[34px]
+                    group relative flex items-center gap-[10px] pr-[4px] h-[48px]
                     select-none cursor-grab
                     ${item.hidden && !isInDraggedGroup ? 'opacity-60' : ''}
                     ${isInDraggedGroup ? 'opacity-30' : ''}
@@ -713,27 +702,32 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       <div className="absolute left-0 right-0 top-0 h-[2px] bg-ui-selection z-10" />
                     )}
 
-                  {/* 아이콘 */}
-                  <div className="flex-shrink-0">
-                    {item.type === 'key' ? (
-                      <KeyIcon />
-                    ) : item.type === 'stat' ? (
-                      <StatIcon />
-                    ) : item.type === 'graph' ? (
-                      <GraphIcon />
-                    ) : item.type === 'knob' ? (
-                      <KnobIcon />
-                    ) : (
-                      <PluginIcon />
-                    )}
-                  </div>
+                  {/* Says the row can be dragged to another place. */}
+                  <svg
+                    className="en-layer-grip"
+                    style={{ left: paddingLeft - 15 }}
+                    width="6"
+                    height="10"
+                    viewBox="0 0 6 10"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <circle cx="1.25" cy="1.25" r="1" />
+                    <circle cx="4.75" cy="1.25" r="1" />
+                    <circle cx="1.25" cy="5" r="1" />
+                    <circle cx="4.75" cy="5" r="1" />
+                    <circle cx="1.25" cy="8.75" r="1" />
+                    <circle cx="4.75" cy="8.75" r="1" />
+                  </svg>
+
+                  <LayerThumb item={item} viewerId={selectedKeyType} />
 
                   {/* 이름 */}
                   {actions.renamingItemId === item.id ? (
                     <input
                       ref={actions.renameInputRef}
                       type="text"
-                      className="flex-1 text-[12px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
+                      className="flex-1 text-[14px] bg-transparent border-none p-0 outline-none text-[#DBDEE8] min-w-0 caret-ui-accent"
                       value={actions.renameValue}
                       onChange={(e) => actions.setRenameValue(e.target.value)}
                       onBlur={() => {
@@ -760,7 +754,7 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       onDoubleClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <span className="flex-1 text-[12px] truncate">
+                    <span className="flex-1 text-[14px] truncate">
                       {item.name}
                     </span>
                   )}
@@ -782,6 +776,11 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                         ? t('propertiesPanel.showLayer') || 'Show'
                         : t('propertiesPanel.hideLayer') || 'Hide'
                     }
+                    aria-label={
+                      item.hidden
+                        ? t('propertiesPanel.showLayer') || 'Show'
+                        : t('propertiesPanel.hideLayer') || 'Hide'
+                    }
                     className={`flex-shrink-0 w-[28px] h-[28px] flex items-center justify-center rounded-[6px] hover:bg-[#4C4D53] cursor-pointer ${
                       item.hidden
                         ? ''
@@ -798,6 +797,22 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
                       <OpenEyeIcon width={14} height={14} fill="currentColor" />
                     )}
                   </button>
+                  <svg
+                    className="en-layer-chevron"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m4.5 2.5 3.5 3.5-3.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
               );
             })}
@@ -813,16 +828,45 @@ const LayerTabContent: React.FC<LayerTabContentProps> = ({
               )}
           </div>
         )}
-
-        {/* 커스텀 스크롤바 */}
-        <div className="properties-panel-overlay-bar">
-          <div
-            ref={thumbRef}
-            className="properties-panel-overlay-thumb"
-            style={{ display: 'none' }}
-          />
-        </div>
       </div>
+
+      {/* Always there, so showing it moves nothing. */}
+      <button
+        type="button"
+        className="en-list-more"
+        data-shown={rowsBelow > 0 || undefined}
+        tabIndex={rowsBelow > 0 ? 0 : -1}
+        aria-hidden={rowsBelow > 0 ? undefined : true}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={() => {
+          const viewport = scrollElementRef.current;
+          if (!viewport) return;
+          viewport.scrollBy({
+            top: Math.max(
+              LAYER_ROW_HEIGHT,
+              viewport.clientHeight - LAYER_ROW_HEIGHT * 2,
+            ),
+            behavior: 'smooth',
+          });
+        }}
+      >
+        {t('sidebar.moreBelow', { count: rowsBelow || 1 })}
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="m2.5 4.5 3.5 3.5 3.5-3.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
 
       {/* 컨텍스트 메뉴 */}
       {actions.contextMenuOpen &&

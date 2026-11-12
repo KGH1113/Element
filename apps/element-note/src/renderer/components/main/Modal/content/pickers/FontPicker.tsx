@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
 import { useFontStore } from '@stores/useFontStore';
 import type { CustomFont } from '@src/types/settings/fonts';
-import PlusIcon from '@assets/svgs/plus2.svg';
 import CommonListPickerPopup from './CommonListPickerPopup';
 
 interface FontPickerProps {
@@ -87,9 +86,7 @@ const FontPicker = ({
       panelElement={panelElement}
       interactiveRefs={interactiveRefs}
       onClose={onClose}
-      widthClass="w-[156px]"
-      estimatedWidth={164}
-      estimatedHeight={280}
+      chooserTitle={t('sidebar.pickFont')}
       searchQuery={searchQuery}
       onSearchQueryChange={setSearchQuery}
       searchPlaceholder={t('fontPicker.searchPlaceholder') || '검색...'}
@@ -97,30 +94,19 @@ const FontPicker = ({
       filterValue={filterType}
       onFilterChange={(value) => setFilterType(value as FilterType)}
       items={filteredFonts}
-      renderItem={(font) => {
-        const isSelected = effectiveSelectedFont
+      getItemKey={(font) => font.id}
+      getItemLabel={(font) => font.displayName}
+      // Each font's name is written in that font: it shows what it is.
+      getItemLabelStyle={(font) => ({ fontFamily: font.name, fontSize: 15 })}
+      isItemSelected={(font) =>
+        effectiveSelectedFont
           ? effectiveSelectedFont === font.name
-          : font.name === 'SUIT-Regular';
-        return (
-          <button
-            key={font.id}
-            type="button"
-            className={`w-full min-h-[24px] h-[24px] flex-shrink-0 px-[8px] rounded-[7px] text-left text-style-4 transition-colors truncate ${
-              isSelected
-                ? 'bg-[#2E2D33] text-[#FFFFFF]'
-                : 'text-[#DBDEE8] hover:bg-[#26262C]'
-            }`}
-            style={{ fontFamily: font.name }}
-            onClick={() => handleFontClick(font)}
-            title={font.displayName}
-          >
-            {font.displayName}
-          </button>
-        );
-      }}
+          : font.name === 'SUIT-Regular'
+      }
+      onItemChoose={handleFontClick}
       emptyText={t('fontPicker.noFonts') || '폰트 없음'}
       onAdd={onOpenManager}
-      addButtonContent={<PlusIcon />}
+      addLabel={t('fontPicker.add')}
     />
   );
 };

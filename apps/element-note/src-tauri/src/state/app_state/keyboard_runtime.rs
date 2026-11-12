@@ -348,13 +348,9 @@ impl AppState {
                                     crate::ipc::DaemonCommand::ToggleOverlay => {
                                         log::info!("[AppState] received ToggleOverlay command from daemon");
                                         let app_state = app_handle.state::<AppState>();
-                                        if app_state.is_obs_mode_active() {
-                                            log::info!("[AppState] OBS 모드 활성화 중 — 오버레이 토글 무시");
-                                        } else {
                                         let is_visible = *app_state.overlay_visible.read();
                                         if let Err(err) = app_state.set_overlay_visibility(&app_handle, !is_visible) {
                                             log::error!("failed to toggle overlay visibility: {err}");
-                                        }
                                         }
                                     }
                                     crate::ipc::DaemonCommand::ToggleOverlayLock => {

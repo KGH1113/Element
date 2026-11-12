@@ -22,7 +22,7 @@ pub(in crate::state::app_state) enum PanelBoundsChange {
 }
 
 impl PanelBoundsChange {
-    // 복원에 쓰는 값은 높이뿐이라 이동은 디스크로 가지 않는다.
+    // 복원에 쓰는 값은 크기뿐이라 이동은 디스크로 가지 않는다.
     // x/y는 store 호환을 위해 계속 기록만 되고 창 배치에는 쓰이지 않음
     pub(in crate::state::app_state) fn changes_persisted_bounds(self) -> bool {
         !matches!(self, Self::Moved(_))
@@ -36,6 +36,7 @@ pub(in crate::state::app_state) struct PanelBoundsPersistenceState {
     pub(in crate::state::app_state) applied_max_height: Option<f64>,
     // 초기화로 발생한 resize가 비운 저장값을 되살리지 않게 하는 기본 높이 추적
     pub(in crate::state::app_state) unpersisted_default_height: Option<f64>,
+    pub(in crate::state::app_state) unpersisted_default_width: Option<f64>,
     pub(in crate::state::app_state) default_height_pending: bool,
     pub(in crate::state::app_state) session: u64,
     pub(in crate::state::app_state) generation: u64,
@@ -106,6 +107,7 @@ pub(in crate::state::app_state) fn panel_bounds_from_sample(
     PanelBounds {
         x: position.x,
         y: position.y,
+        width: size.width,
         height: size.height,
     }
 }
@@ -162,6 +164,7 @@ impl PanelBoundsPersistenceController {
         state.window = Some(window.clone());
         state.applied_max_height = Some(max_height);
         state.unpersisted_default_height = None;
+        state.unpersisted_default_width = None;
         state.default_height_pending = false;
         state.generation = state.generation.wrapping_add(1);
         state.dirty = false;
@@ -226,11 +229,15 @@ impl PanelBoundsPersistenceController {
         };
         let Some(sample) = state.latest else {
             state.unpersisted_default_height = None;
+            state.unpersisted_default_width = None;
             state.default_height_pending = false;
             return true;
         };
-        let height = panel_bounds_from_sample(sample).height;
-        if (height - default_height).abs() < 0.5 {
+        let bounds = panel_bounds_from_sample(sample);
+        let is_default_width = state
+            .unpersisted_default_width
+            .is_none_or(|width| (bounds.width - width).abs() < 0.5);
+        if (bounds.height - default_height).abs() < 0.5 && is_default_width {
             state.default_height_pending = false;
             return false;
         }
@@ -238,6 +245,7 @@ impl PanelBoundsPersistenceController {
             return false;
         }
         state.unpersisted_default_height = None;
+        state.unpersisted_default_width = None;
         true
     }
 
@@ -317,14 +325,14 @@ impl PanelBoundsPersistenceController {
 
         let mut state = self.state.lock();
         let default_height = layout.map(|value| value.height);
-        let current_height = state
-            .latest
-            .map(panel_bounds_from_sample)
-            .map(|value| value.height);
+        let current_bounds = state.latest.map(panel_bounds_from_sample);
         state.unpersisted_default_height = default_height;
-        state.default_height_pending = default_height
-            .zip(current_height)
-            .is_none_or(|(default, current)| (default - current).abs() >= 0.5);
+        state.unpersisted_default_width = layout.map(|value| value.width);
+        state.default_height_pending =
+            layout.zip(current_bounds).is_none_or(|(default, current)| {
+                (default.height - current.height).abs() >= 0.5
+                    || (default.width - current.width).abs() >= 0.5
+            });
         state.applied_max_height = layout.map(|value| value.max_height);
         state.generation = state.generation.wrapping_add(1);
         state.dirty = false;
@@ -425,13 +433,10 @@ impl PanelBoundsPersistenceController {
         };
         // 좁은 모니터로 옮겨가면 하한도 함께 내려야 창이 화면 밖으로 나가지 않음
         window.set_min_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(
-            PANEL_WIDTH,
+            PANEL_MIN_WIDTH,
             min_height,
         ))))?;
-        window.set_max_size(Some(tauri::Size::Logical(tauri::LogicalSize::new(
-            PANEL_WIDTH,
-            max_height,
-        ))))?;
+        window.set_max_size(None::<tauri::Size>)?;
         let mut state = self.state.lock();
         if state.active && state.session == session && state.generation == generation {
             state.applied_max_height = Some(max_height);

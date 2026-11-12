@@ -5,10 +5,11 @@ ElementNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. 
 ## 주요 기능
 
 - 손·발 오버레이와 키 입력 횟수 표시
+- 설정 검색, 너비를 바꿀 수 있는 편집 사이드바, 창 크기 조절 ([사용법](../../docs/features/element-note-ux.md))
 - 처음 실행하면 손 16K·12K·10K·8K·4K, 발 0K·2K·4K·6K·8K 키뷰어가 준비되어 있음
-- 노트 효과와 OBS 모드는 기본으로 켜져 있음
+- 레이닝 효과와 게임 화면 안 키뷰어는 기본으로 켜져 있음
 - 프리셋, 키음, 커스텀 CSS, 신뢰된 JavaScript 플러그인
-- OBS 브라우저 소스 연결
+- 키뷰어를 보여 줄 곳 세 곳(얼불춤 안, 바탕화면 위, OBS 방송 화면)을 따로 켜고 끔
 - 노래 제목, 녹화 모드, 판정 표시 설정
 - Windows ASIO 출력과 macOS Dock helper
 - TUFReplay 리플레이 영상에 들어가는 손·발 키뷰어
@@ -16,11 +17,11 @@ ElementNote는 리듬 게임용 키 입력 시각화 데스크톱 앱입니다. 
 
 ## 게임 화면 키뷰어
 
-macOS 11 이상에서 Element 모드와 ElementNote를 함께 실행하면 앱의 OBS 모드(기본으로 켜짐)를 통해 게임 플레이 중 손·발 키뷰어가 게임 창 양쪽 아래에 표시됩니다. 모드의 **Show hand and foot viewers in game**은 기본으로 켜져 있으며 **Show viewer preview**로 메뉴에서도 확인할 수 있습니다. OBS Studio를 실행할 필요는 없습니다. 각 뷰어에서 선택한 탭을 따로 사용하고 최대 430×270포인트에 맞춰 배치합니다.
+macOS 11 이상에서 Element 모드와 ElementNote를 함께 실행하면 앱 설정 **보여 줄 곳**의 **얼불춤 안**(기본으로 켜짐)에 따라 게임 플레이 중 손·발 키뷰어가 게임 창 양쪽 아래에 표시됩니다. 모드의 **Show hand and foot viewers in game**은 기본으로 켜져 있으며 **Show viewer preview**로 메뉴에서도 확인할 수 있습니다. OBS 방송 화면은 켜지 않아도 됩니다. 각 뷰어에서 선택한 탭을 따로 사용하고 최대 430×270포인트에 맞춰 배치합니다.
 
-게임 창 안의 웹뷰(macOS는 WKWebView, Windows는 WebView2)가 OBS 페이지를 직접 렌더링합니다. 프레임 캡처·임시 파일 전송·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. 리플레이 렌더링 중에는 게임 내 뷰어를 잠시 숨기고, 끝나면 페이지를 다시 불러오지 않고 표시합니다. macOS의 Discord·OBS와 Windows OBS 윈도우 캡처의 **Windows 10 (1903 이상)** 방식에서는 얼불춤 창만 선택해도 키뷰어가 함께 캡처됩니다. 앱은 OBS 모드·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 게임에 키뷰어 정보를 보냅니다(`mirror.native.changed`·`mirror.native.unavailable`).
+게임 창 안의 웹뷰(macOS는 WKWebView, Windows는 WebView2)가 앱이 내주는 키뷰어 페이지를 직접 렌더링합니다. 프레임 캡처·임시 파일 전송·Unity 텍스처 업로드와 기존 이미지 미러는 제거했습니다. Linux의 게임 내 키뷰어는 아직 지원하지 않습니다. 리플레이 렌더링 중에는 게임 내 뷰어를 잠시 숨기고, 끝나면 페이지를 다시 불러오지 않고 표시합니다. macOS의 Discord·OBS와 Windows OBS 윈도우 캡처의 **Windows 10 (1903 이상)** 방식에서는 얼불춤 창만 선택해도 키뷰어가 함께 캡처됩니다. 앱은 키뷰어 페이지 서버·토큰·포트나 리플레이 렌더링 상태가 바뀔 때만 게임에 키뷰어 정보를 보냅니다(`mirror.native.changed`·`mirror.native.unavailable`).
 
-`./scripts/run.sh desktop-bundle --release`로 만든 앱을 사용하세요. Debug 앱은 OBS 페이지를 Vite 개발 서버로 리다이렉트하므로 독립 실행 검증에 적합하지 않습니다. [게임·Discord·OBS 검증 절차](../../docs/features/native-webview.md)를 참고하세요.
+`./scripts/run.sh desktop-bundle --release`로 만든 앱을 사용하세요. Debug 앱은 키뷰어 페이지를 Vite 개발 서버로 리다이렉트하므로 독립 실행 검증에 적합하지 않습니다. [게임·Discord·OBS 검증 절차](../../docs/features/native-webview.md)를 참고하세요.
 
 ## 리플레이 렌더링
 
@@ -69,7 +70,7 @@ cargo clippy --locked --all-targets -- -D warnings
 
 ## 보안
 
-외부 링크는 `https`, `http`, `mailto` 스킴만 열 수 있습니다. 커스텀 JavaScript 플러그인은 샌드박스되지 않고 현재 사용자 권한으로 실행되므로, 내용을 검토한 신뢰할 수 있는 플러그인만 설치하세요. OBS 연결은 사용자가 시작한 로컬 브리지에 한정하고 세션 토큰을 사용합니다.
+외부 링크는 `https`, `http`, `mailto` 스킴만 열 수 있습니다. 커스텀 JavaScript 플러그인은 샌드박스되지 않고 현재 사용자 권한으로 실행되므로, 내용을 검토한 신뢰할 수 있는 플러그인만 설치하세요. 키뷰어 페이지를 내주는 로컬 서버는 세션 토큰을 쓰고, OBS 방송 화면을 켰을 때만 같은 네트워크에 열립니다.
 
 ## 라이선스와 원본
 

@@ -207,10 +207,11 @@ function FALLBACK_SETTINGS_STATE(): SettingsState {
     useCustomJS: false,
     customJS: { path: null, content: '', plugins: [] },
     overlayResizeAnchor: 'top-left',
-    keyCounterEnabled: false,
+    // Legacy wire field: only each key's counter.enabled controls visibility.
+    keyCounterEnabled: true,
     gridSettings: FALLBACK_GRID_SETTINGS(),
     shortcuts: FALLBACK_SHORTCUTS(),
-    obsModeEnabled: true,
+    obsModeEnabled: false,
     keyLimiterEnabled: true,
     inGameViewersEnabled: true,
   };

@@ -52,6 +52,7 @@ using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
+using ElementUI.Ugui;
 
 namespace Element.Editor
 {
@@ -148,25 +149,30 @@ namespace Element.Editor
       camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.04f, .05f, .07f);
       var texture = new RenderTexture(screenWidth, screenHeight, 24); camera.targetTexture = texture;
       var canvases = new[] { host.Root.GetComponent<Canvas>(), root.GetComponent<Canvas>() };
-      _refresh = () => Call(editor, "UpdateFrames");
+      _refresh = () =>
+      {
+        Call(editor, "UpdateFrames");
+        Settle();
+      };
       editor.Resize(width, height); Canvas.ForceUpdateCanvases();
       Rect toolbar = editor.ToolbarBounds;
       Assert(toolbar.xMin >= 0 && toolbar.xMax <= width && toolbar.yMax <= height, "layout toolbar fits viewport");
       Assert(toolbar.width <= 760.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
       RectTransform toolbarRect = Toolbar(editor).Root;
       Call(editor, "UpdateFrames");
-      Assert(Field<RectTransform>(ElementBar(editor), "_panel") == null, "no element toolbar without a selection");
+      Assert(ElementBar(editor).Root == null, "no element toolbar without a selection");
       int fpsIndex = IndexOf(editor, host.LayoutTargets.Single(target => target.Id == "fps"));
       Select(editor, fpsIndex);
-      Assert(Field<RectTransform>(ElementBar(editor), "_panel") == null, "texts have no element toolbar");
-      Assert(!toolbarRect.GetComponentsInChildren<Button>(true).Any(button => button.name.Contains("settings")),
+      Assert(ElementBar(editor).Root == null, "texts have no element toolbar");
+      Assert(!toolbarRect.GetComponentsInChildren<Pressable>(true).Any(button => button.name.Contains("settings")),
         "the toolbar has no settings button");
-      Button editContent = Field<Button>(Toolbar(editor), "_editContent");
-      Assert(editContent.gameObject.activeSelf && !Field<TMP_InputField>(Toolbar(editor), "_scaleInput").gameObject.activeSelf
-        && !Field<Button>(Toolbar(editor), "_plus").gameObject.activeSelf && !Field<Button>(Toolbar(editor), "_minus").gameObject.activeSelf,
+      Pressable editContent = ToolbarButton(editor, "Edit element");
+      Assert(ToolbarModel(editor).SizedInEditor.Value && Shown(editContent) && !Shown(ScaleField(editor))
+        && !Shown(ToolbarButton(editor, "Increase size")) && !Shown(ToolbarButton(editor, "Decrease size")),
         "a text shows Edit text where the scale was");
-      editContent.GetComponentInChildren<TextMeshProUGUI>().ForceMeshUpdate();
-      Assert(!editContent.GetComponentInChildren<TextMeshProUGUI>().isTextTruncated, "Edit text fits");
+      TextMeshProUGUI editLabel = editContent.GetComponentInChildren<TextMeshProUGUI>();
+      editLabel.ForceMeshUpdate();
+      Assert(editLabel.text == L("텍스트 편집", "Edit text") && !editLabel.isTextTruncated, "Edit text fits: " + editLabel.text);
       Rect fpsRect = host.LayoutTargets.Single(target => target.Id == "fps").Bounds;
       object[] hit = { fpsRect.max, null };
       int hitIndex = (int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit);
@@ -201,13 +207,17 @@ namespace Element.Editor
         "a text's outline has no resize handles");
       // Without a selection the scale shows again; key viewers use it.
       Select(editor, -1);
-      Assert(Field<TMP_InputField>(Toolbar(editor), "_scaleInput").gameObject.activeSelf && !Field<Button>(Toolbar(editor), "_editContent").gameObject.activeSelf,
+      Assert(Shown(ScaleField(editor)) && !Shown(ToolbarButton(editor, "Edit element")),
         "the scale returns when no text or shape is selected");
-      RectTransform grip = (RectTransform)toolbarRect.Find("Drag panel");
-      Assert(Mathf.Abs(CenterIn(grip, toolbarRect).y - CenterIn(Field<TextMeshProUGUI>(Toolbar(editor), "_instruction").rectTransform, toolbarRect).y) < .1f,
+      TextMeshProUGUI title = ByName<TextMeshProUGUI>(toolbarRect, "Selection");
+      Assert(title.text == L("요소 선택", "Select overlay"), "with nothing selected the toolbar asks for a selection: " + title.text);
+      RectTransform grip = ByName<RectTransform>(toolbarRect, "Drag panel");
+      Assert(Mathf.Abs(CenterIn(grip, toolbarRect).y - CenterIn(title.rectTransform, toolbarRect).y) < .5f,
         "move grip and title share the same vertical center");
-      Button plus = Field<Button>(Toolbar(editor), "_plus"), minus = Field<Button>(Toolbar(editor), "_minus");
-      TMP_InputField sizeInput = Field<TMP_InputField>(Toolbar(editor), "_scaleInput");
+      Pressable plus = ToolbarButton(editor, "Increase size"), minus = ToolbarButton(editor, "Decrease size");
+      TMP_InputField sizeInput = ScaleField(editor);
+      Assert(!plus.IsInteractable() && !minus.IsInteractable() && !sizeInput.interactable && sizeInput.text == "100",
+        "without a selection the scale shows 100% and can't be changed");
       Assert(Mathf.Abs(CenterIn((RectTransform)plus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f
         && Mathf.Abs(CenterIn((RectTransform)minus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f,
         "plus, minus and percentage field share one vertical center");
@@ -223,7 +233,7 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(label.font == font && !label.isTextTruncated, "toolbar label fits: " + label.text);
       }
-      Assert(Field<Button>(Toolbar(editor), "_save").colors.normalColor.maxColorComponent < .5f, "save uses a dark tinted fill");
+      Assert(ToolbarButton(editor, "Save").GetComponent<RoundedRect>().color.maxColorComponent < .5f, "save uses a dark tinted fill");
       if (width != screenWidth || height != screenHeight)
       {
         Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
@@ -234,28 +244,51 @@ namespace Element.Editor
       // The scale itself, as key viewers use it, measured on a real element.
       IOverlayLayoutTarget fps = host.LayoutTargets.Single(target => target.Id == "fps");
       Select(editor, fpsIndex);
-      Call(Toolbar(editor), "CommitScale", "150");
-      Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "precise layout scale commits");
+      LayoutToolbarModel bar = ToolbarModel(editor);
+      // Typing writes the field's value; it is applied when typing ends, and
+      // one out of range keeps Save from closing the editor.
+      bar.Scale.Value = "130";
+      Assert(bar.FinishTyping.TryExecute() && Mathf.Abs(fps.EffectiveScale - 1.3f) < .01f, "letting go of the field applies the typed scale");
+      Call(editor, "Undo");
+      bar.Scale.Value = "5";
+      Assert(!Toolbar(editor).CommitPendingScale() && editor.IsOpen && Status(editor).Showing
+        && Status(editor).Text.Value.Contains("20"), "Save waits while the typed scale is out of range: " + Status(editor).Text.Value);
+      bar.DropTypedScale();
+      Assert(Toolbar(editor).CommitPendingScale() && Mathf.Abs(fps.EffectiveScale - 1) < .01f, "a dropped typed scale no longer stops Save");
+      Assert(bar.CommitScale("150") && Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "precise layout scale commits");
       Call(editor, "Undo"); Assert(Mathf.Abs(fps.EffectiveScale - 1) < .01f, "layout undo restores the scale");
       Call(editor, "Redo"); Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "layout redo restores the edit");
-      Call(Toolbar(editor), "CommitScale", "1999"); Toolbar(editor).Refresh();
-      Assert(Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text").text.Contains("1000"), "scale validation names the 1000% limit");
+      CheckToolbarChrome(editor);
+      Assert(!bar.CommitScale("1999"), "a scale past the limit is refused");
+      Toolbar(editor).Refresh();
+      TextMeshProUGUI status = StatusLabel(editor);
+      Assert(Status(editor).Text.Value.Contains("1000") && status.text.Contains("1000") && status.color == UiPalette.Error,
+        "scale validation names the 1000% limit, warm: " + status.text);
       SaveFrame(camera, texture, canvases, name);
 
       // Add Element: three kinds; key viewers explain why they're unavailable.
       viewers.Availability = KeyViewerAvailability.AppClosed;
       Call(editor, "ToggleAddMenu");
       RectTransform menu = AddMenu(editor);
-      Button[] kinds = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
-      Assert(kinds.Length == 3, "Add Element offers Text, Key viewer and Shape");
-      Assert(kinds[0].interactable && !kinds[1].interactable && kinds[2].interactable, "a closed ElementNote disables only key viewers");
-      Assert(kinds[1].GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text.Contains("ElementNote")), "the disabled key viewer says how to enable it");
+      Settle();
+      Pressable[] kinds = Rows(menu);
+      Assert(kinds.Select(row => row.name).SequenceEqual(new[] { "Add Text", "Add KeyViewer", "Add Shape" }),
+        "Add Element offers Text, Key viewer and Shape");
+      Assert(kinds[0].IsInteractable() && !kinds[1].IsInteractable() && kinds[2].IsInteractable(), "a closed ElementNote disables only key viewers");
+      Assert(kinds[1].GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text.Contains("ElementNote")
+        && label.color == UiPalette.Error), "the disabled key viewer says how to enable it, warm");
       foreach (TextMeshProUGUI label in menu.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "add menu label fits: " + label.text);
+        Assert(label.font == font && !label.isTextTruncated, "add menu label fits: " + label.text);
       }
       Assert(PopoverInside(editor, menu, screenWidth, screenHeight), "the add menu stays on screen");
+      Rect menuRect = PopoverPlacement.ScreenRect(menu), addRect0 = ScreenRectOf((RectTransform)ToolbarButton(editor, "Add element").transform);
+      Assert(menuRect.yMax <= editor.ToolbarBounds.y + .5f
+        && Mathf.Abs(menuRect.x - Mathf.Min(addRect0.x, screenWidth - PopoverPlacement.Margin - menuRect.width)) < 1,
+        "the add menu opens above the toolbar from Add Element, as far as the view lets it: " + menuRect + " / " + addRect0);
+      Assert(EventSystem.current == null || EventSystem.current.currentSelectedGameObject == kinds[0].gameObject,
+        "the first row has the keyboard");
       SaveFrame(camera, texture, canvases, name + "-add");
       Call(editor, "ToggleAddMenu");
       Assert(AddMenu(editor) == null, "Add Element closes its menu again");
@@ -272,12 +305,29 @@ namespace Element.Editor
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();
-      Field<LayoutReset>(editor, "_reset").Confirm();
-      Assert(Field<GameObject>(Field<LayoutModal>(editor, "_modal"), "_root") != null && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
+      LayoutModal modal = Field<LayoutModal>(editor, "_modal");
+      Press(ToolbarButton(editor, "Reset all"));
+      Assert(modal.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
         "Reset all asks first, covering native viewers");
+      Settle();
+      Assert(modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("오버레이를 처음 상태로 되돌릴까요?", "Reset all overlays?"))
+        && ByName<Pressable>(modal.Dialog, "Confirm").GetComponentInChildren<TextMeshProUGUI>().text == L("전체 초기화", "Reset all"),
+        "the dialog says what Reset all does, with Cancel and Reset all");
+      foreach (TextMeshProUGUI label in modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "dialog label fits: " + label.text);
+      }
+      Assert(PopoverInside(editor, modal.Dialog, screenWidth, screenHeight), "the dialog fits the view");
+      Assert(EventSystem.current == null || EventSystem.current.currentSelectedGameObject == ByName<Pressable>(modal.Dialog, "Cancel").gameObject,
+        "Cancel has the keyboard, so Enter keeps everything");
+      SaveFrame(camera, texture, canvases, name + "-reset");
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening the confirmation changes nothing");
-      Field<LayoutModal>(editor, "_modal").Close();
-      Call(Field<LayoutReset>(editor, "_reset"), "Restore");
+      Press(ByName<Pressable>(modal.Dialog, "Cancel"));
+      Assert(!modal.IsOpen && beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Cancel closes the dialog and changes nothing");
+      Field<LayoutReset>(editor, "_reset").Confirm();
+      Press(ByName<Pressable>(modal.Dialog, "Confirm"));
+      Assert(!modal.IsOpen, "Reset all closes the dialog");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _))
         && host.LayoutTargets.Single(target => target.Id == "fps").Enabled, "Reset all removes added elements and restores built-ins");
       Call(editor, "Undo");
@@ -296,18 +346,24 @@ namespace Element.Editor
     {
       // Add → Shape asks for the kind beside the add menu.
       Call(editor, "ToggleAddMenu");
-      AddMenu(editor).GetComponentsInChildren<Button>(true).Single(button => button.name == "Add Shape").onClick.Invoke();
+      Press(Rows(AddMenu(editor)).Single(button => button.name == "Add Shape"));
       RectTransform kindMenu = Field<ListMenu>(Kind<ShapeKind>(editor), "_menu").Root;
       Assert(kindMenu != null && AddMenu(editor) != null, "Shape opens a kind menu next to the add menu");
-      string[] kindNames = kindMenu.GetComponentsInChildren<Button>(true).Select(button => button.name).ToArray();
+      string[] kindNames = Rows(kindMenu).Select(button => button.name).ToArray();
       Assert(kindNames.SequenceEqual(new[] { "Add Square", "Add Triangle", "Add Circle" }), "the kinds are square, triangle and circle");
       Rect addRect = PopoverPlacement.ScreenRect(AddMenu(editor));
       Rect kindRect = PopoverPlacement.ScreenRect(kindMenu);
       Assert(PopoverInside(editor, kindMenu, width, height) && (kindRect.x >= addRect.xMax - .5f || kindRect.xMax <= addRect.x + .5f),
         "the kind menu sits beside the add menu, on screen");
       Assert(!kindRect.Overlaps(editor.ToolbarBounds), "the kind menu leaves the toolbar uncovered");
+      foreach (TextMeshProUGUI label in kindMenu.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "shape kind label fits: " + label.text);
+      }
       SaveFrame(camera, texture, canvases, name + "-shape-kinds");
-      kindMenu.GetComponentsInChildren<Button>(true).Single(button => button.name == "Add Square").onClick.Invoke();
+      Press(Rows(kindMenu).Single(button => button.name == "Add Square"));
+      Assert(AddMenu(editor) == null && Field<ListMenu>(Kind<ShapeKind>(editor), "_menu").Root == null, "adding closes the menu and its list");
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       OverlayShapeEditor shapes = (OverlayShapeEditor)Kind<ShapeKind>(editor).Editor;
       Assert(shape.Enabled && shape.Shape.Kind == OverlayShapeKind.Square && shapes.IsOpen, "a new square opens its editor at once");
@@ -593,12 +649,11 @@ namespace Element.Editor
 
       // On the canvas: Edit shape where the scale was; cancel keeps it as it was.
       Select(editor, IndexOf(editor, shape));
-      Toolbar(editor).Refresh();
-      Button editContent = Field<Button>(Toolbar(editor), "_editContent");
-      Assert(Field<RectTransform>(ElementBar(editor), "_panel") == null && editContent.gameObject.activeSelf
+      Pressable editContent = ToolbarButton(editor, "Edit element");
+      Assert(ElementBar(editor).Root == null && Shown(editContent)
         && editContent.GetComponentInChildren<TextMeshProUGUI>().text == (Korean(name) ? "도형 편집" : "Edit shape"),
         "a selected shape offers Edit shape where the scale was");
-      editContent.onClick.Invoke();
+      Press(editContent);
       Assert(shapes.IsOpen, "Edit shape opens the shape editor");
       heightField = Measures(shapes).HeightField;
       Click(heightField.Root, "Height");
@@ -609,7 +664,7 @@ namespace Element.Editor
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
       // Only Cancel throws an edit away: one open when the editor is torn down
       // (the mod turned off) is kept.
-      editContent.onClick.Invoke();
+      Press(editContent);
       Click(Measures(shapes).HeightField.Root, "Height");
       ShapeNumbersOf(shapes).KeypadPress('9');
       shapes.Dispose();
@@ -747,24 +802,32 @@ namespace Element.Editor
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 2, "each selected element has its outline");
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).All(outline => !Field<bool>(outline, "_handles")),
         "several selected show no resize handles");
-      Assert(Field<TextMeshProUGUI>(Toolbar(editor), "_instruction").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
-      TMP_InputField scaleInput = Field<TMP_InputField>(Toolbar(editor), "_scaleInput");
-      Assert(!Field<Button>(Toolbar(editor), "_editContent").gameObject.activeSelf && scaleInput.gameObject.activeSelf && !scaleInput.interactable
-        && scaleInput.text == "—" && Field<Button>(Toolbar(editor), "_delete").interactable && Field<Button>(Toolbar(editor), "_reset").interactable,
-        "several selected: no Edit, the scale greys out, delete and reset stay");
-      RectTransform bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      Assert(bar != null && bar.gameObject.activeSelf, "several selected get the align toolbar");
-      Func<UiIconKind, Button> arrange = kind =>
-        bar.GetComponentsInChildren<Button>(true).Single(button => button.GetComponentInChildren<UiIcon>()?.Kind == kind);
-      Assert(arrange(UiIconKind.AlignLeft).interactable && !arrange(UiIconKind.DistributeHorizontal).interactable
-        && !arrange(UiIconKind.DistributeVertical).interactable, "two can be aligned; spacing waits for three");
+      Settle();
+      Assert(ByName<TextMeshProUGUI>(Toolbar(editor).Root, "Selection").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
+      TMP_InputField scaleInput = ScaleField(editor);
+      Assert(!Shown(ToolbarButton(editor, "Edit element")) && Shown(scaleInput) && !scaleInput.interactable
+        && scaleInput.text == "—" && !Shown(ByName<TextMeshProUGUI>(Toolbar(editor).Root, "%"))
+        && ToolbarButton(editor, "Delete element").IsInteractable() && ToolbarButton(editor, "Reset element").IsInteractable()
+        && !ToolbarButton(editor, "Increase size").IsInteractable() && !ToolbarButton(editor, "Decrease size").IsInteractable(),
+        "several selected: no Edit, the scale greys out without its percent sign, delete and reset stay");
+      RectTransform bar = ElementBar(editor).Root;
+      Assert(bar != null && bar.gameObject.activeSelf && ElementBar(editor).Model is LayoutArrangeModel, "several selected get the align toolbar");
+      Func<UiIconKind, Pressable> arrange = kind =>
+        bar.GetComponentsInChildren<Pressable>(true).Single(button => button.GetComponentInChildren<UiIcon>()?.Kind == kind);
+      Assert(arrange(UiIconKind.AlignLeft).IsInteractable() && !arrange(UiIconKind.DistributeHorizontal).IsInteractable()
+        && !arrange(UiIconKind.DistributeVertical).IsInteractable()
+        && arrange(UiIconKind.DistributeVertical).GetComponentInChildren<UiIcon>().color == UiPalette.Disabled,
+        "two can be aligned; spacing waits for three, greyed");
+      Vector2 barGrip = PointerOn(ByName<RectTransform>(bar, "Drag element toolbar"));
+      Assert(!ElementBar(editor).ControlAt(barGrip) && ElementBar(editor).ControlAt(PointerOn((RectTransform)arrange(UiIconKind.AlignLeft).transform)),
+        "the align toolbar drags from its grip; its buttons take their presses");
       Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
       object[] hit = { texts[0].Bounds.center, null };
       Assert((int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
         "each selected element moves the group");
       Selection(editor).Toggle(b);
       Call(editor, "UpdateFrames");
-      Assert(selection.Count == 1 && selection[0] == texts[0] && Selection(editor).Selected == a && Field<RectTransform>(ElementBar(editor), "_panel") == null,
+      Assert(selection.Count == 1 && selection[0] == texts[0] && Selection(editor).Selected == a && ElementBar(editor).Root == null,
         "a second modifier click takes it out again");
 
       // The marquee: only what lies fully inside.
@@ -835,22 +898,25 @@ namespace Element.Editor
 
       // Align and distribute.
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      Assert(arrange(UiIconKind.DistributeHorizontal).interactable, "three can be spaced evenly");
-      arrange(UiIconKind.AlignLeft).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Assert(arrange(UiIconKind.DistributeHorizontal).IsInteractable(), "three can be spaced evenly");
+      Press(arrange(UiIconKind.AlignLeft));
       float left = start.Min(r => r.x);
       Assert(texts.All(t => Mathf.Abs(t.Bounds.x - left) < 1.5f), "align left lines them up on the leftmost edge");
       Assert(selection.Count == 3, "aligning keeps the selection");
       SaveFrame(camera, texture, canvases, name + "-multi");
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      arrange(UiIconKind.AlignMiddle).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Press(arrange(UiIconKind.AlignMiddle));
       Assert(texts.Select(t => t.Bounds.center.y).Max() - texts.Select(t => t.Bounds.center.y).Min() < 1.5f, "align middle shares one vertical center");
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(ElementBar(editor), "_panel");
-      arrange(UiIconKind.DistributeHorizontal).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Press(arrange(UiIconKind.DistributeHorizontal));
       Rect[] spaced = texts.Select(t => t.Bounds).OrderBy(r => r.x).ToArray();
       Assert(Mathf.Abs((spaced[1].x - spaced[0].xMax) - (spaced[2].x - spaced[1].xMax)) < 1.5f, "distribute leaves the same gaps: "
         + string.Join(" | ", start.Select(r => r.ToString())) + " -> " + string.Join(" | ", spaced.Select(r => r.ToString()))
@@ -865,12 +931,13 @@ namespace Element.Editor
       Selection(editor).Toggle(IndexOf(editor, column[1]));
       Selection(editor).Toggle(IndexOf(editor, column[2]));
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(ElementBar(editor), "_panel");
+      bar = ElementBar(editor).Root;
+      Settle();
       Rect[] columnStart = column.Select(t => t.Bounds).ToArray();
       bool couldUndo = Session(editor).History.CanUndo;
-      arrange(UiIconKind.DistributeVertical).onClick.Invoke();
+      Press(arrange(UiIconKind.DistributeVertical));
       Toolbar(editor).Refresh();
-      TextMeshProUGUI help = Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text");
+      TextMeshProUGUI help = StatusLabel(editor);
       Assert(column.Select((t, i) => t.Bounds == columnStart[i]).All(same => same) && help.text.Length > 0
         && help.color == UiPalette.Foreground && Session(editor).History.CanUndo == couldUndo,
         "spacing an evenly spaced column says it already is, without an undo step: " + help.text);
@@ -900,38 +967,61 @@ namespace Element.Editor
     {
       viewers.Availability = KeyViewerAvailability.Ready;
       Call(editor, "ToggleAddMenu");
-      AddMenu(editor).GetComponentsInChildren<Button>(true).Single(button => button.name == "Add KeyViewer").onClick.Invoke();
+      Press(Rows(AddMenu(editor)).Single(button => button.name == "Add KeyViewer"));
       IOverlayLayoutTarget hand = viewers.Targets.Last();
       Assert(hand.TemplateId == OverlayElementKinds.HandKeyViewer && Selection(editor).Selected == IndexOf(editor, hand),
         "a key viewer is added at once, as a hand viewer");
       Call(editor, "UpdateFrames");
-      UiSegmentedControl kind = Field<UiSegmentedControl>(Kind<KeyViewerKind>(editor), "_kindControl");
-      Assert(kind.Selected == 0, "key viewer settings show hand selected");
-      kind.Select(1, true);
+      Settle();
+      KeyViewerBarModel kind = (KeyViewerBarModel)ElementBar(editor).Model;
+      Assert(kind.Viewer == 0 && kind.Target == hand, "key viewer settings show hand selected");
+      Press(ByName<Pressable>(ElementBar(editor).Root, "Option " + L("발", "Foot")));
       IOverlayLayoutTarget foot = viewers.Targets.Last();
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
       Assert(Selection(editor).Selected == IndexOf(editor, foot), "the switched viewer stays selected");
-      Button openInApp = Field<RectTransform>(ElementBar(editor), "_panel").GetComponentsInChildren<Button>(true).Single(button => button.name == "Edit key viewer");
+      Call(editor, "UpdateFrames");
+      Settle();
+      Assert(ElementBar(editor).Model == kind && kind.Target == foot && kind.Viewer == 1,
+        "the bar follows the switched viewer instead of being made again");
+      Assert(ToolbarModel(editor).Selection.Value == L("발 키뷰어", "Foot key viewer"), "the toolbar names the foot viewer");
+      Pressable openInApp = ByName<Pressable>(ElementBar(editor).Root, "Edit key viewer");
       TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
       openLabel.ForceMeshUpdate();
       Assert(!openLabel.isTextTruncated, "Edit key viewer fits its button: " + openLabel.text);
       SaveFrame(camera, texture, canvases, name + "-keyviewer");
-      openInApp.onClick.Invoke();
+      Press(openInApp);
       Assert(viewers.OpenedInApp.Count == 1 && viewers.OpenedInApp[0] == foot,
         "Edit key viewer opens the viewer it shows now, after switching to foot");
       viewers.EditResult = KeyViewerEditResult.AppOutdated;
-      openInApp.onClick.Invoke();
-      Assert(Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text").text.Contains("ElementNote"),
-        "a refused open says what to do with ElementNote: " + Field<TextMeshProUGUI>(Field<LayoutStatusLine>(editor, "_status"), "_text").text);
+      Press(openInApp);
+      Assert(StatusLabel(editor).text.Contains("ElementNote") && StatusLabel(editor).color == UiPalette.Error,
+        "a refused open says what to do with ElementNote: " + StatusLabel(editor).text);
       viewers.EditResult = KeyViewerEditResult.Opened;
-      SetField(Field<LayoutStatusLine>(editor, "_status"), "_until", 0f);
+      Status(editor).Clear();
+      PointerArea openArea = openInApp.GetComponentInParent<PointerArea>();
+      openArea.Hover(true);
+      Assert(Status(editor).Text.Value.Contains("ElementNote"), "hovering Edit key viewer says what it opens");
+      openArea.Hover(false);
       Call(editor, "UpdateFrames");
-      Assert(!Field<Button>(Toolbar(editor), "_editContent").gameObject.activeSelf && Field<TMP_InputField>(Toolbar(editor), "_scaleInput").gameObject.activeSelf,
-        "key viewers keep their scale");
-      RectTransform popup = Field<RectTransform>(ElementBar(editor), "_panel");
-      Assert(popup != null && popup.gameObject.activeSelf && popup.Find("Drag element toolbar") != null,
+      Settle();
+      Assert(!Shown(ToolbarButton(editor, "Edit element")) && Shown(ScaleField(editor)) && ScaleField(editor).interactable
+        && ToolbarButton(editor, "Increase size").IsInteractable(), "key viewers keep their scale");
+      // The field and the view model share the words: typed ones come in, dropped ones go back.
+      TMP_InputField viewerScale = ScaleField(editor);
+      viewerScale.text = "130";
+      Settle();
+      Assert(ToolbarModel(editor).Scale.Value == "130", "typing in the scale field writes the typed scale");
+      ToolbarModel(editor).DropTypedScale();
+      Settle();
+      Assert(viewerScale.text == "100", "a dropped typed scale shows the viewer's again: " + viewerScale.text);
+      RectTransform popup = ElementBar(editor).Root;
+      Assert(popup != null && popup.gameObject.activeSelf && ByName<RectTransform>(popup, "Drag element toolbar") != null,
         "a key viewer's toolbar has a grip to move it");
+      Assert(!ElementBar(editor).ControlAt(PointerOn(ByName<RectTransform>(popup, "Drag element toolbar")))
+        && ElementBar(editor).ControlAt(PointerOn((RectTransform)openInApp.transform))
+        && ElementBar(editor).ControlAt(PointerOn((RectTransform)ByName<Pressable>(popup, "Option " + L("손", "Hand")).transform)),
+        "the key viewer's toolbar drags from its grip; hand, foot and Edit take their presses");
       Rect barBefore = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Vector2 grab = barBefore.position + new Vector2(14, 20);
       ElementBar(editor).BeginDrag(grab);
@@ -962,8 +1052,7 @@ namespace Element.Editor
       OverlayValueCatalog.Register("Sample/left-keys", sample, OverlayValueKind.Number, "왼손 키", "Left keys", 5, null);
       OverlayValueCatalog.Register("Sample/pattern", sample, OverlayValueKind.Text, "지금 패턴", "Pattern", double.NaN, "2 + 2 + 1");
       OverlayValueCatalog.TryResolve("Gone/value", out _);
-      Toolbar(editor).Refresh();
-      Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
+      PressEdit(editor);
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
       OverlayEditorFrame screen = Field<OverlayEditorFrame>(text, "_screen");
@@ -1340,8 +1429,7 @@ namespace Element.Editor
 
       // In the text editor, a font goes to the selection, or the whole text.
       Select(editor, IndexOf(editor, fps));
-      Toolbar(editor).Refresh();
-      Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
+      PressEdit(editor);
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       SetField(TextDocumentOf(text), "_anchor", 0);
       SetField(TextDocumentOf(text), "_caretIndex", 3);
@@ -1397,6 +1485,7 @@ namespace Element.Editor
     {
       Selection(editor).Selected = index;
       Call(editor, "UpdateFrames");
+      Settle();
     }
 
     private static int IndexOf(OverlayLayoutEditor editor, IOverlayLayoutTarget target) =>

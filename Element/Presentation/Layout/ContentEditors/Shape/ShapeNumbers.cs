@@ -6,7 +6,6 @@ using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using NVector2 = System.Numerics.Vector2;
@@ -32,7 +31,7 @@ internal sealed class ShapeNumbers
   private readonly OverlayEditorHistory<OverlayShapeSettings> _history;
   private readonly OverlayFormulaEditing _editing = new();
   private ShapeGradient _gradient;
-  private OverlayBarButton _strokeWidth;
+  private OverlayBarButtonModel _strokeWidth;
   private OverlayFormulaSlot _slot;
 
   public ShapeNumbers(IShapeEditorHost host, OverlayValues values, OverlayEditorHistory<OverlayShapeSettings> history)
@@ -47,20 +46,19 @@ internal sealed class ShapeNumbers
 
   public OverlayFormulaEditing Editing => _editing;
 
-  public OverlayBarButton StrokeWidth => _strokeWidth;
+  /// <summary>The bar's Border width button; made by <see cref="BuildStrokeWidth"/>.</summary>
+  public OverlayBarButtonModel StrokeWidth => _strokeWidth;
 
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  public OverlayBarButton BuildStrokeWidth(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _strokeWidth = new OverlayBarButton(
-      ui,
-      bar,
+  public OverlayBarButtonModel BuildStrokeWidth() =>
+    _strokeWidth = new OverlayBarButtonModel(
       "Border width",
       L("테두리 두께", "Border width"),
       () => _host.Activate(StrokeKey),
-      reduceMotion,
-      "px",
+      value: true,
+      unit: "px",
       icon: UiIconKind.StrokeWidth
     );
 
@@ -236,8 +234,8 @@ internal sealed class ShapeNumbers
   public void RefuseWords(OverlayValueDefinition value) =>
     _host.Screen.Notice(
       L(
-        OverlayKeypad.ValueName(value) + "은 글자라서 도형의 숫자에는 넣을 수 없어요",
-        OverlayKeypad.ValueName(value) + " is words, so it can't go in a shape's number"
+        ValueSectionNames.ValueName(value) + "은 글자라서 도형의 숫자에는 넣을 수 없어요",
+        ValueSectionNames.ValueName(value) + " is words, so it can't go in a shape's number"
       )
     );
 

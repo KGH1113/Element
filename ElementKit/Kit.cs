@@ -28,7 +28,7 @@ namespace ElementKit;
 public static class Kit
 {
   /// <summary>What this ElementKit offers. It only grows; a mod can check it before using something newer.</summary>
-  public const int ApiLevel = 2;
+  public const int ApiLevel = 3;
 
   /// <summary>
   /// Adds the values your mod keeps in static fields. Call it once from your

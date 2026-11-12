@@ -36,6 +36,11 @@
       <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
       <Private>true</Private>
     </Reference>
+    <!-- Elements may write their editing screens as ElementUI views. -->
+    <Reference Include="ElementUI.Core">
+      <HintPath>../vendor/elementui/ElementUI.Core.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
     <!-- ElementSettings derives from UMM's ModSettings; profile tests build whole settings. -->
     <Reference Include="UnityModManager">
       <HintPath>$(UnityModManagerDll)</HintPath>

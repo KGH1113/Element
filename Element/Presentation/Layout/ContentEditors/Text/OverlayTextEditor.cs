@@ -163,11 +163,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _color.BuildPicker(_screen);
     _gradient.BuildPicker(_screen.Ui, _color.Picker, _reduceMotion());
     _dock = new OverlayInputDock(
-      _screen.Ui,
-      _screen.Frame,
-      _screen.Width,
-      _screen.Height,
-      _screen.Measure,
+      _screen,
       _reduceMotion,
       _formulas.KeypadPress,
       _formulas.ClearFormula,
@@ -179,7 +175,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     );
     _color.LayOutAbove(_dock);
     _fonts.Build(_screen, _element.Fonts, _reduceMotion());
-    _grow.Build(_screen, _reduceMotion());
+    _grow.Build(_screen, _bar);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
@@ -189,16 +185,16 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   // opacity), the values' animation and where the text grows from. Font,
   // size, color and animation act on the selection, or on the whole text when
   // nothing is selected.
-  private void BuildBar()
-  {
-    _bar = new OverlayEditorBar(_screen.Ui, _screen.Frame, "Format");
-    bool motion = _reduceMotion();
-    _bar.Add(_fonts.BuildButton(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_size.BuildButton(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_color.BuildButton(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_animate.BuildButton(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_grow.BuildButton(_screen.Ui, _bar.Root, motion));
-  }
+  private void BuildBar() =>
+    _bar = new OverlayEditorBar(
+      _screen,
+      "Format",
+      _fonts.BuildButton(),
+      _size.BuildButton(),
+      _color.BuildButton(),
+      _animate.BuildButton(),
+      _grow.BuildButton()
+    );
 
   public void Tick()
   {
@@ -298,13 +294,12 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _marks.PlaceCaret();
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
     ShowFields();
+    _color.ShowSwatch();
     float barWidth = _bar.LayOut();
     _bar.Place(
       Mathf.Max(OverlayEditorFrame.Margin, (left + right) * .5f - barWidth * .5f),
-      Mathf.Max(OverlayEditorFrame.TopBar, _preview.Top - OverlayEditorBar.Height - 18),
-      barWidth
+      Mathf.Max(OverlayEditorFrame.TopBar, _preview.Top - OverlayEditorBar.Height - 18)
     );
-    _color.ShowSwatch();
     _color.Place(_dock);
     _gradient.Show();
     _fonts.Place(_dock);

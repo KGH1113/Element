@@ -63,7 +63,8 @@ namespace Element.Editor
         "a solid color shows only the bar; the kinds wait for a second color");
 
       // A new shape follows the highlight; a custom color shows the whole picker.
-      Call(picker, "SetSource", false);
+      picker.Model.SetSource(false);
+      Settle();
 
       Rect solidBar = ScreenRectOf(bar), solidPicker = ScreenRectOf(picker.Root);
 
@@ -78,6 +79,7 @@ namespace Element.Editor
       // A click makes a gradient whose new color shows at once.
       Invoke(picker.Gradient, "BarDown", Pointer(BarPoint(bar, .7f)));
       Invoke(picker.Gradient, "BarDrag", Pointer(BarPoint(bar, .7f)));
+      Settle();
       OverlayColorSettings fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.Gradient.IsGradient && picker.Gradient.SelectedStop == 1,
         "a click on the bar adds a color, picks it and makes a gradient");
@@ -106,7 +108,7 @@ namespace Element.Editor
       Rect pickerRect = ScreenRectOf(picker.Root);
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes)))
         && !pickerRect.Overlaps(ScreenRectOf(Field<OverlayEditorBar>(shapes, "_bar").Root))
-        && !pickerRect.Overlaps(ScreenRectOf(dock0.Keypad.Root)),
+        && !pickerRect.Overlaps(KeypadRect(dock0)),
         "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
 
@@ -149,17 +151,20 @@ namespace Element.Editor
 
       // Following the highlight leaves only opacities; nothing on the left moves.
       Rect barBefore = ScreenRectOf(bar), pickerBefore = ScreenRectOf(picker.Root);
-      Call(picker, "SetSource", true);
+      picker.Model.SetSource(true);
+      Settle();
       Assert(ScreenRectOf(bar) == barBefore && ScreenRectOf(picker.Root) == pickerBefore,
         "switching to the highlight keeps the picker and its bar in place");
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       List<int> order = OverlayGradientEdits.Order(fill.Gradient);
       Assert(fill.Highlight && fill.IsGradient && fill.Gradient.Stops[order[order.Count - 1]].Alpha < fill.Gradient.Stops[order[0]].Alpha,
         "the highlight gradient fades instead of vanishing");
-      Assert(!Field<RectTransform>(picker, "_planeRect").gameObject.activeSelf && Field<TextMeshProUGUI>(picker.Gradient, "_highlightNote").gameObject.activeSelf,
+      Assert(!ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Note(picker.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)),
         "only the opacity and a note show while following the highlight");
       SaveFrame(camera, texture, canvases, name + "-gradient-highlight");
-      Call(picker, "SetSource", false);
+      picker.Model.SetSource(false);
+      Settle();
 
       // Done keeps the gradient; the shape draws it with its texture.
       shapes.Close(true, true);
@@ -216,16 +221,17 @@ namespace Element.Editor
       // The text editor: the same bar makes the whole text a gradient, with
       // handles over the text's box; Cancel leaves the text as it was.
       Select(editor, IndexOf(editor, fps));
-      Toolbar(editor).Refresh();
-      Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
+      PressEdit(editor);
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "Edit text opens the text editor");
       Call(TextColorOf(text), "OpenPicker");
       UiColorPicker textPicker = TextColorOf(text).Picker;
-      Call(textPicker, "SetSource", false);
+      textPicker.Model.SetSource(false);
+      Settle();
       RectTransform textBar = Field<RectTransform>(textPicker.Gradient, "_bar");
       Invoke(textPicker.Gradient, "BarDown", Pointer(BarPoint(textBar, 1)));
       Invoke(textPicker.Gradient, "BarDrag", Pointer(BarPoint(textBar, 1)));
+      Settle();
       OverlayColorSettings range = TextDocumentOf(text).RangeColor();
       OverlayGradientHandles textHandles = Field<TextGradient>(text, "_gradient").Handles;
       Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");

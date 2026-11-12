@@ -1,50 +1,60 @@
-using System.Collections.Generic;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// The row of labeled buttons that floats over an editor's preview: font,
-/// size, color… for a text, fill, border… for a shape. Buttons sit side by
-/// side in the order they were added.
+/// size, color… for a text, fill, border… for a shape. A capsule on the
+/// editor's controls as wide as its buttons (<see cref="OverlayEditorBarView"/>);
+/// the editor places it, and asks it where a button is.
 /// </summary>
 internal sealed class OverlayEditorBar
 {
   public const float Height = 40;
 
-  private const float Gap = 4;
+  private readonly ScreenPanel _panel;
+  private readonly OverlayEditorBarModel _model;
+  private int _fitted;
 
-  private readonly List<OverlayBarButton> _buttons = new();
-
-  public OverlayEditorBar(UiFactory ui, Transform parent, string name)
+  public OverlayEditorBar(OverlayEditorFrame screen, string name, params OverlayBarButtonModel[] buttons)
   {
-    UiCapsuleGraphic surface = ui.Capsule(name, parent, 0, 0, 10, Height, UiPalette.Bar);
-    surface.raycastTarget = true;
-    Root = surface.rectTransform;
+    _model = new OverlayEditorBarModel(buttons);
+    _panel = screen.Panel(name, UiPalette.Bar, Height * .5f);
+    _panel.Mount(screen.NewBackend(), new OverlayEditorBarView(_model), _model);
+    _fitted = _model.Revision;
   }
 
-  public RectTransform Root { get; }
+  public RectTransform Root => _panel.Root;
 
-  public void Add(OverlayBarButton button) => _buttons.Add(button);
-
-  /// <summary>Places the buttons side by side; returns the bar's width.</summary>
+  /// <summary>Fits the bar to what its buttons show now; returns its width. A compare when nothing changed.</summary>
   public float LayOut()
   {
-    float y = (Height - OverlayBarButton.Height) * .5f;
-    float x = y;
-    foreach (OverlayBarButton button in _buttons)
+    int revision = _model.Revision;
+    if (revision != _fitted)
     {
-      button.Place(x, y);
-      x += button.Width + Gap;
+      _fitted = revision;
+      _panel.Refit();
     }
-    return x - Gap + y;
+    return _panel.Size.x;
   }
 
-  /// <summary>Puts the bar at <paramref name="x"/>, <paramref name="y"/> (frame units).</summary>
-  public void Place(float x, float y, float width) => UiFactory.Place(Root, x, y, width, Height);
+  /// <summary>Puts the bar's top left at <paramref name="x"/>, <paramref name="y"/> (frame units).</summary>
+  public void Place(float x, float y) => Root.anchoredPosition = new Vector2(Mathf.Round(x), -Mathf.Round(y));
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
+
+  /// <summary>Whether a screen point (origin bottom left) is over <paramref name="button"/>.</summary>
+  public bool Contains(OverlayBarButtonModel button, Vector2 screen) =>
+    PopoverPlacement.Contains(RectOf(button), screen);
+
+  /// <summary>Where <paramref name="button"/> is drawn, as a popover's anchor; null when it isn't on this bar.</summary>
+  public RectTransform RectOf(OverlayBarButtonModel button)
+  {
+    Selectable control = _panel.Control<Selectable>(button.Name);
+    return control != null ? (RectTransform)control.transform : null;
+  }
 }

@@ -59,11 +59,7 @@ internal sealed class GeneralView : View<GeneralModel>
             VStack(
                 spacing: 6,
                 Text(L("프로필", "Profiles")).Font(Font.Heading.Sized(17)),
-                Text(() => VM.Window.Profiles.InUse)
-                  .Font(Font.Caption)
-                  .Foreground(Colors.Muted)
-                  .Configure<TMPro.TMP_Text>(text => text.overflowMode = TMPro.TextOverflowModes.Ellipsis)
-                  .Frame(maxHeight: 20, alignment: Alignment.Leading)
+                Text(() => VM.Window.Profiles.InUse).Font(Font.Caption).Foreground(Colors.Muted).LineLimit(1)
               )
               .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
             Image(ElementIcons.Of(UiIconKind.PageForward), 22).Foreground(Colors.Accent)

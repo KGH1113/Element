@@ -216,8 +216,7 @@ namespace Element.Editor
       // The text editor: the same bar makes the whole text a gradient, with
       // handles over the text's box; Cancel leaves the text as it was.
       Select(editor, IndexOf(editor, fps));
-      Toolbar(editor).Refresh();
-      Field<Button>(Toolbar(editor), "_editContent").onClick.Invoke();
+      PressEdit(editor);
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "Edit text opens the text editor");
       Call(TextColorOf(text), "OpenPicker");

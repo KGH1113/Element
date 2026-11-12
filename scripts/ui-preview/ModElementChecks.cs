@@ -144,16 +144,19 @@ namespace Element.Editor
       {
         Call(editor, "ToggleAddMenu");
         RectTransform menu = AddMenu(editor);
-        Button[] rows = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
-        Assert(rows.Length == 4 && rows[3].name == "Add Extension" && rows[3].interactable, "Add Element gains More once a mod declares an element");
+        Settle();
+        ElementUI.Ugui.Pressable[] rows = Rows(menu);
+        Assert(rows.Length == 4 && rows[3].name == "Add Extension" && rows[3].IsInteractable(), "Add Element gains More once a mod declares an element");
         Assert(warnings.Count == 0, "the preview element is found without problems: " + string.Join(" | ", warnings));
-        rows[3].onClick.Invoke();
+        Press(rows[3]);
         RectTransform list = Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root;
-        Assert(list != null && list.GetComponentsInChildren<Button>(true).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card" }),
+        Assert(list != null && Rows(list).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card" }),
           "More lists each element other mods declare");
+        Assert(list.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "Preview"),
+          "each element says which mod it comes from");
         SaveFrame(camera, texture, canvases, name + "-mod-types");
 
-        list.GetComponentsInChildren<Button>(true).Single().onClick.Invoke();
+        Press(Rows(list).Single());
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
         OverlayModEditor mods2 = (OverlayModEditor)Kind<ModKind>(editor).Editor;
         Assert(element.Enabled && element.Drawn && mods2.IsOpen, "a new element opens its editing screen at once");

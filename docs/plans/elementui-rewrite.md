@@ -88,3 +88,45 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Content editors (text, shape, keypad, value dock, mods) | next |
 | ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
 | Remove the old UI kit (`UiFactory` and widgets) | last |
+
+## Overlay editor map (for the next slices)
+
+The boundary: **a panel's frame stays custom, its contents become an ElementUI
+screen.** Panels drag themselves and report their screen rects to ElementNote's
+native viewers (`OverlayLayoutEditor.NativeExclusions`); keep that code and mount
+a `UiHost` inside each panel.
+
+Stays custom (hand-made interaction on the overlay or the editor stage):
+`Layout/Canvas/LayoutDrag, LayoutMarquee, LayoutSelection, LayoutGuides,
+LayoutKeyboard, LayoutSession, LayoutCommands`, `Layout/Graphics/*`,
+`Layout/KeyViewers/*`, the text stage (`TextDocumentEditing, TextPreview,
+TextLayoutMap, TextMarks, TextPointer, TextKeyboard, TextValueDrops`), the shape
+stage (`ShapePreview, ShapeMeasures, ShapeGradient, ShapeValueDrops, ShapeInput`),
+`Shell/OverlayGradientHandles/Lines/Editing`, formula state
+(`OverlayFormulaEditing`, `OverlayFormulaSlot`), `OverlayEditorHistory`, value
+dragging (`OverlayValueChipHandle`), color picker graphics (`UiColorPlane`,
+`UiGradientBar`, …) and `UiFontPopover`'s recycled rows.
+
+Becomes ElementUI (contents):
+
+| Slice | Files | Edits |
+| --- | --- | --- |
+| Toolbar | `Canvas/LayoutToolbar` (441), `LayoutStatusLine`, `LayoutActionHint` | scale via `SetBounds`/`CommitLayout`, `LayoutSnapping`, `LayoutCommands`, undo state |
+| Element bar | `Canvas/LayoutElementBar`, `LayoutArrangeBar`, `Kinds/KeyViewerKind.BuildBar` | align/distribute, key viewer hand/foot, open ElementNote |
+| Add menu | `Canvas/LayoutAddMenu`, `Ui/Popovers/ListMenu`, `Kinds/*Kind.Row` | adds an element, opens its editor |
+| Reset dialog, highlight color popover, font popover placement | `Canvas/LayoutModal`, `LayoutReset`, `OverlayColorPopover`, `LayoutPopovers` | `HighlightColor`, `OverlayFont` |
+| Editor frame and bar | `Shell/OverlayEditorFrame` (hint, Cancel, Done), `OverlayEditorBar`, `OverlayBarButton`, bar parts (`TextSize/Color/Fonts/Animate`, `ShapeColors/Numbers`, `OverlayGrowFrom`) | each part's edit logic and history calls stay in its model |
+| Input dock and keypad | `Shell/OverlayInputDock`, `OverlayKeypad` | keypad becomes a grid; the formula line and draggable chips stay custom (`NativeView`) |
+| Grow-from picker | `Shell/OverlayGrowPicker`, `OverlayGrowPopover` | `GrowFrom` |
+| Color picker form | `Ui/ColorPicker/UiColorPicker` fields (title, hex, opacity, Highlight/Custom, reset, close), `Shell/OverlayEditorPicker`, `OverlayOpacityField` | `OverlayColorSettings`; plane, sliders and gradient bar stay custom |
+| Mod element editor | `Mods/OverlayModEditor`, `ModEditorPage` and parts | `ElementKit.EditorPage` is public: keep its API, implement it on ElementUI; `At(x, y)` needs a free-placement layer |
+
+Editors open through `ContentElementKind<T>.Open` → `IContentEditor.Open(target, closed)`;
+Done/Cancel → `ContentElementKind.Closed` → `Session.Commit()`. Layout undo is
+`Domain/Layout/LayoutHistory` (whole snapshots); editor undo is per editor and
+dropped on close. Closing can be refused (`Commit()` returning false) — keep that.
+
+The preview checks (`SettingsPreview`, `ModElementChecks`, `GradientChecks`) find
+objects by GameObject name ("Drag panel", "Formula line", "Controls/Dragged value",
+"Switch ", "Paint ", "List add") and read `FormulaText`, `NoticeText`, `TipText`:
+update them with each slice.

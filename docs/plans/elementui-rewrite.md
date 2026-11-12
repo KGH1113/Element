@@ -93,7 +93,6 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
 | Content editors: input dock and keypad, color picker form (and the highlight color popover) | done; ui-check 5121 assertions |
 | Remove old widgets nothing uses any more (custom stages keep `UiFactory`'s low-level helpers) | done |
-| Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
 | Mod element editor, ElementKit EditorPage on ElementUI | done |
 | ElementKit: editing screens written with ElementUI (`Editor(EditorViewModel<T>)`, `EditorParts`) | done |
 | Remove the old UI kit (`UiFactory` and widgets) | last |

@@ -200,7 +200,8 @@ namespace Element.Editor
       Assert(host.Root.HasOverlay && picker.Root.gameObject.activeInHierarchy, "Trail's picker is open before leaving");
       Show(window, window.Tweaks);
       check.Settle();
-      Assert(!picker.Root.gameObject.activeInHierarchy && Backdrop(check) == null,
+      // Outside play mode ElementUI destroys a closed picker at once; in the game it hides first.
+      Assert((picker.Root == null || !picker.Root.gameObject.activeInHierarchy) && Backdrop(check) == null,
         "leaving Planets leaves no picker or layer on screen");
       before = preview.Calls;
       window.Current.Tick();

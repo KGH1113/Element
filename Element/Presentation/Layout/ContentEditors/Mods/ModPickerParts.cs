@@ -1,335 +1,60 @@
 using System;
-using Element.Configuration;
 using Element.Configuration.Overlay;
-using Element.Presentation.Overlay.Fonts;
-using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Input;
-using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
+using Element.Presentation.Ui.Declarative.Controls;
 using ElementKit;
-using TMPro;
+using ElementUI;
 using UnityEngine;
-using UnityEngine.UI;
-using static Element.Presentation.Ui.Theme.UiLocale;
+using static ElementUI.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-/// <summary>The page's pickers: colors, paints, fonts and shortcuts, picked the way Element's own are.</summary>
+/// <summary>The page's pickers: colors, paints, fonts and shortcuts, picked the way Element's own are (<see cref="ModParts"/>).</summary>
 internal sealed class ModPickerParts
 {
-  private static readonly KeyCode[] Keys = (KeyCode[])Enum.GetValues(typeof(KeyCode));
-
-  // The shortcut part recording the next key, if any.
-  private ModShortcutCapture _capture;
-
   private readonly ModEditorPage _page;
-  private readonly UiFactory _ui;
-  private readonly IModEditorHost _host;
-  private readonly bool _reduceMotion;
 
-  public ModPickerParts(ModEditorPage page)
-  {
-    _page = page;
-    _ui = page.Ui;
-    _host = page.Host;
-    _reduceMotion = page.ReduceMotion;
-  }
-
-  /// <summary>Whether a shortcut part is recording the next key.</summary>
-  public bool Capturing => _capture != null;
+  public ModPickerParts(ModEditorPage page) => _page = page;
 
   public EditorControl ColorPicker(string label, Color value, Action<Color> changed, bool opacity = true)
   {
-    ModEditorControl control = _page.Row("Color", 0);
-    float x = _page.Caption(control, label);
-    Color current = value;
     if (!opacity)
-      current.a = 1;
-    TextMeshProUGUI hex = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
-    hex.textWrappingMode = TextWrappingModes.NoWrap;
-    UiCapsuleGraphic swatch = null;
-    void Show()
-    {
-      Color opaque = current;
-      opaque.a = 1;
-      swatch.color = opaque;
-      hex.text = "#" + ColorUtility.ToHtmlStringRGB(current) + Percent(opacity ? current.a : 1);
-    }
-    Button button = null;
-    swatch = UiCapsules.Swatch(
-      _ui,
-      control.Rect,
-      "Color " + label,
-      x,
-      4,
-      () =>
-        _host.OpenColor(
-          new ModColorRequest(
-            string.IsNullOrEmpty(label) ? L("색", "Color") : label,
-            current,
-            opacity,
-            (RectTransform)button.transform,
-            picked =>
-            {
-              current = picked;
-              Show();
-              Color now = current;
-              _host.Change(button, () => changed?.Invoke(now), false);
-            }
-          )
-        ),
-      _reduceMotion,
-      out button
-    );
-    Show();
-    control.Layout = width =>
-      UiFactory.Place(hex.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
-    return _page.Add(control);
+      value.a = 1;
+    ModPart part = _page.Part();
+    ModValue<Color> current = _page.Value(part, value, changed);
+    Binding<Color> color = Bind(() => current.Value);
+    part.Control = () => ModParts.ColorPicker(label, color, opacity);
+    return _page.Add(part);
   }
 
   public EditorControl ColorPicker(string label, Paint value, Action<Paint> changed)
   {
-    ModEditorControl control = _page.Row("Paint", 0);
-    float x = _page.Caption(control, label);
-    Paint current = value?.Clone() ?? Paint.Solid(Color.white);
-    TextMeshProUGUI shown = _ui.Text("", control.Rect, x + 40, 0, 160, ModEditorPage.RowHeight, 14, UiPalette.Muted);
-    shown.textWrappingMode = TextWrappingModes.NoWrap;
-    shown.overflowMode = TextOverflowModes.Ellipsis;
-    UiCapsuleGraphic swatch = null;
-    void Show()
-    {
-      Color opaque = current.ToColor(UiTheme.Accent);
-      opaque.a = 1;
-      swatch.color = opaque;
-      shown.text =
-        current.IsGradient ? L("그라디언트 · 색 ", "Gradient · ") + current.Gradient.Stops.Count + L("개", " colors")
-        : current.Highlight ? L("하이라이트 색", "Highlight") + Percent(current.Color.a)
-        : "#" + ColorUtility.ToHtmlStringRGB(current.Color) + Percent(current.Color.a);
-    }
-    Button button = null;
-    swatch = UiCapsules.Swatch(
-      _ui,
-      control.Rect,
-      "Paint " + label,
-      x,
-      4,
-      () =>
-        _host.OpenPaint(
-          new ModPaintRequest(
-            string.IsNullOrEmpty(label) ? L("색", "Color") : label,
-            current.Clone(),
-            (RectTransform)button.transform,
-            picked =>
-            {
-              current = picked?.Clone() ?? Paint.Solid(Color.white);
-              Show();
-              Paint now = current.Clone();
-              _host.Change(button, () => changed?.Invoke(now), false);
-            }
-          )
-        ),
-      _reduceMotion,
-      out button
+    ModPart part = _page.Part();
+    // The mod gets a copy each time, so what it keeps isn't changed under it.
+    ModValue<Paint> current = _page.Value<Paint>(
+      part,
+      value?.Clone() ?? Paint.Solid(Color.white),
+      paint => changed?.Invoke(paint?.Clone() ?? Paint.Solid(Color.white))
     );
-    Show();
-    control.Layout = width =>
-      UiFactory.Place(shown.rectTransform, x + 40, 0, Mathf.Max(60, width - x - 40), ModEditorPage.RowHeight);
-    return _page.Add(control);
+    Binding<Paint> paint = Bind(() => current.Value);
+    part.Control = () => ModParts.PaintPicker(label, paint);
+    return _page.Add(part);
   }
 
   public EditorControl FontPicker(string label, string font, Action<string> changed)
   {
-    ModEditorControl control = _page.Row("Font", 0);
-    float x = _page.Caption(control, label);
-    string current = OverlayFontKey.Normalize(font);
-    Button button = null;
-    TextMeshProUGUI shown = null;
-    void Show()
-    {
-      OverlayFontStatus status =
-        current.Length == 0 ? OverlayFontStatus.Default : _host.Fonts?.Status(current) ?? OverlayFontStatus.Missing;
-      shown.text =
-        current.Length == 0 ? L("기본 폰트", "Default font")
-        : status == OverlayFontStatus.Missing
-          ? OverlayFonts.DisplayName(current) + L(" · 이 PC에 없음", " · not on this PC")
-        : OverlayFonts.DisplayName(current);
-      shown.color = status == OverlayFontStatus.Missing ? UiPalette.Error : UiPalette.Foreground;
-    }
-    button = UiCapsules.CapsuleButton(
-      _ui,
-      control.Rect,
-      "Font " + label,
-      "",
-      x,
-      2,
-      240,
-      36,
-      14,
-      () =>
-        _host.OpenFont(
-          new ModFontRequest(
-            string.IsNullOrEmpty(label) ? L("폰트", "Font") : label,
-            current,
-            (RectTransform)button.transform,
-            picked =>
-            {
-              string next = OverlayFontKey.Normalize(picked);
-              if (OverlayFontKey.Same(next, current))
-                return;
-              current = next;
-              Show();
-              string now = current;
-              _host.Change(button, () => changed?.Invoke(now), false);
-            }
-          )
-        ),
-      false,
-      _reduceMotion
-    );
-    _page.Icon(button.transform, UiIconKind.Font, 10, 8, 20, UiPalette.Muted);
-    shown = _ui.Text("", button.transform, 38, 0, 200, 36, 14, UiPalette.Foreground);
-    shown.alignment = TextAlignmentOptions.MidlineLeft;
-    shown.textWrappingMode = TextWrappingModes.NoWrap;
-    shown.overflowMode = TextOverflowModes.Ellipsis;
-    shown.raycastTarget = false;
-    Show();
-    control.Layout = width =>
-    {
-      float room = Mathf.Max(120, width - x);
-      UiFactory.Place((RectTransform)button.transform, x, 2, room, 36);
-      shown.rectTransform.sizeDelta = new Vector2(room - 50, 36);
-    };
-    return _page.Add(control);
+    ModPart part = _page.Part();
+    ModValue<string> current = _page.Value(part, OverlayFontKey.Normalize(font), changed);
+    Binding<string> binding = Bind(() => current.Value);
+    part.Control = () => ModParts.FontPicker(label, binding, _page.Context);
+    return _page.Add(part);
   }
 
   public EditorControl Shortcut(string label, ElementKit.Shortcut value, Action<ElementKit.Shortcut> changed)
   {
-    ModEditorControl control = _page.Row("Shortcut", 0);
-    float x = _page.Caption(control, label);
-    ModShortcutCapture capture = new() { Current = value };
-    Button field = null;
-    field = UiCapsules.CapsuleButton(
-      _ui,
-      control.Rect,
-      "Shortcut " + label,
-      "",
-      x,
-      2,
-      200,
-      36,
-      14,
-      () =>
-      {
-        // A second click stops recording.
-        if (_capture == capture)
-          StopCapture();
-        else
-        {
-          StopCapture();
-          _capture = capture;
-          capture.Show();
-        }
-      },
-      false,
-      _reduceMotion
-    );
-    TextMeshProUGUI shown = _ui.Text("", field.transform, 12, 0, 176, 36, 14, UiPalette.Foreground);
-    shown.alignment = TextAlignmentOptions.Midline;
-    shown.textWrappingMode = TextWrappingModes.NoWrap;
-    shown.overflowMode = TextOverflowModes.Ellipsis;
-    shown.raycastTarget = false;
-    Button clear = null;
-    clear = UiCapsules.CapsuleButton(
-      _ui,
-      control.Rect,
-      "Shortcut clear " + label,
-      "",
-      x + 204,
-      2,
-      36,
-      36,
-      14,
-      () =>
-      {
-        StopCapture();
-        capture.Assign(default);
-      },
-      true,
-      _reduceMotion
-    );
-    UiIcon cross = _page.Icon(clear.transform, UiIconKind.Close, 8, 8, 20, UiPalette.Muted);
-    capture.Show = () =>
-    {
-      bool recording = _capture == capture;
-      ElementKit.Shortcut current = capture.Current;
-      shown.text =
-        recording ? capture.Prompt ?? L("새 단축키를 누르세요… (Esc 취소)", "Press a shortcut… (Esc cancels)")
-        : current.IsSet ? ShortcutKeys.Label(current.Key, current.Modifier)
-        : L("없음", "None");
-      shown.color = recording || current.IsSet ? UiPalette.Foreground : UiPalette.Muted;
-      clear.interactable = current.IsSet;
-      // Nothing to clear: the cross fades with its button.
-      cross.color = current.IsSet ? UiPalette.Foreground : new Color(1, 1, 1, .22f);
-    };
-    capture.Assign = next =>
-    {
-      bool same = next.Key == capture.Current.Key && next.Modifier == capture.Current.Modifier;
-      capture.Current = next;
-      capture.Show();
-      if (!same)
-        _host.Change(field, () => changed?.Invoke(next), false);
-    };
-    capture.Show();
-    control.Layout = width =>
-    {
-      float room = Mathf.Max(120, width - x - 40);
-      UiFactory.Place((RectTransform)field.transform, x, 2, room, 36);
-      shown.rectTransform.sizeDelta = new Vector2(room - 24, 36);
-      UiFactory.Place((RectTransform)clear.transform, x + room + 4, 2, 36, 36);
-    };
-    return _page.Add(control);
+    ModPart part = _page.Part();
+    ModValue<ElementKit.Shortcut> current = _page.Value(part, value, changed);
+    ShortcutFieldModel model = ModParts.ShortcutModel(Bind(() => current.Value), _page.Context);
+    part.Control = () => ModParts.ShortcutField(label, model);
+    return _page.Add(part);
   }
-
-  // While a shortcut part records: the next key with at most one modifier,
-  // or Esc to stop, as Element's own shortcut fields do.
-  /// <summary>Once a frame: records the next key while a shortcut part waits for one.</summary>
-  public void TickShortcut()
-  {
-    ModShortcutCapture capture = _capture;
-    if (capture == null)
-      return;
-    if (Input.GetKeyDown(KeyCode.Escape))
-    {
-      StopCapture();
-      return;
-    }
-    foreach (KeyCode key in Keys)
-    {
-      if (key == KeyCode.None || key >= KeyCode.Mouse0 || KeyShortcut.IsModifier(key) || !Input.GetKeyDown(key))
-        continue;
-      KeyCode modifier = ShortcutKeys.HeldModifier(out int count);
-      if (count > 1)
-      {
-        capture.Prompt = L("보조 키는 하나만 함께 누를 수 있어요", "Hold at most one modifier");
-        capture.Show();
-        return;
-      }
-      _capture = null;
-      capture.Prompt = null;
-      capture.Assign(new ElementKit.Shortcut(key, modifier));
-      return;
-    }
-  }
-
-  private void StopCapture()
-  {
-    ModShortcutCapture capture = _capture;
-    _capture = null;
-    if (capture == null)
-      return;
-    capture.Prompt = null;
-    capture.Show();
-  }
-
-  private static string Percent(float alpha) => alpha < .995f ? "  " + Mathf.RoundToInt(alpha * 100) + "%" : "";
 }

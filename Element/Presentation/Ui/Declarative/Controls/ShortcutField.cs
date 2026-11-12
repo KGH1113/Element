@@ -24,14 +24,17 @@ internal sealed class ShortcutField : View<ShortcutFieldModel>
 
   private readonly UiIconKind _actIcon;
   private readonly string _actHint;
+  private readonly string _name;
 
   /// <param name="actIcon">The button beside the field: Close to remove, Reset to restore the default.</param>
   /// <param name="actHint">What that button does, shown while the pointer is over it; null shows nothing.</param>
-  public ShortcutField(ShortcutFieldModel vm, UiIconKind actIcon, string actHint = null)
+  /// <param name="name">Names the field's button, so a screen with several finds each; null keeps the default.</param>
+  public ShortcutField(ShortcutFieldModel vm, UiIconKind actIcon, string actHint = null, string name = null)
     : base(vm)
   {
     _actIcon = actIcon;
     _actHint = actHint;
+    _name = name;
   }
 
   public override View Body =>
@@ -54,6 +57,7 @@ internal sealed class ShortcutField : View<ShortcutFieldModel>
             ButtonStyle.Plain
           )
           .Configure<Selectable, bool>(() => VM.Recording, KeepFocus())
+          .Configure<GameObject>(button => button.name = _name ?? button.name)
           .Frame(height: FieldHeight)
           .Background(Colors.Background, 10, Colors.Line),
         ActButton()

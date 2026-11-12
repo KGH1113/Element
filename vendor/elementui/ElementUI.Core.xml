@@ -744,6 +744,15 @@
         <member name="M:ElementUI.UI.Grid(System.Int32,ElementUI.View[])">
             <summary>Equal columns, filled row by row.</summary>
         </member>
+        <member name="M:ElementUI.UI.Grid(System.Single,System.Single,ElementUI.View[])">
+            <summary>As many equal columns as fit, each at least <paramref name="minColumnWidth"/> wide: two cards side by side on a wide window, one under the other on a narrow one.</summary>
+        </member>
+        <member name="M:ElementUI.UI.ViewThatFits(ElementUI.View[])">
+            <summary>
+            The first view whose ideal width fits, else the last: <c>ViewThatFits(HStack(a, b), VStack(a2, b2))</c>
+            for a row that stacks when narrow. Each candidate is its own views.
+            </summary>
+        </member>
         <member name="M:ElementUI.UI.Flow(ElementUI.View[])">
             <summary>Left to right, wrapping onto new lines: chips, tags.</summary>
         </member>
@@ -984,10 +993,17 @@
             <summary>Children on top of each other, later ones in front.</summary>
         </member>
         <member name="T:ElementUI.Views.GridView">
-            <summary>Children in equal columns, row by row.</summary>
+            <summary>Children in equal columns, row by row. With a minimum column width, as many columns as fit.</summary>
         </member>
         <member name="T:ElementUI.Views.FlowView">
             <summary>Children left to right, wrapping onto new lines when the width runs out: chips, tags.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ViewThatFitsView">
+            <summary>
+            The first of its views whose ideal width fits the width offered, the last
+            one when none fits: a wide layout, then a narrow one. All are made at mount;
+            the ones not picked are hidden and run no updates.
+            </summary>
         </member>
         <member name="T:ElementUI.Views.CompositeView">
             <summary>A view that builds its content once from other views: cards, labelled rows, controls made of parts.</summary>

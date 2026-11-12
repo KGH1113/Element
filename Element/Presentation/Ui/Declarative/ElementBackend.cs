@@ -18,7 +18,22 @@ internal sealed class ElementBackend : UguiBackend
 
   public ElementTheme ElementTheme { get; }
 
+  /// <summary>
+  /// Where <c>.Hint(...)</c> words go instead of a bubble beside the view: the
+  /// layout editor shows them on its toolbar's status line. Null when the view
+  /// is left; the bubble when unset.
+  /// </summary>
+  public Action<string> Hints { get; set; }
+
   public override IIconPeer CreateIcon(IContainerPeer parent) => new ElementIconPeer(Parent(parent));
+
+  public override void ShowHint(IContainerPeer root, string text, Frame anchor)
+  {
+    if (Hints != null)
+      Hints(string.IsNullOrEmpty(text) ? null : text);
+    else
+      base.ShowHint(root, text, anchor);
+  }
 }
 
 /// <summary>An icon drawn with Element's <see cref="UiIcon"/>.</summary>

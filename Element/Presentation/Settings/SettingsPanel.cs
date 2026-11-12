@@ -301,6 +301,7 @@ internal sealed class SettingsPanel : IDisposable
     float width = Mathf.Max(280, Mathf.Min(DesignWidth, pixelWidth / scale - 32));
     float height = Mathf.Max(240, Mathf.Min(DesignHeight, pixelHeight / scale - 32));
     _window.sizeDelta = new Vector2(width, height);
+    _model?.Resized(width);
     // Unity tells the host about the new size only in play mode; say it directly.
     _host?.Root.Resize(new ElementUI.Size(width, height));
   }

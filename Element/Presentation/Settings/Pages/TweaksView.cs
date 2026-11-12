@@ -4,7 +4,6 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
-using static Element.Presentation.Ui.Declarative.Controls.WidthLayouts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -42,7 +41,7 @@ internal sealed class TweaksView : View<TweaksModel>
         () => VM.OpenChatter
       ),
       // Side by side on a wide window: the switches share a row with room for both.
-      Columns(minColumnWidth: 374, maxColumns: 2, spacing: 12, Switches)
+      Grid(minColumnWidth: 374, spacing: 12, Switches())
     );
 
   private View[] Switches()

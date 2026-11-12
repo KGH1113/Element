@@ -58,12 +58,10 @@ internal sealed class ShortcutField : View<ShortcutFieldModel>
           .Background(Colors.Background, 10, Colors.Line),
         ActButton()
       ),
-      // Inside a stack an If must sit in a frame, or ElementUI won't lay it out again when it changes.
       If(
-          () => VM.Recording,
-          () => Text(() => VM.Hint).Font(Font.Caption).Foreground(Colors.Muted).Padding(new Insets(10, 0, 0, 0))
-        )
-        .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+        () => VM.Recording,
+        () => Text(() => VM.Hint).Font(Font.Caption).Foreground(Colors.Muted).Padding(new Insets(10, 0, 0, 0))
+      )
     );
 
   private View ActButton()
@@ -83,27 +81,26 @@ internal sealed class ShortcutField : View<ShortcutFieldModel>
     HStack(
       spacing: 0,
       If(
-          () => VM.HasModifier.Value,
-          () =>
-            HStack(
-                spacing: 8,
-                Keycap(
-                  If(
-                    () => VM.ModifierSymbol.Value,
-                    () =>
-                      HStack(
-                        spacing: 2,
-                        Text(() => VM.ModifierSide.Value).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted),
-                        new KeySymbol(() => VM.Modifier.Value)
-                      ),
-                    () => Text(() => VM.ModifierText.Value).Font(Font.Body.Sized(15))
-                  )
-                ),
-                Text("+").Font(Font.Caption).Foreground(Colors.Muted)
-              )
-              .Padding(new Insets(0, 0, 0, 8))
-        )
-        .Frame(),
+        () => VM.HasModifier.Value,
+        () =>
+          HStack(
+              spacing: 8,
+              Keycap(
+                If(
+                  () => VM.ModifierSymbol.Value,
+                  () =>
+                    HStack(
+                      spacing: 2,
+                      Text(() => VM.ModifierSide.Value).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted),
+                      new KeySymbol(() => VM.Modifier.Value)
+                    ),
+                  () => Text(() => VM.ModifierText.Value).Font(Font.Body.Sized(15))
+                )
+              ),
+              Text("+").Font(Font.Caption).Foreground(Colors.Muted)
+            )
+            .Padding(new Insets(0, 0, 0, 8))
+      ),
       Keycap(Text(() => VM.KeyText.Value).Font(Font.Body.Sized(15)))
     );
 

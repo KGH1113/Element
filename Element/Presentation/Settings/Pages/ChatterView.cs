@@ -1,7 +1,6 @@
 using Element.Domain.Tweaks;
 using ElementUI;
 using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
-using static Element.Presentation.Ui.Declarative.Controls.WidthLayouts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -53,10 +52,10 @@ internal sealed class ChatterView : View<ChatterModel>
         spacing: 8,
         Text(L("채터 임계값", "Chatter threshold")).Font(Font.Caption).Foreground(Colors.Muted),
         // The typed field sits beside the slider, or under it where the slider would be too short.
-        WideOrNarrow(
-          440,
-          () => HStack(spacing: 12, ThresholdSlider(), ThresholdField()),
-          () => VStack(spacing: 8, ThresholdSlider(), ThresholdField())
+        ViewThatFits(
+          HStack(spacing: 12, ThresholdSlider(), ThresholdField())
+            .Frame(minWidth: 440, maxWidth: float.PositiveInfinity),
+          VStack(spacing: 8, ThresholdSlider(), ThresholdField())
         )
       )
       .Padding(16)
@@ -99,7 +98,7 @@ internal sealed class ChatterView : View<ChatterModel>
         HStack(
             spacing: 8,
             Button(
-              Text(() => VM.Capturing ? L("완료", "Done") : L("키 바꾸기", "Change keys")).Foreground(Colors.Accent),
+              Text(() => VM.Capturing ? L("완료", "Done") : L("키 바꾸기", "Change keys")),
               () => VM.ChangeKeys,
               ButtonStyle.Prominent
             ),

@@ -4,6 +4,7 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using TMPro;
+using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -136,10 +137,10 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
       .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 
   private static View EffectCard(ItemSlot<EffectChoiceModel> slot) =>
-    SwitchCard.Of(() => slot.Value.Title, () => slot.Value.Description, Bind(() => slot.Value.Removed));
+    SwitchCard(() => slot.Value.Title, () => slot.Value.Description, Bind(() => slot.Value.Removed));
 
   private static View EffectCard(EffectChoiceModel choice) =>
-    SwitchCard.Of(choice.Title, choice.Description, Bind(() => choice.Removed));
+    SwitchCard(choice.Title, choice.Description, Bind(() => choice.Removed));
 
   // The zoom follows the planets once camera movement is removed; it is off until then.
   private View Zoom() =>

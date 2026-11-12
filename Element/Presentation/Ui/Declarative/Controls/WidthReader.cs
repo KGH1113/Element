@@ -5,17 +5,18 @@ using UnityEngine;
 namespace Element.Presentation.Ui.Declarative.Controls;
 
 /// <summary>
-/// Tells a view model the width it is laid out in, for a layout that changes
-/// with the room it has: put it in a <c>ZStack</c> with that layout and pick
-/// the layout in an <c>If</c> on the width. It draws nothing and takes no height.
-/// A new width shows from the next frame.
+/// Draws nothing; writes the width it is laid out at into a view model value.
+/// A stopgap from before ElementUI had <c>Grid(minColumnWidth:)</c> and
+/// <c>ViewThatFits</c>; screens move to those.
 /// </summary>
 internal sealed class WidthReader : NativeView
 {
-  private readonly Binding<float> _width;
+  private readonly Binding<float> _binding;
+  private readonly State<float> _state;
 
-  /// <param name="width">Where the width goes, such as <c>Bind(() =&gt; VM.Width)</c>.</param>
-  public WidthReader(Binding<float> width) => _width = width;
+  public WidthReader(Binding<float> width) => _binding = width;
+
+  public WidthReader(State<float> width) => _state = width;
 
   protected override void Build(RectTransform rect) { }
 
@@ -24,7 +25,14 @@ internal sealed class WidthReader : NativeView
 
   protected override void Resized(float width, float height)
   {
-    if (width > 0 && Mathf.Abs(_width.Value - width) >= .5f)
-      _width.Value = width;
+    if (width <= 0)
+      return;
+    if (_state != null)
+    {
+      if (Mathf.Abs(_state.Value - width) >= .5f)
+        _state.Value = width;
+    }
+    else if (Mathf.Abs(_binding.Value - width) >= .5f)
+      _binding.Value = width;
   }
 }

@@ -154,11 +154,16 @@ internal sealed class SettingsPanel : IDisposable
   private void Changed()
   {
     _apply();
-    // The highlight color is drawn into the window; a new one needs the window built again.
+    // The highlight color is drawn into the window; a new one needs the window
+    // built again, on the page the player was on.
     if (_highlightVersion != UiTheme.Version)
     {
+      int page = System.Array.IndexOf(_model.Pages, _model.Current);
       Mount();
       _model.Opened();
+      if (page > 0 && page < _model.Pages.Length)
+        _model.Show(_model.Pages[page]);
+      ElementUI.Runtime.Probe();
     }
   }
 

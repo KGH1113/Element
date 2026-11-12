@@ -148,8 +148,7 @@ internal sealed class UiGradientBar : IGradientBar
   /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
   public RectTransform PositionSlot => _positionSlot;
 
-  /// <summary>How far down the bar and its pill row reach for a solid color, and with a gradient's kinds.</summary>
-  public const float SolidHeight = PillRow + BarHeight + GradientGap + 4,
+  private const float SolidHeight = PillRow + BarHeight + GradientGap + 4,
     GradientHeight = PillRow + BarHeight + GradientGap + KindRow + GradientGap;
 
   /// <summary>How far down the bar, its pill and the kinds reach in the column.</summary>

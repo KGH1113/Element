@@ -217,6 +217,9 @@ internal sealed class ColorPickerModel : ViewModel, IGradientBarHost
   private void Open(Color value)
   {
     _active = true;
+    // A field asked to take the keyboard for an earlier color isn't asked again.
+    FocusHex.Value = 0;
+    FocusOpacity.Value = 0;
     UpdateShape();
     Color.RGBToHSV(value, out _h, out _s, out _v);
     Apply(value, true, false);

@@ -81,10 +81,7 @@ internal sealed class OverlayInputDockModel : ViewModel
   /// <summary>The result on the right, as "= 160 px"; empty for none.</summary>
   public readonly State<string> Result = new("");
 
-  /// <summary>Something is being typed: the caret shows.</summary>
-  public readonly State<bool> Typing = new(false);
-
-  /// <summary>The caret's blink: on or off now.</summary>
+  /// <summary>The caret at the formula's end, while something is typed: on or off as it blinks.</summary>
   public readonly State<bool> Caret = new(false);
 
   /// <summary>The line under the formula: lit while a carried value can (or can't) join it.</summary>
@@ -132,7 +129,6 @@ internal sealed class OverlayInputDockModel : ViewModel
       !_typing ? ""
       : empty ? L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value")
       : Describe(editing.Working);
-    Typing.Value = _typing;
     // A redraw starts the blink over: the caret shows at once.
     Caret.Value = _typing;
     Keypad.Refresh(editing);

@@ -92,8 +92,8 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done |
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
 | Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
-| Mod element editor, ElementKit EditorPage on ElementUI | next |
-| ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
+| Mod element editor, ElementKit EditorPage on ElementUI | done |
+| ElementKit: editing screens written with ElementUI (`Editor(EditorViewModel<T>)`, `EditorParts`) | done |
 | Remove the old UI kit (`UiFactory` and widgets) | last |
 
 ## Overlay editor map (for the next slices)
@@ -134,6 +134,16 @@ frame makes (`OverlayEditorFrame.Panel`, `NewBackend`); the bar is
 drive (their edit logic and undo stay in the part); Grow from's popover and the
 nine points are `OverlayGrowPickerModel` with `OverlayGrowPopoverView` and
 `OverlayGrowPointsView` (the mod element editor's anchor part mounts the points too).
+
+The mod element editor: `EditorPage`'s parts are part models (`ModPart`)
+whose controls are ElementUI views bound to the values they hand the mod
+(`ModValue<T>`); `ModEditorPage` mounts them once in one column to measure
+them, then stands each in a column (`ModEditorPageView`: an `If` per part per
+column, so a tab pick moves parts without a mount). `At(x, y)` is a layer over
+the columns; `Rect` is an object spread over the part (`ModPartRect`). A mod
+that overrides `Editor` gets `ModEditorView` instead: its view in a 480 column,
+edits from `UiRoot.Edited`, a drag one undo step. Element's pickers for both are
+`ModParts`, exposed to mods through `EditorParts`.
 
 Editors open through `ContentElementKind<T>.Open` → `IContentEditor.Open(target, closed)`;
 Done/Cancel → `ContentElementKind.Closed` → `Session.Commit()`. Layout undo is

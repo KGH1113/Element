@@ -7,8 +7,6 @@ using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
@@ -16,15 +14,14 @@ namespace Element.Presentation.Layout.Kinds;
 /// <summary>Shapes: a square, triangle or circle picked beside the add menu, edited in the shape editor.</summary>
 internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
 {
-  private const float MenuWidth = 220,
-    MenuRow = 48;
+  private const float MenuWidth = 220;
   private readonly ListMenu _menu;
 
   public ShapeKind(ILayoutEditing editing)
     : base(editing)
   {
-    _menu = new ListMenu(editing.Session.NewUi, "Shape kind menu", MenuWidth, MenuRow, UiPalette.Menu);
-    editing.AddMenu.AddSubmenu(_menu, () => _menu.HeightFor(3));
+    _menu = new ListMenu("Shape kind menu", MenuWidth, UiPalette.Menu);
+    editing.AddMenu.AddSubmenu(_menu);
   }
 
   public override string Label(IOverlayLayoutTarget target) => ((ShapeOverlayElement)target).Label;
@@ -48,33 +45,19 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
       _menu.Hide();
       return;
     }
-    _menu.Open(Editing.Session.Root.transform, 3);
-    (OverlayShapeKind Kind, UiIconKind Icon, string Name)[] kinds =
-    {
-      (OverlayShapeKind.Square, UiIconKind.Square, L("사각형", "Square")),
-      (OverlayShapeKind.Triangle, UiIconKind.Triangle, L("삼각형", "Triangle")),
-      (OverlayShapeKind.Circle, UiIconKind.Circle, L("원", "Circle")),
-    };
-    Button first = null;
-    for (int i = 0; i < kinds.Length; i++)
-    {
-      OverlayShapeKind kind = kinds[i].Kind;
-      Button button = _menu.AddRow(
-        i,
-        "Add " + kind,
-        kinds[i].Icon,
-        11,
-        22,
-        UiPalette.SoftAccent,
-        true,
-        () => Add(kind)
-      );
-      _menu.Ui.Text(kinds[i].Name, button.transform, 50, 0, MenuWidth - 76, MenuRow - 4, 15);
-      first ??= button;
-    }
-    Editing.AddMenu.Opened(_menu);
-    EventSystem.current?.SetSelectedGameObject(first.gameObject);
+    Editing.AddMenu.OpenSubmenu(
+      _menu,
+      new[]
+      {
+        Row(OverlayShapeKind.Square, UiIconKind.Square, L("사각형", "Square")),
+        Row(OverlayShapeKind.Triangle, UiIconKind.Triangle, L("삼각형", "Triangle")),
+        Row(OverlayShapeKind.Circle, UiIconKind.Circle, L("원", "Circle")),
+      }
+    );
   }
+
+  private AddMenuRow Row(OverlayShapeKind kind, UiIconKind icon, string name) =>
+    new(icon, name, null, true, () => Add(kind), "Add " + kind);
 
   internal void Add(OverlayShapeKind kind)
   {

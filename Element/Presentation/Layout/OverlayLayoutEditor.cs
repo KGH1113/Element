@@ -606,9 +606,10 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     }
     if (!Settle())
       return;
-    Button first = _addMenu.Open();
+    Selectable first = _addMenu.Open();
     UpdatePopupPositions();
-    EventSystem.current?.SetSelectedGameObject(first.gameObject);
+    if (first != null)
+      EventSystem.current?.SetSelectedGameObject(first.gameObject);
   }
 
   private void ToggleColor()

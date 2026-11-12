@@ -31,10 +31,9 @@ internal sealed class ModEditorPageView : View<ModEditorPage>
     foreach (ModPart part in page.Placed)
     {
       Vector2 at = part.Position ?? Vector2.zero;
+      // In a stack, as in a column, it is as tall as it wants rather than the rest of the screen.
       layers.Add(
-        new ModPartView(part)
-          .Frame(width: part.FrameWidth, alignment: Alignment.TopLeading)
-          .Padding(new Insets(Mathf.Max(0, at.y), Mathf.Max(0, at.x), 0, 0))
+        VStack(spacing: 0, InColumn(part)).Padding(new Insets(Mathf.Max(0, at.y), Mathf.Max(0, at.x), 0, 0))
       );
     }
     return ZStack(Alignment.TopLeading, layers.ToArray())

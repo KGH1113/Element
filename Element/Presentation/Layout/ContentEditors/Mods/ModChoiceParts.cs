@@ -28,7 +28,7 @@ internal sealed class ModChoiceParts
     List<string> names = Names(options);
     ModPart part = _page.Part();
     ModValue<int> current = _page.Value(part, Mathf.Clamp(selected, 0, names.Count - 1), changed);
-    part.Control = () => Row(label, Picker(null, names, Bind(() => current.Value)).Named("Choice " + label));
+    part.Control = () => Row(label, Picker(null, names, Bind(() => current.Value)));
     return _page.Add(part);
   }
 

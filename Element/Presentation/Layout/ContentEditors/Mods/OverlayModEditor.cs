@@ -255,19 +255,21 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     Record(_working, key, key != null);
   }
 
-  /// <summary>Saves what the edit changed as one undo step and shows it; false when nothing changed.</summary>
+  /// <summary>Saves what the edit changed as one undo step, and shows it; false when nothing changed.</summary>
   private bool Record(string before, object key, bool held)
   {
     string after = Save();
     bool merge = _history.Continues(key, Time.unscaledTime, held);
-    if (after == before)
-      return false;
-    _history.Record(before, merge);
-    _history.DropRedo();
-    _working = after;
+    bool changed = after != before;
+    if (changed)
+    {
+      _history.Record(before, merge);
+      _history.DropRedo();
+      _working = after;
+    }
     _guard.Run("showing a setting", _preview.Instance.RunSettingsChanged);
     FitPreview();
-    return true;
+    return changed;
   }
 
   private string Save()
@@ -277,10 +279,11 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     return data ?? string.Empty;
   }
 
+  // One of the content's popovers is open at a time: a click elsewhere closes it first.
   private void ClosePopovers()
   {
     _popovers.CloseAll();
-    while (_content != null && _content.CloseTopPopover()) { }
+    _content?.CloseTopPopover();
   }
 
   public void Tick()
@@ -296,12 +299,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     // Who had the keyboard as the frame began: Esc that ends recording a shortcut doesn't also finish.
     bool typing = Typing;
     _screen.Tick();
-    if (_rebuild)
-    {
-      _rebuild = false;
-      BuildPage();
-    }
-    _content?.Tick();
+    ApplyPending();
     _context.Tick();
     if (_preview.Instance != null)
     {
@@ -314,6 +312,17 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     if (Input.GetMouseButtonDown(0))
       _popovers.PressOutside(Input.mousePosition);
     HandleKeys();
+  }
+
+  /// <summary>What changed since the last frame shows: the parts made again after a button, or laid out again.</summary>
+  private void ApplyPending()
+  {
+    if (_rebuild)
+    {
+      _rebuild = false;
+      BuildPage();
+    }
+    _content?.Tick();
   }
 
   // The preview, and the bar above it with Grow from.

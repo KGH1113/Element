@@ -85,8 +85,9 @@ internal sealed class ElementTheme : UguiTheme
         style == ElementUI.ButtonStyle.Row
           ? new Color(1, 1, 1, .08f)
           : UnityEngine.Color.Lerp(UiPalette.Surface, UiPalette.SoftAccent, .35f);
+    // A button without a fill stays without one while off; only its label fades.
     if ((state & ElementUI.Ugui.ButtonState.Disabled) != 0)
-      return UnityEngine.Color.Lerp(basis, UiPalette.Background, .45f);
+      return basis.a == 0 ? basis : UnityEngine.Color.Lerp(basis, UiPalette.Background, .45f);
     if ((state & ElementUI.Ugui.ButtonState.Pressed) != 0)
       return Lighten(basis, -.2f, .12f);
     if ((state & ElementUI.Ugui.ButtonState.Hovered) != 0)

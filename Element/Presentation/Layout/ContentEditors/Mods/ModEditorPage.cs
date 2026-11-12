@@ -5,6 +5,7 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementUI;
+using ElementUI.Ugui;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
@@ -48,6 +49,7 @@ internal sealed class ModEditorPage : EditorPage, IModEditorScreen
   private bool _mounted;
   private bool _remount;
   private bool _remeasure;
+  private bool _disposing;
 
   /// <param name="frame">The editor's controls, in frame units.</param>
   /// <param name="size">The screen in frame units.</param>
@@ -136,7 +138,7 @@ internal sealed class ModEditorPage : EditorPage, IModEditorScreen
     string key = string.Join("\u001f", labels);
     ModEditorTabs tabs = new(this, key, Mathf.Clamp(_host.TabOf(key), 0, labels.Count - 1));
     tabs.BarPart = Add(
-      Part(() => UI.Picker(null, labels, UI.Bind(() => tabs.Pick.Value)).Named("Tabs"))
+      Part(() => UI.Picker(null, labels, UI.Bind(() => tabs.Pick.Value)))
     );
     // At the top of the column a tab's parts flow one by one; inside a card it is one block.
     bool transparent = _groups.Count == 0;
@@ -303,7 +305,8 @@ internal sealed class ModEditorPage : EditorPage, IModEditorScreen
 
   internal void Park(RectTransform rect)
   {
-    if (rect != null && _parking != null)
+    // While the page goes away, so does what it keeps.
+    if (!_disposing && rect != null && _parking != null)
       rect.SetParent(_parking, false);
   }
 
@@ -436,10 +439,10 @@ internal sealed class ModEditorPage : EditorPage, IModEditorScreen
   public void Dispose()
   {
     _mounted = false;
+    _disposing = true;
     _panel.Dispose();
     _commands.Dispose();
-    if (_root != null)
-      UnityEngine.Object.Destroy(_root.gameObject);
+    RectPeer.DestroyObject(_root.gameObject);
   }
 
   private static RectTransform NewRect(string name, Transform parent, Vector2 size)

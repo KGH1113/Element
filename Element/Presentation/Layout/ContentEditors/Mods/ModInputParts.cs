@@ -128,7 +128,7 @@ internal sealed class ModInputParts
     // As it is typed a number within the limits shows at once; when typing is
     // done one outside them is brought to the nearest.
     part.Control = () =>
-      Row(label, NumberField(null, Bind(() => current.Value), min, max).Named("Number " + label).Frame(width: 160));
+      Row(label, Typed(NumberField(null, Bind(() => current.Value), min, max)).Named("Number " + label).Frame(width: 160));
     return _page.Add(part);
   }
 
@@ -159,7 +159,7 @@ internal sealed class ModInputParts
     ModPart part = _page.Part();
     // Each letter shows on the preview as it is typed.
     ModValue<string> current = _page.Value(part, value ?? "", changed);
-    part.Control = () => Row(label, UI.TextField(null, Bind(() => current.Value)).Named("Text " + label));
+    part.Control = () => Row(label, Typed(UI.TextField(null, Bind(() => current.Value))).Named("Text " + label));
     return _page.Add(part);
   }
 
@@ -229,7 +229,7 @@ internal sealed class ModInputParts
     );
     return HStack(
       spacing: 4,
-      UI.TextField(null, Bind(() => text.Value)).Named("List item " + (index + 1)),
+      Typed(UI.TextField(null, Bind(() => text.Value))).Named("List item " + (index + 1)),
       Icon(UiIconKind.Up, "List Move up", () => up).Disabled(index == 0),
       Icon(UiIconKind.Down, "List Move down", () => down).Disabled(index == items.Count - 1),
       Icon(UiIconKind.Delete, "List Remove", () => remove)

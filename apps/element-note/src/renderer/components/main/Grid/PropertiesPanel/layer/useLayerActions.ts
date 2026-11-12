@@ -8,6 +8,7 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
@@ -24,6 +25,11 @@ import type { ListItem } from '@components/main/Modal/ListPopup';
 import type { LayerItem, DisplayItem } from '../types';
 import type { SelectedElement } from '@stores/grid/useGridSelectionStore';
 import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
+import {
+  patchSpritesAt,
+  removeSpritesAt,
+  writeSprites,
+} from '@src/renderer/editor/runtime/spritePositions';
 
 // ============================================================================
 // 파라미터 / 반환 타입
@@ -235,6 +241,13 @@ export function useLayerActions({
       return;
     }
 
+    if (item.type === 'sprite' && item.index !== undefined) {
+      await patchSpritesAt(selectedKeyType, [item.index], (sprite) => ({
+        hidden: !sprite.hidden,
+      }));
+      return;
+    }
+
     if (item.type === 'plugin') {
       const currentPluginElements =
         usePluginDisplayElementStore.getState().elements;
@@ -382,6 +395,14 @@ export function useLayerActions({
       }
     }
 
+    await patchSpritesAt(
+      selectedKeyType,
+      children
+        .filter((c) => c.type === 'sprite' && c.index !== undefined)
+        .map((c) => c.index as number),
+      () => ({ hidden: newHidden }),
+    );
+
     // 플러그인
     const pluginChildren = children.filter((c) => c.type === 'plugin');
     pluginChildren.forEach((c) => {
@@ -491,6 +512,10 @@ export function useLayerActions({
       } catch {
         // ignore
       }
+    } else if (item.type === 'sprite' && item.index !== undefined) {
+      await patchSpritesAt(selectedKeyType, [item.index], () => ({
+        layerName: newLayerName,
+      }));
     }
   };
 
@@ -573,6 +598,7 @@ export function useLayerActions({
       statPositions: currentStatPositions,
       graphPositions: currentGraphPositions,
       knobPositions: currentKnobPositions,
+      spritePositions: useSpriteStore.getState().positions,
       targetGroupId,
     });
 
@@ -582,6 +608,7 @@ export function useLayerActions({
       statPositions: grouped.statPositions,
       graphPositions: grouped.graphPositions,
       knobPositions: grouped.knobPositions,
+      spritePositions: grouped.spritePositions,
       layerGroups: layerGroupsForNormalization,
     });
 
@@ -612,6 +639,8 @@ export function useLayerActions({
     useStatItemStore.getState().setPositions(normalized.statPositions);
     useGraphItemStore.getState().setPositions(normalized.graphPositions);
     useKnobItemStore.getState().setPositions(normalized.knobPositions);
+    // Shown with the others now; its save is awaited with theirs below.
+    const spriteSave = writeSprites(normalized.spritePositions);
 
     if (shouldPersistGroups) {
       useLayerGroupStore.getState().setLayerGroups(normalized.layerGroups);
@@ -622,6 +651,7 @@ export function useLayerActions({
       await window.api.statItems.updatePositions(normalized.statPositions);
       await window.api.graphItems.updatePositions(normalized.graphPositions);
       await window.api.knobItems.updatePositions(normalized.knobPositions);
+      await spriteSave;
       if (shouldPersistGroups) {
         await window.api.layerGroups.update(normalized.layerGroups);
       }
@@ -651,9 +681,12 @@ export function useLayerActions({
     }
 
     const selectedElements = useGridSelectionStore.getState().selectedElements;
-    const items: ListItem[] = [
-      { id: 'rename', label: t('contextMenu.rename') || 'Rename' },
-    ];
+    // A key is named by the key it stands for; it has no name of its own to
+    // edit. Everything else can be told apart by a name.
+    const items: ListItem[] =
+      contextMenuItem?.type === 'key'
+        ? []
+        : [{ id: 'rename', label: t('contextMenu.rename') || 'Rename' }];
 
     if (selectedElements.length >= 2 && !contextMenuItem?.groupId) {
       items.push({
@@ -706,6 +739,8 @@ export function useLayerActions({
         toggleSelection({ type: 'graph', id: item.id, index: item.index });
       } else if (item.type === 'knob' && item.index !== undefined) {
         toggleSelection({ type: 'knob', id: item.id, index: item.index });
+      } else if (item.type === 'sprite' && item.index !== undefined) {
+        toggleSelection({ type: 'sprite', id: item.id, index: item.index });
       } else if (item.type === 'plugin') {
         toggleSelection({ type: 'plugin', id: item.id });
       }
@@ -811,6 +846,7 @@ export function useLayerActions({
         statPos,
         graphPos,
         knobPos,
+        useSpriteStore.getState().positions,
       );
 
       if (singleGroupId) {
@@ -873,6 +909,10 @@ export function useLayerActions({
 
       const knobsToDelete = selectedElements
         .filter((el) => el.type === 'knob' && el.index !== undefined)
+        .map((el) => el.index as number);
+
+      const spritesToDelete = selectedElements
+        .filter((el) => el.type === 'sprite' && el.index !== undefined)
         .map((el) => el.index as number);
 
       const pluginsToDelete = selectedElements
@@ -1030,6 +1070,8 @@ export function useLayerActions({
         }
       }
 
+      await removeSpritesAt(selectedKeyType, spritesToDelete);
+
       // 플러그인 삭제
       if (pluginsToDelete.length > 0) {
         const currentElements =
@@ -1047,6 +1089,7 @@ export function useLayerActions({
         statPositions: useStatItemStore.getState().positions,
         graphPositions: useGraphItemStore.getState().positions,
         knobPositions: useKnobItemStore.getState().positions,
+        spritePositions: useSpriteStore.getState().positions,
         layerGroups: useLayerGroupStore.getState().layerGroups,
       });
 
@@ -1059,6 +1102,7 @@ export function useLayerActions({
         useStatItemStore.getState().setPositions(normalized.statPositions);
         useGraphItemStore.getState().setPositions(normalized.graphPositions);
         useKnobItemStore.getState().setPositions(normalized.knobPositions);
+        const spriteSave = writeSprites(normalized.spritePositions);
         if (normalized.groupsChanged) {
           useLayerGroupStore.getState().setLayerGroups(normalized.layerGroups);
         }
@@ -1069,6 +1113,7 @@ export function useLayerActions({
             normalized.graphPositions,
           );
           await window.api.knobItems.updatePositions(normalized.knobPositions);
+          await spriteSave;
           if (normalized.groupsChanged) {
             await window.api.layerGroups.update(normalized.layerGroups);
           }

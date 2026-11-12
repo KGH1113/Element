@@ -50,6 +50,9 @@ format_changed() {
 command_name="${1:-}"
 shift || true
 case "$command_name" in
+  desktop-dev)
+    npm run tauri:dev -- "$@"
+    ;;
   desktop-deps)
     npm ci --no-audit --no-fund
     cargo fetch "${CARGO_MANIFEST[@]}"
@@ -87,7 +90,10 @@ case "$command_name" in
       src/renderer/ipc src/renderer/nativeViewers IpcCoordinator
     ;;
   desktop-visual-check)
-    npm run test:visual
+    npm run test:visual -- "$@"
+    ;;
+  desktop-type-check)
+    npm run type-check
     ;;
   desktop-format | desktop-ipc-format)
     if [ "$#" -gt 0 ]; then

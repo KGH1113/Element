@@ -108,12 +108,12 @@ export const uiApi = {
           resolve(false);
           return;
         }
-        showConfirm(
-          message,
-          () => resolve(true),
-          () => resolve(false),
-          options?.confirmText,
-        );
+        showConfirm(message, () => resolve(true), {
+          onCancel: () => resolve(false),
+          confirmText: options?.confirmText,
+          cancelText: options?.cancelText,
+          danger: options?.danger,
+        });
       });
     },
 

@@ -4,18 +4,25 @@ import TitleBar from '@components/main/TitleBar';
 import { useCustomCssInjection } from '@hooks/app/useCustomCssInjection';
 import { useCustomJsInjection } from '@hooks/app/useCustomJsInjection';
 import { useBlockBrowserShortcuts } from '@hooks/app/useBlockBrowserShortcuts';
-import ToolBar from '@components/main/Tool/ToolBar';
+import Sidebar from '@components/main/Sidebar/Sidebar';
+import ElementListPage, {
+  type AddItemType,
+} from '@components/main/Sidebar/ElementListPage';
+import TopBar from '@components/main/TopBar/TopBar';
+import ViewerPicker from '@components/main/Viewers/ViewerPicker';
+import ViewerGallery from '@components/main/Viewers/ViewerGallery';
+import type { KeyViewerKind } from '@src/types/key/keys';
+import { ChooserScopeProvider } from '@components/main/Sidebar/ChooserScopeProvider';
 import Grid from '@components/main/Grid';
 import SettingTab from '@components/main/Settings';
+import type { SettingsSection } from '@components/main/SettingsPanel/settingsNavigation';
 import { useKeyManager } from '@hooks/useKeyManager';
 import { usePalette } from '@hooks/Modal/usePalette';
 import CustomAlert from '@components/main/Modal/content/dialogs/Alert';
-import NoteSettingModal from '@components/main/Modal/content/settings/NoteSetting';
+import type { ShowConfirm } from '@components/main/Modal/content/dialogs/confirm';
 import PropertiesPanel from '@components/main/Grid/PropertiesPanel';
 import { useSettingsStore } from '@stores/useSettingsStore';
 import type { ShortcutBinding } from '@src/types/settings/shortcuts';
-import FloatingPopup from '@components/main/Modal/FloatingPopup';
-import Palette from '@components/main/Modal/content/pickers/Palette';
 import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
@@ -25,16 +32,11 @@ import {
   onItemSaveFailed,
   startItemSaveRecovery,
 } from '@src/renderer/editor/runtime/itemSaveRecovery';
-import { useObsModePrompt } from '@hooks/app/useObsModePrompt';
-import ObsModePrompt from '@components/main/Tool/ObsModePrompt';
 import { usePluginDisplayElementsResponder } from '@hooks/app/usePluginDisplayElementsResponder';
 import { useViewerEditRequests } from '@hooks/app/useViewerEditRequests';
-import { usePropertiesPanelStore } from '@stores/grid/usePropertiesPanelStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
 
 import { useUIStore } from '@stores/useUIStore';
-
-type ToolbarAddItemType = 'key' | 'stat' | 'graph' | 'knob' | 'sprite';
 
 export default function App() {
   const setGridAreaHovered = useUIStore((state) => state.setGridAreaHovered);
@@ -87,8 +89,6 @@ export default function App() {
     return () => observer.disconnect();
   }, []);
 
-  const primaryButtonRef = useRef(null);
-
   const {
     selectedKey,
     setSelectedKey,
@@ -112,22 +112,22 @@ export default function App() {
     handleMoveToBack,
     handleMoveForward,
     handleMoveBackward,
-    handleResetCurrentMode,
     handleUndo,
     handleRedo,
     canUndo,
     canRedo,
   } = useKeyManager();
-  const { color, palette, setPalette, handleColorChange, handlePaletteClose } =
-    usePalette();
+  const { color } = usePalette();
 
-  const [activeTool, setActiveTool] = useState('move');
   const [toolbarAddRequest, setToolbarAddRequest] = useState<{
     id: number;
-    type: ToolbarAddItemType;
+    type: AddItemType;
   } | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isNoteSettingOpen, setIsNoteSettingOpen] = useState(false);
+  // The settings section to open on; none means the first one.
+  const [settingsSection, setSettingsSection] = useState<SettingsSection>();
+  // The slot (hands or feet) whose key viewer is being chosen, if any.
+  const [galleryFor, setGalleryFor] = useState<KeyViewerKind | null>(null);
   const [skipModalAnimationOnReturn, setSkipModalAnimationOnReturn] =
     useState(false);
   const selectedKeyTypeAtSettingsOpenRef = useRef(selectedKeyType);
@@ -137,15 +137,22 @@ export default function App() {
     }
     setIsSettingsOpen(false);
   };
-  useViewerEditRequests(isSettingsOpen, closeSettings);
+  const openSettings = (section?: SettingsSection) => {
+    selectedKeyTypeAtSettingsOpenRef.current = selectedKeyType;
+    if (selectedKey) setSkipModalAnimationOnReturn(true);
+    setSettingsSection(section);
+    setIsSettingsOpen(true);
+  };
+  // The game's "Edit key viewer" returns to the editor from either screen.
+  useViewerEditRequests(isSettingsOpen || galleryFor !== null, () => {
+    setGalleryFor(null);
+    closeSettings();
+  });
   const {
-    noteEffect,
     angleMode: _angleMode,
     setAngleMode: _setAngleMode,
     language: _storeLanguage,
     setLanguage: _setLanguage,
-    noteSettings,
-    setNoteSettings,
     developerModeEnabled,
     shortcuts,
   } = useSettingsStore();
@@ -191,6 +198,8 @@ export default function App() {
     isOpen: false,
     message: '',
     confirmText: t('common.confirm'),
+    cancelText: undefined as string | undefined,
+    danger: false,
     type: 'alert' as 'alert' | 'confirm' | 'custom',
   }));
 
@@ -269,68 +278,39 @@ export default function App() {
     shortcuts?.switchKeyMode,
   ]);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!matchesShortcut(e, shortcuts?.toggleSettingsPanel)) return;
-      // 캔버스(그리드) 화면에서만 동작
-      if (isSettingsOpen) return;
-      const active = document.activeElement as HTMLElement | null;
-      if (active) {
-        const tag = (active.tagName || '').toLowerCase();
-        const editable = active.isContentEditable;
-        if (tag === 'input' || tag === 'textarea' || editable) return;
-      }
-
-      // 모달이 열려있으면 토글 차단
-      const hasModal = document.querySelector(
-        "[data-dmn-modal-backdrop='true']",
-      );
-      if (hasModal) return;
-
-      // 키 리스닝 중이면 토글 차단
-      if (window.__dmn_isKeyListening) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      usePropertiesPanelStore.getState().requestCanvasPanelToggle();
-    };
-
-    window.addEventListener('keydown', handler, true);
-    return () => window.removeEventListener('keydown', handler, true);
-  }, [shortcuts?.toggleSettingsPanel, isSettingsOpen]);
-
   const showAlert = (message: string, confirmText?: string) => {
     setAlertState({
       isOpen: true,
       message,
       type: 'alert',
       confirmText: confirmText || t('common.confirm'),
+      cancelText: undefined,
+      danger: false,
     });
   };
 
-  const showConfirm = (
-    message: string,
-    onConfirm: () => void,
-    onCancel?: () => void,
-    confirmText = t('common.confirm'),
-  ) => {
+  const showConfirm: ShowConfirm = (message, onConfirm, options) => {
     confirmCallbackRef.current =
       typeof onConfirm === 'function' ? onConfirm : null;
     cancelCallbackRef.current =
-      typeof onCancel === 'function' ? onCancel : null;
-    setAlertState({ isOpen: true, message, confirmText, type: 'confirm' });
+      typeof options?.onCancel === 'function' ? options.onCancel : null;
+    setAlertState({
+      isOpen: true,
+      message,
+      confirmText: options?.confirmText || t('common.confirm'),
+      cancelText: options?.cancelText,
+      danger: options?.danger === true,
+      type: 'confirm',
+    });
   };
-
-  const obsModePrompt = useObsModePrompt(() =>
-    showAlert(t('settings.obsStartFailed')),
-  );
 
   const closeAlert = () => {
     setAlertState({
       isOpen: false,
       message: '',
       confirmText: t('common.confirm'),
+      cancelText: undefined,
+      danger: false,
       type: 'alert',
     });
     confirmCallbackRef.current = null;
@@ -548,184 +528,144 @@ export default function App() {
   );
 
   return (
-    <div
-      data-dmn-app-chrome
-      className="dmn-app-frame w-full h-full flex flex-col overflow-hidden"
-    >
-      <TitleBar />
-      <div className="dmn-workspace flex-1 overflow-hidden flex">
-        {isSettingsOpen ? (
-          <div className="dmn-settings-host h-full w-full overflow-hidden">
-            <SettingTab showAlert={showAlert} showConfirm={showConfirm} />
-          </div>
-        ) : (
-          <div
-            className="flex-1 h-full overflow-hidden relative"
-            onMouseEnter={() => setGridAreaHovered(true)}
-            onMouseLeave={() => setGridAreaHovered(false)}
-          >
-            <Grid
-              selectedKey={selectedKey}
-              setSelectedKey={setSelectedKey}
-              keyMappings={keyMappings}
-              positions={positions}
-              onPositionChange={handlePositionChange}
-              onKeyUpdate={handleKeyUpdate}
-              onKeyPreview={handleKeyPreview}
-              onNoteColorUpdate={handleNoteColorUpdate}
-              onNoteColorPreview={handleNoteColorPreview}
-              onCounterUpdate={handleCounterSettingsUpdate}
-              onCounterPreview={handleCounterSettingsPreview}
-              onKeyDelete={handleDeleteKey}
-              onAddKeyAt={handleAddKeyAt}
-              onKeyDuplicate={handleDuplicateKey}
-              onMoveToFront={handleMoveToFront}
-              onMoveToBack={handleMoveToBack}
-              onMoveForward={handleMoveForward}
-              onMoveBackward={handleMoveBackward}
-              color={color}
-              activeTool={activeTool}
+    <ChooserScopeProvider>
+      <div
+        data-dmn-app-chrome
+        className="dmn-app-frame w-full h-full flex flex-col overflow-clip"
+      >
+        <TitleBar>
+          {!isSettingsOpen && !galleryFor && (
+            <TopBar
+              onOpenSettings={() => openSettings()}
+              onOpenOutputs={() => openSettings('outputs')}
+            />
+          )}
+        </TitleBar>
+        {/* min-h-0: the workspace takes the height that is left, whatever is
+            inside it, so each screen scrolls within itself. */}
+        <div className="dmn-workspace flex min-h-0 min-w-0 flex-1 overflow-clip">
+          {isSettingsOpen ? (
+            <div className="dmn-settings-host min-h-0 min-w-0 flex-1 overflow-hidden">
+              <SettingTab
+                showAlert={showAlert}
+                showConfirm={showConfirm}
+                onClose={closeSettings}
+                initialSection={settingsSection}
+              />
+            </div>
+          ) : galleryFor ? (
+            <ViewerGallery
+              slot={galleryFor}
+              onClose={() => setGalleryFor(null)}
               showConfirm={showConfirm}
               showAlert={showAlert}
-              shouldSkipModalAnimation={skipModalAnimationOnReturn}
-              onModalAnimationConsumed={() =>
-                setSkipModalAnimationOnReturn(false)
-              }
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              toolbarAddRequest={toolbarAddRequest}
-              onToolbarAddConsumed={() => setToolbarAddRequest(null)}
-              isNoteSettingOpen={isNoteSettingOpen}
-              setIsNoteSettingOpen={setIsNoteSettingOpen}
             />
-            <PropertiesPanel
-              onPositionChange={handlePositionChange}
-              onKeyUpdate={(data) => {
-                const { index, ...updates } = data;
-                handleKeyStyleUpdate(index, updates);
-              }}
-              onKeyBatchUpdate={handleKeyBatchStyleUpdate}
-              onKeyPreview={handleKeyPreview}
-              onKeyBatchPreview={handleKeyBatchPreview}
-              onKeyMappingChange={handleKeyMappingChange}
-            />
-          </div>
+          ) : (
+            <>
+              <div
+                className="min-w-0 flex-1 h-full overflow-hidden relative"
+                onMouseEnter={() => setGridAreaHovered(true)}
+                onMouseLeave={() => setGridAreaHovered(false)}
+              >
+                {/* Floats in the canvas's corner; it takes no row. */}
+                <ViewerPicker onChoose={setGalleryFor} />
+                <Grid
+                  selectedKey={selectedKey}
+                  setSelectedKey={setSelectedKey}
+                  keyMappings={keyMappings}
+                  positions={positions}
+                  onPositionChange={handlePositionChange}
+                  onKeyUpdate={handleKeyUpdate}
+                  onKeyPreview={handleKeyPreview}
+                  onNoteColorUpdate={handleNoteColorUpdate}
+                  onNoteColorPreview={handleNoteColorPreview}
+                  onCounterUpdate={handleCounterSettingsUpdate}
+                  onCounterPreview={handleCounterSettingsPreview}
+                  onKeyDelete={handleDeleteKey}
+                  onAddKeyAt={handleAddKeyAt}
+                  onKeyDuplicate={handleDuplicateKey}
+                  onMoveToFront={handleMoveToFront}
+                  onMoveToBack={handleMoveToBack}
+                  onMoveForward={handleMoveForward}
+                  onMoveBackward={handleMoveBackward}
+                  color={color}
+                  showConfirm={showConfirm}
+                  showAlert={showAlert}
+                  shouldSkipModalAnimation={skipModalAnimationOnReturn}
+                  onModalAnimationConsumed={() =>
+                    setSkipModalAnimationOnReturn(false)
+                  }
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
+                  toolbarAddRequest={toolbarAddRequest}
+                  onToolbarAddConsumed={() => setToolbarAddRequest(null)}
+                />
+              </div>
+              <Sidebar>
+                <PropertiesPanel
+                  onPositionChange={handlePositionChange}
+                  onKeyUpdate={(data) => {
+                    const { index, ...updates } = data;
+                    handleKeyStyleUpdate(index, updates);
+                  }}
+                  onKeyBatchUpdate={handleKeyBatchStyleUpdate}
+                  onKeyPreview={handleKeyPreview}
+                  onKeyBatchPreview={handleKeyBatchPreview}
+                  onKeyMappingChange={handleKeyMappingChange}
+                  renderElementList={(slots) => (
+                    <ElementListPage
+                      {...slots}
+                      onAddItem={(type) =>
+                        setToolbarAddRequest({ id: Date.now(), type })
+                      }
+                    />
+                  )}
+                />
+              </Sidebar>
+            </>
+          )}
+        </div>
+        <CustomAlert
+          isOpen={alertState.isOpen}
+          message={alertState.message}
+          type={alertState.type}
+          confirmText={alertState.confirmText}
+          cancelText={alertState.cancelText}
+          danger={alertState.danger}
+          onConfirm={handleAlertConfirm}
+          onCancel={handleAlertCancel}
+        />
+        <CustomAlert
+          isOpen={customDialogState.isOpen}
+          message={customDialogState.html}
+          type="custom"
+          confirmText={customDialogState.confirmText}
+          cancelText={customDialogState.cancelText}
+          showCancel={customDialogState.showCancel}
+          onConfirm={handleCustomDialogConfirm}
+          onCancel={handleCustomDialogCancel}
+        />
+        {colorPickerState.isOpen && (
+          <ColorPicker
+            open={colorPickerState.isOpen}
+            color={colorPickerState.color}
+            onColorChange={handleGlobalColorChange}
+            onColorChangeComplete={handleGlobalColorChangeComplete}
+            onClose={closeColorPicker}
+            position={colorPickerState.position}
+            referenceRef={
+              colorPickerState.referenceElement
+                ? { current: colorPickerState.referenceElement }
+                : undefined
+            }
+            offsetY={colorPickerState.referenceElement ? 10 : -80}
+            placement="right"
+            solidOnly={true}
+          />
         )}
       </div>
-      <ToolBar
-        onAddItem={(type) =>
-          setToolbarAddRequest({
-            id: Date.now(),
-            type,
-          })
-        }
-        onTogglePalette={() => setPalette((p) => !p)}
-        isPaletteOpen={palette}
-        onResetCurrentMode={() =>
-          showConfirm(
-            t('confirm.resetCurrentTab'),
-            async () => {
-              await handleResetCurrentMode();
-            },
-            undefined,
-            t('confirm.reset'),
-          )
-        }
-        onResetCounters={() =>
-          showConfirm(
-            t('confirm.resetCountersCurrentTab'),
-            async () => {
-              await window.api.keys.resetCountersMode(selectedKeyType);
-            },
-            undefined,
-            t('confirm.reset'),
-          )
-        }
-        activeTool={activeTool}
-        setActiveTool={setActiveTool}
-        isSettingsOpen={isSettingsOpen}
-        onOpenSettings={() => {
-          selectedKeyTypeAtSettingsOpenRef.current = selectedKeyType;
-          if (selectedKey) setSkipModalAnimationOnReturn(true);
-          setIsSettingsOpen(true);
-        }}
-        onCloseSettings={closeSettings}
-        showAlert={showAlert}
-        onOpenNoteSetting={() => setIsNoteSettingOpen(true)}
-        primaryButtonRef={primaryButtonRef}
-      />
-      {palette && (
-        <FloatingPopup
-          open={palette}
-          referenceRef={primaryButtonRef}
-          placement="top"
-          offset={25}
-          onClose={handlePaletteClose}
-          className="z-50"
-        >
-          <Palette color={color} onColorChange={handleColorChange} />
-        </FloatingPopup>
-      )}
-      {noteEffect && isNoteSettingOpen && noteSettings && (
-        <NoteSettingModal
-          settings={noteSettings}
-          onClose={() => setIsNoteSettingOpen(false)}
-          onSave={async (normalized) => {
-            try {
-              await window.api.settings.update({ noteSettings: normalized });
-              setNoteSettings(normalized);
-            } catch (error) {
-              console.error('Failed to update note settings', error);
-            }
-          }}
-        />
-      )}
-      <CustomAlert
-        isOpen={alertState.isOpen}
-        message={alertState.message}
-        type={alertState.type}
-        confirmText={alertState.confirmText}
-        cancelText={undefined}
-        showCancel={undefined}
-        onConfirm={handleAlertConfirm}
-        onCancel={handleAlertCancel}
-      />
-      {obsModePrompt.open && (
-        <ObsModePrompt
-          onEnable={obsModePrompt.enable}
-          onDismiss={obsModePrompt.dismiss}
-        />
-      )}
-      <CustomAlert
-        isOpen={customDialogState.isOpen}
-        message={customDialogState.html}
-        type="custom"
-        confirmText={customDialogState.confirmText}
-        cancelText={customDialogState.cancelText}
-        showCancel={customDialogState.showCancel}
-        onConfirm={handleCustomDialogConfirm}
-        onCancel={handleCustomDialogCancel}
-      />
-      {colorPickerState.isOpen && (
-        <ColorPicker
-          open={colorPickerState.isOpen}
-          color={colorPickerState.color}
-          onColorChange={handleGlobalColorChange}
-          onColorChangeComplete={handleGlobalColorChangeComplete}
-          onClose={closeColorPicker}
-          position={colorPickerState.position}
-          referenceRef={
-            colorPickerState.referenceElement
-              ? { current: colorPickerState.referenceElement }
-              : undefined
-          }
-          offsetY={colorPickerState.referenceElement ? 10 : -80}
-          placement="right"
-          solidOnly={true}
-        />
-      )}
-    </div>
+    </ChooserScopeProvider>
   );
 }

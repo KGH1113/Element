@@ -11,6 +11,11 @@ import { isMac } from '@utils/core/platform';
 import { useSettingsStore } from '@stores/useSettingsStore';
 import type { ShortcutBinding } from '@src/types/settings/shortcuts';
 
+/** Zoom per unit of pinch distance; a full pinch is about three times. */
+const PINCH_ZOOM_RATE = 0.008;
+/** Zoom per pixel of two-finger scrolling with the zoom key held. */
+const SCROLL_ZOOM_RATE = 0.0025;
+
 interface UseGridZoomPanOptions {
   mode: string;
   containerRef: React.RefObject<HTMLDivElement>;
@@ -35,6 +40,8 @@ export function useGridZoomPan({
 
   // 휠 이벤트 누적 방지용 ref
   const isWheelProcessingRef = useRef(false);
+  // Finger travel on a trackpad that has not been turned into zoom yet.
+  const wheelZoomPendingRef = useRef(0);
   const [isTransforming, setIsTransforming] = useState(false);
   const isTransformingRef = useRef(false);
   const transformIdleTimerRef = useRef<number | null>(null);
@@ -153,6 +160,22 @@ export function useGridZoomPan({
     // 기본 스크롤 방지
     e.preventDefault();
 
+    const isWheelZoomModifierPressed = macOS
+      ? e.metaKey || e.ctrlKey // macOS: Cmd+휠, 그리고 트랙패드 핀치(ctrlKey=true)도 줌으로 유지
+      : e.ctrlKey; // Windows/Linux: Ctrl+휠
+
+    // A mouse wheel turns in notches (about 100 per notch); one notch is one
+    // step. A trackpad sends a stream of small moves, so its zoom follows how
+    // far the fingers went instead of taking a full step for every move.
+    const isWheelNotch =
+      e.deltaMode !== 0 || (Math.abs(e.deltaY) >= 50 && e.deltaX === 0);
+    if (isWheelZoomModifierPressed && !isWheelNotch) {
+      // A pinch (the system sets ctrlKey) reports small distances; scrolling
+      // with a modifier reports large ones.
+      const rate = e.ctrlKey && !e.metaKey ? PINCH_ZOOM_RATE : SCROLL_ZOOM_RATE;
+      wheelZoomPendingRef.current += e.deltaY * rate;
+    }
+
     // 빠른 연속 휠 이벤트 방지
     if (isWheelProcessingRef.current) return;
     isWheelProcessingRef.current = true;
@@ -160,15 +183,21 @@ export function useGridZoomPan({
       isWheelProcessingRef.current = false;
     });
 
-    const isWheelZoomModifierPressed = macOS
-      ? e.metaKey || e.ctrlKey // macOS: Cmd+휠, 그리고 트랙패드 핀치(ctrlKey=true)도 줌으로 유지
-      : e.ctrlKey; // Windows/Linux: Ctrl+휠
-
     if (isWheelZoomModifierPressed) {
-      // (Ctrl/Cmd) + 휠: 줌
-      const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
-      zoomAtPoint(e.clientX, e.clientY, zoom + delta);
+      if (isWheelNotch) {
+        const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+        zoomAtPoint(e.clientX, e.clientY, zoom + delta);
+      } else {
+        // Whole percents; travel too small to change one is kept for later.
+        const nextZoom =
+          Math.round(zoom * Math.exp(-wheelZoomPendingRef.current) * 100) / 100;
+        if (nextZoom !== zoom) {
+          wheelZoomPendingRef.current = 0;
+          zoomAtPoint(e.clientX, e.clientY, nextZoom);
+        }
+      }
     } else {
+      wheelZoomPendingRef.current = 0;
       // 휠/트랙패드 2손가락: 패닝
       // - 트랙패드는 deltaX/deltaY가 같이 들어오므로 수평/대각 이동 지원
       // - 일부 마우스 휠은 deltaX=0만 오기 때문에 기존 Shift+휠 수평 패닝도 유지

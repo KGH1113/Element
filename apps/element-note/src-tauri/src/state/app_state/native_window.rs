@@ -8,7 +8,7 @@ const OVERLAY_FRAME_APPLY_TIMEOUT_MS: u64 = 250;
 /// 반환값은 페이드 적용 여부 - false면 호출부가 가림 없이 즉시 전환해야 한다
 pub(crate) fn fade_overlay_window(app: &AppHandle, alpha: f64, duration_ms: u64) -> Result<bool> {
     let Some(window) = app.get_webview_window(OVERLAY_LABEL) else {
-        // OBS 모드 등 창 미존재 시 무시
+        // 바탕화면 오버레이를 꺼 둔 경우 등 창 미존재 시 무시
         return Ok(false);
     };
     #[cfg(target_os = "macos")]

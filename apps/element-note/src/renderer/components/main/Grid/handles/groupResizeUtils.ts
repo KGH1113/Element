@@ -8,6 +8,7 @@ import type { KeyPositions } from '@src/types/key/keys';
 import type { StatItemPositions } from '@src/types/key/statItems';
 import type { GraphItemPositions } from '@src/types/key/graphItems';
 import type { KnobItemPositions } from '@src/types/key/knobs';
+import type { SpritePositions } from '@src/types/key/sprites';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import type { SelectableElementType } from '@stores/grid/useGridSelectionStore';
 
@@ -40,6 +41,7 @@ export function isElementResizable(
   _statPositions: StatItemPositions,
   _graphPositions: GraphItemPositions,
   _knobPositions: KnobItemPositions,
+  _spritePositions: SpritePositions,
   _selectedKeyType: string,
   pluginElements: PluginDisplayElementInternal[],
 ): boolean {
@@ -50,6 +52,8 @@ export function isElementResizable(
   } else if (element.type === 'graph') {
     return true;
   } else if (element.type === 'knob') {
+    return true;
+  } else if (element.type === 'sprite') {
     return true;
   } else if (element.type === 'plugin') {
     const pluginEl = pluginElements.find(
@@ -76,6 +80,7 @@ export function getElementBounds(
   statPositions: StatItemPositions,
   graphPositions: GraphItemPositions,
   knobPositions: KnobItemPositions,
+  spritePositions: SpritePositions,
   selectedKeyType: string,
   pluginElements: PluginDisplayElementInternal[],
 ): Bounds | null {
@@ -115,6 +120,10 @@ export function getElementBounds(
       width: pos.width || 60,
       height: pos.height || 60,
     };
+  } else if (element.type === 'sprite' && element.index !== undefined) {
+    const pos = spritePositions?.[selectedKeyType]?.[element.index];
+    if (!pos) return null;
+    return { x: pos.dx, y: pos.dy, width: pos.width, height: pos.height };
   } else if (element.type === 'plugin') {
     const pluginEl = pluginElements.find(
       (p: PluginDisplayElementInternal) => p.fullId === element.id,
@@ -139,6 +148,7 @@ export function calculateGroupBounds(
   statPositions: StatItemPositions,
   graphPositions: GraphItemPositions,
   knobPositions: KnobItemPositions,
+  spritePositions: SpritePositions,
   selectedKeyType: string,
   pluginElements: PluginDisplayElementInternal[],
 ): (Bounds & { elementBounds: ElementBounds[] }) | null {
@@ -157,6 +167,7 @@ export function calculateGroupBounds(
         statPositions,
         graphPositions,
         knobPositions,
+        spritePositions,
         selectedKeyType,
         pluginElements,
       )
@@ -170,6 +181,7 @@ export function calculateGroupBounds(
       statPositions,
       graphPositions,
       knobPositions,
+      spritePositions,
       selectedKeyType,
       pluginElements,
     );
@@ -203,6 +215,7 @@ export function getNonResizableElementIds(
   statPositions: StatItemPositions,
   graphPositions: GraphItemPositions,
   knobPositions: KnobItemPositions,
+  spritePositions: SpritePositions,
   selectedKeyType: string,
   pluginElements: PluginDisplayElementInternal[],
 ): string[] {
@@ -215,6 +228,7 @@ export function getNonResizableElementIds(
           statPositions,
           graphPositions,
           knobPositions,
+          spritePositions,
           selectedKeyType,
           pluginElements,
         ),

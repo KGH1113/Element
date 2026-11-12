@@ -7,7 +7,7 @@ import type { KeyViewerKind } from '@src/types/key/keys';
 
 export interface NativeViewerSurfacePort {
   describe(sessionId: string): Promise<unknown>;
-  /** Fires when OBS mode, its token/port or a replay render changes. */
+  /** Fires when the page server, its token/port or a replay render changes. */
   onChanged?(listener: () => void): Unsubscribe;
   /** Whether the player wants the viewers inside ADOFAI at all. */
   inGameEnabled?(): boolean;
@@ -18,14 +18,13 @@ export interface NativeViewerSurfacePort {
 
 const failures = {
   'invalid-session': 'Invalid in-game viewer session.',
-  'obs-required':
-    'Enable OBS mode in ElementNote to use the native in-game viewers.',
-  'obs-not-ready': 'The OBS viewer service is starting. Try again shortly.',
+  // The name predates the split from OBS; the game reads it as "preparing".
+  'obs-not-ready': 'The key viewer pages are starting. Try again shortly.',
   'replay-render-active':
     'A replay render is using ElementNote. Try again after it finishes.',
   'native-unavailable':
     'The native in-game viewers could not be prepared. Try again.',
-  'in-game-disabled': 'Show inside ADOFAI is off in ElementNote.',
+  'in-game-disabled': "Inside ADOFAI is off in ElementNote's settings.",
 } as const;
 
 type FailureCode = keyof typeof failures;
@@ -43,9 +42,9 @@ interface Subscription {
   last?: string;
 }
 
-// Changes arrive in bursts (OBS start emits status, snapshot and port).
+// Changes arrive in bursts (a server start emits status, snapshot and port).
 const changeDebounceMs = 100;
-// OBS sets running before its port; describe again once it can answer.
+// The server sets running before its port; describe again once it can answer.
 const notReadyRetryMs = 500;
 
 /**
@@ -142,7 +141,7 @@ export class NativeViewerIpcCoordinator {
     }
     const generation = this.generation;
     // The latest valid session subscribes to pushes, even when this describe
-    // fails, so turning OBS mode on later still reaches the game.
+    // fails, so showing inside the game later still reaches the game.
     if (this.session?.sessionId !== sessionId)
       this.session = { sessionId, generation };
     const outcome = await this.describeOnce(sessionId);
@@ -197,7 +196,7 @@ export class NativeViewerIpcCoordinator {
     const next = fingerprint(outcome);
     if (next !== session.last) {
       session.last = next;
-      // Native URLs carry the OBS token: only this IPC channel receives them.
+      // Native URLs carry the server token: only this IPC channel receives them.
       if (outcome.ok) this.emit('mirror.native.changed', outcome.result);
       else
         this.emit('mirror.native.unavailable', {
@@ -225,7 +224,7 @@ function codeOf(error: unknown): FailureCode {
     typeof error === 'object' && error !== null && 'code' in error
       ? error.code
       : undefined;
-  // Native errors may carry the OBS URL and token. Never forward raw errors.
+  // Native errors may carry the page URL and token. Never forward raw errors.
   return typeof candidate === 'string' &&
     Object.prototype.hasOwnProperty.call(failures, candidate)
     ? (candidate as FailureCode)

@@ -5,7 +5,7 @@
     "apps/element-note"
   ],
   "scripts": {
-    "desktop:dev": "npm run tauri:dev -w @element/element-note",
+    "desktop:dev": "cd apps/element-note && npm run tauri:dev",
     "desktop:build": "npm run tauri:build -w @element/element-note",
     "desktop:build:mac": "npm run tauri:build:mac -w @element/element-note",
     "desktop:build:windows": "npm run tauri:build:windows -w @element/element-note",

@@ -11,3 +11,10 @@ export function obsViewerKind(
 export function obsWindowLabel(viewer?: KeyViewerKind): string {
   return viewer ? `${viewer}-overlay` : 'obs-overlay';
 }
+
+/** Who is showing the page. The app leaves the game's own pages out of the OBS count. */
+export type ViewerPageClient = 'game' | 'obs-browser';
+
+export function viewerPageClient(params: URLSearchParams): ViewerPageClient {
+  return params.get('client') === 'game' ? 'game' : 'obs-browser';
+}

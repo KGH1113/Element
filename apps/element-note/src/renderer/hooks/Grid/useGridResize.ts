@@ -5,13 +5,9 @@ import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
-import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
-import { useSettingsStore } from '@stores/useSettingsStore';
-import {
-  calculateBounds,
-  calculateSnapPoints,
-  calculateSizeSnap,
-} from '@utils/grid/smartGuides';
+import type { Edges } from '@utils/grid/snapEngine';
+import { MIN_ELEMENT_SIZE } from './constants';
+import { clearSnapGuides, resizeWithSnap } from './snapSession';
 import type { SelectedElement } from '@stores/grid/useGridSelectionStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
 import type { KeyPositions } from '@src/types/key/keys';
@@ -19,6 +15,7 @@ import type { StatItemPositions } from '@src/types/key/statItems';
 import type { GraphItemPositions } from '@src/types/key/graphItems';
 import type { KnobItemPositions } from '@src/types/key/knobs';
 import type { ElementBounds } from '@utils/grid/smartGuides';
+import { patchSpritesAt } from '@src/renderer/editor/runtime/spritePositions';
 
 interface ResizeHandle {
   id: string;
@@ -31,6 +28,36 @@ interface ResizeBounds {
   y: number;
   width: number;
   height: number;
+}
+
+/** What the resize handles report while an edge is dragged. */
+interface PointedResize extends ResizeBounds {
+  handle?: ResizeHandle;
+  start?: ResizeBounds;
+  keepAspect?: boolean;
+  suspended?: boolean;
+  zoom?: number;
+}
+
+const side = (value: number): -1 | 0 | 1 =>
+  value < 0 ? -1 : value > 0 ? 1 : 0;
+
+/**
+ * The other dimension of a box that keeps its shape: its size follows the
+ * dragged one, and it stays on its anchor (the opposite edge for a corner,
+ * the middle for an edge handle).
+ */
+function followAspect(
+  size: number,
+  pulled: -1 | 0 | 1,
+  startLo: number,
+  startSize: number,
+): [number, number] {
+  const whole = Math.max(MIN_ELEMENT_SIZE, Math.round(size));
+  if (pulled === 1) return [startLo, startLo + whole];
+  if (pulled === -1) return [startLo + startSize - whole, startLo + startSize];
+  const lo = Math.round(startLo + (startSize - whole) / 2);
+  return [lo, lo + whole];
 }
 
 // 그룹 리사이즈용 요소 bounds
@@ -87,7 +114,7 @@ export function useGridResize({
     resizeStartRef.current = true;
 
     // 기존 스마트 가이드 클리어
-    useSmartGuidesStore.getState().clearGuides();
+    clearSnapGuides();
 
     // 리사이즈 시작 시 애니메이션 비활성화
     useGridSelectionStore.getState().setDraggingOrResizing(true);
@@ -107,685 +134,90 @@ export function useGridResize({
     });
   };
 
-  // 공용 리사이즈 프리뷰 처리 (스마트 가이드 포함)
+  // One preview for every kind of element. The handles say where the pointer
+  // puts the edges; the pulled edges are settled here by the same rule that
+  // moving uses (utils/grid/snapEngine). Nothing is saved until the drag ends.
   const handleElementResizePreview = (
     elementId: string,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
+    pointed: PointedResize,
   ) => {
-    const smartGuidesStore = useSmartGuidesStore.getState();
-    const gridSettings = useSettingsStore.getState().gridSettings;
-    const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-    const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-    const sizeMatchGuidesEnabled = gridSettings?.sizeMatchGuides !== false;
+    const { handle, start } = pointed;
+    const box = {
+      id: elementId,
+      left: pointed.x,
+      top: pointed.y,
+      right: pointed.x + pointed.width,
+      bottom: pointed.y + pointed.height,
+    };
+    let edges: Edges = box;
 
-    let finalX = newBounds.x;
-    let finalY = newBounds.y;
-    let finalWidth = newBounds.width;
-    let finalHeight = newBounds.height;
+    if (handle) {
+      const pulled = { x: side(handle.dx), y: side(handle.dy) };
+      const settle = (pull: typeof pulled) =>
+        resizeWithSnap({
+          pointed: box,
+          pulled: pull,
+          targets: getOtherElements ? getOtherElements(elementId) : [],
+          zoom: pointed.zoom ?? 1,
+          suspended: pointed.suspended === true,
+          minSize: MIN_ELEMENT_SIZE,
+        });
 
-    // 스마트 가이드 계산 (getOtherElements가 제공된 경우, 정렬 가이드가 활성화된 경우)
-    if (getOtherElements && alignmentGuidesEnabled) {
-      const otherElements = getOtherElements(elementId);
-
-      // 리사이즈 중인 요소의 bounds 계산
-      const draggedBounds = calculateBounds(
-        newBounds.x,
-        newBounds.y,
-        newBounds.width,
-        newBounds.height,
-        elementId,
-      );
-
-      const snapResult = calculateSnapPoints(
-        draggedBounds,
-        otherElements,
-        undefined,
-        {
-          disableSpacing: !spacingGuidesEnabled,
-        },
-      );
-      const handle = newBounds.handle;
-
-      if (handle) {
-        // X축 스냅 (간격 스냅인 경우 spacingGuidesEnabled 확인)
-        if (
-          handle.dx !== 0 &&
-          snapResult.didSnapX &&
-          !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)
-        ) {
-          if (handle.dx === -1) {
-            // 왼쪽 핸들: 왼쪽 가장자리 스냅
-            const widthDiff = finalX - snapResult.snappedX;
-            finalX = snapResult.snappedX;
-            finalWidth = finalWidth + widthDiff;
-          } else if (handle.dx === 1) {
-            // 오른쪽 핸들: 오른쪽 가장자리 스냅
-            const snappedRight = snapResult.snappedX + draggedBounds.width;
-            finalWidth = snappedRight - finalX;
-          } else if (handle.dx === 0) {
-            // 수직 핸들 (상/하): 중앙 정렬 스냅
-            finalX = snapResult.snappedX;
-          }
-        }
-
-        // Y축 스냅 (간격 스냅인 경우 spacingGuidesEnabled 확인)
-        if (
-          handle.dy !== 0 &&
-          snapResult.didSnapY &&
-          !(snapResult.didSpacingSnapY && !spacingGuidesEnabled)
-        ) {
-          if (handle.dy === -1) {
-            // 위쪽 핸들: 위쪽 가장자리 스냅
-            const heightDiff = finalY - snapResult.snappedY;
-            finalY = snapResult.snappedY;
-            finalHeight = finalHeight + heightDiff;
-          } else if (handle.dy === 1) {
-            // 아래쪽 핸들: 아래쪽 가장자리 스냅
-            const snappedBottom = snapResult.snappedY + draggedBounds.height;
-            finalHeight = snappedBottom - finalY;
-          } else if (handle.dy === 0) {
-            // 수평 핸들 (좌/우): 중앙 정렬 스냅
-            finalY = snapResult.snappedY;
-          }
-        }
-
-        // Size Matching: 다른 요소와 동일한 크기로 스냅 (sizeMatchGuidesEnabled 확인)
-        if (sizeMatchGuidesEnabled) {
-          const sizeSnapResult = calculateSizeSnap(
-            finalWidth,
-            finalHeight,
-            otherElements,
-            elementId,
+      const keepsShape =
+        pointed.keepAspect === true &&
+        !!start &&
+        start.width > 0 &&
+        start.height > 0;
+      if (!keepsShape) {
+        edges = settle(pulled);
+      } else {
+        // The dimension that changed more leads; only it is settled, and the
+        // other one follows it.
+        const leadsX =
+          pulled.y === 0 ||
+          (pulled.x !== 0 &&
+            Math.abs(pointed.width - start.width) / start.width >=
+              Math.abs(pointed.height - start.height) / start.height);
+        if (leadsX) {
+          const led = settle({ x: pulled.x, y: 0 });
+          const [top, bottom] = followAspect(
+            ((led.right - led.left) * start.height) / start.width,
+            pulled.y,
+            start.y,
+            start.height,
           );
-
-          if (sizeSnapResult.didSnapWidth) {
-            // 핸들 방향에 따라 크기 조정
-            if (handle.dx === -1) {
-              // 왼쪽 핸들: 왼쪽 가장자리를 조정
-              finalX = finalX - (sizeSnapResult.snappedWidth - finalWidth);
-            }
-            finalWidth = sizeSnapResult.snappedWidth;
-          }
-
-          if (sizeSnapResult.didSnapHeight) {
-            if (handle.dy === -1) {
-              // 위쪽 핸들: 위쪽 가장자리를 조정
-              finalY = finalY - (sizeSnapResult.snappedHeight - finalHeight);
-            }
-            finalHeight = sizeSnapResult.snappedHeight;
-          }
-
-          // 스냅 후 bounds로 가이드라인 업데이트
-          const hasAlignSnap =
-            (handle.dx !== 0 &&
-              snapResult.didSnapX &&
-              !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)) ||
-            (handle.dy !== 0 &&
-              snapResult.didSnapY &&
-              !(snapResult.didSpacingSnapY && !spacingGuidesEnabled));
-          const hasSizeSnap =
-            sizeSnapResult.didSnapWidth || sizeSnapResult.didSnapHeight;
-
-          if (hasAlignSnap || hasSizeSnap) {
-            const snappedBounds = calculateBounds(
-              finalX,
-              finalY,
-              finalWidth,
-              finalHeight,
-              elementId,
-            );
-            smartGuidesStore.setDraggedBounds(snappedBounds);
-
-            // 정렬 가이드 업데이트
-            if (hasAlignSnap) {
-              smartGuidesStore.setActiveGuides(snapResult.guides);
-              // 간격 가이드 업데이트 (spacingGuidesEnabled가 true인 경우에만)
-              if (
-                spacingGuidesEnabled &&
-                snapResult.spacingGuides &&
-                snapResult.spacingGuides.length > 0
-              ) {
-                // 핸들 방향에 따라 간격 가이드 필터링
-                const filteredSpacingGuides = snapResult.spacingGuides.filter(
-                  (guide) => {
-                    // 수평 방향 간격 가이드 (좌우 간격)
-                    if (guide.direction === 'horizontal') {
-                      // 좌우 핸들이 아니면 표시 안 함
-                      if (handle.dx === 0) return false;
-
-                      // 드래그 중인 요소와 관련된 가이드만 표시
-                      const isDraggedElement =
-                        guide.fromElementId === elementId ||
-                        guide.toElementId === elementId;
-
-                      if (!isDraggedElement) return false;
-
-                      // 왼쪽 핸들(dx: -1): 왼쪽 간격만 표시
-                      if (handle.dx === -1) {
-                        return guide.toElementId === elementId;
-                      }
-                      // 오른쪽 핸들(dx: 1): 오른쪽 간격만 표시
-                      if (handle.dx === 1) {
-                        return guide.fromElementId === elementId;
-                      }
-                    }
-
-                    // 수직 방향 간격 가이드 (상하 간격)
-                    if (guide.direction === 'vertical') {
-                      // 상하 핸들이 아니면 표시 안 함
-                      if (handle.dy === 0) return false;
-
-                      // 드래그 중인 요소와 관련된 가이드만 표시
-                      const isDraggedElement =
-                        guide.fromElementId === elementId ||
-                        guide.toElementId === elementId;
-
-                      if (!isDraggedElement) return false;
-
-                      // 위쪽 핸들(dy: -1): 위쪽 간격만 표시
-                      if (handle.dy === -1) {
-                        return guide.toElementId === elementId;
-                      }
-                      // 아래쪽 핸들(dy: 1): 아래쪽 간격만 표시
-                      if (handle.dy === 1) {
-                        return guide.fromElementId === elementId;
-                      }
-                    }
-
-                    return false;
-                  },
-                );
-                smartGuidesStore.setSpacingGuides(filteredSpacingGuides);
-              } else {
-                smartGuidesStore.setSpacingGuides([]);
-              }
-            } else {
-              smartGuidesStore.setActiveGuides([]);
-              smartGuidesStore.setSpacingGuides([]);
-            }
-
-            // Size Match 가이드 업데이트 (정렬 스냅과 별개로 항상 표시)
-            if (hasSizeSnap) {
-              smartGuidesStore.setSizeMatchGuides(
-                sizeSnapResult.sizeMatchGuides,
-              );
-            } else {
-              smartGuidesStore.setSizeMatchGuides([]);
-            }
-          } else {
-            smartGuidesStore.clearGuides();
-          }
+          edges = { left: led.left, right: led.right, top, bottom };
         } else {
-          // sizeMatchGuides가 비활성화된 경우 기존 정렬 스냅만 처리
-          const hasAlignSnap =
-            (handle.dx !== 0 &&
-              snapResult.didSnapX &&
-              !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)) ||
-            (handle.dy !== 0 &&
-              snapResult.didSnapY &&
-              !(snapResult.didSpacingSnapY && !spacingGuidesEnabled));
-          if (hasAlignSnap) {
-            const snappedBounds = calculateBounds(
-              finalX,
-              finalY,
-              finalWidth,
-              finalHeight,
-              elementId,
-            );
-            smartGuidesStore.setDraggedBounds(snappedBounds);
-            smartGuidesStore.setActiveGuides(snapResult.guides);
-            if (spacingGuidesEnabled && snapResult.spacingGuides?.length > 0) {
-              // 핸들 방향에 따라 간격 가이드 필터링
-              const filteredSpacingGuides = snapResult.spacingGuides.filter(
-                (guide) => {
-                  // 수평 방향 간격 가이드 (좌우 간격)
-                  if (guide.direction === 'horizontal') {
-                    // 좌우 핸들이 아니면 표시 안 함
-                    if (handle.dx === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 표시
-                    const isDraggedElement =
-                      guide.fromElementId === elementId ||
-                      guide.toElementId === elementId;
-
-                    if (!isDraggedElement) return false;
-
-                    // 왼쪽 핸들(dx: -1): 왼쪽 간격만 표시
-                    if (handle.dx === -1) {
-                      return guide.toElementId === elementId;
-                    }
-                    // 오른쪽 핸들(dx: 1): 오른쪽 간격만 표시
-                    if (handle.dx === 1) {
-                      return guide.fromElementId === elementId;
-                    }
-                  }
-
-                  // 수직 방향 간격 가이드 (상하 간격)
-                  if (guide.direction === 'vertical') {
-                    // 상하 핸들이 아니면 표시 안 함
-                    if (handle.dy === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 표시
-                    const isDraggedElement =
-                      guide.fromElementId === elementId ||
-                      guide.toElementId === elementId;
-
-                    if (!isDraggedElement) return false;
-
-                    // 위쪽 핸들(dy: -1): 위쪽 간격만 표시
-                    if (handle.dy === -1) {
-                      return guide.toElementId === elementId;
-                    }
-                    // 아래쪽 핸들(dy: 1): 아래쪽 간격만 표시
-                    if (handle.dy === 1) {
-                      return guide.fromElementId === elementId;
-                    }
-                  }
-
-                  return false;
-                },
-              );
-              smartGuidesStore.setSpacingGuides(filteredSpacingGuides);
-            } else {
-              smartGuidesStore.setSpacingGuides([]);
-            }
-            smartGuidesStore.setSizeMatchGuides([]);
-          } else {
-            smartGuidesStore.clearGuides();
-          }
+          const led = settle({ x: 0, y: pulled.y });
+          const [left, right] = followAspect(
+            ((led.bottom - led.top) * start.width) / start.height,
+            pulled.x,
+            start.x,
+            start.width,
+          );
+          edges = { left, right, top: led.top, bottom: led.bottom };
         }
       }
     }
 
-    // 프리뷰 bounds 업데이트 (실제 요소는 업데이트하지 않음)
     const previewData = {
-      x: finalX,
-      y: finalY,
-      width: finalWidth,
-      height: finalHeight,
+      x: edges.left,
+      y: edges.top,
+      width: edges.right - edges.left,
+      height: edges.bottom - edges.top,
     };
     setPreviewBounds(previewData);
     finalBoundsRef.current = previewData;
   };
 
-  const handleKeyResizePreview = (
-    index: number,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
-  ) => {
-    handleElementResizePreview(`key-${index}`, newBounds);
-  };
-
-  const handleStatResizePreview = (
-    index: number,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
-  ) => {
-    handleElementResizePreview(`stat-${index}`, newBounds);
-  };
-
-  const handleGraphResizePreview = (
-    index: number,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
-  ) => {
-    handleElementResizePreview(`graph-${index}`, newBounds);
-  };
-
-  const handleKnobResizePreview = (
-    index: number,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
-  ) => {
-    handleElementResizePreview(`knob-${index}`, newBounds);
-  };
-
-  // 플러그인 요소 리사이즈 처리 (스마트 가이드 포함) - 프리뷰 모드
-  const handlePluginResizePreview = (
-    fullId: string,
-    newBounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      handle?: ResizeHandle;
-    },
-  ) => {
-    const smartGuidesStore = useSmartGuidesStore.getState();
-    const gridSettings = useSettingsStore.getState().gridSettings;
-    const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-    const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-    const sizeMatchGuidesEnabled = gridSettings?.sizeMatchGuides !== false;
-
-    let finalX = newBounds.x;
-    let finalY = newBounds.y;
-    let finalWidth = newBounds.width;
-    let finalHeight = newBounds.height;
-
-    // 스마트 가이드 계산 (getOtherElements가 제공된 경우, 정렬 가이드가 활성화된 경우)
-    if (getOtherElements && alignmentGuidesEnabled) {
-      const otherElements = getOtherElements(fullId);
-
-      // 리사이즈 중인 요소의 bounds 계산
-      const draggedBounds = calculateBounds(
-        newBounds.x,
-        newBounds.y,
-        newBounds.width,
-        newBounds.height,
-        fullId,
-      );
-
-      const snapResult = calculateSnapPoints(
-        draggedBounds,
-        otherElements,
-        undefined,
-        {
-          disableSpacing: !spacingGuidesEnabled,
-        },
-      );
-      const handle = newBounds.handle;
-
-      if (handle) {
-        // X축 스냅 (간격 스냅인 경우 spacingGuidesEnabled 확인)
-        if (
-          handle.dx !== 0 &&
-          snapResult.didSnapX &&
-          !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)
-        ) {
-          if (handle.dx === -1) {
-            const widthDiff = finalX - snapResult.snappedX;
-            finalX = snapResult.snappedX;
-            finalWidth = finalWidth + widthDiff;
-          } else if (handle.dx === 1) {
-            const snappedRight = snapResult.snappedX + draggedBounds.width;
-            finalWidth = snappedRight - finalX;
-          } else if (handle.dx === 0) {
-            finalX = snapResult.snappedX;
-          }
-        }
-
-        // Y축 스냅 (간격 스냅인 경우 spacingGuidesEnabled 확인)
-        if (
-          handle.dy !== 0 &&
-          snapResult.didSnapY &&
-          !(snapResult.didSpacingSnapY && !spacingGuidesEnabled)
-        ) {
-          if (handle.dy === -1) {
-            const heightDiff = finalY - snapResult.snappedY;
-            finalY = snapResult.snappedY;
-            finalHeight = finalHeight + heightDiff;
-          } else if (handle.dy === 1) {
-            const snappedBottom = snapResult.snappedY + draggedBounds.height;
-            finalHeight = snappedBottom - finalY;
-          } else if (handle.dy === 0) {
-            finalY = snapResult.snappedY;
-          }
-        }
-
-        // Size Matching: 다른 요소와 동일한 크기로 스냅 (sizeMatchGuidesEnabled 확인)
-        if (sizeMatchGuidesEnabled) {
-          const sizeSnapResult = calculateSizeSnap(
-            finalWidth,
-            finalHeight,
-            otherElements,
-            fullId,
-          );
-
-          if (sizeSnapResult.didSnapWidth) {
-            if (handle.dx === -1) {
-              finalX = finalX - (sizeSnapResult.snappedWidth - finalWidth);
-            }
-            finalWidth = sizeSnapResult.snappedWidth;
-          }
-
-          if (sizeSnapResult.didSnapHeight) {
-            if (handle.dy === -1) {
-              finalY = finalY - (sizeSnapResult.snappedHeight - finalHeight);
-            }
-            finalHeight = sizeSnapResult.snappedHeight;
-          }
-
-          // 스냅 후 가이드라인 업데이트
-          const hasAlignSnap =
-            (handle.dx !== 0 &&
-              snapResult.didSnapX &&
-              !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)) ||
-            (handle.dy !== 0 &&
-              snapResult.didSnapY &&
-              !(snapResult.didSpacingSnapY && !spacingGuidesEnabled));
-          const hasSizeSnap =
-            sizeSnapResult.didSnapWidth || sizeSnapResult.didSnapHeight;
-
-          if (hasAlignSnap || hasSizeSnap) {
-            const snappedBounds = calculateBounds(
-              finalX,
-              finalY,
-              finalWidth,
-              finalHeight,
-              fullId,
-            );
-            smartGuidesStore.setDraggedBounds(snappedBounds);
-
-            // 정렬 가이드 업데이트
-            if (hasAlignSnap) {
-              smartGuidesStore.setActiveGuides(snapResult.guides);
-              if (
-                spacingGuidesEnabled &&
-                snapResult.spacingGuides &&
-                snapResult.spacingGuides.length > 0
-              ) {
-                // 핸들 방향에 따라 간격 가이드 필터링
-                const filteredSpacingGuides = snapResult.spacingGuides.filter(
-                  (guide) => {
-                    // 수평 방향 간격 가이드 (좌우 간격)
-                    if (guide.direction === 'horizontal') {
-                      // 좌우 핸들이 아니면 표시 안 함
-                      if (handle.dx === 0) return false;
-
-                      // 드래그 중인 요소와 관련된 가이드만 표시
-                      const isDraggedElement =
-                        guide.fromElementId === fullId ||
-                        guide.toElementId === fullId;
-
-                      if (!isDraggedElement) return false;
-
-                      // 왼쪽 핸들(dx: -1): 왼쪽 간격만 표시
-                      if (handle.dx === -1) {
-                        return guide.toElementId === fullId;
-                      }
-                      // 오른쪽 핸들(dx: 1): 오른쪽 간격만 표시
-                      if (handle.dx === 1) {
-                        return guide.fromElementId === fullId;
-                      }
-                    }
-
-                    // 수직 방향 간격 가이드 (상하 간격)
-                    if (guide.direction === 'vertical') {
-                      // 상하 핸들이 아니면 표시 안 함
-                      if (handle.dy === 0) return false;
-
-                      // 드래그 중인 요소와 관련된 가이드만 표시
-                      const isDraggedElement =
-                        guide.fromElementId === fullId ||
-                        guide.toElementId === fullId;
-
-                      if (!isDraggedElement) return false;
-
-                      // 위쪽 핸들(dy: -1): 위쪽 간격만 표시
-                      if (handle.dy === -1) {
-                        return guide.toElementId === fullId;
-                      }
-                      // 아래쪽 핸들(dy: 1): 아래쪽 간격만 표시
-                      if (handle.dy === 1) {
-                        return guide.fromElementId === fullId;
-                      }
-                    }
-
-                    return false;
-                  },
-                );
-                smartGuidesStore.setSpacingGuides(filteredSpacingGuides);
-              } else {
-                smartGuidesStore.setSpacingGuides([]);
-              }
-            } else {
-              smartGuidesStore.setActiveGuides([]);
-              smartGuidesStore.setSpacingGuides([]);
-            }
-
-            // Size Match 가이드 업데이트
-            if (hasSizeSnap) {
-              smartGuidesStore.setSizeMatchGuides(
-                sizeSnapResult.sizeMatchGuides,
-              );
-            } else {
-              smartGuidesStore.setSizeMatchGuides([]);
-            }
-          } else {
-            smartGuidesStore.clearGuides();
-          }
-        } else {
-          // sizeMatchGuides가 비활성화된 경우 기존 정렬 스냅만 처리
-          const hasAlignSnap =
-            (handle.dx !== 0 &&
-              snapResult.didSnapX &&
-              !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)) ||
-            (handle.dy !== 0 &&
-              snapResult.didSnapY &&
-              !(snapResult.didSpacingSnapY && !spacingGuidesEnabled));
-          if (hasAlignSnap) {
-            const snappedBounds = calculateBounds(
-              finalX,
-              finalY,
-              finalWidth,
-              finalHeight,
-              fullId,
-            );
-            smartGuidesStore.setDraggedBounds(snappedBounds);
-            smartGuidesStore.setActiveGuides(snapResult.guides);
-            if (spacingGuidesEnabled && snapResult.spacingGuides?.length > 0) {
-              // 핸들 방향에 따라 간격 가이드 필터링
-              const filteredSpacingGuides = snapResult.spacingGuides.filter(
-                (guide) => {
-                  // 수평 방향 간격 가이드 (좌우 간격)
-                  if (guide.direction === 'horizontal') {
-                    // 좌우 핸들이 아니면 표시 안 함
-                    if (handle.dx === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 필터링
-                    const isDraggedElement =
-                      guide.fromElementId === fullId ||
-                      guide.toElementId === fullId;
-
-                    if (isDraggedElement) {
-                      // 왼쪽 핸들(dx: -1): 왼쪽 간격만 표시
-                      if (handle.dx === -1) {
-                        return guide.toElementId === fullId;
-                      }
-                      // 오른쪽 핸들(dx: 1): 오른쪽 간격만 표시
-                      if (handle.dx === 1) {
-                        return guide.fromElementId === fullId;
-                      }
-                    }
-                    // 다른 요소들 사이의 참조 간격은 항상 표시
-                    return !isDraggedElement;
-                  }
-
-                  // 수직 방향 간격 가이드 (상하 간격)
-                  if (guide.direction === 'vertical') {
-                    // 상하 핸들이 아니면 표시 안 함
-                    if (handle.dy === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 표시
-                    const isDraggedElement =
-                      guide.fromElementId === fullId ||
-                      guide.toElementId === fullId;
-
-                    if (!isDraggedElement) return false;
-
-                    // 위쪽 핸들(dy: -1): 위쪽 간격만 표시
-                    if (handle.dy === -1) {
-                      return guide.toElementId === fullId;
-                    }
-                    // 아래쪽 핸들(dy: 1): 아래쪽 간격만 표시
-                    if (handle.dy === 1) {
-                      return guide.fromElementId === fullId;
-                    }
-                  }
-
-                  return false;
-                },
-              );
-              smartGuidesStore.setSpacingGuides(filteredSpacingGuides);
-            } else {
-              smartGuidesStore.setSpacingGuides([]);
-            }
-            smartGuidesStore.setSizeMatchGuides([]);
-          } else {
-            smartGuidesStore.clearGuides();
-          }
-        }
-      }
-    }
-
-    // 프리뷰 bounds 업데이트 (실제 요소는 업데이트하지 않음)
-    const previewData = {
-      x: finalX,
-      y: finalY,
-      width: finalWidth,
-      height: finalHeight,
-    };
-    setPreviewBounds(previewData);
-    finalBoundsRef.current = previewData;
-  };
-
-  // 통합 리사이즈 핸들러 (키 및 플러그인 요소 지원) - 프리뷰 모드
-  const handleResize = (newBounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    handle?: ResizeHandle;
-  }) => {
+  // The selected element, whatever kind it is, under the id snapping knows.
+  const handleResize = (pointed: PointedResize) => {
     if (selectedElements.length !== 1) return;
-
     const element = selectedElements[0];
-    if (element.type === 'key' && element.index !== undefined) {
-      handleKeyResizePreview(element.index, newBounds);
-    } else if (element.type === 'stat' && element.index !== undefined) {
-      handleStatResizePreview(element.index, newBounds);
-    } else if (element.type === 'graph' && element.index !== undefined) {
-      handleGraphResizePreview(element.index, newBounds);
-    } else if (element.type === 'knob' && element.index !== undefined) {
-      handleKnobResizePreview(element.index, newBounds);
-    } else if (element.type === 'plugin') {
-      handlePluginResizePreview(element.id, newBounds);
+    if (element.type === 'plugin') {
+      handleElementResizePreview(element.id, pointed);
+    } else if (element.index !== undefined) {
+      handleElementResizePreview(`${element.type}-${element.index}`, pointed);
     }
   };
 
@@ -794,7 +226,7 @@ export function useGridResize({
     resizeStartRef.current = false;
 
     // 스마트 가이드 클리어
-    useSmartGuidesStore.getState().clearGuides();
+    clearSnapGuides();
 
     // 리사이즈 종료 시 애니메이션 복원
     useGridSelectionStore.getState().setDraggingOrResizing(false);
@@ -902,6 +334,13 @@ export function useGridResize({
         } catch {
           // 무시
         }
+      } else if (element.type === 'sprite' && element.index !== undefined) {
+        void patchSpritesAt(selectedKeyType, [element.index], () => ({
+          dx: finalBounds.x,
+          dy: finalBounds.y,
+          width: finalBounds.width,
+          height: finalBounds.height,
+        }));
       } else if (element.type === 'plugin') {
         // 플러그인 요소에 최종 크기 적용
         const pluginStore = usePluginDisplayElementStore.getState();
@@ -937,7 +376,7 @@ export function useGridResize({
     resizeStartRef.current = false;
 
     // 스마트 가이드 클리어
-    useSmartGuidesStore.getState().clearGuides();
+    clearSnapGuides();
 
     // 리사이즈 종료 시 애니메이션 복원
     useGridSelectionStore.getState().setDraggingOrResizing(false);
@@ -1111,6 +550,28 @@ export function useGridResize({
           // 무시
         }
       }
+
+      const spriteBounds = new Map(
+        finalData.elementBounds
+          .filter(
+            ({ element }) =>
+              element.type === 'sprite' && element.index !== undefined,
+          )
+          .map(({ element, bounds }) => [element.index as number, bounds]),
+      );
+      void patchSpritesAt(
+        selectedKeyType,
+        [...spriteBounds.keys()],
+        (_, index) => {
+          const bounds = spriteBounds.get(index)!;
+          return {
+            dx: bounds.x,
+            dy: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+          };
+        },
+      );
 
       // 플러그인 요소들 업데이트
       const pluginUpdates = finalData.elementBounds.filter(

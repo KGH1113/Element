@@ -45,7 +45,6 @@ function mergeElementsFromMain(
 
 interface PluginElementsRendererProps {
   windowType: 'main' | 'overlay';
-  activeTool?: string;
   positionOffset?: { x: number; y: number };
   zoom?: number;
   panX?: number;
@@ -64,7 +63,6 @@ interface PluginElementsRendererProps {
 
 export const PluginElementsRenderer: React.FC<PluginElementsRendererProps> = ({
   windowType,
-  activeTool,
   positionOffset = DEFAULT_POSITION_OFFSET,
   zoom = 1,
   panX = 0,
@@ -192,7 +190,6 @@ export const PluginElementsRenderer: React.FC<PluginElementsRendererProps> = ({
           key={element.fullId}
           element={element}
           windowType={windowType}
-          activeTool={activeTool}
           positionOffset={positionOffset}
           zoom={zoom}
           panX={panX}

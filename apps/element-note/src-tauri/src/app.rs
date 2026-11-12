@@ -17,16 +17,14 @@ use std::{fs, path::PathBuf};
 use tauri::{
     ipc::CapabilityBuilder,
     webview::{NewWindowResponse, PageLoadEvent},
-    LogicalSize, Manager, PhysicalPosition, Position,
+    Manager,
 };
 
 use state::{AppState, AppStore, PANEL_LABEL};
 
 const INTERACTION_BENCHMARK_ENV: &str = "DMN_INTERACTION_WEBVIEW_BENCHMARK";
 
-// 메인 창 논리 크기 - 고정 크기이고, 분리 패널이 이 사각형을 기준으로 옆에 붙는다
-const MAIN_WINDOW_WIDTH: f64 = 902.0;
-const MAIN_WINDOW_HEIGHT: f64 = 488.0;
+pub(crate) mod main_window;
 
 fn is_interaction_benchmark_mode() -> bool {
     std::env::var_os(INTERACTION_BENCHMARK_ENV).is_some()
@@ -249,6 +247,7 @@ pub fn run() {
             commands::app::native_viewers::dmnote_native_describe,
             commands::app::system::app_launch_context,
             commands::app::system::window_minimize,
+            commands::app::system::window_toggle_maximize,
             commands::app::system::window_close,
             commands::app::system::window_show_main,
             commands::app::system::app_open_external,
@@ -258,7 +257,7 @@ pub fn run() {
             commands::app::system::app_cancel_editor_flush,
             commands::app::system::window_open_devtools_all,
             commands::app::system::get_cursor_settings,
-            // OBS 모드
+            // OBS 방송 화면 (로컬 키뷰어 서버)
             commands::app::obs::obs_start,
             commands::app::obs::obs_stop,
             commands::app::obs::obs_status,
@@ -315,7 +314,7 @@ pub fn run() {
             commands::keys::keys::keys_reset_mode,
             commands::keys::keys::keys_reset_counters,
             commands::keys::keys::keys_reset_counters_mode,
-            commands::keys::keys::keys_reset_single_counter,
+            commands::keys::keys::keys_set_single_counter,
             commands::keys::keys::keys_set_counters,
             commands::keys::keys::raw_input_subscribe,
             commands::keys::keys::raw_input_unsubscribe,
@@ -642,18 +641,10 @@ fn configure_main_window(app: &tauri::AppHandle) {
     });
 }
 
-// 메인 창을 놓을 자리 (physical px)
-struct MainWindowPlacement {
-    x: f64,
-    y: f64,
-}
-
 fn apply_main_window_configuration(
     app: &tauri::AppHandle,
     window: tauri::WebviewWindow,
 ) -> Result<()> {
-    let size = LogicalSize::new(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT);
-
     if let Err(err) = window.hide() {
         log::debug!("failed to hide main window before configuration: {err}");
     }
@@ -672,60 +663,17 @@ fn apply_main_window_configuration(
             log::warn!("failed to enable decorations: {err}");
         }
     }
-    if let Err(err) = window.set_resizable(false) {
-        log::warn!("failed to disable resizing: {err}");
+    if let Err(err) = window.set_resizable(true) {
+        log::warn!("failed to enable resizing: {err}");
     }
-    if let Err(err) = window.set_maximizable(false) {
-        log::warn!("failed to disable maximize: {err}");
+    if let Err(err) = window.set_maximizable(true) {
+        log::warn!("failed to enable maximize: {err}");
     }
-    if let Err(err) = window.set_min_size(Some(tauri::Size::Logical(size))) {
-        log::warn!("failed to set min size: {err}");
-    }
-    if let Err(err) = window.set_max_size(Some(tauri::Size::Logical(size))) {
-        log::warn!("failed to set max size: {err}");
-    }
-    if let Err(err) = window.set_size(tauri::Size::Logical(size)) {
-        log::warn!("failed to set size: {err}");
+    if let Err(err) = main_window::restore_bounds(app, &window) {
+        log::warn!("failed to restore main window bounds: {err}");
     }
     if let Err(err) = window.set_shadow(true) {
         log::warn!("failed to enable shadow: {err}");
-    }
-
-    let placement = app.primary_monitor().ok().flatten().and_then(|monitor| {
-        let work_area = monitor.work_area();
-        window.outer_size().ok().map(|size| {
-            let width = size.width as f64;
-            let height = size.height as f64;
-            let origin_x = work_area.position.x as f64;
-            let origin_y = work_area.position.y as f64;
-            let available_width = work_area.size.width as f64;
-            let available_height = work_area.size.height as f64;
-
-            let desired_x = origin_x + (available_width - width) / 2.0;
-            let desired_y = origin_y + (available_height - height) / 2.0;
-
-            let max_x = origin_x + (available_width - width).max(0.0);
-            let max_y = origin_y + (available_height - height).max(0.0);
-
-            MainWindowPlacement {
-                x: desired_x.clamp(origin_x, max_x),
-                y: desired_y.clamp(origin_y, max_y),
-            }
-        })
-    });
-
-    if let Some(placement) = placement {
-        if let Err(err) = window.set_position(Position::Physical(PhysicalPosition::new(
-            placement.x.round() as i32,
-            placement.y.round() as i32,
-        ))) {
-            log::warn!("failed to set main window position: {err}");
-            if let Err(err) = window.center() {
-                log::warn!("failed to center window: {err}");
-            }
-        }
-    } else if let Err(err) = window.center() {
-        log::warn!("failed to center window: {err}");
     }
 
     // Windows 접근성 텍스트 크기 설정에 의한 WebView2 스케일링을 보상

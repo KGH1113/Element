@@ -1,9 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
+import { keyPositionSchema, type KeyPosition } from '@src/types/key/keys';
 import { createRoot } from 'react-dom/client';
-import {
-  TABS,
-  type TabType,
-} from '@components/main/Grid/PropertiesPanel/types';
 import '@styles/viewer-compat-v1.css';
 import '@styles/tokens.css';
 import '@styles/chrome-global.css';
@@ -15,14 +12,38 @@ type TauriCallback = (payload: unknown) => void;
 const setupTauriFixture = (): void => {
   let callbackId = 0;
   const callbacks = new Map<number, TauriCallback>();
-  const fixtureInvoke = async (command: string): Promise<unknown> => {
-    if (command === 'settings_get') return { language: 'ko' };
+  const settings: Record<string, unknown> = {
+    language:
+      new URLSearchParams(window.location.search).get('language') ?? 'ko',
+  };
+  const saves: unknown[] = [];
+  Object.assign(window, { __VISUAL_SAVES__: saves });
+  const fixtureInvoke = async (
+    command: string,
+    args?: Record<string, unknown>,
+  ): Promise<unknown> => {
+    if (command === 'settings_get') return settings;
+    if (command === 'settings_update') {
+      Object.assign(settings, args?.patch);
+      return { ...settings };
+    }
     if (command === 'overlay_get') {
       return { visible: true, locked: false, anchor: 'top-left' };
     }
-    if (command === 'obs_status') {
+    if (command === 'obs_status' || command === 'obs_stop') {
       return { running: false, port: 17474, clientCount: 0 };
     }
+    if (command === 'obs_start') {
+      return {
+        running: true,
+        port: 17474,
+        clientCount: 0,
+        localIp: '192.168.0.7',
+        token: 'fixture',
+      };
+    }
+    if (command === 'css_history_get' || command === 'counter_animation_list')
+      return [];
     if (command === 'key_sound_list_output_devices') {
       return { defaultDevice: true, asio: ['Fixture ASIO'] };
     }
@@ -56,6 +77,35 @@ const setupTauriFixture = (): void => {
       ];
     }
     if (command === 'plugin:event|listen') return callbackId + 100;
+    // Elements are saved as the sidebar and the canvas change them. The
+    // fixture takes every save and counts them, so a probe can tell one save
+    // from many.
+    if (command === 'editor_get') {
+      return {
+        revision: saves.length,
+        document: {
+          schemaVersion: 1,
+          keys: {},
+          keyPositions: {},
+          statPositions: {},
+          graphPositions: {},
+          knobPositions: {},
+          spritePositions: {},
+          layerGroups: {},
+        },
+      };
+    }
+    if (command === 'editor_commit') {
+      const request = args?.request as
+        { changes?: Record<string, unknown> } | undefined;
+      saves.push(request);
+      return {
+        revision: saves.length,
+        changedFields: Object.keys(request?.changes ?? {}).filter(
+          (field) => field !== 'schemaVersion',
+        ),
+      };
+    }
     return undefined;
   };
 
@@ -86,48 +136,56 @@ const fixtureState =
   requestedState === 'manager' ||
   requestedState === 'font' ||
   requestedState === 'sound' ||
-  requestedState === 'tabs' ||
-  requestedState === 'obs-prompt'
+  requestedState === 'gallery' ||
+  requestedState === 'key'
     ? requestedState
     : 'editor';
+// Every state but settings shows the editor: the canvas beside the sidebar.
+const isEditorState = fixtureState !== 'settings' && fixtureState !== 'manager';
 
 const bootstrap = async (): Promise<void> => {
   await import('@api/dmnoteApi');
+  // The images of the tab, drawn as the real canvas draws them.
+  const { default: ShellSprites } = await import('./ShellSprites');
   const [
     { I18nProvider },
     { default: TitleBar },
-    { default: ToolBar },
     { default: Settings },
-    { default: FloatingPopup },
-    { default: Palette },
     { default: FontManagerModal },
     { default: SoundManagerModal },
-    { default: ObsModePrompt },
-    propertyInputs,
-    panelChrome,
+    { default: PropertiesPanel },
+    { default: Sidebar },
+    { default: ElementListPage },
+    { default: TopBar },
+    { default: ViewerGallery },
+    { default: ViewerPicker },
+    { ChooserScopeProvider },
     { useSettingsStore },
     { useKeyStore },
     { useFontStore },
+    { useGridSelectionStore },
   ] = await Promise.all([
     import('@contexts/I18nContext'),
     import('@components/main/TitleBar'),
-    import('@components/main/Tool/ToolBar'),
     import('@components/main/Settings'),
-    import('@components/main/Modal/FloatingPopup'),
-    import('@components/main/Modal/content/pickers/Palette'),
     import('@components/main/Modal/content/managers/FontManagerModal'),
     import('@components/main/Modal/content/managers/SoundManagerModal'),
-    import('@components/main/Tool/ObsModePrompt'),
-    import('@components/main/Grid/PropertiesPanel/PropertyInputs'),
-    import('@components/main/Grid/PropertiesPanel/panelChrome'),
+    import('@components/main/Grid/PropertiesPanel'),
+    import('@components/main/Sidebar/Sidebar'),
+    import('@components/main/Sidebar/ElementListPage'),
+    import('@components/main/TopBar/TopBar'),
+    import('@components/main/Viewers/ViewerGallery'),
+    import('@components/main/Viewers/ViewerPicker'),
+    import('@components/main/Sidebar/ChooserScopeProvider'),
     import('@stores/useSettingsStore'),
     import('@stores/data/useKeyStore'),
     import('@stores/useFontStore'),
+    import('@stores/grid/useGridSelectionStore'),
   ]);
 
   useSettingsStore.setState({
-    noteEffect: true,
-    useCustomCSS: true,
+    // `css=on` shows the rows that only exist while custom CSS is in use.
+    useCustomCSS: !isEditorState || params.get('css') === 'on',
     customCSSPath: '/fixtures/viewer.css',
     useCustomJS: true,
     jsPlugins: [
@@ -147,19 +205,107 @@ const bootstrap = async (): Promise<void> => {
       },
     ],
   });
-  useKeyStore.setState({
-    isBootstrapped: true,
-    ...(fixtureState === 'tabs'
-      ? {
-          selectedKeyType: 'hand-main',
-          selectedViewerTabs: { hand: 'hand-main', foot: 'foot-main' },
-          tabs: [
-            { id: 'hand-main', name: 'Hand 1', viewerKind: 'hand' as const },
-            { id: 'foot-main', name: 'Foot 1', viewerKind: 'foot' as const },
-          ],
-        }
-      : {}),
-  });
+  useKeyStore.setState({ isBootstrapped: true });
+  if (isEditorState) {
+    const selectionMode = params.get('selection');
+    const isBatchSelection = selectionMode === 'batch';
+    // `viewer=hand-second` opens the ten-key one, whose list is long.
+    const handViewer =
+      params.get('viewer') === 'hand-second' ? 'hand-second' : 'hand-default';
+    useKeyStore.setState({
+      selectedKeyType: handViewer,
+      selectedViewerTabs: { hand: handViewer, foot: 'foot-default' },
+      tabs: [
+        { id: 'hand-default', name: '16K', viewerKind: 'hand' as const },
+        { id: 'hand-second', name: '10K', viewerKind: 'hand' as const },
+        { id: 'hand-third', name: '4K', viewerKind: 'hand' as const },
+        { id: 'foot-default', name: 'Pedal', viewerKind: 'foot' as const },
+      ],
+      keyMappings: {
+        'hand-default': isBatchSelection ? ['SPACE', 'ENTER'] : ['SPACE'],
+      },
+      positions: {
+        'hand-second': Array.from({ length: 10 }, (_, index) =>
+          keyPositionSchema.parse({
+            dx: (index % 5) * 68,
+            dy: Math.floor(index / 5) * 68,
+            width: 60,
+            height: 60,
+            count: 0,
+            noteColor: '#f59e0b',
+            noteOpacity: 100,
+            useInlineStyles: true,
+          }),
+        ),
+        'hand-third': Array.from({ length: 4 }, (_, index) =>
+          keyPositionSchema.parse({
+            dx: index * 68,
+            dy: 0,
+            width: 60,
+            height: 60,
+            count: 0,
+            noteColor: '#f59e0b',
+            noteOpacity: 100,
+            useInlineStyles: true,
+          }),
+        ),
+        'foot-default': Array.from({ length: 2 }, (_, index) =>
+          keyPositionSchema.parse({
+            dx: index * 110,
+            dy: 0,
+            width: 100,
+            height: 60,
+            count: 0,
+            noteColor: '#f59e0b',
+            noteOpacity: 100,
+            useInlineStyles: true,
+          }),
+        ),
+        'hand-default': [
+          keyPositionSchema.parse({
+            dx: 258,
+            dy: 106,
+            width: 142,
+            height: 82,
+            count: 128,
+            layerName: 'Space',
+            noteColor: '#f59e0b',
+            noteOpacity: 100,
+            useInlineStyles: true,
+          }),
+          ...(isBatchSelection
+            ? [
+                keyPositionSchema.parse({
+                  dx: 420,
+                  dy: 106,
+                  width: 142,
+                  height: 82,
+                  count: 64,
+                  layerName: 'Enter',
+                  noteColor: '#38bdf8',
+                  noteOpacity: 100,
+                  useInlineStyles: true,
+                }),
+              ]
+            : []),
+        ],
+      },
+    });
+    useGridSelectionStore.setState({
+      selectedElements:
+        selectionMode === 'none'
+          ? []
+          : [
+              { type: 'key', id: 'key-0', index: 0 },
+              ...(isBatchSelection
+                ? [{ type: 'key' as const, id: 'key-1', index: 1 }]
+                : []),
+            ],
+    });
+    // Other kinds of element, and a key with a ghost: see shellSelections.ts.
+    const { applyShellSelection } = await import('./shellSelections');
+    applyShellSelection(selectionMode, handViewer);
+  }
   useFontStore.setState({
     customFonts: [
       {
@@ -183,140 +329,133 @@ const bootstrap = async (): Promise<void> => {
     ],
   });
 
-  const { NumberInput, PropertyRow, Tabs, ToggleSwitch } = propertyInputs;
-  const { PANEL_ROOT_CLASS } = panelChrome;
-
-  const PropertyPanelFixture = (): React.ReactElement => {
-    const [tab, setTab] = useState<TabType>(TABS.STYLE);
-    const [enabled, setEnabled] = useState(true);
+  const KeyPanelFixture = (): React.ReactElement => {
+    // The components here are locals of `bootstrap`; the compiler would hoist
+    // the render callback out of their scope.
+    'use no memo';
+    const selectElement = useGridSelectionStore((state) => state.selectElement);
+    const selected = useGridSelectionStore((state) =>
+      state.isSelected('key-0'),
+    );
+    const position = useKeyStore((state) => state.positions['hand-default'][0]);
+    const keyName = useKeyStore(
+      (state) => state.keyMappings['hand-default'][0],
+    );
+    const onKeyUpdate = ({
+      index,
+      ...update
+    }: Partial<KeyPosition> & { index: number }) => {
+      useKeyStore.setState((state) => ({
+        positions: {
+          ...state.positions,
+          'hand-default': state.positions['hand-default'].map(
+            (key, keyIndex) =>
+              keyIndex === index ? { ...key, ...update } : key,
+          ),
+        },
+      }));
+    };
     return (
-      <aside className={PANEL_ROOT_CLASS} aria-label="Properties fixture">
-        <div className="dmn-properties-panel__head-stack">
-          <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
-            <div>
-              <strong className="text-title block text-ui-fg-primary">
-                Primary Key
-              </strong>
-              <span className="text-caption text-ui-fg-muted">
-                Key 32 · Space
-              </span>
-            </div>
-            <button
-              type="button"
-              className="dmn-panel-icon-button"
-              aria-label="Close panel"
-            >
-              ×
-            </button>
+      <>
+        <div className="visual-shell-canvas" data-dmn-viewer-surface>
+          <ViewerPicker onChoose={() => undefined} />
+          <div
+            data-key-element
+            className={`visual-shell-key ${selected ? 'visual-shell-selection' : ''}`}
+            onMouseDown={() =>
+              selectElement({ type: 'key', id: 'key-0', index: 0 })
+            }
+            style={{
+              left: position.dx,
+              top: position.dy,
+              width: position.width,
+              height: position.height,
+              backgroundColor: position.backgroundColor,
+              color: position.fontColor,
+              fontSize: position.fontSize,
+              borderRadius: position.borderRadius,
+            }}
+          >
+            {position.displayText || (keyName === 'SPACE' ? 'Space' : keyName)}
           </div>
-          <div className="px-[12px] pb-[10px]">
-            <Tabs
-              activeTab={tab}
-              onTabChange={setTab}
-              t={(key) =>
-                key.endsWith('tabStyle')
-                  ? 'Style'
-                  : key.endsWith('tabNote')
-                    ? 'Note'
-                    : 'Counter'
-              }
-            />
-          </div>
+          <ShellSprites />
+          <div className="visual-shell-minimap" />
         </div>
-        <div className="visual-shell-panel-copy">
-          <PropertyRow label="Position">
-            <NumberInput value={128} prefix="X" onChange={() => undefined} />
-            <NumberInput value={72} prefix="Y" onChange={() => undefined} />
-          </PropertyRow>
-          <PropertyRow label="Size">
-            <NumberInput value={96} prefix="W" onChange={() => undefined} />
-            <NumberInput value={64} prefix="H" onChange={() => undefined} />
-          </PropertyRow>
-          <div className="dmn-property-divider h-px w-full" />
-          <PropertyRow label="Custom style">
-            <ToggleSwitch checked={enabled} onChange={setEnabled} />
-          </PropertyRow>
-          <p className="text-caption mt-auto text-ui-fg-muted">
-            Changes are previewed on the canvas and saved with the current tab.
-          </p>
-        </div>
-      </aside>
+        <Sidebar>
+          <PropertiesPanel
+            onKeyUpdate={onKeyUpdate}
+            onKeyPreview={(index, update) => onKeyUpdate({ index, ...update })}
+            onPositionChange={(index, dx, dy) => onKeyUpdate({ index, dx, dy })}
+            onKeyMappingChange={(index, newKey) => {
+              useKeyStore.setState((state) => ({
+                keyMappings: {
+                  ...state.keyMappings,
+                  'hand-default': state.keyMappings['hand-default'].map(
+                    (key, keyIndex) => (keyIndex === index ? newKey : key),
+                  ),
+                },
+              }));
+            }}
+            renderElementList={(slots) => (
+              <ElementListPage {...slots} onAddItem={() => undefined} />
+            )}
+          />
+        </Sidebar>
+      </>
     );
   };
 
   const ShellFixture = (): React.ReactElement => {
     const isSettings =
       fixtureState === 'settings' || fixtureState === 'manager';
-    const [paletteOpen, setPaletteOpen] = useState(false);
-    const [activeTool, setActiveTool] = useState('move');
-    const paletteRef = useRef<HTMLButtonElement>(null);
 
     return (
-      <div
-        data-dmn-app-chrome
-        data-shell-root="true"
-        data-shell-state={fixtureState}
-        className="visual-shell-root dmn-app-frame flex flex-col overflow-hidden"
-      >
-        <TitleBar />
-        <main className="dmn-workspace relative flex-1 overflow-hidden">
-          {isSettings ? (
-            <Settings
-              showAlert={() => undefined}
-              showConfirm={() => undefined}
-            />
-          ) : (
-            <>
-              <div className="visual-shell-canvas" data-dmn-viewer-surface>
-                <div className="visual-shell-selection" />
-                <div className="visual-shell-minimap" />
-              </div>
-              <PropertyPanelFixture />
-            </>
-          )}
-        </main>
-        <ToolBar
-          onAddItem={() => undefined}
-          onTogglePalette={() => setPaletteOpen((open) => !open)}
-          isPaletteOpen={paletteOpen}
-          onResetCurrentMode={() => undefined}
-          onResetCounters={() => undefined}
-          activeTool={activeTool}
-          setActiveTool={setActiveTool}
-          isSettingsOpen={isSettings}
-          onOpenSettings={() => undefined}
-          onCloseSettings={() => undefined}
-          onOpenNoteSetting={() => undefined}
-          primaryButtonRef={paletteRef}
-        />
-        <FloatingPopup
-          open={paletteOpen}
-          referenceRef={paletteRef}
-          placement="top"
-          offset={12}
-          portal
-          onClose={() => setPaletteOpen(false)}
+      <ChooserScopeProvider>
+        <div
+          data-dmn-app-chrome
+          data-shell-root="true"
+          data-shell-state={fixtureState}
+          className="visual-shell-root dmn-app-frame flex flex-col overflow-hidden"
         >
-          <Palette color="#ba712b" onColorChange={() => undefined} />
-        </FloatingPopup>
-        <FontManagerModal
-          isOpen={fixtureState === 'font'}
-          onClose={() => undefined}
-          t={(key) => key.split('.').at(-1) ?? key}
-        />
-        {fixtureState === 'obs-prompt' && (
-          <ObsModePrompt
-            onEnable={() => undefined}
-            onDismiss={() => undefined}
+          <TitleBar>
+            {!isSettings && fixtureState !== 'gallery' && (
+              <TopBar
+                onOpenSettings={() => undefined}
+                onOpenOutputs={() => undefined}
+              />
+            )}
+          </TitleBar>
+          <main className="dmn-workspace relative flex min-h-0 min-w-0 flex-1 overflow-clip">
+            {isSettings ? (
+              <Settings
+                showAlert={() => undefined}
+                showConfirm={() => undefined}
+                onClose={() => undefined}
+              />
+            ) : fixtureState === 'gallery' ? (
+              <ViewerGallery
+                slot="hand"
+                onClose={() => undefined}
+                showConfirm={() => undefined}
+                showAlert={() => undefined}
+              />
+            ) : (
+              <KeyPanelFixture />
+            )}
+          </main>
+          <FontManagerModal
+            isOpen={fixtureState === 'font'}
+            onClose={() => undefined}
+            t={(key) => key.split('.').at(-1) ?? key}
           />
-        )}
-        <SoundManagerModal
-          isOpen={fixtureState === 'sound'}
-          selectedSound="/fixtures/mechanical.wav"
-          onSelectSound={() => undefined}
-          onClose={() => undefined}
-        />
-      </div>
+          <SoundManagerModal
+            isOpen={fixtureState === 'sound'}
+            selectedSound="/fixtures/mechanical.wav"
+            onSelectSound={() => undefined}
+            onClose={() => undefined}
+          />
+        </div>
+      </ChooserScopeProvider>
     );
   };
 

@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { type ReactNode } from 'react';
+import { useTranslation } from '@contexts/useTranslation';
 import Close from '@assets/svgs/close.svg';
 import Minimize from '@assets/svgs/minimize.svg';
 import Logo from '@assets/svgs/logo.svg';
 import { isMac } from '@utils/core/platform';
+import './TopBar/topbar.css';
 
-const TitleBar = (): React.ReactElement => {
+interface TitleBarProps {
+  /**
+   * What the window's own bar holds while editing. Without it the bar shows
+   * the app name. The bar keeps one height either way, so the operating
+   * system's window buttons always sit in its middle.
+   */
+  children?: ReactNode;
+}
+
+/**
+ * The top line of the window. It is the operating system's title bar and the
+ * editor's bar in one: the window can be dragged by any empty part of it.
+ */
+const TitleBar = ({ children }: TitleBarProps): React.ReactElement => {
+  const { t } = useTranslation();
   const isMacOS: boolean = isMac();
   const handleMinimize = (): void => {
     window.api.window.minimize();
@@ -14,37 +30,68 @@ const TitleBar = (): React.ReactElement => {
     window.api.window.close();
   };
 
+  const handleMaximize = (): void => {
+    window.api.window.toggleMaximize();
+  };
+
   return (
     <div
       data-tauri-drag-region
-      className="dmn-titlebar relative flex h-[30px] min-h-[30px] w-full items-center justify-center [app-region:drag]"
-      style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      data-platform={isMacOS ? 'mac' : 'other'}
+      className="dmn-titlebar en-titlebar"
     >
-      <div className="pointer-events-none flex items-center gap-[6px] text-ui-fg-muted">
-        <Logo className="h-[12px] w-[12px] shrink-0" />
-        <div className="select-none text-[12px] font-semibold leading-[12px] tracking-[0.06em]">
-          ElementNote
+      {children ? (
+        // Empty room between the two ends drags the window.
+        <div data-tauri-drag-region className="en-titlebar-content">
+          {children}
         </div>
-      </div>
+      ) : (
+        <div data-tauri-drag-region className="en-titlebar-name">
+          <Logo className="h-[12px] w-[12px] shrink-0" />
+          <span>ElementNote</span>
+        </div>
+      )}
       {!isMacOS && (
-        <div
-          data-tauri-drag-region="false"
-          className="absolute right-0 flex h-full [app-region:no-drag]"
-          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-        >
+        <div data-tauri-drag-region="false" className="en-titlebar-controls">
           <button
             type="button"
-            aria-label="Minimize"
+            aria-label={t('windowControls.minimize')}
+            title={t('windowControls.minimize')}
             onClick={handleMinimize}
-            className="dmn-window-control flex h-full w-[38px] items-center justify-center"
+            className="dmn-window-control flex h-full w-[42px] items-center justify-center"
           >
             <Minimize className="scale-[0.8] pointer-events-none" />
           </button>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t('windowControls.maximize')}
+            title={t('windowControls.maximize')}
+            onClick={handleMaximize}
+            className="dmn-window-control flex h-full w-[42px] items-center justify-center"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="12"
+              height="12"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="2.5"
+                y="2.5"
+                width="11"
+                height="11"
+                rx="1"
+                stroke="currentColor"
+              />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label={t('windowControls.close')}
+            title={t('windowControls.close')}
             onClick={handleClose}
-            className="dmn-window-control dmn-window-control--close flex h-full w-[38px] items-center justify-center"
+            className="dmn-window-control dmn-window-control--close flex h-full w-[42px] items-center justify-center"
           >
             <Close className="scale-[0.7] pointer-events-none" />
           </button>

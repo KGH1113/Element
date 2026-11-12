@@ -32,10 +32,10 @@ const createSnapshot = (
   developerModeEnabled: false,
   trayEnabled: false,
   overlayResizeAnchor: 'top-left',
-  keyCounterEnabled: false,
+  keyCounterEnabled: true,
   gridSettings: getDefaultGridSettings(),
   shortcuts: getDefaultShortcuts(),
-  obsModeEnabled: true,
+  obsModeEnabled: false,
   keyLimiterEnabled: true,
   inGameViewersEnabled: true,
   ...overrides,
@@ -44,6 +44,30 @@ const createSnapshot = (
 describe('useSettingsStore.syncFromSnapshot', () => {
   beforeEach(() => {
     useSettingsStore.getState().setAll(createSnapshot());
+  });
+
+  it('ignores the retired master counter flag in legacy snapshots and updates', () => {
+    const legacy = createSnapshot({ keyCounterEnabled: false });
+    useSettingsStore.getState().setAll(legacy);
+    expect(useSettingsStore.getState().keyCounterEnabled).toBe(true);
+    useSettingsStore.getState().merge({ keyCounterEnabled: false });
+    expect(useSettingsStore.getState().keyCounterEnabled).toBe(true);
+    useSettingsStore.getState().syncFromSnapshot(legacy);
+    expect(useSettingsStore.getState().keyCounterEnabled).toBe(true);
+    useSettingsStore.getState().setKeyCounterEnabled(false);
+    expect(useSettingsStore.getState().keyCounterEnabled).toBe(true);
+  });
+
+  it('ignores the retired Raining master flag in legacy snapshots and updates', () => {
+    const legacy = createSnapshot({ noteEffect: false });
+    useSettingsStore.getState().setAll(legacy);
+    expect(useSettingsStore.getState().noteEffect).toBe(true);
+    useSettingsStore.getState().merge({ noteEffect: false });
+    expect(useSettingsStore.getState().noteEffect).toBe(true);
+    useSettingsStore.getState().syncFromSnapshot(legacy);
+    expect(useSettingsStore.getState().noteEffect).toBe(true);
+    useSettingsStore.getState().setNoteEffect(false);
+    expect(useSettingsStore.getState().noteEffect).toBe(true);
   });
 
   it('동일 payload 재적용 시 모든 객체 필드 참조를 보존한다', () => {

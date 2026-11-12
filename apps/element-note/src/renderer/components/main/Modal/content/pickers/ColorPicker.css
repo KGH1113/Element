@@ -1,0 +1,201 @@
+/*
+ * The color chooser. One column of the same width from top to bottom: the
+ * field to pick in, the hue and the see-through sliders, the value as text,
+ * and the colors used before. Controls are filled, never outlined, so the
+ * only frame is the chooser's own.
+ */
+
+.en-color {
+  display: flex;
+  width: 240px;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+/* Solid or gradient: one control with two segments. */
+.en-color-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--ui-fill-faint);
+}
+
+.en-color-mode {
+  height: 26px;
+  border-radius: 7px;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-color-mode:hover {
+  color: var(--ui-fg-primary);
+}
+
+.en-color-mode[aria-selected='true'] {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+/* The library's parts, at this chooser's size. */
+.en-color .rcp-saturation {
+  border-radius: 9px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.en-color .rcp-saturation-cursor,
+.en-color .rcp-hue-cursor,
+.en-color .rcp-alpha-cursor {
+  width: 14px !important;
+  height: 14px !important;
+  border: 2.5px solid white !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+.en-color .rcp-hue,
+.en-color .rcp-alpha {
+  height: 12px !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+}
+
+.en-color .rcp-hue-cursor,
+.en-color .rcp-alpha-cursor {
+  transform: translate(-50%, -1px) !important;
+}
+
+/* The value as text: the color's code, and how see-through it is. */
+.en-color-fields {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+}
+
+.en-color-gradient {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.en-color-field {
+  display: flex;
+  min-width: 0;
+  height: 30px;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: 8px;
+  background: var(--ui-fill-faint);
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-color-field[data-kind='percent'] {
+  width: 62px;
+  flex: none;
+  gap: 2px;
+}
+
+.en-color-field:hover {
+  background: var(--ui-fill);
+}
+
+.en-color-field:focus-within,
+.en-color-field[data-selected] {
+  background: var(--ui-fill);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+}
+
+.en-color-chip {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.en-color-chip[role='button'] {
+  cursor: pointer;
+}
+
+.en-color-input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  background: transparent;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-body-size);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  outline: none;
+  text-transform: uppercase;
+}
+
+.en-color-input::placeholder {
+  color: var(--ui-fg-disabled);
+  text-transform: none;
+}
+
+.en-color-field[data-kind='percent'] > .en-color-input {
+  text-align: right;
+}
+
+.en-color-unit {
+  flex: none;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+}
+
+/* Colors used before: one row of solid ones, one of gradients. */
+.en-color-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.en-color-recent-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.en-color-slot {
+  height: 24px;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-color-slot:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.en-color-slot:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+/* A place no color has been kept in yet. */
+.en-color-slot[data-empty] {
+  background: var(--ui-fill-faint);
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
+
+.en-color button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 1px;
+}

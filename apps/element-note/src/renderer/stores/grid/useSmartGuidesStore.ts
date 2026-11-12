@@ -23,6 +23,13 @@ interface SmartGuidesState {
   setSpacingGuides: (guides: SpacingGuide[]) => void;
   setSizeMatchGuides: (guides: SizeMatchGuide[]) => void;
   setDraggedBounds: (bounds: ElementBounds | null) => void;
+  /** Everything a drag shows, in one update. */
+  setGuides: (next: {
+    draggedBounds: ElementBounds;
+    activeGuides: GuideLine[];
+    spacingGuides: SpacingGuide[];
+    sizeMatchGuides: SizeMatchGuide[];
+  }) => void;
   clearGuides: () => void;
 }
 
@@ -64,6 +71,8 @@ export const useSmartGuidesStore = create<SmartGuidesState>((set) => ({
     set({
       draggedBounds: bounds,
     }),
+
+  setGuides: (next) => set({ ...next, isActive: true }),
 
   clearGuides: () =>
     set({

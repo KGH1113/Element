@@ -1,0 +1,613 @@
+/*
+ * Key viewers.
+ *
+ * Two are up at the same time, one for the hands and one for the feet. The
+ * top bar always shows both slots; the gallery shows the key viewers made
+ * for the one slot that is being changed.
+ */
+
+.en-viewer-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  color: var(--ui-fg-secondary);
+}
+
+/* The views: tabs in the window's bar ----------------------------------------- */
+
+/*
+ * Hands and feet are two views of the editor, drawn as the tabs of a browser:
+ * the open tab is one surface with the workspace under it, canvas and sidebar
+ * alike. `--en-view` is that surface's colour.
+ */
+:root {
+  --en-view: var(--ui-bg-panel);
+  /* Everything in the bar stands on the tabs' line, the middle of this. */
+  --en-tab-height: 38px;
+  --en-tab-radius: 9px;
+}
+
+.en-tabs {
+  display: flex;
+  height: 100%;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+  /* Room for the open tab's feet, which flare out at the bottom. */
+  padding: 0 var(--en-tab-radius);
+}
+
+/* With tabs in it, the bar's own line is drawn in the open tab's colour, so
+   the tab runs straight into the workspace and the line still parts the bar
+   from what is under it. */
+.en-titlebar:has(.en-tabs) {
+  border-bottom-color: var(--en-view);
+}
+
+.en-tab[aria-selected='true'] {
+  margin-bottom: -1px;
+  height: calc(var(--en-tab-height) + 1px);
+}
+
+.en-tab {
+  position: relative;
+  display: flex;
+  height: var(--en-tab-height);
+  min-width: 132px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px 0 12px;
+  border-radius: var(--en-tab-radius) var(--en-tab-radius) 0 0;
+  color: var(--ui-fg-muted);
+  text-align: left;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+/* A tab that is not open answers the pointer as a rounded pill, set in. */
+.en-tab[aria-selected='false']::before {
+  position: absolute;
+  inset: 4px 2px 5px;
+  border-radius: 7px;
+  background: transparent;
+  content: '';
+  transition: background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-tab[aria-selected='false']:hover:not(:disabled)::before {
+  background: var(--ui-fill);
+}
+
+.en-tab[aria-selected='false']:active:not(:disabled)::before {
+  background: var(--ui-fill-active);
+}
+
+.en-tab[aria-selected='false']:hover:not(:disabled) {
+  color: var(--ui-fg-secondary);
+}
+
+.en-tab[aria-selected='true'] {
+  background: var(--en-view);
+  color: var(--ui-fg-primary);
+}
+
+/* The open tab's feet: its sides curve out into the bar below. */
+.en-tab[aria-selected='true']::before,
+.en-tab[aria-selected='true']::after {
+  position: absolute;
+  bottom: 0;
+  width: var(--en-tab-radius);
+  height: var(--en-tab-radius);
+  background: radial-gradient(
+    circle at var(--foot-x) 0,
+    transparent calc(var(--en-tab-radius) - 0.5px),
+    var(--en-view) var(--en-tab-radius)
+  );
+  content: '';
+  pointer-events: none;
+}
+
+.en-tab[aria-selected='true']::before {
+  --foot-x: 0;
+  left: calc(var(--en-tab-radius) * -1);
+}
+
+.en-tab[aria-selected='true']::after {
+  --foot-x: 100%;
+  right: calc(var(--en-tab-radius) * -1);
+}
+
+.en-tab > * {
+  position: relative;
+}
+
+.en-tab-picture {
+  display: block;
+  width: 28px;
+  height: 16px;
+  flex: none;
+  opacity: 0.5;
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-tab[aria-selected='true'] .en-tab-picture,
+.en-tab:hover:not(:disabled) .en-tab-picture {
+  opacity: 1;
+}
+
+.en-tab-name {
+  flex: none;
+  font-size: var(--ui-type-label-size);
+  font-weight: 600;
+}
+
+/* Which key viewer the view shows; quieter than the view's own name. */
+.en-tab-viewer {
+  min-width: 0;
+  max-width: 88px;
+  overflow: hidden;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+/* The key viewer of the open view: a button floating on the canvas ------------- */
+
+/*
+ * It sits in the canvas's top corner and looks like the minimap in the
+ * bottom one, so the things that float over the canvas are one family.
+ */
+.en-viewer-picker {
+  position: absolute;
+  z-index: var(--ui-z-panel);
+  top: 10px;
+  left: 10px;
+  display: flex;
+  max-width: calc(100% - 20px);
+  align-items: center;
+  border-radius: 9px;
+  background: var(--ui-glass-dim);
+  box-shadow: var(--ui-shadow-chrome);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+/* A value with an arrow: pressing it chooses another. */
+.en-picker {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 260px;
+  height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px 0 9px;
+  border-radius: inherit;
+  color: var(--ui-fg-primary);
+  text-align: left;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-picker:hover:not(:disabled) {
+  background: var(--ui-fill);
+}
+
+.en-picker:active:not(:disabled) {
+  background: var(--ui-fill-active);
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-picker-picture {
+  display: block;
+  width: 32px;
+  height: 18px;
+  flex: none;
+}
+
+.en-picker-value {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--ui-type-label-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.en-picker-arrow {
+  flex: none;
+  color: var(--ui-fg-muted);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-picker:hover:not(:disabled) .en-picker-arrow {
+  color: var(--ui-fg-primary);
+}
+
+/* Read by screen readers as the value's name; the button needs no label. */
+.en-viewer-picker-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.en-tabs button:focus-visible,
+.en-viewer-picker button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: -2px;
+}
+
+/*
+ * A key viewer drawn as it really looks, fitted into the picture. It is a
+ * still picture: nothing inside it takes the pointer or the keyboard.
+ */
+.en-thumb {
+  position: relative;
+  display: block;
+  width: 208px;
+  height: 128px;
+  flex: none;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+  /* Drawn at one size and scaled with its frame (useThumbnailScale). */
+  transform: scale(var(--en-thumb-scale, 1));
+}
+
+.en-thumb-scene {
+  position: absolute;
+  display: block;
+  transform-origin: 0 0;
+}
+
+.en-thumb-origin {
+  position: absolute;
+  display: block;
+}
+
+/* The gallery ---------------------------------------------------------------- */
+
+.en-gallery {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
+  background: var(--ui-bg-panel);
+  animation: en-gallery-in var(--ui-motion-base) var(--ui-ease-out);
+}
+
+@keyframes en-gallery-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/*
+ * Cards arrive one after another, 30ms apart, and only the first ten take
+ * turns so a long gallery is never waited for. `--card` is the card's place.
+ */
+.en-gallery-grid > * {
+  animation: en-card-in 220ms var(--ui-ease-out) backwards;
+  animation-delay: calc(min(var(--card, 0), 10) * 30ms);
+}
+
+@keyframes en-card-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.98);
+  }
+}
+
+.en-gallery-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 20px 28px 4px 20px;
+}
+
+.en-gallery-head h1 {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+/* Keeping key viewers as files: all of them, from the head. */
+.en-gallery-files {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.en-gallery-file {
+  display: inline-flex;
+  height: 30px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-label-size);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-gallery-file:hover {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-gallery-file:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-gallery-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 28px 32px;
+  scrollbar-gutter: stable;
+}
+
+/* Cards share the whole width: no part of a card's worth is left over. */
+.en-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(208px, 1fr));
+  gap: 16px;
+}
+
+.en-card,
+.en-card-new {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ui-fg-secondary);
+  text-align: left;
+}
+
+.en-card-open {
+  display: block;
+  border-radius: var(--ui-radius-surface);
+}
+
+.en-card-picture {
+  display: flex;
+  width: 100%;
+  aspect-ratio: 208 / 128;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-bg-inset-solid);
+  box-shadow: inset 0 0 0 1px var(--ui-line-subtle);
+  transition:
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-card-open:hover .en-card-picture {
+  box-shadow: inset 0 0 0 1px var(--ui-line-strong);
+}
+
+.en-card-open:active .en-card-picture {
+  transform: scale(0.985);
+}
+
+/* The key viewer its slot has up. */
+.en-card[data-shown] .en-card-picture {
+  box-shadow: inset 0 0 0 2px var(--ui-accent);
+}
+
+.en-card[data-dragging] {
+  z-index: 1;
+  cursor: grabbing;
+}
+
+.en-card[data-dragging] .en-card-picture {
+  box-shadow:
+    inset 0 0 0 1px var(--ui-line-strong),
+    var(--ui-shadow-popup);
+}
+
+.en-card-foot {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.en-card-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * A name is typed on the card. The field sits exactly where the name is and
+ * uses its type, so starting to type moves nothing.
+ */
+.en-card-name-field {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex: 1;
+}
+
+.en-card-name-input {
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0;
+  /* A line under the name, not a box: it starts where every name starts. */
+  box-shadow: inset 0 -1px 0 var(--ui-accent);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: 600;
+  outline: none;
+  caret-color: var(--ui-accent);
+}
+
+.en-card-name-input::placeholder {
+  color: var(--ui-fg-disabled);
+  font-weight: 500;
+}
+
+.en-card-name-input[aria-invalid='true'] {
+  box-shadow: inset 0 -1px 0 var(--ui-danger);
+}
+
+.en-card-name-error {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 3px);
+  left: 0;
+  max-width: 220px;
+  padding: 3px 7px;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--ui-line-subtle);
+  color: #f17e86;
+  font-size: var(--ui-type-caption-size);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+/* The card of a key viewer that is being named and does not exist yet. */
+.en-card-draft .en-card-picture {
+  background: var(--ui-fill-faint);
+  box-shadow: none;
+  outline: 1px dashed var(--ui-accent);
+  outline-offset: -1px;
+}
+
+.en-card-more {
+  display: flex;
+  width: 24px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-muted);
+}
+
+.en-card-more:hover,
+.en-card-more[aria-expanded='true'] {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-card-new {
+  color: var(--ui-fg-muted);
+}
+
+.en-card-new .en-card-picture {
+  background: transparent;
+  box-shadow: none;
+  outline: 1px dashed var(--ui-line);
+  outline-offset: -1px;
+}
+
+.en-card-new .en-card-name {
+  color: var(--ui-fg-muted);
+}
+
+.en-card-new:hover:not(:disabled) {
+  color: var(--ui-fg-primary);
+}
+
+.en-card-new:hover:not(:disabled) .en-card-picture {
+  background: var(--ui-fill-faint);
+  outline-color: var(--ui-line-strong);
+}
+
+.en-card-new:hover:not(:disabled) .en-card-name {
+  color: var(--ui-fg-primary);
+}
+
+.en-card-new:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.en-gallery button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-gallery,
+  .en-gallery-grid > * {
+    animation: none;
+  }
+}
+
+/* Small buttons of a card answer a press like every other button. */
+.en-card-more,
+.en-card-new .en-card-picture {
+  transition:
+    transform var(--ui-motion-fast) var(--ui-ease-out),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    outline-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-card-more:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-card-new:active:not(:disabled) .en-card-picture {
+  transform: scale(0.985);
+}
+
+/* The name field and its message arrive quickly, from where they belong. */
+.en-card-name-input {
+  animation: en-name-in var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-card-name-error {
+  transform-origin: top left;
+  animation: en-name-error-in var(--ui-motion-base) var(--ui-ease-out);
+}
+
+@keyframes en-name-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes en-name-error-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -3px, 0) scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-card-name-input,
+  .en-card-name-error {
+    animation: none;
+  }
+}

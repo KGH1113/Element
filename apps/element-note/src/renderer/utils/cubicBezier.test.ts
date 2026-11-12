@@ -4,6 +4,8 @@ import {
   createCubicBezierEasing,
   bezierToCssString,
   findBezierPresetId,
+  cssEasingToBezier,
+  isSameBezier,
   COUNTER_DEFAULT_BEZIER,
   COUNTER_BEZIER_PRESETS,
 } from './cubicBezier';
@@ -86,5 +88,41 @@ describe('findBezierPresetId', () => {
     COUNTER_BEZIER_PRESETS.forEach((preset) => {
       expect(findBezierPresetId(preset.bezier)).toBe(preset.id);
     });
+  });
+});
+
+describe('cssEasingToBezier', () => {
+  it('reads a curve however it is spelled', () => {
+    expect(cssEasingToBezier('cubic-bezier(0.4, 0, 0.2, 1)')).toEqual([
+      0.4, 0, 0.2, 1,
+    ]);
+    expect(cssEasingToBezier('  CUBIC-BEZIER(.4,0,.2,1) ')).toEqual([
+      0.4, 0, 0.2, 1,
+    ]);
+    expect(cssEasingToBezier('cubic-bezier(0.34, 1.56, 0.64, 1)')).toEqual([
+      0.34, 1.56, 0.64, 1,
+    ]);
+  });
+
+  it('knows the curves the keywords stand for', () => {
+    expect(cssEasingToBezier('linear')).toEqual([0, 0, 1, 1]);
+    expect(cssEasingToBezier('Ease-Out')).toEqual([0, 0, 0.58, 1]);
+  });
+
+  it('is null for what is not one curve', () => {
+    for (const easing of [
+      '',
+      'steps(4, end)',
+      'linear(0, 0.5, 1)',
+      'cubic-bezier(0.4, 0, 0.2)',
+      'bounce',
+    ]) {
+      expect(cssEasingToBezier(easing)).toBeNull();
+    }
+  });
+
+  it('tells the same curve from another one', () => {
+    expect(isSameBezier([0.4, 0, 0.2, 1], [0.4, 0, 0.2004, 1])).toBe(true);
+    expect(isSameBezier([0.4, 0, 0.2, 1], [0.42, 0, 0.2, 1])).toBe(false);
   });
 });

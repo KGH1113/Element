@@ -1170,6 +1170,13 @@ namespace Element.Editor
       RectTransform values = DockValues(dock);
       Assert(chips.Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count)
         && chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "every value is laid out, each draggable");
+      OverlayValueChipHandle carried = chips.Single(chip => chip.name == "Value fps").GetComponent<OverlayValueChipHandle>();
+      Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
+      int itemsBefore = TextDocumentOf(text).Document.Count;
+      carried.OnBeginDrag(Pointer(chipPoint));
+      Assert(dock.Dragging && screen.Root.transform.Find("Controls/Dragged value") != null, "a chip carries its value out of the dock");
+      carried.OnEndDrag(Pointer(chipPoint));
+      Assert(!dock.Dragging && TextDocumentOf(text).Document.Count == itemsBefore, "let go over the dock, it lands nowhere");
       Assert(values.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "예시" : "Sample"))
         && chips.Count(chip => chip.name.StartsWith("Value Sample/")) == 3,
         "another mod's values sit under its own heading");

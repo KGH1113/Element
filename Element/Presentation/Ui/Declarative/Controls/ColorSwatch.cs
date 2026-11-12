@@ -42,7 +42,7 @@ internal static class ColorSwatch
         ),
         () => swatch.Show
       )
-      .Popover(open, () => new ColorPickerView(title, color, opacity, defaultColor, open));
+      .Popover(open, () => ColorPickerView.Of(title, color, opacity, defaultColor, open));
   }
 
   /// <summary>Whether the picker is open.</summary>

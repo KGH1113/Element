@@ -556,20 +556,31 @@ namespace Element.Editor
         "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
       OverlayOpacityField opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
-        && !Field<TMP_InputField>(picker, "_opacity").gameObject.activeSelf && opacity.Field.Text == "100",
+        && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
-      RectTransform plane = Field<RectTransform>(picker, "_planeRect");
+      Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Segment(picker.Root, 0)),
+        "a new shape follows the highlight: only its opacity shows, with Highlight/Custom");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
-      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
       Call(shapes, "Render");
+      Settle();
+      Assert(!picker.Model.FollowsHighlight && working.Fill.Highlight == false, "Custom gives the fill a color of its own");
+      RectTransform plane = (RectTransform)ColorPickerProbe.Plane(picker.Root).transform;
       pickerRect = ScreenRectOf(picker.Root);
-      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_hue").transform),
-        alphaRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_alpha").transform),
-        hexRect = ScreenRectOf((RectTransform)Field<TMP_InputField>(picker, "_hex").transform);
+      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hue(picker.Root).transform),
+        alphaRect = ScreenRectOf((RectTransform)ColorPickerProbe.Alpha(picker.Root).transform),
+        hexRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hex(picker.Root).transform);
       Assert(Mathf.Abs(plane.rect.width - 256) < .01f && Mathf.Abs(plane.rect.height - 156) < .01f, "the color square keeps its full size");
       Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y && alphaRect.center.y > hexRect.center.y
-        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && !Field<TextMeshProUGUI>(picker, "_title").gameObject.activeSelf,
+        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && ColorPickerProbe.Title(picker.Root) == null
+        && ColorPickerProbe.Close(picker.Root) == null,
         "top to bottom: Highlight/Custom, the square, hue, opacity, then HEX with opacity, without a title or card");
+      Assert(ColorPickerProbe.Plane(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
+        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,
+        "the square and the bars keep their crosshair and slider cursors in the editor's panel");
       float topGap = ((RectTransform)picker.Root).anchoredPosition.y;
       Assert(pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1 || Mathf.Abs(-topGap - (OverlayEditorFrame.TopBar + 8)) < 1,
         "with the color square, it still sits above the dock, or right under the top bar on a short screen: " + pickerRect + " top " + topGap);
@@ -579,9 +590,9 @@ namespace Element.Editor
         Assert(!label.isTextTruncated, "docked picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, canvases, name + "-shape-color-custom");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       Assert(picker.Commit() && working.Fill.Hex == "#2050A0", "the fill takes the new color");
-      Slider alphaSlider = Field<Slider>(picker, "_alpha");
+      Slider alphaSlider = ColorPickerProbe.Alpha(picker.Root);
       opacity.Field.Root.GetComponent<Button>().onClick.Invoke();
       Assert(picker.Visible && dock.Owner == "fill-opacity" && ShapeNumbersOf(shapes).Editing.Working.Serialize() == "100",
         "clicking the opacity types it in the dock, with the picker still open");
@@ -589,6 +600,7 @@ namespace Element.Editor
       foreach (char key in "\b\b\b50")
         ShapeNumbersOf(shapes).KeypadPress(key);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
+      Settle();
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f && working.Fill.AlphaFormula == "" && Mathf.Abs(alphaSlider.value - .5f) < .001f
         && opacity.Field.Text == "50", "a typed opacity moves the slider");
       ShapeNumbersOf(shapes).FinishEditing();
@@ -600,24 +612,29 @@ namespace Element.Editor
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "accuracy" && dock.Owner == "fill-opacity" && opacity.Field.Computed && opacity.Field.Text == "99.5",
         "a value dropped on the opacity calculates it: " + working.Fill.AlphaFormula + " / " + opacity.Field.Text);
+      Settle();
       Assert(Mathf.Abs(alphaSlider.value - .995f) < .001f && Mathf.Abs(working.Fill.Alpha - .5f) < .001f,
         "the slider shows the result; the plain opacity stays underneath");
       Assert(dock.ResultText.Contains("99.5%"), "the dock shows the opacity in percent: " + dock.ResultText);
       SaveFrame(camera, texture, canvases, name + "-shape-opacity");
-      Field<TMP_InputField>(picker, "_hex").text = "#3060B0";
+      ColorPickerProbe.Hex(picker.Root).text = "#3060B0";
+      // A frame passes after typing, as it does between keys and undo.
+      Settle();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.Hex == "#3060B0" && working.Fill.AlphaFormula == "accuracy", "a new color keeps the calculated opacity");
       Assert(picker.Commit() && Field<OverlayShapeSettings>(shapes, "_shape").Fill.AlphaFormula == "accuracy", "confirming the picker keeps it too");
       ShapeHistory(shapes).Undo();
+      Settle();
       Assert(picker.Visible && Field<OverlayShapeSettings>(shapes, "_shape").Fill.Hex == "#2050A0"
-        && Field<TMP_InputField>(picker, "_hex").text == "2050A0", "undo keeps the picker open, showing the restored color");
+        && ColorPickerProbe.Hex(picker.Root).text == "2050A0", "undo keeps the picker open, showing the restored color: "
+        + ColorPickerProbe.Hex(picker.Root).text);
       ShapeHistory(shapes).Redo();
       alphaSlider.value = .3f;
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "" && Mathf.Abs(working.Fill.Alpha - .3f) < .01f && !opacity.Field.Computed && opacity.Field.Text == "30",
         "moving the slider makes it a plain number again: " + opacity.Field.Text);
       Call(shapes, "CloseOpen");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
@@ -1267,8 +1284,9 @@ namespace Element.Editor
       Assert(picker.Visible && colorButton.Active && picker.Column && Shown(DockKey(dock, "Key done"))
         && Mathf.Abs(pickerRect.xMax - KeypadRect(dock).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
         && InsideScreen(pickerRect), "the color picker opens right above the keypad: " + pickerRect);
-      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
-      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       picker.Commit();
       SaveFrame(camera, texture, canvases, name + "-text-color");
       OverlayOpacityField textOpacity = TextColorOf(text).Opacity;
@@ -1288,10 +1306,13 @@ namespace Element.Editor
       Assert(picker.Commit() && TextDocumentOf(text).Document[0].Color.AlphaFormula == "progress-current"
         && TextDocumentOf(text).Document[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
       // Done waits while the picker holds a color it can't read; Esc closes the picker first.
-      Field<TMP_InputField>(picker, "_hex").text = "#40";
+      ColorPickerProbe.Hex(picker.Root).text = "#40";
       PressEditorButton(text, "Text editor done");
       Assert(text.IsOpen && picker.Visible, "Done waits while the picker holds a color it can't read");
-      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      Settle();
+      Assert(ColorPickerProbe.Error(picker.Root).text.Length > 0 && picker.Model.FocusHex.Value > 0,
+        "and says what to type, its HEX taking the keyboard: " + ColorPickerProbe.Error(picker.Root).text);
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       text.Escape();
       Assert(text.IsOpen && !picker.Visible, "Esc closes the picker before the editor");
       Assert(!colorButton.Active && dock.Owner == null && Shown(DockKey(dock, "Key done")),
@@ -1362,9 +1383,15 @@ namespace Element.Editor
       Call(editor, "ToggleColor");
       OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
       UiColorPicker controls = Field<UiColorPicker>(popover, "_picker");
-      Assert(popover.Visible && !Field<UiSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
-        "the highlight color itself has no Highlight/Custom choice");
-      TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
+      Settle();
+      Assert(popover.Visible && !ColorPickerProbe.Shown(ColorPickerProbe.Segment(controls.Root, 0))
+        && ColorPickerProbe.Title(controls.Root).text == L("하이라이트 색상", "Highlight color") && ColorPickerProbe.Shown(ColorPickerProbe.Close(controls.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(controls.Root)) && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(controls.Root)),
+        "the highlight color itself has a title, close and Default, no opacity and no Highlight/Custom choice");
+      TMP_InputField hex = ColorPickerProbe.Hex(controls.Root);
+      Press(ColorPickerProbe.Default(controls.Root));
+      UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out Color defaultHighlight);
+      Assert(settings.HighlightColor == "#" + ColorUtility.ToHtmlStringRGB(defaultHighlight), "Default puts Element's highlight back: " + settings.HighlightColor);
       string before = settings.HighlightColor;
       hex.text = "#12";
       Assert(settings.HighlightColor == before && !popover.Commit(), "an incomplete color cannot commit");
@@ -2003,36 +2030,56 @@ namespace Element.Editor
       var picker = new UiColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
       UiFactory.Place(picker.Root, 112, 52, UiColorPicker.Width, picker.Height);
-      var opacity = Field<TMP_InputField>(picker, "_opacity");
-      var hex = Field<TMP_InputField>(picker, "_hex");
-      var plane = Field<UiColorPlane>(picker, "_plane");
-      var hue = Field<Slider>(picker, "_hue");
-      var alpha = Field<Slider>(picker, "_alpha");
-      var error = Field<TextMeshProUGUI>(picker, "_error");
+      Settle();
+      Transform drawn = picker.Root;
+      var opacity = ColorPickerProbe.Opacity(drawn);
+      var hex = ColorPickerProbe.Hex(drawn);
+      var plane = ColorPickerProbe.Plane(drawn);
+      var hue = ColorPickerProbe.Hue(drawn);
+      var alpha = ColorPickerProbe.Alpha(drawn);
+      var error = ColorPickerProbe.Error(drawn);
       Assert(changed == 0 && current == original, "opening an RGBA picker does not mutate its consumer");
-      Assert(picker.Height == 358 && opacity.gameObject.activeSelf && alpha.gameObject.activeSelf,
-        "RGBA mode adds an opacity track and a numeric field beside HEX");
+      Assert(picker.Height == 358 && ColorPickerProbe.Shown(opacity) && ColorPickerProbe.Shown(alpha) && !ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGBA mode adds an opacity track and a numeric field beside HEX: " + picker.Height);
+      Assert(ColorPickerProbe.Title(drawn).text == "Planet color" && ColorPickerProbe.Shown(ColorPickerProbe.Close(drawn))
+        && hex.text == ColorUtility.ToHtmlStringRGB(original) && opacity.text == "50",
+        "the card names the color, closes, and shows its HEX and opacity: " + hex.text + " / " + opacity.text);
       Assert(plane.GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
         && hue.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
         && alpha.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
         && hex.GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "color controls expose crosshair, adjustment and text cursor affordances");
+      Rect card = ScreenRectOf(picker.Root), planeRect = ScreenRectOf((RectTransform)plane.transform), hueRect = ScreenRectOf((RectTransform)hue.transform),
+        alphaRect = ScreenRectOf((RectTransform)alpha.transform), hexRect = ScreenRectOf((RectTransform)hex.transform),
+        opacityRect = ScreenRectOf((RectTransform)opacity.transform);
+      Assert(card.Contains(planeRect.min) && card.Contains(planeRect.max) && planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y
+        && alphaRect.center.y > hexRect.center.y && Mathf.Abs(hexRect.center.y - opacityRect.center.y) < .5f && opacityRect.xMin > hexRect.xMax
+        && Mathf.Abs(hueRect.xMin - (planeRect.xMin - 10 * card.width / UiColorPicker.Width)) < 1,
+        "top to bottom: the square, hue, opacity, then HEX with the opacity beside it; the bars' handles reach past the square");
       foreach (int percent in new[] { 0, 50, 100 })
       {
         opacity.text = percent.ToString();
         Assert(Mathf.Abs(current.a - percent / 100f) < .001f && picker.Commit(),
           "numeric opacity accepts and commits " + percent + "%");
+        Settle();
         Assert(Mathf.Abs(alpha.value - percent / 100f) < .001f, "numeric opacity updates its slider");
       }
       opacity.text = "101";
+      Settle();
       Assert(current.a == 1 && error.text == "", "out-of-range partial opacity leaves the last valid color untouched");
-      Assert(!picker.Commit() && error.text.Length > 0, "invalid opacity produces a focused inline correction on commit");
+      int focusBefore = picker.Model.FocusOpacity.Value;
+      Assert(!picker.Commit() && picker.Model.FocusOpacity.Value > focusBefore, "invalid opacity asks its field to take the keyboard on commit");
+      Settle();
+      Assert(error.text.Length > 0, "invalid opacity produces an inline correction on commit: " + error.text);
       opacity.text = "50";
-      Assert(picker.Commit() && error.text == "", "valid opacity clears its validation error");
+      Assert(picker.Commit(), "valid opacity commits");
+      Settle();
+      Assert(error.text == "", "valid opacity clears its validation error");
       hex.text = "204060";
       Assert(Mathf.Abs(current.a - .5f) < .001f && ColorUtility.ToHtmlStringRGB(current) == "204060",
         "HEX changes preserve the independent alpha channel");
       alpha.value = .25f;
+      Settle();
       Assert(opacity.text == "25" && Mathf.Abs(current.a - .25f) < .001f,
         "opacity dragging updates the numeric field continuously");
       plane.Changed(.8f, 0); hue.value = .77f; plane.Changed(.8f, .9f);
@@ -2041,21 +2088,29 @@ namespace Element.Editor
         "HSV gestures preserve hue through black and retain opacity");
       Assert(UiTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
       hex.text = "BA712B"; opacity.text = "50"; picker.Commit();
+      Settle();
       CheckInputCaret(hex, "HEX color", "", "BA712B");
       CheckInputCaret(opacity, "opacity", "", "0", "50", "100");
       hex.DeactivateInputField(); opacity.DeactivateInputField();
-      Canvas.ForceUpdateCanvases();
+      Settle();
       foreach (var label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "RGBA picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, 512, 480, "rgba-color-picker");
+      Press(ColorPickerProbe.Close(drawn));
+      Assert(!picker.Visible, "the close button hides the picker");
+      picker.SetDefault(new Color(.2f, .4f, .6f));
       picker.Show("Highlight color", current, false, value => current = value);
-      Assert(picker.Height == 318 && !alpha.gameObject.activeSelf && !opacity.gameObject.activeSelf,
-        "RGB mode stays compact and hides both opacity controls");
+      Settle();
+      Assert(picker.Height == 318 && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(drawn)) && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(drawn))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGB mode stays compact, hides both opacity controls and offers Default: " + picker.Height);
       hex.text = "BA712C";
       Assert(current.a == 1, "RGB mode always emits an opaque highlight color");
+      Press(ColorPickerProbe.Default(drawn));
+      Assert(ColorUtility.ToHtmlStringRGB(current) == "336699", "Default puts the default color back: " + ColorUtility.ToHtmlStringRGB(current));
       picker.Hide();
       Assert(!picker.Visible && !picker.IsTyping && picker.Commit(), "hidden picker releases its editing state");
       picker.Dispose();

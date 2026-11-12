@@ -65,7 +65,7 @@ internal sealed class ChatterView : View<ChatterModel>
       .Disabled(() => !VM.Settings.Gameplay.Chatter.Enabled);
 
   private View ThresholdSlider() =>
-    Slider(null, Bind(() => VM.Threshold), ChatterFilter.MinimumWindowMs, ChatterFilter.MaximumWindowMs, step: 1);
+    Slider(null, Bind(() => VM.Threshold), ChatterFilter.MinimumWindowMs, ChatterFilter.MaximumWindowMs, step: 1, showsValue: false);
 
   private View ThresholdField() =>
     HStack(

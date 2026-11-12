@@ -140,6 +140,9 @@
         <member name="M:ElementUI.Theme.ButtonInsets(ElementUI.ButtonStyle)">
             <summary>Space inside a button around its label.</summary>
         </member>
+        <member name="M:ElementUI.Theme.ButtonForeground(ElementUI.ButtonStyle)">
+            <summary>The label color of a button style, or null to keep the text color around it.</summary>
+        </member>
         <member name="P:ElementUI.Theme.LabelWidth">
             <summary>The width of the label column left of a labelled control.</summary>
         </member>
@@ -239,6 +242,9 @@
         </member>
         <member name="F:ElementUI.Layout.ViewEnvironment.ForegroundWatch">
             <summary>A watched foreground, when <c>.Foreground(() =&gt; ...)</c> was used; texts follow it.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.ViewEnvironment.LineLimit">
+            <summary>The most lines a text shows; 0 for any. One line cuts the text with an ellipsis instead of wrapping.</summary>
         </member>
         <member name="T:ElementUI.Layout.UiRoot">
             <summary>
@@ -771,8 +777,11 @@
         <member name="M:ElementUI.UI.Toggle(System.String,ElementUI.Binding{System.Boolean},ElementUI.ToggleAppearance)">
             <summary>On or off: a switch, or a box to tick.</summary>
         </member>
-        <member name="M:ElementUI.UI.Slider(System.String,ElementUI.Binding{System.Single},System.Single,System.Single,System.Single)">
-            <summary>A number dragged between <paramref name="min"/> and <paramref name="max"/>; <paramref name="step"/> 1 for whole numbers.</summary>
+        <member name="M:ElementUI.UI.Slider(System.String,ElementUI.Binding{System.Single},System.Single,System.Single,System.Single,System.Boolean)">
+            <summary>
+            A number dragged between <paramref name="min"/> and <paramref name="max"/>; <paramref name="step"/> 1 for
+            whole numbers. <paramref name="showsValue"/> false leaves out the number beside it, when the row shows it otherwise.
+            </summary>
         </member>
         <member name="M:ElementUI.UI.RangeSlider(System.String,ElementUI.Binding{System.Single},ElementUI.Binding{System.Single},System.Single,System.Single,System.Single)">
             <summary>Two numbers on one slider, the low one never past the high one.</summary>
@@ -837,6 +846,9 @@
         </member>
         <member name="M:ElementUI.ViewModifiers.Foreground(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.UiColor}})">
             <summary>A text and icon color that follows the view model.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.LineLimit(ElementUI.View,System.Int32)">
+            <summary>The most lines every text inside shows. <c>LineLimit(1)</c> keeps a title on one line, cut with an ellipsis.</summary>
         </member>
         <member name="M:ElementUI.ViewModifiers.TextAlignment(ElementUI.View,ElementUI.TextAlign)">
             <summary>How the lines of every text inside sit.</summary>

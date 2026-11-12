@@ -747,6 +747,9 @@
         <member name="M:ElementUI.UI.Grid(System.Single,System.Single,ElementUI.View[])">
             <summary>As many equal columns as fit, each at least <paramref name="minColumnWidth"/> wide: two cards side by side on a wide window, one under the other on a narrow one.</summary>
         </member>
+        <member name="M:ElementUI.UI.Grid(System.Single,System.Single,System.Int32,ElementUI.View[])">
+            <summary>Like <see cref="M:ElementUI.UI.Grid(System.Single,System.Single,ElementUI.View[])"/>, never more than <paramref name="maxColumns"/> columns.</summary>
+        </member>
         <member name="M:ElementUI.UI.ViewThatFits(ElementUI.View[])">
             <summary>
             The first view whose ideal width fits, else the last: <c>ViewThatFits(HStack(a, b), VStack(a2, b2))</c>
@@ -995,6 +998,9 @@
         </member>
         <member name="T:ElementUI.Views.GridView">
             <summary>Children in equal columns, row by row. With a minimum column width, as many columns as fit.</summary>
+        </member>
+        <member name="M:ElementUI.Views.GridView.Adaptive(System.Single,System.Single,System.Int32,ElementUI.View[])">
+            <summary>As many columns as fit, each at least <paramref name="minColumnWidth"/>, at most <paramref name="maxColumns"/>.</summary>
         </member>
         <member name="T:ElementUI.Views.FlowView">
             <summary>Children left to right, wrapping onto new lines when the width runs out: chips, tags.</summary>

@@ -159,9 +159,9 @@ namespace Element.Editor
         for (int j = i + 1; j < placed.Length; j++)
           Assert(!placed[i].Overlaps(placed[j]), "preset cards do not overlap at " + check.Width);
       }
-      // Three columns once three of the gallery's narrowest (226) fit beside each other.
+      // Three columns from 600 wide, as the old page: three of the gallery's narrowest (192) beside each other.
       Rect window = PageUi.World((RectTransform)root.transform.Find("Settings window"));
-      if (window.width - 64 >= 3 * 226 + 2 * 12)
+      if (window.width - 64 >= 3 * 192 + 2 * 12)
         Assert(Mathf.Abs(placed[0].yMin - placed[2].yMin) < .5f, "the preset gallery uses three columns on desktop");
 
       count += CheckPresetShortcut(check);

@@ -6,11 +6,8 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using TMPro;
-using UnityEngine;
-using static Element.Presentation.Ui.Declarative.Controls.CardRows;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.Settings.Pages;
 
@@ -24,42 +21,28 @@ internal sealed class ProfilesView : View<ProfilesModel>
   internal const float CardHeight = 140;
   private const float ActionSize = 30;
 
-  private readonly State<float> _width = new(1000);
-
   public ProfilesView(ProfilesModel vm)
     : base(vm) { }
 
   public override View Body =>
-    ZStack(
-      Alignment.TopLeading,
-      new WidthReader(_width),
+    VStack(
+      spacing: 12,
+      ViewThatFits(Heading(true).Frame(minWidth: 440, maxWidth: float.PositiveInfinity), Heading(false)),
+      // Three columns where three fit; 226 keeps the widest window (936) at three.
+      Grid(minColumnWidth: 226, spacing: 12, ForEach(() => VM.Cards, card => card.Id, Card)),
+      // Under the cards, so a message coming or going never moves them. Each part
+      // brings its own gap, so one that isn't shown leaves none.
       VStack(
-        spacing: 12,
-        If(() => _width.Value >= 440, () => Heading(true), () => Heading(false))
-          .Frame(maxWidth: float.PositiveInfinity),
+        spacing: 0,
         If(
-            () => _width.Value >= 600,
-            () => Gallery(3),
-            () =>
-              If(() => _width.Value >= 440, () => Gallery(2), () => Gallery(1)).Frame(maxWidth: float.PositiveInfinity)
-          )
-          .Frame(maxWidth: float.PositiveInfinity),
-        // Under the cards, so a message coming or going never moves them. Each part
-        // brings its own gap, so one that isn't shown leaves none.
-        VStack(
-          spacing: 0,
-          If(
-              () => VM.HasMessage.Value,
-              () =>
-                Text(() => VM.Message)
-                  .Font(Font.Caption)
-                  .Foreground(() => VM.MessageIsProblem ? Colors.Danger : Colors.Accent)
-                  .Padding(new Insets(4, 0, 12, 0))
-            )
-            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-          If(() => VM.Fonts.Visible.Value, () => FontCard().Padding(new Insets(4, 0, 0, 0)))
-            .Frame(maxWidth: float.PositiveInfinity)
-        )
+          () => VM.HasMessage.Value,
+          () =>
+            Text(() => VM.Message)
+              .Font(Font.Caption)
+              .Foreground(() => VM.MessageIsProblem ? Colors.Danger : Colors.Accent)
+              .Padding(new Insets(4, 0, 12, 0))
+        ),
+        If(() => VM.Fonts.Visible.Value, () => FontCard().Padding(new Insets(4, 0, 0, 0)))
       )
     );
 
@@ -73,7 +56,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
       ? Button(Text(L("가져오기", "Import")).Frame(maxWidth: float.PositiveInfinity), () => VM.Import).Frame(height: 44)
       : null;
     View create = Button(
-        Text(L("새 프로필", "New profile")).Foreground(Colors.Accent).Frame(maxWidth: float.PositiveInfinity),
+        Text(L("새 프로필", "New profile")).Frame(maxWidth: float.PositiveInfinity),
         () => VM.NewProfile,
         ButtonStyle.Prominent
       )
@@ -93,9 +76,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
   }
 
   // The panel under New profile: it starts from the initial settings.
-  private View NewProfilePanel() => ZStack(Alignment.TopLeading, new RaisePopover(), NewProfileForm());
-
-  private View NewProfileForm() =>
+  private View NewProfilePanel() =>
     VStack(
         spacing: 0,
         Text(L("처음 설정으로 시작해요.", "Starts with the initial settings."))
@@ -112,9 +93,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
               .Configure<TMP_InputField, int>(() => VM.Creating.FocusName, Focus)
               .Frame(maxWidth: float.PositiveInfinity),
             Button(
-                Text(L("만들기", "Create"))
-                  .Foreground(() => VM.Creating.CanCreate.Value ? Colors.Accent : Colors.Muted)
-                  .Frame(maxWidth: float.PositiveInfinity),
+                Text(L("만들기", "Create")).Frame(maxWidth: float.PositiveInfinity),
                 () => VM.Creating.Create,
                 ButtonStyle.Prominent
               )
@@ -122,20 +101,17 @@ internal sealed class ProfilesView : View<ProfilesModel>
           )
           .Padding(new Insets(8, 0, 0, 0)),
         If(
-            () => VM.Creating.Problem.Value.Length > 0,
-            () =>
-              Text(() => VM.Creating.Problem.Value)
-                .Font(Font.Caption)
-                .Foreground(Colors.Danger)
-                .Padding(new Insets(8, 0, 0, 0))
-          )
-          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+          () => VM.Creating.Problem.Value.Length > 0,
+          () =>
+            Text(() => VM.Creating.Problem.Value)
+              .Font(Font.Caption)
+              .Foreground(Colors.Danger)
+              .Padding(new Insets(8, 0, 0, 0))
+        )
       )
       .Padding(8)
-      // As wide as the old panel, narrower on a narrow window.
-      .Frame(width: PanelWidth(_width.Value), alignment: Alignment.TopLeading);
-
-  private static float PanelWidth(float page) => Mathf.Min(340, Mathf.Max(240, page + 40));
+      // As wide as the old panel; a popover narrows it to fit a narrow window.
+      .Frame(width: 340, alignment: Alignment.TopLeading);
 
   private static void Focus(TMP_InputField field, int requests)
   {
@@ -147,33 +123,30 @@ internal sealed class ProfilesView : View<ProfilesModel>
 
   // ---- Cards ----
 
-  private View Gallery(int columns) => CardRows.Of(() => VM.Cards, card => card.Id, columns, 12, Card);
-
-  private View Card(ItemSlot<ProfileCardModel[]> row, int column) =>
+  private View Card(ItemSlot<ProfileCardModel> card) =>
     ZStack(
       Alignment.TopLeading,
       Button(
           VStack(
               spacing: 6,
               If(
-                  () => At(row.Value, column).Renaming.Value,
-                  () => RenameField(row, column),
-                  () =>
-                    Text(() => At(row.Value, column).Name)
-                      .Font(Font.Heading.Sized(20))
-                      .Foreground(Colors.Foreground)
-                      .Configure<TMP_Text>(text => text.overflowMode = TextOverflowModes.Ellipsis)
-                      .Frame(maxHeight: 54, alignment: Alignment.TopLeading)
-                      .Padding(new Insets(0, 0, 0, 4 * ActionSize + 8))
-                )
-                .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading),
+                () => card.Value.Renaming.Value,
+                () => RenameField(card),
+                () =>
+                  Text(() => card.Value.Name)
+                    .Font(Font.Heading.Sized(20))
+                    .Foreground(Colors.Foreground)
+                    .LineLimit(2)
+                    .Frame(maxHeight: 54, alignment: Alignment.TopLeading)
+                    .Padding(new Insets(0, 0, 0, 4 * ActionSize + 8))
+              ),
               Spacer(),
-              Text(() => At(row.Value, column).Line.Value)
-                .Foreground(() => At(row.Value, column).LineIsProblem.Value ? Colors.Danger : Colors.Muted),
-              Text(() => At(row.Value, column).State.Value)
+              Text(() => card.Value.Line.Value)
+                .Foreground(() => card.Value.LineIsProblem.Value ? Colors.Danger : Colors.Muted),
+              Text(() => card.Value.State.Value)
                 .Foreground(() =>
-                  At(row.Value, column).Armed.Value ? Colors.Danger
-                  : At(row.Value, column).InUse ? Colors.Accent
+                  card.Value.Armed.Value ? Colors.Danger
+                  : card.Value.InUse ? Colors.Accent
                   : Colors.Muted
                 )
             )
@@ -183,7 +156,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
               maxHeight: float.PositiveInfinity,
               alignment: Alignment.TopLeading
             ),
-          () => At(row.Value, column).Switch,
+          () => card.Value.Switch,
           ButtonStyle.Card
         )
         .Frame(height: CardHeight),
@@ -191,27 +164,26 @@ internal sealed class ProfilesView : View<ProfilesModel>
         .Frame(width: 3, height: CardHeight - 28)
         .Background(Colors.Accent, 1.5f)
         .Padding(new Insets(14, 0, 0, 0))
-        .Hidden(() => !At(row.Value, column).InUse),
+        .Hidden(() => !card.Value.InUse),
       If(
-        () => !At(row.Value, column).Renaming.Value,
+        () => !card.Value.Renaming.Value,
         () =>
           HStack(
               spacing: 2,
-              CardAction(UiIconKind.Edit, () => At(row.Value, column).Rename, () => Colors.Muted),
-              CardAction(UiIconKind.Duplicate, () => At(row.Value, column).Duplicate, () => Colors.Muted),
+              CardAction(UiIconKind.Edit, () => card.Value.Rename, () => Colors.Muted),
+              CardAction(UiIconKind.Duplicate, () => card.Value.Duplicate, () => Colors.Muted),
               VM.FilesSupported
-                ? CardAction(UiIconKind.Export, () => At(row.Value, column).Export, () => Colors.Muted)
+                ? CardAction(UiIconKind.Export, () => card.Value.Export, () => Colors.Muted)
                 : null,
               If(
-                  () => VM.CanDelete,
-                  () =>
-                    CardAction(
-                      UiIconKind.Delete,
-                      () => At(row.Value, column).Delete,
-                      () => At(row.Value, column).Armed.Value ? Colors.Danger : Colors.Muted
-                    )
-                )
-                .Frame()
+                () => VM.CanDelete,
+                () =>
+                  CardAction(
+                    UiIconKind.Delete,
+                    () => card.Value.Delete,
+                    () => card.Value.Armed.Value ? Colors.Danger : Colors.Muted
+                  )
+              )
             )
             .Padding(10)
             .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopTrailing)
@@ -225,7 +197,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
 
   // The card's name as a field: the caret after the name; Enter or a click
   // elsewhere saves, Escape keeps the old name.
-  private View RenameField(ItemSlot<ProfileCardModel[]> row, int column) =>
+  private View RenameField(ItemSlot<ProfileCardModel> card) =>
     TextField(null, Bind(() => VM.RenameText))
       .Configure<TMP_InputField>(field =>
       {
@@ -234,7 +206,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
         field.onEndEdit.AddListener(_ => VM.EndRename(field.wasCanceled));
       })
       .Configure<TMP_InputField, bool>(
-        () => At(row.Value, column).Renaming.Value,
+        () => card.Value.Renaming.Value,
         (field, renaming) => Focus(field, renaming ? 1 : 0)
       )
       .Frame(maxWidth: float.PositiveInfinity);
@@ -253,8 +225,8 @@ internal sealed class ProfilesView : View<ProfilesModel>
           )
           .Font(Font.Caption)
           .Foreground(Colors.Muted),
-        ForEach(() => VM.Fonts.Rows, row => row.Use.Key, FontRow)
-          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading),
+        // The rows touch; each brings its own space.
+        VStack(spacing: 0, ForEach(() => VM.Fonts.Rows, row => row.Use.Key, FontRow)),
         Button(Text(L("완료", "Done")).Frame(maxWidth: float.PositiveInfinity), () => VM.Fonts.Done)
           .Frame(width: 120)
           .Padding(new Insets(4, 0, 0, 0))
@@ -265,10 +237,9 @@ internal sealed class ProfilesView : View<ProfilesModel>
 
   // A missing font, what its texts show now, and the list to pick another; the button goes under on narrow windows.
   private View FontRow(ItemSlot<ProfileFontsModel.Row> slot) =>
-    If(
-        () => _width.Value >= 480,
-        () => HStack(spacing: 12, FontWords(slot), ChooseFont(slot)),
-        () => VStack(spacing: 8, FontWords(slot), ChooseFont(slot))
+    ViewThatFits(
+        HStack(spacing: 12, FontWords(slot), ChooseFont(slot)).Frame(minWidth: 448, maxWidth: float.PositiveInfinity),
+        VStack(spacing: 8, FontWords(slot), ChooseFont(slot))
       )
       .Padding(new Insets(4, 0, 8, 0));
 
@@ -284,7 +255,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
 
   private View ChooseFont(ItemSlot<ProfileFontsModel.Row> slot) =>
     Button(
-        Text(L("폰트 고르기", "Choose font")).Foreground(Colors.Accent).Frame(maxWidth: float.PositiveInfinity),
+        Text(L("폰트 고르기", "Choose font")).Frame(maxWidth: float.PositiveInfinity),
         () => slot.Value.Choose,
         ButtonStyle.Prominent
       )
@@ -292,6 +263,5 @@ internal sealed class ProfilesView : View<ProfilesModel>
       .Popover(Bind(() => slot.Value.PickerOpen), () => FontPicker(slot.Value));
 
   // Opened with the font the row uses now; a pick shows at once and the list stays open.
-  private static View FontPicker(ProfileFontsModel.Row row) =>
-    ZStack(Alignment.TopLeading, new RaisePopover(), new FontList(row.Picker()));
+  private static View FontPicker(ProfileFontsModel.Row row) => new FontList(row.Picker());
 }

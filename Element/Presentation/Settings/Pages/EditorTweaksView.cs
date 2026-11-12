@@ -1,7 +1,6 @@
 using ElementUI;
 using TMPro;
 using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
-using static Element.Presentation.Ui.Declarative.Controls.WidthLayouts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -19,7 +18,8 @@ internal sealed class EditorTweaksView : View<EditorTweaksModel>
   private View Selection() =>
     VStack(
       spacing: 12,
-      Columns(minColumnWidth: 294, maxColumns: 2, spacing: 12, Shown),
+      // Two columns where two fit; 305 keeps the widest window (936) at two.
+      Grid(minColumnWidth: 305, spacing: 12, Shown()),
       SwitchCard(
         L("마지막 간격 제외", "Exclude last interval"),
         L(

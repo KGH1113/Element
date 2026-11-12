@@ -22,8 +22,12 @@ ElementUI: `~/dev/src/ElementUI` (read `README.md`, `docs/design.md` §2–§4,
    in `VM.Settings` (the `ElementSettings`); bind straight to their fields.
 3. **No manual layout.** No `Layout(width, height)`, no coordinates, no `UiFactory`.
    Stacks, `Spacer`, `Frame`, `Padding`, `Grid`, `Flow`, `ScrollView`. A narrow
-   window must still work: let rows wrap or stack (`Flow`, or `If` on a width
-   only when there is no other way).
+   window must still work, without reading widths back into a view model:
+   cards in `Grid(minColumnWidth:, spacing: 12)` (pick the minimum so the widest
+   page, 936, keeps its column count); a row that stacks when narrow is
+   `ViewThatFits(wide.Frame(minWidth: breakpoint, maxWidth: ∞), narrow)`;
+   words that must stay short use `.LineLimit(n)`. An `If` or `ForEach` goes
+   straight in a stack, no frame around it.
 4. **Applying.** Any control write or command run raises `UiRoot.Edited`; the window
    then applies the settings. Don't call apply yourself. A change made outside a
    command or binding (a callback from a popover, a timer) calls `ElementUI.Runtime.Probe()`.
@@ -84,11 +88,11 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Tweaks, Editor tweaks, Judgment, Chatter | done |
 | Planets (and the shared color swatch, color picker, texture views) | done |
 | Effects, Preset editor, General, Profiles (and ShortcutField) | done; ui-check 5026 assertions on the merge |
-| Dedupe stopgaps: SwitchCard/SwitchCards, WidthLayouts, WidthReader, CardRows, RaisePopover → ElementUI Grid(minColumnWidth:), ViewThatFits | in progress |
-| Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done; ui-check 5107 assertions on the merge |
+| Dedupe stopgaps: SwitchCard/SwitchCards, WidthLayouts, WidthReader, CardRows, RaisePopover → ElementUI Grid(minColumnWidth:), ViewThatFits | done |
+| Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done |
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
-| Content editors: input dock and keypad, color picker form | next |
-| Mod element editor | next |
+| Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
+| Mod element editor, ElementKit EditorPage on ElementUI | next |
 | ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
 | Remove the old UI kit (`UiFactory` and widgets) | last |
 

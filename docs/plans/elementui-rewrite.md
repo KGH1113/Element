@@ -81,10 +81,11 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | ElementUI pinned, shipped with Element, Element theme and backend | done |
 | Settings window frame, navigation, save error | done |
 | Home | done |
-| Tweaks, Editor tweaks, Judgment, Chatter | in progress |
-| Planets | in progress |
-| Effects, Preset editor, General, Profiles | in progress |
-| Overlay editor chrome (toolbars, add menu, popovers) | next |
+| Tweaks, Editor tweaks, Judgment, Chatter | done |
+| Planets (and the shared color swatch, color picker, texture views) | done |
+| Effects, Preset editor, General, Profiles (and ShortcutField) | done; ui-check 5026 assertions on the merge |
+| Dedupe stopgaps: SwitchCard/SwitchCards, WidthLayouts, WidthReader, CardRows, RaisePopover → ElementUI Grid(minColumnWidth:), ViewThatFits | after the overlay editor chrome merges |
+| Overlay editor chrome (toolbars, add menu, popovers) | in progress |
 | Content editors (text, shape, keypad, value dock, mods) | next |
 | ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
 | Remove the old UI kit (`UiFactory` and widgets) | last |

@@ -10,6 +10,7 @@ namespace Element.Presentation.Settings.Window;
 /// <summary>
 /// The window's frame: the title row with Back and Close, the page shown,
 /// and the save message. Each page is made the first time it shows and kept.
+/// The frame keeps 32 at its sides, 20 on a window under 600 wide.
 /// </summary>
 internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
 {
@@ -19,15 +20,17 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
   public override View Body =>
     VStack(
       spacing: 0,
-      HStack(
-          spacing: 12,
-          If(() => VM.CanGoBack.Value, () => IconButton(UiIconKind.PageBack, () => VM.Back).Hint(L("뒤로", "Back"))),
-          Text(() => VM.Current.Title).Font(Font.Title).LineLimit(1),
-          Spacer(),
-          IconButton(UiIconKind.WindowClose, () => VM.Close).Hint(L("닫기", "Close"))
+      Sides(
+          HStack(
+              spacing: 12,
+              If(() => VM.CanGoBack.Value, () => IconButton(UiIconKind.PageBack, () => VM.Back).Hint(L("뒤로", "Back"))),
+              Text(() => VM.Current.Title).Font(Font.Title).LineLimit(1),
+              Spacer(),
+              IconButton(UiIconKind.WindowClose, () => VM.Close).Hint(L("닫기", "Close"))
+            )
+            .Frame(height: 48)
         )
-        .Frame(height: 48)
-        .Padding(new Insets(24, 32, 24, 32)),
+        .Padding(new Insets(24, 0, 24, 0)),
       ZStack(
           Alignment.TopLeading,
           Page(VM.Home, () => new HomeView(VM.Home)),
@@ -45,13 +48,15 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
       If(
         () => VM.SaveFailed.Value,
         () =>
-          HStack(
-              spacing: 16,
-              Text(() => VM.SaveError).Foreground(Colors.Danger).Font(Font.Caption),
-              Spacer(),
-              Button(Text(L("다시 저장", "Retry save")), () => VM.RetrySave)
+          Sides(
+              HStack(
+                spacing: 16,
+                Text(() => VM.SaveError).Foreground(Colors.Danger).Font(Font.Caption),
+                Spacer(),
+                Button(Text(L("다시 저장", "Retry save")), () => VM.RetrySave)
+              )
             )
-            .Padding(new Insets(12, 32, 16, 32))
+            .Padding(new Insets(12, 0, 16, 0))
       )
     );
 
@@ -59,8 +64,23 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
   private View Page(SettingsPageModel page, System.Func<View> content) =>
     If(
       () => VM.Current == page,
-      () => ScrollView(content().Padding(new Insets(0, 32, 24, 32))).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
+      () =>
+        ScrollView(Sides(content()).Padding(new Insets(0, 0, 24, 0)))
+          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
     );
+
+  /// <summary>The window's side space around <paramref name="content"/>: 20, and 12 more unless the window is compact.</summary>
+  private View Sides(View content) =>
+    HStack(
+        spacing: 0,
+        VAlignment.Top,
+        Gutter(),
+        content.Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading),
+        Gutter()
+      )
+      .Padding(new Insets(0, 20, 0, 20));
+
+  private View Gutter() => If(() => !VM.Compact, () => Spacer().Frame(width: 12, height: 0));
 
   private static View IconButton(UiIconKind icon, System.Linq.Expressions.Expression<System.Func<Command>> command) =>
     Button(Image(ElementIcons.Of(icon), 28), command, ButtonStyle.Icon);

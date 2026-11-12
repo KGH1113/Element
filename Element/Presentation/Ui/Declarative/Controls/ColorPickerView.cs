@@ -56,18 +56,6 @@ internal sealed class ColorPickerView : NativeView
     // Hidden with its page or its window: closed, not left open behind it.
     _signal = rect.gameObject.AddComponent<DeactivationSignal>();
     _signal.Deactivated = Close;
-    BringLayerToFront();
-  }
-
-  // ElementUI makes the popover layer before the screen's own parts, so the
-  // screen would draw, and take clicks, over an open popover (ElementUI
-  // 11316be). The open picker brings its layer to the front: the popover's
-  // box holds this view, and the layer holds the box.
-  private void BringLayerToFront()
-  {
-    Transform layer = Rect.parent != null ? Rect.parent.parent : null;
-    if (layer != null && layer.parent != null && layer.GetSiblingIndex() != layer.parent.childCount - 1)
-      layer.SetAsLastSibling();
   }
 
   private void Changed(Color color)
@@ -102,8 +90,6 @@ internal sealed class ColorPickerView : NativeView
     float scale = Mathf.Min(1, width / UiColorPicker.Width, height / _picker.Height);
     _picker.Root.localScale = new Vector3(scale, scale, 1);
     _picker.Root.anchoredPosition = Vector2.zero;
-    // Parts the screen made since it opened went in front of it.
-    BringLayerToFront();
   }
 
   protected override void Teardown()

@@ -63,7 +63,8 @@ use assets::{parse_portable_asset_reference, AssetCategory};
 use normalization::rgba_to_hex;
 pub(crate) use normalization::{
     canonicalize_gradient_pairs, canonicalize_image_modes, clear_dangling_group_ids,
-    migrate_legacy_sprite_wire, normalize_sprite_triggers, normalize_state,
+    hide_raining_on_every_key, migrate_legacy_sprite_wire, normalize_sprite_triggers,
+    normalize_state,
 };
 #[allow(unused_imports)]
 pub(crate) use normalization::{

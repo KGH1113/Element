@@ -121,7 +121,7 @@ When a text or shape changes size (a value grows longer, a width follows progres
 
 ## Key viewer
 
-Added at once as a hand viewer. Its toolbar switches between hand and foot in the same place. It is available while ElementNote runs with **Show inside ADOFAI** on; otherwise Add Element says what to turn on.
+Added at once as a hand viewer. Its toolbar switches between hand and foot in the same place. It is available while ElementNote runs with **Inside ADOFAI** on (Settings → Where to show); otherwise Add Element says what to turn on.
 
 Editor panels over a key viewer cut it out with their own rounded corners, so the viewer never covers the editor.
 

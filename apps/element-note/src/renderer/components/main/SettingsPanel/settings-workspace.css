@@ -1,0 +1,607 @@
+.en-settings-workspace {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ui-bg-panel);
+}
+
+.en-settings-nav {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px 12px;
+  border-right: 1px solid var(--ui-line-subtle);
+  overflow-y: auto;
+}
+
+.en-settings-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Leaving settings sits where the eye starts: left of the title. */
+.en-settings-leave {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: var(--ui-fg-secondary);
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-settings-leave:hover {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-settings-leave:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-settings-leave:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 1px;
+}
+
+.en-settings-nav h1 {
+  margin: 0;
+  color: var(--ui-fg-primary);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.en-settings-workspace .en-settings-nav input[data-slot='input'] {
+  height: 36px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-line-subtle);
+  border-radius: 8px;
+  background: var(--ui-inset);
+  color: var(--ui-fg-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.en-settings-workspace .en-settings-nav input[data-slot='input']:focus-visible {
+  border-color: var(--ui-accent-text);
+  outline: 2px solid var(--ui-accent-soft);
+  outline-offset: 1px;
+}
+
+.en-settings-nav nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.en-settings-nav nav button {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--ui-fg-muted);
+  font-size: 13px;
+  text-align: left;
+}
+
+.en-settings-nav nav button:hover {
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-primary);
+}
+
+/* Rows of a list are wide: they darken under a press instead of shrinking. */
+.en-settings-nav nav button:active,
+.en-settings-about button:active,
+.en-settings-result:active {
+  background: var(--ui-fill);
+}
+
+.en-settings-nav nav button[aria-current='page'] {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+  font-weight: 600;
+}
+
+.en-settings-workspace button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 2px;
+}
+
+.en-settings-about {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+.en-settings-about button {
+  padding: 5px 8px;
+  border-radius: 6px;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+}
+
+.en-settings-about button:hover {
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-primary);
+}
+
+.en-settings-version {
+  margin: 6px 8px 0;
+  color: var(--ui-fg-muted);
+  font-size: 11px;
+}
+
+.en-settings-page {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: clamp(18px, 3vw, 32px);
+}
+
+.en-settings-page-inner {
+  display: flex;
+  width: 100%;
+  max-width: 760px;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0 auto;
+}
+
+.en-settings-page header h2 {
+  color: var(--ui-fg-primary);
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.en-settings-help {
+  margin-top: 6px;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.en-settings-group {
+  min-width: 0;
+}
+
+.en-settings-group + .en-settings-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ui-line-subtle);
+}
+
+.en-settings-workspace .dmn-setting-row {
+  min-height: 66px;
+  padding: 12px 0;
+  gap: 20px;
+}
+
+.en-settings-workspace .dmn-setting-row + .dmn-setting-row {
+  border-top: 1px solid var(--ui-line-subtle);
+}
+
+.en-settings-workspace .dmn-setting-row__description {
+  max-width: 48ch;
+  line-height: 1.6;
+}
+
+.en-settings-workspace .dmn-setting-row__control {
+  flex-shrink: 0;
+}
+
+.en-settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 0;
+}
+
+.en-settings-back {
+  align-self: flex-start;
+}
+
+.en-settings-status {
+  margin: 6px 0 12px;
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--ui-inset);
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.en-settings-warning {
+  color: var(--ui-fg-primary);
+  border-left: 2px solid var(--ui-accent-text);
+}
+
+.en-settings-results {
+  display: grid;
+}
+
+.en-settings-result {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 14px 0;
+  text-align: left;
+}
+
+.en-settings-result + .en-settings-result {
+  border-top: 1px solid var(--ui-line-subtle);
+}
+
+.en-settings-result:hover {
+  background: var(--ui-fill-faint);
+}
+
+.en-settings-result strong {
+  color: var(--ui-fg-primary);
+  font-size: 13px;
+}
+
+.en-settings-result span {
+  color: var(--ui-fg-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.en-settings-disabled {
+  opacity: 0.5;
+}
+
+/*
+ * A row that waits for its group's switch stays where it is and goes quiet.
+ * Its control dims by its own disabled style, so only the words dim here.
+ */
+/* Rows that depend on a switch dim in place, without a jump. */
+.en-settings-workspace .dmn-setting-row__copy {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.en-settings-workspace .en-settings-row--off .dmn-setting-row__copy {
+  opacity: 0.5;
+}
+
+/*
+ * What a place is doing right now, read beside its switch. The dot carries
+ * the colour; the words stay quiet unless the state needs attention.
+ */
+.en-settings-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.en-settings-state::before {
+  width: 6px;
+  height: 6px;
+  flex: none;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.en-settings-state[data-tone='success']::before {
+  background: var(--ui-success);
+}
+
+.en-settings-state[data-tone='warning'] {
+  color: var(--ui-warning);
+}
+
+.en-settings-state[data-tone='error'] {
+  color: var(--ui-danger);
+}
+
+/* Something to read in the control column, not to press. */
+.en-settings-value {
+  max-width: 34ch;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .en-settings-workspace {
+    grid-template-columns: 150px minmax(0, 1fr);
+  }
+
+  .en-settings-nav {
+    padding-inline: 8px;
+  }
+
+  .en-settings-page {
+    padding: 18px 14px;
+  }
+
+  .en-settings-workspace .dmn-setting-row {
+    gap: 12px;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .en-settings-group + .en-settings-group,
+  .en-settings-result + .en-settings-result,
+  .en-settings-workspace .dmn-setting-row + .dmn-setting-row {
+    border-color: var(--ui-fg-muted);
+  }
+}
+
+/* Two values of one row, each with a word for which it is. */
+.en-settings-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  white-space: nowrap;
+}
+
+/* The background swatches sit in the row's control column. */
+.en-settings-palette > div {
+  padding: 0;
+}
+
+/* Where to show: three places, one in use ----------------------------------- */
+
+.en-outputs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/*
+ * A large choice. Not in use, it is a quiet outline with a still, grey
+ * picture; in use, it is lit, its picture is in colour and moves.
+ */
+.en-output {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  background: var(--ui-fill-faint);
+  box-shadow: inset 0 0 0 1px var(--ui-line-subtle);
+  color: var(--ui-fg-muted);
+  text-align: left;
+  transition:
+    background-color var(--ui-motion-base) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-base) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-output[aria-checked='false']:hover {
+  background: var(--ui-fill);
+  box-shadow: inset 0 0 0 1px var(--ui-line-strong);
+}
+
+.en-output:active {
+  transform: scale(0.985);
+}
+
+.en-output:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 2px;
+}
+
+.en-output[aria-checked='true'] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1.5px var(--ui-accent);
+}
+
+/* The picture is as wide as the button allows, up to a size; a small window
+   makes the buttons narrower and the pictures smaller with them. */
+.en-output-picture {
+  display: block;
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  margin: 2px auto 14px;
+  color: var(--ui-fg-disabled);
+  transition: color var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.en-output[aria-checked='true'] .en-output-picture {
+  color: var(--ui-accent-text);
+}
+
+.en-output-name {
+  color: var(--ui-fg-secondary);
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  transition: color var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.en-output[aria-checked='true'] .en-output-name {
+  color: var(--ui-fg-primary);
+}
+
+.en-output-help {
+  min-height: 34px;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* What the place in use is doing, with a dot. */
+.en-output-state {
+  display: inline-flex;
+  min-height: 18px;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--ui-fg-primary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.en-output-state:not(:empty)::before {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--ui-accent);
+  content: '';
+}
+
+.en-output-state[data-tone='success']::before {
+  background: var(--ui-success);
+}
+
+.en-output-state[data-tone='warning']::before {
+  background: var(--ui-warning);
+}
+
+.en-output-state[data-tone='error']::before {
+  background: var(--ui-danger);
+}
+
+/* The pictures. Lines take the button's colour; fills are faint. */
+.en-output-picture :is(rect, path, circle) {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.en-output-frame {
+  opacity: 0.5;
+}
+
+.en-output-picture .en-output-keys rect,
+.en-output-picture .en-output-dot,
+.en-output-picture .en-output-stand {
+  fill: currentColor;
+  stroke: none;
+}
+
+.en-output-picture .en-output-stand {
+  opacity: 0.35;
+}
+
+.en-output-keys rect {
+  opacity: 0.4;
+}
+
+/* Everything that moves does so only while its place is in use. */
+.en-output[aria-checked='true'] .en-output-keys rect {
+  animation: en-output-key 1.8s var(--ui-ease-standard) infinite;
+  animation-delay: calc(var(--key) * 0.22s);
+}
+
+/* The window drifts; in the game its keys are inside it and go along. */
+.en-output[aria-checked='true'] .en-output-window {
+  animation: en-output-drift 4.2s cubic-bezier(0.65, 0, 0.35, 1) infinite
+    alternate;
+}
+
+/* The OBS mark hops a little, about once a beat. A small bounce is the
+   point here; nothing else in the app overshoots. */
+.en-output-mark {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.en-output[aria-checked='true'] .en-output-mark {
+  animation: en-output-hop 1.8s cubic-bezier(0.34, 1.4, 0.64, 1) infinite;
+}
+
+@keyframes en-output-key {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  40% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes en-output-drift {
+  from {
+    transform: translate3d(-4px, 0, 0);
+  }
+
+  to {
+    transform: translate3d(14px, 0, 0);
+  }
+}
+
+@keyframes en-output-hop {
+  0%,
+  55%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1, 1);
+  }
+
+  20% {
+    transform: translate3d(0, -4px, 0) scale(0.98, 1.03);
+  }
+
+  38% {
+    transform: translate3d(0, 0, 0) scale(1.04, 0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-output *,
+  .en-output {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* A small window: smaller pictures, a little less room around them. */
+@media (max-width: 1000px) {
+  .en-outputs {
+    gap: 10px;
+  }
+
+  .en-output {
+    padding: 14px 14px 12px;
+  }
+
+  .en-output-picture {
+    max-width: 150px;
+    margin-bottom: 10px;
+  }
+
+  .en-output-help {
+    min-height: 50px;
+  }
+}

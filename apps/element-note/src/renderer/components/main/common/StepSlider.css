@@ -1,0 +1,133 @@
+/*
+ * A slider over a few values (StepSlider.tsx). The thumb and the fill move
+ * with transform only. While the thumb is held nothing is eased: it is where
+ * the pointer is. Let go, it settles on its stop.
+ */
+
+.en-slider {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/*
+ * One length in every row, short enough to fit beside the longest label in
+ * the narrowest sidebar; it gives way only when even that does not fit.
+ */
+.en-slider-track {
+  position: relative;
+  min-width: 48px;
+  height: 26px;
+  flex: 0 1 100px;
+  border-radius: var(--ui-radius-inner);
+  cursor: pointer;
+  outline: none;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/*
+ * In a row of the sidebar the track's length follows the row's width alone,
+ * not the label beside it: two sliders in two rows are the same length in
+ * every language, at every width of the sidebar. What it leaves is the room
+ * of everything else in the row: the 36px picture well, the gaps (12, 12, 8),
+ * the label and the value. Engines without container units keep the length
+ * above.
+ */
+@supports (width: 1cqw) {
+  .en-row:has(> .en-row-control > .en-slider) {
+    container-type: inline-size;
+  }
+
+  .en-row-control > .en-slider > .en-slider-track {
+    width: clamp(48px, calc(100cqw - 218px), 100px);
+    flex: none;
+  }
+}
+
+/* The thumb's centre runs from one end of the rail to the other. */
+.en-slider-rail {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  left: 7px;
+  height: 4px;
+  margin-top: -2px;
+}
+
+.en-slider-groove {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--ui-fill-active);
+}
+
+.en-slider-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--ui-accent);
+  transform-origin: 0 50%;
+  transition: transform var(--ui-motion-base) var(--ui-ease-out);
+}
+
+/* As wide as the rail: moving it by its own width crosses the whole track. */
+.en-slider-lane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: transform var(--ui-motion-base) var(--ui-ease-out);
+}
+
+.en-slider-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-slider-track:hover .en-slider-thumb {
+  transform: scale(1.08);
+}
+
+.en-slider[data-dragging='true'] .en-slider-fill,
+.en-slider[data-dragging='true'] .en-slider-lane {
+  transition: none;
+}
+
+.en-slider[data-dragging='true'] .en-slider-thumb {
+  transform: scale(1.16);
+}
+
+.en-slider-track:focus-visible .en-slider-thumb {
+  box-shadow:
+    0 0 0 2px var(--ui-bg-app),
+    0 0 0 4px var(--ui-accent-text);
+}
+
+.en-slider-value {
+  flex: none;
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-slider-fill,
+  .en-slider-lane,
+  .en-slider-thumb {
+    transition: none;
+  }
+}

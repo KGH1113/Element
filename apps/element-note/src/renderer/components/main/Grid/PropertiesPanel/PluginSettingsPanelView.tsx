@@ -7,6 +7,7 @@ import type {
 import type { PluginSettingsPanelPayload } from '@stores/grid/usePropertiesPanelStore';
 import { SidebarToggleIcon } from './PropertyInputs';
 import { PANEL_ROOT_CLASS } from './panelChrome';
+import { useInspectorPages } from './inspectorPageContext';
 
 interface PluginSettingsPanelViewProps {
   setPanelElement: (el: HTMLDivElement | null) => void;
@@ -43,8 +44,12 @@ const PluginSettingsPanelView: React.FC<PluginSettingsPanelViewProps> = ({
   renderPluginSettingsForm,
   t,
 }) => {
+  const isFloating = Boolean(useInspectorPages());
   return (
-    <div ref={setPanelElement} className={PANEL_ROOT_CLASS}>
+    <div
+      ref={setPanelElement}
+      className={`${PANEL_ROOT_CLASS}${isFloating ? ' en-inspector-panel' : ''}`}
+    >
       <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
         <div className="flex flex-col gap-[2px]">
           <span className="text-[#DBDEE8] text-style-2">
@@ -62,10 +67,20 @@ const PluginSettingsPanelView: React.FC<PluginSettingsPanelViewProps> = ({
           <SidebarToggleIcon isOpen={true} />
         </button>
       </div>
-      <div className="flex-1 properties-panel-overlay-scroll">
+      <div
+        className={
+          isFloating
+            ? 'en-inspector-body'
+            : 'flex-1 properties-panel-overlay-scroll'
+        }
+      >
         <div
-          ref={setPluginScrollRef}
-          className="properties-panel-overlay-viewport"
+          ref={isFloating ? undefined : setPluginScrollRef}
+          className={
+            isFloating
+              ? 'en-inspector-page'
+              : 'properties-panel-overlay-viewport'
+          }
         >
           <div className="p-[12px]">
             {renderPluginSettingsForm(
@@ -76,13 +91,15 @@ const PluginSettingsPanelView: React.FC<PluginSettingsPanelViewProps> = ({
               handlePluginSettingsPanelChange,
             )}
           </div>
-          <div className="properties-panel-overlay-bar">
-            <div
-              ref={setPluginThumbRef}
-              className="properties-panel-overlay-thumb"
-              style={{ display: 'none' }}
-            />
-          </div>
+          {!isFloating && (
+            <div className="properties-panel-overlay-bar">
+              <div
+                ref={setPluginThumbRef}
+                className="properties-panel-overlay-thumb"
+                style={{ display: 'none' }}
+              />
+            </div>
+          )}
         </div>
       </div>
       <div className="dmn-properties-panel__footer p-[12px]">

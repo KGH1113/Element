@@ -13,12 +13,7 @@ declare global {
     __dmn_current_plugin_id?: string;
     __dmn_current_locale?: string;
     __dmn_showAlert?: (message: string, confirmText?: string) => void;
-    __dmn_showConfirm?: (
-      message: string,
-      onConfirm: () => void,
-      onCancel?: () => void,
-      confirmText?: string,
-    ) => void;
+    __dmn_showConfirm?: import('@components/main/Modal/content/dialogs/confirm').ShowConfirm;
     __dmn_showCustomDialog?: (
       html: string,
       options?: {

@@ -1,0 +1,162 @@
+/*
+ * One line with the operating system's title bar. Its height never changes,
+ * whichever screen is showing. The macOS window buttons are centred for this
+ * height by `trafficLightPosition` in tauri.conf.json; on Windows the bar
+ * draws its own window buttons.
+ */
+:root {
+  --en-bar-height: 46px;
+}
+
+.en-titlebar {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: var(--en-bar-height);
+  min-height: var(--en-bar-height);
+  flex: none;
+  align-items: center;
+  color: var(--ui-fg-secondary);
+  -webkit-app-region: drag;
+  app-region: drag;
+}
+
+/* Room for the macOS window buttons at the left. */
+.en-titlebar[data-platform='mac'] {
+  /* The buttons end at 68px; the same clear room follows them as lies
+     between them and the bar's other edges. */
+  padding-left: 84px;
+}
+
+.en-titlebar-content {
+  display: flex;
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 14px 0 2px;
+}
+
+.en-titlebar[data-platform='other'] .en-titlebar-content {
+  padding-left: 8px;
+}
+
+.en-titlebar-name {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--ui-fg-muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  user-select: none;
+}
+
+.en-titlebar-name > * {
+  pointer-events: none;
+}
+
+.en-titlebar-controls {
+  display: flex;
+  height: 100%;
+  flex: none;
+}
+
+.en-titlebar-controls > button {
+  width: 46px;
+}
+
+/* Everything that can be pressed is taken out of the drag area. */
+.en-titlebar :where(button, label, [role='switch'], .en-titlebar-controls) {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+/* The app -------------------------------------------------------------------- */
+
+/* On the tabs' line, like everything else in the bar. */
+.en-topbar-app {
+  display: flex;
+  min-width: 0;
+  height: var(--en-tab-height, 40px);
+  flex: 0 1 auto;
+  align-items: center;
+  align-self: flex-end;
+  gap: 6px;
+}
+
+/*
+ * The game connection is something to read, not a button among buttons: the
+ * mark carries the state's colour and the words stay quiet until the state
+ * is one that needs attention.
+ */
+.en-topbar-app .key-limiter-status {
+  min-width: 30px;
+  height: 28px;
+  flex: 0 1 auto;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-control);
+  background: transparent;
+  font-size: var(--ui-type-caption-size);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.en-topbar-app .key-limiter-status:hover,
+.en-topbar-app .key-limiter-status:focus-visible {
+  background: var(--ui-fill-faint);
+}
+
+.en-topbar-app .key-limiter-status:active {
+  background: var(--ui-fill);
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-topbar-app .key-limiter-status__label {
+  color: var(--ui-fg-muted);
+  transition: color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-topbar-app .key-limiter-status:hover .key-limiter-status__label,
+.en-topbar-app .key-limiter-status--error .key-limiter-status__label {
+  color: inherit;
+}
+
+.en-topbar-button {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 0 10px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-fill-faint);
+  box-shadow: inset 0 0 0 1px var(--ui-line-subtle);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-topbar-button:hover {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-topbar-button:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-titlebar button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 1px;
+}

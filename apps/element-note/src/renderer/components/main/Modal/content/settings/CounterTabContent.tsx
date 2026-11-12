@@ -7,7 +7,11 @@ import React, {
 } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
 import Dropdown from '@components/main/common/Dropdown';
-import Checkbox from '@components/main/common/Checkbox';
+import {
+  FeatureSettings,
+  FeatureSwitch,
+  SettingsGroup,
+} from '@components/main/Grid/PropertiesPanel/FeatureSettings';
 import type {
   CounterTabState,
   CounterPreviewData,
@@ -82,7 +86,7 @@ const CounterTabContent = forwardRef<
       window.removeEventListener('resize', measure);
       if (ro) ro.disconnect();
     };
-  }, [state.align, alignDropdownWidth]);
+  }, [state.align, alignDropdownWidth, state.counterEnabled]);
 
   // 옵션들
   const placementOptions = [
@@ -269,154 +273,156 @@ const CounterTabContent = forwardRef<
   }, [state, setState, onPreview]);
 
   // 카운터 토글 핸들러
-  const handleCounterToggle = () => {
-    const newEnabled = !state.counterEnabled;
+  const handleCounterToggle = (newEnabled: boolean) => {
     setState((prev) => ({ ...prev, counterEnabled: newEnabled }));
     onPreview({ enabled: newEnabled });
   };
 
   return (
-    <div className="flex flex-col gap-[19px]">
-      {/* 배치 영역 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">
-          {t('counterSetting.placementArea')}
-        </p>
-        <Dropdown
-          options={placementOptions}
-          value={state.placement}
-          onChange={handlePlacementChange}
-        />
-      </div>
+    <div className="flex flex-col gap-3">
+      <FeatureSwitch
+        label={t('editorHelp.showcounts')}
+        checked={state.counterEnabled}
+        onChange={handleCounterToggle}
+      />
+      <FeatureSettings enabled={state.counterEnabled}>
+        <SettingsGroup id="counter-layout" title={t('editorHelp.position')}>
+          {/* 배치 영역 */}
+          <div className="flex justify-between w-full items-center">
+            <p className="text-white text-style-2">
+              {t('counterSetting.placementArea')}
+            </p>
+            <Dropdown
+              options={placementOptions}
+              value={state.placement}
+              onChange={handlePlacementChange}
+            />
+          </div>
 
-      {/* 정렬 방향 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">
-          {t('counterSetting.alignDirection')}
-        </p>
-        <div ref={alignDropdownWrapperRef}>
-          <Dropdown
-            options={alignOptions}
-            value={state.align}
-            onChange={handleAlignChange}
-          />
-        </div>
-      </div>
+          {/* 정렬 방향 */}
+          <div className="flex justify-between w-full items-center">
+            <p className="text-white text-style-2">
+              {t('counterSetting.alignDirection')}
+            </p>
+            <div ref={alignDropdownWrapperRef}>
+              <Dropdown
+                options={alignOptions}
+                value={state.align}
+                onChange={handleAlignChange}
+              />
+            </div>
+          </div>
 
-      {/* 정렬 방식 (내부 배치 전용) */}
-      {state.placement === 'inside' && (
-        <div className="flex justify-between w-full items-center">
-          <p className="text-white text-style-2">
-            {t('counterSetting.alignMode')}
-          </p>
-          <Dropdown
-            options={alignModeOptions}
-            value={state.alignMode}
-            onChange={handleAlignModeChange}
-          />
-        </div>
-      )}
+          {/* 정렬 방식 (내부 배치 전용) */}
+          {state.placement === 'inside' && (
+            <div className="flex justify-between w-full items-center">
+              <p className="text-white text-style-2">
+                {t('counterSetting.alignMode')}
+              </p>
+              <Dropdown
+                options={alignModeOptions}
+                value={state.alignMode}
+                onChange={handleAlignModeChange}
+              />
+            </div>
+          )}
 
-      {/* 간격 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">{t('counterSetting.gap')}</p>
-        <input
-          type="text"
-          value={state.displayGap}
-          onChange={handleGapChange}
-          onFocus={() =>
-            setState((prev) => ({
-              ...prev,
-              isGapFocused: true,
-              displayGap: String(prev.gap),
-            }))
-          }
-          onBlur={handleGapBlur}
-          className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
-          style={{
-            width: alignDropdownWidth ? `${alignDropdownWidth}px` : undefined,
-          }}
-        />
-      </div>
+          {/* 간격 */}
+          <div className="flex justify-between w-full items-center">
+            <p className="text-white text-style-2">{t('counterSetting.gap')}</p>
+            <input
+              type="text"
+              value={state.displayGap}
+              onChange={handleGapChange}
+              onFocus={() =>
+                setState((prev) => ({
+                  ...prev,
+                  isGapFocused: true,
+                  displayGap: String(prev.gap),
+                }))
+              }
+              onBlur={handleGapBlur}
+              className="text-center h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
+              style={{
+                width: alignDropdownWidth
+                  ? `${alignDropdownWidth}px`
+                  : undefined,
+              }}
+            />
+          </div>
+        </SettingsGroup>
+        <SettingsGroup id="counter-lettering" title={t('editorHelp.lettering')}>
+          {/* 채우기 */}
+          <div className="flex justify-between w-full items-center">
+            <p className="text-white text-style-2">
+              {t('counterSetting.fill')}
+            </p>
+            <div ref={fillGroupRef} className="flex items-center gap-[8px]">
+              <button
+                ref={fillIdleBtnRef}
+                type="button"
+                className={colorButtonClass(
+                  state.pickerOpen && state.pickerFor === 'fillIdle',
+                )}
+                onClick={() => handleColorToggle('fillIdle')}
+              >
+                {renderColorSquare({ backgroundColor: state.fillIdle })}
+                <span className="ml-[16px] text-left">
+                  {t('counterSetting.idle')}
+                </span>
+              </button>
+              <button
+                ref={fillActiveBtnRef}
+                type="button"
+                className={colorButtonClass(
+                  state.pickerOpen && state.pickerFor === 'fillActive',
+                )}
+                onClick={() => handleColorToggle('fillActive')}
+              >
+                {renderColorSquare({ backgroundColor: state.fillActive })}
+                <span className="ml-[16px] text-left">
+                  {t('counterSetting.active')}
+                </span>
+              </button>
+            </div>
+          </div>
 
-      {/* 채우기 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">{t('counterSetting.fill')}</p>
-        <div ref={fillGroupRef} className="flex items-center gap-[8px]">
-          <button
-            ref={fillIdleBtnRef}
-            type="button"
-            className={colorButtonClass(
-              state.pickerOpen && state.pickerFor === 'fillIdle',
-            )}
-            onClick={() => handleColorToggle('fillIdle')}
-          >
-            {renderColorSquare({ backgroundColor: state.fillIdle })}
-            <span className="ml-[16px] text-left">
-              {t('counterSetting.idle')}
-            </span>
-          </button>
-          <button
-            ref={fillActiveBtnRef}
-            type="button"
-            className={colorButtonClass(
-              state.pickerOpen && state.pickerFor === 'fillActive',
-            )}
-            onClick={() => handleColorToggle('fillActive')}
-          >
-            {renderColorSquare({ backgroundColor: state.fillActive })}
-            <span className="ml-[16px] text-left">
-              {t('counterSetting.active')}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* 외곽선 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">{t('counterSetting.stroke')}</p>
-        <div ref={strokeGroupRef} className="flex items-center gap-[8px]">
-          <button
-            ref={strokeIdleBtnRef}
-            type="button"
-            className={colorButtonClass(
-              state.pickerOpen && state.pickerFor === 'strokeIdle',
-            )}
-            onClick={() => handleColorToggle('strokeIdle')}
-          >
-            {renderColorSquare({ backgroundColor: state.strokeIdle })}
-            <span className="ml-[16px] text-left">
-              {t('counterSetting.idle')}
-            </span>
-          </button>
-          <button
-            ref={strokeActiveBtnRef}
-            type="button"
-            className={colorButtonClass(
-              state.pickerOpen && state.pickerFor === 'strokeActive',
-            )}
-            onClick={() => handleColorToggle('strokeActive')}
-          >
-            {renderColorSquare({ backgroundColor: state.strokeActive })}
-            <span className="ml-[16px] text-left">
-              {t('counterSetting.active')}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <div className="h-px w-full bg-[#2A2A30]" />
-
-      {/* 카운터 사용 */}
-      <div className="flex justify-between w-full items-center">
-        <p className="text-white text-style-2">
-          {t('counterSetting.counterEnabled')}
-        </p>
-        <Checkbox
-          checked={state.counterEnabled}
-          onChange={handleCounterToggle}
-        />
-      </div>
+          {/* 외곽선 */}
+          <div className="flex justify-between w-full items-center">
+            <p className="text-white text-style-2">
+              {t('counterSetting.stroke')}
+            </p>
+            <div ref={strokeGroupRef} className="flex items-center gap-[8px]">
+              <button
+                ref={strokeIdleBtnRef}
+                type="button"
+                className={colorButtonClass(
+                  state.pickerOpen && state.pickerFor === 'strokeIdle',
+                )}
+                onClick={() => handleColorToggle('strokeIdle')}
+              >
+                {renderColorSquare({ backgroundColor: state.strokeIdle })}
+                <span className="ml-[16px] text-left">
+                  {t('counterSetting.idle')}
+                </span>
+              </button>
+              <button
+                ref={strokeActiveBtnRef}
+                type="button"
+                className={colorButtonClass(
+                  state.pickerOpen && state.pickerFor === 'strokeActive',
+                )}
+                onClick={() => handleColorToggle('strokeActive')}
+              >
+                {renderColorSquare({ backgroundColor: state.strokeActive })}
+                <span className="ml-[16px] text-left">
+                  {t('counterSetting.active')}
+                </span>
+              </button>
+            </div>
+          </div>
+        </SettingsGroup>
+      </FeatureSettings>
     </div>
   );
 });

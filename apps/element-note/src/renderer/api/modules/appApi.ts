@@ -13,6 +13,7 @@ export const appApi = {
 export const windowApi = {
   type: window.__dmn_window_type as 'main' | 'overlay',
   minimize: () => invoke<void>('window_minimize'),
+  toggleMaximize: () => invoke<void>('window_toggle_maximize'),
   close: () => invoke<void>('window_close'),
   showMain: () => invoke<void>('window_show_main'),
   openDevtoolsAll: () => invoke<void>('window_open_devtools_all'),

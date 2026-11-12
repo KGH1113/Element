@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useSettingsStore } from '@stores/useSettingsStore';
+import { MIN_ELEMENT_SIZE } from '@hooks/Grid/constants';
 import {
   CursorType,
   getCursor,
@@ -31,12 +31,23 @@ interface Bounds {
   height: number;
 }
 
+/**
+ * Where the pointer puts the edges, before anything pulls them. Settling
+ * them (other elements, the grid) is done by the one who listens.
+ */
 interface ResizeResult {
   x: number;
   y: number;
   width: number;
   height: number;
   handle: HandleDef;
+  /** The box when the drag began. */
+  start: Bounds;
+  /** Shift: keep the shape the box had. */
+  keepAspect: boolean;
+  /** Alt: nothing pulls the edge. */
+  suspended: boolean;
+  zoom: number;
 }
 
 interface HandleProps {
@@ -84,7 +95,7 @@ const CORNER_HANDLE_SIZE = 10; // 꼭짓점 핸들의 시각적 크기 (픽셀)
 const EDGE_HANDLE_WIDTH = 8; // 상하좌우 핸들의 두께 (픽셀) - 꼭짓점과 비슷한 두께
 const EDGE_HANDLE_LENGTH = 18; // 상하좌우 핸들의 길이 (픽셀)
 const HANDLE_HIT_SIZE = 18; // 핸들의 클릭 가능 영역 크기 (픽셀) - 이 값을 조절하여 잡는 범위 변경
-const MIN_SIZE = 10; // 키의 최소 크기 (픽셀)
+const MIN_SIZE = MIN_ELEMENT_SIZE;
 // ================================
 
 const HANDLE_HIT_HALF = HANDLE_HIT_SIZE / 2;
@@ -265,107 +276,36 @@ const ResizeHandles = ({
       const rawDeltaX = (moveEvent.clientX - startMouseX) / zoom;
       const rawDeltaY = (moveEvent.clientY - startMouseY) / zoom;
 
-      // store에서 스냅 크기 가져오기
-      const snapSize =
-        useSettingsStore.getState().gridSettings?.gridSnapSize || 5;
+      // Only the side the pointer holds moves; the other one is the anchor.
+      let left = startBounds!.x;
+      let top = startBounds!.y;
+      let right = left + startBounds!.width;
+      let bottom = top + startBounds!.height;
 
-      const snap = (value: number): number =>
-        Math.round(value / snapSize) * snapSize;
-
-      // 새 bounds 계산 (스냅 전)
-      let nextWidth = startBounds!.width;
-      let nextHeight = startBounds!.height;
-
-      // 핸들 방향에 따라 크기 조정 (크기만 계산)
       if (handle!.dx === -1) {
-        nextWidth = Math.max(MIN_SIZE, startBounds!.width - rawDeltaX);
+        left = Math.min(left + rawDeltaX, right - MIN_SIZE);
       } else if (handle!.dx === 1) {
-        nextWidth = Math.max(MIN_SIZE, startBounds!.width + rawDeltaX);
+        right = Math.max(right + rawDeltaX, left + MIN_SIZE);
       }
-
       if (handle!.dy === -1) {
-        nextHeight = Math.max(MIN_SIZE, startBounds!.height - rawDeltaY);
+        top = Math.min(top + rawDeltaY, bottom - MIN_SIZE);
       } else if (handle!.dy === 1) {
-        nextHeight = Math.max(MIN_SIZE, startBounds!.height + rawDeltaY);
+        bottom = Math.max(bottom + rawDeltaY, top + MIN_SIZE);
       }
-
-      const keepAspect =
-        !!moveEvent.shiftKey &&
-        Number.isFinite(startAspectRatio) &&
-        startAspectRatio > 0 &&
-        Number.isFinite(startBounds!.width) &&
-        Number.isFinite(startBounds!.height) &&
-        startBounds!.width > 0 &&
-        startBounds!.height > 0;
-
-      let newWidth = nextWidth;
-      let newHeight = nextHeight;
-
-      if (keepAspect) {
-        const isCorner = handle!.dx !== 0 && handle!.dy !== 0;
-        const primary =
-          handle!.dx !== 0 && handle!.dy === 0
-            ? 'width'
-            : handle!.dy !== 0 && handle!.dx === 0
-              ? 'height'
-              : isCorner
-                ? (() => {
-                    const relW =
-                      Math.abs(newWidth - startBounds!.width) /
-                      startBounds!.width;
-                    const relH =
-                      Math.abs(newHeight - startBounds!.height) /
-                      startBounds!.height;
-                    return relW >= relH ? 'width' : 'height';
-                  })()
-                : 'width';
-
-        if (primary === 'width') {
-          newWidth = Math.max(MIN_SIZE, snap(newWidth));
-          const scale = newWidth / startBounds!.width;
-          newHeight = Math.max(MIN_SIZE, startBounds!.height * scale);
-        } else {
-          newHeight = Math.max(MIN_SIZE, snap(newHeight));
-          const scale = newHeight / startBounds!.height;
-          newWidth = Math.max(MIN_SIZE, startBounds!.width * scale);
-        }
-      } else {
-        newWidth = Math.max(MIN_SIZE, snap(newWidth));
-        newHeight = Math.max(MIN_SIZE, snap(newHeight));
-      }
-
-      // 위치 계산 (앵커 엣지 보존: 드래그하지 않은 쪽은 고정)
-      let newX = startBounds!.x;
-      let newY = startBounds!.y;
-
-      if (handle!.dx === -1) {
-        // 좌측 핸들: 우측 엣지가 앵커 — 위치 스냅 후 width를 앵커에서 역산
-        const rightAnchor = startBounds!.x + startBounds!.width;
-        newX = snap(rightAnchor - newWidth);
-        newWidth = rightAnchor - newX;
-      } else if (handle!.dx === 0) {
-        // 비례 유지 시 중앙 정렬 (스냅 없이 앵커 보존)
-        newX = startBounds!.x + (startBounds!.width - newWidth) / 2;
-      }
-      // dx === 1: newX = startBounds.x (좌측 앵커 유지)
-
-      if (handle!.dy === -1) {
-        // 상단 핸들: 하단 엣지가 앵커 — 위치 스냅 후 height를 앵커에서 역산
-        const bottomAnchor = startBounds!.y + startBounds!.height;
-        newY = snap(bottomAnchor - newHeight);
-        newHeight = bottomAnchor - newY;
-      } else if (handle!.dy === 0) {
-        // 비례 유지 시 중앙 정렬 (스냅 없이 앵커 보존)
-        newY = startBounds!.y + (startBounds!.height - newHeight) / 2;
-      }
-      // dy === 1: newY = startBounds.y (상단 앵커 유지)
 
       onResize?.({
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
         handle: handle!,
+        start: startBounds!,
+        keepAspect:
+          moveEvent.shiftKey &&
+          Number.isFinite(startAspectRatio) &&
+          startAspectRatio > 0,
+        suspended: moveEvent.altKey,
+        zoom,
       });
     };
 

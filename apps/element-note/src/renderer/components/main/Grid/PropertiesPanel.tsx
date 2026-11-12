@@ -1,10 +1,17 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+  useRef,
+  type ReactNode,
+} from 'react';
 import { useTranslation } from '@contexts/useTranslation';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
@@ -45,8 +52,6 @@ import {
   ColorInput,
   TextInput,
   SectionDivider,
-  SidebarToggleIcon,
-  LayerPanel,
   PluginSelectionPanel,
   SingleGraphPanel,
   SingleKnobPanel,
@@ -58,8 +63,46 @@ import {
   useBatchHandlers,
   usePanelScroll,
 } from './PropertiesPanel/index';
+import LayerTabContent from './PropertiesPanel/layer/LayerTabContent';
+import SpritePanel from './PropertiesPanel/single/SpritePanel';
+import {
+  KeyCaptureButton,
+  KnobAxisCapture,
+  NumberField,
+} from './PropertiesPanel/PartControls';
+import { spriteElementParts } from './PropertiesPanel/single/spriteElementParts';
+import { spriteKeyOptions } from './PropertiesPanel/single/spriteParts';
+import { editSprite } from '@src/renderer/editor/runtime/spritePositions';
+import { SPRITE_CONSTRAINTS } from '@src/types/key/sprites';
+import type { InspectorAction } from './PropertiesPanel/types';
+import ElementPages from '@components/main/Sidebar/ElementPages';
+import type {
+  ElementPart,
+  InlinePart,
+  PagePart,
+} from '@components/main/Sidebar/elementParts';
+import {
+  RowText,
+  SidebarPage,
+  type PageDirection,
+} from '@components/main/Sidebar/SidebarParts';
+import {
+  CountThumb,
+  FaceThumb,
+  GraphThumb,
+  KeyThumb,
+  KnobThumb,
+  NoteThumb,
+  TextThumb,
+} from '@components/main/Sidebar/PartThumbs';
+import { PART_ICONS } from '@components/main/Sidebar/sidebarIcons';
+import type { PreviewPart } from '@src/renderer/editor/runtime/partPreview';
+import { useSidebarStore } from '@components/main/Sidebar/sidebarStore';
+import { InspectorPageContext } from './PropertiesPanel/inspectorPageContext';
+import { GRAPH_COLORS, KEY_FACE_COLORS } from './PropertiesPanel/partDefaults';
 import Checkbox from '@components/main/common/Checkbox';
 import Dropdown from '@components/main/common/Dropdown';
+import Toggle from '@components/main/common/Toggle';
 import type { NoteColor } from '@src/types/key/keys';
 
 const getStatTypeLabel = (statType?: StatItemType | null): string => {
@@ -75,6 +118,53 @@ const getStatTypeLabel = (statType?: StatItemType | null): string => {
       return 'KPS';
   }
 };
+
+// Which settings content a page of a key (or stat) shows.
+const KEY_PART_ACTION: Record<string, InspectorAction> = {
+  sound: 'input',
+  layout: 'layout',
+  shape: 'style',
+  text: 'style',
+  note: 'note',
+  counter: 'counter',
+};
+
+/** The page of a key's second face; the pages of that face open from it. */
+const GHOST_PART = 'ghost';
+
+const STAT_TYPES: StatItemType[] = ['kps', 'kpsAvg', 'kpsMax', 'total'];
+
+const actionTab = (action: InspectorAction | undefined): TabType =>
+  action === 'input'
+    ? TABS.INPUT
+    : action === 'note'
+      ? TABS.NOTE
+      : action === 'counter'
+        ? TABS.COUNTER
+        : TABS.STYLE;
+
+/** What the sidebar shows for the selection; each kind has its own parts. */
+type SelectionKind =
+  | 'none'
+  | 'batchKeyLike'
+  | 'batchKnob'
+  | 'batchGraph'
+  | 'plugin'
+  | 'knob'
+  | 'sprite'
+  | 'graph'
+  | 'key'
+  | 'stat'
+  | 'unsupported';
+
+export interface ElementListSlots {
+  direction: PageDirection;
+  /** The elements of the open tab. */
+  list: ReactNode;
+  /** How many are picked in the list without being opened yet. */
+  selectionCount: number;
+  onOpenSelection: () => void;
+}
 
 // ============================================================================
 // 메인 컴포넌트 Props
@@ -92,6 +182,8 @@ interface PropertiesPanelProps {
     updates: Array<{ index: number } & Partial<KeyPosition>>,
   ) => void;
   onKeyMappingChange?: (index: number, newKey: string) => void;
+  /** The first page of the sidebar, shown while no element is opened. */
+  renderElementList: (slots: ElementListSlots) => ReactNode;
 }
 
 // ============================================================================
@@ -105,6 +197,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   onKeyPreview,
   onKeyBatchPreview,
   onKeyMappingChange,
+  renderElementList,
 }) => {
   const { t, i18n } = useTranslation();
   const selectedElements = useGridSelectionStore(
@@ -132,15 +225,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const closePluginSettingsPanel = usePropertiesPanelStore(
     (state) => state.closePluginSettingsPanel,
   );
-  const isPanelVisible = usePropertiesPanelStore(
-    (state) => state.isCanvasPanelOpen,
-  );
-  const setIsPanelVisible = usePropertiesPanelStore(
-    (state) => state.setCanvasPanelOpen,
-  );
-  const canvasPanelToggleSignal = usePropertiesPanelStore(
-    (state) => state.canvasPanelToggleSignal,
-  );
+  const requestDelete = useSidebarStore((state) => state.requestDelete);
   const locale = i18n.language;
 
   // 선택된 키 요소 필터링
@@ -155,6 +240,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   );
   const selectedKnobElements = selectedElements.filter(
     (el) => el.type === 'knob',
+  );
+  const selectedSpriteElements = selectedElements.filter(
+    (el) => el.type === 'sprite',
   );
   const selectedKeyLikeElements = selectedElements.filter(
     (el) => el.type === 'key' || el.type === 'stat',
@@ -236,6 +324,21 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     singleKnobIndex != null
       ? (knobItemPositions[selectedKeyType]?.[singleKnobIndex] ?? null)
       : null;
+  const spritePositions = useSpriteStore((state) => state.positions);
+  // One image and nothing else: its page. Images picked with anything else
+  // are moved and resized on the canvas; they have no shared page.
+  const singleSpriteIndex =
+    selectedElements.length === 1 && selectedSpriteElements.length === 1
+      ? selectedSpriteElements[0].index
+      : null;
+  const singleSpritePosition =
+    singleSpriteIndex != null
+      ? (spritePositions[selectedKeyType]?.[singleSpriteIndex] ?? null)
+      : null;
+  const spriteDefaultTitle =
+    singleSpriteIndex != null
+      ? `${t('sidebar.addSprite')} ${singleSpriteIndex + 1}`
+      : '';
   const allLayerGroups = useLayerGroupStore((state) => state.layerGroups);
   const layerGroupsForMode = allLayerGroups[selectedKeyType] || [];
   const selectedGroupInfo = (() => {
@@ -309,13 +412,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   >({});
 
   // 레이어 이름 변경 상태
-  const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
   const renameCancelledRef = useRef(false);
-  const renameRequestSignal = usePropertiesPanelStore(
-    (state) => state.renameRequestSignal,
-  );
 
   // 키 리스닝 상태
   const [isListening, setIsListening] = useState(false);
@@ -362,81 +461,43 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const batchNoteColorButtonRef = useRef<HTMLButtonElement>(null);
   const batchGlowColorButtonRef = useRef<HTMLButtonElement>(null);
   const batchBorderColorButtonRef = useRef<HTMLButtonElement>(null);
-  const batchCounterFillButtonRef = useRef<HTMLButtonElement>(null);
-  const batchCounterStrokeButtonRef = useRef<HTMLButtonElement>(null);
+  const batchCounterFillButtonRef = useRef<HTMLDivElement>(null);
+  const batchCounterStrokeButtonRef = useRef<HTMLDivElement>(null);
 
   // 패널 ref (컬러픽커/이미지픽커 위치 기준)
   const [panelElement, setPanelElement] = useState<HTMLDivElement | null>(null);
 
-  // 패널 모드 상태 (layer: 레이어 패널, property: 속성 패널)
-  const [panelMode, setPanelMode] = useState<'layer' | 'property'>('property');
-
-  // panelMode를 ref로도 유지 (useEffect에서 최신 값 참조용)
-  const panelModeRef = useRef(panelMode);
-  panelModeRef.current = panelMode;
-
-  // 이전 선택 상태 추적 (선택 해제 감지용)
-  const prevHasSelectionRef = useRef(false);
-
-  // 레이어 패널 내부에서 선택이 발생했는지 추적 (모드 전환 방지용)
+  // What the sidebar shows: the element list, or the selected element.
+  const [view, setView] = useState<'list' | 'element'>(() =>
+    useGridSelectionStore.getState().selectedElements.length > 0
+      ? 'element'
+      : 'list',
+  );
+  // The way the last page change went, for the page's entry motion.
+  const [direction, setDirection] = useState<PageDirection>('none');
+  // The open pages of the element, from its own page down: empty on the
+  // element's page. It stays while the selection changes, so the same page
+  // can be set on one element after another.
+  const [partPath, setPartPath] = useState<string[]>([]);
+  const activePart = partPath[partPath.length - 1] ?? null;
+  // Which face of a key is edited: the key itself or its ghost.
+  const binding: 'default' | 'ghost' =
+    partPath[0] === GHOST_PART ? 'ghost' : 'default';
+  // A selection made in the element list keeps the list in view.
   const selectionFromLayerPanelRef = useRef(false);
 
-  // 이전 키 타입 추적 (탭 전환 감지용)
-  const prevKeyTypeRef = useRef(selectedKeyType);
-
-  // 탭 전환으로 인한 선택 해제인지 추적
-  const keyTypeChangedRef = useRef(false);
-
-  // 사용자가 명시적으로 패널을 닫았는지 추적
-  const manuallyClosedRef = useRef(false);
-
-  // selectedKeyType 변경 감지 (clearSelection보다 먼저 플래그 설정)
-  useEffect(() => {
-    if (prevKeyTypeRef.current !== selectedKeyType) {
-      keyTypeChangedRef.current = true;
-      prevKeyTypeRef.current = selectedKeyType;
-    }
-  }, [selectedKeyType]);
-
-  // 탭 상태
-  const [activeTab, setActiveTab] = useState<TabType>(TABS.STYLE);
-
-  // 통계 요소 선택 시 NOTE 탭 숨김 처리
-  useEffect(() => {
-    if (
-      selectedKeyLikeElements.length === 0 ||
-      selectedPluginElements.length > 0
-    ) {
-      return;
-    }
-    const shouldHideNote =
-      selectedStatElements.length > 0 && selectedKeyElements.length === 0;
-    if (shouldHideNote && activeTab === TABS.NOTE) {
-      setActiveTab(TABS.STYLE);
-    }
-  }, [
-    activeTab,
-    selectedKeyLikeElements.length,
-    selectedPluginElements.length,
-    selectedStatElements.length,
-    selectedKeyElements.length,
-  ]);
-
-  // 그래프만 선택된 상태에서는 STYLE 탭만 사용
-  useEffect(() => {
-    const graphOnlySelection =
-      selectedGraphElements.length > 0 &&
-      selectedKeyLikeElements.length === 0 &&
-      selectedPluginElements.length === 0;
-    if (graphOnlySelection && activeTab !== TABS.STYLE) {
-      setActiveTab(TABS.STYLE);
-    }
-  }, [
-    activeTab,
-    selectedGraphElements.length,
-    selectedKeyLikeElements.length,
-    selectedPluginElements.length,
-  ]);
+  const focusedAction: InspectorAction | undefined = activePart
+    ? KEY_PART_ACTION[activePart]
+    : undefined;
+  const activeTab = actionTab(focusedAction);
+  const setActiveTab = (_tab: TabType) => {};
+  const selectionIdentity =
+    selectedKeyType +
+    ':' +
+    selectedElements
+      .map((item) => `${item.type}:${item.id}`)
+      .sort()
+      .join(',');
 
   // 레이어 이름 변경: 현재 선택된 요소의 layerName 가져오기
   const getCurrentLayerName = (): string => {
@@ -445,6 +506,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     if (singleStatPosition) return singleStatPosition.layerName || '';
     if (singleGraphPosition) return singleGraphPosition.layerName || '';
     if (singleKnobPosition) return singleKnobPosition.layerName || '';
+    if (singleSpritePosition) return singleSpritePosition.layerName || '';
     return '';
   };
 
@@ -461,6 +523,7 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
       return `${getStatTypeLabel(singleGraphPosition.statType ?? null)} Graph`;
     }
     if (singleKnobPosition) return 'Knob';
+    if (singleSpritePosition) return spriteDefaultTitle;
     return '';
   };
 
@@ -509,7 +572,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   handleRenameStartImpl.current = () => {
     const current = getCurrentLayerName();
     setRenameValue(current || getCurrentDefaultTitle());
-    setIsRenaming(true);
     requestAnimationFrame(() => {
       renameInputRef.current?.focus();
       renameInputRef.current?.select();
@@ -521,8 +583,6 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
 
   // 레이어 이름 변경 커밋
   const handleRenameCommit = async (value: string) => {
-    setIsRenaming(false);
-
     if (selectedGroupInfo) {
       await handleGroupRenameCommit(selectedGroupInfo.id, value);
       return;
@@ -592,44 +652,18 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
           useKnobItemStore.getState().setLocalUpdateInProgress(false);
         }
       }
+    } else if (singleSpritePosition) {
+      editSprite(selectedKeyType, singleSpritePosition.id, (sprite) => ({
+        ...sprite,
+        layerName: newLayerName,
+      }));
     }
   };
 
   // 레이어 이름 변경 취소
   const handleRenameCancel = () => {
     renameCancelledRef.current = true;
-    setIsRenaming(false);
   };
-
-  // 캔버스 컨텍스트 메뉴에서 rename 요청 시 트리거
-  const prevRenameSignalRef = useRef(renameRequestSignal);
-  useEffect(() => {
-    if (renameRequestSignal !== prevRenameSignalRef.current) {
-      prevRenameSignalRef.current = renameRequestSignal;
-      if (
-        selectedGroupInfo ||
-        singleKeyPosition ||
-        singleStatPosition ||
-        singleGraphPosition ||
-        singleKnobPosition
-      ) {
-        setPanelMode('property');
-        handleRenameStart();
-      }
-    }
-  }, [
-    renameRequestSignal,
-    selectedGroupInfo,
-    singleKeyPosition,
-    singleStatPosition,
-    singleGraphPosition,
-    singleKnobPosition,
-  ]);
-
-  // 선택이 변경되면 rename 모드 해제
-  useEffect(() => {
-    setIsRenaming(false);
-  }, [selectedElements]);
 
   // 스크롤 훅 사용
   const {
@@ -700,6 +734,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   type BatchPickerTarget =
     'noteColor' | 'glowColor' | 'borderColor' | 'fill' | 'stroke' | null;
   const [batchPickerFor, setBatchPickerFor] = useState<BatchPickerTarget>(null);
+  const closeTransientEditors = useCallback(() => {
+    setShowImagePicker(false);
+    setShowBatchImagePicker(false);
+    setShowGraphImagePicker(false);
+    setBatchPickerFor(null);
+    setIsListening(false);
+  }, []);
   const [batchCounterColorState, setBatchCounterColorState] = useState<
     'idle' | 'active'
   >('idle');
@@ -762,77 +803,36 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     pluginTransformHistoryRef.current = null;
   }, [selectedPluginElement?.fullId]);
 
-  // 선택된 키가 변경될 때 패널 열기/닫기
+  // The sidebar follows the selection: choosing something on the canvas opens
+  // its page, and clearing the selection returns to the list. Picking several
+  // in the list itself stays on the list until they are opened.
+  const previousPanelSelectionRef = useRef(selectionIdentity);
   useEffect(() => {
-    const hasSelection =
-      selectedKeyElements.length > 0 || selectedElements.length > 0;
-    const hadSelection = prevHasSelectionRef.current;
+    if (previousPanelSelectionRef.current === selectionIdentity) return;
+    previousPanelSelectionRef.current = selectionIdentity;
 
-    const skipFromKeyboard =
-      useGridSelectionStore.getState()._skipPanelModeSwitch;
-
-    if (pluginSettingsPanel) {
-      prevHasSelectionRef.current = hasSelection;
-      if (skipFromKeyboard)
-        useGridSelectionStore.getState().setSkipPanelModeSwitch(false);
-      return;
-    }
-
-    if (hasSelection) {
-      if (!hadSelection) {
-        manuallyClosedRef.current = false;
-        if (!isPanelVisible) {
-          setPanelMode('property');
-          setIsPanelVisible(true);
-        } else if (
-          panelModeRef.current === 'layer' &&
-          !selectionFromLayerPanelRef.current &&
-          !skipFromKeyboard
-        ) {
-          setPanelMode('property');
-        }
-      } else if (!isPanelVisible && !manuallyClosedRef.current) {
-        setPanelMode('property');
-        setIsPanelVisible(true);
-      } else if (
-        panelModeRef.current === 'layer' &&
-        !selectionFromLayerPanelRef.current &&
-        !skipFromKeyboard &&
-        isPanelVisible
-      ) {
-        setPanelMode('property');
-      }
-    } else if (hadSelection) {
-      if (keyTypeChangedRef.current && isPanelVisible) {
-        setPanelMode('layer');
-      } else if (
-        isPanelVisible &&
-        (selectionFromLayerPanelRef.current || panelModeRef.current === 'layer')
-      ) {
-        setPanelMode('layer');
-      } else if (!manuallyClosedRef.current) {
-        setIsPanelVisible(false);
-      }
-    }
-
-    prevHasSelectionRef.current = hasSelection;
+    const selectionStore = useGridSelectionStore.getState();
+    const fromList =
+      selectionFromLayerPanelRef.current || selectionStore._skipPanelModeSwitch;
     selectionFromLayerPanelRef.current = false;
-    keyTypeChangedRef.current = false;
-    if (skipFromKeyboard)
-      useGridSelectionStore.getState().setSkipPanelModeSwitch(false);
+    if (selectionStore._skipPanelModeSwitch) {
+      selectionStore.setSkipPanelModeSwitch(false);
+    }
 
-    setShowImagePicker(false);
-    setShowGraphImagePicker(false);
-    setShowBatchImagePicker(false);
-    setIsListening(false);
-  }, [
-    singleKeyIndex,
-    selectedKeyElements.length,
-    selectedElements,
-    isPanelVisible,
-    pluginSettingsPanel,
-    setIsPanelVisible,
-  ]);
+    closeTransientEditors();
+    // Another element opens on its own face, not on its ghost.
+    setPartPath((path) => (path[0] === GHOST_PART ? path.slice(1) : path));
+
+    if (selectedElements.length === 0) {
+      if (view === 'element') {
+        setDirection('back');
+        setView('list');
+      }
+    } else if (!fromList && view !== 'element') {
+      setDirection('forward');
+      setView('element');
+    }
+  }, [selectionIdentity, selectedElements.length, view, closeTransientEditors]);
 
   // 언마운트 시 키보드 플래그 오염 방지
   useEffect(() => {
@@ -841,72 +841,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     };
   }, []);
 
-  // 다중 선택 시 패널 자동 열기
   useEffect(() => {
-    if (
-      selectedBatchStyleElements.length > 1 &&
-      !isPanelVisible &&
-      !manuallyClosedRef.current
-    ) {
-      setPanelMode('property');
-      setIsPanelVisible(true);
-    }
-  }, [selectedBatchStyleElements.length, isPanelVisible, setIsPanelVisible]);
-
-  useEffect(() => {
-    if (pluginSettingsPanel) {
-      manuallyClosedRef.current = false;
-      setPanelMode('property');
-      setIsPanelVisible(true);
-    }
-  }, [pluginSettingsPanel, setIsPanelVisible]);
-
-  // 레이어 패널이 열려있고 선택이 없는 상태에서 그리드 빈 공간 클릭 시 패널 닫기
-  useEffect(() => {
-    const hasSelection =
-      selectedKeyElements.length > 0 || selectedElements.length > 0;
-    if (panelMode !== 'layer' || !isPanelVisible || hasSelection) {
-      return undefined;
-    }
-
-    const handleGridClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-
-      const gridContainer = target.closest('[data-grid-container]');
-      if (!gridContainer) {
-        return;
-      }
-
-      if (
-        target.closest('[class*="properties-panel"]') ||
-        target.closest('[class*="PropertiesPanel"]') ||
-        target.closest('.absolute.right-0.top-0.bottom-0')
-      ) {
-        return;
-      }
-
-      if (
-        target.closest('[data-key-element]') ||
-        target.closest('[data-plugin-element]')
-      ) {
-        return;
-      }
-
-      setIsPanelVisible(false);
-    };
-
-    document.addEventListener('mousedown', handleGridClick);
-    return () => {
-      document.removeEventListener('mousedown', handleGridClick);
-    };
-  }, [
-    isPanelVisible,
-    selectedKeyElements.length,
-    selectedKeyLikeElements.length,
-    selectedElements.length,
-    panelMode,
-    setIsPanelVisible,
-  ]);
+    if (pluginSettingsPanel) closeTransientEditors();
+  }, [pluginSettingsPanel, closeTransientEditors]);
 
   // 키 리스닝 상태를 전역으로 노출
   useEffect(() => {
@@ -1028,32 +965,45 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   // 핸들러
   // ============================================================================
 
-  const handleTogglePanelImpl = useRef<() => void>(() => {});
-  handleTogglePanelImpl.current = () => {
-    const willOpen = !isPanelVisible;
-
-    if (willOpen) {
-      manuallyClosedRef.current = false;
-      setIsPanelVisible(true);
-      const hasSelection = selectedElements.length > 0;
-      if (!hasSelection) {
-        setPanelMode('layer');
-      }
-    } else {
-      manuallyClosedRef.current = true;
-      setIsPanelVisible(false);
-      setShowImagePicker(false);
-      setShowGraphImagePicker(false);
-      setShowBatchImagePicker(false);
-    }
-  };
-  const handleTogglePanel = () => {
-    handleTogglePanelImpl.current();
+  /** A row opens its page; a back button returns to the page before it. */
+  const openPath = (path: string[], back: boolean) => {
+    closeTransientEditors();
+    setDirection(back ? 'back' : 'forward');
+    setPartPath(path);
   };
 
-  const handleToggleMode = () => {
-    setPanelMode((prev) => (prev === 'layer' ? 'property' : 'layer'));
+  /**
+   * A page opened from inside a page (a pose, from the list of poses) returns
+   * to it; naming a page that is already open goes back to it.
+   */
+  const openPartFromPart = (part: string) => {
+    const at = partPath.indexOf(part);
+    openPath(
+      at >= 0 ? partPath.slice(0, at + 1) : [...partPath, part],
+      at >= 0,
+    );
   };
+
+  /** Opens the page of what is selected. */
+  const openSelection = () => {
+    if (useGridSelectionStore.getState().selectedElements.length === 0) return;
+    closeTransientEditors();
+    setDirection('forward');
+    setView('element');
+  };
+
+  /** Returns to the element list; the canvas no longer has a selection. */
+  const backToList = () => {
+    closeTransientEditors();
+    useGridSelectionStore.getState().clearSelection();
+    setDirection('back');
+    setView('list');
+  };
+
+  // The panels below still take these; their own header that used them is
+  // replaced by the sidebar's page head.
+  const handleTogglePanel = () => {};
+  const handleToggleMode = () => {};
 
   const pluginDefaultSettings = (() => {
     const defaults: Record<string, unknown> = {};
@@ -1178,49 +1128,43 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   };
 
   const handlePluginSettingsPanelConfirm = async () => {
-    if (!pluginSettingsPanel) return;
+    const panel = pluginSettingsPanel;
+    if (!panel) return;
     try {
-      await pluginSettingsPanel.onConfirm(
-        pluginPanelSettings,
-        pluginSettingsPanel.originalSettings,
-      );
-      pluginSettingsPanel.resolve(true);
+      await panel.onConfirm(pluginPanelSettings, panel.originalSettings);
+      if (usePropertiesPanelStore.getState().pluginSettingsPanel === panel) {
+        panel.resolve(true);
+      }
     } catch (error) {
       console.error('[Plugin Settings] Failed to apply settings:', error);
-      pluginSettingsPanel.resolve(false);
+      if (usePropertiesPanelStore.getState().pluginSettingsPanel === panel) {
+        panel.resolve(false);
+      }
     } finally {
-      closePluginSettingsPanel();
+      if (usePropertiesPanelStore.getState().pluginSettingsPanel === panel) {
+        closePluginSettingsPanel();
+        closeTransientEditors();
+      }
     }
   };
 
   const handlePluginSettingsPanelCancelImpl = useRef<() => void>(() => {});
   handlePluginSettingsPanelCancelImpl.current = () => {
-    if (!pluginSettingsPanel) return;
+    const panel = usePropertiesPanelStore.getState().pluginSettingsPanel;
+    if (!panel) return;
+    closePluginSettingsPanel();
+    closeTransientEditors();
     try {
-      pluginSettingsPanel.onCancel(pluginSettingsPanel.originalSettings);
+      panel.onCancel(panel.originalSettings);
     } catch (error) {
       console.error('[Plugin Settings] Failed to cancel settings:', error);
     } finally {
-      pluginSettingsPanel.resolve(false);
-      closePluginSettingsPanel();
+      panel.resolve(false);
     }
   };
   const handlePluginSettingsPanelCancel = () => {
     handlePluginSettingsPanelCancelImpl.current();
   };
-
-  // 외부(단축키 등)에서 보낸 사이드 패널 토글 요청 처리
-  const prevToggleSignalRef = useRef<number>(canvasPanelToggleSignal);
-  useEffect(() => {
-    if (prevToggleSignalRef.current === canvasPanelToggleSignal) return;
-    prevToggleSignalRef.current = canvasPanelToggleSignal;
-
-    if (pluginSettingsPanel) {
-      handlePluginSettingsPanelCancel();
-      return;
-    }
-    handleTogglePanel();
-  });
 
   const handleKeyListen = () => {
     if (justAssignedRef.current) return;
@@ -2316,9 +2260,9 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         return (
           <div
             key={key}
-            className="flex justify-between items-center w-full h-[23px]"
+            className="dmn-property-row flex min-h-[32px] w-full items-center justify-between"
           >
-            <p className="text-white text-style-2">{labelText}</p>
+            <p className="dmn-property-row__label">{labelText}</p>
             <div className="flex items-center gap-[10.5px]">{control}</div>
           </div>
         );
@@ -2332,12 +2276,13 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     });
 
     const filtered = rows.filter(Boolean);
+    const fields = <>{filtered}</>;
 
     if (!wrap) {
-      return <>{filtered}</>;
+      return fields;
     }
 
-    return <div className="flex flex-col gap-[12px]">{filtered}</div>;
+    return <div className="flex flex-col gap-[12px]">{fields}</div>;
   };
 
   // 배치 편집용 interactiveRefs
@@ -2615,84 +2560,365 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   // 렌더링
   // ============================================================================
 
-  // 패널이 닫혀있을 때는 토글 버튼만 표시
-  if (!isPanelVisible && !pluginSettingsPanel) {
-    return (
-      <div className="absolute right-0 top-0 z-30">
-        <button
-          onClick={handleTogglePanel}
-          className="m-[8px] w-[32px] h-[32px] rounded-[8px] bg-ui-glass-dim shadow-ui-chrome text-ui-fg-muted hover:text-ui-fg-primary flex items-center justify-center transition-colors"
-          title={t('propertiesPanel.openPanel') || '속성 패널 열기'}
-        >
-          <SidebarToggleIcon isOpen={false} />
-        </button>
-      </div>
-    );
-  }
+  const selectionKind: SelectionKind = (() => {
+    if (selectedElements.length === 0) return 'none';
+    if (selectedSpriteElements.length > 0) {
+      return singleSpritePosition ? 'sprite' : 'unsupported';
+    }
+    const noPlugin = selectedPluginElements.length === 0;
+    const noKeyLike = selectedKeyLikeElements.length === 0;
+    const noGraph = selectedGraphElements.length === 0;
+    const noKnob = selectedKnobElements.length === 0;
+    if (
+      selectedBatchStyleElements.length > 1 &&
+      noPlugin &&
+      (!noKeyLike || (!noGraph && !noKnob))
+    ) {
+      return 'batchKeyLike';
+    }
+    if (selectedKnobElements.length > 1 && noKeyLike && noGraph && noPlugin) {
+      return 'batchKnob';
+    }
+    if (selectedGraphElements.length > 1 && noKeyLike && noKnob && noPlugin) {
+      return 'batchGraph';
+    }
+    if (!noPlugin && noKeyLike && noGraph) return 'plugin';
+    if (
+      selectedKnobElements.length === 1 &&
+      !!singleKnobPosition &&
+      noKeyLike &&
+      noGraph &&
+      noPlugin
+    ) {
+      return 'knob';
+    }
+    if (
+      selectedGraphElements.length === 1 &&
+      !!singleGraphPosition &&
+      noKeyLike &&
+      noPlugin
+    ) {
+      return 'graph';
+    }
+    if (singleKeyPosition) return 'key';
+    if (singleStatPosition) return 'stat';
+    return 'unsupported';
+  })();
 
-  if (pluginSettingsPanel) {
+  /** The settings of the open part, for the selected kind of element. */
+  const renderPanel = () => {
+    // 다중 선택인 경우 (키/통계 포함, 또는 그래프+노브 혼합)
+    if (selectionKind === 'batchKeyLike') {
+      return (
+        <BatchKeyLikePanel
+          inspectorAction={focusedAction ?? 'style'}
+          setPanelElement={setPanelElement}
+          selectedBatchStyleElements={selectedBatchStyleElements}
+          selectedKeyElements={selectedKeyElements}
+          selectedStatElements={selectedStatElements}
+          selectedGraphElements={selectedGraphElements}
+          selectedKeyLikeElements={selectedKeyLikeElements}
+          selectedGroupInfo={selectedGroupInfo}
+          isRenaming={false}
+          renameInputRef={renameInputRef}
+          renameValue={renameValue}
+          setRenameValue={setRenameValue}
+          renameCancelledRef={renameCancelledRef}
+          handleRenameCommit={handleRenameCommit}
+          handleRenameCancel={handleRenameCancel}
+          handleRenameStart={handleRenameStart}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          handleBatchAlign={handleBatchAlign}
+          handleBatchDistribute={handleBatchDistribute}
+          handleBatchSpacing={handleBatchSpacing}
+          handleBatchSpacingPreview={handleBatchSpacingPreview}
+          handleBatchSpacingCommit={handleBatchSpacingCommit}
+          getBatchSpacingValue={getBatchSpacingValue}
+          handleBatchResize={handleBatchResize}
+          handleBatchStyleChange={handleBatchStyleChange}
+          handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
+          handleKeyOnlyStyleChangeComplete={handleKeyOnlyStyleChangeComplete}
+          handleBatchCounterUpdate={handleBatchCounterUpdate}
+          handleBatchNoteColorChange={handleBatchNoteColorChange}
+          handleBatchNoteColorChangeComplete={
+            handleBatchNoteColorChangeComplete
+          }
+          handleBatchGlowColorChange={handleBatchGlowColorChange}
+          handleBatchGlowColorChangeComplete={
+            handleBatchGlowColorChangeComplete
+          }
+          handleGraphBatchSharedSetting={handleGraphBatchSharedSetting}
+          getMixedValue={getMixedValue}
+          getMixedValueBatch={getMixedValueBatch}
+          getMixedValueGraphs={getMixedValueGraphs}
+          getMixedValueGraphsAsKey={getMixedValueGraphsAsKey}
+          getMixedValueKeysOnly={getMixedValueKeysOnly}
+          getSelectedKeysData={getSelectedKeysData}
+          getSelectedGraphsData={getSelectedGraphsData}
+          getSelectedBatchStyleData={getSelectedBatchStyleData}
+          getSelectedKeyOnlyPositions={getSelectedKeyOnlyPositions}
+          handleBatchKeyOnlyStyleChangeComplete={
+            handleBatchKeyOnlyStyleChangeComplete
+          }
+          handleBatchNoteColorChangeKeysOnly={
+            handleBatchNoteColorChangeKeysOnly
+          }
+          handleBatchNoteColorChangeCompleteKeysOnly={
+            handleBatchNoteColorChangeCompleteKeysOnly
+          }
+          handleBatchGlowColorChangeKeysOnly={
+            handleBatchGlowColorChangeKeysOnly
+          }
+          handleBatchGlowColorChangeCompleteKeysOnly={
+            handleBatchGlowColorChangeCompleteKeysOnly
+          }
+          batchScrollRefFor={batchScrollRefFor}
+          batchThumbRefFor={batchThumbRefFor}
+          batchNoteColorButtonRef={batchNoteColorButtonRef}
+          batchGlowColorButtonRef={batchGlowColorButtonRef}
+          batchBorderColorButtonRef={batchBorderColorButtonRef}
+          batchCounterFillButtonRef={batchCounterFillButtonRef}
+          batchCounterStrokeButtonRef={batchCounterStrokeButtonRef}
+          batchImageButtonRef={batchImageButtonRef}
+          showBatchImagePicker={showBatchImagePicker}
+          setShowBatchImagePicker={setShowBatchImagePicker}
+          batchPickerFor={batchPickerFor}
+          setBatchPickerFor={setBatchPickerFor}
+          batchCounterColorState={batchCounterColorState}
+          setBatchCounterColorState={setBatchCounterColorState}
+          batchLocalColors={batchLocalColors}
+          setBatchLocalColors={setBatchLocalColors}
+          batchLocalOpacities={batchLocalOpacities}
+          setBatchLocalOpacities={setBatchLocalOpacities}
+          handleBatchPickerToggle={handleBatchPickerToggle}
+          handleBatchPickerColorChange={handleBatchPickerColorChange}
+          handleBatchPickerColorChangeComplete={
+            handleBatchPickerColorChangeComplete
+          }
+          getBatchPickerColor={getBatchPickerColor}
+          getBatchPickerRef={getBatchPickerRef}
+          batchColorPickerInteractiveRefs={batchColorPickerInteractiveRefs}
+          panelElement={null}
+          useCustomCSS={useCustomCSS}
+          selectedKeyType={selectedKeyType}
+          t={t}
+        />
+      );
+    }
+
+    // 다중 선택인 경우 (노브 요소만)
+    if (selectionKind === 'batchKnob') {
+      return (
+        <BatchKnobOnlyPanel
+          setPanelElement={setPanelElement}
+          selectedKnobElements={selectedKnobElements}
+          selectedGroupInfo={selectedGroupInfo}
+          isRenaming={false}
+          renameInputRef={renameInputRef}
+          renameValue={renameValue}
+          setRenameValue={setRenameValue}
+          renameCancelledRef={renameCancelledRef}
+          handleRenameCommit={handleRenameCommit}
+          handleRenameCancel={handleRenameCancel}
+          handleRenameStart={handleRenameStart}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          handleBatchAlign={handleBatchAlign}
+          handleBatchDistribute={handleBatchDistribute}
+          handleBatchSpacing={handleBatchSpacing}
+          handleBatchSpacingPreview={handleBatchSpacingPreview}
+          handleBatchSpacingCommit={handleBatchSpacingCommit}
+          getBatchSpacingValue={getBatchSpacingValue}
+          handleBatchResize={handleBatchResize}
+          handleBatchStyleChange={handleBatchStyleChange}
+          handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
+          handleKnobBatchSharedSetting={handleKnobBatchSharedSetting}
+          getMixedValueKnobs={getMixedValueKnobs}
+          getMixedValueKnobsAsKey={getMixedValueKnobsAsKey}
+          getSelectedKnobsData={getSelectedKnobsData}
+          batchScrollRefFor={batchScrollRefFor}
+          batchThumbRefFor={batchThumbRefFor}
+          batchImageButtonRef={batchImageButtonRef}
+          showBatchImagePicker={showBatchImagePicker}
+          setShowBatchImagePicker={setShowBatchImagePicker}
+          panelElement={null}
+          useCustomCSS={useCustomCSS}
+          selectedKeyType={selectedKeyType}
+          t={t}
+        />
+      );
+    }
+
+    // 다중 선택인 경우 (그래프 요소만)
+    if (selectionKind === 'batchGraph') {
+      return (
+        <BatchGraphOnlyPanel
+          setPanelElement={setPanelElement}
+          selectedGraphElements={selectedGraphElements}
+          selectedGroupInfo={selectedGroupInfo}
+          isRenaming={false}
+          renameInputRef={renameInputRef}
+          renameValue={renameValue}
+          setRenameValue={setRenameValue}
+          renameCancelledRef={renameCancelledRef}
+          handleRenameCommit={handleRenameCommit}
+          handleRenameCancel={handleRenameCancel}
+          handleRenameStart={handleRenameStart}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          handleBatchAlign={handleBatchAlign}
+          handleBatchDistribute={handleBatchDistribute}
+          handleBatchSpacing={handleBatchSpacing}
+          handleBatchSpacingPreview={handleBatchSpacingPreview}
+          handleBatchSpacingCommit={handleBatchSpacingCommit}
+          getBatchSpacingValue={getBatchSpacingValue}
+          handleBatchResize={handleBatchResize}
+          handleBatchStyleChange={handleBatchStyleChange}
+          handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
+          handleGraphBatchSharedSetting={handleGraphBatchSharedSetting}
+          getMixedValueGraphs={getMixedValueGraphs}
+          getMixedValueGraphsAsKey={getMixedValueGraphsAsKey}
+          getSelectedGraphsData={getSelectedGraphsData}
+          batchScrollRefFor={batchScrollRefFor}
+          batchThumbRefFor={batchThumbRefFor}
+          batchImageButtonRef={batchImageButtonRef}
+          showBatchImagePicker={showBatchImagePicker}
+          setShowBatchImagePicker={setShowBatchImagePicker}
+          panelElement={null}
+          useCustomCSS={useCustomCSS}
+          selectedKeyType={selectedKeyType}
+          t={t}
+        />
+      );
+    }
+
+    // 플러그인 요소가 선택된 경우
+    if (selectionKind === 'plugin') {
+      const pluginTitle =
+        selectedPluginDefinition?.name ||
+        selectedPluginElement?.definitionId ||
+        t('propertiesPanel.pluginElement') ||
+        'Plugin';
+
+      return (
+        <PluginSelectionPanel
+          setPanelElement={setPanelElement}
+          pluginTitle={pluginTitle}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          setPluginScrollRef={setPluginScrollRef}
+          setPluginThumbRef={setPluginThumbRef}
+          selectedPluginElement={selectedPluginElement}
+          hasSinglePluginSelection={hasSinglePluginSelection}
+          showModalHint={showModalHint}
+          showSettings={showSettings}
+          renderPluginSettingsForm={renderPluginSettingsForm}
+          selectedPluginDefinition={selectedPluginDefinition}
+          resolvedPluginSettings={resolvedPluginSettings}
+          handlePluginSettingChange={handlePluginSettingChange}
+          t={t}
+        />
+      );
+    }
+
+    // 단일 노브 요소 선택인 경우
+    if (selectionKind === 'knob' && singleKnobPosition) {
+      return (
+        <SingleKnobPanel
+          setPanelElement={setPanelElement}
+          singleKnobPosition={singleKnobPosition}
+          singleKnobIndex={singleKnobIndex!}
+          selectedKeyType={selectedKeyType}
+          isRenaming={false}
+          renameInputRef={renameInputRef}
+          renameValue={renameValue}
+          setRenameValue={setRenameValue}
+          renameCancelledRef={renameCancelledRef}
+          handleRenameCommit={handleRenameCommit}
+          handleRenameCancel={handleRenameCancel}
+          handleRenameStart={handleRenameStart}
+          handleKnobUpdate={handleKnobUpdate}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          singleScrollRefFor={singleScrollRefFor}
+          singleThumbRefFor={singleThumbRefFor}
+          panelElement={null}
+          useCustomCSS={useCustomCSS}
+          t={t}
+        />
+      );
+    }
+
+    if (selectionKind === 'sprite' && singleSpritePosition) {
+      return (
+        <SpritePanel
+          mode={selectedKeyType}
+          sprite={singleSpritePosition}
+          useCustomCSS={useCustomCSS}
+          onLeavePage={() => openPath([], true)}
+          t={t}
+        />
+      );
+    }
+
+    // 단일 그래프 요소 선택인 경우
+    if (selectionKind === 'graph' && singleGraphPosition) {
+      return (
+        <SingleGraphPanel
+          setPanelElement={setPanelElement}
+          singleGraphPosition={singleGraphPosition}
+          singleGraphIndex={singleGraphIndex!}
+          selectedKeyType={selectedKeyType}
+          isRenaming={false}
+          renameInputRef={renameInputRef}
+          renameValue={renameValue}
+          setRenameValue={setRenameValue}
+          renameCancelledRef={renameCancelledRef}
+          handleRenameCommit={handleRenameCommit}
+          handleRenameCancel={handleRenameCancel}
+          handleRenameStart={handleRenameStart}
+          handleToggleMode={handleToggleMode}
+          handleTogglePanel={handleTogglePanel}
+          handleGraphUpdate={handleGraphUpdate}
+          singleScrollRefFor={singleScrollRefFor}
+          singleThumbRefFor={singleThumbRefFor}
+          showGraphImagePicker={showGraphImagePicker}
+          setShowGraphImagePicker={setShowGraphImagePicker}
+          graphImageButtonRef={graphImageButtonRef}
+          graphClassNameDraft={graphClassNameDraft}
+          setGraphClassNameDraft={setGraphClassNameDraft}
+          panelElement={null}
+          useCustomCSS={useCustomCSS}
+          t={t}
+        />
+      );
+    }
+
+    // 단일 키/통계 요소 선택인 경우
+    const isSingleStat = selectionKind === 'stat';
+    const isSingleKey = selectionKind === 'key';
+    if (!isSingleKey && !isSingleStat) {
+      return null;
+    }
+
     return (
-      <PluginSettingsPanelView
+      <SingleKeyStatPanel
+        inspectorAction={focusedAction ?? 'style'}
+        binding={binding}
         setPanelElement={setPanelElement}
-        pluginSettingsPanel={pluginSettingsPanel}
-        pluginPanelSettings={pluginPanelSettings}
-        handlePluginSettingsPanelChange={handlePluginSettingsPanelChange}
-        handlePluginSettingsPanelConfirm={handlePluginSettingsPanelConfirm}
-        handlePluginSettingsPanelCancel={handlePluginSettingsPanelCancel}
-        setPluginScrollRef={setPluginScrollRef}
-        setPluginThumbRef={setPluginThumbRef}
-        renderPluginSettingsForm={renderPluginSettingsForm}
-        t={t}
-      />
-    );
-  }
-
-  // 레이어 모드일 때는 선택 여부와 관계없이 레이어 패널 표시
-  if (panelMode === 'layer') {
-    const hasAnySelection =
-      selectedKeyElements.length > 0 || selectedElements.length > 0;
-    return (
-      <LayerPanel
-        onClose={handleTogglePanel}
-        onSwitchToProperty={handleToggleMode}
-        hasSelection={hasAnySelection}
-        onSelectionFromPanel={() => {
-          selectionFromLayerPanelRef.current = true;
-        }}
-      />
-    );
-  }
-
-  // 선택된 키 요소가 없으면 레이어 패널 표시
-  if (selectedKeyElements.length === 0 && selectedElements.length === 0) {
-    return (
-      <LayerPanel
-        onClose={handleTogglePanel}
-        onSwitchToProperty={handleToggleMode}
-        onSelectionFromPanel={() => {
-          selectionFromLayerPanelRef.current = true;
-        }}
-      />
-    );
-  }
-
-  // 다중 선택인 경우 (키/통계 포함, 또는 그래프+노브 혼합)
-  if (
-    selectedBatchStyleElements.length > 1 &&
-    selectedPluginElements.length === 0 &&
-    (selectedKeyLikeElements.length > 0 ||
-      (selectedGraphElements.length > 0 && selectedKnobElements.length > 0))
-  ) {
-    return (
-      <BatchKeyLikePanel
-        setPanelElement={setPanelElement}
-        selectedBatchStyleElements={selectedBatchStyleElements}
-        selectedKeyElements={selectedKeyElements}
-        selectedStatElements={selectedStatElements}
-        selectedGraphElements={selectedGraphElements}
-        selectedKeyLikeElements={selectedKeyLikeElements}
-        selectedGroupInfo={selectedGroupInfo}
-        isRenaming={isRenaming}
+        isSingleStat={isSingleStat}
+        isSingleKey={isSingleKey}
+        singleKeyIndex={singleKeyIndex}
+        singleStatIndex={singleStatIndex}
+        singleKeyPosition={singleKeyPosition}
+        singleStatPosition={singleStatPosition}
+        singleKeyCode={singleKeyCode}
+        singleKeyInfo={singleKeyInfo}
+        selectedKeyType={selectedKeyType}
+        isRenaming={false}
         renameInputRef={renameInputRef}
         renameValue={renameValue}
         setRenameValue={setRenameValue}
@@ -2704,339 +2930,776 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         handleTogglePanel={handleTogglePanel}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        handleBatchAlign={handleBatchAlign}
-        handleBatchDistribute={handleBatchDistribute}
-        handleBatchSpacing={handleBatchSpacing}
-        handleBatchSpacingPreview={handleBatchSpacingPreview}
-        handleBatchSpacingCommit={handleBatchSpacingCommit}
-        getBatchSpacingValue={getBatchSpacingValue}
-        handleBatchResize={handleBatchResize}
-        handleBatchStyleChange={handleBatchStyleChange}
-        handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
-        handleKeyOnlyStyleChangeComplete={handleKeyOnlyStyleChangeComplete}
-        handleBatchCounterUpdate={handleBatchCounterUpdate}
-        handleBatchNoteColorChange={handleBatchNoteColorChange}
-        handleBatchNoteColorChangeComplete={handleBatchNoteColorChangeComplete}
-        handleBatchGlowColorChange={handleBatchGlowColorChange}
-        handleBatchGlowColorChangeComplete={handleBatchGlowColorChangeComplete}
-        handleGraphBatchSharedSetting={handleGraphBatchSharedSetting}
-        getMixedValue={getMixedValue}
-        getMixedValueBatch={getMixedValueBatch}
-        getMixedValueGraphs={getMixedValueGraphs}
-        getMixedValueGraphsAsKey={getMixedValueGraphsAsKey}
-        getMixedValueKeysOnly={getMixedValueKeysOnly}
-        getSelectedKeysData={getSelectedKeysData}
-        getSelectedGraphsData={getSelectedGraphsData}
-        getSelectedBatchStyleData={getSelectedBatchStyleData}
-        getSelectedKeyOnlyPositions={getSelectedKeyOnlyPositions}
-        handleBatchKeyOnlyStyleChangeComplete={
-          handleBatchKeyOnlyStyleChangeComplete
-        }
-        handleBatchNoteColorChangeKeysOnly={handleBatchNoteColorChangeKeysOnly}
-        handleBatchNoteColorChangeCompleteKeysOnly={
-          handleBatchNoteColorChangeCompleteKeysOnly
-        }
-        handleBatchGlowColorChangeKeysOnly={handleBatchGlowColorChangeKeysOnly}
-        handleBatchGlowColorChangeCompleteKeysOnly={
-          handleBatchGlowColorChangeCompleteKeysOnly
-        }
-        batchScrollRefFor={batchScrollRefFor}
-        batchThumbRefFor={batchThumbRefFor}
-        batchNoteColorButtonRef={batchNoteColorButtonRef}
-        batchGlowColorButtonRef={batchGlowColorButtonRef}
-        batchBorderColorButtonRef={batchBorderColorButtonRef}
-        batchCounterFillButtonRef={batchCounterFillButtonRef}
-        batchCounterStrokeButtonRef={batchCounterStrokeButtonRef}
-        batchImageButtonRef={batchImageButtonRef}
-        showBatchImagePicker={showBatchImagePicker}
-        setShowBatchImagePicker={setShowBatchImagePicker}
-        batchPickerFor={batchPickerFor}
-        setBatchPickerFor={setBatchPickerFor}
-        batchCounterColorState={batchCounterColorState}
-        setBatchCounterColorState={setBatchCounterColorState}
-        batchLocalColors={batchLocalColors}
-        setBatchLocalColors={setBatchLocalColors}
-        batchLocalOpacities={batchLocalOpacities}
-        setBatchLocalOpacities={setBatchLocalOpacities}
-        handleBatchPickerToggle={handleBatchPickerToggle}
-        handleBatchPickerColorChange={handleBatchPickerColorChange}
-        handleBatchPickerColorChangeComplete={
-          handleBatchPickerColorChangeComplete
-        }
-        getBatchPickerColor={getBatchPickerColor}
-        getBatchPickerRef={getBatchPickerRef}
-        batchColorPickerInteractiveRefs={batchColorPickerInteractiveRefs}
-        panelElement={panelElement}
+        onKeyUpdate={onKeyUpdate}
+        onKeyPreview={onKeyPreview}
+        handleStatUpdate={handleStatUpdate}
+        handleStatPreview={handleStatPreview}
+        onGhostUpdate={handleGhostUpdate}
+        onGhostPreview={handleGhostPreview}
+        showImagePicker={showImagePicker}
+        setShowImagePicker={setShowImagePicker}
+        imageButtonRef={imageButtonRef}
+        panelElement={null}
         useCustomCSS={useCustomCSS}
-        selectedKeyType={selectedKeyType}
-        t={t}
-      />
-    );
-  }
-
-  // 다중 선택인 경우 (노브 요소만)
-  if (
-    selectedKnobElements.length > 1 &&
-    selectedKeyLikeElements.length === 0 &&
-    selectedGraphElements.length === 0 &&
-    selectedPluginElements.length === 0
-  ) {
-    return (
-      <BatchKnobOnlyPanel
-        setPanelElement={setPanelElement}
-        selectedKnobElements={selectedKnobElements}
-        selectedGroupInfo={selectedGroupInfo}
-        isRenaming={isRenaming}
-        renameInputRef={renameInputRef}
-        renameValue={renameValue}
-        setRenameValue={setRenameValue}
-        renameCancelledRef={renameCancelledRef}
-        handleRenameCommit={handleRenameCommit}
-        handleRenameCancel={handleRenameCancel}
-        handleRenameStart={handleRenameStart}
-        handleToggleMode={handleToggleMode}
-        handleTogglePanel={handleTogglePanel}
-        handleBatchAlign={handleBatchAlign}
-        handleBatchDistribute={handleBatchDistribute}
-        handleBatchSpacing={handleBatchSpacing}
-        handleBatchSpacingPreview={handleBatchSpacingPreview}
-        handleBatchSpacingCommit={handleBatchSpacingCommit}
-        getBatchSpacingValue={getBatchSpacingValue}
-        handleBatchResize={handleBatchResize}
-        handleBatchStyleChange={handleBatchStyleChange}
-        handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
-        handleKnobBatchSharedSetting={handleKnobBatchSharedSetting}
-        getMixedValueKnobs={getMixedValueKnobs}
-        getMixedValueKnobsAsKey={getMixedValueKnobsAsKey}
-        getSelectedKnobsData={getSelectedKnobsData}
-        batchScrollRefFor={batchScrollRefFor}
-        batchThumbRefFor={batchThumbRefFor}
-        batchImageButtonRef={batchImageButtonRef}
-        showBatchImagePicker={showBatchImagePicker}
-        setShowBatchImagePicker={setShowBatchImagePicker}
-        panelElement={panelElement}
-        useCustomCSS={useCustomCSS}
-        selectedKeyType={selectedKeyType}
-        t={t}
-      />
-    );
-  }
-
-  // 다중 선택인 경우 (그래프 요소만)
-  if (
-    selectedGraphElements.length > 1 &&
-    selectedKeyLikeElements.length === 0 &&
-    selectedKnobElements.length === 0 &&
-    selectedPluginElements.length === 0
-  ) {
-    return (
-      <BatchGraphOnlyPanel
-        setPanelElement={setPanelElement}
-        selectedGraphElements={selectedGraphElements}
-        selectedGroupInfo={selectedGroupInfo}
-        isRenaming={isRenaming}
-        renameInputRef={renameInputRef}
-        renameValue={renameValue}
-        setRenameValue={setRenameValue}
-        renameCancelledRef={renameCancelledRef}
-        handleRenameCommit={handleRenameCommit}
-        handleRenameCancel={handleRenameCancel}
-        handleRenameStart={handleRenameStart}
-        handleToggleMode={handleToggleMode}
-        handleTogglePanel={handleTogglePanel}
-        handleBatchAlign={handleBatchAlign}
-        handleBatchDistribute={handleBatchDistribute}
-        handleBatchSpacing={handleBatchSpacing}
-        handleBatchSpacingPreview={handleBatchSpacingPreview}
-        handleBatchSpacingCommit={handleBatchSpacingCommit}
-        getBatchSpacingValue={getBatchSpacingValue}
-        handleBatchResize={handleBatchResize}
-        handleBatchStyleChange={handleBatchStyleChange}
-        handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
-        handleGraphBatchSharedSetting={handleGraphBatchSharedSetting}
-        getMixedValueGraphs={getMixedValueGraphs}
-        getMixedValueGraphsAsKey={getMixedValueGraphsAsKey}
-        getSelectedGraphsData={getSelectedGraphsData}
-        batchScrollRefFor={batchScrollRefFor}
-        batchThumbRefFor={batchThumbRefFor}
-        batchImageButtonRef={batchImageButtonRef}
-        showBatchImagePicker={showBatchImagePicker}
-        setShowBatchImagePicker={setShowBatchImagePicker}
-        panelElement={panelElement}
-        useCustomCSS={useCustomCSS}
-        selectedKeyType={selectedKeyType}
-        t={t}
-      />
-    );
-  }
-
-  // 플러그인 요소가 선택된 경우
-  if (
-    selectedPluginElements.length > 0 &&
-    selectedKeyLikeElements.length === 0 &&
-    selectedGraphElements.length === 0
-  ) {
-    const pluginTitle =
-      selectedPluginDefinition?.name ||
-      selectedPluginElement?.definitionId ||
-      t('propertiesPanel.pluginElement') ||
-      'Plugin';
-
-    return (
-      <PluginSelectionPanel
-        setPanelElement={setPanelElement}
-        pluginTitle={pluginTitle}
-        handleToggleMode={handleToggleMode}
-        handleTogglePanel={handleTogglePanel}
-        setPluginScrollRef={setPluginScrollRef}
-        setPluginThumbRef={setPluginThumbRef}
-        isPluginResizable={isPluginResizable}
-        selectedPluginElement={selectedPluginElement}
-        pluginDisplaySize={pluginDisplaySize}
-        handlePluginPositionXChange={handlePluginPositionXChange}
-        handlePluginPositionYChange={handlePluginPositionYChange}
-        handlePluginWidthChange={handlePluginWidthChange}
-        handlePluginHeightChange={handlePluginHeightChange}
-        hasSinglePluginSelection={hasSinglePluginSelection}
-        showModalHint={showModalHint}
-        showSettings={showSettings}
-        renderPluginSettingsForm={renderPluginSettingsForm}
-        selectedPluginDefinition={selectedPluginDefinition}
-        resolvedPluginSettings={resolvedPluginSettings}
-        handlePluginSettingChange={handlePluginSettingChange}
-        t={t}
-      />
-    );
-  }
-
-  // 단일 노브 요소 선택인 경우
-  if (
-    selectedKnobElements.length === 1 &&
-    !!singleKnobPosition &&
-    selectedKeyLikeElements.length === 0 &&
-    selectedGraphElements.length === 0 &&
-    selectedPluginElements.length === 0
-  ) {
-    return (
-      <SingleKnobPanel
-        setPanelElement={setPanelElement}
-        singleKnobPosition={singleKnobPosition}
-        singleKnobIndex={singleKnobIndex!}
-        selectedKeyType={selectedKeyType}
-        isRenaming={isRenaming}
-        renameInputRef={renameInputRef}
-        renameValue={renameValue}
-        setRenameValue={setRenameValue}
-        renameCancelledRef={renameCancelledRef}
-        handleRenameCommit={handleRenameCommit}
-        handleRenameCancel={handleRenameCancel}
-        handleRenameStart={handleRenameStart}
-        handleKnobUpdate={handleKnobUpdate}
-        handleToggleMode={handleToggleMode}
-        handleTogglePanel={handleTogglePanel}
         singleScrollRefFor={singleScrollRefFor}
         singleThumbRefFor={singleThumbRefFor}
-        panelElement={panelElement}
-        useCustomCSS={useCustomCSS}
         t={t}
       />
     );
-  }
+  };
+  // ── The selection as sidebar parts ────────────────────────────────────────
 
-  // 단일 그래프 요소 선택인 경우
-  if (
-    selectedGraphElements.length === 1 &&
-    !!singleGraphPosition &&
-    selectedKeyLikeElements.length === 0 &&
-    selectedPluginElements.length === 0
-  ) {
+  const ghost = singleKeyPosition?.ghost;
+  // Geometry always follows the owner, so the ghost shows the owner's box.
+  const ghostFace: KeyPosition | null = singleKeyPosition
+    ? {
+        ...(ghost?.settings ?? createDefaultGhostSettings(singleKeyPosition)),
+        dx: singleKeyPosition.dx,
+        dy: singleKeyPosition.dy,
+        width: singleKeyPosition.width,
+        height: singleKeyPosition.height,
+      }
+    : null;
+
+  /**
+   * Where an element is and how big: four numbers, edited in two rows of the
+   * element's page.
+   */
+  const geometryParts = (box: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    /** Tenths are kept; otherwise whole numbers. */
+    decimal?: boolean;
+    size: { min: number; max: number };
+    onX: (value: number) => void;
+    onY: (value: number) => void;
+    onWidth: (value: number) => void;
+    onHeight: (value: number) => void;
+    onSizeBlur?: () => void;
+  }): InlinePart[] => {
+    const digits = box.decimal ? 1 : 0;
+    const positionLabel = t('propertiesPanel.position');
+    const sizeLabel = t('propertiesPanel.size');
+    return [
+      {
+        kind: 'inline',
+        id: 'position',
+        label: positionLabel,
+        icon: PART_ICONS.position,
+        control: (
+          <>
+            <NumberField
+              prefix="X"
+              ariaLabel={`${positionLabel} X`}
+              value={box.x}
+              digits={digits}
+              min={-9999}
+              max={9999}
+              onChange={box.onX}
+            />
+            <NumberField
+              prefix="Y"
+              ariaLabel={`${positionLabel} Y`}
+              value={box.y}
+              digits={digits}
+              min={-9999}
+              max={9999}
+              onChange={box.onY}
+            />
+          </>
+        ),
+      },
+      {
+        kind: 'inline',
+        id: 'size',
+        label: sizeLabel,
+        icon: PART_ICONS.size,
+        control: (
+          <>
+            <NumberField
+              prefix="W"
+              ariaLabel={`${sizeLabel} W`}
+              value={box.width}
+              digits={digits}
+              min={box.size.min}
+              max={box.size.max}
+              onChange={box.onWidth}
+              onBlur={box.onSizeBlur}
+            />
+            <NumberField
+              prefix="H"
+              ariaLabel={`${sizeLabel} H`}
+              value={box.height}
+              digits={digits}
+              min={box.size.min}
+              max={box.size.max}
+              onChange={box.onHeight}
+              onBlur={box.onSizeBlur}
+            />
+          </>
+        ),
+      },
+    ];
+  };
+
+  /** The box of a key or a stat: shown while typed, saved on the way out. */
+  const keyLikeGeometry = (
+    index: number,
+    position: KeyPosition,
+    move: (index: number, dx: number, dy: number) => void,
+    preview: (index: number, updates: Partial<KeyPosition>) => void,
+  ) =>
+    geometryParts({
+      x: localState.dx ?? position.dx,
+      y: localState.dy ?? position.dy,
+      width: localState.width ?? position.width ?? 60,
+      height: localState.height ?? position.height ?? 60,
+      decimal: true,
+      size: { min: 1, max: 999 },
+      onX: (dx) => {
+        setLocalState((prev) => ({ ...prev, dx }));
+        move(index, dx, localState.dy ?? position.dy);
+      },
+      onY: (dy) => {
+        setLocalState((prev) => ({ ...prev, dy }));
+        move(index, localState.dx ?? position.dx, dy);
+      },
+      onWidth: (width) => {
+        setLocalState((prev) => ({ ...prev, width }));
+        preview(index, { width });
+      },
+      onHeight: (height) => {
+        setLocalState((prev) => ({ ...prev, height }));
+        preview(index, { height });
+      },
+      onSizeBlur: handleSizeBlur,
+    });
+
+  /**
+   * The pages every face of a key has; a stat has the first two and a count.
+   * Each row's picture is the face with that part on it, so its colors need
+   * no swatches beside it.
+   */
+  const lookParts = (face: KeyPosition, textShown: string): PagePart[] => [
+    {
+      kind: 'page',
+      id: 'shape',
+      label: t('sidebar.partShape'),
+      icon: <FaceThumb position={face} />,
+      groups: ['style-shape', 'style-form', 'style-image', 'style-css'],
+    },
+    {
+      kind: 'page',
+      id: 'text',
+      label: t('sidebar.partText'),
+      icon: <TextThumb position={face} />,
+      groups: ['style-text'],
+      value: <RowText>{face.displayText || textShown}</RowText>,
+    },
+  ];
+
+  const counterPart = (
+    face: KeyPosition,
+    label: string,
+    update: (updates: Partial<KeyPosition>) => void,
+  ): PagePart => {
+    const counter = normalizeCounterSettings(face.counter);
+    return {
+      kind: 'page',
+      id: 'counter',
+      label,
+      icon: <CountThumb position={face} />,
+      groups: null,
+      toggle: {
+        checked: counter.enabled,
+        onChange: (enabled) => update({ counter: { ...counter, enabled } }),
+      },
+    };
+  };
+
+  /** One face of a key: the key it is bound to, then its pages. */
+  const keyFaceParts = (
+    face: KeyPosition,
+    target: 'default' | 'ghost',
+    keyName: string,
+  ): { input: InlinePart; pages: PagePart[] } => {
+    const index = singleKeyIndex!;
+    const update = (updates: Partial<KeyPosition>) =>
+      (target === 'ghost' ? handleGhostUpdate : onKeyUpdate)({
+        index,
+        ...updates,
+      });
+    // The canvas shows the key's own face working; the ghost face has no
+    // key of its own on the canvas to show it on.
+    const preview = (part: PreviewPart) =>
+      target === 'default' ? part : undefined;
+    return {
+      input: {
+        kind: 'inline',
+        id: 'input',
+        label: t('propertiesPanel.tabInput'),
+        icon: PART_ICONS.input,
+        control: (
+          <KeyCaptureButton
+            keyName={keyName}
+            listening={isListening && listenTarget === target}
+            onListen={
+              target === 'ghost' ? handleGhostKeyListen : handleKeyListen
+            }
+            t={t}
+          />
+        ),
+      },
+      pages: [
+        ...lookParts(face, keyName).map((part) => ({
+          ...part,
+          preview: preview('look'),
+        })),
+        {
+          kind: 'page',
+          id: 'note',
+          label: t('propertiesPanel.tabNote'),
+          icon: <NoteThumb position={face} />,
+          groups: null,
+          preview: preview('note'),
+          toggle: {
+            checked: face.noteEffectEnabled ?? true,
+            onChange: (enabled) => update({ noteEffectEnabled: enabled }),
+          },
+        },
+        {
+          ...counterPart(face, t('propertiesPanel.tabCounter'), update),
+          preview: preview('counter'),
+        },
+        {
+          kind: 'page',
+          id: 'sound',
+          label: t('propertiesPanel.sectionSound'),
+          icon: PART_ICONS.sound,
+          groups: ['input-sound'],
+          toggle: {
+            checked: face.soundEnabled ?? false,
+            onLabel:
+              face.soundPath?.split(/[\\/]/).pop() ||
+              t('sidebar.soundNotChosen'),
+            onChange: (enabled) => update({ soundEnabled: enabled }),
+          },
+        },
+      ],
+    };
+  };
+
+  /** Settings that have no page beside them are shown on the element's page. */
+  const inPlacePart = (groups: readonly string[] | null): PagePart => ({
+    kind: 'page',
+    id: 'details',
+    label: t('sidebar.partDetails'),
+    groups,
+    inPlace: true,
+  });
+
+  const parts: ElementPart[][] = (() => {
+    const shapeLabel = t('sidebar.partShape');
+
+    if (selectionKind === 'key' && singleKeyPosition && ghostFace) {
+      const index = singleKeyIndex!;
+      const main = keyFaceParts(
+        singleKeyPosition,
+        'default',
+        singleKeyInfo?.displayName || singleKeyCode || '',
+      );
+      const ghostKeyName = ghost?.key
+        ? getKeyInfoByGlobalKey(ghost.key).displayName
+        : '';
+      const second = keyFaceParts(ghostFace, 'ghost', ghostKeyName);
+      return [
+        [
+          main.input,
+          ...keyLikeGeometry(
+            index,
+            singleKeyPosition,
+            onPositionChange,
+            (at, updates) => onKeyPreview?.(at, updates),
+          ),
+        ],
+        main.pages,
+        [
+          {
+            kind: 'page',
+            id: GHOST_PART,
+            label: t('sidebar.ghostKey'),
+            icon: <KeyThumb position={ghostFace} label={ghostKeyName} />,
+            groups: null,
+            toggle: {
+              checked: !!ghost?.enabled,
+              onLabel: ghostKeyName || t('sidebar.inputNone'),
+              onChange: (enabled) => handleGhostEnabledChange(index, enabled),
+            },
+            // The ghost is drawn where its key is: it has no box of its own.
+            parts: [[second.input], second.pages],
+            hint: t('propertiesPanel.ghostKeyHint'),
+          },
+        ],
+      ];
+    }
+
+    if (selectionKind === 'stat' && singleStatPosition) {
+      const index = singleStatIndex!;
+      const face = singleStatPosition as KeyPosition;
+      const statType = (singleStatPosition.statType as StatItemType) || 'kps';
+      const statLabel = t('propertiesPanel.statType');
+      return [
+        [
+          {
+            kind: 'inline',
+            id: 'source',
+            label: statLabel,
+            icon: PART_ICONS.source,
+            control: (
+              <Dropdown
+                ariaLabel={statLabel}
+                align="right"
+                options={STAT_TYPES.map((value) => ({
+                  value,
+                  label: getStatTypeLabel(value),
+                }))}
+                value={statType}
+                onChange={(value) =>
+                  handleStatUpdate({ index, statType: value as StatItemType })
+                }
+              />
+            ),
+          },
+          ...keyLikeGeometry(
+            index,
+            face,
+            (at, dx, dy) => handleStatUpdate({ index: at, dx, dy }),
+            (at, updates) =>
+              handleStatPreview(at, updates as Partial<StatItemPosition>),
+          ),
+        ],
+        [
+          ...lookParts(face, getStatTypeLabel(statType)),
+          counterPart(face, t('sidebar.partNumber'), (updates) =>
+            handleStatUpdate({
+              index,
+              ...updates,
+            } as Partial<StatItemPosition> & { index: number }),
+          ),
+        ],
+      ];
+    }
+
+    if (selectionKind === 'batchKeyLike') {
+      const hasKeys = selectedKeyElements.length > 0;
+      const hasKeyLike = selectedKeyLikeElements.length > 0;
+      const noteShown = getMixedValueKeysOnly(
+        (pos) => pos.noteEffectEnabled,
+        true,
+      );
+      const countShown = getMixedValue(
+        (pos) => normalizeCounterSettings(pos.counter).enabled,
+        true,
+      );
+      const soundShown = getMixedValueKeysOnly(
+        (pos) => pos.soundEnabled,
+        false,
+      );
+      const pages: PagePart[] = [
+        {
+          kind: 'page',
+          id: 'layout',
+          label: t('propertiesPanel.sectionLayout'),
+          icon: PART_ICONS.layout,
+          groups: null,
+        },
+        {
+          kind: 'page',
+          id: 'shape',
+          label: shapeLabel,
+          icon: PART_ICONS.shape,
+          groups: ['style-graph', 'style-shape', 'style-css'],
+        },
+      ];
+      if (hasKeyLike) {
+        pages.push({
+          kind: 'page',
+          id: 'text',
+          label: t('sidebar.partText'),
+          icon: PART_ICONS.text,
+          groups: ['style-text'],
+        });
+      }
+      if (hasKeys) {
+        pages.push({
+          kind: 'page',
+          id: 'note',
+          label: t('propertiesPanel.tabNote'),
+          icon: PART_ICONS.note,
+          groups: null,
+          toggle: {
+            checked: noteShown.value,
+            mixed: noteShown.isMixed,
+            onChange: (enabled) =>
+              handleBatchKeyOnlyStyleChangeComplete(
+                'noteEffectEnabled',
+                enabled,
+              ),
+          },
+        });
+      }
+      if (hasKeyLike) {
+        pages.push({
+          kind: 'page',
+          id: 'counter',
+          label: t('propertiesPanel.tabCounter'),
+          icon: PART_ICONS.counter,
+          groups: null,
+          toggle: {
+            checked: countShown.value,
+            mixed: countShown.isMixed,
+            onChange: (enabled) => handleBatchCounterUpdate({ enabled }),
+          },
+        });
+      }
+      if (hasKeys) {
+        pages.push({
+          kind: 'page',
+          id: 'sound',
+          label: t('propertiesPanel.sectionSound'),
+          icon: PART_ICONS.sound,
+          groups: null,
+          toggle: {
+            checked: soundShown.value ?? false,
+            mixed: soundShown.isMixed,
+            onChange: (enabled) =>
+              handleKeyOnlyStyleChangeComplete('soundEnabled', enabled),
+          },
+        });
+      }
+      return [pages];
+    }
+
+    if (selectionKind === 'graph' && singleGraphPosition) {
+      const index = singleGraphIndex!;
+      const graphBackground =
+        singleGraphPosition.backgroundColor || GRAPH_COLORS.background;
+      const graphBorder =
+        singleGraphPosition.borderColor || GRAPH_COLORS.border;
+      return [
+        geometryParts({
+          x: singleGraphPosition.dx || 0,
+          y: singleGraphPosition.dy || 0,
+          width: singleGraphPosition.width || 200,
+          height: singleGraphPosition.height || 100,
+          size: { min: 20, max: 9999 },
+          onX: (dx) => handleGraphUpdate({ index, dx }),
+          onY: (dy) => handleGraphUpdate({ index, dy }),
+          onWidth: (width) => handleGraphUpdate({ index, width }),
+          onHeight: (height) => handleGraphUpdate({ index, height }),
+        }),
+        [
+          {
+            kind: 'page',
+            id: 'g-chart',
+            label: t('propertiesPanel.sectionGraph'),
+            icon: (
+              <GraphThumb
+                background={graphBackground}
+                border={graphBorder}
+                line={singleGraphPosition.graphColor || GRAPH_COLORS.line}
+              />
+            ),
+            groups: ['graph-chart'],
+          },
+          {
+            kind: 'page',
+            id: 'g-shape',
+            label: shapeLabel,
+            icon: (
+              <GraphThumb background={graphBackground} border={graphBorder} />
+            ),
+            groups: ['graph-appearance', 'graph-css'],
+          },
+        ],
+      ];
+    }
+
+    if (selectionKind === 'knob' && singleKnobPosition) {
+      const index = singleKnobIndex!;
+      const sensitivityLabel = t('propertiesPanel.knobSensitivity');
+      const reverseLabel = t('propertiesPanel.knobReverse');
+      return [
+        [
+          {
+            kind: 'inline',
+            id: 'k-input',
+            label: t('propertiesPanel.tabInput'),
+            icon: PART_ICONS.input,
+            control: (
+              <KnobAxisCapture
+                axisId={singleKnobPosition.axisId}
+                onBind={(axisId) => handleKnobUpdate({ index, axisId })}
+                t={t}
+              />
+            ),
+          },
+          ...geometryParts({
+            x: singleKnobPosition.dx || 0,
+            y: singleKnobPosition.dy || 0,
+            width: singleKnobPosition.width || 60,
+            height: singleKnobPosition.height || 60,
+            size: { min: 20, max: 9999 },
+            onX: (dx) => handleKnobUpdate({ index, dx }),
+            onY: (dy) => handleKnobUpdate({ index, dy }),
+            onWidth: (width) => handleKnobUpdate({ index, width }),
+            onHeight: (height) => handleKnobUpdate({ index, height }),
+          }),
+        ],
+        [
+          {
+            kind: 'inline',
+            id: 'k-sensitivity',
+            label: sensitivityLabel,
+            icon: PART_ICONS.speed,
+            control: (
+              // 1 turns the picture once for one turn of the knob.
+              <NumberField
+                suffix="×"
+                ariaLabel={sensitivityLabel}
+                value={Number(singleKnobPosition.sensitivity ?? 1)}
+                digits={2}
+                min={0}
+                max={100}
+                onChange={(sensitivity) =>
+                  handleKnobUpdate({ index, sensitivity })
+                }
+              />
+            ),
+          },
+          {
+            kind: 'inline',
+            id: 'k-reverse',
+            label: reverseLabel,
+            icon: PART_ICONS.reverse,
+            control: (
+              <Toggle
+                checked={singleKnobPosition.reverse ?? false}
+                ariaLabel={reverseLabel}
+                onChange={(reverse) => handleKnobUpdate({ index, reverse })}
+              />
+            ),
+          },
+        ],
+        [
+          {
+            kind: 'page',
+            id: 'k-shape',
+            label: shapeLabel,
+            icon: (
+              <KnobThumb
+                background={
+                  singleKnobPosition.backgroundColor ||
+                  KEY_FACE_COLORS.background
+                }
+                border={
+                  singleKnobPosition.borderColor || KEY_FACE_COLORS.border
+                }
+              />
+            ),
+            groups: ['knob-appearance', 'knob-css'],
+          },
+        ],
+      ];
+    }
+
+    if (selectionKind === 'sprite' && singleSpritePosition) {
+      const sprite = singleSpritePosition;
+      const edit = (
+        change: (current: typeof sprite) => typeof sprite,
+      ): void => {
+        editSprite(selectedKeyType, sprite.id, change);
+      };
+      const rotationLabel = t('sprite.rotation');
+      const visibleLabel = t('sprite.visible');
+      // What the image itself is made of; its box is the group in between.
+      const own = spriteElementParts({
+        mode: selectedKeyType,
+        sprite,
+        keys: spriteKeyOptions(
+          positions[selectedKeyType] ?? [],
+          keyMappings[selectedKeyType] ?? [],
+        ),
+        language: locale,
+        useCustomCSS,
+        t,
+        onOpenPart: openPartFromPart,
+      });
+      return [
+        own.image,
+        [
+          ...geometryParts({
+            x: sprite.dx,
+            y: sprite.dy,
+            width: sprite.width,
+            height: sprite.height,
+            size: { min: 1, max: 9999 },
+            onX: (dx) => edit((current) => ({ ...current, dx })),
+            onY: (dy) => edit((current) => ({ ...current, dy })),
+            onWidth: (width) => edit((current) => ({ ...current, width })),
+            onHeight: (height) => edit((current) => ({ ...current, height })),
+          }),
+          {
+            kind: 'inline',
+            id: 'sp-rotation',
+            label: rotationLabel,
+            icon: PART_ICONS.rotation,
+            control: (
+              <NumberField
+                suffix="°"
+                ariaLabel={rotationLabel}
+                value={sprite.rotation}
+                digits={1}
+                min={SPRITE_CONSTRAINTS.rotation.min}
+                max={SPRITE_CONSTRAINTS.rotation.max}
+                onChange={(rotation) =>
+                  edit((current) => ({ ...current, rotation }))
+                }
+              />
+            ),
+          },
+          {
+            kind: 'inline',
+            id: 'sp-visible',
+            label: visibleLabel,
+            icon: PART_ICONS.visible,
+            control: (
+              <Toggle
+                checked={!sprite.hidden}
+                ariaLabel={visibleLabel}
+                onChange={(visible) =>
+                  edit((current) => ({ ...current, hidden: !visible }))
+                }
+              />
+            ),
+          },
+        ],
+        own.looks,
+        own.motion,
+        own.more,
+      ];
+    }
+
+    if (selectionKind === 'plugin') {
+      return [
+        isPluginResizable && selectedPluginElement
+          ? geometryParts({
+              x: selectedPluginElement.position.x,
+              y: selectedPluginElement.position.y,
+              width: pluginDisplaySize.width,
+              height: pluginDisplaySize.height,
+              decimal: true,
+              size: { min: 10, max: 9999 },
+              onX: handlePluginPositionXChange,
+              onY: handlePluginPositionYChange,
+              onWidth: handlePluginWidthChange,
+              onHeight: handlePluginHeightChange,
+            })
+          : [],
+        [inPlacePart(['plugin-settings'])],
+      ];
+    }
+
+    // Groups of knobs or of graphs have one page of settings.
+    return [[inPlacePart(null)]];
+  })();
+
+  const selectionTitle =
+    selectedGroupInfo?.name ||
+    (selectedElements.length > 1
+      ? t('sidebar.selectedMany', { count: selectedElements.length })
+      : getCurrentLayerName() ||
+        getCurrentDefaultTitle() ||
+        selectedPluginDefinition?.name ||
+        selectedPluginElement?.definitionId ||
+        '');
+  if (pluginSettingsPanel) {
     return (
-      <SingleGraphPanel
-        setPanelElement={setPanelElement}
-        singleGraphPosition={singleGraphPosition}
-        singleGraphIndex={singleGraphIndex!}
-        selectedKeyType={selectedKeyType}
-        isRenaming={isRenaming}
-        renameInputRef={renameInputRef}
-        renameValue={renameValue}
-        setRenameValue={setRenameValue}
-        renameCancelledRef={renameCancelledRef}
-        handleRenameCommit={handleRenameCommit}
-        handleRenameCancel={handleRenameCancel}
-        handleRenameStart={handleRenameStart}
-        handleToggleMode={handleToggleMode}
-        handleTogglePanel={handleTogglePanel}
-        handleGraphUpdate={handleGraphUpdate}
-        singleScrollRefFor={singleScrollRefFor}
-        singleThumbRefFor={singleThumbRefFor}
-        showGraphImagePicker={showGraphImagePicker}
-        setShowGraphImagePicker={setShowGraphImagePicker}
-        graphImageButtonRef={graphImageButtonRef}
-        graphClassNameDraft={graphClassNameDraft}
-        setGraphClassNameDraft={setGraphClassNameDraft}
-        panelElement={panelElement}
-        useCustomCSS={useCustomCSS}
-        t={t}
-      />
+      <SidebarPage
+        pageKey="plugin-settings"
+        direction="forward"
+        back={{
+          label: t('common.cancel'),
+          onBack: handlePluginSettingsPanelCancel,
+        }}
+        title={t('propertiesPanel.pluginSettings')}
+        kind={pluginSettingsPanel.pluginId}
+      >
+        <InspectorPageContext.Provider
+          value={{ activePage: 'plugin-settings', groups: null }}
+        >
+          <div className="en-part-content">
+            <PluginSettingsPanelView
+              setPanelElement={setPanelElement}
+              pluginSettingsPanel={pluginSettingsPanel}
+              pluginPanelSettings={pluginPanelSettings}
+              handlePluginSettingsPanelChange={handlePluginSettingsPanelChange}
+              handlePluginSettingsPanelConfirm={
+                handlePluginSettingsPanelConfirm
+              }
+              handlePluginSettingsPanelCancel={handlePluginSettingsPanelCancel}
+              setPluginScrollRef={setPluginScrollRef}
+              setPluginThumbRef={setPluginThumbRef}
+              renderPluginSettingsForm={renderPluginSettingsForm}
+              t={t}
+            />
+          </div>
+        </InspectorPageContext.Provider>
+      </SidebarPage>
     );
   }
 
-  // 단일 키/통계 요소 선택인 경우
-  const isSingleStat = !singleKeyPosition && !!singleStatPosition;
-  const isSingleKey = !!singleKeyPosition;
-  if (!isSingleKey && !isSingleStat) {
-    return null;
+  const canOpenSelection =
+    selectionKind !== 'none' && selectionKind !== 'unsupported';
+
+  if (view === 'list' || !canOpenSelection) {
+    return (
+      <>
+        {renderElementList({
+          direction,
+          list: (
+            <LayerTabContent
+              onSwitchToProperty={openSelection}
+              onSelectionFromPanel={() => {
+                selectionFromLayerPanelRef.current = true;
+              }}
+            />
+          ),
+          selectionCount: canOpenSelection ? selectedElements.length : 0,
+          onOpenSelection: openSelection,
+        })}
+      </>
+    );
   }
 
   return (
-    <SingleKeyStatPanel
-      setPanelElement={setPanelElement}
-      isSingleStat={isSingleStat}
-      isSingleKey={isSingleKey}
-      singleKeyIndex={singleKeyIndex}
-      singleStatIndex={singleStatIndex}
-      singleKeyPosition={singleKeyPosition}
-      singleStatPosition={singleStatPosition}
-      singleKeyCode={singleKeyCode}
-      singleKeyInfo={singleKeyInfo}
-      selectedKeyType={selectedKeyType}
-      isRenaming={isRenaming}
-      renameInputRef={renameInputRef}
-      renameValue={renameValue}
-      setRenameValue={setRenameValue}
-      renameCancelledRef={renameCancelledRef}
-      handleRenameCommit={handleRenameCommit}
-      handleRenameCancel={handleRenameCancel}
-      handleRenameStart={handleRenameStart}
-      handleToggleMode={handleToggleMode}
-      handleTogglePanel={handleTogglePanel}
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      onPositionChange={onPositionChange}
-      onKeyUpdate={onKeyUpdate}
-      onKeyPreview={onKeyPreview}
-      onKeyMappingChange={onKeyMappingChange}
-      handleStatUpdate={handleStatUpdate}
-      handleStatPreview={handleStatPreview}
-      isListening={isListening && listenTarget === 'default'}
-      handleKeyListen={handleKeyListen}
-      isGhostListening={isListening && listenTarget === 'ghost'}
-      handleGhostKeyListen={handleGhostKeyListen}
-      onGhostUpdate={handleGhostUpdate}
-      onGhostPreview={handleGhostPreview}
-      onGhostEnabledChange={handleGhostEnabledChange}
-      localState={localState}
-      setLocalState={setLocalState}
-      handleSizeBlur={handleSizeBlur}
-      showImagePicker={showImagePicker}
-      setShowImagePicker={setShowImagePicker}
-      imageButtonRef={imageButtonRef}
-      panelElement={panelElement}
-      useCustomCSS={useCustomCSS}
-      singleScrollRefFor={singleScrollRefFor}
-      singleThumbRefFor={singleThumbRefFor}
+    <ElementPages
+      direction={direction}
+      listLabel={t('sidebar.elements')}
+      onBackToList={backToList}
+      title={selectionTitle}
+      onDelete={requestDelete}
+      identity={selectionIdentity}
+      parts={parts}
+      path={partPath}
+      onNavigate={openPath}
+      hint={selectedElements.length > 1 ? t('sidebar.batchHint') : ''}
       t={t}
-    />
+    >
+      {renderPanel()}
+    </ElementPages>
   );
 };
 

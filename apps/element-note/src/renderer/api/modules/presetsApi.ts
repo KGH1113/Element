@@ -11,8 +11,11 @@ import type {
 export const presetsApi = {
   save: () => invoke<PresetOperationResult>('preset_save'),
   load: () => invoke<PresetOperationResult>('preset_load'),
-  saveTab: () => invoke<PresetOperationResult>('preset_save_tab'),
-  loadTab: () => invoke<PresetOperationResult>('preset_load_tab'),
+  /** One key viewer: the one named, or the one being edited. */
+  saveTab: (tabId?: string) =>
+    invoke<PresetOperationResult>('preset_save_tab', { tabId }),
+  loadTab: (tabId?: string) =>
+    invoke<PresetOperationResult>('preset_load_tab', { tabId }),
   onSnapshot: (listener: (snapshot: PresetSnapshot) => void) =>
     subscribe<Omit<PresetSnapshot, 'keys'> & { keys: NativeKeyMappings }>(
       'preset:snapshot',

@@ -341,7 +341,46 @@ pub(crate) fn normalize_state(mut data: AppStoreData) -> AppStoreData {
     let _ = data.custom_js.normalize();
 
     crate::state::element_migration::normalize_element_state(&mut data);
+    // Preserve the appearance of stores that previously hid all key counters.
+    // This runs after ghost folding, so both bindings receive local visibility.
+    // Persisting true retires the master switch and makes the migration one-time.
+    if !data.key_counter_enabled {
+        for position in data.key_positions.values_mut().flatten() {
+            position.counter.enabled = false;
+            if let Some(ghost) = position.ghost.as_mut() {
+                ghost.settings.counter.enabled = false;
+            }
+        }
+        data.key_counter_enabled = true;
+    }
+    // The same for stores that had Raining switched off for every key.
+    if !data.note_effect {
+        hide_raining_on_every_key(&mut data.key_positions);
+        data.note_effect = true;
+    }
+    // The desktop overlay used to stay hidden for as long as OBS mode was on.
+    // The places to show the key viewer are switched separately now, so a
+    // store from before keeps the desktop as that user saw it. OBS itself is
+    // left as saved. Persisting the marker makes the migration one-time: a
+    // later "desktop on, OBS on" is the user's own choice and is kept.
+    if !data.outputs_separated {
+        if data.obs_mode_enabled {
+            data.overlay_visible = false;
+        }
+        data.outputs_separated = true;
+    }
     data
+}
+
+/// Turns the retired "Raining for every key" switch, when it was off, into each
+/// key's own setting, so the viewer keeps looking the same.
+pub(crate) fn hide_raining_on_every_key(positions: &mut crate::models::KeyPositions) {
+    for position in positions.values_mut().flatten() {
+        position.note_effect_enabled = false;
+        if let Some(ghost) = position.ghost.as_mut() {
+            ghost.settings.note_effect_enabled = false;
+        }
+    }
 }
 
 pub(crate) fn normalize_sprite_triggers(data: &mut AppStoreData) -> bool {

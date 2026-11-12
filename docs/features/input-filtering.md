@@ -19,7 +19,7 @@ ElementNote가 보낸 키 프로필(`key-limiter.profile.set`)은 `KeyLimiterSer
 - 동작 차이: 게임 기본 리미터는 `gameworld`이고 일시정지 메뉴가 닫혀 있으면 항상 적용된다(카운트다운, 실패 화면 포함). 마우스·게임패드는 제한하지 않는다. 키뷰어에는 막힌 키도 표시된다.
 - 이전 방식(`CountValidKeysPressed` 후처리 + SkyHook `HookCallback` 접두 패치)은 삭제했다. 입력마다 실행되던 패치와 SkyHook 스레드 작업이 사라졌다.
 
-ElementNote의 **Enable Key Limiter** 토글을 끄면 `enabled: false` 프로필을 보내 해제한다.
+ElementNote 설정 **보여 줄 곳**의 **키 리미터**를 끄면 `enabled: false` 프로필을 보내 해제한다.
 
 ## 채터 블로커 (Tweaks > Chatter blocker)
 
@@ -43,9 +43,9 @@ KeyboardChatterBlocker 0.1.3의 동작을 그대로 따른다. 라이선스가 �
 - 키 리미터: 고스트 키는 허용 키 목록에 들어가지 않고 `excludedGhostKeys`로만 보고된다.
 - 마이그레이션: 이전에 다른 키와 같은 자리에 겹쳐 둔 `keyLimiterExcluded` 키는 한 번만 그 키의 고스트로 옮긴다(`ghostKeysFolded`, 백업 `store.pre-ghost-keys.json`). 프리셋을 불러올 때도 같은 규칙을 적용한다. 겹치지 않는 제외 키는 그대로 동작한다.
 
-## 얼불춤 안에 표시 (ElementNote)
+## 얼불춤 안 (ElementNote)
 
-ElementNote의 **Show inside ADOFAI**를 끄면 `mirror.available`에 `inGame: false`를 보내고 `mirror.native.describe`는 `in-game-disabled`로 거절한다. 모드는 Add Element 갤러리의 키뷰어 카드, 배치된 키뷰어 페이지와 편집기 프레임을 숨긴다. 배치는 저장된 채로 남아 다시 켜면 돌아온다.
+ElementNote 설정 **보여 줄 곳**의 **얼불춤 안**을 끄면 `mirror.available`에 `inGame: false`를 보내고 `mirror.native.describe`는 `in-game-disabled`로 거절한다. 모드는 Add Element 갤러리의 키뷰어 카드, 배치된 키뷰어 페이지와 편집기 프레임을 숨긴다. 배치는 저장된 채로 남아 다시 켜면 돌아온다.
 
 ElementNote가 연결되어 있지 않을 때(`mirror.available` 전이거나 연결이 끊긴 뒤)도 편집기는 갤러리의 키뷰어 카드와 배치된 키뷰어 프레임을 숨기고, 안내 문구도 띄우지 않는다(`NativeViewerSession.Connected`). 다만 세션은 끝내지 않고 앱을 기다리므로, 앱이 연결되면 키뷰어가 바로 나타난다.
 

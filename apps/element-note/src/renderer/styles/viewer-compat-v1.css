@@ -192,51 +192,6 @@ input[type='number']::-webkit-outer-spin-button {
   animation: tooltipFadeIn 120ms ease-out;
 }
 
-@keyframes viewerTabPopupIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.viewer-tab-popup {
-  animation: viewerTabPopupIn 120ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.viewer-tab-trigger-surface {
-  transition:
-    transform 75ms ease-out,
-    background-color 75ms ease-out;
-}
-
-.viewer-tab-trigger:active .viewer-tab-trigger-surface {
-  transform: scale(0.94);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .viewer-tab-popup {
-    animation: tooltipFadeIn 100ms ease-out;
-  }
-
-  .viewer-tab-trigger-surface {
-    transition: background-color 75ms ease-out;
-  }
-
-  .viewer-tab-trigger:active .viewer-tab-trigger-surface {
-    transform: none;
-  }
-}
-
-.key-limiter-status-slot > .inline-flex {
-  min-width: 0;
-  max-width: 100%;
-}
-
 .key-limiter-status {
   display: inline-flex;
   height: 30px;

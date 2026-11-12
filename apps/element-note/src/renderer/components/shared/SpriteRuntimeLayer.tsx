@@ -3,6 +3,7 @@ import OverlaySpriteItem from '@components/overlay/counters/OverlaySpriteItem';
 import type { KeyPosition } from '@src/types/key/keys';
 import type { ReactiveSpritePosition } from '@src/types/key/sprites';
 import { hasSpriteId } from '@utils/sprite/spriteIdentity';
+import { spriteKeyMap } from '@utils/sprite/spriteKeyMap';
 import '@styles/sprite-runtime.css';
 
 export default function SpriteRuntimeLayer({
@@ -16,13 +17,10 @@ export default function SpriteRuntimeLayer({
   keys: string[];
   mode: string;
 }) {
-  const keyCanonicalMap = useMemo(() => {
-    const map = new Map<string, string>();
-    positions.forEach((position, index) => {
-      if (position.id && keys[index]) map.set(position.id, keys[index]);
-    });
-    return map;
-  }, [positions, keys]);
+  const keyCanonicalMap = useMemo(
+    () => spriteKeyMap(positions, keys),
+    [positions, keys],
+  );
   return sprites
     .filter(hasSpriteId)
     .map((position) => (

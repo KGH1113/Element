@@ -10,6 +10,7 @@ using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementUI;
+using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -47,6 +48,13 @@ internal static class ModParts
     return row.Frame(maxWidth: float.PositiveInfinity, minHeight: RowHeight, alignment: Alignment.Leading);
   }
 
+  /// <summary>
+  /// A text field drawn the way Element's own are: its words on the middle
+  /// line rather than the midline, so the caret takes the same line as the text.
+  /// </summary>
+  public static View Typed(View field) =>
+    field.Configure<TMP_InputField>(input => input.textComponent.alignment = TextAlignmentOptions.Left);
+
   /// <summary>A swatch with its HEX (and opacity) that opens Element's color picker.</summary>
   public static View ColorPicker(string label, Binding<Color> color, bool opacity) =>
     Row(
@@ -56,7 +64,11 @@ internal static class ModParts
           Title(label, L("색", "Color")),
           color,
           opacity,
-          UI.Text(() => ColorCaption(color.Value, opacity)).Font(Font.Caption).Foreground(Colors.Muted).LineLimit(1)
+          UI.Text(() => ColorCaption(color.Value, opacity))
+            .Font(Font.Caption)
+            .Foreground(Colors.Muted)
+            .LineLimit(1)
+            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
         )
         .Named("Color " + label)
         .Frame(maxWidth: 240, alignment: Alignment.Leading)

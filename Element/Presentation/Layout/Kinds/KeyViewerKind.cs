@@ -4,9 +4,6 @@ using Element.Configuration.Overlay;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
 using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Widgets;
-using UnityEngine;
-using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
@@ -17,10 +14,7 @@ namespace Element.Presentation.Layout.Kinds;
 /// </summary>
 internal sealed class KeyViewerKind : IElementKind
 {
-  private const float BarWidth = 401;
   private readonly ILayoutEditing _editing;
-  private UiSegmentedControl _kindControl;
-  private LayoutElementBar _bar;
 
   public KeyViewerKind(ILayoutEditing editing) => _editing = editing;
 
@@ -94,39 +88,14 @@ internal sealed class KeyViewerKind : IElementKind
   }
 
   // Hand or foot, and Edit, which opens the viewer in ElementNote.
-  public bool BuildBar(LayoutElementBar bar, IOverlayLayoutTarget target)
+  public LayoutBarScreen Bar(IOverlayLayoutTarget target)
   {
-    _bar = bar;
-    RectTransform panel = bar.Begin(target, BarWidth);
-    _kindControl = new UiSegmentedControl(
-      bar.Ui,
-      panel,
-      32,
-      8,
-      172,
-      40,
-      new[] { L("손", "Hand"), L("발", "Foot") },
-      index => Switch(index == 0 ? OverlayElementKinds.HandKeyViewer : OverlayElementKinds.FootKeyViewer)
-    );
-    bar.AddControl(_kindControl.Root);
-    _kindControl.Selected = target.TemplateId == OverlayElementKinds.FootKeyViewer ? 1 : 0;
-    bar.Divider(212);
-    // Hand or foot replaces the target without a rebuild: read it on click.
-    Button edit = bar.Control(
-      bar.Ui.Button(L("키뷰어 편집", "Edit key viewer"), panel, 221, 8, 172, 40, () => OpenInApp(bar.Target), true)
-    );
-    edit.name = "Edit key viewer";
-    edit.gameObject.AddComponent<LayoutActionHint>().Changed = _editing.Status.HintFor(
-      L(
-        "ElementNote에서 이 키뷰어의 탭을 열어요 · 더블클릭, Enter",
-        "Opens this viewer's tab in ElementNote · Double-click, Enter"
-      )
-    );
-    return true;
+    KeyViewerBarModel model = new(this, target);
+    return new LayoutBarScreen(model, new KeyViewerBarView(model));
   }
 
   // ElementNote edits the viewer; the game brings it forward on the right tab.
-  private void OpenInApp(IOverlayLayoutTarget target)
+  internal void OpenInApp(IOverlayLayoutTarget target)
   {
     KeyViewerEditResult result =
       target == null ? KeyViewerEditResult.Failed : Viewers?.OpenInApp(target) ?? KeyViewerEditResult.Failed;
@@ -161,22 +130,26 @@ internal sealed class KeyViewerKind : IElementKind
     }
   }
 
-  private void Switch(string templateId)
+  /// <summary>
+  /// Replaces <paramref name="old"/> with a viewer of <paramref name="templateId"/>
+  /// in its place, selected, as one undo step; <paramref name="replaced"/> hears
+  /// of the new one before the editor catches up. False, with the reason on
+  /// the status line, when ElementNote couldn't.
+  /// </summary>
+  internal bool Switch(IOverlayLayoutTarget old, string templateId, System.Action<IOverlayLayoutTarget> replaced)
   {
-    IOverlayLayoutTarget old = _bar?.Target;
     if (old == null || old.TemplateId == templateId)
-      return;
+      return true;
     IOverlayLayoutTarget created = Viewers?.Switch(old, templateId);
     if (created == null)
     {
-      _kindControl.Selected = old.TemplateId == OverlayElementKinds.FootKeyViewer ? 1 : 0;
       _editing.Status.ShowError(
         L(
           "키뷰어를 바꾸지 못했어요. ElementNote가 켜져 있는지 확인해 주세요.",
           "Couldn't switch the key viewer. Check that ElementNote is open."
         )
       );
-      return;
+      return false;
     }
     LayoutSession session = _editing.Session;
     (old as IExternalLayoutOutline)?.SetSelected(false);
@@ -184,10 +157,12 @@ internal sealed class KeyViewerKind : IElementKind
     if (session.IndexOf(created) < 0)
       session.AddFrame(created);
     _editing.Selection.Selected = session.IndexOf(created);
-    _bar.Target = created;
+    // The bar follows the new viewer instead of being built again for it.
+    replaced(created);
     session.Commit();
     _editing.RefreshLayouts();
     _editing.UpdateFrames();
+    return true;
   }
 
   public void Dispose() { }

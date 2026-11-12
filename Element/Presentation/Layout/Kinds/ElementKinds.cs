@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -44,7 +44,8 @@ internal sealed class ElementKinds : IDisposable
   /// <summary>Opens what edits <paramref name="target"/>; false when nothing does.</summary>
   public bool Edit(IOverlayLayoutTarget target) => Of(target)?.Edit(target) ?? false;
 
-  public bool BuildBar(LayoutElementBar bar, IOverlayLayoutTarget target) => Of(target)?.BuildBar(bar, target) ?? false;
+  /// <summary>What the element toolbar shows for <paramref name="target"/> alone; null when it has none.</summary>
+  public LayoutBarScreen Bar(IOverlayLayoutTarget target) => Of(target)?.Bar(target);
 
   /// <summary>The full-screen editor that is open, or null.</summary>
   public IContentEditor OpenEditor

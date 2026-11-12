@@ -1,6 +1,6 @@
 # Element on ElementUI
 
-> Status: in progress on `feat/elementui` · 2026-11-12
+> Status: done · 2026-11-13
 
 Element's UI (settings window, overlay editor chrome, content editors, popovers)
 moves from hand-placed UGUI (`UiFactory`, manual `Layout(width, height)`) to
@@ -92,7 +92,7 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done |
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
 | Content editors: input dock and keypad, color picker form (and the highlight color popover) | done; ui-check 5121 assertions |
-| Remove old widgets nothing uses any more (custom stages keep `UiFactory`'s low-level helpers) | last |
+| Remove old widgets nothing uses any more (custom stages keep `UiFactory`'s low-level helpers) | done |
 | Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
 | Mod element editor, ElementKit EditorPage on ElementUI | done |
 | ElementKit: editing screens written with ElementUI (`Editor(EditorViewModel<T>)`, `EditorParts`) | done |

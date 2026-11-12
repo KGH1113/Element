@@ -1,3 +1,4 @@
+using ElementUI;
 using UnityEngine;
 
 namespace ElementKit;
@@ -73,6 +74,11 @@ public abstract class OverlayElement
   /// Element shows the change, records undo, and saves it when the player is done.
   /// It may be called again with a fresh page, such as after undo.
   /// </summary>
+  /// <remarks>
+  /// An element of <see cref="OverlayElement{TSettings}"/> may write its screen
+  /// with ElementUI instead (<see cref="OverlayElement{TSettings}.Editor"/>);
+  /// then this isn't called. Override one of the two.
+  /// </remarks>
   protected virtual void OnEdit(EditorPage page) { }
 
   /// <summary>The element is going away: release what you made outside <see cref="Root"/>.</summary>
@@ -102,6 +108,16 @@ public abstract class OverlayElement
 
   internal void RunEdit(EditorPage page) => OnEdit(page);
 
+  /// <summary>
+  /// The editing screen as ElementUI views and the view model they read, or
+  /// null when the element builds it with <see cref="OnEdit"/>.
+  /// </summary>
+  internal virtual View RunEditor(bool korean, out ViewModel model)
+  {
+    model = null;
+    return null;
+  }
+
   internal void RunDestroy() => OnDestroy();
 
   internal string RunSave() => SaveSettings() ?? string.Empty;
@@ -121,6 +137,7 @@ public abstract class OverlayElement
 /// added in a later version starts at its default in saved elements.
 /// </typeparam>
 /// <example>
+/// The editing screen built from <see cref="EditorPage"/>'s parts:
 /// <code>
 /// [Serializable]
 /// public sealed class BarsSettings
@@ -141,6 +158,13 @@ public abstract class OverlayElement
 ///     }
 /// }
 /// </code>
+/// Or written with ElementUI, bound to the settings:
+/// <code>
+/// protected override View Editor(EditorViewModel&lt;BarsSettings&gt; vm) =>
+///     VStack(
+///         ColorPicker(vm.L("왼손 색", "Left hand"), Bind(() =&gt; vm.Settings.Left)),
+///         Stepper(vm.L("묶음 수", "Groups"), Bind(() =&gt; vm.Settings.Groups), 2, 64));
+/// </code>
 /// </example>
 public abstract class OverlayElement<TSettings> : OverlayElement
   where TSettings : class, new()
@@ -158,5 +182,31 @@ public abstract class OverlayElement<TSettings> : OverlayElement
     if (!string.IsNullOrEmpty(data))
       JsonUtility.FromJsonOverwrite(data, settings);
     Settings = settings;
+  }
+
+  /// <summary>
+  /// The editing screen written with ElementUI: controls bound to
+  /// <c>vm.Settings</c> (<c>Slider(vm.L("너비", "Width"), Bind(() =&gt; vm.Settings.Width), 80, 960)</c>)
+  /// and Element's own pickers from <see cref="EditorParts"/>. Element shows it
+  /// in a column under the preview, scrolling when it is taller than the room;
+  /// it records each change for undo, shows it on the preview and saves it when
+  /// the player is done. Return null, as the default does, to build the screen
+  /// with <see cref="OverlayElement.OnEdit"/> instead; override one of the two.
+  /// </summary>
+  /// <param name="vm">The settings the screen edits; see <see cref="EditorViewModel{TSettings}"/>.</param>
+  protected virtual View Editor(EditorViewModel<TSettings> vm) => null;
+
+  internal sealed override View RunEditor(bool korean, out ViewModel model)
+  {
+    EditorViewModel<TSettings> vm = new(this, korean);
+    View view = Editor(vm);
+    if (view == null)
+    {
+      vm.Dispose();
+      model = null;
+      return null;
+    }
+    model = vm;
+    return view;
   }
 }

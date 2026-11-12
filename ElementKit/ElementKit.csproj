@@ -65,5 +65,13 @@
       <HintPath>$(AdofaiManaged)/UnityEngine.JSONSerializeModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!--
+      Editing screens may be ElementUI views (OverlayElement<T>.Editor). Element
+      ships ElementUI next to ElementKit; mods compile against both and ship neither.
+    -->
+    <Reference Include="ElementUI.Core">
+      <HintPath>../vendor/elementui/ElementUI.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 </Project>

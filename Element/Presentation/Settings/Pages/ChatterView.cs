@@ -98,7 +98,7 @@ internal sealed class ChatterView : View<ChatterModel>
         HStack(
             spacing: 8,
             Button(
-              Text(() => VM.Capturing ? L("완료", "Done") : L("키 바꾸기", "Change keys")).Foreground(Colors.Accent),
+              Text(() => VM.Capturing ? L("완료", "Done") : L("키 바꾸기", "Change keys")),
               () => VM.ChangeKeys,
               ButtonStyle.Prominent
             ),

@@ -18,9 +18,8 @@ namespace Element.Presentation.Settings.Pages;
 /// </summary>
 internal sealed class PresetEditorView : View<PresetEditorModel>
 {
-  // The typed zoom's width, and the width ElementUI's slider gives the value it shows.
-  private const float ZoomField = 84,
-    SliderValue = 44;
+  // The typed zoom's width.
+  private const float ZoomField = 84;
 
   public PresetEditorView(PresetEditorModel vm)
     : base(vm) { }
@@ -67,9 +66,7 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
       )
       .Frame(maxWidth: float.PositiveInfinity);
     View save = Button(
-        Text(L("저장", "Save preset"))
-          .Foreground(() => VM.CanSave.Value ? Colors.Accent : Colors.Muted)
-          .Frame(maxWidth: float.PositiveInfinity),
+        Text(L("저장", "Save preset")).Frame(maxWidth: float.PositiveInfinity),
         () => VM.Save,
         ButtonStyle.Prominent
       )
@@ -132,12 +129,17 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
     VStack(
         spacing: 8,
         Text(L("카메라 확대", "Camera zoom")).Font(Font.Caption).Foreground(Colors.Muted),
-        // ElementUI's slider shows its value beside it; the typed field sits over that value, so the number shows once.
-        ZStack(
-          Alignment.Trailing,
-          Slider(null, Bind(() => VM.Zoom), EffectPreset.MinimumCameraZoom, EffectPreset.MaximumCameraZoom, step: 10)
-            .Padding(new Insets(0, 0, 0, ZoomField + 24 - SliderValue))
-            .Frame(maxWidth: float.PositiveInfinity),
+        // The typed field shows the number, so the slider leaves out its own.
+        HStack(
+          spacing: 12,
+          Slider(
+            null,
+            Bind(() => VM.Zoom),
+            EffectPreset.MinimumCameraZoom,
+            EffectPreset.MaximumCameraZoom,
+            step: 10,
+            showsValue: false
+          ),
           HStack(
             spacing: 8,
             NumberField(null, Bind(() => VM.Zoom), EffectPreset.MinimumCameraZoom, EffectPreset.MaximumCameraZoom)

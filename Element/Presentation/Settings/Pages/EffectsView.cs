@@ -28,7 +28,7 @@ internal sealed class EffectsView : View<EffectsModel>
           Text(L("프리셋", "Presets")).Font(Font.Heading),
           Spacer(),
           Button(
-              Text(L("프리셋 추가", "New preset")).Foreground(Colors.Accent).Frame(maxWidth: float.PositiveInfinity),
+              Text(L("프리셋 추가", "New preset")).Frame(maxWidth: float.PositiveInfinity),
               () => VM.NewPreset,
               ButtonStyle.Prominent
             )

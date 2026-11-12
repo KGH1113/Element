@@ -56,7 +56,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
       ? Button(Text(L("가져오기", "Import")).Frame(maxWidth: float.PositiveInfinity), () => VM.Import).Frame(height: 44)
       : null;
     View create = Button(
-        Text(L("새 프로필", "New profile")).Foreground(Colors.Accent).Frame(maxWidth: float.PositiveInfinity),
+        Text(L("새 프로필", "New profile")).Frame(maxWidth: float.PositiveInfinity),
         () => VM.NewProfile,
         ButtonStyle.Prominent
       )
@@ -93,9 +93,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
               .Configure<TMP_InputField, int>(() => VM.Creating.FocusName, Focus)
               .Frame(maxWidth: float.PositiveInfinity),
             Button(
-                Text(L("만들기", "Create"))
-                  .Foreground(() => VM.Creating.CanCreate.Value ? Colors.Accent : Colors.Muted)
-                  .Frame(maxWidth: float.PositiveInfinity),
+                Text(L("만들기", "Create")).Frame(maxWidth: float.PositiveInfinity),
                 () => VM.Creating.Create,
                 ButtonStyle.Prominent
               )
@@ -257,7 +255,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
 
   private View ChooseFont(ItemSlot<ProfileFontsModel.Row> slot) =>
     Button(
-        Text(L("폰트 고르기", "Choose font")).Foreground(Colors.Accent).Frame(maxWidth: float.PositiveInfinity),
+        Text(L("폰트 고르기", "Choose font")).Frame(maxWidth: float.PositiveInfinity),
         () => slot.Value.Choose,
         ButtonStyle.Prominent
       )

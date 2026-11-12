@@ -371,9 +371,9 @@ namespace Element.Editor
       float scale = shape.EffectiveScale;
       OverlayInputDock dock = Field<OverlayInputDock>(shapes, "_dock");
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
-        && dock.Keypad.Root.GetComponentsInChildren<Button>(true).All(button => !button.interactable),
+        && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
-      dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value combo").onClick.Invoke();
+      Press(DockChip(dock, "Value combo"));
       Assert(Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
       OverlayFormulaField widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
@@ -449,10 +449,10 @@ namespace Element.Editor
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
-      Assert(dock.Content.GetComponentsInChildren<Button>(true).Count(button => button.name.StartsWith("Value ")) == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
+      Assert(DockChips(dock).Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
         "every value is laid out at once");
-      Assert(dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key clear")
-        && dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key done"), "the keypad has AC and Done");
+      Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
+      Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number open every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         if (label.GetComponentInParent<ScrollRect>() != null || label.name == "Formula" || label.richText)
@@ -467,7 +467,7 @@ namespace Element.Editor
       Assert(Mathf.Abs(working.Width * scale - 240) < .01f && widthField.Text == "240", "keypad digits set the width as they are typed");
       ShapeNumbersOf(shapes).KeypadPress('0');
       ShapeNumbersOf(shapes).KeypadPress('0');
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key done").onClick.Invoke();
+      Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
         && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Contains("10000"),
         "Done lets the dock rest; a width past the limit is kept in range and says so");
@@ -477,7 +477,7 @@ namespace Element.Editor
 
       // A value picked in the dock: the formula in the dock, the result on W.
       Click(widthField.Root, "Width");
-      dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value progress-current").onClick.Invoke();
+      Press(DockChip(dock, "Value progress-current"));
       ShapeNumbersOf(shapes).KeypadPress('*');
       ShapeNumbersOf(shapes).KeypadPress('3');
       working = Field<OverlayShapeSettings>(shapes, "_shape");
@@ -491,8 +491,13 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.ProgressCurrent);
       Call(shapes, "FollowLiveValues");
       Assert(widthField.Text == "144", "without live data the example comes back");
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key clear").onClick.Invoke();
+      Press(DockKey(dock, "Key clear"));
       Assert(editing.Working.IsEmpty && working.WidthFormula == "{progress-current}*3", "AC starts over without losing the width yet");
+      Assert(DockKey(dock, "Key 7").IsInteractable() && DockKey(dock, "Key −").IsInteractable() && !DockKey(dock, "Key +").IsInteractable()
+        && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key clear").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
+        "after AC only what can start a number can be pressed");
+      Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<TextMeshProUGUI>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<TextMeshProUGUI>().color;
+      Assert(plusInk.a < minusInk.a * .5f, "a key that would do nothing reads dimmed: " + plusInk + " / " + minusInk);
       ShapeNumbersOf(shapes).KeypadPress('9');
       ShapeNumbersOf(shapes).KeypadPress('0');
       Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing after AC replaces the formula");
@@ -542,29 +547,40 @@ namespace Element.Editor
       UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
-      Rect keypadRect = ScreenRectOf(dock.Keypad.Root);
+      Rect keypadRect = KeypadRect(dock);
       // Two columns: it ends with the keypad and reaches further left.
-      Assert(picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy && pickerRect.xMin < keypadRect.xMin
+      Assert(picker.Column && Shown(DockKey(dock, "Key done")) && pickerRect.xMin < keypadRect.xMin
         && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1 && pickerRect.yMin - dockArea.yMax < 20
         && InsideScreen(pickerRect), "the picker opens right above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
         "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
       OverlayOpacityField opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
-        && !Field<TMP_InputField>(picker, "_opacity").gameObject.activeSelf && opacity.Field.Text == "100",
+        && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
-      RectTransform plane = Field<RectTransform>(picker, "_planeRect");
+      Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Segment(picker.Root, 0)),
+        "a new shape follows the highlight: only its opacity shows, with Highlight/Custom");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
-      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
       Call(shapes, "Render");
+      Settle();
+      Assert(!picker.Model.FollowsHighlight && working.Fill.Highlight == false, "Custom gives the fill a color of its own");
+      RectTransform plane = (RectTransform)ColorPickerProbe.Plane(picker.Root).transform;
       pickerRect = ScreenRectOf(picker.Root);
-      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_hue").transform),
-        alphaRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_alpha").transform),
-        hexRect = ScreenRectOf((RectTransform)Field<TMP_InputField>(picker, "_hex").transform);
+      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hue(picker.Root).transform),
+        alphaRect = ScreenRectOf((RectTransform)ColorPickerProbe.Alpha(picker.Root).transform),
+        hexRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hex(picker.Root).transform);
       Assert(Mathf.Abs(plane.rect.width - 256) < .01f && Mathf.Abs(plane.rect.height - 156) < .01f, "the color square keeps its full size");
       Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y && alphaRect.center.y > hexRect.center.y
-        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && !Field<TextMeshProUGUI>(picker, "_title").gameObject.activeSelf,
+        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && ColorPickerProbe.Title(picker.Root) == null
+        && ColorPickerProbe.Close(picker.Root) == null,
         "top to bottom: Highlight/Custom, the square, hue, opacity, then HEX with opacity, without a title or card");
+      Assert(ColorPickerProbe.Plane(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
+        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,
+        "the square and the bars keep their crosshair and slider cursors in the editor's panel");
       float topGap = ((RectTransform)picker.Root).anchoredPosition.y;
       Assert(pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1 || Mathf.Abs(-topGap - (OverlayEditorFrame.TopBar + 8)) < 1,
         "with the color square, it still sits above the dock, or right under the top bar on a short screen: " + pickerRect + " top " + topGap);
@@ -574,16 +590,17 @@ namespace Element.Editor
         Assert(!label.isTextTruncated, "docked picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, canvases, name + "-shape-color-custom");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       Assert(picker.Commit() && working.Fill.Hex == "#2050A0", "the fill takes the new color");
-      Slider alphaSlider = Field<Slider>(picker, "_alpha");
+      Slider alphaSlider = ColorPickerProbe.Alpha(picker.Root);
       opacity.Field.Root.GetComponent<Button>().onClick.Invoke();
       Assert(picker.Visible && dock.Owner == "fill-opacity" && ShapeNumbersOf(shapes).Editing.Working.Serialize() == "100",
         "clicking the opacity types it in the dock, with the picker still open");
-      Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "the keypad below types the opacity, the picker staying open");
+      Assert(picker.Visible && Shown(DockKey(dock, "Key done")), "the keypad below types the opacity, the picker staying open");
       foreach (char key in "\b\b\b50")
         ShapeNumbersOf(shapes).KeypadPress(key);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
+      Settle();
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f && working.Fill.AlphaFormula == "" && Mathf.Abs(alphaSlider.value - .5f) < .001f
         && opacity.Field.Text == "50", "a typed opacity moves the slider");
       ShapeNumbersOf(shapes).FinishEditing();
@@ -595,30 +612,35 @@ namespace Element.Editor
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "accuracy" && dock.Owner == "fill-opacity" && opacity.Field.Computed && opacity.Field.Text == "99.5",
         "a value dropped on the opacity calculates it: " + working.Fill.AlphaFormula + " / " + opacity.Field.Text);
+      Settle();
       Assert(Mathf.Abs(alphaSlider.value - .995f) < .001f && Mathf.Abs(working.Fill.Alpha - .5f) < .001f,
         "the slider shows the result; the plain opacity stays underneath");
       Assert(dock.ResultText.Contains("99.5%"), "the dock shows the opacity in percent: " + dock.ResultText);
       SaveFrame(camera, texture, canvases, name + "-shape-opacity");
-      Field<TMP_InputField>(picker, "_hex").text = "#3060B0";
+      ColorPickerProbe.Hex(picker.Root).text = "#3060B0";
+      // A frame passes after typing, as it does between keys and undo.
+      Settle();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.Hex == "#3060B0" && working.Fill.AlphaFormula == "accuracy", "a new color keeps the calculated opacity");
       Assert(picker.Commit() && Field<OverlayShapeSettings>(shapes, "_shape").Fill.AlphaFormula == "accuracy", "confirming the picker keeps it too");
       ShapeHistory(shapes).Undo();
+      Settle();
       Assert(picker.Visible && Field<OverlayShapeSettings>(shapes, "_shape").Fill.Hex == "#2050A0"
-        && Field<TMP_InputField>(picker, "_hex").text == "2050A0", "undo keeps the picker open, showing the restored color");
+        && ColorPickerProbe.Hex(picker.Root).text == "2050A0", "undo keeps the picker open, showing the restored color: "
+        + ColorPickerProbe.Hex(picker.Root).text);
       ShapeHistory(shapes).Redo();
       alphaSlider.value = .3f;
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "" && Mathf.Abs(working.Fill.Alpha - .3f) < .01f && !opacity.Field.Computed && opacity.Field.Text == "30",
         "moving the slider makes it a plain number again: " + opacity.Field.Text);
       Call(shapes, "CloseOpen");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
         && dock.HintText.Contains(Korean(name) ? "테두리 색" : "border color"), "Border switches the picker to its color, in the same place");
       PressBar(shapes, strokeButton);
-      Assert(!picker.Visible && !strokeButton.Active && dock.Keypad.Root.gameObject.activeSelf, "clicking it again closes the picker and brings the keypad back");
+      Assert(!picker.Visible && !strokeButton.Active && Shown(DockKey(dock, "Key done")), "clicking it again closes the picker and brings the keypad back");
 
       // Where the shape grows from.
       PressBar(shapes, shapeGrow);
@@ -1144,35 +1166,43 @@ namespace Element.Editor
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      Button[] chips = dock.Content.GetComponentsInChildren<Button>(true);
+      Pressable[] chips = DockChips(dock);
+      RectTransform values = DockValues(dock);
       Assert(chips.Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count)
         && chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "every value is laid out, each draggable");
-      Assert(dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "예시" : "Sample"))
+      OverlayValueChipHandle carried = chips.Single(chip => chip.name == "Value fps").GetComponent<OverlayValueChipHandle>();
+      Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
+      int itemsBefore = TextDocumentOf(text).Document.Count;
+      carried.OnBeginDrag(Pointer(chipPoint));
+      Assert(dock.Dragging && screen.Root.transform.Find("Controls/Dragged value") != null, "a chip carries its value out of the dock");
+      carried.OnEndDrag(Pointer(chipPoint));
+      Assert(!dock.Dragging && TextDocumentOf(text).Document.Count == itemsBefore, "let go over the dock, it lands nowhere");
+      Assert(values.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "예시" : "Sample"))
         && chips.Count(chip => chip.name.StartsWith("Value Sample/")) == 3,
         "another mod's values sit under its own heading");
       Assert(!chips.Any(chip => chip.name == "Value Gone/value"), "a value whose mod is missing isn't offered");
-      RectTransform modHeading = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true)
+      RectTransform modHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
         .First(label => label.text == (Korean(name) ? "예시" : "Sample")).rectTransform;
-      RectTransform systemHeading = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true)
+      RectTransform systemHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
         .First(label => label.text == (Korean(name) ? "시스템" : "System")).rectTransform;
       Assert(-modHeading.anchoredPosition.y > -systemHeading.anchoredPosition.y, "mod headings come after the built-in ones");
-      TextMeshProUGUI[] categories = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == dock.Content).ToArray();
+      TextMeshProUGUI[] categories = values.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == values).ToArray();
       Assert(categories.Length == OverlayValueCatalog.Sections().Count(section => section.Values.Count > 0)
         && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
         "category names line up in one column");
       float column = categories.Max(label => label.rectTransform.sizeDelta.x);
       Assert(chips.All(chip => ((RectTransform)chip.transform).anchoredPosition.x >= column - .5f), "values wrap to the right of the names");
-      foreach (TextMeshProUGUI label in dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true))
+      foreach (TextMeshProUGUI label in values.GetComponentsInChildren<TextMeshProUGUI>(true))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "value label fits: " + label.text);
       }
       SaveFrame(camera, texture, canvases, name + "-text-values");
-      chips.Single(chip => chip.name == "Value combo").onClick.Invoke();
+      Press(chips.Single(chip => chip.name == "Value combo"));
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 10 && document[9].Value == "combo" && Field<int>(TextDocumentOf(text), "_caretIndex") == 10 && Field<int>(TextDocumentOf(text), "_anchor") == 10,
         "a clicked value lands at the caret, and typing goes on after it");
-      chips.Single(chip => chip.name == "Value miss").onClick.Invoke();
+      Press(chips.Single(chip => chip.name == "Value miss"));
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[9].Value == "combo" && document[10].Value == "miss", "a second value follows the first");
       TextDocumentOf(text).Undo();
@@ -1194,14 +1224,14 @@ namespace Element.Editor
       Call(text, "FollowLiveValues");
       Assert(preview.text.Contains("240"), "without live data the example comes back");
       TextFormulasOf(text).KeypadPress('+');
-      Vector2 line = ScreenCenter((RectTransform)dock.Root.Find("Formula line"));
+      Vector2 line = ScreenCenter(ByName<RectTransform>(dock.Root, "Formula line"));
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Miss), line);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(line);
       document = TextDocumentOf(text).Document;
       Assert(document[9].Value == "{combo}*2+{miss}", "a value dropped on the formula line joins it: " + document[9].Value);
       Assert(dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the dock never covers the text");
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key done").onClick.Invoke();
+      Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
       Field<TextPointer>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
       Assert(screen.TipText.Contains("×") && screen.TipText.Contains("+"), "hovering a value names it: " + screen.TipText);
@@ -1258,11 +1288,12 @@ namespace Element.Editor
       PressBar(text, colorButton);
       UiColorPicker picker = TextColorOf(text).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root);
-      Assert(picker.Visible && colorButton.Active && picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy
-        && Mathf.Abs(pickerRect.xMax - ScreenRectOf(dock.Keypad.Root).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
+      Assert(picker.Visible && colorButton.Active && picker.Column && Shown(DockKey(dock, "Key done"))
+        && Mathf.Abs(pickerRect.xMax - KeypadRect(dock).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
         && InsideScreen(pickerRect), "the color picker opens right above the keypad: " + pickerRect);
-      Field<UiSegmentedControl>(picker, "_source").Select(1, true);
-      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       picker.Commit();
       SaveFrame(camera, texture, canvases, name + "-text-color");
       OverlayOpacityField textOpacity = TextColorOf(text).Opacity;
@@ -1278,17 +1309,20 @@ namespace Element.Editor
       Assert(picker.Visible && document[0].Color.AlphaFormula == "progress-current" && document[3].Color.AlphaFormula == ""
         && dock.Owner == "opacity" && textOpacity.Field.Text == "48" && textOpacity.Field.Computed,
         "the picker's opacity takes a value for the selection");
-      Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "its formula is typed on the keypad below, the picker staying open");
+      Assert(picker.Visible && Shown(DockKey(dock, "Key done")), "its formula is typed on the keypad below, the picker staying open");
       Assert(picker.Commit() && TextDocumentOf(text).Document[0].Color.AlphaFormula == "progress-current"
         && TextDocumentOf(text).Document[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
       // Done waits while the picker holds a color it can't read; Esc closes the picker first.
-      Field<TMP_InputField>(picker, "_hex").text = "#40";
+      ColorPickerProbe.Hex(picker.Root).text = "#40";
       PressEditorButton(text, "Text editor done");
       Assert(text.IsOpen && picker.Visible, "Done waits while the picker holds a color it can't read");
-      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      Settle();
+      Assert(ColorPickerProbe.Error(picker.Root).text.Length > 0 && picker.Model.FocusHex.Value > 0,
+        "and says what to type, its HEX taking the keyboard: " + ColorPickerProbe.Error(picker.Root).text);
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       text.Escape();
       Assert(text.IsOpen && !picker.Visible, "Esc closes the picker before the editor");
-      Assert(!colorButton.Active && dock.Owner == null && dock.Keypad.Root.gameObject.activeSelf,
+      Assert(!colorButton.Active && dock.Owner == null && Shown(DockKey(dock, "Key done")),
         "Text color lets go once the picker closes, and so does its opacity; the keypad is back");
 
       // Where the text grows from.
@@ -1356,9 +1390,15 @@ namespace Element.Editor
       Call(editor, "ToggleColor");
       OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
       UiColorPicker controls = Field<UiColorPicker>(popover, "_picker");
-      Assert(popover.Visible && !Field<UiSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
-        "the highlight color itself has no Highlight/Custom choice");
-      TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
+      Settle();
+      Assert(popover.Visible && !ColorPickerProbe.Shown(ColorPickerProbe.Segment(controls.Root, 0))
+        && ColorPickerProbe.Title(controls.Root).text == L("하이라이트 색상", "Highlight color") && ColorPickerProbe.Shown(ColorPickerProbe.Close(controls.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(controls.Root)) && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(controls.Root)),
+        "the highlight color itself has a title, close and Default, no opacity and no Highlight/Custom choice");
+      TMP_InputField hex = ColorPickerProbe.Hex(controls.Root);
+      Press(ColorPickerProbe.Default(controls.Root));
+      UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out Color defaultHighlight);
+      Assert(settings.HighlightColor == "#" + ColorUtility.ToHtmlStringRGB(defaultHighlight), "Default puts Element's highlight back: " + settings.HighlightColor);
       string before = settings.HighlightColor;
       hex.text = "#12";
       Assert(settings.HighlightColor == before && !popover.Commit(), "an incomplete color cannot commit");
@@ -1997,36 +2037,56 @@ namespace Element.Editor
       var picker = new UiColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
       UiFactory.Place(picker.Root, 112, 52, UiColorPicker.Width, picker.Height);
-      var opacity = Field<TMP_InputField>(picker, "_opacity");
-      var hex = Field<TMP_InputField>(picker, "_hex");
-      var plane = Field<UiColorPlane>(picker, "_plane");
-      var hue = Field<Slider>(picker, "_hue");
-      var alpha = Field<Slider>(picker, "_alpha");
-      var error = Field<TextMeshProUGUI>(picker, "_error");
+      Settle();
+      Transform drawn = picker.Root;
+      var opacity = ColorPickerProbe.Opacity(drawn);
+      var hex = ColorPickerProbe.Hex(drawn);
+      var plane = ColorPickerProbe.Plane(drawn);
+      var hue = ColorPickerProbe.Hue(drawn);
+      var alpha = ColorPickerProbe.Alpha(drawn);
+      var error = ColorPickerProbe.Error(drawn);
       Assert(changed == 0 && current == original, "opening an RGBA picker does not mutate its consumer");
-      Assert(picker.Height == 358 && opacity.gameObject.activeSelf && alpha.gameObject.activeSelf,
-        "RGBA mode adds an opacity track and a numeric field beside HEX");
+      Assert(picker.Height == 358 && ColorPickerProbe.Shown(opacity) && ColorPickerProbe.Shown(alpha) && !ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGBA mode adds an opacity track and a numeric field beside HEX: " + picker.Height);
+      Assert(ColorPickerProbe.Title(drawn).text == "Planet color" && ColorPickerProbe.Shown(ColorPickerProbe.Close(drawn))
+        && hex.text == ColorUtility.ToHtmlStringRGB(original) && opacity.text == "50",
+        "the card names the color, closes, and shows its HEX and opacity: " + hex.text + " / " + opacity.text);
       Assert(plane.GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
         && hue.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
         && alpha.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
         && hex.GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "color controls expose crosshair, adjustment and text cursor affordances");
+      Rect card = ScreenRectOf(picker.Root), planeRect = ScreenRectOf((RectTransform)plane.transform), hueRect = ScreenRectOf((RectTransform)hue.transform),
+        alphaRect = ScreenRectOf((RectTransform)alpha.transform), hexRect = ScreenRectOf((RectTransform)hex.transform),
+        opacityRect = ScreenRectOf((RectTransform)opacity.transform);
+      Assert(card.Contains(planeRect.min) && card.Contains(planeRect.max) && planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y
+        && alphaRect.center.y > hexRect.center.y && Mathf.Abs(hexRect.center.y - opacityRect.center.y) < .5f && opacityRect.xMin > hexRect.xMax
+        && Mathf.Abs(hueRect.xMin - (planeRect.xMin - 10 * card.width / UiColorPicker.Width)) < 1,
+        "top to bottom: the square, hue, opacity, then HEX with the opacity beside it; the bars' handles reach past the square");
       foreach (int percent in new[] { 0, 50, 100 })
       {
         opacity.text = percent.ToString();
         Assert(Mathf.Abs(current.a - percent / 100f) < .001f && picker.Commit(),
           "numeric opacity accepts and commits " + percent + "%");
+        Settle();
         Assert(Mathf.Abs(alpha.value - percent / 100f) < .001f, "numeric opacity updates its slider");
       }
       opacity.text = "101";
+      Settle();
       Assert(current.a == 1 && error.text == "", "out-of-range partial opacity leaves the last valid color untouched");
-      Assert(!picker.Commit() && error.text.Length > 0, "invalid opacity produces a focused inline correction on commit");
+      int focusBefore = picker.Model.FocusOpacity.Value;
+      Assert(!picker.Commit() && picker.Model.FocusOpacity.Value > focusBefore, "invalid opacity asks its field to take the keyboard on commit");
+      Settle();
+      Assert(error.text.Length > 0, "invalid opacity produces an inline correction on commit: " + error.text);
       opacity.text = "50";
-      Assert(picker.Commit() && error.text == "", "valid opacity clears its validation error");
+      Assert(picker.Commit(), "valid opacity commits");
+      Settle();
+      Assert(error.text == "", "valid opacity clears its validation error");
       hex.text = "204060";
       Assert(Mathf.Abs(current.a - .5f) < .001f && ColorUtility.ToHtmlStringRGB(current) == "204060",
         "HEX changes preserve the independent alpha channel");
       alpha.value = .25f;
+      Settle();
       Assert(opacity.text == "25" && Mathf.Abs(current.a - .25f) < .001f,
         "opacity dragging updates the numeric field continuously");
       plane.Changed(.8f, 0); hue.value = .77f; plane.Changed(.8f, .9f);
@@ -2035,21 +2095,29 @@ namespace Element.Editor
         "HSV gestures preserve hue through black and retain opacity");
       Assert(UiTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
       hex.text = "BA712B"; opacity.text = "50"; picker.Commit();
+      Settle();
       CheckInputCaret(hex, "HEX color", "", "BA712B");
       CheckInputCaret(opacity, "opacity", "", "0", "50", "100");
       hex.DeactivateInputField(); opacity.DeactivateInputField();
-      Canvas.ForceUpdateCanvases();
+      Settle();
       foreach (var label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "RGBA picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, 512, 480, "rgba-color-picker");
+      Press(ColorPickerProbe.Close(drawn));
+      Assert(!picker.Visible, "the close button hides the picker");
+      picker.SetDefault(new Color(.2f, .4f, .6f));
       picker.Show("Highlight color", current, false, value => current = value);
-      Assert(picker.Height == 318 && !alpha.gameObject.activeSelf && !opacity.gameObject.activeSelf,
-        "RGB mode stays compact and hides both opacity controls");
+      Settle();
+      Assert(picker.Height == 318 && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(drawn)) && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(drawn))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGB mode stays compact, hides both opacity controls and offers Default: " + picker.Height);
       hex.text = "BA712C";
       Assert(current.a == 1, "RGB mode always emits an opaque highlight color");
+      Press(ColorPickerProbe.Default(drawn));
+      Assert(ColorUtility.ToHtmlStringRGB(current) == "336699", "Default puts the default color back: " + ColorUtility.ToHtmlStringRGB(current));
       picker.Hide();
       Assert(!picker.Visible && !picker.IsTyping && picker.Commit(), "hidden picker releases its editing state");
       picker.Dispose();

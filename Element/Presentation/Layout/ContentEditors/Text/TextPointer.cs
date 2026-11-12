@@ -142,9 +142,9 @@ internal sealed class TextPointer
     }
     OverlayTextItem item = _text.Document[index];
     OverlayFormula formula = OverlayFormula.Parse(item.Value);
-    string words = formula.Describe(OverlayKeypad.ValueName);
+    string words = formula.Describe(ValueSectionNames.ValueName);
     if (item.SizeFormula.Length > 0)
-      words += L(" · 크기 ", " · size ") + OverlayFormula.Parse(item.SizeFormula).Describe(OverlayKeypad.ValueName);
+      words += L(" · 크기 ", " · size ") + OverlayFormula.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName);
     if (!_map.ItemTop(index, frame, out Vector2 anchor))
     {
       frame.HideTip();

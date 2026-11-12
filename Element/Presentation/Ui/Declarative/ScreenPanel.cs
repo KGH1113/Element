@@ -103,7 +103,9 @@ internal sealed class ScreenPanel : IDisposable
     {
       if (!_keyboard)
         control.navigation = new Navigation { mode = Navigation.Mode.None };
-      UiCursor.Attach(control.gameObject, control is TMP_InputField ? UiCursorKind.Text : UiCursorKind.Pointer);
+      // A drawn part that set its own cursor, such as a color square's crosshair, keeps it.
+      if (control.GetComponent<UiCursor>() == null)
+        UiCursor.Attach(control.gameObject, control is TMP_InputField ? UiCursorKind.Text : UiCursorKind.Pointer);
     }
     ControlsVersion++;
   }

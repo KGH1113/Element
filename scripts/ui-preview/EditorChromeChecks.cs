@@ -10,9 +10,9 @@ using UnityEngine.UI;
 namespace Element.Editor
 {
   // The text and shape editors' chrome (the top line with Cancel and Done,
-  // the bar, Grow from's popover) is ElementUI screens on panels the
-  // editor's frame makes: these reach their view models and the controls
-  // they draw, found by the names the views give them.
+  // the bar, Grow from's popover, the input dock) is ElementUI screens on
+  // panels the editor's frame makes: these reach their view models and the
+  // controls they draw, found by the names the views give them.
   public static partial class SettingsPreview
   {
     private static OverlayEditorFrame EditorScreen(object editor) => Field<OverlayEditorFrame>(editor, "_screen");
@@ -38,6 +38,35 @@ namespace Element.Editor
       Press(drawn);
       Settle();
     }
+
+    /// <summary>The dock's keys as drawn, row by row, then AC and Done, once the dock caught up.</summary>
+    private static Pressable[] DockKeys(OverlayInputDock dock)
+    {
+      Settle();
+      return dock.Root.GetComponentsInChildren<Pressable>(true).Where(key => key.name.StartsWith("Key ")).ToArray();
+    }
+
+    /// <summary>A key of the dock's keypad by name: "Key 7", "Key backspace", "Key clear", "Key done".</summary>
+    private static Pressable DockKey(OverlayInputDock dock, string name) => DockKeys(dock).Single(key => key.name == name);
+
+    /// <summary>Where the keypad is drawn: around its keys.</summary>
+    private static Rect KeypadRect(OverlayInputDock dock)
+    {
+      Rect[] keys = DockKeys(dock).Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
+      return Rect.MinMaxRect(keys.Min(key => key.xMin), keys.Min(key => key.yMin), keys.Max(key => key.xMax), keys.Max(key => key.yMax));
+    }
+
+    /// <summary>The dock's value chips as drawn.</summary>
+    private static Pressable[] DockChips(OverlayInputDock dock)
+    {
+      Settle();
+      return DockValues(dock).GetComponentsInChildren<Pressable>(true).Where(chip => chip.name.StartsWith("Value ")).ToArray();
+    }
+
+    private static Pressable DockChip(OverlayInputDock dock, string name) => DockChips(dock).Single(chip => chip.name == name);
+
+    /// <summary>What scrolls in the dock: the category names and their chips.</summary>
+    private static RectTransform DockValues(OverlayInputDock dock) => dock.Root.GetComponentInChildren<ScrollRect>(true).content;
 
     /// <summary>Presses the open editor's Cancel or Done, named after the editor.</summary>
     private static void PressEditorButton(object editor, string name) =>

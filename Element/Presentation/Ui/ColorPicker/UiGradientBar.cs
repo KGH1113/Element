@@ -22,11 +22,10 @@ namespace Element.Presentation.Ui.ColorPicker;
 // a delete button beside it, and the square, hue and opacity controls below
 // edit the picked color. Four tiles drawn in the current colors pick the
 // kind, beside flip and a quarter turn. Following the highlight, only
-// opacities differ.
-internal sealed class UiGradientBar
+// opacities differ. Its parts sit in Root, which the picker's screen shows
+// where the bar goes; the tip under the bar floats on the picker itself.
+internal sealed class UiGradientBar : IGradientBar
 {
-  public const float NoteHeight = 34;
-
   private const float BarHeight = 26,
     BarInset = 11,
     StopSize = 18,
@@ -48,9 +47,9 @@ internal sealed class UiGradientBar
   private readonly Button _flip,
     _rotate,
     _delete;
-  private readonly TextMeshProUGUI _tipText,
-    _highlightNote;
+  private readonly TextMeshProUGUI _tipText;
   private OverlayColorSettings _working;
+  private float _column;
   private int _stop;
   private int _dragging = -1;
   private float _grab;
@@ -66,10 +65,14 @@ internal sealed class UiGradientBar
   public Func<int, float> ShownPosition,
     ShownAlpha;
 
-  public UiGradientBar(UiFactory ui, RectTransform root, IGradientBarHost host)
+  /// <param name="parent">Where <see cref="Root"/> waits until a screen shows it.</param>
+  /// <param name="tipLayer">What the tip under the bar floats on, in front of the controls below the bar.</param>
+  public UiGradientBar(UiFactory ui, Transform parent, RectTransform tipLayer, IGradientBarHost host)
   {
     _ui = ui;
     _host = host;
+    Root = _ui.Rect("Gradient", parent, 0, 0, 256, Height);
+    RectTransform root = Root;
     _bar = _ui.Rect("Color bar", root, 0, 0, 256, BarHeight);
     UiCapsuleGraphic track = _ui.Capsule("Color bar track", _bar, 0, 0, 256, BarHeight, Color.white);
     track.gameObject.AddComponent<Mask>().showMaskGraphic = true;
@@ -125,29 +128,17 @@ internal sealed class UiGradientBar
       DeleteSize
     );
 
-    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", root, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
+    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
     _tip = tip.rectTransform;
     _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, 26, 12);
     _tipText.alignment = TextAlignmentOptions.Midline;
     _tipText.textWrappingMode = TextWrappingModes.NoWrap;
     UiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
     _tip.gameObject.SetActive(false);
-
-    _highlightNote = _ui.Text(
-      L(
-        "하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.",
-        "One highlight color: each stop sets only its opacity."
-      ),
-      root,
-      0,
-      0,
-      256,
-      NoteHeight,
-      12,
-      UiPalette.Muted
-    );
-    _highlightNote.alignment = TextAlignmentOptions.TopLeft;
   }
+
+  /// <summary>The bar with its pill row and kinds, top left at the bar's place in the picker.</summary>
+  public RectTransform Root { get; }
 
   public bool IsGradient => _host.GradientShown && _working != null && _working.IsGradient;
 
@@ -157,12 +148,11 @@ internal sealed class UiGradientBar
   /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
   public RectTransform PositionSlot => _positionSlot;
 
-  /// <summary>The line under Highlight/Custom while a gradient follows the highlight.</summary>
-  public RectTransform Note => _highlightNote.rectTransform;
+  private const float SolidHeight = PillRow + BarHeight + GradientGap + 4,
+    GradientHeight = PillRow + BarHeight + GradientGap + KindRow + GradientGap;
 
   /// <summary>How far down the bar, its pill and the kinds reach in the column.</summary>
-  public float Height =>
-    IsGradient ? PillRow + BarHeight + GradientGap + KindRow + GradientGap : PillRow + BarHeight + GradientGap + 4;
+  public float Height => IsGradient ? GradientHeight : SolidHeight;
 
   /// <summary>The picked stop's place among the stops in order, counting from 1.</summary>
   public int PickedRank => OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1;
@@ -237,27 +227,27 @@ internal sealed class UiGradientBar
 
   // ---- Layout ----
 
-  /// <summary>Lays the bar and, with a gradient, the kinds out in the column at <paramref name="left"/>.</summary>
-  public void Layout(float left, float column)
+  /// <summary>Lays the bar and, with a gradient, the kinds out <paramref name="column"/> wide in <see cref="Root"/>.</summary>
+  public void Layout(float column)
   {
+    _column = column;
     bool shown = _host.GradientShown;
     bool gradient = IsGradient;
     _bar.gameObject.SetActive(shown);
     _kindRow.gameObject.SetActive(gradient);
     _positionSlot.gameObject.SetActive(gradient);
     _delete.gameObject.SetActive(gradient);
-    _highlightNote.gameObject.SetActive(gradient && _host.FollowsHighlight);
     if (!shown)
     {
       _tip.gameObject.SetActive(false);
       return;
     }
     float y = PillRow;
-    UiFactory.Place(_bar, left, y, column, BarHeight);
+    UiFactory.Place(_bar, 0, y, column, BarHeight);
     y += BarHeight + GradientGap;
     if (gradient)
     {
-      UiFactory.Place(_kindRow, left, y, column, KindRow);
+      UiFactory.Place(_kindRow, 0, y, column, KindRow);
       const float icon = 34,
         gap = 6;
       float tiles = column - icon * 2 - gap - 10;
@@ -268,6 +258,13 @@ internal sealed class UiGradientBar
       UiFactory.Place((RectTransform)_rotate.transform, column - icon, 0, icon, icon);
     }
     Refresh();
+  }
+
+  /// <summary>Lays the bar out again at its width, after what shows changed: the picker opened, or a color was added.</summary>
+  public void Relayout()
+  {
+    if (_column > 0)
+      Layout(_column);
   }
 
   /// <summary>
@@ -420,10 +417,13 @@ internal sealed class UiGradientBar
     if (!show)
       return;
     float width = Mathf.Ceil(_tipText.GetPreferredValues(_tipText.text).x) + 22;
-    Vector2 bar = _bar.anchoredPosition;
     float left = Mathf.Clamp(x - width * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
-    // Anchored y is the negative of the top.
-    UiFactory.Place(_tip, bar.x + left, -bar.y + BarHeight + 6, width, 26);
+    // Right under the bar, in the layer the tip floats on (top left origin, y down).
+    RectTransform layer = (RectTransform)_tip.parent;
+    Rect area = _bar.rect;
+    Vector3 corner = layer.InverseTransformPoint(_bar.TransformPoint(new Vector3(area.xMin + left, area.yMin, 0)));
+    Rect inLayer = layer.rect;
+    UiFactory.Place(_tip, corner.x - inLayer.xMin, inLayer.yMax - corner.y + 6, width, 26);
     _tip.SetAsLastSibling();
   }
 

@@ -22,7 +22,7 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
       HStack(
           spacing: 12,
           If(() => VM.CanGoBack.Value, () => IconButton(UiIconKind.PageBack, () => VM.Back).Hint(L("뒤로", "Back"))),
-          Text(() => VM.Current.Title).Font(Font.Title),
+          Text(() => VM.Current.Title).Font(Font.Title).LineLimit(1),
           Spacer(),
           IconButton(UiIconKind.WindowClose, () => VM.Close).Hint(L("닫기", "Close"))
         )

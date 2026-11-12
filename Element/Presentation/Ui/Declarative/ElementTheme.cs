@@ -22,7 +22,8 @@ internal sealed class ElementTheme : UguiTheme
     SetColor(ColorToken.Muted, UiPalette.Muted);
     SetColor(ColorToken.Background, UiPalette.Background);
     SetColor(ColorToken.Surface, UiPalette.Surface);
-    SetColor(ColorToken.SurfaceRaised, UiPalette.Menu);
+    // Raised parts (an off switch, a slider's track, a field) sit on cards: lighter than the card.
+    SetColor(ColorToken.SurfaceRaised, new Color(.19f, .19f, .19f));
     SetColor(ColorToken.Line, new Color(1, 1, 1, .1f));
     SetColor(ColorToken.Danger, UiPalette.Error);
     FollowHighlight();
@@ -48,6 +49,10 @@ internal sealed class ElementTheme : UguiTheme
   public override float LabelWidth => 170;
 
   public override float CornerRadius => 12;
+
+  // Element's main action is a tinted fill with the soft accent as its label.
+  public override UiColor? ButtonForeground(ElementUI.ButtonStyle style) =>
+    style == ElementUI.ButtonStyle.Prominent ? UiPalette.SoftAccent : base.ButtonForeground(style);
 
   public override Color ButtonFill(ElementUI.ButtonStyle style, ElementUI.Ugui.ButtonState state)
   {

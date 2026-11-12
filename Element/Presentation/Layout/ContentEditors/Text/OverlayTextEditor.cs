@@ -163,11 +163,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _color.BuildPicker(_screen);
     _gradient.BuildPicker(_screen.Ui, _color.Picker, _reduceMotion());
     _dock = new OverlayInputDock(
-      _screen.Ui,
-      _screen.Frame,
-      _screen.Width,
-      _screen.Height,
-      _screen.Measure,
+      _screen,
       _reduceMotion,
       _formulas.KeypadPress,
       _formulas.ClearFormula,

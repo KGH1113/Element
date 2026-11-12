@@ -1,0 +1,90 @@
+# Element on ElementUI
+
+> Status: in progress on `feat/elementui` · 2026-11-12
+
+Element's UI (settings window, overlay editor chrome, content editors, popovers)
+moves from hand-placed UGUI (`UiFactory`, manual `Layout(width, height)`) to
+ElementUI views and view models. The look stays Element's. The overlay HUD
+drawn on the game screen (texts, shapes, key viewers) is not UI chrome and
+stays as it is.
+
+ElementUI: `~/dev/src/ElementUI` (read `README.md`, `docs/design.md` §2–§4,
+§9–§10, and `src/ElementUI.Core/UI.cs`, `ViewModifiers.cs`). It is pinned in
+`vendor/elementui` by `./scripts/run.sh elementui-sync ~/dev/src/ElementUI`.
+
+## Rules for every screen
+
+1. **Four rules.** Fixed content is a value (`Text("Save")`); changing content is an
+   expression (`Text(() => VM.Name)`); controls `Bind(() => VM.Settings.X)`; buttons
+   pick a command (`Button(Text("Reset"), () => VM.Reset)`).
+2. **MVVM.** A page is a `XModel : SettingsPageModel` (fields, `Computed`, `Command`)
+   and a `XView : View<XModel>` (layout and bindings only, no logic). Settings live
+   in `VM.Settings` (the `ElementSettings`); bind straight to their fields.
+3. **No manual layout.** No `Layout(width, height)`, no coordinates, no `UiFactory`.
+   Stacks, `Spacer`, `Frame`, `Padding`, `Grid`, `Flow`, `ScrollView`. A narrow
+   window must still work: let rows wrap or stack (`Flow`, or `If` on a width
+   only when there is no other way).
+4. **Applying.** Any control write or command run raises `UiRoot.Edited`; the window
+   then applies the settings. Don't call apply yourself. A change made outside a
+   command or binding (a callback from a popover, a timer) calls `ElementUI.Runtime.Probe()`.
+5. **Words.** `L("한국어", "English")` from `UiLocale` (it is `[ElementUI.Pure]`, so
+   expressions may call it). Keep the exact wording of the old page.
+6. **Look.** Colors are theme tokens (`Colors.Muted`, `Colors.Accent`, `Colors.Danger`);
+   Element icons are `Image(ElementIcons.Of(UiIconKind.X), size)`. Sizes come from
+   `ElementTheme` (body 16, title 27, heading 18, callout 15, caption 14).
+   Match the old screenshot; small differences from ElementUI's controls are fine.
+7. **Performance.** Nothing runs per frame unless the page truly polls (then
+   `Tick()`, cheap). No allocation in `Tick`. Lists that change are
+   `ObservableList<T>` or a replaced list.
+8. **Analyzer.** The build runs ElementUI's analyzer: fix UI001/UI003/UI005/UI006.
+
+## The window
+
+- `Element/Presentation/Settings/Window/SettingsWindowViewModel.cs`: owns every
+  page model (`Home`, `Tweaks`, `EditorTweaks`, `Judgment`, `Planets`, `Chatter`,
+  `Effects`, `PresetEditor`, `General`, `Profiles`), `Show(page)`, `Back`,
+  `Save()`, `EditLayout()`, `Features` (`SettingsFeatures`: planet previews,
+  updates, profiles, fonts, chatter count, judgment-text link).
+- `SettingsPageModel` hooks: `Opened`, `Shown`, `Tick` (per frame while shown),
+  `TickCapture` (key recording; return true while recording), `CancelCapture`,
+  `HandleEscape`, `SettingsReplaced`, `Closed`.
+- Navigation: a page's command calls `Window.Show(Window.Judgment)`. Back is the
+  window's. The page's parent is the second constructor argument.
+- `Pages/HomeModel.cs` + `Pages/HomeView.cs` are the reference conversion.
+
+## Element controls ElementUI doesn't have
+
+Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
+
+- A view that draws its own UGUI derives from `ElementUI.Ugui.NativeView`
+  (`Build(RectTransform)`, `PreferredSize(Proposal)`, `Resized`, `Teardown`,
+  `Watch(...)` to follow values). Reuse the existing Element widgets inside it
+  (`UiColorPicker`, `UiIcon`, planet `RawImage`…) rather than redrawing them.
+- A part made of ElementUI views is a static method returning `View`.
+
+## Checks and verification
+
+- Old page: `git show dev:Element/Presentation/Settings/Pages/<Name>Page.cs`;
+  old preview checks for it: `git show dev:scripts/ui-preview/SettingsPreview.cs`.
+- Old screenshots: `~/dev/src/impl-resourcepack/.claude/worktrees/elementui-baseline/build/ui-preview/*.png`.
+- New checks: `scripts/ui-preview/Settings<Page>Checks.cs` with
+  `[PageCheck("_tweaks")] static int Check(SettingsCheck check)` (see
+  `SettingsPageChecks.cs`). Port the old page's assertions that still mean
+  something (behavior, not pixel positions of the old layout).
+- Done when: `./scripts/run.sh mod-check` and `./scripts/run.sh ui-check` pass, the
+  new screenshots look like the old ones, and every control of the old page is there.
+
+## Progress
+
+| Area | State |
+| --- | --- |
+| ElementUI pinned, shipped with Element, Element theme and backend | done |
+| Settings window frame, navigation, save error | done |
+| Home | done |
+| Tweaks, Editor tweaks, Judgment, Chatter | in progress |
+| Planets | in progress |
+| Effects, Preset editor, General, Profiles | in progress |
+| Overlay editor chrome (toolbars, add menu, popovers) | next |
+| Content editors (text, shape, keypad, value dock, mods) | next |
+| ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
+| Remove the old UI kit (`UiFactory` and widgets) | last |

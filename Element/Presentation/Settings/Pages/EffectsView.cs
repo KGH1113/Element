@@ -4,6 +4,7 @@ using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using TMPro;
 using static Element.Presentation.Ui.Declarative.Controls.CardRows;
+using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -25,9 +26,12 @@ internal sealed class EffectsView : View<EffectsModel>
       new WidthReader(_width),
       VStack(
         spacing: 12,
-        SwitchCard
-          .Of(L("이펙트 제거", "Effect removal"), () => VM.Status.Value, Bind(() => VM.Settings.Effects.Enabled))
-          .Disabled(() => !VM.HasPresets.Value),
+        SwitchCard(
+          L("이펙트 제거", "Effect removal"),
+          () => VM.Status.Value,
+          Bind(() => VM.Settings.Effects.Enabled),
+          () => VM.HasPresets.Value
+        ),
         HStack(
             Text(L("프리셋", "Presets")).Font(Font.Heading),
             Spacer(),

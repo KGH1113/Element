@@ -14,34 +14,47 @@ internal static class SwitchCards
   /// <summary>
   /// A setting that is on or off: its name and what it does on the left, the
   /// switch on the right, on a raised card. A click anywhere on the card flips it.
+  /// With <paramref name="enabled"/> (<c>() =&gt; VM.CanExclude.Value</c>) the card
+  /// is off, and dimmed, while it is false.
   /// </summary>
-  public static View SwitchCard(string title, string detail, Binding<bool> on) =>
-    Button(SwitchCopy(title, detail, on), FlipOf(on), ButtonStyle.Card);
+  public static View SwitchCard(string title, string detail, Binding<bool> on, Expression<Func<bool>> enabled = null) =>
+    Card(Text(title), Text(detail), on, enabled);
 
-  /// <summary>
-  /// A <see cref="SwitchCard(string, string, Binding{bool})"/> that is off, and dimmed,
-  /// while <paramref name="enabled"/> is false: <c>() =&gt; VM.CanExclude.Value</c>.
-  /// </summary>
-  public static View SwitchCard(string title, string detail, Binding<bool> on, Expression<Func<bool>> enabled)
+  /// <summary>A switch card whose description follows the view model, such as a status.</summary>
+  public static View SwitchCard(
+    string title,
+    Expression<Func<string>> detail,
+    Binding<bool> on,
+    Expression<Func<bool>> enabled = null
+  ) => Card(Text(title), Text(detail), on, enabled);
+
+  /// <summary>A switch card whose words come from a list row: <c>() =&gt; slot.Value.Title</c>.</summary>
+  public static View SwitchCard(Expression<Func<string>> title, Expression<Func<string>> detail, Binding<bool> on) =>
+    Card(Text(title), Text(detail), on, null);
+
+  private static View Card(View title, View detail, Binding<bool> on, Expression<Func<bool>> enabled)
   {
+    View copy = SwitchCopy(title, detail, on);
+    if (enabled == null)
+      return Button(copy, FlipOf(on), ButtonStyle.Card);
     // The same condition, once as "off" and once as the title's color.
     Expression<Func<bool>> disabled = Expression.Lambda<Func<bool>>(Expression.Not(enabled.Body));
     Expression<Func<UiColor>> ink = Expression.Lambda<Func<UiColor>>(
       Expression.Condition(enabled.Body, Expression.Constant(Colors.Foreground), Expression.Constant(Colors.Muted))
     );
-    return Button(SwitchCopy(title, detail, on).Foreground(ink), FlipOf(on), ButtonStyle.Card).Disabled(disabled);
+    return Button(copy.Foreground(ink), FlipOf(on), ButtonStyle.Card).Disabled(disabled);
   }
 
-  private static View SwitchCopy(string title, string detail, Binding<bool> on) =>
+  private static View SwitchCopy(View title, View detail, Binding<bool> on) =>
     HStack(
         spacing: 16,
         // The words take the room the switch leaves. A Spacer would let the card
         // grow taller too: ElementUI's Spacer stretches along both axes.
-        VStack(spacing: 4, Text(title).Font(Font.Heading), Text(detail).Font(Font.Caption).Foreground(Colors.Muted))
+        VStack(spacing: 4, title.Font(Font.Heading.Sized(17)), detail.Font(Font.Caption).Foreground(Colors.Muted))
           .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
         Toggle(null, on)
       )
-      // The card is at least 88 tall, its words and switch centered in it.
+      // With the card's insets, at least 88 tall, its words and switch centered in it.
       .Frame(maxWidth: float.PositiveInfinity, minHeight: 48, alignment: Alignment.Leading);
 
   private static Expression<Func<Command>> FlipOf(Binding<bool> on)

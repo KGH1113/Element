@@ -2,7 +2,6 @@ using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -21,7 +20,7 @@ internal sealed class TextSize
   private readonly ITextEditorHost _host;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
-  private OverlayBarButton _sizeButton;
+  private OverlayBarButtonModel _sizeButton;
 
   public TextSize(ITextEditorHost host, TextDocumentEditing text, TextFormulas formulas)
   {
@@ -34,17 +33,16 @@ internal sealed class TextSize
   /// <summary>How the keypad reads and writes the size.</summary>
   public OverlayFormulaSlot Slot { get; }
 
-  public OverlayBarButton Button => _sizeButton;
+  /// <summary>The bar's Size button; made by <see cref="BuildButton"/>.</summary>
+  public OverlayBarButtonModel Button => _sizeButton;
 
-  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _sizeButton = new OverlayBarButton(
-      ui,
-      bar,
+  public OverlayBarButtonModel BuildButton() =>
+    _sizeButton = new OverlayBarButtonModel(
       "Text size",
       L("크기", "Size"),
       () => _formulas.Activate(TextFormulas.SizeKey),
-      reduceMotion,
-      "px",
+      value: true,
+      unit: "px",
       glyph: L("가", "Aa")
     );
 

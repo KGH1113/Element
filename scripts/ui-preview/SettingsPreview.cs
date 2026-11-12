@@ -405,28 +405,32 @@ namespace Element.Editor
           Assert(Vector2.Dot(outward, away) > 0, "an arc faces away from the shape");
         }
       }
-      OverlayBarButton fillButton = Field<OverlayBarButton>(ShapeColorsOf(shapes), "_fillButton"), strokeButton = Field<OverlayBarButton>(ShapeColorsOf(shapes), "_strokeButton"),
+      OverlayBarButtonModel fillButton = ShapeColorsOf(shapes).FillButton, strokeButton = ShapeColorsOf(shapes).StrokeButton,
         strokeWidth = ShapeNumbersOf(shapes).StrokeWidth, shapeGrow = Grow(shapes).Button;
+      CheckEditorTopLine(shapes, "Shape editor", L("도형 편집", "Edit shape"));
       Assert(shapeGrow.Value.Contains(Korean(name) ? "자동" : "Auto"), "the grow button says where the shape grows from");
       Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
         "opacity lives in the color picker, not the bar");
-      OverlayBarButton[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
+      OverlayBarButtonModel[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
       string[] shapeLabels = Korean(name) ? new[] { "채우기", "테두리", "테두리 두께", "기준점" } : new[] { "Fill", "Border", "Border width", "Grow from" };
       for (int i = 0; i < shapeBar.Length; i++)
       {
-        Assert(shapeBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == shapeLabels[i]),
+        Pressable drawn = BarButton(shapes, shapeBar[i]);
+        Assert(drawn.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == shapeLabels[i]),
           "each bar button says what it is: " + shapeLabels[i]);
-        Assert(shapeBar[i].Root.GetComponent<Button>().targetGraphic.transform == shapeBar[i].Root, "a bar button lights up where it is drawn");
+        Assert(drawn.targetGraphic.transform == drawn.transform, "a bar button lights up where it is drawn");
         if (i > 0)
-          Assert(ScreenRectOf(shapeBar[i].Root).xMin > ScreenRectOf(shapeBar[i - 1].Root).xMax, "bar buttons sit side by side");
+          Assert(BarButtonRect(shapes, shapeBar[i]).xMin > BarButtonRect(shapes, shapeBar[i - 1]).xMax, "bar buttons sit side by side");
       }
-      Assert(strokeWidth.Value.Length > 0 && !strokeWidth.Computed, "the border width shows its number");
+      Assert(strokeWidth.Value.Length > 0 && !strokeWidth.IsComputed
+        && BarButton(shapes, strokeWidth).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == strokeWidth.Value),
+        "the border width shows its number");
       foreach (OverlayFormulaField measure in new[] { widthField, heightField })
         Assert(measure.Root.GetComponent<Button>().targetGraphic.transform == measure.Root,
           "W and H light up exactly where the pill is drawn: " + measure.Name);
-      Assert(!Field<OverlayEditorBar>(shapes, "_bar").Root.GetComponentsInChildren<Button>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
+      Assert(!EditorBar(shapes).Root.GetComponentsInChildren<Pressable>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
         "numbers have no − and + buttons");
-      RectTransform bar = Field<OverlayEditorBar>(shapes, "_bar").Root;
+      RectTransform bar = EditorBar(shapes).Root;
       foreach (TextMeshProUGUI label in bar.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
@@ -506,13 +510,14 @@ namespace Element.Editor
       ShapeDrops(shapes).EndValueDrag(heightPoint);
       Assert(working.HeightFormula == "" && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
-      Vector2 strokePoint = ScreenCenter(strokeWidth.Root);
+      Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
-      Assert(Field<int>(strokeWidth, "_drop") == 1, "the border width lights up for a number dragged over it");
+      Assert(strokeWidth.Drop == 1 && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
       ShapeDrops(shapes).EndValueDrag(strokePoint);
-      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active,
+      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == 0,
         "a value dropped on the border width opens it in the dock");
-      Assert(strokeWidth.Computed && strokeWidth.Value == "99.5", "the border width shows the result, marked as calculated: " + strokeWidth.Value);
+      Assert(strokeWidth.IsComputed && strokeWidth.Value == "99.5" && strokeWidth.ValueInk.Value.Equals((ElementUI.UiColor)UiPalette.SoftAccent),
+        "the border width shows the result, marked as calculated: " + strokeWidth.Value);
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Call(shapes, "CloseOpen");
@@ -533,7 +538,7 @@ namespace Element.Editor
 
       // Colors open right above the keypad: the keypad below types the
       // opacity and the values beside it can be dropped on it.
-      fillButton.Button.onClick.Invoke();
+      PressBar(shapes, fillButton);
       UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
@@ -609,17 +614,18 @@ namespace Element.Editor
       Call(shapes, "CloseOpen");
       Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      strokeButton.Button.onClick.Invoke();
+      PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
         && dock.HintText.Contains(Korean(name) ? "테두리 색" : "border color"), "Border switches the picker to its color, in the same place");
-      strokeButton.Button.onClick.Invoke();
+      PressBar(shapes, strokeButton);
       Assert(!picker.Visible && !strokeButton.Active && dock.Keypad.Root.gameObject.activeSelf, "clicking it again closes the picker and brings the keypad back");
 
       // Where the shape grows from.
-      shapeGrow.Button.onClick.Invoke();
+      PressBar(shapes, shapeGrow);
       OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(shapes), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its own popover, on screen");
-      Assert(ScreenRectOf(grow.Root).yMax <= ScreenRectOf(shapeGrow.Root).yMin, "the grow popover hangs under its button");
+      Assert(ScreenRectOf(grow.Root).yMax <= BarButtonRect(shapes, shapeGrow).yMin, "the grow popover hangs under its button");
+      CheckGrowPopover(Grow(shapes));
       Call(Grow(shapes), "Pick", OverlayGrowth.TopLeft);
       Assert(Field<UiCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
       Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
@@ -628,7 +634,7 @@ namespace Element.Editor
       Call(shapes, "Render");
       SaveFrame(camera, texture, canvases, name + "-shape-edited");
 
-      shapes.Close(true, true);
+      PressEditorButton(shapes, "Shape editor done");
       Assert(!shapes.IsOpen && shape.Shape.WidthFormula == "{progress-current}*3" && shape.Shape.Fill.Hex == "#2050A0"
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "Done saves the shape and where it grows from");
       Assert(Mathf.Abs(shape.Resolved.Width * scale - 144) < .5f, "the canvas shape follows its formula");
@@ -659,7 +665,7 @@ namespace Element.Editor
       Click(heightField.Root, "Height");
       ShapeNumbersOf(shapes).KeypadPress('9');
       Call(Grow(shapes), "Pick", OverlayGrowth.Center);
-      shapes.Close(false, true);
+      PressEditorButton(shapes, "Shape editor cancel");
       Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
       // Only Cancel throws an edit away: one open when the editor is torn down
@@ -1064,28 +1070,35 @@ namespace Element.Editor
       OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0,
         "the input dock is always there, resting with a hint");
-      RectTransform format = Field<OverlayEditorBar>(text, "_bar").Root;
-      OverlayBarButton sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
-        textGrow = Grow(text).Button, fontButton = Field<OverlayBarButton>(Field<TextFonts>(text, "_fonts"), "_fontButton"),
-        animateButton = Field<OverlayBarButton>(Field<TextAnimate>(text, "_animate"), "_animateButton");
-      Button[] barButtons = format.GetComponentsInChildren<Button>(true);
-      Button growButton = textGrow.Button;
-      Assert(fontButton.Root.IsChildOf(format) && sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format)
-        && animateButton.Root.IsChildOf(format) && textGrow.Root.IsChildOf(format) && barButtons.Length == 5
+      CheckEditorTopLine(text, "Text editor", L("텍스트 편집", "Edit text"));
+      RectTransform format = EditorBar(text).Root;
+      OverlayBarButtonModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
+        textGrow = Grow(text).Button, fontButton = Field<TextFonts>(text, "_fonts").Button,
+        animateButton = Field<TextAnimate>(text, "_animate").Button;
+      OverlayBarButtonModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
+      Pressable[] barButtons = format.GetComponentsInChildren<Pressable>(true);
+      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 5
         && new[] { typeof(OverlayTextEditor), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
         "font, size, color, animation and grow point share one bar; no opacity, no + Value");
-      Assert(animateButton.Root.anchoredPosition.x > colorButton.Root.anchoredPosition.x
-        && animateButton.Root.anchoredPosition.x < textGrow.Root.anchoredPosition.x, "animation sits between the color and the grow point");
+      Assert(BarButtonRect(text, animateButton).x > BarButtonRect(text, colorButton).x
+        && BarButtonRect(text, animateButton).x < BarButtonRect(text, textGrow).x, "animation sits between the color and the grow point");
       string[] textLabels = Korean(name)
         ? new[] { "폰트", "크기", "글자 색", "애니메이션", "기준점" }
         : new[] { "Font", "Size", "Text color", "Animate", "Grow from" };
-      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
       for (int i = 0; i < textBar.Length; i++)
       {
-        Assert(textBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
+        Pressable drawn = BarButton(text, textBar[i]);
+        Assert(drawn.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
           "each bar button says what it is: " + textLabels[i]);
-        Assert(textBar[i].Button.targetGraphic.transform == textBar[i].Root, "a bar button lights up where it is drawn");
+        Assert(drawn.targetGraphic.transform == drawn.transform, "a bar button lights up where it is drawn");
+        if (i > 0)
+          Assert(BarButtonRect(text, textBar[i]).xMin > BarButtonRect(text, textBar[i - 1]).xMax, "bar buttons sit side by side");
       }
+      Assert(BarButton(text, colorButton).GetComponentInChildren<UiCapsuleGraphic>() != null
+        && BarButton(text, fontButton).GetComponentInChildren<UiIcon>().Kind == UiIconKind.Font
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("가", "Aa"))
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "px"),
+        "the color leads with its swatch, the font with its icon, the size with letters and ends in px");
       Assert(!barButtons.Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")), "numbers have no − and + buttons");
       foreach (TextMeshProUGUI label in format.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
@@ -1096,29 +1109,29 @@ namespace Element.Editor
       Assert(Mathf.Abs(Field<float>(TextPreviewOf(text), "_previewScale") - actual) < .001f, "the edited text is shown at its game size");
       OverlayTextDocument document = TextDocumentOf(text).Document;
       Assert(document.Count == 7 && document[6].IsValue, "the editor reads FPS | {fps}");
-      Assert(sizeButton.Value.Length > 0 && !sizeButton.Computed, "the size button shows the size");
+      Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
 
       // The animation switch acts on values: the whole text's with nothing selected.
       OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
       Assert(!document[6].Animate, "FPS starts still");
-      animateButton.Button.onClick.Invoke();
+      PressBar(text, animateButton);
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
       Assert(screen.NoticeText.Length > 0, "turning it on says what it does");
-      UiSwitchMotion animateThumb = Field<UiSwitchMotion>(animateButton, "_thumbMotion");
+      UiSwitchMotion animateThumb = BarButton(text, animateButton).GetComponentInChildren<UiSwitchMotion>();
       Assert(Field<float>(animateThumb, "_target") > 12, "the switch slides over to on");
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
       Call(text, "Render");
-      animateButton.Button.onClick.Invoke();
+      PressBar(text, animateButton);
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && screen.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
         "letters alone stay as they are and say why: " + screen.NoticeText);
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
-      animateButton.Button.onClick.Invoke();
+      PressBar(text, animateButton);
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
       Assert(Field<float>(animateThumb, "_target") < 6, "the switch slides back to off");
@@ -1215,7 +1228,7 @@ namespace Element.Editor
       // The size in the bar: words are refused; values size the selection.
       SetField(TextDocumentOf(text), "_anchor", 9); SetField(TextDocumentOf(text), "_caretIndex", 10);
       Call(text, "Render");
-      Vector2 sizePoint = ScreenCenter(sizeButton.Root);
+      Vector2 sizePoint = BarButtonRect(text, sizeButton).center;
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), sizePoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
       document = TextDocumentOf(text).Document;
@@ -1223,9 +1236,10 @@ namespace Element.Editor
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), sizePoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
       document = TextDocumentOf(text).Document;
-      Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active,
+      Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "48"),
         "the size takes a value for the selection and opens in the dock");
-      Assert(sizeButton.Value == "48" && sizeButton.Computed, "the size shows its result, marked as calculated: " + sizeButton.Value);
+      Assert(sizeButton.Value == "48" && sizeButton.IsComputed, "the size shows its result, marked as calculated: " + sizeButton.Value);
       Call(text, "CloseOpen");
       TextDocumentOf(text).Undo();
 
@@ -1234,14 +1248,14 @@ namespace Element.Editor
       Call(text, "Render");
       string shown = (25 * fps.EffectiveScale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
       Assert(sizeButton.Value == shown, "the size button shows the selection's size as drawn: " + shown);
-      sizeButton.Button.onClick.Invoke();
+      PressBar(text, sizeButton);
       Assert(dock.Owner == "size", "the size opens in the dock");
       foreach (char key in "\b\b\b\b40")
         TextFormulasOf(text).KeypadPress(key);
       Call(text, "CloseOpen");
       document = TextDocumentOf(text).Document;
       Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
-      colorButton.Button.onClick.Invoke();
+      PressBar(text, colorButton);
       UiColorPicker picker = TextColorOf(text).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root);
       Assert(picker.Visible && colorButton.Active && picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy
@@ -1267,14 +1281,21 @@ namespace Element.Editor
       Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "its formula is typed on the keypad below, the picker staying open");
       Assert(picker.Commit() && TextDocumentOf(text).Document[0].Color.AlphaFormula == "progress-current"
         && TextDocumentOf(text).Document[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
-      picker.Hide();
+      // Done waits while the picker holds a color it can't read; Esc closes the picker first.
+      Field<TMP_InputField>(picker, "_hex").text = "#40";
+      PressEditorButton(text, "Text editor done");
+      Assert(text.IsOpen && picker.Visible, "Done waits while the picker holds a color it can't read");
+      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      text.Escape();
+      Assert(text.IsOpen && !picker.Visible, "Esc closes the picker before the editor");
       Assert(!colorButton.Active && dock.Owner == null && dock.Keypad.Root.gameObject.activeSelf,
         "Text color lets go once the picker closes, and so does its opacity; the keypad is back");
 
       // Where the text grows from.
-      growButton.onClick.Invoke();
+      PressBar(text, textGrow);
       OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(text), "_popover");
-      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)), "the grow point opens its own popover, on screen");
+      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && textGrow.Active, "the grow point opens its own popover, on screen");
+      CheckGrowPopover(Grow(text));
       Call(Grow(text), "Pick", OverlayGrowth.Right);
       Assert(Field<UiCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
       SaveFrame(camera, texture, canvases, name + "-text-grow");
@@ -1285,7 +1306,7 @@ namespace Element.Editor
       Assert(document.Count == 9 && document[8].Value == "{combo}*2+{miss}", "deleting next to a value removes one step");
       TextDocumentOf(text).Undo();
       Assert(TextDocumentOf(text).Document.Count == 10, "the text editor has its own undo");
-      text.Close(true, true);
+      PressEditorButton(text, "Text editor done");
       Assert(!text.IsOpen && fps.Settings.Text.Runs.Any(run => run.Value == "{combo}*2+{miss}") && !fps.Settings.Text.Runs[0].Color.Highlight
         && fps.Settings.Text.Runs[0].Color.Hex == "#40C0FF" && fps.Settings.Text.Runs[0].Size > 0 && fps.Settings.GrowFrom == OverlayGrowth.Right,
         "Done saves the runs with their colors, sizes, formulas and grow point");
@@ -1444,7 +1465,10 @@ namespace Element.Editor
         && characters[3].fontAsset == fonts.DefaultAsset,
         "a font picked for selected characters draws only them: " + characters[0].fontAsset?.faceInfo.familyName
           + " / " + characters[3].fontAsset?.faceInfo.familyName);
-      Assert(Field<OverlayBarButton>(Field<TextFonts>(text, "_fonts"), "_fontButton").Value.StartsWith("American"), "the bar names the selection's font");
+      OverlayBarButtonModel textFont = Field<TextFonts>(text, "_fonts").Button;
+      Assert(textFont.Value.StartsWith("American") && textFont.Active
+        && BarButton(text, textFont).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textFont.Value),
+        "the bar names the selection's font, lit while the list is open: " + textFont.Value);
       SaveFrame(camera, texture, canvases, name + "-text-font");
       TextDocumentOf(text).Undo();
       OverlayTextDocument document = TextDocumentOf(text).Document;

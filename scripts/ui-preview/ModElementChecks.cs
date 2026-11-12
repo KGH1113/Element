@@ -12,13 +12,13 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Settings;
+using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Popovers;
 using ElementKit;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
-using Element.Presentation.Ui.ColorPicker;
+using UI = ElementUI.UI;
 
 namespace Element.Editor
 {
@@ -128,9 +128,56 @@ namespace Element.Editor
     }
   }
 
+  [Serializable]
+  public sealed class PreviewMeterSettings
+  {
+    public Color Fill = new Color(.36f, .72f, 1f);
+    public float Width = 240;
+    public bool Rounded = true;
+    public string Label = "Meter";
+    public Anchor LabelAt = Anchor.TopLeft;
+  }
+
+  // The same kind of element with its editing screen written with ElementUI:
+  // controls bound to its settings and Element's own pickers.
+  [ElementKit.Element("meter", "미리보기 미터", "Preview meter")]
+  public sealed class PreviewMeter : OverlayElement<PreviewMeterSettings>
+  {
+    private RoundedBox _bar;
+    private TextMeshProUGUI _label;
+
+    protected override void OnCreate()
+    {
+      _bar = Drawing.Box(Root);
+      _label = Drawing.Text(Root, "", 20);
+    }
+
+    protected override void OnSettingsChanged()
+    {
+      PreviewMeterSettings s = Settings;
+      Size = new Vector2(s.Width, 64);
+      ElementKit.Drawing.Place(_label.rectTransform, 0, 0, s.Width, 28);
+      _label.text = s.Label;
+      _label.alignment = s.LabelAt == Anchor.Top ? TextAlignmentOptions.Top : TextAlignmentOptions.TopLeft;
+      ElementKit.Drawing.Place(_bar.Rect, 0, 32, s.Width, 32);
+      _bar.Color = s.Fill;
+      _bar.Rounding = s.Rounded ? 16 : 0;
+    }
+
+    protected override ElementUI.View Editor(EditorViewModel<PreviewMeterSettings> vm) =>
+      UI.VStack(
+        12,
+        EditorParts.ColorPicker(vm.L("채우기", "Fill"), UI.Bind(() => vm.Settings.Fill)),
+        UI.Slider(vm.L("너비", "Width"), UI.Bind(() => vm.Settings.Width), 80, 480, step: 1),
+        UI.Toggle(vm.L("둥근 모서리", "Rounded"), UI.Bind(() => vm.Settings.Rounded)),
+        UI.TextField(vm.L("이름", "Label"), UI.Bind(() => vm.Settings.Label)),
+        EditorParts.AnchorPicker(vm.L("이름 위치", "Label at"), UI.Bind(() => vm.Settings.LabelAt))
+      );
+  }
+
   // Elements other mods draw: Add Element → More, the editing screen built
-  // from Element's parts, the preview following each change, undo, Done,
-  // and the box shown while the mod is missing.
+  // from Element's parts or written with ElementUI, the preview following
+  // each change, undo, Done, and the box shown while the mod is missing.
   public static partial class SettingsPreview
   {
     private static void CheckModElements(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
@@ -145,24 +192,33 @@ namespace Element.Editor
         Call(editor, "ToggleAddMenu");
         RectTransform menu = AddMenu(editor);
         Settle();
-        ElementUI.Ugui.Pressable[] rows = Rows(menu);
+        Pressable[] rows = Rows(menu);
         Assert(rows.Length == 4 && rows[3].name == "Add Extension" && rows[3].IsInteractable(), "Add Element gains More once a mod declares an element");
-        Assert(warnings.Count == 0, "the preview element is found without problems: " + string.Join(" | ", warnings));
+        Assert(warnings.Count == 0, "the preview elements are found without problems: " + string.Join(" | ", warnings));
         Press(rows[3]);
         RectTransform list = Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root;
-        Assert(list != null && Rows(list).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card" }),
+        Assert(list != null && Rows(list).Select(button => button.name).SequenceEqual(new[] { "Add Preview/card", "Add Preview/meter" }),
           "More lists each element other mods declare");
         Assert(list.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "Preview"),
           "each element says which mod it comes from");
         SaveFrame(camera, texture, canvases, name + "-mod-types");
 
-        Press(Rows(list).Single());
+        Press(Rows(list).First(row => row.name == "Add Preview/card"));
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
         OverlayModEditor mods2 = (OverlayModEditor)Kind<ModKind>(editor).Editor;
-        Assert(element.Enabled && element.Drawn && mods2.IsOpen, "a new element opens its editing screen at once");
+        Assert(element.Enabled && element.Drawn && mods2.IsOpen && mods2.Page != null && mods2.View == null,
+          "a new element opens its editing screen at once, its parts on a page");
+        Settle();
         string Working() => Field<string>(mods2, "_working");
-        Button Find(string prefix) => mods2.Page.Root.GetComponentsInChildren<Button>(true).First(button => button.name.StartsWith(prefix));
-        Button Tab(string label) => mods2.Page.Root.GetComponentsInChildren<Button>(true).First(button => button.name == label);
+        // A part's control, found by the name its part gives it, shown now.
+        Pressable Find(string prefix) => mods2.Page.Root.GetComponentsInChildren<Pressable>(false).First(button => button.name.StartsWith(prefix));
+        Pressable Option(string label) => mods2.Page.Root.GetComponentsInChildren<Pressable>(false).First(button => button.name == "Option " + label);
+        // What the editor does at the start of the next frame: a button's parts made again.
+        void Next()
+        {
+          Call(mods2, "ApplyPending");
+          Settle();
+        }
 
         // Tab 1: colors in a card, a slider, a switch, a choice and the nine points.
         CheckVisibleParts(mods2, name, "look");
@@ -175,11 +231,11 @@ namespace Element.Editor
         Assert(modGrow.Value == OverlayGrowPickerModel.ShortName(growth), "the bar's Grow from names the element's point: " + modGrow.Value);
         PressBar(mods2, modGrow);
         Call(mods2, "FitPreview");
-        OverlayGrowPopover modGrowPopover = Field<OverlayGrowPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_grow");
+        OverlayGrowPopover modGrowPopover = Field<OverlayGrowPopover>(mods2, "_grow");
         Assert(modGrowPopover.Visible && modGrow.Active && ScreenRectOf(modGrowPopover.Root).yMax <= BarButtonRect(mods2, modGrow).yMin
           && InsideScreen(ScreenRectOf(modGrowPopover.Root)), "Grow from opens its popover under its button, lit while it is open");
         Settle();
-        Press(modGrowPopover.Root.GetComponentsInChildren<ElementUI.Ugui.Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.BottomRight));
+        Press(modGrowPopover.Root.GetComponentsInChildren<Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.BottomRight));
         Call(mods2, "FitPreview");
         Assert(Field<OverlayGrowth>(mods2, "_growth") == OverlayGrowth.BottomRight && modGrow.Value == OverlayGrowPickerModel.ShortName(OverlayGrowth.BottomRight)
           && modGrowPopover.Caption.Contains(L("오른쪽 아래", "bottom right")), "a point picks where the element grows from");
@@ -187,49 +243,65 @@ namespace Element.Editor
         Call(mods2, "FitPreview");
         Assert(mods2.IsOpen && !modGrowPopover.Visible && !modGrow.Active, "Esc closes the popover before the editor");
         Call(mods2, "PickGrowth", growth);
-        Find("Switch ").onClick.Invoke();
+        Press(Find("Switch "));
         Assert(Working().Contains("\"Rounded\":false"), "a switch changes the setting: " + Working());
-        mods2.Page.Root.GetComponentsInChildren<Slider>(true).First().value = .25f;
-        Assert(Working().Contains("\"Progress\":0.25"), "a slider changes the setting as it moves");
-        Tab(Korean(name) ? "강조" : "Accent").onClick.Invoke();
+        ByName<SliderDrag>(mods2.Page.Root, "Slider " + L("진행도", "Progress")).Moved(.25f, true);
+        Assert(Working().Contains("\"Progress\":0.25"), "a slider changes the setting as it moves: " + Working());
+        Press(Option(L("강조", "Accent")));
         Assert(Working().Contains("\"Style\":1"), "a choice changes the setting");
-        Press(mods2.Page.Root.GetComponentsInChildren<ElementUI.Ugui.Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.Top));
+        Press(mods2.Page.Root.GetComponentsInChildren<Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.Top));
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
-        Find("Paint ").onClick.Invoke();
-        UiColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;
-        Assert(paint.Visible && paint.GradientAvailable && InsideScreen(ScreenRectOf(paint.Root)),
+        Press(Find("Paint "));
+        Settle();
+        RectTransform paint = ByName<RectTransform>(mods2.Page.Root, "Color picker");
+        Assert(Shown(paint) && ByName<RectTransform>(paint, "Gradient kinds") != null && InsideScreen(ScreenRectOf(paint)),
           "a paint opens the full picker, gradients included, on screen");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");
         Call(mods2, "ClosePopovers");
+        Settle();
+        Assert(!Shown(ByName<RectTransform>(mods2.Page.Root, "Color picker")), "and closes with the editor's popovers");
 
         // Tab 2: words, a font, a dropdown, chips and a list.
-        Tab(Korean(name) ? "내용" : "Content").onClick.Invoke();
+        Press(Option(L("내용", "Content")));
+        Settle();
         CheckVisibleParts(mods2, name, "content");
         TMP_InputField title = mods2.Page.Root.GetComponentsInChildren<TMP_InputField>(false).First(input => input.name.StartsWith("Text "));
         title.text = "Hello";
         Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting as it is typed");
-        Find("Dropdown ").onClick.Invoke();
-        ModListPopover dropdown = Field<ModListPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_list");
-        Assert(dropdown.Visible && InsideScreen(ScreenRectOf(dropdown.Root)), "a dropdown opens its list under it");
+        Pressable unit = Find("Dropdown ");
+        Press(unit);
+        Settle();
+        // The list opens on the page's popover layer.
+        Pressable[] options = ByName<RectTransform>(mods2.Page.Root, "Overlays").GetComponentsInChildren<Pressable>(false)
+          .Where(row => row.GetComponentInChildren<TextMeshProUGUI>() != null).ToArray();
+        Assert(options.Length == 5 && mods2.Page.HasPopover && options.All(row => InsideScreen(ScreenRectOf((RectTransform)row.transform))),
+          "a dropdown opens its list beside it: " + options.Length);
         SaveFrame(camera, texture, canvases, name + "-mod-editor-dropdown");
-        dropdown.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Option 3").onClick.Invoke();
-        Assert(!dropdown.Visible && Working().Contains("\"Unit\":2"), "picking an option saves it and closes the list");
-        Find("Chip ").onClick.Invoke();
+        Press(options.Single(row => row.GetComponentInChildren<TextMeshProUGUI>().text == "BPM"));
+        Settle();
+        Assert(!mods2.Page.HasPopover && Working().Contains("\"Unit\":2") && unit.GetComponentInChildren<TextMeshProUGUI>().text == "BPM",
+          "picking an option saves it, shows it and closes the list");
+        Press(Find("Chip "));
         Assert(Working().Contains("\"Show\":[false,false,true]"), "a chip turns its option on or off: " + Working());
-        Find("Font ").onClick.Invoke();
-        UiFontPopover fonts = Field<UiFontPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_fontPopover");
-        Assert(fonts != null && fonts.Visible && InsideScreen(ScreenRectOf(fonts.Root)), "a font part opens Element's font list beside it");
+        Press(Find("Font "));
+        Settle();
+        RectTransform fonts = ByName<RectTransform>(mods2.Page.Root, "Font popover");
+        Assert(Shown(fonts) && InsideScreen(ScreenRectOf(fonts)), "a font part opens Element's font list beside it");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");
-        Find("List add").onClick.Invoke();
+        Settle();
+        Press(Find("List add"));
         Assert(Working().Contains("\"Words\":[\"44\",\"32\",\"new\"]"), "a list adds an item: " + Working());
+        Next();
         Assert(mods2.Page.Root.GetComponentsInChildren<TMP_InputField>(false).Count(input => input.name.StartsWith("List item")) == 3,
           "the parts are made again with the new item, the same tab still picked");
-        Find("List Remove").onClick.Invoke();
+        Press(Find("List Remove"));
         Assert(Working().Contains("\"Words\":[\"32\",\"new\"]"), "a list removes an item");
+        Next();
 
         // Tab 3: numbers, a stepper, a range, a shortcut, a checkbox with a hint, an icon button.
-        Tab(Korean(name) ? "고급" : "More").onClick.Invoke();
+        Press(Option(L("고급", "More")));
+        Settle();
         CheckVisibleParts(mods2, name, "more");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-more");
         TMP_InputField widthField = mods2.Page.Root.GetComponentsInChildren<TMP_InputField>(false).First(input => input.name.StartsWith("Number "));
@@ -238,38 +310,46 @@ namespace Element.Editor
         Assert(Working().Contains("\"Width\":500"), "a number shows as it is typed");
         widthField.text = "5000";
         widthField.onEndEdit.Invoke("5000");
-        Assert(Working().Contains("\"Width\":960") && widthField.text == "960", "and is kept within its limits when typing is done");
-        Find("Step up ").onClick.Invoke();
+        Settle();
+        Assert(Working().Contains("\"Width\":960") && widthField.text == "960", "and is kept within its limits when typing is done: " + widthField.text);
+        Press(Find("Step up "));
         Assert(Working().Contains("\"Bars\":2"), "a stepper steps");
-        ModRangeDrag range = mods2.Page.Root.GetComponentsInChildren<ModRangeDrag>(true).Single();
+        SliderDrag range = ByName<SliderDrag>(mods2.Page.Root, "Range slider");
         range.Moved(.9f, true);
         Assert(Working().Contains("\"From\":10") && Working().Contains("\"To\":90"), "a range moves its nearer handle: " + Working());
         range.Moved(.05f, true);
         Assert(Working().Contains("\"From\":5"), "and the other");
-        Find("Shortcut ").onClick.Invoke();
+        Press(Find("Shortcut "));
         Assert(mods2.Page.Typing, "a shortcut part records the next key");
-        Find("Shortcut ").onClick.Invoke();
-        Assert(!mods2.Page.Typing, "and stops on a second click");
-        Button box = Find("Checkbox ");
-        box.onClick.Invoke();
+        ShortcutFieldModel shortcut = Field<List<ShortcutFieldModel>>(Field<ModEditorContext>(mods2, "_context"), "_shortcuts").Single();
+        shortcut.TryAssign(KeyCode.H, KeyCode.None);
+        Assert(!mods2.Page.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
+        Pressable box = Find("Checkbox ");
+        Press(box);
         Assert(Working().Contains("\"Always\":true"), "a checkbox ticks");
-        box.transform.parent.GetComponent<ModHint>().OnPointerEnter(null);
-        Assert(Field<OverlayEditorFrame>(mods2, "_screen").TipText == (Korean(name) ? "메뉴에서도 카드를 보여요" : "Shows the card in menus too"),
+        PointerArea hover = box.GetComponentInParent<PointerArea>();
+        hover.OnPointerEnter(null);
+        TextMeshProUGUI tip = ByName<TextMeshProUGUI>(ByName<RectTransform>(mods2.Page.Root, "ElementUI hint"), "Text");
+        Assert(Shown(tip) && tip.text == (Korean(name) ? "메뉴에서도 카드를 보여요" : "Shows the card in menus too"),
           "a part's hint shows on hover");
-        box.transform.parent.GetComponent<ModHint>().OnPointerExit(null);
-        Find("Icon Reset").onClick.Invoke();
+        hover.OnPointerExit(null);
+        Press(Find("Icon Reset"));
         Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "an icon button runs its action");
+        Next();
 
         // Undo keeps the picked tab.
         Call(mods2, "Undo");
+        Settle();
         Assert(Working().Contains("\"Rounded\":false"), "undo brings the last change back");
-        Assert(mods2.Page.Root.GetComponentsInChildren<ModRangeDrag>(false).Length == 1, "after undo the same tab is still picked");
+        Assert(Shown(ByName<SliderDrag>(mods2.Page.Root, "Range slider")), "after undo the same tab is still picked");
 
         mods2.Close(true, true);
         Assert(!mods2.IsOpen && element.Settings.Mod.Data.Contains("\"Style\":1") && element.Settings.Mod.Data.Contains("\"Unit\":2"),
           "Done saves the settings with the element");
         Select(editor, IndexOf(editor, element));
         SaveFrame(camera, texture, canvases, name + "-mod-placed");
+
+        CheckModElementView(editor, host, camera, texture, canvases, name, mods2);
 
         // The mod goes away: the element keeps its place and settings.
         mods.Remove("Preview");
@@ -278,6 +358,7 @@ namespace Element.Editor
         Assert(element.Label == (Korean(name) ? "미리보기 카드" : "Preview card"), "it keeps its name: " + element.Label);
         RectTransform elementRect = (RectTransform)typeof(Element.Presentation.Overlay.Elements.OverlayElementTarget)
           .GetProperty("Rect", Private).GetValue(element);
+        Select(editor, IndexOf(editor, element));
         Assert(elementRect.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Contains("Preview") && label.font != null),
           "the editor names the mod it needs, in the overlay's font");
         SaveFrame(camera, texture, canvases, name + "-mod-missing");
@@ -292,21 +373,86 @@ namespace Element.Editor
       }
     }
 
-    // The parts shown now fit the screen, keep clear of the preview and of each other, and their words fit.
+    // An element whose editing screen is written with ElementUI: its views
+    // under the preview, bound to its settings; each edit an undo step (a
+    // drag one step), undo shown on the screen, and Done saving it.
+    private static void CheckModElementView(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name, OverlayModEditor mods)
+    {
+      Select(editor, -1);
+      Call(editor, "ToggleAddMenu");
+      Settle();
+      Press(Rows(AddMenu(editor))[3]);
+      Press(Rows(Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root).First(row => row.name == "Add Preview/meter"));
+      ModOverlayElement meter = host.LayoutTargets.OfType<ModOverlayElement>().Last();
+      Assert(mods.IsOpen && mods.View != null && mods.Page == null && meter.Class.Info.Key == "meter",
+        "an element that writes its screen with ElementUI shows that screen, not a page of parts");
+      Settle();
+      string Working() => Field<string>(mods, "_working");
+      RectTransform view = mods.View.Root;
+      Rect preview = ScreenRectOf(Field<RectTransform>(Field<ModPreview>(mods, "_preview"), "_holder"));
+      Rect shown = ScreenRectOf(view);
+      Assert(InsideScreen(shown) && !shown.Overlaps(preview), "its screen sits under the preview, on screen");
+      foreach (Pressable control in view.GetComponentsInChildren<Pressable>(false))
+        Assert(InsideScreen(ScreenRectOf((RectTransform)control.transform)), "its controls fit the screen: " + control.name);
+      Assert(Shown(ByName<Pressable>(view, "Color " + L("채우기", "Fill"))), "Element's color picker draws on it");
+      SaveFrame(camera, texture, canvases, name + "-mod-editor-view");
+
+      SliderDrag slider = ByName<SliderDrag>(view, "Slider");
+      slider.Dragging(true);
+      slider.Moved(.5f, true);
+      slider.Moved(.75f, false);
+      slider.Dragging(false);
+      Assert(Working().Contains("\"Width\":380"), "a slider bound to the settings changes them as it moves: " + Working());
+      Press(ByName<Pressable>(view, "Switch"));
+      Assert(Working().Contains("\"Rounded\":false"), "a switch bound to the settings flips them");
+      Press(view.GetComponentsInChildren<Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.Top));
+      Assert(Working().Contains("\"LabelAt\":1"), "Element's nine-point picker sets them too");
+      TMP_InputField label = view.GetComponentsInChildren<TMP_InputField>(false).Single();
+      label.text = "Hello";
+      Assert(Working().Contains("\"Label\":\"Hello\""), "a text field bound to the settings changes them as it is typed");
+
+      // Typing ends before ⌘Z reaches the editor.
+      label.DeactivateInputField();
+      Settle();
+      Call(mods, "Undo");
+      Settle();
+      PreviewMeter instance = (PreviewMeter)Field<ModPreview>(mods, "_preview").Instance;
+      Assert(!Working().Contains("Hello") && instance.Settings.Label == "Meter", "undo puts the settings back: " + Working());
+      Assert(label.text == "Meter", "and the screen shows them: " + label.text);
+      Call(mods, "Undo");
+      Call(mods, "Undo");
+      Settle();
+      Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Width\":380"), "each click is its own step");
+      Call(mods, "Undo");
+      Settle();
+      Assert(instance.Settings.Width == 240 && instance.Settings.Rounded, "a whole drag is one step: " + instance.Settings.Width);
+      Call(mods, "Redo");
+      mods.Close(true, true);
+      Assert(!mods.IsOpen && meter.Settings.Mod.Data.Contains("\"Width\":380"), "Done saves what the screen changed");
+      // The layout goes on as the checks after these expect it.
+      Select(editor, IndexOf(editor, meter));
+      Call(editor, "DeleteSelected");
+      Select(editor, -1);
+    }
+
+    // The parts shown now fit the screen, keep clear of the preview and of
+    // each other, and their words fit. Each part is found by the object its
+    // Rect gives a mod, spread over it.
     private static void CheckVisibleParts(OverlayModEditor editor, string name, string tab)
     {
       ModEditorPage page = editor.Page;
       Rect preview = ScreenRectOf(Field<RectTransform>(Field<ModPreview>(editor, "_preview"), "_holder"));
-      // A tab page at the top of the column is only a holder; its parts stand in the column themselves.
-      IEnumerable<RectTransform> Children(Transform parent) => Enumerable.Range(0, parent.childCount)
-        .Select(i => (RectTransform)parent.GetChild(i))
-        .SelectMany(rect => rect.name.StartsWith("Tab page") ? Children(rect) : new[] { rect });
-      RectTransform[] parts = Children(page.Root)
-        .Where(rect => rect.gameObject.activeInHierarchy && !rect.name.StartsWith("Gap")).ToArray();
+      ModPart[] shown = page.Flowing.Where(part => part.Column.Value >= 0 && !(part is ModGroup { Transparent: true }))
+        .Concat(page.Placed).ToArray();
+      RectTransform[] parts = shown.Select(part => part.Rect).ToArray();
+      Call(editor, "ApplyPending");
+      Settle();
       Assert(parts.Length >= 3, "the " + tab + " tab shows its parts: " + parts.Length);
       foreach (RectTransform part in parts)
       {
         Rect rect = ScreenRectOf(part);
+        Assert(part.gameObject.activeInHierarchy, tab + ": part is shown: " + part.name);
         Assert(InsideScreen(rect), tab + ": part fits the screen: " + part.name + " " + rect);
         Assert(!rect.Overlaps(preview), tab + ": part leaves the preview clear: " + part.name);
       }

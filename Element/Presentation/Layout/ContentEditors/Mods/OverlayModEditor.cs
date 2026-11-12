@@ -9,7 +9,10 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Widgets;
+using ElementKit;
+using ElementUI;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -19,9 +22,10 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// <summary>
 /// The editing screen for an element another mod draws. Element keeps what
 /// every editing screen has: the dim, Cancel and Done, Esc to finish, undo,
-/// Grow from, and a live preview (<see cref="ModPreview"/>). The mod builds
-/// the rest from <see cref="ModEditorPage"/>'s parts, and the editor opens
-/// what those parts ask for beside them (<see cref="ModEditorPopovers"/>).
+/// Grow from, and a live preview (<see cref="ModPreview"/>). Under the
+/// preview goes what the mod made: the parts of an <see cref="EditorPage"/>
+/// (<see cref="ModEditorPage"/>), or a screen it wrote with ElementUI
+/// (<see cref="ModEditorView"/>).
 /// </summary>
 internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 {
@@ -33,18 +37,22 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private readonly ModPreview _preview;
   private readonly UndoStack<string> _history = new(100);
   private readonly Dictionary<string, int> _tabs = new();
+  private readonly PopoverStack _popovers = new();
   private readonly Event _event = new();
   private OverlayEditorFrame _screen;
   private OverlayEditorBar _bar;
   private OverlayBarButtonModel _growButton;
-  private ModEditorPopovers _popovers;
-  private ModEditorPage _page;
+  private OverlayGrowPopover _grow;
+  private ModEditorContext _context;
+  private IModEditorScreen _content;
   private ModOverlayElement _element;
   private ElementClass _type;
   private Action<bool> _closed;
   private string _opening;
   private string _working;
   private OverlayGrowth _growth;
+  private bool _rebuild;
+  private object _drag;
 
   /// <param name="report">Logs a mod's failure once per kind; see <see cref="ModElements.Failed"/>.</param>
   public OverlayModEditor(
@@ -67,8 +75,11 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 
   public void Raise() => _screen?.Root.transform.SetAsLastSibling();
 
-  /// <summary>The page the mod built last; for checks.</summary>
-  internal ModEditorPage Page => _page;
+  /// <summary>The page the mod built last, when it built one; for checks.</summary>
+  internal ModEditorPage Page => _content as ModEditorPage;
+
+  /// <summary>The screen the mod wrote with ElementUI, when it wrote one; for checks.</summary>
+  internal ModEditorView View => _content as ModEditorView;
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed) =>
     target is ModOverlayElement element && Open(element, closed);
@@ -109,6 +120,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       () => Close(true, true)
     );
     _guard.Screen = _screen;
+    _context = new ModEditorContext(_fonts, _reduceMotion());
+    // Element's pickers for a screen the mod writes with ElementUI.
+    EditorParts.Host = new ModEditorParts(_context);
     UiFactory ui = _screen.Ui;
     BuildBar();
     float top = OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 24;
@@ -119,11 +133,14 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       new Rect(OverlayEditorFrame.Margin, top, _screen.Width - OverlayEditorFrame.Margin * 2, height),
       _fonts?.Invoke()
     );
-    _popovers = new ModEditorPopovers(_screen, _font, _reduceMotion, _fonts, _bar.RectOf(_growButton), PickGrowth);
+    _grow = new OverlayGrowPopover(_screen, PickGrowth) { Anchor = _bar.RectOf(_growButton) };
+    _popovers.Clear();
+    _popovers.Add(_grow);
     _preview.BuildGrowMark(ui, _screen.Frame);
     if (!_preview.Create(_type, _element.Settings.Mod, _working))
       return;
-    BuildPage();
+    if (!BuildView())
+      BuildPage();
     FitPreview();
   }
 
@@ -139,54 +156,83 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     _bar = new OverlayEditorBar(_screen, "Element bar", _growButton);
   }
 
+  // The room under the preview, where the mod's parts or screen go.
+  private Rect ContentArea
+  {
+    get
+    {
+      float top = _preview.Area.yMax + 28;
+      return new Rect(
+        OverlayEditorFrame.Margin,
+        top,
+        _screen.Width - OverlayEditorFrame.Margin * 2,
+        _screen.Height - top - OverlayEditorFrame.Margin
+      );
+    }
+  }
+
+  /// <summary>The screen the mod wrote with ElementUI; false when it builds an <see cref="EditorPage"/> instead.</summary>
+  private bool BuildView()
+  {
+    View view = null;
+    ViewModel model = null;
+    if (!_guard.Run("laying out its editing screen", () => view = _preview.Instance.RunEditor(Korean, out model)))
+      return true;
+    if (view == null)
+      return false;
+    _context.Edits = ViewEdited;
+    _guard.Run(
+      "laying out its editing screen",
+      () =>
+        _content = new ModEditorView(
+          _screen.Frame,
+          ContentArea,
+          view,
+          model,
+          _screen.NewBackend(),
+          _context,
+          ViewEdited,
+          dragging => _drag = dragging ? new object() : null
+        )
+    );
+    _grow.Root.SetAsLastSibling();
+    return true;
+  }
+
   // The mod's parts, laid out fresh; again after undo so they show the restored settings.
   private void BuildPage()
   {
-    if (_page != null)
-      UiFactory.Destroy(_page.Root.gameObject);
-    Rect preview = _preview.Area;
-    float flowTop = preview.yMax + 28;
-    _page = new ModEditorPage(
-      _screen.Ui,
+    _content?.Dispose();
+    _content = null;
+    _context.Clear();
+    ModEditorPage page = new(
       _screen.Frame,
       new Vector2(_screen.Width, _screen.Height),
-      preview,
-      new Rect(
-        OverlayEditorFrame.Margin,
-        flowTop,
-        _screen.Width - OverlayEditorFrame.Margin * 2,
-        _screen.Height - flowTop - OverlayEditorFrame.Margin
-      ),
-      _reduceMotion(),
+      _preview.Area,
+      ContentArea,
       this
     );
-    _guard.Run("laying out its editing screen", () => _preview.Instance.RunEdit(_page));
-    _page.Layout();
-    _popovers.Raise();
+    _content = page;
+    if (_guard.Run("laying out its editing screen", () => _preview.Instance.RunEdit(page)))
+      _guard.Run("laying out its editing screen", page.Mount);
+    _grow.Root.SetAsLastSibling();
   }
 
-  OverlayFonts IModEditorHost.Fonts => _fonts?.Invoke();
-
   ElementUI.IBackend IModEditorHost.NewBackend() => _screen.NewBackend();
+
+  ModEditorContext IModEditorHost.Context => _context;
 
   int IModEditorHost.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
 
   void IModEditorHost.SetTab(string key, int index) => _tabs[key] = index;
 
-  void IModEditorHost.ShowTip(string text, RectTransform anchor)
-  {
-    if (_screen == null || anchor == null)
-      return;
-    Rect rect = _screen.FrameRect(anchor);
-    _screen.ShowTip(text, new Vector2(rect.center.x, rect.y));
-  }
-
-  void IModEditorHost.HideTip() => _screen?.HideTip();
+  private bool Typing => _content != null && _content.Typing;
 
   /// <summary>
-  /// One edit: what it changes is one undo step (a part's edits within a
-  /// second merge), and the preview shows it right away. A button may change
-  /// several settings, so the parts are made again to show them.
+  /// One edit of a page's part: what it changes is one undo step (a part's
+  /// edits within a second merge), and the preview shows it right away. A
+  /// button may change several settings, so the parts are made again, from the
+  /// next frame, to show them.
   /// </summary>
   public void Change(object key, Action apply, bool rebuild)
   {
@@ -195,20 +241,33 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     string before = _working;
     if (!_guard.Run("changing a setting", apply))
       return;
-    string after = Save();
     // Typing in a field is one step for as long as it stays focused.
-    bool typing = key is TMP_InputField field && field.isFocused;
-    bool merge = _history.Continues(key, Time.unscaledTime, typing);
-    if (after != before)
-    {
-      _history.Record(before, merge);
-      _history.DropRedo();
-      _working = after;
-    }
+    if (Record(before, key, Typing) && rebuild)
+      _rebuild = true;
+  }
+
+  // An edit on a screen the mod wrote: a drag, or typing in one field, is one step.
+  private void ViewEdited()
+  {
+    if (_preview.Instance == null)
+      return;
+    object key = _drag ?? ModKeyboard.FocusedField(_content?.Root);
+    Record(_working, key, key != null);
+  }
+
+  /// <summary>Saves what the edit changed as one undo step and shows it; false when nothing changed.</summary>
+  private bool Record(string before, object key, bool held)
+  {
+    string after = Save();
+    bool merge = _history.Continues(key, Time.unscaledTime, held);
+    if (after == before)
+      return false;
+    _history.Record(before, merge);
+    _history.DropRedo();
+    _working = after;
     _guard.Run("showing a setting", _preview.Instance.RunSettingsChanged);
     FitPreview();
-    if (rebuild && after != before)
-      BuildPage();
+    return true;
   }
 
   private string Save()
@@ -218,15 +277,11 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     return data ?? string.Empty;
   }
 
-  public void OpenColor(ModColorRequest request) => _popovers.OpenColor(request);
-
-  public void OpenPaint(ModPaintRequest request) => _popovers.OpenPaint(request);
-
-  public void OpenList(ModListRequest request) => _popovers.OpenList(request);
-
-  public void OpenFont(ModFontRequest request) => _popovers.OpenFont(request);
-
-  private void ClosePopovers() => _popovers.CloseAll();
+  private void ClosePopovers()
+  {
+    _popovers.CloseAll();
+    while (_content != null && _content.CloseTopPopover()) { }
+  }
 
   public void Tick()
   {
@@ -238,16 +293,23 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       if (_screen == null)
         return;
     }
+    // Who had the keyboard as the frame began: Esc that ends recording a shortcut doesn't also finish.
+    bool typing = Typing;
     _screen.Tick();
-    _page?.Tick();
-    _popovers.Tick();
+    if (_rebuild)
+    {
+      _rebuild = false;
+      BuildPage();
+    }
+    _content?.Tick();
+    _context.Tick();
     if (_preview.Instance != null)
     {
       _preview.Tick(_screen.Scale);
       FitPreview();
     }
     // Typing goes to the field; Esc there only ends the typing.
-    if (_popovers.Typing || (_page != null && _page.Typing))
+    if (typing || Typing)
       return;
     if (Input.GetMouseButtonDown(0))
       _popovers.PressOutside(Input.mousePosition);
@@ -259,23 +321,36 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   {
     if (!_preview.Fit(_screen.Scale, out Vector2 box))
       return;
-    _growButton.Set(OverlayGrowPickerModel.ShortName(_growth), false, _popovers.GrowOpen);
+    _growButton.Set(OverlayGrowPickerModel.ShortName(_growth), false, _grow.Visible);
     float barWidth = _bar.LayOut();
     _bar.Place((_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8);
-    bool grow = _popovers.GrowOpen;
+    bool grow = _grow.Visible;
     _preview.PlaceGrowMark(box, grow, grow ? GrowPointNow() : default);
   }
 
-  private void ToggleGrow() => _popovers.ToggleGrow(_growth, GrowPointNow());
+  private void ToggleGrow()
+  {
+    if (_grow.Visible)
+    {
+      _grow.Hide();
+      return;
+    }
+    ClosePopovers();
+    _grow.Show(_screen.FrameRect(_bar.RectOf(_growButton)));
+    _grow.Refresh(_growth, GrowPointNow());
+    _grow.Root.SetAsLastSibling();
+  }
 
   private void PickGrowth(OverlayGrowth growth)
   {
     _growth = growth;
-    _popovers.RefreshGrow(_growth, GrowPointNow());
+    _grow.Refresh(_growth, GrowPointNow());
   }
 
   private Anchor9 GrowPointNow() =>
     OverlayLayoutPosition.ValidGrowth(_growth) ? (Anchor9)(int)_growth : _element.GrowPoint;
+
+  private bool AnyOpen => _popovers.AnyOpen || (_content != null && _content.HasPopover);
 
   /// <summary>
   /// Esc closes what is open; with nothing open it finishes like Done. Only
@@ -284,8 +359,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   public void Escape()
   {
     if (_popovers.AnyOpen)
-      ClosePopovers();
-    else
+      _popovers.CloseAll();
+    else if (_content == null || !_content.CloseTopPopover())
       Close(true, true);
   }
 
@@ -314,7 +389,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       }
       if (_event.keyCode != KeyCode.Escape)
         continue;
-      bool finishing = !_popovers.AnyOpen;
+      bool finishing = !AnyOpen;
       Escape();
       if (finishing)
         return;
@@ -338,6 +413,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     _working = data;
     _history.Break();
     ClosePopovers();
+    _context.CancelRecording();
     _guard.Run(
       "loading its settings",
       () =>
@@ -347,15 +423,17 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       }
     );
     FitPreview();
-    BuildPage();
+    // A screen the mod wrote reads the settings again; a page is made again.
+    if (_content is ModEditorView view)
+      view.Restored();
+    else
+      BuildPage();
   }
 
   /// <summary>Done saves the settings and where the element grows from; Cancel leaves it as it was.</summary>
   public void Close(bool commit, bool notify)
   {
     if (_screen == null)
-      return;
-    if (commit && !_popovers.Commit())
       return;
     ModOverlayElement element = _element;
     Action<bool> closed = _closed;
@@ -382,10 +460,16 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 
   private void TearDown()
   {
+    _content?.Dispose();
+    _content = null;
     _preview.TearDown();
-    _page = null;
-    _popovers?.Dispose();
-    _popovers = null;
+    _popovers.Clear();
+    _grow = null;
+    _context?.Clear();
+    _context = null;
+    EditorParts.Host = null;
+    _rebuild = false;
+    _drag = null;
     _screen?.Dispose();
     _screen = null;
     _guard.Screen = null;

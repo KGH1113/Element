@@ -80,7 +80,13 @@ for (const source of sources) {
   if (/^namespace [\w.]+;$/m.test(code)) code = code.replace(/^namespace ([\w.]+);$/m, 'namespace $1\n{') + '\n}\n';
   fs.writeFileSync(path.join(target, name), code);
 }
-for (const check of ['SettingsPreview', 'GradientChecks', 'ModElementChecks', 'OverlayTargetChecks', 'NativeLayoutChecks', 'PlanetPreviewChecks'])
-  fs.copyFileSync(path.join(root, `scripts/ui-preview/${check}.cs`), path.join(target, `Editor/${check}.cs`));
+// Every check file; GameStubs goes with the runtime sources.
+for (const check of fs.readdirSync(path.join(root, 'scripts/ui-preview')))
+  if (check.endsWith('.cs') && check !== 'GameStubs.cs')
+    fs.copyFileSync(path.join(root, 'scripts/ui-preview', check), path.join(target, 'Editor', check));
 fs.copyFileSync(path.join(root, 'scripts/ui-preview/GameStubs.cs'), path.join(target, 'GameStubs.cs'));
 fs.writeFileSync(path.join(target, 'PreviewAssembly.cs'), '[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("Assembly-CSharp-Editor")]\n');
+// ElementUI, which Element's screens are built with: the same pinned DLLs Element ships.
+fs.mkdirSync(path.join(target, 'Plugins'), { recursive: true });
+for (const dll of ['ElementUI.Core.dll', 'ElementUI.UGUI.dll'])
+  fs.copyFileSync(path.join(root, 'vendor/elementui', dll), path.join(target, 'Plugins', dll));

@@ -7,6 +7,7 @@ using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Presentation.Settings;
 using Element.Presentation.Settings.Pages;
+using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
@@ -1505,10 +1506,6 @@ namespace Element.Editor
     }
     private static T Field<T>(object target, string name) => (T)target.GetType().GetField(name, Private).GetValue(target);
     private static void Call(object target, string name, params object[] args) => target.GetType().GetMethod(name, Private).Invoke(target, args);
-    private static SettingsPage Page(SettingsPanel panel, string name) => Field<SettingsPage>(panel, name);
-    private static SettingsPage Current(SettingsPanel panel) => Field<SettingsPage>(panel, "_current");
-    private static NewProfilePopover NewProfile(SettingsPanel panel) => Field<NewProfilePopover>(Page(panel, "_profiles"), "_newProfilePopover");
-    private static ProfileFontReplacements Fonts(SettingsPanel panel) => Field<ProfileFontReplacements>(Page(panel, "_profiles"), "_fonts");
     private static void CheckMigration()
     {
       var fresh = new ElementSettings();
@@ -1573,499 +1570,13 @@ namespace Element.Editor
       }
     }
 
-    private static void CheckChatterBlocking(SettingsPanel panel, ElementSettings settings, int width)
-    {
-      ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
-      UiValueRow windowRow = Field<UiValueRow>(Page(panel, "_chatter"), "_chatterWindow");
-      Slider window = windowRow.Slider;
-      Button toggle = Field<Button>(Page(panel, "_chatter"), "_chatterSwitch");
-      Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
-      Assert(window.minValue == ChatterFilter.MinimumWindowMs && window.maxValue == ChatterFilter.MaximumWindowMs && window.wholeNumbers,
-        "the threshold is whole milliseconds from 10 to 500");
-      Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
-      Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
-      TMP_InputField input = windowRow.Field;
-      CheckInputCaret(input, "chatter window", "", "10", "500");
-      Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
-      toggle.onClick.Invoke();
-      Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
-      toggle.onClick.Invoke();
-      Assert(chatter.Enabled && window.interactable && input.interactable, "turning blocking on enables the window");
-      window.value = 33;
-      Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
-      input.onEndEdit.Invoke("72");
-      Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
-      input.onEndEdit.Invoke("4000");
-      Assert(chatter.WindowMs == 500 && window.value == 500 && input.text == "500", "a window above the range becomes the maximum");
-      input.onEndEdit.Invoke("2");
-      Assert(chatter.WindowMs == 10 && window.value == 10 && input.text == "10", "a window below the range becomes the minimum");
-      input.onEndEdit.Invoke("");
-      Assert(chatter.WindowMs == 10 && input.text == "10", "clearing the field restores the saved window");
-      window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
-      input.SetTextWithoutNotify(chatter.WindowMs.ToString());
-      Assert(chatter.Enabled, "the page ends in the default state, blocking on");
-      RectTransform row = windowRow.Row;
-      Assert(row.rect.width <= width, "the window row fits the page");
-      RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
-      Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
-      Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
 
-      // Keys never blocked: Change keys listens, each key goes on or comes off.
-      Button change = Field<Button>(Page(panel, "_chatter"), "_ignoredChange"), clear = Field<Button>(Page(panel, "_chatter"), "_ignoredClear");
-      TextMeshProUGUI keys = Field<TextMeshProUGUI>(Page(panel, "_chatter"), "_ignoredKeys");
-      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None") && !clear.interactable, "no key is ignored at first");
-      change.onClick.Invoke();
-      Assert(Field<bool>(Page(panel, "_chatter"), "_ignoredCapture") && change.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
-        "Change keys starts listening and becomes Done");
-      chatter.ToggleIgnored(KeyCode.Space);
-      chatter.ToggleIgnored(KeyCode.X);
-      Call(Page(panel, "_chatter"), "RefreshIgnoredKeys");
-      Assert(keys.text == "Space · X", "the ignored keys are listed: " + keys.text);
-      change.onClick.Invoke();
-      Assert(!Field<bool>(Page(panel, "_chatter"), "_ignoredCapture"), "Done stops listening");
-      Canvas.ForceUpdateCanvases();
-      RectTransform card = Field<RectTransform>(Page(panel, "_chatter"), "_ignoredCard");
-      Assert(card.rect.width <= width + .5f, "the ignored keys card fits the page");
-      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "ignored keys text fits: " + label.text);
-      }
-      RectTransform hint = Field<TextMeshProUGUI>(Page(panel, "_chatter"), "_chatterHint").rectTransform;
-      Assert(-card.anchoredPosition.y >= -hint.anchoredPosition.y + hint.rect.height, "the card sits below the hint");
-      Call(Page(panel, "_chatter"), "RefreshChatterCount");
-      RectTransform blocked = Field<TextMeshProUGUI>(Page(panel, "_chatter"), "_chatterBlocked").rectTransform;
-      Assert(-blocked.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the blocked count sits below the card");
-      Field<Button>(Page(panel, "_chatter"), "_ignoredClear").onClick.Invoke();
-      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None"), "Clear empties the list");
-      chatter.ToggleIgnored(KeyCode.Space);
-      Call(Page(panel, "_chatter"), "RefreshIgnoredKeys");
-    }
 
-    private static void Render(int width, int height, SystemLanguage language, string page, string name)
-    {
-      RDString.language = language;
-      TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-      Assert(font != null, "overlay font exists");
-      ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
-      UiTheme.SetHighlight(settings.HighlightColor);
-      bool overlayOpened = false;
-      using var planetPreview = new PlanetPreviewProbe();
-      PreviewDialogs dialogs = new PreviewDialogs();
-      ProfileService profiles = PreviewProfiles(settings, dialogs);
-      // Profiles look up the fonts an imported profile names.
-      OverlayFontCatalog fontCatalog = page == "_profiles"
-        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
-        : null;
-      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {},
-        new SettingsFeatures { RenderPlanetPreview = planetPreview.Render, Updates = new PreviewUpdates(), Profiles = profiles, OverlayFonts = () => overlayFonts });
-      Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
-      {
-        GameObject root = Field<GameObject>(panel, "_root");
-        root.SetActive(true);
-        Canvas canvas = root.GetComponent<Canvas>();
-        GameObject cameraRoot = new GameObject("UI preview camera", typeof(Camera));
-        Camera camera = cameraRoot.GetComponent<Camera>();
-        camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.035f, .045f, .055f);
-        RenderTexture target = new RenderTexture(width, height, 24);
-        camera.targetTexture = target;
-        canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-        Field<CanvasGroup>(panel, "_windowGroup").alpha = 1;
-        Button[] cards = Field<Button[]>(Page(panel, "_home"), "_homeCards");
-        Assert(cards.Length == 4, "home offers Overlay, Tweaks, Effects and General");
-        cards[1].onClick.Invoke();
-        Assert(Current(panel) == Page(panel, "_tweaks") && Field<Button>(panel, "_back").gameObject.activeSelf, "Tweaks opens within settings");
-        Button back = Field<Button>(panel, "_back");
-        Assert(back.targetGraphic.color.a == 0 && back.transition == Selectable.Transition.None,
-          "Back has no button background or hover fill");
-        UiIcon backIcon = back.GetComponentInChildren<UiIcon>();
-        Assert(backIcon != null && backIcon.Kind == UiIconKind.PageBack && !backIcon.raycastTarget,
-          "Back uses a left chevron with the full button hit area");
-        CheckNavigationControls(panel, settings);
-        // A scene change destroys the selected object while the event system
-        // stays; that selection must read as nothing, not throw every frame.
-        GameObject previewEvents = new GameObject("Preview events", typeof(UnityEngine.EventSystems.EventSystem));
-        UnityEngine.EventSystems.EventSystem events = previewEvents.GetComponent<UnityEngine.EventSystems.EventSystem>();
-        GameObject doomed = new GameObject("Selection from a closed scene");
-        events.SetSelectedGameObject(doomed);
-        Object.DestroyImmediate(doomed);
-        Assert(!SettingsPanel.IsTyping(events), "a selection destroyed with its scene is not typing");
-        events.SetSelectedGameObject(null);
-        Object.DestroyImmediate(previewEvents);
-        Call(panel, "Back");
-        Assert(Current(panel) == Page(panel, "_home"), "Back returns to home");
-        cards[2].onClick.Invoke();
-        Assert(Current(panel) == Page(panel, "_effects"), "Effects opens within settings");
-        Call(panel, "Back");
-        cards[3].onClick.Invoke();
-        Assert(Current(panel) == Page(panel, "_general"), "General opens within settings");
-        Call(panel, "Back");
-        cards[0].onClick.Invoke();
-        Assert(overlayOpened && !root.activeSelf, "Overlay card hands off directly to overlay editor");
-        root.SetActive(true);
-        Assert(Page(panel, "_tweaks").Root.GetComponentsInChildren<UiSwitchMotion>(true).Length ==
-          (UnityEngine.Application.platform == RuntimePlatform.OSXEditor || UnityEngine.Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
-          "Tweaks contains trackpad only on macOS");
-        Assert(Page(panel, "_general").Root.GetComponentsInChildren<UiSwitchMotion>(true).Length == 3
-          && Field<SettingsShortcutField>(Page(panel, "_general"), "_settingsShortcut").Capture.transform.IsChildOf(Page(panel, "_general").Root),
-          "General contains shortcut, motion, ElementNote auto open and automatic update preferences");
-        Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
-          "legacy viewer switch and connection card are absent");
-        Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
-        Call(panel, "SelectPage", Page(panel, page));
-        if (page == "_presetEditor") Call(Page(panel, "_presetEditor"), "Edit", settings.Effects.Presets[0]);
-        panel.Resize(width, height);
-        Canvas.ForceUpdateCanvases();
-        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
-        if (page == "_general") CheckShortcut(panel, settings, width, height);
-        if (page == "_effects") { CheckPresetEditing(panel, settings, width, height); CheckPresetShortcut(panel, settings, width, height); }
-        if (page == "_editorTweaks") CheckEditorSections(panel, settings, width, height);
-        if (page == "_judgment") CheckJudgmentChoices(panel, settings);
-        if (page == "_planets") CheckPlanetEditing(panel, settings, width, height, planetPreview);
-        if (page == "_chatter") CheckChatterBlocking(panel, settings, width);
-        if (page == "_general") CheckProfileLink(panel, profiles);
-        if (page == "_profiles") CheckProfiles(panel, settings, profiles, dialogs, width, height);
-        // Each of these frames shows one panel left open.
-        if (page == "_profiles" && !name.EndsWith("-fonts")) CheckNewProfile(panel, settings, profiles, width, height, name.EndsWith("-new"));
-        if (page == "_profiles" && !name.EndsWith("-new")) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
-        // One frame shows a name being changed on its card.
-        if (name.EndsWith("-rename")) Call(Page(panel, "_profiles"), "StartRename", profiles.Profiles[0]);
-        RectTransform window = Field<RectTransform>(panel, "_window");
-        Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
-        Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
-        if (page == "_home")
-        {
-          RectTransform first = (RectTransform)cards[0].transform, second = (RectTransform)cards[1].transform,
-            third = (RectTransform)cards[2].transform, fourth = (RectTransform)cards[3].transform;
-          bool stacked = Page(panel, "_home").Root.rect.width < 480;
-          Assert(stacked ? second.anchoredPosition.y < first.anchoredPosition.y
-            : second.anchoredPosition.y == first.anchoredPosition.y && third.anchoredPosition.x == first.anchoredPosition.x
-              && fourth.anchoredPosition.y == third.anchoredPosition.y && third.anchoredPosition.y < first.anchoredPosition.y,
-            "categories form a two-by-two desktop grid in the requested order and stack only on compact windows");
-          foreach (var label in root.GetComponentsInChildren<TextMeshProUGUI>(false))
-            Assert(!label.isTextTruncated, "home label fits: " + label.text);
-        }
-        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) Assert(label.font == font, "shared overlay font");
-        foreach (RectTransform copy in root.GetComponentsInChildren<RectTransform>(false).Where(r => r.name == "Switch copy"))
-        {
-          RectTransform row = (RectTransform)copy.parent;
-          RectTransform toggle = (RectTransform)row.Find("Switch");
-          Assert(Mathf.Abs(CenterIn(copy, row).y - row.rect.center.y) < .1f
-            && Mathf.Abs(CenterIn(toggle, row).y - row.rect.center.y) < .1f, "switch copy and control share card center");
-          foreach (TextMeshProUGUI text in copy.GetComponentsInChildren<TextMeshProUGUI>())
-            Assert(!text.isTextTruncated, "switch copy fits intrinsic text height");
-        }
-        UiFactory ui = Field<UiFactory>(panel, "_ui");
-        Assert(Field<Sprite>(Field<UiFactory>(Page(panel, "_effects"), "_galleryUi"), "_rounded") == Field<Sprite>(ui, "_rounded"),
-          "a rebuilt preset gallery shares the window's rounded sprite instead of making its own");
-        foreach (string sample in new[] { "#000000", "#FFFFFF", "#0000FF", "#FF0000", "#BA712B" })
-        {
-          UiTheme.SetHighlight(sample); ui.RefreshTheme();
-          Color c = UiPalette.SoftAccent.linear;
-          float lum = c.r * .2126f + c.g * .7152f + c.b * .0722f;
-          Assert(lum >= .45f, "readable UI accent for " + sample);
-          foreach (TextMeshProUGUI action in Field<TextMeshProUGUI[]>(Page(panel, "_home"), "_cardActions"))
-            Assert(action.color == UiPalette.SoftAccent, "category action follows current highlight without tween lag");
-        }
-        UiTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
-        if (name == "editor-editing-en-720")
-          Field<UiSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons[1].onClick.Invoke();
-        if (name.StartsWith("preset-shortcut"))
-          ShowPresetShortcut(panel, settings, name.EndsWith("narrow"));
-        // Force layout after checks; colors must be rendered using the same live components.
-        panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-        Field<ScrollRect>(panel, "_scroll").SendMessage("LateUpdate");
-        // ScrollRect intentionally forces scrollbars visible outside play mode.
-        // Match its play-mode overflow rule for the offline render.
-        ScrollRect scroll = Field<ScrollRect>(panel, "_scroll");
-        scroll.verticalScrollbar.gameObject.SetActive(scroll.content.rect.height > scroll.viewport.rect.height + 1);
-        Canvas.ForceUpdateCanvases();
-        camera.Render();
-        RenderTexture.active = target;
-        Texture2D image = new Texture2D(width, height, TextureFormat.RGB24, false);
-        image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
-        File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
-        RenderTexture.active = null;
-        Object.DestroyImmediate(image); camera.targetTexture = null; Object.DestroyImmediate(target); Object.DestroyImmediate(cameraRoot);
-        root.SetActive(false);
-        Object.DestroyImmediate(root);
-      }
-    }
 
-    private static void CheckPresetEditing(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      int originalCount = settings.Effects.Presets.Count;
-      var name = Field<TMP_InputField>(Page(panel, "_presetEditor"), "_presetName");
-      var save = Field<Button>(Page(panel, "_presetEditor"), "_savePreset");
-      var error = Field<TextMeshProUGUI>(Page(panel, "_presetEditor"), "_presetError");
-      Field<Button>(Page(panel, "_effects"), "_newPreset").onClick.Invoke();
-      Assert(Current(panel) == Page(panel, "_presetEditor") && !save.interactable
-        && !Field<Button>(Page(panel, "_presetEditor"), "_deletePreset").gameObject.activeSelf,
-        "new preset opens a dedicated draft with no destructive action");
-      name.text = " " + settings.Effects.Presets[0].Name.ToLowerInvariant() + " ";
-      Assert(!save.interactable && error.text.Length > 0 && settings.Effects.Presets.Count == originalCount,
-        "preset names are unique after whitespace and case normalization");
-      name.text = "Fixture calm";
-      CheckInputCaret(name, "preset name", "", "Remove All", "한글 이름", "gjpq");
-      var options = Field<List<Button>>(Page(panel, "_presetEditor"), "_effectRows");
-      options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
-      Assert(save.interactable && Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").Effects != RemovedEffects.None,
-        "draft effect choices are editable before a preset exists");
-      Call(panel, "Back");
-      Assert(Current(panel) == Page(panel, "_effects") && settings.Effects.Presets.Count == originalCount,
-        "leaving an unsaved preset draft does not mutate the gallery");
-      Field<Button>(Page(panel, "_effects"), "_newPreset").onClick.Invoke();
-      name.text = "Fixture calm";
-      options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
-      RemovedEffects expected = Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").Effects;
-      UiValueRow zoom = Field<UiValueRow>(Page(panel, "_presetEditor"), "_cameraZoom");
-      Assert((expected & RemovedEffects.CameraMotion) != 0 && zoom.Row.gameObject.activeSelf && zoom.Field.interactable
-        && zoom.Field.text == "250", "removing camera movement offers its zoom, starting at 250%");
-      RectTransform zoomRect = zoom.Row, cameraRect = (RectTransform)options[0].transform;
-      float zoomTop = -zoomRect.anchoredPosition.y, zoomBottom = zoomTop + zoomRect.rect.height;
-      Assert(Mathf.Approximately(cameraRect.rect.width, zoomRect.rect.width)
-        && zoomTop >= -cameraRect.anchoredPosition.y + cameraRect.rect.height,
-        "the zoom sits right under camera movement");
-      Assert(options.Skip(1).Where(button => button.gameObject.activeSelf)
-        .All(button => -((RectTransform)button.transform).anchoredPosition.y >= zoomBottom),
-        "the other Screen effects start below the zoom instead of covering it");
-      zoom.Field.onEndEdit.Invoke("1200");
-      Assert(Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").CameraZoom == 1000 && zoom.Field.text == "1000"
-        && zoom.Slider.value == 1000, "a zoom above the range becomes the maximum");
-      zoom.Field.onEndEdit.Invoke("50");
-      Assert(Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").CameraZoom == 100 && zoom.Field.text == "100",
-        "a zoom below the range becomes the minimum");
-      zoom.Field.onEndEdit.Invoke("300");
-      Assert(zoom.Slider.value == 300, "a typed zoom moves the slider");
-      save.onClick.Invoke();
-      EffectPreset created = settings.Effects.Presets.Single(preset => preset.Name == "Fixture calm");
-      Assert(created.CameraZoom == 300, "saving keeps the preset's zoom");
-      Assert(settings.Effects.Presets.Count == originalCount + 1 && created.Effects == expected
-        && Current(panel) == Page(panel, "_effects"), "saving creates the named preset and returns to its gallery");
-      Field<List<Button>>(Page(panel, "_effects"), "_presetCards").Single(button => button.name == "Preset: Fixture calm").onClick.Invoke();
-      Assert(settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "selecting a preset applies it and enables removal");
-      // The toggle rebuilds retained gallery controls. Their layout must survive
-      // that callback itself, without Resize/Back/FitWindow rescuing the result.
-      Rect[] cardRects = Field<List<Button>>(Page(panel, "_effects"), "_presetCards")
-        .Select(button => { var r = (RectTransform)button.transform; return new Rect(r.anchoredPosition, r.rect.size); }).ToArray();
-      Field<Button>(Page(panel, "_effects"), "_effectEnabled").onClick.Invoke();
-      Assert(!settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "turning removal off preserves the selected preset");
-      CheckPresetCardRects(panel, cardRects, "off");
-      Field<Button>(Page(panel, "_effects"), "_effectEnabled").onClick.Invoke();
-      Assert(settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "turning removal back on preserves the active preset");
-      CheckPresetCardRects(panel, cardRects, "on");
-      Field<Button>(Page(panel, "_effects"), "_effectEnabled").onClick.Invoke();
-      CheckPresetCardRects(panel, cardRects, "off again");
-      Call(Page(panel, "_presetEditor"), "Edit", created);
-      name.text = settings.Effects.Presets[0].Name;
-      Assert(!save.interactable && created.Name == "Fixture calm", "duplicate rename cannot mutate the existing preset");
-      name.text = "Fixture renamed"; save.onClick.Invoke();
-      Assert(created.Name == "Fixture renamed" && settings.Effects.ActivePresetId == created.Id,
-        "renaming keeps stable identity and selected state");
-      Call(Page(panel, "_presetEditor"), "Edit", created);
-      Field<Button>(Page(panel, "_presetEditor"), "_deletePreset").onClick.Invoke();
-      Assert(settings.Effects.Presets.Count == originalCount && settings.Effects.ActivePreset != null
-        && !settings.Effects.Enabled && Current(panel) == Page(panel, "_effects"),
-        "deleting the selected preset keeps a valid fallback without enabling removal");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      List<Button> cards = Field<List<Button>>(Page(panel, "_effects"), "_presetCards");
-      RectTransform first = (RectTransform)cards[0].transform;
-      float galleryWidth = Field<RectTransform>(Page(panel, "_effects"), "_presetGallery").rect.width;
-      int columns = galleryWidth >= 600 ? 3 : galleryWidth >= 440 ? 2 : 1;
-      Assert(cards.Take(columns).All(button => ((RectTransform)button.transform).anchoredPosition.y == first.anchoredPosition.y)
-        && (cards.Count <= columns || ((RectTransform)cards[columns].transform).anchoredPosition.y < first.anchoredPosition.y),
-        "preset gallery uses three desktop columns and adapts without overlap on narrow windows");
-    }
 
-    private static void CheckPresetCardRects(SettingsPanel panel, Rect[] expected, string state)
-    {
-      List<Button> cards = Field<List<Button>>(Page(panel, "_effects"), "_presetCards");
-      Assert(cards.Count == expected.Length, "effect toggle retains every preset card: " + state);
-      var positions = new HashSet<Vector2>();
-      for (int i = 0; i < cards.Count; i++)
-      {
-        RectTransform rect = (RectTransform)cards[i].transform;
-        Assert(cards[i].gameObject.activeInHierarchy && new Rect(rect.anchoredPosition, rect.rect.size) == expected[i],
-          "effect toggle preserves each visible card's rectangle before relayout: " + state);
-        Assert(positions.Add(rect.anchoredPosition), "effect toggle cannot pile preset cards onto one origin: " + state);
-      }
-    }
 
-    private static void CheckEditorSections(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      var tabs = Field<UiSegmentedControl>(Page(panel, "_editorTweaks"), "_editorTabs").Buttons;
-      RectTransform selection = Field<RectTransform>(Page(panel, "_editorTweaks"), "_selectionPane");
-      RectTransform editing = Field<RectTransform>(Page(panel, "_editorTweaks"), "_editingPane");
-      Assert(selection.gameObject.activeSelf && !editing.gameObject.activeSelf,
-        "editor suboptions use one focused section rather than one long list");
-      tabs[1].onClick.Invoke(); panel.Resize(width, height);
-      Assert(!selection.gameObject.activeSelf && editing.gameObject.activeSelf, "editor section navigation swaps its suboptions");
-      var editor = settings.Gameplay.Editor;
-      var rotation = Field<TMP_InputField>(Page(panel, "_editorTweaks"), "_rotationInput");
-      editor.FineRotation = false; Field<UiFactory>(panel, "_ui").RefreshTheme();
-      Assert(!rotation.interactable, "rotation step is disabled when fine rotation is off");
-      Field<List<Button>>(Page(panel, "_editorTweaks"), "_editingOptions")[0].onClick.Invoke();
-      Assert(editor.FineRotation && rotation.interactable, "enabling fine rotation activates its nested step control");
-      CheckInputCaret(rotation, "rotation step", "", "22.5");
-      float before = editor.RotationStep;
-      Call(Page(panel, "_editorTweaks"), "CommitRotationStep", "not an angle");
-      Assert(editor.RotationStep == before && Field<TextMeshProUGUI>(Page(panel, "_editorTweaks"), "_rotationError").text.Length > 0,
-        "invalid custom rotation leaves the previous value intact");
-      Call(Page(panel, "_editorTweaks"), "CommitRotationStep", "7.5");
-      Assert(Mathf.Abs(editor.RotationStep - 7.5f) < .001f, "valid custom rotation is applied");
-      tabs[0].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
-    private static void CheckJudgmentChoices(SettingsPanel panel, ElementSettings settings)
-    {
-      var rows = Field<List<Button>>(Page(panel, "_judgment"), "_judgementOptions");
-      var judgment = settings.Gameplay.Judgement;
-      Func<bool>[] hidden = {
-        () => judgment.HideEarlyPerfect, () => judgment.HidePerfect, () => judgment.HideXPerfect,
-        () => judgment.HideLatePerfect, () => judgment.HideTooEarly, () => judgment.HideEarly,
-        () => judgment.HideLate, () => judgment.HideTooLate, () => judgment.HideMiss, () => judgment.HideOverload
-      };
-      Assert(rows.Count == hidden.Length, "ten judgment controls expose XP separately from Perfect +/-");
-      Call(Page(panel, "_judgment"), "SetAllJudgements", false);
-      Assert(hidden.All(read => !read()), "Show all includes XP and every other judgment");
-      for (int i = 0; i < rows.Count; i++)
-      {
-        rows[i].onClick.Invoke();
-        Assert(hidden.Select((read, index) => read() == (index == i)).All(value => value),
-          "each judgment card changes only its own visibility: " + i);
-        rows[i].onClick.Invoke();
-        Assert(hidden.All(read => !read()), "each judgment can independently return to shown: " + i);
-      }
-      Call(Page(panel, "_judgment"), "SetAllJudgements", true);
-      Assert(hidden.All(read => read()), "Hide all includes XP and every other judgment");
-      rows[1].onClick.Invoke();
-      Assert(!judgment.HidePerfect && judgment.HideXPerfect && judgment.HideMiss,
-        "showing Perfect +/- leaves XP and failures hidden");
-      rows[2].onClick.Invoke();
-      Assert(!judgment.HidePerfect && !judgment.HideXPerfect && judgment.HideMiss,
-        "showing XP leaves Perfect +/- and failures unchanged");
-      Call(Page(panel, "_judgment"), "SetAllJudgements", false);
-      Assert(hidden.All(read => !read()), "Show all restores all ten judgment types after independent editing");
-    }
 
-    private static void CheckPlanetEditing(SettingsPanel panel, ElementSettings settings, int width, int height, PlanetPreviewProbe preview)
-    {
-      var enabled = Field<Button>(Page(panel, "_planets"), "_planetEnabled");
-      var sources = Field<List<Button>>(Page(panel, "_planets"), "_planetSourceButtons");
-      var colors = Field<List<Button>>(Page(panel, "_planets"), "_planetColorButtons");
-      var tabs = Field<UiSegmentedControl>(Page(panel, "_planets"), "_planetTabs").Buttons;
-      var ui = Field<UiFactory>(panel, "_ui");
-      var image = Field<RawImage>(Page(panel, "_planets"), "_planetImage");
-      Assert(preview.Calls > 0 && preview.Index == 0 && ReferenceEquals(preview.Profile, settings.Gameplay.Planets.Red),
-        "opening Planets immediately requests the Fire profile from the injected game renderer");
-      CheckPlanetTexture(panel, preview);
-      settings.Gameplay.Planets.Enabled = false; ui.RefreshTheme();
-      Assert(colors.All(button => !button.interactable), "disabled planets cannot open appearance editors");
-      int before = preview.Calls;
-      enabled.onClick.Invoke();
-      Assert(preview.Calls > before, "enabling customization refreshes the planet preview immediately");
-      var profile = Field<Button>(Page(panel, "_planets"), "_planetProfileEnabled");
-      if (!colors[0].interactable) profile.onClick.Invoke();
-      Assert(colors.All(button => button.interactable), "enabling the planet profile activates body, trail and ring controls");
-      before = preview.Calls;
-      sources[0].onClick.Invoke();
-      Assert(preview.Calls > before && !preview.Snapshot.Body.OverrideColor,
-        "switching Body to map colors immediately reaches the preview renderer");
-      colors[0].onClick.Invoke();
-      var picker = Field<UiColorPicker>(Page(panel, "_planets"), "_planetPicker");
-      var shade = Field<UiPopoverShade>(panel, "_shade");
-      Assert(picker.Visible && shade.Visible, "planet color opens an anchored picker with a dismiss backdrop");
-      before = preview.Calls;
-      Field<TMP_InputField>(picker, "_opacity").text = "50";
-      Assert(preview.Calls > before && preview.Snapshot.Body.Opacity == 50 && !preview.Snapshot.Body.OverrideColor,
-        "Body opacity reaches the renderer while preserving its map color source");
-      before = preview.Calls;
-      Field<TMP_InputField>(picker, "_hex").text = "2468AC";
-      Assert(preview.Calls > before && preview.Snapshot.Body.ColorHex == "#2468AC"
-        && preview.Snapshot.Body.Opacity == 50 && preview.Snapshot.Body.OverrideColor,
-        "Body RGB edits immediately select custom color without losing opacity");
-      Assert(picker.Commit(), "planet opacity can be committed through the shared RGBA picker");
-      Button close = picker.Root.GetComponentsInChildren<Button>(false).Single(button => button.name == "Close color picker");
-      close.onClick.Invoke();
-      Assert(!picker.Visible && !shade.Visible, "closing the color picker also removes its input-blocking shade");
-      string[] partHex = { "2468AC", "426688", "6842AA" };
-      string[] partOpacity = { "50", "25", "0" };
-      for (int i = 1; i < colors.Count; i++)
-      {
-        colors[i].onClick.Invoke();
-        before = preview.Calls;
-        Field<TMP_InputField>(picker, "_hex").text = partHex[i];
-        Field<TMP_InputField>(picker, "_opacity").text = partOpacity[i];
-        PlanetComponentAppearance part = i == 1 ? preview.Snapshot.Tail : preview.Snapshot.Ring;
-        Assert(preview.Calls > before && part.ColorHex == "#" + partHex[i]
-          && part.Opacity == float.Parse(partOpacity[i]), "each component routes RGB and alpha to the renderer immediately: " + i);
-        Assert(preview.Snapshot.Body.ColorHex == "#2468AC" && preview.Snapshot.Body.Opacity == 50,
-          "editing Trail or Ring leaves Body appearance independent");
-        close.onClick.Invoke();
-      }
-      PlanetAppearanceProfile[] profiles = { settings.Gameplay.Planets.Red, settings.Gameplay.Planets.Blue, settings.Gameplay.Planets.Green };
-      for (int i = 1; i < tabs.Count; i++)
-      {
-        before = preview.Calls;
-        tabs[i].onClick.Invoke();
-        Assert(preview.Calls > before && preview.Index == i && ReferenceEquals(preview.Profile, profiles[i]),
-          "switching planet tabs immediately requests the corresponding profile: " + i);
-        CheckPlanetTexture(panel, preview);
-        string previousFire = settings.Gameplay.Planets.Red.Body.ColorHex;
-        colors[0].onClick.Invoke();
-        before = preview.Calls;
-        string hex = i == 1 ? "80A0C0" : "20C080";
-        Field<TMP_InputField>(picker, "_hex").text = hex;
-        Assert(preview.Calls > before && preview.Index == i && preview.Snapshot.Body.ColorHex == "#" + hex
-          && settings.Gameplay.Planets.Red.Body.ColorHex == previousFire,
-          "editing the selected planet cannot mutate Fire or render a stale tab");
-        close.onClick.Invoke();
-      }
-      before = preview.Calls;
-      profile.onClick.Invoke();
-      Assert(preview.Calls > before && !preview.Snapshot.Enabled && colors.All(button => !button.interactable),
-        "profile enable state is immediately reflected without changing the selected planet");
-      profile.onClick.Invoke();
-      preview.Available = false;
-      Call(Page(panel, "_planets"), "RefreshPlanetPreview");
-      Assert(!image.enabled && image.texture == null && Field<TextMeshProUGUI>(Page(panel, "_planets"), "_planetPreviewLabel").text.Length > 0,
-        "unavailable game artwork clears stale imagery and exposes its fallback message");
-      preview.Available = true;
-      Call(Page(panel, "_planets"), "RefreshPlanetPreview");
-      CheckPlanetTexture(panel, preview);
-      colors[1].onClick.Invoke();
-      Call(panel, "SelectPage", Page(panel, "_tweaks"));
-      Assert(!picker.Visible && !shade.Visible, "leaving Planets cannot leave its picker or shade behind");
-      before = preview.Calls;
-      ui.RefreshTheme(); Call(Page(panel, "_planets"), "RefreshPlanetPreview");
-      Assert(preview.Calls == before, "leaving Planets stops rendering even when unrelated settings refresh");
-      Call(panel, "SelectPage", Page(panel, "_planets"));
-      GameObject root = Field<GameObject>(panel, "_root");
-      root.SetActive(false); before = preview.Calls;
-      ui.RefreshTheme(); Call(Page(panel, "_planets"), "RefreshPlanetPreview");
-      Assert(preview.Calls == before, "closing settings suspends planet rendering while retaining the selected page");
-      root.SetActive(true);
-      tabs[0].onClick.Invoke();
-      Call(panel, "SelectPage", Page(panel, "_planets")); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      CheckPlanetTexture(panel, preview);
-    }
-
-    private static void CheckPlanetTexture(SettingsPanel panel, PlanetPreviewProbe preview)
-    {
-      RawImage image = Field<RawImage>(Page(panel, "_planets"), "_planetImage");
-      RectTransform card = Field<RectTransform>(Page(panel, "_planets"), "_planetPreview");
-      Texture texture = preview.Texture;
-      Rect artwork = image.rectTransform.rect;
-      Assert(image.enabled && image.texture == texture && image.color == Color.white && !image.raycastTarget,
-        "planet artwork displays the renderer's actual texture without a schematic substitute or extra tint");
-      Assert(Mathf.Abs(artwork.width / artwork.height - texture.width / (float)texture.height) < .001f
-        && artwork.width <= card.rect.width - 32 + .1f && artwork.height <= card.rect.height - 64 + .1f,
-        "wide, tall and square renderer textures fit the preview without stretching or covering its caption");
-    }
 
     // This probe checks the UI/render-service boundary only. The deliberately
     // rectangular test textures are not ADOFAI artwork or a game-render test.
@@ -2078,6 +1589,86 @@ namespace Element.Editor
     }
 
     // Three profiles, the newest in use, as a player who made two copies would have.
+    // The settings window on ElementUI: open it, walk the pages, and photograph one.
+    private static readonly System.Collections.Generic.Dictionary<string, string> PageFields = new System.Collections.Generic.Dictionary<string, string>
+    {
+      ["_home"] = "Home", ["_tweaks"] = "Tweaks", ["_general"] = "General", ["_effects"] = "Effects",
+      ["_editorTweaks"] = "EditorTweaks", ["_judgment"] = "Judgment", ["_planets"] = "Planets",
+      ["_presetEditor"] = "PresetEditor", ["_chatter"] = "Chatter", ["_profiles"] = "Profiles",
+    };
+
+    private static void Render(int width, int height, SystemLanguage language, string page, string name)
+    {
+      RDString.language = language;
+      TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
+      Assert(font != null, "overlay font exists");
+      ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
+      UiTheme.SetHighlight(settings.HighlightColor);
+      bool overlayOpened = false;
+      using var planetPreview = new PlanetPreviewProbe();
+      PreviewDialogs dialogs = new PreviewDialogs();
+      ProfileService profiles = PreviewProfiles(settings, dialogs);
+      OverlayFontCatalog fontCatalog = page == "_profiles"
+        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
+        : null;
+      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {},
+        new SettingsFeatures { RenderPlanetPreview = planetPreview.Render, Updates = new PreviewUpdates(), Profiles = profiles, OverlayFonts = () => overlayFonts });
+      Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
+      GameObject root = Field<GameObject>(panel, "_root");
+      root.SetActive(true);
+      SettingsWindowViewModel model = Field<SettingsWindowViewModel>(panel, "_model");
+      model.Opened();
+      Canvas canvas = root.GetComponent<Canvas>();
+      GameObject cameraRoot = new GameObject("UI preview camera", typeof(Camera));
+      Camera camera = cameraRoot.GetComponent<Camera>();
+      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.035f, .045f, .055f);
+      RenderTexture target = new RenderTexture(width, height, 24);
+      camera.targetTexture = target;
+      try
+      {
+        Assert(model.Current == model.Home, "settings open on Home");
+        model.Home.OpenTweaks.TryExecute();
+        Assert(model.Current == model.Tweaks && model.CanGoBack.Value, "Tweaks opens within settings, with Back");
+        model.Back.TryExecute();
+        Assert(model.Current == model.Home && !model.CanGoBack.Value, "Back returns to Home");
+        model.Home.OpenEffects.TryExecute();
+        Assert(model.Current == model.Effects, "Effects opens within settings");
+        model.Back.TryExecute();
+        model.Home.OpenGeneral.TryExecute();
+        Assert(model.Current == model.General, "General opens within settings");
+        model.Back.TryExecute();
+        model.Home.EditOverlay.TryExecute();
+        Assert(overlayOpened && !root.activeSelf, "the Overlay card hands off directly to the overlay editor");
+        root.SetActive(true);
+        Assert(planetPreview.Calls == 0, "Home, Tweaks, Effects and General do not render planet textures");
+        SettingsPageModel shown = (SettingsPageModel)typeof(SettingsWindowViewModel).GetField(PageFields[page]).GetValue(model);
+        Assert(shown != null, page + " exists");
+        model.Show(shown);
+        ElementUI.Runtime.Probe();
+        panel.Resize(width, height);
+        for (int i = 0; i < 4; i++) { ElementUI.Runtime.Flush(1); Canvas.ForceUpdateCanvases(); }
+        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
+        SettingsCheck check = new SettingsCheck
+        {
+          Panel = panel, Model = model, Root = root, Settings = settings, Width = width, Height = height, Name = name,
+          Features = Field<SettingsWindowViewModel>(panel, "_model").Features,
+          Save = frame => SaveFrame(camera, target, new[] { canvas }, frame),
+        };
+        _checks += SettingsPageChecks.Run(page, check);
+        check.Settle();
+        SaveFrame(camera, target, new[] { canvas }, name);
+        _checks += 8;
+      }
+      finally
+      {
+        panel.Dispose();
+        Object.DestroyImmediate(root);
+        Object.DestroyImmediate(target);
+        Object.DestroyImmediate(cameraRoot);
+      }
+    }
+
     private static ProfileService PreviewProfiles(ElementSettings settings, PreviewDialogs dialogs)
     {
       bool korean = RDString.language == SystemLanguage.Korean;
@@ -2087,204 +1678,12 @@ namespace Element.Editor
       return new ProfileService(library, dialogs, new ProfileFileStore(), () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
     }
 
-    private static void CheckProfileLink(SettingsPanel panel, ProfileService profiles)
-    {
-      Button link = Field<Button>(Page(panel, "_general"), "_profileLink");
-      Assert(link != null && link.transform.IsChildOf(Page(panel, "_general").Root), "General starts with the profile link");
-      Assert(Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profileLinkDetail").text.Contains(profiles.Active.Name), "the profile link names the profile in use");
-      RectTransform shortcut = Field<RectTransform>(Page(panel, "_general"), "_shortcutSection");
-      Assert(((RectTransform)link.transform).rect.height > 0 && -shortcut.anchoredPosition.y >= 80, "the shortcut card sits below the profile link");
-    }
 
-    private static void CheckProfiles(SettingsPanel panel, ElementSettings settings, ProfileService profiles, PreviewDialogs dialogs, int width, int height)
-    {
-      List<Button> cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      Assert(cards.Count == profiles.Profiles.Count, "one card per profile");
-      float pageWidth = Page(panel, "_profiles").Root.rect.width;
-      var rects = cards.Select(card => { RectTransform r = (RectTransform)card.transform; return new Rect(r.anchoredPosition.x, -r.anchoredPosition.y, r.rect.width, r.rect.height); }).ToList();
-      for (int i = 0; i < rects.Count; i++)
-      {
-        Assert(rects[i].xMin >= -.5f && rects[i].xMax <= pageWidth + .5f, "profile card fits the page: " + width);
-        for (int j = i + 1; j < rects.Count; j++)
-          Assert(!rects[i].Overlaps(rects[j]), "profile cards do not overlap: " + width);
-      }
-      RectTransform heading = Field<RectTransform>(Page(panel, "_profiles"), "_profilesHeading");
-      Rect newButton = ((RectTransform)Field<Button>(Page(panel, "_profiles"), "_newProfile").transform).rect;
-      Assert(newButton.width > 0 && ((RectTransform)Field<Button>(Page(panel, "_profiles"), "_importProfile").transform).anchoredPosition.x + 1 < ((RectTransform)Field<Button>(Page(panel, "_profiles"), "_newProfile").transform).anchoredPosition.x,
-        "Import sits before New profile");
-      foreach (TextMeshProUGUI label in heading.GetComponentsInChildren<TextMeshProUGUI>(false))
-        Assert(!label.isTextTruncated, "profile heading fits: " + label.text);
-      Assert(!Page(panel, "_profiles").Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text.Contains("Each profile keeps") || t.text.Contains("프로필마다")),
-        "the page doesn't explain profiles");
-
-      // Import whose window was closed: nothing happens and nothing is said.
-      Call(Page(panel, "_profiles"), "ImportProfile");
-      Assert(dialogs.Opened == 1 && Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text == "", "a closed file window leaves no message");
-
-      // Switching from a card: the card shows it; nothing above the cards moves.
-      ElementProfile first = profiles.Profiles[0];
-      var planets = settings.Gameplay.Planets;
-      Vector2 galleryBefore = Field<RectTransform>(Page(panel, "_profiles"), "_profileGallery").anchoredPosition;
-      cards[0].onClick.Invoke();
-      Assert(profiles.Active == first && settings.Gameplay.Planets == planets, "a card switches profiles in place");
-      Assert(Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text == "", "a switch shows on the card, not in a message");
-      Assert(Field<RectTransform>(Page(panel, "_profiles"), "_profileGallery").anchoredPosition == galleryBefore, "switching doesn't move the cards");
-      cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      Assert(cards.Count == profiles.Profiles.Count, "the gallery rebuilds after a switch");
-      Assert(Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profileLinkDetail").text.Contains(first.Name), "General names the new profile in use");
-
-      // Every card renames, duplicates, exports and deletes with one press.
-      foreach (Button item in cards)
-        Assert(new[] { "Rename profile", "Duplicate profile", "Export profile", "Delete profile" }.All(n => item.transform.Find(n) != null),
-          "every card has rename, duplicate, export and delete");
-      foreach (Button item in cards)
-      {
-        RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
-        Vector3[] titleCorners = new Vector3[4], actionCorners = new Vector3[4];
-        title.GetWorldCorners(titleCorners);
-        ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
-        Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
-        Button action = item.transform.Find("Rename profile").GetComponent<Button>();
-        Assert(action.targetGraphic.color.a == 0 && action.transition == Selectable.Transition.None,
-          "card buttons have no surface of their own; only the glyph reacts");
-      }
-
-      // Rename on the card: the card says why a taken name won't do, and the old name stays.
-      ElementProfile second = profiles.Profiles[1];
-      string original = second.Name;
-      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
-      TMP_InputField field = Field<TMP_InputField>(Page(panel, "_profiles"), "_renameInput");
-      Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(Page(panel, "_profiles"), "_profileCards")[1].transform) && field.text == original,
-        "the pencil turns the card's name into a field holding it");
-      Assert(!field.onFocusSelectAll, "the caret goes after the name instead of selecting it");
-      field.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      TextMeshProUGUI problem = Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_renameProblem");
-      Assert(problem.text.Length > 0 && problem.transform.IsChildOf(field.transform.parent) && Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text == "",
-        "a taken name is refused as it is typed, on the card");
-      field.onEndEdit.Invoke(field.text);
-      Assert(second.Name == original && Field<TMP_InputField>(Page(panel, "_profiles"), "_renameInput") == null
-        && Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
-      cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
-      field = Field<TMP_InputField>(Page(panel, "_profiles"), "_renameInput");
-      field.text = original + " 2";
-      field.onEndEdit.Invoke(field.text);
-      Assert(second.Name == original + " 2", "a new name saves when the field is left");
-      Assert(Field<List<Button>>(Page(panel, "_profiles"), "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
-        "the card shows the new name");
-
-      // Duplicate puts a copy next to the card and keeps the profile in use.
-      ElementProfile active = profiles.Active;
-      int count = profiles.Profiles.Count;
-      cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      cards[1].transform.Find("Duplicate profile").GetComponent<Button>().onClick.Invoke();
-      ElementProfile copy = profiles.Profiles[2];
-      Assert(profiles.Profiles.Count == count + 1 && profiles.Active == active && copy.Name.StartsWith(second.Name)
-        && Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text.Contains(copy.Name), "duplicate adds a copy after the card");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      RectTransform message = Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").rectTransform;
-      RectTransform gallery = Field<RectTransform>(Page(panel, "_profiles"), "_profileGallery");
-      Assert(-message.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "messages sit below the cards");
-
-      // Export opens the save window at once; a closed window says nothing new.
-      int opened = dialogs.Opened;
-      cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
-      Assert(dialogs.Opened == opened + 1, "export opens the save window from the card");
-
-      // Delete asks on the card first, then removes the profile.
-      count = profiles.Profiles.Count;
-      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      cards = Field<List<Button>>(Page(panel, "_profiles"), "_profileCards");
-      Assert(profiles.Profiles.Count == count
-        && cards[2].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text == L("한 번 더 누르면 삭제해요", "Press again to delete")),
-        "the first delete press only asks, on the card");
-      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(copy)
-        && Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage").text.Contains(copy.Name), "the second press deletes it");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      TextMeshProUGUI said = Field<TextMeshProUGUI>(Page(panel, "_profiles"), "_profilesMessage");
-      said.ForceMeshUpdate();
-      Assert(!said.isTextTruncated, "the message fits at " + width);
-    }
 
     // New profile opens a small panel under its button; the profile starts from the initial settings.
-    private static void CheckNewProfile(SettingsPanel panel, ElementSettings settings, ProfileService profiles, int width, int height, bool keepOpen)
-    {
-      Field<Button>(Page(panel, "_profiles"), "_newProfile").onClick.Invoke();
-      RectTransform popover = Field<RectTransform>(NewProfile(panel), "_newProfilePopover");
-      TMP_InputField name = Field<TMP_InputField>(NewProfile(panel), "_newProfileName");
-      Button create = Field<Button>(NewProfile(panel), "_createProfile");
-      Assert(popover.gameObject.activeSelf && Current(panel) == Page(panel, "_profiles"), "New profile opens a panel on the same page");
-      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
-      RectTransform window = Field<RectTransform>(panel, "_window");
-      Assert(popover.anchoredPosition.x >= 0 && popover.anchoredPosition.x + popover.rect.width <= window.rect.width + .5f
-        && -popover.anchoredPosition.y + popover.rect.height <= window.rect.height + .5f, "the panel stays inside the window at " + width);
-      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(!create.interactable && Field<TextMeshProUGUI>(NewProfile(panel), "_newProfileError").text.Length > 0, "a taken name is refused as it is typed");
-      foreach (TextMeshProUGUI label in popover.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "the new profile panel fits at " + width + ": " + label.text);
-      }
-      name.text = "Tournament";
-      Assert(create.interactable && Field<TextMeshProUGUI>(NewProfile(panel), "_newProfileError").text == "", "a free name can be created");
-      if (keepOpen)
-        return;
-      settings.HighlightColor = "#00FF00";
-      int count = profiles.Profiles.Count;
-      create.onClick.Invoke();
-      Assert(profiles.Profiles.Count == count + 1 && profiles.Active.Name == "Tournament" && !popover.gameObject.activeSelf,
-        "Create adds the profile, switches to it and closes the panel");
-      Assert(settings.HighlightColor == ElementSettings.DefaultHighlightColor && settings.OverlayLayouts.Count > 0,
-        "the new profile has the initial settings, default overlay included");
-    }
 
     // An imported profile names a font this PC lacks: the card offers a font to
     // use instead, and a pick lands where the missing font was.
-    private static void CheckFontReplacement(SettingsPanel panel, ElementSettings settings, OverlayFonts fonts, int width, bool keepOpen)
-    {
-      const string missing = "Element Missing Font|Bold";
-      settings.OverlayFont = missing;
-      OverlayTextRun run = OverlayTextRun.Literal("Progress", OverlayColorSettings.Custom("#FFFFFF"));
-      run.Font = missing;
-      settings.OverlayLayouts.Add(new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new List<OverlayTextRun> { run } } });
-      IOverlayFontLibrary library = fonts.Library;
-      library.RequestInstalled();
-      var waited = System.Diagnostics.Stopwatch.StartNew();
-      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
-        System.Threading.Thread.Sleep(50);
-      Fonts(panel).Offer();
-      for (int i = 0; i < 20 && Field<object>(Fonts(panel), "_checkingFonts") != null; i++)
-        Call(Fonts(panel), "CheckImportedFonts");
-      RectTransform card = Field<RectTransform>(Fonts(panel), "_fontCard");
-      System.Collections.IList rows = Field<System.Collections.IList>(Fonts(panel), "_missingFonts");
-      Assert(card.gameObject.activeSelf && rows.Count == 1, "an imported profile's missing font is offered once: " + rows.Count);
-      Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
-      }
-      RectTransform gallery = Field<RectTransform>(Page(panel, "_profiles"), "_profileGallery");
-      Assert(-card.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "the font card sits below the cards");
-
-      Call(Fonts(panel), "OpenFontReplacement", 0);
-      UiFontPopover popover = Field<UiFontPopover>(Fonts(panel), "_fontPopover");
-      Assert(popover.Visible, "Choose font opens the font list");
-      string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
-      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
-      Assert(settings.OverlayFont == georgia && run.Font == georgia, "a pick replaces the missing font where it was used");
-      if (keepOpen)
-        return;
-      popover.Hide();
-      Field<Button>(Fonts(panel), "_fontCardDone").onClick.Invoke();
-      Assert(!card.gameObject.activeSelf, "Done puts the card away");
-      Fonts(panel).Offer();
-      Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
-    }
 
     private sealed class PreviewUpdates : IModUpdates
     {
@@ -2332,63 +1731,6 @@ namespace Element.Editor
       }
     }
 
-    private static void CheckNavigationControls(SettingsPanel panel, ElementSettings settings)
-    {
-      var eventRoot = new GameObject("Navigation fixture events", typeof(EventSystem));
-      var pointer = new PointerEventData(eventRoot.GetComponent<EventSystem>());
-      Button back = Field<Button>(panel, "_back"), close = Field<Button>(panel, "_close");
-      var icon = back.GetComponentInChildren<UiIcon>();
-      var feedback = back.GetComponent<UiIconInteraction>();
-      feedback.OnPointerEnter(pointer);
-      Assert(icon.color == UiPalette.SoftAccent && back.targetGraphic.color.a == 0,
-        "borderless back glyph gains the soft highlight on pointer hover");
-      feedback.OnPointerDown(pointer);
-      Assert(icon.color != UiPalette.SoftAccent && icon.rectTransform.localScale == Vector3.one,
-        "pointer down responds immediately and respects reduced motion");
-      feedback.OnPointerUp(pointer);
-      feedback.OnPointerExit(pointer);
-      Assert(icon.color == UiPalette.Foreground, "back glyph restores its neutral color on exit");
-      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<UiIcon>().Kind == UiIconKind.WindowClose
-        && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
-      Assert(back.GetComponent<UiCursor>().Kind == UiCursorKind.Pointer
-        && close.GetComponent<UiCursor>().Kind == UiCursorKind.Pointer,
-        "navigation controls advertise their click cursor");
-      CheckAntialias(icon);
-      var iconRoot = new GameObject("Low resolution action icon", typeof(RectTransform), typeof(UiIcon));
-      var action = iconRoot.GetComponent<UiIcon>();
-      action.rectTransform.sizeDelta = new Vector2(16, 16);
-      action.color = Color.white;
-      action.Kind = UiIconKind.Reset;
-      CheckAntialias(action);
-      using (var mesh = new VertexHelper())
-      {
-        action.GetType().GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(action, new object[] { mesh });
-        Assert(mesh.currentVertCount < 400, "curved icons use a joined strip rather than a disk at every segment");
-      }
-      Object.DestroyImmediate(iconRoot);
-
-      var motion = Field<SettingsWindowMotion>(panel, "_windowMotion");
-      var window = Field<RectTransform>(panel, "_window");
-      var group = Field<CanvasGroup>(panel, "_windowGroup");
-      Vector2 resting = window.anchoredPosition;
-      settings.ReduceUiMotion = true;
-      motion.Show();
-      Assert(group.alpha == 1 && window.anchoredPosition == resting && !motion.enabled,
-        "reduced-motion window opens immediately at its resting position");
-      settings.ReduceUiMotion = false;
-      motion.Show();
-      Assert(window.localScale == Vector3.one && group.alpha == 0 && window.anchoredPosition.y < resting.y,
-        "window entrance uses a small settle without scaling text");
-      motion.GetType().GetField("_elapsed", Private).SetValue(motion, .3f);
-      Call(motion, "Update");
-      Assert(group.alpha == 1 && window.anchoredPosition == resting && !motion.enabled,
-        "window entrance settles exactly and stops updating");
-      motion.Show();
-      settings.ReduceUiMotion = true;
-      Call(motion, "Update");
-      Assert(window.anchoredPosition == resting && group.alpha == 1, "enabling reduced motion interrupts the entrance cleanly");
-      Object.DestroyImmediate(eventRoot);
-    }
 
     private static void CheckAntialias(Graphic graphic)
     {
@@ -2626,156 +1968,10 @@ namespace Element.Editor
       Object.DestroyImmediate(root);
     }
 
-    private static void CheckShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      var field = Field<SettingsShortcutField>(Page(panel, "_general"), "_settingsShortcut");
-      var capture = (UiButton)field.Capture;
-      var reset = field.Action;
-      var frame = field.Frame;
-      RectTransform section = Field<RectTransform>(Page(panel, "_general"), "_shortcutSection");
-      Assert(frame.anchoredPosition.x == 16 && frame.rect.height == 44,
-        "shortcut control is inset from the card with a consistent hit height");
-      Assert(((RectTransform)reset.transform).anchoredPosition.y == frame.anchoredPosition.y
-        || ((RectTransform)reset.transform).anchoredPosition.y < frame.anchoredPosition.y - frame.rect.height,
-        "Reset shares the control baseline or stacks below on compact windows");
-      var keycaps = field.Keycaps;
-      foreach (KeyCode key in new[] { KeyCode.BackQuote, KeyCode.Slash, KeyCode.LeftBracket, KeyCode.Backslash, KeyCode.Backspace, KeyCode.PageDown })
-      {
-        settings.SettingsShortcutKey = key;
-        Call(Page(panel, "_general"), "UpdateShortcutLabel"); Canvas.ForceUpdateCanvases();
-        var main = Field<TextMeshProUGUI>(field, "_mainKey"); main.ForceMeshUpdate();
-        RectTransform cap = (RectTransform)main.transform.parent;
-        Assert(cap.anchoredPosition.x + cap.rect.width <= keycaps.rect.width + .1f,
-          "keycap fits inside the shortcut field: " + key);
-        Assert(!main.isTextTruncated && main.textInfo.lineCount == 1,
-          "shortcut key stays readable on one line: " + key);
-      }
-      Assert(ShortcutKeys.KeyLabel(KeyCode.BackQuote) == "`" && ShortcutKeys.KeyLabel(KeyCode.Backslash) == "\\"
-        && ShortcutKeys.KeyLabel(KeyCode.Slash) == "/" && ShortcutKeys.KeyLabel(KeyCode.Alpha1) == "1",
-        "printable keys use their actual characters instead of enum names");
-      UiKeySymbol symbol = Field<UiKeySymbol>(field, "_modifierSymbol");
-      foreach (KeyCode modifier in new[] { KeyCode.LeftCommand, KeyCode.RightAlt, KeyCode.LeftControl, KeyCode.RightShift })
-      {
-        settings.SettingsShortcutModifier = modifier;
-        Call(Page(panel, "_general"), "UpdateShortcutLabel");
-        using (var mesh = new VertexHelper())
-        {
-          symbol.GetType().GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(symbol, new object[] { mesh });
-          Assert(mesh.currentVertCount > 0 && !symbol.raycastTarget,
-            "modifier symbol renders without font-atlas dependency: " + modifier);
-        }
-        Assert(Field<TextMeshProUGUI>(field, "_modifierSide").text == (modifier == KeyCode.RightAlt || modifier == KeyCode.RightShift ? "R" : "L"),
-          "modifier side remains distinguishable");
-      }
-      var events = new GameObject("Shortcut fixture events", typeof(EventSystem));
-      var pointer = new PointerEventData(events.GetComponent<EventSystem>());
-      var keyboard = new BaseEventData(events.GetComponent<EventSystem>());
-      capture.OnPointerEnter(pointer);
-      capture.OnSelect(pointer);
-      capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.highlightedColor,
-        "actual pointer hover is visibly highlighted");
-      capture.OnPointerExit(pointer); capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.normalColor,
-        "clicked selection cannot leave hover fill behind after pointer exit");
-      var focus = capture.GetComponent<UiFocusRing>();
-      focus.OnSelect(pointer);
-      Assert(!Field<Outline>(focus, "_outline").enabled, "pointer selection does not leave a keyboard focus ring");
-      focus.OnSelect(keyboard);
-      Assert(Field<Outline>(focus, "_outline").enabled, "keyboard selection retains a visible focus ring");
-      focus.OnDeselect(keyboard);
-      capture.OnPointerEnter(pointer);
-      capture.gameObject.SetActive(false); capture.gameObject.SetActive(true); capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.normalColor,
-        "reopening a control clears cached hover state");
-      capture.interactable = false; capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.disabledColor,
-        "hover fix preserves disabled appearance");
-      Assert(capture.GetComponent<CanvasGroup>().alpha <= .5f,
-        "disabled controls dim their text and glyphs rather than resembling hover");
-      capture.interactable = true; capture.OnDeselect(keyboard); capture.SetPalette(capture.colors);
-      Object.DestroyImmediate(events);
-      settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey; settings.SettingsShortcutModifier = ElementSettings.DefaultSettingsShortcutModifier;
-      Call(Page(panel, "_general"), "UpdateShortcutLabel");
-      EffectPreset owner = settings.Effects.Presets[0];
-      owner.ShortcutKey = KeyCode.F6;
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.F6, KeyCode.None) && field.Capturing && field.Hint.text.Contains(owner.Name)
-        && settings.SettingsShortcutKey == ElementSettings.DefaultSettingsShortcutKey, "the settings shortcut cannot take a preset's shortcut and names that preset");
-      Assert(field.TryAssign(KeyCode.F7, KeyCode.LeftControl) && !field.Capturing && field.Hint.text.Length == 0
-        && settings.SettingsShortcutKey == KeyCode.F7 && settings.SettingsShortcutModifier == KeyCode.LeftControl,
-        "a free settings shortcut saves and ends recording");
-      owner.ClearShortcut();
-      reset.onClick.Invoke();
-      Assert(settings.SettingsShortcutKey == ElementSettings.DefaultSettingsShortcutKey
-        && settings.SettingsShortcutModifier == ElementSettings.DefaultSettingsShortcutModifier
-        && Field<TextMeshProUGUI>(field, "_mainKey").text == ShortcutKeys.KeyLabel(ElementSettings.DefaultSettingsShortcutKey),
-        "Reset restores the default and shows it");
-      // Recording refits the window to the editor's own screen; return to the fixture's.
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
-    private static void CheckPresetShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
-      other.ShortcutKey = KeyCode.Alpha1; other.ShortcutModifier = KeyCode.LeftAlt;
-      Call(Page(panel, "_presetEditor"), "Edit", target);
-      var tabs = Field<UiSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons;
-      Assert(tabs.Count == 6, "the preset editor adds a Shortcut tab after the five effect groups");
-      tabs[5].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      RectTransform card = Field<RectTransform>(Page(panel, "_presetEditor"), "_presetShortcutCard");
-      Assert(card.gameObject.activeSelf && !Field<RectTransform>(Page(panel, "_presetEditor"), "_effectOptions").gameObject.activeSelf,
-        "the Shortcut tab swaps the effect switches for the shortcut card");
-      var field = Field<SettingsShortcutField>(Page(panel, "_presetEditor"), "_presetShortcut");
-      Assert(!field.Keycaps.gameObject.activeSelf && !field.Action.interactable,
-        "a preset without a shortcut invites setting one and offers nothing to remove");
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.Alpha1, KeyCode.LeftAlt) && field.Capturing && field.Hint.text.Contains(other.Name),
-        "a shortcut another preset uses names that preset and keeps recording");
-      Assert(!field.TryAssign(settings.SettingsShortcutKey, settings.SettingsShortcutModifier) && field.Capturing,
-        "the settings shortcut cannot apply a preset");
-      Assert(field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt) && !field.Capturing && field.Keycaps.gameObject.activeSelf
-        && field.Action.interactable, "a free shortcut shows as keycaps with remove available");
-      Assert(!target.HasShortcut, "the shortcut waits in the draft until the preset is saved");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      foreach (RectTransform part in new[] { field.Frame, (RectTransform)field.Action.transform })
-        Assert(part.anchoredPosition.x + part.rect.width <= card.rect.width - 16 + .1f
-          && -part.anchoredPosition.y + part.rect.height <= card.rect.height, "the shortcut field fits its card: " + part.name);
-      Field<Button>(Page(panel, "_presetEditor"), "_savePreset").onClick.Invoke();
-      Assert(target.UsesShortcut(KeyCode.Alpha2, KeyCode.LeftAlt) && Current(panel) == Page(panel, "_effects"),
-        "saving keeps the shortcut on the preset");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      Button presetCard = Field<List<Button>>(Page(panel, "_effects"), "_presetCards").Single(button => button.name == "Preset: " + target.Name);
-      TextMeshProUGUI label = presetCard.GetComponentsInChildren<TextMeshProUGUI>()
-        .Single(text => text.text == ShortcutKeys.TextLabel(KeyCode.Alpha2, KeyCode.LeftAlt));
-      label.ForceMeshUpdate();
-      Assert(!label.isTextTruncated, "the preset card shows its shortcut in full");
-      Call(Page(panel, "_presetEditor"), "Edit", target);
-      Assert(!Field<bool>(Page(panel, "_presetEditor"), "_presetShortcutTab"), "editing a preset again starts on its effects");
-      tabs[5].onClick.Invoke();
-      field.Action.onClick.Invoke();
-      Assert(!Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft").HasShortcut && !field.Action.interactable && target.HasShortcut,
-        "removing clears the draft's shortcut only");
-      Call(panel, "Back");
-      Assert(target.HasShortcut, "leaving without saving keeps the saved shortcut");
-      target.ClearShortcut();
-      Call(Page(panel, "_effects"), "RefreshPresetGallery");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
     // Leaves the preset editor on its Shortcut tab for the screenshot: a set
     // shortcut, or on narrow windows a recording that hit another preset's.
-    private static void ShowPresetShortcut(SettingsPanel panel, ElementSettings settings, bool conflict)
-    {
-      EffectPreset draft = Field<EffectPreset>(Page(panel, "_presetEditor"), "_presetDraft");
-      draft.ShortcutKey = KeyCode.Alpha1; draft.ShortcutModifier = KeyCode.LeftAlt;
-      Field<UiSegmentedControl>(Page(panel, "_presetEditor"), "_effectTabs").Buttons[5].onClick.Invoke();
-      if (!conflict) return;
-      settings.Effects.Presets[1].ShortcutKey = KeyCode.Alpha2; settings.Effects.Presets[1].ShortcutModifier = KeyCode.LeftAlt;
-      var field = Field<SettingsShortcutField>(Page(panel, "_presetEditor"), "_presetShortcut");
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt), "the screenshot shows a conflicting shortcut");
-    }
 
     private static void RenderNotice(int width, int height, SystemLanguage language, string name)
     {

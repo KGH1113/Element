@@ -24,7 +24,8 @@ internal abstract class SettingsPageModel : ViewModel
 
   public readonly ElementSettings Settings;
 
-  public readonly string Title;
+  /// <summary>The window's title while the page shows. A page may change it, as the preset editor does for a new preset.</summary>
+  public string Title;
 
   /// <summary>The window opened.</summary>
   public virtual void Opened() { }

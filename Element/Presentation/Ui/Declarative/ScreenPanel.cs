@@ -22,22 +22,27 @@ internal sealed class ScreenPanel : IDisposable
   private IDisposable _model;
   private int _mounted = -1;
 
+  /// <param name="color">Its fill; a clear one leaves it unfilled, its controls floating on what is behind.</param>
   /// <param name="keyboard">
   /// Whether its controls take the keyboard (a menu, a dialog). A toolbar's
   /// don't: a click leaves no focus behind, so Enter, Space and the arrows
   /// keep editing the canvas instead of pressing the last button again.
   /// </param>
-  public ScreenPanel(string name, Transform parent, Color color, bool keyboard)
+  /// <param name="radius">Its corners: 8, or half its height for a capsule.</param>
+  public ScreenPanel(string name, Transform parent, Color color, bool keyboard, float radius = 8)
   {
     GameObject panel = new(name, typeof(RectTransform));
     panel.layer = parent.gameObject.layer;
     Root = (RectTransform)panel.transform;
     Root.SetParent(parent, false);
     Root.anchorMin = Root.anchorMax = Root.pivot = new Vector2(0, 1);
-    RoundedRect fill = panel.AddComponent<RoundedRect>();
-    fill.Radius = 8;
-    fill.color = color;
-    fill.raycastTarget = true;
+    if (color.a > 0)
+    {
+      RoundedRect fill = panel.AddComponent<RoundedRect>();
+      fill.Radius = radius;
+      fill.color = color;
+      fill.raycastTarget = true;
+    }
     _keyboard = keyboard;
   }
 
@@ -67,6 +72,19 @@ internal sealed class ScreenPanel : IDisposable
     Size = new Vector2(size.Width, size.Height);
     _mounted = -1;
     Sync();
+    return Size;
+  }
+
+  /// <summary>
+  /// Sizes the panel to its screen's content again, at <paramref name="width"/>
+  /// (NaN: as wide as it wants), after what it shows changed size.
+  /// </summary>
+  public Vector2 Refit(float width = float.NaN)
+  {
+    if (Host == null)
+      return Size;
+    ElementUI.Size size = Host.FitContent(width);
+    Size = new Vector2(size.Width, size.Height);
     return Size;
   }
 

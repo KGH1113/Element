@@ -40,7 +40,7 @@ internal abstract class ContentElementKind<T> : IElementKind
     return true;
   }
 
-  public bool BuildBar(LayoutElementBar bar, IOverlayLayoutTarget target) => false;
+  public LayoutBarScreen Bar(IOverlayLayoutTarget target) => null;
 
   protected abstract IContentEditor MakeEditor();
 

@@ -689,6 +689,7 @@ internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
     ClosePopovers();
     _elementBar.Close();
     _modal.Close();
+    _toolbar.Dispose();
     _popovers.Dispose();
     _session.Ui?.Dispose();
     InputGate.SetTextEditing(false);

@@ -267,6 +267,13 @@
         <member name="M:ElementUI.Layout.UiRoot.UpdateLayout">
             <summary>Measures and places what changed. The runtime calls this at flush.</summary>
         </member>
+        <member name="M:ElementUI.Layout.UiRoot.ContentSize(ElementUI.Proposal)">
+            <summary>
+            The size the screen's content wants for <paramref name="proposal"/>: a host
+            whose panel fits its content (a toolbar, a menu) sizes itself with this,
+            then calls <see cref="M:ElementUI.Layout.UiRoot.Resize(ElementUI.Size)"/>.
+            </summary>
+        </member>
         <member name="M:ElementUI.Layout.UiRoot.FlushNow">
             <summary>Runs pending updates and layout now: for tests and the first frame.</summary>
         </member>

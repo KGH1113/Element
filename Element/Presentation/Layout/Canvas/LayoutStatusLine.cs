@@ -1,63 +1,64 @@
-using System;
-using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
-using TMPro;
+using ElementUI;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.Canvas;
 
 /// <summary>
 /// The toolbar's bottom line: the hovered control's hint, or for a few
-/// seconds an error (warm) or a note on what a press did (white).
+/// seconds an error (warm) or a note on what a press did (white). Anything in
+/// the editor may write it; the toolbar shows <see cref="Text"/> in <see cref="Ink"/>.
 /// </summary>
 internal sealed class LayoutStatusLine
 {
-  private TextMeshProUGUI _text;
-  private float _until;
-  private bool _note;
   private string _hint = "";
+  private float _until;
 
-  public void Build(UiFactory ui, RectTransform toolbar)
-  {
-    _text = ui.Text("", toolbar, 12, 102, LayoutSession.ToolbarWidth - 24, 14, 11, UiPalette.Muted);
-    _text.alignment = TextAlignmentOptions.Midline;
-  }
+  /// <summary>What the line says now.</summary>
+  public readonly State<string> Text = new("");
+
+  /// <summary>Its color: muted for a hint, white for a note, warm for an error.</summary>
+  public readonly State<UiColor> Ink = new(Colors.Muted);
 
   /// <summary>Whether an error or note is showing.</summary>
   public bool Showing => Time.unscaledTime < _until;
 
-  public void ShowError(string message)
-  {
-    _note = false;
-    _text.text = message;
-    _until = Time.unscaledTime + 5;
-  }
+  public void ShowError(string message) => Show(message, Colors.Danger, 5);
 
   /// <summary>A plain note, not an error: what a press did when it had nothing to change.</summary>
-  public void ShowNote(string message)
-  {
-    _text.text = message;
-    _until = Time.unscaledTime + 4;
-    _note = true;
-  }
+  public void ShowNote(string message) => Show(message, Colors.Foreground, 4);
 
   /// <summary>Ends the error or note now.</summary>
-  public void Clear() => _until = 0;
-
-  /// <summary>Shows <paramref name="hint"/> while its control is hovered or focused.</summary>
-  public Action<bool> HintFor(string hint) => visible => _hint = visible ? hint : "";
-
-  /// <summary>Once a frame: the message's color, and the hint once it is over.</summary>
-  public void Refresh()
+  public void Clear()
   {
-    bool message = Showing;
-    _text.color =
-      !message ? UiPalette.Muted
-      : _note ? UiPalette.Foreground
-      : UiPalette.Error;
-    if (!message)
-      _note = false;
-    if (Time.unscaledTime >= _until)
-      _text.text = _hint;
+    _until = 0;
+    ShowHint();
+  }
+
+  /// <summary>The hovered control's hint, shown while no error or note is; null when the pointer left it.</summary>
+  public void Hint(string hint)
+  {
+    _hint = hint ?? "";
+    if (!Showing)
+      ShowHint();
+  }
+
+  /// <summary>Once a frame: the hint comes back once an error or note is over.</summary>
+  public void Tick()
+  {
+    if (_until > 0 && !Showing)
+      Clear();
+  }
+
+  private void Show(string message, UiColor ink, float seconds)
+  {
+    Text.Value = message;
+    Ink.Value = ink;
+    _until = Time.unscaledTime + seconds;
+  }
+
+  private void ShowHint()
+  {
+    Text.Value = _hint;
+    Ink.Value = Colors.Muted;
   }
 }

@@ -8,10 +8,6 @@ using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
-using TMPro;
-using UnityEngine;
-using UnityEngine.EventSystems;
-using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Kinds;
@@ -22,16 +18,16 @@ namespace Element.Presentation.Layout.Kinds;
 /// </summary>
 internal sealed class ModKind : ContentElementKind<ModOverlayElement>
 {
-  private const float MenuWidth = 240,
-    MenuRow = 56;
+  private const float MenuWidth = 240;
   private const int MenuRows = 6;
   private readonly ListMenu _menu;
+  private readonly List<AddMenuRow> _rows = new();
 
   public ModKind(ILayoutEditing editing)
     : base(editing)
   {
-    _menu = new ListMenu(editing.Session.NewUi, "Mod element menu", MenuWidth, MenuRow, UiPalette.Menu);
-    editing.AddMenu.AddSubmenu(_menu, () => _menu.HeightFor(Mathf.Min(MenuRows, Mathf.Max(1, Offered))));
+    _menu = new ListMenu("Mod element menu", MenuWidth, UiPalette.Menu);
+    editing.AddMenu.AddSubmenu(_menu);
   }
 
   public override string Label(IOverlayLayoutTarget target) => ((ModOverlayElement)target).Label;
@@ -76,53 +72,27 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
       _menu.Hide();
       return;
     }
-    Editing.AddMenu.CloseSubmenus();
     ModElements types = Editing.Session.Host.ModElements;
     if (types == null)
       return;
     types.Refresh();
     IReadOnlyList<ElementClass> offered = types.Offered;
-    _menu.Open(Editing.Session.Root.transform, Mathf.Min(MenuRows, Mathf.Max(1, offered.Count)));
-    Button first = null;
+    _rows.Clear();
     for (int i = 0; i < offered.Count && i < MenuRows; i++)
     {
       ElementClass type = offered[i];
-      Button button = _menu.AddRow(
-        i,
-        "Add " + type.FullKey,
-        UiIconKind.Extension,
-        15,
-        22,
-        UiPalette.SoftAccent,
-        true,
-        () => Add(type)
+      _rows.Add(
+        new AddMenuRow(
+          UiIconKind.Extension,
+          L(type.Info.KoreanName, type.Info.EnglishName),
+          type.ModId,
+          true,
+          () => Add(type),
+          "Add " + type.FullKey
+        )
       );
-      TextMeshProUGUI name = _menu.Ui.Text(
-        L(type.Info.KoreanName, type.Info.EnglishName),
-        button.transform,
-        50,
-        6,
-        MenuWidth - 76,
-        22,
-        15
-      );
-      name.textWrappingMode = TextWrappingModes.NoWrap;
-      TextMeshProUGUI mod = _menu.Ui.Text(
-        type.ModId,
-        button.transform,
-        50,
-        28,
-        MenuWidth - 76,
-        18,
-        12,
-        UiPalette.Muted
-      );
-      mod.textWrappingMode = TextWrappingModes.NoWrap;
-      first ??= button;
     }
-    Editing.AddMenu.Opened(_menu);
-    if (first != null)
-      EventSystem.current?.SetSelectedGameObject(first.gameObject);
+    Editing.AddMenu.OpenSubmenu(_menu, _rows.ToArray());
   }
 
   // Like a shape: placed in the middle, its editor open right away.

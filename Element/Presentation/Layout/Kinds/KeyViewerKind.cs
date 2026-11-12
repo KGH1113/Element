@@ -58,8 +58,8 @@ internal sealed class KeyViewerKind : IElementKind
           "Open ElementNote to add a key viewer"
         ),
         KeyViewerAvailability.HiddenInApp => L(
-          "ElementNote에서 '얼불춤 안에 표시'를 켜 주세요",
-          "Turn on 'Show inside ADOFAI' in ElementNote"
+          "ElementNote 설정에서 '얼불춤 안'을 켜 주세요",
+          "Turn on 'Inside ADOFAI' in ElementNote's settings"
         ),
         _ => L("이 운영체제에서는 게임 안 키뷰어를 쓸 수 없어요", "In-game key viewers aren't available here"),
       },

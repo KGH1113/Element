@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Element.Presentation.Ui.ColorPicker;
 using ElementUI;
 using ElementUI.Ugui;
@@ -16,11 +15,6 @@ namespace Element.Presentation.Ui.Declarative.Controls;
 /// </summary>
 internal sealed class ColorPickerView : NativeView
 {
-  // ElementUI's own controls tell their screen when the player edited a
-  // value; a native view can't yet (View.Edited is internal), so this one
-  // calls it directly. The UI preview checks that a picked color is applied.
-  private static readonly Action<View> TellEdited = EditedOf();
-
   private readonly string _title;
   private readonly Binding<Color> _color;
   private readonly bool _opacity;
@@ -82,7 +76,7 @@ internal sealed class ColorPickerView : NativeView
     // The binding's own field is followed already; what the write changed
     // besides it, such as a map color becoming a custom one, is seen here.
     Runtime.Probe();
-    TellEdited(this);
+    NotifyEdited();
   }
 
   private void Close()
@@ -122,22 +116,5 @@ internal sealed class ColorPickerView : NativeView
     _picker.Hide();
     _picker.Dispose();
     _picker = null;
-  }
-
-  private static Action<View> EditedOf()
-  {
-    MethodInfo edited = typeof(View).GetMethod(
-      "Edited",
-      BindingFlags.Instance | BindingFlags.NonPublic,
-      null,
-      Type.EmptyTypes,
-      null
-    );
-    if (edited != null && edited.ReturnType == typeof(void))
-      return (Action<View>)Delegate.CreateDelegate(typeof(Action<View>), edited);
-    Debug.LogWarning(
-      "Element: ElementUI has no View.Edited, so screens don't hear about colors picked in Element's color picker."
-    );
-    return _ => { };
   }
 }

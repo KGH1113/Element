@@ -234,8 +234,8 @@ internal sealed class ShapeNumbers
   public void RefuseWords(OverlayValueDefinition value) =>
     _host.Screen.Notice(
       L(
-        OverlayKeypad.ValueName(value) + "은 글자라서 도형의 숫자에는 넣을 수 없어요",
-        OverlayKeypad.ValueName(value) + " is words, so it can't go in a shape's number"
+        ValueSectionNames.ValueName(value) + "은 글자라서 도형의 숫자에는 넣을 수 없어요",
+        ValueSectionNames.ValueName(value) + " is words, so it can't go in a shape's number"
       )
     );
 

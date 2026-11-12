@@ -93,7 +93,7 @@ internal sealed class ShapeInput
       }
       if (_gradient.Key(code, _event.shift, _numbers.Editing.Active))
         continue;
-      if (_numbers.Editing.Active && OverlayKeypad.TryKeyboard(_event, out char key))
+      if (_numbers.Editing.Active && OverlayKeypadModel.TryKeyboard(_event, out char key))
         _numbers.KeypadPress(key);
     }
   }

@@ -1,5 +1,4 @@
 using Element.Presentation.Ui.ColorPicker;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -17,9 +16,9 @@ internal static class KeypadPicker
   {
     if (picker == null || !picker.Visible)
       return;
-    float height = picker.Height;
-    float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, dock.Top - 12 - height);
-    UiFactory.Place(picker.Root, Left(picker, dock), y, picker.CurrentWidth, height);
+    float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, dock.Top - 12 - picker.Height);
+    // The panel keeps the size of what it shows; only its place follows the dock.
+    picker.Root.anchoredPosition = new Vector2(Left(picker, dock), -y);
     picker.Root.SetAsLastSibling();
   }
 

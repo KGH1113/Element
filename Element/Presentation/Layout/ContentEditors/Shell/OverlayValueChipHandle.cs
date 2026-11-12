@@ -1,12 +1,13 @@
+using Element.Domain.Overlay.Values;
 using UnityEngine;
 using UnityEngine.EventSystems;
-using Element.Domain.Overlay.Values;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// Hands a chip's drag to its dock. Taking the drag also keeps the values from
-/// scrolling while one is carried out.
+/// Hands a dock chip's drag to the dock. Taking the drag also keeps the values
+/// from scrolling while one is carried out, and stops the press from
+/// counting as a click.
 /// </summary>
 internal sealed class OverlayValueChipHandle
   : MonoBehaviour,
@@ -16,7 +17,17 @@ internal sealed class OverlayValueChipHandle
     IEndDragHandler
 {
   public OverlayValueDefinition Value;
-  public OverlayInputDock Dock;
+  public OverlayInputDockModel Dock;
+
+  /// <summary>Makes the chip drawn as <paramref name="target"/> carry <paramref name="value"/> out of <paramref name="dock"/>.</summary>
+  public static void Attach(GameObject target, OverlayValueDefinition value, OverlayInputDockModel dock)
+  {
+    OverlayValueChipHandle handle = target.GetComponent<OverlayValueChipHandle>();
+    if (handle == null)
+      handle = target.AddComponent<OverlayValueChipHandle>();
+    handle.Value = value;
+    handle.Dock = dock;
+  }
 
   public void OnInitializePotentialDrag(PointerEventData data) => data.useDragThreshold = true;
 

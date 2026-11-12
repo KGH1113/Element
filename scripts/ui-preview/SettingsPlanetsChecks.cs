@@ -91,25 +91,25 @@ namespace Element.Editor
       // Body: the picker opens under its button, over a layer that closes it.
       Press(Swatches(check)[0]);
       check.Settle();
-      UiColorPicker picker = Picker(host);
-      Assert(picker != null && picker.Visible && host.Root.HasOverlay && Backdrop(check) != null,
+      ColorPickerModel picker = Picker(host);
+      Assert(picker != null && ColorPickerProbe.Shown(Input(host, "HEX color")) && host.Root.HasOverlay && Backdrop(check) != null,
         "Body's color opens the color picker with a layer behind it that closes it");
-      Assert(Title(picker) == L("공 색상", "Body color"), "the picker names the part it colors");
+      Assert(Title(host) == L("공 색상", "Body color") && picker.Title.Value == Title(host), "the picker names the part it colors");
       Transform layer = Overlays(check);
       Assert(layer.GetSiblingIndex() == layer.parent.childCount - 1, "the open picker draws, and takes clicks, in front of the page");
       if (check.Name == "planets-ko-720")
         check.Save("planets-ko-picker");
-      count += CheckPickerPlacement(check, picker, Swatches(check)[0]);
+      count += CheckPickerPlacement(check, PickerArea(host), Swatches(check)[0]);
       before = preview.Calls;
       int editsBefore = edits;
-      Input(picker, "_opacity").text = "50";
+      Input(host, "Opacity percentage").text = "50";
       Frame();
       Assert(preview.Calls > before && preview.Snapshot.Body.Opacity == 50 && !preview.Snapshot.Body.OverrideColor,
         "Body's opacity reaches the renderer and keeps the map's color");
       Assert(edits > editsBefore, "a color picked in the picker is applied like any control's edit");
       Assert(Percent(Swatches(check)[0]) == "50%", "Body's button shows the new opacity");
       before = preview.Calls;
-      Input(picker, "_hex").text = "2468AC";
+      Input(host, "HEX color").text = "2468AC";
       Frame();
       Assert(preview.Calls > before && preview.Snapshot.Body.ColorHex == "#2468AC"
         && preview.Snapshot.Body.Opacity == 50 && preview.Snapshot.Body.OverrideColor,
@@ -119,9 +119,9 @@ namespace Element.Editor
       Assert(Near(Dot(Swatches(check)[0]).color, new Color32(0x24, 0x68, 0xAC, 0xFF)),
         "Body's button shows the picked color, opaque");
       Assert(picker.Commit(), "the picked color and opacity commit");
-      Close(picker);
+      Close(host);
       check.Settle();
-      Assert(!host.Root.HasOverlay && Picker(host) == null && picker.Root == null,
+      Assert(!host.Root.HasOverlay && Picker(host) == null && Input(host, "HEX color") == null,
         "closing the picker takes it and its layer away");
       Sweep(check, host);
 
@@ -131,10 +131,9 @@ namespace Element.Editor
       {
         Press(Swatches(check)[i]);
         check.Settle();
-        picker = Picker(host);
         before = preview.Calls;
-        Input(picker, "_hex").text = partHex[i];
-        Input(picker, "_opacity").text = partOpacity[i];
+        Input(host, "HEX color").text = partHex[i];
+        Input(host, "Opacity percentage").text = partOpacity[i];
         Frame();
         PlanetComponentAppearance part = i == 1 ? preview.Snapshot.Tail : preview.Snapshot.Ring;
         Assert(preview.Calls > before && part.ColorHex == "#" + partHex[i] && part.Opacity == float.Parse(partOpacity[i]),
@@ -162,12 +161,12 @@ namespace Element.Editor
         check.Settle();
         before = preview.Calls;
         string hex = i == 1 ? "80A0C0" : "20C080";
-        Input(Picker(host), "_hex").text = hex;
+        Input(host, "HEX color").text = hex;
         Frame();
         Assert(preview.Calls > before && preview.Index == i && preview.Snapshot.Body.ColorHex == "#" + hex
           && planets.Red.Body.ColorHex == fire && profiles[i].Body.ColorHex == "#" + hex,
           "editing the picked planet leaves Fire alone and draws the picked one");
-        Close(Picker(host));
+        Close(host);
         check.Settle();
         Sweep(check, host);
       }
@@ -195,12 +194,12 @@ namespace Element.Editor
       // Leaving the page hides its picker and stops drawing; coming back finds it closed.
       Press(Swatches(check)[1]);
       check.Settle();
-      picker = Picker(host);
-      Assert(host.Root.HasOverlay && picker.Root.gameObject.activeInHierarchy, "Trail's picker is open before leaving");
+      TMP_InputField trailHex = Input(host, "HEX color");
+      Assert(host.Root.HasOverlay && ColorPickerProbe.Shown(trailHex), "Trail's picker is open before leaving");
       Show(window, window.Tweaks);
       check.Settle();
       // ElementUI now closes a popover whose anchor hides, so the picker may be gone altogether.
-      Assert((picker.Root == null || !picker.Root.gameObject.activeInHierarchy) && Backdrop(check) == null,
+      Assert((trailHex == null || !trailHex.gameObject.activeInHierarchy) && Backdrop(check) == null,
         "leaving Planets leaves no picker or layer on screen");
       before = preview.Calls;
       window.Current.Tick();
@@ -263,10 +262,10 @@ namespace Element.Editor
       return 3;
     }
 
-    private static int CheckPickerPlacement(SettingsCheck check, UiColorPicker picker, Pressable anchor)
+    private static int CheckPickerPlacement(SettingsCheck check, RectTransform picker, Pressable anchor)
     {
       Vector3[] corners = new Vector3[4];
-      picker.Root.GetWorldCorners(corners);
+      picker.GetWorldCorners(corners);
       Vector3[] frame = new Vector3[4];
       WindowRect(check).GetWorldCorners(frame);
       check.Assert(corners[0].x >= frame[0].x - .5f && corners[2].x <= frame[2].x + .5f
@@ -422,11 +421,12 @@ namespace Element.Editor
 
     // ---- The open picker ----
 
-    private static UiColorPicker Picker(UiHost host)
-    {
-      ColorPickerView view = Find<ColorPickerView>(host.Root.RootView);
-      return view?.Picker;
-    }
+    /// <summary>The open picker's view model; null while none is open.</summary>
+    private static ColorPickerModel Picker(UiHost host) => Find<ColorPickerCardView>(host.Root.RootView)?.VM;
+
+    /// <summary>The open popover the picker is drawn in.</summary>
+    private static RectTransform PickerArea(UiHost host) =>
+      host.GetComponentsInChildren<RectTransform>(false).FirstOrDefault(rect => rect.name == "Popover content");
 
     private static T Find<T>(View view) where T : View
     {
@@ -442,14 +442,13 @@ namespace Element.Editor
       return null;
     }
 
-    private static TMP_InputField Input(UiColorPicker picker, string field) =>
-      (TMP_InputField)typeof(UiColorPicker).GetField(field, Private).GetValue(picker);
+    /// <summary>The open picker's field named <paramref name="name"/>; null while no picker is open.</summary>
+    private static TMP_InputField Input(UiHost host, string name) =>
+      name == "HEX color" ? ColorPickerProbe.Hex(PickerArea(host)) : ColorPickerProbe.Opacity(PickerArea(host));
 
-    private static string Title(UiColorPicker picker) =>
-      ((TextMeshProUGUI)typeof(UiColorPicker).GetField("_title", Private).GetValue(picker)).text;
+    private static string Title(UiHost host) => ColorPickerProbe.Title(PickerArea(host)).text;
 
-    private static void Close(UiColorPicker picker) =>
-      picker.Root.GetComponentsInChildren<Button>(false).Single(button => button.name == "Close color picker").onClick.Invoke();
+    private static void Close(UiHost host) => Press(ColorPickerProbe.Close(PickerArea(host)));
 
     // ---- Geometry, in world units (y up) ----
 

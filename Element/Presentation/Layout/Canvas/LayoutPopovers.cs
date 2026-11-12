@@ -70,9 +70,9 @@ internal sealed class LayoutPopovers
     if (_colorPopover?.Visible ?? false)
       PopoverPlacement.PlaceScaled(
         _colorPopover.Root,
-        _toolbar.PopoverAbove(OverlayColorPopover.Width, OverlayColorPopover.Height, 0, true),
+        _toolbar.PopoverAbove(OverlayColorPopover.Width, _colorPopover.Height, 0, true),
         OverlayColorPopover.Width,
-        OverlayColorPopover.Height
+        _colorPopover.Height
       );
     if (_fontPopover?.Visible ?? false)
     {

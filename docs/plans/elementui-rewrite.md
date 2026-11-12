@@ -91,10 +91,9 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Dedupe stopgaps: SwitchCard/SwitchCards, WidthLayouts, WidthReader, CardRows, RaisePopover → ElementUI Grid(minColumnWidth:), ViewThatFits | done |
 | Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done |
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
-| Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
-| Mod element editor, ElementKit EditorPage on ElementUI | next |
-| ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
-| Remove the old UI kit (`UiFactory` and widgets) | last |
+| Content editors: input dock and keypad, color picker form (and the highlight color popover) | done; ui-check 5121 assertions |
+| Mod element editor, ElementKit `EditorPage` on ElementUI and a declarative editor API | in progress |
+| Remove old widgets nothing uses any more (custom stages keep `UiFactory`'s low-level helpers) | last |
 
 ## Overlay editor map (for the next slices)
 
@@ -134,6 +133,15 @@ frame makes (`OverlayEditorFrame.Panel`, `NewBackend`); the bar is
 drive (their edit logic and undo stay in the part); Grow from's popover and the
 nine points are `OverlayGrowPickerModel` with `OverlayGrowPopoverView` and
 `OverlayGrowPointsView` (the mod element editor's anchor part mounts the points too).
+The input dock is `OverlayInputDockModel`/`View` on a frame panel: the formula
+line is the `OverlayFormulaLine` NativeView, the chips are buttons that carry
+values out through `OverlayValueChipHandle`, the keypad is
+`OverlayKeypadModel`/`View`. The color picker's form is `ColorPickerModel` with
+`ColorPickerCardView` (title and close) and `ColorPickerColumnsView` (the
+editors' two columns); the square and bars are NativeViews, and the color bar
+and the owner's opacity box are shown where they go through `HostedRect`.
+`UiColorPicker` hosts it on a panel for the editors, the highlight color and the
+mod editor; the settings' swatch shows the card in its popover.
 
 Editors open through `ContentElementKind<T>.Open` → `IContentEditor.Open(target, closed)`;
 Done/Cancel → `ContentElementKind.Closed` → `Session.Commit()`. Layout undo is
@@ -143,4 +151,5 @@ dropped on close. Closing can be refused (`Commit()` returning false) — keep t
 The preview checks (`SettingsPreview`, `ModElementChecks`, `GradientChecks`) find
 objects by GameObject name ("Drag panel", "Formula line", "Controls/Dragged value",
 "Switch ", "Paint ", "List add") and read `FormulaText`, `NoticeText`, `TipText`:
-update them with each slice.
+update them with each slice. A picker's drawn parts are found by name through
+`ColorPickerProbe`; the dock's keys and chips through `DockKeys`/`DockChips`.

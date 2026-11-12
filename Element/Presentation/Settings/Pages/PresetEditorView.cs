@@ -22,40 +22,31 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
   private const float ZoomField = 84,
     SliderValue = 44;
 
-  private readonly State<float> _width = new(1000);
-
   public PresetEditorView(PresetEditorModel vm)
     : base(vm) { }
 
   public override View Body =>
-    ZStack(
-      Alignment.TopLeading,
-      new WidthReader(_width),
-      VStack(
-        spacing: 12,
-        If(() => _width.Value >= 600, () => Identity(true), () => Identity(false))
-          .Frame(maxWidth: float.PositiveInfinity),
-        If(
-            () => VM.NameProblem.Value.Length > 0,
-            () => Text(() => VM.NameProblem.Value).Font(Font.Caption).Foreground(Colors.Danger),
-            () =>
-              Text(L("이 프리셋에서 제거할 이펙트를 선택하세요.", "Choose the effects this preset removes."))
-                .Font(Font.Caption)
-                .Foreground(Colors.Muted)
-          )
-          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-        If(() => _width.Value >= 600, () => TabBar(6), () => TabBar(3)).Frame(maxWidth: float.PositiveInfinity),
-        // One tab at a time; the others take no room.
-        ZStack(
-            Alignment.TopLeading,
-            If(() => VM.Tab == (int)EffectGroup.Screen, ScreenTab),
-            If(() => VM.Tab == (int)EffectGroup.Scene, () => GroupTab(EffectGroup.Scene)),
-            If(() => VM.Tab == (int)EffectGroup.Track, () => GroupTab(EffectGroup.Track)),
-            If(() => VM.Tab == (int)EffectGroup.Planets, () => GroupTab(EffectGroup.Planets)),
-            If(() => VM.Tab == (int)EffectGroup.Other, () => GroupTab(EffectGroup.Other)),
-            If(() => VM.Tab == PresetEditorModel.ShortcutTab, ShortcutTab)
-          )
-          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
+    VStack(
+      spacing: 12,
+      ViewThatFits(Identity(true).Frame(minWidth: 600, maxWidth: float.PositiveInfinity), Identity(false)),
+      If(
+        () => VM.NameProblem.Value.Length > 0,
+        () => Text(() => VM.NameProblem.Value).Font(Font.Caption).Foreground(Colors.Danger),
+        () =>
+          Text(L("이 프리셋에서 제거할 이펙트를 선택하세요.", "Choose the effects this preset removes."))
+            .Font(Font.Caption)
+            .Foreground(Colors.Muted)
+      ),
+      ViewThatFits(TabBar(6).Frame(minWidth: 600, maxWidth: float.PositiveInfinity), TabBar(3)),
+      // One tab at a time; the others take no room.
+      ZStack(
+        Alignment.TopLeading,
+        If(() => VM.Tab == (int)EffectGroup.Screen, ScreenTab),
+        If(() => VM.Tab == (int)EffectGroup.Scene, () => GroupTab(EffectGroup.Scene)),
+        If(() => VM.Tab == (int)EffectGroup.Track, () => GroupTab(EffectGroup.Track)),
+        If(() => VM.Tab == (int)EffectGroup.Planets, () => GroupTab(EffectGroup.Planets)),
+        If(() => VM.Tab == (int)EffectGroup.Other, () => GroupTab(EffectGroup.Other)),
+        If(() => VM.Tab == PresetEditorModel.ShortcutTab, ShortcutTab)
       )
     );
 
@@ -85,13 +76,12 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
       .Frame(width: 152);
     // Only a saved preset can be deleted; the space before it goes with it.
     View delete = If(
-        () => !VM.IsNew,
-        () =>
-          Button(Image(ElementIcons.Of(UiIconKind.Delete), 20), () => VM.Delete, ButtonStyle.Standard)
-            .Frame(width: 40, height: 40)
-            .Padding(new Insets(0, wide ? 8 : 0, 0, wide ? 0 : 8))
-      )
-      .Frame();
+      () => !VM.IsNew,
+      () =>
+        Button(Image(ElementIcons.Of(UiIconKind.Delete), 20), () => VM.Delete, ButtonStyle.Standard)
+          .Frame(width: 40, height: 40)
+          .Padding(new Insets(0, wide ? 8 : 0, 0, wide ? 0 : 8))
+    );
     return wide
       ? HStack(spacing: 0, name, save.Padding(new Insets(0, 8, 0, 0)), delete)
       : VStack(spacing: 12, name, HStack(spacing: 0, delete, Spacer(), save).Frame(maxWidth: float.PositiveInfinity));
@@ -127,14 +117,9 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
 
   private View GroupTab(EffectGroup group) => Effects(VM.Groups[(int)group]);
 
-  // The list never changes, so a Grid over ForEach lays it out once and for all.
-  private View Effects(EffectChoiceModel[] choices) =>
-    If(
-        () => _width.Value >= 600,
-        () => Grid(2, 12, ForEach(choices, choice => choice.Definition.Flag, slot => EffectCard(slot))),
-        () => Grid(1, 12, ForEach(choices, choice => choice.Definition.Flag, slot => EffectCard(slot)))
-      )
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
+  // Two columns where two fit; 305 keeps the widest window (936) at two.
+  private static View Effects(EffectChoiceModel[] choices) =>
+    Grid(minColumnWidth: 305, spacing: 12, ForEach(choices, choice => choice.Definition.Flag, EffectCard));
 
   private static View EffectCard(ItemSlot<EffectChoiceModel> slot) =>
     SwitchCard(() => slot.Value.Title, () => slot.Value.Description, Bind(() => slot.Value.Removed));

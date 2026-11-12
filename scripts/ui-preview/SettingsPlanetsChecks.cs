@@ -54,8 +54,7 @@ namespace Element.Editor
       Assert(preview.Calls > 0 && preview.Index == 0 && ReferenceEquals(preview.Profile, planets.Red),
         "opening Planets draws the Fire planet through the game's renderer");
       FitScreen(check, host);
-      Assert(Mathf.Abs(page.Width - (WindowRect(check).rect.width - 64)) < 1,
-        "the page knows the width it is laid out in: " + page.Width);
+      Assert(Beside(check), "at full size the preview sits beside the parts");
       count += CheckTexture(check, preview);
 
       // Off: nothing on the planet can be edited.
@@ -283,15 +282,14 @@ namespace Element.Editor
 
     private static int CheckNarrow(SettingsCheck check)
     {
-      PlanetsModel page = check.Model.Planets;
       UiHost host = Host(check);
       check.Panel.Resize(420, check.Height);
       FitScreen(check, host);
       RawImage image = Image(check);
       Pressable[] switches = Switches(check);
       Pressable[] swatches = Swatches(check);
-      check.Assert(page.Width < 600 && Bottom(image.rectTransform) > Top((RectTransform)switches[1].transform),
-        "in a narrow window the preview sits above the parts: " + page.Width);
+      check.Assert(Bottom(image.rectTransform) > Top((RectTransform)switches[1].transform),
+        "in a narrow window the preview sits above the parts: window " + WindowRect(check).rect.width);
       Vector3[] corners = new Vector3[4];
       ((RectTransform)swatches[2].transform).GetWorldCorners(corners);
       Vector3[] frame = new Vector3[4];
@@ -299,10 +297,10 @@ namespace Element.Editor
       if (check.Name == "planets-ko-720")
         check.Save("planets-ko-stacked");
       check.Assert(corners[2].x <= frame[2].x, "in a narrow window every part's buttons stay inside the window: "
-        + corners[2].x + " > " + frame[2].x + " page " + page.Width + " window " + WindowRect(check).rect.width);
+        + corners[2].x + " > " + frame[2].x + " window " + WindowRect(check).rect.width);
       check.Panel.Resize(check.Width, check.Height);
       FitScreen(check, host);
-      check.Assert(page.Width >= 600, "back at full size the preview goes beside the parts");
+      check.Assert(Beside(check), "back at full size the preview goes beside the parts");
       return 3;
     }
 
@@ -399,6 +397,13 @@ namespace Element.Editor
 
     private static string Caption(SettingsCheck check) => CaptionText(check).text;
 
+    /// <summary>The preview left of the rows: the planet's own switch row starts past the drawing.</summary>
+    private static bool Beside(SettingsCheck check)
+    {
+      TextMeshProUGUI label = Active<TextMeshProUGUI>(check).Single(text => text.text == L("이 행성에 적용", "Customize this planet"));
+      return Left(label.rectTransform) >= Right(Image(check).rectTransform) - .5f;
+    }
+
     private static GameObject Backdrop(SettingsCheck check) =>
       check.Root.GetComponentsInChildren<Transform>(false).Select(t => t.gameObject).FirstOrDefault(o => o.name == "Backdrop" && o.GetComponent<ClickArea>() != null);
 
@@ -460,6 +465,20 @@ namespace Element.Editor
       Vector3[] corners = new Vector3[4];
       rect.GetWorldCorners(corners);
       return corners[0].y;
+    }
+
+    private static float Left(RectTransform rect)
+    {
+      Vector3[] corners = new Vector3[4];
+      rect.GetWorldCorners(corners);
+      return corners[0].x;
+    }
+
+    private static float Right(RectTransform rect)
+    {
+      Vector3[] corners = new Vector3[4];
+      rect.GetWorldCorners(corners);
+      return corners[2].x;
     }
 
     private static bool Near(Color a, Color b) =>

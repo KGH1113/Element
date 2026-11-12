@@ -40,6 +40,9 @@ internal sealed class SettingsWindowViewModel : ViewModel
   /// <summary>Why the last save failed, or empty.</summary>
   public string SaveError = "";
 
+  /// <summary>The window is under 600 wide: its frame keeps 20 at the sides instead of 32.</summary>
+  public bool Compact;
+
   public Computed<bool> CanGoBack { get; }
   public Computed<bool> SaveFailed { get; }
   public Command Back { get; }
@@ -125,6 +128,15 @@ internal sealed class SettingsWindowViewModel : ViewModel
     );
     Runtime.Probe();
     return false;
+  }
+
+  /// <summary>The window was sized <paramref name="width"/> wide by the screen it is on.</summary>
+  public void Resized(float width)
+  {
+    if (Compact == width < 600)
+      return;
+    Compact = width < 600;
+    Runtime.Probe();
   }
 
   /// <summary>Opens the overlay editor, after saving.</summary>

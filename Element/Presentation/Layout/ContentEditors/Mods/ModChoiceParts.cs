@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -174,29 +175,25 @@ internal sealed class ModChoiceParts
 
   public EditorControl AnchorPicker(string label, Anchor value, Action<Anchor> changed)
   {
-    ModEditorControl control = _page.Row("Anchor", OverlayGrowPicker.Size + 4);
-    float x = _page.Caption(control, label, OverlayGrowPicker.Size);
+    const float size = OverlayGrowPointsView.Size;
+    ModEditorControl control = _page.Row("Anchor", size + 4);
+    float x = _page.Caption(control, label, size);
     Anchor current = value;
-    OverlayGrowPicker picker = null;
-    picker = new OverlayGrowPicker(
-      _ui,
-      control.Rect,
-      _reduceMotion,
-      growth =>
-      {
-        if (!Enum.IsDefined(typeof(Anchor), (int)growth) || (Anchor)(int)growth == current)
-          return;
-        current = (Anchor)(int)growth;
-        picker.Show(growth, (Anchor9)(int)growth);
-        Anchor now = current;
-        _host.Change(picker, () => changed?.Invoke(now), false);
-      }
-    );
-    // Only the nine points: an element's own Auto and caption don't apply here.
-    picker.Auto.gameObject.SetActive(false);
-    picker.Caption.gameObject.SetActive(false);
+    OverlayGrowPickerModel picker = null;
+    picker = new OverlayGrowPickerModel(growth =>
+    {
+      if (!Enum.IsDefined(typeof(Anchor), (int)growth) || (Anchor)(int)growth == current)
+        return;
+      current = (Anchor)(int)growth;
+      picker.Show(growth, (Anchor9)(int)growth);
+      Anchor now = current;
+      _host.Change(picker, () => changed?.Invoke(now), false);
+    });
     picker.Show((OverlayGrowth)(int)current, (Anchor9)(int)current);
-    control.Layout = _ => UiFactory.Place(picker.Root, x, 2, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
+    // Only the nine points: an element's own Auto and caption don't apply here.
+    ScreenPanel points = new("Anchor points", control.Rect, Color.clear, keyboard: false);
+    points.Mount(_host.NewBackend(), new OverlayGrowPointsView(picker), picker, size);
+    control.Layout = _ => UiFactory.Place(points.Root, x, 2, size, size);
     return _page.Add(control);
   }
 

@@ -1,76 +1,76 @@
 using System;
 using Element.Configuration.Overlay;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
-using Element.Presentation.Ui.Widgets;
-using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// Which point of the element stays put when it changes size: the nine-point
-/// picker, Auto, and a line saying what the choice does.
+/// Which point of the element stays put when it changes size: a panel under
+/// the Grow from button showing <see cref="OverlayGrowPopoverView"/>, made
+/// with the editor's screen and shown or hidden.
 /// </summary>
 internal sealed class OverlayGrowPopover : IPopover
 {
-  private const float Width = 312,
-    Padding = 14,
-    Title = 22;
+  private const float Width = 312;
 
-  private readonly OverlayGrowPicker _picker;
+  private readonly OverlayEditorFrame _screen;
+  private readonly ScreenPanel _panel;
+  private Rect _anchor;
 
-  public OverlayGrowPopover(UiFactory ui, Transform parent, bool reduceMotion, Action<OverlayGrowth> picked)
+  /// <param name="picked">A point or Auto was clicked; show the choice with <see cref="Refresh"/>.</param>
+  public OverlayGrowPopover(OverlayEditorFrame screen, Action<OverlayGrowth> picked)
   {
-    Image panel = ui.Panel("Grow popover", parent, 0, 0, Width, Height, new Color(.09f, .09f, .09f, .98f));
-    panel.raycastTarget = true;
-    Root = panel.rectTransform;
-    TextMeshProUGUI title = ui.Text(
-      L("크기가 바뀔 때 고정할 점", "Point that stays when the size changes"),
-      Root,
-      Padding,
-      Padding - 2,
-      Width - Padding * 2,
-      Title,
-      13
-    );
-    title.textWrappingMode = TextWrappingModes.NoWrap;
-    _picker = new OverlayGrowPicker(ui, Root, reduceMotion, picked);
-    UiFactory.Place(_picker.Root, Padding, Padding + Title + 6, OverlayGrowPicker.Size, OverlayGrowPicker.Size);
-    float right = Padding + OverlayGrowPicker.Size + 14;
-    UiFactory.Place((RectTransform)_picker.Auto.transform, right, Padding + Title + 6, _picker.AutoWidth, 26);
-    UiFactory.Place(
-      _picker.Caption.rectTransform,
-      right,
-      Padding + Title + 38,
-      Width - right - Padding,
-      OverlayGrowPicker.Size - 32
-    );
+    _screen = screen;
+    Model = new OverlayGrowPickerModel(picked);
+    _panel = screen.Panel("Grow popover", new Color(.09f, .09f, .09f, .98f));
+    _panel.Mount(screen.NewBackend(), new OverlayGrowPopoverView(Model), Model, Width);
     Root.gameObject.SetActive(false);
   }
 
-  public static float Height => Padding * 2 + Title + 6 + OverlayGrowPicker.Size;
+  /// <summary>What it shows: the points, Auto and the caption.</summary>
+  public OverlayGrowPickerModel Model { get; }
 
-  public RectTransform Root { get; }
+  public RectTransform Root => _panel.Root;
 
   public bool Visible => Root.gameObject.activeSelf;
 
-  public string Caption => _picker.Caption.text;
+  public string Caption => Model.Caption.Value;
 
-  /// <summary>Opens below <paramref name="anchor"/> (frame units).</summary>
-  public void Show(Rect anchor, float viewWidth, float viewHeight)
+  /// <summary>Opens below <paramref name="anchor"/> (frame units), kept on the editor's screen.</summary>
+  public void Show(Rect anchor)
   {
+    _anchor = anchor;
     Root.gameObject.SetActive(true);
-    PopoverPlacement.Place(
-      Root,
-      PopoverPlacement.Under(anchor, anchor.center.x - Width * .5f, Width, Height, 10, viewWidth, viewHeight)
-    );
+    Place();
     Root.SetAsLastSibling();
   }
 
   /// <summary>Shows <paramref name="growth"/>; with Auto, <paramref name="point"/> is today's point.</summary>
-  public void Refresh(OverlayGrowth growth, Anchor9 point) => _picker.Show(growth, point);
+  public void Refresh(OverlayGrowth growth, Anchor9 point)
+  {
+    Model.Show(growth, point);
+    // The caption may take another line.
+    _panel.Refit(Width);
+    if (Visible)
+      Place();
+  }
+
+  private void Place()
+  {
+    Vector2 size = _panel.Size;
+    Rect bounds = PopoverPlacement.Under(
+      _anchor,
+      _anchor.center.x - size.x * .5f,
+      size.x,
+      size.y,
+      10,
+      _screen.Width,
+      _screen.Height
+    );
+    Root.anchoredPosition = new Vector2(Mathf.Round(bounds.x), -Mathf.Round(bounds.y));
+  }
 
   public void Hide()
   {

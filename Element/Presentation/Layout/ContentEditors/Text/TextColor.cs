@@ -7,7 +7,6 @@ using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -29,7 +28,7 @@ internal sealed class TextColor
   private readonly OverlayEditorPicker _picker;
   private readonly OverlayGradientFormulas _swatchFormulas = new();
   private readonly OverlayResolvedGradient _swatchGradient = new();
-  private OverlayBarButton _colorButton;
+  private OverlayBarButtonModel _colorButton;
 
   public TextColor(
     ITextEditorHost host,
@@ -63,21 +62,14 @@ internal sealed class TextColor
 
   public OverlayOpacityField Opacity => _picker.Opacity;
 
-  public OverlayBarButton Button => _colorButton;
+  /// <summary>The bar's Text color button; made by <see cref="BuildButton"/>.</summary>
+  public OverlayBarButtonModel Button => _colorButton;
 
   /// <summary>How the keypad reads and writes the picker's opacity.</summary>
   public OverlayFormulaSlot OpacitySlot { get; }
 
-  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _colorButton = new OverlayBarButton(
-      ui,
-      bar,
-      "Text color",
-      L("글자 색", "Text color"),
-      OpenPicker,
-      reduceMotion,
-      swatch: true
-    );
+  public OverlayBarButtonModel BuildButton() =>
+    _colorButton = new OverlayBarButtonModel("Text color", L("글자 색", "Text color"), OpenPicker, swatch: true);
 
   /// <summary>The picker over the controls, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen)
@@ -126,13 +118,10 @@ internal sealed class TextColor
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
   {
-    Color swatch = OverlayTextComposer.Resolve(_text.RangeColor(), UiTheme.Accent);
-    swatch.a = 1;
-    _colorButton.Swatch = swatch;
     OverlayColorSettings color = _text.RangeColor();
     _swatchFormulas.Compile(color);
     bool gradient = _swatchFormulas.Resolve(color, UiTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
-    _colorButton.SwatchGradient = gradient ? _swatchGradient : null;
+    _colorButton.SetSwatch(OverlayTextComposer.Resolve(color, UiTheme.Accent), gradient ? _swatchGradient : null);
   }
 
   // The picker's opacity shows its result like the size.

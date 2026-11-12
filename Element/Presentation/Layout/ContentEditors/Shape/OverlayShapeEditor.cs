@@ -161,22 +161,22 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     );
     _colors.BuildPicker(_screen, _dock);
     _gradient.BuildPicker(_screen.Ui, _reduceMotion());
-    _grow.Build(_screen, _reduceMotion());
+    _grow.Build(_screen, _bar);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
   }
 
   // One row of labeled buttons: fill, border, border width and grow point.
   // Colors open their picker (with opacity) right above the keypad.
-  private void BuildBar()
-  {
-    _bar = new OverlayEditorBar(_screen.Ui, _screen.Frame, "Shape bar");
-    bool motion = _reduceMotion();
-    _bar.Add(_colors.BuildFill(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_colors.BuildStroke(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_numbers.BuildStrokeWidth(_screen.Ui, _bar.Root, motion));
-    _bar.Add(_grow.BuildButton(_screen.Ui, _bar.Root, motion));
-  }
+  private void BuildBar() =>
+    _bar = new OverlayEditorBar(
+      _screen,
+      "Shape bar",
+      _colors.BuildFill(),
+      _colors.BuildStroke(),
+      _numbers.BuildStrokeWidth(),
+      _grow.BuildButton()
+    );
 
   public void Tick()
   {
@@ -273,11 +273,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _numbers.ShowStrokeWidth();
     _grow.ShowButton();
     float width = _bar.LayOut();
-    _bar.Place(
-      Mathf.Max(OverlayEditorFrame.Margin, (left + right - width) * .5f),
-      OverlayEditorFrame.TopBar + 8,
-      width
-    );
+    _bar.Place(Mathf.Max(OverlayEditorFrame.Margin, (left + right - width) * .5f), OverlayEditorFrame.TopBar + 8);
     _colors.PlacePicker(_dock);
   }
 

@@ -174,7 +174,7 @@ internal sealed class TextValueDrops
         return DropTarget.Position;
       }
     }
-    if (_size.Button.Contains(screen))
+    if (_host.Bar.Contains(_size.Button, screen))
     {
       accepted = _dragValue.IsNumeric;
       return DropTarget.Size;

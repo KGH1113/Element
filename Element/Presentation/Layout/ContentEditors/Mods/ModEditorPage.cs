@@ -1,152 +1,126 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Declarative;
+using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
 using ElementKit;
-using TMPro;
+using ElementUI;
 using UnityEngine;
-using UnityEngine.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
-/// The parts a mod builds its element's editing screen from, made with the
-/// settings UI's own pieces. Parts flow into a column under the preview (a
-/// second column when it is full) unless the mod puts them somewhere with
+/// The parts a mod builds its element's editing screen from, as ElementUI
+/// views in Element's look. Parts flow into a column under the preview (the
+/// next column when it is full) unless the mod puts them somewhere with
 /// <see cref="EditorControl.At"/>; cards and tab pages group them. Every
 /// change goes through the editor, which records undo and shows it on the preview.
 /// </summary>
-internal sealed class ModEditorPage : EditorPage
+/// <remarks>
+/// The mod makes its parts first (<see cref="OverlayElement.OnEdit"/>), then
+/// the page mounts them (<see cref="Mount"/>): every part that can flow is
+/// measured once, and the page puts each in its column from those heights,
+/// again whenever a tab is picked.
+/// </remarks>
+internal sealed class ModEditorPage : EditorPage, IModEditorScreen
 {
-  public const float RowHeight = 40,
-    RowGap = 10,
-    LabelWidth = 170,
+  public const float RowGap = 10,
     ColumnWidth = 480,
     ColumnGap = 32,
     CardPadding = 14;
 
-  private readonly UiFactory _ui;
-  private readonly RectTransform _root;
-  private readonly Vector2 _size;
-  private readonly Rect _preview;
-  private readonly Rect _flow;
-  private readonly bool _reduceMotion;
+  /// <summary>Columns past these would be off the screen; their parts stay in the last one.</summary>
+  public const int MaxColumns = 4;
+
   private readonly IModEditorHost _host;
-  private readonly List<ModEditorControl> _items = new();
-  private readonly List<TMP_InputField> _inputs = new();
-  private readonly Stack<ModEditorGroup> _groups = new();
+  private readonly RectTransform _root;
+  private readonly RectTransform _parking;
+  private readonly ScreenPanel _panel;
+  private readonly ModCommands _commands = new();
+  private readonly List<ModPart> _items = new();
+  private readonly List<ModPart> _placed = new();
+  private readonly List<ModPart> _flowing = new();
+  private readonly Stack<ModGroup> _groups = new();
   private readonly ModInputParts _inputParts;
   private readonly ModChoiceParts _choiceParts;
   private readonly ModPickerParts _pickerParts;
   private int _count;
+  private bool _mounted;
+  private bool _remount;
+  private bool _remeasure;
 
-  public ModEditorPage(
-    UiFactory ui,
-    RectTransform frame,
-    Vector2 size,
-    Rect preview,
-    Rect flow,
-    bool reduceMotion,
-    IModEditorHost host
-  )
+  /// <param name="frame">The editor's controls, in frame units.</param>
+  /// <param name="size">The screen in frame units.</param>
+  /// <param name="preview">Where the preview sits.</param>
+  /// <param name="flow">The room under the preview the columns fill.</param>
+  public ModEditorPage(RectTransform frame, Vector2 size, Rect preview, Rect flow, IModEditorHost host)
   {
-    _ui = ui;
-    _size = size;
-    _preview = preview;
-    _flow = flow;
-    _reduceMotion = reduceMotion;
+    Size = size;
+    PreviewArea = preview;
+    FlowArea = flow;
     _host = host;
+    _root = NewRect("Mod editor page", frame, size);
+    // The objects mods asked for wait here between mounts.
+    _parking = NewRect("Part objects", _root, Vector2.zero);
+    _parking.gameObject.SetActive(false);
     // Clicks on the page's empty space reach the dim behind.
-    _root = ui.Rect("Mod editor page", frame, 0, 0, size.x, size.y);
+    _panel = new ScreenPanel("Mod editor parts", _root, Color.clear, keyboard: false);
     _inputParts = new ModInputParts(this);
     _choiceParts = new ModChoiceParts(this);
     _pickerParts = new ModPickerParts(this);
   }
 
-  internal UiFactory Ui => _ui;
-
   internal IModEditorHost Host => _host;
 
-  internal bool ReduceMotion => _reduceMotion;
+  internal ModCommands Commands => _commands;
+
+  internal ModEditorContext Context => _host.Context;
 
   public override RectTransform Root => _root;
 
-  public override Vector2 Size => _size;
+  public override Vector2 Size { get; }
 
-  public override Rect PreviewArea => _preview;
+  public override Rect PreviewArea { get; }
+
+  /// <summary>The room under the preview the columns fill.</summary>
+  public Rect FlowArea { get; }
 
   public override bool Korean => UiLocale.Korean;
 
-  /// <summary>Whether the keyboard belongs to the page: typing in a field, or recording a shortcut.</summary>
-  public bool Typing
-  {
-    get
-    {
-      if (_pickerParts.Capturing)
-        return true;
-      foreach (TMP_InputField input in _inputs)
-        if (input != null && input.isFocused)
-          return true;
-      return false;
-    }
-  }
+  /// <summary>The parts the mod placed itself.</summary>
+  public IReadOnlyList<ModPart> Placed => _placed;
 
-  /// <summary>Once a frame: records a shortcut while one is being set.</summary>
-  public void Tick() => _pickerParts.TickShortcut();
+  /// <summary>Every part that can stand in a column, in order, whichever tabs are picked.</summary>
+  public IReadOnlyList<ModPart> Flowing => _flowing;
+
+  /// <summary>How many columns the parts take now.</summary>
+  public readonly State<int> ColumnCount = new(1);
+
+  /// <summary>Whether the keyboard belongs to the page: typing in a field, or recording a shortcut.</summary>
+  public bool Typing => Context.Recording || ModKeyboard.FocusedField(_root) != null;
+
+  public bool HasPopover => _panel.Host != null && _panel.Host.Root != null && _panel.Host.Root.HasOverlay;
+
+  public bool CloseTopPopover() => _panel.Host != null && _panel.Host.HandleEscape();
 
   // ---- Structure ----
 
-  public override EditorControl Section(string title)
-  {
-    ModEditorControl control = Row("Section", 30);
-    TextMeshProUGUI text = _ui.Text(title ?? "", control.Rect, 0, 6, ColumnWidth, 24, 13, UiPalette.Muted);
-    text.fontStyle = FontStyles.Bold;
-    text.textWrappingMode = TextWrappingModes.NoWrap;
-    text.overflowMode = TextOverflowModes.Ellipsis;
-    control.Layout = width => text.rectTransform.sizeDelta = new Vector2(width, 24);
-    return Add(control);
-  }
+  public override EditorControl Section(string title) =>
+    Add(Part(() => UI.Section(title ?? "").LineLimit(1).Padding(new Insets(6, 0, 0, 0))));
 
-  public override EditorControl Divider()
-  {
-    ModEditorControl control = Row("Divider", 9);
-    Image line = _ui.Panel("Line", control.Rect, 0, 4, ColumnWidth, 1, new Color(1, 1, 1, .12f), false);
-    control.Layout = width => UiFactory.Place(line.rectTransform, 0, 4, width, 1);
-    return Add(control);
-  }
+  public override EditorControl Divider() =>
+    Add(Part(() => HairLine.Across().Padding(4, 0)));
 
   public override void Gap(float height = 16)
   {
-    ModEditorControl gap = Row("Gap", Mathf.Max(1, height));
-    gap.Height = Mathf.Max(0, Mathf.Max(0, height) - RowGap);
-    Add(gap);
+    float room = Mathf.Max(0, Mathf.Max(0, height) - RowGap);
+    Add(Part(() => UI.Spacer().Frame(height: room)));
   }
 
   public override IDisposable Card(string title = null)
   {
-    bool titled = !string.IsNullOrEmpty(title);
-    RectTransform rect = _ui.Rect("Card " + ++_count, CurrentParent, 0, 0, ColumnWidth, 10);
-    Image surface = _ui.Panel("Card surface", rect, 0, 0, ColumnWidth, 10, new Color(1, 1, 1, .045f));
-    UiFactory.Stretch(surface.rectTransform, 0, 0, 0, 0);
-    if (titled)
-    {
-      TextMeshProUGUI heading = _ui.Text(
-        title,
-        rect,
-        CardPadding,
-        CardPadding - 4,
-        ColumnWidth - CardPadding * 2,
-        24,
-        14
-      );
-      heading.fontStyle = FontStyles.Bold;
-      heading.textWrappingMode = TextWrappingModes.NoWrap;
-      heading.overflowMode = TextOverflowModes.Ellipsis;
-    }
-    ModEditorGroup card = new(this, rect, CardPadding, titled ? 30 : 0, null);
+    ModGroup card = new(this, ++_count, string.IsNullOrEmpty(title) ? null : title);
+    card.Control = () => ModEditorPageView.Card(card);
     Add(card);
     return Into(card);
   }
@@ -161,24 +135,15 @@ internal sealed class ModEditorPage : EditorPage
       labels.Add("");
     string key = string.Join("\u001f", labels);
     ModEditorTabs tabs = new(this, key, Mathf.Clamp(_host.TabOf(key), 0, labels.Count - 1));
-    ModEditorControl bar = Row("Tabs", RowHeight);
-    UiSegmentedControl segments = new(_ui, bar.Rect, 0, 2, ColumnWidth, 36, labels, index => tabs.Selected = index);
-    segments.Select(tabs.Selected, false);
-    bar.Layout = width =>
-    {
-      UiFactory.Place(segments.Root, 0, 2, width, 36);
-      float segment = (width - 6) / labels.Count;
-      for (int i = 0; i < segments.Buttons.Count; i++)
-        UiFactory.Place((RectTransform)segments.Buttons[i].transform, 3 + segment * i, 3, segment, 30);
-    };
-    tabs.BarControl = Add(bar);
-    tabs.Segments = segments;
+    tabs.BarPart = Add(
+      Part(() => UI.Picker(null, labels, UI.Bind(() => tabs.Pick.Value)).Named("Tabs"))
+    );
+    // At the top of the column a tab's parts flow one by one; inside a card it is one block.
+    bool transparent = _groups.Count == 0;
     for (int i = 0; i < labels.Count; i++)
     {
-      int index = i;
-      RectTransform rect = _ui.Rect("Tab page " + ++_count, CurrentParent, 0, 0, ColumnWidth, 10);
-      // At the top of the column a tab's parts flow one by one; inside a card it is one block.
-      ModEditorGroup page = new(this, rect, 0, 0, () => tabs.Selected == index, _groups.Count == 0);
+      ModGroup page = new(this, ++_count, tabs, i, transparent);
+      page.Control = () => ModEditorPageView.TabPage(page);
       tabs.Pages.Add(page);
       Add(page);
     }
@@ -186,7 +151,7 @@ internal sealed class ModEditorPage : EditorPage
   }
 
   /// <summary>Parts made until the scope ends go into <paramref name="group"/>.</summary>
-  internal IDisposable Into(ModEditorGroup group)
+  internal IDisposable Into(ModGroup group)
   {
     if (group == null)
       return new Scope(null);
@@ -195,20 +160,18 @@ internal sealed class ModEditorPage : EditorPage
     {
       if (_groups.Count > 0 && _groups.Peek() == group)
         _groups.Pop();
-      Layout();
     });
   }
 
   internal void TabPicked(string key, int index)
   {
     _host.SetTab(key, index);
-    HideTip();
-    Layout();
+    if (!_mounted)
+      return;
+    Arrange();
+    // A tab inside a card changes the card's height: measured once it shows.
+    _remeasure = true;
   }
-
-  internal void ShowTip(string text, RectTransform anchor) => _host.ShowTip(text, anchor);
-
-  internal void HideTip() => _host.HideTip();
 
   // ---- Parts ----
 
@@ -295,156 +258,201 @@ internal sealed class ModEditorPage : EditorPage
     Action<ElementKit.Shortcut> changed
   ) => _pickerParts.Shortcut(label, value, changed);
 
-  /// <summary>Records <paramref name="input"/>: the page has the keyboard while it is focused.</summary>
-  internal void TrackInput(TMP_InputField input) => _inputs.Add(input);
-
-  internal UiIcon Icon(Transform parent, UiIconKind kind, float x, float y, float size, Color color)
-  {
-    UiIcon icon = _ui.Rect("Icon", parent, x, y, size, size).gameObject.AddComponent<UiIcon>();
-    icon.Kind = kind;
-    icon.color = color;
-    icon.raycastTarget = false;
-    return icon;
-  }
-
-  // A label's one-line width, kept once it has been measured on screen: text
-  // in a tab not picked yet measures short.
-  internal static Func<float> Preferred(TextMeshProUGUI label, string text)
-  {
-    float? measured = null;
-    return () =>
-    {
-      if (measured.HasValue)
-        return measured.Value;
-      if (label == null)
-        return 0;
-      float width = label.GetPreferredValues(text ?? "", 1000, 36).x;
-      if (label.gameObject.activeInHierarchy)
-        measured = width;
-      return width;
-    };
-  }
-
-  // ---- Layout ----
+  /// <summary>A new part; give it a <see cref="ModPart.Control"/>, then <see cref="Add"/> it.</summary>
+  internal ModPart Part(Func<View> control = null) => new(this, ++_count) { Control = control };
 
   /// <summary>
-  /// Puts the flowing parts in columns under the preview, centered, starting a
-  /// new column when one is full. Cards and tab pages lay out their own parts
-  /// and take one place; parts placed with At stay where they are.
+  /// A value a part shows, starting at <paramref name="value"/>: a change
+  /// the player makes is one edit of <paramref name="part"/>, handed to the mod.
   /// </summary>
-  public void Layout()
-  {
-    List<(ModEditorControl Item, int Column, float Y)> placed = new();
-    int column = 0;
-    float y = _flow.y;
-    foreach (ModEditorControl item in Flowing(_items))
-    {
-      if (!item.Flows)
-      {
-        item.Layout?.Invoke(item.WidthOverride ?? ColumnWidth);
-        continue;
-      }
-      bool shown = item.Shown;
-      if (item is ModEditorGroup && item.Rect.gameObject.activeSelf != shown)
-        item.Rect.gameObject.SetActive(shown);
-      if (!shown)
-        continue;
-      item.Layout?.Invoke(item.WidthOverride ?? ColumnWidth);
-      float height = item.Height;
-      if (y > _flow.y && y + height > _flow.yMax)
-      {
-        column++;
-        y = _flow.y;
-      }
-      placed.Add((item, column, y));
-      y += height + RowGap;
-    }
-    int columns = column + 1;
-    float total = columns * ColumnWidth + (columns - 1) * ColumnGap;
-    float left = Mathf.Max(OverlayEditorFrame.Margin, _flow.center.x - total * .5f);
-    foreach ((ModEditorControl item, int at, float top) in placed)
-      UiFactory.Place(
-        item.Rect,
-        left + at * (ColumnWidth + ColumnGap),
-        top,
-        item.WidthOverride ?? ColumnWidth,
-        item.Height
-      );
-  }
+  internal ModValue<T> Value<T>(ModPart part, T value, Action<T> changed) =>
+    new(value, next => _host.Change(part, () => changed?.Invoke(next), false));
 
-  /// <summary>Lays the parts out again after one changed its width or place.</summary>
-  internal void Changed() => Layout();
-
-  // The column's parts in order, a picked tab's parts in its place; the
-  // other tabs' pages are hidden.
-  private IEnumerable<ModEditorControl> Flowing(List<ModEditorControl> items)
-  {
-    foreach (ModEditorControl item in items)
-    {
-      if (item is not ModEditorGroup { Transparent: true } tab)
-      {
-        yield return item;
-        continue;
-      }
-      bool shown = tab.Shown;
-      if (tab.Rect.gameObject.activeSelf != shown)
-        tab.Rect.gameObject.SetActive(shown);
-      if (!shown)
-        continue;
-      // Spans the screen so its parts are placed in the screen's own units.
-      UiFactory.Place(tab.Rect, 0, 0, _size.x, _size.y);
-      foreach (ModEditorControl child in Flowing(tab.Children))
-        yield return child;
-    }
-  }
-
-  // The card or tab page parts go into now, or the screen.
-  private Transform CurrentParent => _groups.Count > 0 ? _groups.Peek().Rect : _root;
-
-  // A row in the column; parts lay themselves out across its width.
-  internal ModEditorControl Row(string kind, float height)
-  {
-    float rowHeight = height > 0 ? height : RowHeight;
-    RectTransform rect = _ui.Rect(kind + " " + ++_count, CurrentParent, 0, 0, ColumnWidth, rowHeight);
-    return new ModEditorControl(this, rect, rowHeight);
-  }
-
-  // The label left of a control; where the control starts.
-  internal float Caption(ModEditorControl control, string label, float height = RowHeight)
-  {
-    if (string.IsNullOrEmpty(label))
-      return 0;
-    TextMeshProUGUI text = _ui.Text(label, control.Rect, 0, 0, LabelWidth - 12, height, 15, UiPalette.Foreground);
-    text.alignment = TextAlignmentOptions.MidlineLeft;
-    text.textWrappingMode = TextWrappingModes.NoWrap;
-    text.overflowMode = TextOverflowModes.Ellipsis;
-    return LabelWidth;
-  }
-
-  internal ModEditorControl Add(ModEditorControl control)
+  /// <summary>Puts <paramref name="part"/> in the card or tab page parts go into now, or the column.</summary>
+  internal ModPart Add(ModPart part)
   {
     if (_groups.Count > 0)
     {
-      ModEditorGroup group = _groups.Peek();
-      control.Group = group;
-      group.Children.Add(control);
+      ModGroup group = _groups.Peek();
+      part.Group = group;
+      group.Children.Add(part);
     }
     else
-      _items.Add(control);
-    control.Layout?.Invoke(control.WidthOverride ?? ColumnWidth);
-    Layout();
-    return control;
+      _items.Add(part);
+    StructureChanged();
+    return part;
   }
 
-  internal static bool TryNumber(string typed, out float number) =>
-    float.TryParse(typed, NumberStyles.Float, CultureInfo.InvariantCulture, out number)
-    && !float.IsNaN(number)
-    && !float.IsInfinity(number);
+  /// <summary>Out of the column and any card: <paramref name="part"/> stands where the mod put it.</summary>
+  internal void Free(ModPart part)
+  {
+    if (part.Group != null)
+    {
+      part.Group.Children.Remove(part);
+      part.Group = null;
+    }
+    else
+      _items.Remove(part);
+    if (!_placed.Contains(part))
+      _placed.Add(part);
+    StructureChanged();
+  }
 
-  internal static string Format(float value, float step) =>
-    step >= 1 || Mathf.Approximately(value, Mathf.Round(value))
-      ? Mathf.RoundToInt(value).ToString(CultureInfo.InvariantCulture)
-      : value.ToString("0.##", CultureInfo.InvariantCulture);
+  /// <summary>The object a part's <c>Rect</c> gives the mod; it covers the part once the page shows it.</summary>
+  internal RectTransform NewPartRect(ModPart part) => NewRect("Part " + part.Id, _parking, Vector2.zero);
+
+  internal void Park(RectTransform rect)
+  {
+    if (rect != null && _parking != null)
+      rect.SetParent(_parking, false);
+  }
+
+  /// <summary>After the page is shown, a change to where parts stand shows from the next frame.</summary>
+  internal void StructureChanged()
+  {
+    if (_mounted)
+      _remount = true;
+  }
+
+  // ---- Showing ----
+
+  /// <summary>
+  /// Shows the parts the mod made: every part that can flow is measured in
+  /// one column first, then each goes to its column.
+  /// </summary>
+  public void Mount()
+  {
+    _flowing.Clear();
+    CollectFlowing(_items);
+    foreach (ModPart part in _flowing)
+      part.Column.Value = 0;
+    ColumnCount.Value = 1;
+    MountView();
+    Measure();
+    // A part that left the first column, or a tab not picked, is made again
+    // only where it shows now.
+    if (Arrange())
+      MountView();
+    _mounted = true;
+    _remount = false;
+  }
+
+  private void MountView() => _panel.Mount(_host.NewBackend(), new ModEditorPageView(this), null, Size.x);
+
+  /// <summary>Once a frame: what changed since the last one is laid out again.</summary>
+  public void Tick()
+  {
+    if (!_mounted)
+      return;
+    if (_remount)
+    {
+      _remount = false;
+      Mount();
+      return;
+    }
+    if (_remeasure)
+    {
+      _remeasure = false;
+      if (Measure())
+        Arrange();
+    }
+    _panel.Sync();
+  }
+
+  // Every part that can flow: a tab page at the top of the column stands in for its parts.
+  private void CollectFlowing(List<ModPart> items)
+  {
+    foreach (ModPart item in items)
+      if (item is ModGroup { Transparent: true } page)
+        CollectFlowing(page.Children);
+      else
+        _flowing.Add(item);
+  }
+
+  /// <summary>Measures every part that can flow on the view showing it; true when a height changed.</summary>
+  private bool Measure()
+  {
+    bool changed = false;
+    foreach (ModPart part in _flowing)
+    {
+      float height = part.Measure();
+      if (!Mathf.Approximately(height, part.Height))
+        changed = true;
+      part.Height = height;
+    }
+    return changed;
+  }
+
+  /// <summary>
+  /// Puts the parts that show now in columns, a new column when one is full;
+  /// the others stand nowhere. True when any part isn't in the first column.
+  /// </summary>
+  private bool Arrange()
+  {
+    foreach (ModPart part in _flowing)
+      part.Arranged = -1;
+    int column = 0;
+    float y = 0;
+    foreach (ModPart part in Shown(_items))
+    {
+      if (y > 0 && y + part.Height > FlowArea.height && column < MaxColumns - 1)
+      {
+        column++;
+        y = 0;
+      }
+      part.Arranged = column;
+      y += part.Height + RowGap;
+    }
+    bool moved = false;
+    foreach (ModPart part in _flowing)
+    {
+      part.Column.Value = part.Arranged;
+      moved |= part.Arranged != 0;
+    }
+    ColumnCount.Value = column + 1;
+    return moved;
+  }
+
+  // The parts that flow now, in order: a picked tab's parts in its place.
+  private static IEnumerable<ModPart> Shown(List<ModPart> items)
+  {
+    foreach (ModPart item in items)
+    {
+      if (item is ModGroup { Tabs: not null } page)
+      {
+        if (!page.Shown)
+          continue;
+        if (page.Transparent)
+        {
+          foreach (ModPart child in Shown(page.Children))
+            yield return child;
+          continue;
+        }
+      }
+      yield return item;
+    }
+  }
+
+  public void Dispose()
+  {
+    _mounted = false;
+    _panel.Dispose();
+    _commands.Dispose();
+    if (_root != null)
+      UnityEngine.Object.Destroy(_root.gameObject);
+  }
+
+  private static RectTransform NewRect(string name, Transform parent, Vector2 size)
+  {
+    GameObject holder = new(name, typeof(RectTransform));
+    holder.layer = parent.gameObject.layer;
+    RectTransform rect = (RectTransform)holder.transform;
+    rect.SetParent(parent, false);
+    rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
+    rect.anchoredPosition = Vector2.zero;
+    rect.sizeDelta = size;
+    return rect;
+  }
 
   private sealed class Scope : IDisposable
   {

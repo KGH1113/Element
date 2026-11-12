@@ -32,6 +32,7 @@ Commands:
   check       Validate all shell scripts
   hooks       Run mod-check before pushes that change the mod (local CI)
   ipc-sync <repository> <release-dlls>  Pin the local ADOFAI-IPC runtime and SDK
+  elementui-sync <repository>  Pin ElementUI (the UI library Element's screens use) from a committed checkout
   mod-format [files...]  Format the C# files you changed (or the given ones)
   desktop-deps  Install locked npm dependencies and fetch native dependencies
   desktop-check  Check the ElementNote frontend and native backend without installing
@@ -60,6 +61,9 @@ case "$command_name" in
   assets | build | mod-check | ui-check | native-webview-check | windows-webview-check | windows-install | \
     install | package | version | release | check | hooks | ipc-sync | mod-format)
     exec "$WORKFLOWS_DIR/$command_name.sh" "${@:2}"
+    ;;
+  elementui-sync)
+    exec node "$SCRIPTS_DIR/tasks/sync/elementui.mjs" "${@:2}"
     ;;
   dmnote-windows-build)
     exec "$WORKFLOWS_DIR/element-note-windows-build.sh" "${@:2}"

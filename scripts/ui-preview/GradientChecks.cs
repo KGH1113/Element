@@ -106,7 +106,7 @@ namespace Element.Editor
       Rect pickerRect = ScreenRectOf(picker.Root);
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes)))
         && !pickerRect.Overlaps(ScreenRectOf(Field<OverlayEditorBar>(shapes, "_bar").Root))
-        && !pickerRect.Overlaps(ScreenRectOf(dock0.Keypad.Root)),
+        && !pickerRect.Overlaps(KeypadRect(dock0)),
         "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
 

@@ -302,8 +302,8 @@ internal sealed class TextFormulas
   public void RefuseWords(OverlayValueDefinition value) =>
     _host.Screen.Notice(
       L(
-        OverlayKeypad.ValueName(value) + "은 글자라서 계산에 쓸 수 없어요. 글 안에 넣어 주세요.",
-        OverlayKeypad.ValueName(value) + " is words, so it can't be calculated. Put it in the text instead."
+        ValueSectionNames.ValueName(value) + "은 글자라서 계산에 쓸 수 없어요. 글 안에 넣어 주세요.",
+        ValueSectionNames.ValueName(value) + " is words, so it can't be calculated. Put it in the text instead."
       )
     );
 }

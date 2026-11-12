@@ -145,11 +145,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _gradient.BuildHandles(_screen, _reduceMotion());
     BuildBar();
     _dock = new OverlayInputDock(
-      _screen.Ui,
-      _screen.Frame,
-      _screen.Width,
-      _screen.Height,
-      _screen.Measure,
+      _screen,
       _reduceMotion,
       _numbers.KeypadPress,
       _numbers.ClearFormula,

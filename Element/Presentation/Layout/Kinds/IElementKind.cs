@@ -1,7 +1,7 @@
 using System;
+using Element.Application.Layout;
 using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Layout.ContentEditors;
-using Element.Application.Layout;
 
 namespace Element.Presentation.Layout.Kinds;
 
@@ -32,8 +32,8 @@ internal interface IElementKind : IDisposable
   /// <summary>Opens what edits <paramref name="target"/>: its editor, or ElementNote. False when nothing does.</summary>
   bool Edit(IOverlayLayoutTarget target);
 
-  /// <summary>Fills the element toolbar for <paramref name="target"/> selected alone; false when it has none.</summary>
-  bool BuildBar(LayoutElementBar bar, IOverlayLayoutTarget target);
+  /// <summary>What the element toolbar shows for <paramref name="target"/> selected alone; null when it has none.</summary>
+  LayoutBarScreen Bar(IOverlayLayoutTarget target);
 
   /// <summary>Its full-screen editor once made; null for none.</summary>
   IContentEditor Editor { get; }

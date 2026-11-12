@@ -42,13 +42,30 @@ internal sealed class ElementTheme : UguiTheme
     SetColor(ColorToken.OnAccent, UiPalette.OnAction);
   }
 
+  /// <summary>
+  /// The layout editor's panels: many controls in a fixed width, so buttons
+  /// keep 12 units beside their words, and buttons and fields take the
+  /// panels' 8-unit corners.
+  /// </summary>
+  public bool Compact { get; set; }
+
   public override float StackSpacing => 12;
 
   public override float ControlHeight => 40;
 
   public override float LabelWidth => 170;
 
-  public override float CornerRadius => 12;
+  public override float CornerRadius => Compact ? 8 : 12;
+
+  public override Insets ButtonInsets(ElementUI.ButtonStyle style) =>
+    Compact && style is ElementUI.ButtonStyle.Standard or ElementUI.ButtonStyle.Prominent
+      ? new Insets(8, 12)
+      : base.ButtonInsets(style);
+
+  public override float ButtonRadius(ElementUI.ButtonStyle style, float height) =>
+    Compact && style is ElementUI.ButtonStyle.Standard or ElementUI.ButtonStyle.Prominent
+      ? CornerRadius
+      : base.ButtonRadius(style, height);
 
   // Element's main action is a tinted fill with the soft accent as its label.
   public override UiColor? ButtonForeground(ElementUI.ButtonStyle style) =>

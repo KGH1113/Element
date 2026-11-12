@@ -25,9 +25,6 @@ internal sealed class PlanetsModel : SettingsPageModel
   /// <summary>The planet whose tab is picked: 0 fire, 1 ice, 2 the third planet.</summary>
   public int Planet;
 
-  /// <summary>The page's width: the planet sits beside its parts, or above them when the window is narrow.</summary>
-  public float Width = 936;
-
   public readonly PlanetModel Fire;
   public readonly PlanetModel Ice;
   public readonly PlanetModel Third;

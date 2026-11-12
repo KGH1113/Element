@@ -133,8 +133,8 @@ internal sealed class OverlayInputDockModel : ViewModel
       : empty ? L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value")
       : Describe(editing.Working);
     Typing.Value = _typing;
-    if (!_typing)
-      Caret.Value = false;
+    // A redraw starts the blink over: the caret shows at once.
+    Caret.Value = _typing;
     Keypad.Refresh(editing);
   }
 

@@ -93,9 +93,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
   }
 
   // The panel under New profile: it starts from the initial settings.
-  private View NewProfilePanel() => ZStack(Alignment.TopLeading, new RaisePopover(), NewProfileForm());
-
-  private View NewProfileForm() =>
+  private View NewProfilePanel() =>
     VStack(
         spacing: 0,
         Text(L("처음 설정으로 시작해요.", "Starts with the initial settings."))
@@ -292,6 +290,5 @@ internal sealed class ProfilesView : View<ProfilesModel>
       .Popover(Bind(() => slot.Value.PickerOpen), () => FontPicker(slot.Value));
 
   // Opened with the font the row uses now; a pick shows at once and the list stays open.
-  private static View FontPicker(ProfileFontsModel.Row row) =>
-    ZStack(Alignment.TopLeading, new RaisePopover(), new FontList(row.Picker()));
+  private static View FontPicker(ProfileFontsModel.Row row) => new FontList(row.Picker());
 }

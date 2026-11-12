@@ -8,6 +8,8 @@ using Element.Presentation.Layout.Graphics;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Text;
+using Element.Presentation.Ui.Declarative;
+using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
@@ -89,6 +91,15 @@ internal sealed class LayoutSession
 
   /// <summary>A new factory for a panel that comes and goes.</summary>
   public UiFactory NewUi() => new UiFactory(Font, ReduceMotion);
+
+  /// <summary>
+  /// What one of the editor's panels draws its ElementUI screen with: the UI
+  /// font, the highlight color as it is now and the panels' compact controls.
+  /// <paramref name="hints"/> takes what <c>.Hint(...)</c> says (null when the
+  /// pointer leaves); without it hints show as bubbles.
+  /// </summary>
+  public ElementBackend NewBackend(Action<string> hints = null) =>
+    new(new ElementTheme(UiFonts.Choose(Font), Preferences.ReduceUiMotion) { Compact = true }) { Hints = hints };
 
   public OverlayFonts Fonts => Host.Fonts;
 

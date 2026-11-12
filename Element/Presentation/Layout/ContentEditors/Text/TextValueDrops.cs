@@ -89,7 +89,7 @@ internal sealed class TextValueDrops
     _gradient.Position.SetDrop(_dropTarget == DropTarget.Position && _dropIndex < 0 ? (accepted ? 1 : -1) : 0);
     _gradient.Handles.Angle.SetDrop(_dropTarget == DropTarget.Angle ? (accepted ? 1 : -1) : 0);
     _host.Dock.SetDrop(_dropTarget == DropTarget.Formula ? (accepted ? 1 : -1) : 0);
-    frame.ShowGhost(OverlayKeypad.ValueName(_dragValue), screen, accepted || _dropTarget == DropTarget.None ? 1 : -1);
+    frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropTarget == DropTarget.None ? 1 : -1);
     _marks.Place(InsertIndex, Joining, _formulas.EditedValue);
   }
 
@@ -174,7 +174,7 @@ internal sealed class TextValueDrops
         return DropTarget.Position;
       }
     }
-    if (_size.Button.Contains(screen))
+    if (_host.Bar.Contains(_size.Button, screen))
     {
       accepted = _dragValue.IsNumeric;
       return DropTarget.Size;

@@ -4,7 +4,6 @@ using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
-using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -22,7 +21,7 @@ internal sealed class TextFonts
   private readonly ITextEditorHost _host;
   private readonly TextDocumentEditing _text;
   private readonly TextColor _color;
-  private OverlayBarButton _fontButton;
+  private OverlayBarButtonModel _fontButton;
   private UiFontPopover _fontPopover;
   private bool _fontSnapshotTaken;
 
@@ -43,14 +42,15 @@ internal sealed class TextFonts
 
   public bool Contains(Vector2 screen) => _fontPopover.Contains(screen);
 
-  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _fontButton = new OverlayBarButton(
-      ui,
-      bar,
+  /// <summary>The bar's Font button; made by <see cref="BuildButton"/>.</summary>
+  public OverlayBarButtonModel Button => _fontButton;
+
+  public OverlayBarButtonModel BuildButton() =>
+    _fontButton = new OverlayBarButtonModel(
       "Text font",
       L("폰트", "Font"),
       ToggleFont,
-      reduceMotion,
+      value: true,
       icon: UiIconKind.Font
     );
 

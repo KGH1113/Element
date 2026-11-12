@@ -9,8 +9,10 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Layout.Canvas;
 
-// Overlay highlights use the shared picker in RGB mode. Planet customization
-// uses the same controls with its independent alpha channel enabled.
+/// <summary>
+/// The highlight color, picked above the layout editor's toolbar: the shared
+/// picker as a card, opaque, with Default putting Element's color back.
+/// </summary>
 internal sealed class OverlayColorPopover : IPopover, IDisposable
 {
   private readonly ElementSettings _settings;
@@ -19,8 +21,10 @@ internal sealed class OverlayColorPopover : IPopover, IDisposable
   public bool Visible => _picker.Visible;
   public bool IsTyping => _picker.IsTyping;
   public RectTransform Anchor => null;
-  public const float Width = UiColorPicker.Width,
-    Height = 318;
+  public const float Width = UiColorPicker.Width;
+
+  /// <summary>Its height as laid out: the card with its square, hue and HEX with Default.</summary>
+  public float Height => _picker.Height;
 
   public OverlayColorPopover(Transform parent, TMP_FontAsset font, ElementSettings settings)
   {

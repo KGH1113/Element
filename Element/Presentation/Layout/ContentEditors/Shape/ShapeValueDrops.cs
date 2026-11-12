@@ -63,7 +63,7 @@ internal sealed class ShapeValueDrops
       _fields[i].SetDrop(_fields.Key(i) == _dropKey ? (accepted ? 1 : -1) : 0);
     _numbers.StrokeWidth.SetDrop(_dropKey == ShapeNumbers.StrokeKey ? (accepted ? 1 : -1) : 0);
     _host.Dock.SetDrop(_dropKey == FormulaLine ? (accepted ? 1 : -1) : 0);
-    frame.ShowGhost(OverlayKeypad.ValueName(_dragValue), screen, accepted || _dropKey == null ? 1 : -1);
+    frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropKey == null ? 1 : -1);
   }
 
   public void EndValueDrag(Vector2 screen)
@@ -144,7 +144,7 @@ internal sealed class ShapeValueDrops
       accepted = true;
       return null;
     }
-    if (_numbers.StrokeWidth.Contains(screen))
+    if (_host.Bar.Contains(_numbers.StrokeWidth, screen))
       return ShapeNumbers.StrokeKey;
     _fields.Collect();
     for (int i = 0; i < _fields.Count; i++)

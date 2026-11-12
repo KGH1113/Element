@@ -1,10 +1,9 @@
 using System;
-using Element.Presentation.Overlay.Fonts;
-using UnityEngine;
+using ElementUI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-/// <summary>What a mod's editing screen asks of the editor around it.</summary>
+/// <summary>What a mod's <see cref="ModEditorPage"/> asks of the editor around it.</summary>
 internal interface IModEditorHost
 {
   /// <summary>
@@ -13,22 +12,14 @@ internal interface IModEditorHost
   /// </summary>
   void Change(object key, Action apply, bool rebuild);
 
-  void OpenColor(ModColorRequest request);
-
-  void OpenPaint(ModPaintRequest request);
-
-  void OpenList(ModListRequest request);
-
-  void OpenFont(ModFontRequest request);
-
-  void ShowTip(string text, RectTransform anchor);
-
-  void HideTip();
-
   /// <summary>The tab last picked in the tabs named <paramref name="key"/>, so undo keeps it.</summary>
   int TabOf(string key);
 
   void SetTab(string key, int index);
 
-  OverlayFonts Fonts { get; }
+  /// <summary>What Element's pickers on the page need: fonts, and a turn every frame.</summary>
+  ModEditorContext Context { get; }
+
+  /// <summary>Draws the page in the editor's look.</summary>
+  IBackend NewBackend();
 }

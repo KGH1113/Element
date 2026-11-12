@@ -1,10 +1,7 @@
-using System;
 using System.Collections.Generic;
 using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
-using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -13,19 +10,17 @@ namespace Element.Presentation.Layout.Canvas;
 
 /// <summary>
 /// Add Element's menu above the toolbar: a row for each kind that offers one,
-/// and the lists some rows open beside it.
+/// and the lists some rows open beside it (shapes, other mods' elements).
 /// </summary>
 internal sealed class LayoutAddMenu
 {
-  private const float Width = 360,
-    Row = 68,
-    ToolbarX = 348;
+  private const float Width = 360;
   private readonly LayoutSession _session;
   private readonly LayoutToolbar _toolbar;
   private readonly PopoverStack _popovers;
   private readonly ListMenu _menu;
   private readonly List<ListMenu> _submenus = new();
-  private readonly List<Func<float>> _heights = new();
+  private readonly List<AddMenuRow> _rows = new();
   private ElementKinds _kinds;
 
   public LayoutAddMenu(LayoutSession session, LayoutToolbar toolbar, PopoverStack popovers)
@@ -33,11 +28,7 @@ internal sealed class LayoutAddMenu
     _session = session;
     _toolbar = toolbar;
     _popovers = popovers;
-    _menu = new ListMenu(session.NewUi, "Add element menu", Width, Row, UiPalette.Menu)
-    {
-      Hiding = CloseSubmenus,
-      Hidden = FocusAddButton,
-    };
+    _menu = new ListMenu("Add element menu", Width, UiPalette.Menu) { Hiding = CloseSubmenus, Hidden = FocusAddButton };
     popovers.Add(_menu);
   }
 
@@ -49,57 +40,42 @@ internal sealed class LayoutAddMenu
 
   public bool IsOpen => _menu.Visible;
 
-  /// <summary>A list a row opens beside the menu; <paramref name="height"/> is read each time it is placed.</summary>
-  public void AddSubmenu(ListMenu submenu, Func<float> height)
+  /// <summary>The open menu; null while closed.</summary>
+  public RectTransform Root => _menu.Root;
+
+  /// <summary>A list a row opens beside the menu, as tall as its rows.</summary>
+  public void AddSubmenu(ListMenu submenu)
   {
     _submenus.Add(submenu);
-    _heights.Add(height);
     _popovers.Add(submenu);
   }
 
   /// <summary>Opens the menu; returns its first row for the keyboard.</summary>
-  public Button Open()
+  public Selectable Open()
   {
-    _menu.Open(_session.Root.transform, _kinds.Rows);
-    Button first = null;
-    int row = 0;
+    _rows.Clear();
     foreach (IElementKind kind in _kinds.All)
-    {
-      if (!kind.HasRow)
-        continue;
-      Button button = AddRow(row++, kind.Row());
-      first ??= button;
-    }
+      if (kind.HasRow)
+        _rows.Add(kind.Row());
+    AddMenuListModel model = new(_rows.ToArray(), large: true);
+    Selectable first = _menu.Open(_session.Root.transform, _session.NewBackend(), new AddMenuListView(model), model);
     _popovers.Opened(_menu);
     return first;
   }
 
-  private Button AddRow(int index, AddMenuRow row)
+  /// <summary>
+  /// Opens <paramref name="submenu"/> beside the menu with <paramref name="rows"/>,
+  /// in place of another list, with its first row focused. Esc closes it first.
+  /// </summary>
+  public void OpenSubmenu(ListMenu submenu, IReadOnlyList<AddMenuRow> rows)
   {
-    UiFactory ui = _menu.Ui;
-    Button button = _menu.AddRow(
-      index,
-      "Add " + row.Icon,
-      row.Icon,
-      18,
-      28,
-      row.Enabled ? UiPalette.SoftAccent : UiPalette.Muted,
-      row.Enabled,
-      row.Pressed
-    );
-    ui.Text(row.Title, button.transform, 56, 10, Width - 88, 24, 16);
-    TextMeshProUGUI detail = ui.Text(
-      row.Detail,
-      button.transform,
-      56,
-      34,
-      Width - 88,
-      20,
-      12,
-      row.Enabled ? UiPalette.Muted : UiPalette.Error
-    );
-    detail.textWrappingMode = TextWrappingModes.NoWrap;
-    return button;
+    CloseSubmenus();
+    AddMenuListModel model = new(rows, large: false);
+    Selectable first = submenu.Open(_session.Root.transform, _session.NewBackend(), new AddMenuListView(model), model);
+    _popovers.Opened(submenu);
+    PlaceSubmenus();
+    if (first != null)
+      EventSystem.current?.SetSelectedGameObject(first.gameObject);
   }
 
   public void Close() => _menu.Hide();
@@ -110,44 +86,37 @@ internal sealed class LayoutAddMenu
       submenu.Hide();
   }
 
-  /// <summary>Call after a list opened beside the menu: Esc closes it first, and it is placed.</summary>
-  public void Opened(ListMenu submenu)
-  {
-    _popovers.Opened(submenu);
-    PlaceSubmenus();
-  }
-
   /// <summary>Above the toolbar from Add Element, its lists beside it.</summary>
   public void Place()
   {
     if (!_menu.Visible)
       return;
-    float height = _menu.HeightFor(_kinds.Rows);
-    PopoverPlacement.PlaceScaled(_menu.Root, _toolbar.PopoverAbove(Width, height, ToolbarX, false), Width, height);
+    float height = _menu.Height;
+    PopoverPlacement.PlaceScaled(_menu.Root, _toolbar.PopoverAboveAdd(Width, height), Width, height);
     PlaceSubmenus();
   }
 
   private void PlaceSubmenus()
   {
-    for (int i = 0; i < _submenus.Count; i++)
-      PlaceBeside(_submenus[i], _heights[i]());
+    foreach (ListMenu submenu in _submenus)
+      PlaceBeside(submenu);
   }
 
   // Beside the menu, bottoms aligned so it sits next to its row and clear of
   // the toolbar; on the left when the view ends on the right.
-  private void PlaceBeside(ListMenu submenu, float height)
+  private void PlaceBeside(ListMenu submenu)
   {
     if (!submenu.Visible || !_menu.Visible)
       return;
     Rect menu = PopoverPlacement.ScreenRect(_menu.Root);
     float scale = _menu.Root.localScale.x;
     float w = submenu.Width * scale,
-      h = height * scale;
+      h = submenu.Height * scale;
     PopoverPlacement.PlaceScaled(
       submenu.Root,
       PopoverPlacement.Beside(menu, menu.yMax - h, w, h, 8, _session.ViewWidth, _session.ViewHeight),
       submenu.Width,
-      height
+      submenu.Height
     );
   }
 

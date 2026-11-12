@@ -1,5 +1,4 @@
 using ElementUI;
-using static Element.Presentation.Ui.Declarative.Controls.WidthLayouts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -14,13 +13,13 @@ internal sealed class JudgmentView : View<JudgmentModel>
     VStack(
       spacing: 12,
       // The buttons sit beside the hint on a wide window and under it on a narrow one.
-      WideOrNarrow(
-        600,
-        () =>
-          HStack(spacing: 12, Hint().Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading), Actions()),
-        () => VStack(spacing: 8, Hint(), Actions())
+      ViewThatFits(
+        HStack(spacing: 12, Hint().Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading), Actions())
+          .Frame(minWidth: 600, maxWidth: float.PositiveInfinity),
+        VStack(spacing: 8, Hint(), Actions())
       ),
-      Columns(minColumnWidth: 212, maxColumns: 3, spacing: 12, Tiles)
+      // Three columns where three fit; 226 keeps the widest window (936) at three.
+      Grid(minColumnWidth: 226, spacing: 12, Tiles())
     );
 
   private View Hint() =>

@@ -24,6 +24,7 @@ internal sealed class OverlayGrowFrom
   private readonly Action _changed;
   private OverlayElementTarget _element;
   private OverlayEditorFrame _screen;
+  private OverlayEditorBar _bar;
   private OverlayGrowPopover _popover;
   private UiCapsuleGraphic _mark;
 
@@ -37,7 +38,8 @@ internal sealed class OverlayGrowFrom
 
   public OverlayGrowth Growth { get; private set; }
 
-  public OverlayBarButton Button { get; private set; }
+  /// <summary>The bar's Grow from button; made by <see cref="BuildButton"/>.</summary>
+  public OverlayBarButtonModel Button { get; private set; }
 
   public bool Visible => _popover.Visible;
 
@@ -52,22 +54,21 @@ internal sealed class OverlayGrowFrom
   }
 
   /// <summary>The Grow from button, added where the bar has it.</summary>
-  public OverlayBarButton BuildButton(UiFactory ui, Transform bar, bool reduceMotion) =>
-    Button = new OverlayBarButton(
-      ui,
-      bar,
+  public OverlayBarButtonModel BuildButton() =>
+    Button = new OverlayBarButtonModel(
       "Grow from",
       L("기준점", "Grow from"),
       Toggle,
-      reduceMotion,
+      value: true,
       icon: UiIconKind.GrowFrom
     );
 
-  /// <summary>The popover and the dot, over the editor's controls.</summary>
-  public void Build(OverlayEditorFrame screen, bool reduceMotion)
+  /// <summary>The popover under the button on <paramref name="bar"/>, and the dot, over the editor's controls.</summary>
+  public void Build(OverlayEditorFrame screen, OverlayEditorBar bar)
   {
     _screen = screen;
-    _popover = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion, Pick);
+    _bar = bar;
+    _popover = new OverlayGrowPopover(screen, Pick);
     _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }
@@ -83,7 +84,7 @@ internal sealed class OverlayGrowFrom
     _closeOthers();
     if (!open)
     {
-      _popover.Show(_screen.FrameRect(Button.Root), _screen.Width, _screen.Height);
+      _popover.Show(_screen.FrameRect(_bar.RectOf(Button)));
       _popover.Refresh(Growth, PointNow());
     }
     _changed();
@@ -100,7 +101,7 @@ internal sealed class OverlayGrowFrom
   private Anchor9 PointNow() => OverlayLayoutPosition.ValidGrowth(Growth) ? (Anchor9)(int)Growth : _element.GrowPoint;
 
   /// <summary>Shows the bar's choice: the short name of the point, lit while the popover is open.</summary>
-  public void ShowButton() => Button.Set(OverlayGrowPicker.ShortName(Growth), false, _popover.Visible);
+  public void ShowButton() => Button.Set(OverlayGrowPickerModel.ShortName(Growth), false, _popover.Visible);
 
   /// <summary>
   /// While the popover is open, puts the dot on the point of the preview's

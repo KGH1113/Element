@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Overlay.Fonts;
+using ElementUI;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
@@ -31,4 +32,7 @@ internal interface IModEditorHost
   void SetTab(string key, int index);
 
   OverlayFonts Fonts { get; }
+
+  /// <summary>Draws a part made of ElementUI views in the editor's look.</summary>
+  IBackend NewBackend();
 }

@@ -24,7 +24,7 @@ internal sealed class ModEditorPopovers : IDisposable
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
   private readonly Func<OverlayFonts> _fonts;
-  private readonly OverlayBarButton _growButton;
+  private readonly RectTransform _growButton;
   private readonly PopoverStack _stack = new();
   private readonly PickerPopover _picker;
   private readonly PickerPopover _paintPicker;
@@ -41,7 +41,7 @@ internal sealed class ModEditorPopovers : IDisposable
     TMP_FontAsset font,
     Func<bool> reduceMotion,
     Func<OverlayFonts> fonts,
-    OverlayBarButton growButton,
+    RectTransform growButton,
     Action<OverlayGrowth> pickGrowth
   )
   {
@@ -55,7 +55,7 @@ internal sealed class ModEditorPopovers : IDisposable
     _paintPicker = new PickerPopover(new UiColorPicker(screen.Frame, font, reduceMotion));
     _paintPicker.Picker.LayOutAsColumn(300);
     _list = new ModListPopover(screen.Ui, screen.Frame, reduceMotion());
-    _grow = new OverlayGrowPopover(screen.Ui, screen.Frame, reduceMotion(), pickGrowth) { Anchor = growButton.Root };
+    _grow = new OverlayGrowPopover(screen, pickGrowth) { Anchor = growButton };
     _stack.Add(_picker);
     _stack.Add(_paintPicker);
     _stack.Add(_list);
@@ -172,7 +172,7 @@ internal sealed class ModEditorPopovers : IDisposable
       return;
     }
     CloseAll();
-    _grow.Show(_screen.FrameRect(_growButton.Root), _screen.Width, _screen.Height);
+    _grow.Show(_screen.FrameRect(_growButton));
     _grow.Refresh(growth, point);
   }
 

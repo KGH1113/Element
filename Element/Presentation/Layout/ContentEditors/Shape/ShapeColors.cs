@@ -5,7 +5,6 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -22,7 +21,7 @@ internal sealed class ShapeColors
   private readonly IShapeEditorHost _host;
   private readonly ShapeNumbers _numbers;
   private readonly OverlayEditorPicker _picker;
-  private OverlayBarButton _fillButton,
+  private OverlayBarButtonModel _fillButton,
     _strokeButton;
   private bool _pickerForStroke;
 
@@ -71,27 +70,17 @@ internal sealed class ShapeColors
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
 
-  public OverlayBarButton BuildFill(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _fillButton = new OverlayBarButton(
-      ui,
-      bar,
-      "Shape fill",
-      L("채우기", "Fill"),
-      () => Open(false),
-      reduceMotion,
-      swatch: true
-    );
+  /// <summary>The bar's Fill button; made by <see cref="BuildFill"/>.</summary>
+  public OverlayBarButtonModel FillButton => _fillButton;
 
-  public OverlayBarButton BuildStroke(UiFactory ui, Transform bar, bool reduceMotion) =>
-    _strokeButton = new OverlayBarButton(
-      ui,
-      bar,
-      "Shape border",
-      L("테두리", "Border"),
-      () => Open(true),
-      reduceMotion,
-      swatch: true
-    );
+  /// <summary>The bar's Border button; made by <see cref="BuildStroke"/>.</summary>
+  public OverlayBarButtonModel StrokeButton => _strokeButton;
+
+  public OverlayBarButtonModel BuildFill() =>
+    _fillButton = new OverlayBarButtonModel("Shape fill", L("채우기", "Fill"), () => Open(false), swatch: true);
+
+  public OverlayBarButtonModel BuildStroke() =>
+    _strokeButton = new OverlayBarButtonModel("Shape border", L("테두리", "Border"), () => Open(true), swatch: true);
 
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen, OverlayInputDock dock)
@@ -165,19 +154,13 @@ internal sealed class ShapeColors
   /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
   public void ShowButtons(ShapePreview preview)
   {
-    _fillButton.Swatch = Opaque(preview.Resolved.Fill);
-    _fillButton.SwatchGradient = preview.FillGradient;
+    _fillButton.SetSwatch(OverlayTextComposer.Resolve(preview.Resolved.Fill, UiTheme.Accent), preview.FillGradient);
     _fillButton.Set(null, false, Picker.Visible && !_pickerForStroke);
-    _strokeButton.Swatch = Opaque(preview.Resolved.Stroke);
-    _strokeButton.SwatchGradient = preview.StrokeGradient;
+    _strokeButton.SetSwatch(
+      OverlayTextComposer.Resolve(preview.Resolved.Stroke, UiTheme.Accent),
+      preview.StrokeGradient
+    );
     _strokeButton.Set(null, false, Picker.Visible && _pickerForStroke);
-  }
-
-  private static Color Opaque(OverlayColorSettings color)
-  {
-    Color resolved = OverlayTextComposer.Resolve(color, UiTheme.Accent);
-    resolved.a = 1;
-    return resolved;
   }
 
   public void PlacePicker(OverlayInputDock dock) => _picker.Place(dock);

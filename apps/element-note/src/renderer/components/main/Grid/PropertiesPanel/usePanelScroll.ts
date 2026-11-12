@@ -25,11 +25,13 @@ export function usePanelScroll(
 ): UsePanelScrollReturn {
   // Thumb refs (탭별, 직접 DOM 조작으로 리렌더링 방지)
   const batchThumbRefs = useRef<Record<TabType, HTMLDivElement | null>>({
+    [TABS.INPUT]: null,
     [TABS.STYLE]: null,
     [TABS.NOTE]: null,
     [TABS.COUNTER]: null,
   });
   const singleThumbRefs = useRef<Record<TabType, HTMLDivElement | null>>({
+    [TABS.INPUT]: null,
     [TABS.STYLE]: null,
     [TABS.NOTE]: null,
     [TABS.COUNTER]: null,
@@ -38,6 +40,7 @@ export function usePanelScroll(
   // Scroll element refs (탭별, thumb 계산용)
   const batchScrollElementRefs = useRef<Record<TabType, HTMLDivElement | null>>(
     {
+      [TABS.INPUT]: null,
       [TABS.STYLE]: null,
       [TABS.NOTE]: null,
       [TABS.COUNTER]: null,
@@ -46,6 +49,7 @@ export function usePanelScroll(
   const singleScrollElementRefs = useRef<
     Record<TabType, HTMLDivElement | null>
   >({
+    [TABS.INPUT]: null,
     [TABS.STYLE]: null,
     [TABS.NOTE]: null,
     [TABS.COUNTER]: null,
@@ -80,7 +84,23 @@ export function usePanelScroll(
     [calculateThumb],
   );
 
-  // Lenis 스크롤 적용 (탭별 6개 훅: batch 3개 + single 3개)
+  const { scrollContainerRef: batchLenisInputRef } = useLenis({
+    onScroll: useCallback(() => {
+      updateThumbDOM(
+        batchThumbRefs.current[TABS.INPUT],
+        batchScrollElementRefs.current[TABS.INPUT],
+      );
+    }, [updateThumbDOM]),
+  });
+  const { scrollContainerRef: singleLenisInputRef } = useLenis({
+    onScroll: useCallback(() => {
+      updateThumbDOM(
+        singleThumbRefs.current[TABS.INPUT],
+        singleScrollElementRefs.current[TABS.INPUT],
+      );
+    }, [updateThumbDOM]),
+  });
+
   const { scrollContainerRef: batchLenisStyleRef } = useLenis({
     onScroll: useCallback(() => {
       updateThumbDOM(
@@ -135,21 +155,33 @@ export function usePanelScroll(
   const batchScrollRefFor = useCallback(
     (tab: TabType) => (node: HTMLDivElement | null) => {
       batchScrollElementRefs.current[tab] = node;
+      if (tab === TABS.INPUT) batchLenisInputRef(node);
       if (tab === TABS.STYLE) batchLenisStyleRef(node);
       if (tab === TABS.NOTE) batchLenisNoteRef(node);
       if (tab === TABS.COUNTER) batchLenisCounterRef(node);
     },
-    [batchLenisStyleRef, batchLenisNoteRef, batchLenisCounterRef],
+    [
+      batchLenisInputRef,
+      batchLenisStyleRef,
+      batchLenisNoteRef,
+      batchLenisCounterRef,
+    ],
   );
 
   const singleScrollRefFor = useCallback(
     (tab: TabType) => (node: HTMLDivElement | null) => {
       singleScrollElementRefs.current[tab] = node;
+      if (tab === TABS.INPUT) singleLenisInputRef(node);
       if (tab === TABS.STYLE) singleLenisStyleRef(node);
       if (tab === TABS.NOTE) singleLenisNoteRef(node);
       if (tab === TABS.COUNTER) singleLenisCounterRef(node);
     },
-    [singleLenisStyleRef, singleLenisNoteRef, singleLenisCounterRef],
+    [
+      singleLenisInputRef,
+      singleLenisStyleRef,
+      singleLenisNoteRef,
+      singleLenisCounterRef,
+    ],
   );
 
   const batchThumbRefFor = useCallback(

@@ -92,9 +92,9 @@
           "keys_reset_counters",
           "keys_reset_counters_mode",
           "keys_reset_mode",
-          "keys_reset_single_counter",
           "keys_set_counters",
           "keys_set_mode",
+          "keys_set_single_counter",
           "keys_update",
           "knob_positions_get",
           "knob_positions_update",
@@ -177,7 +177,8 @@
           "window_close",
           "window_minimize",
           "window_open_devtools_all",
-          "window_show_main"
+          "window_show_main",
+          "window_toggle_maximize"
         ],
         "deny": []
       }

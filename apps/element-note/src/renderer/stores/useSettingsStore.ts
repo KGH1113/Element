@@ -29,6 +29,7 @@ interface SettingsState {
   alwaysOnTop: boolean;
   overlayLocked: boolean;
   angleMode: string;
+  /** @deprecated Legacy snapshots only; each key shows or hides its Raining. */
   noteEffect: boolean;
   noteSettings: NoteSettings;
   tabNoteOverrides: TabNoteOverrides;
@@ -44,6 +45,7 @@ interface SettingsState {
   developerModeEnabled: boolean;
   trayEnabled: boolean;
   overlayResizeAnchor: OverlayResizeAnchor;
+  /** @deprecated Legacy snapshots only; visibility lives on each key. */
   keyCounterEnabled: boolean;
   gridSettings: GridSettings;
   shortcuts: ShortcutsState;
@@ -72,6 +74,7 @@ interface SettingsState {
   setLanguage: (value: string) => void;
   setBackgroundColor: (value: string) => void;
   setOverlayResizeAnchor: (value: OverlayResizeAnchor) => void;
+  /** @deprecated Kept for older callers; cannot hide counters globally. */
   setKeyCounterEnabled: (value: boolean) => void;
   setGridSettings: (value: GridSettings) => void;
   setShortcuts: (value: ShortcutsState) => void;
@@ -128,10 +131,10 @@ const initialState: SettingsStateSnapshot = {
   developerModeEnabled: false,
   trayEnabled: false,
   overlayResizeAnchor: 'top-left',
-  keyCounterEnabled: false,
+  keyCounterEnabled: true,
   gridSettings: getDefaultGridSettings(),
   shortcuts: getDefaultShortcuts(),
-  obsModeEnabled: true,
+  obsModeEnabled: false,
   keyLimiterEnabled: true,
   inGameViewersEnabled: true,
 };
@@ -143,6 +146,9 @@ function mergeSnapshot(
   const next: SettingsStateSnapshot = {
     ...prev,
     ...patch,
+    // Older snapshots may still contain the retired master switches.
+    keyCounterEnabled: true,
+    noteEffect: true,
   };
 
   if (patch.noteSettings) {
@@ -229,7 +235,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setJsPlugins: (value) => set({ jsPlugins: value }),
   setOverlayLocked: (value) => set({ overlayLocked: value }),
   setAngleMode: (value) => set({ angleMode: value }),
-  setNoteEffect: (value) => set({ noteEffect: value }),
+  setNoteEffect: () => set({ noteEffect: true }),
   setNoteSettings: (value) => set({ noteSettings: value }),
   setTabNoteOverrides: (value) => set({ tabNoteOverrides: value }),
   setFontSettings: (value) => set({ fontSettings: value }),
@@ -238,7 +244,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setTrayEnabled: (value) => set({ trayEnabled: value }),
   setBackgroundColor: (value) => set({ backgroundColor: value }),
   setOverlayResizeAnchor: (value) => set({ overlayResizeAnchor: value }),
-  setKeyCounterEnabled: (value) => set({ keyCounterEnabled: value }),
+  setKeyCounterEnabled: () => set({ keyCounterEnabled: true }),
   setGridSettings: (value) => set({ gridSettings: value }),
   setShortcuts: (value) => set({ shortcuts: value }),
   setObsModeEnabled: (value) => set({ obsModeEnabled: value }),

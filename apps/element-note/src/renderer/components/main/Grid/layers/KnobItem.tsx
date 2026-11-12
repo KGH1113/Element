@@ -1,14 +1,9 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import { isMac } from '@utils/core/platform';
 import { useDraggable, useSmartGuidesElements } from '@hooks/Grid';
-import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
-import { useSettingsStore } from '@stores/useSettingsStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
-import {
-  calculateBounds,
-  calculateSnapPoints,
-  calculateGroupBounds,
-} from '@utils/grid/smartGuides';
+import { calculateBounds } from '@utils/grid/smartGuides';
+import { startSelectionDrag } from '@hooks/Grid/selectionDrag';
 import { resolveImageSource } from '@utils/core/imageSource';
 import {
   computeKeyElementStyles,
@@ -52,8 +47,6 @@ interface KnobItemProps {
   onMultiDrag?: (dx: number, dy: number) => void;
   onMultiDragStart?: () => void;
   onMultiDragEnd?: () => void;
-  activeTool?: string;
-  onEraserClick?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   setReferenceRef?: (node: HTMLElement | null) => void;
   zoom?: number;
@@ -76,8 +69,6 @@ const KnobItem = ({
   onMultiDrag,
   onMultiDragStart,
   onMultiDragEnd,
-  activeTool,
-  onEraserClick,
   onContextMenu,
   setReferenceRef,
   zoom = 1,
@@ -104,22 +95,11 @@ const KnobItem = ({
   } = position ?? ({} as Partial<KnobPosition>);
 
   const { getOtherElements } = useSmartGuidesElements();
-  const gridSnapSize = useSettingsStore(
-    (state: { gridSettings?: { gridSnapSize?: number } }) =>
-      state.gridSettings?.gridSnapSize || 5,
-  );
   const isDraggingOrResizing = useGridSelectionStore(
     (state: { isDraggingOrResizing: boolean }) => state.isDraggingOrResizing,
   );
 
   const isSelectionMode = isSelected;
-  const multiDragRef = useRef<{
-    isDragging: boolean;
-    startX: number;
-    startY: number;
-    lastSnappedDeltaX?: number;
-    lastSnappedDeltaY?: number;
-  }>({ isDragging: false, startX: 0, startY: 0 });
   const effectiveElementId = elementId || `knob-${index}`;
 
   const imageSrc =
@@ -131,7 +111,6 @@ const KnobItem = ({
     'cover') as React.CSSProperties['objectFit'];
 
   const draggable = useDraggable({
-    gridSize: gridSnapSize,
     initialX: dx,
     initialY: dy,
     onPositionChange: (newDx: number, newDy: number) => {
@@ -152,217 +131,23 @@ const KnobItem = ({
   if (position?.hidden) return null;
 
   const handleSelectionDragMouseDown = (e: React.MouseEvent) => {
-    if (!isSelectionMode || e.button !== 0) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-
-    useSmartGuidesStore.getState().clearGuides();
-    useGridSelectionStore.getState().setDraggingOrResizing(true);
-
-    onMultiDragStart?.();
-
-    const startDx = dx;
-    const startDy = dy;
-    const currentWidth = width || 60;
-    const currentHeight = height || 60;
-    const currentElementId = effectiveElementId;
-
-    multiDragRef.current = {
-      isDragging: true,
-      startX: e.clientX,
-      startY: e.clientY,
-      lastSnappedDeltaX: 0,
-      lastSnappedDeltaY: 0,
-    };
-
-    let rafId: number | null = null;
-    let dragEnded = false;
-    const smartGuidesStore = useSmartGuidesStore.getState();
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      if (!multiDragRef.current.isDragging || dragEnded) return;
-      if (rafId) return;
-
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        if (dragEnded) return;
-
-        const currentZoom = zoom;
-        const rawDeltaX =
-          (moveEvent.clientX - multiDragRef.current.startX) / currentZoom;
-        const rawDeltaY =
-          (moveEvent.clientY - multiDragRef.current.startY) / currentZoom;
-
-        const newX = startDx + rawDeltaX;
-        const newY = startDy + rawDeltaY;
-
-        const gridSettings = useSettingsStore.getState().gridSettings;
-        const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-        const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-
-        const otherElements = getOtherElements(currentElementId);
-        const nonSelectedElements = otherElements.filter(
-          (el: { id: string }) =>
-            !selectedElements.some((sel) => sel.id === el.id),
-        );
-
-        const draggedBounds = calculateBounds(
-          newX,
-          newY,
-          currentWidth,
-          currentHeight,
-          currentElementId,
-        );
-
-        let groupBounds: ReturnType<typeof calculateGroupBounds> | null = null;
-        if (selectedElements.length > 1) {
-          const selectedBoundsArray = selectedElements
-            .map((sel) => {
-              if (
-                sel.id === currentElementId ||
-                (sel.type === 'knob' && sel.index === index)
-              ) {
-                return draggedBounds;
-              }
-
-              const found = otherElements.find(
-                (el: { id: string }) => el.id === sel.id,
-              );
-              if (!found) return null;
-
-              return calculateBounds(
-                found.left + rawDeltaX,
-                found.top + rawDeltaY,
-                found.width,
-                found.height,
-                found.id,
-              );
-            })
-            .filter(Boolean);
-          groupBounds = calculateGroupBounds(selectedBoundsArray);
-        }
-
-        const snapTargetBounds =
-          selectedElements.length > 1 && groupBounds
-            ? groupBounds
-            : draggedBounds;
-
-        const snapResult = alignmentGuidesEnabled
-          ? calculateSnapPoints(
-              snapTargetBounds,
-              nonSelectedElements,
-              undefined,
-              {
-                groupBounds,
-                disableSpacing: !spacingGuidesEnabled,
-              },
-            )
-          : null;
-
-        let finalX: number;
-        let finalY: number;
-
-        if (snapResult?.didSnapX) {
-          if (selectedElements.length > 1 && groupBounds) {
-            const groupSnapDeltaX = snapResult.snappedX - groupBounds.left;
-            finalX = newX + groupSnapDeltaX;
-          } else {
-            finalX = snapResult.snappedX;
-          }
-        } else {
-          const snapSize = gridSettings?.gridSnapSize || 5;
-          finalX = Math.round(newX / snapSize) * snapSize;
-        }
-
-        if (snapResult?.didSnapY) {
-          if (selectedElements.length > 1 && groupBounds) {
-            const groupSnapDeltaY = snapResult.snappedY - groupBounds.top;
-            finalY = newY + groupSnapDeltaY;
-          } else {
-            finalY = snapResult.snappedY;
-          }
-        } else {
-          const snapSize = gridSettings?.gridSnapSize || 5;
-          finalY = Math.round(newY / snapSize) * snapSize;
-        }
-
-        const snappedDeltaX = Math.round(finalX - startDx);
-        const snappedDeltaY = Math.round(finalY - startDy);
-
-        if (snapResult && (snapResult.didSnapX || snapResult.didSnapY)) {
-          const displayBounds =
-            selectedElements.length > 1 && groupBounds
-              ? calculateBounds(
-                  groupBounds.left +
-                    (snapResult.didSnapX
-                      ? snapResult.snappedX - groupBounds.left
-                      : 0),
-                  groupBounds.top +
-                    (snapResult.didSnapY
-                      ? snapResult.snappedY - groupBounds.top
-                      : 0),
-                  groupBounds.width,
-                  groupBounds.height,
-                  'group',
-                )
-              : calculateBounds(
-                  finalX,
-                  finalY,
-                  currentWidth,
-                  currentHeight,
-                  currentElementId,
-                );
-
-          smartGuidesStore.setDraggedBounds(displayBounds);
-          smartGuidesStore.setActiveGuides(snapResult.guides);
-
-          if (
-            spacingGuidesEnabled &&
-            snapResult.spacingGuides &&
-            snapResult.spacingGuides.length > 0
-          ) {
-            smartGuidesStore.setSpacingGuides(snapResult.spacingGuides);
-          } else {
-            smartGuidesStore.setSpacingGuides([]);
-          }
-        } else {
-          smartGuidesStore.clearGuides();
-        }
-
-        const moveDeltaX =
-          snappedDeltaX - (multiDragRef.current.lastSnappedDeltaX ?? 0);
-        const moveDeltaY =
-          snappedDeltaY - (multiDragRef.current.lastSnappedDeltaY ?? 0);
-
-        if (moveDeltaX !== 0 || moveDeltaY !== 0) {
-          multiDragRef.current.lastSnappedDeltaX = snappedDeltaX;
-          multiDragRef.current.lastSnappedDeltaY = snappedDeltaY;
-          onMultiDrag?.(moveDeltaX, moveDeltaY);
-        }
-      });
-    };
-
-    const handleMouseUp = () => {
-      dragEnded = true;
-      multiDragRef.current.isDragging = false;
-
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
-
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('blur', handleMouseUp);
-      useSmartGuidesStore.getState().clearGuides();
-      useGridSelectionStore.getState().setDraggingOrResizing(false);
-      onMultiDragEnd?.();
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    window.addEventListener('blur', handleMouseUp);
+    if (!isSelectionMode) return;
+    startSelectionDrag({
+      event: e,
+      elementBox: calculateBounds(
+        dx,
+        dy,
+        width || 60,
+        height || 60,
+        effectiveElementId,
+      ),
+      selectedElements,
+      getOtherElements,
+      zoom,
+      onStart: onMultiDragStart,
+      onMove: onMultiDrag,
+      onEnd: onMultiDragEnd,
+    });
   };
 
   const handleClick = (e: React.MouseEvent) => {
@@ -377,11 +162,6 @@ const KnobItem = ({
 
     if (isSelectionMode) {
       e.stopPropagation();
-      return;
-    }
-
-    if (activeTool === 'eraser') {
-      onEraserClick?.();
       return;
     }
 

@@ -1,4 +1,4 @@
-import { invoke, trackEditorSave } from '../invoke';
+import { invoke } from '../invoke';
 import { subscribe } from './shared';
 import { editorApi, projectNativeKeyMappings } from './editorApi';
 import { rawKeyEventBus } from '@utils/core/rawKeyEventBus';
@@ -29,10 +29,10 @@ import type {
 export const keysApi = {
   get: () => invoke<KeyMappings>('keys_get'),
   getCounters: () => invoke<KeyCounters>('keys_get_counters'),
+  // 키와 배치의 저장은 편집 커밋으로 보낸다: 실행 취소 한 단계로 기록된다.
+  // 저장하며 정해지는 값(새 요소의 ID)은 keys:changed·positions:changed로 받는다.
   update: (mappings: KeyMappings) =>
-    trackEditorSave(invoke<KeyMappings>('keys_update', { mappings }), [
-      'editor:keys',
-    ]),
+    editorApi.commitChanges({ keys: mappings }).then(() => mappings),
   updateWithPositions: async (
     mappings: KeyMappings,
     positions: KeyPositions,
@@ -46,9 +46,7 @@ export const keysApi = {
   },
   getPositions: () => invoke<KeyPositions>('positions_get'),
   updatePositions: (positions: KeyPositions) =>
-    trackEditorSave(invoke<KeyPositions>('positions_update', { positions }), [
-      'editor:keyPositions',
-    ]),
+    editorApi.replaceFields({ keyPositions: positions }).then(() => positions),
   setMode: (mode: string) =>
     invoke<KeysModeResponse>('keys_set_mode', { mode }),
   resetAll: () => invoke<KeysResetAllResponse>('keys_reset_all'),
@@ -59,8 +57,11 @@ export const keysApi = {
   resetCounters: () => invoke<KeyCounters>('keys_reset_counters'),
   resetCountersMode: (mode: string) =>
     invoke<KeyCounters>('keys_reset_counters_mode', { mode }),
+  // One key's count: set to a number, or reset by setting it to 0.
+  setSingleCounter: (mode: string, key: string, value: number) =>
+    invoke<KeyCounters>('keys_set_single_counter', { mode, key, value }),
   resetSingleCounter: (mode: string, key: string) =>
-    invoke<KeyCounters>('keys_reset_single_counter', { mode, key }),
+    invoke<KeyCounters>('keys_set_single_counter', { mode, key, value: 0 }),
   onChanged: (listener: (keys: KeyMappings) => void) =>
     subscribe<KeyMappings>('keys:changed', listener),
   onPositionsChanged: (listener: (positions: KeyPositions) => void) =>

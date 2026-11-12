@@ -79,6 +79,21 @@ describe('DmNote v2 OBS protocol', () => {
     });
   });
 
+  it('says in its hello whether the game or an OBS source shows the page', () => {
+    void initIpcShim('ws://127.0.0.1:34891', 'token').catch(() => undefined);
+    MockSocket.latest.onopen?.();
+    expect(MockSocket.latest.sent[0].payload).toMatchObject({
+      client: 'obs-browser',
+    });
+    disposeIpcShim();
+
+    void initIpcShim('ws://127.0.0.1:34891', 'token', 'hand', 'game').catch(
+      () => undefined,
+    );
+    MockSocket.latest.onopen?.();
+    expect(MockSocket.latest.sent[0].payload).toMatchObject({ client: 'game' });
+  });
+
   it('rejects RPC when a hello acknowledgement omits the allowlist', async () => {
     const initialized = initIpcShim('ws://127.0.0.1:34891', 'token');
     MockSocket.latest.receive('hello_ack', {});

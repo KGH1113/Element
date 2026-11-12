@@ -214,9 +214,11 @@ async function start() {
   };
   // The overlay publishes the viewport and padding it laid out, the same values
   // the in-game host crops by; the backend sizes this surface to match.
-  const published = ['dmnViewerWidth', 'dmnViewerHeight', 'dmnViewerPadding'].map(
-    (name) => Number(container.dataset[name]),
-  );
+  const published = [
+    'dmnViewerWidth',
+    'dmnViewerHeight',
+    'dmnViewerPadding',
+  ].map((name) => Number(container.dataset[name]));
   const [width, height, padding] = published;
   const layout =
     published.every(Number.isFinite) && width > 0 && height > 0 && padding >= 0

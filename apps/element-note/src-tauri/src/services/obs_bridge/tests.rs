@@ -322,7 +322,7 @@ async fn publish_is_noop_while_server_is_stopped() {
 async fn publish_with_no_receivers_keeps_running_server_healthy() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -338,7 +338,7 @@ async fn publish_with_no_receivers_keeps_running_server_healthy() {
 async fn publish_forwards_supported_events_to_authenticated_client() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut ws = connect_authenticated(port, "token").await;
@@ -363,7 +363,7 @@ async fn publish_forwards_supported_events_to_authenticated_client() {
 async fn publish_ignores_events_outside_forwarded_allowlist() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut ws = connect_authenticated(port, "token").await;
@@ -388,7 +388,7 @@ async fn publish_ignores_events_outside_forwarded_allowlist() {
 async fn publish_reaches_multiple_authenticated_clients_once_each() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut first = connect_authenticated(port, "token").await;
@@ -415,7 +415,7 @@ async fn publish_reaches_multiple_authenticated_clients_once_each() {
 async fn publish_after_stop_start_has_no_missing_or_duplicate_event() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let first_port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut first = connect_authenticated(first_port, "token").await;
@@ -428,7 +428,7 @@ async fn publish_after_stop_start_has_no_missing_or_duplicate_event() {
     drop(first);
 
     let second_port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 재시작 실패");
     let mut second = connect_authenticated(second_port, "token").await;
@@ -447,7 +447,7 @@ async fn lagged_publish_burst_recovers_with_latest_snapshot() {
     let expected_snapshot = serde_json::json!({ "revision": 300 });
     bridge.update_snapshot(expected_snapshot.clone());
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut ws = connect_authenticated(port, "token").await;
@@ -471,7 +471,7 @@ async fn websocket_session_preserves_handshake_projection_and_client_sequence() 
     let expected_snapshot = serde_json::json!({ "revision": 7 });
     bridge.update_snapshot(expected_snapshot.clone());
     let port = bridge
-        .start(0, "session-token".to_string())
+        .start(0, "session-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
@@ -885,7 +885,7 @@ async fn dev_redirect_serves_only_local_machine_peers() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     bridge.set_dev_url("http://localhost:3400".to_string());
     let port = bridge
-        .start(0, "dev-token".to_string())
+        .start(0, "dev-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -911,7 +911,7 @@ async fn dev_redirect_serves_only_local_machine_peers() {
 async fn gamebar_paths_no_longer_leak_token() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "secret-token".to_string())
+        .start(0, "secret-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -946,7 +946,7 @@ async fn media_requests_bypass_dev_redirect() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     bridge.set_dev_url("http://localhost:3400".to_string());
     let port = bridge
-        .start(0, "media-token".to_string())
+        .start(0, "media-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -977,7 +977,7 @@ async fn media_requests_bypass_dev_redirect() {
 async fn protocol_mismatch_is_rejected_before_auth() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -1009,7 +1009,7 @@ async fn protocol_mismatch_is_rejected_before_auth() {
 async fn auth_failure_follows_protocol_validation_and_empty_server_token_disables_auth() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "secret".to_string())
+        .start(0, "secret".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
@@ -1037,7 +1037,7 @@ async fn auth_failure_follows_protocol_validation_and_empty_server_token_disable
 
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, String::new())
+        .start(0, String::new(), ServerReach::Lan)
         .await
         .expect("빈 토큰 OBS bridge 시작 실패");
     let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
@@ -1064,7 +1064,7 @@ async fn auth_failure_follows_protocol_validation_and_empty_server_token_disable
 async fn hello_close_and_timeout_both_decrement_client_count() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let (mut ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
@@ -1077,7 +1077,7 @@ async fn hello_close_and_timeout_both_decrement_client_count() {
 
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let (_ws, _) = connect_async(format!("ws://127.0.0.1:{port}"))
@@ -1098,7 +1098,7 @@ async fn hello_close_and_timeout_both_decrement_client_count() {
 async fn legacy_protocol_v1_hello_is_rejected() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     let port = bridge
-        .start(0, "token".to_string())
+        .start(0, "token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -1125,9 +1125,14 @@ async fn legacy_protocol_v1_hello_is_rejected() {
 }
 
 #[test]
-fn binding_listens_on_all_interfaces_for_lan_access() {
-    assert!(bind_address(34891).ip().is_unspecified());
-    assert_eq!(bind_address(34891).port(), 34891);
+fn binding_listens_on_all_interfaces_only_for_lan_access() {
+    assert!(bind_address(34891, ServerReach::Lan).ip().is_unspecified());
+    assert_eq!(bind_address(34891, ServerReach::Lan).port(), 34891);
+    // 게임 화면만 쓸 때는 이 PC 밖에서 닿지 않는다
+    assert!(bind_address(34891, ServerReach::Loopback)
+        .ip()
+        .is_loopback());
+    assert_eq!(bind_address(34891, ServerReach::Loopback).port(), 34891);
 }
 
 // 같은 네트워크의 다른 PC 접속은 제품 계약 — LAN IP 경유 인증 접속이 실제로 성립해야 함
@@ -1141,7 +1146,7 @@ async fn lan_address_accepts_authenticated_clients() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     bridge.update_snapshot(serde_json::json!({ "source": "lan" }));
     let port = bridge
-        .start(0, "lan-token".to_string())
+        .start(0, "lan-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
 
@@ -1165,12 +1170,82 @@ async fn lan_address_accepts_authenticated_clients() {
     bridge.stop();
 }
 
+// OBS를 내주지 않을 때는 게임(같은 PC)만 닿는다 — LAN 주소로는 연결 자체가 성립하지 않아야 함
+#[tokio::test]
+async fn loopback_reach_serves_this_pc_and_refuses_the_lan_address() {
+    let bridge = Arc::new(ObsBridgeService::new("test"));
+    assert_eq!(bridge.reach(), None);
+    let port = bridge
+        .start(0, "local-token".to_string(), ServerReach::Loopback)
+        .await
+        .expect("OBS bridge 시작 실패");
+    assert_eq!(bridge.reach(), Some(ServerReach::Loopback));
+
+    let _ws = connect_authenticated(port, "local-token").await;
+
+    if let Ok(lan_ip) = local_ip_address::local_ip() {
+        if !lan_ip.is_loopback() {
+            assert!(
+                TcpStream::connect((lan_ip, port)).await.is_err(),
+                "loopback 서버가 LAN 주소로 열려 있으면 안 됨"
+            );
+        }
+    }
+
+    bridge.stop();
+    assert_eq!(bridge.reach(), None);
+}
+
+// 설정의 OBS 연결 수는 게임이 띄운 키뷰어를 세지 않는다
+#[tokio::test]
+async fn game_views_are_left_out_of_the_obs_client_count() {
+    let bridge = Arc::new(ObsBridgeService::new("test"));
+    let port = bridge
+        .start(0, "token".to_string(), ServerReach::Lan)
+        .await
+        .expect("OBS bridge 시작 실패");
+
+    let (mut game, _) = connect_async(format!("ws://127.0.0.1:{port}"))
+        .await
+        .expect("WS 연결 실패");
+    let hello = make_envelope(
+        "hello",
+        0,
+        serde_json::json!({
+            "client": "game",
+            "token": "token",
+            "protocol": OBS_PROTOCOL_VERSION,
+        }),
+    );
+    game.send(Message::text(hello.to_string()))
+        .await
+        .expect("hello 전송 실패");
+    receive_envelope(&mut game, "hello_ack").await;
+    receive_envelope(&mut game, "snapshot").await;
+    assert_eq!(bridge.client_count(), 1);
+    assert_eq!(bridge.status().client_count, 0);
+
+    let mut obs = connect_authenticated(port, "token").await;
+    assert_eq!(bridge.client_count(), 2);
+    assert_eq!(bridge.status().client_count, 1);
+
+    game.close(None).await.expect("게임 WS 종료 실패");
+    wait_for_client_count(&bridge, 1, Duration::from_secs(2)).await;
+    assert_eq!(bridge.status().client_count, 1);
+
+    obs.close(None).await.expect("OBS WS 종료 실패");
+    wait_for_client_count(&bridge, 0, Duration::from_secs(2)).await;
+    assert_eq!(bridge.status().client_count, 0);
+
+    bridge.stop();
+}
+
 #[tokio::test]
 async fn token_rotation_disconnects_existing_sessions_and_keeps_server_running() {
     let bridge = Arc::new(ObsBridgeService::new("test"));
     bridge.update_snapshot(serde_json::json!({ "source": "initial" }));
     let port = bridge
-        .start(0, "old-token".to_string())
+        .start(0, "old-token".to_string(), ServerReach::Lan)
         .await
         .expect("OBS bridge 시작 실패");
     let mut old_ws = connect_authenticated(port, "old-token").await;

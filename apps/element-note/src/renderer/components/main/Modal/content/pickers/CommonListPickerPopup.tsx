@@ -1,15 +1,12 @@
 import React, {
   useCallback,
   useEffect,
-  useMemo,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import FloatingPopup from '../../FloatingPopup';
-import { useLenis } from '@hooks/useLenis';
-import Dropdown from '@components/main/common/Dropdown';
-
-const SCROLL_CONTENT_GUTTER = 4;
+import './CommonListPickerPopup.css';
 
 type FilterOption = {
   value: string;
@@ -22,7 +19,6 @@ interface CommonListPickerPopupProps<T> {
   panelElement?: HTMLElement | null;
   onClose: () => void;
   interactiveRefs?: Array<React.RefObject<HTMLElement>>;
-  widthClass?: string;
   estimatedWidth?: number;
   estimatedHeight?: number;
   searchQuery: string;
@@ -32,28 +28,94 @@ interface CommonListPickerPopupProps<T> {
   filterValue?: string;
   onFilterChange?: (value: string) => void;
   items: T[];
-  renderItem: (item: T) => React.ReactNode;
-  renderItemActions?: (item: T) => React.ReactNode;
-  itemRowClassName?: string;
-  getItemKey?: (item: T, index: number) => React.Key;
+  getItemKey: (item: T) => React.Key;
+  /** What the row says. */
+  getItemLabel: (item: T) => string;
+  /** How the name is drawn: a font's name in that font. */
+  getItemLabelStyle?: (item: T) => React.CSSProperties | undefined;
+  isItemSelected: (item: T) => boolean;
+  onItemChoose: (item: T) => void;
+  /** Things done to the item, at the end of its row (a ⋯ menu). */
+  renderItemTrailing?: (item: T) => React.ReactNode;
   emptyText: string;
   isLoading?: boolean;
   loadingText?: string;
   errorText?: string;
-  listHeightClass?: string;
   onAdd: () => void;
-  addButtonContent: React.ReactNode;
+  /** Says what the row under the list adds. */
+  addLabel: string;
+  /** Names the chooser when the picker opens from the sidebar. */
+  chooserTitle?: string;
 }
 
+const SearchIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 14 14"
+    fill="none"
+    aria-hidden="true"
+  >
+    <circle cx="6.2" cy="6.2" r="4.2" stroke="currentColor" strokeWidth="1.5" />
+    <path
+      d="m9.4 9.4 3 3"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 14 14"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="m3 7.5 2.5 2.5L11 4.5"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const PlusIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 14 14"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M7 2.5v9M2.5 7h9"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+/**
+ * One of a list to choose (a font, a sound, a motion), with a way to add
+ * more. It is a chooser like the others of the sidebar: beside it, pointing
+ * at its row. Inside, one search field, the kinds as a segmented control,
+ * the list as rows that say which one is chosen, and the row that adds one
+ * under them. Every list is drawn by this one, so all three look alike.
+ */
 export default function CommonListPickerPopup<T>({
   open,
   referenceRef,
   panelElement = null,
   onClose,
   interactiveRefs = [],
-  widthClass = 'w-[156px]',
-  estimatedWidth = 164,
-  estimatedHeight = 280,
+  estimatedWidth = 256,
+  estimatedHeight = 380,
   searchQuery,
   onSearchQueryChange,
   searchPlaceholder,
@@ -61,167 +123,70 @@ export default function CommonListPickerPopup<T>({
   filterValue,
   onFilterChange,
   items,
-  renderItem,
-  renderItemActions,
-  itemRowClassName = '',
   getItemKey,
+  getItemLabel,
+  getItemLabelStyle,
+  isItemSelected,
+  onItemChoose,
+  renderItemTrailing,
   emptyText,
   isLoading = false,
-  loadingText = '로딩...',
+  loadingText = '',
   errorText = '',
-  listHeightClass = 'min-h-[120px] h-[120px]',
   onAdd,
-  addButtonContent,
+  addLabel,
+  chooserTitle,
 }: CommonListPickerPopupProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
-  const containerCallbackRef = useCallback((node: HTMLDivElement | null) => {
-    containerRef.current = node;
-    setContainerEl(node);
-  }, []);
+  const listRef = useRef<HTMLDivElement>(null);
   const [fixedPosition, setFixedPosition] = useState<{
     x: number;
     y: number;
   } | null>(null);
-  const [hasOverflow, setHasOverflow] = useState(false);
+  // Whether rows are hidden below the end of the list; it then fades out.
+  const [moreBelow, setMoreBelow] = useState(false);
 
-  const {
-    scrollContainerRef: scrollRef,
-    wrapperElement,
-    lenisInstance,
-    scrollbarWidth,
-  } = useLenis();
+  // Outside the sidebar (an older settings panel) the chooser stands at the
+  // panel's side, its foot near the panel's foot.
+  const place = useCallback(() => {
+    if (!panelElement) return;
+    const panelRect = panelElement.getBoundingClientRect();
+    const popupWidth = containerRef.current?.offsetWidth || estimatedWidth;
+    const popupHeight = containerRef.current?.offsetHeight || estimatedHeight;
+    const gap = 5;
+    const padding = 5;
+    const x = Math.max(padding, panelRect.left - popupWidth - gap);
+    const y = Math.max(padding, panelRect.bottom - 20 - popupHeight);
+    setFixedPosition((prev) =>
+      prev && prev.x === x && prev.y === y ? prev : { x, y },
+    );
+  }, [panelElement, estimatedWidth, estimatedHeight]);
 
   useEffect(() => {
     if (!open) {
       setFixedPosition(null);
-      setHasOverflow(false);
       return;
     }
-
-    if (!panelElement) {
-      setFixedPosition(null);
-      return;
-    }
-
-    const calculatePosition = () => {
-      const panelRect = panelElement.getBoundingClientRect();
-      const popupEl = containerRef.current;
-      const popupWidth = popupEl ? popupEl.offsetWidth : estimatedWidth;
-      const popupHeight = popupEl ? popupEl.offsetHeight : estimatedHeight;
-
-      const gap = 5;
-      const padding = 5;
-      const panelBottomPadding = 20;
-
-      let fixedX = panelRect.left - popupWidth - gap;
-      if (fixedX < padding) {
-        fixedX = padding;
-      }
-
-      let fixedY = panelRect.bottom - panelBottomPadding - popupHeight;
-      if (fixedY < padding) {
-        fixedY = padding;
-      }
-
-      setFixedPosition((prev) => {
-        if (prev && prev.x === fixedX && prev.y === fixedY) return prev;
-        return { x: fixedX, y: fixedY };
-      });
-    };
-
-    const rafId = requestAnimationFrame(calculatePosition);
-
+    if (!panelElement) return;
+    const frame = requestAnimationFrame(place);
+    const container = containerRef.current;
+    const observer = new ResizeObserver(place);
+    if (container) observer.observe(container);
     return () => {
-      cancelAnimationFrame(rafId);
+      cancelAnimationFrame(frame);
+      observer.disconnect();
     };
-  }, [estimatedHeight, estimatedWidth, open, panelElement]);
+  }, [open, panelElement, place]);
 
-  // 팝업 크기가 변하면(로딩 텍스트 등) 위치 재계산
-  // containerEl을 deps로 사용하여 portal 전환 후에도 ResizeObserver가 올바른 DOM에 연결됨
-  useEffect(() => {
-    if (!open || !panelElement || !containerEl) return;
+  const measureMore = useCallback(() => {
+    const list = listRef.current;
+    if (!list) return;
+    setMoreBelow(list.scrollTop + list.clientHeight < list.scrollHeight - 2);
+  }, []);
 
-    const calculatePosition = () => {
-      const panelRect = panelElement.getBoundingClientRect();
-      const popupWidth = containerEl.offsetWidth || estimatedWidth;
-      const popupHeight = containerEl.offsetHeight || estimatedHeight;
-
-      const gap = 5;
-      const padding = 5;
-      const panelBottomPadding = 20;
-
-      let fixedX = panelRect.left - popupWidth - gap;
-      if (fixedX < padding) {
-        fixedX = padding;
-      }
-
-      let fixedY = panelRect.bottom - panelBottomPadding - popupHeight;
-      if (fixedY < padding) {
-        fixedY = padding;
-      }
-
-      setFixedPosition((prev) => {
-        if (prev && prev.x === fixedX && prev.y === fixedY) return prev;
-        return { x: fixedX, y: fixedY };
-      });
-    };
-
-    const resizeObserver = new ResizeObserver(() => {
-      calculatePosition();
-    });
-    resizeObserver.observe(containerEl);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [open, panelElement, containerEl, estimatedHeight, estimatedWidth]);
-
-  useEffect(() => {
-    if (!open) return;
-    const rafId = requestAnimationFrame(() => {
-      lenisInstance.current?.resize?.();
-    });
-    return () => cancelAnimationFrame(rafId);
-  }, [open, items.length, filterValue, searchQuery, lenisInstance]);
-
-  useEffect(() => {
-    if (!open) {
-      setHasOverflow(false);
-      return;
-    }
-
-    const wrapper = wrapperElement;
-    if (!wrapper) return;
-
-    const updateOverflow = () => {
-      const nextHasOverflow = wrapper.scrollHeight > wrapper.clientHeight;
-      setHasOverflow((prev) =>
-        prev === nextHasOverflow ? prev : nextHasOverflow,
-      );
-    };
-
-    const rafId = requestAnimationFrame(updateOverflow);
-    const resizeObserver = new ResizeObserver(updateOverflow);
-    resizeObserver.observe(wrapper);
-
-    const contentEl = wrapper.firstElementChild;
-    if (contentEl instanceof HTMLElement) {
-      resizeObserver.observe(contentEl);
-    }
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-    };
-  }, [open, wrapperElement, items.length]);
-
-  const scrollbarCompensation = useMemo(
-    () => (hasOverflow ? scrollbarWidth + SCROLL_CONTENT_GUTTER : 0),
-    [hasOverflow, scrollbarWidth],
-  );
-
-  const effectiveOffsetY = fixedPosition ? 0 : -93;
+  useLayoutEffect(() => {
+    if (open) measureMore();
+  }, [open, items.length, filterValue, searchQuery, measureMore]);
 
   return (
     <FloatingPopup
@@ -231,104 +196,106 @@ export default function CommonListPickerPopup<T>({
       fixedY={fixedPosition?.y}
       placement="right-start"
       offset={32}
-      offsetY={effectiveOffsetY}
+      offsetY={fixedPosition ? 0 : -93}
       className="z-50"
       interactiveRefs={interactiveRefs}
       onClose={onClose}
       autoClose={false}
+      chooserTitle={chooserTitle}
     >
-      <div
-        ref={containerCallbackRef}
-        className={`flex flex-col gap-[8px] p-[8px] ${widthClass}`.trim()}
-      >
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(event) => onSearchQueryChange(event.target.value)}
-          placeholder={searchPlaceholder}
-          className="w-full h-[23px] px-[8px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] text-[#DBDEE8] text-style-2 placeholder-[#6F6E7A] focus:border-ui-accent outline-none"
-        />
-
-        {filterOptions && filterValue !== undefined && onFilterChange ? (
-          <Dropdown
-            options={filterOptions}
-            value={filterValue}
-            onChange={onFilterChange}
-            fullWidth
+      <div ref={containerRef} className="en-lc">
+        <label className="en-lc-search">
+          <SearchIcon />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            placeholder={searchPlaceholder}
+            aria-label={searchPlaceholder}
           />
-        ) : null}
+        </label>
 
-        <div className="h-[1px] bg-[#2A2A30] -mx-[8px]" />
+        {filterOptions && filterValue !== undefined && onFilterChange && (
+          <div className="en-lc-kinds" role="radiogroup">
+            {filterOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={option.value === filterValue}
+                className="en-lc-kind"
+                onClick={() => onFilterChange(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div
-          ref={scrollRef}
-          className={`flex flex-col gap-[4px] overflow-y-auto modal-content-scroll ${listHeightClass}`}
-          style={{
-            width:
-              scrollbarCompensation > 0
-                ? `calc(100% + ${scrollbarCompensation}px)`
-                : undefined,
-            marginRight:
-              scrollbarCompensation > 0
-                ? `-${scrollbarCompensation}px`
-                : undefined,
-          }}
+          ref={listRef}
+          className="en-lc-list"
+          role="listbox"
+          aria-label={chooserTitle}
+          data-more={moreBelow || undefined}
+          onScroll={measureMore}
         >
-          <div
-            className="flex flex-col gap-[4px]"
-            style={
-              hasOverflow
-                ? { width: `calc(100% - ${SCROLL_CONTENT_GUTTER}px)` }
-                : undefined
-            }
-          >
-            {items.length === 0 ? (
-              <div className="flex items-center justify-center py-[10px] text-[#6F6E7A] text-style-4">
-                {emptyText}
-              </div>
-            ) : (
-              items.map((item, index) => {
-                const node = renderItem(item);
-                if (!renderItemActions) {
-                  return node;
-                }
-
-                const key = getItemKey ? getItemKey(item, index) : index;
-                return (
-                  <div
-                    key={key}
-                    className={`w-full h-[24px] flex items-center gap-[4px] ${itemRowClassName}`.trim()}
+          {isLoading && items.length === 0 ? (
+            <p className="en-lc-note">{loadingText}</p>
+          ) : items.length === 0 ? (
+            <p className="en-lc-note">{emptyText}</p>
+          ) : (
+            items.map((item) => {
+              const selected = isItemSelected(item);
+              const label = getItemLabel(item);
+              const trailing = renderItemTrailing?.(item);
+              return (
+                <div
+                  key={getItemKey(item)}
+                  className="en-lc-row"
+                  data-selected={selected || undefined}
+                >
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    className="en-lc-row-hit"
+                    title={label}
+                    onClick={() => onItemChoose(item)}
                   >
-                    <div className="flex-1 min-w-0">{node}</div>
-                    <div className="ml-auto shrink-0 flex items-center justify-end gap-[2px]">
-                      {renderItemActions(item)}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                    <span
+                      className="en-lc-row-label"
+                      style={getItemLabelStyle?.(item)}
+                    >
+                      {label}
+                    </span>
+                    {selected && (
+                      <span className="en-lc-row-check">
+                        <CheckIcon />
+                      </span>
+                    )}
+                  </button>
+                  {trailing && (
+                    <span className="en-lc-row-trailing">{trailing}</span>
+                  )}
+                </div>
+              );
+            })
+          )}
         </div>
 
-        <div className="h-[1px] bg-[#2A2A30] -mx-[8px]" />
-
-        <button
-          type="button"
-          className="w-full h-[23px] flex items-center justify-center rounded-[7px] bg-[#2A2A30] hover:bg-[#303036] active:bg-[#393941] transition-colors"
-          onClick={onAdd}
-        >
-          {addButtonContent}
-        </button>
-
-        {isLoading ? (
-          <p className="text-[#9FA3B2] text-style-4 text-center">
-            {loadingText}
+        {errorText && (
+          <p className="en-lc-note" role="alert" data-tone="error">
+            {errorText}
           </p>
-        ) : null}
+        )}
 
-        {errorText ? (
-          <p className="text-[#E6A7A7] text-style-4 text-center">{errorText}</p>
-        ) : null}
+        <button type="button" className="en-lc-add" onClick={onAdd}>
+          <span className="en-lc-add-icon">
+            <PlusIcon />
+          </span>
+          <span className="en-lc-add-label">{addLabel}</span>
+        </button>
       </div>
     </FloatingPopup>
   );

@@ -125,6 +125,7 @@ fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOpera
 pub async fn preset_save_tab(
     app: AppHandle,
     window: WebviewWindow,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     let preset_file = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .set_file_name("preset-tab.json")
@@ -138,16 +139,24 @@ pub async fn preset_save_tab(
         });
     };
     let path = file.path().to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || preset_save_tab_from_path(app, path))
+    tauri::async_runtime::spawn_blocking(move || preset_save_tab_from_path(app, path, tab_id))
         .await
         .map_err(|error| CommandError::msg(format!("tab preset export task failed: {error}")))?
 }
 
-fn preset_save_tab_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
+/// Saves one key viewer: the one named by `tab_id`, or the one being edited.
+fn preset_save_tab_from_path(
+    app: AppHandle,
+    path: PathBuf,
+    tab_id: Option<String>,
+) -> CmdResult<PresetOperationResult> {
     let state = app.state::<AppState>();
 
     let snapshot = state.store.snapshot();
-    let tab_id = snapshot.selected_key_type.clone();
+    let tab_id = tab_id.unwrap_or_else(|| snapshot.selected_key_type.clone());
+    if !snapshot.keys.contains_key(&tab_id) {
+        return Err(CommandError::msg("tab-not-found"));
+    }
 
     // 단일 탭 맵 구성 (embed helper용)
     let mut tab_key_positions: KeyPositions = HashMap::new();

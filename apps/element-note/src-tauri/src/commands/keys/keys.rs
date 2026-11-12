@@ -986,22 +986,25 @@ pub async fn keys_reset_counters_mode(
     .await
 }
 
+/// Sets one key's count; 0 resets it.
 #[tauri::command]
-pub async fn keys_reset_single_counter(
+pub async fn keys_set_single_counter(
     app: AppHandle,
     window: WebviewWindow,
     mode: String,
     key: String,
+    value: u32,
     observed_history_epoch: Option<u64>,
 ) -> CmdResult<KeyCounters> {
     run_history_mutation(
         app,
         window.label().to_string(),
         move |app, state, admission| {
-            let mutation = state.reset_single_key_counter_with_admission(
+            let mutation = state.set_single_key_counter_with_admission(
                 app,
                 &mode,
                 &key,
+                value,
                 observed_history_epoch,
                 admission,
             )?;

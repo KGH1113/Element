@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useSettingsStore } from '@stores/useSettingsStore';
 import {
   useGridSelectionStore,
   type SelectedElement,
@@ -15,6 +16,7 @@ import {
 import { useKeyStore } from '@stores/data/useKeyStore';
 import { ARROW_KEY_HISTORY_DELAY } from './constants';
 import { isMac } from '@utils/core/platform';
+import { isTextEntry, shortcutLetter } from '@utils/core/keyboardInput';
 import {
   groupSelectedElements,
   ungroupSelectedElements,
@@ -68,16 +70,10 @@ export function useGridKeyboard({
         return;
       }
       // 입력 요소에서는 무시
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
+      if (isTextEntry(e.target)) return;
 
       const isPrimaryModifierPressed = macOS ? e.metaKey : e.ctrlKey;
+      const letter = shortcutLetter(e);
 
       // Ctrl/Cmd + G: 선택 요소 그룹화
       if (isPrimaryModifierPressed && !e.shiftKey && e.code === 'KeyG') {
@@ -100,7 +96,7 @@ export function useGridKeyboard({
       }
 
       // Ctrl+C: 복사 (선택된 요소가 있을 때)
-      if (isPrimaryModifierPressed && e.key.toLowerCase() === 'c') {
+      if (isPrimaryModifierPressed && letter === 'c') {
         if (selectedElements.length > 0) {
           e.preventDefault();
           copySelectedElements();
@@ -109,7 +105,7 @@ export function useGridKeyboard({
       }
 
       // Ctrl+V: 붙여넣기 (스토어에서 직접 클립보드 확인)
-      if (isPrimaryModifierPressed && e.key.toLowerCase() === 'v') {
+      if (isPrimaryModifierPressed && letter === 'v') {
         const currentClipboard = useGridSelectionStore.getState().clipboard;
         if (currentClipboard.length > 0) {
           e.preventDefault();
@@ -126,21 +122,30 @@ export function useGridKeyboard({
       if (arrowKeys.includes(e.key)) {
         e.preventDefault();
 
+        // One unit at a time; with Shift, one step of the grid.
+        const step = e.shiftKey
+          ? Math.max(
+              1,
+              Math.round(
+                useSettingsStore.getState().gridSettings?.gridSnapSize ?? 5,
+              ),
+            )
+          : 1;
         let deltaX = 0;
         let deltaY = 0;
 
         switch (e.key) {
           case 'ArrowUp':
-            deltaY = -1;
+            deltaY = -step;
             break;
           case 'ArrowDown':
-            deltaY = 1;
+            deltaY = step;
             break;
           case 'ArrowLeft':
-            deltaX = -1;
+            deltaX = -step;
             break;
           case 'ArrowRight':
-            deltaX = 1;
+            deltaX = step;
             break;
         }
 
@@ -204,33 +209,23 @@ export function useGridKeyboard({
         return;
       }
       // 입력 요소에서는 단축키 무시
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        return;
-      }
+      if (isTextEntry(e.target)) return;
 
       const isPrimaryModifierPressed = macOS ? e.metaKey : e.ctrlKey;
+      if (!isPrimaryModifierPressed) return;
+      const letter = shortcutLetter(e);
 
       // Ctrl+Z: 실행 취소
-      if (
-        isPrimaryModifierPressed &&
-        !e.shiftKey &&
-        e.key.toLowerCase() === 'z'
-      ) {
+      if (!e.shiftKey && letter === 'z') {
         e.preventDefault();
         if (canUndo && typeof onUndo === 'function') {
           onUndo();
         }
       }
-      // Ctrl+Shift+Z: 다시 실행
+      // Ctrl+Shift+Z, Windows에서는 Ctrl+Y도: 다시 실행
       else if (
-        isPrimaryModifierPressed &&
-        e.shiftKey &&
-        e.key.toLowerCase() === 'z'
+        (e.shiftKey && letter === 'z') ||
+        (!macOS && !e.shiftKey && letter === 'y')
       ) {
         e.preventDefault();
         if (canRedo && typeof onRedo === 'function') {
@@ -242,4 +237,20 @@ export function useGridKeyboard({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [macOS, canUndo, canRedo, onUndo, onRedo]);
+
+  // 캔버스를 누르면 다른 곳의 입력 칸에서 나온다. 요소를 누를 때는 포커스가 옮겨 가지 않아
+  // 실행 취소·삭제·방향키가 계속 그 입력 칸으로 가기 때문이다. 입력 칸은 떠나며 값을 확정한다.
+  useEffect(() => {
+    const handlePress = (e: PointerEvent) => {
+      const focused = document.activeElement;
+      if (!isTextEntry(focused)) return;
+      const canvas =
+        e.target instanceof Element
+          ? e.target.closest('[data-grid-container]')
+          : null;
+      if (canvas && !canvas.contains(focused)) focused.blur();
+    };
+    window.addEventListener('pointerdown', handlePress, true);
+    return () => window.removeEventListener('pointerdown', handlePress, true);
+  }, []);
 }

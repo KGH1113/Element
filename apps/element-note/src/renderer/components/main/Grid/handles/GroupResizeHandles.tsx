@@ -1,14 +1,7 @@
 import React, { useRef, useState } from 'react';
-import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
-import { useSettingsStore } from '@stores/useSettingsStore';
-import {
-  calculateBounds,
-  calculateSnapPoints,
-  calculateSizeSnap,
-  type ElementBounds as SmartGuideElementBounds,
-  type SizeSnapResult,
-  type SpacingGuide,
-} from '@utils/grid/smartGuides';
+import { MIN_ELEMENT_SIZE } from '@hooks/Grid/constants';
+import { clearSnapGuides, resizeWithSnap } from '@hooks/Grid/snapSession';
+import { type ElementBounds as SmartGuideElementBounds } from '@utils/grid/smartGuides';
 import {
   type CursorType,
   getCursor,
@@ -20,6 +13,7 @@ import type { KeyPositions } from '@src/types/key/keys';
 import type { StatItemPositions } from '@src/types/key/statItems';
 import type { GraphItemPositions } from '@src/types/key/graphItems';
 import type { KnobItemPositions } from '@src/types/key/knobs';
+import type { SpritePositions } from '@src/types/key/sprites';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import {
   isElementResizable,
@@ -60,6 +54,7 @@ interface GroupResizeHandlesProps {
   statPositions: StatItemPositions;
   graphPositions: GraphItemPositions;
   knobPositions: KnobItemPositions;
+  spritePositions: SpritePositions;
   selectedKeyType: string;
   pluginElements: PluginDisplayElementInternal[];
   zoom?: number;
@@ -94,7 +89,7 @@ const CORNER_HANDLE_SIZE = 10; // 꼭짓점 핸들의 시각적 크기 (픽셀)
 const EDGE_HANDLE_WIDTH = 8; // 상하좌우 핸들의 두께 (픽셀)
 const EDGE_HANDLE_LENGTH = 18; // 상하좌우 핸들의 길이 (픽셀)
 const HANDLE_HIT_SIZE = 18; // 핸들의 클릭 가능 영역 크기 (픽셀)
-const MIN_SIZE = 10; // 최소 크기 (픽셀)
+const MIN_SIZE = MIN_ELEMENT_SIZE;
 const GROUP_BORDER_WIDTH = 3; // 그룹 테두리 두께 (픽셀)
 // ================================
 
@@ -223,6 +218,7 @@ const GroupResizeHandles = ({
   statPositions,
   graphPositions,
   knobPositions,
+  spritePositions,
   selectedKeyType,
   pluginElements,
   zoom = 1,
@@ -252,6 +248,7 @@ const GroupResizeHandles = ({
     statPositions,
     graphPositions,
     knobPositions,
+    spritePositions,
     selectedKeyType,
     pluginElements,
   );
@@ -265,6 +262,7 @@ const GroupResizeHandles = ({
       statPositions,
       graphPositions,
       knobPositions,
+      spritePositions,
       selectedKeyType,
       pluginElements,
     ),
@@ -291,6 +289,7 @@ const GroupResizeHandles = ({
           statPositions,
           graphPositions,
           knobPositions,
+          spritePositions,
           selectedKeyType,
           pluginElements,
         ),
@@ -304,6 +303,7 @@ const GroupResizeHandles = ({
           statPositions,
           graphPositions,
           knobPositions,
+          spritePositions,
           selectedKeyType,
           pluginElements,
         ),
@@ -368,288 +368,49 @@ const GroupResizeHandles = ({
       const rawDeltaX = (moveEvent.clientX - startMouseX) / zoom;
       const rawDeltaY = (moveEvent.clientY - startMouseY) / zoom;
 
-      // store에서 스냅 크기 가져오기
-      const snapSize =
-        useSettingsStore.getState().gridSettings?.gridSnapSize || 5;
-
-      const snapDelta = (delta: number): number =>
-        Math.round(delta / snapSize) * snapSize;
-
-      const clampShrinkDelta = (
-        delta: number,
-        handleDir: -1 | 0 | 1,
-        maxShrink: number,
-      ): number => {
-        if (!Number.isFinite(maxShrink) || maxShrink <= 0) return delta;
-        const maxSnapped = Math.floor(maxShrink / snapSize) * snapSize;
-        if (handleDir === -1) {
-          return Math.min(delta, maxSnapped);
-        }
-        if (handleDir === 1) {
-          return Math.max(delta, -maxSnapped);
-        }
-        return delta;
+      // The group may shrink only until its smallest element is as small
+      // as an element may be.
+      const leastOf = (size: number, maxShrink: number) =>
+        Number.isFinite(maxShrink) && maxShrink > 0
+          ? Math.max(MIN_SIZE, Math.ceil(size - maxShrink))
+          : MIN_SIZE;
+      const least = {
+        x: leastOf(startGroupBounds.width, maxShrinkX),
+        y: leastOf(startGroupBounds.height, maxShrinkY),
       };
 
-      let snappedDeltaX = handle.dx !== 0 ? snapDelta(rawDeltaX) : 0;
-      let snappedDeltaY = handle.dy !== 0 ? snapDelta(rawDeltaY) : 0;
-
-      if (handle.dx !== 0) {
-        snappedDeltaX = clampShrinkDelta(snappedDeltaX, handle.dx, maxShrinkX);
-      }
-      if (handle.dy !== 0) {
-        snappedDeltaY = clampShrinkDelta(snappedDeltaY, handle.dy, maxShrinkY);
-      }
-
-      // 새 그룹 bounds 계산
-      let newGroupX = startGroupBounds.x;
-      let newGroupY = startGroupBounds.y;
-      let newGroupWidth = startGroupBounds.width;
-      let newGroupHeight = startGroupBounds.height;
-
-      // 핸들 방향에 따라 크기 조정
+      // Where the pointer puts the pulled edges of the box around the group.
+      let left = startGroupBounds.x;
+      let top = startGroupBounds.y;
+      let right = left + startGroupBounds.width;
+      let bottom = top + startGroupBounds.height;
       if (handle.dx === -1) {
-        newGroupWidth = Math.max(
-          MIN_SIZE,
-          startGroupBounds.width - snappedDeltaX,
-        );
-        if (newGroupWidth > MIN_SIZE) {
-          newGroupX = startGroupBounds.x + snappedDeltaX;
-        } else {
-          newGroupX = startGroupBounds.x + startGroupBounds.width - MIN_SIZE;
-        }
+        left = Math.min(left + rawDeltaX, right - least.x);
       } else if (handle.dx === 1) {
-        newGroupWidth = Math.max(
-          MIN_SIZE,
-          startGroupBounds.width + snappedDeltaX,
-        );
+        right = Math.max(right + rawDeltaX, left + least.x);
       }
-
       if (handle.dy === -1) {
-        newGroupHeight = Math.max(
-          MIN_SIZE,
-          startGroupBounds.height - snappedDeltaY,
-        );
-        if (newGroupHeight > MIN_SIZE) {
-          newGroupY = startGroupBounds.y + snappedDeltaY;
-        } else {
-          newGroupY = startGroupBounds.y + startGroupBounds.height - MIN_SIZE;
-        }
+        top = Math.min(top + rawDeltaY, bottom - least.y);
       } else if (handle.dy === 1) {
-        newGroupHeight = Math.max(
-          MIN_SIZE,
-          startGroupBounds.height + snappedDeltaY,
-        );
+        bottom = Math.max(bottom + rawDeltaY, top + least.y);
       }
 
-      // 최소 크기 보장
-      newGroupWidth = Math.max(MIN_SIZE, newGroupWidth);
-      newGroupHeight = Math.max(MIN_SIZE, newGroupHeight);
-
-      // === 스마트 가이드 스냅 적용 (그룹 바운딩 박스 기준) ===
-      const smartGuidesStore = useSmartGuidesStore.getState();
-      const gridSettings = useSettingsStore.getState().gridSettings;
-      const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-      const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-      const sizeMatchGuidesEnabled = gridSettings?.sizeMatchGuides !== false;
-
-      // 선택된 요소들의 ID 수집 (스마트 가이드에서 제외)
+      // The group's box settles by the same rule as a single element's.
       const selectedIds = selectedElements.map((el) =>
         el.type === 'key' ? `key-${el.index}` : el.id,
       );
-
-      if (getOtherElements && alignmentGuidesEnabled) {
-        const otherElements = getOtherElements(selectedIds);
-
-        // 그룹 바운딩 박스를 기준으로 스냅 계산
-        const groupBoundsForSnap = calculateBounds(
-          newGroupX,
-          newGroupY,
-          newGroupWidth,
-          newGroupHeight,
-          'group',
-        );
-
-        const snapResult = calculateSnapPoints(
-          groupBoundsForSnap,
-          otherElements,
-          undefined,
-          { disableSpacing: !spacingGuidesEnabled },
-        );
-
-        // X축 스냅 적용
-        if (
-          handle.dx !== 0 &&
-          snapResult.didSnapX &&
-          !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)
-        ) {
-          if (handle.dx === -1) {
-            // 왼쪽 핸들: 왼쪽 가장자리 스냅
-            const widthDiff = newGroupX - snapResult.snappedX;
-            newGroupX = snapResult.snappedX;
-            newGroupWidth = newGroupWidth + widthDiff;
-          } else if (handle.dx === 1) {
-            // 오른쪽 핸들: 오른쪽 가장자리 스냅
-            const snappedRight = snapResult.snappedX + groupBoundsForSnap.width;
-            newGroupWidth = snappedRight - newGroupX;
-          } else if (handle.dx === 0) {
-            // 수직 핸들 (상/하): 중앙 정렬 스냅
-            newGroupX = snapResult.snappedX;
-          }
-        }
-
-        // Y축 스냅 적용
-        if (
-          handle.dy !== 0 &&
-          snapResult.didSnapY &&
-          !(snapResult.didSpacingSnapY && !spacingGuidesEnabled)
-        ) {
-          if (handle.dy === -1) {
-            // 위쪽 핸들: 위쪽 가장자리 스냅
-            const heightDiff = newGroupY - snapResult.snappedY;
-            newGroupY = snapResult.snappedY;
-            newGroupHeight = newGroupHeight + heightDiff;
-          } else if (handle.dy === 1) {
-            // 아래쪽 핸들: 아래쪽 가장자리 스냅
-            const snappedBottom =
-              snapResult.snappedY + groupBoundsForSnap.height;
-            newGroupHeight = snappedBottom - newGroupY;
-          } else if (handle.dy === 0) {
-            // 수평 핸들 (좌/우): 중앙 정렬 스냅
-            newGroupY = snapResult.snappedY;
-          }
-        }
-
-        // Size Matching: 다른 요소와 동일한 크기로 스냅
-        let sizeSnapResult: SizeSnapResult | null = null;
-        if (sizeMatchGuidesEnabled) {
-          sizeSnapResult = calculateSizeSnap(
-            newGroupWidth,
-            newGroupHeight,
-            otherElements,
-            'group',
-          );
-
-          if (sizeSnapResult.didSnapWidth) {
-            if (handle.dx === -1) {
-              newGroupX =
-                newGroupX - (sizeSnapResult.snappedWidth - newGroupWidth);
-            }
-            newGroupWidth = sizeSnapResult.snappedWidth;
-          }
-
-          if (sizeSnapResult.didSnapHeight) {
-            if (handle.dy === -1) {
-              newGroupY =
-                newGroupY - (sizeSnapResult.snappedHeight - newGroupHeight);
-            }
-            newGroupHeight = sizeSnapResult.snappedHeight;
-          }
-        }
-
-        // 가이드라인 업데이트
-        const hasAlignSnap =
-          (handle.dx !== 0 &&
-            snapResult.didSnapX &&
-            !(snapResult.didSpacingSnapX && !spacingGuidesEnabled)) ||
-          (handle.dy !== 0 &&
-            snapResult.didSnapY &&
-            !(snapResult.didSpacingSnapY && !spacingGuidesEnabled));
-        const hasSizeSnap =
-          sizeSnapResult &&
-          (sizeSnapResult.didSnapWidth || sizeSnapResult.didSnapHeight);
-
-        if (hasAlignSnap || hasSizeSnap) {
-          const snappedBounds = calculateBounds(
-            newGroupX,
-            newGroupY,
-            newGroupWidth,
-            newGroupHeight,
-            'group',
-          );
-          smartGuidesStore.setDraggedBounds(snappedBounds);
-
-          if (hasAlignSnap) {
-            smartGuidesStore.setActiveGuides(snapResult.guides);
-            if (
-              spacingGuidesEnabled &&
-              snapResult.spacingGuides &&
-              snapResult.spacingGuides.length > 0
-            ) {
-              // 핸들 방향에 따라 간격 가이드 필터링
-              const filteredSpacingGuides = snapResult.spacingGuides.filter(
-                (guide: SpacingGuide) => {
-                  // 수평 방향 간격 가이드 (좌우 간격)
-                  if (guide.direction === 'horizontal') {
-                    // 좌우 핸들이 아니면 표시 안 함
-                    if (handle.dx === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 표시
-                    const isDraggedElement =
-                      guide.fromElementId === 'group' ||
-                      guide.toElementId === 'group';
-
-                    if (!isDraggedElement) return false;
-
-                    // 왼쪽 핸들(dx: -1): 왼쪽 간격만 표시
-                    if (handle.dx === -1) {
-                      return guide.toElementId === 'group';
-                    }
-                    // 오른쪽 핸들(dx: 1): 오른쪽 간격만 표시
-                    if (handle.dx === 1) {
-                      return guide.fromElementId === 'group';
-                    }
-                  }
-
-                  // 수직 방향 간격 가이드 (상하 간격)
-                  if (guide.direction === 'vertical') {
-                    // 상하 핸들이 아니면 표시 안 함
-                    if (handle.dy === 0) return false;
-
-                    // 드래그 중인 요소와 관련된 가이드만 표시
-                    const isDraggedElement =
-                      guide.fromElementId === 'group' ||
-                      guide.toElementId === 'group';
-
-                    if (!isDraggedElement) return false;
-
-                    // 위쪽 핸들(dy: -1): 위쪽 간격만 표시
-                    if (handle.dy === -1) {
-                      return guide.toElementId === 'group';
-                    }
-                    // 아래쪽 핸들(dy: 1): 아래쪽 간격만 표시
-                    if (handle.dy === 1) {
-                      return guide.fromElementId === 'group';
-                    }
-                  }
-
-                  return false;
-                },
-              );
-              smartGuidesStore.setSpacingGuides(filteredSpacingGuides);
-            } else {
-              smartGuidesStore.setSpacingGuides([]);
-            }
-          } else {
-            smartGuidesStore.setActiveGuides([]);
-            smartGuidesStore.setSpacingGuides([]);
-          }
-
-          if (hasSizeSnap) {
-            smartGuidesStore.setSizeMatchGuides(
-              sizeSnapResult!.sizeMatchGuides,
-            );
-          } else {
-            smartGuidesStore.setSizeMatchGuides([]);
-          }
-        } else {
-          smartGuidesStore.clearGuides();
-        }
-      }
-
-      // 최소 크기 재보장 (스마트 가이드 스냅 후)
-      newGroupWidth = Math.max(MIN_SIZE, newGroupWidth);
-      newGroupHeight = Math.max(MIN_SIZE, newGroupHeight);
+      const settled = resizeWithSnap({
+        pointed: { id: 'group', left, top, right, bottom },
+        pulled: { x: handle.dx, y: handle.dy },
+        targets: getOtherElements ? getOtherElements(selectedIds) : [],
+        zoom,
+        suspended: moveEvent.altKey,
+        minSize: least,
+      });
+      const newGroupX = settled.left;
+      const newGroupY = settled.top;
+      const newGroupWidth = settled.right - settled.left;
+      const newGroupHeight = settled.bottom - settled.top;
 
       // 스케일 비율 계산 (스냅 적용된 그룹 bounds 기준)
       const scaleX =
@@ -666,21 +427,24 @@ const GroupResizeHandles = ({
           const relativeX = bounds.x - startGroupBounds.x;
           const relativeY = bounds.y - startGroupBounds.y;
 
-          // 새 위치 계산 (스케일 적용)
-          const newX = newGroupX + relativeX * scaleX;
-          const newY = newGroupY + relativeY * scaleY;
-          const newWidth = bounds.width * scaleX;
-          const newHeight = bounds.height * scaleY;
-
-          // 내부 요소는 스케일만 적용해 비율을 유지한다. (스냅은 그룹 bounds에서만 처리)
+          // Each edge is scaled and then put on a whole unit. Rounding edges
+          // (not sizes) keeps elements that touched each other touching.
+          const elementLeft = Math.round(newGroupX + relativeX * scaleX);
+          const elementTop = Math.round(newGroupY + relativeY * scaleY);
+          const elementRight = Math.round(
+            newGroupX + (relativeX + bounds.width) * scaleX,
+          );
+          const elementBottom = Math.round(
+            newGroupY + (relativeY + bounds.height) * scaleY,
+          );
 
           return {
             element,
             bounds: {
-              x: newX,
-              y: newY,
-              width: newWidth,
-              height: newHeight,
+              x: elementLeft,
+              y: elementTop,
+              width: Math.max(1, elementRight - elementLeft),
+              height: Math.max(1, elementBottom - elementTop),
             },
           };
         },
@@ -717,7 +481,7 @@ const GroupResizeHandles = ({
     const handleMouseUp = () => {
       resizeRef.current.isResizing = false;
       // 스마트 가이드 클리어
-      useSmartGuidesStore.getState().clearGuides();
+      clearSnapGuides();
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);
@@ -781,6 +545,7 @@ const GroupResizeHandles = ({
           statPositions,
           graphPositions,
           knobPositions,
+          spritePositions,
           selectedKeyType,
           pluginElements,
         );

@@ -19,12 +19,12 @@ internal static class NativeViewerStatusText
         "Loading the key viewer from ElementNote…"
       ),
       NativeViewerStatus.ObsModeOff => UiLocale.L(
-        "ElementNote에서 OBS 모드를 켜면 키뷰어가 표시돼요.",
-        "Turn on OBS mode in ElementNote to show the key viewer."
+        "ElementNote 설정의 '보여 줄 곳'에서 '얼불춤 안'을 껐다 켜면 키뷰어가 표시돼요.",
+        "Turn Inside ADOFAI off and on under Settings > Where to show in ElementNote to show the key viewer."
       ),
       NativeViewerStatus.HiddenInApp => UiLocale.L(
-        "ElementNote에서 '얼불춤 안에 표시'를 켜면 키뷰어가 표시돼요.",
-        "Turn on Show inside ADOFAI in ElementNote to show the key viewer."
+        "ElementNote 설정의 '보여 줄 곳'에서 '얼불춤 안'을 켜면 키뷰어가 표시돼요.",
+        "Turn on Inside ADOFAI under Settings > Where to show in ElementNote to show the key viewer."
       ),
       NativeViewerStatus.NoViewerTab => UiLocale.L(
         "ElementNote에서 이 키뷰어의 탭을 선택하면 여기에 표시돼요.",
@@ -47,8 +47,8 @@ internal static class NativeViewerStatusText
         "Update ElementNote and the mod to the latest version to use the key viewer."
       ),
       NativeViewerStatus.PageUnavailable => UiLocale.L(
-        "ElementNote에서 OBS 모드를 껐다 켜면 키뷰어를 다시 불러올 수 있어요.",
-        "Turn OBS mode off and on in ElementNote to load the key viewer again."
+        "ElementNote 설정의 '보여 줄 곳'에서 '얼불춤 안'을 껐다 켜면 키뷰어를 다시 불러올 수 있어요.",
+        "Turn Inside ADOFAI off and on under Settings > Where to show in ElementNote to load the key viewer again."
       ),
       NativeViewerStatus.WindowUnavailable => UiLocale.L(
         "게임 창으로 돌아오거나 창 모드로 바꾸면 키뷰어를 다시 붙일 수 있어요.",

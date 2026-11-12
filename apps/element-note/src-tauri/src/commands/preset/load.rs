@@ -99,7 +99,7 @@ fn resolve_full_preset_settings(
             .note_settings
             .take()
             .unwrap_or_else(|| current.note_settings.clone()),
-        note_effect: preset.note_effect.unwrap_or(current.note_effect),
+        note_effect: preset.note_effect.unwrap_or(true),
         laboratory_enabled: preset
             .laboratory_enabled
             .unwrap_or(current.laboratory_enabled),
@@ -257,6 +257,11 @@ fn preset_load_from_path(
     // 구조가 어긋난 것도 id로 결합이 확정되면 여기서 메운다. 아래 검증에 남는 것은
     // 대응을 추측해야 하는 손상뿐이다
     reconcile_custom_tab_metadata(&mut custom_tabs, &mut keys, &mut positions);
+    // A preset saved with Raining switched off for every key keeps that look:
+    // the retired switch becomes each key's own setting.
+    if !resolved_settings.note_effect {
+        crate::state::migration::hide_raining_on_every_key(&mut positions);
+    }
     // 정렬은 화해가 끝난 목록을 봐야 한다. 고아 모드에서 살아난 탭도 순서에 들어간다
     let tab_order = preset
         .tab_order
@@ -446,6 +451,7 @@ fn preset_load_from_path(
 pub async fn preset_load_tab(
     app: AppHandle,
     window: WebviewWindow,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     let picked = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .pick_file()
@@ -460,16 +466,19 @@ pub async fn preset_load_tab(
     let path = file.path().to_path_buf();
     let window_label = window.label().to_string();
     run_blocking(app, move |app, state| {
-        preset_load_tab_from_path(app, state, &window_label, path)
+        preset_load_tab_from_path(app, state, &window_label, path, tab_id)
     })
     .await
 }
 
+/// Loads a preset into one key viewer: the one named by `tab_id`, or the one
+/// being edited.
 fn preset_load_tab_from_path(
     app: &AppHandle,
     state: &AppState,
     window_label: &str,
     path: PathBuf,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     state.ensure_mutation_allowed().map_err(CommandError::msg)?;
     let preset = read_preset_file(&path)?;
@@ -492,9 +501,15 @@ fn preset_load_tab_from_path(
         ..
     } = preset;
 
-    let (current_tab_id, existing_font_settings) = state
-        .store
-        .with_state(|store| (store.selected_key_type.clone(), store.font_settings.clone()));
+    let (current_tab_id, existing_font_settings) = state.store.with_state(|store| {
+        let target = match tab_id {
+            Some(id) if store.keys.contains_key(&id) => Ok(id),
+            Some(_) => Err(CommandError::msg("tab-not-found")),
+            None => Ok(store.selected_key_type.clone()),
+        };
+        (target, store.font_settings.clone())
+    });
+    let current_tab_id = current_tab_id?;
 
     let mut imported_keys = keys.unwrap_or_default();
     normalize_key_mappings(&mut imported_keys);

@@ -13,6 +13,31 @@ export function installFrozenShim(
 ) {
   const bootstrap = structuredClone(snapshot);
   const settings = bootstrap.settings;
+  // Older recordings used a master switch. Preserve their appearance in this
+  // private copy before retiring it; statistics keep their independent display.
+  if (settings.keyCounterEnabled !== true) {
+    for (const positions of Object.values(bootstrap.positions ?? {})) {
+      for (const position of positions) {
+        position.counter = { ...position.counter, enabled: false };
+        const secondKey = position.ghost?.settings;
+        if (secondKey) {
+          secondKey.counter = { ...secondKey.counter, enabled: false };
+        }
+      }
+    }
+  }
+  settings.keyCounterEnabled = true;
+  // The same for recordings made with Raining switched off for every key.
+  if (settings.noteEffect === false) {
+    for (const positions of Object.values(bootstrap.positions ?? {})) {
+      for (const position of positions) {
+        position.noteEffectEnabled = false;
+        const secondKey = position.ghost?.settings;
+        if (secondKey) secondKey.noteEffectEnabled = false;
+      }
+    }
+  }
+  settings.noteEffect = true;
   settings.backgroundColor = 'transparent';
   settings.noteSettings.frameLimit = 0;
   localStorage.setItem('dmnote:locale', settings.language);
@@ -208,7 +233,7 @@ export function installFrozenShim(
     emit,
     counters,
     storage,
-    counterEnabled: settings.keyCounterEnabled,
+    counterEnabled: true,
     ready: () =>
       [...listeners.values()].some((entry) => entry.event === 'keys:state') &&
       [...listeners.values()].some((entry) => entry.event === 'keys:counter'),

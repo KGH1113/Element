@@ -5,6 +5,7 @@ import type { KeyPosition } from '@src/types/key/keys';
 // ============================================================================
 
 export const TABS = {
+  INPUT: 'input',
   STYLE: 'style',
   NOTE: 'note',
   COUNTER: 'counter',
@@ -12,14 +13,7 @@ export const TABS = {
 
 export type TabType = (typeof TABS)[keyof typeof TABS];
 
-// 레이어 패널 탭 상수
-export const LAYER_PANEL_TABS = {
-  LAYER: 'layer',
-  GRID: 'grid',
-} as const;
-
-export type LayerPanelTabType =
-  (typeof LAYER_PANEL_TABS)[keyof typeof LAYER_PANEL_TABS];
+export type InspectorAction = 'input' | 'layout' | 'style' | 'note' | 'counter';
 
 // ============================================================================
 // 컴포넌트 Props 타입
@@ -53,6 +47,11 @@ export interface NumberInputProps {
   disabled?: boolean;
   isMixed?: boolean;
   mixedPlaceholder?: string;
+  /**
+   * What the number stands for. On a sidebar page a number with a small range
+   * is also a slider, and this is drawn beside it, following the value.
+   */
+  visual?: import('./RangeTrack').RangeVisual;
 }
 
 export interface OptionalNumberInputProps {
@@ -85,6 +84,10 @@ export interface ColorInputProps {
   showStateTabs?: boolean;
   stateMode?: 'idle' | 'active';
   onStateModeChange?: (mode: 'idle' | 'active') => void;
+  /** What is colored; names the two states of a color that has both. */
+  label?: string;
+  /** With both states: the selected elements do not agree on that color. */
+  mixed?: { idle?: boolean; active?: boolean };
   colorId?: string;
   solidOnly?: boolean;
   panelElement?: HTMLElement | null;
@@ -185,24 +188,12 @@ export interface StyleTabContentProps {
   keyPosition: KeyPosition;
   keyCode: string | null;
   keyInfo: { globalKey: string; displayName: string } | null;
-  onPositionChange: (index: number, dx: number, dy: number) => void;
   onKeyUpdate: (data: Partial<KeyPosition> & { index: number }) => void;
   onKeyPreview?: (index: number, updates: Partial<KeyPosition>) => void;
-  onKeyMappingChange?: (index: number, newKey: string) => void;
-  isListening?: boolean;
-  onKeyListen?: () => void;
-  // 키 매핑 UI를 대체하는 커스텀 컨트롤 (통계 요소 등)
-  mappingControl?: React.ReactNode;
-  // 키 매핑 영역을 통째로 대체하는 커스텀 레이아웃 (다중 라인 라벨 등)
-  mappingControlLayout?: React.ReactNode;
-  mappingLabel?: string;
   // 표시 텍스트 입력 숨김 (통계 요소는 statType이 displayText 역할)
   hideDisplayText?: boolean;
   // 표시 텍스트가 비었을 때 보여 줄 값 (고스트 키는 원래 키 이름을 따른다)
   displayTextPlaceholder?: string;
-  // 위치·크기 숨김 (고스트 키는 원래 키의 위치·크기를 따른다)
-  hideGeometry?: boolean;
-  showSoundControls?: boolean;
   showImagePicker?: boolean;
   onToggleImagePicker?: () => void;
   imageButtonRef?: React.RefObject<HTMLButtonElement>;
@@ -216,6 +207,8 @@ export interface NoteTabContentProps {
   keyPosition: KeyPosition;
   onKeyUpdate: (data: Partial<KeyPosition> & { index: number }) => void;
   onKeyPreview?: (index: number, updates: Partial<KeyPosition>) => void;
+  /** Draws a look on the canvas while it is pointed at, or stops (null). */
+  onChoicePreview?: (changes: Partial<KeyPosition> | null) => void;
   panelElement?: HTMLElement | null;
   t: (key: string) => string;
 }
@@ -226,6 +219,14 @@ export interface CounterTabContentProps {
   keyDisplayName?: string;
   isStat?: boolean;
   onKeyUpdate: (data: Partial<KeyPosition> & { index: number }) => void;
+  /** Draws a look on the canvas while it is pointed at, or stops (null). */
+  onChoicePreview?: (changes: Partial<KeyPosition> | null) => void;
+  /**
+   * The keyboard key the count is of, in its key viewer: the page ends with
+   * that count, which can be changed by hand. Absent for a stat or a face
+   * with no key.
+   */
+  countKey?: { mode: string; key: string };
   panelElement?: HTMLElement | null;
   t: (key: string) => string;
 }
@@ -246,7 +247,7 @@ export interface KeyData {
 // ============================================================================
 
 export interface LayerItem {
-  type: 'key' | 'stat' | 'graph' | 'knob' | 'plugin';
+  type: 'key' | 'stat' | 'graph' | 'knob' | 'sprite' | 'plugin';
   id: string;
   index?: number;
   name: string;

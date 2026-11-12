@@ -385,19 +385,36 @@ mod tests {
     }
 
     #[test]
-    fn starts_with_note_effects_and_obs_mode_on() {
+    fn starts_with_note_effects_and_the_game_display_on_and_obs_off() {
         with_initial_state(|first, dir| {
             assert!(first.note_effect);
-            assert!(first.obs_mode_enabled);
+            // The game display is the default output; OBS is an extra.
+            assert!(first.in_game_viewers_enabled);
+            assert!(!first.obs_mode_enabled);
+            // The desktop starts off, and a new store has nothing to migrate.
+            assert!(!first.overlay_visible);
+            assert!(first.outputs_separated);
 
-            // Turning them off sticks across launches.
+            // A saved OBS choice sticks across launches, on as well as off.
             let path = dir.join("store.json");
+            let mut on = first.clone();
+            on.obs_mode_enabled = true;
+            fs::write(&path, serde_json::to_string(&on).unwrap()).unwrap();
+            assert!(load_store_from_path(&path).unwrap().data.obs_mode_enabled);
+
+            // Raining no longer has a switch for every key: an old "off" moves
+            // onto each key instead.
             let mut off = first.clone();
             off.note_effect = false;
             off.obs_mode_enabled = false;
             fs::write(&path, serde_json::to_string(&off).unwrap()).unwrap();
             let reloaded = load_store_from_path(&path).unwrap().data;
-            assert!(!reloaded.note_effect);
+            assert!(reloaded.note_effect);
+            assert!(reloaded
+                .key_positions
+                .values()
+                .flatten()
+                .all(|position| !position.note_effect_enabled));
             assert!(!reloaded.obs_mode_enabled);
 
             // A store saved before the OBS setting existed gets the default.
@@ -405,7 +422,7 @@ mod tests {
             value.as_object_mut().unwrap().remove("obsModeEnabled");
             fs::write(&path, value.to_string()).unwrap();
             let older = load_store_from_path(&path).unwrap().data;
-            assert!(older.obs_mode_enabled);
+            assert!(!older.obs_mode_enabled);
         });
     }
 

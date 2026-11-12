@@ -86,7 +86,7 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Effects, Preset editor, General, Profiles (and ShortcutField) | done; ui-check 5026 assertions on the merge |
 | Dedupe stopgaps: SwitchCard/SwitchCards, WidthLayouts, WidthReader, CardRows, RaisePopover → ElementUI Grid(minColumnWidth:), ViewThatFits | in progress |
 | Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done; ui-check 5107 assertions on the merge |
-| Content editors: frame, bar and its parts, grow-from picker | in progress |
+| Content editors: the frame's top line, the bar and its buttons, Grow from | done |
 | Content editors: input dock and keypad, color picker form | next |
 | Mod element editor | next |
 | ElementKit `EditorPage` on ElementUI, `EditorSession` | next |
@@ -123,6 +123,13 @@ Becomes ElementUI (contents):
 | Grow-from picker | `Shell/OverlayGrowPicker`, `OverlayGrowPopover` | `GrowFrom` |
 | Color picker form | `Ui/ColorPicker/UiColorPicker` fields (title, hex, opacity, Highlight/Custom, reset, close), `Shell/OverlayEditorPicker`, `OverlayOpacityField` | `OverlayColorSettings`; plane, sliders and gradient bar stay custom |
 | Mod element editor | `Mods/OverlayModEditor`, `ModEditorPage` and parts | `ElementKit.EditorPage` is public: keep its API, implement it on ElementUI; `At(x, y)` needs a free-placement layer |
+
+Done: the frame's top line is `OverlayEditorFrameModel`/`View` on a panel the
+frame makes (`OverlayEditorFrame.Panel`, `NewBackend`); the bar is
+`OverlayEditorBar` showing `OverlayBarButtonModel`s, which the parts make and
+drive (their edit logic and undo stay in the part); Grow from's popover and the
+nine points are `OverlayGrowPickerModel` with `OverlayGrowPopoverView` and
+`OverlayGrowPointsView` (the mod element editor's anchor part mounts the points too).
 
 Editors open through `ContentElementKind<T>.Open` → `IContentEditor.Open(target, closed)`;
 Done/Cancel → `ContentElementKind.Closed` → `Session.Commit()`. Layout undo is

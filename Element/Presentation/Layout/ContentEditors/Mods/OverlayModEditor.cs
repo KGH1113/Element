@@ -9,7 +9,6 @@ using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
@@ -26,8 +25,6 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// </summary>
 internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 {
-  private const float BarHeight = 40;
-
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
@@ -38,8 +35,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private readonly Dictionary<string, int> _tabs = new();
   private readonly Event _event = new();
   private OverlayEditorFrame _screen;
-  private RectTransform _bar;
-  private OverlayBarButton _growButton;
+  private OverlayEditorBar _bar;
+  private OverlayBarButtonModel _growButton;
   private ModEditorPopovers _popovers;
   private ModEditorPage _page;
   private ModOverlayElement _element;
@@ -113,8 +110,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     );
     _guard.Screen = _screen;
     UiFactory ui = _screen.Ui;
-    BuildBar(ui);
-    float top = OverlayEditorFrame.TopBar + 8 + BarHeight + 24;
+    BuildBar();
+    float top = OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 24;
     float height = Mathf.Clamp(_screen.Height * .3f, 120, 280);
     _preview.BuildHolder(
       ui,
@@ -122,7 +119,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       new Rect(OverlayEditorFrame.Margin, top, _screen.Width - OverlayEditorFrame.Margin * 2, height),
       _fonts?.Invoke()
     );
-    _popovers = new ModEditorPopovers(_screen, _font, _reduceMotion, _fonts, _growButton, PickGrowth);
+    _popovers = new ModEditorPopovers(_screen, _font, _reduceMotion, _fonts, _bar.RectOf(_growButton), PickGrowth);
     _preview.BuildGrowMark(ui, _screen.Frame);
     if (!_preview.Create(_type, _element.Settings.Mod, _working))
       return;
@@ -130,20 +127,16 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     FitPreview();
   }
 
-  private void BuildBar(UiFactory ui)
+  private void BuildBar()
   {
-    UiCapsuleGraphic surface = ui.Capsule("Element bar", _screen.Frame, 0, 0, 10, BarHeight, UiPalette.Bar);
-    surface.raycastTarget = true;
-    _bar = surface.rectTransform;
-    _growButton = new OverlayBarButton(
-      ui,
-      _bar,
+    _growButton = new OverlayBarButtonModel(
       "Grow from",
       L("기준점", "Grow from"),
       ToggleGrow,
-      _reduceMotion(),
+      value: true,
       icon: UiIconKind.GrowFrom
     );
+    _bar = new OverlayEditorBar(_screen, "Element bar", _growButton);
   }
 
   // The mod's parts, laid out fresh; again after undo so they show the restored settings.
@@ -173,6 +166,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   }
 
   OverlayFonts IModEditorHost.Fonts => _fonts?.Invoke();
+
+  ElementUI.IBackend IModEditorHost.NewBackend() => _screen.NewBackend();
 
   int IModEditorHost.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
 
@@ -264,10 +259,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   {
     if (!_preview.Fit(_screen.Scale, out Vector2 box))
       return;
-    float barWidth = (BarHeight - OverlayBarButton.Height) + _growButton.Width;
-    _growButton.Set(OverlayGrowPicker.ShortName(_growth), false, _popovers.GrowOpen);
-    _growButton.Place((BarHeight - OverlayBarButton.Height) * .5f, (BarHeight - OverlayBarButton.Height) * .5f);
-    UiFactory.Place(_bar, (_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8, barWidth, BarHeight);
+    _growButton.Set(OverlayGrowPickerModel.ShortName(_growth), false, _popovers.GrowOpen);
+    float barWidth = _bar.LayOut();
+    _bar.Place((_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8);
     bool grow = _popovers.GrowOpen;
     _preview.PlaceGrowMark(box, grow, grow ? GrowPointNow() : default);
   }

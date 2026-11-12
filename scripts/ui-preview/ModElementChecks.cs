@@ -167,13 +167,33 @@ namespace Element.Editor
         // Tab 1: colors in a card, a slider, a switch, a choice and the nine points.
         CheckVisibleParts(mods2, name, "look");
         SaveFrame(camera, texture, canvases, name + "-mod-editor");
+
+        // Grow from on its bar, as in the text and shape editors: its popover hangs under it.
+        CheckEditorTopLine(mods2, "Mod element editor", L("미리보기 카드 편집", "Edit Preview card"));
+        OverlayBarButtonModel modGrow = Field<OverlayBarButtonModel>(mods2, "_growButton");
+        OverlayGrowth growth = Field<OverlayGrowth>(mods2, "_growth");
+        Assert(modGrow.Value == OverlayGrowPickerModel.ShortName(growth), "the bar's Grow from names the element's point: " + modGrow.Value);
+        PressBar(mods2, modGrow);
+        Call(mods2, "FitPreview");
+        OverlayGrowPopover modGrowPopover = Field<OverlayGrowPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_grow");
+        Assert(modGrowPopover.Visible && modGrow.Active && ScreenRectOf(modGrowPopover.Root).yMax <= BarButtonRect(mods2, modGrow).yMin
+          && InsideScreen(ScreenRectOf(modGrowPopover.Root)), "Grow from opens its popover under its button, lit while it is open");
+        Settle();
+        Press(modGrowPopover.Root.GetComponentsInChildren<ElementUI.Ugui.Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.BottomRight));
+        Call(mods2, "FitPreview");
+        Assert(Field<OverlayGrowth>(mods2, "_growth") == OverlayGrowth.BottomRight && modGrow.Value == OverlayGrowPickerModel.ShortName(OverlayGrowth.BottomRight)
+          && modGrowPopover.Caption.Contains(L("오른쪽 아래", "bottom right")), "a point picks where the element grows from");
+        mods2.Escape();
+        Call(mods2, "FitPreview");
+        Assert(mods2.IsOpen && !modGrowPopover.Visible && !modGrow.Active, "Esc closes the popover before the editor");
+        Call(mods2, "PickGrowth", growth);
         Find("Switch ").onClick.Invoke();
         Assert(Working().Contains("\"Rounded\":false"), "a switch changes the setting: " + Working());
         mods2.Page.Root.GetComponentsInChildren<Slider>(true).First().value = .25f;
         Assert(Working().Contains("\"Progress\":0.25"), "a slider changes the setting as it moves");
         Tab(Korean(name) ? "강조" : "Accent").onClick.Invoke();
         Assert(Working().Contains("\"Style\":1"), "a choice changes the setting");
-        Tab("Grow from " + OverlayGrowth.Top).onClick.Invoke();
+        Press(mods2.Page.Root.GetComponentsInChildren<ElementUI.Ugui.Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.Top));
         Assert(Working().Contains("\"TitleAt\":1"), "the nine-point picker changes the setting");
         Find("Paint ").onClick.Invoke();
         UiColorPicker paint = Field<PickerPopover>(Field<ModEditorPopovers>(mods2, "_popovers"), "_paintPicker").Picker;

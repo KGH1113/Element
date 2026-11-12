@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -13,7 +15,8 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// top line with the shortcuts, Cancel and Done, and room for notices. The
 /// stage holds content at its real size in screen pixels; controls live in
 /// <see cref="Frame"/>, scaled to the window. A dragged value's ghost and the
-/// hover tooltip float above both.
+/// hover tooltip float above both. The top line, the bars and the popovers
+/// are ElementUI screens on panels the frame makes (<see cref="Panel"/>).
 /// </summary>
 internal sealed class OverlayEditorFrame : IDisposable
 {
@@ -22,17 +25,17 @@ internal sealed class OverlayEditorFrame : IDisposable
     FadeSeconds = .16f,
     NoticeSeconds = 4;
 
+  private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
   private readonly CanvasGroup _fade;
-  private readonly TextMeshProUGUI _hint;
-  private readonly string _hintText;
   private readonly float _openedAt;
+  private readonly OverlayEditorFrameModel _top;
+  private readonly List<ScreenPanel> _panels = new();
   private RectTransform _ghost;
   private TextMeshProUGUI _ghostText;
   private UiCapsuleGraphic _ghostSurface;
   private RectTransform _tip;
   private TextMeshProUGUI _tipText;
-  private float _noticeUntil;
 
   public OverlayEditorFrame(
     string name,
@@ -44,8 +47,8 @@ internal sealed class OverlayEditorFrame : IDisposable
     Action done
   )
   {
+    _font = font;
     _reduceMotion = reduceMotion;
-    _hintText = hint;
     _openedAt = Time.unscaledTime;
     ViewWidth = Screen.width;
     ViewHeight = Screen.height;
@@ -65,12 +68,10 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.fontSize = 13;
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
-    _hint = Ui.Text(hint, Frame, Margin, 26, Width - Margin * 2 - 230, 28, 13, UiPalette.Muted);
-    _hint.textWrappingMode = TextWrappingModes.NoWrap;
-    Button cancelButton = Ui.Button(UiLocale.L("취소", "Cancel"), Frame, Width - Margin - 212, 20, 100, 38, cancel);
-    cancelButton.name = name + " cancel";
-    Button doneButton = Ui.Button(UiLocale.L("완료", "Done"), Frame, Width - Margin - 104, 20, 104, 38, done, true);
-    doneButton.name = name + " done";
+    _top = new OverlayEditorFrameModel(name, hint, cancel, done);
+    ScreenPanel top = Panel("Top line", Color.clear);
+    top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, Width - Margin * 2);
+    top.Root.anchoredPosition = new Vector2(Margin, -20);
     Root.transform.SetAsLastSibling();
     EventSystem.current?.SetSelectedGameObject(null);
   }
@@ -93,28 +94,38 @@ internal sealed class OverlayEditorFrame : IDisposable
 
   public bool ViewChanged => ViewWidth != Screen.width || ViewHeight != Screen.height;
 
+  /// <summary>The top line: the shortcuts or a notice, Cancel and Done.</summary>
+  public OverlayEditorFrameModel Top => _top;
+
+  /// <summary>
+  /// A panel over the controls, on top of those made before, holding an
+  /// ElementUI screen (<see cref="ScreenPanel.Mount"/>); it goes with the
+  /// frame. A clear <paramref name="color"/> leaves it unfilled. Its
+  /// controls never keep the keyboard: Enter and Esc stay the editor's.
+  /// </summary>
+  public ScreenPanel Panel(string name, Color color, float radius = 8)
+  {
+    ScreenPanel panel = new(name, Frame, color, keyboard: false, radius);
+    _panels.Add(panel);
+    return panel;
+  }
+
+  /// <summary>Draws a screen in Element's look, at the editors' compact sizes.</summary>
+  public ElementBackend NewBackend() =>
+    new(new ElementTheme(UiFonts.Choose(_font), _reduceMotion()) { Compact = true });
+
   /// <summary>Fades in, and puts the shortcuts back once a notice has been read.</summary>
   public void Tick()
   {
     if (_fade.alpha < 1)
       _fade.alpha = _reduceMotion() ? 1 : Mathf.Clamp01((Time.unscaledTime - _openedAt) / FadeSeconds);
-    if (_noticeUntil > 0 && Time.unscaledTime > _noticeUntil)
-    {
-      _noticeUntil = 0;
-      _hint.text = _hintText;
-      _hint.color = UiPalette.Muted;
-    }
+    _top.Tick();
   }
 
   /// <summary>A short message where the shortcuts are; a warning reads in a warm color.</summary>
-  public void Notice(string message, bool warning = true)
-  {
-    _hint.text = message;
-    _hint.color = warning ? UiPalette.Error : UiPalette.Foreground;
-    _noticeUntil = Time.unscaledTime + NoticeSeconds;
-  }
+  public void Notice(string message, bool warning = true) => _top.Notice(message, warning);
 
-  public string NoticeText => _noticeUntil > 0 ? _hint.text : "";
+  public string NoticeText => _top.NoticeText;
 
   /// <summary>A screen point (origin bottom left) in frame units from the top left.</summary>
   public Vector2 ToFrame(Vector2 screen) => new(screen.x / Scale, (ViewHeight - screen.y) / Scale);
@@ -185,6 +196,9 @@ internal sealed class OverlayEditorFrame : IDisposable
 
   public void Dispose()
   {
+    foreach (ScreenPanel panel in _panels)
+      panel.Dispose();
+    _panels.Clear();
     Ui.Dispose();
     UiFactory.Destroy(Root);
   }

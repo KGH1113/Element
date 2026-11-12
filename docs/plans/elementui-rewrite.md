@@ -92,8 +92,11 @@ Put them in `Element/Presentation/Ui/Declarative/Controls/`, one file each:
 | Overlay editor chrome (toolbar, element bar, add menu, reset dialog) | done |
 | Content editors: the frame's top line, the bar and its buttons, Grow from | done |
 | Content editors: input dock and keypad, color picker form (and the highlight color popover) | done; ui-check 5121 assertions |
-| Mod element editor, ElementKit `EditorPage` on ElementUI and a declarative editor API | in progress |
 | Remove old widgets nothing uses any more (custom stages keep `UiFactory`'s low-level helpers) | last |
+| Content editors: input dock and keypad, color picker form, highlight color popover | in progress |
+| Mod element editor, ElementKit EditorPage on ElementUI | done |
+| ElementKit: editing screens written with ElementUI (`Editor(EditorViewModel<T>)`, `EditorParts`) | done |
+| Remove the old UI kit (`UiFactory` and widgets) | last |
 
 ## Overlay editor map (for the next slices)
 
@@ -142,6 +145,16 @@ editors' two columns); the square and bars are NativeViews, and the color bar
 and the owner's opacity box are shown where they go through `HostedRect`.
 `UiColorPicker` hosts it on a panel for the editors, the highlight color and the
 mod editor; the settings' swatch shows the card in its popover.
+
+The mod element editor: `EditorPage`'s parts are part models (`ModPart`)
+whose controls are ElementUI views bound to the values they hand the mod
+(`ModValue<T>`); `ModEditorPage` mounts them once in one column to measure
+them, then stands each in a column (`ModEditorPageView`: an `If` per part per
+column, so a tab pick moves parts without a mount). `At(x, y)` is a layer over
+the columns; `Rect` is an object spread over the part (`ModPartRect`). A mod
+that overrides `Editor` gets `ModEditorView` instead: its view in a 480 column,
+edits from `UiRoot.Edited`, a drag one undo step. Element's pickers for both are
+`ModParts`, exposed to mods through `EditorParts`.
 
 Editors open through `ContentElementKind<T>.Open` → `IContentEditor.Open(target, closed)`;
 Done/Cancel → `ContentElementKind.Closed` → `Session.Commit()`. Layout undo is

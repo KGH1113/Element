@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Element.Presentation.Ui.Widgets;
 using ElementKit;
+using ElementUI;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
@@ -11,41 +11,36 @@ internal sealed class ModEditorTabs : EditorTabs
 {
   private readonly ModEditorPage _page;
   private readonly string _key;
-  private readonly List<ModEditorGroup> _pages = new();
-  private UiSegmentedControl _segments;
-  private int _selected;
+  private readonly List<ModGroup> _pages = new();
 
   public ModEditorTabs(ModEditorPage page, string key, int selected)
   {
     _page = page;
     _key = key;
-    _selected = selected;
+    Pick = new ModValue<int>(selected, Picked);
   }
 
-  public override EditorControl Bar => BarControl;
+  /// <summary>The picked tab, for the bar to bind to and the pages to follow.</summary>
+  public ModValue<int> Pick { get; }
 
-  public ModEditorControl BarControl { get; set; }
+  public override EditorControl Bar => BarPart;
 
-  public UiSegmentedControl Segments
-  {
-    set => _segments = value;
-  }
+  public ModPart BarPart { get; set; }
 
-  public List<ModEditorGroup> Pages => _pages;
+  public List<ModGroup> Pages => _pages;
 
   public override int Selected
   {
-    get => _selected;
+    get => Pick.Value;
     set
     {
-      value = Mathf.Clamp(value, 0, Mathf.Max(0, _pages.Count - 1));
-      if (value == _selected)
-        return;
-      _selected = value;
-      _segments?.Select(value, false);
-      _page.TabPicked(_key, value);
+      Pick.Value = Mathf.Clamp(value, 0, Mathf.Max(0, _pages.Count - 1));
+      // Set by the mod rather than the bar: the bar and pages follow.
+      Runtime.Probe();
     }
   }
+
+  private void Picked(int index) => _page.TabPicked(_key, index);
 
   public override IDisposable Page(int index)
   {

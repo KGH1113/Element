@@ -51,6 +51,21 @@ internal static class ModElementTests
     public Throws() => throw new InvalidOperationException("no element today");
   }
 
+  [Serializable]
+  internal sealed class BothSettings
+  {
+    public int Width = 3;
+  }
+
+  // An editing screen written twice: offered, Editor's is shown, and said so.
+  [global::ElementKit.Element("both", "둘 다", "Both")]
+  internal sealed class Both : OverlayElement<BothSettings>
+  {
+    protected override void OnEdit(EditorPage page) { }
+
+    protected override ElementUI.View Editor(EditorViewModel<BothSettings> vm) => ElementUI.UI.Text(vm.L("둘", "Both"));
+  }
+
   // Not offered, and said so.
   internal sealed class Unmarked : OverlayElement { }
 
@@ -76,7 +91,7 @@ internal static class ModElementTests
     List<ElementClass> found = ElementClasses.Find(ModId, typeof(ModElementTests).Assembly, reports.Add);
     string all = string.Join(" | ", reports);
     Check(
-      found.Select(type => type.FullKey).SequenceEqual(new[] { "Bars/bars", "Bars/throws" }),
+      found.Select(type => type.FullKey).SequenceEqual(new[] { "Bars/bars", "Bars/both", "Bars/throws" }),
       "only well-made elements are offered: " + string.Join(",", found.Select(type => type.FullKey)) + " / " + all
     );
     Check(found[0].Type == typeof(Bars) && found[0].Info.KoreanName == "막대", "an element keeps its class and names");
@@ -96,6 +111,11 @@ internal static class ModElementTests
     );
     Check(reports.All(r => !r.Contains("+Base")), "an abstract base of the mod's own is left alone");
     Check(
+      reports.Count(r => r.Contains("+Both") && r.Contains("both Editor and OnEdit")) == 1
+        && reports.All(r => !r.Contains("+Bars ") && !r.Contains("+Throws ")),
+      "an element with two editing screens is offered, and told to keep one"
+    );
+    Check(
       ElementClasses.Find("bad id!", typeof(ModElementTests).Assembly, reports.Add).Count == 0,
       "a mod id layouts can't keep offers nothing"
     );
@@ -110,6 +130,14 @@ internal static class ModElementTests
     Check(bars.RunSave() == "{\"groups\":12}", "an element's settings come back as it wrote them");
     bars.RunLoad(null);
     Check(bars.RunSave() == "", "a new element starts with empty settings");
+    Check(bars.RunEditor(true, out ElementUI.ViewModel noModel) == null && noModel == null, "an element without Editor builds its screen with OnEdit");
+    Both both = (Both)found.Single(type => type.Info.Key == "both").Create(out _);
+    ElementUI.View screen = both.RunEditor(false, out ElementUI.ViewModel model);
+    Check(
+      screen != null && model is EditorViewModel<BothSettings> editor && editor.Settings == both.Settings && editor.L("둘", "Both") == "Both",
+      "Editor's screen reads the element's own settings, in the player's language"
+    );
+    model.Dispose();
     OverlayElement failed = found.Single(type => type.Info.Key == "throws").Create(out Exception error);
     Check(
       failed == null && error is InvalidOperationException && error.Message == "no element today",
@@ -141,7 +169,7 @@ internal static class ModElementTests
     );
     mods.Add(new ModAssembly(ModId, typeof(ModElementTests).Assembly, () => _active));
     types.Refresh();
-    Check(types.Find("Bars/bars")?.Type == typeof(Bars) && types.Offered.Count == 2, "a mod that loads later is found");
+    Check(types.Find("Bars/bars")?.Type == typeof(Bars) && types.Offered.Count == 3, "a mod that loads later is found");
     int version = types.Version;
     types.Refresh();
     Check(types.Version == version, "nothing new changes nothing");

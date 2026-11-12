@@ -29,7 +29,7 @@ internal sealed class ProfilesView : View<ProfilesModel>
       spacing: 12,
       ViewThatFits(Heading(true).Frame(minWidth: 440, maxWidth: float.PositiveInfinity), Heading(false)),
       // Three columns where three fit; 226 keeps the widest window (936) at three.
-      Grid(minColumnWidth: 226, spacing: 12, ForEach(() => VM.Cards, card => card.Id, Card)),
+      Grid(minColumnWidth: 192, spacing: 12, maxColumns: 3, ForEach(() => VM.Cards, card => card.Id, Card)),
       // Under the cards, so a message coming or going never moves them. Each part
       // brings its own gap, so one that isn't shown leaves none.
       VStack(

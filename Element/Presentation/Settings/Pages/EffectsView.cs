@@ -38,7 +38,7 @@ internal sealed class EffectsView : View<EffectsModel>
       If(
         () => VM.HasPresets.Value,
         // Three columns where three fit; 226 keeps the widest window (936) at three.
-        () => Grid(minColumnWidth: 226, spacing: 12, ForEach(() => VM.Cards, card => card.Id, Card)),
+        () => Grid(minColumnWidth: 192, spacing: 12, maxColumns: 3, ForEach(() => VM.Cards, card => card.Id, Card)),
         () =>
           Text(L("첫 프리셋을 만들어 보세요.", "Create your first preset."))
             .Font(Font.Heading)

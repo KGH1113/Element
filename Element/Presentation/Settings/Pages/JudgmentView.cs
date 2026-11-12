@@ -19,7 +19,7 @@ internal sealed class JudgmentView : View<JudgmentModel>
         VStack(spacing: 8, Hint(), Actions())
       ),
       // Three columns where three fit; 226 keeps the widest window (936) at three.
-      Grid(minColumnWidth: 226, spacing: 12, Tiles())
+      Grid(minColumnWidth: 212, spacing: 12, maxColumns: 3, Tiles())
     );
 
   private View Hint() =>

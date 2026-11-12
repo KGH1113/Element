@@ -14,9 +14,11 @@ internal sealed class HomeView : View<HomeModel>
     : base(vm) { }
 
   public override View Body =>
+    // Two columns, one under the other below 480 wide, as the old page.
     Grid(
-      columns: 2,
+      minColumnWidth: 232,
       spacing: 16,
+      maxColumns: 2,
       Category(
         UiIconKind.Overlay,
         "Overlay",

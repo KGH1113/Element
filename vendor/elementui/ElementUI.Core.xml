@@ -784,10 +784,11 @@
         <member name="M:ElementUI.UI.Card(System.String,ElementUI.View)">
             <summary>A raised box around content, with an optional title.</summary>
         </member>
-        <member name="M:ElementUI.UI.Button(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.Command}},ElementUI.ButtonStyle)">
+        <member name="M:ElementUI.UI.Button(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.Command}},ElementUI.ButtonStyle,System.Linq.Expressions.Expression{System.Func{System.Boolean}})">
             <summary>
             A button that runs the command its expression picks: <c>Button(Text("Reset"), () =&gt; VM.Reset)</c>.
-            It is off while the command can't run.
+            It is off while the command can't run. <paramref name="selected"/> shows it as on: a picked chip or row,
+            a tool whose popover is open.
             </summary>
         </member>
         <member name="M:ElementUI.UI.Toggle(System.String,ElementUI.Binding{System.Boolean},ElementUI.ToggleAppearance)">

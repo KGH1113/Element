@@ -447,7 +447,7 @@ internal sealed class ColorPickerModel : ViewModel, IGradientBarHost
     OpacityOutside.Value = _allowOpacity && _externalOpacity;
     ResetShown.Value = !_sourceMode && !_allowOpacity && _hasDefault;
     NoteShown.Value = gradient && _followsHighlight;
-    BarHeight.Value = gradient ? UiGradientBar.GradientHeight : UiGradientBar.SolidHeight;
+    BarHeight.Value = Gradient?.Height ?? 0;
     OpacityLabel.Value = OpacityName();
     // The bar shows its kinds and pill only with a gradient, and only in an overlay color's picker.
     if (_gradientShown)

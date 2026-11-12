@@ -13,6 +13,9 @@ internal interface IGradientBar
   /// <summary>The color is a gradient, shown on the bar.</summary>
   bool IsGradient { get; }
 
+  /// <summary>How tall the bar is with its pill row, and with a gradient's kinds.</summary>
+  float Height { get; }
+
   /// <summary>The picked color's place among the colors in order, counting from 1.</summary>
   int PickedRank { get; }
 

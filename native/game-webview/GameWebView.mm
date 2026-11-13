@@ -26,6 +26,23 @@ std::mutex errorMutex;
 std::string hostError;
 std::map<std::string, std::string> faults;
 std::atomic<unsigned long long> geometryRevision{1};
+// The size Unity draws the game at, in its pixels; zero until the game says.
+NSSize gameSize = NSZeroSize;
+
+// Where the game is drawn in its window. A game drawn at another aspect than
+// the window (fullscreen at a lower resolution) is fitted and centered, with
+// bars beside it. The host covers this rectangle, so pages, editor cutouts
+// and pointer readings share the game's own coordinates.
+NSRect GameRect(NSRect bounds) {
+  if (gameSize.width <= 0 || gameSize.height <= 0 || bounds.size.width <= 0 || bounds.size.height <= 0)
+    return bounds;
+  CGFloat scale = std::min(bounds.size.width / gameSize.width, bounds.size.height / gameSize.height);
+  NSSize fitted = NSMakeSize(gameSize.width * scale, gameSize.height * scale);
+  // Within a point of the window, the game fills it: windowed, or at the window's own resolution.
+  if (bounds.size.width - fitted.width < 1 && bounds.size.height - fitted.height < 1) return bounds;
+  return NSMakeRect(NSMinX(bounds) + (bounds.size.width - fitted.width) / 2,
+                    NSMinY(bounds) + (bounds.size.height - fitted.height) / 2, fitted.width, fitted.height);
+}
 
 void SetError(const char *message) {
   std::lock_guard<std::mutex> lock(errorMutex);
@@ -521,13 +538,18 @@ bool EnsureHost() {
     SetError("The Unity game window was not found. Return to the game and retry.");
     return false;
   }
-  if (host == nil) host = [[IRPGameWebViewHost alloc] initWithFrame:window.contentView.bounds];
+  NSRect frame = GameRect(window.contentView.bounds);
+  if (host == nil) host = [[IRPGameWebViewHost alloc] initWithFrame:frame];
   gameWindow = window;
   host.previewVisible = previewVisible;
   if (host.superview != window.contentView) {
     [host removeFromSuperview];
-    host.frame = window.contentView.bounds;
+    host.frame = frame;
     [window.contentView addSubview:host positioned:NSWindowAbove relativeTo:nil];
+  } else if (!NSEqualRects(host.frame, frame)) {
+    // Resizing keeps the game's aspect; the autoresizing mask alone would stretch the host.
+    host.frame = frame;
+    ++geometryRevision;
   }
   [host layoutSurfaces];
   if (windowObservers == nil) {
@@ -764,11 +786,28 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_get_content_si
 extern "C" __attribute__((visibility("default"))) int irp_webview_get_view_size(double *width, double *height) {
   if (width == nullptr || height == nullptr || NSApp == nil) return 0;
   return OnMainThread(^{
-    // Before any viewer attaches there is no host yet; the game view is the same size.
+    // Before any viewer attaches there is no host yet; it will cover where the game is drawn.
     NSView *view = host != nil && host.window != nil ? host : FindGameWindow(gameWindow).contentView;
     if (view == nil || view.bounds.size.width <= 0 || view.bounds.size.height <= 0) return 0;
-    *width = view.bounds.size.width;
-    *height = view.bounds.size.height;
+    NSSize size = view == host ? view.bounds.size : GameRect(view.bounds).size;
+    *width = size.width;
+    *height = size.height;
+    return 1;
+  });
+}
+
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_game_size(double width, double height) {
+  if (!std::isfinite(width) || !std::isfinite(height) || NSApp == nil) return;
+  NSSize size = width > 0 && height > 0 ? NSMakeSize(width, height) : NSZeroSize;
+  OnMainThread(^{
+    if (NSEqualSizes(gameSize, size)) return 1;
+    gameSize = size;
+    ++geometryRevision;
+    if (host != nil && host.superview != nil) {
+      NSRect frame = GameRect(host.superview.bounds);
+      if (!NSEqualRects(host.frame, frame)) host.frame = frame;
+      [host layoutSurfaces];
+    }
     return 1;
   });
 }

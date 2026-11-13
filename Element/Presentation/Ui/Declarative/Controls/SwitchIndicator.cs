@@ -21,7 +21,8 @@ internal sealed class SwitchIndicator : NativeView
     Inset = 4,
     Thumb = Height - Inset * 2;
 
-  private static readonly Color Off = new(.3f, .3f, .3f);
+  // Lighter than the row it sits on, so an off switch still reads as a switch.
+  private static readonly Color Off = new(.44f, .44f, .46f);
 
   private readonly Expression<Func<bool?>> _on;
   private readonly Expression<Func<bool>> _available;

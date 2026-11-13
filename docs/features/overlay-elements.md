@@ -39,7 +39,7 @@ A value is something the game knows, kept live. It behaves as one character: the
 Clicking a number, or a value in a text, types its formula in the input dock along the bottom of the editor. The preview always sits above the dock, so it is never covered. With nothing being typed, the dock's top line says what to do and the keypad rests.
 
 - **Formula line.** The top line shows what is edited, its formula with values as chips, and the result on the right.
-- **Values and keypad.** Below are all values and a large keypad: 0–9, point, + − × ÷, backspace, **AC** to start over and **Done**. The keyboard types the same keys.
+- **Values and keypad.** Below are all values and a large keypad: 0–9, point, + − × ÷, backspace, **AC** to start over and **Apply** to finish the formula (the header's **Done** closes the editor). The keyboard types the same keys.
 - **Results.** Elsewhere, numbers show their results. One worked out from a formula reads in the accent; its formula appears only in the dock.
 - **Switching and finishing.** Clicking another number switches the dock to it. Done, Enter, Esc or a click on the empty dim finishes, and the dock rests again.
 - **AC** starts over without touching the number until something new is typed; it is its own undo step.
@@ -55,9 +55,10 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 ## Text
 
-- Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The screen dims and the text floats in the middle at the size the game draws it.
-- The bar above the text has five labeled buttons: **Font**, **Size**, **Text color**, **Animate** and **Grow from**. Font, size, color and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts) and [Animation](#animation).
-- A color button opens the color picker right above the input dock's keypad and stays lit while it is open. The text stays in sight; the dock's line says which color is picked. Clicking the button again, Esc or a click elsewhere closes it.
+- Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The game is hidden behind a black screen with a header (what is edited, Cancel, Done), and the text sits at the size the game draws it.
+- A column on the right, above the keypad, has a row per property: **Font**, **Size**, **Text color**, **Animate** and **Grow from**, each with what it holds. Font, size, color and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts) and [Animation](#animation).
+- Text color, Font and Grow from open in that column: the rows give way to a back row naming what is open (‹ Text color), with the color picker, the font list or the nine points under it. The text stays in sight; the dock's line says which color is picked. The back row, Esc or a click elsewhere closes it.
+- Notices (a value that can't go somewhere, a number kept in range) show for a few seconds right above the dock's formula line.
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
 - Sizes are what the game draws at 1080p.
@@ -66,7 +67,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 ## Animation
 
-**Animate** in the text editor's bar is a switch. A value with it on grows for a moment and settles back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes.
+**Animate** in the text editor's column is a switch. A value with it on grows for a moment and settles back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes.
 
 - **What it acts on.** Values in the selection, or every value in the text when nothing is selected. Typed text never moves. A selection of only text has nothing to move, so the switch reads dimmed and a press says why.
 - **Mixed.** When the selection holds values that move and values that don't, the switch sits halfway; a press turns them all on.
@@ -80,7 +81,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 ## Fonts
 
 - **Default font.** **Default font** in the overlay editor's toolbar, beside the highlight color, picks the font every text uses. The first row is the built-in MapleStory font. Cancel puts the previous font back.
-- **A text's own font.** **Font** in the text editor's bar changes the selected characters, or the whole text when nothing is selected, like size and color. **Default font** makes them follow the overlay's default again. A pick shows on the text at once and the list stays open to try another; one undo takes back everything tried while it was open.
+- **A text's own font.** **Font** in the text editor's column changes the selected characters, or the whole text when nothing is selected, like size and color. **Default font** makes them follow the overlay's default again. A pick shows on the text at once and the list stays open to try another; one undo takes back everything tried while it was open.
 - **Where fonts come from.** The list has the fonts added to the mod, then the fonts installed on this PC. Installed fonts are read in the background the first time the list opens.
 - **Adding a file.** **Add file** opens the system's file dialog for TTF, OTF and TTC files. The chosen files are copied into `Mods/Element/Fonts`, which updates keep, and the first one is applied. Files put in that folder by hand show up the next time the list opens; **Folder** opens it. Linux has no dialog, so the button opens the folder instead.
 - **Search.** Typing part of a name narrows the list; Enter applies the first match.
@@ -96,7 +97,7 @@ The default layout has a **progress bar** made of three shapes, as JipperResourc
 
 - The shape sits in the middle at its in-game size, with **W** under it and **H** to its right.
 - Each corner of a square or triangle has an arc just outside it. Clicking the arc edits that corner's rounding and shows its value beside the arc.
-- The bar above has **Fill**, **Border**, **Border width** and **Grow from**. Fill and Border open the color picker above the keypad; clicking the other one switches it. Their opacity in the picker and the border width are typed in the input dock and take values.
+- The column on the right has **Fill**, **Border**, **Border width** and **Grow from**, as in the text editor. Fill and Border open the color picker in the column, under a back row naming the color. Their opacity in the picker and the border width are typed in the input dock and take values.
 - Squares whose corners were dragged in 1.1.0 keep that shape; corners can no longer be moved.
 - Every number takes values. For example, width = current × 3 makes a progress bar.
 - On the canvas a shape only moves, like a text. Shapes are drawn behind all texts.
@@ -117,7 +118,7 @@ A shape's fill and border and a text's color can be gradients, as in Figma: line
 
 ## Grow from
 
-When a text or shape changes size (a value grows longer, a width follows progress), one point of it stays put and the rest grows away from it. The **Grow from** button in either editor's bar names the current point and picks it from nine, with arrows showing where it grows; the editor marks the point on the preview. **Auto** uses the point nearest to where the element sits on screen: an element near the right edge grows to the left. The choice is saved with the element when you press Done.
+When a text or shape changes size (a value grows longer, a width follows progress), one point of it stays put and the rest grows away from it. The **Grow from** row in either editor's column names the current point and picks it from nine, with arrows showing where it grows; the editor marks the point on the preview. **Auto** uses the point nearest to where the element sits on screen: an element near the right edge grows to the left. The choice is saved with the element when you press Done.
 
 ## Key viewer
 

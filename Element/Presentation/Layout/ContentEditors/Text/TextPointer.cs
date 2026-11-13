@@ -64,7 +64,7 @@ internal sealed class TextPointer
         dock.Contains(screen)
         || _grow.Contains(screen)
         || _fonts.Contains(screen)
-        || _host.Bar.Contains(screen)
+        || _host.Inspector.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
         || _gradient.Handles.Contains(screen)
       )

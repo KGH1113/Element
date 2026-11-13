@@ -116,15 +116,19 @@ internal sealed class ShapeInput
     _host.Render();
   }
 
+  // The property column's space above the keypad, rows or not, is the column's.
+  private bool InColumn(Vector2 frame) => frame.x >= _host.Inspector.Left - 8 && frame.y < _host.Dock.Top;
+
   private bool OverControl(Vector2 screen)
   {
     if (
-      _host.Bar.Contains(screen)
+      _host.Inspector.Contains(screen)
       || _host.Dock.Contains(screen)
       || _grow.Contains(screen)
       || PopoverPlacement.Contains(_colors.Picker.Root, screen)
       || _gradient.Handles.Contains(screen)
       || _host.Screen.ToFrame(screen).y < OverlayEditorFrame.TopBar
+      || InColumn(_host.Screen.ToFrame(screen))
     )
       return true;
     _fields.Collect();

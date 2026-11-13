@@ -115,7 +115,7 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       _parent,
       _font,
       _reduceMotion,
-      L(TypeName + " 편집 · ⌘/Ctrl+Enter나 Esc로 완료", "Edit " + TypeName + " · ⌘/Ctrl+Enter or Esc to finish"),
+      L(TypeName + " 편집", "Edit " + TypeName),
       () => Close(false, true),
       () => Close(true, true)
     );

@@ -86,6 +86,9 @@ internal sealed class OverlayEditorInspector
       _toolOpen = open;
       _fitted = revision;
       _panel.Refit(Width);
+      // The back row is made the first time a tool opens: it gets the
+      // column's cursor and never keeps the keyboard.
+      _panel.Sync();
     }
   }
 

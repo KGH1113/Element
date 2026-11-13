@@ -451,6 +451,9 @@ namespace Element.Editor
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
       Assert(DockChips(dock).Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
         "every value is laid out at once");
+      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayInputDockView.ChipHeight) > .5f);
+      Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
+        + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
       Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number open every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))

@@ -147,6 +147,7 @@ fn preset_load_from_path(
 ) -> CmdResult<PresetOperationResult> {
     state.ensure_mutation_allowed().map_err(CommandError::msg)?;
     let mut preset = read_preset_file(&path)?;
+    migrate_legacy_preset_tabs(&mut preset);
     let has_imported_global_css = preset.custom_css.is_some();
     let current = state.store.snapshot();
     let resolved_settings = resolve_full_preset_settings(&mut preset, &current);
@@ -164,19 +165,10 @@ fn preset_load_from_path(
     fold_stacked_ghost_keys(&mut keys, &mut positions);
     // Element's v1 renderer consumes the stored font weights and counter stroke directly.
     // Keep those values intact instead of rewriting them to v2 typography flags.
-    for id in super::BUILTIN_TAB_IDS {
-        keys.remove(id);
-        positions.remove(id);
-        stat_positions.remove(id);
-        graph_positions.remove(id);
-        knob_positions.remove(id);
-        sprite_positions.remove(id);
-    }
     let mut custom_tabs = preset
         .custom_tabs
         .take()
         .unwrap_or_else(|| synthesize_custom_tabs(&keys));
-    custom_tabs.retain(|tab| !super::BUILTIN_TAB_IDS.contains(&tab.id.as_str()));
     ensure_preset_viewer_tabs(&mut custom_tabs, &current.language);
     for tab in &custom_tabs {
         keys.entry(tab.id.clone()).or_default();
@@ -990,6 +982,113 @@ fn synthesize_custom_tabs(keys: &KeyMappings) -> Vec<crate::models::CustomTab> {
             name: format!("Custom {}", index + 1),
         })
         .collect()
+}
+
+fn migrate_legacy_preset_tabs(preset: &mut PresetFile) {
+    // The old built-in IDs are removed when ElementNote reloads its store.
+    // Give imported layouts persistent custom tab IDs and move every per-tab field.
+    let mut migrated = false;
+
+    for old_id in super::BUILTIN_TAB_IDS {
+        if !preset_has_tab_id(preset, old_id) {
+            continue;
+        }
+
+        // New custom tabs already in the preset retain their IDs.
+        let base_id = format!("legacy-{old_id}");
+        let mut new_id = base_id.clone();
+        let mut suffix = 2;
+        while preset_has_tab_id(preset, &new_id) {
+            new_id = format!("{base_id}-{suffix}");
+            suffix += 1;
+        }
+
+        let tabs = preset.custom_tabs.get_or_insert_with(|| {
+            preset
+                .keys
+                .as_ref()
+                .map(synthesize_custom_tabs)
+                .unwrap_or_default()
+        });
+        if let Some(tab) = tabs.iter_mut().find(|tab| tab.id == old_id) {
+            tab.id.clone_from(&new_id);
+        } else {
+            tabs.push(crate::models::CustomTab {
+                id: new_id.clone(),
+                name: old_id.replace("key", "K"),
+                viewer_kind: KeyViewerKind::Hand,
+            });
+        }
+        rename_preset_tab_entry(&mut preset.keys, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.key_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.stat_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.graph_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.knob_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.sprite_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.layer_groups, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.tab_note_overrides, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.tab_css_overrides, old_id, &new_id);
+        for id in preset
+            .tab_order
+            .iter_mut()
+            .flatten()
+            .chain(preset.selected_key_type.iter_mut())
+            .chain(
+                preset
+                    .selected_viewer_tabs
+                    .iter_mut()
+                    .flat_map(|tabs| [&mut tabs.hand, &mut tabs.foot]),
+            )
+        {
+            if *id == old_id {
+                id.clone_from(&new_id);
+            }
+        }
+        migrated = true;
+    }
+    if let (true, Some(tabs), Some(order)) = (
+        migrated,
+        preset.custom_tabs.as_mut(),
+        preset.tab_order.as_ref(),
+    ) {
+        tabs.sort_by_key(|tab| {
+            order
+                .iter()
+                .position(|id| *id == tab.id)
+                .unwrap_or(usize::MAX)
+        });
+    }
+}
+
+fn preset_has_tab_id(preset: &PresetFile, id: &str) -> bool {
+    fn contains<T>(map: &Option<HashMap<String, T>>, id: &str) -> bool {
+        map.as_ref().is_some_and(|map| map.contains_key(id))
+    }
+    preset
+        .custom_tabs
+        .as_ref()
+        .is_some_and(|tabs| tabs.iter().any(|tab| tab.id == id))
+        || contains(&preset.keys, id)
+        || contains(&preset.key_positions, id)
+        || contains(&preset.stat_positions, id)
+        || contains(&preset.graph_positions, id)
+        || contains(&preset.knob_positions, id)
+        || contains(&preset.sprite_positions, id)
+        || contains(&preset.layer_groups, id)
+        || contains(&preset.tab_note_overrides, id)
+        || contains(&preset.tab_css_overrides, id)
+}
+
+fn rename_preset_tab_entry<T>(
+    entries: &mut Option<HashMap<String, T>>,
+    old_id: &str,
+    new_id: &str,
+) {
+    if let Some(entries) = entries {
+        if let Some(entry) = entries.remove(old_id) {
+            entries.insert(new_id.to_string(), entry);
+        }
+    }
 }
 
 fn ensure_preset_viewer_tabs(tabs: &mut Vec<crate::models::CustomTab>, language: &str) {

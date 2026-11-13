@@ -180,14 +180,20 @@ namespace Element.Editor
         "the header says what is edited, with Cancel and Done: " + heading?.text);
       Rect headerRect = ScreenRectOf(header), headingRect = ScreenRectOf(heading.rectTransform),
         cancelRect = ScreenRectOf((RectTransform)cancel.transform), doneRect = ScreenRectOf((RectTransform)done.transform);
-      RoundedRect fill = header.GetComponent<RoundedRect>();
-      Assert(fill != null && fill.color.a > .99f && headerRect.xMin < 1 && headerRect.xMax > Screen.width - 1
+      float contentLeft = screen.ContentLeft * screen.Scale, contentRight = (screen.ContentLeft + screen.ContentWidth) * screen.Scale;
+      Assert(header.GetComponent<RoundedRect>() == null && Mathf.Abs(headerRect.xMin - contentLeft) < 1 && Mathf.Abs(headerRect.xMax - contentRight) < 1
         && Mathf.Abs(headerRect.yMax - Screen.height) < 1 && Mathf.Abs(headerRect.height - OverlayEditorFrame.TopBar * screen.Scale) < 1,
-        "an opaque header spans the top: " + headerRect);
+        "the header has no fill of its own (the dim is behind it) and is as wide as the content: " + headerRect);
       Assert(headingRect.xMax <= cancelRect.xMin && cancelRect.xMax < doneRect.xMin && Mathf.Abs(cancelRect.center.y - doneRect.center.y) < .5f
         && Mathf.Abs(headingRect.center.y - doneRect.center.y) < 2 && Mathf.Abs(doneRect.center.y - headerRect.center.y) < 1 && InsideScreen(doneRect)
-        && Mathf.Abs(headingRect.xMin - OverlayEditorFrame.Margin * screen.Scale) < 1,
-        "what is edited on the left, Cancel and Done at the right end, on one line: " + cancelRect + " / " + doneRect);
+        && Mathf.Abs(headingRect.xMin - contentLeft) < 1 && Mathf.Abs(doneRect.xMax - contentRight) < 1,
+        "what is edited on the left, Cancel and Done at the right end, in line with the content: " + headingRect + " / " + doneRect);
+      if (screen.Top.InDock)
+      {
+        OverlayInputDock headerDock = Field<OverlayInputDock>(editor, "_dock");
+        Assert(Mathf.Abs(ScreenRectOf(headerDock.Root).xMin - headingRect.xMin) < 1 && Mathf.Abs(KeypadRect(headerDock).xMax - doneRect.xMax) < 1,
+          "the title starts where the dock does and Done ends with the keypad");
+      }
       Assert(headerRect.yMin >= ScreenRectOf(EditorBarRoot(editor)).yMax - .5f, "the header sits above the properties");
       Assert(done.GetComponent<RoundedRect>().color.maxColorComponent < .5f && cancel.navigation.mode == Navigation.Mode.None
         && done.navigation.mode == Navigation.Mode.None, "Done is the tinted main action; neither keeps the keyboard");

@@ -47,6 +47,12 @@ IRP_WEBVIEW_API int irp_webview_get_content_size(const char *viewer_kind, double
 // The game view in desktop units: AppKit points on macOS, DIPs (client pixels
 // at the window's DPI) on Windows. Works before any viewer attaches.
 IRP_WEBVIEW_API int irp_webview_get_view_size(double *width, double *height);
+// The size the game is drawn at, in Unity pixels (Screen.width, Screen.height);
+// zero clears it. Drawn at another aspect than its window (fullscreen at a
+// lower resolution), the game is fitted and centered with bars beside it: the
+// host then covers only the game, so normalized positions, editor cutouts and
+// the pointer match Unity's. macOS only for now; callers treat it as optional.
+IRP_WEBVIEW_API void irp_webview_set_game_size(double width, double height);
 // Changes only when external geometry changes (source, padding, host, backing),
 // never for set_bounds. Cheap enough to poll once per frame.
 IRP_WEBVIEW_API unsigned long long irp_webview_geometry_revision(void);

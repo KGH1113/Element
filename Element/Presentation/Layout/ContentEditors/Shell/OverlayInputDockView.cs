@@ -87,15 +87,21 @@ internal sealed class OverlayInputDockView : View<OverlayInputDockModel>
     );
   }
 
-  // A chip is pressed to pick its value and dragged to carry it out.
+  // A chip is pressed to pick its value and dragged to carry it out. The
+  // label takes the chip's height, so the capsule, its press and its drag
+  // are all as tall as the chip.
   private View Chip(ValueChipModel chip) =>
     Button(
-        UI.Text(chip.Label).Font(Font.Caption.Sized(13)).Foreground(ChipInk).LineLimit(1).Padding(0, 14),
+        UI.Text(chip.Label)
+          .Font(Font.Caption.Sized(13))
+          .Foreground(ChipInk)
+          .LineLimit(1)
+          .Padding(0, 14)
+          .Frame(height: ChipHeight),
         () => chip.Pick,
         ButtonStyle.Plain
       )
       .Background(ChipFill, ChipHeight / 2)
       .Configure<GameObject>(target => OverlayValueChipHandle.Attach(target, chip.Value, VM))
-      .Named(chip.Name)
-      .Frame(height: ChipHeight);
+      .Named(chip.Name);
 }

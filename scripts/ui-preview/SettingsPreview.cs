@@ -451,6 +451,9 @@ namespace Element.Editor
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
       Assert(DockChips(dock).Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
         "every value is laid out at once");
+      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayInputDockView.ChipHeight) > .5f);
+      Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
+        + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
       Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number open every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -1003,15 +1006,39 @@ namespace Element.Editor
       Settle();
       KeyViewerBarModel kind = (KeyViewerBarModel)ElementBar(editor).Model;
       Assert(kind.Viewer == 0 && kind.Target == hand, "key viewer settings show hand selected");
-      Press(ByName<Pressable>(ElementBar(editor).Root, "Option " + L("발", "Foot")));
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control shows hand: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the key viewer's toolbar");
+      List<Exception> uiErrors = new List<Exception>();
+      ElementUI.Runtime.ErrorReported += uiErrors.Add;
+      // As the player clicks: the click lands, then the editor's frame runs.
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
       IOverlayLayoutTarget foot = viewers.Targets.Last();
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
       Assert(Selection(editor).Selected == IndexOf(editor, foot), "the switched viewer stays selected");
-      Call(editor, "UpdateFrames");
-      Settle();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
       Assert(ElementBar(editor).Model == kind && kind.Target == foot && kind.Viewer == 1,
         "the bar follows the switched viewer instead of being made again");
+      Assert(SegmentShown(ElementBar(editor).Root) == 1, "the hand/foot control moves to foot: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the switched viewer's toolbar");
+      // And back: the same control keeps taking clicks after a switch.
+      ClickOption(ElementBar(editor).Root, L("손", "Hand"));
+      IOverlayLayoutTarget handAgain = viewers.Targets.Last();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
+      Assert(handAgain != foot && handAgain.TemplateId == OverlayElementKinds.HandKeyViewer && handAgain.Enabled && !foot.Enabled
+        && Selection(editor).Selected == IndexOf(editor, handAgain) && kind.Target == handAgain && kind.Viewer == 0,
+        "switching back to hand works from the same toolbar");
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control moves back to hand: " + SegmentShown(ElementBar(editor).Root));
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
+      foot = viewers.Targets.Last();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
+      Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && foot.Enabled && kind.Target == foot && kind.Viewer == 1
+        && SegmentShown(ElementBar(editor).Root) == 1, "and to foot again");
+      ElementUI.Runtime.ErrorReported -= uiErrors.Add;
+      Assert(uiErrors.Count == 0, "switching hand and foot reports no ElementUI error" + (uiErrors.Count > 0 ? ": " + uiErrors[0] : ""));
       Assert(ToolbarModel(editor).Selection.Value == L("발 키뷰어", "Foot key viewer"), "the toolbar names the foot viewer");
       Pressable openInApp = ByName<Pressable>(ElementBar(editor).Root, "Edit key viewer");
       TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
@@ -1134,15 +1161,29 @@ namespace Element.Editor
       Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
 
-      // The animation switch acts on values: the whole text's with nothing selected.
+      // The animation switch acts on values: the whole text's with nothing
+      // selected. Pressed as the player does, with the screen catching up only
+      // at the end of each frame, as in the game.
       OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
       Assert(!document[6].Animate, "FPS starts still");
-      PressBar(text, animateButton);
+      Pressable drawnAnimate = BarButton(text, animateButton);
+      UiSwitchMotion animateThumb = drawnAnimate.GetComponentInChildren<UiSwitchMotion>();
+      RectTransform animateKnob = (RectTransform)animateThumb.transform;
+      Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
+      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(screen.Frame, "Shortcuts");
+      string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
-      Assert(screen.NoticeText.Length > 0, "turning it on says what it does");
-      UiSwitchMotion animateThumb = BarButton(text, animateButton).GetComponentInChildren<UiSwitchMotion>();
-      Assert(Field<float>(animateThumb, "_target") > 12, "the switch slides over to on");
+      Frames(() => QuietFrame(text), 40);
+      Assert(screen.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
+        "turning it on says what it does, on the screen: " + topLine.text);
+      Assert(animateKnob.anchoredPosition.x > 12 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.SoftAccent),
+        "the switch slides over to on and lights up in the game's frames: " + animateKnob.anchoredPosition.x);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
@@ -1153,10 +1194,14 @@ namespace Element.Editor
         "letters alone stay as they are and say why: " + screen.NoticeText);
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
-      PressBar(text, animateButton);
+      screen.Notice(L("커서를 옮겼어요", "The caret moved"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
+      Frames(() => QuietFrame(text), 40);
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
-      Assert(Field<float>(animateThumb, "_target") < 6, "the switch slides back to off");
+      Assert(animateKnob.anchoredPosition.x < 6 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.Foreground),
+        "the switch slides back to off in the game's frames: " + animateKnob.anchoredPosition.x);
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.
@@ -1238,6 +1283,41 @@ namespace Element.Editor
       TextFormulasOf(text).OpenChip(9);
       Assert(dock.Owner == "value:9" && TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+{miss}",
         "clicking a value reopens its formula");
+      Call(text, "CloseOpen");
+      Call(text, "Render");
+
+      // As the player does it: a click on the value in the text, then the
+      // keypad's keys, with the screen catching up only at the end of each
+      // frame, as in the game.
+      Vector2 valuePoint = ScreenCenterOfItem(text, 9);
+      Assert(Field<TextLayoutMap>(text, "_map").TryValueAt(valuePoint, out int clicked) && clicked == 9 && !dock.Contains(valuePoint)
+        && (bool)typeof(OverlayTextEditor).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
+        "a click on the value in the text lands on it");
+      Frames(() => QuietFrame(text), 3);
+      Pressable times = DockKeyAsIs(dock, "Key ×"), three = DockKeyAsIs(dock, "Key 3"), back = DockKeyAsIs(dock, "Key backspace");
+      Assert(!times.IsInteractable(), "a resting keypad takes no key");
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("값을 골랐어요", "A value was picked"), false);
+      Frames(() => QuietFrame(text), 3);
+      TextFormulasOf(text).OpenChip(9);
+      Frames(() => QuietFrame(text), 2);
+      Assert(dock.Owner == "value:9" && times.IsInteractable() && !three.IsInteractable(),
+        "the clicked value's keypad takes an operator by the next frame, a digit only after one");
+      Press(times);
+      Frames(() => QuietFrame(text), 2);
+      Assert(three.IsInteractable(), "after × the digits can be pressed");
+      Press(three);
+      Frames(() => QuietFrame(text), 2);
+      TextMeshProUGUI drawnFormula = ByName<TextMeshProUGUI>(dock.Root, "Formula text");
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnFormula.text.EndsWith("×  3"),
+        "pressed keys calculate the value, and the dock shows it: " + document[9].Value + " / " + drawnFormula.text);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Assert(TextDocumentOf(text).Document[9].Value == "{combo}*2+{miss}", "backspace takes the keys back off: " + TextDocumentOf(text).Document[9].Value);
       Call(text, "CloseOpen");
       Call(text, "Render");
 
@@ -1542,6 +1622,35 @@ namespace Element.Editor
     private static LayoutMarquee Marquee(OverlayLayoutEditor editor) => Field<LayoutMarquee>(editor, "_marquee");
     private static LayoutDrag Drag(OverlayLayoutEditor editor) => Field<LayoutDrag>(editor, "_drag");
     private static LayoutElementBar ElementBar(OverlayLayoutEditor editor) => Field<LayoutElementBar>(editor, "_elementBar");
+
+    // A click as the EventSystem delivers it, on the option of the bar's segmented control.
+    private static void ClickOption(RectTransform bar, string option)
+    {
+      Pressable button = ByName<Pressable>(bar, "Option " + option);
+      ExecuteEvents.Execute(button.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+        ExecuteEvents.pointerClickHandler);
+    }
+
+    // The option the segmented control draws as picked: the one its pill sits under.
+    private static int SegmentShown(RectTransform bar)
+    {
+      RectTransform pill = ByName<RectTransform>(bar, "Selection");
+      Pressable[] options = bar.GetComponentsInChildren<Pressable>(true).Where(option => option.name.StartsWith("Option ")).ToArray();
+      for (int i = 0; i < options.Length; i++)
+        if (Mathf.Abs(((RectTransform)options[i].transform).anchoredPosition.x - pill.anchoredPosition.x) < 1)
+          return i;
+      return -1;
+    }
+
+    // Native key viewers draw above Unity: each editor panel must be cut out where it is drawn.
+    private static void AssertCutOut(OverlayLayoutEditor editor, RectTransform panel, string what)
+    {
+      Rect drawn = PopoverPlacement.ScreenRect(panel);
+      bool covered = editor.NativeExclusions.Any(cutout => cutout.Bounds.X <= drawn.xMin + .5f && cutout.Bounds.Y <= drawn.yMin + .5f
+        && cutout.Bounds.Right >= drawn.xMax - .5f && cutout.Bounds.Bottom >= drawn.yMax - .5f);
+      Assert(covered, what + " is cut out of native viewers where it is drawn: " + drawn + " / "
+        + string.Join(", ", editor.NativeExclusions.Select(cutout => cutout.Bounds.X + "," + cutout.Bounds.Y + " " + cutout.Bounds.Width + "x" + cutout.Bounds.Height)));
+    }
     private static T Kind<T>(OverlayLayoutEditor editor) where T : class, IElementKind => Field<ElementKinds>(editor, "_kinds").Get<T>();
     private static RectTransform AddMenu(OverlayLayoutEditor editor) => Field<ListMenu>(Field<LayoutAddMenu>(editor, "_addMenu"), "_menu").Root;
 

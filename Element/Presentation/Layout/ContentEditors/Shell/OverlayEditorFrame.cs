@@ -11,9 +11,10 @@ using UnityEngine.UI;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// The screen the text and shape editors float on: a black backdrop that
-/// fades in, so the game and its HUD never show through or behind what is
-/// edited, and a header with what is edited, Cancel and Done. Notices go to the input dock's
+/// The screen the text and shape editors float on: a deep dim that fades
+/// in, leaving the game faintly behind, and a header with what is edited,
+/// Cancel and Done, as wide as
+/// the editor's content (<see cref="ContentLeft"/>, <see cref="ContentWidth"/>). Notices go to the input dock's
 /// line when the editor has one, else to the header. The
 /// stage holds content at its real size in screen pixels; controls live in
 /// <see cref="Frame"/>, scaled to the window. A dragged value's ghost and the
@@ -58,8 +59,8 @@ internal sealed class OverlayEditorFrame : IDisposable
     Root = Ui.Rect(name, parent, 0, 0, ViewWidth, ViewHeight).gameObject;
     _fade = Root.AddComponent<CanvasGroup>();
     _fade.alpha = reduceMotion() ? 1 : 0;
-    // Opaque: the game's own texts would read as part of the edited one.
-    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, Color.black, false);
+    // Deep enough that the game's own texts stay far behind the edited one.
+    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, new Color(0, 0, 0, .92f), false);
     dim.raycastTarget = true;
     Stage = Ui.Rect("Stage", Root.transform, 0, 0, ViewWidth, ViewHeight);
     Scale = Mathf.Clamp(Mathf.Min(ViewWidth / 1120f, ViewHeight / 760f), .55f, 2f);
@@ -72,9 +73,12 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
     _top = new OverlayEditorFrameModel(name, title, cancel, done);
-    ScreenPanel top = Panel("Header", UiPalette.Toolbar, 0);
-    top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, Width);
-    top.Root.anchoredPosition = Vector2.zero;
+    // No fill: the dim is deep enough behind it. Its ends line up with the content below.
+    ContentWidth = Mathf.Min(1180, Width - Margin * 2);
+    ContentLeft = (Width - ContentWidth) * .5f;
+    ScreenPanel top = Panel("Header", Color.clear);
+    top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, ContentWidth);
+    top.Root.anchoredPosition = new Vector2(Mathf.Round(ContentLeft), 0);
     Root.transform.SetAsLastSibling();
     EventSystem.current?.SetSelectedGameObject(null);
   }
@@ -89,6 +93,12 @@ internal sealed class OverlayEditorFrame : IDisposable
   public RectTransform Frame { get; }
 
   public float Scale { get; }
+
+  /// <summary>How wide the header and the input dock are, in frame units; centered.</summary>
+  public float ContentWidth { get; }
+
+  /// <summary>Where the header and the input dock start, in frame units.</summary>
+  public float ContentLeft { get; }
   public float Width { get; }
   public float Height { get; }
   public int ViewWidth { get; }

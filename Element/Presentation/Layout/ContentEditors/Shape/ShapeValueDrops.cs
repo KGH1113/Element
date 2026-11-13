@@ -144,7 +144,7 @@ internal sealed class ShapeValueDrops
       accepted = true;
       return null;
     }
-    if (_host.Bar.Contains(_numbers.StrokeWidth, screen))
+    if (_host.Inspector.Contains(_numbers.StrokeWidth, screen))
       return ShapeNumbers.StrokeKey;
     _fields.Collect();
     for (int i = 0; i < _fields.Count; i++)

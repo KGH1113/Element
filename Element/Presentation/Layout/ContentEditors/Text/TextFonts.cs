@@ -37,6 +37,9 @@ internal sealed class TextFonts
   /// <summary>The font list; made by <see cref="Build"/>.</summary>
   public IPopover Popover => _fontPopover;
 
+  /// <summary>What the open list picks for, as the column's back row names it.</summary>
+  public string Title { get; private set; } = "";
+
   /// <summary>The font search has the keyboard.</summary>
   public bool IsTyping => _fontPopover.IsTyping;
 
@@ -51,7 +54,8 @@ internal sealed class TextFonts
       L("폰트", "Font"),
       ToggleFont,
       value: true,
-      icon: UiIconKind.Font
+      icon: UiIconKind.Font,
+      opens: true
     );
 
   public void Build(OverlayEditorFrame screen, OverlayFonts fonts, bool reduceMotion)
@@ -78,8 +82,10 @@ internal sealed class TextFonts
     {
       OverlayFonts fonts = _host.Element.Fonts;
       string current = _text.RangeFont();
+      Title = _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
+      // The column's back row names the list; it needs no title of its own.
       _fontPopover.Show(
-        _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font"),
+        "",
         current,
         L("기본 폰트", "Default font"),
         DefaultFontName(fonts)
@@ -122,16 +128,16 @@ internal sealed class TextFonts
       ? L("메이플스토리", "MapleStory")
       : OverlayFonts.DisplayName(fonts.DefaultKey);
 
-  // Right above the keypad like the color picker, a little wider for long names.
-  public void Place(OverlayInputDock dock)
+  // In the property column from top (under its back row) like the color
+  // picker, above the keypad, a little wider for long names.
+  public void Place(OverlayInputDock dock, float top)
   {
     if (_fontPopover == null || !_fontPopover.Visible || dock == null)
       return;
     Rect keypad = dock.KeypadArea;
     float width = Mathf.Max(keypad.width, UiFontPopover.PreferredWidth);
-    float top = OverlayEditorFrame.TopBar + 8;
     float height = Mathf.Min(UiFontPopover.PreferredHeight, dock.Top - 12 - top);
-    _fontPopover.Place(keypad.xMax - width, Mathf.Max(top, dock.Top - 12 - height), width, height);
+    _fontPopover.Place(keypad.xMax - width, top, width, height);
     _fontPopover.Root.SetAsLastSibling();
   }
 }

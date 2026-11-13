@@ -18,6 +18,7 @@ internal sealed class OverlayGrowPopover : IPopover
   private readonly OverlayEditorFrame _screen;
   private readonly ScreenPanel _panel;
   private Rect _anchor;
+  private Vector2? _column;
 
   /// <param name="picked">A point or Auto was clicked; show the choice with <see cref="Refresh"/>.</param>
   public OverlayGrowPopover(OverlayEditorFrame screen, Action<OverlayGrowth> picked)
@@ -42,6 +43,16 @@ internal sealed class OverlayGrowPopover : IPopover
   public void Show(Rect anchor)
   {
     _anchor = anchor;
+    _column = null;
+    Root.gameObject.SetActive(true);
+    Place();
+    Root.SetAsLastSibling();
+  }
+
+  /// <summary>Opens in an editor's column: its top right at <paramref name="right"/>, <paramref name="top"/> (frame units).</summary>
+  public void ShowIn(float right, float top)
+  {
+    _column = new Vector2(right, top);
     Root.gameObject.SetActive(true);
     Place();
     Root.SetAsLastSibling();
@@ -60,6 +71,11 @@ internal sealed class OverlayGrowPopover : IPopover
   private void Place()
   {
     Vector2 size = _panel.Size;
+    if (_column is { } column)
+    {
+      Root.anchoredPosition = new Vector2(Mathf.Round(column.x - size.x), -Mathf.Round(column.y));
+      return;
+    }
     Rect bounds = PopoverPlacement.Under(
       _anchor,
       _anchor.center.x - size.x * .5f,

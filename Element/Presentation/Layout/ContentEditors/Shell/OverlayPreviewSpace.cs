@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// The width an editor's preview and its bar center in: the screen between
-/// its margins, or the part left of an open color picker. It glides aside as
-/// the picker opens and back as it closes.
+/// The width an editor's preview centers in: the screen from its left margin
+/// to the property column, or to an open color picker where that reaches
+/// further left. It glides aside as the picker opens and back as it closes.
 /// </summary>
 internal sealed class OverlayPreviewSpace
 {
@@ -23,13 +23,14 @@ internal sealed class OverlayPreviewSpace
     OverlayEditorFrame screen,
     UiColorPicker picker,
     OverlayInputDock dock,
+    OverlayEditorInspector inspector,
     bool reduceMotion,
     out float left,
     out float right
   )
   {
     left = OverlayEditorFrame.Margin;
-    right = screen.Width - OverlayEditorFrame.Margin;
+    right = Mathf.Min(screen.Width - OverlayEditorFrame.Margin, inspector.Left - 24);
     if (picker != null && picker.Visible)
       right = Mathf.Min(right, KeypadPicker.Left(picker, dock) - 16);
     right = _glide.Toward(right, reduceMotion);

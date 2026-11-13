@@ -39,6 +39,48 @@ namespace Element.Editor
       Settle();
     }
 
+    /// <summary>
+    /// <paramref name="count"/> frames as the game runs them: the editor's
+    /// own tick, the switches' slide (their own update), then ElementUI's
+    /// driver at the end of the frame, which flushes only while awake and goes
+    /// to sleep once nothing is left. Nothing is settled by hand: a change
+    /// that doesn't wake the driver never shows, as in the game.
+    /// </summary>
+    private static void Frames(System.Action tick, int count)
+    {
+      const System.Reflection.BindingFlags instance = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
+      System.Reflection.MethodInfo slide = typeof(Element.Presentation.Ui.Widgets.UiSwitchMotion).GetMethod("Update", instance);
+      System.Reflection.MethodInfo endOfFrame = typeof(Driver).GetMethod("LateUpdate", instance);
+      Driver driver = (Driver)typeof(Driver)
+        .GetField("_instance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+        .GetValue(null);
+      for (int frame = 0; frame < count; frame++)
+      {
+        tick();
+        foreach (Element.Presentation.Ui.Widgets.UiSwitchMotion motion in Object.FindObjectsOfType<Element.Presentation.Ui.Widgets.UiSwitchMotion>())
+          if (motion.isActiveAndEnabled)
+            slide.Invoke(motion, null);
+        if (driver != null && driver.enabled)
+          endOfFrame.Invoke(driver, null);
+      }
+      Canvas.ForceUpdateCanvases();
+    }
+
+    /// <summary>
+    /// A frame of the text editor with no pointer or key (the preview's Unity
+    /// reads input through the Input System, which the editor doesn't use):
+    /// the top line's notices and the dock's blinking caret.
+    /// </summary>
+    private static void QuietFrame(Element.Presentation.Layout.ContentEditors.Text.OverlayTextEditor text)
+    {
+      EditorScreen(text).Tick();
+      Field<OverlayInputDock>(text, "_dock").Blink(true);
+    }
+
+    /// <summary>A key of the dock's keypad as it is drawn now, without letting the dock catch up first.</summary>
+    private static Pressable DockKeyAsIs(OverlayInputDock dock, string name) =>
+      dock.Root.GetComponentsInChildren<Pressable>(true).Single(key => key.name == name);
+
     /// <summary>The dock's keys as drawn, row by row, then AC and Done, once the dock caught up.</summary>
     private static Pressable[] DockKeys(OverlayInputDock dock)
     {

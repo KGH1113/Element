@@ -1161,15 +1161,29 @@ namespace Element.Editor
       Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
 
-      // The animation switch acts on values: the whole text's with nothing selected.
+      // The animation switch acts on values: the whole text's with nothing
+      // selected. Pressed as the player does, with the screen catching up only
+      // at the end of each frame, as in the game.
       OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
       Assert(!document[6].Animate, "FPS starts still");
-      PressBar(text, animateButton);
+      Pressable drawnAnimate = BarButton(text, animateButton);
+      UiSwitchMotion animateThumb = drawnAnimate.GetComponentInChildren<UiSwitchMotion>();
+      RectTransform animateKnob = (RectTransform)animateThumb.transform;
+      Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
+      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(screen.Frame, "Shortcuts");
+      string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
-      Assert(screen.NoticeText.Length > 0, "turning it on says what it does");
-      UiSwitchMotion animateThumb = BarButton(text, animateButton).GetComponentInChildren<UiSwitchMotion>();
-      Assert(Field<float>(animateThumb, "_target") > 12, "the switch slides over to on");
+      Frames(() => QuietFrame(text), 40);
+      Assert(screen.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
+        "turning it on says what it does, on the screen: " + topLine.text);
+      Assert(animateKnob.anchoredPosition.x > 12 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.SoftAccent),
+        "the switch slides over to on and lights up in the game's frames: " + animateKnob.anchoredPosition.x);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
@@ -1180,10 +1194,14 @@ namespace Element.Editor
         "letters alone stay as they are and say why: " + screen.NoticeText);
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
-      PressBar(text, animateButton);
+      screen.Notice(L("커서를 옮겼어요", "The caret moved"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
+      Frames(() => QuietFrame(text), 40);
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
-      Assert(Field<float>(animateThumb, "_target") < 6, "the switch slides back to off");
+      Assert(animateKnob.anchoredPosition.x < 6 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.Foreground),
+        "the switch slides back to off in the game's frames: " + animateKnob.anchoredPosition.x);
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.
@@ -1265,6 +1283,41 @@ namespace Element.Editor
       TextFormulasOf(text).OpenChip(9);
       Assert(dock.Owner == "value:9" && TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+{miss}",
         "clicking a value reopens its formula");
+      Call(text, "CloseOpen");
+      Call(text, "Render");
+
+      // As the player does it: a click on the value in the text, then the
+      // keypad's keys, with the screen catching up only at the end of each
+      // frame, as in the game.
+      Vector2 valuePoint = ScreenCenterOfItem(text, 9);
+      Assert(Field<TextLayoutMap>(text, "_map").TryValueAt(valuePoint, out int clicked) && clicked == 9 && !dock.Contains(valuePoint)
+        && (bool)typeof(OverlayTextEditor).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
+        "a click on the value in the text lands on it");
+      Frames(() => QuietFrame(text), 3);
+      Pressable times = DockKeyAsIs(dock, "Key ×"), three = DockKeyAsIs(dock, "Key 3"), back = DockKeyAsIs(dock, "Key backspace");
+      Assert(!times.IsInteractable(), "a resting keypad takes no key");
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("값을 골랐어요", "A value was picked"), false);
+      Frames(() => QuietFrame(text), 3);
+      TextFormulasOf(text).OpenChip(9);
+      Frames(() => QuietFrame(text), 2);
+      Assert(dock.Owner == "value:9" && times.IsInteractable() && !three.IsInteractable(),
+        "the clicked value's keypad takes an operator by the next frame, a digit only after one");
+      Press(times);
+      Frames(() => QuietFrame(text), 2);
+      Assert(three.IsInteractable(), "after × the digits can be pressed");
+      Press(three);
+      Frames(() => QuietFrame(text), 2);
+      TextMeshProUGUI drawnFormula = ByName<TextMeshProUGUI>(dock.Root, "Formula text");
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnFormula.text.EndsWith("×  3"),
+        "pressed keys calculate the value, and the dock shows it: " + document[9].Value + " / " + drawnFormula.text);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Assert(TextDocumentOf(text).Document[9].Value == "{combo}*2+{miss}", "backspace takes the keys back off: " + TextDocumentOf(text).Document[9].Value);
       Call(text, "CloseOpen");
       Call(text, "Render");
 

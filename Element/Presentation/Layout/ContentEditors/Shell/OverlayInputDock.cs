@@ -18,7 +18,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// </summary>
 internal sealed class OverlayInputDock
 {
-  private const float BottomGap = 24;
+  private const float BottomGap = 16;
 
   private readonly ScreenPanel _panel;
   private readonly OverlayFormulaLine _line;
@@ -48,15 +48,18 @@ internal sealed class OverlayInputDock
     float height = OverlayFormulaLine.Height + OverlayInputDockView.LineGap + OverlayKeypadView.Height;
     Top = screen.Height - BottomGap - height;
     Left = (screen.Width - _width) * .5f;
+    // The editor's notices show right above the dock instead of in its header.
+    screen.Top.InDock = true;
     _line = new OverlayFormulaLine(Model);
     _panel = screen.Panel("Input dock", Color.clear);
     _panel.Mount(
       screen.NewBackend(),
-      new OverlayInputDockView(Model, _line, _width, CategoryColumn(Model, screen.Measure), reduceMotion()),
+      new OverlayInputDockView(Model, screen.Top, _line, _width, CategoryColumn(Model, screen.Measure), reduceMotion()),
       Model,
       _width
     );
-    Root.anchoredPosition = new Vector2(Left, -Top);
+    // The notice line sits above the formula line; Top stays the formula line's.
+    Root.anchoredPosition = new Vector2(Left, -(Top - OverlayInputDockView.NoticeHeight));
   }
 
   /// <summary>What the dock shows and does.</summary>

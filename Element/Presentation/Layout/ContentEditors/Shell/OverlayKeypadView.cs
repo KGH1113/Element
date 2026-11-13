@@ -16,7 +16,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 internal sealed class OverlayKeypadView : View<OverlayKeypadModel>
 {
   public const float Key = 68,
-    KeyHeight = 46,
+    KeyHeight = 44,
     Gap = 8,
     Width = 4 * Key + 3 * Gap,
     Height = 5 * KeyHeight + 4 * Gap;

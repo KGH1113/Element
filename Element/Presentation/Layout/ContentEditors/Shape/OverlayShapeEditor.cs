@@ -48,7 +48,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   private readonly ShapeValueDrops _drops;
   private readonly ShapeInput _input;
   private OverlayEditorFrame _screen;
-  private OverlayEditorBar _bar;
+  private OverlayEditorInspector _inspector;
   private OverlayInputDock _dock;
   private ShapeOverlayElement _element;
   private Action<bool> _closed;
@@ -83,7 +83,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
 
   OverlayInputDock IContentEditorHost.Dock => _dock;
 
-  OverlayEditorBar IContentEditorHost.Bar => _bar;
+  OverlayEditorInspector IContentEditorHost.Inspector => _inspector;
 
   OverlayShapeSettings IShapeEditorHost.Shape => _shape;
 
@@ -133,17 +133,13 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       _parent,
       _font,
       _reduceMotion,
-      L(
-        "도형 편집 · 숫자를 눌러 입력 · ⌘/Ctrl+Enter나 Esc로 완료",
-        "Edit shape · Click a number to type · ⌘/Ctrl+Enter or Esc to finish"
-      ),
+      L("도형 편집", "Edit shape"),
       () => Close(false, true),
       () => Close(true, true)
     );
     _preview.Build(_screen);
     _measures.Build(_screen, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_screen, _reduceMotion());
-    BuildBar();
     _dock = new OverlayInputDock(
       _screen,
       _reduceMotion,
@@ -155,24 +151,44 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       _drops.MoveValueDrag,
       _drops.EndValueDrag
     );
+    BuildInspector();
     _colors.BuildPicker(_screen, _dock);
     _gradient.BuildPicker(_screen.Ui, _reduceMotion());
-    _grow.Build(_screen, _bar);
+    _grow.Build(_screen, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
   }
 
-  // One row of labeled buttons: fill, border, border width and grow point.
-  // Colors open their picker (with opacity) right above the keypad.
-  private void BuildBar() =>
-    _bar = new OverlayEditorBar(
+  // A row per property in the column above the keypad: fill, border, border
+  // width and grow point. Colors open their picker (with opacity) in the
+  // column. Width, height and rounding stay on the shape.
+  private void BuildInspector() =>
+    _inspector = new OverlayEditorInspector(
       _screen,
+      _dock,
       "Shape bar",
+      L("도형", "Shape"),
+      CloseTool,
       _colors.BuildFill(),
       _colors.BuildStroke(),
       _numbers.BuildStrokeWidth(),
       _grow.BuildButton()
     );
+
+  // The column's back row: the rows come back.
+  private void CloseTool()
+  {
+    if (_colors.Picker.Visible)
+      _colors.Picker.Hide();
+    CloseOpen();
+    Render();
+  }
+
+  // What the column has open, as its back row names it; null while it shows the rows.
+  private string OpenTool() =>
+    _colors.Picker.Visible ? _colors.Title
+    : _grow.Visible ? _grow.Button.Label
+    : null;
 
   public void Tick()
   {
@@ -226,18 +242,18 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _blinkStart = Time.unscaledTime;
     _numbers.Sync();
     _dock.Edit(_numbers.Field);
-    // The shape and its bar center in the space left of an open picker.
-    _space.Measure(_screen, _colors.Picker, _dock, _reduceMotion(), out float left, out float right);
+    // The shape centers in the space left of the property column, or of an open picker.
+    _space.Measure(_screen, _colors.Picker, _dock, _inspector, _reduceMotion(), out float left, out float right);
     _preview.Draw(
       _shape,
       _elementScale,
       _screen,
       _dock,
-      OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 56,
+      OverlayEditorFrame.TopBar + 48,
       left,
       right
     );
-    LayOutBar(left, right);
+    LayOutInspector();
     if (_gradient.Show())
       _gradient.ShowNumbers(_numbers);
     _measures.LayOut(
@@ -262,15 +278,15 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     );
   }
 
-  // The bar stays over the shape, clear of an open picker.
-  private void LayOutBar(float left, float right)
+  // The column's rows show the fill, the border, its width and the grow
+  // point; an open picker or the points take the column.
+  private void LayOutInspector()
   {
     _colors.ShowButtons(_preview);
     _numbers.ShowStrokeWidth();
     _grow.ShowButton();
-    float width = _bar.LayOut();
-    _bar.Place(Mathf.Max(OverlayEditorFrame.Margin, (left + right - width) * .5f), OverlayEditorFrame.TopBar + 8);
-    _colors.PlacePicker(_dock);
+    _colors.PlacePicker(_dock, _inspector.ToolTop);
+    _inspector.Show(OpenTool(), _colors.Picker.Visible ? _colors.Picker.Root : _grow.Visible ? _grow.Popover.Root : null);
   }
 
   // While the grow popover is open, a dot marks the point that stays put.

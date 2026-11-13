@@ -12,8 +12,8 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// Where an edited element grows from: the bar's Grow from button, its
-/// popover with the nine points, and a dot on the preview at the point that
+/// Where an edited element grows from: the property column's Grow from row,
+/// the nine points it opens in the column, and a dot on the preview at the point that
 /// stays put while the popover is open. Done saves the choice with the element.
 /// </summary>
 internal sealed class OverlayGrowFrom
@@ -23,8 +23,7 @@ internal sealed class OverlayGrowFrom
   private readonly Action _closeOthers;
   private readonly Action _changed;
   private OverlayElementTarget _element;
-  private OverlayEditorFrame _screen;
-  private OverlayEditorBar _bar;
+  private OverlayEditorInspector _inspector;
   private OverlayGrowPopover _popover;
   private UiCapsuleGraphic _mark;
 
@@ -38,7 +37,7 @@ internal sealed class OverlayGrowFrom
 
   public OverlayGrowth Growth { get; private set; }
 
-  /// <summary>The bar's Grow from button; made by <see cref="BuildButton"/>.</summary>
+  /// <summary>The column's Grow from row; made by <see cref="BuildButton"/>.</summary>
   public OverlayBarButtonModel Button { get; private set; }
 
   public bool Visible => _popover.Visible;
@@ -53,21 +52,21 @@ internal sealed class OverlayGrowFrom
     Growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
   }
 
-  /// <summary>The Grow from button, added where the bar has it.</summary>
+  /// <summary>The Grow from row, added where the column has it.</summary>
   public OverlayBarButtonModel BuildButton() =>
     Button = new OverlayBarButtonModel(
       "Grow from",
       L("기준점", "Grow from"),
       Toggle,
       value: true,
-      icon: UiIconKind.GrowFrom
+      icon: UiIconKind.GrowFrom,
+      opens: true
     );
 
-  /// <summary>The popover under the button on <paramref name="bar"/>, and the dot, over the editor's controls.</summary>
-  public void Build(OverlayEditorFrame screen, OverlayEditorBar bar)
+  /// <summary>The points, opening in <paramref name="inspector"/>'s column, and the dot, over the editor's controls.</summary>
+  public void Build(OverlayEditorFrame screen, OverlayEditorInspector inspector)
   {
-    _screen = screen;
-    _bar = bar;
+    _inspector = inspector;
     _popover = new OverlayGrowPopover(screen, Pick);
     _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
@@ -77,14 +76,14 @@ internal sealed class OverlayGrowFrom
 
   public bool Contains(Vector2 screen) => _popover.Contains(screen);
 
-  /// <summary>The button opens the popover under itself, and closes it again.</summary>
+  /// <summary>The row opens the points in the column, and closes them again.</summary>
   private void Toggle()
   {
     bool open = _popover.Visible;
     _closeOthers();
     if (!open)
     {
-      _popover.Show(_screen.FrameRect(_bar.RectOf(Button)));
+      _popover.ShowIn(_inspector.Right, _inspector.ToolTop);
       _popover.Refresh(Growth, PointNow());
     }
     _changed();
@@ -100,7 +99,7 @@ internal sealed class OverlayGrowFrom
   // With Auto, the point picked from where the element sits on screen.
   private Anchor9 PointNow() => OverlayLayoutPosition.ValidGrowth(Growth) ? (Anchor9)(int)Growth : _element.GrowPoint;
 
-  /// <summary>Shows the bar's choice: the short name of the point, lit while the popover is open.</summary>
+  /// <summary>Shows the row's choice: the short name of the point, lit while the points are open.</summary>
   public void ShowButton() => Button.Set(OverlayGrowPickerModel.ShortName(Growth), false, _popover.Visible);
 
   /// <summary>

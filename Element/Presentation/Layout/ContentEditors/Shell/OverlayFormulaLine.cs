@@ -15,7 +15,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// </summary>
 internal sealed class OverlayFormulaLine : NativeView
 {
-  public const float Height = 58;
+  public const float Height = 54;
 
   private readonly OverlayInputDockModel _vm;
   private TextMeshProUGUI _title,

@@ -36,6 +36,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
   /// <param name="icon">An icon before the name.</param>
   /// <param name="glyph">Letters before the name, such as "Aa".</param>
   /// <param name="toggle">A switch after the name, set with <see cref="SetSwitch"/>.</param>
+  /// <param name="opens">A click opens a tool in the editor's column (a list, a picker), marked with a chevron.</param>
   public OverlayBarButtonModel(
     string name,
     string label,
@@ -45,7 +46,8 @@ internal sealed class OverlayBarButtonModel : ViewModel
     bool swatch = false,
     UiIconKind? icon = null,
     string glyph = null,
-    bool toggle = false
+    bool toggle = false,
+    bool opens = false
   )
   {
     Name = name;
@@ -56,6 +58,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
     Icon = swatch ? null : icon;
     Glyph = swatch || icon.HasValue || string.IsNullOrEmpty(glyph) ? null : glyph;
     Toggle = toggle;
+    Opens = opens && !toggle;
     Color accent = UiPalette.SoftAccent,
       error = UiPalette.Error;
     _lit = new Color(accent.r, accent.g, accent.b, .3f);
@@ -85,6 +88,9 @@ internal sealed class OverlayBarButtonModel : ViewModel
 
   /// <summary>Whether a switch follows its name.</summary>
   public readonly bool Toggle;
+
+  /// <summary>Whether a click opens a tool in the editor's column, as a list or a picker does.</summary>
+  public readonly bool Opens;
 
   /// <summary>What it holds, as shown after its name.</summary>
   public readonly State<string> ValueText = new("");

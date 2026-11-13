@@ -67,10 +67,11 @@ internal sealed class OverlayEditorPicker
   /// <summary>The color picker opens right above the keypad, in its column.</summary>
   public void LayOutAbove(OverlayInputDock dock) => Picker.LayOutAsColumn(dock.KeypadArea.width);
 
-  public void Place(OverlayInputDock dock)
+  /// <summary>In the property column from <paramref name="top"/> (frame units), above the keypad.</summary>
+  public void Place(OverlayInputDock dock, float top)
   {
     if (dock != null)
-      KeypadPicker.Place(Picker, dock);
+      KeypadPicker.Place(Picker, dock, top);
   }
 
   public void Dispose()

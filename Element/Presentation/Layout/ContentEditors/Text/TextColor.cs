@@ -65,11 +65,14 @@ internal sealed class TextColor
   /// <summary>The bar's Text color button; made by <see cref="BuildButton"/>.</summary>
   public OverlayBarButtonModel Button => _colorButton;
 
+  /// <summary>What the open picker colors, as the column's back row names it.</summary>
+  public string Title { get; private set; } = "";
+
   /// <summary>How the keypad reads and writes the picker's opacity.</summary>
   public OverlayFormulaSlot OpacitySlot { get; }
 
   public OverlayBarButtonModel BuildButton() =>
-    _colorButton = new OverlayBarButtonModel("Text color", L("글자 색", "Text color"), OpenPicker, swatch: true);
+    _colorButton = new OverlayBarButtonModel("Text color", L("글자 색", "Text color"), OpenPicker, value: true, swatch: true, opens: true);
 
   /// <summary>The picker over the controls, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen)
@@ -95,8 +98,9 @@ internal sealed class TextColor
     }
     _text.Range(out int start, out int end);
     OverlayColorSettings current = _text.RangeColor();
+    Title = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
     picker.ShowSource(
-      _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color"),
+      Title,
       current,
       color =>
       {
@@ -111,9 +115,10 @@ internal sealed class TextColor
     _host.Render();
   }
 
-  public void Place(OverlayInputDock dock) => _picker.Place(dock);
+  /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
+  public void Place(OverlayInputDock dock, float top) => _picker.Place(dock, top);
 
-  public void ShowButton() => _colorButton.Set(null, false, Picker.Visible);
+  public void ShowButton() => _colorButton.Set(OverlayColorNames.Describe(_text.RangeColor()), false, Picker.Visible);
 
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()

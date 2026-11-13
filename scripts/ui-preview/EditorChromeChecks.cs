@@ -17,14 +17,54 @@ namespace Element.Editor
   {
     private static OverlayEditorFrame EditorScreen(object editor) => Field<OverlayEditorFrame>(editor, "_screen");
 
-    private static OverlayEditorBar EditorBar(object editor) => Field<OverlayEditorBar>(editor, "_bar");
+    /// <summary>The text and shape editors' property column.</summary>
+    private static OverlayEditorInspector EditorInspector(object editor) => Field<OverlayEditorInspector>(editor, "_inspector");
 
-    /// <summary>The control a bar button is drawn as, once the bar caught up.</summary>
+    // The text and shape editors have a property column; the mod editor keeps a bar.
+    private static bool HasInspector(object editor) => editor.GetType().GetField("_inspector", Private) != null;
+
+    /// <summary>Where an editor's properties are drawn: the text and shape editors' column, the mod editor's bar.</summary>
+    private static RectTransform EditorBarRoot(object editor) =>
+      HasInspector(editor) ? EditorInspector(editor).Root : Field<OverlayEditorBar>(editor, "_bar").Root;
+
+    /// <summary>The control a property's row (or the mod editor's bar button) is drawn as, once the screen caught up.</summary>
     private static Pressable BarButton(object editor, OverlayBarButtonModel button)
     {
       Settle();
-      RectTransform rect = EditorBar(editor).RectOf(button);
+      RectTransform rect = HasInspector(editor)
+        ? EditorInspector(editor).RectOf(button)
+        : Field<OverlayEditorBar>(editor, "_bar").RectOf(button);
       return rect != null ? rect.GetComponent<Pressable>() : null;
+    }
+
+    /// <summary>
+    /// A tool a row opened (the picker, the font list, the points) as the
+    /// column shows it: the rows give way to a back row naming
+    /// <paramref name="tool"/>, and the tool hangs under it, ending with the column.
+    /// </summary>
+    private static void AssertInColumn(object editor, RectTransform drawn, string tool)
+    {
+      Settle();
+      OverlayEditorInspector inspector = EditorInspector(editor);
+      Pressable back = ByName<Pressable>(inspector.Root, "Inspector back");
+      Assert(back != null && Shown(back) && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool)
+        && inspector.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
+        "the column shows only a back row naming " + tool);
+      Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(drawn),
+        keypad = KeypadRect(Field<OverlayInputDock>(editor, "_dock"));
+      Assert(toolRect.yMax <= backRect.yMin + .5f && Mathf.Abs(toolRect.xMax - keypad.xMax) < 1 && InsideScreen(toolRect),
+        tool + " opens in the column under its back row, ending with the keypad: " + toolRect + " / " + backRect);
+      Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1, "the back row starts where the tool does: " + backRect + " / " + toolRect);
+    }
+
+    /// <summary>The column's back row: the tool closes and the rows come back.</summary>
+    private static void PressBack(object editor)
+    {
+      Pressable back = ByName<Pressable>(EditorInspector(editor).Root, "Inspector back");
+      Assert(back != null && Shown(back), "the column has a back row");
+      Press(back);
+      Settle();
+      Assert(EditorInspector(editor).OpenTool == null, "back brings the rows again");
     }
 
     private static Rect BarButtonRect(object editor, OverlayBarButtonModel button) =>
@@ -115,9 +155,11 @@ namespace Element.Editor
       Press(ByName<Pressable>(EditorScreen(editor).Frame, name));
 
     /// <summary>
-    /// The top line: the editor's shortcuts, then Cancel and Done at its right
-    /// end; a notice takes the shortcuts' place for a while, warm for a
-    /// warning; its buttons never keep the keyboard, so Enter and Esc stay the editor's.
+    /// The header: what is edited on the left, Cancel and Done at its right
+    /// end, opaque across the top so the game's HUD never shows through the
+    /// editor's words; its buttons never keep the keyboard, so Enter and Esc
+    /// stay the editor's. A notice shows for a while on the dock's line (warm
+    /// for a warning), or in the header for an editor without a dock.
     /// </summary>
     private static void CheckEditorTopLine(object editor, string name, string title)
     {
@@ -129,38 +171,56 @@ namespace Element.Editor
       screen.Tick();
       Settle();
       RectTransform frame = screen.Frame;
-      TextMeshProUGUI line = ByName<TextMeshProUGUI>(frame, "Shortcuts");
+      RectTransform header = ByName<RectTransform>(frame, "Header");
+      TextMeshProUGUI heading = ByName<TextMeshProUGUI>(frame, "Editor title");
       Pressable cancel = ByName<Pressable>(frame, name + " cancel"), done = ByName<Pressable>(frame, name + " done");
-      string hint = Field<string>(screen.Top, "_hint");
-      Assert(line != null && line.text == hint && hint.StartsWith(title) && line.color == UiPalette.Muted && Shown(cancel) && Shown(done)
+      Assert(heading != null && heading.text == title && Shown(cancel) && Shown(done)
         && cancel.GetComponentInChildren<TextMeshProUGUI>().text == L("취소", "Cancel")
         && done.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
-        "the top line shows the editor's shortcuts, Cancel and Done: " + line?.text);
-      Rect lineRect = ScreenRectOf(line.rectTransform), cancelRect = ScreenRectOf((RectTransform)cancel.transform),
-        doneRect = ScreenRectOf((RectTransform)done.transform);
-      Assert(lineRect.xMax <= cancelRect.xMin && cancelRect.xMax < doneRect.xMin && Mathf.Abs(cancelRect.center.y - doneRect.center.y) < .5f
-        && Mathf.Abs(lineRect.center.y - doneRect.center.y) < 2 && InsideScreen(doneRect)
-        && Mathf.Abs(Screen.width - doneRect.xMax - OverlayEditorFrame.Margin * screen.Scale) < 1,
-        "the shortcuts on the left, Cancel and Done at the right end, on one line: " + cancelRect + " / " + doneRect);
-      Assert(doneRect.yMin > ScreenRectOf(EditorBar(editor).Root).yMax, "the top line sits above the bar");
+        "the header says what is edited, with Cancel and Done: " + heading?.text);
+      Rect headerRect = ScreenRectOf(header), headingRect = ScreenRectOf(heading.rectTransform),
+        cancelRect = ScreenRectOf((RectTransform)cancel.transform), doneRect = ScreenRectOf((RectTransform)done.transform);
+      RoundedRect fill = header.GetComponent<RoundedRect>();
+      Assert(fill != null && fill.color.a > .99f && headerRect.xMin < 1 && headerRect.xMax > Screen.width - 1
+        && Mathf.Abs(headerRect.yMax - Screen.height) < 1 && Mathf.Abs(headerRect.height - OverlayEditorFrame.TopBar * screen.Scale) < 1,
+        "an opaque header spans the top: " + headerRect);
+      Assert(headingRect.xMax <= cancelRect.xMin && cancelRect.xMax < doneRect.xMin && Mathf.Abs(cancelRect.center.y - doneRect.center.y) < .5f
+        && Mathf.Abs(headingRect.center.y - doneRect.center.y) < 2 && Mathf.Abs(doneRect.center.y - headerRect.center.y) < 1 && InsideScreen(doneRect)
+        && Mathf.Abs(headingRect.xMin - OverlayEditorFrame.Margin * screen.Scale) < 1,
+        "what is edited on the left, Cancel and Done at the right end, on one line: " + cancelRect + " / " + doneRect);
+      Assert(headerRect.yMin >= ScreenRectOf(EditorBarRoot(editor)).yMax - .5f, "the header sits above the properties");
       Assert(done.GetComponent<RoundedRect>().color.maxColorComponent < .5f && cancel.navigation.mode == Navigation.Mode.None
         && done.navigation.mode == Navigation.Mode.None, "Done is the tinted main action; neither keeps the keyboard");
-      foreach (TextMeshProUGUI label in new[] { line }.Concat(cancel.GetComponentsInChildren<TextMeshProUGUI>()).Concat(done.GetComponentsInChildren<TextMeshProUGUI>()))
+      foreach (TextMeshProUGUI label in new[] { heading }.Concat(cancel.GetComponentsInChildren<TextMeshProUGUI>()).Concat(done.GetComponentsInChildren<TextMeshProUGUI>()))
       {
         label.ForceMeshUpdate();
-        Assert(label.font == screen.Measure.font && !label.isTextTruncated, "top line label fits: " + label.text);
+        Assert(label.font == screen.Measure.font && !label.isTextTruncated, "header label fits: " + label.text);
       }
+      bool docked = screen.Top.InDock;
+      TextMeshProUGUI headerNotice = ByName<TextMeshProUGUI>(frame, "Header notice");
+      TextMeshProUGUI line = docked ? ByName<TextMeshProUGUI>(Field<OverlayInputDock>(editor, "_dock").Root, "Notice") : headerNotice;
+      string plain = line.text;
+      Color plainInk = line.color;
       screen.Notice("Preview warning");
       Settle();
       Assert(screen.NoticeText == "Preview warning" && line.text == "Preview warning" && line.color == UiPalette.Error,
-        "a warning shows where the shortcuts are, warm");
+        "a warning shows " + (docked ? "right above the dock" : "in the header") + ", warm");
+      if (docked)
+      {
+        OverlayInputDock noticeDock = Field<OverlayInputDock>(editor, "_dock");
+        Rect noticeRect = ScreenRectOf(line.rectTransform), keypadRect = KeypadRect(noticeDock);
+        Assert(noticeRect.yMin >= ScreenRectOf(ByName<RectTransform>(noticeDock.Root, "Formula line")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
+          "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);
+      }
+      Assert(!docked || headerNotice.text.Length == 0, "the header stays quiet while the dock shows the notices");
       screen.Notice("Preview note", false);
       Settle();
       Assert(line.text == "Preview note" && line.color == UiPalette.Foreground, "a note reads white");
       SetField(screen.Top, "_noticeUntil", -1f);
       screen.Tick();
       Settle();
-      Assert(screen.NoticeText == "" && line.text == hint && line.color == UiPalette.Muted, "the shortcuts come back once a notice has been read");
+      Assert(screen.NoticeText == "" && line.text == plain && (plain.Length == 0 || line.color == plainInk),
+        "what the line said comes back once a notice has been read");
       if (notice.Length > 0)
         screen.Notice(notice, warning);
     }

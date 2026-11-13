@@ -44,10 +44,10 @@ internal sealed class OverlayInputDock
   )
   {
     Model = new OverlayInputDockModel(press, clear, done, pick, begin, move, end);
-    _width = Mathf.Min(1180, screen.Width - OverlayEditorFrame.Margin * 2);
+    _width = screen.ContentWidth;
     float height = OverlayFormulaLine.Height + OverlayInputDockView.LineGap + OverlayKeypadView.Height;
     Top = screen.Height - BottomGap - height;
-    Left = (screen.Width - _width) * .5f;
+    Left = screen.ContentLeft;
     // The editor's notices show right above the dock instead of in its header.
     screen.Top.InDock = true;
     _line = new OverlayFormulaLine(Model);

@@ -38,6 +38,9 @@ internal sealed class GameWebView : INativeViewerHost
   private delegate ulong GetGeometryRevision();
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+  private delegate void SetGameSize(double width, double height);
+
+  [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate int GetBounds(
     string kind,
     out double x,
@@ -87,6 +90,11 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetHighlight _setHighlight;
   private readonly SetEditorExclusion _setEditorExclusion;
   private readonly SetEditorExclusions _setEditorExclusions;
+
+  // Optional: macOS libraries before letterbox fitting, and the Windows one, lack it.
+  private readonly SetGameSize _setGameSize;
+  private int _gameWidth,
+    _gameHeight;
 
   // The cutouts the library has, and the buffer the next ones are written to:
   // the two swap, so an open layout editor allocates nothing per frame.
@@ -139,6 +147,7 @@ internal sealed class GameWebView : INativeViewerHost
     _setHighlight = Symbol<SetHighlight>(library, "irp_webview_set_highlight");
     _setEditorExclusion = Symbol<SetEditorExclusion>(library, "irp_webview_set_editor_exclusion");
     _setEditorExclusions = OptionalSymbol<SetEditorExclusions>(library, "irp_webview_set_editor_exclusions");
+    _setGameSize = OptionalSymbol<SetGameSize>(library, "irp_webview_set_game_size");
     _dispose = Symbol<DisposeViews>(library, "irp_webview_dispose");
     _lastError = Symbol<LastError>(library, "irp_webview_last_error");
     if (Symbol<Supported>(library, "irp_webview_supported")() == 0)
@@ -296,6 +305,21 @@ internal sealed class GameWebView : INativeViewerHost
       return false;
     size = new Vector2((float)width, (float)height);
     return width > 0 && height > 0;
+  }
+
+  /// <summary>
+  /// The size Unity draws the game at, in its pixels. The host covers only
+  /// where the game is drawn, so a game fitted into its window with bars
+  /// beside it still gets cutouts, pages and the pointer where Unity has them.
+  /// Cheap to call every frame: only a change reaches the library.
+  /// </summary>
+  public void FitGame(int width, int height)
+  {
+    if (_disposed || _setGameSize == null || (width == _gameWidth && height == _gameHeight))
+      return;
+    _gameWidth = width;
+    _gameHeight = height;
+    _setGameSize(width, height);
   }
 
   public bool TryGetViewSize(out Vector2 size)

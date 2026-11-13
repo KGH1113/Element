@@ -8,8 +8,9 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// An editor's header across the top: what is edited on the left (with a
-/// notice after it when there is no dock to show it), Cancel and Done on the right.
+/// An editor's header along the top: what is edited on the left (with a
+/// notice after it when there is no dock to show it), Cancel and Done on the
+/// right, its ends in line with the content below.
 /// </summary>
 internal sealed class OverlayEditorFrameView : View<OverlayEditorFrameModel>
 {
@@ -31,6 +32,5 @@ internal sealed class OverlayEditorFrameView : View<OverlayEditorFrameModel>
         WideButton(L("완료", "Done"), VM.Name + " done", () => VM.Done, 96, 36, ButtonStyle.Prominent)
           .Hint(L("⌘/Ctrl+Enter나 Esc로도 완료돼요", "⌘/Ctrl+Enter or Esc also finishes"))
       )
-      .Padding(new Insets(0, OverlayEditorFrame.Margin, 0, OverlayEditorFrame.Margin - 8))
       .Frame(height: OverlayEditorFrame.TopBar);
 }

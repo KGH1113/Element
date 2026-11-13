@@ -21,6 +21,8 @@ internal sealed class KeyCountRunStateProvider
 
   private readonly KeyCounterIpc _counters;
   private readonly RecordedKeyCounts _renderCounts;
+  private bool _replaying;
+  private bool _rendering;
 
   public KeyCountRunStateProvider(KeyCounterIpc counters, RecordedKeyCounts renderCounts)
   {
@@ -45,16 +47,38 @@ internal sealed class KeyCountRunStateProvider
       );
   }
 
-  public void OnReplayBegin(KeyCountRunState recorded, bool render)
+  /// <summary>
+  /// A replay or render begins. ElementNote hears of an in-game replay together with the run's
+  /// counts, in one message, once they arrive in <see cref="OnReplayState"/>: right after this,
+  /// before the level starts and before any replayed key.
+  /// </summary>
+  public void OnReplayBegin(bool render)
   {
-    if (render)
-      _renderCounts.Counts = recorded?.ByTab;
+    _replaying = true;
+    _rendering = render;
+    _renderCounts.Counts = null;
+  }
+
+  /// <summary>
+  /// The counts the replayed run was recorded at, or null for a run recorded without them.
+  /// TUFReplay hands them over right after <see cref="OnReplayBegin"/>, and again after a
+  /// timeline seek, which starts the run over: ElementNote then counts the replay from them
+  /// again instead of adding to them. The keys before the seek's time are not replayed.
+  /// </summary>
+  public void OnReplayState(KeyCountRunState state, long ticks)
+  {
+    if (!_replaying)
+      return;
+    // A render's key viewers read them when the video is first used.
+    if (_rendering)
+      _renderCounts.Counts = state?.ByTab;
     else
-      _counters.BeginReplay(recorded?.ByTab);
+      _counters.BeginReplay(state?.ByTab);
   }
 
   public void OnReplayEnd()
   {
+    _replaying = false;
     _renderCounts.Counts = null;
     _counters.EndReplay();
   }

@@ -118,7 +118,8 @@ internal sealed class KeyCounterIpc : IElementIpcEndpoint
 
   /// <summary>
   /// TUFReplay starts replaying a run in the game. <paramref name="recorded"/> holds the
-  /// counts it was recorded at, or null for a run recorded without them.
+  /// counts it was recorded at, or null for a run recorded without them. Called again during
+  /// the replay, ElementNote counts it from the new counts instead.
   /// </summary>
   public void BeginReplay(KeyCounts recorded)
   {

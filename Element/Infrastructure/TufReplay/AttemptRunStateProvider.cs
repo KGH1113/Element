@@ -38,9 +38,22 @@ internal sealed class AttemptRunStateProvider
     return new AttemptRunState { Attempt = counts.Attempt, FullAttempt = counts.FullAttempt };
   }
 
-  public void OnReplayBegin(AttemptRunState recorded, bool render)
+  /// <summary>
+  /// A replay or render begins: the overlay stops showing the live counts. The run's counts
+  /// follow in <see cref="OnReplayState"/> before the level starts, and redraw the overlay.
+  /// </summary>
+  public void OnReplayBegin(bool render) => _replayed.BeginReplay();
+
+  /// <summary>
+  /// The counts the replayed run was played at, or null for a run recorded without them.
+  /// TUFReplay hands them over right after <see cref="OnReplayBegin"/>, and again after a
+  /// timeline seek; each call replaces the counts shown.
+  /// </summary>
+  public void OnReplayState(AttemptRunState state, long ticks)
   {
-    _replayed.BeginReplay(recorded == null ? null : new AttemptCounts(recorded.Attempt, recorded.FullAttempt));
+    if (!_replayed.Replaying)
+      return;
+    _replayed.ShowRecorded(state == null ? null : new AttemptCounts(state.Attempt, state.FullAttempt));
     _refresh();
   }
 

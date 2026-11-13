@@ -1016,8 +1016,8 @@ namespace Element.Editor
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
       Assert(Selection(editor).Selected == IndexOf(editor, foot), "the switched viewer stays selected");
-      Call(editor, "UpdateFrames");
-      Settle();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
       Assert(ElementBar(editor).Model == kind && kind.Target == foot && kind.Viewer == 1,
         "the bar follows the switched viewer instead of being made again");
       Assert(SegmentShown(ElementBar(editor).Root) == 1, "the hand/foot control moves to foot: " + SegmentShown(ElementBar(editor).Root));
@@ -1025,16 +1025,16 @@ namespace Element.Editor
       // And back: the same control keeps taking clicks after a switch.
       ClickOption(ElementBar(editor).Root, L("손", "Hand"));
       IOverlayLayoutTarget handAgain = viewers.Targets.Last();
-      Call(editor, "UpdateFrames");
-      Settle();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
       Assert(handAgain != foot && handAgain.TemplateId == OverlayElementKinds.HandKeyViewer && handAgain.Enabled && !foot.Enabled
         && Selection(editor).Selected == IndexOf(editor, handAgain) && kind.Target == handAgain && kind.Viewer == 0,
         "switching back to hand works from the same toolbar");
       Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control moves back to hand: " + SegmentShown(ElementBar(editor).Root));
       ClickOption(ElementBar(editor).Root, L("발", "Foot"));
       foot = viewers.Targets.Last();
-      Call(editor, "UpdateFrames");
-      Settle();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && foot.Enabled && kind.Target == foot && kind.Viewer == 1
         && SegmentShown(ElementBar(editor).Root) == 1, "and to foot again");
       ElementUI.Runtime.ErrorReported -= uiErrors.Add;

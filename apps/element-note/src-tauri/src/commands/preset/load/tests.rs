@@ -205,6 +205,69 @@ fn synthesized_custom_tabs_are_deterministic_without_preset_metadata() {
 }
 
 #[test]
+fn full_preset_migrates_legacy_builtin_layouts_without_overwriting_custom_tabs() {
+    let mut preset: PresetFile = serde_json::from_value(serde_json::json!({
+        "keys": {"4key": ["D"], "5key": [], "6key": [], "8key": ["F"], "legacy-8key": ["A"]},
+        "keyPositions": {
+            "8key": [{"dx": 12, "dy": 0, "width": 60, "count": 0}],
+            "legacy-8key": [{"dx": 50, "dy": 0, "width": 60, "count": 0}]
+        },
+        "customTabs": [{"id": "legacy-8key", "name": "Feet", "viewerKind": "foot"}],
+        "tabOrder": ["8key", "4key", "5key", "6key", "legacy-8key"],
+        "selectedKeyType": "8key",
+        "selectedViewerTabs": {"hand": "8key", "foot": "legacy-8key"},
+        "statPositions": {"8key": []},
+        "graphPositions": {"8key": []},
+        "knobPositions": {"8key": []},
+        "spritePositions": {"8key": []},
+        "layerGroups": {"8key": [{"id": "group", "name": "Main"}]},
+        "tabNoteOverrides": {"8key": {"speed": 350}},
+        "tabCssOverrides": {"8key": {"content": ".key { color: red }"}}
+    }))
+    .unwrap();
+
+    migrate_legacy_preset_tabs(&mut preset);
+    let expected = [
+        "legacy-8key-2",
+        "legacy-4key",
+        "legacy-5key",
+        "legacy-6key",
+        "legacy-8key",
+    ];
+    assert_eq!(preset.tab_order.unwrap(), expected);
+    let tabs = preset.custom_tabs.unwrap();
+    assert_eq!(
+        tabs.iter().map(|tab| tab.id.as_str()).collect::<Vec<_>>(),
+        expected
+    );
+    assert_eq!(tabs[0].name, "8K");
+    assert_eq!(tabs[0].viewer_kind, KeyViewerKind::Hand);
+    assert_eq!(tabs[4].viewer_kind, KeyViewerKind::Foot);
+    assert_eq!(preset.selected_key_type.as_deref(), Some(expected[0]));
+    let selected = preset.selected_viewer_tabs.unwrap();
+    assert_eq!(selected.hand, expected[0]);
+    assert_eq!(selected.foot, expected[4]);
+    let keys = preset.keys.unwrap();
+    assert_eq!(keys[expected[0]], [KeySlot::from("F")]);
+    assert_eq!(keys[expected[4]], [KeySlot::from("A")]);
+    assert!(!keys.contains_key("8key"));
+    assert_eq!(preset.key_positions.unwrap()[expected[0]][0].dx, 12.0);
+    assert!(preset.stat_positions.unwrap().contains_key(expected[0]));
+    assert!(preset.graph_positions.unwrap().contains_key(expected[0]));
+    assert!(preset.knob_positions.unwrap().contains_key(expected[0]));
+    assert!(preset.sprite_positions.unwrap().contains_key(expected[0]));
+    assert_eq!(preset.layer_groups.unwrap()[expected[0]][0].name, "Main");
+    assert_eq!(
+        preset.tab_note_overrides.unwrap()[expected[0]].speed,
+        Some(350)
+    );
+    assert_eq!(
+        preset.tab_css_overrides.unwrap()[expected[0]].content,
+        ".key { color: red }"
+    );
+}
+
+#[test]
 fn preset_viewer_defaults_do_not_reassign_an_existing_tab_id_or_foot_tab() {
     let mut tabs = vec![crate::models::CustomTab {
         id: "hand-default".to_string(),

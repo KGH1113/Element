@@ -17,7 +17,8 @@ use crate::{
     models::{
         AppStoreData, CommittedEditorChange, CustomCssPatch, CustomTab, EditorCommitOrigin,
         EditorDocumentV1, EditorField, KeyCounters, KeyMappings, KeyPositions, LayerGroups,
-        NoteSettings, NoteSettingsPatch, SettingsPatchInput, SettingsState, StatPositions,
+        NoteSettings, NoteSettingsPatch, SelectedViewerTabs, SettingsPatchInput, SettingsState,
+        StatPositions,
     },
     services::settings::apply_patch_to_store,
     state::{
@@ -428,7 +429,9 @@ pub struct ModeResponse {
 pub struct ResetAllResponse {
     pub keys: KeyMappings,
     pub positions: KeyPositions,
+    #[serde(rename = "tabs")]
     pub custom_tabs: Vec<CustomTab>,
+    pub selected_viewer_tabs: SelectedViewerTabs,
     pub tab_order: Vec<String>,
     pub bar_count: u8,
     pub selected_key_type: String,
@@ -824,6 +827,7 @@ fn keys_reset_all_inner(
         keys,
         positions,
         custom_tabs,
+        selected_viewer_tabs: current_css_state.selected_viewer_tabs,
         tab_order,
         bar_count,
         selected_key_type,

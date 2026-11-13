@@ -2,7 +2,8 @@ use super::{
     delete_custom_tab_data, plan_custom_tab_delete, rename_custom_tab_metadata,
     reorder_change_payload, reorder_tab_metadata, reset_all_editor_data,
     reset_all_editor_data_with_images, reset_mode_data, reset_mode_data_with_images,
-    reset_mode_kind, select_mode_if_available, set_mode_with, ModeResetKind, TabOrderOpV1,
+    reset_mode_kind, select_mode_if_available, set_mode_with, ModeResetKind, ResetAllResponse,
+    TabOrderOpV1,
 };
 use crate::{
     keyboard::KeyboardManager,
@@ -524,6 +525,32 @@ fn tab_order_op_rejects_unknown_kind_and_unknown_fields() {
 
     assert!(unknown_kind.is_err());
     assert!(unknown_field.is_err());
+}
+
+#[test]
+fn reset_all_response_serializes_the_viewer_tabs_used_by_settings() {
+    let mut store = populated_custom_tab_store();
+    reset_all_editor_data(
+        &mut store,
+        crate::defaults::default_keys(),
+        crate::defaults::default_positions(),
+        crate::defaults::default_stat_positions(),
+    );
+    let response = serde_json::to_value(ResetAllResponse {
+        keys: store.keys,
+        positions: store.key_positions,
+        custom_tabs: store.custom_tabs,
+        selected_viewer_tabs: store.selected_viewer_tabs,
+        tab_order: store.tab_order,
+        bar_count: store.bar_count,
+        selected_key_type: store.selected_key_type,
+    })
+    .unwrap();
+    assert_eq!(response["tabs"][0]["id"], "hand-default");
+    assert_eq!(response["tabs"][1]["id"], "foot-default");
+    assert_eq!(response["selectedViewerTabs"]["hand"], "hand-default");
+    assert_eq!(response["selectedViewerTabs"]["foot"], "foot-default");
+    assert_eq!(response["selectedKeyType"], "hand-default");
 }
 
 #[test]

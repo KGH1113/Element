@@ -53,21 +53,27 @@ TUFReplay가 플레이를 기록하기 시작할 때 저장합니다. 카운트�
 - 화면에는 리플레이가 끝난 뒤에 보입니다.
 
 **타임라인 이동**
-- TUFReplay 타임라인에서 앞뒤로 이동하면, 건너뛴 구간의 키는 카운트에 들어가지 않습니다.
+- TUFReplay 타임라인에서 앞뒤로 이동하면, 키 카운트는 기록을 시작할 때의 카운트에서 다시 셉니다.
+- 이동한 지점 전의 키는 다시 재생되지 않으므로 카운트에 들어가지 않습니다.
 
 ## 동작
 
 1. Element는 TUFReplay의 `ReplayApi`에 리플렉션으로 등록합니다. 상태를 저장하는 provider id는 `Element.Attempts`와 `Element.KeyCounts`입니다. 렌더용 `Element.Render`는 상태를 저장하지 않습니다([OrbitRender 렌더](orbitrender.md)).
+   - `ReplayApi` 버전 2 이상이 필요합니다. 그보다 오래된 TUFReplay에는 등록하지 않으므로, 리플레이와 렌더에 Element가 나오지 않습니다.
    - TUFReplay가 없어도 Element는 그대로 동작합니다.
    - TUFReplay가 나중에 로드되거나 껐다 켜져도 2초 안에 다시 등록합니다.
-   - 저장 형식은 `AttemptRunState`와 `KeyCountRunState`의 public 필드입니다. 필드 이름이나 타입을 바꾸려면 provider에 `UpgradeRunState`가 있어야 합니다. 자세한 내용은 TUFReplay의 `docs/replay-api.md`에 있습니다.
+   - 저장 형식은 `AttemptRunState`와 `KeyCountRunState`의 public 필드입니다. 필드 이름이나 타입을 바꾸려면 provider에 `UpgradeRunState`가 있어야 합니다. 자세한 내용은 TUFReplay의 `docs/replay-api/`에 있습니다.
 2. 녹화가 시작되면 TUFReplay가 `CaptureRunState`를 부릅니다.
    - 시도 횟수는 바로 돌려줍니다.
    - 키 카운트는 `counters.read`의 답을 `Task`로 돌려줍니다.
-3. 리플레이나 렌더를 시작하기 직전에 TUFReplay가 `OnReplayBegin(기록한 값, render)`을 부릅니다. 레벨이 시작되기 전입니다.
+3. 리플레이나 렌더를 시작하기 직전에 TUFReplay가 `OnReplayBegin(render)`을 부르고, 바로 이어서 `OnReplayState(기록한 값, 0)`으로 저장한 값을 돌려줍니다. 레벨이 시작되기 전입니다.
+   - `OnReplayBegin`은 리플레이가 시작됐다는 것만 알립니다. 오버레이는 지금 시도 횟수를 그만 보여 주고 값을 기다립니다.
+   - 저장한 값이 없거나 읽을 수 없으면 `OnReplayState`가 `null`을 받습니다. 위의 **값이 없는 기록**과 같습니다.
    - 오버레이의 시도 횟수는 기록한 값으로 바뀝니다.
-   - 게임 안 리플레이면 Element가 ElementNote에 `counters.replay.begin`을 보냅니다.
+   - 게임 안 리플레이면 Element가 ElementNote에 `counters.replay.begin`을 보냅니다. 리플레이가 시작됐다는 알림과 기록한 카운트를 한 메시지로 보냅니다.
    - 렌더면 `render.begin`의 `counterBaseline`에 기록한 카운트를 담습니다.
+   - 타임라인에서 이동하면 TUFReplay가 `OnReplayState`로 같은 값을 다시 줍니다. Element는 `counters.replay.begin`을 다시 보내고, ElementNote는 더하지 않고 그 값에서 다시 셉니다.
+   - Element는 플레이 중에 바뀌는 값을 이벤트로 기록하지 않습니다(`AddEvent`를 쓰지 않음).
 4. 끝나면 TUFReplay가 `OnReplayEnd`를 부릅니다.
    - 오버레이는 지금 값으로 돌아갑니다.
    - Element가 `counters.replay.end`를 보냅니다.
@@ -91,7 +97,7 @@ TUFReplay가 플레이를 기록하기 시작할 때 저장합니다. 카운트�
 
 ## 확인할 것
 
-- `./scripts/run.sh mod-check`: 시도 횟수 표시, provider 계약, 카운트 응답 해석, 렌더 시작 메시지.
+- `./scripts/run.sh mod-check`: 시도 횟수 표시, provider 계약(`ReplayApi` 2), `OnReplayState`로 받은 값과 `counters.replay.begin`, 카운트 응답 해석, 렌더 시작 메시지.
 - `./scripts/run.sh desktop-check`:
   - 리플레이 카운트가 저장된 카운트에 더해지지 않는지
   - 리플레이 중 초기화

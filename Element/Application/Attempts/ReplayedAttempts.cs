@@ -28,12 +28,16 @@ internal sealed class ReplayedAttempts : IAttemptSource
     return _live?.Read() ?? default;
   }
 
-  /// <param name="recorded">The counts the run was played at, or null when it was recorded without them.</param>
-  public void BeginReplay(AttemptCounts? recorded)
+  /// <summary>A replay begins; its counts are unknown until <see cref="ShowRecorded"/>.</summary>
+  public void BeginReplay()
   {
     _replaying = true;
-    _recorded = recorded;
+    _recorded = null;
   }
+
+  /// <summary>The replayed run's counts, in place of any shown before. Only during a replay.</summary>
+  /// <param name="recorded">The counts the run was played at, or null when it was recorded without them.</param>
+  public void ShowRecorded(AttemptCounts? recorded) => _recorded = recorded;
 
   public void EndReplay()
   {

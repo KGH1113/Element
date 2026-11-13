@@ -30,8 +30,9 @@
 - 다음 경우에는 키뷰어 없이 렌더링하고, 렌더가 끝나면 이유와 해결 방법을 알림으로 보여줍니다.
   - ElementNote가 꺼져 있거나 앱 설정 **보여 줄 곳**의 **얼불춤 안**이 꺼져 있을 때
   - ElementNote가 렌더 프로토콜 2보다 오래된 버전일 때 (ElementNote 업데이트 안내)
-  - TUFReplay가 1.2.2보다, 또는 OrbitRender가 2.8.3보다 오래되어 키뷰어 영상을 덧씌우지 못할 때 (둘 다 업데이트 안내)
+  - OrbitRender가 2.8.3보다 오래되어 키뷰어 영상을 덧씌우지 못할 때 (TUFReplay와 OrbitRender 업데이트 안내)
   - ElementNote가 키뷰어 영상을 끝까지 만들지 못했을 때. 이때는 영상 전체에 키뷰어가 없습니다.
+- TUFReplay의 `ReplayApi`가 2보다 오래되었으면 Element가 등록하지 않으므로, 리플레이 렌더에 오버레이도 키뷰어도 없고 알림도 없습니다.
 
 ## 동작
 
@@ -55,7 +56,7 @@ ElementNote는 게임과 나란히 그리므로 게임은 키뷰어를 기다리
      Element는 OrbitRender에 등록하지 않습니다.
 2. 영상이 처음 쓰일 때(첫 캔버스 요청이나 첫 영상 시각) Element가 켜져 있는 키뷰어마다
    영상 속 위치와 크기를 계산합니다. TUFReplay는 provider를 차례로 시작하므로, 이때까지
-   기다려야 기록한 키 카운트가 들어와 있고 영상 크기도 정해져 있습니다. 게임 화면 대비 영상 크기 비율 `sqrt((영상 너비 / 화면 너비) × (영상 높이 / 화면 높이))`로
+   기다려야 기록한 키 카운트(`Element.KeyCounts`의 `OnReplayState`)가 들어와 있고 영상 크기도 정해져 있습니다. 게임 화면 대비 영상 크기 비율 `sqrt((영상 너비 / 화면 너비) × (영상 높이 / 화면 높이))`로
    크기와 여백을 함께 늘리고, 키뷰어가 고정된 꼭짓점은 그대로 둡니다.
    - 이때 `ReplayApi.RenderTakesOverlayVideos`가 참이고 `RenderFfmpegPath`가 있어야 합니다.
      없으면 키뷰어 없이 렌더링합니다.
@@ -123,5 +124,5 @@ ElementNote가 게임보다 느리면 마지막 5단계에서 그만큼 기다�
 - Windows 캡처(WebView2 `CapturePreview`, PNG)는 아직 실제 Windows에서 확인하지 않았습니다.
   ElementNote가 남기는 단계별 시간 로그(`[render]`)로 어느 단계가 느린지 확인해야 합니다.
 - 게임에서 TUFReplay로 리플레이를 렌더링해 키뷰어 위치·크기·카운트와 렌더 속도를 확인하는 단계는
-  아직 하지 않았습니다. TUFReplay의 `ReplayApi.AddReplayOverlayVideos`(1.2.2부터)와 OrbitRender의
+  아직 하지 않았습니다. TUFReplay의 `ReplayApi` 2(`AddReplayOverlayVideos` 포함)와 OrbitRender의
   `OverlayVideoVersion` 1(2.8.3부터)이 필요합니다.

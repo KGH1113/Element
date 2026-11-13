@@ -36,6 +36,8 @@ internal static class ReplayRenderProviderTests
     Has(type, "OnBeforeFrameCapture", typeof(void));
     Has(type, "AddReplayOverlayVideos", typeof(void), typeof(Action<string, RectInt, RectInt>));
     Check(type.GetMethod("CaptureRunState", Public) == null, "the render provider saves no state with runs");
+    Check(type.GetMethod("OnReplayState", Public) == null, "the render provider takes no saved value back");
+    Check(type.GetMethod("OnReplayEvent", Public) == null, "the render provider takes no events");
     Check(ReplayRenderProvider.Id == "Element.Render", "the render provider keeps its id");
   }
 

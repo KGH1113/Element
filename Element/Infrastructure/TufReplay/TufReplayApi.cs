@@ -12,14 +12,18 @@ namespace Element.Infrastructure.TufReplay;
 /// TUFReplay calls a registered provider's public methods by name: it saves what
 /// <c>CaptureRunState</c> returns with every run it records, and calls <c>OnReplayBegin</c>,
 /// <c>OnReplayKey</c> and the others when it replays a run in the game or renders it to video.
-/// See TUFReplay's docs/replay-api.md.
+/// The saved value comes back through <c>OnReplayState</c>, right after <c>OnReplayBegin</c>.
+/// See TUFReplay's docs/replay-api/.
 /// </remarks>
 internal sealed class TufReplayApi : IReplayRenderTarget, IDisposable
 {
   private const string AssemblyName = "TUFReplay";
   private const string TypeName = "TUFReplay.ReplayApi";
-  private const int RequiredApiVersion = 1;
   private const BindingFlags Static = BindingFlags.Public | BindingFlags.Static;
+
+  // 2 hands a run's saved value back through OnReplayState. 1 passes it to OnReplayBegin
+  // instead, so Element's providers would never get it.
+  private const int RequiredApiVersion = 2;
 
   private MethodInfo _register;
   private MethodInfo _unregister;
@@ -108,7 +112,7 @@ internal sealed class TufReplayApi : IReplayRenderTarget, IDisposable
     _renderWidth = Getter<int>(type, "RenderWidth");
     _renderHeight = Getter<int>(type, "RenderHeight");
     _renderFps = Getter<int>(type, "RenderFps");
-    // Optional: an older TUFReplay lacks them, and its renders have no key viewers.
+    // Optional: without them a render only has no key viewers.
     _renderTakesOverlayVideos = Getter<bool>(type, "RenderTakesOverlayVideos");
     _renderFfmpegPath = Getter<string>(type, "RenderFfmpegPath");
     _register = register;

@@ -1003,7 +1003,12 @@ namespace Element.Editor
       Settle();
       KeyViewerBarModel kind = (KeyViewerBarModel)ElementBar(editor).Model;
       Assert(kind.Viewer == 0 && kind.Target == hand, "key viewer settings show hand selected");
-      Press(ByName<Pressable>(ElementBar(editor).Root, "Option " + L("발", "Foot")));
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control shows hand: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the key viewer's toolbar");
+      List<Exception> uiErrors = new List<Exception>();
+      ElementUI.Runtime.ErrorReported += uiErrors.Add;
+      // As the player clicks: the click lands, then the editor's frame runs.
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
       IOverlayLayoutTarget foot = viewers.Targets.Last();
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
@@ -1012,6 +1017,25 @@ namespace Element.Editor
       Settle();
       Assert(ElementBar(editor).Model == kind && kind.Target == foot && kind.Viewer == 1,
         "the bar follows the switched viewer instead of being made again");
+      Assert(SegmentShown(ElementBar(editor).Root) == 1, "the hand/foot control moves to foot: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the switched viewer's toolbar");
+      // And back: the same control keeps taking clicks after a switch.
+      ClickOption(ElementBar(editor).Root, L("손", "Hand"));
+      IOverlayLayoutTarget handAgain = viewers.Targets.Last();
+      Call(editor, "UpdateFrames");
+      Settle();
+      Assert(handAgain != foot && handAgain.TemplateId == OverlayElementKinds.HandKeyViewer && handAgain.Enabled && !foot.Enabled
+        && Selection(editor).Selected == IndexOf(editor, handAgain) && kind.Target == handAgain && kind.Viewer == 0,
+        "switching back to hand works from the same toolbar");
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control moves back to hand: " + SegmentShown(ElementBar(editor).Root));
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
+      foot = viewers.Targets.Last();
+      Call(editor, "UpdateFrames");
+      Settle();
+      Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && foot.Enabled && kind.Target == foot && kind.Viewer == 1
+        && SegmentShown(ElementBar(editor).Root) == 1, "and to foot again");
+      ElementUI.Runtime.ErrorReported -= uiErrors.Add;
+      Assert(uiErrors.Count == 0, "switching hand and foot reports no ElementUI error" + (uiErrors.Count > 0 ? ": " + uiErrors[0] : ""));
       Assert(ToolbarModel(editor).Selection.Value == L("발 키뷰어", "Foot key viewer"), "the toolbar names the foot viewer");
       Pressable openInApp = ByName<Pressable>(ElementBar(editor).Root, "Edit key viewer");
       TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
@@ -1542,6 +1566,35 @@ namespace Element.Editor
     private static LayoutMarquee Marquee(OverlayLayoutEditor editor) => Field<LayoutMarquee>(editor, "_marquee");
     private static LayoutDrag Drag(OverlayLayoutEditor editor) => Field<LayoutDrag>(editor, "_drag");
     private static LayoutElementBar ElementBar(OverlayLayoutEditor editor) => Field<LayoutElementBar>(editor, "_elementBar");
+
+    // A click as the EventSystem delivers it, on the option of the bar's segmented control.
+    private static void ClickOption(RectTransform bar, string option)
+    {
+      Pressable button = ByName<Pressable>(bar, "Option " + option);
+      ExecuteEvents.Execute(button.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+        ExecuteEvents.pointerClickHandler);
+    }
+
+    // The option the segmented control draws as picked: the one its pill sits under.
+    private static int SegmentShown(RectTransform bar)
+    {
+      RectTransform pill = ByName<RectTransform>(bar, "Selection");
+      Pressable[] options = bar.GetComponentsInChildren<Pressable>(true).Where(option => option.name.StartsWith("Option ")).ToArray();
+      for (int i = 0; i < options.Length; i++)
+        if (Mathf.Abs(((RectTransform)options[i].transform).anchoredPosition.x - pill.anchoredPosition.x) < 1)
+          return i;
+      return -1;
+    }
+
+    // Native key viewers draw above Unity: each editor panel must be cut out where it is drawn.
+    private static void AssertCutOut(OverlayLayoutEditor editor, RectTransform panel, string what)
+    {
+      Rect drawn = PopoverPlacement.ScreenRect(panel);
+      bool covered = editor.NativeExclusions.Any(cutout => cutout.Bounds.X <= drawn.xMin + .5f && cutout.Bounds.Y <= drawn.yMin + .5f
+        && cutout.Bounds.Right >= drawn.xMax - .5f && cutout.Bounds.Bottom >= drawn.yMax - .5f);
+      Assert(covered, what + " is cut out of native viewers where it is drawn: " + drawn + " / "
+        + string.Join(", ", editor.NativeExclusions.Select(cutout => cutout.Bounds.X + "," + cutout.Bounds.Y + " " + cutout.Bounds.Width + "x" + cutout.Bounds.Height)));
+    }
     private static T Kind<T>(OverlayLayoutEditor editor) where T : class, IElementKind => Field<ElementKinds>(editor, "_kinds").Get<T>();
     private static RectTransform AddMenu(OverlayLayoutEditor editor) => Field<ListMenu>(Field<LayoutAddMenu>(editor, "_addMenu"), "_menu").Root;
 

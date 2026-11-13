@@ -58,7 +58,7 @@ internal sealed class OverlayKeypadModel : ViewModel
     }
     Keys = keys;
     Clear = Own(new KeypadKeyModel("Key clear", "AC", '\0', false, clear));
-    Done = Own(new KeypadKeyModel("Key done", L("완료", "Done"), '\0', false, done));
+    Done = Own(new KeypadKeyModel("Key done", L("적용", "Apply"), '\0', false, done));
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>

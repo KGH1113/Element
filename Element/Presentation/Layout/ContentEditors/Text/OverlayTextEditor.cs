@@ -17,10 +17,12 @@ namespace Element.Presentation.Layout.ContentEditors.Text;
 
 /// <summary>
 /// Text editing over a dimmed screen. Nothing sits on a card: the text floats
-/// in the middle at the size it has in the game, a size, color and opacity
-/// bar floats above it. The input dock along the bottom is always there:
-/// clicking one of its values adds it at the caret, and clicking a value in
-/// the text or a number in the bar types its formula there.
+/// at the size it has in the game, left of a property column (font, size,
+/// color, animation, grow point) that stands above the keypad; what a row
+/// opens (the color picker, the font list, the points) opens in that column.
+/// The input dock along the bottom is always there: clicking one of its
+/// values adds it at the caret, and clicking a value in the text or a number
+/// in the column types its formula there.
 /// </summary>
 /// <remarks>
 /// The editor puts its parts together and runs them: the text being edited
@@ -60,7 +62,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   // The values the text, its sizes and opacities, and the dock's formula use.
   private OverlayValueMask _liveMask;
   private OverlayEditorFrame _screen;
-  private OverlayEditorBar _bar;
+  private OverlayEditorInspector _inspector;
   private OverlayInputDock _dock;
   private TextOverlayElement _element;
   private Action<bool> _closed;
@@ -100,7 +102,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
 
   OverlayInputDock IContentEditorHost.Dock => _dock;
 
-  OverlayEditorBar IContentEditorHost.Bar => _bar;
+  OverlayEditorInspector IContentEditorHost.Inspector => _inspector;
 
   TextOverlayElement ITextEditorHost.Element => _element;
 
@@ -147,17 +149,13 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       _parent,
       _uiFont,
       _reduceMotion,
-      L(
-        "텍스트 편집 · 값을 눌러 계산 · ⌘/Ctrl+Enter나 Esc로 완료",
-        "Edit text · Click a value to calculate · ⌘/Ctrl+Enter or Esc to finish"
-      ),
+      L("텍스트 편집", "Edit text"),
       () => Close(false, true),
       () => Close(true, true)
     );
     _preview.Build(_screen, _element);
     _marks.BuildCarets(_screen.Ui);
     _gradient.BuildHandles(_screen, _reduceMotion());
-    BuildBar();
     _bottomTop = _screen.Height - 40;
     _marks.BuildHint(_screen.Ui, _screen.Frame);
     _color.BuildPicker(_screen);
@@ -174,27 +172,55 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       _drops.EndValueDrag
     );
     _color.LayOutAbove(_dock);
+    BuildInspector();
     _fonts.Build(_screen, _element.Fonts, _reduceMotion());
-    _grow.Build(_screen, _bar);
+    _grow.Build(_screen, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
   }
 
-  // One row of labeled buttons: the font, the size, the color (with its
-  // opacity), the values' animation and where the text grows from. Font,
-  // size, color and animation act on the selection, or on the whole text when
-  // nothing is selected.
-  private void BuildBar() =>
-    _bar = new OverlayEditorBar(
+  // A row per property in the column above the keypad: the font, the size,
+  // the color (with its opacity), the values' animation and where the text
+  // grows from. Font, size, color and animation act on the selection, or on
+  // the whole text when nothing is selected.
+  private void BuildInspector() =>
+    _inspector = new OverlayEditorInspector(
       _screen,
+      _dock,
       "Format",
+      L("글자", "Text"),
+      CloseTool,
       _fonts.BuildButton(),
       _size.BuildButton(),
       _color.BuildButton(),
       _animate.BuildButton(),
       _grow.BuildButton()
     );
+
+  // The column's back row: the rows come back.
+  private void CloseTool()
+  {
+    UiColorPicker picker = _color.Picker;
+    if (picker.Visible)
+      picker.Hide();
+    CloseOpen();
+    Render();
+  }
+
+  // Where the open tool is drawn; its back row lines up with it.
+  private RectTransform OpenToolRoot() =>
+    _color.Picker.Visible ? _color.Picker.Root
+    : _fonts.Visible ? _fonts.Popover.Root
+    : _grow.Visible ? _grow.Popover.Root
+    : null;
+
+  // What the column has open, as its back row names it; null while it shows the rows.
+  private string OpenTool() =>
+    _color.Picker.Visible ? _color.Title
+    : _fonts.Visible ? _fonts.Title
+    : _grow.Visible ? _grow.Button.Label
+    : null;
 
   public void Tick()
   {
@@ -286,30 +312,26 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _formulas.Sync(_dock);
     // The text stays above the dock.
     _bottomTop = _dock.Top;
-    // The text and its bar keep to the space left of an open picker; it
-    // glides aside as the picker opens, and back as it closes.
-    _space.Measure(_screen, _color.Picker, _dock, _reduceMotion(), out float left, out float right);
-    _preview.Draw(left, right, OverlayEditorFrame.TopBar + 64, _bottomTop - 40, _screen.Scale, _elementScale);
+    // The text keeps to the space left of the property column, or of an open
+    // picker; it glides aside as the picker opens, and back as it closes.
+    _space.Measure(_screen, _color.Picker, _dock, _inspector, _reduceMotion(), out float left, out float right);
+    _preview.Draw(left, right, OverlayEditorFrame.TopBar + 32, _bottomTop - 40, _screen.Scale, _elementScale);
     _map.Map();
     _marks.PlaceCaret();
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
     ShowFields();
     _color.ShowSwatch();
-    float barWidth = _bar.LayOut();
-    _bar.Place(
-      Mathf.Max(OverlayEditorFrame.Margin, (left + right) * .5f - barWidth * .5f),
-      Mathf.Max(OverlayEditorFrame.TopBar, _preview.Top - OverlayEditorBar.Height - 18)
-    );
-    _color.Place(_dock);
+    _color.Place(_dock, _inspector.ToolTop);
     _gradient.Show();
-    _fonts.Place(_dock);
+    _fonts.Place(_dock, _inspector.ToolTop);
+    _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
     PlaceGrowMark();
     _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _screen.Scale);
     _liveMask = LiveMask();
   }
 
-  // The bar's buttons show the range's font, size, color, animation and grow point.
+  // The column's rows show the range's font, size, color, animation and grow point.
   private void ShowFields()
   {
     _size.Show();
@@ -341,19 +363,19 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _popovers.CloseAll();
   }
 
-  // The dimmed space around the text belongs to it; the top bar, the format
-  // bar, the popovers and the picker don't.
+  // The dimmed space around the text belongs to it; the header, the
+  // property column, the popovers and the picker don't.
   private bool InTextArea(Vector2 screen)
   {
     if (
       _dock.Contains(screen)
       || _popovers.Contains(screen)
-      || _bar.Contains(screen)
+      || _inspector.Contains(screen)
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
     )
       return false;
-    float y = _screen.ToFrame(screen).y;
-    return y >= OverlayEditorFrame.TopBar && y < _bottomTop - 18;
+    Vector2 at = _screen.ToFrame(screen);
+    return at.y >= OverlayEditorFrame.TopBar && at.y < _bottomTop - 18 && at.x < _inspector.Left - 8;
   }
 
   // Undo or redo put an earlier text back; the keypad reads the restored formula afresh.

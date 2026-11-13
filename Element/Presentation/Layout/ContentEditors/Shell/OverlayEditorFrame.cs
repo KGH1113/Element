@@ -11,17 +11,19 @@ using UnityEngine.UI;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// The screen the text and shape editors float on: a dim that fades in, a
-/// top line with the shortcuts, Cancel and Done, and room for notices. The
+/// The screen the text and shape editors float on: a black backdrop that
+/// fades in, so the game and its HUD never show through or behind what is
+/// edited, and a header with what is edited, Cancel and Done. Notices go to the input dock's
+/// line when the editor has one, else to the header. The
 /// stage holds content at its real size in screen pixels; controls live in
 /// <see cref="Frame"/>, scaled to the window. A dragged value's ghost and the
-/// hover tooltip float above both. The top line, the bars and the popovers
+/// hover tooltip float above both. The header, the columns and the popovers
 /// are ElementUI screens on panels the frame makes (<see cref="Panel"/>).
 /// </summary>
 internal sealed class OverlayEditorFrame : IDisposable
 {
   public const float Margin = 32,
-    TopBar = 72,
+    TopBar = 52,
     FadeSeconds = .16f,
     NoticeSeconds = 4;
 
@@ -42,7 +44,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     Transform parent,
     TMP_FontAsset font,
     Func<bool> reduceMotion,
-    string hint,
+    string title,
     Action cancel,
     Action done
   )
@@ -56,7 +58,8 @@ internal sealed class OverlayEditorFrame : IDisposable
     Root = Ui.Rect(name, parent, 0, 0, ViewWidth, ViewHeight).gameObject;
     _fade = Root.AddComponent<CanvasGroup>();
     _fade.alpha = reduceMotion() ? 1 : 0;
-    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, new Color(0, 0, 0, .92f), false);
+    // Opaque: the game's own texts would read as part of the edited one.
+    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, Color.black, false);
     dim.raycastTarget = true;
     Stage = Ui.Rect("Stage", Root.transform, 0, 0, ViewWidth, ViewHeight);
     Scale = Mathf.Clamp(Mathf.Min(ViewWidth / 1120f, ViewHeight / 760f), .55f, 2f);
@@ -68,10 +71,10 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.fontSize = 13;
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
-    _top = new OverlayEditorFrameModel(name, hint, cancel, done);
-    ScreenPanel top = Panel("Top line", Color.clear);
-    top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, Width - Margin * 2);
-    top.Root.anchoredPosition = new Vector2(Margin, -20);
+    _top = new OverlayEditorFrameModel(name, title, cancel, done);
+    ScreenPanel top = Panel("Header", UiPalette.Toolbar, 0);
+    top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, Width);
+    top.Root.anchoredPosition = Vector2.zero;
     Root.transform.SetAsLastSibling();
     EventSystem.current?.SetSelectedGameObject(null);
   }
@@ -94,7 +97,7 @@ internal sealed class OverlayEditorFrame : IDisposable
 
   public bool ViewChanged => ViewWidth != Screen.width || ViewHeight != Screen.height;
 
-  /// <summary>The top line: the shortcuts or a notice, Cancel and Done.</summary>
+  /// <summary>The header: what is edited, a notice when no dock shows it, Cancel and Done.</summary>
   public OverlayEditorFrameModel Top => _top;
 
   /// <summary>
@@ -114,7 +117,7 @@ internal sealed class OverlayEditorFrame : IDisposable
   public ElementBackend NewBackend() =>
     new(new ElementTheme(UiFonts.Choose(_font), _reduceMotion()) { Compact = true });
 
-  /// <summary>Fades in, and puts the shortcuts back once a notice has been read.</summary>
+  /// <summary>Fades in, and lets a notice go once it has been read.</summary>
   public void Tick()
   {
     if (_fade.alpha < 1)
@@ -122,7 +125,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     _top.Tick();
   }
 
-  /// <summary>A short message where the shortcuts are; a warning reads in a warm color.</summary>
+  /// <summary>A short message on the dock's line (or the header); a warning reads in a warm color.</summary>
   public void Notice(string message, bool warning = true) => _top.Notice(message, warning);
 
   public string NoticeText => _top.NoticeText;

@@ -8,7 +8,8 @@ internal interface IContentEditorHost
 
   OverlayInputDock Dock { get; }
 
-  OverlayEditorBar Bar { get; }
+  /// <summary>The property column right of the preview, above the keypad.</summary>
+  OverlayEditorInspector Inspector { get; }
 
   /// <summary>The element's scale on the overlay; sizes and numbers show screen pixels.</summary>
   float ElementScale { get; }

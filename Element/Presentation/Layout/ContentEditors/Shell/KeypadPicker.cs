@@ -7,16 +7,17 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 internal static class KeypadPicker
 {
   /// <summary>
-  /// A color picker opens right above the input dock's keypad, in its
-  /// column: the keypad below types its opacity and the values beside it
-  /// can be dropped on it. On a screen too short for both, it stops under
-  /// the top bar.
+  /// A color picker opens in the editor's property column, from
+  /// <paramref name="top"/> (under the column's back row), above the input
+  /// dock's keypad: the keypad below types its opacity and the values beside
+  /// it can be dropped on it. On a screen too short for both, it rises until
+  /// it stops under the header.
   /// </summary>
-  public static void Place(UiColorPicker picker, OverlayInputDock dock)
+  public static void Place(UiColorPicker picker, OverlayInputDock dock, float top)
   {
     if (picker == null || !picker.Visible)
       return;
-    float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, dock.Top - 12 - picker.Height);
+    float y = Mathf.Max(OverlayEditorFrame.TopBar + 8, Mathf.Min(top, dock.Top - 8 - picker.Height));
     // The panel keeps the size of what it shows; only its place follows the dock.
     picker.Root.anchoredPosition = new Vector2(Left(picker, dock), -y);
     picker.Root.SetAsLastSibling();

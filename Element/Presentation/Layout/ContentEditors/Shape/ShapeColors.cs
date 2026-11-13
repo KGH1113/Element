@@ -67,20 +67,23 @@ internal sealed class ShapeColors
   /// <summary>Whether the picker shows the border's color.</summary>
   public bool ForStroke => _pickerForStroke;
 
+  /// <summary>What the open picker colors, as the column's back row names it.</summary>
+  public string Title => _pickerForStroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color");
+
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
 
-  /// <summary>The bar's Fill button; made by <see cref="BuildFill"/>.</summary>
+  /// <summary>The column's Fill row; made by <see cref="BuildFill"/>.</summary>
   public OverlayBarButtonModel FillButton => _fillButton;
 
-  /// <summary>The bar's Border button; made by <see cref="BuildStroke"/>.</summary>
+  /// <summary>The column's Border row; made by <see cref="BuildStroke"/>.</summary>
   public OverlayBarButtonModel StrokeButton => _strokeButton;
 
   public OverlayBarButtonModel BuildFill() =>
-    _fillButton = new OverlayBarButtonModel("Shape fill", L("채우기", "Fill"), () => Open(false), swatch: true);
+    _fillButton = new OverlayBarButtonModel("Shape fill", L("채우기", "Fill"), () => Open(false), value: true, swatch: true, opens: true);
 
   public OverlayBarButtonModel BuildStroke() =>
-    _strokeButton = new OverlayBarButtonModel("Shape border", L("테두리", "Border"), () => Open(true), swatch: true);
+    _strokeButton = new OverlayBarButtonModel("Shape border", L("테두리", "Border"), () => Open(true), value: true, swatch: true, opens: true);
 
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
   public void BuildPicker(OverlayEditorFrame screen, OverlayInputDock dock)
@@ -117,7 +120,7 @@ internal sealed class ShapeColors
   {
     bool stroke = _pickerForStroke;
     Picker.ShowSource(
-      stroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color"),
+      Title,
       stroke ? _host.Shape.Stroke : _host.Shape.Fill,
       picked =>
       {
@@ -155,15 +158,16 @@ internal sealed class ShapeColors
   public void ShowButtons(ShapePreview preview)
   {
     _fillButton.SetSwatch(OverlayTextComposer.Resolve(preview.Resolved.Fill, UiTheme.Accent), preview.FillGradient);
-    _fillButton.Set(null, false, Picker.Visible && !_pickerForStroke);
+    _fillButton.Set(OverlayColorNames.Describe(_host.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
     _strokeButton.SetSwatch(
       OverlayTextComposer.Resolve(preview.Resolved.Stroke, UiTheme.Accent),
       preview.StrokeGradient
     );
-    _strokeButton.Set(null, false, Picker.Visible && _pickerForStroke);
+    _strokeButton.Set(OverlayColorNames.Describe(_host.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
   }
 
-  public void PlacePicker(OverlayInputDock dock) => _picker.Place(dock);
+  /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
+  public void PlacePicker(OverlayInputDock dock, float top) => _picker.Place(dock, top);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)

@@ -28,6 +28,7 @@ using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Notices;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
 using HarmonyLib;
 using UnityEngine;
@@ -74,6 +75,7 @@ internal sealed class ModRuntime : IDisposable
   private GameplaySession _session;
   private GameEvents _events;
   private FrameLoop _frameLoop;
+  private UiErrorLog _uiErrors;
   private Action _applySettings;
   private bool _sceneHooked;
   private bool _initialized;
@@ -98,6 +100,8 @@ internal sealed class ModRuntime : IDisposable
 
     try
     {
+      // Before any screen is made: what ElementUI catches reaches the log.
+      _uiErrors ??= new UiErrorLog(_main.LogException);
       InputGate.Connect(GameAsyncInput.Clear);
       _keyLimiter = new KeyLimiterService(new ElementNoteKeyResolver());
       _gameKeyLimiter = CreateGameKeyLimiter(_keyLimiter);
@@ -393,6 +397,9 @@ internal sealed class ModRuntime : IDisposable
 
     _harmony?.UnpatchAll(HarmonyId);
     _harmony = null;
+    // Last: screens that throw while closing are still logged.
+    _uiErrors?.Dispose();
+    _uiErrors = null;
   }
 
   private void OnSceneUnloaded(Scene scene) => _events?.OnSceneUnloaded();

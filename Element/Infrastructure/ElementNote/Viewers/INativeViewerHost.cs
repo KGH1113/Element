@@ -15,6 +15,9 @@ internal interface INativeViewerHost : INativeViewerLayoutHost, IDisposable
   void Show(bool visible);
   void Edit(bool editing);
 
+  /// <summary>The size Unity draws the game at, in its pixels: the host covers only where the game is drawn.</summary>
+  void FitGame(int width, int height);
+
   /// <summary>Normalized top-left panels; each radius is normalized to the view height.</summary>
   void ExcludeEditor(IReadOnlyList<LayoutExclusion> normalized);
   void ApplyHighlight(Color accent);

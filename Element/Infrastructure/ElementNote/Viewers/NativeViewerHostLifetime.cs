@@ -138,6 +138,7 @@ internal sealed class NativeViewerHostLifetime
       if (!unchanged)
       {
         _host ??= _createHost();
+        _host.FitGame(Screen.width, Screen.height);
         ApplyEnabledSurfaces();
         _host.ExcludeEditor(_editorExclusions);
         _host.Edit(_targets.Editing);
@@ -166,6 +167,8 @@ internal sealed class NativeViewerHostLifetime
   {
     if (_host == null)
       return;
+    // A resolution change in the game's options moves where the game is drawn.
+    _host.FitGame(Screen.width, Screen.height);
     _host.ApplyHighlight(_highlight());
     CheckPageErrors();
   }

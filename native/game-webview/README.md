@@ -66,6 +66,14 @@ viewer is moved over them. Overlapping panels arrive merged into one cutout. The
 same frame, follows window resizing, and is
 removed when editing ends.
 
+The host covers where the game is drawn, not the whole window. Unity tells it
+the game's size (`irp_webview_set_game_size`, Screen.width/height); a game drawn
+at another aspect than its window, such as fullscreen at a lower resolution, is
+fitted and centered with bars beside it, and the host takes only the fitted
+rectangle. Normalized viewer positions, editor cutouts and the pointer then
+match Unity's coordinates; before, cutouts landed off the panels in such a
+letterboxed game. Windows does not export it yet.
+
 ## Content size
 
 The native page reads `window.api.settings` after bootstrap and subscribes to its

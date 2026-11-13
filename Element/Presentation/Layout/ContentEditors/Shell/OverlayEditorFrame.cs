@@ -74,7 +74,8 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.color = Color.clear;
     _top = new OverlayEditorFrameModel(name, title, cancel, done);
     // No fill: the dim is deep enough behind it. Its ends line up with the content below.
-    ContentWidth = Mathf.Min(1180, Width - Margin * 2);
+    // The screen's width but its margins, up to a limit only very wide screens reach.
+    ContentWidth = Mathf.Min(1600, Width - Margin * 2);
     ContentLeft = (Width - ContentWidth) * .5f;
     ScreenPanel top = Panel("Header", Color.clear);
     top.Mount(NewBackend(), new OverlayEditorFrameView(_top), _top, ContentWidth);

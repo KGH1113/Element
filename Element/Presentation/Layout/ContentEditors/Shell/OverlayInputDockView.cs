@@ -24,7 +24,7 @@ internal sealed class OverlayInputDockView : View<OverlayInputDockModel>
     CategoryGap = 10,
     KeypadGap = 32;
 
-  private static readonly UiColor ChipFill = new Color(1, 1, 1, .07f),
+  private static readonly UiColor ChipFill = UiPalette.EditorControl,
     ChipInk = new Color(1, 1, 1, .92f);
 
   private readonly OverlayEditorFrameModel _notices;
@@ -63,7 +63,11 @@ internal sealed class OverlayInputDockView : View<OverlayInputDockModel>
           .LineLimit(1)
           .Named("Notice")
           // Over the values, clear of the picker above the keypad.
-          .Frame(width: _width - OverlayKeypadView.Width - KeypadGap, height: NoticeHeight, alignment: Alignment.Leading)
+          .Frame(
+            width: _width - OverlayKeypadView.Width - KeypadGap,
+            height: NoticeHeight,
+            alignment: Alignment.Leading
+          )
           .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
         _line,
         HairLine.Across(() => VM.Underline.Value),

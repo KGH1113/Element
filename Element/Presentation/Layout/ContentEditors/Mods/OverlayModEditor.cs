@@ -10,6 +10,7 @@ using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using ElementKit;
 using ElementUI;
@@ -151,7 +152,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       L("기준점", "Grow from"),
       ToggleGrow,
       value: true,
-      icon: UiIconKind.GrowFrom
+      icon: UiIconKind.GrowFrom,
+      under: UiPalette.Bar
     );
     _bar = new OverlayEditorBar(_screen, "Element bar", _growButton);
   }

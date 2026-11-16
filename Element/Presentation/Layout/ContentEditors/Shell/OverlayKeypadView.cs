@@ -10,8 +10,8 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// The keypad: four columns of see-through capsule keys, the operators in
-/// the accent, then AC and a wide, tinted Done.
+/// The keypad: four columns of capsule keys, the operators in the accent,
+/// then AC and a wide, tinted Done.
 /// </summary>
 internal sealed class OverlayKeypadView : View<OverlayKeypadModel>
 {
@@ -65,15 +65,20 @@ internal sealed class KeypadKeyView : View<KeypadKeyModel>
   {
     _size = size;
     Color accent = UiPalette.SoftAccent;
-    _fill = tinted ? new Color(accent.r, accent.g, accent.b, .32f) : new Color(1, 1, 1, .07f);
-    _offFill = tinted ? new Color(accent.r, accent.g, accent.b, .14f) : new Color(1, 1, 1, .03f);
+    // Opaque, so the overlay behind never shows through a key.
+    _fill = tinted ? Color.Lerp(UiPalette.EditorControl, accent, .32f) : UiPalette.EditorControl;
+    _offFill = tinted ? Color.Lerp(UiPalette.EditorControlOff, accent, .14f) : UiPalette.EditorControlOff;
     Color ink = vm.Symbol ? accent : UiPalette.Foreground;
     _ink = ink;
     _offInk = new Color(ink.r, ink.g, ink.b, .3f);
   }
 
   public override View Body =>
-    Button(Label().Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity), () => VM.Press, ButtonStyle.Plain)
+    Button(
+        Label().Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
+        () => VM.Press,
+        ButtonStyle.Plain
+      )
       .Background(() => VM.Enabled.Value ? _fill : _offFill, OverlayKeypadView.KeyHeight / 2)
       .Named(VM.Name)
       .Frame(height: OverlayKeypadView.KeyHeight);

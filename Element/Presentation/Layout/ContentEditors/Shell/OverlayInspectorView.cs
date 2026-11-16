@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
 using ElementUI;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
@@ -32,13 +33,16 @@ internal sealed class OverlayInspectorView : View<OverlayInspectorModel>
         () =>
           VStack(
             spacing: RowGap,
-            Section(VM.Heading).Frame(height: HeadingHeight, alignment: Alignment.BottomLeading).Padding(new Insets(0, 4, 0, 0)),
+            Section(VM.Heading)
+              .Frame(height: HeadingHeight, alignment: Alignment.BottomLeading)
+              .Padding(new Insets(0, 4, 0, 0)),
             ForEach(VM.Rows, row => row.Name, slot => new OverlayInspectorRowView(slot))
           )
       )
       .Frame(width: _width, alignment: Alignment.TopLeading);
 
-  // Back to the rows, naming the tool open below it.
+  // Back to the rows, naming the tool open below it. It reads as the dimmed
+  // view at rest but is opaque, so its hover doesn't let the overlay through.
   private View BackRow() =>
     Button(
         HStack(
@@ -52,6 +56,7 @@ internal sealed class OverlayInspectorView : View<OverlayInspectorModel>
         () => VM.Back,
         ButtonStyle.Plain
       )
+      .Background(UiPalette.EditorDim, BackRowHeight / 2)
       .Named("Inspector back");
 }
 
@@ -67,19 +72,23 @@ internal sealed class OverlayInspectorRowView : View<OverlayBarButtonModel>
     : base(slot) { }
 
   public override View Body =>
-    Button(Content(), () => VM.Click, ButtonStyle.Plain)
-      .Background(() => VM.Fill.Value, 10)
-      .Named(VM.Name);
+    Button(Content(), () => VM.Click, ButtonStyle.Plain).Background(() => VM.Fill.Value, 10).Named(VM.Name);
 
   private View Content()
   {
     List<View> parts = new() { Lead().Frame(width: 22, alignment: Alignment.Leading) };
     parts.Add(
-      UI.Text(VM.Label).Font(Font.Caption.Sized(13)).Foreground(() => VM.Ink.Value).LineLimit(1).Padding(new Insets(0, 8, 0, 0))
+      UI.Text(VM.Label)
+        .Font(Font.Caption.Sized(13))
+        .Foreground(() => VM.Ink.Value)
+        .LineLimit(1)
+        .Padding(new Insets(0, 8, 0, 0))
     );
     parts.Add(Spacer(minLength: 8));
     if (VM.ShowsValue)
-      parts.Add(UI.Text(() => VM.ValueText.Value).Font(Font.Caption.Sized(13)).Foreground(() => VM.ValueInk.Value).LineLimit(1));
+      parts.Add(
+        UI.Text(() => VM.ValueText.Value).Font(Font.Caption.Sized(13)).Foreground(() => VM.ValueInk.Value).LineLimit(1)
+      );
     if (VM.Unit != null)
       parts.Add(
         UI.Text(VM.Unit)
@@ -91,7 +100,9 @@ internal sealed class OverlayInspectorRowView : View<OverlayBarButtonModel>
     if (VM.Toggle)
       parts.Add(new SwitchIndicator(() => VM.SwitchOn.Value, () => VM.Available.Value));
     if (VM.Opens)
-      parts.Add(Image(ElementIcons.Of(UiIconKind.Forward), 14).Foreground(Colors.Muted).Padding(new Insets(0, 6, 0, 0)));
+      parts.Add(
+        Image(ElementIcons.Of(UiIconKind.Forward), 14).Foreground(Colors.Muted).Padding(new Insets(0, 6, 0, 0))
+      );
     return HStack(spacing: 0, parts.ToArray())
       .Padding(new Insets(0, 12, 0, VM.Toggle ? 10 : 12))
       .Frame(maxWidth: float.PositiveInfinity, height: OverlayInspectorView.RowHeight);

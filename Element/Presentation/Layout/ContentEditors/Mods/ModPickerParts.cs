@@ -8,7 +8,7 @@ using static ElementUI.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-/// <summary>The page's pickers: colors, paints, fonts and shortcuts, picked the way Element's own are (<see cref="ModParts"/>).</summary>
+/// <summary>The page's pickers: colors, paints, fonts and shortcuts, as the column's rows opening Element's own tools (<see cref="ModParts"/>).</summary>
 internal sealed class ModPickerParts
 {
   private readonly ModEditorPage _page;
@@ -22,7 +22,7 @@ internal sealed class ModPickerParts
     ModPart part = _page.Part();
     ModValue<Color> current = _page.Value(part, value, changed);
     Binding<Color> color = Bind(() => current.Value);
-    part.Control = () => ModParts.ColorPicker(label, color, opacity);
+    part.Control = () => ModParts.ColorPicker(label, color, opacity, _page.Context);
     return _page.Add(part);
   }
 
@@ -36,7 +36,7 @@ internal sealed class ModPickerParts
       paint => changed?.Invoke(paint?.Clone() ?? Paint.Solid(Color.white))
     );
     Binding<Paint> paint = Bind(() => current.Value);
-    part.Control = () => ModParts.PaintPicker(label, paint);
+    part.Control = () => ModParts.PaintPicker(label, paint, _page.Context);
     return _page.Add(part);
   }
 
@@ -54,7 +54,7 @@ internal sealed class ModPickerParts
     ModPart part = _page.Part();
     ModValue<ElementKit.Shortcut> current = _page.Value(part, value, changed);
     ShortcutFieldModel model = ModParts.ShortcutModel(Bind(() => current.Value), _page.Context);
-    part.Control = () => ModParts.ShortcutField(label, model);
+    part.Control = () => ModParts.ShortcutField(label, model, _page.Context);
     return _page.Add(part);
   }
 }

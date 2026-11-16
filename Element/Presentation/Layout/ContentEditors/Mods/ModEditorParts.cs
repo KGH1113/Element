@@ -16,9 +16,9 @@ internal sealed class ModEditorParts : IEditorParts
   public ModEditorParts(ModEditorContext context) => _context = context;
 
   public View ColorPicker(string label, Binding<Color> color, bool opacity) =>
-    ModParts.ColorPicker(label, color, opacity);
+    ModParts.ColorPicker(label, color, opacity, _context);
 
-  public View PaintPicker(string label, Binding<Paint> paint) => ModParts.PaintPicker(label, paint);
+  public View PaintPicker(string label, Binding<Paint> paint) => ModParts.PaintPicker(label, paint, _context);
 
   public View FontPicker(string label, Binding<string> font) => ModParts.FontPicker(label, font, _context);
 

@@ -21,12 +21,15 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
-/// The editing screen for an element another mod draws. Element keeps what
-/// every editing screen has: the dim, Cancel and Done, Esc to finish, undo,
-/// Grow from, and a live preview (<see cref="ModPreview"/>). Under the
-/// preview goes what the mod made: the parts of an <see cref="EditorPage"/>
+/// The editing screen for an element another mod draws, in the frame of the
+/// text and shape editors: the dim, Cancel and Done, Esc to finish, undo,
+/// Grow from over a live preview (<see cref="ModPreview"/>), and on the
+/// right the property column where the text editor keeps its own
+/// (<see cref="ModEditorColumn"/>). In the column goes what the mod made,
+/// drawn as the column's rows: the parts of an <see cref="EditorPage"/>
 /// (<see cref="ModEditorPage"/>), or a screen it wrote with ElementUI
-/// (<see cref="ModEditorView"/>).
+/// (<see cref="ModEditorView"/>). The preview keeps to the room left of the
+/// column, gliding aside while a wide tool (a gradient, the font list) is open.
 /// </summary>
 internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
 {
@@ -40,11 +43,13 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   private readonly Dictionary<string, int> _tabs = new();
   private readonly PopoverStack _popovers = new();
   private readonly Event _event = new();
+  private readonly OverlayGlide _space = new();
   private OverlayEditorFrame _screen;
   private OverlayEditorBar _bar;
   private OverlayBarButtonModel _growButton;
   private OverlayGrowPopover _grow;
   private ModEditorContext _context;
+  private Rect _column;
   private IModEditorScreen _content;
   private ModOverlayElement _element;
   private ElementClass _type;
@@ -126,14 +131,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     EditorParts.Host = new ModEditorParts(_context);
     UiFactory ui = _screen.Ui;
     BuildBar();
-    float top = OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 24;
-    float height = Mathf.Clamp(_screen.Height * .3f, 120, 280);
-    _preview.BuildHolder(
-      ui,
-      _screen,
-      new Rect(OverlayEditorFrame.Margin, top, _screen.Width - OverlayEditorFrame.Margin * 2, height),
-      _fonts?.Invoke()
-    );
+    _column = ColumnArea(_screen);
+    _space.Snap();
+    _preview.BuildHolder(ui, _screen, PreviewArea(_column.x), _fonts?.Invoke());
     _grow = new OverlayGrowPopover(_screen, PickGrowth) { Anchor = _bar.RectOf(_growButton) };
     _popovers.Clear();
     _popovers.Add(_grow);
@@ -158,19 +158,36 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
     _bar = new OverlayEditorBar(_screen, "Element bar", _growButton);
   }
 
-  // The room under the preview, where the mod's parts or screen go.
-  private Rect ContentArea
+  /// <summary>
+  /// The property column, where the text editor has its own: as wide as its
+  /// keypad, at the right end of the header, from under the header to the bottom.
+  /// </summary>
+  private static Rect ColumnArea(OverlayEditorFrame screen)
   {
-    get
-    {
-      float top = _preview.Area.yMax + 28;
-      return new Rect(
-        OverlayEditorFrame.Margin,
-        top,
-        _screen.Width - OverlayEditorFrame.Margin * 2,
-        _screen.Height - top - OverlayEditorFrame.Margin
-      );
-    }
+    float top = OverlayEditorFrame.TopBar + OverlayEditorInspector.Gap;
+    float left = screen.ContentLeft + screen.ContentWidth - ModEditorColumn.Width;
+    return new Rect(left, top, ModEditorColumn.Width, screen.Height - top - BottomGap);
+  }
+
+  private const float BottomGap = 16;
+
+  // The room left of the column (or a tool reaching further left), under the bar, where the preview centers.
+  private Rect PreviewArea(float right)
+  {
+    float top = OverlayEditorFrame.TopBar + 8 + OverlayEditorBar.Height + 24;
+    float left = OverlayEditorFrame.Margin;
+    return new Rect(left, top, Mathf.Max(80, right - 24 - left), _screen.Height - top - OverlayEditorFrame.Margin);
+  }
+
+  // How wide words are in the column's rows.
+  private float MeasureRowText(string text)
+  {
+    TMPro.TextMeshProUGUI measure = _screen.Measure;
+    float size = measure.fontSize;
+    measure.fontSize = 13;
+    float width = Mathf.Ceil(measure.GetPreferredValues(text ?? "").x);
+    measure.fontSize = size;
+    return width;
   }
 
   /// <summary>The screen the mod wrote with ElementUI; false when it builds an <see cref="EditorPage"/> instead.</summary>
@@ -188,11 +205,12 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       () =>
         _content = new ModEditorView(
           _screen.Frame,
-          ContentArea,
+          _column,
           view,
           model,
-          _screen.NewBackend(),
+          _screen.NewBackend,
           _context,
+          MeasureRowText,
           ViewEdited,
           dragging => _drag = dragging ? new object() : null
         )
@@ -211,8 +229,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       _screen.Frame,
       new Vector2(_screen.Width, _screen.Height),
       _preview.Area,
-      ContentArea,
-      this
+      _column,
+      this,
+      MeasureRowText
     );
     _content = page;
     if (_guard.Run("laying out its editing screen", () => _preview.Instance.RunEdit(page)))
@@ -253,7 +272,9 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   {
     if (_preview.Instance == null)
       return;
-    object key = _drag ?? ModKeyboard.FocusedField(_content?.Root);
+    // Typing in a field of the rows or of the open tool (a HEX, the font search) is one step.
+    object key =
+      _drag ?? ModKeyboard.FocusedField(_content?.Root) ?? ModKeyboard.FocusedField(_content?.Column?.ToolRoot);
     Record(_working, key, key != null);
   }
 
@@ -330,11 +351,15 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
   // The preview, and the bar above it with Grow from.
   private void FitPreview()
   {
+    // A tool wider than the column (a gradient, the font list) moves the preview aside while it is open.
+    float right = _space.Toward(_content?.Column != null ? _content.Column.Left : _column.x, _reduceMotion());
+    Rect area = PreviewArea(right);
+    _preview.Area = area;
     if (!_preview.Fit(_screen.Scale, out Vector2 box))
       return;
     _growButton.Set(OverlayGrowPickerModel.ShortName(_growth), false, _grow.Visible);
     float barWidth = _bar.LayOut();
-    _bar.Place((_screen.Width - barWidth) * .5f, OverlayEditorFrame.TopBar + 8);
+    _bar.Place(Mathf.Max(area.x, area.center.x - barWidth * .5f), OverlayEditorFrame.TopBar + 8);
     bool grow = _grow.Visible;
     _preview.PlaceGrowMark(box, grow, grow ? GrowPointNow() : default);
   }

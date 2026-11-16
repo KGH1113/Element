@@ -8,8 +8,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// <summary>
 /// A part as the page shows it: its control, hidden (keeping its place)
 /// while the mod hides it, with its hint over the whole row, and the object
-/// the mod asked for with <c>Rect</c> spread over it. The page measures the
-/// part through the view showing it.
+/// the mod asked for with <c>Rect</c> spread over it.
 /// </summary>
 internal sealed class ModPartView : View<ModPart>
 {
@@ -26,18 +25,6 @@ internal sealed class ModPartView : View<ModPart>
     if (part.HintText.Value != null)
       view = view.Hint(() => part.HintText.Value);
     return view.Hidden(() => part.Hidden.Value);
-  }
-
-  protected override void OnMount()
-  {
-    base.OnMount();
-    VM.Mounted(this);
-  }
-
-  protected override void OnUnmount()
-  {
-    VM.Unmounted(this);
-    base.OnUnmount();
   }
 }
 
@@ -61,8 +48,7 @@ internal sealed class ModPartRect : NativeView
   }
 
   // As large as the part it covers; it adds nothing to its size.
-  protected override Size PreferredSize(Proposal proposal) =>
-    new(Finite(proposal.Width), Finite(proposal.Height));
+  protected override Size PreferredSize(Proposal proposal) => new(Finite(proposal.Width), Finite(proposal.Height));
 
   private static float Finite(float value) => float.IsNaN(value) || float.IsInfinity(value) ? 0 : value;
 

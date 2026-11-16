@@ -88,7 +88,7 @@ public sealed class StreakBar : OverlayElement<StreakSettings>
 
 ### ElementUI로 편집 화면 쓰기
 
-`OnEdit` 대신 `Editor`를 override하면 편집 화면을 ElementUI 뷰로 씁니다. 컨트롤을 `vm.Settings`의 필드에 `Bind`로 잇고, Element의 색·폰트·기준점·단축키 선택기는 `EditorParts`에서 가져옵니다. 화면은 미리보기 아래 너비 480의 열에 놓이고, 길면 스크롤됩니다. 실행 취소, 미리보기, 저장은 `OnEdit`과 같습니다. 둘 중 하나만 override합니다.
+`OnEdit` 대신 `Editor`를 override하면 편집 화면을 ElementUI 뷰로 씁니다. 컨트롤을 `vm.Settings`의 필드에 `Bind`로 잇고, Element의 색·폰트·기준점·단축키 선택기는 `EditorParts`에서 가져옵니다. 화면은 Element 텍스트 편집기처럼 미리보기 오른쪽 속성 열에 놓이고, 컨트롤은 그 열의 행으로 그려집니다(`Card`는 제목 아래 행 묶음, 슬라이더는 짧은 막대가 있는 행, 옆에 다 들어가지 않는 `Picker`와 `MultiPicker`는 눌러서 목록을 여는 행). 길면 스크롤됩니다. 모드 코드는 그대로 두면 됩니다. 실행 취소, 미리보기, 저장은 `OnEdit`과 같습니다. 둘 중 하나만 override합니다.
 
 ```csharp
 using static ElementUI.UI;

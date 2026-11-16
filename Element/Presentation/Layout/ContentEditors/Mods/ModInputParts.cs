@@ -1,22 +1,28 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementUI;
 using UnityEngine;
-using static Element.Presentation.Layout.ContentEditors.Mods.ModParts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-/// <summary>The page's inputs: labels, buttons, switches, sliders, numbers, text fields and lists.</summary>
+/// <summary>
+/// The page's inputs: labels, buttons, switches, sliders, numbers, text
+/// fields and lists. Each is ElementUI's own control, so the column draws
+/// it as its row (<see cref="ModColumnStyle"/>) as it does a screen a mod
+/// writes with ElementUI.
+/// </summary>
 internal sealed class ModInputParts
 {
-  private const float IconSide = 36;
+  private const float IconSide = 30;
 
   private readonly ModEditorPage _page;
   private readonly IModEditorHost _host;
@@ -29,10 +35,15 @@ internal sealed class ModInputParts
     _commands = page.Commands;
   }
 
+  // Words about the parts near them: quieter than a row's name.
   public EditorControl Label(string text) =>
     _page.Add(
       _page.Part(() =>
-        UI.Text(text ?? "").Font(Font.Callout).Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+        UI.Text(text ?? "")
+          .Font(Font.Caption.Sized(13))
+          .Foreground(Colors.Muted)
+          .Padding(new Insets(2, 4, 2, 4))
+          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
       )
     );
 
@@ -42,7 +53,11 @@ internal sealed class ModInputParts
     ModPart part = _page.Part();
     Command click = _commands.Make(() => _host.Change(part, () => clicked?.Invoke(), true));
     part.Control = () =>
-      UI.Button(UI.Text(text ?? "").LineLimit(1).Frame(minWidth: 72), () => click).Named("Button " + text);
+      UI.Button(
+          UI.Text(text ?? "").Font(Font.Caption.Sized(13)).LineLimit(1).Frame(maxWidth: float.PositiveInfinity),
+          () => click
+        )
+        .Named("Button " + text);
     return _page.Add(part);
   }
 
@@ -60,7 +75,7 @@ internal sealed class ModInputParts
   {
     ModPart part = _page.Part();
     ModValue<bool> value = _page.Value(part, on, changed);
-    part.Control = () => Row(label, Toggle(null, Bind(() => value.Value)).Named("Switch " + label));
+    part.Control = () => Toggle(label ?? "", Bind(() => value.Value));
     return _page.Add(part);
   }
 
@@ -68,13 +83,7 @@ internal sealed class ModInputParts
   {
     ModPart part = _page.Part();
     ModValue<bool> value = _page.Value(part, on, changed);
-    part.Control = () =>
-      HStack(
-          spacing: 10,
-          Toggle(null, Bind(() => value.Value), ToggleAppearance.Checkbox).Named("Checkbox " + text),
-          UI.Text(text ?? "").Font(Font.Callout).LineLimit(1)
-        )
-        .Frame(minHeight: RowHeight);
+    part.Control = () => Toggle(text ?? "", Bind(() => value.Value), ToggleAppearance.Checkbox);
     return _page.Add(part);
   }
 
@@ -84,15 +93,7 @@ internal sealed class ModInputParts
       max = min + 1;
     ModPart part = _page.Part();
     ModValue<float> current = _page.Value(part, Snap(value, min, max, step), changed);
-    part.Control = () =>
-      Row(
-        label,
-        HStack(
-          spacing: 10,
-          UI.Slider(null, Bind(() => current.Value), min, max, step, showsValue: false).Named("Slider " + label),
-          Readout(current, step)
-        )
-      );
+    part.Control = () => UI.Slider(label ?? "", Bind(() => current.Value), min, max, step);
     return _page.Add(part);
   }
 
@@ -114,8 +115,7 @@ internal sealed class ModInputParts
       Snap(Mathf.Max(low, high), min, max, step),
       (a, b) => _host.Change(part, () => changed?.Invoke(a, b), false)
     );
-    part.Control = () =>
-      Row(label, UI.RangeSlider(null, Bind(() => range.Low), Bind(() => range.High), min, max, step));
+    part.Control = () => UI.RangeSlider(label ?? "", Bind(() => range.Low), Bind(() => range.High), min, max, step);
     return _page.Add(part);
   }
 
@@ -127,8 +127,7 @@ internal sealed class ModInputParts
     ModValue<float> current = _page.Value(part, Mathf.Clamp(value, min, max), changed);
     // As it is typed a number within the limits shows at once; when typing is
     // done one outside them is brought to the nearest.
-    part.Control = () =>
-      Row(label, Typed(NumberField(null, Bind(() => current.Value), min, max)).Named("Number " + label).Frame(width: 160));
+    part.Control = () => NumberField(label ?? "", Bind(() => current.Value), min, max);
     return _page.Add(part);
   }
 
@@ -139,18 +138,7 @@ internal sealed class ModInputParts
     step = Mathf.Max(1, step);
     ModPart part = _page.Part();
     ModValue<int> current = _page.Value(part, Mathf.Clamp(value, min, max), changed);
-    Command down = _commands.Make(() => current.Value = Mathf.Max(min, current.Value - step), () => current.Value > min);
-    Command up = _commands.Make(() => current.Value = Mathf.Min(max, current.Value + step), () => current.Value < max);
-    part.Control = () =>
-      Row(
-        label,
-        HStack(
-          spacing: 4,
-          Icon(UiIconKind.Minus, "Step down " + label, () => down),
-          UI.Text(() => current.Value, format: "{0}").TextAlignment(TextAlign.Center).Frame(width: 64),
-          Icon(UiIconKind.Plus, "Step up " + label, () => up)
-        )
-      );
+    part.Control = () => UI.Stepper(label ?? "", Bind(() => current.Value), min, max, step);
     return _page.Add(part);
   }
 
@@ -159,7 +147,7 @@ internal sealed class ModInputParts
     ModPart part = _page.Part();
     // Each letter shows on the preview as it is typed.
     ModValue<string> current = _page.Value(part, value ?? "", changed);
-    part.Control = () => Row(label, Typed(UI.TextField(null, Bind(() => current.Value))).Named("Text " + label));
+    part.Control = () => UI.TextField(label ?? "", Bind(() => current.Value));
     return _page.Add(part);
   }
 
@@ -173,7 +161,7 @@ internal sealed class ModInputParts
     {
       rows.Clear();
       if (!string.IsNullOrEmpty(label))
-        rows.Add(UI.Text(label).Font(Font.Callout).LineLimit(1));
+        rows.Add(OverlayInspectorRow.Heading(label));
       for (int i = 0; i < items.Count; i++)
         rows.Add(ListRow(part, items, i, changed));
       Command add = _commands.Make(() =>
@@ -187,8 +175,14 @@ internal sealed class ModInputParts
           true
         )
       );
-      rows.Add(UI.Button(UI.Text(L("+ 추가", "+ Add")).Frame(minWidth: 72), () => add).Named("List add"));
-      return VStack(spacing: 6, HAlignment.Leading, rows.ToArray())
+      rows.Add(
+        UI.Button(
+            UI.Text(L("+ 추가", "+ Add")).Font(Font.Caption.Sized(13)).Frame(maxWidth: float.PositiveInfinity),
+            () => add
+          )
+          .Named("List add")
+      );
+      return VStack(spacing: OverlayInspectorRow.Gap, HAlignment.Leading, rows.ToArray())
         .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
     }
     part.Control = Rows;
@@ -228,35 +222,31 @@ internal sealed class ModInputParts
       )
     );
     return HStack(
-      spacing: 4,
-      Typed(UI.TextField(null, Bind(() => text.Value))).Named("List item " + (index + 1)),
-      Icon(UiIconKind.Up, "List Move up", () => up).Disabled(index == 0),
-      Icon(UiIconKind.Down, "List Move down", () => down).Disabled(index == items.Count - 1),
-      Icon(UiIconKind.Delete, "List Remove", () => remove)
-    );
+        spacing: 2,
+        ModParts
+          .Typed(UI.TextField(null, Bind(() => text.Value)).ControlStyle(ControlStyle.Standard))
+          .Named("List item " + (index + 1))
+          .Frame(maxWidth: float.PositiveInfinity, height: 30)
+          .Padding(new Insets(0, 0, 0, 6)),
+        Icon(UiIconKind.Up, "List Move up", () => up).Disabled(index == 0),
+        Icon(UiIconKind.Down, "List Move down", () => down).Disabled(index == items.Count - 1),
+        Icon(UiIconKind.Delete, "List Remove", () => remove)
+      )
+      .Padding(new Insets(0, 5, 0, 5))
+      .Frame(maxWidth: float.PositiveInfinity, height: OverlayInspectorRow.Height)
+      .Background(OverlayInspectorRow.Fill, OverlayInspectorRow.Radius);
   }
 
-  /// <summary>A small square button with an icon.</summary>
+  /// <summary>A small square button with an icon, on an opaque fill so the dim behind never shows through it.</summary>
   private static View Icon(UiIconKind icon, string name, System.Linq.Expressions.Expression<Func<Command>> command) =>
     UI.Button(
-        Image(ElementIcons.Of(icon), 24).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
+        Image(ElementIcons.Of(icon), 18).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
         command,
-        ButtonStyle.Icon
+        ButtonStyle.Plain
       )
+      .Background(UiPalette.Wash(UiPalette.EditorControl, .06f), 8)
       .Named(name)
       .Frame(width: IconSide, height: IconSide);
-
-  // The number beside a slider: whole for whole steps, else to two places.
-  private static View Readout(ModValue<float> value, float step) =>
-    (
-      step >= 1
-        ? UI.Text(() => Mathf.RoundToInt(value.Value), format: "{0}")
-        : UI.Text(() => value.Value, format: "{0}", number: "0.##")
-    )
-      .Font(Font.Caption)
-      .Foreground(Colors.Muted)
-      .TextAlignment(TextAlign.Trailing)
-      .Frame(width: 64, alignment: Alignment.Trailing);
 
   private static UiIconKind IconOf(EditorIcon icon) =>
     icon switch

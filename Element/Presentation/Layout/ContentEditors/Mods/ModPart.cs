@@ -8,14 +8,13 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
 /// A part on a mod's <see cref="ModEditorPage"/>: what it shows (its control,
-/// made each time the page mounts), and where: in the column, in a card or
-/// tab page, or placed by the mod with <see cref="At"/>.
+/// made each time the page mounts), and where: in the property column, in a
+/// card or tab page, or placed by the mod with <see cref="At"/>.
 /// </summary>
 internal class ModPart : EditorControl
 {
   private readonly ModEditorPage _page;
   private RectTransform _rect;
-  private ModPartView _mounted;
 
   public ModPart(ModEditorPage page, int id)
   {
@@ -35,15 +34,6 @@ internal class ModPart : EditorControl
   /// <summary>Shown while the pointer is over the part; null for none.</summary>
   public readonly State<string> HintText = new(null);
 
-  /// <summary>The column it stands in now; -1 while it doesn't flow (its tab isn't picked).</summary>
-  public readonly State<int> Column = new(-1);
-
-  /// <summary>Its height in the column, measured when the page mounted.</summary>
-  public float Height { get; set; }
-
-  /// <summary>The column the page is putting it in, before it moves there.</summary>
-  internal int Arranged;
-
   public float? WidthOverride { get; private set; }
 
   /// <summary>Where the mod put it (screen units, top left); null while it flows.</summary>
@@ -52,8 +42,8 @@ internal class ModPart : EditorControl
   /// <summary>The card or tab page it belongs to; null at the top of the column.</summary>
   public ModGroup Group { get; set; }
 
-  /// <summary>Its width in a column, or wherever it stands.</summary>
-  public float FrameWidth => WidthOverride ?? ModEditorPage.ColumnWidth;
+  /// <summary>Its width where the mod put it.</summary>
+  public float FrameWidth => WidthOverride ?? ModEditorColumn.Width;
 
   /// <summary>The object made for <see cref="Rect"/>; null while no one asked for it.</summary>
   public RectTransform OwnRect => _rect;
@@ -102,25 +92,11 @@ internal class ModPart : EditorControl
 
   /// <summary>Takes the object made for <see cref="Rect"/> back from a view going away.</summary>
   internal void Park() => _page.Park(_rect);
-
-  // The view showing the part now, so the page can measure it.
-  internal void Mounted(ModPartView view) => _mounted = view;
-
-  internal void Unmounted(ModPartView view)
-  {
-    if (_mounted == view)
-      _mounted = null;
-  }
-
-  /// <summary>Its height at <see cref="FrameWidth"/>, measured on the view showing it; the last one when none does.</summary>
-  public float Measure() =>
-    _mounted != null ? _mounted.SizeThatFits(new Proposal(FrameWidth, float.NaN)).Height : Height;
 }
 
 /// <summary>
 /// A card, or the page of a tab: parts laid out one under another inside it,
-/// the whole group taking one place in the column. A tab page at the top of
-/// the column is <see cref="Transparent"/>: its parts flow on their own.
+/// the whole group taking one place in the column.
 /// </summary>
 internal sealed class ModGroup : ModPart
 {
@@ -128,12 +104,11 @@ internal sealed class ModGroup : ModPart
     : base(page, id) => Title = title;
 
   /// <summary>A tab's page.</summary>
-  public ModGroup(ModEditorPage page, int id, ModEditorTabs tabs, int index, bool transparent)
+  public ModGroup(ModEditorPage page, int id, ModEditorTabs tabs, int index)
     : base(page, id)
   {
     Tabs = tabs;
     Index = index;
-    Transparent = transparent;
   }
 
   /// <summary>A card's title; null for none.</summary>
@@ -143,8 +118,6 @@ internal sealed class ModGroup : ModPart
   public ModEditorTabs Tabs { get; }
 
   public int Index { get; }
-
-  public bool Transparent { get; }
 
   public List<ModPart> Children { get; } = new();
 

@@ -1694,17 +1694,28 @@ namespace Element.Editor
     // Overlay canvases render through the camera only while a frame is captured,
     // so element geometry stays in the same screen pixels the editor measures.
     private static Action _refresh;
+    // UI_PREVIEW_SCALE=2 saves the layout frames at twice the fixture's
+    // screen, the same layout drawn sharper, for reading small text.
+    private static readonly int FrameScale = int.TryParse(System.Environment.GetEnvironmentVariable("UI_PREVIEW_SCALE"), out int scale) ? Mathf.Clamp(scale, 1, 4) : 1;
     private static void SaveFrame(Camera camera, RenderTexture target, Canvas[] canvases, string name)
     {
       _refresh?.Invoke();
+      RenderTexture sharp = FrameScale > 1 ? new RenderTexture(target.width * FrameScale, target.height * FrameScale, 24) : null;
+      RenderTexture drawn = sharp ?? target;
+      float[] factors = canvases.Select(canvas => canvas.scaleFactor).ToArray();
+      camera.targetTexture = drawn;
       foreach (Canvas canvas in canvases) { canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1; }
       canvases[0].planeDistance = 2;
-      Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
-      Texture2D image = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
-      image.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); image.Apply();
+      if (sharp != null)
+        for (int i = 0; i < canvases.Length; i++) canvases[i].scaleFactor = factors[i] * FrameScale;
+      Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = drawn;
+      Texture2D image = new Texture2D(drawn.width, drawn.height, TextureFormat.RGB24, false);
+      image.ReadPixels(new Rect(0, 0, drawn.width, drawn.height), 0, 0); image.Apply();
       File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
       RenderTexture.active = null; Object.DestroyImmediate(image);
-      foreach (Canvas canvas in canvases) canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+      camera.targetTexture = target;
+      for (int i = 0; i < canvases.Length; i++) { canvases[i].renderMode = RenderMode.ScreenSpaceOverlay; canvases[i].scaleFactor = factors[i]; }
+      if (sharp != null) Object.DestroyImmediate(sharp);
       Canvas.ForceUpdateCanvases();
     }
     private static void SaveFrame(Camera camera, RenderTexture target, int width, int height, string name)

@@ -268,6 +268,24 @@ fn full_preset_migrates_legacy_builtin_layouts_without_overwriting_custom_tabs()
 }
 
 #[test]
+fn legacy_builtin_layouts_come_first_without_a_saved_tab_order() {
+    let mut preset: PresetFile = serde_json::from_value(serde_json::json!({
+        "keys": {"custom-a": ["A"], "8key": ["F"], "4key": ["D"]},
+        "customTabs": [{"id": "custom-a", "name": "Mine", "viewerKind": "hand"}],
+        "selectedKeyType": "custom-a"
+    }))
+    .unwrap();
+
+    migrate_legacy_preset_tabs(&mut preset);
+    let tabs = preset.custom_tabs.unwrap();
+    assert_eq!(
+        tabs.iter().map(|tab| tab.id.as_str()).collect::<Vec<_>>(),
+        ["legacy-4key", "legacy-8key", "custom-a"]
+    );
+    assert_eq!(preset.selected_key_type.as_deref(), Some("custom-a"));
+}
+
+#[test]
 fn preset_viewer_defaults_do_not_reassign_an_existing_tab_id_or_foot_tab() {
     let mut tabs = vec![crate::models::CustomTab {
         id: "hand-default".to_string(),

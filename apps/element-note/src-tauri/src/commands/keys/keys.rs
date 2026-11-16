@@ -437,6 +437,29 @@ pub struct ResetAllResponse {
     pub selected_key_type: String,
 }
 
+impl ResetAllResponse {
+    /// The editor after Reset All, under the names the settings window reads.
+    fn after_reset(
+        keys: KeyMappings,
+        positions: KeyPositions,
+        store: &AppStoreData,
+        selected_key_type: String,
+    ) -> Self {
+        let custom_tabs = store.custom_tabs.clone();
+        let tab_order = normalize_tab_order(&[], &custom_tabs);
+        let bar_count = normalize_bar_count(crate::models::default_bar_count(), &tab_order);
+        Self {
+            keys,
+            positions,
+            custom_tabs,
+            selected_viewer_tabs: store.selected_viewer_tabs.clone(),
+            tab_order,
+            bar_count,
+            selected_key_type,
+        }
+    }
+}
+
 #[derive(Serialize)]
 pub struct ResetModeResponse {
     pub success: bool,
@@ -759,17 +782,18 @@ fn keys_reset_all_inner(
     publish_reset_plugin_instances(app, &transaction.change);
 
     let (settings_diff, cleared_tab_css_ids) = transaction.value;
-    let keys = transaction.change.document.keys;
-    let positions = transaction.change.document.key_positions;
     let stat_positions = transaction.change.document.stat_positions;
     let graph_positions = transaction.change.document.graph_positions;
     let knob_positions = transaction.change.document.knob_positions;
     let sprite_positions = transaction.change.document.sprite_positions;
     let layer_groups = transaction.change.document.layer_groups;
-    let selected_key_type = transaction.change.selected_key_type;
-    let custom_tabs = current_css_state.custom_tabs.clone();
-    let tab_order = normalize_tab_order(&[], &custom_tabs);
-    let bar_count = normalize_bar_count(crate::models::default_bar_count(), &tab_order);
+    let response = ResetAllResponse::after_reset(
+        transaction.change.document.keys,
+        transaction.change.document.key_positions,
+        &current_css_state,
+        transaction.change.selected_key_type,
+    );
+    let selected_key_type = &response.selected_key_type;
     let tab_note_overrides = crate::models::TabNoteOverrides::new();
 
     if let Err(error) = state.emit_settings_changed(&settings_diff, app) {
@@ -780,13 +804,13 @@ fn keys_reset_all_inner(
         app,
         "tabs:changed",
         &serde_json::json!({
-            "tabs": &custom_tabs,
-            "selectedViewerTabs": &current_css_state.selected_viewer_tabs,
-            "selectedKeyType": &selected_key_type,
+            "tabs": &response.custom_tabs,
+            "selectedViewerTabs": &response.selected_viewer_tabs,
+            "selectedKeyType": selected_key_type,
         }),
     );
-    emit_best_effort(app, "keys:changed", &keys);
-    emit_best_effort(app, "positions:changed", &positions);
+    emit_best_effort(app, "keys:changed", &response.keys);
+    emit_best_effort(app, "positions:changed", &response.positions);
     emit_best_effort(app, "statPositions:changed", &stat_positions);
     emit_best_effort(app, "graphPositions:changed", &graph_positions);
     emit_best_effort(app, "knobPositions:changed", &knob_positions);
@@ -796,9 +820,9 @@ fn keys_reset_all_inner(
         app,
         "customTabs:changed",
         &CustomTabChangePayload {
-            custom_tabs: custom_tabs.clone(),
-            tab_order: tab_order.clone(),
-            bar_count,
+            custom_tabs: response.custom_tabs.clone(),
+            tab_order: response.tab_order.clone(),
+            bar_count: response.bar_count,
             selected_key_type: selected_key_type.clone(),
             selection_authoritative: true,
         },
@@ -806,7 +830,7 @@ fn keys_reset_all_inner(
     emit_best_effort(
         app,
         "keys:mode-changed",
-        &serde_json::json!({ "mode": &selected_key_type }),
+        &serde_json::json!({ "mode": selected_key_type }),
     );
     emit_best_effort(app, "css:use", &serde_json::json!({ "enabled": false }));
     emit_best_effort(
@@ -823,15 +847,7 @@ fn keys_reset_all_inner(
         );
     }
 
-    Ok(ResetAllResponse {
-        keys,
-        positions,
-        custom_tabs,
-        selected_viewer_tabs: current_css_state.selected_viewer_tabs,
-        tab_order,
-        bar_count,
-        selected_key_type,
-    })
+    Ok(response)
 }
 
 #[tauri::command]

@@ -536,15 +536,12 @@ fn reset_all_response_serializes_the_viewer_tabs_used_by_settings() {
         crate::defaults::default_positions(),
         crate::defaults::default_stat_positions(),
     );
-    let response = serde_json::to_value(ResetAllResponse {
-        keys: store.keys,
-        positions: store.key_positions,
-        custom_tabs: store.custom_tabs,
-        selected_viewer_tabs: store.selected_viewer_tabs,
-        tab_order: store.tab_order,
-        bar_count: store.bar_count,
-        selected_key_type: store.selected_key_type,
-    })
+    let response = serde_json::to_value(ResetAllResponse::after_reset(
+        store.keys.clone(),
+        store.key_positions.clone(),
+        &store,
+        store.selected_key_type.clone(),
+    ))
     .unwrap();
     assert_eq!(response["tabs"][0]["id"], "hand-default");
     assert_eq!(response["tabs"][1]["id"], "foot-default");

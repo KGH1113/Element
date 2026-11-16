@@ -987,7 +987,7 @@ fn synthesize_custom_tabs(keys: &KeyMappings) -> Vec<crate::models::CustomTab> {
 fn migrate_legacy_preset_tabs(preset: &mut PresetFile) {
     // The old built-in IDs are removed when ElementNote reloads its store.
     // Give imported layouts persistent custom tab IDs and move every per-tab field.
-    let mut migrated = false;
+    let mut migrated = Vec::new();
 
     for old_id in super::BUILTIN_TAB_IDS {
         if !preset_has_tab_id(preset, old_id) {
@@ -1044,20 +1044,19 @@ fn migrate_legacy_preset_tabs(preset: &mut PresetFile) {
                 id.clone_from(&new_id);
             }
         }
-        migrated = true;
+        migrated.push(new_id);
     }
-    if let (true, Some(tabs), Some(order)) = (
-        migrated,
-        preset.custom_tabs.as_mut(),
-        preset.tab_order.as_ref(),
-    ) {
-        tabs.sort_by_key(|tab| {
-            order
-                .iter()
-                .position(|id| *id == tab.id)
-                .unwrap_or(usize::MAX)
-        });
-    }
+    let (false, Some(tabs)) = (migrated.is_empty(), preset.custom_tabs.as_mut()) else {
+        return;
+    };
+    // DM Note listed its built-in layouts before custom tabs; a saved order wins.
+    let order = preset.tab_order.as_ref().unwrap_or(&migrated);
+    tabs.sort_by_key(|tab| {
+        order
+            .iter()
+            .position(|id| *id == tab.id)
+            .unwrap_or(usize::MAX)
+    });
 }
 
 fn preset_has_tab_id(preset: &PresetFile, id: &str) -> bool {

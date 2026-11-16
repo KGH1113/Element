@@ -1,8 +1,8 @@
 using System;
-using System.Collections.Generic;
 using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
 using UnityEngine;
@@ -12,10 +12,11 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
 /// What the input dock shows and does: its line (what is edited and its
-/// formula, or with nothing edited what to do), the result, every value by
-/// category and the keypad. A value can be clicked or carried out of the
-/// dock. <see cref="OverlayInputDockView"/> draws it; the editor refreshes it
-/// from what is being typed.
+/// formula, or with nothing edited what to do), the result, the values (a
+/// list of places beside the open one's chips, and a search) and the keypad.
+/// A value can be clicked or carried out of the dock.
+/// <see cref="OverlayInputDockView"/> draws it; the editor refreshes it from
+/// what is being typed.
 /// </summary>
 internal sealed class OverlayInputDockModel : ViewModel
 {
@@ -36,6 +37,7 @@ internal sealed class OverlayInputDockModel : ViewModel
   private bool _typing;
   private int _drop;
 
+  /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
   /// <param name="press">A key typed: a digit, the point, an operator or '\b'.</param>
   /// <param name="clear">AC.</param>
   /// <param name="done">Done.</param>
@@ -44,6 +46,7 @@ internal sealed class OverlayInputDockModel : ViewModel
   /// <param name="move">The carried value moved.</param>
   /// <param name="end">The carried value was let go.</param>
   public OverlayInputDockModel(
+    OverlayValues values,
     Action<char> press,
     Action clear,
     Action done,
@@ -57,13 +60,13 @@ internal sealed class OverlayInputDockModel : ViewModel
     _move = move;
     _end = end;
     Keypad = Own(new OverlayKeypadModel(press, clear, done));
-    Sections = BuildSections(pick);
+    Values = Own(new OverlayValueBrowserModel(values, pick));
   }
 
   public readonly OverlayKeypadModel Keypad;
 
-  /// <summary>The built-in categories, then a heading for each mod that adds values; none empty.</summary>
-  public readonly IReadOnlyList<ValueSection> Sections;
+  /// <summary>Every value that can be added: the places, the open one's chips and the search.</summary>
+  public readonly OverlayValueBrowserModel Values;
 
   /// <summary>What is edited, as "Width  =", or with nothing edited what to do.</summary>
   public readonly State<string> Title = new("");
@@ -205,53 +208,4 @@ internal sealed class OverlayInputDockModel : ViewModel
   }
 
   internal void CancelDrag() => Dragging = false;
-
-  private IReadOnlyList<ValueSection> BuildSections(Action<OverlayValueDefinition> pick)
-  {
-    List<ValueSection> sections = new();
-    foreach (OverlayValueSection section in OverlayValueCatalog.Sections())
-    {
-      if (section.Values.Count == 0)
-        continue;
-      ValueChipModel[] chips = new ValueChipModel[section.Values.Count];
-      for (int i = 0; i < chips.Length; i++)
-        chips[i] = Own(new ValueChipModel(section.Values[i], pick));
-      sections.Add(new ValueSection(ValueSectionNames.SectionName(section), chips));
-    }
-    return sections;
-  }
-}
-
-/// <summary>A category of values in the dock: its heading and its values.</summary>
-internal sealed class ValueSection
-{
-  public ValueSection(string name, IReadOnlyList<ValueChipModel> chips)
-  {
-    Name = name;
-    Chips = chips;
-  }
-
-  public readonly string Name;
-  public readonly IReadOnlyList<ValueChipModel> Chips;
-}
-
-/// <summary>One value in the dock: a chip that a click picks and a drag carries out.</summary>
-internal sealed class ValueChipModel : ViewModel
-{
-  public ValueChipModel(OverlayValueDefinition value, Action<OverlayValueDefinition> pick)
-  {
-    Value = value;
-    Name = "Value " + value.Key;
-    Label = ValueSectionNames.ValueName(value);
-    Pick = Command(() => pick(value));
-  }
-
-  public readonly OverlayValueDefinition Value;
-
-  /// <summary>Names the drawn chip, for the checks: "Value combo".</summary>
-  public readonly string Name;
-
-  public readonly string Label;
-
-  public Command Pick { get; }
 }

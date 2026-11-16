@@ -1,12 +1,13 @@
 using System;
-using Element.Configuration;
 using Element.Configuration.Overlay;
+using Element.Domain.Layout;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementUI;
@@ -15,38 +16,23 @@ using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
+using Row = Element.Presentation.Layout.ContentEditors.Shell.OverlayInspectorRow;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
-/// Element's own pickers for a mod's editing screen, as views bound to a
-/// value: colors, paints, fonts, the nine points and shortcuts, each in a row
-/// with its label. <c>EditorPage</c>'s parts bind them to the values they hand
-/// the mod; a screen a mod writes with ElementUI binds them to its settings.
+/// Element's own pickers on a mod's editing screen, as rows of the property
+/// column bound to a value: a color or paint (its swatch and HEX), a font,
+/// one of nine points and a shortcut, each opening its tool in the column
+/// as the text editor's rows do. <c>EditorPage</c>'s parts bind them to the
+/// values they hand the mod; a screen a mod writes with ElementUI binds them
+/// to its settings.
 /// </summary>
 internal static class ModParts
 {
-  /// <summary>A row's height, and the width of the label left of its control.</summary>
-  public const float RowHeight = 40,
-    LabelWidth = 170;
+  private const int FontNameLength = 18;
 
   private static readonly UiColor Missing = UiPalette.Error;
-
-  /// <summary>
-  /// <paramref name="label"/> on the left and <paramref name="control"/> after
-  /// it, the control starting where every row's does; no label, the control alone.
-  /// </summary>
-  public static View Row(string label, View control)
-  {
-    View row = string.IsNullOrEmpty(label)
-      ? control
-      : HStack(
-        spacing: 12,
-        UI.Text(label).Font(Font.Callout).LineLimit(1).Frame(width: LabelWidth - 12, alignment: Alignment.Leading),
-        control
-      );
-    return row.Frame(maxWidth: float.PositiveInfinity, minHeight: RowHeight, alignment: Alignment.Leading);
-  }
 
   /// <summary>
   /// A text field drawn the way Element's own are: its words on the middle
@@ -56,99 +42,93 @@ internal static class ModParts
     field.Configure<TMP_InputField>(input => input.textComponent.alignment = TextAlignmentOptions.Left);
 
   /// <summary>A swatch with its HEX (and opacity) that opens Element's color picker.</summary>
-  public static View ColorPicker(string label, Binding<Color> color, bool opacity) =>
-    Row(
-      label,
-      ColorSwatch
-        .Of(
-          Title(label, L("색", "Color")),
-          color,
-          opacity,
-          UI.Text(() => ColorCaption(color.Value, opacity))
-            .Font(Font.Caption)
-            .Foreground(Colors.Muted)
-            .LineLimit(1)
-            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+  public static View ColorPicker(string label, Binding<Color> color, bool opacity, ModEditorContext context)
+  {
+    string title = Title(label, L("색", "Color"));
+    return Opener(
+      context,
+      "Color " + label,
+      _ => new SwatchDot(() => Opaque(color.Value), () => NoGradient()),
+      title,
+      on => Row.Value(() => ColorCaption(color.Value, opacity), () => Ink(on.Value)),
+      // The color's own controls end with the column, as the text editor's do.
+      _ =>
+        new ModColorTool(title, color, opacity).Frame(
+          maxWidth: float.PositiveInfinity,
+          alignment: Alignment.TopTrailing
         )
-        .Named("Color " + label)
-        .Frame(maxWidth: 240, alignment: Alignment.Leading)
     );
+  }
 
   /// <summary>A swatch that opens the full picker: the highlight color, a color of one's own, or a gradient.</summary>
-  public static View PaintPicker(string label, Binding<Paint> paint)
+  public static View PaintPicker(string label, Binding<Paint> paint, ModEditorContext context)
   {
-    Opener opener = new();
-    Binding<bool> open = Bind(() => opener.Open);
     string title = Title(label, L("색", "Color"));
-    return Row(
-      label,
-      Button(
-          HStack(
-            spacing: 8,
-            new SwatchDot(() => SwatchOf(paint.Value), () => NoGradient()),
-            UI.Text(() => PaintCaption(paint.Value))
-              .Font(Font.Caption)
-              .Foreground(Colors.Muted)
-              .LineLimit(1)
-              .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
-          ),
-          () => opener.Show
-        )
-        .Named("Paint " + label)
-        .Popover(open, () => new ModPaintPicker(title, paint, open))
-        .Frame(maxWidth: 240, alignment: Alignment.Leading)
+    return Opener(
+      context,
+      "Paint " + label,
+      _ => new SwatchDot(() => SwatchOf(paint.Value), () => NoGradient()),
+      title,
+      on => Row.Value(() => PaintCaption(paint.Value), () => Ink(on.Value)),
+      _ => new ModPaintPicker(title, paint),
+      ModPaintPicker.Width
     );
   }
 
   /// <summary>The font's name (or that it is missing on this PC) that opens Element's font list.</summary>
   public static View FontPicker(string label, Binding<string> font, ModEditorContext context)
   {
-    Opener opener = new();
-    Binding<bool> open = Bind(() => opener.Open);
     OverlayFonts fonts = context.Fonts;
     string title = Title(label, L("폰트", "Font"));
-    return Row(
-      label,
-      Button(
-          HStack(
-            spacing: 8,
-            Image(ElementIcons.Of(UiIconKind.Font), 20).Foreground(Colors.Muted),
-            UI.Text(() => FontName(font.Value, fonts))
-              .Foreground(() => FontInk(font.Value, fonts))
-              .LineLimit(1)
-              .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
-          ),
-          () => opener.Show
-        )
-        .Named("Font " + label)
-        .Popover(
-          open,
-          () =>
-            new FontList(
-              new FontListRequest
-              {
-                Fonts = fonts,
-                Title = title,
-                Current = OverlayFontKey.Normalize(font.Value),
-                DefaultName = L("기본 폰트", "Default font"),
-                DefaultDetail = L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font"),
-                ReduceMotion = context.ReduceMotion,
-                Picked = key => PickFont(font, key, context),
-                Ticks = context.FontTicks,
-              }
-            )
-        )
+    return Opener(
+      context,
+      "Font " + label,
+      on => Row.Icon(UiIconKind.Font, () => Ink(on.Value)),
+      title,
+      on => Row.Value(() => FontName(font.Value, fonts), () => FontInk(font.Value, fonts, on.Value)),
+      _ => new FontList(
+        new FontListRequest
+        {
+          Fonts = fonts,
+          // The column's back row names the list.
+          Title = "",
+          Current = OverlayFontKey.Normalize(font.Value),
+          DefaultName = L("기본 폰트", "Default font"),
+          DefaultDetail = L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font"),
+          ReduceMotion = context.ReduceMotion,
+          Picked = key => PickFont(font, key, context),
+          Ticks = context.FontTicks,
+        }
+      ),
+      UiFontPopover.PreferredWidth,
+      ToolHeight.Fill
     );
   }
 
-  /// <summary>The nine points of a box; the one picked is lit, arrows show the way it grows.</summary>
+  /// <summary>The nine points of a box; the row names the one picked and opens them.</summary>
   public static View AnchorPicker(string label, Binding<Anchor> anchor, ModEditorContext context) =>
-    AnchorPicker(label, AnchorModel(anchor, context));
+    AnchorPicker(label, anchor, context, () => AnchorModel(anchor, context));
 
-  public static View AnchorPicker(string label, OverlayGrowPickerModel picker) =>
-    Row(label, new OverlayGrowPointsView(picker));
+  /// <summary>Like <see cref="AnchorPicker(string, Binding{Anchor}, ModEditorContext)"/>, with the points' model made by <paramref name="points"/> when they open.</summary>
+  public static View AnchorPicker(
+    string label,
+    Binding<Anchor> anchor,
+    ModEditorContext context,
+    Func<OverlayGrowPickerModel> points
+  )
+  {
+    string title = Title(label, L("위치", "Point"));
+    return Opener(
+      context,
+      "Anchor " + label,
+      on => Row.Icon(UiIconKind.GrowFrom, () => Ink(on.Value)),
+      title,
+      on => Row.Value(() => AnchorName(anchor.Value), () => Ink(on.Value)),
+      commands => AnchorTool(points(), anchor)
+    );
+  }
 
-  /// <summary>What the nine points show and do for <paramref name="anchor"/>; made once per part.</summary>
+  /// <summary>What the nine points show and do for <paramref name="anchor"/>.</summary>
   public static OverlayGrowPickerModel AnchorModel(Binding<Anchor> anchor, ModEditorContext context)
   {
     OverlayGrowPickerModel picker = null;
@@ -166,12 +146,35 @@ internal static class ModParts
     return picker;
   }
 
-  /// <summary>A shortcut as keycaps: a click records the next key with at most one modifier; × clears it.</summary>
+  /// <summary>A shortcut's keys; the row opens the recorder: a click records the next key with at most one modifier, × clears it.</summary>
   public static View ShortcutField(string label, Binding<ElementKit.Shortcut> shortcut, ModEditorContext context) =>
-    ShortcutField(label, ShortcutModel(shortcut, context));
+    ShortcutField(label, ShortcutModel(shortcut, context), context);
 
-  public static View ShortcutField(string label, ShortcutFieldModel model) =>
-    Row(label, new ShortcutField(model, UiIconKind.Close, L("지우기", "Clear"), "Shortcut " + label));
+  public static View ShortcutField(string label, ShortcutFieldModel model, ModEditorContext context)
+  {
+    string title = Title(label, L("단축키", "Shortcut"));
+    return Opener(
+      context,
+      "Shortcut " + label,
+      null,
+      title,
+      on =>
+        Row.Value(
+          () =>
+            ShortcutCaption(
+              model.HasShortcut.Value,
+              model.HasModifier.Value,
+              model.ModifierText.Value,
+              model.KeyText.Value
+            ),
+          () => Ink(on.Value)
+        ),
+      _ =>
+        new ShortcutField(model, UiIconKind.Close, L("지우기", "Clear"), "Shortcut field " + label).Padding(
+          new Insets(2, 0, 0, 0)
+        )
+    );
+  }
 
   /// <summary>What a shortcut field shows and records for <paramref name="shortcut"/>; made once per part.</summary>
   public static ShortcutFieldModel ShortcutModel(Binding<ElementKit.Shortcut> shortcut, ModEditorContext context)
@@ -198,6 +201,52 @@ internal static class ModParts
     return model;
   }
 
+  /// <summary>
+  /// A row of the column that opens a tool in it: <paramref name="lead"/>,
+  /// the name, <paramref name="value"/> and a chevron, read muted while the
+  /// screen turns the row off (each gets whether it is on). <paramref name="tool"/>
+  /// makes the tool each time it opens.
+  /// </summary>
+  public static View Opener(
+    ModEditorContext context,
+    string name,
+    Func<State<bool>, View> lead,
+    string title,
+    Func<State<bool>, View> value,
+    Func<ModCommands, View> tool,
+    float width = float.NaN,
+    ToolHeight height = ToolHeight.Own
+  )
+  {
+    EnabledWatch watch = new();
+    State<bool> on = watch.Enabled;
+    Opening opening = new(() => context.Column?.Open(title, tool, width, height));
+    return Button(
+        ZStack(
+          Alignment.Leading,
+          Row.Of(lead?.Invoke(on), Row.Name(title, () => Ink(on.Value)), false, value(on), Row.Chevron()),
+          watch
+        ),
+        () => opening.Open,
+        ButtonStyle.Plain
+      )
+      .Background(Row.Fill, Row.Radius)
+      .Named(name);
+  }
+
+  // The nine points on the popover's panel, the picked one named beside them.
+  private static View AnchorTool(OverlayGrowPickerModel points, Binding<Anchor> anchor) =>
+    HStack(
+        spacing: 14,
+        new OverlayGrowPointsView(points),
+        UI.Text(() => AnchorName(anchor.Value))
+          .Font(Font.Caption.Sized(13))
+          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+      )
+      .Padding(new Insets(12, 14, 14, 14))
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+      .Background(UiPalette.Popover, 8);
+
   private static string Title(string label, string fallback) => string.IsNullOrEmpty(label) ? fallback : label;
 
   private static void PickFont(Binding<string> font, string key, ModEditorContext context)
@@ -209,6 +258,9 @@ internal static class ModParts
     Runtime.Probe();
     context.Edited();
   }
+
+  [ElementUI.Pure]
+  private static Color Opaque(Color color) => new(color.r, color.g, color.b, 1);
 
   [ElementUI.Pure]
   private static string ColorCaption(Color color, bool opacity) =>
@@ -230,42 +282,56 @@ internal static class ModParts
   {
     paint ??= Paint.Solid(Color.white);
     if (paint.IsGradient)
-      return L("그라디언트 · 색 ", "Gradient · ") + paint.Gradient.Stops.Count + L("개", " colors");
+      return L("그라디언트", "Gradient");
     return paint.Highlight
-      ? L("하이라이트 색", "Highlight") + Percent(paint.Color.a)
+      ? L("하이라이트", "Highlight") + Percent(paint.Color.a)
       : "#" + ColorUtility.ToHtmlStringRGB(paint.Color) + Percent(paint.Color.a);
   }
 
+  // Short, as the text editor's Font row names it.
   [ElementUI.Pure]
   private static string FontName(string font, OverlayFonts fonts)
   {
     string key = OverlayFontKey.Normalize(font);
     if (key.Length == 0)
-      return L("기본 폰트", "Default font");
-    return StatusOf(key, fonts) == OverlayFontStatus.Missing
-      ? OverlayFonts.DisplayName(key) + L(" · 이 PC에 없음", " · not on this PC")
-      : OverlayFonts.DisplayName(key);
+      return L("기본", "Default");
+    string name = OverlayFonts.DisplayName(key);
+    if (StatusOf(key, fonts) == OverlayFontStatus.Missing)
+      return L("이 PC에 없음", "Not on this PC");
+    return name.Length > FontNameLength ? name.Substring(0, FontNameLength - 1).TrimEnd() + "…" : name;
   }
 
   [ElementUI.Pure]
-  private static UiColor FontInk(string font, OverlayFonts fonts)
+  private static UiColor FontInk(string font, OverlayFonts fonts, bool on)
   {
     string key = OverlayFontKey.Normalize(font);
-    return key.Length > 0 && StatusOf(key, fonts) == OverlayFontStatus.Missing ? Missing : Colors.Foreground;
+    return !on ? Colors.Muted
+      : key.Length > 0 && StatusOf(key, fonts) == OverlayFontStatus.Missing ? Missing
+      : Colors.Foreground;
   }
+
+  [ElementUI.Pure]
+  private static UiColor Ink(bool on) => on ? Colors.Foreground : Colors.Muted;
+
+  [ElementUI.Pure]
+  private static string AnchorName(Anchor anchor) => OverlayGrowPickerModel.ShortName((OverlayGrowth)(int)anchor);
+
+  [ElementUI.Pure]
+  private static string ShortcutCaption(bool has, bool modifier, string modifierText, string key) =>
+    !has ? L("없음", "None")
+    : modifier ? modifierText + " + " + key
+    : key;
 
   private static OverlayFontStatus StatusOf(string key, OverlayFonts fonts) =>
     fonts?.Status(key) ?? OverlayFontStatus.Missing;
 
   private static string Percent(float alpha) => alpha < .995f ? "  " + Mathf.RoundToInt(alpha * 100) + "%" : "";
 
-  /// <summary>Whether a part's popover is open.</summary>
-  private sealed class Opener : ViewModel
+  /// <summary>A row's click, opening its tool.</summary>
+  private sealed class Opening : ViewModel
   {
-    public bool Open;
+    public Opening(Action open) => Open = Command(open);
 
-    public Opener() => Show = Command(() => Open = true);
-
-    public Command Show { get; }
+    public Command Open { get; }
   }
 }

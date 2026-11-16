@@ -173,6 +173,162 @@
         <member name="F:ElementUI.ButtonStyle.Card">
             <summary>A large rounded panel that is a button as a whole: category cards, preset cards.</summary>
         </member>
+        <member name="T:ElementUI.ControlStyle">
+            <summary>
+            How the controls in part of a screen are drawn. The standard style draws
+            a toggle as a switch beside its label, a card as a raised box, and so on;
+            a host that shows screens it didn't write (another mod's settings, say)
+            can draw them its own way. Subclass it, override what you draw
+            differently, and hand it to a view with <c>.ControlStyle(style)</c>:
+            everything inside takes it. Each method gets what the control was made
+            with and returns the view that shows it; <c>base</c> gives the standard look.
+            </summary>
+            <example>
+            <code>
+            sealed class RowStyle : ControlStyle
+            {
+                public override View Toggle(ToggleConfiguration toggle) =&gt;
+                    base.Toggle(toggle).Padding(4, 12).Background(Colors.Surface, 10);
+            }
+            // ...
+            screen.ControlStyle(new RowStyle())
+            </code>
+            </example>
+        </member>
+        <member name="F:ElementUI.ControlStyle.Standard">
+            <summary>The standard look, for screens no style was handed to.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Toggle(ElementUI.ToggleConfiguration)">
+            <summary>On or off: a switch after the label, or a box to tick before it.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Slider(ElementUI.SliderConfiguration)">
+            <summary>A number dragged along a track, with the number beside it unless it was left out.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.RangeSlider(ElementUI.RangeSliderConfiguration)">
+            <summary>Two numbers on one track.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Stepper(ElementUI.StepperConfiguration)">
+            <summary>A whole number with − and +.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.TextField(ElementUI.TextFieldConfiguration)">
+            <summary>
+            A field typed in: words, or a number (<see cref="P:ElementUI.TextFieldConfiguration.IsNumber"/>).
+            <see cref="M:ElementUI.TextFieldConfiguration.Field"/> makes the field itself, for a style that only moves it.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Picker(ElementUI.PickerConfiguration)">
+            <summary>One of several options: side by side, or in a list that opens.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.MultiPicker(ElementUI.MultiPickerConfiguration)">
+            <summary>Several options, each on or off.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Card(ElementUI.CardConfiguration)">
+            <summary>Content grouped under an optional title.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Section(ElementUI.SectionConfiguration)">
+            <summary>A heading over the parts that follow.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.StackSpacing(ElementUI.Axis,System.Single)">
+            <summary>
+            The space a stack inside leaves between its children, given what the
+            stack asked for (or the theme's spacing when it asked for none). A host
+            can keep a screen to its own rhythm; the standard style keeps what was asked.
+            </summary>
+        </member>
+        <member name="T:ElementUI.ControlConfiguration">
+            <summary>What every control was made with, for a <see cref="T:ElementUI.ControlStyle"/> to draw it.</summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.Label">
+            <summary>The words that name it; empty for none.</summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.IsEnabled">
+            <summary>
+            Whether it takes input now: false inside <c>.Disabled(...)</c>. Read it in
+            an expression, such as a foreground that dims while it is off, and the
+            view follows it.
+            </summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.Kind">
+            <summary>Which control this is, such as "Toggle", for errors and the debug view.</summary>
+        </member>
+        <member name="T:ElementUI.ToggleConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Toggle(System.String,ElementUI.Binding{System.Boolean},ElementUI.ToggleAppearance)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.SliderConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Slider(System.String,ElementUI.Binding{System.Single},System.Single,System.Single,System.Single,System.Boolean)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.SliderConfiguration.Step">
+            <summary>0 for any value; 1 for whole numbers.</summary>
+        </member>
+        <member name="P:ElementUI.SliderConfiguration.ShowsValue">
+            <summary>False when the screen shows the number elsewhere.</summary>
+        </member>
+        <member name="M:ElementUI.SliderConfiguration.Track">
+            <summary>The track itself, without its label or number: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.RangeSliderConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.RangeSlider(System.String,ElementUI.Binding{System.Single},ElementUI.Binding{System.Single},System.Single,System.Single,System.Single)"/> was made with.</summary>
+        </member>
+        <member name="M:ElementUI.RangeSliderConfiguration.Track">
+            <summary>The track with its two handles, without its label or numbers: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.StepperConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Stepper(System.String,ElementUI.Binding{System.Int32},System.Int32,System.Int32,System.Int32)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.TextFieldConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.TextField(System.String,ElementUI.Binding{System.String},System.String)"/> or <see cref="M:ElementUI.UI.NumberField(System.String,ElementUI.Binding{System.Single},System.Single,System.Single)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Text">
+            <summary>The words it edits; null for a number field.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Number">
+            <summary>The number it edits; null for a field of words.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Min">
+            <summary>A number field's limits: typing past them is brought back when typing ends.</summary>
+        </member>
+        <member name="M:ElementUI.TextFieldConfiguration.Field">
+            <summary>The field itself, without its label: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.PickerConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Picker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Int32},ElementUI.PickerAppearance)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.PickerConfiguration.Selected">
+            <summary>The index picked.</summary>
+        </member>
+        <member name="P:ElementUI.PickerConfiguration.Appearance">
+            <summary>How the screen asked for it to show; a style may choose otherwise.</summary>
+        </member>
+        <member name="M:ElementUI.PickerConfiguration.Segments">
+            <summary>The options side by side, without the label: a new control each call, whatever <see cref="P:ElementUI.PickerConfiguration.Appearance"/> asked for.</summary>
+        </member>
+        <member name="T:ElementUI.MultiPickerConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.MultiPicker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Collections.Generic.List{System.Boolean}})"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.MultiPickerConfiguration.On">
+            <summary>One flag per option; the list may be shorter than the options (the rest are off).</summary>
+        </member>
+        <member name="M:ElementUI.MultiPickerConfiguration.IsOn(System.Collections.Generic.List{System.Boolean},System.Int32)">
+            <summary>Whether option <paramref name="index"/> is on in <paramref name="on"/>.</summary>
+        </member>
+        <member name="M:ElementUI.MultiPickerConfiguration.Set(System.Int32,System.Boolean)">
+            <summary>Turns option <paramref name="index"/> on or off, writing a new list.</summary>
+        </member>
+        <member name="T:ElementUI.CardConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Card(System.String,ElementUI.View)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.CardConfiguration.Title">
+            <summary>Its title; empty for none.</summary>
+        </member>
+        <member name="P:ElementUI.CardConfiguration.Content">
+            <summary>What it groups. A view goes in one place: show it once.</summary>
+        </member>
+        <member name="T:ElementUI.SectionConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Section(System.String)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.StyledControl">
+            <summary>A control drawn by the <see cref="T:ElementUI.ControlStyle"/> it finds where it is mounted.</summary>
+        </member>
         <member name="T:ElementUI.Debugging.DebugViewModel">
             <summary>What the debug panel shows: a screen's layout, and the change trace.</summary>
         </member>
@@ -236,8 +392,9 @@
         </member>
         <member name="T:ElementUI.Layout.ViewEnvironment">
             <summary>
-            Values a view hands down to everything inside it: the text font and color.
-            Set with <c>.Font(...)</c> and <c>.Foreground(...)</c>; fixed at mount.
+            Values a view hands down to everything inside it: the text font and color,
+            and the style its controls are drawn in. Set with <c>.Font(...)</c>,
+            <c>.Foreground(...)</c> and <c>.ControlStyle(...)</c>; fixed at mount.
             </summary>
         </member>
         <member name="F:ElementUI.Layout.ViewEnvironment.ForegroundWatch">
@@ -245,6 +402,9 @@
         </member>
         <member name="F:ElementUI.Layout.ViewEnvironment.LineLimit">
             <summary>The most lines a text shows; 0 for any. One line cuts the text with an ellipsis instead of wrapping.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.ViewEnvironment.Style">
+            <summary>How the controls inside are drawn.</summary>
         </member>
         <member name="T:ElementUI.Layout.HintPlacement">
             <summary>Where a hint goes for the view it is about.</summary>
@@ -886,6 +1046,12 @@
         <member name="M:ElementUI.ViewModifiers.LineLimit(ElementUI.View,System.Int32)">
             <summary>The most lines every text inside shows. <c>LineLimit(1)</c> keeps a title on one line, cut with an ellipsis.</summary>
         </member>
+        <member name="M:ElementUI.ViewModifiers.ControlStyle(ElementUI.View,ElementUI.ControlStyle)">
+            <summary>
+            How every control inside is drawn (<see cref="T:ElementUI.ControlStyle"/>):
+            a host draws a screen it didn't write its own way. Null puts the standard look back.
+            </summary>
+        </member>
         <member name="M:ElementUI.ViewModifiers.TextAlignment(ElementUI.View,ElementUI.TextAlign)">
             <summary>How the lines of every text inside sit.</summary>
         </member>
@@ -940,6 +1106,9 @@
         </member>
         <member name="M:ElementUI.Views.Composites.Readout(System.Func{System.Single},System.Single)">
             <summary>The value beside a slider, written into a reused buffer so dragging makes no strings.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Composites.SectionTitle(System.String)">
+            <summary>A heading over the parts that follow: small, bold, muted.</summary>
         </member>
         <member name="T:ElementUI.Views.WrapperView">
             <summary>A view around one other view: a modifier. Layout passes through unless it says otherwise.</summary>

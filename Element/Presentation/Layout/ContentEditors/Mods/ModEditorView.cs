@@ -1,66 +1,58 @@
 using System;
-using Element.Presentation.Ui.Declarative;
 using ElementKit;
 using ElementUI;
 using UnityEngine;
-using static ElementUI.UI;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
 /// A mod's editing screen written with ElementUI
-/// (<see cref="OverlayElement{TSettings}.Editor"/>): its view in a column
-/// under the preview, scrolling when taller than the room. Its controls
-/// change the settings themselves; each edit is handed to the editor
-/// (<paramref name="edited"/>), and a drag (<paramref name="dragging"/>) is
-/// one undo step.
+/// (<see cref="OverlayElement{TSettings}.Editor"/>): its view in the
+/// property column, its controls drawn as the column's rows
+/// (<see cref="ModColumnStyle"/>) without the mod doing anything for it.
+/// Its controls change the settings themselves; each edit is handed to the
+/// editor (<paramref name="edited"/>), and a drag (<paramref name="dragging"/>)
+/// is one undo step.
 /// </summary>
 internal sealed class ModEditorView : IModEditorScreen
 {
-  private readonly ScreenPanel _panel;
+  private readonly ModEditorColumn _column;
   private readonly ModEditorContext _context;
 
   /// <param name="frame">The editor's controls, in frame units.</param>
-  /// <param name="area">The room under the preview.</param>
+  /// <param name="area">Where the column stands.</param>
   /// <param name="view">What the mod's <c>Editor</c> returned.</param>
   /// <param name="model">The view model it reads; it goes with the screen.</param>
+  /// <param name="measure">How wide words are at the rows' size.</param>
   public ModEditorView(
     RectTransform frame,
     Rect area,
     View view,
     ViewModel model,
-    IBackend backend,
+    Func<IBackend> backend,
     ModEditorContext context,
+    Func<string, float> measure,
     Action edited,
     Action<bool> dragging
   )
   {
     _context = context;
-    _panel = new ScreenPanel("Mod editor view", frame, Color.clear, keyboard: false);
-    Root.anchoredPosition = new Vector2(area.x, -area.y);
-    _panel.Mount(
-      backend,
-      ScrollView(
-          view.Frame(width: ModEditorPage.ColumnWidth, alignment: Alignment.TopLeading)
-            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Top)
-        )
-        .Frame(width: area.width, height: area.height),
-      model,
-      area.width
-    );
-    _panel.Host.Root.Edited += edited;
-    _panel.Host.Root.Editing += dragging;
+    _column = new ModEditorColumn(frame, area, backend, edited, dragging);
+    context.Column = _column;
+    _column.Mount(view, new ModColumnStyle(_column, measure), model);
   }
 
-  public RectTransform Root => _panel.Root;
+  public ModEditorColumn Column => _column;
 
-  public bool Typing => _context.Recording || ModKeyboard.FocusedField(Root) != null;
+  public RectTransform Root => _column.Root;
 
-  public bool HasPopover => _panel.Host != null && _panel.Host.Root != null && _panel.Host.Root.HasOverlay;
+  public bool Typing => _context.Recording || _column.Typing;
 
-  public bool CloseTopPopover() => _panel.Host != null && _panel.Host.HandleEscape();
+  public bool HasPopover => _column.HasPopover;
 
-  public void Tick() => _panel.Sync();
+  public bool CloseTopPopover() => _column.CloseTopPopover();
+
+  public void Tick() => _column.Tick();
 
   /// <summary>Undo put earlier settings back: what reads them shows them.</summary>
   public void Restored()
@@ -69,5 +61,10 @@ internal sealed class ModEditorView : IModEditorScreen
     _context.Restored();
   }
 
-  public void Dispose() => _panel.Dispose();
+  public void Dispose()
+  {
+    if (_context.Column == _column)
+      _context.Column = null;
+    _column.Dispose();
+  }
 }

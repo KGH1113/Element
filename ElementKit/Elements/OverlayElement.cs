@@ -188,9 +188,12 @@ public abstract class OverlayElement<TSettings> : OverlayElement
   /// The editing screen written with ElementUI: controls bound to
   /// <c>vm.Settings</c> (<c>Slider(vm.L("너비", "Width"), Bind(() =&gt; vm.Settings.Width), 80, 960)</c>)
   /// and Element's own pickers from <see cref="EditorParts"/>. Element shows it
-  /// in a column under the preview, scrolling when it is taller than the room;
-  /// it records each change for undo, shows it on the preview and saves it when
-  /// the player is done. Return null, as the default does, to build the screen
+  /// in the property column right of the preview, where its text editor keeps
+  /// its own, and draws its controls as that column's rows: a card is a heading
+  /// over its rows, a slider a row with a short track, a choice that doesn't
+  /// fit side by side a row that opens the list. It scrolls when it is taller
+  /// than the screen; Element records each change for undo, shows it on the
+  /// preview and saves it when the player is done. Return null, as the default does, to build the screen
   /// with <see cref="OverlayElement.OnEdit"/> instead; override one of the two.
   /// </summary>
   /// <param name="vm">The settings the screen edits; see <see cref="EditorViewModel{TSettings}"/>.</param>

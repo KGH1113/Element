@@ -246,6 +246,22 @@
         <member name="F:ElementUI.Layout.ViewEnvironment.LineLimit">
             <summary>The most lines a text shows; 0 for any. One line cuts the text with an ellipsis instead of wrapping.</summary>
         </member>
+        <member name="T:ElementUI.Layout.HintPlacement">
+            <summary>Where a hint goes for the view it is about.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.HintPlacement.Gap">
+            <summary>Space between the hint and its view.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.HintPlacement.Margin">
+            <summary>Space the hint keeps from the edges of the room it shows in.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.HintPlacement.Beside(ElementUI.Frame,ElementUI.Size,ElementUI.Frame)">
+            <summary>
+            A hint of <paramref name="size"/> for a view shown at <paramref name="anchor"/>:
+            centred on the view, above it when <paramref name="room"/> has space there,
+            below it otherwise, and always inside the room. All in the same units.
+            </summary>
+        </member>
         <member name="T:ElementUI.Layout.UiRoot">
             <summary>
             One mounted screen: its root view, its size, its peers and the layer
@@ -1113,6 +1129,16 @@
         </member>
         <member name="P:ElementUI.View.ContentOriginX">
             <summary>For views owning a container: where its children's coordinates start, in screen units.</summary>
+        </member>
+        <member name="P:ElementUI.View.ShownFrame">
+            <summary>
+            Where the view shows now, in the screen's units: its <see cref="F:ElementUI.View.Frame"/>
+            moved by how far the scroll views it is in are scrolled. A hint or a
+            popover goes beside this, not beside where the view was laid out.
+            </summary>
+        </member>
+        <member name="M:ElementUI.View.Scrolled(ElementUI.Frame)">
+            <summary>For views whose container scrolls: <paramref name="frame"/>, inside it, where it shows now.</summary>
         </member>
         <member name="M:ElementUI.View.InvalidateMeasure">
             <summary>This view's size depends on something that changed: measure it again.</summary>

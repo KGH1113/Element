@@ -31,7 +31,9 @@ A value is something the game knows, kept live. It behaves as one character: the
 
 - **Units are words you type.** Values carry no units, so write `%` after progress or accuracy yourself.
 - **Composite values are built from parts.** Values that combined others are gone. The old progress `0%-48%` is now start, `%-`, current and `%`. The old time `1:27~3:48` is elapsed, `~` and total.
-- **Adding a value.** Every value is laid out by category in the input dock at the bottom of both editors, which is always there. In a text, clicking one adds it at the caret; while a formula is being typed, it goes into the formula. You can also drag it: an accent caret shows where it lands in the text, and a number lights up when the value can go there.
+- **Adding a value.** The input dock at the bottom of both editors, which is always there, lists the categories on its left, then one row per mod that adds values, and shows the picked one's values beside the list; a mod's values sit in a row per group. The category picked last stays picked for the next editor. In a text, clicking a value adds it at the caret; while a formula is being typed, it goes into the formula. You can also drag it: an accent caret shows where it lands in the text, and a number lights up when the value can go there.
+- **Finding a value.** Typing in the dock's search shows every value it finds, by category and mod: Korean and English names, keys (`kps`), group headings and mod names all count, with case, spaces and dashes left out. Enter adds the first one; × or Esc clears the search.
+- **What a value reads now.** Each value in the dock shows its current reading after its name, as the overlay would show it, while the game has one.
 - **Hovering.** Pointing at a value in the text names it, including its calculation.
 
 ## Calculating

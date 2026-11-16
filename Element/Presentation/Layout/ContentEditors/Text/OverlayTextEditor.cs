@@ -39,6 +39,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private readonly Transform _parent;
   private readonly TMP_FontAsset _uiFont;
   private readonly Func<bool> _reduceMotion;
+  private readonly OverlayValues _values;
   private readonly OverlayLiveValues _live;
   private readonly OverlayPreviewSpace _space = new();
   private readonly TextDocumentEditing _text;
@@ -69,12 +70,14 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private float _elementScale = 1;
   private float _bottomTop;
   private float _blinkStart;
+  private bool _dockTyping;
 
   public OverlayTextEditor(Transform parent, TMP_FontAsset uiFont, Func<bool> reduceMotion, OverlayValues values)
   {
     _parent = parent;
     _uiFont = uiFont;
     _reduceMotion = reduceMotion;
+    _values = values;
     _live = new OverlayLiveValues(values);
     _text = new TextDocumentEditing(values, Render, Restored);
     _preview = new TextPreview(_text, values);
@@ -163,6 +166,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _dock = new OverlayInputDock(
       _screen,
       _reduceMotion,
+      _values,
       _formulas.KeypadPress,
       _formulas.ClearFormula,
       _formulas.FinishEditing,
@@ -233,6 +237,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       Render();
     }
     _screen.Tick();
+    _dock.Tick();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible && picker.IsTyping)
     {
@@ -253,19 +258,34 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       return;
     }
     _pointer.HandleMouse();
-    _keyboard.HandleKeys();
+    bool searching = DockTyping();
+    if (!searching)
+      _keyboard.HandleKeys();
     if (_screen == null)
       return;
     _pointer.UpdateHover(Input.mousePosition);
-    _keyboard.FollowComposition();
+    if (!searching)
+      _keyboard.FollowComposition();
     bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
-    // The text's caret rests while a formula has the input.
-    _marks.Blink(!_text.HasSelection && !_formulas.Editing.Active && blink);
+    // The text's caret rests while a formula or the value search has the input.
+    _marks.Blink(!searching && !_text.HasSelection && !_formulas.Editing.Active && blink);
     _dock.Blink(blink);
-    _keyboard.UpdateImePosition();
+    if (!searching)
+      _keyboard.UpdateImePosition();
     FollowLiveValues();
     if (_space.Moving)
       RenderKeepingBlink();
+  }
+
+  // The dock's value search has the keys and the input method while it is
+  // focused; the text takes both back once it lets go.
+  private bool DockTyping()
+  {
+    bool typing = _dock.IsTyping;
+    if (_dockTyping && !typing)
+      Input.imeCompositionMode = IMECompositionMode.On;
+    _dockTyping = typing;
+    return typing;
   }
 
   // A level playing behind the editor moves the values it shows.

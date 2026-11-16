@@ -138,17 +138,37 @@ namespace Element.Editor
       return Rect.MinMaxRect(keys.Min(key => key.xMin), keys.Min(key => key.yMin), keys.Max(key => key.xMax), keys.Max(key => key.yMax));
     }
 
-    /// <summary>The dock's value chips as drawn.</summary>
+    /// <summary>The value chips the dock shows now, once it caught up: the open place's, or what the search found.</summary>
     private static Pressable[] DockChips(OverlayInputDock dock)
     {
       Settle();
-      return DockValues(dock).GetComponentsInChildren<Pressable>(true).Where(chip => chip.name.StartsWith("Value ")).ToArray();
+      dock.Tick();
+      return dock.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
     }
 
-    private static Pressable DockChip(OverlayInputDock dock, string name) => DockChips(dock).Single(chip => chip.name == name);
+    /// <summary>A value's chip, after opening the place that holds it as the player would.</summary>
+    private static Pressable DockChip(OverlayInputDock dock, string name)
+    {
+      OverlayValueBrowserModel values = dock.Model.Values;
+      ValueFolderModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
+      if (values.Searching.Value || values.OpenFolder != folder)
+        Press(DockPlace(dock, folder.Key));
+      return DockChips(dock).Single(chip => chip.name == name);
+    }
 
-    /// <summary>What scrolls in the dock: the category names and their chips.</summary>
-    private static RectTransform DockValues(OverlayInputDock dock) => dock.Root.GetComponentInChildren<ScrollRect>(true).content;
+    /// <summary>A row of the dock's list of places: "Judgement", "mod:TUFOverlay".</summary>
+    private static Pressable DockPlace(OverlayInputDock dock, string key)
+    {
+      Settle();
+      return ByName<Pressable>(dock.Root, "Place " + key);
+    }
+
+    /// <summary>The dock's value search field.</summary>
+    private static TMP_InputField DockSearch(OverlayInputDock dock)
+    {
+      Settle();
+      return ByName<TMP_InputField>(dock.Root, "Value search");
+    }
 
     /// <summary>Presses the open editor's Cancel or Done, named after the editor.</summary>
     private static void PressEditorButton(object editor, string name) =>

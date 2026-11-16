@@ -296,6 +296,7 @@ namespace Element.Editor
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
       CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
+      CheckValueColor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
@@ -1174,12 +1175,20 @@ namespace Element.Editor
       Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
 
-      // The animation switch acts on values: the whole text's with nothing
-      // selected. Pressed as the player does, with the screen catching up only
-      // at the end of each frame, as in the game.
+      // Animate opens a tool in the column: growth acts on values, the whole
+      // text's with nothing selected. Pressed as the player does, with the
+      // screen catching up only at the end of each frame, as in the game.
       OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
       Assert(!document[6].Animate, "FPS starts still");
-      Pressable drawnAnimate = BarButton(text, animateButton);
+      TextAnimate animateTool = Field<TextAnimate>(text, "_animate");
+      Assert(animateButton.Opens && !animateButton.Toggle && animateButton.Value == (Korean(name) ? "꺼짐" : "Off"),
+        "the Animate row opens a tool and says nothing is on: " + animateButton.Value);
+      PressBar(text, animateButton);
+      Assert(animateTool.Visible, "the Animate row opens its tool");
+      AssertInColumn(text, animateTool.Root, Korean(name) ? "애니메이션" : "Animate");
+      Pressable drawnAnimate = ByName<Pressable>(animateTool.Root, "Grow on change");
+      Assert(drawnAnimate != null && ByName<Pressable>(animateTool.Root, "Color by value") != null,
+        "the tool has a switch to grow on each change and one to color by value");
       UiSwitchMotion animateThumb = drawnAnimate.GetComponentInChildren<UiSwitchMotion>();
       RectTransform animateKnob = (RectTransform)animateThumb.transform;
       Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
@@ -1198,11 +1207,13 @@ namespace Element.Editor
         "turning it on says what it does, on the screen: " + topLine.text);
       Assert(animateKnob.anchoredPosition.x > 12 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.SoftAccent),
         "the switch slides over to on and lights up in the game's frames: " + animateKnob.anchoredPosition.x);
+      Assert(animateButton.Value == (Korean(name) ? "커지기" : "Grow"), "the row says what is on: " + animateButton.Value);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
       Call(text, "Render");
-      PressBar(text, animateButton);
+      Press(drawnAnimate);
+      Settle();
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && screen.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
         "letters alone stay as they are and say why: " + screen.NoticeText);
@@ -1216,6 +1227,8 @@ namespace Element.Editor
       Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
       Assert(animateKnob.anchoredPosition.x < 6 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.Foreground),
         "the switch slides back to off in the game's frames: " + animateKnob.anchoredPosition.x);
+      PressBack(text);
+      Assert(!animateTool.Visible, "back closes the Animate tool");
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.

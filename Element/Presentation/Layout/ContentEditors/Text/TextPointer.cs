@@ -23,6 +23,7 @@ internal sealed class TextPointer
   private readonly TextFonts _fonts;
   private readonly TextGradient _gradient;
   private readonly OverlayGrowFrom _grow;
+  private readonly TextAnimate _animate;
   private readonly TextValueDrops _drops;
   private bool _dragging;
   private float _lastClick = -1;
@@ -36,6 +37,7 @@ internal sealed class TextPointer
     TextFonts fonts,
     TextGradient gradient,
     OverlayGrowFrom grow,
+    TextAnimate animate,
     TextValueDrops drops
   )
   {
@@ -47,6 +49,7 @@ internal sealed class TextPointer
     _fonts = fonts;
     _gradient = gradient;
     _grow = grow;
+    _animate = animate;
     _drops = drops;
   }
 
@@ -65,6 +68,7 @@ internal sealed class TextPointer
         || _grow.Contains(screen)
         || _fonts.Contains(screen)
         || _host.Inspector.Contains(screen)
+        || _animate.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
         || _gradient.Handles.Contains(screen)
       )
@@ -79,6 +83,7 @@ internal sealed class TextPointer
       }
       if (picker.Visible)
         picker.Hide();
+      _animate.Hide();
       // A click on a value selects it whole and opens its formula.
       if (!Shift && _map.TryValueAt(screen, out int value))
       {
@@ -134,6 +139,7 @@ internal sealed class TextPointer
       || _host.Dock.Contains(screen)
       || _grow.Contains(screen)
       || _fonts.Contains(screen)
+      || _animate.Contains(screen)
       || !_map.TryValueAt(screen, out int index)
     )
     {

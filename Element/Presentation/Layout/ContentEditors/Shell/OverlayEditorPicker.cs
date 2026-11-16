@@ -96,11 +96,7 @@ internal sealed class OverlayEditorPicker
     OverlayFormulaEditing editing
   )
   {
-    if (!_snapshotTaken)
-    {
-      _remember();
-      _snapshotTaken = true;
-    }
+    RememberOnce();
     // A gradient's stops keep their own calculated opacities.
     if (!color.IsGradient)
       color = Opacity.Keep(before, color);
@@ -108,6 +104,15 @@ internal sealed class OverlayEditorPicker
     if (typingOpacity && !OverlayOpacityField.Read(before).SameAs(OverlayOpacityField.Read(color)))
       editing.Deactivate();
     return color;
+  }
+
+  /// <summary>Takes the edit for undo before the first change since the picker opened.</summary>
+  public void RememberOnce()
+  {
+    if (_snapshotTaken)
+      return;
+    _remember();
+    _snapshotTaken = true;
   }
 
   // The color button lets go of its lit state once the picker closes.

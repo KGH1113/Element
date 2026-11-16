@@ -24,6 +24,29 @@ internal static class KeypadPicker
   }
 
   /// <summary>
+  /// A picker for a color shown in the property column's open tool (a stop
+  /// of a color that follows a value) opens beside the column instead, its
+  /// right edge <see cref="OverlayEditorInspector.Gap"/> left of
+  /// <paramref name="column"/> and its top at <paramref name="top"/>, rising
+  /// as far as it must to stay clear of the dock.
+  /// </summary>
+  public static void PlaceBeside(UiColorPicker picker, OverlayInputDock dock, float column, float top)
+  {
+    if (picker == null || !picker.Visible)
+      return;
+    float y = Mathf.Max(
+      OverlayEditorFrame.TopBar + 8,
+      Mathf.Min(top, dock.Top - OverlayEditorInspector.Gap - picker.Height)
+    );
+    picker.Root.anchoredPosition = new Vector2(Mathf.Round(BesideLeft(picker, column)), -Mathf.Round(y));
+    picker.Root.SetAsLastSibling();
+  }
+
+  /// <summary>Where a picker beside the column starts (frame units).</summary>
+  public static float BesideLeft(UiColorPicker picker, float column) =>
+    column - OverlayEditorInspector.Gap - picker.CurrentWidth;
+
+  /// <summary>
   /// Where the picker above the keypad starts (frame units). It ends with the
   /// keypad; an editor's two-column picker reaches further left, so the
   /// preview and its bar keep to the space before it while it is open.

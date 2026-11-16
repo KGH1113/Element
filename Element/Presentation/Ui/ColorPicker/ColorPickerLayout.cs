@@ -39,7 +39,11 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
 
   /// <summary>Highlight/Custom: follow the highlight color, or a color of its own.</summary>
   protected View Source() =>
-    Picker(null, new[] { L("하이라이트 색", "Highlight Color"), L("직접 고르기", "Custom Color") }, Bind(() => VM.Source))
+    Picker(
+        null,
+        new[] { L("하이라이트 색", "Highlight Color"), L("직접 고르기", "Custom Color") },
+        Bind(() => VM.Source)
+      )
       .Frame(height: 36);
 
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>
@@ -88,7 +92,10 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
         })
         .Configure<TMP_InputField, int>(() => VM.FocusHex.Value, Focus)
         .Named("HEX color"),
-      Spacer().Frame(width: 16, height: 16).Background(() => Opaque(VM.Swatch.Value), 8).Padding(new Insets(0, 12, 0, 0))
+      Spacer()
+        .Frame(width: 16, height: 16)
+        .Background(() => Opaque(VM.Swatch.Value), 8)
+        .Padding(new Insets(0, 12, 0, 0))
     );
 
   // The owner's own box where it shows the opacity, or the typed one.
@@ -131,6 +138,26 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
       .Background(UiPalette.Surface, 8)
       .Named("Default color")
       .Frame(width: Box, height: FieldHeight);
+
+  // The square, hue and opacity, then HEX with the opacity along the bottom.
+  protected View OwnColumn() =>
+    VStack(
+      spacing: 0,
+      Plane(),
+      Hue().Padding(new Insets(8, 0, 0, 0)),
+      If(() => VM.OpacityShown.Value, Opacity),
+      Error(14).Padding(new Insets(4, 0, 0, 0)),
+      HexRow().Padding(new Insets(4, 0, 0, 0))
+    );
+
+  // Following the highlight leaves only its opacity: a gradient's names the picked color.
+  protected View HighlightColumn() =>
+    VStack(
+      spacing: 0,
+      OpacityRow(),
+      Opacity().Padding(new Insets(10, 0, 0, 0)),
+      Error(14).Padding(new Insets(2, 0, 0, 0))
+    );
 
   /// <summary>The close button of a picker with a title.</summary>
   protected View CloseButton() =>

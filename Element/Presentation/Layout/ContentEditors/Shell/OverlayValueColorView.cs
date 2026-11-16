@@ -18,18 +18,27 @@ internal sealed class OverlayValueColorView : View<OverlayValueColorModel>
   public const float RowHeight = 36,
     StopRowHeight = 32,
     ModeHeight = 32,
+    ModeWidth = 196,
     Gap = 10;
 
   public OverlayValueColorView(OverlayValueColorModel vm)
     : base(vm) { }
 
   public override View Body =>
-    VStack(
-      spacing: Gap,
-      SourceRow(),
-      new OverlayValueColorBandView(VM),
-      StopRow(),
-      Picker(null, new[] { L("부드럽게", "Smooth"), L("바로", "Step") }, Bind(() => VM.Mode)).Frame(height: ModeHeight)
+    VStack(spacing: Gap, SourceRow(), new OverlayValueColorBandView(VM), StopRow(), ModeRow());
+
+  // How the color changes between stops, named on the left.
+  private View ModeRow() =>
+    HStack(
+      spacing: 8,
+      UI.Text(L("바뀌는 방식", "Changes"))
+        .Font(Font.Caption.Sized(13))
+        .Foreground(Colors.Muted)
+        .LineLimit(1)
+        .Padding(new Insets(0, 4, 0, 0)),
+      Spacer(minLength: 0),
+      Picker(null, new[] { L("부드럽게", "Smoothly"), L("바로", "At once") }, Bind(() => VM.Mode))
+        .Frame(width: ModeWidth, height: ModeHeight)
     );
 
   // The value the color follows; a click offers the ones to pick from.

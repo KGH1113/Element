@@ -35,6 +35,7 @@ namespace Element.Editor
       Assert(text.IsOpen, "the X-Accuracy text opens in the editor");
       TextAnimate animate = Field<TextAnimate>(text, "_animate");
       TextValueColor valueColor = Field<TextValueColor>(text, "_valueColor");
+      OverlayValueColorModel model = Field<OverlayValueColorModel>(valueColor, "_model");
       TextDocumentEditing document = TextDocumentOf(text);
       OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
       OverlayEditorFrame screen = EditorScreen(text);
@@ -42,6 +43,28 @@ namespace Element.Editor
       PressBar(text, animate.Button);
       Assert(animate.Visible, "Animate opens its tool");
       Pressable colorSwitch = ByName<Pressable>(animate.Root, "Color by value");
+
+      // Letters alone have no value to follow: the values to pick from open at once.
+      SetField(document, "_caretIndex", 3); SetField(document, "_anchor", 0);
+      Call(text, "Render");
+      Press(colorSwitch);
+      Settle();
+      OverlayValueSourceMenu sources = (OverlayValueSourceMenu)valueColor.Menu;
+      Assert(valueColor.Current() != null && valueColor.Current().Value == "" && sources.Visible,
+        "a selection without a value turns on following nothing yet, and offers the values");
+      Assert(model.SourceName.Value == (korean ? "고르기" : "Pick") && document.Document[5].Color.ValueColor == null,
+        "the value row asks for one; the rest of the text is left alone");
+      Press(ByName<Pressable>(sources.Root, "Follow accuracy"));
+      Settle();
+      Assert(valueColor.Current().Value == "accuracy" && valueColor.Current().Stops.Count == 4 && !sources.Visible,
+        "a value from the menu is followed, with its own first look");
+      document.Undo();
+      document.Undo();
+      SetField(document, "_caretIndex", document.Document.Count); SetField(document, "_anchor", document.Document.Count);
+      Call(text, "Render");
+      Settle();
+      Assert(Enumerable.Range(0, document.Document.Count).All(i => !document.Document[i].Color.FollowsValue), "undo leaves the text following nothing");
+
       Press(colorSwitch);
       Settle();
       OverlayValueColor color = valueColor.Current();
@@ -50,7 +73,6 @@ namespace Element.Editor
       Assert(Enumerable.Range(0, document.Document.Count).All(i => document.Document[i].Color.FollowsValue),
         "with nothing selected, the whole text follows it");
       Assert(animate.Button.Value == (korean ? "색" : "Color"), "the Animate row says the color is on: " + animate.Button.Value);
-      OverlayValueColorModel model = Field<OverlayValueColorModel>(valueColor, "_model");
       Assert(model.Current.Stops[model.Selected].At == 99.5f, "the stop the value has reached now is picked first");
       Assert(model.SourceName.Value == (korean ? "절대 정확도" : "X-Accuracy"), "the value row names X-Accuracy: " + model.SourceName.Value);
       Assert(!double.IsNaN(model.Live) && model.LiveIsSample, "the band marks the editor's example while no level plays");
@@ -166,17 +188,53 @@ namespace Element.Editor
       Settle();
       Assert(valueColor.Armed && document.Document.Count == items && screen.NoticeText.Length > 0,
         "words can't pick a color, and say why: " + screen.NoticeText);
+      text.Escape();
+      Assert(!valueColor.Armed && animate.Visible && text.IsOpen, "Esc stops picking from the dock, leaving the tool");
+      Press(ByName<Pressable>(animate.Root, "Value color source"));
+      Settle();
+      Press(ByName<Pressable>(menu.Root, "Follow another value"));
+      Settle();
       Press(DockChip(dock, "Value combo"));
       Settle();
       color = valueColor.Current();
-      Assert(!valueColor.Armed && document.Document.Count == items && color.Value == "combo" && color.Stops.Count == 3,
-        "a value clicked in the dock is followed, not added to the text");
+      Assert(!valueColor.Armed && document.Document.Count == items && color.Value == "combo" && color.Stops.Count == stopsBefore - 1,
+        "a value clicked in the dock is followed, not added to the text: " + color.Value + ", " + color.Stops.Count + " stops");
       OverlayValueColorEdits.Range(color, out float low, out float high);
       Assert(low == 0 && high == 200, "the stops spread over combo's range, keeping their colors: " + low + "–" + high);
       SaveFrameLarge(camera, canvases, name + "-value-color-combo-2x");
       document.Undo();
       Settle();
       Assert(valueColor.Current().Value == "accuracy", "undo follows X-Accuracy again");
+
+      // Another mod's value works the same.
+      Press(ByName<Pressable>(animate.Root, "Value color source"));
+      Settle();
+      Press(ByName<Pressable>(menu.Root, "Follow another value"));
+      Settle();
+      Press(DockChip(dock, "Value Sample/left-keys"));
+      Settle();
+      Assert(valueColor.Current().Value == "Sample/left-keys" && model.Live == 5 && model.SourceName.Value == (korean ? "왼손 키" : "Left keys"),
+        "a mod's value can be followed, its number marked on the band: " + model.Live);
+      Assert(previewText.text.Contains("<color="), "the text takes the mod value's color");
+      document.Undo();
+      Settle();
+
+      // One way to color a text at a time: a color picked in Text color stops following the value.
+      PressBack(text);
+      Assert(!animate.Visible && !valueColor.Armed, "back closes the Animate tool");
+      PressBar(text, TextColorOf(text).Button);
+      UiColorPicker textPicker = TextColorOf(text).Picker;
+      Assert(textPicker.Visible && !TextColorOf(text).PicksOther && textPicker.GradientAvailable,
+        "Text color opens its own picker, with the color bar");
+      textPicker.Model.SetSource(false);
+      textPicker.Model.PickSaturationValue(.5f, .9f);
+      Settle();
+      Assert(!document.Document[0].Color.FollowsValue && screen.NoticeText.Contains(korean ? "값에 따라 바뀌던 색은 껐어요" : "no longer follows a value"),
+        "a color picked there stops following the value, and says so: " + screen.NoticeText);
+      text.Escape();
+      document.Undo();
+      Settle();
+      Assert(document.Document[0].Color.FollowsValue, "undo follows the value again");
 
       // Done saves it; the game draws the value's color from then on.
       PressEditorButton(text, "Text editor done");

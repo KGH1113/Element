@@ -17,6 +17,8 @@ internal static class OverlayValueColorDefaults
   public const string Green = "#8EE07A",
     Sky = "#5AC8FA";
 
+  private static readonly double[] RoundSteps = { 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10 };
+
   /// <summary>
   /// A new color following <paramref name="value"/> (null while none is
   /// picked), whose number is <paramref name="live"/> now (NaN for none),
@@ -74,7 +76,7 @@ internal static class OverlayValueColorDefaults
     if (value <= 0 || float.IsNaN(value) || float.IsInfinity(value))
       return 1;
     double power = Math.Pow(10, Math.Floor(Math.Log10(value)));
-    foreach (double step in new[] { 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10 })
+    foreach (double step in RoundSteps)
       if (step * power >= value - power * 1e-6)
         return (float)(step * power);
     return (float)(10 * power);

@@ -5,15 +5,17 @@ using UnityEngine.UI;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// A stop on a value color's band: its color in a thin ring, on a soft
-/// shadow that grows when the stop is picked and lifted. A see-through color
+/// A stop on a value color's band: its color in a thin ring with a dark
+/// hairline outside, on a soft shadow that grows when the stop is picked and
+/// lifted. A see-through color
 /// shows over the opaque surface under it. Hollow, it is only the ring: where
 /// a click would add a stop.
 /// </summary>
 [RequireComponent(typeof(CanvasRenderer))]
 internal sealed class OverlayValueColorKnob : MaskableGraphic
 {
-  private static readonly Color Shadow = new(0, 0, 0, .5f);
+  private static readonly Color Shadow = new(0, 0, 0, .5f),
+    Edge = new(0, 0, 0, .45f);
 
   private Color _fill = Color.white,
     _ring = Color.white,
@@ -80,6 +82,8 @@ internal sealed class OverlayValueColorKnob : MaskableGraphic
       shadow,
       Mathf.Max(feather, _lifted ? 5 : 3)
     );
+    // A dark hairline keeps the ring apart from a light band behind it.
+    UiMeshShapes.Disc(mesh, center, _radius + feather, Edge, feather);
     UiMeshShapes.Disc(mesh, center, _radius, _ring, feather);
     float inner = _radius - _ringWidth;
     if (_fill.a < 1)

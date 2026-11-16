@@ -14,6 +14,8 @@ namespace Element.Domain.Overlay.ValueColors;
 /// </summary>
 internal static class OverlayValueColorEdits
 {
+  private static readonly double[] StepFactors = { 1, 2, 5, 10 };
+
   /// <summary>
   /// The values its band spans: from the lowest stop to the highest, widened
   /// around a single value so the band never collapses.
@@ -56,7 +58,7 @@ internal static class OverlayValueColorEdits
       return 1;
     double rough = span / 50.0;
     double power = Math.Pow(10, Math.Floor(Math.Log10(rough)));
-    foreach (double factor in new[] { 1.0, 2, 5, 10 })
+    foreach (double factor in StepFactors)
       if (factor * power >= rough - power * 1e-6)
         return (float)(factor * power);
     return (float)(10 * power);

@@ -43,7 +43,6 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   private OverlayValueSourceMenu _menu;
   private Func<Rect> _sourceRow;
   private int _selected;
-  private bool _armed;
   private bool _added;
   private bool _dragRemembered;
   private bool _pickingStop;
@@ -68,7 +67,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   public IPopover Menu => _menu;
 
   /// <summary>The dock picks the value to follow: its next clicked value goes here, not into the text.</summary>
-  public bool Armed => _armed;
+  public bool Armed => _host.Dock != null && _host.Dock.Picking;
 
   /// <summary>The color's controls, drawing on <paramref name="under"/>.</summary>
   public OverlayValueColorModel BuildModel(Color under) => _model = new OverlayValueColorModel(this, under);
@@ -78,7 +77,6 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   {
     _menu = new OverlayValueSourceMenu(screen);
     _sourceRow = sourceRow;
-    _armed = false;
     _pickingStop = false;
   }
 
@@ -175,10 +173,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
       return;
     }
     _host.Screen.Notice(
-      L(
-        FollowedName(made) + "에 따라 색이 바뀌어요. 점을 눌러 값과 색을 고쳐요.",
-        "The color follows " + FollowedName(made) + ". Click a stop to change its value or color."
-      ),
+      L(FollowedName(made) + "에 따라 색이 바뀌어요.", "The color follows " + FollowedName(made) + "."),
       false
     );
     _host.Render();
@@ -188,7 +183,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
 
   public void PickSource()
   {
-    if (_menu.Visible || _armed)
+    if (_menu.Visible || Armed)
     {
       _host.CloseOpen();
       _host.Render();
@@ -213,8 +208,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   private void Arm()
   {
     _host.CloseOpen();
-    _armed = true;
-    _formulas.ArmPick(PickedInDock);
+    _host.Dock.PickFor(PickedInDock);
     _host.Screen.Notice(
       L("아래 값 목록에서 따라갈 값을 눌러 주세요.", "Click the value to follow in the values below."),
       false
@@ -225,10 +219,8 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   /// <summary>The dock goes back to adding values at the caret.</summary>
   public void Disarm()
   {
-    if (!_armed)
-      return;
-    _armed = false;
-    _formulas.Disarm();
+    if (Armed)
+      _host.Dock.PickFor(null);
   }
 
   private void PickedInDock(OverlayValueDefinition value)
@@ -241,6 +233,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
           ValueSectionNames.ValueName(value) + " is words, so it can't pick a color. Pick a value that is a number."
         )
       );
+      _host.Render();
       return;
     }
     Follow(value);
@@ -493,7 +486,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
     }
     string source =
       followed != null ? ValueSectionNames.ValueName(followed)
-      : _armed ? L("아래에서 골라 주세요", "Pick one below")
+      : Armed ? L("아래에서 골라 주세요", "Pick one below")
       : L("고르기", "Pick");
     _model.Show(
       color,
@@ -503,7 +496,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
       time,
       source,
       followed == null,
-      _menu.Visible || _armed,
+      _menu.Visible || Armed,
       _formulas.Field == StopKey,
       _pickingStop && _color.PicksOther
     );
@@ -512,7 +505,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   /// <summary>What the dock's line says while the tool is open; null otherwise.</summary>
   public string Hint(bool open)
   {
-    if (_armed)
+    if (Armed)
       return L(
         "따라갈 값을 아래에서 눌러 주세요 · Esc를 누르면 그만둬요",
         "Click the value to follow below · Esc to stop"

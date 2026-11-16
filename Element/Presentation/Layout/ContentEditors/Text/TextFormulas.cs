@@ -33,7 +33,6 @@ internal sealed class TextFormulas
   private TextGradient _gradient;
   private TextValueColor _valueColor;
   private Func<bool> _animateOpen;
-  private Action<OverlayValueDefinition> _pickInstead;
   private string _fieldSlot;
 
   // The value whose popover is open, while it stays selected; -1 for none.
@@ -76,20 +75,10 @@ internal sealed class TextFormulas
     _animateOpen = animateOpen;
   }
 
-  /// <summary>
-  /// The next value clicked in the dock goes to <paramref name="picked"/>
-  /// instead of into the text, until <see cref="Disarm"/>.
-  /// </summary>
-  public void ArmPick(Action<OverlayValueDefinition> picked) => _pickInstead = picked;
-
-  /// <summary>Values clicked in the dock go into the text again.</summary>
-  public void Disarm() => _pickInstead = null;
-
   /// <summary>Nothing open, as when the editor opens.</summary>
   public void Reset()
   {
     _fieldSlot = null;
-    _pickInstead = null;
     _chipPopover = -1;
     _editing.Deactivate();
   }
@@ -299,12 +288,6 @@ internal sealed class TextFormulas
   {
     if (_host.Screen == null)
       return;
-    if (_pickInstead != null && !_editing.Active)
-    {
-      _pickInstead(value);
-      _host.Render();
-      return;
-    }
     if (_editing.Active)
     {
       if (_editing.Drop(_editing.Slot, value) == OverlayDropResult.RefusedWords)

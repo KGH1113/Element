@@ -21,7 +21,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// with Alt); a press on the band between handles adds a stop there in the
 /// color the band already has. While a handle is dragged the band keeps its
 /// scale, so the handle stays under the pointer; it fits the stops again once
-/// let go.
+/// let go, gliding there unless motion is reduced.
 /// </summary>
 internal sealed class OverlayValueColorBandView : NativeView
 {
@@ -53,9 +53,13 @@ internal sealed class OverlayValueColorBandView : NativeView
   private OverlayValueMarkerGraphic _marker;
   private TextMeshProUGUI _markerText;
   private float _width;
+  private OverlayValueColorBandMotion _motion;
   private float _low,
-    _high = 100;
-  private bool _frozen;
+    _high = 100,
+    _targetLow,
+    _targetHigh = 100;
+  private bool _frozen,
+    _drawn;
   private int _dragging = -1;
   private float _grab;
 
@@ -96,6 +100,9 @@ internal sealed class OverlayValueColorBandView : NativeView
     _marker.color = UiPalette.Foreground;
     _markerText = Label(rect, "Now value", 12);
     _markerText.richText = true;
+    _motion = rect.gameObject.AddComponent<OverlayValueColorBandMotion>();
+    _motion.Step = Glide;
+    _motion.enabled = false;
     Watch(() => _vm.Revision.Value, _ => Redraw());
   }
 
@@ -110,14 +117,50 @@ internal sealed class OverlayValueColorBandView : NativeView
 
   // ---- Drawing ----
 
+  // The stops changed: the band fits them, gliding to its new scale.
   private void Redraw()
   {
     if (_band == null || _width <= 0)
       return;
-    OverlayValueColor color = _vm.Current;
-    _ramp.Load(color);
+    _ramp.Load(_vm.Current);
     if (!_frozen)
-      OverlayValueColorEdits.Range(color, out _low, out _high);
+    {
+      OverlayValueColorEdits.Range(_vm.Current, out _targetLow, out _targetHigh);
+      if (!_drawn || UguiTheme.MotionSeconds <= 0)
+      {
+        _low = _targetLow;
+        _high = _targetHigh;
+      }
+      else if (!Arrived())
+        _motion.enabled = true;
+    }
+    _drawn = true;
+    Draw();
+  }
+
+  private void Glide(float seconds)
+  {
+    float k = 1 - Mathf.Exp(-seconds * 14);
+    _low = Mathf.Lerp(_low, _targetLow, k);
+    _high = Mathf.Lerp(_high, _targetHigh, k);
+    if (Arrived(.002f))
+    {
+      _low = _targetLow;
+      _high = _targetHigh;
+      _motion.enabled = false;
+    }
+    Draw();
+  }
+
+  private bool Arrived(float share = 1e-5f)
+  {
+    float close = Mathf.Max(1e-6f, (_targetHigh - _targetLow) * share);
+    return Mathf.Abs(_low - _targetLow) <= close && Mathf.Abs(_high - _targetHigh) <= close;
+  }
+
+  private void Draw()
+  {
+    OverlayValueColor color = _vm.Current;
     Place(_band.rectTransform, 0, LabelRow + (Track - Band) * .5f, _width, Band);
     _band.Show(_ramp, UiTheme.Accent, _low, _high, Inset, _vm.Surface);
     int count = color.Stops.Count;
@@ -236,6 +279,8 @@ internal sealed class OverlayValueColorBandView : NativeView
 
   private void Begin(int index, float grab)
   {
+    // The scale holds where it is, mid-glide or not.
+    _motion.enabled = false;
     _frozen = true;
     _dragging = index;
     _grab = grab;

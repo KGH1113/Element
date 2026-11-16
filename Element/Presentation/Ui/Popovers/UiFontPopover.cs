@@ -105,7 +105,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     _library = fonts?.Library;
     _reduceMotion = reduceMotion;
     _picked = picked;
-    Image panel = ui.Panel("Font popover", parent, 0, 0, _width, _height, new Color(.09f, .09f, .09f, .98f));
+    Image panel = ui.Panel("Font popover", parent, 0, 0, _width, _height, UiPalette.Popover);
     panel.raycastTarget = true;
     Root = panel.rectTransform;
     _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, UiPalette.Muted);

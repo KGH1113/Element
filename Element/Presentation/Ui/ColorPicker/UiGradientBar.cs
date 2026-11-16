@@ -36,6 +36,7 @@ internal sealed class UiGradientBar : IGradientBar
 
   private readonly UiFactory _ui;
   private readonly IGradientBarHost _host;
+  private readonly Color _under;
   private readonly RectTransform _bar,
     _kindRow,
     _positionSlot,
@@ -67,10 +68,12 @@ internal sealed class UiGradientBar : IGradientBar
 
   /// <param name="parent">Where <see cref="Root"/> waits until a screen shows it.</param>
   /// <param name="tipLayer">What the tip under the bar floats on, in front of the controls below the bar.</param>
-  public UiGradientBar(UiFactory ui, Transform parent, RectTransform tipLayer, IGradientBarHost host)
+  /// <param name="under">What the bar is drawn on: its buttons are opaque, a little lighter than that.</param>
+  public UiGradientBar(UiFactory ui, Transform parent, RectTransform tipLayer, IGradientBarHost host, Color under)
   {
     _ui = ui;
     _host = host;
+    _under = under;
     Root = _ui.Rect("Gradient", parent, 0, 0, 256, Height);
     RectTransform root = Root;
     _bar = _ui.Rect("Color bar", root, 0, 0, 256, BarHeight);
@@ -128,7 +131,7 @@ internal sealed class UiGradientBar : IGradientBar
       DeleteSize
     );
 
-    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, 26, new Color(.11f, .11f, .11f, .98f));
+    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, 26, new Color(.11f, .11f, .11f));
     _tip = tip.rectTransform;
     _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, 26, 12);
     _tipText.alignment = TextAlignmentOptions.Midline;
@@ -197,7 +200,10 @@ internal sealed class UiGradientBar : IGradientBar
 
   private Button IconButton(string name, Transform parent, UiIconKind kind, Action click, float size)
   {
-    UiCapsuleGraphic surface = _ui.Capsule(name, parent, 0, 0, size, size, new Color(1, 1, 1, .07f));
+    // Opaque, so what is behind the picker never shows through a button. The
+    // palette tints a white capsule, so its colors are the ones drawn.
+    Color rest = UiPalette.Wash(_under, .07f);
+    UiCapsuleGraphic surface = _ui.Capsule(name, parent, 0, 0, size, size, Color.white);
     surface.raycastTarget = true;
     UiButton button = surface.gameObject.AddComponent<UiButton>();
     button.navigation = new Navigation { mode = Navigation.Mode.None };
@@ -205,11 +211,11 @@ internal sealed class UiGradientBar : IGradientBar
     button.SetPalette(
       new ColorBlock
       {
-        normalColor = new Color(1, 1, 1, .07f),
-        highlightedColor = new Color(1, 1, 1, .15f),
-        pressedColor = new Color(1, 1, 1, .22f),
-        selectedColor = new Color(1, 1, 1, .07f),
-        disabledColor = new Color(1, 1, 1, .03f),
+        normalColor = rest,
+        highlightedColor = UiPalette.Wash(_under, .15f),
+        pressedColor = UiPalette.Wash(_under, .22f),
+        selectedColor = rest,
+        disabledColor = UiPalette.Wash(_under, .03f),
         colorMultiplier = 1,
         fadeDuration = _ui.ReduceMotion() ? 0 : .08f,
       }

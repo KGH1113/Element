@@ -28,6 +28,11 @@ internal sealed class OverlayEditorFrame : IDisposable
     FadeSeconds = .16f,
     NoticeSeconds = 4;
 
+  // Opaque, so the overlay behind never shows through: a carried value that
+  // can't land here reads greyed, and a tooltip as a raised label.
+  private static readonly Color RefusedGhost = UiPalette.Wash(UiPalette.EditorDim, .45f),
+    Tip = new(.2f, .2f, .2f);
+
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
   private readonly CanvasGroup _fade;
@@ -171,7 +176,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     float width = Mathf.Ceil(_ghostText.GetPreferredValues(text).x) + 28;
     Vector2 at = ToFrame(screen);
     UiFactory.Place(_ghost, at.x + 10, at.y + 12, width, 30);
-    _ghostSurface.color = state < 0 ? new Color(1, 1, 1, .45f) : UiPalette.SoftAccent;
+    _ghostSurface.color = state < 0 ? RefusedGhost : UiPalette.SoftAccent;
     _ghost.SetAsLastSibling();
   }
 
@@ -186,7 +191,7 @@ internal sealed class OverlayEditorFrame : IDisposable
   {
     if (_tip == null)
     {
-      _tip = Ui.Capsule("Value tooltip", Frame, 0, 0, 10, 26, new Color(.2f, .2f, .2f, .98f)).rectTransform;
+      _tip = Ui.Capsule("Value tooltip", Frame, 0, 0, 10, 26, Tip).rectTransform;
       _tipText = Ui.Text("", _tip, 0, 0, 10, 26, 12);
       _tipText.alignment = TextAlignmentOptions.Midline;
       _tipText.textWrappingMode = TextWrappingModes.NoWrap;

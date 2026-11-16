@@ -521,6 +521,8 @@ namespace Element.Editor
       Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
       Assert(strokeWidth.Drop == 1 && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
+      Assert(strokeWidth.Fill.Value.Literal.a == 1 && fillButton.Fill.Value.Literal.a == 1,
+        "property rows stay opaque, lit or not, so the overlay never shows through them");
       ShapeDrops(shapes).EndValueDrag(strokePoint);
       Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == 0,
         "a value dropped on the border width opens it in the dock");

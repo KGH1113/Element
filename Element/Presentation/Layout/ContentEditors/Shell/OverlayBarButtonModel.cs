@@ -18,8 +18,8 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// </summary>
 internal sealed class OverlayBarButtonModel : ViewModel
 {
-  private static readonly UiColor Rest = new Color(1, 1, 1, .07f);
-  private readonly UiColor _lit,
+  private readonly UiColor _rest,
+    _lit,
     _accepts,
     _refuses,
     _computed;
@@ -37,6 +37,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
   /// <param name="glyph">Letters before the name, such as "Aa".</param>
   /// <param name="toggle">A switch after the name, set with <see cref="SetSwitch"/>.</param>
   /// <param name="opens">A click opens a tool in the editor's column (a list, a picker), marked with a chevron.</param>
+  /// <param name="under">What it sits on: the editor's dimmed view when null, or a bar. Its fills are opaque, a little lighter than that.</param>
   public OverlayBarButtonModel(
     string name,
     string label,
@@ -47,7 +48,8 @@ internal sealed class OverlayBarButtonModel : ViewModel
     UiIconKind? icon = null,
     string glyph = null,
     bool toggle = false,
-    bool opens = false
+    bool opens = false,
+    Color? under = null
   )
   {
     Name = name;
@@ -59,12 +61,16 @@ internal sealed class OverlayBarButtonModel : ViewModel
     Glyph = swatch || icon.HasValue || string.IsNullOrEmpty(glyph) ? null : glyph;
     Toggle = toggle;
     Opens = opens && !toggle;
-    Color accent = UiPalette.SoftAccent,
-      error = UiPalette.Error;
-    _lit = new Color(accent.r, accent.g, accent.b, .3f);
-    _accepts = new Color(accent.r, accent.g, accent.b, .38f);
-    _refuses = new Color(error.r, error.g, error.b, .3f);
+    // Opaque in every state, so what is behind never shows through; a state
+    // tints the rest fill as a see-through accent over it would.
+    Color rest = UiPalette.Wash(under ?? UiPalette.EditorDim, .07f),
+      accent = UiPalette.SoftAccent;
+    _rest = rest;
+    _lit = Color.Lerp(rest, accent, .3f);
+    _accepts = Color.Lerp(rest, accent, .38f);
+    _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
+    Fill = new State<UiColor>(_rest);
     Click = Command(click);
   }
 
@@ -102,7 +108,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
   public readonly State<UiColor> Ink = new(Colors.Foreground);
 
   /// <summary>Its fill at rest: lit while what it opened is open, or while a value is dragged over it.</summary>
-  public readonly State<UiColor> Fill = new(Rest);
+  public readonly State<UiColor> Fill;
 
   /// <summary>The swatch's color, opaque.</summary>
   public readonly State<Color> SwatchColor = new(Color.white);
@@ -190,7 +196,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
       _drop > 0 ? _accepts
       : _drop < 0 ? _refuses
       : _active ? _lit
-      : Rest;
+      : _rest;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

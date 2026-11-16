@@ -8,9 +8,9 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>
-/// One button of an editor's bar: a see-through capsule with what leads its
-/// name (a swatch, an icon or letters), the name, what it holds with its
-/// unit, and a switch. The whole capsule lights up on hover.
+/// One button of an editor's bar: a capsule a little lighter than the bar,
+/// with what leads its name (a swatch, an icon or letters), the name, what it
+/// holds with its unit, and a switch. The whole capsule lights up on hover.
 /// </summary>
 internal sealed class OverlayBarButtonView : View<OverlayBarButtonModel>
 {

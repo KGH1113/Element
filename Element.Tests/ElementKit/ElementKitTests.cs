@@ -52,6 +52,7 @@ internal static class ElementKitTests
       ModValues feed = new(_ => { });
       feed.Pump(values);
       AttachedValuesJoinTheDock();
+      TheModsNameReachesTheDock(feed, values);
       SetValuesReachTheOverlay(feed, values);
       UnchangedValuesCostNothing(feed, values);
       TurnedOffModsStepAside(feed, values);
@@ -112,6 +113,23 @@ internal static class ElementKitTests
       "words stay words"
     );
   }
+
+  // The dock lists a mod by the name the mod list shows; without one, by its id.
+  private static void TheModsNameReachesTheDock(ModValues feed, OverlayValues values)
+  {
+    Check(SampleGroup().SourceName == "Sample", "a mod with no name of its own goes by its id");
+    KitRegistry.Attach("Sample", typeof(ElementKitTests).Assembly, () => _active, _ => { }, "Sample Mod");
+    feed.Pump(values);
+    Check(SampleGroup().SourceName == "Sample Mod", "a mod's name reaches the dock");
+    Check(
+      OverlayValueCatalog.Folders().Count(folder => folder.Source == "Sample") == 1
+        && OverlayValueCatalog.Folders().Single(folder => folder.Source == "Sample").KoreanName == "Sample Mod",
+      "and names its place there"
+    );
+  }
+
+  private static OverlayValueGroup SampleGroup() =>
+    OverlayValueCatalog.Sections().Single(s => s.Group != null && s.Group.Source == "Sample").Group;
 
   private static void SetValuesReachTheOverlay(ModValues feed, OverlayValues values)
   {

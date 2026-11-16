@@ -117,6 +117,7 @@ namespace Element.Editor
       RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
       RenderLayout(Screen.width, Screen.height, SystemLanguage.English, "layout-en");
       RenderLayout(760, 720, SystemLanguage.English, "layout-en-narrow");
+      RenderValueDocks();
       CheckColorPicker();
       RenderInputCarets();
       RenderNotice(1280, 720, SystemLanguage.Korean, "notice-ko-720");
@@ -450,9 +451,9 @@ namespace Element.Editor
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
-      Assert(DockChips(dock).Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
-        "every value is laid out at once");
-      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayInputDockView.ChipHeight) > .5f);
+      Assert(DockChips(dock).Length == dock.Model.Values.OpenFolder.Chips.Count,
+        "the dock lays out the open place's values");
+      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayValueBrowserView.ChipHeight) > .5f);
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
@@ -1115,6 +1116,8 @@ namespace Element.Editor
       OverlayValueCatalog.Register("Sample/left-keys", sample, OverlayValueKind.Number, "왼손 키", "Left keys", 5, null);
       OverlayValueCatalog.Register("Sample/pattern", sample, OverlayValueKind.Text, "지금 패턴", "Pattern", double.NaN, "2 + 2 + 1");
       OverlayValueCatalog.TryResolve("Gone/value", out _);
+      // A mod that adds values in three groups, attached through ElementKit as a mod's Load does.
+      AttachPreviewMods(host.Values);
       PressEdit(editor);
       OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
@@ -1238,43 +1241,21 @@ namespace Element.Editor
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      Pressable[] chips = DockChips(dock);
-      RectTransform values = DockValues(dock);
-      Assert(chips.Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count)
-        && chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "every value is laid out, each draggable");
-      OverlayValueChipHandle carried = chips.Single(chip => chip.name == "Value fps").GetComponent<OverlayValueChipHandle>();
+      OverlayValueChipHandle carried = DockChip(dock, "Value fps").GetComponent<OverlayValueChipHandle>();
       Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
       int itemsBefore = TextDocumentOf(text).Document.Count;
       carried.OnBeginDrag(Pointer(chipPoint));
       Assert(dock.Dragging && screen.Root.transform.Find("Controls/Dragged value") != null, "a chip carries its value out of the dock");
       carried.OnEndDrag(Pointer(chipPoint));
       Assert(!dock.Dragging && TextDocumentOf(text).Document.Count == itemsBefore, "let go over the dock, it lands nowhere");
-      Assert(values.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "예시" : "Sample"))
-        && chips.Count(chip => chip.name.StartsWith("Value Sample/")) == 3,
-        "another mod's values sit under its own heading");
-      Assert(!chips.Any(chip => chip.name == "Value Gone/value"), "a value whose mod is missing isn't offered");
-      RectTransform modHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
-        .First(label => label.text == (Korean(name) ? "예시" : "Sample")).rectTransform;
-      RectTransform systemHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
-        .First(label => label.text == (Korean(name) ? "시스템" : "System")).rectTransform;
-      Assert(-modHeading.anchoredPosition.y > -systemHeading.anchoredPosition.y, "mod headings come after the built-in ones");
-      TextMeshProUGUI[] categories = values.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == values).ToArray();
-      Assert(categories.Length == OverlayValueCatalog.Sections().Count(section => section.Values.Count > 0)
-        && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
-        "category names line up in one column");
-      float column = categories.Max(label => label.rectTransform.sizeDelta.x);
-      Assert(chips.All(chip => ((RectTransform)chip.transform).anchoredPosition.x >= column - .5f), "values wrap to the right of the names");
-      foreach (TextMeshProUGUI label in values.GetComponentsInChildren<TextMeshProUGUI>(true))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "value label fits: " + label.text);
-      }
+      CheckValueDock(text, dock, host, camera, texture, canvases, name);
+      DockChip(dock, "Value combo");
       SaveFrame(camera, texture, canvases, name + "-text-values");
-      Press(chips.Single(chip => chip.name == "Value combo"));
+      Press(DockChip(dock, "Value combo"));
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 10 && document[9].Value == "combo" && Field<int>(TextDocumentOf(text), "_caretIndex") == 10 && Field<int>(TextDocumentOf(text), "_anchor") == 10,
         "a clicked value lands at the caret, and typing goes on after it");
-      Press(chips.Single(chip => chip.name == "Value miss"));
+      Press(DockChip(dock, "Value miss"));
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[9].Value == "combo" && document[10].Value == "miss", "a second value follows the first");
       TextDocumentOf(text).Undo();

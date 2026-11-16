@@ -70,4 +70,7 @@ internal enum UiIconKind
 
   /// <summary>An arrow out of a tray, like the system's share icon.</summary>
   Export,
+
+  /// <summary>A magnifying glass, leading a search field.</summary>
+  Search,
 }

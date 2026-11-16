@@ -254,6 +254,63 @@ internal static class OverlayValueCatalog
   }
 
   /// <summary>
+  /// The dock's list of places: each built-in category that has values,
+  /// then one folder per mod in the order its values arrived, holding every
+  /// group that mod made. A mod's groups never become places of their own.
+  /// </summary>
+  public static List<OverlayValueFolder> Folders()
+  {
+    List<OverlayValueFolder> folders = new();
+    List<string> sources = new();
+    List<List<OverlayValueSection>> bySource = new();
+    foreach (OverlayValueSection section in Sections())
+    {
+      if (section.Values.Count == 0)
+        continue;
+      if (section.Group == null)
+      {
+        folders.Add(
+          new OverlayValueFolder(
+            section.Category,
+            null,
+            CategoryName(section.Category, true),
+            CategoryName(section.Category, false),
+            new[] { section }
+          )
+        );
+        continue;
+      }
+      int index = sources.IndexOf(section.Group.Source);
+      if (index < 0)
+      {
+        sources.Add(section.Group.Source);
+        bySource.Add(new List<OverlayValueSection>());
+        index = sources.Count - 1;
+      }
+      bySource[index].Add(section);
+    }
+    for (int i = 0; i < sources.Count; i++)
+    {
+      // The mod's name as its first group gives it; one name in both languages.
+      string name = bySource[i][0].Group.SourceName;
+      folders.Add(new OverlayValueFolder(OverlayValueCategory.Extension, sources[i], name, name, bySource[i]));
+    }
+    return folders;
+  }
+
+  /// <summary>A built-in category's name, in Korean or in English.</summary>
+  public static string CategoryName(OverlayValueCategory category, bool korean) =>
+    category switch
+    {
+      OverlayValueCategory.Progress => korean ? "진행" : "Progress",
+      OverlayValueCategory.Judgement => korean ? "판정" : "Judgment",
+      OverlayValueCategory.Time => korean ? "시간" : "Time",
+      OverlayValueCategory.Speed => korean ? "속도" : "Speed",
+      OverlayValueCategory.Song => korean ? "곡·기록" : "Song",
+      _ => korean ? "시스템" : "System",
+    };
+
+  /// <summary>
   /// A mod's key: the mod's id, a slash, then lowercase letters, digits and
   /// dashes, such as <c>Fingering/left-keys</c>. Both parts start with a
   /// letter, so a calculation such as <c>10-4/2</c> is never taken for one.

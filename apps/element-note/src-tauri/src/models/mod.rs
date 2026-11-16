@@ -822,6 +822,10 @@ pub struct AppStoreData {
     /// 로컬 키뷰어 서버 토큰 (영구 저장, 앱 재시작 시 재사용)
     #[serde(default)]
     pub obs_token: Option<String>,
+    /// The Element profile these key viewers belong to. Element sets it when it
+    /// switches profiles and reads it when the game connects; no viewer reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_viewers_owner: Option<String>,
     /// 플러그인 데이터 저장소 (plugin_data_* 키로 저장)
     #[serde(default, flatten)]
     pub plugin_data: HashMap<String, serde_json::Value>,
@@ -903,6 +907,7 @@ impl Default for AppStoreData {
             obs_mode_enabled: false,
             obs_port: default_obs_port(),
             obs_token: None,
+            key_viewers_owner: None,
             plugin_data: HashMap::new(),
         }
     }

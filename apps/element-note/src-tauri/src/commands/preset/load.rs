@@ -55,12 +55,12 @@ mod imported_assets;
 mod validation;
 
 use imported_assets::{
-    merge_prepared_tab_preset_fonts, prepare_tab_preset_fonts, restore_preset_local_fonts,
-    restore_preset_local_images, restore_preset_local_sounds,
+    merge_prepared_tab_preset_fonts, merge_tab_preset_fonts, prepare_tab_preset_fonts,
+    restore_preset_local_fonts, restore_preset_local_images, restore_preset_local_sounds,
 };
 #[cfg(test)]
 use imported_assets::{
-    merge_tab_preset_fonts, restore_position_image_reference, restore_preset_local_fonts_in_dir,
+    restore_position_image_reference, restore_preset_local_fonts_in_dir,
     restore_preset_local_images_in_dir, restore_preset_local_sounds_in_dir,
 };
 #[cfg(test)]
@@ -146,7 +146,49 @@ fn preset_load_from_path(
     path: PathBuf,
 ) -> CmdResult<PresetOperationResult> {
     state.ensure_mutation_allowed().map_err(CommandError::msg)?;
-    let mut preset = read_preset_file(&path)?;
+    let preset = read_preset_file(&path)?;
+    load_full_preset(app, state, window_label, preset, FullPresetLoad::File)
+}
+
+/// Why every key viewer is being replaced at once.
+pub(crate) enum FullPresetLoad {
+    /// "Load all": undoable, and the font list becomes the file's.
+    File,
+    /// Element switched to the profile `owner`, whose key viewers these are.
+    /// The undo history belonged to the profile before it and is dropped, and
+    /// the font list keeps every font it had.
+    Profile { owner: String },
+}
+
+const FULL_PRESET_FIELDS: &[EditorField] = &[
+    EditorField::Keys,
+    EditorField::KeyPositions,
+    EditorField::StatPositions,
+    EditorField::GraphPositions,
+    EditorField::KnobPositions,
+    EditorField::SpritePositions,
+    EditorField::LayerGroups,
+];
+
+/// Reads a whole-viewer preset file, as "Load all" does.
+pub(crate) fn read_full_preset(path: &Path) -> CmdResult<PresetFile> {
+    read_preset_file(path)
+}
+
+/// Replaces every key viewer and the viewer settings with `preset`.
+pub(crate) fn load_full_preset(
+    app: &AppHandle,
+    state: &AppState,
+    window_label: &str,
+    mut preset: PresetFile,
+    purpose: FullPresetLoad,
+) -> CmdResult<PresetOperationResult> {
+    state.ensure_mutation_allowed().map_err(CommandError::msg)?;
+    // Only a profile's own file brings press counts back.
+    let returning_counts = match purpose {
+        FullPresetLoad::File => None,
+        FullPresetLoad::Profile { .. } => preset.key_counters.take(),
+    };
     let has_imported_global_css = preset.custom_css.is_some();
     let current = state.store.snapshot();
     let resolved_settings = resolve_full_preset_settings(&mut preset, &current);
@@ -225,15 +267,25 @@ fn preset_load_from_path(
     };
     let js_use = resolved_settings.use_custom_js;
     let custom_js = resolved_settings.custom_js;
-    let has_font_settings = preset.font_settings.is_some();
-    let mut preset_font_settings = preset.font_settings.clone().unwrap_or_default();
-    if has_font_settings {
-        restore_preset_local_fonts(
-            app,
-            &mut preset_font_settings,
-            preset.embedded_local_fonts.as_deref(),
-        )?;
-    }
+    let font_settings = match preset.font_settings.take() {
+        None => None,
+        Some(mut fonts) => match purpose {
+            FullPresetLoad::File => {
+                restore_preset_local_fonts(
+                    app,
+                    &mut fonts,
+                    preset.embedded_local_fonts.as_deref(),
+                )?;
+                Some(fonts)
+            }
+            // Another profile's key viewers may still use a font this one doesn't.
+            FullPresetLoad::Profile { .. } => {
+                merge_tab_preset_fonts(&current.font_settings, fonts, |fonts| {
+                    restore_preset_local_fonts(app, fonts, preset.embedded_local_fonts.as_deref())
+                })?
+            }
+        },
+    };
     restore_preset_local_images(
         app,
         &mut positions,
@@ -289,7 +341,7 @@ fn preset_load_from_path(
             path: Some(custom_css.path.clone()),
             content: Some(custom_css.content.clone()),
         }),
-        font_settings: has_font_settings.then_some(preset_font_settings),
+        font_settings,
         use_custom_js: Some(js_use),
         custom_js: Some(CustomJsPatch {
             path: Some(custom_js.path.clone()),
@@ -304,20 +356,12 @@ fn preset_load_from_path(
         state.ensure_mutation_allowed().map_err(CommandError::msg)?;
         let css_operation_guard = state.lock_css_operation();
         let previous_css_state = state.store.snapshot();
-        let (transaction, _) = state.commit_preset_editor_transaction_preserving_runtime_counters(
-            app,
-            EditorCommitOrigin::LegacyAdapter("preset_load".to_string()),
-            &[
-                EditorField::Keys,
-                EditorField::KeyPositions,
-                EditorField::StatPositions,
-                EditorField::GraphPositions,
-                EditorField::KnobPositions,
-                EditorField::SpritePositions,
-                EditorField::LayerGroups,
-            ],
-            admission,
-            move |store| {
+        let owner = match &purpose {
+            FullPresetLoad::File => None,
+            FullPresetLoad::Profile { owner } => Some(owner.clone()),
+        };
+        let updater =
+            move |store: &mut AppStoreData| -> Result<_, crate::errors::EditorCommitError> {
                 let previous_tab_css_overrides = store.tab_css_overrides.clone();
                 let selected_key_type = choose_selected_key_type(
                     requested_selected_key_type,
@@ -352,6 +396,13 @@ fn preset_load_from_path(
                 }
                 rekey_full_preset_elements(store);
                 crate::state::migration::clear_dangling_group_ids(store);
+                if let Some(owner) = owner {
+                    store.key_viewers_owner = Some(owner);
+                }
+                // Counts of keys the profile no longer has are dropped with the commit.
+                for (mode, counts) in returning_counts.into_iter().flatten() {
+                    store.key_counters.insert(mode, counts);
+                }
                 let diff = apply_patch_to_store(store, &settings_patch)
                     .map_err(crate::services::settings::settings_patch_validation_error)?;
                 Ok((
@@ -364,8 +415,26 @@ fn preset_load_from_path(
                     store.tab_css_overrides.clone(),
                     store.selected_viewer_tabs.clone(),
                 ))
-            },
-        )?;
+            };
+        let (transaction, _) = match purpose {
+            FullPresetLoad::File => state
+                .commit_preset_editor_transaction_preserving_runtime_counters(
+                    app,
+                    EditorCommitOrigin::LegacyAdapter("preset_load".to_string()),
+                    FULL_PRESET_FIELDS,
+                    admission,
+                    updater,
+                )?,
+            // Without a history scope the commit drops the undo history.
+            FullPresetLoad::Profile { .. } => state
+                .commit_legacy_editor_transaction_preserving_runtime_counters(
+                    app,
+                    EditorCommitOrigin::LegacyAdapter("profile_key_viewers".to_string()),
+                    FULL_PRESET_FIELDS,
+                    admission,
+                    updater,
+                )?,
+        };
         if !transaction
             .change
             .result

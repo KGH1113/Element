@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Element.Configuration.Profiles;
 
 namespace Element.Application.Profiles;
@@ -27,6 +28,15 @@ internal interface IProfiles
   /// <summary>Asks for a profile file, then adds it and switches to it.</summary>
   ProfileOutcome Import(string dialogTitle);
 
-  /// <summary>Asks where to save, then writes the profile there.</summary>
-  ProfileOutcome Export(string id, string dialogTitle);
+  /// <summary>
+  /// Asks where to save, then writes the profile there with its ElementNote key viewers.
+  /// Those may take ElementNote a moment, so the outcome comes off the main thread.
+  /// </summary>
+  Task<ProfileOutcome> Export(string id, string dialogTitle);
+
+  /// <summary>The profile whose key viewers ElementNote last failed to show; null once a swap works.</summary>
+  string KeyViewersFailedProfile { get; }
+
+  /// <summary>Counts those failures, so a page shows each one once.</summary>
+  int KeyViewerFailures { get; }
 }

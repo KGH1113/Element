@@ -35,7 +35,8 @@ internal sealed class UiColorPicker : IDisposable
   private float _columnWidth = ColorPickerLayout.Column;
   private bool _stale = true;
 
-  public UiColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion)
+  /// <param name="under">What the picker is drawn on, which its color bar's buttons are lighter than: an overlay editor's dimmed view when null.</param>
+  public UiColorPicker(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, Color? under = null)
   {
     _font = font;
     _reduceMotion = reduceMotion;
@@ -48,8 +49,15 @@ internal sealed class UiColorPicker : IDisposable
     Model = new ColorPickerModel { CloseRequested = Hide, LayoutChanged = () => _stale = true };
     RectTransform park = _ui.Rect("Parts", Root, 0, 0, 0, 0);
     park.gameObject.SetActive(false);
-    RectTransform opacitySlot = _ui.Rect("Opacity slot", park, 0, 0, ColorPickerLayout.Box, ColorPickerLayout.FieldHeight);
-    Gradient = new UiGradientBar(_ui, park, Root, Model);
+    RectTransform opacitySlot = _ui.Rect(
+      "Opacity slot",
+      park,
+      0,
+      0,
+      ColorPickerLayout.Box,
+      ColorPickerLayout.FieldHeight
+    );
+    Gradient = new UiGradientBar(_ui, park, Root, Model, under ?? UiPalette.EditorDim);
     Model.Gradient = Gradient;
     _parts = new ColorPickerParts(park, opacitySlot, Gradient);
     Root.gameObject.SetActive(false);

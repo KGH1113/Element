@@ -2,6 +2,7 @@ using System;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
@@ -25,7 +26,7 @@ internal sealed class OverlayGrowPopover : IPopover
   {
     _screen = screen;
     Model = new OverlayGrowPickerModel(picked);
-    _panel = screen.Panel("Grow popover", new Color(.09f, .09f, .09f, .98f));
+    _panel = screen.Panel("Grow popover", UiPalette.Popover);
     _panel.Mount(screen.NewBackend(), new OverlayGrowPopoverView(Model), Model, Width);
     Root.gameObject.SetActive(false);
   }

@@ -116,6 +116,40 @@ namespace Element.Editor
         Graphic fill = button.targetGraphic;
         Assert(fill != null && fill.color.a == 0, "navigation icons have no button background at rest");
       }
+      // Each one's hint shows at it: Close's at the window's right edge, not
+      // its left. On a canvas the size of the rendered screen, as in the game,
+      // not batch mode's small screen the window spills over.
+      Canvas canvas = check.Root.GetComponent<Canvas>();
+      Camera camera = new GameObject("Hint check camera", typeof(Camera)).GetComponent<Camera>();
+      RenderTexture screen = new RenderTexture(check.Width, check.Height, 24);
+      camera.orthographic = true;
+      camera.targetTexture = screen;
+      canvas.renderMode = RenderMode.ScreenSpaceCamera;
+      canvas.worldCamera = camera;
+      canvas.planeDistance = 1;
+      Canvas.ForceUpdateCanvases();
+      try
+      {
+        foreach (Pressable button in new[] { backButton, closeButton })
+        {
+          PointerArea hint = button.GetComponentInParent<PointerArea>();
+          hint.OnPointerEnter(null);
+          check.Settle();
+          string misplaced = SettingsPreview.HintProblem(hint);
+          Assert(misplaced == null, "a navigation icon's hint shows beside it: " + (button == backButton ? "Back " : "Close ") + misplaced);
+          if (button == closeButton)
+            check.Save(check.Name + "-close-hint");
+          hint.OnPointerExit(null);
+          check.Settle();
+        }
+      }
+      finally
+      {
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        UnityEngine.Object.DestroyImmediate(camera.gameObject);
+        UnityEngine.Object.DestroyImmediate(screen);
+        Canvas.ForceUpdateCanvases();
+      }
 
       var motion = Field<SettingsWindowMotion>(check.Panel, "_windowMotion");
       var rect = Field<RectTransform>(check.Panel, "_window");

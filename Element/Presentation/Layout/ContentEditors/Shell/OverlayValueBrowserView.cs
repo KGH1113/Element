@@ -208,8 +208,9 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
             .Foreground(Colors.Muted)
             .LineLimit(1)
             .Named("Values title"),
+          // How many it found; a search that found nothing says so below instead.
           If(
-            () => VM.Searching.Value,
+            () => VM.Searching.Value && !VM.NothingFound.Value,
             () => UI.Text(() => VM.FoundCount.Value).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1)
           ),
           Spacer()

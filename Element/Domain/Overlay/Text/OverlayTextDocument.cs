@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Text;
 
@@ -238,6 +239,54 @@ internal sealed class OverlayTextDocument
       color.Alpha = alpha;
       color.AlphaFormula = alphaFormula;
       _items[i] = _items[i].WithColor(color);
+    }
+  }
+
+  /// <summary>
+  /// Makes the range's colors follow a value as <paramref name="color"/> says
+  /// (each item its own copy), or stop following one with null. Each item
+  /// keeps its own color underneath, which shows again once it stops.
+  /// </summary>
+  public void SetValueColor(int start, int end, OverlayValueColor color)
+  {
+    Order(ref start, ref end);
+    for (int i = start; i < end; i++)
+    {
+      OverlayColorSettings own = _items[i].Color.Clone();
+      own.ValueColor = color?.Clone();
+      _items[i] = _items[i].WithColor(own);
+    }
+  }
+
+  /// <summary>Whether the range's colors follow a value: all, none, or null for some of them; false when empty.</summary>
+  public bool? FollowsValue(int start, int end)
+  {
+    Order(ref start, ref end);
+    bool on = false,
+      off = false;
+    for (int i = start; i < end; i++)
+    {
+      on |= _items[i].Color.FollowsValue;
+      off |= !_items[i].Color.FollowsValue;
+    }
+    return on && off ? null : on;
+  }
+
+  /// <summary>
+  /// Adds the values the range shows to <paramref name="output"/>, each once
+  /// and in order; a calculation adds each value it uses.
+  /// </summary>
+  public void ValuesIn(int start, int end, List<OverlayValueId> output)
+  {
+    Order(ref start, ref end);
+    for (int i = start; i < end; i++)
+    {
+      if (!_items[i].IsValue)
+        continue;
+      OverlayFormula formula = OverlayFormula.Parse(_items[i].Value);
+      for (int t = 0; t < formula.Count; t++)
+        if (formula[t].Kind == OverlayFormulaTokenKind.Value && !output.Contains(formula[t].Value))
+          output.Add(formula[t].Value);
     }
   }
 

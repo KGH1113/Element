@@ -36,26 +36,23 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
     _two
       ? HStack(spacing: Gap, alignment: VAlignment.Top, Left().Frame(width: Column), Right().Frame(width: Column))
         .Frame(width: TwoColumnWidth, height: Height, alignment: Alignment.TopLeading)
-      : OwnColor().Frame(width: Column).Frame(width: _width, height: Height, alignment: Alignment.Top);
+      : OwnColumn().Frame(width: Column).Frame(width: _width, height: Height, alignment: Alignment.Top);
 
   // The color bar with its pill and kinds, Highlight/Custom under it, and
   // while a gradient follows the highlight, a line saying what is left to set.
   private View Left() =>
     VStack(
       spacing: 0,
-      new HostedRect(
-        Parts.Gradient.Root,
-        Parts.Park,
-        float.NaN,
-        () => VM.BarHeight.Value,
-        Parts.Gradient.Layout
-      ),
+      new HostedRect(Parts.Gradient.Root, Parts.Park, float.NaN, () => VM.BarHeight.Value, Parts.Gradient.Layout),
       Source(),
       If(
         () => VM.NoteShown.Value,
         () =>
           UI.Text(
-              L("하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.", "One highlight color: each stop sets only its opacity.")
+              L(
+                "하이라이트 색 하나로 칠해요. 점마다 불투명도만 정해요.",
+                "One highlight color: each stop sets only its opacity."
+              )
             )
             .Font(Font.Caption.Sized(12))
             .Foreground(Colors.Muted)
@@ -64,25 +61,5 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
       )
     );
 
-  private View Right() => If(() => VM.Custom.Value, OwnColor, HighlightColor);
-
-  // The square, hue and opacity, then HEX with the opacity along the bottom.
-  private View OwnColor() =>
-    VStack(
-      spacing: 0,
-      Plane(),
-      Hue().Padding(new Insets(8, 0, 0, 0)),
-      If(() => VM.OpacityShown.Value, Opacity),
-      Error(14).Padding(new Insets(4, 0, 0, 0)),
-      HexRow().Padding(new Insets(4, 0, 0, 0))
-    );
-
-  // Following the highlight leaves only its opacity: a gradient's names the picked color.
-  private View HighlightColor() =>
-    VStack(
-      spacing: 0,
-      OpacityRow(),
-      Opacity().Padding(new Insets(10, 0, 0, 0)),
-      Error(14).Padding(new Insets(2, 0, 0, 0))
-    );
+  private View Right() => If(() => VM.Custom.Value, OwnColumn, HighlightColumn);
 }

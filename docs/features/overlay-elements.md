@@ -59,7 +59,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 - Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The game is hidden behind a black screen with a header (what is edited, Cancel, Done), and the text sits at the size the game draws it.
 - A column on the right, above the keypad, has a row per property: **Font**, **Size**, **Text color**, **Animate** and **Grow from**, each with what it holds. Font, size, color and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts) and [Animation](#animation).
-- Text color, Font and Grow from open in that column: the rows give way to a back row naming what is open (‹ Text color), with the color picker, the font list or the nine points under it. The text stays in sight; the dock's line says which color is picked. The back row, Esc or a click elsewhere closes it.
+- Text color, Font, Animate and Grow from open in that column: the rows give way to a back row naming what is open (‹ Text color), with the color picker, the font list or the nine points under it. The text stays in sight; the dock's line says which color is picked. The back row, Esc or a click elsewhere closes it.
 - Notices (a value that can't go somewhere, a number kept in range) show for a few seconds right above the dock's formula line.
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
@@ -69,7 +69,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 ## Animation
 
-**Animate** in the text editor's column is a switch. A value with it on grows for a moment and settles back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes.
+**Animate** in the text editor's column opens a tool there (‹ Animate) with two switches, and the row says what is on (Grow · Color, Grow, Color or Off). **Grow when it changes** makes a value grow for a moment and settle back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes. **Color by value** is [below](#color-by-value).
 
 - **What it acts on.** Values in the selection, or every value in the text when nothing is selected. Typed text never moves. A selection of only text has nothing to move, so the switch reads dimmed and a press says why.
 - **Mixed.** When the selection holds values that move and values that don't, the switch sits halfway; a press turns them all on.
@@ -79,6 +79,20 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - **When it stays still.** A value that appears (the game had no data yet) or goes away doesn't grow, and neither does anything when a level starts or restarts. A combo that breaks to 0 grows, as any change does.
 - Each value grows around its own middle; the text's place, size and selection outline stay as they are, and a gradient keeps its colors while a value grows.
 - The built-in combo has it on. Texts from before this switch keep their combos growing; nothing else starts moving.
+
+### Color by value
+
+**Color by value** makes the text's color follow a value as it changes: X-Accuracy turning sky blue from 99.5 and the highlight color at 100, or progress blending into the highlight color as a level goes on. Like Text color it acts on the selection, or the whole text when nothing is selected.
+
+- **The band.** The tool draws the color as a band: the lowest stop at its left end, the highest at its right, each stop a round handle with its value above it. Under the band a pointer marks where the value is now ("Now 99.81"), or the editor's example while no level plays; past the ends it waits at the end.
+- **Changes smoothly or at once.** Smoothly blends from stop to stop, mixed as eyes see colors (Oklab), so white to blue passes no gray. At once jumps to a stop's color the moment the value reaches it and holds it up to the next stop. Below the lowest stop and above the highest, their colors hold.
+- **Stops.** A click on a handle picks it; a click on the band between handles adds a stop there in the color the band already has, and keeps dragging it. Dragging snaps to tidy numbers for the band's range (tenths for 95–100, fives for 0–200); Alt drags freely. Dragging past an end grows the band, which fits the stops again when the handle is let go. Up to eight stops; the last two stay.
+- **The picked stop** shows its value, typed on the keypad, and its color, which opens the color picker beside the column (Highlight or Custom, with opacity). While it is open the text wears that stop's color. The bin removes the stop.
+- **Follows.** The value row names the value the color follows. Turning the color on follows the first number in the selection; with none, the values to pick from open at once. The row lists the text's values, then **Another value**, after which the next value clicked in the dock is followed instead of added to the text (Esc stops). Another mod's values work too. Words such as the song title can't pick a color. Following another value keeps the colors and how they are spread across the new value's range.
+- **First look.** X-Accuracy changes at once, from the text's own color at 95 to green at 98, sky blue at 99.5 and the highlight color at 100. Progress changes smoothly from the text's own color at 0 to the highlight color at 100. Other values blend the same two colors from 0 to a round number half again above today's value. A text in the highlight color starts from white, so the change shows.
+- **One way at a time.** While the color follows a value, Text color reads **By value** and its swatch shows the band. Picking a color or gradient there stops following the value, and a notice says so. Each character keeps its own color underneath: turning Color by value off brings it back.
+- **In the game.** The color changes only when the followed value does, without extra work per frame. Before the value has data (before a level starts), the text shows its own color.
+- Undo, Cancel and Done work as for every other edit; dragging a stop is one undo step, and so is everything picked while the color picker stays on one stop.
 
 ## Fonts
 

@@ -4,7 +4,9 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.ValueColors;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Fonts;
@@ -29,6 +31,7 @@ internal sealed class TextPreview
   private readonly OverlayValues _values;
   private readonly StringBuilder _builder = new(256);
   private readonly List<OverlayColorSettings> _composedGradients = new();
+  private readonly OverlayValueColorRamp _ramp = new();
   private TextOverlayElement _element;
   private TextMeshProUGUI _preview;
   private OverlayTextPulse _previewPulse;
@@ -55,6 +58,12 @@ internal sealed class TextPreview
 
   /// <summary>A font finished loading since the preview took its fonts.</summary>
   public bool FontChanged => _element != null && _element.Fonts.Version != _fontVersion;
+
+  /// <summary>
+  /// A number colors that follow a value show at instead of that value's
+  /// own, such as a stop whose color is being picked; NaN for none.
+  /// </summary>
+  public double Pinned { get; set; } = double.NaN;
 
   /// <summary>Nothing typed or being composed; the hint shows instead.</summary>
   public bool Empty { get; private set; }
@@ -237,6 +246,27 @@ internal sealed class TextPreview
 
   private Color PaintColor(OverlayColorSettings color, Color highlight, IOverlayNumberSource samples)
   {
+    // A color that follows a value shows that value's color, as in the game.
+    OverlayFormula follows = OverlayFormulaText.Compile(color?.ValueColor?.Value);
+    if (follows != null)
+    {
+      _ramp.Load(color.ValueColor);
+      if (!double.IsNaN(Pinned) && _ramp.Count > 0)
+      {
+        OverlayRgba pinned = _ramp.Evaluate(Pinned, new OverlayRgba(highlight.r, highlight.g, highlight.b, 1));
+        return OverlayTextGradients.AvoidMarker(new Color(pinned.R, pinned.G, pinned.B, pinned.A));
+      }
+      return OverlayTextGradients.AvoidMarker(
+        OverlayTextComposer.Resolve(
+          color,
+          highlight,
+          OverlayFormulaText.Compile(color.AlphaFormula),
+          samples,
+          _ramp,
+          follows
+        )
+      );
+    }
     if (color != null && color.IsGradient)
     {
       for (int i = 0; i < _composedGradients.Count; i++)

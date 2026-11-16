@@ -29,6 +29,208 @@ use unicode_normalization::UnicodeNormalization;
 const SPRITE_CONSTRAINT_FIXTURE: &str =
     include_str!("../../../../tests/fixtures/sprite-constraint-parity.json");
 
+fn counter_visibility_migration_fixture() -> AppStoreData {
+    let mut data = normalize_state(AppStoreData::default());
+    let mode = data.selected_key_type.clone();
+    let mut visible = KeyPosition::default();
+    visible.counter.font_size = 29;
+    visible.ghost = Some(crate::models::GhostKey {
+        enabled: true,
+        key: Some("F".to_string()),
+        settings: Box::new(KeyPosition::default()),
+    });
+    let mut hidden = KeyPosition::default();
+    hidden.counter.enabled = false;
+    data.keys
+        .insert(mode.clone(), vec![KeySlot::from("A"), KeySlot::from("B")]);
+    data.key_positions
+        .insert(mode.clone(), vec![visible, hidden]);
+    data.stat_positions.insert(
+        mode,
+        vec![StatPosition {
+            stat_type: StatType::Total,
+            position: KeyPosition::default(),
+        }],
+    );
+    normalize_state(data)
+}
+
+#[test]
+fn retired_counter_master_preserves_hidden_keys_and_second_keys_once() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.json");
+    let fixture = counter_visibility_migration_fixture();
+    let mode = fixture.selected_key_type.clone();
+    // Cover explicit false, an older missing flag, and field-level recovery.
+    for (missing_flag, recover) in [(false, false), (true, false), (true, true)] {
+        let mut wire = serde_json::to_value(&fixture).unwrap();
+        if missing_flag {
+            wire.as_object_mut().unwrap().remove("keyCounterEnabled");
+        } else {
+            wire["keyCounterEnabled"] = serde_json::json!(false);
+        }
+        if recover {
+            wire["uiTheme"] = serde_json::json!({ "invalid": true });
+        }
+        std::fs::write(&path, serde_json::to_vec(&wire).unwrap()).unwrap();
+        let loaded = load_store_from_path(&path).unwrap();
+        assert!(loaded.needs_persist);
+        assert!(loaded.data.key_counter_enabled);
+        let keys = &loaded.data.key_positions[&mode];
+        assert!(keys.iter().all(|position| !position.counter.enabled));
+        assert!(!keys[0].ghost.as_ref().unwrap().settings.counter.enabled);
+        assert_eq!(keys[0].counter.font_size, 29);
+        assert!(
+            loaded.data.stat_positions[&mode][0]
+                .position
+                .counter
+                .enabled
+        );
+
+        let mut edited = loaded.data;
+        let keys = edited.key_positions.get_mut(&mode).unwrap();
+        keys[0].counter.enabled = true;
+        keys[0].ghost.as_mut().unwrap().settings.counter.enabled = true;
+        std::fs::write(&path, serde_json::to_vec(&edited).unwrap()).unwrap();
+        let reloaded = load_store_from_path(&path).unwrap();
+        assert!(reloaded.data.key_counter_enabled);
+        let keys = &reloaded.data.key_positions[&mode];
+        assert!(keys[0].counter.enabled);
+        assert!(keys[0].ghost.as_ref().unwrap().settings.counter.enabled);
+        assert!(!keys[1].counter.enabled);
+    }
+}
+
+#[test]
+fn retired_raining_master_hides_raining_on_keys_and_second_keys_once() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.json");
+    let fixture = counter_visibility_migration_fixture();
+    let mode = fixture.selected_key_type.clone();
+
+    let mut wire = serde_json::to_value(&fixture).unwrap();
+    wire["noteEffect"] = serde_json::json!(false);
+    std::fs::write(&path, serde_json::to_vec(&wire).unwrap()).unwrap();
+    let loaded = load_store_from_path(&path).unwrap();
+    assert!(loaded.needs_persist);
+    assert!(loaded.data.note_effect);
+    let keys = &loaded.data.key_positions[&mode];
+    assert!(keys.iter().all(|position| !position.note_effect_enabled));
+    assert!(!keys[0].ghost.as_ref().unwrap().settings.note_effect_enabled);
+
+    // Switching one key back on is kept: the migration does not run twice.
+    let mut edited = loaded.data;
+    let keys = edited.key_positions.get_mut(&mode).unwrap();
+    keys[0].note_effect_enabled = true;
+    std::fs::write(&path, serde_json::to_vec(&edited).unwrap()).unwrap();
+    let reloaded = load_store_from_path(&path).unwrap();
+    let keys = &reloaded.data.key_positions[&mode];
+    assert!(keys[0].note_effect_enabled);
+    assert!(!keys[1].note_effect_enabled);
+}
+
+#[test]
+fn enabled_legacy_raining_master_keeps_per_key_visibility() {
+    let data = normalize_state(counter_visibility_migration_fixture());
+    let keys = &data.key_positions[&data.selected_key_type];
+    assert!(data.note_effect);
+    assert!(keys.iter().all(|position| position.note_effect_enabled));
+}
+
+#[test]
+fn enabled_legacy_counter_master_keeps_per_key_visibility() {
+    let data = normalize_state(counter_visibility_migration_fixture());
+    let keys = &data.key_positions[&data.selected_key_type];
+    assert!(data.key_counter_enabled);
+    assert!(keys[0].counter.enabled);
+    assert!(keys[0].ghost.as_ref().unwrap().settings.counter.enabled);
+    assert!(!keys[1].counter.enabled);
+}
+
+// A store as saved before the three places to show the key viewer got their
+// own switches: it carries no marker, and OBS mode hid the desktop overlay.
+fn store_from_before_separate_outputs(obs_mode: bool, overlay_visible: bool) -> serde_json::Value {
+    let mut wire = serde_json::to_value(normalize_state(AppStoreData::default())).unwrap();
+    wire.as_object_mut().unwrap().remove("outputsSeparated");
+    wire["obsModeEnabled"] = serde_json::json!(obs_mode);
+    wire["overlayVisible"] = serde_json::json!(overlay_visible);
+    wire
+}
+
+#[test]
+fn desktop_overlay_hidden_by_old_obs_mode_stays_hidden_once() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.json");
+    // Cover a plain load and field-level recovery.
+    for recover in [false, true] {
+        let mut wire = store_from_before_separate_outputs(true, true);
+        if recover {
+            wire["uiTheme"] = serde_json::json!({ "invalid": true });
+        }
+        std::fs::write(&path, serde_json::to_vec(&wire).unwrap()).unwrap();
+        let loaded = load_store_from_path(&path).unwrap();
+        assert!(loaded.needs_persist);
+        assert!(!loaded.data.overlay_visible);
+        // OBS itself is left as saved.
+        assert!(loaded.data.obs_mode_enabled);
+        assert!(loaded.data.outputs_separated);
+
+        // Turning the desktop on with OBS still on is the user's own choice:
+        // the next launch keeps it, because the migration does not run twice.
+        let mut edited = loaded.data;
+        edited.overlay_visible = true;
+        std::fs::write(&path, serde_json::to_vec(&edited).unwrap()).unwrap();
+        let reloaded = load_store_from_path(&path).unwrap();
+        assert!(reloaded.data.overlay_visible);
+        assert!(reloaded.data.obs_mode_enabled);
+        assert!(reloaded.data.outputs_separated);
+    }
+}
+
+#[test]
+fn desktop_overlay_of_an_old_store_without_obs_mode_is_left_alone() {
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.json");
+    for overlay_visible in [true, false] {
+        let wire = store_from_before_separate_outputs(false, overlay_visible);
+        std::fs::write(&path, serde_json::to_vec(&wire).unwrap()).unwrap();
+        let loaded = load_store_from_path(&path).unwrap();
+        assert_eq!(loaded.data.overlay_visible, overlay_visible);
+        assert!(!loaded.data.obs_mode_enabled);
+        // The marker is saved all the same, so turning OBS on later does not
+        // hide the desktop at the launch after that.
+        assert!(loaded.needs_persist);
+        assert!(loaded.data.outputs_separated);
+
+        let mut edited = loaded.data;
+        edited.obs_mode_enabled = true;
+        std::fs::write(&path, serde_json::to_vec(&edited).unwrap()).unwrap();
+        let reloaded = load_store_from_path(&path).unwrap();
+        assert_eq!(reloaded.data.overlay_visible, overlay_visible);
+        assert!(reloaded.data.obs_mode_enabled);
+    }
+}
+
+#[test]
+fn fresh_store_keeps_its_output_defaults_and_later_choices() {
+    let fresh = normalize_state(AppStoreData::default());
+    assert!(fresh.in_game_viewers_enabled);
+    assert!(!fresh.obs_mode_enabled);
+    assert!(!fresh.overlay_visible);
+    assert!(fresh.outputs_separated);
+
+    // A new install that turns both the desktop and OBS on keeps both.
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("store.json");
+    let mut both = fresh;
+    both.obs_mode_enabled = true;
+    both.overlay_visible = true;
+    std::fs::write(&path, serde_json::to_vec(&both).unwrap()).unwrap();
+    let loaded = load_store_from_path(&path).unwrap();
+    assert!(loaded.data.overlay_visible);
+    assert!(loaded.data.obs_mode_enabled);
+}
+
 #[derive(Clone, Copy, Deserialize)]
 struct NumericRangeFixture {
     min: f64,

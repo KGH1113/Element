@@ -1,0 +1,568 @@
+/*
+ * The sidebar of an image: looks drawn small, the stage a look is edited on,
+ * the pad its turning centre is placed on, and the pictures that show what a
+ * choice does.
+ *
+ * - Everything that moves, moves with transform and opacity.
+ * - What is held (the stage's picture, the centre's point) follows the
+ *   pointer with no easing.
+ * - The looping pictures are plain CSS animations; they stand still when
+ *   motion is reduced, each on the frame that tells it from the others.
+ */
+
+/* A look, drawn small ------------------------------------------------------ */
+
+.en-look {
+  position: relative;
+  display: block;
+  flex: none;
+  overflow: hidden;
+}
+
+/* A point at the middle of the view; the element's plane hangs from it. */
+.en-look-plane {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.en-look-box {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+.en-look-picture,
+.en-look-blank {
+  display: block;
+  max-width: none;
+  pointer-events: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* No image yet: a box that is moved and turned as the image would be. */
+.en-look-blank {
+  box-sizing: border-box;
+  border: calc(1px / var(--en-look-scale, 1)) dashed var(--ui-fg-muted);
+  border-radius: calc(5px / var(--en-look-scale, 1));
+  background: var(--ui-fill);
+}
+
+.en-look-picture[data-ghost],
+.en-look-blank[data-ghost] {
+  opacity: 0.26;
+}
+
+/* At the start of a look's row. It is a little larger than an icon. */
+.en-look-thumb {
+  border-radius: 5px;
+  background: var(--ui-bg-inset);
+  box-shadow: inset 0 0 0 1px var(--ui-line-faint);
+}
+
+.en-row-value-text[data-tone='attention'],
+.en-hint[data-tone='attention'] {
+  color: var(--ui-accent-text);
+}
+
+/* Stage: the look that is edited -------------------------------------------- */
+
+.en-stage {
+  position: relative;
+  display: flex;
+  height: 168px;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 14px;
+  overflow: hidden;
+  border-radius: var(--ui-radius-surface);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    var(--ui-bg-panel);
+  background-size:
+    10px 10px,
+    10px 10px,
+    auto;
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.en-stage[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+/* The stage is what clips: a picture dragged far is cut at its edge. */
+.en-stage > .en-look {
+  overflow: visible;
+}
+
+/* A change that needs more room zooms out; it does not jump. */
+.en-stage .en-look-plane {
+  transition: transform var(--ui-motion-slow) var(--ui-ease-out);
+}
+
+.en-stage[data-dragging='true'] .en-look-plane {
+  transition: none;
+}
+
+.en-stage-hint {
+  position: absolute;
+  right: 0;
+  bottom: 8px;
+  left: 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+  pointer-events: none;
+  text-align: center;
+}
+
+/* Held down, it shows the look on the canvas. */
+.en-try {
+  width: 100%;
+  height: 32px;
+  margin-top: 2px;
+  border-radius: var(--ui-radius-control);
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 600;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-try:hover {
+  background: var(--ui-fill-hover);
+}
+
+.en-try[aria-pressed='true'] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+  transform: scale(var(--ui-press-scale));
+}
+
+/* Names the picture of a look and opens its chooser. */
+.en-pick {
+  display: inline-flex;
+  max-width: 170px;
+  height: 26px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-pick {
+  gap: 6px;
+}
+
+.en-pick > img {
+  width: 16px;
+  max-width: none;
+  height: 16px;
+  flex: none;
+  border-radius: 3px;
+  object-fit: contain;
+}
+
+.en-pick > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.en-pick:hover {
+  background: var(--ui-fill-hover);
+}
+
+.en-pick:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-pick[aria-expanded='true'] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+/* Pad: the turning centre, placed on the picture --------------------------- */
+
+.en-pivot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 0 8px;
+  border-radius: var(--ui-radius-surface);
+  background: var(--ui-bg-inset);
+  cursor: crosshair;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.en-pivot-pad {
+  position: relative;
+  flex: none;
+  box-shadow: 0 0 0 1px var(--ui-line);
+}
+
+.en-pivot-picture {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  object-fit: fill;
+  opacity: 0.88;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.en-pivot-picture[data-blank] {
+  background: var(--ui-fill);
+}
+
+/* One of the nine usual places. The button is larger than its mark. */
+.en-pivot-point {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 50%;
+  cursor: inherit;
+}
+
+.en-pivot-point::before {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--ui-bg-app);
+  box-shadow: 0 0 0 1.5px var(--ui-fg-secondary);
+  content: '';
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-pivot-point:hover::before {
+  transform: scale(1.3);
+}
+
+/* Where the centre is. It is on top of the mark it was put on. */
+.en-pivot-dot {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 1.5px rgba(0, 0, 0, 0.7),
+    0 2px 5px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+/* White with a dark rim and an accent core: seen on any picture. */
+.en-pivot-dot::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--ui-accent);
+  content: '';
+}
+
+.en-pivot[data-dragging='true'] .en-pivot-dot {
+  transform: scale(1.16);
+}
+
+.en-pivot-name {
+  height: var(--ui-type-caption-line);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+/* Picture: what a press does ------------------------------------------------ */
+
+.en-react {
+  display: flex;
+  width: 84px;
+  height: 44px;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 16px;
+  padding-bottom: 3px;
+}
+
+/* The image: it turns and lights up while it is in its other look. */
+.en-react-figure {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: var(--ui-fg-muted);
+  transform-origin: 50% 100%;
+  animation: en-react-held 2.6s cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+.en-react-figure::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--ui-bg-app);
+  content: '';
+}
+
+.en-react-mark {
+  position: absolute;
+  inset: 0;
+  background: var(--ui-accent-hover);
+  opacity: 0;
+  animation: en-react-held-mark 2.6s cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+.en-react[data-mode='onPress'] .en-react-figure {
+  animation-name: en-react-once;
+}
+
+.en-react[data-mode='onPress'] .en-react-mark {
+  animation-name: en-react-once-mark;
+}
+
+/* The key: its side, and a cap that goes down over it. */
+.en-react-key {
+  position: relative;
+  width: 30px;
+  height: 20px;
+  border-radius: 6px;
+  background: #0b0b0d;
+  box-shadow: inset 0 0 0 1px var(--ui-line);
+}
+
+.en-react-cap {
+  position: absolute;
+  top: -6px;
+  right: 0;
+  left: 0;
+  height: 20px;
+  border-radius: 6px;
+  background: #54545e;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  animation: en-react-key 2.6s cubic-bezier(0.2, 0, 0, 1) infinite;
+}
+
+/* The key goes down at 14% and comes up at 62%, in both pictures. */
+@keyframes en-react-key {
+  0%,
+  14% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  19%,
+  62% {
+    transform: translate3d(0, 6px, 0);
+  }
+
+  68%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Held: changed for as long as the key is down. */
+@keyframes en-react-held {
+  0%,
+  14% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  25%,
+  62% {
+    transform: rotate(-16deg) scale(1.08);
+  }
+
+  74%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes en-react-held-mark {
+  0%,
+  14% {
+    opacity: 0;
+  }
+
+  25%,
+  62% {
+    opacity: 1;
+  }
+
+  74%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Once: changed at once, and back while the key is still down. */
+@keyframes en-react-once {
+  0%,
+  14% {
+    transform: rotate(0deg) scale(1);
+  }
+
+  17% {
+    transform: rotate(-16deg) scale(1.08);
+  }
+
+  44%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes en-react-once-mark {
+  0%,
+  14% {
+    opacity: 0;
+  }
+
+  17% {
+    opacity: 1;
+  }
+
+  44%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Picture: how a change feels ----------------------------------------------- */
+
+.en-feel {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 28px;
+}
+
+.en-feel::before {
+  position: absolute;
+  top: 50%;
+  right: 8%;
+  left: 8%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  background: var(--ui-line);
+  content: '';
+}
+
+/*
+ * As wide as the block's way: moved by its own width it crosses the track.
+ * Room is left at both ends for a feel that goes past and comes back.
+ */
+.en-feel-lane {
+  position: absolute;
+  top: 50%;
+  left: 12%;
+  width: calc(76% - 12px);
+  height: 12px;
+  margin-top: -6px;
+  animation: en-feel-run 2.6s infinite;
+  animation-timing-function: var(--en-feel-easing, ease);
+}
+
+.en-feel-block {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: currentColor;
+}
+
+/* There and back, each way with the feel's own curve, with a rest between. */
+@keyframes en-feel-run {
+  0%,
+  10% {
+    transform: translate3d(0, 0, 0);
+  }
+
+  45%,
+  58% {
+    transform: translate3d(100%, 0, 0);
+  }
+
+  93%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-stage .en-look-plane,
+  .en-try,
+  .en-pick,
+  .en-pivot-point::before,
+  .en-pivot-dot {
+    transition: none;
+  }
+
+  .en-react-figure,
+  .en-react-mark,
+  .en-react-cap,
+  .en-feel-lane {
+    animation: none !important;
+  }
+
+  /* The frame that tells the two apart: the key is down in both. */
+  .en-react-cap {
+    transform: translate3d(0, 6px, 0);
+  }
+
+  .en-react[data-mode='whileHeld'] .en-react-figure {
+    transform: rotate(-16deg) scale(1.08);
+  }
+
+  .en-react[data-mode='whileHeld'] .en-react-mark {
+    opacity: 1;
+  }
+}

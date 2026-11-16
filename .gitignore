@@ -5,7 +5,7 @@ bin/
 obj/
 build/
 Release/
-node_modules/
+node_modules
 !scripts/tasks/build/
 !scripts/tasks/build/*.sh
 !scripts/tasks/release/
@@ -28,10 +28,16 @@ Element.Unity/[Oo]bj/
 Element.Unity/[Ll]ogs/
 Element.Unity/[Uu]ser[Ss]ettings/
 Element.Unity/[Mm]emoryCaptures/
+# Unity writes its C# project files again whenever it opens the project.
+Element.Unity/*.csproj
+Element.Unity/*.sln
+Element.Unity/*.slnx
 
 # Verified bundled IPC binaries are source dependencies.
 !vendor/adofai-ipc-runtime/*.dll
 !vendor/adofai-ipc-runtime/ipc/*.dll
+!vendor/elementui/*.dll
+!vendor/elementui/analyzers/*.dll
 
 # Claude worktrees
 .claude/worktrees/

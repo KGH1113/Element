@@ -1,109 +1,46 @@
 using System.Collections.Generic;
-using Element.Configuration;
+using Element.Configuration.Overlay;
 
 namespace Element.Domain.Layout;
 
-// Store placement and content intent, not corrected display pixels or Unity object references.
-internal sealed class LayoutSnapshot
-{
-  private readonly List<OverlayLayoutSettings> _values = new();
-
-  public LayoutSnapshot(IEnumerable<OverlayLayoutSettings> source)
-  {
-    foreach (OverlayLayoutSettings value in source)
-      if (value != null)
-        _values.Add(value.Clone());
-  }
-
-  public void Restore(IList<OverlayLayoutSettings> destination)
-  {
-    foreach (OverlayLayoutSettings target in destination)
-    {
-      if (target == null)
-        continue;
-      OverlayLayoutSettings value = Find(target.Id);
-      if (value == null)
-      {
-        // Newly created instances remain addressable for redo, but disappear
-        // when restoring a state that predates their creation.
-        target.Enabled = false;
-        continue;
-      }
-      target.CopyFrom(value);
-    }
-  }
-
-  public bool Matches(LayoutSnapshot other)
-  {
-    foreach (OverlayLayoutSettings a in _values)
-    {
-      OverlayLayoutSettings b = other.Find(a.Id);
-      if (b == null)
-      {
-        if (a.Enabled)
-          return false;
-        continue;
-      }
-      if (!a.SameAs(b))
-        return false;
-    }
-    foreach (OverlayLayoutSettings b in other._values)
-      if (b.Enabled && Find(b.Id) == null)
-        return false;
-    return true;
-  }
-
-  private OverlayLayoutSettings Find(string id)
-  {
-    foreach (OverlayLayoutSettings value in _values)
-      if (value.Id == id)
-        return value;
-    return null;
-  }
-}
-
+/// <summary>The layout editor's undo: whole layouts, one step per finished edit, at most 64 kept.</summary>
 internal sealed class LayoutHistory
 {
-  private readonly List<LayoutSnapshot> _states = new();
-  private int _index;
-  public bool CanUndo => _index > 0;
-  public bool CanRedo => _index + 1 < _states.Count;
+  private readonly UndoStack<LayoutSnapshot> _steps = new(63);
+  private LayoutSnapshot _current;
+  public bool CanUndo => _steps.CanUndo;
+  public bool CanRedo => _steps.CanRedo;
 
   public void Reset(IEnumerable<OverlayLayoutSettings> values)
   {
-    _states.Clear();
-    _states.Add(new LayoutSnapshot(values));
-    _index = 0;
+    _steps.Clear();
+    _current = new LayoutSnapshot(values);
   }
 
+  /// <summary>A step for what changed since the last one; nothing when the layout is the same.</summary>
   public void Commit(IEnumerable<OverlayLayoutSettings> values)
   {
     LayoutSnapshot next = new(values);
-    if (_states.Count == 0)
+    if (_current == null)
     {
-      _states.Add(next);
-      _index = 0;
+      _current = next;
       return;
     }
-    if (_states[_index].Matches(next))
+    if (_current.Matches(next))
       return;
-    if (CanRedo)
-      _states.RemoveRange(_index + 1, _states.Count - _index - 1);
-    _states.Add(next);
-    if (_states.Count > 64)
-      _states.RemoveAt(0);
-    _index = _states.Count - 1;
+    _steps.Push(_current);
+    _current = next;
   }
 
   public void Undo(IList<OverlayLayoutSettings> values)
   {
-    if (CanUndo)
-      _states[--_index].Restore(values);
+    if (_steps.Undo(_current, out LayoutSnapshot state))
+      (_current = state).Restore(values);
   }
 
   public void Redo(IList<OverlayLayoutSettings> values)
   {
-    if (CanRedo)
-      _states[++_index].Restore(values);
+    if (_steps.Redo(_current, out LayoutSnapshot state))
+      (_current = state).Restore(values);
   }
 }

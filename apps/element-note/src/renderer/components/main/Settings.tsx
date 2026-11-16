@@ -1,22 +1,35 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useLenis } from '@hooks/useLenis';
 import { useTranslation } from '@contexts/useTranslation';
 import { useSettingsStore } from '@stores/useSettingsStore';
 import { useKeyStore } from '@stores/data/useKeyStore';
-import Checkbox from '@components/main/common/Checkbox';
+import { Input } from '@components/ui/Input';
+import {
+  SettingRow,
+  SettingToggleRow,
+} from '@components/main/common/SettingRow';
 import Dropdown from '@components/main/common/Dropdown';
 import Button from '@components/main/common/Button';
-import SettingsSidePanel, {
-  type SettingsPanelKey,
-} from '@components/main/SettingsPanel/SettingsSidePanel';
-import ResetIcon from '@assets/svgs/reset.svg';
+import {
+  SETTINGS_SECTIONS,
+  searchSettings,
+  type SettingsSection,
+} from '@components/main/SettingsPanel/settingsNavigation';
+import {
+  EditorGroup,
+  ViewerLookGroup,
+} from '@components/main/SettingsPanel/CanvasSettings';
+import { OutputSettings } from '@components/main/SettingsPanel/OutputSettings';
+import type { ShowConfirm } from '@components/main/Modal/content/dialogs/confirm';
+import {
+  RainingFrameLimitRow,
+  RainingGroups,
+} from '@components/main/SettingsPanel/RainingSettings';
+import './SettingsPanel/settings-workspace.css';
 import { PluginManagerModal } from '@components/main/Modal/content/managers/PluginManagerModal';
 import { PluginDataDeleteModal } from '@components/main/Modal/content/dialogs/PluginDataDeleteModal';
 import ShortcutSettingsModal from '@components/main/Modal/content/settings/ShortcutSettingsModal';
-import { applyCounterSnapshot } from '@stores/signals/keyCounterSignals';
 import { extractPluginId } from '@utils/plugin/pluginUtils';
 import { isMac } from '@utils/core/platform';
-import type { OverlayResizeAnchor } from '@src/types/settings/settings';
 import type { ShortcutsState } from '@src/types/settings/shortcuts';
 import type { SupportedLocale } from '@contexts/I18nContextDef';
 import type {
@@ -29,17 +42,12 @@ import type {
   CustomCssHistoryEntry,
 } from '@src/types/plugin/api';
 import type { JsPlugin } from '@src/types/plugin/js';
-import type { KeyCounters } from '@src/types/key/keys';
-import { obsApi } from '@api/modules/obsApi';
-import { setObsModeRunning } from '@utils/obsMode';
 import { keySoundOutputApi } from '@api/modules/resourceApi';
 import type {
   KeySoundOutputBackend,
   KeySoundOutputState,
   KeySoundOutputDevice,
 } from '@api/modules/resourceApi';
-import type { ObsStatus } from '@src/types/obs';
-import { DEFAULT_OBS_PORT } from '@src/types/obs';
 
 // ASIO 버퍼 크기 선택지(프레임). 게임 설정값과 맞춰야 ASIO 공존 가능.
 const ASIO_BUFFER_SIZES = [64, 128, 256, 512, 1024] as const;
@@ -64,12 +72,11 @@ let cachedAsioDriversLoaded = false;
 
 interface SettingsProps {
   showAlert: (msg: string, confirmText?: string) => void;
-  showConfirm: (
-    msg: string,
-    onConfirm: () => void,
-    onCancel?: () => void,
-    confirmText?: string,
-  ) => void;
+  showConfirm: ShowConfirm;
+  /** Leaves settings and returns to the editor. */
+  onClose: () => void;
+  /** The section to open on. Without it settings open on the first one. */
+  initialSection?: SettingsSection;
 }
 
 interface PluginError {
@@ -86,20 +93,16 @@ interface PluginToDelete {
 const Settings = ({
   showAlert,
   showConfirm,
+  onClose,
+  initialSection = SETTINGS_SECTIONS[0],
 }: SettingsProps): React.ReactElement => {
   const { t, i18n } = useTranslation();
   const isMacOS: boolean = isMac();
   const {
     hardwareAcceleration,
     setHardwareAcceleration,
-    alwaysOnTop,
-    setAlwaysOnTop,
-    overlayLocked,
-    setOverlayLocked,
     angleMode,
     setAngleMode,
-    noteEffect,
-    setNoteEffect,
     laboratoryEnabled,
     setLaboratoryEnabled,
     trayEnabled,
@@ -116,21 +119,22 @@ const Settings = ({
     jsPlugins,
     language,
     setLanguage,
-    overlayResizeAnchor,
-    setOverlayResizeAnchor,
-    keyCounterEnabled,
-    setKeyCounterEnabled,
     shortcuts,
     setShortcuts,
   } = useSettingsStore();
 
-  const [isScrollHovered, setIsScrollHovered] = useState<boolean>(false);
+  const [activeSection, setActiveSection] =
+    useState<SettingsSection>(initialSection);
+  const [searchQuery, setSearchQuery] = useState('');
+  const pageRef = useRef<HTMLElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [isPluginModalOpen, setPluginModalOpen] = useState<boolean>(false);
   const [isDataDeleteModalOpen, setDataDeleteModalOpen] =
     useState<boolean>(false);
   const [isShortcutModalOpen, setShortcutModalOpen] = useState<boolean>(false);
-  const [activeSettingsPanel, setActiveSettingsPanel] =
-    useState<SettingsPanelKey | null>(null);
+  const [activeSettingsPanel, setActiveSettingsPanel] = useState<
+    'plugins' | 'css' | null
+  >(null);
   const [cssHistory, setCssHistory] = useState<CustomCssHistoryEntry[]>([]);
   const [pluginToDelete, setPluginToDelete] = useState<PluginToDelete | null>(
     null,
@@ -138,14 +142,6 @@ const Settings = ({
   const [isReloadingPlugins, setIsReloadingPlugins] = useState<boolean>(false);
   const [isAddingPlugins, setIsAddingPlugins] = useState<boolean>(false);
   const [pendingPluginId, setPendingPluginId] = useState<string | null>(null);
-
-  // OBS 모드
-  const [obsStatus, setObsStatus] = useState<ObsStatus>({
-    running: false,
-    port: DEFAULT_OBS_PORT,
-    clientCount: 0,
-  });
-  const obsTogglingRef = useRef(false);
 
   // 키음 출력 백엔드 (기본 장치 / ASIO) — 캐시로 초기화해 재진입 깜빡임 방지
   const [keySoundOutput, setKeySoundOutputRaw] =
@@ -164,6 +160,7 @@ const Settings = ({
   };
 
   useEffect(() => {
+    if (activeSection !== 'sound') return;
     let cancelled = false;
     (async () => {
       try {
@@ -186,7 +183,7 @@ const Settings = ({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [activeSection]);
 
   const handleKeySoundOutputChange = async (val: string) => {
     const backend: KeySoundOutputBackend = val.startsWith('asio:')
@@ -210,6 +207,7 @@ const Settings = ({
       setKeySoundOutput(next);
     } catch (error) {
       console.error('Failed to set key sound output backend', error);
+      showAlert(t('settingsWorkspace.soundErrorHelp'));
     }
   };
 
@@ -226,21 +224,9 @@ const Settings = ({
       setKeySoundOutput(next);
     } catch (error) {
       console.error('Failed to set ASIO buffer size', error);
+      showAlert(t('settingsWorkspace.changeFailed'));
     }
   };
-
-  // Lenis smooth scroll 적용 (전역 설정 사용)
-  const { scrollContainerRef } = useLenis();
-
-  const RESIZE_ANCHOR_OPTIONS: { value: string; key: string }[] = [
-    { value: 'top-left', key: 'topLeft' },
-    { value: 'bottom-left', key: 'bottomLeft' },
-    { value: 'top-right', key: 'topRight' },
-    { value: 'bottom-right', key: 'bottomRight' },
-    { value: 'center', key: 'center' },
-    // 미완성 기능
-    // { value: "fixed-position", key: "fixedPosition" },
-  ];
 
   const ANGLE_OPTIONS: { value: string; label: string }[] = [
     { value: 'skia', label: 'Skia' },
@@ -258,40 +244,6 @@ const Settings = ({
       setAngleMode('metal');
     }
   }, [isMacOS, angleMode, setAngleMode]);
-
-  // OBS 상태 이벤트 구독 + clientCount 폴링
-  useEffect(() => {
-    let mounted = true;
-    obsApi
-      .status()
-      .then((status) => {
-        if (mounted) setObsStatus(status);
-      })
-      .catch(() => undefined);
-
-    // start/stop 이벤트 구독
-    const unsubscribe = obsApi.onStatus((status) => {
-      if (mounted) setObsStatus(status);
-    });
-
-    // clientCount는 connect/disconnect 이벤트가 없으므로 폴링 유지
-    const interval = setInterval(async () => {
-      try {
-        const status = await obsApi.status();
-        if (mounted) {
-          setObsStatus((prev) =>
-            prev.clientCount === status.clientCount ? prev : status,
-          );
-        }
-      } catch {}
-    }, 5000);
-
-    return () => {
-      mounted = false;
-      unsubscribe();
-      clearInterval(interval);
-    };
-  }, []);
 
   const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
     { value: 'ko', label: '한국어' },
@@ -321,26 +273,6 @@ const Settings = ({
     }
   };
 
-  const handleAlwaysOnTopChange = async (): Promise<void> => {
-    const next: boolean = !alwaysOnTop;
-    setAlwaysOnTop(next);
-    try {
-      await window.api.settings.update({ alwaysOnTop: next });
-    } catch (error) {
-      console.error('Failed to toggle always-on-top', error);
-    }
-  };
-
-  const handleOverlayLockChange = async (): Promise<void> => {
-    const next: boolean = !overlayLocked;
-    setOverlayLocked(next);
-    try {
-      await window.api.overlay.setLock(next);
-    } catch (error) {
-      console.error('Failed to toggle overlay lock', error);
-    }
-  };
-
   const handleToggleCustomCSS = async (): Promise<void> => {
     const next: boolean = !useCustomCSS;
     setUseCustomCSS(next);
@@ -348,6 +280,8 @@ const Settings = ({
       await window.api.css.toggle(next);
     } catch (error) {
       console.error('Failed to toggle custom CSS', error);
+      setUseCustomCSS(!next);
+      showAlert(t('settingsWorkspace.changeFailed'));
     }
   };
 
@@ -395,6 +329,8 @@ const Settings = ({
       await window.api.js.toggle(next);
     } catch (error) {
       console.error('Failed to toggle custom JS', error);
+      setUseCustomJS(!next);
+      showAlert(t('settingsWorkspace.changeFailed'));
     }
   };
 
@@ -603,19 +539,6 @@ const Settings = ({
     }
   };
 
-  const actionButtonClass = (enabled: boolean): string =>
-    `dmn-inline-action ${enabled ? '' : 'is-disabled'}`;
-
-  const handleNoteEffectChange = async (): Promise<void> => {
-    const next: boolean = !noteEffect;
-    setNoteEffect(next);
-    try {
-      await window.api.settings.update({ noteEffect: next });
-    } catch (error) {
-      console.error('Failed to toggle note effect', error);
-    }
-  };
-
   const handleSaveShortcuts = async (next: ShortcutsState): Promise<void> => {
     setShortcuts(next);
     try {
@@ -662,53 +585,9 @@ const Settings = ({
       await window.api.settings.update({ trayEnabled: next });
     } catch (error) {
       console.error('Failed to toggle tray mode', error);
+      setTrayEnabled(!next);
+      showAlert(t('settingsWorkspace.changeFailed'));
     }
-  };
-
-  const handleObsToggle = async (): Promise<void> => {
-    const next = !obsStatus.running;
-    setObsStatus((prev) => ({ ...prev, running: next }));
-    if (obsTogglingRef.current) return;
-    obsTogglingRef.current = true;
-    try {
-      setObsStatus(await setObsModeRunning(next));
-    } catch (error) {
-      console.error('Failed to toggle OBS mode', error);
-      setObsStatus((prev) => ({ ...prev, running: !next }));
-      showAlert?.(
-        next ? t('settings.obsStartFailed') : t('settings.obsStopFailed'),
-      );
-    } finally {
-      obsTogglingRef.current = false;
-    }
-  };
-
-  const handleObsCopyUrl = async (): Promise<void> => {
-    const tokenParam = obsStatus.token ? `?token=${obsStatus.token}` : '';
-    const host = obsStatus.localIp || 'localhost';
-    const url = `http://${host}:${obsStatus.port}${tokenParam}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      showAlert?.(t('settings.obsCopied'));
-    } catch {
-      showAlert?.(url);
-    }
-  };
-
-  const handleObsRegenerateToken = (): void => {
-    showConfirm(
-      t('settings.obsTokenRegenMessage'),
-      async () => {
-        try {
-          const status = await obsApi.regenerateToken();
-          setObsStatus(status);
-        } catch (error) {
-          console.error('Failed to regenerate OBS token', error);
-        }
-      },
-      undefined,
-      t('settings.obsTokenRegenConfirm'),
-    );
   };
 
   const handleDeveloperModeToggle = async (): Promise<void> => {
@@ -724,30 +603,8 @@ const Settings = ({
       }
     } catch (error) {
       console.error('Failed to toggle developer mode', error);
-    }
-  };
-
-  const handleKeyCounterToggle = async (): Promise<void> => {
-    const next: boolean = !keyCounterEnabled;
-    setKeyCounterEnabled(next);
-    try {
-      await window.api.settings.update({ keyCounterEnabled: next });
-    } catch (error) {
-      console.error('Failed to toggle key counter', error);
-    }
-  };
-
-  const _handleResetCounters = async (
-    event: React.MouseEvent,
-  ): Promise<void> => {
-    event.stopPropagation();
-    try {
-      const snapshot: KeyCounters = await window.api.keys.resetCounters();
-      applyCounterSnapshot(snapshot);
-      showAlert?.(t('settings.counterReset'));
-    } catch (error) {
-      console.error('Failed to reset key counters', error);
-      showAlert?.(t('settings.counterResetFailed'));
+      setDeveloperModeEnabled(!next);
+      showAlert(t('settingsWorkspace.changeFailed'));
     }
   };
 
@@ -771,12 +628,10 @@ const Settings = ({
     };
 
     if (showConfirm) {
-      showConfirm(
-        t('settings.resetAllConfirm'),
-        reset,
-        undefined,
-        t('settings.initialize'),
-      );
+      showConfirm(t('settings.resetAllConfirm'), reset, {
+        confirmText: t('settings.initialize'),
+        danger: true,
+      });
     } else {
       reset();
     }
@@ -820,618 +675,446 @@ const Settings = ({
     ? t(keySoundOutputErrorKey)
     : keySoundOutput?.error;
 
+  const sectionTitle = t(`settingsWorkspace.${activeSection}`);
+  const sectionHelp = t(`settingsWorkspace.${activeSection}Help`);
+  const searchResults = searchSettings(searchQuery, t);
+  const isSearching = searchQuery.trim().length > 0;
+  const navigate = (section: SettingsSection) => {
+    setActiveSection(section);
+    setActiveSettingsPanel(null);
+    setSearchQuery('');
+    pageRef.current?.scrollTo({ top: 0 });
+    headingRef.current?.focus({ preventScroll: true });
+  };
+
   return (
-    <div className="dmn-settings relative h-full w-full overflow-hidden">
-      <div
-        ref={scrollContainerRef}
-        className={`settings-content-scroll dmn-settings-list absolute inset-y-0 left-0 flex w-[372px] flex-col gap-[12px] overflow-y-auto p-[12px] ${
-          isScrollHovered ? 'show-scrollbar' : ''
-        }`}
-        onMouseEnter={() => setIsScrollHovered(true)}
-        onMouseLeave={() => setIsScrollHovered(false)}
-      >
-        {/* 설정 */}
-        <div className="flex min-h-full flex-col">
-          <div className="flex w-[348px] flex-col gap-[12px]">
-            {/* 키뷰어 설정 */}
-            <div className="dmn-setting-card flex flex-col">
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleOverlayLockChange}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.overlayLock')}
-                </p>
-                <Checkbox
-                  checked={overlayLocked}
-                  onChange={handleOverlayLockChange}
-                />
-              </div>
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleAlwaysOnTopChange}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.alwaysOnTop')}
-                </p>
-                <Checkbox
-                  checked={alwaysOnTop}
-                  onChange={handleAlwaysOnTopChange}
-                />
-              </div>
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleNoteEffectChange}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.noteEffect')}
-                </p>
-                <Checkbox
-                  checked={noteEffect}
-                  onChange={handleNoteEffectChange}
-                />
-              </div>
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleKeyCounterToggle}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.keyCounter')}
-                </p>
-                <div className="flex items-center gap-[8px]">
-                  {/* <button
-                    onClick={handleResetCounters}
-                    className="py-[4px] px-[8px] bg-[#2A2A31] border-[1px] border-[#3A3944] rounded-[7px] text-style-2 text-[#DBDEE8] hover:bg-[#34343c]"
-                  >
-                    {t("settings.counterResetButton")}
-                  </button> */}
-                  <Checkbox
-                    checked={keyCounterEnabled}
-                    onChange={handleKeyCounterToggle}
-                  />
-                </div>
-              </div>
-              {/*
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onMouseEnter={() => setHoveredKey("laboratory")}
-                onMouseLeave={() => setHoveredKey(null)}
-                onClick={handleLaboratoryToggle}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t("settings.laboratory")}
-                </p>
-                <Checkbox
-                  checked={laboratoryEnabled}
-                  onChange={handleLaboratoryToggle}
-                />
-              </div>
-              */}
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleTrayToggle}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.trayEnabled')}
-                </p>
-                <Checkbox checked={trayEnabled} onChange={handleTrayToggle} />
-              </div>
-              {null}
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.resizeAnchor')}
-                </p>
-                <Dropdown
-                  options={RESIZE_ANCHOR_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: t(`settings.${opt.key}`),
-                  }))}
-                  value={overlayResizeAnchor}
-                  onChange={async (val: string) => {
-                    setOverlayResizeAnchor(val as OverlayResizeAnchor);
-                    try {
-                      await window.api.overlay.setAnchor(val);
-                    } catch (error) {
-                      console.error('Failed to set overlay anchor', error);
-                    }
-                  }}
-                  placeholder={t('settings.selectAnchor')}
-                  align="right"
-                />
-              </div>
-            </div>
-            {/* 커스텀 CSS & JS 설정 */}
-            <div className="dmn-setting-card flex flex-col">
-              <div className="flex flex-col gap-[0px]">
-                <div
-                  className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                  onClick={handleToggleCustomCSS}
-                >
-                  <p className="text-label text-ui-fg-primary">
-                    {t('settings.customCSS')}
-                  </p>
-                  <Checkbox
-                    checked={useCustomCSS}
-                    onChange={handleToggleCustomCSS}
-                  />
-                </div>
-                <div className="flex flex-row justify-between items-center h-[40px]">
-                  <p
-                    className={
-                      'text-[12px] truncate max-w-[150px] ' +
-                      (useCustomCSS
-                        ? 'text-ui-fg-muted'
-                        : 'text-ui-fg-disabled')
-                    }
-                  >
-                    {customCSSPath && customCSSPath.length > 0
-                      ? customCSSPath
-                      : t('settings.noCssFile')}
-                  </p>
-                  <button
-                    onClick={handleLoadCustomCSS}
-                    disabled={!useCustomCSS}
-                    className={
-                      'py-[5px] px-[9px] rounded-ui-inner text-style-2 ' +
-                      (useCustomCSS
-                        ? 'bg-ui-fill hover:bg-ui-fill-hover text-[#DBDEE8]'
-                        : 'bg-ui-fill-faint text-ui-fg-disabled cursor-not-allowed')
-                    }
-                  >
-                    {t('settings.loadCss')}
-                  </button>
-                </div>
-              </div>
-              <div className="flex flex-col gap-[0px]">
-                <div
-                  className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                  onClick={handleToggleCustomJS}
-                >
-                  <p className="text-label text-ui-fg-primary">
-                    {t('settings.customJS')}
-                  </p>
-                  <Checkbox
-                    checked={useCustomJS}
-                    onChange={handleToggleCustomJS}
-                  />
-                </div>
-                <div className="flex flex-row justify-between items-center h-[40px]">
-                  <p
-                    className={
-                      'text-[12px] truncate max-w-[150px] ' +
-                      (useCustomJS ? 'text-ui-fg-muted' : 'text-ui-fg-disabled')
-                    }
-                  >
-                    {t('settings.pluginManageLabel')}
-                  </p>
-                  <div className="flex flex-row gap-[6px]">
-                    <button
-                      onClick={handleReloadPlugins}
-                      disabled={!canReloadPlugins || isReloadingPlugins}
-                      className={
-                        'flex items-center justify-center px-[6px] py-[5px] rounded-ui-inner transition-none ' +
-                        (canReloadPlugins && !isReloadingPlugins
-                          ? 'bg-ui-fill hover:bg-ui-fill-hover'
-                          : 'bg-ui-fill-faint cursor-not-allowed')
-                      }
-                      style={
-                        isReloadingPlugins
-                          ? { opacity: 0.65, pointerEvents: 'none' }
-                          : undefined
-                      }
-                      title={t('settings.reloadPlugins')}
-                    >
-                      <ResetIcon
-                        className={
-                          'w-[13px] h-[13px] -scale-x-100 ' +
-                          (canReloadPlugins && !isReloadingPlugins
-                            ? '[&_path]:fill-[#DBDEE8]'
-                            : '[&_path]:fill-[var(--ui-fg-disabled)]')
-                        }
-                      />
-                    </button>
-                    <button
-                      onClick={() => setActiveSettingsPanel('plugins')}
-                      className={actionButtonClass(true)}
-                    >
-                      {t('settings.managePlugins')}
-                    </button>
-                  </div>
-                </div>
-                <p className="pb-[8px] text-[11px] leading-[15px] text-ui-fg-muted">
-                  {t('settings.pluginSecurityWarning')}
-                </p>
-              </div>
-            </div>
-            {/* OBS 모드 */}
-            <div className="dmn-setting-card flex flex-col">
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleObsToggle}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.obsMode')}
-                </p>
-                <Checkbox
-                  checked={obsStatus.running}
-                  onChange={handleObsToggle}
-                />
-              </div>
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p
-                  className={
-                    'text-[12px] ' +
-                    (obsStatus.running
-                      ? 'text-ui-fg-muted'
-                      : 'text-ui-fg-disabled')
-                  }
-                >
-                  {obsStatus.running
-                    ? obsStatus.clientCount > 0
-                      ? `${t('settings.obsRunning')} · ${t(
-                          'settings.obsClients',
-                          { count: obsStatus.clientCount },
-                        )}`
-                      : t('settings.obsRunning')
-                    : t('settings.obsStopped')}
-                </p>
-                <div className="flex items-center gap-[6px]">
-                  <button
-                    onClick={handleObsRegenerateToken}
-                    disabled={!obsStatus.running}
-                    className={
-                      'flex items-center justify-center px-[6px] py-[5px] rounded-ui-inner transition-colors ' +
-                      (obsStatus.running
-                        ? 'bg-ui-fill hover:bg-ui-fill-hover'
-                        : 'bg-ui-fill-faint cursor-not-allowed')
-                    }
-                  >
-                    <ResetIcon
-                      className={
-                        'w-[13px] h-[13px] -scale-x-100 ' +
-                        (obsStatus.running
-                          ? '[&_path]:fill-[#DBDEE8]'
-                          : '[&_path]:fill-[var(--ui-fg-disabled)]')
-                      }
-                    />
-                  </button>
-                  <button
-                    onClick={handleObsCopyUrl}
-                    disabled={!obsStatus.running}
-                    className={actionButtonClass(obsStatus.running)}
-                  >
-                    {t('settings.obsCopyUrl')}
-                  </button>
-                </div>
-              </div>
-            </div>
-            {/* 키음 출력 설정 */}
-            <div className="dmn-setting-card flex flex-col">
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-label text-ui-fg-primary flex-1 min-w-0 truncate pr-[10px]">
-                  {t('settings.keySoundOutput') || '키 사운드 출력'}
-                </p>
-                <div className="shrink-0">
-                  <Dropdown
-                    options={[
-                      {
-                        value: 'defaultDevice',
-                        label:
-                          keySoundOutputError &&
-                          keySoundOutput?.requested.kind === 'defaultDevice'
-                            ? `⚠ ${keySoundOutputError}`
-                            : t('settings.keySoundOutputDefault') ||
-                              '기본 재생 장치',
-                      },
-                      ...visibleSystemDevices.map((device) => ({
-                        value: `device:${device.id}`,
-                        label:
-                          device.name.length > 20
-                            ? `${device.name.slice(0, 20)}…`
-                            : device.name,
-                      })),
-                      ...visibleAsioDrivers.map((name) => {
-                        // 선택한 ASIO가 열기 실패하면 라벨에 ⚠ + 사유 표시 (인라인 경고 대신)
-                        const failed =
-                          name === requestedAsioDriver && !!keySoundOutputError;
-                        return {
-                          value: `asio:${name}`,
-                          // 드라이버 이름이 길면 …로 축약 (기본 항목 라벨은 안 잘리게 max-w 여유, ASIO만 축약)
-                          label: failed
-                            ? `⚠ ${keySoundOutputError}`
-                            : `ASIO: ${
-                                name.length > 16
-                                  ? `${name.slice(0, 16)}…`
-                                  : name
-                              }`,
-                        };
-                      }),
-                    ]}
-                    value={
-                      keySoundOutput?.requested.kind === 'asio'
-                        ? `asio:${keySoundOutput.requested.driverName}`
-                        : keySoundOutput?.requested.kind === 'device'
-                          ? `device:${keySoundOutput.requested.id}`
-                          : 'defaultDevice'
-                    }
-                    onChange={handleKeySoundOutputChange}
-                    placeholder={
-                      t('settings.keySoundOutputDefault') || '기본 재생 장치'
-                    }
-                    align="right"
-                    widthClass="max-w-[160px]"
-                    disabled={
-                      asioDriversLoaded &&
-                      visibleAsioDrivers.length === 0 &&
-                      visibleSystemDevices.length === 0
-                    }
-                  />
-                </div>
-              </div>
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p
-                  className={`text-label ${
-                    keySoundOutput?.requested.kind === 'asio'
-                      ? 'text-ui-fg-primary'
-                      : 'text-ui-fg-disabled'
-                  }`}
-                >
-                  {t('settings.keySoundOutputBuffer') || 'ASIO 버퍼 크기'}
-                </p>
-                <Dropdown
-                  options={visibleAsioBuffers.map((size) => ({
-                    value: String(size),
-                    label: String(size),
-                  }))}
-                  value={String(requestedAsioBuffer)}
-                  onChange={handleAsioBufferChange}
-                  placeholder={String(DEFAULT_ASIO_BUFFER)}
-                  align="right"
-                  widthClass="w-[70px]"
-                  disabled={keySoundOutput?.requested.kind !== 'asio'}
-                />
-              </div>
-            </div>
-            {/* 기타 설정 */}
-            <div className="dmn-setting-card flex flex-col">
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.language')}
-                </p>
-                <Dropdown
-                  options={LANGUAGE_OPTIONS}
-                  value={language}
-                  onChange={handleLanguageChange}
-                  placeholder={t('settings.selectLanguage')}
-                  align="right"
-                />
-              </div>
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.shortcuts')}
-                </p>
-                <button
-                  onClick={() => setActiveSettingsPanel('shortcuts')}
-                  className={actionButtonClass(true)}
-                >
-                  {t('settings.configure')}
-                </button>
-              </div>
-              <div className="flex flex-row justify-between items-center h-[40px]">
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.graphicsOption')}
-                </p>
-                <Dropdown
-                  options={isMacOS ? macAngleOptions : ANGLE_OPTIONS}
-                  value={isMacOS ? 'metal' : angleMode}
-                  onChange={handleAngleModeChangeSelect}
-                  placeholder={t('settings.renderMode')}
-                  disabled={isMacOS}
-                  align="right"
-                />
-              </div>
-              <div
-                className="flex flex-row justify-between items-center h-[40px] cursor-pointer"
-                onClick={handleDeveloperModeToggle}
-              >
-                <p className="text-label text-ui-fg-primary">
-                  {t('settings.developerMode')}
-                </p>
-                <Checkbox
-                  checked={developerModeEnabled}
-                  onChange={handleDeveloperModeToggle}
-                />
-              </div>
-              {/* 버전 및 설정 초기화 */}
-              <div className="flex justify-between items-center py-[14px] px-[12px] bg-ui-inset rounded-ui-surface mt-[7px] mb-[12px]">
-                <p className="text-label text-ui-fg-primary">
-                  Ver {__APP_VERSION__}
-                </p>
-                <div className="flex gap-[8px]">
-                  <button
-                    className="bg-[var(--ui-danger-soft)] hover:bg-[rgba(239,83,80,0.24)] rounded-ui-inner py-[4px] px-[9px] text-style-2 text-[#ffb4b2]"
-                    onClick={handleResetAll}
-                  >
-                    {t('settings.resetData')}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="dmn-settings-detail absolute bottom-[12px] left-[372px] right-[12px] top-[12px] overflow-hidden">
-        {!activeSettingsPanel && (
-          <div className="dmn-settings-preview" aria-label="Settings overview">
-            <div className="dmn-settings-preview__mark" aria-hidden="true">
-              DM
-            </div>
-            <div>
-              <h2>ElementNote</h2>
-              <p>Manage the key viewer and editing environment in one place.</p>
-            </div>
-            <div className="dmn-settings-preview__actions">
-              <button
-                type="button"
-                onClick={() => setActiveSettingsPanel('css')}
-              >
-                CSS
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSettingsPanel('plugins')}
-              >
-                Plugins
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveSettingsPanel('shortcuts')}
-              >
-                Shortcuts
-              </button>
-            </div>
-          </div>
-        )}
-        {activeSettingsPanel === 'css' && (
-          <SettingsSidePanel
-            title={t('settings.customCSS') || 'Custom CSS'}
-            onClose={() => setActiveSettingsPanel(null)}
+    <div className="en-settings-workspace">
+      <aside className="en-settings-nav">
+        <div className="en-settings-title">
+          <button
+            type="button"
+            className="en-settings-leave"
+            aria-label={t('settingsWorkspace.leave')}
+            title={t('settingsWorkspace.leave')}
+            onClick={onClose}
           >
-            <div className="dmn-settings-panel-card">
-              <div className="dmn-settings-panel-row">
-                <div>
-                  <strong>{t('settings.customCSS')}</strong>
-                  <span>{customCSSPath || t('settings.noCssFile')}</span>
-                </div>
-                <Checkbox
-                  checked={useCustomCSS}
-                  onChange={handleToggleCustomCSS}
-                />
-              </div>
-              <Button
-                variant="secondary"
-                block
-                disabled={!useCustomCSS}
-                onClick={handleLoadCustomCSS}
-              >
-                {t('settings.loadCss')}
-              </Button>
-              {cssHistory.length > 0 && (
-                <div className="flex flex-col gap-[6px] pt-[4px]">
-                  <strong>{t('settings.cssHistory')}</strong>
-                  {cssHistory.map((entry) => (
-                    <div
-                      key={entry.path}
-                      className="flex items-center gap-[6px]"
-                    >
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 truncate text-left text-style-1 text-[#DBDEE8] hover:text-white"
-                        title={entry.path}
-                        onClick={() => void activateCssHistory(entry.path)}
-                      >
-                        {entry.path.split(/[/\\]/).pop()}
-                      </button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={async () => {
-                          await window.api.css.history.remove(entry.path);
-                          setCssHistory(await window.api.css.history.list());
-                        }}
-                      >
-                        {t('tabCss.remove')}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M10 3.5 5.5 8l4.5 4.5"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <h1>{t('settingsWorkspace.title')}</h1>
+        </div>
+        <Input
+          type="search"
+          value={searchQuery}
+          aria-label={t('settingsWorkspace.search')}
+          placeholder={t('settingsWorkspace.search')}
+          onChange={(event) => {
+            setSearchQuery(event.target.value);
+            setActiveSettingsPanel(null);
+            pageRef.current?.scrollTo({ top: 0 });
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setSearchQuery('');
+          }}
+        />
+        <nav aria-label={t('settingsWorkspace.categories')}>
+          {SETTINGS_SECTIONS.map((section) => (
+            <button
+              key={section}
+              type="button"
+              aria-current={
+                !isSearching && activeSection === section ? 'page' : undefined
+              }
+              onClick={() => navigate(section)}
+            >
+              {t(`settingsWorkspace.${section}`)}
+            </button>
+          ))}
+        </nav>
+        <div className="en-settings-about">
+          <button
+            type="button"
+            onClick={() =>
+              window.api.app.openExternal('https://github.com/KGH1113/Element')
+            }
+          >
+            {t('tooltip.github')}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              window.api.app.openExternal(
+                'https://github.com/KGH1113/Element/issues',
+              )
+            }
+          >
+            {t('tooltip.issue')}
+          </button>
+          <p className="en-settings-version">ElementNote {__APP_VERSION__}</p>
+        </div>
+      </aside>
+      <section
+        className="en-settings-page"
+        ref={pageRef}
+        aria-label={sectionTitle}
+      >
+        <div className="en-settings-page-inner">
+          {activeSettingsPanel && (
+            <Button
+              className="en-settings-back"
+              variant="ghost"
+              onClick={() => setActiveSettingsPanel(null)}
+            >
+              ← {sectionTitle}
+            </Button>
+          )}
+          <header>
+            <h2 ref={headingRef} tabIndex={-1}>
+              {isSearching
+                ? t('settingsWorkspace.results')
+                : activeSettingsPanel === 'css'
+                  ? t('settingsWorkspace.css')
+                  : activeSettingsPanel === 'plugins'
+                    ? t('settingsWorkspace.plugins')
+                    : sectionTitle}
+            </h2>
+            <p className="en-settings-help">
+              {isSearching
+                ? t('settingsWorkspace.resultsHelp')
+                : activeSettingsPanel === 'css'
+                  ? t('settingsWorkspace.cssHelp')
+                  : activeSettingsPanel === 'plugins'
+                    ? t('settingsWorkspace.pluginsHelp')
+                    : sectionHelp}
+            </p>
+          </header>
+          {isSearching ? (
+            <div className="en-settings-results">
+              <p className="sr-only" role="status">
+                {t('settingsWorkspace.resultsCount', {
+                  count: searchResults.length,
+                })}
+              </p>
+              {searchResults.length === 0 ? (
+                <p className="en-settings-status">
+                  {t('settingsWorkspace.noResults')}
+                </p>
+              ) : (
+                searchResults.map((item) => (
+                  <button
+                    className="en-settings-result"
+                    type="button"
+                    key={item.label}
+                    onClick={() => navigate(item.section)}
+                  >
+                    <span>{t(`settingsWorkspace.${item.section}`)}</span>
+                    <strong>{t(item.label)}</strong>
+                    <span>{t(item.hint)}</span>
+                  </button>
+                ))
               )}
             </div>
-          </SettingsSidePanel>
-        )}
-        {activeSettingsPanel === 'plugins' && (
-          <SettingsSidePanel
-            title={t('settings.managePlugins') || 'Plugins'}
-            badge={<span className="dmn-panel-badge">{jsPlugins.length}</span>}
-            onClose={() => setActiveSettingsPanel(null)}
-          >
-            <div className="dmn-settings-panel-card">
-              <div className="dmn-settings-panel-row">
-                <div>
-                  <strong>{t('settings.customJS')}</strong>
-                  <span>{t('settings.pluginSecurityWarning')}</span>
-                </div>
-                <Checkbox
-                  checked={useCustomJS}
-                  onChange={handleToggleCustomJS}
-                />
-              </div>
-              <div className="dmn-settings-panel-list">
-                {jsPlugins.length === 0 ? (
-                  <p className="dmn-panel-empty">
-                    {t('settings.jsReloadNoPlugins')}
-                  </p>
-                ) : (
-                  jsPlugins.map((plugin) => (
-                    <div className="dmn-settings-panel-row" key={plugin.id}>
-                      <div className="min-w-0">
-                        <strong className="truncate">{plugin.name}</strong>
-                        <span className="truncate">
-                          {plugin.path || plugin.id}
-                        </span>
-                      </div>
-                      <Checkbox
-                        checked={plugin.enabled}
-                        onChange={() =>
-                          void handlePluginToggle(plugin.id, !plugin.enabled)
-                        }
-                      />
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="flex gap-[8px]">
+          ) : activeSettingsPanel === 'css' ? (
+            <section className="en-settings-group">
+              <SettingToggleRow
+                label={t('settingsWorkspace.cssSwitch')}
+                description={t('settingsWorkspace.cssHelp')}
+                checked={useCustomCSS}
+                onToggle={handleToggleCustomCSS}
+              />
+              <p className="en-settings-status">
+                {customCSSPath || t('settings.noCssFile')}
+              </p>
+              {!useCustomCSS && (
+                <p className="en-settings-help">
+                  {t('settingsWorkspace.cssOff')}
+                </p>
+              )}
+              <div className="en-settings-actions">
                 <Button
-                  variant="secondary"
-                  block
+                  variant="primary"
+                  disabled={!useCustomCSS}
+                  onClick={handleLoadCustomCSS}
+                >
+                  {t('settings.loadCss')}
+                </Button>
+              </div>
+              {cssHistory.length > 0 && (
+                <fieldset
+                  disabled={!useCustomCSS}
+                  className={!useCustomCSS ? 'en-settings-disabled' : ''}
+                >
+                  <legend className="en-settings-help">
+                    {t('settings.cssHistory')}
+                  </legend>
+                  {cssHistory.map((entry) => (
+                    <SettingRow
+                      key={entry.path}
+                      label={entry.path.split(/[/\\]/).pop()}
+                      description={entry.path}
+                    >
+                      <div className="en-settings-actions">
+                        <Button
+                          size="sm"
+                          onClick={() => void activateCssHistory(entry.path)}
+                        >
+                          {t('settingsWorkspace.useFile')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={async () => {
+                            await window.api.css.history.remove(entry.path);
+                            setCssHistory(await window.api.css.history.list());
+                          }}
+                        >
+                          {t('tabCss.remove')}
+                        </Button>
+                      </div>
+                    </SettingRow>
+                  ))}
+                </fieldset>
+              )}
+            </section>
+          ) : activeSettingsPanel === 'plugins' ? (
+            <section className="en-settings-group">
+              <SettingToggleRow
+                label={t('settingsWorkspace.pluginsSwitch')}
+                description={t('settingsWorkspace.pluginsHelp')}
+                checked={useCustomJS}
+                onToggle={handleToggleCustomJS}
+              />
+              {!useCustomJS && (
+                <p className="en-settings-status">
+                  {t('settingsWorkspace.pluginsOff')}
+                </p>
+              )}
+              {jsPlugins.length === 0 ? (
+                <p className="en-settings-help">
+                  {t('settings.jsReloadNoPlugins')}
+                </p>
+              ) : (
+                jsPlugins.map((plugin) => (
+                  <SettingToggleRow
+                    key={plugin.id}
+                    label={plugin.name}
+                    description={plugin.path || plugin.id}
+                    checked={plugin.enabled}
+                    disabled={!useCustomJS || pendingPluginId !== null}
+                    onToggle={() =>
+                      void handlePluginToggle(plugin.id, !plugin.enabled)
+                    }
+                  />
+                ))
+              )}
+              <div className="en-settings-actions">
+                <Button
+                  disabled={!useCustomJS || !canReloadPlugins}
                   loading={isReloadingPlugins}
-                  disabled={!canReloadPlugins}
                   onClick={() => void handleReloadPlugins()}
                 >
                   {t('settings.reloadPlugins')}
                 </Button>
-                <Button variant="primary" block onClick={handleOpenPluginModal}>
+                <Button variant="primary" onClick={handleOpenPluginModal}>
                   {t('settings.managePlugins')}
                 </Button>
               </div>
-            </div>
-          </SettingsSidePanel>
-        )}
-        {activeSettingsPanel === 'shortcuts' && (
-          <SettingsSidePanel
-            title={t('settings.shortcuts') || 'Shortcuts'}
-            badge={
-              <span className="dmn-panel-badge">
-                {Object.keys(shortcuts).length}
-              </span>
-            }
-            onClose={() => setActiveSettingsPanel(null)}
-          >
-            <div className="dmn-settings-panel-card">
-              <p className="dmn-panel-help">
-                Review and edit the shortcuts used by the current profile.
+              <p className="en-settings-help">
+                {t('settings.pluginSecurityWarning')}
               </p>
-              <Button
-                variant="primary"
-                block
-                onClick={() => setShortcutModalOpen(true)}
-              >
-                {t('settings.configure')}
-              </Button>
-            </div>
-          </SettingsSidePanel>
-        )}
-      </div>
+            </section>
+          ) : (
+            <>
+              {activeSection === 'outputs' && (
+                <OutputSettings
+                  showAlert={showAlert}
+                  showConfirm={showConfirm}
+                />
+              )}
+              {activeSection === 'viewer' && (
+                <>
+                  <ViewerLookGroup />
+                  <RainingGroups />
+                  <section className="en-settings-group">
+                    <div className="py-3" data-setting-help="perKey">
+                      <strong className="text-label text-ui-fg-primary">
+                        {t('settingsWorkspace.perKey')}
+                      </strong>
+                      <p className="en-settings-help">
+                        {t('settingsWorkspace.perKeyHelp')}
+                      </p>
+                    </div>
+                  </section>
+                </>
+              )}
+              {activeSection === 'editor' && <EditorGroup />}
+              {activeSection === 'sound' && (
+                <section className="en-settings-group">
+                  <SettingRow
+                    label={t('settings.keySoundOutput')}
+                    description={t('settingsWorkspace.soundDeviceHelp')}
+                  >
+                    <Dropdown
+                      options={[
+                        {
+                          value: 'defaultDevice',
+                          label: t('settings.keySoundOutputDefault'),
+                        },
+                        ...visibleSystemDevices.map((device) => ({
+                          value: `device:${device.id}`,
+                          label: device.name,
+                        })),
+                        ...visibleAsioDrivers.map((name) => ({
+                          value: `asio:${name}`,
+                          label: `ASIO: ${name}`,
+                        })),
+                      ]}
+                      value={
+                        keySoundOutput?.requested.kind === 'asio'
+                          ? `asio:${keySoundOutput.requested.driverName}`
+                          : keySoundOutput?.requested.kind === 'device'
+                            ? `device:${keySoundOutput.requested.id}`
+                            : 'defaultDevice'
+                      }
+                      onChange={handleKeySoundOutputChange}
+                      placeholder={t('settings.keySoundOutputDefault')}
+                      align="right"
+                      widthClass="max-w-[220px]"
+                      disabled={
+                        asioDriversLoaded &&
+                        visibleAsioDrivers.length === 0 &&
+                        visibleSystemDevices.length === 0
+                      }
+                    />
+                  </SettingRow>
+                  {keySoundOutputError && (
+                    <div
+                      className="en-settings-status en-settings-warning"
+                      role="status"
+                    >
+                      <p>{keySoundOutputError}</p>
+                      <p>{t('settingsWorkspace.soundErrorHelp')}</p>
+                    </div>
+                  )}
+                  {keySoundOutput?.requested.kind === 'asio' && (
+                    <SettingRow
+                      label={t('settings.keySoundOutputBuffer')}
+                      description={t('settingsWorkspace.bufferHelp')}
+                    >
+                      <Dropdown
+                        options={visibleAsioBuffers.map((size) => ({
+                          value: String(size),
+                          label: String(size),
+                        }))}
+                        value={String(requestedAsioBuffer)}
+                        onChange={handleAsioBufferChange}
+                        align="right"
+                        widthClass="w-[80px]"
+                      />
+                    </SettingRow>
+                  )}
+                </section>
+              )}
+              {activeSection === 'app' && (
+                <section className="en-settings-group">
+                  <SettingRow label={t('settings.language')}>
+                    <Dropdown
+                      options={LANGUAGE_OPTIONS}
+                      value={language}
+                      onChange={handleLanguageChange}
+                      placeholder={t('settings.selectLanguage')}
+                      align="right"
+                    />
+                  </SettingRow>
+                  <SettingToggleRow
+                    label={t('settingsWorkspace.keepRunning')}
+                    description={t('settingsWorkspace.keepRunningHelp')}
+                    checked={trayEnabled}
+                    onToggle={handleTrayToggle}
+                  />
+                  <SettingRow
+                    label={t('settings.shortcuts')}
+                    description={t('settingsWorkspace.shortcutsHelp')}
+                  >
+                    <Button onClick={() => setShortcutModalOpen(true)}>
+                      {t('settings.configure')}
+                    </Button>
+                  </SettingRow>
+                </section>
+              )}
+              {activeSection === 'extensions' && (
+                <section className="en-settings-group">
+                  <SettingRow
+                    label={t('settingsWorkspace.css')}
+                    description={t('settingsWorkspace.cssHelp')}
+                  >
+                    <Button onClick={() => setActiveSettingsPanel('css')}>
+                      {t('settings.configure')}
+                    </Button>
+                  </SettingRow>
+                  <SettingRow
+                    label={t('settingsWorkspace.plugins')}
+                    description={t('settingsWorkspace.pluginsHelp')}
+                  >
+                    <Button onClick={() => setActiveSettingsPanel('plugins')}>
+                      {t('settings.managePlugins')}
+                    </Button>
+                  </SettingRow>
+                </section>
+              )}
+              {activeSection === 'advanced' && (
+                <>
+                  <section className="en-settings-group">
+                    <SettingRow
+                      label={t('settings.graphicsOption')}
+                      description={t('settingsWorkspace.graphicsHelp')}
+                    >
+                      <Dropdown
+                        options={isMacOS ? macAngleOptions : ANGLE_OPTIONS}
+                        value={isMacOS ? 'metal' : angleMode}
+                        onChange={handleAngleModeChangeSelect}
+                        placeholder={t('settings.renderMode')}
+                        disabled={isMacOS}
+                        align="right"
+                      />
+                    </SettingRow>
+                    <RainingFrameLimitRow />
+                    <SettingToggleRow
+                      label={t('settings.developerMode')}
+                      description={t('settingsWorkspace.developerHelp')}
+                      checked={developerModeEnabled}
+                      onToggle={handleDeveloperModeToggle}
+                    />
+                  </section>
+                  <section className="en-settings-group">
+                    <SettingRow
+                      label={t('settings.resetData')}
+                      description={t('settingsWorkspace.resetHelp')}
+                    >
+                      <Button variant="danger" onClick={handleResetAll}>
+                        {t('settings.initialize')}
+                      </Button>
+                    </SettingRow>
+                  </section>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </section>
       {isPluginModalOpen && (
         <PluginManagerModal
           isOpen={isPluginModalOpen}

@@ -19,8 +19,8 @@ WINDOWS_WEBVIEW_SOURCES=(
   native/game-webview/ViewerScripts.h
   native/game-webview/GameWebViewWin.cpp
   native/game-webview/GameWebViewWinSmoke.cpp
-  scripts/windows/build-game-webview.ps1
-  scripts/windows/run-on-desktop.ps1
+  scripts/tasks/build/game-webview-windows.ps1
+  scripts/lib/run-on-desktop.ps1
 )
 export WINDOWS_WEBVIEW_LIBRARY WINDOWS_WEBVIEW_STAMP WINDOWS_WEBVIEW_VERIFIED
 
@@ -29,11 +29,12 @@ windows_webview_source_hash() {
 }
 
 # windows_webview_source_stamp_at <commit>: the sources at that commit, by git
-# object, so a CD build matches whatever line endings its checkout used.
+# object, so a CD build matches whatever line endings its checkout used. A
+# source kept under another path then gives a stamp nothing current matches.
 windows_webview_source_stamp_at() {
   local path
   for path in "${WINDOWS_WEBVIEW_SOURCES[@]}"; do
-    git -C "$ELEMENT_PROJECT_ROOT" rev-parse "$1:$path"
+    git -C "$ELEMENT_PROJECT_ROOT" rev-parse --verify --quiet "$1:$path" || printf 'missing %s\n' "$path"
   done | shasum -a 256 | cut -d ' ' -f 1
 }
 

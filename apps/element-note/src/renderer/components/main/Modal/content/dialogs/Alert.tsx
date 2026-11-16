@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLenis } from '@hooks/useLenis';
 import { useTranslation } from '@contexts/useTranslation';
 import Modal from '../../Modal';
@@ -12,10 +12,22 @@ interface AlertProps {
   confirmText?: string;
   cancelText?: string;
   showCancel?: boolean;
+  /**
+   * Going ahead cannot be taken back (deleting, resetting). The button that
+   * goes ahead is drawn as such, and the dialog opens on Cancel.
+   */
+  danger?: boolean;
   onConfirm?: () => void;
   onCancel?: () => void;
 }
 
+/**
+ * A message with one answer, or a question with two. The answers are one
+ * size and in one order: backing out on the left, going ahead on the right.
+ * The dialog opens on the answer Enter should give: going ahead, or backing
+ * out when going ahead cannot be taken back. Escape and a press outside back
+ * out.
+ */
 const Alert = ({
   isOpen,
   message,
@@ -23,10 +35,13 @@ const Alert = ({
   confirmText,
   cancelText,
   showCancel,
+  danger = false,
   onConfirm,
   onCancel,
 }: AlertProps) => {
   const { t } = useTranslation();
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   const [scrollState, setScrollState] = useState<{
     hasTopShadow: boolean;
@@ -79,9 +94,19 @@ const Alert = ({
     wrapperElement.scrollHeight > wrapperElement.clientHeight + 1;
 
   return (
-    <Modal onClick={onCancel}>
+    <Modal
+      // A message has one answer; backing out of it is that answer.
+      onClick={shouldShowCancel ? onCancel : (onCancel ?? onConfirm)}
+      initialFocusRef={
+        (danger && shouldShowCancel
+          ? cancelRef
+          : confirmRef) as React.RefObject<HTMLElement>
+      }
+    >
       <div
-        className="dmn-modal-card flex flex-col p-[20px] pr-[6px]"
+        className="dmn-modal-card dmn-alert flex flex-col p-[20px] pr-[6px]"
+        role="alertdialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 메시지 텍스트 or Custom HTML */}
@@ -122,29 +147,22 @@ const Alert = ({
             />
           </div>
         ) : (
-          <div className="max-w-[235.5px] text-center text-[#FFFFFF] text-style-3 !leading-[20px] pr-[14px]">
-            {message}
-          </div>
+          <div className="dmn-alert-message pr-[14px]">{message}</div>
         )}
 
-        {/* 버튼들 */}
-        <div
-          className={`flex ${
-            !shouldShowCancel ? 'justify-center' : ''
-          } gap-[10.5px] mt-[19px] pr-[14px]`}
-        >
-          <Button
-            onClick={onConfirm}
-            variant="primary"
-            className={shouldShowCancel ? 'w-[150px]' : 'w-full'}
-          >
-            {confirmLabel}
-          </Button>
+        <div className="dmn-alert-answers pr-[14px]">
           {shouldShowCancel && (
-            <Button onClick={onCancel} variant="danger" className="w-[75px]">
+            <Button ref={cancelRef} onClick={onCancel} variant="secondary">
               {cancelLabel}
             </Button>
           )}
+          <Button
+            ref={confirmRef}
+            onClick={onConfirm}
+            variant={danger ? 'danger' : 'primary'}
+          >
+            {confirmLabel}
+          </Button>
         </div>
       </div>
     </Modal>

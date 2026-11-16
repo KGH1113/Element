@@ -25,6 +25,17 @@ interface ImagePickerProps {
   onActiveImageReset?: () => void;
   onClose: () => void;
   interactiveRefs?: React.RefObject<HTMLElement>[];
+  /**
+   * Names a button that chooses the image. An element with one image and no
+   * pressed state (no `onActiveImageChange`, no transparency) shows only the
+   * picture, this button and the reset.
+   */
+  chooseLabel?: string;
+  /**
+   * Says why the chosen file was not taken. Its line is always there once
+   * this is given, empty or not, so nothing below it moves.
+   */
+  notice?: string;
 }
 
 const STATE_MODES = {
@@ -52,6 +63,8 @@ const ImagePicker = ({
   onActiveImageReset,
   onClose,
   interactiveRefs = [],
+  chooseLabel,
+  notice,
 }: ImagePickerProps) => {
   const { t } = useTranslation();
   const [mode, setMode] = useState<string>(STATE_MODES.idle);
@@ -94,6 +107,10 @@ const ImagePicker = ({
   const showImageFit =
     typeof onIdleImageFitChange === 'function' ||
     typeof onActiveImageFitChange === 'function';
+  const showStates = typeof onActiveImageChange === 'function';
+  const showTransparent =
+    typeof onIdleTransparentChange === 'function' ||
+    typeof onActiveTransparentChange === 'function';
   const handleTransparentToggle = (): void => {
     if (mode === STATE_MODES.idle) {
       onIdleTransparentChange?.(!idleTransparent);
@@ -183,34 +200,37 @@ const ImagePicker = ({
       interactiveRefs={interactiveRefs}
       onClose={onClose}
       autoClose={false}
+      chooserTitle={t('sidebar.pickImage')}
     >
       <div
         ref={pickerContainerRef}
         className="flex w-[146px] flex-col gap-[8px] p-[8px]"
       >
         {/* 모드 전환 버튼 */}
-        <div className="flex gap-[6px] max-w-full">
-          {[
-            { key: STATE_MODES.idle, label: t('imagePicker.idle') },
-            { key: STATE_MODES.active, label: t('imagePicker.active') },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              className={`flex-1 whitespace-nowrap px-[9px] h-[23px] rounded-[7px] text-style-4 text-[#DBDEE8] transition-colors ${
-                mode === item.key
-                  ? 'bg-[#2E2D33] text-[#FFFFFF]'
-                  : 'hover:bg-[#303036] text-[#6F6E7A]'
-              }`}
-              onClick={() => setMode(item.key)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        {showStates && (
+          <div className="flex gap-[6px] max-w-full">
+            {[
+              { key: STATE_MODES.idle, label: t('imagePicker.idle') },
+              { key: STATE_MODES.active, label: t('imagePicker.active') },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={`flex-1 whitespace-nowrap px-[9px] h-[23px] rounded-[7px] text-style-4 text-[#DBDEE8] transition-colors ${
+                  mode === item.key
+                    ? 'bg-[#2E2D33] text-[#FFFFFF]'
+                    : 'hover:bg-[#303036] text-[#6F6E7A]'
+                }`}
+                onClick={() => setMode(item.key)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 이미지 미리보기 영역 */}
-        <div className="relative w-[129px] h-[64px] rounded-[7px] border-[1px] border-[#3A3943] overflow-hidden cursor-pointer group">
+        <div className="en-image-preview relative w-[129px] h-[64px] rounded-[7px] border-[1px] border-[#3A3943] overflow-hidden cursor-pointer group">
           {/* 투명 격자 배경 */}
           <div
             className="absolute inset-0"
@@ -244,19 +264,40 @@ const ImagePicker = ({
           />
         </div>
 
-        {/* 구분선 */}
-        <div className="h-[1px] bg-[#2A2A30] -mx-[8px]" />
+        {chooseLabel && (
+          <button
+            type="button"
+            disabled={isLoadingImage}
+            onClick={() => handleImageClick(mode)}
+            className="w-full h-[23px] bg-[#2A2A30] hover:bg-[#303036] active:bg-[#393941] rounded-[7px] text-[#DBDEE8] text-style-2 transition-colors"
+          >
+            {chooseLabel}
+          </button>
+        )}
 
-        {/* 키 투명화 토글 */}
-        <div className="flex justify-between items-center w-full">
-          <p className="text-white text-style-2">
-            {t('imagePicker.transparent')}
+        {notice !== undefined && (
+          <p className="en-picker-notice" role="alert">
+            {notice}
           </p>
-          <Checkbox
-            checked={currentTransparent}
-            onChange={handleTransparentToggle}
-          />
-        </div>
+        )}
+
+        {showTransparent && (
+          <>
+            {/* 구분선 */}
+            <div className="h-[1px] bg-[#2A2A30] -mx-[8px]" />
+
+            {/* 키 투명화 토글 */}
+            <div className="flex justify-between items-center w-full">
+              <p className="text-white text-style-2">
+                {t('imagePicker.transparent')}
+              </p>
+              <Checkbox
+                checked={currentTransparent}
+                onChange={handleTransparentToggle}
+              />
+            </div>
+          </>
+        )}
 
         {/* 이미지 맞춤 */}
         {showImageFit && (

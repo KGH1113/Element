@@ -28,9 +28,6 @@ export { default as BatchStyleTabContent } from './batch/BatchStyleTabContent';
 export { default as BatchNoteTabContent } from './batch/BatchNoteTabContent';
 export { default as BatchCounterTabContent } from './batch/BatchCounterTabContent';
 
-// 레이어 패널
-export { default as LayerPanel } from './layer/LayerPanel';
-
 // 분리된 서브 패널 컴포넌트
 export {
   PluginSelectionPanel,

@@ -8,7 +8,6 @@ import type { ListItem } from '@components/main/Modal/ListPopup';
 import { usePluginMenuStore } from '@stores/plugin/usePluginMenuStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useSettingsStore } from '@stores/useSettingsStore';
-import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { translatePluginMessage } from '@utils/plugin/pluginI18n';
 import type { KeyPosition } from '@src/types/key/keys';
 import type {
@@ -55,7 +54,6 @@ interface UseGridContextMenuParams {
   positions: Record<string, KeyPosition[]>;
   locale: string;
   t: (key: string) => string;
-  noteEffect?: boolean;
 }
 
 interface UseGridContextMenuReturn {
@@ -63,6 +61,7 @@ interface UseGridContextMenuReturn {
   getStatMenuItems: (contextIndex: number | null) => MenuItem[];
   getGraphMenuItems: (contextIndex: number | null) => MenuItem[];
   getKnobMenuItems: (contextIndex: number | null) => MenuItem[];
+  getSpriteMenuItems: (contextIndex: number | null) => MenuItem[];
   getGridMenuItems: (
     gridAddLocalPos: { dx: number; dy: number } | null,
   ) => ListItem[];
@@ -80,13 +79,10 @@ export function useGridContextMenu({
   positions,
   locale,
   t,
-  noteEffect,
 }: UseGridContextMenuParams): UseGridContextMenuReturn {
   // 전역 CSS 활성화 여부
   const useCustomCSS = useSettingsStore((state) => state.useCustomCSS);
-  const spritePositions = useSpriteStore((state) => state.positions);
   // OBS 모드는 데스크톱 오버레이 창을 없애므로 되돌릴 위치가 없다
-  const obsModeEnabled = useSettingsStore((state) => state.obsModeEnabled);
 
   // 플러그인 메뉴 아이템
   const pluginKeyMenuItems = usePluginMenuStore((state) => state.keyMenuItems);
@@ -120,7 +116,6 @@ export function useGridContextMenu({
     const baseItems: MenuItem[] = [
       { id: 'delete', label: t('contextMenu.deleteKey') },
       { id: 'duplicate', label: t('contextMenu.duplicateKey') },
-      { id: 'counterReset', label: t('contextMenu.counterReset') },
       { id: 'bringToFront', label: t('contextMenu.bringToFront') },
       // { id: "bringForward", label: t("contextMenu.bringForward") },
       // { id: "sendBackward", label: t("contextMenu.sendBackward") },
@@ -197,6 +192,13 @@ export function useGridContextMenu({
     { id: 'sendToBack', label: t('contextMenu.sendToBack') },
   ];
 
+  const getSpriteMenuItems = (_contextIndex: number | null): MenuItem[] => [
+    { id: 'delete', label: t('sprite.delete') },
+    { id: 'duplicate', label: t('sprite.duplicate') },
+    { id: 'bringToFront', label: t('contextMenu.bringToFront') },
+    { id: 'sendToBack', label: t('contextMenu.sendToBack') },
+  ];
+
   const getGridMenuItems = (
     gridAddLocalPos: { dx: number; dy: number } | null,
   ): ListItem[] => {
@@ -205,7 +207,7 @@ export function useGridContextMenu({
       { id: 'addStat', label: t('contextMenu.addStat') },
       { id: 'addGraph', label: t('contextMenu.addGraph') },
       { id: 'addKnob', label: t('contextMenu.addKnob') },
-      { id: 'addSprite', label: t('contextMenu.addSprite') },
+      { id: 'addSprite', label: t('sprite.add') },
     ];
     // 묶음 안에서는 부모 행이 맥락을 주므로 라벨을 줄인다
     const tabItems: MenuItem[] = [
@@ -217,18 +219,15 @@ export function useGridContextMenu({
       {
         id: 'tabNote',
         label: t('contextMenu.trackSetting'),
-        disabled: !noteEffect,
       },
     ];
     // 화면 밖으로 끌려가 잡을 수 없는 오버레이를 메인 창에서 되찾는 길
-    const resetItems: MenuItem[] = obsModeEnabled
-      ? []
-      : [
-          {
-            id: 'resetOverlayPosition',
-            label: t('contextMenu.overlayTarget'),
-          },
-        ];
+    const resetItems: MenuItem[] = [
+      {
+        id: 'resetOverlayPosition',
+        label: t('contextMenu.overlayTarget'),
+      },
+    ];
 
     // 플러그인 메뉴 필터링
     const context: GridContext | null = gridAddLocalPos
@@ -284,22 +283,6 @@ export function useGridContextMenu({
     return [
       ...topPluginItems,
       ...addItems,
-      ...((spritePositions[selectedKeyType]?.length ?? 0) > 0
-        ? [
-            {
-              id: 'spriteEditors',
-              label: t('contextMenu.editSprite'),
-              children: spritePositions[selectedKeyType].map(
-                (sprite, index) => ({
-                  id: `editSprite:${sprite.id}`,
-                  label:
-                    sprite.layerName?.trim() ||
-                    `${t('contextMenu.sprite')} ${index + 1}`,
-                }),
-              ),
-            },
-          ]
-        : []),
       ...bottomPluginItems,
       { id: 'separator', label: '', type: 'separator' },
       ...groupRows,
@@ -311,6 +294,7 @@ export function useGridContextMenu({
     getStatMenuItems,
     getGraphMenuItems,
     getKnobMenuItems,
+    getSpriteMenuItems,
     getGridMenuItems,
     pluginKeyMenuItems,
     pluginGridMenuItems,

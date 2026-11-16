@@ -14985,7 +14985,8 @@ fn preset_full_history_restores_settings_and_preserves_redo_snapshot() {
             };
             data.background_color = "#111111".to_string();
             data.note_settings.speed = 321;
-            data.note_effect = false;
+            // The retired Raining master switch is always on; a restore keeps it so.
+            data.note_effect = true;
             data.laboratory_enabled = false;
             data.tab_order = ["test-5key", "test-4key", "test-6key", "test-8key"]
                 .map(str::to_string)
@@ -17271,6 +17272,7 @@ fn panel_bounds_persist_and_restore_across_store_reopen() {
     let bounds = PanelBounds {
         x: 31.0,
         y: 47.0,
+        width: 420.0,
         height: 512.0,
     };
 

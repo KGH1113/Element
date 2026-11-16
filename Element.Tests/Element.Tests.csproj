@@ -10,6 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Saved files written by an earlier build, read back by SavedFormatTests. -->
+    <EmbeddedResource Include="Configuration/Fixtures/*" LogicalName="Fixtures/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Element/Element.csproj" />
     <!-- Aliased: both also compile the shared update sources the mod has. -->
     <ProjectReference Include="../Element.Launcher/Element.Launcher.csproj" Aliases="launcher" />
@@ -29,6 +34,11 @@
     </Reference>
     <Reference Include="AdofaiIpc.Contracts">
       <HintPath>$(AdofaiIpcBundle)/AdofaiIpc.Contracts.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <!-- Elements may write their editing screens as ElementUI views. -->
+    <Reference Include="ElementUI.Core">
+      <HintPath>../vendor/elementui/ElementUI.Core.dll</HintPath>
       <Private>true</Private>
     </Reference>
     <!-- ElementSettings derives from UMM's ModSettings; profile tests build whole settings. -->

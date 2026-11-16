@@ -18,6 +18,10 @@ pub(super) fn repair_legacy_state(mut value: Value) -> AppStoreData {
         return normalize_state(AppStoreData::default());
     };
 
+    // Recovery starts from new-install defaults, but missing/invalid legacy
+    // counter flags must retain the old hidden appearance during migration.
+    recovered.insert("keyCounterEnabled".to_string(), Value::Bool(false));
+
     for (field, value) in source {
         let previous = recovered.insert(field.clone(), value.clone());
         if serde_json::from_value::<AppStoreData>(Value::Object(recovered.clone())).is_err() {

@@ -123,8 +123,10 @@ describe('stat, graph and knob saves', () => {
     const withIds: StatItemPositions = {
       hand: [kps('a', 0), kps('b', 60)],
     };
-    updatePositions.mockResolvedValue(withIds);
     const next: StatItemPositions = { hand: [kps('a', 0), kps(undefined, 60)] };
+    // The save answers with what was sent; the IDs are read once it is saved.
+    updatePositions.mockResolvedValue(next);
+    getPositions.mockResolvedValue(withIds);
 
     await persistItemPositions('statPositions', next);
 
@@ -135,7 +137,22 @@ describe('stat, graph and knob saves', () => {
 
   it('leaves an edit made while saving alone', async () => {
     const newer: StatItemPositions = { hand: [kps('a', 30)] };
-    updatePositions.mockImplementation(async () => {
+    updatePositions.mockImplementation(async (sent) => {
+      useStatItemStore.setState({ positions: newer });
+      return sent;
+    });
+
+    await persistItemPositions('statPositions', unsaved);
+
+    expect(useStatItemStore.getState().positions).toBe(newer);
+    // The newer edit's own save brings the IDs.
+    expect(getPositions).not.toHaveBeenCalled();
+  });
+
+  it('leaves an edit made while the IDs are read alone', async () => {
+    const newer: StatItemPositions = { hand: [kps('a', 30)] };
+    updatePositions.mockImplementation(async (sent) => sent);
+    getPositions.mockImplementation(async () => {
       useStatItemStore.setState({ positions: newer });
       return { hand: [kps('a', 0), kps('b', 60)] };
     });

@@ -55,21 +55,6 @@ export const ChevronIcon: React.FC<{ collapsed?: boolean }> = ({
 // 요소 타입 아이콘
 // ============================================================================
 
-export const KeyIcon: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <rect
-      x="2"
-      y="2"
-      width="10"
-      height="10"
-      rx="2.5"
-      stroke="currentColor"
-      strokeWidth="1.2"
-    />
-    <circle cx="7" cy="7" r="2" fill="currentColor" />
-  </svg>
-);
-
 export const PluginIcon: React.FC = () => (
   <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
     <rect
@@ -83,47 +68,5 @@ export const PluginIcon: React.FC = () => (
       transform="rotate(45 7 0.05)"
     />
     <circle cx="7" cy="7" r="2" fill="currentColor" />
-  </svg>
-);
-
-export const StatIcon: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <path
-      d="M10.8 2H3.7c-.4 0-.7.3-.7.7 0 .2.1.4.2.5l3 3.8-3 3.8c-.1.1-.2.3-.2.5 0 .4.3.7.7.7h7.1"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-export const GraphIcon: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <path
-      d="M2 10.5L5.2 7.3L7.4 8.8L12 4.2"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M12 4.2H9.8"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
-export const KnobIcon: React.FC = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-    <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.2" />
-    <path
-      d="M7 2.5V7"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      strokeLinecap="round"
-    />
   </svg>
 );

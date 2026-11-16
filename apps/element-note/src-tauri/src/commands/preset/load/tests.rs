@@ -1,10 +1,8 @@
 use super::*;
-use crate::{
-    models::{
-        CustomCssHistoryEntry, CustomFont, FontWeightRange, GraphPosition, GraphStatType,
-        GraphType, JsPlugin, KnobPosition, ReactiveSpritePosition, SpriteAnchor,
-        SpriteImageMetrics, SpritePose, SpriteReferenceNaturalSize, StatPosition, StatType,
-    },
+use crate::models::{
+    CustomCssHistoryEntry, CustomFont, FontWeightRange, GraphPosition, GraphStatType, GraphType,
+    JsPlugin, KnobPosition, ReactiveSpritePosition, SpriteAnchor, SpriteImageMetrics, SpritePose,
+    SpriteReferenceNaturalSize, StatPosition, StatType,
 };
 
 fn png_header(width: u32, height: u32) -> Vec<u8> {

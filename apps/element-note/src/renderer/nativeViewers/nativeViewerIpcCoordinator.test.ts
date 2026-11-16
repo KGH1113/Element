@@ -29,7 +29,7 @@ describe('native in-game viewers', () => {
     await coordinator.dispose();
   });
 
-  it('tells the game again when Show inside ADOFAI changes', async () => {
+  it('tells the game again when Inside ADOFAI changes', async () => {
     const messages = new FakeMessagePort();
     let inGame = true;
     let changed: () => void = () => {};
@@ -75,24 +75,29 @@ describe('native in-game viewers', () => {
   });
 
   it.each([
-    { error: { code: 'obs-required' }, code: 'obs-required' },
+    { error: { code: 'in-game-disabled' }, code: 'in-game-disabled' },
+    // The game display no longer needs OBS: that old code is not passed on.
+    { error: { code: 'obs-required' }, code: 'native-unavailable' },
     {
       error: new Error('http://127.0.0.1/?token=must-not-leak'),
       code: 'native-unavailable',
     },
-  ])('returns a safe failure: $code', async ({ error, code }) => {
-    const messages = new FakeMessagePort();
-    const surface = { describe: vi.fn().mockRejectedValue(error) };
-    const coordinator = new NativeViewerIpcCoordinator(messages, surface);
-    messages.command('mirror.native.describe', { sessionId }, 'native-1');
-    await settle();
-    expect(messages.sent.at(-1)).toMatchObject({
-      name: 'mirror.failed',
-      payload: { code, retryable: true },
-    });
-    expect(JSON.stringify(messages.sent)).not.toContain('must-not-leak');
-    await coordinator.dispose();
-  });
+  ])(
+    'returns a safe failure: $error.code -> $code',
+    async ({ error, code }) => {
+      const messages = new FakeMessagePort();
+      const surface = { describe: vi.fn().mockRejectedValue(error) };
+      const coordinator = new NativeViewerIpcCoordinator(messages, surface);
+      messages.command('mirror.native.describe', { sessionId }, 'native-1');
+      await settle();
+      expect(messages.sent.at(-1)).toMatchObject({
+        name: 'mirror.failed',
+        payload: { code, retryable: true },
+      });
+      expect(JSON.stringify(messages.sent)).not.toContain('must-not-leak');
+      await coordinator.dispose();
+    },
+  );
 
   it.each(['disconnect', 'dispose'] as const)(
     'shares one native call and drops a pending result after %s',
@@ -236,19 +241,19 @@ describe('native viewer change pushes', () => {
     });
     expect(pushes()[0].correlationId).toBeUndefined();
 
-    surface.describe.mockRejectedValue({ code: 'obs-required' });
+    surface.describe.mockRejectedValue({ code: 'in-game-disabled' });
     change();
     await flush();
     expect(pushes().at(-1)).toMatchObject({
       name: 'mirror.native.unavailable',
-      payload: { sessionId, code: 'obs-required', retryable: true },
+      payload: { sessionId, code: 'in-game-disabled', retryable: true },
     });
     await coordinator.dispose();
   });
 
-  it('retries while OBS is still starting', async () => {
+  it('retries while the page server is still starting', async () => {
     const { messages, surface, coordinator, pushes, change } = setup();
-    surface.describe.mockRejectedValue({ code: 'obs-required' });
+    surface.describe.mockRejectedValue({ code: 'in-game-disabled' });
     messages.command('mirror.native.describe', { sessionId }, 'native-1');
     await settle();
     surface.describe.mockRejectedValueOnce({ code: 'obs-not-ready' });

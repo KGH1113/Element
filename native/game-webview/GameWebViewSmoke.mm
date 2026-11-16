@@ -144,6 +144,7 @@ struct Api {
   int (*contentSize)(const char *, double *, double *);
   int (*viewSize)(double *, double *);
   unsigned long long (*geometryRevision)(void);
+  void (*gameSize)(double, double);
   int (*bounds)(const char *, double *, double *, double *, double *, double *);
   int (*selectionBounds)(const char *, double *, double *, double *, double *, double *);
   int (*pointer)(double *, double *);
@@ -173,6 +174,7 @@ int Run(const char *path) {
       reinterpret_cast<int (*)(const char *, double *, double *)>(dlsym(library, "irp_webview_get_content_size")),
       reinterpret_cast<int (*)(double *, double *)>(dlsym(library, "irp_webview_get_view_size")),
       reinterpret_cast<unsigned long long (*)(void)>(dlsym(library, "irp_webview_geometry_revision")),
+      reinterpret_cast<void (*)(double, double)>(dlsym(library, "irp_webview_set_game_size")),
       reinterpret_cast<int (*)(const char *, double *, double *, double *, double *, double *)>(dlsym(library, "irp_webview_get_bounds")),
       reinterpret_cast<int (*)(const char *, double *, double *, double *, double *, double *)>(dlsym(library, "irp_webview_get_selection_bounds")),
       reinterpret_cast<int (*)(double *, double *)>(dlsym(library, "irp_webview_get_pointer")),
@@ -183,7 +185,7 @@ int Run(const char *path) {
       reinterpret_cast<void (*)(void)>(dlsym(library, "irp_webview_dispose")),
       reinterpret_cast<const char *(*)(void)>(dlsym(library, "irp_webview_last_error")),
   };
-  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.contentSize || !api.viewSize || !api.geometryRevision || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.dispose || !api.error) {
+  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.contentSize || !api.viewSize || !api.geometryRevision || !api.gameSize || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.dispose || !api.error) {
     fprintf(stderr, "FAIL: missing native viewer C ABI export\n");
     return 1;
   }
@@ -371,6 +373,34 @@ int Run(const char *path) {
   if (!check(!CGPathContainsPoint(mask.path, nullptr, CGPointMake(640, 90), true) &&
              CGPathContainsPoint(mask.path, nullptr, CGPointMake(200, 90), true),
              "normalized toolbar exclusion follows window resizing")) return 1;
+  // Fullscreen at a lower resolution: Unity fits a wider game into the window
+  // with bars above and below it. The host covers only the game, so a cutout
+  // in game coordinates lands on the panel Unity draws.
+  NSView *hostView = chrome.superview;
+  unsigned long long beforeFit = api.geometryRevision();
+  api.gameSize(2560, 1080);
+  double fittedWidth = 0, fittedHeight = 0;
+  if (!check(NSEqualRects(hostView.frame, NSMakeRect(0, 90, 1280, 540)) && api.geometryRevision() != beforeFit &&
+             api.viewSize(&fittedWidth, &fittedHeight) == 1 && Nearly(fittedWidth, 1280) && Nearly(fittedHeight, 540),
+             "a letterboxed game: the host covers only where the game is drawn")) return 1;
+  mask = (CAShapeLayer *)hostView.layer.mask;
+  // (0.25, 0.8, 0.5, 0.15) of 1280 x 540: x 320-960, 27-108 up from the host's bottom.
+  if (!check(!CGPathContainsPoint(mask.path, nullptr, CGPointMake(640, 60), true) &&
+             CGPathContainsPoint(mask.path, nullptr, CGPointMake(640, 120), true) &&
+             CGPathContainsPoint(mask.path, nullptr, CGPointMake(200, 60), true),
+             "a cutout lands where the letterboxed game draws its panel")) return 1;
+  [game setContentSize:NSMakeSize(1280, 800)];
+  Pump(0.1);
+  if (!check(NSEqualRects(hostView.frame, NSMakeRect(0, 130, 1280, 540)),
+             "resizing the window keeps the host on the fitted game")) return 1;
+  [game setContentSize:NSMakeSize(1280, 720)];
+  Pump(0.1);
+  api.gameSize(2560, 1440);
+  if (!check(NSEqualRects(hostView.frame, NSMakeRect(0, 0, 1280, 720)),
+             "a game at the window's aspect (Retina pixels) covers the whole window")) return 1;
+  api.gameSize(0, 0);
+  if (!check(NSEqualRects(hostView.frame, NSMakeRect(0, 0, 1280, 720)),
+             "without a game size the host covers the window")) return 1;
   if (!check(api.bounds("hand", &x, &y, &width, &height, &scale) == 1 &&
              std::abs(x + width / 2 - 0.5) < 0.0001 && std::abs(y + height / 2 - 0.4) < 0.0001 &&
              std::abs(scale - 0.6) < 0.0001,

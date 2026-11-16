@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
+using Element.Application.Gameplay;
 using UnityEngine;
 
 namespace Element.Infrastructure.Game.Recording;
 
-internal sealed class RecordingModeController
+internal sealed class RecordingModeController : IRecordMode
 {
   private readonly Dictionary<int, GameObjectState> _gameObjectStates = new();
   private readonly Dictionary<int, BehaviourState> _behaviourStates = new();
@@ -13,6 +14,9 @@ internal sealed class RecordingModeController
   private bool _previousNoHud;
 
   public bool IsActive => _active;
+
+  /// <summary>The flash of the level's last floor is skipped once while recording.</summary>
+  public bool SuppressNextFlash { get; set; }
 
   public void Apply(bool active)
   {
@@ -33,7 +37,7 @@ internal sealed class RecordingModeController
     }
 
     _active = false;
-    RecordingUiPatchState.SuppressNextFlash = false;
+    SuppressNextFlash = false;
     RestoreSceneObjects();
     RestoreNoHud();
   }
@@ -121,7 +125,7 @@ internal sealed class RecordingModeController
   public void Dispose()
   {
     _active = false;
-    RecordingUiPatchState.SuppressNextFlash = false;
+    SuppressNextFlash = false;
     RestoreSceneObjects();
     RestoreNoHud();
   }

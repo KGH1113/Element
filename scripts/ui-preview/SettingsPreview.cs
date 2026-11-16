@@ -6,24 +6,53 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Configuration.Effects;
 using Element.Presentation.Settings;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Settings.Pages;
+using Element.Presentation.Settings.Window;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
-using Element.Domain.Elements;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Fonts;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout;
-using Element.Domain.Input;
+using Element.Presentation.Layout.Canvas;
+using Element.Presentation.Layout.Kinds;
+using Element.Presentation.Layout.ContentEditors.Mods;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Domain.Tweaks;
 using Element.Domain.Layout;
 using Element.Application.Updates;
+using Element.Application.Fonts;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 using Element.Application.Files;
 using Element.Application.Profiles;
+using Element.Application.Settings;
 using Element.Configuration.Profiles;
-using Element.Infrastructure.Game.DmNote;
-using Element.Infrastructure.Assets;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Element.Infrastructure.Platform;
+using Element.Infrastructure.Storage;
 using Object = UnityEngine.Object;
+using Element.Presentation.Layout.ContentEditors.Text;
+using Element.Presentation.Layout.ContentEditors.Shape;
+using Element.Presentation.Layout.Graphics;
+using Element.Configuration.Gameplay;
+using Element.Configuration.Overlay;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Widgets;
+using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.Overlay.Shape;
+using Element.Presentation.Overlay.Text;
+using ElementUI.Ugui;
 
 namespace Element.Editor
 {
@@ -52,38 +81,38 @@ namespace Element.Editor
       _checks += OverlayTargetChecks.Run(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset"),
         AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset").material);
       _checks += NativeLayoutChecks.Run(AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset"));
-      Render(1280, 720, SystemLanguage.Korean, 0, "home-ko-720");
-      Render(1920, 1080, SystemLanguage.Korean, 0, "home-ko-1080");
-      Render(760, 720, SystemLanguage.English, 0, "home-en-narrow");
-      Render(540, 720, SystemLanguage.English, 0, "home-en-compact");
-      Render(1280, 720, SystemLanguage.English, 1, "tweaks-en-720");
-      Render(1280, 720, SystemLanguage.Korean, 2, "general-ko-720");
-      Render(760, 720, SystemLanguage.English, 2, "general-en-narrow");
-      Render(360, 720, SystemLanguage.English, 2, "general-en-compact");
-      Render(1280, 720, SystemLanguage.English, 3, "effects-en-720");
-      Render(760, 720, SystemLanguage.Korean, 3, "effects-ko-narrow");
-      Render(1280, 720, SystemLanguage.English, 4, "editor-tweaks-en-720");
-      Render(1280, 720, SystemLanguage.English, 5, "judgment-en-720");
-      Render(1280, 720, SystemLanguage.Korean, 6, "planets-ko-720");
-      Render(760, 720, SystemLanguage.English, 6, "planets-en-narrow");
-      Render(1280, 720, SystemLanguage.English, 7, "preset-editor-en-720");
-      Render(760, 720, SystemLanguage.Korean, 7, "preset-editor-ko-narrow");
-      Render(1280, 720, SystemLanguage.English, 7, "preset-shortcut-en-720");
-      Render(760, 720, SystemLanguage.Korean, 7, "preset-shortcut-ko-narrow");
-      Render(360, 720, SystemLanguage.English, 7, "preset-shortcut-en-compact");
-      Render(1280, 720, SystemLanguage.English, 4, "editor-editing-en-720");
-      Render(1280, 720, SystemLanguage.Korean, 8, "chatter-blocker-ko-720");
-      Render(360, 720, SystemLanguage.English, 8, "chatter-blocker-en-compact");
-      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-720");
-      Render(760, 720, SystemLanguage.English, 9, "profiles-en-narrow");
-      Render(360, 720, SystemLanguage.Korean, 9, "profiles-ko-compact");
-      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-rename");
-      Render(1280, 720, SystemLanguage.Korean, 9, "profiles-ko-fonts");
-      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-fonts");
-      Render(1280, 720, SystemLanguage.English, 9, "profiles-en-new");
-      Render(760, 720, SystemLanguage.Korean, 9, "profiles-ko-narrow-new");
-      Render(360, 720, SystemLanguage.English, 9, "profiles-en-compact-new");
-      Render(2880, 1800, SystemLanguage.Korean, 0, "home-ko-retina");
+      Render(1280, 720, SystemLanguage.Korean, "_home", "home-ko-720");
+      Render(1920, 1080, SystemLanguage.Korean, "_home", "home-ko-1080");
+      Render(760, 720, SystemLanguage.English, "_home", "home-en-narrow");
+      Render(540, 720, SystemLanguage.English, "_home", "home-en-compact");
+      Render(1280, 720, SystemLanguage.English, "_tweaks", "tweaks-en-720");
+      Render(1280, 720, SystemLanguage.Korean, "_general", "general-ko-720");
+      Render(760, 720, SystemLanguage.English, "_general", "general-en-narrow");
+      Render(360, 720, SystemLanguage.English, "_general", "general-en-compact");
+      Render(1280, 720, SystemLanguage.English, "_effects", "effects-en-720");
+      Render(760, 720, SystemLanguage.Korean, "_effects", "effects-ko-narrow");
+      Render(1280, 720, SystemLanguage.English, "_editorTweaks", "editor-tweaks-en-720");
+      Render(1280, 720, SystemLanguage.English, "_judgment", "judgment-en-720");
+      Render(1280, 720, SystemLanguage.Korean, "_planets", "planets-ko-720");
+      Render(760, 720, SystemLanguage.English, "_planets", "planets-en-narrow");
+      Render(1280, 720, SystemLanguage.English, "_presetEditor", "preset-editor-en-720");
+      Render(760, 720, SystemLanguage.Korean, "_presetEditor", "preset-editor-ko-narrow");
+      Render(1280, 720, SystemLanguage.English, "_presetEditor", "preset-shortcut-en-720");
+      Render(760, 720, SystemLanguage.Korean, "_presetEditor", "preset-shortcut-ko-narrow");
+      Render(360, 720, SystemLanguage.English, "_presetEditor", "preset-shortcut-en-compact");
+      Render(1280, 720, SystemLanguage.English, "_editorTweaks", "editor-editing-en-720");
+      Render(1280, 720, SystemLanguage.Korean, "_chatter", "chatter-blocker-ko-720");
+      Render(360, 720, SystemLanguage.English, "_chatter", "chatter-blocker-en-compact");
+      Render(1280, 720, SystemLanguage.Korean, "_profiles", "profiles-ko-720");
+      Render(760, 720, SystemLanguage.English, "_profiles", "profiles-en-narrow");
+      Render(360, 720, SystemLanguage.Korean, "_profiles", "profiles-ko-compact");
+      Render(1280, 720, SystemLanguage.English, "_profiles", "profiles-en-rename");
+      Render(1280, 720, SystemLanguage.Korean, "_profiles", "profiles-ko-fonts");
+      Render(360, 720, SystemLanguage.English, "_profiles", "profiles-en-compact-fonts");
+      Render(1280, 720, SystemLanguage.English, "_profiles", "profiles-en-new");
+      Render(760, 720, SystemLanguage.Korean, "_profiles", "profiles-ko-narrow-new");
+      Render(360, 720, SystemLanguage.English, "_profiles", "profiles-en-compact-new");
+      Render(2880, 1800, SystemLanguage.Korean, "_home", "home-ko-retina");
       Debug.Log("UI_PREVIEW_SCREEN " + Screen.width + "x" + Screen.height);
       RenderLayout(Screen.width, Screen.height, SystemLanguage.Korean, "layout-ko");
       RenderLayout(Screen.width, Screen.height, SystemLanguage.English, "layout-en");
@@ -103,8 +132,8 @@ namespace Element.Editor
       // fixture's screen; the narrow pass checks the toolbar at its own width.
       int screenWidth = Screen.width, screenHeight = Screen.height;
       var settings = new ElementSettings { ReduceUiMotion = true };
-      settings.Migrate();
-      OverlayTheme.SetHighlight(settings.HighlightColor);
+      SettingsMigrator.Migrate(settings);
+      UiTheme.SetHighlight(settings.HighlightColor);
       var host = new OverlayCanvasHost();
       var catalog = new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning,
         (action, exception) => Debug.LogException(exception));
@@ -114,34 +143,39 @@ namespace Element.Editor
       var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
       var eventsRoot = new GameObject("Fixture events", typeof(EventSystem));
       editor.Open();
-      GameObject root = Field<GameObject>(editor, "_root"); root.SetActive(true);
+      GameObject root = Session(editor).Root; root.SetActive(true);
       var cameraRoot = new GameObject("Layout preview camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
       camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.04f, .05f, .07f);
       var texture = new RenderTexture(screenWidth, screenHeight, 24); camera.targetTexture = texture;
       var canvases = new[] { host.Root.GetComponent<Canvas>(), root.GetComponent<Canvas>() };
-      _refresh = () => Call(editor, "UpdateFrames");
+      _refresh = () =>
+      {
+        Call(editor, "UpdateFrames");
+        Settle();
+      };
       editor.Resize(width, height); Canvas.ForceUpdateCanvases();
       Rect toolbar = editor.ToolbarBounds;
       Assert(toolbar.xMin >= 0 && toolbar.xMax <= width && toolbar.yMax <= height, "layout toolbar fits viewport");
       Assert(toolbar.width <= 760.1f && toolbar.height <= 120.1f, "overlay toolbar stays compact with element actions");
-      RectTransform toolbarRect = Field<RectTransform>(editor, "_toolbar");
+      RectTransform toolbarRect = Toolbar(editor).Root;
       Call(editor, "UpdateFrames");
-      Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "no element toolbar without a selection");
+      Assert(ElementBar(editor).Root == null, "no element toolbar without a selection");
       int fpsIndex = IndexOf(editor, host.LayoutTargets.Single(target => target.Id == "fps"));
       Select(editor, fpsIndex);
-      Assert(Field<RectTransform>(editor, "_settingsPanel") == null, "texts have no element toolbar");
-      Assert(!toolbarRect.GetComponentsInChildren<Button>(true).Any(button => button.name.Contains("settings")),
+      Assert(ElementBar(editor).Root == null, "texts have no element toolbar");
+      Assert(!toolbarRect.GetComponentsInChildren<Pressable>(true).Any(button => button.name.Contains("settings")),
         "the toolbar has no settings button");
-      Button editContent = Field<Button>(editor, "_editContent");
-      Assert(editContent.gameObject.activeSelf && !Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf
-        && !Field<Button>(editor, "_plus").gameObject.activeSelf && !Field<Button>(editor, "_minus").gameObject.activeSelf,
+      Pressable editContent = ToolbarButton(editor, "Edit element");
+      Assert(ToolbarModel(editor).SizedInEditor.Value && Shown(editContent) && !Shown(ScaleField(editor))
+        && !Shown(ToolbarButton(editor, "Increase size")) && !Shown(ToolbarButton(editor, "Decrease size")),
         "a text shows Edit text where the scale was");
-      editContent.GetComponentInChildren<TextMeshProUGUI>().ForceMeshUpdate();
-      Assert(!editContent.GetComponentInChildren<TextMeshProUGUI>().isTextTruncated, "Edit text fits");
+      TextMeshProUGUI editLabel = editContent.GetComponentInChildren<TextMeshProUGUI>();
+      editLabel.ForceMeshUpdate();
+      Assert(editLabel.text == L("텍스트 편집", "Edit text") && !editLabel.isTextTruncated, "Edit text fits: " + editLabel.text);
       Rect fpsRect = host.LayoutTargets.Single(target => target.Id == "fps").Bounds;
       object[] hit = { fpsRect.max, null };
-      int hitIndex = (int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, hit);
+      int hitIndex = (int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit);
       Assert(hitIndex == fpsIndex && (LayoutHandle)hit[1] == LayoutHandle.Move, "a text's corner moves it instead of scaling it");
       // JRP's progress bar: a black bar centered under the top, the light
       // track 2 units inside it, the fill over the track as wide as the
@@ -165,7 +199,7 @@ namespace Element.Editor
       Rect titleRect = host.LayoutTargets.Single(target => target.Id == "song-title").SelectionBounds;
       Assert(titleRect.yMin >= edgeRect.yMax, "the song title sits under the bar: " + titleRect + " / " + edgeRect);
       var cutouts = editor.NativeExclusions;
-      float toolbarScale = (float)editor.GetType().GetProperty("ToolbarScale", Private).GetValue(editor);
+      float toolbarScale = Session(editor).ToolbarScale;
       Assert(cutouts.Count == 1 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
         "native viewers get the toolbar as a rounded cutout: " + cutouts.Count);
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 1, "only the selected element has an outline");
@@ -173,21 +207,25 @@ namespace Element.Editor
         "a text's outline has no resize handles");
       // Without a selection the scale shows again; key viewers use it.
       Select(editor, -1);
-      Assert(Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf && !Field<Button>(editor, "_editContent").gameObject.activeSelf,
+      Assert(Shown(ScaleField(editor)) && !Shown(ToolbarButton(editor, "Edit element")),
         "the scale returns when no text or shape is selected");
-      RectTransform grip = (RectTransform)toolbarRect.Find("Drag panel");
-      Assert(Mathf.Abs(CenterIn(grip, toolbarRect).y - CenterIn(Field<TextMeshProUGUI>(editor, "_instruction").rectTransform, toolbarRect).y) < .1f,
+      TextMeshProUGUI title = ByName<TextMeshProUGUI>(toolbarRect, "Selection");
+      Assert(title.text == L("요소 선택", "Select overlay"), "with nothing selected the toolbar asks for a selection: " + title.text);
+      RectTransform grip = ByName<RectTransform>(toolbarRect, "Drag panel");
+      Assert(Mathf.Abs(CenterIn(grip, toolbarRect).y - CenterIn(title.rectTransform, toolbarRect).y) < .5f,
         "move grip and title share the same vertical center");
-      Button plus = Field<Button>(editor, "_plus"), minus = Field<Button>(editor, "_minus");
-      TMP_InputField sizeInput = Field<TMP_InputField>(editor, "_scaleInput");
+      Pressable plus = ToolbarButton(editor, "Increase size"), minus = ToolbarButton(editor, "Decrease size");
+      TMP_InputField sizeInput = ScaleField(editor);
+      Assert(!plus.IsInteractable() && !minus.IsInteractable() && !sizeInput.interactable && sizeInput.text == "100",
+        "without a selection the scale shows 100% and can't be changed");
       Assert(Mathf.Abs(CenterIn((RectTransform)plus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f
         && Mathf.Abs(CenterIn((RectTransform)minus.transform, toolbarRect).y - CenterIn((RectTransform)sizeInput.transform, toolbarRect).y) < .1f,
         "plus, minus and percentage field share one vertical center");
       CheckInputCaret(sizeInput, "overlay scale", "", "100", "99.9");
-      foreach (LayoutActionIcon icon in root.GetComponentsInChildren<LayoutActionIcon>(true))
+      foreach (UiIcon icon in root.GetComponentsInChildren<UiIcon>(true))
         using (var mesh = new VertexHelper())
         {
-          typeof(LayoutActionIcon).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(icon, new object[] { mesh });
+          typeof(UiIcon).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(icon, new object[] { mesh });
           Assert(mesh.currentVertCount > 0, "vector icon renders: " + icon.Kind);
         }
       foreach (TextMeshProUGUI label in toolbarRect.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -195,7 +233,7 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(label.font == font && !label.isTextTruncated, "toolbar label fits: " + label.text);
       }
-      Assert(Field<Button>(editor, "_save").colors.normalColor.maxColorComponent < .5f, "save uses a dark tinted fill");
+      Assert(ToolbarButton(editor, "Save").GetComponent<RoundedRect>().color.maxColorComponent < .5f, "save uses a dark tinted fill");
       if (width != screenWidth || height != screenHeight)
       {
         Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
@@ -206,31 +244,54 @@ namespace Element.Editor
       // The scale itself, as key viewers use it, measured on a real element.
       IOverlayLayoutTarget fps = host.LayoutTargets.Single(target => target.Id == "fps");
       Select(editor, fpsIndex);
-      Call(editor, "CommitScale", "150");
-      Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "precise layout scale commits");
+      LayoutToolbarModel bar = ToolbarModel(editor);
+      // Typing writes the field's value; it is applied when typing ends, and
+      // one out of range keeps Save from closing the editor.
+      bar.Scale.Value = "130";
+      Assert(bar.FinishTyping.TryExecute() && Mathf.Abs(fps.EffectiveScale - 1.3f) < .01f, "letting go of the field applies the typed scale");
+      Call(editor, "Undo");
+      bar.Scale.Value = "5";
+      Assert(!Toolbar(editor).CommitPendingScale() && editor.IsOpen && Status(editor).Showing
+        && Status(editor).Text.Value.Contains("20"), "Save waits while the typed scale is out of range: " + Status(editor).Text.Value);
+      bar.DropTypedScale();
+      Assert(Toolbar(editor).CommitPendingScale() && Mathf.Abs(fps.EffectiveScale - 1) < .01f, "a dropped typed scale no longer stops Save");
+      Assert(bar.CommitScale("150") && Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "precise layout scale commits");
       Call(editor, "Undo"); Assert(Mathf.Abs(fps.EffectiveScale - 1) < .01f, "layout undo restores the scale");
       Call(editor, "Redo"); Assert(Mathf.Abs(fps.EffectiveScale - 1.5f) < .01f, "layout redo restores the edit");
-      Call(editor, "CommitScale", "1999"); Call(editor, "UpdateToolbar");
-      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("1000"), "scale validation names the 1000% limit");
+      CheckToolbarChrome(editor);
+      Assert(!bar.CommitScale("1999"), "a scale past the limit is refused");
+      Toolbar(editor).Refresh();
+      TextMeshProUGUI status = StatusLabel(editor);
+      Assert(Status(editor).Text.Value.Contains("1000") && status.text.Contains("1000") && status.color == UiPalette.Error,
+        "scale validation names the 1000% limit, warm: " + status.text);
       SaveFrame(camera, texture, canvases, name);
 
       // Add Element: three kinds; key viewers explain why they're unavailable.
       viewers.Availability = KeyViewerAvailability.AppClosed;
       Call(editor, "ToggleAddMenu");
-      RectTransform menu = Field<RectTransform>(editor, "_addMenu");
-      Button[] kinds = menu.GetComponentsInChildren<Button>(true).Where(button => button.name.StartsWith("Add ")).ToArray();
-      Assert(kinds.Length == 3, "Add Element offers Text, Key viewer and Shape");
-      Assert(kinds[0].interactable && !kinds[1].interactable && kinds[2].interactable, "a closed ElementNote disables only key viewers");
-      Assert(kinds[1].GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text.Contains("ElementNote")), "the disabled key viewer says how to enable it");
+      RectTransform menu = AddMenu(editor);
+      Settle();
+      Pressable[] kinds = Rows(menu);
+      Assert(kinds.Select(row => row.name).SequenceEqual(new[] { "Add Text", "Add KeyViewer", "Add Shape" }),
+        "Add Element offers Text, Key viewer and Shape");
+      Assert(kinds[0].IsInteractable() && !kinds[1].IsInteractable() && kinds[2].IsInteractable(), "a closed ElementNote disables only key viewers");
+      Assert(kinds[1].GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text.Contains("ElementNote")
+        && label.color == UiPalette.Error), "the disabled key viewer says how to enable it, warm");
       foreach (TextMeshProUGUI label in menu.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "add menu label fits: " + label.text);
+        Assert(label.font == font && !label.isTextTruncated, "add menu label fits: " + label.text);
       }
       Assert(PopoverInside(editor, menu, screenWidth, screenHeight), "the add menu stays on screen");
+      Rect menuRect = PopoverPlacement.ScreenRect(menu), addRect0 = ScreenRectOf((RectTransform)ToolbarButton(editor, "Add element").transform);
+      Assert(menuRect.yMax <= editor.ToolbarBounds.y + .5f
+        && Mathf.Abs(menuRect.x - Mathf.Min(addRect0.x, screenWidth - PopoverPlacement.Margin - menuRect.width)) < 1,
+        "the add menu opens above the toolbar from Add Element, as far as the view lets it: " + menuRect + " / " + addRect0);
+      Assert(EventSystem.current == null || EventSystem.current.currentSelectedGameObject == kinds[0].gameObject,
+        "the first row has the keyboard");
       SaveFrame(camera, texture, canvases, name + "-add");
       Call(editor, "ToggleAddMenu");
-      Assert(Field<RectTransform>(editor, "_addMenu") == null, "Add Element closes its menu again");
+      Assert(AddMenu(editor) == null, "Add Element closes its menu again");
 
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
       CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
@@ -240,15 +301,33 @@ namespace Element.Editor
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
       CheckGradients(editor, host, camera, texture, canvases, name);
+      CheckModElements(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();
-      Call(editor, "OpenResetConfirmation");
-      Assert(Field<GameObject>(editor, "_modalRoot") != null && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
+      LayoutModal modal = Field<LayoutModal>(editor, "_modal");
+      Press(ToolbarButton(editor, "Reset all"));
+      Assert(modal.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
         "Reset all asks first, covering native viewers");
+      Settle();
+      Assert(modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("오버레이를 처음 상태로 되돌릴까요?", "Reset all overlays?"))
+        && ByName<Pressable>(modal.Dialog, "Confirm").GetComponentInChildren<TextMeshProUGUI>().text == L("전체 초기화", "Reset all"),
+        "the dialog says what Reset all does, with Cancel and Reset all");
+      foreach (TextMeshProUGUI label in modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "dialog label fits: " + label.text);
+      }
+      Assert(PopoverInside(editor, modal.Dialog, screenWidth, screenHeight), "the dialog fits the view");
+      Assert(EventSystem.current == null || EventSystem.current.currentSelectedGameObject == ByName<Pressable>(modal.Dialog, "Cancel").gameObject,
+        "Cancel has the keyboard, so Enter keeps everything");
+      SaveFrame(camera, texture, canvases, name + "-reset");
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening the confirmation changes nothing");
-      Call(editor, "CloseModal");
-      Call(editor, "RestoreDefaultOverlays");
+      Press(ByName<Pressable>(modal.Dialog, "Cancel"));
+      Assert(!modal.IsOpen && beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Cancel closes the dialog and changes nothing");
+      Field<LayoutReset>(editor, "_reset").Confirm();
+      Press(ByName<Pressable>(modal.Dialog, "Confirm"));
+      Assert(!modal.IsOpen, "Reset all closes the dialog");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _))
         && host.LayoutTargets.Single(target => target.Id == "fps").Enabled, "Reset all removes added elements and restores built-ins");
       Call(editor, "Undo");
@@ -267,41 +346,47 @@ namespace Element.Editor
     {
       // Add → Shape asks for the kind beside the add menu.
       Call(editor, "ToggleAddMenu");
-      Field<RectTransform>(editor, "_addMenu").GetComponentsInChildren<Button>(true).Single(button => button.name == "Add Shape").onClick.Invoke();
-      RectTransform kindMenu = Field<RectTransform>(editor, "_shapeMenu");
-      Assert(kindMenu != null && Field<RectTransform>(editor, "_addMenu") != null, "Shape opens a kind menu next to the add menu");
-      string[] kindNames = kindMenu.GetComponentsInChildren<Button>(true).Select(button => button.name).ToArray();
+      Press(Rows(AddMenu(editor)).Single(button => button.name == "Add Shape"));
+      RectTransform kindMenu = Field<ListMenu>(Kind<ShapeKind>(editor), "_menu").Root;
+      Assert(kindMenu != null && AddMenu(editor) != null, "Shape opens a kind menu next to the add menu");
+      string[] kindNames = Rows(kindMenu).Select(button => button.name).ToArray();
       Assert(kindNames.SequenceEqual(new[] { "Add Square", "Add Triangle", "Add Circle" }), "the kinds are square, triangle and circle");
-      Rect addRect = (Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { Field<RectTransform>(editor, "_addMenu") });
-      Rect kindRect = (Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { kindMenu });
+      Rect addRect = PopoverPlacement.ScreenRect(AddMenu(editor));
+      Rect kindRect = PopoverPlacement.ScreenRect(kindMenu);
       Assert(PopoverInside(editor, kindMenu, width, height) && (kindRect.x >= addRect.xMax - .5f || kindRect.xMax <= addRect.x + .5f),
         "the kind menu sits beside the add menu, on screen");
       Assert(!kindRect.Overlaps(editor.ToolbarBounds), "the kind menu leaves the toolbar uncovered");
+      foreach (TextMeshProUGUI label in kindMenu.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "shape kind label fits: " + label.text);
+      }
       SaveFrame(camera, texture, canvases, name + "-shape-kinds");
-      kindMenu.GetComponentsInChildren<Button>(true).Single(button => button.name == "Add Square").onClick.Invoke();
+      Press(Rows(kindMenu).Single(button => button.name == "Add Square"));
+      Assert(AddMenu(editor) == null && Field<ListMenu>(Kind<ShapeKind>(editor), "_menu").Root == null, "adding closes the menu and its list");
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
-      OverlayShapeEditor shapes = Field<OverlayShapeEditor>(editor, "_shapeEditor");
+      OverlayShapeEditor shapes = (OverlayShapeEditor)Kind<ShapeKind>(editor).Editor;
       Assert(shape.Enabled && shape.Shape.Kind == OverlayShapeKind.Square && shapes.IsOpen, "a new square opens its editor at once");
       Assert(editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "the shape editor covers native viewers");
       float scale = shape.EffectiveScale;
       OverlayInputDock dock = Field<OverlayInputDock>(shapes, "_dock");
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
-        && dock.Keypad.Root.GetComponentsInChildren<Button>(true).All(button => !button.interactable),
+        && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
-      dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value combo").onClick.Invoke();
+      Press(DockChip(dock, "Value combo"));
       Assert(Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
-      OverlayFormulaField widthField = Field<OverlayFormulaField>(shapes, "_widthField"), heightField = Field<OverlayFormulaField>(shapes, "_heightField");
+      OverlayFormulaField widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
       Rect restingDock = ScreenRectOf(dock.Root);
       Assert(InsideScreen(restingDock) && restingDock.yMax < ScreenRectOf(widthField.Root).yMin, "the shape and its numbers stay above the dock");
-      Rect shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
       Rect wRect = ScreenRectOf(widthField.Root), hRect = ScreenRectOf(heightField.Root);
       Assert(wRect.yMax < shapeRect.yMin && Mathf.Abs(wRect.center.x - shapeRect.center.x) < 1, "W sits under the shape");
       Assert(hRect.xMin > shapeRect.xMax && Mathf.Abs(hRect.center.y - shapeRect.center.y) < 1, "H sits to its right");
-      Assert(shapes.GetType().GetField("_widthLine", Private) == null, "no dimension lines");
-      List<Button> arcs = Field<List<Button>>(shapes, "_arcs");
+      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeMeasures) }.All(type => type.GetField("_widthLine", Private) == null), "no dimension lines");
+      List<Button> arcs = Field<List<Button>>(Measures(shapes), "_arcs");
       Assert(arcs.Count == 4 && arcs.All(arc => arc.gameObject.activeSelf), "a square has an arc at each corner");
-      Assert(Field<List<OverlayFormulaField>>(shapes, "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
+      Assert(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
         "rounding values stay hidden until an arc is clicked");
       foreach (Button arc in arcs)
       {
@@ -320,28 +405,32 @@ namespace Element.Editor
           Assert(Vector2.Dot(outward, away) > 0, "an arc faces away from the shape");
         }
       }
-      OverlayBarButton fillButton = Field<OverlayBarButton>(shapes, "_fillButton"), strokeButton = Field<OverlayBarButton>(shapes, "_strokeButton"),
-        strokeWidth = Field<OverlayBarButton>(shapes, "_strokeWidth"), shapeGrow = Field<OverlayBarButton>(shapes, "_growButton");
+      OverlayBarButtonModel fillButton = ShapeColorsOf(shapes).FillButton, strokeButton = ShapeColorsOf(shapes).StrokeButton,
+        strokeWidth = ShapeNumbersOf(shapes).StrokeWidth, shapeGrow = Grow(shapes).Button;
+      CheckEditorTopLine(shapes, "Shape editor", L("도형 편집", "Edit shape"));
       Assert(shapeGrow.Value.Contains(Korean(name) ? "자동" : "Auto"), "the grow button says where the shape grows from");
-      Assert(shapes.GetType().GetField("_fillOpacity", Private) == null && shapes.GetType().GetField("_strokeOpacity", Private) == null,
+      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
         "opacity lives in the color picker, not the bar");
-      OverlayBarButton[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
+      OverlayBarButtonModel[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
       string[] shapeLabels = Korean(name) ? new[] { "채우기", "테두리", "테두리 두께", "기준점" } : new[] { "Fill", "Border", "Border width", "Grow from" };
       for (int i = 0; i < shapeBar.Length; i++)
       {
-        Assert(shapeBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == shapeLabels[i]),
-          "each bar button says what it is: " + shapeLabels[i]);
-        Assert(shapeBar[i].Root.GetComponent<Button>().targetGraphic.transform == shapeBar[i].Root, "a bar button lights up where it is drawn");
+        Pressable drawn = BarButton(shapes, shapeBar[i]);
+        Assert(drawn.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == shapeLabels[i]),
+          "each row says what it is: " + shapeLabels[i]);
+        Assert(drawn.targetGraphic.transform == drawn.transform, "a row lights up where it is drawn");
         if (i > 0)
-          Assert(ScreenRectOf(shapeBar[i].Root).xMin > ScreenRectOf(shapeBar[i - 1].Root).xMax, "bar buttons sit side by side");
+          Assert(BarButtonRect(shapes, shapeBar[i]).yMax <= BarButtonRect(shapes, shapeBar[i - 1]).yMin + .5f, "rows stack one under another");
       }
-      Assert(strokeWidth.Value.Length > 0 && !strokeWidth.Computed, "the border width shows its number");
+      Assert(strokeWidth.Value.Length > 0 && !strokeWidth.IsComputed
+        && BarButton(shapes, strokeWidth).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == strokeWidth.Value),
+        "the border width shows its number");
       foreach (OverlayFormulaField measure in new[] { widthField, heightField })
         Assert(measure.Root.GetComponent<Button>().targetGraphic.transform == measure.Root,
           "W and H light up exactly where the pill is drawn: " + measure.Name);
-      Assert(!Field<RectTransform>(shapes, "_bar").GetComponentsInChildren<Button>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
+      Assert(!EditorBarRoot(shapes).GetComponentsInChildren<Pressable>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
         "numbers have no − and + buttons");
-      RectTransform bar = Field<RectTransform>(shapes, "_bar");
+      RectTransform bar = EditorBarRoot(shapes);
       foreach (TextMeshProUGUI label in bar.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
@@ -352,18 +441,21 @@ namespace Element.Editor
 
       // Clicking W opens the input dock; the shape moves up to stay in sight.
       Click(widthField.Root, "Width");
-      OverlayFormulaEditing editing = Field<OverlayFormulaEditing>(shapes, "_editing");
+      OverlayFormulaEditing editing = ShapeNumbersOf(shapes).Editing;
       Assert(dock.Owner == "width" && editing.Active && editing.Working.Serialize() == "160",
         "W opens the input dock with its number");
       Rect dockRect = ScreenRectOf(dock.Root);
-      shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      shapeRect = ScreenRectOf(ShapeRect(shapes));
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
-      Assert(dock.Content.GetComponentsInChildren<Button>(true).Count(button => button.name.StartsWith("Value ")) == OverlayValueCatalog.All.Count(value => !OverlayValueCatalog.IsLegacy(value)),
+      Assert(DockChips(dock).Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
         "every value is laid out at once");
-      Assert(dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key clear")
-        && dock.Keypad.Root.GetComponentsInChildren<Button>(true).Any(button => button.name == "Key done"), "the keypad has AC and Done");
+      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayInputDockView.ChipHeight) > .5f);
+      Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
+        + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
+      Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
+      Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number open every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         if (label.GetComponentInParent<ScrollRect>() != null || label.name == "Formula" || label.richText)
@@ -373,24 +465,24 @@ namespace Element.Editor
       }
       SaveFrame(camera, texture, canvases, name + "-shape-dock");
       foreach (char key in "\b\b\b240")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       OverlayShapeSettings working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 240) < .01f && widthField.Text == "240", "keypad digits set the width as they are typed");
-      Call(shapes, "KeypadPress", '0');
-      Call(shapes, "KeypadPress", '0');
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key done").onClick.Invoke();
+      ShapeNumbersOf(shapes).KeypadPress('0');
+      ShapeNumbersOf(shapes).KeypadPress('0');
+      Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
         && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Contains("10000"),
         "Done lets the dock rest; a width past the limit is kept in range and says so");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 160) < .01f, "keypad typing undoes as one step");
 
       // A value picked in the dock: the formula in the dock, the result on W.
       Click(widthField.Root, "Width");
-      dock.Content.GetComponentsInChildren<Button>(true).Single(chip => chip.name == "Value progress-current").onClick.Invoke();
-      Call(shapes, "KeypadPress", '*');
-      Call(shapes, "KeypadPress", '3');
+      Press(DockChip(dock, "Value progress-current"));
+      ShapeNumbersOf(shapes).KeypadPress('*');
+      ShapeNumbersOf(shapes).KeypadPress('3');
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.WidthFormula == "{progress-current}*3", "the keypad calculates with the value: " + working.WidthFormula);
       Assert(dock.FormulaText.Contains("×") && dock.ResultText.Contains("144"), "the dock shows the formula and its result: " + dock.FormulaText + " / " + dock.ResultText);
@@ -402,148 +494,177 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.ProgressCurrent);
       Call(shapes, "FollowLiveValues");
       Assert(widthField.Text == "144", "without live data the example comes back");
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key clear").onClick.Invoke();
+      Press(DockKey(dock, "Key clear"));
       Assert(editing.Working.IsEmpty && working.WidthFormula == "{progress-current}*3", "AC starts over without losing the width yet");
-      Call(shapes, "KeypadPress", '9');
-      Call(shapes, "KeypadPress", '0');
+      Assert(DockKey(dock, "Key 7").IsInteractable() && DockKey(dock, "Key −").IsInteractable() && !DockKey(dock, "Key +").IsInteractable()
+        && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key clear").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
+        "after AC only what can start a number can be pressed");
+      Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<TextMeshProUGUI>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<TextMeshProUGUI>().color;
+      Assert(plusInk.a < minusInk.a * .5f, "a key that would do nothing reads dimmed: " + plusInk + " / " + minusInk);
+      ShapeNumbersOf(shapes).KeypadPress('9');
+      ShapeNumbersOf(shapes).KeypadPress('0');
       Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing after AC replaces the formula");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.WidthFormula == "{progress-current}*3", "undo brings the formula back");
       Click(heightField.Root, "Height");
       Assert(dock.Owner == "height", "another number switches the dock to it");
       SaveFrame(camera, texture, canvases, name + "-shape-values");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
 
       // Dragging still works: words are refused, numbers land on the number.
       Vector2 heightPoint = ScreenCenter(heightField.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
-      Call(shapes, "EndValueDrag", heightPoint);
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
+      ShapeDrops(shapes).EndValueDrag(heightPoint);
       Assert(working.HeightFormula == "" && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
-      Vector2 strokePoint = ScreenCenter(strokeWidth.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
-      Assert(Field<int>(strokeWidth, "_drop") == 1, "the border width lights up for a number dragged over it");
-      Call(shapes, "EndValueDrag", strokePoint);
-      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active,
+      Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
+      Assert(strokeWidth.Drop == 1 && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
+      ShapeDrops(shapes).EndValueDrag(strokePoint);
+      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == 0,
         "a value dropped on the border width opens it in the dock");
-      Assert(strokeWidth.Computed && strokeWidth.Value == "99.5", "the border width shows the result, marked as calculated: " + strokeWidth.Value);
-      Call(shapes, "Undo");
+      Assert(strokeWidth.IsComputed && strokeWidth.Value == "99.5" && strokeWidth.ValueInk.Value.Equals((ElementUI.UiColor)UiPalette.SoftAccent),
+        "the border width shows the result, marked as calculated: " + strokeWidth.Value);
+      ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
 
       // A corner's arc opens its rounding, shown beside the arc.
       arcs[2].onClick.Invoke();
-      OverlayFormulaField radius = Field<List<OverlayFormulaField>>(shapes, "_radiusFields")[2];
+      OverlayFormulaField radius = Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields")[2];
       Assert(dock.Owner == "radius:2" && radius.Root.gameObject.activeSelf, "an arc opens its corner's rounding with its value");
       foreach (char key in "\b\b\b20")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       Assert(radius.Text == "20", "the rounding value follows the keypad");
       CheckShapeLayout(shapes, width, height);
       SaveFrame(camera, texture, canvases, name + "-shape-corner");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
       Call(shapes, "Render");
       Assert(Mathf.Abs(working.Points[2].Radius * scale - 20) < .01f && working.Points[0].Radius == 0 && !radius.Root.gameObject.activeSelf,
         "one corner rounds; its value hides again");
 
       // Colors open right above the keypad: the keypad below types the
       // opacity and the values beside it can be dropped on it.
-      fillButton.Button.onClick.Invoke();
-      SettingsColorPicker picker = Field<SettingsColorPicker>(shapes, "_picker");
+      PressBar(shapes, fillButton);
+      UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
-      Rect keypadRect = ScreenRectOf(dock.Keypad.Root);
+      Rect keypadRect = KeypadRect(dock);
       // Two columns: it ends with the keypad and reaches further left.
-      Assert(picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy && pickerRect.xMin < keypadRect.xMin
-        && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1 && pickerRect.yMin - dockArea.yMax < 20
-        && InsideScreen(pickerRect), "the picker opens right above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
-      Assert(!pickerRect.Overlaps(ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
+      Assert(picker.Column && Shown(DockKey(dock, "Key done")) && pickerRect.xMin < keypadRect.xMin
+        && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1
+        && InsideScreen(pickerRect), "the picker opens above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
+      AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
+      Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
         "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
-      OverlayOpacityField opacity = Field<OverlayOpacityField>(shapes, "_opacity");
+      OverlayOpacityField opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
-        && !Field<TMP_InputField>(picker, "_opacity").gameObject.activeSelf && opacity.Field.Text == "100",
+        && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
-      RectTransform plane = Field<RectTransform>(picker, "_planeRect");
+      Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Segment(picker.Root, 0)),
+        "a new shape follows the highlight: only its opacity shows, with Highlight/Custom");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
-      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
       Call(shapes, "Render");
+      Settle();
+      Assert(!picker.Model.FollowsHighlight && working.Fill.Highlight == false, "Custom gives the fill a color of its own");
+      RectTransform plane = (RectTransform)ColorPickerProbe.Plane(picker.Root).transform;
       pickerRect = ScreenRectOf(picker.Root);
-      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_hue").transform),
-        alphaRect = ScreenRectOf((RectTransform)Field<Slider>(picker, "_alpha").transform),
-        hexRect = ScreenRectOf((RectTransform)Field<TMP_InputField>(picker, "_hex").transform);
+      Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hue(picker.Root).transform),
+        alphaRect = ScreenRectOf((RectTransform)ColorPickerProbe.Alpha(picker.Root).transform),
+        hexRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hex(picker.Root).transform);
       Assert(Mathf.Abs(plane.rect.width - 256) < .01f && Mathf.Abs(plane.rect.height - 156) < .01f, "the color square keeps its full size");
       Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y && alphaRect.center.y > hexRect.center.y
-        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && !Field<TextMeshProUGUI>(picker, "_title").gameObject.activeSelf,
+        && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && ColorPickerProbe.Title(picker.Root) == null
+        && ColorPickerProbe.Close(picker.Root) == null,
         "top to bottom: Highlight/Custom, the square, hue, opacity, then HEX with opacity, without a title or card");
+      Assert(ColorPickerProbe.Plane(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
+        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,
+        "the square and the bars keep their crosshair and slider cursors in the editor's panel");
       float topGap = ((RectTransform)picker.Root).anchoredPosition.y;
       Assert(pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1 || Mathf.Abs(-topGap - (OverlayEditorFrame.TopBar + 8)) < 1,
-        "with the color square, it still sits above the dock, or right under the top bar on a short screen: " + pickerRect + " top " + topGap);
+        "with the color square, it still sits above the dock, or right under the header on a short screen: " + pickerRect + " top " + topGap);
+      AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
       foreach (TextMeshProUGUI label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "docked picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, canvases, name + "-shape-color-custom");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       Assert(picker.Commit() && working.Fill.Hex == "#2050A0", "the fill takes the new color");
-      Slider alphaSlider = Field<Slider>(picker, "_alpha");
+      Slider alphaSlider = ColorPickerProbe.Alpha(picker.Root);
       opacity.Field.Root.GetComponent<Button>().onClick.Invoke();
-      Assert(picker.Visible && dock.Owner == "fill-opacity" && Field<OverlayFormulaEditing>(shapes, "_editing").Working.Serialize() == "100",
+      Assert(picker.Visible && dock.Owner == "fill-opacity" && ShapeNumbersOf(shapes).Editing.Working.Serialize() == "100",
         "clicking the opacity types it in the dock, with the picker still open");
-      Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "the keypad below types the opacity, the picker staying open");
+      Assert(picker.Visible && Shown(DockKey(dock, "Key done")), "the keypad below types the opacity, the picker staying open");
       foreach (char key in "\b\b\b50")
-        Call(shapes, "KeypadPress", key);
+        ShapeNumbersOf(shapes).KeypadPress(key);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
+      Settle();
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f && working.Fill.AlphaFormula == "" && Mathf.Abs(alphaSlider.value - .5f) < .001f
         && opacity.Field.Text == "50", "a typed opacity moves the slider");
-      Call(shapes, "FinishEditing");
+      ShapeNumbersOf(shapes).FinishEditing();
       Assert(picker.Visible && dock.Owner == null, "done typing, the picker stays open for the color");
       Vector2 opacityPoint = ScreenCenter(opacity.Field.Root);
-      Call(shapes, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Accuracy), opacityPoint);
+      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), opacityPoint);
       Assert(picker.Visible && Field<int>(opacity.Field, "_drop") == 1, "the picker stays open while a value is dragged, and its opacity lights up");
-      Call(shapes, "EndValueDrag", opacityPoint);
+      ShapeDrops(shapes).EndValueDrag(opacityPoint);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "accuracy" && dock.Owner == "fill-opacity" && opacity.Field.Computed && opacity.Field.Text == "99.5",
         "a value dropped on the opacity calculates it: " + working.Fill.AlphaFormula + " / " + opacity.Field.Text);
+      Settle();
       Assert(Mathf.Abs(alphaSlider.value - .995f) < .001f && Mathf.Abs(working.Fill.Alpha - .5f) < .001f,
         "the slider shows the result; the plain opacity stays underneath");
       Assert(dock.ResultText.Contains("99.5%"), "the dock shows the opacity in percent: " + dock.ResultText);
       SaveFrame(camera, texture, canvases, name + "-shape-opacity");
-      Field<TMP_InputField>(picker, "_hex").text = "#3060B0";
+      ColorPickerProbe.Hex(picker.Root).text = "#3060B0";
+      // A frame passes after typing, as it does between keys and undo.
+      Settle();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.Hex == "#3060B0" && working.Fill.AlphaFormula == "accuracy", "a new color keeps the calculated opacity");
       Assert(picker.Commit() && Field<OverlayShapeSettings>(shapes, "_shape").Fill.AlphaFormula == "accuracy", "confirming the picker keeps it too");
-      Call(shapes, "Undo");
+      ShapeHistory(shapes).Undo();
+      Settle();
       Assert(picker.Visible && Field<OverlayShapeSettings>(shapes, "_shape").Fill.Hex == "#2050A0"
-        && Field<TMP_InputField>(picker, "_hex").text == "2050A0", "undo keeps the picker open, showing the restored color");
-      Call(shapes, "Redo");
+        && ColorPickerProbe.Hex(picker.Root).text == "2050A0", "undo keeps the picker open, showing the restored color: "
+        + ColorPickerProbe.Hex(picker.Root).text);
+      ShapeHistory(shapes).Redo();
       alphaSlider.value = .3f;
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "" && Mathf.Abs(working.Fill.Alpha - .3f) < .01f && !opacity.Field.Computed && opacity.Field.Text == "30",
         "moving the slider makes it a plain number again: " + opacity.Field.Text);
-      Call(shapes, "CloseEditing");
-      Field<TMP_InputField>(picker, "_hex").text = "#2050A0";
+      Call(shapes, "CloseOpen");
+      ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      strokeButton.Button.onClick.Invoke();
+      PressBack(shapes);
+      Assert(!picker.Visible && !fillButton.Active, "back closes the fill's picker");
+      PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
-        && dock.HintText.Contains(Korean(name) ? "테두리 색" : "border color"), "Border switches the picker to its color, in the same place");
-      strokeButton.Button.onClick.Invoke();
-      Assert(!picker.Visible && !strokeButton.Active && dock.Keypad.Root.gameObject.activeSelf, "clicking it again closes the picker and brings the keypad back");
+        && dock.HintText.Contains(Korean(name) ? "테두리 색" : "border color"), "Border opens the picker on its color, in the same place");
+      AssertInColumn(shapes, picker.Root, L("테두리 색", "Border color"));
+      PressBack(shapes);
+      Assert(!picker.Visible && !strokeButton.Active && Shown(DockKey(dock, "Key done")), "back closes the picker; the rows and the keypad stay");
 
       // Where the shape grows from.
-      shapeGrow.Button.onClick.Invoke();
-      OverlayGrowPopover grow = Field<OverlayGrowPopover>(shapes, "_growPopover");
+      PressBar(shapes, shapeGrow);
+      OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(shapes), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its own popover, on screen");
-      Assert(ScreenRectOf(grow.Root).yMax <= ScreenRectOf(shapeGrow.Root).yMin, "the grow popover hangs under its button");
-      Call(shapes, "PickGrowth", OverlayGrowth.TopLeft);
-      Assert(Field<SettingsCapsuleGraphic>(shapes, "_growMark").gameObject.activeSelf, "the preview marks the point that stays put");
+      AssertInColumn(shapes, grow.Root, L("기준점", "Grow from"));
+      CheckGrowPopover(Grow(shapes));
+      Call(Grow(shapes), "Pick", OverlayGrowth.TopLeft);
+      Assert(Field<UiCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
       Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
       SaveFrame(camera, texture, canvases, name + "-shape-grow");
-      Call(shapes, "CloseEditing");
+      Call(shapes, "CloseOpen");
       Call(shapes, "Render");
       SaveFrame(camera, texture, canvases, name + "-shape-edited");
 
-      shapes.Close(true, true);
+      PressEditorButton(shapes, "Shape editor done");
       Assert(!shapes.IsOpen && shape.Shape.WidthFormula == "{progress-current}*3" && shape.Shape.Fill.Hex == "#2050A0"
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "Done saves the shape and where it grows from");
       Assert(Mathf.Abs(shape.Resolved.Width * scale - 144) < .5f, "the canvas shape follows its formula");
@@ -564,25 +685,24 @@ namespace Element.Editor
 
       // On the canvas: Edit shape where the scale was; cancel keeps it as it was.
       Select(editor, IndexOf(editor, shape));
-      Call(editor, "UpdateToolbar");
-      Button editContent = Field<Button>(editor, "_editContent");
-      Assert(Field<RectTransform>(editor, "_settingsPanel") == null && editContent.gameObject.activeSelf
+      Pressable editContent = ToolbarButton(editor, "Edit element");
+      Assert(ElementBar(editor).Root == null && Shown(editContent)
         && editContent.GetComponentInChildren<TextMeshProUGUI>().text == (Korean(name) ? "도형 편집" : "Edit shape"),
         "a selected shape offers Edit shape where the scale was");
-      editContent.onClick.Invoke();
+      Press(editContent);
       Assert(shapes.IsOpen, "Edit shape opens the shape editor");
-      heightField = Field<OverlayFormulaField>(shapes, "_heightField");
+      heightField = Measures(shapes).HeightField;
       Click(heightField.Root, "Height");
-      Call(shapes, "KeypadPress", '9');
-      Call(shapes, "PickGrowth", OverlayGrowth.Center);
-      shapes.Close(false, true);
+      ShapeNumbersOf(shapes).KeypadPress('9');
+      Call(Grow(shapes), "Pick", OverlayGrowth.Center);
+      PressEditorButton(shapes, "Shape editor cancel");
       Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
       // Only Cancel throws an edit away: one open when the editor is torn down
       // (the mod turned off) is kept.
-      editContent.onClick.Invoke();
-      Click(Field<OverlayFormulaField>(shapes, "_heightField").Root, "Height");
-      Call(shapes, "KeypadPress", '9');
+      Press(editContent);
+      Click(Measures(shapes).HeightField.Root, "Height");
+      ShapeNumbersOf(shapes).KeypadPress('9');
       shapes.Dispose();
       Assert(!shapes.IsOpen && Mathf.Abs(shape.Shape.Height * shape.EffectiveScale - 1609) < .01f,
         "an edit open when the editor is torn down is kept: " + shape.Shape.Height * shape.EffectiveScale);
@@ -590,21 +710,39 @@ namespace Element.Editor
       shape.Apply();
 
       // Triangles and circles.
-      Call(editor, "AddShape", OverlayShapeKind.Triangle);
-      Assert(Field<List<Button>>(shapes, "_arcs").Count == 3, "a triangle has three corners");
+      Kind<ShapeKind>(editor).Add(OverlayShapeKind.Triangle);
+      Assert(Field<List<Button>>(Measures(shapes), "_arcs").Count == 3, "a triangle has three corners");
       ShapeOverlayElement triangle = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       CheckShapeLayout(shapes, width, height);
       SaveFrame(camera, texture, canvases, name + "-shape-triangle");
       shapes.Close(false, true);
       Assert(!triangle.Enabled, "cancelling a new shape removes it");
-      Call(editor, "AddShape", OverlayShapeKind.Circle);
-      Assert(Field<List<Button>>(shapes, "_arcs").Count == 0, "circles have only W and H");
+      Kind<ShapeKind>(editor).Add(OverlayShapeKind.Circle);
+      Assert(Field<List<Button>>(Measures(shapes), "_arcs").Count == 0, "circles have only W and H");
       SaveFrame(camera, texture, canvases, name + "-shape-circle");
       shapes.Close(false, true);
       Call(editor, "ClosePopovers");
     }
 
     private static bool Korean(string name) => name.Contains("-ko");
+
+    // The shape editor is made of parts; the checks reach each through its field.
+    private static ShapeMeasures Measures(OverlayShapeEditor shapes) => Field<ShapeMeasures>(shapes, "_measures");
+    private static ShapeNumbers ShapeNumbersOf(OverlayShapeEditor shapes) => Field<ShapeNumbers>(shapes, "_numbers");
+    private static ShapeColors ShapeColorsOf(OverlayShapeEditor shapes) => Field<ShapeColors>(shapes, "_colors");
+    private static ShapeGradient ShapeGradientOf(OverlayShapeEditor shapes) => Field<ShapeGradient>(shapes, "_gradient");
+    private static ShapeValueDrops ShapeDrops(OverlayShapeEditor shapes) => Field<ShapeValueDrops>(shapes, "_drops");
+    private static OverlayEditorHistory<OverlayShapeSettings> ShapeHistory(OverlayShapeEditor shapes) =>
+      Field<OverlayEditorHistory<OverlayShapeSettings>>(shapes, "_history");
+    private static RectTransform ShapeRect(OverlayShapeEditor shapes) => Field<RectTransform>(Field<ShapePreview>(shapes, "_preview"), "_shapeRect");
+    private static OverlayGrowFrom Grow(object editor) => Field<OverlayGrowFrom>(editor, "_grow");
+
+    // So is the text editor.
+    private static TextDocumentEditing TextDocumentOf(OverlayTextEditor text) => Field<TextDocumentEditing>(text, "_text");
+    private static TextPreview TextPreviewOf(OverlayTextEditor text) => Field<TextPreview>(text, "_preview");
+    private static TextMarks TextMarksOf(OverlayTextEditor text) => Field<TextMarks>(text, "_marks");
+    private static TextFormulas TextFormulasOf(OverlayTextEditor text) => Field<TextFormulas>(text, "_formulas");
+    private static TextColor TextColorOf(OverlayTextEditor text) => Field<TextColor>(text, "_color");
 
     // Presses a field's number (its body button is named after the field).
     private static void Click(RectTransform field, string buttonName)
@@ -628,7 +766,7 @@ namespace Element.Editor
     private static void CheckShapeLayout(OverlayShapeEditor shapes, int width, int height)
     {
       GameObject root = Field<OverlayEditorFrame>(shapes, "_screen").Root;
-      foreach (RectTransform rect in root.GetComponentsInChildren<SettingsCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
+      foreach (RectTransform rect in root.GetComponentsInChildren<UiCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
       {
         if (rect.name == "Dragged value" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
           continue;
@@ -636,12 +774,12 @@ namespace Element.Editor
       }
       List<OverlayFormulaField> measures = new List<OverlayFormulaField>
       {
-        Field<OverlayFormulaField>(shapes, "_widthField"), Field<OverlayFormulaField>(shapes, "_heightField"),
+        Measures(shapes).WidthField, Measures(shapes).HeightField,
       };
-      Rect shapeRect = ScreenRectOf(Field<RectTransform>(shapes, "_shapeRect"));
+      Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
       foreach (OverlayFormulaField field in measures)
         Assert(!ScreenRectOf(field.Root).Overlaps(shapeRect), "W and H stay off the shape: " + field.Name);
-      measures.AddRange(Field<List<OverlayFormulaField>>(shapes, "_radiusFields"));
+      measures.AddRange(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields"));
       List<OverlayFormulaField> shown = measures.Where(field => field.Root.gameObject.activeInHierarchy).ToList();
       for (int i = 0; i < shown.Count; i++)
       for (int j = i + 1; j < shown.Count; j++)
@@ -662,7 +800,7 @@ namespace Element.Editor
       {
         new OverlayLayoutSettings { Id = "judgement", Customized = true, Text = new OverlayTextSettings() },
       };
-      layouts[0].Text.Runs.AddRange(OverlayElementMigration.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
+      layouts[0].Text.Runs.AddRange(OverlayDefaultRuns.Judgements(OverlayColorSettings.Custom("#D958FF"), 0));
       var serializer = new System.Xml.Serialization.XmlSerializer(typeof(List<OverlayLayoutSettings>));
       using (var file = new MemoryStream())
       {
@@ -681,8 +819,8 @@ namespace Element.Editor
       RenderTexture texture, Canvas[] canvases, string name)
     {
       var before = new LayoutSnapshot(host.LayoutSettings);
-      List<IOverlayLayoutTarget> selection = Field<List<IOverlayLayoutTarget>>(editor, "_selection");
-      GameObject root = Field<GameObject>(editor, "_root");
+      List<IOverlayLayoutTarget> selection = Selection(editor).Targets;
+      GameObject root = Session(editor).Root;
       // Three texts spread across the screen: the leftmost, the one nearest the middle, the rightmost.
       List<IOverlayLayoutTarget> shown = host.LayoutTargets.OfType<TextOverlayElement>().Where(text => text.Available && text.Enabled)
         .Cast<IOverlayLayoutTarget>().ToList();
@@ -692,82 +830,90 @@ namespace Element.Editor
       IOverlayLayoutTarget[] texts = { leftmost, middle, rightmost };
       Assert(leftmost.Bounds.xMax < middle.Bounds.xMin && middle.Bounds.xMax < rightmost.Bounds.xMin, "three texts apart from each other");
       int a = IndexOf(editor, texts[0]), b = IndexOf(editor, texts[1]), c = IndexOf(editor, texts[2]);
-      Call(editor, "SelectOnly", a);
-      Call(editor, "ToggleSelection", b);
+      Selection(editor).SelectOnly(a);
+      Selection(editor).Toggle(b);
       Call(editor, "UpdateFrames");
-      Assert(selection.Count == 2 && selection.Contains(texts[0]) && selection.Contains(texts[1]) && Field<int>(editor, "_selected") == b,
+      Assert(selection.Count == 2 && selection.Contains(texts[0]) && selection.Contains(texts[1]) && Selection(editor).Selected == b,
         "Cmd/Ctrl + click adds an element");
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 2, "each selected element has its outline");
       Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).All(outline => !Field<bool>(outline, "_handles")),
         "several selected show no resize handles");
-      Assert(Field<TextMeshProUGUI>(editor, "_instruction").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
-      TMP_InputField scaleInput = Field<TMP_InputField>(editor, "_scaleInput");
-      Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && scaleInput.gameObject.activeSelf && !scaleInput.interactable
-        && scaleInput.text == "—" && Field<Button>(editor, "_delete").interactable && Field<Button>(editor, "_reset").interactable,
-        "several selected: no Edit, the scale greys out, delete and reset stay");
-      RectTransform bar = Field<RectTransform>(editor, "_settingsPanel");
-      Assert(bar != null && bar.gameObject.activeSelf, "several selected get the align toolbar");
-      Func<LayoutAction, Button> arrange = kind =>
-        bar.GetComponentsInChildren<Button>(true).Single(button => button.GetComponentInChildren<LayoutActionIcon>()?.Kind == kind);
-      Assert(arrange(LayoutAction.AlignLeft).interactable && !arrange(LayoutAction.DistributeHorizontal).interactable
-        && !arrange(LayoutAction.DistributeVertical).interactable, "two can be aligned; spacing waits for three");
+      Settle();
+      Assert(ByName<TextMeshProUGUI>(Toolbar(editor).Root, "Selection").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
+      TMP_InputField scaleInput = ScaleField(editor);
+      Assert(!Shown(ToolbarButton(editor, "Edit element")) && Shown(scaleInput) && !scaleInput.interactable
+        && scaleInput.text == "—" && !Shown(ByName<TextMeshProUGUI>(Toolbar(editor).Root, "%"))
+        && ToolbarButton(editor, "Delete element").IsInteractable() && ToolbarButton(editor, "Reset element").IsInteractable()
+        && !ToolbarButton(editor, "Increase size").IsInteractable() && !ToolbarButton(editor, "Decrease size").IsInteractable(),
+        "several selected: no Edit, the scale greys out without its percent sign, delete and reset stay");
+      RectTransform bar = ElementBar(editor).Root;
+      Assert(bar != null && bar.gameObject.activeSelf && ElementBar(editor).Model is LayoutArrangeModel, "several selected get the align toolbar");
+      Func<UiIconKind, Pressable> arrange = kind =>
+        bar.GetComponentsInChildren<Pressable>(true).Single(button => button.GetComponentInChildren<UiIcon>()?.Kind == kind);
+      Assert(arrange(UiIconKind.AlignLeft).IsInteractable() && !arrange(UiIconKind.DistributeHorizontal).IsInteractable()
+        && !arrange(UiIconKind.DistributeVertical).IsInteractable()
+        && arrange(UiIconKind.DistributeVertical).GetComponentInChildren<UiIcon>().color == UiPalette.Disabled,
+        "two can be aligned; spacing waits for three, greyed");
+      Vector2 barGrip = PointerOn(ByName<RectTransform>(bar, "Drag element toolbar"));
+      Assert(!ElementBar(editor).ControlAt(barGrip) && ElementBar(editor).ControlAt(PointerOn((RectTransform)arrange(UiIconKind.AlignLeft).transform)),
+        "the align toolbar drags from its grip; its buttons take their presses");
       Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
       object[] hit = { texts[0].Bounds.center, null };
-      Assert((int)editor.GetType().GetMethod("FindTarget", Private).Invoke(editor, hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
+      Assert((int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
         "each selected element moves the group");
-      Call(editor, "ToggleSelection", b);
+      Selection(editor).Toggle(b);
       Call(editor, "UpdateFrames");
-      Assert(selection.Count == 1 && selection[0] == texts[0] && Field<int>(editor, "_selected") == a && Field<RectTransform>(editor, "_settingsPanel") == null,
+      Assert(selection.Count == 1 && selection[0] == texts[0] && Selection(editor).Selected == a && ElementBar(editor).Root == null,
         "a second modifier click takes it out again");
 
       // The marquee: only what lies fully inside.
       Rect covered = Rect.MinMaxRect(texts.Min(t => t.SelectionBounds.xMin) - 4, texts.Min(t => t.SelectionBounds.yMin) - 4,
         texts.Max(t => t.SelectionBounds.xMax) + 4, texts.Max(t => t.SelectionBounds.yMax) + 4);
-      Call(editor, "SelectOnly", -1);
-      Call(editor, "BeginMarquee", covered.min, -1, false);
-      SetField(editor, "_marqueeActive", true);
-      Call(editor, "SelectInside", covered.max);
-      Call(editor, "DrawMarquee", covered.max);
+      Selection(editor).SelectOnly(-1);
+      Marquee(editor).Begin(covered.min, -1, false);
+      SetField(Marquee(editor), "_active", true);
+      Call(Marquee(editor), "SelectInside", covered.max);
+      Call(Marquee(editor), "Draw", covered.max);
       Call(editor, "UpdateFrames");
       Assert(texts.All(selection.Contains) && selection.All(t => covered.Contains(t.SelectionBounds.min) && covered.Contains(t.SelectionBounds.max)),
         "dragging over the canvas selects what lies fully inside");
-      Assert(Field<Image>(editor, "_marqueeFill").gameObject.activeSelf, "the selected area is drawn while dragging");
+      Assert(Field<Image>(Marquee(editor), "_fill").gameObject.activeSelf, "the selected area is drawn while dragging");
       SaveFrame(camera, texture, canvases, name + "-multi-marquee");
-      Call(editor, "EndMarquee");
-      Assert(!Field<Image>(editor, "_marqueeFill").gameObject.activeSelf, "the area disappears on release");
+      Marquee(editor).End();
+      Assert(!Field<Image>(Marquee(editor), "_fill").gameObject.activeSelf, "the area disappears on release");
       Rect inner = texts[0].SelectionBounds;
-      Call(editor, "BeginMarquee", inner.min + Vector2.one, -1, false);
-      SetField(editor, "_marqueeActive", true);
-      Call(editor, "SelectInside", inner.max + Vector2.one * 4);
+      Marquee(editor).Begin(inner.min + Vector2.one, -1, false);
+      SetField(Marquee(editor), "_active", true);
+      Call(Marquee(editor), "SelectInside", inner.max + Vector2.one * 4);
       Assert(!selection.Contains(texts[0]), "an element only partly inside stays out");
-      Call(editor, "EndMarquee");
-      Call(editor, "SelectOnly", a);
+      Marquee(editor).End();
+      Selection(editor).SelectOnly(a);
       Rect third = texts[2].SelectionBounds;
-      Call(editor, "BeginMarquee", third.min - Vector2.one * 3, -1, true);
-      SetField(editor, "_marqueeActive", true);
-      Call(editor, "SelectInside", third.max + Vector2.one * 3);
+      Marquee(editor).Begin(third.min - Vector2.one * 3, -1, true);
+      SetField(Marquee(editor), "_active", true);
+      Call(Marquee(editor), "SelectInside", third.max + Vector2.one * 3);
       Assert(selection.Contains(texts[0]) && selection.Contains(texts[2]), "Cmd/Ctrl + drag adds to the selection, even starting on an element");
-      Call(editor, "EndMarquee");
+      Marquee(editor).End();
       // Released without moving: a modifier click toggles, a plain one on empty space clears.
-      Call(editor, "BeginMarquee", texts[1].Bounds.center, b, true);
-      Call(editor, "ReleaseMarquee");
+      Marquee(editor).Begin(texts[1].Bounds.center, b, true);
+      Marquee(editor).Release();
       Assert(selection.Count == 3 && selection.Contains(texts[1]), "a modifier click without moving adds what it hit");
-      Call(editor, "BeginMarquee", new Vector2(2, 2), -1, false);
-      Call(editor, "ReleaseMarquee");
-      Assert(selection.Count == 0 && Field<int>(editor, "_selected") == -1, "a click on empty space clears the selection");
+      Marquee(editor).Begin(new Vector2(2, 2), -1, false);
+      Marquee(editor).Release();
+      Assert(selection.Count == 0 && Selection(editor).Selected == -1, "a click on empty space clears the selection");
 
       // Moving all three, as one undo step.
       foreach (int index in new[] { a, b, c })
-        Call(editor, "ToggleSelection", index);
+        Selection(editor).Toggle(index);
       bool snapping = settings.LayoutSnapping;
       settings.LayoutSnapping = false;
       Rect[] start = texts.Select(t => t.Bounds).ToArray();
       Vector2 grab = texts[1].Bounds.center;
-      SetField(editor, "_lastClickTime", -10f);
+      SetField(Drag(editor), "_lastClickTime", -10f);
       Call(editor, "PressElement", b, LayoutHandle.Move, grab);
-      Assert(selection.Count == 3 && Field<int>(editor, "_dragging") == b, "pressing one of several keeps them all");
-      SetField(editor, "_pressMoved", true);
-      Call(editor, "DragGroup", grab + new Vector2(30, 20));
+      Assert(selection.Count == 3 && Drag(editor).Dragging == b, "pressing one of several keeps them all");
+      SetField(Drag(editor), "_pressMoved", true);
+      Call(Drag(editor), "DragGroup", grab + new Vector2(30, 20));
       Call(editor, "FinishDrag");
       settings.LayoutSnapping = snapping;
       for (int i = 0; i < 3; i++)
@@ -775,35 +921,38 @@ namespace Element.Editor
           "dragging one moves every selected element the same: " + texts[i].Id);
       Call(editor, "Undo");
       Assert(texts.Select((t, i) => Vector2.Distance(t.Bounds.position, start[i].position)).All(d => d < 1.5f), "one undo puts them all back");
-      SetField(editor, "_lastClickTime", -10f);
+      SetField(Drag(editor), "_lastClickTime", -10f);
       Call(editor, "PressElement", b, LayoutHandle.Move, grab);
-      Call(editor, "ReleaseDrag");
+      Drag(editor).Release();
       Assert(selection.Count == 1 && selection[0] == texts[1], "a click on one of several, without moving, selects it alone");
       foreach (int index in new[] { a, c })
-        Call(editor, "ToggleSelection", index);
-      Call(editor, "NudgeSelection", 10f, 0f);
+        Selection(editor).Toggle(index);
+      Drag(editor).Nudge(10f, 0f);
       Assert(texts.Select((t, i) => t.Bounds.x - start[i].x).All(d => Mathf.Abs(d - 10) < 1.5f), "arrow keys move every selected element");
-      Field<LayoutHistory>(editor, "_history").Commit(host.LayoutSettings);
+      Session(editor).History.Commit(host.LayoutSettings);
       Call(editor, "Undo");
 
       // Align and distribute.
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(editor, "_settingsPanel");
-      Assert(arrange(LayoutAction.DistributeHorizontal).interactable, "three can be spaced evenly");
-      arrange(LayoutAction.AlignLeft).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Assert(arrange(UiIconKind.DistributeHorizontal).IsInteractable(), "three can be spaced evenly");
+      Press(arrange(UiIconKind.AlignLeft));
       float left = start.Min(r => r.x);
       Assert(texts.All(t => Mathf.Abs(t.Bounds.x - left) < 1.5f), "align left lines them up on the leftmost edge");
       Assert(selection.Count == 3, "aligning keeps the selection");
       SaveFrame(camera, texture, canvases, name + "-multi");
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(editor, "_settingsPanel");
-      arrange(LayoutAction.AlignMiddle).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Press(arrange(UiIconKind.AlignMiddle));
       Assert(texts.Select(t => t.Bounds.center.y).Max() - texts.Select(t => t.Bounds.center.y).Min() < 1.5f, "align middle shares one vertical center");
       Call(editor, "Undo");
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(editor, "_settingsPanel");
-      arrange(LayoutAction.DistributeHorizontal).onClick.Invoke();
+      bar = ElementBar(editor).Root;
+      Settle();
+      Press(arrange(UiIconKind.DistributeHorizontal));
       Rect[] spaced = texts.Select(t => t.Bounds).OrderBy(r => r.x).ToArray();
       Assert(Mathf.Abs((spaced[1].x - spaced[0].xMax) - (spaced[2].x - spaced[1].xMax)) < 1.5f, "distribute leaves the same gaps: "
         + string.Join(" | ", start.Select(r => r.ToString())) + " -> " + string.Join(" | ", spaced.Select(r => r.ToString()))
@@ -814,24 +963,25 @@ namespace Element.Editor
       // A column already evenly spaced: the press says so and changes nothing.
       IOverlayLayoutTarget[] column = new[] { "progress", "accuracy", "time" }
         .Select(id => host.LayoutTargets.First(t => t.Id == id)).ToArray();
-      Call(editor, "SelectOnly", IndexOf(editor, column[0]));
-      Call(editor, "ToggleSelection", IndexOf(editor, column[1]));
-      Call(editor, "ToggleSelection", IndexOf(editor, column[2]));
+      Selection(editor).SelectOnly(IndexOf(editor, column[0]));
+      Selection(editor).Toggle(IndexOf(editor, column[1]));
+      Selection(editor).Toggle(IndexOf(editor, column[2]));
       Call(editor, "UpdateFrames");
-      bar = Field<RectTransform>(editor, "_settingsPanel");
+      bar = ElementBar(editor).Root;
+      Settle();
       Rect[] columnStart = column.Select(t => t.Bounds).ToArray();
-      bool couldUndo = Field<LayoutHistory>(editor, "_history").CanUndo;
-      arrange(LayoutAction.DistributeVertical).onClick.Invoke();
-      Call(editor, "UpdateToolbar");
-      TextMeshProUGUI help = Field<TextMeshProUGUI>(editor, "_keyboardHelp");
+      bool couldUndo = Session(editor).History.CanUndo;
+      Press(arrange(UiIconKind.DistributeVertical));
+      Toolbar(editor).Refresh();
+      TextMeshProUGUI help = StatusLabel(editor);
       Assert(column.Select((t, i) => t.Bounds == columnStart[i]).All(same => same) && help.text.Length > 0
-        && help.color == SettingsUiFactory.Foreground && Field<LayoutHistory>(editor, "_history").CanUndo == couldUndo,
+        && help.color == UiPalette.Foreground && Session(editor).History.CanUndo == couldUndo,
         "spacing an evenly spaced column says it already is, without an undo step: " + help.text);
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "nothing moved");
       foreach (int index in new[] { a, b, c })
-        Call(editor, "ToggleSelection", index);
+        Selection(editor).Toggle(index);
       foreach (IOverlayLayoutTarget member in column)
-        Call(editor, "ToggleSelection", IndexOf(editor, member));
+        Selection(editor).Toggle(IndexOf(editor, member));
       Call(editor, "UpdateFrames");
       Assert(selection.Count == 3 && texts.All(selection.Contains), "back to the three spread texts");
 
@@ -840,11 +990,11 @@ namespace Element.Editor
       Assert(texts.All(t => !t.Enabled) && selection.Count == 0, "delete removes every selected element");
       Call(editor, "Undo");
       Assert(texts.All(t => t.Enabled), "one undo brings them all back");
-      Call(editor, "SelectAll");
+      Selection(editor).SelectAll();
       Call(editor, "UpdateFrames");
       int selectable = host.LayoutTargets.Count(t => t.Available && t.Enabled);
       Assert(selection.Count >= selectable && selection.All(t => t.Available && t.Enabled), "Cmd/Ctrl + A selects every element shown");
-      Call(editor, "SelectOnly", -1);
+      Selection(editor).SelectOnly(-1);
       Call(editor, "UpdateFrames");
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "multi-select leaves the layout as it was");
     }
@@ -853,50 +1003,97 @@ namespace Element.Editor
     {
       viewers.Availability = KeyViewerAvailability.Ready;
       Call(editor, "ToggleAddMenu");
-      Field<RectTransform>(editor, "_addMenu").GetComponentsInChildren<Button>(true).Single(button => button.name == "Add KeyViewer").onClick.Invoke();
+      Press(Rows(AddMenu(editor)).Single(button => button.name == "Add KeyViewer"));
       IOverlayLayoutTarget hand = viewers.Targets.Last();
-      Assert(hand.TemplateId == OverlayElementKinds.HandKeyViewer && Field<int>(editor, "_selected") == IndexOf(editor, hand),
+      Assert(hand.TemplateId == OverlayElementKinds.HandKeyViewer && Selection(editor).Selected == IndexOf(editor, hand),
         "a key viewer is added at once, as a hand viewer");
       Call(editor, "UpdateFrames");
-      SettingsSegmentedControl kind = Field<SettingsSegmentedControl>(editor, "_kindControl");
-      Assert(kind.Selected == 0, "key viewer settings show hand selected");
-      kind.Select(1, true);
+      Settle();
+      KeyViewerBarModel kind = (KeyViewerBarModel)ElementBar(editor).Model;
+      Assert(kind.Viewer == 0 && kind.Target == hand, "key viewer settings show hand selected");
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control shows hand: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the key viewer's toolbar");
+      List<Exception> uiErrors = new List<Exception>();
+      ElementUI.Runtime.ErrorReported += uiErrors.Add;
+      // As the player clicks: the click lands, then the editor's frame runs.
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
       IOverlayLayoutTarget foot = viewers.Targets.Last();
       Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && !hand.Enabled && foot.Bounds.center == hand.Bounds.center,
         "switching to foot replaces the viewer in place");
-      Assert(Field<int>(editor, "_selected") == IndexOf(editor, foot), "the switched viewer stays selected");
-      Button openInApp = Field<RectTransform>(editor, "_settingsPanel").GetComponentsInChildren<Button>(true).Single(button => button.name == "Edit key viewer");
+      Assert(Selection(editor).Selected == IndexOf(editor, foot), "the switched viewer stays selected");
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
+      Assert(ElementBar(editor).Model == kind && kind.Target == foot && kind.Viewer == 1,
+        "the bar follows the switched viewer instead of being made again");
+      Assert(SegmentShown(ElementBar(editor).Root) == 1, "the hand/foot control moves to foot: " + SegmentShown(ElementBar(editor).Root));
+      AssertCutOut(editor, ElementBar(editor).Root, "the switched viewer's toolbar");
+      // And back: the same control keeps taking clicks after a switch.
+      ClickOption(ElementBar(editor).Root, L("손", "Hand"));
+      IOverlayLayoutTarget handAgain = viewers.Targets.Last();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
+      Assert(handAgain != foot && handAgain.TemplateId == OverlayElementKinds.HandKeyViewer && handAgain.Enabled && !foot.Enabled
+        && Selection(editor).Selected == IndexOf(editor, handAgain) && kind.Target == handAgain && kind.Viewer == 0,
+        "switching back to hand works from the same toolbar");
+      Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control moves back to hand: " + SegmentShown(ElementBar(editor).Root));
+      ClickOption(ElementBar(editor).Root, L("발", "Foot"));
+      foot = viewers.Targets.Last();
+      // Frames as the game runs them: the editor's tick, then ElementUI's own driver, which sleeps when idle.
+      Frames(() => Call(editor, "UpdateFrames"), 3);
+      Assert(foot.TemplateId == OverlayElementKinds.FootKeyViewer && foot.Enabled && kind.Target == foot && kind.Viewer == 1
+        && SegmentShown(ElementBar(editor).Root) == 1, "and to foot again");
+      ElementUI.Runtime.ErrorReported -= uiErrors.Add;
+      Assert(uiErrors.Count == 0, "switching hand and foot reports no ElementUI error" + (uiErrors.Count > 0 ? ": " + uiErrors[0] : ""));
+      Assert(ToolbarModel(editor).Selection.Value == L("발 키뷰어", "Foot key viewer"), "the toolbar names the foot viewer");
+      Pressable openInApp = ByName<Pressable>(ElementBar(editor).Root, "Edit key viewer");
       TextMeshProUGUI openLabel = openInApp.GetComponentInChildren<TextMeshProUGUI>();
       openLabel.ForceMeshUpdate();
       Assert(!openLabel.isTextTruncated, "Edit key viewer fits its button: " + openLabel.text);
       SaveFrame(camera, texture, canvases, name + "-keyviewer");
-      openInApp.onClick.Invoke();
+      Press(openInApp);
       Assert(viewers.OpenedInApp.Count == 1 && viewers.OpenedInApp[0] == foot,
         "Edit key viewer opens the viewer it shows now, after switching to foot");
       viewers.EditResult = KeyViewerEditResult.AppOutdated;
-      openInApp.onClick.Invoke();
-      Assert(Field<TextMeshProUGUI>(editor, "_keyboardHelp").text.Contains("ElementNote"),
-        "a refused open says what to do with ElementNote: " + Field<TextMeshProUGUI>(editor, "_keyboardHelp").text);
+      Press(openInApp);
+      Assert(StatusLabel(editor).text.Contains("ElementNote") && StatusLabel(editor).color == UiPalette.Error,
+        "a refused open says what to do with ElementNote: " + StatusLabel(editor).text);
       viewers.EditResult = KeyViewerEditResult.Opened;
-      SetField(editor, "_scaleErrorUntil", 0f);
+      Status(editor).Clear();
+      PointerArea openArea = openInApp.GetComponentInParent<PointerArea>();
+      openArea.Hover(true);
+      Assert(Status(editor).Text.Value.Contains("ElementNote"), "hovering Edit key viewer says what it opens");
+      openArea.Hover(false);
       Call(editor, "UpdateFrames");
-      Assert(!Field<Button>(editor, "_editContent").gameObject.activeSelf && Field<TMP_InputField>(editor, "_scaleInput").gameObject.activeSelf,
-        "key viewers keep their scale");
-      RectTransform popup = Field<RectTransform>(editor, "_settingsPanel");
-      Assert(popup != null && popup.gameObject.activeSelf && popup.Find("Drag element toolbar") != null,
+      Settle();
+      Assert(!Shown(ToolbarButton(editor, "Edit element")) && Shown(ScaleField(editor)) && ScaleField(editor).interactable
+        && ToolbarButton(editor, "Increase size").IsInteractable(), "key viewers keep their scale");
+      // The field and the view model share the words: typed ones come in, dropped ones go back.
+      TMP_InputField viewerScale = ScaleField(editor);
+      viewerScale.text = "130";
+      Settle();
+      Assert(ToolbarModel(editor).Scale.Value == "130", "typing in the scale field writes the typed scale");
+      ToolbarModel(editor).DropTypedScale();
+      Settle();
+      Assert(viewerScale.text == "100", "a dropped typed scale shows the viewer's again: " + viewerScale.text);
+      RectTransform popup = ElementBar(editor).Root;
+      Assert(popup != null && popup.gameObject.activeSelf && ByName<RectTransform>(popup, "Drag element toolbar") != null,
         "a key viewer's toolbar has a grip to move it");
-      Rect barBefore = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      Assert(!ElementBar(editor).ControlAt(PointerOn(ByName<RectTransform>(popup, "Drag element toolbar")))
+        && ElementBar(editor).ControlAt(PointerOn((RectTransform)openInApp.transform))
+        && ElementBar(editor).ControlAt(PointerOn((RectTransform)ByName<Pressable>(popup, "Option " + L("손", "Hand")).transform)),
+        "the key viewer's toolbar drags from its grip; hand, foot and Edit take their presses");
+      Rect barBefore = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Vector2 grab = barBefore.position + new Vector2(14, 20);
-      Call(editor, "BeginElementBarDrag", grab);
-      Call(editor, "MoveElementBar", grab + new Vector2(-60, -40));
-      SetField(editor, "_elementBarDragging", false);
-      Rect barAfter = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      ElementBar(editor).BeginDrag(grab);
+      ElementBar(editor).Move(grab + new Vector2(-60, -40));
+      ElementBar(editor).Dragging = false;
+      Rect barAfter = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Assert(Mathf.Abs(barAfter.x - (barBefore.x - 60)) < .5f && Mathf.Abs(barAfter.y - (barBefore.y - 40)) < .5f,
         "the element toolbar follows its grip one to one");
       int footIndex = IndexOf(editor, foot);
       Select(editor, -1);
       Select(editor, footIndex);
-      Rect barKept = (Rect)editor.GetType().GetProperty("ElementBarBounds", Private).GetValue(editor);
+      Rect barKept = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Assert(barKept.position == barAfter.position, "the element toolbar keeps its place for the next selection");
       var cutouts = editor.NativeExclusions;
       Assert(cutouts.Count == 2, "native viewers get each panel as its own cutout: " + cutouts.Count);
@@ -907,89 +1104,173 @@ namespace Element.Editor
     {
       TextOverlayElement fps = host.LayoutTargets.OfType<TextOverlayElement>().Single(text => text.Id == "fps");
       Select(editor, IndexOf(editor, fps));
-      ElementSettings preferences = Field<ElementSettings>(editor, "_preferences");
+      ElementSettings preferences = Session(editor).Preferences;
       preferences.ReduceUiMotion = false;
-      Call(editor, "UpdateToolbar");
-      Field<Button>(editor, "_editContent").onClick.Invoke();
-      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
+      // Another mod's values, as ElementKit adds them, and one whose mod is missing.
+      OverlayValueGroup sample = new OverlayValueGroup("Sample", "예시", "Sample");
+      OverlayValueCatalog.Register("Sample/hand", sample, OverlayValueKind.Text, "지금 손", "Hand", double.NaN, "왼손");
+      OverlayValueCatalog.Register("Sample/left-keys", sample, OverlayValueKind.Number, "왼손 키", "Left keys", 5, null);
+      OverlayValueCatalog.Register("Sample/pattern", sample, OverlayValueKind.Text, "지금 패턴", "Pattern", double.NaN, "2 + 2 + 1");
+      OverlayValueCatalog.TryResolve("Gone/value", out _);
+      PressEdit(editor);
+      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
       OverlayEditorFrame screen = Field<OverlayEditorFrame>(text, "_screen");
-      Assert(!screen.Root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == "텍스트 편집" || label.text == "Edit text"),
-        "the editor has no title card");
+      TextMeshProUGUI[] titles = screen.Root.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.text == "텍스트 편집" || label.text == "Edit text").ToArray();
+      Assert(titles.Length == 1 && titles[0].transform.IsChildOf(ByName<RectTransform>(screen.Frame, "Header")),
+        "the editor's name shows once, in its header: no title card");
       Assert(Field<CanvasGroup>(screen, "_fade").alpha < 1, "the editor fades in instead of cutting in");
       SetField(screen, "_openedAt", -10f); screen.Tick();
       Assert(Field<CanvasGroup>(screen, "_fade").alpha == 1, "the fade finishes");
       OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0,
         "the input dock is always there, resting with a hint");
-      RectTransform format = Field<RectTransform>(text, "_formatBar");
-      OverlayBarButton sizeButton = Field<OverlayBarButton>(text, "_sizeButton"), colorButton = Field<OverlayBarButton>(text, "_colorButton"),
-        textGrow = Field<OverlayBarButton>(text, "_growButton"), fontButton = Field<OverlayBarButton>(text, "_fontButton");
-      Button[] barButtons = format.GetComponentsInChildren<Button>(true);
-      Button growButton = textGrow.Button;
-      Assert(fontButton.Root.IsChildOf(format) && sizeButton.Root.IsChildOf(format) && colorButton.Root.IsChildOf(format)
-        && textGrow.Root.IsChildOf(format) && barButtons.Length == 4
-        && text.GetType().GetField("_opacityField", Private) == null && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
-        "font, size, color and grow point share one bar; no opacity, no + Value");
-      string[] textLabels = Korean(name) ? new[] { "폰트", "크기", "글자 색", "기준점" } : new[] { "Font", "Size", "Text color", "Grow from" };
-      OverlayBarButton[] textBar = { fontButton, sizeButton, colorButton, textGrow };
+      CheckEditorTopLine(text, "Text editor", L("텍스트 편집", "Edit text"));
+      RectTransform format = EditorBarRoot(text);
+      OverlayBarButtonModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
+        textGrow = Grow(text).Button, fontButton = Field<TextFonts>(text, "_fonts").Button,
+        animateButton = Field<TextAnimate>(text, "_animate").Button;
+      OverlayBarButtonModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
+      Pressable[] barButtons = format.GetComponentsInChildren<Pressable>(true);
+      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 5
+        && new[] { typeof(OverlayTextEditor), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
+        "font, size, color, animation and grow point share one column; no opacity, no + Value");
+      Assert(BarButtonRect(text, animateButton).y < BarButtonRect(text, colorButton).y
+        && BarButtonRect(text, animateButton).y > BarButtonRect(text, textGrow).y, "animation sits between the color and the grow point");
+      Rect formatRect = ScreenRectOf(format), keypadColumn = KeypadRect(Field<OverlayInputDock>(text, "_dock"));
+      Assert(Mathf.Abs(formatRect.xMin - keypadColumn.xMin) < 1 && Mathf.Abs(formatRect.xMax - keypadColumn.xMax) < 1 && formatRect.yMin > keypadColumn.yMax,
+        "the properties stand in a column above the keypad, as wide as it: " + formatRect + " / " + keypadColumn);
+      Assert(ScreenRectOf(TextPreviewOf(text).Text.rectTransform).xMax < formatRect.xMin, "the text stays left of the column");
+      string[] textLabels = Korean(name)
+        ? new[] { "폰트", "크기", "글자 색", "애니메이션", "기준점" }
+        : new[] { "Font", "Size", "Text color", "Animate", "Grow from" };
       for (int i = 0; i < textBar.Length; i++)
       {
-        Assert(textBar[i].Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
-          "each bar button says what it is: " + textLabels[i]);
-        Assert(textBar[i].Button.targetGraphic.transform == textBar[i].Root, "a bar button lights up where it is drawn");
+        Pressable drawn = BarButton(text, textBar[i]);
+        Assert(drawn.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textLabels[i]),
+          "each row says what it is: " + textLabels[i]);
+        Assert(drawn.targetGraphic.transform == drawn.transform, "a row lights up where it is drawn");
+        if (i > 0)
+          Assert(BarButtonRect(text, textBar[i]).yMax <= BarButtonRect(text, textBar[i - 1]).yMin + .5f
+            && Mathf.Abs(BarButtonRect(text, textBar[i]).width - BarButtonRect(text, textBar[0]).width) < .5f, "rows stack one under another, all as wide");
       }
+      Assert(BarButton(text, colorButton).GetComponentInChildren<UiCapsuleGraphic>() != null
+        && BarButton(text, fontButton).GetComponentInChildren<UiIcon>().Kind == UiIconKind.Font
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("가", "Aa"))
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "px"),
+        "the color leads with its swatch, the font with its icon, the size with letters and ends in px");
       Assert(!barButtons.Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")), "numbers have no − and + buttons");
       foreach (TextMeshProUGUI label in format.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "format bar label fits: " + label.text);
+        Assert(!label.isTextTruncated, "property row label fits: " + label.text);
       }
       float actual = fps.EffectiveScale * OverlayLayoutPosition.ScreenScale(Screen.width, Screen.height);
-      Assert(Mathf.Abs(Field<float>(text, "_previewScale") - actual) < .001f, "the edited text is shown at its game size");
-      OverlayTextDocument document = Field<OverlayTextDocument>(text, "_document");
+      Assert(Mathf.Abs(Field<float>(TextPreviewOf(text), "_previewScale") - actual) < .001f, "the edited text is shown at its game size");
+      OverlayTextDocument document = TextDocumentOf(text).Document;
       Assert(document.Count == 7 && document[6].IsValue, "the editor reads FPS | {fps}");
-      Assert(sizeButton.Value.Length > 0 && !sizeButton.Computed, "the size button shows the size");
+      Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
+
+      // The animation switch acts on values: the whole text's with nothing
+      // selected. Pressed as the player does, with the screen catching up only
+      // at the end of each frame, as in the game.
+      OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
+      Assert(!document[6].Animate, "FPS starts still");
+      Pressable drawnAnimate = BarButton(text, animateButton);
+      UiSwitchMotion animateThumb = drawnAnimate.GetComponentInChildren<UiSwitchMotion>();
+      RectTransform animateKnob = (RectTransform)animateThumb.transform;
+      Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
+      // Notices show right above the dock's formula line.
+      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(Field<OverlayInputDock>(text, "_dock").Root, "Notice");
+      string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
+      document = TextDocumentOf(text).Document;
+      Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
+      Frames(() => QuietFrame(text), 40);
+      Assert(screen.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
+        "turning it on says what it does, on the screen: " + topLine.text);
+      Assert(animateKnob.anchoredPosition.x > 12 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.SoftAccent),
+        "the switch slides over to on and lights up in the game's frames: " + animateKnob.anchoredPosition.x);
+      SaveFrame(camera, texture, canvases, name + "-text-animate");
+      previewPulse.Stop();
+      SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
+      Call(text, "Render");
+      PressBar(text, animateButton);
+      document = TextDocumentOf(text).Document;
+      Assert(document[6].Animate && screen.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
+        "letters alone stay as they are and say why: " + screen.NoticeText);
+      SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
+      Call(text, "Render");
+      screen.Notice(L("커서를 옮겼어요", "The caret moved"), false);
+      Frames(() => QuietFrame(text), 3);
+      Press(drawnAnimate);
+      Frames(() => QuietFrame(text), 40);
+      document = TextDocumentOf(text).Document;
+      Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
+      Assert(animateKnob.anchoredPosition.x < 6 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.Foreground),
+        "the switch slides back to off in the game's frames: " + animateKnob.anchoredPosition.x);
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.
-      SetField(text, "_caretIndex", 7); SetField(text, "_anchor", 7);
-      Call(text, "Type", " x");
+      SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
+      TextDocumentOf(text).Type(" x");
       Call(text, "Render");
-      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      Button[] chips = dock.Content.GetComponentsInChildren<Button>(true);
-      Assert(chips.Length == OverlayValueCatalog.All.Count(value => !OverlayValueCatalog.IsLegacy(value))
+      Pressable[] chips = DockChips(dock);
+      RectTransform values = DockValues(dock);
+      Assert(chips.Length == OverlayValueCatalog.Sections().Sum(section => section.Values.Count)
         && chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "every value is laid out, each draggable");
-      TextMeshProUGUI[] categories = dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == dock.Content).ToArray();
-      Assert(categories.Length == OverlayValueCatalog.Categories.Length && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
+      OverlayValueChipHandle carried = chips.Single(chip => chip.name == "Value fps").GetComponent<OverlayValueChipHandle>();
+      Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
+      int itemsBefore = TextDocumentOf(text).Document.Count;
+      carried.OnBeginDrag(Pointer(chipPoint));
+      Assert(dock.Dragging && screen.Root.transform.Find("Controls/Dragged value") != null, "a chip carries its value out of the dock");
+      carried.OnEndDrag(Pointer(chipPoint));
+      Assert(!dock.Dragging && TextDocumentOf(text).Document.Count == itemsBefore, "let go over the dock, it lands nowhere");
+      Assert(values.GetComponentsInChildren<TextMeshProUGUI>(true).Any(label => label.text == (Korean(name) ? "예시" : "Sample"))
+        && chips.Count(chip => chip.name.StartsWith("Value Sample/")) == 3,
+        "another mod's values sit under its own heading");
+      Assert(!chips.Any(chip => chip.name == "Value Gone/value"), "a value whose mod is missing isn't offered");
+      RectTransform modHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
+        .First(label => label.text == (Korean(name) ? "예시" : "Sample")).rectTransform;
+      RectTransform systemHeading = values.GetComponentsInChildren<TextMeshProUGUI>(true)
+        .First(label => label.text == (Korean(name) ? "시스템" : "System")).rectTransform;
+      Assert(-modHeading.anchoredPosition.y > -systemHeading.anchoredPosition.y, "mod headings come after the built-in ones");
+      TextMeshProUGUI[] categories = values.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.transform.parent == values).ToArray();
+      Assert(categories.Length == OverlayValueCatalog.Sections().Count(section => section.Values.Count > 0)
+        && categories.All(label => label.rectTransform.anchoredPosition.x == 0),
         "category names line up in one column");
       float column = categories.Max(label => label.rectTransform.sizeDelta.x);
       Assert(chips.All(chip => ((RectTransform)chip.transform).anchoredPosition.x >= column - .5f), "values wrap to the right of the names");
-      foreach (TextMeshProUGUI label in dock.Content.GetComponentsInChildren<TextMeshProUGUI>(true))
+      foreach (TextMeshProUGUI label in values.GetComponentsInChildren<TextMeshProUGUI>(true))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "value label fits: " + label.text);
       }
       SaveFrame(camera, texture, canvases, name + "-text-values");
-      chips.Single(chip => chip.name == "Value combo").onClick.Invoke();
-      document = Field<OverlayTextDocument>(text, "_document");
-      Assert(document.Count == 10 && document[9].Value == "combo" && Field<int>(text, "_caretIndex") == 10 && Field<int>(text, "_anchor") == 10,
+      Press(chips.Single(chip => chip.name == "Value combo"));
+      document = TextDocumentOf(text).Document;
+      Assert(document.Count == 10 && document[9].Value == "combo" && Field<int>(TextDocumentOf(text), "_caretIndex") == 10 && Field<int>(TextDocumentOf(text), "_anchor") == 10,
         "a clicked value lands at the caret, and typing goes on after it");
-      chips.Single(chip => chip.name == "Value miss").onClick.Invoke();
-      document = Field<OverlayTextDocument>(text, "_document");
+      Press(chips.Single(chip => chip.name == "Value miss"));
+      document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[9].Value == "combo" && document[10].Value == "miss", "a second value follows the first");
-      Call(text, "Undo");
-      Call(text, "OpenChip", 9);
-      OverlayFormulaEditing editing = Field<OverlayFormulaEditing>(text, "_editing");
+      TextDocumentOf(text).Undo();
+      TextFormulasOf(text).OpenChip(9);
+      OverlayFormulaEditing editing = TextFormulasOf(text).Editing;
       Assert(dock.Owner == "value:9" && editing.Active && editing.Slot.IsText, "clicking a value in the text calculates it in the dock");
 
       // The dock shows the formula; the text shows the result.
-      Call(text, "KeypadPress", '*');
-      Call(text, "KeypadPress", '2');
-      document = Field<OverlayTextDocument>(text, "_document");
+      TextFormulasOf(text).KeypadPress('*');
+      TextFormulasOf(text).KeypadPress('2');
+      document = TextDocumentOf(text).Document;
       Assert(document[9].Value == "{combo}*2" && preview.text.Contains("240") && !preview.text.Contains("×"),
         "the text shows the result: " + document[9].Value);
       Assert(dock.FormulaText.Contains("×") && dock.ResultText.Contains("240"), "the dock shows the formula and its result");
@@ -999,112 +1280,161 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.Combo);
       Call(text, "FollowLiveValues");
       Assert(preview.text.Contains("240"), "without live data the example comes back");
-      Call(text, "KeypadPress", '+');
-      Vector2 line = ScreenCenter((RectTransform)dock.Root.Find("Formula line"));
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Miss), line);
-      Call(text, "EndValueDrag", line);
-      document = Field<OverlayTextDocument>(text, "_document");
+      TextFormulasOf(text).KeypadPress('+');
+      Vector2 line = ScreenCenter(ByName<RectTransform>(dock.Root, "Formula line"));
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Miss), line);
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(line);
+      document = TextDocumentOf(text).Document;
       Assert(document[9].Value == "{combo}*2+{miss}", "a value dropped on the formula line joins it: " + document[9].Value);
       Assert(dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the dock never covers the text");
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
-      dock.Keypad.Root.GetComponentsInChildren<Button>(true).Single(button => button.name == "Key done").onClick.Invoke();
+      Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
-      Call(text, "UpdateHover", ScreenCenterOfItem(text, 9));
+      Field<TextPointer>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
       Assert(screen.TipText.Contains("×") && screen.TipText.Contains("+"), "hovering a value names it: " + screen.TipText);
-      Call(text, "OpenChip", 9);
-      Assert(dock.Owner == "value:9" && Field<OverlayFormulaEditing>(text, "_editing").Working.Serialize() == "{combo}*2+{miss}",
+      TextFormulasOf(text).OpenChip(9);
+      Assert(dock.Owner == "value:9" && TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+{miss}",
         "clicking a value reopens its formula");
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
+      Call(text, "Render");
+
+      // As the player does it: a click on the value in the text, then the
+      // keypad's keys, with the screen catching up only at the end of each
+      // frame, as in the game.
+      Vector2 valuePoint = ScreenCenterOfItem(text, 9);
+      Assert(Field<TextLayoutMap>(text, "_map").TryValueAt(valuePoint, out int clicked) && clicked == 9 && !dock.Contains(valuePoint)
+        && (bool)typeof(OverlayTextEditor).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
+        "a click on the value in the text lands on it");
+      Frames(() => QuietFrame(text), 3);
+      Pressable times = DockKeyAsIs(dock, "Key ×"), three = DockKeyAsIs(dock, "Key 3"), back = DockKeyAsIs(dock, "Key backspace");
+      Assert(!times.IsInteractable(), "a resting keypad takes no key");
+      // The frame before drew a change that took layout (a notice), and the
+      // driver went back to sleep after it.
+      screen.Notice(L("값을 골랐어요", "A value was picked"), false);
+      Frames(() => QuietFrame(text), 3);
+      TextFormulasOf(text).OpenChip(9);
+      Frames(() => QuietFrame(text), 2);
+      Assert(dock.Owner == "value:9" && times.IsInteractable() && !three.IsInteractable(),
+        "the clicked value's keypad takes an operator by the next frame, a digit only after one");
+      Press(times);
+      Frames(() => QuietFrame(text), 2);
+      Assert(three.IsInteractable(), "after × the digits can be pressed");
+      Press(three);
+      Frames(() => QuietFrame(text), 2);
+      TextMeshProUGUI drawnFormula = ByName<TextMeshProUGUI>(dock.Root, "Formula text");
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnFormula.text.EndsWith("×  3"),
+        "pressed keys calculate the value, and the dock shows it: " + document[9].Value + " / " + drawnFormula.text);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Press(back);
+      Frames(() => QuietFrame(text), 2);
+      Assert(TextDocumentOf(text).Document[9].Value == "{combo}*2+{miss}", "backspace takes the keys back off: " + TextDocumentOf(text).Document[9].Value);
+      Call(text, "CloseOpen");
       Call(text, "Render");
 
       // Dragging a value into the text marks where it lands.
       Vector3[] previewCorners = new Vector3[4];
       preview.rectTransform.GetWorldCorners(previewCorners);
       Vector2 end = RectTransformUtility.WorldToScreenPoint(null, previewCorners[2]) + new Vector2(20, -4);
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.Fps), end);
-      Assert(Field<Image>(text, "_dropCaret").enabled, "a dragged value shows where it will land");
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Fps), end);
+      Assert(Field<Image>(TextMarksOf(text), "_dropCaret").enabled, "a dragged value shows where it will land");
       Assert(screen.Root.transform.Find("Controls/Dragged value") != null, "the value follows the pointer");
       SaveFrame(camera, texture, canvases, name + "-text-drag");
-      Call(text, "EndValueDrag", end);
-      document = Field<OverlayTextDocument>(text, "_document");
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(end);
+      document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[10].Value == "fps", "a dropped value lands in the text");
-      Call(text, "Undo");
-      Call(text, "ClosePopovers");
+      TextDocumentOf(text).Undo();
+      Call(text, "CloseOpen");
 
       // The size in the bar: words are refused; values size the selection.
-      SetField(text, "_anchor", 9); SetField(text, "_caretIndex", 10);
+      SetField(TextDocumentOf(text), "_anchor", 9); SetField(TextDocumentOf(text), "_caretIndex", 10);
       Call(text, "Render");
-      Vector2 sizePoint = ScreenCenter(sizeButton.Root);
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.SongTitle), sizePoint);
-      Call(text, "EndValueDrag", sizePoint);
-      document = Field<OverlayTextDocument>(text, "_document");
+      Vector2 sizePoint = BarButtonRect(text, sizeButton).center;
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), sizePoint);
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
+      document = TextDocumentOf(text).Document;
       Assert(screen.NoticeText.Length > 0 && document[9].SizeFormula == "", "the song title is refused by the size");
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), sizePoint);
-      Call(text, "EndValueDrag", sizePoint);
-      document = Field<OverlayTextDocument>(text, "_document");
-      Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active,
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), sizePoint);
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active
+        && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "48"),
         "the size takes a value for the selection and opens in the dock");
-      Assert(sizeButton.Value == "48" && sizeButton.Computed, "the size shows its result, marked as calculated: " + sizeButton.Value);
-      Call(text, "ClosePopovers");
-      Call(text, "Undo");
+      Assert(sizeButton.Value == "48" && sizeButton.IsComputed, "the size shows its result, marked as calculated: " + sizeButton.Value);
+      Call(text, "CloseOpen");
+      TextDocumentOf(text).Undo();
 
       // Sizes: the keypad types pixels into the selection.
-      SetField(text, "_anchor", 0); SetField(text, "_caretIndex", 3);
+      SetField(TextDocumentOf(text), "_anchor", 0); SetField(TextDocumentOf(text), "_caretIndex", 3);
       Call(text, "Render");
       string shown = (25 * fps.EffectiveScale).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
       Assert(sizeButton.Value == shown, "the size button shows the selection's size as drawn: " + shown);
-      sizeButton.Button.onClick.Invoke();
+      PressBar(text, sizeButton);
       Assert(dock.Owner == "size", "the size opens in the dock");
       foreach (char key in "\b\b\b\b40")
-        Call(text, "KeypadPress", key);
-      Call(text, "ClosePopovers");
-      document = Field<OverlayTextDocument>(text, "_document");
+        TextFormulasOf(text).KeypadPress(key);
+      Call(text, "CloseOpen");
+      document = TextDocumentOf(text).Document;
       Assert(Mathf.Abs(document[0].Size * fps.EffectiveScale - 40) < .05f && document[3].Size == 0, "a size applies to the selection only");
-      colorButton.Button.onClick.Invoke();
-      SettingsColorPicker picker = Field<SettingsColorPicker>(text, "_picker");
+      PressBar(text, colorButton);
+      UiColorPicker picker = TextColorOf(text).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root);
-      Assert(picker.Visible && colorButton.Active && picker.Column && dock.Keypad.Root.gameObject.activeInHierarchy
-        && Mathf.Abs(pickerRect.xMax - ScreenRectOf(dock.Keypad.Root).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
-        && InsideScreen(pickerRect), "the color picker opens right above the keypad: " + pickerRect);
-      Field<SettingsSegmentedControl>(picker, "_source").Select(1, true);
-      Field<TMP_InputField>(picker, "_hex").text = "#40C0FF";
+      Assert(picker.Visible && colorButton.Active && picker.Column && Shown(DockKey(dock, "Key done"))
+        && Mathf.Abs(pickerRect.xMax - KeypadRect(dock).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
+        && InsideScreen(pickerRect), "the color picker opens above the keypad: " + pickerRect);
+      AssertInColumn(text, picker.Root, L("선택한 글자 색", "Selected text color"));
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       picker.Commit();
       SaveFrame(camera, texture, canvases, name + "-text-color");
-      OverlayOpacityField textOpacity = Field<OverlayOpacityField>(text, "_opacity");
+      OverlayOpacityField textOpacity = TextColorOf(text).Opacity;
       Assert(textOpacity.Field.Root.gameObject.activeInHierarchy && textOpacity.Field.Text == "100", "the text color's opacity is a number in the picker");
       Vector2 alphaPoint = ScreenCenter(textOpacity.Field.Root);
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.SongTitle), alphaPoint);
-      Call(text, "EndValueDrag", alphaPoint);
-      document = Field<OverlayTextDocument>(text, "_document");
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), alphaPoint);
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
+      document = TextDocumentOf(text).Document;
       Assert(document[0].Color.AlphaFormula == "" && screen.NoticeText.Length > 0 && picker.Visible, "words are refused by the opacity");
-      Call(text, "BeginValueDrag", OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), alphaPoint);
-      Call(text, "EndValueDrag", alphaPoint);
-      document = Field<OverlayTextDocument>(text, "_document");
+      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), alphaPoint);
+      Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
+      document = TextDocumentOf(text).Document;
       Assert(picker.Visible && document[0].Color.AlphaFormula == "progress-current" && document[3].Color.AlphaFormula == ""
         && dock.Owner == "opacity" && textOpacity.Field.Text == "48" && textOpacity.Field.Computed,
         "the picker's opacity takes a value for the selection");
-      Assert(picker.Visible && dock.Keypad.Root.gameObject.activeInHierarchy, "its formula is typed on the keypad below, the picker staying open");
-      Assert(picker.Commit() && Field<OverlayTextDocument>(text, "_document")[0].Color.AlphaFormula == "progress-current"
-        && Field<OverlayTextDocument>(text, "_document")[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
-      picker.Hide();
-      Assert(!colorButton.Active && dock.Owner == null && dock.Keypad.Root.gameObject.activeSelf,
+      Assert(picker.Visible && Shown(DockKey(dock, "Key done")), "its formula is typed on the keypad below, the picker staying open");
+      Assert(picker.Commit() && TextDocumentOf(text).Document[0].Color.AlphaFormula == "progress-current"
+        && TextDocumentOf(text).Document[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
+      // Done waits while the picker holds a color it can't read; Esc closes the picker first.
+      ColorPickerProbe.Hex(picker.Root).text = "#40";
+      PressEditorButton(text, "Text editor done");
+      Assert(text.IsOpen && picker.Visible, "Done waits while the picker holds a color it can't read");
+      Settle();
+      Assert(ColorPickerProbe.Error(picker.Root).text.Length > 0 && picker.Model.FocusHex.Value > 0,
+        "and says what to type, its HEX taking the keyboard: " + ColorPickerProbe.Error(picker.Root).text);
+      ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
+      text.Escape();
+      Assert(text.IsOpen && !picker.Visible, "Esc closes the picker before the editor");
+      Assert(!colorButton.Active && dock.Owner == null && Shown(DockKey(dock, "Key done")),
         "Text color lets go once the picker closes, and so does its opacity; the keypad is back");
 
       // Where the text grows from.
-      growButton.onClick.Invoke();
-      OverlayGrowPopover grow = Field<OverlayGrowPopover>(text, "_growPopover");
-      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)), "the grow point opens its own popover, on screen");
-      Call(text, "PickGrowth", OverlayGrowth.Right);
-      Assert(Field<SettingsCapsuleGraphic>(text, "_growMark").gameObject.activeSelf, "the text marks the point that stays put");
+      PressBar(text, textGrow);
+      OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(text), "_popover");
+      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && textGrow.Active, "the grow point opens its own popover, on screen");
+      AssertInColumn(text, grow.Root, L("기준점", "Grow from"));
+      CheckGrowPopover(Grow(text));
+      Call(Grow(text), "Pick", OverlayGrowth.Right);
+      Assert(Field<UiCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
       SaveFrame(camera, texture, canvases, name + "-text-grow");
-      Call(text, "ClosePopovers");
+      Call(text, "CloseOpen");
 
-      Call(text, "DeleteRange", 8, 9);
-      document = Field<OverlayTextDocument>(text, "_document");
+      TextDocumentOf(text).DeleteRange(8, 9);
+      document = TextDocumentOf(text).Document;
       Assert(document.Count == 9 && document[8].Value == "{combo}*2+{miss}", "deleting next to a value removes one step");
-      Call(text, "Undo");
-      Assert(Field<OverlayTextDocument>(text, "_document").Count == 10, "the text editor has its own undo");
-      text.Close(true, true);
+      TextDocumentOf(text).Undo();
+      Assert(TextDocumentOf(text).Document.Count == 10, "the text editor has its own undo");
+      PressEditorButton(text, "Text editor done");
       Assert(!text.IsOpen && fps.Settings.Text.Runs.Any(run => run.Value == "{combo}*2+{miss}") && !fps.Settings.Text.Runs[0].Color.Highlight
         && fps.Settings.Text.Runs[0].Color.Hex == "#40C0FF" && fps.Settings.Text.Runs[0].Size > 0 && fps.Settings.GrowFrom == OverlayGrowth.Right,
         "Done saves the runs with their colors, sizes, formulas and grow point");
@@ -1115,15 +1445,15 @@ namespace Element.Editor
 
       TextOverlayElement progress = host.LayoutTargets.OfType<TextOverlayElement>().Single(element => element.Id == "progress");
       Select(editor, IndexOf(editor, progress));
-      Call(editor, "OpenTextEditor", progress, false);
-      document = Field<OverlayTextDocument>(text, "_document");
+      Kind<TextKind>(editor).Open(progress, false);
+      document = TextDocumentOf(text).Document;
       Assert(!document[0].IsValue && Enumerable.Range(0, document.Count).Any(i => document[i].Value == "progress-current"),
         "a converted label opens as plain words");
       text.Close(false, true);
 
-      Call(editor, "AddText");
-      Assert(text.IsOpen && Field<OverlayTextDocument>(text, "_document").Count == 0, "Add Element → Text opens an empty editor");
-      RectTransform hint = Field<TextMeshProUGUI>(text, "_placeholder").rectTransform, emptyCaret = Field<Image>(text, "_emptyCaret").rectTransform;
+      Kind<TextKind>(editor).Add();
+      Assert(text.IsOpen && TextDocumentOf(text).Document.Count == 0, "Add Element → Text opens an empty editor");
+      RectTransform hint = Field<TextMeshProUGUI>(TextMarksOf(text), "_placeholder").rectTransform, emptyCaret = Field<Image>(TextMarksOf(text), "_emptyCaret").rectTransform;
       Assert(hint.gameObject.activeSelf && emptyCaret.gameObject.activeSelf && emptyCaret.anchoredPosition.x < hint.anchoredPosition.x
         && Mathf.Abs((emptyCaret.anchoredPosition.y - emptyCaret.sizeDelta.y * .5f) - (hint.anchoredPosition.y - hint.sizeDelta.y * .5f)) < 1,
         "an empty text shows its caret just before the hint, on one line");
@@ -1143,10 +1473,8 @@ namespace Element.Editor
 
     private static Vector2 ScreenCenterOfItem(OverlayTextEditor text, int item)
     {
-      object[] args = { item, null };
-      text.GetType().GetMethod("ItemRect", Private).Invoke(text, args);
-      Rect local = (Rect)args[1];
-      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      Field<TextLayoutMap>(text, "_map").ItemRect(item, out Rect local);
+      TextMeshProUGUI preview = TextPreviewOf(text).Text;
       return RectTransformUtility.WorldToScreenPoint(null, preview.rectTransform.TransformPoint(local.center));
     }
 
@@ -1154,11 +1482,17 @@ namespace Element.Editor
       Canvas[] canvases, string name)
     {
       Call(editor, "ToggleColor");
-      OverlayColorPopover popover = Field<OverlayColorPopover>(editor, "_colorPopover");
-      SettingsColorPicker controls = Field<SettingsColorPicker>(popover, "_picker");
-      Assert(popover.Visible && !Field<SettingsSegmentedControl>(controls, "_source").Root.gameObject.activeSelf,
-        "the highlight color itself has no Highlight/Custom choice");
-      TMP_InputField hex = Field<TMP_InputField>(controls, "_hex");
+      OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
+      UiColorPicker controls = Field<UiColorPicker>(popover, "_picker");
+      Settle();
+      Assert(popover.Visible && !ColorPickerProbe.Shown(ColorPickerProbe.Segment(controls.Root, 0))
+        && ColorPickerProbe.Title(controls.Root).text == L("하이라이트 색상", "Highlight color") && ColorPickerProbe.Shown(ColorPickerProbe.Close(controls.Root))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(controls.Root)) && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(controls.Root)),
+        "the highlight color itself has a title, close and Default, no opacity and no Highlight/Custom choice");
+      TMP_InputField hex = ColorPickerProbe.Hex(controls.Root);
+      Press(ColorPickerProbe.Default(controls.Root));
+      UiTheme.TryParseHighlight(UiTheme.DefaultHighlight, out Color defaultHighlight);
+      Assert(settings.HighlightColor == "#" + ColorUtility.ToHtmlStringRGB(defaultHighlight), "Default puts Element's highlight back: " + settings.HighlightColor);
       string before = settings.HighlightColor;
       hex.text = "#12";
       Assert(settings.HighlightColor == before && !popover.Commit(), "an incomplete color cannot commit");
@@ -1184,7 +1518,7 @@ namespace Element.Editor
       string typewriter = typewriterFace.Key;
 
       Call(editor, "ToggleFont");
-      OverlayFontPopover popover = Field<OverlayFontPopover>(editor, "_fontPopover");
+      UiFontPopover popover = Field<UiFontPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_fontPopover");
       Call(editor, "UpdatePopupPositions");
       Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
       Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
@@ -1216,7 +1550,7 @@ namespace Element.Editor
       Assert(drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Outline)
         && drawn.fontSharedMaterial.IsKeywordEnabled(ShaderUtilities.Keyword_Underlay), "a chosen font keeps the overlay's outline and shadow");
       foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
-        Assert(label.font == Field<TMP_FontAsset>(editor, "_font"), "the font list itself stays in the UI font");
+        Assert(label.font == Session(editor).Font, "the font list itself stays in the UI font");
       SaveFrame(camera, texture, canvases, name + "-font");
 
       // A font without Latin letters takes them from the OS's Latin font, as
@@ -1250,33 +1584,38 @@ namespace Element.Editor
 
       // In the text editor, a font goes to the selection, or the whole text.
       Select(editor, IndexOf(editor, fps));
-      Call(editor, "UpdateToolbar");
-      Field<Button>(editor, "_editContent").onClick.Invoke();
-      OverlayTextEditor text = Field<OverlayTextEditor>(editor, "_textEditor");
-      SetField(text, "_anchor", 0);
-      SetField(text, "_caretIndex", 3);
-      Call(text, "ToggleFont");
-      OverlayFontPopover textFonts = Field<OverlayFontPopover>(text, "_fontPopover");
+      PressEdit(editor);
+      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
+      SetField(TextDocumentOf(text), "_anchor", 0);
+      SetField(TextDocumentOf(text), "_caretIndex", 3);
+      Call(Field<TextFonts>(text, "_fonts"), "ToggleFont");
+      UiFontPopover textFonts = Field<UiFontPopover>(Field<TextFonts>(text, "_fonts"), "_fontPopover");
       Assert(textFonts.Visible, "the text editor's Font opens its list");
       Call(textFonts, "Pick", (int)textFonts.GetType().GetMethod("IndexOf", Private).Invoke(textFonts, new object[] { typewriter }));
-      TextMeshProUGUI preview = Field<TextMeshProUGUI>(text, "_preview");
+      TextMeshProUGUI preview = TextPreviewOf(text).Text;
       preview.ForceMeshUpdate();
       TMP_CharacterInfo[] characters = preview.textInfo.characterInfo;
       Assert(characters[0].fontAsset != null && characters[0].fontAsset.faceInfo.familyName == typewriterFace.Family
         && characters[3].fontAsset == fonts.DefaultAsset,
         "a font picked for selected characters draws only them: " + characters[0].fontAsset?.faceInfo.familyName
           + " / " + characters[3].fontAsset?.faceInfo.familyName);
-      Assert(Field<OverlayBarButton>(text, "_fontButton").Value.StartsWith("American"), "the bar names the selection's font");
+      OverlayBarButtonModel textFont = Field<TextFonts>(text, "_fonts").Button;
+      Assert(textFont.Value.StartsWith("American") && textFont.Active, "the row takes the selection's font, lit while the list is open: " + textFont.Value);
+      AssertInColumn(text, textFonts.Root, L("선택한 글자 폰트", "Selected text font"));
       SaveFrame(camera, texture, canvases, name + "-text-font");
-      Call(text, "Undo");
-      OverlayTextDocument document = Field<OverlayTextDocument>(text, "_document");
+      PressBack(text);
+      Assert(!textFonts.Visible && !textFont.Active
+        && BarButton(text, textFont).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textFont.Value),
+        "back closes the list; the row names the selection's font: " + textFont.Value);
+      TextDocumentOf(text).Undo();
+      OverlayTextDocument document = TextDocumentOf(text).Document;
       Assert(Enumerable.Range(0, document.Count).All(i => document[i].Font == ""), "one undo takes back the fonts tried");
       text.Close(false, true);
       Assert(fps.Settings.Text.Runs.All(run => string.IsNullOrEmpty(run.Font)), "cancel leaves the text's fonts as they were");
     }
 
     private static Vector2 ScreenCenter(OverlayLayoutEditor editor, RectTransform panel) =>
-      ((Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { panel })).center;
+      (PopoverPlacement.ScreenRect(panel)).center;
 
     private static string L(string korean, string english) => RDString.language == SystemLanguage.Korean ? korean : english;
 
@@ -1290,18 +1629,57 @@ namespace Element.Editor
 
     private static bool PopoverInside(OverlayLayoutEditor editor, RectTransform popover, int width, int height)
     {
-      Rect bounds = (Rect)editor.GetType().GetMethod("ScreenRect", Private).Invoke(editor, new object[] { popover });
+      Rect bounds = PopoverPlacement.ScreenRect(popover);
       return bounds.xMin >= 0 && bounds.yMin >= 0 && bounds.xMax <= width + .5f && bounds.yMax <= height + .5f;
     }
 
+    private static LayoutSession Session(OverlayLayoutEditor editor) => Field<LayoutSession>(editor, "_session");
+    private static LayoutToolbar Toolbar(OverlayLayoutEditor editor) => Field<LayoutToolbar>(editor, "_toolbar");
+    private static LayoutSelection Selection(OverlayLayoutEditor editor) => Field<LayoutSelection>(editor, "_selection");
+    private static LayoutMarquee Marquee(OverlayLayoutEditor editor) => Field<LayoutMarquee>(editor, "_marquee");
+    private static LayoutDrag Drag(OverlayLayoutEditor editor) => Field<LayoutDrag>(editor, "_drag");
+    private static LayoutElementBar ElementBar(OverlayLayoutEditor editor) => Field<LayoutElementBar>(editor, "_elementBar");
+
+    // A click as the EventSystem delivers it, on the option of the bar's segmented control.
+    private static void ClickOption(RectTransform bar, string option)
+    {
+      Pressable button = ByName<Pressable>(bar, "Option " + option);
+      ExecuteEvents.Execute(button.gameObject, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+        ExecuteEvents.pointerClickHandler);
+    }
+
+    // The option the segmented control draws as picked: the one its pill sits under.
+    private static int SegmentShown(RectTransform bar)
+    {
+      RectTransform pill = ByName<RectTransform>(bar, "Selection");
+      Pressable[] options = bar.GetComponentsInChildren<Pressable>(true).Where(option => option.name.StartsWith("Option ")).ToArray();
+      for (int i = 0; i < options.Length; i++)
+        if (Mathf.Abs(((RectTransform)options[i].transform).anchoredPosition.x - pill.anchoredPosition.x) < 1)
+          return i;
+      return -1;
+    }
+
+    // Native key viewers draw above Unity: each editor panel must be cut out where it is drawn.
+    private static void AssertCutOut(OverlayLayoutEditor editor, RectTransform panel, string what)
+    {
+      Rect drawn = PopoverPlacement.ScreenRect(panel);
+      bool covered = editor.NativeExclusions.Any(cutout => cutout.Bounds.X <= drawn.xMin + .5f && cutout.Bounds.Y <= drawn.yMin + .5f
+        && cutout.Bounds.Right >= drawn.xMax - .5f && cutout.Bounds.Bottom >= drawn.yMax - .5f);
+      Assert(covered, what + " is cut out of native viewers where it is drawn: " + drawn + " / "
+        + string.Join(", ", editor.NativeExclusions.Select(cutout => cutout.Bounds.X + "," + cutout.Bounds.Y + " " + cutout.Bounds.Width + "x" + cutout.Bounds.Height)));
+    }
+    private static T Kind<T>(OverlayLayoutEditor editor) where T : class, IElementKind => Field<ElementKinds>(editor, "_kinds").Get<T>();
+    private static RectTransform AddMenu(OverlayLayoutEditor editor) => Field<ListMenu>(Field<LayoutAddMenu>(editor, "_addMenu"), "_menu").Root;
+
     private static void Select(OverlayLayoutEditor editor, int index)
     {
-      SetField(editor, "_selected", index);
+      Selection(editor).Selected = index;
       Call(editor, "UpdateFrames");
+      Settle();
     }
 
     private static int IndexOf(OverlayLayoutEditor editor, IOverlayLayoutTarget target) =>
-      (int)editor.GetType().GetMethod("IndexOf", Private).Invoke(editor, new object[] { target });
+      Session(editor).IndexOf(target);
 
     private static void SetField(object target, string name, object value) => target.GetType().GetField(name, Private).SetValue(target, value);
 
@@ -1410,36 +1788,36 @@ namespace Element.Editor
     private static void CheckMigration()
     {
       var fresh = new ElementSettings();
-      Assert(fresh.HighlightColor == "#BA712B" && OverlayTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
+      Assert(fresh.HighlightColor == "#BA712B" && UiTheme.DefaultHighlight == "#BA712B", "new settings and theme use brown default");
       var legacy = new ElementSettings { HighlightColor = " #7cce00 " };
-      legacy.Migrate();
+      SettingsMigrator.Migrate(legacy);
       Assert(legacy.HighlightColor == "#BA712B" && legacy.SettingsVersion >= 1, "old default migrates once");
-      legacy.HighlightColor = "#7CCE00"; legacy.Migrate();
+      legacy.HighlightColor = "#7CCE00"; SettingsMigrator.Migrate(legacy);
       Assert(legacy.HighlightColor == "#7CCE00", "explicit green after migration is preserved");
       var custom = new ElementSettings { HighlightColor = "#336699" };
-      custom.Migrate(); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
+      SettingsMigrator.Migrate(custom); Assert(custom.HighlightColor == "#336699", "migration preserves custom color");
       Assert(fresh.SettingsShortcutKey == KeyCode.F9 && fresh.SettingsShortcutModifier == KeyCode.LeftControl,
         "new settings open with Left Ctrl + F9");
       var oldShortcut = new ElementSettings { SettingsVersion = 6, SettingsShortcutKey = KeyCode.Tab, SettingsShortcutModifier = KeyCode.LeftAlt };
-      oldShortcut.Migrate();
+      SettingsMigrator.Migrate(oldShortcut);
       Assert(oldShortcut.SettingsShortcutKey == KeyCode.F9 && oldShortcut.SettingsShortcutModifier == KeyCode.LeftControl
         && oldShortcut.SettingsVersion >= 7, "old Left Alt + Tab default moves to Left Ctrl + F9");
-      oldShortcut.SettingsShortcutKey = KeyCode.Tab; oldShortcut.SettingsShortcutModifier = KeyCode.LeftAlt; oldShortcut.Migrate();
+      oldShortcut.SettingsShortcutKey = KeyCode.Tab; oldShortcut.SettingsShortcutModifier = KeyCode.LeftAlt; SettingsMigrator.Migrate(oldShortcut);
       Assert(oldShortcut.SettingsShortcutKey == KeyCode.Tab, "Left Alt + Tab chosen after migration is preserved");
       var customShortcut = new ElementSettings { SettingsVersion = 6, SettingsShortcutKey = KeyCode.BackQuote, SettingsShortcutModifier = KeyCode.None };
-      customShortcut.Migrate();
+      SettingsMigrator.Migrate(customShortcut);
       Assert(customShortcut.SettingsShortcutKey == KeyCode.BackQuote && customShortcut.SettingsShortcutModifier == KeyCode.None,
         "migration preserves a custom shortcut");
       foreach (bool hidden in new[] { false, true })
       foreach (int version in new[] { 0, 1 })
       {
         var old = new ElementSettings { SettingsVersion = version, HidePerfectJudgmentText = hidden };
-        old.Migrate();
+        SettingsMigrator.Migrate(old);
         Assert(old.Gameplay.Judgement.HidePerfect == hidden && old.Gameplay.Judgement.HideXPerfect == hidden,
           "outer legacy Perfect visibility migrates to Perfect +/- and XP before normalization: " + version + " / " + hidden);
         old.Gameplay.Judgement.HidePerfect = !hidden;
         old.HidePerfectJudgmentText = !hidden;
-        old.Migrate();
+        SettingsMigrator.Migrate(old);
         Assert(old.Gameplay.Judgement.HidePerfect == !hidden && old.Gameplay.Judgement.HideXPerfect == hidden,
           "subsequent settings loads preserve independent XP visibility");
       }
@@ -1450,521 +1828,34 @@ namespace Element.Editor
         TemplateId = OverlayElementKinds.Text,
         Text = new OverlayTextSettings { Runs = { OverlayTextRun.ValueRun("accuracy", OverlayColorSettings.HighlightColor()) } },
       });
-      released.Migrate();
-      released.Migrate();
+      SettingsMigrator.Migrate(released);
+      SettingsMigrator.Migrate(released);
       Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),
         "earlier layouts get the progress bar once");
       var presets = new ElementSettings { SettingsVersion = 2 };
-      presets.Migrate();
+      SettingsMigrator.Migrate(presets);
       Assert(presets.OverlayLayouts.Single(layout => layout.Id == "accuracy").Text.Runs.Count(run => run.Text == "%") == 1,
         "presets from before 1.1 convert straight to the new form");
       foreach (bool hidden in new[] { false, true })
       {
         var grouped = new ElementSettings { SettingsVersion = 2 };
         grouped.Gameplay.Judgement.HidePerfect = hidden;
-        grouped.Migrate();
+        SettingsMigrator.Migrate(grouped);
         Assert(grouped.Gameplay.Judgement.HidePerfect == hidden && grouped.Gameplay.Judgement.HideXPerfect == hidden,
           "existing gameplay Perfect group migrates its XP visibility without consulting the obsolete outer switch");
       }
     }
 
-    private static void CheckChatterBlocking(SettingsPanel panel, ElementSettings settings, int width)
-    {
-      ChatterBlockerOptions chatter = settings.Gameplay.Chatter;
-      SettingsValueRow windowRow = Field<SettingsValueRow>(panel, "_chatterWindow");
-      Slider window = windowRow.Slider;
-      Button toggle = Field<Button>(panel, "_chatterSwitch");
-      Assert(chatter.Enabled && window.interactable, "the chatter blocker starts on with its window ready");
-      Assert(window.minValue == ChatterFilter.MinimumWindowMs && window.maxValue == ChatterFilter.MaximumWindowMs && window.wholeNumbers,
-        "the threshold is whole milliseconds from 10 to 500");
-      Assert(chatter.WindowMs == ChatterFilter.DefaultWindowMs, "building the page keeps the saved window");
-      Assert(window.value == chatter.WindowMs, "the slider starts at the saved window");
-      TMP_InputField input = windowRow.Field;
-      CheckInputCaret(input, "chatter window", "", "10", "500");
-      Assert(input.interactable && input.text == chatter.WindowMs.ToString(), "the typed window starts at the saved value");
-      toggle.onClick.Invoke();
-      Assert(!chatter.Enabled && !window.interactable && !input.interactable, "the window waits while blocking is off");
-      toggle.onClick.Invoke();
-      Assert(chatter.Enabled && window.interactable && input.interactable, "turning blocking on enables the window");
-      window.value = 33;
-      Assert(chatter.WindowMs == 33 && input.text == "33", "the slider saves and shows the window");
-      input.onEndEdit.Invoke("72");
-      Assert(chatter.WindowMs == 72 && window.value == 72, "a typed window saves and moves the slider");
-      input.onEndEdit.Invoke("4000");
-      Assert(chatter.WindowMs == 500 && window.value == 500 && input.text == "500", "a window above the range becomes the maximum");
-      input.onEndEdit.Invoke("2");
-      Assert(chatter.WindowMs == 10 && window.value == 10 && input.text == "10", "a window below the range becomes the minimum");
-      input.onEndEdit.Invoke("");
-      Assert(chatter.WindowMs == 10 && input.text == "10", "clearing the field restores the saved window");
-      window.SetValueWithoutNotify(chatter.WindowMs = ChatterFilter.DefaultWindowMs);
-      input.SetTextWithoutNotify(chatter.WindowMs.ToString());
-      Assert(chatter.Enabled, "the page ends in the default state, blocking on");
-      RectTransform row = windowRow.Row;
-      Assert(row.rect.width <= width, "the window row fits the page");
-      RectTransform field = (RectTransform)input.transform, slider = (RectTransform)window.transform;
-      Assert(field.anchoredPosition.x + field.rect.width <= row.rect.width, "the typed window fits inside the row");
-      Assert(slider.anchoredPosition.x + slider.rect.width <= field.anchoredPosition.x, "the slider ends before the typed window");
 
-      // Keys never blocked: Change keys listens, each key goes on or comes off.
-      Button change = Field<Button>(panel, "_ignoredChange"), clear = Field<Button>(panel, "_ignoredClear");
-      TextMeshProUGUI keys = Field<TextMeshProUGUI>(panel, "_ignoredKeys");
-      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None") && !clear.interactable, "no key is ignored at first");
-      change.onClick.Invoke();
-      Assert(Field<bool>(panel, "_ignoredCapture") && change.GetComponentInChildren<TextMeshProUGUI>().text == L("완료", "Done"),
-        "Change keys starts listening and becomes Done");
-      chatter.ToggleIgnored(KeyCode.Space);
-      chatter.ToggleIgnored(KeyCode.X);
-      Call(panel, "RefreshIgnoredKeys");
-      Assert(keys.text == "Space · X", "the ignored keys are listed: " + keys.text);
-      change.onClick.Invoke();
-      Assert(!Field<bool>(panel, "_ignoredCapture"), "Done stops listening");
-      Canvas.ForceUpdateCanvases();
-      RectTransform card = Field<RectTransform>(panel, "_ignoredCard");
-      Assert(card.rect.width <= width + .5f, "the ignored keys card fits the page");
-      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "ignored keys text fits: " + label.text);
-      }
-      RectTransform hint = Field<TextMeshProUGUI>(panel, "_chatterHint").rectTransform;
-      Assert(-card.anchoredPosition.y >= -hint.anchoredPosition.y + hint.rect.height, "the card sits below the hint");
-      Call(panel, "RefreshChatterCount");
-      RectTransform blocked = Field<TextMeshProUGUI>(panel, "_chatterBlocked").rectTransform;
-      Assert(-blocked.anchoredPosition.y >= -card.anchoredPosition.y + card.rect.height, "the blocked count sits below the card");
-      Field<Button>(panel, "_ignoredClear").onClick.Invoke();
-      Assert(chatter.IgnoredKeys.Count == 0 && keys.text == L("없음", "None"), "Clear empties the list");
-      chatter.ToggleIgnored(KeyCode.Space);
-      Call(panel, "RefreshIgnoredKeys");
-    }
 
-    private static void Render(int width, int height, SystemLanguage language, int page, string name)
-    {
-      RDString.language = language;
-      TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-      Assert(font != null, "overlay font exists");
-      ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
-      OverlayTheme.SetHighlight(settings.HighlightColor);
-      bool overlayOpened = false;
-      using var planetPreview = new PlanetPreviewProbe();
-      PreviewDialogs dialogs = new PreviewDialogs();
-      ProfileService profiles = PreviewProfiles(settings, dialogs);
-      // Profiles look up the fonts an imported profile names.
-      OverlayFontCatalog fontCatalog = page == 9
-        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
-        : null;
-      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {}, planetPreview.Render, updates: new PreviewUpdates(), profiles: profiles,
-        overlayFonts: () => overlayFonts);
-      Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
-      {
-        GameObject root = Field<GameObject>(panel, "_root");
-        root.SetActive(true);
-        Canvas canvas = root.GetComponent<Canvas>();
-        GameObject cameraRoot = new GameObject("UI preview camera", typeof(Camera));
-        Camera camera = cameraRoot.GetComponent<Camera>();
-        camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.035f, .045f, .055f);
-        RenderTexture target = new RenderTexture(width, height, 24);
-        camera.targetTexture = target;
-        canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-        Field<CanvasGroup>(panel, "_windowGroup").alpha = 1;
-        Button[] cards = Field<Button[]>(panel, "_homeCards");
-        Assert(cards.Length == 4, "home offers Overlay, Tweaks, Effects and General");
-        cards[1].onClick.Invoke();
-        Assert(Field<int>(panel, "_page") == 1 && Field<Button>(panel, "_back").gameObject.activeSelf, "Tweaks opens within settings");
-        Button back = Field<Button>(panel, "_back");
-        Assert(back.targetGraphic.color.a == 0 && back.transition == Selectable.Transition.None,
-          "Back has no button background or hover fill");
-        SettingsNavigationIcon backIcon = back.GetComponentInChildren<SettingsNavigationIcon>();
-        Assert(backIcon != null && backIcon.Kind == 4 && !backIcon.raycastTarget,
-          "Back uses a left chevron with the full button hit area");
-        CheckNavigationControls(panel, settings);
-        // A scene change destroys the selected object while the event system
-        // stays; that selection must read as nothing, not throw every frame.
-        GameObject previewEvents = new GameObject("Preview events", typeof(UnityEngine.EventSystems.EventSystem));
-        UnityEngine.EventSystems.EventSystem events = previewEvents.GetComponent<UnityEngine.EventSystems.EventSystem>();
-        GameObject doomed = new GameObject("Selection from a closed scene");
-        events.SetSelectedGameObject(doomed);
-        Object.DestroyImmediate(doomed);
-        Assert(!SettingsPanel.IsTyping(events), "a selection destroyed with its scene is not typing");
-        events.SetSelectedGameObject(null);
-        Object.DestroyImmediate(previewEvents);
-        Call(panel, "Back");
-        Assert(Field<int>(panel, "_page") == 0, "Back returns to home");
-        cards[2].onClick.Invoke();
-        Assert(Field<int>(panel, "_page") == 3, "Effects opens within settings");
-        Call(panel, "Back");
-        cards[3].onClick.Invoke();
-        Assert(Field<int>(panel, "_page") == 2, "General opens within settings");
-        Call(panel, "Back");
-        cards[0].onClick.Invoke();
-        Assert(overlayOpened && !root.activeSelf, "Overlay card hands off directly to overlay editor");
-        root.SetActive(true);
-        GameObject[] pages = Field<GameObject[]>(panel, "_pages");
-        Assert(pages[1].GetComponentsInChildren<SettingsSwitchMotion>(true).Length ==
-          (UnityEngine.Application.platform == RuntimePlatform.OSXEditor || UnityEngine.Application.platform == RuntimePlatform.OSXPlayer ? 2 : 1),
-          "Tweaks contains trackpad only on macOS");
-        Assert(pages[2].GetComponentsInChildren<SettingsSwitchMotion>(true).Length == 3
-          && Field<SettingsShortcutField>(panel, "_settingsShortcut").Capture.transform.IsChildOf(pages[2].transform),
-          "General contains shortcut, motion, ElementNote auto open and automatic update preferences");
-        Assert(!root.GetComponentsInChildren<TextMeshProUGUI>(true).Any(t => t.text.Contains("Hand and foot viewers") || t.text.Contains("Connect & preview")),
-          "legacy viewer switch and connection card are absent");
-        Assert(planetPreview.Calls == 0, "home, Tweaks, Effects and General do not render planet textures");
-        Call(panel, "SelectPage", page);
-        if (page == 7) Call(panel, "EditPreset", settings.Effects.Presets[0]);
-        panel.Resize(width, height);
-        Canvas.ForceUpdateCanvases();
-        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
-        if (page == 2) CheckShortcut(panel, settings, width, height);
-        if (page == 3) { CheckPresetEditing(panel, settings, width, height); CheckPresetShortcut(panel, settings, width, height); }
-        if (page == 4) CheckEditorSections(panel, settings, width, height);
-        if (page == 5) CheckJudgmentChoices(panel, settings);
-        if (page == 6) CheckPlanetEditing(panel, settings, width, height, planetPreview);
-        if (page == 8) CheckChatterBlocking(panel, settings, width);
-        if (page == 2) CheckProfileLink(panel, profiles);
-        if (page == 9) CheckProfiles(panel, settings, profiles, dialogs, width, height);
-        // Each of these frames shows one panel left open.
-        if (page == 9 && !name.EndsWith("-fonts")) CheckNewProfile(panel, settings, profiles, width, height, name.EndsWith("-new"));
-        if (page == 9 && !name.EndsWith("-new")) CheckFontReplacement(panel, settings, overlayFonts, width, name.EndsWith("-fonts"));
-        // One frame shows a name being changed on its card.
-        if (name.EndsWith("-rename")) Call(panel, "StartRename", profiles.Profiles[0]);
-        RectTransform window = Field<RectTransform>(panel, "_window");
-        Assert(window.rect.width * canvas.scaleFactor <= width && window.rect.height * canvas.scaleFactor <= height, "window fits viewport");
-        Assert(canvas.scaleFactor >= 1, "text is not reduced below authored size");
-        if (page == 0)
-        {
-          RectTransform first = (RectTransform)cards[0].transform, second = (RectTransform)cards[1].transform,
-            third = (RectTransform)cards[2].transform, fourth = (RectTransform)cards[3].transform;
-          bool stacked = ((RectTransform)pages[0].transform).rect.width < 480;
-          Assert(stacked ? second.anchoredPosition.y < first.anchoredPosition.y
-            : second.anchoredPosition.y == first.anchoredPosition.y && third.anchoredPosition.x == first.anchoredPosition.x
-              && fourth.anchoredPosition.y == third.anchoredPosition.y && third.anchoredPosition.y < first.anchoredPosition.y,
-            "categories form a two-by-two desktop grid in the requested order and stack only on compact windows");
-          foreach (var label in root.GetComponentsInChildren<TextMeshProUGUI>(false))
-            Assert(!label.isTextTruncated, "home label fits: " + label.text);
-        }
-        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) Assert(label.font == font, "shared overlay font");
-        foreach (RectTransform copy in root.GetComponentsInChildren<RectTransform>(false).Where(r => r.name == "Switch copy"))
-        {
-          RectTransform row = (RectTransform)copy.parent;
-          RectTransform toggle = (RectTransform)row.Find("Switch");
-          Assert(Mathf.Abs(CenterIn(copy, row).y - row.rect.center.y) < .1f
-            && Mathf.Abs(CenterIn(toggle, row).y - row.rect.center.y) < .1f, "switch copy and control share card center");
-          foreach (TextMeshProUGUI text in copy.GetComponentsInChildren<TextMeshProUGUI>())
-            Assert(!text.isTextTruncated, "switch copy fits intrinsic text height");
-        }
-        SettingsUiFactory ui = Field<SettingsUiFactory>(panel, "_ui");
-        foreach (string sample in new[] { "#000000", "#FFFFFF", "#0000FF", "#FF0000", "#BA712B" })
-        {
-          OverlayTheme.SetHighlight(sample); ui.RefreshTheme();
-          Color c = SettingsPalette.SoftAccent.linear;
-          float lum = c.r * .2126f + c.g * .7152f + c.b * .0722f;
-          Assert(lum >= .45f, "readable UI accent for " + sample);
-          foreach (TextMeshProUGUI action in Field<TextMeshProUGUI[]>(panel, "_cardActions"))
-            Assert(action.color == SettingsPalette.SoftAccent, "category action follows current highlight without tween lag");
-        }
-        OverlayTheme.SetHighlight(settings.HighlightColor); ui.RefreshTheme();
-        if (name == "editor-editing-en-720")
-          Field<System.Collections.Generic.List<Button>>(panel, "_editorTabButtons")[1].onClick.Invoke();
-        if (name.StartsWith("preset-shortcut"))
-          ShowPresetShortcut(panel, settings, name.EndsWith("narrow"));
-        // Force layout after checks; colors must be rendered using the same live components.
-        panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-        Field<ScrollRect>(panel, "_scroll").SendMessage("LateUpdate");
-        // ScrollRect intentionally forces scrollbars visible outside play mode.
-        // Match its play-mode overflow rule for the offline render.
-        ScrollRect scroll = Field<ScrollRect>(panel, "_scroll");
-        scroll.verticalScrollbar.gameObject.SetActive(scroll.content.rect.height > scroll.viewport.rect.height + 1);
-        Canvas.ForceUpdateCanvases();
-        camera.Render();
-        RenderTexture.active = target;
-        Texture2D image = new Texture2D(width, height, TextureFormat.RGB24, false);
-        image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();
-        File.WriteAllBytes(Path.Combine(_output, name + ".png"), image.EncodeToPNG());
-        RenderTexture.active = null;
-        Object.DestroyImmediate(image); camera.targetTexture = null; Object.DestroyImmediate(target); Object.DestroyImmediate(cameraRoot);
-        root.SetActive(false);
-        Object.DestroyImmediate(root);
-        Object.DestroyImmediate(Field<Sprite>(ui, "_rounded"));
-        Object.DestroyImmediate(Field<Texture2D>(ui, "_texture"));
-      }
-    }
 
-    private static void CheckPresetEditing(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      int originalCount = settings.Effects.Presets.Count;
-      var name = Field<TMP_InputField>(panel, "_presetName");
-      var save = Field<Button>(panel, "_savePreset");
-      var error = Field<TextMeshProUGUI>(panel, "_presetError");
-      Field<Button>(panel, "_newPreset").onClick.Invoke();
-      Assert(Field<int>(panel, "_page") == 7 && !save.interactable
-        && !Field<Button>(panel, "_deletePreset").gameObject.activeSelf,
-        "new preset opens a dedicated draft with no destructive action");
-      name.text = " " + settings.Effects.Presets[0].Name.ToLowerInvariant() + " ";
-      Assert(!save.interactable && error.text.Length > 0 && settings.Effects.Presets.Count == originalCount,
-        "preset names are unique after whitespace and case normalization");
-      name.text = "Fixture calm";
-      CheckInputCaret(name, "preset name", "", "Remove All", "한글 이름", "gjpq");
-      var options = Field<List<Button>>(panel, "_effectRows");
-      options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
-      Assert(save.interactable && Field<EffectPreset>(panel, "_presetDraft").Effects != RemovedEffects.None,
-        "draft effect choices are editable before a preset exists");
-      Call(panel, "Back");
-      Assert(Field<int>(panel, "_page") == 3 && settings.Effects.Presets.Count == originalCount,
-        "leaving an unsaved preset draft does not mutate the gallery");
-      Field<Button>(panel, "_newPreset").onClick.Invoke();
-      name.text = "Fixture calm";
-      options.First(button => button.gameObject.activeInHierarchy).onClick.Invoke();
-      RemovedEffects expected = Field<EffectPreset>(panel, "_presetDraft").Effects;
-      SettingsValueRow zoom = Field<SettingsValueRow>(panel, "_cameraZoom");
-      Assert((expected & RemovedEffects.CameraMotion) != 0 && zoom.Row.gameObject.activeSelf && zoom.Field.interactable
-        && zoom.Field.text == "250", "removing camera movement offers its zoom, starting at 250%");
-      RectTransform zoomRect = zoom.Row, cameraRect = (RectTransform)options[0].transform;
-      float zoomTop = -zoomRect.anchoredPosition.y, zoomBottom = zoomTop + zoomRect.rect.height;
-      Assert(Mathf.Approximately(cameraRect.rect.width, zoomRect.rect.width)
-        && zoomTop >= -cameraRect.anchoredPosition.y + cameraRect.rect.height,
-        "the zoom sits right under camera movement");
-      Assert(options.Skip(1).Where(button => button.gameObject.activeSelf)
-        .All(button => -((RectTransform)button.transform).anchoredPosition.y >= zoomBottom),
-        "the other Screen effects start below the zoom instead of covering it");
-      zoom.Field.onEndEdit.Invoke("1200");
-      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 1000 && zoom.Field.text == "1000"
-        && zoom.Slider.value == 1000, "a zoom above the range becomes the maximum");
-      zoom.Field.onEndEdit.Invoke("50");
-      Assert(Field<EffectPreset>(panel, "_presetDraft").CameraZoom == 100 && zoom.Field.text == "100",
-        "a zoom below the range becomes the minimum");
-      zoom.Field.onEndEdit.Invoke("300");
-      Assert(zoom.Slider.value == 300, "a typed zoom moves the slider");
-      save.onClick.Invoke();
-      EffectPreset created = settings.Effects.Presets.Single(preset => preset.Name == "Fixture calm");
-      Assert(created.CameraZoom == 300, "saving keeps the preset's zoom");
-      Assert(settings.Effects.Presets.Count == originalCount + 1 && created.Effects == expected
-        && Field<int>(panel, "_page") == 3, "saving creates the named preset and returns to its gallery");
-      Field<List<Button>>(panel, "_presetCards").Single(button => button.name == "Preset: Fixture calm").onClick.Invoke();
-      Assert(settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "selecting a preset applies it and enables removal");
-      // The toggle rebuilds retained gallery controls. Their layout must survive
-      // that callback itself, without Resize/Back/FitWindow rescuing the result.
-      Rect[] cardRects = Field<List<Button>>(panel, "_presetCards")
-        .Select(button => { var r = (RectTransform)button.transform; return new Rect(r.anchoredPosition, r.rect.size); }).ToArray();
-      Field<Button>(panel, "_effectEnabled").onClick.Invoke();
-      Assert(!settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "turning removal off preserves the selected preset");
-      CheckPresetCardRects(panel, cardRects, "off");
-      Field<Button>(panel, "_effectEnabled").onClick.Invoke();
-      Assert(settings.Effects.Enabled && settings.Effects.ActivePresetId == created.Id,
-        "turning removal back on preserves the active preset");
-      CheckPresetCardRects(panel, cardRects, "on");
-      Field<Button>(panel, "_effectEnabled").onClick.Invoke();
-      CheckPresetCardRects(panel, cardRects, "off again");
-      Call(panel, "EditPreset", created);
-      name.text = settings.Effects.Presets[0].Name;
-      Assert(!save.interactable && created.Name == "Fixture calm", "duplicate rename cannot mutate the existing preset");
-      name.text = "Fixture renamed"; save.onClick.Invoke();
-      Assert(created.Name == "Fixture renamed" && settings.Effects.ActivePresetId == created.Id,
-        "renaming keeps stable identity and selected state");
-      Call(panel, "EditPreset", created);
-      Field<Button>(panel, "_deletePreset").onClick.Invoke();
-      Assert(settings.Effects.Presets.Count == originalCount && settings.Effects.ActivePreset != null
-        && !settings.Effects.Enabled && Field<int>(panel, "_page") == 3,
-        "deleting the selected preset keeps a valid fallback without enabling removal");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      List<Button> cards = Field<List<Button>>(panel, "_presetCards");
-      RectTransform first = (RectTransform)cards[0].transform;
-      float galleryWidth = Field<RectTransform>(panel, "_presetGallery").rect.width;
-      int columns = galleryWidth >= 600 ? 3 : galleryWidth >= 440 ? 2 : 1;
-      Assert(cards.Take(columns).All(button => ((RectTransform)button.transform).anchoredPosition.y == first.anchoredPosition.y)
-        && (cards.Count <= columns || ((RectTransform)cards[columns].transform).anchoredPosition.y < first.anchoredPosition.y),
-        "preset gallery uses three desktop columns and adapts without overlap on narrow windows");
-    }
 
-    private static void CheckPresetCardRects(SettingsPanel panel, Rect[] expected, string state)
-    {
-      List<Button> cards = Field<List<Button>>(panel, "_presetCards");
-      Assert(cards.Count == expected.Length, "effect toggle retains every preset card: " + state);
-      var positions = new HashSet<Vector2>();
-      for (int i = 0; i < cards.Count; i++)
-      {
-        RectTransform rect = (RectTransform)cards[i].transform;
-        Assert(cards[i].gameObject.activeInHierarchy && new Rect(rect.anchoredPosition, rect.rect.size) == expected[i],
-          "effect toggle preserves each visible card's rectangle before relayout: " + state);
-        Assert(positions.Add(rect.anchoredPosition), "effect toggle cannot pile preset cards onto one origin: " + state);
-      }
-    }
 
-    private static void CheckEditorSections(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      var tabs = Field<List<Button>>(panel, "_editorTabButtons");
-      RectTransform selection = Field<RectTransform>(panel, "_selectionPane");
-      RectTransform editing = Field<RectTransform>(panel, "_editingPane");
-      Assert(selection.gameObject.activeSelf && !editing.gameObject.activeSelf,
-        "editor suboptions use one focused section rather than one long list");
-      tabs[1].onClick.Invoke(); panel.Resize(width, height);
-      Assert(!selection.gameObject.activeSelf && editing.gameObject.activeSelf, "editor section navigation swaps its suboptions");
-      var editor = settings.Gameplay.Editor;
-      var rotation = Field<TMP_InputField>(panel, "_rotationInput");
-      editor.FineRotation = false; Field<SettingsUiFactory>(panel, "_ui").RefreshTheme();
-      Assert(!rotation.interactable, "rotation step is disabled when fine rotation is off");
-      Field<List<Button>>(panel, "_editingOptions")[0].onClick.Invoke();
-      Assert(editor.FineRotation && rotation.interactable, "enabling fine rotation activates its nested step control");
-      CheckInputCaret(rotation, "rotation step", "", "22.5");
-      float before = editor.RotationStep;
-      Call(panel, "CommitRotationStep", "not an angle");
-      Assert(editor.RotationStep == before && Field<TextMeshProUGUI>(panel, "_rotationError").text.Length > 0,
-        "invalid custom rotation leaves the previous value intact");
-      Call(panel, "CommitRotationStep", "7.5");
-      Assert(Mathf.Abs(editor.RotationStep - 7.5f) < .001f, "valid custom rotation is applied");
-      tabs[0].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
-    private static void CheckJudgmentChoices(SettingsPanel panel, ElementSettings settings)
-    {
-      var rows = Field<List<Button>>(panel, "_judgementOptions");
-      var judgment = settings.Gameplay.Judgement;
-      Func<bool>[] hidden = {
-        () => judgment.HideEarlyPerfect, () => judgment.HidePerfect, () => judgment.HideXPerfect,
-        () => judgment.HideLatePerfect, () => judgment.HideTooEarly, () => judgment.HideEarly,
-        () => judgment.HideLate, () => judgment.HideTooLate, () => judgment.HideMiss, () => judgment.HideOverload
-      };
-      Assert(rows.Count == hidden.Length, "ten judgment controls expose XP separately from Perfect +/-");
-      Call(panel, "SetAllJudgements", false);
-      Assert(hidden.All(read => !read()), "Show all includes XP and every other judgment");
-      for (int i = 0; i < rows.Count; i++)
-      {
-        rows[i].onClick.Invoke();
-        Assert(hidden.Select((read, index) => read() == (index == i)).All(value => value),
-          "each judgment card changes only its own visibility: " + i);
-        rows[i].onClick.Invoke();
-        Assert(hidden.All(read => !read()), "each judgment can independently return to shown: " + i);
-      }
-      Call(panel, "SetAllJudgements", true);
-      Assert(hidden.All(read => read()), "Hide all includes XP and every other judgment");
-      rows[1].onClick.Invoke();
-      Assert(!judgment.HidePerfect && judgment.HideXPerfect && judgment.HideMiss,
-        "showing Perfect +/- leaves XP and failures hidden");
-      rows[2].onClick.Invoke();
-      Assert(!judgment.HidePerfect && !judgment.HideXPerfect && judgment.HideMiss,
-        "showing XP leaves Perfect +/- and failures unchanged");
-      Call(panel, "SetAllJudgements", false);
-      Assert(hidden.All(read => !read()), "Show all restores all ten judgment types after independent editing");
-    }
 
-    private static void CheckPlanetEditing(SettingsPanel panel, ElementSettings settings, int width, int height, PlanetPreviewProbe preview)
-    {
-      var enabled = Field<Button>(panel, "_planetEnabled");
-      var sources = Field<List<Button>>(panel, "_planetSourceButtons");
-      var colors = Field<List<Button>>(panel, "_planetColorButtons");
-      var tabs = Field<List<Button>>(panel, "_planetTabButtons");
-      var ui = Field<SettingsUiFactory>(panel, "_ui");
-      var image = Field<RawImage>(panel, "_planetImage");
-      Assert(preview.Calls > 0 && preview.Index == 0 && ReferenceEquals(preview.Profile, settings.Gameplay.Planets.Red),
-        "opening Planets immediately requests the Fire profile from the injected game renderer");
-      CheckPlanetTexture(panel, preview);
-      settings.Gameplay.Planets.Enabled = false; ui.RefreshTheme();
-      Assert(colors.All(button => !button.interactable), "disabled planets cannot open appearance editors");
-      int before = preview.Calls;
-      enabled.onClick.Invoke();
-      Assert(preview.Calls > before, "enabling customization refreshes the planet preview immediately");
-      var profile = Field<Button>(panel, "_planetProfileEnabled");
-      if (!colors[0].interactable) profile.onClick.Invoke();
-      Assert(colors.All(button => button.interactable), "enabling the planet profile activates body, trail and ring controls");
-      before = preview.Calls;
-      sources[0].onClick.Invoke();
-      Assert(preview.Calls > before && !preview.Snapshot.Body.OverrideColor,
-        "switching Body to map colors immediately reaches the preview renderer");
-      colors[0].onClick.Invoke();
-      var picker = Field<SettingsColorPicker>(panel, "_planetPicker");
-      var shade = Field<Button>(panel, "_pickerShade");
-      Assert(picker.Visible && shade.gameObject.activeSelf, "planet color opens an anchored picker with a dismiss backdrop");
-      before = preview.Calls;
-      Field<TMP_InputField>(picker, "_opacity").text = "50";
-      Assert(preview.Calls > before && preview.Snapshot.Body.Opacity == 50 && !preview.Snapshot.Body.OverrideColor,
-        "Body opacity reaches the renderer while preserving its map color source");
-      before = preview.Calls;
-      Field<TMP_InputField>(picker, "_hex").text = "2468AC";
-      Assert(preview.Calls > before && preview.Snapshot.Body.ColorHex == "#2468AC"
-        && preview.Snapshot.Body.Opacity == 50 && preview.Snapshot.Body.OverrideColor,
-        "Body RGB edits immediately select custom color without losing opacity");
-      Assert(picker.Commit(), "planet opacity can be committed through the shared RGBA picker");
-      Button close = picker.Root.GetComponentsInChildren<Button>(false).Single(button => button.name == "Close color picker");
-      close.onClick.Invoke();
-      Assert(!picker.Visible && !shade.gameObject.activeSelf, "closing the color picker also removes its input-blocking shade");
-      string[] partHex = { "2468AC", "426688", "6842AA" };
-      string[] partOpacity = { "50", "25", "0" };
-      for (int i = 1; i < colors.Count; i++)
-      {
-        colors[i].onClick.Invoke();
-        before = preview.Calls;
-        Field<TMP_InputField>(picker, "_hex").text = partHex[i];
-        Field<TMP_InputField>(picker, "_opacity").text = partOpacity[i];
-        PlanetComponentAppearance part = i == 1 ? preview.Snapshot.Tail : preview.Snapshot.Ring;
-        Assert(preview.Calls > before && part.ColorHex == "#" + partHex[i]
-          && part.Opacity == float.Parse(partOpacity[i]), "each component routes RGB and alpha to the renderer immediately: " + i);
-        Assert(preview.Snapshot.Body.ColorHex == "#2468AC" && preview.Snapshot.Body.Opacity == 50,
-          "editing Trail or Ring leaves Body appearance independent");
-        close.onClick.Invoke();
-      }
-      PlanetAppearanceProfile[] profiles = { settings.Gameplay.Planets.Red, settings.Gameplay.Planets.Blue, settings.Gameplay.Planets.Green };
-      for (int i = 1; i < tabs.Count; i++)
-      {
-        before = preview.Calls;
-        tabs[i].onClick.Invoke();
-        Assert(preview.Calls > before && preview.Index == i && ReferenceEquals(preview.Profile, profiles[i]),
-          "switching planet tabs immediately requests the corresponding profile: " + i);
-        CheckPlanetTexture(panel, preview);
-        string previousFire = settings.Gameplay.Planets.Red.Body.ColorHex;
-        colors[0].onClick.Invoke();
-        before = preview.Calls;
-        string hex = i == 1 ? "80A0C0" : "20C080";
-        Field<TMP_InputField>(picker, "_hex").text = hex;
-        Assert(preview.Calls > before && preview.Index == i && preview.Snapshot.Body.ColorHex == "#" + hex
-          && settings.Gameplay.Planets.Red.Body.ColorHex == previousFire,
-          "editing the selected planet cannot mutate Fire or render a stale tab");
-        close.onClick.Invoke();
-      }
-      before = preview.Calls;
-      profile.onClick.Invoke();
-      Assert(preview.Calls > before && !preview.Snapshot.Enabled && colors.All(button => !button.interactable),
-        "profile enable state is immediately reflected without changing the selected planet");
-      profile.onClick.Invoke();
-      preview.Available = false;
-      Call(panel, "RefreshPlanetPreview");
-      Assert(!image.enabled && image.texture == null && Field<TextMeshProUGUI>(panel, "_planetPreviewLabel").text.Length > 0,
-        "unavailable game artwork clears stale imagery and exposes its fallback message");
-      preview.Available = true;
-      Call(panel, "RefreshPlanetPreview");
-      CheckPlanetTexture(panel, preview);
-      colors[1].onClick.Invoke();
-      Call(panel, "SelectPage", 1);
-      Assert(!picker.Visible && !shade.gameObject.activeSelf, "leaving Planets cannot leave its picker or shade behind");
-      before = preview.Calls;
-      ui.RefreshTheme(); Call(panel, "RefreshPlanetPreview");
-      Assert(preview.Calls == before, "leaving Planets stops rendering even when unrelated settings refresh");
-      Call(panel, "SelectPage", 6);
-      GameObject root = Field<GameObject>(panel, "_root");
-      root.SetActive(false); before = preview.Calls;
-      ui.RefreshTheme(); Call(panel, "RefreshPlanetPreview");
-      Assert(preview.Calls == before, "closing settings suspends planet rendering while retaining the selected page");
-      root.SetActive(true);
-      tabs[0].onClick.Invoke();
-      Call(panel, "SelectPage", 6); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      CheckPlanetTexture(panel, preview);
-    }
-
-    private static void CheckPlanetTexture(SettingsPanel panel, PlanetPreviewProbe preview)
-    {
-      RawImage image = Field<RawImage>(panel, "_planetImage");
-      RectTransform card = Field<RectTransform>(panel, "_planetPreview");
-      Texture texture = preview.Texture;
-      Rect artwork = image.rectTransform.rect;
-      Assert(image.enabled && image.texture == texture && image.color == Color.white && !image.raycastTarget,
-        "planet artwork displays the renderer's actual texture without a schematic substitute or extra tint");
-      Assert(Mathf.Abs(artwork.width / artwork.height - texture.width / (float)texture.height) < .001f
-        && artwork.width <= card.rect.width - 32 + .1f && artwork.height <= card.rect.height - 64 + .1f,
-        "wide, tall and square renderer textures fit the preview without stretching or covering its caption");
-    }
 
     // This probe checks the UI/render-service boundary only. The deliberately
     // rectangular test textures are not ADOFAI artwork or a game-render test.
@@ -1977,213 +1868,101 @@ namespace Element.Editor
     }
 
     // Three profiles, the newest in use, as a player who made two copies would have.
+    // The settings window on ElementUI: open it, walk the pages, and photograph one.
+    private static readonly System.Collections.Generic.Dictionary<string, string> PageFields = new System.Collections.Generic.Dictionary<string, string>
+    {
+      ["_home"] = "Home", ["_tweaks"] = "Tweaks", ["_general"] = "General", ["_effects"] = "Effects",
+      ["_editorTweaks"] = "EditorTweaks", ["_judgment"] = "Judgment", ["_planets"] = "Planets",
+      ["_presetEditor"] = "PresetEditor", ["_chatter"] = "Chatter", ["_profiles"] = "Profiles",
+    };
+
+    private static void Render(int width, int height, SystemLanguage language, string page, string name)
+    {
+      RDString.language = language;
+      TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
+      Assert(font != null, "overlay font exists");
+      ElementSettings settings = new ElementSettings { ReduceUiMotion = true };
+      UiTheme.SetHighlight(settings.HighlightColor);
+      bool overlayOpened = false;
+      using var planetPreview = new PlanetPreviewProbe();
+      PreviewDialogs dialogs = new PreviewDialogs();
+      ProfileService profiles = PreviewProfiles(settings, dialogs);
+      OverlayFontCatalog fontCatalog = page == "_profiles"
+        ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
+        : null;
+      OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
+      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {},
+        new SettingsFeatures { RenderPlanetPreview = planetPreview.Render, Updates = new PreviewUpdates(), Profiles = profiles, OverlayFonts = () => overlayFonts });
+      Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
+      GameObject root = Field<GameObject>(panel, "_root");
+      root.SetActive(true);
+      SettingsWindowViewModel model = Field<SettingsWindowViewModel>(panel, "_model");
+      model.Opened();
+      Canvas canvas = root.GetComponent<Canvas>();
+      GameObject cameraRoot = new GameObject("UI preview camera", typeof(Camera));
+      Camera camera = cameraRoot.GetComponent<Camera>();
+      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = new Color(.035f, .045f, .055f);
+      RenderTexture target = new RenderTexture(width, height, 24);
+      camera.targetTexture = target;
+      try
+      {
+        Assert(model.Current == model.Home, "settings open on Home");
+        model.Home.OpenTweaks.TryExecute();
+        Assert(model.Current == model.Tweaks && model.CanGoBack.Value, "Tweaks opens within settings, with Back");
+        model.Back.TryExecute();
+        Assert(model.Current == model.Home && !model.CanGoBack.Value, "Back returns to Home");
+        model.Home.OpenEffects.TryExecute();
+        Assert(model.Current == model.Effects, "Effects opens within settings");
+        model.Back.TryExecute();
+        model.Home.OpenGeneral.TryExecute();
+        Assert(model.Current == model.General, "General opens within settings");
+        model.Back.TryExecute();
+        model.Home.EditOverlay.TryExecute();
+        Assert(overlayOpened && !root.activeSelf, "the Overlay card hands off directly to the overlay editor");
+        root.SetActive(true);
+        Assert(planetPreview.Calls == 0, "Home, Tweaks, Effects and General do not render planet textures");
+        SettingsPageModel shown = (SettingsPageModel)typeof(SettingsWindowViewModel).GetField(PageFields[page]).GetValue(model);
+        Assert(shown != null, page + " exists");
+        model.Show(shown);
+        ElementUI.Runtime.Probe();
+        panel.Resize(width, height);
+        for (int i = 0; i < 4; i++) { ElementUI.Runtime.Flush(1); Canvas.ForceUpdateCanvases(); }
+        foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false)) label.ForceMeshUpdate();
+        SettingsCheck check = new SettingsCheck
+        {
+          Panel = panel, Model = model, Root = root, Settings = settings, Width = width, Height = height, Name = name,
+          Features = Field<SettingsWindowViewModel>(panel, "_model").Features,
+          Save = frame => SaveFrame(camera, target, new[] { canvas }, frame),
+        };
+        _checks += SettingsPageChecks.Run(page, check);
+        check.Settle();
+        SaveFrame(camera, target, new[] { canvas }, name);
+        _checks += 8;
+      }
+      finally
+      {
+        panel.Dispose();
+        Object.DestroyImmediate(root);
+        Object.DestroyImmediate(target);
+        Object.DestroyImmediate(cameraRoot);
+      }
+    }
+
     private static ProfileService PreviewProfiles(ElementSettings settings, PreviewDialogs dialogs)
     {
       bool korean = RDString.language == SystemLanguage.Korean;
       ProfileLibrary library = new ProfileLibrary(settings, korean ? "기본" : "Default");
       library.TryCreate(korean ? "방송용" : "Stream", out _, out _);
       library.TryCreate(korean ? "연습 · 느린 곡과 긴 이름의 프로필" : "Practice · slow songs and a long name", out _, out _);
-      return new ProfileService(library, dialogs, () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
+      return new ProfileService(library, dialogs, new ProfileFileStore(), () => true, () => {}, () => {}, "1.2.0", (_, _) => {});
     }
 
-    private static void CheckProfileLink(SettingsPanel panel, ProfileService profiles)
-    {
-      Button link = Field<Button>(panel, "_profileLink");
-      Assert(link != null && link.transform.IsChildOf(Field<GameObject[]>(panel, "_pages")[2].transform), "General starts with the profile link");
-      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(profiles.Active.Name), "the profile link names the profile in use");
-      RectTransform shortcut = Field<RectTransform>(panel, "_shortcutSection");
-      Assert(((RectTransform)link.transform).rect.height > 0 && -shortcut.anchoredPosition.y >= 80, "the shortcut card sits below the profile link");
-    }
 
-    private static void CheckProfiles(SettingsPanel panel, ElementSettings settings, ProfileService profiles, PreviewDialogs dialogs, int width, int height)
-    {
-      List<Button> cards = Field<List<Button>>(panel, "_profileCards");
-      Assert(cards.Count == profiles.Profiles.Count, "one card per profile");
-      float pageWidth = ((RectTransform)Field<GameObject[]>(panel, "_pages")[9].transform).rect.width;
-      var rects = cards.Select(card => { RectTransform r = (RectTransform)card.transform; return new Rect(r.anchoredPosition.x, -r.anchoredPosition.y, r.rect.width, r.rect.height); }).ToList();
-      for (int i = 0; i < rects.Count; i++)
-      {
-        Assert(rects[i].xMin >= -.5f && rects[i].xMax <= pageWidth + .5f, "profile card fits the page: " + width);
-        for (int j = i + 1; j < rects.Count; j++)
-          Assert(!rects[i].Overlaps(rects[j]), "profile cards do not overlap: " + width);
-      }
-      RectTransform heading = Field<RectTransform>(panel, "_profilesHeading");
-      Rect newButton = ((RectTransform)Field<Button>(panel, "_newProfile").transform).rect;
-      Assert(newButton.width > 0 && ((RectTransform)Field<Button>(panel, "_importProfile").transform).anchoredPosition.x + 1 < ((RectTransform)Field<Button>(panel, "_newProfile").transform).anchoredPosition.x,
-        "Import sits before New profile");
-      foreach (TextMeshProUGUI label in heading.GetComponentsInChildren<TextMeshProUGUI>(false))
-        Assert(!label.isTextTruncated, "profile heading fits: " + label.text);
-      Assert(!Field<GameObject[]>(panel, "_pages")[9].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text.Contains("Each profile keeps") || t.text.Contains("프로필마다")),
-        "the page doesn't explain profiles");
-
-      // Import whose window was closed: nothing happens and nothing is said.
-      Call(panel, "ImportProfile");
-      Assert(dialogs.Opened == 1 && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a closed file window leaves no message");
-
-      // Switching from a card: the card shows it; nothing above the cards moves.
-      ElementProfile first = profiles.Profiles[0];
-      var planets = settings.Gameplay.Planets;
-      Vector2 galleryBefore = Field<RectTransform>(panel, "_profileGallery").anchoredPosition;
-      cards[0].onClick.Invoke();
-      Assert(profiles.Active == first && settings.Gameplay.Planets == planets, "a card switches profiles in place");
-      Assert(Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "", "a switch shows on the card, not in a message");
-      Assert(Field<RectTransform>(panel, "_profileGallery").anchoredPosition == galleryBefore, "switching doesn't move the cards");
-      cards = Field<List<Button>>(panel, "_profileCards");
-      Assert(cards.Count == profiles.Profiles.Count, "the gallery rebuilds after a switch");
-      Assert(Field<TextMeshProUGUI>(panel, "_profileLinkDetail").text.Contains(first.Name), "General names the new profile in use");
-
-      // Every card renames, duplicates, exports and deletes with one press.
-      foreach (Button item in cards)
-        Assert(new[] { "Rename profile", "Duplicate profile", "Export profile", "Delete profile" }.All(n => item.transform.Find(n) != null),
-          "every card has rename, duplicate, export and delete");
-      foreach (Button item in cards)
-      {
-        RectTransform title = item.GetComponentsInChildren<TextMeshProUGUI>(false)[0].rectTransform;
-        Vector3[] titleCorners = new Vector3[4], actionCorners = new Vector3[4];
-        title.GetWorldCorners(titleCorners);
-        ((RectTransform)item.transform.Find("Rename profile")).GetWorldCorners(actionCorners);
-        Assert(titleCorners[2].x <= actionCorners[0].x + .5f, "a card's name stops before its buttons: " + width);
-        Button action = item.transform.Find("Rename profile").GetComponent<Button>();
-        Assert(action.targetGraphic.color.a == 0 && action.transition == Selectable.Transition.None,
-          "card buttons have no surface of their own; only the glyph reacts");
-      }
-
-      // Rename on the card: the card says why a taken name won't do, and the old name stays.
-      ElementProfile second = profiles.Profiles[1];
-      string original = second.Name;
-      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
-      TMP_InputField field = Field<TMP_InputField>(panel, "_renameInput");
-      Assert(field != null && field.transform.IsChildOf(Field<List<Button>>(panel, "_profileCards")[1].transform) && field.text == original,
-        "the pencil turns the card's name into a field holding it");
-      Assert(!field.onFocusSelectAll, "the caret goes after the name instead of selecting it");
-      field.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      TextMeshProUGUI problem = Field<TextMeshProUGUI>(panel, "_renameProblem");
-      Assert(problem.text.Length > 0 && problem.transform.IsChildOf(field.transform.parent) && Field<TextMeshProUGUI>(panel, "_profilesMessage").text == "",
-        "a taken name is refused as it is typed, on the card");
-      field.onEndEdit.Invoke(field.text);
-      Assert(second.Name == original && Field<TMP_InputField>(panel, "_renameInput") == null
-        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Length > 0, "a taken name keeps the old name and says why");
-      cards = Field<List<Button>>(panel, "_profileCards");
-      cards[1].transform.Find("Rename profile").GetComponent<Button>().onClick.Invoke();
-      field = Field<TMP_InputField>(panel, "_renameInput");
-      field.text = original + " 2";
-      field.onEndEdit.Invoke(field.text);
-      Assert(second.Name == original + " 2", "a new name saves when the field is left");
-      Assert(Field<List<Button>>(panel, "_profileCards")[1].GetComponentsInChildren<TextMeshProUGUI>(false)[0].text == second.Name,
-        "the card shows the new name");
-
-      // Duplicate puts a copy next to the card and keeps the profile in use.
-      ElementProfile active = profiles.Active;
-      int count = profiles.Profiles.Count;
-      cards = Field<List<Button>>(panel, "_profileCards");
-      cards[1].transform.Find("Duplicate profile").GetComponent<Button>().onClick.Invoke();
-      ElementProfile copy = profiles.Profiles[2];
-      Assert(profiles.Profiles.Count == count + 1 && profiles.Active == active && copy.Name.StartsWith(second.Name)
-        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "duplicate adds a copy after the card");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      RectTransform message = Field<TextMeshProUGUI>(panel, "_profilesMessage").rectTransform;
-      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
-      Assert(-message.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "messages sit below the cards");
-
-      // Export opens the save window at once; a closed window says nothing new.
-      int opened = dialogs.Opened;
-      cards = Field<List<Button>>(panel, "_profileCards");
-      cards[1].transform.Find("Export profile").GetComponent<Button>().onClick.Invoke();
-      Assert(dialogs.Opened == opened + 1, "export opens the save window from the card");
-
-      // Delete asks on the card first, then removes the profile.
-      count = profiles.Profiles.Count;
-      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      cards = Field<List<Button>>(panel, "_profileCards");
-      Assert(profiles.Profiles.Count == count
-        && cards[2].GetComponentsInChildren<TextMeshProUGUI>(false).Any(t => t.text == L("한 번 더 누르면 삭제해요", "Press again to delete")),
-        "the first delete press only asks, on the card");
-      cards[2].transform.Find("Delete profile").GetComponent<Button>().onClick.Invoke();
-      Assert(profiles.Profiles.Count == count - 1 && !profiles.Profiles.Contains(copy)
-        && Field<TextMeshProUGUI>(panel, "_profilesMessage").text.Contains(copy.Name), "the second press deletes it");
-      panel.Resize(width, height);
-      Canvas.ForceUpdateCanvases();
-      TextMeshProUGUI said = Field<TextMeshProUGUI>(panel, "_profilesMessage");
-      said.ForceMeshUpdate();
-      Assert(!said.isTextTruncated, "the message fits at " + width);
-    }
 
     // New profile opens a small panel under its button; the profile starts from the initial settings.
-    private static void CheckNewProfile(SettingsPanel panel, ElementSettings settings, ProfileService profiles, int width, int height, bool keepOpen)
-    {
-      Field<Button>(panel, "_newProfile").onClick.Invoke();
-      RectTransform popover = Field<RectTransform>(panel, "_newProfilePopover");
-      TMP_InputField name = Field<TMP_InputField>(panel, "_newProfileName");
-      Button create = Field<Button>(panel, "_createProfile");
-      Assert(popover.gameObject.activeSelf && Field<int>(panel, "_page") == 9, "New profile opens a panel on the same page");
-      Assert(name.text == "" && !create.interactable, "a new profile starts unnamed");
-      RectTransform window = Field<RectTransform>(panel, "_window");
-      Assert(popover.anchoredPosition.x >= 0 && popover.anchoredPosition.x + popover.rect.width <= window.rect.width + .5f
-        && -popover.anchoredPosition.y + popover.rect.height <= window.rect.height + .5f, "the panel stays inside the window at " + width);
-      name.text = profiles.Profiles[0].Name.ToUpperInvariant();
-      Assert(!create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text.Length > 0, "a taken name is refused as it is typed");
-      foreach (TextMeshProUGUI label in popover.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "the new profile panel fits at " + width + ": " + label.text);
-      }
-      name.text = "Tournament";
-      Assert(create.interactable && Field<TextMeshProUGUI>(panel, "_newProfileError").text == "", "a free name can be created");
-      if (keepOpen)
-        return;
-      settings.HighlightColor = "#00FF00";
-      int count = profiles.Profiles.Count;
-      create.onClick.Invoke();
-      Assert(profiles.Profiles.Count == count + 1 && profiles.Active.Name == "Tournament" && !popover.gameObject.activeSelf,
-        "Create adds the profile, switches to it and closes the panel");
-      Assert(settings.HighlightColor == ElementSettings.DefaultHighlightColor && settings.OverlayLayouts.Count > 0,
-        "the new profile has the initial settings, default overlay included");
-    }
 
     // An imported profile names a font this PC lacks: the card offers a font to
     // use instead, and a pick lands where the missing font was.
-    private static void CheckFontReplacement(SettingsPanel panel, ElementSettings settings, OverlayFonts fonts, int width, bool keepOpen)
-    {
-      const string missing = "Element Missing Font|Bold";
-      settings.OverlayFont = missing;
-      OverlayTextRun run = OverlayTextRun.Literal("Progress", OverlayColorSettings.Custom("#FFFFFF"));
-      run.Font = missing;
-      settings.OverlayLayouts.Add(new OverlayLayoutSettings { Text = new OverlayTextSettings { Runs = new List<OverlayTextRun> { run } } });
-      IOverlayFontLibrary library = fonts.Library;
-      library.RequestInstalled();
-      var waited = System.Diagnostics.Stopwatch.StartNew();
-      while (library.Installed == null && waited.ElapsedMilliseconds < 30000)
-        System.Threading.Thread.Sleep(50);
-      Call(panel, "OfferFontReplacements");
-      for (int i = 0; i < 20 && Field<object>(panel, "_checkingFonts") != null; i++)
-        Call(panel, "CheckImportedFonts");
-      RectTransform card = Field<RectTransform>(panel, "_fontCard");
-      System.Collections.IList rows = Field<System.Collections.IList>(panel, "_missingFonts");
-      Assert(card.gameObject.activeSelf && rows.Count == 1, "an imported profile's missing font is offered once: " + rows.Count);
-      Canvas.ForceUpdateCanvases();
-      foreach (TextMeshProUGUI label in card.GetComponentsInChildren<TextMeshProUGUI>(false))
-      {
-        label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "the missing font card fits at " + width + ": " + label.text);
-      }
-      RectTransform gallery = Field<RectTransform>(panel, "_profileGallery");
-      Assert(-card.anchoredPosition.y >= -gallery.anchoredPosition.y + gallery.rect.height, "the font card sits below the cards");
-
-      Call(panel, "OpenFontReplacement", 0);
-      OverlayFontPopover popover = Field<OverlayFontPopover>(panel, "_fontPopover");
-      Assert(popover.Visible, "Choose font opens the font list");
-      string georgia = library.Imported.First(face => face.Family == "Georgia").Key;
-      Call(popover, "Pick", (int)popover.GetType().GetMethod("IndexOf", Private).Invoke(popover, new object[] { georgia }));
-      Assert(settings.OverlayFont == georgia && run.Font == georgia, "a pick replaces the missing font where it was used");
-      if (keepOpen)
-        return;
-      popover.Hide();
-      Field<Button>(panel, "_fontCardDone").onClick.Invoke();
-      Assert(!card.gameObject.activeSelf, "Done puts the card away");
-      Call(panel, "OfferFontReplacements");
-      Assert(!card.gameObject.activeSelf, "nothing is offered once every font is on this PC");
-    }
 
     private sealed class PreviewUpdates : IModUpdates
     {
@@ -2231,63 +2010,6 @@ namespace Element.Editor
       }
     }
 
-    private static void CheckNavigationControls(SettingsPanel panel, ElementSettings settings)
-    {
-      var eventRoot = new GameObject("Navigation fixture events", typeof(EventSystem));
-      var pointer = new PointerEventData(eventRoot.GetComponent<EventSystem>());
-      Button back = Field<Button>(panel, "_back"), close = Field<Button>(panel, "_close");
-      var icon = back.GetComponentInChildren<SettingsNavigationIcon>();
-      var feedback = back.GetComponent<SettingsIconInteraction>();
-      feedback.OnPointerEnter(pointer);
-      Assert(icon.color == SettingsPalette.SoftAccent && back.targetGraphic.color.a == 0,
-        "borderless back glyph gains the soft highlight on pointer hover");
-      feedback.OnPointerDown(pointer);
-      Assert(icon.color != SettingsPalette.SoftAccent && icon.rectTransform.localScale == Vector3.one,
-        "pointer down responds immediately and respects reduced motion");
-      feedback.OnPointerUp(pointer);
-      feedback.OnPointerExit(pointer);
-      Assert(icon.color == SettingsUiFactory.Foreground, "back glyph restores its neutral color on exit");
-      Assert(close.targetGraphic.color.a == 0 && close.GetComponentInChildren<SettingsNavigationIcon>().Kind == 5
-        && !close.GetComponentsInChildren<TextMeshProUGUI>(false).Any(), "Close uses the same borderless icon treatment");
-      Assert(back.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer
-        && close.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Pointer,
-        "navigation controls advertise their click cursor");
-      CheckAntialias(icon);
-      var iconRoot = new GameObject("Low resolution action icon", typeof(RectTransform), typeof(LayoutActionIcon));
-      var action = iconRoot.GetComponent<LayoutActionIcon>();
-      action.rectTransform.sizeDelta = new Vector2(16, 16);
-      action.color = Color.white;
-      action.Kind = LayoutAction.Reset;
-      CheckAntialias(action);
-      using (var mesh = new VertexHelper())
-      {
-        action.GetType().GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(action, new object[] { mesh });
-        Assert(mesh.currentVertCount < 400, "curved icons use a joined strip rather than a disk at every segment");
-      }
-      Object.DestroyImmediate(iconRoot);
-
-      var motion = Field<SettingsWindowMotion>(panel, "_windowMotion");
-      var window = Field<RectTransform>(panel, "_window");
-      var group = Field<CanvasGroup>(panel, "_windowGroup");
-      Vector2 resting = window.anchoredPosition;
-      settings.ReduceUiMotion = true;
-      motion.Show();
-      Assert(group.alpha == 1 && window.anchoredPosition == resting && !motion.enabled,
-        "reduced-motion window opens immediately at its resting position");
-      settings.ReduceUiMotion = false;
-      motion.Show();
-      Assert(window.localScale == Vector3.one && group.alpha == 0 && window.anchoredPosition.y < resting.y,
-        "window entrance uses a small settle without scaling text");
-      motion.GetType().GetField("_elapsed", Private).SetValue(motion, .3f);
-      Call(motion, "Update");
-      Assert(group.alpha == 1 && window.anchoredPosition == resting && !motion.enabled,
-        "window entrance settles exactly and stops updating");
-      motion.Show();
-      settings.ReduceUiMotion = true;
-      Call(motion, "Update");
-      Assert(window.anchoredPosition == resting && group.alpha == 1, "enabling reduced motion interrupts the entrance cleanly");
-      Object.DestroyImmediate(eventRoot);
-    }
 
     private static void CheckAntialias(Graphic graphic)
     {
@@ -2398,11 +2120,11 @@ namespace Element.Editor
       var root = new GameObject("Input caret fixture", typeof(RectTransform), typeof(Canvas));
       var cameraRoot = new GameObject("Input caret camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
-      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = SettingsUiFactory.Background;
+      camera.orthographic = true; camera.clearFlags = CameraClearFlags.SolidColor; camera.backgroundColor = UiPalette.Background;
       var texture = new RenderTexture(640, 280, 24); camera.targetTexture = texture;
       Canvas canvas = root.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-      var ui = new SettingsUiFactory(font);
+      var ui = new UiFactory(font);
       ui.Text("Input caret", root.transform, 28, 18, 300, 32, 20);
       string[] samples = { "Remove All", "한글 이름", "" };
       for (int i = 0; i < samples.Length; i++)
@@ -2412,7 +2134,7 @@ namespace Element.Editor
         TMP_Text text = input.textComponent;
         UIVertex[] vertices = GenerateNativeCaret(input, text.textInfo.characterCount - 1);
         RectTransform rect = ui.Rect("Native TMP caret", input.textViewport, 0, 0, input.textViewport.rect.width, input.textViewport.rect.height);
-        SettingsUiFactory.Stretch(rect, 0, 0, 0, 0);
+        UiFactory.Stretch(rect, 0, 0, 0, 0);
         rect.gameObject.AddComponent<CanvasRenderer>();
         var graphic = rect.gameObject.AddComponent<PreviewNativeCaret>();
         graphic.Vertices = vertices; graphic.raycastTarget = false;
@@ -2436,64 +2158,92 @@ namespace Element.Editor
       var texture = new RenderTexture(512, 480, 24); camera.targetTexture = texture;
       Canvas canvas = root.GetComponent<Canvas>();
       canvas.renderMode = RenderMode.ScreenSpaceCamera; canvas.worldCamera = camera; canvas.planeDistance = 1;
-      Color current = new Color(.73f, .44f, .17f, .5f), original = current, theme = OverlayTheme.Accent;
+      Color current = new Color(.73f, .44f, .17f, .5f), original = current, theme = UiTheme.Accent;
       int changed = 0;
-      var picker = new SettingsColorPicker(root.transform, font, () => true);
+      var picker = new UiColorPicker(root.transform, font, () => true);
       picker.Show("Planet color", current, true, value => { current = value; changed++; });
-      SettingsUiFactory.Place(picker.Root, 112, 52, SettingsColorPicker.Width, picker.Height);
-      var opacity = Field<TMP_InputField>(picker, "_opacity");
-      var hex = Field<TMP_InputField>(picker, "_hex");
-      var plane = Field<SettingsColorPlane>(picker, "_plane");
-      var hue = Field<Slider>(picker, "_hue");
-      var alpha = Field<Slider>(picker, "_alpha");
-      var error = Field<TextMeshProUGUI>(picker, "_error");
+      UiFactory.Place(picker.Root, 112, 52, UiColorPicker.Width, picker.Height);
+      Settle();
+      Transform drawn = picker.Root;
+      var opacity = ColorPickerProbe.Opacity(drawn);
+      var hex = ColorPickerProbe.Hex(drawn);
+      var plane = ColorPickerProbe.Plane(drawn);
+      var hue = ColorPickerProbe.Hue(drawn);
+      var alpha = ColorPickerProbe.Alpha(drawn);
+      var error = ColorPickerProbe.Error(drawn);
       Assert(changed == 0 && current == original, "opening an RGBA picker does not mutate its consumer");
-      Assert(picker.Height == 358 && opacity.gameObject.activeSelf && alpha.gameObject.activeSelf,
-        "RGBA mode adds an opacity track and a numeric field beside HEX");
-      Assert(plane.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Crosshair
-        && hue.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Horizontal
-        && alpha.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Horizontal
-        && hex.GetComponent<SettingsCursor>().Kind == SettingsCursorKind.Text,
+      Assert(picker.Height == 358 && ColorPickerProbe.Shown(opacity) && ColorPickerProbe.Shown(alpha) && !ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGBA mode adds an opacity track and a numeric field beside HEX: " + picker.Height);
+      Assert(ColorPickerProbe.Title(drawn).text == "Planet color" && ColorPickerProbe.Shown(ColorPickerProbe.Close(drawn))
+        && hex.text == ColorUtility.ToHtmlStringRGB(original) && opacity.text == "50",
+        "the card names the color, closes, and shows its HEX and opacity: " + hex.text + " / " + opacity.text);
+      Assert(plane.GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
+        && hue.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && alpha.GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && hex.GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "color controls expose crosshair, adjustment and text cursor affordances");
+      Rect card = ScreenRectOf(picker.Root), planeRect = ScreenRectOf((RectTransform)plane.transform), hueRect = ScreenRectOf((RectTransform)hue.transform),
+        alphaRect = ScreenRectOf((RectTransform)alpha.transform), hexRect = ScreenRectOf((RectTransform)hex.transform),
+        opacityRect = ScreenRectOf((RectTransform)opacity.transform);
+      Assert(card.Contains(planeRect.min) && card.Contains(planeRect.max) && planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y
+        && alphaRect.center.y > hexRect.center.y && Mathf.Abs(hexRect.center.y - opacityRect.center.y) < .5f && opacityRect.xMin > hexRect.xMax
+        && Mathf.Abs(hueRect.xMin - (planeRect.xMin - 10 * card.width / UiColorPicker.Width)) < 1,
+        "top to bottom: the square, hue, opacity, then HEX with the opacity beside it; the bars' handles reach past the square");
       foreach (int percent in new[] { 0, 50, 100 })
       {
         opacity.text = percent.ToString();
         Assert(Mathf.Abs(current.a - percent / 100f) < .001f && picker.Commit(),
           "numeric opacity accepts and commits " + percent + "%");
+        Settle();
         Assert(Mathf.Abs(alpha.value - percent / 100f) < .001f, "numeric opacity updates its slider");
       }
       opacity.text = "101";
+      Settle();
       Assert(current.a == 1 && error.text == "", "out-of-range partial opacity leaves the last valid color untouched");
-      Assert(!picker.Commit() && error.text.Length > 0, "invalid opacity produces a focused inline correction on commit");
+      int focusBefore = picker.Model.FocusOpacity.Value;
+      Assert(!picker.Commit() && picker.Model.FocusOpacity.Value > focusBefore, "invalid opacity asks its field to take the keyboard on commit");
+      Settle();
+      Assert(error.text.Length > 0, "invalid opacity produces an inline correction on commit: " + error.text);
       opacity.text = "50";
-      Assert(picker.Commit() && error.text == "", "valid opacity clears its validation error");
+      Assert(picker.Commit(), "valid opacity commits");
+      Settle();
+      Assert(error.text == "", "valid opacity clears its validation error");
       hex.text = "204060";
       Assert(Mathf.Abs(current.a - .5f) < .001f && ColorUtility.ToHtmlStringRGB(current) == "204060",
         "HEX changes preserve the independent alpha channel");
       alpha.value = .25f;
+      Settle();
       Assert(opacity.text == "25" && Mathf.Abs(current.a - .25f) < .001f,
         "opacity dragging updates the numeric field continuously");
       plane.Changed(.8f, 0); hue.value = .77f; plane.Changed(.8f, .9f);
       Color.RGBToHSV(current, out float h, out float s, out float v);
       Assert(Mathf.Abs(h - .77f) < .01f && Mathf.Abs(current.a - .25f) < .001f,
         "HSV gestures preserve hue through black and retain opacity");
-      Assert(OverlayTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
+      Assert(UiTheme.Accent == theme, "planet color editing cannot change the shared overlay highlight");
       hex.text = "BA712B"; opacity.text = "50"; picker.Commit();
+      Settle();
       CheckInputCaret(hex, "HEX color", "", "BA712B");
       CheckInputCaret(opacity, "opacity", "", "0", "50", "100");
       hex.DeactivateInputField(); opacity.DeactivateInputField();
-      Canvas.ForceUpdateCanvases();
+      Settle();
       foreach (var label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "RGBA picker label fits: " + label.text);
       }
       SaveFrame(camera, texture, 512, 480, "rgba-color-picker");
+      Press(ColorPickerProbe.Close(drawn));
+      Assert(!picker.Visible, "the close button hides the picker");
+      picker.SetDefault(new Color(.2f, .4f, .6f));
       picker.Show("Highlight color", current, false, value => current = value);
-      Assert(picker.Height == 318 && !alpha.gameObject.activeSelf && !opacity.gameObject.activeSelf,
-        "RGB mode stays compact and hides both opacity controls");
+      Settle();
+      Assert(picker.Height == 318 && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(drawn)) && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(drawn))
+        && ColorPickerProbe.Shown(ColorPickerProbe.Default(drawn)),
+        "RGB mode stays compact, hides both opacity controls and offers Default: " + picker.Height);
       hex.text = "BA712C";
       Assert(current.a == 1, "RGB mode always emits an opaque highlight color");
+      Press(ColorPickerProbe.Default(drawn));
+      Assert(ColorUtility.ToHtmlStringRGB(current) == "336699", "Default puts the default color back: " + ColorUtility.ToHtmlStringRGB(current));
       picker.Hide();
       Assert(!picker.Visible && !picker.IsTyping && picker.Commit(), "hidden picker releases its editing state");
       picker.Dispose();
@@ -2525,163 +2275,17 @@ namespace Element.Editor
       Object.DestroyImmediate(root);
     }
 
-    private static void CheckShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      var field = Field<SettingsShortcutField>(panel, "_settingsShortcut");
-      var capture = (SettingsButton)field.Capture;
-      var reset = field.Action;
-      var frame = field.Frame;
-      RectTransform section = Field<RectTransform>(panel, "_shortcutSection");
-      Assert(frame.anchoredPosition.x == 16 && frame.rect.height == 44,
-        "shortcut control is inset from the card with a consistent hit height");
-      Assert(((RectTransform)reset.transform).anchoredPosition.y == frame.anchoredPosition.y
-        || ((RectTransform)reset.transform).anchoredPosition.y < frame.anchoredPosition.y - frame.rect.height,
-        "Reset shares the control baseline or stacks below on compact windows");
-      var keycaps = field.Keycaps;
-      foreach (KeyCode key in new[] { KeyCode.BackQuote, KeyCode.Slash, KeyCode.LeftBracket, KeyCode.Backslash, KeyCode.Backspace, KeyCode.PageDown })
-      {
-        settings.SettingsShortcutKey = key;
-        Call(panel, "UpdateShortcutLabel"); Canvas.ForceUpdateCanvases();
-        var main = Field<TextMeshProUGUI>(field, "_mainKey"); main.ForceMeshUpdate();
-        RectTransform cap = (RectTransform)main.transform.parent;
-        Assert(cap.anchoredPosition.x + cap.rect.width <= keycaps.rect.width + .1f,
-          "keycap fits inside the shortcut field: " + key);
-        Assert(!main.isTextTruncated && main.textInfo.lineCount == 1,
-          "shortcut key stays readable on one line: " + key);
-      }
-      Assert(ShortcutKeys.KeyLabel(KeyCode.BackQuote) == "`" && ShortcutKeys.KeyLabel(KeyCode.Backslash) == "\\"
-        && ShortcutKeys.KeyLabel(KeyCode.Slash) == "/" && ShortcutKeys.KeyLabel(KeyCode.Alpha1) == "1",
-        "printable keys use their actual characters instead of enum names");
-      SettingsKeySymbol symbol = Field<SettingsKeySymbol>(field, "_modifierSymbol");
-      foreach (KeyCode modifier in new[] { KeyCode.LeftCommand, KeyCode.RightAlt, KeyCode.LeftControl, KeyCode.RightShift })
-      {
-        settings.SettingsShortcutModifier = modifier;
-        Call(panel, "UpdateShortcutLabel");
-        using (var mesh = new VertexHelper())
-        {
-          symbol.GetType().GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(symbol, new object[] { mesh });
-          Assert(mesh.currentVertCount > 0 && !symbol.raycastTarget,
-            "modifier symbol renders without font-atlas dependency: " + modifier);
-        }
-        Assert(Field<TextMeshProUGUI>(field, "_modifierSide").text == (modifier == KeyCode.RightAlt || modifier == KeyCode.RightShift ? "R" : "L"),
-          "modifier side remains distinguishable");
-      }
-      var events = new GameObject("Shortcut fixture events", typeof(EventSystem));
-      var pointer = new PointerEventData(events.GetComponent<EventSystem>());
-      var keyboard = new BaseEventData(events.GetComponent<EventSystem>());
-      capture.OnPointerEnter(pointer);
-      capture.OnSelect(pointer);
-      capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.highlightedColor,
-        "actual pointer hover is visibly highlighted");
-      capture.OnPointerExit(pointer); capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.normalColor,
-        "clicked selection cannot leave hover fill behind after pointer exit");
-      var focus = capture.GetComponent<SettingsFocusRing>();
-      focus.OnSelect(pointer);
-      Assert(!Field<Outline>(focus, "_outline").enabled, "pointer selection does not leave a keyboard focus ring");
-      focus.OnSelect(keyboard);
-      Assert(Field<Outline>(focus, "_outline").enabled, "keyboard selection retains a visible focus ring");
-      focus.OnDeselect(keyboard);
-      capture.OnPointerEnter(pointer);
-      capture.gameObject.SetActive(false); capture.gameObject.SetActive(true); capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.normalColor,
-        "reopening a control clears cached hover state");
-      capture.interactable = false; capture.SetPalette(capture.colors);
-      Assert(capture.targetGraphic.canvasRenderer.GetColor() == capture.colors.disabledColor,
-        "hover fix preserves disabled appearance");
-      Assert(capture.GetComponent<CanvasGroup>().alpha <= .5f,
-        "disabled controls dim their text and glyphs rather than resembling hover");
-      capture.interactable = true; capture.OnDeselect(keyboard); capture.SetPalette(capture.colors);
-      Object.DestroyImmediate(events);
-      settings.SettingsShortcutKey = ElementSettings.DefaultSettingsShortcutKey; settings.SettingsShortcutModifier = ElementSettings.DefaultSettingsShortcutModifier;
-      Call(panel, "UpdateShortcutLabel");
-      EffectPreset owner = settings.Effects.Presets[0];
-      owner.ShortcutKey = KeyCode.F6;
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.F6, KeyCode.None) && field.Capturing && field.Hint.text.Contains(owner.Name)
-        && settings.SettingsShortcutKey == ElementSettings.DefaultSettingsShortcutKey, "the settings shortcut cannot take a preset's shortcut and names that preset");
-      Assert(field.TryAssign(KeyCode.F7, KeyCode.LeftControl) && !field.Capturing && field.Hint.text.Length == 0
-        && settings.SettingsShortcutKey == KeyCode.F7 && settings.SettingsShortcutModifier == KeyCode.LeftControl,
-        "a free settings shortcut saves and ends recording");
-      owner.ClearShortcut();
-      reset.onClick.Invoke();
-      Assert(settings.SettingsShortcutKey == ElementSettings.DefaultSettingsShortcutKey
-        && settings.SettingsShortcutModifier == ElementSettings.DefaultSettingsShortcutModifier
-        && Field<TextMeshProUGUI>(field, "_mainKey").text == ShortcutKeys.KeyLabel(ElementSettings.DefaultSettingsShortcutKey),
-        "Reset restores the default and shows it");
-      // Recording refits the window to the editor's own screen; return to the fixture's.
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
-    private static void CheckPresetShortcut(SettingsPanel panel, ElementSettings settings, int width, int height)
-    {
-      EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
-      other.ShortcutKey = KeyCode.Alpha1; other.ShortcutModifier = KeyCode.LeftAlt;
-      Call(panel, "EditPreset", target);
-      var tabs = Field<List<Button>>(panel, "_effectTabButtons");
-      Assert(tabs.Count == 6, "the preset editor adds a Shortcut tab after the five effect groups");
-      tabs[5].onClick.Invoke(); panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      RectTransform card = Field<RectTransform>(panel, "_presetShortcutCard");
-      Assert(card.gameObject.activeSelf && !Field<RectTransform>(panel, "_effectOptions").gameObject.activeSelf,
-        "the Shortcut tab swaps the effect switches for the shortcut card");
-      var field = Field<SettingsShortcutField>(panel, "_presetShortcut");
-      Assert(!field.Keycaps.gameObject.activeSelf && !field.Action.interactable,
-        "a preset without a shortcut invites setting one and offers nothing to remove");
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.Alpha1, KeyCode.LeftAlt) && field.Capturing && field.Hint.text.Contains(other.Name),
-        "a shortcut another preset uses names that preset and keeps recording");
-      Assert(!field.TryAssign(settings.SettingsShortcutKey, settings.SettingsShortcutModifier) && field.Capturing,
-        "the settings shortcut cannot apply a preset");
-      Assert(field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt) && !field.Capturing && field.Keycaps.gameObject.activeSelf
-        && field.Action.interactable, "a free shortcut shows as keycaps with remove available");
-      Assert(!target.HasShortcut, "the shortcut waits in the draft until the preset is saved");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      foreach (RectTransform part in new[] { field.Frame, (RectTransform)field.Action.transform })
-        Assert(part.anchoredPosition.x + part.rect.width <= card.rect.width - 16 + .1f
-          && -part.anchoredPosition.y + part.rect.height <= card.rect.height, "the shortcut field fits its card: " + part.name);
-      Field<Button>(panel, "_savePreset").onClick.Invoke();
-      Assert(target.UsesShortcut(KeyCode.Alpha2, KeyCode.LeftAlt) && Field<int>(panel, "_page") == 3,
-        "saving keeps the shortcut on the preset");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-      Button presetCard = Field<List<Button>>(panel, "_presetCards").Single(button => button.name == "Preset: " + target.Name);
-      TextMeshProUGUI label = presetCard.GetComponentsInChildren<TextMeshProUGUI>()
-        .Single(text => text.text == ShortcutKeys.TextLabel(KeyCode.Alpha2, KeyCode.LeftAlt));
-      label.ForceMeshUpdate();
-      Assert(!label.isTextTruncated, "the preset card shows its shortcut in full");
-      Call(panel, "EditPreset", target);
-      Assert(!Field<bool>(panel, "_presetShortcutTab"), "editing a preset again starts on its effects");
-      tabs[5].onClick.Invoke();
-      field.Action.onClick.Invoke();
-      Assert(!Field<EffectPreset>(panel, "_presetDraft").HasShortcut && !field.Action.interactable && target.HasShortcut,
-        "removing clears the draft's shortcut only");
-      Call(panel, "Back");
-      Assert(target.HasShortcut, "leaving without saving keeps the saved shortcut");
-      target.ClearShortcut();
-      Call(panel, "RefreshPresetGallery");
-      panel.Resize(width, height); Canvas.ForceUpdateCanvases();
-    }
 
     // Leaves the preset editor on its Shortcut tab for the screenshot: a set
     // shortcut, or on narrow windows a recording that hit another preset's.
-    private static void ShowPresetShortcut(SettingsPanel panel, ElementSettings settings, bool conflict)
-    {
-      EffectPreset draft = Field<EffectPreset>(panel, "_presetDraft");
-      draft.ShortcutKey = KeyCode.Alpha1; draft.ShortcutModifier = KeyCode.LeftAlt;
-      Field<List<Button>>(panel, "_effectTabButtons")[5].onClick.Invoke();
-      if (!conflict) return;
-      settings.Effects.Presets[1].ShortcutKey = KeyCode.Alpha2; settings.Effects.Presets[1].ShortcutModifier = KeyCode.LeftAlt;
-      var field = Field<SettingsShortcutField>(panel, "_presetShortcut");
-      field.BeginCapture();
-      Assert(!field.TryAssign(KeyCode.Alpha2, KeyCode.LeftAlt), "the screenshot shows a conflicting shortcut");
-    }
 
     private static void RenderNotice(int width, int height, SystemLanguage language, string name)
     {
       RDString.language = language;
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
-      OverlayTheme.SetHighlight(new ElementSettings().HighlightColor);
-      var notice = new SettingsToast(font, () => true);
+      UiTheme.SetHighlight(new ElementSettings().HighlightColor);
+      var notice = new UiToast(font, () => true);
       Assert(notice.Root == null, "the notice builds nothing until it is first shown");
       bool korean = language == SystemLanguage.Korean;
       notice.Show((korean ? "이펙트 프리셋: " : "Effect preset: ") + "Remove All",

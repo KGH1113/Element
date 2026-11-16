@@ -797,6 +797,7 @@ export interface DMNoteAPI {
   window: {
     type: 'main' | 'overlay';
     minimize(): Promise<void>;
+    toggleMaximize(): Promise<void>;
     close(): Promise<void>;
     showMain(): Promise<void>;
     openDevtoolsAll?(): Promise<void>;
@@ -837,6 +838,11 @@ export interface DMNoteAPI {
     resetCounters(): Promise<KeyCounters>;
     resetCountersMode(mode: string): Promise<KeyCounters>;
     resetSingleCounter(mode: string, key: string): Promise<KeyCounters>;
+    setSingleCounter(
+      mode: string,
+      key: string,
+      value: number,
+    ): Promise<KeyCounters>;
     onCounterChanged(
       listener: (payload: KeyCounterUpdate) => void,
     ): Unsubscribe;
@@ -1027,8 +1033,9 @@ export interface DMNoteAPI {
   presets: {
     save(): Promise<PresetOperationResult>;
     load(): Promise<PresetOperationResult>;
-    saveTab(): Promise<PresetOperationResult>;
-    loadTab(): Promise<PresetOperationResult>;
+    /** One key viewer: the one named, or the one being edited. */
+    saveTab(tabId?: string): Promise<PresetOperationResult>;
+    loadTab(tabId?: string): Promise<PresetOperationResult>;
     onSnapshot(listener: (snapshot: PresetSnapshot) => void): Unsubscribe;
   };
   bridge: {

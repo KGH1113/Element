@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 public static class RDString { public static SystemLanguage language = SystemLanguage.Korean; }
-namespace Element.Presentation.Settings { internal static class UIInteractionState { public static void RestoreCursor() { } public static void SetTextEditing(bool value) { } } }
 public static class ADOBase
 {
   public class Controller { public bool paused; }
@@ -14,6 +13,8 @@ public static class ADOBase
 }
 public sealed class RDConstants
 {
+  public static RDConstants data = new RDConstants();
+  public TMPro.TMP_FontAsset koreanFontTMPro, latinFontTMPro;
   public GameObject prefab_colorsScreen;
   public Texture tex_planetRed, tex_planetBlue, tex_planetWhite;
 }
@@ -49,22 +50,22 @@ public static class FixtureColorExtensions
 {
   public static Color WithAlpha(this Color color, float alpha) { color.a = alpha; return color; }
 }
-namespace Element.Infrastructure.Game.Tweaks
+namespace Element.Infrastructure.Game.Planets
 {
   // Snapshot injection models the game-owned appearance boundary, not the
   // production appearance controller's mutation/restoration implementation.
   internal sealed class PlanetAppearanceController
   {
-    internal readonly Dictionary<PlanetRenderer, PlanetState> States = new Dictionary<PlanetRenderer, PlanetState>();
-    internal PlanetState GetPreviewState(PlanetRenderer renderer) => States.TryGetValue(renderer, out PlanetState state) ? state : null;
-    internal sealed class PlanetState
-    {
-      internal Texture SourceTexture;
-      internal Color BodySource, Glow, RingSource, TailSource, CoreSource;
-    }
+    internal readonly Dictionary<PlanetRenderer, PlanetOriginalAppearance> States = new Dictionary<PlanetRenderer, PlanetOriginalAppearance>();
+    internal PlanetOriginalAppearance GetPreviewState(PlanetRenderer renderer) => States.TryGetValue(renderer, out PlanetOriginalAppearance state) ? state : null;
+  }
+  internal sealed class PlanetOriginalAppearance
+  {
+    internal Texture SourceTexture;
+    internal Color BodySource, Glow, RingSource, TailSource, CoreSource;
   }
 }
-namespace Element.Infrastructure.Game.DmNote
+namespace Element.Infrastructure.ElementNote.Viewers
 {
   // Only the native transport is replaced. The production managed target owns
   // anchor selection, scaling, visibility fitting, staging and persistence.

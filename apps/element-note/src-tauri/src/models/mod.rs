@@ -620,14 +620,20 @@ impl From<OverlayBounds> for StoredOverlayBounds {
     }
 }
 
-/// 분리 패널의 마지막 기하 정보. 복원에 쓰는 값은 height뿐이고
+/// 분리 패널의 마지막 기하 정보. 복원에 쓰는 값은 width/height이고
 /// x/y는 이동 기록으로만 남는다 - 패널은 열 때마다 메인 창 옆에 다시 배치된다
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PanelBounds {
     pub x: f64,
     pub y: f64,
+    #[serde(default = "default_panel_width")]
+    pub width: f64,
     pub height: f64,
+}
+
+fn default_panel_width() -> f64 {
+    320.0
 }
 impl OverlayResizeAnchor {
     pub fn as_str(&self) -> &'static str {
@@ -677,6 +683,15 @@ pub struct LayerGroupDef {
 
 pub type LayerGroups = HashMap<String, Vec<LayerGroupDef>>;
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MainWindowBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppStoreData {
@@ -687,6 +702,7 @@ pub struct AppStoreData {
     pub overlay_locked: bool,
     #[serde(default)]
     pub overlay_visible: bool,
+    /// Legacy compatibility field. Each key shows or hides its own Raining.
     pub note_effect: bool,
     #[serde(default)]
     pub note_settings: NoteSettings,
@@ -702,6 +718,10 @@ pub struct AppStoreData {
     pub key_viewer_data_recovered: bool,
     #[serde(default)]
     pub ghost_keys_folded: bool,
+    /// 바탕화면 오버레이를 OBS 모드에서 떼어 낸 일회성 마이그레이션 완료 표식.
+    /// 예전에는 OBS 모드가 켜져 있는 동안 바탕화면 오버레이가 숨겨졌다 (normalize_state)
+    #[serde(default)]
+    pub outputs_separated: bool,
     #[serde(default)]
     pub overlay_windows: OverlayWindowLayouts,
     #[serde(default = "default_true")]
@@ -723,6 +743,8 @@ pub struct AppStoreData {
     pub auto_update_enabled: bool,
     #[serde(default)]
     pub main_window_hidden: bool,
+    #[serde(default)]
+    pub main_window_bounds: Option<MainWindowBounds>,
     #[serde(default)]
     pub editor_revision: u64,
     #[serde(default)]
@@ -772,6 +794,8 @@ pub struct AppStoreData {
     pub overlay_last_content_top_offset: Option<f64>,
     #[serde(default)]
     pub overlay_bounds_are_logical: bool,
+    /// Legacy compatibility field. Visibility is controlled by each key's counter settings.
+    // Missing fields in older stores used the disabled master-switch default.
     #[serde(default)]
     pub key_counter_enabled: bool,
     /// 그리드 스마트 가이드 설정
@@ -788,15 +812,20 @@ pub struct AppStoreData {
     pub pending_processed_wav_replacement: Option<PendingProcessedWavReplacement>,
     #[serde(default)]
     pub key_sound_output_backend: Option<KeySoundOutputBackendPersist>,
-    /// OBS 모드 활성화 여부
-    #[serde(default = "default_true")]
+    /// OBS 브라우저 소스를 내줄지. 게임 화면 키뷰어(in_game_viewers_enabled)와는 별개이며,
+    /// 로컬 서버는 둘 중 하나라도 켜져 있으면 뜬다. 저장값이 없으면 꺼짐
+    #[serde(default)]
     pub obs_mode_enabled: bool,
-    /// OBS WebSocket 서버 포트
+    /// 로컬 키뷰어 서버 포트 (게임 화면·OBS 공용)
     #[serde(default = "default_obs_port")]
     pub obs_port: u16,
-    /// OBS 세션 토큰 (영구 저장, 앱 재시작 시 재사용)
+    /// 로컬 키뷰어 서버 토큰 (영구 저장, 앱 재시작 시 재사용)
     #[serde(default)]
     pub obs_token: Option<String>,
+    /// The Element profile these key viewers belong to. Element sets it when it
+    /// switches profiles and reads it when the game connects; no viewer reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_viewers_owner: Option<String>,
     /// 플러그인 데이터 저장소 (plugin_data_* 키로 저장)
     #[serde(default, flatten)]
     pub plugin_data: HashMap<String, serde_json::Value>,
@@ -829,6 +858,7 @@ impl Default for AppStoreData {
             key_viewer_tabs_migrated: false,
             key_viewer_data_recovered: false,
             ghost_keys_folded: false,
+            outputs_separated: false,
             overlay_windows: OverlayWindowLayouts::default(),
             key_limiter_enabled: true,
             in_game_viewers_enabled: true,
@@ -841,6 +871,7 @@ impl Default for AppStoreData {
             tray_enabled: false,
             auto_update_enabled: false,
             main_window_hidden: false,
+            main_window_bounds: None,
             editor_revision: 0,
             keys: KeyMappings::new(),
             key_positions: KeyPositions::new(),
@@ -867,15 +898,16 @@ impl Default for AppStoreData {
             overlay_last_content_left_offset: None,
             overlay_last_content_top_offset: None,
             overlay_bounds_are_logical: false,
-            key_counter_enabled: false,
+            key_counter_enabled: true,
             grid_settings: GridSettings::default(),
             shortcuts: ShortcutsState::default(),
             sound_library: HashMap::new(),
             pending_processed_wav_replacement: None,
             key_sound_output_backend: None,
-            obs_mode_enabled: true,
+            obs_mode_enabled: false,
             obs_port: default_obs_port(),
             obs_token: None,
+            key_viewers_owner: None,
             plugin_data: HashMap::new(),
         }
     }
@@ -892,7 +924,7 @@ impl AppStoreData {
             always_on_top: self.always_on_top,
             ui_theme: self.ui_theme,
             overlay_locked: self.overlay_locked,
-            note_effect: self.note_effect,
+            note_effect: true,
             note_settings: self.note_settings.clone(),
             angle_mode: self.angle_mode.clone(),
             language: self.language.clone(),
@@ -907,7 +939,7 @@ impl AppStoreData {
             use_custom_js: self.use_custom_js,
             custom_js,
             overlay_resize_anchor: self.overlay_resize_anchor.clone(),
-            key_counter_enabled: self.key_counter_enabled,
+            key_counter_enabled: true,
             grid_settings: self.grid_settings.clone(),
             shortcuts: self.shortcuts.clone(),
             obs_mode_enabled: self.obs_mode_enabled,

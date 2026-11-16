@@ -7,7 +7,7 @@ set -euo pipefail
 TASK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$TASK_DIR/../../.." && pwd)"
 ZERO=0000000000000000000000000000000000000000
-MOD_PATHS='^(Element/|Element\.(Tests|Launcher|Updater)/|Element\.Unity/Assets/|native/|scripts/|vendor/adofai-ipc-runtime/)'
+MOD_PATHS='^(Element/|ElementKit/|Element\.(Tests|Launcher|Updater)/|Element\.Unity/Assets/|native/|scripts/|vendor/adofai-ipc-runtime/|vendor/elementui/)'
 
 changed_files() {
   local local_sha="$1" remote_sha="$2" base

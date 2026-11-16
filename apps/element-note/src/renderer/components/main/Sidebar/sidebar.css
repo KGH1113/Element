@@ -1,0 +1,1590 @@
+/*
+ * Sidebar: one plane, fixed zones. It is only about the elements of the open
+ * tab: their list, then the page of the one that is open.
+ *
+ * - The sidebar sits beside the canvas and never covers it.
+ * - Head rows have fixed heights, so drilling into a part never moves them.
+ * - Pages move with transform and opacity only; nothing animates layout.
+ * - One way to separate things: rows are a flat list, each led by its
+ *   picture, and groups are set apart by space. No cards, no ruled-off head.
+ * - Choosers open beside the sidebar and point at their row (see
+ *   FloatingPopup.tsx): the rows are never covered and never move.
+ */
+
+.en-sidebar {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  border-left: 1px solid var(--ui-line-subtle);
+  background: var(--ui-bg-app);
+  color: var(--ui-fg-secondary);
+  /* Own stacking context: inner layers never leak above the canvas. */
+  isolation: isolate;
+}
+
+/* Resize handle ----------------------------------------------------------- */
+
+.en-sidebar-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  z-index: 3;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.en-sidebar-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: var(--ui-accent);
+  content: '';
+  opacity: 0;
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-sidebar-resizer:hover::after,
+.en-sidebar-resizer:focus-visible::after,
+.en-sidebar-resizer[data-dragging='true']::after {
+  opacity: 1;
+}
+
+.en-sidebar-resizer:focus-visible {
+  outline: none;
+}
+
+/* Page stack -------------------------------------------------------------- */
+
+.en-sidebar-stack {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.en-page {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ui-bg-app);
+}
+
+.en-page[data-dir='forward'] {
+  animation: en-page-forward var(--ui-motion-slow) var(--ui-ease-out);
+}
+
+.en-page[data-dir='back'] {
+  animation: en-page-back var(--ui-motion-slow) var(--ui-ease-out);
+}
+
+@keyframes en-page-forward {
+  from {
+    opacity: 0.35;
+    transform: translate3d(18px, 0, 0);
+  }
+}
+
+@keyframes en-page-back {
+  from {
+    opacity: 0.35;
+    transform: translate3d(-18px, 0, 0);
+  }
+}
+
+/* Chooser: beside the sidebar, pointing at its row --------------------------- */
+
+/*
+ * A chooser opened from the sidebar (FloatingPopup) is drawn over the canvas,
+ * next to the sidebar, with a pointer to the row that opened it.
+ *
+ * It is one solid shape: the surface and its pointer share one fill and one
+ * hairline, so the pointer reads as a corner of the surface, not as a thing
+ * stuck onto it. Solid on purpose: nothing behind it shows through, and no
+ * backdrop filter runs over the canvas.
+ */
+.dmn-popup-surface.en-chooser {
+  --en-chooser-fill: #232326;
+  --en-chooser-line: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: var(--en-chooser-fill);
+  box-shadow:
+    0 0 0 1px var(--en-chooser-line),
+    0 18px 44px rgba(0, 0, 0, 0.5),
+    0 3px 10px rgba(0, 0, 0, 0.28);
+  backdrop-filter: none;
+  /* It grows out of its pointer. */
+  transform-origin: right calc(var(--en-chooser-pointer-y, 16px) + 7px);
+}
+
+.dmn-popup-surface.en-chooser[data-dmn-placement^='right'] {
+  transform-origin: left calc(var(--en-chooser-pointer-y, 16px) + 7px);
+}
+
+/*
+ * The pointer: a square turned on its corner, half of it past the edge. It
+ * is painted over the surface's hairline, which so opens where the two meet;
+ * its own two outer sides carry the hairline on around the tip.
+ */
+.en-chooser-pointer {
+  position: absolute;
+  top: var(--en-chooser-pointer-y, 16px);
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  border-top-right-radius: 3px;
+  background: var(--en-chooser-fill);
+  box-shadow: 1px -1px 0 0 var(--en-chooser-line);
+  pointer-events: none;
+  transform: rotate(45deg);
+}
+
+.en-chooser[data-dmn-placement^='right'] > .en-chooser-pointer {
+  right: auto;
+  left: -6px;
+  border-top-right-radius: 0;
+  border-bottom-left-radius: 3px;
+  box-shadow: -1px 1px 0 0 var(--en-chooser-line);
+}
+
+/* The picture of the chosen image is shown whole. */
+.en-chooser .en-image-preview > img {
+  object-fit: contain;
+}
+
+/* A color with two states: at rest and while pressed ------------------------- */
+
+/*
+ * Both are in the row (StateSwatches.tsx), each a button with its color and
+ * its name. The one whose chooser is open is outlined.
+ */
+.en-states {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.en-state {
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px 0 5px;
+  border-radius: 9px;
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-state:hover {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.en-state:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-state[aria-expanded='true'] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+.en-state-swatch {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+/* The selected elements do not agree on this color. */
+.en-state-swatch[data-mixed] {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--ui-fill-hover) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* Size: large enough to aim at without care -------------------------------- */
+
+/*
+ * The sidebar has room, so its type and its controls are a size up from the
+ * rest of the app: rows 52px with a 36px picture well, fields and buttons
+ * 32px, a color as a well you can see at a glance. Everything inside reads these sizes, so a
+ * page cannot be half large and half small.
+ */
+.en-sidebar {
+  --ui-type-caption-size: 12px;
+  --ui-type-body-size: 13px;
+  --ui-type-label-size: 14px;
+}
+
+.en-part-content {
+  --ui-control-height-sm: 32px;
+  --ui-radius-inner: 8px;
+}
+
+/*
+ * A row of a part's page: one setting. Its name is at the left and its
+ * control at the right, on one line of 44px, while the two fit side by side.
+ * When they do not, the control goes onto a line of its own under the name
+ * and takes its width there; the name is never cut short. Whether they fit
+ * is decided by what they hold, so it holds in every language and at every
+ * width of the sidebar.
+ */
+.en-part-content .dmn-property-row {
+  position: relative;
+  min-height: 44px;
+  flex-wrap: wrap;
+  align-content: center;
+  gap: 6px 12px;
+  padding: 7px 0;
+}
+
+.en-part-content .dmn-property-row__label {
+  display: block;
+  max-width: 100%;
+  flex: 1 0 auto;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-label-size);
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.en-part-content .dmn-property-row__control {
+  min-height: 30px;
+  max-width: 100%;
+  flex: 1 0 auto;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Fields: a number or a few words. */
+.en-part-content .dmn-number-field,
+.en-part-content .dmn-text-field {
+  min-width: 72px;
+  height: 32px;
+  border-radius: 8px;
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+}
+
+.en-part-content .dmn-text-field {
+  min-width: 112px;
+}
+
+.en-part-content .dmn-number-field > input {
+  top: 0;
+  height: 100%;
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+}
+
+/* A field that says which number it is (X, Y, W, H) before the number. */
+.en-part-content .dmn-number-field > span {
+  left: 10px;
+  font-size: var(--ui-type-caption-size);
+}
+
+.en-part-content .dmn-number-field > span + input {
+  left: 26px;
+  width: calc(100% - 34px);
+}
+
+.en-part-content .dmn-dropdown-trigger {
+  min-width: 92px;
+}
+
+/* A list opened from a picture alone is a square button. */
+.en-part-content .dmn-dropdown-trigger--icon {
+  width: 32px;
+  min-width: 32px;
+  justify-content: center;
+  padding: 0;
+}
+
+.en-part-content .en-font-styles {
+  height: 32px;
+}
+
+.en-part-content .en-font-styles > button {
+  width: 34px;
+}
+
+/* A button of a row: opens the chooser of a font, an image, a motion. */
+.en-field-button {
+  display: inline-flex;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-field-button:hover:not(:disabled) {
+  background: var(--ui-fill-hover);
+}
+
+.en-field-button:active:not(:disabled) {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-field-button[data-open] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+.en-field-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* A color with one state: a well of that color. */
+.en-swatch-button {
+  width: 64px;
+  height: 32px;
+  flex: none;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  cursor: pointer;
+  transition:
+    box-shadow var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-swatch-button:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+}
+
+.en-swatch-button:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-swatch-button[data-open] {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 0 0 2px var(--ui-accent);
+}
+
+/* Pictures at the start of a row -------------------------------------------- */
+
+/*
+ * Every row of an element's page starts with a well. A part that changes how
+ * the element looks has the element itself in it, small (PartThumbs.tsx);
+ * anything else has its icon. The well is one flat surface with no line of
+ * its own, so the picture is the only thing in it that is seen.
+ */
+.en-mini-key {
+  position: relative;
+  display: block;
+  flex: none;
+}
+
+.en-mini-key-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+}
+
+/* Nothing of it can be seen (a ghost key at first): its outline, dashed. */
+.en-mini-key[data-empty] {
+  border: 1px dashed var(--ui-line-strong);
+  border-radius: 3px;
+}
+
+.en-thumb-text[data-empty] {
+  color: transparent !important;
+  -webkit-text-stroke: 0.8px var(--ui-fg-disabled);
+}
+
+.en-key-thumb {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.en-key-thumb-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0 2px;
+  font-size: 8px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.en-thumb-text {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* A key with something over it: notes, a count. */
+.en-thumb-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.en-thumb-notes {
+  display: flex;
+  width: 24px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.en-thumb-notes > i {
+  display: block;
+  border-radius: 1px;
+}
+
+.en-thumb-count {
+  max-width: 30px;
+  overflow: hidden;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 11px;
+  white-space: nowrap;
+}
+
+.en-thumb-graph {
+  display: flex;
+  width: 26px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.en-thumb-knob {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}
+
+.en-thumb-knob > i {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 1.5px;
+  height: 7px;
+  margin-left: -0.75px;
+  border-radius: 1px;
+  background: var(--ui-fg-primary);
+}
+
+/* The fields of a row that is edited in place are the size of every field. */
+.en-row[data-kind='field'] .dmn-number-field {
+  min-width: 68px;
+  height: 32px;
+  border-radius: 8px;
+}
+
+.en-row[data-kind='field'] .dmn-number-field > input {
+  top: 0;
+  height: 100%;
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+}
+
+.en-row[data-kind='field'] .dmn-number-field > span {
+  left: 10px;
+  font-size: var(--ui-type-caption-size);
+}
+
+.en-row[data-kind='field'] .dmn-number-field > span + input {
+  left: 24px;
+  width: calc(100% - 32px);
+}
+
+.en-row[data-kind='field'] .dmn-dropdown-trigger {
+  height: 32px;
+  min-width: 92px;
+  border-radius: 8px;
+}
+
+/* A number that can be dragged ---------------------------------------------- */
+
+/*
+ * A number with a small range is also a slider (RangeTrack.tsx), just before
+ * the number. It is 96px long, and grows with the room its row has, up to
+ * 220px; its length is its own, not the browser's default for a slider, so a
+ * row knows at once whether it fits on one line. The canvas shows what the number does while its part is open, so the
+ * slider carries no picture of its own here.
+ */
+.en-range {
+  display: flex;
+  width: 96px;
+  min-width: 56px;
+  max-width: 220px;
+  height: 26px;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  order: -1;
+}
+
+.en-part-content .en-range-glyph {
+  display: none;
+}
+
+.en-range-glyph {
+  display: flex;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-fg-secondary);
+}
+
+.en-range-input {
+  width: 0;
+  min-width: 0;
+  height: 26px;
+  flex: 1;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+/* Drawn as the step slider is (StepSlider.css): one slider in the sidebar. */
+.en-range-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--ui-accent) var(--en-range-fill, 0%),
+    var(--ui-fill-active) var(--en-range-fill, 0%)
+  );
+}
+
+.en-range-input::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border-radius: 50%;
+  appearance: none;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+  transition: transform var(--ui-motion-fast) var(--ui-ease-out);
+  -webkit-appearance: none;
+}
+
+.en-range-input:active::-webkit-slider-thumb {
+  transform: scale(1.12);
+}
+
+.en-range-input:focus-visible {
+  outline: none;
+}
+
+.en-range-input:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 3px var(--ui-accent),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.en-range[data-disabled] {
+  opacity: 0.4;
+}
+
+.en-range[data-disabled] > .en-range-input {
+  cursor: not-allowed;
+}
+
+/*
+ * Says why a chosen file was not taken. It takes room only while it has
+ * something to say: a chooser grows downward, away from its row, so nothing
+ * the pointer is on moves.
+ */
+.en-picker-notice:empty {
+  display: none;
+}
+
+.en-picker-notice {
+  color: var(--ui-danger);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+/* Page head: two rows of fixed height -------------------------------------- */
+
+.en-page-head {
+  position: relative;
+  flex: none;
+}
+
+/* No line under the head, except while rows are scrolled under it. */
+.en-page-head::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 1px;
+  background: var(--ui-line-subtle);
+  content: '';
+  opacity: 0;
+  transition: opacity var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-page[data-scrolled] > .en-page-head::after {
+  opacity: 1;
+}
+
+.en-page-nav {
+  display: flex;
+  height: 38px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px 0;
+}
+
+.en-page-back {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 60%;
+  height: 26px;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 0 4px;
+  border-radius: var(--ui-radius-inner);
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-page-back > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.en-page-back > svg {
+  flex: none;
+}
+
+.en-page-back:hover {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.en-page-back:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-page-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.en-text-button {
+  height: 26px;
+  padding: 0 9px;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-text-button:hover:not(:disabled) {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-text-button:active:not(:disabled) {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-text-button:disabled {
+  cursor: not-allowed;
+  color: var(--ui-fg-disabled);
+}
+
+.en-text-button[data-tone='danger']:hover:not(:disabled) {
+  background: var(--ui-danger-soft);
+  color: var(--ui-danger);
+}
+
+.en-text-button[data-tone='accent'],
+.en-text-button[data-tone='accent']:hover:not(:disabled) {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+}
+
+.en-text-button[data-tone='accent']:hover:not(:disabled) {
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+}
+
+.en-page-title-row {
+  display: flex;
+  height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.en-page-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-type-heading-weight);
+  letter-spacing: var(--ui-type-heading-tracking);
+  line-height: var(--ui-type-heading-line);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+
+.en-page-title-input {
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-heading-size);
+  font-weight: var(--ui-type-heading-weight);
+  letter-spacing: var(--ui-type-heading-tracking);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+}
+
+.en-page-kind {
+  flex: none;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 500;
+}
+
+.en-page-trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.en-page-state {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 500;
+}
+
+/* Page body ---------------------------------------------------------------- */
+
+.en-page-body {
+  flex: 1;
+  min-height: 0;
+  /* The same room left and right, whether or not the page can scroll: the
+     page has no scrollbar that could take room on one side. */
+  padding: 6px 8px 16px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* What runs on below fades out at the foot instead of being cut. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 18px),
+    transparent
+  );
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+
+.en-page-body::-webkit-scrollbar {
+  display: none;
+}
+
+.en-page-body[data-fill='true'] {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0 0;
+  overflow: hidden;
+  /* Its list scrolls by itself and says what is below with its own button. */
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Groups and rows ---------------------------------------------------------- */
+
+/* A group is a flat list of rows; space is all that sets groups apart. */
+.en-group + .en-group,
+.en-group + .en-part-content {
+  margin-top: 16px;
+}
+
+.en-group-head {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 8px;
+  margin-bottom: 2px;
+}
+
+.en-group-title {
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/*
+ * Rows are set apart by their wells, which line up down the page, so no
+ * hairline runs between them.
+ */
+.en-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 52px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px;
+  color: var(--ui-fg-primary);
+  text-align: left;
+  isolation: isolate;
+}
+
+.en-row-hit {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 12px;
+  transition: background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-row-hit:hover,
+.en-row[data-open='true'] > .en-row-hit {
+  background: var(--ui-fill);
+}
+
+.en-row-hit:active {
+  background: var(--ui-fill-hover);
+}
+
+.en-row[data-open='true'] > .en-row-chevron {
+  color: var(--ui-accent-text);
+}
+
+.en-row-hit:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: -2px;
+}
+
+.en-row > :not(.en-row-hit):not(.en-row-control) {
+  pointer-events: none;
+}
+
+.en-row-icon {
+  display: flex;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ui-fg-secondary);
+}
+
+/* A look of an image is its whole well. */
+.en-row-icon > .en-look-thumb {
+  border-radius: inherit;
+  background: none;
+  box-shadow: none;
+}
+
+.en-row-label {
+  flex: none;
+  font-size: var(--ui-type-label-size);
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.en-row-value {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  overflow: hidden;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-body-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.en-row-value-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A part that is on says so a little brighter than one that is off. */
+.en-row-value-text[data-on] {
+  color: var(--ui-fg-secondary);
+}
+
+/*
+ * A row that holds its control never lets the control run over its name,
+ * and never cuts the name short: when the two do not fit side by side, the
+ * control goes onto a line of its own under them, at the right.
+ */
+.en-row[data-kind='field'] {
+  height: auto;
+  min-height: 52px;
+  flex-wrap: wrap;
+  row-gap: 4px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.en-row[data-kind='field'] > .en-row-label {
+  max-width: calc(100% - 48px);
+  flex: 1 0 auto;
+  white-space: normal;
+}
+
+.en-row[data-kind='field'] > .en-row-control {
+  flex: 1 0 auto;
+}
+
+/* The control of a row that is edited in place, at the right end. */
+.en-row-control {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/*
+ * Binds a key (or a knob): drawn as a key cap that names what is bound. It
+ * grows to the left with its text, so the row never changes height.
+ */
+.en-capture {
+  display: inline-flex;
+  min-width: 72px;
+  max-width: 100%;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill);
+  box-shadow:
+    inset 0 0 0 1px var(--ui-line-subtle),
+    inset 0 -1px 0 1px rgba(0, 0, 0, 0.28);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 600;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-capture > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.en-capture:hover {
+  background: var(--ui-fill-hover);
+}
+
+.en-capture:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-capture[aria-pressed='true'] {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+.en-row-chevron {
+  flex: none;
+  color: var(--ui-fg-disabled);
+}
+
+.en-row[data-disabled='true'] {
+  cursor: not-allowed;
+}
+
+.en-row[data-disabled='true'] > .en-row-hit {
+  pointer-events: none;
+}
+
+.en-row[data-disabled='true'] > :not(.en-row-hit) {
+  opacity: 0.4;
+}
+
+.en-row[data-tone='danger'] .en-row-label {
+  color: var(--ui-danger);
+}
+
+.en-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 1px var(--ui-line);
+}
+
+.en-row-image {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--ui-bg-inset);
+  object-fit: contain;
+}
+
+/* Shelf: the things that can be put on the canvas -------------------------- */
+
+.en-shelf {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.en-shelf-item {
+  position: relative;
+  display: flex;
+  height: 68px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 500;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-shelf-item:hover {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-shelf-item:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-shelf-item > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Hints keep their room even when empty, so nothing below them moves. */
+.en-hint {
+  min-height: 32px;
+  padding: 0 8px;
+  margin-top: 10px;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+/* Element list: the first page ---------------------------------------------- */
+
+.en-add {
+  flex: none;
+  padding: 0 12px 14px;
+}
+
+.en-add > .en-group-title {
+  display: flex;
+  height: 24px;
+  align-items: center;
+  padding: 0 4px;
+  margin-bottom: 6px;
+}
+
+/* The list is the page: it takes the rest of the height and scrolls alone. */
+.en-element-list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  border-top: 1px solid var(--ui-line-subtle);
+}
+
+.en-element-list .properties-panel-overlay-scroll {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+/*
+ * The list has no scrollbar. The button at its foot says how many rows are
+ * below and scrolls to them.
+ */
+.en-element-list .properties-panel-overlay-viewport {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+  padding: 6px 0 12px;
+  scrollbar-width: none;
+}
+
+.en-element-list .properties-panel-overlay-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.en-list-more {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--ui-radius-round);
+  background: var(--ui-bg-elevated);
+  box-shadow:
+    inset 0 0 0 1px var(--ui-line),
+    var(--ui-shadow-surface);
+  color: var(--ui-fg-primary);
+  font-size: var(--ui-type-caption-size);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate3d(-50%, 6px, 0) scale(0.96);
+  /* Leaving is quicker than arriving: these times are for going away. */
+  transition:
+    opacity var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-list-more[data-shown] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(-50%, 0, 0) scale(1);
+  transition:
+    opacity var(--ui-motion-base) var(--ui-ease-out),
+    transform var(--ui-motion-base) var(--ui-ease-out),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.en-list-more:hover {
+  background: var(--ui-bg-surface-active);
+}
+
+.en-list-more[data-shown]:active {
+  transform: translate3d(-50%, 0, 0) scale(var(--ui-press-scale));
+}
+
+.en-list-more:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 2px;
+}
+
+/* Six dots at the left of a row: it can be dragged to another place. */
+.en-layer-grip {
+  position: absolute;
+  top: 50%;
+  margin-top: -5px;
+  color: var(--ui-fg-disabled);
+  opacity: 0.7;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    opacity var(--ui-motion-fast) var(--ui-ease-standard);
+}
+
+.group:hover > .en-layer-grip {
+  color: var(--ui-fg-secondary);
+  opacity: 1;
+}
+
+/* The element as it looks, at the start of its row; the well of a part row,
+   a size down for a list that is long. */
+.en-layer-thumb {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--ui-fg-secondary);
+}
+
+.en-layer-thumb > .en-look-thumb {
+  background: none;
+  box-shadow: none;
+}
+
+.en-layer-chevron {
+  flex: none;
+  margin: 0 8px 0 2px;
+  color: var(--ui-fg-disabled);
+}
+
+/* Property contents reused inside a part page ------------------------------ */
+
+/* The cards line up with the page title. */
+.en-part-content {
+  padding: 4px 8px 0;
+}
+
+.en-part-content .en-hint {
+  padding: 0;
+}
+
+.en-part-content .dmn-properties-panel {
+  position: static;
+  inset: auto;
+  z-index: auto;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.en-part-content .dmn-properties-panel__header,
+.en-part-content .dmn-properties-panel__head-stack:empty {
+  display: none;
+}
+
+.en-part-content .en-inspector-body,
+.en-part-content .en-inspector-page {
+  flex: none;
+  overflow: visible;
+}
+
+.en-part-content .en-inspector-page > div {
+  gap: 0;
+  padding: 0;
+}
+
+/*
+ * A part with a single group needs no second title under the page title.
+ * Groups can sit at two levels (inside the part's switch, and after it), so
+ * the page is asked whether it has a second group anywhere.
+ */
+.en-part-content:not(:has(.en-section ~ .en-section, .en-dimmed ~ .en-section))
+  .en-section-title {
+  display: none;
+}
+
+.en-part-content .dmn-property-divider {
+  display: none;
+}
+
+/*
+ * A part's page is made of groups, and each group is one card: its name just
+ * above it, its settings inside, one to a line, a hairline between them. A
+ * card is one topic, so what belongs together is seen at once.
+ *
+ * Inside a card the values are words, not boxes: a number, a choice from a
+ * list, a button that opens a chooser are plain until the pointer is on them,
+ * and then they take a fill and can be edited where they are. A card holds
+ * no box, so nothing is a box inside a box.
+ */
+.en-section + .en-section,
+.en-dimmed + .en-section {
+  margin-top: 22px;
+}
+
+.en-section-title {
+  display: flex;
+  height: 20px;
+  align-items: center;
+  padding: 0 2px;
+  margin-bottom: 6px;
+  color: var(--ui-fg-muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.en-section-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.en-section-description {
+  padding: 12px 0;
+  color: var(--ui-fg-muted);
+  font-size: var(--ui-type-caption-size);
+  line-height: var(--ui-type-caption-line);
+}
+
+/* What went wrong, said where it went wrong. */
+.en-section-description[role='alert'] {
+  padding-top: 0;
+  color: var(--ui-danger);
+}
+
+/* A hairline above every setting but the first of its card. */
+.en-section-card :is(.dmn-property-row, .en-segments-row) {
+  border-top: 1px solid var(--ui-line-faint);
+}
+
+.en-section-card > :is(.dmn-property-row, .en-segments-row):first-child,
+.en-section-card
+  > :first-child
+  > :is(.dmn-property-row, .en-segments-row):first-child,
+.en-section-card
+  > :first-child
+  > :first-child
+  > :is(.dmn-property-row, .en-segments-row):first-child {
+  border-top: 0;
+}
+
+/* Rows kept together inside a card (a switch's settings) keep no gaps. */
+.en-section-card .en-dimmed > div {
+  gap: 0;
+}
+
+/* Values: words that turn into fields when pointed at. */
+/* Wide enough for a four-digit number and its unit (1000ms). */
+.en-section-card :is(.dmn-number-field, .dmn-text-field) {
+  min-width: 52px;
+  height: 30px;
+  background: transparent;
+  color: var(--ui-fg-secondary);
+  text-align: right;
+}
+
+.en-section-card .dmn-number-field > input {
+  padding-right: 8px;
+  color: var(--ui-fg-secondary);
+  text-align: right;
+}
+
+.en-section-card :is(.dmn-text-field, input.dmn-number-field) {
+  padding: 0 6px;
+}
+
+/* A number with a letter before it (X, Y) keeps room for both. */
+.en-section-card .dmn-number-field:has(> span) {
+  min-width: 72px;
+}
+
+.en-section-card
+  :is(.dmn-number-field, .dmn-text-field):hover:not(:focus-within) {
+  background: var(--ui-fill);
+}
+
+.en-section-card :is(.dmn-number-field, .dmn-text-field):focus-within {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.en-section-card .dmn-number-field:focus-within > input {
+  color: var(--ui-fg-primary);
+}
+
+.en-section-card
+  :is(.dmn-dropdown-trigger, .en-field-button, .en-pick, .dmn-inline-action) {
+  min-width: 0;
+  height: 30px;
+  gap: 6px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--ui-fg-secondary);
+  font-weight: 500;
+}
+
+.en-section-card
+  :is(
+    .dmn-dropdown-trigger,
+    .en-field-button,
+    .en-pick,
+    .dmn-inline-action
+  ):hover:not(:disabled) {
+  background: var(--ui-fill);
+  color: var(--ui-fg-primary);
+}
+
+.en-section-card .dmn-dropdown-trigger--icon {
+  width: 30px;
+  padding: 0;
+}
+
+/* The one whose chooser is open says so, as everywhere. */
+.en-section-card
+  :is(.en-field-button[data-open], .en-state[aria-expanded='true']) {
+  background: var(--ui-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--ui-accent);
+  color: var(--ui-accent-text);
+}
+
+/* A color is a chip of that color. */
+.en-section-card .en-swatch-button {
+  width: 32px;
+  height: 22px;
+  border-radius: 6px;
+}
+
+/* A color with two states: two chips, each with its name. */
+.en-section-card .en-state {
+  height: 30px;
+  gap: 6px;
+  padding: 0 8px 0 4px;
+  background: transparent;
+  color: var(--ui-fg-secondary);
+  font-weight: 500;
+}
+
+.en-section-card .en-state:hover {
+  background: var(--ui-fill);
+}
+
+.en-section-card .en-state-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+}
+
+.en-section-card .en-states {
+  gap: 2px;
+}
+
+/* A set to pick from: each choice is a button that stays pressed. */
+.en-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.en-chip {
+  min-width: 36px;
+  max-width: 100%;
+  height: 28px;
+  padding: 0 10px;
+  overflow: hidden;
+  border-radius: var(--ui-radius-inner);
+  background: var(--ui-fill-faint);
+  color: var(--ui-fg-secondary);
+  font-size: var(--ui-type-body-size);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    color var(--ui-motion-fast) var(--ui-ease-standard),
+    background-color var(--ui-motion-fast) var(--ui-ease-standard),
+    transform var(--ui-motion-fast) var(--ui-ease-out);
+}
+
+.en-chip:hover {
+  background: var(--ui-fill-hover);
+  color: var(--ui-fg-primary);
+}
+
+.en-chip:active {
+  transform: scale(var(--ui-press-scale));
+}
+
+.en-chip[aria-pressed='true'] {
+  background: var(--ui-accent-soft);
+  color: var(--ui-accent-text);
+}
+
+/* Controls of a part that is switched off stay in place, dimmed. */
+.en-dimmed {
+  transition: opacity var(--ui-motion-base) var(--ui-ease-standard);
+}
+
+.en-dimmed[data-off='true'] {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.en-sidebar button:focus-visible {
+  outline: 2px solid var(--ui-accent-text);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .en-page[data-dir] {
+    animation: none;
+    transition: opacity var(--ui-motion-fast) linear;
+    transform: none !important;
+  }
+}

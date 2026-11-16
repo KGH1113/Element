@@ -38,6 +38,7 @@ mod native_window;
 mod overlay_runtime;
 mod panel_runtime;
 mod replay_counter_runtime;
+mod viewer_server_runtime;
 mod window_geometry;
 
 use css_runtime::collect_authorized_css_paths;
@@ -245,13 +246,13 @@ fn overlay_reset_fallback_rect(
     resolve_overlay_placement(stored, bounds_are_logical, monitors).placement
 }
 
-const PANEL_WIDTH: f64 = 240.0;
+const PANEL_WIDTH: f64 = 320.0;
+const PANEL_MIN_WIDTH: f64 = 280.0;
 // 분리 패널과 메인 창 사이 여백
 const PANEL_BESIDE_GAP: f64 = 16.0;
-// 피커가 트리거 행 아래에 그대로 들어갈 세로 여유 - 이보다 낮으면 팝업이
-// 매번 위로 뒤집히거나 창 경계로 클램프됨. 늘리는 것만 허용
+// 기본 높이는 피커 공간을 넉넉히 두되, 필요한 만큼 줄여 배치할 수 있다.
 const PANEL_INITIAL_HEIGHT: f64 = 712.0;
-const PANEL_MIN_HEIGHT: f64 = 712.0;
+const PANEL_MIN_HEIGHT: f64 = 480.0;
 const PANEL_MAX_HEIGHT_RATIO: f64 = 0.9;
 const PANEL_FALLBACK_MAX_HEIGHT: f64 = 10_000.0;
 const PANEL_BOUNDS_DEBOUNCE_MS: u64 = 400;
@@ -476,10 +477,6 @@ impl KeyCounterEventEmitter for AppHandle {
     }
 }
 
-fn should_create_overlay_on_startup(obs_mode_enabled: bool, overlay_visible: bool) -> bool {
-    !obs_mode_enabled && overlay_visible
-}
-
 // 기동 시 메인 창을 트레이에 숨긴 채 둘지. 트레이가 꺼져 있으면 숨겨도 되살릴 방법이 없다.
 // 메인 창 표시와 분리 패널 복원이 같은 판정을 쓰도록 여기 한 곳에서만 정한다
 fn main_window_starts_hidden(tray_enabled: bool, main_window_hidden: bool) -> bool {
@@ -489,12 +486,8 @@ fn main_window_starts_hidden(tray_enabled: bool, main_window_hidden: bool) -> bo
 // 트레이 시작에서는 복원 보류 - 숨은 메인 창 의존 방지(background throttling)
 // 플래그는 유지되므로 다음 정상 기동 때 복원됨.
 // main_window_hidden에는 main_window_starts_hidden으로 확정한 최종 가시성을 넘긴다
-fn should_restore_panel_on_startup(
-    obs_mode_enabled: bool,
-    main_window_hidden: bool,
-    panel_detached: bool,
-) -> bool {
-    panel_detached && !obs_mode_enabled && !main_window_hidden
+fn should_restore_panel_on_startup(main_window_hidden: bool, panel_detached: bool) -> bool {
+    panel_detached && !main_window_hidden
 }
 
 // arm 토큰은 1회 소비 - 만료됐거나 없으면 거부하고 슬롯도 비운다
@@ -686,7 +679,6 @@ pub struct AppState {
     counter_history_ready: Condvar,
     runtime_publication: Mutex<RuntimePublicationState>,
     mutation_publication: Arc<MutationPublicationSequencer>,
-    key_counter_enabled: Arc<AtomicBool>,
     /// Raw input stream subscriber count - emit only when > 0
     raw_input_subscribers: Arc<std::sync::atomic::AtomicU32>,
     key_sound: Arc<KeySoundEngine>,
@@ -700,13 +692,11 @@ pub struct AppState {
     authorized_css_paths: RwLock<HashSet<String>>,
     /// CSS 파일 핫리로딩 워처
     css_watcher: RwLock<Option<CssWatcher>>,
-    /// OBS WebSocket 브릿지
+    /// 게임 화면 키뷰어와 OBS 브라우저 소스가 함께 쓰는 로컬 서버
     pub obs_bridge: Arc<ObsBridgeService>,
-    /// OBS 시작, 중지, 토큰 회전 직렬화
+    /// 서버 시작, 중지, 토큰 회전 직렬화
     /// 잠금 순서: OBS lifecycle mutex -> mutation ticket, 역순 금지
     pub(crate) obs_lifecycle_lock: tokio::sync::Mutex<()>,
-    /// OBS 모드 시작 전 오버레이 가시성 상태 (복원용)
-    obs_previous_overlay_visible: Arc<RwLock<Option<bool>>>,
     shutdown_started: AtomicBool,
     process_exit_authorized: AtomicBool,
     shutdown_watchdog: Arc<Mutex<ShutdownWatchdogState>>,
@@ -818,7 +808,6 @@ impl AppState {
             &viewer_runtime_mappings(&snapshot.keys, &snapshot.key_positions),
         );
         let key_counters = Arc::new(RwLock::new(initial_key_counters));
-        let key_counter_enabled = Arc::new(AtomicBool::new(snapshot.key_counter_enabled));
         // 저장된 출력 백엔드 초기화, 전환 깜빡임 방지
         let initial_backend = snapshot
             .key_sound_output_backend
@@ -908,7 +897,6 @@ impl AppState {
             counter_history_ready: Condvar::new(),
             runtime_publication: Mutex::new(RuntimePublicationState::default()),
             mutation_publication: Arc::new(MutationPublicationSequencer::default()),
-            key_counter_enabled,
             raw_input_subscribers: Arc::new(std::sync::atomic::AtomicU32::new(0)),
             key_sound,
             key_sound_bindings: RwLock::new(key_sound_bindings),
@@ -919,7 +907,6 @@ impl AppState {
             css_watcher: RwLock::new(None),
             obs_bridge,
             obs_lifecycle_lock: tokio::sync::Mutex::new(()),
-            obs_previous_overlay_visible: Arc::new(RwLock::new(None)),
             shutdown_started: AtomicBool::new(false),
             process_exit_authorized: AtomicBool::new(false),
             shutdown_watchdog: Arc::new(Mutex::new(ShutdownWatchdogState {
@@ -934,7 +921,8 @@ impl AppState {
     pub fn initialize_runtime(&self, app: &AppHandle) -> Result<()> {
         self.attach_main_window_handlers(app);
         let snapshot = self.store.snapshot();
-        if should_create_overlay_on_startup(snapshot.obs_mode_enabled, snapshot.overlay_visible) {
+        // 바탕화면 오버레이는 자기 스위치만 본다 - 게임 화면·OBS와 함께 켜져 있어도 된다
+        if snapshot.overlay_visible {
             self.ensure_overlay_window(app)?;
             self.ensure_foot_overlay(app)?;
         }
@@ -951,10 +939,8 @@ impl AppState {
         self.start_keyboard_hook(app.clone())?;
         // CSS 핫리로딩 워처 초기화
         self.initialize_css_watcher(app);
-        // OBS 모드 자동 복원
-        if snapshot.obs_mode_enabled {
-            self.auto_start_obs(app);
-        }
+        // 게임 화면 키뷰어나 OBS가 켜져 있으면 로컬 서버를 띄운다
+        self.reconcile_viewer_server(app);
         Ok(())
     }
 

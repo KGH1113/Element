@@ -7,9 +7,7 @@ impl AppState {
         mode: &str,
         key: &str,
     ) -> Option<u32> {
-        if !self.key_counter_enabled.load(Ordering::Relaxed) {
-            return None;
-        }
+        // Counts are always collected; each key decides whether to display them.
         // A TUFReplay replay's presses never reach the player's counts.
         if let Some(count) = self.increment_replay_key_counter_and_emit(emitter, mode, key) {
             return Some(count);
@@ -509,11 +507,15 @@ impl AppState {
         )
     }
 
-    pub(crate) fn reset_single_key_counter_with_admission(
+    /// Sets how many times one key has been pressed: 0 resets it, any other
+    /// number is what the player says it should be. It goes into undo like
+    /// every other change of the counts.
+    pub(crate) fn set_single_key_counter_with_admission(
         &self,
         emitter: &dyn KeyCounterEventEmitter,
         mode: &str,
         key: &str,
+        value: u32,
         observed_history_epoch: Option<u64>,
         admission: HistoryAdmissionLease,
     ) -> std::result::Result<AdmittedCounterMutation, EditorCommitError> {
@@ -522,11 +524,10 @@ impl AppState {
             observed_history_epoch,
             admission,
             |counters| {
-                if let Some(entry) = counters.get_mut(mode) {
-                    if let Some(value) = entry.get_mut(key) {
-                        *value = 0;
-                    }
-                }
+                counters
+                    .entry(mode.to_string())
+                    .or_default()
+                    .insert(key.to_string(), value);
             },
         )
     }

@@ -1,9 +1,14 @@
 using System;
+using Element.Application.Settings;
 using Element.Application.Updates;
-using Element.Bootstrap;
+using Element.Bootstrap.Api;
+using Element.Bootstrap.Composition;
 using Element.Configuration;
-using Element.Infrastructure.Ipc;
+using Element.Infrastructure.ElementNote.Ipc;
+using Element.Infrastructure.Game.Input;
+using Element.Infrastructure.Storage;
 using Element.Infrastructure.Updates;
+using Element.Presentation.Notices;
 using Element.Presentation.Settings;
 using UnityEngine;
 using UnityModManagerNet;
@@ -33,6 +38,9 @@ public sealed class Main
 
   internal ModRuntime Runtime { get; private set; }
 
+  /// <summary>Lives as long as the game, so its count covers the whole run across the mod turning off and on.</summary>
+  internal ChatterBlocker Chatter { get; } = new();
+
   private bool _enabled;
 
   private Main(UnityModManager.ModEntry modEntry)
@@ -48,17 +56,19 @@ public sealed class Main
     try
     {
       Instance = new Main(modEntry);
+      // Before other mods load: they bind to the ElementKit this version ships.
+      ElementKitAssembly.Install(Instance.LogWarning);
       // Other mods' IPC loaders look for this mod's runtime at the mod root.
       BundledIpcFiles.PublishToModRoot(Instance.RuntimePath, modEntry.Path, Instance.LogWarning);
       Instance.Updates = new LauncherModUpdates(modEntry.Path, Instance.LogException);
-      Instance.Settings = ElementSettings.Load(modEntry);
-      Instance.Settings.Migrate();
+      Instance.Settings = SettingsFile.Load(modEntry);
+      SettingsMigrator.Migrate(Instance.Settings);
       Instance.Settings.OverlayLayouts ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;
       modEntry.OnUnload = OnUnload;
-      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.TickTrackpad();
+      modEntry.OnUpdate = (_, _) => Instance?.Runtime?.Tick();
       // Settings are written when their window closes; quitting with it open
       // must not lose what the player already sees in the game.
       UnityEngine.Application.quitting += OnQuitting;
@@ -113,7 +123,7 @@ public sealed class Main
       return;
 
     GUILayout.Label("Element · " + SettingsPanel.ShortcutLabel(Instance.Settings));
-    GUILayout.Label(SettingsPanel.UpdateStatusText(Instance.Updates));
+    GUILayout.Label(UpdateStatusText.For(Instance.Updates));
     bool wasEnabled = GUI.enabled;
     GUI.enabled = wasEnabled && Instance.Runtime != null;
     if (GUILayout.Button(RDString.language == SystemLanguage.Korean ? "설정 열기" : "Open settings"))
@@ -163,6 +173,7 @@ public sealed class Main
       {
         Instance?.Settings?.Save(modEntry);
       }
+      ElementKitAssembly.Uninstall();
       Instance = null;
       return true;
     }

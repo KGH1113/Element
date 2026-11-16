@@ -1,5 +1,7 @@
 import React from 'react';
 import { PANEL_ROOT_CLASS } from '../panelChrome';
+import { useInspectorPages } from '../inspectorPageContext';
+import type { InspectorAction } from '../types';
 import type {
   KeyPosition,
   NoteColor,
@@ -32,6 +34,7 @@ import Checkbox from '@components/main/common/Checkbox';
 import Dropdown from '@components/main/common/Dropdown';
 import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
 import ImagePicker from '@components/main/Modal/content/pickers/ImagePicker';
+import KeySoundControls from '../KeySoundControls';
 
 const RenameIcon: React.FC = () => (
   <svg
@@ -90,6 +93,7 @@ interface BatchLocalColors {
 }
 
 interface BatchKeyLikePanelProps {
+  inspectorAction?: InspectorAction;
   setPanelElement: (el: HTMLDivElement | null) => void;
   selectedBatchStyleElements: SelectedElement[];
   selectedKeyElements: SelectedElement[];
@@ -165,8 +169,8 @@ interface BatchKeyLikePanelProps {
   batchNoteColorButtonRef: React.RefObject<HTMLButtonElement | null>;
   batchGlowColorButtonRef: React.RefObject<HTMLButtonElement | null>;
   batchBorderColorButtonRef: React.RefObject<HTMLButtonElement | null>;
-  batchCounterFillButtonRef: React.RefObject<HTMLButtonElement | null>;
-  batchCounterStrokeButtonRef: React.RefObject<HTMLButtonElement | null>;
+  batchCounterFillButtonRef: React.RefObject<HTMLDivElement | null>;
+  batchCounterStrokeButtonRef: React.RefObject<HTMLDivElement | null>;
   batchImageButtonRef: React.RefObject<HTMLButtonElement | null>;
   // state
   showBatchImagePicker: boolean;
@@ -185,8 +189,8 @@ interface BatchKeyLikePanelProps {
   handleBatchPickerColorChange: (newColor: NoteColor) => void;
   handleBatchPickerColorChangeComplete: (newColor: NoteColor) => void;
   getBatchPickerColor: () => NoteColor | string;
-  getBatchPickerRef: () => React.RefObject<HTMLButtonElement | null> | null;
-  batchColorPickerInteractiveRefs: React.RefObject<HTMLButtonElement | null>[];
+  getBatchPickerRef: () => React.RefObject<HTMLElement | null> | null;
+  batchColorPickerInteractiveRefs: React.RefObject<HTMLElement | null>[];
   panelElement: HTMLDivElement | null;
   useCustomCSS: boolean;
   selectedKeyType: string;
@@ -194,6 +198,7 @@ interface BatchKeyLikePanelProps {
 }
 
 export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
+  inspectorAction,
   setPanelElement,
   selectedBatchStyleElements,
   selectedKeyElements,
@@ -273,6 +278,13 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
   selectedKeyType,
   t,
 }) => {
+  const shouldRenderTab = (tab: TabType) =>
+    !inspectorAction || activeTab === tab;
+  const styleFocus = inspectorAction
+    ? inspectorAction === 'layout'
+      ? 'layout'
+      : 'appearance'
+    : undefined;
   const hasGraphSelection = selectedGraphElements.length > 0;
   const styleMixedValueGetter = hasGraphSelection
     ? getMixedValueBatch
@@ -493,287 +505,362 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
     { label: t('propertiesPanel.graphShapeBar') || 'Bar', value: 'bar' },
   ];
 
-  const getCounterColorDisplay = (target: 'fill' | 'stroke') => {
-    const key =
-      target === 'fill'
-        ? batchCounterColorState === 'active'
-          ? 'fillActive'
-          : 'fillIdle'
-        : batchCounterColorState === 'active'
-          ? 'strokeActive'
-          : 'strokeIdle';
-
+  // A counter color has two states, both shown in its row.
+  const counterColor = (
+    target: 'fill' | 'stroke',
+    state: 'idle' | 'active',
+  ): string => {
     if (batchPickerFor === target) {
+      const key = `${target}${state === 'active' ? 'Active' : 'Idle'}` as
+        'fillIdle' | 'fillActive' | 'strokeIdle' | 'strokeActive';
       return batchLocalColors[key];
     }
-
-    return target === 'fill'
-      ? batchCounterColorState === 'active'
-        ? batchCounterSettings.fill.active
-        : batchCounterSettings.fill.idle
-      : batchCounterColorState === 'active'
-        ? batchCounterSettings.stroke.active
-        : batchCounterSettings.stroke.idle;
+    return batchCounterSettings[target][state];
+  };
+  const openCounterColor = (target: 'fill' | 'stroke') =>
+    batchPickerFor === target ? batchCounterColorState : null;
+  // Pressing a state opens its chooser; pressing the open one closes it.
+  const pressCounterColor = (
+    target: 'fill' | 'stroke',
+    state: 'idle' | 'active',
+  ) => {
+    if (batchPickerFor === target && batchCounterColorState === state) {
+      handleBatchPickerToggle(target);
+      return;
+    }
+    setBatchCounterColorState(state);
+    if (batchPickerFor !== target) handleBatchPickerToggle(target);
   };
 
   return (
-    <div ref={setPanelElement} className={PANEL_ROOT_CLASS}>
+    <div
+      ref={setPanelElement}
+      className={`${PANEL_ROOT_CLASS}${inspectorAction ? ' en-inspector-panel' : ''}`}
+      data-inspector-action={inspectorAction}
+    >
       {/* 헤더 + 탭 영역 */}
-      <div className="dmn-properties-panel__head-stack flex-shrink-0">
-        {/* 헤더 */}
-        <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
-          <div className="flex items-center gap-[8px]">
-            {selectedGroupInfo ? (
-              isRenaming ? (
-                <input
-                  ref={renameInputRef}
-                  type="text"
-                  className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-ui-accent"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onBlur={() => {
-                    if (!renameCancelledRef.current) {
-                      handleRenameCommit(renameValue);
-                    }
-                    renameCancelledRef.current = false;
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      (e.target as HTMLInputElement).blur();
-                    } else if (e.key === 'Escape') {
-                      e.preventDefault();
-                      handleRenameCancel();
-                    }
-                  }}
-                />
+      {!inspectorAction && (
+        <div className="dmn-properties-panel__head-stack flex-shrink-0">
+          {/* 헤더 */}
+          <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
+            <div className="flex items-center gap-[8px]">
+              {selectedGroupInfo ? (
+                isRenaming ? (
+                  <input
+                    ref={renameInputRef}
+                    type="text"
+                    className="text-[#DBDEE8] text-style-2 bg-transparent border-none p-0 outline-none w-[130px] caret-ui-accent"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => {
+                      if (!renameCancelledRef.current) {
+                        handleRenameCommit(renameValue);
+                      }
+                      renameCancelledRef.current = false;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        (e.target as HTMLInputElement).blur();
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        handleRenameCancel();
+                      }
+                    }}
+                  />
+                ) : (
+                  <div className="flex items-center gap-[4px] min-w-0">
+                    <span
+                      className="text-[#DBDEE8] text-style-2 cursor-default truncate max-w-[110px]"
+                      onDoubleClick={handleRenameStart}
+                      title={selectedGroupInfo.name}
+                    >
+                      {selectedGroupInfo.name}
+                    </span>
+                    <button
+                      onClick={handleRenameStart}
+                      className="w-[18px] h-[18px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors flex-shrink-0"
+                      title={t('contextMenu.rename') || 'Rename'}
+                    >
+                      <RenameIcon />
+                    </button>
+                  </div>
+                )
               ) : (
-                <div className="flex items-center gap-[4px] min-w-0">
-                  <span
-                    className="text-[#DBDEE8] text-style-2 cursor-default truncate max-w-[110px]"
-                    onDoubleClick={handleRenameStart}
-                    title={selectedGroupInfo.name}
-                  >
-                    {selectedGroupInfo.name}
-                  </span>
-                  <button
-                    onClick={handleRenameStart}
-                    className="w-[18px] h-[18px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors flex-shrink-0"
-                    title={t('contextMenu.rename') || 'Rename'}
-                  >
-                    <RenameIcon />
-                  </button>
-                </div>
-              )
-            ) : (
-              <span className="text-[#DBDEE8] text-style-2">
-                {t('propertiesPanel.multiSelection') || '다중 선택'}
-              </span>
-            )}
-            {!selectedGroupInfo && (
-              <span className="text-[#6B6D75] text-style-4">
-                ({selectedBatchStyleElements.length})
-              </span>
-            )}
+                <span className="text-[#DBDEE8] text-style-2">
+                  {t('propertiesPanel.multiSelection') || '다중 선택'}
+                </span>
+              )}
+              {!selectedGroupInfo && (
+                <span className="text-[#6B6D75] text-style-4">
+                  ({selectedBatchStyleElements.length})
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-[4px]">
+              <button
+                onClick={handleToggleMode}
+                className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
+                title={t('propertiesPanel.switchToLayer') || 'Switch to Layer'}
+              >
+                <ModeToggleIcon mode="layer" />
+              </button>
+              <button
+                onClick={handleTogglePanel}
+                className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
+                title={t('propertiesPanel.closePanel') || '속성 패널 닫기'}
+              >
+                <SidebarToggleIcon isOpen={true} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-[4px]">
-            <button
-              onClick={handleToggleMode}
-              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
-              title={t('propertiesPanel.switchToLayer') || 'Switch to Layer'}
-            >
-              <ModeToggleIcon mode="layer" />
-            </button>
-            <button
-              onClick={handleTogglePanel}
-              className="w-[24px] h-[24px] flex items-center justify-center text-ui-fg-muted hover:text-ui-fg-primary rounded-[4px] transition-colors"
-              title={t('propertiesPanel.closePanel') || '속성 패널 닫기'}
-            >
-              <SidebarToggleIcon isOpen={true} />
-            </button>
-          </div>
-        </div>
 
-        {/* 탭 */}
-        <div className="px-[12px] pb-[12px]">
-          <Tabs
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            t={t}
-            availableTabs={
-              selectedKeyElements.length > 0
-                ? [TABS.STYLE, TABS.NOTE, TABS.COUNTER]
-                : [TABS.STYLE, TABS.COUNTER]
-            }
-          />
+          {/* 탭 */}
+          <div className="px-[12px] pb-[12px]">
+            <Tabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              t={t}
+              availableTabs={
+                selectedKeyElements.length > 0
+                  ? [TABS.INPUT, TABS.STYLE, TABS.NOTE, TABS.COUNTER]
+                  : [TABS.STYLE, TABS.COUNTER]
+              }
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       <>
-        <div className="flex-1 properties-panel-overlay-scroll">
+        <div
+          className={
+            inspectorAction
+              ? 'en-inspector-body'
+              : 'flex-1 properties-panel-overlay-scroll'
+          }
+        >
+          {selectedKeyElements.length > 0 && shouldRenderTab(TABS.INPUT) && (
+            <div
+              ref={inspectorAction ? undefined : batchScrollRefFor(TABS.INPUT)}
+              className={`${inspectorAction ? 'en-inspector-page' : 'properties-panel-overlay-viewport'} ${activeTab === TABS.INPUT ? '' : 'hidden'}`}
+            >
+              <div className="p-[12px] flex flex-col gap-[12px]">
+                <KeySoundControls
+                  value={{
+                    soundEnabled: getMixedValueKeysOnly(
+                      (pos) => pos.soundEnabled,
+                      false,
+                    ).value,
+                    soundPath: getMixedValueKeysOnly((pos) => pos.soundPath, '')
+                      .value,
+                    soundVolume: getMixedValueKeysOnly(
+                      (pos) => pos.soundVolume,
+                      100,
+                    ).value,
+                  }}
+                  mixed={{
+                    enabled: getMixedValueKeysOnly(
+                      (pos) => pos.soundEnabled,
+                      false,
+                    ).isMixed,
+                    path: getMixedValueKeysOnly((pos) => pos.soundPath, '')
+                      .isMixed,
+                    volume: getMixedValueKeysOnly((pos) => pos.soundVolume, 100)
+                      .isMixed,
+                  }}
+                  onChange={handleKeyOnlyStyleChangeComplete}
+                  panelElement={panelElement}
+                  t={t}
+                />
+              </div>
+              {!inspectorAction && (
+                <div className="properties-panel-overlay-bar">
+                  <div
+                    ref={batchThumbRefFor(TABS.INPUT)}
+                    className="properties-panel-overlay-thumb"
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
           {/* STYLE 탭 viewport */}
-          <div
-            ref={batchScrollRefFor(TABS.STYLE)}
-            className={`properties-panel-overlay-viewport ${
-              activeTab === TABS.STYLE ? '' : 'hidden'
-            }`}
-          >
-            <div className="p-[12px] flex flex-col gap-[12px]">
-              <BatchStyleTabContent
-                selectedCount={selectedBatchStyleElements.length}
-                showSoundControls={selectedKeyElements.length > 0}
-                getMixedValue={styleMixedValueGetter}
-                getSelectedKeysData={styleSelectedDataGetter}
-                afterSizeContent={
-                  hasGraphSelection ? (
-                    <>
-                      <PropertyRow
-                        label={t('propertiesPanel.graphShape') || 'Graph Shape'}
-                      >
-                        {graphTypeState.isMixed ? (
-                          <span className="text-[#6B6D75] text-style-4 italic">
-                            Mixed
-                          </span>
-                        ) : null}
-                        <Dropdown
-                          options={graphShapeOptions}
-                          value={graphTypeState.value}
-                          onChange={(value) =>
-                            handleGraphBatchSharedSetting({
-                              graphType: value as GraphItemType,
-                            })
+          {shouldRenderTab(TABS.STYLE) && (
+            <div
+              ref={inspectorAction ? undefined : batchScrollRefFor(TABS.STYLE)}
+              className={`${inspectorAction ? 'en-inspector-page' : 'properties-panel-overlay-viewport'} ${
+                activeTab === TABS.STYLE ? '' : 'hidden'
+              }`}
+            >
+              <div className="p-[12px] flex flex-col gap-[12px]">
+                <BatchStyleTabContent
+                  key={styleFocus ?? 'all'}
+                  focus={styleFocus}
+                  selectedCount={selectedBatchStyleElements.length}
+                  showSoundControls={false}
+                  getMixedValue={styleMixedValueGetter}
+                  getSelectedKeysData={styleSelectedDataGetter}
+                  afterSizeContent={
+                    hasGraphSelection ? (
+                      <>
+                        <PropertyRow
+                          label={
+                            t('propertiesPanel.graphShape') || 'Graph Shape'
                           }
-                        />
-                      </PropertyRow>
-
-                      {hasLineGraph && (
-                        <div className="flex justify-between items-center w-full h-[23px]">
-                          <p className="text-white text-style-2">
-                            {t('propertiesPanel.graphShowAverageLine') ||
-                              'Show Average Line'}
-                          </p>
-                          <Checkbox
-                            checked={showAvgLineState.value}
-                            onChange={() =>
-                              handleGraphBatchSharedSetting({
-                                showAvgLine: !showAvgLineState.value,
-                              })
-                            }
-                          />
-                        </div>
-                      )}
-
-                      <PropertyRow
-                        label={t('propertiesPanel.graphSpeed') || 'Graph Speed'}
-                      >
-                        {graphSpeedState.isMixed ? (
-                          <span className="text-[#6B6D75] text-style-4 italic">
-                            Mixed
-                          </span>
-                        ) : null}
-                        <NumberInput
-                          value={graphSpeedState.value}
-                          width="62px"
-                          onChange={(value) => {
-                            const clamped = Math.max(
-                              500,
-                              Math.min(5000, value),
-                            );
-                            const snapped = Math.round(clamped / 100) * 100;
-                            handleGraphBatchSharedSetting({
-                              graphSpeed: snapped,
-                            });
-                          }}
-                          min={500}
-                          max={5000}
-                          suffix="ms"
-                          isMixed={graphSpeedState.isMixed}
-                        />
-                      </PropertyRow>
-
-                      <PropertyRow
-                        label={t('propertiesPanel.graphColor') || 'Graph Color'}
-                      >
-                        {graphColorState.isMixed ? (
-                          <span className="text-[#6B6D75] text-style-4 italic">
-                            Mixed
-                          </span>
-                        ) : null}
-                        <ColorInput
-                          value={graphColorState.value}
-                          onChange={() => {}}
-                          onChangeComplete={(value) =>
-                            handleGraphBatchSharedSetting({
-                              graphColor: value,
-                            })
-                          }
-                          colorId={`graph-batch-mixed-color-${selectedKeyType}`}
-                          panelElement={panelElement}
-                        />
-                      </PropertyRow>
-
-                      <div className="flex justify-between items-center w-full h-[23px]">
-                        <p className="text-white text-style-2">
-                          {t('propertiesPanel.graphAnimation') ||
-                            'Graph Animation'}
-                        </p>
-                        <div className="flex items-center gap-[6px]">
-                          {graphAnimationState.isMixed ? (
+                        >
+                          {graphTypeState.isMixed ? (
                             <span className="text-[#6B6D75] text-style-4 italic">
                               Mixed
                             </span>
                           ) : null}
-                          <Checkbox
-                            checked={graphAnimationState.value}
-                            onChange={() =>
+                          <Dropdown
+                            options={graphShapeOptions}
+                            value={graphTypeState.value}
+                            onChange={(value) =>
                               handleGraphBatchSharedSetting({
-                                graphAnimationEnabled:
-                                  !graphAnimationState.value,
+                                graphType: value as GraphItemType,
                               })
                             }
                           />
+                        </PropertyRow>
+
+                        {hasLineGraph && (
+                          <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+                            <p className="dmn-property-row__label">
+                              {t('propertiesPanel.graphShowAverageLine') ||
+                                'Show Average Line'}
+                            </p>
+                            <Checkbox
+                              checked={showAvgLineState.value}
+                              onChange={() =>
+                                handleGraphBatchSharedSetting({
+                                  showAvgLine: !showAvgLineState.value,
+                                })
+                              }
+                            />
+                          </div>
+                        )}
+
+                        <PropertyRow
+                          label={
+                            t('propertiesPanel.graphSpeed') || 'Graph Speed'
+                          }
+                        >
+                          {graphSpeedState.isMixed ? (
+                            <span className="text-[#6B6D75] text-style-4 italic">
+                              Mixed
+                            </span>
+                          ) : null}
+                          <NumberInput
+                            value={graphSpeedState.value}
+                            width="62px"
+                            onChange={(value) => {
+                              const clamped = Math.max(
+                                500,
+                                Math.min(5000, value),
+                              );
+                              const snapped = Math.round(clamped / 100) * 100;
+                              handleGraphBatchSharedSetting({
+                                graphSpeed: snapped,
+                              });
+                            }}
+                            min={500}
+                            max={5000}
+                            suffix="ms"
+                            isMixed={graphSpeedState.isMixed}
+                          />
+                        </PropertyRow>
+
+                        <PropertyRow
+                          label={
+                            t('propertiesPanel.graphColor') || 'Graph Color'
+                          }
+                        >
+                          {graphColorState.isMixed ? (
+                            <span className="text-[#6B6D75] text-style-4 italic">
+                              Mixed
+                            </span>
+                          ) : null}
+                          <ColorInput
+                            value={graphColorState.value}
+                            onChange={() => {}}
+                            onChangeComplete={(value) =>
+                              handleGraphBatchSharedSetting({
+                                graphColor: value,
+                              })
+                            }
+                            colorId={`graph-batch-mixed-color-${selectedKeyType}`}
+                            panelElement={panelElement}
+                          />
+                        </PropertyRow>
+
+                        <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+                          <p className="dmn-property-row__label">
+                            {t('propertiesPanel.graphAnimation') ||
+                              'Graph Animation'}
+                          </p>
+                          <div className="flex items-center gap-[6px]">
+                            {graphAnimationState.isMixed ? (
+                              <span className="text-[#6B6D75] text-style-4 italic">
+                                Mixed
+                              </span>
+                            ) : null}
+                            <Checkbox
+                              checked={graphAnimationState.value}
+                              onChange={() =>
+                                handleGraphBatchSharedSetting({
+                                  graphAnimationEnabled:
+                                    !graphAnimationState.value,
+                                })
+                              }
+                            />
+                          </div>
                         </div>
-                      </div>
-                    </>
-                  ) : undefined
-                }
-                handleBatchAlign={handleBatchAlign}
-                handleBatchDistribute={handleBatchDistribute}
-                handleBatchSpacing={handleBatchSpacing}
-                handleBatchSpacingPreview={handleBatchSpacingPreview}
-                handleBatchSpacingCommit={handleBatchSpacingCommit}
-                batchSpacing={batchSpacing}
-                handleBatchResize={handleBatchResize}
-                handleBatchStyleChange={handleBatchStyleChange}
-                handleBatchStyleChangeComplete={handleBatchStyleChangeComplete}
-                getKeyOnlyMixedValue={getMixedValueKeysOnly}
-                handleKeyOnlyStyleChangeComplete={
-                  handleKeyOnlyStyleChangeComplete
-                }
-                showBatchImagePicker={showBatchImagePicker}
-                onToggleBatchImagePicker={() =>
-                  setShowBatchImagePicker(!showBatchImagePicker)
-                }
-                batchImageButtonRef={batchImageButtonRef}
-                panelElement={panelElement}
-                useCustomCSS={useCustomCSS}
-                t={t}
-              />
+                      </>
+                    ) : undefined
+                  }
+                  handleBatchAlign={handleBatchAlign}
+                  handleBatchDistribute={handleBatchDistribute}
+                  handleBatchSpacing={handleBatchSpacing}
+                  handleBatchSpacingPreview={handleBatchSpacingPreview}
+                  handleBatchSpacingCommit={handleBatchSpacingCommit}
+                  batchSpacing={batchSpacing}
+                  handleBatchResize={handleBatchResize}
+                  handleBatchStyleChange={handleBatchStyleChange}
+                  handleBatchStyleChangeComplete={
+                    handleBatchStyleChangeComplete
+                  }
+                  getKeyOnlyMixedValue={getMixedValueKeysOnly}
+                  handleKeyOnlyStyleChangeComplete={
+                    handleKeyOnlyStyleChangeComplete
+                  }
+                  showBatchImagePicker={showBatchImagePicker}
+                  onToggleBatchImagePicker={() =>
+                    setShowBatchImagePicker(!showBatchImagePicker)
+                  }
+                  batchImageButtonRef={batchImageButtonRef}
+                  panelElement={panelElement}
+                  useCustomCSS={useCustomCSS}
+                  t={t}
+                />
+              </div>
+              {!inspectorAction && (
+                <div className="properties-panel-overlay-bar">
+                  <div
+                    ref={batchThumbRefFor(TABS.STYLE)}
+                    className="properties-panel-overlay-thumb"
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              )}
             </div>
-            <div className="properties-panel-overlay-bar">
-              <div
-                ref={batchThumbRefFor(TABS.STYLE)}
-                className="properties-panel-overlay-thumb"
-                style={{ display: 'none' }}
-              />
-            </div>
-          </div>
+          )}
 
           {/* NOTE 탭 viewport */}
-          {selectedKeyElements.length > 0 && (
+          {selectedKeyElements.length > 0 && shouldRenderTab(TABS.NOTE) && (
             <div
-              ref={batchScrollRefFor(TABS.NOTE)}
-              className={`properties-panel-overlay-viewport ${
+              ref={inspectorAction ? undefined : batchScrollRefFor(TABS.NOTE)}
+              className={`${inspectorAction ? 'en-inspector-page' : 'properties-panel-overlay-viewport'} ${
                 activeTab === TABS.NOTE ? '' : 'hidden'
               }`}
             >
@@ -804,171 +891,193 @@ export const BatchKeyLikePanel: React.FC<BatchKeyLikePanelProps> = ({
                   t={t}
                 />
               </div>
-              <div className="properties-panel-overlay-bar">
-                <div
-                  ref={batchThumbRefFor(TABS.NOTE)}
-                  className="properties-panel-overlay-thumb"
-                  style={{ display: 'none' }}
-                />
-              </div>
+              {!inspectorAction && (
+                <div className="properties-panel-overlay-bar">
+                  <div
+                    ref={batchThumbRefFor(TABS.NOTE)}
+                    className="properties-panel-overlay-thumb"
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              )}
             </div>
           )}
 
           {/* COUNTER 탭 viewport */}
-          <div
-            ref={batchScrollRefFor(TABS.COUNTER)}
-            className={`properties-panel-overlay-viewport ${
-              activeTab === TABS.COUNTER ? '' : 'hidden'
-            }`}
-          >
-            <div className="p-[12px] flex flex-col gap-[12px]">
-              <BatchCounterTabContent
-                batchCounterSettings={batchCounterSettings}
-                keyVisual={batchKeyVisual}
-                handleBatchCounterUpdate={handleBatchCounterUpdate}
-                colorState={batchCounterColorState}
-                getCounterColorDisplay={getCounterColorDisplay}
-                onFillPickerToggle={() => handleBatchPickerToggle('fill')}
-                onStrokePickerToggle={() => handleBatchPickerToggle('stroke')}
-                batchCounterFillButtonRef={batchCounterFillButtonRef}
-                batchCounterStrokeButtonRef={batchCounterStrokeButtonRef}
-                isFillPickerOpen={batchPickerFor === 'fill'}
-                isStrokePickerOpen={batchPickerFor === 'stroke'}
-                panelElement={panelElement}
-                t={t}
-              />
+          {shouldRenderTab(TABS.COUNTER) && (
+            <div
+              ref={
+                inspectorAction ? undefined : batchScrollRefFor(TABS.COUNTER)
+              }
+              className={`${inspectorAction ? 'en-inspector-page' : 'properties-panel-overlay-viewport'} ${
+                activeTab === TABS.COUNTER ? '' : 'hidden'
+              }`}
+            >
+              <div className="p-[12px] flex flex-col gap-[12px]">
+                <BatchCounterTabContent
+                  batchCounterSettings={batchCounterSettings}
+                  visibilityMixed={
+                    getMixedValue(
+                      (pos) => normalizeCounterSettings(pos.counter).enabled,
+                      true,
+                    ).isMixed
+                  }
+                  keyVisual={batchKeyVisual}
+                  handleBatchCounterUpdate={handleBatchCounterUpdate}
+                  counterColor={counterColor}
+                  openCounterColor={openCounterColor}
+                  onCounterColorPress={pressCounterColor}
+                  batchCounterFillButtonRef={batchCounterFillButtonRef}
+                  batchCounterStrokeButtonRef={batchCounterStrokeButtonRef}
+                  panelElement={panelElement}
+                  t={t}
+                />
+              </div>
+              {!inspectorAction && (
+                <div className="properties-panel-overlay-bar">
+                  <div
+                    ref={batchThumbRefFor(TABS.COUNTER)}
+                    className="properties-panel-overlay-thumb"
+                    style={{ display: 'none' }}
+                  />
+                </div>
+              )}
             </div>
-            <div className="properties-panel-overlay-bar">
-              <div
-                ref={batchThumbRefFor(TABS.COUNTER)}
-                className="properties-panel-overlay-thumb"
-                style={{ display: 'none' }}
-              />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* 배치 편집용 로컬 ColorPicker */}
-        {batchPickerFor && (
-          <ColorPicker
-            open={!!batchPickerFor}
-            referenceRef={getBatchPickerRef()}
-            panelElement={panelElement}
-            color={getBatchPickerColor()}
-            onColorChange={handleBatchPickerColorChange}
-            onColorChangeComplete={handleBatchPickerColorChangeComplete}
-            onClose={() => setBatchPickerFor(null)}
-            interactiveRefs={batchColorPickerInteractiveRefs}
-            solidOnly={
-              batchPickerFor !== 'noteColor' && batchPickerFor !== 'glowColor'
-            }
-            stateMode={
-              batchPickerFor === 'fill' || batchPickerFor === 'stroke'
-                ? batchCounterColorState
-                : undefined
-            }
-            onStateModeChange={
-              batchPickerFor === 'fill' || batchPickerFor === 'stroke'
-                ? setBatchCounterColorState
-                : undefined
-            }
-            opacityPercent={
-              batchPickerFor === 'noteColor'
-                ? batchLocalOpacities.noteOpacity
-                : batchPickerFor === 'glowColor'
-                  ? batchLocalOpacities.glowOpacity
-                  : undefined
-            }
-            onOpacityPercentChange={(value: number) => {
-              if (batchPickerFor === 'noteColor') {
-                setBatchLocalOpacities((prev) => ({
-                  ...prev,
-                  noteOpacity: value,
-                }));
-                handleBatchStyleChange('noteOpacity', value);
-              } else if (batchPickerFor === 'glowColor') {
-                setBatchLocalOpacities((prev) => ({
-                  ...prev,
-                  glowOpacity: value,
-                }));
-                handleBatchStyleChange('noteGlowOpacity', value);
+        {batchPickerFor &&
+          (batchPickerFor === 'fill' || batchPickerFor === 'stroke'
+            ? activeTab === TABS.COUNTER &&
+              (batchCounterSettings.enabled ||
+                getMixedValue(
+                  (pos) => normalizeCounterSettings(pos.counter).enabled,
+                  true,
+                ).isMixed)
+            : activeTab === TABS.NOTE &&
+              (getMixedValueKeysOnly((pos) => pos.noteEffectEnabled, true)
+                .value ||
+                getMixedValueKeysOnly((pos) => pos.noteEffectEnabled, true)
+                  .isMixed) &&
+              (batchPickerFor !== 'glowColor' ||
+                getMixedValueKeysOnly((pos) => pos.noteGlowEnabled, false)
+                  .value ||
+                getMixedValueKeysOnly((pos) => pos.noteGlowEnabled, false)
+                  .isMixed)) && (
+            <ColorPicker
+              open={!!batchPickerFor}
+              referenceRef={getBatchPickerRef()}
+              panelElement={panelElement}
+              color={getBatchPickerColor()}
+              onColorChange={handleBatchPickerColorChange}
+              onColorChangeComplete={handleBatchPickerColorChangeComplete}
+              onClose={() => setBatchPickerFor(null)}
+              interactiveRefs={batchColorPickerInteractiveRefs}
+              solidOnly={
+                batchPickerFor !== 'noteColor' && batchPickerFor !== 'glowColor'
               }
-            }}
-            onOpacityPercentChangeComplete={(value: number) => {
-              if (batchPickerFor === 'noteColor') {
-                setBatchLocalOpacities((prev) => ({
-                  ...prev,
-                  noteOpacity: value,
-                }));
-                handleBatchStyleChangeComplete('noteOpacity', value);
-              } else if (batchPickerFor === 'glowColor') {
-                setBatchLocalOpacities((prev) => ({
-                  ...prev,
-                  glowOpacity: value,
-                }));
-                handleBatchStyleChangeComplete('noteGlowOpacity', value);
+              opacityPercent={
+                batchPickerFor === 'noteColor'
+                  ? batchLocalOpacities.noteOpacity
+                  : batchPickerFor === 'glowColor'
+                    ? batchLocalOpacities.glowOpacity
+                    : undefined
               }
-            }}
-            opacityPercentLabel={
-              batchPickerFor === 'noteColor'
-                ? t('keySetting.noteOpacity') || '노트 투명도'
-                : batchPickerFor === 'glowColor'
-                  ? t('keySetting.noteGlowOpacity') || '글로우 투명도'
-                  : undefined
-            }
-            opacityPercentMixed={
-              batchPickerFor === 'noteColor'
-                ? noteOpacityMixed
-                : batchPickerFor === 'glowColor'
-                  ? glowOpacityMixed
-                  : false
-            }
-          />
-        )}
+              onOpacityPercentChange={(value: number) => {
+                if (batchPickerFor === 'noteColor') {
+                  setBatchLocalOpacities((prev) => ({
+                    ...prev,
+                    noteOpacity: value,
+                  }));
+                  handleBatchStyleChange('noteOpacity', value);
+                } else if (batchPickerFor === 'glowColor') {
+                  setBatchLocalOpacities((prev) => ({
+                    ...prev,
+                    glowOpacity: value,
+                  }));
+                  handleBatchStyleChange('noteGlowOpacity', value);
+                }
+              }}
+              onOpacityPercentChangeComplete={(value: number) => {
+                if (batchPickerFor === 'noteColor') {
+                  setBatchLocalOpacities((prev) => ({
+                    ...prev,
+                    noteOpacity: value,
+                  }));
+                  handleBatchStyleChangeComplete('noteOpacity', value);
+                } else if (batchPickerFor === 'glowColor') {
+                  setBatchLocalOpacities((prev) => ({
+                    ...prev,
+                    glowOpacity: value,
+                  }));
+                  handleBatchStyleChangeComplete('noteGlowOpacity', value);
+                }
+              }}
+              opacityPercentLabel={
+                batchPickerFor === 'noteColor'
+                  ? t('keySetting.noteOpacity') || '노트 투명도'
+                  : batchPickerFor === 'glowColor'
+                    ? t('keySetting.noteGlowOpacity') || '글로우 투명도'
+                    : undefined
+              }
+              opacityPercentMixed={
+                batchPickerFor === 'noteColor'
+                  ? noteOpacityMixed
+                  : batchPickerFor === 'glowColor'
+                    ? glowOpacityMixed
+                    : false
+              }
+            />
+          )}
 
         {/* 다중 선택용 ImagePicker */}
-        {showBatchImagePicker && batchImageButtonRef.current && (
-          <ImagePicker
-            open={showBatchImagePicker}
-            referenceRef={batchImageButtonRef}
-            panelElement={panelElement}
-            idleImage={
-              styleMixedValueGetter((pos) => pos.inactiveImage, '').isMixed
-                ? ''
-                : styleMixedValueGetter((pos) => pos.inactiveImage, '').value
-            }
-            activeImage={
-              styleMixedValueGetter((pos) => pos.activeImage, '').isMixed
-                ? ''
-                : styleMixedValueGetter((pos) => pos.activeImage, '').value
-            }
-            idleTransparent={
-              styleMixedValueGetter((pos) => pos.idleTransparent, false).value
-            }
-            activeTransparent={
-              styleMixedValueGetter((pos) => pos.activeTransparent, false).value
-            }
-            onIdleImageChange={(imageUrl: string) => {
-              handleBatchStyleChangeComplete('inactiveImage', imageUrl);
-            }}
-            onActiveImageChange={(imageUrl: string) => {
-              handleBatchStyleChangeComplete('activeImage', imageUrl);
-            }}
-            onIdleTransparentChange={(value: boolean) => {
-              handleBatchStyleChangeComplete('idleTransparent', value);
-            }}
-            onActiveTransparentChange={(value: boolean) => {
-              handleBatchStyleChangeComplete('activeTransparent', value);
-            }}
-            onIdleImageReset={() => {
-              handleBatchStyleChangeComplete('inactiveImage', '');
-            }}
-            onActiveImageReset={() => {
-              handleBatchStyleChangeComplete('activeImage', '');
-            }}
-            onClose={() => setShowBatchImagePicker(false)}
-          />
-        )}
+        {activeTab === TABS.STYLE &&
+          inspectorAction !== 'layout' &&
+          showBatchImagePicker &&
+          batchImageButtonRef.current && (
+            <ImagePicker
+              open={showBatchImagePicker}
+              referenceRef={batchImageButtonRef}
+              panelElement={panelElement}
+              idleImage={
+                styleMixedValueGetter((pos) => pos.inactiveImage, '').isMixed
+                  ? ''
+                  : styleMixedValueGetter((pos) => pos.inactiveImage, '').value
+              }
+              activeImage={
+                styleMixedValueGetter((pos) => pos.activeImage, '').isMixed
+                  ? ''
+                  : styleMixedValueGetter((pos) => pos.activeImage, '').value
+              }
+              idleTransparent={
+                styleMixedValueGetter((pos) => pos.idleTransparent, false).value
+              }
+              activeTransparent={
+                styleMixedValueGetter((pos) => pos.activeTransparent, false)
+                  .value
+              }
+              onIdleImageChange={(imageUrl: string) => {
+                handleBatchStyleChangeComplete('inactiveImage', imageUrl);
+              }}
+              onActiveImageChange={(imageUrl: string) => {
+                handleBatchStyleChangeComplete('activeImage', imageUrl);
+              }}
+              onIdleTransparentChange={(value: boolean) => {
+                handleBatchStyleChangeComplete('idleTransparent', value);
+              }}
+              onActiveTransparentChange={(value: boolean) => {
+                handleBatchStyleChangeComplete('activeTransparent', value);
+              }}
+              onIdleImageReset={() => {
+                handleBatchStyleChangeComplete('inactiveImage', '');
+              }}
+              onActiveImageReset={() => {
+                handleBatchStyleChangeComplete('activeImage', '');
+              }}
+              onClose={() => setShowBatchImagePicker(false)}
+            />
+          )}
       </>
     </div>
   );
@@ -1064,6 +1173,7 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
   selectedKeyType,
   t,
 }) => {
+  const isFloating = Boolean(useInspectorPages());
   const graphShapeOptions = [
     { label: t('propertiesPanel.graphShapeLine') || 'Line', value: 'line' },
     { label: t('propertiesPanel.graphShapeBar') || 'Bar', value: 'bar' },
@@ -1096,8 +1206,14 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
   const batchGraphSpacing = getBatchSpacingValue();
 
   return (
-    <div ref={setPanelElement} className={PANEL_ROOT_CLASS}>
-      <div className="dmn-properties-panel__head-stack flex-shrink-0">
+    <div
+      ref={setPanelElement}
+      className={`${PANEL_ROOT_CLASS}${isFloating ? ' en-inspector-panel' : ''}`}
+    >
+      <div
+        className="dmn-properties-panel__head-stack flex-shrink-0"
+        hidden={isFloating}
+      >
         <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
           <div className="flex items-center gap-[8px]">
             {selectedGroupInfo ? (
@@ -1172,10 +1288,20 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 properties-panel-overlay-scroll">
+      <div
+        className={
+          isFloating
+            ? 'en-inspector-body'
+            : 'flex-1 properties-panel-overlay-scroll'
+        }
+      >
         <div
-          ref={batchScrollRefFor(TABS.STYLE)}
-          className="properties-panel-overlay-viewport"
+          ref={isFloating ? undefined : batchScrollRefFor(TABS.STYLE)}
+          className={
+            isFloating
+              ? 'en-inspector-page'
+              : 'properties-panel-overlay-viewport'
+          }
         >
           <div className="p-[12px] flex flex-col gap-[12px]">
             <BatchStyleTabContent
@@ -1205,8 +1331,8 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
                   </PropertyRow>
 
                   {hasLineGraph && (
-                    <div className="flex justify-between items-center w-full h-[23px]">
-                      <p className="text-white text-style-2">
+                    <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+                      <p className="dmn-property-row__label">
                         {t('propertiesPanel.graphShowAverageLine') ||
                           'Show Average Line'}
                       </p>
@@ -1265,8 +1391,8 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
                     />
                   </PropertyRow>
 
-                  <div className="flex justify-between items-center w-full h-[23px]">
-                    <p className="text-white text-style-2">
+                  <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+                    <p className="dmn-property-row__label">
                       {t('propertiesPanel.graphAnimation') || 'Graph Animation'}
                     </p>
                     <div className="flex items-center gap-[6px]">
@@ -1308,13 +1434,15 @@ export const BatchGraphOnlyPanel: React.FC<BatchGraphOnlyPanelProps> = ({
               t={t}
             />
           </div>
-          <div className="properties-panel-overlay-bar">
-            <div
-              ref={batchThumbRefFor(TABS.STYLE)}
-              className="properties-panel-overlay-thumb"
-              style={{ display: 'none' }}
-            />
-          </div>
+          {!isFloating && (
+            <div className="properties-panel-overlay-bar">
+              <div
+                ref={batchThumbRefFor(TABS.STYLE)}
+                className="properties-panel-overlay-thumb"
+                style={{ display: 'none' }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1453,6 +1581,7 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
   useCustomCSS,
   t,
 }) => {
+  const isFloating = Boolean(useInspectorPages());
   const sensitivityState = getMixedValueKnobs(
     (pos) => Number(pos.sensitivity ?? 1),
     1,
@@ -1461,8 +1590,14 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
   const batchKnobSpacing = getBatchSpacingValue();
 
   return (
-    <div ref={setPanelElement} className={PANEL_ROOT_CLASS}>
-      <div className="dmn-properties-panel__head-stack flex-shrink-0">
+    <div
+      ref={setPanelElement}
+      className={`${PANEL_ROOT_CLASS}${isFloating ? ' en-inspector-panel' : ''}`}
+    >
+      <div
+        className="dmn-properties-panel__head-stack flex-shrink-0"
+        hidden={isFloating}
+      >
         <div className="dmn-properties-panel__header flex items-center justify-between px-[12px]">
           <div className="flex items-center gap-[8px]">
             {selectedGroupInfo ? (
@@ -1537,10 +1672,20 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
         </div>
       </div>
 
-      <div className="flex-1 properties-panel-overlay-scroll">
+      <div
+        className={
+          isFloating
+            ? 'en-inspector-body'
+            : 'flex-1 properties-panel-overlay-scroll'
+        }
+      >
         <div
-          ref={batchScrollRefFor(TABS.STYLE)}
-          className="properties-panel-overlay-viewport"
+          ref={isFloating ? undefined : batchScrollRefFor(TABS.STYLE)}
+          className={
+            isFloating
+              ? 'en-inspector-page'
+              : 'properties-panel-overlay-viewport'
+          }
         >
           <div className="p-[12px] flex flex-col gap-[12px]">
             <BatchStyleTabContent
@@ -1548,6 +1693,7 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
               hideDisplayText
               hideFontControls
               showSoundControls={false}
+              afterSizeTitle={t('propertiesPanel.tabInput') || 'Input'}
               afterSizeContent={
                 <>
                   <PropertyRow
@@ -1574,8 +1720,8 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
                     />
                   </PropertyRow>
 
-                  <div className="flex justify-between items-center w-full h-[23px]">
-                    <p className="text-white text-style-2">
+                  <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
+                    <p className="dmn-property-row__label">
                       {t('propertiesPanel.knobReverse') || '방향 반전'}
                     </p>
                     <div className="flex items-center gap-[6px]">
@@ -1617,13 +1763,15 @@ export const BatchKnobOnlyPanel: React.FC<BatchKnobOnlyPanelProps> = ({
               t={t}
             />
           </div>
-          <div className="properties-panel-overlay-bar">
-            <div
-              ref={batchThumbRefFor(TABS.STYLE)}
-              className="properties-panel-overlay-thumb"
-              style={{ display: 'none' }}
-            />
-          </div>
+          {!isFloating && (
+            <div className="properties-panel-overlay-bar">
+              <div
+                ref={batchThumbRefFor(TABS.STYLE)}
+                className="properties-panel-overlay-thumb"
+                style={{ display: 'none' }}
+              />
+            </div>
+          )}
         </div>
       </div>
 

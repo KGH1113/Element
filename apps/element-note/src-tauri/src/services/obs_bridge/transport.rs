@@ -10,6 +10,8 @@ use tokio_tungstenite::tungstenite::{
     http::{header, StatusCode},
 };
 
+use super::ServerReach;
+
 const MAX_HTTP_HEADER_SIZE: usize = 16 * 1024;
 
 pub(super) struct PrefixedStream {
@@ -222,10 +224,14 @@ pub(super) fn websocket_forbidden_response(reason: &str) -> ErrorResponse {
     response
 }
 
-// OBS 모드는 같은 네트워크의 다른 PC 접속이 제품 계약 — 항상 전체 인터페이스에 바인딩
+// 게임 화면만 쓸 때는 이 PC 안에서만 열고, OBS 브라우저 소스를 내줄 때만 전체 인터페이스에
+// 바인딩한다 - 같은 네트워크의 다른 PC 접속은 OBS의 제품 계약
 // (WS/미디어는 토큰 인증, 커맨드는 allowlist로 보호)
-pub(super) fn bind_address(port: u16) -> SocketAddr {
-    SocketAddr::from(([0, 0, 0, 0], port))
+pub(super) fn bind_address(port: u16, reach: ServerReach) -> SocketAddr {
+    match reach {
+        ServerReach::Loopback => SocketAddr::from(([127, 0, 0, 1], port)),
+        ServerReach::Lan => SocketAddr::from(([0, 0, 0, 0], port)),
+    }
 }
 
 pub(super) async fn write_empty_http_response(stream: &mut TcpStream, status: &str) {

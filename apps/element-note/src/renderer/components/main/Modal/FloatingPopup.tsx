@@ -1,14 +1,40 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   useFloating,
   offset as fuiOffset,
+  arrow,
   shift,
   flip,
   autoUpdate,
   type Placement,
+  type VirtualElement,
 } from '@floating-ui/react';
 import { usePopupPresence } from '@hooks/ui/usePopupPresence';
+import { useChooserScope } from '@components/main/Sidebar/chooserScopeContext';
+
+/** Room between the sidebar and a chooser beside it; its pointer sits in it. */
+const BESIDE_GAP = 10;
+const BESIDE_EDGE = 8;
+
+/**
+ * What a chooser beside the sidebar is placed against: the sidebar's whole
+ * width, at the height of the row its trigger is in. The chooser then clears
+ * the sidebar and lines up with that row.
+ */
+const besideReference = (
+  scope: HTMLElement,
+  trigger: HTMLElement,
+): VirtualElement => ({
+  contextElement: trigger,
+  getBoundingClientRect: () => {
+    const side = scope.getBoundingClientRect();
+    const row = (
+      trigger.closest('.en-row, .dmn-property-row') ?? trigger
+    ).getBoundingClientRect();
+    return new DOMRect(side.left, row.top, side.width, row.height);
+  },
+});
 
 type FloatingPopupProps = {
   open: boolean;
@@ -29,6 +55,12 @@ type FloatingPopupProps = {
   role?: 'dialog' | 'menu' | 'listbox';
   ariaLabel?: string;
   restoreFocus?: boolean;
+  /**
+   * Names the popup as a chooser. When its trigger sits inside the sidebar,
+   * the chooser opens beside the sidebar and points at the trigger's row,
+   * whatever `placement` says; the page that opened it stays as it is.
+   */
+  chooserTitle?: string;
 };
 
 // ListPopup의 서브메뉴는 body로 포털되므로 DOM상 팝업 밖이지만 같은 메뉴다.
@@ -55,7 +87,20 @@ const FloatingPopup = ({
   role = 'dialog',
   ariaLabel,
   restoreFocus = false,
+  chooserTitle,
 }: FloatingPopupProps) => {
+  const scope = useChooserScope()?.element ?? null;
+  // Decided each time the popup opens; it keeps that place until it is gone.
+  const [beside, setBeside] = useState(false);
+  useLayoutEffect(() => {
+    if (!open) return;
+    const trigger = referenceRef?.current ?? null;
+    setBeside(
+      !!chooserTitle && !!scope && !!trigger && scope.contains(trigger),
+    );
+  }, [open, chooserTitle, scope, referenceRef]);
+
+  const arrowRef = useRef<HTMLSpanElement>(null);
   const {
     x,
     y,
@@ -63,10 +108,19 @@ const FloatingPopup = ({
     strategy,
     update,
     placement: resolvedPlacement,
+    middlewareData,
   } = useFloating({
-    placement: placement as Placement,
-    strategy: portal ? 'fixed' : 'absolute',
-    middleware: [fuiOffset(offset), shift(), flip()],
+    placement: beside ? 'left-start' : (placement as Placement),
+    strategy: portal || beside ? 'fixed' : 'absolute',
+    middleware: beside
+      ? [
+          fuiOffset(BESIDE_GAP),
+          flip({ padding: BESIDE_EDGE }),
+          shift({ padding: BESIDE_EDGE }),
+          // The pointer keeps clear of the surface's round corners.
+          arrow({ element: arrowRef, padding: 12 }),
+        ]
+      : [fuiOffset(offset), shift(), flip()],
     whileElementsMounted: autoUpdate,
   });
 
@@ -78,24 +132,53 @@ const FloatingPopup = ({
     x: number;
     y: number;
   } | null>(null);
-  const isFixed = typeof fixedX === 'number' && typeof fixedY === 'number';
+  // A chooser beside the sidebar is placed against its row, wherever the
+  // caller would have put it.
+  const isFixed =
+    !beside && typeof fixedX === 'number' && typeof fixedY === 'number';
   const ready = isFixed ? adjustedPos !== null : x !== null && y !== null;
   const popupPresence = usePopupPresence(open, {
     ready,
     motionRef: floatingRef,
   });
+  const present = popupPresence.mounted;
+  useLayoutEffect(() => {
+    if (!open && !present) setBeside(false);
+  }, [open, present]);
+
+  // The trigger is read again whenever the popup opens: a menu shared by many
+  // buttons points its ref at the pressed one only at that moment.
+  const { setReference, setPositionReference } = refs;
+  useLayoutEffect(() => {
+    const trigger = referenceRef?.current;
+    if (!trigger) return;
+    if (beside && scope) {
+      setPositionReference(besideReference(scope, trigger));
+    } else {
+      setReference(trigger);
+    }
+  }, [referenceRef, setReference, setPositionReference, open, beside, scope]);
 
   useEffect(() => {
-    if (referenceRef && referenceRef.current)
-      refs.setReference(referenceRef.current);
-  }, [referenceRef, refs.setReference]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return;
+      if (
+        document.querySelector('[data-dmn-modal-backdrop], .dmn-dropdown-menu')
+      )
+        return;
+      const popups = document.querySelectorAll('.dmn-popup-surface');
+      if (popups[popups.length - 1] !== floatingRef.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose?.();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [open, onClose]);
 
   useEffect(() => {
     if (open && autoClose) {
-      const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') onClose?.();
-      };
-
       const onClickAway = (e: MouseEvent) => {
         const target = e.target as Node;
         if (!refs.floating.current) return;
@@ -115,10 +198,8 @@ const FloatingPopup = ({
         onClose?.();
       };
 
-      document.addEventListener('keydown', onKey);
       document.addEventListener('mousedown', onClickAway);
       return () => {
-        document.removeEventListener('keydown', onKey);
         document.removeEventListener('mousedown', onClickAway);
       };
     }
@@ -174,6 +255,7 @@ const FloatingPopup = ({
   useEffect(() => {
     if (
       !open ||
+      beside ||
       !floatingRef.current ||
       typeof fixedX !== 'number' ||
       typeof fixedY !== 'number'
@@ -219,7 +301,7 @@ const FloatingPopup = ({
     });
 
     return () => cancelAnimationFrame(timer);
-  }, [open, fixedX, fixedY, offsetX, offsetY]);
+  }, [open, beside, fixedX, fixedY, offsetX, offsetY]);
 
   useEffect(() => {
     if (!open || autoClose) return;
@@ -300,6 +382,8 @@ const FloatingPopup = ({
 
   useEffect(() => {
     if (
+      // A chooser beside the sidebar grows from its pointer instead.
+      beside ||
       !open ||
       !popupPresence.mounted ||
       !referenceRef?.current ||
@@ -334,7 +418,7 @@ const FloatingPopup = ({
     updateAnchor();
     const frame = requestAnimationFrame(updateAnchor);
     return () => cancelAnimationFrame(frame);
-  }, [adjustedPos, open, popupPresence.mounted, referenceRef, x, y]);
+  }, [adjustedPos, beside, open, popupPresence.mounted, referenceRef, x, y]);
 
   if (!popupPresence.mounted) return null;
 
@@ -349,6 +433,9 @@ const FloatingPopup = ({
     // adjustedPos 계산 대기 중이면 기본 위치 사용
     left = (fixedX as number) + offsetX;
     top = (fixedY as number) + offsetY;
+  } else if (beside) {
+    left = x ?? 0;
+    top = y ?? 0;
   } else {
     left = (x ?? 0) + offsetX;
     top = (y ?? 0) + offsetY;
@@ -356,6 +443,7 @@ const FloatingPopup = ({
 
   const floatingStyle: React.CSSProperties & {
     '--dmn-popup-anchor-x'?: string;
+    '--en-chooser-pointer-y'?: string;
   } = {
     position: isFixed ? 'fixed' : strategy,
     left,
@@ -363,6 +451,11 @@ const FloatingPopup = ({
   };
   if (anchorX !== null) {
     floatingStyle['--dmn-popup-anchor-x'] = `${anchorX}px`;
+  }
+  // Where the pointer of a chooser beside the sidebar meets its row.
+  const pointerY = beside ? (middlewareData.arrow?.y ?? null) : null;
+  if (pointerY !== null) {
+    floatingStyle['--en-chooser-pointer-y'] = `${pointerY}px`;
   }
 
   const floatingContent = (
@@ -375,18 +468,26 @@ const FloatingPopup = ({
         floatingRef.current = node;
       }}
       style={floatingStyle}
-      className={`dmn-popup-surface dmn-motion ${className}`}
+      className={`dmn-popup-surface dmn-motion ${beside ? 'en-chooser' : ''} ${className}`}
       role={role}
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? (beside ? chooserTitle : undefined)}
       aria-modal={role === 'dialog' ? 'false' : undefined}
     >
       {children}
+      {beside && (
+        <span
+          ref={arrowRef}
+          className="en-chooser-pointer"
+          aria-hidden="true"
+        />
+      )}
     </div>
   );
 
   // 고정 좌표나 명시적 portal 모드에서는 body에 렌더링해 부모 overflow에
-  // 팝업이 잘리지 않도록 한다.
-  if (isFixed || portal) {
+  // 팝업이 잘리지 않도록 한다. A chooser beside the sidebar is drawn over the
+  // canvas, so it leaves the sidebar too.
+  if (isFixed || portal || beside) {
     return createPortal(floatingContent, document.body);
   }
 

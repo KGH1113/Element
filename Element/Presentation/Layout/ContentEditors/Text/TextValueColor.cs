@@ -36,12 +36,9 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   private readonly OverlayValues _values;
   private readonly OverlayValueColorRamp _ramp = new();
   private readonly OverlayResolvedGradient _swatch = new();
-  private readonly List<OverlayValueId> _inText = new();
-  private readonly List<OverlayValueDefinition> _offered = new();
   private readonly OverlayFormulaSlot _stopSlot;
+  private readonly TextValueSource _source;
   private OverlayValueColorModel _model;
-  private OverlayValueSourceMenu _menu;
-  private Func<Rect> _sourceRow;
   private int _selected;
   private bool _added;
   private bool _dragRemembered;
@@ -61,13 +58,14 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
     _color = color;
     _values = values;
     _stopSlot = new OverlayFormulaSlot(StopKey, false, ReadStop, WriteStop);
+    _source = new TextValueSource(host, text, values, Follow);
   }
 
   /// <summary>The menu of values to follow; made by <see cref="Build"/>.</summary>
-  public IPopover Menu => _menu;
+  public IPopover Menu => _source.Menu;
 
   /// <summary>The dock picks the value to follow: its next clicked value goes here, not into the text.</summary>
-  public bool Armed => _host.Dock != null && _host.Dock.Picking;
+  public bool Armed => _source.Armed;
 
   /// <summary>The color's controls, drawing on <paramref name="under"/>.</summary>
   public OverlayValueColorModel BuildModel(Color under) => _model = new OverlayValueColorModel(this, under);
@@ -75,16 +73,14 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   /// <summary>The menu of values, opening under the value row <paramref name="sourceRow"/> says is where (frame units).</summary>
   public void Build(OverlayEditorFrame screen, Func<Rect> sourceRow)
   {
-    _menu = new OverlayValueSourceMenu(screen);
-    _sourceRow = sourceRow;
+    _source.Build(screen, sourceRow);
     _pickingStop = false;
   }
 
   /// <summary>The tool closed: what it had open goes with it.</summary>
   public void Closed()
   {
-    Disarm();
-    _menu?.Hide();
+    _source.Close();
     if (_color.PicksOther)
       _color.Picker.Hide();
     _pickingStop = false;
@@ -149,10 +145,10 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
     OverlayValueColor made = Current()?.Clone();
     if (made == null)
     {
-      OverlayValueDefinition first = FirstValueInRange();
+      OverlayValueDefinition first = _source.FirstInRange();
       made = OverlayValueColorDefaults.For(
         first,
-        first != null ? Number(first, out _) : double.NaN,
+        first != null ? _source.Number(first, out _) : double.NaN,
         _text.RangeColor()
       );
     }
@@ -181,68 +177,13 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
 
   // ---- Which value it follows ----
 
-  public void PickSource()
-  {
-    if (_menu.Visible || Armed)
-    {
-      _host.CloseOpen();
-      _host.Render();
-      return;
-    }
-    _host.CloseOpen();
-    _offered.Clear();
-    _inText.Clear();
-    _text.Document.ValuesIn(0, _text.Document.Count, _inText);
-    foreach (OverlayValueId id in _inText)
-    {
-      OverlayValueDefinition value = OverlayValueCatalog.Get(id);
-      if (value.IsNumeric && value.Available)
-        _offered.Add(value);
-    }
-    Rect row = _sourceRow();
-    _menu.Show(_offered, Current()?.Value ?? "", Follow, Arm, row.xMax, row.yMax + 6);
-    _host.Render();
-  }
-
-  // The next value clicked in the dock is the one to follow.
-  private void Arm()
-  {
-    _host.CloseOpen();
-    _host.Dock.PickFor(PickedInDock);
-    _host.Screen.Notice(
-      L("아래 값 목록에서 따라갈 값을 눌러 주세요.", "Click the value to follow in the values below."),
-      false
-    );
-    _host.Render();
-  }
+  public void PickSource() => _source.Toggle(Current()?.Value);
 
   /// <summary>The dock goes back to adding values at the caret.</summary>
-  public void Disarm()
-  {
-    if (Armed)
-      _host.Dock.PickFor(null);
-  }
-
-  private void PickedInDock(OverlayValueDefinition value)
-  {
-    if (!value.IsNumeric)
-    {
-      _host.Screen.Notice(
-        L(
-          ValueSectionNames.ValueName(value) + "은 글자라서 색을 정할 수 없어요. 숫자인 값을 골라 주세요.",
-          ValueSectionNames.ValueName(value) + " is words, so it can't pick a color. Pick a value that is a number."
-        )
-      );
-      _host.Render();
-      return;
-    }
-    Follow(value);
-  }
+  public void Disarm() => _source.Disarm();
 
   private void Follow(OverlayValueDefinition value)
   {
-    Disarm();
-    _menu.Hide();
     OverlayValueColor current = Current();
     if (current != null && current.Value == value.Key)
     {
@@ -250,7 +191,12 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
       return;
     }
     _text.Remember(false);
-    OverlayValueColor made = OverlayValueColorEdits.Follow(current, value, Number(value, out _), _text.RangeColor());
+    OverlayValueColor made = OverlayValueColorEdits.Follow(
+      current,
+      value,
+      _source.Number(value, out _),
+      _text.RangeColor()
+    );
     Write(made);
     _selected = Starting(made);
     _host.Screen.Notice(
@@ -496,7 +442,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
       time,
       source,
       followed == null,
-      _menu.Visible || Armed,
+      _source.Open || Armed,
       _formulas.Field == StopKey,
       _pickingStop && _color.PicksOther
     );
@@ -548,28 +494,6 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
     _text.PendingColor = pending;
   }
 
-  // The first number the range shows; null when it shows none.
-  private OverlayValueDefinition FirstValueInRange()
-  {
-    _text.Range(out int start, out int end);
-    _inText.Clear();
-    _text.Document.ValuesIn(start, end, _inText);
-    foreach (OverlayValueId id in _inText)
-      if (OverlayValueCatalog.Get(id).IsNumeric)
-        return OverlayValueCatalog.Get(id);
-    return null;
-  }
-
-  // The value's number now, or its example; NaN with neither.
-  private double Number(OverlayValueDefinition value, out bool sample)
-  {
-    sample = false;
-    if (_values.TryGetNumber(value.Id, out double number))
-      return number;
-    sample = true;
-    return _values.WithSamples.TryGetNumber(value.Id, out number) ? number : double.NaN;
-  }
-
   // The stop the value has reached now is picked first; the highest without a number.
   private int Starting(OverlayValueColor color)
   {
@@ -577,7 +501,7 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
     if (_ramp.Count == 0)
       return 0;
     OverlayValueDefinition followed = OverlayValueColorEdits.Followed(color);
-    double now = followed != null ? Number(followed, out _) : double.NaN;
+    double now = followed != null ? _source.Number(followed, out _) : double.NaN;
     return _ramp.Source(double.IsNaN(now) ? _ramp.Count - 1 : _ramp.Reached(now));
   }
 

@@ -14,6 +14,11 @@ pub(super) fn attach_main_window_event_handler(
 
     let main_window = window.clone();
     window.on_window_event(move |event| match event {
+        WindowEvent::Focused(false) => {
+            if let Err(err) = crate::app::main_window::capture_bounds(&app_handle) {
+                log::warn!("failed to remember main window bounds: {err}");
+            }
+        }
         WindowEvent::ThemeChanged(theme)
             if app_handle.state::<AppState>().store.snapshot().ui_theme == UiTheme::System =>
         {
@@ -27,6 +32,10 @@ pub(super) fn attach_main_window_event_handler(
         WindowEvent::CloseRequested { api, .. } => {
             if overlay_force_close.load(Ordering::SeqCst) {
                 return;
+            }
+
+            if let Err(err) = crate::app::main_window::capture_bounds(&app_handle) {
+                log::warn!("failed to remember main window bounds before close: {err}");
             }
 
             let state = app_handle.state::<AppState>();
@@ -70,6 +79,9 @@ pub(super) fn execute_frontend_lifecycle(
             }
             let state = app_handle.state::<AppState>();
             state.arm_shutdown_watchdog("app-restart");
+            if let Err(err) = crate::app::main_window::capture_bounds(&app_handle) {
+                log::warn!("failed to remember main window bounds before restart: {err}");
+            }
             if let Err(err) = state.capture_and_flush_panel_bounds_for_lifecycle(&app_handle) {
                 log::warn!("failed to persist panel bounds before restart: {err}");
             }
@@ -110,6 +122,10 @@ fn shutdown_application(app_handle: AppHandle) {
     app_handle
         .state::<AppState>()
         .arm_shutdown_watchdog("background state shutdown");
+
+    if let Err(err) = crate::app::main_window::capture_bounds(&app_handle) {
+        log::warn!("failed to remember main window bounds during shutdown: {err}");
+    }
 
     let main_hidden = app_handle
         .get_webview_window("main")

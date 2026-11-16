@@ -1,49 +1,61 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Input;
+using Element.Application.KeyViewer;
+using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
-using Element.Presentation.Overlay.Elements;
-using Element.Presentation.Overlay.Shared;
-using Element.Presentation.Settings;
+using Element.Presentation.Layout.Canvas;
+using Element.Presentation.Layout.ContentEditors;
+using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.Kinds;
+using Element.Presentation.Overlay.Canvas;
+using Element.Presentation.Ui.Popovers;
+using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using static Element.Presentation.Ui.Theme.UiLocale;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Layout;
 
-internal sealed partial class OverlayLayoutEditor : IDisposable
+/// <summary>
+/// The full-screen layout editor: drag, resize, align and delete the
+/// overlay's elements and the key viewers, add new ones, and open the editor
+/// of what is selected. Its parts live in Canvas/; what differs between
+/// kinds of elements is in Kinds/.
+/// </summary>
+internal sealed class OverlayLayoutEditor : ILayoutEditing, IDisposable
 {
-  private const float MaximumScale = 10f;
-  private readonly OverlayCanvasHost _host;
-  private readonly IKeyViewerElements _keyViewers;
-  private readonly List<TargetFrame> _frames = new();
+  private readonly LayoutSession _session;
+  private readonly Action<bool> _onClosed;
+  private readonly LayoutCursors _cursors = new();
+  private readonly LayoutStatusLine _status = new();
+  private readonly LayoutGuides _guides = new();
+  private readonly ElementKinds _kinds = new();
+  private readonly List<LayoutExclusion> _exclusions = new();
+  private readonly LayoutSelection _selection;
+  private readonly LayoutToolbar _toolbar;
+  private readonly LayoutPopovers _popovers;
+  private readonly LayoutAddMenu _addMenu;
+  private readonly LayoutElementBar _elementBar;
+  private readonly LayoutMarquee _marquee;
+  private readonly LayoutDrag _drag;
+  private readonly LayoutModal _modal;
+  private readonly LayoutReset _reset;
+  private readonly LayoutCommands _commands;
+  private readonly LayoutKeyboard _keyboard;
+  private readonly Func<IOverlayLayoutTarget, bool> _edit;
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
   private string _openingFont;
-  private readonly TMP_FontAsset _font;
-  private readonly Action<bool> _onClosed;
-  private readonly LayoutCursors _cursors = new();
-  private GameObject _root;
-  private RectTransform _toolbar;
-  private TextMeshProUGUI _instruction;
-  private TextMeshProUGUI _keyboardHelp;
-  private int _selected = -1;
-  private int _dragging = -1;
-  private LayoutHandle _dragHandle;
-  private Rect _dragStart;
-  private Vector2 _pointerStart;
-  private Vector2 _pressPosition;
-  private bool _pressMoved;
-  private float _dragScale;
-  private float _lastClickTime = -1;
-  private int _lastClickTarget = -1;
+  private GameObject _ownedEvents;
   private bool _previousCursorVisible;
   private CursorLockMode _previousCursorLock;
-  private int _themeVersion = -1;
-
-  public bool IsOpen { get; private set; }
 
   public OverlayLayoutEditor(
     OverlayCanvasHost host,
@@ -53,44 +65,77 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
     ElementSettings preferences
   )
   {
-    _host = host;
-    _keyViewers = keyViewers;
-    _font = font;
+    _session = new LayoutSession(host, keyViewers, font, preferences);
     _onClosed = onClosed;
-    _preferences = preferences;
+    _selection = new LayoutSelection(_session);
+    _toolbar = new LayoutToolbar(_session, _selection, _status, _kinds);
+    _popovers = new LayoutPopovers(_session, _toolbar);
+    _addMenu = new LayoutAddMenu(_session, _toolbar, _popovers.Stack) { Kinds = _kinds };
+    _kinds.Add(new TextKind(this));
+    _kinds.Add(new KeyViewerKind(this));
+    _kinds.Add(new ShapeKind(this));
+    _kinds.Add(new ModKind(this));
+    _elementBar = new LayoutElementBar(_session, _selection, _toolbar, _kinds, _status, this);
+    _popovers.Stack.Add(_elementBar, false);
+    _marquee = new LayoutMarquee(_session, _selection, _cursors);
+    _drag = new LayoutDrag(_session, _selection, _guides, _cursors, _kinds.SizedInEditor);
+    _modal = new LayoutModal(_session);
+    _reset = new LayoutReset(_session, _modal, this, RebuildFrames, _elementBar.MarkStale);
+    _edit = _kinds.Edit;
+    _commands = new LayoutCommands(
+      undo: Undo,
+      redo: Redo,
+      cancel: () => Close(false),
+      save: () => Close(true),
+      resetAll: _reset.Confirm,
+      resetSelected: ResetSelected,
+      delete: DeleteSelected,
+      add: ToggleAddMenu,
+      color: ToggleColor,
+      font: ToggleFont,
+      edit: EditSelected
+    );
+    _keyboard = new LayoutKeyboard(_session, _selection, _drag, _toolbar, _kinds, _commands);
   }
+
+  public bool IsOpen => _session.IsOpen;
+
+  LayoutSession ILayoutEditing.Session => _session;
+  LayoutSelection ILayoutEditing.Selection => _selection;
+  LayoutStatusLine ILayoutEditing.Status => _status;
+  LayoutAddMenu ILayoutEditing.AddMenu => _addMenu;
 
   public void Open()
   {
     if (IsOpen)
       return;
     EnsureRoot();
-    _viewportWidth = Screen.width;
-    _viewportHeight = Screen.height;
+    _session.SetViewport(Screen.width, Screen.height);
     EnsureEvents();
     RebuildFrames();
-    _openingLayout = new LayoutSnapshot(_host.LayoutSettings);
-    _openingColor = _preferences.HighlightColor;
-    _openingFont = _preferences.OverlayFont;
+    OverlayCanvasHost host = _session.Host;
+    _openingLayout = new LayoutSnapshot(host.LayoutSettings);
+    _openingColor = _session.Preferences.HighlightColor;
+    _openingFont = _session.Preferences.OverlayFont;
     _previousCursorVisible = Cursor.visible;
     _previousCursorLock = Cursor.lockState;
     Cursor.visible = true;
     Cursor.lockState = CursorLockMode.None;
-    IsOpen = true;
-    _host.SetLayoutPreview(true);
-    Canvas.ForceUpdateCanvases();
-    _host.ApplyLayouts();
-    foreach (TargetFrame frame in _frames)
+    _session.IsOpen = true;
+    host.SetLayoutPreview(true);
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    host.ApplyLayouts();
+    foreach (LayoutFrame frame in _session.Frames)
       frame.Target.SetPreview(true);
-    _root.SetActive(true);
-    _history.Reset(_host.LayoutSettings);
-    _selected = _dragging = -1;
+    _session.Root.SetActive(true);
+    _session.History.Reset(host.LayoutSettings);
     _selection.Clear();
-    EndMarquee();
-    _toolbarDragging = false;
-    _guideX = _guideY = float.NaN;
-    _horizontalSpacing = _verticalSpacing = default;
-    _scaleErrorUntil = 0;
+    _drag.Cancel();
+    _marquee.End();
+    _toolbar.Dragging = false;
+    _guides.HideLines();
+    _guides.HideSpacing();
+    _status.Clear();
     UpdateFrames();
   }
 
@@ -98,69 +143,51 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     if (!IsOpen)
       return;
-    // Closing the whole editor finishes an open text or shape edit the same way.
-    if (_textEditor != null && _textEditor.IsOpen)
+    // Closing the whole editor finishes an open full-screen edit the same way.
+    IContentEditor editor = _kinds.OpenEditor;
+    if (editor != null)
     {
-      _textEditor.Close(save, true);
-      if (_textEditor.IsOpen)
+      editor.Close(save, true);
+      if (editor.IsOpen)
         return;
     }
-    if (_shapeEditor != null && _shapeEditor.IsOpen)
-    {
-      _shapeEditor.Close(save, true);
-      if (_shapeEditor.IsOpen)
-        return;
-    }
-    if (save && !CommitPopovers())
+    if (save && !_popovers.Commit())
       return;
-    if (save && HasSelection && _scalePending)
-    {
-      CommitScale(_scaleInput.text);
-      if (Time.unscaledTime < _scaleErrorUntil)
-      {
-        _scaleInput.Select();
-        return;
-      }
-      _scaleInput.DeactivateInputField();
-    }
+    if (save && !_toolbar.CommitPendingScale())
+      return;
     if (save)
       FinishDrag();
-    IsOpen = false;
-    _closing = true;
-    _dragging = -1;
-    _toolbarDragging = false;
+    _session.IsOpen = false;
+    _session.Closing = true;
+    _drag.Cancel();
+    _toolbar.Dragging = false;
     ClosePopovers();
-    CloseElementSettings();
+    _elementBar.Close();
     if (!save)
     {
-      _openingLayout.Restore(_host.LayoutSettings);
-      _preferences.HighlightColor = _openingColor;
-      OverlayTheme.SetHighlight(_openingColor);
-      _preferences.OverlayFont = _openingFont;
-      _host.Fonts?.SetDefault(_openingFont);
+      _openingLayout.Restore(_session.Host.LayoutSettings);
+      _session.Preferences.HighlightColor = _openingColor;
+      UiTheme.SetHighlight(_openingColor);
+      _session.Preferences.OverlayFont = _openingFont;
+      _session.Fonts?.SetDefault(_openingFont);
       RefreshLayouts();
     }
-    foreach (TargetFrame frame in _frames)
-    {
-      (frame.Target as IExternalLayoutOutline)?.SetSelected(false);
-      frame.Target.SetPreview(false);
-    }
-    _host.SetLayoutPreview(false);
-    _root.SetActive(false);
+    EndPreview();
+    _session.Root.SetActive(false);
     _cursors.Set(LayoutHandle.None);
     Cursor.visible = _previousCursorVisible;
     Cursor.lockState = _previousCursorLock;
-    UIInteractionState.SetTextEditing(false);
+    InputGate.SetTextEditing(false);
     if (_ownedEvents != null)
     {
       _ownedEvents.SetActive(false);
-      SettingsUiFactory.Destroy(_ownedEvents);
+      UiFactory.Destroy(_ownedEvents);
       _ownedEvents = null;
     }
-    _closing = false;
+    _session.Closing = false;
     // The session's undo history ends here, so deleted elements can be released
     // before the settings are saved.
-    _host.PruneDisabledInstances();
+    _session.Host.PruneDisabledInstances();
     _onClosed?.Invoke(save);
   }
 
@@ -168,559 +195,509 @@ internal sealed partial class OverlayLayoutEditor : IDisposable
   {
     if (!IsOpen)
       return;
-    _horizontalSpacing = _verticalSpacing = default;
+    OverlayCanvasHost host = _session.Host;
+    _guides.HideSpacing();
     EnsureEvents();
-    if (_viewportWidth != Screen.width || _viewportHeight != Screen.height)
+    if (_session.ViewportChanged(Screen.width, Screen.height))
       Resize(Screen.width, Screen.height);
-    if (_textEditor != null && _textEditor.IsOpen)
+    IContentEditor editor = _kinds.OpenEditor;
+    if (editor != null)
     {
-      UIInteractionState.SetTextEditing(true);
-      _textEditor.Tick();
-      _host.TickLayoutPreview();
+      InputGate.SetTextEditing(true);
+      editor.Tick();
+      host.TickLayoutPreview();
       UpdateFrames();
       _cursors.Set(LayoutHandle.None);
       return;
     }
-    if (_shapeEditor != null && _shapeEditor.IsOpen)
-    {
-      UIInteractionState.SetTextEditing(true);
-      _shapeEditor.Tick();
-      _host.TickLayoutPreview();
-      UpdateFrames();
-      _cursors.Set(LayoutHandle.None);
-      return;
-    }
-    bool typing = (_scaleInput != null && _scaleInput.isFocused) || PopoverTyping;
-    UIInteractionState.SetTextEditing(typing || _modalRoot != null || AnyPopoverVisible);
+    PopoverStack popovers = _popovers.Stack;
+    bool typing = _toolbar.Typing || popovers.Typing;
+    bool popoverOpen = popovers.AnyOpen;
+    InputGate.SetTextEditing(typing || _modal.IsOpen || popoverOpen);
     UpdatePopupPositions();
-    _fontPopover?.Tick();
-    if (_modalRoot != null || AnyPopoverVisible)
+    _popovers.Tick();
+    if (_modal.IsOpen || popoverOpen)
     {
-      if (Input.GetKeyDown(KeyCode.Escape))
+      if (EditorKeys.Pressed(KeyCode.Escape))
       {
-        if (_modalRoot != null)
-          CloseModal();
+        if (_modal.IsOpen)
+          _modal.Close();
         else
-          CloseTopPopover();
+          popovers.CloseTop();
       }
-      else if (!typing && _modalRoot == null && Input.GetMouseButtonDown(0))
+      else if (!typing && !_modal.IsOpen && Input.GetMouseButtonDown(0))
       {
-        Vector2 p = new(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-        if (!PopoverContains(p) && !ToolbarBounds.Contains(p))
+        if (!popovers.Contains(Input.mousePosition) && !_toolbar.Bounds.Contains(LayoutSession.Mouse))
           ClosePopovers();
       }
-      _host.TickLayoutPreview();
+      host.TickLayoutPreview();
       UpdateFrames();
       _cursors.Set(LayoutHandle.None);
       return;
     }
     if (typing)
     {
-      _host.TickLayoutPreview();
+      host.TickLayoutPreview();
       UpdateFrames();
       return;
     }
     // Esc saves like Save; only Cancel leaves without saving.
-    if (Input.GetKeyDown(KeyCode.Escape))
+    if (EditorKeys.Pressed(KeyCode.Escape))
     {
       Close(true);
       return;
     }
-    if (CommandModifierHeld() && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter)))
+    if (EditorKeys.CommandHeld && EditorKeys.EnterPressed)
     {
       Close(true);
       return;
     }
     if (!UnityEngine.Application.isFocused)
     {
-      EndMarquee();
+      _marquee.End();
       FinishDrag();
-      _toolbarDragging = false;
-      _guideX = _guideY = float.NaN;
-      UpdateGuides();
+      _toolbar.Dragging = false;
+      _guides.HideLines();
+      _guides.Refresh(_session.UiScale);
       _cursors.Set(LayoutHandle.None);
       return;
     }
-    _host.TickLayoutPreview();
-    Vector2 mouse = new(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
-    Rect toolbar = ToolbarBounds;
-    if (_toolbarDragging)
+    host.TickLayoutPreview();
+    TrackPointer(LayoutSession.Mouse);
+    _keyboard.Handle();
+    UpdateFrames();
+  }
+
+  // Who the pointer belongs to: a drag in progress, a toolbar, or the canvas.
+  private void TrackPointer(Vector2 mouse)
+  {
+    if (_toolbar.Dragging)
     {
-      MoveToolbar(mouse);
+      _toolbar.Move(mouse);
       if (!Input.GetMouseButton(0))
-        _toolbarDragging = false;
+        _toolbar.Dragging = false;
       _cursors.Set(LayoutHandle.Move);
     }
-    else if (_elementBarDragging)
+    else if (_elementBar.Dragging)
     {
-      MoveElementBar(mouse);
+      _elementBar.Move(mouse);
       if (!Input.GetMouseButton(0))
-        _elementBarDragging = false;
+        _elementBar.Dragging = false;
       _cursors.Set(LayoutHandle.Move);
     }
-    else if (_dragging >= 0)
-      ContinueDrag(mouse);
-    else if (_marqueePending)
-      ContinueMarquee(mouse);
-    else if (SettingsPanelContains(mouse))
+    else if (_drag.Active)
+      _drag.Continue(mouse);
+    else if (_marquee.Pending)
+      _marquee.Continue(mouse);
+    else if (_elementBar.BoundsContain(mouse))
     {
       // Like the main toolbar, the element toolbar drags from anywhere but its controls.
-      bool canDrag = !ElementBarControlAt(mouse);
+      bool canDrag = !_elementBar.ControlAt(mouse);
       _cursors.Set(canDrag ? LayoutHandle.Move : LayoutHandle.None);
       if (canDrag && Input.GetMouseButtonDown(0))
-        BeginElementBarDrag(mouse);
+        _elementBar.BeginDrag(mouse);
     }
-    else if (toolbar.Contains(mouse))
+    else if (_toolbar.Bounds.Contains(mouse))
     {
-      bool canDrag = !ToolbarControlAt(mouse);
+      bool canDrag = !_toolbar.ControlAt(mouse);
       _cursors.Set(canDrag ? LayoutHandle.Move : LayoutHandle.None);
       if (canDrag && Input.GetMouseButtonDown(0))
-        BeginToolbarDrag(mouse);
+        _toolbar.BeginDrag(mouse);
     }
     else
     {
-      int hovered = FindTarget(mouse, out LayoutHandle handle);
+      int hovered = _drag.FindTarget(mouse, out LayoutHandle handle);
       // With Cmd/Ctrl or Shift, a press toggles or draws a marquee instead of moving.
-      bool adding = SelectionModifierHeld();
+      bool adding = EditorKeys.CommandHeld || EditorKeys.ShiftHeld;
       _cursors.Set(adding ? LayoutHandle.None : handle);
       if (Input.GetMouseButtonDown(0))
       {
         if (adding || hovered < 0)
-          BeginMarquee(mouse, adding ? hovered : -1, adding);
+          _marquee.Begin(mouse, adding ? hovered : -1, adding);
         else
           PressElement(hovered, handle, mouse);
       }
     }
-    HandleKeyboard();
-    UpdateFrames();
   }
 
   private void PressElement(int hovered, LayoutHandle handle, Vector2 mouse)
   {
-    bool doubleClick = hovered == _lastClickTarget && hovered == _selected && Time.unscaledTime - _lastClickTime < .35f;
-    _lastClickTarget = hovered;
-    _lastClickTime = Time.unscaledTime;
-    if (doubleClick && OpenContentEditor(_frames[hovered].Target))
+    if (_drag.Press(hovered, handle, mouse, _edit))
       return;
-    _scalePending = false;
-    _scaleErrorUntil = 0;
-    IOverlayLayoutTarget target = _frames[hovered].Target;
-    // Pressing one of several selected elements moves them all.
-    if (MultiSelected && IsSelected(target))
-    {
-      _selected = hovered;
-      _collapseTo = hovered;
-      BeginGroupDrag();
-    }
-    else
-      SelectOnly(hovered);
-    _dragging = hovered;
-    _dragHandle = handle;
-    _dragStart = target.Bounds;
-    _pointerStart = PointerFor(target, mouse);
-    _pressPosition = mouse;
-    _pressMoved = false;
-    _dragScale = ValidScale(target.EffectiveScale);
+    _toolbar.DropTypedScale();
+    _status.Clear();
   }
 
-  private void ContinueDrag(Vector2 mouse)
-  {
-    TargetFrame frame = _frames[_dragging];
-    if ((mouse - _pressPosition).sqrMagnitude > 9)
-      _pressMoved = true;
-    if (frame.Target.Available && Input.GetMouseButton(0) && _pressMoved)
-    {
-      if (GroupDragging)
-        DragGroup(mouse);
-      else
-        DragBox(frame, mouse);
-    }
-    _cursors.Set(_dragHandle);
-    if (!Input.GetMouseButton(0))
-      ReleaseDrag();
-  }
+  private void FinishDrag() => _drag.Finish();
 
-  private void ReleaseDrag()
+  internal void Resize(int width, int height)
   {
-    // A click on one of several selected elements, without moving, selects it alone.
-    int collapse = _pressMoved ? -1 : _collapseTo;
-    FinishDrag();
-    if (collapse >= 0)
-      SelectOnly(collapse);
-    _guideX = _guideY = float.NaN;
-  }
-
-  private void DragBox(TargetFrame frame, Vector2 mouse)
-  {
-    Vector2 pointer = PointerFor(frame.Target, mouse);
-    float dx = pointer.x - _pointerStart.x,
-      dy = pointer.y - _pointerStart.y;
-    LayoutBounds resized = OverlayLayoutGeometry.Drag(
-      ToBounds(_dragStart),
-      _dragHandle,
-      dx,
-      dy,
-      Screen.width,
-      Screen.height,
-      Mathf.Min(1f, 0.2f / _dragScale),
-      Mathf.Max(1f, MaximumScale / _dragScale)
-    );
-    if (
-      _dragHandle == LayoutHandle.Move
-      && _preferences.LayoutSnapping
-      && !Input.GetKey(KeyCode.LeftAlt)
-      && !Input.GetKey(KeyCode.RightAlt)
-    )
+    bool changed = _session.ViewportChanged(width, height);
+    _session.SetViewport(width, height);
+    if (changed)
     {
-      _snapReferences.Clear();
-      for (int i = 0; i < _frames.Count; i++)
-        if (i != _dragging && _frames[i].Target.Available && _frames[i].Target.Enabled)
-          _snapReferences.Add(ToBounds(_frames[i].Target.Bounds));
-      resized = LayoutSnap.Move(
-        resized,
-        _snapReferences,
-        Screen.width,
-        Screen.height,
-        7 * UiScale,
-        out _guideX,
-        out _guideY,
-        out _horizontalSpacing,
-        out _verticalSpacing
-      );
-    }
-    else
-      _guideX = _guideY = float.NaN;
-    frame.Target.SetBounds(ToRect(resized));
-  }
-
-  public void Dispose()
-  {
-    _closing = true;
-    // Disposal must not reopen settings through the normal close callback.
-    // Torn down while open (the mod turned off), it keeps what was edited,
-    // an open text or shape edit included; only Cancel throws edits away.
-    _textEditor?.Dispose();
-    _shapeEditor?.Dispose();
-    if (IsOpen)
-    {
-      FinishDrag();
-      RefreshLayouts();
-      foreach (TargetFrame frame in _frames)
+      // Never capture coordinates from a gesture that began in another viewport.
+      if (_drag.Active)
       {
-        (frame.Target as IExternalLayoutOutline)?.SetSelected(false);
-        frame.Target.SetPreview(false);
+        _drag.Cancel();
+        RefreshLayouts();
       }
-      _host.SetLayoutPreview(false);
-      Cursor.visible = _previousCursorVisible;
-      Cursor.lockState = _previousCursorLock;
+      _guides.HideLines();
+      _guides.HideSpacing();
     }
-    IsOpen = false;
-    _cursors.Dispose();
-    ClosePopovers();
-    CloseElementSettings();
-    CloseModal();
-    _colorPopover?.Dispose();
-    _fontPopover?.Dispose();
-    _fontUi?.Dispose();
-    _ui?.Dispose();
-    UIInteractionState.SetTextEditing(false);
-    if (_ownedEvents != null)
-      SettingsUiFactory.Destroy(_ownedEvents);
-    if (_root != null)
-      SettingsUiFactory.Destroy(_root);
-    _root = null;
+    UpdateFrames();
   }
 
-  private void HandleKeyboard()
+  /// <summary>In screen pixels from the top left.</summary>
+  public Rect ToolbarBounds => _toolbar.Bounds;
+
+  /// <summary>Screen pixels native key viewers must leave uncovered for the editor's own UI.</summary>
+  public Rect NativeExclusionBounds
   {
-    if (_dragging >= 0 || _toolbarDragging || _frames.Count == 0)
-      return;
-    // Ordinary rhythm keys must keep reaching live gameplay. Layout keyboard
-    // manipulation needs an explicit command modifier while a level is running.
-    if (IsGameplayActive() && !CommandModifierHeld())
-      return;
-    if (Input.GetKeyDown(KeyCode.Tab) && !Input.GetKey(KeyCode.LeftAlt) && !Input.GetKey(KeyCode.RightAlt))
+    get
     {
-      int direction = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? -1 : 1;
-      for (int count = 0; count < _frames.Count; count++)
+      if (Covered)
+        return new Rect(0, 0, _session.ViewWidth, _session.ViewHeight);
+      Rect bounds = _toolbar.Bounds;
+      PopoverStack popovers = _popovers.Stack;
+      for (int i = 0; i < popovers.Count; i++)
       {
-        _selected = (_selected + direction + _frames.Count) % _frames.Count;
-        if (_frames[_selected].Target.Available && _frames[_selected].Target.Enabled)
-          break;
-      }
-    }
-    if (CommandModifierHeld() && Input.GetKeyDown(KeyCode.Z))
-    {
-      if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
-        Redo();
-      else
-        Undo();
-      return;
-    }
-    if (CommandModifierHeld() && Input.GetKeyDown(KeyCode.Y))
-    {
-      Redo();
-      return;
-    }
-    if (CommandModifierHeld() && (Input.GetKeyDown(KeyCode.Delete) || Input.GetKeyDown(KeyCode.Backspace)))
-    {
-      DeleteSelected();
-      return;
-    }
-    if (CommandModifierHeld() && Input.GetKeyDown(KeyCode.A))
-    {
-      SelectAll();
-      return;
-    }
-    if (!HasSelection)
-      return;
-    // Enter edits one element; it has no meaning for several.
-    if (
-      !IsGameplayActive()
-      && !MultiSelected
-      && (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
-      && OpenContentEditor(_frames[_selected].Target)
-    )
-      return;
-    float step = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 10f : 1f;
-    float dx =
-      Input.GetKeyDown(KeyCode.LeftArrow) ? -step
-      : Input.GetKeyDown(KeyCode.RightArrow) ? step
-      : 0f;
-    float dy =
-      Input.GetKeyDown(KeyCode.UpArrow) ? -step
-      : Input.GetKeyDown(KeyCode.DownArrow) ? step
-      : 0f;
-    if (dx != 0f || dy != 0f)
-      NudgeSelection(dx, dy);
-    // Texts and shapes are sized in their editor, so + and − only scale the rest,
-    // one at a time.
-    bool scalable = !MultiSelected && !SizedInEditor(_frames[_selected].Target);
-    bool grow =
-      scalable
-      && (Input.GetKeyDown(KeyCode.Equals) || Input.GetKeyDown(KeyCode.Plus) || Input.GetKeyDown(KeyCode.KeypadPlus));
-    bool shrink = scalable && (Input.GetKeyDown(KeyCode.Minus) || Input.GetKeyDown(KeyCode.KeypadMinus));
-    if (grow || shrink)
-    {
-      float ratio = grow ? 1.02f : 1f / 1.02f;
-      if (step > 1f)
-        ratio = grow ? 1.1f : 1f / 1.1f;
-      ScaleBy(ratio);
-    }
-    if (dx != 0 || dy != 0 || grow || shrink)
-      _history.Commit(_host.LayoutSettings);
-  }
-
-  private void FinishDrag()
-  {
-    _collapseTo = -1;
-    if (_dragging < 0 || _dragging >= _frames.Count)
-    {
-      _groupTargets.Clear();
-      return;
-    }
-    if (GroupDragging)
-    {
-      // A press that didn't move leaves every element where it was saved.
-      if (_pressMoved)
-        foreach (IOverlayLayoutTarget member in _groupTargets)
-          member.CommitLayout(true);
-    }
-    else
-      _frames[_dragging].Target.CommitLayout(_dragHandle == LayoutHandle.Move);
-    _groupTargets.Clear();
-    _groupStart.Clear();
-    _dragging = -1;
-    _history.Commit(_host.LayoutSettings);
-  }
-
-  private int FindTarget(Vector2 pointer, out LayoutHandle bestHandle)
-  {
-    // The selected rectangle owns its editing area, including where another
-    // element's compact content overlaps it. New copies must remain draggable.
-    if (MultiSelected)
-    {
-      // Several selected: each only moves, and the smallest under the pointer wins.
-      int owner = -1;
-      float smallest = float.MaxValue;
-      foreach (IOverlayLayoutTarget member in _selection)
-      {
-        Rect bounds = member.Bounds;
-        Vector2 local = PointerFor(member, pointer);
-        if (!bounds.Contains(local) || bounds.width * bounds.height >= smallest)
+        if (!popovers[i].Visible)
           continue;
-        owner = IndexOf(member);
-        smallest = bounds.width * bounds.height;
+        Rect popover = PopoverPlacement.ScreenRect(popovers[i].Root);
+        bounds = Rect.MinMaxRect(
+          Mathf.Min(bounds.xMin, popover.xMin),
+          Mathf.Min(bounds.yMin, popover.yMin),
+          Mathf.Max(bounds.xMax, popover.xMax),
+          Mathf.Max(bounds.yMax, popover.yMax)
+        );
       }
-      if (owner >= 0)
-      {
-        bestHandle = LayoutHandle.Move;
-        return owner;
-      }
+      return bounds;
     }
-    else if (HasSelection)
-    {
-      IOverlayLayoutTarget selected = _frames[_selected].Target;
-      Vector2 selectedPointer = PointerFor(selected, pointer);
-      bestHandle = OverlayLayoutGeometry.HitTest(
-        ToBounds(selected.Bounds),
-        selectedPointer.x,
-        selectedPointer.y,
-        SizedInEditor(selected) ? 0 : 10 * UiScale
-      );
-      // Texts and shapes only move; their size is set in their editor.
-      if (bestHandle != LayoutHandle.None && SizedInEditor(selected))
-        bestHandle = LayoutHandle.Move;
-      if (bestHandle != LayoutHandle.None)
-        return _selected;
-    }
-    int best = -1;
-    float bestArea = float.MaxValue;
-    bestHandle = LayoutHandle.None;
-    for (int index = 0; index < _frames.Count; index++)
-    {
-      IOverlayLayoutTarget target = _frames[index].Target;
-      if (!target.Available || !target.Enabled)
-        continue;
-      Rect bounds = index == _selected ? target.Bounds : target.SelectionBounds;
-      if (bounds.width <= 0 || bounds.height <= 0)
-        continue;
-      Vector2 localPointer = PointerFor(target, pointer);
-      bool resizable = index == _selected && Resizable(target);
-      LayoutHandle handle = OverlayLayoutGeometry.HitTest(
-        ToBounds(bounds),
-        localPointer.x,
-        localPointer.y,
-        resizable ? 10 * UiScale : 0
-      );
-      if (!resizable && handle != LayoutHandle.None)
-        handle = LayoutHandle.Move;
-      if (handle == LayoutHandle.None)
-        continue;
-      bool edge = handle != LayoutHandle.Move;
-      bool bestEdge = bestHandle != LayoutHandle.None && bestHandle != LayoutHandle.Move;
-      float area = bounds.width * bounds.height;
-      if (best < 0 || (edge && !bestEdge) || (edge == bestEdge && area <= bestArea))
-      {
-        best = index;
-        bestArea = area;
-        bestHandle = handle;
-      }
-    }
-    return best;
   }
 
-  // Dragging an edge resizes one selected element, except texts and shapes,
-  // which are sized in their editor. Several selected only move.
-  private bool Resizable(IOverlayLayoutTarget target) => !MultiSelected && !SizedInEditor(target);
+  /// <summary>
+  /// Every editor panel with its rounded corners, in screen pixels from the
+  /// top left. Native key viewers leave exactly these shapes uncovered.
+  /// </summary>
+  public IReadOnlyList<LayoutExclusion> NativeExclusions
+  {
+    get
+    {
+      _exclusions.Clear();
+      if (Covered)
+      {
+        _exclusions.Add(new LayoutExclusion(new LayoutBounds(0, 0, _session.ViewWidth, _session.ViewHeight), 0));
+        return _exclusions;
+      }
+      AddExclusion(_toolbar.Bounds, _session.ToolbarScale);
+      PopoverStack popovers = _popovers.Stack;
+      for (int i = 0; i < popovers.Count; i++)
+        if (popovers[i].Visible)
+          AddExclusion(PopoverPlacement.ScreenRect(popovers[i].Root), popovers[i].Root.localScale.x);
+      LayoutExclusions.Merge(_exclusions);
+      return _exclusions;
+    }
+  }
 
-  private static Vector2 PointerFor(IOverlayLayoutTarget target, Vector2 fallback) =>
-    target is IOverlayLayoutPointer native ? native.PointerInLayoutSpace(fallback) : fallback;
+  // Panels use the shared 8-unit rounded corner, at their own scale.
+  private void AddExclusion(Rect bounds, float scale) =>
+    _exclusions.Add(new LayoutExclusion(new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height), 8 * scale));
+
+  // A dialog or a full-screen editor covers the whole view.
+  private bool Covered => _modal.IsOpen || _kinds.OpenEditor != null;
 
   private void UpdateFrames()
   {
-    bool editingContent = ContentEditorOpen;
-    bool covered = _modalRoot != null || editingContent;
-    NormalizeSelection();
-    // The text and shape editors stand alone; the toolbar would show through their dim.
-    if (_toolbar.gameObject.activeSelf == editingContent)
-      _toolbar.gameObject.SetActive(!editingContent);
-    for (int index = 0; index < _frames.Count; index++)
+    bool editingContent = _kinds.OpenEditor != null;
+    bool covered = _modal.IsOpen || editingContent;
+    _selection.Normalize();
+    // A full-screen editor stands alone; the toolbar would show through its dim.
+    _toolbar.Show(!editingContent);
+    List<LayoutFrame> frames = _session.Frames;
+    for (int index = 0; index < frames.Count; index++)
     {
-      TargetFrame frame = _frames[index];
-      bool selected = !covered && IsSelected(frame.Target);
+      LayoutFrame frame = frames[index];
+      bool selected = !covered && _selection.Contains(frame.Target);
       (frame.Target as IExternalLayoutOutline)?.SetSelected(selected);
       bool visible = selected && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
       frame.Outline.gameObject.SetActive(visible);
       if (!visible)
         continue;
       Rect bounds = frame.Target.Bounds;
-      SetRect(frame.Outline.rectTransform, bounds);
-      frame.Outline.SetScale(UiScale);
-      frame.Outline.SetHandles(Resizable(frame.Target));
+      _session.SetRect(frame.Outline.rectTransform, bounds);
+      frame.Outline.SetScale(_session.UiScale);
+      frame.Outline.SetHandles(_drag.Resizable(frame.Target));
       Rect panel = NativeExclusionBounds;
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
-    SyncElementSettings();
-    UpdateToolbar();
-    UpdateGuides();
+    _elementBar.Sync(covered, (_drag.Active && _drag.Moved) || _popovers.Stack.AnyOpen);
+    _toolbar.Refresh();
+    _guides.Refresh(_session.UiScale);
     RaisePopovers();
+  }
+
+  private void RaisePopovers()
+  {
+    _popovers.Stack.Raise();
+    _elementBar.Raise();
+    _modal.Raise();
+    _kinds.OpenEditor?.Raise();
+  }
+
+  private void UpdatePopupPositions()
+  {
+    _popovers.Place();
+    _addMenu.Place();
+    _elementBar.Place();
+    _modal.Follow();
   }
 
   private void RebuildFrames()
   {
-    foreach (TargetFrame frame in _frames)
+    _session.RebuildFrames();
+    _toolbar.Root.SetAsLastSibling();
+  }
+
+  private void EndPreview()
+  {
+    foreach (LayoutFrame frame in _session.Frames)
     {
       (frame.Target as IExternalLayoutOutline)?.SetSelected(false);
-      SettingsUiFactory.Destroy(frame.Outline.gameObject);
+      frame.Target.SetPreview(false);
     }
-    _frames.Clear();
-    foreach (IOverlayLayoutTarget target in _host.LayoutTargets)
-      AddFrame(target);
-    if (_keyViewers != null)
-      foreach (IOverlayLayoutTarget target in _keyViewers.Targets)
-        AddFrame(target);
-    _toolbar.SetAsLastSibling();
+    _session.Host.SetLayoutPreview(false);
   }
 
-  private void AddFrame(IOverlayLayoutTarget target)
+  private void EnsureEvents()
   {
-    GameObject root = OverlayTextFactory.CreateRect(
-      "Layout: " + target.Id,
-      _root.transform,
-      Vector2.zero,
-      new Vector2(0f, 1f),
-      Vector2.zero,
-      Vector2.one
-    );
-    LayoutOutlineGraphic outline = root.AddComponent<LayoutOutlineGraphic>();
-    outline.raycastTarget = false;
-    _frames.Add(new TargetFrame(target, outline));
+    if (EventSystem.current != null)
+      return;
+    _ownedEvents = new GameObject("Element Layout Events", typeof(EventSystem), typeof(StandaloneInputModule));
+    if (UnityEngine.Application.isPlaying)
+      Object.DontDestroyOnLoad(_ownedEvents);
   }
 
-  private int IndexOf(IOverlayLayoutTarget target)
+  private void EnsureRoot()
   {
-    for (int i = 0; i < _frames.Count; i++)
-      if (_frames[i].Target == target)
-        return i;
-    return -1;
+    if (_session.Root != null)
+      return;
+    _session.Ui = _session.NewUi();
+    GameObject root = new("Element Layout Editor", typeof(RectTransform));
+    _session.Root = root;
+    if (UnityEngine.Application.isPlaying)
+      Object.DontDestroyOnLoad(root);
+    UnityEngine.Canvas canvas = root.AddComponent<UnityEngine.Canvas>();
+    canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+    canvas.sortingOrder = 32760;
+    root.AddComponent<GraphicRaycaster>();
+    Image blocker = _session.Ui.Panel("Block game clicks", root.transform, 0, 0, 0, 0, UnityEngine.Color.clear, false);
+    UiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
+    blocker.raycastTarget = true;
+    _guides.Build(_session.Ui, root.transform);
+    _toolbar.Build(_commands);
+    _marquee.Toolbar = _toolbar.Root;
+    root.SetActive(false);
   }
 
-  private void SetRect(RectTransform transform, Rect bounds)
+  private void RefreshLayouts()
   {
-    Vector2 size = bounds.size;
-    Vector2 position = new(bounds.x, ViewHeight - bounds.y);
-    if (transform.sizeDelta != size)
-      transform.sizeDelta = size;
-    if (transform.anchoredPosition != position)
-      transform.anchoredPosition = position;
+    _toolbar.ForgetScale();
+    _status.Clear();
+    _session.Host.ApplyLayouts();
+    if (_session.KeyViewers != null)
+      foreach (IOverlayLayoutTarget target in _session.KeyViewers.Targets)
+        target.RefreshLayout();
+    _selection.Prune();
   }
 
-  private static LayoutBounds ToBounds(Rect rect) => new(rect.x, rect.y, rect.width, rect.height);
-
-  private static bool CommandModifierHeld() =>
-    Input.GetKey(KeyCode.LeftControl)
-    || Input.GetKey(KeyCode.RightControl)
-    || Input.GetKey(KeyCode.LeftCommand)
-    || Input.GetKey(KeyCode.RightCommand);
-
-  private static bool IsGameplayActive() =>
-    ADOBase.controller != null
-    && !ADOBase.controller.paused
-    && ADOBase.conductor != null
-    && ADOBase.conductor.isGameWorld;
-
-  private static Rect ToRect(LayoutBounds bounds) => new(bounds.X, bounds.Y, bounds.Width, bounds.Height);
-
-  private sealed class TargetFrame
+  private void Undo()
   {
-    public readonly IOverlayLayoutTarget Target;
-    public readonly LayoutOutlineGraphic Outline;
+    FinishDrag();
+    _elementBar.MarkStale();
+    _session.History.Undo(_session.Host.LayoutSettings);
+    RefreshLayouts();
+  }
 
-    public TargetFrame(IOverlayLayoutTarget target, LayoutOutlineGraphic outline)
+  private void Redo()
+  {
+    FinishDrag();
+    _elementBar.MarkStale();
+    _session.History.Redo(_session.Host.LayoutSettings);
+    RefreshLayouts();
+  }
+
+  private void EditSelected()
+  {
+    if (_selection.HasSelection)
+      _kinds.Edit(_selection.Primary);
+  }
+
+  private void ResetSelected()
+  {
+    if (!_selection.HasSelection)
+      return;
+    ClosePopovers();
+    foreach (IOverlayLayoutTarget target in _selection.Targets)
+      target.ResetLayout();
+    _toolbar.ForgetScale();
+    _status.Clear();
+    _session.Commit();
+  }
+
+  private void DeleteSelected()
+  {
+    if (!_selection.HasSelection)
+      return;
+    ClosePopovers();
+    // Every selected element goes, as one undo step.
+    foreach (IOverlayLayoutTarget target in _selection.Targets)
     {
-      Target = target;
-      Outline = outline;
+      (target as IExternalLayoutOutline)?.SetSelected(false);
+      target.SetEnabled(false);
     }
+    _selection.SelectOnly(-1);
+    _drag.Cancel();
+    _session.Commit();
+    RefreshLayouts();
+    UpdateFrames();
+  }
+
+  // A new element starts in the middle of the view, selected, as one undo step.
+  private void PlaceNewElement(IOverlayLayoutTarget target, bool commit)
+  {
+    UnityEngine.Canvas.ForceUpdateCanvases();
+    Rect bounds = target.Bounds;
+    if (bounds.width > 0 && bounds.height > 0)
+    {
+      bounds.center = new Vector2(_session.ViewWidth * .5f, _session.ViewHeight * .5f);
+      target.SetBounds(bounds);
+      target.CommitLayout(true, initialize: true);
+    }
+    if (_session.IndexOf(target) < 0)
+      _session.AddFrame(target);
+    _selection.Selected = _session.IndexOf(target);
+    if (commit)
+      _session.Commit();
+    _toolbar.Root.SetAsLastSibling();
+    UpdateFrames();
+  }
+
+  // ---- Popovers above the toolbar ----
+
+  private void ClosePopovers() => _popovers.Stack.CloseAll();
+
+  private bool Settle()
+  {
+    if (!_popovers.Commit())
+      return false;
+    ClosePopovers();
+    FinishDrag();
+    _toolbar.Dragging = false;
+    return true;
+  }
+
+  private void ToggleAddMenu()
+  {
+    if (_addMenu.IsOpen)
+    {
+      _addMenu.Close();
+      return;
+    }
+    if (!Settle())
+      return;
+    Selectable first = _addMenu.Open();
+    UpdatePopupPositions();
+    if (first != null)
+      EventSystem.current?.SetSelectedGameObject(first.gameObject);
+  }
+
+  private void ToggleColor()
+  {
+    OverlayColorPopover color = _popovers.Color;
+    if (color.Visible)
+      color.Hide();
+    else
+    {
+      if (!_popovers.Commit())
+        return;
+      ClosePopovers();
+      color.Show();
+      _popovers.Stack.Opened(color);
+      UpdatePopupPositions();
+    }
+    FinishDrag();
+    _toolbar.Dragging = false;
+  }
+
+  // The default font of every text; a text's own fonts stay as they are.
+  private void ToggleFont()
+  {
+    if (_session.Fonts == null)
+      return;
+    UiFontPopover font = _popovers.Font(PickDefaultFont);
+    if (font.Visible)
+      font.Hide();
+    else
+    {
+      if (!_popovers.Commit())
+        return;
+      ClosePopovers();
+      font.Show(
+        L("오버레이 기본 폰트", "Overlay default font"),
+        _session.Preferences.OverlayFont ?? "",
+        L("메이플스토리", "MapleStory"),
+        L("기본 제공", "Built-in")
+      );
+      _popovers.Stack.Opened(font);
+      UpdatePopupPositions();
+    }
+    FinishDrag();
+    _toolbar.Dragging = false;
+  }
+
+  private void PickDefaultFont(string key)
+  {
+    _session.Preferences.OverlayFont = OverlayFontKey.Normalize(key);
+    _session.Fonts?.SetDefault(_session.Preferences.OverlayFont);
+  }
+
+  bool ILayoutEditing.Settle() => Settle();
+
+  void ILayoutEditing.PlaceNew(IOverlayLayoutTarget target, bool commit) => PlaceNewElement(target, commit);
+
+  void ILayoutEditing.RefreshLayouts() => RefreshLayouts();
+
+  void ILayoutEditing.UpdateFrames() => UpdateFrames();
+
+  public void Dispose()
+  {
+    _session.Closing = true;
+    // Disposal must not reopen settings through the normal close callback.
+    // Torn down while open (the mod turned off), it keeps what was edited,
+    // an open full-screen edit included; only Cancel throws edits away.
+    _kinds.Dispose();
+    if (IsOpen)
+    {
+      FinishDrag();
+      RefreshLayouts();
+      EndPreview();
+      Cursor.visible = _previousCursorVisible;
+      Cursor.lockState = _previousCursorLock;
+    }
+    _session.IsOpen = false;
+    _cursors.Dispose();
+    ClosePopovers();
+    _elementBar.Close();
+    _modal.Close();
+    _toolbar.Dispose();
+    _popovers.Dispose();
+    _session.Ui?.Dispose();
+    InputGate.SetTextEditing(false);
+    if (_ownedEvents != null)
+      UiFactory.Destroy(_ownedEvents);
+    if (_session.Root != null)
+      UiFactory.Destroy(_session.Root);
+    _session.Root = null;
   }
 }

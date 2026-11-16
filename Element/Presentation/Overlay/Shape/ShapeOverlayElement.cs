@@ -1,0 +1,159 @@
+using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Defaults;
+using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Shape;
+using Element.Domain.Overlay.Values;
+using Element.Presentation.Overlay.Elements;
+using Element.Presentation.Overlay.Migration;
+using Element.Presentation.Overlay.Text;
+using Element.Presentation.Overlay.Values;
+using Element.Presentation.Ui.Theme;
+using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
+
+namespace Element.Presentation.Overlay.Shape;
+
+/// <summary>
+/// A square, triangle or circle whose box is the element's rectangle. Numbers
+/// tied to live values are worked out into a copy of the settings, which is
+/// what is drawn; it is redone only when one of those values changes.
+/// </summary>
+internal sealed class ShapeOverlayElement : OverlayElementTarget
+{
+  private readonly ShapeGraphic _graphic;
+  private readonly OverlayValues _values;
+  private readonly OverlayShapeSettings _resolved = new();
+  private readonly OverlayShapeResolver _formulas = new();
+  private int _themeVersion = -1;
+  private float _resolvedScale = -1;
+  private bool _preview;
+
+  public ShapeOverlayElement(Transform parent, OverlayValues values)
+    : base(parent, "Shape element")
+  {
+    _values = values;
+    _graphic = Rect.gameObject.AddComponent<ShapeGraphic>();
+    _graphic.raycastTarget = false;
+  }
+
+  public override string Label =>
+    Id switch
+    {
+      OverlayElementDefaults.ProgressBarId => L("진행도 바", "Progress bar"),
+      OverlayElementDefaults.ProgressTrackId => L("진행도 바 배경", "Progress bar track"),
+      OverlayElementDefaults.ProgressFillId => L("진행도 바 채우기", "Progress bar fill"),
+      _ => Shape?.Kind switch
+      {
+        OverlayShapeKind.Triangle => L("삼각형", "Triangle"),
+        OverlayShapeKind.Circle => L("원", "Circle"),
+        _ => L("사각형", "Square"),
+      },
+    };
+
+  public OverlayShapeSettings Shape => Settings?.Shape;
+
+  /// <summary>The shape as drawn right now, with live values worked in.</summary>
+  public OverlayShapeSettings Resolved => _resolved;
+
+  internal OverlayValues Values => _values;
+
+  /// <summary>The values this shape's numbers use.</summary>
+  public OverlayValueMask ValueMask => _formulas.Mask;
+
+  /// <summary>
+  /// Pixels per reference unit of the shape's box, in whatever the canvas is
+  /// drawn into: the game window, or OrbitRender's video while it renders.
+  /// </summary>
+  public float PixelsPerUnit
+  {
+    get
+    {
+      Rect bounds = CanvasRectBounds;
+      return _resolved.Width > 0 ? bounds.width * CanvasScale / _resolved.Width : 1;
+    }
+  }
+
+  protected override bool TryGetLocalContent(out Rect local)
+  {
+    local = Rect.rect;
+    return true;
+  }
+
+  protected override void ApplyContent()
+  {
+    Settings.Shape ??= OverlayShapeGeometry.Create();
+    OverlayShapeGeometry.Normalize(Settings.Shape);
+    _formulas.Compile(Settings.Shape);
+    Redraw();
+  }
+
+  // Built-in shapes start where they belong; others in the middle.
+  protected override void ResetPose()
+  {
+    Vector2 center = new(.5f, .5f);
+    bool placed = ShapeDefaultPlacement.TryGet(
+      Settings?.DefaultPlacement,
+      out Vector2 anchor,
+      out Vector2 pivot,
+      out Vector2 position
+    );
+    SetPose(
+      Rect,
+      placed ? anchor : center,
+      placed ? pivot : center,
+      placed ? position : Vector2.zero,
+      new Vector2(_resolved.Width, _resolved.Height)
+    );
+    if (Rect.localScale != Vector3.one)
+      Rect.localScale = Vector3.one;
+  }
+
+  public override void SetPreview(bool preview)
+  {
+    if (_preview == preview)
+      return;
+    _preview = preview;
+    if (Shape != null && !_formulas.Mask.IsEmpty)
+      Redraw();
+  }
+
+  public void Redraw()
+  {
+    if (Shape == null)
+      return;
+    _themeVersion = UiTheme.Version;
+    _resolvedScale = EffectiveScale;
+    IOverlayNumberSource source = _preview ? _values?.WithSamples : _values;
+    _formulas.Resolve(Shape, source, _resolvedScale, _resolved);
+    Vector2 size = new(_resolved.Width, _resolved.Height);
+    bool resized = Rect.sizeDelta != size;
+    if (resized)
+      Rect.sizeDelta = size;
+    _formulas.ResolvePaints(_resolved, source, UiTheme.Accent);
+    _graphic.SetShape(
+      _resolved,
+      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _formulas.FillAlpha, source),
+      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _formulas.StrokeAlpha, source),
+      _formulas.FillGradient,
+      _formulas.StrokeGradient
+    );
+    _graphic.SetPixelsPerUnit(PixelsPerUnit);
+    // A size that follows a value grows away from the point that stays put.
+    if (resized)
+      ContentSizeChanged();
+  }
+
+  /// <summary>Redraws when its values, the highlight color or (for formulas) its scale changed; a mask test otherwise.</summary>
+  public override void Refresh(OverlayValueMask changes, bool settle = false)
+  {
+    if (
+      _themeVersion != UiTheme.Version
+      || changes.Overlaps(_formulas.Mask)
+      || (!_formulas.Mask.IsEmpty && !Mathf.Approximately(_resolvedScale, EffectiveScale))
+    )
+      Redraw();
+  }
+
+  /// <summary>Keeps edges one screen pixel soft after the screen or the layout changed.</summary>
+  public void RefreshPixels() => _graphic.SetPixelsPerUnit(PixelsPerUnit);
+}

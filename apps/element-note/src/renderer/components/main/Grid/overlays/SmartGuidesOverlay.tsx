@@ -1,9 +1,5 @@
 import React from 'react';
 import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
-import { calculateGuideLineExtent } from '@utils/grid/smartGuides';
-import { useKeyStore } from '@stores/data/useKeyStore';
-import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
-import { calculateBounds, type ElementBounds } from '@utils/grid/smartGuides';
 
 interface SmartGuidesOverlayProps {
   zoom?: number;
@@ -29,58 +25,6 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
   const draggedBounds = useSmartGuidesStore((state) => state.draggedBounds);
   const isActive = useSmartGuidesStore((state) => state.isActive);
 
-  // 현재 탭의 키 위치 정보
-  const positions = useKeyStore((state) => state.positions);
-  const selectedKeyType = useKeyStore((state) => state.selectedKeyType);
-
-  // 플러그인 요소 정보
-  const pluginElements = usePluginDisplayElementStore(
-    (state) => state.elements,
-  );
-
-  // 모든 요소의 bounds 계산
-  const allElementBounds: ElementBounds[] = (() => {
-    const bounds: ElementBounds[] = [];
-
-    // 키 요소 bounds
-    const keyPositions = positions[selectedKeyType] || [];
-    keyPositions.forEach((pos, index) => {
-      if (pos.hidden) return;
-      bounds.push(
-        calculateBounds(
-          pos.dx,
-          pos.dy,
-          pos.width || 60,
-          pos.height || 60,
-          `key-${index}`,
-        ),
-      );
-    });
-
-    // 플러그인 요소 bounds (현재 탭에 속하는 것만)
-    pluginElements.forEach((el) => {
-      if (el.hidden) return;
-      // tabId가 없으면 모든 탭에 표시되는 요소로 간주
-      // tabId가 있으면 현재 선택된 탭과 일치해야 함
-      const belongsToCurrentTab = !el.tabId || el.tabId === selectedKeyType;
-
-      if (el.measuredSize && belongsToCurrentTab) {
-        bounds.push(
-          calculateBounds(
-            el.position.x,
-            el.position.y,
-            el.measuredSize.width,
-            el.measuredSize.height,
-            el.fullId,
-          ),
-        );
-      }
-    });
-
-    return bounds;
-  })();
-
-  // 표시할 가이드가 없으면 null 반환
   const hasGuides =
     activeGuides.length > 0 ||
     spacingGuides.length > 0 ||
@@ -136,11 +80,11 @@ export const SmartGuidesOverlay: React.FC<SmartGuidesOverlayProps> = ({
         {/* 정렬 가이드라인 (빨간 점선) - draggedBounds가 있을 때만 */}
         {showAlignmentGuides &&
           activeGuides.map((guide, index) => {
-            const extent = calculateGuideLineExtent(
-              guide,
-              draggedBounds!,
-              allElementBounds,
-            );
+            // The line is as long as what it joins; the engine says how long.
+            const extent = {
+              start: guide.start ?? guide.position,
+              end: guide.end ?? guide.position,
+            };
 
             if (guide.type === 'vertical') {
               return (

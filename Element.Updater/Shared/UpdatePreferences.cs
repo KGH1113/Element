@@ -15,7 +15,7 @@ internal sealed class UpdatePreferences
 
   /// <summary>
   /// A local test server (http://127.0.0.1:port/) that stands in for GitHub
-  /// Releases; anything else is ignored. See docs/auto-update.md.
+  /// Releases; anything else is ignored. See docs/features/auto-update.md.
   /// </summary>
   public string Source { get; set; }
 

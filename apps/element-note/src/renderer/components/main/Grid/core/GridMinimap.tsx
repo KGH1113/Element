@@ -23,6 +23,7 @@ interface GridMinimapProps {
   statPositions?: Position[];
   graphPositions?: Position[];
   knobPositions?: Position[];
+  spritePositions?: Position[];
   zoom: number;
   panX: number;
   panY: number;
@@ -43,6 +44,7 @@ const GridMinimap = ({
   statPositions = [],
   graphPositions = [],
   knobPositions = [],
+  spritePositions = [],
   zoom,
   panX,
   panY,
@@ -122,6 +124,7 @@ const GridMinimap = ({
       statPositions.length === 0 &&
       graphPositions.length === 0 &&
       knobPositions.length === 0 &&
+      spritePositions.length === 0 &&
       pluginPositions.length === 0
     ) {
       return { minX: 0, minY: 0, maxX: 100, maxY: 100 };
@@ -188,6 +191,17 @@ const GridMinimap = ({
       maxY = Math.max(maxY, y + h);
     });
 
+    spritePositions.forEach((pos) => {
+      if (pos.hidden) return;
+      const x = pos.dx || 0;
+      const y = pos.dy || 0;
+
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + (pos.width || 0));
+      maxY = Math.max(maxY, y + (pos.height || 0));
+    });
+
     // 플러그인 요소들의 바운딩 박스 계산
     pluginPositions.forEach((pos) => {
       minX = Math.min(minX, pos.x);
@@ -251,54 +265,44 @@ const GridMinimap = ({
     return { x, y, width, height };
   })();
 
-  // 미니맵 좌표를 팬 값으로 변환
-  const minimapToGridPan = (minimapX: number, minimapY: number) => {
-    // 미니맵 좌표를 그리드 좌표로 변환 (중앙 정렬 오프셋 적용)
-    const gridX = (minimapX - offsetX) / minimapScale + bounds.minX;
-    const gridY = (minimapY - offsetY) / minimapScale + bounds.minY;
+  // The view follows the pointer by the distance dragged, from wherever it
+  // was grabbed. It never jumps to the pointer.
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    panX: number;
+    panY: number;
+    scale: number;
+  } | null>(null);
 
-    // 뷰포트 중앙이 해당 위치로 오도록 팬 설정
-    const newPanX = -(gridX * zoom - containerSize.width / 2);
-    const newPanY = -(gridY * zoom - containerSize.height / 2);
-
-    return { panX: newPanX, panY: newPanY };
-  };
-
-  // 미니맵 클릭으로 팬 이동
-  const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (isDragging) return; // 드래그 중에는 클릭 무시
-
-    const minimapRect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - minimapRect.left;
-    const clickY = e.clientY - minimapRect.top;
-
-    const { panX: newPanX, panY: newPanY } = minimapToGridPan(clickX, clickY);
-    setPan(mode, newPanX, newPanY);
-  };
-
-  // 드래그 시작
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || minimapScale <= 0) return;
     e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      panX,
+      panY,
+      scale: minimapScale,
+    };
     setIsDragging(true);
+  };
 
-    const minimapRect = e.currentTarget.getBoundingClientRect();
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const gridDx = (e.clientX - drag.startX) / drag.scale;
+    const gridDy = (e.clientY - drag.startY) / drag.scale;
+    setPan(mode, drag.panX - gridDx * zoom, drag.panY - gridDy * zoom);
+  };
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const clickX = moveEvent.clientX - minimapRect.left;
-      const clickY = moveEvent.clientY - minimapRect.top;
-
-      const { panX: newPanX, panY: newPanY } = minimapToGridPan(clickX, clickY);
-      setPan(mode, newPanX, newPanY);
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current?.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    setIsDragging(false);
   };
 
   // 키 개수와 플러그인 요소가 모두 없으면 미니맵 숨김
@@ -307,6 +311,7 @@ const GridMinimap = ({
     statPositions.length === 0 &&
     graphPositions.length === 0 &&
     knobPositions.length === 0 &&
+    spritePositions.length === 0 &&
     pluginPositions.length === 0
   ) {
     return null;
@@ -434,14 +439,18 @@ const GridMinimap = ({
       </div>
       {/* 미니맵 */}
       <div
-        className="dmn-minimap-canvas relative cursor-pointer"
+        className="dmn-minimap-canvas relative"
         style={{
           width: MINIMAP_WIDTH,
           height: MINIMAP_HEIGHT,
           boxSizing: 'border-box',
+          cursor: isDragging ? 'grabbing' : 'grab',
+          touchAction: 'none',
         }}
-        onClick={handleMinimapClick}
-        onMouseDown={handleMouseDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
       >
         {/* 키 및 플러그인 요소 표시 */}
         <svg
@@ -526,6 +535,26 @@ const GridMinimap = ({
                 height={Math.max(h, 2)}
                 fill="rgba(180, 200, 255, 0.65)"
                 rx={Math.max(w, h) / 2}
+              />
+            );
+          })}
+          {/* Images */}
+          {spritePositions.map((pos, index) => {
+            if (pos.hidden) return null;
+            const x = ((pos.dx || 0) - bounds.minX) * minimapScale + offsetX;
+            const y = ((pos.dy || 0) - bounds.minY) * minimapScale + offsetY;
+            const w = (pos.width || 0) * minimapScale;
+            const h = (pos.height || 0) * minimapScale;
+
+            return (
+              <rect
+                key={`sprite-${index}`}
+                x={x}
+                y={y}
+                width={Math.max(w, 2)}
+                height={Math.max(h, 2)}
+                fill="rgba(240, 190, 140, 0.65)"
+                rx={1}
               />
             );
           })}

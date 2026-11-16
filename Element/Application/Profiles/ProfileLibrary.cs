@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Application.Settings;
 using Element.Configuration;
 using Element.Configuration.Profiles;
 
@@ -56,7 +57,7 @@ internal sealed class ProfileLibrary
     ElementProfile current = Active;
     if (target == null || target == current)
       return false;
-    ElementSettings prepared = target.Content.Prepare();
+    ElementSettings prepared = Prepare(target.Content);
     current.Content = ProfileContent.Capture(_settings);
     ProfileContent.Apply(prepared, _settings);
     target.Content = null;
@@ -74,7 +75,7 @@ internal sealed class ProfileLibrary
     if (!ValidateName(name, null, out string normalized, out problem))
       return false;
     // Migrated from nothing, as a fresh install is: the default overlay included.
-    ElementSettings initial = new ProfileContent().Prepare();
+    ElementSettings initial = Prepare(new ProfileContent());
     Active.Content = ProfileContent.Capture(_settings);
     profile = new ElementProfile { Name = normalized };
     _settings.Profiles.Add(profile);
@@ -153,7 +154,7 @@ internal sealed class ProfileLibrary
     if (file?.Content == null)
       throw new ArgumentException("The profile file has no values.", nameof(file));
     // Throws before the list changes when the values are unusable.
-    file.Content.Prepare();
+    Prepare(file.Content);
     ElementProfile profile = new() { Name = FreeName(file.Name), Content = file.Content };
     _settings.Profiles.Add(profile);
     try
@@ -166,6 +167,16 @@ internal sealed class ProfileLibrary
       throw;
     }
     return profile;
+  }
+
+  // A migrated, normalized copy of a profile's values, ready for
+  // ProfileContent.Apply. Throws when the values cannot be used, before
+  // anything live changes.
+  private static ElementSettings Prepare(ProfileContent content)
+  {
+    ElementSettings settings = content.ToSettings();
+    SettingsMigrator.Migrate(settings);
+    return settings;
   }
 
   // Keeps the invariants the rest relies on, whatever an older or hand-edited

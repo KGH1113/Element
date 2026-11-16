@@ -15,7 +15,6 @@ import {
 import ListPopup, { type ListItem } from '@components/main/Modal/ListPopup';
 import CommonListPickerPopup from './CommonListPickerPopup';
 import CounterAnimationEditorModal from '../editors/CounterAnimationEditorModal';
-import PlusIcon from '@assets/svgs/plus2.svg';
 
 interface CounterAnimationPickerProps {
   open: boolean;
@@ -253,9 +252,7 @@ const CounterAnimationPicker = ({
         panelElement={panelElement}
         interactiveRefs={interactiveRefs}
         onClose={handlePickerClose}
-        widthClass="w-[156px]"
-        estimatedWidth={164}
-        estimatedHeight={276}
+        chooserTitle={t('sidebar.pickAnimation')}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchPlaceholder={
@@ -266,73 +263,39 @@ const CounterAnimationPicker = ({
         onFilterChange={(value) => setFilterType(value as FilterType)}
         items={filteredItems}
         getItemKey={(item) => item.id}
-        renderItem={(preset) => {
-          const isSelected = selectedPresetId === preset.id;
-          const isUserPreset = preset.source === 'user';
-          const displayName =
-            preset.labelKey && t(preset.labelKey) !== preset.labelKey
-              ? t(preset.labelKey)
-              : preset.name;
-
-          return (
-            <div
-              key={preset.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => handlePresetSelect(preset)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  handlePresetSelect(preset);
+        getItemLabel={(preset) =>
+          preset.labelKey && t(preset.labelKey) !== preset.labelKey
+            ? t(preset.labelKey)
+            : preset.name
+        }
+        isItemSelected={(preset) => selectedPresetId === preset.id}
+        onItemChoose={handlePresetSelect}
+        // A motion the player made can be changed or deleted: its ⋯ menu.
+        renderItemTrailing={(preset) =>
+          preset.source === 'user' ? (
+            <button
+              type="button"
+              className="en-lc-icon-button"
+              title={moreMenuLabel}
+              aria-label={moreMenuLabel}
+              aria-expanded={actionMenuPresetId === preset.id}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (actionMenuPresetId === preset.id) {
+                  setActionMenuPresetId(null);
+                  setActionMenuPosition(null);
+                  return;
                 }
+                const rect = event.currentTarget.getBoundingClientRect();
+                setActionMenuPosition({ x: rect.right + 4, y: rect.top - 2 });
+                setActionMenuPresetId(preset.id);
               }}
-              className={`w-full h-[24px] px-[8px] rounded-[7px] text-style-4 transition-colors flex items-center gap-[4px] cursor-pointer group ${
-                isSelected
-                  ? 'bg-[#2E2D33] text-[#FFFFFF]'
-                  : 'text-[#DBDEE8] hover:bg-[#26262C]'
-              }`}
-              title={displayName}
             >
-              <span className="min-w-0 flex-1 truncate text-left">
-                {displayName}
-              </span>
-
-              {isUserPreset ? (
-                <button
-                  type="button"
-                  className={`w-[18px] h-[18px] rounded-[5px] transition-all flex items-center justify-center shrink-0 ${
-                    isSelected || actionMenuPresetId === preset.id
-                      ? 'opacity-100'
-                      : 'opacity-0 group-hover:opacity-100'
-                  } ${
-                    isSelected
-                      ? 'text-[#D9DCE6] hover:text-[#FFFFFF] hover:bg-[#3A3943]'
-                      : 'text-[#8A8D99] hover:text-[#DBDEE8] hover:bg-[#2A2A30]'
-                  }`}
-                  title={moreMenuLabel}
-                  aria-label={moreMenuLabel}
-                  onClick={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (actionMenuPresetId === preset.id) {
-                      setActionMenuPresetId(null);
-                      setActionMenuPosition(null);
-                      return;
-                    }
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    setActionMenuPosition({
-                      x: rect.right + 4,
-                      y: rect.top - 2,
-                    });
-                    setActionMenuPresetId(preset.id);
-                  }}
-                >
-                  <MoreVerticalIcon />
-                </button>
-              ) : null}
-            </div>
-          );
-        }}
+              <MoreVerticalIcon />
+            </button>
+          ) : null
+        }
         emptyText={
           t('counterSetting.noAnimations') || '등록된 애니메이션이 없습니다'
         }
@@ -340,7 +303,7 @@ const CounterAnimationPicker = ({
         loadingText={t('propertiesPanel.loading') || '로딩...'}
         errorText={errorText}
         onAdd={openCreateModal}
-        addButtonContent={<PlusIcon />}
+        addLabel={t('counterSetting.createAnimationTitle')}
       />
 
       {actionMenuPresetId !== null && (

@@ -10,6 +10,7 @@ import {
   KeyCounterIpcCoordinator,
   type KeyCounts,
 } from '../ipc/keyCounterIpcCoordinator';
+import { ProfileKeyViewersIpcCoordinator } from '../ipc/profileKeyViewersIpcCoordinator';
 import { requestViewerEdit } from '../nativeViewers/viewerEditRequests';
 import type { SchedulerPort } from '../application/ports/messagePort';
 import { SdkMessagePort } from '../infrastructure/ipc/sdkMessagePort';
@@ -133,7 +134,18 @@ export function startRenderMessages(): () => Promise<void> {
       endReplay: () => invoke('keys_replay_end'),
     },
   );
+  // Each Element profile keeps its own key viewers; the game says when to swap them.
+  const profileKeyViewers = new ProfileKeyViewersIpcCoordinator(
+    applicationMessages('element'),
+    {
+      owner: () => invoke<string | null>('profile_key_viewers_owner'),
+      save: (path) => invoke('profile_key_viewers_save', { path }),
+      swap: (save, load, owner, expected) =>
+        invoke('profile_key_viewers_swap', { save, load, owner, expected }),
+    },
+  );
   const stop = async () => {
+    profileKeyViewers.dispose();
     await keyCounters.dispose();
     await viewers.dispose();
     await elementRenders.dispose();

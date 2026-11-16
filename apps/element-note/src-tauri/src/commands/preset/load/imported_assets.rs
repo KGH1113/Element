@@ -1,6 +1,6 @@
 use super::*;
 
-#[cfg(test)]
+/// Adds the imported fonts whose names the library lacks; None adds nothing.
 pub(super) fn merge_tab_preset_fonts(
     existing_font_settings: &FontSettings,
     imported_font_settings: FontSettings,

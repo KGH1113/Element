@@ -4,6 +4,7 @@ import {
   computeOutsideStyle,
 } from '@hooks/overlay/useCounterSettings';
 import { toCssRgba } from '@utils/color/colorUtils';
+import { useShownPosition } from '@src/renderer/editor/runtime/choicePreview';
 
 interface CounterPosition {
   dx?: number;
@@ -15,6 +16,7 @@ interface CounterPosition {
 }
 
 interface StatCounterProps {
+  index: number;
   position: CounterPosition;
   previewValue?: number;
 }
@@ -23,7 +25,13 @@ interface StatCounterLayerProps {
   positions: CounterPosition[];
 }
 
-const StatCounter = ({ position, previewValue = 0 }: StatCounterProps) => {
+const StatCounter = ({
+  index,
+  position: storedPosition,
+  previewValue = 0,
+}: StatCounterProps) => {
+  // A placement the pointer rests on in the sidebar is drawn instead.
+  const position = useShownPosition('stat', index, storedPosition);
   const dx = Number.isFinite(position?.dx) ? position.dx! : 0;
   const dy = Number.isFinite(position?.dy) ? position.dy! : 0;
   const width = Number.isFinite(position?.width) ? position.width! : 60;
@@ -103,6 +111,7 @@ const StatCounterLayer = ({ positions }: StatCounterLayerProps) => {
         return (
           <StatCounter
             key={`stat-counter-${index}`}
+            index={index}
             position={position}
             previewValue={0}
           />

@@ -29,9 +29,11 @@ import { historyApi } from '@api/modules/historyApi';
 import { useHistoryStatusStore } from '@stores/data/useHistoryStatusStore';
 import { notifyLocaleChanged, subscribe } from '@api/modules/shared';
 import {
+  answerFlushWithoutEditor,
   flushEditorBeforeClose,
   type EditorCloseRequest,
 } from '@api/editorLifecycle';
+import { startHistorySteps } from '@api/historyStep';
 import { stableStringify } from '@utils/core/stableStringify';
 import type { BootstrapPayload } from '@src/types/app';
 import type {
@@ -126,10 +128,10 @@ function buildSettingsSnapshot(
     developerModeEnabled: bootstrap.settings.developerModeEnabled ?? false,
     trayEnabled: bootstrap.settings.trayEnabled ?? false,
     overlayResizeAnchor: bootstrap.settings.overlayResizeAnchor,
-    keyCounterEnabled: bootstrap.settings.keyCounterEnabled,
+    keyCounterEnabled: true,
     gridSettings: bootstrap.settings.gridSettings ?? getDefaultGridSettings(),
     shortcuts: bootstrap.settings.shortcuts ?? getDefaultShortcuts(),
-    obsModeEnabled: bootstrap.settings.obsModeEnabled ?? true,
+    obsModeEnabled: bootstrap.settings.obsModeEnabled ?? false,
     keyLimiterEnabled: bootstrap.settings.keyLimiterEnabled ?? true,
     inGameViewersEnabled: bootstrap.settings.inGameViewersEnabled ?? true,
   };
@@ -682,6 +684,7 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
           console.error('히스토리 상태 조회 실패', error);
         });
       unsubscribers.push(
+        startHistorySteps(),
         historyApi.onStatus(applyHistoryStatus),
         historyApi.onRestored(() => {
           void runResync();
@@ -714,6 +717,13 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
 
     if (isOverlayWindow) {
       unsubscribers.push(
+        // 종료와 실행 취소는 모든 창의 응답을 기다린다. 키뷰어는 저장할 편집이 없어 바로 답한다.
+        subscribe<EditorCloseRequest>('app:close-requested', (request) => {
+          if (disposed) return;
+          void answerFlushWithoutEditor(request).catch((error) => {
+            console.error('종료·실행 취소 요청에 답하지 못함', error);
+          });
+        }),
         window.api.keys.onCounterChanged(({ mode, key, count }) => {
           scheduleCounterUpdate(mode, key, count);
         }),

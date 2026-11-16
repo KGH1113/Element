@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
 import type { SoundListItem } from '@src/types/plugin/api';
-import PlusIcon from '@assets/svgs/plus2.svg';
 import CommonListPickerPopup from './CommonListPickerPopup';
 import SoundManagerModal from '../managers/SoundManagerModal';
 
@@ -84,9 +83,7 @@ const SoundPicker = ({
         panelElement={panelElement}
         interactiveRefs={interactiveRefs}
         onClose={onClose}
-        widthClass="w-[156px]"
-        estimatedWidth={164}
-        estimatedHeight={276}
+        chooserTitle={t('sidebar.pickSound')}
         searchQuery={searchQuery}
         onSearchQueryChange={setSearchQuery}
         searchPlaceholder={t('soundPicker.searchPlaceholder') || '검색'}
@@ -94,30 +91,16 @@ const SoundPicker = ({
         filterValue={filterType}
         onFilterChange={(value) => setFilterType(value as 'all' | 'local')}
         items={filteredSounds}
-        renderItem={(item) => {
-          const isSelected = item.soundPath === normalizedSelectedSound;
-          return (
-            <button
-              key={item.soundPath}
-              type="button"
-              onClick={() => onSoundSelect(item.soundPath)}
-              className={`w-full min-h-[24px] h-[24px] flex-shrink-0 px-[8px] rounded-[7px] text-left text-style-4 transition-colors truncate ${
-                isSelected
-                  ? 'bg-[#2E2D33] text-[#FFFFFF]'
-                  : 'text-[#DBDEE8] hover:bg-[#26262C]'
-              }`}
-              title={item.displayName || item.fileName}
-            >
-              {item.displayName || item.fileName}
-            </button>
-          );
-        }}
+        getItemKey={(item) => item.soundPath}
+        getItemLabel={(item) => item.displayName || item.fileName}
+        isItemSelected={(item) => item.soundPath === normalizedSelectedSound}
+        onItemChoose={(item) => onSoundSelect(item.soundPath)}
         emptyText={t('soundPicker.noSounds') || '사운드 없음'}
         isLoading={isLoading}
         loadingText={t('propertiesPanel.loading') || '로딩...'}
         errorText={loadError}
         onAdd={() => setShowManager(true)}
-        addButtonContent={<PlusIcon />}
+        addLabel={t('soundPicker.add')}
       />
 
       <SoundManagerModal

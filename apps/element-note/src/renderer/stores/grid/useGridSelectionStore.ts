@@ -4,9 +4,10 @@ import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import type { StatItemPosition } from '@src/types/key/statItems';
 import type { GraphItemPosition } from '@src/types/key/graphItems';
 import type { KnobItemPosition } from '@src/types/key/knobs';
+import type { ReactiveSpritePosition } from '@src/types/key/sprites';
 
 export type SelectableElementType =
-  'key' | 'stat' | 'graph' | 'knob' | 'plugin';
+  'key' | 'stat' | 'graph' | 'knob' | 'sprite' | 'plugin';
 
 export interface SelectedElement {
   type: SelectableElementType;
@@ -39,6 +40,12 @@ export interface ClipboardKnobData {
   position: KnobItemPosition;
 }
 
+/** A copied sprite. It is pasted with ids of its own. */
+export interface ClipboardSpriteData {
+  type: 'sprite';
+  position: ReactiveSpritePosition;
+}
+
 // 클립보드에 저장되는 플러그인 요소 데이터
 export interface ClipboardPluginData {
   type: 'plugin';
@@ -50,6 +57,7 @@ export type ClipboardItem =
   | ClipboardStatData
   | ClipboardGraphData
   | ClipboardKnobData
+  | ClipboardSpriteData
   | ClipboardPluginData;
 
 interface GridSelectionState {

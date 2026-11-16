@@ -6,8 +6,13 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
-import { calculateBounds, type ElementBounds } from '@utils/grid/smartGuides';
+import {
+  calculateBounds,
+  calculateRotatedBounds,
+  type ElementBounds,
+} from '@utils/grid/smartGuides';
 
 /**
  * 현재 탭의 모든 요소(키 + 플러그인 요소)의 bounds를 반환하는 함수를 제공하는 훅
@@ -18,6 +23,7 @@ export function useSmartGuidesElements() {
   const statPositions = useStatItemStore((state) => state.positions);
   const graphPositions = useGraphItemStore((state) => state.positions);
   const knobPositions = useKnobItemStore((state) => state.positions);
+  const spritePositions = useSpriteStore((state) => state.positions);
   const pluginElements = usePluginDisplayElementStore(
     (state) => state.elements,
   );
@@ -40,11 +46,12 @@ export function useSmartGuidesElements() {
       const id = `key-${index}`;
       if (!excludeSet.has(id)) {
         bounds.push(
-          calculateBounds(
+          calculateRotatedBounds(
             pos.dx,
             pos.dy,
             pos.width || 60,
             pos.height || 60,
+            (pos as { rotation?: number }).rotation,
             id,
           ),
         );
@@ -58,11 +65,12 @@ export function useSmartGuidesElements() {
       const id = `stat-${index}`;
       if (!excludeSet.has(id)) {
         bounds.push(
-          calculateBounds(
+          calculateRotatedBounds(
             pos.dx,
             pos.dy,
             pos.width || 60,
             pos.height || 60,
+            (pos as { rotation?: number }).rotation,
             id,
           ),
         );
@@ -76,11 +84,12 @@ export function useSmartGuidesElements() {
       const id = `graph-${index}`;
       if (!excludeSet.has(id)) {
         bounds.push(
-          calculateBounds(
+          calculateRotatedBounds(
             pos.dx,
             pos.dy,
             pos.width || 200,
             pos.height || 100,
+            (pos as { rotation?: number }).rotation,
             id,
           ),
         );
@@ -94,11 +103,30 @@ export function useSmartGuidesElements() {
       const id = `knob-${index}`;
       if (!excludeSet.has(id)) {
         bounds.push(
-          calculateBounds(
+          calculateRotatedBounds(
             pos.dx,
             pos.dy,
             pos.width || 60,
             pos.height || 60,
+            (pos as { rotation?: number }).rotation,
+            id,
+          ),
+        );
+      }
+    });
+
+    // Sprites line up by the box they are seen in, turned or not.
+    (spritePositions[selectedKeyType] || []).forEach((pos, index) => {
+      if (pos.hidden) return;
+      const id = `sprite-${index}`;
+      if (!excludeSet.has(id)) {
+        bounds.push(
+          calculateRotatedBounds(
+            pos.dx,
+            pos.dy,
+            pos.width,
+            pos.height,
+            pos.rotation,
             id,
           ),
         );

@@ -88,7 +88,7 @@
   --ui-form-row-height: 32px;
   --ui-settings-row-height: 36px;
   --ui-panel-header-height: 48px;
-  --ui-properties-panel-width: 240px;
+  --ui-properties-panel-width: 320px;
 
   /* Typography is a size/leading/weight set, never a standalone font size. */
   --ui-type-caption-size: 11px;
@@ -117,15 +117,17 @@
   --ui-motion-slow: 240ms;
   --ui-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --ui-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ui-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Interaction motion: brief, directional, and shared by every app surface. */
   --ui-hover-lift: -1px;
   --ui-press-scale: 0.97;
-  --ui-toggle-duration: 240ms;
-  --ui-toggle-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* A knob or a selection that moves between two places eases in and out
+     and never overshoots; it stretches on the way instead. */
+  --ui-ease-move: cubic-bezier(0.65, 0, 0.35, 1);
+  --ui-toggle-duration: 200ms;
+  --ui-toggle-ease: var(--ui-ease-move);
   --ui-segment-duration: 220ms;
-  --ui-segment-ease: cubic-bezier(0.34, 1.2, 0.64, 1);
+  --ui-segment-ease: var(--ui-ease-move);
   --ui-popup-enter-duration: 180ms;
   --ui-popup-exit-duration: 120ms;
   --ui-popup-ease: cubic-bezier(0.22, 1, 0.36, 1);

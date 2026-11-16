@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { obsViewerKind, obsWindowLabel } from './obsViewer';
+import { obsViewerKind, obsWindowLabel, viewerPageClient } from './obsViewer';
 
 describe('OBS dedicated viewer routing', () => {
   it.each(['hand', 'foot'] as const)(
@@ -19,4 +19,16 @@ describe('OBS dedicated viewer routing', () => {
       expect(obsWindowLabel(kind)).toBe('obs-overlay');
     },
   );
+
+  it("tells the game's own pages apart from OBS browser sources", () => {
+    expect(
+      viewerPageClient(new URLSearchParams('viewer=hand&client=game')),
+    ).toBe('game');
+    expect(viewerPageClient(new URLSearchParams('viewer=hand'))).toBe(
+      'obs-browser',
+    );
+    expect(viewerPageClient(new URLSearchParams('client=other'))).toBe(
+      'obs-browser',
+    );
+  });
 });

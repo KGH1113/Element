@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using Element.Configuration;
-using Element.Configuration.Effects;
-using Element.Presentation.Overlay.Shared;
+using Element.Presentation.Settings.Window;
+using Element.Presentation.Ui.Declarative;
+using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Theme;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -11,32 +14,97 @@ using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
 
-internal sealed partial class SettingsPanel : IDisposable
+/// <summary>
+/// The settings window's place in the game: its canvas, its size on screen,
+/// opening and closing, Escape, Tab and the shortcut. What the window shows
+/// is an ElementUI screen (<see cref="SettingsWindowView"/>).
+/// </summary>
+internal sealed class SettingsPanel : IDisposable
 {
+  private const float DesignWidth = 1000,
+    DesignHeight = 600;
+
   private readonly ElementSettings _settings;
-  private readonly Action _apply;
   private readonly Func<bool> _save;
   private readonly Action _editLayout;
   private readonly Action<bool> _visibility;
-  private readonly SettingsUiFactory _ui;
+  private readonly TMP_FontAsset _font;
+  private readonly SettingsFeatures _features;
+  private readonly Action _apply;
   private readonly GameObject _root;
-  private readonly RectTransform _window;
   private readonly Canvas _canvas;
-  private readonly GameObject[] _pages = new GameObject[10];
-  private readonly Button[] _homeCards = new Button[4];
-  private readonly TextMeshProUGUI _title;
-  private readonly TextMeshProUGUI _feedback;
+  private readonly RectTransform _window;
+  private readonly SettingsWindowMotion _windowMotion;
+  private SettingsWindowViewModel _model;
+  private UiHost _host;
   private GameObject _ownedEventSystem;
   private GameObject _previousSelection;
-  private GameObject _lastFocused;
-  private int _page;
   private int _restoreSelectionFrame = -1;
   private int _screenWidth;
   private int _screenHeight;
-  public bool IsOpen => _root != null && _root.activeSelf;
-  private static bool Korean => RDString.language == SystemLanguage.Korean;
+  private int _highlightVersion = -1;
 
-  private static string L(string ko, string en) => Korean ? ko : en;
+  /// <param name="apply">Applies the settings after a change.</param>
+  /// <param name="save">Writes the settings file; false when it couldn't.</param>
+  /// <param name="editLayout">Opens the overlay editor.</param>
+  /// <param name="visibility">The window was shown or hidden.</param>
+  public SettingsPanel(
+    ElementSettings settings,
+    TMP_FontAsset font,
+    Action apply,
+    Func<bool> save,
+    Action editLayout,
+    Action<bool> visibility,
+    SettingsFeatures features
+  )
+  {
+    _settings = settings;
+    settings.Gameplay.Normalize();
+    settings.Effects.Normalize();
+    _apply = apply;
+    _save = save;
+    _editLayout = editLayout;
+    _visibility = visibility;
+    _font = font;
+    _features = features;
+    _root = new GameObject("Element Settings", typeof(RectTransform));
+    if (UnityEngine.Application.isPlaying)
+      Object.DontDestroyOnLoad(_root);
+    _canvas = _root.AddComponent<Canvas>();
+    _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+    _canvas.sortingOrder = 32760;
+    _root.AddComponent<GraphicRaycaster>();
+    Image scrim = new GameObject("Backdrop", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+    scrim.transform.SetParent(_root.transform, false);
+    scrim.color = new Color(0, 0, 0, .42f);
+    RectPeer.Stretch(scrim.rectTransform, 0, 0, 0, 0);
+    _window = (RectTransform)new GameObject("Settings window", typeof(RectTransform)).transform;
+    _window.SetParent(_root.transform, false);
+    _window.anchorMin = _window.anchorMax = _window.pivot = new Vector2(.5f, .5f);
+    _window.sizeDelta = new Vector2(DesignWidth, DesignHeight);
+    RoundedRect frame = _window.gameObject.AddComponent<RoundedRect>();
+    frame.Radius = 16;
+    frame.color = UiPalette.Background;
+    frame.SetStroke(new Color(.22f, .22f, .22f), 1);
+    CanvasGroup group = _window.gameObject.AddComponent<CanvasGroup>();
+    _windowMotion = _window.gameObject.AddComponent<SettingsWindowMotion>();
+    _windowMotion.Initialize(group, () => _settings.ReduceUiMotion);
+    Mount();
+    _root.SetActive(false);
+  }
+
+  /// <summary>Builds the window's screen: on first use, and again when the highlight color or motion setting changed.</summary>
+  private void Mount()
+  {
+    _model?.Dispose();
+    _model = new SettingsWindowViewModel(_settings, _features, Changed, _save, EditLayout, Close);
+    ElementBackend backend = new(new ElementTheme(UiFonts.Choose(_font), _settings.ReduceUiMotion));
+    _host = UiHost.Mount(_window, backend, new SettingsWindowView(_model));
+    _host.Root.Edited += _model.Changed;
+    _highlightVersion = UiTheme.Version;
+  }
+
+  public bool IsOpen => _root != null && _root.activeSelf;
 
   public void Open()
   {
@@ -46,14 +114,10 @@ internal sealed partial class SettingsPanel : IDisposable
     UnityModManagerNet.UnityModManager.UI.Instance?.ToggleWindow(false);
     EnsureEventSystem();
     _previousSelection = Selected();
+    if (_highlightVersion != UiTheme.Version)
+      Mount();
     SetVisible(true);
-    ClearFeedback();
-    ClearProfileMessages();
-    _ui.RefreshTheme();
-    _galleryUi?.RefreshTheme();
-    _profileGalleryUi?.RefreshTheme();
-    SelectPage(0);
-    UpdateShortcutLabel();
+    _model.Opened();
     FitWindow();
     _windowMotion.Show();
     EventSystem.current?.SetSelectedGameObject(null);
@@ -61,12 +125,12 @@ internal sealed partial class SettingsPanel : IDisposable
 
   public void Close()
   {
-    if (!CommitPopover())
-      return;
-    if (!IsOpen || !Commit())
+    if (!IsOpen || !_model.Save())
       return;
     CancelCapture();
     SetVisible(false);
+    foreach (SettingsPageModel page in _model.Pages)
+      page.Closed();
     _restoreSelectionFrame = Time.frameCount + 1;
   }
 
@@ -76,32 +140,37 @@ internal sealed partial class SettingsPanel : IDisposable
     SetVisible(false);
   }
 
-  private bool Commit()
+  /// <summary>Shows a preset applied from outside the window, such as by its shortcut.</summary>
+  public void RefreshPresets() => ElementUI.Runtime.Probe();
+
+  public void ShowSaveError() => _model.Save();
+
+  private void EditLayout()
   {
-    if (_save())
-      return true;
-    ShowSaveError();
-    return false;
+    HideForLayout();
+    _editLayout();
   }
 
-  public void ShowSaveError()
+  private void Changed()
   {
-    _feedback.text = L(
-      "설정을 저장하지 못했어요. 모드 폴더의 쓰기 권한을 확인하고 다시 닫아주세요.",
-      "Settings could not be saved. Check write permission for the mod folder, then close again."
-    );
-    _feedback.color = new Color(1, .66f, .53f);
-    _retrySave.gameObject.SetActive(true);
-    FitWindow();
+    _apply();
+    // The highlight color is drawn into the window; a new one needs the window
+    // built again, on the page the player was on.
+    if (_highlightVersion != UiTheme.Version)
+    {
+      int page = System.Array.IndexOf(_model.Pages, _model.Current);
+      Mount();
+      _model.Opened();
+      if (page > 0 && page < _model.Pages.Length)
+        _model.Show(_model.Pages[page]);
+      ElementUI.Runtime.Probe();
+    }
   }
 
   private void SetVisible(bool visible)
   {
     if (!visible)
-    {
-      HidePopover();
       EventSystem.current?.SetSelectedGameObject(null);
-    }
     _root.SetActive(visible);
     _visibility(visible);
     if (!visible && _ownedEventSystem != null)
@@ -121,18 +190,10 @@ internal sealed partial class SettingsPanel : IDisposable
         EventSystem.current.SetSelectedGameObject(_previousSelection);
       _restoreSelectionFrame = -1;
     }
-    SettingsShortcutField capturing = CapturingShortcut;
-    if (capturing != null)
-    {
-      capturing.Tick();
-      return;
-    }
-    if (_ignoredCapture)
-    {
-      TickIgnoredCapture();
-      return;
-    }
-    if (!IsTyping() && ShortcutPressed())
+    foreach (SettingsPageModel page in _model.Pages)
+      if (page.TickCapture())
+        return;
+    if (!IsTyping() && ShortcutPressed(_settings))
     {
       if (IsOpen)
         Close();
@@ -143,15 +204,14 @@ internal sealed partial class SettingsPanel : IDisposable
     if (!IsOpen)
       return;
     EnsureEventSystem();
-    SettleFocus();
     if (UnityEngine.Input.GetKeyDown(KeyCode.Escape))
     {
-      if (ProfileRenameTakesEscape() || DismissNewProfile() || DismissFontPopover() || DismissPopover())
+      if (_host.HandleEscape() || _model.Current.HandleEscape())
         return;
-      if (_page == 0)
+      if (_model.Current.Parent == null)
         Close();
       else
-        Back();
+        _model.Back.TryExecute();
       return;
     }
     if (UnityEngine.Input.GetKeyDown(KeyCode.Tab))
@@ -163,27 +223,16 @@ internal sealed partial class SettingsPanel : IDisposable
     }
     if (_screenWidth != Screen.width || _screenHeight != Screen.height)
       FitWindow();
-    if (_page == 6 && Time.unscaledTime >= _nextPlanetPreview)
-      RefreshPlanetPreview();
-    if (_page == ChatterPage)
-      RefreshChatterCount();
-    if (_page == ProfilesPage)
-      TickFontReplacements();
-    GameObject focused = Selected();
-    if (focused != _lastFocused)
-    {
-      _lastFocused = focused;
-      if (focused != null)
-        RevealControl(focused.transform, 8);
-    }
-    UIInteractionState.RestoreCursor();
+    _model.Current.Tick();
+    UiInputCapture.RestoreCursor();
   }
-
-  public bool ShortcutPressed() => ShortcutPressed(_settings);
 
   // Static so the runtime can watch the shortcut before the window is built.
   public static bool ShortcutPressed(ElementSettings settings) =>
     ShortcutKeys.Pressed(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
+
+  public static string ShortcutLabel(ElementSettings settings) =>
+    ShortcutKeys.Label(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
 
   public static bool IsTyping() => IsTyping(EventSystem.current);
 
@@ -195,10 +244,7 @@ internal sealed partial class SettingsPanel : IDisposable
 
   private static GameObject Selected() => Selected(EventSystem.current);
 
-  /// <summary>
-  /// The selected object, or null. A selection destroyed with its scene is
-  /// Unity's fake null, which <c>?.</c> lets through; it reads as none here.
-  /// </summary>
+  /// <summary>The selected object, or null; a selection destroyed with its scene reads as none.</summary>
   private static GameObject Selected(EventSystem events)
   {
     if (events == null)
@@ -207,111 +253,10 @@ internal sealed partial class SettingsPanel : IDisposable
     return selected != null ? selected : null;
   }
 
-  private SettingsShortcutField CapturingShortcut =>
-    _settingsShortcut?.Capturing == true ? _settingsShortcut
-    : _presetShortcut?.Capturing == true ? _presetShortcut
-    : null;
-
-  private string AssignSettingsShortcut(KeyCode key, KeyCode modifier)
-  {
-    EffectPreset owner = _settings.Effects.FindShortcut(key, modifier);
-    if (owner != null)
-      return ShortcutInUse(owner);
-    _settings.SettingsShortcutKey = key;
-    _settings.SettingsShortcutModifier = modifier;
-    Changed();
-    return null;
-  }
-
   private void CancelCapture()
   {
-    StopIgnoredCapture();
-    _settingsShortcut?.Cancel();
-    _presetShortcut?.Cancel();
-  }
-
-  private void UpdateShortcutLabel()
-  {
-    if (_settingsShortcut == null)
-      return;
-    _settingsShortcut.Refresh();
-    LayoutShortcutControls();
-  }
-
-  public static string ShortcutLabel(ElementSettings settings) =>
-    ShortcutKeys.Label(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
-
-  private static bool IsMac => ShortcutKeys.IsMac;
-
-  private void Changed()
-  {
-    _apply();
-    _ui.RefreshTheme();
-    _galleryUi?.RefreshTheme();
-    _profileGalleryUi?.RefreshTheme();
-  }
-
-  private void SelectPage(int index)
-  {
-    HidePopover();
-    CancelCapture();
-    if (_scroll.content != null)
-      _scrollPositions[_page] = _scroll.verticalNormalizedPosition;
-    _page = index;
-    for (int i = 0; i < _pages.Length; i++)
-      _pages[i].SetActive(i == index);
-    _scroll.content = (RectTransform)_pages[index].transform;
-    _title.text =
-      index == 0 ? L("설정", "Settings")
-      : index == 1 ? "Tweaks"
-      : index == 2 ? L("일반", "General")
-      : index == 3 ? "Effects"
-      : index == 4 ? L("에디터", "Editor tweaks")
-      : index == 5 ? L("판정 표시", "Judgment visuals")
-      : index == 6 ? L("행성", "Planets")
-      : index == ChatterPage ? L("채터 블로커", "Chatter blocker")
-      : index == ProfilesPage ? L("프로필", "Profiles")
-      : _editingPreset == null ? L("새 프리셋", "New preset")
-      : L("프리셋 편집", "Edit preset");
-    _back.gameObject.SetActive(index != 0);
-    FitWindow();
-    Canvas.ForceUpdateCanvases();
-    _scroll.StopMovement();
-    _scroll.verticalNormalizedPosition = _scrollPositions[index];
-    _lastFocused = null;
-    RefreshPlanetPreview();
-    if (index == 2)
-      RefreshUpdateRow();
-  }
-
-  private void Back()
-  {
-    if (!CommitPopover())
-      return;
-    int previous = _page;
-    if (previous == 7)
-    {
-      SelectPage(3);
-      return;
-    }
-    if (previous == ProfilesPage)
-    {
-      SelectPage(2);
-      if (_profileLink != null)
-        EventSystem.current?.SetSelectedGameObject(_profileLink.gameObject);
-      return;
-    }
-    if (previous >= 4)
-    {
-      SelectPage(1);
-      return;
-    }
-    SelectPage(0);
-    int card =
-      previous == 2 ? 3
-      : previous == 3 ? 2
-      : 1;
-    EventSystem.current?.SetSelectedGameObject(_homeCards[card].gameObject);
+    foreach (SettingsPageModel page in _model.Pages)
+      page.CancelCapture();
   }
 
   private void EnsureEventSystem()
@@ -331,9 +276,7 @@ internal sealed partial class SettingsPanel : IDisposable
 
   private void MoveFocus()
   {
-    Selectable[] controls = (
-      _planetPicker?.Visible == true ? _planetPicker.Root.gameObject : _root
-    ).GetComponentsInChildren<Selectable>(false);
+    Selectable[] controls = _window.GetComponentsInChildren<Selectable>(false);
     List<Selectable> active = new();
     foreach (Selectable control in controls)
       if (control.IsInteractable())
@@ -342,45 +285,33 @@ internal sealed partial class SettingsPanel : IDisposable
       return;
     GameObject selected = EventSystem.current?.currentSelectedGameObject;
     int current = active.FindIndex(x => x.gameObject == selected);
-    int next =
-      (
-        current
-        + (UnityEngine.Input.GetKey(KeyCode.LeftShift) || UnityEngine.Input.GetKey(KeyCode.RightShift) ? -1 : 1)
-        + active.Count
-      ) % active.Count;
+    int next = (current + (UiModifierKeys.Shift ? -1 : 1) + active.Count) % active.Count;
     EventSystem.current?.SetSelectedGameObject(active[next].gameObject);
-    RevealControl(active[next].transform, 8);
   }
 
-  private void RevealControl(Transform control, float margin)
+  private void FitWindow() => Resize(Screen.width, Screen.height);
+
+  /// <summary>Sizes the window for a screen of <paramref name="pixelWidth"/> × <paramref name="pixelHeight"/>.</summary>
+  internal void Resize(int pixelWidth, int pixelHeight)
   {
-    if (!control.IsChildOf(_pages[_page].transform))
-      return;
-    Canvas.ForceUpdateCanvases();
-    Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(_viewport, control);
-    Rect view = _viewport.rect;
-    float delta =
-      bounds.min.y - margin < view.yMin ? view.yMin - bounds.min.y + margin
-      : bounds.max.y + margin > view.yMax ? view.yMax - bounds.max.y - margin
-      : 0;
-    Vector2 position = _scroll.content.anchoredPosition;
-    position.y = Mathf.Clamp(position.y + delta, 0, Mathf.Max(0, _scroll.content.rect.height - view.height));
-    _scroll.StopMovement();
-    _scroll.content.anchoredPosition = position;
+    _screenWidth = pixelWidth;
+    _screenHeight = pixelHeight;
+    float scale = Mathf.Clamp(pixelHeight / 1000f, 1f, 2f);
+    _canvas.scaleFactor = scale;
+    float width = Mathf.Max(280, Mathf.Min(DesignWidth, pixelWidth / scale - 32));
+    float height = Mathf.Max(240, Mathf.Min(DesignHeight, pixelHeight / scale - 32));
+    _window.sizeDelta = new Vector2(width, height);
+    _model?.Resized(width);
+    // Unity tells the host about the new size only in play mode; say it directly.
+    _host?.Root.Resize(new ElementUI.Size(width, height));
   }
 
   public void Dispose()
   {
+    _model?.Dispose();
     _root.SetActive(false);
     Object.Destroy(_root);
     if (_ownedEventSystem != null)
       Object.Destroy(_ownedEventSystem);
-    _ui.Dispose();
-    _planetPicker?.Dispose();
-    _galleryUi?.Dispose();
-    _profileGalleryUi?.Dispose();
-    _fontRowsUi?.Dispose();
-    _fontPopover?.Dispose();
-    _fontPopoverUi?.Dispose();
   }
 }

@@ -420,10 +420,11 @@ pub(super) fn main_window_content_origin(app: &AppHandle) -> Option<LogicalPoint
 /// 오른쪽 자리가 모자라면 왼쪽, 양쪽 다 모자라면 작업 영역 안으로 밀어 넣는다
 pub(super) fn panel_position_beside_main(
     main: &NativeRect,
+    panel_width: f64,
     panel_height: f64,
     work_area: &MonitorSpec,
 ) -> OverlayPosition {
-    let panel_width_native = work_area.logical_length_to_native(PANEL_WIDTH);
+    let panel_width_native = work_area.logical_length_to_native(panel_width);
     let panel_height_native = work_area.logical_length_to_native(panel_height);
     let gap_native = work_area.logical_length_to_native(PANEL_BESIDE_GAP);
     let right_x = main.x + main.width + gap_native;
@@ -449,6 +450,7 @@ pub(super) fn panel_position_beside_main(
 
 pub(super) struct PanelWindowLayout {
     pub(super) position: Option<OverlayPosition>,
+    pub(super) width: f64,
     pub(super) height: f64,
     pub(super) min_height: f64,
     pub(super) max_height: f64,
@@ -486,14 +488,23 @@ pub(super) fn resolve_panel_window_layout(
         .or(fallback_height)
         .unwrap_or(PANEL_INITIAL_HEIGHT);
     let height = requested_height.clamp(min_height, max_height);
+    let available_width = target_monitor
+        .map(|monitor| monitor.native_length_to_logical(monitor.work_rect_native.width))
+        .unwrap_or(PANEL_FALLBACK_MAX_HEIGHT);
+    let width = stored_bounds
+        .map(|bounds| bounds.width)
+        .filter(|width| width.is_finite() && *width > 0.0)
+        .unwrap_or(PANEL_WIDTH)
+        .clamp(PANEL_MIN_WIDTH.min(available_width), available_width);
     // 위치는 열 때마다 메인 창 옆으로 다시 잡는다 - 저장된 x/y는 이동 기록으로만 남고 복원에 쓰지 않음.
     // 메인 좌표를 못 읽으면 OS 기본 배치에 맡긴다
     let position = main_rect
         .zip(target_monitor)
-        .map(|(rect, monitor)| panel_position_beside_main(&rect, height, monitor));
+        .map(|(rect, monitor)| panel_position_beside_main(&rect, width, height, monitor));
 
     PanelWindowLayout {
         position,
+        width,
         height,
         min_height,
         max_height,

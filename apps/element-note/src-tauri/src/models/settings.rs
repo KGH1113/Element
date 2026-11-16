@@ -66,13 +66,14 @@ pub struct SettingsState {
     #[serde(default)]
     pub custom_js: CustomJs,
     pub overlay_resize_anchor: OverlayResizeAnchor,
-    #[serde(default)]
+    /// Legacy wire field; the master switch has been retired.
+    #[serde(default = "default_true")]
     pub key_counter_enabled: bool,
     #[serde(default)]
     pub grid_settings: GridSettings,
     #[serde(default)]
     pub shortcuts: ShortcutsState,
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub obs_mode_enabled: bool,
     #[serde(default = "default_true")]
     pub key_limiter_enabled: bool,

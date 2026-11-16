@@ -20,7 +20,7 @@ PS
 (cd "$ELEMENT_PROJECT_ROOT" && windows_upload "$WINDOWS_REMOTE_DIR/src" "${WINDOWS_WEBVIEW_SOURCES[@]}")
 windows_powershell <<PS
 \$dir = Join-Path \$HOME '$WINDOWS_REMOTE_DIR'
-& (Join-Path \$dir 'src/build-game-webview.ps1') -Source (Join-Path \$dir 'src') -Output (Join-Path \$dir 'out')
+& (Join-Path \$dir 'src/game-webview-windows.ps1') -Source (Join-Path \$dir 'src') -Output (Join-Path \$dir 'out')
 PS
 # A new library has not passed the smoke probe yet.
 rm -f "$WINDOWS_WEBVIEW_VERIFIED"

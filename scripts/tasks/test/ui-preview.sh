@@ -7,24 +7,16 @@ if [[ -e "$fixture" ]]; then
   printf 'A UI preview fixture already exists: %s\n' "$fixture" >&2
   exit 1
 fi
-backup="$(mktemp -d "${TMPDIR:-/tmp}/element-ui-preview.XXXXXX")"
-preserved=(
-  "Assembly-CSharp-Editor.csproj"
-  "Assembly-CSharp.csproj"
-  "Element.Unity.slnx"
-  "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
-)
-for i in "${!preserved[@]}"; do
-  file="$ELEMENT_UNITY_PROJECT/${preserved[$i]}"
-  if [[ -f "$file" ]]; then cp -p "$file" "$backup/$i"; fi
-done
+# TextMesh Pro writes the glyphs it drew into its fallback font asset; the
+# committed one comes back afterwards. Unity's C# project files are not
+# committed, so it may rewrite them freely.
+fallback="$ELEMENT_UNITY_PROJECT/Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset"
+backup="$(mktemp "${TMPDIR:-/tmp}/element-ui-preview.XXXXXX")"
+cp -p "$fallback" "$backup"
 cleanup() {
   rm -rf "$fixture" "$fixture.meta"
-  for i in "${!preserved[@]}"; do
-    file="$ELEMENT_UNITY_PROJECT/${preserved[$i]}"
-    if [[ -f "$backup/$i" ]]; then cp -p "$backup/$i" "$file"; else rm -f "$file"; fi
-  done
-  rm -rf "$backup"
+  cp -p "$backup" "$fallback"
+  rm -f "$backup"
 }
 trap cleanup EXIT
 mkdir -p "$fixture/Editor" "$ELEMENT_PROJECT_ROOT/build/ui-preview"

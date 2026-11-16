@@ -31,7 +31,7 @@ using ElementKit.Values;
 
 public static class MyValues
 {
-    public static readonly ValueGroup Group = new("내 모드", "My mod");   // 값 목록의 제목
+    public static readonly ValueGroup Group = new("내 모드", "My mod");   // 값들의 제목
     public static readonly NumberValue Streak = Group.Number("streak", "연속", "Streak", sample: 12);
     public static readonly TextValue Hand = Group.Text("hand", "지금 손", "Hand", sample: "왼손");
 }
@@ -47,6 +47,8 @@ MyValues.Streak.Set(streak);
 ```
 
 키(`"streak"`)는 텍스트에 저장되므로 공개한 뒤에는 바꾸지 않습니다.
+
+편집기의 값 목록에는 모드가 UMM에 보이는 이름으로 한 줄 들어가고, `ValueGroup`은 그 안에서 값들의 제목이 됩니다. 그룹을 여러 개 만들어도 목록의 줄은 하나입니다.
 
 ## 오버레이 요소와 편집 화면 더하기
 

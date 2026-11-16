@@ -332,11 +332,13 @@ namespace Element.Editor
         mods2.Escape();
         Next();
         Assert(mods2.IsOpen && Column().OpenTool == null && Shown(Column().Root), "Esc closes the tool before the editor, and the rows come back");
+        SettlePreview(mods2);
 
         // Tab 2: words, a font, a list of choices, several choices and a list of words.
         Press(Option(L("내용", "Content")));
         Settle();
         CheckVisibleParts(mods2, name, "content");
+        SaveFrame(camera, texture, canvases, name + "-mod-editor-content");
         TMP_InputField title = ByName<TMP_InputField>(Column().Root, "Text " + L("제목", "Title"));
         title.text = "Hello";
         Assert(Working().Contains("\"Title\":\"Hello\""), "a text field changes the setting as it is typed");
@@ -368,6 +370,7 @@ namespace Element.Editor
         SaveFrame(camera, texture, canvases, name + "-mod-editor-font");
         Call(mods2, "ClosePopovers");
         Next();
+        SettlePreview(mods2);
         Press(Find("List add"));
         Assert(Working().Contains("\"Words\":[\"44\",\"32\",\"new\"]"), "a list adds an item: " + Working());
         Next();
@@ -594,6 +597,7 @@ namespace Element.Editor
       mods.Escape();
       Next();
       Assert(column.OpenTool == null && mods.IsOpen, "Esc closes the tool first");
+      SettlePreview(mods);
       Press(Row("Shortcut " + L("숨기기 키", "Hide key")));
       AssertModTool(mods, column, L("숨기기 키", "Hide key"));
       PressToolBack(mods, column);
@@ -683,6 +687,14 @@ namespace Element.Editor
       Call(editor, "ApplyPending");
       Settle();
       Assert(column.OpenTool == null && Shown(column.Root), "back brings the rows again");
+      SettlePreview(editor);
+    }
+
+    // The preview glides back beside the column; the fixture's clock stands still, so it arrives at once.
+    private static void SettlePreview(OverlayModEditor editor)
+    {
+      Field<OverlayGlide>(editor, "_space").Snap();
+      Call(editor, "FitPreview");
     }
 
     private static string PathOf(Transform transform)

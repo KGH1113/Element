@@ -29,6 +29,8 @@ internal sealed class ModColumnStyle : ControlStyle
   private const float ControlHeight = 30,
     NumberWidth = 72,
     SliderMinWidth = 64,
+    SliderWidth = 120,
+    NumberRoom = 40,
     StepSide = 26,
     SegmentPadding = 28;
 
@@ -76,16 +78,18 @@ internal sealed class ModColumnStyle : ControlStyle
       .Named((toggle.Appearance == ToggleAppearance.Checkbox ? "Checkbox " : "Switch ") + toggle.Label);
   }
 
+  // Tracks are one length, so they line up down the column; one beside a long name is shorter.
   public override View Slider(SliderConfiguration slider)
   {
     Binding<float> value = slider.Value;
     View track = slider
       .Track()
       .Named("Slider " + slider.Label)
-      .Frame(minWidth: SliderMinWidth, maxWidth: float.PositiveInfinity);
-    View number = Readout(value, slider.Step, slider);
+      .Frame(width: TrackWidth(slider.Label, slider.ShowsValue ? NumberRoom : 0));
     return Plate(
-      slider.ShowsValue ? Row.Filled(null, Name(slider), track, number) : Row.Filled(null, Name(slider), track)
+      slider.ShowsValue
+        ? Row.Of(null, Name(slider), false, track, Readout(value, slider.Step, slider))
+        : Row.Of(null, Name(slider), false, track)
     );
   }
 
@@ -94,7 +98,7 @@ internal sealed class ModColumnStyle : ControlStyle
     View track = range
       .Track()
       .Named("Range slider " + range.Label)
-      .Frame(minWidth: SliderMinWidth, maxWidth: float.PositiveInfinity);
+      .Frame(width: TrackWidth(range.Label, NumberRoom * 2));
     View numbers = HStack(
         spacing: 3,
         Number(range.Low, range.Step, range),
@@ -102,7 +106,7 @@ internal sealed class ModColumnStyle : ControlStyle
         Number(range.High, range.Step, range)
       )
       .Padding(new Insets(0, 10, 0, 0));
-    return Plate(Row.Filled(null, Name(range), track, numbers));
+    return Plate(Row.Of(null, Name(range), false, track, numbers));
   }
 
   public override View Stepper(StepperConfiguration stepper)
@@ -279,6 +283,10 @@ internal sealed class ModColumnStyle : ControlStyle
       foreach (TMPro.TextMeshProUGUI label in control.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
         label.fontSize = 13;
     });
+
+  // A track's length: the column's own unless the name beside it needs the room.
+  private float TrackWidth(string label, float numbers) =>
+    Mathf.Clamp(RoomBeside(label) - numbers, SliderMinWidth, SliderWidth);
 
   // The room a row leaves right of its name.
   private float RoomBeside(string label) => _column.Area.width - 24 - Row.LeadWidth - 8 - _measure(label ?? "") - 12;

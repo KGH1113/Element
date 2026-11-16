@@ -97,6 +97,12 @@ internal sealed class OverlayInputDock
   /// <summary>What the dock edits from now on; null to rest.</summary>
   public void Edit(string owner) => Model.Edit(owner);
 
+  /// <inheritdoc cref="OverlayInputDockModel.Picking"/>
+  public bool Picking => Model.Picking;
+
+  /// <inheritdoc cref="OverlayInputDockModel.PickFor"/>
+  public void PickFor(Action<OverlayValueDefinition> picked) => Model.PickFor(picked);
+
   /// <summary>
   /// Shows <paramref name="name"/> and the formula <paramref name="editing"/>
   /// types, with <paramref name="result"/> (already in its unit) on the right;

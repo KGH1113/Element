@@ -14,6 +14,10 @@ namespace Element.Configuration.Overlay;
 // stop's, so a version without gradients still shows a sensible solid color.
 // Highlight then applies to the whole gradient: every stop is the highlight
 // color and only their opacities differ.
+//
+// With ValueColor, the color follows a live value instead, and everything
+// above is what shows while that value has no data. Turning it off brings
+// that color back as it was.
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayColorSettings
@@ -26,7 +30,12 @@ public sealed class OverlayColorSettings
   /// <summary>Null for a solid color.</summary>
   public OverlayGradient Gradient;
 
+  /// <summary>Null unless the color follows a live value.</summary>
+  public OverlayValueColor ValueColor;
+
   public bool IsGradient => Gradient != null && Gradient.Stops != null && Gradient.Stops.Count > 1;
+
+  public bool FollowsValue => ValueColor != null;
 
   public static OverlayColorSettings HighlightColor(float alpha = 1f) => new() { Highlight = true, Alpha = alpha };
 
@@ -40,6 +49,7 @@ public sealed class OverlayColorSettings
       Alpha = Alpha,
       AlphaFormula = AlphaFormula ?? string.Empty,
       Gradient = IsGradient ? Gradient.Clone() : null,
+      ValueColor = ValueColor?.Clone(),
     };
 
   public bool SameAs(OverlayColorSettings other) =>
@@ -50,7 +60,8 @@ public sealed class OverlayColorSettings
       IsGradient
         ? Gradient.SameAs(other.Gradient, Highlight)
         : Alpha == other.Alpha && SameFormula(AlphaFormula, other.AlphaFormula) && (Highlight || Hex == other.Hex)
-    );
+    )
+    && OverlayValueColor.Same(ValueColor, other.ValueColor);
 
   internal static bool SameFormula(string a, string b) => (a ?? string.Empty) == (b ?? string.Empty);
 }

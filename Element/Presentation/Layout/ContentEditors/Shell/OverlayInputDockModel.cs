@@ -36,6 +36,7 @@ internal sealed class OverlayInputDockModel : ViewModel
     _resultLine;
   private bool _typing;
   private int _drop;
+  private Action<OverlayValueDefinition> _pickFor;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
   /// <param name="press">A key typed: a digit, the point, an operator or '\b'.</param>
@@ -60,7 +61,7 @@ internal sealed class OverlayInputDockModel : ViewModel
     _move = move;
     _end = end;
     Keypad = Own(new OverlayKeypadModel(press, clear, done));
-    Values = Own(new OverlayValueBrowserModel(values, pick));
+    Values = Own(new OverlayValueBrowserModel(values, value => (_pickFor ?? pick)(value)));
   }
 
   public readonly OverlayKeypadModel Keypad;
@@ -98,6 +99,16 @@ internal sealed class OverlayInputDockModel : ViewModel
 
   /// <summary>What the dock edits from now on; null to rest.</summary>
   public void Edit(string owner) => Owner = owner;
+
+  /// <summary>A value clicked goes to a pick, not where clicks usually send it.</summary>
+  public bool Picking => _pickFor != null;
+
+  /// <summary>
+  /// The values clicked from now on go to <paramref name="picked"/> instead
+  /// (into a text, a formula), as when something asks which value to use;
+  /// null sends them back.
+  /// </summary>
+  public void PickFor(Action<OverlayValueDefinition> picked) => _pickFor = picked;
 
   /// <summary>
   /// Shows <paramref name="name"/> and the formula <paramref name="editing"/>

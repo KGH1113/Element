@@ -51,6 +51,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private readonly TextGradient _gradient;
   private readonly TextColor _color;
   private readonly TextFonts _fonts;
+  private readonly TextValueColor _valueColor;
   private readonly TextAnimate _animate;
   private readonly OverlayGrowFrom _grow;
 
@@ -87,12 +88,13 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, _text, _formulas, _preview, values);
     _color = new TextColor(this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
-    _formulas.Use(_size, _color, _gradient);
+    _valueColor = new TextValueColor(this, _text, _formulas, _color, values);
+    _formulas.Use(_size, _color, _gradient, _valueColor, () => _animate.Visible);
     _fonts = new TextFonts(this, _text, _color);
-    _animate = new TextAnimate(this, _text, _color, _preview);
+    _animate = new TextAnimate(this, _text, _color, _preview, _valueColor);
     _grow = new OverlayGrowFrom(CloseOpen, Render);
     _drops = new TextValueDrops(this, _text, _formulas, _map, _marks, _size, _color, _gradient);
-    _pointer = new TextPointer(this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _drops);
+    _pointer = new TextPointer(this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate, _drops);
     _keyboard = new TextKeyboard(this, _text, _formulas, _map, _preview);
   }
 
@@ -179,9 +181,11 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     BuildInspector();
     _fonts.Build(_screen, _element.Fonts, _reduceMotion());
     _grow.Build(_screen, _inspector);
+    _animate.Build(_screen, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
+    _popovers.Add(_valueColor.Menu);
   }
 
   // A row per property in the column above the keypad: the font, the size,
@@ -202,26 +206,30 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       _grow.BuildButton()
     );
 
-  // The column's back row: the rows come back.
+  // The column's back row: the rows come back, with whatever the tool had open.
   private void CloseTool()
   {
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
+    _animate.Hide();
     CloseOpen();
     Render();
   }
 
-  // Where the open tool is drawn; its back row lines up with it.
+  // Where the open tool is drawn; its back row lines up with it. A picker
+  // the Animate tool opened beside the column belongs to that tool.
   private RectTransform OpenToolRoot() =>
-    _color.Picker.Visible ? _color.Picker.Root
+    _animate.Visible ? _animate.Root
+    : _color.Picker.Visible ? _color.Picker.Root
     : _fonts.Visible ? _fonts.Popover.Root
     : _grow.Visible ? _grow.Popover.Root
     : null;
 
   // What the column has open, as its back row names it; null while it shows the rows.
   private string OpenTool() =>
-    _color.Picker.Visible ? _color.Title
+    _animate.Visible ? _animate.Title
+    : _color.Picker.Visible ? _color.Title
     : _fonts.Visible ? _fonts.Title
     : _grow.Visible ? _grow.Button.Label
     : null;
@@ -319,6 +327,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
         mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Value));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
+      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.ValueColor?.Value));
     }
     return mask | _preview.GradientMask;
   }
@@ -334,15 +343,30 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _bottomTop = _dock.Top;
     // The text keeps to the space left of the property column, or of an open
     // picker; it glides aside as the picker opens, and back as it closes.
-    _space.Measure(_screen, _color.Picker, _dock, _inspector, _reduceMotion(), out float left, out float right);
+    _space.Measure(
+      _screen,
+      _color.Picker,
+      _dock,
+      _inspector,
+      _reduceMotion(),
+      out float left,
+      out float right,
+      _color.Reach(_inspector)
+    );
+    // While a stop's color is picked, the text wears it.
+    _preview.Pinned = _valueColor.PreviewNumber;
     _preview.Draw(left, right, OverlayEditorFrame.TopBar + 32, _bottomTop - 40, _screen.Scale, _elementScale);
     _map.Map();
     _marks.PlaceCaret();
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
     ShowFields();
     _color.ShowSwatch();
-    _color.Place(_dock, _inspector.ToolTop);
-    _gradient.Show();
+    _color.Place(_dock, _inspector);
+    // The picker on a stop of a color that follows a value isn't the range's own color.
+    if (_color.PicksOther)
+      _gradient.Handles.Hide();
+    else
+      _gradient.Show();
     _fonts.Place(_dock, _inspector.ToolTop);
     _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
@@ -379,6 +403,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private void CloseOpen()
   {
     _formulas.Close();
+    _valueColor.Disarm();
     _dock?.Edit(null);
     _popovers.CloseAll();
   }
@@ -391,6 +416,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       _dock.Contains(screen)
       || _popovers.Contains(screen)
       || _inspector.Contains(screen)
+      || _animate.Contains(screen)
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
     )
       return false;
@@ -405,12 +431,26 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     Render();
   }
 
-  /// <summary>Esc closes the picker first, then finishes like Done; only Cancel leaves without saving.</summary>
+  /// <summary>
+  /// Esc closes the picker first, then stops picking a value from the dock,
+  /// then closes the Animate tool, then finishes like Done; only Cancel
+  /// leaves without saving.
+  /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
+    else if (_valueColor.Armed)
+    {
+      _valueColor.Disarm();
+      Render();
+    }
+    else if (_animate.Visible)
+    {
+      _animate.Hide();
+      Render();
+    }
     else
       Close(true, true);
   }

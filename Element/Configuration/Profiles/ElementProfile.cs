@@ -16,4 +16,14 @@ public sealed class ElementProfile
   /// use, whose values are the live settings.
   /// </summary>
   public ProfileContent Content;
+
+  /// <summary>
+  /// What ElementNote shows the first time this profile is used, while it has
+  /// no key viewers of its own. Each profile's key viewers are ElementNote's,
+  /// kept in a file beside the settings while another profile is in use.
+  /// </summary>
+  public KeyViewersStart KeyViewersStart = KeyViewersStart.Current;
+
+  /// <summary>With <see cref="Profiles.KeyViewersStart.CopyOf"/>: the profile whose key viewers this one starts with.</summary>
+  public string KeyViewersCopyOf;
 }

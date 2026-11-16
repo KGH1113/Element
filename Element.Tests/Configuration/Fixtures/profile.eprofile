@@ -241,4 +241,5 @@
       </OverlayLayoutSettings>
     </OverlayLayouts>
   </Content>
+  <KeyViewers>KeyViewers</KeyViewers>
 </ElementProfile>

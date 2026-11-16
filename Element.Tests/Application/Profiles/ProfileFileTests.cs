@@ -142,7 +142,7 @@ internal static class ProfileFileTests
     service.Rename(service.Active.Id, "Stream: main?");
 
     dialogs.Next = FileDialogResult.Chosen(Path.Combine(directory, "stream"));
-    ProfileOutcome exported = service.Export(service.Active.Id, "Export");
+    ProfileOutcome exported = service.Export(service.Active.Id, "Export").Result;
     Check(
       exported.Ok && exported.Detail == "stream." + ProfileFile.Extension,
       "the extension is added: " + exported.Detail

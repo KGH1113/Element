@@ -1,113 +1,69 @@
 using System.Collections.Generic;
+using Element.Presentation.Layout.ContentEditors.Shell;
 using ElementUI;
 using UnityEngine;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
-/// A mod's <see cref="ModEditorPage"/> on screen: its parts in columns under
-/// the preview, centered, each part standing in the column the page put it
-/// in; and over them, the parts the mod placed with <c>At</c>. Cards and tab
-/// pages lay their parts out one under another.
+/// A mod's <see cref="ModEditorPage"/> in the property column: its parts one
+/// under another, as the column's rows; a card is a heading over its parts,
+/// a tab page shows while its tab is picked. The parts the mod placed with
+/// <c>At</c> stand over the screen instead (<see cref="Placed"/>).
 /// </summary>
 internal sealed class ModEditorPageView : View<ModEditorPage>
 {
   public ModEditorPageView(ModEditorPage page)
     : base(page) { }
 
-  public override View Body => Page(VM);
+  public override View Body => Stacked(VM.Items);
 
-  private static View Page(ModEditorPage page)
+  /// <summary>The parts the mod placed itself, each where it put it on the screen.</summary>
+  public static View Placed(ModEditorPage page)
   {
-    Rect flow = page.FlowArea;
-    List<View> layers = new()
-    {
-      Columns(page)
-        .Frame(width: flow.width, alignment: Alignment.Top)
-        .Padding(new Insets(flow.y, flow.x, 0, 0)),
-    };
+    List<View> layers = new();
     foreach (ModPart part in page.Placed)
     {
       Vector2 at = part.Position ?? Vector2.zero;
-      // In a stack, as in a column, it is as tall as it wants rather than the rest of the screen.
+      // In a stack it is as tall as it wants rather than the rest of the screen.
       layers.Add(
-        VStack(spacing: 0, InColumn(part)).Padding(new Insets(Mathf.Max(0, at.y), Mathf.Max(0, at.x), 0, 0))
+        VStack(spacing: 0, new ModPartView(part).Frame(width: part.FrameWidth, alignment: Alignment.TopLeading))
+          .Padding(new Insets(Mathf.Max(0, at.y), Mathf.Max(0, at.x), 0, 0))
       );
     }
     return ZStack(Alignment.TopLeading, layers.ToArray())
       .Frame(width: page.Size.x, height: page.Size.y, alignment: Alignment.TopLeading);
   }
 
-  // Only the columns in use take room, so the ones there are stay centered.
-  private static View Columns(ModEditorPage page)
+  /// <summary>A card: its title as a heading over its parts.</summary>
+  public static View Card(ModGroup card) => UI.Card(card.Title, Stacked(card.Children));
+
+  /// <summary>A tab's page: its parts, while its tab is picked.</summary>
+  public static View TabPage(ModGroup page) => Stacked(page.Children);
+
+  // Parts one under another, as wide as the column or as the mod made them; a tab page only while picked.
+  private static View Stacked(IReadOnlyList<ModPart> parts)
   {
-    View[] columns = new View[ModEditorPage.MaxColumns];
-    for (int i = 0; i < columns.Length; i++)
-    {
-      int index = i;
-      columns[i] = If(() => page.ColumnCount.Value > index, () => Column(page, index));
-    }
-    return HStack(spacing: ModEditorPage.ColumnGap, VAlignment.Top, columns);
-  }
-
-  // Every part that can flow has a place in every column; it shows in the one it stands in.
-  private static View Column(ModEditorPage page, int index)
-  {
-    IReadOnlyList<ModPart> parts = page.Flowing;
-    View[] places = new View[parts.Count];
-    for (int i = 0; i < places.Length; i++)
-    {
-      ModPart part = parts[i];
-      places[i] = If(() => part.Column.Value == index, () => InColumn(part));
-    }
-    return VStack(spacing: ModEditorPage.RowGap, HAlignment.Leading, places)
-      .Frame(width: ModEditorPage.ColumnWidth, alignment: Alignment.TopLeading);
-  }
-
-  private static View InColumn(ModPart part) =>
-    new ModPartView(part).Frame(width: part.FrameWidth, alignment: Alignment.TopLeading);
-
-  /// <summary>A card: its title, then its parts, on a raised surface.</summary>
-  public static View Card(ModGroup card)
-  {
-    List<View> rows = new();
-    if (!string.IsNullOrEmpty(card.Title))
-      rows.Add(UI.Text(card.Title).Font(Font.Caption.Bolded()).LineLimit(1));
-    rows.AddRange(Inside(card));
-    return VStack(spacing: ModEditorPage.RowGap, HAlignment.Leading, rows.ToArray())
-      .Padding(ModEditorPage.CardPadding)
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
-      .Background(Colors.Surface, 10, Colors.Line);
-  }
-
-  /// <summary>A tab's page inside a card or another page: its parts, while its tab is picked.</summary>
-  public static View TabPage(ModGroup page) =>
-    VStack(spacing: ModEditorPage.RowGap, HAlignment.Leading, Inside(page))
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
-
-  // A group's parts as wide as it is, or as the mod made them; a tab page only while picked.
-  private static View[] Inside(ModGroup group)
-  {
-    View[] rows = new View[group.Children.Count];
+    View[] rows = new View[parts.Count];
     for (int i = 0; i < rows.Length; i++)
     {
-      ModPart child = group.Children[i];
-      if (child is ModGroup { Tabs: not null } tab)
+      ModPart part = parts[i];
+      if (part is ModGroup { Tabs: not null } tab)
       {
         ModValue<int> pick = tab.Tabs.Pick;
         int index = tab.Index;
         rows[i] = If(() => pick.Value == index, () => Fitted(tab));
       }
       else
-        rows[i] = Fitted(child);
+        rows[i] = Fitted(part);
     }
-    return rows;
+    return VStack(spacing: OverlayInspectorRow.Gap, HAlignment.Leading, rows)
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
   }
 
   private static View Fitted(ModPart part) =>
     part.WidthOverride is float width
-      ? new ModPartView(part).Frame(width: width, alignment: Alignment.TopLeading)
+      ? new ModPartView(part).Frame(width: Mathf.Min(width, ModEditorColumn.Width), alignment: Alignment.TopLeading)
       : new ModPartView(part).Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 }

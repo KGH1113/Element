@@ -42,8 +42,12 @@ internal sealed class ModPreview
     set => _elementScale = value;
   }
 
-  /// <summary>The area the preview fits in (frame units).</summary>
-  public Rect Area => _area;
+  /// <summary>The area the preview fits in (frame units); the editor moves it as the room beside the column changes.</summary>
+  public Rect Area
+  {
+    get => _area;
+    set => _area = value;
+  }
 
   /// <summary>Its holder on the stage, in <paramref name="area"/>.</summary>
   public void BuildHolder(UiFactory ui, OverlayEditorFrame screen, Rect area, OverlayFonts fonts)

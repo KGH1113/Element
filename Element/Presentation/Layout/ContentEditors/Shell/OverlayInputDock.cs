@@ -1,5 +1,6 @@
 using System;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
 using TMPro;
@@ -10,11 +11,12 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// <summary>
 /// Where formulas are typed: a wide dock along the bottom of an editor, always
 /// there, with no card behind it. One full-width line shows what is edited,
-/// its formula with values as chips, and the result; below it every value is
-/// laid out by category beside a large keypad. With nothing being edited the
-/// line says what to do and the keypad rests. Editors keep their preview
-/// above it. A panel on the editor's frame shows <see cref="OverlayInputDockView"/>;
-/// this places it and answers where its parts are.
+/// its formula with values as chips, and the result; below it the values (a
+/// search and a list of places beside the open place's chips) sit beside a
+/// large keypad. With nothing being edited the line says what to do and the
+/// keypad rests. Editors keep their preview above it. A panel on the editor's
+/// frame shows <see cref="OverlayInputDockView"/>; this places it and answers
+/// where its parts are.
 /// </summary>
 internal sealed class OverlayInputDock
 {
@@ -22,8 +24,12 @@ internal sealed class OverlayInputDock
 
   private readonly ScreenPanel _panel;
   private readonly OverlayFormulaLine _line;
+  private readonly OverlayInputDockView _view;
   private readonly float _width;
+  private bool _typing;
+  private int _typedFrame = -1;
 
+  /// <param name="values">What the overlay shows now, for the values' chips.</param>
   /// <param name="press">A key typed: a digit, the point, an operator or '\b'.</param>
   /// <param name="clear">AC.</param>
   /// <param name="done">Done.</param>
@@ -34,6 +40,7 @@ internal sealed class OverlayInputDock
   public OverlayInputDock(
     OverlayEditorFrame screen,
     Func<bool> reduceMotion,
+    OverlayValues values,
     Action<char> press,
     Action clear,
     Action done,
@@ -43,7 +50,7 @@ internal sealed class OverlayInputDock
     Action<Vector2> end
   )
   {
-    Model = new OverlayInputDockModel(press, clear, done, pick, begin, move, end);
+    Model = new OverlayInputDockModel(values, press, clear, done, pick, begin, move, end);
     _width = screen.ContentWidth;
     float height = OverlayFormulaLine.Height + OverlayInputDockView.LineGap + OverlayKeypadView.Height;
     Top = screen.Height - BottomGap - height;
@@ -52,12 +59,8 @@ internal sealed class OverlayInputDock
     screen.Top.InDock = true;
     _line = new OverlayFormulaLine(Model);
     _panel = screen.Panel("Input dock", Color.clear);
-    _panel.Mount(
-      screen.NewBackend(),
-      new OverlayInputDockView(Model, screen.Top, _line, _width, CategoryColumn(Model, screen.Measure), reduceMotion()),
-      Model,
-      _width
-    );
+    _view = new OverlayInputDockView(Model, screen.Top, _line, _width, Measurer(screen.Measure), reduceMotion());
+    _panel.Mount(screen.NewBackend(), _view, Model, _width);
     // The notice line sits above the formula line; Top stays the formula line's.
     Root.anchoredPosition = new Vector2(Left, -(Top - OverlayInputDockView.NoticeHeight));
   }
@@ -104,6 +107,37 @@ internal sealed class OverlayInputDock
 
   public void Blink(bool visible) => Model.Blink(visible);
 
+  /// <summary>
+  /// Once a frame: the chips in view take what their values read now, a few
+  /// times a second, and a part of the values shown for the first time gets
+  /// its pointer.
+  /// </summary>
+  public void Tick()
+  {
+    Model.Values.Follow(Time.unscaledTime);
+    _panel.Sync();
+  }
+
+  /// <summary>
+  /// The value search has the keyboard: the editor leaves keys and the input
+  /// method to it. Still true the frame it lets go (Esc, Enter, a click
+  /// elsewhere), so the key that ended it does nothing more.
+  /// </summary>
+  public bool IsTyping
+  {
+    get
+    {
+      TMP_InputField search = _view.Values.SearchField;
+      bool typing = search != null && search.isFocused;
+      if (typing != _typing)
+      {
+        _typing = typing;
+        _typedFrame = Time.frameCount;
+      }
+      return typing || _typedFrame == Time.frameCount;
+    }
+  }
+
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
   /// <summary>The formula line, where a dropped value joins the formula.</summary>
@@ -113,15 +147,14 @@ internal sealed class OverlayInputDock
   /// <summary>0 nothing, 1 a dragged value can join here, -1 it can't.</summary>
   public void SetDrop(int state) => Model.SetDrop(state);
 
-  // The category names' column: as wide as the widest name, and a gap.
-  private static float CategoryColumn(OverlayInputDockModel model, TextMeshProUGUI measure)
-  {
-    float column = 0;
-    float size = measure.fontSize;
-    measure.fontSize = 13;
-    foreach (ValueSection section in model.Sections)
-      column = Mathf.Max(column, Mathf.Ceil(measure.GetPreferredValues(section.Name).x));
-    measure.fontSize = size;
-    return column + 24;
-  }
+  // How wide words are at the dock's 13-unit size.
+  private static Func<string, float> Measurer(TextMeshProUGUI measure) =>
+    text =>
+    {
+      float size = measure.fontSize;
+      measure.fontSize = 13;
+      float width = Mathf.Ceil(measure.GetPreferredValues(text).x);
+      measure.fontSize = size;
+      return width;
+    };
 }

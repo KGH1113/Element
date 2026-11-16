@@ -171,6 +171,10 @@ internal sealed class UiIcon : UiVectorGraphic
         Line(mesh, 6, 6, 18, 18);
         Line(mesh, 18, 6, 6, 18);
         break;
+      case UiIconKind.Search:
+        Arc(mesh, 10.5f, 10.5f, 6.5f, 0, 360);
+        Line(mesh, 15.3f, 15.3f, 20, 20);
+        break;
       case UiIconKind.Delete:
         Line(mesh, 4, 6, 20, 6);
         Line(mesh, 9, 6, 9, 3);

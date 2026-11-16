@@ -33,6 +33,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
+  private readonly OverlayValues _values;
   private readonly OverlayLiveValues _live;
   private readonly OverlayPreviewSpace _space = new();
   private readonly OverlayEditorHistory<OverlayShapeSettings> _history;
@@ -62,6 +63,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _parent = parent;
     _font = font;
     _reduceMotion = reduceMotion;
+    _values = values;
     _live = new OverlayLiveValues(values);
     _history = new OverlayEditorHistory<OverlayShapeSettings>(() => _shape.Clone(), Restore);
     _preview = new ShapePreview(values);
@@ -143,6 +145,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _dock = new OverlayInputDock(
       _screen,
       _reduceMotion,
+      _values,
       _numbers.KeypadPress,
       _numbers.ClearFormula,
       _numbers.FinishEditing,
@@ -201,6 +204,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       Render();
     }
     _screen.Tick();
+    _dock.Tick();
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
     {
@@ -209,7 +213,9 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       return;
     }
     _input.HandleMouse();
-    _input.HandleKeys();
+    // The dock's value search has the keys while it is focused.
+    if (!_dock.IsTyping)
+      _input.HandleKeys();
     if (_screen == null)
       return;
     FollowLiveValues();

@@ -132,12 +132,16 @@ internal sealed class ElementNoteNativeViewers : IKeyViewerElements, IInGameKeyV
   public void SetEditorExclusions(IReadOnlyList<LayoutExclusion> screenTopLeftPixels) =>
     _host.ExcludeEditor(screenTopLeftPixels);
 
-  public void SetActive(bool active)
+  // Ready keeps the session and its pages, hidden, so a play only shows them:
+  // loading them when the play starts showed them late on slow PCs.
+  public void SetPresence(KeyViewerPresence presence)
   {
+    bool loaded = presence != KeyViewerPresence.Off;
     if (!_disposed)
-      _session.SetActive(active, DateTime.UtcNow);
-    if (!active)
+      _session.SetActive(loaded, DateTime.UtcNow);
+    if (!loaded)
       _host.ForgetSurfaces();
+    _host.SetShown(presence == KeyViewerPresence.Shown);
   }
 
   // Called on Unity's main thread; IPC callbacks never access AppKit.
@@ -177,7 +181,7 @@ internal sealed class ElementNoteNativeViewers : IKeyViewerElements, IInGameKeyV
     EnabledChanged?.Invoke();
     if (!HasEnabledViewers)
     {
-      SetActive(false);
+      SetPresence(KeyViewerPresence.Off);
       _host.Close();
       return;
     }

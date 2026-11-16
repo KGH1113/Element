@@ -6,7 +6,7 @@ namespace Element.Application.Gameplay;
 /// <summary>
 /// When the overlay and the in-game key viewers show, and what applying settings
 /// redoes. Record mode and co-op keep both hidden; the layout editor shows the key
-/// viewers outside a play too.
+/// viewers outside a play too. Between plays the key viewers wait loaded and hidden.
 /// </summary>
 internal sealed class GameplaySession
 {
@@ -81,11 +81,18 @@ internal sealed class GameplaySession
   /// <summary>The key viewers follow the play going on now, or the layout editor.</summary>
   public void RefreshViewers() => RefreshViewers(_play.IsInGameWorld);
 
+  // The pages stay loaded between plays, even in co-op, so starting or restarting
+  // a play only shows them. Record mode keeps them out unless the editor needs them.
   private void RefreshViewers(bool gameplay)
   {
     bool editing = _editingLayout();
-    bool enabled = _viewers.Supported && _viewers.HasEnabledViewers && (editing || ShowsKeyViewersInPlay);
-    _viewers.SetActive(enabled && (gameplay || editing));
+    bool ready = _viewers.Supported && _viewers.HasEnabledViewers && (editing || !IsRecording);
+    bool shown = editing || (gameplay && ShowsKeyViewersInPlay);
+    _viewers.SetPresence(
+      !ready ? KeyViewerPresence.Off
+      : shown ? KeyViewerPresence.Shown
+      : KeyViewerPresence.Ready
+    );
   }
 
   public void ApplySettings()

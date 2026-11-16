@@ -18,8 +18,10 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// </summary>
 internal sealed class OverlayGrowPickerModel : ViewModel
 {
-  private static readonly UiColor Faint = new Color(1, 1, 1, .32f),
-    Rest = new Color(1, 1, 1, .07f);
+  private static readonly UiColor Faint = new Color(1, 1, 1, .32f);
+
+  // Auto sits on the popover's panel: a little lighter than it, opaque.
+  private static readonly Color Rest = UiPalette.Wash(UiPalette.Popover, .07f);
   private readonly UiColor _chosen,
     _followed,
     _autoOn;
@@ -30,7 +32,7 @@ internal sealed class OverlayGrowPickerModel : ViewModel
     Color accent = UiPalette.SoftAccent;
     _chosen = accent;
     _followed = Color.Lerp(UiPalette.Muted, accent, .6f);
-    _autoOn = new Color(accent.r, accent.g, accent.b, .3f);
+    _autoOn = Color.Lerp(Rest, accent, .3f);
     GrowPointModel[] points = new GrowPointModel[9];
     for (int i = 0; i < points.Length; i++)
       points[i] = Own(new GrowPointModel((OverlayGrowth)i, picked));

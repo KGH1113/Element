@@ -22,8 +22,9 @@ internal sealed class OverlayFormulaField
   private const float MinimumBody = 34,
     MaximumText = 240;
 
-  private static readonly Color Rest = new(.2f, .2f, .2f, .96f);
-  private static readonly Color Hover = new(.27f, .27f, .27f, .98f);
+  // Opaque, so the overlay behind never shows through the pill.
+  private static readonly Color Rest = UiPalette.Wash(UiPalette.EditorDim, .19f);
+  private static readonly Color Hover = UiPalette.Wash(UiPalette.EditorDim, .265f);
 
   private readonly Button _body;
   private readonly bool _reduceMotion;

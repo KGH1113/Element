@@ -36,7 +36,13 @@ internal sealed class ModPaintPicker : NativeView
 
   protected override void Build(RectTransform rect)
   {
-    _picker = new UiColorPicker(rect, UguiTheme.Font, () => UguiTheme.MotionSeconds <= 0);
+    // It sits on the popover's raised surface.
+    _picker = new UiColorPicker(
+      rect,
+      UguiTheme.Font,
+      () => UguiTheme.MotionSeconds <= 0,
+      UguiTheme.Color(ColorToken.SurfaceRaised)
+    );
     _picker.LayOutAsColumn(ColumnWidth);
     _picker.Hidden = Close;
     _picker.ShowSource(_title, ModPaints.ToSettings(_paint.Value), Changed);

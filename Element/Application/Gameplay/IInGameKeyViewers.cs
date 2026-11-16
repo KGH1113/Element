@@ -9,5 +9,5 @@ internal interface IInGameKeyViewers
   /// <summary>At least one viewer is on and ElementNote shows them in the game.</summary>
   bool HasEnabledViewers { get; }
 
-  void SetActive(bool active);
+  void SetPresence(KeyViewerPresence presence);
 }

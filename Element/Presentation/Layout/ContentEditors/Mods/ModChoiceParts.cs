@@ -1,52 +1,43 @@
 using System;
 using System.Collections.Generic;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Ui.Declarative.Controls;
 using ElementKit;
 using ElementUI;
 using UnityEngine;
-using static Element.Presentation.Layout.ContentEditors.Mods.ModParts;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.Layout.ContentEditors.Mods;
 
-/// <summary>The page's choices: segments, dropdowns, chips and the anchor picker.</summary>
+/// <summary>
+/// The page's choices: segments, lists, several on or off, and the nine
+/// points. Each is ElementUI's own picker, so the column draws it as its row
+/// (<see cref="ModColumnStyle"/>); the points are Element's.
+/// </summary>
 internal sealed class ModChoiceParts
 {
   private readonly ModEditorPage _page;
-  private readonly ModCommands _commands;
 
-  public ModChoiceParts(ModEditorPage page)
-  {
-    _page = page;
-    _commands = page.Commands;
-  }
+  public ModChoiceParts(ModEditorPage page) => _page = page;
 
   public EditorControl Choice(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
   {
     List<string> names = Names(options);
     ModPart part = _page.Part();
     ModValue<int> current = _page.Value(part, Mathf.Clamp(selected, 0, names.Count - 1), changed);
-    part.Control = () => Row(label, Picker(null, names, Bind(() => current.Value)));
+    part.Control = () => Picker(label ?? "", names, Bind(() => current.Value));
     return _page.Add(part);
   }
 
-  /// <summary>One option out of many, picked from a list that opens under it.</summary>
+  /// <summary>One option out of many, picked from a list.</summary>
   public EditorControl Dropdown(string label, IReadOnlyList<string> options, int selected, Action<int> changed)
   {
     List<string> names = Names(options);
     ModPart part = _page.Part();
     ModValue<int> current = _page.Value(part, Mathf.Clamp(selected, 0, names.Count - 1), changed);
-    part.Control = () =>
-      Row(
-        label,
-        Picker(null, names, Bind(() => current.Value), PickerAppearance.Dropdown).Named("Dropdown " + label)
-      );
+    part.Control = () => Picker(label ?? "", names, Bind(() => current.Value), PickerAppearance.Dropdown);
     return _page.Add(part);
   }
 
-  /// <summary>Several options, each on or off, as chips that wrap onto more lines.</summary>
+  /// <summary>Several options, each on or off; each one turned is handed to the mod.</summary>
   public EditorControl MultiChoice(
     string label,
     IReadOnlyList<string> options,
@@ -55,32 +46,26 @@ internal sealed class ModChoiceParts
   )
   {
     List<string> names = Names(options);
+    List<bool> start = new();
+    for (int i = 0; i < names.Count; i++)
+      start.Add(on != null && i < on.Count && on[i]);
     ModPart part = _page.Part();
-    ModValue<bool>[] chips = new ModValue<bool>[names.Count];
-    Command[] flips = new Command[names.Count];
-    for (int i = 0; i < chips.Length; i++)
-    {
-      int index = i;
-      ModValue<bool> chip = _page.Value<bool>(
-        part,
-        on != null && index < on.Count && on[index],
-        now => changed?.Invoke(index, now)
-      );
-      chips[i] = chip;
-      flips[i] = _commands.Make(() => chip.Value = !chip.Value);
-    }
-    View[] Chips()
-    {
-      View[] views = new View[names.Count];
-      for (int i = 0; i < views.Length; i++)
+    List<bool> shown = start;
+    ModValue<List<bool>> current = _page.Value<List<bool>>(
+      part,
+      start,
+      next =>
       {
-        ModValue<bool> chip = chips[i];
-        Command flip = flips[i];
-        views[i] = Button(UI.Text(names[i]), () => flip, ButtonStyle.Chip, () => chip.Value).Named("Chip " + names[i]);
+        for (int i = 0; i < names.Count; i++)
+        {
+          bool now = MultiPickerConfiguration.IsOn(next, i);
+          if (now != MultiPickerConfiguration.IsOn(shown, i))
+            changed?.Invoke(i, now);
+        }
+        shown = next;
       }
-      return views;
-    }
-    part.Control = () => Row(label, Flow(6, Chips()).Padding(4, 0));
+    );
+    part.Control = () => MultiPicker(label ?? "", names, Bind(() => current.Value));
     return _page.Add(part);
   }
 
@@ -88,8 +73,9 @@ internal sealed class ModChoiceParts
   {
     ModPart part = _page.Part();
     ModValue<Anchor> current = _page.Value(part, value, changed);
-    OverlayGrowPickerModel picker = AnchorModel(Bind(() => current.Value), _page.Context);
-    part.Control = () => ModParts.AnchorPicker(label, picker);
+    Binding<Anchor> anchor = Bind(() => current.Value);
+    ModEditorContext context = _page.Context;
+    part.Control = () => ModParts.AnchorPicker(label, anchor, context);
     return _page.Add(part);
   }
 

@@ -13,22 +13,22 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 /// the player's highlight color, a color of their own with opacity, or a
 /// gradient, laid out as the overlay editors' column. It writes the paint
 /// as the player picks, and the screen takes it like any control's edit.
-/// Made for a popover (<see cref="ModParts.PaintPicker"/>).
+/// A tool of the property column (<see cref="ModParts.PaintPicker"/>): like
+/// the text editor's Text color, its two columns reach left of the column.
 /// </summary>
 internal sealed class ModPaintPicker : NativeView
 {
-  private const float ColumnWidth = 300;
+  /// <summary>How wide it is, from the column's right edge.</summary>
+  public const float Width = ColorPickerColumnsView.TwoColumnWidth;
 
   private readonly string _title;
   private readonly Binding<Paint> _paint;
-  private readonly Binding<bool> _open;
   private UiColorPicker _picker;
 
-  public ModPaintPicker(string title, Binding<Paint> paint, Binding<bool> open)
+  public ModPaintPicker(string title, Binding<Paint> paint)
   {
     _title = title;
     _paint = paint;
-    _open = open;
   }
 
   /// <summary>The picker widget, for checks.</summary>
@@ -36,15 +36,9 @@ internal sealed class ModPaintPicker : NativeView
 
   protected override void Build(RectTransform rect)
   {
-    // It sits on the popover's raised surface.
-    _picker = new UiColorPicker(
-      rect,
-      UguiTheme.Font,
-      () => UguiTheme.MotionSeconds <= 0,
-      UguiTheme.Color(ColorToken.SurfaceRaised)
-    );
-    _picker.LayOutAsColumn(ColumnWidth);
-    _picker.Hidden = Close;
+    // It sits on the editor's dimmed view, as the text editor's does.
+    _picker = new UiColorPicker(rect, UguiTheme.Font, () => UguiTheme.MotionSeconds <= 0);
+    _picker.LayOutAsColumn(ModEditorColumn.Width);
     _picker.ShowSource(_title, ModPaints.ToSettings(_paint.Value), Changed);
   }
 
@@ -55,12 +49,6 @@ internal sealed class ModPaintPicker : NativeView
     NotifyEdited();
     // A gradient adds its bar: the picker may be taller now.
     SizeChanged();
-  }
-
-  private void Close()
-  {
-    if (_open.Value)
-      _open.Value = false;
   }
 
   protected override Size PreferredSize(Proposal proposal) =>
@@ -76,8 +64,7 @@ internal sealed class ModPaintPicker : NativeView
   {
     if (_picker == null)
       return;
-    // Hiding ends typing in its fields; the popover is closing already.
-    _picker.Hidden = null;
+    // Hiding ends typing in its fields.
     _picker.Hide();
     _picker.Dispose();
     _picker = null;

@@ -94,7 +94,7 @@ internal sealed class ModValues : IOverlayValueFeed
       Source source = new() { Mod = mod, Active = IsActive(mod) };
       foreach (ValueGroup group in mod.Groups)
       {
-        OverlayValueGroup heading = new(mod.Id, group.KoreanName, group.EnglishName);
+        OverlayValueGroup heading = new(mod.Id, group.KoreanName, group.EnglishName, mod.Name);
         foreach (Value value in group.Values)
         {
           if (!value.Accepted)

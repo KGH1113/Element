@@ -47,7 +47,13 @@ public static class Kit
       throw new ArgumentNullException(nameof(mod));
     Assembly assembly = mod.Assembly ?? Assembly.GetCallingAssembly();
     UnityModManager.ModEntry entry = mod;
-    KitRegistry.Attach(mod.Info.Id, assembly, () => entry.Active, message => entry.Logger.Error(message));
+    KitRegistry.Attach(
+      mod.Info.Id,
+      assembly,
+      () => entry.Active,
+      message => entry.Logger.Error(message),
+      mod.Info.DisplayName
+    );
     // Detach when UMM unloads or reloads the mod, after its own handler.
     // Having an unload handler also turns on UMM's Reload button.
     Func<UnityModManager.ModEntry, bool> previous = mod.OnUnload;

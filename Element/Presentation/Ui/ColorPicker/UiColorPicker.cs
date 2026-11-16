@@ -69,6 +69,9 @@ internal sealed class UiColorPicker : IDisposable
     Card,
     Column,
     TwoColumns,
+
+    // An overlay color that can only be solid: Highlight/Custom over its own controls.
+    SourceColumn,
   }
 
   /// <summary>What the picker shows and does.</summary>
@@ -80,7 +83,7 @@ internal sealed class UiColorPicker : IDisposable
   public UiGradientBar Gradient { get; }
 
   /// <summary>The color bar shows: in an overlay editor's picker.</summary>
-  public bool GradientAvailable => Model.SourceMode && _column;
+  public bool GradientAvailable => Model.SourceMode && _column && _shape != Shape.SourceColumn;
 
   /// <summary>Its height as laid out now.</summary>
   public float Height
@@ -96,6 +99,7 @@ internal sealed class UiColorPicker : IDisposable
   public float CurrentWidth =>
     !_column ? Width
     : GradientAvailable ? ColorPickerColumnsView.TwoColumnWidth
+    : _shape == Shape.SourceColumn ? ColorPickerLayout.Column
     : _columnWidth;
 
   public bool Column => _column;
@@ -163,17 +167,24 @@ internal sealed class UiColorPicker : IDisposable
   /// Overlay element colors: follow the highlight color, keeping only their own
   /// opacity, or a custom color with opacity. Laid out as a column, the color
   /// bar on top makes gradients; <paramref name="keepStop"/> stays on the
-  /// picked stop when the same color shows again, as after undo.
+  /// picked stop when the same color shows again, as after undo. Without
+  /// <paramref name="gradient"/> the color stays solid: laid out as a column,
+  /// Highlight/Custom stand over the color's own controls, one column wide.
   /// </summary>
   public void ShowSource(
     string title,
     OverlayColorSettings value,
     Action<OverlayColorSettings> changed,
-    bool keepStop = false
+    bool keepStop = false,
+    bool gradient = true
   )
   {
     Root.gameObject.SetActive(true);
-    Mount(_column ? Shape.TwoColumns : Shape.Card);
+    Mount(
+      !_column ? Shape.Card
+      : gradient ? Shape.TwoColumns
+      : Shape.SourceColumn
+    );
     Model.ShowSource(title, value, changed, keepStop);
     Opened();
   }
@@ -223,9 +234,9 @@ internal sealed class UiColorPicker : IDisposable
       Root.gameObject.SetActive(true);
     Model.GradientShown = shape == Shape.TwoColumns;
     View view =
-      shape == Shape.Card
-        ? new ColorPickerCardView(Model, _parts)
-        : new ColorPickerColumnsView(Model, _parts, shape == Shape.TwoColumns, _columnWidth);
+      shape == Shape.Card ? new ColorPickerCardView(Model, _parts)
+      : shape == Shape.SourceColumn ? new ColorPickerSourceColumnView(Model, _parts)
+      : new ColorPickerColumnsView(Model, _parts, shape == Shape.TwoColumns, _columnWidth);
     _panel.Mount(NewBackend(), view, null, WidthOf(shape));
     _stale = true;
     Fit();
@@ -249,6 +260,7 @@ internal sealed class UiColorPicker : IDisposable
     {
       Shape.Card => Width,
       Shape.TwoColumns => ColorPickerColumnsView.TwoColumnWidth,
+      Shape.SourceColumn => ColorPickerLayout.Column,
       _ => _columnWidth,
     };
 

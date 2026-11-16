@@ -7,6 +7,7 @@ using Element.Application.Input;
 using Element.Application.Judgement;
 using Element.Application.KeyLimiter;
 using Element.Application.KeyViewer;
+using Element.Application.Profiles;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
 using Element.Configuration.Gameplay;
@@ -55,6 +56,7 @@ internal sealed class ModRuntime : IDisposable
   private ElementNoteNativeViewers _nativeViewers;
   private KeyViewerRenderIpc _renderIpc;
   private KeyCounterIpc _counterIpc;
+  private ProfileKeyViewers _profileKeyViewers;
   private RenderSession _render;
   private ReplayRuntime _replays;
   private ReplayedAttempts _replayedAttempts;
@@ -162,6 +164,14 @@ internal sealed class ModRuntime : IDisposable
       _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
       _renderIpc = new KeyViewerRenderIpc();
       _counterIpc = new KeyCounterIpc();
+      var keyViewerProfiles = new KeyViewerProfileIpc();
+      _profileKeyViewers = new ProfileKeyViewers(
+        () => _main.Settings,
+        keyViewerProfiles,
+        new ProfileKeyViewerFiles(_main.Path),
+        _main.LogException,
+        _main.LogWarning
+      );
       _ipcChannel = new ElementIpcChannel(
         _main.Path,
         _main.Version,
@@ -169,7 +179,8 @@ internal sealed class ModRuntime : IDisposable
         new KeyLimiterIpc(new KeyLimiterSessionController(_keyLimiter)),
         _nativeViewers.Endpoint,
         _renderIpc,
-        _counterIpc
+        _counterIpc,
+        keyViewerProfiles
       );
       _ipcChannel.Enable();
       _elementNoteApp = ElementNoteAppLauncher.Create(
@@ -187,6 +198,7 @@ internal sealed class ModRuntime : IDisposable
         _planetAppearance.Planets,
         ApplySettings,
         ReloadSettings,
+        _profileKeyViewers,
         () => _session?.RefreshViewers(),
         () => gameHitText.Applies,
         () => _playState.IsPlaying
@@ -241,6 +253,7 @@ internal sealed class ModRuntime : IDisposable
           }
         ),
         new FrameTask("Update native ElementNote viewers", _nativeViewers.Tick),
+        new FrameTask("Show the profile's ElementNote key viewers", _profileKeyViewers.Tick),
         new FrameTask("Apply the ElementNote key limiter", () => _gameKeyLimiter?.Tick()),
         new FrameTask("Join TUFReplay runs", _replays.Tick)
       );

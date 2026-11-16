@@ -1,4 +1,5 @@
 pub mod load;
+pub mod profile;
 pub mod save;
 
 use std::path::PathBuf;
@@ -8,9 +9,9 @@ use serde::{Deserialize, Serialize};
 
 pub(crate) use crate::models::BUILTIN_TAB_IDS;
 use crate::models::{
-    CustomCss, CustomJs, CustomTab, FontSettings, GraphPositions, KeyMappings, KeyPositions,
-    KnobPositions, LayerGroups, NoteSettings, SelectedViewerTabs, SpritePositions, StatPositions,
-    TabCssOverrides, TabNoteOverrides,
+    CustomCss, CustomJs, CustomTab, FontSettings, GraphPositions, KeyCounters, KeyMappings,
+    KeyPositions, KnobPositions, LayerGroups, NoteSettings, SelectedViewerTabs, SpritePositions,
+    StatPositions, TabCssOverrides, TabNoteOverrides,
 };
 use crate::state::assets::local_asset_path::{file_url_to_path, FileUrlPath};
 
@@ -83,6 +84,11 @@ pub(crate) struct PresetFile {
     pub embedded_local_fonts: Option<Vec<EmbeddedLocalFont>>,
     pub embedded_local_images: Option<Vec<EmbeddedLocalImage>>,
     pub embedded_local_sounds: Option<Vec<EmbeddedLocalSound>>,
+    /// Press counts, only in the file an Element profile's key viewers wait in
+    /// while another profile is in use: they come back with the profile.
+    /// "Save all" and exports leave them out.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_counters: Option<KeyCounters>,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone)]

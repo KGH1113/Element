@@ -20,4 +20,11 @@ public sealed class ProfileFile
 
   public string Name = "";
   public ProfileContent Content;
+
+  /// <summary>
+  /// The profile's ElementNote key viewers, every one of them, as ElementNote's
+  /// own "Save all" file (JSON). Null when the file came without them; Element
+  /// versions before this field skip it.
+  /// </summary>
+  public string KeyViewers;
 }

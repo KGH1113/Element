@@ -398,6 +398,9 @@ pub fn run() {
             commands::preset::save::preset_save_tab,
             commands::preset::load::preset_load,
             commands::preset::load::preset_load_tab,
+            commands::preset::profile::profile_key_viewers_owner,
+            commands::preset::profile::profile_key_viewers_save,
+            commands::preset::profile::profile_key_viewers_swap,
             // 플러그인
             commands::plugin::bridge::plugin_bridge_send,
             commands::plugin::bridge::plugin_bridge_send_to,

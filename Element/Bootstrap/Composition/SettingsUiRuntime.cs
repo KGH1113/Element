@@ -28,6 +28,7 @@ internal sealed class SettingsUiRuntime : IDisposable
   private readonly OverlayCanvasHost _canvas;
   private readonly Action _reloadSettings;
   private readonly Func<bool> _judgementTextLinked;
+  private readonly ProfileKeyViewers _profileKeyViewers;
   private readonly TufReplayInputPause _tufReplayInput;
   private readonly PlanetPreviews _planetPreviews;
   private readonly SettingsScreens _screens;
@@ -42,6 +43,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     PlanetAppearanceController planets,
     Action apply,
     Action reloadSettings,
+    ProfileKeyViewers profileKeyViewers,
     Action viewerModeChanged,
     Func<bool> judgementTextLinked,
     Func<bool> playing
@@ -51,6 +53,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _canvas = canvas;
     _judgementTextLinked = judgementTextLinked;
     _reloadSettings = reloadSettings;
+    _profileKeyViewers = profileKeyViewers;
     _tufReplayInput = new TufReplayInputPause(main.LogWarning, main.LogException);
     TMP_FontAsset font = UiFonts.Choose(overlayFont);
     nativeViewers.ConfigurePreview(new NativeViewerSamples(font));
@@ -107,7 +110,8 @@ internal sealed class SettingsUiRuntime : IDisposable
         _reloadSettings,
         new SettingsBackup(_main.Path, () => _main.Settings).Write,
         _main.Version,
-        _main.LogException
+        _main.LogException,
+        _profileKeyViewers
       );
     }
     catch (Exception exception)

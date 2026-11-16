@@ -73,6 +73,7 @@ internal static class SavedFormatTests
       ModVersion = "1.2.3",
       Name = "Sample",
       Content = content,
+      KeyViewers = "KeyViewers",
     };
   }
 

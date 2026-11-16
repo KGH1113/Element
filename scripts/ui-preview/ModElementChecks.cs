@@ -15,6 +15,7 @@ using Element.Presentation.Settings;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Popovers;
 using ElementKit;
+using ElementUI;
 using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
@@ -169,7 +170,8 @@ namespace Element.Editor
         12,
         EditorParts.ColorPicker(vm.L("채우기", "Fill"), UI.Bind(() => vm.Settings.Fill)),
         UI.Slider(vm.L("너비", "Width"), UI.Bind(() => vm.Settings.Width), 80, 480, step: 1),
-        UI.Toggle(vm.L("둥근 모서리", "Rounded"), UI.Bind(() => vm.Settings.Rounded)),
+        UI.Toggle(vm.L("둥근 모서리", "Rounded"), UI.Bind(() => vm.Settings.Rounded))
+          .Hint(vm.L("막대 양 끝을 둥글게 깎아요", "Rounds both ends of the bar")),
         UI.TextField(vm.L("이름", "Label"), UI.Bind(() => vm.Settings.Label)),
         EditorParts.AnchorPicker(vm.L("이름 위치", "Label at"), UI.Bind(() => vm.Settings.LabelAt))
       );
@@ -332,6 +334,8 @@ namespace Element.Editor
         TextMeshProUGUI tip = ByName<TextMeshProUGUI>(ByName<RectTransform>(mods2.Page.Root, "ElementUI hint"), "Text");
         Assert(Shown(tip) && tip.text == (Korean(name) ? "메뉴에서도 카드를 보여요" : "Shows the card in menus too"),
           "a part's hint shows on hover");
+        string misplaced = HintProblem(hover);
+        Assert(misplaced == null, "a part's hint shows beside its part: " + misplaced);
         hover.OnPointerExit(null);
         Press(Find("Icon Reset"));
         Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "an icon button runs its action");
@@ -398,6 +402,19 @@ namespace Element.Editor
       Assert(Shown(ByName<Pressable>(view, "Color " + L("채우기", "Fill"))), "Element's color picker draws on it");
       SaveFrame(camera, texture, canvases, name + "-mod-editor-view");
 
+      // A hint shows next to its control in the column, not at the screen's left edge.
+      PointerArea rounded = ByName<Pressable>(view, "Switch").GetComponentInParent<PointerArea>();
+      rounded.OnPointerEnter(null);
+      Settle();
+      TextMeshProUGUI roundedTip = ByName<TextMeshProUGUI>(ByName<RectTransform>(view, "ElementUI hint"), "Text");
+      Assert(Shown(roundedTip) && roundedTip.text == L("막대 양 끝을 둥글게 깎아요", "Rounds both ends of the bar"),
+        "a control's hint shows on hover");
+      string misplaced = HintProblem(rounded);
+      Assert(misplaced == null, "a control's hint shows beside it, in the column: " + misplaced);
+      SaveFrame(camera, texture, canvases, name + "-mod-editor-view-hint");
+      rounded.OnPointerExit(null);
+      Settle();
+
       SliderDrag slider = ByName<SliderDrag>(view, "Slider");
       slider.Dragging(true);
       slider.Moved(.5f, true);
@@ -434,6 +451,29 @@ namespace Element.Editor
       Select(editor, IndexOf(editor, meter));
       Call(editor, "DeleteSelected");
       Select(editor, -1);
+    }
+
+    // What is wrong with where the hint of a hovered view (its .Hint area)
+    // shows; null when it is centred on the view (or kept on its canvas),
+    // right above or below it, and on the canvas.
+    internal static string HintProblem(PointerArea area)
+    {
+      Canvas canvas = area.GetComponentInParent<Canvas>().rootCanvas;
+      RectTransform hint = canvas.GetComponentsInChildren<RectTransform>(false).FirstOrDefault(rect => rect.name == "ElementUI hint");
+      if (hint == null)
+        return "no hint shows";
+      Rect room = ScreenRectOf((RectTransform)canvas.transform), view = ScreenRectOf((RectTransform)area.transform), shown = ScreenRectOf(hint);
+      // Screen pixels per unit of the screen the hint is in: 6 between hint and view, 4 from the canvas's edges.
+      float unit = shown.height / hint.rect.height;
+      float centred = Mathf.Clamp(view.center.x - shown.width / 2, room.xMin + 4 * unit, room.xMax - 4 * unit - shown.width);
+      bool above = Mathf.Abs(shown.yMin - view.yMax - 6 * unit) < unit, below = Mathf.Abs(view.yMin - shown.yMax - 6 * unit) < unit;
+      string where = " (view " + view + ", hint " + shown + ", canvas " + room + ")";
+      if (Mathf.Abs(shown.xMin - centred) > unit)
+        return "not centred on its view" + where;
+      if (!above && !below)
+        return "not right above or below its view" + where;
+      bool inside = shown.xMin >= room.xMin - unit && shown.xMax <= room.xMax + unit && shown.yMin >= room.yMin - unit && shown.yMax <= room.yMax + unit;
+      return inside ? null : "off its canvas" + where;
     }
 
     // The parts shown now fit the screen, keep clear of the preview and of

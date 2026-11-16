@@ -10,14 +10,18 @@ namespace ElementKit.Hosting;
 // A mod that attached, with the value groups found in it.
 internal sealed class AttachedMod
 {
-  public AttachedMod(string id, IReadOnlyList<ValueGroup> groups, Func<bool> isActive)
+  public AttachedMod(string id, IReadOnlyList<ValueGroup> groups, Func<bool> isActive, string name = null)
   {
     Id = id;
+    Name = string.IsNullOrWhiteSpace(name) ? id : name.Trim();
     Groups = groups;
     IsActive = isActive ?? (() => true);
   }
 
   public string Id { get; }
+
+  // The name players see in the mod list; the id when the mod has none.
+  public string Name { get; }
   public IReadOnlyList<ValueGroup> Groups { get; }
 
   // Element hides a turned-off mod's values; UMM keeps its assembly loaded.
@@ -41,7 +45,14 @@ internal static class KitRegistry
   /// <summary>The attached mods in the order they first attached; never changes after it is returned.</summary>
   public static AttachedMod[] Snapshot => Volatile.Read(ref _snapshot);
 
-  public static AttachedMod Attach(string modId, Assembly assembly, Func<bool> isActive, Action<string> report)
+  // name: the mod's name as the mod list shows it, for the dock; its id when null.
+  public static AttachedMod Attach(
+    string modId,
+    Assembly assembly,
+    Func<bool> isActive,
+    Action<string> report,
+    string name = null
+  )
   {
     report ??= _ => { };
     if (!ValidModId(modId))
@@ -57,7 +68,7 @@ internal static class KitRegistry
     Validate(groups, report);
     foreach (ValueGroup group in groups)
       group.ModId = modId;
-    AttachedMod attached = new(modId, groups, isActive);
+    AttachedMod attached = new(modId, groups, isActive, name);
     lock (Sync)
     {
       int index = Mods.FindIndex(mod => mod.Id == modId);

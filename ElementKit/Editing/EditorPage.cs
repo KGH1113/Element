@@ -12,10 +12,12 @@ namespace ElementKit;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Parts go in a column under the preview, one row each, a label on the left
-/// and the control on the right; leave the label empty for a control as wide
-/// as the row. Call <see cref="EditorControl.At"/> to put a part anywhere
-/// instead, or add your own UI under <see cref="Root"/>.
+/// Parts go one under another in the property column right of the preview,
+/// where Element's text editor keeps its own, one row each: the label on the
+/// left and the control on the right; a card is a heading over its parts.
+/// Call <see cref="EditorControl.At"/> to put a part anywhere instead (left
+/// of the column, around <see cref="PreviewArea"/>), or add your own UI
+/// under <see cref="Root"/>.
 /// </para>
 /// <para>
 /// Positions are in the screen's own units, top left (0, 0), y down: about
@@ -34,7 +36,7 @@ public abstract class EditorPage
   /// <summary>The screen's size in its own units.</summary>
   public abstract Vector2 Size { get; }
 
-  /// <summary>Where the preview of your element sits.</summary>
+  /// <summary>Where the preview of your element sits: the room left of the property column.</summary>
   public abstract Rect PreviewArea { get; }
 
   /// <summary>Whether players see Element in Korean.</summary>

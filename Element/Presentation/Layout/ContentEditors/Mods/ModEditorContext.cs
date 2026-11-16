@@ -7,8 +7,9 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 
 /// <summary>
 /// What Element's pickers on a mod's editing screen need from the editor
-/// around them: the overlay fonts, reduced motion, and a turn every frame for
-/// a shortcut field recording keys and the font list scrolling. Both kinds of
+/// around them: the overlay fonts, reduced motion, the column their tools
+/// open in, and a turn every frame for a shortcut field recording keys and
+/// the font list scrolling. Both kinds of
 /// screen use it: one built from <c>EditorPage</c>'s parts and one a mod
 /// writes with ElementUI.
 /// </summary>
@@ -28,6 +29,9 @@ internal sealed class ModEditorContext
   public OverlayFonts Fonts => _fonts?.Invoke();
 
   public bool ReduceMotion { get; }
+
+  /// <summary>The property column the screen stands in: its rows open their tools there.</summary>
+  public ModEditorColumn Column { get; set; }
 
   /// <summary>Whether a shortcut field is recording: the keyboard is its until it ends.</summary>
   public bool Recording

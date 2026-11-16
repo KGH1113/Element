@@ -164,6 +164,18 @@
                 <WidthY>0.5</WidthY>
                 <AngleFormula>AngleFormula</AngleFormula>
               </Gradient>
+              <ValueColor>
+                <Value>Value</Value>
+                <Mode>Step</Mode>
+                <Stops>
+                  <OverlayValueColorStop>
+                    <At>0.5</At>
+                    <Highlight>true</Highlight>
+                    <Hex>Hex</Hex>
+                    <Alpha>0.5</Alpha>
+                  </OverlayValueColorStop>
+                </Stops>
+              </ValueColor>
             </Color>
             <Size>0.5</Size>
             <SizeFormula>SizeFormula</SizeFormula>
@@ -208,6 +220,18 @@
             <WidthY>0.5</WidthY>
             <AngleFormula>AngleFormula</AngleFormula>
           </Gradient>
+          <ValueColor>
+            <Value>Value</Value>
+            <Mode>Step</Mode>
+            <Stops>
+              <OverlayValueColorStop>
+                <At>0.5</At>
+                <Highlight>true</Highlight>
+                <Hex>Hex</Hex>
+                <Alpha>0.5</Alpha>
+              </OverlayValueColorStop>
+            </Stops>
+          </ValueColor>
         </Fill>
         <Stroke>
           <Highlight>true</Highlight>
@@ -233,6 +257,18 @@
             <WidthY>0.5</WidthY>
             <AngleFormula>AngleFormula</AngleFormula>
           </Gradient>
+          <ValueColor>
+            <Value>Value</Value>
+            <Mode>Step</Mode>
+            <Stops>
+              <OverlayValueColorStop>
+                <At>0.5</At>
+                <Highlight>true</Highlight>
+                <Hex>Hex</Hex>
+                <Alpha>0.5</Alpha>
+              </OverlayValueColorStop>
+            </Stops>
+          </ValueColor>
         </Stroke>
         <StrokeWidth>0.5</StrokeWidth>
         <WidthFormula>WidthFormula</WidthFormula>
@@ -424,6 +460,13 @@
                   <WidthY>0.5</WidthY>
                   <AngleFormula>AngleFormula</AngleFormula>
                 </Gradient>
+                <ValueColor>
+                  <Value>Value</Value>
+                  <Mode>Step</Mode>
+                  <Stops>
+                    <OverlayValueColorStop xsi:nil="true" />
+                  </Stops>
+                </ValueColor>
               </Fill>
               <Stroke>
                 <Highlight>true</Highlight>
@@ -443,6 +486,13 @@
                   <WidthY>0.5</WidthY>
                   <AngleFormula>AngleFormula</AngleFormula>
                 </Gradient>
+                <ValueColor>
+                  <Value>Value</Value>
+                  <Mode>Step</Mode>
+                  <Stops>
+                    <OverlayValueColorStop xsi:nil="true" />
+                  </Stops>
+                </ValueColor>
               </Stroke>
               <StrokeWidth>0.5</StrokeWidth>
               <WidthFormula>WidthFormula</WidthFormula>

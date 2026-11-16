@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Element.Application.Profiles;
 using Element.Configuration.Profiles;
 using Element.Presentation.Settings.Window;
@@ -20,6 +21,12 @@ internal sealed class ProfilesModel : SettingsPageModel
 
   // Escape ends a rename; that frame's Escape must not also leave the page.
   private int _renameCancelledFrame = -1;
+
+  // An export waiting for ElementNote to save the key viewers; one at a time.
+  private Task<ProfileOutcome> _export;
+
+  // Key viewer swaps that failed before; only a new failure is put into words.
+  private int _keyViewerFailuresShown;
 
   /// <summary>Import and export need the system's file window.</summary>
   public readonly bool FilesSupported;
@@ -79,6 +86,7 @@ internal sealed class ProfilesModel : SettingsPageModel
         }
       )
     );
+    _keyViewerFailuresShown = _profiles.KeyViewerFailures;
     Refresh();
   }
 
@@ -105,7 +113,12 @@ internal sealed class ProfilesModel : SettingsPageModel
     Fonts.DismissPicker();
   }
 
-  public override void Tick() => Fonts.Tick();
+  public override void Tick()
+  {
+    Fonts.Tick();
+    FinishExport();
+    ShowKeyViewerFailure();
+  }
 
   public override bool HandleEscape() => RenameTakesEscape() || Fonts.DismissPicker() || Dismiss(Creating);
 
@@ -351,18 +364,77 @@ internal sealed class ProfilesModel : SettingsPageModel
     ElementProfile profile = Find(id);
     if (profile == null)
       return;
-    ProfileOutcome outcome = _profiles.Export(
+    if (_export != null)
+      return;
+    Task<ProfileOutcome> export = _profiles.Export(
       id,
       L("'" + profile.Name + "' 프로필 내보내기", "Export '" + profile.Name + "'")
     );
+    if (export.IsCompleted)
+      ShowExport(export);
+    else
+      _export = export;
+  }
+
+  // ElementNote saved the key viewers into the file, or didn't answer in time.
+  private void FinishExport()
+  {
+    if (_export == null || !_export.IsCompleted)
+      return;
+    Task<ProfileOutcome> export = _export;
+    _export = null;
+    ShowExport(export);
+    ElementUI.Runtime.Probe();
+  }
+
+  private void ShowExport(Task<ProfileOutcome> export)
+  {
+    ProfileOutcome outcome =
+      export.Status == TaskStatus.RanToCompletion ? export.Result : ProfileOutcome.Fail(ProfileProblem.WriteFailed);
     if (outcome.Problem == ProfileProblem.Cancelled)
       return;
+    if (!outcome.Ok)
+    {
+      ShowMessage(ProfileProblemText.For(outcome, ProfileAction.Export), true);
+      return;
+    }
     ShowMessage(
-      outcome.Ok
-        ? L("'" + outcome.Detail + "' 파일로 내보냈어요.", "Exported as '" + outcome.Detail + "'.")
-        : ProfileProblemText.For(outcome, ProfileAction.Export),
-      !outcome.Ok
+      outcome.KeyViewersLeftOut
+        ? L(
+          "'"
+            + outcome.Detail
+            + "' 파일로 내보냈지만 ElementNote가 꺼져 있어 키뷰어는 담지 못했어요. 키뷰어도 담으려면 ElementNote를 켜고 다시 내보내 주세요.",
+          "Exported as '"
+            + outcome.Detail
+            + "', but without key viewers: ElementNote isn't running. Open ElementNote and export again to include them."
+        )
+        : L("'" + outcome.Detail + "' 파일로 내보냈어요.", "Exported as '" + outcome.Detail + "'."),
+      outcome.KeyViewersLeftOut
     );
+  }
+
+  // The profile changed, but ElementNote still shows the key viewers of the one before.
+  private void ShowKeyViewerFailure()
+  {
+    int failures = _profiles.KeyViewerFailures;
+    if (failures == _keyViewerFailuresShown)
+      return;
+    _keyViewerFailuresShown = failures;
+    string name = _profiles.KeyViewersFailedProfile;
+    if (name == null)
+      return;
+    ShowMessage(
+      L(
+        "ElementNote 키뷰어를 '"
+          + name
+          + "' 프로필 것으로 바꾸지 못했어요. ElementNote를 껐다 켜면 다시 바꿔요. 이유는 UMM 로그에 있어요.",
+        "ElementNote didn't switch to the key viewers of '"
+          + name
+          + "'. Restart ElementNote to try again; the UMM log says why."
+      ),
+      true
+    );
+    ElementUI.Runtime.Probe();
   }
 
   // ---- Helpers ----

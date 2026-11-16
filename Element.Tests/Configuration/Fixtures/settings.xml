@@ -459,6 +459,8 @@
           </OverlayLayoutSettings>
         </OverlayLayouts>
       </Content>
+      <KeyViewersStart>CopyOf</KeyViewersStart>
+      <KeyViewersCopyOf>KeyViewersCopyOf</KeyViewersCopyOf>
     </ElementProfile>
   </Profiles>
   <ActiveProfileId>ActiveProfileId</ActiveProfileId>

@@ -8,8 +8,11 @@ namespace Element.Infrastructure.Storage;
 /// <summary>Profile files on disk.</summary>
 internal sealed class ProfileFileStore : IProfileFiles
 {
-  /// <summary>Far above any real profile; keeps a wrong pick, such as a video, out of memory.</summary>
-  public const long MaximumBytes = 16L * 1024 * 1024;
+  /// <summary>
+  /// Far above any real profile, key viewer images included; keeps a wrong
+  /// pick, such as a video, out of memory.
+  /// </summary>
+  public const long MaximumBytes = 64L * 1024 * 1024;
 
   public ProfileFileResult Read(string path)
   {

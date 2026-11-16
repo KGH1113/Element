@@ -11,9 +11,9 @@ use crate::{
     commands::dialog::parented_file_dialog,
     errors::{CmdResult, CommandError},
     models::{
-        rewrite_coupled_sprite_image_reference, FontSettings, FontType, GraphPositions,
-        KeyMappings, KeyPositions, KnobPositions, LayerGroups, SpritePositions, StatPositions,
-        TabCssOverrides, TabNoteOverrides,
+        rewrite_coupled_sprite_image_reference, AppStoreData, FontSettings, FontType,
+        GraphPositions, KeyMappings, KeyPositions, KnobPositions, LayerGroups, SpritePositions,
+        StatPositions, TabCssOverrides, TabNoteOverrides,
     },
     state::{atomic_file::atomic_replace, AppState},
 };
@@ -50,8 +50,24 @@ pub async fn preset_save(
 
 fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
     let state = app.state::<AppState>();
+    let preset = full_preset_of(state.store.snapshot())?;
+    write_full_preset(&path, &preset)?;
 
-    let snapshot = state.store.snapshot();
+    Ok(PresetOperationResult {
+        success: true,
+        error: None,
+    })
+}
+
+/// Writes a whole-viewer preset where "Save all" would.
+pub(crate) fn write_full_preset(path: &Path, preset: &PresetFile) -> CmdResult<()> {
+    let json = serde_json::to_string_pretty(preset)?;
+    write_preset_file(path, &json)
+}
+
+/// Every key viewer and the viewer settings of `snapshot`, with its local
+/// images, sounds and fonts inside, so the file stands on its own.
+pub(crate) fn full_preset_of(snapshot: AppStoreData) -> CmdResult<PresetFile> {
     let used_font_families = collect_used_font_families(
         &snapshot.key_positions,
         &snapshot.stat_positions,
@@ -110,15 +126,9 @@ fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOpera
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
+        key_counters: None,
     };
-
-    let json = serde_json::to_string_pretty(&preset)?;
-    write_preset_file(&path, &json)?;
-
-    Ok(PresetOperationResult {
-        success: true,
-        error: None,
-    })
+    Ok(preset)
 }
 
 #[tauri::command]
@@ -285,6 +295,7 @@ fn preset_save_tab_from_path(
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
+        key_counters: None,
     };
 
     let json = serde_json::to_string_pretty(&preset)?;

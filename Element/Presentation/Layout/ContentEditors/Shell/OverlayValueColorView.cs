@@ -59,7 +59,7 @@ internal sealed class OverlayValueColorView : View<OverlayValueColorModel>
         () => VM.PickSource,
         ButtonStyle.Plain
       )
-      .Background(() => VM.SourceFill.Value, 10)
+      .Background(() => VM.SourceFill.Value, OverlayInspectorRow.Radius)
       .Named("Value color source");
 
   // The picked stop: its value (typed in the dock), its color (in the

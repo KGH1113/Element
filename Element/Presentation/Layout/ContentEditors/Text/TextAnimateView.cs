@@ -22,7 +22,7 @@ internal sealed class TextAnimateView : View<TextAnimateModel>
     VStack(
         spacing: 0,
         VStack(
-          spacing: OverlayInspectorView.RowGap,
+          spacing: OverlayInspectorRow.Gap,
           ForEach(VM.Rows, row => row.Name, slot => new OverlayInspectorRowView(slot))
         ),
         If(

@@ -8,9 +8,9 @@ namespace Element.Infrastructure.ElementNote.Viewers;
 
 /// <summary>
 /// The native host that draws ElementNote's pages in the game window: made when
-/// ElementNote describes its viewers, shown and hidden for the settings window and
-/// replay renders, and let go when the session resets or no viewer is left. Unity
-/// main thread only; IPC callbacks never reach AppKit or WebView2.
+/// ElementNote describes its viewers, hidden between plays and for the settings
+/// window and replay renders, and let go when the session resets or no viewer is
+/// left. Unity main thread only; IPC callbacks never reach AppKit or WebView2.
 /// </summary>
 internal sealed class NativeViewerHostLifetime
 {
@@ -29,6 +29,9 @@ internal sealed class NativeViewerHostLifetime
   private DateTime _nextErrorCheckAt;
   private bool _suspended;
   private bool _visible = true;
+
+  // Pages load hidden and wait for a play or the layout editor to show them.
+  private bool _shown;
 
   public NativeViewerHostLifetime(
     Func<INativeViewerHost> createHost,
@@ -59,7 +62,14 @@ internal sealed class NativeViewerHostLifetime
   public void SetVisible(bool visible)
   {
     _visible = visible;
-    _host?.Show(_visible && !_suspended);
+    ApplyShow();
+  }
+
+  /// <summary>A play or the layout editor shows the pages; between plays they stay loaded and hidden.</summary>
+  public void SetShown(bool shown)
+  {
+    _shown = shown;
+    ApplyShow();
   }
 
   /// <summary>The editor's panels in screen pixels from the top left, with their corner radii.</summary>
@@ -125,7 +135,7 @@ internal sealed class NativeViewerHostLifetime
     if (_host == null)
       return;
     _suspended = true;
-    _host.Show(false);
+    ApplyShow();
   }
 
   /// <summary>ElementNote described its viewers: show their pages, making the host if there is none.</summary>
@@ -151,7 +161,7 @@ internal sealed class NativeViewerHostLifetime
         ApplyEnabledSurfaces();
       }
       _suspended = false;
-      _host.Show(_visible);
+      ApplyShow();
       _session.Report(surfaces.Length == 0 ? NativeViewerStatus.NoViewerTab : NativeViewerStatus.Attached);
     }
     catch (Exception error)
@@ -174,6 +184,8 @@ internal sealed class NativeViewerHostLifetime
   }
 
   private void ApplyEnabledSurfaces() => _host.Apply(_targets.EnabledSurfaces(_knownSurfaces));
+
+  private void ApplyShow() => _host?.Show(_shown && _visible && !_suspended);
 
   // Runs once per descriptor reply, not per frame.
   private bool PageNeedsDescriptor() =>

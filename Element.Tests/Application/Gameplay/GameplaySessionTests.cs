@@ -12,6 +12,7 @@ internal static class GameplaySessionTests
   public static void Run()
   {
     PlayShowsOverlayAndViewers();
+    ViewersWaitLoadedBetweenPlays();
     RecordModeAndCoopHideBoth();
     LayoutEditorShowsViewersOutsideAPlay();
     ApplyingRebuildsLayoutsOnlyWhenNeeded();
@@ -22,12 +23,29 @@ internal static class GameplaySessionTests
   {
     var parts = new Parts();
     parts.Session.Show();
-    Check(parts.Overlay.Shown && parts.Viewers.Active, "a play shows the overlay and the key viewers");
+    Check(parts.Overlay.Shown && parts.Viewers.Shown, "a play shows the overlay and the key viewers");
     parts.Session.Hide();
-    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "the end of a play hides both");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Shown, "the end of a play hides both");
     parts.Viewers.Enabled = false;
     parts.Session.Show();
-    Check(parts.Overlay.Shown && !parts.Viewers.Active, "no viewer on: only the overlay shows");
+    Check(parts.Overlay.Shown && parts.Viewers.Off, "no viewer on: only the overlay shows, with no pages loaded");
+  }
+
+  private static void ViewersWaitLoadedBetweenPlays()
+  {
+    var parts = new Parts();
+    parts.Session.ApplySettings();
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "at startup the pages load hidden, before any play");
+    parts.Session.Show();
+    parts.Session.Hide();
+    parts.Session.Show();
+    Check(parts.Viewers.Shown, "a restart shows the key viewers again");
+    Check(parts.Viewers.Unloads == 0, "ending and restarting a play never unloads the pages");
+    parts.Session.Hide();
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "after a play the pages stay loaded and hidden");
+    parts.Viewers.Enabled = false;
+    parts.Session.RefreshViewers();
+    Check(parts.Viewers.Off && parts.Viewers.Unloads == 1, "removing the last viewer unloads the pages");
   }
 
   private static void RecordModeAndCoopHideBoth()
@@ -35,14 +53,15 @@ internal static class GameplaySessionTests
     var parts = new Parts();
     parts.Recording.IsActive = true;
     parts.Session.Show();
-    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "record mode keeps the overlay and key viewers hidden");
+    Check(!parts.Overlay.Shown && parts.Viewers.Off, "record mode keeps the overlay and key viewers out");
     Check(parts.Recording.Reapplied == 1, "record mode hides the game's UI of the new play again");
     Check(!parts.Session.ShowsKeyViewersInPlay, "a rendered video of a recorded play shows no key viewers");
 
     parts = new Parts();
     parts.Play.IsCoop = true;
     parts.Session.Show();
-    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "co-op keeps the overlay and key viewers hidden");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Shown, "co-op keeps the overlay and key viewers hidden");
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "co-op keeps the pages loaded for the next play");
   }
 
   private static void LayoutEditorShowsViewersOutsideAPlay()
@@ -51,14 +70,22 @@ internal static class GameplaySessionTests
     parts.Editing = true;
     parts.Play.IsCoop = true;
     parts.Session.RefreshViewers();
-    Check(parts.Viewers.Active, "the layout editor shows the key viewers outside a play, even in co-op");
+    Check(parts.Viewers.Shown, "the layout editor shows the key viewers outside a play, even in co-op");
     parts.Editing = false;
     parts.Session.RefreshViewers();
-    Check(!parts.Viewers.Active, "closing the editor outside a play hides them again");
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "closing the editor outside a play hides them again");
+    parts.Recording.IsActive = true;
+    parts.Editing = true;
+    parts.Session.RefreshViewers();
+    Check(parts.Viewers.Shown, "the layout editor shows them in record mode too");
+    parts.Editing = false;
+    parts.Session.RefreshViewers();
+    Check(parts.Viewers.Off, "closing it in record mode unloads them");
+    parts.Recording.IsActive = false;
     parts.Viewers.Supported = false;
     parts.Editing = true;
     parts.Session.RefreshViewers();
-    Check(!parts.Viewers.Active, "a system without in-game viewers never shows them");
+    Check(parts.Viewers.Off, "a system without in-game viewers never loads them");
   }
 
   private static void ApplyingRebuildsLayoutsOnlyWhenNeeded()
@@ -67,7 +94,7 @@ internal static class GameplaySessionTests
     parts.Session.ApplySettings();
     parts.Session.ApplySettings();
     Check(parts.Looks == 2 && parts.Layouts == 1, "a color drag applies the look each sample and the layouts once");
-    Check(!parts.Overlay.Shown && !parts.Viewers.Active, "outside a play, applying shows nothing");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Shown, "outside a play, applying shows nothing");
     parts.Settings.RecordMode = true;
     parts.Session.ApplySettings();
     Check(parts.Layouts == 2 && parts.Recording.IsActive, "switching record mode rebuilds the layouts and applies it");
@@ -138,10 +165,18 @@ internal static class GameplaySessionTests
   {
     public bool Supported { get; set; } = true;
     public bool Enabled = true;
-    public bool Active;
+    public KeyViewerPresence Presence;
+    public int Unloads;
     public bool HasEnabledViewers => Enabled;
+    public bool Shown => Presence == KeyViewerPresence.Shown;
+    public bool Off => Presence == KeyViewerPresence.Off;
 
-    public void SetActive(bool active) => Active = active;
+    public void SetPresence(KeyViewerPresence presence)
+    {
+      if (presence == KeyViewerPresence.Off && Presence != KeyViewerPresence.Off)
+        Unloads++;
+      Presence = presence;
+    }
   }
 
   private sealed class FakeRecording : IRecordMode

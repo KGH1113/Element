@@ -10,6 +10,7 @@ using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using Motion = ElementUI.Motion;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -53,7 +54,10 @@ internal sealed class OverlayValueColorBandView : NativeView
   private OverlayValueMarkerGraphic _marker;
   private TextMeshProUGUI _markerText;
   private float _width;
-  private OverlayValueColorBandMotion _motion;
+  private AnimatedFloat _motion;
+  private PresentationVisibility _motionLifetime;
+  private float _startLow,
+    _startHigh;
   private float _low,
     _high = 100,
     _targetLow,
@@ -100,9 +104,18 @@ internal sealed class OverlayValueColorBandView : NativeView
     _marker.color = UiPalette.Foreground;
     _markerText = Label(rect, "Now value", 12);
     _markerText.richText = true;
-    _motion = rect.gameObject.AddComponent<OverlayValueColorBandMotion>();
-    _motion.Step = Glide;
-    _motion.enabled = false;
+    _motion = new AnimatedFloat(progress =>
+    {
+      _low = Mathf.Lerp(_startLow, _targetLow, progress);
+      _high = Mathf.Lerp(_startHigh, _targetHigh, progress);
+      Draw();
+    });
+    _motionLifetime = rect.gameObject.AddComponent<PresentationVisibility>();
+    _motionLifetime.Changed = visible =>
+    {
+      if (!visible)
+        _motion.Finish();
+    };
     Watch(() => _vm.Revision.Value, _ => Redraw());
   }
 
@@ -125,30 +138,28 @@ internal sealed class OverlayValueColorBandView : NativeView
     _ramp.Load(_vm.Current);
     if (!_frozen)
     {
+      float previousLow = _targetLow,
+        previousHigh = _targetHigh;
       OverlayValueColorEdits.Range(_vm.Current, out _targetLow, out _targetHigh);
       if (!_drawn || UguiTheme.MotionSeconds <= 0)
       {
         _low = _targetLow;
         _high = _targetHigh;
+        _startLow = _low;
+        _startHigh = _high;
+        _motion.Snap(1);
       }
-      else if (!Arrived())
-        _motion.enabled = true;
+      else if (!Arrived() && (previousLow != _targetLow || previousHigh != _targetHigh))
+      {
+        _startLow = _low;
+        _startHigh = _high;
+        _motion.Snap(0);
+        float span = Mathf.Max(1e-6f, _targetHigh - _targetLow);
+        float distance = Mathf.Max(Mathf.Abs(_targetLow - _low), Mathf.Abs(_targetHigh - _high));
+        _motion.Set(1, Motion.Exponential(14, Mathf.Min(1, span * .002f / Mathf.Max(1e-6f, distance))));
+      }
     }
     _drawn = true;
-    Draw();
-  }
-
-  private void Glide(float seconds)
-  {
-    float k = 1 - Mathf.Exp(-seconds * 14);
-    _low = Mathf.Lerp(_low, _targetLow, k);
-    _high = Mathf.Lerp(_high, _targetHigh, k);
-    if (Arrived(.002f))
-    {
-      _low = _targetLow;
-      _high = _targetHigh;
-      _motion.enabled = false;
-    }
     Draw();
   }
 
@@ -280,7 +291,9 @@ internal sealed class OverlayValueColorBandView : NativeView
   private void Begin(int index, float grab)
   {
     // The scale holds where it is, mid-glide or not.
-    _motion.enabled = false;
+    _startLow = _targetLow = _low;
+    _startHigh = _targetHigh = _high;
+    _motion.Snap(1);
     _frozen = true;
     _dragging = index;
     _grab = grab;
@@ -404,5 +417,12 @@ internal sealed class OverlayValueColorBandView : NativeView
     rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(0, 1);
     rect.anchoredPosition = new Vector2(x, -y);
     rect.sizeDelta = new Vector2(width, height);
+  }
+
+  protected override void Teardown()
+  {
+    if (_motionLifetime != null)
+      _motionLifetime.Changed = null;
+    _motion?.Dispose();
   }
 }

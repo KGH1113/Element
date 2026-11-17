@@ -151,23 +151,38 @@ namespace Element.Editor
         Canvas.ForceUpdateCanvases();
       }
 
-      var motion = Field<SettingsWindowMotion>(check.Panel, "_windowMotion");
       var rect = Field<RectTransform>(check.Panel, "_window");
-      var group = rect.GetComponent<CanvasGroup>();
       Vector2 resting = rect.anchoredPosition;
+      int page = Array.IndexOf(check.Model.Pages, check.Model.Current);
+      CanvasGroup Open(bool reduceMotion)
+      {
+        check.Panel.HideForLayout();
+        check.Settings.ReduceUiMotion = reduceMotion;
+        check.Panel.Open();
+        check.Panel.Resize(check.Width, check.Height);
+        check.Model = Field<SettingsWindowViewModel>(check.Panel, "_model");
+        check.Model.Show(check.Model.Pages[page]);
+        ElementUI.Runtime.Flush();
+        Canvas.ForceUpdateCanvases();
+        return rect.GetComponentsInChildren<CanvasGroup>(true).First(group => group.name == "Presentation");
+      }
+      bool AtRest(CanvasGroup group) =>
+        Mathf.Abs(((RectTransform)group.transform.parent).anchoredPosition.y + rect.rect.height / 2) < .01f;
+      CanvasGroup group = Open(true);
+      Assert(group.alpha == 1 && AtRest(group) && rect.anchoredPosition == resting,
+        "reduced-motion window opens immediately at its resting position");
+      group = Open(false);
+      Assert(rect.localScale == Vector3.one && group.alpha == 0 && !AtRest(group) && rect.anchoredPosition == resting,
+        "window entrance moves its presentation without scaling text or changing host geometry");
+      ElementUI.Runtime.Flush(.3f);
+      Assert(group.alpha == 1 && AtRest(group), "window entrance settles exactly through the shared animation scheduler");
+      group = Open(false);
       check.Settings.ReduceUiMotion = true;
-      motion.Show();
-      Assert(group.alpha == 1 && rect.anchoredPosition == resting && !motion.enabled, "reduced-motion window opens immediately at its resting position");
-      check.Settings.ReduceUiMotion = false;
-      motion.Show();
-      Assert(rect.localScale == Vector3.one && group.alpha == 0 && rect.anchoredPosition.y < resting.y, "window entrance uses a small settle without scaling text");
-      motion.GetType().GetField("_elapsed", Private).SetValue(motion, .3f);
-      motion.GetType().GetMethod("Update", Private).Invoke(motion, null);
-      Assert(group.alpha == 1 && rect.anchoredPosition == resting && !motion.enabled, "window entrance settles exactly and stops updating");
-      motion.Show();
-      check.Settings.ReduceUiMotion = true;
-      motion.GetType().GetMethod("Update", Private).Invoke(motion, null);
-      Assert(rect.anchoredPosition == resting && group.alpha == 1, "enabling reduced motion interrupts the entrance cleanly");
+      check.Panel.GetType().GetMethod("Changed", Private).Invoke(check.Panel, null);
+      check.Model = Field<SettingsWindowViewModel>(check.Panel, "_model");
+      ElementUI.Runtime.Flush();
+      group = rect.GetComponentsInChildren<CanvasGroup>(true).First(value => value.name == "Presentation");
+      Assert(AtRest(group) && group.alpha == 1, "enabling reduced motion interrupts the entrance cleanly");
     }
 
     [PageCheck("_editorTweaks")]

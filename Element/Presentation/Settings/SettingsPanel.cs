@@ -5,11 +5,13 @@ using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Input;
 using Element.Presentation.Ui.Theme;
+using ElementUI;
 using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Motion = ElementUI.Motion;
 using Object = UnityEngine.Object;
 
 namespace Element.Presentation.Settings;
@@ -34,7 +36,7 @@ internal sealed class SettingsPanel : IDisposable
   private readonly GameObject _root;
   private readonly Canvas _canvas;
   private readonly RectTransform _window;
-  private readonly SettingsWindowMotion _windowMotion;
+  private readonly State<bool> _appeared = new(false);
   private SettingsWindowViewModel _model;
   private UiHost _host;
   private GameObject _ownedEventSystem;
@@ -82,13 +84,6 @@ internal sealed class SettingsPanel : IDisposable
     _window.SetParent(_root.transform, false);
     _window.anchorMin = _window.anchorMax = _window.pivot = new Vector2(.5f, .5f);
     _window.sizeDelta = new Vector2(DesignWidth, DesignHeight);
-    RoundedRect frame = _window.gameObject.AddComponent<RoundedRect>();
-    frame.Radius = 16;
-    frame.color = UiPalette.Background;
-    frame.SetStroke(new Color(.22f, .22f, .22f), 1);
-    CanvasGroup group = _window.gameObject.AddComponent<CanvasGroup>();
-    _windowMotion = _window.gameObject.AddComponent<SettingsWindowMotion>();
-    _windowMotion.Initialize(group, () => _settings.ReduceUiMotion);
     Mount();
     _root.SetActive(false);
   }
@@ -99,7 +94,16 @@ internal sealed class SettingsPanel : IDisposable
     _model?.Dispose();
     _model = new SettingsWindowViewModel(_settings, _features, Changed, _save, EditLayout, Close);
     ElementBackend backend = new(new ElementTheme(UiFonts.Choose(_font), _settings.ReduceUiMotion));
-    _host = UiHost.Mount(_window, backend, new SettingsWindowView(_model));
+    _host = UiHost.Mount(
+      _window,
+      backend,
+      new SettingsWindowView(_model)
+        .Background(UiPalette.Background, 16, new Color(.22f, .22f, .22f))
+        .Opacity(() => _appeared.Value ? 1f : 0f)
+        .Animation(Motion.ExponentialOut(.24f, 24), () => _appeared.Value)
+        .Offset(y: () => _appeared.Value ? 0f : 8f)
+        .Animation(Motion.CriticallyDamped(.24f, 32), () => _appeared.Value)
+    );
     _host.Root.Edited += _model.Changed;
     _highlightVersion = UiTheme.Version;
   }
@@ -116,10 +120,11 @@ internal sealed class SettingsPanel : IDisposable
     _previousSelection = Selected();
     if (_highlightVersion != UiTheme.Version)
       Mount();
+    SyncMotion();
     SetVisible(true);
     _model.Opened();
     FitWindow();
-    _windowMotion.Show();
+    UI.WithAnimation(_settings.ReduceUiMotion ? null : Motion.CriticallyDamped(.24f, 32), () => _appeared.Value = true);
     EventSystem.current?.SetSelectedGameObject(null);
   }
 
@@ -165,18 +170,29 @@ internal sealed class SettingsPanel : IDisposable
         _model.Show(_model.Pages[page]);
       ElementUI.Runtime.Probe();
     }
+    SyncMotion();
+  }
+
+  private void SyncMotion()
+  {
+    if (_host?.Root?.Backend is ElementBackend backend)
+      backend.ElementTheme.SetReduceMotion(_settings.ReduceUiMotion);
   }
 
   private void SetVisible(bool visible)
   {
     if (!visible)
+    {
       EventSystem.current?.SetSelectedGameObject(null);
+      UI.WithAnimation(null, () => _appeared.Value = false);
+      ElementUI.Runtime.Flush();
+    }
     _root.SetActive(visible);
     _visibility(visible);
     if (!visible && _ownedEventSystem != null)
     {
       _ownedEventSystem.SetActive(false);
-      Object.Destroy(_ownedEventSystem);
+      RectPeer.DestroyObject(_ownedEventSystem);
       _ownedEventSystem = null;
     }
   }
@@ -264,14 +280,15 @@ internal sealed class SettingsPanel : IDisposable
     if (EventSystem.current != null && EventSystem.current.gameObject != _ownedEventSystem)
     {
       if (_ownedEventSystem != null)
-        Object.Destroy(_ownedEventSystem);
+        RectPeer.DestroyObject(_ownedEventSystem);
       _ownedEventSystem = null;
       return;
     }
     if (EventSystem.current != null)
       return;
     _ownedEventSystem = new GameObject("Element UI Events", typeof(EventSystem), typeof(StandaloneInputModule));
-    Object.DontDestroyOnLoad(_ownedEventSystem);
+    if (UnityEngine.Application.isPlaying)
+      Object.DontDestroyOnLoad(_ownedEventSystem);
   }
 
   private void MoveFocus()
@@ -310,8 +327,8 @@ internal sealed class SettingsPanel : IDisposable
   {
     _model?.Dispose();
     _root.SetActive(false);
-    Object.Destroy(_root);
+    RectPeer.DestroyObject(_root);
     if (_ownedEventSystem != null)
-      Object.Destroy(_ownedEventSystem);
+      RectPeer.DestroyObject(_ownedEventSystem);
   }
 }

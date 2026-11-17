@@ -3,8 +3,6 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
-using ElementUI.Ugui;
-using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -78,24 +76,19 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
       .Frame(maxWidth: float.PositiveInfinity, height: height, alignment: Alignment.Leading);
 
   private View HexField() =>
-    ZStack(
-      Alignment.Leading,
-      TextField(null, Bind(() => VM.Hex))
-        .Configure<TMP_InputField>(field =>
-        {
-          field.characterLimit = 7;
-          // Room for the swatch before the digits.
-          RectPeer.Stretch(field.textViewport, 38, 4, 8, 4);
-          // Middle, not midline: TMP draws the caret from the same line metrics as the text then.
-          field.textComponent.alignment = TextAlignmentOptions.Left;
-          field.onEndEdit.AddListener(_ => VM.Commit());
-        })
-        .Configure<TMP_InputField, int>(() => VM.FocusHex.Value, Focus)
-        .Named("HEX color"),
-      Spacer()
-        .Frame(width: 16, height: 16)
-        .Background(() => Opaque(VM.Swatch.Value), 8)
-        .Padding(new Insets(0, 12, 0, 0))
+    FieldSurface(
+      HStack(
+          spacing: 10,
+          Circle().Fill(() => Opaque(VM.Swatch.Value)).Frame(width: 16, height: 16),
+          TextField(Bind(() => VM.Hex))
+            .TextFieldStyle(TextFieldStyle.Plain)
+            .CharacterLimit(7)
+            .OnEditEnded((_, _) => VM.Commit())
+            .FocusOn(() => VM.FocusHex.Value)
+            .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
+            .Named("HEX color")
+        )
+        .Padding(new Insets(4, 12, 4, 8))
     );
 
   // The owner's own box where it shows the opacity, or the typed one.
@@ -108,22 +101,26 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
       .Frame(width: Box, height: FieldHeight);
 
   private View TypedOpacity() =>
-    ZStack(
-      Alignment.Trailing,
-      TextField(null, Bind(() => VM.Opacity))
-        .Configure<TMP_InputField>(field =>
-        {
-          field.characterLimit = 3;
-          field.contentType = TMP_InputField.ContentType.IntegerNumber;
-          RectPeer.Stretch(field.textViewport, 10, 4, 23, 4);
-          field.textComponent.alignment = TextAlignmentOptions.Right;
-          // Right-aligned text puts the caret on the field's edge; keep room for it.
-          field.textComponent.margin = new Vector4(0, 0, 2, 0);
-          field.onEndEdit.AddListener(_ => VM.Commit());
-        })
-        .Configure<TMP_InputField, int>(() => VM.FocusOpacity.Value, Focus)
-        .Named("Opacity percentage"),
-      UI.Text("%").Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).Padding(new Insets(0, 0, 0, 12))
+    FieldSurface(
+      HStack(
+          spacing: 1,
+          TextField(Bind(() => VM.Opacity))
+            .TextFieldStyle(TextFieldStyle.Plain)
+            .InputKind(TextInputKind.Integer)
+            .CharacterLimit(3)
+            .TextAlignment(TextAlign.Trailing)
+            .OnEditEnded((_, _) => VM.Commit())
+            .FocusOn(() => VM.FocusOpacity.Value)
+            .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
+            .Named("Opacity percentage"),
+          UI.Text("%").Font(Font.Caption.Sized(13)).Foreground(Colors.Muted)
+        )
+        .Padding(new Insets(4, 10, 4, 12))
+    );
+
+  private static View FieldSurface(View content) =>
+    EnvironmentReader(environment =>
+      content.Background(Colors.SurfaceRaised, environment.Theme.CornerRadius, Colors.Line)
     );
 
   private View DefaultButton() =>
@@ -135,7 +132,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
         () => VM.Reset,
         ButtonStyle.Plain
       )
-      .Background(UiPalette.Surface, 8)
+      .ButtonStyle(new ButtonSurfaceStyle(UiPalette.Surface, 8))
       .Named("Default color")
       .Frame(width: Box, height: FieldHeight);
 
@@ -164,15 +161,6 @@ internal abstract class ColorPickerLayout : View<ColorPickerModel>
     Button(Image(ElementIcons.Of(UiIconKind.WindowClose), 24), () => VM.Close, ButtonStyle.Icon)
       .Named("Close color picker")
       .Frame(width: 40, height: 40);
-
-  // A field asked to take the keyboard does, once the picker refused what it holds.
-  private static void Focus(TMP_InputField field, int request)
-  {
-    if (request <= 0 || !field.isActiveAndEnabled)
-      return;
-    field.Select();
-    field.ActivateInputField();
-  }
 
   [Pure]
   private static UiColor Opaque(Color color) => new Color(color.r, color.g, color.b, 1);

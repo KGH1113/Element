@@ -63,9 +63,6 @@ internal sealed class PresetEditorModel : SettingsPageModel
   public Command Save { get; }
   public Command Delete { get; }
 
-  /// <summary>One command per tab.</summary>
-  public readonly Command[] ShowTab;
-
   /// <summary>The draft's shortcut.</summary>
   public readonly ShortcutFieldModel Shortcut;
 
@@ -100,16 +97,6 @@ internal sealed class PresetEditorModel : SettingsPageModel
     CanSave = Computed(() => Valid(_presets, Name, EditingId));
     Save = Command(SavePreset, CanSave);
     Delete = Command(DeletePreset);
-    ShowTab = new Command[TabNames.Length];
-    for (int i = 0; i < ShowTab.Length; i++)
-    {
-      int tab = i;
-      ShowTab[i] = Command(() =>
-      {
-        Tab = tab;
-        Shortcut.Cancel();
-      });
-    }
     Shortcut = Own(
       new ShortcutFieldModel(
         () => ShortcutKey,
@@ -158,6 +145,13 @@ internal sealed class PresetEditorModel : SettingsPageModel
     if (IsNew)
       FocusName++;
     Window.Show(this);
+  }
+
+  /// <summary>Every tab press ends shortcut capture, including pressing the selected tab.</summary>
+  public void SelectTab(int tab)
+  {
+    Tab = tab;
+    Shortcut.Cancel();
   }
 
   public override bool TickCapture() => Shortcut.TickCapture();

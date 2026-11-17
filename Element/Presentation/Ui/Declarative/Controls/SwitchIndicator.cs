@@ -1,89 +1,58 @@
 using System;
 using System.Linq.Expressions;
 using Element.Presentation.Ui.Theme;
-using Element.Presentation.Ui.Widgets;
 using ElementUI;
-using ElementUI.Ugui;
 using UnityEngine;
+using static ElementUI.UI;
+using Motion = ElementUI.Motion;
 
 namespace Element.Presentation.Ui.Declarative.Controls;
 
-/// <summary>
-/// A small switch that only shows a state: on, off, or halfway for a choice
-/// that mixes both, faded while there is nothing for it to switch. The
-/// button around it takes the click, as the editor bar's Animate does. Its
-/// thumb slides unless motion is reduced.
-/// </summary>
-internal sealed class SwitchIndicator : NativeView
+/// <summary>A noninteractive three-state switch. Its enclosing row owns the click.</summary>
+internal sealed class SwitchIndicator : ComponentView
 {
   private const float Width = 30,
     Height = 18,
     Inset = 4,
-    Thumb = Height - Inset * 2;
+    Thumb = 10;
+  private readonly Computed<bool?> _on;
+  private readonly Computed<bool> _available;
 
-  // Lighter than the row it sits on, so an off switch still reads as a switch.
-  private static readonly Color Off = new(.44f, .44f, .46f);
-
-  private readonly Expression<Func<bool?>> _on;
-  private readonly Expression<Func<bool>> _available;
-  private UiCapsuleGraphic _track,
-    _thumb;
-  private UiSwitchMotion _motion;
-  private bool? _shownOn;
-  private bool _shownAvailable = true;
-
-  /// <param name="on">On, off, or null for halfway.</param>
-  /// <param name="available">False fades it: there is nothing for it to switch.</param>
   public SwitchIndicator(Expression<Func<bool?>> on, Expression<Func<bool>> available)
   {
-    _on = on;
-    _available = available;
+    _on = Computed(on);
+    _available = Computed(available);
   }
 
-  protected override void Build(RectTransform rect)
+  public override View Body
   {
-    _track = RectPeer.Child(rect, "Switch").gameObject.AddComponent<UiCapsuleGraphic>();
-    _track.raycastTarget = false;
-    RectTransform thumb = RectPeer.Child(_track.rectTransform, "Thumb");
-    thumb.anchorMin = thumb.anchorMax = thumb.pivot = new Vector2(0, 1);
-    thumb.sizeDelta = new Vector2(Thumb, Thumb);
-    _thumb = thumb.gameObject.AddComponent<UiCapsuleGraphic>();
-    _thumb.raycastTarget = false;
-    _motion = thumb.gameObject.AddComponent<UiSwitchMotion>();
-    Watch(
-      _on,
-      on =>
-      {
-        _shownOn = on;
-        Paint();
-      }
-    );
-    Watch(
-      _available,
-      available =>
-      {
-        _shownAvailable = available;
-        Paint();
-      }
-    );
+    get
+    {
+      UiColor off = new Color(.44f, .44f, .46f),
+        on = UiPalette.AccentSurface;
+      UiColor thumbOff = UiPalette.Foreground,
+        thumbOn = UiPalette.SoftAccent;
+      return Capsule()
+        .Fill(() => _on.Value == false ? off : on)
+        .Frame(width: Width, height: Height)
+        .Overlay(
+          Circle()
+            .Fill(() => _on.Value == false ? thumbOff : thumbOn)
+            .WithoutAnimation()
+            .Frame(width: Thumb, height: Thumb)
+            .Offset(x: () =>
+              Inset
+              + (
+                _on.Value == null ? 6
+                : _on.Value.Value ? 12
+                : 0
+              )
+            )
+            .Animation(Motion.Exponential(24, .05f), () => _on.Value),
+          Alignment.Leading
+        )
+        .Opacity(() => _available.Value ? 1 : .4f)
+        .AllowsHitTesting(false);
+    }
   }
-
-  private void Paint()
-  {
-    float alpha = _shownAvailable ? 1 : .4f;
-    Color track = _shownOn == false ? Off : UiPalette.AccentSurface,
-      thumb = _shownOn == false ? UiPalette.Foreground : UiPalette.SoftAccent;
-    track.a *= alpha;
-    thumb.a *= alpha;
-    _track.color = track;
-    _thumb.color = thumb;
-    float travel = Width - Thumb - Inset * 2;
-    float x =
-      _shownOn == null ? travel * .5f
-      : _shownOn.Value ? travel
-      : 0;
-    _motion.Set(Inset + x, UguiTheme.MotionSeconds <= 0);
-  }
-
-  protected override Size PreferredSize(Proposal proposal) => new(Width, Height);
 }

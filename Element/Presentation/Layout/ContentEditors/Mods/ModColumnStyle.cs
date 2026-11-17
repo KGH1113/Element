@@ -74,7 +74,7 @@ internal sealed class ModColumnStyle : ControlStyle
         () => flip,
         ButtonStyle.Plain
       )
-      .Background(Row.Fill, Row.Radius)
+      .ButtonStyle(new ButtonSurfaceStyle(Row.Fill, Row.Radius))
       .Named((toggle.Appearance == ToggleAppearance.Checkbox ? "Checkbox " : "Switch ") + toggle.Label);
   }
 
@@ -132,8 +132,8 @@ internal sealed class ModColumnStyle : ControlStyle
 
   public override View TextField(TextFieldConfiguration field)
   {
-    View input = ModParts
-      .Typed(field.Field())
+    View input = field
+      .Field()
       .Named((field.IsNumber ? "Number " : "Text ") + field.Label)
       .Font(Font.Caption.Sized(13))
       .Frame(height: ControlHeight);
@@ -155,7 +155,11 @@ internal sealed class ModColumnStyle : ControlStyle
           null,
           Name(picker),
           false,
-          InRowWords(picker.Segments()).Named("Picker " + picker.Label).Frame(width: segments, height: ControlHeight)
+          picker
+            .Segments()
+            .Font(Font.Caption.Sized(13))
+            .Named("Picker " + picker.Label)
+            .Frame(width: segments, height: ControlHeight)
         )
       );
     return Opener(
@@ -192,7 +196,7 @@ internal sealed class ModColumnStyle : ControlStyle
     string title = control.Label;
     Command open = Commands.Make(() => _column.Open(title, tool, height: ToolHeight.Scroll));
     return Button(Row.Of(null, Name(control), false, value, Row.Chevron()), () => open, ButtonStyle.Plain)
-      .Background(Row.Fill, Row.Radius)
+      .ButtonStyle(new ButtonSurfaceStyle(Row.Fill, Row.Radius))
       .Named(name);
   }
 
@@ -215,7 +219,7 @@ internal sealed class ModColumnStyle : ControlStyle
           () => pick,
           ButtonStyle.Plain
         )
-        .Background(Row.Fill, Row.Radius)
+        .ButtonStyle(new ButtonSurfaceStyle(Row.Fill, Row.Radius))
         .Named("Option " + options[i]);
     }
     return VStack(spacing: Row.Gap, HAlignment.Leading, rows);
@@ -240,7 +244,7 @@ internal sealed class ModColumnStyle : ControlStyle
           () => flip,
           ButtonStyle.Plain
         )
-        .Background(Row.Fill, Row.Radius)
+        .ButtonStyle(new ButtonSurfaceStyle(Row.Fill, Row.Radius))
         .Named("Option " + options[i]);
     }
     return VStack(spacing: Row.Gap, HAlignment.Leading, rows);
@@ -249,7 +253,7 @@ internal sealed class ModColumnStyle : ControlStyle
   // A small round − or +; faded at its limit.
   private static View StepButton(UiIconKind icon, string name, Command step) =>
     Button(Image(ElementIcons.Of(icon), 16).Foreground(() => StepInk(step.CanExecute)), () => step, ButtonStyle.Plain)
-      .Background(UiPalette.Wash(UiPalette.EditorControl, .06f), StepSide / 2)
+      .ButtonStyle(new ButtonSurfaceStyle(UiPalette.Wash(UiPalette.EditorControl, .06f), StepSide / 2))
       .Frame(width: StepSide, height: StepSide)
       .Named(name);
 
@@ -275,14 +279,6 @@ internal sealed class ModColumnStyle : ControlStyle
       .Font(Font.Caption.Sized(13))
       .Foreground(() => Ink(control.IsEnabled))
       .LineLimit(1);
-
-  // Choices side by side in the row's words.
-  private static View InRowWords(View segments) =>
-    segments.Configure<GameObject>(control =>
-    {
-      foreach (TMPro.TextMeshProUGUI label in control.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
-        label.fontSize = 13;
-    });
 
   // A track's length: the column's own unless the name beside it needs the room.
   private float TrackWidth(string label, float numbers) =>

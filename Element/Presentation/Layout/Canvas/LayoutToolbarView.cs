@@ -1,10 +1,9 @@
+using Element.Application.Input;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
-using TMPro;
-using UnityEngine;
 using static Element.Presentation.Layout.Canvas.LayoutParts;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -128,22 +127,22 @@ internal sealed class LayoutToolbarView : View<LayoutToolbarModel>
   /// refused with the range while it isn't a number in range. A dash for several.
   /// </summary>
   private View ScaleField() =>
-    ZStack(
-        Alignment.Trailing,
-        TextField(null, Bind(() => VM.Scale.Value))
-          .Configure<TMP_InputField>(field =>
-          {
-            field.characterValidation = TMP_InputField.CharacterValidation.Decimal;
-            field.characterLimit = 5;
-            // Right-aligned beside the percent sign; the margin keeps the caret off the edge.
-            // Middle, not midline: TMP draws the caret from the same line metrics as the text then.
-            field.textComponent.alignment = TextAlignmentOptions.Right;
-            field.textComponent.margin = new Vector4(0, 0, 14, 0);
-            field.gameObject.AddComponent<LayoutTextCapture>();
-            field.onEndEdit.AddListener(_ => VM.FinishTyping.TryExecute());
-          })
-          .Named("Scale percent"),
-        Text("%").Font(Font.Caption).Foreground(Colors.Muted).Hidden(() => VM.Several.Value).Padding(0, 10)
+    EnvironmentReader(environment =>
+        HStack(
+            spacing: 2,
+            TextField(Bind(() => VM.Scale.Value))
+              .TextFieldStyle(TextFieldStyle.Plain)
+              .InputKind(TextInputKind.Decimal)
+              .CharacterLimit(5)
+              .TextAlignment(TextAlign.Trailing)
+              .OnFocusChanged(InputGate.SetTextEditing)
+              .OnEditEnded((_, _) => VM.FinishTyping.TryExecute())
+              .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
+              .Named("Scale percent"),
+            Text("%").Font(Font.Caption).Foreground(Colors.Muted).Hidden(() => VM.Several.Value)
+          )
+          .Padding(new Insets(4, 10, 4, 10))
+          .Background(Colors.SurfaceRaised, environment.Theme.CornerRadius, Colors.Line)
       )
       .Disabled(() => !VM.Scalable.Value)
       .Frame(width: 84, height: 40);

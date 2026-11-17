@@ -81,27 +81,24 @@ namespace Element.Editor
 
     /// <summary>
     /// <paramref name="count"/> frames as the game runs them: the editor's
-    /// own tick, the switches' slide (their own update), then ElementUI's
-    /// driver at the end of the frame, which flushes only while awake and goes
-    /// to sleep once nothing is left. Nothing is settled by hand: a change
-    /// that doesn't wake the driver never shows, as in the game.
+    /// own tick, then ElementUI's shared animation and layout clock at a
+    /// deterministic 60 Hz. Like the game's driver, this flushes only while
+    /// awake and goes to sleep once nothing is left: a change that doesn't
+    /// wake the driver never shows.
     /// </summary>
     private static void Frames(System.Action tick, int count)
     {
-      const System.Reflection.BindingFlags instance = System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance;
-      System.Reflection.MethodInfo slide = typeof(Element.Presentation.Ui.Widgets.UiSwitchMotion).GetMethod("Update", instance);
-      System.Reflection.MethodInfo endOfFrame = typeof(Driver).GetMethod("LateUpdate", instance);
       Driver driver = (Driver)typeof(Driver)
         .GetField("_instance", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
         .GetValue(null);
       for (int frame = 0; frame < count; frame++)
       {
         tick();
-        foreach (Element.Presentation.Ui.Widgets.UiSwitchMotion motion in Object.FindObjectsOfType<Element.Presentation.Ui.Widgets.UiSwitchMotion>())
-          if (motion.isActiveAndEnabled)
-            slide.Invoke(motion, null);
         if (driver != null && driver.enabled)
-          endOfFrame.Invoke(driver, null);
+        {
+          ElementUI.Runtime.Flush(1f / 60);
+          driver.enabled = ElementUI.Runtime.HasWork;
+        }
       }
       Canvas.ForceUpdateCanvases();
     }
@@ -153,7 +150,16 @@ namespace Element.Editor
       ValueFolderModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
       if (values.Searching.Value || values.OpenFolder != folder)
         Press(DockPlace(dock, folder.Key));
-      return DockChips(dock).Single(chip => chip.name == name);
+      Pressable[] chips = DockChips(dock);
+      if (!chips.Any(chip => chip.name == name))
+        throw new System.InvalidOperationException("Opening " + folder.Key + " did not expose " + name
+        + "; open=" + values.OpenFolder.Key + ", query=" + values.Query.Value + ", searching=" + values.Searching.Value
+        + ", folderVisible=" + folder.Open.Value + ", rootActive=" + dock.Root.gameObject.activeInHierarchy
+        + ", visible=" + string.Join(",", chips.Select(chip => chip.name))
+        + ", matchingNative=" + string.Join(";", dock.Root.GetComponentsInChildren<Pressable>(true)
+          .Where(chip => chip.name == name).Select(chip => chip.transform.parent.name + ":self="
+            + chip.gameObject.activeSelf + ":hierarchy=" + chip.gameObject.activeInHierarchy)));
+      return chips.Single(chip => chip.name == name);
     }
 
     /// <summary>A row of the dock's list of places: "Judgement", "mod:TUFOverlay".</summary>

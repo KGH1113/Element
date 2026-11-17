@@ -223,8 +223,8 @@ internal sealed class ModInputParts
     );
     return HStack(
         spacing: 2,
-        ModParts
-          .Typed(UI.TextField(null, Bind(() => text.Value)).ControlStyle(ControlStyle.Standard))
+        UI.TextField(Bind(() => text.Value))
+          .ControlStyle(ControlStyle.Standard)
           .Named("List item " + (index + 1))
           .Frame(maxWidth: float.PositiveInfinity, height: 30)
           .Padding(new Insets(0, 0, 0, 6)),

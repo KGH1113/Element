@@ -5,8 +5,6 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
-using ElementUI.Ugui;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -39,9 +37,9 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
     HeadingGap = 18,
     LiveWidth = 150;
 
-  // Where the search's words start and end, clear of the glass and of ×.
+  // The search's icon and clear-button space, also used to size its hint.
   private const float SearchStart = 32,
-    SearchEnd = 28;
+    SearchEnd = 35;
 
   private const float MinimumList = 132,
     MaximumList = 200,
@@ -74,8 +72,8 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   /// <summary>How wide the list of places is: its longest name and count, within limits.</summary>
   public float ListWidth { get; }
 
-  /// <summary>The search field once drawn; it has the keyboard while focused.</summary>
-  public TMP_InputField SearchField { get; private set; }
+  /// <summary>The search owns the editor's keyboard while focused.</summary>
+  public bool SearchFocused => VM.SearchFocused.Value;
 
   public override View Body =>
     HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
@@ -130,64 +128,43 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
         () => folder.Select,
         ButtonStyle.Plain
       )
-      .Background(() => folder.Fill.Value, 7)
+      .ButtonStyle(new ButtonSurfaceStyle(() => folder.Fill.Value, 7))
       .Named("Place " + folder.Key);
 
   // The search: a capsule like a chip, the glass leading, × once something is typed.
   private View SearchBox() =>
-    ZStack(
-        Alignment.Leading,
-        TextField(null, Bind(() => VM.Query.Value), L("값 찾기", "Find a value"))
-          .Font(Font.Caption.Sized(13))
-          .Configure<TMP_InputField>(Dress)
-          .Named("Value search")
-          .Frame(maxWidth: float.PositiveInfinity, height: FieldHeight),
-        HStack(
-            spacing: 0,
-            Image(ElementIcons.Of(UiIconKind.Search), 15).Foreground(Colors.Muted),
-            Spacer(),
-            If(
-              () => VM.Searching.Value,
-              () =>
-                Button(Image(ElementIcons.Of(UiIconKind.Close), 12), () => VM.ClearSearch, ButtonStyle.Icon)
-                  .Foreground(Colors.Muted)
-                  .Named("Clear value search")
-                  .Frame(width: 24, height: 24)
-            )
+    HStack(
+        spacing: 7,
+        Image(ElementIcons.Of(UiIconKind.Search), 15).Foreground(Colors.Muted),
+        TextField(Bind(() => VM.Query.Value), L("값 찾기", "Find a value"))
+          .TextFieldStyle(TextFieldStyle.Plain)
+          .CharacterLimit(40)
+          .RestoreOriginalTextOnEscape(false)
+          .Focused(Bind(() => VM.SearchFocused.Value))
+          .OnTextChanged(_ => VM.Search.TryExecute())
+          .OnSubmit(_ => VM.PickFirst.TryExecute())
+          .OnEditEnded(
+            (_, canceled) =>
+            {
+              if (canceled)
+                VM.ClearSearch.TryExecute();
+            }
           )
-          .Padding(new Insets(0, 10, 0, 4))
-          .Frame(maxWidth: float.PositiveInfinity, height: FieldHeight)
+          .Named("Value search")
+          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
+        If(
+          () => VM.Searching.Value,
+          () =>
+            Button(Image(ElementIcons.Of(UiIconKind.Close), 12), () => VM.ClearSearch, ButtonStyle.Icon)
+              .Foreground(Colors.Muted)
+              .Named("Clear value search")
+              .Frame(width: 24, height: 24)
+        )
       )
-      .Frame(width: ListWidth, height: FieldHeight);
-
-  private void Dress(TMP_InputField field)
-  {
-    SearchField = field;
-    if (field.targetGraphic is RoundedRect fill)
-    {
-      fill.color = UiPalette.EditorControl;
-      fill.Radius = FieldHeight / 2;
-      fill.SetStroke(Color.clear, 0);
-    }
-    // Clear of the glass on the left and × on the right.
-    RectTransform area = field.textViewport;
-    area.offsetMin = new Vector2(SearchStart, area.offsetMin.y);
-    area.offsetMax = new Vector2(-SearchEnd, area.offsetMax.y);
-    // Middle, not midline: TMP draws the caret from the same line metrics as the text then.
-    field.textComponent.alignment = TextAlignmentOptions.Left;
-    if (field.placeholder is TMP_Text hint)
-      hint.alignment = TextAlignmentOptions.Left;
-    field.characterLimit = 40;
-    field.restoreOriginalTextOnEscape = false;
-    field.onValueChanged.AddListener(_ => VM.Search.TryExecute());
-    field.onSubmit.AddListener(_ => VM.PickFirst.TryExecute());
-    // Esc clears the search; the keys go back to the editor either way.
-    field.onEndEdit.AddListener(_ =>
-    {
-      if (field.wasCanceled)
-        VM.ClearSearch.TryExecute();
-    });
-  }
+      .Font(Font.Caption.Sized(13))
+      .Padding(new Insets(0, 10, 0, 4))
+      .Frame(width: ListWidth, height: FieldHeight)
+      .Background(UiPalette.EditorControl, Capsule());
 
   // ---- The page ----
 
@@ -340,7 +317,7 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
         () => chip.Pick,
         ButtonStyle.Plain
       )
-      .Background(ChipFill, ChipHeight / 2)
+      .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
       .Configure<GameObject>(target => OverlayValueChipHandle.Attach(target, chip.Value, _dock))
       .Named(chip.Name);
 

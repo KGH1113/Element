@@ -3,7 +3,6 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
-using TMPro;
 using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -37,33 +36,25 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
             .Foreground(Colors.Muted)
       ),
       ViewThatFits(TabBar(6).Frame(minWidth: 600, maxWidth: float.PositiveInfinity), TabBar(3)),
-      // One tab at a time; the others take no room.
-      ZStack(
-        Alignment.TopLeading,
-        If(() => VM.Tab == (int)EffectGroup.Screen, ScreenTab),
-        If(() => VM.Tab == (int)EffectGroup.Scene, () => GroupTab(EffectGroup.Scene)),
-        If(() => VM.Tab == (int)EffectGroup.Track, () => GroupTab(EffectGroup.Track)),
-        If(() => VM.Tab == (int)EffectGroup.Planets, () => GroupTab(EffectGroup.Planets)),
-        If(() => VM.Tab == (int)EffectGroup.Other, () => GroupTab(EffectGroup.Other)),
-        If(() => VM.Tab == PresetEditorModel.ShortcutTab, ShortcutTab)
+      // Each tab is made on first use and retains its view state while inactive.
+      UI.Switch(
+        () => VM.Tab,
+        tab =>
+          tab switch
+          {
+            (int)EffectGroup.Screen => ScreenTab(),
+            PresetEditorModel.ShortcutTab => ShortcutTab(),
+            _ => GroupTab((EffectGroup)tab),
+          }
       )
     );
 
   // The name, Save and, for a saved preset, Delete; on narrow windows Save and Delete go under the name.
   private View Identity(bool wide)
   {
-    View name = TextField(null, Bind(() => VM.Name), L("프리셋 이름", "Preset name"))
-      .Configure<TMP_InputField>(field => field.characterLimit = EffectSettings.MaximumNameLength)
-      .Configure<TMP_InputField, int>(
-        () => VM.FocusName,
-        (field, focus) =>
-        {
-          if (focus == 0 || !field.gameObject.activeInHierarchy)
-            return;
-          field.Select();
-          field.ActivateInputField();
-        }
-      )
+    View name = TextField(Bind(() => VM.Name), L("프리셋 이름", "Preset name"))
+      .CharacterLimit(EffectSettings.MaximumNameLength)
+      .FocusOn(() => VM.FocusName)
       .Frame(maxWidth: float.PositiveInfinity);
     View save = Button(
         Text(L("저장", "Save preset")).Frame(maxWidth: float.PositiveInfinity),
@@ -102,11 +93,11 @@ internal sealed class PresetEditorView : View<PresetEditorModel>
           .Font(Font.Callout)
           .Foreground(() => VM.Tab == index ? Colors.OnAccent : Colors.Foreground)
           .Frame(maxWidth: float.PositiveInfinity),
-        () => VM.ShowTab[index],
+        () => VM.SelectTab(index),
         ButtonStyle.Plain
       )
       .Frame(height: 34)
-      .Background(() => VM.Tab == index ? Colors.Accent : Colors.Surface, 17);
+      .ButtonStyle(new ButtonSurfaceStyle(() => VM.Tab == index ? Colors.Accent : Colors.Surface, 17));
 
   // Camera movement first, its zoom under it, then the rest of the Screen group.
   private View ScreenTab() =>

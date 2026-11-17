@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using ElementUI;
@@ -50,27 +49,19 @@ internal sealed class OverlayInspectorRowView : View<OverlayBarButtonModel>
 
   public override View Body =>
     Button(Content(), () => VM.Click, ButtonStyle.Plain)
-      .Background(() => VM.Fill.Value, OverlayInspectorRow.Radius)
+      .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, OverlayInspectorRow.Radius))
       .Named(VM.Name);
 
-  private View Content()
-  {
-    List<View> trailing = new();
-    if (VM.ShowsValue)
-      trailing.Add(OverlayInspectorRow.Value(() => VM.ValueText.Value, () => VM.ValueInk.Value));
-    if (VM.Unit != null)
-      trailing.Add(OverlayInspectorRow.Unit(VM.Unit));
-    if (VM.Toggle)
-      trailing.Add(new SwitchIndicator(() => VM.SwitchOn.Value, () => VM.Available.Value));
-    if (VM.Opens)
-      trailing.Add(OverlayInspectorRow.Chevron());
-    return OverlayInspectorRow.Of(
+  private View Content() =>
+    OverlayInspectorRow.Of(
       Lead(),
       OverlayInspectorRow.Name(VM.Label, () => VM.Ink.Value),
       VM.Toggle,
-      trailing.ToArray()
+      VM.ShowsValue ? OverlayInspectorRow.Value(() => VM.ValueText.Value, () => VM.ValueInk.Value) : null,
+      VM.Unit != null ? OverlayInspectorRow.Unit(VM.Unit) : null,
+      VM.Toggle ? new SwitchIndicator(() => VM.SwitchOn.Value, () => VM.Available.Value) : null,
+      VM.Opens ? OverlayInspectorRow.Chevron() : null
     );
-  }
 
   private View Lead()
   {

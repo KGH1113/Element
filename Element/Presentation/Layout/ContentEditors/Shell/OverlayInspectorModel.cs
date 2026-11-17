@@ -19,6 +19,7 @@ internal sealed class OverlayInspectorModel : ViewModel
     Heading = heading;
     Rows = rows;
     Back = Command(back);
+    ToolOpen = Computed(() => Open.Value.Length > 0);
   }
 
   /// <summary>Over the rows, such as "Text".</summary>
@@ -30,27 +31,11 @@ internal sealed class OverlayInspectorModel : ViewModel
   public readonly State<string> Open = new("");
 
   /// <summary>A tool is open in the column: the back row shows instead of the rows.</summary>
-  public readonly State<bool> ToolOpen = new(false);
+  public readonly Computed<bool> ToolOpen;
 
   /// <summary>Closes the open tool: the rows come back.</summary>
   public Command Back { get; }
 
   /// <summary>The rows, or the back row naming <paramref name="tool"/> (null for none).</summary>
-  public void ShowOpen(string tool)
-  {
-    Open.Value = tool ?? "";
-    ToolOpen.Value = !string.IsNullOrEmpty(tool);
-  }
-
-  /// <summary>Goes up each time a row's shown value changes.</summary>
-  public int Revision
-  {
-    get
-    {
-      int revision = 0;
-      for (int i = 0; i < Rows.Count; i++)
-        revision += Rows[i].Revision;
-      return revision;
-    }
-  }
+  public void ShowOpen(string tool) => Open.Value = tool ?? "";
 }

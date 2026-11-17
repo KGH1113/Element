@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
+using ElementUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Motion = ElementUI.Motion;
 
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
@@ -35,8 +37,7 @@ internal sealed class OverlayEditorFrame : IDisposable
 
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
-  private readonly CanvasGroup _fade;
-  private readonly float _openedAt;
+  private readonly AnimatedFloat _fade;
   private readonly OverlayEditorFrameModel _top;
   private readonly List<ScreenPanel> _panels = new();
   private RectTransform _ghost;
@@ -57,13 +58,14 @@ internal sealed class OverlayEditorFrame : IDisposable
   {
     _font = font;
     _reduceMotion = reduceMotion;
-    _openedAt = Time.unscaledTime;
     ViewWidth = Screen.width;
     ViewHeight = Screen.height;
     Ui = new UiFactory(font) { ReduceMotion = reduceMotion };
     Root = Ui.Rect(name, parent, 0, 0, ViewWidth, ViewHeight).gameObject;
-    _fade = Root.AddComponent<CanvasGroup>();
-    _fade.alpha = reduceMotion() ? 1 : 0;
+    CanvasGroup fadeGroup = Root.AddComponent<CanvasGroup>();
+    _fade = new AnimatedFloat(alpha => fadeGroup.alpha = alpha);
+    _fade.Set(reduceMotion() ? 1 : 0);
+    _fade.Set(1, reduceMotion() ? null : Motion.Linear(FadeSeconds));
     // Deep enough that the game's own texts stay far behind the edited one.
     Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, new Color(0, 0, 0, .92f), false);
     dim.raycastTarget = true;
@@ -136,8 +138,8 @@ internal sealed class OverlayEditorFrame : IDisposable
   /// <summary>Fades in, and lets a notice go once it has been read.</summary>
   public void Tick()
   {
-    if (_fade.alpha < 1)
-      _fade.alpha = _reduceMotion() ? 1 : Mathf.Clamp01((Time.unscaledTime - _openedAt) / FadeSeconds);
+    if (_reduceMotion())
+      _fade.Finish();
     _top.Tick();
   }
 
@@ -215,6 +217,7 @@ internal sealed class OverlayEditorFrame : IDisposable
 
   public void Dispose()
   {
+    _fade.Dispose();
     foreach (ScreenPanel panel in _panels)
       panel.Dispose();
     _panels.Clear();

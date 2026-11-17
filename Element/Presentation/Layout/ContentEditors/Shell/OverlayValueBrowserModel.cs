@@ -67,6 +67,9 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   /// <summary>What is typed in the search.</summary>
   public readonly State<string> Query = new("");
 
+  /// <summary>The search owns keyboard input until its focus ends.</summary>
+  public readonly State<bool> SearchFocused = new(false);
+
   /// <summary>Something is typed: the page shows what it finds instead of the open place.</summary>
   public readonly State<bool> Searching = new(false);
 

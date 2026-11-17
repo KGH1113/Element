@@ -79,14 +79,17 @@ namespace Element.Editor
       foreach (EffectChoiceModel choice in editor.Groups[(int)EffectGroup.Screen])
         Assert(PageUi.World(PageUi.Label(root, choice.Title)).yMax <= zoomRect.yMin,
           "the other Screen effects start below the zoom instead of covering it: " + choice.Title);
-      zoom.onEndEdit.Invoke("1200");
+      zoom.text = "1200";
+      zoom.onEndEdit.Invoke(zoom.text);
       PageUi.Settle(check);
       Assert(Mathf.Approximately(editor.Zoom, 1000) && zoom.text == "1000", "a zoom above the range becomes the maximum");
-      zoom.onEndEdit.Invoke("50");
+      zoom.text = "50";
+      zoom.onEndEdit.Invoke(zoom.text);
       PageUi.Settle(check);
       Assert(Mathf.Approximately(editor.Zoom, 100) && zoom.text == "100", "a zoom below the range becomes the minimum");
       zoom.text = "300";
-      zoom.onEndEdit.Invoke("300");
+      zoom.text = "300";
+      zoom.onEndEdit.Invoke(zoom.text);
       PageUi.Settle(check);
       Assert(Mathf.Approximately(editor.Zoom, 300), "a typed zoom applies");
       PageUi.Press(PageUi.ButtonWith(root, UiText("저장", "Save preset")));
@@ -210,6 +213,12 @@ namespace Element.Editor
         "a preset without a shortcut invites setting one and offers nothing to remove");
       PageUi.Press(PageUi.ButtonWith(root, UiText("눌러서 단축키 지정", "Click to set a shortcut")));
       Assert(field.Recording && editor.TickCapture(), "clicking the field records");
+      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorModel.ShortcutTab]));
+      PageUi.Settle(check);
+      Assert(editor.Tab == PresetEditorModel.ShortcutTab && !field.Recording && !editor.TickCapture(),
+        "pressing the already selected Shortcut tab cancels capture without switching tabs");
+      PageUi.Press(PageUi.ButtonWith(root, UiText("눌러서 단축키 지정", "Click to set a shortcut")));
+      Assert(field.Recording, "shortcut capture can restart after reselecting its tab");
       Assert(!field.TryAssign(KeyCode.Alpha1, KeyCode.LeftAlt) && field.Recording && field.Hint.Contains(other.Name),
         "a shortcut another preset uses names that preset and keeps recording");
       Assert(!field.TryAssign(settings.SettingsShortcutKey, settings.SettingsShortcutModifier) && field.Recording,

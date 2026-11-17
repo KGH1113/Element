@@ -11,7 +11,6 @@ using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using ElementKit;
 using ElementUI;
-using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -34,13 +33,6 @@ internal static class ModParts
 
   private static readonly UiColor Missing = UiPalette.Error;
 
-  /// <summary>
-  /// A text field drawn the way Element's own are: its words on the middle
-  /// line rather than the midline, so the caret takes the same line as the text.
-  /// </summary>
-  public static View Typed(View field) =>
-    field.Configure<TMP_InputField>(input => input.textComponent.alignment = TextAlignmentOptions.Left);
-
   /// <summary>A swatch with its HEX (and opacity) that opens Element's color picker.</summary>
   public static View ColorPicker(string label, Binding<Color> color, bool opacity, ModEditorContext context)
   {
@@ -50,7 +42,7 @@ internal static class ModParts
       "Color " + label,
       _ => new SwatchDot(() => Opaque(color.Value), () => NoGradient()),
       title,
-      on => Row.Value(() => ColorCaption(color.Value, opacity), () => Ink(on.Value)),
+      environment => Row.Value(() => ColorCaption(color.Value, opacity), () => Ink(environment.IsEnabled)),
       // The color's own controls end with the column, as the text editor's do.
       _ =>
         new ModColorTool(title, color, opacity).Frame(
@@ -69,7 +61,7 @@ internal static class ModParts
       "Paint " + label,
       _ => new SwatchDot(() => SwatchOf(paint.Value), () => NoGradient()),
       title,
-      on => Row.Value(() => PaintCaption(paint.Value), () => Ink(on.Value)),
+      environment => Row.Value(() => PaintCaption(paint.Value), () => Ink(environment.IsEnabled)),
       _ => new ModPaintPicker(title, paint),
       ModPaintPicker.Width
     );
@@ -83,9 +75,10 @@ internal static class ModParts
     return Opener(
       context,
       "Font " + label,
-      on => Row.Icon(UiIconKind.Font, () => Ink(on.Value)),
+      environment => Row.Icon(UiIconKind.Font, () => Ink(environment.IsEnabled)),
       title,
-      on => Row.Value(() => FontName(font.Value, fonts), () => FontInk(font.Value, fonts, on.Value)),
+      environment =>
+        Row.Value(() => FontName(font.Value, fonts), () => FontInk(font.Value, fonts, environment.IsEnabled)),
       _ => new FontList(
         new FontListRequest
         {
@@ -121,9 +114,9 @@ internal static class ModParts
     return Opener(
       context,
       "Anchor " + label,
-      on => Row.Icon(UiIconKind.GrowFrom, () => Ink(on.Value)),
+      environment => Row.Icon(UiIconKind.GrowFrom, () => Ink(environment.IsEnabled)),
       title,
-      on => Row.Value(() => AnchorName(anchor.Value), () => Ink(on.Value)),
+      environment => Row.Value(() => AnchorName(anchor.Value), () => Ink(environment.IsEnabled)),
       commands => AnchorTool(points(), anchor)
     );
   }
@@ -167,7 +160,7 @@ internal static class ModParts
               model.ModifierText.Value,
               model.KeyText.Value
             ),
-          () => Ink(on.Value)
+          () => Ink(on.IsEnabled)
         ),
       _ =>
         new ShortcutField(model, UiIconKind.Close, L("지우기", "Clear"), "Shortcut field " + label).Padding(
@@ -210,28 +203,29 @@ internal static class ModParts
   public static View Opener(
     ModEditorContext context,
     string name,
-    Func<State<bool>, View> lead,
+    Func<EnvironmentValues, View> lead,
     string title,
-    Func<State<bool>, View> value,
+    Func<EnvironmentValues, View> value,
     Func<ModCommands, View> tool,
     float width = float.NaN,
     ToolHeight height = ToolHeight.Own
   )
   {
-    EnabledWatch watch = new();
-    State<bool> on = watch.Enabled;
-    Opening opening = new(() => context.Column?.Open(title, tool, width, height));
-    return Button(
-        ZStack(
-          Alignment.Leading,
-          Row.Of(lead?.Invoke(on), Row.Name(title, () => Ink(on.Value)), false, value(on), Row.Chevron()),
-          watch
-        ),
-        () => opening.Open,
-        ButtonStyle.Plain
-      )
-      .Background(Row.Fill, Row.Radius)
-      .Named(name);
+    return EnvironmentReader(environment =>
+      Button(
+          Row.Of(
+            lead?.Invoke(environment),
+            Row.Name(title, () => Ink(environment.IsEnabled)),
+            false,
+            value(environment),
+            Row.Chevron()
+          ),
+          () => context.Column?.Open(title, tool, width, height),
+          ButtonStyle.Plain
+        )
+        .ButtonStyle(new ButtonSurfaceStyle(Row.Fill, Row.Radius))
+        .Named(name)
+    );
   }
 
   // The nine points on the popover's panel, the picked one named beside them.
@@ -326,12 +320,4 @@ internal static class ModParts
     fonts?.Status(key) ?? OverlayFontStatus.Missing;
 
   private static string Percent(float alpha) => alpha < .995f ? "  " + Mathf.RoundToInt(alpha * 100) + "%" : "";
-
-  /// <summary>A row's click, opening its tool.</summary>
-  private sealed class Opening : ViewModel
-  {
-    public Opening(Action open) => Open = Command(open);
-
-    public Command Open { get; }
-  }
 }

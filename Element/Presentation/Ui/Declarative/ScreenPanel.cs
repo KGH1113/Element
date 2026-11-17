@@ -62,13 +62,21 @@ internal sealed class ScreenPanel : IDisposable
   /// content at <paramref name="width"/> (NaN: as wide as it wants).
   /// <paramref name="model"/> is disposed with the screen; null when its owner keeps it.
   /// </summary>
-  public Vector2 Mount(IBackend backend, View view, IDisposable model, float width = float.NaN)
+  public Vector2 Mount(
+    IBackend backend,
+    View view,
+    IDisposable model,
+    float width = float.NaN,
+    bool followsContent = false
+  )
   {
     _model?.Dispose();
     _model = model;
     Root.sizeDelta = new Vector2(float.IsNaN(width) ? 100 : width, 100);
     Host = UiHost.Mount(Root, backend, view);
-    ElementUI.Size size = Host.FitContent(width);
+    Host.Root.TreeChanged += Sync;
+    Host.Root.ContentSizeChanged += size => Size = new Vector2(size.Width, size.Height);
+    ElementUI.Size size = Host.FitContent(width, followsContent);
     Size = new Vector2(size.Width, size.Height);
     _mounted = -1;
     Sync();
@@ -94,7 +102,7 @@ internal sealed class ScreenPanel : IDisposable
   /// </summary>
   public void Sync()
   {
-    int mounted = Host != null && Host.Root != null ? Host.Root.MountedCount : 0;
+    int mounted = Host != null && Host.Root != null ? Host.Root.TreeVersion : 0;
     if (mounted == _mounted)
       return;
     _mounted = mounted;

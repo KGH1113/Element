@@ -58,8 +58,6 @@ internal sealed class ElementBarPanel : IPopover
 
   public bool Visible => _panel != null && _panel.Root.gameObject.activeSelf;
 
-  public bool IsTyping => false;
-
   public RectTransform Anchor => null;
 
   public bool Contains(Vector2 screen) => Visible && PopoverPlacement.Contains(_panel.Root, screen);

@@ -28,8 +28,6 @@ internal sealed class ListMenu : IPopover
 
   public bool Visible => _panel != null;
 
-  public bool IsTyping => false;
-
   public RectTransform Anchor => null;
 
   public float Width { get; }

@@ -218,7 +218,7 @@ internal sealed class SettingsWindowScreen : ISettingsWindowActions, IDisposable
     foreach (SettingsPageViewModel page in _model.Pages)
       if (page.TickCapture())
         return;
-    if (!IsTyping() && ShortcutPressed(_settings))
+    if (!Keyboard.IsTaken && ShortcutPressed(_settings))
     {
       if (IsOpen)
         Close();
@@ -258,14 +258,6 @@ internal sealed class SettingsWindowScreen : ISettingsWindowActions, IDisposable
 
   public static string ShortcutLabel(ElementSettings settings) =>
     ShortcutKeys.Label(settings.SettingsShortcutKey, settings.SettingsShortcutModifier);
-
-  public static bool IsTyping() => IsTyping(EventSystem.current);
-
-  internal static bool IsTyping(EventSystem events)
-  {
-    TMP_InputField field = Selected(events)?.GetComponent<TMP_InputField>();
-    return field != null && field.isFocused;
-  }
 
   private static GameObject Selected() => Selected(EventSystem.current);
 

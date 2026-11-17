@@ -146,7 +146,7 @@ namespace Element.Editor
 
       public string FormulaText => Vm.Formula.Value;
       public string ResultText => Vm.Result.Value;
-      public bool IsTyping => Panel.IsTyping;
+      public bool IsTyping => ElementUI.Ugui.Keyboard.IsTaken;
       public bool Contains(Vector2 screen) => Panel.Contains(screen);
       public bool Dragging => Vm.Values.Carrying;
       public void Tick() => Panel.Tick();

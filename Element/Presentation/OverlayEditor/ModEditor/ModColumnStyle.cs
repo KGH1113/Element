@@ -15,8 +15,8 @@ using Row = Element.Presentation.OverlayEditor.Parts.Inspector.InspectorRowStyle
 namespace Element.Presentation.OverlayEditor.ModEditor;
 
 /// <summary>
-/// A mod's settings drawn as the property column's rows, whichever way the
-/// mod wrote them: a card or a section is a heading over its rows, a toggle
+/// A mod's screen drawn as the property column's rows, without the mod doing
+/// anything for it: a card or a section is a heading over its rows, a toggle
 /// a row with a switch, a slider a row with a short track and its number, a
 /// stepper − n +, a field the field on the right, a picker its choices side
 /// by side when they fit or the choice with a chevron that opens the list,

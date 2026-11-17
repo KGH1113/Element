@@ -19,7 +19,7 @@ ElementKit.dll은 Element가 가지고 있습니다(`Mods/Element/Runtime/versio
 "LoadAfter": ["Element"]
 ```
 
-편집 화면을 [ElementUI](#elementui로-편집-화면-쓰기)로 쓰면 같은 폴더의 `ElementUI.Core.dll`도 같은 방법(`Private=false`)으로 참조합니다.
+오버레이 요소의 편집 화면은 ElementUI로 쓰므로, 요소를 만들면 같은 폴더의 `ElementUI.Core.dll`도 같은 방법(`Private=false`)으로 참조합니다.
 
 ## 값 더하기
 
@@ -52,9 +52,12 @@ MyValues.Streak.Set(streak);
 
 ## 오버레이 요소와 편집 화면 더하기
 
-`OverlayElement<TSettings>`를 상속하고 `[Element]`를 붙이면 Element가 찾아서 **Add Element → 기타**에 넣습니다. 부를 것은 없습니다. 설정 클래스는 Element가 레이아웃·프로필과 함께 저장하고, 편집 화면은 Element의 부품(`EditorPage`)으로 만듭니다.
+`OverlayElement<TSettings>`를 상속하고 `[Element]`를 붙이면 Element가 찾아서 **Add Element → 기타**에 넣습니다. 부를 것은 없습니다. 설정 클래스는 Element가 레이아웃·프로필과 함께 저장하고, 편집 화면은 ElementUI로 씁니다.
 
 ```csharp
+using static ElementUI.UI;
+using static ElementKit.EditorParts;
+
 [Serializable]
 public sealed class StreakSettings
 {
@@ -76,31 +79,20 @@ public sealed class StreakBar : OverlayElement<StreakSettings>
         Drawing.Place(_bar.Rect, 0, 0, Settings.Width, 24);
     }
 
-    protected override void OnEdit(EditorPage page)
-    {
-        page.ColorPicker(page.L("색", "Color"), Settings.Fill, color => Settings.Fill = color);
-        page.Slider(page.L("너비", "Width"), Settings.Width, 80, 960, value => Settings.Width = value, step: 1);
-    }
+    protected override View Editor(EditorViewModel<StreakSettings> vm) =>
+        VStack(spacing: 12,
+            ColorPicker(vm.L("색", "Color"), Bind(() => vm.Settings.Fill)),
+            Slider(vm.L("너비", "Width"), Bind(() => vm.Settings.Width), 80, 960, step: 1));
 }
 ```
 
-`IsPreview`가 참이면 편집기 안이므로, 보여 줄 것이 없을 때 예시를 그립니다. 편집 화면의 취소·완료, 실행 취소, 미리보기는 Element가 맡습니다.
+`IsPreview`가 참이면 편집기 안이므로, 보여 줄 것이 없을 때 예시를 그립니다. 편집 화면의 취소·완료, 실행 취소, 미리보기, 기준점은 Element가 맡습니다.
 
-### ElementUI로 편집 화면 쓰기
+### 편집 화면
 
-`OnEdit` 대신 `Editor`를 override하면 편집 화면을 ElementUI 뷰로 씁니다. 컨트롤을 `vm.Settings`의 필드에 `Bind`로 잇고, Element의 색·폰트·기준점·단축키 선택기는 `EditorParts`에서 가져옵니다. 화면은 Element 텍스트 편집기처럼 미리보기 오른쪽 속성 열에 놓이고, 컨트롤은 그 열의 행으로 그려집니다(`Card`는 제목 아래 행 묶음, 슬라이더는 짧은 막대가 있는 행, 옆에 다 들어가지 않는 `Picker`와 `MultiPicker`는 눌러서 목록을 여는 행). 길면 스크롤됩니다. 모드 코드는 그대로 두면 됩니다. 실행 취소, 미리보기, 저장은 `OnEdit`과 같습니다. 둘 중 하나만 override합니다.
+`Editor`에서 컨트롤을 `vm.Settings`의 필드에 `Bind`로 잇고, Element의 색·폰트·기준점·단축키 선택기는 `EditorParts`에서 가져옵니다. 화면은 Element 텍스트 편집기처럼 미리보기 오른쪽 속성 열에 놓이고, 컨트롤은 그 열의 행으로 그려집니다(`Card`는 제목 아래 행 묶음, 슬라이더는 짧은 막대가 있는 행, 옆에 다 들어가지 않는 `Picker`와 `MultiPicker`는 눌러서 목록을 여는 행). 길면 스크롤됩니다. `Tabs`, `Button`, `Text`, `Divider` 같은 ElementUI 뷰도 그대로 씁니다. `Editor`를 쓰지 않은 요소는 편집 화면에 미리보기와 기준점만 있습니다.
 
-```csharp
-using static ElementUI.UI;
-using static ElementKit.EditorParts;
-
-protected override View Editor(EditorViewModel<StreakSettings> vm) =>
-    VStack(spacing: 12,
-        ColorPicker(vm.L("색", "Color"), Bind(() => vm.Settings.Fill)),
-        Slider(vm.L("너비", "Width"), Bind(() => vm.Settings.Width), 80, 960, step: 1));
-```
-
-실행 취소는 설정을 새 객체로 되돌리므로, 설정은 늘 `vm.Settings`로 읽습니다.
+실행 취소는 설정을 새 객체로 되돌리므로, 설정은 늘 `vm.Settings`로 읽습니다. 버튼처럼 여러 설정을 한 번에 바꾸는 것도 한 번의 실행 취소입니다.
 
 ## Element 없이도 켜지게
 
@@ -141,9 +133,9 @@ private static void SetStreak(int streak) => MyValues.Streak.Set(streak);
 | `Kit.cs` | `Kit.Attach`, `Kit.ApiLevel` |
 | `Values/` | `ValueGroup`, `NumberValue`, `TimeValue`, `TextValue` |
 | `Elements/` | `OverlayElement`, `ElementAttribute`, `Anchor` |
-| `Editing/` | `EditorPage`, `EditorTabs`, `EditorControl`, `EditorIcon`; ElementUI로 쓸 때 `EditorViewModel`, `EditorParts` |
+| `Editing/` | `EditorViewModel`, `EditorParts` |
 | `Drawing/` | `Drawing`, `RoundedBox`, `Paint`과 그라디언트 |
 | `Input/` | `Shortcut` |
 | `Hosting/` | Element만 쓰는 내부 코드 |
 
-`EditorPage`, `EditorTabs`, `EditorControl`, `EditorViewModel`, `EditorParts`, `Drawing`, `RoundedBox`는 Element가 구현해서 건네줍니다. 모드는 쓰기만 하고 상속할 수 없습니다.
+`EditorViewModel`, `EditorParts`, `Drawing`, `RoundedBox`는 Element가 구현해서 건네줍니다. 모드는 쓰기만 하고 상속할 수 없습니다.

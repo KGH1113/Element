@@ -14,8 +14,8 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// scrolling when they are taller than the screen. A row that opens a tool
 /// (a color, a font, a list of choices) opens it in the column under a back
 /// row naming it, as the text editor's do; the back row (or Esc) brings the
-/// rows back. A screen the mod wrote with ElementUI is drawn in the column's
-/// <see cref="ModColumnStyle"/>; Element's own parts draw themselves as rows.
+/// rows back. The mod's screen is drawn in the column's
+/// <see cref="ModColumnStyle"/>; Element's own pickers draw themselves as rows.
 /// </summary>
 internal sealed class ModEditorColumn : IDisposable
 {
@@ -35,7 +35,7 @@ internal sealed class ModEditorColumn : IDisposable
   /// <param name="frame">The editor's controls, in frame units.</param>
   /// <param name="area">Where the column stands, in frame units.</param>
   /// <param name="backend">Draws a screen in the editor's look.</param>
-  /// <param name="edited">A control changed what it is bound to; null when the parts report their own changes.</param>
+  /// <param name="edited">A control changed what it is bound to.</param>
   /// <param name="editing">A drag started (true) or ended.</param>
   public ModEditorColumn(RectTransform frame, Rect area, Func<IBackend> backend, Action edited, Action<bool> editing)
   {

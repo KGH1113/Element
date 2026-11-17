@@ -6,7 +6,7 @@ namespace ElementKit;
 /// <summary>
 /// A color the way Element's own elements have it: one color, the player's
 /// highlight color, or a gradient. Keep it in your settings class; pick it
-/// with <see cref="EditorPage.ColorPicker(string, Paint, Action{Paint})"/> and
+/// with <see cref="EditorParts.ColorPicker(string, ElementUI.Binding{Paint})"/> and
 /// fill a box with <see cref="RoundedBox.Paint"/>.
 /// </summary>
 [Serializable]

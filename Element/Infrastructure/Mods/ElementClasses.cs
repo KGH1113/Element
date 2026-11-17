@@ -88,22 +88,9 @@ internal static class ElementClasses
         );
         continue;
       }
-      if (Overrides(type, "Editor") && Overrides(type, "OnEdit"))
-        report(
-          "[ElementKit] "
-            + name
-            + " overrides both Editor and OnEdit. Element shows the screen Editor returns; keep one of the two."
-        );
       found.Add(new ElementClass(modId, type, info));
     }
     return found;
-  }
-
-  // Whether the element writes its own version of the base class's method.
-  private static bool Overrides(Type type, string method)
-  {
-    MethodInfo found = type.GetMethod(method, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-    return found != null && found.DeclaringType != found.GetBaseDefinition().DeclaringType;
   }
 
   /// <summary>Whether <paramref name="assembly"/> was built against ElementKit, so it may declare elements.</summary>

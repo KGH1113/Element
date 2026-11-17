@@ -57,7 +57,7 @@ Presentation/
 │  ├─ KeyViewers/
 │  ├─ TextEditor/                 TextEditorScreen: ITextEditorContext, IEditorActions, IInputDockActions
 │  ├─ ShapeEditor/                ShapeEditorScreen
-│  ├─ ModEditor/                  ModEditorScreen: IModEditorContext, IModEditorActions
+│  ├─ ModEditor/                  ModEditorScreen, ModViewPanel (모드가 ElementUI로 쓴 화면)
 │  └─ Parts/                      편집기들이 같이 쓰는 부품
 │     ├─ Dock/ (Keypad/, ValueBrowser/)  EditorFrame/  EditorBar/  Property/  Inspector/
 │     └─ Formula/  ColorPicker/  Gradient/  Grow/  ValueColor/  ValueSource/
@@ -77,10 +77,10 @@ Presentation/
 | 캔버스 툴바·키가 콜백 11개짜리 `LayoutCommands`를 받음 | `ICanvasActions`를 배치 편집기 화면이 구현 |
 | 설정 창 VM이 콜백 4개를 받음 | `ISettingsWindowActions`를 설정 창 화면이 구현 |
 | 부품이 `IContentEditorHost`로 화면의 모든 것에 닿음 | 읽는 것은 `IEditorContext`, 요청은 `IEditorActions`로 나눔. 부품의 생성자가 무엇을 읽고 무엇을 요청하는지 보여 줌 |
-| `ILayoutEditing`, `IModEditorHost`도 읽기와 요청이 섞임 | `ICanvasContext`/`ICanvasActions`, `IModEditorContext`/`IModEditorActions` |
+| `ILayoutEditing`, `IModEditorHost`도 읽기와 요청이 섞임 | `ICanvasContext`/`ICanvasActions`. 모드 편집기의 `IModEditorContext`/`IModEditorActions`는 옛 부품 방식(`EditorPage`)과 함께 없앰 |
 | `OverlayInputDock`, `LayoutToolbar`, `OverlayEditorFrame` 등이 VM의 메서드를 대신 부름 | Panel은 `ViewModel` 하나로만 내놓고, 대신 부르는 멤버를 없앰 |
 | `PickFor`가 값 클릭 경로를 delegate로 바꿔치기 | 모드는 `TextValueSource.Armed`, 편집기의 `Pick`이 보고 나눔 |
-| 드롭 표시가 `int`(1, 0, -1) | `ValueDrop` (None, Accepts, Refuses) |
+| 드롭 표시가 `int`(1, 0, -1) | ElementUI의 `DropState` (None, Accepts, Refuses) |
 | `*Model`인데 실제로는 ViewModel인 타입 33개 | `*ViewModel` |
 | `Layout/ContentEditors/Shell`에 63개 파일 | 부품마다 폴더 |
 | 파일 하나에 타입 여럿 | 파일 하나에 타입 하나 |

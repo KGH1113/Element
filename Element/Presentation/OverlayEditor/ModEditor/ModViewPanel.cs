@@ -14,7 +14,7 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// editor (<paramref name="edited"/>), and a drag (<paramref name="dragging"/>)
 /// is one undo step.
 /// </summary>
-internal sealed class ModViewPanel : IModColumnPanel
+internal sealed class ModViewPanel : IDisposable
 {
   private readonly ModEditorColumn _column;
   private readonly ModPickerContext _context;
@@ -42,16 +42,22 @@ internal sealed class ModViewPanel : IModColumnPanel
     _column.Mount(view, new ModColumnStyle(_column, measure), model);
   }
 
+  /// <summary>The property column it stands in; the preview keeps left of it and of the tool open there.</summary>
   public ModEditorColumn Column => _column;
 
+  /// <summary>Where it is drawn, under the editor's controls.</summary>
   public RectTransform Root => _column.Root;
 
+  /// <summary>Whether the keyboard is its: typing in a field, or recording a shortcut.</summary>
   public bool Typing => _context.Recording || _column.Typing;
 
+  /// <summary>Whether a tool of its rows is open in the column (a color picker, a list), or a list a control opened.</summary>
   public bool HasPopover => _column.HasPopover;
 
+  /// <summary>Closes its topmost popover; false when none was open.</summary>
   public bool CloseTopPopover() => _column.CloseTopPopover();
 
+  /// <summary>Once a frame.</summary>
   public void Tick() => _column.Tick();
 
   /// <summary>Undo put earlier settings back: what reads them shows them.</summary>

@@ -23,9 +23,8 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// Element's own pickers on a mod's editing screen, as rows of the property
 /// column bound to a value: a color or paint (its swatch and HEX), a font,
 /// one of nine points and a shortcut, each opening its tool in the column
-/// as the text editor's rows do. <c>EditorPage</c>'s parts bind them to the
-/// values they hand the mod; a screen a mod writes with ElementUI binds them
-/// to its settings.
+/// as the text editor's rows do. A mod's screen binds them to its settings
+/// through <see cref="ElementKit.EditorParts"/>.
 /// </summary>
 internal static class ModParts
 {

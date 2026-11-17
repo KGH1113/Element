@@ -66,7 +66,7 @@
       <Private>false</Private>
     </Reference>
     <!--
-      Editing screens may be ElementUI views (OverlayElement<T>.Editor). Element
+      Editing screens are ElementUI views (OverlayElement<T>.Editor). Element
       ships ElementUI next to ElementKit; mods compile against both and ship neither.
     -->
     <Reference Include="ElementUI.Core">

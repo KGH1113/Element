@@ -6,8 +6,7 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 
 /// <summary>
 /// Element's pickers for a screen a mod writes with ElementUI
-/// (<see cref="EditorParts"/>): the same views <c>EditorPage</c>'s parts
-/// show, bound to the mod's own settings.
+/// (<see cref="EditorParts"/>), bound to the mod's own settings.
 /// </summary>
 internal sealed class ModEditorParts : IEditorParts
 {

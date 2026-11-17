@@ -9,9 +9,7 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// What Element's pickers on a mod's editing screen need from the editor
 /// around them: the overlay fonts, reduced motion, the column their tools
 /// open in, and a turn every frame for a shortcut field recording keys and
-/// the font list scrolling. Both kinds of
-/// screen use it: one built from <c>EditorPage</c>'s parts and one a mod
-/// writes with ElementUI.
+/// the font list scrolling.
 /// </summary>
 internal sealed class ModPickerContext
 {
@@ -87,7 +85,7 @@ internal sealed class ModPickerContext
       shortcut.Cancel();
   }
 
-  /// <summary>The screen was made again: what its old parts tracked goes.</summary>
+  /// <summary>The screen goes: what its pickers tracked goes with it.</summary>
   public void Clear()
   {
     _shortcuts.Clear();

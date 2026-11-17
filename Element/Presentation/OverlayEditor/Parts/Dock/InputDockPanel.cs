@@ -57,16 +57,8 @@ internal sealed class InputDockPanel
       KeypadView.Height
     );
 
-  /// <summary>
-  /// Once a frame: the chips in view take what their values read now, a few
-  /// times a second, and a part of the values shown for the first time gets
-  /// its pointer.
-  /// </summary>
-  public void Tick()
-  {
-    _vm.Values.Follow(Time.unscaledTime);
-    _panel.Sync();
-  }
+  /// <summary>Once a frame: a part of the values shown for the first time gets its pointer.</summary>
+  public void Tick() => _panel.Sync();
 
   /// <summary>
   /// The value search has the keyboard: the editor leaves keys and the input
@@ -91,7 +83,7 @@ internal sealed class InputDockPanel
 
   /// <summary>The formula line, while something is edited: where a dropped value joins the formula.</summary>
   public bool FormulaContains(Vector2 screen) =>
-    _vm.Owner != null && _view.Line.Area != null && PopoverPlacement.Contains(_view.Line.Area, screen);
+    _vm.Owner.Value != null && _view.Line.Area != null && PopoverPlacement.Contains(_view.Line.Area, screen);
 
   // How wide words are at the dock's 13-unit size.
   private static Func<string, float> Measurer(TextMeshProUGUI measure) =>

@@ -130,16 +130,18 @@ namespace Element.Editor
       float kept = ScreenRectOf((RectTransform)DockChip(dock, "Value combo").transform).width;
       Assert(Reading(dock, "Value combo") == "88" && wide > narrow && Mathf.Abs(kept - wide) < .5f,
         "a number keeps the room it grew to, so the chips after it don't shift: " + narrow + " / " + wide + " / " + kept);
-      float start = Time.unscaledTime + 10;
-      values.Follow(start);
+      values.Follow();
       long before = GC.GetAllocatedBytesForCurrentThread();
       for (int i = 1; i <= 120; i++)
-        values.Follow(start + i);
+      {
+        values.Follow();
+        // The live timeline ticks: the chips look again and find nothing new.
+        ElementUI.Runtime.Flush(.25f);
+      }
       for (int i = 0; i < 120; i++)
         dock.Tick();
       long made = GC.GetAllocatedBytesForCurrentThread() - before;
       Assert(made == 0, "following values that didn't change makes nothing: " + made + " bytes");
-      SetField(values, "_nextFollow", 0f);
       host.Values.Set(OverlayValueId.SongTitle, "<color=#FF4400>Hello</color> <noparse><</noparse>3\nagain");
       DockChip(dock, "Value song-title");
       FollowNow(values);
@@ -274,8 +276,7 @@ namespace Element.Editor
     // Lets the dock take what its values read now, without waiting for the next look.
     private static void FollowNow(ValueBrowserViewModel values)
     {
-      SetField(values, "_nextFollow", 0f);
-      values.Follow(Time.unscaledTime);
+      values.Follow();
       Settle();
     }
 
@@ -380,12 +381,12 @@ namespace Element.Editor
         measure.color = Color.clear;
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
         EditorFrameViewModel notices = new EditorFrameViewModel("Value dock", "", () => { }, () => { }, true);
-        InputDockViewModel model = new InputDockViewModel(live, notices, NoDockActions.Instance);
+        InputDockViewModel model = new InputDockViewModel(live, new FormulaEditing(), notices, NoDockActions.Instance, true);
         InputDockView dockView = new InputDockView(model, contentWidth, measurer, true);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
         panel.Mount(new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }), dockView, model, contentWidth);
         panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
-        model.Show(null, new FormulaEditing(), "", null,
+        model.Show(null, "", null,
           L("값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
             "Click a value to add it at the caret · Click a value in the text or a number to calculate here"));
         Settle();

@@ -67,7 +67,9 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 
   public override View Body =>
     HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
-      .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading);
+      .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading)
+      // A few times a second while shown, the chips take what their values read now.
+      .OnChange(() => VM.Live.Tick, _ => VM.Follow());
 
   // ---- The list of places ----
 

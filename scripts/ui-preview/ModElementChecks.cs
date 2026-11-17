@@ -40,7 +40,6 @@ namespace Element.Editor
     public string Font = "";
     public int Unit;
     public List<bool> Show = new List<bool> { true, false, true };
-    public List<string> Words = new List<string> { "44", "32" };
     public float Width = 360;
     public float Height = 120;
     public int Bars = 1;
@@ -50,8 +49,11 @@ namespace Element.Editor
     public bool Always;
   }
 
-  // A card drawn with Element's helpers, edited with every part a mod gets:
-  // what a mod developer would write.
+  // A card drawn with Element's helpers, its editing screen in three tabs:
+  // what a mod developer would write, with nothing but ElementUI and
+  // Element's pickers. A line of words over the tabs, cards and sections,
+  // a checkbox with a hint, a line between groups, and a button that puts
+  // several settings back at once.
   [ElementKit.Element("card", "미리보기 카드", "Preview card")]
   public sealed class PreviewCard : OverlayElement<PreviewCardSettings>
   {
@@ -87,51 +89,56 @@ namespace Element.Editor
       _fill.Rounding = 6;
     }
 
-    protected override void OnEdit(EditorPage page)
-    {
-      page.Label(page.L("카드 한 장과 진행도 막대예요.", "A card with a progress bar."));
-      EditorTabs tabs = page.Tabs(new[] { page.L("모양", "Look"), page.L("내용", "Content"), page.L("고급", "More") });
-      using (tabs.Page(0))
-      {
-        using (page.Card(page.L("색", "Colors")))
-        {
-          page.ColorPicker(page.L("배경", "Background"), Settings.Fill, color => Settings.Fill = color);
-          page.ColorPicker(page.L("강조 색", "Accent"), Settings.Accent, paint => Settings.Accent = paint);
-        }
-        page.Slider(page.L("진행도", "Progress"), Settings.Progress, 0, 1, value => Settings.Progress = value);
-        page.Switch(page.L("둥근 모서리", "Rounded"), Settings.Rounded, on => Settings.Rounded = on);
-        page.Choice(page.L("제목 색", "Title color"), new[] { page.L("흰색", "White"), page.L("강조", "Accent") }, Settings.Style, index => Settings.Style = index);
-        page.AnchorPicker(page.L("제목 위치", "Title at"), Settings.TitleAt, at => Settings.TitleAt = at);
-      }
-      using (tabs.Page(1))
-      {
-        page.TextField(page.L("제목", "Title"), Settings.Title, text => Settings.Title = text);
-        page.FontPicker(page.L("제목 폰트", "Title font"), Settings.Font, font => Settings.Font = font);
-        page.Dropdown(page.L("단위", "Unit"), new[] { "px", "%", "BPM", page.L("키", "keys"), page.L("초", "s") }, Settings.Unit, index => Settings.Unit = index);
-        page.MultiChoice(page.L("보일 것", "Show"), new[] { page.L("제목", "Title"), page.L("막대", "Bar"), page.L("숫자", "Number") }, Settings.Show, (index, on) => Settings.Show[index] = on);
-        page.List(page.L("단어", "Words"), Settings.Words, null, "new");
-      }
-      using (tabs.Page(2))
-      {
-        page.Section(page.L("크기", "Size"));
-        page.Number(page.L("너비", "Width"), Settings.Width, 120, 960, value => Settings.Width = value);
-        page.Number(page.L("높이", "Height"), Settings.Height, 60, 400, value => Settings.Height = value);
-        page.Stepper(page.L("막대 수", "Bars"), Settings.Bars, 1, 8, value => Settings.Bars = value);
-        page.RangeSlider(page.L("표시 구간", "Range"), Settings.From, Settings.To, 0, 100, (low, high) => { Settings.From = low; Settings.To = high; }, step: 1);
-        page.Divider();
-        page.Shortcut(page.L("숨기기 키", "Hide key"), Settings.Hide, shortcut => Settings.Hide = shortcut);
-        page.Checkbox(page.L("레벨 밖에서도 보이기", "Show outside levels"), Settings.Always, on => Settings.Always = on)
-          .Hint(page.L("메뉴에서도 카드를 보여요", "Shows the card in menus too"));
-        page.IconButton(EditorIcon.Reset, page.L("처음 모양으로", "Start over"), () =>
-        {
-          PreviewCardSettings fresh = new PreviewCardSettings();
-          Settings.Title = fresh.Title;
-          Settings.Rounded = fresh.Rounded;
-        });
-      }
-      // Beside the preview, where a mod would put something of its own.
-      page.Label(page.L("직접 놓은 라벨", "Placed by hand")).At(page.PreviewArea.x, page.PreviewArea.y).Width(200);
-    }
+    protected override ElementUI.View Editor(EditorViewModel<PreviewCardSettings> vm) =>
+      UI.VStack(
+        12,
+        UI.Text(vm.L("카드 한 장과 진행도 막대예요.", "A card with a progress bar.")).Font(ElementUI.Font.Caption).Foreground(ElementUI.Colors.Muted),
+        UI.Tabs(
+          UI.Tab("look", vm.L("모양", "Look"), () =>
+            UI.VStack(
+              12,
+              UI.Card(
+                vm.L("색", "Colors"),
+                UI.VStack(
+                  10,
+                  EditorParts.ColorPicker(vm.L("배경", "Background"), UI.Bind(() => vm.Settings.Fill)),
+                  EditorParts.ColorPicker(vm.L("강조 색", "Accent"), UI.Bind(() => vm.Settings.Accent))
+                )
+              ),
+              UI.Slider(vm.L("진행도", "Progress"), UI.Bind(() => vm.Settings.Progress), 0, 1),
+              UI.Toggle(vm.L("둥근 모서리", "Rounded"), UI.Bind(() => vm.Settings.Rounded)),
+              UI.Picker(vm.L("제목 색", "Title color"), new[] { vm.L("흰색", "White"), vm.L("강조", "Accent") }, UI.Bind(() => vm.Settings.Style)),
+              EditorParts.AnchorPicker(vm.L("제목 위치", "Title at"), UI.Bind(() => vm.Settings.TitleAt))
+            )),
+          UI.Tab("content", vm.L("내용", "Content"), () =>
+            UI.VStack(
+              12,
+              UI.TextField(vm.L("제목", "Title"), UI.Bind(() => vm.Settings.Title)),
+              EditorParts.FontPicker(vm.L("제목 폰트", "Title font"), UI.Bind(() => vm.Settings.Font)),
+              UI.Picker(vm.L("단위", "Unit"), new[] { "px", "%", "BPM", vm.L("키", "keys"), vm.L("초", "s") }, UI.Bind(() => vm.Settings.Unit), PickerAppearance.Dropdown),
+              UI.MultiPicker(vm.L("보일 것", "Show"), new[] { vm.L("제목", "Title"), vm.L("막대", "Bar"), vm.L("숫자", "Number") }, UI.Bind(() => vm.Settings.Show))
+            )),
+          UI.Tab("more", vm.L("고급", "More"), () =>
+            UI.VStack(
+              12,
+              UI.Section(vm.L("크기", "Size")),
+              UI.NumberField(vm.L("너비", "Width"), UI.Bind(() => vm.Settings.Width), 120, 960),
+              UI.NumberField(vm.L("높이", "Height"), UI.Bind(() => vm.Settings.Height), 60, 400),
+              UI.Stepper(vm.L("막대 수", "Bars"), UI.Bind(() => vm.Settings.Bars), 1, 8),
+              UI.RangeSlider(vm.L("표시 구간", "Range"), UI.Bind(() => vm.Settings.From), UI.Bind(() => vm.Settings.To), 0, 100, step: 1),
+              UI.Divider(),
+              EditorParts.ShortcutField(vm.L("숨기기 키", "Hide key"), UI.Bind(() => vm.Settings.Hide)),
+              UI.Toggle(vm.L("레벨 밖에서도 보이기", "Show outside levels"), UI.Bind(() => vm.Settings.Always), ToggleAppearance.Checkbox)
+                .Hint(vm.L("메뉴에서도 카드를 보여요", "Shows the card in menus too")),
+              UI.Button(vm.L("처음 모양으로", "Start over"), () =>
+              {
+                PreviewCardSettings fresh = new PreviewCardSettings();
+                vm.Settings.Title = fresh.Title;
+                vm.Settings.Rounded = fresh.Rounded;
+              })
+            ))
+        )
+      );
   }
 
   [Serializable]
@@ -155,11 +162,11 @@ namespace Element.Editor
     public ElementKit.Shortcut Hide;
   }
 
-  // The same kind of element with its editing screen written with ElementUI:
-  // every kind of control there is, bound to its settings, with Element's
-  // own pickers, a hint, a part that is off until a switch turns it on, and
-  // one that shows only then. The mod writes it the way it always has; the
-  // editor draws it as its property column.
+  // The same kind of element with its screen in cards: every kind of control
+  // there is, bound to its settings, with Element's own pickers, a hint, a
+  // control that is off until a switch turns it on, and one that shows only
+  // then. The mod writes plain ElementUI; the editor draws it as its
+  // property column.
   [ElementKit.Element("meter", "미리보기 미터", "Preview meter")]
   public sealed class PreviewMeter : OverlayElement<PreviewMeterSettings>
   {
@@ -227,10 +234,10 @@ namespace Element.Editor
       );
   }
 
-  // Elements other mods draw: Add Element → More, the editing screen built
-  // from Element's parts or written with ElementUI, both in the property
-  // column where the text editor keeps its own, the preview following each
-  // change, undo, Done, and the box shown while the mod is missing.
+  // Elements other mods draw: Add Element → More, the editing screen they
+  // write with ElementUI in the property column where the text editor keeps
+  // its own, the preview following each change, undo, Done, and the box
+  // shown while the mod is missing.
   public static partial class SettingsPreview
   {
     private static void CheckModElements(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
@@ -263,17 +270,19 @@ namespace Element.Editor
         Press(Rows(list).First(row => row.name == "Add Preview/card"));
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
         ModEditorScreen mods2 = (ModEditorScreen)Kind<ModKind>(editor).Editor;
-        Assert(element.Enabled && element.Drawn && mods2.IsOpen && mods2.Page != null && mods2.View == null,
-          "a new element opens its editing screen at once, its parts on a page");
+        Assert(element.Enabled && element.Drawn && mods2.IsOpen && mods2.View != null,
+          "a new element opens its editing screen at once");
         Settle();
         string Working() => Field<string>(mods2, "_working");
-        // A button makes the parts again, in a column of their own.
-        ModEditorColumn Column() => mods2.Page.Column;
-        // A part's control in the column, found by the name its part gives it, shown now.
+        ModEditorColumn Column() => mods2.View.Column;
+        // A row of the column, found by the name the column gives it, shown now.
         Pressable Find(string prefix) => Column().Root.GetComponentsInChildren<Pressable>(false).First(button => button.name.StartsWith(prefix));
+        // A button the mod made, found by its words.
+        Pressable Labeled(string text) => Column().Root.GetComponentsInChildren<Pressable>(false)
+          .First(button => button.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == text));
         Pressable Option(string label) => Column().Root.GetComponentsInChildren<Pressable>(false).First(button => button.name == "Option " + label);
         Pressable ToolOption(string label) => Column().ToolRoot.GetComponentsInChildren<Pressable>(false).First(button => button.name == "Option " + label);
-        // What the editor does at the start of the next frame: a button's parts made again, a tool closed.
+        // What the editor does at the start of the next frame: a tool closed, the rows laid out again.
         void Next()
         {
           Call(mods2, "ApplyPending");
@@ -283,7 +292,7 @@ namespace Element.Editor
         // Tab 1: colors in a card, a slider, a switch, a choice and the nine points.
         CheckModColumn(mods2, Column(), "card look");
         Assert(warnings.Count == 0, "its parts are laid out without problems: " + string.Join(" | ", warnings));
-        CheckVisibleParts(mods2, name, "look");
+        CheckVisibleRows(mods2, "look");
         SaveFrame(camera, texture, canvases, name + "-mod-editor");
 
         // Grow from on its bar, over the preview: its popover hangs under it.
@@ -338,10 +347,10 @@ namespace Element.Editor
         Assert(mods2.IsOpen && Column().OpenTool == null && Shown(Column().Root), "Esc closes the tool before the editor, and the rows come back");
         SettlePreview(mods2);
 
-        // Tab 2: words, a font, a list of choices, several choices and a list of words.
+        // Tab 2: words, a font, a list of choices and several choices.
         Press(Option(L("내용", "Content")));
         Settle();
-        CheckVisibleParts(mods2, name, "content");
+        CheckVisibleRows(mods2, "content");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-content");
         TMP_InputField title = ByName<TMP_InputField>(Column().Root, "Text " + L("제목", "Title"));
         title.text = "Hello";
@@ -375,19 +384,11 @@ namespace Element.Editor
         Call(mods2, "ClosePopovers");
         Next();
         SettlePreview(mods2);
-        Press(Find("List add"));
-        Assert(Working().Contains("\"Words\":[\"44\",\"32\",\"new\"]"), "a list adds an item: " + Working());
-        Next();
-        Assert(Column().Root.GetComponentsInChildren<TMP_InputField>(false).Count(input => input.name.StartsWith("List item")) == 3,
-          "the parts are made again with the new item, the same tab still picked");
-        Press(Find("List Remove"));
-        Assert(Working().Contains("\"Words\":[\"32\",\"new\"]"), "a list removes an item");
-        Next();
 
-        // Tab 3: numbers, a stepper, a range, a shortcut, a checkbox with a hint, an icon button.
+        // Tab 3: a section, numbers, a stepper, a range, a line, a shortcut, a checkbox with a hint, a button.
         Press(Option(L("고급", "More")));
         Settle();
-        CheckVisibleParts(mods2, name, "more");
+        CheckVisibleRows(mods2, "more");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-more");
         TMP_InputField widthField = ByName<TMP_InputField>(Column().Root, "Number " + L("너비", "Width"));
         CheckInputCaret(widthField, "mod number", "", "480", "960");
@@ -407,10 +408,10 @@ namespace Element.Editor
         Press(Find("Shortcut "));
         AssertModTool(mods2, Column(), L("숨기기 키", "Hide key"));
         Press(ByName<Pressable>(Column().ToolRoot, "Shortcut field " + L("숨기기 키", "Hide key")));
-        Assert(mods2.Page.Typing, "a shortcut part records the next key");
+        Assert(mods2.View.Typing, "a shortcut row records the next key");
         ShortcutFieldViewModel shortcut = Field<List<ShortcutFieldViewModel>>(Field<ModPickerContext>(mods2, "_pickers"), "_shortcuts").Single();
         shortcut.TryAssign(KeyCode.H, KeyCode.None);
-        Assert(!mods2.Page.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
+        Assert(!mods2.View.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
         SaveFrame(camera, texture, canvases, name + "-mod-editor-shortcut");
         PressToolBack(mods2, Column());
         Pressable box = Find("Checkbox ");
@@ -420,19 +421,19 @@ namespace Element.Editor
         hover.OnPointerEnter(null);
         TextMeshProUGUI tip = ByName<TextMeshProUGUI>(ByName<RectTransform>(Column().Root, "ElementUI hint"), "Text");
         Assert(Shown(tip) && tip.text == (Korean(name) ? "메뉴에서도 카드를 보여요" : "Shows the card in menus too"),
-          "a part's hint shows on hover");
+          "a row's hint shows on hover");
         string misplaced = HintProblem(hover);
-        Assert(misplaced == null, "a part's hint shows beside its part: " + misplaced);
+        Assert(misplaced == null, "a row's hint shows beside its row: " + misplaced);
         hover.OnPointerExit(null);
-        Press(Find("Icon Reset"));
-        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "an icon button runs its action");
+        Press(Labeled(L("처음 모양으로", "Start over")));
+        Assert(Working().Contains("\"Rounded\":true") && Working().Contains("\"Title\":\"Card\""), "a button runs the mod's action");
         Next();
 
         // Undo keeps the picked tab.
         Call(mods2, "Undo");
         Settle();
-        Assert(Working().Contains("\"Rounded\":false"), "undo brings the last change back");
-        Assert(Shown(ByName<SliderDrag>(mods2.Page.Column.Root, "Range slider " + L("표시 구간", "Range"))), "after undo the same tab is still picked");
+        Assert(Working().Contains("\"Rounded\":false") && Working().Contains("\"Title\":\"Hello\""), "undo takes the whole button back, as one step: " + Working());
+        Assert(Shown(ByName<SliderDrag>(Column().Root, "Range slider " + L("표시 구간", "Range"))), "after undo the same tab is still picked");
 
         mods2.Close(true, true);
         Assert(!mods2.IsOpen && element.Settings.Mod.Data.Contains("\"Style\":1") && element.Settings.Mod.Data.Contains("\"Unit\":2"),
@@ -482,8 +483,8 @@ namespace Element.Editor
       Press(Rows(AddMenu(editor))[3]);
       Press(Rows(Field<ListMenu>(Kind<ModKind>(editor), "_menu").Root).First(row => row.name == "Add Preview/meter"));
       ModOverlayElement meter = host.LayoutTargets.OfType<ModOverlayElement>().Last();
-      Assert(mods.IsOpen && mods.View != null && mods.Page == null && meter.Class.Info.Key == "meter",
-        "an element that writes its screen with ElementUI shows that screen, not a page of parts");
+      Assert(mods.IsOpen && mods.View != null && meter.Class.Info.Key == "meter",
+        "the meter opens its own screen");
       Settle();
       string Working() => Field<string>(mods, "_working");
       ModEditorColumn column = mods.View.Column;
@@ -712,44 +713,43 @@ namespace Element.Editor
     private static Rect ModPreviewRect(ModEditorScreen editor) =>
       ScreenRectOf(Field<RectTransform>(Field<ModPreview>(editor, "_preview"), "_holder"));
 
-    // The parts shown now stand in the column, keep clear of the preview and
-    // of each other, and their words fit. Each part is found by the object
-    // its Rect gives a mod, spread over it; a card or tab page as a whole.
-    private static void CheckVisibleParts(ModEditorScreen editor, string name, string tab)
+    // The rows shown now stand in the column, keep clear of the preview and
+    // of each other, and their words fit. A row is what the player presses
+    // or types in, outermost: a switch row, a field, a stepper's − and +, a tab.
+    private static void CheckVisibleRows(ModEditorScreen editor, string tab)
     {
-      ModEditorPage page = editor.Page;
-      Rect preview = ModPreviewRect(editor);
-      List<ModPart> shownParts = new List<ModPart>();
-      foreach (ModPart item in page.Items)
-        if (item is ModGroup { Tabs: not null } tabPage)
-        {
-          if (tabPage.Shown)
-            shownParts.AddRange(tabPage.Children);
-        }
-        else
-          shownParts.Add(item);
-      RectTransform[] parts = shownParts.Select(part => part.Rect).Concat(page.Placed.Select(part => part.Rect)).ToArray();
       Call(editor, "ApplyPending");
       Settle();
       AssertNoScreenErrors("the " + tab + " tab shows");
-      Rect column = ScreenRectOf(page.Column.Root);
-      Assert(parts.Length >= 3, "the " + tab + " tab shows its parts: " + parts.Length);
-      foreach (RectTransform part in parts)
+      RectTransform root = editor.View.Column.Root;
+      Rect column = ScreenRectOf(root), preview = ModPreviewRect(editor);
+      bool Outermost(UnityEngine.UI.Selectable control)
       {
-        Rect rect = ScreenRectOf(part);
-        Assert(part.gameObject.activeInHierarchy, tab + ": part is shown: " + part.name + " in " + PathOf(part));
-        Assert(InsideScreen(rect), tab + ": part fits the screen: " + part.name + " " + rect);
-        Assert(!rect.Overlaps(preview), tab + ": part leaves the preview clear: " + part.name);
+        for (Transform parent = control.transform.parent; parent != null && parent != root; parent = parent.parent)
+          if (parent.GetComponent<UnityEngine.UI.Selectable>() != null)
+            return false;
+        return true;
       }
-      foreach (ModPart part in shownParts)
+      RectTransform[] rows = root.GetComponentsInChildren<UnityEngine.UI.Selectable>(false).Where(Outermost)
+        .Select(control => (RectTransform)control.transform).ToArray();
+      Assert(rows.Length >= 3, "the " + tab + " tab shows its rows: " + rows.Length);
+      foreach (RectTransform row in rows)
       {
-        Rect rect = ScreenRectOf(part.Rect);
-        Assert(rect.xMin >= column.xMin - .5f && rect.xMax <= column.xMax + .5f, tab + ": part stands in the column: " + part.Rect.name + " " + rect + " / " + column);
+        Rect rect = ScreenRectOf(row);
+        Assert(InsideScreen(rect), tab + ": row fits the screen: " + row.name + " " + rect);
+        Assert(!rect.Overlaps(preview), tab + ": row leaves the preview clear: " + row.name);
+        Assert(rect.xMin >= column.xMin - .5f && rect.xMax <= column.xMax + .5f, tab + ": row stands in the column: " + PathOf(row) + " " + rect + " / " + column);
       }
-      for (int i = 0; i < parts.Length; i++)
-        for (int j = i + 1; j < parts.Length; j++)
-          Assert(!ScreenRectOf(parts[i]).Overlaps(ScreenRectOf(parts[j])), tab + ": parts don't overlap: " + parts[i].name + " / " + parts[j].name);
-      foreach (TextMeshProUGUI label in page.Column.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
+      // Rows that only touch don't overlap.
+      Rect Inset(RectTransform row)
+      {
+        Rect rect = ScreenRectOf(row);
+        return new Rect(rect.x + .5f, rect.y + .5f, rect.width - 1, rect.height - 1);
+      }
+      for (int i = 0; i < rows.Length; i++)
+        for (int j = i + 1; j < rows.Length; j++)
+          Assert(!Inset(rows[i]).Overlaps(Inset(rows[j])), tab + ": rows don't overlap: " + rows[i].name + " / " + rows[j].name);
+      foreach (TextMeshProUGUI label in root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, tab + ": label fits: " + label.text + " width " + label.rectTransform.rect.width + " needs " + label.GetPreferredValues(label.text, 1000, 36).x + " font " + (label.font != null ? label.font.name : "none") + " size " + label.fontSize);

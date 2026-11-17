@@ -6,7 +6,8 @@ namespace ElementKit;
 /// <summary>
 /// An overlay element your mod draws and Element places. Players add it from
 /// Add Element → More, move and align it like Element's own elements, and
-/// change it on an editing screen you build from Element's parts.
+/// change it on an editing screen you write with ElementUI
+/// (<see cref="OverlayElement{TSettings}.Editor"/>).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -68,19 +69,6 @@ public abstract class OverlayElement
   /// <summary>After the settings were loaded or a player changed them: show them.</summary>
   protected virtual void OnSettingsChanged() { }
 
-  /// <summary>
-  /// Builds the editing screen from <paramref name="page"/>'s parts. It is called
-  /// on the preview's instance, so change its settings in the parts' callbacks;
-  /// Element shows the change, records undo, and saves it when the player is done.
-  /// It may be called again with a fresh page, such as after undo.
-  /// </summary>
-  /// <remarks>
-  /// An element of <see cref="OverlayElement{TSettings}"/> may write its screen
-  /// with ElementUI instead (<see cref="OverlayElement{TSettings}.Editor"/>);
-  /// then this isn't called. Override one of the two.
-  /// </remarks>
-  protected virtual void OnEdit(EditorPage page) { }
-
   /// <summary>The element is going away: release what you made outside <see cref="Root"/>.</summary>
   protected virtual void OnDestroy() { }
 
@@ -106,11 +94,9 @@ public abstract class OverlayElement
 
   internal void RunSettingsChanged() => OnSettingsChanged();
 
-  internal void RunEdit(EditorPage page) => OnEdit(page);
-
   /// <summary>
   /// The editing screen as ElementUI views and the view model they read, or
-  /// null when the element builds it with <see cref="OnEdit"/>.
+  /// null when the element has none (it has no settings to change).
   /// </summary>
   internal virtual View RunEditor(bool korean, out ViewModel model)
   {
@@ -137,7 +123,8 @@ public abstract class OverlayElement
 /// added in a later version starts at its default in saved elements.
 /// </typeparam>
 /// <example>
-/// The editing screen built from <see cref="EditorPage"/>'s parts:
+/// The editing screen written with ElementUI, bound to the settings
+/// (<c>using static ElementUI.UI;</c> and <c>using static ElementKit.EditorParts;</c>):
 /// <code>
 /// [Serializable]
 /// public sealed class BarsSettings
@@ -151,25 +138,17 @@ public abstract class OverlayElement
 /// {
 ///     protected override void OnCreate() => Size = new Vector2(480, 96);
 ///
-///     protected override void OnEdit(EditorPage page)
-///     {
-///         page.ColorPicker(page.L("왼손 색", "Left hand"), Settings.Left, color => Settings.Left = color);
-///         page.Slider(page.L("묶음 수", "Groups"), Settings.Groups, 2, 64, value => Settings.Groups = (int)value, step: 1);
-///     }
+///     protected override View Editor(EditorViewModel&lt;BarsSettings&gt; vm) =>
+///         VStack(
+///             ColorPicker(vm.L("왼손 색", "Left hand"), Bind(() =&gt; vm.Settings.Left)),
+///             Stepper(vm.L("묶음 수", "Groups"), Bind(() =&gt; vm.Settings.Groups), 2, 64));
 /// }
-/// </code>
-/// Or written with ElementUI, bound to the settings:
-/// <code>
-/// protected override View Editor(EditorViewModel&lt;BarsSettings&gt; vm) =>
-///     VStack(
-///         ColorPicker(vm.L("왼손 색", "Left hand"), Bind(() =&gt; vm.Settings.Left)),
-///         Stepper(vm.L("묶음 수", "Groups"), Bind(() =&gt; vm.Settings.Groups), 2, 64));
 /// </code>
 /// </example>
 public abstract class OverlayElement<TSettings> : OverlayElement
   where TSettings : class, new()
 {
-  /// <summary>This element's settings. Change them in <see cref="OverlayElement.OnEdit"/>'s callbacks.</summary>
+  /// <summary>This element's settings. The editing screen (<see cref="Editor"/>) binds its controls to them.</summary>
   public TSettings Settings { get; private set; } = new();
 
   /// <summary><see cref="Settings"/> as JSON.</summary>
@@ -193,8 +172,9 @@ public abstract class OverlayElement<TSettings> : OverlayElement
   /// over its rows, a slider a row with a short track, a choice that doesn't
   /// fit side by side a row that opens the list. It scrolls when it is taller
   /// than the screen; Element records each change for undo, shows it on the
-  /// preview and saves it when the player is done. Return null, as the default does, to build the screen
-  /// with <see cref="OverlayElement.OnEdit"/> instead; override one of the two.
+  /// preview and saves it when the player is done. Without it, as by default,
+  /// the element has no editing screen: players still place it and pick where
+  /// it grows from.
   /// </summary>
   /// <param name="vm">The settings the screen edits; see <see cref="EditorViewModel{TSettings}"/>.</param>
   protected virtual View Editor(EditorViewModel<TSettings> vm) => null;

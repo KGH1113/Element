@@ -30,13 +30,13 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// text and shape editors: the dim, Cancel and Done, Esc to finish, undo,
 /// Grow from over a live preview (<see cref="ModPreview"/>), and on the
 /// right the property column where the text editor keeps its own
-/// (<see cref="ModEditorColumn"/>). In the column goes what the mod made,
-/// drawn as the column's rows: the parts of an <see cref="EditorPage"/>
-/// (<see cref="ModEditorPage"/>), or a screen it wrote with ElementUI
-/// (<see cref="ModViewPanel"/>). The preview keeps to the room left of the
-/// column, gliding aside while a wide tool (a gradient, the font list) is open.
+/// (<see cref="ModEditorColumn"/>). In the column goes the screen the mod
+/// wrote with ElementUI (<see cref="ModViewPanel"/>), drawn as the column's
+/// rows; an element without one leaves the column empty. The preview keeps to
+/// the room left of the column, gliding aside while a wide tool (a gradient,
+/// the font list) is open.
 /// </summary>
-internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IContentEditor
+internal sealed class ModEditorScreen : IContentEditor
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
@@ -45,7 +45,6 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
   private readonly ModFailureGuard _guard;
   private readonly ModPreview _preview;
   private readonly UndoStack<string> _history = new(100);
-  private readonly Dictionary<string, int> _tabs = new();
   private readonly PopoverStack _popovers = new();
   private readonly Event _event = new();
   private readonly EditorGlide _space = new();
@@ -55,14 +54,13 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
   private GrowPopoverPanel _grow;
   private ModPickerContext _pickers;
   private Rect _column;
-  private IModColumnPanel _content;
+  private ModViewPanel _content;
   private ModOverlayElement _element;
   private ElementClass _type;
   private Action<bool> _closed;
   private string _opening;
   private string _working;
   private OverlayGrowth _growth;
-  private bool _rebuild;
   private object _drag;
 
   /// <param name="report">Logs a mod's failure once per kind; see <see cref="ModElements.Failed"/>.</param>
@@ -86,11 +84,8 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
 
   public void Raise() => _frame?.Root.transform.SetAsLastSibling();
 
-  /// <summary>The page the mod built last, when it built one; for checks.</summary>
-  internal ModEditorPage Page => _content as ModEditorPage;
-
   /// <summary>The screen the mod wrote with ElementUI, when it wrote one; for checks.</summary>
-  internal ModViewPanel View => _content as ModViewPanel;
+  internal ModViewPanel View => _content;
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed) =>
     target is ModOverlayElement element && Open(element, closed);
@@ -111,7 +106,6 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     _growth = element.Settings.GrowFrom;
     _history.Clear();
     _guard.Clear();
-    _tabs.Clear();
     Build();
     return true;
   }
@@ -146,8 +140,7 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     _preview.BuildGrowMark(ui, _frame.Frame);
     if (!_preview.Create(_type, _element.Settings.Mod, _working))
       return;
-    if (!BuildView())
-      BuildPage();
+    BuildView();
     FitPreview();
   }
 
@@ -196,15 +189,15 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     return width;
   }
 
-  /// <summary>The screen the mod wrote with ElementUI; false when it builds an <see cref="EditorPage"/> instead.</summary>
-  private bool BuildView()
+  /// <summary>The screen the mod wrote with ElementUI, in the column; nothing when it wrote none.</summary>
+  private void BuildView()
   {
     View view = null;
     ViewModel model = null;
     if (!_guard.Run("laying out its editing screen", () => view = _preview.Instance.RunEditor(Korean, out model)))
-      return true;
+      return;
     if (view == null)
-      return false;
+      return;
     _pickers.Edits = ViewEdited;
     _guard.Run(
       "laying out its editing screen",
@@ -222,63 +215,11 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
         )
     );
     _grow.Root.SetAsLastSibling();
-    return true;
   }
-
-  // The mod's parts, laid out fresh; again after undo so they show the restored settings.
-  private void BuildPage()
-  {
-    _content?.Dispose();
-    _content = null;
-    _pickers.Clear();
-    ModEditorPage page = new(
-      _frame.Frame,
-      new Vector2(_frame.Width, _frame.Height),
-      _preview.Area,
-      _column,
-      this,
-      this,
-      MeasureRowText
-    );
-    _content = page;
-    if (_guard.Run("laying out its editing screen", () => _preview.Instance.RunEdit(page)))
-      _guard.Run("laying out its editing screen", page.Mount);
-    _grow.Root.SetAsLastSibling();
-  }
-
-  // ---- What the page reads ----
-
-  ElementUI.IBackend IModEditorContext.NewBackend() => _frame.NewBackend();
-
-  ModPickerContext IModEditorContext.Pickers => _pickers;
-
-  int IModEditorContext.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
-
-  // ---- What the page asks for (and Change, below) ----
-
-  void IModEditorActions.SetTab(string key, int index) => _tabs[key] = index;
 
   private bool Typing => _content != null && _content.Typing;
 
-  /// <summary>
-  /// One edit of a page's part: what it changes is one undo step (a part's
-  /// edits within a second merge), and the preview shows it right away. A
-  /// button may change several settings, so the parts are made again, from the
-  /// next frame, to show them.
-  /// </summary>
-  public void Change(object key, Action apply, bool rebuild)
-  {
-    if (_preview.Instance == null)
-      return;
-    string before = _working;
-    if (!_guard.Run("changing a setting", apply))
-      return;
-    // Typing in a field is one step for as long as it stays focused.
-    if (Record(before, key, Typing) && rebuild)
-      _rebuild = true;
-  }
-
-  // An edit on a screen the mod wrote: a drag, or typing in one field, is one step.
+  // An edit on the mod's screen: a drag, or typing in one field, is one step.
   private void ViewEdited()
   {
     if (_preview.Instance == null)
@@ -289,13 +230,12 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     Record(_working, key, key != null);
   }
 
-  /// <summary>Saves what the edit changed as one undo step, and shows it; false when nothing changed.</summary>
-  private bool Record(string before, object key, bool held)
+  /// <summary>Saves what the edit changed as one undo step, and shows it.</summary>
+  private void Record(string before, object key, bool held)
   {
     string after = Save();
     bool merge = _history.Continues(key, Time.unscaledTime, held);
-    bool changed = after != before;
-    if (changed)
+    if (after != before)
     {
       _history.Record(before, merge);
       _history.DropRedo();
@@ -303,7 +243,6 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     }
     _guard.Run("showing a setting", _preview.Instance.RunSettingsChanged);
     FitPreview();
-    return changed;
   }
 
   private string Save()
@@ -348,16 +287,8 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     HandleKeys();
   }
 
-  /// <summary>What changed since the last frame shows: the parts made again after a button, or laid out again.</summary>
-  private void ApplyPending()
-  {
-    if (_rebuild)
-    {
-      _rebuild = false;
-      BuildPage();
-    }
-    _content?.Tick();
-  }
+  /// <summary>What changed since the last frame shows: a tool closed, the rows laid out again.</summary>
+  private void ApplyPending() => _content?.Tick();
 
   // The preview, and the bar above it with Grow from.
   private void FitPreview()
@@ -470,11 +401,8 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
       }
     );
     FitPreview();
-    // A screen the mod wrote reads the settings again; a page is made again.
-    if (_content is ModViewPanel view)
-      view.Restored();
-    else
-      BuildPage();
+    // The mod's screen reads the settings again.
+    _content?.Restored();
   }
 
   /// <summary>Done saves the settings and where the element grows from; Cancel leaves it as it was.</summary>
@@ -515,7 +443,6 @@ internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IC
     _pickers?.Clear();
     _pickers = null;
     EditorParts.Host = null;
-    _rebuild = false;
     _drag = null;
     _frame?.Dispose();
     _frame = null;

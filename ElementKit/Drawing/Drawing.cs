@@ -28,7 +28,7 @@ public abstract class Drawing
 
   /// <summary>
   /// Draws <paramref name="text"/> in <paramref name="font"/>, a font
-  /// <see cref="EditorPage.FontPicker"/> gave; empty for the overlay's default.
+  /// <see cref="EditorParts.FontPicker"/> gave; empty for the overlay's default.
   /// A font still loading or missing on this PC shows as the default until it is there.
   /// </summary>
   public abstract void SetFont(TextMeshProUGUI text, string font);

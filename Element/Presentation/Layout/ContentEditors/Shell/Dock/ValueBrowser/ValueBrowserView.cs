@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
@@ -11,7 +12,7 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 
 /// <summary>
 /// The dock's values, as tall as the keypad beside it. On the left a search
@@ -23,11 +24,11 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// value and, in a muted ink, what it reads now. Only the list and the page
 /// scroll; every surface is opaque.
 /// </summary>
-internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
+internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
   public const float FieldHeight = 30,
     Gap = 6,
-    ListHeight = OverlayKeypadView.Height - FieldHeight - Gap,
+    ListHeight = KeypadView.Height - FieldHeight - Gap,
     RowHeight = 24,
     ModsHeadingHeight = 22,
     PaneGap = 20,
@@ -49,21 +50,13 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
     ChipInk = new Color(.92f, .92f, .92f),
     LiveInk = UiPalette.Muted;
 
-  private readonly OverlayInputDockModel _dock;
   private readonly Func<string, float> _measure;
   private readonly bool _reduceMotion;
 
-  /// <param name="dock">The dock its chips are carried out of.</param>
   /// <param name="measure">How wide words are at the dock's 13-unit size.</param>
-  public OverlayValueBrowserView(
-    OverlayValueBrowserModel vm,
-    OverlayInputDockModel dock,
-    Func<string, float> measure,
-    bool reduceMotion
-  )
+  public ValueBrowserView(ValueBrowserViewModel vm, Func<string, float> measure, bool reduceMotion)
     : base(vm)
   {
-    _dock = dock;
     _measure = measure;
     _reduceMotion = reduceMotion;
     ListWidth = MeasureList();
@@ -72,12 +65,9 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   /// <summary>How wide the list of places is: its longest name and count, within limits.</summary>
   public float ListWidth { get; }
 
-  /// <summary>The search owns the editor's keyboard while focused.</summary>
-  public bool SearchFocused => VM.SearchFocused.Value;
-
   public override View Body =>
     HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
-      .Frame(maxWidth: float.PositiveInfinity, height: OverlayKeypadView.Height, alignment: Alignment.TopLeading);
+      .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading);
 
   // ---- The list of places ----
 
@@ -95,7 +85,7 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   private View[] Places()
   {
     List<View> rows = new();
-    foreach (ValueFolderModel folder in VM.Categories)
+    foreach (ValueFolderViewModel folder in VM.Categories)
       rows.Add(Place(folder));
     if (VM.Mods.Count > 0)
     {
@@ -108,14 +98,14 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
           .Padding(new Insets(0, 10, 4, 10))
           .Frame(maxWidth: float.PositiveInfinity, height: ModsHeadingHeight, alignment: Alignment.BottomLeading)
       );
-      foreach (ValueFolderModel folder in VM.Mods)
+      foreach (ValueFolderViewModel folder in VM.Mods)
         rows.Add(Place(folder));
     }
     return rows.ToArray();
   }
 
   // A place: its name, and on the right how many values it holds. The whole row is the button.
-  private View Place(ValueFolderModel folder) =>
+  private View Place(ValueFolderViewModel folder) =>
     Button(
         HStack(
             spacing: 0,
@@ -171,9 +161,9 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   private View Page()
   {
     List<View> pages = new();
-    foreach (ValueFolderModel folder in VM.Categories)
+    foreach (ValueFolderViewModel folder in VM.Categories)
       pages.Add(FolderPage(folder));
-    foreach (ValueFolderModel folder in VM.Mods)
+    foreach (ValueFolderViewModel folder in VM.Mods)
       pages.Add(FolderPage(folder));
     pages.Add(If(() => VM.Searching.Value, Results));
     return VStack(
@@ -200,18 +190,18 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   }
 
   // Each place's page is made the first time it opens and kept, with where it was scrolled.
-  private View FolderPage(ValueFolderModel folder) =>
+  private View FolderPage(ValueFolderViewModel folder) =>
     If(
       () => folder.Open.Value,
       () => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
     );
 
-  private View Rows(IReadOnlyList<ValueGroupModel> groups)
+  private View Rows(IReadOnlyList<ValueChipRow> groups)
   {
     if (groups.Count == 1 && groups[0].Heading == null)
       return Chips(groups[0].Chips, false);
     float column = 0;
-    foreach (ValueGroupModel group in groups)
+    foreach (ValueChipRow group in groups)
       column = Mathf.Max(column, _measure(group.Heading ?? ""));
     column = Mathf.Min(MaximumHeading, column + HeadingGap);
     View[] rows = new View[groups.Count];
@@ -225,14 +215,14 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   {
     float column = 0;
     List<View> rows = new();
-    foreach (ValueFolderModel folder in VM.Categories)
+    foreach (ValueFolderViewModel folder in VM.Categories)
       column = Mathf.Max(column, _measure(folder.Name));
-    foreach (ValueFolderModel folder in VM.Mods)
+    foreach (ValueFolderViewModel folder in VM.Mods)
       column = Mathf.Max(column, _measure(folder.Name));
     column = Mathf.Min(MaximumHeading, column + HeadingGap);
-    foreach (ValueFolderModel folder in VM.Categories)
+    foreach (ValueFolderViewModel folder in VM.Categories)
       rows.Add(Found(folder, column));
-    foreach (ValueFolderModel folder in VM.Mods)
+    foreach (ValueFolderViewModel folder in VM.Mods)
       rows.Add(Found(folder, column));
     rows.Add(If(() => VM.NothingFound.Value, NothingFound));
     return Scroller(VStack(spacing: GroupGap, rows.ToArray()))
@@ -241,7 +231,7 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
       .Frame(maxWidth: float.PositiveInfinity, height: ListHeight);
   }
 
-  private View Found(ValueFolderModel folder, float column) =>
+  private View Found(ValueFolderViewModel folder, float column) =>
     If(() => folder.Found.Value, () => Row(folder.Name, column, Chips(folder.Chips, true)));
 
   private View NothingFound() =>
@@ -278,7 +268,7 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
       chips
     );
 
-  private View Chips(IReadOnlyList<ValueChipModel> chips, bool found)
+  private View Chips(IReadOnlyList<ValueChipViewModel> chips, bool found)
   {
     View[] views = new View[chips.Count];
     for (int i = 0; i < views.Length; i++)
@@ -286,13 +276,13 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
     return Flow(ChipGap, views).Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
   }
 
-  private View FoundChip(ValueChipModel chip) => If(() => chip.Found.Value, () => Chip(chip));
+  private View FoundChip(ValueChipViewModel chip) => If(() => chip.Found.Value, () => Chip(chip));
 
   // A chip is pressed to pick its value and dragged to carry it out. The
   // label takes the chip's height, so the capsule, its press and its drag
   // are all as tall as the chip. What the value reads now follows its name,
   // keeping the room its widest number took.
-  private View Chip(ValueChipModel chip) =>
+  private View Chip(ValueChipViewModel chip) =>
     Button(
         HStack(
             spacing: 0,
@@ -318,7 +308,7 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
         ButtonStyle.Plain
       )
       .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
-      .Configure<GameObject>(target => OverlayValueChipHandle.Attach(target, chip.Value, _dock))
+      .Configure<GameObject>(target => ValueChipDragGesture.Attach(target, chip.Value, VM))
       .Named(chip.Name);
 
   private View Scroller(View content) =>
@@ -333,12 +323,12 @@ internal sealed class OverlayValueBrowserView : View<OverlayValueBrowserModel>
   private float MeasureList()
   {
     float widest = _measure(L("값 찾기", "Find a value")) + SearchStart + SearchEnd + 4;
-    foreach (ValueFolderModel folder in VM.Categories)
+    foreach (ValueFolderViewModel folder in VM.Categories)
       widest = Mathf.Max(widest, Width(folder));
-    foreach (ValueFolderModel folder in VM.Mods)
+    foreach (ValueFolderViewModel folder in VM.Mods)
       widest = Mathf.Max(widest, Width(folder));
     return Mathf.Clamp(Mathf.Ceil(widest), MinimumList, MaximumList);
   }
 
-  private float Width(ValueFolderModel folder) => 10 + _measure(folder.Name) + 8 + _measure(folder.Count) + 10 + 2;
+  private float Width(ValueFolderViewModel folder) => 10 + _measure(folder.Name) + 8 + _measure(folder.Count) + 10 + 2;
 }

@@ -1,5 +1,6 @@
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
 
@@ -60,9 +61,9 @@ internal sealed class ShapeValueDrops
     _dropKey = FindDrop(screen, out bool accepted);
     _fields.Collect();
     for (int i = 0; i < _fields.Count; i++)
-      _fields[i].SetDrop(_fields.Key(i) == _dropKey ? (accepted ? 1 : -1) : 0);
-    _numbers.StrokeWidth.SetDrop(_dropKey == ShapeNumbers.StrokeKey ? (accepted ? 1 : -1) : 0);
-    _host.Dock.SetDrop(_dropKey == FormulaLine ? (accepted ? 1 : -1) : 0);
+      _fields[i].SetDrop(Lit(_fields.Key(i) == _dropKey, accepted));
+    _numbers.StrokeWidth.SetDrop(Lit(_dropKey == ShapeNumbers.StrokeKey, accepted));
+    _host.Dock.SetDrop(Lit(_dropKey == FormulaLine, accepted));
     frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropKey == null ? 1 : -1);
   }
 
@@ -77,9 +78,9 @@ internal sealed class ShapeValueDrops
     _dropKey = null;
     _fields.Collect();
     for (int i = 0; i < _fields.Count; i++)
-      _fields[i].SetDrop(0);
-    _numbers.StrokeWidth.SetDrop(0);
-    _host.Dock.SetDrop(0);
+      _fields[i].SetDrop(ValueDrop.None);
+    _numbers.StrokeWidth.SetDrop(ValueDrop.None);
+    _host.Dock.SetDrop(ValueDrop.None);
     frame.HideGhost();
     OverlayFormulaEditing editing = _numbers.Editing;
     if (key == FormulaLine)
@@ -111,6 +112,12 @@ internal sealed class ShapeValueDrops
     _host.Render();
   }
 
+  // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
+  private static ValueDrop Lit(bool over, bool accepted) =>
+    !over ? ValueDrop.None
+    : accepted ? ValueDrop.Accepts
+    : ValueDrop.Refuses;
+
   private string FindDrop(Vector2 screen, out bool accepted)
   {
     accepted = _dragValue.IsNumeric;
@@ -133,7 +140,7 @@ internal sealed class ShapeValueDrops
       if (square >= 0)
         return _gradient.PositionKey + ":" + square;
     }
-    OverlayInputDock dock = _host.Dock;
+    InputDockPanel dock = _host.DockPanel;
     if (dock.FormulaContains(screen))
     {
       accepted = _numbers.Editing.Active && OverlayFormulaEditing.Accepts(_numbers.Editing.Slot, _dragValue);

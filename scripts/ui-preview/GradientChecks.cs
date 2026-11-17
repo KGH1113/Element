@@ -1,3 +1,6 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
@@ -90,7 +93,7 @@ namespace Element.Editor
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
       Assert(!tip.gameObject.activeSelf && Field<RectTransform>(picker.Gradient, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
-      OverlayInputDock dock0 = Field<OverlayInputDock>(shapes, "_dock");
+      DockProbe dock0 = DockOf(shapes);
       OverlayFormulaField position = ShapeGradientOf(shapes).Position;
       Assert(position.Text == "70", "the picked color's position pill says where it is: " + position.Text);
       Rect pill = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
@@ -142,7 +145,7 @@ namespace Element.Editor
 
       // The angle pill types in the dock; 0° points the gradient up.
       Call(shapes, "Activate", "fill-angle");
-      OverlayInputDock dock = Field<OverlayInputDock>(shapes, "_dock");
+      DockProbe dock = DockOf(shapes);
       Assert(dock.Owner == "fill-angle", "the angle opens in the dock");
       Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayFormula.FromNumber(0));
       ShapeNumbersOf(shapes).FinishEditing();

@@ -25,7 +25,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
     _computed;
   private readonly State<bool> _computedValue = new(false);
   private readonly State<bool> _active = new(false);
-  private readonly State<int> _drop = new(0);
+  private readonly State<ValueDrop> _drop = new(ValueDrop.None);
 
   /// <param name="name">Names the drawn button: the bar finds it by this, and so do the checks.</param>
   /// <param name="label">What it is, such as "Fill".</param>
@@ -71,8 +71,8 @@ internal sealed class OverlayBarButtonModel : ViewModel
     _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
     Fill = Computed(() =>
-      _drop.Value > 0 ? _accepts
-      : _drop.Value < 0 ? _refuses
+      _drop.Value == ValueDrop.Accepts ? _accepts
+      : _drop.Value == ValueDrop.Refuses ? _refuses
       : _active.Value ? _lit
       : _rest
     );
@@ -140,8 +140,8 @@ internal sealed class OverlayBarButtonModel : ViewModel
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
 
-  /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
-  public int Drop => _drop.Value;
+  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
+  public ValueDrop Drop => _drop.Value;
 
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
@@ -182,8 +182,8 @@ internal sealed class OverlayBarButtonModel : ViewModel
     SwatchGradient.Value = gradient;
   }
 
-  /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
-  public void SetDrop(int state) => _drop.Value = state;
+  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
+  public void SetDrop(ValueDrop drop) => _drop.Value = drop;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

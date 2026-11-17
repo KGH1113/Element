@@ -182,6 +182,9 @@ internal sealed class TextValueColor : IOverlayValueColorEditor
   /// <summary>The dock goes back to adding values at the caret.</summary>
   public void Disarm() => _source.Disarm();
 
+  /// <inheritdoc cref="TextValueSource.PickFromDock"/>
+  public void PickFromDock(OverlayValueDefinition value) => _source.PickFromDock(value);
+
   private void Follow(OverlayValueDefinition value)
   {
     OverlayValueColor current = Current();

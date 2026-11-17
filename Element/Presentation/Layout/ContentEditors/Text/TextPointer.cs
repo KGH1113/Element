@@ -56,15 +56,14 @@ internal sealed class TextPointer
   public void HandleMouse()
   {
     Vector2 screen = Input.mousePosition;
-    OverlayInputDock dock = _host.Dock;
-    if (_drops.Dragging || dock.Dragging || _gradient.Handles.Dragging)
+    if (_drops.Dragging || _gradient.Handles.Dragging)
       return;
     if (Input.GetMouseButtonDown(0))
     {
       UiColorPicker picker = _color.Picker;
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
-        dock.Contains(screen)
+        _host.DockPanel.Contains(screen)
         || _grow.Contains(screen)
         || _fonts.Contains(screen)
         || _host.Inspector.Contains(screen)
@@ -136,7 +135,7 @@ internal sealed class TextPointer
     if (
       _drops.Dragging
       || _dragging
-      || _host.Dock.Contains(screen)
+      || _host.DockPanel.Contains(screen)
       || _grow.Contains(screen)
       || _fonts.Contains(screen)
       || _animate.Contains(screen)

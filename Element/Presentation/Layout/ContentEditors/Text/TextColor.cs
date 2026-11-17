@@ -3,6 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.ValueColors;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
@@ -96,7 +97,7 @@ internal sealed class TextColor
   }
 
   /// <summary>The color picker opens right above the keypad, in its column.</summary>
-  public void LayOutAbove(OverlayInputDock dock) => _picker.LayOutAbove(dock);
+  public void LayOutAbove(InputDockPanel dock) => _picker.LayOutAbove(dock);
 
   public void DisposePicker() => _picker.Dispose();
 
@@ -178,7 +179,7 @@ internal sealed class TextColor
     PicksOther ? KeypadPicker.BesideLeft(Picker, inspector.Left) : float.NaN;
 
   /// <summary>The picker in the property column from the tool's top, above the keypad, or beside the column.</summary>
-  public void Place(OverlayInputDock dock, OverlayEditorInspector inspector)
+  public void Place(InputDockPanel dock, OverlayEditorInspector inspector)
   {
     if (_other)
       KeypadPicker.PlaceBeside(Picker, dock, inspector.Left, inspector.ToolTop);

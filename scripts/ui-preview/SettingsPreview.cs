@@ -1,3 +1,6 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System;
 using System.IO;
 using System.Linq;
@@ -375,7 +378,7 @@ namespace Element.Editor
       Assert(shape.Enabled && shape.Shape.Kind == OverlayShapeKind.Square && shapes.IsOpen, "a new square opens its editor at once");
       Assert(editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "the shape editor covers native viewers");
       float scale = shape.EffectiveScale;
-      OverlayInputDock dock = Field<OverlayInputDock>(shapes, "_dock");
+      DockProbe dock = DockOf(shapes);
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
         && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
@@ -455,9 +458,9 @@ namespace Element.Editor
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
       Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
-      Assert(DockChips(dock).Length == dock.Model.Values.OpenFolder.Chips.Count,
+      Assert(DockChips(dock).Length == dock.Values.OpenFolder.Chips.Count,
         "the dock lays out the open place's values");
-      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - OverlayValueBrowserView.ChipHeight) > .5f);
+      Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - ValueBrowserView.ChipHeight) > .5f);
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
@@ -526,11 +529,11 @@ namespace Element.Editor
         "the song title is refused by numbers, with a reason");
       Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
-      Assert(strokeWidth.Drop == 1 && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
+      Assert(strokeWidth.Drop == ValueDrop.Accepts && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
       Assert(strokeWidth.Fill.Value.Literal.a == 1 && fillButton.Fill.Value.Literal.a == 1,
         "property rows stay opaque, lit or not, so the overlay never shows through them");
       ShapeDrops(shapes).EndValueDrag(strokePoint);
-      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == 0,
+      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == ValueDrop.None,
         "a value dropped on the border width opens it in the dock");
       Assert(strokeWidth.IsComputed && strokeWidth.Value == "99.5" && strokeWidth.ValueInk.Value.Equals((ElementUI.UiColor)UiPalette.SoftAccent),
         "the border width shows the result, marked as calculated: " + strokeWidth.Value);
@@ -1136,7 +1139,7 @@ namespace Element.Editor
       ElementUI.Runtime.Flush(OverlayEditorFrame.FadeSeconds);
       screen.Tick();
       Assert(editorFade.alpha == 1, "the fade finishes");
-      OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
+      DockProbe dock = DockOf(text);
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0,
         "the input dock is always there, resting with a hint");
       CheckEditorTopLine(text, "Text editor", L("텍스트 편집", "Edit text"));
@@ -1151,7 +1154,7 @@ namespace Element.Editor
         "font, size, color, animation and grow point share one column; no opacity, no + Value");
       Assert(BarButtonRect(text, animateButton).y < BarButtonRect(text, colorButton).y
         && BarButtonRect(text, animateButton).y > BarButtonRect(text, textGrow).y, "animation sits between the color and the grow point");
-      Rect formatRect = ScreenRectOf(format), keypadColumn = KeypadRect(Field<OverlayInputDock>(text, "_dock"));
+      Rect formatRect = ScreenRectOf(format), keypadColumn = KeypadRect(DockOf(text));
       Assert(Mathf.Abs(formatRect.xMin - keypadColumn.xMin) < 1 && Mathf.Abs(formatRect.xMax - keypadColumn.xMax) < 1 && formatRect.yMin > keypadColumn.yMax,
         "the properties stand in a column above the keypad, as wide as it: " + formatRect + " / " + keypadColumn);
       Assert(ScreenRectOf(TextPreviewOf(text).Text.rectTransform).xMax < formatRect.xMin, "the text stays left of the column");
@@ -1218,7 +1221,7 @@ namespace Element.Editor
         && !animateTrack.raycastTarget && !animateThumb.raycastTarget && sameColor(animateThumb.color, UiPalette.Foreground),
         "the 30 by 18 capsule starts with its centered 10-point thumb inset by 4; the row owns clicks");
       // Notices show right above the dock's formula line.
-      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(Field<OverlayInputDock>(text, "_dock").Root, "Notice");
+      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(DockOf(text).Root, "Notice");
       string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
       // The frame before drew a change that took layout (a notice), and the
       // driver went back to sleep after it.
@@ -1269,7 +1272,7 @@ namespace Element.Editor
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      OverlayValueChipHandle carried = DockChip(dock, "Value fps").GetComponent<OverlayValueChipHandle>();
+      ValueChipDragGesture carried = DockChip(dock, "Value fps").GetComponent<ValueChipDragGesture>();
       Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
       int itemsBefore = TextDocumentOf(text).Document.Count;
       carried.OnBeginDrag(Pointer(chipPoint));

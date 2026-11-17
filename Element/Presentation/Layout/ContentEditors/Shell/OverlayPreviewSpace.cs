@@ -1,3 +1,4 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.ColorPicker;
 using UnityEngine;
 
@@ -26,7 +27,7 @@ internal sealed class OverlayPreviewSpace
   public void Measure(
     OverlayEditorFrame screen,
     UiColorPicker picker,
-    OverlayInputDock dock,
+    InputDockPanel dock,
     OverlayEditorInspector inspector,
     bool reduceMotion,
     out float left,

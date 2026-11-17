@@ -1,3 +1,6 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -68,11 +71,11 @@ namespace Element.Editor
         "the preview's mod adds three groups through ElementKit");
     }
 
-    private static void CheckValueDock(OverlayTextEditor text, OverlayInputDock dock, OverlayCanvasHost host, Camera camera,
+    private static void CheckValueDock(OverlayTextEditor text, DockProbe dock, OverlayCanvasHost host, Camera camera,
       RenderTexture texture, Canvas[] canvases, string name)
     {
       bool korean = Korean(name);
-      OverlayValueBrowserModel values = dock.Model.Values;
+      ValueBrowserViewModel values = dock.Values;
       List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
 
       // The list: each category, a small heading, then one row per mod however many groups it made.
@@ -95,18 +98,18 @@ namespace Element.Editor
         "a small heading sets the mods apart, under the categories");
 
       // A place opens its values, lit while open; the next dock opens there again.
-      ValueFolderModel judgement = values.Categories.Single(folder => folder.Key == "Judgement"),
+      ValueFolderViewModel judgement = values.Categories.Single(folder => folder.Key == "Judgement"),
         tufFolder = values.Mods.Single(folder => folder.Key == "mod:" + PreviewMod);
       Press(DockPlace(dock, "Judgement"));
       Pressable[] chips = DockChips(dock);
       Assert(values.OpenFolder == judgement && chips.Select(chip => chip.name).SequenceEqual(judgement.Chips.Select(chip => chip.Name)),
         "a place shows its values, and only them");
-      Assert(chips.All(chip => chip.GetComponent<OverlayValueChipHandle>() != null), "each chip can be carried out");
+      Assert(chips.All(chip => chip.GetComponent<ValueChipDragGesture>() != null), "each chip can be carried out");
       Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == judgement.Name, "the page is named after its place");
       Assert(!judgement.Fill.Value.Equals(tufFolder.Fill.Value) && judgement.Fill.Value.Literal.a == 1
         && judgement.Ink.Value.Equals((ElementUI.UiColor)UiPalette.Foreground),
         "the open place is lit, opaque");
-      OverlayValueBrowserModel next = new OverlayValueBrowserModel(host.Values, _ => { });
+      ValueBrowserViewModel next = new ValueBrowserViewModel(host.Values, NoDockActions.Instance);
       Assert(next.OpenFolder.Key == "Judgement", "the next editor's dock opens on the place opened last");
       next.Dispose();
 
@@ -251,7 +254,7 @@ namespace Element.Editor
       Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value
         && TextDocumentOf(text).Document.Count == beforeClearedSubmit,
         "clearing a focused search wins through submit followed by end even with stale native event arguments");
-      SetField(dock, "_typedFrame", -1);
+      SetField(dock.Panel, "_typedFrame", -1);
       Assert(!dock.IsTyping, "and gives them back once it lets go");
       host.Values.Clear(OverlayValueId.Accuracy);
       host.Values.Clear(OverlayValueId.Combo);
@@ -268,7 +271,7 @@ namespace Element.Editor
     }
 
     // Lets the dock take what its values read now, without waiting for the next look.
-    private static void FollowNow(OverlayValueBrowserModel values)
+    private static void FollowNow(ValueBrowserViewModel values)
     {
       SetField(values, "_nextFollow", 0f);
       values.Follow(Time.unscaledTime);
@@ -276,7 +279,7 @@ namespace Element.Editor
     }
 
     /// <summary>What a value's chip shows after its name; null while it shows its name alone.</summary>
-    private static string Reading(OverlayInputDock dock, string chip) => ReadingOf(DockChip(dock, chip));
+    private static string Reading(DockProbe dock, string chip) => ReadingOf(DockChip(dock, chip));
 
     private static string ReadingOf(Pressable chip)
     {
@@ -285,7 +288,7 @@ namespace Element.Editor
     }
 
     // The list's names and counts, the page's title, headings and chip names fit; a reading may end in an ellipsis.
-    private static void CheckValueLabels(OverlayInputDock dock, string where)
+    private static void CheckValueLabels(DockProbe dock, string where)
     {
       Settle();
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -370,19 +373,18 @@ namespace Element.Editor
         RectTransform controls = ui.Rect("Controls", view, 0, 0, frameWidth, frameHeight);
         controls.localScale = Vector3.one * scale;
         float contentWidth = Mathf.Min(1600, frameWidth - OverlayEditorFrame.Margin * 2), left = (frameWidth - contentWidth) * .5f;
-        float top = frameHeight - 16 - (OverlayFormulaLine.Height + OverlayInputDockView.LineGap + OverlayKeypadView.Height);
+        float top = frameHeight - 16 - (FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height);
         TextMeshProUGUI measure = ui.Text("", controls, 0, 0, 10, 10, 13);
         measure.textWrappingMode = TextWrappingModes.NoWrap;
         measure.color = Color.clear;
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
-        OverlayEditorFrameModel notices = new OverlayEditorFrameModel("Value dock", "", () => { }, () => { });
-        OverlayInputDockModel model = new OverlayInputDockModel(live, key => { }, () => { }, () => { }, value => { },
-          (value, point) => { }, point => { }, point => { });
-        OverlayInputDockView dockView = new OverlayInputDockView(model, notices, new OverlayFormulaLine(model), contentWidth, measurer, true);
+        OverlayEditorFrameModel notices = new OverlayEditorFrameModel("Value dock", "", () => { }, () => { }, true);
+        InputDockViewModel model = new InputDockViewModel(live, notices, NoDockActions.Instance);
+        InputDockView dockView = new InputDockView(model, contentWidth, measurer, true);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
         panel.Mount(new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }), dockView, model, contentWidth);
-        panel.Root.anchoredPosition = new Vector2(left, -(top - OverlayInputDockView.NoticeHeight));
-        model.Refresh(new OverlayFormulaEditing(), "", null,
+        panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
+        model.Show(null, new OverlayFormulaEditing(), "", null,
           L("값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
             "Click a value to add it at the caret · Click a value in the text or a number to calculate here"));
         Settle();
@@ -406,7 +408,7 @@ namespace Element.Editor
         foreach (Pressable chip in chips)
         {
           Rect rect = ScreenRectOf((RectTransform)chip.transform);
-          Assert(rect.xMin > listEdge && rect.xMax <= keypad - OverlayInputDockView.KeypadGap * scale + .5f,
+          Assert(rect.xMin > listEdge && rect.xMax <= keypad - InputDockView.KeypadGap * scale + .5f,
             name + ": a chip stays between the list and the keypad: " + chip.name + " " + rect);
         }
         foreach (TextMeshProUGUI label in panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false))

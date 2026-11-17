@@ -3,6 +3,7 @@ using Element.Domain.Layout;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
@@ -62,7 +63,7 @@ internal sealed class ShapePreview
     OverlayShapeSettings shape,
     float elementScale,
     OverlayEditorFrame screen,
-    OverlayInputDock dock,
+    InputDockPanel dock,
     float top,
     float left,
     float right

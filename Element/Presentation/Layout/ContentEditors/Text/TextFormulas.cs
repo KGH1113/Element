@@ -3,6 +3,7 @@ using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using UnityEngine;
@@ -158,8 +159,8 @@ internal sealed class TextFormulas
     _editing.Deactivate();
   }
 
-  /// <summary>Points the keypad and the dock at what is being edited, or lets them rest once that is gone.</summary>
-  public void Sync(OverlayInputDock dock)
+  /// <summary>Points the formula at what is being edited, or lets it rest once that is gone.</summary>
+  public void Sync()
   {
     _editing.Activate(CurrentSlot());
     if (_chipPopover >= 0 && !ChipOpen(out _))
@@ -167,16 +168,18 @@ internal sealed class TextFormulas
       _chipPopover = -1;
       _editing.Deactivate();
     }
-    dock.Edit(
-      _fieldSlot != null ? _fieldSlot
-      : ChipOpen(out int chip) ? "value:" + chip
-      : null
-    );
   }
 
-  /// <summary>What the dock's line says: the edited number's name, its result, or what to do.</summary>
-  public void Refresh(OverlayInputDock dock)
+  /// <summary>
+  /// Tells the dock what it edits: the number or value open in it, its name
+  /// and result, or with nothing open what to do.
+  /// </summary>
+  public void Refresh(InputDockViewModel dock)
   {
+    string owner =
+      _fieldSlot != null ? _fieldSlot
+      : ChipOpen(out int chip) ? "value:" + chip
+      : null;
     string hint =
       _color.Hint()
       ?? _valueColor.Hint(_animateOpen())
@@ -192,7 +195,7 @@ internal sealed class TextFormulas
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : L("값", "Value")
       );
-    dock.Refresh(_editing, name, DockResult(), hint);
+    dock.Show(owner, _editing, name, DockResult(), hint);
   }
 
   // The result of what the dock types, as the text or the field will show it.

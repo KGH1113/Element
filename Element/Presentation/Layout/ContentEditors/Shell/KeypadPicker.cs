@@ -1,3 +1,4 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.ColorPicker;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ internal static class KeypadPicker
   /// it can be dropped on it. On a screen too short for both, it rises until
   /// it stops under the header.
   /// </summary>
-  public static void Place(UiColorPicker picker, OverlayInputDock dock, float top)
+  public static void Place(UiColorPicker picker, InputDockPanel dock, float top)
   {
     if (picker == null || !picker.Visible)
       return;
@@ -30,7 +31,7 @@ internal static class KeypadPicker
   /// <paramref name="column"/> and its top at <paramref name="top"/>, rising
   /// as far as it must to stay clear of the dock.
   /// </summary>
-  public static void PlaceBeside(UiColorPicker picker, OverlayInputDock dock, float column, float top)
+  public static void PlaceBeside(UiColorPicker picker, InputDockPanel dock, float column, float top)
   {
     if (picker == null || !picker.Visible)
       return;
@@ -51,5 +52,5 @@ internal static class KeypadPicker
   /// keypad; an editor's two-column picker reaches further left, so the
   /// preview and its bar keep to the space before it while it is open.
   /// </summary>
-  public static float Left(UiColorPicker picker, OverlayInputDock dock) => dock.KeypadArea.xMax - picker.CurrentWidth;
+  public static float Left(UiColorPicker picker, InputDockPanel dock) => dock.KeypadArea.xMax - picker.CurrentWidth;
 }

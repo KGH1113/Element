@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
@@ -25,7 +26,7 @@ internal sealed class OverlayEditorInspector
   /// <param name="back">The back row: closes the open tool.</param>
   public OverlayEditorInspector(
     OverlayEditorFrame screen,
-    OverlayInputDock dock,
+    InputDockPanel dock,
     string name,
     string heading,
     Action back,

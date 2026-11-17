@@ -1,3 +1,6 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -660,9 +663,9 @@ namespace Element.Editor
       Settle();
       OverlayEditorFrame screen = Field<OverlayEditorFrame>(editor, "_screen");
       Rect shown = ScreenRectOf(column.Root), preview = ModPreviewRect(editor);
-      float left = (screen.ContentLeft + screen.ContentWidth - OverlayKeypadView.Width) * screen.Scale,
+      float left = (screen.ContentLeft + screen.ContentWidth - KeypadView.Width) * screen.Scale,
         top = Screen.height - (OverlayEditorFrame.TopBar + OverlayEditorInspector.Gap) * screen.Scale;
-      Assert(Mathf.Abs(shown.xMin - left) < 1 && Mathf.Abs(shown.width - OverlayKeypadView.Width * screen.Scale) < 1 && Mathf.Abs(shown.yMax - top) < 1
+      Assert(Mathf.Abs(shown.xMin - left) < 1 && Mathf.Abs(shown.width - KeypadView.Width * screen.Scale) < 1 && Mathf.Abs(shown.yMax - top) < 1
         && InsideScreen(shown), what + ": the column stands where the text editor's does: " + shown);
       Assert(preview.xMax <= shown.xMin - 20 && InsideScreen(preview), what + ": the preview keeps left of it: " + preview + " / " + shown);
     }

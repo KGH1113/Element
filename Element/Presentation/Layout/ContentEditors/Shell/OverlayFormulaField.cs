@@ -35,7 +35,7 @@ internal sealed class OverlayFormulaField
     _prefixWidth;
   private float _textWidth;
   private bool _active;
-  private int _drop = int.MinValue;
+  private ValueDrop? _drop;
 
   public OverlayFormulaField(
     UiFactory ui,
@@ -60,7 +60,7 @@ internal sealed class OverlayFormulaField
     _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _unit.textWrappingMode = TextWrappingModes.NoWrap;
     _unitWidth = Measure(_unit, 3);
-    SetDrop(0);
+    SetDrop(ValueDrop.None);
   }
 
   public RectTransform Root { get; }
@@ -115,12 +115,12 @@ internal sealed class OverlayFormulaField
   public static string Number(double value) =>
     double.IsNaN(value) || double.IsInfinity(value) ? "—" : value.ToString("0.#", CultureInfo.InvariantCulture);
 
-  /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
-  public void SetDrop(int state)
+  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
+  public void SetDrop(ValueDrop drop)
   {
-    if (_drop == state)
+    if (_drop == drop)
       return;
-    _drop = state;
+    _drop = drop;
     Paint();
   }
 
@@ -137,8 +137,8 @@ internal sealed class OverlayFormulaField
   {
     Color accent = UiPalette.SoftAccent;
     Color rest =
-      _drop > 0 ? Color.Lerp(Rest, accent, .5f)
-      : _drop < 0 ? Color.Lerp(Rest, UiPalette.Error, .4f)
+      _drop == ValueDrop.Accepts ? Color.Lerp(Rest, accent, .5f)
+      : _drop == ValueDrop.Refuses ? Color.Lerp(Rest, UiPalette.Error, .4f)
       : _active ? Color.Lerp(Rest, accent, .38f)
       : Rest;
     ColorBlock colors = _body.colors;

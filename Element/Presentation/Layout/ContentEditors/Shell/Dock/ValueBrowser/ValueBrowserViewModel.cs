@@ -5,17 +5,20 @@ using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Values;
 using ElementUI;
+using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 
 /// <summary>
 /// The dock's values: a list of places (the built-in categories, then one
 /// per mod that adds values) beside the open place's chips, and a search
 /// over every value. The chips in view show what their values read now, a
-/// few times a second. <see cref="OverlayValueBrowserView"/> draws it.
+/// few times a second. A chip clicked, or carried out of the dock
+/// (<see cref="ValueChipDragGesture"/>), goes up as the dock's
+/// <see cref="IInputDockActions"/>. <see cref="ValueBrowserView"/> draws it.
 /// </summary>
-internal sealed class OverlayValueBrowserModel : ViewModel
+internal sealed class ValueBrowserViewModel : ViewModel
 {
   private const float FollowSeconds = .25f;
 
@@ -23,24 +26,27 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   private static string _remembered;
 
   private readonly OverlayValues _values;
-  private readonly List<ValueFolderModel> _folders = new();
-  private readonly List<ValueChipModel> _inView = new();
+  private readonly IInputDockActions _actions;
+  private readonly List<ValueFolderViewModel> _folders = new();
+  private readonly List<ValueChipViewModel> _inView = new();
   private readonly StringBuilder _scratch = new(64);
-  private ValueFolderModel _open;
+  private ValueFolderViewModel _open;
   private string _folded = "";
   private long _seen;
   private float _nextFollow;
+  private bool _carrying;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
-  /// <param name="pick">A value clicked.</param>
-  public OverlayValueBrowserModel(OverlayValues values, Action<OverlayValueDefinition> pick)
+  /// <param name="actions">Where a clicked or carried value goes.</param>
+  public ValueBrowserViewModel(OverlayValues values, IInputDockActions actions)
   {
     _values = values;
-    List<ValueFolderModel> categories = new(),
+    _actions = actions;
+    List<ValueFolderViewModel> categories = new(),
       mods = new();
     foreach (OverlayValueFolder folder in OverlayValueCatalog.Folders())
     {
-      ValueFolderModel model = Own(new ValueFolderModel(folder, pick, Open));
+      ValueFolderViewModel model = Own(new ValueFolderViewModel(folder, actions.Pick, Open));
       (folder.IsMod ? mods : categories).Add(model);
     }
     Categories = categories;
@@ -59,10 +65,10 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   }
 
   /// <summary>The built-in categories that have values, in order.</summary>
-  public readonly IReadOnlyList<ValueFolderModel> Categories;
+  public readonly IReadOnlyList<ValueFolderViewModel> Categories;
 
   /// <summary>One place per mod that adds values, in the order they arrived; often none.</summary>
-  public readonly IReadOnlyList<ValueFolderModel> Mods;
+  public readonly IReadOnlyList<ValueFolderViewModel> Mods;
 
   /// <summary>What is typed in the search.</summary>
   public readonly State<string> Query = new("");
@@ -94,7 +100,7 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   public Command PickFirst { get; }
 
   /// <summary>The place open now.</summary>
-  public ValueFolderModel OpenFolder => _open;
+  public ValueFolderViewModel OpenFolder => _open;
 
   /// <summary>
   /// Once a frame: a few times a second, the chips in view take what their
@@ -114,7 +120,7 @@ internal sealed class OverlayValueBrowserModel : ViewModel
         _inView[i].Follow(_values, _scratch);
   }
 
-  private void Open(ValueFolderModel folder)
+  private void Open(ValueFolderViewModel folder)
   {
     _open = folder;
     _remembered = folder.Key;
@@ -123,7 +129,7 @@ internal sealed class OverlayValueBrowserModel : ViewModel
       // Picking a place leaves the search.
       Query.Value = "";
       _folded = "";
-      foreach (ValueFolderModel each in _folders)
+      foreach (ValueFolderViewModel each in _folders)
         each.Find("");
     }
     Show();
@@ -138,7 +144,7 @@ internal sealed class OverlayValueBrowserModel : ViewModel
       return;
     _folded = folded;
     int found = 0;
-    foreach (ValueFolderModel folder in _folders)
+    foreach (ValueFolderViewModel folder in _folders)
       found += folder.Find(searching ? folded : "");
     FoundCount.Value = found.ToString(CultureInfo.InvariantCulture);
     NothingFound.Value = searching && found == 0;
@@ -153,16 +159,16 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   {
     bool searching = (Query.Value ?? "").Trim().Length > 0;
     Searching.Value = searching;
-    foreach (ValueFolderModel folder in _folders)
+    foreach (ValueFolderViewModel folder in _folders)
       folder.Show(folder == _open, searching);
     Title.Value = searching ? L("검색 결과", "Results") : _open.Name;
     _inView.Clear();
-    foreach (ValueFolderModel folder in _folders)
+    foreach (ValueFolderViewModel folder in _folders)
       if (searching || folder == _open)
-        foreach (ValueChipModel chip in folder.Chips)
+        foreach (ValueChipViewModel chip in folder.Chips)
           if (!searching || chip.Found.Value)
             _inView.Add(chip);
-    foreach (ValueChipModel chip in _inView)
+    foreach (ValueChipViewModel chip in _inView)
       chip.Follow(_values, _scratch);
     _seen = _values?.Stamp ?? 0;
   }
@@ -171,11 +177,40 @@ internal sealed class OverlayValueBrowserModel : ViewModel
   {
     if (!Searching.Value)
       return;
-    foreach (ValueChipModel chip in _inView)
+    foreach (ValueChipViewModel chip in _inView)
       if (chip.Found.Value)
       {
         chip.Pick.TryExecute();
         return;
       }
   }
+
+  // ---- Carrying a value out ----
+
+  /// <summary>A chip starts being carried out of the dock, at a screen point.</summary>
+  public void BeginCarry(OverlayValueDefinition value, Vector2 screen)
+  {
+    _carrying = true;
+    _actions.BeginDrag(value, screen);
+  }
+
+  public void Carry(Vector2 screen)
+  {
+    if (_carrying)
+      _actions.Drag(screen);
+  }
+
+  public void EndCarry(Vector2 screen)
+  {
+    if (!_carrying)
+      return;
+    _carrying = false;
+    _actions.EndDrag(screen);
+  }
+
+  /// <summary>A chip is being carried out of the dock.</summary>
+  public bool Carrying => _carrying;
+
+  /// <summary>The chip went away mid-carry (the dock closed): nothing is dropped.</summary>
+  public void CancelCarry() => _carrying = false;
 }

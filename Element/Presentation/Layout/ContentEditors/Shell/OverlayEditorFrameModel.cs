@@ -15,10 +15,12 @@ internal sealed class OverlayEditorFrameModel : ViewModel
 
   /// <param name="name">The editor's name; its buttons are named after it ("Text editor done").</param>
   /// <param name="title">What is edited, as the header says it ("Edit text").</param>
-  public OverlayEditorFrameModel(string name, string title, Action cancel, Action done)
+  /// <param name="inDock">The editor has an input dock, which shows the notices on its line.</param>
+  public OverlayEditorFrameModel(string name, string title, Action cancel, Action done, bool inDock)
   {
     Name = name;
     Title = title;
+    InDock = inDock;
     Cancel = Command(cancel);
     Done = Command(done);
   }
@@ -40,7 +42,7 @@ internal sealed class OverlayEditorFrameModel : ViewModel
   public readonly State<string> HeaderNotice = new("");
 
   /// <summary>An input dock shows the notices on its line.</summary>
-  public bool InDock { get; set; }
+  public readonly bool InDock;
 
   /// <summary>Leaves without saving.</summary>
   public Command Cancel { get; }

@@ -1,9 +1,9 @@
+using Element.Presentation.Settings;
+using Element.Presentation.Settings.Window;
 using System;
 using System.Linq;
 using System.Reflection;
 using Element.Configuration;
-using Element.Presentation.Settings;
-using Element.Presentation.Settings.Window;
 using UnityEngine;
 
 namespace Element.Editor
@@ -24,7 +24,7 @@ namespace Element.Editor
   /// <summary>What a page check works with: the open window, its view model, and a way to photograph it.</summary>
   internal sealed class SettingsCheck
   {
-    public SettingsPanel Panel;
+    public SettingsWindowScreen Panel;
     public SettingsWindowViewModel Model;
     public GameObject Root;
     public ElementSettings Settings;

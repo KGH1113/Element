@@ -1,6 +1,21 @@
-using Element.Presentation.Layout.ContentEditors.Shell.Dock;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor;
+using Element.Presentation.OverlayEditor.Canvas;
+using Element.Presentation.OverlayEditor.Canvas.AddMenu;
+using Element.Presentation.OverlayEditor.Canvas.Confirm;
+using Element.Presentation.OverlayEditor.Canvas.ElementBar;
+using Element.Presentation.OverlayEditor.Canvas.Toolbar;
+using Element.Presentation.OverlayEditor.Kinds;
+using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.ColorPicker;
+using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.Parts.Grow;
+using Element.Presentation.OverlayEditor.Parts.Property;
+using Element.Presentation.OverlayEditor.ShapeEditor;
+using Element.Presentation.OverlayEditor.TextEditor;
+using Element.Presentation.Settings;
+using Element.Presentation.Settings.Window;
 using System;
 using System.IO;
 using System.Linq;
@@ -8,9 +23,6 @@ using System.Reflection;
 using System.Collections.Generic;
 using Element.Configuration;
 using Element.Configuration.Effects;
-using Element.Presentation.Settings;
-using Element.Presentation.Settings.Pages;
-using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Elements;
@@ -19,11 +31,6 @@ using Element.Domain.Overlay.Fonts;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout;
-using Element.Presentation.Layout.Canvas;
-using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Layout.ContentEditors.Mods;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Domain.Tweaks;
 using Element.Domain.Layout;
 using Element.Application.Updates;
@@ -42,9 +49,6 @@ using UnityEngine.UI;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
 using Object = UnityEngine.Object;
-using Element.Presentation.Layout.ContentEditors.Text;
-using Element.Presentation.Layout.ContentEditors.Shape;
-using Element.Presentation.Layout.Graphics;
 using Element.Configuration.Gameplay;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Theme;
@@ -146,7 +150,7 @@ namespace Element.Editor
       host.SetFonts(new OverlayFonts(font, font.material, catalog, catalog));
       host.ConfigureLayouts(settings.OverlayLayouts);
       var viewers = new PreviewKeyViewers(screenWidth);
-      var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
+      var editor = new OverlayEditorScreen(host, viewers, font, _ => {}, settings);
       var eventsRoot = new GameObject("Fixture events", typeof(EventSystem));
       // Batch edit mode does not run EventSystem's play-mode lifecycle.
       Call(eventsRoot.GetComponent<EventSystem>(), "OnEnable");
@@ -183,7 +187,7 @@ namespace Element.Editor
       Assert(editLabel.text == L("텍스트 편집", "Edit text") && !editLabel.isTextTruncated, "Edit text fits: " + editLabel.text);
       Rect fpsRect = host.LayoutTargets.Single(target => target.Id == "fps").Bounds;
       object[] hit = { fpsRect.max, null };
-      int hitIndex = (int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit);
+      int hitIndex = (int)typeof(CanvasDragInput).GetMethod("FindTarget").Invoke(Drag(editor), hit);
       Assert(hitIndex == fpsIndex && (LayoutHandle)hit[1] == LayoutHandle.Move, "a text's corner moves it instead of scaling it");
       // JRP's progress bar: a black bar centered under the top, the light
       // track 2 units inside it, the fill over the track as wide as the
@@ -210,8 +214,8 @@ namespace Element.Editor
       float toolbarScale = Session(editor).ToolbarScale;
       Assert(cutouts.Count == 1 && cutouts.All(cutout => Mathf.Abs(cutout.Radius - 8 * toolbarScale) < .01f),
         "native viewers get the toolbar as a rounded cutout: " + cutouts.Count);
-      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 1, "only the selected element has an outline");
-      Assert(!Field<bool>(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Single(), "_handles"),
+      Assert(root.GetComponentsInChildren<CanvasOutlineGraphic>(false).Length == 1, "only the selected element has an outline");
+      Assert(!Field<bool>(root.GetComponentsInChildren<CanvasOutlineGraphic>(false).Single(), "_handles"),
         "a text's outline has no resize handles");
       // Without a selection the scale shows again; key viewers use it.
       Select(editor, -1);
@@ -252,7 +256,7 @@ namespace Element.Editor
       // The scale itself, as key viewers use it, measured on a real element.
       IOverlayLayoutTarget fps = host.LayoutTargets.Single(target => target.Id == "fps");
       Select(editor, fpsIndex);
-      LayoutToolbarModel bar = ToolbarModel(editor);
+      ToolbarViewModel bar = ToolbarModel(editor);
       // Typing writes the field's value; it is applied when typing ends, and
       // one out of range keeps Save from closing the editor.
       bar.Scale.Value = "130";
@@ -314,7 +318,7 @@ namespace Element.Editor
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
       List<OverlayLayoutSettings> beforeCopies = host.LayoutSettings.Select(layout => layout.Clone()).ToList();
-      LayoutModal modal = Field<LayoutModal>(editor, "_modal");
+      ConfirmPanel modal = Field<ConfirmPanel>(editor, "_modal");
       Press(ToolbarButton(editor, "Reset all"));
       Assert(modal.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, screenWidth, screenHeight),
         "Reset all asks first, covering native viewers");
@@ -334,7 +338,7 @@ namespace Element.Editor
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "opening the confirmation changes nothing");
       Press(ByName<Pressable>(modal.Dialog, "Cancel"));
       Assert(!modal.IsOpen && beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Cancel closes the dialog and changes nothing");
-      Field<LayoutReset>(editor, "_reset").Confirm();
+      Field<CanvasReset>(editor, "_reset").Confirm();
       Press(ByName<Pressable>(modal.Dialog, "Confirm"));
       Assert(!modal.IsOpen, "Reset all closes the dialog");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _))
@@ -350,7 +354,7 @@ namespace Element.Editor
       Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);
     }
 
-    private static void CheckShapes(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+    private static void CheckShapes(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name, int width, int height)
     {
       // Add → Shape asks for the kind beside the add menu.
@@ -374,7 +378,7 @@ namespace Element.Editor
       Press(Rows(kindMenu).Single(button => button.name == "Add Square"));
       Assert(AddMenu(editor) == null && Field<ListMenu>(Kind<ShapeKind>(editor), "_menu").Root == null, "adding closes the menu and its list");
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
-      OverlayShapeEditor shapes = (OverlayShapeEditor)Kind<ShapeKind>(editor).Editor;
+      ShapeEditorScreen shapes = (ShapeEditorScreen)Kind<ShapeKind>(editor).Editor;
       Assert(shape.Enabled && shape.Shape.Kind == OverlayShapeKind.Square && shapes.IsOpen, "a new square opens its editor at once");
       Assert(editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "the shape editor covers native viewers");
       float scale = shape.EffectiveScale;
@@ -383,8 +387,8 @@ namespace Element.Editor
         && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
       Press(DockChip(dock, "Value combo"));
-      Assert(Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
-      OverlayFormulaField widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
+      Assert(Field<EditorFramePanel>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
+      FormulaFieldView widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
       Rect restingDock = ScreenRectOf(dock.Root);
       Assert(InsideScreen(restingDock) && restingDock.yMax < ScreenRectOf(widthField.Root).yMin, "the shape and its numbers stay above the dock");
@@ -392,10 +396,10 @@ namespace Element.Editor
       Rect wRect = ScreenRectOf(widthField.Root), hRect = ScreenRectOf(heightField.Root);
       Assert(wRect.yMax < shapeRect.yMin && Mathf.Abs(wRect.center.x - shapeRect.center.x) < 1, "W sits under the shape");
       Assert(hRect.xMin > shapeRect.xMax && Mathf.Abs(hRect.center.y - shapeRect.center.y) < 1, "H sits to its right");
-      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeMeasures) }.All(type => type.GetField("_widthLine", Private) == null), "no dimension lines");
+      Assert(new[] { typeof(ShapeEditorScreen), typeof(ShapeMeasures) }.All(type => type.GetField("_widthLine", Private) == null), "no dimension lines");
       List<Button> arcs = Field<List<Button>>(Measures(shapes), "_arcs");
       Assert(arcs.Count == 4 && arcs.All(arc => arc.gameObject.activeSelf), "a square has an arc at each corner");
-      Assert(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
+      Assert(Field<List<FormulaFieldView>>(Measures(shapes), "_radiusFields").All(field => !field.Root.gameObject.activeSelf),
         "rounding values stay hidden until an arc is clicked");
       foreach (Button arc in arcs)
       {
@@ -404,7 +408,7 @@ namespace Element.Editor
         Assert(Mathf.Abs(corner.x - shapeRect.xMin) < 1 || Mathf.Abs(corner.x - shapeRect.xMax) < 1, "each arc is centered on a corner");
         using (var mesh = new VertexHelper())
         {
-          typeof(OverlayCornerArc).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(arc.GetComponent<OverlayCornerArc>(), new object[] { mesh });
+          typeof(ShapeCornerArcGraphic).GetMethod("OnPopulateMesh", Private | BindingFlags.DeclaredOnly).Invoke(arc.GetComponent<ShapeCornerArcGraphic>(), new object[] { mesh });
           List<UIVertex> vertices = new List<UIVertex>();
           mesh.GetUIVertexStream(vertices);
           Vector3 middle = vertices.Aggregate(Vector3.zero, (sum, vertex) => sum + vertex.position) / vertices.Count;
@@ -414,13 +418,13 @@ namespace Element.Editor
           Assert(Vector2.Dot(outward, away) > 0, "an arc faces away from the shape");
         }
       }
-      OverlayBarButtonModel fillButton = ShapeColorsOf(shapes).FillButton, strokeButton = ShapeColorsOf(shapes).StrokeButton,
+      PropertyButtonViewModel fillButton = ShapeColorsOf(shapes).FillButton, strokeButton = ShapeColorsOf(shapes).StrokeButton,
         strokeWidth = ShapeNumbersOf(shapes).StrokeWidth, shapeGrow = Grow(shapes).Button;
       CheckEditorTopLine(shapes, "Shape editor", L("도형 편집", "Edit shape"));
       Assert(shapeGrow.Value.Contains(Korean(name) ? "자동" : "Auto"), "the grow button says where the shape grows from");
-      Assert(new[] { typeof(OverlayShapeEditor), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
+      Assert(new[] { typeof(ShapeEditorScreen), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
         "opacity lives in the color picker, not the bar");
-      OverlayBarButtonModel[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
+      PropertyButtonViewModel[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
       string[] shapeLabels = Korean(name) ? new[] { "채우기", "테두리", "테두리 두께", "기준점" } : new[] { "Fill", "Border", "Border width", "Grow from" };
       for (int i = 0; i < shapeBar.Length; i++)
       {
@@ -434,7 +438,7 @@ namespace Element.Editor
       Assert(strokeWidth.Value.Length > 0 && !strokeWidth.IsComputed
         && BarButton(shapes, strokeWidth).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == strokeWidth.Value),
         "the border width shows its number");
-      foreach (OverlayFormulaField measure in new[] { widthField, heightField })
+      foreach (FormulaFieldView measure in new[] { widthField, heightField })
         Assert(measure.Root.GetComponent<Button>().targetGraphic.transform == measure.Root,
           "W and H light up exactly where the pill is drawn: " + measure.Name);
       Assert(!EditorBarRoot(shapes).GetComponentsInChildren<Pressable>(true).Any(button => button.name.EndsWith("smaller") || button.name.EndsWith("larger")),
@@ -450,7 +454,7 @@ namespace Element.Editor
 
       // Clicking W opens the input dock; the shape moves up to stay in sight.
       Click(widthField.Root, "Width");
-      OverlayFormulaEditing editing = ShapeNumbersOf(shapes).Editing;
+      FormulaEditing editing = ShapeNumbersOf(shapes).Editing;
       Assert(dock.Owner == "width" && editing.Active && editing.Working.Serialize() == "160",
         "W opens the input dock with its number");
       Rect dockRect = ScreenRectOf(dock.Root);
@@ -481,7 +485,7 @@ namespace Element.Editor
       ShapeNumbersOf(shapes).KeypadPress('0');
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
-        && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Contains("10000"),
+        && Field<EditorFramePanel>(shapes, "_screen").NoticeText.Contains("10000"),
         "Done lets the dock rest; a width past the limit is kept in range and says so");
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
@@ -525,7 +529,7 @@ namespace Element.Editor
       Vector2 heightPoint = ScreenCenter(heightField.Root);
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
       ShapeDrops(shapes).EndValueDrag(heightPoint);
-      Assert(working.HeightFormula == "" && Field<OverlayEditorFrame>(shapes, "_screen").NoticeText.Length > 0,
+      Assert(working.HeightFormula == "" && Field<EditorFramePanel>(shapes, "_screen").NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
       Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
@@ -543,7 +547,7 @@ namespace Element.Editor
 
       // A corner's arc opens its rounding, shown beside the arc.
       arcs[2].onClick.Invoke();
-      OverlayFormulaField radius = Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields")[2];
+      FormulaFieldView radius = Field<List<FormulaFieldView>>(Measures(shapes), "_radiusFields")[2];
       Assert(dock.Owner == "radius:2" && radius.Root.gameObject.activeSelf, "an arc opens its corner's rounding with its value");
       foreach (char key in "\b\b\b20")
         ShapeNumbersOf(shapes).KeypadPress(key);
@@ -569,7 +573,7 @@ namespace Element.Editor
       AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
         "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
-      OverlayOpacityField opacity = ShapeColorsOf(shapes).Opacity;
+      OpacityFieldView opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
         && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
@@ -597,7 +601,7 @@ namespace Element.Editor
         && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "the square and the bars keep their crosshair and slider cursors in the editor's panel");
       float topGap = ((RectTransform)picker.Root).anchoredPosition.y;
-      Assert(pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1 || Mathf.Abs(-topGap - (OverlayEditorFrame.TopBar + 8)) < 1,
+      Assert(pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1 || Mathf.Abs(-topGap - (EditorFramePanel.TopBar + 8)) < 1,
         "with the color square, it still sits above the dock, or right under the header on a short screen: " + pickerRect + " top " + topGap);
       AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
       foreach (TextMeshProUGUI label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -663,7 +667,7 @@ namespace Element.Editor
 
       // Where the shape grows from.
       PressBar(shapes, shapeGrow);
-      OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(shapes), "_popover");
+      GrowPopoverPanel grow = Field<GrowPopoverPanel>(Grow(shapes), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its own popover, on screen");
       AssertInColumn(shapes, grow.Root, L("기준점", "Grow from"));
       CheckGrowPopover(Grow(shapes));
@@ -738,22 +742,22 @@ namespace Element.Editor
     private static bool Korean(string name) => name.Contains("-ko");
 
     // The shape editor is made of parts; the checks reach each through its field.
-    private static ShapeMeasures Measures(OverlayShapeEditor shapes) => Field<ShapeMeasures>(shapes, "_measures");
-    private static ShapeNumbers ShapeNumbersOf(OverlayShapeEditor shapes) => Field<ShapeNumbers>(shapes, "_numbers");
-    private static ShapeColors ShapeColorsOf(OverlayShapeEditor shapes) => Field<ShapeColors>(shapes, "_colors");
-    private static ShapeGradient ShapeGradientOf(OverlayShapeEditor shapes) => Field<ShapeGradient>(shapes, "_gradient");
-    private static ShapeValueDrops ShapeDrops(OverlayShapeEditor shapes) => Field<ShapeValueDrops>(shapes, "_drops");
-    private static OverlayEditorHistory<OverlayShapeSettings> ShapeHistory(OverlayShapeEditor shapes) =>
-      Field<OverlayEditorHistory<OverlayShapeSettings>>(shapes, "_history");
-    private static RectTransform ShapeRect(OverlayShapeEditor shapes) => Field<RectTransform>(Field<ShapePreview>(shapes, "_preview"), "_shapeRect");
-    private static OverlayGrowFrom Grow(object editor) => Field<OverlayGrowFrom>(editor, "_grow");
+    private static ShapeMeasures Measures(ShapeEditorScreen shapes) => Field<ShapeMeasures>(shapes, "_measures");
+    private static ShapeNumbers ShapeNumbersOf(ShapeEditorScreen shapes) => Field<ShapeNumbers>(shapes, "_numbers");
+    private static ShapeColors ShapeColorsOf(ShapeEditorScreen shapes) => Field<ShapeColors>(shapes, "_colors");
+    private static ShapeGradient ShapeGradientOf(ShapeEditorScreen shapes) => Field<ShapeGradient>(shapes, "_gradient");
+    private static ShapeValueDrops ShapeDrops(ShapeEditorScreen shapes) => Field<ShapeValueDrops>(shapes, "_drops");
+    private static EditorHistory<OverlayShapeSettings> ShapeHistory(ShapeEditorScreen shapes) =>
+      Field<EditorHistory<OverlayShapeSettings>>(shapes, "_history");
+    private static RectTransform ShapeRect(ShapeEditorScreen shapes) => Field<RectTransform>(Field<ShapePreview>(shapes, "_preview"), "_shapeRect");
+    private static GrowFrom Grow(object editor) => Field<GrowFrom>(editor, "_grow");
 
     // So is the text editor.
-    private static TextDocumentEditing TextDocumentOf(OverlayTextEditor text) => Field<TextDocumentEditing>(text, "_text");
-    private static TextPreview TextPreviewOf(OverlayTextEditor text) => Field<TextPreview>(text, "_preview");
-    private static TextMarks TextMarksOf(OverlayTextEditor text) => Field<TextMarks>(text, "_marks");
-    private static TextFormulas TextFormulasOf(OverlayTextEditor text) => Field<TextFormulas>(text, "_formulas");
-    private static TextColor TextColorOf(OverlayTextEditor text) => Field<TextColor>(text, "_color");
+    private static TextDocumentEditing TextDocumentOf(TextEditorScreen text) => Field<TextDocumentEditing>(text, "_text");
+    private static TextPreview TextPreviewOf(TextEditorScreen text) => Field<TextPreview>(text, "_preview");
+    private static TextMarks TextMarksOf(TextEditorScreen text) => Field<TextMarks>(text, "_marks");
+    private static TextFormulas TextFormulasOf(TextEditorScreen text) => Field<TextFormulas>(text, "_formulas");
+    private static TextColor TextColorOf(TextEditorScreen text) => Field<TextColor>(text, "_color");
 
     // Presses a field's number (its body button is named after the field).
     private static void Click(RectTransform field, string buttonName)
@@ -774,31 +778,31 @@ namespace Element.Editor
 
     // Every shown control of the shape editor stays on screen, and the
     // measures around the shape never cover each other.
-    private static void CheckShapeLayout(OverlayShapeEditor shapes, int width, int height)
+    private static void CheckShapeLayout(ShapeEditorScreen shapes, int width, int height)
     {
-      GameObject root = Field<OverlayEditorFrame>(shapes, "_screen").Root;
+      GameObject root = Field<EditorFramePanel>(shapes, "_screen").Root;
       foreach (RectTransform rect in root.GetComponentsInChildren<UiCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
       {
         if (rect.name == "Dragged value" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
           continue;
         Assert(InsideScreen(ScreenRectOf(rect)), "shape editor control stays on screen: " + rect.name);
       }
-      List<OverlayFormulaField> measures = new List<OverlayFormulaField>
+      List<FormulaFieldView> measures = new List<FormulaFieldView>
       {
         Measures(shapes).WidthField, Measures(shapes).HeightField,
       };
       Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
-      foreach (OverlayFormulaField field in measures)
+      foreach (FormulaFieldView field in measures)
         Assert(!ScreenRectOf(field.Root).Overlaps(shapeRect), "W and H stay off the shape: " + field.Name);
-      measures.AddRange(Field<List<OverlayFormulaField>>(Measures(shapes), "_radiusFields"));
-      List<OverlayFormulaField> shown = measures.Where(field => field.Root.gameObject.activeInHierarchy).ToList();
+      measures.AddRange(Field<List<FormulaFieldView>>(Measures(shapes), "_radiusFields"));
+      List<FormulaFieldView> shown = measures.Where(field => field.Root.gameObject.activeInHierarchy).ToList();
       for (int i = 0; i < shown.Count; i++)
       for (int j = i + 1; j < shown.Count; j++)
         Assert(!ScreenRectOf(shown[i].Root).Overlaps(ScreenRectOf(shown[j].Root)),
           "shape measures stay apart: " + shown[i].Name + " / " + shown[j].Name);
     }
 
-    private static string FieldText(OverlayFormulaField field) => Field<TextMeshProUGUI>(field, "_text").text;
+    private static string FieldText(FormulaFieldView field) => Field<TextMeshProUGUI>(field, "_text").text;
 
     private static Vector2 ScreenCenter(RectTransform rect) =>
       RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
@@ -826,7 +830,7 @@ namespace Element.Editor
 
     // Several elements: modifier clicks, the marquee, moving, arrows, align,
     // distribute, delete and select all, each one undo step.
-    private static void CheckMultiSelect(OverlayLayoutEditor editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
+    private static void CheckMultiSelect(OverlayEditorScreen editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
       RenderTexture texture, Canvas[] canvases, string name)
     {
       var before = new LayoutSnapshot(host.LayoutSettings);
@@ -846,8 +850,8 @@ namespace Element.Editor
       Call(editor, "UpdateFrames");
       Assert(selection.Count == 2 && selection.Contains(texts[0]) && selection.Contains(texts[1]) && Selection(editor).Selected == b,
         "Cmd/Ctrl + click adds an element");
-      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).Length == 2, "each selected element has its outline");
-      Assert(root.GetComponentsInChildren<LayoutOutlineGraphic>(false).All(outline => !Field<bool>(outline, "_handles")),
+      Assert(root.GetComponentsInChildren<CanvasOutlineGraphic>(false).Length == 2, "each selected element has its outline");
+      Assert(root.GetComponentsInChildren<CanvasOutlineGraphic>(false).All(outline => !Field<bool>(outline, "_handles")),
         "several selected show no resize handles");
       Settle();
       Assert(ByName<TextMeshProUGUI>(Toolbar(editor).Root, "Selection").text == (Korean(name) ? "2개 선택됨" : "2 selected"), "the toolbar counts the selection");
@@ -858,7 +862,7 @@ namespace Element.Editor
         && !ToolbarButton(editor, "Increase size").IsInteractable() && !ToolbarButton(editor, "Decrease size").IsInteractable(),
         "several selected: no Edit, the scale greys out without its percent sign, delete and reset stay");
       RectTransform bar = ElementBar(editor).Root;
-      Assert(bar != null && bar.gameObject.activeSelf && ElementBar(editor).Model is LayoutArrangeModel, "several selected get the align toolbar");
+      Assert(bar != null && bar.gameObject.activeSelf && ElementBar(editor).Model is ArrangeViewModel, "several selected get the align toolbar");
       Func<UiIconKind, Pressable> arrange = kind =>
         bar.GetComponentsInChildren<Pressable>(true).Single(button => button.GetComponentInChildren<UiIcon>()?.Kind == kind);
       Assert(arrange(UiIconKind.AlignLeft).IsInteractable() && !arrange(UiIconKind.DistributeHorizontal).IsInteractable()
@@ -870,7 +874,7 @@ namespace Element.Editor
         "the align toolbar drags from its grip; its buttons take their presses");
       Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
       object[] hit = { texts[0].Bounds.center, null };
-      Assert((int)typeof(LayoutDrag).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
+      Assert((int)typeof(CanvasDragInput).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
         "each selected element moves the group");
       Selection(editor).Toggle(b);
       Call(editor, "UpdateFrames");
@@ -1010,7 +1014,7 @@ namespace Element.Editor
       Assert(before.Matches(new LayoutSnapshot(host.LayoutSettings)), "multi-select leaves the layout as it was");
     }
 
-    private static void CheckKeyViewers(OverlayLayoutEditor editor, PreviewKeyViewers viewers, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
+    private static void CheckKeyViewers(OverlayEditorScreen editor, PreviewKeyViewers viewers, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
     {
       viewers.Availability = KeyViewerAvailability.Ready;
       Call(editor, "ToggleAddMenu");
@@ -1020,7 +1024,7 @@ namespace Element.Editor
         "a key viewer is added at once, as a hand viewer");
       Call(editor, "UpdateFrames");
       Settle();
-      KeyViewerBarModel kind = (KeyViewerBarModel)ElementBar(editor).Model;
+      KeyViewerBarViewModel kind = (KeyViewerBarViewModel)ElementBar(editor).Model;
       Assert(kind.Viewer == 0 && kind.Target == hand, "key viewer settings show hand selected");
       Assert(SegmentShown(ElementBar(editor).Root) == 0, "the hand/foot control shows hand: " + SegmentShown(ElementBar(editor).Root));
       AssertCutOut(editor, ElementBar(editor).Root, "the key viewer's toolbar");
@@ -1093,24 +1097,24 @@ namespace Element.Editor
         && ElementBar(editor).ControlAt(PointerOn((RectTransform)openInApp.transform))
         && ElementBar(editor).ControlAt(PointerOn((RectTransform)ByName<Pressable>(popup, "Option " + L("손", "Hand")).transform)),
         "the key viewer's toolbar drags from its grip; hand, foot and Edit take their presses");
-      Rect barBefore = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
+      Rect barBefore = (Rect)typeof(ElementBarPanel).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Vector2 grab = barBefore.position + new Vector2(14, 20);
       ElementBar(editor).BeginDrag(grab);
       ElementBar(editor).Move(grab + new Vector2(-60, -40));
       ElementBar(editor).Dragging = false;
-      Rect barAfter = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
+      Rect barAfter = (Rect)typeof(ElementBarPanel).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Assert(Mathf.Abs(barAfter.x - (barBefore.x - 60)) < .5f && Mathf.Abs(barAfter.y - (barBefore.y - 40)) < .5f,
         "the element toolbar follows its grip one to one");
       int footIndex = IndexOf(editor, foot);
       Select(editor, -1);
       Select(editor, footIndex);
-      Rect barKept = (Rect)typeof(LayoutElementBar).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
+      Rect barKept = (Rect)typeof(ElementBarPanel).GetProperty("Bounds", Private).GetValue(ElementBar(editor));
       Assert(barKept.position == barAfter.position, "the element toolbar keeps its place for the next selection");
       var cutouts = editor.NativeExclusions;
       Assert(cutouts.Count == 2, "native viewers get each panel as its own cutout: " + cutouts.Count);
     }
 
-    private static void CheckTextEditor(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+    private static void CheckTextEditor(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
       TextOverlayElement fps = host.LayoutTargets.OfType<TextOverlayElement>().Single(text => text.Id == "fps");
@@ -1126,17 +1130,17 @@ namespace Element.Editor
       // A mod that adds values in three groups, attached through ElementKit as a mod's Load does.
       AttachPreviewMods(host.Values);
       PressEdit(editor);
-      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
+      TextEditorScreen text = (TextEditorScreen)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
-      OverlayEditorFrame screen = Field<OverlayEditorFrame>(text, "_screen");
+      EditorFramePanel screen = Field<EditorFramePanel>(text, "_screen");
       TextMeshProUGUI[] titles = screen.Root.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.text == "텍스트 편집" || label.text == "Edit text").ToArray();
       Assert(titles.Length == 1 && titles[0].transform.IsChildOf(ByName<RectTransform>(screen.Frame, "Header")),
         "the editor's name shows once, in its header: no title card");
       CanvasGroup editorFade = screen.Root.GetComponent<CanvasGroup>();
       Assert(editorFade.alpha < 1, "the editor fades in instead of cutting in");
-      ElementUI.Runtime.Flush(OverlayEditorFrame.FadeSeconds * .5f);
+      ElementUI.Runtime.Flush(EditorFramePanel.FadeSeconds * .5f);
       Assert(editorFade.alpha > 0 && editorFade.alpha < 1, "the editor fade progresses through a visible intermediate state");
-      ElementUI.Runtime.Flush(OverlayEditorFrame.FadeSeconds);
+      ElementUI.Runtime.Flush(EditorFramePanel.FadeSeconds);
       screen.Tick();
       Assert(editorFade.alpha == 1, "the fade finishes");
       DockProbe dock = DockOf(text);
@@ -1144,13 +1148,13 @@ namespace Element.Editor
         "the input dock is always there, resting with a hint");
       CheckEditorTopLine(text, "Text editor", L("텍스트 편집", "Edit text"));
       RectTransform format = EditorBarRoot(text);
-      OverlayBarButtonModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
+      PropertyButtonViewModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
         textGrow = Grow(text).Button, fontButton = Field<TextFonts>(text, "_fonts").Button,
         animateButton = Field<TextAnimate>(text, "_animate").Button;
-      OverlayBarButtonModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
+      PropertyButtonViewModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
       Pressable[] barButtons = format.GetComponentsInChildren<Pressable>(true);
       Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 5
-        && new[] { typeof(OverlayTextEditor), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
+        && new[] { typeof(TextEditorScreen), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
         "font, size, color, animation and grow point share one column; no opacity, no + Value");
       Assert(BarButtonRect(text, animateButton).y < BarButtonRect(text, colorButton).y
         && BarButtonRect(text, animateButton).y > BarButtonRect(text, textGrow).y, "animation sits between the color and the grow point");
@@ -1272,7 +1276,7 @@ namespace Element.Editor
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      ValueChipDragGesture carried = DockChip(dock, "Value fps").GetComponent<ValueChipDragGesture>();
+      ValueChipDragInput carried = DockChip(dock, "Value fps").GetComponent<ValueChipDragInput>();
       Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
       int itemsBefore = TextDocumentOf(text).Document.Count;
       carried.OnBeginDrag(Pointer(chipPoint));
@@ -1291,7 +1295,7 @@ namespace Element.Editor
       Assert(document.Count == 11 && document[9].Value == "combo" && document[10].Value == "miss", "a second value follows the first");
       TextDocumentOf(text).Undo();
       TextFormulasOf(text).OpenChip(9);
-      OverlayFormulaEditing editing = TextFormulasOf(text).Editing;
+      FormulaEditing editing = TextFormulasOf(text).Editing;
       Assert(dock.Owner == "value:9" && editing.Active && editing.Slot.IsText, "clicking a value in the text calculates it in the dock");
 
       // The dock shows the formula; the text shows the result.
@@ -1317,7 +1321,7 @@ namespace Element.Editor
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
-      Field<TextPointer>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
+      Field<TextPointerInput>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
       Assert(screen.TipText.Contains("×") && screen.TipText.Contains("+"), "hovering a value names it: " + screen.TipText);
       TextFormulasOf(text).OpenChip(9);
       Assert(dock.Owner == "value:9" && TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+{miss}",
@@ -1330,7 +1334,7 @@ namespace Element.Editor
       // frame, as in the game.
       Vector2 valuePoint = ScreenCenterOfItem(text, 9);
       Assert(Field<TextLayoutMap>(text, "_map").TryValueAt(valuePoint, out int clicked) && clicked == 9 && !dock.Contains(valuePoint)
-        && (bool)typeof(OverlayTextEditor).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
+        && (bool)typeof(TextEditorScreen).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
         "a click on the value in the text lands on it");
       Frames(() => QuietFrame(text), 3);
       Pressable times = DockKeyAsIs(dock, "Key ×"), three = DockKeyAsIs(dock, "Key 3"), back = DockKeyAsIs(dock, "Key backspace");
@@ -1416,7 +1420,7 @@ namespace Element.Editor
       ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       picker.Commit();
       SaveFrame(camera, texture, canvases, name + "-text-color");
-      OverlayOpacityField textOpacity = TextColorOf(text).Opacity;
+      OpacityFieldView textOpacity = TextColorOf(text).Opacity;
       Assert(textOpacity.Field.Root.gameObject.activeInHierarchy && textOpacity.Field.Text == "100", "the text color's opacity is a number in the picker");
       Vector2 alphaPoint = ScreenCenter(textOpacity.Field.Root);
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), alphaPoint);
@@ -1447,7 +1451,7 @@ namespace Element.Editor
 
       // Where the text grows from.
       PressBar(text, textGrow);
-      OverlayGrowPopover grow = Field<OverlayGrowPopover>(Grow(text), "_popover");
+      GrowPopoverPanel grow = Field<GrowPopoverPanel>(Grow(text), "_popover");
       Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && textGrow.Active, "the grow point opens its own popover, on screen");
       AssertInColumn(text, grow.Root, L("기준점", "Grow from"));
       CheckGrowPopover(Grow(text));
@@ -1498,18 +1502,18 @@ namespace Element.Editor
       return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
     }
 
-    private static Vector2 ScreenCenterOfItem(OverlayTextEditor text, int item)
+    private static Vector2 ScreenCenterOfItem(TextEditorScreen text, int item)
     {
       Field<TextLayoutMap>(text, "_map").ItemRect(item, out Rect local);
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       return RectTransformUtility.WorldToScreenPoint(null, preview.rectTransform.TransformPoint(local.center));
     }
 
-    private static void CheckHighlightColor(OverlayLayoutEditor editor, ElementSettings settings, Camera camera, RenderTexture texture,
+    private static void CheckHighlightColor(OverlayEditorScreen editor, ElementSettings settings, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
       Call(editor, "ToggleColor");
-      OverlayColorPopover popover = Field<OverlayColorPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_colorPopover");
+      HighlightColorPanel popover = Field<HighlightColorPanel>(Field<CanvasPopovers>(editor, "_popovers"), "_colorPopover");
       UiColorPicker controls = Field<UiColorPicker>(popover, "_picker");
       Settle();
       Assert(popover.Visible && !ColorPickerProbe.Shown(ColorPickerProbe.Segment(controls.Root, 0))
@@ -1532,7 +1536,7 @@ namespace Element.Editor
     // Fonts: a TTF and every face of a TTC from the Fonts folder, installed
     // fonts listed in the background, the overlay's default font, a font on
     // some characters only, importing a file, and a font this PC lacks.
-    private static void CheckFonts(OverlayLayoutEditor editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
+    private static void CheckFonts(OverlayEditorScreen editor, OverlayCanvasHost host, ElementSettings settings, Camera camera,
       RenderTexture texture, Canvas[] canvases, string name)
     {
       OverlayFonts fonts = host.Fonts;
@@ -1545,7 +1549,7 @@ namespace Element.Editor
       string typewriter = typewriterFace.Key;
 
       Call(editor, "ToggleFont");
-      UiFontPopover popover = Field<UiFontPopover>(Field<LayoutPopovers>(editor, "_popovers"), "_fontPopover");
+      UiFontPopover popover = Field<UiFontPopover>(Field<CanvasPopovers>(editor, "_popovers"), "_fontPopover");
       Call(editor, "UpdatePopupPositions");
       Assert(popover.Visible && PopoverInside(editor, popover.Root, Screen.width, Screen.height), "the default font list opens on screen");
       Assert(editor.NativeExclusions.Count > 0 && editor.NativeExclusionBounds.Contains(ScreenCenter(editor, popover.Root)),
@@ -1612,7 +1616,7 @@ namespace Element.Editor
       // In the text editor, a font goes to the selection, or the whole text.
       Select(editor, IndexOf(editor, fps));
       PressEdit(editor);
-      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
+      TextEditorScreen text = (TextEditorScreen)Kind<TextKind>(editor).Editor;
       SetField(TextDocumentOf(text), "_anchor", 0);
       SetField(TextDocumentOf(text), "_caretIndex", 3);
       Call(Field<TextFonts>(text, "_fonts"), "ToggleFont");
@@ -1626,7 +1630,7 @@ namespace Element.Editor
         && characters[3].fontAsset == fonts.DefaultAsset,
         "a font picked for selected characters draws only them: " + characters[0].fontAsset?.faceInfo.familyName
           + " / " + characters[3].fontAsset?.faceInfo.familyName);
-      OverlayBarButtonModel textFont = Field<TextFonts>(text, "_fonts").Button;
+      PropertyButtonViewModel textFont = Field<TextFonts>(text, "_fonts").Button;
       Assert(textFont.Value.StartsWith("American") && textFont.Active, "the row takes the selection's font, lit while the list is open: " + textFont.Value);
       AssertInColumn(text, textFonts.Root, L("선택한 글자 폰트", "Selected text font"));
       SaveFrame(camera, texture, canvases, name + "-text-font");
@@ -1641,7 +1645,7 @@ namespace Element.Editor
       Assert(fps.Settings.Text.Runs.All(run => string.IsNullOrEmpty(run.Font)), "cancel leaves the text's fonts as they were");
     }
 
-    private static Vector2 ScreenCenter(OverlayLayoutEditor editor, RectTransform panel) =>
+    private static Vector2 ScreenCenter(OverlayEditorScreen editor, RectTransform panel) =>
       (PopoverPlacement.ScreenRect(panel)).center;
 
     private static string L(string korean, string english) => RDString.language == SystemLanguage.Korean ? korean : english;
@@ -1654,18 +1658,18 @@ namespace Element.Editor
       public IReadOnlyList<string> Pick(string title) => new[] { _path };
     }
 
-    private static bool PopoverInside(OverlayLayoutEditor editor, RectTransform popover, int width, int height)
+    private static bool PopoverInside(OverlayEditorScreen editor, RectTransform popover, int width, int height)
     {
       Rect bounds = PopoverPlacement.ScreenRect(popover);
       return bounds.xMin >= 0 && bounds.yMin >= 0 && bounds.xMax <= width + .5f && bounds.yMax <= height + .5f;
     }
 
-    private static LayoutSession Session(OverlayLayoutEditor editor) => Field<LayoutSession>(editor, "_session");
-    private static LayoutToolbar Toolbar(OverlayLayoutEditor editor) => Field<LayoutToolbar>(editor, "_toolbar");
-    private static LayoutSelection Selection(OverlayLayoutEditor editor) => Field<LayoutSelection>(editor, "_selection");
-    private static LayoutMarquee Marquee(OverlayLayoutEditor editor) => Field<LayoutMarquee>(editor, "_marquee");
-    private static LayoutDrag Drag(OverlayLayoutEditor editor) => Field<LayoutDrag>(editor, "_drag");
-    private static LayoutElementBar ElementBar(OverlayLayoutEditor editor) => Field<LayoutElementBar>(editor, "_elementBar");
+    private static CanvasSession Session(OverlayEditorScreen editor) => Field<CanvasSession>(editor, "_session");
+    private static ToolbarPanel Toolbar(OverlayEditorScreen editor) => Field<ToolbarPanel>(editor, "_toolbar");
+    private static CanvasSelection Selection(OverlayEditorScreen editor) => Field<CanvasSelection>(editor, "_selection");
+    private static CanvasMarqueeInput Marquee(OverlayEditorScreen editor) => Field<CanvasMarqueeInput>(editor, "_marquee");
+    private static CanvasDragInput Drag(OverlayEditorScreen editor) => Field<CanvasDragInput>(editor, "_drag");
+    private static ElementBarPanel ElementBar(OverlayEditorScreen editor) => Field<ElementBarPanel>(editor, "_elementBar");
 
     // A click as the EventSystem delivers it, on the option of the bar's segmented control.
     private static void ClickOption(RectTransform bar, string option)
@@ -1687,7 +1691,7 @@ namespace Element.Editor
     }
 
     // Native key viewers draw above Unity: each editor panel must be cut out where it is drawn.
-    private static void AssertCutOut(OverlayLayoutEditor editor, RectTransform panel, string what)
+    private static void AssertCutOut(OverlayEditorScreen editor, RectTransform panel, string what)
     {
       Rect drawn = PopoverPlacement.ScreenRect(panel);
       bool covered = editor.NativeExclusions.Any(cutout => cutout.Bounds.X <= drawn.xMin + .5f && cutout.Bounds.Y <= drawn.yMin + .5f
@@ -1695,22 +1699,22 @@ namespace Element.Editor
       Assert(covered, what + " is cut out of native viewers where it is drawn: " + drawn + " / "
         + string.Join(", ", editor.NativeExclusions.Select(cutout => cutout.Bounds.X + "," + cutout.Bounds.Y + " " + cutout.Bounds.Width + "x" + cutout.Bounds.Height)));
     }
-    private static T Kind<T>(OverlayLayoutEditor editor) where T : class, IElementKind => Field<ElementKinds>(editor, "_kinds").Get<T>();
-    private static RectTransform AddMenu(OverlayLayoutEditor editor) => Field<ListMenu>(Field<LayoutAddMenu>(editor, "_addMenu"), "_menu").Root;
+    private static T Kind<T>(OverlayEditorScreen editor) where T : class, IElementKind => Field<ElementKinds>(editor, "_kinds").Get<T>();
+    private static RectTransform AddMenu(OverlayEditorScreen editor) => Field<ListMenu>(Field<AddMenuPanel>(editor, "_addMenu"), "_menu").Root;
 
-    private static void Select(OverlayLayoutEditor editor, int index)
+    private static void Select(OverlayEditorScreen editor, int index)
     {
       Selection(editor).Selected = index;
       Call(editor, "UpdateFrames");
       Settle();
     }
 
-    private static int IndexOf(OverlayLayoutEditor editor, IOverlayLayoutTarget target) =>
+    private static int IndexOf(OverlayEditorScreen editor, IOverlayLayoutTarget target) =>
       Session(editor).IndexOf(target);
 
     private static void SetField(object target, string name, object value) => target.GetType().GetField(name, Private).SetValue(target, value);
 
-    private static void Cleanup(OverlayLayoutEditor editor, GameObject root, GameObject eventsRoot, GameObject cameraRoot,
+    private static void Cleanup(OverlayEditorScreen editor, GameObject root, GameObject eventsRoot, GameObject cameraRoot,
       RenderTexture texture, OverlayCanvasHost host)
     {
       if (editor.IsOpen)
@@ -1931,7 +1935,7 @@ namespace Element.Editor
         ? new OverlayFontCatalog(_fonts, new PreviewFontPicker(VerdanaFile), Debug.LogWarning, (action, exception) => Debug.LogException(exception))
         : null;
       OverlayFonts overlayFonts = fontCatalog == null ? null : new OverlayFonts(font, font.material, fontCatalog, fontCatalog);
-      SettingsPanel panel = new SettingsPanel(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {},
+      SettingsWindowScreen panel = new SettingsWindowScreen(settings, font, () => {}, () => true, () => overlayOpened = true, _ => {},
         new SettingsFeatures { RenderPlanetPreview = planetPreview.Render, Updates = new PreviewUpdates(), Profiles = profiles, OverlayFonts = () => overlayFonts });
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       GameObject root = Field<GameObject>(panel, "_root");
@@ -1960,7 +1964,7 @@ namespace Element.Editor
         Assert(overlayOpened && !root.activeSelf, "the Overlay card hands off directly to the overlay editor");
         panel.Open();
         Assert(planetPreview.Calls == 0, "Home, Tweaks, Effects and General do not render planet textures");
-        SettingsPageModel shown = (SettingsPageModel)typeof(SettingsWindowViewModel).GetField(PageFields[page]).GetValue(model);
+        SettingsPageViewModel shown = (SettingsPageViewModel)typeof(SettingsWindowViewModel).GetField(PageFields[page]).GetValue(model);
         Assert(shown != null, page + " exists");
         model.Show(shown);
         ElementUI.Runtime.Probe();
@@ -2293,8 +2297,8 @@ namespace Element.Editor
 
     private static void CheckSpacingGuides()
     {
-      var root = new GameObject("Spacing fixture", typeof(RectTransform), typeof(LayoutSpacingGraphic));
-      var graphic = root.GetComponent<LayoutSpacingGraphic>();
+      var root = new GameObject("Spacing fixture", typeof(RectTransform), typeof(CanvasSpacingGraphic));
+      var graphic = root.GetComponent<CanvasSpacingGraphic>();
       graphic.rectTransform.sizeDelta = new Vector2(1000, 600);
       graphic.raycastTarget = false;
       var horizontal = new LayoutSpacingGuide(180, 220, 340, 380, 100, 140, 120);

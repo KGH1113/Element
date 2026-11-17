@@ -1,3 +1,4 @@
+
 namespace Element.Presentation.Ui.Graphics;
 
 /// <summary>Every icon <see cref="UiIcon"/> draws. Each one is its own glyph; none is drawn by another's code.</summary>

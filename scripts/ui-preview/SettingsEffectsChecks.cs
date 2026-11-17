@@ -1,7 +1,8 @@
+using Element.Presentation.Settings.Effects;
+using Element.Presentation.Settings.PresetEditor;
 using System.Linq;
 using Element.Configuration;
 using Element.Configuration.Effects;
-using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
@@ -29,8 +30,8 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      EffectsModel effects = check.Model.Effects;
-      PresetEditorModel editor = check.Model.PresetEditor;
+      EffectsViewModel effects = check.Model.Effects;
+      PresetEditorViewModel editor = check.Model.PresetEditor;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
       PageUi.Settle(check);
@@ -76,7 +77,7 @@ namespace Element.Editor
       Rect zoomRect = PageUi.World(zoom);
       Rect zoomLabel = PageUi.World(PageUi.Label(root, UiText("카메라 확대", "Camera zoom")));
       Assert(zoomLabel.yMax <= camera.yMin && zoomRect.yMax <= zoomLabel.yMin, "the zoom sits right under camera movement");
-      foreach (EffectChoiceModel choice in editor.Groups[(int)EffectGroup.Screen])
+      foreach (EffectChoiceViewModel choice in editor.Groups[(int)EffectGroup.Screen])
         Assert(PageUi.World(PageUi.Label(root, choice.Title)).yMax <= zoomRect.yMin,
           "the other Screen effects start below the zoom instead of covering it: " + choice.Title);
       zoom.text = "1200";
@@ -190,7 +191,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      PresetEditorModel editor = check.Model.PresetEditor;
+      PresetEditorViewModel editor = check.Model.PresetEditor;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
       EffectPreset other = settings.Effects.Presets[0], target = settings.Effects.Presets[1];
@@ -200,22 +201,22 @@ namespace Element.Editor
       PageUi.Settle(check);
       Assert(editor.TabNames.Length == 6 && editor.TabNames.All(tab => TabButton(root, tab) != null),
         "the preset editor adds a Shortcut tab after the five effect groups");
-      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorModel.ShortcutTab]));
+      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorViewModel.ShortcutTab]));
       PageUi.Settle(check);
       Assert(PageUi.Switches(root).Length == 0
         && PageUi.Shows(root, UiText(
           "누르면 이 프리셋을 적용하고, 한 번 더 누르면 이펙트 제거를 끕니다. 플레이 중에는 동작하지 않습니다.",
           "Press it to apply this preset, and again to turn effect removal off. It does nothing during play.")),
         "the Shortcut tab swaps the effect switches for the shortcut card");
-      ShortcutFieldModel field = editor.Shortcut;
+      ShortcutFieldViewModel field = editor.Shortcut;
       Pressable remove = PageUi.IconButtons(root, UiIconKind.Close).Single();
       Assert(!field.ShowsKeys.Value && PageUi.Shows(root, UiText("눌러서 단축키 지정", "Click to set a shortcut")) && !remove.IsInteractable(),
         "a preset without a shortcut invites setting one and offers nothing to remove");
       PageUi.Press(PageUi.ButtonWith(root, UiText("눌러서 단축키 지정", "Click to set a shortcut")));
       Assert(field.Recording && editor.TickCapture(), "clicking the field records");
-      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorModel.ShortcutTab]));
+      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorViewModel.ShortcutTab]));
       PageUi.Settle(check);
-      Assert(editor.Tab == PresetEditorModel.ShortcutTab && !field.Recording && !editor.TickCapture(),
+      Assert(editor.Tab == PresetEditorViewModel.ShortcutTab && !field.Recording && !editor.TickCapture(),
         "pressing the already selected Shortcut tab cancels capture without switching tabs");
       PageUi.Press(PageUi.ButtonWith(root, UiText("눌러서 단축키 지정", "Click to set a shortcut")));
       Assert(field.Recording, "shortcut capture can restart after reselecting its tab");
@@ -244,7 +245,7 @@ namespace Element.Editor
       PageUi.Press(PageUi.ActionOf(root, PageUi.CardOf(root, target.Name), UiIconKind.Edit));
       PageUi.Settle(check);
       Assert(editor.Tab == (int)EffectGroup.Screen, "editing a preset again starts on its effects");
-      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorModel.ShortcutTab]));
+      PageUi.Press(TabButton(root, editor.TabNames[PresetEditorViewModel.ShortcutTab]));
       PageUi.Settle(check);
       PageUi.Press(PageUi.IconButtons(root, UiIconKind.Close).Single());
       PageUi.Settle(check);
@@ -273,7 +274,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      PresetEditorModel editor = check.Model.PresetEditor;
+      PresetEditorViewModel editor = check.Model.PresetEditor;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
       editor.Edit(settings.Effects.Presets[0]);
@@ -313,10 +314,10 @@ namespace Element.Editor
     // on narrow windows a recording that hit another preset's.
     private static int ShowPresetShortcut(SettingsCheck check, bool conflict)
     {
-      PresetEditorModel editor = check.Model.PresetEditor;
+      PresetEditorViewModel editor = check.Model.PresetEditor;
       editor.ShortcutKey = KeyCode.Alpha1;
       editor.ShortcutModifier = KeyCode.LeftAlt;
-      PageUi.Press(TabButton(check.Root, editor.TabNames[PresetEditorModel.ShortcutTab]));
+      PageUi.Press(TabButton(check.Root, editor.TabNames[PresetEditorViewModel.ShortcutTab]));
       PageUi.Settle(check);
       check.Assert(editor.Shortcut.ShowsKeys.Value && PageUi.Shows(check.Root, "1"), "the frame shows the draft's shortcut as keycaps");
       if (!conflict)

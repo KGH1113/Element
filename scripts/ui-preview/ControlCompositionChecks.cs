@@ -1,6 +1,7 @@
+using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Property;
 using System;
 using System.Linq;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Input;
@@ -62,23 +63,23 @@ namespace Element.Editor
         check.Settle();
         Assert(thumb.anchoredPosition.x > offX, "an external binding update reaches the retained native switch");
 
-        var row = new OverlayBarButtonModel("Fixture width", "Width", () => { }, value: true, unit: "px");
-        var second = new OverlayBarButtonModel("Fixture height", "Height", () => { }, value: true, unit: "px");
-        var inspector = new OverlayInspectorModel("Geometry", new[] { row, second }, () => { });
-        panel.Mount(new ElementBackend(theme), new OverlayInspectorView(inspector, 280), inspector, 280, followsContent: true);
+        var row = new PropertyButtonViewModel("Fixture width", "Width", () => { }, value: true, unit: "px");
+        var second = new PropertyButtonViewModel("Fixture height", "Height", () => { }, value: true, unit: "px");
+        var inspector = new InspectorViewModel("Geometry", new[] { row, second }, () => { });
+        panel.Mount(new ElementBackend(theme), new InspectorView(inspector, 280), inspector, 280, followsContent: true);
         check.Settle();
         float rowsHeight = panel.Size.y;
         int scans = panel.ControlsVersion;
         int sizeChanges = 0;
         panel.Host.Root.ContentSizeChanged += _ => sizeChanges++;
-        Assert(Mathf.Approximately(panel.Root.rect.height, rowsHeight) && rowsHeight > OverlayInspectorRow.BackHeight,
+        Assert(Mathf.Approximately(panel.Root.rect.height, rowsHeight) && rowsHeight > InspectorRowStyle.BackHeight,
           "the inspector native rect and ScreenPanel.Size fit its rows");
         row.Set("200", false, false);
         check.Settle();
         Assert(panel.ControlsVersion == scans, "changing a row value does not rescan the unchanged control tree");
         inspector.ShowOpen("Size");
         check.Settle();
-        Assert(Mathf.Approximately(panel.Size.y, OverlayInspectorRow.BackHeight)
+        Assert(Mathf.Approximately(panel.Size.y, InspectorRowStyle.BackHeight)
           && Mathf.Approximately(panel.Root.rect.height, panel.Size.y), "opening a tool fits the native inspector to its back row");
         Pressable back = panel.Root.GetComponentsInChildren<Pressable>().Single(control => control.name == "Inspector back");
         Assert(panel.ControlsVersion > scans && back.navigation.mode == Navigation.Mode.None && back.GetComponent<UiCursor>() != null,

@@ -17,14 +17,14 @@ namespace Element.Presentation.Ui.ColorPicker;
 /// <see cref="ColorPickerCardView"/> and <see cref="ColorPickerColumnsView"/>
 /// put them together.
 /// </summary>
-internal abstract class ColorPickerLayout : View<ColorPickerModel>
+internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 {
   public const float Column = 256,
     FieldHeight = 40,
     Box = 72;
 
   /// <param name="parts">What the owner keeps (its opacity box, the color bar); null where there are none.</param>
-  protected ColorPickerLayout(ColorPickerModel vm, ColorPickerParts parts)
+  protected ColorPickerLayout(ColorPickerViewModel vm, ColorPickerParts parts)
     : base(vm) => Parts = parts;
 
   protected ColorPickerParts Parts { get; }

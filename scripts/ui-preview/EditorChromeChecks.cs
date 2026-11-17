@@ -1,10 +1,14 @@
+using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor.Parts.EditorBar;
+using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Grow;
+using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Property;
+using Element.Presentation.OverlayEditor.TextEditor;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System.Linq;
 using Element.Configuration.Overlay;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Ui.Theme;
 using ElementUI.Ugui;
 using TMPro;
@@ -19,25 +23,25 @@ namespace Element.Editor
   // controls they draw, found by the names the views give them.
   public static partial class SettingsPreview
   {
-    private static OverlayEditorFrame EditorScreen(object editor) => Field<OverlayEditorFrame>(editor, "_screen");
+    private static EditorFramePanel EditorScreen(object editor) => Field<EditorFramePanel>(editor, "_screen");
 
     /// <summary>The text and shape editors' property column.</summary>
-    private static OverlayEditorInspector EditorInspector(object editor) => Field<OverlayEditorInspector>(editor, "_inspector");
+    private static InspectorPanel EditorInspector(object editor) => Field<InspectorPanel>(editor, "_inspector");
 
     // The text and shape editors have a property column; the mod editor keeps a bar.
     private static bool HasInspector(object editor) => editor.GetType().GetField("_inspector", Private) != null;
 
     /// <summary>Where an editor's properties are drawn: the text and shape editors' column, the mod editor's bar.</summary>
     private static RectTransform EditorBarRoot(object editor) =>
-      HasInspector(editor) ? EditorInspector(editor).Root : Field<OverlayEditorBar>(editor, "_bar").Root;
+      HasInspector(editor) ? EditorInspector(editor).Root : Field<EditorBarPanel>(editor, "_bar").Root;
 
     /// <summary>The control a property's row (or the mod editor's bar button) is drawn as, once the screen caught up.</summary>
-    private static Pressable BarButton(object editor, OverlayBarButtonModel button)
+    private static Pressable BarButton(object editor, PropertyButtonViewModel button)
     {
       Settle();
       RectTransform rect = HasInspector(editor)
         ? EditorInspector(editor).RectOf(button)
-        : Field<OverlayEditorBar>(editor, "_bar").RectOf(button);
+        : Field<EditorBarPanel>(editor, "_bar").RectOf(button);
       return rect != null ? rect.GetComponent<Pressable>() : null;
     }
 
@@ -49,7 +53,7 @@ namespace Element.Editor
     private static void AssertInColumn(object editor, RectTransform drawn, string tool)
     {
       Settle();
-      OverlayEditorInspector inspector = EditorInspector(editor);
+      InspectorPanel inspector = EditorInspector(editor);
       Pressable back = ByName<Pressable>(inspector.Root, "Inspector back");
       Assert(back != null && Shown(back) && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool)
         && inspector.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
@@ -71,11 +75,11 @@ namespace Element.Editor
       Assert(EditorInspector(editor).OpenTool == null, "back brings the rows again");
     }
 
-    private static Rect BarButtonRect(object editor, OverlayBarButtonModel button) =>
+    private static Rect BarButtonRect(object editor, PropertyButtonViewModel button) =>
       ScreenRectOf((RectTransform)BarButton(editor, button).transform);
 
     /// <summary>Clicks a bar button as the player does, and lets the screen catch up.</summary>
-    private static void PressBar(object editor, OverlayBarButtonModel button)
+    private static void PressBar(object editor, PropertyButtonViewModel button)
     {
       Pressable drawn = BarButton(editor, button);
       Assert(drawn != null, "the bar draws " + button.Name);
@@ -112,7 +116,7 @@ namespace Element.Editor
     /// reads input through the Input System, which the editor doesn't use):
     /// the top line's notices and the dock's blinking caret.
     /// </summary>
-    private static void QuietFrame(Element.Presentation.Layout.ContentEditors.Text.OverlayTextEditor text)
+    private static void QuietFrame(Element.Presentation.OverlayEditor.TextEditor.TextEditorScreen text)
     {
       EditorScreen(text).Tick();
       DockOf(text).Blink(true);
@@ -248,7 +252,7 @@ namespace Element.Editor
     /// </summary>
     private static void CheckEditorTopLine(object editor, string name, string title)
     {
-      OverlayEditorFrame screen = EditorScreen(editor);
+      EditorFramePanel screen = EditorScreen(editor);
       // A notice an earlier step left is read first, and shown again after.
       string notice = screen.NoticeText;
       bool warning = screen.Top.Ink.Value.Equals(ElementUI.Colors.Danger);
@@ -267,7 +271,7 @@ namespace Element.Editor
         cancelRect = ScreenRectOf((RectTransform)cancel.transform), doneRect = ScreenRectOf((RectTransform)done.transform);
       float contentLeft = screen.ContentLeft * screen.Scale, contentRight = (screen.ContentLeft + screen.ContentWidth) * screen.Scale;
       Assert(header.GetComponent<RoundedRect>() == null && Mathf.Abs(headerRect.xMin - contentLeft) < 1 && Mathf.Abs(headerRect.xMax - contentRight) < 1
-        && Mathf.Abs(headerRect.yMax - Screen.height) < 1 && Mathf.Abs(headerRect.height - OverlayEditorFrame.TopBar * screen.Scale) < 1,
+        && Mathf.Abs(headerRect.yMax - Screen.height) < 1 && Mathf.Abs(headerRect.height - EditorFramePanel.TopBar * screen.Scale) < 1,
         "the header has no fill of its own (the dim is behind it) and is as wide as the content: " + headerRect);
       Assert(headingRect.xMax <= cancelRect.xMin && cancelRect.xMax < doneRect.xMin && Mathf.Abs(cancelRect.center.y - doneRect.center.y) < .5f
         && Mathf.Abs(headingRect.center.y - doneRect.center.y) < 2 && Mathf.Abs(doneRect.center.y - headerRect.center.y) < 1 && InsideScreen(doneRect)
@@ -321,9 +325,9 @@ namespace Element.Editor
     /// a line saying what the choice does; a point's press picks it and Auto
     /// puts Auto back. Leaves the growth as it found it.
     /// </summary>
-    private static void CheckGrowPopover(OverlayGrowFrom grow)
+    private static void CheckGrowPopover(GrowFrom grow)
     {
-      OverlayGrowPopover popover = Field<OverlayGrowPopover>(grow, "_popover");
+      GrowPopoverPanel popover = Field<GrowPopoverPanel>(grow, "_popover");
       OverlayGrowth before = grow.Growth;
       Settle();
       Pressable[] points = popover.Root.GetComponentsInChildren<Pressable>(true).Where(point => point.name.StartsWith("Grow from ")).ToArray();
@@ -344,7 +348,7 @@ namespace Element.Editor
         "its points and caption sit inside it");
       Press(points[(int)OverlayGrowth.BottomRight]);
       Settle();
-      OverlayGrowPickerModel model = popover.Model;
+      GrowPickerViewModel model = popover.Model;
       Assert(grow.Growth == OverlayGrowth.BottomRight && model.Points[8].Look.Value == GrowLook.Chosen
         && model.Points[4].Look.Value == GrowLook.Arrow && model.Points[5].Look.Value == GrowLook.Arrow
         && model.Points[0].Look.Value == GrowLook.Dot && caption.text.Contains(L("오른쪽 아래", "bottom right")),

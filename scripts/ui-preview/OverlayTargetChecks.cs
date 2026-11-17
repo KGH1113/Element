@@ -7,7 +7,6 @@ using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Layout;
-using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Canvas;
 using TMPro;

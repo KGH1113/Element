@@ -1,6 +1,15 @@
 using System;
 using Element.Configuration;
-using Element.Presentation.Settings.Pages;
+using Element.Presentation.Settings.Chatter;
+using Element.Presentation.Settings.EditorTweaks;
+using Element.Presentation.Settings.Effects;
+using Element.Presentation.Settings.General;
+using Element.Presentation.Settings.Home;
+using Element.Presentation.Settings.Judgment;
+using Element.Presentation.Settings.Planets;
+using Element.Presentation.Settings.PresetEditor;
+using Element.Presentation.Settings.Profiles;
+using Element.Presentation.Settings.Tweaks;
 using ElementUI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -21,21 +30,21 @@ internal sealed class SettingsWindowViewModel : ViewModel
   public readonly ElementSettings Settings;
   public readonly SettingsFeatures Features;
 
-  public readonly HomeModel Home;
-  public readonly TweaksModel Tweaks;
-  public readonly EditorTweaksModel EditorTweaks;
-  public readonly JudgmentModel Judgment;
-  public readonly PlanetsModel Planets;
-  public readonly ChatterModel Chatter;
-  public readonly EffectsModel Effects;
-  public readonly PresetEditorModel PresetEditor;
-  public readonly GeneralModel General;
+  public readonly HomeViewModel Home;
+  public readonly TweaksViewModel Tweaks;
+  public readonly EditorTweaksViewModel EditorTweaks;
+  public readonly JudgmentViewModel Judgment;
+  public readonly PlanetsViewModel Planets;
+  public readonly ChatterViewModel Chatter;
+  public readonly EffectsViewModel Effects;
+  public readonly PresetEditorViewModel PresetEditor;
+  public readonly GeneralViewModel General;
 
   /// <summary>Null when profiles aren't available.</summary>
-  public readonly ProfilesModel Profiles;
+  public readonly ProfilesViewModel Profiles;
 
   /// <summary>The page shown now.</summary>
-  public SettingsPageModel Current;
+  public SettingsPageViewModel Current;
 
   /// <summary>Why the last save failed, or empty.</summary>
   public string SaveError = "";
@@ -64,21 +73,44 @@ internal sealed class SettingsWindowViewModel : ViewModel
     _save = save;
     _editLayout = editLayout;
     _close = close;
-    Home = Own(new HomeModel(this));
-    Tweaks = Own(new TweaksModel(this, Home));
-    EditorTweaks = Own(new EditorTweaksModel(this, Tweaks));
-    Judgment = Own(new JudgmentModel(this, Tweaks));
-    Planets = Own(new PlanetsModel(this, Tweaks));
-    Chatter = Own(new ChatterModel(this, Tweaks));
-    Effects = Own(new EffectsModel(this, Home));
-    PresetEditor = Own(new PresetEditorModel(this, Effects));
-    General = Own(new GeneralModel(this, Home));
+    Home = Own(new HomeViewModel(this));
+    Tweaks = Own(new TweaksViewModel(this, Home));
+    EditorTweaks = Own(new EditorTweaksViewModel(this, Tweaks));
+    Judgment = Own(new JudgmentViewModel(this, Tweaks));
+    Planets = Own(new PlanetsViewModel(this, Tweaks));
+    Chatter = Own(new ChatterViewModel(this, Tweaks));
+    Effects = Own(new EffectsViewModel(this, Home));
+    PresetEditor = Own(new PresetEditorViewModel(this, Effects));
+    General = Own(new GeneralViewModel(this, Home));
     if (features.Profiles != null)
-      Profiles = Own(new ProfilesModel(this, General));
+      Profiles = Own(new ProfilesViewModel(this, General));
     Pages =
       Profiles != null
-        ? new SettingsPageModel[] { Home, Tweaks, EditorTweaks, Judgment, Planets, Chatter, Effects, PresetEditor, General, Profiles }
-        : new SettingsPageModel[] { Home, Tweaks, EditorTweaks, Judgment, Planets, Chatter, Effects, PresetEditor, General };
+        ? new SettingsPageViewModel[]
+        {
+          Home,
+          Tweaks,
+          EditorTweaks,
+          Judgment,
+          Planets,
+          Chatter,
+          Effects,
+          PresetEditor,
+          General,
+          Profiles,
+        }
+        : new SettingsPageViewModel[]
+        {
+          Home,
+          Tweaks,
+          EditorTweaks,
+          Judgment,
+          Planets,
+          Chatter,
+          Effects,
+          PresetEditor,
+          General,
+        };
     Current = Home;
     CanGoBack = Computed(() => Current.Parent != null);
     SaveFailed = Computed(() => SaveError.Length > 0);
@@ -92,14 +124,14 @@ internal sealed class SettingsWindowViewModel : ViewModel
   }
 
   /// <summary>Every page, for the window's per-frame and open/close calls.</summary>
-  public readonly SettingsPageModel[] Pages;
+  public readonly SettingsPageViewModel[] Pages;
 
   /// <summary>Shows <paramref name="page"/>. Pages call it from their commands.</summary>
-  public void Show(SettingsPageModel page)
+  public void Show(SettingsPageViewModel page)
   {
     if (page == null || ReferenceEquals(page, Current))
       return;
-    foreach (SettingsPageModel each in Pages)
+    foreach (SettingsPageViewModel each in Pages)
       each.CancelCapture();
     Current = page;
     page.Shown();
@@ -151,7 +183,7 @@ internal sealed class SettingsWindowViewModel : ViewModel
   {
     SaveError = "";
     Current = Home;
-    foreach (SettingsPageModel page in Pages)
+    foreach (SettingsPageViewModel page in Pages)
       page.Opened();
     Home.Shown();
     Runtime.Probe();

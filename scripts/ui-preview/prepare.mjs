@@ -24,7 +24,7 @@ const folders = [
   'Element/Application/Mods',
   'Element/Presentation/Ui',
   'Element/Presentation/Settings',
-  'Element/Presentation/Layout',
+  'Element/Presentation/OverlayEditor',
   'Element/Presentation/Overlay/Canvas',
   'Element/Presentation/Overlay/Elements',
   'Element/Presentation/Overlay/Text',

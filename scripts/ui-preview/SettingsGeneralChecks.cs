@@ -1,3 +1,5 @@
+using Element.Presentation.Settings.General;
+using Element.Presentation.Settings.Profiles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +10,6 @@ using Element.Configuration.Effects;
 using Element.Configuration.Overlay;
 using Element.Configuration.Profiles;
 using Element.Presentation.Overlay.Fonts;
-using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
@@ -40,7 +41,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      GeneralModel general = check.Model.General;
+      GeneralViewModel general = check.Model.General;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
       PageUi.Settle(check);
@@ -88,7 +89,7 @@ namespace Element.Editor
       Assert(check.Features.Updates.AutomaticUpdates, "the update switch turns updates back on");
 
       // The shortcut as keycaps; every key reads on one line inside its cap.
-      ShortcutFieldModel field = general.Shortcut;
+      ShortcutFieldViewModel field = general.Shortcut;
       foreach (KeyCode key in new[] { KeyCode.BackQuote, KeyCode.Slash, KeyCode.LeftBracket, KeyCode.Backslash, KeyCode.Backspace, KeyCode.PageDown })
       {
         settings.SettingsShortcutKey = key;
@@ -187,7 +188,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      ProfilesModel page = check.Model.Profiles;
+      ProfilesViewModel page = check.Model.Profiles;
       IProfiles profiles = check.Features.Profiles;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
@@ -339,7 +340,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      ProfilesModel page = check.Model.Profiles;
+      ProfilesViewModel page = check.Model.Profiles;
       IProfiles profiles = check.Features.Profiles;
       GameObject root = check.Root;
       PageUi.Press(PageUi.ButtonWith(root, UiText("새 프로필", "New profile")));
@@ -394,7 +395,7 @@ namespace Element.Editor
         check.Assert(condition, message);
         count++;
       }
-      ProfilesModel page = check.Model.Profiles;
+      ProfilesViewModel page = check.Model.Profiles;
       ElementSettings settings = check.Settings;
       GameObject root = check.Root;
       OverlayFonts fonts = page.Fonts.Fonts;

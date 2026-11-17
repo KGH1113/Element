@@ -1,9 +1,11 @@
 using System;
 using Element.Application.KeyViewer;
 using Element.Configuration;
-using Element.Presentation.Layout;
 using Element.Presentation.Overlay.Canvas;
+using Element.Presentation.OverlayEditor;
 using Element.Presentation.Settings;
+using Element.Presentation.Settings.Planets;
+using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Input;
 using TMPro;
 
@@ -26,8 +28,8 @@ internal sealed class SettingsScreens : IDisposable
   private readonly Func<bool> _save;
   private readonly Action _viewerModeChanged;
   private readonly Func<SettingsFeatures> _features;
-  private OverlayLayoutEditor _layoutEditor;
-  private SettingsPanel _panel;
+  private OverlayEditorScreen _layoutEditor;
+  private SettingsWindowScreen _panel;
 
   /// <param name="apply">Applies the settings to the game after a change.</param>
   /// <param name="save">Writes the settings; false when that failed.</param>
@@ -54,14 +56,14 @@ internal sealed class SettingsScreens : IDisposable
     _save = save;
     _viewerModeChanged = viewerModeChanged;
     _features = features;
-    _layoutEditor = new OverlayLayoutEditor(canvas, keyViewers, font, OnLayoutClosed, settings);
+    _layoutEditor = new OverlayEditorScreen(canvas, keyViewers, font, OnLayoutClosed, settings);
   }
 
   public bool IsEditingLayout => _layoutEditor?.IsOpen == true;
   public bool IsOpen => IsEditingLayout || _panel?.IsOpen == true;
 
-  private SettingsPanel Panel =>
-    _panel ??= new SettingsPanel(_settings, _font, _apply, _save, OpenLayout, OnVisibilityChanged, _features());
+  private SettingsWindowScreen Panel =>
+    _panel ??= new SettingsWindowScreen(_settings, _font, _apply, _save, OpenLayout, OnVisibilityChanged, _features());
 
   public void Open() => Panel.Open();
 
@@ -73,7 +75,7 @@ internal sealed class SettingsScreens : IDisposable
   {
     if (_layoutEditor?.IsOpen == true)
     {
-      if (SettingsPanel.ShortcutPressed(_settings))
+      if (SettingsWindowScreen.ShortcutPressed(_settings))
         _layoutEditor.Close(true);
       else
         _layoutEditor.Tick();
@@ -83,7 +85,7 @@ internal sealed class SettingsScreens : IDisposable
     }
     else if (_panel != null)
       _panel.Tick();
-    else if (SettingsPanel.ShortcutPressed(_settings) && !SettingsPanel.IsTyping())
+    else if (SettingsWindowScreen.ShortcutPressed(_settings) && !SettingsWindowScreen.IsTyping())
       Open();
   }
 

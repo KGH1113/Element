@@ -18,7 +18,7 @@ namespace Element.Presentation.Ui.Declarative.Controls;
 /// key pressed can't be used. When the field and its button don't fit on one
 /// line, the button goes under the field.
 /// </summary>
-internal sealed class ShortcutField : View<ShortcutFieldModel>
+internal sealed class ShortcutField : View<ShortcutFieldViewModel>
 {
   private const float FieldHeight = 44;
 
@@ -29,7 +29,7 @@ internal sealed class ShortcutField : View<ShortcutFieldModel>
   /// <param name="actIcon">The button beside the field: Close to remove, Reset to restore the default.</param>
   /// <param name="actHint">What that button does, shown while the pointer is over it; null shows nothing.</param>
   /// <param name="name">Names the field's button, so a screen with several finds each; null keeps the default.</param>
-  public ShortcutField(ShortcutFieldModel vm, UiIconKind actIcon, string actHint = null, string name = null)
+  public ShortcutField(ShortcutFieldViewModel vm, UiIconKind actIcon, string actHint = null, string name = null)
     : base(vm)
   {
     _actIcon = actIcon;

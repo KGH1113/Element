@@ -1,5 +1,6 @@
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
@@ -93,7 +94,7 @@ internal sealed class ShapeInput
       }
       if (_gradient.Key(code, _event.shift, _numbers.Editing.Active))
         continue;
-      if (_numbers.Editing.Active && OverlayKeypadModel.TryKeyboard(_event, out char key))
+      if (_numbers.Editing.Active && KeypadViewModel.TryKeyboard(_event, out char key))
         _numbers.KeypadPress(key);
     }
   }
@@ -101,7 +102,7 @@ internal sealed class ShapeInput
   // A click on the empty dim closes what is open.
   public void HandleMouse()
   {
-    if (_drops.Dragging || _host.Dock.Dragging || _gradient.Handles.Dragging || !Input.GetMouseButtonDown(0))
+    if (_drops.Dragging || _gradient.Handles.Dragging || !Input.GetMouseButtonDown(0))
       return;
     Vector2 screen = Input.mousePosition;
     if (OverControl(screen))
@@ -117,13 +118,13 @@ internal sealed class ShapeInput
   }
 
   // The property column's space above the keypad, rows or not, is the column's.
-  private bool InColumn(Vector2 frame) => frame.x >= _host.Inspector.Left - 8 && frame.y < _host.Dock.Top;
+  private bool InColumn(Vector2 frame) => frame.x >= _host.Inspector.Left - 8 && frame.y < _host.DockPanel.Top;
 
   private bool OverControl(Vector2 screen)
   {
     if (
       _host.Inspector.Contains(screen)
-      || _host.Dock.Contains(screen)
+      || _host.DockPanel.Contains(screen)
       || _grow.Contains(screen)
       || PopoverPlacement.Contains(_colors.Picker.Root, screen)
       || _gradient.Handles.Contains(screen)

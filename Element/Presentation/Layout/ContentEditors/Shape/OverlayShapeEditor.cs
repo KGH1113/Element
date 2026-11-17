@@ -5,6 +5,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.ColorPicker;
@@ -26,9 +27,11 @@ namespace Element.Presentation.Layout.ContentEditors.Shape;
 /// The editor puts its parts together and runs them: <see cref="ShapePreview"/>,
 /// <see cref="ShapeMeasures"/>, <see cref="ShapeNumbers"/>, <see cref="ShapeColors"/>,
 /// <see cref="ShapeGradient"/>, <see cref="ShapeValueDrops"/> and <see cref="ShapeInput"/>,
-/// with the bar, the grow point and undo it shares with the text editor.
+/// with the bar, the grow point and undo it shares with the text editor. It
+/// tells the input dock what is edited on every render, and everything done
+/// in the dock comes back here, through <see cref="IInputDockActions"/>.
 /// </remarks>
-internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
+internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost, IInputDockActions
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
@@ -50,7 +53,8 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   private readonly ShapeInput _input;
   private OverlayEditorFrame _screen;
   private OverlayEditorInspector _inspector;
-  private OverlayInputDock _dock;
+  private InputDockViewModel _dock;
+  private InputDockPanel _dockPanel;
   private ShapeOverlayElement _element;
   private Action<bool> _closed;
   private OverlayShapeSettings _shape;
@@ -83,7 +87,9 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
 
   OverlayEditorFrame IContentEditorHost.Screen => _screen;
 
-  OverlayInputDock IContentEditorHost.Dock => _dock;
+  InputDockViewModel IContentEditorHost.Dock => _dock;
+
+  InputDockPanel IContentEditorHost.DockPanel => _dockPanel;
 
   OverlayEditorInspector IContentEditorHost.Inspector => _inspector;
 
@@ -98,6 +104,25 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   void IContentEditorHost.CloseOpen() => CloseOpen();
 
   void IContentEditorHost.Render() => Render();
+
+  // ---- What the dock asks for: everything done in the dock lands here ----
+
+  void IInputDockActions.Press(char key) => _numbers.KeypadPress(key);
+
+  void IInputDockActions.Clear() => _numbers.ClearFormula();
+
+  void IInputDockActions.Done() => _numbers.FinishEditing();
+
+  void IInputDockActions.Pick(OverlayValueDefinition value) => _numbers.PickValue(value);
+
+  void IInputDockActions.BeginDrag(OverlayValueDefinition value, Vector2 screen) =>
+    _drops.BeginValueDrag(value, screen);
+
+  void IInputDockActions.Drag(Vector2 screen) => _drops.MoveValueDrag(screen);
+
+  void IInputDockActions.EndDrag(Vector2 screen) => _drops.EndValueDrag(screen);
+
+  // ---- Opening, running and closing ----
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
   {
@@ -137,25 +162,16 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       _reduceMotion,
       L("도형 편집", "Edit shape"),
       () => Close(false, true),
-      () => Close(true, true)
+      () => Close(true, true),
+      noticesInDock: true
     );
     _preview.Build(_screen);
     _measures.Build(_screen, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_screen, _reduceMotion());
-    _dock = new OverlayInputDock(
-      _screen,
-      _reduceMotion,
-      _values,
-      _numbers.KeypadPress,
-      _numbers.ClearFormula,
-      _numbers.FinishEditing,
-      _numbers.PickValue,
-      _drops.BeginValueDrag,
-      _drops.MoveValueDrag,
-      _drops.EndValueDrag
-    );
+    _dock = new InputDockViewModel(_values, _screen.Top, this);
+    _dockPanel = new InputDockPanel(_screen, _dock, _reduceMotion());
     BuildInspector();
-    _colors.BuildPicker(_screen, _dock);
+    _colors.BuildPicker(_screen, _dockPanel);
     _gradient.BuildPicker(_screen.Ui, _reduceMotion());
     _grow.Build(_screen, _inspector);
     _popovers.Clear();
@@ -168,7 +184,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
   private void BuildInspector() =>
     _inspector = new OverlayEditorInspector(
       _screen,
-      _dock,
+      _dockPanel,
       "Shape bar",
       L("도형", "Shape"),
       CloseTool,
@@ -204,7 +220,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       Render();
     }
     _screen.Tick();
-    _dock.Tick();
+    _dockPanel.Tick();
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
     {
@@ -214,7 +230,7 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     }
     _input.HandleMouse();
     // The dock's value search has the keys while it is focused.
-    if (!_dock.IsTyping)
+    if (!_dockPanel.IsTyping)
       _input.HandleKeys();
     if (_screen == null)
       return;
@@ -247,18 +263,9 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
       return;
     _blinkStart = Time.unscaledTime;
     _numbers.Sync();
-    _dock.Edit(_numbers.Field);
     // The shape centers in the space left of the property column, or of an open picker.
-    _space.Measure(_screen, _colors.Picker, _dock, _inspector, _reduceMotion(), out float left, out float right);
-    _preview.Draw(
-      _shape,
-      _elementScale,
-      _screen,
-      _dock,
-      OverlayEditorFrame.TopBar + 48,
-      left,
-      right
-    );
+    _space.Measure(_screen, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
+    _preview.Draw(_shape, _elementScale, _screen, _dockPanel, OverlayEditorFrame.TopBar + 48, left, right);
     LayOutInspector();
     if (_gradient.Show())
       _gradient.ShowNumbers(_numbers);
@@ -271,8 +278,10 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     );
     _colors.ShowOpacity(_gradient.PickedStop);
     PlaceGrowMark();
+    // The dock shows the number open in it, or with none what to do.
     string field = _numbers.Field;
-    _dock.Refresh(
+    _dock.Show(
+      field,
       _numbers.Editing,
       field == null ? "" : _numbers.Name(field),
       field == null ? null : _numbers.ResultText(field),
@@ -291,8 +300,13 @@ internal sealed class OverlayShapeEditor : IContentEditor, IShapeEditorHost
     _colors.ShowButtons(_preview);
     _numbers.ShowStrokeWidth();
     _grow.ShowButton();
-    _colors.PlacePicker(_dock, _inspector.ToolTop);
-    _inspector.Show(OpenTool(), _colors.Picker.Visible ? _colors.Picker.Root : _grow.Visible ? _grow.Popover.Root : null);
+    _colors.PlacePicker(_dockPanel, _inspector.ToolTop);
+    _inspector.Show(
+      OpenTool(),
+      _colors.Picker.Visible ? _colors.Picker.Root
+        : _grow.Visible ? _grow.Popover.Root
+        : null
+    );
   }
 
   // While the grow popover is open, a dot marks the point that stays put.

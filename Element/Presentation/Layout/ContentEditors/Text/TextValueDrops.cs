@@ -1,5 +1,6 @@
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using UnityEngine;
@@ -84,12 +85,16 @@ internal sealed class TextValueDrops
     if (_dragValue == null || frame == null)
       return;
     _dropTarget = FindDrop(screen, out _dropIndex, out bool accepted);
-    _size.Button.SetDrop(_dropTarget == DropTarget.Size ? (accepted ? 1 : -1) : 0);
-    _color.Opacity.Field.SetDrop(_dropTarget == DropTarget.Opacity ? (accepted ? 1 : -1) : 0);
-    _gradient.Position.SetDrop(_dropTarget == DropTarget.Position && _dropIndex < 0 ? (accepted ? 1 : -1) : 0);
-    _gradient.Handles.Angle.SetDrop(_dropTarget == DropTarget.Angle ? (accepted ? 1 : -1) : 0);
-    _host.Dock.SetDrop(_dropTarget == DropTarget.Formula ? (accepted ? 1 : -1) : 0);
-    frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropTarget == DropTarget.None ? 1 : -1);
+    _size.Button.SetDrop(Lit(_dropTarget == DropTarget.Size, accepted));
+    _color.Opacity.Field.SetDrop(Lit(_dropTarget == DropTarget.Opacity, accepted));
+    _gradient.Position.SetDrop(Lit(_dropTarget == DropTarget.Position && _dropIndex < 0, accepted));
+    _gradient.Handles.Angle.SetDrop(Lit(_dropTarget == DropTarget.Angle, accepted));
+    _host.Dock.SetDrop(Lit(_dropTarget == DropTarget.Formula, accepted));
+    frame.ShowGhost(
+      ValueSectionNames.ValueName(_dragValue),
+      screen,
+      accepted || _dropTarget == DropTarget.None ? 1 : -1
+    );
     _marks.Place(InsertIndex, Joining, _formulas.EditedValue);
   }
 
@@ -102,11 +107,11 @@ internal sealed class TextValueDrops
     DropTarget target = FindDrop(screen, out int index, out _);
     _dragValue = null;
     _dropTarget = DropTarget.None;
-    _size.Button.SetDrop(0);
-    _color.Opacity.Field.SetDrop(0);
-    _gradient.Position.SetDrop(0);
-    _gradient.Handles.Angle.SetDrop(0);
-    _host.Dock.SetDrop(0);
+    _size.Button.SetDrop(ValueDrop.None);
+    _color.Opacity.Field.SetDrop(ValueDrop.None);
+    _gradient.Position.SetDrop(ValueDrop.None);
+    _gradient.Handles.Angle.SetDrop(ValueDrop.None);
+    _host.Dock.SetDrop(ValueDrop.None);
     frame.HideGhost();
     OverlayFormulaEditing editing = _formulas.Editing;
     switch (target)
@@ -142,6 +147,12 @@ internal sealed class TextValueDrops
     }
     _host.Render();
   }
+
+  // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
+  private static ValueDrop Lit(bool over, bool accepted) =>
+    !over ? ValueDrop.None
+    : accepted ? ValueDrop.Accepts
+    : ValueDrop.Refuses;
 
   private DropTarget FindDrop(Vector2 screen, out int index, out bool accepted)
   {
@@ -180,7 +191,7 @@ internal sealed class TextValueDrops
       return DropTarget.Size;
     }
     OverlayFormulaEditing editing = _formulas.Editing;
-    OverlayInputDock dock = _host.Dock;
+    InputDockPanel dock = _host.DockPanel;
     if (dock.FormulaContains(screen))
     {
       accepted = editing.Active && OverlayFormulaEditing.Accepts(editing.Slot, _dragValue);

@@ -5,21 +5,21 @@ using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using ElementUI;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 
 /// <summary>
 /// One value in the dock: a chip that a click picks and a drag carries out.
 /// After its name it shows what the value reads in the overlay now, while
 /// the game has one.
 /// </summary>
-internal sealed class ValueChipModel : ViewModel
+internal sealed class ValueChipViewModel : ViewModel
 {
   private readonly OverlayValueMask _bit;
   private readonly bool _reserves;
   private string _live = "";
 
   /// <param name="index">What a search reads: every name the value can be found by (<see cref="OverlayValueSearch.Index"/>).</param>
-  public ValueChipModel(OverlayValueDefinition value, string index, Action<OverlayValueDefinition> pick)
+  public ValueChipViewModel(OverlayValueDefinition value, string index, Action<OverlayValueDefinition> pick)
   {
     Value = value;
     Index = index;

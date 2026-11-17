@@ -22,6 +22,7 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// <see cref="Frame"/>, scaled to the window. A dragged value's ghost and the
 /// hover tooltip float above both. The header, the columns and the popovers
 /// are ElementUI screens on panels the frame makes (<see cref="Panel"/>).
+/// An editor with an input dock says so when it makes the frame (<c>noticesInDock</c>).
 /// </summary>
 internal sealed class OverlayEditorFrame : IDisposable
 {
@@ -53,7 +54,8 @@ internal sealed class OverlayEditorFrame : IDisposable
     Func<bool> reduceMotion,
     string title,
     Action cancel,
-    Action done
+    Action done,
+    bool noticesInDock
   )
   {
     _font = font;
@@ -79,7 +81,7 @@ internal sealed class OverlayEditorFrame : IDisposable
     Measure.fontSize = 13;
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
-    _top = new OverlayEditorFrameModel(name, title, cancel, done);
+    _top = new OverlayEditorFrameModel(name, title, cancel, done, noticesInDock);
     // No fill: the dim is deep enough behind it. Its ends line up with the content below.
     // The screen's width but its margins, up to a limit only very wide screens reach.
     ContentWidth = Mathf.Min(1600, Width - Margin * 2);

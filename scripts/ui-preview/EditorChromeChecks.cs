@@ -1,3 +1,7 @@
+using Element.Domain.Overlay.Values;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System.Linq;
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
@@ -51,7 +55,7 @@ namespace Element.Editor
         && inspector.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
         "the column shows only a back row naming " + tool);
       Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(drawn),
-        keypad = KeypadRect(Field<OverlayInputDock>(editor, "_dock"));
+        keypad = KeypadRect(DockOf(editor));
       Assert(toolRect.yMax <= backRect.yMin + .5f && Mathf.Abs(toolRect.xMax - keypad.xMax) < 1 && InsideScreen(toolRect),
         tool + " opens in the column under its back row, ending with the keypad: " + toolRect + " / " + backRect);
       Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1, "the back row starts where the tool does: " + backRect + " / " + toolRect);
@@ -111,32 +115,87 @@ namespace Element.Editor
     private static void QuietFrame(Element.Presentation.Layout.ContentEditors.Text.OverlayTextEditor text)
     {
       EditorScreen(text).Tick();
-      Field<OverlayInputDock>(text, "_dock").Blink(true);
+      DockOf(text).Blink(true);
     }
 
+    /// <summary>
+    /// An editor's input dock as the checks see it: where it is drawn
+    /// (<see cref="InputDockPanel"/>) and what it shows (<see cref="InputDockViewModel"/>).
+    /// </summary>
+    private sealed class DockProbe
+    {
+      public DockProbe(InputDockPanel panel, InputDockViewModel vm)
+      {
+        Panel = panel;
+        Vm = vm;
+      }
+
+      public readonly InputDockPanel Panel;
+      public readonly InputDockViewModel Vm;
+
+      public RectTransform Root => Panel.Root;
+      public ValueBrowserViewModel Values => Vm.Values;
+      public string Owner => Vm.Owner;
+
+      /// <summary>What the line says to do, while nothing is edited.</summary>
+      public string HintText => Vm.Owner == null ? Vm.Title.Value : "";
+
+      public string FormulaText => Vm.Formula.Value;
+      public string ResultText => Vm.Result.Value;
+      public bool IsTyping => Panel.IsTyping;
+      public bool Contains(Vector2 screen) => Panel.Contains(screen);
+      public bool Dragging => Vm.Values.Carrying;
+      public void Tick() => Panel.Tick();
+      public void Blink(bool visible) => Vm.Blink(visible);
+    }
+
+    /// <summary>A dock with nowhere to send what is done in it, for docks the checks make on their own.</summary>
+    private sealed class NoDockActions : IInputDockActions
+    {
+      public static readonly NoDockActions Instance = new();
+
+      public void Press(char key) { }
+
+      public void Clear() { }
+
+      public void Done() { }
+
+      public void Pick(OverlayValueDefinition value) { }
+
+      public void BeginDrag(OverlayValueDefinition value, Vector2 screen) { }
+
+      public void Drag(Vector2 screen) { }
+
+      public void EndDrag(Vector2 screen) { }
+    }
+
+    /// <summary>The open editor's input dock.</summary>
+    private static DockProbe DockOf(object editor) =>
+      new DockProbe(Field<InputDockPanel>(editor, "_dockPanel"), Field<InputDockViewModel>(editor, "_dock"));
+
     /// <summary>A key of the dock's keypad as it is drawn now, without letting the dock catch up first.</summary>
-    private static Pressable DockKeyAsIs(OverlayInputDock dock, string name) =>
+    private static Pressable DockKeyAsIs(DockProbe dock, string name) =>
       dock.Root.GetComponentsInChildren<Pressable>(true).Single(key => key.name == name);
 
     /// <summary>The dock's keys as drawn, row by row, then AC and Done, once the dock caught up.</summary>
-    private static Pressable[] DockKeys(OverlayInputDock dock)
+    private static Pressable[] DockKeys(DockProbe dock)
     {
       Settle();
       return dock.Root.GetComponentsInChildren<Pressable>(true).Where(key => key.name.StartsWith("Key ")).ToArray();
     }
 
     /// <summary>A key of the dock's keypad by name: "Key 7", "Key backspace", "Key clear", "Key done".</summary>
-    private static Pressable DockKey(OverlayInputDock dock, string name) => DockKeys(dock).Single(key => key.name == name);
+    private static Pressable DockKey(DockProbe dock, string name) => DockKeys(dock).Single(key => key.name == name);
 
     /// <summary>Where the keypad is drawn: around its keys.</summary>
-    private static Rect KeypadRect(OverlayInputDock dock)
+    private static Rect KeypadRect(DockProbe dock)
     {
       Rect[] keys = DockKeys(dock).Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
       return Rect.MinMaxRect(keys.Min(key => key.xMin), keys.Min(key => key.yMin), keys.Max(key => key.xMax), keys.Max(key => key.yMax));
     }
 
     /// <summary>The value chips the dock shows now, once it caught up: the open place's, or what the search found.</summary>
-    private static Pressable[] DockChips(OverlayInputDock dock)
+    private static Pressable[] DockChips(DockProbe dock)
     {
       Settle();
       dock.Tick();
@@ -144,10 +203,10 @@ namespace Element.Editor
     }
 
     /// <summary>A value's chip, after opening the place that holds it as the player would.</summary>
-    private static Pressable DockChip(OverlayInputDock dock, string name)
+    private static Pressable DockChip(DockProbe dock, string name)
     {
-      OverlayValueBrowserModel values = dock.Model.Values;
-      ValueFolderModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
+      ValueBrowserViewModel values = dock.Values;
+      ValueFolderViewModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
       if (values.Searching.Value || values.OpenFolder != folder)
         Press(DockPlace(dock, folder.Key));
       Pressable[] chips = DockChips(dock);
@@ -163,14 +222,14 @@ namespace Element.Editor
     }
 
     /// <summary>A row of the dock's list of places: "Judgement", "mod:TUFOverlay".</summary>
-    private static Pressable DockPlace(OverlayInputDock dock, string key)
+    private static Pressable DockPlace(DockProbe dock, string key)
     {
       Settle();
       return ByName<Pressable>(dock.Root, "Place " + key);
     }
 
     /// <summary>The dock's value search field.</summary>
-    private static TMP_InputField DockSearch(OverlayInputDock dock)
+    private static TMP_InputField DockSearch(DockProbe dock)
     {
       Settle();
       return ByName<TMP_InputField>(dock.Root, "Value search");
@@ -216,7 +275,7 @@ namespace Element.Editor
         "what is edited on the left, Cancel and Done at the right end, in line with the content: " + headingRect + " / " + doneRect);
       if (screen.Top.InDock)
       {
-        OverlayInputDock headerDock = Field<OverlayInputDock>(editor, "_dock");
+        DockProbe headerDock = DockOf(editor);
         Assert(Mathf.Abs(ScreenRectOf(headerDock.Root).xMin - headingRect.xMin) < 1 && Mathf.Abs(KeypadRect(headerDock).xMax - doneRect.xMax) < 1,
           "the title starts where the dock does and Done ends with the keypad");
       }
@@ -230,7 +289,7 @@ namespace Element.Editor
       }
       bool docked = screen.Top.InDock;
       TextMeshProUGUI headerNotice = ByName<TextMeshProUGUI>(frame, "Header notice");
-      TextMeshProUGUI line = docked ? ByName<TextMeshProUGUI>(Field<OverlayInputDock>(editor, "_dock").Root, "Notice") : headerNotice;
+      TextMeshProUGUI line = docked ? ByName<TextMeshProUGUI>(DockOf(editor).Root, "Notice") : headerNotice;
       string plain = line.text;
       Color plainInk = line.color;
       screen.Notice("Preview warning");
@@ -239,7 +298,7 @@ namespace Element.Editor
         "a warning shows " + (docked ? "right above the dock" : "in the header") + ", warm");
       if (docked)
       {
-        OverlayInputDock noticeDock = Field<OverlayInputDock>(editor, "_dock");
+        DockProbe noticeDock = DockOf(editor);
         Rect noticeRect = ScreenRectOf(line.rectTransform), keypadRect = KeypadRect(noticeDock);
         Assert(noticeRect.yMin >= ScreenRectOf(ByName<RectTransform>(noticeDock.Root, "Formula line")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
           "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);

@@ -7,50 +7,10 @@ using UnityEngine;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
-
-/// <summary>
-/// The keypad: four columns of capsule keys, the operators in the accent,
-/// then AC and a wide, tinted Done.
-/// </summary>
-internal sealed class OverlayKeypadView : View<OverlayKeypadModel>
-{
-  public const float Key = 68,
-    KeyHeight = 44,
-    Gap = 8,
-    Width = 4 * Key + 3 * Gap,
-    Height = 5 * KeyHeight + 4 * Gap;
-
-  public OverlayKeypadView(OverlayKeypadModel vm)
-    : base(vm) { }
-
-  public override View Body =>
-    VStack(
-        spacing: Gap,
-        Grid(4, Gap, Keys()),
-        HStack(
-          spacing: Gap,
-          new KeypadKeyView(VM.Clear, 17, false).Frame(width: Key),
-          // Done is the one filled key: the way out of the keypad.
-          new KeypadKeyView(VM.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
-        )
-      )
-      .Frame(width: Width, height: Height);
-
-  private View[] Keys()
-  {
-    View[] keys = new View[VM.Keys.Count];
-    for (int i = 0; i < keys.Length; i++)
-    {
-      KeypadKeyModel key = VM.Keys[i];
-      keys[i] = new KeypadKeyView(key, key.Symbol ? 22 : 20, false);
-    }
-    return keys;
-  }
-}
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 
 /// <summary>One key: a capsule that fills its cell, faint and with its label dimmed while it can't be pressed.</summary>
-internal sealed class KeypadKeyView : View<KeypadKeyModel>
+internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
 {
   private readonly float _size;
   private readonly UiColor _fill,
@@ -60,7 +20,7 @@ internal sealed class KeypadKeyView : View<KeypadKeyModel>
 
   /// <param name="size">The label's size.</param>
   /// <param name="tinted">Filled with the accent, as Done.</param>
-  public KeypadKeyView(KeypadKeyModel vm, float size, bool tinted)
+  public KeypadKeyView(KeypadKeyViewModel vm, float size, bool tinted)
     : base(vm)
   {
     _size = size;
@@ -79,9 +39,9 @@ internal sealed class KeypadKeyView : View<KeypadKeyModel>
         () => VM.Press,
         ButtonStyle.Plain
       )
-      .Background(() => VM.Enabled.Value ? _fill : _offFill, OverlayKeypadView.KeyHeight / 2)
+      .Background(() => VM.Enabled.Value ? _fill : _offFill, KeypadView.KeyHeight / 2)
       .Named(VM.Name)
-      .Frame(height: OverlayKeypadView.KeyHeight);
+      .Frame(height: KeypadView.KeyHeight);
 
   private View Label() =>
     VM.Character == '\b'

@@ -1,5 +1,6 @@
 using Element.Configuration.Overlay;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
@@ -84,12 +85,7 @@ internal sealed class TextFonts
       string current = _text.RangeFont();
       Title = _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
       // The column's back row names the list; it needs no title of its own.
-      _fontPopover.Show(
-        "",
-        current,
-        L("기본 폰트", "Default font"),
-        DefaultFontName(fonts)
-      );
+      _fontPopover.Show("", current, L("기본 폰트", "Default font"), DefaultFontName(fonts));
     }
     _host.Render();
   }
@@ -130,7 +126,7 @@ internal sealed class TextFonts
 
   // In the property column from top (under its back row) like the color
   // picker, above the keypad, a little wider for long names.
-  public void Place(OverlayInputDock dock, float top)
+  public void Place(InputDockPanel dock, float top)
   {
     if (_fontPopover == null || !_fontPopover.Visible || dock == null)
       return;

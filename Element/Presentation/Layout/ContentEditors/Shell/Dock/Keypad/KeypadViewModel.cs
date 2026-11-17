@@ -1,19 +1,19 @@
-using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Formula;
 using ElementUI;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 
 /// <summary>
 /// Large keys for a formula: 0–9, a point, + − × ÷, backspace, AC to start
 /// over and Done. A key that would do nothing can't be pressed and reads
-/// dimmed; the dock says which with <see cref="Refresh"/>.
-/// <see cref="OverlayKeypadView"/> draws it.
+/// dimmed; the dock says which with <see cref="Show"/>. A pressed key goes
+/// up as the dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/>
+/// draws it.
 /// </summary>
-internal sealed class OverlayKeypadModel : ViewModel
+internal sealed class KeypadViewModel : ViewModel
 {
   // Display symbols and the characters they type, row by row; backspace is '\b'.
   private static readonly (string Label, char Key)[] Layout =
@@ -36,46 +36,45 @@ internal sealed class OverlayKeypadModel : ViewModel
     ("+", '+'),
   };
 
-  /// <param name="press">Types a key's character; backspace is '\b'.</param>
-  /// <param name="clear">AC: starts the formula over.</param>
-  /// <param name="done">Done: lets the dock rest.</param>
-  public OverlayKeypadModel(Action<char> press, Action clear, Action done)
+  /// <param name="actions">Where a pressed key, AC and Done go.</param>
+  public KeypadViewModel(IInputDockActions actions)
   {
-    KeypadKeyModel[] keys = new KeypadKeyModel[Layout.Length];
+    KeypadKeyViewModel[] keys = new KeypadKeyViewModel[Layout.Length];
     for (int i = 0; i < keys.Length; i++)
     {
       (string label, char key) = Layout[i];
       keys[i] = Own(
-        new KeypadKeyModel(
+        new KeypadKeyViewModel(
           "Key " + (key == '\b' ? "backspace" : label),
           label,
           key,
           // The last column, the operators, reads as a group.
-          i % 4 == 3,
-          () => press(key)
+          i % 4
+            == 3,
+          () => actions.Press(key)
         )
       );
     }
     Keys = keys;
-    Clear = Own(new KeypadKeyModel("Key clear", "AC", '\0', false, clear));
-    Done = Own(new KeypadKeyModel("Key done", L("적용", "Apply"), '\0', false, done));
+    Clear = Own(new KeypadKeyViewModel("Key clear", "AC", '\0', false, actions.Clear));
+    Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done));
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>
-  public readonly IReadOnlyList<KeypadKeyModel> Keys;
+  public readonly IReadOnlyList<KeypadKeyViewModel> Keys;
 
   /// <summary>AC: starts over; nothing is written until something new is typed.</summary>
-  public readonly KeypadKeyModel Clear;
+  public readonly KeypadKeyViewModel Clear;
 
   /// <summary>Done: the way out of the keypad.</summary>
-  public readonly KeypadKeyModel Done;
+  public readonly KeypadKeyViewModel Done;
 
   /// <summary>Lets the keys that would do something now be pressed, and dims the others.</summary>
-  public void Refresh(OverlayFormulaEditing editing)
+  public void Show(OverlayFormulaEditing editing)
   {
     for (int i = 0; i < Keys.Count; i++)
     {
-      KeypadKeyModel key = Keys[i];
+      KeypadKeyViewModel key = Keys[i];
       key.Enabled.Value = key.Character == '\b' ? editing.CanBackspace : editing.CanPress(key.Character);
     }
     Clear.Enabled.Value = editing.CanClear;
@@ -103,31 +102,4 @@ internal sealed class OverlayKeypadModel : ViewModel
     key = op;
     return true;
   }
-}
-
-/// <summary>One key: what it says, what it types, and whether it can be pressed now.</summary>
-internal sealed class KeypadKeyModel : ViewModel
-{
-  /// <param name="name">Names the drawn button, for the checks: "Key 7", "Key done".</param>
-  /// <param name="label">What it says; empty for backspace, which shows an icon.</param>
-  /// <param name="character">What it types; '\b' for backspace, '\0' for AC and Done.</param>
-  /// <param name="symbol">An operator, which reads in the accent.</param>
-  public KeypadKeyModel(string name, string label, char character, bool symbol, Action press)
-  {
-    Name = name;
-    Label = label;
-    Character = character;
-    Symbol = symbol;
-    Press = Command(press, Computed(() => Enabled.Value));
-  }
-
-  public readonly string Name;
-  public readonly string Label;
-  public readonly char Character;
-  public readonly bool Symbol;
-
-  /// <summary>Whether pressing it would do something now.</summary>
-  public readonly State<bool> Enabled = new(false);
-
-  public Command Press { get; }
 }

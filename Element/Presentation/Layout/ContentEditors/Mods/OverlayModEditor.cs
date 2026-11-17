@@ -123,7 +123,8 @@ internal sealed class OverlayModEditor : IModEditorHost, IContentEditor
       _reduceMotion,
       L(TypeName + " 편집", "Edit " + TypeName),
       () => Close(false, true),
-      () => Close(true, true)
+      () => Close(true, true),
+      noticesInDock: false
     );
     _guard.Screen = _screen;
     _context = new ModEditorContext(_fonts, _reduceMotion());

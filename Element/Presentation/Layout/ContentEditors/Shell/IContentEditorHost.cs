@@ -1,3 +1,5 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+
 namespace Element.Presentation.Layout.ContentEditors.Shell;
 
 /// <summary>What the parts of a full-screen editor ask of the editor they make up.</summary>
@@ -6,7 +8,11 @@ internal interface IContentEditorHost
   /// <summary>The open editor's screen; null once it closed.</summary>
   OverlayEditorFrame Screen { get; }
 
-  OverlayInputDock Dock { get; }
+  /// <summary>What the input dock shows: the editor tells it what is edited, and where a carried value would go.</summary>
+  InputDockViewModel Dock { get; }
+
+  /// <summary>Where the input dock sits, for what opens above it and for a carried value.</summary>
+  InputDockPanel DockPanel { get; }
 
   /// <summary>The property column right of the preview, above the keypad.</summary>
   OverlayEditorInspector Inspector { get; }

@@ -5,7 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
-namespace Element.Presentation.Layout.ContentEditors.Shell;
+namespace Element.Presentation.Layout.ContentEditors.Shell.Dock;
 
 /// <summary>
 /// The input dock's line: what is edited, its formula with values as soft
@@ -13,11 +13,11 @@ namespace Element.Presentation.Layout.ContentEditors.Shell;
 /// formula keeps its end, where the caret is, in view. The whole line is
 /// where a carried value joins the formula (<see cref="Area"/>).
 /// </summary>
-internal sealed class OverlayFormulaLine : NativeView
+internal sealed class FormulaLineView : NativeView
 {
   public const float Height = 54;
 
-  private readonly OverlayInputDockModel _vm;
+  private readonly InputDockViewModel _vm;
   private TextMeshProUGUI _title,
     _formula,
     _result;
@@ -26,7 +26,7 @@ internal sealed class OverlayFormulaLine : NativeView
   private float _width;
   private bool _empty;
 
-  public OverlayFormulaLine(OverlayInputDockModel vm) => _vm = vm;
+  public FormulaLineView(InputDockViewModel vm) => _vm = vm;
 
   /// <summary>The line's rect, once it is built: where a dropped value joins the formula.</summary>
   public RectTransform Area => Rect;

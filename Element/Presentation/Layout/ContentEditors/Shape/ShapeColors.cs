@@ -2,6 +2,7 @@ using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
@@ -80,13 +81,27 @@ internal sealed class ShapeColors
   public OverlayBarButtonModel StrokeButton => _strokeButton;
 
   public OverlayBarButtonModel BuildFill() =>
-    _fillButton = new OverlayBarButtonModel("Shape fill", L("채우기", "Fill"), () => Open(false), value: true, swatch: true, opens: true);
+    _fillButton = new OverlayBarButtonModel(
+      "Shape fill",
+      L("채우기", "Fill"),
+      () => Open(false),
+      value: true,
+      swatch: true,
+      opens: true
+    );
 
   public OverlayBarButtonModel BuildStroke() =>
-    _strokeButton = new OverlayBarButtonModel("Shape border", L("테두리", "Border"), () => Open(true), value: true, swatch: true, opens: true);
+    _strokeButton = new OverlayBarButtonModel(
+      "Shape border",
+      L("테두리", "Border"),
+      () => Open(true),
+      value: true,
+      swatch: true,
+      opens: true
+    );
 
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
-  public void BuildPicker(OverlayEditorFrame screen, OverlayInputDock dock)
+  public void BuildPicker(OverlayEditorFrame screen, InputDockPanel dock)
   {
     _picker.Build(screen.Frame);
     // The color picker opens right above the keypad.
@@ -167,7 +182,7 @@ internal sealed class ShapeColors
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
-  public void PlacePicker(OverlayInputDock dock, float top) => _picker.Place(dock, top);
+  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)

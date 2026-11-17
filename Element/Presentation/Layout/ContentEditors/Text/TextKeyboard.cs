@@ -1,4 +1,5 @@
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 using UnityEngine;
 
 namespace Element.Presentation.Layout.ContentEditors.Text;
@@ -147,7 +148,7 @@ internal sealed class TextKeyboard
       _host.Render();
       return true;
     }
-    if (_formulas.Editing.Active && OverlayKeypadModel.TryKeyboard(_event, out char key))
+    if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(_event, out char key))
     {
       _formulas.KeypadPress(key);
       return true;

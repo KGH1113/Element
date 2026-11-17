@@ -26,6 +26,7 @@ internal sealed class TextValueSource
   private readonly List<OverlayValueDefinition> _offered = new();
   private OverlayValueSourceMenu _menu;
   private Func<Rect> _row;
+  private bool _armed;
 
   /// <param name="picked">A value to follow was picked.</param>
   public TextValueSource(
@@ -47,8 +48,12 @@ internal sealed class TextValueSource
   /// <summary>The menu is open.</summary>
   public bool Open => _menu.Visible;
 
-  /// <summary>The dock picks the value: its next clicked value comes here, not into the text.</summary>
-  public bool Armed => _host.Dock != null && _host.Dock.Picking;
+  /// <summary>
+  /// Waiting for the value to follow: the next value clicked in the dock is
+  /// it (<see cref="PickFromDock"/>), not one added to the text. The editor
+  /// sends the dock's clicks here while this is on.
+  /// </summary>
+  public bool Armed => _armed;
 
   /// <summary>The menu, opening under the value row <paramref name="row"/> says is where (frame units).</summary>
   public void Build(OverlayEditorFrame screen, Func<Rect> row)
@@ -89,11 +94,7 @@ internal sealed class TextValueSource
   }
 
   /// <summary>The dock goes back to adding values at the caret.</summary>
-  public void Disarm()
-  {
-    if (Armed)
-      _host.Dock.PickFor(null);
-  }
+  public void Disarm() => _armed = false;
 
   /// <summary>The first number the range shows; null when it shows none.</summary>
   public OverlayValueDefinition FirstInRange()
@@ -121,7 +122,7 @@ internal sealed class TextValueSource
   private void Arm()
   {
     _host.CloseOpen();
-    _host.Dock.PickFor(PickedInDock);
+    _armed = true;
     _host.Screen.Notice(
       L("아래 값 목록에서 따라갈 값을 눌러 주세요.", "Click the value to follow in the values below."),
       false
@@ -129,7 +130,8 @@ internal sealed class TextValueSource
     _host.Render();
   }
 
-  private void PickedInDock(OverlayValueDefinition value)
+  /// <summary>The value clicked in the dock while <see cref="Armed"/>: a number is followed, words are refused with a reason.</summary>
+  public void PickFromDock(OverlayValueDefinition value)
   {
     if (!value.IsNumeric)
     {

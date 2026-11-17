@@ -1,5 +1,6 @@
 using System;
 using Element.Configuration.Overlay;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -65,10 +66,10 @@ internal sealed class OverlayEditorPicker
     Opacity = new OverlayOpacityField(ui, Picker, activate, _reduceMotion());
 
   /// <summary>The color picker opens right above the keypad, in its column.</summary>
-  public void LayOutAbove(OverlayInputDock dock) => Picker.LayOutAsColumn(dock.KeypadArea.width);
+  public void LayOutAbove(InputDockPanel dock) => Picker.LayOutAsColumn(dock.KeypadArea.width);
 
   /// <summary>In the property column from <paramref name="top"/> (frame units), above the keypad.</summary>
-  public void Place(OverlayInputDock dock, float top)
+  public void Place(InputDockPanel dock, float top)
   {
     if (dock != null)
       KeypadPicker.Place(Picker, dock, top);

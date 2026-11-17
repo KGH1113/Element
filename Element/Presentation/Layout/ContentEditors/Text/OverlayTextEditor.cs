@@ -5,6 +5,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.ColorPicker;
@@ -32,9 +33,12 @@ namespace Element.Presentation.Layout.ContentEditors.Text;
 /// <see cref="TextSize"/>, <see cref="TextColor"/> with <see cref="TextGradient"/>
 /// and <see cref="TextAnimate"/>, and the input (<see cref="TextValueDrops"/>,
 /// <see cref="TextPointer"/>, <see cref="TextKeyboard"/>), with the bar, the
-/// grow point and undo it shares with the shape editor.
+/// grow point and undo it shares with the shape editor. It tells the input
+/// dock what is edited on every render (<see cref="TextFormulas.Refresh"/>),
+/// and everything done in the dock comes back here, through
+/// <see cref="IInputDockActions"/>.
 /// </remarks>
-internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
+internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost, IInputDockActions
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _uiFont;
@@ -65,7 +69,8 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private OverlayValueMask _liveMask;
   private OverlayEditorFrame _screen;
   private OverlayEditorInspector _inspector;
-  private OverlayInputDock _dock;
+  private InputDockViewModel _dock;
+  private InputDockPanel _dockPanel;
   private TextOverlayElement _element;
   private Action<bool> _closed;
   private float _elementScale = 1;
@@ -105,7 +110,9 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
 
   OverlayEditorFrame IContentEditorHost.Screen => _screen;
 
-  OverlayInputDock IContentEditorHost.Dock => _dock;
+  InputDockViewModel IContentEditorHost.Dock => _dock;
+
+  InputDockPanel IContentEditorHost.DockPanel => _dockPanel;
 
   OverlayEditorInspector IContentEditorHost.Inspector => _inspector;
 
@@ -120,6 +127,33 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   void IContentEditorHost.CloseOpen() => CloseOpen();
 
   bool ITextEditorHost.InTextArea(Vector2 screen) => InTextArea(screen);
+
+  // ---- What the dock asks for: everything done in the dock lands here ----
+
+  void IInputDockActions.Press(char key) => _formulas.KeypadPress(key);
+
+  void IInputDockActions.Clear() => _formulas.ClearFormula();
+
+  void IInputDockActions.Done() => _formulas.FinishEditing();
+
+  // While the text's color waits for a value to follow, the clicked value is
+  // that one; otherwise it joins the formula being typed, or goes in at the caret.
+  void IInputDockActions.Pick(OverlayValueDefinition value)
+  {
+    if (_valueColor.Armed)
+      _valueColor.PickFromDock(value);
+    else
+      _formulas.PickValue(value);
+  }
+
+  void IInputDockActions.BeginDrag(OverlayValueDefinition value, Vector2 screen) =>
+    _drops.BeginValueDrag(value, screen);
+
+  void IInputDockActions.Drag(Vector2 screen) => _drops.MoveValueDrag(screen);
+
+  void IInputDockActions.EndDrag(Vector2 screen) => _drops.EndValueDrag(screen);
+
+  // ---- Opening, running and closing ----
 
   bool IContentEditor.Open(IOverlayLayoutTarget target, Action<bool> closed)
   {
@@ -156,7 +190,8 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       _reduceMotion,
       L("텍스트 편집", "Edit text"),
       () => Close(false, true),
-      () => Close(true, true)
+      () => Close(true, true),
+      noticesInDock: true
     );
     _preview.Build(_screen, _element);
     _marks.BuildCarets(_screen.Ui);
@@ -165,19 +200,9 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _marks.BuildHint(_screen.Ui, _screen.Frame);
     _color.BuildPicker(_screen);
     _gradient.BuildPicker(_screen.Ui, _color.Picker, _reduceMotion());
-    _dock = new OverlayInputDock(
-      _screen,
-      _reduceMotion,
-      _values,
-      _formulas.KeypadPress,
-      _formulas.ClearFormula,
-      _formulas.FinishEditing,
-      _formulas.PickValue,
-      _drops.BeginValueDrag,
-      _drops.MoveValueDrag,
-      _drops.EndValueDrag
-    );
-    _color.LayOutAbove(_dock);
+    _dock = new InputDockViewModel(_values, _screen.Top, this);
+    _dockPanel = new InputDockPanel(_screen, _dock, _reduceMotion());
+    _color.LayOutAbove(_dockPanel);
     BuildInspector();
     _fonts.Build(_screen, _element.Fonts, _reduceMotion());
     _grow.Build(_screen, _inspector);
@@ -195,7 +220,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private void BuildInspector() =>
     _inspector = new OverlayEditorInspector(
       _screen,
-      _dock,
+      _dockPanel,
       "Format",
       L("글자", "Text"),
       CloseTool,
@@ -245,7 +270,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
       Render();
     }
     _screen.Tick();
-    _dock.Tick();
+    _dockPanel.Tick();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible && picker.IsTyping)
     {
@@ -289,7 +314,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   // focused; the text takes both back once it lets go.
   private bool DockTyping()
   {
-    bool typing = _dock.IsTyping;
+    bool typing = _dockPanel.IsTyping;
     if (_dockTyping && !typing)
       Input.imeCompositionMode = IMECompositionMode.On;
     _dockTyping = typing;
@@ -338,15 +363,15 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     if (_screen == null)
       return;
     _blinkStart = Time.unscaledTime;
-    _formulas.Sync(_dock);
+    _formulas.Sync();
     // The text stays above the dock.
-    _bottomTop = _dock.Top;
+    _bottomTop = _dockPanel.Top;
     // The text keeps to the space left of the property column, or of an open
     // picker; it glides aside as the picker opens, and back as it closes.
     _space.Measure(
       _screen,
       _color.Picker,
-      _dock,
+      _dockPanel,
       _inspector,
       _reduceMotion(),
       out float left,
@@ -361,13 +386,13 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
     ShowFields();
     _color.ShowSwatch();
-    _color.Place(_dock, _inspector);
+    _color.Place(_dockPanel, _inspector);
     // The picker on a stop of a color that follows a value isn't the range's own color.
     if (_color.PicksOther)
       _gradient.Handles.Hide();
     else
       _gradient.Show();
-    _fonts.Place(_dock, _inspector.ToolTop);
+    _fonts.Place(_dockPanel, _inspector.ToolTop);
     _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
     PlaceGrowMark();
@@ -404,7 +429,6 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   {
     _formulas.Close();
     _valueColor.Disarm();
-    _dock?.Edit(null);
     _popovers.CloseAll();
   }
 
@@ -413,7 +437,7 @@ internal sealed class OverlayTextEditor : IContentEditor, ITextEditorHost
   private bool InTextArea(Vector2 screen)
   {
     if (
-      _dock.Contains(screen)
+      _dockPanel.Contains(screen)
       || _popovers.Contains(screen)
       || _inspector.Contains(screen)
       || _animate.Contains(screen)

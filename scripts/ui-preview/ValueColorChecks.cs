@@ -1,3 +1,6 @@
+using Element.Presentation.Layout.ContentEditors.Shell.Dock;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
 using System.IO;
 using System.Linq;
 using Element.Configuration.Overlay;
@@ -37,7 +40,7 @@ namespace Element.Editor
       TextValueColor valueColor = Field<TextValueColor>(text, "_valueColor");
       OverlayValueColorModel model = Field<OverlayValueColorModel>(valueColor, "_model");
       TextDocumentEditing document = TextDocumentOf(text);
-      OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
+      DockProbe dock = DockOf(text);
       OverlayEditorFrame screen = EditorScreen(text);
 
       PressBar(text, animate.Button);
@@ -251,7 +254,7 @@ namespace Element.Editor
     {
       Settle();
       Assert(animate.Height <= 312, "the Animate tool with its band fits above the keypad on wide screens: " + animate.Height);
-      Rect tool = ScreenRectOf(animate.Root), keypad = KeypadRect(Field<OverlayInputDock>(text, "_dock"));
+      Rect tool = ScreenRectOf(animate.Root), keypad = KeypadRect(DockOf(text));
       Assert(Mathf.Abs(tool.xMin - keypad.xMin) < 1 && Mathf.Abs(tool.xMax - keypad.xMax) < 1 && tool.yMin > keypad.yMax,
         "the tool stands in the column, above the keypad: " + tool + " / " + keypad);
     }

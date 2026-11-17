@@ -1,5 +1,6 @@
 using System;
 using Element.Presentation.Layout.ContentEditors.Shell;
+using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
 using Element.Presentation.Ui.Declarative;
 using ElementUI;
 using UnityEngine;
@@ -19,7 +20,7 @@ namespace Element.Presentation.Layout.ContentEditors.Mods;
 internal sealed class ModEditorColumn : IDisposable
 {
   /// <summary>As wide as the text editor's column, which stands above its keypad.</summary>
-  public const float Width = OverlayKeypadView.Width;
+  public const float Width = KeypadView.Width;
 
   private readonly RectTransform _frame;
   private readonly Func<IBackend> _backend;

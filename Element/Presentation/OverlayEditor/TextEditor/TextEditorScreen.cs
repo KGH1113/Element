@@ -105,20 +105,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _fonts = new TextFonts(this, this, _text, _color);
     _animate = new TextAnimate(this, this, _text, _color, _preview, _valueColor);
     _grow = new GrowFrom(CloseOpen, Render);
-    _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _size, _color, _gradient);
-    _pointer = new TextPointerInput(
-      this,
-      this,
-      _text,
-      _formulas,
-      _map,
-      _color,
-      _fonts,
-      _gradient,
-      _grow,
-      _animate,
-      _drops
-    );
+    _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _color, _gradient);
+    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate);
     _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
@@ -171,12 +159,17 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       _formulas.PickValue(value);
   }
 
-  void IInputDockActions.BeginDrag(OverlayValueDefinition value, Vector2 screen) =>
-    _drops.BeginValueDrag(value, screen);
+  // A value's name tip would sit over where the carried value lands.
+  void IInputDockActions.BeganCarrying() => _frame?.HideTip();
 
-  void IInputDockActions.Drag(Vector2 screen) => _drops.MoveValueDrag(screen);
-
-  void IInputDockActions.EndDrag(Vector2 screen) => _drops.EndValueDrag(screen);
+  // Let go on the dock's line: the value joins the formula, or words say why they can't.
+  void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
+  {
+    FormulaEditing editing = _formulas.Editing;
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
+      _formulas.RefuseWords(value);
+    Render();
+  }
 
   // ---- Opening, running and closing ----
 
@@ -206,7 +199,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
   {
     _color.DisposePicker();
     _frame?.Dispose();
-    _drops.Cancel();
+    _drops.Release();
     _space.Snap();
     _frame = new EditorFramePanel(
       "Text editor",
@@ -236,6 +229,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
     _popovers.Add(_valueColor.Menu);
+    // Built last: every place a carried value can land is drawn by now.
+    _drops.Build(_frame);
   }
 
   // A row per property in the column above the keypad: the font, the size,
@@ -250,7 +245,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       L("글자", "Text"),
       CloseTool,
       _fonts.BuildButton(),
-      _size.BuildButton(),
+      // A value carried onto the size row calculates the size with it.
+      _size.BuildButton(_drops.DropOnSize),
       _color.BuildButton(),
       _animate.BuildButton(),
       _grow.BuildButton()
@@ -529,7 +525,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _color.DisposePicker();
     _frame.Dispose();
     _frame = null;
-    _drops.Cancel();
+    _drops.Release();
     _formulas.Editing.Deactivate();
     _element = null;
     _closed = null;

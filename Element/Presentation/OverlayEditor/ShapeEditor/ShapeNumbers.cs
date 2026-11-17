@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
@@ -63,14 +64,16 @@ internal sealed class ShapeNumbers
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  public PropertyButtonViewModel BuildStrokeWidth() =>
+  /// <param name="takesValue">A value carried onto the row: it calculates the width with it.</param>
+  public PropertyButtonViewModel BuildStrokeWidth(Action<OverlayValueDefinition> takesValue) =>
     _strokeWidth = new PropertyButtonViewModel(
       "Border width",
       L("테두리 두께", "Border width"),
       () => _editor.Activate(StrokeKey),
       value: true,
       unit: "px",
-      icon: UiIconKind.StrokeWidth
+      icon: UiIconKind.StrokeWidth,
+      takesValue: takesValue
     );
 
   /// <summary>Points the keypad at the open number, or lets it rest.</summary>

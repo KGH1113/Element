@@ -5,6 +5,7 @@ using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI;
 using UnityEngine;
 
 namespace Element.Presentation.OverlayEditor.ShapeEditor;
@@ -24,7 +25,6 @@ internal sealed class ShapeInput
   private readonly ShapeGradient _gradient;
   private readonly ShapeMeasures _measures;
   private readonly ShapeFieldList _fields;
-  private readonly ShapeValueDrops _drops;
   private readonly GrowFrom _grow;
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly Event _event = new();
@@ -37,7 +37,6 @@ internal sealed class ShapeInput
     ShapeGradient gradient,
     ShapeMeasures measures,
     ShapeFieldList fields,
-    ShapeValueDrops drops,
     GrowFrom grow,
     EditorHistory<OverlayShapeSettings> history
   )
@@ -49,7 +48,6 @@ internal sealed class ShapeInput
     _gradient = gradient;
     _measures = measures;
     _fields = fields;
-    _drops = drops;
     _grow = grow;
     _history = history;
   }
@@ -107,7 +105,7 @@ internal sealed class ShapeInput
   // A click on the empty dim closes what is open.
   public void HandleMouse()
   {
-    if (_drops.Dragging || _gradient.Handles.Dragging || !Input.GetMouseButtonDown(0))
+    if (DragSession.Active || _gradient.Handles.Dragging || !Input.GetMouseButtonDown(0))
       return;
     Vector2 screen = Input.mousePosition;
     if (OverControl(screen))

@@ -112,6 +112,9 @@ internal sealed class GradientHandles
 
   public bool Visible => _root.gameObject.activeSelf;
 
+  /// <summary>What the handles are drawn in, over the preview: a carried value finds its squares under it.</summary>
+  public RectTransform Root => _root;
+
   public bool Dragging => _dragging >= 0 || _dragStop >= 0;
 
   /// <summary>

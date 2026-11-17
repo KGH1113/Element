@@ -19,8 +19,7 @@ namespace Element.Presentation.OverlayEditor.Parts.EditorFrame;
 /// the editor's content (<see cref="ContentLeft"/>, <see cref="ContentWidth"/>). Notices go to the input dock's
 /// line when the editor has one, else to the header. The
 /// stage holds content at its real size in screen pixels; controls live in
-/// <see cref="Frame"/>, scaled to the window. A dragged value's ghost and the
-/// hover tooltip float above both. The header, the columns and the popovers
+/// <see cref="Frame"/>, scaled to the window. The hover tooltip floats above both. The header, the columns and the popovers
 /// are ElementUI screens on panels the frame makes (<see cref="Panel"/>).
 /// An editor with an input dock says so when it makes the frame (<c>noticesInDock</c>).
 /// </summary>
@@ -31,19 +30,14 @@ internal sealed class EditorFramePanel : IDisposable
     FadeSeconds = .16f,
     NoticeSeconds = 4;
 
-  // Opaque, so the overlay behind never shows through: a carried value that
-  // can't land here reads greyed, and a tooltip as a raised label.
-  private static readonly Color RefusedGhost = UiPalette.Wash(UiPalette.EditorDim, .45f),
-    Tip = new(.2f, .2f, .2f);
+  // Opaque, so the overlay behind never shows through: a tooltip reads as a raised label.
+  private static readonly Color Tip = new(.2f, .2f, .2f);
 
   private readonly TMP_FontAsset _font;
   private readonly Func<bool> _reduceMotion;
   private readonly AnimatedFloat _fade;
   private readonly EditorFrameViewModel _top;
   private readonly List<ScreenPanel> _panels = new();
-  private RectTransform _ghost;
-  private TextMeshProUGUI _ghostText;
-  private UiCapsuleGraphic _ghostSurface;
   private RectTransform _tip;
   private TextMeshProUGUI _tipText;
 
@@ -156,33 +150,6 @@ internal sealed class EditorFramePanel : IDisposable
     Vector2 a = ToFrame(RectTransformUtility.WorldToScreenPoint(null, corners[1])),
       b = ToFrame(RectTransformUtility.WorldToScreenPoint(null, corners[3]));
     return Rect.MinMaxRect(a.x, a.y, b.x, b.y);
-  }
-
-  /// <summary>The carried value's name next to the pointer; <paramref name="state"/> -1 dims it.</summary>
-  public void ShowGhost(string text, Vector2 screen, int state)
-  {
-    if (_ghost == null)
-    {
-      _ghostSurface = Ui.Capsule("Dragged value", Frame, 0, 0, 10, 30, Color.white);
-      _ghost = _ghostSurface.rectTransform;
-      _ghostText = Ui.Text("", _ghost, 0, 0, 10, 30, 13, new Color(.08f, .08f, .08f));
-      _ghostText.alignment = TextAlignmentOptions.Midline;
-      _ghostText.textWrappingMode = TextWrappingModes.NoWrap;
-      UiFactory.Stretch(_ghostText.rectTransform, 0, 0, 0, 0);
-    }
-    _ghost.gameObject.SetActive(true);
-    _ghostText.text = text;
-    float width = Mathf.Ceil(_ghostText.GetPreferredValues(text).x) + 28;
-    Vector2 at = ToFrame(screen);
-    UiFactory.Place(_ghost, at.x + 10, at.y + 12, width, 30);
-    _ghostSurface.color = state < 0 ? RefusedGhost : UiPalette.SoftAccent;
-    _ghost.SetAsLastSibling();
-  }
-
-  public void HideGhost()
-  {
-    if (_ghost != null)
-      _ghost.gameObject.SetActive(false);
   }
 
   /// <summary>A small label centered above <paramref name="anchor"/> (frame units).</summary>

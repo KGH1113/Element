@@ -33,7 +33,6 @@ internal sealed class ValueBrowserViewModel : ViewModel
   private ValueFolderViewModel _open;
   private string _folded = "";
   private long _seen;
-  private bool _carrying;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
   /// <param name="actions">Where a clicked or carried value goes.</param>
@@ -183,35 +182,6 @@ internal sealed class ValueBrowserViewModel : ViewModel
         return;
       }
   }
-
-  // ---- Carrying a value out ----
-
-  /// <summary>A chip starts being carried out of the dock, at a screen point.</summary>
-  public void BeginCarry(OverlayValueDefinition value, Vector2 screen)
-  {
-    _carrying = true;
-    _actions.BeginDrag(value, screen);
-  }
-
-  public void Carry(Vector2 screen)
-  {
-    if (_carrying)
-      _actions.Drag(screen);
-  }
-
-  public void EndCarry(Vector2 screen)
-  {
-    if (!_carrying)
-      return;
-    _carrying = false;
-    _actions.EndDrag(screen);
-  }
-
-  /// <summary>A chip is being carried out of the dock.</summary>
-  public bool Carrying => _carrying;
-
-  /// <summary>The chip went away mid-carry (the dock closed): nothing is dropped.</summary>
-  public void CancelCarry() => _carrying = false;
 
   protected override void OnDisposed() => Live.Dispose();
 }

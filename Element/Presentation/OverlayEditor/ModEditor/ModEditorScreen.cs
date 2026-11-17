@@ -36,7 +36,7 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// (<see cref="ModViewPanel"/>). The preview keeps to the room left of the
 /// column, gliding aside while a wide tool (a gradient, the font list) is open.
 /// </summary>
-internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
+internal sealed class ModEditorScreen : IModEditorContext, IModEditorActions, IContentEditor
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
@@ -49,11 +49,11 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   private readonly PopoverStack _popovers = new();
   private readonly Event _event = new();
   private readonly EditorGlide _space = new();
-  private EditorFramePanel _screen;
+  private EditorFramePanel _frame;
   private EditorBarPanel _bar;
   private PropertyButtonViewModel _growButton;
   private GrowPopoverPanel _grow;
-  private ModEditorContext _context;
+  private ModPickerContext _pickers;
   private Rect _column;
   private IModColumnPanel _content;
   private ModOverlayElement _element;
@@ -82,9 +82,9 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
     _preview = new ModPreview(_guard);
   }
 
-  public bool IsOpen => _screen != null;
+  public bool IsOpen => _frame != null;
 
-  public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+  public void Raise() => _frame?.Root.transform.SetAsLastSibling();
 
   /// <summary>The page the mod built last, when it built one; for checks.</summary>
   internal ModEditorPage Page => _content as ModEditorPage;
@@ -121,7 +121,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   private void Build()
   {
     TearDown();
-    _screen = new EditorFramePanel(
+    _frame = new EditorFramePanel(
       "Mod element editor",
       _parent,
       _font,
@@ -131,19 +131,19 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
       () => Close(true, true),
       noticesInDock: false
     );
-    _guard.Screen = _screen;
-    _context = new ModEditorContext(_fonts, _reduceMotion());
+    _guard.Screen = _frame;
+    _pickers = new ModPickerContext(_fonts, _reduceMotion());
     // Element's pickers for a screen the mod writes with ElementUI.
-    EditorParts.Host = new ModEditorParts(_context);
-    UiFactory ui = _screen.Ui;
+    EditorParts.Host = new ModEditorParts(_pickers);
+    UiFactory ui = _frame.Ui;
     BuildBar();
-    _column = ColumnArea(_screen);
+    _column = ColumnArea(_frame);
     _space.Snap();
-    _preview.BuildHolder(ui, _screen, PreviewArea(_column.x), _fonts?.Invoke());
-    _grow = new GrowPopoverPanel(_screen, PickGrowth) { Anchor = _bar.RectOf(_growButton) };
+    _preview.BuildHolder(ui, _frame, PreviewArea(_column.x), _fonts?.Invoke());
+    _grow = new GrowPopoverPanel(_frame, PickGrowth) { Anchor = _bar.RectOf(_growButton) };
     _popovers.Clear();
     _popovers.Add(_grow);
-    _preview.BuildGrowMark(ui, _screen.Frame);
+    _preview.BuildGrowMark(ui, _frame.Frame);
     if (!_preview.Create(_type, _element.Settings.Mod, _working))
       return;
     if (!BuildView())
@@ -161,7 +161,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
       icon: UiIconKind.GrowFrom,
       under: UiPalette.Bar
     );
-    _bar = new EditorBarPanel(_screen, "Element bar", _growButton);
+    _bar = new EditorBarPanel(_frame, "Element bar", _growButton);
   }
 
   /// <summary>
@@ -182,13 +182,13 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   {
     float top = EditorFramePanel.TopBar + 8 + EditorBarPanel.Height + 24;
     float left = EditorFramePanel.Margin;
-    return new Rect(left, top, Mathf.Max(80, right - 24 - left), _screen.Height - top - EditorFramePanel.Margin);
+    return new Rect(left, top, Mathf.Max(80, right - 24 - left), _frame.Height - top - EditorFramePanel.Margin);
   }
 
   // How wide words are in the column's rows.
   private float MeasureRowText(string text)
   {
-    TMPro.TextMeshProUGUI measure = _screen.Measure;
+    TMPro.TextMeshProUGUI measure = _frame.Measure;
     float size = measure.fontSize;
     measure.fontSize = 13;
     float width = Mathf.Ceil(measure.GetPreferredValues(text ?? "").x);
@@ -205,17 +205,17 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
       return true;
     if (view == null)
       return false;
-    _context.Edits = ViewEdited;
+    _pickers.Edits = ViewEdited;
     _guard.Run(
       "laying out its editing screen",
       () =>
         _content = new ModViewPanel(
-          _screen.Frame,
+          _frame.Frame,
           _column,
           view,
           model,
-          _screen.NewBackend,
-          _context,
+          _frame.NewBackend,
+          _pickers,
           MeasureRowText,
           ViewEdited,
           dragging => _drag = dragging ? new object() : null
@@ -230,12 +230,13 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   {
     _content?.Dispose();
     _content = null;
-    _context.Clear();
+    _pickers.Clear();
     ModEditorPage page = new(
-      _screen.Frame,
-      new Vector2(_screen.Width, _screen.Height),
+      _frame.Frame,
+      new Vector2(_frame.Width, _frame.Height),
       _preview.Area,
       _column,
+      this,
       this,
       MeasureRowText
     );
@@ -245,13 +246,17 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
     _grow.Root.SetAsLastSibling();
   }
 
-  ElementUI.IBackend IModEditorHost.NewBackend() => _screen.NewBackend();
+  // ---- What the page reads ----
 
-  ModEditorContext IModEditorHost.Context => _context;
+  ElementUI.IBackend IModEditorContext.NewBackend() => _frame.NewBackend();
 
-  int IModEditorHost.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
+  ModPickerContext IModEditorContext.Pickers => _pickers;
 
-  void IModEditorHost.SetTab(string key, int index) => _tabs[key] = index;
+  int IModEditorContext.TabOf(string key) => _tabs.TryGetValue(key, out int index) ? index : 0;
+
+  // ---- What the page asks for (and Change, below) ----
+
+  void IModEditorActions.SetTab(string key, int index) => _tabs[key] = index;
 
   private bool Typing => _content != null && _content.Typing;
 
@@ -317,22 +322,22 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
 
   public void Tick()
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
-    if (_screen.ViewChanged)
+    if (_frame.ViewChanged)
     {
       Build();
-      if (_screen == null)
+      if (_frame == null)
         return;
     }
     // Who had the keyboard as the frame began: Esc that ends recording a shortcut doesn't also finish.
     bool typing = Typing;
-    _screen.Tick();
+    _frame.Tick();
     ApplyPending();
-    _context.Tick();
+    _pickers.Tick();
     if (_preview.Instance != null)
     {
-      _preview.Tick(_screen.Scale);
+      _preview.Tick(_frame.Scale);
       FitPreview();
     }
     // Typing goes to the field; Esc there only ends the typing.
@@ -361,7 +366,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
     float right = _space.Toward(_content?.Column != null ? _content.Column.Left : _column.x, _reduceMotion());
     Rect area = PreviewArea(right);
     _preview.Area = area;
-    if (!_preview.Fit(_screen.Scale, out Vector2 box))
+    if (!_preview.Fit(_frame.Scale, out Vector2 box))
       return;
     _growButton.Set(GrowPickerViewModel.ShortName(_growth), false, _grow.Visible);
     float barWidth = _bar.LayOut();
@@ -378,7 +383,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
       return;
     }
     ClosePopovers();
-    _grow.Show(_screen.FrameRect(_bar.RectOf(_growButton)));
+    _grow.Show(_frame.FrameRect(_bar.RectOf(_growButton)));
     _grow.Refresh(_growth, GrowPointNow());
     _grow.Root.SetAsLastSibling();
   }
@@ -409,7 +414,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   private void HandleKeys()
   {
     bool mac = EditorKeys.Mac;
-    while (_screen != null && EditorKeys.NextKeyDown(_event))
+    while (_frame != null && EditorKeys.NextKeyDown(_event))
     {
       if (EditorKeys.Command(_event, mac))
       {
@@ -455,7 +460,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
     _working = data;
     _history.Break();
     ClosePopovers();
-    _context.CancelRecording();
+    _pickers.CancelRecording();
     _guard.Run(
       "loading its settings",
       () =>
@@ -475,7 +480,7 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
   /// <summary>Done saves the settings and where the element grows from; Cancel leaves it as it was.</summary>
   public void Close(bool commit, bool notify)
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
     ModOverlayElement element = _element;
     Action<bool> closed = _closed;
@@ -507,13 +512,13 @@ internal sealed class ModEditorScreen : IModEditorHost, IContentEditor
     _preview.TearDown();
     _popovers.Clear();
     _grow = null;
-    _context?.Clear();
-    _context = null;
+    _pickers?.Clear();
+    _pickers = null;
     EditorParts.Host = null;
     _rebuild = false;
     _drag = null;
-    _screen?.Dispose();
-    _screen = null;
+    _frame?.Dispose();
+    _frame = null;
     _guard.Screen = null;
   }
 

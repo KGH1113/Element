@@ -1,6 +1,7 @@
 using Element.Application.Layout;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Text;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.TextEditor;
 using Element.Presentation.Ui.Graphics;
@@ -11,8 +12,8 @@ namespace Element.Presentation.OverlayEditor.Kinds;
 /// <summary>Texts: added empty and typed in the text editor, sized there.</summary>
 internal sealed class TextKind : ContentElementKind<TextOverlayElement>
 {
-  public TextKind(ICanvasEditing editing)
-    : base(editing) { }
+  public TextKind(ICanvasContext context, ICanvasActions canvas)
+    : base(context, canvas) { }
 
   public override string Label(IOverlayLayoutTarget target) => L("텍스트", "Text");
 
@@ -20,7 +21,7 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
 
   public override AddMenuRow Row()
   {
-    bool available = Editing.Session.Host.CanShowText;
+    bool available = Context.Session.Host.CanShowText;
     return new AddMenuRow(
       UiIconKind.Text,
       L("텍스트", "Text"),
@@ -34,23 +35,23 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
 
   internal void Add()
   {
-    Editing.AddMenu.Close();
-    TextOverlayElement text = (TextOverlayElement)Editing.Session.Host.Add(TextElementKind.NewSettings(null));
+    Context.AddMenu.Close();
+    TextOverlayElement text = (TextOverlayElement)Context.Session.Host.Add(TextElementKind.NewSettings(null));
     if (text == null)
       return;
     text.SetPreview(true);
-    Editing.Session.AddFrame(text);
-    Editing.Selection.Selected = Editing.Session.Frames.Count - 1;
+    Context.Session.AddFrame(text);
+    Context.Selection.Selected = Context.Session.Frames.Count - 1;
     // History records the text once it has content; cancelling removes it.
     Open(text, true);
   }
 
   protected override IContentEditor MakeEditor() =>
     new TextEditorScreen(
-      Editing.Session.Root.transform,
-      Editing.Session.Font,
-      Editing.Session.ReduceMotion,
-      Editing.Session.Host.Values
+      Context.Session.Root.transform,
+      Context.Session.Font,
+      Context.Session.ReduceMotion,
+      Context.Session.Host.Values
     );
 
   // Done with text keeps it (one undo step); a new text that is cancelled, or
@@ -60,18 +61,18 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
     if (committed && !text.IsEmpty)
     {
       if (isNew)
-        Editing.PlaceNew(text, true);
+        Actions.PlaceNew(text, true);
       else
-        Editing.Session.Commit();
+        Context.Session.Commit();
     }
     else if (isNew || committed)
     {
       text.SetEnabled(false);
-      Editing.Selection.Selected = -1;
+      Context.Selection.Selected = -1;
       if (!isNew)
-        Editing.Session.Commit();
+        Context.Session.Commit();
     }
-    Editing.RefreshLayouts();
-    Editing.UpdateFrames();
+    Actions.RefreshLayouts();
+    Actions.UpdateFrames();
   }
 }

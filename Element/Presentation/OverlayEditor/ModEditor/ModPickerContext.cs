@@ -13,14 +13,14 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// screen use it: one built from <c>EditorPage</c>'s parts and one a mod
 /// writes with ElementUI.
 /// </summary>
-internal sealed class ModEditorContext
+internal sealed class ModPickerContext
 {
   private readonly Func<OverlayFonts> _fonts;
   private readonly List<ShortcutFieldViewModel> _shortcuts = new();
   private readonly List<Action> _restored = new();
   private Action _fontTick;
 
-  public ModEditorContext(Func<OverlayFonts> fonts, bool reduceMotion)
+  public ModPickerContext(Func<OverlayFonts> fonts, bool reduceMotion)
   {
     _fonts = fonts;
     ReduceMotion = reduceMotion;

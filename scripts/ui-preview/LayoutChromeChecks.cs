@@ -25,7 +25,7 @@ namespace Element.Editor
       }
     }
 
-    private static ToolbarViewModel ToolbarModel(OverlayEditorScreen editor) => Toolbar(editor).Model;
+    private static ToolbarViewModel ToolbarModel(OverlayEditorScreen editor) => Toolbar(editor).ViewModel;
 
     private static CanvasStatusLine Status(OverlayEditorScreen editor) => Field<CanvasStatusLine>(editor, "_status");
 

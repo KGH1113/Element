@@ -54,7 +54,7 @@ internal sealed class EditorFrameViewModel : ViewModel
   public string NoticeText => Noticing.Value ? Line.Value : "";
 
   /// <summary>A short message for a few seconds; a warning reads in a warm color.</summary>
-  public void Notice(string message, bool warning)
+  public void Notice(string message, bool warning = true)
   {
     Line.Value = message ?? "";
     Ink.Value = warning ? Colors.Danger : Colors.Foreground;

@@ -1,4 +1,5 @@
 using Element.Domain.Overlay.Text;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.OverlayEditor.Parts.Property;
@@ -23,7 +24,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextAnimate
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextColor _color;
   private readonly TextPreview _preview;
@@ -37,14 +39,16 @@ internal sealed class TextAnimate
   private bool _colorShown;
 
   public TextAnimate(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextColor color,
     TextPreview preview,
     TextValueColor valueColor
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _color = color;
     _preview = preview;
@@ -120,13 +124,13 @@ internal sealed class TextAnimate
   // The row opens the tool in the column; the back row closes it.
   private void Open()
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     _panel.Root.gameObject.SetActive(true);
     _panel.Root.SetAsLastSibling();
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>
@@ -177,18 +181,18 @@ internal sealed class TextAnimate
   {
     Selectable row = _panel.Control<Selectable>("Value color source");
     return row != null && row.gameObject.activeInHierarchy
-      ? _host.Screen.FrameRect((RectTransform)row.transform)
+      ? _context.Frame.FrameRect((RectTransform)row.transform)
       : new Rect(_inspector.Left, _inspector.ToolTop, _inspector.Width, 0);
   }
 
   private void ToggleGrow()
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _text.Range(out int start, out int end);
     OverlayAnimateState state = _text.Document.AnimateState(start, end);
     if (state == OverlayAnimateState.NoValues)
     {
-      _host.Screen.Notice(
+      _editor.Notice(
         _text.HasSelection
           ? L(
             "고른 부분에 값이 없어요. 값까지 함께 고르면 그 값이 바뀔 때마다 움직여요.",
@@ -204,10 +208,10 @@ internal sealed class TextAnimate
     bool animate = state != OverlayAnimateState.On;
     _text.Remember(false);
     _text.Document.SetAnimate(start, end, animate);
-    _host.Render();
+    _editor.Render();
     if (!animate)
       return;
-    _host.Screen.Notice(
+    _editor.Notice(
       L(
         "값이 바뀔 때마다 잠깐 커졌다가 돌아와요.",
         "Each time the value changes, it grows for a moment and settles back."

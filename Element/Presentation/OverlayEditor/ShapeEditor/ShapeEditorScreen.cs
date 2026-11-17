@@ -35,7 +35,7 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// tells the input dock what is edited on every render, and everything done
 /// in the dock comes back here, through <see cref="IInputDockActions"/>.
 /// </remarks>
-internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInputDockActions
+internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, IShapeEditorActions, IInputDockActions
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _font;
@@ -55,7 +55,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
   private readonly PopoverStack _popovers = new();
   private readonly ShapeValueDrops _drops;
   private readonly ShapeInput _input;
-  private EditorFramePanel _screen;
+  private EditorFramePanel _frame;
   private InspectorPanel _inspector;
   private InputDockViewModel _dock;
   private InputDockPanel _dockPanel;
@@ -75,39 +75,47 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
     _live = new EditorLiveValues(values);
     _history = new EditorHistory<OverlayShapeSettings>(() => _shape.Clone(), Restore);
     _preview = new ShapePreview(values);
-    _numbers = new ShapeNumbers(this, values, _history);
-    _colors = new ShapeColors(this, _numbers, _history, font, reduceMotion);
+    // Each part gets this screen twice: as what it reads (the context) and as
+    // what it asks of it (the actions).
+    _numbers = new ShapeNumbers(this, this, values, _history);
+    _colors = new ShapeColors(this, this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
     _numbers.Use(_gradient);
     _grow = new GrowFrom(CloseOpen, Render);
     ShapeFieldList fields = new(_measures, _colors, _gradient);
-    _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures, fields);
-    _input = new ShapeInput(this, _numbers, _colors, _gradient, _measures, fields, _drops, _grow, _history);
+    _drops = new ShapeValueDrops(this, this, _numbers, _colors, _gradient, _measures, fields);
+    _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _drops, _grow, _history);
   }
 
-  public bool IsOpen => _screen != null;
+  public bool IsOpen => _frame != null;
 
-  public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+  public void Raise() => _frame?.Root.transform.SetAsLastSibling();
 
-  EditorFramePanel IContentEditorHost.Screen => _screen;
+  // ---- What the parts read: where things are and what is edited ----
 
-  InputDockViewModel IContentEditorHost.Dock => _dock;
+  EditorFramePanel IEditorContext.Frame => _frame;
 
-  InputDockPanel IContentEditorHost.DockPanel => _dockPanel;
+  InputDockViewModel IEditorContext.Dock => _dock;
 
-  InspectorPanel IContentEditorHost.Inspector => _inspector;
+  InputDockPanel IEditorContext.DockPanel => _dockPanel;
 
-  OverlayShapeSettings IShapeEditorHost.Shape => _shape;
+  InspectorPanel IEditorContext.Inspector => _inspector;
 
-  float IContentEditorHost.ElementScale => _elementScale;
+  OverlayShapeSettings IShapeEditorContext.Shape => _shape;
 
-  bool IContentEditorHost.AnyOpen => AnyOpen;
+  float IEditorContext.ElementScale => _elementScale;
 
-  void IShapeEditorHost.Activate(string key) => Activate(key);
+  bool IEditorContext.AnyOpen => AnyOpen;
 
-  void IContentEditorHost.CloseOpen() => CloseOpen();
+  // ---- What the parts ask for: a change made, they ask for the screen to be drawn again ----
 
-  void IContentEditorHost.Render() => Render();
+  void IEditorActions.Render() => Render();
+
+  void IEditorActions.CloseOpen() => CloseOpen();
+
+  void IEditorActions.Notice(string message, bool warning) => _frame?.ViewModel.Notice(message, warning);
+
+  void IShapeEditorActions.Activate(string key) => Activate(key);
 
   // ---- What the dock asks for: everything done in the dock lands here ----
 
@@ -156,10 +164,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
   private void Build()
   {
     _colors.DisposePicker();
-    _screen?.Dispose();
+    _frame?.Dispose();
     _drops.Cancel();
     _space.Snap();
-    _screen = new EditorFramePanel(
+    _frame = new EditorFramePanel(
       "Shape editor",
       _parent,
       _font,
@@ -169,15 +177,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
       () => Close(true, true),
       noticesInDock: true
     );
-    _preview.Build(_screen);
-    _measures.Build(_screen, _shape.Kind, Activate, _reduceMotion());
-    _gradient.BuildHandles(_screen, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _screen.Top, this);
-    _dockPanel = new InputDockPanel(_screen, _dock, _reduceMotion());
+    _preview.Build(_frame);
+    _measures.Build(_frame, _shape.Kind, Activate, _reduceMotion());
+    _gradient.BuildHandles(_frame, _reduceMotion());
+    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     BuildInspector();
-    _colors.BuildPicker(_screen, _dockPanel);
-    _gradient.BuildPicker(_screen.Ui, _reduceMotion());
-    _grow.Build(_screen, _inspector);
+    _colors.BuildPicker(_frame, _dockPanel);
+    _gradient.BuildPicker(_frame.Ui, _reduceMotion());
+    _grow.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
   }
@@ -187,7 +195,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
   // column. Width, height and rounding stay on the shape.
   private void BuildInspector() =>
     _inspector = new InspectorPanel(
-      _screen,
+      _frame,
       _dockPanel,
       "Shape bar",
       L("도형", "Shape"),
@@ -215,15 +223,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
 
   public void Tick()
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
-    if (_screen.ViewChanged)
+    if (_frame.ViewChanged)
     {
       CloseOpen();
       Build();
       Render();
     }
-    _screen.Tick();
+    _frame.Tick();
     _dockPanel.Tick();
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
@@ -236,7 +244,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
     // The dock's value search has the keys while it is focused.
     if (!_dockPanel.IsTyping)
       _input.HandleKeys();
-    if (_screen == null)
+    if (_frame == null)
       return;
     FollowLiveValues();
     // The shape glides aside as the picker opens, and back as it closes.
@@ -263,13 +271,13 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
 
   private void Render()
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
     _blinkStart = Time.unscaledTime;
     _numbers.Sync();
     // The shape centers in the space left of the property column, or of an open picker.
-    _space.Measure(_screen, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
-    _preview.Draw(_shape, _elementScale, _screen, _dockPanel, EditorFramePanel.TopBar + 48, left, right);
+    _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
+    _preview.Draw(_shape, _elementScale, _frame, _dockPanel, EditorFramePanel.TopBar + 48, left, right);
     LayOutInspector();
     if (_gradient.Show())
       _gradient.ShowNumbers(_numbers);
@@ -400,7 +408,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
   /// <summary>Done writes the shape and where it grows from to the element; cancel leaves it as it was.</summary>
   public void Close(bool commit, bool notify)
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
     if (commit && _colors.Picker.Visible && !_colors.Picker.Commit())
       return;
@@ -417,8 +425,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorHost, IInp
       element.SetGrowFrom(_grow.Growth);
     }
     _colors.DisposePicker();
-    _screen.Dispose();
-    _screen = null;
+    _frame.Dispose();
+    _frame = null;
     _drops.Cancel();
     _numbers.Editing.Deactivate();
     _element = null;

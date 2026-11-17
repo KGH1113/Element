@@ -387,7 +387,7 @@ namespace Element.Editor
         && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
       Press(DockChip(dock, "Value combo"));
-      Assert(Field<EditorFramePanel>(shapes, "_screen").NoticeText.Length > 0, "a value with no number picked says to pick one first");
+      Assert(Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0, "a value with no number picked says to pick one first");
       FormulaFieldView widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
       Rect restingDock = ScreenRectOf(dock.Root);
@@ -485,7 +485,7 @@ namespace Element.Editor
       ShapeNumbersOf(shapes).KeypadPress('0');
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
-        && Field<EditorFramePanel>(shapes, "_screen").NoticeText.Contains("10000"),
+        && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Contains("10000"),
         "Done lets the dock rest; a width past the limit is kept in range and says so");
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
@@ -529,7 +529,7 @@ namespace Element.Editor
       Vector2 heightPoint = ScreenCenter(heightField.Root);
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
       ShapeDrops(shapes).EndValueDrag(heightPoint);
-      Assert(working.HeightFormula == "" && Field<EditorFramePanel>(shapes, "_screen").NoticeText.Length > 0,
+      Assert(working.HeightFormula == "" && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
       Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
       ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
@@ -780,7 +780,7 @@ namespace Element.Editor
     // measures around the shape never cover each other.
     private static void CheckShapeLayout(ShapeEditorScreen shapes, int width, int height)
     {
-      GameObject root = Field<EditorFramePanel>(shapes, "_screen").Root;
+      GameObject root = Field<EditorFramePanel>(shapes, "_frame").Root;
       foreach (RectTransform rect in root.GetComponentsInChildren<UiCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
       {
         if (rect.name == "Dragged value" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
@@ -1132,7 +1132,7 @@ namespace Element.Editor
       PressEdit(editor);
       TextEditorScreen text = (TextEditorScreen)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen && editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "Edit text opens the editor over everything");
-      EditorFramePanel screen = Field<EditorFramePanel>(text, "_screen");
+      EditorFramePanel screen = Field<EditorFramePanel>(text, "_frame");
       TextMeshProUGUI[] titles = screen.Root.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.text == "텍스트 편집" || label.text == "Edit text").ToArray();
       Assert(titles.Length == 1 && titles[0].transform.IsChildOf(ByName<RectTransform>(screen.Frame, "Header")),
         "the editor's name shows once, in its header: no title card");
@@ -1229,7 +1229,7 @@ namespace Element.Editor
       string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
       // The frame before drew a change that took layout (a notice), and the
       // driver went back to sleep after it.
-      screen.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
+      screen.ViewModel.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
       Frames(() => QuietFrame(text), 3);
       Press(drawnAnimate);
       document = TextDocumentOf(text).Document;
@@ -1238,7 +1238,7 @@ namespace Element.Editor
       Assert(thumbX() > 4 && thumbX() < 16 && sameColor(animateThumb.color, UiPalette.SoftAccent),
         "the thumb moves partway in one frame while its on color changes immediately: " + thumbX());
       Frames(() => QuietFrame(text), 39);
-      Assert(screen.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
+      Assert(screen.ViewModel.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
         "turning it on says what it does, on the screen: " + topLine.text);
       Assert(Mathf.Abs(thumbX() - 16) < .01f && sameColor(animateThumb.color, UiPalette.SoftAccent),
         "the switch slides over to the exact on inset and lights up in the game's frames: " + thumbX());
@@ -1250,11 +1250,11 @@ namespace Element.Editor
       Press(drawnAnimate);
       Settle();
       document = TextDocumentOf(text).Document;
-      Assert(document[6].Animate && screen.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
-        "letters alone stay as they are and say why: " + screen.NoticeText);
+      Assert(document[6].Animate && screen.ViewModel.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
+        "letters alone stay as they are and say why: " + screen.ViewModel.NoticeText);
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
-      screen.Notice(L("커서를 옮겼어요", "The caret moved"), false);
+      screen.ViewModel.Notice(L("커서를 옮겼어요", "The caret moved"), false);
       Frames(() => QuietFrame(text), 3);
       Press(drawnAnimate);
       Frames(() => QuietFrame(text), 1);
@@ -1341,7 +1341,7 @@ namespace Element.Editor
       Assert(!times.IsInteractable(), "a resting keypad takes no key");
       // The frame before drew a change that took layout (a notice), and the
       // driver went back to sleep after it.
-      screen.Notice(L("값을 골랐어요", "A value was picked"), false);
+      screen.ViewModel.Notice(L("값을 골랐어요", "A value was picked"), false);
       Frames(() => QuietFrame(text), 3);
       TextFormulasOf(text).OpenChip(9);
       Frames(() => QuietFrame(text), 2);
@@ -1385,7 +1385,7 @@ namespace Element.Editor
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), sizePoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
       document = TextDocumentOf(text).Document;
-      Assert(screen.NoticeText.Length > 0 && document[9].SizeFormula == "", "the song title is refused by the size");
+      Assert(screen.ViewModel.NoticeText.Length > 0 && document[9].SizeFormula == "", "the song title is refused by the size");
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), sizePoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
       document = TextDocumentOf(text).Document;
@@ -1426,7 +1426,7 @@ namespace Element.Editor
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), alphaPoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
       document = TextDocumentOf(text).Document;
-      Assert(document[0].Color.AlphaFormula == "" && screen.NoticeText.Length > 0 && picker.Visible, "words are refused by the opacity");
+      Assert(document[0].Color.AlphaFormula == "" && screen.ViewModel.NoticeText.Length > 0 && picker.Visible, "words are refused by the opacity");
       Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), alphaPoint);
       Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
       document = TextDocumentOf(text).Document;

@@ -3,6 +3,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Gradient;
@@ -20,7 +21,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextGradient
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextPreview _preview;
@@ -34,14 +36,16 @@ internal sealed class TextGradient
   private OverlayColorSettings _handleColor;
 
   public TextGradient(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextPreview preview,
     OverlayValues values
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _formulas = formulas;
     _preview = preview;
@@ -78,7 +82,7 @@ internal sealed class TextGradient
         if (_handleColor == null)
           return;
         _text.SetRangeColor(_handleColor.Clone());
-        _host.Render();
+        _editor.Render();
       },
       AddStopAt
     );
@@ -94,8 +98,8 @@ internal sealed class TextGradient
       {
         // The dock was typing the previous color's number.
         if (_formulas.Field == TextFormulas.PositionKey || _formulas.Field == TextFormulas.OpacityKey)
-          _host.CloseOpen();
-        _host.Render();
+          _editor.CloseOpen();
+        _editor.Render();
       }
     );
 
@@ -111,7 +115,7 @@ internal sealed class TextGradient
       return;
     _text.SetRangeColor(color);
     _gradient.Pick(color, added);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>The handles over the text's box while the picker shows a gradient, with their numbers.</summary>
@@ -128,7 +132,7 @@ internal sealed class TextGradient
     // The handles keep the color they move until they let go.
     if (!Handles.Dragging || _handleColor == null)
       _handleColor = color.Clone();
-    RectTransform frame = _host.Screen.Frame;
+    RectTransform frame = _context.Frame.Frame;
     Vector2 topLeft = _preview.InFrame(frame, new Vector3(box.xMin, box.yMax, 0));
     Vector2 bottomRight = _preview.InFrame(frame, new Vector3(box.xMax, box.yMin, 0));
     float scale = (bottomRight.x - topLeft.x) / Mathf.Max(.001f, box.width);

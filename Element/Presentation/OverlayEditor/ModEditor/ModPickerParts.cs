@@ -22,7 +22,7 @@ internal sealed class ModPickerParts
     ModPart part = _page.Part();
     ModValueViewModel<Color> current = _page.Value(part, value, changed);
     Binding<Color> color = Bind(() => current.Value);
-    part.Control = () => ModParts.ColorPicker(label, color, opacity, _page.Context);
+    part.Control = () => ModParts.ColorPicker(label, color, opacity, _page.Pickers);
     return _page.Add(part);
   }
 
@@ -36,7 +36,7 @@ internal sealed class ModPickerParts
       paint => changed?.Invoke(paint?.Clone() ?? Paint.Solid(Color.white))
     );
     Binding<Paint> paint = Bind(() => current.Value);
-    part.Control = () => ModParts.PaintPicker(label, paint, _page.Context);
+    part.Control = () => ModParts.PaintPicker(label, paint, _page.Pickers);
     return _page.Add(part);
   }
 
@@ -45,7 +45,7 @@ internal sealed class ModPickerParts
     ModPart part = _page.Part();
     ModValueViewModel<string> current = _page.Value(part, OverlayFontKey.Normalize(font), changed);
     Binding<string> binding = Bind(() => current.Value);
-    part.Control = () => ModParts.FontPicker(label, binding, _page.Context);
+    part.Control = () => ModParts.FontPicker(label, binding, _page.Pickers);
     return _page.Add(part);
   }
 
@@ -53,8 +53,8 @@ internal sealed class ModPickerParts
   {
     ModPart part = _page.Part();
     ModValueViewModel<ElementKit.Shortcut> current = _page.Value(part, value, changed);
-    ShortcutFieldViewModel model = ModParts.ShortcutModel(Bind(() => current.Value), _page.Context);
-    part.Control = () => ModParts.ShortcutField(label, model, _page.Context);
+    ShortcutFieldViewModel model = ModParts.ShortcutModel(Bind(() => current.Value), _page.Pickers);
+    part.Control = () => ModParts.ShortcutField(label, model, _page.Pickers);
     return _page.Add(part);
   }
 }

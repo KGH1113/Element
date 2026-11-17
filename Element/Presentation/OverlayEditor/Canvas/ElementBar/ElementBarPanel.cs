@@ -1,4 +1,5 @@
 using Element.Application.Layout;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.Toolbar;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.Ui.Declarative;
@@ -23,7 +24,7 @@ internal sealed class ElementBarPanel : IPopover
   private readonly ToolbarPanel _toolbar;
   private readonly ElementKinds _kinds;
   private readonly CanvasStatusLine _status;
-  private readonly ICanvasEditing _editing;
+  private readonly ICanvasActions _canvas;
   private ScreenPanel _panel;
   private ElementBarViewModel _model;
   private bool _stale;
@@ -39,7 +40,7 @@ internal sealed class ElementBarPanel : IPopover
     ToolbarPanel toolbar,
     ElementKinds kinds,
     CanvasStatusLine status,
-    ICanvasEditing editing
+    ICanvasActions canvas
   )
   {
     _session = session;
@@ -47,7 +48,7 @@ internal sealed class ElementBarPanel : IPopover
     _toolbar = toolbar;
     _kinds = kinds;
     _status = status;
-    _editing = editing;
+    _canvas = canvas;
   }
 
   /// <summary>What the open bar shows; null while closed.</summary>
@@ -93,7 +94,7 @@ internal sealed class ElementBarPanel : IPopover
     if (_selection.Multi)
     {
       if (_model is not ArrangeViewModel || _stale)
-        Show(ArrangeViewModel.Screen(_session, _selection, _status, _editing));
+        Show(ArrangeViewModel.Screen(_session, _selection, _status, _canvas));
     }
     else if (_model == null || _model.Target != target || _stale || _model is ArrangeViewModel)
     {

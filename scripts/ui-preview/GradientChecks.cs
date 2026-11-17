@@ -131,7 +131,7 @@ namespace Element.Editor
       Vector2 end = new Vector2(shapeRect.xMax, shapeRect.center.y);
       Invoke(handles, "GripDown", 1, Pointer(end));
       // A few frame units short of the corner, whatever the screen's scale.
-      float near = 3 * Field<EditorFramePanel>(shapes, "_screen").Scale;
+      float near = 3 * Field<EditorFramePanel>(shapes, "_frame").Scale;
       Invoke(handles, "GripDrag", 1, Pointer(new Vector2(shapeRect.xMax - near, shapeRect.yMax - near * 1.3f)));
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(fill.Gradient.EndX - 1) < .001f && Mathf.Abs(fill.Gradient.EndY) < .001f,
@@ -240,7 +240,7 @@ namespace Element.Editor
       Rect textRect = ScreenRectOf(preview.rectTransform);
       Vector2 origin = Field<Vector2>(textHandles, "_origin");
       float unitScale = Field<float>(textHandles, "_scale");
-      Vector2 originScreen = new Vector2(origin.x, Screen.height / Field<EditorFramePanel>(text, "_screen").Scale - origin.y) * Field<EditorFramePanel>(text, "_screen").Scale;
+      Vector2 originScreen = new Vector2(origin.x, Screen.height / Field<EditorFramePanel>(text, "_frame").Scale - origin.y) * Field<EditorFramePanel>(text, "_frame").Scale;
       RectTransform handleRoot = Field<RectTransform>(textHandles, "_root");
       Rect angleRect = ScreenRectOf(textHandles.Angle.Root);
       Assert(Mathf.Abs(originScreen.x - textRect.xMin) < 3 && originScreen.y >= textRect.yMax - 3 && originScreen.y <= textRect.yMax + 6

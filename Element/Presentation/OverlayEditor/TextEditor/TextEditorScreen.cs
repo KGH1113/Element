@@ -42,7 +42,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// and everything done in the dock comes back here, through
 /// <see cref="IInputDockActions"/>.
 /// </remarks>
-internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInputDockActions
+internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEditorActions, IInputDockActions
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _uiFont;
@@ -71,7 +71,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
 
   // The values the text, its sizes and opacities, and the dock's formula use.
   private OverlayValueMask _liveMask;
-  private EditorFramePanel _screen;
+  private EditorFramePanel _frame;
   private InspectorPanel _inspector;
   private InputDockViewModel _dock;
   private InputDockPanel _dockPanel;
@@ -93,44 +93,64 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
     _preview = new TextPreview(_text, values);
     _map = new TextLayoutMap(_text, _preview);
     _marks = new TextMarks(_text, _preview, _map);
-    _formulas = new TextFormulas(this, _text, values);
+    // Each part gets this screen twice: as what it reads (the context) and as
+    // what it asks of it (the actions).
+    _formulas = new TextFormulas(this, this, _text, values);
     _size = new TextSize(this, _text, _formulas);
-    _gradient = new TextGradient(this, _text, _formulas, _preview, values);
-    _color = new TextColor(this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
+    _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
+    _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
     _valueColor = new TextValueColor(this, _text, _formulas, _color, values);
     _formulas.Use(_size, _color, _gradient, _valueColor, () => _animate.Visible);
-    _fonts = new TextFonts(this, _text, _color);
-    _animate = new TextAnimate(this, _text, _color, _preview, _valueColor);
+    _fonts = new TextFonts(this, this, _text, _color);
+    _animate = new TextAnimate(this, this, _text, _color, _preview, _valueColor);
     _grow = new GrowFrom(CloseOpen, Render);
-    _drops = new TextValueDrops(this, _text, _formulas, _map, _marks, _size, _color, _gradient);
-    _pointer = new TextPointerInput(this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate, _drops);
-    _keyboard = new TextKeyboardInput(this, _text, _formulas, _map, _preview);
+    _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _size, _color, _gradient);
+    _pointer = new TextPointerInput(
+      this,
+      this,
+      _text,
+      _formulas,
+      _map,
+      _color,
+      _fonts,
+      _gradient,
+      _grow,
+      _animate,
+      _drops
+    );
+    _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
-  public bool IsOpen => _screen != null;
+  public bool IsOpen => _frame != null;
 
   /// <summary>Keeps the editor above the layout toolbar and handles, which raise themselves.</summary>
-  public void Raise() => _screen?.Root.transform.SetAsLastSibling();
+  public void Raise() => _frame?.Root.transform.SetAsLastSibling();
 
-  EditorFramePanel IContentEditorHost.Screen => _screen;
+  // ---- What the parts read: where things are and what is edited ----
 
-  InputDockViewModel IContentEditorHost.Dock => _dock;
+  EditorFramePanel IEditorContext.Frame => _frame;
 
-  InputDockPanel IContentEditorHost.DockPanel => _dockPanel;
+  InputDockViewModel IEditorContext.Dock => _dock;
 
-  InspectorPanel IContentEditorHost.Inspector => _inspector;
+  InputDockPanel IEditorContext.DockPanel => _dockPanel;
 
-  TextOverlayElement ITextEditorHost.Element => _element;
+  InspectorPanel IEditorContext.Inspector => _inspector;
 
-  float IContentEditorHost.ElementScale => _elementScale;
+  TextOverlayElement ITextEditorContext.Element => _element;
 
-  bool IContentEditorHost.AnyOpen => AnyOpen;
+  float IEditorContext.ElementScale => _elementScale;
 
-  void IContentEditorHost.Render() => Render();
+  bool IEditorContext.AnyOpen => AnyOpen;
 
-  void IContentEditorHost.CloseOpen() => CloseOpen();
+  bool ITextEditorContext.InTextArea(Vector2 screen) => InTextArea(screen);
 
-  bool ITextEditorHost.InTextArea(Vector2 screen) => InTextArea(screen);
+  // ---- What the parts ask for: a change made, they ask for the screen to be drawn again ----
+
+  void IEditorActions.Render() => Render();
+
+  void IEditorActions.CloseOpen() => CloseOpen();
+
+  void IEditorActions.Notice(string message, bool warning) => _frame?.ViewModel.Notice(message, warning);
 
   // ---- What the dock asks for: everything done in the dock lands here ----
 
@@ -184,10 +204,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
   private void Build()
   {
     _color.DisposePicker();
-    _screen?.Dispose();
+    _frame?.Dispose();
     _drops.Cancel();
     _space.Snap();
-    _screen = new EditorFramePanel(
+    _frame = new EditorFramePanel(
       "Text editor",
       _parent,
       _uiFont,
@@ -197,20 +217,20 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
       () => Close(true, true),
       noticesInDock: true
     );
-    _preview.Build(_screen, _element);
-    _marks.BuildCarets(_screen.Ui);
-    _gradient.BuildHandles(_screen, _reduceMotion());
-    _bottomTop = _screen.Height - 40;
-    _marks.BuildHint(_screen.Ui, _screen.Frame);
-    _color.BuildPicker(_screen);
-    _gradient.BuildPicker(_screen.Ui, _color.Picker, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _screen.Top, this);
-    _dockPanel = new InputDockPanel(_screen, _dock, _reduceMotion());
+    _preview.Build(_frame, _element);
+    _marks.BuildCarets(_frame.Ui);
+    _gradient.BuildHandles(_frame, _reduceMotion());
+    _bottomTop = _frame.Height - 40;
+    _marks.BuildHint(_frame.Ui, _frame.Frame);
+    _color.BuildPicker(_frame);
+    _gradient.BuildPicker(_frame.Ui, _color.Picker, _reduceMotion());
+    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     _color.LayOutAbove(_dockPanel);
     BuildInspector();
-    _fonts.Build(_screen, _element.Fonts, _reduceMotion());
-    _grow.Build(_screen, _inspector);
-    _animate.Build(_screen, _inspector);
+    _fonts.Build(_frame, _element.Fonts, _reduceMotion());
+    _grow.Build(_frame, _inspector);
+    _animate.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
@@ -223,7 +243,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
   // the whole text when nothing is selected.
   private void BuildInspector() =>
     _inspector = new InspectorPanel(
-      _screen,
+      _frame,
       _dockPanel,
       "Format",
       L("글자", "Text"),
@@ -265,15 +285,15 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
 
   public void Tick()
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
-    if (_screen.ViewChanged)
+    if (_frame.ViewChanged)
     {
       CloseOpen();
       Build();
       Render();
     }
-    _screen.Tick();
+    _frame.Tick();
     _dockPanel.Tick();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible && picker.IsTyping)
@@ -298,7 +318,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
     bool searching = DockTyping();
     if (!searching)
       _keyboard.HandleKeys();
-    if (_screen == null)
+    if (_frame == null)
       return;
     _pointer.UpdateHover(Input.mousePosition);
     if (!searching)
@@ -364,7 +384,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
   // Rebuilds the text at its game size and everything placed around it.
   private void Render()
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
     _blinkStart = Time.unscaledTime;
     _formulas.Sync();
@@ -373,7 +393,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
     // The text keeps to the space left of the property column, or of an open
     // picker; it glides aside as the picker opens, and back as it closes.
     _space.Measure(
-      _screen,
+      _frame,
       _color.Picker,
       _dockPanel,
       _inspector,
@@ -384,7 +404,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
     );
     // While a stop's color is picked, the text wears it.
     _preview.Pinned = _valueColor.PreviewNumber;
-    _preview.Draw(left, right, EditorFramePanel.TopBar + 32, _bottomTop - 40, _screen.Scale, _elementScale);
+    _preview.Draw(left, right, EditorFramePanel.TopBar + 32, _bottomTop - 40, _frame.Scale, _elementScale);
     _map.Map();
     _marks.PlaceCaret();
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);
@@ -400,7 +420,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
     _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
     PlaceGrowMark();
-    _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _screen.Scale);
+    _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _frame.Scale);
     _liveMask = LiveMask();
   }
 
@@ -423,7 +443,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
       _grow.HideMark();
       return;
     }
-    Rect text = _screen.FrameRect(_preview.Text.rectTransform);
+    Rect text = _frame.FrameRect(_preview.Text.rectTransform);
     _grow.PlaceMark(text.x, text.y, text.width, text.height);
   }
 
@@ -448,7 +468,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
     )
       return false;
-    Vector2 at = _screen.ToFrame(screen);
+    Vector2 at = _frame.ToFrame(screen);
     return at.y >= EditorFramePanel.TopBar && at.y < _bottomTop - 18 && at.x < _inspector.Left - 8;
   }
 
@@ -486,7 +506,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
   /// <summary>Done writes the runs to the element; cancel leaves it as it was.</summary>
   public void Close(bool commit, bool notify)
   {
-    if (_screen == null)
+    if (_frame == null)
       return;
     if (commit && _color.Picker.Visible && !_color.Picker.Commit())
       return;
@@ -504,8 +524,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorHost, IInput
       element.SetGrowFrom(_grow.Growth);
     Input.imeCompositionMode = IMECompositionMode.Auto;
     _color.DisposePicker();
-    _screen.Dispose();
-    _screen = null;
+    _frame.Dispose();
+    _frame = null;
     _drops.Cancel();
     _formulas.Editing.Deactivate();
     _element = null;

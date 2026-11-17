@@ -27,7 +27,8 @@ internal sealed class TextFormulas
     PositionKey = "position",
     AngleKey = "angle";
 
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly OverlayValues _values;
   private readonly FormulaEditing _editing = new();
@@ -42,9 +43,10 @@ internal sealed class TextFormulas
   // The value whose popover is open, while it stays selected; -1 for none.
   private int _chipPopover = -1;
 
-  public TextFormulas(ITextEditorHost host, TextDocumentEditing text, OverlayValues values)
+  public TextFormulas(IEditorActions editor, ITextEditorContext context, TextDocumentEditing text, OverlayValues values)
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _values = values;
   }
@@ -137,21 +139,21 @@ internal sealed class TextFormulas
   public void Activate(string key)
   {
     bool open = _fieldSlot == key;
-    _host.CloseOpen();
+    _editor.CloseOpen();
     if (!open)
       _fieldSlot = key;
-    _host.Render();
+    _editor.Render();
   }
 
   // A click on a value selects it whole and opens its formula beside it.
   public void OpenChip(int index)
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _text.Anchor = index;
     _text.Caret = index + 1;
     _chipPopover = index;
     _text.GoalX = float.NaN;
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>Leaves the number or value being typed.</summary>
@@ -249,13 +251,12 @@ internal sealed class TextFormulas
     _editing.Deactivate();
     if (typed != null && typed.IsPlainNumber(out double number))
     {
-      EditorFramePanel screen = _host.Screen;
       if (key == SizeKey && (number < TextSize.Minimum || number > TextSize.Maximum))
-        screen?.Notice(L("글자 크기는 4–400px 사이로 맞췄어요", "Text size was kept between 4 and 400px"));
+        _editor.Notice(L("글자 크기는 4–400px 사이로 맞췄어요", "Text size was kept between 4 and 400px"));
       else if (key == OpacityKey && OpacityFieldView.OutOfRange(typed))
-        screen?.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
+        _editor.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
       else if (key == PositionKey && (number < 0 || number > 100))
-        screen?.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
+        _editor.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
     }
   }
 
@@ -263,13 +264,13 @@ internal sealed class TextFormulas
 
   public void KeypadPress(char key)
   {
-    if (_host.Screen == null)
+    if (_context.Frame == null)
       return;
     if (key == '\b')
       _editing.Backspace();
     else
       _editing.Press(key);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>Starting over is its own undo step.</summary>
@@ -277,13 +278,13 @@ internal sealed class TextFormulas
   {
     _editing.Clear();
     _text.BreakFormula();
-    _host.Render();
+    _editor.Render();
   }
 
   public void FinishEditing()
   {
-    _host.CloseOpen();
-    _host.Render();
+    _editor.CloseOpen();
+    _editor.Render();
   }
 
   /// <summary>
@@ -292,7 +293,7 @@ internal sealed class TextFormulas
   /// </summary>
   public void PickValue(OverlayValueDefinition value)
   {
-    if (_host.Screen == null)
+    if (_context.Frame == null)
       return;
     if (_editing.Active)
     {
@@ -304,7 +305,7 @@ internal sealed class TextFormulas
       _text.InsertValue(value, Mathf.Min(_text.Anchor, _text.Caret), Mathf.Max(_text.Anchor, _text.Caret));
       _text.Anchor = _text.Caret;
     }
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>A value dropped on a number opens that number and calculates it with the value.</summary>
@@ -317,14 +318,14 @@ internal sealed class TextFormulas
     }
     if (_fieldSlot != key)
     {
-      _host.CloseOpen();
+      _editor.CloseOpen();
       _fieldSlot = key;
     }
     _editing.Drop(CurrentSlot(), value);
   }
 
   public void RefuseWords(OverlayValueDefinition value) =>
-    _host.Screen.Notice(
+    _editor.Notice(
       L(
         ValueSectionNames.ValueName(value) + "은 글자라서 계산에 쓸 수 없어요. 글 안에 넣어 주세요.",
         ValueSectionNames.ValueName(value) + " is words, so it can't be calculated. Put it in the text instead."

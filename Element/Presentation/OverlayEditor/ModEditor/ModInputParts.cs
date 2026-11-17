@@ -25,13 +25,13 @@ internal sealed class ModInputParts
   private const float IconSide = 30;
 
   private readonly ModEditorPage _page;
-  private readonly IModEditorHost _host;
+  private readonly IModEditorActions _editor;
   private readonly ModCommandsViewModel _commands;
 
   public ModInputParts(ModEditorPage page)
   {
     _page = page;
-    _host = page.Host;
+    _editor = page.Editor;
     _commands = page.Commands;
   }
 
@@ -51,7 +51,7 @@ internal sealed class ModInputParts
   public EditorControl Button(string text, Action clicked)
   {
     ModPart part = _page.Part();
-    Command click = _commands.Make(() => _host.Change(part, () => clicked?.Invoke(), true));
+    Command click = _commands.Make(() => _editor.Change(part, () => clicked?.Invoke(), true));
     part.Control = () =>
       UI.Button(
           UI.Text(text ?? "").Font(Font.Caption.Sized(13)).LineLimit(1).Frame(maxWidth: float.PositiveInfinity),
@@ -64,7 +64,7 @@ internal sealed class ModInputParts
   public EditorControl IconButton(EditorIcon icon, string hint, Action clicked)
   {
     ModPart part = _page.Part();
-    Command click = _commands.Make(() => _host.Change(part, () => clicked?.Invoke(), true));
+    Command click = _commands.Make(() => _editor.Change(part, () => clicked?.Invoke(), true));
     part.Control = () => Icon(IconOf(icon), "Icon " + icon, () => click);
     _page.Add(part);
     part.Hint(hint);
@@ -113,7 +113,7 @@ internal sealed class ModInputParts
     ModRange range = new(
       Snap(Mathf.Min(low, high), min, max, step),
       Snap(Mathf.Max(low, high), min, max, step),
-      (a, b) => _host.Change(part, () => changed?.Invoke(a, b), false)
+      (a, b) => _editor.Change(part, () => changed?.Invoke(a, b), false)
     );
     part.Control = () => UI.RangeSlider(label ?? "", Bind(() => range.Low), Bind(() => range.High), min, max, step);
     return _page.Add(part);
@@ -165,7 +165,7 @@ internal sealed class ModInputParts
       for (int i = 0; i < items.Count; i++)
         rows.Add(ListRow(part, items, i, changed));
       Command add = _commands.Make(() =>
-        _host.Change(
+        _editor.Change(
           part,
           () =>
           {
@@ -208,10 +208,10 @@ internal sealed class ModInputParts
       (items[a], items[b]) = (items[b], items[a]);
       changed?.Invoke();
     }
-    Command up = _commands.Make(() => _host.Change(part, () => Swap(index, index - 1), true));
-    Command down = _commands.Make(() => _host.Change(part, () => Swap(index, index + 1), true));
+    Command up = _commands.Make(() => _editor.Change(part, () => Swap(index, index - 1), true));
+    Command down = _commands.Make(() => _editor.Change(part, () => Swap(index, index + 1), true));
     Command remove = _commands.Make(() =>
-      _host.Change(
+      _editor.Change(
         part,
         () =>
         {

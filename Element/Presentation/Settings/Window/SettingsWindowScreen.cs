@@ -20,7 +20,7 @@ namespace Element.Presentation.Settings.Window;
 /// opening and closing, Escape, Tab and the shortcut. What the window shows
 /// is an ElementUI screen (<see cref="SettingsWindowView"/>).
 /// </summary>
-internal sealed class SettingsWindowScreen : IDisposable
+internal sealed class SettingsWindowScreen : ISettingsWindowActions, IDisposable
 {
   private const float DesignWidth = 1000,
     DesignHeight = 600;
@@ -91,7 +91,7 @@ internal sealed class SettingsWindowScreen : IDisposable
   private void Mount()
   {
     _model?.Dispose();
-    _model = new SettingsWindowViewModel(_settings, _features, Changed, _save, EditLayout, Close);
+    _model = new SettingsWindowViewModel(_settings, _features, this);
     ElementBackend backend = new(new ElementTheme(UiFonts.Choose(_font), _settings.ReduceUiMotion));
     _host = UiHost.Mount(
       _window,
@@ -148,6 +148,16 @@ internal sealed class SettingsWindowScreen : IDisposable
   public void RefreshPresets() => ElementUI.Runtime.Probe();
 
   public void ShowSaveError() => _model.Save();
+
+  // ---- What the window asks for ----
+
+  void ISettingsWindowActions.Apply() => Changed();
+
+  bool ISettingsWindowActions.Save() => _save();
+
+  void ISettingsWindowActions.EditLayout() => EditLayout();
+
+  void ISettingsWindowActions.Close() => Close();
 
   private void EditLayout()
   {

@@ -11,9 +11,9 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// </summary>
 internal sealed class ModEditorParts : IEditorParts
 {
-  private readonly ModEditorContext _context;
+  private readonly ModPickerContext _context;
 
-  public ModEditorParts(ModEditorContext context) => _context = context;
+  public ModEditorParts(ModPickerContext context) => _context = context;
 
   public View ColorPicker(string label, Binding<Color> color, bool opacity) =>
     ModParts.ColorPicker(label, color, opacity, _context);

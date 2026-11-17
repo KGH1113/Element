@@ -18,14 +18,14 @@ internal sealed class TextSize
   public const float Minimum = 4,
     Maximum = 400;
 
-  private readonly ITextEditorHost _host;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private PropertyButtonViewModel _sizeButton;
 
-  public TextSize(ITextEditorHost host, TextDocumentEditing text, TextFormulas formulas)
+  public TextSize(ITextEditorContext context, TextDocumentEditing text, TextFormulas formulas)
   {
-    _host = host;
+    _context = context;
     _text = text;
     _formulas = formulas;
     Slot = new FormulaSlot(TextFormulas.SizeKey, false, Read, Write);
@@ -75,7 +75,7 @@ internal sealed class TextSize
     float size;
     string text = "";
     if (formula.IsPlainNumber(out double pixels))
-      size = Mathf.Clamp((float)pixels, Minimum, Maximum) / _host.ElementScale;
+      size = Mathf.Clamp((float)pixels, Minimum, Maximum) / _context.ElementScale;
     else
     {
       // The plain size stays underneath for when the values have no data.
@@ -105,6 +105,6 @@ internal sealed class TextSize
   private float ShownSize(int start, int end)
   {
     float size = start < end ? _text.Document[start].Size : _text.TypingSize(_text.Caret);
-    return (size > 0 ? size : OverlayElementDefaults.TextSize) * _host.ElementScale;
+    return (size > 0 ? size : OverlayElementDefaults.TextSize) * _context.ElementScale;
   }
 }

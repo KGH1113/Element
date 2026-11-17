@@ -20,7 +20,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextValueSource
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
   private readonly TextDocumentEditing _text;
   private readonly OverlayValues _values;
   private readonly Action<OverlayValueDefinition> _picked;
@@ -32,13 +32,13 @@ internal sealed class TextValueSource
 
   /// <param name="picked">A value to follow was picked.</param>
   public TextValueSource(
-    ITextEditorHost host,
+    IEditorActions editor,
     TextDocumentEditing text,
     OverlayValues values,
     Action<OverlayValueDefinition> picked
   )
   {
-    _host = host;
+    _editor = editor;
     _text = text;
     _values = values;
     _picked = picked;
@@ -69,11 +69,11 @@ internal sealed class TextValueSource
   {
     if (_menu.Visible || Armed)
     {
-      _host.CloseOpen();
-      _host.Render();
+      _editor.CloseOpen();
+      _editor.Render();
       return;
     }
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _offered.Clear();
     _inText.Clear();
     _text.Document.ValuesIn(0, _text.Document.Count, _inText);
@@ -85,7 +85,7 @@ internal sealed class TextValueSource
     }
     Rect row = _row();
     _menu.Show(_offered, followed ?? "", Picked, Arm, row.xMax, row.yMax + 6);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>The dock goes back to adding values at the caret, and the menu closes.</summary>
@@ -123,13 +123,13 @@ internal sealed class TextValueSource
   // The next value clicked in the dock is the one to follow.
   private void Arm()
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _armed = true;
-    _host.Screen.Notice(
+    _editor.Notice(
       L("아래 값 목록에서 따라갈 값을 눌러 주세요.", "Click the value to follow in the values below."),
       false
     );
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>The value clicked in the dock while <see cref="Armed"/>: a number is followed, words are refused with a reason.</summary>
@@ -137,13 +137,13 @@ internal sealed class TextValueSource
   {
     if (!value.IsNumeric)
     {
-      _host.Screen.Notice(
+      _editor.Notice(
         L(
           ValueSectionNames.ValueName(value) + "은 글자라서 색을 정할 수 없어요. 숫자인 값을 골라 주세요.",
           ValueSectionNames.ValueName(value) + " is words, so it can't pick a color. Pick a value that is a number."
         )
       );
-      _host.Render();
+      _editor.Render();
       return;
     }
     Picked(value);

@@ -17,7 +17,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextPointerInput
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextLayoutMap _map;
@@ -31,7 +32,8 @@ internal sealed class TextPointerInput
   private float _lastClick = -1;
 
   public TextPointerInput(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextLayoutMap map,
@@ -43,7 +45,8 @@ internal sealed class TextPointerInput
     TextValueDrops drops
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _formulas = formulas;
     _map = map;
@@ -65,21 +68,21 @@ internal sealed class TextPointerInput
       UiColorPicker picker = _color.Picker;
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
-        _host.DockPanel.Contains(screen)
+        _context.DockPanel.Contains(screen)
         || _grow.Contains(screen)
         || _fonts.Contains(screen)
-        || _host.Inspector.Contains(screen)
+        || _context.Inspector.Contains(screen)
         || _animate.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
         || _gradient.Handles.Contains(screen)
       )
         return;
-      bool popover = _host.AnyOpen;
-      _host.CloseOpen();
-      if (!_host.InTextArea(screen))
+      bool popover = _context.AnyOpen;
+      _editor.CloseOpen();
+      if (!_context.InTextArea(screen))
       {
         if (popover)
-          _host.Render();
+          _editor.Render();
         return;
       }
       if (picker.Visible)
@@ -101,7 +104,7 @@ internal sealed class TextPointerInput
         _text.Anchor = document.WordStart(Mathf.Min(document.Count, index + 1));
         _text.Caret = document.WordEnd(_text.Anchor);
         _dragging = false;
-        _host.Render();
+        _editor.Render();
         return;
       }
       _text.Caret = index;
@@ -109,7 +112,7 @@ internal sealed class TextPointerInput
         _text.Anchor = index;
       _dragging = true;
       _text.GoalX = float.NaN;
-      _host.Render();
+      _editor.Render();
     }
     else if (_dragging && Input.GetMouseButton(0))
     {
@@ -117,13 +120,13 @@ internal sealed class TextPointerInput
       if (index != _text.Caret)
       {
         _text.Caret = index;
-        _host.Render();
+        _editor.Render();
       }
     }
     else if (_dragging)
     {
       _dragging = false;
-      _host.Render();
+      _editor.Render();
     }
   }
 
@@ -133,11 +136,11 @@ internal sealed class TextPointerInput
 
   public void UpdateHover(Vector2 screen)
   {
-    EditorFramePanel frame = _host.Screen;
+    EditorFramePanel frame = _context.Frame;
     if (
       _drops.Dragging
       || _dragging
-      || _host.DockPanel.Contains(screen)
+      || _context.DockPanel.Contains(screen)
       || _grow.Contains(screen)
       || _fonts.Contains(screen)
       || _animate.Contains(screen)

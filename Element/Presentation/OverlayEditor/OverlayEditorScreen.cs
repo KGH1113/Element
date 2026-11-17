@@ -32,7 +32,7 @@ namespace Element.Presentation.OverlayEditor;
 /// of what is selected. Its parts live in Canvas/; what differs between
 /// kinds of elements is in Kinds/.
 /// </summary>
-internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
+internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDisposable
 {
   private readonly CanvasSession _session;
   private readonly Action<bool> _onClosed;
@@ -50,7 +50,6 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
   private readonly CanvasDragInput _drag;
   private readonly ConfirmPanel _modal;
   private readonly CanvasReset _reset;
-  private readonly CanvasCommands _commands;
   private readonly CanvasKeyboardInput _keyboard;
   private readonly Func<IOverlayLayoutTarget, bool> _edit;
   private LayoutSnapshot _openingLayout;
@@ -74,39 +73,28 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
     _toolbar = new ToolbarPanel(_session, _selection, _status, _kinds);
     _popovers = new CanvasPopovers(_session, _toolbar);
     _addMenu = new AddMenuPanel(_session, _toolbar, _popovers.Stack) { Kinds = _kinds };
-    _kinds.Add(new TextKind(this));
-    _kinds.Add(new KeyViewerKind(this));
-    _kinds.Add(new ShapeKind(this));
-    _kinds.Add(new ModKind(this));
+    _kinds.Add(new TextKind(this, this));
+    _kinds.Add(new KeyViewerKind(this, this));
+    _kinds.Add(new ShapeKind(this, this));
+    _kinds.Add(new ModKind(this, this));
     _elementBar = new ElementBarPanel(_session, _selection, _toolbar, _kinds, _status, this);
     _popovers.Stack.Add(_elementBar, false);
     _marquee = new CanvasMarqueeInput(_session, _selection, _cursors);
     _drag = new CanvasDragInput(_session, _selection, _guides, _cursors, _kinds.SizedInEditor);
     _modal = new ConfirmPanel(_session);
-    _reset = new CanvasReset(_session, _modal, this, RebuildFrames, _elementBar.MarkStale);
+    _reset = new CanvasReset(_session, _modal, this, this, RebuildFrames, _elementBar.MarkStale);
     _edit = _kinds.Edit;
-    _commands = new CanvasCommands(
-      undo: Undo,
-      redo: Redo,
-      cancel: () => Close(false),
-      save: () => Close(true),
-      resetAll: _reset.Confirm,
-      resetSelected: ResetSelected,
-      delete: DeleteSelected,
-      add: ToggleAddMenu,
-      color: ToggleColor,
-      font: ToggleFont,
-      edit: EditSelected
-    );
-    _keyboard = new CanvasKeyboardInput(_session, _selection, _drag, _toolbar, _kinds, _commands);
+    _keyboard = new CanvasKeyboardInput(_session, _selection, _drag, _toolbar, _kinds, this);
   }
 
   public bool IsOpen => _session.IsOpen;
 
-  CanvasSession ICanvasEditing.Session => _session;
-  CanvasSelection ICanvasEditing.Selection => _selection;
-  CanvasStatusLine ICanvasEditing.Status => _status;
-  AddMenuPanel ICanvasEditing.AddMenu => _addMenu;
+  // ---- What the parts and kinds read ----
+
+  CanvasSession ICanvasContext.Session => _session;
+  CanvasSelection ICanvasContext.Selection => _selection;
+  CanvasStatusLine ICanvasContext.Status => _status;
+  AddMenuPanel ICanvasContext.AddMenu => _addMenu;
 
   public void Open()
   {
@@ -327,7 +315,7 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
   {
     if (_drag.Press(hovered, handle, mouse, _edit))
       return;
-    _toolbar.DropTypedScale();
+    _toolbar.ViewModel.DropTypedScale();
     _status.Clear();
   }
 
@@ -498,14 +486,14 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
     UiFactory.Stretch(blocker.rectTransform, 0, 0, 0, 0);
     blocker.raycastTarget = true;
     _guides.Build(_session.Ui, root.transform);
-    _toolbar.Build(_commands);
+    _toolbar.Build(this);
     _marquee.Toolbar = _toolbar.Root;
     root.SetActive(false);
   }
 
   private void RefreshLayouts()
   {
-    _toolbar.ForgetScale();
+    _toolbar.ViewModel.ForgetScale();
     _status.Clear();
     _session.Host.ApplyLayouts();
     if (_session.KeyViewers != null)
@@ -543,7 +531,7 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
     ClosePopovers();
     foreach (IOverlayLayoutTarget target in _selection.Targets)
       target.ResetLayout();
-    _toolbar.ForgetScale();
+    _toolbar.ViewModel.ForgetScale();
     _status.Clear();
     _session.Commit();
   }
@@ -665,13 +653,37 @@ internal sealed class OverlayEditorScreen : ICanvasEditing, IDisposable
     _session.Fonts?.SetDefault(_session.Preferences.OverlayFont);
   }
 
-  bool ICanvasEditing.Settle() => Settle();
+  // ---- Everything the editor is asked to do: the player's commands, then what its parts ask ----
 
-  void ICanvasEditing.PlaceNew(IOverlayLayoutTarget target, bool commit) => PlaceNewElement(target, commit);
+  void ICanvasActions.Undo() => Undo();
 
-  void ICanvasEditing.RefreshLayouts() => RefreshLayouts();
+  void ICanvasActions.Redo() => Redo();
 
-  void ICanvasEditing.UpdateFrames() => UpdateFrames();
+  void ICanvasActions.Cancel() => Close(false);
+
+  void ICanvasActions.Save() => Close(true);
+
+  void ICanvasActions.ResetAll() => _reset.Confirm();
+
+  void ICanvasActions.ResetSelected() => ResetSelected();
+
+  void ICanvasActions.Delete() => DeleteSelected();
+
+  void ICanvasActions.Add() => ToggleAddMenu();
+
+  void ICanvasActions.Color() => ToggleColor();
+
+  void ICanvasActions.Font() => ToggleFont();
+
+  void ICanvasActions.Edit() => EditSelected();
+
+  bool ICanvasActions.Settle() => Settle();
+
+  void ICanvasActions.PlaceNew(IOverlayLayoutTarget target, bool commit) => PlaceNewElement(target, commit);
+
+  void ICanvasActions.RefreshLayouts() => RefreshLayouts();
+
+  void ICanvasActions.UpdateFrames() => UpdateFrames();
 
   public void Dispose()
   {

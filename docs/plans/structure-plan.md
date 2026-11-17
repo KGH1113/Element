@@ -299,7 +299,7 @@ Element.Tests/
   - Application은 Domain과 Configuration만 압니다.
   - Infrastructure와 Presentation은 Application·Domain·Configuration만 알고, 서로는 모릅니다.
   - Bootstrap은 모두를 압니다.
-- **화면 코드는 데이터가 한 방향으로 흐르게 씁니다.** 파일 이름의 끝말(ViewModel, View, Panel, Gesture, Screen)과 지킬 것은 [data-flow-plan.md](data-flow-plan.md)에 있습니다.
+- **화면 코드는 데이터가 한 방향으로 흐르게 씁니다.** 파일 이름의 끝말(Screen, ViewModel, View, Panel, Input, Graphic)과 지킬 것은 [data-flow-plan.md](data-flow-plan.md)에 있습니다.
 - **파일 하나에 타입 하나를 둡니다.** 서로 붙어 다니는 작은 요청·응답 타입만 한 파일에 모으고, 파일 이름을 그 묶음 이름으로 짓습니다. MonoBehaviour는 항상 따로 둡니다.
 - **partial 조각을 새로 만들지 않습니다.** 일이 다르면 클래스를 나눕니다.
 - **포트는 그 포트가 필요한 기능 폴더(Application/<기능>)에 둡니다.**

@@ -26,7 +26,8 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 /// </remarks>
 internal sealed class ModEditorPage : EditorPage, IModColumnPanel
 {
-  private readonly IModEditorHost _host;
+  private readonly IModEditorActions _editor;
+  private readonly IModEditorContext _context;
   private readonly RectTransform _root;
   private readonly RectTransform _parking;
   private readonly ScreenPanel _placedPanel;
@@ -54,13 +55,15 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
     Vector2 size,
     Rect preview,
     Rect column,
-    IModEditorHost host,
+    IModEditorActions editor,
+    IModEditorContext context,
     Func<string, float> measure
   )
   {
     Size = size;
     PreviewArea = preview;
-    _host = host;
+    _editor = editor;
+    _context = context;
     _measure = measure;
     _root = NewRect("Mod editor page", frame, size);
     // The objects mods asked for wait here between mounts.
@@ -68,18 +71,19 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
     _parking.gameObject.SetActive(false);
     // Clicks on the page's empty space reach the dim behind.
     _placedPanel = new ScreenPanel("Mod editor placed parts", _root, Color.clear, keyboard: false);
-    _column = new ModEditorColumn(frame, column, host.NewBackend, null, null);
-    Context.Column = _column;
+    _column = new ModEditorColumn(frame, column, context.NewBackend, null, null);
+    Pickers.Column = _column;
     _inputParts = new ModInputParts(this);
     _choiceParts = new ModChoiceParts(this);
     _pickerParts = new ModPickerParts(this);
   }
 
-  internal IModEditorHost Host => _host;
+  /// <summary>Where the page's parts send a change.</summary>
+  internal IModEditorActions Editor => _editor;
 
   internal ModCommandsViewModel Commands => _commands;
 
-  internal ModEditorContext Context => _host.Context;
+  internal ModPickerContext Pickers => _context.Pickers;
 
   public override RectTransform Root => _root;
 
@@ -99,7 +103,7 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
   public IReadOnlyList<ModPart> Items => _items;
 
   /// <summary>Whether the keyboard belongs to the page: typing in a field, or recording a shortcut.</summary>
-  public bool Typing => Context.Recording || _column.Typing || ModKeyboard.FocusedField(_root) != null;
+  public bool Typing => Pickers.Recording || _column.Typing || ModKeyboard.FocusedField(_root) != null;
 
   public bool HasPopover =>
     _column.HasPopover
@@ -137,7 +141,7 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
     if (labels.Count == 0)
       labels.Add("");
     string key = string.Join("\u001f", labels);
-    ModEditorTabs tabs = new(this, key, Mathf.Clamp(_host.TabOf(key), 0, labels.Count - 1));
+    ModEditorTabs tabs = new(this, key, Mathf.Clamp(_context.TabOf(key), 0, labels.Count - 1));
     // Tabs are side by side across the column, whatever their names.
     tabs.BarPart = Add(
       Part(() =>
@@ -167,7 +171,7 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
     });
   }
 
-  internal void TabPicked(string key, int index) => _host.SetTab(key, index);
+  internal void TabPicked(string key, int index) => _editor.SetTab(key, index);
 
   // ---- Parts ----
 
@@ -262,7 +266,7 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
   /// the player makes is one edit of <paramref name="part"/>, handed to the mod.
   /// </summary>
   internal ModValueViewModel<T> Value<T>(ModPart part, T value, Action<T> changed) =>
-    new(value, next => _host.Change(part, () => changed?.Invoke(next), false));
+    new(value, next => _editor.Change(part, () => changed?.Invoke(next), false));
 
   /// <summary>Puts <paramref name="part"/> in the card or tab page parts go into now, or the column.</summary>
   internal ModPart Add(ModPart part)
@@ -317,7 +321,7 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
   public void Mount()
   {
     _column.Mount(new ModEditorPageView(this), new ModColumnStyle(_column, _measure), null);
-    _placedPanel.Mount(_host.NewBackend(), ModEditorPageView.Placed(this), null, Size.x);
+    _placedPanel.Mount(_context.NewBackend(), ModEditorPageView.Placed(this), null, Size.x);
     _mounted = true;
     _remount = false;
   }
@@ -337,8 +341,8 @@ internal sealed class ModEditorPage : EditorPage, IModColumnPanel
   {
     _mounted = false;
     _disposing = true;
-    if (Context.Column == _column)
-      Context.Column = null;
+    if (Pickers.Column == _column)
+      Pickers.Column = null;
     _column.Dispose();
     _placedPanel.Dispose();
     _commands.Dispose();

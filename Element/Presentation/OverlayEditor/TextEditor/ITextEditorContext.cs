@@ -4,8 +4,8 @@ using UnityEngine;
 
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
-/// <summary>What the parts of the text editor ask of it beyond any editor's host.</summary>
-internal interface ITextEditorHost : IContentEditorHost
+/// <summary>What the text editor's parts read from it beyond any editor's.</summary>
+internal interface ITextEditorContext : IEditorContext
 {
   /// <summary>The text element being edited, for its fonts and where it sits.</summary>
   TextOverlayElement Element { get; }

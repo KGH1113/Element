@@ -1,9 +1,11 @@
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.TextEditor;
+using ElementUI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -257,8 +259,7 @@ namespace Element.Editor
       Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value
         && TextDocumentOf(text).Document.Count == beforeClearedSubmit,
         "clearing a focused search wins through submit followed by end even with stale native event arguments");
-      SetField(dock.Panel, "_typedFrame", -1);
-      Assert(!dock.IsTyping, "and gives them back once it lets go");
+      // That it gives them back on the next frame is ElementUI's Keyboard tests' (an edit-mode check has no next frame).
       host.Values.Clear(OverlayValueId.Accuracy);
       host.Values.Clear(OverlayValueId.Combo);
       FollowNow(values);
@@ -382,9 +383,14 @@ namespace Element.Editor
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
         EditorFrameViewModel notices = new EditorFrameViewModel("Value dock", "", () => { }, () => { }, true);
         InputDockViewModel model = new InputDockViewModel(live, new FormulaEditing(), notices, NoDockActions.Instance, true);
-        InputDockView dockView = new InputDockView(model, contentWidth, measurer, true);
+        InputDockView dockView = new InputDockView(model, contentWidth);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
-        panel.Mount(new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }), dockView, model, contentWidth);
+        panel.Mount(
+          new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }),
+          dockView.Environment(EditorEnvironment.Measure, measurer).Environment(EditorEnvironment.ReduceMotion, true),
+          model,
+          contentWidth
+        );
         panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
         model.Show(null, "", null,
           L("값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",

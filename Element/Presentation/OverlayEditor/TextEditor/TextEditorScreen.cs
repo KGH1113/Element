@@ -14,6 +14,7 @@ using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -333,11 +334,11 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       RenderKeepingBlink();
   }
 
-  // The dock's value search has the keys and the input method while it is
-  // focused; the text takes both back once it lets go.
+  // A field (the dock's value search, mostly) has the keys and the input
+  // method while it is focused; the text takes both back once it lets go.
   private bool DockTyping()
   {
-    bool typing = _dockPanel.IsTyping;
+    bool typing = Keyboard.IsTaken;
     if (_dockTyping && !typing)
       Input.imeCompositionMode = IMECompositionMode.On;
     _dockTyping = typing;

@@ -14,6 +14,7 @@ using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -241,7 +242,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     }
     _input.HandleMouse();
     // The dock's value search has the keys while it is focused.
-    if (!_dockPanel.IsTyping)
+    if (!Keyboard.IsTaken)
       _input.HandleKeys();
     if (_frame == null)
       return;

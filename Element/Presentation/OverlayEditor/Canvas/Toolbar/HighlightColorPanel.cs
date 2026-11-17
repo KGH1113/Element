@@ -19,7 +19,6 @@ internal sealed class HighlightColorPanel : IPopover, IDisposable
   private readonly UiColorPicker _picker;
   public RectTransform Root => _picker.Root;
   public bool Visible => _picker.Visible;
-  public bool IsTyping => _picker.IsTyping;
   public RectTransform Anchor => null;
   public const float Width = UiColorPicker.Width;
 

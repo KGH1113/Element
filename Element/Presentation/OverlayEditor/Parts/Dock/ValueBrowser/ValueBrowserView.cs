@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
@@ -50,20 +51,16 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     ChipInk = new Color(.92f, .92f, .92f),
     LiveInk = UiPalette.Muted;
 
-  private readonly Func<string, float> _measure;
-  private readonly bool _reduceMotion;
+  private float _listWidth = -1;
 
-  /// <param name="measure">How wide words are at the dock's 13-unit size.</param>
-  public ValueBrowserView(ValueBrowserViewModel vm, Func<string, float> measure, bool reduceMotion)
-    : base(vm)
-  {
-    _measure = measure;
-    _reduceMotion = reduceMotion;
-    ListWidth = MeasureList();
-  }
+  public ValueBrowserView(ValueBrowserViewModel vm)
+    : base(vm) { }
 
-  /// <summary>How wide the list of places is: its longest name and count, within limits.</summary>
-  public float ListWidth { get; }
+  /// <summary>How wide the list of places is: its longest name and count, within limits. Measured once, when first drawn.</summary>
+  private float ListWidth => _listWidth >= 0 ? _listWidth : _listWidth = MeasureList();
+
+  // How wide words are at the dock's size; handed down by the editor.
+  private float Measure(string words) => EnvironmentValue(EditorEnvironment.Measure)(words);
 
   public override View Body =>
     HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
@@ -204,7 +201,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       return Chips(groups[0].Chips, false);
     float column = 0;
     foreach (ValueChipRow group in groups)
-      column = Mathf.Max(column, _measure(group.Heading ?? ""));
+      column = Mathf.Max(column, Measure(group.Heading ?? ""));
     column = Mathf.Min(MaximumHeading, column + HeadingGap);
     View[] rows = new View[groups.Count];
     for (int i = 0; i < rows.Length; i++)
@@ -218,9 +215,9 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     float column = 0;
     List<View> rows = new();
     foreach (ValueFolderViewModel folder in VM.Categories)
-      column = Mathf.Max(column, _measure(folder.Name));
+      column = Mathf.Max(column, Measure(folder.Name));
     foreach (ValueFolderViewModel folder in VM.Mods)
-      column = Mathf.Max(column, _measure(folder.Name));
+      column = Mathf.Max(column, Measure(folder.Name));
     column = Mathf.Min(MaximumHeading, column + HeadingGap);
     foreach (ValueFolderViewModel folder in VM.Categories)
       rows.Add(Found(folder, column));
@@ -318,13 +315,13 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       .Configure<ScrollRect>(scroll =>
       {
         scroll.scrollSensitivity = 34;
-        scroll.inertia = !_reduceMotion;
+        scroll.inertia = !EnvironmentValue(EditorEnvironment.ReduceMotion);
       });
 
   // The list fits its longest name beside its largest count, and the search's hint.
   private float MeasureList()
   {
-    float widest = _measure(L("값 찾기", "Find a value")) + SearchStart + SearchEnd + 4;
+    float widest = Measure(L("값 찾기", "Find a value")) + SearchStart + SearchEnd + 4;
     foreach (ValueFolderViewModel folder in VM.Categories)
       widest = Mathf.Max(widest, Width(folder));
     foreach (ValueFolderViewModel folder in VM.Mods)
@@ -332,5 +329,5 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     return Mathf.Clamp(Mathf.Ceil(widest), MinimumList, MaximumList);
   }
 
-  private float Width(ValueFolderViewModel folder) => 10 + _measure(folder.Name) + 8 + _measure(folder.Count) + 10 + 2;
+  private float Width(ValueFolderViewModel folder) => 10 + Measure(folder.Name) + 8 + Measure(folder.Count) + 10 + 2;
 }

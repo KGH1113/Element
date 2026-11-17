@@ -58,17 +58,6 @@ internal sealed class PopoverStack
     }
   }
 
-  public bool Typing
-  {
-    get
-    {
-      for (int i = 0; i < _popovers.Count; i++)
-        if (_popovers[i].Visible && _popovers[i].IsTyping)
-          return true;
-      return false;
-    }
-  }
-
   /// <summary>Whether a screen point (origin bottom left) is over a shown popover or panel.</summary>
   public bool Contains(Vector2 screen)
   {

@@ -7,6 +7,7 @@ using Element.Presentation.Settings;
 using Element.Presentation.Settings.Planets;
 using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Input;
+using ElementUI.Ugui;
 using TMPro;
 
 namespace Element.Presentation.Screens;
@@ -85,7 +86,7 @@ internal sealed class SettingsScreens : IDisposable
     }
     else if (_panel != null)
       _panel.Tick();
-    else if (SettingsWindowScreen.ShortcutPressed(_settings) && !SettingsWindowScreen.IsTyping())
+    else if (SettingsWindowScreen.ShortcutPressed(_settings) && !Keyboard.IsTaken)
       Open();
   }
 

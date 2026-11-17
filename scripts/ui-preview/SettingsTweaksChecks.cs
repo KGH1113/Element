@@ -1,12 +1,14 @@
+using Element.Presentation.Settings.Chatter;
+using Element.Presentation.Settings.EditorTweaks;
+using Element.Presentation.Settings.Judgment;
+using Element.Presentation.Settings.Tweaks;
+using Element.Presentation.Settings.Window;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Element.Configuration.Gameplay;
 using Element.Domain.Tweaks;
-using Element.Presentation.Settings;
-using Element.Presentation.Settings.Pages;
-using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Input;
 using ElementUI.Ugui;
@@ -36,11 +38,11 @@ namespace Element.Editor
       }
       FitHost(check);
       SettingsWindowViewModel window = check.Model;
-      TweaksModel tweaks = window.Tweaks;
+      TweaksViewModel tweaks = window.Tweaks;
       Assert(window.Current == tweaks && tweaks.Title == "Tweaks", "Tweaks is shown under its own title");
 
       // Each link opens its page inside the window; Back comes back to Tweaks.
-      var links = new (string Title, string Detail, SettingsPageModel Page)[]
+      var links = new (string Title, string Detail, SettingsPageViewModel Page)[]
       {
         (L("에디터", "Editor tweaks"), L("선택 정보, 정밀 회전, 이벤트 좌표", "Selection info, fine rotation and event positions"), window.EditorTweaks),
         (L("판정 표시", "Judgment visuals"), L("어떤 판정 문구를 보여줄지 선택합니다.", "Choose which judgment popups appear."), window.Judgment),
@@ -195,7 +197,7 @@ namespace Element.Editor
         count++;
       }
       FitHost(check);
-      EditorTweaksModel page = check.Model.EditorTweaks;
+      EditorTweaksViewModel page = check.Model.EditorTweaks;
       EditorTweaksOptions editor = check.Settings.Gameplay.Editor;
       Assert(page.Title == L("에디터", "Editor tweaks") && page.Parent == check.Model.Tweaks, "Editor tweaks sits under Tweaks");
 
@@ -302,7 +304,7 @@ namespace Element.Editor
         count++;
       }
       FitHost(check);
-      JudgmentModel page = check.Model.Judgment;
+      JudgmentViewModel page = check.Model.Judgment;
       JudgementVisualOptions judgment = check.Settings.Gameplay.Judgement;
       Func<bool>[] hidden =
       {
@@ -386,7 +388,7 @@ namespace Element.Editor
         count++;
       }
       FitHost(check);
-      ChatterModel page = check.Model.Chatter;
+      ChatterViewModel page = check.Model.Chatter;
       ChatterBlockerOptions chatter = check.Settings.Gameplay.Chatter;
       Pressable toggle = ButtonOf(check, L("채터 블로커", "Chatter blocker"));
       Assert(toggle != null && Switches(check).Count == 1 && SwitchIn(toggle) != null, "the blocker is one switch card");

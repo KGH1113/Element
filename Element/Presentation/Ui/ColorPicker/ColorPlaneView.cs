@@ -15,11 +15,11 @@ internal sealed class ColorPlaneView : NativeView
 {
   public const float Height = 156;
 
-  private readonly ColorPickerModel _vm;
+  private readonly ColorPickerViewModel _vm;
   private UiColorPlane _plane;
   private UiCapsuleGraphic _picked;
 
-  public ColorPlaneView(ColorPickerModel vm) => _vm = vm;
+  public ColorPlaneView(ColorPickerViewModel vm) => _vm = vm;
 
   protected override void Build(RectTransform rect)
   {

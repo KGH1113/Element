@@ -25,7 +25,7 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
 
   /// <param name="two">Two columns, with the color bar: an overlay element's color.</param>
   /// <param name="width">One column's width; its controls keep the color square's and center in it.</param>
-  public ColorPickerColumnsView(ColorPickerModel vm, ColorPickerParts parts, bool two, float width)
+  public ColorPickerColumnsView(ColorPickerViewModel vm, ColorPickerParts parts, bool two, float width)
     : base(vm, parts)
   {
     _two = two;

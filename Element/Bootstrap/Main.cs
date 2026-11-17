@@ -9,7 +9,7 @@ using Element.Infrastructure.Game.Input;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.Updates;
 using Element.Presentation.Notices;
-using Element.Presentation.Settings;
+using Element.Presentation.Settings.Window;
 using UnityEngine;
 using UnityModManagerNet;
 
@@ -122,7 +122,7 @@ public sealed class Main
     if (Instance?.Settings == null)
       return;
 
-    GUILayout.Label("Element · " + SettingsPanel.ShortcutLabel(Instance.Settings));
+    GUILayout.Label("Element · " + SettingsWindowScreen.ShortcutLabel(Instance.Settings));
     GUILayout.Label(UpdateStatusText.For(Instance.Updates));
     bool wasEnabled = GUI.enabled;
     GUI.enabled = wasEnabled && Instance.Runtime != null;

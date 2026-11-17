@@ -1,4 +1,13 @@
-using Element.Presentation.Settings.Pages;
+using Element.Presentation.Settings.Chatter;
+using Element.Presentation.Settings.EditorTweaks;
+using Element.Presentation.Settings.Effects;
+using Element.Presentation.Settings.General;
+using Element.Presentation.Settings.Home;
+using Element.Presentation.Settings.Judgment;
+using Element.Presentation.Settings.Planets;
+using Element.Presentation.Settings.PresetEditor;
+using Element.Presentation.Settings.Profiles;
+using Element.Presentation.Settings.Tweaks;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
@@ -64,7 +73,7 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
     );
 
   /// <summary>A page that shows while it is the current one, scrolled on its own.</summary>
-  private View Page(SettingsPageModel page, System.Func<View> content) =>
+  private View Page(SettingsPageViewModel page, System.Func<View> content) =>
     If(
       () => VM.Current == page,
       () =>

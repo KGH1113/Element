@@ -1,12 +1,14 @@
+using Element.Presentation.OverlayEditor;
+using Element.Presentation.OverlayEditor.Kinds;
+using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.ValueColor;
+using Element.Presentation.OverlayEditor.Parts.ValueSource;
+using Element.Presentation.OverlayEditor.TextEditor;
 using System.IO;
 using System.Linq;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.ValueColors;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Layout.ContentEditors.Text;
-using Element.Presentation.Layout.Kinds;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.ColorPicker;
@@ -24,21 +26,21 @@ namespace Element.Editor
   // saving a color the game then draws from the value.
   public static partial class SettingsPreview
   {
-    private static void CheckValueColor(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+    private static void CheckValueColor(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
       bool korean = Korean(name);
       TextOverlayElement accuracy = host.LayoutTargets.OfType<TextOverlayElement>().Single(target => target.Id == "accuracy");
       Select(editor, IndexOf(editor, accuracy));
       PressEdit(editor);
-      OverlayTextEditor text = (OverlayTextEditor)Kind<TextKind>(editor).Editor;
+      TextEditorScreen text = (TextEditorScreen)Kind<TextKind>(editor).Editor;
       Assert(text.IsOpen, "the X-Accuracy text opens in the editor");
       TextAnimate animate = Field<TextAnimate>(text, "_animate");
       TextValueColor valueColor = Field<TextValueColor>(text, "_valueColor");
-      OverlayValueColorModel model = Field<OverlayValueColorModel>(valueColor, "_model");
+      ValueColorViewModel model = Field<ValueColorViewModel>(valueColor, "_model");
       TextDocumentEditing document = TextDocumentOf(text);
-      OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
-      OverlayEditorFrame screen = EditorScreen(text);
+      DockProbe dock = DockOf(text);
+      EditorFramePanel screen = EditorScreen(text);
 
       PressBar(text, animate.Button);
       Assert(animate.Visible, "Animate opens its tool");
@@ -49,7 +51,7 @@ namespace Element.Editor
       Call(text, "Render");
       Press(colorSwitch);
       Settle();
-      OverlayValueSourceMenu sources = (OverlayValueSourceMenu)valueColor.Menu;
+      ValueSourceMenuPanel sources = (ValueSourceMenuPanel)valueColor.Menu;
       Assert(valueColor.Current() != null && valueColor.Current().Value == "" && sources.Visible,
         "a selection without a value turns on following nothing yet, and offers the values");
       Assert(model.SourceName.Value == (korean ? "고르기" : "Pick") && document.Document[5].Color.ValueColor == null,
@@ -169,7 +171,7 @@ namespace Element.Editor
       // Another value: from the text first, or any value from the dock.
       Press(ByName<Pressable>(animate.Root, "Value color source"));
       Settle();
-      OverlayValueSourceMenu menu = (OverlayValueSourceMenu)valueColor.Menu;
+      ValueSourceMenuPanel menu = (ValueSourceMenuPanel)valueColor.Menu;
       Assert(menu.Visible && ByName<Pressable>(menu.Root, "Follow accuracy") != null && ByName<Pressable>(menu.Root, "Follow another value") != null,
         "the value row offers the text's values, then another from the dock");
       foreach (TextMeshProUGUI label in menu.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -186,8 +188,8 @@ namespace Element.Editor
       int items = document.Document.Count;
       Press(DockChip(dock, "Value song-title"));
       Settle();
-      Assert(valueColor.Armed && document.Document.Count == items && screen.NoticeText.Length > 0,
-        "words can't pick a color, and say why: " + screen.NoticeText);
+      Assert(valueColor.Armed && document.Document.Count == items && screen.ViewModel.NoticeText.Length > 0,
+        "words can't pick a color, and say why: " + screen.ViewModel.NoticeText);
       text.Escape();
       Assert(!valueColor.Armed && animate.Visible && text.IsOpen, "Esc stops picking from the dock, leaving the tool");
       Press(ByName<Pressable>(animate.Root, "Value color source"));
@@ -229,8 +231,8 @@ namespace Element.Editor
       textPicker.Model.SetSource(false);
       textPicker.Model.PickSaturationValue(.5f, .9f);
       Settle();
-      Assert(!document.Document[0].Color.FollowsValue && screen.NoticeText.Contains(korean ? "값에 따라 바뀌던 색은 껐어요" : "no longer follows a value"),
-        "a color picked there stops following the value, and says so: " + screen.NoticeText);
+      Assert(!document.Document[0].Color.FollowsValue && screen.ViewModel.NoticeText.Contains(korean ? "값에 따라 바뀌던 색은 껐어요" : "no longer follows a value"),
+        "a color picked there stops following the value, and says so: " + screen.ViewModel.NoticeText);
       text.Escape();
       document.Undo();
       Settle();
@@ -247,23 +249,23 @@ namespace Element.Editor
     }
 
     // The tool fits above the keypad on 16:9 and 16:10 screens: 312 frame units under its back row.
-    private static void CheckToolFits(OverlayTextEditor text, TextAnimate animate)
+    private static void CheckToolFits(TextEditorScreen text, TextAnimate animate)
     {
       Settle();
       Assert(animate.Height <= 312, "the Animate tool with its band fits above the keypad on wide screens: " + animate.Height);
-      Rect tool = ScreenRectOf(animate.Root), keypad = KeypadRect(Field<OverlayInputDock>(text, "_dock"));
+      Rect tool = ScreenRectOf(animate.Root), keypad = KeypadRect(DockOf(text));
       Assert(Mathf.Abs(tool.xMin - keypad.xMin) < 1 && Mathf.Abs(tool.xMax - keypad.xMax) < 1 && tool.yMin > keypad.yMax,
         "the tool stands in the column, above the keypad: " + tool + " / " + keypad);
     }
 
     // A point on the band at value, on the scale it shows now.
-    private static Vector2 BandPoint(RectTransform band, OverlayValueColorModel model, float value)
+    private static Vector2 BandPoint(RectTransform band, ValueColorViewModel model, float value)
     {
       OverlayValueColorEdits.Range(model.Current, out float low, out float high);
       Rect local = band.rect;
-      float inset = OverlayValueColorBandView.Inset;
+      float inset = ValueColorBandView.Inset;
       float x = local.xMin + inset + (value - low) / (high - low) * (local.width - inset * 2);
-      float y = local.yMax - OverlayValueColorBandView.LabelRow - OverlayValueColorBandView.Track * .5f;
+      float y = local.yMax - ValueColorBandView.LabelRow - ValueColorBandView.Track * .5f;
       return RectTransformUtility.WorldToScreenPoint(null, band.TransformPoint(new Vector3(x, y, 0)));
     }
 

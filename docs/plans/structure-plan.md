@@ -228,14 +228,14 @@ ElementKit/          네임스페이스는 ElementKit 하나 (폴더는 파일 �
   Kit.cs
   Values/            값 종류, ValueGroup
   Elements/          ElementAttribute, OverlayElement(<T>), Anchor
-  Editing/           EditorPage, EditorTabs, EditorControl, EditorIcon
+  Editing/           EditorViewModel, EditorParts
   Drawing/           Drawing, RoundedBox, Paint
   Input/             Shortcut
   Hosting/           내부 전용: Kit.Attach가 쓰는 상태만 (KitRegistry, ValueScanner)
 ```
 
 - `Hosting/ElementClasses`는 Element만 쓰므로 `Element/Infrastructure/Mods`로 옮깁니다.
-- `EditorPage`, `EditorControl`, `Drawing` 등은 다른 모드가 상속하지 못하게 생성자를 `internal`로 막습니다(Element는 InternalsVisibleTo로 접근). 상속을 허용하면 나중에 추상 멤버를 더할 때마다 그 모드들이 깨집니다.
+- `EditorViewModel`, `Drawing` 등은 다른 모드가 상속하지 못하게 생성자를 `internal`로 막습니다(Element는 InternalsVisibleTo로 접근). 상속을 허용하면 나중에 추상 멤버를 더할 때마다 그 모드들이 깨집니다.
 - 다른 모드가 쓰는 공개 API가 `Element.AttemptCounter`와 ElementKit 두 가지입니다. 하나로 모을지 정해야 합니다.
 
 **테스트:**

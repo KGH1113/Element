@@ -6,7 +6,7 @@ namespace ElementKit;
 /// <summary>
 /// A key with at most one modifier, the way Element's own shortcuts are. Keep
 /// it in your settings class; players set it with
-/// <see cref="EditorPage.Shortcut"/>, and <see cref="Pressed"/> tells when it is used.
+/// <see cref="EditorParts.ShortcutField"/>, and <see cref="Pressed"/> tells when it is used.
 /// </summary>
 [Serializable]
 public struct Shortcut

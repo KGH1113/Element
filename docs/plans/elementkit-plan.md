@@ -19,7 +19,7 @@ Element를 필수로 두지 않아도 됩니다([오버레이 요소](#오버레
 | ElementKit 이름으로 들어온 요청을 Element 것으로 연결, 다른 복사본 경고 | 완료 |
 | 예시 모드로 값 등록부터 화면 표시까지 확인 | 완료 |
 | 오버레이 요소: `[Element]` + `OverlayElement<TSettings>`, Element가 스스로 찾음(호출·필수 모드 없음) | 프로토타입 |
-| 편집 화면 부품(`EditorPage`): 입력·고르기·색·폰트·단축키·목록 부품, 카드·탭·구역, 도움말, 자유 배치(`At`) | 프로토타입 |
+| 편집 화면: ElementUI로 쓰고(`Editor`), Element 선택기(`EditorParts`)를 더함. 옛 부품 방식(`OnEdit(EditorPage)`)은 2026-11-17에 없앰 | 프로토타입 |
 | 그리기 도우미(`Drawing`): 오버레이 폰트 글자, 둥근 상자, 하이라이트 색 | 프로토타입 |
 | 요소 추가 → 기타 → 모드별 목록, 편집 화면(실시간 미리보기·실행 취소), 모드가 없을 때 상자 | 프로토타입 |
 | 예시 모드의 오버레이 요소, Element 없이도 실행(`LoadAfter`, ElementKit 호출을 한 클래스에) | 프로토타입 |
@@ -239,6 +239,9 @@ NuGet 패키지(`ElementKit`)가 해 주는 일:
 Element가 그 요소를 배치하고 편집할 수 있게 합니다. 모드가 Element에서 정보를 가져올 필요는 없습니다.
 
 ```csharp
+using static ElementUI.UI;
+using static ElementKit.EditorParts;
+
 [Serializable]
 public sealed class BarsSettings            // JsonUtility로 저장: 숫자, bool, 문자열, Color, 리스트…
 {
@@ -253,12 +256,10 @@ public sealed class ProgressBars : OverlayElement<BarsSettings>
     protected override void OnSettingsChanged() => Size = new Vector2(480, 96);
     protected override void OnUpdate() { /* 매 프레임 모드 상태를 읽어 갱신 */ }
 
-    protected override void OnEdit(EditorPage page)   // Element 부품으로 편집 화면을 꾸밈
-    {
-        page.ColorPicker(page.L("채우기 색", "Fill"), Settings.Fill, c => Settings.Fill = c);
-        page.Slider(page.L("막대 수", "Bars"), Settings.Count, 2, 64, v => Settings.Count = (int)v, step: 1);
-        page.Label("…").At(x, y);                    // 아무 데나 놓기도 됨
-    }
+    protected override View Editor(EditorViewModel<BarsSettings> vm) =>   // ElementUI로 편집 화면을 씀
+        VStack(spacing: 12,
+            ColorPicker(vm.L("채우기 색", "Fill"), Bind(() => vm.Settings.Fill)),
+            Stepper(vm.L("막대 수", "Bars"), Bind(() => vm.Settings.Count), 2, 64));
 }
 ```
 
@@ -266,34 +267,26 @@ public sealed class ProgressBars : OverlayElement<BarsSettings>
 `IsPreview`는 Element 편집기에서 보일 때 참이라, 데이터가 없으면 예시를 그리면 됩니다.
 
 **편집 화면:** Element가 틀(어두운 배경, 취소·완료, Esc, 실행 취소, 기준점)과 **실시간 미리보기**를 맡습니다.
-미리보기는 같은 클래스의 두 번째 인스턴스라, 모드는 따로 만들 것이 없습니다. `OnEdit`는 그 인스턴스에서 불리고,
-부품 콜백에서 `Settings`를 바꾸면 Element가 실행 취소를 기록하고 미리보기를 갱신합니다. 완료하면 요소에 저장합니다.
+미리보기는 같은 클래스의 두 번째 인스턴스라, 모드는 따로 만들 것이 없습니다. `Editor`는 그 인스턴스의 설정을 읽는
+`vm.Settings`를 받고, 컨트롤이 그 필드를 바꾸면 Element가 실행 취소를 기록하고 미리보기를 갱신합니다. 완료하면 요소에 저장합니다.
 
-| 부품 | 쓰는 것 |
+컨트롤은 ElementUI 것을 그대로 씁니다. 속성 열이 그것을 자기 행으로 그립니다(`ModColumnStyle`).
+
+| 쓰는 것 | 속성 열에서 |
 | --- | --- |
-| `Label`, `Button`, `IconButton` | 설명 글, 버튼, 아이콘 버튼(`EditorIcon`, 도움말이 이름). 버튼은 누른 뒤 부품을 다시 만들어 바뀐 값을 보여 줌 |
-| `Switch`, `Checkbox` | 켜고 끄기. 체크박스는 긴 문장 옆에 |
-| `Slider`, `RangeSlider`, `Number`, `Stepper` | 끌어서 고르는 값, 두 손잡이 구간, 입력하는 숫자(입력 중 바로 반영, 끝나면 범위로), −/+ 정수 |
-| `TextField`, `List` | 글자 한 줄, 글자 목록(추가·순서 바꾸기·지우기) |
-| `Choice`, `Dropdown`, `MultiChoice` | 2~4개 세그먼트, 많은 선택지 목록, 여러 개 켜는 칩 |
-| `ColorPicker(Color)`, `ColorPicker(Paint)` | 단색(불투명도), 하이라이트 따르기·그라디언트까지 고르는 Element 색 선택기 |
-| `FontPicker`, `Shortcut`, `AnchorPicker` | Element 폰트 목록, 단축키 녹화(보조 키 하나, Esc 취소), 9점 기준점 |
-| `Section`, `Divider`, `Card`, `Tabs`, `Gap` | 구역 제목, 구분선, 묶음 카드, 탭(실행 취소해도 고른 탭 유지), 칸 띄우기 |
-| `.Hint(text)`, `.At(x, y)`, `.Width(w)`, `.Visible`, `Root` | 마우스를 올리면 뜨는 도움말, 자유 배치, 너비, 숨기기, 직접 만든 UI |
+| `Toggle`(스위치·체크박스), `Slider`, `RangeSlider`, `Stepper`, `NumberField`, `TextField` | 이름이 왼쪽, 컨트롤이 오른쪽인 한 줄 |
+| `Picker`, `MultiPicker` | 들어가면 나란한 선택지, 아니면 눌러서 열(이나 켜고 끄는 목록)을 여는 줄 |
+| `Card`, `Section` | 행 묶음 위의 제목 |
+| `EditorParts.ColorPicker(Color/Paint)`, `FontPicker`, `AnchorPicker`, `ShortcutField` | Element 선택기를 열 안에서 여는 줄(뒤로 줄로 돌아옴) |
+| `Tabs`, `Button`, `Text`, `Divider`, `If`, `.Hint`, `.Disabled` | ElementUI 모양 그대로. 탭은 실행 취소해도 고른 탭을 유지 |
 
-`Card`와 탭 페이지는 `using`으로 감싸 그 안에서 만든 부품을 담습니다.
-
-```csharp
-EditorTabs tabs = page.Tabs(new[] { page.L("모양", "Look"), page.L("내용", "Content") });
-using (tabs.Page(0))
-using (page.Card(page.L("색", "Colors")))
-    page.ColorPicker(page.L("강조 색", "Accent"), Settings.Accent, paint => Settings.Accent = paint);
-```
+버튼이 여러 설정을 한 번에 바꾼 것도, 슬라이더를 한 번 끌어 바꾼 것도 실행 취소 한 번입니다.
+옛 부품 방식에 있던 자유 배치(`At`), `Root` 아래 직접 만든 UI, 글자 목록 부품(`List`)은 없습니다. 편집 화면은 속성 열 하나입니다.
 
 `Paint`는 하이라이트 색·단색·그라디언트를 담는 저장용 클래스입니다. `Drawing.Box(...).Paint`에 넣으면 그라디언트와 하이라이트 따르기까지 그려 주고,
 글자처럼 한 색만 필요하면 `Drawing.Solid(paint)`로 지금 색을 얻습니다. `Shortcut`은 `Pressed`로 이번 프레임에 눌렸는지 알려 줍니다.
 
-부품은 기본으로 미리보기 오른쪽 속성 열(텍스트 편집기의 열과 같은 자리)에 한 줄씩 놓이고, 길면 스크롤됩니다. 좌표는 편집 화면 단위(약 1120×760, 왼쪽 위 0)입니다.
+화면은 미리보기 오른쪽 속성 열(텍스트 편집기의 열과 같은 자리)에 놓이고, 길면 스크롤됩니다. `Editor`를 쓰지 않은 요소는 미리보기와 기준점만 있습니다.
 
 **그리기 도우미(`Drawing`):** `Text`(오버레이 기본 폰트, 플레이어가 폰트를 바꾸면 따라감), `SetFont`(폰트 선택기에서 고른 폰트),
 `Box`(크기를 바꾸면 바로 따라가는 둥근 상자, `Color` 또는 `Paint`), `Highlight`, `Solid`, `Place`(왼쪽 위 기준 배치). 그 밖은 UGUI를 그대로 씁니다. 그린 것은 오버레이 캔버스 안이라 녹화 모드·렌더를 따릅니다.

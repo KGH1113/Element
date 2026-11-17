@@ -1,5 +1,6 @@
 using Element.Configuration.Overlay;
 using Element.Presentation.Overlay.Fonts;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Property;
@@ -20,16 +21,18 @@ internal sealed class TextFonts
 {
   private const int FontLabelLength = 18;
 
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextColor _color;
   private PropertyButtonViewModel _fontButton;
   private UiFontPopover _fontPopover;
   private bool _fontSnapshotTaken;
 
-  public TextFonts(ITextEditorHost host, TextDocumentEditing text, TextColor color)
+  public TextFonts(IEditorActions editor, ITextEditorContext context, TextDocumentEditing text, TextColor color)
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _color = color;
   }
@@ -76,19 +79,19 @@ internal sealed class TextFonts
   private void ToggleFont()
   {
     bool open = _fontPopover.Visible;
-    _host.CloseOpen();
+    _editor.CloseOpen();
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
     if (!open)
     {
-      OverlayFonts fonts = _host.Element.Fonts;
+      OverlayFonts fonts = _context.Element.Fonts;
       string current = _text.RangeFont();
       Title = _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
       // The column's back row names the list; it needs no title of its own.
       _fontPopover.Show("", current, L("기본 폰트", "Default font"), DefaultFontName(fonts));
     }
-    _host.Render();
+    _editor.Render();
   }
 
   private void PickFont(string key)
@@ -103,7 +106,7 @@ internal sealed class TextFonts
       _text.Document.SetFont(start, end, key);
     else
       _text.PendingFont = OverlayFontKey.Normalize(key);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>The bar names the range's font, lit while the list is open.</summary>

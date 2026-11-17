@@ -4,7 +4,7 @@ using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
-using static Element.Presentation.OverlayEditor.Canvas.CanvasParts;
+using static Element.Presentation.OverlayEditor.Parts.EditorControls;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 using Font = ElementUI.Font;

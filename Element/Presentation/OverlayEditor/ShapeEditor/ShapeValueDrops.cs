@@ -18,7 +18,8 @@ internal sealed class ShapeValueDrops
 {
   private const string FormulaLine = "formula";
 
-  private readonly IShapeEditorHost _host;
+  private readonly IShapeEditorActions _editor;
+  private readonly IShapeEditorContext _context;
   private readonly ShapeNumbers _numbers;
   private readonly ShapeColors _colors;
   private readonly ShapeGradient _gradient;
@@ -28,7 +29,8 @@ internal sealed class ShapeValueDrops
   private string _dropKey;
 
   public ShapeValueDrops(
-    IShapeEditorHost host,
+    IShapeEditorActions editor,
+    IShapeEditorContext context,
     ShapeNumbers numbers,
     ShapeColors colors,
     ShapeGradient gradient,
@@ -36,7 +38,8 @@ internal sealed class ShapeValueDrops
     ShapeFieldList fields
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _numbers = numbers;
     _colors = colors;
     _gradient = gradient;
@@ -58,7 +61,7 @@ internal sealed class ShapeValueDrops
 
   public void MoveValueDrag(Vector2 screen)
   {
-    EditorFramePanel frame = _host.Screen;
+    EditorFramePanel frame = _context.Frame;
     if (_dragValue == null || frame == null)
       return;
     _dropKey = FindDrop(screen, out bool accepted);
@@ -66,13 +69,13 @@ internal sealed class ShapeValueDrops
     for (int i = 0; i < _fields.Count; i++)
       _fields[i].SetDrop(Lit(_fields.Key(i) == _dropKey, accepted));
     _numbers.StrokeWidth.SetDrop(Lit(_dropKey == ShapeNumbers.StrokeKey, accepted));
-    _host.Dock.SetDrop(Lit(_dropKey == FormulaLine, accepted));
+    _context.Dock.SetDrop(Lit(_dropKey == FormulaLine, accepted));
     frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropKey == null ? 1 : -1);
   }
 
   public void EndValueDrag(Vector2 screen)
   {
-    EditorFramePanel frame = _host.Screen;
+    EditorFramePanel frame = _context.Frame;
     if (_dragValue == null || frame == null)
       return;
     OverlayValueDefinition value = _dragValue;
@@ -83,7 +86,7 @@ internal sealed class ShapeValueDrops
     for (int i = 0; i < _fields.Count; i++)
       _fields[i].SetDrop(ValueDrop.None);
     _numbers.StrokeWidth.SetDrop(ValueDrop.None);
-    _host.Dock.SetDrop(ValueDrop.None);
+    _context.Dock.SetDrop(ValueDrop.None);
     frame.HideGhost();
     FormulaEditing editing = _numbers.Editing;
     if (key == FormulaLine)
@@ -105,14 +108,14 @@ internal sealed class ShapeValueDrops
       {
         if (_numbers.Field != key)
         {
-          _host.CloseOpen();
+          _editor.CloseOpen();
           _numbers.Field = key;
         }
         editing.Activate(_numbers.Slot(key));
         editing.Drop(editing.Slot, value);
       }
     }
-    _host.Render();
+    _editor.Render();
   }
 
   // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
@@ -143,7 +146,7 @@ internal sealed class ShapeValueDrops
       if (square >= 0)
         return _gradient.PositionKey + ":" + square;
     }
-    InputDockPanel dock = _host.DockPanel;
+    InputDockPanel dock = _context.DockPanel;
     if (dock.FormulaContains(screen))
     {
       accepted = _numbers.Editing.Active && FormulaEditing.Accepts(_numbers.Editing.Slot, _dragValue);
@@ -154,7 +157,7 @@ internal sealed class ShapeValueDrops
       accepted = true;
       return null;
     }
-    if (_host.Inspector.Contains(_numbers.StrokeWidth, screen))
+    if (_context.Inspector.Contains(_numbers.StrokeWidth, screen))
       return ShapeNumbers.StrokeKey;
     _fields.Collect();
     for (int i = 0; i < _fields.Count; i++)

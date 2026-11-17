@@ -48,7 +48,7 @@ internal sealed class ModFailureGuard
     if (!_failed.Add(doing))
       return;
     _report?.Invoke(Type, doing + " in its editing screen", exception);
-    Screen?.Notice(
+    Screen?.ViewModel.Notice(
       L(
         Type.ModId
           + " 모드가 이 요소를 "

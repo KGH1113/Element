@@ -30,7 +30,8 @@ internal sealed class TextValueDrops
     Insert,
   }
 
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextLayoutMap _map;
@@ -43,7 +44,8 @@ internal sealed class TextValueDrops
   private int _dropIndex;
 
   public TextValueDrops(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextLayoutMap map,
@@ -53,7 +55,8 @@ internal sealed class TextValueDrops
     TextGradient gradient
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _formulas = formulas;
     _map = map;
@@ -78,13 +81,13 @@ internal sealed class TextValueDrops
   public void BeginValueDrag(OverlayValueDefinition value, Vector2 screen)
   {
     _dragValue = value;
-    _host.Screen.HideTip();
+    _context.Frame.HideTip();
     MoveValueDrag(screen);
   }
 
   public void MoveValueDrag(Vector2 screen)
   {
-    EditorFramePanel frame = _host.Screen;
+    EditorFramePanel frame = _context.Frame;
     if (_dragValue == null || frame == null)
       return;
     _dropTarget = FindDrop(screen, out _dropIndex, out bool accepted);
@@ -92,7 +95,7 @@ internal sealed class TextValueDrops
     _color.Opacity.Field.SetDrop(Lit(_dropTarget == DropTarget.Opacity, accepted));
     _gradient.Position.SetDrop(Lit(_dropTarget == DropTarget.Position && _dropIndex < 0, accepted));
     _gradient.Handles.Angle.SetDrop(Lit(_dropTarget == DropTarget.Angle, accepted));
-    _host.Dock.SetDrop(Lit(_dropTarget == DropTarget.Formula, accepted));
+    _context.Dock.SetDrop(Lit(_dropTarget == DropTarget.Formula, accepted));
     frame.ShowGhost(
       ValueSectionNames.ValueName(_dragValue),
       screen,
@@ -103,7 +106,7 @@ internal sealed class TextValueDrops
 
   public void EndValueDrag(Vector2 screen)
   {
-    EditorFramePanel frame = _host.Screen;
+    EditorFramePanel frame = _context.Frame;
     if (_dragValue == null || frame == null)
       return;
     OverlayValueDefinition value = _dragValue;
@@ -114,7 +117,7 @@ internal sealed class TextValueDrops
     _color.Opacity.Field.SetDrop(ValueDrop.None);
     _gradient.Position.SetDrop(ValueDrop.None);
     _gradient.Handles.Angle.SetDrop(ValueDrop.None);
-    _host.Dock.SetDrop(ValueDrop.None);
+    _context.Dock.SetDrop(ValueDrop.None);
     frame.HideGhost();
     FormulaEditing editing = _formulas.Editing;
     switch (target)
@@ -143,12 +146,12 @@ internal sealed class TextValueDrops
         break;
       case DropTarget.Insert:
         // A value dropped into the text lands there; typing goes on after it.
-        _host.CloseOpen();
+        _editor.CloseOpen();
         _text.InsertValue(value, index, index);
         _text.Anchor = _text.Caret;
         break;
     }
-    _host.Render();
+    _editor.Render();
   }
 
   // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
@@ -188,19 +191,19 @@ internal sealed class TextValueDrops
         return DropTarget.Position;
       }
     }
-    if (_host.Inspector.Contains(_size.Button, screen))
+    if (_context.Inspector.Contains(_size.Button, screen))
     {
       accepted = _dragValue.IsNumeric;
       return DropTarget.Size;
     }
     FormulaEditing editing = _formulas.Editing;
-    InputDockPanel dock = _host.DockPanel;
+    InputDockPanel dock = _context.DockPanel;
     if (dock.FormulaContains(screen))
     {
       accepted = editing.Active && FormulaEditing.Accepts(editing.Slot, _dragValue);
       return DropTarget.Formula;
     }
-    if (dock.Contains(screen) || !_host.InTextArea(screen))
+    if (dock.Contains(screen) || !_context.InTextArea(screen))
       return DropTarget.None;
     // Onto the value whose formula waits for its next number or value.
     if (

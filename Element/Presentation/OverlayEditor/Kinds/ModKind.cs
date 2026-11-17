@@ -3,6 +3,7 @@ using Element.Application.Layout;
 using Element.Application.Mods;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.ModEditor;
 using Element.Presentation.Ui.Graphics;
@@ -23,11 +24,11 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   private readonly ListMenu _menu;
   private readonly List<AddMenuRow> _rows = new();
 
-  public ModKind(ICanvasEditing editing)
-    : base(editing)
+  public ModKind(ICanvasContext context, ICanvasActions canvas)
+    : base(context, canvas)
   {
     _menu = new ListMenu("Mod element menu", MenuWidth, UiPalette.Menu);
-    editing.AddMenu.AddSubmenu(_menu);
+    context.AddMenu.AddSubmenu(_menu);
   }
 
   public override string Label(IOverlayLayoutTarget target) => ((ModOverlayElement)target).Label;
@@ -38,7 +39,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   {
     get
     {
-      ModElements types = Editing.Session.Host.ModElements;
+      ModElements types = Context.Session.Host.ModElements;
       if (types == null)
         return 0;
       types.Refresh();
@@ -72,7 +73,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
       _menu.Hide();
       return;
     }
-    ModElements types = Editing.Session.Host.ModElements;
+    ModElements types = Context.Session.Host.ModElements;
     if (types == null)
       return;
     types.Refresh();
@@ -92,25 +93,25 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
         )
       );
     }
-    Editing.AddMenu.OpenSubmenu(_menu, _rows.ToArray());
+    Context.AddMenu.OpenSubmenu(_menu, _rows.ToArray());
   }
 
   // Like a shape: placed in the middle, its editor open right away.
   internal void Add(ElementClass type)
   {
-    Editing.AddMenu.Close();
-    ModOverlayElement element = (ModOverlayElement)Editing.Session.Host.Add(ModElementKind.NewSettings(type));
+    Context.AddMenu.Close();
+    ModOverlayElement element = (ModOverlayElement)Context.Session.Host.Add(ModElementKind.NewSettings(type));
     if (element == null)
       return;
     element.SetPreview(true);
-    Editing.PlaceNew(element, false);
+    Actions.PlaceNew(element, false);
     // History records the element when its editor is done; cancelling removes it.
     Open(element, true);
   }
 
   protected override IContentEditor MakeEditor()
   {
-    Canvas.CanvasSession session = Editing.Session;
+    Canvas.CanvasSession session = Context.Session;
     return new ModEditorScreen(
       session.Root.transform,
       session.Font,
@@ -121,7 +122,7 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   }
 
   // Its mod is missing, off or failing: say which and what to do.
-  protected override void Refused(ModOverlayElement element) => Editing.Status.ShowError(element.Unavailable);
+  protected override void Refused(ModOverlayElement element) => Context.Status.ShowError(element.Unavailable);
 
   protected override void Closed(ModOverlayElement element, bool isNew, bool committed) =>
     KeepOrDrop(element, element.Settings, isNew, committed);

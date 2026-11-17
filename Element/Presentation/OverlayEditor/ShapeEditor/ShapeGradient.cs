@@ -20,7 +20,7 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// </summary>
 internal sealed class ShapeGradient
 {
-  private readonly IShapeEditorHost _host;
+  private readonly IShapeEditorActions _editor;
   private readonly ShapeColors _colors;
   private readonly ShapePreview _preview;
   private readonly EditorHistory<OverlayShapeSettings> _history;
@@ -29,7 +29,7 @@ internal sealed class ShapeGradient
 
   /// <param name="stopSelected">Another color was picked: closes its numbers if the dock had them, and redraws.</param>
   public ShapeGradient(
-    IShapeEditorHost host,
+    IShapeEditorActions editor,
     OverlayValues values,
     ShapeColors colors,
     ShapePreview preview,
@@ -37,7 +37,7 @@ internal sealed class ShapeGradient
     Action stopSelected
   )
   {
-    _host = host;
+    _editor = editor;
     _colors = colors;
     _preview = preview;
     _history = history;
@@ -66,13 +66,13 @@ internal sealed class ShapeGradient
   public void BuildHandles(EditorFramePanel screen, bool reduceMotion) =>
     _gradient.BuildHandles(
       screen,
-      () => _host.Activate(AngleKey),
+      () => _editor.Activate(AngleKey),
       reduceMotion,
       () => _history.Remember((string)null),
       () =>
       {
         _colors.Picker.Refresh(_colors.Picked);
-        _host.Render();
+        _editor.Render();
       },
       AddStopAt
     );
@@ -81,7 +81,7 @@ internal sealed class ShapeGradient
     _gradient.BuildPicker(
       ui,
       _colors.Picker,
-      () => _host.Activate(PositionKey),
+      () => _editor.Activate(PositionKey),
       reduceMotion,
       () => new Vector2(_preview.Resolved.Width, _preview.Resolved.Height),
       _stopSelected
@@ -98,7 +98,7 @@ internal sealed class ShapeGradient
     if (added < 0)
       return;
     _gradient.Pick(color, added);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>
@@ -210,7 +210,7 @@ internal sealed class ShapeGradient
     stop.Position = Mathf.Clamp01(Mathf.Round((stop.Position + step) * 1000) / 1000);
     stop.PositionFormula = string.Empty;
     OverlayGradientEdits.Sync(_colors.Picked);
-    _host.Render();
+    _editor.Render();
     return true;
   }
 }

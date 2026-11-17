@@ -12,7 +12,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextKeyboardInput
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextLayoutMap _map;
@@ -20,14 +21,16 @@ internal sealed class TextKeyboardInput
   private readonly Event _event = new();
 
   public TextKeyboardInput(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextLayoutMap map,
     TextPreview preview
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _formulas = formulas;
     _map = map;
@@ -37,7 +40,7 @@ internal sealed class TextKeyboardInput
   public void HandleKeys()
   {
     bool mac = EditorKeys.Mac;
-    while (_host.Screen != null && EditorKeys.NextKeyDown(_event))
+    while (_context.Frame != null && EditorKeys.NextKeyDown(_event))
     {
       bool command = EditorKeys.Command(_event, mac);
       bool word = EditorKeys.Word(_event, mac);
@@ -48,13 +51,13 @@ internal sealed class TextKeyboardInput
       switch (_event.keyCode)
       {
         case KeyCode.Escape:
-          _host.Escape();
+          _editor.Escape();
           return;
         case KeyCode.Return:
         case KeyCode.KeypadEnter:
           if (command)
           {
-            _host.Close(true, true);
+            _editor.Close(true, true);
             return;
           }
           if (_text.Composition.Length == 0)
@@ -139,13 +142,13 @@ internal sealed class TextKeyboardInput
   // text; after a value, typing continues behind it.
   private bool HandlePopoverKey(bool command)
   {
-    if (command || !_host.AnyOpen)
+    if (command || !_context.AnyOpen)
       return false;
     KeyCode code = _event.keyCode;
     if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
     {
-      _host.CloseOpen();
-      _host.Render();
+      _editor.CloseOpen();
+      _editor.Render();
       return true;
     }
     if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(_event, out char key))
@@ -156,10 +159,10 @@ internal sealed class TextKeyboardInput
     if (_formulas.Field != null)
       return true;
     bool chip = _formulas.ChipOpen(out _);
-    _host.CloseOpen();
+    _editor.CloseOpen();
     if (chip)
       _text.Anchor = _text.Caret = Mathf.Max(_text.Anchor, _text.Caret);
-    _host.Render();
+    _editor.Render();
     return false;
   }
 
@@ -202,7 +205,7 @@ internal sealed class TextKeyboardInput
     if (composition.Length > 0 && _text.HasSelection)
       _text.DeleteSelection();
     _text.Composition = composition;
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>The input method's window follows the caret.</summary>

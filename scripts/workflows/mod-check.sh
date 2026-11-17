@@ -10,6 +10,7 @@ source "$SCRIPTS_DIR/lib/logging.sh"
 # shellcheck source=../lib/context.sh
 source "$SCRIPTS_DIR/lib/context.sh"
 
+run_task "Check layers, roles and folders" node "$SCRIPTS_DIR/tasks/validate/structure.mjs" "$SCRIPTS_DIR/.."
 run_task "Validate local build inputs" "$TASKS_DIR/validate/local-build-inputs.sh"
 run_task "Verify AdofaiIpc dependency" "$TASKS_DIR/validate/adofai-ipc.sh"
 # Release by default: a Debug assembly disables JIT optimizations inside the game.

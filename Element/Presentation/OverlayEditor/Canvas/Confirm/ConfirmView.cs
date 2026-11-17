@@ -1,5 +1,5 @@
 using ElementUI;
-using static Element.Presentation.OverlayEditor.Canvas.CanvasParts;
+using static Element.Presentation.OverlayEditor.Parts.EditorControls;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 

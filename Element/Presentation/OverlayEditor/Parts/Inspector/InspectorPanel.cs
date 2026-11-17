@@ -64,8 +64,8 @@ internal sealed class InspectorPanel
   /// <summary>Where an open tool starts: under the back row.</summary>
   public float ToolTop => Top + InspectorView.BackRowHeight + 4;
 
-  /// <summary>The tool open in the column, as its back row names it; null while the rows show.</summary>
-  public string OpenTool => _model.ToolOpen.Value ? _model.Open.Value : null;
+  /// <summary>What the column shows: its rows, or the tool open under its back row.</summary>
+  public InspectorViewModel ViewModel => _model;
 
   /// <summary>
   /// The rows, or (with <paramref name="tool"/>) the back row naming the

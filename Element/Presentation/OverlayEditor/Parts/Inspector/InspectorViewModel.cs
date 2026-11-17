@@ -34,6 +34,9 @@ internal sealed class InspectorViewModel : ViewModel
   /// <summary>A tool is open in the column: the back row shows instead of the rows.</summary>
   public readonly Computed<bool> ToolOpen;
 
+  /// <summary>The tool open in the column, as its back row names it; null while the rows show.</summary>
+  public string OpenTool => ToolOpen.Value ? Open.Value : null;
+
   /// <summary>Closes the open tool: the rows come back.</summary>
   public Command Back { get; }
 

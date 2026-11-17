@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Layout;
 using Element.Domain.Layout;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Kinds;
 using ElementUI;
 using UnityEngine;
@@ -19,7 +20,7 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
   private readonly CanvasSession _session;
   private readonly CanvasSelection _selection;
   private readonly CanvasStatusLine _status;
-  private readonly ICanvasEditing _editing;
+  private readonly ICanvasActions _canvas;
   private readonly List<IOverlayLayoutTarget> _targets = new();
   private readonly List<LayoutBounds> _bounds = new();
   private readonly List<LayoutBounds> _before = new();
@@ -29,13 +30,13 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
     CanvasSession session,
     CanvasSelection selection,
     CanvasStatusLine status,
-    ICanvasEditing editing
+    ICanvasActions canvas
   )
   {
     _session = session;
     _selection = selection;
     _status = status;
-    _editing = editing;
+    _canvas = canvas;
     AlignLeft = Align(LayoutAlignment.Left);
     AlignCenter = Align(LayoutAlignment.Center);
     AlignRight = Align(LayoutAlignment.Right);
@@ -73,10 +74,10 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
     CanvasSession session,
     CanvasSelection selection,
     CanvasStatusLine status,
-    ICanvasEditing editing
+    ICanvasActions canvas
   )
   {
-    ArrangeViewModel model = new(session, selection, status, editing);
+    ArrangeViewModel model = new(session, selection, status, canvas);
     return new ElementBarContent(model, new ArrangeView(model));
   }
 
@@ -141,7 +142,7 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
       _targets[i].CommitLayout(true);
     }
     _session.Commit();
-    _editing.RefreshLayouts();
-    _editing.UpdateFrames();
+    _canvas.RefreshLayouts();
+    _canvas.UpdateFrames();
   }
 }

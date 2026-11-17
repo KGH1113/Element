@@ -118,7 +118,7 @@ internal sealed class EditorFramePanel : IDisposable
   public bool ViewChanged => ViewWidth != Screen.width || ViewHeight != Screen.height;
 
   /// <summary>The header: what is edited, a notice when no dock shows it, Cancel and Done.</summary>
-  public EditorFrameViewModel Top => _top;
+  public EditorFrameViewModel ViewModel => _top;
 
   /// <summary>
   /// A panel over the controls, on top of those made before, holding an
@@ -144,11 +144,6 @@ internal sealed class EditorFramePanel : IDisposable
       _fade.Finish();
     _top.Tick();
   }
-
-  /// <summary>A short message on the dock's line (or the header); a warning reads in a warm color.</summary>
-  public void Notice(string message, bool warning = true) => _top.Notice(message, warning);
-
-  public string NoticeText => _top.NoticeText;
 
   /// <summary>A screen point (origin bottom left) in frame units from the top left.</summary>
   public Vector2 ToFrame(Vector2 screen) => new(screen.x / Scale, (ViewHeight - screen.y) / Scale);

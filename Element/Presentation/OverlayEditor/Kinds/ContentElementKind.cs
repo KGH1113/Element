@@ -1,5 +1,6 @@
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.Canvas.ElementBar;
 
@@ -13,10 +14,15 @@ namespace Element.Presentation.OverlayEditor.Kinds;
 internal abstract class ContentElementKind<T> : IElementKind
   where T : class, IOverlayLayoutTarget
 {
-  protected readonly ICanvasEditing Editing;
+  protected readonly ICanvasContext Context;
+  protected readonly ICanvasActions Actions;
   private IContentEditor _editor;
 
-  protected ContentElementKind(ICanvasEditing editing) => Editing = editing;
+  protected ContentElementKind(ICanvasContext context, ICanvasActions actions)
+  {
+    Context = context;
+    Actions = actions;
+  }
 
   public IContentEditor Editor => _editor;
 
@@ -47,7 +53,7 @@ internal abstract class ContentElementKind<T> : IElementKind
   /// <summary>Opens <paramref name="target"/> in the editor; <paramref name="isNew"/> when it was just added.</summary>
   internal void Open(T target, bool isNew)
   {
-    if (!Editing.Settle())
+    if (!Actions.Settle())
       return;
     _editor ??= MakeEditor();
     if (!_editor.Open(target, committed => Closed(target, isNew, committed)))
@@ -55,7 +61,7 @@ internal abstract class ContentElementKind<T> : IElementKind
       Refused(target);
       return;
     }
-    Editing.UpdateFrames();
+    Actions.UpdateFrames();
   }
 
   /// <summary>The editor could not open <paramref name="target"/>.</summary>
@@ -71,16 +77,16 @@ internal abstract class ContentElementKind<T> : IElementKind
   protected void KeepOrDrop(T target, OverlayLayoutSettings settings, bool isNew, bool committed)
   {
     if (committed)
-      Editing.Session.Commit();
+      Context.Session.Commit();
     else if (isNew)
     {
       if (settings != null)
         Domain.Overlay.Defaults.OverlayElementDefaults.ResetPlacement(settings);
       target.SetEnabled(false);
-      Editing.Selection.Selected = -1;
+      Context.Selection.Selected = -1;
     }
-    Editing.RefreshLayouts();
-    Editing.UpdateFrames();
+    Actions.RefreshLayouts();
+    Actions.UpdateFrames();
   }
 
   public void Dispose() => _editor?.Dispose();

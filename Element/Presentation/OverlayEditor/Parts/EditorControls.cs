@@ -7,14 +7,14 @@ using Element.Presentation.Ui.Theme;
 using ElementUI;
 using static ElementUI.UI;
 
-namespace Element.Presentation.OverlayEditor.Canvas;
+namespace Element.Presentation.OverlayEditor.Parts;
 
 /// <summary>
-/// The parts every layout editor panel is built from: the grip it drags by,
+/// The controls every editor panel is built from: the grip it drags by,
 /// icon buttons, buttons of a set width and the line between groups. Bring
-/// them in with <c>using static Element.Presentation.OverlayEditor.Canvas.CanvasParts;</c>.
+/// them in with <c>using static Element.Presentation.OverlayEditor.Parts.EditorControls;</c>.
 /// </summary>
-internal static class CanvasParts
+internal static class EditorControls
 {
   /// <summary>An icon whose button can't be pressed now.</summary>
   private static readonly UiColor Off = UiPalette.Disabled;

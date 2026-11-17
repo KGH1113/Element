@@ -12,7 +12,8 @@ internal sealed class CanvasReset
 {
   private readonly CanvasSession _session;
   private readonly ConfirmPanel _modal;
-  private readonly ICanvasEditing _editing;
+  private readonly ICanvasContext _context;
+  private readonly ICanvasActions _canvas;
   private readonly Action _rebuildFrames;
   private readonly Action _restored;
 
@@ -21,21 +22,23 @@ internal sealed class CanvasReset
   public CanvasReset(
     CanvasSession session,
     ConfirmPanel modal,
-    ICanvasEditing editing,
+    ICanvasContext context,
+    ICanvasActions canvas,
     Action rebuildFrames,
     Action restored
   )
   {
     _session = session;
     _modal = modal;
-    _editing = editing;
+    _context = context;
+    _canvas = canvas;
     _rebuildFrames = rebuildFrames;
     _restored = restored;
   }
 
   public void Confirm()
   {
-    if (!_editing.Settle())
+    if (!_canvas.Settle())
       return;
     _modal.Confirm(
       "Reset all confirmation",
@@ -61,10 +64,10 @@ internal sealed class CanvasReset
     _rebuildFrames();
     foreach (CanvasFrame frame in _session.Frames)
       frame.Target.SetPreview(true);
-    _editing.Selection.Selected = -1;
+    _context.Selection.Selected = -1;
     _restored();
-    _editing.RefreshLayouts();
+    _canvas.RefreshLayouts();
     _session.Commit();
-    _editing.UpdateFrames();
+    _canvas.UpdateFrames();
   }
 }

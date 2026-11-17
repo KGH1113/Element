@@ -34,7 +34,7 @@ internal static class ModParts
   private static readonly UiColor Missing = UiPalette.Error;
 
   /// <summary>A swatch with its HEX (and opacity) that opens Element's color picker.</summary>
-  public static View ColorPicker(string label, Binding<Color> color, bool opacity, ModEditorContext context)
+  public static View ColorPicker(string label, Binding<Color> color, bool opacity, ModPickerContext context)
   {
     string title = Title(label, L("색", "Color"));
     return Opener(
@@ -53,7 +53,7 @@ internal static class ModParts
   }
 
   /// <summary>A swatch that opens the full picker: the highlight color, a color of one's own, or a gradient.</summary>
-  public static View PaintPicker(string label, Binding<Paint> paint, ModEditorContext context)
+  public static View PaintPicker(string label, Binding<Paint> paint, ModPickerContext context)
   {
     string title = Title(label, L("색", "Color"));
     return Opener(
@@ -68,7 +68,7 @@ internal static class ModParts
   }
 
   /// <summary>The font's name (or that it is missing on this PC) that opens Element's font list.</summary>
-  public static View FontPicker(string label, Binding<string> font, ModEditorContext context)
+  public static View FontPicker(string label, Binding<string> font, ModPickerContext context)
   {
     OverlayFonts fonts = context.Fonts;
     string title = Title(label, L("폰트", "Font"));
@@ -99,14 +99,14 @@ internal static class ModParts
   }
 
   /// <summary>The nine points of a box; the row names the one picked and opens them.</summary>
-  public static View AnchorPicker(string label, Binding<Anchor> anchor, ModEditorContext context) =>
+  public static View AnchorPicker(string label, Binding<Anchor> anchor, ModPickerContext context) =>
     AnchorPicker(label, anchor, context, () => AnchorModel(anchor, context));
 
-  /// <summary>Like <see cref="AnchorPicker(string, Binding{Anchor}, ModEditorContext)"/>, with the points' model made by <paramref name="points"/> when they open.</summary>
+  /// <summary>Like <see cref="AnchorPicker(string, Binding{Anchor}, ModPickerContext)"/>, with the points' model made by <paramref name="points"/> when they open.</summary>
   public static View AnchorPicker(
     string label,
     Binding<Anchor> anchor,
-    ModEditorContext context,
+    ModPickerContext context,
     Func<GrowPickerViewModel> points
   )
   {
@@ -122,7 +122,7 @@ internal static class ModParts
   }
 
   /// <summary>What the nine points show and do for <paramref name="anchor"/>.</summary>
-  public static GrowPickerViewModel AnchorModel(Binding<Anchor> anchor, ModEditorContext context)
+  public static GrowPickerViewModel AnchorModel(Binding<Anchor> anchor, ModPickerContext context)
   {
     GrowPickerViewModel picker = null;
     void Show() => picker.Show((OverlayGrowth)(int)anchor.Value, (Anchor9)(int)anchor.Value);
@@ -140,10 +140,10 @@ internal static class ModParts
   }
 
   /// <summary>A shortcut's keys; the row opens the recorder: a click records the next key with at most one modifier, × clears it.</summary>
-  public static View ShortcutField(string label, Binding<ElementKit.Shortcut> shortcut, ModEditorContext context) =>
+  public static View ShortcutField(string label, Binding<ElementKit.Shortcut> shortcut, ModPickerContext context) =>
     ShortcutField(label, ShortcutModel(shortcut, context), context);
 
-  public static View ShortcutField(string label, ShortcutFieldViewModel model, ModEditorContext context)
+  public static View ShortcutField(string label, ShortcutFieldViewModel model, ModPickerContext context)
   {
     string title = Title(label, L("단축키", "Shortcut"));
     return Opener(
@@ -170,7 +170,7 @@ internal static class ModParts
   }
 
   /// <summary>What a shortcut field shows and records for <paramref name="shortcut"/>; made once per part.</summary>
-  public static ShortcutFieldViewModel ShortcutModel(Binding<ElementKit.Shortcut> shortcut, ModEditorContext context)
+  public static ShortcutFieldViewModel ShortcutModel(Binding<ElementKit.Shortcut> shortcut, ModPickerContext context)
   {
     ShortcutFieldViewModel model = new(
       () => shortcut.Value.Key,
@@ -201,7 +201,7 @@ internal static class ModParts
   /// makes the tool each time it opens.
   /// </summary>
   public static View Opener(
-    ModEditorContext context,
+    ModPickerContext context,
     string name,
     Func<EnvironmentValues, View> lead,
     string title,
@@ -243,7 +243,7 @@ internal static class ModParts
 
   private static string Title(string label, string fallback) => string.IsNullOrEmpty(label) ? fallback : label;
 
-  private static void PickFont(Binding<string> font, string key, ModEditorContext context)
+  private static void PickFont(Binding<string> font, string key, ModPickerContext context)
   {
     string next = OverlayFontKey.Normalize(key);
     if (OverlayFontKey.Same(next, OverlayFontKey.Normalize(font.Value)))

@@ -22,7 +22,8 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// </summary>
 internal sealed class ShapeColors
 {
-  private readonly IShapeEditorHost _host;
+  private readonly IShapeEditorActions _editor;
+  private readonly IShapeEditorContext _context;
   private readonly ShapeNumbers _numbers;
   private readonly ColorPickerPanel _picker;
   private PropertyButtonViewModel _fillButton,
@@ -30,24 +31,26 @@ internal sealed class ShapeColors
   private bool _pickerForStroke;
 
   public ShapeColors(
-    IShapeEditorHost host,
+    IShapeEditorActions editor,
+    IShapeEditorContext context,
     ShapeNumbers numbers,
     EditorHistory<OverlayShapeSettings> history,
     TMP_FontAsset font,
     Func<bool> reduceMotion
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _numbers = numbers;
     _picker = new ColorPickerPanel(
       font,
       reduceMotion,
       () => history.Remember((string)null),
-      () => _host.Screen != null,
+      () => _context.Frame != null,
       // Its numbers go with it.
       () => _numbers.Field != null && ShapeGradient.PickerKey(_numbers.Field),
-      _host.CloseOpen,
-      _host.Render
+      _editor.CloseOpen,
+      _editor.Render
     );
   }
 
@@ -58,13 +61,13 @@ internal sealed class ShapeColors
   /// <summary>The color the picker shows: the fill's or the border's.</summary>
   public OverlayColorSettings Picked
   {
-    get => _pickerForStroke ? _host.Shape.Stroke : _host.Shape.Fill;
+    get => _pickerForStroke ? _context.Shape.Stroke : _context.Shape.Fill;
     set
     {
       if (_pickerForStroke)
-        _host.Shape.Stroke = value;
+        _context.Shape.Stroke = value;
       else
-        _host.Shape.Fill = value;
+        _context.Shape.Fill = value;
     }
   }
 
@@ -109,7 +112,7 @@ internal sealed class ShapeColors
     _picker.Build(screen.Frame);
     // The color picker opens right above the keypad.
     _picker.LayOutAbove(dock);
-    _picker.BuildOpacity(screen.Ui, () => _host.Activate(OpacityKey));
+    _picker.BuildOpacity(screen.Ui, () => _editor.Activate(OpacityKey));
   }
 
   public void DisposePicker() => _picker.Dispose();
@@ -117,17 +120,17 @@ internal sealed class ShapeColors
   // The same button closes its picker; the other one moves it over.
   private void Open(bool stroke)
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     if (Picker.Visible && _pickerForStroke == stroke)
     {
       Picker.Hide();
-      _host.Render();
+      _editor.Render();
       return;
     }
     _pickerForStroke = stroke;
     _picker.NewSession();
     Show();
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>
@@ -139,10 +142,10 @@ internal sealed class ShapeColors
     bool stroke = _pickerForStroke;
     Picker.ShowSource(
       Title,
-      stroke ? _host.Shape.Stroke : _host.Shape.Fill,
+      stroke ? _context.Shape.Stroke : _context.Shape.Fill,
       picked =>
       {
-        OverlayShapeSettings shape = _host.Shape;
+        OverlayShapeSettings shape = _context.Shape;
         OverlayColorSettings color = _picker.Changed(
           stroke ? shape.Stroke : shape.Fill,
           picked,
@@ -154,11 +157,11 @@ internal sealed class ShapeColors
           shape.Stroke = color;
           // A visible border needs a width; start from a thin one.
           if (shape.StrokeWidth <= 0 && string.IsNullOrEmpty(shape.StrokeWidthFormula))
-            shape.StrokeWidth = 4 / _host.ElementScale;
+            shape.StrokeWidth = 4 / _context.ElementScale;
         }
         else
           shape.Fill = color;
-        _host.Render();
+        _editor.Render();
       },
       keepStop
     );
@@ -176,12 +179,12 @@ internal sealed class ShapeColors
   public void ShowButtons(ShapePreview preview)
   {
     _fillButton.SetSwatch(OverlayTextComposer.Resolve(preview.Resolved.Fill, UiTheme.Accent), preview.FillGradient);
-    _fillButton.Set(ColorNames.Describe(_host.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
+    _fillButton.Set(ColorNames.Describe(_context.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
     _strokeButton.SetSwatch(
       OverlayTextComposer.Resolve(preview.Resolved.Stroke, UiTheme.Accent),
       preview.StrokeGradient
     );
-    _strokeButton.Set(ColorNames.Describe(_host.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
+    _strokeButton.Set(ColorNames.Describe(_context.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
@@ -194,7 +197,7 @@ internal sealed class ShapeColors
       return;
     string key = OpacityKey;
     OverlayFormula formula = _numbers.Shown(key);
-    OverlayColorSettings color = _pickerForStroke ? _host.Shape.Stroke : _host.Shape.Fill;
+    OverlayColorSettings color = _pickerForStroke ? _context.Shape.Stroke : _context.Shape.Fill;
     Opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
   }
 

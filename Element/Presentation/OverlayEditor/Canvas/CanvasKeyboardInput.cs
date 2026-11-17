@@ -19,7 +19,7 @@ internal sealed class CanvasKeyboardInput
   private readonly CanvasDragInput _drag;
   private readonly ToolbarPanel _toolbar;
   private readonly ElementKinds _kinds;
-  private readonly CanvasCommands _commands;
+  private readonly ICanvasActions _canvas;
 
   public CanvasKeyboardInput(
     CanvasSession session,
@@ -27,7 +27,7 @@ internal sealed class CanvasKeyboardInput
     CanvasDragInput drag,
     ToolbarPanel toolbar,
     ElementKinds kinds,
-    CanvasCommands commands
+    ICanvasActions canvas
   )
   {
     _session = session;
@@ -35,7 +35,7 @@ internal sealed class CanvasKeyboardInput
     _drag = drag;
     _toolbar = toolbar;
     _kinds = kinds;
-    _commands = commands;
+    _canvas = canvas;
   }
 
   public void Handle()
@@ -60,19 +60,19 @@ internal sealed class CanvasKeyboardInput
     if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Z))
     {
       if (EditorKeys.ShiftHeld)
-        _commands.Redo();
+        _canvas.Redo();
       else
-        _commands.Undo();
+        _canvas.Undo();
       return;
     }
     if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Y))
     {
-      _commands.Redo();
+      _canvas.Redo();
       return;
     }
     if (EditorKeys.CommandHeld && (EditorKeys.Pressed(KeyCode.Delete) || EditorKeys.Pressed(KeyCode.Backspace)))
     {
-      _commands.Delete();
+      _canvas.Delete();
       return;
     }
     if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.A))
@@ -109,7 +109,7 @@ internal sealed class CanvasKeyboardInput
       float ratio = grow ? 1.02f : 1f / 1.02f;
       if (step > 1f)
         ratio = grow ? 1.1f : 1f / 1.1f;
-      _toolbar.ScaleBy(ratio);
+      _toolbar.ViewModel.ScaleBy(ratio);
     }
     if (dx != 0 || dy != 0 || grow || shrink)
       _session.Commit();

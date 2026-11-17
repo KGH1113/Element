@@ -26,20 +26,18 @@ internal sealed class GrowPopoverPanel : IPopover
   public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked)
   {
     _screen = screen;
-    Model = new GrowPickerViewModel(picked);
+    ViewModel = new GrowPickerViewModel(picked);
     _panel = screen.Panel("Grow popover", UiPalette.Popover);
-    _panel.Mount(screen.NewBackend(), new GrowPopoverView(Model), Model, Width);
+    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel), ViewModel, Width);
     Root.gameObject.SetActive(false);
   }
 
   /// <summary>What it shows: the points, Auto and the caption.</summary>
-  public GrowPickerViewModel Model { get; }
+  public GrowPickerViewModel ViewModel { get; }
 
   public RectTransform Root => _panel.Root;
 
   public bool Visible => Root.gameObject.activeSelf;
-
-  public string Caption => Model.Caption.Value;
 
   /// <summary>Opens below <paramref name="anchor"/> (frame units), kept on the editor's screen.</summary>
   public void Show(Rect anchor)
@@ -63,7 +61,7 @@ internal sealed class GrowPopoverPanel : IPopover
   /// <summary>Shows <paramref name="growth"/>; with Auto, <paramref name="point"/> is today's point.</summary>
   public void Refresh(OverlayGrowth growth, Anchor9 point)
   {
-    Model.Show(growth, point);
+    ViewModel.Show(growth, point);
     // The caption may take another line.
     _panel.Refit(Width);
     if (Visible)

@@ -5,6 +5,7 @@ using Element.Domain.Overlay.ValueColors;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -27,7 +28,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextColor
 {
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
+  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextGradient _gradient;
@@ -44,7 +46,8 @@ internal sealed class TextColor
   private bool _toldValueColorOff;
 
   public TextColor(
-    ITextEditorHost host,
+    IEditorActions editor,
+    ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextGradient gradient,
@@ -53,7 +56,8 @@ internal sealed class TextColor
     Func<bool> reduceMotion
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _text = text;
     _formulas = formulas;
     _gradient = gradient;
@@ -62,11 +66,11 @@ internal sealed class TextColor
       font,
       reduceMotion,
       () => _text.Remember(false),
-      () => _host.Screen != null,
+      () => _context.Frame != null,
       // Its numbers go with it.
       () => _formulas.Field == TextFormulas.OpacityKey || TextGradient.IsKey(_formulas.Field),
-      _host.CloseOpen,
-      _host.Render
+      _editor.CloseOpen,
+      _editor.Render
     );
     OpacitySlot = new FormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
   }
@@ -108,12 +112,12 @@ internal sealed class TextColor
 
   private void OpenPicker()
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     UiColorPicker picker = _picker.Picker;
     if (picker.Visible)
     {
       picker.Hide();
-      _host.Render();
+      _editor.Render();
       return;
     }
     _text.Range(out int start, out int end);
@@ -138,17 +142,17 @@ internal sealed class TextColor
         if (followed && !_toldValueColorOff)
         {
           _toldValueColorOff = true;
-          _host.Screen.Notice(
+          _editor.Notice(
             L(
               "글자 색을 직접 골라서, 값에 따라 바뀌던 색은 껐어요.",
               "You picked the text color, so the color no longer follows a value."
             )
           );
         }
-        _host.Render();
+        _editor.Render();
       }
     );
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>
@@ -170,7 +174,7 @@ internal sealed class TextColor
       {
         _picker.RememberOnce();
         changed(color);
-        _host.Render();
+        _editor.Render();
       },
       gradient: false
     );

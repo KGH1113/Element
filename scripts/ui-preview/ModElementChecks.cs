@@ -303,7 +303,7 @@ namespace Element.Editor
         Press(modGrowPopover.Root.GetComponentsInChildren<Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.BottomRight));
         Call(mods2, "FitPreview");
         Assert(Field<OverlayGrowth>(mods2, "_growth") == OverlayGrowth.BottomRight && modGrow.Value == GrowPickerViewModel.ShortName(OverlayGrowth.BottomRight)
-          && modGrowPopover.Caption.Contains(L("오른쪽 아래", "bottom right")), "a point picks where the element grows from");
+          && modGrowPopover.ViewModel.Caption.Value.Contains(L("오른쪽 아래", "bottom right")), "a point picks where the element grows from");
         mods2.Escape();
         Call(mods2, "FitPreview");
         Assert(mods2.IsOpen && !modGrowPopover.Visible && !modGrow.Active, "Esc closes the popover before the editor");
@@ -408,7 +408,7 @@ namespace Element.Editor
         AssertModTool(mods2, Column(), L("숨기기 키", "Hide key"));
         Press(ByName<Pressable>(Column().ToolRoot, "Shortcut field " + L("숨기기 키", "Hide key")));
         Assert(mods2.Page.Typing, "a shortcut part records the next key");
-        ShortcutFieldViewModel shortcut = Field<List<ShortcutFieldViewModel>>(Field<ModEditorContext>(mods2, "_context"), "_shortcuts").Single();
+        ShortcutFieldViewModel shortcut = Field<List<ShortcutFieldViewModel>>(Field<ModPickerContext>(mods2, "_pickers"), "_shortcuts").Single();
         shortcut.TryAssign(KeyCode.H, KeyCode.None);
         Assert(!mods2.Page.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
         SaveFrame(camera, texture, canvases, name + "-mod-editor-shortcut");
@@ -506,7 +506,7 @@ namespace Element.Editor
       }
 
       // Its cards are the column's headings, its controls the column's rows, 40 tall and 6 apart, the names lined up.
-      float scale = Field<EditorFramePanel>(mods, "_screen").Scale;
+      float scale = Field<EditorFramePanel>(mods, "_frame").Scale;
       TextMeshProUGUI heading = view.GetComponentsInChildren<TextMeshProUGUI>(false).First(label => label.text == L("막대", "Bar"));
       Rect fill = ScreenRectOf((RectTransform)Row("Color " + L("채우기", "Fill")).transform),
         rounded = ScreenRectOf((RectTransform)Row("Switch " + L("둥근 모서리", "Rounded")).transform);
@@ -662,7 +662,7 @@ namespace Element.Editor
     private static void CheckModColumn(ModEditorScreen editor, ModEditorColumn column, string what)
     {
       Settle();
-      EditorFramePanel screen = Field<EditorFramePanel>(editor, "_screen");
+      EditorFramePanel screen = Field<EditorFramePanel>(editor, "_frame");
       Rect shown = ScreenRectOf(column.Root), preview = ModPreviewRect(editor);
       float left = (screen.ContentLeft + screen.ContentWidth - KeypadView.Width) * screen.Scale,
         top = Screen.height - (EditorFramePanel.TopBar + InspectorPanel.Gap) * screen.Scale;
@@ -681,7 +681,7 @@ namespace Element.Editor
       Assert(column.OpenTool == tool && !Shown(column.Root) && back != null && Shown(back)
         && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool), "the column shows a back row naming " + tool);
       Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(column.ToolRoot);
-      Assert(Mathf.Abs(toolRect.xMax - (column.Area.xMax * Field<EditorFramePanel>(editor, "_screen").Scale)) < 1
+      Assert(Mathf.Abs(toolRect.xMax - (column.Area.xMax * Field<EditorFramePanel>(editor, "_frame").Scale)) < 1
         && Mathf.Abs(backRect.yMax - toolRect.yMax) < 1 && InsideScreen(toolRect), tool + " opens in the column under its back row: " + toolRect);
     }
 

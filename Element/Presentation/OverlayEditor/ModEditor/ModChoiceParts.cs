@@ -74,7 +74,7 @@ internal sealed class ModChoiceParts
     ModPart part = _page.Part();
     ModValueViewModel<Anchor> current = _page.Value(part, value, changed);
     Binding<Anchor> anchor = Bind(() => current.Value);
-    ModEditorContext context = _page.Context;
+    ModPickerContext context = _page.Pickers;
     part.Control = () => ModParts.AnchorPicker(label, anchor, context);
     return _page.Add(part);
   }

@@ -17,7 +17,7 @@ namespace Element.Presentation.OverlayEditor.ModEditor;
 internal sealed class ModViewPanel : IModColumnPanel
 {
   private readonly ModEditorColumn _column;
-  private readonly ModEditorContext _context;
+  private readonly ModPickerContext _context;
 
   /// <param name="frame">The editor's controls, in frame units.</param>
   /// <param name="area">Where the column stands.</param>
@@ -30,7 +30,7 @@ internal sealed class ModViewPanel : IModColumnPanel
     View view,
     ViewModel model,
     Func<IBackend> backend,
-    ModEditorContext context,
+    ModPickerContext context,
     Func<string, float> measure,
     Action edited,
     Action<bool> dragging

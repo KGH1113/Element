@@ -17,7 +17,8 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// </summary>
 internal sealed class ShapeInput
 {
-  private readonly IShapeEditorHost _host;
+  private readonly IShapeEditorActions _editor;
+  private readonly IShapeEditorContext _context;
   private readonly ShapeNumbers _numbers;
   private readonly ShapeColors _colors;
   private readonly ShapeGradient _gradient;
@@ -29,7 +30,8 @@ internal sealed class ShapeInput
   private readonly Event _event = new();
 
   public ShapeInput(
-    IShapeEditorHost host,
+    IShapeEditorActions editor,
+    IShapeEditorContext context,
     ShapeNumbers numbers,
     ShapeColors colors,
     ShapeGradient gradient,
@@ -40,7 +42,8 @@ internal sealed class ShapeInput
     EditorHistory<OverlayShapeSettings> history
   )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _numbers = numbers;
     _colors = colors;
     _gradient = gradient;
@@ -54,13 +57,13 @@ internal sealed class ShapeInput
   public void HandleKeys()
   {
     bool mac = EditorKeys.Mac;
-    while (_host.Screen != null && EditorKeys.NextKeyDown(_event))
+    while (_context.Frame != null && EditorKeys.NextKeyDown(_event))
     {
       if (EditorKeys.Command(_event, mac))
       {
         if (EditorKeys.IsEnter(_event.keyCode))
         {
-          _host.Close(true, true);
+          _editor.Close(true, true);
           return;
         }
         if (_event.keyCode == KeyCode.Z)
@@ -78,8 +81,8 @@ internal sealed class ShapeInput
       UiColorPicker picker = _colors.Picker;
       if (code == KeyCode.Escape)
       {
-        bool finishing = !picker.Visible && !_host.AnyOpen;
-        _host.Escape();
+        bool finishing = !picker.Visible && !_context.AnyOpen;
+        _editor.Escape();
         if (finishing)
           return;
         continue;
@@ -89,9 +92,9 @@ internal sealed class ShapeInput
       {
         if (picker.Visible)
           picker.Hide();
-        else if (_host.AnyOpen)
-          _host.CloseOpen();
-        _host.Render();
+        else if (_context.AnyOpen)
+          _editor.CloseOpen();
+        _editor.Render();
         continue;
       }
       if (_gradient.Key(code, _event.shift, _numbers.Editing.Active))
@@ -113,25 +116,25 @@ internal sealed class ShapeInput
     bool picker = colors.Visible;
     if (picker)
       colors.Hide();
-    if (!_host.AnyOpen && !picker)
+    if (!_context.AnyOpen && !picker)
       return;
-    _host.CloseOpen();
-    _host.Render();
+    _editor.CloseOpen();
+    _editor.Render();
   }
 
   // The property column's space above the keypad, rows or not, is the column's.
-  private bool InColumn(Vector2 frame) => frame.x >= _host.Inspector.Left - 8 && frame.y < _host.DockPanel.Top;
+  private bool InColumn(Vector2 frame) => frame.x >= _context.Inspector.Left - 8 && frame.y < _context.DockPanel.Top;
 
   private bool OverControl(Vector2 screen)
   {
     if (
-      _host.Inspector.Contains(screen)
-      || _host.DockPanel.Contains(screen)
+      _context.Inspector.Contains(screen)
+      || _context.DockPanel.Contains(screen)
       || _grow.Contains(screen)
       || PopoverPlacement.Contains(_colors.Picker.Root, screen)
       || _gradient.Handles.Contains(screen)
-      || _host.Screen.ToFrame(screen).y < EditorFramePanel.TopBar
-      || InColumn(_host.Screen.ToFrame(screen))
+      || _context.Frame.ToFrame(screen).y < EditorFramePanel.TopBar
+      || InColumn(_context.Frame.ToFrame(screen))
     )
       return true;
     _fields.Collect();

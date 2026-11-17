@@ -33,7 +33,7 @@ internal sealed class TextValueColor : IValueColorEditor
   /// <summary>The dock types the picked stop's value.</summary>
   public const string StopKey = "color-stop";
 
-  private readonly ITextEditorHost _host;
+  private readonly IEditorActions _editor;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextColor _color;
@@ -49,20 +49,20 @@ internal sealed class TextValueColor : IValueColorEditor
   private bool _pickingStop;
 
   public TextValueColor(
-    ITextEditorHost host,
+    IEditorActions editor,
     TextDocumentEditing text,
     TextFormulas formulas,
     TextColor color,
     OverlayValues values
   )
   {
-    _host = host;
+    _editor = editor;
     _text = text;
     _formulas = formulas;
     _color = color;
     _values = values;
     _stopSlot = new FormulaSlot(StopKey, false, ReadStop, WriteStop);
-    _source = new TextValueSource(host, text, values, Follow);
+    _source = new TextValueSource(editor, text, values, Follow);
   }
 
   /// <summary>The menu of values to follow; made by <see cref="Build"/>.</summary>
@@ -134,7 +134,7 @@ internal sealed class TextValueColor : IValueColorEditor
   /// </summary>
   public void Toggle()
   {
-    _host.CloseOpen();
+    _editor.CloseOpen();
     bool? follows = Follows();
     _text.Remember(false);
     if (follows == true)
@@ -142,8 +142,8 @@ internal sealed class TextValueColor : IValueColorEditor
       if (_color.PicksOther)
         _color.Picker.Hide();
       Write(null);
-      _host.Screen.Notice(L("색이 다시 값을 따라가지 않아요.", "The color no longer follows a value."), false);
-      _host.Render();
+      _editor.Notice(L("색이 다시 값을 따라가지 않아요.", "The color no longer follows a value."), false);
+      _editor.Render();
       return;
     }
     OverlayValueColor made = Current()?.Clone();
@@ -161,9 +161,9 @@ internal sealed class TextValueColor : IValueColorEditor
     if (OverlayValueColorEdits.Followed(made) == null)
     {
       // Nothing to follow in the range: the values to pick from open at once.
-      _host.Render();
+      _editor.Render();
       PickSource();
-      _host.Screen.Notice(
+      _editor.Notice(
         L(
           "고른 부분에 값이 없어요. 색이 따라갈 값을 골라 주세요.",
           "The selection has no value. Pick the value the color follows."
@@ -172,11 +172,11 @@ internal sealed class TextValueColor : IValueColorEditor
       );
       return;
     }
-    _host.Screen.Notice(
+    _editor.Notice(
       L(FollowedName(made) + "에 따라 색이 바뀌어요.", "The color follows " + FollowedName(made) + "."),
       false
     );
-    _host.Render();
+    _editor.Render();
   }
 
   // ---- Which value it follows ----
@@ -194,7 +194,7 @@ internal sealed class TextValueColor : IValueColorEditor
     OverlayValueColor current = Current();
     if (current != null && current.Value == value.Key)
     {
-      _host.Render();
+      _editor.Render();
       return;
     }
     _text.Remember(false);
@@ -206,11 +206,11 @@ internal sealed class TextValueColor : IValueColorEditor
     );
     Write(made);
     _selected = Starting(made);
-    _host.Screen.Notice(
+    _editor.Notice(
       L(FollowedName(made) + "에 따라 색이 바뀌어요.", "The color follows " + FollowedName(made) + "."),
       false
     );
-    _host.Render();
+    _editor.Render();
   }
 
   // ---- The band ----
@@ -221,12 +221,12 @@ internal sealed class TextValueColor : IValueColorEditor
     if (color == null || index < 0 || index >= color.Stops.Count)
       return;
     bool picking = _pickingStop && _color.PicksOther;
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _selected = index;
     // The picker moves over to the newly picked stop.
     if (picking)
       OpenStopColor(color);
-    _host.Render();
+    _editor.Render();
   }
 
   public int AddStop(float at)
@@ -236,7 +236,7 @@ internal sealed class TextValueColor : IValueColorEditor
       return -1;
     if (color.Stops.Count >= OverlayValueColor.MaximumStops)
     {
-      _host.Screen.Notice(
+      _editor.Notice(
         L(
           "점은 " + OverlayValueColor.MaximumStops + "개까지 둘 수 있어요.",
           "A color holds up to " + OverlayValueColor.MaximumStops + " stops."
@@ -245,7 +245,7 @@ internal sealed class TextValueColor : IValueColorEditor
       return -1;
     }
     bool picking = _pickingStop && _color.PicksOther;
-    _host.CloseOpen();
+    _editor.CloseOpen();
     _text.Remember(false);
     OverlayValueColor changed = color.Clone();
     int added = OverlayValueColorEdits.AddStop(changed, at, Accent);
@@ -254,7 +254,7 @@ internal sealed class TextValueColor : IValueColorEditor
     _added = true;
     if (picking)
       OpenStopColor(changed);
-    _host.Render();
+    _editor.Render();
     return added;
   }
 
@@ -278,14 +278,14 @@ internal sealed class TextValueColor : IValueColorEditor
     OverlayValueColor changed = color.Clone();
     changed.Stops[index].At = at;
     Write(changed);
-    _host.Render();
+    _editor.Render();
   }
 
   public void EndDrag()
   {
     _dragRemembered = false;
     _added = false;
-    _host.Render();
+    _editor.Render();
   }
 
   public void RemoveStop()
@@ -294,7 +294,7 @@ internal sealed class TextValueColor : IValueColorEditor
     if (color == null || _selected < 0 || _selected >= color.Stops.Count)
       return;
     bool picking = _pickingStop && _color.PicksOther;
-    _host.CloseOpen();
+    _editor.CloseOpen();
     OverlayValueColor changed = color.Clone();
     float at = changed.Stops[_selected].At;
     if (!OverlayValueColorEdits.RemoveStop(changed, _selected))
@@ -304,7 +304,7 @@ internal sealed class TextValueColor : IValueColorEditor
     _selected = Nearest(changed, at);
     if (picking)
       OpenStopColor(changed);
-    _host.Render();
+    _editor.Render();
   }
 
   public void SetMode(OverlayValueColorMode mode)
@@ -316,7 +316,7 @@ internal sealed class TextValueColor : IValueColorEditor
     OverlayValueColor changed = color.Clone();
     changed.Mode = mode;
     Write(changed);
-    _host.Render();
+    _editor.Render();
   }
 
   // ---- The picked stop ----
@@ -364,12 +364,12 @@ internal sealed class TextValueColor : IValueColorEditor
     if (_pickingStop && _color.PicksOther)
     {
       _color.Picker.Hide();
-      _host.Render();
+      _editor.Render();
       return;
     }
-    _host.CloseOpen();
+    _editor.CloseOpen();
     OpenStopColor(color);
-    _host.Render();
+    _editor.Render();
   }
 
   // The picker beside the column on the picked stop's color.

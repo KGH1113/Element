@@ -188,8 +188,8 @@ namespace Element.Editor
       int items = document.Document.Count;
       Press(DockChip(dock, "Value song-title"));
       Settle();
-      Assert(valueColor.Armed && document.Document.Count == items && screen.NoticeText.Length > 0,
-        "words can't pick a color, and say why: " + screen.NoticeText);
+      Assert(valueColor.Armed && document.Document.Count == items && screen.ViewModel.NoticeText.Length > 0,
+        "words can't pick a color, and say why: " + screen.ViewModel.NoticeText);
       text.Escape();
       Assert(!valueColor.Armed && animate.Visible && text.IsOpen, "Esc stops picking from the dock, leaving the tool");
       Press(ByName<Pressable>(animate.Root, "Value color source"));
@@ -231,8 +231,8 @@ namespace Element.Editor
       textPicker.Model.SetSource(false);
       textPicker.Model.PickSaturationValue(.5f, .9f);
       Settle();
-      Assert(!document.Document[0].Color.FollowsValue && screen.NoticeText.Contains(korean ? "값에 따라 바뀌던 색은 껐어요" : "no longer follows a value"),
-        "a color picked there stops following the value, and says so: " + screen.NoticeText);
+      Assert(!document.Document[0].Color.FollowsValue && screen.ViewModel.NoticeText.Contains(korean ? "값에 따라 바뀌던 색은 껐어요" : "no longer follows a value"),
+        "a color picked there stops following the value, and says so: " + screen.ViewModel.NoticeText);
       text.Escape();
       document.Undo();
       Settle();

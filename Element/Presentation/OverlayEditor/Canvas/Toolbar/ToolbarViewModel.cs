@@ -1,6 +1,7 @@
 using System.Globalization;
 using Element.Application.Layout;
 using Element.Domain.Layout;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
@@ -33,7 +34,7 @@ internal sealed class ToolbarViewModel : ViewModel
     CanvasSelection selection,
     CanvasStatusLine status,
     ElementKinds kinds,
-    CanvasCommands commands
+    ICanvasActions canvas
   )
   {
     _session = session;
@@ -44,17 +45,17 @@ internal sealed class ToolbarViewModel : ViewModel
     Computed<bool> scalable = Computed(() => HasSelection.Value && !Several.Value);
     Computed<bool> selected = Computed(() => HasSelection.Value);
     Scalable = scalable;
-    Undo = Command(() => commands.Undo(), canExecute: Computed(() => CanUndo.Value));
-    Redo = Command(() => commands.Redo(), canExecute: Computed(() => CanRedo.Value));
-    Cancel = Command(() => commands.Cancel());
-    Save = Command(() => commands.Save());
-    ResetAll = Command(() => commands.ResetAll());
-    ResetElement = Command(() => commands.ResetSelected(), canExecute: selected);
-    Delete = Command(() => commands.Delete(), canExecute: selected);
-    Add = Command(() => commands.Add());
-    Color = Command(() => commands.Color());
-    Font = Command(() => commands.Font(), canExecute: Computed(() => HasFonts));
-    Edit = Command(() => commands.Edit());
+    Undo = Command(() => canvas.Undo(), canExecute: Computed(() => CanUndo.Value));
+    Redo = Command(() => canvas.Redo(), canExecute: Computed(() => CanRedo.Value));
+    Cancel = Command(() => canvas.Cancel());
+    Save = Command(() => canvas.Save());
+    ResetAll = Command(() => canvas.ResetAll());
+    ResetElement = Command(() => canvas.ResetSelected(), canExecute: selected);
+    Delete = Command(() => canvas.Delete(), canExecute: selected);
+    Add = Command(() => canvas.Add());
+    Color = Command(() => canvas.Color());
+    Font = Command(() => canvas.Font(), canExecute: Computed(() => HasFonts));
+    Edit = Command(() => canvas.Edit());
     Grow = Command(() => ScaleBy(1.05f), canExecute: scalable);
     Shrink = Command(() => ScaleBy(.95f), canExecute: scalable);
     Snap = Command(() =>

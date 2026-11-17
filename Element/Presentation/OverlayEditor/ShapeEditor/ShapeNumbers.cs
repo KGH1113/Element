@@ -30,7 +30,8 @@ internal sealed class ShapeNumbers
 
   public const string StrokeKey = "stroke";
 
-  private readonly IShapeEditorHost _host;
+  private readonly IShapeEditorActions _editor;
+  private readonly IShapeEditorContext _context;
   private readonly OverlayValues _values;
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly FormulaEditing _editing = new();
@@ -38,9 +39,15 @@ internal sealed class ShapeNumbers
   private PropertyButtonViewModel _strokeWidth;
   private FormulaSlot _slot;
 
-  public ShapeNumbers(IShapeEditorHost host, OverlayValues values, EditorHistory<OverlayShapeSettings> history)
+  public ShapeNumbers(
+    IShapeEditorActions editor,
+    IShapeEditorContext context,
+    OverlayValues values,
+    EditorHistory<OverlayShapeSettings> history
+  )
   {
-    _host = host;
+    _editor = editor;
+    _context = context;
     _values = values;
     _history = history;
   }
@@ -60,7 +67,7 @@ internal sealed class ShapeNumbers
     _strokeWidth = new PropertyButtonViewModel(
       "Border width",
       L("테두리 두께", "Border width"),
-      () => _host.Activate(StrokeKey),
+      () => _editor.Activate(StrokeKey),
       value: true,
       unit: "px",
       icon: UiIconKind.StrokeWidth
@@ -84,8 +91,8 @@ internal sealed class ShapeNumbers
     OverlayFormula gradient = _gradient.Read(Kind(key, out _));
     if (gradient != null)
       return gradient;
-    OverlayShapeSettings shape = _host.Shape;
-    float scale = _host.ElementScale;
+    OverlayShapeSettings shape = _context.Shape;
+    float scale = _context.ElementScale;
     switch (Kind(key, out int index))
     {
       case ShapeMeasures.WidthKey:
@@ -116,8 +123,8 @@ internal sealed class ShapeNumbers
     _history.Remember(key);
     if (_gradient.Write(Kind(key, out _), formula))
       return;
-    OverlayShapeSettings shape = _host.Shape;
-    float scale = _host.ElementScale;
+    OverlayShapeSettings shape = _context.Shape;
+    float scale = _context.ElementScale;
     bool plain = formula.IsPlainNumber(out double value);
     string text = plain ? "" : formula.Serialize();
     float number = (float)value;
@@ -178,31 +185,30 @@ internal sealed class ShapeNumbers
     OverlayFormula typed = _editing.Working?.Trimmed();
     Field = null;
     _editing.Deactivate();
-    EditorFramePanel screen = _host.Screen;
-    if (typed == null || !typed.IsPlainNumber(out double number) || screen == null)
+    if (typed == null || !typed.IsPlainNumber(out double number) || _context.Frame == null)
       return;
     string kind = Kind(key, out _);
     if ((kind == ShapeMeasures.WidthKey || kind == ShapeMeasures.HeightKey) && (number < 1 || number > MaximumSize))
-      screen.Notice(L("너비와 높이는 1–10000px 사이로 맞췄어요", "Width and height were kept between 1 and 10000px"));
+      _editor.Notice(L("너비와 높이는 1–10000px 사이로 맞췄어요", "Width and height were kept between 1 and 10000px"));
     else if (kind == StrokeKey && (number < 0 || number > MaximumStroke))
-      screen.Notice(L("테두리 두께는 0–100px 사이로 맞췄어요", "Border width was kept between 0 and 100px"));
+      _editor.Notice(L("테두리 두께는 0–100px 사이로 맞췄어요", "Border width was kept between 0 and 100px"));
     else if (kind.EndsWith("opacity") && OpacityFieldView.OutOfRange(typed))
-      screen.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
+      _editor.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
     else if (kind.EndsWith("position") && (number < 0 || number > 100))
-      screen.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
+      _editor.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
     else if (kind == "radius" && !Read(key).SameAs(OverlayFormula.FromNumber(number)))
-      screen.Notice(L("둥글기는 이 꼭짓점에 들어가는 만큼만 적용돼요", "Rounding was kept to what fits this corner"));
+      _editor.Notice(L("둥글기는 이 꼭짓점에 들어가는 만큼만 적용돼요", "Rounding was kept to what fits this corner"));
   }
 
   public void KeypadPress(char key)
   {
-    if (_host.Screen == null)
+    if (_context.Frame == null)
       return;
     if (key == '\b')
       _editing.Backspace();
     else
       _editing.Press(key);
-    _host.Render();
+    _editor.Render();
   }
 
   /// <summary>Starting over is its own undo step.</summary>
@@ -210,33 +216,32 @@ internal sealed class ShapeNumbers
   {
     _editing.Clear();
     _history.Break();
-    _host.Render();
+    _editor.Render();
   }
 
   public void FinishEditing()
   {
-    _host.CloseOpen();
-    _host.Render();
+    _editor.CloseOpen();
+    _editor.Render();
   }
 
   /// <summary>A value picked in the dock joins or replaces the open number's formula.</summary>
   public void PickValue(OverlayValueDefinition value)
   {
-    EditorFramePanel screen = _host.Screen;
-    if (screen == null)
+    if (_context.Frame == null)
       return;
     if (!_editing.Active)
     {
-      screen.Notice(L("먼저 값을 넣을 숫자를 고르세요", "Pick the number for it first"), false);
+      _editor.Notice(L("먼저 값을 넣을 숫자를 고르세요", "Pick the number for it first"), false);
       return;
     }
     if (_editing.Drop(_editing.Slot, value) == FormulaDropResult.RefusedWords)
       RefuseWords(value);
-    _host.Render();
+    _editor.Render();
   }
 
   public void RefuseWords(OverlayValueDefinition value) =>
-    _host.Screen.Notice(
+    _editor.Notice(
       L(
         ValueSectionNames.ValueName(value) + "은 글자라서 도형의 숫자에는 넣을 수 없어요",
         ValueSectionNames.ValueName(value) + " is words, so it can't go in a shape's number"

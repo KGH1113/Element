@@ -22,10 +22,7 @@ namespace Element.Presentation.Settings.Window;
 /// </summary>
 internal sealed class SettingsWindowViewModel : ViewModel
 {
-  private readonly Action _apply;
-  private readonly Func<bool> _save;
-  private readonly Action _editLayout;
-  private readonly Action _close;
+  private readonly ISettingsWindowActions _screen;
 
   public readonly ElementSettings Settings;
   public readonly SettingsFeatures Features;
@@ -58,21 +55,11 @@ internal sealed class SettingsWindowViewModel : ViewModel
   public Command Close { get; }
   public Command RetrySave { get; }
 
-  public SettingsWindowViewModel(
-    ElementSettings settings,
-    SettingsFeatures features,
-    Action apply,
-    Func<bool> save,
-    Action editLayout,
-    Action close
-  )
+  public SettingsWindowViewModel(ElementSettings settings, SettingsFeatures features, ISettingsWindowActions screen)
   {
     Settings = settings;
     Features = features;
-    _apply = apply;
-    _save = save;
-    _editLayout = editLayout;
-    _close = close;
+    _screen = screen;
     Home = Own(new HomeViewModel(this));
     Tweaks = Own(new TweaksViewModel(this, Home));
     EditorTweaks = Own(new EditorTweaksViewModel(this, Tweaks));
@@ -115,10 +102,10 @@ internal sealed class SettingsWindowViewModel : ViewModel
     CanGoBack = Computed(() => Current.Parent != null);
     SaveFailed = Computed(() => SaveError.Length > 0);
     Back = Command(GoBack, canExecute: CanGoBack);
-    Close = Command(() => _close());
+    Close = Command(() => _screen.Close());
     RetrySave = Command(() =>
     {
-      if (_save())
+      if (_screen.Save())
         SaveError = "";
     });
   }
@@ -144,12 +131,12 @@ internal sealed class SettingsWindowViewModel : ViewModel
   }
 
   /// <summary>A control changed a setting: apply it.</summary>
-  public void Changed() => _apply();
+  public void Changed() => _screen.Apply();
 
   /// <summary>Saves; on failure the window says why and offers to try again.</summary>
   public bool Save()
   {
-    if (_save())
+    if (_screen.Save())
     {
       SaveError = "";
       return true;
@@ -175,7 +162,7 @@ internal sealed class SettingsWindowViewModel : ViewModel
   public void EditLayout()
   {
     if (Save())
-      _editLayout();
+      _screen.EditLayout();
   }
 
   /// <summary>The window opened: start on the first page.</summary>

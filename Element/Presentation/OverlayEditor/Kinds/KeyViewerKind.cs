@@ -15,11 +15,16 @@ namespace Element.Presentation.OverlayEditor.Kinds;
 /// </summary>
 internal sealed class KeyViewerKind : IElementKind
 {
-  private readonly ICanvasEditing _editing;
+  private readonly ICanvasContext _context;
+  private readonly ICanvasActions _canvas;
 
-  public KeyViewerKind(ICanvasEditing editing) => _editing = editing;
+  public KeyViewerKind(ICanvasContext context, ICanvasActions canvas)
+  {
+    _context = context;
+    _canvas = canvas;
+  }
 
-  private IKeyViewerElements Viewers => _editing.Session.KeyViewers;
+  private IKeyViewerElements Viewers => _context.Session.KeyViewers;
 
   public bool Owns(IOverlayLayoutTarget target) => OverlayElementKinds.IsKeyViewer(target.TemplateId);
 
@@ -65,11 +70,11 @@ internal sealed class KeyViewerKind : IElementKind
 
   private void Add()
   {
-    _editing.AddMenu.Close();
+    _context.AddMenu.Close();
     IOverlayLayoutTarget viewer = Viewers?.Add(OverlayElementKinds.HandKeyViewer);
     if (viewer == null)
     {
-      _editing.Status.ShowError(
+      _context.Status.ShowError(
         L(
           "키뷰어를 추가하지 못했어요. ElementNote가 켜져 있는지 확인해 주세요.",
           "Couldn't add the key viewer. Check that ElementNote is open."
@@ -79,7 +84,7 @@ internal sealed class KeyViewerKind : IElementKind
     }
     viewer.SetEnabled(true);
     viewer.SetPreview(true);
-    _editing.PlaceNew(viewer, true);
+    _canvas.PlaceNew(viewer, true);
   }
 
   public bool Edit(IOverlayLayoutTarget target)
@@ -105,7 +110,7 @@ internal sealed class KeyViewerKind : IElementKind
       case KeyViewerEditResult.Opened:
         return;
       case KeyViewerEditResult.AppClosed:
-        _editing.Status.ShowError(
+        _context.Status.ShowError(
           L(
             "ElementNote가 꺼져 있어요. ElementNote를 켠 뒤 다시 눌러 주세요.",
             "ElementNote is closed. Open it, then try again."
@@ -113,7 +118,7 @@ internal sealed class KeyViewerKind : IElementKind
         );
         return;
       case KeyViewerEditResult.AppOutdated:
-        _editing.Status.ShowError(
+        _context.Status.ShowError(
           L(
             "ElementNote를 업데이트해야 해요. ElementNote를 끄고 게임을 다시 시작해 주세요.",
             "ElementNote needs an update. Quit it and restart the game."
@@ -121,7 +126,7 @@ internal sealed class KeyViewerKind : IElementKind
         );
         return;
       default:
-        _editing.Status.ShowError(
+        _context.Status.ShowError(
           L(
             "ElementNote를 열지 못했어요. 잠시 후 다시 눌러 주세요.",
             "Couldn't open ElementNote. Try again in a moment."
@@ -144,7 +149,7 @@ internal sealed class KeyViewerKind : IElementKind
     IOverlayLayoutTarget created = Viewers?.Switch(old, templateId);
     if (created == null)
     {
-      _editing.Status.ShowError(
+      _context.Status.ShowError(
         L(
           "키뷰어를 바꾸지 못했어요. ElementNote가 켜져 있는지 확인해 주세요.",
           "Couldn't switch the key viewer. Check that ElementNote is open."
@@ -152,17 +157,17 @@ internal sealed class KeyViewerKind : IElementKind
       );
       return false;
     }
-    CanvasSession session = _editing.Session;
+    CanvasSession session = _context.Session;
     (old as IExternalLayoutOutline)?.SetSelected(false);
     created.SetPreview(true);
     if (session.IndexOf(created) < 0)
       session.AddFrame(created);
-    _editing.Selection.Selected = session.IndexOf(created);
+    _context.Selection.Selected = session.IndexOf(created);
     // The bar follows the new viewer instead of being built again for it.
     replaced(created);
     session.Commit();
-    _editing.RefreshLayouts();
-    _editing.UpdateFrames();
+    _canvas.RefreshLayouts();
+    _canvas.UpdateFrames();
     return true;
   }
 

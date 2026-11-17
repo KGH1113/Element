@@ -23,7 +23,7 @@ namespace Element.Editor
   // controls they draw, found by the names the views give them.
   public static partial class SettingsPreview
   {
-    private static EditorFramePanel EditorScreen(object editor) => Field<EditorFramePanel>(editor, "_screen");
+    private static EditorFramePanel EditorScreen(object editor) => Field<EditorFramePanel>(editor, "_frame");
 
     /// <summary>The text and shape editors' property column.</summary>
     private static InspectorPanel EditorInspector(object editor) => Field<InspectorPanel>(editor, "_inspector");
@@ -56,7 +56,7 @@ namespace Element.Editor
       InspectorPanel inspector = EditorInspector(editor);
       Pressable back = ByName<Pressable>(inspector.Root, "Inspector back");
       Assert(back != null && Shown(back) && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool)
-        && inspector.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
+        && inspector.ViewModel.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
         "the column shows only a back row naming " + tool);
       Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(drawn),
         keypad = KeypadRect(DockOf(editor));
@@ -72,7 +72,7 @@ namespace Element.Editor
       Assert(back != null && Shown(back), "the column has a back row");
       Press(back);
       Settle();
-      Assert(EditorInspector(editor).OpenTool == null, "back brings the rows again");
+      Assert(EditorInspector(editor).ViewModel.OpenTool == null, "back brings the rows again");
     }
 
     private static Rect BarButtonRect(object editor, PropertyButtonViewModel button) =>
@@ -254,9 +254,9 @@ namespace Element.Editor
     {
       EditorFramePanel screen = EditorScreen(editor);
       // A notice an earlier step left is read first, and shown again after.
-      string notice = screen.NoticeText;
-      bool warning = screen.Top.Ink.Value.Equals(ElementUI.Colors.Danger);
-      SetField(screen.Top, "_noticeUntil", -1f);
+      string notice = screen.ViewModel.NoticeText;
+      bool warning = screen.ViewModel.Ink.Value.Equals(ElementUI.Colors.Danger);
+      SetField(screen.ViewModel, "_noticeUntil", -1f);
       screen.Tick();
       Settle();
       RectTransform frame = screen.Frame;
@@ -277,7 +277,7 @@ namespace Element.Editor
         && Mathf.Abs(headingRect.center.y - doneRect.center.y) < 2 && Mathf.Abs(doneRect.center.y - headerRect.center.y) < 1 && InsideScreen(doneRect)
         && Mathf.Abs(headingRect.xMin - contentLeft) < 1 && Mathf.Abs(doneRect.xMax - contentRight) < 1,
         "what is edited on the left, Cancel and Done at the right end, in line with the content: " + headingRect + " / " + doneRect);
-      if (screen.Top.InDock)
+      if (screen.ViewModel.InDock)
       {
         DockProbe headerDock = DockOf(editor);
         Assert(Mathf.Abs(ScreenRectOf(headerDock.Root).xMin - headingRect.xMin) < 1 && Mathf.Abs(KeypadRect(headerDock).xMax - doneRect.xMax) < 1,
@@ -291,14 +291,14 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(label.font == screen.Measure.font && !label.isTextTruncated, "header label fits: " + label.text);
       }
-      bool docked = screen.Top.InDock;
+      bool docked = screen.ViewModel.InDock;
       TextMeshProUGUI headerNotice = ByName<TextMeshProUGUI>(frame, "Header notice");
       TextMeshProUGUI line = docked ? ByName<TextMeshProUGUI>(DockOf(editor).Root, "Notice") : headerNotice;
       string plain = line.text;
       Color plainInk = line.color;
-      screen.Notice("Preview warning");
+      screen.ViewModel.Notice("Preview warning", true);
       Settle();
-      Assert(screen.NoticeText == "Preview warning" && line.text == "Preview warning" && line.color == UiPalette.Error,
+      Assert(screen.ViewModel.NoticeText == "Preview warning" && line.text == "Preview warning" && line.color == UiPalette.Error,
         "a warning shows " + (docked ? "right above the dock" : "in the header") + ", warm");
       if (docked)
       {
@@ -308,16 +308,16 @@ namespace Element.Editor
           "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);
       }
       Assert(!docked || headerNotice.text.Length == 0, "the header stays quiet while the dock shows the notices");
-      screen.Notice("Preview note", false);
+      screen.ViewModel.Notice("Preview note", false);
       Settle();
       Assert(line.text == "Preview note" && line.color == UiPalette.Foreground, "a note reads white");
-      SetField(screen.Top, "_noticeUntil", -1f);
+      SetField(screen.ViewModel, "_noticeUntil", -1f);
       screen.Tick();
       Settle();
-      Assert(screen.NoticeText == "" && line.text == plain && (plain.Length == 0 || line.color == plainInk),
+      Assert(screen.ViewModel.NoticeText == "" && line.text == plain && (plain.Length == 0 || line.color == plainInk),
         "what the line said comes back once a notice has been read");
       if (notice.Length > 0)
-        screen.Notice(notice, warning);
+        screen.ViewModel.Notice(notice, warning);
     }
 
     /// <summary>
@@ -335,7 +335,7 @@ namespace Element.Editor
         "the popover offers the nine points, row by row");
       Pressable auto = ByName<Pressable>(popover.Root, "Grow automatically");
       TextMeshProUGUI caption = ByName<TextMeshProUGUI>(popover.Root, "Caption");
-      Assert(Shown(auto) && caption != null && caption.text == popover.Caption && caption.text.Length > 0
+      Assert(Shown(auto) && caption != null && caption.text == popover.ViewModel.Caption.Value && caption.text.Length > 0
         && popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("크기가 바뀔 때 고정할 점", "Point that stays when the size changes")),
         "it says what it picks, with Auto and what the choice does");
       foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -348,7 +348,7 @@ namespace Element.Editor
         "its points and caption sit inside it");
       Press(points[(int)OverlayGrowth.BottomRight]);
       Settle();
-      GrowPickerViewModel model = popover.Model;
+      GrowPickerViewModel model = popover.ViewModel;
       Assert(grow.Growth == OverlayGrowth.BottomRight && model.Points[8].Look.Value == GrowLook.Chosen
         && model.Points[4].Look.Value == GrowLook.Arrow && model.Points[5].Look.Value == GrowLook.Arrow
         && model.Points[0].Look.Value == GrowLook.Dot && caption.text.Contains(L("오른쪽 아래", "bottom right")),

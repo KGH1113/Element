@@ -20,6 +20,7 @@ Commands:
   assets      Build Windows, Linux, and macOS font AssetBundles
   build       Build the mod, its native libraries and ElementNote, test, and install it all
   mod-check   Build and test the mod without installing
+  structure-check  Check that layers, file roles and folders follow docs/plans/data-flow-plan.md
   ui-check    Render and verify the settings UI in the Unity editor without opening the game
   native-webview-check  Build and verify the macOS game WebView host
   windows-webview-check  Build and smoke-test the Windows game WebView host on ELEMENT_WINDOWS_HOST (releases use CD's)
@@ -61,7 +62,7 @@ case "$command_name" in
     usage
     ;;
   assets | build | mod-check | ui-check | native-webview-check | windows-webview-check | windows-install | \
-    install | package | version | release | check | hooks | ipc-sync | mod-format)
+    install | package | version | release | check | hooks | ipc-sync | mod-format | structure-check)
     exec "$WORKFLOWS_DIR/$command_name.sh" "${@:2}"
     ;;
   elementui-sync)

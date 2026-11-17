@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
@@ -48,7 +49,7 @@ internal sealed class ToolbarPanel
   }
 
   /// <summary>What the toolbar shows and does; made by <see cref="Build"/>.</summary>
-  public ToolbarViewModel Model { get; private set; }
+  public ToolbarViewModel ViewModel { get; private set; }
 
   public RectTransform Root => _panel?.Root;
 
@@ -89,9 +90,9 @@ internal sealed class ToolbarPanel
     }
   }
 
-  public void Build(CanvasCommands commands)
+  public void Build(ICanvasActions canvas)
   {
-    Model = new ToolbarViewModel(_session, _selection, _status, _kinds, commands);
+    ViewModel = new ToolbarViewModel(_session, _selection, _status, _kinds, canvas);
     _panel = new ScreenPanel("Layout actions", _session.Root.transform, UiPalette.Toolbar, keyboard: false);
     Mount();
   }
@@ -99,7 +100,7 @@ internal sealed class ToolbarPanel
   // Drawn in the highlight color as it is now.
   private void Mount()
   {
-    _panel.Mount(_session.NewBackend(_status.Hint), new ToolbarView(Model), null, Width);
+    _panel.Mount(_session.NewBackend(_status.Hint), new ToolbarView(ViewModel), null, Width);
     _themeVersion = _seenTheme = UiTheme.Version;
     _controlsVersion = -1;
     _lastBounds = default;
@@ -166,21 +167,13 @@ internal sealed class ToolbarPanel
       _panel.Root.gameObject.SetActive(shown);
   }
 
-  /// <summary>A scale being typed is dropped; the field shows the element's again once it lets go.</summary>
-  public void DropTypedScale() => Model.DropTypedScale();
-
-  /// <summary>The scale shown is read again; a typed scale is dropped.</summary>
-  public void ForgetScale() => Model.ForgetScale();
-
-  public void ScaleBy(float ratio) => Model.ScaleBy(ratio);
-
   /// <summary>
   /// Applies a scale still being typed when the editor saves; false (with
   /// the field focused again) when it can't be used.
   /// </summary>
   public bool CommitPendingScale()
   {
-    if (!Model.CommitTyped())
+    if (!ViewModel.CommitTyped())
     {
       _scale?.Select();
       return false;
@@ -205,7 +198,7 @@ internal sealed class ToolbarPanel
     }
     _panel.Sync();
     FindControls();
-    Model.Sync(Typing);
+    ViewModel.Sync(Typing);
   }
 
   // The highlight color is drawn into the toolbar's buttons: once it holds
@@ -231,6 +224,6 @@ internal sealed class ToolbarPanel
   {
     _panel?.Dispose();
     _panel = null;
-    Model?.Dispose();
+    ViewModel?.Dispose();
   }
 }

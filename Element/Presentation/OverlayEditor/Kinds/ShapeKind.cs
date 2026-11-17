@@ -2,6 +2,7 @@ using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Shape;
+using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.ShapeEditor;
 using Element.Presentation.Ui.Graphics;
@@ -17,11 +18,11 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
   private const float MenuWidth = 220;
   private readonly ListMenu _menu;
 
-  public ShapeKind(ICanvasEditing editing)
-    : base(editing)
+  public ShapeKind(ICanvasContext context, ICanvasActions canvas)
+    : base(context, canvas)
   {
     _menu = new ListMenu("Shape kind menu", MenuWidth, UiPalette.Menu);
-    editing.AddMenu.AddSubmenu(_menu);
+    context.AddMenu.AddSubmenu(_menu);
   }
 
   public override string Label(IOverlayLayoutTarget target) => ((ShapeOverlayElement)target).Label;
@@ -45,7 +46,7 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
       _menu.Hide();
       return;
     }
-    Editing.AddMenu.OpenSubmenu(
+    Context.AddMenu.OpenSubmenu(
       _menu,
       new[]
       {
@@ -61,20 +62,20 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
 
   internal void Add(OverlayShapeKind kind)
   {
-    Editing.AddMenu.Close();
-    ShapeOverlayElement shape = (ShapeOverlayElement)Editing.Session.Host.Add(ShapeElementKind.NewSettings(kind));
+    Context.AddMenu.Close();
+    ShapeOverlayElement shape = (ShapeOverlayElement)Context.Session.Host.Add(ShapeElementKind.NewSettings(kind));
     shape.SetPreview(true);
-    Editing.PlaceNew(shape, false);
+    Actions.PlaceNew(shape, false);
     // History records the shape when its editor is done; cancelling removes it.
     Open(shape, true);
   }
 
   protected override IContentEditor MakeEditor() =>
     new ShapeEditorScreen(
-      Editing.Session.Root.transform,
-      Editing.Session.Font,
-      Editing.Session.ReduceMotion,
-      Editing.Session.Host.Values
+      Context.Session.Root.transform,
+      Context.Session.Font,
+      Context.Session.ReduceMotion,
+      Context.Session.Host.Values
     );
 
   protected override void Closed(ShapeOverlayElement shape, bool isNew, bool committed) =>

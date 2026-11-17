@@ -1,18 +1,47 @@
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using ElementUI;
 
 namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
 /// <summary>
 /// What the keypad edits: one slot and the formula being typed there, which
 /// may still end in an operator. Every change writes the finished part to the
-/// slot at once, so the preview follows each key.
+/// slot at once, so the preview follows each key. The keypad and the dock's
+/// line read it and follow each change by themselves.
 /// </summary>
-internal sealed class FormulaEditing
+internal sealed class FormulaEditing : Observable
 {
-  public FormulaSlot Slot { get; private set; }
-  public OverlayFormula Working { get; private set; }
-  public bool Active => Slot != null;
+  private FormulaSlot _slot;
+  private OverlayFormula _working;
+
+  public FormulaSlot Slot
+  {
+    get
+    {
+      Reading();
+      return _slot;
+    }
+  }
+
+  /// <summary>The formula being typed; changed in place, so read it again after a change.</summary>
+  public OverlayFormula Working
+  {
+    get
+    {
+      Reading();
+      return _working;
+    }
+  }
+
+  public bool Active
+  {
+    get
+    {
+      Reading();
+      return _slot != null;
+    }
+  }
 
   public void Activate(FormulaSlot slot)
   {
@@ -24,30 +53,36 @@ internal sealed class FormulaEditing
     // The same place keeps what is being typed, such as a trailing "×" or a
     // "2" on its way to "25" that is applied as the smallest size meanwhile.
     // Undo deactivates first, so restored formulas are read afresh.
-    bool same = Slot != null && Slot.Key == slot.Key && Working != null;
-    Slot = slot;
-    if (!same)
-      Working = slot.Read();
+    bool same = _slot != null && _slot.Key == slot.Key && _working != null;
+    _slot = slot;
+    // A redraw points at the same place with a slot made afresh: nothing its readers show changed.
+    if (same)
+      return;
+    _working = slot.Read();
+    Changed();
   }
 
   public void Deactivate()
   {
-    Slot = null;
-    Working = null;
+    if (_slot == null && _working == null)
+      return;
+    _slot = null;
+    _working = null;
+    Changed();
   }
 
-  public bool CanPress(char key) => Active && Working.CanType(key);
+  public bool CanPress(char key) => Active && _working.CanType(key);
 
   public bool Press(char key)
   {
     if (!CanPress(key))
       return false;
-    Working.Type(key);
+    _working.Type(key);
     Commit();
     return true;
   }
 
-  public bool CanClear => Active && !Working.IsEmpty;
+  public bool CanClear => Active && !_working.IsEmpty;
 
   /// <summary>
   /// Starts the formula over. Nothing is written until something new is
@@ -55,17 +90,19 @@ internal sealed class FormulaEditing
   /// </summary>
   public void Clear()
   {
-    if (Active)
-      Working.Clear();
+    if (!Active)
+      return;
+    _working.Clear();
+    Changed();
   }
 
-  public bool CanBackspace => Active && Working.CanBackspace;
+  public bool CanBackspace => Active && _working.CanBackspace;
 
   public bool Backspace()
   {
     if (!CanBackspace)
       return false;
-    Working.Backspace();
+    _working.Backspace();
     Commit();
     return true;
   }
@@ -83,17 +120,19 @@ internal sealed class FormulaEditing
     if (!Accepts(slot, value))
       return FormulaDropResult.RefusedWords;
     Activate(slot);
-    Working.Drop(value.Id);
+    _working.Drop(value.Id);
     Commit();
     return FormulaDropResult.Applied;
   }
 
+  // The formula changed in place: its readers follow, and the slot takes the finished part.
   private void Commit()
   {
-    OverlayFormula finished = Working.Trimmed();
+    Changed();
+    OverlayFormula finished = _working.Trimmed();
     // A number field keeps its last number until something new is typed.
-    if (finished.IsEmpty && !Slot.IsText)
+    if (finished.IsEmpty && !_slot.IsText)
       return;
-    Slot.Write(finished);
+    _slot.Write(finished);
   }
 }

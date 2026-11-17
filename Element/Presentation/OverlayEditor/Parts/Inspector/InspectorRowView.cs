@@ -1,3 +1,4 @@
+using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
@@ -17,10 +18,25 @@ internal sealed class InspectorRowView : View<PropertyButtonViewModel>
   public InspectorRowView(ItemSlot<PropertyButtonViewModel> slot)
     : base(slot) { }
 
-  public override View Body =>
-    Button(Content(), () => VM.Click, ButtonStyle.Plain)
-      .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, InspectorRowStyle.Radius))
-      .Named(VM.Name);
+  public override View Body
+  {
+    get
+    {
+      View row = Button(Content(), () => VM.Click, ButtonStyle.Plain)
+        .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, InspectorRowStyle.Radius))
+        .Named(VM.Name);
+      // A number row that takes a carried value (a size, a border width) lights
+      // up under one; words can't be calculated, and letting go says so.
+      return VM.TakesValue == null
+        ? row
+        : row.DropDestination<OverlayValueDefinition>(
+          over: value => value.IsNumeric ? DropState.Accepts : DropState.Refuses,
+          drop: VM.TakesValue,
+          targeted: VM.SetDrop,
+          refused: VM.TakesValue
+        );
+    }
+  }
 
   private View Content() =>
     InspectorRowStyle.Of(

@@ -33,8 +33,6 @@ internal sealed class ValueBrowserViewModel : ViewModel
   private ValueFolderViewModel _open;
   private string _folded = "";
   private long _seen;
-  private float _nextFollow;
-  private bool _carrying;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
   /// <param name="actions">Where a clicked or carried value goes.</param>
@@ -102,15 +100,15 @@ internal sealed class ValueBrowserViewModel : ViewModel
   /// <summary>The place open now.</summary>
   public ValueFolderViewModel OpenFolder => _open;
 
+  /// <summary>Ticks a few times a second while the chips are shown: when they look at what their values read.</summary>
+  public readonly Timeline Live = Timeline.Periodic(FollowSeconds);
+
   /// <summary>
-  /// Once a frame: a few times a second, the chips in view take what their
-  /// values read now. With nothing new it compares one number and makes nothing.
+  /// The chips in view take what their values read now. With nothing new it
+  /// compares one number and makes nothing.
   /// </summary>
-  public void Follow(float now)
+  public void Follow()
   {
-    if (now < _nextFollow)
-      return;
-    _nextFollow = now + FollowSeconds;
     if (_values == null || _values.Stamp == _seen)
       return;
     OverlayValueMask changed = _values.ChangedSince(_seen);
@@ -185,32 +183,5 @@ internal sealed class ValueBrowserViewModel : ViewModel
       }
   }
 
-  // ---- Carrying a value out ----
-
-  /// <summary>A chip starts being carried out of the dock, at a screen point.</summary>
-  public void BeginCarry(OverlayValueDefinition value, Vector2 screen)
-  {
-    _carrying = true;
-    _actions.BeginDrag(value, screen);
-  }
-
-  public void Carry(Vector2 screen)
-  {
-    if (_carrying)
-      _actions.Drag(screen);
-  }
-
-  public void EndCarry(Vector2 screen)
-  {
-    if (!_carrying)
-      return;
-    _carrying = false;
-    _actions.EndDrag(screen);
-  }
-
-  /// <summary>A chip is being carried out of the dock.</summary>
-  public bool Carrying => _carrying;
-
-  /// <summary>The chip went away mid-carry (the dock closed): nothing is dropped.</summary>
-  public void CancelCarry() => _carrying = false;
+  protected override void OnDisposed() => Live.Dispose();
 }

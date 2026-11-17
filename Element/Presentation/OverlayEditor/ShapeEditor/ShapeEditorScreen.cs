@@ -14,6 +14,7 @@ using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -64,7 +65,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private OverlayShapeSettings _shape;
   private OverlayShapeSettings _opening;
   private float _elementScale = 1;
-  private float _blinkStart;
 
   public ShapeEditorScreen(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
   {
@@ -83,8 +83,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers.Use(_gradient);
     _grow = new GrowFrom(CloseOpen, Render);
     ShapeFieldList fields = new(_measures, _colors, _gradient);
-    _drops = new ShapeValueDrops(this, this, _numbers, _colors, _gradient, _measures, fields);
-    _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _drops, _grow, _history);
+    _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures);
+    _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _grow, _history);
   }
 
   public bool IsOpen => _frame != null;
@@ -127,12 +127,17 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Pick(OverlayValueDefinition value) => _numbers.PickValue(value);
 
-  void IInputDockActions.BeginDrag(OverlayValueDefinition value, Vector2 screen) =>
-    _drops.BeginValueDrag(value, screen);
+  // Nothing covers the shape's numbers.
+  void IInputDockActions.BeganCarrying() { }
 
-  void IInputDockActions.Drag(Vector2 screen) => _drops.MoveValueDrag(screen);
-
-  void IInputDockActions.EndDrag(Vector2 screen) => _drops.EndValueDrag(screen);
+  // Let go on the dock's line: the value joins the formula, or words say why they can't.
+  void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
+  {
+    FormulaEditing editing = _numbers.Editing;
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
+      _numbers.RefuseWords(value);
+    Render();
+  }
 
   // ---- Opening, running and closing ----
 
@@ -165,7 +170,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   {
     _colors.DisposePicker();
     _frame?.Dispose();
-    _drops.Cancel();
+    _drops.Release();
     _space.Snap();
     _frame = new EditorFramePanel(
       "Shape editor",
@@ -180,7 +185,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _preview.Build(_frame);
     _measures.Build(_frame, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_frame, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dock = new InputDockViewModel(_values, _numbers.Editing, _frame.ViewModel, this, _reduceMotion());
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     BuildInspector();
     _colors.BuildPicker(_frame, _dockPanel);
@@ -188,6 +193,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _grow.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
+    // Built last: every place a carried value can land is drawn by now.
+    _drops.Build();
   }
 
   // A row per property in the column above the keypad: fill, border, border
@@ -202,7 +209,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       CloseTool,
       _colors.BuildFill(),
       _colors.BuildStroke(),
-      _numbers.BuildStrokeWidth(),
+      // A value carried onto the border width row calculates the width with it.
+      _numbers.BuildStrokeWidth(_drops.DropOnStrokeWidth),
       _grow.BuildButton()
     );
 
@@ -242,7 +250,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     }
     _input.HandleMouse();
     // The dock's value search has the keys while it is focused.
-    if (!_dockPanel.IsTyping)
+    if (!Keyboard.IsTaken)
       _input.HandleKeys();
     if (_frame == null)
       return;
@@ -250,15 +258,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     // The shape glides aside as the picker opens, and back as it closes.
     if (_space.Moving)
       RenderKeepingBlink();
-    _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
   }
 
-  private void RenderKeepingBlink()
-  {
-    float blinkStart = _blinkStart;
-    Render();
-    _blinkStart = blinkStart;
-  }
+  // A level playing behind, or the shape gliding aside: drawn again, the caret keeps blinking as it was.
+  private void RenderKeepingBlink() => Draw(restartBlink: false);
 
   // A level playing behind the editor moves the shape and its numbers.
   private void FollowLiveValues()
@@ -269,11 +272,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     RenderKeepingBlink();
   }
 
-  private void Render()
+  // Draws everything again after the player did something: the dock's caret shows at once.
+  private void Render() => Draw(restartBlink: true);
+
+  private void Draw(bool restartBlink)
   {
     if (_frame == null)
       return;
-    _blinkStart = Time.unscaledTime;
+    if (restartBlink)
+      _dock.RestartBlink();
     _numbers.Sync();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
@@ -294,7 +301,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     string field = _numbers.Field;
     _dock.Show(
       field,
-      _numbers.Editing,
       field == null ? "" : _numbers.Name(field),
       field == null ? null : _numbers.ResultText(field),
       _colors.Hint()
@@ -427,7 +433,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _colors.DisposePicker();
     _frame.Dispose();
     _frame = null;
-    _drops.Cancel();
+    _drops.Release();
     _numbers.Editing.Deactivate();
     _element = null;
     _closed = null;

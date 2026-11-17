@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.OverlayEditor.Parts.EditorBar;
@@ -7,12 +8,14 @@ using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.OverlayEditor.TextEditor;
 using Element.Domain.Overlay.Values;
+using ElementUI;
 using System.Linq;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.Theme;
 using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Element.Editor
@@ -139,18 +142,18 @@ namespace Element.Editor
 
       public RectTransform Root => Panel.Root;
       public ValueBrowserViewModel Values => Vm.Values;
-      public string Owner => Vm.Owner;
+      public string Owner => Vm.Owner.Value;
 
       /// <summary>What the line says to do, while nothing is edited.</summary>
-      public string HintText => Vm.Owner == null ? Vm.Title.Value : "";
+      public string HintText => Vm.Owner.Value == null ? Vm.Title.Value : "";
 
       public string FormulaText => Vm.Formula.Value;
       public string ResultText => Vm.Result.Value;
-      public bool IsTyping => Panel.IsTyping;
+      public bool IsTyping => ElementUI.Ugui.Keyboard.IsTaken;
       public bool Contains(Vector2 screen) => Panel.Contains(screen);
-      public bool Dragging => Vm.Values.Carrying;
+      public bool Dragging => DragSession.Active;
       public void Tick() => Panel.Tick();
-      public void Blink(bool visible) => Vm.Blink(visible);
+      public void Blink(bool visible) => Vm.RestartBlink();
     }
 
     /// <summary>A dock with nowhere to send what is done in it, for docks the checks make on their own.</summary>
@@ -166,11 +169,109 @@ namespace Element.Editor
 
       public void Pick(OverlayValueDefinition value) { }
 
-      public void BeginDrag(OverlayValueDefinition value, Vector2 screen) { }
+      public void BeganCarrying() { }
 
-      public void Drag(Vector2 screen) { }
+      public void DropOnFormula(OverlayValueDefinition value) { }
+    }
 
-      public void EndDrag(Vector2 screen) { }
+    /// <summary>
+    /// A value carried out of an editor's dock as the player carries it: its
+    /// chip is pressed and dragged past the threshold, and each move is aimed
+    /// at the topmost thing drawn under the pointer, as the input module does.
+    /// The chip is found with the dock's search unless its place is open
+    /// (<paramref name="open"/>), and the search is cleared once it is let go.
+    /// </summary>
+    private sealed class Carry
+    {
+      private readonly DockProbe _dock;
+      private readonly DragSource _source;
+      private readonly PointerEventData _data;
+      private readonly bool _searched;
+
+      public Carry(DockProbe dock, OverlayValueId id, bool open = false)
+      {
+        _dock = dock;
+        OverlayValueDefinition value = OverlayValueCatalog.Get(id);
+        string name = "Value " + value.Key;
+        Pressable chip;
+        if (open)
+          chip = DockChip(dock, name);
+        else
+        {
+          _searched = true;
+          dock.Values.Query.Value = ValueSectionNames.ValueName(value);
+          dock.Values.Search.TryExecute();
+          chip = DockChips(dock).Single(found => found.name == name);
+        }
+        GameObject handler = ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject);
+        _source = handler != null ? handler.GetComponent<DragSource>() : null;
+        Assert(_source != null, "a chip's drag goes to ElementUI's drag source: " + name);
+        Vector2 start = ScreenCenter((RectTransform)chip.transform);
+        _data = new PointerEventData(EventSystem.current)
+        {
+          button = PointerEventData.InputButton.Left,
+          pointerId = -1,
+          position = start,
+          pressPosition = start,
+        };
+        Aim(start);
+        _source.OnInitializePotentialDrag(_data);
+        _data.eligibleForClick = true;
+        _source.OnBeginDrag(_data);
+        Settle();
+      }
+
+      public Carry MoveTo(Vector2 point)
+      {
+        Aim(point);
+        _source.OnDrag(_data);
+        Settle();
+        return this;
+      }
+
+      public void LetGoAt(Vector2 point)
+      {
+        MoveTo(point);
+        _source.OnEndDrag(_data);
+        Settle();
+        if (_searched)
+        {
+          _dock.Values.ClearSearch.TryExecute();
+          Settle();
+        }
+      }
+
+      private void Aim(Vector2 point)
+      {
+        _data.position = point;
+        _data.pointerCurrentRaycast = new RaycastResult { gameObject = TopmostAt(point), screenPosition = point };
+      }
+    }
+
+    /// <summary>
+    /// What a raycast at <paramref name="point"/> hits first: the last-drawn raycast
+    /// target there, over every canvas, leaving out what takes no raycasts.
+    /// </summary>
+    private static GameObject TopmostAt(Vector2 point)
+    {
+      GameObject top = null;
+      foreach (Canvas canvas in Object.FindObjectsOfType<Canvas>().Where(c => c.isRootCanvas).OrderBy(c => c.sortingOrder))
+      {
+        Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        foreach (Graphic graphic in canvas.GetComponentsInChildren<Graphic>())
+          if (graphic.raycastTarget && graphic.isActiveAndEnabled && TakesRaycasts(graphic.transform)
+            && RectTransformUtility.RectangleContainsScreenPoint(graphic.rectTransform, point, camera))
+            top = graphic.gameObject;
+      }
+      return top;
+    }
+
+    private static bool TakesRaycasts(Transform at)
+    {
+      for (; at != null; at = at.parent)
+        if (at.TryGetComponent(out CanvasGroup group) && !group.blocksRaycasts)
+          return false;
+      return true;
     }
 
     /// <summary>The open editor's input dock.</summary>

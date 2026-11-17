@@ -200,7 +200,7 @@ internal sealed class TextFormulas
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : L("값", "Value")
       );
-    dock.Show(owner, _editing, name, DockResult(), hint);
+    dock.Show(owner, name, DockResult(), hint);
   }
 
   // The result of what the dock types, as the text or the field will show it.

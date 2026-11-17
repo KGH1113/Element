@@ -1,4 +1,5 @@
 using System;
+using System.Linq.Expressions;
 using ElementUI;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
@@ -10,13 +11,22 @@ internal sealed class KeypadKeyViewModel : ViewModel
   /// <param name="label">What it says; empty for backspace, which shows an icon.</param>
   /// <param name="character">What it types; '\b' for backspace, '\0' for AC and Done.</param>
   /// <param name="symbol">An operator, which reads in the accent.</param>
-  public KeypadKeyViewModel(string name, string label, char character, bool symbol, Action press)
+  /// <param name="enabled">Whether pressing it would do something now; followed as it changes.</param>
+  public KeypadKeyViewModel(
+    string name,
+    string label,
+    char character,
+    bool symbol,
+    Action press,
+    Expression<Func<bool>> enabled
+  )
   {
     Name = name;
     Label = label;
     Character = character;
     Symbol = symbol;
-    Press = Command(press, Computed(() => Enabled.Value));
+    Enabled = Computed(enabled);
+    Press = Command(press, Enabled);
   }
 
   public readonly string Name;
@@ -25,7 +35,7 @@ internal sealed class KeypadKeyViewModel : ViewModel
   public readonly bool Symbol;
 
   /// <summary>Whether pressing it would do something now.</summary>
-  public readonly State<bool> Enabled = new(false);
+  public readonly Computed<bool> Enabled;
 
   public Command Press { get; }
 }

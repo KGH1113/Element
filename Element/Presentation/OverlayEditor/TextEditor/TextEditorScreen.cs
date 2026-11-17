@@ -14,6 +14,7 @@ using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -104,20 +105,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _fonts = new TextFonts(this, this, _text, _color);
     _animate = new TextAnimate(this, this, _text, _color, _preview, _valueColor);
     _grow = new GrowFrom(CloseOpen, Render);
-    _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _size, _color, _gradient);
-    _pointer = new TextPointerInput(
-      this,
-      this,
-      _text,
-      _formulas,
-      _map,
-      _color,
-      _fonts,
-      _gradient,
-      _grow,
-      _animate,
-      _drops
-    );
+    _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _color, _gradient);
+    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate);
     _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
@@ -170,12 +159,17 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       _formulas.PickValue(value);
   }
 
-  void IInputDockActions.BeginDrag(OverlayValueDefinition value, Vector2 screen) =>
-    _drops.BeginValueDrag(value, screen);
+  // A value's name tip would sit over where the carried value lands.
+  void IInputDockActions.BeganCarrying() => _frame?.HideTip();
 
-  void IInputDockActions.Drag(Vector2 screen) => _drops.MoveValueDrag(screen);
-
-  void IInputDockActions.EndDrag(Vector2 screen) => _drops.EndValueDrag(screen);
+  // Let go on the dock's line: the value joins the formula, or words say why they can't.
+  void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
+  {
+    FormulaEditing editing = _formulas.Editing;
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
+      _formulas.RefuseWords(value);
+    Render();
+  }
 
   // ---- Opening, running and closing ----
 
@@ -205,7 +199,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
   {
     _color.DisposePicker();
     _frame?.Dispose();
-    _drops.Cancel();
+    _drops.Release();
     _space.Snap();
     _frame = new EditorFramePanel(
       "Text editor",
@@ -224,7 +218,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _marks.BuildHint(_frame.Ui, _frame.Frame);
     _color.BuildPicker(_frame);
     _gradient.BuildPicker(_frame.Ui, _color.Picker, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dock = new InputDockViewModel(_values, _formulas.Editing, _frame.ViewModel, this, _reduceMotion());
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     _color.LayOutAbove(_dockPanel);
     BuildInspector();
@@ -235,6 +229,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
     _popovers.Add(_valueColor.Menu);
+    // Built last: every place a carried value can land is drawn by now.
+    _drops.Build(_frame);
   }
 
   // A row per property in the column above the keypad: the font, the size,
@@ -249,7 +245,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       L("글자", "Text"),
       CloseTool,
       _fonts.BuildButton(),
-      _size.BuildButton(),
+      // A value carried onto the size row calculates the size with it.
+      _size.BuildButton(_drops.DropOnSize),
       _color.BuildButton(),
       _animate.BuildButton(),
       _grow.BuildButton()
@@ -326,7 +323,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
     // The text's caret rests while a formula or the value search has the input.
     _marks.Blink(!searching && !_text.HasSelection && !_formulas.Editing.Active && blink);
-    _dock.Blink(blink);
     if (!searching)
       _keyboard.UpdateImePosition();
     FollowLiveValues();
@@ -334,11 +330,11 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       RenderKeepingBlink();
   }
 
-  // The dock's value search has the keys and the input method while it is
-  // focused; the text takes both back once it lets go.
+  // A field (the dock's value search, mostly) has the keys and the input
+  // method while it is focused; the text takes both back once it lets go.
   private bool DockTyping()
   {
-    bool typing = _dockPanel.IsTyping;
+    bool typing = Keyboard.IsTaken;
     if (_dockTyping && !typing)
       Input.imeCompositionMode = IMECompositionMode.On;
     _dockTyping = typing;
@@ -357,12 +353,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     RenderKeepingBlink();
   }
 
-  private void RenderKeepingBlink()
-  {
-    float blinkStart = _blinkStart;
-    Render();
-    _blinkStart = blinkStart;
-  }
+  // A level playing behind, or the text gliding aside: drawn again, the carets keep blinking as they were.
+  private void RenderKeepingBlink() => Draw(restartBlink: false);
 
   private OverlayValueMask LiveMask()
   {
@@ -381,12 +373,19 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     return mask | _preview.GradientMask;
   }
 
-  // Rebuilds the text at its game size and everything placed around it.
-  private void Render()
+  // Rebuilds the text at its game size and everything placed around it, after
+  // the player did something: the carets show at once and blink from there.
+  private void Render() => Draw(restartBlink: true);
+
+  private void Draw(bool restartBlink)
   {
     if (_frame == null)
       return;
-    _blinkStart = Time.unscaledTime;
+    if (restartBlink)
+    {
+      _blinkStart = Time.unscaledTime;
+      _dock.RestartBlink();
+    }
     _formulas.Sync();
     // The text stays above the dock.
     _bottomTop = _dockPanel.Top;
@@ -526,7 +525,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _color.DisposePicker();
     _frame.Dispose();
     _frame = null;
-    _drops.Cancel();
+    _drops.Release();
     _formulas.Editing.Deactivate();
     _element = null;
     _closed = null;

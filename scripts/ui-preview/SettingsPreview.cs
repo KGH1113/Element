@@ -16,6 +16,7 @@ using Element.Presentation.OverlayEditor.ShapeEditor;
 using Element.Presentation.OverlayEditor.TextEditor;
 using Element.Presentation.Settings;
 using Element.Presentation.Settings.Window;
+using DropState = ElementUI.DropState;
 using System;
 using System.IO;
 using System.Linq;
@@ -527,17 +528,16 @@ namespace Element.Editor
 
       // Dragging still works: words are refused, numbers land on the number.
       Vector2 heightPoint = ScreenCenter(heightField.Root);
-      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), heightPoint);
-      ShapeDrops(shapes).EndValueDrag(heightPoint);
+      new Carry(dock, OverlayValueId.SongTitle).LetGoAt(heightPoint);
       Assert(working.HeightFormula == "" && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0,
         "the song title is refused by numbers, with a reason");
       Vector2 strokePoint = BarButtonRect(shapes, strokeWidth).center;
-      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), strokePoint);
-      Assert(strokeWidth.Drop == ValueDrop.Accepts && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
+      Carry toStroke = new Carry(dock, OverlayValueId.Accuracy).MoveTo(strokePoint);
+      Assert(strokeWidth.Drop == DropState.Accepts && !strokeWidth.Fill.Value.Equals(fillButton.Fill.Value), "the border width lights up for a number dragged over it");
       Assert(strokeWidth.Fill.Value.Literal.a == 1 && fillButton.Fill.Value.Literal.a == 1,
         "property rows stay opaque, lit or not, so the overlay never shows through them");
-      ShapeDrops(shapes).EndValueDrag(strokePoint);
-      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == ValueDrop.None,
+      toStroke.LetGoAt(strokePoint);
+      Assert(working.StrokeWidthFormula == "accuracy" && dock.Owner == "stroke" && strokeWidth.Active && strokeWidth.Drop == DropState.None,
         "a value dropped on the border width opens it in the dock");
       Assert(strokeWidth.IsComputed && strokeWidth.Value == "99.5" && strokeWidth.ValueInk.Value.Equals((ElementUI.UiColor)UiPalette.SoftAccent),
         "the border width shows the result, marked as calculated: " + strokeWidth.Value);
@@ -626,9 +626,10 @@ namespace Element.Editor
       ShapeNumbersOf(shapes).FinishEditing();
       Assert(picker.Visible && dock.Owner == null, "done typing, the picker stays open for the color");
       Vector2 opacityPoint = ScreenCenter(opacity.Field.Root);
-      ShapeDrops(shapes).BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Accuracy), opacityPoint);
-      Assert(picker.Visible && Field<int>(opacity.Field, "_drop") == 1, "the picker stays open while a value is dragged, and its opacity lights up");
-      ShapeDrops(shapes).EndValueDrag(opacityPoint);
+      Carry toOpacity = new Carry(dock, OverlayValueId.Accuracy).MoveTo(opacityPoint);
+      Assert(picker.Visible && Field<DropState?>(opacity.Field, "_drop") == DropState.Accepts,
+        "the picker stays open while a value is dragged, and its opacity lights up");
+      toOpacity.LetGoAt(opacityPoint);
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(working.Fill.AlphaFormula == "accuracy" && dock.Owner == "fill-opacity" && opacity.Field.Computed && opacity.Field.Text == "99.5",
         "a value dropped on the opacity calculates it: " + working.Fill.AlphaFormula + " / " + opacity.Field.Text);
@@ -746,7 +747,6 @@ namespace Element.Editor
     private static ShapeNumbers ShapeNumbersOf(ShapeEditorScreen shapes) => Field<ShapeNumbers>(shapes, "_numbers");
     private static ShapeColors ShapeColorsOf(ShapeEditorScreen shapes) => Field<ShapeColors>(shapes, "_colors");
     private static ShapeGradient ShapeGradientOf(ShapeEditorScreen shapes) => Field<ShapeGradient>(shapes, "_gradient");
-    private static ShapeValueDrops ShapeDrops(ShapeEditorScreen shapes) => Field<ShapeValueDrops>(shapes, "_drops");
     private static EditorHistory<OverlayShapeSettings> ShapeHistory(ShapeEditorScreen shapes) =>
       Field<EditorHistory<OverlayShapeSettings>>(shapes, "_history");
     private static RectTransform ShapeRect(ShapeEditorScreen shapes) => Field<RectTransform>(Field<ShapePreview>(shapes, "_preview"), "_shapeRect");
@@ -783,7 +783,7 @@ namespace Element.Editor
       GameObject root = Field<EditorFramePanel>(shapes, "_frame").Root;
       foreach (RectTransform rect in root.GetComponentsInChildren<UiCapsuleGraphic>(false).Select(graphic => graphic.rectTransform))
       {
-        if (rect.name == "Dragged value" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
+        if (rect.name == "ElementUI drag preview" || rect.name == "Value tooltip" || rect.GetComponentInParent<ScrollRect>() != null)
           continue;
         Assert(InsideScreen(ScreenRectOf(rect)), "shape editor control stays on screen: " + rect.name);
       }
@@ -1276,12 +1276,11 @@ namespace Element.Editor
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Rect dockRect = ScreenRectOf(dock.Root);
       Assert(InsideScreen(dockRect) && dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the text stays above the dock");
-      ValueChipDragInput carried = DockChip(dock, "Value fps").GetComponent<ValueChipDragInput>();
-      Vector2 chipPoint = ScreenCenter((RectTransform)carried.transform);
+      Vector2 chipPoint = ScreenCenter((RectTransform)DockChip(dock, "Value fps").transform);
       int itemsBefore = TextDocumentOf(text).Document.Count;
-      carried.OnBeginDrag(Pointer(chipPoint));
-      Assert(dock.Dragging && screen.Root.transform.Find("Controls/Dragged value") != null, "a chip carries its value out of the dock");
-      carried.OnEndDrag(Pointer(chipPoint));
+      Carry carried = new Carry(dock, OverlayValueId.Fps, open: true);
+      Assert(dock.Dragging && GameObject.Find("ElementUI drag preview") != null, "a chip carries its value out of the dock");
+      carried.LetGoAt(chipPoint);
       Assert(!dock.Dragging && TextDocumentOf(text).Document.Count == itemsBefore, "let go over the dock, it lands nowhere");
       CheckValueDock(text, dock, host, camera, texture, canvases, name);
       DockChip(dock, "Value combo");
@@ -1313,12 +1312,20 @@ namespace Element.Editor
       Assert(preview.text.Contains("240"), "without live data the example comes back");
       TextFormulasOf(text).KeypadPress('+');
       Vector2 line = ScreenCenter(ByName<RectTransform>(dock.Root, "Formula line"));
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Miss), line);
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(line);
+      new Carry(dock, OverlayValueId.Miss).LetGoAt(line);
       document = TextDocumentOf(text).Document;
       Assert(document[9].Value == "{combo}*2+{miss}", "a value dropped on the formula line joins it: " + document[9].Value);
       Assert(dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the dock never covers the text");
+      // The screenshot shows the dock's caret on: settling moves the blink along, so start it over after.
+      Action settle = _refresh;
+      _refresh = () =>
+      {
+        settle?.Invoke();
+        DockOf(text).Blink(true);
+        ElementUI.Runtime.Flush(0);
+      };
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
+      _refresh = settle;
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
       Field<TextPointerInput>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
@@ -1368,11 +1375,11 @@ namespace Element.Editor
       Vector3[] previewCorners = new Vector3[4];
       preview.rectTransform.GetWorldCorners(previewCorners);
       Vector2 end = RectTransformUtility.WorldToScreenPoint(null, previewCorners[2]) + new Vector2(20, -4);
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.Fps), end);
+      Carry intoText = new Carry(dock, OverlayValueId.Fps).MoveTo(end);
       Assert(Field<Image>(TextMarksOf(text), "_dropCaret").enabled, "a dragged value shows where it will land");
-      Assert(screen.Root.transform.Find("Controls/Dragged value") != null, "the value follows the pointer");
+      Assert(GameObject.Find("ElementUI drag preview") != null, "the value follows the pointer");
       SaveFrame(camera, texture, canvases, name + "-text-drag");
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(end);
+      intoText.LetGoAt(end);
       document = TextDocumentOf(text).Document;
       Assert(document.Count == 11 && document[10].Value == "fps", "a dropped value lands in the text");
       TextDocumentOf(text).Undo();
@@ -1382,12 +1389,10 @@ namespace Element.Editor
       SetField(TextDocumentOf(text), "_anchor", 9); SetField(TextDocumentOf(text), "_caretIndex", 10);
       Call(text, "Render");
       Vector2 sizePoint = BarButtonRect(text, sizeButton).center;
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), sizePoint);
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
+      new Carry(dock, OverlayValueId.SongTitle).LetGoAt(sizePoint);
       document = TextDocumentOf(text).Document;
       Assert(screen.ViewModel.NoticeText.Length > 0 && document[9].SizeFormula == "", "the song title is refused by the size");
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), sizePoint);
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(sizePoint);
+      new Carry(dock, OverlayValueId.ProgressCurrent).LetGoAt(sizePoint);
       document = TextDocumentOf(text).Document;
       Assert(document[9].SizeFormula == "progress-current" && document[0].SizeFormula == "" && dock.Owner == "size" && sizeButton.Active
         && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "48"),
@@ -1423,12 +1428,10 @@ namespace Element.Editor
       OpacityFieldView textOpacity = TextColorOf(text).Opacity;
       Assert(textOpacity.Field.Root.gameObject.activeInHierarchy && textOpacity.Field.Text == "100", "the text color's opacity is a number in the picker");
       Vector2 alphaPoint = ScreenCenter(textOpacity.Field.Root);
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.SongTitle), alphaPoint);
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
+      new Carry(dock, OverlayValueId.SongTitle).LetGoAt(alphaPoint);
       document = TextDocumentOf(text).Document;
       Assert(document[0].Color.AlphaFormula == "" && screen.ViewModel.NoticeText.Length > 0 && picker.Visible, "words are refused by the opacity");
-      Field<TextValueDrops>(text, "_drops").BeginValueDrag(OverlayValueCatalog.Get(OverlayValueId.ProgressCurrent), alphaPoint);
-      Field<TextValueDrops>(text, "_drops").EndValueDrag(alphaPoint);
+      new Carry(dock, OverlayValueId.ProgressCurrent).LetGoAt(alphaPoint);
       document = TextDocumentOf(text).Document;
       Assert(picker.Visible && document[0].Color.AlphaFormula == "progress-current" && document[3].Color.AlphaFormula == ""
         && dock.Owner == "opacity" && textOpacity.Field.Text == "48" && textOpacity.Field.Computed,

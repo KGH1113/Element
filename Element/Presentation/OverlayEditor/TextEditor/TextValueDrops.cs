@@ -1,47 +1,36 @@
+using System;
+using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
-using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
-using Element.Presentation.OverlayEditor.Parts.Gradient;
-using Element.Presentation.Ui.ColorPicker;
-using Element.Presentation.Ui.Popovers;
+using ElementUI;
+using ElementUI.Ugui;
 using UnityEngine;
 
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
 /// <summary>
-/// A value dragged from the dock into the text editor: into the text at an
-/// accent caret, onto a number of the bar, the picker or the handles to
-/// calculate it, onto the dock's formula line, or onto the value whose
-/// formula waits for its next operand. What can't take it says why.
+/// Where a value carried out of the dock can land in the text editor, each
+/// place answering for itself: the text (at an accent caret, or onto the
+/// value whose formula waits for its next operand), the size row, the
+/// picker's opacity, a color's position or its square, and the handles'
+/// angle. A place that can't take a value says why when it is let go there.
+/// ElementUI finds the place under the pointer, so whatever is drawn over a
+/// place shields it. The dock's formula line is the dock's own place.
 /// </summary>
 internal sealed class TextValueDrops
 {
-  private enum DropTarget
-  {
-    None,
-    Size,
-    Opacity,
-    Position,
-    Angle,
-    Formula,
-    Join,
-    Insert,
-  }
-
   private readonly IEditorActions _editor;
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
   private readonly TextLayoutMap _map;
   private readonly TextMarks _marks;
-  private readonly TextSize _size;
   private readonly TextColor _color;
   private readonly TextGradient _gradient;
-  private OverlayValueDefinition _dragValue;
-  private DropTarget _dropTarget;
-  private int _dropIndex;
+  private readonly TextArea _textArea;
+  private readonly List<IDisposable> _places = new();
 
   public TextValueDrops(
     IEditorActions editor,
@@ -50,7 +39,6 @@ internal sealed class TextValueDrops
     TextFormulas formulas,
     TextLayoutMap map,
     TextMarks marks,
-    TextSize size,
     TextColor color,
     TextGradient gradient
   )
@@ -61,163 +49,187 @@ internal sealed class TextValueDrops
     _formulas = formulas;
     _map = map;
     _marks = marks;
-    _size = size;
     _color = color;
     _gradient = gradient;
+    _textArea = new TextArea(this);
   }
 
-  /// <summary>A value is being carried.</summary>
-  public bool Dragging => _dragValue != null;
-
-  /// <summary>Where a carried value would be inserted in the text; -1 when it isn't over the text.</summary>
-  public int InsertIndex => _dragValue != null && _dropTarget == DropTarget.Insert ? _dropIndex : -1;
+  /// <summary>Where a carried value would go into the text; -1 while it isn't over the text.</summary>
+  public int InsertIndex => _textArea.Hovering && !_textArea.Joining ? _textArea.Index : -1;
 
   /// <summary>A carried value is over the value whose formula waits for it.</summary>
-  public bool Joining => _dragValue != null && _dropTarget == DropTarget.Join;
+  public bool Joining => _textArea.Hovering && _textArea.Joining;
 
-  /// <summary>Drops what was carried, as when the editor is laid out afresh or closed.</summary>
-  public void Cancel() => _dragValue = null;
+  /// <summary>A value let go on the size row: it calculates the size with the value, or says why words can't.</summary>
+  public void DropOnSize(OverlayValueDefinition value) => DropOn(TextFormulas.SizeKey, value);
 
-  public void BeginValueDrag(OverlayValueDefinition value, Vector2 screen)
+  /// <summary>
+  /// Once the editor's frame, picker and handles are built: the text and each
+  /// number on them take values from now on.
+  /// </summary>
+  public void Build(EditorFramePanel frame)
   {
-    _dragValue = value;
-    _context.Frame.HideTip();
-    MoveValueDrag(screen);
+    Release();
+    // Under everything else: what isn't another place, and is the text's space, is the text.
+    _places.Add(UguiDrop.Destination(frame.Root, _textArea));
+    _places.Add(Number(_color.Opacity.Field, TextFormulas.OpacityKey));
+    _places.Add(Number(_gradient.Position, TextFormulas.PositionKey));
+    _places.Add(Number(_gradient.Handles.Angle, TextFormulas.AngleKey));
+    _places.Add(UguiDrop.Destination(_gradient.Handles.Root.gameObject, new Squares(this)));
   }
 
-  public void MoveValueDrag(Vector2 screen)
+  /// <summary>The editor closes or is laid out afresh: its places go with what they were on.</summary>
+  public void Release()
   {
-    EditorFramePanel frame = _context.Frame;
-    if (_dragValue == null || frame == null)
-      return;
-    _dropTarget = FindDrop(screen, out _dropIndex, out bool accepted);
-    _size.Button.SetDrop(Lit(_dropTarget == DropTarget.Size, accepted));
-    _color.Opacity.Field.SetDrop(Lit(_dropTarget == DropTarget.Opacity, accepted));
-    _gradient.Position.SetDrop(Lit(_dropTarget == DropTarget.Position && _dropIndex < 0, accepted));
-    _gradient.Handles.Angle.SetDrop(Lit(_dropTarget == DropTarget.Angle, accepted));
-    _context.Dock.SetDrop(Lit(_dropTarget == DropTarget.Formula, accepted));
-    frame.ShowGhost(
-      ValueSectionNames.ValueName(_dragValue),
-      screen,
-      accepted || _dropTarget == DropTarget.None ? 1 : -1
+    foreach (IDisposable place in _places)
+      place.Dispose();
+    _places.Clear();
+    _textArea.Left();
+  }
+
+  private IDisposable Number(FormulaFieldView field, string key) =>
+    UguiDrop.Destination<OverlayValueDefinition>(
+      field.Root.gameObject,
+      over: Numeric,
+      drop: value => DropOn(key, value),
+      targeted: field.SetDrop,
+      refused: value => DropOn(key, value)
     );
-    _marks.Place(InsertIndex, Joining, _formulas.EditedValue);
-  }
 
-  public void EndValueDrag(Vector2 screen)
+  private static DropState Numeric(OverlayValueDefinition value) =>
+    value.IsNumeric ? DropState.Accepts : DropState.Refuses;
+
+  // Let go on a number: it is calculated with the value; words can't be, and it says so.
+  private void DropOn(string key, OverlayValueDefinition value)
   {
-    EditorFramePanel frame = _context.Frame;
-    if (_dragValue == null || frame == null)
-      return;
-    OverlayValueDefinition value = _dragValue;
-    DropTarget target = FindDrop(screen, out int index, out _);
-    _dragValue = null;
-    _dropTarget = DropTarget.None;
-    _size.Button.SetDrop(ValueDrop.None);
-    _color.Opacity.Field.SetDrop(ValueDrop.None);
-    _gradient.Position.SetDrop(ValueDrop.None);
-    _gradient.Handles.Angle.SetDrop(ValueDrop.None);
-    _context.Dock.SetDrop(ValueDrop.None);
-    frame.HideGhost();
-    FormulaEditing editing = _formulas.Editing;
-    switch (target)
-    {
-      case DropTarget.Position:
-        // Onto a square: that color's position.
-        if (index >= 0)
-          _color.Picker.Gradient.SelectStop(index);
-        _formulas.DropOn(TextFormulas.PositionKey, value);
-        break;
-      case DropTarget.Angle:
-        _formulas.DropOn(TextFormulas.AngleKey, value);
-        break;
-      case DropTarget.Size:
-        _formulas.DropOn(TextFormulas.SizeKey, value);
-        break;
-      case DropTarget.Opacity:
-        _formulas.DropOn(TextFormulas.OpacityKey, value);
-        break;
-      case DropTarget.Formula:
-        if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-          _formulas.RefuseWords(value);
-        break;
-      case DropTarget.Join:
-        editing.Drop(_formulas.ChipSlot(index), value);
-        break;
-      case DropTarget.Insert:
-        // A value dropped into the text lands there; typing goes on after it.
-        _editor.CloseOpen();
-        _text.InsertValue(value, index, index);
-        _text.Anchor = _text.Caret;
-        break;
-    }
+    _formulas.DropOn(key, value);
     _editor.Render();
   }
 
-  // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
-  private static ValueDrop Lit(bool over, bool accepted) =>
-    !over ? ValueDrop.None
-    : accepted ? ValueDrop.Accepts
-    : ValueDrop.Refuses;
+  // ---- The text ----
 
-  private DropTarget FindDrop(Vector2 screen, out int index, out bool accepted)
+  private sealed class TextArea : IDropDestination<OverlayValueDefinition>
   {
-    index = -1;
-    accepted = true;
-    UiColorPicker picker = _color.Picker;
-    // The picker sits over everything else; only its numbers take a value.
-    if (picker.Visible && PopoverPlacement.Contains(picker.Root, screen))
+    private readonly TextValueDrops _drops;
+
+    public TextArea(TextValueDrops drops) => _drops = drops;
+
+    public bool Hovering { get; private set; }
+    public bool Joining { get; private set; }
+    public int Index { get; private set; } = -1;
+
+    public DropState Over(OverlayValueDefinition value, Vector2 screen)
     {
-      bool opacity = _color.Opacity.Contains(screen),
-        position = picker.Gradient.IsGradient && _gradient.Position.Contains(screen);
-      accepted = !(opacity || position) || _dragValue.IsNumeric;
-      return opacity ? DropTarget.Opacity
-        : position ? DropTarget.Position
-        : DropTarget.None;
-    }
-    GradientHandles handles = _gradient.Handles;
-    if (handles.Visible)
-    {
-      if (handles.Angle.Contains(screen))
+      // The header, the column, the dock and the popovers are not the text's.
+      if (!_drops._context.InTextArea(screen))
       {
-        accepted = _dragValue.IsNumeric;
-        return DropTarget.Angle;
+        Left();
+        return DropState.None;
       }
-      int square = handles.SquareAt(screen);
-      if (square >= 0)
+      FormulaEditing editing = _drops._formulas.Editing;
+      // Onto the value whose formula waits for its next number or value.
+      if (
+        editing.Active
+        && editing.Working.AwaitsOperand
+        && _drops._formulas.ChipOpen(out int selected)
+        && _drops._map.ItemContains(selected, screen)
+      )
       {
-        index = square;
-        accepted = _dragValue.IsNumeric;
-        return DropTarget.Position;
+        Show(selected, joining: true);
+        return value.IsNumeric ? DropState.Accepts : DropState.Refuses;
       }
+      Show(_drops._map.IndexAt(screen), joining: false);
+      return DropState.Accepts;
     }
-    if (_context.Inspector.Contains(_size.Button, screen))
+
+    public void Drop(OverlayValueDefinition value, Vector2 screen)
     {
-      accepted = _dragValue.IsNumeric;
-      return DropTarget.Size;
+      int index = Index;
+      bool joining = Joining;
+      Left();
+      if (joining)
+        _drops._formulas.Editing.Drop(_drops._formulas.ChipSlot(index), value);
+      else
+      {
+        // A value dropped into the text lands there; typing goes on after it.
+        _drops._editor.CloseOpen();
+        _drops._text.InsertValue(value, index, index);
+        _drops._text.Anchor = _drops._text.Caret;
+      }
+      _drops._editor.Render();
     }
-    FormulaEditing editing = _formulas.Editing;
-    InputDockPanel dock = _context.DockPanel;
-    if (dock.FormulaContains(screen))
+
+    // Words onto a number's formula: nothing joins, as when typed.
+    public void Refused(OverlayValueDefinition value, Vector2 screen) => Left();
+
+    public void Left()
     {
-      accepted = editing.Active && FormulaEditing.Accepts(editing.Slot, _dragValue);
-      return DropTarget.Formula;
+      if (!Hovering && Index < 0)
+        return;
+      Hovering = false;
+      Joining = false;
+      Index = -1;
+      _drops.ShowMarks();
     }
-    if (dock.Contains(screen) || !_context.InTextArea(screen))
-      return DropTarget.None;
-    // Onto the value whose formula waits for its next number or value.
-    if (
-      editing.Active
-      && editing.Working.AwaitsOperand
-      && _formulas.ChipOpen(out int selected)
-      && _map.ItemContains(selected, screen)
-    )
+
+    private void Show(int index, bool joining)
     {
-      index = selected;
-      accepted = _dragValue.IsNumeric;
-      return DropTarget.Join;
+      if (Hovering && Index == index && Joining == joining)
+        return;
+      Hovering = true;
+      Index = index;
+      Joining = joining;
+      _drops.ShowMarks();
     }
-    index = _map.IndexAt(screen);
-    return DropTarget.Insert;
+  }
+
+  private void ShowMarks() => _marks.Place(InsertIndex, Joining, _formulas.EditedValue);
+
+  // ---- A gradient's squares, over the text ----
+
+  // A square takes a value for its color's position; between the squares the
+  // value goes on to the text under the handles, as if they weren't there.
+  private sealed class Squares : IDropDestination<OverlayValueDefinition>
+  {
+    private readonly TextValueDrops _drops;
+    private int _stop = -1;
+
+    public Squares(TextValueDrops drops) => _drops = drops;
+
+    private IDropDestination<OverlayValueDefinition> Text => _drops._textArea;
+
+    public DropState Over(OverlayValueDefinition value, Vector2 screen)
+    {
+      _stop = _drops._gradient.Handles.SquareAt(screen);
+      if (_stop < 0)
+        return Text.Over(value, screen);
+      Text.Left();
+      return Numeric(value);
+    }
+
+    public void Drop(OverlayValueDefinition value, Vector2 screen)
+    {
+      if (_stop < 0)
+      {
+        Text.Drop(value, screen);
+        return;
+      }
+      _drops._color.Picker.Gradient.SelectStop(_stop);
+      _drops.DropOn(TextFormulas.PositionKey, value);
+    }
+
+    public void Refused(OverlayValueDefinition value, Vector2 screen)
+    {
+      if (_stop < 0)
+        Text.Refused(value, screen);
+      else
+        Drop(value, screen);
+    }
+
+    public void Left()
+    {
+      _stop = -1;
+      Text.Left();
+    }
   }
 }

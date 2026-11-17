@@ -18,37 +18,71 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// with nothing edited what to do), the result, the values and the keypad.
 /// </summary>
 /// <remarks>
-/// Data goes one way. The editor says what is edited (<see cref="Show"/>,
-/// <see cref="Blink"/>, <see cref="SetDrop"/>); this turns it into what the
-/// line reads; <see cref="InputDockView"/> draws that. What the player does
-/// in the dock goes back up through <see cref="IInputDockActions"/>, which the
-/// keypad and the values were given: the dock itself changes nothing that is
-/// edited.
+/// Data goes one way. The formula being typed (<see cref="FormulaEditing"/>)
+/// tells its readers when it changes, so the line and the keypad follow each
+/// key by themselves; the editor only says what is edited and what to call it
+/// (<see cref="Show"/>). <see cref="InputDockView"/> draws it. What the player
+/// does in the dock goes back up through <see cref="IInputDockActions"/>,
+/// which the keypad and the values were given: the dock itself changes
+/// nothing that is edited.
 /// </remarks>
 internal sealed class InputDockViewModel : ViewModel
 {
+  // The caret's on and off halves, as a text field's.
+  private const float BlinkSeconds = .53f;
+
   private static readonly Color Resting = new(1, 1, 1, .5f),
     Placeholder = new(1, 1, 1, .32f),
-    Line = new(1, 1, 1, .16f);
+    Line = new(1, 1, 1, .16f),
+    Muted = UiPalette.Muted,
+    Ink = UiPalette.Foreground;
 
-  private readonly StringBuilder _builder = new(128);
-  private readonly OverlayFormula _described = new();
-  private string _description;
-  private string _name,
-    _nameLine,
-    _result,
-    _resultLine;
-  private bool _typing;
-  private ValueDrop _drop;
+  // The line is described on the main thread only, one at a time.
+  private static readonly StringBuilder Builder = new(128);
+
+  private readonly FormulaEditing _editing;
+  private readonly IInputDockActions _actions;
+  private readonly Timeline _blink = Timeline.Periodic(BlinkSeconds);
+  private readonly bool _steadyCaret;
+  private readonly string _emptyHint;
+  private readonly State<string> _name = new(""),
+    _result = new(""),
+    _hint = new("");
+  private DropState _drop;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
+  /// <param name="editing">The formula the keypad types; the line shows it as it changes.</param>
   /// <param name="notices">The editor's notices, which the dock shows above its line.</param>
   /// <param name="actions">Where everything the player does in the dock goes.</param>
-  public InputDockViewModel(OverlayValues values, EditorFrameViewModel notices, IInputDockActions actions)
+  /// <param name="reduceMotion">The caret stays on instead of blinking.</param>
+  public InputDockViewModel(
+    OverlayValues values,
+    FormulaEditing editing,
+    EditorFrameViewModel notices,
+    IInputDockActions actions,
+    bool reduceMotion
+  )
   {
+    _editing = editing;
+    _actions = actions;
+    _steadyCaret = reduceMotion;
+    _emptyHint = L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value");
     Notices = notices;
-    Keypad = Own(new KeypadViewModel(actions));
+    Keypad = Own(new KeypadViewModel(actions, editing));
     Values = Own(new ValueBrowserViewModel(values, actions));
+    Typing = Computed(() => Owner.Value != null && _editing.Active);
+    Title = Computed(() => Typing.Value ? _name.Value + "  =" : _hint.Value);
+    TitleInk = Computed(() => Typing.Value ? Muted : Resting);
+    FormulaEmpty = Computed(() => Typing.Value && IsEmpty(_editing));
+    FormulaInk = Computed(() => FormulaEmpty.Value ? Placeholder : Ink);
+    Formula = Computed(() =>
+      !Typing.Value ? ""
+      : FormulaEmpty.Value ? _emptyHint
+      : Describe(_editing)
+    );
+    Result = Computed(() => Typing.Value && _result.Value.Length > 0 ? "= " + _result.Value : "");
+    // While nothing is typed the caret doesn't read the blink, which then rests.
+    Caret = Computed(() => Typing.Value && (_steadyCaret || _blink.Even));
   }
 
   // ---- Its parts ----
@@ -63,118 +97,116 @@ internal sealed class InputDockViewModel : ViewModel
 
   // ---- What the view reads ----
 
-  /// <summary>What is edited, as "Width  =", or with nothing edited what to do.</summary>
-  public readonly State<string> Title = new("");
+  /// <summary>Something is open in the dock and the keypad has it.</summary>
+  public readonly Computed<bool> Typing;
 
-  public readonly State<Color> TitleInk = new(Resting);
+  /// <summary>What is edited, as "Width  =", or with nothing edited what to do.</summary>
+  public readonly Computed<string> Title;
+
+  public readonly Computed<Color> TitleInk;
 
   /// <summary>The formula as it reads, values as soft chips (rich text); a hint while it is empty.</summary>
-  public readonly State<string> Formula = new("");
+  public readonly Computed<string> Formula;
 
-  public readonly State<Color> FormulaInk = new(UiPalette.Foreground);
+  public readonly Computed<Color> FormulaInk;
 
   /// <summary>Nothing typed yet: the caret sits at the start, before the hint.</summary>
-  public readonly State<bool> FormulaEmpty = new(false);
+  public readonly Computed<bool> FormulaEmpty;
 
   /// <summary>The result on the right, as "= 160 px"; empty for none.</summary>
-  public readonly State<string> Result = new("");
+  public readonly Computed<string> Result;
 
   /// <summary>The caret at the formula's end, while something is typed: on or off as it blinks.</summary>
-  public readonly State<bool> Caret = new(false);
+  public readonly Computed<bool> Caret;
 
   /// <summary>The line under the formula: lit while a carried value can (or can't) join it.</summary>
   public readonly State<Color> Underline = new(Line);
 
   /// <summary>What the dock edits, such as "width" or "value:3"; null while nothing is.</summary>
-  public string Owner { get; private set; }
+  public readonly State<string> Owner = new(null);
 
   // ---- What the editor tells it ----
 
   /// <summary>
   /// What the dock edits now: <paramref name="owner"/> (null for nothing),
-  /// named <paramref name="name"/>, with the formula <paramref name="editing"/>
-  /// types and <paramref name="result"/> (already in its unit) on the right.
-  /// With nothing being edited, <paramref name="hint"/> says what to do.
+  /// named <paramref name="name"/>, with <paramref name="result"/> (already
+  /// in its unit) on the right. With nothing being edited,
+  /// <paramref name="hint"/> says what to do. The formula itself the dock
+  /// reads from what the keypad types.
   /// </summary>
-  public void Show(string owner, FormulaEditing editing, string name, string result, string hint)
+  public void Show(string owner, string name, string result, string hint)
   {
-    Owner = owner;
-    _typing = owner != null && editing.Active;
-    if (_typing && name != _name)
-    {
-      _name = name;
-      _nameLine = name + "  =";
-    }
-    Title.Value = _typing ? _nameLine : hint;
-    TitleInk.Value = _typing ? UiPalette.Muted : Resting;
-    if (!_typing || string.IsNullOrEmpty(result))
-      Result.Value = "";
-    else
-    {
-      if (result != _result)
-      {
-        _result = result;
-        _resultLine = "= " + result;
-      }
-      Result.Value = _resultLine;
-    }
-    bool empty = _typing && editing.Working.IsEmpty;
-    FormulaEmpty.Value = empty;
-    FormulaInk.Value = empty ? Placeholder : UiPalette.Foreground;
-    Formula.Value =
-      !_typing ? ""
-      : empty ? L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value")
-      : Describe(editing.Working);
-    // A redraw starts the blink over: the caret shows at once.
-    Caret.Value = _typing;
-    Keypad.Show(editing);
+    Owner.Value = owner;
+    _name.Value = name ?? "";
+    _result.Value = result ?? "";
+    _hint.Value = hint ?? "";
   }
 
-  /// <summary>Once a frame: the caret blinks while something is typed.</summary>
-  public void Blink(bool visible) => Caret.Value = _typing && visible;
+  /// <summary>The editor drew afresh after the player did something: the caret shows at once and blinks from there.</summary>
+  public void RestartBlink() => _blink.Restart();
+
+  // ---- A value carried onto the formula line ----
+
+  /// <summary>
+  /// Whether <paramref name="value"/> may join the formula: nothing is asked
+  /// while nothing is edited, and words can't go where a number does.
+  /// </summary>
+  public DropState OverFormula(OverlayValueDefinition value) =>
+    Owner.Value == null ? DropState.None
+    : _editing.Active && FormulaEditing.Accepts(_editing.Slot, value) ? DropState.Accepts
+    : DropState.Refuses;
+
+  /// <summary>A value started being carried out of the dock.</summary>
+  public void BeganCarrying() => _actions.BeganCarrying();
+
+  /// <summary>Let go on the line: the editor joins it to the formula, or says why it can't.</summary>
+  public void DropOnFormula(OverlayValueDefinition value) => _actions.DropOnFormula(value);
 
   /// <summary>Whether a carried value is over the formula line, and whether it can join the formula.</summary>
-  public void SetDrop(ValueDrop drop)
+  public void SetDrop(DropState drop)
   {
     if (_drop == drop)
       return;
     _drop = drop;
     Underline.Value =
-      drop == ValueDrop.Accepts ? UiPalette.SoftAccent
-      : drop == ValueDrop.Refuses ? UiPalette.Error
+      drop == DropState.Accepts ? UiPalette.SoftAccent
+      : drop == DropState.Refuses ? UiPalette.Error
       : Line;
   }
 
+  protected override void OnDisposed() => _blink.Dispose();
+
+  [Pure]
+  private static bool IsEmpty(FormulaEditing editing) => editing.Working == null || editing.Working.IsEmpty;
+
   // The formula as it reads: values as soft chips, operators spaced out. Made
-  // again only when the formula changed: the editor refreshes every frame a
-  // level plays behind it.
-  private string Describe(OverlayFormula formula)
+  // again only when the formula changes, not when the editor draws again.
+  [Pure]
+  private static string Describe(FormulaEditing editing)
   {
-    if (_description != null && formula.SameAs(_described))
-      return _description;
-    _described.Clear();
-    for (int i = 0; i < formula.Count; i++)
-      _described.Add(formula[i]);
-    _builder.Clear();
+    OverlayFormula formula = editing.Working;
+    if (formula == null)
+      return "";
+    StringBuilder builder = Builder.Clear();
     for (int i = 0; i < formula.Count; i++)
     {
       OverlayFormulaToken token = formula[i];
       switch (token.Kind)
       {
         case OverlayFormulaTokenKind.Number:
-          _builder.Append(token.Number.Replace('-', '−'));
+          builder.Append(token.Number.Replace('-', '−'));
           break;
         case OverlayFormulaTokenKind.Value:
-          _builder
+          builder
             .Append("<mark=#FFFFFF26> ")
             .Append(ValueSectionNames.ValueName(OverlayValueCatalog.Get(token.Value)).Replace("<", ""))
             .Append(" </mark>");
           break;
         default:
-          _builder.Append("  ").Append(OverlayFormula.Symbol(token.Operator)).Append("  ");
+          builder.Append("  ").Append(OverlayFormula.Symbol(token.Operator)).Append("  ");
           break;
       }
     }
-    return _description = _builder.ToString();
+    return builder.ToString();
   }
 }

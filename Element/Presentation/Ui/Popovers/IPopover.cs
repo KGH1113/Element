@@ -9,9 +9,6 @@ internal interface IPopover
 
   bool Visible { get; }
 
-  /// <summary>Whether it has the keyboard: a field in it is being typed in.</summary>
-  bool IsTyping { get; }
-
   /// <summary>The control it opened from; a press there is not outside it. Null when none.</summary>
   RectTransform Anchor { get; }
 

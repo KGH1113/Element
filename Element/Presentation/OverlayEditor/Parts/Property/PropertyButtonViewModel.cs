@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
@@ -25,7 +26,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
     _computed;
   private readonly State<bool> _computedValue = new(false);
   private readonly State<bool> _active = new(false);
-  private readonly State<ValueDrop> _drop = new(ValueDrop.None);
+  private readonly State<DropState> _drop = new(DropState.None);
 
   /// <param name="name">Names the drawn button: the bar finds it by this, and so do the checks.</param>
   /// <param name="label">What it is, such as "Fill".</param>
@@ -49,9 +50,11 @@ internal sealed class PropertyButtonViewModel : ViewModel
     string glyph = null,
     bool toggle = false,
     bool opens = false,
-    Color? under = null
+    Color? under = null,
+    Action<OverlayValueDefinition> takesValue = null
   )
   {
+    TakesValue = takesValue;
     Name = name;
     Label = label;
     ShowsValue = value;
@@ -71,8 +74,8 @@ internal sealed class PropertyButtonViewModel : ViewModel
     _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
     Fill = Computed(() =>
-      _drop.Value == ValueDrop.Accepts ? _accepts
-      : _drop.Value == ValueDrop.Refuses ? _refuses
+      _drop.Value == DropState.Accepts ? _accepts
+      : _drop.Value == DropState.Refuses ? _refuses
       : _active.Value ? _lit
       : _rest
     );
@@ -140,8 +143,15 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
 
+  /// <summary>
+  /// A number row a value carried out of the dock can calculate, such as a
+  /// text's size: let go here, the value goes to this action, which also says
+  /// why words can't. Null for a row that takes none.
+  /// </summary>
+  public readonly Action<OverlayValueDefinition> TakesValue;
+
   /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public ValueDrop Drop => _drop.Value;
+  public DropState Drop => _drop.Value;
 
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
@@ -183,7 +193,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   }
 
   /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(ValueDrop drop) => _drop.Value = drop;
+  public void SetDrop(DropState drop) => _drop.Value = drop;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

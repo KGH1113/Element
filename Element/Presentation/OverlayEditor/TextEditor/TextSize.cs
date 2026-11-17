@@ -1,6 +1,8 @@
+using System;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using UnityEngine;
@@ -37,14 +39,16 @@ internal sealed class TextSize
   /// <summary>The bar's Size button; made by <see cref="BuildButton"/>.</summary>
   public PropertyButtonViewModel Button => _sizeButton;
 
-  public PropertyButtonViewModel BuildButton() =>
+  /// <param name="takesValue">A value carried onto the row: it calculates the size with it.</param>
+  public PropertyButtonViewModel BuildButton(Action<OverlayValueDefinition> takesValue) =>
     _sizeButton = new PropertyButtonViewModel(
       "Text size",
       L("크기", "Size"),
       () => _formulas.Activate(TextFormulas.SizeKey),
       value: true,
       unit: "px",
-      glyph: L("가", "Aa")
+      glyph: L("가", "Aa"),
+      takesValue: takesValue
     );
 
   // The size shows its result; one worked out from a formula reads in the accent.

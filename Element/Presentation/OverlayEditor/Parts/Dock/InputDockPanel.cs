@@ -1,8 +1,10 @@
 using System;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
+using ElementUI;
 using TMPro;
 using UnityEngine;
 
@@ -23,8 +25,6 @@ internal sealed class InputDockPanel
   private readonly InputDockViewModel _vm;
   private readonly InputDockView _view;
   private readonly float _width;
-  private bool _typing;
-  private int _typedFrame = -1;
 
   /// <param name="vm">What the dock shows; the panel lets it go with the frame.</param>
   public InputDockPanel(EditorFramePanel screen, InputDockViewModel vm, bool reduceMotion)
@@ -35,8 +35,15 @@ internal sealed class InputDockPanel
     Top = screen.Height - BottomGap - height;
     Left = screen.ContentLeft;
     _panel = screen.Panel("Input dock", Color.clear);
-    _view = new InputDockView(vm, _width, Measurer(screen.Measure), reduceMotion);
-    _panel.Mount(screen.NewBackend(), _view, vm, _width);
+    _view = new InputDockView(vm, _width);
+    _panel.Mount(
+      screen.NewBackend(),
+      _view
+        .Environment(EditorEnvironment.Measure, Measurer(screen.Measure))
+        .Environment(EditorEnvironment.ReduceMotion, reduceMotion),
+      vm,
+      _width
+    );
     // The notice line sits above the formula line; Top stays the formula line's.
     Root.anchoredPosition = new Vector2(Left, -(Top - InputDockView.NoticeHeight));
   }
@@ -57,41 +64,10 @@ internal sealed class InputDockPanel
       KeypadView.Height
     );
 
-  /// <summary>
-  /// Once a frame: the chips in view take what their values read now, a few
-  /// times a second, and a part of the values shown for the first time gets
-  /// its pointer.
-  /// </summary>
-  public void Tick()
-  {
-    _vm.Values.Follow(Time.unscaledTime);
-    _panel.Sync();
-  }
-
-  /// <summary>
-  /// The value search has the keyboard: the editor leaves keys and the input
-  /// method to it. Still true the frame it lets go (Esc, Enter, a click
-  /// elsewhere), so the key that ended it does nothing more.
-  /// </summary>
-  public bool IsTyping
-  {
-    get
-    {
-      bool typing = _vm.Values.SearchFocused.Value;
-      if (typing != _typing)
-      {
-        _typing = typing;
-        _typedFrame = Time.frameCount;
-      }
-      return typing || _typedFrame == Time.frameCount;
-    }
-  }
+  /// <summary>Once a frame: a part of the values shown for the first time gets its pointer.</summary>
+  public void Tick() => _panel.Sync();
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
-
-  /// <summary>The formula line, while something is edited: where a dropped value joins the formula.</summary>
-  public bool FormulaContains(Vector2 screen) =>
-    _vm.Owner != null && _view.Line.Area != null && PopoverPlacement.Contains(_view.Line.Area, screen);
 
   // How wide words are at the dock's 13-unit size.
   private static Func<string, float> Measurer(TextMeshProUGUI measure) =>

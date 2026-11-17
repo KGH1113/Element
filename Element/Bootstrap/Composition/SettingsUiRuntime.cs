@@ -15,6 +15,7 @@ using Element.Presentation.Settings.Profiles;
 using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
+using ElementUI.Ugui;
 using TMPro;
 
 namespace Element.Bootstrap.Composition;
@@ -76,7 +77,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _presetShortcuts = new EffectPresetShortcuts(
       main.Settings,
       playing,
-      () => _screens.IsOpen || SettingsWindowScreen.IsTyping(),
+      () => _screens.IsOpen || Keyboard.IsTaken,
       apply,
       _screens.RefreshPresets,
       Save,

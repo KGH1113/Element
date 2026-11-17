@@ -1,4 +1,5 @@
 using System;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.Ui.Declarative.Controls;
@@ -24,17 +25,16 @@ internal sealed class InputDockView : View<InputDockViewModel>
   private readonly float _width;
 
   /// <param name="width">The dock's width.</param>
-  /// <param name="measure">How wide words are at the dock's 13-unit size, for the list of places.</param>
-  public InputDockView(InputDockViewModel vm, float width, Func<string, float> measure, bool reduceMotion)
+  public InputDockView(InputDockViewModel vm, float width)
     : base(vm)
   {
     _width = width;
     Line = new FormulaLineView(vm);
-    Values = new ValueBrowserView(vm.Values, measure, reduceMotion);
+    Values = new ValueBrowserView(vm.Values);
   }
 
   /// <summary>The formula line, where a carried value joins the formula.</summary>
-  public FormulaLineView Line { get; }
+  private FormulaLineView Line { get; }
 
   /// <summary>The values beside the keypad.</summary>
   public ValueBrowserView Values { get; }
@@ -50,10 +50,25 @@ internal sealed class InputDockView : View<InputDockViewModel>
           // Over the values, clear of the picker above the keypad.
           .Frame(width: _width - KeypadView.Width - KeypadGap, height: NoticeHeight, alignment: Alignment.Leading)
           .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-        Line,
+        // The line is where a carried value joins the formula; it lights up under it.
+        Line.DropDestination<OverlayValueDefinition>(
+          over: VM.OverFormula,
+          drop: VM.DropOnFormula,
+          targeted: VM.SetDrop,
+          refused: VM.DropOnFormula
+        ),
         HairLine.Across(() => VM.Underline.Value),
         HStack(spacing: KeypadGap, alignment: VAlignment.Top, Values, new KeypadView(VM.Keypad))
           .Padding(new Insets(LineGap - 1, 0, 0, 0))
       )
-      .Frame(width: _width);
+      .Frame(width: _width)
+      // A chip just started being carried: the editor makes room for it.
+      .OnChange(
+        () => DragSession.Active,
+        carrying =>
+        {
+          if (carrying)
+            VM.BeganCarrying();
+        }
+      );
 }

@@ -14,7 +14,7 @@ internal sealed class ColorPickerSourceColumnView : ColorPickerLayout
   public const float SourceGap = 12,
     Height = ColorPickerColumnsView.Height + 36 + SourceGap;
 
-  public ColorPickerSourceColumnView(ColorPickerModel vm, ColorPickerParts parts)
+  public ColorPickerSourceColumnView(ColorPickerViewModel vm, ColorPickerParts parts)
     : base(vm, parts) { }
 
   public override View Body =>

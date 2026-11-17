@@ -1,7 +1,7 @@
 using System.Text;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Tests.Support;
 using static Element.Tests.Support.Assert;
 
@@ -15,7 +15,7 @@ internal static class LiveValueTests
   public static void Run()
   {
     OverlayValues values = new();
-    OverlayLiveValues editor = new(values);
+    EditorLiveValues editor = new(values);
     OverlayValueMask progress = OverlayValueCatalog.Bit(OverlayValueId.ProgressCurrent);
     OverlayValueMask combo = OverlayValueCatalog.Bit(OverlayValueId.Combo);
     Check(!editor.Changed(progress), "nothing changed yet");

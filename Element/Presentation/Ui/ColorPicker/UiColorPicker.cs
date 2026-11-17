@@ -46,7 +46,7 @@ internal sealed class UiColorPicker : IDisposable
     Image blocker = Root.gameObject.AddComponent<Image>();
     blocker.color = Color.clear;
     blocker.raycastTarget = true;
-    Model = new ColorPickerModel { CloseRequested = Hide, LayoutChanged = () => _stale = true };
+    Model = new ColorPickerViewModel { CloseRequested = Hide, LayoutChanged = () => _stale = true };
     RectTransform park = _ui.Rect("Parts", Root, 0, 0, 0, 0);
     park.gameObject.SetActive(false);
     RectTransform opacitySlot = _ui.Rect(
@@ -75,7 +75,7 @@ internal sealed class UiColorPicker : IDisposable
   }
 
   /// <summary>What the picker shows and does.</summary>
-  public ColorPickerModel Model { get; }
+  public ColorPickerViewModel Model { get; }
 
   public RectTransform Root => _panel.Root;
 

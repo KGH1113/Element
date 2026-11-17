@@ -1,10 +1,10 @@
+using Element.Presentation.Settings.Planets;
+using Element.Presentation.Settings.Window;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Element.Configuration.Gameplay;
-using Element.Presentation.Settings.Pages;
-using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Declarative.Controls;
 using ElementUI;
@@ -37,7 +37,7 @@ namespace Element.Editor
       }
 
       SettingsWindowViewModel window = check.Model;
-      PlanetsModel page = window.Planets;
+      PlanetsViewModel page = window.Planets;
       PlanetAppearanceOptions planets = check.Settings.Gameplay.Planets;
       Renderer preview = new Renderer(check.Features.RenderPlanetPreview);
       UiHost host = Host(check);
@@ -91,7 +91,7 @@ namespace Element.Editor
       // Body: the picker opens under its button, over a layer that closes it.
       Press(Swatches(check)[0]);
       check.Settle();
-      ColorPickerModel picker = Picker(host);
+      ColorPickerViewModel picker = Picker(host);
       Assert(picker != null && ColorPickerProbe.Shown(Input(host, "HEX color")) && host.Root.HasOverlay && Backdrop(check) != null,
         "Body's color opens the color picker with a layer behind it that closes it");
       Assert(Title(host) == L("공 색상", "Body color") && picker.Title.Value == Title(host), "the picker names the part it colors");
@@ -216,7 +216,7 @@ namespace Element.Editor
       check.Settle();
       Assert(host.Root.HasOverlay, "Ring's picker is open before the window closes");
       check.Root.SetActive(false);
-      foreach (SettingsPageModel each in window.Pages)
+      foreach (SettingsPageViewModel each in window.Pages)
         each.Closed();
       check.Settle();
       Assert(!host.Root.HasOverlay && Picker(host) == null, "closing the window closes the picker");
@@ -407,7 +407,7 @@ namespace Element.Editor
       check.Root.GetComponentsInChildren<Transform>(false).Select(t => t.gameObject).FirstOrDefault(o => o.name == "Backdrop" && o.GetComponent<ClickArea>() != null);
 
     /// <summary>Shows a page as a page's command does: the window shows it, then the screen catches up.</summary>
-    private static void Show(SettingsWindowViewModel window, SettingsPageModel page)
+    private static void Show(SettingsWindowViewModel window, SettingsPageViewModel page)
     {
       window.Show(page);
       ElementUI.Runtime.Probe();
@@ -422,7 +422,7 @@ namespace Element.Editor
     // ---- The open picker ----
 
     /// <summary>The open picker's view model; null while none is open.</summary>
-    private static ColorPickerModel Picker(UiHost host) => Find<ColorPickerCardView>(host.Root.RootView)?.VM;
+    private static ColorPickerViewModel Picker(UiHost host) => Find<ColorPickerCardView>(host.Root.RootView)?.VM;
 
     /// <summary>The open popover the picker is drawn in.</summary>
     private static RectTransform PickerArea(UiHost host) =>

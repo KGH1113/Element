@@ -41,13 +41,14 @@ internal sealed class InputDockViewModel : ViewModel
   private static readonly StringBuilder Builder = new(128);
 
   private readonly FormulaEditing _editing;
+  private readonly IInputDockActions _actions;
   private readonly Timeline _blink = Timeline.Periodic(BlinkSeconds);
   private readonly bool _steadyCaret;
   private readonly string _emptyHint;
   private readonly State<string> _name = new(""),
     _result = new(""),
     _hint = new("");
-  private ValueDrop _drop;
+  private DropState _drop;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
   /// <param name="editing">The formula the keypad types; the line shows it as it changes.</param>
@@ -63,6 +64,7 @@ internal sealed class InputDockViewModel : ViewModel
   )
   {
     _editing = editing;
+    _actions = actions;
     _steadyCaret = reduceMotion;
     _emptyHint = L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value");
     Notices = notices;
@@ -143,15 +145,32 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>The editor drew afresh after the player did something: the caret shows at once and blinks from there.</summary>
   public void RestartBlink() => _blink.Restart();
 
+  // ---- A value carried onto the formula line ----
+
+  /// <summary>
+  /// Whether <paramref name="value"/> may join the formula: nothing is asked
+  /// while nothing is edited, and words can't go where a number does.
+  /// </summary>
+  public DropState OverFormula(OverlayValueDefinition value) =>
+    Owner.Value == null ? DropState.None
+    : _editing.Active && FormulaEditing.Accepts(_editing.Slot, value) ? DropState.Accepts
+    : DropState.Refuses;
+
+  /// <summary>A value started being carried out of the dock.</summary>
+  public void BeganCarrying() => _actions.BeganCarrying();
+
+  /// <summary>Let go on the line: the editor joins it to the formula, or says why it can't.</summary>
+  public void DropOnFormula(OverlayValueDefinition value) => _actions.DropOnFormula(value);
+
   /// <summary>Whether a carried value is over the formula line, and whether it can join the formula.</summary>
-  public void SetDrop(ValueDrop drop)
+  public void SetDrop(DropState drop)
   {
     if (_drop == drop)
       return;
     _drop = drop;
     Underline.Value =
-      drop == ValueDrop.Accepts ? UiPalette.SoftAccent
-      : drop == ValueDrop.Refuses ? UiPalette.Error
+      drop == DropState.Accepts ? UiPalette.SoftAccent
+      : drop == DropState.Refuses ? UiPalette.Error
       : Line;
   }
 

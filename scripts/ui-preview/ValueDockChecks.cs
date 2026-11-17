@@ -107,7 +107,8 @@ namespace Element.Editor
       Pressable[] chips = DockChips(dock);
       Assert(values.OpenFolder == judgement && chips.Select(chip => chip.name).SequenceEqual(judgement.Chips.Select(chip => chip.Name)),
         "a place shows its values, and only them");
-      Assert(chips.All(chip => chip.GetComponent<ValueChipDragInput>() != null), "each chip can be carried out");
+      Assert(chips.All(chip => ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject)?.GetComponent<DragSource>() != null),
+        "each chip can be carried out");
       Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == judgement.Name, "the page is named after its place");
       Assert(!judgement.Fill.Value.Equals(tufFolder.Fill.Value) && judgement.Fill.Value.Literal.a == 1
         && judgement.Ink.Value.Equals((ElementUI.UiColor)UiPalette.Foreground),

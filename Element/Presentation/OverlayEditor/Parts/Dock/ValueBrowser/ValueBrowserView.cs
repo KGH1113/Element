@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.Ui.Declarative;
@@ -46,6 +47,10 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
   private const float MinimumList = 132,
     MaximumList = 200,
     MaximumHeading = 150;
+
+  private const float GhostHeight = 30;
+
+  private static readonly UiColor GhostInk = new Color(.08f, .08f, .08f);
 
   private static readonly UiColor ChipFill = UiPalette.EditorControl,
     ChipInk = new Color(.92f, .92f, .92f),
@@ -307,8 +312,25 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         ButtonStyle.Plain
       )
       .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
-      .Configure<GameObject>(target => ValueChipDragInput.Attach(target, chip.Value, VM))
+      // Carried out of the dock, the value lands wherever it is let go.
+      .Draggable(() => chip.Value, Ghost)
       .Named(chip.Name);
+
+  // The carried value beside the pointer, in the highlight color as it is
+  // when the drag starts. Opaque, so the overlay behind never shows through;
+  // greyed while the place under it can't take it.
+  private static View Ghost(OverlayValueDefinition value)
+  {
+    UiColor carried = UiPalette.SoftAccent,
+      refused = UiPalette.Wash(UiPalette.EditorDim, .45f);
+    return UI.Text(ValueSectionNames.ValueName(value))
+      .Font(Font.Caption.Sized(13))
+      .Foreground(GhostInk)
+      .LineLimit(1)
+      .Padding(new Insets(0, 14, 0, 14))
+      .Frame(height: GhostHeight)
+      .Background(() => DragSession.State == DropState.Refuses ? refused : carried, GhostHeight / 2);
+  }
 
   private View Scroller(View content) =>
     ScrollView(content)

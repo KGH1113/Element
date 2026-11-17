@@ -1,172 +1,142 @@
+using System;
+using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
-using Element.Presentation.OverlayEditor.Parts.Dock;
-using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
-using Element.Presentation.OverlayEditor.Parts.Gradient;
-using Element.Presentation.Ui.Popovers;
+using ElementUI;
+using ElementUI.Ugui;
 using UnityEngine;
 
 namespace Element.Presentation.OverlayEditor.ShapeEditor;
 
 /// <summary>
-/// A value dragged from the dock onto the shape editor: the number under it
-/// lights up when it can take it, and dropping it there calculates that
-/// number with the value. Words such as the song title are refused.
+/// Where a value carried out of the dock can land in the shape editor, each
+/// number answering for itself: W, H, a corner's rounding (its number or its
+/// arc), the border width row, the picker's opacity, a color's position or
+/// its square, and the handles' angle. Letting go calculates that number with
+/// the value; words such as the song title are refused, with a reason.
+/// ElementUI finds the place under the pointer, so whatever is drawn over a
+/// place shields it. The dock's formula line is the dock's own place.
 /// </summary>
 internal sealed class ShapeValueDrops
 {
-  private const string FormulaLine = "formula";
-
   private readonly IShapeEditorActions _editor;
-  private readonly IShapeEditorContext _context;
   private readonly ShapeNumbers _numbers;
   private readonly ShapeColors _colors;
   private readonly ShapeGradient _gradient;
   private readonly ShapeMeasures _measures;
-  private readonly ShapeFieldList _fields;
-  private OverlayValueDefinition _dragValue;
-  private string _dropKey;
+  private readonly List<IDisposable> _places = new();
 
   public ShapeValueDrops(
     IShapeEditorActions editor,
-    IShapeEditorContext context,
     ShapeNumbers numbers,
     ShapeColors colors,
     ShapeGradient gradient,
-    ShapeMeasures measures,
-    ShapeFieldList fields
+    ShapeMeasures measures
   )
   {
     _editor = editor;
-    _context = context;
     _numbers = numbers;
     _colors = colors;
     _gradient = gradient;
     _measures = measures;
-    _fields = fields;
   }
 
-  /// <summary>A value is being carried.</summary>
-  public bool Dragging => _dragValue != null;
-
-  /// <summary>Drops what was carried, as when the editor is laid out afresh or closed.</summary>
-  public void Cancel() => _dragValue = null;
-
-  public void BeginValueDrag(OverlayValueDefinition value, Vector2 screen)
+  /// <summary>
+  /// Once the editor's numbers, picker and handles are built: each of them
+  /// takes values from now on. The keys of the picker's numbers are read when
+  /// a value lands, since the picker shows the fill's color or the border's.
+  /// </summary>
+  public void Build()
   {
-    _dragValue = value;
-    MoveValueDrag(screen);
-  }
-
-  public void MoveValueDrag(Vector2 screen)
-  {
-    EditorFramePanel frame = _context.Frame;
-    if (_dragValue == null || frame == null)
-      return;
-    _dropKey = FindDrop(screen, out bool accepted);
-    _fields.Collect();
-    for (int i = 0; i < _fields.Count; i++)
-      _fields[i].SetDrop(Lit(_fields.Key(i) == _dropKey, accepted));
-    _numbers.StrokeWidth.SetDrop(Lit(_dropKey == ShapeNumbers.StrokeKey, accepted));
-    _context.Dock.SetDrop(Lit(_dropKey == FormulaLine, accepted));
-    frame.ShowGhost(ValueSectionNames.ValueName(_dragValue), screen, accepted || _dropKey == null ? 1 : -1);
-  }
-
-  public void EndValueDrag(Vector2 screen)
-  {
-    EditorFramePanel frame = _context.Frame;
-    if (_dragValue == null || frame == null)
-      return;
-    OverlayValueDefinition value = _dragValue;
-    string key = FindDrop(screen, out _);
-    _dragValue = null;
-    _dropKey = null;
-    _fields.Collect();
-    for (int i = 0; i < _fields.Count; i++)
-      _fields[i].SetDrop(ValueDrop.None);
-    _numbers.StrokeWidth.SetDrop(ValueDrop.None);
-    _context.Dock.SetDrop(ValueDrop.None);
-    frame.HideGhost();
-    FormulaEditing editing = _numbers.Editing;
-    if (key == FormulaLine)
+    Release();
+    _places.Add(Number(_measures.WidthField, () => ShapeMeasures.WidthKey));
+    _places.Add(Number(_measures.HeightField, () => ShapeMeasures.HeightKey));
+    for (int i = 0; i < _measures.RadiusFields.Count; i++)
     {
-      if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-        _numbers.RefuseWords(value);
+      int corner = i;
+      _places.Add(Number(_measures.RadiusFields[i], () => _measures.RadiusKey(corner)));
+      _places.Add(
+        UguiDrop.Destination<OverlayValueDefinition>(
+          _measures.Arcs[i].gameObject,
+          over: Numeric,
+          drop: value => DropOn(_measures.RadiusKey(corner), value),
+          refused: value => DropOn(_measures.RadiusKey(corner), value)
+        )
+      );
     }
-    else if (key != null)
+    _places.Add(Number(_colors.Opacity.Field, () => _colors.OpacityKey));
+    _places.Add(Number(_gradient.Position, () => _gradient.PositionKey));
+    _places.Add(Number(_gradient.Handles.Angle, () => _gradient.AngleKey));
+    _places.Add(UguiDrop.Destination<OverlayValueDefinition>(_gradient.Handles.Root.gameObject, new Squares(this)));
+  }
+
+  /// <summary>The editor closes or is laid out afresh: its places go with what they were on.</summary>
+  public void Release()
+  {
+    foreach (IDisposable place in _places)
+      place.Dispose();
+    _places.Clear();
+  }
+
+  /// <summary>A value let go on the border width row: it calculates the width with the value, or says why words can't.</summary>
+  public void DropOnStrokeWidth(OverlayValueDefinition value) => DropOn(ShapeNumbers.StrokeKey, value);
+
+  private IDisposable Number(FormulaFieldView field, Func<string> key) =>
+    UguiDrop.Destination<OverlayValueDefinition>(
+      field.Root.gameObject,
+      over: Numeric,
+      drop: value => DropOn(key(), value),
+      targeted: field.SetDrop,
+      refused: value => DropOn(key(), value)
+    );
+
+  private static DropState Numeric(OverlayValueDefinition value) =>
+    value.IsNumeric ? DropState.Accepts : DropState.Refuses;
+
+  // Let go on a number: it opens in the dock and is calculated with the value;
+  // words can't be, and it says so.
+  private void DropOn(string key, OverlayValueDefinition value)
+  {
+    if (!value.IsNumeric)
+      _numbers.RefuseWords(value);
+    else
     {
-      // A value dropped on a gradient square drives that color's position.
-      if (ShapeNumbers.Kind(key, out int stop).EndsWith("position") && stop >= 0)
+      if (_numbers.Field != key)
       {
-        _colors.Picker.Gradient.SelectStop(stop);
-        key = _gradient.PositionKey;
+        _editor.CloseOpen();
+        _numbers.Field = key;
       }
-      if (!value.IsNumeric)
-        _numbers.RefuseWords(value);
-      else
-      {
-        if (_numbers.Field != key)
-        {
-          _editor.CloseOpen();
-          _numbers.Field = key;
-        }
-        editing.Activate(_numbers.Slot(key));
-        editing.Drop(editing.Slot, value);
-      }
+      FormulaEditing editing = _numbers.Editing;
+      editing.Activate(_numbers.Slot(key));
+      editing.Drop(editing.Slot, value);
     }
     _editor.Render();
   }
 
-  // How a place looks while the value is carried: lit when it is under it, red when it can't take it.
-  private static ValueDrop Lit(bool over, bool accepted) =>
-    !over ? ValueDrop.None
-    : accepted ? ValueDrop.Accepts
-    : ValueDrop.Refuses;
-
-  private string FindDrop(Vector2 screen, out bool accepted)
+  // A gradient's square takes a value for its color's position; the stop it
+  // belongs to is picked first.
+  private sealed class Squares : IDropDestination<OverlayValueDefinition>
   {
-    accepted = _dragValue.IsNumeric;
-    // The picker sits over everything else; only its numbers take a value.
-    if (_colors.Picker.Visible && PopoverPlacement.Contains(_colors.Picker.Root, screen))
+    private readonly ShapeValueDrops _drops;
+    private int _stop = -1;
+
+    public Squares(ShapeValueDrops drops) => _drops = drops;
+
+    public DropState Over(OverlayValueDefinition value, Vector2 screen)
     {
-      if (_colors.Opacity.Contains(screen))
-        return _colors.OpacityKey;
-      if (_colors.Picker.Gradient.IsGradient && _gradient.Position.Contains(screen))
-        return _gradient.PositionKey;
-      accepted = true;
-      return null;
+      _stop = _drops._gradient.Handles.SquareAt(screen);
+      return _stop < 0 ? DropState.None : Numeric(value);
     }
-    GradientHandles handles = _gradient.Handles;
-    if (handles.Visible)
+
+    public void Drop(OverlayValueDefinition value, Vector2 screen)
     {
-      if (handles.Angle.Contains(screen))
-        return _gradient.AngleKey;
-      int square = handles.SquareAt(screen);
-      if (square >= 0)
-        return _gradient.PositionKey + ":" + square;
+      _drops._colors.Picker.Gradient.SelectStop(_stop);
+      _drops.DropOn(_drops._gradient.PositionKey, value);
     }
-    InputDockPanel dock = _context.DockPanel;
-    if (dock.FormulaContains(screen))
-    {
-      accepted = _numbers.Editing.Active && FormulaEditing.Accepts(_numbers.Editing.Slot, _dragValue);
-      return FormulaLine;
-    }
-    if (dock.Contains(screen))
-    {
-      accepted = true;
-      return null;
-    }
-    if (_context.Inspector.Contains(_numbers.StrokeWidth, screen))
-      return ShapeNumbers.StrokeKey;
-    _fields.Collect();
-    for (int i = 0; i < _fields.Count; i++)
-      if (_fields[i].Root.gameObject.activeInHierarchy && _fields[i].Contains(screen))
-        return _fields.Key(i);
-    int arc = _measures.ArcAt(screen, true);
-    if (arc >= 0)
-      return _measures.RadiusKey(arc);
-    accepted = true;
-    return null;
+
+    public void Refused(OverlayValueDefinition value, Vector2 screen) => Drop(value, screen);
+
+    public void Left() => _stop = -1;
   }
 }

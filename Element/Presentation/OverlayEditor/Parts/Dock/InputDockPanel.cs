@@ -69,10 +69,6 @@ internal sealed class InputDockPanel
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
-  /// <summary>The formula line, while something is edited: where a dropped value joins the formula.</summary>
-  public bool FormulaContains(Vector2 screen) =>
-    _vm.Owner.Value != null && _view.Line.Area != null && PopoverPlacement.Contains(_view.Line.Area, screen);
-
   // How wide words are at the dock's 13-unit size.
   private static Func<string, float> Measurer(TextMeshProUGUI measure) =>
     text =>

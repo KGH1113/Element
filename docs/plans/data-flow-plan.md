@@ -87,7 +87,24 @@ Presentation/
 
 화면과 동작은 그대로입니다. 단계마다 UI 렌더 184장을 dev와 바이트 단위로 비교했습니다.
 
+## ElementUI로 옮긴 것 (2026-11-17)
+
+ElementUI에 SwiftUI에 있던 API 7개를 더하고 Element를 그 위로 옮겼습니다.
+
+| ElementUI API | Element에서 바뀐 곳 |
+| --- | --- |
+| `Observable` | 입력 중인 수식(`FormulaEditing`)이 바뀔 때 알림. 키패드 키와 독 줄이 스스로 따라가서 `Keypad.Show`와 수식 글자 캐시가 사라짐 |
+| `Timeline` | 독 캐럿 깜빡임과 값 칩의 실시간 숫자. 편집기가 매 프레임 넣던 `Blink`와 독의 `Tick` 거르기가 사라짐 |
+| 환경 값 (`EnvironmentKey`) | 글자 폭 재기와 움직임 줄이기를 `EditorEnvironment`로 내려보냄. 생성자 두 단계로 넘기던 것이 사라짐 |
+| `Keyboard.IsTaken` | "입력칸이 키를 가졌나"를 이것 하나로 물음. 독의 프레임 걸쇠, 팝오버마다의 `IsTyping`, 설정 창의 `IsTyping`이 사라짐 |
+| 끌어서 놓기 (`Draggable`, `DropDestination`, `UguiDrop`) | 칩은 `.Draggable`, 받을 곳은 각자 `Over`·`Drop`·`Refused`로 답함. 손으로 쓴 우선순위 순서(`FindDrop`), 칸마다 칠하던 강조, 고스트 그리기가 사라짐 |
+| `FixedSize`, `LayoutPriority`, 스크롤 앵커, `RichText`, `OnGeometryChange` | ElementUI에 들어감. Element에서는 아직 쓰지 않음 (아래) |
+| `ConfirmationDialog`, 팝오버 붙일 방향 | ElementUI에 들어감. Element에서는 아직 쓰지 않음 (아래) |
+
 ## 아직 남은 것
 
-- 편집기의 기능 클래스(`TextColor`, `ShapeNumbers` 같은 것)는 반응형 ViewModel이 아닙니다. 상태를 바꾸면 `Render()`를 요청하고, 화면이 다시 그릴 때 자기 위젯에 상태를 밀어 넣습니다. 흐름은 한 방향이지만, 하나씩 `ViewModel`+`View`로 나누면 `Render()` 없이 바인딩만으로 갱신됩니다.
-- 손으로 만든 상호작용(캐럿·IME, 그라디언트 핸들, 값 끌기)은 그대로 둡니다. ElementUI 밖의 일입니다.
+- 편집기의 기능 클래스(`TextColor`, `ShapeNumbers` 같은 것)는 아직 반응형 ViewModel이 아닙니다. 상태를 바꾸면 `Render()`를 요청하고, 다시 그릴 때 자기 위젯에 상태를 밀어 넣습니다. `FormulaEditing`처럼 하나씩 `Observable`로 바꾸면 `Render()` 없이 따라가게 됩니다.
+- 독의 수식 줄(`FormulaLineView`)은 아직 손으로 배치합니다. `FixedSize`·`LayoutPriority`·스크롤 앵커·`RichText`로 옮길 수 있지만, 지금 모양과 픽셀까지 맞추는 작업이 따로 필요합니다.
+- 레이아웃 편집기의 초기화 확인 창(`ConfirmPanel`)은 그대로 둡니다. ElementUI 대화상자는 붙은 화면만 덮고, 카드 모양이 다르며, Enter가 "확인"입니다(되돌릴 수 있는 초기화라 위험 표시가 없음). 지금 창은 Enter가 취소입니다.
+- 캔버스 툴바는 되돌리기 가능 여부를 매 프레임 베껴 옵니다. 기록(`LayoutHistory`)이 Application 층에 있어서 ElementUI의 `Observable`이 될 수 없습니다(층 규칙).
+- 손으로 만든 상호작용(캐럿·IME, 그라디언트 핸들 끌기)은 그대로 둡니다.

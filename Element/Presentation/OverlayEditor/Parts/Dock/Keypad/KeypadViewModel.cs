@@ -10,8 +10,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 /// <summary>
 /// Large keys for a formula: 0–9, a point, + − × ÷, backspace, AC to start
 /// over and Done. A key that would do nothing can't be pressed and reads
-/// dimmed; the dock says which with <see cref="Show"/>. A pressed key goes
-/// up as the dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/>
+/// dimmed; each key follows the formula being typed by itself. A pressed key
+/// goes up as the dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/>
 /// draws it.
 /// </summary>
 internal sealed class KeypadViewModel : ViewModel
@@ -38,7 +38,8 @@ internal sealed class KeypadViewModel : ViewModel
   };
 
   /// <param name="actions">Where a pressed key, AC and Done go.</param>
-  public KeypadViewModel(IInputDockActions actions)
+  /// <param name="editing">The formula typed: what it can take next lets a key be pressed.</param>
+  public KeypadViewModel(IInputDockActions actions, FormulaEditing editing)
   {
     KeypadKeyViewModel[] keys = new KeypadKeyViewModel[Layout.Length];
     for (int i = 0; i < keys.Length; i++)
@@ -52,13 +53,14 @@ internal sealed class KeypadViewModel : ViewModel
           // The last column, the operators, reads as a group.
           i % 4
             == 3,
-          () => actions.Press(key)
+          () => actions.Press(key),
+          () => CanPress(editing, key)
         )
       );
     }
     Keys = keys;
-    Clear = Own(new KeypadKeyViewModel("Key clear", "AC", '\0', false, actions.Clear));
-    Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done));
+    Clear = Own(new KeypadKeyViewModel("Key clear", "AC", '\0', false, actions.Clear, () => editing.CanClear));
+    Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done, () => editing.Active));
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>
@@ -70,17 +72,11 @@ internal sealed class KeypadViewModel : ViewModel
   /// <summary>Done: the way out of the keypad.</summary>
   public readonly KeypadKeyViewModel Done;
 
-  /// <summary>Lets the keys that would do something now be pressed, and dims the others.</summary>
-  public void Show(FormulaEditing editing)
-  {
-    for (int i = 0; i < Keys.Count; i++)
-    {
-      KeypadKeyViewModel key = Keys[i];
-      key.Enabled.Value = key.Character == '\b' ? editing.CanBackspace : editing.CanPress(key.Character);
-    }
-    Clear.Enabled.Value = editing.CanClear;
-    Done.Enabled.Value = editing.Active;
-  }
+  // A key can be pressed while it would do something to the formula: backspace
+  // while there is something to take back, the rest while the formula takes them.
+  [Pure]
+  private static bool CanPress(FormulaEditing editing, char key) =>
+    key == '\b' ? editing.CanBackspace : editing.CanPress(key);
 
   /// <summary>Keyboard keys that act like the keypad: digits, point, + - * / and backspace.</summary>
   public static bool TryKeyboard(Event e, out char key)

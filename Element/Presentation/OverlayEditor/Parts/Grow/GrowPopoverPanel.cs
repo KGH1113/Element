@@ -94,8 +94,6 @@ internal sealed class GrowPopoverPanel : IPopover
       Root.gameObject.SetActive(false);
   }
 
-  public bool IsTyping => false;
-
   /// <summary>The button that opens it, when its owner says so.</summary>
   public RectTransform Anchor { get; set; }
 

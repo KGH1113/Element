@@ -31,8 +31,6 @@ internal sealed class ValueSourceMenuPanel : IPopover
 
   public bool Visible => Root.gameObject.activeSelf;
 
-  public bool IsTyping => false;
-
   public RectTransform Anchor { get; set; }
 
   /// <summary>

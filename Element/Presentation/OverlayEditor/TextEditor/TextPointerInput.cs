@@ -5,6 +5,7 @@ using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
+using ElementUI;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -27,7 +28,6 @@ internal sealed class TextPointerInput
   private readonly TextGradient _gradient;
   private readonly GrowFrom _grow;
   private readonly TextAnimate _animate;
-  private readonly TextValueDrops _drops;
   private bool _dragging;
   private float _lastClick = -1;
 
@@ -41,8 +41,7 @@ internal sealed class TextPointerInput
     TextFonts fonts,
     TextGradient gradient,
     GrowFrom grow,
-    TextAnimate animate,
-    TextValueDrops drops
+    TextAnimate animate
   )
   {
     _editor = editor;
@@ -55,13 +54,12 @@ internal sealed class TextPointerInput
     _gradient = gradient;
     _grow = grow;
     _animate = animate;
-    _drops = drops;
   }
 
   public void HandleMouse()
   {
     Vector2 screen = Input.mousePosition;
-    if (_drops.Dragging || _gradient.Handles.Dragging)
+    if (DragSession.Active || _gradient.Handles.Dragging)
       return;
     if (Input.GetMouseButtonDown(0))
     {
@@ -138,7 +136,7 @@ internal sealed class TextPointerInput
   {
     EditorFramePanel frame = _context.Frame;
     if (
-      _drops.Dragging
+      DragSession.Active
       || _dragging
       || _context.DockPanel.Contains(screen)
       || _grow.Contains(screen)

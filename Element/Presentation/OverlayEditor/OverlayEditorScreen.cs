@@ -17,6 +17,7 @@ using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -202,7 +203,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       return;
     }
     PopoverStack popovers = _popovers.Stack;
-    bool typing = _toolbar.Typing || popovers.Typing;
+    bool typing = Keyboard.IsTaken;
     bool popoverOpen = popovers.AnyOpen;
     InputGate.SetTextEditing(typing || _modal.IsOpen || popoverOpen);
     UpdatePopupPositions();

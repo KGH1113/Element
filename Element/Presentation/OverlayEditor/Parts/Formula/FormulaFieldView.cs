@@ -3,6 +3,7 @@ using System.Globalization;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
+using ElementUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -35,7 +36,7 @@ internal sealed class FormulaFieldView
     _prefixWidth;
   private float _textWidth;
   private bool _active;
-  private ValueDrop? _drop;
+  private DropState? _drop;
 
   public FormulaFieldView(
     UiFactory ui,
@@ -60,7 +61,7 @@ internal sealed class FormulaFieldView
     _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _unit.textWrappingMode = TextWrappingModes.NoWrap;
     _unitWidth = Measure(_unit, 3);
-    SetDrop(ValueDrop.None);
+    SetDrop(DropState.None);
   }
 
   public RectTransform Root { get; }
@@ -116,7 +117,7 @@ internal sealed class FormulaFieldView
     double.IsNaN(value) || double.IsInfinity(value) ? "—" : value.ToString("0.#", CultureInfo.InvariantCulture);
 
   /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(ValueDrop drop)
+  public void SetDrop(DropState drop)
   {
     if (_drop == drop)
       return;
@@ -137,8 +138,8 @@ internal sealed class FormulaFieldView
   {
     Color accent = UiPalette.SoftAccent;
     Color rest =
-      _drop == ValueDrop.Accepts ? Color.Lerp(Rest, accent, .5f)
-      : _drop == ValueDrop.Refuses ? Color.Lerp(Rest, UiPalette.Error, .4f)
+      _drop == DropState.Accepts ? Color.Lerp(Rest, accent, .5f)
+      : _drop == DropState.Refuses ? Color.Lerp(Rest, UiPalette.Error, .4f)
       : _active ? Color.Lerp(Rest, accent, .38f)
       : Rest;
     ColorBlock colors = _body.colors;

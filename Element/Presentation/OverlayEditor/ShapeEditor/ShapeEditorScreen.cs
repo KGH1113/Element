@@ -64,7 +64,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private OverlayShapeSettings _shape;
   private OverlayShapeSettings _opening;
   private float _elementScale = 1;
-  private float _blinkStart;
 
   public ShapeEditorScreen(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
   {
@@ -180,7 +179,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _preview.Build(_frame);
     _measures.Build(_frame, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_frame, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dock = new InputDockViewModel(_values, _numbers.Editing, _frame.ViewModel, this, _reduceMotion());
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     BuildInspector();
     _colors.BuildPicker(_frame, _dockPanel);
@@ -250,15 +249,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     // The shape glides aside as the picker opens, and back as it closes.
     if (_space.Moving)
       RenderKeepingBlink();
-    _dock.Blink(_reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f);
   }
 
-  private void RenderKeepingBlink()
-  {
-    float blinkStart = _blinkStart;
-    Render();
-    _blinkStart = blinkStart;
-  }
+  // A level playing behind, or the shape gliding aside: drawn again, the caret keeps blinking as it was.
+  private void RenderKeepingBlink() => Draw(restartBlink: false);
 
   // A level playing behind the editor moves the shape and its numbers.
   private void FollowLiveValues()
@@ -269,11 +263,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     RenderKeepingBlink();
   }
 
-  private void Render()
+  // Draws everything again after the player did something: the dock's caret shows at once.
+  private void Render() => Draw(restartBlink: true);
+
+  private void Draw(bool restartBlink)
   {
     if (_frame == null)
       return;
-    _blinkStart = Time.unscaledTime;
+    if (restartBlink)
+      _dock.RestartBlink();
     _numbers.Sync();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
@@ -294,7 +292,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     string field = _numbers.Field;
     _dock.Show(
       field,
-      _numbers.Editing,
       field == null ? "" : _numbers.Name(field),
       field == null ? null : _numbers.ResultText(field),
       _colors.Hint()

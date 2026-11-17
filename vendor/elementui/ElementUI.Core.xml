@@ -341,7 +341,15 @@
         <member name="M:ElementUI.UI.Bind``1(System.Linq.Expressions.Expression{System.Func{``0}})">
             <summary>
             A two-way link to a view model field: <c>Bind(() =&gt; VM.Settings.Width)</c>.
-            The path must end at a writable field or property, or a <see cref="T:ElementUI.State`1"/>'s Value.
+            The path must end at a writable field or property, a <see cref="T:ElementUI.State`1"/>'s Value,
+            or a writable member of an <see cref="T:ElementUI.Observable"/>.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.BindObservable``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.MemberExpression)">
+            <summary>
+            Reads the member through the lowered expression (it follows the object)
+            and writes it on the object the path leads to now. A property's setter
+            calls Changed itself; a field has none, so the binding tells the readers.
             </summary>
         </member>
         <member name="M:ElementUI.UI.EnvironmentReader(System.Func{ElementUI.EnvironmentValues,ElementUI.View})">
@@ -447,6 +455,14 @@
         </member>
         <member name="M:ElementUI.ViewModifiers.Popover(ElementUI.View,ElementUI.Binding{System.Boolean},System.Func{ElementUI.View})">
             <summary>A popover beside the view while <paramref name="isPresented"/> is true; clicking outside or Escape closes it.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Environment``1(ElementUI.View,ElementUI.EnvironmentKey{``0},``0)">
+            <summary>
+            Sets <paramref name="key"/> to <paramref name="value"/> for the view and
+            everything inside it, popovers included; the innermost setting wins.
+            Fixed at mount, like <c>.Font</c>: to follow a change, pass an object that
+            tells its readers (a <see cref="T:ElementUI.State`1"/>, an <see cref="T:ElementUI.Observable"/>).
+            </summary>
         </member>
         <member name="M:ElementUI.ViewModifiers.TextFieldStyle(ElementUI.View,ElementUI.TextFieldStyle)">
             <summary>Uses the standard field surface, or a bare input that composes with a surrounding HStack and background.</summary>
@@ -704,11 +720,31 @@
         <member name="M:ElementUI.Debugging.Counters.Reset">
             <summary>Starts counting a new frame.</summary>
         </member>
+        <member name="T:ElementUI.EnvironmentKey`1">
+             <summary>
+             A value of your own that a view hands down to everything inside it, such as
+             whether motion is reduced or how text is measured. Make one per value, kept
+             in a <c>static readonly</c> field: the key is the field, not its name.
+             </summary>
+             <example>
+             <code>
+             public static readonly EnvironmentKey&lt;bool&gt; ReduceMotion = new(false);
+            
+             Content().Environment(ReduceMotion, settings.ReduceMotion)  // set it for the subtree
+             Environment(ReduceMotion)                                  // read it in a view's Body
+             EnvironmentReader(env =&gt; ... env.Get(ReduceMotion) ...)    // or in a reader
+             </code>
+             </example>
+        </member>
+        <member name="P:ElementUI.EnvironmentKey`1.DefaultValue">
+            <summary>What views read where no <c>.Environment(key, value)</c> above set it.</summary>
+        </member>
         <member name="T:ElementUI.Layout.ViewEnvironment">
             <summary>
             Values a view hands down to everything inside it: the text font and color,
-            and the style its controls are drawn in. Set with <c>.Font(...)</c>,
-            <c>.Foreground(...)</c> and <c>.ControlStyle(...)</c>; fixed at mount.
+            the style its controls are drawn in, and values of your own. Set with
+            <c>.Font(...)</c>, <c>.Foreground(...)</c>, <c>.ControlStyle(...)</c> and
+            <c>.Environment(key, value)</c>; fixed at mount.
             </summary>
         </member>
         <member name="F:ElementUI.Layout.ViewEnvironment.ForegroundWatch">
@@ -719,6 +755,21 @@
         </member>
         <member name="F:ElementUI.Layout.ViewEnvironment.Style">
             <summary>How the controls inside are drawn.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.ViewEnvironment.Values">
+            <summary>Values of your own set above, the innermost first.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.ViewEnvironment.WithValue``1(ElementUI.EnvironmentKey{``0},``0)">
+            <summary>The same environment with <paramref name="key"/> set to <paramref name="value"/> for the subtree.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.ViewEnvironment.Get``1(ElementUI.EnvironmentKey{``0})">
+            <summary>The nearest value set for <paramref name="key"/> above, else its default. Allocates nothing.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.EnvironmentEntry">
+            <summary>One value of your own in an environment, and the ones set further out.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.EnvironmentEntry`1">
+            <summary>Keeps the value typed, so value types aren't boxed and reads don't allocate.</summary>
         </member>
         <member name="T:ElementUI.Layout.HintPlacement">
             <summary>Where a hint goes for the view it is about.</summary>
@@ -873,6 +924,50 @@
         </member>
         <member name="P:ElementUI.Binding`1.Value">
             <summary>The field's value. Reading it in a view's expression follows it; setting it updates the field's readers.</summary>
+        </member>
+        <member name="T:ElementUI.Observable">
+             <summary>
+             A plain C# object that tells the views reading it when it changes, from
+             anywhere: an editor's formula being typed, an undo history, a list changed
+             in place. Views read its members in expressions as they read a view model's.
+             </summary>
+             <remarks>
+             One object is one source: after <see cref="M:ElementUI.Observable.Changed"/>, everything that read
+             any of its members updates at the next flush. Expressions follow the object
+             whatever member they read, fields included; call <see cref="M:ElementUI.Observable.Reading"/> in
+             getters as well, so reads from helpers and plain delegates follow it too.
+             A view model field holding the object is still a field: replacing the object
+             in a command is seen. Use it on the main thread.
+             </remarks>
+             <example>
+             <code>
+             public sealed class Formula : Observable
+             {
+               private readonly List&lt;string&gt; _tokens = new();
+            
+               public int Count { get { Reading(); return _tokens.Count; } }
+            
+               public void Add(string token) { _tokens.Add(token); Changed(); }
+             }
+            
+             Text(() =&gt; formula.Count, format: "{0} tokens")
+             </code>
+             </example>
+        </member>
+        <member name="M:ElementUI.Observable.Reading">
+            <summary>Call at the start of a getter a view may read: the reading expression follows this object.</summary>
+        </member>
+        <member name="M:ElementUI.Observable.Changed">
+            <summary>
+            Call after a change, also after changing something in place (a list's
+            items). Readers update in the next flush; changes in one batch update them once.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Observable.Track``1(``0)">
+            <summary>What lowered expressions read a member through, so every member follows the object.</summary>
+        </member>
+        <member name="M:ElementUI.Observable.FieldWritten">
+            <summary>A binding wrote one of its fields, which has no setter to call <see cref="M:ElementUI.Observable.Changed"/>.</summary>
         </member>
         <member name="T:ElementUI.State`1">
             <summary>
@@ -1034,7 +1129,8 @@
             What can be read:
             <list type="bullet">
             <item>fields and properties reached from a view model (become cells);</item>
-            <item><c>.Value</c> of <see cref="T:ElementUI.State`1"/>, <see cref="T:ElementUI.Computed`1"/>, <see cref="T:ElementUI.ItemSlot`1"/>, and members of <see cref="T:ElementUI.ObservableList`1"/> (track themselves);</item>
+            <item><c>.Value</c> of <see cref="T:ElementUI.State`1"/>, <see cref="T:ElementUI.Computed`1"/>, <see cref="T:ElementUI.ItemSlot`1"/>, and members of <see cref="T:ElementUI.ObservableList`1"/> and <see cref="T:ElementUI.Timeline"/> (track themselves);</item>
+            <item>any member of an <see cref="T:ElementUI.Observable"/> (read through it, so the expression follows the object);</item>
             <item>constants, captured locals, readonly fields, static readonly fields;</item>
             <item>methods of the base library and math types, and methods or properties marked <see cref="T:ElementUI.PureAttribute"/>.</item>
             </list>
@@ -1050,11 +1146,24 @@
             lowered and the path.
             </summary>
         </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsObservable(System.Type)">
+            <summary>An object of your own that tells its readers when it changes.</summary>
+        </member>
         <member name="M:ElementUI.Reactive.Lowering.IsSource(System.Type)">
             <summary>Types whose members track themselves.</summary>
         </member>
         <member name="T:ElementUI.Reactive.Lowering.PathExpression">
             <summary>A chain of members from a view model, before it becomes a cell read.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.Marker.IsSelfTracking(System.Type)">
+            <summary>
+            A source whose reference is read plainly: its members track themselves.
+            An Observable is not one here: a field holding it is a cell, so
+            replacing the object is seen.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.Marker.Tracked(System.Linq.Expressions.Expression)">
+            <summary><paramref name="observable"/>, read so the running expression follows it.</summary>
         </member>
         <member name="M:ElementUI.Reactive.Lowering.FromSource(System.Linq.Expressions.Expression)">
             <summary>
@@ -1267,6 +1376,50 @@
         <member name="T:ElementUI.IStyledSegmentedPeer">
             <summary>Optional text styling on a segmented control's labels.</summary>
         </member>
+        <member name="T:ElementUI.Timeline">
+             <summary>
+             Something that changes with time, such as a caret's blink: it counts
+             periods of unscaled time. It runs only while an expression in a shown
+             branch reads it; otherwise it schedules nothing and its time stands still.
+             </summary>
+             <remarks>
+             It does not look at reduced motion: whether a caret still blinks or a pulse
+             stops is the caller's choice, so read your own setting and don't read the
+             timeline when it says no. A timeline nobody reads costs nothing; dispose it
+             with its owner to stop it for good.
+             </remarks>
+             <example>
+             <code>
+             private readonly Timeline _blink = Timeline.Periodic(.53f);
+            
+             Rectangle().Fill(Colors.Accent).Frame(width: 2, height: 18).Opacity(() =&gt; _blink.Even ? 1f : 0f)
+            
+             // after a key press: the caret shows at once and blinks from there
+             _blink.Restart();
+             </code>
+             </example>
+        </member>
+        <member name="M:ElementUI.Timeline.Periodic(System.Single)">
+            <summary>Ticks every <paramref name="seconds"/> of unscaled time, but only while an expression reads it.</summary>
+        </member>
+        <member name="P:ElementUI.Timeline.Tick">
+            <summary>How many periods have passed since it started or was restarted; reading it follows it.</summary>
+        </member>
+        <member name="P:ElementUI.Timeline.Even">
+            <summary>Whether the current period is an even one: a blink's on phase, and so true right after <see cref="M:ElementUI.Timeline.Restart"/>.</summary>
+        </member>
+        <member name="M:ElementUI.Timeline.Restart">
+            <summary>Starts counting again from 0 now (a caret that shows at once after typing).</summary>
+        </member>
+        <member name="M:ElementUI.Timeline.Dispose">
+            <summary>Stops it for good: it keeps its last count and schedules nothing again.</summary>
+        </member>
+        <member name="T:ElementUI.TimelineNode">
+            <summary>A timeline's place in the graph: it starts the timeline when first read and stops it when no one reads it.</summary>
+        </member>
+        <member name="M:ElementUI.TimelineNode.HasShownReader">
+            <summary>Whether an effect that would show a tick reads it, directly or through computed values. Allocates nothing.</summary>
+        </member>
         <member name="T:ElementUI.Views.ButtonView">
             <summary>A button around a label view. It runs the command its expression picks, or (inside controls) an action.</summary>
         </member>
@@ -1415,6 +1568,13 @@
         <member name="P:ElementUI.EnvironmentValues.IsEnabled">
             <summary>Whether this view and its ancestors allow interaction.</summary>
         </member>
+        <member name="M:ElementUI.EnvironmentValues.Get``1(ElementUI.EnvironmentKey{``0})">
+            <summary>
+            The value of <paramref name="key"/> set nearest above with
+            <c>.Environment(key, value)</c>, else its default. Fixed at mount; an
+            expression may read it.
+            </summary>
+        </member>
         <member name="T:ElementUI.Transition">
             <summary>The presentation at the hidden end of an insertion/removal transition.</summary>
         </member>
@@ -1522,6 +1682,14 @@
         </member>
         <member name="M:ElementUI.View.RefreshActive">
             <summary>An inactive branch keeps its views but runs none of their updates until it is active again.</summary>
+        </member>
+        <member name="M:ElementUI.View.Environment``1(ElementUI.EnvironmentKey{``0})">
+            <summary>
+            The value of <paramref name="key"/> set nearest above this view with
+            <c>.Environment(key, value)</c>, else its default. Read it in
+            <c>Body</c> or later: the values are those of where the view is mounted,
+            so a constructor can't read them.
+            </summary>
         </member>
         <member name="M:ElementUI.View.Edited">
             <summary>A control wrote a value the player chose: the screen tells its host it was edited.</summary>

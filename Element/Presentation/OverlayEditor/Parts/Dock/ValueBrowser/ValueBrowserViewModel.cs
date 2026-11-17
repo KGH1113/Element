@@ -33,7 +33,6 @@ internal sealed class ValueBrowserViewModel : ViewModel
   private ValueFolderViewModel _open;
   private string _folded = "";
   private long _seen;
-  private float _nextFollow;
   private bool _carrying;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
@@ -102,15 +101,15 @@ internal sealed class ValueBrowserViewModel : ViewModel
   /// <summary>The place open now.</summary>
   public ValueFolderViewModel OpenFolder => _open;
 
+  /// <summary>Ticks a few times a second while the chips are shown: when they look at what their values read.</summary>
+  public readonly Timeline Live = Timeline.Periodic(FollowSeconds);
+
   /// <summary>
-  /// Once a frame: a few times a second, the chips in view take what their
-  /// values read now. With nothing new it compares one number and makes nothing.
+  /// The chips in view take what their values read now. With nothing new it
+  /// compares one number and makes nothing.
   /// </summary>
-  public void Follow(float now)
+  public void Follow()
   {
-    if (now < _nextFollow)
-      return;
-    _nextFollow = now + FollowSeconds;
     if (_values == null || _values.Stamp == _seen)
       return;
     OverlayValueMask changed = _values.ChangedSince(_seen);
@@ -213,4 +212,6 @@ internal sealed class ValueBrowserViewModel : ViewModel
 
   /// <summary>The chip went away mid-carry (the dock closed): nothing is dropped.</summary>
   public void CancelCarry() => _carrying = false;
+
+  protected override void OnDisposed() => Live.Dispose();
 }

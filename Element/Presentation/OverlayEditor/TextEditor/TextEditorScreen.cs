@@ -224,7 +224,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _marks.BuildHint(_frame.Ui, _frame.Frame);
     _color.BuildPicker(_frame);
     _gradient.BuildPicker(_frame.Ui, _color.Picker, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _frame.ViewModel, this);
+    _dock = new InputDockViewModel(_values, _formulas.Editing, _frame.ViewModel, this, _reduceMotion());
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     _color.LayOutAbove(_dockPanel);
     BuildInspector();
@@ -326,7 +326,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
     // The text's caret rests while a formula or the value search has the input.
     _marks.Blink(!searching && !_text.HasSelection && !_formulas.Editing.Active && blink);
-    _dock.Blink(blink);
     if (!searching)
       _keyboard.UpdateImePosition();
     FollowLiveValues();
@@ -357,12 +356,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     RenderKeepingBlink();
   }
 
-  private void RenderKeepingBlink()
-  {
-    float blinkStart = _blinkStart;
-    Render();
-    _blinkStart = blinkStart;
-  }
+  // A level playing behind, or the text gliding aside: drawn again, the carets keep blinking as they were.
+  private void RenderKeepingBlink() => Draw(restartBlink: false);
 
   private OverlayValueMask LiveMask()
   {
@@ -381,12 +376,19 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     return mask | _preview.GradientMask;
   }
 
-  // Rebuilds the text at its game size and everything placed around it.
-  private void Render()
+  // Rebuilds the text at its game size and everything placed around it, after
+  // the player did something: the carets show at once and blink from there.
+  private void Render() => Draw(restartBlink: true);
+
+  private void Draw(bool restartBlink)
   {
     if (_frame == null)
       return;
-    _blinkStart = Time.unscaledTime;
+    if (restartBlink)
+    {
+      _blinkStart = Time.unscaledTime;
+      _dock.RestartBlink();
+    }
     _formulas.Sync();
     // The text stays above the dock.
     _bottomTop = _dockPanel.Top;

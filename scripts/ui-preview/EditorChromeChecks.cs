@@ -139,10 +139,10 @@ namespace Element.Editor
 
       public RectTransform Root => Panel.Root;
       public ValueBrowserViewModel Values => Vm.Values;
-      public string Owner => Vm.Owner;
+      public string Owner => Vm.Owner.Value;
 
       /// <summary>What the line says to do, while nothing is edited.</summary>
-      public string HintText => Vm.Owner == null ? Vm.Title.Value : "";
+      public string HintText => Vm.Owner.Value == null ? Vm.Title.Value : "";
 
       public string FormulaText => Vm.Formula.Value;
       public string ResultText => Vm.Result.Value;
@@ -150,7 +150,7 @@ namespace Element.Editor
       public bool Contains(Vector2 screen) => Panel.Contains(screen);
       public bool Dragging => Vm.Values.Carrying;
       public void Tick() => Panel.Tick();
-      public void Blink(bool visible) => Vm.Blink(visible);
+      public void Blink(bool visible) => Vm.RestartBlink();
     }
 
     /// <summary>A dock with nowhere to send what is done in it, for docks the checks make on their own.</summary>

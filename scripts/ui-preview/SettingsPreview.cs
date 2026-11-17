@@ -1318,7 +1318,16 @@ namespace Element.Editor
       document = TextDocumentOf(text).Document;
       Assert(document[9].Value == "{combo}*2+{miss}", "a value dropped on the formula line joins it: " + document[9].Value);
       Assert(dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the dock never covers the text");
+      // The screenshot shows the dock's caret on: settling moves the blink along, so start it over after.
+      Action settle = _refresh;
+      _refresh = () =>
+      {
+        settle?.Invoke();
+        DockOf(text).Blink(true);
+        ElementUI.Runtime.Flush(0);
+      };
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
+      _refresh = settle;
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
       Field<TextPointerInput>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));

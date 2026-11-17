@@ -1,5 +1,4 @@
 using ElementUI;
-using TMPro;
 using static Element.Presentation.Ui.Declarative.Controls.SwitchCards;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -90,13 +89,10 @@ internal sealed class EditorTweaksView : View<EditorTweaksModel>
               preset => preset.Label,
               preset => Button(Text(preset.Value.Label), () => preset.Value.Use)
             ),
-            TextField(null, Bind(() => VM.RotationText))
-              .Configure<TMP_InputField>(field =>
-              {
-                field.characterLimit = 6;
-                // Enter or leaving the field keeps the angle; typing alone doesn't.
-                field.onEndEdit.AddListener(_ => VM.CommitRotation.TryExecute());
-              })
+            TextField(Bind(() => VM.RotationText))
+              .CharacterLimit(6)
+              // Enter or leaving the field keeps the angle; typing alone doesn't.
+              .OnEditEnded((_, _) => VM.CommitRotation.TryExecute())
               .Frame(width: 92)
           )
         )

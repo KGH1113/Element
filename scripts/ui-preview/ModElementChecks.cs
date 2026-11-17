@@ -390,7 +390,7 @@ namespace Element.Editor
         widthField.text = "500";
         Assert(Working().Contains("\"Width\":500"), "a number shows as it is typed");
         widthField.text = "5000";
-        widthField.onEndEdit.Invoke("5000");
+        widthField.onEndEdit.Invoke(widthField.text);
         Settle();
         Assert(Working().Contains("\"Width\":960") && widthField.text == "960", "and is kept within its limits when typing is done: " + widthField.text);
         Press(Find("Step up "));

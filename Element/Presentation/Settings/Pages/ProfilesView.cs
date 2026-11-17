@@ -5,7 +5,6 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
-using TMPro;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 
@@ -84,13 +83,10 @@ internal sealed class ProfilesView : View<ProfilesModel>
           .Foreground(Colors.Muted),
         HStack(
             spacing: 8,
-            TextField(null, Bind(() => VM.Creating.Name), L("프로필 이름", "Profile name"))
-              .Configure<TMP_InputField>(field =>
-              {
-                field.characterLimit = ElementProfile.MaximumNameLength;
-                field.onSubmit.AddListener(_ => VM.Creating.Submit());
-              })
-              .Configure<TMP_InputField, int>(() => VM.Creating.FocusName, Focus)
+            TextField(Bind(() => VM.Creating.Name), L("프로필 이름", "Profile name"))
+              .CharacterLimit(ElementProfile.MaximumNameLength)
+              .OnSubmit(_ => VM.Creating.Submit())
+              .FocusOn(() => VM.Creating.FocusName)
               .Frame(maxWidth: float.PositiveInfinity),
             Button(
                 Text(L("만들기", "Create")).Frame(maxWidth: float.PositiveInfinity),
@@ -113,22 +109,15 @@ internal sealed class ProfilesView : View<ProfilesModel>
       // As wide as the old panel; a popover narrows it to fit a narrow window.
       .Frame(width: 340, alignment: Alignment.TopLeading);
 
-  private static void Focus(TMP_InputField field, int requests)
-  {
-    if (requests == 0 || !field.gameObject.activeInHierarchy)
-      return;
-    field.Select();
-    field.ActivateInputField();
-  }
-
   // ---- Cards ----
 
   private View Card(ItemSlot<ProfileCardModel> card) =>
-    ZStack(
-      Alignment.TopLeading,
-      Button(
-          VStack(
-              spacing: 6,
+    Button(
+        VStack(
+            spacing: 6,
+            HStack(
+              spacing: 8,
+              VAlignment.Top,
               If(
                 () => card.Value.Renaming.Value,
                 () => RenameField(card),
@@ -137,56 +126,49 @@ internal sealed class ProfilesView : View<ProfilesModel>
                     .Font(Font.Heading.Sized(20))
                     .Foreground(Colors.Foreground)
                     .LineLimit(2)
-                    .Frame(maxHeight: 54, alignment: Alignment.TopLeading)
-                    .Padding(new Insets(0, 0, 0, 4 * ActionSize + 8))
+                    .Frame(maxWidth: float.PositiveInfinity, maxHeight: 54, alignment: Alignment.TopLeading)
               ),
-              Spacer(),
-              Text(() => card.Value.Line.Value)
-                .Foreground(() => card.Value.LineIsProblem.Value ? Colors.Danger : Colors.Muted),
-              Text(() => card.Value.State.Value)
-                .Foreground(() =>
-                  card.Value.Armed.Value ? Colors.Danger
-                  : card.Value.InUse ? Colors.Accent
-                  : Colors.Muted
-                )
-            )
-            .Font(Font.Caption)
-            .Frame(
-              maxWidth: float.PositiveInfinity,
-              maxHeight: float.PositiveInfinity,
-              alignment: Alignment.TopLeading
+              If(() => !card.Value.Renaming.Value, () => CardActions(card))
             ),
-          () => card.Value.Switch,
-          ButtonStyle.Card
-        )
-        .Frame(height: CardHeight),
-      Spacer()
-        .Frame(width: 3, height: CardHeight - 28)
-        .Background(Colors.Accent, 1.5f)
-        .Padding(new Insets(14, 0, 0, 0))
-        .Hidden(() => !card.Value.InUse),
-      If(
-        () => !card.Value.Renaming.Value,
-        () =>
-          HStack(
-              spacing: 2,
-              CardAction(UiIconKind.Edit, () => card.Value.Rename, () => Colors.Muted),
-              CardAction(UiIconKind.Duplicate, () => card.Value.Duplicate, () => Colors.Muted),
-              VM.FilesSupported
-                ? CardAction(UiIconKind.Export, () => card.Value.Export, () => Colors.Muted)
-                : null,
-              If(
-                () => VM.CanDelete,
-                () =>
-                  CardAction(
-                    UiIconKind.Delete,
-                    () => card.Value.Delete,
-                    () => card.Value.Armed.Value ? Colors.Danger : Colors.Muted
-                  )
+            Spacer(),
+            Text(() => card.Value.Line.Value)
+              .Foreground(() => card.Value.LineIsProblem.Value ? Colors.Danger : Colors.Muted),
+            Text(() => card.Value.State.Value)
+              .Foreground(() =>
+                card.Value.Armed.Value ? Colors.Danger
+                : card.Value.InUse ? Colors.Accent
+                : Colors.Muted
               )
-            )
-            .Padding(10)
-            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopTrailing)
+          )
+          .Font(Font.Caption)
+          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity, alignment: Alignment.TopLeading),
+        () => card.Value.Switch,
+        ButtonStyle.Card
+      )
+      .Frame(height: CardHeight)
+      .Overlay(
+        RoundedRectangle(1.5f)
+          .Fill(Colors.Accent)
+          .Frame(width: 3, height: CardHeight - 28)
+          .Hidden(() => !card.Value.InUse)
+          .AllowsHitTesting(false),
+        Alignment.Leading
+      );
+
+  private View CardActions(ItemSlot<ProfileCardModel> card) =>
+    HStack(
+      spacing: 2,
+      CardAction(UiIconKind.Edit, () => card.Value.Rename, () => Colors.Muted),
+      CardAction(UiIconKind.Duplicate, () => card.Value.Duplicate, () => Colors.Muted),
+      VM.FilesSupported ? CardAction(UiIconKind.Export, () => card.Value.Export, () => Colors.Muted) : null,
+      If(
+        () => VM.CanDelete,
+        () =>
+          CardAction(
+            UiIconKind.Delete,
+            () => card.Value.Delete,
+            () => card.Value.Armed.Value ? Colors.Danger : Colors.Muted
+          )
       )
     );
 
@@ -198,17 +180,11 @@ internal sealed class ProfilesView : View<ProfilesModel>
   // The card's name as a field: the caret after the name; Enter or a click
   // elsewhere saves, Escape keeps the old name.
   private View RenameField(ItemSlot<ProfileCardModel> card) =>
-    TextField(null, Bind(() => VM.RenameText))
-      .Configure<TMP_InputField>(field =>
-      {
-        field.characterLimit = ElementProfile.MaximumNameLength;
-        field.onFocusSelectAll = false;
-        field.onEndEdit.AddListener(_ => VM.EndRename(field.wasCanceled));
-      })
-      .Configure<TMP_InputField, bool>(
-        () => card.Value.Renaming.Value,
-        (field, renaming) => Focus(field, renaming ? 1 : 0)
-      )
+    TextField(Bind(() => VM.RenameText))
+      .CharacterLimit(ElementProfile.MaximumNameLength)
+      .SelectAllOnFocus(false)
+      .OnEditEnded((_, canceled) => VM.EndRename(canceled))
+      .FocusOn(() => card.Value.Renaming.Value ? 1 : 0)
       .Frame(maxWidth: float.PositiveInfinity);
 
   // ---- After an import: the fonts this PC lacks ----

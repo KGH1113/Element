@@ -36,29 +36,27 @@ internal static class OverlayInspectorRow
   /// then <paramref name="trailing"/> on the right. <paramref name="switchEnd"/>
   /// sets a switch a little closer to the end, as the settings' switches are.
   /// </summary>
-  public static View Of(View lead, View name, bool switchEnd, params View[] trailing)
-  {
-    View[] parts = new View[trailing.Length + 3];
-    parts[0] = LeadSlot(lead);
-    parts[1] = name.Padding(new Insets(0, 8, 0, 0));
-    parts[2] = Spacer(minLength: 8);
-    trailing.CopyTo(parts, 3);
-    return Lay(parts, switchEnd);
-  }
+  public static View Of(View lead, View name, bool switchEnd, params View[] trailing) =>
+    Lay(
+      HStack(0, LeadSlot(lead), name.Padding(new Insets(0, 8, 0, 0)), Spacer(minLength: 8), HStack(0, trailing)),
+      switchEnd
+    );
 
   /// <summary>
   /// <paramref name="lead"/>, the name, then <paramref name="control"/>
   /// taking the room left (a slider), then <paramref name="trailing"/>.
   /// </summary>
-  public static View Filled(View lead, View name, View control, params View[] trailing)
-  {
-    View[] parts = new View[trailing.Length + 3];
-    parts[0] = LeadSlot(lead);
-    parts[1] = name.Padding(new Insets(0, 8, 0, 0));
-    parts[2] = control.Padding(new Insets(0, 12, 0, 0));
-    trailing.CopyTo(parts, 3);
-    return Lay(parts, false);
-  }
+  public static View Filled(View lead, View name, View control, params View[] trailing) =>
+    Lay(
+      HStack(
+        0,
+        LeadSlot(lead),
+        name.Padding(new Insets(0, 8, 0, 0)),
+        control.Padding(new Insets(0, 12, 0, 0)),
+        HStack(0, trailing)
+      ),
+      false
+    );
 
   /// <summary>The name, in the ink <paramref name="ink"/> picks: muted while there is nothing for the row to act on.</summary>
   public static View Name(string label, Expression<Func<UiColor>> ink) =>
@@ -109,14 +107,12 @@ internal static class OverlayInspectorRow
         back,
         ButtonStyle.Plain
       )
-      .Background(UiPalette.EditorDim, BackHeight / 2)
+      .ButtonStyle(new ButtonSurfaceStyle(UiPalette.EditorDim, BackHeight / 2))
       .Named(name);
 
   private static View LeadSlot(View lead) =>
     (lead ?? Spacer().Frame(width: 18, height: 18)).Frame(width: LeadWidth, alignment: Alignment.Leading);
 
-  private static View Lay(View[] parts, bool switchEnd) =>
-    HStack(spacing: 0, parts)
-      .Padding(new Insets(0, 12, 0, switchEnd ? 10 : 12))
-      .Frame(maxWidth: float.PositiveInfinity, height: Height);
+  private static View Lay(View content, bool switchEnd) =>
+    content.Padding(new Insets(0, 12, 0, switchEnd ? 10 : 12)).Frame(maxWidth: float.PositiveInfinity, height: Height);
 }

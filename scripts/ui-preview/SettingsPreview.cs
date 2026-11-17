@@ -69,6 +69,8 @@ namespace Element.Editor
     {
       _output = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "../../build/ui-preview"));
       Directory.CreateDirectory(_output);
+      // A failed run must not leave a previous run's success marker behind.
+      File.Delete(Path.Combine(_output, "checks.txt"));
       _fonts = Path.Combine(_output, "Fonts");
       if (Directory.Exists(_fonts))
         Directory.Delete(_fonts, true);
@@ -143,6 +145,8 @@ namespace Element.Editor
       var viewers = new PreviewKeyViewers(screenWidth);
       var editor = new OverlayLayoutEditor(host, viewers, font, _ => {}, settings);
       var eventsRoot = new GameObject("Fixture events", typeof(EventSystem));
+      // Batch edit mode does not run EventSystem's play-mode lifecycle.
+      Call(eventsRoot.GetComponent<EventSystem>(), "OnEnable");
       editor.Open();
       GameObject root = Session(editor).Root; root.SetActive(true);
       var cameraRoot = new GameObject("Layout preview camera", typeof(Camera));
@@ -1125,9 +1129,13 @@ namespace Element.Editor
       TextMeshProUGUI[] titles = screen.Root.GetComponentsInChildren<TextMeshProUGUI>(true).Where(label => label.text == "텍스트 편집" || label.text == "Edit text").ToArray();
       Assert(titles.Length == 1 && titles[0].transform.IsChildOf(ByName<RectTransform>(screen.Frame, "Header")),
         "the editor's name shows once, in its header: no title card");
-      Assert(Field<CanvasGroup>(screen, "_fade").alpha < 1, "the editor fades in instead of cutting in");
-      SetField(screen, "_openedAt", -10f); screen.Tick();
-      Assert(Field<CanvasGroup>(screen, "_fade").alpha == 1, "the fade finishes");
+      CanvasGroup editorFade = screen.Root.GetComponent<CanvasGroup>();
+      Assert(editorFade.alpha < 1, "the editor fades in instead of cutting in");
+      ElementUI.Runtime.Flush(OverlayEditorFrame.FadeSeconds * .5f);
+      Assert(editorFade.alpha > 0 && editorFade.alpha < 1, "the editor fade progresses through a visible intermediate state");
+      ElementUI.Runtime.Flush(OverlayEditorFrame.FadeSeconds);
+      screen.Tick();
+      Assert(editorFade.alpha == 1, "the fade finishes");
       OverlayInputDock dock = Field<OverlayInputDock>(text, "_dock");
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0,
         "the input dock is always there, resting with a hint");
@@ -1160,7 +1168,13 @@ namespace Element.Editor
           Assert(BarButtonRect(text, textBar[i]).yMax <= BarButtonRect(text, textBar[i - 1]).yMin + .5f
             && Mathf.Abs(BarButtonRect(text, textBar[i]).width - BarButtonRect(text, textBar[0]).width) < .5f, "rows stack one under another, all as wide");
       }
-      Assert(BarButton(text, colorButton).GetComponentInChildren<UiCapsuleGraphic>() != null
+      RoundedRect[] swatchCircles = BarButton(text, colorButton).GetComponentsInChildren<RoundedRect>(false);
+      RoundedRect swatchRing = swatchCircles.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 18) < .01f
+        && Mathf.Abs(graphic.rectTransform.rect.height - 18) < .01f && Mathf.Abs(graphic.Radius - 9) < .01f);
+      RoundedRect swatchFill = swatchCircles.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 14) < .01f
+        && Mathf.Abs(graphic.rectTransform.rect.height - 14) < .01f && Mathf.Abs(graphic.Radius - 7) < .01f);
+      Assert((CenterIn(swatchFill.rectTransform, swatchRing.transform) - (Vector3)swatchRing.rectTransform.rect.center).magnitude < .01f
+        && !swatchRing.raycastTarget && !swatchFill.raycastTarget
         && BarButton(text, fontButton).GetComponentInChildren<UiIcon>().Kind == UiIconKind.Font
         && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("가", "Aa"))
         && BarButton(text, sizeButton).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "px"),
@@ -1192,9 +1206,17 @@ namespace Element.Editor
       Pressable drawnAnimate = ByName<Pressable>(animateTool.Root, "Grow on change");
       Assert(drawnAnimate != null && ByName<Pressable>(animateTool.Root, "Color by value") != null,
         "the tool has a switch to grow on each change and one to color by value");
-      UiSwitchMotion animateThumb = drawnAnimate.GetComponentInChildren<UiSwitchMotion>();
-      RectTransform animateKnob = (RectTransform)animateThumb.transform;
+      RoundedRect[] switchShapes = drawnAnimate.GetComponentsInChildren<RoundedRect>(false);
+      RoundedRect animateTrack = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 30) < .01f
+        && Mathf.Abs(graphic.rectTransform.rect.height - 18) < .01f && Mathf.Abs(graphic.Radius - 9) < .01f);
+      RoundedRect animateThumb = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 10) < .01f
+        && Mathf.Abs(graphic.rectTransform.rect.height - 10) < .01f && Mathf.Abs(graphic.Radius - 5) < .01f);
+      Func<float> thumbX = () => CenterIn(animateThumb.rectTransform, animateTrack.transform).x - animateTrack.rectTransform.rect.xMin - 5;
       Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
+      Assert(Mathf.Abs(thumbX() - 4) < .01f
+        && Mathf.Abs(CenterIn(animateThumb.rectTransform, animateTrack.transform).y - animateTrack.rectTransform.rect.center.y) < .01f
+        && !animateTrack.raycastTarget && !animateThumb.raycastTarget && sameColor(animateThumb.color, UiPalette.Foreground),
+        "the 30 by 18 capsule starts with its centered 10-point thumb inset by 4; the row owns clicks");
       // Notices show right above the dock's formula line.
       TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(Field<OverlayInputDock>(text, "_dock").Root, "Notice");
       string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
@@ -1205,11 +1227,14 @@ namespace Element.Editor
       Press(drawnAnimate);
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
-      Frames(() => QuietFrame(text), 40);
+      Frames(() => QuietFrame(text), 1);
+      Assert(thumbX() > 4 && thumbX() < 16 && sameColor(animateThumb.color, UiPalette.SoftAccent),
+        "the thumb moves partway in one frame while its on color changes immediately: " + thumbX());
+      Frames(() => QuietFrame(text), 39);
       Assert(screen.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
         "turning it on says what it does, on the screen: " + topLine.text);
-      Assert(animateKnob.anchoredPosition.x > 12 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.SoftAccent),
-        "the switch slides over to on and lights up in the game's frames: " + animateKnob.anchoredPosition.x);
+      Assert(Mathf.Abs(thumbX() - 16) < .01f && sameColor(animateThumb.color, UiPalette.SoftAccent),
+        "the switch slides over to the exact on inset and lights up in the game's frames: " + thumbX());
       Assert(animateButton.Value == (Korean(name) ? "커지기" : "Grow"), "the row says what is on: " + animateButton.Value);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
@@ -1225,11 +1250,14 @@ namespace Element.Editor
       screen.Notice(L("커서를 옮겼어요", "The caret moved"), false);
       Frames(() => QuietFrame(text), 3);
       Press(drawnAnimate);
-      Frames(() => QuietFrame(text), 40);
+      Frames(() => QuietFrame(text), 1);
+      Assert(thumbX() > 4 && thumbX() < 16 && sameColor(animateThumb.color, UiPalette.Foreground),
+        "the thumb moves back partway in one frame while its off color changes immediately: " + thumbX());
+      Frames(() => QuietFrame(text), 39);
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
-      Assert(animateKnob.anchoredPosition.x < 6 && sameColor(animateThumb.GetComponent<UiCapsuleGraphic>().color, UiPalette.Foreground),
-        "the switch slides back to off in the game's frames: " + animateKnob.anchoredPosition.x);
+      Assert(Mathf.Abs(thumbX() - 4) < .01f && sameColor(animateThumb.color, UiPalette.Foreground),
+        "the switch slides back to the exact off inset in the game's frames: " + thumbX());
       PressBack(text);
       Assert(!animateTool.Visible, "back closes the Animate tool");
       preferences.ReduceUiMotion = true;
@@ -1685,7 +1713,9 @@ namespace Element.Editor
       if (editor.IsOpen)
         editor.Close(false);
       editor.Dispose();
+      cameraRoot.GetComponent<Camera>().targetTexture = null;
       Object.DestroyImmediate(texture); Object.DestroyImmediate(cameraRoot);
+      Call(eventsRoot.GetComponent<EventSystem>(), "OnDisable");
       Object.DestroyImmediate(eventsRoot);
       if (host.Root != null)
         Object.DestroyImmediate(host.Root);
@@ -1902,9 +1932,8 @@ namespace Element.Editor
         new SettingsFeatures { RenderPlanetPreview = planetPreview.Render, Updates = new PreviewUpdates(), Profiles = profiles, OverlayFonts = () => overlayFonts });
       Assert(planetPreview.Calls == 0, "constructing settings does not render a hidden planet preview");
       GameObject root = Field<GameObject>(panel, "_root");
-      root.SetActive(true);
+      panel.Open();
       SettingsWindowViewModel model = Field<SettingsWindowViewModel>(panel, "_model");
-      model.Opened();
       Canvas canvas = root.GetComponent<Canvas>();
       GameObject cameraRoot = new GameObject("UI preview camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
@@ -1926,7 +1955,7 @@ namespace Element.Editor
         model.Back.TryExecute();
         model.Home.EditOverlay.TryExecute();
         Assert(overlayOpened && !root.activeSelf, "the Overlay card hands off directly to the overlay editor");
-        root.SetActive(true);
+        panel.Open();
         Assert(planetPreview.Calls == 0, "Home, Tweaks, Effects and General do not render planet textures");
         SettingsPageModel shown = (SettingsPageModel)typeof(SettingsWindowViewModel).GetField(PageFields[page]).GetValue(model);
         Assert(shown != null, page + " exists");
@@ -1950,6 +1979,7 @@ namespace Element.Editor
       {
         panel.Dispose();
         Object.DestroyImmediate(root);
+        camera.targetTexture = null;
         Object.DestroyImmediate(target);
         Object.DestroyImmediate(cameraRoot);
       }

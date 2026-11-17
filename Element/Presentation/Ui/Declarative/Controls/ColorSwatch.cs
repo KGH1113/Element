@@ -32,27 +32,21 @@ internal static class ColorSwatch
     Color? defaultColor = null
   )
   {
-    SwatchModel swatch = new();
-    Binding<bool> open = Bind(() => swatch.Open);
+    State<bool> presented = new(false);
+    Binding<bool> open = presented.ToBinding();
     return Button(
         HStack(
           spacing: 8,
-          Spacer().Frame(width: 16, height: 16).Background(() => Opaque(color.Value), 8),
+          Circle().Fill(() => Opaque(color.Value)).Frame(width: 16, height: 16),
           (caption ?? Text(() => Hex(color.Value))).Frame(maxWidth: float.PositiveInfinity)
         ),
-        () => swatch.Show
+        () =>
+        {
+          presented.Value = true;
+        }
       )
-      .Popover(open, () => ColorPickerView.Of(title, color, opacity, defaultColor, open));
-  }
-
-  /// <summary>Whether the picker is open.</summary>
-  private sealed class SwatchModel : ViewModel
-  {
-    public bool Open;
-
-    public SwatchModel() => Show = Command(() => Open = true);
-
-    public Command Show { get; }
+      .Popover(open, () => ColorPickerView.Of(title, color, opacity, defaultColor, open))
+      .OnDisappear(() => presented.Value = false);
   }
 
   [Pure]

@@ -20,8 +20,6 @@ internal sealed class OverlayEditorInspector
 
   private readonly ScreenPanel _panel;
   private readonly OverlayInspectorModel _model;
-  private int _fitted;
-  private bool _toolOpen;
 
   /// <param name="heading">Over the rows, such as "Text".</param>
   /// <param name="back">The back row: closes the open tool.</param>
@@ -41,8 +39,7 @@ internal sealed class OverlayEditorInspector
     Bottom = dock.Top - Gap;
     _model = new OverlayInspectorModel(heading, rows, back);
     _panel = screen.Panel(name, Color.clear);
-    _panel.Mount(screen.NewBackend(), new OverlayInspectorView(_model, Width), _model, Width);
-    _fitted = _model.Revision;
+    _panel.Mount(screen.NewBackend(), new OverlayInspectorView(_model, Width), _model, Width, followsContent: true);
     Root.anchoredPosition = new Vector2(Mathf.Round(Left), -Mathf.Round(Top));
   }
 
@@ -80,16 +77,6 @@ internal sealed class OverlayEditorInspector
     float x = open && toolRoot != null ? Mathf.Min(Left, toolRoot.anchoredPosition.x) : Left;
     if (!Mathf.Approximately(Root.anchoredPosition.x, Mathf.Round(x)))
       Root.anchoredPosition = new Vector2(Mathf.Round(x), Root.anchoredPosition.y);
-    int revision = _model.Revision;
-    if (open != _toolOpen || revision != _fitted)
-    {
-      _toolOpen = open;
-      _fitted = revision;
-      _panel.Refit(Width);
-      // The back row is made the first time a tool opens: it gets the
-      // column's cursor and never keeps the keyboard.
-      _panel.Sync();
-    }
   }
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);

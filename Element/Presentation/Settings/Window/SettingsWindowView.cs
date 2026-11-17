@@ -2,8 +2,8 @@ using Element.Presentation.Settings.Pages;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
-using static ElementUI.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
+using static ElementUI.UI;
 
 namespace Element.Presentation.Settings.Window;
 
@@ -23,7 +23,10 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
       Sides(
           HStack(
               spacing: 12,
-              If(() => VM.CanGoBack.Value, () => IconButton(UiIconKind.PageBack, () => VM.Back).Hint(L("뒤로", "Back"))),
+              If(
+                () => VM.CanGoBack.Value,
+                () => IconButton(UiIconKind.PageBack, () => VM.Back).Hint(L("뒤로", "Back"))
+              ),
               Text(() => VM.Current.Title).Font(Font.Title).LineLimit(1),
               Spacer(),
               IconButton(UiIconKind.WindowClose, () => VM.Close).Hint(L("닫기", "Close"))
@@ -69,18 +72,11 @@ internal sealed class SettingsWindowView : View<SettingsWindowViewModel>
           .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
     );
 
-  /// <summary>The window's side space around <paramref name="content"/>: 20, and 12 more unless the window is compact.</summary>
+  /// <summary>The window's side space follows its available width.</summary>
   private View Sides(View content) =>
-    HStack(
-        spacing: 0,
-        VAlignment.Top,
-        Gutter(),
-        content.Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading),
-        Gutter()
-      )
-      .Padding(new Insets(0, 20, 0, 20));
-
-  private View Gutter() => If(() => !VM.Compact, () => Spacer().Frame(width: 12, height: 0));
+    content
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
+      .Padding(() => new Insets(0, VM.Compact ? 20 : 32));
 
   private static View IconButton(UiIconKind icon, System.Linq.Expressions.Expression<System.Func<Command>> command) =>
     Button(Image(ElementIcons.Of(icon), 28), command, ButtonStyle.Icon);

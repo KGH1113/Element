@@ -18,6 +18,7 @@ using ElementUI.Ugui;
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
@@ -167,7 +168,13 @@ namespace Element.Editor
       // The search: every place at once, under the places' names; the open place dims.
       TMP_InputField search = DockSearch(dock);
       Assert(search != null && search.placeholder is TMP_Text hint && hint.text == L("값 찾기", "Find a value"), "the search says what it finds");
-      Assert(search.targetGraphic.color.a == 1, "the search field is opaque");
+      Rect searchRect = ScreenRectOf((RectTransform)search.transform);
+      ElementUI.Ugui.RoundedRect searchSurface = dock.Root.GetComponentsInChildren<ElementUI.Ugui.RoundedRect>(false)
+        .FirstOrDefault(surface => surface.color.a == 1
+          && ScreenRectOf(surface.rectTransform).Contains(searchRect.center)
+          && Mathf.Approximately(surface.Radius, surface.rectTransform.rect.height / 2));
+      Assert(search.targetGraphic.color.a == 0 && searchSurface != null,
+        "the composed search capsule is opaque while its plain input leaves the surface to its container");
       CheckSearchFits(search, name);
       search.text = korean ? "정확" : "acc";
       chips = DockChips(dock);
@@ -224,10 +231,26 @@ namespace Element.Editor
       Press(ByName<Pressable>(dock.Root, "Clear value search"));
 
       // While the search has the keyboard the editor leaves keys to it.
-      SetField(search, "m_AllowInput", true);
-      Assert(dock.IsTyping, "the search has the keys while it is focused");
-      SetField(search, "m_AllowInput", false);
-      SetField(dock, "_typing", false);
+      EventSystem.current.SetSelectedGameObject(null);
+      EventSystem.current.SetSelectedGameObject(search.gameObject);
+      typeof(TMP_InputField).GetMethod("LateUpdate", Private).Invoke(search, null);
+      Assert(search.isFocused && values.SearchFocused.Value && dock.IsTyping, "the search has the keys while it is focused");
+      EventSystem.current.SetSelectedGameObject(null);
+      Assert(!search.isFocused && !values.SearchFocused.Value && dock.IsTyping,
+        "ending search focus keeps the terminating key from reaching the editor in the same frame");
+      Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value,
+        "clearing the search then focusing and blurring before a render cannot restore its old query");
+      EventSystem.current.SetSelectedGameObject(search.gameObject);
+      typeof(TMP_InputField).GetMethod("LateUpdate", Private).Invoke(search, null);
+      search.text = korean ? "콤보" : "combo";
+      int beforeClearedSubmit = TextDocumentOf(text).Document.Count;
+      values.ClearSearch.TryExecute();
+      search.onSubmit.Invoke(korean ? "콤보" : "combo");
+      search.onEndEdit.Invoke(korean ? "콤보" : "combo");
+      EventSystem.current.SetSelectedGameObject(null);
+      Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value
+        && TextDocumentOf(text).Document.Count == beforeClearedSubmit,
+        "clearing a focused search wins through submit followed by end even with stale native event arguments");
       SetField(dock, "_typedFrame", -1);
       Assert(!dock.IsTyping, "and gives them back once it lets go");
       host.Values.Clear(OverlayValueId.Accuracy);

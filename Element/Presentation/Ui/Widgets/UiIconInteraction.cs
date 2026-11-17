@@ -1,8 +1,10 @@
 using System;
 using Element.Presentation.Ui.Theme;
+using ElementUI;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Motion = ElementUI.Motion;
 
 namespace Element.Presentation.Ui.Widgets;
 
@@ -22,14 +24,24 @@ internal sealed class UiIconInteraction
     _hover;
   private bool _inside,
     _pressed;
-  private Color _targetColor;
-  private float _targetScale = 1;
+  private AnimatedColor _color;
+  private AnimatedFloat _scale;
 
   public void Initialize(Button button, Graphic icon, Func<bool> reduceMotion)
   {
     _button = button;
     _icon = icon;
     _reduceMotion = reduceMotion;
+    _color = new AnimatedColor(color =>
+    {
+      if (_icon != null)
+        _icon.color = color;
+    });
+    _scale = new AnimatedFloat(scale =>
+    {
+      if (_icon != null)
+        _icon.rectTransform.localScale = Vector3.one * scale;
+    });
   }
 
   public void SetPalette(Color normal, Color hover)
@@ -50,8 +62,9 @@ internal sealed class UiIconInteraction
     _inside = _pressed = false;
     if (_icon != null)
     {
-      _icon.color = _normal;
-      _icon.rectTransform.localScale = Vector3.one;
+      _color?.Set(_normal);
+      _color?.Finish();
+      _scale?.Snap(1);
     }
   }
 
@@ -90,33 +103,21 @@ internal sealed class UiIconInteraction
     if (_icon == null)
       return;
     bool available = _button != null && _button.IsInteractable();
-    _targetColor =
+    Color targetColor =
       !available ? UiPalette.Muted
       : _inside ? _hover
       : _normal;
     if (_pressed && _inside && available)
-      _targetColor = Color.Lerp(_targetColor, Color.black, .16f);
-    _targetScale = _pressed && _inside && available && !(_reduceMotion?.Invoke() ?? false) ? .92f : 1;
-    if (immediate || (_reduceMotion?.Invoke() ?? false))
-    {
-      _icon.color = _targetColor;
-      _icon.rectTransform.localScale = Vector3.one * _targetScale;
-    }
+      targetColor = Color.Lerp(targetColor, Color.black, .16f);
+    float targetScale = _pressed && _inside && available && !(_reduceMotion?.Invoke() ?? false) ? .92f : 1;
+    Motion? animation = immediate || (_reduceMotion?.Invoke() ?? false) ? null : Motion.Exponential(28, .001f);
+    _color?.Set(targetColor, animation);
+    _scale?.Set(targetScale, animation);
   }
 
-  private void Update()
+  private void OnDestroy()
   {
-    if (_icon == null)
-      return;
-    if (_icon.color == _targetColor && Mathf.Approximately(_icon.rectTransform.localScale.x, _targetScale))
-      return;
-    float t = 1 - Mathf.Exp(-28 * Time.unscaledDeltaTime);
-    if (_icon.color != _targetColor)
-      _icon.color = Color.Lerp(_icon.color, _targetColor, t);
-    float scale = Mathf.Lerp(_icon.rectTransform.localScale.x, _targetScale, t);
-    if (Mathf.Abs(scale - _targetScale) < .001f)
-      scale = _targetScale;
-    if (_icon.rectTransform.localScale.x != scale)
-      _icon.rectTransform.localScale = Vector3.one * scale;
+    _color?.Dispose();
+    _scale?.Dispose();
   }
 }

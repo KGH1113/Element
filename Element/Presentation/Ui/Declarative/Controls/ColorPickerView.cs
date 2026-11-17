@@ -1,9 +1,6 @@
-using System;
 using Element.Presentation.Ui.ColorPicker;
 using ElementUI;
-using ElementUI.Ugui;
 using UnityEngine;
-using static ElementUI.UI;
 
 namespace Element.Presentation.Ui.Declarative.Controls;
 
@@ -49,42 +46,6 @@ internal static class ColorPickerView
         Runtime.Probe();
       }
     );
-    return ZStack(
-      Alignment.TopLeading,
-      new ColorPickerCardView(model),
-      new ClosesWithScreen(() => model.Close.TryExecute(), model.Closed)
-    );
-  }
-
-  /// <summary>
-  /// Nothing to see: closes the picker when its window or page hides (not
-  /// left open behind it), and lets its fields stop reporting once it goes.
-  /// </summary>
-  private sealed class ClosesWithScreen : NativeView
-  {
-    private readonly Action _hidden;
-    private readonly Action _gone;
-    private DeactivationSignal _signal;
-
-    public ClosesWithScreen(Action hidden, Action gone)
-    {
-      _hidden = hidden;
-      _gone = gone;
-    }
-
-    protected override void Build(RectTransform rect)
-    {
-      _signal = rect.gameObject.AddComponent<DeactivationSignal>();
-      _signal.Deactivated = _hidden;
-    }
-
-    protected override Size PreferredSize(Proposal proposal) => Size.Zero;
-
-    protected override void Teardown()
-    {
-      if (_signal != null)
-        _signal.Deactivated = null;
-      _gone();
-    }
+    return new ColorPickerCardView(model).OnDisappear(() => model.Close.TryExecute()).OnDispose(model.Closed);
   }
 }

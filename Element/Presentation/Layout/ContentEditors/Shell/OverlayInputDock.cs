@@ -133,8 +133,7 @@ internal sealed class OverlayInputDock
   {
     get
     {
-      TMP_InputField search = _view.Values.SearchField;
-      bool typing = search != null && search.isFocused;
+      bool typing = _view.Values.SearchFocused;
       if (typing != _typing)
       {
         _typing = typing;

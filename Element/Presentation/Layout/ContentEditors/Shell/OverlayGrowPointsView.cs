@@ -20,24 +20,13 @@ internal sealed class OverlayGrowPointsView : View<OverlayGrowPickerModel>
     : base(vm) { }
 
   public override View Body =>
-    ZStack(Box(), Grid(3, Gap, Points()).Padding((Size - Cell * 3 - Gap * 2) * .5f))
+    Grid(3, Gap, Points())
+      .Padding((Size - Cell * 3 - Gap * 2) * .5f)
+      .Background(
+        Rectangle().Stroke(new Color(1, 1, 1, .16f)).Frame(width: Size - Cell - Gap * 2, height: Size - Cell - Gap * 2)
+      )
       .Frame(width: Size, height: Size)
-      .Background(UiPalette.Bar, Size * .5f);
-
-  // The box the points belong to, its edges through their middles.
-  private static View Box()
-  {
-    const float span = Size - Cell - Gap * 2;
-    return VStack(
-      spacing: 0,
-      Edge(span, 1),
-      HStack(spacing: 0, Edge(1, span - 2), Spacer().Frame(width: span - 2, height: span - 2), Edge(1, span - 2)),
-      Edge(span, 1)
-    );
-  }
-
-  private static View Edge(float width, float height) =>
-    Spacer().Frame(width: width, height: height).Background(new Color(1, 1, 1, .16f));
+      .Background(UiPalette.Bar, Shapes.Circle);
 
   private View[] Points()
   {
@@ -61,7 +50,9 @@ internal sealed class OverlayGrowPointView : View<GrowPointModel>
         ZStack(
             Dot(5).Hidden(() => VM.Look.Value != GrowLook.Dot),
             Dot(12).Hidden(() => VM.Look.Value != GrowLook.Chosen),
-            new OverlayGrowArrowView(() => VM.Direction.Value).Hidden(() => VM.Look.Value != GrowLook.Arrow)
+            new OverlayGrowArrowView()
+              .RotationEffect(() => Mathf.Atan2(VM.Direction.Value.y, VM.Direction.Value.x) * Mathf.Rad2Deg)
+              .Hidden(() => VM.Look.Value != GrowLook.Arrow)
           )
           .Frame(width: Cell, height: Cell),
         () => VM.Pick,
@@ -69,6 +60,5 @@ internal sealed class OverlayGrowPointView : View<GrowPointModel>
       )
       .Named(VM.Name);
 
-  private View Dot(float size) =>
-    Spacer().Frame(width: size, height: size).Background(() => VM.DotColor.Value, size * .5f);
+  private View Dot(float size) => Circle().Fill(() => VM.DotColor.Value).Frame(width: size, height: size);
 }

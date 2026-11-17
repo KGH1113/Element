@@ -23,9 +23,9 @@ internal sealed class OverlayBarButtonModel : ViewModel
     _accepts,
     _refuses,
     _computed;
-  private string _value = "";
-  private bool _active;
-  private int _drop;
+  private readonly State<bool> _computedValue = new(false);
+  private readonly State<bool> _active = new(false);
+  private readonly State<int> _drop = new(0);
 
   /// <param name="name">Names the drawn button: the bar finds it by this, and so do the checks.</param>
   /// <param name="label">What it is, such as "Fill".</param>
@@ -70,7 +70,14 @@ internal sealed class OverlayBarButtonModel : ViewModel
     _accepts = Color.Lerp(rest, accent, .38f);
     _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
-    Fill = new State<UiColor>(_rest);
+    Fill = Computed(() =>
+      _drop.Value > 0 ? _accepts
+      : _drop.Value < 0 ? _refuses
+      : _active.Value ? _lit
+      : _rest
+    );
+    ValueInk = Computed(() => _computedValue.Value ? _computed : Colors.Foreground);
+    Ink = Computed(() => Available.Value ? Colors.Foreground : Colors.Muted);
     Click = Command(click);
   }
 
@@ -102,13 +109,13 @@ internal sealed class OverlayBarButtonModel : ViewModel
   public readonly State<string> ValueText = new("");
 
   /// <summary>The value's color: the accent for a result of a formula.</summary>
-  public readonly State<UiColor> ValueInk = new(Colors.Foreground);
+  public readonly Computed<UiColor> ValueInk;
 
   /// <summary>The name's and the icon's color: muted while there is nothing for it to act on.</summary>
-  public readonly State<UiColor> Ink = new(Colors.Foreground);
+  public readonly Computed<UiColor> Ink;
 
   /// <summary>Its fill at rest: lit while what it opened is open, or while a value is dragged over it.</summary>
-  public readonly State<UiColor> Fill;
+  public readonly Computed<UiColor> Fill;
 
   /// <summary>The swatch's color, opaque.</summary>
   public readonly State<Color> SwatchColor = new(Color.white);
@@ -125,16 +132,16 @@ internal sealed class OverlayBarButtonModel : ViewModel
   public Command Click { get; }
 
   /// <summary>What it shows after its name.</summary>
-  public string Value => _value;
+  public string Value => ValueText.Value;
 
   /// <summary>The shown value came from a formula.</summary>
-  public bool IsComputed { get; private set; }
+  public bool IsComputed => _computedValue.Value;
 
   /// <summary>Lit while what the button opened is open.</summary>
-  public bool Active => _active;
+  public bool Active => _active.Value;
 
   /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
-  public int Drop => _drop;
+  public int Drop => _drop.Value;
 
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
@@ -147,19 +154,13 @@ internal sealed class OverlayBarButtonModel : ViewModel
   public void Set(string value, bool computed, bool active)
   {
     value ??= "";
-    if (value != _value)
+    if (value != ValueText.Value)
     {
-      _value = value;
       ValueText.Value = value;
       Revision++;
     }
-    IsComputed = computed;
-    ValueInk.Value = computed ? _computed : Colors.Foreground;
-    if (_active != active)
-    {
-      _active = active;
-      Paint();
-    }
+    _computedValue.Value = computed;
+    _active.Value = active;
   }
 
   /// <summary>
@@ -171,7 +172,6 @@ internal sealed class OverlayBarButtonModel : ViewModel
   {
     SwitchOn.Value = on;
     Available.Value = available;
-    Ink.Value = available ? Colors.Foreground : Colors.Muted;
   }
 
   /// <summary>The swatch's color, and a gradient shown instead of it (null for none).</summary>
@@ -183,20 +183,7 @@ internal sealed class OverlayBarButtonModel : ViewModel
   }
 
   /// <summary>0 nothing, 1 a dragged value can land here, -1 it can't.</summary>
-  public void SetDrop(int state)
-  {
-    if (_drop == state)
-      return;
-    _drop = state;
-    Paint();
-  }
-
-  private void Paint() =>
-    Fill.Value =
-      _drop > 0 ? _accepts
-      : _drop < 0 ? _refuses
-      : _active ? _lit
-      : _rest;
+  public void SetDrop(int state) => _drop.Value = state;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

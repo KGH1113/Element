@@ -58,7 +58,7 @@ internal sealed class PlanetsView : View<PlanetsModel>
     VStack(
         spacing: 8,
         HAlignment.Center,
-        new TextureImage(() => VM.Preview).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
+        UI.Image(() => VM.Preview).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
         Text(() => VM.PreviewCaption.Value).Font(Font.Caption).Foreground(Colors.Muted).TextAlignment(TextAlign.Center)
       )
       .Padding(16)

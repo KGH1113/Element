@@ -17,6 +17,7 @@ using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 using Object = UnityEngine.Object;
 
 namespace Element.Editor
@@ -64,6 +65,9 @@ namespace Element.Editor
       PageUi.Press(PageUi.SwitchBeside(root, UiText("움직임 줄이기", "Reduce motion")));
       PageUi.Settle(check);
       Assert(settings.ReduceUiMotion == !motion, "the motion switch writes Reduce motion");
+      Assert(ReferenceEquals(check.Model, check.Panel.GetType().GetField("_model",
+          System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(check.Panel)),
+        "changing Reduce motion preserves the window's retained models and editing state");
       PageUi.Press(PageUi.SwitchBeside(root, UiText("움직임 줄이기", "Reduce motion")));
       PageUi.Settle(check);
       Assert(settings.ReduceUiMotion == motion, "the motion switch turns it back");
@@ -226,11 +230,21 @@ namespace Element.Editor
       {
         Pressable card = PageUi.CardOf(root, profile.Name);
         foreach (UiIconKind icon in new[] { UiIconKind.Edit, UiIconKind.Duplicate, UiIconKind.Export, UiIconKind.Delete })
-          Assert(PageUi.ActionOf(root, card, icon) != null, "every card has rename, duplicate, export and delete: " + icon);
+        {
+          Pressable action = PageUi.ActionOf(root, card, icon);
+          Assert(action != null, "every card has rename, duplicate, export and delete: " + icon);
+          Assert(ExecuteEvents.GetEventHandler<IPointerClickHandler>(action.gameObject) == action.gameObject,
+            "a nested profile action owns its click without reaching the card: " + icon);
+          if (profile == profiles.Profiles[0])
+            Assert(PageUi.HitTarget(action) == action.gameObject,
+              "the first profile's visible action wins the native raycast: " + icon);
+        }
         Rect title = PageUi.World(PageUi.Label(root, profile.Name));
         Rect rename = PageUi.World(PageUi.ActionOf(root, card, UiIconKind.Edit));
         Assert(title.xMax <= rename.xMin + .5f, "a card's name stops before its buttons: " + check.Width);
       }
+      Assert(PageUi.HitTarget(PageUi.Label(root, first.Name)) == PageUi.CardOf(root, first.Name).gameObject,
+        "the profile title still routes to the card's switch action");
 
       // Rename on the card: the card says why a taken name won't do, and the old name stays.
       ElementProfile second = profiles.Profiles[1];
@@ -239,6 +253,7 @@ namespace Element.Editor
       PageUi.Settle(check);
       TMP_InputField field = root.GetComponentsInChildren<TMP_InputField>(false).SingleOrDefault();
       Assert(field != null && field.text == original && page.RenamingId == second.Id, "the pencil turns the card's name into a field holding it");
+      Assert(profiles.Active == first, "the nested rename action does not also switch profiles");
       Assert(!field.onFocusSelectAll, "the caret goes after the name instead of selecting it");
       field.text = profiles.Profiles[0].Name.ToUpperInvariant();
       PageUi.Settle(check);
@@ -281,6 +296,7 @@ namespace Element.Editor
       string said = page.Message;
       PageUi.Press(PageUi.ActionOf(root, PageUi.CardOf(root, second.Name), UiIconKind.Export));
       Assert(page.Message == said, "export opens the save window from the card; a closed one says nothing");
+      Assert(profiles.Active == active, "the nested export action does not switch profiles");
 
       // Delete asks on the card first, then removes the profile.
       total = profiles.Profiles.Count;
@@ -289,6 +305,7 @@ namespace Element.Editor
       PageUi.Settle(check);
       Assert(profiles.Profiles.Count == total && PageUi.Shows(root, UiText("한 번 더 누르면 삭제해요", "Press again to delete")),
         "the first delete press only asks, on the card");
+      Assert(profiles.Active == active, "arming deletion does not trigger the parent card");
       PageUi.Press(PageUi.ActionOf(root, PageUi.CardOf(root, copy.Name), UiIconKind.Delete));
       PageUi.Settle(check);
       Assert(profiles.Profiles.Count == total - 1 && !profiles.Profiles.Contains(copy) && page.Message.Contains(copy.Name),
@@ -620,6 +637,74 @@ namespace Element.Editor
     }
 
     public static void Press(Pressable button) => button.OnPointerClick(new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left });
+
+    /// <summary>
+    /// Resolves the real native click target, including graphics order, clipping
+    /// and CanvasGroup filters. A preview can be larger than the editor's Game
+    /// view, so use the canvas graphics directly rather than Screen pixel bounds.
+    /// </summary>
+    public static GameObject HitTarget(Component at)
+    {
+      Canvas canvas = at.GetComponentInParent<Canvas>();
+      // Batch-mode canvases have depth -1 until a camera has actually drawn
+      // them. Render at the canvas's current pixel size before querying the
+      // same native graphic order and filters used by GraphicRaycaster.
+      RenderMode mode = canvas.renderMode;
+      Camera previousCamera = canvas.worldCamera;
+      float plane = canvas.planeDistance;
+      Vector2 pixels = canvas.pixelRect.size;
+      var cameraObject = new GameObject("Hit-test camera", typeof(Camera));
+      Camera renderCamera = cameraObject.GetComponent<Camera>();
+      var target = new RenderTexture(Mathf.Max(1, Mathf.RoundToInt(pixels.x)), Mathf.Max(1, Mathf.RoundToInt(pixels.y)), 16);
+      renderCamera.orthographic = true;
+      renderCamera.targetTexture = target;
+      try
+      {
+        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+        canvas.worldCamera = renderCamera;
+        canvas.planeDistance = 1;
+        Canvas.ForceUpdateCanvases();
+        renderCamera.Render();
+        return HitRenderedTarget(at, canvas);
+      }
+      finally
+      {
+        canvas.renderMode = mode;
+        canvas.worldCamera = previousCamera;
+        canvas.planeDistance = plane;
+        renderCamera.targetTexture = null;
+        Object.DestroyImmediate(target);
+        Object.DestroyImmediate(cameraObject);
+        Canvas.ForceUpdateCanvases();
+      }
+    }
+
+    private static GameObject HitRenderedTarget(Component at, Canvas canvas)
+    {
+      Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+      Vector2 point = RectTransformUtility.WorldToScreenPoint(camera, World(at).center);
+      var graphics = GraphicRegistry.GetGraphicsForCanvas(canvas);
+      Graphic first = null;
+      for (int i = 0; i < graphics.Count; i++)
+      {
+        Graphic graphic = graphics[i];
+        if (graphic != null && graphic.IsActive() && graphic.raycastTarget && graphic.depth >= 0
+          && (first == null || graphic.depth > first.depth)
+          && RectTransformUtility.RectangleContainsScreenPoint(graphic.rectTransform, point, camera)
+          && graphic.Raycast(point, camera))
+          first = graphic;
+      }
+      return first != null ? ExecuteEvents.GetEventHandler<IPointerClickHandler>(first.gameObject) : null;
+    }
+
+    public static void PressHit(Component at)
+    {
+      GameObject target = HitTarget(at);
+      if (target == null)
+        throw new Exception("No native click handler at " + at.name);
+      ExecuteEvents.Execute(target, new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left },
+        ExecuteEvents.pointerClickHandler);
+    }
 
     /// <summary>Escape as the window takes it: an open popover first, then the page.</summary>
     public static bool Escape(SettingsCheck check)

@@ -17,7 +17,7 @@ internal sealed class ElementTheme : UguiTheme
     Font = font;
     // The bundled face is already heavy; synthesized bold smears it.
     BoldIsHeavy = true;
-    MotionSeconds = reduceMotion ? 0 : .16f;
+    SetReduceMotion(reduceMotion);
     SetColor(ColorToken.Foreground, UiPalette.Foreground);
     SetColor(ColorToken.Muted, UiPalette.Muted);
     SetColor(ColorToken.Background, UiPalette.Background);
@@ -48,6 +48,9 @@ internal sealed class ElementTheme : UguiTheme
   /// panels' 8-unit corners.
   /// </summary>
   public bool Compact { get; set; }
+
+  /// <summary>Changes animation policy without discarding the screen's retained views or editing state.</summary>
+  public void SetReduceMotion(bool reduceMotion) => MotionSeconds = reduceMotion ? 0 : .16f;
 
   public override float StackSpacing => 12;
 

@@ -26,7 +26,7 @@ internal static class ColorPickerView
     Binding<bool> open = null
   )
   {
-    ColorPickerModel model = new();
+    ColorPickerViewModel model = new();
     if (defaultColor is Color fallback)
       model.SetDefault(fallback);
     model.CloseRequested = () =>

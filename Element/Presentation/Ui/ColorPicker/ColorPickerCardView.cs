@@ -17,7 +17,7 @@ internal sealed class ColorPickerCardView : ColorPickerLayout
   public const float Width = 288;
   private static readonly UiColor Card = new Color(.105f, .105f, .105f);
 
-  public ColorPickerCardView(ColorPickerModel vm, ColorPickerParts parts = null)
+  public ColorPickerCardView(ColorPickerViewModel vm, ColorPickerParts parts = null)
     : base(vm, parts) { }
 
   public override View Body =>

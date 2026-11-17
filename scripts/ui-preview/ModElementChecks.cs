@@ -1,20 +1,21 @@
-using Element.Presentation.Layout.ContentEditors.Shell.Dock;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor;
+using Element.Presentation.OverlayEditor.Kinds;
+using Element.Presentation.OverlayEditor.ModEditor;
+using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.EditorBar;
+using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Grow;
+using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Property;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Application.Mods;
 using Element.Configuration.Overlay;
 using Element.Infrastructure.Mods;
-using Element.Presentation.Layout;
-using Element.Presentation.Layout.Canvas;
-using Element.Presentation.Layout.Kinds;
-using Element.Presentation.Layout.ContentEditors.Mods;
-using Element.Presentation.Layout.ContentEditors.Shell;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Canvas;
-using Element.Presentation.Settings;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Popovers;
 using ElementKit;
@@ -232,7 +233,7 @@ namespace Element.Editor
   // change, undo, Done, and the box shown while the mod is missing.
   public static partial class SettingsPreview
   {
-    private static void CheckModElements(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+    private static void CheckModElements(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name, int width, int height)
     {
       PreviewModAssemblies mods = new PreviewModAssemblies();
@@ -261,7 +262,7 @@ namespace Element.Editor
 
         Press(Rows(list).First(row => row.name == "Add Preview/card"));
         ModOverlayElement element = host.LayoutTargets.OfType<ModOverlayElement>().Last();
-        OverlayModEditor mods2 = (OverlayModEditor)Kind<ModKind>(editor).Editor;
+        ModEditorScreen mods2 = (ModEditorScreen)Kind<ModKind>(editor).Editor;
         Assert(element.Enabled && element.Drawn && mods2.IsOpen && mods2.Page != null && mods2.View == null,
           "a new element opens its editing screen at once, its parts on a page");
         Settle();
@@ -287,21 +288,21 @@ namespace Element.Editor
 
         // Grow from on its bar, over the preview: its popover hangs under it.
         CheckEditorTopLine(mods2, "Mod element editor", L("미리보기 카드 편집", "Edit Preview card"));
-        OverlayBarButtonModel modGrow = Field<OverlayBarButtonModel>(mods2, "_growButton");
+        PropertyButtonViewModel modGrow = Field<PropertyButtonViewModel>(mods2, "_growButton");
         OverlayGrowth growth = Field<OverlayGrowth>(mods2, "_growth");
-        Assert(modGrow.Value == OverlayGrowPickerModel.ShortName(growth), "the bar's Grow from names the element's point: " + modGrow.Value);
-        Rect barRect = ScreenRectOf(Field<OverlayEditorBar>(mods2, "_bar").Root), previewRect = ModPreviewRect(mods2);
+        Assert(modGrow.Value == GrowPickerViewModel.ShortName(growth), "the bar's Grow from names the element's point: " + modGrow.Value);
+        Rect barRect = ScreenRectOf(Field<EditorBarPanel>(mods2, "_bar").Root), previewRect = ModPreviewRect(mods2);
         Assert(barRect.xMax <= ScreenRectOf(Column().Root).xMin && Mathf.Abs(barRect.center.x - previewRect.center.x) < 2,
           "Grow from sits over the preview, left of the column: " + barRect + " / " + previewRect);
         PressBar(mods2, modGrow);
         Call(mods2, "FitPreview");
-        OverlayGrowPopover modGrowPopover = Field<OverlayGrowPopover>(mods2, "_grow");
+        GrowPopoverPanel modGrowPopover = Field<GrowPopoverPanel>(mods2, "_grow");
         Assert(modGrowPopover.Visible && modGrow.Active && ScreenRectOf(modGrowPopover.Root).yMax <= BarButtonRect(mods2, modGrow).yMin
           && InsideScreen(ScreenRectOf(modGrowPopover.Root)), "Grow from opens its popover under its button, lit while it is open");
         Settle();
         Press(modGrowPopover.Root.GetComponentsInChildren<Pressable>(true).Single(point => point.name == "Grow from " + OverlayGrowth.BottomRight));
         Call(mods2, "FitPreview");
-        Assert(Field<OverlayGrowth>(mods2, "_growth") == OverlayGrowth.BottomRight && modGrow.Value == OverlayGrowPickerModel.ShortName(OverlayGrowth.BottomRight)
+        Assert(Field<OverlayGrowth>(mods2, "_growth") == OverlayGrowth.BottomRight && modGrow.Value == GrowPickerViewModel.ShortName(OverlayGrowth.BottomRight)
           && modGrowPopover.Caption.Contains(L("오른쪽 아래", "bottom right")), "a point picks where the element grows from");
         mods2.Escape();
         Call(mods2, "FitPreview");
@@ -319,7 +320,7 @@ namespace Element.Editor
         Assert(Working().Contains("\"TitleAt\":1"), "the nine points open in the column and pick the setting");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-anchor");
         PressToolBack(mods2, Column());
-        Assert(Find("Anchor " + L("제목 위치", "Title at")).GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == OverlayGrowPickerModel.ShortName(OverlayGrowth.Top)),
+        Assert(Find("Anchor " + L("제목 위치", "Title at")).GetComponentsInChildren<TextMeshProUGUI>().Any(label => label.text == GrowPickerViewModel.ShortName(OverlayGrowth.Top)),
           "and the row names the point picked");
         Press(Find("Paint "));
         Settle();
@@ -407,7 +408,7 @@ namespace Element.Editor
         AssertModTool(mods2, Column(), L("숨기기 키", "Hide key"));
         Press(ByName<Pressable>(Column().ToolRoot, "Shortcut field " + L("숨기기 키", "Hide key")));
         Assert(mods2.Page.Typing, "a shortcut part records the next key");
-        ShortcutFieldModel shortcut = Field<List<ShortcutFieldModel>>(Field<ModEditorContext>(mods2, "_context"), "_shortcuts").Single();
+        ShortcutFieldViewModel shortcut = Field<List<ShortcutFieldViewModel>>(Field<ModEditorContext>(mods2, "_context"), "_shortcuts").Single();
         shortcut.TryAssign(KeyCode.H, KeyCode.None);
         Assert(!mods2.Page.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
         SaveFrame(camera, texture, canvases, name + "-mod-editor-shortcut");
@@ -472,8 +473,8 @@ namespace Element.Editor
     // An element whose editing screen is written with ElementUI: its views
     // drawn as the column's rows, bound to its settings; each edit an undo
     // step (a drag one step), undo shown on the screen, and Done saving it.
-    private static void CheckModElementView(OverlayLayoutEditor editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
-      Canvas[] canvases, string name, OverlayModEditor mods)
+    private static void CheckModElementView(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name, ModEditorScreen mods)
     {
       Select(editor, -1);
       Call(editor, "ToggleAddMenu");
@@ -505,12 +506,12 @@ namespace Element.Editor
       }
 
       // Its cards are the column's headings, its controls the column's rows, 40 tall and 6 apart, the names lined up.
-      float scale = Field<OverlayEditorFrame>(mods, "_screen").Scale;
+      float scale = Field<EditorFramePanel>(mods, "_screen").Scale;
       TextMeshProUGUI heading = view.GetComponentsInChildren<TextMeshProUGUI>(false).First(label => label.text == L("막대", "Bar"));
       Rect fill = ScreenRectOf((RectTransform)Row("Color " + L("채우기", "Fill")).transform),
         rounded = ScreenRectOf((RectTransform)Row("Switch " + L("둥근 모서리", "Rounded")).transform);
-      Assert(Mathf.Abs(fill.height - OverlayInspectorRow.Height * scale) < 1 && Mathf.Abs(rounded.height - OverlayInspectorRow.Height * scale) < 1
-        && Mathf.Abs(fill.yMin - rounded.yMax - OverlayInspectorRow.Gap * scale) < 1 && Mathf.Abs(fill.width - ScreenRectOf(view).width) < 1,
+      Assert(Mathf.Abs(fill.height - InspectorRowStyle.Height * scale) < 1 && Mathf.Abs(rounded.height - InspectorRowStyle.Height * scale) < 1
+        && Mathf.Abs(fill.yMin - rounded.yMax - InspectorRowStyle.Gap * scale) < 1 && Mathf.Abs(fill.width - ScreenRectOf(view).width) < 1,
         "a card's controls are the column's rows, 40 tall, 6 apart, as wide as the column: " + fill + " / " + rounded);
       Assert(ScreenRectOf(heading.rectTransform).yMin >= fill.yMax - .5f && ScreenRectOf(heading.rectTransform).yMax <= ScreenRectOf(view).yMax + .5f,
         "its title is the heading over them");
@@ -658,13 +659,13 @@ namespace Element.Editor
 
     // Where the column stands: where the text editor keeps its own (the
     // keypad's column), from under the header, the preview left of it.
-    private static void CheckModColumn(OverlayModEditor editor, ModEditorColumn column, string what)
+    private static void CheckModColumn(ModEditorScreen editor, ModEditorColumn column, string what)
     {
       Settle();
-      OverlayEditorFrame screen = Field<OverlayEditorFrame>(editor, "_screen");
+      EditorFramePanel screen = Field<EditorFramePanel>(editor, "_screen");
       Rect shown = ScreenRectOf(column.Root), preview = ModPreviewRect(editor);
       float left = (screen.ContentLeft + screen.ContentWidth - KeypadView.Width) * screen.Scale,
-        top = Screen.height - (OverlayEditorFrame.TopBar + OverlayEditorInspector.Gap) * screen.Scale;
+        top = Screen.height - (EditorFramePanel.TopBar + InspectorPanel.Gap) * screen.Scale;
       Assert(Mathf.Abs(shown.xMin - left) < 1 && Mathf.Abs(shown.width - KeypadView.Width * screen.Scale) < 1 && Mathf.Abs(shown.yMax - top) < 1
         && InsideScreen(shown), what + ": the column stands where the text editor's does: " + shown);
       Assert(preview.xMax <= shown.xMin - 20 && InsideScreen(preview), what + ": the preview keeps left of it: " + preview + " / " + shown);
@@ -672,7 +673,7 @@ namespace Element.Editor
 
     // A tool a row opened, as the column shows it: the rows give way to a
     // back row naming it, and the tool hangs under it, ending with the column.
-    private static void AssertModTool(OverlayModEditor editor, ModEditorColumn column, string tool)
+    private static void AssertModTool(ModEditorScreen editor, ModEditorColumn column, string tool)
     {
       Settle();
       AssertNoScreenErrors(tool + " opens");
@@ -680,11 +681,11 @@ namespace Element.Editor
       Assert(column.OpenTool == tool && !Shown(column.Root) && back != null && Shown(back)
         && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool), "the column shows a back row naming " + tool);
       Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(column.ToolRoot);
-      Assert(Mathf.Abs(toolRect.xMax - (column.Area.xMax * Field<OverlayEditorFrame>(editor, "_screen").Scale)) < 1
+      Assert(Mathf.Abs(toolRect.xMax - (column.Area.xMax * Field<EditorFramePanel>(editor, "_screen").Scale)) < 1
         && Mathf.Abs(backRect.yMax - toolRect.yMax) < 1 && InsideScreen(toolRect), tool + " opens in the column under its back row: " + toolRect);
     }
 
-    private static void PressToolBack(OverlayModEditor editor, ModEditorColumn column)
+    private static void PressToolBack(ModEditorScreen editor, ModEditorColumn column)
     {
       Press(ByName<Pressable>(column.ToolRoot, "Tool back"));
       Call(editor, "ApplyPending");
@@ -694,9 +695,9 @@ namespace Element.Editor
     }
 
     // The preview glides back beside the column; the fixture's clock stands still, so it arrives at once.
-    private static void SettlePreview(OverlayModEditor editor)
+    private static void SettlePreview(ModEditorScreen editor)
     {
-      Field<OverlayGlide>(editor, "_space").Snap();
+      Field<EditorGlide>(editor, "_space").Snap();
       Call(editor, "FitPreview");
     }
 
@@ -708,13 +709,13 @@ namespace Element.Editor
       return path;
     }
 
-    private static Rect ModPreviewRect(OverlayModEditor editor) =>
+    private static Rect ModPreviewRect(ModEditorScreen editor) =>
       ScreenRectOf(Field<RectTransform>(Field<ModPreview>(editor, "_preview"), "_holder"));
 
     // The parts shown now stand in the column, keep clear of the preview and
     // of each other, and their words fit. Each part is found by the object
     // its Rect gives a mod, spread over it; a card or tab page as a whole.
-    private static void CheckVisibleParts(OverlayModEditor editor, string name, string tab)
+    private static void CheckVisibleParts(ModEditorScreen editor, string name, string tab)
     {
       ModEditorPage page = editor.Page;
       Rect preview = ModPreviewRect(editor);

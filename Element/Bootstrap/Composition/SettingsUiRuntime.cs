@@ -6,11 +6,13 @@ using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
-using Element.Presentation.Layout.KeyViewers;
 using Element.Presentation.Overlay.Canvas;
+using Element.Presentation.OverlayEditor.KeyViewers;
 using Element.Presentation.Screens;
 using Element.Presentation.Settings;
-using Element.Presentation.Settings.Pages;
+using Element.Presentation.Settings.Planets;
+using Element.Presentation.Settings.Profiles;
+using Element.Presentation.Settings.Window;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
@@ -74,7 +76,7 @@ internal sealed class SettingsUiRuntime : IDisposable
     _presetShortcuts = new EffectPresetShortcuts(
       main.Settings,
       playing,
-      () => _screens.IsOpen || SettingsPanel.IsTyping(),
+      () => _screens.IsOpen || SettingsWindowScreen.IsTyping(),
       apply,
       _screens.RefreshPresets,
       Save,

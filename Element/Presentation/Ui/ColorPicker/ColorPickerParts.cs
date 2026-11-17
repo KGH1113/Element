@@ -18,7 +18,7 @@ internal sealed class ColorPickerParts
 
   public readonly Transform Park;
 
-  /// <summary>Where the owner's opacity box goes; see <see cref="ColorPickerModel.ExternalOpacity"/>.</summary>
+  /// <summary>Where the owner's opacity box goes; see <see cref="ColorPickerViewModel.ExternalOpacity"/>.</summary>
   public readonly RectTransform OpacitySlot;
 
   /// <summary>The color bar of an overlay element's color, over the left column.</summary>

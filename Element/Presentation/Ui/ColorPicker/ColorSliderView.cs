@@ -21,13 +21,13 @@ internal sealed class ColorSliderView : NativeView
     Handle = 20,
     Overhang = Handle / 2;
 
-  private readonly ColorPickerModel _vm;
+  private readonly ColorPickerViewModel _vm;
   private readonly bool _hue;
   private UiCapsuleGraphic _pure;
   private UiAlphaGraphic _checker;
 
   /// <param name="hue">The hue bar; otherwise the opacity bar.</param>
-  public ColorSliderView(ColorPickerModel vm, bool hue)
+  public ColorSliderView(ColorPickerViewModel vm, bool hue)
   {
     _vm = vm;
     _hue = hue;

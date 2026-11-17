@@ -1,6 +1,7 @@
+using Element.Presentation.OverlayEditor;
+using Element.Presentation.OverlayEditor.Canvas;
+using Element.Presentation.OverlayEditor.Canvas.Toolbar;
 using System.Linq;
-using Element.Presentation.Layout;
-using Element.Presentation.Layout.Canvas;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI.Ugui;
@@ -24,12 +25,12 @@ namespace Element.Editor
       }
     }
 
-    private static LayoutToolbarModel ToolbarModel(OverlayLayoutEditor editor) => Toolbar(editor).Model;
+    private static ToolbarViewModel ToolbarModel(OverlayEditorScreen editor) => Toolbar(editor).Model;
 
-    private static LayoutStatusLine Status(OverlayLayoutEditor editor) => Field<LayoutStatusLine>(editor, "_status");
+    private static CanvasStatusLine Status(OverlayEditorScreen editor) => Field<CanvasStatusLine>(editor, "_status");
 
     /// <summary>The status line as the toolbar draws it.</summary>
-    private static TextMeshProUGUI StatusLabel(OverlayLayoutEditor editor)
+    private static TextMeshProUGUI StatusLabel(OverlayEditorScreen editor)
     {
       Settle();
       return ByName<TextMeshProUGUI>(Toolbar(editor).Root, "Status");
@@ -39,9 +40,9 @@ namespace Element.Editor
     private static T ByName<T>(Transform root, string name) where T : Component =>
       root == null ? null : root.GetComponentsInChildren<T>(true).FirstOrDefault(component => component.name == name);
 
-    private static Pressable ToolbarButton(OverlayLayoutEditor editor, string name) => ByName<Pressable>(Toolbar(editor).Root, name);
+    private static Pressable ToolbarButton(OverlayEditorScreen editor, string name) => ByName<Pressable>(Toolbar(editor).Root, name);
 
-    private static TMP_InputField ScaleField(OverlayLayoutEditor editor) => ByName<TMP_InputField>(Toolbar(editor).Root, "Scale percent");
+    private static TMP_InputField ScaleField(OverlayEditorScreen editor) => ByName<TMP_InputField>(Toolbar(editor).Root, "Scale percent");
 
     private static bool Shown(Component component) => component != null && component.gameObject.activeInHierarchy;
 
@@ -53,7 +54,7 @@ namespace Element.Editor
     }
 
     /// <summary>Presses the selected element's Edit button once the toolbar caught up with the selection.</summary>
-    private static void PressEdit(OverlayLayoutEditor editor)
+    private static void PressEdit(OverlayEditorScreen editor)
     {
       Toolbar(editor).Refresh();
       Settle();
@@ -77,9 +78,9 @@ namespace Element.Editor
     /// and leaves its cutout to native viewers; hints, undo state and
     /// snapping as its controls show them.
     /// </summary>
-    private static void CheckToolbarChrome(OverlayLayoutEditor editor)
+    private static void CheckToolbarChrome(OverlayEditorScreen editor)
     {
-      LayoutToolbar toolbar = Toolbar(editor);
+      ToolbarPanel toolbar = Toolbar(editor);
       Status(editor).Clear();
       Call(editor, "UpdateFrames");
       Settle();
@@ -119,7 +120,7 @@ namespace Element.Editor
       // Undo and redo follow the history; their icons grey out with them.
       Toolbar(editor).Refresh();
       Settle();
-      LayoutSession session = Session(editor);
+      CanvasSession session = Session(editor);
       Pressable redo = ToolbarButton(editor, "Redo");
       Assert(undo.IsInteractable() == session.History.CanUndo && redo.IsInteractable() == session.History.CanRedo
         && undo.GetComponentInChildren<UiIcon>().color == (session.History.CanUndo ? UiPalette.Foreground : UiPalette.Disabled)

@@ -1,14 +1,15 @@
-using Element.Presentation.Layout.ContentEditors.Shell.Dock;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.Keypad;
-using Element.Presentation.Layout.ContentEditors.Shell.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.TextEditor;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
-using Element.Presentation.Layout.ContentEditors.Shell;
-using Element.Presentation.Layout.ContentEditors.Text;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Values;
@@ -71,7 +72,7 @@ namespace Element.Editor
         "the preview's mod adds three groups through ElementKit");
     }
 
-    private static void CheckValueDock(OverlayTextEditor text, DockProbe dock, OverlayCanvasHost host, Camera camera,
+    private static void CheckValueDock(TextEditorScreen text, DockProbe dock, OverlayCanvasHost host, Camera camera,
       RenderTexture texture, Canvas[] canvases, string name)
     {
       bool korean = Korean(name);
@@ -104,7 +105,7 @@ namespace Element.Editor
       Pressable[] chips = DockChips(dock);
       Assert(values.OpenFolder == judgement && chips.Select(chip => chip.name).SequenceEqual(judgement.Chips.Select(chip => chip.Name)),
         "a place shows its values, and only them");
-      Assert(chips.All(chip => chip.GetComponent<ValueChipDragGesture>() != null), "each chip can be carried out");
+      Assert(chips.All(chip => chip.GetComponent<ValueChipDragInput>() != null), "each chip can be carried out");
       Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == judgement.Name, "the page is named after its place");
       Assert(!judgement.Fill.Value.Equals(tufFolder.Fill.Value) && judgement.Fill.Value.Literal.a == 1
         && judgement.Ink.Value.Equals((ElementUI.UiColor)UiPalette.Foreground),
@@ -372,19 +373,19 @@ namespace Element.Editor
         float frameWidth = width / scale, frameHeight = height / scale;
         RectTransform controls = ui.Rect("Controls", view, 0, 0, frameWidth, frameHeight);
         controls.localScale = Vector3.one * scale;
-        float contentWidth = Mathf.Min(1600, frameWidth - OverlayEditorFrame.Margin * 2), left = (frameWidth - contentWidth) * .5f;
+        float contentWidth = Mathf.Min(1600, frameWidth - EditorFramePanel.Margin * 2), left = (frameWidth - contentWidth) * .5f;
         float top = frameHeight - 16 - (FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height);
         TextMeshProUGUI measure = ui.Text("", controls, 0, 0, 10, 10, 13);
         measure.textWrappingMode = TextWrappingModes.NoWrap;
         measure.color = Color.clear;
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
-        OverlayEditorFrameModel notices = new OverlayEditorFrameModel("Value dock", "", () => { }, () => { }, true);
+        EditorFrameViewModel notices = new EditorFrameViewModel("Value dock", "", () => { }, () => { }, true);
         InputDockViewModel model = new InputDockViewModel(live, notices, NoDockActions.Instance);
         InputDockView dockView = new InputDockView(model, contentWidth, measurer, true);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
         panel.Mount(new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }), dockView, model, contentWidth);
         panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
-        model.Show(null, new OverlayFormulaEditing(), "", null,
+        model.Show(null, new FormulaEditing(), "", null,
           L("값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
             "Click a value to add it at the caret · Click a value in the text or a number to calculate here"));
         Settle();

@@ -23,6 +23,7 @@ internal sealed class InspectorPanel
 
   private readonly ScreenPanel _panel;
   private readonly InspectorViewModel _model;
+  private float _shownWidth;
 
   /// <param name="heading">Over the rows, such as "Text".</param>
   /// <param name="back">The back row: closes the open tool.</param>
@@ -42,7 +43,8 @@ internal sealed class InspectorPanel
     Bottom = dock.Top - Gap;
     _model = new InspectorViewModel(heading, rows, back);
     _panel = screen.Panel(name, Color.clear);
-    _panel.Mount(screen.NewBackend(), new InspectorView(_model, Width), _model, Width, followsContent: true);
+    _panel.Mount(screen.NewBackend(), new InspectorView(_model), _model, Width, followsContent: true);
+    _shownWidth = Width;
     Root.anchoredPosition = new Vector2(Mathf.Round(Left), -Mathf.Round(Top));
   }
 
@@ -69,9 +71,9 @@ internal sealed class InspectorPanel
 
   /// <summary>
   /// The rows, or (with <paramref name="tool"/>) the back row naming the
-  /// tool open below, lined up with the tool's left edge when
-  /// <paramref name="toolRoot"/> reaches further left than the column (the
-  /// two-column picker); fits the column to what its rows show now.
+  /// tool open below, as wide as the tool when <paramref name="toolRoot"/>
+  /// reaches further left than the column (the font list, the two-column
+  /// picker); fits the column to what its rows show now.
   /// </summary>
   public void Show(string tool, RectTransform toolRoot = null)
   {
@@ -80,6 +82,12 @@ internal sealed class InspectorPanel
     float x = open && toolRoot != null ? Mathf.Min(Left, toolRoot.anchoredPosition.x) : Left;
     if (!Mathf.Approximately(Root.anchoredPosition.x, Mathf.Round(x)))
       Root.anchoredPosition = new Vector2(Mathf.Round(x), Root.anchoredPosition.y);
+    float width = Right - Mathf.Round(x);
+    if (!Mathf.Approximately(width, _shownWidth))
+    {
+      _shownWidth = width;
+      _panel.Refit(width, followsContent: true);
+    }
   }
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);

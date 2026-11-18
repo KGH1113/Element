@@ -18,9 +18,9 @@ namespace Element.Presentation.Ui.ColorPicker;
 
 // The color bar on top of an overlay editor's picker. One color is solid;
 // clicking the bar adds a color and makes a gradient. Its squares move along
-// the bar, the picked one shows a delete button above it, beside its position
-// pill when an editor gives it one, and the square, hue and opacity controls
-// below edit the picked color. Four tiles drawn in the current colors pick the
+// the bar, the picked one shows a delete button above it, and the square, hue
+// and opacity controls beside it edit the picked color; an editor shows its
+// position as a number (PositionSlot). Four tiles drawn in the current colors pick the
 // kind, beside flip and a quarter turn. Following the highlight, only
 // opacities differ. Its parts sit in Root, which the picker's screen shows
 // where the bar goes; the tip over the bar floats on the picker itself.
@@ -29,13 +29,14 @@ internal sealed class UiGradientBar : IGradientBar
   private const float BarHeight = 26,
     BarInset = 11,
     StopSize = 18,
-    PillRow = 36,
+    LabelRow = 16,
+    DeleteRow = 30,
+    BarTop = LabelRow + DeleteRow,
     KindRow = 34,
     GradientGap = 10,
     DeleteSize = 28,
-    PillGap = 4,
     TipHeight = 26,
-    TipGap = 6;
+    TipGap = 4;
 
   private readonly UiFactory _ui;
   private readonly IGradientBarHost _host;
@@ -54,7 +55,6 @@ internal sealed class UiGradientBar : IGradientBar
   private readonly TextMeshProUGUI _tipText;
   private OverlayColorSettings _working;
   private float _column;
-  private float _pillWidth;
   private int _stop;
   private int _dragging = -1;
   private float _grab;
@@ -126,7 +126,8 @@ internal sealed class UiGradientBar : IGradientBar
     _flip = IconButton(L("뒤집기", "Flip"), _kindRow, UiIconKind.Flip, Flip, KindRow);
     _rotate = IconButton(L("90° 돌리기", "Turn 90°"), _kindRow, UiIconKind.Rotate, Rotate, KindRow);
 
-    _positionSlot = _ui.Rect("Position slot", root, 0, 0, 10, 32);
+    _ui.Text(L("색 배치", "Colors"), root, 0, 0, 200, LabelRow, 12, UiPalette.Muted).raycastTarget = false;
+    _positionSlot = _ui.Rect("Position slot", parent, 0, 0, 10, 40);
     _delete = IconButton(
       L("이 색 지우기", "Remove this color"),
       root,
@@ -152,13 +153,16 @@ internal sealed class UiGradientBar : IGradientBar
   /// <summary>The picked stop's index in the gradient's stops; -1 for a solid color.</summary>
   public int SelectedStop => IsGradient ? _stop : -1;
 
-  /// <summary>Where the editor puts the picked stop's position pill; see <see cref="PlacePosition"/>.</summary>
+  /// <summary>Where the owner shows the picked color's position as a number.</summary>
   public RectTransform PositionSlot => _positionSlot;
 
-  private const float SolidHeight = PillRow + BarHeight + GradientGap + 4,
-    GradientHeight = PillRow + BarHeight + GradientGap + KindRow + GradientGap;
+  /// <inheritdoc />
+  public bool HasPosition { get; set; }
 
-  /// <summary>How far down the bar, its pill and the kinds reach in the column.</summary>
+  private const float SolidHeight = BarTop + BarHeight,
+    GradientHeight = BarTop + BarHeight + GradientGap + KindRow;
+
+  /// <summary>How far down the bar, the row over it and the kinds reach in the column.</summary>
   public float Height => IsGradient ? GradientHeight : SolidHeight;
 
   /// <summary>The picked stop's place among the stops in order, counting from 1.</summary>
@@ -245,14 +249,13 @@ internal sealed class UiGradientBar : IGradientBar
     bool gradient = IsGradient;
     _bar.gameObject.SetActive(shown);
     _kindRow.gameObject.SetActive(gradient);
-    _positionSlot.gameObject.SetActive(gradient);
     _delete.gameObject.SetActive(gradient);
     if (!shown)
     {
       _tip.gameObject.SetActive(false);
       return;
     }
-    float y = PillRow;
+    float y = BarTop;
     UiFactory.Place(_bar, 0, y, column, BarHeight);
     y += BarHeight + GradientGap;
     if (gradient)
@@ -277,30 +280,19 @@ internal sealed class UiGradientBar : IGradientBar
       Layout(_column);
   }
 
-  /// <summary>
-  /// Puts the editor's position pill, <paramref name="width"/> wide, over the
-  /// picked square on the bar, with the delete button right beside it.
-  /// </summary>
-  public void PlacePosition(float width)
-  {
-    _pillWidth = width;
-    PlaceOverStop();
-  }
-
-  // What stands over the picked square: the pill and the delete button beside
-  // it, or with no pill (a mod's picker has none) the button alone, kept on the bar.
-  private void PlaceOverStop()
+  // The delete button stands over the picked square, kept on the bar.
+  private void PlaceDelete()
   {
     if (!IsGradient)
       return;
-    Vector2 bar = _bar.anchoredPosition;
-    bool pill = _pillWidth > 0;
-    float beforeDelete = pill ? _pillWidth + PillGap : 0;
-    float width = beforeDelete + DeleteSize;
-    float centred = pill ? _pillWidth : DeleteSize;
-    float x = Mathf.Clamp(StopX(_stop) - centred * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
-    UiFactory.Place(_positionSlot, bar.x + x, 0, _pillWidth, 32);
-    UiFactory.Place((RectTransform)_delete.transform, bar.x + x + beforeDelete, 2, DeleteSize, DeleteSize);
+    float x = Mathf.Clamp(StopX(_stop) - DeleteSize * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - DeleteSize));
+    UiFactory.Place(
+      (RectTransform)_delete.transform,
+      _bar.anchoredPosition.x + x,
+      LabelRow + 1,
+      DeleteSize,
+      DeleteSize
+    );
   }
 
   // The x of a stop on the bar, from the bar's left.
@@ -359,7 +351,7 @@ internal sealed class UiGradientBar : IGradientBar
     }
     // The picked square sits on top.
     _barStops[_stop].transform.SetAsLastSibling();
-    PlaceOverStop();
+    PlaceDelete();
     for (int i = 0; i < 4; i++)
     {
       OverlayGradientMath.ResetHandles(_previewGradient.Geometry, (OverlayGradientKind)i);

@@ -21,6 +21,6 @@ internal sealed class ColorPickerParts
   /// <summary>Where the owner's opacity box goes; see <see cref="ColorPickerViewModel.ExternalOpacity"/>.</summary>
   public readonly RectTransform OpacitySlot;
 
-  /// <summary>The color bar of an overlay element's color, over the left column.</summary>
+  /// <summary>The color bar of an overlay element's color, in the right column.</summary>
   public readonly UiGradientBar Gradient;
 }

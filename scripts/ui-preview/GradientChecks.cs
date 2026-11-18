@@ -92,11 +92,15 @@ namespace Element.Editor
         "the kinds and the handles show with two colors");
       DockProbe dock0 = DockOf(shapes);
       FormulaFieldView position = ShapeGradientOf(shapes).Position;
-      Assert(position.Text == "70", "the picked color's position pill says where it is: " + position.Text);
-      Rect pill = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
+      Assert(position.Text == "70", "the picked color's position number says where it is: " + position.Text);
+      Rect numberRect = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
+      Rect opacityRect = ScreenRectOf(ShapeColorsOf(shapes).Opacity.Field.Root);
       Rect delete = ScreenRectOf((RectTransform)Field<Button>(picker.Gradient, "_delete").transform);
-      Assert(pill.yMin >= barRect.yMax - .5f && delete.xMin >= pill.xMax && Mathf.Abs(delete.center.y - pill.center.y) < 2,
-        "the pill sits over the bar with the delete button beside it");
+      Assert(numberRect.yMax <= barRect.yMin && Mathf.Abs(numberRect.center.y - opacityRect.center.y) < 1
+        && Mathf.Abs(numberRect.width - opacityRect.width) < 1 && numberRect.xMin >= opacityRect.xMax,
+        "the position and the opacity share a row under the bar, each half of it: " + numberRect + " / " + opacityRect);
+      Assert(delete.yMin >= barRect.yMax - .5f && Mathf.Abs(delete.center.x - BarPoint(bar, .7f).x) < delete.width * .75f,
+        "the delete button stands over the picked color");
       foreach (TextMeshProUGUI label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();

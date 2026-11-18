@@ -70,8 +70,8 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   /// <summary>Default puts the default color back: an opaque color that has one.</summary>
   public readonly State<bool> ResetShown = new(false);
 
-  /// <summary>A gradient following the highlight: a line says each color sets only its opacity.</summary>
-  public readonly State<bool> NoteShown = new(false);
+  /// <summary>The picked color of a gradient has a position its owner shows as a number.</summary>
+  public readonly State<bool> PositionShown = new(false);
 
   /// <summary>The color bar's height, which grows with a gradient's kinds.</summary>
   public readonly State<float> BarHeight = new(0);
@@ -446,7 +446,7 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
     OpacityShown.Value = _allowOpacity;
     OpacityOutside.Value = _allowOpacity && _externalOpacity;
     ResetShown.Value = !_sourceMode && !_allowOpacity && _hasDefault;
-    NoteShown.Value = gradient && _followsHighlight;
+    PositionShown.Value = gradient && Gradient.HasPosition;
     BarHeight.Value = Gradient?.Height ?? 0;
     OpacityLabel.Value = OpacityName();
     // The bar shows its kinds and pill only with a gradient, and only in an overlay color's picker.

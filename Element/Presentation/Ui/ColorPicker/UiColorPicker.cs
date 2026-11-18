@@ -139,9 +139,9 @@ internal sealed class UiColorPicker : IDisposable
   /// <summary>
   /// Lays the picker out borderless for the panel beside it, such as the
   /// keypad below it: no card, title or close. An overlay editor's picker
-  /// (<see cref="ShowSource"/>) takes two columns, the color bar and
-  /// Highlight/Custom on the left and the color square, sliders and HEX with
-  /// opacity on the right, so it stays short; others are one column
+  /// (<see cref="ShowSource"/>) takes two columns, the color square and its
+  /// bars on the left, and Highlight/Custom, the color bar and the numbers on
+  /// the right, so it stays short; others are one column
   /// <paramref name="width"/> wide. Whoever places it names the color and
   /// closes it.
   /// </summary>

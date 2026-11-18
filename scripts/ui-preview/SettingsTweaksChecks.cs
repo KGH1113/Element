@@ -53,12 +53,16 @@ namespace Element.Editor
       {
         Pressable card = ButtonOf(check, link.Title);
         Assert(card != null && Label(check, link.Detail) != null, "Tweaks links to " + link.Title + " with what it holds");
+        // The pointer is on the card as it is clicked, and the page leaves from under it.
+        card.OnPointerEnter(null);
+        Assert((card.State & ElementUI.Ugui.ButtonState.Hovered) != 0, link.Title + " lights under the pointer");
         Assert(Press(card), link.Title + " can be clicked");
         check.Settle();
         Assert(window.Current == link.Page && window.CanGoBack.Value && link.Page.Parent == tweaks, link.Title + " opens within settings, with Back");
         window.Back.TryExecute();
         check.Settle();
         Assert(window.Current == tweaks && Label(check, link.Title) != null, "Back from " + link.Title + " returns to Tweaks");
+        Assert((ButtonOf(check, link.Title).State & ElementUI.Ugui.ButtonState.Hovered) == 0, link.Title + " isn't still lit after coming back");
       }
       Assert(Active<UiIcon>(check).Count(icon => icon.Kind == UiIconKind.PageForward) == links.Length, "every link shows a forward arrow");
 

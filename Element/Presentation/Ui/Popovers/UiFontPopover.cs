@@ -95,21 +95,31 @@ internal sealed class UiFontPopover : IPopover, IDisposable
   private int _libraryRevision = -1;
   private int _fontVersion = -1;
   private bool _installedReady;
+  private readonly float _inset;
   private bool _dragging;
   private bool _scrollPending;
   private float _grab;
 
-  public UiFontPopover(UiFactory ui, Transform parent, OverlayFonts fonts, bool reduceMotion, Action<string> picked)
+  /// <param name="bare">It stands in an editor's column: no panel of its own, its parts on the column's edges.</param>
+  public UiFontPopover(
+    UiFactory ui,
+    Transform parent,
+    OverlayFonts fonts,
+    bool reduceMotion,
+    Action<string> picked,
+    bool bare = false
+  )
   {
+    _inset = bare ? 0 : Padding;
     _ui = ui;
     _fonts = fonts;
     _library = fonts?.Library;
     _reduceMotion = reduceMotion;
     _picked = picked;
-    Image panel = ui.Panel("Font popover", parent, 0, 0, _width, _height, UiPalette.Popover);
+    Image panel = ui.Panel("Font popover", parent, 0, 0, _width, _height, bare ? Color.clear : UiPalette.Popover);
     panel.raycastTarget = true;
     Root = panel.rectTransform;
-    _title = ui.Text("", Root, Padding, Padding, 10, HeaderHeight, 13, UiPalette.Muted);
+    _title = ui.Text("", Root, _inset, _inset, 10, HeaderHeight, 13, UiPalette.Muted);
     _title.textWrappingMode = TextWrappingModes.NoWrap;
     bool pick = _library?.CanPickFiles ?? false;
     _add = UiCapsules.CapsuleButton(
@@ -118,7 +128,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
       "Add font file",
       pick ? L("파일 추가", "Add file") : L("폴더 열기", "Open folder"),
       0,
-      Padding,
+      _inset,
       10,
       HeaderHeight,
       13,
@@ -132,7 +142,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
       "Open fonts folder",
       L("폴더", "Folder"),
       0,
-      Padding,
+      _inset,
       10,
       HeaderHeight,
       13,
@@ -141,7 +151,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
       reduceMotion
     );
     _folder.gameObject.SetActive(pick);
-    _search = ui.Input("Font search", "", Root, Padding, 0, 10, _ => Search(), null, 60);
+    _search = ui.Input("Font search", "", Root, _inset, 0, 10, _ => Search(), null, 60);
     // Keeps the input's middle alignment: a Midline caret centers on the top
     // edge of the text rect, above the text, while the field is empty.
     _search.textComponent.fontSize = 15;
@@ -160,11 +170,11 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     hint.alignment = _search.textComponent.alignment;
     _search.placeholder = hint;
     _search.onSubmit.AddListener(_ => PickFirst());
-    _viewport = ui.Rect("Fonts", Root, Padding, 0, 10, 10);
+    _viewport = ui.Rect("Fonts", Root, _inset, 0, 10, 10);
     _viewport.gameObject.AddComponent<RectMask2D>();
     _track = ui.Rect("Scroll track", Root, 0, 0, TrackWidth, 10);
     _thumb = ui.Capsule("Scroll thumb", _track, 0, 0, TrackWidth, 24, new Color(1, 1, 1, .28f));
-    _status = ui.Text("", Root, Padding, 0, 10, StatusHeight, 12, UiPalette.Muted);
+    _status = ui.Text("", Root, _inset, 0, 10, StatusHeight, 12, UiPalette.Muted);
     _status.textWrappingMode = TextWrappingModes.Normal;
     _status.overflowMode = TextOverflowModes.Ellipsis;
     Root.gameObject.SetActive(false);
@@ -387,7 +397,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     _status.text = text;
     _status.color = warning ? UiPalette.Error : UiPalette.Muted;
     // A long message takes the lines it needs from the list.
-    float needed = Mathf.Max(StatusHeight, Mathf.Ceil(_status.GetPreferredValues(text, _width - Padding * 2, 0).y));
+    float needed = Mathf.Max(StatusHeight, Mathf.Ceil(_status.GetPreferredValues(text, _width - _inset * 2, 0).y));
     if (!Mathf.Approximately(needed, _statusHeight))
     {
       _statusHeight = needed;
@@ -501,25 +511,25 @@ internal sealed class UiFontPopover : IPopover, IDisposable
 
   private void Layout()
   {
-    float inner = _width - Padding * 2;
+    float inner = _width - _inset * 2;
     float addWidth = Mathf.Ceil(Measure(_add)) + 28;
     float folderWidth = _folder.gameObject.activeSelf ? Mathf.Ceil(Measure(_folder)) + 24 : 0;
-    float right = _width - Padding;
-    UiFactory.Place((RectTransform)_add.transform, right - addWidth, Padding, addWidth, HeaderHeight);
+    float right = _width - _inset;
+    UiFactory.Place((RectTransform)_add.transform, right - addWidth, _inset, addWidth, HeaderHeight);
     right -= addWidth;
     if (folderWidth > 0)
     {
-      UiFactory.Place((RectTransform)_folder.transform, right - 4 - folderWidth, Padding, folderWidth, HeaderHeight);
+      UiFactory.Place((RectTransform)_folder.transform, right - 4 - folderWidth, _inset, folderWidth, HeaderHeight);
       right -= folderWidth + 4;
     }
-    UiFactory.Place(_title.rectTransform, Padding, Padding, Mathf.Max(40, right - Padding - 8), HeaderHeight);
-    float y = Padding + HeaderHeight + 8;
-    UiFactory.Place((RectTransform)_search.transform, Padding, y, inner, SearchHeight);
+    UiFactory.Place(_title.rectTransform, _inset, _inset, Mathf.Max(40, right - _inset - 8), HeaderHeight);
+    float y = _inset + HeaderHeight + 8;
+    UiFactory.Place((RectTransform)_search.transform, _inset, y, inner, SearchHeight);
     y += SearchHeight + Gap;
-    float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - _statusHeight - Padding);
-    UiFactory.Place(_viewport, Padding, y, inner - TrackWidth - 6, listHeight);
-    UiFactory.Place(_track, _width - Padding - TrackWidth, y, TrackWidth, listHeight);
-    UiFactory.Place(_status.rectTransform, Padding, y + listHeight + Gap, inner, _statusHeight);
+    float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - _statusHeight - _inset);
+    UiFactory.Place(_viewport, _inset, y, inner - TrackWidth - 6, listHeight);
+    UiFactory.Place(_track, _width - _inset - TrackWidth, y, TrackWidth, listHeight);
+    UiFactory.Place(_status.rectTransform, _inset, y + listHeight + Gap, inner, _statusHeight);
     EnsureRows(Mathf.CeilToInt(listHeight / RowHeight) + 1);
     _scroll = Mathf.Clamp(_scroll, 0, MaxScroll);
     RefreshRows();

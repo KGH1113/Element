@@ -70,7 +70,7 @@ internal sealed class GrowFrom
   public void Build(EditorFramePanel screen, InspectorPanel inspector)
   {
     _inspector = inspector;
-    _popover = new GrowPopoverPanel(screen, Pick);
+    _popover = new GrowPopoverPanel(screen, Pick, inColumn: true);
     _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }

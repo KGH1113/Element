@@ -66,7 +66,7 @@ internal sealed class TextFonts
   public void Build(EditorFramePanel screen, OverlayFonts fonts, bool reduceMotion)
   {
     // Whoever closes it redraws the bar; the next session is its own undo step.
-    _fontPopover = new UiFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont)
+    _fontPopover = new UiFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont, bare: true)
     {
       Hidden = () => _fontSnapshotTaken = false,
     };

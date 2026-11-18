@@ -67,6 +67,9 @@ namespace Element.Editor
         tool + " opens in the column under its back row, ending with the keypad: " + toolRect + " / " + backRect);
       Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1 && Mathf.Abs(backRect.xMax - keypad.xMax) < 1,
         "the back row is as wide as the tool under it: " + backRect + " / " + toolRect);
+      Graphic toolSurface = drawn.GetComponent<Graphic>();
+      Assert(back.targetGraphic.color.a < .01f && (toolSurface == null || toolSurface.color.a < .01f),
+        tool + " and its back row stand on the screen with no box around them");
     }
 
     /// <summary>The column's back row: the tool closes and the rows come back.</summary>

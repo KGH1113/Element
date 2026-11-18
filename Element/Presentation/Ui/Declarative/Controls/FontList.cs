@@ -29,7 +29,7 @@ internal sealed class FontList : NativeView
   {
     bool reduceMotion = _request.ReduceMotion;
     _ui = new UiFactory(UguiTheme.Font, () => reduceMotion);
-    _list = new UiFontPopover(_ui, rect, _request.Fonts, reduceMotion, _request.Picked);
+    _list = new UiFontPopover(_ui, rect, _request.Fonts, reduceMotion, _request.Picked, _request.Bare);
     _list.Show(_request.Title, _request.Current, _request.DefaultName, _request.DefaultDetail);
     _request.Ticks?.Invoke(_list.Tick);
   }
@@ -70,6 +70,9 @@ internal sealed class FontListRequest
   public string DefaultName,
     DefaultDetail;
   public bool ReduceMotion;
+
+  /// <summary>It stands in an editor's column, without a panel of its own.</summary>
+  public bool Bare;
 
   /// <summary>A font was clicked: its key.</summary>
   public Action<string> Picked;

@@ -12,8 +12,11 @@ namespace Element.Presentation.OverlayEditor.Parts.Grow;
 /// </summary>
 internal sealed class GrowPopoverView : View<GrowPickerViewModel>
 {
-  public GrowPopoverView(GrowPickerViewModel vm)
-    : base(vm) { }
+  private readonly Insets _insets;
+
+  /// <param name="inColumn">On the column's edges, with no panel around it.</param>
+  public GrowPopoverView(GrowPickerViewModel vm, bool inColumn)
+    : base(vm) => _insets = inColumn ? new Insets(4, 2, 0, 0) : new Insets(12, 14, 14, 14);
 
   public override View Body =>
     VStack(
@@ -45,5 +48,5 @@ internal sealed class GrowPopoverView : View<GrowPickerViewModel>
             .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
         )
       )
-      .Padding(new Insets(12, 14, 14, 14));
+      .Padding(_insets);
 }

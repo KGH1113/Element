@@ -23,12 +23,13 @@ internal sealed class GrowPopoverPanel : IPopover
   private Vector2? _column;
 
   /// <param name="picked">A point or Auto was clicked; show the choice with <see cref="Refresh"/>.</param>
-  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked)
+  /// <param name="inColumn">It opens in an editor's column, without a panel of its own.</param>
+  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked, bool inColumn = false)
   {
     _screen = screen;
     ViewModel = new GrowPickerViewModel(picked);
-    _panel = screen.Panel("Grow popover", UiPalette.Popover);
-    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel), ViewModel, Width);
+    _panel = screen.Panel("Grow popover", inColumn ? Color.clear : UiPalette.Popover);
+    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel, inColumn), ViewModel, Width);
     Root.gameObject.SetActive(false);
   }
 

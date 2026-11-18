@@ -11,6 +11,7 @@ using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Theme;
 using TMPro;
@@ -49,6 +50,9 @@ internal sealed class TextPreview
 
   /// <summary>Plays a value's growth on the preview.</summary>
   public OverlayTextPulse Pulse => _previewPulse;
+
+  /// <summary>How much larger than in the game it is drawn.</summary>
+  public float Shown { get; private set; } = 1;
 
   /// <summary>Screen pixels per unit of the text as it is shown.</summary>
   public float Scale => _previewScale;
@@ -102,7 +106,17 @@ internal sealed class TextPreview
   /// <paramref name="top"/> and <paramref name="bottom"/> (frame units of
   /// <paramref name="frameScale"/> screen pixels), smaller only to fit there.
   /// </summary>
-  public void Draw(float left, float right, float top, float bottom, float frameScale, float elementScale)
+  public void Draw(
+    float left,
+    float right,
+    float top,
+    float bottom,
+    float frameScale,
+    float elementScale,
+    PreviewZoom zoom,
+    bool editingColor,
+    bool reduceMotion
+  )
   {
     // The text must be active before it is laid out for the caret.
     Empty = _text.Document.Count == 0 && _text.Composition.Length == 0;
@@ -115,8 +129,16 @@ internal sealed class TextPreview
     preferred = new Vector2(Mathf.Max(2, preferred.x), Mathf.Max(_preview.fontSize, preferred.y));
     float middle = (left + right) * .5f;
     Vector2 available = new Vector2(Mathf.Max(40, right - left), Mathf.Max(40, bottom - top)) * frameScale;
-    // The game's size, unless the text would not fit on screen.
-    _previewScale = Mathf.Min(elementScale * ScreenScale, available.x / preferred.x, available.y / preferred.y);
+    // The game's size (larger while a small text's color is edited), unless it would not fit.
+    float game = elementScale * ScreenScale;
+    float larger = zoom.For(
+      editingColor,
+      preferred.x * game / frameScale,
+      preferred.y * game / frameScale,
+      reduceMotion
+    );
+    _previewScale = Mathf.Min(game * larger, available.x / preferred.x, available.y / preferred.y);
+    Shown = _previewScale / game;
     RectTransform rect = _preview.rectTransform;
     rect.sizeDelta = preferred;
     rect.localScale = new Vector3(_previewScale, _previewScale, 1);

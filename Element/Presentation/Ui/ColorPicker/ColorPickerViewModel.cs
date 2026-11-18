@@ -38,6 +38,7 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   public ColorPickerViewModel()
   {
     Reset = Command(ResetColor);
+    AddGradient = Command(() => Gradient?.MakeGradient());
     Close = Command(() => CloseRequested?.Invoke());
   }
 
@@ -69,6 +70,9 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
 
   /// <summary>Default puts the default color back: an opaque color that has one.</summary>
   public readonly State<bool> ResetShown = new(false);
+
+  /// <summary>The color is a gradient, shown on the color bar.</summary>
+  public readonly State<bool> GradientOn = new(false);
 
   /// <summary>The picked color of a gradient has a position its owner shows as a number.</summary>
   public readonly State<bool> PositionShown = new(false);
@@ -130,6 +134,9 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
 
   /// <summary>Puts the default color back.</summary>
   public Command Reset { get; }
+
+  /// <summary>Makes a solid color a gradient, with a second color at its end.</summary>
+  public Command AddGradient { get; }
 
   /// <summary>Asks the owner to close the picker.</summary>
   public Command Close { get; }
@@ -446,6 +453,7 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
     OpacityShown.Value = _allowOpacity;
     OpacityOutside.Value = _allowOpacity && _externalOpacity;
     ResetShown.Value = !_sourceMode && !_allowOpacity && _hasDefault;
+    GradientOn.Value = gradient;
     PositionShown.Value = gradient && Gradient.HasPosition;
     BarHeight.Value = Gradient?.Height ?? 0;
     OpacityLabel.Value = OpacityName();

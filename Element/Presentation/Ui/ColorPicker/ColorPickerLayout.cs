@@ -37,11 +37,8 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 
   /// <summary>Highlight/Custom: follow the highlight color, or a color of its own.</summary>
   protected View Source() =>
-    Picker(
-        null,
-        new[] { L("하이라이트 색", "Highlight Color"), L("직접 고르기", "Custom Color") },
-        Bind(() => VM.Source)
-      )
+    Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
+      .Font(Font.Caption.Sized(13))
       .Frame(height: 36);
 
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>

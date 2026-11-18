@@ -6,6 +6,7 @@ using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -46,6 +47,9 @@ internal sealed class ShapePreview
   /// <summary>The box's top left in frame units.</summary>
   public Vector2 TopLeft { get; private set; }
 
+  /// <summary>How much larger than in the game it is drawn.</summary>
+  public float Shown { get; private set; } = 1;
+
   /// <summary>Frame units per unit of the shape.</summary>
   public float UnitsToFrame { get; private set; } = 1;
 
@@ -67,7 +71,10 @@ internal sealed class ShapePreview
     InputDockPanel dock,
     float top,
     float left,
-    float right
+    float right,
+    PreviewZoom zoom,
+    bool editingColor,
+    bool reduceMotion
   )
   {
     _resolver.Compile(shape);
@@ -77,11 +84,12 @@ internal sealed class ShapePreview
     float availableHeight = Mathf.Max(40, bottom - top - FormulaFieldView.Height - ShapeMeasures.Gap - 20);
     float units = elementScale * ScreenScale / screen.Scale;
     float fit = Mathf.Min(
-      1,
+      zoom.For(editingColor, _resolved.Width * units, _resolved.Height * units, reduceMotion),
       availableWidth / Mathf.Max(1, _resolved.Width * units),
       availableHeight / Mathf.Max(1, _resolved.Height * units)
     );
     UnitsToFrame = units * fit;
+    Shown = fit;
     float boxWidth = _resolved.Width * UnitsToFrame,
       boxHeight = _resolved.Height * UnitsToFrame;
     TopLeft = new Vector2((left + right - boxWidth) * .5f, top + (availableHeight - boxHeight) * .5f);

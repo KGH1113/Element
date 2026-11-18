@@ -17,11 +17,17 @@ internal sealed class ColorPlaneView : NativeView
   public const float Height = 156;
 
   private readonly ColorPickerViewModel _vm;
+  private readonly float _height;
   private UiColorPlane _plane;
   private UiCapsuleGraphic _ring,
     _picked;
 
-  public ColorPlaneView(ColorPickerViewModel vm) => _vm = vm;
+  /// <param name="height">How tall the square is drawn.</param>
+  public ColorPlaneView(ColorPickerViewModel vm, float height = Height)
+  {
+    _vm = vm;
+    _height = height;
+  }
 
   protected override void Build(RectTransform rect)
   {
@@ -77,5 +83,5 @@ internal sealed class ColorPlaneView : NativeView
   }
 
   protected override Size PreferredSize(Proposal proposal) =>
-    new(proposal.HasWidth && !float.IsInfinity(proposal.Width) ? proposal.Width : 256, Height);
+    new(proposal.HasWidth && !float.IsInfinity(proposal.Width) ? proposal.Width : 256, _height);
 }

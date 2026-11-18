@@ -65,7 +65,7 @@ internal sealed class GradientEditing
   }
 
   /// <summary>
-  /// The position pill in <paramref name="picker"/>, and what the picker asks
+  /// The position number in <paramref name="picker"/>, and what the picker asks
   /// of the gradient: the box it spans and its stops as shown.
   /// </summary>
   public void BuildPicker(
@@ -86,6 +86,7 @@ internal sealed class GradientEditing
       activatePosition,
       reduceMotion
     );
+    picker.Gradient.HasPosition = true;
     picker.Gradient.GradientBox = box;
     picker.Gradient.ShownPosition = _shownPosition;
     picker.Gradient.ShownAlpha = _shownAlpha;
@@ -136,12 +137,11 @@ internal sealed class GradientEditing
   public void ShowHandles(OverlayColorSettings color, Vector2 topLeft, float scale, float width, float height) =>
     Handles.Show(color, _picker.Gradient.SelectedStop, topLeft, scale, width, height, _shownPosition, _stopShown);
 
-  /// <summary>The angle beside the line and the position over the picker's bar, once their numbers are set.</summary>
+  /// <summary>The angle beside the line and the position in the picker's numbers, once they are set.</summary>
   public void PlaceNumbers()
   {
     Handles.PlaceAngle();
-    _picker.Gradient.PlacePosition(Position.Width);
-    Position.Place(0, 0);
+    Position.Fill(L("위치", "Position"));
   }
 
   /// <summary>The dock's name for a gradient number; null for others.</summary>

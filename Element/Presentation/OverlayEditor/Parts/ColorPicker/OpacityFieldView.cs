@@ -5,6 +5,7 @@ using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.ColorPicker;
 
@@ -41,8 +42,8 @@ internal sealed class OpacityFieldView
   {
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     Field.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(percent), computed, active);
-    Rect slot = _picker.OpacitySlot.rect;
-    Field.Place(slot.width - Field.Width, (slot.height - FormulaFieldView.Height) * .5f);
+    // Named where there is room for it: beside the color bar's own number.
+    Field.Fill(_picker.GradientAvailable ? L("불투명도", "Opacity") : "");
     _shown =
       double.IsNaN(percent) || double.IsInfinity(percent)
         ? Mathf.Clamp01(fallback)

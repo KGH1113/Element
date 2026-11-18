@@ -594,11 +594,11 @@ namespace Element.Editor
       Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hue(picker.Root).transform),
         alphaRect = ScreenRectOf((RectTransform)ColorPickerProbe.Alpha(picker.Root).transform),
         hexRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hex(picker.Root).transform);
-      Assert(Mathf.Abs(plane.rect.width - 256) < .01f && Mathf.Abs(plane.rect.height - 156) < .01f, "the color square keeps its full size");
-      Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y && alphaRect.center.y > hexRect.center.y
+      Assert(Mathf.Abs(plane.rect.width - 256) < .01f && Mathf.Abs(plane.rect.height - 218) < .01f, "the color square takes its column's height above its two bars");
+      Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > alphaRect.center.y && hexRect.xMin >= planeRect.xMax
         && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && ColorPickerProbe.Title(picker.Root) == null
         && ColorPickerProbe.Close(picker.Root) == null,
-        "top to bottom: Highlight/Custom, the square, hue, opacity, then HEX with opacity, without a title or card");
+        "the square, hue and opacity on the left, the color's numbers on the right, without a title or card");
       Assert(ColorPickerProbe.Plane(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
         && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
         && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,

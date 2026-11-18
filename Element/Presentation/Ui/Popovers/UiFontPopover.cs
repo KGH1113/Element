@@ -86,6 +86,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
   private float _width = PreferredWidth,
     _height = PreferredHeight;
   private float _scroll;
+  private float _statusHeight = StatusHeight;
   private string _current;
   private string _defaultName;
   private string _defaultDetail;
@@ -385,6 +386,13 @@ internal sealed class UiFontPopover : IPopover, IDisposable
       text = L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
     _status.text = text;
     _status.color = warning ? UiPalette.Error : UiPalette.Muted;
+    // A long message takes the lines it needs from the list.
+    float needed = Mathf.Max(StatusHeight, Mathf.Ceil(_status.GetPreferredValues(text, _width - Padding * 2, 0).y));
+    if (!Mathf.Approximately(needed, _statusHeight))
+    {
+      _statusHeight = needed;
+      Layout();
+    }
   }
 
   private bool HasFonts()
@@ -508,10 +516,10 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     float y = Padding + HeaderHeight + 8;
     UiFactory.Place((RectTransform)_search.transform, Padding, y, inner, SearchHeight);
     y += SearchHeight + Gap;
-    float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - StatusHeight - Padding);
+    float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - _statusHeight - Padding);
     UiFactory.Place(_viewport, Padding, y, inner - TrackWidth - 6, listHeight);
     UiFactory.Place(_track, _width - Padding - TrackWidth, y, TrackWidth, listHeight);
-    UiFactory.Place(_status.rectTransform, Padding, y + listHeight + Gap, inner, StatusHeight);
+    UiFactory.Place(_status.rectTransform, Padding, y + listHeight + Gap, inner, _statusHeight);
     EnsureRows(Mathf.CeilToInt(listHeight / RowHeight) + 1);
     _scroll = Mathf.Clamp(_scroll, 0, MaxScroll);
     RefreshRows();
@@ -622,10 +630,13 @@ internal sealed class UiFontPopover : IPopover, IDisposable
         : UiPalette.Foreground;
       row.Detail.text = entry.Detail ?? "";
       row.Detail.color = entry.Warning ? UiPalette.Error : UiPalette.Muted;
+      float left = 12;
+      // The detail takes what the name leaves, and at least its share of the row.
+      float nameWidth = Mathf.Ceil(row.Name.GetPreferredValues(row.Name.text).x) + 2;
+      float detailRoom = Mathf.Max(width * .45f, width - left - 12 - 8 - nameWidth);
       float detailWidth = string.IsNullOrEmpty(row.Detail.text)
         ? 0
-        : Mathf.Min(width * .45f, Mathf.Ceil(row.Detail.GetPreferredValues(row.Detail.text).x) + 2);
-      float left = header ? 4 : 12;
+        : Mathf.Min(detailRoom, Mathf.Ceil(row.Detail.GetPreferredValues(row.Detail.text).x) + 2);
       UiFactory.Place(row.Detail.rectTransform, width - 12 - detailWidth, 0, detailWidth, RowHeight - 2);
       UiFactory.Place(
         row.Name.rectTransform,

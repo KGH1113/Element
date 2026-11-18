@@ -21,8 +21,12 @@ internal sealed class UiColorPlane : Selectable, IDragHandler
     _value = value;
     Gradient.SetHue(hue);
     Marker.anchorMin = Marker.anchorMax = new Vector2(saturation, value);
-    Marker.anchoredPosition = Vector2.zero;
+    // The ring stops at the square's edges, whole, as the bars' handles do.
+    float half = MarkerHalf;
+    Marker.anchoredPosition = new Vector2(Mathf.Lerp(half, -half, saturation), Mathf.Lerp(half, -half, value));
   }
+
+  private float MarkerHalf => Marker.rect.width * .5f;
 
   public override void OnPointerDown(PointerEventData data)
   {
@@ -58,9 +62,11 @@ internal sealed class UiColorPlane : Selectable, IDragHandler
       )
     )
       return;
+    // The ring's center travels inside the square by its own half, and follows the pointer.
+    float half = MarkerHalf;
     Changed?.Invoke(
-      Mathf.Clamp01((p.x - rect.rect.xMin) / rect.rect.width),
-      Mathf.Clamp01((p.y - rect.rect.yMin) / rect.rect.height)
+      Mathf.Clamp01((p.x - rect.rect.xMin - half) / Mathf.Max(1, rect.rect.width - half * 2)),
+      Mathf.Clamp01((p.y - rect.rect.yMin - half) / Mathf.Max(1, rect.rect.height - half * 2))
     );
   }
 

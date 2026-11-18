@@ -23,7 +23,8 @@ internal sealed class ColorSliderView : NativeView
 
   private readonly ColorPickerViewModel _vm;
   private readonly bool _hue;
-  private UiCapsuleGraphic _pure;
+  private UiCapsuleGraphic _ring,
+    _center;
   private UiAlphaGraphic _checker;
 
   /// <param name="hue">The hue bar; otherwise the opacity bar.</param>
@@ -76,18 +77,20 @@ internal sealed class ColorSliderView : NativeView
     handle.anchorMin = handle.anchorMax = new Vector2(0, .5f);
     handle.anchoredPosition = Vector2.zero;
     handle.sizeDelta = new Vector2(Handle, 0);
-    UiCapsuleGraphic knob = handle.gameObject.AddComponent<UiCapsuleGraphic>();
-    knob.color = UiPalette.Foreground;
-    knob.raycastTarget = false;
-    if (_hue)
-    {
-      RectTransform center = RectPeer.Child(handle, "Hue marker center");
-      RectPeer.Stretch(center, 4, 4, 4, 4);
-      _pure = center.gameObject.AddComponent<UiCapsuleGraphic>();
-      _pure.raycastTarget = false;
-    }
+    // Every handle is made alike: a hairline, a ring that follows the color, the color it holds.
+    UiCapsuleGraphic hairline = handle.gameObject.AddComponent<UiCapsuleGraphic>();
+    hairline.color = UiPalette.HandleHairline;
+    hairline.raycastTarget = false;
+    RectTransform ring = RectPeer.Child(handle, _hue ? "Hue marker ring" : "Opacity marker ring");
+    RectPeer.Stretch(ring, 1, 1, 1, 1);
+    _ring = ring.gameObject.AddComponent<UiCapsuleGraphic>();
+    _ring.raycastTarget = false;
+    RectTransform center = RectPeer.Child(handle, _hue ? "Hue marker center" : "Opacity marker center");
+    RectPeer.Stretch(center, 5, 5, 5, 5);
+    _center = center.gameObject.AddComponent<UiCapsuleGraphic>();
+    _center.raycastTarget = false;
     slider.handleRect = handle;
-    slider.targetGraphic = knob;
+    slider.targetGraphic = _ring;
     slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
     slider.minValue = 0;
     slider.maxValue = 1;
@@ -97,15 +100,39 @@ internal sealed class ColorSliderView : NativeView
       Watch(() => _vm.Hsv.Value, ShowHue);
     else
     {
-      Watch(() => _vm.Alpha.Value, alpha => Slider.SetValueWithoutNotify(alpha));
-      Watch(() => _vm.Swatch.Value, color => _checker.SetColor(color));
+      Watch(
+        () => _vm.Alpha.Value,
+        alpha =>
+        {
+          Slider.SetValueWithoutNotify(alpha);
+          ShowOpacity();
+        }
+      );
+      Watch(
+        () => _vm.Swatch.Value,
+        color =>
+        {
+          _checker.SetColor(color);
+          ShowOpacity();
+        }
+      );
     }
   }
 
   private void ShowHue(Vector3 hsv)
   {
     Slider.SetValueWithoutNotify(hsv.x);
-    _pure.color = Color.HSVToRGB(hsv.x, 1, 1);
+    Color pure = Color.HSVToRGB(hsv.x, 1, 1);
+    _center.color = pure;
+    _ring.color = UiPalette.HandleEdge(pure);
+  }
+
+  private void ShowOpacity()
+  {
+    Color color = _vm.Swatch.Value;
+    _center.color = color;
+    color.a = _vm.Alpha.Value;
+    _ring.color = UiPalette.HandleEdge(color);
   }
 
   private void Moved(float value)

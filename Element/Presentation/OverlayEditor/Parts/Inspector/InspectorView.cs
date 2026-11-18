@@ -17,10 +17,8 @@ internal sealed class InspectorView : View<InspectorViewModel>
     RowGap = InspectorRowStyle.Gap,
     HeadingHeight = InspectorRowStyle.HeadingHeight;
 
-  private readonly float _width;
-
-  public InspectorView(InspectorViewModel vm, float width)
-    : base(vm) => _width = width;
+  public InspectorView(InspectorViewModel vm)
+    : base(vm) { }
 
   public override View Body =>
     If(
@@ -33,5 +31,6 @@ internal sealed class InspectorView : View<InspectorViewModel>
             ForEach(VM.Rows, row => row.Name, slot => new InspectorRowView(slot))
           )
       )
-      .Frame(width: _width, alignment: Alignment.TopLeading);
+      // As wide as the panel: the column, or with a tool open as wide as the tool.
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 }

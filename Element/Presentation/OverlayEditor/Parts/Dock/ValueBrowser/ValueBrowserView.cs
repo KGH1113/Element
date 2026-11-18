@@ -28,10 +28,11 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// </summary>
 internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
-  public const float FieldHeight = 30,
-    Gap = 6,
+  public const float FieldHeight = 34,
+    Gap = 8,
     ListHeight = KeypadView.Height - FieldHeight - Gap,
-    RowHeight = 24,
+    RowHeight = 30,
+    RowGap = 2,
     ModsHeadingHeight = 22,
     PaneGap = 20,
     ChipHeight = 30,
@@ -41,11 +42,12 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     LiveWidth = 150;
 
   // The search's icon and clear-button space, also used to size its hint.
-  private const float SearchStart = 32,
-    SearchEnd = 35;
+  private const float SearchStart = 36,
+    SearchEnd = 38;
 
-  private const float MinimumList = 132,
-    MaximumList = 200,
+  private const float RowInset = 12,
+    MinimumList = 184,
+    MaximumList = 240,
     MaximumHeading = 150;
 
   private const float GhostHeight = 30;
@@ -80,7 +82,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         spacing: Gap,
         SearchBox(),
         // One opaque base under the rows: a row's hover lights it without letting the overlay through.
-        Scroller(VStack(spacing: 0, Places()))
+        Scroller(VStack(spacing: RowGap, Places()).Padding(new Insets(0, 0, 4, 0)))
           .Frame(width: ListWidth, height: ListHeight)
           .Background(UiPalette.EditorDim, 8)
       )
@@ -99,7 +101,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
           .Foreground(Colors.Muted)
           .LineLimit(1)
           .Named("Mods heading")
-          .Padding(new Insets(0, 10, 4, 10))
+          .Padding(new Insets(0, RowInset, 4, RowInset))
           .Frame(maxWidth: float.PositiveInfinity, height: ModsHeadingHeight, alignment: Alignment.BottomLeading)
       );
       foreach (ValueFolderViewModel folder in VM.Mods)
@@ -113,23 +115,23 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     Button(
         HStack(
             spacing: 0,
-            UI.Text(folder.Name).Font(Font.Caption.Sized(13)).Foreground(() => folder.Ink.Value).LineLimit(1),
-            Spacer(minLength: 8),
-            UI.Text(folder.Count).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1)
+            UI.Text(folder.Name).Font(Font.Caption.Sized(14)).Foreground(() => folder.Ink.Value).LineLimit(1),
+            Spacer(minLength: 10),
+            UI.Text(folder.Count).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1)
           )
-          .Padding(0, 10)
+          .Padding(0, RowInset)
           .Frame(maxWidth: float.PositiveInfinity, height: RowHeight),
         () => folder.Select,
         ButtonStyle.Plain
       )
-      .ButtonStyle(new ButtonSurfaceStyle(() => folder.Fill.Value, 7))
+      .ButtonStyle(new ButtonSurfaceStyle(() => folder.Fill.Value, 9))
       .Named("Place " + folder.Key);
 
   // The search: a capsule like a chip, the glass leading, × once something is typed.
   private View SearchBox() =>
     HStack(
-        spacing: 7,
-        Image(ElementIcons.Of(UiIconKind.Search), 15).Foreground(Colors.Muted),
+        spacing: 8,
+        Image(ElementIcons.Of(UiIconKind.Search), 16).Foreground(Colors.Muted),
         TextField(Bind(() => VM.Query.Value), L("값 찾기", "Find a value"))
           .TextFieldStyle(TextFieldStyle.Plain)
           .CharacterLimit(40)
@@ -155,8 +157,8 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
               .Frame(width: 24, height: 24)
         )
       )
-      .Font(Font.Caption.Sized(13))
-      .Padding(new Insets(0, 10, 0, 4))
+      .Font(Font.Caption.Sized(14))
+      .Padding(new Insets(0, RowInset, 0, 5))
       .Frame(width: ListWidth, height: FieldHeight)
       .Background(UiPalette.EditorControl, Capsule());
 
@@ -351,5 +353,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     return Mathf.Clamp(Mathf.Ceil(widest), MinimumList, MaximumList);
   }
 
-  private float Width(ValueFolderViewModel folder) => 10 + Measure(folder.Name) + 8 + Measure(folder.Count) + 10 + 2;
+  // Its words are a size above what Measure gives.
+  private float Width(ValueFolderViewModel folder) =>
+    RowInset + (Measure(folder.Name) + Measure(folder.Count)) * 14 / 13 + 10 + RowInset + 2;
 }

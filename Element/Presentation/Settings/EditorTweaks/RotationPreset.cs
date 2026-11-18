@@ -8,9 +8,13 @@ internal sealed class RotationPreset
   public readonly string Label;
   public readonly Command Use;
 
-  public RotationPreset(string label, Command use)
+  /// <summary>It is the angle set now.</summary>
+  public readonly Computed<bool> Picked;
+
+  public RotationPreset(string label, Command use, Computed<bool> picked)
   {
     Label = label;
     Use = use;
+    Picked = picked;
   }
 }

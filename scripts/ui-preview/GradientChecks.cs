@@ -68,12 +68,12 @@ namespace Element.Editor
 
       Rect solidBar = ScreenRectOf(bar), solidPicker = ScreenRectOf(picker.Root);
 
-      // Hovering the solid bar says what a click does, right under it.
+      // Hovering the solid bar says what a click does, right above it, covering nothing.
       Invoke(picker.Gradient, "BarHover", Pointer(BarPoint(bar, .7f)));
       RectTransform tip = Field<RectTransform>(picker.Gradient, "_tip");
-      Assert(tip.gameObject.activeSelf && ScreenRectOf(tip).yMax <= ScreenRectOf(bar).yMin + .5f
+      Assert(tip.gameObject.activeSelf && ScreenRectOf(tip).yMin >= ScreenRectOf(bar).yMax - .5f
         && Mathf.Abs(ScreenRectOf(tip).center.x - BarPoint(bar, .7f).x) < ScreenRectOf(tip).width,
-        "hovering the bar shows the add tip under the pointer");
+        "hovering the bar shows the add tip over the pointer");
       SaveFrame(camera, texture, canvases, name + "-gradient-hover");
 
       // A click makes a gradient whose new color shows at once.

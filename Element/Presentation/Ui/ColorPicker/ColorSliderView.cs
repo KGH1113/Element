@@ -69,7 +69,8 @@ internal sealed class ColorSliderView : NativeView
 
     RectTransform area = RectPeer.Child(root, "Handle area");
     inset = (Height - Handle) / 2;
-    RectPeer.Stretch(area, Overhang, inset, Overhang, inset);
+    // The handle stops at the track's ends, so it never sticks out of the column.
+    RectPeer.Stretch(area, Overhang + Handle / 2, inset, Overhang + Handle / 2, inset);
     RectTransform handle = RectPeer.Child(area, "Handle");
     handle.pivot = new Vector2(.5f, .5f);
     handle.anchorMin = handle.anchorMax = new Vector2(0, .5f);

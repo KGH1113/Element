@@ -40,24 +40,29 @@ internal sealed class ModPaintPickerView : NativeView
     _picker = new UiColorPicker(rect, UguiTheme.Font, () => UguiTheme.MotionSeconds <= 0);
     _picker.LayOutAsColumn(ModEditorColumn.Width);
     _picker.ShowSource(_title, ModPaints.ToSettings(_paint.Value), Changed);
+    Align();
   }
+
+  // It ends with the column, whichever of its widths it shows.
+  private void Align() => _picker.Root.anchoredPosition = new Vector2(Width - _picker.CurrentWidth, 0);
 
   private void Changed(OverlayColorSettings color)
   {
     _paint.Value = ModPaints.FromSettings(color);
     Runtime.Probe();
     NotifyEdited();
-    // A gradient adds its bar: the picker may be taller now.
+    // A gradient adds its bar: the picker may be another size now.
     SizeChanged();
+    Align();
   }
 
   protected override Size PreferredSize(Proposal proposal) =>
-    _picker == null ? Size.Zero : new Size(_picker.CurrentWidth, _picker.Height);
+    _picker == null ? Size.Zero : new Size(Width, _picker.Height);
 
   protected override void Resized(float width, float height)
   {
     if (_picker != null)
-      _picker.Root.anchoredPosition = Vector2.zero;
+      Align();
   }
 
   protected override void Teardown()

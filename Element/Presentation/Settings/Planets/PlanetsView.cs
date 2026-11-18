@@ -115,7 +115,12 @@ internal sealed class PlanetsView : View<PlanetsViewModel>
             Swatch()
           )
           .Frame(minWidth: 352, maxWidth: float.PositiveInfinity),
-        VStack(spacing: 8, Text(kind.Name), HStack(spacing: 12, Source(), Swatch()))
+        VStack(
+          spacing: 8,
+          HAlignment.Leading,
+          Text(kind.Name),
+          HStack(spacing: 12, Source(), Spacer(), Swatch()).Frame(maxWidth: float.PositiveInfinity)
+        )
       )
       .Disabled(() => !VM.Settings.Gameplay.Planets.Enabled || !VM.Picked.Value.Profile.Enabled)
       .Padding(10, 16)

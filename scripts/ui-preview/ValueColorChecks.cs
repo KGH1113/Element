@@ -273,6 +273,7 @@ namespace Element.Editor
     private static void SaveFrameLarge(Camera camera, Canvas[] canvases, string name)
     {
       _refresh?.Invoke();
+      UiTidyAudit.Inspect(name);
       int width = Screen.width * 2,
         height = Screen.height * 2;
       RenderTexture large = new RenderTexture(width, height, 24);

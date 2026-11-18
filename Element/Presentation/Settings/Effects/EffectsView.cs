@@ -69,12 +69,20 @@ internal sealed class EffectsView : View<EffectsViewModel>
                 .Frame(maxHeight: 54, alignment: Alignment.TopLeading)
                 .Padding(new Insets(0, 0, 0, 36)),
               Spacer(),
-              HStack(
-                spacing: 12,
-                Text(() => card.Value.Removes)
-                  .LineLimit(1)
-                  .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-                Text(() => card.Value.Shortcut)
+              // The shortcut goes under what is removed when the two don't fit on a line.
+              ViewThatFits(
+                HStack(spacing: 12, Text(() => card.Value.Removes), Spacer(), Text(() => card.Value.Shortcut))
+                  .Frame(maxWidth: float.PositiveInfinity),
+                VStack(
+                  spacing: 0,
+                  HAlignment.Leading,
+                  Text(() => card.Value.Removes).LineLimit(1),
+                  // Brings its own gap: a preset without a shortcut keeps its line where the others have it.
+                  If(
+                    () => card.Value.Shortcut.Length > 0,
+                    () => Text(() => card.Value.Shortcut).LineLimit(1).Padding(new Insets(2, 0, 0, 0))
+                  )
+                )
               ),
               Text(() => card.Value.State.Value)
                 .Foreground(() => card.Value.Selected.Value ? Colors.Accent : Colors.Muted)

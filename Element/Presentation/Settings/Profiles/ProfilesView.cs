@@ -19,6 +19,7 @@ internal sealed class ProfilesView : View<ProfilesViewModel>
 {
   internal const float CardHeight = 140;
   private const float ActionSize = 30;
+  private const float CardMinWidth = 290;
 
   public ProfilesView(ProfilesViewModel vm)
     : base(vm) { }
@@ -27,8 +28,9 @@ internal sealed class ProfilesView : View<ProfilesViewModel>
     VStack(
       spacing: 12,
       ViewThatFits(Heading(true).Frame(minWidth: 440, maxWidth: float.PositiveInfinity), Heading(false)),
-      // Three columns where three fit; 226 keeps the widest window (936) at three.
-      Grid(minColumnWidth: 192, spacing: 12, maxColumns: 3, ForEach(() => VM.Cards, card => card.Id, Card)),
+      // Three columns where three fit. A card keeps room for a name beside its
+      // four buttons, so names don't break mid-word.
+      Grid(minColumnWidth: CardMinWidth, spacing: 12, maxColumns: 3, ForEach(() => VM.Cards, card => card.Id, Card)),
       // Under the cards, so a message coming or going never moves them. Each part
       // brings its own gap, so one that isn't shown leaves none.
       VStack(

@@ -342,6 +342,21 @@ namespace Element.Editor
           Call(mods2, "FitPreview");
         Assert(ModPreviewRect(mods2).xMax <= ScreenRectOf(paint).xMin + .5f, "the preview keeps left of the picker reaching past the column");
         SaveFrame(camera, texture, canvases, name + "-mod-editor-paint");
+        Assert(ByName<RectTransform>(Column().ToolRoot, "Color position").GetComponentInParent<UnityEngine.UI.Mask>() == null,
+          "the color square's ring isn't cut at the square's edge");
+        // A mod's picker has no position pill: the delete button still stands over the picked color.
+        RectTransform paintBar = ByName<RectTransform>(Column().ToolRoot, "Color bar");
+        ByName<Element.Presentation.Ui.Widgets.UiPointerArea>(Column().ToolRoot, "Color bar input").Down(Pointer(BarPoint(paintBar, .6f)));
+        Settle();
+        RectTransform removeStop = ByName<RectTransform>(Column().ToolRoot, L("이 색 지우기", "Remove this color"));
+        Rect removeRect = ScreenRectOf(removeStop), paintBarRect = ScreenRectOf(paintBar);
+        Assert(Shown(removeStop) && removeRect.yMin >= paintBarRect.yMax - .5f && removeRect.xMin >= paintBarRect.xMin - .5f
+          && removeRect.xMax <= paintBarRect.xMax + .5f
+          && Mathf.Abs(removeRect.center.x - BarPoint(paintBar, .6f).x) < removeRect.width,
+          "the delete button stands over the color it deletes: " + removeRect + " / " + paintBarRect);
+        Assert(!removeRect.Overlaps(ScreenRectOf(ByName<RectTransform>(Column().ToolRoot, "Tool back"))), "and clear of the back row");
+        removeStop.GetComponent<UnityEngine.UI.Button>().onClick.Invoke();
+        Settle();
         mods2.Escape();
         Next();
         Assert(mods2.IsOpen && Column().OpenTool == null && Shown(Column().Root), "Esc closes the tool before the editor, and the rows come back");

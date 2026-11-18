@@ -44,6 +44,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private readonly OverlayValues _values;
   private readonly EditorLiveValues _live;
   private readonly EditorPreviewSpace _space = new();
+  private readonly PreviewZoom _zoom = new();
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly ShapePreview _preview;
   private readonly ShapeMeasures _measures = new();
@@ -172,6 +173,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _frame?.Dispose();
     _drops.Release();
     _space.Snap();
+    _zoom.Snap();
     _frame = new EditorFramePanel(
       "Shape editor",
       _parent,
@@ -183,6 +185,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       noticesInDock: true
     );
     _preview.Build(_frame);
+    _zoom.Build(_frame.Ui, _frame.Frame);
     _measures.Build(_frame, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_frame, _reduceMotion());
     _dock = new InputDockViewModel(_values, _numbers.Editing, _frame.ViewModel, this, _reduceMotion());
@@ -256,7 +259,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       return;
     FollowLiveValues();
     // The shape glides aside as the picker opens, and back as it closes.
-    if (_space.Moving)
+    if (_space.Moving || _zoom.Moving)
       RenderKeepingBlink();
   }
 
@@ -284,7 +287,19 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers.Sync();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
-    _preview.Draw(_shape, _elementScale, _frame, _dockPanel, EditorFramePanel.TopBar + 48, left, right);
+    _preview.Draw(
+      _shape,
+      _elementScale,
+      _frame,
+      _dockPanel,
+      EditorFramePanel.TopBar + 48,
+      left,
+      right,
+      _zoom,
+      _colors.Picker.Visible,
+      _reduceMotion()
+    );
+    _zoom.Say(_preview.Shown, (left + right) * .5f, EditorFramePanel.TopBar + 8);
     LayOutInspector();
     if (_gradient.Show())
       _gradient.ShowNumbers(_numbers);

@@ -569,8 +569,8 @@ namespace Element.Editor
       Rect pickerRect = ScreenRectOf(picker.Root), dockArea = ScreenRectOf(dock.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
       Rect keypadRect = KeypadRect(dock);
-      // Two columns: it ends with the keypad and reaches further left.
-      Assert(picker.Column && Shown(DockKey(dock, "Key done")) && pickerRect.xMin < keypadRect.xMin
+      // Following the highlight it is one column, right over the keypad.
+      Assert(picker.Column && Shown(DockKey(dock, "Key done")) && Mathf.Abs(pickerRect.xMin - keypadRect.xMin) < 1
         && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1
         && InsideScreen(pickerRect), "the picker opens above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
       AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));

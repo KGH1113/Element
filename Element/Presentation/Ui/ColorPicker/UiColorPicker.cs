@@ -57,7 +57,7 @@ internal sealed class UiColorPicker : IDisposable
       ColorPickerLayout.Box,
       ColorPickerLayout.FieldHeight
     );
-    Gradient = new UiGradientBar(_ui, park, Root, Model, under ?? UiPalette.EditorDim);
+    Gradient = new UiGradientBar(_ui, park, Model, under ?? UiPalette.EditorDim);
     Model.Gradient = Gradient;
     _parts = new ColorPickerParts(park, opacitySlot, Gradient);
     Root.gameObject.SetActive(false);
@@ -98,7 +98,7 @@ internal sealed class UiColorPicker : IDisposable
   /// <summary>The width as laid out now.</summary>
   public float CurrentWidth =>
     !_column ? Width
-    : GradientAvailable ? ColorPickerColumnsView.TwoColumnWidth
+    : GradientAvailable ? TwoColumnsWidth
     : _shape == Shape.SourceColumn ? ColorPickerLayout.Column
     : _columnWidth;
 
@@ -255,11 +255,14 @@ internal sealed class UiColorPicker : IDisposable
     Root.GetComponentsInChildren(true, _fields);
   }
 
+  // Following the highlight there is no color to pick: one column, as wide as the keypad.
+  private float TwoColumnsWidth => Model.Custom.Value ? ColorPickerColumnsView.TwoColumnWidth : _columnWidth;
+
   private float WidthOf(Shape shape) =>
     shape switch
     {
       Shape.Card => Width,
-      Shape.TwoColumns => ColorPickerColumnsView.TwoColumnWidth,
+      Shape.TwoColumns => TwoColumnsWidth,
       Shape.SourceColumn => ColorPickerLayout.Column,
       _ => _columnWidth,
     };

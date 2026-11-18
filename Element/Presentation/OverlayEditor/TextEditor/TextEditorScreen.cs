@@ -51,6 +51,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
   private readonly OverlayValues _values;
   private readonly EditorLiveValues _live;
   private readonly EditorPreviewSpace _space = new();
+  private readonly PreviewZoom _zoom = new();
   private readonly TextDocumentEditing _text;
   private readonly TextPreview _preview;
   private readonly TextLayoutMap _map;
@@ -201,6 +202,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _frame?.Dispose();
     _drops.Release();
     _space.Snap();
+    _zoom.Snap();
     _frame = new EditorFramePanel(
       "Text editor",
       _parent,
@@ -212,6 +214,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       noticesInDock: true
     );
     _preview.Build(_frame, _element);
+    _zoom.Build(_frame.Ui, _frame.Frame);
     _marks.BuildCarets(_frame.Ui);
     _gradient.BuildHandles(_frame, _reduceMotion());
     _bottomTop = _frame.Height - 40;
@@ -326,7 +329,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     if (!searching)
       _keyboard.UpdateImePosition();
     FollowLiveValues();
-    if (_space.Moving)
+    if (_space.Moving || _zoom.Moving)
       RenderKeepingBlink();
   }
 
@@ -403,7 +406,18 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     );
     // While a stop's color is picked, the text wears it.
     _preview.Pinned = _valueColor.PreviewNumber;
-    _preview.Draw(left, right, EditorFramePanel.TopBar + 32, _bottomTop - 40, _frame.Scale, _elementScale);
+    _preview.Draw(
+      left,
+      right,
+      EditorFramePanel.TopBar + 32,
+      _bottomTop - 40,
+      _frame.Scale,
+      _elementScale,
+      _zoom,
+      _color.Picker.Visible,
+      _reduceMotion()
+    );
+    _zoom.Say(_preview.Shown, (left + right) * .5f, EditorFramePanel.TopBar + 8);
     _map.Map();
     _marks.PlaceCaret();
     _marks.Place(_drops.InsertIndex, _drops.Joining, _formulas.EditedValue);

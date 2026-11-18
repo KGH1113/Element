@@ -16,14 +16,14 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.Ui.ColorPicker;
 
-// The color bar on top of an overlay editor's picker. One color is solid;
-// clicking the bar adds a color and makes a gradient. Its squares move along
+// The color bar of an overlay editor's picker, shown once the color is a
+// gradient; clicking it adds a color. Its squares move along
 // the bar, the picked one shows a delete button above it, and the square, hue
 // and opacity controls beside it edit the picked color; an editor shows its
 // position as a number (PositionSlot). Four tiles drawn in the current colors pick the
 // kind, beside flip and a quarter turn. Following the highlight, only
 // opacities differ. Its parts sit in Root, which the picker's screen shows
-// where the bar goes; the tip over the bar floats on the picker itself.
+// where the bar goes.
 internal sealed class UiGradientBar : IGradientBar
 {
   private const float BarHeight = 26,
@@ -34,17 +34,14 @@ internal sealed class UiGradientBar : IGradientBar
     BarTop = LabelRow + DeleteRow,
     KindRow = 34,
     GradientGap = 10,
-    DeleteSize = 28,
-    TipHeight = 26,
-    TipGap = 4;
+    DeleteSize = 28;
 
   private readonly UiFactory _ui;
   private readonly IGradientBarHost _host;
   private readonly Color _under;
   private readonly RectTransform _bar,
     _kindRow,
-    _positionSlot,
-    _tip;
+    _positionSlot;
   private readonly UiGradientPreview _barPreview;
   private readonly List<UiSwatchGraphic> _barStops = new();
   private readonly Image[] _kindFrames = new Image[4];
@@ -52,7 +49,6 @@ internal sealed class UiGradientBar : IGradientBar
   private readonly Button _flip,
     _rotate,
     _delete;
-  private readonly TextMeshProUGUI _tipText;
   private OverlayColorSettings _working;
   private float _column;
   private int _stop;
@@ -71,9 +67,8 @@ internal sealed class UiGradientBar : IGradientBar
     ShownAlpha;
 
   /// <param name="parent">Where <see cref="Root"/> waits until a screen shows it.</param>
-  /// <param name="tipLayer">What the tip over the bar floats on, in front of the picker's other controls.</param>
   /// <param name="under">What the bar is drawn on: its buttons are opaque, a little lighter than that.</param>
-  public UiGradientBar(UiFactory ui, Transform parent, RectTransform tipLayer, IGradientBarHost host, Color under)
+  public UiGradientBar(UiFactory ui, Transform parent, IGradientBarHost host, Color under)
   {
     _ui = ui;
     _host = host;
@@ -96,8 +91,6 @@ internal sealed class UiGradientBar : IGradientBar
     area.Down = BarDown;
     area.Dragged = BarDrag;
     area.Up = _ => _dragging = -1;
-    area.Moved = BarHover;
-    area.Exited = () => _tip.gameObject.SetActive(false);
     UiCursor.Attach(area.gameObject, UiCursorKind.Pointer);
 
     _kindRow = _ui.Rect("Gradient kinds", root, 0, 0, 256, KindRow);
@@ -135,14 +128,6 @@ internal sealed class UiGradientBar : IGradientBar
       RemoveSelectedStop,
       DeleteSize
     );
-
-    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, TipHeight, new Color(.11f, .11f, .11f));
-    _tip = tip.rectTransform;
-    _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, TipHeight, 12);
-    _tipText.alignment = TextAlignmentOptions.Midline;
-    _tipText.textWrappingMode = TextWrappingModes.NoWrap;
-    UiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
-    _tip.gameObject.SetActive(false);
   }
 
   /// <summary>The bar with its pill row and kinds, top left at the bar's place in the picker.</summary>
@@ -159,11 +144,10 @@ internal sealed class UiGradientBar : IGradientBar
   /// <inheritdoc />
   public bool HasPosition { get; set; }
 
-  private const float SolidHeight = BarTop + BarHeight,
-    GradientHeight = BarTop + BarHeight + GradientGap + KindRow;
+  private const float GradientHeight = BarTop + BarHeight + GradientGap + KindRow;
 
   /// <summary>How far down the bar, the row over it and the kinds reach in the column.</summary>
-  public float Height => IsGradient ? GradientHeight : SolidHeight;
+  public float Height => IsGradient ? GradientHeight : 0;
 
   /// <summary>The picked stop's place among the stops in order, counting from 1.</summary>
   public int PickedRank => OverlayGradientEdits.Order(_working.Gradient).IndexOf(_stop) + 1;
@@ -247,14 +231,11 @@ internal sealed class UiGradientBar : IGradientBar
     _column = column;
     bool shown = _host.GradientShown;
     bool gradient = IsGradient;
-    _bar.gameObject.SetActive(shown);
+    _bar.gameObject.SetActive(shown && gradient);
     _kindRow.gameObject.SetActive(gradient);
     _delete.gameObject.SetActive(gradient);
     if (!shown)
-    {
-      _tip.gameObject.SetActive(false);
       return;
-    }
     float y = BarTop;
     UiFactory.Place(_bar, 0, y, column, BarHeight);
     y += BarHeight + GradientGap;
@@ -382,7 +363,6 @@ internal sealed class UiGradientBar : IGradientBar
   {
     if (!_host.GradientShown || !BarPoint(data, out float x))
       return;
-    _tip.gameObject.SetActive(false);
     int hit = HitStop(x);
     if (hit >= 0)
     {
@@ -406,6 +386,21 @@ internal sealed class UiGradientBar : IGradientBar
     StopSelected?.Invoke();
   }
 
+  /// <inheritdoc />
+  public void MakeGradient()
+  {
+    if (_working == null || _working.IsGradient)
+      return;
+    int added = OverlayGradientEdits.AddStop(_working, 1, AccentHex);
+    if (added < 0)
+      return;
+    _stop = added;
+    _host.Relayout();
+    ShowStop();
+    Emit();
+    StopSelected?.Invoke();
+  }
+
   private void BarDrag(PointerEventData data)
   {
     if (_dragging < 0 || !IsGradient || _dragging >= _working.Gradient.Stops.Count || !BarPoint(data, out float x))
@@ -420,27 +415,6 @@ internal sealed class UiGradientBar : IGradientBar
     stop.PositionFormula = string.Empty;
     OverlayGradientEdits.Sync(_working);
     Emit();
-  }
-
-  // While the color is solid, the bar says right above itself what a click
-  // does, in the room the pill takes once there is a gradient: under the bar
-  // it would cover the controls there.
-  private void BarHover(PointerEventData data)
-  {
-    float x = 0;
-    bool show = _host.GradientShown && !IsGradient && _dragging < 0 && BarPoint(data, out x) && HitStop(x) < 0;
-    _tip.gameObject.SetActive(show);
-    if (!show)
-      return;
-    float width = Mathf.Ceil(_tipText.GetPreferredValues(_tipText.text).x) + 22;
-    float left = Mathf.Clamp(x - width * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
-    // In the layer the tip floats on (top left origin, y down).
-    RectTransform layer = (RectTransform)_tip.parent;
-    Rect area = _bar.rect;
-    Vector3 corner = layer.InverseTransformPoint(_bar.TransformPoint(new Vector3(area.xMin + left, area.yMax, 0)));
-    Rect inLayer = layer.rect;
-    UiFactory.Place(_tip, corner.x - inLayer.xMin, inLayer.yMax - corner.y - TipHeight - TipGap, width, TipHeight);
-    _tip.SetAsLastSibling();
   }
 
   private bool BarPoint(PointerEventData data, out float x)

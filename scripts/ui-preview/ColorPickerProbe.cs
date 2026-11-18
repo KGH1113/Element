@@ -30,8 +30,6 @@ namespace Element.Editor
 
     public static TextMeshProUGUI Error(Transform root) => Part<TextMeshProUGUI>(root, "Color picker error");
 
-    public static TextMeshProUGUI Note(Transform root) => Part<TextMeshProUGUI>(root, "Highlight note");
-
     public static Pressable Close(Transform root) => Part<Pressable>(root, "Close color picker");
 
     public static Pressable Default(Transform root) => Part<Pressable>(root, "Default color");

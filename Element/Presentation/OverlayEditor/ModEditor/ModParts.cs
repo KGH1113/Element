@@ -88,6 +88,7 @@ internal static class ModParts
           DefaultName = L("기본 폰트", "Default font"),
           DefaultDetail = L("오버레이 기본 폰트를 따라가요", "Follows the overlay's default font"),
           ReduceMotion = context.ReduceMotion,
+          Bare = true,
           Picked = key => PickFont(font, key, context),
           Ticks = context.FontTicks,
         }

@@ -102,13 +102,12 @@ internal static class InspectorRowStyle
             UI.Text(title).Font(Font.Caption.Sized(13)).LineLimit(1),
             Spacer()
           )
-          .Padding(0, 12)
+          .Padding(new Insets(0, 2, 0, 8))
           .Frame(height: BackHeight),
         back,
+        // A heading over the tool, with no box of its own; only the pointer lights it.
         ButtonStyle.Plain
       )
-      // A row like the ones under it, so it reads as one over whatever is behind.
-      .ButtonStyle(new ButtonSurfaceStyle(Fill, Radius))
       .Named(name);
 
   private static View LeadSlot(View lead) =>

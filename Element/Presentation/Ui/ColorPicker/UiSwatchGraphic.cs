@@ -23,12 +23,13 @@ internal sealed class UiSwatchGraphic : MaskableGraphic
   public float Radius = 4.5f;
   public float Ring = 2.5f;
 
-  public void Set(Color fill, Color edge)
+  public void Set(Color fill, Color edge, float ring)
   {
-    if (_fill == fill && _edge == edge)
+    if (_fill == fill && _edge == edge && Mathf.Approximately(Ring, ring))
       return;
     _fill = fill;
     _edge = edge;
+    Ring = ring;
     SetVerticesDirty();
   }
 

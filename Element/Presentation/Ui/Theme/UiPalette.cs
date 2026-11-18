@@ -73,6 +73,26 @@ internal static class UiPalette
     return washed;
   }
 
+  /// <summary>Under a handle's edge: keeps it apart from a light color at the moment the edge turns.</summary>
+  public static readonly Color HandleHairline = new(0, 0, 0, .42f);
+
+  /// <summary>
+  /// The edge of a handle holding <paramref name="color"/>: white around dark
+  /// and vivid colors, easing into a deep shade of the color itself as it gets
+  /// light, so a handle never melts into the color it stands on.
+  /// </summary>
+  public static Color HandleEdge(Color color)
+  {
+    // A see-through color reads as itself over the checkerboard behind it.
+    Color shown = Color.Lerp(HandleBacking, color, color.a);
+    shown.a = 1;
+    float light = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.36f, .56f, Luminance(shown)));
+    Color deep = new(shown.r * .2f, shown.g * .2f, shown.b * .2f, 1);
+    return Color.Lerp(Color.white, deep, light);
+  }
+
+  private static readonly Color HandleBacking = new(.6f, .6f, .6f, 1);
+
   private static float Luminance(Color color)
   {
     Color linear = color.linear;

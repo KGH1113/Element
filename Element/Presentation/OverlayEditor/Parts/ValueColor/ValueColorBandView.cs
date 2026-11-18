@@ -208,7 +208,7 @@ internal sealed class ValueColorBandView : NativeView
     Place(_knobs[index].rectTransform, x - size * .5f, y - size * .5f, size, size);
     Color fill = stop.Highlight ? UiTheme.Accent : OverlayTextComposer.ParseHex(stop.Hex);
     fill.a = Mathf.Clamp01(stop.Alpha);
-    _knobs[index].Set(fill, UiPalette.Foreground, _vm.Surface, radius, picked ? Ring + .5f : Ring, picked);
+    _knobs[index].Set(fill, UiPalette.HandleEdge(fill), _vm.Surface, radius, picked ? Ring + .5f : Ring, picked);
     TextMeshProUGUI label = _labels[index];
     label.text = _vm.Format(stop.At);
     label.color = picked ? UiPalette.Foreground : UiPalette.Muted;

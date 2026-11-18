@@ -87,11 +87,11 @@ internal sealed class ScreenPanel : IDisposable
   /// Sizes the panel to its screen's content again, at <paramref name="width"/>
   /// (NaN: as wide as it wants), after what it shows changed size.
   /// </summary>
-  public Vector2 Refit(float width = float.NaN)
+  public Vector2 Refit(float width = float.NaN, bool followsContent = false)
   {
     if (Host == null)
       return Size;
-    ElementUI.Size size = Host.FitContent(width);
+    ElementUI.Size size = Host.FitContent(width, followsContent);
     Size = new Vector2(size.Width, size.Height);
     return Size;
   }

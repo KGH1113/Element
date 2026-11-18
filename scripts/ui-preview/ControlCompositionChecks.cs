@@ -66,7 +66,7 @@ namespace Element.Editor
         var row = new PropertyButtonViewModel("Fixture width", "Width", () => { }, value: true, unit: "px");
         var second = new PropertyButtonViewModel("Fixture height", "Height", () => { }, value: true, unit: "px");
         var inspector = new InspectorViewModel("Geometry", new[] { row, second }, () => { });
-        panel.Mount(new ElementBackend(theme), new InspectorView(inspector, 280), inspector, 280, followsContent: true);
+        panel.Mount(new ElementBackend(theme), new InspectorView(inspector), inspector, 280, followsContent: true);
         check.Settle();
         float rowsHeight = panel.Size.y;
         int scans = panel.ControlsVersion;

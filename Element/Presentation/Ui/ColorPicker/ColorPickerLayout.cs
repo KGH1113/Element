@@ -29,7 +29,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 
   protected ColorPickerParts Parts { get; }
 
-  protected View Plane() => new ColorPlaneView(VM);
+  protected View Plane(float height = ColorPlaneView.Height) => new ColorPlaneView(VM, height);
 
   protected View Hue() => new ColorSliderView(VM, true);
 
@@ -75,7 +75,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
       .Named("Color picker error")
       .Frame(maxWidth: float.PositiveInfinity, height: height, alignment: Alignment.Leading);
 
-  private View HexField() =>
+  protected View HexField() =>
     FieldSurface(
       HStack(
           spacing: 10,
@@ -91,19 +91,30 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
         .Padding(new Insets(4, 12, 4, 8))
     );
 
+  /// <summary>The opacity's box across the room it is given.</summary>
+  protected View WideOpacityBox() =>
+    If(
+        () => VM.OpacityOutside.Value,
+        () => new HostedRect(Parts.OpacitySlot, Parts.Park, float.NaN, FieldHeight),
+        () => TypedOpacity(L("불투명도", "Opacity"))
+      )
+      .Frame(maxWidth: float.PositiveInfinity, height: FieldHeight);
+
   // The owner's own box where it shows the opacity, or the typed one.
   private View OpacityBox() =>
     If(
         () => VM.OpacityOutside.Value,
         () => new HostedRect(Parts.OpacitySlot, Parts.Park, Box, FieldHeight),
-        TypedOpacity
+        () => TypedOpacity()
       )
       .Frame(width: Box, height: FieldHeight);
 
-  private View TypedOpacity() =>
+  // Named where the box is wide enough to say what it holds.
+  private View TypedOpacity(string name = null) =>
     FieldSurface(
       HStack(
           spacing: 1,
+          name == null ? null : UI.Text(name).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1),
           TextField(Bind(() => VM.Opacity))
             .TextFieldStyle(TextFieldStyle.Plain)
             .InputKind(TextInputKind.Integer)

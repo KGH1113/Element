@@ -86,7 +86,7 @@ internal static class UiPalette
     // A see-through color reads as itself over the checkerboard behind it.
     Color shown = Color.Lerp(HandleBacking, color, color.a);
     shown.a = 1;
-    float light = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.36f, .56f, Luminance(shown)));
+    float light = Mathf.SmoothStep(0, 1, Mathf.InverseLerp(.24f, .34f, Luminance(shown)));
     Color deep = new(shown.r * .2f, shown.g * .2f, shown.b * .2f, 1);
     return Color.Lerp(Color.white, deep, light);
   }

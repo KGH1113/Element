@@ -36,6 +36,7 @@ internal sealed class FormulaFieldView
     _prefixWidth;
   private float _textWidth;
   private bool _active;
+  private bool _fills;
   private DropState? _drop;
 
   public FormulaFieldView(
@@ -93,10 +94,15 @@ internal sealed class FormulaFieldView
     if (_unitWidth == 0)
       _unitWidth = Measure(_unit, 3);
     Width = Mathf.Max(MinimumBody, _prefixWidth + _textWidth + _unitWidth + 22);
-    float left = (Width - _prefixWidth - _textWidth - _unitWidth) * .5f;
-    UiFactory.Place(_prefix.rectTransform, left, 0, _prefixWidth, Height);
-    UiFactory.Place(_text.rectTransform, left + _prefixWidth, 0, _textWidth, Height);
-    UiFactory.Place(_unit.rectTransform, left + _prefixWidth + _textWidth + 3, 0, _unitWidth, Height);
+    if (_fills)
+      LayOutAcross();
+    else
+    {
+      float left = (Width - _prefixWidth - _textWidth - _unitWidth) * .5f;
+      UiFactory.Place(_prefix.rectTransform, left, 0, _prefixWidth, Height);
+      UiFactory.Place(_text.rectTransform, left + _prefixWidth, 0, _textWidth, Height);
+      UiFactory.Place(_unit.rectTransform, left + _prefixWidth + _textWidth + 3, 0, _unitWidth, Height);
+    }
     if (_active != active)
     {
       _active = active;
@@ -111,6 +117,48 @@ internal sealed class FormulaFieldView
       : 0;
 
   public void Place(float x, float y) => UiFactory.Place(Root, x, y, Width, Height);
+
+  /// <summary>
+  /// The pill spans what holds it, whatever size that becomes: what it is
+  /// named on the left (<paramref name="prefix"/>, empty for nothing), the
+  /// number and its unit on the right.
+  /// </summary>
+  public void Fill(string prefix)
+  {
+    if (!_fills)
+    {
+      _fills = true;
+      float inset = Mathf.Max(0, (((RectTransform)Root.parent).rect.height - Height) * .5f);
+      UiFactory.Stretch(Root, 0, inset, 0, inset);
+    }
+    if (_prefix.text != prefix)
+    {
+      _prefix.text = prefix;
+      _prefixWidth = 0;
+    }
+    if (_prefixWidth == 0)
+      _prefixWidth = Measure(_prefix, 5);
+    if (_unitWidth == 0)
+      _unitWidth = Measure(_unit, 3);
+    LayOutAcross();
+  }
+
+  private void LayOutAcross()
+  {
+    const float inset = 12;
+    float room = Root.rect.width - inset * 2 - _prefixWidth - _unitWidth - 3;
+    float text = room > 0 ? Mathf.Min(room, _textWidth) : _textWidth;
+    UiFactory.Place(_prefix.rectTransform, inset, 0, _prefixWidth, Height);
+    FromRight(_unit.rectTransform, inset, _unitWidth);
+    FromRight(_text.rectTransform, inset + _unitWidth + 3, text);
+  }
+
+  private static void FromRight(RectTransform rect, float right, float width)
+  {
+    rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.one;
+    rect.sizeDelta = new Vector2(width, Height);
+    rect.anchoredPosition = new Vector2(-right, 0);
+  }
 
   /// <summary>A result as a field shows it: up to one decimal.</summary>
   public static string Number(double value) =>

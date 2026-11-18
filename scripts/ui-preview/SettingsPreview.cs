@@ -132,6 +132,9 @@ namespace Element.Editor
       RenderInputCarets();
       RenderNotice(1280, 720, SystemLanguage.Korean, "notice-ko-720");
       RenderNotice(360, 720, SystemLanguage.English, "notice-en-compact");
+      UiTidyAudit.Write(Path.Combine(_output, "ui-audit.txt"));
+      string[] untidy = UiTidyAudit.Broken.ToArray();
+      Assert(untidy.Length == 0, "every screen is tidy (ui-audit.txt): " + string.Join(" | ", untidy.Take(6)));
       File.WriteAllText(Path.Combine(_output, "checks.txt"), _checks + " UI assertions passed. Game integration is not exercised.\n");
       Debug.Log("UI_PREVIEW_OK " + _checks + " assertions");
     }
@@ -1740,6 +1743,7 @@ namespace Element.Editor
     private static void SaveFrame(Camera camera, RenderTexture target, Canvas[] canvases, string name)
     {
       _refresh?.Invoke();
+      UiTidyAudit.Inspect(name);
       RenderTexture sharp = FrameScale > 1 ? new RenderTexture(target.width * FrameScale, target.height * FrameScale, 24) : null;
       RenderTexture drawn = sharp ?? target;
       float[] factors = canvases.Select(canvas => canvas.scaleFactor).ToArray();
@@ -1760,6 +1764,7 @@ namespace Element.Editor
     }
     private static void SaveFrame(Camera camera, RenderTexture target, int width, int height, string name)
     {
+      UiTidyAudit.Inspect(name);
       Canvas.ForceUpdateCanvases(); camera.Render(); RenderTexture.active = target;
       Texture2D image = new Texture2D(width, height, TextureFormat.RGB24, false);
       image.ReadPixels(new Rect(0, 0, width, height), 0, 0); image.Apply();

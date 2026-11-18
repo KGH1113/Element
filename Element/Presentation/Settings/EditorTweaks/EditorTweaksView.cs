@@ -87,7 +87,13 @@ internal sealed class EditorTweaksView : View<EditorTweaksViewModel>
             ForEach(
               VM.Presets,
               preset => preset.Label,
-              preset => Button(Text(preset.Value.Label), () => preset.Value.Use)
+              preset =>
+                Button(
+                  Text(preset.Value.Label),
+                  () => preset.Value.Use,
+                  ButtonStyle.Standard,
+                  () => preset.Value.Picked.Value
+                )
             ),
             TextField(Bind(() => VM.RotationText))
               .CharacterLimit(6)
@@ -100,6 +106,14 @@ internal sealed class EditorTweaksView : View<EditorTweaksViewModel>
         .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
         .Background(Colors.Surface, 12)
         .Disabled(() => !VM.Settings.Gameplay.Editor.FineRotation),
-      Text(() => VM.RotationError.Value).Font(Font.Caption).Foreground(Colors.Danger).Padding(new Insets(0, 16, 0, 16))
+      // Only an error takes room: the cards keep their even gaps.
+      If(
+        () => VM.RotationError.Value.Length > 0,
+        () =>
+          Text(() => VM.RotationError.Value)
+            .Font(Font.Caption)
+            .Foreground(Colors.Danger)
+            .Padding(new Insets(0, 16, 0, 16))
+      )
     );
 }

@@ -52,6 +52,8 @@ internal sealed class ElementTheme : UguiTheme
   /// <summary>Changes animation policy without discarding the screen's retained views or editing state.</summary>
   public void SetReduceMotion(bool reduceMotion) => MotionSeconds = reduceMotion ? 0 : .16f;
 
+  private static readonly Color RaisedButton = new(.16f, .16f, .16f);
+
   public override float StackSpacing => 12;
 
   public override float ControlHeight => 40;
@@ -60,10 +62,11 @@ internal sealed class ElementTheme : UguiTheme
 
   public override float CornerRadius => Compact ? 8 : 12;
 
+  // A card's words start where the other cards' do: 16 from its edge.
   public override Insets ButtonInsets(ElementUI.ButtonStyle style) =>
-    Compact && style is ElementUI.ButtonStyle.Standard or ElementUI.ButtonStyle.Prominent
-      ? new Insets(8, 12)
-      : base.ButtonInsets(style);
+    style == ElementUI.ButtonStyle.Card ? new Insets(20, 16)
+    : Compact && style is ElementUI.ButtonStyle.Standard or ElementUI.ButtonStyle.Prominent ? new Insets(8, 12)
+    : base.ButtonInsets(style);
 
   public override float ButtonRadius(ElementUI.ButtonStyle style, float height) =>
     Compact && style is ElementUI.ButtonStyle.Standard or ElementUI.ButtonStyle.Prominent
@@ -80,8 +83,10 @@ internal sealed class ElementTheme : UguiTheme
     {
       ElementUI.ButtonStyle.Prominent => UiPalette.AccentSurface,
       ElementUI.ButtonStyle.Plain or ElementUI.ButtonStyle.Icon or ElementUI.ButtonStyle.Row => new Color(1, 1, 1, 0),
-      ElementUI.ButtonStyle.Chip => new Color(.16f, .16f, .16f),
-      _ => UiPalette.Surface,
+      ElementUI.ButtonStyle.Chip => RaisedButton,
+      ElementUI.ButtonStyle.Card => UiPalette.Surface,
+      // Settings put buttons on cards, which are this surface: they stand out from it.
+      _ => Compact ? UiPalette.Surface : RaisedButton,
     };
     if ((state & ElementUI.Ugui.ButtonState.Selected) != 0)
       basis =

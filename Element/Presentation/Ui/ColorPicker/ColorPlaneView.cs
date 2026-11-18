@@ -24,17 +24,19 @@ internal sealed class ColorPlaneView : NativeView
   protected override void Build(RectTransform rect)
   {
     RectTransform area = RectPeer.Child(rect, "Saturation and brightness");
-    // A drawn stencil keeps the corners round without stretching a sprite over the square.
-    UiColorMask mask = area.gameObject.AddComponent<UiColorMask>();
+    // A drawn stencil keeps the square's corners round without stretching a
+    // sprite over it. The ring stays out of the stencil: in a corner it shows whole.
+    RectTransform square = RectPeer.Child(area, "Color square");
+    UiColorMask mask = square.gameObject.AddComponent<UiColorMask>();
     mask.color = Color.white;
     mask.raycastTarget = true;
-    area.gameObject.AddComponent<Mask>().showMaskGraphic = true;
+    square.gameObject.AddComponent<Mask>().showMaskGraphic = true;
     _plane = area.gameObject.AddComponent<UiColorPlane>();
     _plane.navigation = new Navigation { mode = Navigation.Mode.None };
     _plane.transition = Selectable.Transition.None;
     _plane.targetGraphic = mask;
     UiCursor.Attach(area.gameObject, UiCursorKind.Crosshair);
-    RectTransform gradient = RectPeer.Child(area, "HSV gradient");
+    RectTransform gradient = RectPeer.Child(square, "HSV gradient");
     _plane.Gradient = gradient.gameObject.AddComponent<UiGradientGraphic>();
     _plane.Gradient.raycastTarget = false;
     RectTransform marker = Capsule(area, "Color position", 18, Color.white).rectTransform;

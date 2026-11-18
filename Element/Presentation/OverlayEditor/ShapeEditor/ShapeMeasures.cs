@@ -25,7 +25,9 @@ internal sealed class ShapeMeasures
   public const string WidthKey = "width",
     HeightKey = "height";
 
-  private const float RadiusOffset = 48;
+  private const float RadiusOffset = 48,
+    RadiusStep = 10,
+    MeasureClearance = 6;
 
   private readonly List<FormulaFieldView> _radiusFields = new();
   private readonly List<string> _radiusKeys = new();
@@ -94,9 +96,21 @@ internal sealed class ShapeMeasures
     float boxWidth = resolved.Width * preview.UnitsToFrame,
       boxHeight = resolved.Height * preview.UnitsToFrame;
     numbers.Show(_widthField, WidthKey);
-    _widthField.Place(left + boxWidth * .5f - _widthField.Width * .5f, top + boxHeight + Gap);
+    Rect width = new(
+      left + boxWidth * .5f - _widthField.Width * .5f,
+      top + boxHeight + Gap,
+      _widthField.Width,
+      FormulaFieldView.Height
+    );
+    _widthField.Place(width.x, width.y);
     numbers.Show(_heightField, HeightKey);
-    _heightField.Place(left + boxWidth + Gap, top + boxHeight * .5f - FormulaFieldView.Height * .5f);
+    Rect height = new(
+      left + boxWidth + Gap,
+      top + boxHeight * .5f - FormulaFieldView.Height * .5f,
+      _heightField.Width,
+      FormulaFieldView.Height
+    );
+    _heightField.Place(height.x, height.y);
 
     OverlayShapeGeometry.Corners(resolved, _corners);
     for (int i = 0; i < _arcs.Count; i++)
@@ -124,11 +138,27 @@ internal sealed class ShapeMeasures
         continue;
       FormulaFieldView radius = _radiusFields[i];
       numbers.Show(radius, key);
+      // Further out along the corner rather than against W or H.
       Vector2 center = point + outward * RadiusOffset;
-      radius.Place(center.x - radius.Width * .5f, center.y - FormulaFieldView.Height * .5f);
+      Rect place = PillAt(center, radius.Width);
+      for (int step = 0; step < 8 && (Touches(place, width) || Touches(place, height)); step++)
+      {
+        center += outward * RadiusStep;
+        place = PillAt(center, radius.Width);
+      }
+      radius.Place(place.x, place.y);
       radius.Root.SetAsLastSibling();
     }
   }
+
+  private static Rect PillAt(Vector2 center, float width) =>
+    new(center.x - width * .5f, center.y - FormulaFieldView.Height * .5f, width, FormulaFieldView.Height);
+
+  private static bool Touches(Rect a, Rect b) =>
+    a.xMin < b.xMax + MeasureClearance
+    && b.xMin < a.xMax + MeasureClearance
+    && a.yMin < b.yMax + MeasureClearance
+    && b.yMin < a.yMax + MeasureClearance;
 
   /// <summary>The corner's arc whose screen point is over it, or -1.</summary>
   public int ArcAt(Vector2 screen, bool shownOnly)

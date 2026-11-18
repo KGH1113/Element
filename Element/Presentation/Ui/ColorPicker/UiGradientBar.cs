@@ -18,12 +18,12 @@ namespace Element.Presentation.Ui.ColorPicker;
 
 // The color bar on top of an overlay editor's picker. One color is solid;
 // clicking the bar adds a color and makes a gradient. Its squares move along
-// the bar, the picked one shows its position pill (owned by the editor) with
-// a delete button beside it, and the square, hue and opacity controls below
-// edit the picked color. Four tiles drawn in the current colors pick the
+// the bar, the picked one shows a delete button above it, beside its position
+// pill when an editor gives it one, and the square, hue and opacity controls
+// below edit the picked color. Four tiles drawn in the current colors pick the
 // kind, beside flip and a quarter turn. Following the highlight, only
 // opacities differ. Its parts sit in Root, which the picker's screen shows
-// where the bar goes; the tip under the bar floats on the picker itself.
+// where the bar goes; the tip over the bar floats on the picker itself.
 internal sealed class UiGradientBar : IGradientBar
 {
   private const float BarHeight = 26,
@@ -32,7 +32,10 @@ internal sealed class UiGradientBar : IGradientBar
     PillRow = 36,
     KindRow = 34,
     GradientGap = 10,
-    DeleteSize = 28;
+    DeleteSize = 28,
+    PillGap = 4,
+    TipHeight = 26,
+    TipGap = 6;
 
   private readonly UiFactory _ui;
   private readonly IGradientBarHost _host;
@@ -51,6 +54,7 @@ internal sealed class UiGradientBar : IGradientBar
   private readonly TextMeshProUGUI _tipText;
   private OverlayColorSettings _working;
   private float _column;
+  private float _pillWidth;
   private int _stop;
   private int _dragging = -1;
   private float _grab;
@@ -67,7 +71,7 @@ internal sealed class UiGradientBar : IGradientBar
     ShownAlpha;
 
   /// <param name="parent">Where <see cref="Root"/> waits until a screen shows it.</param>
-  /// <param name="tipLayer">What the tip under the bar floats on, in front of the controls below the bar.</param>
+  /// <param name="tipLayer">What the tip over the bar floats on, in front of the picker's other controls.</param>
   /// <param name="under">What the bar is drawn on: its buttons are opaque, a little lighter than that.</param>
   public UiGradientBar(UiFactory ui, Transform parent, RectTransform tipLayer, IGradientBarHost host, Color under)
   {
@@ -131,9 +135,9 @@ internal sealed class UiGradientBar : IGradientBar
       DeleteSize
     );
 
-    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, 26, new Color(.11f, .11f, .11f));
+    UiCapsuleGraphic tip = _ui.Capsule("Add color tip", tipLayer, 0, 0, 10, TipHeight, new Color(.11f, .11f, .11f));
     _tip = tip.rectTransform;
-    _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, 26, 12);
+    _tipText = _ui.Text(L("눌러서 색 추가", "Click to add a color"), _tip, 0, 0, 10, TipHeight, 12);
     _tipText.alignment = TextAlignmentOptions.Midline;
     _tipText.textWrappingMode = TextWrappingModes.NoWrap;
     UiFactory.Stretch(_tipText.rectTransform, 0, 0, 0, 0);
@@ -279,14 +283,24 @@ internal sealed class UiGradientBar : IGradientBar
   /// </summary>
   public void PlacePosition(float width)
   {
+    _pillWidth = width;
+    PlaceOverStop();
+  }
+
+  // What stands over the picked square: the pill and the delete button beside
+  // it, or with no pill (a mod's picker has none) the button alone, kept on the bar.
+  private void PlaceOverStop()
+  {
     if (!IsGradient)
       return;
     Vector2 bar = _bar.anchoredPosition;
-    float column = _bar.sizeDelta.x;
-    float x = StopX(_stop) - width * .5f;
-    x = Mathf.Clamp(x, 0, Mathf.Max(0, column - width - 30));
-    UiFactory.Place(_positionSlot, bar.x + x, 0, width, 32);
-    UiFactory.Place((RectTransform)_delete.transform, bar.x + x + width + 4, 2, DeleteSize, DeleteSize);
+    bool pill = _pillWidth > 0;
+    float beforeDelete = pill ? _pillWidth + PillGap : 0;
+    float width = beforeDelete + DeleteSize;
+    float centred = pill ? _pillWidth : DeleteSize;
+    float x = Mathf.Clamp(StopX(_stop) - centred * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
+    UiFactory.Place(_positionSlot, bar.x + x, 0, _pillWidth, 32);
+    UiFactory.Place((RectTransform)_delete.transform, bar.x + x + beforeDelete, 2, DeleteSize, DeleteSize);
   }
 
   // The x of a stop on the bar, from the bar's left.
@@ -345,6 +359,7 @@ internal sealed class UiGradientBar : IGradientBar
     }
     // The picked square sits on top.
     _barStops[_stop].transform.SetAsLastSibling();
+    PlaceOverStop();
     for (int i = 0; i < 4; i++)
     {
       OverlayGradientMath.ResetHandles(_previewGradient.Geometry, (OverlayGradientKind)i);
@@ -414,7 +429,9 @@ internal sealed class UiGradientBar : IGradientBar
     Emit();
   }
 
-  // While the color is solid, the bar says right under itself what a click does.
+  // While the color is solid, the bar says right above itself what a click
+  // does, in the room the pill takes once there is a gradient: under the bar
+  // it would cover the controls there.
   private void BarHover(PointerEventData data)
   {
     float x = 0;
@@ -424,12 +441,12 @@ internal sealed class UiGradientBar : IGradientBar
       return;
     float width = Mathf.Ceil(_tipText.GetPreferredValues(_tipText.text).x) + 22;
     float left = Mathf.Clamp(x - width * .5f, 0, Mathf.Max(0, _bar.sizeDelta.x - width));
-    // Right under the bar, in the layer the tip floats on (top left origin, y down).
+    // In the layer the tip floats on (top left origin, y down).
     RectTransform layer = (RectTransform)_tip.parent;
     Rect area = _bar.rect;
-    Vector3 corner = layer.InverseTransformPoint(_bar.TransformPoint(new Vector3(area.xMin + left, area.yMin, 0)));
+    Vector3 corner = layer.InverseTransformPoint(_bar.TransformPoint(new Vector3(area.xMin + left, area.yMax, 0)));
     Rect inLayer = layer.rect;
-    UiFactory.Place(_tip, corner.x - inLayer.xMin, inLayer.yMax - corner.y + 6, width, 26);
+    UiFactory.Place(_tip, corner.x - inLayer.xMin, inLayer.yMax - corner.y - TipHeight - TipGap, width, TipHeight);
     _tip.SetAsLastSibling();
   }
 

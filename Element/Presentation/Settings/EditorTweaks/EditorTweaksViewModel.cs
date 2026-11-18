@@ -55,7 +55,8 @@ internal sealed class EditorTweaksViewModel : SettingsPageViewModel
       {
         Settings.Gameplay.Editor.RotationStep = step;
         ShowRotationStep();
-      })
+      }),
+      Computed(() => Settings.Gameplay.Editor.RotationStep == step)
     );
 
   // Runs when the field loses focus or Enter is pressed. The field's own write

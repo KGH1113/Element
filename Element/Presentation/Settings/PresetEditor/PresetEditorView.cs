@@ -93,7 +93,7 @@ internal sealed class PresetEditorView : View<PresetEditorViewModel>
         Text(VM.TabNames[index])
           .Font(Font.Callout)
           .Foreground(() => VM.Tab == index ? Colors.OnAccent : Colors.Foreground)
-          .Frame(maxWidth: float.PositiveInfinity),
+          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
         () => VM.SelectTab(index),
         ButtonStyle.Plain
       )

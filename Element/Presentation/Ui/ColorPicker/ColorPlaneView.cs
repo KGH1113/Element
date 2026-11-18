@@ -1,4 +1,5 @@
 using Element.Presentation.Ui.Input;
+using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using ElementUI;
 using ElementUI.Ugui;
@@ -17,7 +18,8 @@ internal sealed class ColorPlaneView : NativeView
 
   private readonly ColorPickerViewModel _vm;
   private UiColorPlane _plane;
-  private UiCapsuleGraphic _picked;
+  private UiCapsuleGraphic _ring,
+    _picked;
 
   public ColorPlaneView(ColorPickerViewModel vm) => _vm = vm;
 
@@ -39,18 +41,28 @@ internal sealed class ColorPlaneView : NativeView
     RectTransform gradient = RectPeer.Child(square, "HSV gradient");
     _plane.Gradient = gradient.gameObject.AddComponent<UiGradientGraphic>();
     _plane.Gradient.raycastTarget = false;
-    RectTransform marker = Capsule(area, "Color position", 18, Color.white).rectTransform;
+    // The ring takes its edge from the color it holds, over a hairline.
+    RectTransform marker = Capsule(area, "Color position", 20, UiPalette.HandleHairline).rectTransform;
     marker.pivot = new Vector2(.5f, .5f);
     _plane.Marker = marker;
+    _ring = Capsule(marker, "Color position ring", 18, Color.white);
+    _ring.rectTransform.anchoredPosition = new Vector2(1, -1);
     _picked = Capsule(marker, "Selected color", 12, Color.white);
-    _picked.rectTransform.anchoredPosition = new Vector2(3, -3);
+    _picked.rectTransform.anchoredPosition = new Vector2(4, -4);
     _plane.Changed = (saturation, value) =>
     {
       _vm.PickSaturationValue(saturation, value);
       NotifyEdited();
     };
     Watch(() => _vm.Hsv.Value, hsv => _plane.Set(hsv.x, hsv.y, hsv.z));
-    Watch(() => _vm.Swatch.Value, color => _picked.color = color);
+    Watch(
+      () => _vm.Swatch.Value,
+      color =>
+      {
+        _picked.color = color;
+        _ring.color = UiPalette.HandleEdge(color);
+      }
+    );
   }
 
   private static UiCapsuleGraphic Capsule(Transform parent, string name, float size, Color color)

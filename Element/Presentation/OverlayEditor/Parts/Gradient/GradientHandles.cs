@@ -288,7 +288,7 @@ internal sealed class GradientHandles
       Vector2 center = at + n * (k + 9);
       UiFactory.Place(square.Rect, center.x - SquareHalf, center.y - SquareHalf, SquareSize, SquareSize);
       Color color = _stopColor?.Invoke(i) ?? Color.white;
-      square.Graphic.Set(color, i == _selected ? UiPalette.SoftAccent : Color.white);
+      square.Graphic.Set(color, UiPalette.HandleEdge(color), i == _selected ? 4 : 3);
       // Local space has y up.
       square.Graphic.SetNotch(new Vector2(-n.x, n.y), k + 6);
     }

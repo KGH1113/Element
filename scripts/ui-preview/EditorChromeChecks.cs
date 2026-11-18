@@ -65,7 +65,8 @@ namespace Element.Editor
         keypad = KeypadRect(DockOf(editor));
       Assert(toolRect.yMax <= backRect.yMin + .5f && Mathf.Abs(toolRect.xMax - keypad.xMax) < 1 && InsideScreen(toolRect),
         tool + " opens in the column under its back row, ending with the keypad: " + toolRect + " / " + backRect);
-      Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1, "the back row starts where the tool does: " + backRect + " / " + toolRect);
+      Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1 && Mathf.Abs(backRect.xMax - keypad.xMax) < 1,
+        "the back row is as wide as the tool under it: " + backRect + " / " + toolRect);
     }
 
     /// <summary>The column's back row: the tool closes and the rows come back.</summary>

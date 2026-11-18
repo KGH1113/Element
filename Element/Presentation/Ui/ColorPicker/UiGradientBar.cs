@@ -380,7 +380,8 @@ internal sealed class UiGradientBar : IGradientBar
   {
     float size = picked ? StopSize + 4 : StopSize;
     UiFactory.Place(stop.rectTransform, x - size * .5f, (BarHeight - size) * .5f, size, size);
-    stop.Set(color, picked ? UiPalette.SoftAccent : Color.white);
+    // The picked one is bigger, with a heavier edge; every edge follows its color.
+    stop.Set(color, UiPalette.HandleEdge(color), picked ? 3.5f : 2.5f);
   }
 
   // ---- The bar ----

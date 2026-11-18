@@ -2201,6 +2201,14 @@ namespace Element.Editor
     private static void CheckColorPicker()
     {
       RDString.language = SystemLanguage.English;
+      // A handle's edge stays apart from the color it holds, whatever that color is.
+      foreach (Color held in new[] { Color.white, Color.black, Color.red, Color.yellow, Color.cyan, Color.blue, new Color(.5f, .5f, .5f), new Color(1, 1, 1, .3f) })
+      {
+        Color edge = UiPalette.HandleEdge(held);
+        Color shown = Color.Lerp(new Color(.6f, .6f, .6f), new Color(held.r, held.g, held.b), held.a);
+        float apart = Mathf.Abs(edge.grayscale - shown.grayscale) + Mathf.Abs(edge.r - shown.r) + Mathf.Abs(edge.b - shown.b);
+        Assert(apart > .35f, "a handle's edge stands out from " + held + ": " + edge);
+      }
       TMP_FontAsset font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/Font/MAPLESTORY_OTF_BOLD SDF.asset");
       var root = new GameObject("Color picker fixture", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
       var events = new GameObject("Color picker events", typeof(EventSystem));

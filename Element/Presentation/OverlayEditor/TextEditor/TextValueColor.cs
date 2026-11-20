@@ -81,6 +81,19 @@ internal sealed class TextValueColor : IValueColorEditor
     _pickingStop = false;
   }
 
+  /// <summary>
+  /// The selection changed while the tool stays open: it shows the new
+  /// range's color, and a stop's color open beside the column, which
+  /// belonged to the old range, closes.
+  /// </summary>
+  public void Retarget()
+  {
+    bool stop = _pickingStop && _color.PicksOther;
+    _pickingStop = false;
+    if (stop)
+      _color.Picker.Hide();
+  }
+
   /// <summary>The tool closed: what it had open goes with it.</summary>
   public void Closed()
   {

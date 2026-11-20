@@ -12,7 +12,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextKeyboardInput
 {
-  private readonly IEditorActions _editor;
+  private readonly ITextEditorActions _editor;
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
@@ -21,7 +21,7 @@ internal sealed class TextKeyboardInput
   private readonly Event _event = new();
 
   public TextKeyboardInput(
-    IEditorActions editor,
+    ITextEditorActions editor,
     ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
@@ -137,9 +137,10 @@ internal sealed class TextKeyboardInput
     }
   }
 
-  // While a popover is open: Enter and Esc close it, and with a formula open
-  // the keyboard types into it like the keypad. Other keys go back to the
-  // text; after a value, typing continues behind it.
+  // While a popover is open: Enter and Esc close it, a formula before the
+  // column's tool, and with a formula open the keyboard types into it like
+  // the keypad. Other keys go back to the text, the column's tool staying;
+  // after a value, typing continues behind it.
   private bool HandlePopoverKey(bool command)
   {
     if (command || !_context.AnyOpen)
@@ -147,7 +148,10 @@ internal sealed class TextKeyboardInput
     KeyCode code = _event.keyCode;
     if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
     {
-      _editor.CloseOpen();
+      if (_formulas.Open)
+        _editor.CloseTyping();
+      else
+        _editor.CloseOpen();
       _editor.Render();
       return true;
     }
@@ -159,7 +163,7 @@ internal sealed class TextKeyboardInput
     if (_formulas.Field != null)
       return true;
     bool chip = _formulas.ChipOpen(out _);
-    _editor.CloseOpen();
+    _editor.CloseTyping();
     if (chip)
       _text.Anchor = _text.Caret = Mathf.Max(_text.Anchor, _text.Caret);
     _editor.Render();

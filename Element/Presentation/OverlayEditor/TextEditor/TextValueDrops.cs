@@ -21,7 +21,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// </summary>
 internal sealed class TextValueDrops
 {
-  private readonly IEditorActions _editor;
+  private readonly ITextEditorActions _editor;
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
@@ -33,7 +33,7 @@ internal sealed class TextValueDrops
   private readonly List<IDisposable> _places = new();
 
   public TextValueDrops(
-    IEditorActions editor,
+    ITextEditorActions editor,
     ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
@@ -151,8 +151,8 @@ internal sealed class TextValueDrops
         _drops._formulas.Editing.Drop(_drops._formulas.ChipSlot(index), value);
       else
       {
-        // A value dropped into the text lands there; typing goes on after it.
-        _drops._editor.CloseOpen();
+        // A value dropped into the text lands there; typing goes on after it, and the column's tool stays.
+        _drops._editor.CloseTyping();
         _drops._text.InsertValue(value, index, index);
         _drops._text.Anchor = _drops._text.Caret;
       }

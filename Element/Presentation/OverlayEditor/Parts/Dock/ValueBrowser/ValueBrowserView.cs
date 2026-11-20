@@ -7,6 +7,7 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementUI;
 using UnityEngine;
 using UnityEngine.UI;
@@ -24,7 +25,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// in a row per group beside the group's heading; while something is typed
 /// they give way to what the search finds, by place. Each chip names its
 /// value and, in a muted ink, what it reads now. Only the list and the page
-/// scroll; every surface is opaque.
+/// scroll; the list shows a slim bar and fades at an edge while more of it
+/// lies beyond. Every surface is opaque.
 /// </summary>
 internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
@@ -46,6 +48,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     SearchEnd = 38;
 
   private const float RowInset = 12,
+    ListRadius = 8,
     MinimumList = 184,
     MaximumList = 240,
     MaximumHeading = 150;
@@ -83,8 +86,11 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         SearchBox(),
         // One opaque base under the rows: a row's hover lights it without letting the overlay through.
         Scroller(VStack(spacing: RowGap, Places()).Padding(new Insets(0, 0, 4, 0)))
+          // A slim bar and fading edges say more places lie beyond what shows.
+          .Configure<ScrollRect>(scroll => UiScrollCues.Add(scroll, UiPalette.EditorDim, ListRadius))
+          .Named("Places")
           .Frame(width: ListWidth, height: ListHeight)
-          .Background(UiPalette.EditorDim, 8)
+          .Background(UiPalette.EditorDim, ListRadius)
       )
       .Frame(width: ListWidth, alignment: Alignment.TopLeading);
 

@@ -43,7 +43,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// and everything done in the dock comes back here, through
 /// <see cref="IInputDockActions"/>.
 /// </remarks>
-internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEditorActions, IInputDockActions
+internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITextEditorActions, IInputDockActions
 {
   private readonly Transform _parent;
   private readonly TMP_FontAsset _uiFont;
@@ -83,6 +83,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
   private float _bottomTop;
   private float _blinkStart;
   private bool _dockTyping;
+
+  // What the column's tool acts on, as last drawn: the selection's ends, or -1 for the whole text.
+  private int _toolStart = -1,
+    _toolEnd = -1;
 
   public TextEditorScreen(Transform parent, TMP_FontAsset uiFont, Func<bool> reduceMotion, OverlayValues values)
   {
@@ -140,6 +144,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
 
   void IEditorActions.CloseOpen() => CloseOpen();
 
+  void ITextEditorActions.CloseTyping() => CloseTyping();
+
   void IEditorActions.Notice(string message, bool warning) => _frame?.ViewModel.Notice(message, warning);
 
   // ---- What the dock asks for: everything done in the dock lands here ----
@@ -191,6 +197,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _text.Open(element.Settings?.Text);
     _formulas.Reset();
     _grow.Open(element);
+    _toolStart = _toolEnd = -1;
     Build();
     Input.imeCompositionMode = IMECompositionMode.On;
     Render();
@@ -389,6 +396,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
       _blinkStart = Time.unscaledTime;
       _dock.RestartBlink();
     }
+    FollowSelection();
     _formulas.Sync();
     // The text stays above the dock.
     _bottomTop = _dockPanel.Top;
@@ -460,13 +468,39 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, IEd
     _grow.PlaceMark(text.x, text.y, text.width, text.height);
   }
 
+  // The column's open tool goes on with a new selection, or with the whole
+  // text once nothing is selected, however the selection changed (a click,
+  // a drag, the keys, undo). First, before anything is drawn from it.
+  private void FollowSelection()
+  {
+    _text.Range(out int start, out int end);
+    if (!_text.HasSelection)
+      start = end = -1;
+    if (start == _toolStart && end == _toolEnd)
+      return;
+    _toolStart = start;
+    _toolEnd = end;
+    _valueColor.Retarget();
+    _color.Retarget();
+    _fonts.Retarget();
+  }
+
   private bool AnyOpen => _formulas.Open || _popovers.AnyOpen;
 
   private void CloseOpen()
   {
+    CloseTyping();
+    _popovers.CloseAll();
+  }
+
+  // The number or value being typed, a value waiting to be picked from the
+  // dock and its menu close; the column's tool (the picker, the font list,
+  // the grow points, Animate) stays.
+  private void CloseTyping()
+  {
     _formulas.Close();
     _valueColor.Disarm();
-    _popovers.CloseAll();
+    _valueColor.Menu?.Hide();
   }
 
   // The dimmed space around the text belongs to it; the header, the

@@ -131,6 +131,24 @@ internal sealed class SettingsWindowScreen : ISettingsWindowActions, IDisposable
   {
     if (!IsOpen || !_model.Save())
       return;
+    Hide();
+  }
+
+  /// <summary>
+  /// Closes the window before a render records it. It closes even when saving
+  /// failed: the settings stay in effect, the failure is logged, and the next
+  /// close writes them again.
+  /// </summary>
+  public void CloseForRender()
+  {
+    if (!IsOpen)
+      return;
+    _save();
+    Hide();
+  }
+
+  private void Hide()
+  {
     CancelCapture();
     SetVisible(false);
     foreach (SettingsPageViewModel page in _model.Pages)

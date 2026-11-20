@@ -1,6 +1,7 @@
 using System;
 using Element.Application.Input;
 using Element.Application.Profiles;
+using Element.Application.Rendering;
 using Element.Infrastructure.ElementNote.Viewers;
 using Element.Infrastructure.Game.Planets;
 using Element.Infrastructure.Platform;
@@ -49,7 +50,8 @@ internal sealed class SettingsUiRuntime : IDisposable
     ProfileKeyViewers profileKeyViewers,
     Action viewerModeChanged,
     Func<bool> judgementTextLinked,
-    Func<bool> playing
+    Func<bool> playing,
+    IRenderVideo video
   )
   {
     _main = main;
@@ -71,13 +73,15 @@ internal sealed class SettingsUiRuntime : IDisposable
       apply,
       Save,
       viewerModeChanged,
-      CreateFeatures
+      CreateFeatures,
+      video
     );
     _toast = new UiToast(font, () => main.Settings.ReduceUiMotion);
     _presetShortcuts = new EffectPresetShortcuts(
       main.Settings,
       playing,
-      () => _screens.IsOpen || Keyboard.IsTaken,
+      // A switch during a render would change the video and show its notice in it.
+      () => _screens.IsOpen || video.IsRendering || Keyboard.IsTaken,
       apply,
       _screens.RefreshPresets,
       Save,

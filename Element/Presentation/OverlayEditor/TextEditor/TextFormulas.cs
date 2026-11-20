@@ -27,7 +27,7 @@ internal sealed class TextFormulas
     PositionKey = "position",
     AngleKey = "angle";
 
-  private readonly IEditorActions _editor;
+  private readonly ITextEditorActions _editor;
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly OverlayValues _values;
@@ -43,7 +43,12 @@ internal sealed class TextFormulas
   // The value whose popover is open, while it stays selected; -1 for none.
   private int _chipPopover = -1;
 
-  public TextFormulas(IEditorActions editor, ITextEditorContext context, TextDocumentEditing text, OverlayValues values)
+  public TextFormulas(
+    ITextEditorActions editor,
+    ITextEditorContext context,
+    TextDocumentEditing text,
+    OverlayValues values
+  )
   {
     _editor = editor;
     _context = context;
@@ -145,10 +150,10 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
-  // A click on a value selects it whole and opens its formula beside it.
+  // A click on a value selects it whole and opens its formula beside it; the column's open tool goes on with it.
   public void OpenChip(int index)
   {
-    _editor.CloseOpen();
+    _editor.CloseTyping();
     _text.Anchor = index;
     _text.Caret = index + 1;
     _chipPopover = index;

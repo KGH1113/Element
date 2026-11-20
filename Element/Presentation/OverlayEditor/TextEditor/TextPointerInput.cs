@@ -14,11 +14,12 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// <summary>
 /// The mouse in the text editor: a click puts the caret, a drag selects, a
 /// double click selects a word, a click on a value opens its formula, and a
-/// value under the pointer is named in a tooltip.
+/// value under the pointer is named in a tooltip. None of it closes the
+/// column's open tool: the tool goes on with the new selection.
 /// </summary>
 internal sealed class TextPointerInput
 {
-  private readonly IEditorActions _editor;
+  private readonly ITextEditorActions _editor;
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextFormulas _formulas;
@@ -32,7 +33,7 @@ internal sealed class TextPointerInput
   private float _lastClick = -1;
 
   public TextPointerInput(
-    IEditorActions editor,
+    ITextEditorActions editor,
     ITextEditorContext context,
     TextDocumentEditing text,
     TextFormulas formulas,
@@ -75,17 +76,16 @@ internal sealed class TextPointerInput
         || _gradient.Handles.Contains(screen)
       )
         return;
-      bool popover = _context.AnyOpen;
-      _editor.CloseOpen();
       if (!_context.InTextArea(screen))
       {
+        bool popover = _context.AnyOpen;
+        _editor.CloseOpen();
         if (popover)
           _editor.Render();
         return;
       }
-      if (picker.Visible)
-        picker.Hide();
-      _animate.Hide();
+      // The column's open tool stays and goes on with what the click selects.
+      _editor.CloseTyping();
       // A click on a value selects it whole and opens its formula.
       if (!Shift && _map.TryValueAt(screen, out int value))
       {

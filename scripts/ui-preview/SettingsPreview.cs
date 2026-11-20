@@ -1455,6 +1455,34 @@ namespace Element.Editor
       Assert(!colorButton.Active && dock.Owner == null && Shown(DockKey(dock, "Key done")),
         "Text color lets go once the picker closes, and so does its opacity; the keypad is back");
 
+      // The picker stays while another part of the text is selected, and goes on with it.
+      SetField(TextDocumentOf(text), "_anchor", 0); SetField(TextDocumentOf(text), "_caretIndex", 3);
+      Call(text, "Render");
+      PressBar(text, colorButton);
+      Assert(picker.Visible, "the color picker opens again on the selection");
+      OverlayColorSettings valueColorBefore = TextDocumentOf(text).Document[9].Color.Clone();
+      TextFormulasOf(text).OpenChip(9);
+      Assert(picker.Visible && colorButton.Active && dock.Owner == "value:9"
+        && TextColorOf(text).Title == L("선택한 글자 색", "Selected text color"),
+        "a value clicked in the text keeps the picker open, on that value, its formula in the dock");
+      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Settle();
+      ColorPickerProbe.Hex(picker.Root).text = "#FF8000";
+      picker.Commit();
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].Color.Hex == "#FF8000" && !document[9].Color.Highlight && document[0].Color.Hex == "#40C0FF"
+        && document[8].Color.Hex != "#FF8000", "the color goes to the clicked value alone: " + document[8].Color.Hex);
+      TextDocumentOf(text).Undo();
+      document = TextDocumentOf(text).Document;
+      Assert(document[9].Color.Hex == valueColorBefore.Hex && document[9].Color.Highlight == valueColorBefore.Highlight
+        && document[0].Color.Hex == "#40C0FF", "one undo takes back the value's color, not the selection's before it");
+      SetField(TextDocumentOf(text), "_anchor", 2); SetField(TextDocumentOf(text), "_caretIndex", 2);
+      Call(text, "Render");
+      Assert(picker.Visible && colorButton.Active, "a click that selects nothing keeps the picker open");
+      AssertInColumn(text, picker.Root, L("글자 색", "Text color"));
+      text.Escape();
+      Assert(text.IsOpen && !picker.Visible, "Esc still closes it");
+
       // Where the text grows from.
       PressBar(text, textGrow);
       GrowPopoverPanel grow = Field<GrowPopoverPanel>(Grow(text), "_popover");
@@ -1640,6 +1668,27 @@ namespace Element.Editor
       Assert(textFont.Value.StartsWith("American") && textFont.Active, "the row takes the selection's font, lit while the list is open: " + textFont.Value);
       AssertInColumn(text, textFonts.Root, L("선택한 글자 폰트", "Selected text font"));
       SaveFrame(camera, texture, canvases, name + "-text-font");
+      // The list stays while another part is selected, marking that part's font; its pick is its own undo step.
+      SetField(TextDocumentOf(text), "_anchor", 3);
+      SetField(TextDocumentOf(text), "_caretIndex", 5);
+      Call(text, "Render");
+      Assert(textFonts.Visible && textFont.Active && textFont.Value == L("기본", "Default")
+        && Field<string>(textFonts, "_current") == "", "another selection keeps the font list open, marking its font: " + textFont.Value);
+      AssertInColumn(text, textFonts.Root, L("선택한 글자 폰트", "Selected text font"));
+      Call(textFonts, "Pick", (int)textFonts.GetType().GetMethod("IndexOf", Private).Invoke(textFonts, new object[] { typewriter }));
+      Assert(TextDocumentOf(text).Document[3].Font.Length > 0 && TextDocumentOf(text).Document[5].Font == "",
+        "the font goes to the new selection");
+      TextDocumentOf(text).Undo();
+      Assert(TextDocumentOf(text).Document[3].Font == "" && TextDocumentOf(text).Document[0].Font.Length > 0,
+        "one undo takes back that pick alone");
+      SetField(TextDocumentOf(text), "_anchor", 0);
+      SetField(TextDocumentOf(text), "_caretIndex", 0);
+      Call(text, "Render");
+      Assert(textFonts.Visible, "a click that selects nothing keeps the list open");
+      AssertInColumn(text, textFonts.Root, L("글자 폰트", "Text font"));
+      SetField(TextDocumentOf(text), "_anchor", 0);
+      SetField(TextDocumentOf(text), "_caretIndex", 3);
+      Call(text, "Render");
       PressBack(text);
       Assert(!textFonts.Visible && !textFont.Active
         && BarButton(text, textFont).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textFont.Value),

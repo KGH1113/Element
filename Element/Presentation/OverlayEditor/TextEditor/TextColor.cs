@@ -120,20 +120,42 @@ internal sealed class TextColor
       _editor.Render();
       return;
     }
-    _text.Range(out int start, out int end);
-    OverlayColorSettings current = _text.RangeColor();
+    ShowRange();
+    _editor.Render();
+  }
+
+  /// <summary>
+  /// The open picker goes on with a new selection, or with the whole text
+  /// once nothing is selected: it shows that color, and its first change is
+  /// a new undo step. (A stop's color open beside the column is
+  /// <see cref="TextValueColor"/>'s to close.)
+  /// </summary>
+  public void Retarget()
+  {
+    UiColorPicker picker = _picker.Picker;
+    if (picker == null || !picker.Visible || _other)
+      return;
+    _picker.NewSession();
+    ShowRange();
+  }
+
+  // The picker on the range's color: the selection's, or the whole text's.
+  private void ShowRange()
+  {
+    UiColorPicker picker = _picker.Picker;
     Title = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
     _other = false;
     _toldValueColorOff = false;
     picker.ExternalOpacity = true;
     picker.ShowSource(
       Title,
-      current,
+      _text.RangeColor(),
       color =>
       {
         // One way to color text at a time: a color picked here stops following a value.
         bool followed = _text.RangeColor().FollowsValue;
         color.ValueColor = null;
+        _text.Range(out int start, out int end);
         _text.SetColor(
           start,
           end,
@@ -152,7 +174,6 @@ internal sealed class TextColor
         _editor.Render();
       }
     );
-    _editor.Render();
   }
 
   /// <summary>

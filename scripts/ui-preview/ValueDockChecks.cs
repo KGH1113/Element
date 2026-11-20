@@ -100,6 +100,37 @@ namespace Element.Editor
         && ScreenRectOf((RectTransform)tuf.transform).yMax <= ScreenRectOf(modsHeading.rectTransform).yMin + .5f,
         "a small heading sets the mods apart, under the categories");
 
+      // More places than fit: the list's bottom fades into its base, and its top once scrolled down.
+      ScrollRect placesScroll = ByName<ScrollRect>(dock.Root, "Places");
+      UiEdgeFadeGraphic topFade = ByName<UiEdgeFadeGraphic>(placesScroll.transform, "Top fade"),
+        bottomFade = ByName<UiEdgeFadeGraphic>(placesScroll.transform, "Bottom fade");
+      // What the scroll view reports each frame its content, frame or place changed.
+      Action scrolled = () => placesScroll.onValueChanged.Invoke(placesScroll.normalizedPosition);
+      scrolled();
+      float placesOverflow = placesScroll.content.rect.height - ((RectTransform)placesScroll.transform).rect.height;
+      Assert(placesOverflow > UiScrollCues.Reach, "the preview's list holds more places than fit: " + placesOverflow);
+      Assert(bottomFade.enabled && bottomFade.Strength == 1 && !topFade.enabled
+        && bottomFade.transform.GetSiblingIndex() > placesScroll.content.GetSiblingIndex()
+        && ScreenRectOf(bottomFade.rectTransform).yMin <= ScreenRectOf((RectTransform)placesScroll.transform).yMin + .5f,
+        "at the top, the list's bottom edge fades over the rows, its top doesn't");
+      placesScroll.verticalNormalizedPosition = .5f;
+      scrolled();
+      Assert(topFade.enabled && bottomFade.enabled, "scrolled halfway, both edges fade");
+      placesScroll.verticalNormalizedPosition = 0;
+      scrolled();
+      Assert(topFade.Strength == 1 && !bottomFade.enabled, "at the bottom, only the top fades");
+      UiCapsuleGraphic placesBar = ByName<UiCapsuleGraphic>(placesScroll.transform, "Scroll bar");
+      Rect placesRect = ScreenRectOf((RectTransform)placesScroll.transform), barAtBottom = ScreenRectOf(placesBar.rectTransform);
+      placesScroll.verticalNormalizedPosition = 1;
+      scrolled();
+      Rect barAtTop = ScreenRectOf(placesBar.rectTransform);
+      Assert(placesBar.enabled && placesBar.transform.GetSiblingIndex() > bottomFade.transform.GetSiblingIndex()
+        && barAtTop.yMax <= placesRect.yMax && barAtTop.yMax > placesRect.yMax - 8 && barAtBottom.yMin >= placesRect.yMin
+        && barAtBottom.yMin < placesRect.yMin + 8 && barAtTop.height < placesRect.height * .95f
+        && barAtTop.xMax <= placesRect.xMax && barAtTop.xMax > placesRect.xMax - 8,
+        "a slim bar along the list's right edge runs from top to bottom as it scrolls, as long as the share that shows: "
+          + barAtTop + " / " + barAtBottom + " in " + placesRect);
+
       // A place opens its values, lit while open; the next dock opens there again.
       ValueFolderViewModel judgement = values.Categories.Single(folder => folder.Key == "Judgement"),
         tufFolder = values.Mods.Single(folder => folder.Key == "mod:" + PreviewMod);

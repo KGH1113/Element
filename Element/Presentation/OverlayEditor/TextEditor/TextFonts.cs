@@ -86,13 +86,28 @@ internal sealed class TextFonts
     if (!open)
     {
       OverlayFonts fonts = _context.Element.Fonts;
-      string current = _text.RangeFont();
-      Title = _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
+      Title = RangeTitle();
       // The column's back row names the list; it needs no title of its own.
-      _fontPopover.Show("", current, L("기본 폰트", "Default font"), DefaultFontName(fonts));
+      _fontPopover.Show("", _text.RangeFont(), L("기본 폰트", "Default font"), DefaultFontName(fonts));
     }
     _editor.Render();
   }
+
+  /// <summary>
+  /// The open list goes on with a new selection, or with the whole text once
+  /// nothing is selected: it marks that font, and its next pick is a new undo step.
+  /// </summary>
+  public void Retarget()
+  {
+    if (!Visible)
+      return;
+    Title = RangeTitle();
+    _fontSnapshotTaken = false;
+    _fontPopover.SetCurrent(_text.RangeFont());
+  }
+
+  private string RangeTitle() =>
+    _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
 
   private void PickFont(string key)
   {

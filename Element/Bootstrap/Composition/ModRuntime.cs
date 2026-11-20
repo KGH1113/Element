@@ -201,7 +201,8 @@ internal sealed class ModRuntime : IDisposable
         _profileKeyViewers,
         () => _session?.RefreshViewers(),
         () => gameHitText.Applies,
-        () => _playState.IsPlaying
+        () => _playState.IsPlaying,
+        _offlineRender
       );
       _session = new GameplaySession(
         () => _main.Settings,

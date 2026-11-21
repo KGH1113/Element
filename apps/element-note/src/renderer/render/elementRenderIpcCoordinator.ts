@@ -138,11 +138,18 @@ export class ElementRenderIpcCoordinator {
     if (!session || session !== this.sessionId || this.finishing) return;
     this.lastContact = this.now();
     const began = this.began;
+    const queued = performance.now();
     this.frames = this.frames
       .then(() => began)
       .then((ready) => {
         if (ready && this.sessionId === session && this.failure === null)
-          return this.surface.frame(payload).then(() => {});
+          return this.surface
+            .frame({
+              ...payload,
+              // How long it waited here behind earlier frames; the backend logs it.
+              mainWindowWaitMs: performance.now() - queued,
+            })
+            .then(() => {});
       })
       .catch((error: unknown) => {
         // Later frames are dropped; finish answers with this.
@@ -176,9 +183,13 @@ export class ElementRenderIpcCoordinator {
         this.finishing = true;
         this.lastContact = this.now();
         try {
+          const queued = performance.now();
           await this.frames;
           if (this.failure !== null) throw this.failure;
-          result = await this.surface.finish(payload);
+          result = await this.surface.finish({
+            ...payload,
+            mainWindowWaitMs: performance.now() - queued,
+          });
         } finally {
           if (this.sessionId === session) {
             this.finishing = false;

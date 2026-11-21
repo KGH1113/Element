@@ -469,6 +469,7 @@ impl RenderService {
             .ok_or("render-no-session")?
             .begin_finishing(&request)?;
         self.touch();
+        let finishing = Instant::now();
         let mut videos = Vec::new();
         let mut failure = None;
         for worker in workers {
@@ -493,6 +494,12 @@ impl RenderService {
             session.failure.clone()
         };
         self.touch();
+        // How long the game waited for the videos after its last frame.
+        log::info!(
+            "[render] finish: waited {:.2}s in the main window for earlier frames, then {:.2}s for the videos",
+            request["mainWindowWaitMs"].as_f64().unwrap_or(0.0) / 1000.0,
+            finishing.elapsed().as_secs_f64()
+        );
         if let Some(error) = failure.or(stopped) {
             log::warn!("[render] key viewer videos failed: {error}");
             return Err(error);

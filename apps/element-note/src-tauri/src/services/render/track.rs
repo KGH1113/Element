@@ -97,9 +97,16 @@ pub async fn run(
     let started = Instant::now();
     let mut plan = FramePlan::new(fps);
     let mut timing = Timing::default();
+    let mut progress = Progress::new(started);
     let mut previous: Option<Arc<Vec<u8>>> = None;
     let mut warned_size = false;
-    while let Some(request) = requests.recv().await {
+    loop {
+        let waiting = Instant::now();
+        let Some(request) = requests.recv().await else {
+            break;
+        };
+        timing.idle += waiting.elapsed();
+        timing.backlog = timing.backlog.max(requests.len());
         let frame = request["frameIndex"]
             .as_u64()
             .ok_or("render-invalid-frame")?;
@@ -121,7 +128,11 @@ pub async fn run(
             .get_webview_window(&surface.label)
             .ok_or("render-surface-missing")?;
         let capturing = Instant::now();
-        let pixels = capture::frame(&window, surface.width, surface.height).await?;
+        let capture::Frame {
+            pixels,
+            dispatched,
+            returned,
+        } = capture::frame(&window, surface.width, surface.height).await?;
         let captured = Instant::now();
         if capture::FORMAT == capture::Format::Png && !warned_size {
             if let Some(size) =
@@ -138,6 +149,7 @@ pub async fn run(
                 );
             }
         }
+        let bytes = pixels.len();
         let pixels = Arc::new(pixels);
         if let Some(previous) = &previous {
             for _ in 0..step.repeats {
@@ -148,27 +160,34 @@ pub async fn run(
             encoder.write(pixels.clone()).await?;
         }
         previous = Some(pixels);
-        timing.add(
+        timing.add(Sample {
+            forwarded: milliseconds(&request["mainWindowWaitMs"]),
+            script: milliseconds(&ack["timing"]["scriptMs"]),
+            paint: milliseconds(&ack["timing"]["paintMs"]),
             drawing,
             capturing,
+            dispatched,
+            returned,
             captured,
-            Instant::now(),
-            step.repeats + step.copies - 1,
-        );
+            written: Instant::now(),
+            bytes,
+            repeated: step.repeats + step.copies - 1,
+        });
+        progress.report(&surface.viewer, timing.drawn, requests.len());
         // The game may wait on the last frames; work in progress keeps the lease.
         service.touch();
     }
     let written = encoder.finish().await?;
     log::info!(
-        "[render] {}: {} frames ({} drawn, {} repeated) in {:.1}s; page {}, capture {}, encoder wait {}, FFmpeg writes {:.1}s",
+        "[render] {}: {} frames ({} drawn, {} repeated) in {:.1}s, idle {:.1}s waiting for the game; at most {} frames queued here\n{}  FFmpeg writes   : {:.1}s",
         surface.viewer,
         written.frames,
         timing.drawn,
         timing.repeated,
         started.elapsed().as_secs_f64(),
-        timing.page,
-        timing.capture,
-        timing.queue,
+        timing.idle.as_secs_f64(),
+        timing.backlog,
+        timing,
         written.writing.as_secs_f64()
     );
     Ok(Video {
@@ -180,56 +199,158 @@ pub async fn run(
     })
 }
 
-/// Average and longest time of one stage per drawn frame.
+/// How often a viewer logs how far it got while the game renders.
+const PROGRESS_INTERVAL: Duration = Duration::from_secs(5);
+
+/// A duration in milliseconds from a page's timing, or zero when it sent none.
+fn milliseconds(value: &Value) -> Duration {
+    value
+        .as_f64()
+        .filter(|ms| ms.is_finite() && *ms >= 0.0)
+        .map_or(Duration::ZERO, |ms| Duration::from_secs_f64(ms / 1000.0))
+}
+
+/// One stage's time per drawn frame, kept whole for its percentiles.
 #[derive(Default)]
 struct Stage {
-    total: Duration,
-    longest: Duration,
-    count: u32,
+    micros: Vec<u32>,
 }
 
 impl Stage {
     fn add(&mut self, time: Duration) {
-        self.total += time;
-        self.longest = self.longest.max(time);
-        self.count += 1;
+        self.micros
+            .push(u32::try_from(time.as_micros()).unwrap_or(u32::MAX));
     }
 }
 
 impl std::fmt::Display for Stage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let average = self.total.as_secs_f64() * 1000.0 / f64::from(self.count.max(1));
+        let mut sorted = self.micros.clone();
+        sorted.sort_unstable();
+        let Some(&longest) = sorted.last() else {
+            return write!(f, "-");
+        };
+        let ms = |micros: u32| f64::from(micros) / 1000.0;
+        let at = |share: f64| ms(sorted[((sorted.len() - 1) as f64 * share).round() as usize]);
+        let total: u64 = sorted.iter().map(|&micros| u64::from(micros)).sum();
         write!(
             f,
-            "{average:.2}/{:.2} ms",
-            self.longest.as_secs_f64() * 1000.0
+            "avg {:.2}, p50 {:.2}, p95 {:.2}, p99 {:.2}, max {:.2} ms",
+            total as f64 / 1000.0 / sorted.len() as f64,
+            at(0.5),
+            at(0.95),
+            at(0.99),
+            ms(longest)
         )
     }
 }
 
-#[derive(Default)]
-struct Timing {
-    page: Stage,
-    capture: Stage,
-    queue: Stage,
-    drawn: u64,
+/// When one drawn frame passed each step.
+struct Sample {
+    /// Waited in the main window behind earlier frames before reaching here.
+    forwarded: Duration,
+    /// The page's own time: applying the keys, then letting it paint.
+    script: Duration,
+    paint: Duration,
+    drawing: Instant,
+    capturing: Instant,
+    dispatched: Instant,
+    returned: Instant,
+    captured: Instant,
+    written: Instant,
+    bytes: usize,
     repeated: u64,
 }
 
+/// Where a viewer's time went, stage by stage, for the log at the end.
+#[derive(Default)]
+struct Timing {
+    forward: Stage,
+    script: Stage,
+    paint: Stage,
+    /// The page's time minus its own work: the eval and the ack crossing over.
+    round_trip: Stage,
+    dispatch: Stage,
+    webview: Stage,
+    read: Stage,
+    encoder: Stage,
+    bytes: u64,
+    drawn: u64,
+    repeated: u64,
+    /// Waiting for the game's next frame.
+    idle: Duration,
+    /// Most frames queued for this viewer at once.
+    backlog: usize,
+}
+
 impl Timing {
-    fn add(
-        &mut self,
-        drawing: Instant,
-        capturing: Instant,
-        captured: Instant,
-        queued: Instant,
-        repeated: u64,
-    ) {
-        self.page.add(capturing - drawing);
-        self.capture.add(captured - capturing);
-        self.queue.add(queued - captured);
+    fn add(&mut self, sample: Sample) {
+        let page = sample.capturing - sample.drawing;
+        self.forward.add(sample.forwarded);
+        self.script.add(sample.script);
+        self.paint.add(sample.paint);
+        self.round_trip
+            .add(page.saturating_sub(sample.script + sample.paint));
+        self.dispatch.add(sample.dispatched - sample.capturing);
+        self.webview.add(sample.returned - sample.dispatched);
+        self.read.add(sample.captured - sample.returned);
+        self.encoder.add(sample.written - sample.captured);
+        self.bytes += sample.bytes as u64;
         self.drawn += 1;
-        self.repeated += repeated;
+        self.repeated += sample.repeated;
+    }
+}
+
+impl std::fmt::Display for Timing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let rows = [
+            ("main window wait", &self.forward),
+            ("page script", &self.script),
+            ("page paint", &self.paint),
+            ("page round trip", &self.round_trip),
+            ("capture dispatch", &self.dispatch),
+            ("capture webview", &self.webview),
+            ("capture read", &self.read),
+            ("encoder wait", &self.encoder),
+        ];
+        for (name, stage) in rows {
+            writeln!(f, "  {name:<16}: {stage}")?;
+        }
+        writeln!(
+            f,
+            "  {:<16}: {:.1} KB",
+            "captured image",
+            self.bytes as f64 / 1024.0 / self.drawn.max(1) as f64
+        )
+    }
+}
+
+/// Logs a viewer's pace now and then, to show whether it keeps up with the game.
+struct Progress {
+    last: Instant,
+    drawn: u64,
+}
+
+impl Progress {
+    fn new(started: Instant) -> Self {
+        Self {
+            last: started,
+            drawn: 0,
+        }
+    }
+
+    fn report(&mut self, viewer: &str, drawn: u64, queued: usize) {
+        let elapsed = self.last.elapsed();
+        if elapsed < PROGRESS_INTERVAL {
+            return;
+        }
+        log::info!(
+            "[render] {viewer}: {drawn} drawn, {:.1} frames/s over the last {:.1}s, {queued} queued",
+            (drawn - self.drawn) as f64 / elapsed.as_secs_f64(),
+            elapsed.as_secs_f64()
+        );
+        self.last = Instant::now();
+        self.drawn = drawn;
     }
 }
 

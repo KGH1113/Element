@@ -1,4 +1,5 @@
 //! Capture the whole native webview, including DOM text, CSS and WebGL, with alpha.
+use std::time::Instant;
 use tauri::WebviewWindow;
 
 /// What one captured frame holds.
@@ -22,11 +23,31 @@ pub fn supported() -> bool {
     cfg!(any(target_os = "macos", target_os = "windows"))
 }
 
-pub async fn frame(window: &WebviewWindow, width: u32, height: u32) -> Result<Vec<u8>, String> {
+/// One captured frame, and when its steps happened, for the render's stage timings.
+pub struct Frame {
+    pub pixels: Vec<u8>,
+    /// The UI thread started the capture.
+    pub dispatched: Instant,
+    /// The webview handed the image back; reading it out comes after.
+    pub returned: Instant,
+}
+
+type Reply = tokio::sync::oneshot::Sender<Result<Frame, String>>;
+
+pub async fn frame(window: &WebviewWindow, width: u32, height: u32) -> Result<Frame, String> {
     let snapshot_width = width as f64 / window.scale_factor().map_err(|e| e.to_string())?;
     let (sender, receiver) = tokio::sync::oneshot::channel();
     window
-        .with_webview(move |webview| capture(webview, sender, width, height, snapshot_width))
+        .with_webview(move |webview| {
+            capture(
+                webview,
+                sender,
+                Instant::now(),
+                width,
+                height,
+                snapshot_width,
+            )
+        })
         .map_err(|e| e.to_string())?;
     tokio::time::timeout(std::time::Duration::from_secs(15), receiver)
         .await
@@ -46,7 +67,8 @@ pub fn png_size(png: &[u8]) -> Option<(u32, u32)> {
 #[cfg(target_os = "macos")]
 fn capture(
     webview: tauri::webview::PlatformWebview,
-    sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
+    sender: Reply,
+    dispatched: Instant,
     width: u32,
     height: u32,
     snapshot_width: f64,
@@ -64,6 +86,7 @@ fn capture(
         let Some(sender) = sender.lock().unwrap().take() else {
             return;
         };
+        let returned = Instant::now();
         if !error.is_null() || image.is_null() {
             let _ = sender.send(Err("render-native-capture-failed".into()));
             return;
@@ -79,7 +102,11 @@ fn capture(
             tauri::async_runtime::spawn_blocking(move || {
                 let result = raw::pixels(retained, width, height);
                 raw::release(retained);
-                let _ = sender.send(result);
+                let _ = sender.send(result.map(|pixels| Frame {
+                    pixels,
+                    dispatched,
+                    returned,
+                }));
             });
         }
     });
@@ -98,7 +125,8 @@ fn capture(
 #[cfg(target_os = "windows")]
 fn capture(
     webview: tauri::webview::PlatformWebview,
-    sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
+    sender: Reply,
+    dispatched: Instant,
     _width: u32,
     _height: u32,
     _snapshot_width: f64,
@@ -116,6 +144,7 @@ fn capture(
             let stream = CreateStreamOnHGlobal(HGLOBAL::default(), true)?;
             let captured = stream.clone();
             let callback = CapturePreviewCompletedHandler::create(Box::new(move |status| {
+                let returned = Instant::now();
                 let result = (|| -> Result<Vec<u8>, String> {
                     status.map_err(|e| e.to_string())?;
                     let mut stat = Default::default();
@@ -141,7 +170,11 @@ fn capture(
                     bytes.truncate(read as usize);
                     Ok(bytes)
                 })();
-                let _ = sender.send(result);
+                let _ = sender.send(result.map(|pixels| Frame {
+                    pixels,
+                    dispatched,
+                    returned,
+                }));
                 Ok(())
             }));
             let core = webview.controller().CoreWebView2()?;
@@ -161,7 +194,8 @@ fn capture(
 #[cfg(not(any(target_os = "macos", target_os = "windows")))]
 fn capture(
     _: tauri::webview::PlatformWebview,
-    sender: tokio::sync::oneshot::Sender<Result<Vec<u8>, String>>,
+    sender: Reply,
+    _dispatched: Instant,
     _width: u32,
     _height: u32,
     _snapshot_width: f64,

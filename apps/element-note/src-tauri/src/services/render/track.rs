@@ -96,7 +96,8 @@ pub async fn run(
 ) -> Result<Video, String> {
     let started = Instant::now();
     let mut plan = FramePlan::new(fps);
-    let mut timing = Timing::default();
+    // Logs where the time went when it drops: at the end, on a failure, or when cancelled.
+    let mut timing = Timing::new(&surface.viewer, started);
     let mut progress = Progress::new(started);
     let mut previous: Option<Arc<Vec<u8>>> = None;
     let mut warned_size = false;
@@ -178,18 +179,8 @@ pub async fn run(
         service.touch();
     }
     let written = encoder.finish().await?;
-    log::info!(
-        "[render] {}: {} frames ({} drawn, {} repeated) in {:.1}s, idle {:.1}s waiting for the game; at most {} frames queued here\n{}  FFmpeg writes   : {:.1}s",
-        surface.viewer,
-        written.frames,
-        timing.drawn,
-        timing.repeated,
-        started.elapsed().as_secs_f64(),
-        timing.idle.as_secs_f64(),
-        timing.backlog,
-        timing,
-        written.writing.as_secs_f64()
-    );
+    timing.written = Some((written.frames, written.writing));
+    drop(timing);
     Ok(Video {
         viewer: surface.viewer,
         path: surface.path,
@@ -263,8 +254,11 @@ struct Sample {
 }
 
 /// Where a viewer's time went, stage by stage, for the log at the end.
-#[derive(Default)]
 struct Timing {
+    viewer: String,
+    started: Instant,
+    /// The frames in the finished video and FFmpeg's time writing them; none if stopped early.
+    written: Option<(u64, Duration)>,
     forward: Stage,
     script: Stage,
     paint: Stage,
@@ -284,6 +278,27 @@ struct Timing {
 }
 
 impl Timing {
+    fn new(viewer: &str, started: Instant) -> Self {
+        Self {
+            viewer: viewer.to_string(),
+            started,
+            written: None,
+            forward: Stage::default(),
+            script: Stage::default(),
+            paint: Stage::default(),
+            round_trip: Stage::default(),
+            dispatch: Stage::default(),
+            webview: Stage::default(),
+            read: Stage::default(),
+            encoder: Stage::default(),
+            bytes: 0,
+            drawn: 0,
+            repeated: 0,
+            idle: Duration::ZERO,
+            backlog: 0,
+        }
+    }
+
     fn add(&mut self, sample: Sample) {
         let page = sample.capturing - sample.drawing;
         self.forward.add(sample.forwarded);
@@ -322,6 +337,33 @@ impl std::fmt::Display for Timing {
             "captured image",
             self.bytes as f64 / 1024.0 / self.drawn.max(1) as f64
         )
+    }
+}
+
+impl Drop for Timing {
+    fn drop(&mut self) {
+        let elapsed = self.started.elapsed();
+        // Time not spent waiting for the game: how fast this viewer could go on its own.
+        let busy = elapsed.saturating_sub(self.idle);
+        let outcome = match self.written {
+            Some((frames, writing)) => format!(
+                "{frames} frames in the video, FFmpeg writes {:.1}s",
+                writing.as_secs_f64()
+            ),
+            None => "stopped before the end".to_string(),
+        };
+        log::info!(
+            "[render] {}: {} drawn ({} repeated) in {:.1}s, {outcome}; busy {:.1}s, at most {:.1} frames/s; idle {:.1}s waiting for the game; at most {} frames queued here\n{}",
+            self.viewer,
+            self.drawn,
+            self.repeated,
+            elapsed.as_secs_f64(),
+            busy.as_secs_f64(),
+            self.drawn as f64 / busy.as_secs_f64().max(f64::EPSILON),
+            self.idle.as_secs_f64(),
+            self.backlog,
+            self
+        );
     }
 }
 

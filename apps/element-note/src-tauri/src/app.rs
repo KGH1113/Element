@@ -67,12 +67,12 @@ pub fn run() {
         request_accessibility_permission();
     }
 
-    if let Err(err) = setup_logging() {
+    let context = tauri::generate_context!();
+    if let Err(err) = setup_logging(&context.config().identifier) {
         eprintln!("Failed to initialize logging: {err}");
     }
 
     let launch = LaunchContext::from_args(std::env::args());
-    let context = tauri::generate_context!();
 
     let builder = tauri::Builder::default()
         .on_page_load(|webview, payload| {
@@ -557,7 +557,7 @@ fn read_angle_mode_from_store(path: &PathBuf) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn setup_logging() -> Result<()> {
+fn setup_logging(identifier: &str) -> Result<()> {
     // 개발 모드에서는 Debug, 릴리즈에서는 Info
     let level = if cfg!(debug_assertions) {
         LevelFilter::Debug
@@ -565,7 +565,7 @@ fn setup_logging() -> Result<()> {
         LevelFilter::Info
     };
 
-    let _ = fern::Dispatch::new()
+    let mut dispatch = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "[{level}][{target}] {message}",
@@ -575,9 +575,26 @@ fn setup_logging() -> Result<()> {
             ))
         })
         .level(level)
-        .chain(std::io::stdout())
-        .apply();
+        .chain(std::io::stdout());
+    // A release build on Windows has no console, so the log goes to a file too.
+    match open_log_file(identifier) {
+        Ok(file) => dispatch = dispatch.chain(file),
+        Err(err) => eprintln!("Failed to open the log file: {err}"),
+    }
+    let _ = dispatch.apply();
     Ok(())
+}
+
+/// This launch's log file; the previous launch's stays beside it.
+fn open_log_file(identifier: &str) -> std::io::Result<std::fs::File> {
+    let directory = dirs_next::data_local_dir()
+        .ok_or_else(|| std::io::Error::other("no local data directory"))?
+        .join(identifier)
+        .join("logs");
+    std::fs::create_dir_all(&directory)?;
+    let path = directory.join("element-note.log");
+    let _ = std::fs::rename(&path, directory.join("element-note.previous.log"));
+    std::fs::File::create(path)
 }
 
 // tauri.conf.json의 main 항목(create=false)을 그대로 쓰되 on_new_window를 건다.

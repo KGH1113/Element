@@ -84,7 +84,10 @@ describe('Element render messages', () => {
     expect(replies()).toHaveLength(1);
     const finish = messages.command('render.finish', { sessionId });
     await settle();
-    expect(surface.finish).toHaveBeenCalledWith({ sessionId });
+    expect(surface.finish).toHaveBeenCalledWith({
+      sessionId,
+      mainWindowWaitMs: expect.any(Number),
+    });
     expect(replies()[1].payload).toMatchObject({
       requestId: finish,
       sessionId,

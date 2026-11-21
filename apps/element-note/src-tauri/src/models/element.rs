@@ -135,8 +135,8 @@ mod tests {
         assert_eq!(counter["fontWeight"], 700);
         assert_eq!(counter["stroke"]["idle"], "transparent");
         let settings = &defaults["settings"];
-        assert_eq!(settings["noteSettings"]["speed"], 180);
-        assert_eq!(settings["noteSettings"]["trackHeight"], 150);
+        assert_eq!(settings["noteSettings"]["speed"], 450);
+        assert_eq!(settings["noteSettings"]["trackHeight"], 300);
         assert_eq!(settings["uiTheme"], "dark");
         assert_eq!(settings["keyLimiterEnabled"], true);
         assert_eq!(settings["inGameViewersEnabled"], true);

@@ -194,7 +194,11 @@ const fixtureId: FixtureId =
     : 'hand-default';
 
 function VisualViewer({ fixture }: { fixture: VisualFixture }) {
-  const noteSettings = getDefaultNoteSettings();
+  // The baselines keep the v1 lane: newer defaults must not move them.
+  const noteSettings = useMemo(
+    () => ({ ...getDefaultNoteSettings(), speed: 180, trackHeight: 150 }),
+    [],
+  );
   const { noteBuffer, noteTracks } = useMemo(() => {
     if (!fixture.noteEnabled) return { noteBuffer: null, noteTracks: [] };
     const buffer = new NoteBuffer();

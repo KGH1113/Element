@@ -447,8 +447,8 @@ mod tests {
         let n = &d.note_settings;
         assert_eq!(n.border_radius, None);
         assert_eq!(n.frame_limit, 0);
-        assert_eq!(n.speed, 180);
-        assert_eq!(n.track_height, 150);
+        assert_eq!(n.speed, 450);
+        assert_eq!(n.track_height, 300);
         assert!(!n.reverse);
         assert_eq!(n.fade_position, FadePosition::Auto);
         assert_eq!(n.fade_top_px, 50);

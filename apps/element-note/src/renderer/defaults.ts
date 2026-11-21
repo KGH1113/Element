@@ -119,8 +119,8 @@ function FALLBACK_COUNTER_SETTINGS(): KeyCounterSettings {
 function FALLBACK_NOTE_SETTINGS(): NoteSettings {
   return {
     frameLimit: 0,
-    speed: 180,
-    trackHeight: 150,
+    speed: 450,
+    trackHeight: 300,
     reverse: false,
     fadePosition: 'auto',
     fadeTopPx: 50,

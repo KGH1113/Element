@@ -378,7 +378,7 @@ impl RenderService {
             }
             let (sender, receiver) = oneshot::channel();
             self.waiters.lock().insert(surface.label.clone(), sender);
-            let window = WebviewWindowBuilder::new(
+            let builder = WebviewWindowBuilder::new(
                 app,
                 &surface.label,
                 WebviewUrl::App("render/index.html".into()),
@@ -400,9 +400,8 @@ impl RenderService {
             .focusable(false)
             .visible(false)
             .incognito(true)
-            .initialization_script(format!("window.__dmnRenderConfig={};", config.as_ref()))
-            .build()
-            .map_err(|e| e.to_string())?;
+            .initialization_script(format!("window.__dmnRenderConfig={};", config.as_ref()));
+            let window = build_unpaced(app, builder)?;
             // End may arrive while native construction runs. Never leave a second
             // private viewer behind after cancelling the first viewer's setup.
             if let Err(error) = self.require_active(&id) {
@@ -469,6 +468,7 @@ impl RenderService {
             .ok_or("render-no-session")?
             .begin_finishing(&request)?;
         self.touch();
+        let finishing = Instant::now();
         let mut videos = Vec::new();
         let mut failure = None;
         for worker in workers {
@@ -493,6 +493,12 @@ impl RenderService {
             session.failure.clone()
         };
         self.touch();
+        // How long the game waited for the videos after its last frame.
+        log::info!(
+            "[render] finish: waited {:.2}s in the main window for earlier frames, then {:.2}s for the videos",
+            request["mainWindowWaitMs"].as_f64().unwrap_or(0.0) / 1000.0,
+            finishing.elapsed().as_secs_f64()
+        );
         if let Some(error) = failure.or(stopped) {
             log::warn!("[render] key viewer videos failed: {error}");
             return Err(error);
@@ -625,6 +631,50 @@ impl Track {
             worker.abort();
         }
     }
+}
+
+/// WebView2 paces its captures to the display: every CapturePreview waited for the next
+/// vsync-timed compositor frame, about 54 ms a frame on a 60 Hz laptop. The render pages
+/// get their own WebView2 environment without vsync or a frame-rate cap, which halved it
+/// (16 to 28 frames a second). The live viewers keep the app's environment.
+#[cfg(target_os = "windows")]
+fn build_unpaced(
+    app: &AppHandle,
+    builder: WebviewWindowBuilder<'_, tauri::Wry, AppHandle>,
+) -> Result<WebviewWindow, String> {
+    const UNPACED: &str = "--disable-gpu-vsync --disable-frame-rate-limit";
+    // WebView2 takes this variable over the builder's arguments when it creates an
+    // environment. The app sets it at launch, so the render environment gets the app's
+    // arguments and these, and the variable goes back once the page exists.
+    const KEY: &str = "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS";
+    let directory = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("render-webview");
+    let previous = std::env::var(KEY).ok();
+    std::env::set_var(
+        KEY,
+        format!("{} {UNPACED}", previous.as_deref().unwrap_or("")).trim(),
+    );
+    let built = builder
+        .data_directory(directory)
+        .additional_browser_args(UNPACED)
+        .build();
+    match previous {
+        Some(previous) => std::env::set_var(KEY, previous),
+        None => std::env::remove_var(KEY),
+    }
+    built.map_err(|e| e.to_string())
+}
+
+/// The arguments are WebView2's; other platforms build the page as before.
+#[cfg(not(target_os = "windows"))]
+fn build_unpaced(
+    _app: &AppHandle,
+    builder: WebviewWindowBuilder<'_, tauri::Wry, AppHandle>,
+) -> Result<WebviewWindow, String> {
+    builder.build().map_err(|e| e.to_string())
 }
 
 fn video_settings(request: &Value) -> Result<VideoSettings, String> {

@@ -306,7 +306,7 @@ impl RenderService {
                 .as_f64()
                 .filter(|size| size.is_finite() && (1.0..=4096.0).contains(size))
         };
-        let resize = {
+        let resize: PageSize = {
             let mut sessions = self.session.lock();
             let session = sessions
                 .as_mut()
@@ -340,14 +340,13 @@ impl RenderService {
             config["width"] = json!(pixels_width);
             config["height"] = json!(pixels_height);
             config["viewport"] = json!({"width":width, "height":height, "padding":padding});
-            (requested != (width, height)).then_some((width, height))
+            PageSize {
+                css: (width, height),
+                pixels: (pixels_width, pixels_height),
+                changed: requested != (width, height),
+            }
         };
-        if let Some((width, height)) = resize {
-            window
-                .set_size(tauri::LogicalSize::new(width, height))
-                .map_err(|e| e.to_string())?;
-        }
-        Ok(())
+        resize.apply(window)
     }
 
     fn install_prepared_surfaces(&self, id: &str, surfaces: Vec<Surface>) -> Result<(), String> {
@@ -675,6 +674,46 @@ fn build_unpaced(
     builder: WebviewWindowBuilder<'_, tauri::Wry, AppHandle>,
 ) -> Result<WebviewWindow, String> {
     builder.build().map_err(|e| e.to_string())
+}
+
+/// A render page's CSS viewport and the video pixels it covers.
+struct PageSize {
+    css: (f64, f64),
+    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    pixels: (u32, u32),
+    /// The page laid out another viewport than the game asked for.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    changed: bool,
+}
+
+impl PageSize {
+    /// WebKit's snapshot draws the page at the size asked for. WebView2's CapturePreview
+    /// takes the window's own pixels, so there the window gets the video's pixels and the
+    /// zoom brings the CSS viewport back: the keys are drawn at the video's resolution
+    /// instead of being stretched by FFmpeg afterwards.
+    #[cfg(target_os = "windows")]
+    fn apply(self, window: &WebviewWindow) -> Result<(), String> {
+        let display = window.scale_factor().map_err(|e| e.to_string())?;
+        window
+            .set_size(tauri::PhysicalSize::new(self.pixels.0, self.pixels.1))
+            .map_err(|e| e.to_string())?;
+        window
+            .set_zoom(
+                crate::compute_compensating_zoom() * f64::from(self.pixels.0)
+                    / (self.css.0 * display),
+            )
+            .map_err(|e| e.to_string())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn apply(self, window: &WebviewWindow) -> Result<(), String> {
+        if self.changed {
+            window
+                .set_size(tauri::LogicalSize::new(self.css.0, self.css.1))
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 
 fn video_settings(request: &Value) -> Result<VideoSettings, String> {

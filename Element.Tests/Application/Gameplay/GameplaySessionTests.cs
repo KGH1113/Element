@@ -53,7 +53,8 @@ internal static class GameplaySessionTests
     var parts = new Parts();
     parts.Recording.IsActive = true;
     parts.Session.Show();
-    Check(!parts.Overlay.Shown && parts.Viewers.Off, "record mode keeps the overlay and key viewers out");
+    Check(!parts.Overlay.Shown && !parts.Viewers.Shown, "record mode hides the overlay and the key viewers");
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "record mode keeps the pages loaded, only hidden");
     Check(parts.Recording.Reapplied == 1, "record mode hides the game's UI of the new play again");
     Check(!parts.Session.ShowsKeyViewersInPlay, "a rendered video of a recorded play shows no key viewers");
 
@@ -80,7 +81,7 @@ internal static class GameplaySessionTests
     Check(parts.Viewers.Shown, "the layout editor shows them in record mode too");
     parts.Editing = false;
     parts.Session.RefreshViewers();
-    Check(parts.Viewers.Off, "closing it in record mode unloads them");
+    Check(parts.Viewers.Presence == KeyViewerPresence.Ready, "closing it in record mode hides them, pages kept");
     parts.Recording.IsActive = false;
     parts.Viewers.Supported = false;
     parts.Editing = true;
@@ -105,6 +106,13 @@ internal static class GameplaySessionTests
     parts.Play.IsInGameWorld = true;
     parts.Session.ApplySettings();
     Check(parts.Overlay.Shown, "turning record mode off during a play shows the overlay again");
+    Check(parts.Viewers.Shown, "turning record mode off during a play shows the key viewers again");
+    parts.Settings.RecordMode = true;
+    parts.Session.ApplySettings();
+    Check(!parts.Viewers.Shown, "turning record mode on during a play hides the key viewers");
+    parts.Settings.RecordMode = false;
+    parts.Session.ApplySettings();
+    Check(parts.Viewers.Shown && parts.Viewers.Unloads == 0, "switching record mode never unloads the pages");
   }
 
   private static void ElementNoteOpensWhenAutoOpenTurnsOn()

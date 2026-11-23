@@ -200,13 +200,19 @@ internal sealed class KeyViewerRenderSession
   {
     if (!Running || _surfaces == null || _lastFrameIndex < 0)
       return null;
-    string request = _channel.Send(FinishCommand, new { sessionId = SessionId });
+    // The renderer may call this off the game thread while the game shows its progress.
+    string session = SessionId;
+    string request = _channel.Send(FinishCommand, new { sessionId = session });
     if (request == null)
     {
       Fail(RenderFailure.AppUnavailable, "ElementNote disconnected before the key viewer videos were done.");
       return null;
     }
     RenderReply reply = _replies.Wait(request, timeout);
+    // A render cancelled meanwhile stopped this session, and another may have begun since:
+    // a late failure here must not end that one.
+    if (SessionId != session)
+      return null;
     if (!Accept(reply, "finish the key viewer videos"))
       return null;
     RenderVideo[] videos = reply.Videos;

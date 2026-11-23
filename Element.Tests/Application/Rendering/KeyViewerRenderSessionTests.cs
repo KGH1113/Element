@@ -30,6 +30,7 @@ internal static class KeyViewerRenderSessionTests
     FinishesWithAVideoPerPage();
     RejectsFinishWithoutEveryVideo();
     AllowsSlowFinishes();
+    LetsACancelledRenderReleaseTheFinishWait();
     PulsesOncePerSecond();
     PulsesFromATimerThread();
   }
@@ -175,6 +176,29 @@ internal static class KeyViewerRenderSessionTests
       !session.SendFrame(0, Quick) && session.Finish(Quick) == null && channel.Sent.Count == sent,
       "Later frames and finish neither wait nor send."
     );
+  }
+
+  // The renderer waits for the videos off the game thread while the game shows its progress.
+  // A render cancelled meanwhile stops the session there: the wait ends at once and leaves no
+  // failure behind for the next render.
+  private static void LetsACancelledRenderReleaseTheFinishWait()
+  {
+    var channel = new FakeChannel
+    {
+      Answer = (name, payload) => name == KeyViewerRenderSession.BeginCommand ? AnswerBegin(name, payload) : null,
+    };
+    var session = new KeyViewerRenderSession(channel, channel.Replies);
+    session.Start(new[] { new RenderSurfaceRequest("hand", 1, 400, 250) }, 60, Ffmpeg);
+    session.SendFrame(0, Quick);
+    IReadOnlyList<RenderVideo> videos = Array.Empty<RenderVideo>();
+    var waiter = new Thread(() => videos = session.Finish(TimeSpan.FromSeconds(30)));
+    var watch = Stopwatch.StartNew();
+    waiter.Start();
+    Thread.Sleep(100);
+    session.Stop();
+    Check(waiter.Join(TimeSpan.FromSeconds(5)), "Stopping the session releases a finish waiting off the game thread.");
+    Check(videos == null && watch.Elapsed < TimeSpan.FromSeconds(5), "A stopped session hands over no videos.");
+    Check(session.Failure == null, "A cancelled render leaves no failure for the next one.");
   }
 
   private static void ReportsTheAppsFailure()

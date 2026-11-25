@@ -20,13 +20,14 @@ internal static class FieldChips
 {
   private const int MostShown = 3;
 
-  public static FieldChip[] Of(OverlayVariable variable)
+  /// <param name="around">What the field gives: a condition or a calculation in it gives that too.</param>
+  public static FieldChip[] Of(OverlayVariable variable, OverlayValueType around = OverlayValueType.Any)
   {
     if (variable == null || variable.IsEmpty)
       return new[] { new FieldChip("empty", L("비어 있음", "Empty"), OverlayValueType.Any) { Muted = true } };
     List<FieldChip> chips = new(MostShown + 1);
     for (int i = 0; i < variable.Count && i < MostShown; i++)
-      chips.Add(Of(variable[i], i));
+      chips.Add(Of(variable[i], i, around));
     if (variable.Count > MostShown)
       chips.Add(new FieldChip("more", "…", OverlayValueType.Any) { Operator = true });
     return chips.ToArray();
@@ -42,7 +43,7 @@ internal static class FieldChips
     if (color == null)
       return new[] { new FieldChip("mixed", L("여러 개", "Mixed"), OverlayValueType.Color) { Muted = true } };
     if (!string.IsNullOrEmpty(color.Formula))
-      return Of(OverlayVariable.Parse(color.Formula));
+      return Of(OverlayVariable.Parse(color.Formula), OverlayValueType.Color);
     shown.a = 1;
     if (color.IsGradient)
       return new[]
@@ -74,7 +75,7 @@ internal static class FieldChips
     };
   }
 
-  private static FieldChip Of(OverlayPiece piece, int index)
+  private static FieldChip Of(OverlayPiece piece, int index, OverlayValueType around)
   {
     string key = index + ":" + (int)piece.Kind;
     OverlayValueType type = OverlayVariableTypes.TypeOf(piece);
@@ -83,9 +84,9 @@ internal static class FieldChips
       case OverlayPieceKind.Operator:
         return new FieldChip(key, LineViewModel.Label(piece), OverlayValueType.Number) { Operator = true };
       case OverlayPieceKind.Condition:
-        return new FieldChip(key, L("조건", "Condition"), type);
+        return new FieldChip(key, L("조건", "Condition"), around);
       case OverlayPieceKind.Group:
-        return new FieldChip(key, L("계산", "Calculation"), type);
+        return new FieldChip(key, L("계산", "Calculation"), around);
       case OverlayPieceKind.Text:
         string words = piece.Text.Length > 8 ? piece.Text.Substring(0, 7) + "…" : piece.Text;
         return new FieldChip(key, "“" + words + "”", type);

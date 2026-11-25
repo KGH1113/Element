@@ -198,7 +198,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// </summary>
   public void ShowField(OverlayVariable variable, string result, bool active)
   {
-    Chips.Value = FieldChips.Of(variable);
+    Chips.Value = FieldChips.Of(variable, Field ?? OverlayValueType.Any);
     bool plain =
       variable != null
       && variable.Count == 1

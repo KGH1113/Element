@@ -92,7 +92,7 @@ namespace Element.Editor
       Assert(rows.SequenceEqual(folders.Where(folder => folder.Key != "Color").Select(folder => "Place " + folder.Key)),
         "at the caret the list has each category with something a text shows, then each mod once: " + string.Join(", ", rows));
       Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("글에 넣을 수 있는 값", "Values for the text")
-        && TypeMarkOf(dock) == "＊",
+        && TypeMarkOf(dock) == "*",
         "the words over the values say where they go, after the mark of anything: " + values.Title.Value);
       int notInText = folders.SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
         .Count(value => value.IsColor || value.Kind == OverlayValueKind.Bool || value.Id == OverlayValueId.MakeText);
@@ -355,7 +355,7 @@ namespace Element.Editor
         where + ": the search's words fit its field: " + hint.text + " / " + search.text + " in " + room);
     }
 
-    /// <summary>The sign in the mark over the values, as drawn now: "#", "＊"; null while none shows.</summary>
+    /// <summary>The sign in the mark over the values, as drawn now: "#", "*"; null while none shows.</summary>
     private static string TypeMarkOf(DockProbe dock) =>
       dock.Root.GetComponentsInChildren<RectTransform>(false).Where(mark => mark.name == "Values type")
         .Select(mark => mark.GetComponentInChildren<TextMeshProUGUI>()?.text).FirstOrDefault();

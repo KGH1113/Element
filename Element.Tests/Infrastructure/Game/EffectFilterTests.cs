@@ -11,12 +11,59 @@ namespace Element.Tests.Infrastructure.Game;
 
 internal static class EffectFilterTests
 {
-  [Suite("effect filter copies only changed tracks and ignores NONE tags")]
+  [Suite("effect filter copies only changed tracks, ignores NONE tags and keeps hitbox decorations")]
   public static void Run()
   {
     CopiesOnlyTracksThatChangeOpacity();
     IgnoresTheGamesNoneTag();
     FollowingCameraUsesTheChosenZoom();
+    HitboxDecorationsHaveTheirOwnOption();
+  }
+
+  private static void HitboxDecorationsHaveTheirOwnOption()
+  {
+    LevelEvent kill = Fixture(LevelEventType.AddDecoration, ("tag", "spike"), ("hitbox", HitboxType.Kill));
+    LevelEvent trigger = Fixture(LevelEventType.AddDecoration, ("tag", "NONE"), ("hitbox", HitboxType.Event));
+    LevelEvent visual = Fixture(LevelEventType.AddDecoration, ("tag", "star"), ("hitbox", HitboxType.None));
+    LevelEvent untagged = Fixture(LevelEventType.AddText);
+    LevelEvent moveKill = Fixture(LevelEventType.MoveDecorations, ("tag", "star spike"));
+    LevelEvent moveVisual = Fixture(LevelEventType.MoveDecorations, ("tag", "star"));
+    LevelEvent moveNone = Fixture(LevelEventType.MoveDecorations, ("tag", "NONE"));
+    var source = new LevelData(false)
+    {
+      levelEvents = new EventsArray<LevelEvent> { moveKill, moveVisual, moveNone },
+      decorations = new DecorationsArray<LevelEvent> { kill, trigger, visual, untagged },
+    };
+    List<LevelEvent> Filtered(RemovedEffects effects)
+    {
+      var items = new List<LevelEvent> { kill, trigger, visual, untagged, moveKill, moveVisual, moveNone };
+      EffectLevelFilter.FilterEditorDecorations(items, source, effects);
+      return items;
+    }
+
+    List<LevelEvent> decorations = Filtered(RemovedEffects.Decorations);
+    Check(
+      decorations.Count == 3
+        && decorations.Contains(kill)
+        && decorations.Contains(trigger)
+        && decorations.Contains(moveKill),
+      "Removing decorations must keep kill and event hitboxes and the moves that target their tags."
+    );
+    List<LevelEvent> hitboxes = Filtered(RemovedEffects.HitboxDecorations);
+    Check(
+      hitboxes.Count == 5 && !hitboxes.Contains(kill) && !hitboxes.Contains(trigger),
+      "Removing hitbox decorations must remove only decorations with a kill or event hitbox."
+    );
+    Check(
+      Filtered(RemovedEffects.Decorations | RemovedEffects.HitboxDecorations).Count == 0,
+      "Both options together must remove every decoration and decoration move, as Decorations did before."
+    );
+    Check(
+      EffectLevelFilter.IsHitboxDecoration(Fixture(LevelEventType.AddDecoration, ("hitbox", "Kill")))
+        && !EffectLevelFilter.IsHitboxDecoration(Fixture(LevelEventType.AddDecoration, ("hitbox", "None")))
+        && !EffectLevelFilter.IsHitboxDecoration(Fixture(LevelEventType.AddDecoration)),
+      "A hitbox stored by name must be recognized, and a missing or None hitbox is not one."
+    );
   }
 
   private static void FollowingCameraUsesTheChosenZoom()

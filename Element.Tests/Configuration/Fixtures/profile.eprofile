@@ -104,7 +104,7 @@
         <EffectPreset>
           <Id>Id</Id>
           <Name>Name</Name>
-          <Effects>Checkpoints</Effects>
+          <Effects>HitboxDecorations</Effects>
           <CameraZoom>1</CameraZoom>
           <ShortcutKey>F24</ShortcutKey>
           <ShortcutModifier>F24</ShortcutModifier>

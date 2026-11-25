@@ -41,7 +41,15 @@ internal static class EffectPresetTests
     RemovedEffects all = settings.Presets[0].Effects;
     RemovedEffects noFilters = settings.Presets[1].Effects;
     RemovedEffects tiles = settings.Presets[2].Effects;
-    Check(all == EffectCatalog.All, "Remove All must enable every supported removal option.");
+    Check(
+      all == (EffectCatalog.All & ~EffectCatalog.GameplayEffects),
+      "Remove All must enable every removal option that keeps how the map plays."
+    );
+    Check(
+      (EffectCatalog.All & RemovedEffects.HitboxDecorations) != 0
+        && settings.Presets.TrueForAll(p => (p.Effects & RemovedEffects.HitboxDecorations) == 0),
+      "Hitbox decorations must be a removable option that no default preset removes."
+    );
     Check(
       noFilters == (RemovedEffects.Filters | RemovedEffects.AdvancedFilters),
       "No Filters must affect only standard and advanced filters."
@@ -82,7 +90,11 @@ internal static class EffectPresetTests
         "The preserved track mask must match the Track editor group: " + definition.Name
       );
     Check(
-      tiles == (EffectCatalog.All & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents)),
+      tiles
+        == (
+          EffectCatalog.All
+          & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents | EffectCatalog.GameplayEffects)
+        ),
       "Only Tiles removes the remaining effects without changing tracks or their repeat scheduling."
     );
     foreach (
@@ -131,6 +143,10 @@ internal static class EffectPresetTests
       Check(
         settings.Presets.Count == 3 && settings.ActivePresetId == newIds[i],
         "An untouched active preset must map to its replacement."
+      );
+      Check(
+        settings.Presets.TrueForAll(p => (p.Effects & RemovedEffects.HitboxDecorations) == 0),
+        "Migrated defaults must keep hitbox decorations."
       );
       string snapshot = Write(settings);
       settings.Normalize();

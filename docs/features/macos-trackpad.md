@@ -24,7 +24,7 @@
 **변경 내용**
 
 - [네이티브 입력 모듈](../../native/macos/Trackpad.mm): AppKit의 정밀 스크롤과 magnify 이벤트를 별도로 수집한다. 제스처 단계와 관성 단계를 보존하고, 창 크기에 대해 정규화한 좌표와 이동량을 C ABI로 전달한다. bounded queue가 넘치면 해당 입력을 취소한다.
-- [네이티브 로더](../../Element/Infrastructure/Game/Editor/MacTrackpadNative.cs): 모드 폴더의 라이브러리를 절대 경로로 로드한다. 모드 해제 시 이벤트 모니터를 제거한다.
+- [네이티브 로더](../../Element/Infrastructure/Platform/MacTrackpadNative.cs): 모드 폴더의 라이브러리를 절대 경로로 로드한다. 모드 해제 시 이벤트 모니터를 제거한다.
 - [에디터 연결](../../Element/Infrastructure/Game/Editor/EditorTrackpadController.cs): 캔버스와 UI의 제스처 대상을 구분한다. 에디터 Update의 기존 휠 읽기와 Unity UI 스크롤 경로를 제한적으로 패치해 중복 처리를 막는다. 오류나 API 변경에는 네이티브 기능을 해제하고 원래 입력으로 복귀한다.
 - [제스처 상태·줌 계산](../../Element/Infrastructure/Game/Editor/TrackpadGesture.cs): 손을 떼고 관성이 이어져도 대상을 유지한다. 취소된 캔버스 관성이 UI 스크롤로 전환되지 않도록 처리한다. 작은 핀치 입력은 연속 배율로 반영한다.
 - macOS 빌드에 arm64/x86_64 universal dylib 컴파일과 ad-hoc 서명을 추가하고 설치·패키징에 포함했다.

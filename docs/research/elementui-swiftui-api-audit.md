@@ -29,7 +29,7 @@ ADOFAI 게임 어셈블리 분석은 필요하지 않았다. 검색창의 제약
 
 ## 검색창은 정확히 무엇 때문에 길어졌나
 
-현재 [SearchBox](../../Element/Presentation/Layout/ContentEditors/Shell/OverlayValueBrowserView.cs)는 137행에서 `ZStack`으로 입력창과 아이콘·clear 버튼을 겹친다. 이어지는 `Dress()` 163행은 다음을 직접 처리한다.
+현재 [SearchBox](../../Element/Presentation/OverlayEditor/Parts/Dock/ValueBrowser/ValueBrowserView.cs)는 137행에서 `ZStack`으로 입력창과 아이콘·clear 버튼을 겹친다. 이어지는 `Dress()` 163행은 다음을 직접 처리한다.
 
 | 현재 코드의 책임 | 위치 | 있어야 할 표현 수준 |
 | --- | --- | --- |

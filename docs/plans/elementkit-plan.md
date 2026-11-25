@@ -187,7 +187,7 @@ mod.OnUpdate = (_, _) =>
 
 얼불춤에서 직접 읽을 수 있는 것은 넣지 않고, Element만 가진 것만 엽니다.
 
-- **`Player.Keys`:** ElementNote의 현재 키 목록입니다(몇 키를 쓰는지, 키 이름). Element가 이미 키 리미터로 받고 있습니다([`KeyLimiterContracts.cs`](../../Element/Application/KeyLimiter/KeyLimiterContracts.cs)). ElementNote가 연결되지 않았으면 `null`입니다.
+- **`Player.Keys`:** ElementNote의 현재 키 목록입니다(몇 키를 쓰는지, 키 이름). Element가 이미 키 리미터로 받고 있습니다([`Application/KeyLimiter`](../../Element/Application/KeyLimiter)). ElementNote가 연결되지 않았으면 `null`입니다.
 - **기본 값 읽기:** 정확도, 진행도처럼 Element가 이미 계산한 값을 읽습니다.
 
 ## 개발 흐름
@@ -360,12 +360,12 @@ public sealed class ProgressBars : OverlayElement<BarsSettings>
   - `모드Id/키` 형식의 모르는 키는 "없는 값" 토큰으로 남겨, 저장할 때 그대로 다시 씁니다.
   - 오버레이에서는 표시하지 않고, 편집기에서는 `[이름]`으로 보입니다.
   - 예전에 없어진 기본 값은 지금처럼 지웁니다.
-- **함께 확인할 것:** 설정에 저장된 모르는 요소 종류(`TemplateId`)는 지금도 지우지 않습니다([`OverlayCanvasHost.ConfigureLayouts`](../../Element/Presentation/Overlay/Shared/OverlayCanvasHost.cs)).
+- **함께 확인할 것:** 설정에 저장된 모르는 요소 종류(`TemplateId`)는 지금도 지우지 않습니다([`OverlayCanvasHost.ConfigureLayouts`](../../Element/Presentation/Overlay/Canvas/OverlayCanvasHost.cs)).
 
 ### 프리셋
 
 - **형식:** 프리셋 JSON 형식을 정의합니다. 기본 배치([`OverlayElementDefaults`](../../Element/Domain/Overlay/Defaults/OverlayElementDefaults.cs), 진행도 바 3개 도형 등)도 같은 형식으로 옮겨, Element도 자기 기능을 같은 길로 씁니다.
-- **추가 메뉴:** 요소 추가 메뉴에 "기타" 행과 옆 목록을 붙입니다. 도형 종류 메뉴([`OverlayLayoutEditor.ShapeEditor.cs`](../../Element/Presentation/Layout/OverlayLayoutEditor.ShapeEditor.cs)의 `ToggleShapeMenu`) 방식을 재사용하고, 메뉴 높이는 3행 또는 4행이 됩니다.
+- **추가 메뉴:** 요소 추가 메뉴에 "기타" 행과 옆 목록을 붙입니다. 도형 종류 메뉴(당시 `OverlayLayoutEditor.ShapeEditor.cs`의 `ToggleShapeMenu`) 방식을 재사용하고, 메뉴 높이는 3행 또는 4행이 됩니다.
 - **추가 동작:** 프리셋을 추가하면 요소들을 화면 가운데에 놓고 모두 선택합니다. 히스토리에는 한 번만 기록해서 실행 취소 한 번에 되돌립니다.
 - **내보내기:** 개발자 모드에서 선택한 요소를 상대 위치로 바꿔 JSON으로 씁니다. 파일로 저장하고 경로를 보여 주며, 클립보드에도 복사합니다.
 

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
@@ -156,11 +157,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Press(char key) => _formulas.KeypadPress(key);
 
-  void IInputDockActions.Select(int index) => Edit(editing => editing.Select(index));
-
-  void IInputDockActions.Enter(int slot) => Edit(editing => editing.Enter(slot));
-
-  void IInputDockActions.Back() => Edit(editing => editing.Back());
+  void IInputDockActions.SelectAt(IReadOnlyList<FormulaStep> route, int index) =>
+    Edit(editing => editing.SelectAt(route, index));
 
   void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
@@ -177,7 +175,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     Render();
   }
 
-  void IInputDockActions.Clear() => _formulas.ClearFormula();
+  void IInputDockActions.Remove() => Edit(editing => editing.Remove());
 
   void IInputDockActions.Done() => _formulas.FinishEditing();
 
@@ -411,7 +409,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     if (restartBlink)
     {
       _blinkStart = Time.unscaledTime;
-      _dock.RestartBlink();
     }
     FollowSelection();
     _formulas.Sync();

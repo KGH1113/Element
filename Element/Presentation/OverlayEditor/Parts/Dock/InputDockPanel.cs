@@ -1,6 +1,7 @@
 using System;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;

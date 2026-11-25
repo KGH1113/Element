@@ -273,14 +273,6 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
-  /// <summary>Starting over is its own undo step.</summary>
-  public void ClearFormula()
-  {
-    _editing.Clear();
-    _text.BreakFormula();
-    _editor.Render();
-  }
-
   /// <summary>Apply: what is open is done, once it fits its field; until then the dock says why not.</summary>
   public void FinishEditing()
   {

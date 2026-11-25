@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
@@ -130,11 +131,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Press(char key) => _numbers.KeypadPress(key);
 
-  void IInputDockActions.Select(int index) => Edit(editing => editing.Select(index));
-
-  void IInputDockActions.Enter(int slot) => Edit(editing => editing.Enter(slot));
-
-  void IInputDockActions.Back() => Edit(editing => editing.Back());
+  void IInputDockActions.SelectAt(IReadOnlyList<FormulaStep> route, int index) =>
+    Edit(editing => editing.SelectAt(route, index));
 
   void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
@@ -151,7 +149,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     Render();
   }
 
-  void IInputDockActions.Clear() => _numbers.ClearFormula();
+  void IInputDockActions.Remove() => Edit(editing => editing.Remove());
 
   void IInputDockActions.Done() => _numbers.FinishEditing();
 
@@ -325,9 +323,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     if (_frame == null)
       return;
     if (restartBlink)
-      _dock.RestartBlink();
-    // With no number open, the open picker's color is what the dock types.
-    _numbers.Sync(_colors.CasesOpen ? _colors.Cases.Slot : null);
+      // With no number open, the open picker's color is what the dock types.
+      _numbers.Sync(_colors.CasesOpen ? _colors.Cases.Slot : null);
     _colors.Follow();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);

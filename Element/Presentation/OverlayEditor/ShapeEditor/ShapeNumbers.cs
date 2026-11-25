@@ -259,14 +259,6 @@ internal sealed class ShapeNumbers
     _editor.Render();
   }
 
-  /// <summary>Starting over is its own undo step.</summary>
-  public void ClearFormula()
-  {
-    _editing.Clear();
-    _history.Break();
-    _editor.Render();
-  }
-
   public void FinishEditing()
   {
     if (_editing.Active && _editing.Problem != null)

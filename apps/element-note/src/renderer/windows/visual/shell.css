@@ -85,3 +85,11 @@ body {
   background: rgba(16, 16, 18, 0.84);
   box-shadow: var(--ui-shadow-surface);
 }
+
+/* A Mac set to always show scroll bars, as CI's runners are, gives a scrolling
+   area 15px for its bar; one that shows them while scrolling gives none. The
+   pictures are saved without, so a bar the app doesn't style takes no room here. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

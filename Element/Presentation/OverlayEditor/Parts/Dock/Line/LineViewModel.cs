@@ -51,6 +51,11 @@ internal sealed class LineViewModel : ViewModel
   /// <summary>What it works out to, with its unit: "= 192 px"; empty when there is nothing to work out.</summary>
   public string Result = "";
 
+  /// <summary>Whether the result is a color, shown as its swatch before it.</summary>
+  public bool ResultHasSwatch;
+
+  public Color ResultSwatch = Color.white;
+
   public readonly LineSlotViewModel Root = new("s");
 
   /// <summary>A piece or a slot clicked: it is picked.</summary>
@@ -77,6 +82,7 @@ internal sealed class LineViewModel : ViewModel
     Name = made ? OverlayCustomValues.Shown(start.Custom, FormulaWords.Current) : name ?? "";
     Type = start.Type;
     Result = made || string.IsNullOrEmpty(result) || IsPlain(start.Variable) ? "" : "= " + result;
+    ResultHasSwatch = Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
     SelectedRoute(editing, lineBase);
     _used.Clear();
     _route.Clear();

@@ -30,11 +30,15 @@ internal sealed class FormulaLineView : View<LineViewModel>
               .DefaultScrollAnchor(Alignment.Trailing)
               .Frame(maxWidth: float.PositiveInfinity, height: Height)
               .Named("Formula line"),
-            Text(() => VM.Result)
-              .Font(Font.Body.Sized(22))
-              .Foreground(Ui.Theme.UiPalette.SoftAccent)
-              .LineLimit(1)
-              .Named("Result")
+            HStack(
+              spacing: 6,
+              If(() => VM.ResultHasSwatch, () => Spacer().Frame(width: 16, height: 16).Background(() => VM.ResultSwatch, 8)),
+              Text(() => VM.Result)
+                .Font(Font.Body.Sized(22))
+                .Foreground(Ui.Theme.UiPalette.SoftAccent)
+                .LineLimit(1)
+                .Named("Result")
+            )
           ),
         () =>
           Text(() => VM.Hint)

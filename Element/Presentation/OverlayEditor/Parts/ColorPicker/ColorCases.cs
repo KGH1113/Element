@@ -165,7 +165,8 @@ internal sealed class ColorCases
       OverlayTextComposer.Cases(color),
       out _
     );
-    return InputDockViewModel.Swatch(Builder.Clear(), shown).ToString().TrimEnd();
+    // The line shows it as its swatch beside its code.
+    return "#" + ColorUtility.ToHtmlStringRGB(shown);
   }
 
   // The color as a variable: its own pieces, or its plain color as one piece; nothing for a gradient.

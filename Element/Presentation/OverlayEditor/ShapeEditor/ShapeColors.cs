@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Variables;
@@ -115,9 +116,8 @@ internal sealed class ShapeColors
       "Shape fill",
       L("채우기", "Fill"),
       () => Open(false),
-      value: true,
-      swatch: true,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Color
     );
 
   public PropertyButtonViewModel BuildStroke() =>
@@ -125,9 +125,8 @@ internal sealed class ShapeColors
       "Shape border",
       L("테두리", "Border"),
       () => Open(true),
-      value: true,
-      swatch: true,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Color
     );
 
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
@@ -203,10 +202,14 @@ internal sealed class ShapeColors
   /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
   public void ShowButtons(ShapePreview preview)
   {
-    _fillButton.SetSwatch(preview.FillShown, preview.FillGradient);
-    _fillButton.Set(ColorNames.Describe(_context.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
-    _strokeButton.SetSwatch(preview.StrokeShown, preview.StrokeGradient);
-    _strokeButton.Set(ColorNames.Describe(_context.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
+    _fillButton.ShowField(
+      FieldChips.Of(_context.Shape.Fill, preview.FillShown, preview.FillGradient),
+      Picker.Visible && !_pickerForStroke
+    );
+    _strokeButton.ShowField(
+      FieldChips.Of(_context.Shape.Stroke, preview.StrokeShown, preview.StrokeGradient),
+      Picker.Visible && _pickerForStroke
+    );
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>

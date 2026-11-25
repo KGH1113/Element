@@ -24,7 +24,8 @@ internal static class TypeMarks
   /// <summary>The soft color of <paramref name="type"/>: marks, underlines and the edge of its pieces.</summary>
   public static UiColor Ink(OverlayValueType type) => InkColor(type);
 
-  private static Color InkColor(OverlayValueType type) =>
+  /// <summary><see cref="Ink"/> as a plain color, for a mark drawn without a view.</summary>
+  public static Color InkColor(OverlayValueType type) =>
     type switch
     {
       OverlayValueType.Number => NumberInk,

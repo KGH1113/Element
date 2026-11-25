@@ -1,3 +1,5 @@
+using Element.Domain.Overlay.Variables;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Domain.Overlay.Text;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -58,9 +60,8 @@ internal sealed class TextAnimate
       "Text animation",
       L("애니메이션", "Animate"),
       Open,
-      value: true,
-      icon: UiIconKind.Animate,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Bool
     );
 
   /// <summary>The tool, hidden until the row opens it, under <paramref name="inspector"/>'s back row.</summary>
@@ -110,7 +111,13 @@ internal sealed class TextAnimate
     _text.Range(out int start, out int end);
     OverlayAnimateState grow = _text.Document.AnimateState(start, end);
     bool growing = grow == OverlayAnimateState.On || grow == OverlayAnimateState.Mixed;
-    _animateButton.Set(growing ? L("커지기", "Grow") : L("꺼짐", "Off"), false, Visible);
+    _animateButton.ShowField(
+      new FieldChip(growing ? "on" : "off", growing ? L("커지기", "Grow") : L("꺼짐", "Off"), OverlayValueType.Bool)
+      {
+        Bare = true,
+      },
+      Visible
+    );
     if (!Visible)
       return;
     _growRow.SetSwitch(

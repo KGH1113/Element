@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Variables;
@@ -38,6 +39,8 @@ internal sealed class TextColor
   private readonly OverlayGradientFormulas _swatchFormulas = new();
   private readonly OverlayResolvedGradient _swatchGradient = new();
   private PropertyButtonViewModel _colorButton;
+  private Color _shown = Color.white;
+  private OverlayResolvedGradient _shownGradient;
 
   public TextColor(
     IEditorActions editor,
@@ -103,9 +106,8 @@ internal sealed class TextColor
       "Text color",
       L("글자 색", "Text color"),
       OpenPicker,
-      value: true,
-      swatch: true,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Color
     );
 
   /// <summary>The picker over the controls, with its opacity as a number.</summary>
@@ -193,7 +195,8 @@ internal sealed class TextColor
   /// <summary>The picker in the property column from the tool's top, above the keypad.</summary>
   public void Place(InputDockPanel dock, InspectorPanel inspector) => _picker.Place(dock, inspector.ToolTop);
 
-  public void ShowButton() => _colorButton.Set(ColorNames.Describe(_text.RangeColor()), false, Picker.Visible);
+  public void ShowButton() =>
+    _colorButton.ShowField(FieldChips.Of(_text.RangeColor(), _shown, _shownGradient), Picker.Visible);
 
   /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
@@ -210,7 +213,8 @@ internal sealed class TextColor
       OverlayTextComposer.Cases(color),
       out _
     );
-    _colorButton.SetSwatch(shown, gradient ? _swatchGradient : null);
+    _shown = shown;
+    _shownGradient = gradient ? _swatchGradient : null;
   }
 
   // The picker's opacity shows its result like the size.

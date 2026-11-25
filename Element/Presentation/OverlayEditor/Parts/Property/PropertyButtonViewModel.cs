@@ -1,3 +1,5 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
+using Element.Domain.Overlay.Variables;
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
@@ -51,10 +53,14 @@ internal sealed class PropertyButtonViewModel : ViewModel
     bool toggle = false,
     bool opens = false,
     Color? under = null,
-    Action<OverlayValueDefinition> takesValue = null
+    Action<OverlayValueDefinition> takesValue = null,
+    OverlayValueType? field = null,
+    string fieldGlyph = null
   )
   {
     TakesValue = takesValue;
+    Field = field;
+    FieldGlyph = fieldGlyph;
     Name = name;
     Label = label;
     ShowsValue = value;
@@ -104,6 +110,24 @@ internal sealed class PropertyButtonViewModel : ViewModel
 
   /// <summary>Whether a switch follows its name.</summary>
   public readonly bool Toggle;
+
+  /// <summary>
+  /// A field (칸): its type's mark leads the row and what it holds shows as
+  /// chips (<see cref="ShowField(OverlayVariable,string,bool)"/>); null for a plain button.
+  /// </summary>
+  public readonly OverlayValueType? Field;
+
+  /// <summary>Letters leading a field of a kind values don't have, as "Aa" for a font or "⊡" for an anchor.</summary>
+  public readonly string FieldGlyph;
+
+  /// <summary>Whether it is drawn as a field (칸).</summary>
+  public bool IsField => Field.HasValue || FieldGlyph != null;
+
+  /// <summary>What the field holds, as chips.</summary>
+  public readonly State<FieldChip[]> Chips = new(Array.Empty<FieldChip>());
+
+  /// <summary>What the field works out to, as "= 120 px"; empty when its chip already says it.</summary>
+  public readonly State<string> Result = new("");
 
   /// <summary>Whether a click opens a tool in the editor's column, as a list or a picker does.</summary>
   public readonly bool Opens;
@@ -170,6 +194,35 @@ internal sealed class PropertyButtonViewModel : ViewModel
       Revision++;
     }
     _computedValue.Value = computed;
+    _active.Value = active;
+  }
+
+  /// <summary>
+  /// Shows what a field holds: <paramref name="variable"/>'s pieces as chips
+  /// and, unless one chip already says it, what it works out to
+  /// (<paramref name="result"/>, in its unit). <paramref name="active"/>
+  /// lights the row while the field is open.
+  /// </summary>
+  public void ShowField(OverlayVariable variable, string result, bool active)
+  {
+    Chips.Value = FieldChips.Of(variable);
+    bool plain =
+      variable != null
+      && variable.Count == 1
+      && variable[0].Kind is not (OverlayPieceKind.Value or OverlayPieceKind.Condition or OverlayPieceKind.Group or OverlayPieceKind.Custom);
+    Result.Value = plain || string.IsNullOrEmpty(result) ? "" : "= " + result;
+    _active.Value = active;
+  }
+
+  /// <summary>Shows one chip as what a field holds, as a font's name or an anchor's point.</summary>
+  public void ShowField(FieldChip chip, bool active) =>
+    ShowField(chip == null ? Array.Empty<FieldChip>() : new[] { chip }, active);
+
+  /// <summary>Shows <paramref name="chips"/> as what a field holds, as a color's.</summary>
+  public void ShowField(FieldChip[] chips, bool active)
+  {
+    Chips.Value = chips ?? Array.Empty<FieldChip>();
+    Result.Value = "";
     _active.Value = active;
   }
 

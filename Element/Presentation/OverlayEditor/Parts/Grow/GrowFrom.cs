@@ -1,3 +1,5 @@
+using Element.Domain.Overlay.Variables;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
@@ -61,9 +63,8 @@ internal sealed class GrowFrom
       "Grow from",
       L("기준점", "Grow from"),
       Toggle,
-      value: true,
-      icon: UiIconKind.GrowFrom,
-      opens: true
+      opens: true,
+      fieldGlyph: "⊡"
     );
 
   /// <summary>The points, opening in <paramref name="inspector"/>'s column, and the dot, over the editor's controls.</summary>
@@ -103,7 +104,11 @@ internal sealed class GrowFrom
   private Anchor9 PointNow() => OverlayLayoutPosition.ValidGrowth(Growth) ? (Anchor9)(int)Growth : _element.GrowPoint;
 
   /// <summary>Shows the row's choice: the short name of the point, lit while the points are open.</summary>
-  public void ShowButton() => Button.Set(GrowPickerViewModel.ShortName(Growth), false, _popover.Visible);
+  public void ShowButton() =>
+    Button.ShowField(
+      new FieldChip("point", GrowPickerViewModel.ShortName(Growth), OverlayValueType.Any) { Bare = true },
+      _popover.Visible
+    );
 
   /// <summary>
   /// While the popover is open, puts the dot on the point of the preview's

@@ -84,7 +84,8 @@ internal sealed class GradientEditing
       "Color position",
       "%",
       activatePosition,
-      reduceMotion
+      reduceMotion,
+      L("위치", "Position")
     );
     picker.Gradient.HasPosition = true;
     picker.Gradient.GradientBox = box;

@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
@@ -72,10 +73,8 @@ internal sealed class ShapeNumbers
       "Border width",
       L("테두리 두께", "Border width"),
       () => _editor.Activate(StrokeKey),
-      value: true,
-      unit: "px",
-      icon: UiIconKind.StrokeWidth,
-      takesValue: takesValue
+      takesValue: takesValue,
+      field: OverlayValueType.Number
     );
 
   /// <summary>
@@ -333,7 +332,10 @@ internal sealed class ShapeNumbers
   public void ShowStrokeWidth()
   {
     OverlayVariable stroke = Shown(StrokeKey);
-    bool computed = !stroke.IsEmpty && !stroke.IsPlainNumber(out _);
-    _strokeWidth.Set(stroke.IsEmpty ? "—" : FormulaFieldView.Number(Result(stroke)), computed, Field == StrokeKey);
+    _strokeWidth.ShowField(
+      stroke,
+      stroke.IsEmpty ? "" : FormulaFieldView.Number(Result(stroke)) + " px",
+      Field == StrokeKey
+    );
   }
 }

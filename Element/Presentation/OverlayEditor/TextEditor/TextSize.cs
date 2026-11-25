@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Text;
@@ -56,11 +57,10 @@ internal sealed class TextSize
   {
     bool active = _formulas.Edits(TextFormulas.SizeKey, out OverlayVariable typed);
     OverlayVariable formula = typed ?? Read();
-    bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     _text.Range(out int start, out int end);
-    _sizeButton.Set(
-      formula.IsEmpty ? "—" : FormulaFieldView.Number(_formulas.Result(formula, ShownSize(start, end))),
-      computed,
+    _sizeButton.ShowField(
+      formula,
+      formula.IsEmpty ? "" : FormulaFieldView.Number(_formulas.Result(formula, ShownSize(start, end))) + " px",
       active
     );
   }

@@ -690,7 +690,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       _marquee.End();
       _guides.HideLines();
       _cursors.Set(LayoutHandle.None);
-      _float = new FloatScene(_session, () => _toolbar.Bounds);
+      _float = new FloatScene(_session, () => _toolbar.Bounds, _kinds.Label, _cursors);
     }
     else
     {
@@ -724,7 +724,11 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       _toolbar.Dragging
       || (_toolbar.Bounds.Contains(mouse) && Input.GetMouseButtonDown(0) && !_toolbar.ControlAt(mouse))
     )
+    {
+      if (!_toolbar.Dragging)
+        _float.ClearHover();
       TrackPointer(mouse);
+    }
     else
       _float.Pointer(mouse);
     AdvanceFloatView(Time.unscaledDeltaTime);

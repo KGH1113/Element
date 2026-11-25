@@ -16,7 +16,7 @@ internal sealed class UiCursor
     IPointerDownHandler,
     IPointerUpHandler
 {
-  private static readonly Texture2D[] Textures = new Texture2D[4];
+  private static readonly Texture2D[] Textures = new Texture2D[5];
   private static UiCursor _owner;
   private static Texture2D _applied;
   private static Vector2 _hotspot;
@@ -135,11 +135,16 @@ internal sealed class UiCursor
       Apply(null, Vector2.zero);
       return false;
     }
-    int index = (int)_owner.Kind;
-    if (Textures[index] == null)
-      Textures[index] = Create(_owner.Kind);
-    Apply(Textures[index], _owner.Kind == UiCursorKind.Pointer ? new Vector2(11, 4) : new Vector2(16, 16));
+    Apply(_owner.Kind);
     return true;
+  }
+
+  internal static void Apply(UiCursorKind kind)
+  {
+    int index = (int)kind;
+    if (Textures[index] == null)
+      Textures[index] = Create(kind);
+    Apply(Textures[index], kind == UiCursorKind.Pointer ? new Vector2(11, 4) : new Vector2(16, 16));
   }
 
   public static void ResetCursor()
@@ -192,6 +197,15 @@ internal sealed class UiCursor
 
   private static float Distance(UiCursorKind kind, Vector2 p)
   {
+    if (kind == UiCursorKind.Grab)
+    {
+      float palm = RoundedBox(p, 16.5f, 21, 7.3f, 6.4f, 3.3f);
+      palm = Mathf.Min(palm, Segment(p, 6, 16, 11, 22) - 1.8f);
+      palm = Mathf.Min(palm, Segment(p, 9, 8, 12, 19) - 1.6f);
+      palm = Mathf.Min(palm, Segment(p, 15, 5, 16, 18) - 1.7f);
+      palm = Mathf.Min(palm, Segment(p, 21, 7, 20, 18) - 1.6f);
+      return Mathf.Min(palm, Segment(p, 26, 11, 23, 20) - 1.5f);
+    }
     if (kind == UiCursorKind.Pointer)
     {
       // Rounded raised index finger and a compact palm, with readable fingers.

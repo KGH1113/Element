@@ -40,12 +40,14 @@ internal sealed class InputDockViewModel : ViewModel
   /// <param name="notices">The editor's notices, which the dock shows above its line.</param>
   /// <param name="actions">Where everything the player does in the dock goes.</param>
   /// <param name="reduceMotion">Unused since the line has no caret; kept for the editors that pass it.</param>
+  /// <param name="caret">With nothing open, values go in at a text's caret, and the list shows what fits there.</param>
   public InputDockViewModel(
     OverlayValues values,
     FormulaEditing editing,
     EditorFrameViewModel notices,
     IInputDockActions actions,
-    bool reduceMotion
+    bool reduceMotion,
+    bool caret = false
   )
   {
     _editing = editing;
@@ -53,7 +55,7 @@ internal sealed class InputDockViewModel : ViewModel
     _emptyHint = L("칸이나 값을 누르면 여기서 고쳐요", "Click a field or a value to edit it here");
     Notices = notices;
     Keypad = Own(new KeypadViewModel(actions, editing));
-    Values = Own(new ValueBrowserViewModel(values, actions));
+    Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
     Line = Own(new LineViewModel(actions));
     Typing = Computed(() => Owner.Value != null && _editing.Active);
     Problem = Computed(() => Typing.Value ? FormulaRefusals.Explain(_editing.Problem) ?? "" : "");
@@ -66,7 +68,6 @@ internal sealed class InputDockViewModel : ViewModel
     Warn = Color.Lerp(rest, UiPalette.Error, .22f);
     AccentInk = UiPalette.SoftAccent;
     OnInk = UiPalette.Foreground;
-    Values.Fits = value => !_editing.Active || _editing.CanDrop(value);
   }
 
   // ---- The input method ----
@@ -130,7 +131,7 @@ internal sealed class InputDockViewModel : ViewModel
 
   public readonly KeypadViewModel Keypad;
 
-  /// <summary>Every value that can be added: the places, the open one's chips and the search.</summary>
+  /// <summary>The values that fit where values go now: the places, the open one's chips and the search.</summary>
   public readonly ValueBrowserViewModel Values;
 
   /// <summary>The editor's notices, shown above the line for a few seconds.</summary>

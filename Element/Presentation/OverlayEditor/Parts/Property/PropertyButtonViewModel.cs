@@ -14,8 +14,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Property;
 /// <summary>
 /// One control in an editor's top bar: a button that says what it is and
 /// what it holds, such as <c>● Fill</c> or <c>═ Border width 2 px</c>, and
-/// what a click does. It stays lit while what it opened is open, and lights
-/// up as a place a dragged value can (or can't) land. A switch button shows
+/// what a click does. It stays lit while what it opened is open. A switch button shows
 /// its state in a small switch after the name. The part it belongs to sets
 /// what it shows; <see cref="PropertyButtonView"/> draws it.
 /// </summary>
@@ -23,12 +22,9 @@ internal sealed class PropertyButtonViewModel : ViewModel
 {
   private readonly UiColor _rest,
     _lit,
-    _accepts,
-    _refuses,
     _computed;
   private readonly State<bool> _computedValue = new(false);
   private readonly State<bool> _active = new(false);
-  private readonly State<DropState> _drop = new(DropState.None);
 
   /// <param name="name">Names the drawn button: the bar finds it by this, and so do the checks.</param>
   /// <param name="label">What it is, such as "Fill".</param>
@@ -53,12 +49,10 @@ internal sealed class PropertyButtonViewModel : ViewModel
     bool toggle = false,
     bool opens = false,
     Color? under = null,
-    Action<OverlayValueDefinition> takesValue = null,
     OverlayValueType? field = null,
     string fieldGlyph = null
   )
   {
-    TakesValue = takesValue;
     Field = field;
     FieldGlyph = fieldGlyph;
     Name = name;
@@ -76,15 +70,8 @@ internal sealed class PropertyButtonViewModel : ViewModel
       accent = UiPalette.SoftAccent;
     _rest = rest;
     _lit = Color.Lerp(rest, accent, .3f);
-    _accepts = Color.Lerp(rest, accent, .38f);
-    _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
-    Fill = Computed(() =>
-      _drop.Value == DropState.Accepts ? _accepts
-      : _drop.Value == DropState.Refuses ? _refuses
-      : _active.Value ? _lit
-      : _rest
-    );
+    Fill = Computed(() => _active.Value ? _lit : _rest);
     ValueInk = Computed(() => _computedValue.Value ? _computed : Colors.Foreground);
     Ink = Computed(() => Available.Value ? Colors.Foreground : Colors.Muted);
     Click = Command(click);
@@ -117,7 +104,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// </summary>
   public readonly OverlayValueType? Field;
 
-  /// <summary>Letters leading a field of a kind values don't have, as "Aa" for a font or "⊡" for an anchor.</summary>
+  /// <summary>Letters leading a field of a kind values don't have, as "Aa" for a font or "⊙" for an anchor.</summary>
   public readonly string FieldGlyph;
 
   /// <summary>Whether it is drawn as a field (칸).</summary>
@@ -141,7 +128,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>The name's and the icon's color: muted while there is nothing for it to act on.</summary>
   public readonly Computed<UiColor> Ink;
 
-  /// <summary>Its fill at rest: lit while what it opened is open, or while a value is dragged over it.</summary>
+  /// <summary>Its fill at rest: lit while what it opened is open.</summary>
   public readonly Computed<UiColor> Fill;
 
   /// <summary>The swatch's color, opaque.</summary>
@@ -181,15 +168,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
 
-  /// <summary>
-  /// A number row a value carried out of the dock can calculate, such as a
-  /// text's size: let go here, the value goes to this action, which also says
-  /// why words can't. Null for a row that takes none.
-  /// </summary>
-  public readonly Action<OverlayValueDefinition> TakesValue;
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public DropState Drop => _drop.Value;
 
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
@@ -262,8 +241,6 @@ internal sealed class PropertyButtonViewModel : ViewModel
     SwatchGradient.Value = gradient;
   }
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(DropState drop) => _drop.Value = drop;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

@@ -31,7 +31,7 @@ internal sealed class FieldChip
 
   public readonly OverlayValueType Type;
 
-  /// <summary>Letters in place of the type's mark: "Aa" for a font, "⊡" for an anchor.</summary>
+  /// <summary>Letters in place of the type's mark: "Aa" for a font, "⊙" for an anchor.</summary>
   public string Glyph;
 
   /// <summary>A color: its swatch leads instead of a mark.</summary>

@@ -64,7 +64,7 @@ internal sealed class GrowFrom
       L("기준점", "Grow from"),
       Toggle,
       opens: true,
-      fieldGlyph: "⊡"
+      fieldGlyph: "⊙"
     );
 
   /// <summary>The points, opening in <paramref name="inspector"/>'s column, and the dot, over the editor's controls.</summary>

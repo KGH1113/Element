@@ -352,22 +352,6 @@ internal sealed class TextFormulas
       _editing.Enter(0);
   }
 
-  /// <summary>A value dropped on a number opens that number and calculates it with the value.</summary>
-  public void DropOn(string key, OverlayValueDefinition value)
-  {
-    if (!value.IsNumeric)
-    {
-      Refuse(value);
-      return;
-    }
-    if (_fieldSlot != key)
-    {
-      _editor.CloseOpen();
-      _fieldSlot = key;
-    }
-    _editing.Drop(CurrentSlot(), value);
-  }
-
   /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>
   public void Refuse(OverlayValueDefinition value) => _editor.Notice(FormulaRefusals.Why(value, _editing));
 }

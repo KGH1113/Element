@@ -12,6 +12,7 @@ using System.Linq;
 using System.Text;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Values;
@@ -50,8 +51,10 @@ namespace Element.Editor
     public static readonly NumberValue NextGap = Rank.Number("next-gap", "다음 순위까지", "To the next rank", 31.07);
   }
 
-  // The input dock's values: the list of places (categories, then one row
-  // per mod), the open place's chips with what they read now, and the search.
+  // The input dock's values: only those that fit where values go, under
+  // words naming that place and a count of what was left out; the list of
+  // places (categories, then one row per mod), the open place's chips with
+  // what they read now, and the search.
   public static partial class SettingsPreview
   {
     private const string PreviewMod = "TUFOverlay";
@@ -81,11 +84,24 @@ namespace Element.Editor
       ValueBrowserViewModel values = dock.Values;
       List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
 
-      // The list: each category, a small heading, then one row per mod however many groups it made.
+      // At the text's caret: what a text shows. Colors and true or false
+      // don't, and words are typed there, so those are left out, and so is a
+      // place that holds nothing else; under the values, how many that was.
       Settle();
-      string[] rows = dock.Root.GetComponentsInChildren<Pressable>(true).Where(row => row.name.StartsWith("Place ")).Select(row => row.name).ToArray();
-      Assert(rows.SequenceEqual(folders.Select(folder => "Place " + folder.Key)),
-        "the list has each category, then each mod once: " + string.Join(", ", rows));
+      string[] rows = dock.Root.GetComponentsInChildren<Pressable>(false).Where(row => row.name.StartsWith("Place ")).Select(row => row.name).ToArray();
+      Assert(rows.SequenceEqual(folders.Where(folder => folder.Key != "Color").Select(folder => "Place " + folder.Key)),
+        "at the caret the list has each category with something a text shows, then each mod once: " + string.Join(", ", rows));
+      Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("글에 넣을 수 있는 값", "Values for the text")
+        && TypeMarkOf(dock) == "＊",
+        "the words over the values say where they go, after the mark of anything: " + values.Title.Value);
+      int notInText = folders.SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
+        .Count(value => value.IsColor || value.Kind == OverlayValueKind.Bool || value.Id == OverlayValueId.MakeText);
+      TextMeshProUGUI hiddenNote = ByName<TextMeshProUGUI>(dock.Root, "Values hidden");
+      Assert(notInText > 0 && hiddenNote.text == L("이 자리에 맞지 않는 값 " + notInText + "개는 숨겼어요.", notInText + " values that don't fit here are hidden."),
+        "how many were left out is said under the values: " + hiddenNote.text);
+      Press(DockPlace(dock, "Make"));
+      Assert(DockChips(dock).Select(chip => chip.name).SequenceEqual(new[] { "Value make-number", "Value make-condition", "Value make-group" }),
+        "the text lists no words or true or false to make: " + string.Join(", ", DockChips(dock).Select(chip => chip.name)));
       Assert(folders.Count(folder => folder.IsMod) == 2 && rows.Count(row => row.StartsWith("Place mod:")) == 2,
         "two mods are two rows, not one per group");
       Pressable tuf = DockPlace(dock, "mod:" + PreviewMod), sample = DockPlace(dock, "mod:Sample"), system = DockPlace(dock, "System");
@@ -138,13 +154,12 @@ namespace Element.Editor
       Pressable[] chips = DockChips(dock);
       Assert(values.OpenFolder == judgement && chips.Select(chip => chip.name).SequenceEqual(judgement.Chips.Select(chip => chip.Name)),
         "a place shows its values, and only them");
-      Assert(chips.All(chip => ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject)?.GetComponent<DragSource>() != null),
-        "each chip can be carried out");
-      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == judgement.Name, "the page is named after its place");
+      Assert(chips.All(chip => ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject)?.GetComponent<DragSource>() == null),
+        "no chip can be carried out: picking one is the only way in");
       Assert(!judgement.Fill.Value.Equals(tufFolder.Fill.Value) && judgement.Fill.Value.Literal.a == 1
         && judgement.Ink.Value.Equals((ElementUI.UiColor)UiPalette.Foreground),
         "the open place is lit, opaque");
-      ValueBrowserViewModel next = new ValueBrowserViewModel(host.Values, NoDockActions.Instance);
+      ValueBrowserViewModel next = new ValueBrowserViewModel(host.Values, NoDockActions.Instance, new FormulaEditing(), true);
       Assert(next.OpenFolder.Key == "Judgement", "the next editor's dock opens on the place opened last");
       next.Dispose();
 
@@ -222,7 +237,8 @@ namespace Element.Editor
         "the search finds values in every place, in the list's order: " + string.Join(", ", chips.Select(chip => chip.name)));
       Assert(tufFolder.Fill.Value.Equals((ElementUI.UiColor)UiPalette.EditorControl) && !tufFolder.Open.Value,
         "the open place dims while the search shows");
-      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("검색 결과", "Results")
+      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("글에 넣을 수 있는 값", "Values for the text")
+        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("· 2개 찾음", "· 2 found"))
         && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Count(label => label.text == judgement.Name) == 2
         && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Count(label => label.text == "TUFOverlay") == 2,
         "what it finds sits under its place's name");
@@ -295,6 +311,39 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.Accuracy);
       host.Values.Clear(OverlayValueId.Combo);
       FollowNow(values);
+      CheckNumberValues(text, dock, camera, texture, canvases, name);
+    }
+
+    // A number field lists numbers only: a place with none, such as colors,
+    // is left out, the song title isn't found, and the words say so.
+    private static void CheckNumberValues(TextEditorScreen text, DockProbe dock, Camera camera, RenderTexture texture,
+      Canvas[] canvases, string name)
+    {
+      ValueBrowserViewModel values = dock.Values;
+      PressBar(text, Field<TextSize>(text, "_size").Button);
+      Settle();
+      Assert(dock.Owner == "size" && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("숫자 칸에 넣을 수 있는 값", "Values for a number field")
+        && TypeMarkOf(dock) == "#",
+        "opening the size, the words over the values name a number field: " + values.Title.Value);
+      Assert(!Shown(DockPlace(dock, "Color")) && Shown(DockPlace(dock, "Song")),
+        "colors aren't listed for a number; the song's place is, for its numbers");
+      Press(DockPlace(dock, "Song"));
+      Assert(DockChips(dock).All(chip => chip.name != "Value song-title") && DockChips(dock).Any(chip => chip.name == "Value attempt"),
+        "the song title isn't listed for a number, the attempts are");
+      int notNumbers = OverlayValueCatalog.Folders().SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
+        .Count(value => OverlayVariableTypes.TypeOf(value) is OverlayValueType.Text or OverlayValueType.Color or OverlayValueType.Bool);
+      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values hidden").text
+          == L("이 자리에 맞지 않는 값 " + notNumbers + "개는 숨겼어요.", notNumbers + " values that don't fit here are hidden."),
+        "it says how many were left out: " + values.Hidden.Value);
+      CheckValueLabels(dock, "number field");
+      SaveFrame(camera, texture, canvases, name + "-dock-number");
+      TMP_InputField search = DockSearch(dock);
+      search.text = ValueSectionNames.ValueName(OverlayValueCatalog.Get(OverlayValueId.SongTitle));
+      Assert(DockChips(dock).Length == 0 && values.NothingFound.Value, "the search finds only what fits: the song title isn't found for a number");
+      Press(ByName<Pressable>(dock.Root, "Clear value search"));
+      Call(text, "CloseOpen");
+      Call(text, "Render");
+      Settle();
     }
 
     // The search's hint and what is typed show whole between the glass and ×: the field clips, it doesn't cut short.
@@ -305,6 +354,11 @@ namespace Element.Editor
       Assert(hint.GetPreferredValues(hint.text).x <= room + .5f && search.textComponent.GetPreferredValues(search.text).x <= room + .5f,
         where + ": the search's words fit its field: " + hint.text + " / " + search.text + " in " + room);
     }
+
+    /// <summary>The sign in the mark over the values, as drawn now: "#", "＊"; null while none shows.</summary>
+    private static string TypeMarkOf(DockProbe dock) =>
+      dock.Root.GetComponentsInChildren<RectTransform>(false).Where(mark => mark.name == "Values type")
+        .Select(mark => mark.GetComponentInChildren<TextMeshProUGUI>()?.text).FirstOrDefault();
 
     // Lets the dock take what its values read now, without waiting for the next look.
     private static void FollowNow(ValueBrowserViewModel values)
@@ -377,6 +431,7 @@ namespace Element.Editor
         {
           RenderValueDock(font, live, width, 720, language, name + "-mod", "mod:" + PreviewMod, null);
           RenderValueDock(font, live, width, 720, language, name + "-search", "Judgement", language == SystemLanguage.Korean ? "정확" : "perfect");
+          RenderValueDock(font, live, width, 720, language, name + "-rest", null, null);
         }
       }
     }
@@ -414,7 +469,12 @@ namespace Element.Editor
         measure.color = Color.clear;
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
         EditorFrameViewModel notices = new EditorFrameViewModel("Value dock", "", () => { }, () => { }, true);
-        InputDockViewModel model = new InputDockViewModel(live, new FormulaEditing(), notices, NoDockActions.Instance, true);
+        // A number field is open: the list holds what goes in a number.
+        FormulaEditing editing = new FormulaEditing();
+        OverlayVariable typed = new OverlayVariable(OverlayPiece.NumberPiece("160"));
+        if (place != null)
+          editing.Activate(new FormulaSlot("width", OverlayValueType.Number, () => typed, variable => typed = variable));
+        InputDockViewModel model = new InputDockViewModel(live, editing, notices, NoDockActions.Instance, true);
         InputDockView dockView = new InputDockView(model, contentWidth);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
         panel.Mount(
@@ -424,10 +484,24 @@ namespace Element.Editor
           contentWidth
         );
         panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
-        model.Show(null, "", null,
-          L("값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
-            "Click a value to add it at the caret · Click a value in the text or a number to calculate here"));
+        if (place != null)
+          model.Show("width", L("너비", "Width"), "160 px", null);
+        else
+          model.Show(null, "", null, L("숫자를 누르면 여기서 계산해요", "Click a number to calculate it here"));
         Settle();
+        if (place == null)
+        {
+          // Nothing open: no values, only what to do.
+          TextMeshProUGUI rest = ByName<TextMeshProUGUI>(panel.Root, "Values rest");
+          Assert(Shown(rest) && rest.text == L("값이나 칸을 고르면 거기에 넣을 수 있는 값만 여기 나와요.",
+              "Pick a value or a field, and the values that fit there show here.")
+            && !panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value ") || chip.name.StartsWith("Place ")),
+            name + ": with nothing open the dock lists no values and says what to do");
+          rest.ForceMeshUpdate();
+          Assert(!rest.isTextTruncated, name + ": the hint fits: " + rest.text);
+          SaveFrame(camera, target, new[] { canvas }, name);
+          return;
+        }
         Press(ByName<Pressable>(panel.Root, "Place " + place));
         if (query != null)
           ByName<TMP_InputField>(panel.Root, "Value search").text = query;
@@ -443,7 +517,13 @@ namespace Element.Editor
           name + ": the dock fits the window: " + dock + " / " + window);
         Pressable[] chips = panel.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
         Pressable[] places = panel.Root.GetComponentsInChildren<Pressable>(false).Where(row => row.name.StartsWith("Place ")).ToArray();
-        Assert(chips.Length > 0 && places.Length == OverlayValueCatalog.Folders().Count, name + ": the list and the page are drawn");
+        Assert(chips.Length > 0 && places.Select(row => row.name).SequenceEqual(model.Values.Categories.Concat(model.Values.Mods)
+            .Where(folder => folder.Shown.Value).Select(folder => "Place " + folder.Key))
+          && !places.Any(row => row.name == "Place Color"),
+          name + ": the list holds the places with numbers, and the page is drawn: " + string.Join(", ", places.Select(row => row.name)));
+        TextMeshProUGUI hidden = ByName<TextMeshProUGUI>(panel.Root, "Values hidden");
+        Assert(Shown(hidden) && hidden.text.Length > 0 && model.Values.Title.Value == L("숫자 칸에 넣을 수 있는 값", "Values for a number field"),
+          name + ": the words name a number field and say how many were left out: " + hidden.text);
         float listEdge = places.Max(row => ScreenRectOf((RectTransform)row.transform).xMax);
         foreach (Pressable chip in chips)
         {

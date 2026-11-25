@@ -43,7 +43,6 @@ internal sealed class FormulaFieldView
   private float _textWidth;
   private bool _active;
   private bool _fills;
-  private DropState? _drop;
 
   public FormulaFieldView(
     UiFactory ui,
@@ -73,7 +72,7 @@ internal sealed class FormulaFieldView
     _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _unit.textWrappingMode = TextWrappingModes.NoWrap;
     _unitWidth = Measure(_unit, 3);
-    SetDrop(DropState.None);
+    Paint();
   }
 
   public RectTransform Root { get; }
@@ -159,10 +158,16 @@ internal sealed class FormulaFieldView
   private void LayOutAcross()
   {
     const float inset = 12;
-    float room = Root.rect.width - inset * 2 - MarkWidth - _prefixWidth - _unitWidth - 3;
+    float room = Root.rect.width - inset * 2 - _prefixWidth - _unitWidth - 3;
+    // In a narrow place the number keeps its room; the mark steps aside.
+    bool marked = room - MarkWidth >= _textWidth;
+    if (_mark.gameObject.activeSelf != marked)
+      _mark.gameObject.SetActive(marked);
+    float markWidth = marked ? MarkWidth : 0;
+    room -= markWidth;
     float text = room > 0 ? Mathf.Min(room, _textWidth) : _textWidth;
     UiFactory.Place(_mark, inset, (Height - MarkSize) * .5f, MarkSize, MarkSize);
-    UiFactory.Place(_prefix.rectTransform, inset + MarkWidth, 0, _prefixWidth, Height);
+    UiFactory.Place(_prefix.rectTransform, inset + markWidth, 0, _prefixWidth, Height);
     FromRight(_unit.rectTransform, inset, _unitWidth);
     FromRight(_text.rectTransform, inset + _unitWidth + 3, text);
   }
@@ -178,14 +183,6 @@ internal sealed class FormulaFieldView
   public static string Number(double value) =>
     double.IsNaN(value) || double.IsInfinity(value) ? "—" : value.ToString("0.#", CultureInfo.InvariantCulture);
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(DropState drop)
-  {
-    if (_drop == drop)
-      return;
-    _drop = drop;
-    Paint();
-  }
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
@@ -199,11 +196,7 @@ internal sealed class FormulaFieldView
   private void Paint()
   {
     Color accent = UiPalette.SoftAccent;
-    Color rest =
-      _drop == DropState.Accepts ? Color.Lerp(Rest, accent, .5f)
-      : _drop == DropState.Refuses ? Color.Lerp(Rest, UiPalette.Error, .4f)
-      : _active ? Color.Lerp(Rest, accent, .38f)
-      : Rest;
+    Color rest = _active ? Color.Lerp(Rest, accent, .38f) : Rest;
     ColorBlock colors = _body.colors;
     colors.normalColor = colors.selectedColor = rest;
     colors.highlightedColor = _active ? Color.Lerp(Rest, accent, .5f) : Hover;

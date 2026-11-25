@@ -11,7 +11,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Field;
 /// <summary>
 /// The mark that says what type a field or a value is: a small rounded tile
 /// with a glyph in the type's soft color (# numbers blue, 가 words green,
-/// ◐ true or false purple, ✱ anything), and for a color the color itself.
+/// ◐ true or false purple, ＊ anything), and for a color the color itself.
 /// Every field row, piece and list header uses the same marks.
 /// </summary>
 internal static class TypeMarks
@@ -43,7 +43,7 @@ internal static class TypeMarks
       OverlayValueType.Bool => "◐",
       OverlayValueType.Color => "●",
       OverlayValueType.Compare => "<>",
-      _ => "✱",
+      _ => "＊",
     };
 
   /// <summary>A small tile with the type's glyph in its color.</summary>

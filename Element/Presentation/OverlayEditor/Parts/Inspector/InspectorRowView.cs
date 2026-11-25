@@ -25,19 +25,9 @@ internal sealed class InspectorRowView : View<PropertyButtonViewModel>
   {
     get
     {
-      View row = Button(Content(), () => VM.Click, ButtonStyle.Plain)
+      return Button(Content(), () => VM.Click, ButtonStyle.Plain)
         .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, InspectorRowStyle.Radius))
         .Named(VM.Name);
-      // A number row that takes a carried value (a size, a border width) lights
-      // up under one; words can't be calculated, and letting go says so.
-      return VM.TakesValue == null
-        ? row
-        : row.DropDestination<OverlayValueDefinition>(
-          over: value => value.IsNumeric ? DropState.Accepts : DropState.Refuses,
-          drop: VM.TakesValue,
-          targeted: VM.SetDrop,
-          refused: VM.TakesValue
-        );
     }
   }
 

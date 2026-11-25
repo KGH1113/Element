@@ -85,9 +85,11 @@ internal sealed class LineViewModel : ViewModel
     Forget(_slots);
   }
 
-  // A plain number or a single value reads the same as its result.
+  // One number, words or color typed by hand reads the same as its result; a
+  // game value, a value of the player's or a condition says what it gives.
   private static bool IsPlain(OverlayVariable variable) =>
-    variable.Count == 1 && variable[0].Kind is not (OverlayPieceKind.Condition or OverlayPieceKind.Group);
+    variable.Count == 1
+    && variable[0].Kind is OverlayPieceKind.Number or OverlayPieceKind.Text or OverlayPieceKind.Color or OverlayPieceKind.Bool;
 
   // Where the picked piece is: the route of the innermost open variable.
   private void SelectedRoute(FormulaEditing editing, int lineBase)

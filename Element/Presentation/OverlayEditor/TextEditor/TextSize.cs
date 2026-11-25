@@ -40,16 +40,12 @@ internal sealed class TextSize
   /// <summary>The bar's Size button; made by <see cref="BuildButton"/>.</summary>
   public PropertyButtonViewModel Button => _sizeButton;
 
-  /// <param name="takesValue">A value carried onto the row: it calculates the size with it.</param>
-  public PropertyButtonViewModel BuildButton(Action<OverlayValueDefinition> takesValue) =>
+  public PropertyButtonViewModel BuildButton() =>
     _sizeButton = new PropertyButtonViewModel(
       "Text size",
       L("크기", "Size"),
       () => _formulas.Activate(TextFormulas.SizeKey),
-      value: true,
-      unit: "px",
-      glyph: L("가", "Aa"),
-      takesValue: takesValue
+      field: OverlayValueType.Number
     );
 
   // The size shows its result; one worked out from a formula reads in the accent.

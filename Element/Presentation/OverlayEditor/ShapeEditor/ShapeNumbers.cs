@@ -67,13 +67,11 @@ internal sealed class ShapeNumbers
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  /// <param name="takesValue">A value carried onto the row: it calculates the width with it.</param>
-  public PropertyButtonViewModel BuildStrokeWidth(Action<OverlayValueDefinition> takesValue) =>
+  public PropertyButtonViewModel BuildStrokeWidth() =>
     _strokeWidth = new PropertyButtonViewModel(
       "Border width",
       L("테두리 두께", "Border width"),
       () => _editor.Activate(StrokeKey),
-      takesValue: takesValue,
       field: OverlayValueType.Number
     );
 
@@ -256,6 +254,14 @@ internal sealed class ShapeNumbers
     else
       _editing.Press(key);
     _editor.Render();
+  }
+
+  /// <summary>지우기: the picked piece is taken out, a step of its own to undo.</summary>
+  public void Remove()
+  {
+    _history.Break();
+    _editing.Remove();
+    _history.Break();
   }
 
   public void FinishEditing()

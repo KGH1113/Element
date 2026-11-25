@@ -285,7 +285,10 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     Matrix4x4 toWorld = _text.rectTransform.localToWorldMatrix;
     float height = Screen.height;
     FontAtlasPixels atlases = _fonts.Atlases;
+    // Most glyphs share one material, and so one atlas: read them once.
     Material shaded = null;
+    bool traced = false;
+    FontAtlasAlpha atlas = default;
     GlyphShading shading = default;
     int count = Mathf.Min(info.characterCount, info.characterInfo.Length);
     for (int i = 0; i < count; i++)
@@ -297,22 +300,21 @@ internal sealed class TextOverlayElement : OverlayElementTarget
         topLeft = ToScreen(toWorld, character.vertex_TL.position, height),
         topRight = ToScreen(toWorld, character.vertex_TR.position, height),
         bottomRight = ToScreen(toWorld, character.vertex_BR.position, height);
-      Material material = MaterialOf(info, character);
-      Texture texture = material != null ? material.mainTexture : null;
-      if (
-        character.elementType != TMP_TextElementType.Character
-        || texture == null
-        || !atlases.TryRead(texture, out FontAtlasAlpha atlas)
-      )
-      {
-        runs.FillQuad(bottomLeft, topLeft, topRight, bottomRight);
+      if (!Touches(runs, bottomLeft, topLeft, topRight, bottomRight))
         continue;
-      }
-      // Most glyphs share one material: read its shading once.
+      Material material = MaterialOf(info, character);
       if (!ReferenceEquals(material, shaded))
       {
         shaded = material;
-        shading = GlyphShading.Of(material, atlas.Width, atlas.Height);
+        Texture texture = material != null ? material.mainTexture : null;
+        traced = texture != null && atlases.TryRead(texture, out atlas);
+        if (traced)
+          shading = GlyphShading.Of(material, atlas.Width, atlas.Height);
+      }
+      if (!traced || character.elementType != TMP_TextElementType.Character)
+      {
+        runs.FillQuad(bottomLeft, topLeft, topRight, bottomRight);
+        continue;
       }
       bool bold = (character.style & FontStyles.Bold) != 0 && !character.isUsingAlternateTypeface;
       GlyphCover.Trace(
@@ -351,6 +353,13 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     Material material = meshes != null && mesh >= 0 && mesh < meshes.Length ? meshes[mesh].material : null;
     return material != null ? material : character.material;
   }
+
+  // Whether a glyph's quad reaches into the clip of the runs at all.
+  private static bool Touches(ViewerCoverRuns runs, NVector2 a, NVector2 b, NVector2 c, NVector2 d) =>
+    Mathf.Max(Mathf.Max(a.X, b.X), Mathf.Max(c.X, d.X)) > runs.Left
+    && Mathf.Min(Mathf.Min(a.X, b.X), Mathf.Min(c.X, d.X)) < runs.Right
+    && Mathf.Max(Mathf.Max(a.Y, b.Y), Mathf.Max(c.Y, d.Y)) > runs.Top
+    && Mathf.Min(Mathf.Min(a.Y, b.Y), Mathf.Min(c.Y, d.Y)) < runs.Bottom;
 
   private static void Include(NVector2 point, ref float left, ref float top, ref float right, ref float bottom)
   {

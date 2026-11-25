@@ -1,12 +1,12 @@
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Domain.Overlay.Text;
 
 // One caret step: a displayed character (one or two UTF-16 units) or a whole
 // value, with its color, size (zero for the text's base size) and font (an
 // OverlayFontKey; empty follows the overlay's default font). A value is a
-// saved formula (OverlayFormula), usually one value's key. A size formula,
+// saved formula (OverlayVariable), usually one value's key. A size formula,
 // when set, gives the size in pixels as drawn and replaces Size. Only a value
 // animates: it grows briefly each time what it shows changes.
 internal readonly struct OverlayTextItem

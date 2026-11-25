@@ -145,6 +145,7 @@
               <Hex>Hex</Hex>
               <Alpha>0.5</Alpha>
               <AlphaFormula>AlphaFormula</AlphaFormula>
+              <Formula>Formula</Formula>
               <Gradient>
                 <Kind>Diamond</Kind>
                 <Stops>
@@ -201,6 +202,7 @@
           <Hex>Hex</Hex>
           <Alpha>0.5</Alpha>
           <AlphaFormula>AlphaFormula</AlphaFormula>
+          <Formula>Formula</Formula>
           <Gradient>
             <Kind>Diamond</Kind>
             <Stops>
@@ -238,6 +240,7 @@
           <Hex>Hex</Hex>
           <Alpha>0.5</Alpha>
           <AlphaFormula>AlphaFormula</AlphaFormula>
+          <Formula>Formula</Formula>
           <Gradient>
             <Kind>Diamond</Kind>
             <Stops>
@@ -284,6 +287,14 @@
       </Mod>
     </OverlayLayoutSettings>
   </OverlayLayouts>
+  <OverlayCustomValues>
+    <OverlayCustomValueSettings>
+      <Key>Key</Key>
+      <Name>Name</Name>
+      <Type>Type</Type>
+      <Variable>Variable</Variable>
+    </OverlayCustomValueSettings>
+  </OverlayCustomValues>
   <Profiles>
     <ElementProfile>
       <Id>Id</Id>
@@ -422,6 +433,7 @@
                     <Hex>Hex</Hex>
                     <Alpha>0.5</Alpha>
                     <AlphaFormula>AlphaFormula</AlphaFormula>
+                    <Formula>Formula</Formula>
                   </Color>
                   <Size>0.5</Size>
                   <SizeFormula>SizeFormula</SizeFormula>
@@ -447,6 +459,7 @@
                 <Hex>Hex</Hex>
                 <Alpha>0.5</Alpha>
                 <AlphaFormula>AlphaFormula</AlphaFormula>
+                <Formula>Formula</Formula>
                 <Gradient>
                   <Kind>Diamond</Kind>
                   <Stops>
@@ -473,6 +486,7 @@
                 <Hex>Hex</Hex>
                 <Alpha>0.5</Alpha>
                 <AlphaFormula>AlphaFormula</AlphaFormula>
+                <Formula>Formula</Formula>
                 <Gradient>
                   <Kind>Diamond</Kind>
                   <Stops>
@@ -508,6 +522,14 @@
             </Mod>
           </OverlayLayoutSettings>
         </OverlayLayouts>
+        <OverlayCustomValues>
+          <OverlayCustomValueSettings>
+            <Key>Key</Key>
+            <Name>Name</Name>
+            <Type>Type</Type>
+            <Variable>Variable</Variable>
+          </OverlayCustomValueSettings>
+        </OverlayCustomValues>
       </Content>
       <KeyViewersStart>CopyOf</KeyViewersStart>
       <KeyViewersCopyOf>KeyViewersCopyOf</KeyViewersCopyOf>

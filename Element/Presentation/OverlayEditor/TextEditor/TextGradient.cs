@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -29,8 +29,8 @@ internal sealed class TextGradient
   private readonly GradientEditing _gradient;
   private readonly FormulaSlot _positionSlot;
   private readonly FormulaSlot _angleSlot;
-  private readonly Func<OverlayFormula> _readPosition;
-  private readonly Func<OverlayFormula> _readAngle;
+  private readonly Func<OverlayVariable> _readPosition;
+  private readonly Func<OverlayVariable> _readAngle;
 
   // The range's color as the handles move it; written to the range on each move.
   private OverlayColorSettings _handleColor;
@@ -54,11 +54,11 @@ internal sealed class TextGradient
     _readAngle = ReadAngle;
     _positionSlot = new FormulaSlot(
       TextFormulas.PositionKey,
-      false,
+      OverlayValueType.Number,
       _readPosition,
       formula => WriteStop(true, formula)
     );
-    _angleSlot = new FormulaSlot(TextFormulas.AngleKey, false, _readAngle, WriteAngle);
+    _angleSlot = new FormulaSlot(TextFormulas.AngleKey, OverlayValueType.Number, _readAngle, WriteAngle);
   }
 
   public GradientHandles Handles => _gradient.Handles;
@@ -154,9 +154,9 @@ internal sealed class TextGradient
     };
 
   // A stop's position or opacity in percent: its formula, or the plain number.
-  public OverlayFormula ReadStop(bool position) => GradientEditing.ReadStop(PickedStop(_text.RangeColor()), position);
+  public OverlayVariable ReadStop(bool position) => GradientEditing.ReadStop(PickedStop(_text.RangeColor()), position);
 
-  public void WriteStop(bool position, OverlayFormula formula)
+  public void WriteStop(bool position, OverlayVariable formula)
   {
     _text.RememberFormula(position ? TextFormulas.PositionKey : TextFormulas.OpacityKey);
     OverlayColorSettings color = _text.RangeColor()?.Clone();
@@ -168,13 +168,13 @@ internal sealed class TextGradient
     _text.SetRangeColor(color);
   }
 
-  private OverlayFormula ReadAngle()
+  private OverlayVariable ReadAngle()
   {
     Vector2 box = _preview.BoxSize;
     return GradientEditing.ReadAngle(_text.RangeColor(), box.x, box.y);
   }
 
-  private void WriteAngle(OverlayFormula formula)
+  private void WriteAngle(OverlayVariable formula)
   {
     _text.RememberFormula(TextFormulas.AngleKey);
     OverlayColorSettings color = _text.RangeColor()?.Clone();

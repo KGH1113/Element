@@ -1,7 +1,7 @@
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
@@ -43,6 +43,12 @@ internal sealed class ShapePreview
   public OverlayResolvedGradient FillGradient => _resolver.FillGradient;
 
   public OverlayResolvedGradient StrokeGradient => _resolver.StrokeGradient;
+
+  /// <summary>The fill's color as drawn, its condition worked out with the examples.</summary>
+  public Color FillShown { get; private set; } = Color.white;
+
+  /// <summary>The border's color as drawn.</summary>
+  public Color StrokeShown { get; private set; } = Color.white;
 
   /// <summary>The box's top left in frame units.</summary>
   public Vector2 TopLeft { get; private set; }
@@ -100,13 +106,9 @@ internal sealed class ShapePreview
     _shapeRect.localScale = new Vector3(pixels, pixels, 1);
     IOverlayNumberSource samples = _values.WithSamples;
     _resolver.ResolvePaints(_resolved, samples, UiTheme.Accent);
-    _graphic.SetShape(
-      _resolved,
-      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _resolver.FillAlpha, samples),
-      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _resolver.StrokeAlpha, samples),
-      _resolver.FillGradient,
-      _resolver.StrokeGradient
-    );
+    FillShown = _resolver.FillColor(_resolved, samples, UiTheme.Accent);
+    StrokeShown = _resolver.StrokeColor(_resolved, samples, UiTheme.Accent);
+    _graphic.SetShape(_resolved, FillShown, StrokeShown, _resolver.FillGradient, _resolver.StrokeGradient);
     _graphic.SetPixelsPerUnit(pixels);
   }
 

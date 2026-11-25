@@ -2,10 +2,10 @@ using System;
 
 namespace Element.Configuration.Overlay;
 
-// One stop of a color that follows a value: at this value, this color. It
-// follows the highlight color, keeping only its own opacity, or is a fixed
-// custom color, like every overlay color. Hex is unused while it follows the
-// highlight.
+// One stop of a color that followed a value (OverlayValueColor, from earlier
+// versions): at this value, this color. It follows the highlight color,
+// keeping only its own opacity, or is a fixed custom color, like every
+// overlay color. Hex is unused while it follows the highlight.
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayValueColorStop

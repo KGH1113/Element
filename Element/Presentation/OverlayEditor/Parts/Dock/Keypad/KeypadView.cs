@@ -1,17 +1,12 @@
-using Element.Presentation.Ui.Declarative;
-using Element.Presentation.Ui.Declarative.Controls;
-using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Theme;
 using ElementUI;
-using UnityEngine;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// The keypad: four columns of capsule keys, the operators in the accent,
-/// then AC and a wide, tinted Done.
+/// The keypad: four columns of capsule keys, the operators in the accent.
+/// Its sizes are every input method's: they all take its place
+/// (<see cref="InputMethodView"/>), over the row of AC, back and Apply.
 /// </summary>
 internal sealed class KeypadView : View<KeypadViewModel>
 {
@@ -19,23 +14,25 @@ internal sealed class KeypadView : View<KeypadViewModel>
     KeyHeight = 44,
     Gap = 8,
     Width = 4 * Key + 3 * Gap,
-    Height = 5 * KeyHeight + 4 * Gap;
+    // What an input method has above the shared row.
+    MethodHeight = 4 * KeyHeight + 3 * Gap,
+    Height = MethodHeight + Gap + KeyHeight;
 
   public KeypadView(KeypadViewModel vm)
     : base(vm) { }
 
-  public override View Body =>
-    VStack(
+  public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: MethodHeight);
+
+  /// <summary>The row under every input method: AC, back out of a slot, and a wide, tinted Apply.</summary>
+  public static View SharedRow(KeypadViewModel vm) =>
+    HStack(
         spacing: Gap,
-        Grid(4, Gap, Keys()),
-        HStack(
-          spacing: Gap,
-          new KeypadKeyView(VM.Clear, 17, false).Frame(width: Key),
-          // Done is the one filled key: the way out of the keypad.
-          new KeypadKeyView(VM.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
-        )
+        new KeypadKeyView(vm.Clear, 17, false).Frame(width: Key),
+        new KeypadKeyView(vm.Back, 15, false).Frame(width: Key),
+        // Apply is the one filled key: the way out of the dock.
+        new KeypadKeyView(vm.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
       )
-      .Frame(width: Width, height: Height);
+      .Frame(width: Width, height: KeyHeight);
 
   private View[] Keys()
   {

@@ -312,12 +312,12 @@ namespace Element.Editor
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
       CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
-      CheckValueColor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
       CheckGradients(editor, host, camera, texture, canvases, name);
+      CheckVariables(editor, host, camera, texture, canvases, name);
       CheckModElements(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
@@ -388,7 +388,7 @@ namespace Element.Editor
       float scale = shape.EffectiveScale;
       DockProbe dock = DockOf(shapes);
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
-        && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
+        && DockKeys(dock).Length == 19 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
       Press(DockChip(dock, "Value combo"));
       Assert(Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0, "a value with no number picked says to pick one first");
@@ -472,7 +472,8 @@ namespace Element.Editor
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
-      Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number open every key can be pressed");
+      Assert(DockKeys(dock).Where(key => key.name != "Key back").All(key => key.IsInteractable()) && !DockKey(dock, "Key back").IsInteractable(),
+        "with a number open every key can be pressed, but Back waits for a slot to be open");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         if (label.GetComponentInParent<ScrollRect>() != null || label.name == "Formula" || label.richText)
@@ -574,17 +575,19 @@ namespace Element.Editor
         && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && pickerRect.yMin >= dockArea.yMax - 1
         && InsideScreen(pickerRect), "the picker opens above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
       AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
-      Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.HintText.Contains(Korean(name) ? "채우기 색" : "fill color"),
-        "the shape stays in sight, and the dock's line says which color is picked: " + dock.HintText);
+      Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.Owner == "color"
+        && dock.Vm.Title.Value.Contains(Korean(name) ? "채우기 색" : "Fill color"),
+        "the shape stays in sight, and the dock points at the picked color: " + dock.Vm.Title.Value);
       OpacityFieldView opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
         && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
         "the picker carries the opacity as a number like W and H");
       Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root))
-        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Segment(picker.Root, 0)),
-        "a new shape follows the highlight: only its opacity shows, with Highlight/Custom");
+        && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)) && !ColorPickerProbe.Shown(ColorPickerProbe.Segment(picker.Root, 0))
+        && picker.Model.DockNote.Value,
+        "a new shape follows the highlight: only its opacity shows, and a line says custom colors are in the dock");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
-      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Press(DockChip(dock, "Value custom-color"));
       Settle();
       Call(shapes, "Render");
       Settle();
@@ -627,7 +630,8 @@ namespace Element.Editor
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f && working.Fill.AlphaFormula == "" && Mathf.Abs(alphaSlider.value - .5f) < .001f
         && opacity.Field.Text == "50", "a typed opacity moves the slider");
       ShapeNumbersOf(shapes).FinishEditing();
-      Assert(picker.Visible && dock.Owner == null, "done typing, the picker stays open for the color");
+      Call(shapes, "Render");
+      Assert(picker.Visible && dock.Owner == "color", "done typing, the dock goes back to the color, the picker staying open");
       Vector2 opacityPoint = ScreenCenter(opacity.Field.Root);
       Carry toOpacity = new Carry(dock, OverlayValueId.Accuracy).MoveTo(opacityPoint);
       Assert(picker.Visible && Field<DropState?>(opacity.Field, "_drop") == DropState.Accepts,
@@ -664,7 +668,7 @@ namespace Element.Editor
       Assert(!picker.Visible && !fillButton.Active, "back closes the fill's picker");
       PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
-        && dock.HintText.Contains(Korean(name) ? "테두리 색" : "border color"), "Border opens the picker on its color, in the same place");
+        && dock.Vm.Title.Value.Contains(Korean(name) ? "테두리 색" : "Border color"), "Border opens the picker on its color, in the same place");
       AssertInColumn(shapes, picker.Root, L("테두리 색", "Border color"));
       PressBack(shapes);
       Assert(!picker.Visible && !strokeButton.Active && Shown(DockKey(dock, "Key done")), "back closes the picker; the rows and the keypad stay");
@@ -1214,8 +1218,7 @@ namespace Element.Editor
       Assert(animateTool.Visible, "the Animate row opens its tool");
       AssertInColumn(text, animateTool.Root, Korean(name) ? "애니메이션" : "Animate");
       Pressable drawnAnimate = ByName<Pressable>(animateTool.Root, "Grow on change");
-      Assert(drawnAnimate != null && ByName<Pressable>(animateTool.Root, "Color by value") != null,
-        "the tool has a switch to grow on each change and one to color by value");
+      Assert(drawnAnimate != null, "the tool has a switch to grow on each change");
       RoundedRect[] switchShapes = drawnAnimate.GetComponentsInChildren<RoundedRect>(false);
       RoundedRect animateTrack = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 30) < .01f
         && Mathf.Abs(graphic.rectTransform.rect.height - 18) < .01f && Mathf.Abs(graphic.Radius - 9) < .01f);
@@ -1364,7 +1367,9 @@ namespace Element.Editor
       Frames(() => QuietFrame(text), 2);
       TextMeshProUGUI drawnFormula = ByName<TextMeshProUGUI>(dock.Root, "Formula text");
       document = TextDocumentOf(text).Document;
-      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnFormula.text.EndsWith("×  3"),
+      string drawnWords = System.Text.RegularExpressions.Regex.Replace(
+        System.Text.RegularExpressions.Regex.Replace(drawnFormula.text, "<[^>]+>", ""), "\\s+", " ").Trim();
+      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnWords.EndsWith("× 3"),
         "pressed keys calculate the value, and the dock shows it: " + document[9].Value + " / " + drawnFormula.text);
       Press(back);
       Frames(() => QuietFrame(text), 2);
@@ -1423,7 +1428,7 @@ namespace Element.Editor
         && Mathf.Abs(pickerRect.xMax - KeypadRect(dock).xMax) < 1 && pickerRect.yMin >= ScreenRectOf(dock.Root).yMax - 1
         && InsideScreen(pickerRect), "the color picker opens above the keypad: " + pickerRect);
       AssertInColumn(text, picker.Root, L("선택한 글자 색", "Selected text color"));
-      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Press(DockChip(dock, "Value custom-color"));
       Settle();
       ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       picker.Commit();
@@ -1465,7 +1470,7 @@ namespace Element.Editor
       Assert(picker.Visible && colorButton.Active && dock.Owner == "value:9"
         && TextColorOf(text).Title == L("선택한 글자 색", "Selected text color"),
         "a value clicked in the text keeps the picker open, on that value, its formula in the dock");
-      Press(ColorPickerProbe.Segment(picker.Root, 1));
+      Press(DockChip(dock, "Value custom-color"));
       Settle();
       ColorPickerProbe.Hex(picker.Root).text = "#FF8000";
       picker.Commit();

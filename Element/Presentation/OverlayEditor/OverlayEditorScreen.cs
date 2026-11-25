@@ -56,6 +56,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
   private string _openingFont;
+  private List<OverlayCustomValueSettings> _openingValues;
   private GameObject _ownedEvents;
   private bool _previousCursorVisible;
   private CursorLockMode _previousCursorLock;
@@ -109,6 +110,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _openingLayout = new LayoutSnapshot(host.LayoutSettings);
     _openingColor = _session.Preferences.HighlightColor;
     _openingFont = _session.Preferences.OverlayFont;
+    _openingValues = _session.CustomValues.Copy();
     _previousCursorVisible = Cursor.visible;
     _previousCursorLock = Cursor.lockState;
     Cursor.visible = true;
@@ -162,6 +164,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       UiTheme.SetHighlight(_openingColor);
       _session.Preferences.OverlayFont = _openingFont;
       _session.Fonts?.SetDefault(_openingFont);
+      _session.CustomValues.Restore(_openingValues);
       RefreshLayouts();
     }
     EndPreview();

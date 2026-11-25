@@ -7,6 +7,7 @@ using Element.Domain.Layout;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Text;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -42,6 +43,7 @@ internal sealed class CanvasSession
     Font = font;
     Preferences = preferences;
     ReduceMotion = () => Preferences.ReduceUiMotion;
+    CustomValues = new CustomValueBook(preferences);
   }
 
   public OverlayCanvasHost Host { get; }
@@ -54,6 +56,9 @@ internal sealed class CanvasSession
   public ElementSettings Preferences { get; }
 
   public Func<bool> ReduceMotion { get; }
+
+  /// <summary>The values the player made, which every element shares.</summary>
+  public CustomValueBook CustomValues { get; }
 
   public LayoutHistory History { get; } = new();
 

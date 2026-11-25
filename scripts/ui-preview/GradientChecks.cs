@@ -9,7 +9,7 @@ using Element.Presentation.OverlayEditor.TextEditor;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
@@ -39,8 +39,8 @@ namespace Element.Editor
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       ShapeEditorScreen shapes = (ShapeEditorScreen)Kind<ShapeKind>(editor).Editor;
       Assert(shapes.IsOpen, "a new square opens its editor");
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(420));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(240));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(420));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(240));
       Call(shapes, "Render");
       // With motion, opening the picker glides the shape aside from where it was.
       ElementSettings preferences = Session(editor).Preferences;
@@ -147,7 +147,7 @@ namespace Element.Editor
       Call(shapes, "Activate", "fill-angle");
       DockProbe dock = DockOf(shapes);
       Assert(dock.Owner == "fill-angle", "the angle opens in the dock");
-      Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayFormula.FromNumber(0));
+      Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayVariable.FromNumber(0));
       ShapeNumbersOf(shapes).FinishEditing();
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(OverlayGradientMath.Angle(fill.Gradient, 420, 240)) < .5f, "a typed angle turns the gradient");
@@ -172,8 +172,8 @@ namespace Element.Editor
       // A small shape shows larger while its color is edited, and says so.
       ShapePreview shapePreview = Field<ShapePreview>(shapes, "_preview");
       Assert(shapePreview.Shown <= 1.001f, "a large shape isn't made larger: " + shapePreview.Shown);
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(30));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(24));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(30));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(24));
       Call(shapes, "Render");
       Settle();
       Assert(bar.gameObject.activeInHierarchy && position.Root.gameObject.activeInHierarchy && ShapeColorsOf(shapes).Opacity.Field.Root.gameObject.activeInHierarchy,
@@ -182,8 +182,8 @@ namespace Element.Editor
       Assert(shapePreview.Shown >= 2 && Shown(zoomLine) && zoomLine.text.Length > 0,
         "a small shape shows larger while its color is edited: " + shapePreview.Shown);
       SaveFrame(camera, texture, canvases, name + "-gradient-small");
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(420));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(240));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(420));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(240));
       Call(shapes, "Render");
       Settle();
 

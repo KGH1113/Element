@@ -123,7 +123,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
             spacing: 0,
             UI.Text(folder.Name).Font(Font.Caption.Sized(14)).Foreground(() => folder.Ink.Value).LineLimit(1),
             Spacer(minLength: 10),
-            UI.Text(folder.Count).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1)
+            UI.Text(() => folder.Count.Value).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1)
           )
           .Padding(0, RowInset)
           .Frame(maxWidth: float.PositiveInfinity, height: RowHeight),
@@ -201,11 +201,16 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     );
   }
 
-  // Each place's page is made the first time it opens and kept, with where it was scrolled.
+  // Each place's page is made the first time it opens and kept, with where
+  // it was scrolled; "My values" is made again when its values change.
   private View FolderPage(ValueFolderViewModel folder) =>
     If(
       () => folder.Open.Value,
-      () => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
+      () =>
+        Switch(
+          () => folder.Version.Value,
+          _ => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
+        )
     );
 
   private View Rows(IReadOnlyList<ValueChipRow> groups)
@@ -244,7 +249,10 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
   }
 
   private View Found(ValueFolderViewModel folder, float column) =>
-    If(() => folder.Found.Value, () => Row(folder.Name, column, Chips(folder.Chips, true)));
+    If(
+      () => folder.Found.Value,
+      () => Row(folder.Name, column, Switch(() => folder.Version.Value, _ => Chips(folder.Chips, true)))
+    );
 
   private View NothingFound() =>
     VStack(
@@ -298,6 +306,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     Button(
         HStack(
             spacing: 0,
+            ColorDot(chip.Value),
             UI.Text(chip.Label).Font(Font.Caption.Sized(13)).Foreground(ChipInk).LineLimit(1).Named("Value name"),
             If(
               () => chip.HasLive.Value,
@@ -320,9 +329,27 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         ButtonStyle.Plain
       )
       .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
+      // A value that can't go where values go now reads faint; a click says why.
+      .Opacity(() => VM.Fit(chip.Value) ? 1f : .38f)
       // Carried out of the dock, the value lands wherever it is let go.
       .Draggable(() => chip.Value, Ghost)
       .Named(chip.Name);
+
+  // A color leads its name with its swatch: the highlight color, or white
+  // ringed for one picked by hand. Other values have none.
+  private static View ColorDot(OverlayValueDefinition value)
+  {
+    if (!value.IsColor)
+      return null;
+    UiColor fill = value.Id == OverlayValueId.HighlightColor ? (UiColor)UiTheme.Accent : Colors.Foreground;
+    return Circle()
+      .Fill(fill)
+      .Frame(width: 10, height: 10)
+      .Background(Circle().Fill(Colors.Muted).Frame(width: 13, height: 13))
+      .Frame(width: 13, height: 13)
+      .Padding(new Insets(0, 0, 0, 6))
+      .AllowsHitTesting(false);
+  }
 
   // The carried value beside the pointer, in the highlight color as it is
   // when the drag starts. Opaque, so the overlay behind never shows through;
@@ -361,5 +388,5 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 
   // Its words are a size above what Measure gives.
   private float Width(ValueFolderViewModel folder) =>
-    RowInset + (Measure(folder.Name) + Measure(folder.Count)) * 14 / 13 + 10 + RowInset + 2;
+    RowInset + (Measure(folder.Name) + Measure(folder.Count.Value)) * 14 / 13 + 10 + RowInset + 2;
 }

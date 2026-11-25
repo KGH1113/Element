@@ -40,6 +40,8 @@ internal static class SettingsMigrator
     settings.Effects ??= new();
     settings.Effects.Normalize();
     settings.OverlayLayouts ??= new();
+    settings.OverlayCustomValues ??= new();
+    settings.OverlayCustomValues.RemoveAll(value => value == null);
     settings.OverlayFont = OverlayFontKey.Normalize(settings.OverlayFont);
     MigrateLayouts(settings.OverlayLayouts, version);
     // Left Alt + Tab was the old default and also switches windows on Windows.
@@ -61,6 +63,9 @@ internal static class SettingsMigrator
     // Animation became a switch on each value; the combos that always grew keep growing.
     if (version < 9)
       OverlayElementMigration.AnimateCombos(settings.OverlayLayouts);
+    // A color that followed a value is a color with cases now, one per stop.
+    if (version < 10)
+      OverlayElementMigration.ConvertValueColors(settings.OverlayLayouts);
     settings.Profiles ??= new();
     settings.SettingsVersion = Math.Max(version, ElementSettings.CurrentSettingsVersion);
   }

@@ -1,34 +1,50 @@
 using System;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
 /// <summary>
-/// One place a formula can be edited: a value in a text, or a number field.
-/// <see cref="Key"/> tells the same place apart across redraws.
+/// One field the dock opens as a variable: a number, a color, true or false,
+/// or a value in a text (Any). <see cref="Key"/> tells the same field apart
+/// across redraws; <see cref="Type"/> is what it must give.
 /// </summary>
 internal sealed class FormulaSlot
 {
-  private readonly Func<OverlayFormula> _read;
-  private readonly Action<OverlayFormula> _write;
+  private readonly Func<OverlayVariable> _read;
+  private readonly Action<OverlayVariable> _write;
+  private readonly Func<string> _placeholder;
 
-  public FormulaSlot(string key, bool isText, Func<OverlayFormula> read, Action<OverlayFormula> write)
+  /// <param name="placeholder">What the dock shows while the variable is empty, as rich text; null for its hint.</param>
+  public FormulaSlot(
+    string key,
+    OverlayValueType type,
+    Func<OverlayVariable> read,
+    Action<OverlayVariable> write,
+    Func<string> placeholder = null
+  )
   {
     Key = key;
-    IsText = isText;
+    Type = type;
     _read = read;
     _write = write;
+    _placeholder = placeholder;
   }
 
   public string Key { get; }
 
   /// <summary>
-  /// A value in a text: it may hold words (the song title), and emptying it
-  /// removes it. A number field never holds words and keeps its last number.
+  /// What it must give. A number field keeps its last number while nothing
+  /// valid is typed; a value in a text (Any) is removed once emptied.
   /// </summary>
-  public bool IsText { get; }
+  public OverlayValueType Type { get; }
 
-  public OverlayFormula Read() => _read() ?? new OverlayFormula();
+  /// <summary>A value in a text: emptying it removes it.</summary>
+  public bool IsText => Type == OverlayValueType.Any;
 
-  public void Write(OverlayFormula formula) => _write(formula);
+  public OverlayVariable Read() => _read() ?? new OverlayVariable();
+
+  public void Write(OverlayVariable variable) => _write(variable);
+
+  /// <summary>What shows while the variable is empty, such as a color's gradient; null for nothing.</summary>
+  public string Placeholder() => _placeholder?.Invoke();
 }

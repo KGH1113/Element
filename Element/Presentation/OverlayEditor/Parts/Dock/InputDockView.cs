@@ -42,9 +42,10 @@ internal sealed class InputDockView : View<InputDockViewModel>
   public override View Body =>
     VStack(
         spacing: 0,
-        UI.Text(() => VM.Notices.Line.Value)
+        // A notice for a few seconds; otherwise why the field can't be finished as it is.
+        UI.Text(() => VM.Notices.Line.Value.Length > 0 ? VM.Notices.Line.Value : VM.Problem.Value)
           .Font(Font.Caption.Sized(13))
-          .Foreground(() => VM.Notices.Ink.Value)
+          .Foreground(() => VM.Notices.Line.Value.Length > 0 ? VM.Notices.Ink.Value : VM.Warn)
           .LineLimit(1)
           .Named("Notice")
           // Over the values, clear of the picker above the keypad.
@@ -58,7 +59,7 @@ internal sealed class InputDockView : View<InputDockViewModel>
           refused: VM.DropOnFormula
         ),
         HairLine.Across(() => VM.Underline.Value),
-        HStack(spacing: KeypadGap, alignment: VAlignment.Top, Values, new KeypadView(VM.Keypad))
+        HStack(spacing: KeypadGap, alignment: VAlignment.Top, Values, new InputMethodView(VM))
           .Padding(new Insets(LineGap - 1, 0, 0, 0))
       )
       .Frame(width: _width)

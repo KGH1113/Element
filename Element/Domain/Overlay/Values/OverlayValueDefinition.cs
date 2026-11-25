@@ -45,7 +45,18 @@ internal sealed class OverlayValueDefinition
     Available = available;
   }
 
-  public bool IsNumeric => Kind != OverlayValueKind.Text;
+  /// <summary>A number or a time: it can be calculated and compared.</summary>
+  public bool IsNumeric => Kind is OverlayValueKind.Number or OverlayValueKind.Time;
+
+  /// <summary>A color, such as the highlight color: it can only be what a color is.</summary>
+  public bool IsColor => Kind == OverlayValueKind.Color;
 
   public bool IsExtension => Category == OverlayValueCategory.Extension;
+
+  /// <summary>Made on the spot rather than read: a number, words, a condition, a custom color, a new value of the player's.</summary>
+  public bool IsMaker =>
+    Category == OverlayValueCategory.Make || Id == OverlayValueId.CustomColor || Id == OverlayValueId.MakeCustom;
+
+  /// <summary>A value the player made; its key is "@" and the made value's key.</summary>
+  public bool IsMine => Category == OverlayValueCategory.Mine && Id != OverlayValueId.MakeCustom;
 }

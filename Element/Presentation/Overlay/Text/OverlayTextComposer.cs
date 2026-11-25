@@ -1,10 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
-using Element.Domain.Overlay.ValueColors;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Values;
 using UnityEngine;
@@ -43,20 +42,14 @@ internal static class OverlayTextComposer
         Value = run.IsValue ? OverlayFormulaText.Compile(run.Value) : null,
         Size = OverlayFormulaText.Compile(run.SizeFormula),
         Alpha = OverlayFormulaText.Compile(run.Color?.AlphaFormula),
+        Cases = Cases(run.Color),
         Font = OverlayFontKey.Normalize(run.Font),
       };
       if (run.IsValue && compiled.Value == null)
         continue;
-      // A color following a value takes the place of the run's own color.
-      OverlayFormula follows = OverlayFormulaText.Compile(run.Color?.ValueColor?.Value);
-      if (follows != null)
-      {
-        compiled.ValueColor = new OverlayValueColorRamp(run.Color.ValueColor);
-        compiled.ValueColorSource = follows;
-      }
-      else if (gradients != null && run.Color != null && run.Color.IsGradient)
+      if (gradients != null && run.Color != null && run.Color.IsGradient)
         compiled.Gradient = gradients.Add(run.Color);
-      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha) | Mask(follows);
+      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha) | Mask(compiled.Cases);
       output.Add(compiled);
     }
     return mask | (gradients?.Mask ?? OverlayValueMask.None);
@@ -92,12 +85,12 @@ internal static class OverlayTextComposer
       OverlayTextRun run = compiled.Run;
       float size = Size(run.Size, compiled.Size, source, elementScale);
       string font = fonts?.OpenTag(compiled.Font);
+      // A case that holds gives a solid color, over a gradient too.
+      Color solid = Resolve(run.Color, highlight, compiled.Alpha, source, compiled.Cases, out bool cased);
       Color color =
-        compiled.Gradient >= 0
+        compiled.Gradient >= 0 && !cased
           ? OverlayTextGradients.Marker(compiled.Gradient)
-          : OverlayTextGradients.AvoidMarker(
-            Resolve(run.Color, highlight, compiled.Alpha, source, compiled.ValueColor, compiled.ValueColorSource)
-          );
+          : OverlayTextGradients.AvoidMarker(solid);
       OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
@@ -114,7 +107,7 @@ internal static class OverlayTextComposer
 
   private static void AppendAnimated(
     StringBuilder output,
-    OverlayFormula value,
+    OverlayVariable value,
     OverlayValues values,
     bool samples,
     List<(int Start, int Length)> animated
@@ -137,10 +130,10 @@ internal static class OverlayTextComposer
   }
 
   /// <summary>The values <paramref name="formula"/> uses; none without a formula.</summary>
-  public static OverlayValueMask Mask(OverlayFormula formula) => formula?.Mask ?? OverlayValueMask.None;
+  public static OverlayValueMask Mask(OverlayVariable formula) => formula?.Mask ?? OverlayValueMask.None;
 
   /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>
-  public static float Size(float size, OverlayFormula formula, IOverlayNumberSource source, float elementScale)
+  public static float Size(float size, OverlayVariable formula, IOverlayNumberSource source, float elementScale)
   {
     if (formula == null)
       return size;
@@ -163,7 +156,7 @@ internal static class OverlayTextComposer
   public static Color Resolve(
     OverlayColorSettings color,
     Color highlight,
-    OverlayFormula alpha,
+    OverlayVariable alpha,
     IOverlayNumberSource source
   )
   {
@@ -178,34 +171,35 @@ internal static class OverlayTextComposer
   }
 
   /// <summary>
-  /// The color as it shows now: with <paramref name="ramp"/>, the color for
-  /// the number <paramref name="follows"/> works out to, or while that has no
-  /// data the color's own (<see cref="Resolve(OverlayColorSettings, Color, OverlayFormula, IOverlayNumberSource)"/>).
-  /// Allocates nothing.
+  /// The color with its opacity formula applied; while one of
+  /// <paramref name="cases"/> holds, the color it gives instead, with the
+  /// same opacity (<paramref name="cased"/>), so a gradient doesn't show.
   /// </summary>
   public static Color Resolve(
     OverlayColorSettings color,
     Color highlight,
-    OverlayFormula alpha,
+    OverlayVariable alpha,
     IOverlayNumberSource source,
-    OverlayValueColorRamp ramp,
-    OverlayFormula follows
+    OverlayVariable cases,
+    out bool cased
   )
   {
-    if (
-      ramp != null
-      && ramp.Count > 0
-      && follows != null
-      && follows.TryEvaluate(source, out double number, out _)
-      && !double.IsNaN(number)
-      && !double.IsInfinity(number)
-    )
-    {
-      OverlayRgba shown = ramp.Evaluate(number, new OverlayRgba(highlight.r, highlight.g, highlight.b, 1));
-      return new Color(shown.R, shown.G, shown.B, shown.A);
-    }
-    return Resolve(color, highlight, alpha, source);
+    Color result = Resolve(color, highlight, alpha, source);
+    OverlayPiece picked = null;
+    cased = cases != null && cases.TryColor(source, out picked);
+    if (!cased)
+      return result;
+    Color given = Given(picked, highlight);
+    given.a = result.a;
+    return given;
   }
+
+  /// <summary>The color a color piece gives: one picked by hand, or the highlight color.</summary>
+  public static Color Given(OverlayPiece color, Color highlight) =>
+    color.Kind == OverlayPieceKind.Color ? ParseHex(color.Text) : highlight;
+
+  /// <summary>A color's variable when it is more than a plain color (a condition, a made value), parsed once; null otherwise.</summary>
+  public static OverlayVariable Cases(OverlayColorSettings color) => OverlayFormulaText.Compile(color?.Formula);
 
   public static Color ParseHex(string hex)
   {

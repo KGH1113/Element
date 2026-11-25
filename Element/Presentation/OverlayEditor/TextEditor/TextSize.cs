@@ -1,8 +1,8 @@
 using System;
 using Element.Domain.Overlay.Defaults;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using UnityEngine;
@@ -30,7 +30,7 @@ internal sealed class TextSize
     _context = context;
     _text = text;
     _formulas = formulas;
-    Slot = new FormulaSlot(TextFormulas.SizeKey, false, Read, Write);
+    Slot = new FormulaSlot(TextFormulas.SizeKey, OverlayValueType.Number, Read, Write, PlainSize);
   }
 
   /// <summary>How the keypad reads and writes the size.</summary>
@@ -54,25 +54,30 @@ internal sealed class TextSize
   // The size shows its result; one worked out from a formula reads in the accent.
   public void Show()
   {
-    bool active = _formulas.Edits(TextFormulas.SizeKey, out OverlayFormula typed);
-    OverlayFormula formula = typed ?? Read();
+    bool active = _formulas.Edits(TextFormulas.SizeKey, out OverlayVariable typed);
+    OverlayVariable formula = typed ?? Read();
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
-    _sizeButton.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(_formulas.Result(formula)), computed, active);
+    _text.Range(out int start, out int end);
+    _sizeButton.Set(
+      formula.IsEmpty ? "—" : FormulaFieldView.Number(_formulas.Result(formula, ShownSize(start, end))),
+      computed,
+      active
+    );
   }
 
-  private OverlayFormula Read()
+  private OverlayVariable Read()
   {
     _text.Range(out int start, out int end);
     OverlayTextItem? first = start < end ? _text.Document[start] : null;
     string formula = first?.SizeFormula ?? _text.TypingSizeFormula(_text.Caret);
     if (!string.IsNullOrEmpty(formula))
-      return OverlayFormula.Parse(formula);
+      return OverlayVariable.Parse(formula);
     return SameSize(start, end)
-      ? OverlayFormula.FromNumber(Mathf.Round(ShownSize(start, end) * 10) / 10)
-      : new OverlayFormula();
+      ? OverlayVariable.FromNumber(Mathf.Round(ShownSize(start, end) * 10) / 10)
+      : new OverlayVariable();
   }
 
-  private void Write(OverlayFormula formula)
+  private void Write(OverlayVariable formula)
   {
     _text.RememberFormula(TextFormulas.SizeKey);
     _text.Range(out int start, out int end);
@@ -93,6 +98,13 @@ internal sealed class TextSize
       _text.PendingSize = size;
       _text.PendingSizeFormula = text;
     }
+  }
+
+  // The size kept underneath a formula, for when none of its cases holds.
+  private string PlainSize()
+  {
+    _text.Range(out int start, out int end);
+    return FormulaFieldView.Number(ShownSize(start, end)) + " px";
   }
 
   private bool SameSize(int start, int end)

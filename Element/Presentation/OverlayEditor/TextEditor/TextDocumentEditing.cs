@@ -249,15 +249,22 @@ internal sealed class TextDocumentEditing
   }
 
   /// <summary>A new value replaces the range and stays selected.</summary>
-  public void InsertValue(OverlayValueDefinition value, int start, int end)
+  public void InsertValue(OverlayValueDefinition value, int start, int end) =>
+    Insert(value.Key, InsertColor(value.Id), start, end);
+
+  /// <summary>A value made on the spot (<paramref name="formula"/>) replaces the range, in the color typing has there.</summary>
+  public void InsertFormula(string formula, int start, int end) =>
+    Insert(formula, TypingColor(_document.Clamp(start)), start, end);
+
+  private void Insert(string formula, OverlayColorSettings color, int start, int end)
   {
     Remember(false);
     start = _document.Clamp(start);
     int after = _document.InsertValue(
       start,
       end,
-      value.Key,
-      InsertColor(value.Id),
+      formula,
+      color,
       TypingSize(start),
       TypingSizeFormula(start),
       TypingFont(start),

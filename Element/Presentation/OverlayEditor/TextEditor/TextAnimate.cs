@@ -3,14 +3,11 @@ using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.OverlayEditor.Parts.Property;
-using Element.Presentation.OverlayEditor.Parts.ValueColor;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
-using Element.Presentation.Ui.Theme;
 using UnityEngine;
-using UnityEngine.UI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.TextEditor;
@@ -18,41 +15,27 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// <summary>
 /// The column's Animate row and the tool it opens there: values in the
 /// selection (or the whole text) grow briefly each time what they show
-/// changes, and the selection's color can follow a value
-/// (<see cref="TextValueColor"/>). The row says what is on. Turning growth on
-/// plays it once on the preview.
+/// changes. The row says whether they do. Turning growth on plays it once on
+/// the preview.
 /// </summary>
 internal sealed class TextAnimate
 {
   private readonly IEditorActions _editor;
-  private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly TextColor _color;
   private readonly TextPreview _preview;
-  private readonly TextValueColor _valueColor;
   private PropertyButtonViewModel _animateButton;
   private PropertyButtonViewModel _growRow;
-  private PropertyButtonViewModel _colorRow;
   private TextAnimateViewModel _model;
   private ScreenPanel _panel;
   private InspectorPanel _inspector;
-  private bool _colorShown;
 
-  public TextAnimate(
-    IEditorActions editor,
-    ITextEditorContext context,
-    TextDocumentEditing text,
-    TextColor color,
-    TextPreview preview,
-    TextValueColor valueColor
-  )
+  public TextAnimate(IEditorActions editor, TextDocumentEditing text, TextColor color, TextPreview preview)
   {
     _editor = editor;
-    _context = context;
     _text = text;
     _color = color;
     _preview = preview;
-    _valueColor = valueColor;
   }
 
   /// <summary>The column's Animate row; made by <see cref="BuildButton"/>.</summary>
@@ -60,9 +43,6 @@ internal sealed class TextAnimate
 
   /// <summary>The tool's growth switch.</summary>
   public PropertyButtonViewModel GrowRow => _growRow;
-
-  /// <summary>The tool's switch for a color that follows a value.</summary>
-  public PropertyButtonViewModel ColorRow => _colorRow;
 
   /// <summary>The tool is open in the column.</summary>
   public bool Visible => _panel != null && _panel.Root.gameObject.activeSelf;
@@ -94,20 +74,10 @@ internal sealed class TextAnimate
       icon: UiIconKind.Animate,
       toggle: true
     );
-    _colorRow = new PropertyButtonViewModel(
-      "Color by value",
-      L("값에 따라 색 바꾸기", "Color by value"),
-      _valueColor.Toggle,
-      swatch: true,
-      toggle: true
-    );
-    ValueColorViewModel valueColor = _valueColor.BuildModel(UiPalette.EditorDim);
-    _model = new TextAnimateViewModel(_growRow, _colorRow, valueColor);
+    _model = new TextAnimateViewModel(_growRow);
     _panel = screen.Panel("Animate tool", Color.clear);
     _panel.Mount(screen.NewBackend(), new TextAnimateView(_model, inspector.Width), _model, inspector.Width);
     _panel.Root.gameObject.SetActive(false);
-    _colorShown = false;
-    _valueColor.Build(screen, SourceRowRect);
   }
 
   /// <summary>Whether a screen point (origin bottom left) is over the open tool.</summary>
@@ -115,10 +85,8 @@ internal sealed class TextAnimate
 
   public void Hide()
   {
-    if (!Visible)
-      return;
-    _panel.Root.gameObject.SetActive(false);
-    _valueColor.Closed();
+    if (Visible)
+      _panel.Root.gameObject.SetActive(false);
   }
 
   // The row opens the tool in the column; the back row closes it.
@@ -134,56 +102,27 @@ internal sealed class TextAnimate
   }
 
   /// <summary>
-  /// The row says what is on for the range; the open tool shows the
-  /// switches, the color's controls while it follows a value, and sits
-  /// under the column's back row.
+  /// The row says whether the range's values grow; the open tool shows the
+  /// switch and sits under the column's back row.
   /// </summary>
   public void Show()
   {
     _text.Range(out int start, out int end);
     OverlayAnimateState grow = _text.Document.AnimateState(start, end);
-    bool? color = _valueColor.Follows();
     bool growing = grow == OverlayAnimateState.On || grow == OverlayAnimateState.Mixed;
-    bool coloring = color != false;
-    _animateButton.Set(
-      growing && coloring ? L("커지기 · 색", "Grow · Color")
-        : growing ? L("커지기", "Grow")
-        : coloring ? L("색", "Color")
-        : L("꺼짐", "Off"),
-      false,
-      Visible
-    );
+    _animateButton.Set(growing ? L("커지기", "Grow") : L("꺼짐", "Off"), false, Visible);
     if (!Visible)
       return;
     _growRow.SetSwitch(
       grow == OverlayAnimateState.Mixed ? null : grow == OverlayAnimateState.On,
       grow != OverlayAnimateState.NoValues
     );
-    _colorRow.SetSwitch(color, true);
-    _valueColor.ShowSwatch(_colorRow);
-    _model.ColorShown.Value = coloring;
-    if (coloring)
-      _valueColor.Show();
-    if (_colorShown != coloring)
-    {
-      _colorShown = coloring;
-      _panel.Refit(_inspector.Width);
-    }
     _panel.Sync();
     _panel.Root.anchoredPosition = new Vector2(Mathf.Round(_inspector.Left), -Mathf.Round(_inspector.ToolTop));
   }
 
   /// <summary>The tool's height as laid out now, in frame units.</summary>
   public float Height => _panel?.Size.y ?? 0;
-
-  // Where the color's value row is, in frame units, for the menu under it.
-  private Rect SourceRowRect()
-  {
-    Selectable row = _panel.Control<Selectable>("Value color source");
-    return row != null && row.gameObject.activeInHierarchy
-      ? _context.Frame.FrameRect((RectTransform)row.transform)
-      : new Rect(_inspector.Left, _inspector.ToolTop, _inspector.Width, 0);
-  }
 
   private void ToggleGrow()
   {

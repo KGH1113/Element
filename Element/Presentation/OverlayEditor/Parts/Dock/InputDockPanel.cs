@@ -65,7 +65,11 @@ internal sealed class InputDockPanel
     );
 
   /// <summary>Once a frame: a part of the values shown for the first time gets its pointer.</summary>
-  public void Tick() => _panel.Sync();
+  public void Tick()
+  {
+    _vm.Values.FollowMade();
+    _panel.Sync();
+  }
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 

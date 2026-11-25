@@ -74,6 +74,12 @@ internal sealed class UiColorPicker : IDisposable
     SourceColumn,
   }
 
+  /// <summary>
+  /// The owner shows another color than the one its other parts refresh (a
+  /// color's case): refreshes leave it alone until the owner shows its own again.
+  /// </summary>
+  public bool ShowsOther { get; set; }
+
   /// <summary>What the picker shows and does.</summary>
   public ColorPickerViewModel Model { get; }
 
@@ -202,6 +208,9 @@ internal sealed class UiColorPicker : IDisposable
   /// </summary>
   public void Refresh(OverlayColorSettings value)
   {
+    // A color its owner shows instead of the one being refreshed isn't touched.
+    if (ShowsOther)
+      return;
     if (Visible)
       Model.Refresh(value);
   }

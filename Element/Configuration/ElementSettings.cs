@@ -21,7 +21,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public bool AutoOpenCloseDmNote = true;
 
   /// <summary>The version SettingsMigrator brings settings to. Raise it with each new migration step.</summary>
-  public const int CurrentSettingsVersion = 9;
+  public const int CurrentSettingsVersion = 10;
 
   public const string DefaultHighlightColor = "#BA712B";
 
@@ -59,6 +59,9 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   }
 
   public List<OverlayLayoutSettings> OverlayLayouts = new();
+
+  /// <summary>The values the player made, which every element can use.</summary>
+  public List<OverlayCustomValueSettings> OverlayCustomValues = new();
 
   /// <summary>
   /// Every profile, the one in use included. The values above belong to the

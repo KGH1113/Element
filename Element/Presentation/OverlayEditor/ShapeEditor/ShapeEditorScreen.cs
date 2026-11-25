@@ -4,9 +4,11 @@ using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -67,7 +69,13 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private OverlayShapeSettings _opening;
   private float _elementScale = 1;
 
-  public ShapeEditorScreen(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
+  public ShapeEditorScreen(
+    Transform parent,
+    TMP_FontAsset font,
+    Func<bool> reduceMotion,
+    OverlayValues values,
+    ICustomValueBook book
+  )
   {
     _parent = parent;
     _font = font;
@@ -78,7 +86,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _preview = new ShapePreview(values);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
-    _numbers = new ShapeNumbers(this, this, values, _history);
+    _numbers = new ShapeNumbers(this, this, values, _history, book);
     _colors = new ShapeColors(this, this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
     _numbers.Use(_gradient);
@@ -122,11 +130,45 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Press(char key) => _numbers.KeypadPress(key);
 
+  void IInputDockActions.Select(int index) => Edit(editing => editing.Select(index));
+
+  void IInputDockActions.Enter(int slot) => Edit(editing => editing.Enter(slot));
+
+  void IInputDockActions.Back() => Edit(editing => editing.Back());
+
+  void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
+
+  void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
+
+  void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
+
+  // A change the dock asked for, made to what it has open, then drawn.
+  private void Edit(Action<FormulaEditing> change)
+  {
+    if (_frame == null || !_numbers.Editing.Active)
+      return;
+    change(_numbers.Editing);
+    Render();
+  }
+
   void IInputDockActions.Clear() => _numbers.ClearFormula();
 
   void IInputDockActions.Done() => _numbers.FinishEditing();
 
-  void IInputDockActions.Pick(OverlayValueDefinition value) => _numbers.PickValue(value);
+  // A color always goes to the open picker's color, whatever number the dock types.
+  void IInputDockActions.Pick(OverlayValueDefinition value)
+  {
+    if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Slot?.Key != ColorCases.Key)
+    {
+      _numbers.Finish();
+      FormulaEditing editing = _numbers.Editing;
+      if (editing.Drop(_colors.Cases.Slot, value) == FormulaDropResult.Refused)
+        _numbers.Refuse(value);
+      Render();
+      return;
+    }
+    _numbers.PickValue(value);
+  }
 
   // Nothing covers the shape's numbers.
   void IInputDockActions.BeganCarrying() { }
@@ -135,8 +177,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
   {
     FormulaEditing editing = _numbers.Editing;
-    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-      _numbers.RefuseWords(value);
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.Refused)
+      _numbers.Refuse(value);
     Render();
   }
 
@@ -284,7 +326,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       return;
     if (restartBlink)
       _dock.RestartBlink();
-    _numbers.Sync();
+    // With no number open, the open picker's color is what the dock types.
+    _numbers.Sync(_colors.CasesOpen ? _colors.Cases.Slot : null);
+    _colors.Follow();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
     _preview.Draw(
@@ -314,15 +358,22 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     PlaceGrowMark();
     // The dock shows the number open in it, or with none what to do.
     string field = _numbers.Field;
+    FormulaEditing editing = _numbers.Editing;
+    bool cases = field == null && _colors.CasesOpen;
     _dock.Show(
-      field,
-      field == null ? "" : _numbers.Name(field),
-      field == null ? null : _numbers.ResultText(field),
+      field ?? (cases ? ColorCases.Key : null),
+      field != null ? _numbers.Name(field)
+        : cases ? _colors.OwnTitle
+        : "",
+      field != null ? _numbers.ResultText(field)
+        : cases ? _colors.Cases.Result(_values.WithSamples)
+        : null,
       _colors.Hint()
         ?? L(
           "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
           "Click a number (W, H, border or a corner's arc) to type it here"
-        )
+        ),
+      editing.Active ? editing.Slot.Placeholder() : null
     );
   }
 

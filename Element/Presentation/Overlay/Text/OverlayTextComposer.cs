@@ -1,9 +1,9 @@
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Values;
 using UnityEngine;
@@ -107,7 +107,7 @@ internal static class OverlayTextComposer
 
   private static void AppendAnimated(
     StringBuilder output,
-    OverlayFormula value,
+    OverlayVariable value,
     OverlayValues values,
     bool samples,
     List<(int Start, int Length)> animated
@@ -130,10 +130,10 @@ internal static class OverlayTextComposer
   }
 
   /// <summary>The values <paramref name="formula"/> uses; none without a formula.</summary>
-  public static OverlayValueMask Mask(OverlayFormula formula) => formula?.Mask ?? OverlayValueMask.None;
+  public static OverlayValueMask Mask(OverlayVariable formula) => formula?.Mask ?? OverlayValueMask.None;
 
   /// <summary>A run's size in reference pixels; a size formula's pixels are as drawn.</summary>
-  public static float Size(float size, OverlayFormula formula, IOverlayNumberSource source, float elementScale)
+  public static float Size(float size, OverlayVariable formula, IOverlayNumberSource source, float elementScale)
   {
     if (formula == null)
       return size;
@@ -156,7 +156,7 @@ internal static class OverlayTextComposer
   public static Color Resolve(
     OverlayColorSettings color,
     Color highlight,
-    OverlayFormula alpha,
+    OverlayVariable alpha,
     IOverlayNumberSource source
   )
   {
@@ -178,15 +178,15 @@ internal static class OverlayTextComposer
   public static Color Resolve(
     OverlayColorSettings color,
     Color highlight,
-    OverlayFormula alpha,
+    OverlayVariable alpha,
     IOverlayNumberSource source,
-    OverlayFormula cases,
+    OverlayVariable cases,
     out bool cased
   )
   {
     Color result = Resolve(color, highlight, alpha, source);
-    OverlayFormulaToken picked = default;
-    cased = cases != null && cases.TryPickColor(source, out picked);
+    OverlayPiece picked = null;
+    cased = cases != null && cases.TryColor(source, out picked);
     if (!cased)
       return result;
     Color given = Given(picked, highlight);
@@ -194,16 +194,12 @@ internal static class OverlayTextComposer
     return given;
   }
 
-  /// <summary>The color a case gives: one picked by hand, or the highlight color.</summary>
-  public static Color Given(OverlayFormulaToken color, Color highlight) =>
-    color.Kind == OverlayFormulaTokenKind.Color ? ParseHex(color.Hex) : highlight;
+  /// <summary>The color a color piece gives: one picked by hand, or the highlight color.</summary>
+  public static Color Given(OverlayPiece color, Color highlight) =>
+    color.Kind == OverlayPieceKind.Color ? ParseHex(color.Text) : highlight;
 
-  /// <summary>A color's cases, parsed once; null for a color without any.</summary>
-  public static OverlayFormula Cases(OverlayColorSettings color)
-  {
-    OverlayFormula formula = OverlayFormulaText.Compile(color?.Formula);
-    return formula != null && formula.HasCases ? formula : null;
-  }
+  /// <summary>A color's variable when it is more than a plain color (a condition, a made value), parsed once; null otherwise.</summary>
+  public static OverlayVariable Cases(OverlayColorSettings color) => OverlayFormulaText.Compile(color?.Formula);
 
   public static Color ParseHex(string hex)
   {

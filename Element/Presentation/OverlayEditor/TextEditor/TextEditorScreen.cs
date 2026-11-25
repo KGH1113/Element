@@ -87,7 +87,13 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private int _toolStart = -1,
     _toolEnd = -1;
 
-  public TextEditorScreen(Transform parent, TMP_FontAsset uiFont, Func<bool> reduceMotion, OverlayValues values)
+  public TextEditorScreen(
+    Transform parent,
+    TMP_FontAsset uiFont,
+    Func<bool> reduceMotion,
+    OverlayValues values,
+    ICustomValueBook book
+  )
   {
     _parent = parent;
     _uiFont = uiFont;
@@ -100,7 +106,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _marks = new TextMarks(_text, _preview, _map);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
-    _formulas = new TextFormulas(this, this, _text, values);
+    _formulas = new TextFormulas(this, this, _text, values, book);
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
@@ -149,6 +155,27 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   // ---- What the dock asks for: everything done in the dock lands here ----
 
   void IInputDockActions.Press(char key) => _formulas.KeypadPress(key);
+
+  void IInputDockActions.Select(int index) => Edit(editing => editing.Select(index));
+
+  void IInputDockActions.Enter(int slot) => Edit(editing => editing.Enter(slot));
+
+  void IInputDockActions.Back() => Edit(editing => editing.Back());
+
+  void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
+
+  void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
+
+  void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
+
+  // A change the dock asked for, made to what it has open, then drawn.
+  private void Edit(System.Action<FormulaEditing> change)
+  {
+    if (_frame == null || !_formulas.Editing.Active)
+      return;
+    change(_formulas.Editing);
+    Render();
+  }
 
   void IInputDockActions.Clear() => _formulas.ClearFormula();
 

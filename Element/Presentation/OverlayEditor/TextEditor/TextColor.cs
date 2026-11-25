@@ -1,6 +1,6 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
@@ -68,12 +68,12 @@ internal sealed class TextColor
     );
     OpacitySlot = new FormulaSlot(
       TextFormulas.OpacityKey,
-      OverlayFormulaKind.Number,
+      OverlayValueType.Number,
       ReadOpacity,
       WriteOpacity,
       () => FormulaFieldView.Number(_text.RangeColor().Alpha * 100) + "%"
     );
-    Cases = new ColorCases(_picker, _text.RangeColor, WriteCases, _editor.Render);
+    Cases = new ColorCases(_picker, _text.RangeColor, WriteColor, _editor.Render);
   }
 
   /// <summary>The color's cases, which the dock types while the picker is open.</summary>
@@ -159,19 +159,12 @@ internal sealed class TextColor
       Title = ColorCases.CaseTitle;
   }
 
-  // The cases of the range's colors, each keeping its own color.
-  private void WriteCases(string cases)
+  // The color the dock made, for the whole range: one undo step with the picker's changes.
+  private void WriteColor(OverlayColorSettings color)
   {
-    _text.RememberFormula(ColorCases.Key);
+    _picker.RememberChange();
     _text.Range(out int start, out int end);
-    if (start < end)
-      _text.Document.SetColorCases(start, end, cases);
-    else
-    {
-      OverlayColorSettings color = _text.RangeColor().Clone();
-      color.Formula = cases;
-      _text.PendingColor = color;
-    }
+    _text.SetColor(start, end, color);
   }
 
   // The picker on the range's color: the selection's, or the whole text's.
@@ -208,7 +201,16 @@ internal sealed class TextColor
     OverlayColorSettings color = _text.RangeColor();
     _swatchFormulas.Compile(color);
     bool gradient = _swatchFormulas.Resolve(color, UiTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
-    _colorButton.SetSwatch(OverlayTextComposer.Resolve(color, UiTheme.Accent), gradient ? _swatchGradient : null);
+    // A condition shows the color it gives for the examples.
+    Color shown = OverlayTextComposer.Resolve(
+      color,
+      UiTheme.Accent,
+      null,
+      _values.WithSamples,
+      OverlayTextComposer.Cases(color),
+      out _
+    );
+    _colorButton.SetSwatch(shown, gradient ? _swatchGradient : null);
   }
 
   // The picker's opacity shows its result like the size.
@@ -216,8 +218,8 @@ internal sealed class TextColor
   {
     if (!Picker.Visible)
       return;
-    bool opacity = _formulas.Edits(TextFormulas.OpacityKey, out OverlayFormula typed);
-    OverlayFormula alpha = typed ?? ReadOpacity();
+    bool opacity = _formulas.Edits(TextFormulas.OpacityKey, out OverlayVariable typed);
+    OverlayVariable alpha = typed ?? ReadOpacity();
     OverlayColorSettings color = _text.RangeColor();
     Opacity.Show(
       alpha,
@@ -242,12 +244,12 @@ internal sealed class TextColor
     : null;
 
   // A picked gradient color has its own opacity.
-  private OverlayFormula ReadOpacity() =>
+  private OverlayVariable ReadOpacity() =>
     _gradient.PickedStop(_text.RangeColor()) != null
       ? _gradient.ReadStop(false)
       : OpacityFieldView.Read(_text.RangeColor());
 
-  private void WriteOpacity(OverlayFormula formula)
+  private void WriteOpacity(OverlayVariable formula)
   {
     if (_gradient.PickedStop(_text.RangeColor()) != null)
     {

@@ -8,8 +8,10 @@ using UnityEngine.UI;
 namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
-/// The input dock's line: what is edited, its formula with values as soft
-/// chips and a blinking caret at its end, and the result on the right. A long
+/// The input dock's line: where the dock is (the field, and the slots opened
+/// inside it), the open variable's pieces as soft chips, the picked one lit
+/// and picked again with a click, a blinking caret at its end, and the
+/// result on the right. A long
 /// formula keeps its end, where the caret is, in view. The whole line is
 /// where a carried value joins the formula (<see cref="Area"/>).
 /// </summary>
@@ -43,6 +45,8 @@ internal sealed class FormulaLineView : NativeView
     _formula = Label(_viewport, "Formula text", 26, TextAlignmentOptions.MidlineLeft);
     _formula.richText = true;
     _formula.overflowMode = TextOverflowModes.Overflow;
+    // A piece of the line is picked with a click on it.
+    rect.gameObject.AddComponent<FormulaLineInput>().Initialize(_formula, _vm.SelectPiece);
     _caret = RectPeer.Child(_viewport, "Caret").gameObject.AddComponent<Image>();
     _caret.color = Color.white;
     _caret.raycastTarget = false;

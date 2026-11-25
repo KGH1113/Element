@@ -50,11 +50,8 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
     VStack(
         spacing: 2,
         alignment: HAlignment.Leading,
-        UI.Text(L("하이라이트 색을 따라가요", "Follows the highlight color")).Font(Font.Caption.Sized(13)).LineLimit(1),
-        UI.Text(L("아래 '색'에서 커스텀 색을 고르면 직접 골라요", "Pick Custom color under Colors below to choose one"))
-          .Font(Font.Caption.Sized(11))
-          .Foreground(Colors.Muted)
-          .LineLimit(2)
+        UI.Text(() => VM.DockNoteTitle.Value).Font(Font.Caption.Sized(13)).LineLimit(3),
+        UI.Text(() => VM.DockNoteBody.Value).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted).LineLimit(2)
       )
       .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
       .Padding(new Insets(2, 2, 0, 2));

@@ -317,7 +317,7 @@ namespace Element.Editor
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
       CheckGradients(editor, host, camera, texture, canvases, name);
-      CheckCases(editor, host, camera, texture, canvases, name);
+      CheckVariables(editor, host, camera, texture, canvases, name);
       CheckModElements(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
@@ -388,7 +388,7 @@ namespace Element.Editor
       float scale = shape.EffectiveScale;
       DockProbe dock = DockOf(shapes);
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
-        && DockKeys(dock).Length == 25 && DockKeys(dock).All(key => !key.IsInteractable()),
+        && DockKeys(dock).Length == 19 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
       Press(DockChip(dock, "Value combo"));
       Assert(Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0, "a value with no number picked says to pick one first");
@@ -472,8 +472,8 @@ namespace Element.Editor
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
       Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
-      Assert(DockKeys(dock).Where(key => key.name != "Key then").All(key => key.IsInteractable()) && !DockKey(dock, "Key then").IsInteractable(),
-        "with a number open every key can be pressed, but 'then' waits for a comparison");
+      Assert(DockKeys(dock).Where(key => key.name != "Key back").All(key => key.IsInteractable()) && !DockKey(dock, "Key back").IsInteractable(),
+        "with a number open every key can be pressed, but Back waits for a slot to be open");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         if (label.GetComponentInParent<ScrollRect>() != null || label.name == "Formula" || label.richText)
@@ -1367,7 +1367,9 @@ namespace Element.Editor
       Frames(() => QuietFrame(text), 2);
       TextMeshProUGUI drawnFormula = ByName<TextMeshProUGUI>(dock.Root, "Formula text");
       document = TextDocumentOf(text).Document;
-      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnFormula.text.EndsWith("×  3"),
+      string drawnWords = System.Text.RegularExpressions.Regex.Replace(
+        System.Text.RegularExpressions.Regex.Replace(drawnFormula.text, "<[^>]+>", ""), "\\s+", " ").Trim();
+      Assert(document[9].Value == "{combo}*2+{miss}*3" && drawnWords.EndsWith("× 3"),
         "pressed keys calculate the value, and the dock shows it: " + document[9].Value + " / " + drawnFormula.text);
       Press(back);
       Frames(() => QuietFrame(text), 2);

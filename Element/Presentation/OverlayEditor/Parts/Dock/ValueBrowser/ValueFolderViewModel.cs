@@ -12,7 +12,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// One place in the dock's list (a built-in category, or everything one mod
 /// adds) and the page it opens: its values, in a row per group under the
 /// group's heading when a mod made several. It is lit while open, and
-/// dimmed while a search shows instead.
+/// dimmed while a search shows instead. "My values" changes while the dock
+/// is open (<see cref="Reload"/>).
 /// </summary>
 internal sealed class ValueFolderViewModel : ViewModel
 {
@@ -20,6 +21,8 @@ internal sealed class ValueFolderViewModel : ViewModel
   private static readonly UiColor Rest = Color.clear,
     RestInk = new Color(.8f, .8f, .8f);
   private readonly UiColor _lit;
+  private readonly Action<OverlayValueDefinition> _pick;
+  private List<ValueChipViewModel> _chips = new();
 
   public ValueFolderViewModel(
     OverlayValueFolder folder,
@@ -29,8 +32,26 @@ internal sealed class ValueFolderViewModel : ViewModel
   {
     Key = folder.Key;
     Name = ValueSectionNames.FolderName(folder);
-    Count = folder.Count.ToString(CultureInfo.InvariantCulture);
     IsMod = folder.IsMod;
+    _pick = pick;
+    TakeValues(folder);
+    _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .3f);
+    Select = Command(() => open(this));
+  }
+
+  /// <summary>Takes <paramref name="folder"/>'s values in place of its own; its page is drawn again.</summary>
+  public void Reload(OverlayValueFolder folder)
+  {
+    List<ValueChipViewModel> old = _chips;
+    TakeValues(folder);
+    foreach (ValueChipViewModel chip in old)
+      chip.Dispose();
+    Version.Value++;
+  }
+
+  private void TakeValues(OverlayValueFolder folder)
+  {
+    Count.Value = folder.Count.ToString(CultureInfo.InvariantCulture);
     List<ValueChipRow> groups = new();
     List<ValueChipViewModel> all = new();
     foreach (OverlayValueSection section in folder.Sections)
@@ -39,7 +60,7 @@ internal sealed class ValueFolderViewModel : ViewModel
       for (int i = 0; i < chips.Length; i++)
       {
         OverlayValueDefinition value = section.Values[i];
-        chips[i] = Own(new ValueChipViewModel(value, OverlayValueSearch.Index(folder, value), pick));
+        chips[i] = new ValueChipViewModel(value, OverlayValueSearch.Index(folder, value), _pick);
         all.Add(chips[i]);
       }
       // A heading only tells groups apart; one group needs none.
@@ -49,8 +70,13 @@ internal sealed class ValueFolderViewModel : ViewModel
     }
     Groups = groups;
     Chips = all;
-    _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .3f);
-    Select = Command(() => open(this));
+    _chips = all;
+  }
+
+  protected override void OnDisposed()
+  {
+    foreach (ValueChipViewModel chip in _chips)
+      chip.Dispose();
   }
 
   /// <summary>Names it the same way from one opening to the next; it names the drawn row too.</summary>
@@ -59,15 +85,18 @@ internal sealed class ValueFolderViewModel : ViewModel
   public readonly string Name;
 
   /// <summary>How many values it holds.</summary>
-  public readonly string Count;
+  public readonly State<string> Count = new("");
+
+  /// <summary>Goes up when its values were taken again: its page and search rows are drawn anew.</summary>
+  public readonly State<int> Version = new(0);
 
   public readonly bool IsMod;
 
   /// <summary>Its rows: one for a category or a mod with one group, else one per group.</summary>
-  public readonly IReadOnlyList<ValueChipRow> Groups;
+  public IReadOnlyList<ValueChipRow> Groups { get; private set; }
 
   /// <summary>Every value it holds, in order.</summary>
-  public readonly IReadOnlyList<ValueChipViewModel> Chips;
+  public IReadOnlyList<ValueChipViewModel> Chips { get; private set; }
 
   /// <summary>Its page shows.</summary>
   public readonly State<bool> Open = new(false);

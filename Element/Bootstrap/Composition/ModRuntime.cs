@@ -11,6 +11,7 @@ using Element.Application.Profiles;
 using Element.Application.Rendering;
 using Element.Bootstrap.Hosting;
 using Element.Configuration.Gameplay;
+using Element.Domain.Overlay.Variables;
 using Element.Domain.Rendering;
 using Element.Infrastructure.ElementNote.App;
 using Element.Infrastructure.ElementNote.Ipc;
@@ -299,6 +300,7 @@ internal sealed class ModRuntime : IDisposable
       {
         if (!_initialized)
           return;
+        OverlayCustomValues.Load(_main.Settings.OverlayCustomValues);
         _overlay?.Canvas?.ConfigureLayouts(_main.Settings.OverlayLayouts);
         _session.LayoutsReplaced();
       }

@@ -167,6 +167,18 @@ namespace Element.Editor
 
       public void Press(char key) { }
 
+      public void Select(int index) { }
+
+      public void Enter(int slot) { }
+
+      public void Back() { }
+
+      public void Words(string words) { }
+
+      public void Rename(string name) { }
+
+      public void Switch(bool value) { }
+
       public void Clear() { }
 
       public void Done() { }

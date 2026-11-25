@@ -1,7 +1,7 @@
 using System;
 using System.Text;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
@@ -31,7 +31,8 @@ internal sealed class TextFormulas
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly OverlayValues _values;
-  private readonly FormulaEditing _editing = new();
+  private readonly FormulaEditing _editing;
+  private readonly ICustomValueBook _book;
   private readonly StringBuilder _builder = new(128);
   private TextSize _size;
   private TextColor _color;
@@ -45,13 +46,16 @@ internal sealed class TextFormulas
     ITextEditorActions editor,
     ITextEditorContext context,
     TextDocumentEditing text,
-    OverlayValues values
+    OverlayValues values,
+    ICustomValueBook book
   )
   {
     _editor = editor;
     _context = context;
     _text = text;
     _values = values;
+    _book = book;
+    _editing = new FormulaEditing(book);
   }
 
   public FormulaEditing Editing => _editing;
@@ -104,8 +108,8 @@ internal sealed class TextFormulas
   public FormulaSlot ChipSlot(int index) =>
     new(
       "value:" + index,
-      OverlayFormulaKind.Text,
-      () => OverlayFormula.Parse(_text.Document[index].Value),
+      OverlayValueType.Any,
+      () => OverlayVariable.Parse(_text.Document[index].Value),
       formula =>
       {
         _text.RememberFormula("value:" + index);
@@ -120,10 +124,10 @@ internal sealed class TextFormulas
   /// Whether the dock edits <paramref name="key"/>; <paramref name="typed"/>
   /// is what it typed there so far while the keypad has it.
   /// </summary>
-  public bool Edits(string key, out OverlayFormula typed)
+  public bool Edits(string key, out OverlayVariable typed)
   {
     bool active = _fieldSlot == key;
-    typed = active && _editing.Active ? _editing.Working.Trimmed() : null;
+    typed = active && _editing.Active ? _editing.Root : null;
     return active;
   }
 
@@ -194,7 +198,7 @@ internal sealed class TextFormulas
         : owner == ColorCases.Key ? _color.OwnTitle
         : L("값", "Value")
       );
-    dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Otherwise() : null);
+    dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Placeholder() : null);
   }
 
   // The result of what the dock types, as the text or the field will show it.
@@ -204,12 +208,9 @@ internal sealed class TextFormulas
       return null;
     if (_editing.Slot.Key == ColorCases.Key)
       return _color.Cases.Result(_values.WithSamples);
-    OverlayFormula formula = _editing.Working.Trimmed();
-    if (formula.IsEmpty)
+    OverlayVariable formula = _editing.Root;
+    if (formula.IsEmpty || _editing.Problem != null)
       return null;
-    // No case holds: what shows is the place's own.
-    if (formula.HasCases && !formula.TryEvaluate(_values.WithSamples, out _, out _))
-      return _editing.Slot.Otherwise();
     if (_fieldSlot == null)
     {
       _builder.Clear();
@@ -225,16 +226,16 @@ internal sealed class TextFormulas
   }
 
   /// <summary>What <paramref name="formula"/> works out to with the editor's examples; <paramref name="fallback"/> when nothing (no case holds).</summary>
-  public double Result(OverlayFormula formula, double fallback = double.NaN) =>
+  public double Result(OverlayVariable formula, double fallback = double.NaN) =>
     formula.IsPlainNumber(out double plain) ? plain
-    : formula.TryEvaluate(_values.WithSamples, out double result, out _) ? result
+    : formula.TryNumber(_values.WithSamples, out double result, out _) ? result
     : fallback;
 
   /// <summary>A number shows its result; one worked out from a formula reads in the accent.</summary>
-  public void Show(FormulaFieldView field, string key, Func<OverlayFormula> read)
+  public void Show(FormulaFieldView field, string key, Func<OverlayVariable> read)
   {
-    bool active = Edits(key, out OverlayFormula typed);
-    OverlayFormula formula = typed ?? read();
+    bool active = Edits(key, out OverlayVariable typed);
+    OverlayVariable formula = typed ?? read();
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     field.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(Result(formula)), computed, active);
   }
@@ -245,7 +246,7 @@ internal sealed class TextFormulas
     if (_fieldSlot == null)
       return;
     string key = _fieldSlot;
-    OverlayFormula typed = _editing.Working?.Trimmed();
+    OverlayVariable typed = _editing.Root;
     _fieldSlot = null;
     _editing.Deactivate();
     if (typed != null && typed.IsPlainNumber(out double number))
@@ -280,8 +281,14 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
+  /// <summary>Apply: what is open is done, once it fits its field; until then the dock says why not.</summary>
   public void FinishEditing()
   {
+    if (_editing.Active && _editing.Problem != null)
+    {
+      _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
+      return;
+    }
     _editor.CloseOpen();
     _editor.Render();
   }
@@ -295,9 +302,11 @@ internal sealed class TextFormulas
     if (_context.Frame == null)
       return;
     // A color always goes to the open picker's color, whatever else the dock types.
-    if (value.IsColor && _color.CasesOpen && _editing.Kind != OverlayFormulaKind.Color)
+    if (value.IsColor && _color.CasesOpen && _editing.Slot?.Key != ColorCases.Key)
     {
-      _color.Cases.Slot.OwnColor(value);
+      _editor.CloseTyping();
+      if (_editing.Drop(_color.Cases.Slot, value) == FormulaDropResult.Refused)
+        Refuse(value);
       _editor.Render();
       return;
     }
@@ -316,12 +325,33 @@ internal sealed class TextFormulas
       if (_editing.Drop(_editing.Slot, value) == FormulaDropResult.Refused)
         Refuse(value);
     }
+    else if (value.IsMaker)
+      InsertMade(value);
     else
     {
       _text.InsertValue(value, Mathf.Min(_text.Anchor, _text.Caret), Mathf.Max(_text.Anchor, _text.Caret));
       _text.Anchor = _text.Caret;
     }
     _editor.Render();
+  }
+
+  // Something made on the spot goes in at the caret and opens in the dock to
+  // be filled: a number, words, true or false, a condition, a group, or a new
+  // value of the player's, which opens to its inside.
+  private void InsertMade(OverlayValueDefinition value)
+  {
+    bool custom = value.Id == OverlayValueId.MakeCustom;
+    if (custom && _book == null)
+      return;
+    OverlayPiece piece = custom
+      ? OverlayPiece.CustomPiece(_book.Make(OverlayValueType.Any))
+      : FormulaEditing.PieceFor(value);
+    int start = Mathf.Min(_text.Anchor, _text.Caret);
+    _text.InsertFormula(new OverlayVariable(piece).Serialize(), start, Mathf.Max(_text.Anchor, _text.Caret));
+    OpenChip(start);
+    Sync();
+    if (custom)
+      _editing.Enter(0);
   }
 
   /// <summary>A value dropped on a number opens that number and calculates it with the value.</summary>

@@ -6,7 +6,7 @@ namespace Element.Configuration.Overlay;
 // opacity, or is a fixed custom color.
 //
 // A number the player can tie to live values keeps its plain value and, next
-// to it, an optional formula (see OverlayFormula): values in braces with
+// to it, an optional formula (see OverlayVariable): values in braces with
 // + - * /, such as "{progress-current}*3". An empty formula uses the number.
 // Formulas give pixels as the game draws them at 1080p, or percent for opacity.
 //
@@ -16,7 +16,7 @@ namespace Element.Configuration.Overlay;
 // color and only their opacities differ.
 //
 // Formula, when set, holds cases that give another color while they hold,
-// such as "{accuracy}=100?{highlight-color}" (see OverlayFormula). With no
+// such as "{accuracy}=100?{highlight-color}" (see OverlayVariable). With no
 // case holding, or no data yet, the color above shows: it is the
 // "otherwise". A case's color is the highlight color or one picked by hand
 // (#RRGGBB), with this color's opacity.

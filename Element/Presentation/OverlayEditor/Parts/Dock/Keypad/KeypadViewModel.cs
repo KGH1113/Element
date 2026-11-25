@@ -1,7 +1,6 @@
 using System.Collections.Generic;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
-using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -9,12 +8,12 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// Large keys for a formula: 0–9, a point, + − × ÷, backspace, the six
-/// comparisons, "then" (which says "otherwise" after a case's result), AC to
-/// start over and Apply. A key that would do nothing can't be pressed and
-/// reads dimmed; each key follows the formula being typed by itself. A
-/// pressed key goes up as the dock's <see cref="IInputDockActions"/>.
-/// <see cref="KeypadView"/> draws it.
+/// Large keys for a number: 0–9, a point, + − × ÷ and backspace, then the
+/// row every input method shares: AC to empty what is open, back out of a
+/// slot, and Apply. A key that would do nothing can't be pressed and reads
+/// dimmed; each key follows the variable by itself. A pressed key goes up as
+/// the dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/>
+/// draws it.
 /// </summary>
 internal sealed class KeypadViewModel : ViewModel
 {
@@ -39,18 +38,8 @@ internal sealed class KeypadViewModel : ViewModel
     ("+", '+'),
   };
 
-  private static readonly (char Key, UiIconKind Icon)[] Comparisons =
-  {
-    ('<', UiIconKind.Less),
-    ('≤', UiIconKind.LessOrSame),
-    ('=', UiIconKind.Same),
-    ('≠', UiIconKind.NotSame),
-    ('≥', UiIconKind.MoreOrSame),
-    ('>', UiIconKind.More),
-  };
-
-  /// <param name="actions">Where a pressed key, AC and Done go.</param>
-  /// <param name="editing">The formula typed: what it can take next lets a key be pressed.</param>
+  /// <param name="actions">Where a pressed key, AC, back and Apply go.</param>
+  /// <param name="editing">The variable open: what it can take next lets a key be pressed.</param>
   public KeypadViewModel(IInputDockActions actions, FormulaEditing editing)
   {
     KeypadKeyViewModel[] keys = new KeypadKeyViewModel[Layout.Length];
@@ -71,65 +60,35 @@ internal sealed class KeypadViewModel : ViewModel
       );
     }
     Keys = keys;
-    KeypadKeyViewModel[] compares = new KeypadKeyViewModel[Comparisons.Length];
-    for (int i = 0; i < compares.Length; i++)
-    {
-      (char key, UiIconKind icon) = Comparisons[i];
-      compares[i] = Own(
-        new KeypadKeyViewModel(
-          "Key " + key,
-          key.ToString(),
-          key,
-          true,
-          () => actions.Press(key),
-          () => CanPress(editing, key),
-          icon: icon
-        )
-      );
-    }
-    Compares = compares;
-    string then = L("이면", "then"),
-      otherwise = L("아니면", "otherwise");
-    Next = Own(
-      new KeypadKeyViewModel(
-        "Key then",
-        then,
-        OverlayFormulaKeypad.Next,
-        true,
-        () => actions.Press(OverlayFormulaKeypad.Next),
-        () => CanPress(editing, OverlayFormulaKeypad.Next),
-        () => editing.NextStep == OverlayFormulaTokenKind.Else ? otherwise : then
-      )
-    );
     Clear = Own(new KeypadKeyViewModel("Key clear", "AC", '\0', false, actions.Clear, () => editing.CanClear));
+    Back = Own(
+      new KeypadKeyViewModel("Key back", L("위로", "Back"), '\0', false, actions.Back, () => editing.Path.Count > 1)
+    );
     Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done, () => editing.Active));
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>
   public readonly IReadOnlyList<KeypadKeyViewModel> Keys;
 
-  /// <summary>The short row over the grid: &lt; ≤ = ≠ ≥ &gt;.</summary>
-  public readonly IReadOnlyList<KeypadKeyViewModel> Compares;
-
-  /// <summary>"Then" after a comparison, "otherwise" after a case's result.</summary>
-  public readonly KeypadKeyViewModel Next;
-
-  /// <summary>AC: starts over; nothing is written until something new is typed.</summary>
+  /// <summary>AC: empties what is open; nothing is kept until it fits again.</summary>
   public readonly KeypadKeyViewModel Clear;
 
-  /// <summary>Done: the way out of the keypad.</summary>
+  /// <summary>Back out of a condition's slot or a group.</summary>
+  public readonly KeypadKeyViewModel Back;
+
+  /// <summary>Apply: the way out of the dock, once what is open fits its field.</summary>
   public readonly KeypadKeyViewModel Done;
 
-  // A key can be pressed while it would do something to the formula: backspace
-  // while there is something to take back, the rest while the formula takes them.
+  // A key can be pressed while it would do something: backspace while there
+  // is something to take back, the rest while the variable takes them.
   [Pure]
   private static bool CanPress(FormulaEditing editing, char key) =>
     key == '\b' ? editing.CanBackspace : editing.CanPress(key);
 
   /// <summary>
   /// Keyboard keys that act like the keypad: digits, point, + - * /,
-  /// backspace, and &lt; &gt; = ! ? for the comparisons and "then"; &lt; or
-  /// &gt; then = make ≤ or ≥ in <paramref name="editing"/>.
+  /// backspace, and in the operator slot &lt; &gt; = ! (&lt; or &gt; then =
+  /// make ≤ or ≥).
   /// </summary>
   public static bool TryKeyboard(Event e, FormulaEditing editing, out char key)
   {
@@ -145,13 +104,21 @@ internal sealed class KeypadViewModel : ViewModel
       key = c == ',' ? '.' : c;
       return true;
     }
-    char compare = OverlayFormulaKeypad.FromKeyboard(editing?.Working, c);
-    if (compare != '\0')
+    if (editing != null && editing.Active && editing.Kind == OverlayValueType.Compare)
     {
-      key = compare;
-      return true;
+      OverlayPiece current = editing.Working.Count == 1 ? editing.Working[0] : null;
+      key = c switch
+      {
+        '<' or '>' => c,
+        '!' => '≠',
+        '=' when current?.Op == '<' => '≤',
+        '=' when current?.Op == '>' => '≥',
+        '=' => '=',
+        _ => '\0',
+      };
+      return key != '\0';
     }
-    char op = OverlayFormula.NormalizeOperator(c);
+    char op = OverlayVariable.NormalizeOperator(c);
     if (op == '\0')
       return false;
     key = op;

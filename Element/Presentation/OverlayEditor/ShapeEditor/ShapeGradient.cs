@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -131,7 +131,7 @@ internal sealed class ShapeGradient
   // ---- The numbers ----
 
   /// <summary>A gradient number of <paramref name="kind"/>; null for others.</summary>
-  public OverlayFormula Read(string kind)
+  public OverlayVariable Read(string kind)
   {
     OverlayColorSettings color = _colors.Picked;
     OverlayGradientStop stop = PickedStop;
@@ -139,8 +139,8 @@ internal sealed class ShapeGradient
     {
       case "fill-opacity" or "stroke-opacity" when stop != null:
         return string.IsNullOrEmpty(stop.AlphaFormula)
-          ? OverlayFormula.FromNumber(Mathf.Round(Mathf.Clamp01(stop.Alpha) * 100))
-          : OverlayFormula.Parse(stop.AlphaFormula);
+          ? OverlayVariable.FromNumber(Mathf.Round(Mathf.Clamp01(stop.Alpha) * 100))
+          : OverlayVariable.Parse(stop.AlphaFormula);
       case "fill-position" or "stroke-position" when stop != null:
         return GradientEditing.ReadStop(stop, true);
       case "fill-angle" or "stroke-angle" when color != null && color.IsGradient:
@@ -151,7 +151,7 @@ internal sealed class ShapeGradient
   }
 
   /// <summary>Writes a gradient number of <paramref name="kind"/>; false for others.</summary>
-  public bool Write(string kind, OverlayFormula formula)
+  public bool Write(string kind, OverlayVariable formula)
   {
     OverlayColorSettings color = _colors.Picked;
     if (color == null || !color.IsGradient)

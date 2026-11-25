@@ -27,7 +27,10 @@ internal static class OverlayValueCatalogTests
     {
       Check(OverlayValueCatalog.TryGet(value.Key, out OverlayValueDefinition found) && found == value, value.Key);
       // A color is never shown as text, so it needs no sample.
-      Check(value.IsColor || !string.IsNullOrEmpty(value.Sample), value.Key + " has a sample for the editor");
+      Check(
+        value.IsColor || value.IsMaker || !string.IsNullOrEmpty(value.Sample),
+        value.Key + " has a sample for the editor"
+      );
     }
     foreach (OverlayDefaultElement element in OverlayElementDefaults.All)
     foreach (OverlayTextRun run in element.CreateRuns())

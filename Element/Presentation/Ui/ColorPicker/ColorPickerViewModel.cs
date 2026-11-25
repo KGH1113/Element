@@ -168,6 +168,28 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   }
 
   private bool _sourceInDock;
+  private string _waitNote;
+
+  /// <summary>
+  /// The owner has no color for the picker now: instead of where a custom
+  /// color is picked, the note says this; null for the usual note.
+  /// </summary>
+  public string WaitNote
+  {
+    get => _waitNote;
+    set
+    {
+      if (_waitNote == value)
+        return;
+      _waitNote = value;
+      UpdateShape();
+    }
+  }
+
+  /// <summary>The note's first line, and its second (empty for none).</summary>
+  public readonly State<string> DockNoteTitle = new("");
+
+  public readonly State<string> DockNoteBody = new("");
 
   /// <summary>Following the highlight color.</summary>
   public bool FollowsHighlight => _followsHighlight;
@@ -471,6 +493,14 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
     bool gradient = _gradientShown && Gradient != null && Gradient.IsGradient;
     SourceShown.Value = _sourceMode && !_sourceInDock;
     DockNote.Value = _sourceMode && _sourceInDock && _followsHighlight;
+    DockNoteTitle.Value = _waitNote ?? UiLocale.L("하이라이트 색을 따라가요", "Follows the highlight color");
+    DockNoteBody.Value =
+      _waitNote != null
+        ? ""
+        : UiLocale.L(
+          "아래 '색'에서 커스텀 색을 고르면 직접 골라요",
+          "Pick Custom color under Colors below to choose one"
+        );
     SourceIndex.Value = _followsHighlight ? 0 : 1;
     Custom.Value = !_sourceMode || !_followsHighlight;
     OpacityShown.Value = _allowOpacity;

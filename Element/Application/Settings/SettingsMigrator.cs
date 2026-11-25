@@ -40,6 +40,8 @@ internal static class SettingsMigrator
     settings.Effects ??= new();
     settings.Effects.Normalize();
     settings.OverlayLayouts ??= new();
+    settings.OverlayCustomValues ??= new();
+    settings.OverlayCustomValues.RemoveAll(value => value == null);
     settings.OverlayFont = OverlayFontKey.Normalize(settings.OverlayFont);
     MigrateLayouts(settings.OverlayLayouts, version);
     // Left Alt + Tab was the old default and also switches windows on Windows.

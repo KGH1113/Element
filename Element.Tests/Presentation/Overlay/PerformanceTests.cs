@@ -2,8 +2,8 @@ using System;
 using System.Globalization;
 using System.Text;
 using System.Threading;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Domain.Tweaks;
 using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
@@ -59,15 +59,15 @@ internal static class PerformanceTests
   // A text with a formula works it out every frame; its numbers were read when it was parsed.
   private static void FormulasWorkOutWithoutAllocating()
   {
-    OverlayFormula formula = OverlayFormula.Parse("{combo}*2.5+12-3/4");
+    OverlayVariable formula = OverlayVariable.Parse("{combo}*2.5+12-3/4");
     ComboOf120 source = new();
     Check(
-      formula.TryEvaluate(source, out double result, out _) && Math.Abs(result - 311.25) < 1e-9,
+      formula.TryNumber(source, out double result, out _) && Math.Abs(result - 311.25) < 1e-9,
       "the formula works out to " + result
     );
     long before = GC.GetAllocatedBytesForCurrentThread();
     for (int index = 0; index < 1000; index++)
-      formula.TryEvaluate(source, out result, out _);
+      formula.TryNumber(source, out result, out _);
     long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
     Check(allocated == 0, "working out a formula allocated " + allocated + " bytes");
   }

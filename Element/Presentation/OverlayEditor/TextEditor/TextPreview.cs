@@ -3,9 +3,9 @@ using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
@@ -220,7 +220,7 @@ internal sealed class TextPreview
         OverlayTextComposer.OpenStyle(_builder, PaintColor(item.Color, highlight, samples), size, font);
         _builder.Append("<link=\"").Append(OverlayTextComposer.ValueLink).Append("\">");
         int before = _builder.Length;
-        OverlayFormulaText.Append(_builder, OverlayFormula.Parse(item.Value), _values, true);
+        OverlayFormulaText.Append(_builder, OverlayVariable.Parse(item.Value), _values, true);
         if (_builder.Length == before)
           _builder.Append(' ');
         _builder.Append("</link>");
@@ -260,7 +260,7 @@ internal sealed class TextPreview
   private Color PaintColor(OverlayColorSettings color, Color highlight, IOverlayNumberSource samples)
   {
     // A case that holds gives a solid color, over a gradient too.
-    OverlayFormula cases = OverlayTextComposer.Cases(color);
+    OverlayVariable cases = OverlayTextComposer.Cases(color);
     Color solid = OverlayTextComposer.Resolve(
       color,
       highlight,

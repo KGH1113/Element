@@ -2,9 +2,9 @@ using System;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
@@ -69,7 +69,13 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private OverlayShapeSettings _opening;
   private float _elementScale = 1;
 
-  public ShapeEditorScreen(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
+  public ShapeEditorScreen(
+    Transform parent,
+    TMP_FontAsset font,
+    Func<bool> reduceMotion,
+    OverlayValues values,
+    ICustomValueBook book
+  )
   {
     _parent = parent;
     _font = font;
@@ -80,7 +86,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _preview = new ShapePreview(values);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
-    _numbers = new ShapeNumbers(this, this, values, _history);
+    _numbers = new ShapeNumbers(this, this, values, _history, book);
     _colors = new ShapeColors(this, this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
     _numbers.Use(_gradient);
@@ -124,6 +130,27 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Press(char key) => _numbers.KeypadPress(key);
 
+  void IInputDockActions.Select(int index) => Edit(editing => editing.Select(index));
+
+  void IInputDockActions.Enter(int slot) => Edit(editing => editing.Enter(slot));
+
+  void IInputDockActions.Back() => Edit(editing => editing.Back());
+
+  void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
+
+  void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
+
+  void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
+
+  // A change the dock asked for, made to what it has open, then drawn.
+  private void Edit(Action<FormulaEditing> change)
+  {
+    if (_frame == null || !_numbers.Editing.Active)
+      return;
+    change(_numbers.Editing);
+    Render();
+  }
+
   void IInputDockActions.Clear() => _numbers.ClearFormula();
 
   void IInputDockActions.Done() => _numbers.FinishEditing();
@@ -131,9 +158,12 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   // A color always goes to the open picker's color, whatever number the dock types.
   void IInputDockActions.Pick(OverlayValueDefinition value)
   {
-    if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Kind != OverlayFormulaKind.Color)
+    if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Slot?.Key != ColorCases.Key)
     {
-      _colors.Cases.Slot.OwnColor(value);
+      _numbers.Finish();
+      FormulaEditing editing = _numbers.Editing;
+      if (editing.Drop(_colors.Cases.Slot, value) == FormulaDropResult.Refused)
+        _numbers.Refuse(value);
       Render();
       return;
     }
@@ -343,7 +373,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
           "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
           "Click a number (W, H, border or a corner's arc) to type it here"
         ),
-      editing.Active ? editing.Slot.Otherwise() : null
+      editing.Active ? editing.Slot.Placeholder() : null
     );
   }
 

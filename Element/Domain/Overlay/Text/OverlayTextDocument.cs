@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Domain.Overlay.Text;
 
@@ -266,10 +266,22 @@ internal sealed class OverlayTextDocument
     {
       if (!_items[i].IsValue)
         continue;
-      OverlayFormula formula = OverlayFormula.Parse(_items[i].Value);
-      for (int t = 0; t < formula.Count; t++)
-        if (formula[t].Kind == OverlayFormulaTokenKind.Value && !output.Contains(formula[t].Value))
-          output.Add(formula[t].Value);
+      Collect(OverlayVariable.Parse(_items[i].Value), output, 0);
+    }
+  }
+
+  // Every live value a variable reads, its slots included, in order.
+  private static void Collect(OverlayVariable variable, List<OverlayValueId> output, int depth)
+  {
+    if (depth > 16)
+      return;
+    for (int t = 0; t < variable.Count; t++)
+    {
+      OverlayPiece piece = variable[t];
+      if (piece.Kind == OverlayPieceKind.Value && !output.Contains(piece.Value))
+        output.Add(piece.Value);
+      foreach (OverlayVariable slot in piece.Slots)
+        Collect(slot, output, depth + 1);
     }
   }
 
@@ -414,7 +426,7 @@ internal sealed class OverlayTextDocument
   {
     if (string.IsNullOrEmpty(text))
       return string.Empty;
-    OverlayFormula formula = OverlayFormula.Parse(text);
+    OverlayVariable formula = OverlayVariable.Parse(text);
     return formula.IsEmpty ? string.Empty : formula.Serialize();
   }
 

@@ -112,6 +112,12 @@ internal sealed class ColorPickerPanel
     return color;
   }
 
+  /// <summary>
+  /// The dock changed the color the picker is open on: it is the same undo
+  /// step as the picker's own changes since it opened.
+  /// </summary>
+  public void RememberChange() => RememberOnce();
+
   /// <summary>Takes the edit for undo before the first change since the picker opened.</summary>
   private void RememberOnce()
   {

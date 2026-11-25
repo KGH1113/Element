@@ -1,7 +1,8 @@
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
@@ -149,10 +150,12 @@ internal sealed class TextPointerInput
       return;
     }
     OverlayTextItem item = _text.Document[index];
-    OverlayFormula formula = OverlayFormula.Parse(item.Value);
-    string words = formula.Describe(ValueSectionNames.ValueName, L("이면", "then"), L("· 아니면", "· otherwise"));
+    OverlayVariable formula = OverlayVariable.Parse(item.Value);
+    OverlayVariableWords said = FormulaWords.Current;
+    string words = formula.Describe(ValueSectionNames.ValueName, said);
     if (item.SizeFormula.Length > 0)
-      words += L(" · 크기 ", " · size ") + OverlayFormula.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName);
+      words +=
+        L(" · 크기 ", " · size ") + OverlayVariable.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName, said);
     if (!_map.ItemTop(index, frame, out Vector2 anchor))
     {
       frame.HideTip();

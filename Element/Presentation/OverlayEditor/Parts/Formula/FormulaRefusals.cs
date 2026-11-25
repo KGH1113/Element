@@ -1,46 +1,102 @@
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
+using ElementUI;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
-/// <summary>Why a value can't go where it was put, in words the player can act on.</summary>
+/// <summary>Why something can't go where it was put, or why a field can't be finished, in words the player can act on.</summary>
 internal static class FormulaRefusals
 {
-  /// <summary>
-  /// Why <paramref name="value"/> can't go in what <paramref name="editing"/>
-  /// types, or in a number field when nothing is typed.
-  /// </summary>
+  /// <summary>A type as the dock names it: 숫자, 글자, 색 and so on.</summary>
+  public static string TypeName(OverlayValueType type) =>
+    type switch
+    {
+      OverlayValueType.Number => L("숫자", "a number"),
+      OverlayValueType.Text => L("글자", "words"),
+      OverlayValueType.Color => L("색", "a color"),
+      OverlayValueType.Bool => L("참·거짓", "true or false"),
+      OverlayValueType.Compare => L("비교 기호", "a comparison"),
+      _ => L("아무거나", "anything"),
+    };
+
+  /// <summary>A condition's slot as the dock names it.</summary>
+  public static string SlotName(int slot) =>
+    slot switch
+    {
+      OverlayPiece.Left => L("비교할 값", "Compared"),
+      OverlayPiece.Compare => L("연산자", "Operator"),
+      OverlayPiece.Right => L("비교 당할 값", "Compared with"),
+      OverlayPiece.Result => L("결과값", "Result"),
+      OverlayPiece.Default => L("기본값", "Default"),
+      _ => L("묶음", "Group"),
+    };
+
+  /// <summary>Why <paramref name="value"/> can't go where the dock puts values now.</summary>
   public static string Why(OverlayValueDefinition value, FormulaEditing editing)
   {
     string name = ValueSectionNames.ValueName(value);
-    FormulaSlot slot = editing?.Active == true ? editing.Slot : null;
-    OverlayFormulaKind kind = slot?.Kind ?? OverlayFormulaKind.Number;
-    OverlayFormulaPart part =
-      slot != null ? OverlayFormulaKeypad.Part(editing.Working, out _) : OverlayFormulaPart.Left;
-    if (value.IsColor)
-      return kind == OverlayFormulaKind.Color
-        ? L(
-          "색은 '이면' 다음에 와요. 조건을 먼저 적어 주세요.",
-          "A color comes after 'then'. Write the condition first."
-        )
-        : L(
-          name + "은(는) 색이라서 숫자 칸에는 쓸 수 없어요. 글자 색이나 채우기에서 써 주세요.",
-          name + " is a color, so it can't go in a number. Use it in a text color or a fill."
-        );
-    if (kind == OverlayFormulaKind.Color && part == OverlayFormulaPart.Result)
-      return L(
-        "'이면' 다음에는 색이 와요. 아래 '색'에서 하이라이트 색이나 커스텀 색을 골라 주세요.",
-        "A color comes after 'then'. Pick the highlight color or a custom color under Colors."
-      );
-    if (part == OverlayFormulaPart.Right || editing?.Working?.Last?.Kind == OverlayFormulaTokenKind.Compare)
-      return L(
-        name + "은(는) 글자라서 크기를 비교할 수 없어요. 숫자인 값을 골라 주세요.",
-        name + " is words, so it can't be compared. Pick a value that is a number."
-      );
+    OverlayValueType found = OverlayVariableTypes.TypeOf(value);
+    OverlayValueType needed = editing?.Active == true ? editing.Kind : OverlayValueType.Number;
+    if (needed == OverlayValueType.Compare)
+      return L("연산자 칸에는 아래 비교 기호만 들어가요.", "The operator takes one of the comparisons below.");
+    if (value.Id == OverlayValueId.MakeCustom)
+      return L("먼저 값을 넣을 칸을 고르세요.", "Pick where the value goes first.");
+    if (value.IsMine && editing?.Active == true && OpenedHere(value, editing))
+      return L(name + "은(는) 자기 자신 안에 넣을 수 없어요.", name + " can't go inside itself.");
+    if (editing?.Active == true && needed == OverlayValueType.Any)
+      needed = OverlayValueType.Number;
     return L(
-      name + "은(는) 글자라서 계산에 쓸 수 없어요. 글 안에 넣어 주세요.",
-      name + " is words, so it can't be calculated. Put it in the text instead."
+      name
+        + "은(는) "
+        + TypeName(found)
+        + "라서 여기에는 넣을 수 없어요. 이 칸에는 "
+        + TypeName(needed)
+        + "가 들어가요.",
+      name + " is " + TypeName(found) + ", so it can't go here. This takes " + TypeName(needed) + "."
     );
+  }
+
+  /// <summary>Why a field can't be finished as it is, and what to do.</summary>
+  [Pure]
+  public static string Explain(OverlayTypeProblem problem)
+  {
+    if (problem == null)
+      return null;
+    string where =
+      problem.Piece?.Kind == OverlayPieceKind.Custom
+        ? "★" + OverlayCustomValues.Shown(problem.Piece.Text, FormulaWords.Current) + ": "
+      : problem.Slot >= 0
+        ? L("조건의 " + SlotName(problem.Slot) + ": ", "In the condition's " + SlotName(problem.Slot) + ": ")
+      : "";
+    string needed = TypeName(problem.Needed),
+      found = TypeName(problem.Found);
+    return where
+      + problem.Kind switch
+      {
+        OverlayTypeProblemKind.Empty => L("비어 있어요. 값을 넣어 주세요.", "it's empty. Put a value in."),
+        OverlayTypeProblemKind.WrongType => L(
+          needed + "가 들어가야 하는데 " + found + "예요.",
+          "it needs " + needed + " but has " + found + "."
+        ),
+        OverlayTypeProblemKind.SideBySide => L(
+          "값이 나란히 있어요. 숫자는 + − × ÷ 로 이어 주세요.",
+          "two values sit side by side. Join numbers with + − × ÷."
+        ),
+        OverlayTypeProblemKind.NotNumber => L(
+          found + "는 계산할 수 없어요. 숫자만 + − × ÷ 로 이을 수 있어요.",
+          found + " can't be calculated. Only numbers join with + − × ÷."
+        ),
+        OverlayTypeProblemKind.Dangling => L("연산 기호 뒤에 숫자가 없어요.", "an operator has no number after it."),
+        _ => L("내 값이 자기 자신을 쓰고 있어요.", "a value of yours uses itself."),
+      };
+  }
+
+  private static bool OpenedHere(OverlayValueDefinition value, FormulaEditing editing)
+  {
+    foreach (FormulaFrame frame in editing.Path)
+      if (frame.Custom != null && "@" + frame.Custom == value.Key)
+        return true;
+    return false;
   }
 }

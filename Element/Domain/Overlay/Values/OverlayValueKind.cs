@@ -9,4 +9,10 @@ internal enum OverlayValueKind
   Time,
   Text,
   Color,
+
+  /// <summary>True or false.</summary>
+  Bool,
+
+  /// <summary>Whatever is put in it: a condition, a group, a new value of the player's.</summary>
+  Any,
 }

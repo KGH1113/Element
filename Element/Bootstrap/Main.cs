@@ -64,6 +64,7 @@ public sealed class Main
       Instance.Settings = SettingsFile.Load(modEntry);
       SettingsMigrator.Migrate(Instance.Settings);
       Instance.Settings.OverlayLayouts ??= new();
+      Instance.Settings.OverlayCustomValues ??= new();
       modEntry.OnToggle = OnToggle;
       modEntry.OnGUI = OnGUI;
       modEntry.OnSaveGUI = OnSaveGUI;

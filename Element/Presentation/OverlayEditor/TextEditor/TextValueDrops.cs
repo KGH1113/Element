@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -131,7 +132,7 @@ internal sealed class TextValueDrops
       // Onto the value whose formula waits for its next number or value.
       if (
         editing.Active
-        && editing.Working.AwaitsOperand
+        && editing.SelectedPiece?.Kind == OverlayPieceKind.Operator
         && _drops._formulas.ChipOpen(out int selected)
         && _drops._map.ItemContains(selected, screen)
       )

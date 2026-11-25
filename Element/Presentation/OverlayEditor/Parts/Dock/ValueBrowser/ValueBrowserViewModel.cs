@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
 using ElementUI;
 using UnityEngine;
@@ -33,6 +34,8 @@ internal sealed class ValueBrowserViewModel : ViewModel
   private ValueFolderViewModel _open;
   private string _folded = "";
   private long _seen;
+  private static readonly string MineKey = OverlayValueCategory.Mine.ToString();
+  private int _made = OverlayCustomValues.Version;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
   /// <param name="actions">Where a clicked or carried value goes.</param>
@@ -61,6 +64,13 @@ internal sealed class ValueBrowserViewModel : ViewModel
     _open = _folders.Find(folder => folder.Key == _remembered) ?? _folders[0];
     Show();
   }
+
+  /// <summary>Whether a value can go where the dock puts values now; one that can't reads dimmed. Set by the dock.</summary>
+  public Func<OverlayValueDefinition, bool> Fits { get; set; } = _ => true;
+
+  /// <summary>Whether <paramref name="value"/> can go where the dock puts values now.</summary>
+  [Pure]
+  public bool Fit(OverlayValueDefinition value) => Fits(value);
 
   /// <summary>The built-in categories that have values, in order.</summary>
   public readonly IReadOnlyList<ValueFolderViewModel> Categories;
@@ -116,6 +126,29 @@ internal sealed class ValueBrowserViewModel : ViewModel
     for (int i = 0; i < _inView.Count; i++)
       if (_inView[i].Shows(changed))
         _inView[i].Follow(_values, _scratch);
+  }
+
+  /// <summary>
+  /// Each frame: when a value of the player's was made or renamed, "My
+  /// values" takes the catalog's list again. With nothing new it compares one
+  /// number.
+  /// </summary>
+  public void FollowMade()
+  {
+    if (_made == OverlayCustomValues.Version)
+      return;
+    _made = OverlayCustomValues.Version;
+    foreach (OverlayValueFolder folder in OverlayValueCatalog.Folders())
+    {
+      ValueFolderViewModel model = _folders.Find(each => each.Key == folder.Key);
+      if (model != null && folder.Key == MineKey)
+        model.Reload(folder);
+    }
+    string folded = _folded;
+    if (folded.Length > 0)
+      foreach (ValueFolderViewModel each in _folders)
+        each.Find(folded);
+    Show();
   }
 
   private void Open(ValueFolderViewModel folder)

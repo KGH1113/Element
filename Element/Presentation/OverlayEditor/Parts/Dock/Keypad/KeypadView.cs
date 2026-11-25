@@ -1,54 +1,38 @@
-using Element.Presentation.Ui.Declarative;
-using Element.Presentation.Ui.Declarative.Controls;
-using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Theme;
 using ElementUI;
-using UnityEngine;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// The keypad: a short row of the six comparisons, four columns of capsule
-/// keys with the operators in the accent, then AC, "then" (or "otherwise")
-/// and a tinted Apply.
+/// The keypad: four columns of capsule keys, the operators in the accent.
+/// Its sizes are every input method's: they all take its place
+/// (<see cref="InputMethodView"/>), over the row of AC, back and Apply.
 /// </summary>
 internal sealed class KeypadView : View<KeypadViewModel>
 {
   public const float Key = 68,
     KeyHeight = 44,
-    CompareHeight = 30,
-    CompareGap = 6,
     Gap = 8,
     Width = 4 * Key + 3 * Gap,
-    Height = CompareHeight + Gap + 5 * KeyHeight + 4 * Gap;
+    // What an input method has above the shared row.
+    MethodHeight = 4 * KeyHeight + 3 * Gap,
+    Height = MethodHeight + Gap + KeyHeight;
 
   public KeypadView(KeypadViewModel vm)
     : base(vm) { }
 
-  public override View Body =>
-    VStack(
-        spacing: Gap,
-        Grid(VM.Compares.Count, CompareGap, Compares()),
-        Grid(4, Gap, Keys()),
-        HStack(
-          spacing: Gap,
-          new KeypadKeyView(VM.Clear, 17, false).Frame(width: Key),
-          new KeypadKeyView(VM.Next, 17, false).Frame(width: Key),
-          // Apply is the one filled key: the way out of the keypad.
-          new KeypadKeyView(VM.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
-        )
-      )
-      .Frame(width: Width, height: Height);
+  public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: MethodHeight);
 
-  private View[] Compares()
-  {
-    View[] keys = new View[VM.Compares.Count];
-    for (int i = 0; i < keys.Length; i++)
-      keys[i] = new KeypadKeyView(VM.Compares[i], 17, false, CompareHeight);
-    return keys;
-  }
+  /// <summary>The row under every input method: AC, back out of a slot, and a wide, tinted Apply.</summary>
+  public static View SharedRow(KeypadViewModel vm) =>
+    HStack(
+        spacing: Gap,
+        new KeypadKeyView(vm.Clear, 17, false).Frame(width: Key),
+        new KeypadKeyView(vm.Back, 15, false).Frame(width: Key),
+        // Apply is the one filled key: the way out of the dock.
+        new KeypadKeyView(vm.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
+      )
+      .Frame(width: Width, height: KeyHeight);
 
   private View[] Keys()
   {

@@ -11,8 +11,26 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// </summary>
 internal interface IInputDockActions
 {
-  /// <summary>A key typed on the keypad: a digit, the point, an operator, or '\b' for backspace.</summary>
+  /// <summary>A key typed on the keypad: a digit, the point, an operator, a comparison, or '\b' for backspace.</summary>
   void Press(char key);
+
+  /// <summary>A piece of the open variable clicked: it is picked, or let go with a second click.</summary>
+  void Select(int index);
+
+  /// <summary>Into slot <paramref name="slot"/> of the picked condition, or the picked group.</summary>
+  void Enter(int slot);
+
+  /// <summary>Back out of the slot the dock is in.</summary>
+  void Back();
+
+  /// <summary>The keyboard input method typed: the picked words become <paramref name="words"/>.</summary>
+  void Words(string words);
+
+  /// <summary>The picked value of the player's is called <paramref name="name"/> from now on.</summary>
+  void Rename(string name);
+
+  /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
+  void Switch(bool value);
 
   /// <summary>AC: the formula starts over.</summary>
   void Clear();

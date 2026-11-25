@@ -75,7 +75,8 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
       Context.Session.Root.transform,
       Context.Session.Font,
       Context.Session.ReduceMotion,
-      Context.Session.Host.Values
+      Context.Session.Host.Values,
+      Context.Session.CustomValues
     );
 
   protected override void Closed(ShapeOverlayElement shape, bool isNew, bool committed) =>

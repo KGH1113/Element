@@ -1,5 +1,5 @@
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Presentation.Overlay.Text;
 
@@ -7,9 +7,9 @@ namespace Element.Presentation.Overlay.Text;
 internal sealed class OverlayCompiledRun
 {
   public OverlayTextRun Run;
-  public OverlayFormula Value;
-  public OverlayFormula Size;
-  public OverlayFormula Alpha;
+  public OverlayVariable Value;
+  public OverlayVariable Size;
+  public OverlayVariable Alpha;
 
   // The run's OverlayFontKey in saved form; empty follows the default font.
   public string Font;
@@ -18,5 +18,5 @@ internal sealed class OverlayCompiledRun
   public int Gradient = -1;
 
   // Cases that give the run another color while they hold; null for none.
-  public OverlayFormula Cases;
+  public OverlayVariable Cases;
 }

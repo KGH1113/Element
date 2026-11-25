@@ -1,6 +1,6 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
@@ -54,7 +54,7 @@ internal sealed class ShapeColors
       _editor.Render
     );
     _history = history;
-    Cases = new ColorCases(_picker, () => Picked, WriteCases, _editor.Render);
+    Cases = new ColorCases(_picker, () => Picked, WriteColor, _editor.Render);
   }
 
   private readonly EditorHistory<OverlayShapeSettings> _history;
@@ -68,11 +68,10 @@ internal sealed class ShapeColors
   /// <summary>After every change: the picker edits a case's color while the formula being typed ends in one.</summary>
   public void Follow() => Cases.Follow(_numbers.Editing, () => Show(keepStop: true));
 
-  private void WriteCases(string cases)
+  // One undo step with the picker's changes.
+  private void WriteColor(OverlayColorSettings color)
   {
-    _history.Remember(ColorCases.Key);
-    OverlayColorSettings color = Picked.Clone();
-    color.Formula = cases;
+    _picker.RememberChange();
     Picked = color;
   }
 
@@ -204,12 +203,9 @@ internal sealed class ShapeColors
   /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
   public void ShowButtons(ShapePreview preview)
   {
-    _fillButton.SetSwatch(OverlayTextComposer.Resolve(preview.Resolved.Fill, UiTheme.Accent), preview.FillGradient);
+    _fillButton.SetSwatch(preview.FillShown, preview.FillGradient);
     _fillButton.Set(ColorNames.Describe(_context.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
-    _strokeButton.SetSwatch(
-      OverlayTextComposer.Resolve(preview.Resolved.Stroke, UiTheme.Accent),
-      preview.StrokeGradient
-    );
+    _strokeButton.SetSwatch(preview.StrokeShown, preview.StrokeGradient);
     _strokeButton.Set(ColorNames.Describe(_context.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
   }
 
@@ -222,7 +218,7 @@ internal sealed class ShapeColors
     if (!Picker.Visible)
       return;
     string key = OpacityKey;
-    OverlayFormula formula = _numbers.Shown(key);
+    OverlayVariable formula = _numbers.Shown(key);
     OverlayColorSettings color = _pickerForStroke ? _context.Shape.Stroke : _context.Shape.Fill;
     Opacity.Show(
       formula,

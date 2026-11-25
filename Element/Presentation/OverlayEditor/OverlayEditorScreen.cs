@@ -13,6 +13,7 @@ using Element.Presentation.OverlayEditor.Canvas.Confirm;
 using Element.Presentation.OverlayEditor.Canvas.ElementBar;
 using Element.Presentation.OverlayEditor.Canvas.Layers;
 using Element.Presentation.OverlayEditor.Canvas.Toolbar;
+using Element.Presentation.OverlayEditor.FloatView;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.Ui.Popovers;
@@ -60,6 +61,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   private string _openingColor;
   private string _openingFont;
   private GameObject _ownedEvents;
+  private FloatScene _float;
   private bool _previousCursorVisible;
   private CursorLockMode _previousCursorLock;
 
@@ -156,6 +158,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       return;
     if (save)
       FinishDrag();
+    EndFloatView();
     _session.IsOpen = false;
     _session.Closing = true;
     _drag.Cancel();
@@ -202,6 +205,16 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     EnsureEvents();
     if (_session.ViewportChanged(Screen.width, Screen.height))
       Resize(Screen.width, Screen.height);
+    if (_float != null)
+    {
+      if (CanvasSession.GameplayActive)
+        EndFloatView();
+      else
+      {
+        TickFloatView();
+        return;
+      }
+    }
     IContentEditor editor = _kinds.OpenEditor;
     if (editor != null)
     {
@@ -341,6 +354,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _session.SetViewport(width, height);
     if (changed)
     {
+      EndFloatView();
       // Never capture coordinates from a gesture that began in another viewport.
       if (_drag.Active)
       {
@@ -410,12 +424,12 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _exclusions.Add(new LayoutExclusion(new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height), 8 * scale));
 
   // A dialog or a full-screen editor covers the whole view.
-  private bool Covered => _modal.IsOpen || _kinds.OpenEditor != null;
+  private bool Covered => _float != null || _modal.IsOpen || _kinds.OpenEditor != null;
 
   private void UpdateFrames()
   {
     bool editingContent = _kinds.OpenEditor != null;
-    bool covered = _modal.IsOpen || editingContent;
+    bool covered = Covered;
     _selection.Normalize();
     // A full-screen editor stands alone; the toolbar would show through its dim.
     _toolbar.Show(!editingContent);
@@ -518,10 +532,12 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _toolbar.ViewModel.ForgetScale();
     _status.Clear();
     _session.Host.ApplyLayouts();
+    FloatOrder.Apply(_session);
     if (_session.KeyViewers != null)
       foreach (IOverlayLayoutTarget target in _session.KeyViewers.Targets)
         target.RefreshLayout();
     _selection.Prune();
+    _float?.Refresh();
   }
 
   private void Undo()
@@ -710,6 +726,78 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   void ICanvasActions.Redo() => Redo();
 
+  void ICanvasActions.ToggleFloatView()
+  {
+    if (CanvasSession.GameplayActive)
+    {
+      _status.ShowNote(L("레벨을 일시 정지하면 띄워 볼 수 있어요.", "Pause the level to use Float view."));
+      return;
+    }
+    if (_float == null)
+    {
+      if (!Settle() || !_toolbar.CommitPendingScale())
+        return;
+      _marquee.End();
+      _guides.HideLines();
+      _cursors.Set(LayoutHandle.None);
+      _float = new FloatScene(_session, () => _toolbar.Bounds);
+    }
+    else
+    {
+      _float.CancelGesture();
+      _float.Open = !_float.Open;
+    }
+    InputGate.TrackpadViewport = _float.Open ? _float : null;
+    _toolbar.ViewModel.Floating.Value = true;
+    UpdateFrames();
+  }
+
+  private void TickFloatView()
+  {
+    InputGate.SetTextEditing(true);
+    if (EditorKeys.Pressed(KeyCode.Escape) || (EditorKeys.CommandHeld && EditorKeys.EnterPressed))
+    {
+      Close(true);
+      return;
+    }
+    if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Z))
+    {
+      if (EditorKeys.ShiftHeld)
+        Redo();
+      else
+        Undo();
+    }
+    else if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Y))
+      Redo();
+    Vector2 mouse = CanvasSession.Mouse;
+    if (
+      _toolbar.Dragging
+      || (_toolbar.Bounds.Contains(mouse) && Input.GetMouseButtonDown(0) && !_toolbar.ControlAt(mouse))
+    )
+      TrackPointer(mouse);
+    else
+      _float.Pointer(mouse);
+    AdvanceFloatView(Time.unscaledDeltaTime);
+  }
+
+  private void AdvanceFloatView(float dt)
+  {
+    if (!_float.Advance(dt))
+      EndFloatView();
+    UpdateFrames();
+  }
+
+  private void EndFloatView()
+  {
+    if (_float == null)
+      return;
+    InputGate.TrackpadViewport = null;
+    _float.Dispose();
+    _float = null;
+    _toolbar.ViewModel.Floating.Value = false;
+    InputGate.SetTextEditing(false);
+  }
+
   void ICanvasActions.Cancel() => Close(false);
 
   void ICanvasActions.Save() => Close(true);
@@ -770,6 +858,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   public void Dispose()
   {
+    EndFloatView();
     _session.Closing = true;
     // Disposal must not reopen settings through the normal close callback.
     // Torn down while open (the mod turned off), it keeps what was edited,

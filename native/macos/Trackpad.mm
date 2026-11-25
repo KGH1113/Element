@@ -10,24 +10,25 @@ struct TrackpadEvent {
 };
 static_assert(sizeof(TrackpadEvent) == 56, "Managed event ABI must match");
 static id monitor;
-static bool enabled;
+// 0: disabled, 1: level editor, 2: orbit viewport (also accepts rotation).
+static int enabled;
 static bool overflow;
 static std::mutex gate;
 static std::deque<TrackpadEvent> events;
 
 extern "C" __attribute__((visibility("default"))) void irp_trackpad_enable(int value) {
   std::lock_guard<std::mutex> lock(gate);
-  if (enabled != (value != 0)) {
+  if (enabled != value) {
     events.clear();
     overflow = false;
-    enabled = value != 0;
+    enabled = value;
   }
 }
 
 extern "C" __attribute__((visibility("default"))) int irp_trackpad_start() {
   if (![NSThread isMainThread]) return 0;
   if (monitor) return 1;
-  NSEventMask mask = NSEventMaskScrollWheel | NSEventMaskMagnify |
+  NSEventMask mask = NSEventMaskScrollWheel | NSEventMaskMagnify | NSEventMaskRotate |
     NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown |
     NSEventMaskOtherMouseDown | NSEventMaskKeyDown;
   monitor = [NSEvent addLocalMonitorForEventsMatchingMask:mask handler:^NSEvent *(NSEvent *event) {
@@ -39,6 +40,10 @@ extern "C" __attribute__((visibility("default"))) int irp_trackpad_start() {
     if (event.type == NSEventTypeMagnify) {
       sample.kind = 2;
       sample.magnification = event.magnification;
+    } else if (event.type == NSEventTypeRotate) {
+      if (enabled != 2) return event;
+      sample.kind = 4;
+      sample.dx = event.rotation;
     } else if (event.type == NSEventTypeScrollWheel) {
       // Precise deltas include Magic Mouse. Phase information is retained
       // instead of guessing a physical device from delta magnitude.

@@ -36,7 +36,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IOverlayCov
     Rect.SetParent(parent, false);
   }
 
-  protected RectTransform Rect { get; private set; }
+  protected internal RectTransform Rect { get; private set; }
   public OverlayLayoutSettings Settings { get; private set; }
   public string Id => Settings?.Id ?? string.Empty;
   public string TemplateId => Settings?.TemplateId ?? string.Empty;

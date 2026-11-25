@@ -103,6 +103,12 @@ internal static class LayoutLayersTests
     );
     Check(LayoutLayers.ToEnd(layouts, new[] { "a" }, false) && Order(layouts) == "a,b,c,d", "to the very back");
 
+    // One place up passes the next shown element; hidden ones don't count.
+    layouts = new() { Item("a"), Item("hidden"), Item("b") };
+    layouts[1].Enabled = false;
+    Check(LayoutLayers.Shift(layouts, new[] { "a" }, 1) && Order(layouts) == "hidden,b,a", "one place up passes the next shown element: " + Order(layouts));
+    Check(!LayoutLayers.Shift(layouts, new[] { "a" }, 1), "already in front: no place to go");
+
     // Inside a group, a step stays among its elements.
     layouts = new() { Item("x"), Item("g1", group: "g"), Item("g2", group: "g"), Item("g3", group: "g"), Item("y") };
     Check(

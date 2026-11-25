@@ -126,6 +126,37 @@ internal static class LayoutLayers
     return true;
   }
 
+  /// <summary>
+  /// Moves <paramref name="ids"/> <paramref name="steps"/> places toward the
+  /// front (negative: the back), counting whole groups and lone elements as
+  /// one place each and only those shown, so each place is a change; within
+  /// a group when the ids are inside one. False when it is already at that end.
+  /// </summary>
+  public static bool Shift(List<OverlayLayoutSettings> layouts, IReadOnlyCollection<string> ids, int steps)
+  {
+    if (layouts == null || ids == null || ids.Count == 0 || steps == 0)
+      return false;
+    List<List<OverlayLayoutSettings>> blocks = Blocks(layouts, ids, out int own, out string scope);
+    if (own < 0)
+      return false;
+    int direction = steps > 0 ? 1 : -1,
+      left = Math.Abs(steps),
+      target = own;
+    for (int i = own + direction; i >= 0 && i < blocks.Count && left > 0; i += direction)
+      if (AnyShown(blocks[i]))
+      {
+        target = i;
+        left--;
+      }
+    if (target == own)
+      return false;
+    List<OverlayLayoutSettings> block = blocks[own];
+    blocks.RemoveAt(own);
+    blocks.Insert(target, block);
+    Rebuild(layouts, blocks, scope);
+    return true;
+  }
+
   /// <summary>The ids in drawing order, back to front.</summary>
   public static List<string> Order(IReadOnlyList<OverlayLayoutSettings> layouts)
   {
@@ -234,6 +265,14 @@ internal static class LayoutLayers
     for (int i = 0; i < layouts.Count; i++)
       if (layouts[i] != null && layouts[i].Group == scope)
         layouts[i] = ordered[next++];
+  }
+
+  private static bool AnyShown(List<OverlayLayoutSettings> block)
+  {
+    foreach (OverlayLayoutSettings layout in block)
+      if (layout.Enabled)
+        return true;
+    return false;
   }
 
   private static bool SameGroup(List<OverlayLayoutSettings> block, string group) =>

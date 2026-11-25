@@ -17,24 +17,30 @@ internal sealed class LayoutSnapshot
 
   public void Restore(IList<OverlayLayoutSettings> destination)
   {
-    foreach (OverlayLayoutSettings target in destination)
+    var remaining = new List<OverlayLayoutSettings>(destination);
+    int next = 0;
+    foreach (OverlayLayoutSettings value in _values)
     {
-      if (target == null)
+      int index = remaining.FindIndex(item => item != null && item.Id == value.Id);
+      if (index < 0)
         continue;
-      OverlayLayoutSettings value = Find(target.Id);
-      if (value == null)
-      {
-        // Newly created instances remain addressable for redo, but disappear
-        // when restoring a state that predates their creation.
-        target.Enabled = false;
-        continue;
-      }
+      var target = remaining[index];
+      remaining.RemoveAt(index);
       target.CopyFrom(value);
+      destination[next++] = target;
+    }
+    // Instances created after this snapshot stay addressable for redo.
+    foreach (OverlayLayoutSettings target in remaining)
+    {
+      if (target != null)
+        target.Enabled = false;
+      destination[next++] = target;
     }
   }
 
   public bool Matches(LayoutSnapshot other)
   {
+    int next = 0;
     foreach (OverlayLayoutSettings a in _values)
     {
       OverlayLayoutSettings b = other.Find(a.Id);
@@ -46,6 +52,13 @@ internal sealed class LayoutSnapshot
       }
       if (!a.SameAs(b))
         return false;
+      if (a.Enabled)
+      {
+        while (next < other._values.Count && !other._values[next].Enabled)
+          next++;
+        if (next == other._values.Count || other._values[next++].Id != a.Id)
+          return false;
+      }
     }
     foreach (OverlayLayoutSettings b in other._values)
       if (b.Enabled && Find(b.Id) == null)

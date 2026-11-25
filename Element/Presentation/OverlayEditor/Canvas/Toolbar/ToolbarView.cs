@@ -18,6 +18,8 @@ namespace Element.Presentation.OverlayEditor.Canvas.Toolbar;
 /// </summary>
 internal sealed class ToolbarView : View<ToolbarViewModel>
 {
+  private readonly UiColor _floatAccent = UiPalette.SoftAccent;
+
   public ToolbarView(ToolbarViewModel vm)
     : base(vm) { }
 
@@ -31,7 +33,17 @@ internal sealed class ToolbarView : View<ToolbarViewModel>
               .LineLimit(1)
               .Named("Selection")
               .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-            WideButton(L("전체 초기화", "Reset all"), "Reset all", () => VM.ResetAll, 104, 36),
+            WideButton(
+              Text(L("띄워 보기", "Float view"))
+                .LineLimit(1)
+                .Foreground(() => VM.Floating.Value ? _floatAccent : Colors.Foreground),
+              "Float view",
+              () => VM.ToggleFloatView,
+              122,
+              36
+            ),
+            WideButton(L("전체 초기화", "Reset all"), "Reset all", () => VM.ResetAll, 104, 36)
+              .Disabled(() => VM.Floating.Value),
             HStack(
               spacing: 4,
               IconButton(UiIconKind.Undo, "Undo", L("실행 취소", "Undo"), () => VM.Undo, 36),
@@ -42,74 +54,93 @@ internal sealed class ToolbarView : View<ToolbarViewModel>
           )
           .Frame(height: 36),
         HairLine.Across().Padding(new Insets(5, 0, 6, 0)),
-        HStack(
-          spacing: 8,
-          // Elements sized in their editor show its Edit button in the scale's place.
-          If(
-              () => VM.SizedInEditor.Value,
-              () =>
-                WideButton(
-                  Text(() => VM.EditCaption.Value).LineLimit(1),
-                  "Edit element",
-                  () => VM.Edit,
-                  172,
-                  40,
-                  ButtonStyle.Prominent
-                ),
-              () =>
-                HStack(
-                  spacing: 8,
-                  IconButton(UiIconKind.Plus, "Increase size", L("확대", "Increase size"), () => VM.Grow, 40),
-                  ScaleField(),
-                  IconButton(UiIconKind.Minus, "Decrease size", L("축소", "Decrease size"), () => VM.Shrink, 40)
-                )
-            )
-            .Frame(width: 172, height: 40, alignment: Alignment.Leading),
-          Separator(),
-          HStack(
-            spacing: 4,
-            IconButton(
-              UiIconKind.Reset,
-              "Reset element",
-              L("선택 요소 초기화", "Reset element"),
-              () => VM.ResetElement,
-              40
-            ),
-            SnapButton(),
-            IconButton(
-              UiIconKind.Delete,
-              "Delete element",
-              L("요소 삭제 · Cmd/Ctrl + Delete", "Delete element · Cmd/Ctrl + Delete"),
-              () => VM.Delete,
-              40
-            )
-          ),
-          Separator(),
-          WideButton(L("요소 추가", "Add Element"), "Add element", () => VM.Add, 132, 40, ButtonStyle.Prominent),
-          WideButton(
+        If(
+          () => VM.Floating.Value,
+          () =>
+            Text(
+                VM.NativeOrbit
+                  ? L(
+                    "요소는 위아래로 끌어 순서 변경 · 두 손가락으로 회전 · 핀치로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
+                    "Drag up/down to reorder · Two fingers to orbit · Pinch to zoom · Double-click space to reset"
+                  )
+                  : L(
+                    "요소는 위아래로 끌어 순서 변경 · 빈 곳을 끌어 회전 · 휠로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
+                    "Drag elements up or down to reorder · Drag space to orbit · Scroll to zoom · Double-click space to reset"
+                  )
+              )
+              .Font(Font.Caption)
+              .Foreground(Colors.Muted)
+              .Frame(maxWidth: float.PositiveInfinity, height: 40),
+          () =>
             HStack(
               spacing: 8,
-              Spacer().Frame(width: 16, height: 16).Background(() => VM.Highlight.Value, 8),
-              Text(L("하이라이트 색", "Highlight")).LineLimit(1).Frame(maxWidth: float.PositiveInfinity)
-            ),
-            "Highlight color",
-            () => VM.Color,
-            140,
-            40
-          ),
-          // The texts' default font sits beside their highlight color.
-          WideButton(
-            HStack(
-                spacing: 6,
-                Image(ElementIcons.Of(UiIconKind.Font), 20),
-                Text(L("기본 폰트", "Font")).LineLimit(1).Frame(maxWidth: float.PositiveInfinity)
+              // Elements sized in their editor show its Edit button in the scale's place.
+              If(
+                  () => VM.SizedInEditor.Value,
+                  () =>
+                    WideButton(
+                      Text(() => VM.EditCaption.Value).LineLimit(1),
+                      "Edit element",
+                      () => VM.Edit,
+                      172,
+                      40,
+                      ButtonStyle.Prominent
+                    ),
+                  () =>
+                    HStack(
+                      spacing: 8,
+                      IconButton(UiIconKind.Plus, "Increase size", L("확대", "Increase size"), () => VM.Grow, 40),
+                      ScaleField(),
+                      IconButton(UiIconKind.Minus, "Decrease size", L("축소", "Decrease size"), () => VM.Shrink, 40)
+                    )
+                )
+                .Frame(width: 172, height: 40, alignment: Alignment.Leading),
+              Separator(),
+              HStack(
+                spacing: 4,
+                IconButton(
+                  UiIconKind.Reset,
+                  "Reset element",
+                  L("선택 요소 초기화", "Reset element"),
+                  () => VM.ResetElement,
+                  40
+                ),
+                SnapButton(),
+                IconButton(
+                  UiIconKind.Delete,
+                  "Delete element",
+                  L("요소 삭제 · Cmd/Ctrl + Delete", "Delete element · Cmd/Ctrl + Delete"),
+                  () => VM.Delete,
+                  40
+                )
+              ),
+              Separator(),
+              WideButton(L("요소 추가", "Add Element"), "Add element", () => VM.Add, 132, 40, ButtonStyle.Prominent),
+              WideButton(
+                HStack(
+                  spacing: 8,
+                  Spacer().Frame(width: 16, height: 16).Background(() => VM.Highlight.Value, 8),
+                  Text(L("하이라이트 색", "Highlight")).LineLimit(1).Frame(maxWidth: float.PositiveInfinity)
+                ),
+                "Highlight color",
+                () => VM.Color,
+                140,
+                40
+              ),
+              // The texts' default font sits beside their highlight color.
+              WideButton(
+                HStack(
+                    spacing: 6,
+                    Image(ElementIcons.Of(UiIconKind.Font), 20),
+                    Text(L("기본 폰트", "Font")).LineLimit(1).Frame(maxWidth: float.PositiveInfinity)
+                  )
+                  .Foreground(Ink(() => VM.Font)),
+                "Default font",
+                () => VM.Font,
+                112,
+                40
               )
-              .Foreground(Ink(() => VM.Font)),
-            "Default font",
-            () => VM.Font,
-            112,
-            40
-          )
+            )
         ),
         Text(() => VM.Status.Text.Value)
           .Font(Font.Caption.Sized(11))

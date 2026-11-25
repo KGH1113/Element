@@ -14,6 +14,7 @@ internal interface ICanvasActions
 
   void Undo();
   void Redo();
+  void ToggleFloatView();
 
   /// <summary>Leaves without saving.</summary>
   void Cancel();

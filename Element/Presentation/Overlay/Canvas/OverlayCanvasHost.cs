@@ -116,13 +116,24 @@ internal sealed class OverlayCanvasHost : IDisposable
       else
         Remove(element);
     }
+    ApplyDrawOrder(createMissing: true);
+    _comboFit.Pending = true;
+  }
+
+  internal void ApplyDrawOrder(bool createMissing = false)
+  {
+    var byId = new Dictionary<string, OverlayElementTarget>(_elements.Count);
+    foreach (var element in _elements)
+      byId[element.Id] = element;
     foreach (OverlayLayoutSettings settings in _layoutSettings)
     {
-      if (settings == null || string.IsNullOrEmpty(settings.Id) || Find(settings.Id) != null)
+      if (string.IsNullOrEmpty(settings?.Id))
         continue;
-      Create(settings);
+      if (byId.TryGetValue(settings.Id, out var element))
+        element?.Rect.SetAsLastSibling();
+      else if (createMissing)
+        byId[settings.Id] = Create(settings);
     }
-    _comboFit.Pending = true;
   }
 
   /// <summary>

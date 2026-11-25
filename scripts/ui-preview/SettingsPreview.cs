@@ -1115,6 +1115,7 @@ namespace Element.Editor
       Assert(barKept.position == barAfter.position, "the element toolbar keeps its place for the next selection");
       var cutouts = editor.NativeExclusions;
       Assert(cutouts.Count == 2, "native viewers get each panel as its own cutout: " + cutouts.Count);
+      CheckFloatView(editor, camera, texture, canvases, name);
     }
 
     private static void CheckTextEditor(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,

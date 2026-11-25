@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Element.Application.Input;
 using Element.Infrastructure.Platform;
 using HarmonyLib;
 using UnityEngine;
@@ -23,6 +24,8 @@ internal sealed class EditorTrackpadController : IDisposable
   private readonly List<RaycastResult> _hits = new();
   private readonly TrackpadGesture _scroll = new();
   private readonly TrackpadGesture _pinch = new();
+  private readonly TrackpadGesture _rotation = new();
+  private ITrackpadViewport _viewport;
   private readonly FieldInfo _popup = AccessTools.Field(typeof(scnEditor), "showingPopup");
   private readonly MethodInfo _dragCamera = AccessTools.Method(typeof(scnEditor), "DragCamera");
   private int _frame = -1;
@@ -106,17 +109,22 @@ internal sealed class EditorTrackpadController : IDisposable
     _suppressEditor = _suppressUi = false;
     _pending.Clear();
     scnEditor editor = scnEditor.instance;
-    bool active = CanNavigate(editor);
-    scnEditor target = active ? editor : null;
-    if (active != _active || target != _editor)
+    var viewport = InputGate.TrackpadViewport;
+    if (viewport != null && !_enabled())
+      viewport = null;
+    scnEditor target = viewport == null && CanNavigate(editor) ? editor : null;
+    bool active = viewport != null || target != null;
+    if (active != _active || target != _editor || viewport != _viewport)
     {
       // Scene/navigation transitions must not reuse a prior gesture's ownership.
       _scroll.Reset();
       _pinch.Reset();
+      _rotation.Reset();
+      _viewport = viewport;
       _editor = target;
       _active = active;
       _native.SetEnabled(false);
-      _native.SetEnabled(active);
+      _native.SetEnabled(active, viewport != null);
       return;
     }
     // Outside the editor this runs every frame; an unchanged inactive state
@@ -128,6 +136,8 @@ internal sealed class EditorTrackpadController : IDisposable
     {
       _scroll.Cancel();
       _pinch.Cancel();
+      _rotation.Cancel();
+      viewport?.SuppressWheel();
       _suppressEditor = _suppressUi = true;
       return;
     }
@@ -138,18 +148,38 @@ internal sealed class EditorTrackpadController : IDisposable
       {
         _scroll.Cancel();
         _pinch.Cancel();
+        _rotation.Cancel();
         _pending.Clear();
         continue;
       }
       if (sample.Kind == 1)
         _suppressEditor = true;
-      TrackpadGesture gesture = sample.Kind == 1 ? _scroll : _pinch;
-      bool canvas = gesture.Route(sample.Phase, sample.Momentum, () => CanStartOnCanvas(sample));
+      if (sample.Kind == 4 && viewport == null)
+        continue;
+      TrackpadGesture gesture =
+        sample.Kind == 1 ? _scroll
+        : sample.Kind == 4 ? _rotation
+        : _pinch;
+      bool canvas = gesture.Route(
+        sample.Phase,
+        sample.Momentum,
+        () =>
+          viewport == null ? CanStartOnCanvas(sample) : viewport.Accepts(new Vector2((float)sample.X, (float)sample.Y))
+      );
+      if (sample.Kind == 1)
+        viewport?.SuppressWheel();
       if (sample.Kind == 1 && gesture.BlocksUi)
         _suppressUi = true;
       if (!canvas)
         continue;
-      _pending.Add(sample);
+      if (viewport == null)
+        _pending.Add(sample);
+      else if (sample.Kind == 1)
+        viewport.Orbit(new Vector2((float)sample.DeltaX, (float)sample.DeltaY));
+      else if (sample.Kind == 4)
+        viewport.Rotate((float)sample.DeltaX);
+      else
+        viewport.Magnify((float)sample.Magnification);
     }
   }
 

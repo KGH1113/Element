@@ -49,6 +49,7 @@ internal sealed class ToolbarViewModel : ViewModel
     Redo = Command(() => canvas.Redo(), canExecute: Computed(() => CanRedo.Value));
     Cancel = Command(() => canvas.Cancel());
     Save = Command(() => canvas.Save());
+    ToggleFloatView = Command(() => canvas.ToggleFloatView());
     ResetAll = Command(() => canvas.ResetAll());
     ResetElement = Command(() => canvas.ResetSelected(), canExecute: selected);
     Delete = Command(() => canvas.Delete(), canExecute: selected);
@@ -75,6 +76,9 @@ internal sealed class ToolbarViewModel : ViewModel
 
   /// <summary>Whether the overlay fonts loaded: the default font can be picked.</summary>
   public readonly bool HasFonts;
+
+  public bool NativeOrbit =>
+    UnityEngine.Application.platform == RuntimePlatform.OSXPlayer && _session.Preferences.NativeEditorTrackpad;
 
   /// <summary>"Text", "3 selected", or "Select overlay" with nothing selected.</summary>
   public readonly State<string> Selection = new("");
@@ -109,6 +113,8 @@ internal sealed class ToolbarViewModel : ViewModel
   public Command Redo { get; }
   public Command Cancel { get; }
   public Command Save { get; }
+  public Command ToggleFloatView { get; }
+  public readonly State<bool> Floating = new(false);
   public Command ResetAll { get; }
   public Command ResetElement { get; }
   public Command Delete { get; }

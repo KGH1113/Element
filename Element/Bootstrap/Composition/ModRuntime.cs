@@ -233,8 +233,8 @@ internal sealed class ModRuntime : IDisposable
       _applySettings = _session.ApplySettings;
       _frameLoop = new FrameLoop(
         _guard,
-        // Its own guard: a failure in the settings window must not stop the
-        // trackpad, the native viewers or the key limiter below.
+        // Route precise scroll before the viewport considers Unity's legacy wheel.
+        new FrameTask("Move the editor with the trackpad", () => _trackpad?.Tick()),
         new FrameTask("Update the settings window", _settingsUi.Tick),
         // The first frame comes after the game loaded its own settings.
         new FrameTask(
@@ -243,14 +243,6 @@ internal sealed class ModRuntime : IDisposable
           {
             if (!_hitTextSync.Started)
               _hitTextSync.Start();
-          }
-        ),
-        new FrameTask(
-          "Move the editor with the trackpad",
-          () =>
-          {
-            if (!InputGate.BlocksPointerInput)
-              _trackpad?.Tick();
           }
         ),
         new FrameTask("Update native ElementNote viewers", _nativeViewers.Tick),

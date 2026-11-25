@@ -5,8 +5,10 @@ using Element.Domain.Overlay.Values;
 namespace Element.Domain.Overlay.Formula;
 
 /// <summary>
-/// Numbers and values joined by + − × ÷, with × and ÷ first. Words such as
-/// the song title can only stand alone. <see cref="OverlayFormulaSyntax"/>
+/// Numbers and values joined by + − × ÷, with × and ÷ first; or cases, each
+/// a comparison and what it gives ("Combo ≥ 100 then 60, otherwise ..."),
+/// the first that holds giving the result. Words such as the song title and
+/// colors can only stand alone. <see cref="OverlayFormulaSyntax"/>
 /// reads and saves it, <see cref="OverlayFormulaKeypad"/> edits it,
 /// <see cref="OverlayFormulaEvaluator"/> works it out and
 /// <see cref="OverlayFormulaDisplay"/> puts it into words; the methods here
@@ -14,7 +16,7 @@ namespace Element.Domain.Overlay.Formula;
 /// </summary>
 internal sealed class OverlayFormula
 {
-  public const int MaxTokens = 31;
+  public const int MaxTokens = 63;
   public const int MaxDigits = 9;
   private readonly List<OverlayFormulaToken> _tokens = new();
 
@@ -24,6 +26,18 @@ internal sealed class OverlayFormula
 
   /// <summary>The last step is an operator, so the next number or value joins the formula.</summary>
   public bool AwaitsOperand => _tokens.Count > 0 && _tokens[_tokens.Count - 1].Kind == OverlayFormulaTokenKind.Operator;
+
+  /// <summary>It has cases: a comparison and what it gives, at least one of them whole.</summary>
+  public bool HasCases
+  {
+    get
+    {
+      foreach (OverlayFormulaToken token in _tokens)
+        if (token.Kind == OverlayFormulaTokenKind.Then)
+          return true;
+      return false;
+    }
+  }
 
   /// <summary>The last step, or null when the formula is empty.</summary>
   public OverlayFormulaToken? Last => _tokens.Count > 0 ? _tokens[_tokens.Count - 1] : null;
@@ -107,9 +121,7 @@ internal sealed class OverlayFormula
       return false;
     for (int i = 0; i < _tokens.Count; i++)
     {
-      OverlayFormulaToken a = _tokens[i],
-        b = other._tokens[i];
-      if (a.Kind != b.Kind || a.Number != b.Number || a.Value != b.Value || a.Operator != b.Operator)
+      if (!_tokens[i].Same(other._tokens[i]))
         return false;
     }
     return true;
@@ -124,10 +136,12 @@ internal sealed class OverlayFormula
   public void Clear() => _tokens.Clear();
 
   /// <inheritdoc cref="OverlayFormulaKeypad.CanType"/>
-  public bool CanType(char key) => OverlayFormulaKeypad.CanType(this, key);
+  public bool CanType(char key, OverlayFormulaKind kind = OverlayFormulaKind.Number) =>
+    OverlayFormulaKeypad.CanType(this, key, kind);
 
   /// <inheritdoc cref="OverlayFormulaKeypad.Type"/>
-  public bool Type(char key) => OverlayFormulaKeypad.Type(this, key);
+  public bool Type(char key, OverlayFormulaKind kind = OverlayFormulaKind.Number) =>
+    OverlayFormulaKeypad.Type(this, key, kind);
 
   public bool CanBackspace => _tokens.Count > 0;
 
@@ -137,8 +151,12 @@ internal sealed class OverlayFormula
   /// <inheritdoc cref="OverlayFormulaKeypad.CanJoin"/>
   public bool CanJoin(OverlayValueId id) => OverlayFormulaKeypad.CanJoin(this, id);
 
+  /// <inheritdoc cref="OverlayFormulaKeypad.CanDrop"/>
+  public bool CanDrop(OverlayValueId id, OverlayFormulaKind kind) => OverlayFormulaKeypad.CanDrop(this, id, kind);
+
   /// <inheritdoc cref="OverlayFormulaKeypad.Drop"/>
-  public void Drop(OverlayValueId id) => OverlayFormulaKeypad.Drop(this, id);
+  public void Drop(OverlayValueId id, string customHex = OverlayFormulaKeypad.NewColor) =>
+    OverlayFormulaKeypad.Drop(this, id, customHex);
 
   /// <inheritdoc cref="OverlayFormulaKeypad.Trimmed"/>
   public OverlayFormula Trimmed() => OverlayFormulaKeypad.Trimmed(this);
@@ -147,8 +165,16 @@ internal sealed class OverlayFormula
   public bool TryEvaluate(IOverlayNumberSource source, out double result, out bool isTime) =>
     OverlayFormulaEvaluator.TryEvaluate(this, source, out result, out isTime);
 
+  /// <inheritdoc cref="OverlayFormulaEvaluator.TryPickColor"/>
+  public bool TryPickColor(IOverlayNumberSource source, out OverlayFormulaToken color) =>
+    OverlayFormulaEvaluator.TryPickColor(this, source, out color);
+
   /// <inheritdoc cref="OverlayFormulaDisplay.Describe"/>
-  public string Describe(Func<OverlayValueDefinition, string> name) => OverlayFormulaDisplay.Describe(this, name);
+  public string Describe(
+    Func<OverlayValueDefinition, string> name,
+    string then = OverlayFormulaDisplay.Then,
+    string otherwise = OverlayFormulaDisplay.Otherwise
+  ) => OverlayFormulaDisplay.Describe(this, name, then, otherwise);
 
   public static char Symbol(char op) => OverlayFormulaDisplay.Symbol(op);
 

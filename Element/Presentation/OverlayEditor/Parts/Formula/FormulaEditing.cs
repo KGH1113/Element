@@ -71,15 +71,58 @@ internal sealed class FormulaEditing : Observable
     Changed();
   }
 
-  public bool CanPress(char key) => Active && _working.CanType(key);
+  /// <summary>What the place being typed holds; a number field while nothing is.</summary>
+  public OverlayFormulaKind Kind
+  {
+    get
+    {
+      Reading();
+      return _slot?.Kind ?? OverlayFormulaKind.Number;
+    }
+  }
+
+  public bool CanPress(char key) => Active && _working.CanType(key, _slot.Kind);
 
   public bool Press(char key)
   {
     if (!CanPress(key))
       return false;
-    _working.Type(key);
+    _working.Type(key, _slot.Kind);
     Commit();
     return true;
+  }
+
+  /// <summary>What the then/otherwise key adds now; null while it adds nothing.</summary>
+  public OverlayFormulaTokenKind? NextStep
+  {
+    get
+    {
+      Reading();
+      return _working == null ? null : OverlayFormulaKeypad.NextStep(_working);
+    }
+  }
+
+  /// <summary>
+  /// The color a case just got, at the formula's end: the color picker
+  /// edits it while it is there. False while the formula ends anywhere else.
+  /// </summary>
+  public bool EndsInColor(out OverlayFormulaToken color)
+  {
+    Reading();
+    color = default;
+    if (_slot == null || _slot.Kind != OverlayFormulaKind.Color || _working?.Last is not { } last || !last.IsColor)
+      return false;
+    color = last;
+    return true;
+  }
+
+  /// <summary>The color at the formula's end becomes <paramref name="color"/>: one picked by hand, or the highlight color.</summary>
+  public void SetEndColor(OverlayFormulaToken color)
+  {
+    if (!EndsInColor(out OverlayFormulaToken current) || current.Same(color))
+      return;
+    _working.SetLast(color);
+    Commit();
   }
 
   public bool CanClear => Active && !_working.IsEmpty;
@@ -107,19 +150,30 @@ internal sealed class FormulaEditing : Observable
     return true;
   }
 
-  /// <summary>Whether <paramref name="value"/> may be dropped on <paramref name="slot"/>.</summary>
+  /// <summary>
+  /// Whether <paramref name="value"/> may be dropped on <paramref name="slot"/>
+  /// at all: numbers anywhere, words only in a text, colors only in a color.
+  /// </summary>
   public static bool Accepts(FormulaSlot slot, OverlayValueDefinition value) =>
-    slot != null && (value.IsNumeric || slot.IsText);
+    slot != null && (value.IsColor ? slot.Kind == OverlayFormulaKind.Color : value.IsNumeric || slot.IsText);
 
   /// <summary>
-  /// The value joins after a trailing operator, otherwise it replaces the
-  /// slot's formula. The slot becomes the keypad's.
+  /// The value joins after a trailing operator, otherwise it replaces what
+  /// the part being typed holds. In a color with no case written, a color
+  /// value becomes the color's own. The slot becomes the keypad's.
   /// </summary>
   public FormulaDropResult Drop(FormulaSlot slot, OverlayValueDefinition value)
   {
     if (!Accepts(slot, value))
-      return FormulaDropResult.RefusedWords;
+      return FormulaDropResult.Refused;
     Activate(slot);
+    if (slot.Kind == OverlayFormulaKind.Color && value.IsColor && _working.IsEmpty)
+    {
+      slot.OwnColor(value);
+      return FormulaDropResult.Applied;
+    }
+    if (!_working.CanDrop(value.Id, slot.Kind))
+      return FormulaDropResult.Refused;
     _working.Drop(value.Id);
     Commit();
     return FormulaDropResult.Applied;
@@ -130,9 +184,12 @@ internal sealed class FormulaEditing : Observable
   {
     Changed();
     OverlayFormula finished = _working.Trimmed();
-    // A number field keeps its last number until something new is typed.
-    if (finished.IsEmpty && !_slot.IsText)
+    // A number field keeps its last number until something new is typed; a
+    // color without cases is its own color again.
+    if (finished.IsEmpty && _slot.Kind == OverlayFormulaKind.Number)
       return;
+    if (_slot.Kind == OverlayFormulaKind.Color && !finished.HasCases)
+      finished.Clear();
     _slot.Write(finished);
   }
 }

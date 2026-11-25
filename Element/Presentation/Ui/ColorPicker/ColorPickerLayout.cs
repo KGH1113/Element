@@ -37,9 +37,28 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 
   /// <summary>Highlight/Custom: follow the highlight color, or a color of its own.</summary>
   protected View Source() =>
-    Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
-      .Font(Font.Caption.Sized(13))
-      .Frame(height: 36);
+    If(
+      () => VM.SourceShown.Value,
+      () =>
+        Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
+          .Font(Font.Caption.Sized(13))
+          .Frame(height: 36),
+      () => If(() => VM.DockNote.Value, DockNote)
+    );
+
+  // With the choice in the dock, following the highlight says where a custom color is.
+  private View DockNote() =>
+    VStack(
+        spacing: 2,
+        alignment: HAlignment.Leading,
+        UI.Text(L("하이라이트 색을 따라가요", "Follows the highlight color")).Font(Font.Caption.Sized(13)).LineLimit(1),
+        UI.Text(L("아래 '색'에서 커스텀 색을 고르면 직접 골라요", "Pick Custom color under Colors below to choose one"))
+          .Font(Font.Caption.Sized(11))
+          .Foreground(Colors.Muted)
+          .LineLimit(2)
+      )
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+      .Padding(new Insets(2, 2, 0, 2));
 
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>
   protected View HexRow() =>

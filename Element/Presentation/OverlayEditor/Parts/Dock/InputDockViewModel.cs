@@ -1,6 +1,7 @@
 using System.Text;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
@@ -47,7 +48,8 @@ internal sealed class InputDockViewModel : ViewModel
   private readonly string _emptyHint;
   private readonly State<string> _name = new(""),
     _result = new(""),
-    _hint = new("");
+    _hint = new(""),
+    _otherwise = new("");
   private DropState _drop;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
@@ -74,11 +76,12 @@ internal sealed class InputDockViewModel : ViewModel
     Title = Computed(() => Typing.Value ? _name.Value + "  =" : _hint.Value);
     TitleInk = Computed(() => Typing.Value ? Muted : Resting);
     FormulaEmpty = Computed(() => Typing.Value && IsEmpty(_editing));
-    FormulaInk = Computed(() => FormulaEmpty.Value ? Placeholder : Ink);
+    FormulaInk = Computed(() => FormulaEmpty.Value && _editing.Kind != OverlayFormulaKind.Color ? Placeholder : Ink);
+    // A color with no case written shows its own color where the formula would be.
     Formula = Computed(() =>
       !Typing.Value ? ""
-      : FormulaEmpty.Value ? _emptyHint
-      : Describe(_editing)
+      : FormulaEmpty.Value ? (_editing.Kind == OverlayFormulaKind.Color ? _otherwise.Value : _emptyHint)
+      : Describe(_editing, _otherwise.Value)
     );
     Result = Computed(() => Typing.Value && _result.Value.Length > 0 ? "= " + _result.Value : "");
     // While nothing is typed the caret doesn't read the blink, which then rests.
@@ -132,14 +135,16 @@ internal sealed class InputDockViewModel : ViewModel
   /// named <paramref name="name"/>, with <paramref name="result"/> (already
   /// in its unit) on the right. With nothing being edited,
   /// <paramref name="hint"/> says what to do. The formula itself the dock
-  /// reads from what the keypad types.
+  /// reads from what the keypad types; <paramref name="otherwise"/> is what
+  /// shows when none of its cases holds (rich text), said after them.
   /// </summary>
-  public void Show(string owner, string name, string result, string hint)
+  public void Show(string owner, string name, string result, string hint, string otherwise = null)
   {
     Owner.Value = owner;
     _name.Value = name ?? "";
     _result.Value = result ?? "";
     _hint.Value = hint ?? "";
+    _otherwise.Value = otherwise ?? "";
   }
 
   /// <summary>The editor drew afresh after the player did something: the caret shows at once and blinks from there.</summary>
@@ -179,10 +184,12 @@ internal sealed class InputDockViewModel : ViewModel
   [Pure]
   private static bool IsEmpty(FormulaEditing editing) => editing.Working == null || editing.Working.IsEmpty;
 
-  // The formula as it reads: values as soft chips, operators spaced out. Made
-  // again only when the formula changes, not when the editor draws again.
+  // The formula as it reads: values as soft chips, operators spaced out,
+  // comparisons in the accent, "then" and "otherwise" as words, colors as
+  // swatches; after cases, what shows otherwise. Made again only when the
+  // formula changes, not when the editor draws again.
   [Pure]
-  private static string Describe(FormulaEditing editing)
+  private static string Describe(FormulaEditing editing, string otherwise)
   {
     OverlayFormula formula = editing.Working;
     if (formula == null)
@@ -197,16 +204,49 @@ internal sealed class InputDockViewModel : ViewModel
           builder.Append(token.Number.Replace('-', '−'));
           break;
         case OverlayFormulaTokenKind.Value:
+          OverlayValueDefinition value = OverlayValueCatalog.Get(token.Value);
+          builder.Append("<mark=#FFFFFF26> ");
+          if (value.IsColor)
+            Swatch(builder, UiTheme.Accent);
+          builder.Append(ValueSectionNames.ValueName(value).Replace("<", "")).Append(" </mark>");
+          break;
+        case OverlayFormulaTokenKind.Color:
+          builder.Append("<mark=#FFFFFF26> ");
+          Swatch(builder, OverlayTextComposer.ParseHex(token.Hex));
+          builder.Append(token.Hex).Append(" </mark>");
+          break;
+        case OverlayFormulaTokenKind.Compare:
+          builder.Append("  <color=#").AppendHexRgb(UiPalette.SoftAccent).Append('>');
+          builder.Append(token.Operator).Append("</color>  ");
+          break;
+        case OverlayFormulaTokenKind.Then:
+          builder.Append("  <size=80%><color=#FFFFFFB0>").Append(L("이면", "then")).Append("</color></size>  ");
+          break;
+        case OverlayFormulaTokenKind.Else:
           builder
-            .Append("<mark=#FFFFFF26> ")
-            .Append(ValueSectionNames.ValueName(OverlayValueCatalog.Get(token.Value)).Replace("<", ""))
-            .Append(" </mark>");
+            .Append("  <size=80%><color=#FFFFFF80>· ")
+            .Append(L("아니면", "otherwise"))
+            .Append("</color></size>  ");
           break;
         default:
           builder.Append("  ").Append(OverlayFormula.Symbol(token.Operator)).Append("  ");
           break;
       }
     }
+    if (formula.HasCases && formula.Last?.Kind != OverlayFormulaTokenKind.Else && otherwise.Length > 0)
+      builder
+        .Append("   <size=80%><color=#FFFFFF66>· ")
+        .Append(L("아니면", "otherwise"))
+        .Append("</color></size> <alpha=#99>")
+        .Append(otherwise)
+        .Append("<alpha=#FF>");
     return builder.ToString();
+  }
+
+  /// <summary>A round swatch of <paramref name="color"/> leading a color in the line.</summary>
+  public static StringBuilder Swatch(StringBuilder builder, Color color)
+  {
+    color.a = 1;
+    return builder.Append("<color=#").AppendHexRgb(color).Append(">●</color> ");
   }
 }

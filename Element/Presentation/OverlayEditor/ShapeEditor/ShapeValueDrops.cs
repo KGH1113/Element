@@ -99,7 +99,7 @@ internal sealed class ShapeValueDrops
   private void DropOn(string key, OverlayValueDefinition value)
   {
     if (!value.IsNumeric)
-      _numbers.RefuseWords(value);
+      _numbers.Refuse(value);
     else
     {
       if (_numbers.Field != key)

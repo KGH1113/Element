@@ -12,13 +12,15 @@ internal sealed class KeypadKeyViewModel : ViewModel
   /// <param name="character">What it types; '\b' for backspace, '\0' for AC and Done.</param>
   /// <param name="symbol">An operator, which reads in the accent.</param>
   /// <param name="enabled">Whether pressing it would do something now; followed as it changes.</param>
+  /// <param name="saying">What it says when that follows the formula, as "then" turns into "otherwise"; null for <paramref name="label"/>.</param>
   public KeypadKeyViewModel(
     string name,
     string label,
     char character,
     bool symbol,
     Action press,
-    Expression<Func<bool>> enabled
+    Expression<Func<bool>> enabled,
+    Expression<Func<string>> saying = null
   )
   {
     Name = name;
@@ -27,10 +29,14 @@ internal sealed class KeypadKeyViewModel : ViewModel
     Symbol = symbol;
     Enabled = Computed(enabled);
     Press = Command(press, Enabled);
+    Saying = saying == null ? null : Computed(saying);
   }
 
   public readonly string Name;
   public readonly string Label;
+
+  /// <summary>What it says while that follows the formula; null when it always says <see cref="Label"/>.</summary>
+  public readonly Computed<string> Saying;
   public readonly char Character;
   public readonly bool Symbol;
 

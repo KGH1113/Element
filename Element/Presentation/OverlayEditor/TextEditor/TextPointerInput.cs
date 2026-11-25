@@ -150,7 +150,7 @@ internal sealed class TextPointerInput
     }
     OverlayTextItem item = _text.Document[index];
     OverlayFormula formula = OverlayFormula.Parse(item.Value);
-    string words = formula.Describe(ValueSectionNames.ValueName);
+    string words = formula.Describe(ValueSectionNames.ValueName, L("이면", "then"), L("· 아니면", "· otherwise"));
     if (item.SizeFormula.Length > 0)
       words += L(" · 크기 ", " · size ") + OverlayFormula.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName);
     if (!_map.ItemTop(index, frame, out Vector2 anchor))

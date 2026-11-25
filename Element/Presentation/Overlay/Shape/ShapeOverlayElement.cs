@@ -132,8 +132,8 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
     _formulas.ResolvePaints(_resolved, source, UiTheme.Accent);
     _graphic.SetShape(
       _resolved,
-      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _formulas.FillAlpha, source),
-      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _formulas.StrokeAlpha, source),
+      _formulas.FillColor(_resolved, source, UiTheme.Accent),
+      _formulas.StrokeColor(_resolved, source, UiTheme.Accent),
       _formulas.FillGradient,
       _formulas.StrokeGradient
     );

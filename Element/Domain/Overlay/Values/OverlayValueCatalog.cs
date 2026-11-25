@@ -7,7 +7,7 @@ namespace Element.Domain.Overlay.Values;
 // ids after them for the rest of the session. Changed on the main thread only.
 internal static class OverlayValueCatalog
 {
-  public const int BuiltInCount = (int)OverlayValueId.TimeLabel + 1;
+  public const int BuiltInCount = (int)OverlayValueId.CustomColor + 1;
 
   /// <summary>Built-in and added values together; one value mask holds them all.</summary>
   public const int Capacity = OverlayValueMask.Capacity;
@@ -20,6 +20,7 @@ internal static class OverlayValueCatalog
     OverlayValueCategory.Speed,
     OverlayValueCategory.Song,
     OverlayValueCategory.System,
+    OverlayValueCategory.Color,
   };
 
   private static readonly OverlayValueDefinition[] BuiltInDefinitions =
@@ -119,6 +120,9 @@ internal static class OverlayValueCatalog
       "'Music / map time'",
       "음악 시간"
     ),
+    Color(OverlayValueId.HighlightColor, "highlight-color", "하이라이트 색", "Highlight color"),
+    // Never saved as a value: put in a formula, it becomes a color picked by hand.
+    Color(OverlayValueId.CustomColor, "custom-color", "커스텀 색", "Custom color"),
   };
 
   private static readonly List<OverlayValueDefinition> Definitions = new(BuiltInDefinitions);
@@ -195,7 +199,7 @@ internal static class OverlayValueCatalog
       koreanName,
       englishName,
       sample,
-      kind == OverlayValueKind.Text ? double.NaN : sampleNumber,
+      kind is OverlayValueKind.Text or OverlayValueKind.Color ? double.NaN : sampleNumber,
       group
     );
     if (existing != null)
@@ -425,6 +429,9 @@ internal static class OverlayValueCatalog
     string english,
     string sample
   ) => new(id, key, category, OverlayValueKind.Text, korean, english, sample, double.NaN);
+
+  private static OverlayValueDefinition Color(OverlayValueId id, string key, string korean, string english) =>
+    new(id, key, OverlayValueCategory.Color, OverlayValueKind.Color, korean, english, string.Empty, double.NaN);
 
   private static string SampleText(double sample) => sample.ToString(System.Globalization.CultureInfo.InvariantCulture);
 

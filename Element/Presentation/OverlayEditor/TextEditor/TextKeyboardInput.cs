@@ -155,7 +155,7 @@ internal sealed class TextKeyboardInput
       _editor.Render();
       return true;
     }
-    if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(_event, out char key))
+    if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(_event, _formulas.Editing, out char key))
     {
       _formulas.KeypadPress(key);
       return true;

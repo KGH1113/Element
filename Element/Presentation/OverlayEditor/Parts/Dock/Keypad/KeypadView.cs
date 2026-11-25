@@ -10,16 +10,19 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// The keypad: four columns of capsule keys, the operators in the accent,
-/// then AC and a wide, tinted Done.
+/// The keypad: a short row of the six comparisons, four columns of capsule
+/// keys with the operators in the accent, then AC, "then" (or "otherwise")
+/// and a tinted Apply.
 /// </summary>
 internal sealed class KeypadView : View<KeypadViewModel>
 {
   public const float Key = 68,
     KeyHeight = 44,
+    CompareHeight = 30,
+    CompareGap = 6,
     Gap = 8,
     Width = 4 * Key + 3 * Gap,
-    Height = 5 * KeyHeight + 4 * Gap;
+    Height = CompareHeight + Gap + 5 * KeyHeight + 4 * Gap;
 
   public KeypadView(KeypadViewModel vm)
     : base(vm) { }
@@ -27,15 +30,25 @@ internal sealed class KeypadView : View<KeypadViewModel>
   public override View Body =>
     VStack(
         spacing: Gap,
+        Grid(VM.Compares.Count, CompareGap, Compares()),
         Grid(4, Gap, Keys()),
         HStack(
           spacing: Gap,
           new KeypadKeyView(VM.Clear, 17, false).Frame(width: Key),
-          // Done is the one filled key: the way out of the keypad.
+          new KeypadKeyView(VM.Next, 17, false).Frame(width: Key),
+          // Apply is the one filled key: the way out of the keypad.
           new KeypadKeyView(VM.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
         )
       )
       .Frame(width: Width, height: Height);
+
+  private View[] Compares()
+  {
+    View[] keys = new View[VM.Compares.Count];
+    for (int i = 0; i < keys.Length; i++)
+      keys[i] = new KeypadKeyView(VM.Compares[i], 17, false, CompareHeight);
+    return keys;
+  }
 
   private View[] Keys()
   {

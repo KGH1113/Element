@@ -28,6 +28,12 @@ internal sealed class OverlayShapeResolver
   public OverlayFormula FillAlpha { get; private set; }
   public OverlayFormula StrokeAlpha { get; private set; }
 
+  /// <summary>Cases that give the fill another color while they hold; null for none.</summary>
+  public OverlayFormula FillCases { get; private set; }
+
+  /// <summary>Cases that give the border another color while they hold; null for none.</summary>
+  public OverlayFormula StrokeCases { get; private set; }
+
   /// <summary>The fill's gradient as last resolved by <see cref="ResolvePaints"/>; null when solid.</summary>
   public OverlayResolvedGradient FillGradient { get; private set; }
 
@@ -41,6 +47,8 @@ internal sealed class OverlayShapeResolver
     _stroke = Parse(shape.StrokeWidthFormula);
     FillAlpha = Parse(shape.Fill?.AlphaFormula);
     StrokeAlpha = Parse(shape.Stroke?.AlphaFormula);
+    FillCases = OverlayTextComposer.Cases(shape.Fill);
+    StrokeCases = OverlayTextComposer.Cases(shape.Stroke);
     _fillGradient.Compile(shape.Fill);
     _strokeGradient.Compile(shape.Stroke);
     Mask =
@@ -49,6 +57,8 @@ internal sealed class OverlayShapeResolver
       | Bits(_stroke)
       | Bits(FillAlpha)
       | Bits(StrokeAlpha)
+      | Bits(FillCases)
+      | Bits(StrokeCases)
       | _fillGradient.Mask
       | _strokeGradient.Mask;
     _radius.Clear();
@@ -89,24 +99,33 @@ internal sealed class OverlayShapeResolver
 
   /// <summary>
   /// Works out the fill's and the border's gradients for <paramref name="resolved"/>'s
-  /// box into <see cref="FillGradient"/> and <see cref="StrokeGradient"/>.
+  /// box into <see cref="FillGradient"/> and <see cref="StrokeGradient"/>. A
+  /// case that holds gives a solid color instead.
   /// </summary>
   public void ResolvePaints(OverlayShapeSettings resolved, IOverlayNumberSource source, Color highlight)
   {
-    FillGradient = _fillGradient.Resolve(resolved.Fill, highlight, source, resolved.Width, resolved.Height, _fillPaint)
-      ? _fillPaint
-      : null;
-    StrokeGradient = _strokeGradient.Resolve(
-      resolved.Stroke,
-      highlight,
-      source,
-      resolved.Width,
-      resolved.Height,
-      _strokePaint
-    )
-      ? _strokePaint
-      : null;
+    FillGradient =
+      !Holds(FillCases, source)
+      && _fillGradient.Resolve(resolved.Fill, highlight, source, resolved.Width, resolved.Height, _fillPaint)
+        ? _fillPaint
+        : null;
+    StrokeGradient =
+      !Holds(StrokeCases, source)
+      && _strokeGradient.Resolve(resolved.Stroke, highlight, source, resolved.Width, resolved.Height, _strokePaint)
+        ? _strokePaint
+        : null;
   }
+
+  /// <summary>The fill as drawn now: its own color, or the one a case gives.</summary>
+  public Color FillColor(OverlayShapeSettings resolved, IOverlayNumberSource source, Color highlight) =>
+    OverlayTextComposer.Resolve(resolved.Fill, highlight, FillAlpha, source, FillCases, out _);
+
+  /// <summary>The border as drawn now: its own color, or the one a case gives.</summary>
+  public Color StrokeColor(OverlayShapeSettings resolved, IOverlayNumberSource source, Color highlight) =>
+    OverlayTextComposer.Resolve(resolved.Stroke, highlight, StrokeAlpha, source, StrokeCases, out _);
+
+  private static bool Holds(OverlayFormula cases, IOverlayNumberSource source) =>
+    cases != null && cases.TryPickColor(source, out _);
 
   private static float Number(OverlayFormula formula, IOverlayNumberSource source, float fallback)
   {

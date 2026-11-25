@@ -259,7 +259,17 @@ internal sealed class TextPreview
 
   private Color PaintColor(OverlayColorSettings color, Color highlight, IOverlayNumberSource samples)
   {
-    if (color != null && color.IsGradient)
+    // A case that holds gives a solid color, over a gradient too.
+    OverlayFormula cases = OverlayTextComposer.Cases(color);
+    Color solid = OverlayTextComposer.Resolve(
+      color,
+      highlight,
+      OverlayFormulaText.Compile(color?.AlphaFormula),
+      samples,
+      cases,
+      out bool cased
+    );
+    if (color != null && color.IsGradient && !cased)
     {
       for (int i = 0; i < _composedGradients.Count; i++)
         if (_composedGradients[i].SameAs(color))
@@ -267,9 +277,7 @@ internal sealed class TextPreview
       _composedGradients.Add(color);
       return OverlayTextGradients.Marker(_previewGradients.Add(color));
     }
-    return OverlayTextGradients.AvoidMarker(
-      OverlayTextComposer.Resolve(color, highlight, OverlayFormulaText.Compile(color?.AlphaFormula), samples)
-    );
+    return OverlayTextGradients.AvoidMarker(solid);
   }
 
   private static TextAlignmentOptions Horizontal(TextAlignmentOptions alignment)

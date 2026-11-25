@@ -102,8 +102,8 @@ internal sealed class ShapePreview
     _resolver.ResolvePaints(_resolved, samples, UiTheme.Accent);
     _graphic.SetShape(
       _resolved,
-      OverlayTextComposer.Resolve(_resolved.Fill, UiTheme.Accent, _resolver.FillAlpha, samples),
-      OverlayTextComposer.Resolve(_resolved.Stroke, UiTheme.Accent, _resolver.StrokeAlpha, samples),
+      _resolver.FillColor(_resolved, samples, UiTheme.Accent),
+      _resolver.StrokeColor(_resolved, samples, UiTheme.Accent),
       _resolver.FillGradient,
       _resolver.StrokeGradient
     );

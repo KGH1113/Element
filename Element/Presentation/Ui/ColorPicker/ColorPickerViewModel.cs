@@ -59,6 +59,9 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   /// <summary>The Highlight/Custom choice shows: an overlay element's color.</summary>
   public readonly State<bool> SourceShown = new(false);
 
+  /// <summary>Following the highlight with the choice in the dock: a line says where a custom color is picked.</summary>
+  public readonly State<bool> DockNote = new(false);
+
   /// <summary>Its own color, with the square, hue and HEX; false while following the highlight, which leaves only opacity.</summary>
   public readonly State<bool> Custom = new(true);
 
@@ -146,6 +149,25 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
 
   /// <summary>Opened with <see cref="ShowSource"/>: an overlay element's color.</summary>
   public bool SourceMode => _sourceMode;
+
+  /// <summary>
+  /// Highlight or custom is picked in the input dock's values, not here: the
+  /// Highlight/Custom choice doesn't show, and following the highlight says
+  /// where to pick a custom color.
+  /// </summary>
+  public bool SourceInDock
+  {
+    get => _sourceInDock;
+    set
+    {
+      if (_sourceInDock == value)
+        return;
+      _sourceInDock = value;
+      UpdateShape();
+    }
+  }
+
+  private bool _sourceInDock;
 
   /// <summary>Following the highlight color.</summary>
   public bool FollowsHighlight => _followsHighlight;
@@ -447,7 +469,8 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   private void UpdateShape()
   {
     bool gradient = _gradientShown && Gradient != null && Gradient.IsGradient;
-    SourceShown.Value = _sourceMode;
+    SourceShown.Value = _sourceMode && !_sourceInDock;
+    DockNote.Value = _sourceMode && _sourceInDock && _followsHighlight;
     SourceIndex.Value = _followsHighlight ? 0 : 1;
     Custom.Value = !_sourceMode || !_followsHighlight;
     OpacityShown.Value = _allowOpacity;

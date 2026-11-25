@@ -31,4 +31,6 @@ internal enum OverlayValueId
   ProgressLabel,
   AccuracyLabel,
   TimeLabel,
+  HighlightColor,
+  CustomColor,
 }

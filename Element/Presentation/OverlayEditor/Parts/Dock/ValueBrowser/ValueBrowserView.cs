@@ -298,6 +298,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     Button(
         HStack(
             spacing: 0,
+            ColorDot(chip.Value),
             UI.Text(chip.Label).Font(Font.Caption.Sized(13)).Foreground(ChipInk).LineLimit(1).Named("Value name"),
             If(
               () => chip.HasLive.Value,
@@ -323,6 +324,22 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       // Carried out of the dock, the value lands wherever it is let go.
       .Draggable(() => chip.Value, Ghost)
       .Named(chip.Name);
+
+  // A color leads its name with its swatch: the highlight color, or white
+  // ringed for one picked by hand. Other values have none.
+  private static View ColorDot(OverlayValueDefinition value)
+  {
+    if (!value.IsColor)
+      return null;
+    UiColor fill = value.Id == OverlayValueId.HighlightColor ? (UiColor)UiTheme.Accent : Colors.Foreground;
+    return Circle()
+      .Fill(fill)
+      .Frame(width: 10, height: 10)
+      .Background(Circle().Fill(Colors.Muted).Frame(width: 13, height: 13))
+      .Frame(width: 13, height: 13)
+      .Padding(new Insets(0, 0, 0, 6))
+      .AllowsHitTesting(false);
+  }
 
   // The carried value beside the pointer, in the highlight color as it is
   // when the drag starts. Opaque, so the overlay behind never shows through;

@@ -30,7 +30,7 @@ internal sealed class TextSize
     _context = context;
     _text = text;
     _formulas = formulas;
-    Slot = new FormulaSlot(TextFormulas.SizeKey, false, Read, Write);
+    Slot = new FormulaSlot(TextFormulas.SizeKey, OverlayFormulaKind.Number, Read, Write, PlainSize);
   }
 
   /// <summary>How the keypad reads and writes the size.</summary>
@@ -57,7 +57,12 @@ internal sealed class TextSize
     bool active = _formulas.Edits(TextFormulas.SizeKey, out OverlayFormula typed);
     OverlayFormula formula = typed ?? Read();
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
-    _sizeButton.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(_formulas.Result(formula)), computed, active);
+    _text.Range(out int start, out int end);
+    _sizeButton.Set(
+      formula.IsEmpty ? "—" : FormulaFieldView.Number(_formulas.Result(formula, ShownSize(start, end))),
+      computed,
+      active
+    );
   }
 
   private OverlayFormula Read()
@@ -93,6 +98,13 @@ internal sealed class TextSize
       _text.PendingSize = size;
       _text.PendingSizeFormula = text;
     }
+  }
+
+  // The size kept underneath a formula, for when none of its cases holds.
+  private string PlainSize()
+  {
+    _text.Range(out int start, out int end);
+    return FormulaFieldView.Number(ShownSize(start, end)) + " px";
   }
 
   private bool SameSize(int start, int end)

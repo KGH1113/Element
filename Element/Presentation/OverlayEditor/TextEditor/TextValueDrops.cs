@@ -7,6 +7,7 @@ using Element.Presentation.OverlayEditor.Parts.Formula;
 using ElementUI;
 using ElementUI.Ugui;
 using UnityEngine;
+using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
@@ -139,7 +140,8 @@ internal sealed class TextValueDrops
         return value.IsNumeric ? DropState.Accepts : DropState.Refuses;
       }
       Show(_drops._map.IndexAt(screen), joining: false);
-      return DropState.Accepts;
+      // A color colors a text; it can't be a part of one.
+      return value.IsColor ? DropState.Refuses : DropState.Accepts;
     }
 
     public void Drop(OverlayValueDefinition value, Vector2 screen)
@@ -147,6 +149,16 @@ internal sealed class TextValueDrops
       int index = Index;
       bool joining = Joining;
       Left();
+      if (value.IsColor && !joining)
+      {
+        _drops._editor.Notice(
+          L(
+            "색은 글 안에 넣을 수 없어요. 글자 색을 열고 골라 주세요.",
+            "A color can't go in the text. Open Text color and pick it there."
+          )
+        );
+        return;
+      }
       if (joining)
         _drops._formulas.Editing.Drop(_drops._formulas.ChipSlot(index), value);
       else

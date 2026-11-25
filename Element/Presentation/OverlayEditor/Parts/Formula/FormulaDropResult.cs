@@ -5,6 +5,7 @@ internal enum FormulaDropResult
 {
   Applied,
 
-  // Words such as the song title can't go in a number field.
-  RefusedWords,
+  // It can't go there: words in a number, a color in a number, a number
+  // where a case's color goes. FormulaRefusals says why.
+  Refused,
 }

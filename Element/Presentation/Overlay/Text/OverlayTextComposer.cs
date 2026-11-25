@@ -42,13 +42,14 @@ internal static class OverlayTextComposer
         Value = run.IsValue ? OverlayFormulaText.Compile(run.Value) : null,
         Size = OverlayFormulaText.Compile(run.SizeFormula),
         Alpha = OverlayFormulaText.Compile(run.Color?.AlphaFormula),
+        Cases = Cases(run.Color),
         Font = OverlayFontKey.Normalize(run.Font),
       };
       if (run.IsValue && compiled.Value == null)
         continue;
       if (gradients != null && run.Color != null && run.Color.IsGradient)
         compiled.Gradient = gradients.Add(run.Color);
-      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha);
+      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha) | Mask(compiled.Cases);
       output.Add(compiled);
     }
     return mask | (gradients?.Mask ?? OverlayValueMask.None);
@@ -84,10 +85,12 @@ internal static class OverlayTextComposer
       OverlayTextRun run = compiled.Run;
       float size = Size(run.Size, compiled.Size, source, elementScale);
       string font = fonts?.OpenTag(compiled.Font);
+      // A case that holds gives a solid color, over a gradient too.
+      Color solid = Resolve(run.Color, highlight, compiled.Alpha, source, compiled.Cases, out bool cased);
       Color color =
-        compiled.Gradient >= 0
+        compiled.Gradient >= 0 && !cased
           ? OverlayTextGradients.Marker(compiled.Gradient)
-          : OverlayTextGradients.AvoidMarker(Resolve(run.Color, highlight, compiled.Alpha, source));
+          : OverlayTextGradients.AvoidMarker(solid);
       OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
@@ -165,6 +168,41 @@ internal static class OverlayTextComposer
         result.a = Mathf.Clamp01((float)percent / 100f);
     }
     return result;
+  }
+
+  /// <summary>
+  /// The color with its opacity formula applied; while one of
+  /// <paramref name="cases"/> holds, the color it gives instead, with the
+  /// same opacity (<paramref name="cased"/>), so a gradient doesn't show.
+  /// </summary>
+  public static Color Resolve(
+    OverlayColorSettings color,
+    Color highlight,
+    OverlayFormula alpha,
+    IOverlayNumberSource source,
+    OverlayFormula cases,
+    out bool cased
+  )
+  {
+    Color result = Resolve(color, highlight, alpha, source);
+    OverlayFormulaToken picked = default;
+    cased = cases != null && cases.TryPickColor(source, out picked);
+    if (!cased)
+      return result;
+    Color given = Given(picked, highlight);
+    given.a = result.a;
+    return given;
+  }
+
+  /// <summary>The color a case gives: one picked by hand, or the highlight color.</summary>
+  public static Color Given(OverlayFormulaToken color, Color highlight) =>
+    color.Kind == OverlayFormulaTokenKind.Color ? ParseHex(color.Hex) : highlight;
+
+  /// <summary>A color's cases, parsed once; null for a color without any.</summary>
+  public static OverlayFormula Cases(OverlayColorSettings color)
+  {
+    OverlayFormula formula = OverlayFormulaText.Compile(color?.Formula);
+    return formula != null && formula.HasCases ? formula : null;
   }
 
   public static Color ParseHex(string hex)

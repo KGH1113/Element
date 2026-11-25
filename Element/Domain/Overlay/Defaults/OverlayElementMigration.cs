@@ -9,7 +9,8 @@ namespace Element.Domain.Overlay.Defaults;
 // Settings saved before 1.1 list fixed presets. Turn each into the equivalent
 // text element in place, keeping whether it is shown and where it sits.
 // Texts saved by 1.1.0 use values that were later split up or lost their unit;
-// MigrateFormulas rewrites them so they still read the same.
+// MigrateFormulas rewrites them so they still read the same. Colors that
+// followed a value become colors with cases in ConvertValueColors.
 internal static class OverlayElementMigration
 {
   // Values that used to end in "%".
@@ -79,6 +80,81 @@ internal static class OverlayElementMigration
         if (run != null && run.IsValue && OverlayFormula.Parse(run.Value).Mask.Contains(OverlayValueId.Combo))
           run.Animate = true;
     }
+  }
+
+  /// <summary>
+  /// A text color that followed a value becomes a color with cases, read
+  /// from the highest stop: "the value is this stop's number or more" gives
+  /// that stop's color, and the lowest stop's color is the color itself. A
+  /// color that blended between its stops now changes at each stop, and
+  /// every stop takes the lowest stop's opacity.
+  /// </summary>
+  public static void ConvertValueColors(List<OverlayLayoutSettings> layouts)
+  {
+    if (layouts == null)
+      return;
+    foreach (OverlayLayoutSettings layout in layouts)
+    {
+      if (layout?.Text?.Runs == null)
+        continue;
+      foreach (OverlayTextRun run in layout.Text.Runs)
+        if (run?.Color?.ValueColor != null)
+          ConvertValueColor(run.Color);
+    }
+  }
+
+  private static void ConvertValueColor(OverlayColorSettings color)
+  {
+    OverlayValueColor follows = color.ValueColor;
+    color.ValueColor = null;
+    OverlayFormula value = OverlayFormula.Parse(follows.Value);
+    List<OverlayValueColorStop> stops = new();
+    if (follows.Stops != null && !value.IsEmpty && !value.HasCases)
+      foreach (OverlayValueColorStop stop in follows.Stops)
+      {
+        if (stop == null || float.IsNaN(stop.At) || float.IsInfinity(stop.At))
+          continue;
+        // Lowest first; of two at one number, the one made later counted.
+        int at = stops.Count;
+        while (at > 0 && stops[at - 1].At > stop.At)
+          at--;
+        if (at > 0 && stops[at - 1].At == stop.At)
+          stops[at - 1] = stop;
+        else
+          stops.Insert(at, stop);
+      }
+    if (stops.Count < 2)
+      return;
+    OverlayValueColorStop lowest = stops[0];
+    color.Gradient = null;
+    color.Highlight = lowest.Highlight;
+    if (!lowest.Highlight)
+      color.Hex = lowest.Hex;
+    color.Alpha = lowest.Alpha;
+    color.AlphaFormula = string.Empty;
+    OverlayFormula cases = new();
+    for (int i = stops.Count - 1; i >= 1; i--)
+    {
+      if (cases.Count > 0)
+        cases.Add(OverlayFormulaToken.ElseToken());
+      foreach (OverlayFormulaToken token in EachToken(value))
+        cases.Add(token);
+      cases.Add(OverlayFormulaToken.CompareToken('≥'));
+      cases.Add(OverlayFormulaToken.NumberToken(OverlayFormula.NumberText(Math.Round((double)stops[i].At, 2))));
+      cases.Add(OverlayFormulaToken.ThenToken());
+      cases.Add(
+        stops[i].Highlight
+          ? OverlayFormulaToken.ValueToken(OverlayValueId.HighlightColor)
+          : OverlayFormulaToken.ColorToken(stops[i].Hex)
+      );
+    }
+    color.Formula = cases.Serialize();
+  }
+
+  private static IEnumerable<OverlayFormulaToken> EachToken(OverlayFormula formula)
+  {
+    for (int i = 0; i < formula.Count; i++)
+      yield return formula[i];
   }
 
   public static void Migrate(List<OverlayLayoutSettings> layouts)

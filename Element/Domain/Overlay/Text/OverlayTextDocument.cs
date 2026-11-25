@@ -228,6 +228,19 @@ internal sealed class OverlayTextDocument
       _items[i] = _items[i].WithColor(color.Clone());
   }
 
+  /// <summary>Gives each item's color the same cases (saved text; empty for none), keeping its own color.</summary>
+  public void SetColorCases(int start, int end, string cases)
+  {
+    Order(ref start, ref end);
+    cases ??= string.Empty;
+    for (int i = start; i < end; i++)
+    {
+      OverlayColorSettings color = _items[i].Color.Clone();
+      color.Formula = cases;
+      _items[i] = _items[i].WithColor(color);
+    }
+  }
+
   /// <summary>Changes only the opacity of each item's color; formulas give percent.</summary>
   public void SetAlpha(int start, int end, float alpha, string alphaFormula = null)
   {

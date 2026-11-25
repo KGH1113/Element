@@ -16,4 +16,7 @@ internal sealed class OverlayCompiledRun
 
   // The run's slot in the text's OverlayTextGradients; -1 for a solid color.
   public int Gradient = -1;
+
+  // Cases that give the run another color while they hold; null for none.
+  public OverlayFormula Cases;
 }

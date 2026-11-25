@@ -7,6 +7,7 @@ using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -135,8 +136,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
   {
     FormulaEditing editing = _numbers.Editing;
-    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-      _numbers.RefuseWords(value);
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.Refused)
+      _numbers.Refuse(value);
     Render();
   }
 
@@ -284,7 +285,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       return;
     if (restartBlink)
       _dock.RestartBlink();
-    _numbers.Sync();
+    // With no number open, the open picker's color is what the dock types.
+    _numbers.Sync(_colors.CasesOpen ? _colors.Cases.Slot : null);
+    _colors.Follow();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
     _preview.Draw(
@@ -314,15 +317,22 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     PlaceGrowMark();
     // The dock shows the number open in it, or with none what to do.
     string field = _numbers.Field;
+    FormulaEditing editing = _numbers.Editing;
+    bool cases = field == null && _colors.CasesOpen;
     _dock.Show(
-      field,
-      field == null ? "" : _numbers.Name(field),
-      field == null ? null : _numbers.ResultText(field),
+      field ?? (cases ? ColorCases.Key : null),
+      field != null ? _numbers.Name(field)
+        : cases ? _colors.Title
+        : "",
+      field != null ? _numbers.ResultText(field)
+        : cases ? _colors.Cases.Result(_values.WithSamples)
+        : null,
       _colors.Hint()
         ?? L(
           "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
           "Click a number (W, H, border or a corner's arc) to type it here"
-        )
+        ),
+      editing.Active ? editing.Slot.Otherwise() : null
     );
   }
 

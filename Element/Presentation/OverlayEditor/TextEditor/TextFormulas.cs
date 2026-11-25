@@ -93,7 +93,10 @@ internal sealed class TextFormulas
       return _size.Slot;
     if (_fieldSlot == OpacityKey)
       return _color.OpacitySlot;
-    return ChipOpen(out int index) ? ChipSlot(index) : null;
+    if (ChipOpen(out int index))
+      return ChipSlot(index);
+    // With nothing else open, the open color picker's color is what the dock types.
+    return _fieldSlot == null && _color.CasesOpen ? _color.Cases.Slot : null;
   }
 
   public bool ChipOpen(out int index) => _text.SelectedValue(out index) && index == _chipPopover;
@@ -101,7 +104,7 @@ internal sealed class TextFormulas
   public FormulaSlot ChipSlot(int index) =>
     new(
       "value:" + index,
-      true,
+      OverlayFormulaKind.Text,
       () => OverlayFormula.Parse(_text.Document[index].Value),
       formula =>
       {
@@ -109,7 +112,8 @@ internal sealed class TextFormulas
         _text.Document.SetValue(index, formula.Serialize());
         if (formula.IsEmpty)
           _text.Caret = _text.Anchor = Mathf.Min(index, _text.Document.Count);
-      }
+      },
+      () => L("안 보임", "nothing")
     );
 
   /// <summary>
@@ -174,6 +178,7 @@ internal sealed class TextFormulas
     string owner =
       _fieldSlot != null ? _fieldSlot
       : ChipOpen(out int chip) ? "value:" + chip
+      : _color.CasesOpen ? ColorCases.Key
       : null;
     string hint =
       _color.Hint()
@@ -186,9 +191,10 @@ internal sealed class TextFormulas
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
+        : owner == ColorCases.Key ? _color.Title
         : L("값", "Value")
       );
-    dock.Show(owner, name, DockResult(), hint);
+    dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Otherwise() : null);
   }
 
   // The result of what the dock types, as the text or the field will show it.
@@ -196,9 +202,14 @@ internal sealed class TextFormulas
   {
     if (!_editing.Active)
       return null;
+    if (_editing.Slot.Key == ColorCases.Key)
+      return _color.Cases.Result(_values.WithSamples);
     OverlayFormula formula = _editing.Working.Trimmed();
     if (formula.IsEmpty)
       return null;
+    // No case holds: what shows is the place's own.
+    if (formula.HasCases && !formula.TryEvaluate(_values.WithSamples, out _, out _))
+      return _editing.Slot.Otherwise();
     if (_fieldSlot == null)
     {
       _builder.Clear();
@@ -213,10 +224,11 @@ internal sealed class TextFormulas
       );
   }
 
-  public double Result(OverlayFormula formula) =>
+  /// <summary>What <paramref name="formula"/> works out to with the editor's examples; <paramref name="fallback"/> when nothing (no case holds).</summary>
+  public double Result(OverlayFormula formula, double fallback = double.NaN) =>
     formula.IsPlainNumber(out double plain) ? plain
     : formula.TryEvaluate(_values.WithSamples, out double result, out _) ? result
-    : double.NaN;
+    : fallback;
 
   /// <summary>A number shows its result; one worked out from a formula reads in the accent.</summary>
   public void Show(FormulaFieldView field, string key, Func<OverlayFormula> read)
@@ -282,10 +294,20 @@ internal sealed class TextFormulas
   {
     if (_context.Frame == null)
       return;
+    if (!_editing.Active && value.IsColor)
+    {
+      _editor.Notice(
+        L(
+          "색은 글 안에 넣을 수 없어요. 글자 색을 열고 골라 주세요.",
+          "A color can't go in the text. Open Text color and pick it there."
+        )
+      );
+      return;
+    }
     if (_editing.Active)
     {
-      if (_editing.Drop(_editing.Slot, value) == FormulaDropResult.RefusedWords)
-        RefuseWords(value);
+      if (_editing.Drop(_editing.Slot, value) == FormulaDropResult.Refused)
+        Refuse(value);
     }
     else
     {
@@ -300,7 +322,7 @@ internal sealed class TextFormulas
   {
     if (!value.IsNumeric)
     {
-      RefuseWords(value);
+      Refuse(value);
       return;
     }
     if (_fieldSlot != key)
@@ -311,11 +333,6 @@ internal sealed class TextFormulas
     _editing.Drop(CurrentSlot(), value);
   }
 
-  public void RefuseWords(OverlayValueDefinition value) =>
-    _editor.Notice(
-      L(
-        ValueSectionNames.ValueName(value) + "은 글자라서 계산에 쓸 수 없어요. 글 안에 넣어 주세요.",
-        ValueSectionNames.ValueName(value) + " is words, so it can't be calculated. Put it in the text instead."
-      )
-    );
+  /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>
+  public void Refuse(OverlayValueDefinition value) => _editor.Notice(FormulaRefusals.Why(value, _editing));
 }

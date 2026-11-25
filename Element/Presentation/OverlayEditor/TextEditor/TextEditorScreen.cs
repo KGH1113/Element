@@ -164,8 +164,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
   {
     FormulaEditing editing = _formulas.Editing;
-    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-      _formulas.RefuseWords(value);
+    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.Refused)
+      _formulas.Refuse(value);
     Render();
   }
 
@@ -368,6 +368,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
         mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Value));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
+      mask |= OverlayTextComposer.Mask(OverlayTextComposer.Cases(item.Color));
     }
     return mask | _preview.GradientMask;
   }
@@ -387,6 +388,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     }
     FollowSelection();
     _formulas.Sync();
+    // The picker edits a case's color while the formula ends in one.
+    _color.Follow();
     // The text stays above the dock.
     _bottomTop = _dockPanel.Top;
     // The text keeps to the space left of the property column, or of an open

@@ -45,7 +45,11 @@ internal sealed class OverlayValueDefinition
     Available = available;
   }
 
-  public bool IsNumeric => Kind != OverlayValueKind.Text;
+  /// <summary>A number or a time: it can be calculated and compared.</summary>
+  public bool IsNumeric => Kind is OverlayValueKind.Number or OverlayValueKind.Time;
+
+  /// <summary>A color, such as the highlight color: it can only be what a color is.</summary>
+  public bool IsColor => Kind == OverlayValueKind.Color;
 
   public bool IsExtension => Category == OverlayValueCategory.Extension;
 }

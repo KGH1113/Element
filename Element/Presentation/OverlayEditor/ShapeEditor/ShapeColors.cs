@@ -18,7 +18,8 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// <summary>
 /// The fill's and the border's colors: their bar buttons with a swatch, and
 /// the color picker right above the keypad, which carries the color's
-/// opacity as a number like W and H.
+/// opacity as a number like W and H. While the picker is open the dock
+/// points at the color's cases (<see cref="ColorCases"/>).
 /// </summary>
 internal sealed class ShapeColors
 {
@@ -52,6 +53,27 @@ internal sealed class ShapeColors
       _editor.CloseOpen,
       _editor.Render
     );
+    _history = history;
+    Cases = new ColorCases(_picker, () => Picked, WriteCases, _editor.Render);
+  }
+
+  private readonly EditorHistory<OverlayShapeSettings> _history;
+
+  /// <summary>The picked color's cases, which the dock types while the picker is open.</summary>
+  public ColorCases Cases { get; }
+
+  /// <summary>The dock points at the picked color's cases: the picker is open.</summary>
+  public bool CasesOpen => _picker.Picker != null && _picker.Picker.Visible;
+
+  /// <summary>After every change: the picker edits a case's color while the formula being typed ends in one.</summary>
+  public void Follow() => Cases.Follow(_numbers.Editing, () => Show(keepStop: true));
+
+  private void WriteCases(string cases)
+  {
+    _history.Remember(ColorCases.Key);
+    OverlayColorSettings color = Picked.Clone();
+    color.Formula = cases;
+    Picked = color;
   }
 
   public UiColorPicker Picker => _picker.Picker;
@@ -75,7 +97,10 @@ internal sealed class ShapeColors
   public bool ForStroke => _pickerForStroke;
 
   /// <summary>What the open picker colors, as the column's back row names it.</summary>
-  public string Title => _pickerForStroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color");
+  public string Title =>
+    Cases.OnCase ? ColorCases.CaseTitle
+    : _pickerForStroke ? L("테두리 색", "Border color")
+    : L("채우기 색", "Fill color");
 
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
@@ -139,6 +164,7 @@ internal sealed class ShapeColors
   /// </summary>
   public void Show(bool keepStop = false)
   {
+    Cases.ShowingOwn();
     bool stroke = _pickerForStroke;
     Picker.ShowSource(
       Title,
@@ -198,7 +224,12 @@ internal sealed class ShapeColors
     string key = OpacityKey;
     OverlayFormula formula = _numbers.Shown(key);
     OverlayColorSettings color = _pickerForStroke ? _context.Shape.Stroke : _context.Shape.Fill;
-    Opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
+    Opacity.Show(
+      formula,
+      _numbers.Result(formula, (color?.Alpha ?? 1) * 100),
+      pickedStop?.Alpha ?? color?.Alpha ?? 1,
+      _numbers.Field == key
+    );
   }
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>

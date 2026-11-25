@@ -60,6 +60,8 @@ internal sealed class ColorPickerPanel
   {
     Picker = new UiColorPicker(frame, _font, _reduceMotion);
     Picker.Hidden = Hidden;
+    // Highlight or custom is a color value picked in the dock below.
+    Picker.Model.SourceInDock = true;
   }
 
   /// <summary>The opacity as a number; a click types it in the dock.</summary>
@@ -99,6 +101,8 @@ internal sealed class ColorPickerPanel
   )
   {
     RememberOnce();
+    // The picker knows nothing of the color's cases: they stay as they were.
+    color.Formula = before?.Formula ?? string.Empty;
     // A gradient's stops keep their own calculated opacities.
     if (!color.IsGradient)
       color = Opacity.Keep(before, color);

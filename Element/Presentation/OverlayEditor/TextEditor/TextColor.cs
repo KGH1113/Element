@@ -23,6 +23,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// The text's color: the bar's button with a swatch of the selection's
 /// color (or the whole text's), and the color picker right above the
 /// keypad, which carries the color's opacity as a number the dock types.
+/// While the picker is open the dock points at the color's cases
+/// (<see cref="ColorCases"/>): "X-Accuracy = 100 then ● Highlight".
 /// </summary>
 internal sealed class TextColor
 {
@@ -64,8 +66,21 @@ internal sealed class TextColor
       _editor.CloseOpen,
       _editor.Render
     );
-    OpacitySlot = new FormulaSlot(TextFormulas.OpacityKey, false, ReadOpacity, WriteOpacity);
+    OpacitySlot = new FormulaSlot(
+      TextFormulas.OpacityKey,
+      OverlayFormulaKind.Number,
+      ReadOpacity,
+      WriteOpacity,
+      () => FormulaFieldView.Number(_text.RangeColor().Alpha * 100) + "%"
+    );
+    Cases = new ColorCases(_picker, _text.RangeColor, WriteCases, _editor.Render);
   }
+
+  /// <summary>The color's cases, which the dock types while the picker is open.</summary>
+  public ColorCases Cases { get; }
+
+  /// <summary>The dock points at the color's cases: the picker is open and no number of its is typed.</summary>
+  public bool CasesOpen => _picker.Picker != null && _picker.Picker.Visible;
 
   public UiColorPicker Picker => _picker.Picker;
 
@@ -130,10 +145,37 @@ internal sealed class TextColor
     ShowRange();
   }
 
+  /// <summary>
+  /// After every change: the picker edits a case's color while the formula
+  /// being typed ends in one, and the range's own color otherwise.
+  /// </summary>
+  public void Follow()
+  {
+    Cases.Follow(_formulas.Editing, ShowRange);
+    if (Cases.OnCase)
+      Title = ColorCases.CaseTitle;
+  }
+
+  // The cases of the range's colors, each keeping its own color.
+  private void WriteCases(string cases)
+  {
+    _text.RememberFormula(ColorCases.Key);
+    _text.Range(out int start, out int end);
+    if (start < end)
+      _text.Document.SetColorCases(start, end, cases);
+    else
+    {
+      OverlayColorSettings color = _text.RangeColor().Clone();
+      color.Formula = cases;
+      _text.PendingColor = color;
+    }
+  }
+
   // The picker on the range's color: the selection's, or the whole text's.
   private void ShowRange()
   {
     UiColorPicker picker = _picker.Picker;
+    Cases.ShowingOwn();
     Title = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
     picker.ExternalOpacity = true;
     picker.ShowSource(
@@ -174,7 +216,12 @@ internal sealed class TextColor
     bool opacity = _formulas.Edits(TextFormulas.OpacityKey, out OverlayFormula typed);
     OverlayFormula alpha = typed ?? ReadOpacity();
     OverlayColorSettings color = _text.RangeColor();
-    Opacity.Show(alpha, _formulas.Result(alpha), _gradient.PickedStop(color)?.Alpha ?? color.Alpha, opacity);
+    Opacity.Show(
+      alpha,
+      _formulas.Result(alpha, color.Alpha * 100),
+      _gradient.PickedStop(color)?.Alpha ?? color.Alpha,
+      opacity
+    );
   }
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>

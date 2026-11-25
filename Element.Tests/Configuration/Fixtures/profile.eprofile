@@ -4,7 +4,7 @@
   <ModVersion>1.2.3</ModVersion>
   <Name>Sample</Name>
   <Content>
-    <SettingsVersion>9</SettingsVersion>
+    <SettingsVersion>10</SettingsVersion>
     <HighlightColor>HighlightColor</HighlightColor>
     <OverlayFont>OverlayFont</OverlayFont>
     <Gameplay>
@@ -137,6 +137,7 @@
                 <Hex>Hex</Hex>
                 <Alpha>0.5</Alpha>
                 <AlphaFormula>AlphaFormula</AlphaFormula>
+                <Formula>Formula</Formula>
                 <Gradient>
                   <Kind>Diamond</Kind>
                   <Stops>
@@ -193,6 +194,7 @@
             <Hex>Hex</Hex>
             <Alpha>0.5</Alpha>
             <AlphaFormula>AlphaFormula</AlphaFormula>
+            <Formula>Formula</Formula>
             <Gradient>
               <Kind>Diamond</Kind>
               <Stops>
@@ -230,6 +232,7 @@
             <Hex>Hex</Hex>
             <Alpha>0.5</Alpha>
             <AlphaFormula>AlphaFormula</AlphaFormula>
+            <Formula>Formula</Formula>
             <Gradient>
               <Kind>Diamond</Kind>
               <Stops>

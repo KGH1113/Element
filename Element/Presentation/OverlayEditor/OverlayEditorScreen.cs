@@ -11,6 +11,7 @@ using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.Canvas.Confirm;
 using Element.Presentation.OverlayEditor.Canvas.ElementBar;
+using Element.Presentation.OverlayEditor.Canvas.Layers;
 using Element.Presentation.OverlayEditor.Canvas.Toolbar;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts;
@@ -53,6 +54,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   private readonly CanvasReset _reset;
   private readonly CanvasKeyboardInput _keyboard;
   private readonly CanvasLayers _layers;
+  private readonly LayersPanel _layersPanel;
   private readonly Func<IOverlayLayoutTarget, bool> _edit;
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
@@ -88,6 +90,9 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _edit = _kinds.Edit;
     _keyboard = new CanvasKeyboardInput(_session, _selection, _drag, _toolbar, _kinds, this);
     _layers = new CanvasLayers(_session, _selection, _status);
+    _layersPanel = new LayersPanel(_session, _selection, _toolbar, _kinds, _status);
+    _popovers.Stack.Add(_layersPanel, false);
+    _elementBar.Avoid = () => _layersPanel.Bounds;
   }
 
   public bool IsOpen => _session.IsOpen;
@@ -157,6 +162,9 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _toolbar.Dragging = false;
     ClosePopovers();
     _elementBar.Close();
+    _layers.EndPreview();
+    _layers.Peek(null);
+    _layersPanel.Close();
     if (!save)
     {
       _openingLayout.Restore(_session.Host.LayoutSettings);
@@ -257,6 +265,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       return;
     }
     host.TickLayoutPreview();
+    _layersPanel.TrackPointer(Input.mousePosition);
     TrackPointer(CanvasSession.Mouse);
     _keyboard.Handle();
     UpdateFrames();
@@ -291,6 +300,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       if (canDrag && Input.GetMouseButtonDown(0))
         _elementBar.BeginDrag(mouse);
     }
+    else if (_layersPanel.Contains(Input.mousePosition))
+      _cursors.Set(LayoutHandle.None);
     else if (_toolbar.Bounds.Contains(mouse))
     {
       bool canDrag = !_toolbar.ControlAt(mouse);
@@ -409,15 +420,20 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     // A full-screen editor stands alone; the toolbar would show through its dim.
     _toolbar.Show(!editingContent);
     List<CanvasFrame> frames = _session.Frames;
+    HashSet<string> peeked = _layers.Peeked;
     for (int index = 0; index < frames.Count; index++)
     {
       CanvasFrame frame = frames[index];
       bool selected = !covered && _selection.Contains(frame.Target);
-      (frame.Target as IExternalLayoutOutline)?.SetSelected(selected);
-      bool visible = selected && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
+      // The pointer over a layer card outlines its elements in the highlight color.
+      bool peek = !covered && !selected && peeked.Contains(frame.Target.Id);
+      (frame.Target as IExternalLayoutOutline)?.SetSelected(selected || peek);
+      bool visible =
+        (selected || peek) && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
       frame.Outline.gameObject.SetActive(visible);
       if (!visible)
         continue;
+      frame.Outline.color = peek ? UiPalette.Accent : Color.white;
       Rect bounds = frame.Target.Bounds;
       _session.SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(_session.UiScale);
@@ -426,6 +442,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
     _elementBar.Sync(covered, (_drag.Active && _drag.Moved) || _popovers.Stack.AnyOpen);
+    _layersPanel.Sync(covered);
+    _toolbar.ViewModel.LayersOpen.Value = _layersPanel.Visible;
     _toolbar.Refresh();
     _guides.Refresh(_session.UiScale);
     RaisePopovers();
@@ -443,6 +461,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   {
     _popovers.Place();
     _addMenu.Place();
+    _layersPanel.Place();
     _elementBar.Place();
     _modal.Follow();
   }
@@ -659,9 +678,19 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   // ---- Layers and groups ----
 
+  // The layers panel stays open beside the canvas until its button closes it.
   private void ToggleLayers()
   {
-    // Filled in with the layers panel.
+    FinishDrag();
+    _toolbar.Dragging = false;
+    if (_layersPanel.Visible)
+      _layersPanel.Close();
+    else
+    {
+      _layersPanel.Open(this);
+      UpdatePopupPositions();
+    }
+    UpdateFrames();
   }
 
   // After a change to the order or the groups: the element toolbar and the
@@ -729,6 +758,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   void ICanvasActions.PeekLayers(IReadOnlyCollection<string> ids) => _layers.Peek(ids);
 
+  void ICanvasActions.PreviewLayers(IReadOnlyCollection<string> ids, string behindId) => _layers.Preview(ids, behindId);
+
   bool ICanvasActions.Settle() => Settle();
 
   void ICanvasActions.PlaceNew(IOverlayLayoutTarget target, bool commit) => PlaceNewElement(target, commit);
@@ -756,6 +787,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _cursors.Dispose();
     ClosePopovers();
     _elementBar.Close();
+    _layers.EndPreview();
+    _layersPanel.Close();
     _modal.Close();
     _toolbar.Dispose();
     _popovers.Dispose();

@@ -24,7 +24,8 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
   private readonly List<IOverlayLayoutTarget> _targets = new();
   private readonly List<LayoutBounds> _bounds = new();
   private readonly List<LayoutBounds> _before = new();
-  private readonly List<Vector2> _offsets = new();
+  private readonly List<List<IOverlayLayoutTarget>> _units = new();
+  private readonly Dictionary<string, int> _unitOfGroup = new();
 
   private ArrangeViewModel(
     CanvasSession session,
@@ -43,6 +44,8 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
     AlignTop = Align(LayoutAlignment.Top);
     AlignMiddle = Align(LayoutAlignment.Middle);
     AlignBottom = Align(LayoutAlignment.Bottom);
+    Group = Command(() => _canvas.Group());
+    Ungroup = Command(() => _canvas.Ungroup());
     // Spacing needs three; the buttons stay put and only grey out.
     Computed<bool> three = Computed(() => Count.Value >= 3);
     DistributeHorizontal = Command(
@@ -84,6 +87,15 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
   /// <summary>How many are selected.</summary>
   public readonly State<int> Count = new(0);
 
+  /// <summary>The group's name when the selection is one whole group; empty otherwise.</summary>
+  public readonly State<string> GroupName = new("");
+
+  /// <summary>Makes the selection one group.</summary>
+  public Command Group { get; private set; }
+
+  /// <summary>Takes the selected group apart.</summary>
+  public Command Ungroup { get; private set; }
+
   public Command AlignLeft { get; }
   public Command AlignCenter { get; }
   public Command AlignRight { get; }
@@ -93,7 +105,33 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
   public Command DistributeHorizontal { get; }
   public Command DistributeVertical { get; }
 
-  public override void Sync() => Count.Value = _selection.Count;
+  public override void Sync()
+  {
+    Count.Value = _selection.Count;
+    string group = _selection.Group;
+    GroupName.Value = group == null ? "" : GroupNames.Of(_session.Host.LayoutSettings, group);
+  }
+
+  // What lines up: each group of the selection as one, other elements alone.
+  // When the selection is one whole group, its elements each stand alone.
+  private void Units(List<IOverlayLayoutTarget> selection)
+  {
+    _units.Clear();
+    _unitOfGroup.Clear();
+    bool oneGroup = _selection.Group != null;
+    foreach (IOverlayLayoutTarget target in selection)
+    {
+      string group = oneGroup ? null : _session.GroupOf(target);
+      if (group != null && _unitOfGroup.TryGetValue(group, out int unit))
+      {
+        _units[unit].Add(target);
+        continue;
+      }
+      if (group != null)
+        _unitOfGroup[group] = _units.Count;
+      _units.Add(new List<IOverlayLayoutTarget> { target });
+    }
+  }
 
   private Command Align(LayoutAlignment alignment) =>
     Command(() =>
@@ -101,8 +139,9 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
     );
 
   // Lines the selection up in one space: native viewers measure from their
-  // own window origin, read from where the pointer is in both spaces.
-  // When nothing would move, says so instead of looking like nothing happened.
+  // own window origin, read from where the pointer is in both spaces. A
+  // group among several lines up as one box; a group alone lines up its own
+  // elements. When nothing would move, says so instead of looking like nothing happened.
   private void Arrange(Action<List<LayoutBounds>> arrange, string unchanged)
   {
     List<IOverlayLayoutTarget> selection = _selection.Targets;
@@ -112,16 +151,36 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
     foreach (IOverlayLayoutTarget target in selection)
       native |= target is IOverlayLayoutPointer;
     Vector2 mouse = native ? CanvasSession.Mouse : Vector2.zero;
-    _targets.Clear();
+    Units(selection);
     _bounds.Clear();
-    _offsets.Clear();
-    foreach (IOverlayLayoutTarget target in selection)
+    foreach (List<IOverlayLayoutTarget> unit in _units)
     {
-      Vector2 offset = CanvasSession.PointerFor(target, mouse) - mouse;
-      Rect bounds = target.Bounds;
-      _targets.Add(target);
-      _offsets.Add(offset);
-      _bounds.Add(new LayoutBounds(bounds.x - offset.x, bounds.y - offset.y, bounds.width, bounds.height));
+      Rect union = default;
+      for (int i = 0; i < unit.Count; i++)
+      {
+        Rect bounds = unit[i].Bounds;
+        bounds.position -= CanvasSession.PointerFor(unit[i], mouse) - mouse;
+        union =
+          i == 0
+            ? bounds
+            : Rect.MinMaxRect(
+              Mathf.Min(union.xMin, bounds.xMin),
+              Mathf.Min(union.yMin, bounds.yMin),
+              Mathf.Max(union.xMax, bounds.xMax),
+              Mathf.Max(union.yMax, bounds.yMax)
+            );
+      }
+      _bounds.Add(new LayoutBounds(union.x, union.y, union.width, union.height));
+    }
+    if (_bounds.Count < 2)
+    {
+      _status.ShowNote(
+        L(
+          "묶음 하나는 그대로 맞출 게 없어요. 그 안의 요소끼리 맞추려면 묶음을 한 번 더 누르세요",
+          "One group has nothing to line up with. To line up what's inside, click into the group"
+        )
+      );
+      return;
     }
     _before.Clear();
     _before.AddRange(_bounds);
@@ -134,13 +193,19 @@ internal sealed class ArrangeViewModel : ElementBarViewModel
       _status.ShowNote(unchanged);
       return;
     }
-    for (int i = 0; i < _targets.Count; i++)
+    _targets.Clear();
+    for (int i = 0; i < _units.Count; i++)
     {
-      LayoutBounds box = _bounds[i];
-      Vector2 offset = _offsets[i];
-      _targets[i].SetBounds(new Rect(box.X + offset.x, box.Y + offset.y, box.Width, box.Height));
-      _targets[i].CommitLayout(true);
+      float dx = _bounds[i].X - _before[i].X,
+        dy = _bounds[i].Y - _before[i].Y;
+      foreach (IOverlayLayoutTarget target in _units[i])
+      {
+        Rect bounds = target.Bounds;
+        target.SetBounds(new Rect(bounds.x + dx, bounds.y + dy, bounds.width, bounds.height));
+        _targets.Add(target);
+      }
     }
+    _session.CommitMoved(_targets);
     _session.Commit();
     _canvas.RefreshLayouts();
     _canvas.UpdateFrames();

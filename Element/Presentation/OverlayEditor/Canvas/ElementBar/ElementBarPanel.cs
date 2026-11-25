@@ -51,6 +51,9 @@ internal sealed class ElementBarPanel : IPopover
     _canvas = canvas;
   }
 
+  /// <summary>Where a panel above the toolbar stands, in screen pixels from the top left; empty for none.</summary>
+  public System.Func<Rect> Avoid { get; set; }
+
   /// <summary>What the open bar shows; null while closed.</summary>
   public ElementBarViewModel Model => _model;
 
@@ -128,6 +131,10 @@ internal sealed class ElementBarPanel : IPopover
       Vector2 position = _placed ? _position : new Vector2(toolbar.center.x - width * .5f, toolbar.y - height - 10);
       if (!_placed && position.y < 0)
         position.y = toolbar.yMax + 10;
+      // Until it is dragged somewhere, it stands clear of a panel opened above the toolbar.
+      Rect avoid = !_placed && Avoid != null ? Avoid() : default;
+      if (avoid.width > 0 && new Rect(position, new Vector2(width, height)).Overlaps(avoid))
+        position.x = avoid.x - width - 10 >= 0 ? avoid.x - width - 10 : avoid.xMax + 10;
       position.x = Mathf.Clamp(position.x, 0, Mathf.Max(0, _session.ViewWidth - width));
       position.y = Mathf.Clamp(position.y, 0, Mathf.Max(0, _session.ViewHeight - height));
       return new Rect(position, new Vector2(width, height));

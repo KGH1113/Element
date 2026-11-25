@@ -304,6 +304,37 @@ internal sealed class UiIcon : UiVectorGraphic
         Line(mesh, 7.5f, 19.5f, 16.5f, 19.5f);
         Line(mesh, 16.5f, 19.5f, 17.5f, 7);
         break;
+      case UiIconKind.Layers:
+        // A diamond sheet lying over the edge of another, as a stack is drawn.
+        BeginPath();
+        PathPoint(12, 3.5f);
+        PathPoint(21, 8.5f);
+        PathPoint(12, 13.5f);
+        PathPoint(3, 8.5f);
+        Stroke(mesh, 2, true);
+        BeginPath();
+        PathPoint(3, 13.5f);
+        PathPoint(12, 18.5f);
+        PathPoint(21, 13.5f);
+        Stroke(mesh);
+        break;
+      case UiIconKind.Group:
+        // Corners of a frame around two boxes.
+        Line(mesh, 3, 3, 7, 3);
+        Line(mesh, 3, 3, 3, 7);
+        Line(mesh, 17, 3, 21, 3);
+        Line(mesh, 21, 3, 21, 7);
+        Line(mesh, 3, 17, 3, 21);
+        Line(mesh, 3, 21, 7, 21);
+        Line(mesh, 21, 17, 21, 21);
+        Line(mesh, 17, 21, 21, 21);
+        Box(mesh, 7, 7, 13, 13);
+        Box(mesh, 11, 11, 17, 17);
+        break;
+      case UiIconKind.Ungroup:
+        Box(mesh, 3, 3, 11, 11);
+        Box(mesh, 13, 13, 21, 21);
+        break;
       case UiIconKind.Duplicate:
         BeginPath();
         PathPoint(4, 8);

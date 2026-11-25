@@ -317,19 +317,34 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if ((!_staged && !initialize) || Settings == null || Rect == null)
       return;
+    Commit(
+      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null,
+      reselectAnchor && !initialize
+    );
+  }
+
+  public void CommitLayout(Anchor9 anchor)
+  {
+    if (Settings == null || Rect == null)
+      return;
+    Commit(anchor, true);
+  }
+
+  // Saves the placement against anchor, or the nearest screen point for null.
+  private void Commit(Anchor9? anchor, bool keepScale)
+  {
     Rect content = AnchorBounds;
     AnchoredLayoutPosition position = OverlayLayoutPosition.Capture(
       new LayoutBounds(content.x, content.y, content.width, content.height),
       Screen.width,
       Screen.height,
-      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null,
+      anchor,
       Settings.GrowFrom
     );
     if (!position.IsValid)
       return;
     bool preserveScale =
-      reselectAnchor
-      && !initialize
+      keepScale
       && OverlayLayoutPosition.IsAnchored(Settings)
       && OverlayLayoutGeometry.Finite(Settings.Scale)
       && Settings.Scale > 0;
@@ -464,6 +479,45 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     && Mathf.Abs(a.y - b.y) < .001f
     && Mathf.Abs(a.width - b.width) < .001f
     && Mathf.Abs(a.height - b.height) < .001f;
+
+  /// <summary>
+  /// A still copy of what the element draws now, under <paramref name="parent"/>,
+  /// for a picture of it such as a layer card: only what draws is kept, and
+  /// nothing in it takes the pointer. Null when it draws nothing.
+  /// <paramref name="screen"/> is where the element is drawn, in screen pixels
+  /// from the bottom left.
+  /// </summary>
+  public RectTransform Snapshot(Transform parent, out Rect screen)
+  {
+    screen = default;
+    if (Rect == null || !Rect.gameObject.activeInHierarchy || !Enabled)
+      return null;
+    Rect.GetWorldCorners(_corners);
+    screen = UnityEngine.Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
+    if (screen.width <= 0 || screen.height <= 0)
+      return null;
+    GameObject copy = UnityEngine.Object.Instantiate(Rect.gameObject, parent, false);
+    copy.name = "Snapshot: " + Id;
+    CopyDrawing(Rect.gameObject, copy);
+    foreach (MonoBehaviour behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))
+    {
+      if (behaviour is UnityEngine.UI.Graphic graphic)
+        graphic.raycastTarget = false;
+      else if (behaviour is not UnityEngine.UI.RectMask2D and not UnityEngine.UI.Mask)
+        UiFactory.Destroy(behaviour);
+    }
+    return (RectTransform)copy.transform;
+  }
+
+  // A copied object keeps what its graphics hold themselves, as text does,
+  // but not the shapes given to shape graphics in code: those are handed over.
+  private static void CopyDrawing(GameObject original, GameObject copy)
+  {
+    Shape.ShapeGraphic[] from = original.GetComponentsInChildren<Shape.ShapeGraphic>(true),
+      to = copy.GetComponentsInChildren<Shape.ShapeGraphic>(true);
+    for (int i = 0; i < from.Length && i < to.Length; i++)
+      to[i].CopyFrom(from[i]);
+  }
 
   public virtual void Dispose()
   {

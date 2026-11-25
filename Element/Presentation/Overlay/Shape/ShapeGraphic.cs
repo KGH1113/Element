@@ -65,6 +65,20 @@ internal sealed class ShapeGraphic : MaskableGraphic
     SetVerticesDirty();
   }
 
+  /// <summary>
+  /// Draws what <paramref name="other"/> draws, as a copied graphic must:
+  /// a copy of its object keeps none of the shape it was given.
+  /// </summary>
+  public void CopyFrom(ShapeGraphic other)
+  {
+    if (other == null)
+      return;
+    FitsRect = other.FitsRect;
+    FitRounding = other.FitRounding;
+    _pixelsPerUnit = other._pixelsPerUnit;
+    SetShape(other._shape, other._fill, other._stroke, other._fillGradient, other._strokeGradient);
+  }
+
   // Edge fades are one screen pixel wide whatever the element's scale.
   public void SetPixelsPerUnit(float pixelsPerUnit)
   {

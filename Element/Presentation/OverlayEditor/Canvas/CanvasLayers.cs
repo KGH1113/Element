@@ -21,6 +21,7 @@ internal sealed class CanvasLayers
   private readonly List<string> _ids = new();
   private readonly List<IOverlayLayoutTarget> _members = new();
   private readonly HashSet<string> _peeked = new();
+  private List<OverlayLayoutSettings> _previewFrom;
 
   public CanvasLayers(CanvasSession session, CanvasSelection selection, CanvasStatusLine status)
   {
@@ -30,7 +31,7 @@ internal sealed class CanvasLayers
   }
 
   /// <summary>The elements outlined while the pointer is over their layer card.</summary>
-  public IReadOnlyCollection<string> Peeked => _peeked;
+  public HashSet<string> Peeked => _peeked;
 
   private List<OverlayLayoutSettings> Layouts => _session.Host.LayoutSettings;
 
@@ -110,6 +111,7 @@ internal sealed class CanvasLayers
   /// <summary>A layer card let go: <paramref name="ids"/> just in front of <paramref name="behindId"/>, in <paramref name="group"/>.</summary>
   public void Move(IReadOnlyCollection<string> ids, string behindId, string group)
   {
+    EndPreview();
     if (ids == null || ids.Count == 0)
       return;
     bool wholeGroup = IsWholeGroup(ids);
@@ -118,6 +120,36 @@ internal sealed class CanvasLayers
       foreach (string id in ids)
         LayoutGroups.Assign(Layouts, id, group);
     Changed();
+  }
+
+  /// <summary>Shows the order a carried card would make; null ids bring the saved order back.</summary>
+  public void Preview(IReadOnlyCollection<string> ids, string behindId)
+  {
+    if (ids == null)
+    {
+      EndPreview();
+      return;
+    }
+    if (_previewFrom == null)
+      _previewFrom = new List<OverlayLayoutSettings>(Layouts);
+    else
+    {
+      Layouts.Clear();
+      Layouts.AddRange(_previewFrom);
+    }
+    LayoutLayers.PlaceInFrontOf(Layouts, ids, behindId);
+    _session.Host.ApplyOrder();
+  }
+
+  /// <summary>The order as it was before a carried card was shown somewhere else.</summary>
+  public void EndPreview()
+  {
+    if (_previewFrom == null)
+      return;
+    Layouts.Clear();
+    Layouts.AddRange(_previewFrom);
+    _previewFrom = null;
+    _session.Host.ApplyOrder();
   }
 
   public void Rename(string group, string name)
@@ -248,8 +280,7 @@ internal sealed class CanvasLayers
   private static Rect ScreenBounds(IOverlayLayoutTarget target)
   {
     Rect bounds = target.SelectionBounds;
-    Vector2 mouse = CanvasSession.Mouse;
-    bounds.position -= CanvasSession.PointerFor(target, mouse) - mouse;
+    bounds.position -= CanvasSession.OffsetOf(target);
     return bounds;
   }
 

@@ -217,6 +217,22 @@ internal sealed class NativeViewerLayoutTarget
       !reselectAnchor && _growthLayout != null
         ? _growthLayout.Anchor
         : NativeViewerGrowth.SelectAnchor(ToBounds(bounds), Screen.width, Screen.height);
+    Commit(anchor, reselectAnchor && !initialize);
+  }
+
+  // A viewer grows from a corner or its center: another point leaves it its own nearest.
+  public void CommitLayout(Anchor9 anchor)
+  {
+    if (!Available || Screen.width <= 0 || Screen.height <= 0)
+      return;
+    if (!NativeViewerGrowth.IsAnchor(anchor))
+      anchor = NativeViewerGrowth.SelectAnchor(ToBounds(Bounds), Screen.width, Screen.height);
+    Commit(anchor, true);
+  }
+
+  private void Commit(Anchor9 anchor, bool keepScale)
+  {
+    Rect bounds = Bounds;
     AnchoredLayoutPosition position = OverlayLayoutPosition.Capture(
       ToBounds(bounds),
       Screen.width,
@@ -231,8 +247,7 @@ internal sealed class NativeViewerLayoutTarget
     float scale = bounds.width / denominator;
     if (!Finite(scale) || scale <= 0)
       return;
-    bool preserveScale =
-      reselectAnchor && !initialize && _settings.Customized && OverlayLayoutPosition.IsAnchored(_settings);
+    bool preserveScale = keepScale && _settings.Customized && OverlayLayoutPosition.IsAnchored(_settings);
     _settings.Customized = true;
     _settings.LayoutVersion = OverlayLayoutPosition.CurrentVersion;
     _settings.Anchor = position.Anchor;

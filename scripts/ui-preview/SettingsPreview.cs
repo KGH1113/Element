@@ -314,6 +314,7 @@ namespace Element.Editor
       CheckTextEditor(editor, host, camera, texture, canvases, name);
       CheckValueColor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
+      CheckLayers(editor, host, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
@@ -931,7 +932,7 @@ namespace Element.Editor
       Call(editor, "PressElement", b, LayoutHandle.Move, grab);
       Assert(selection.Count == 3 && Drag(editor).Dragging == b, "pressing one of several keeps them all");
       SetField(Drag(editor), "_pressMoved", true);
-      Call(Drag(editor), "DragGroup", grab + new Vector2(30, 20));
+      Call(Drag(editor), "DragSeveral", grab + new Vector2(30, 20));
       Call(editor, "FinishDrag");
       settings.LayoutSnapping = snapping;
       for (int i = 0; i < 3; i++)
@@ -1875,6 +1876,7 @@ namespace Element.Editor
       public void SetEnabled(bool enabled) { Settings.Enabled = enabled; }
       public void SetBounds(Rect bounds) { Bounds = bounds; }
       public void CommitLayout(bool reselectAnchor, bool initialize = false) { }
+      public void CommitLayout(Anchor9 anchor) { }
       public void SetPreview(bool preview) { }
       public void RefreshLayout() { }
       public void ResetLayout() { }
@@ -1931,7 +1933,8 @@ namespace Element.Editor
       });
       SettingsMigrator.Migrate(released);
       SettingsMigrator.Migrate(released);
-      Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && released.OverlayLayouts[0].Text.Runs.Count == 2 && released.OverlayLayouts[0].Text.Runs[1].Text == "%",
+      OverlayLayoutSettings releasedAccuracy = released.OverlayLayouts.Single(layout => layout.Id == "accuracy");
+      Assert(released.SettingsVersion == ElementSettings.CurrentSettingsVersion && releasedAccuracy.Text.Runs.Count == 2 && releasedAccuracy.Text.Runs[1].Text == "%",
         "1.1.0 texts get their units back once");
       Assert(new[] { OverlayElementDefaults.ProgressBarId, OverlayElementDefaults.ProgressTrackId, OverlayElementDefaults.ProgressFillId }
         .All(id => released.OverlayLayouts.Count(layout => layout.Id == id) == 1),

@@ -23,6 +23,7 @@ internal sealed class CanvasDragInput
   private readonly List<Rect> _severalStart = new();
   private readonly List<IOverlayLayoutTarget> _severalTargets = new();
   private readonly List<LayoutBounds> _severalBounds = new();
+  private readonly List<IOverlayLayoutTarget> _moved = new();
   private int _dragging = -1;
   private LayoutHandle _handle;
   private Rect _start;
@@ -142,8 +143,13 @@ internal sealed class CanvasDragInput
     {
       // A press that didn't move leaves every element where it was saved.
       if (_pressMoved)
-        foreach (IOverlayLayoutTarget member in _severalTargets)
-          member.CommitLayout(true);
+        _session.CommitMoved(_severalTargets);
+    }
+    else if (_handle == LayoutHandle.Move && _pressMoved)
+    {
+      _moved.Clear();
+      _moved.Add(_session.Frames[_dragging].Target);
+      _session.CommitMoved(_moved);
     }
     else
       _session.Frames[_dragging].Target.CommitLayout(_handle == LayoutHandle.Move);
@@ -268,8 +274,8 @@ internal sealed class CanvasDragInput
     {
       Rect start = _severalStart[i];
       selection[i].SetBounds(new Rect(start.x + dx, start.y + dy, start.width, start.height));
-      selection[i].CommitLayout(true);
     }
+    _session.CommitMoved(selection);
     _severalStart.Clear();
   }
 

@@ -18,6 +18,9 @@ namespace Element.Presentation.OverlayEditor.Canvas.Toolbar;
 /// </summary>
 internal sealed class ToolbarView : View<ToolbarViewModel>
 {
+  // The highlight color it is drawn in; the toolbar is drawn again when that changes.
+  private readonly UiColor _lit = UiPalette.SoftAccent;
+
   public ToolbarView(ToolbarViewModel vm)
     : base(vm) { }
 
@@ -86,6 +89,20 @@ internal sealed class ToolbarView : View<ToolbarViewModel>
           ),
           Separator(),
           WideButton(L("요소 추가", "Add Element"), "Add element", () => VM.Add, 132, 40, ButtonStyle.Prominent),
+          // What is in front and what is grouped; lit while its panel is open.
+          WideButton(
+              HStack(
+                  spacing: 6,
+                  Image(ElementIcons.Of(UiIconKind.Layers), 20),
+                  Text(L("순서", "Order")).LineLimit(1).Frame(maxWidth: float.PositiveInfinity)
+                )
+                .Foreground(() => VM.LayersOpen.Value ? _lit : Colors.Foreground),
+              "Layers",
+              () => VM.Layers,
+              108,
+              40
+            )
+            .Hint(L("앞뒤 순서와 묶음", "What's in front, and groups")),
           WideButton(
             HStack(
               spacing: 8,

@@ -1,4 +1,3 @@
-
 namespace Element.Presentation.Ui.Graphics;
 
 /// <summary>Every icon <see cref="UiIcon"/> draws. Each one is its own glyph; none is drawn by another's code.</summary>
@@ -74,4 +73,13 @@ internal enum UiIconKind
 
   /// <summary>A magnifying glass, leading a search field.</summary>
   Search,
+
+  /// <summary>Two sheets stacked, one over the other: the drawing order.</summary>
+  Layers,
+
+  /// <summary>Two small boxes inside a dashed frame: make one group.</summary>
+  Group,
+
+  /// <summary>Two small boxes set apart: take a group apart.</summary>
+  Ungroup,
 }

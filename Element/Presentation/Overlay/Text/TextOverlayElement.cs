@@ -71,6 +71,26 @@ internal sealed class TextOverlayElement : OverlayElementTarget
 
   public override string Label => L("텍스트", "Text");
 
+  /// <summary>
+  /// The words it shows now, without their look, cut short when long: what a
+  /// list of elements calls it. "Text" while it shows nothing.
+  /// </summary>
+  public string Words
+  {
+    get
+    {
+      string rich = _text != null ? _text.text : null;
+      if (string.IsNullOrEmpty(rich))
+        return Label;
+      System.Text.StringBuilder plain = new(rich.Length);
+      OverlayPlainText.Append(plain, new System.Text.StringBuilder(rich));
+      string words = plain.ToString().Trim();
+      if (words.Length == 0)
+        return Label;
+      return words.Length > 32 ? words.Substring(0, 31) + "…" : words;
+    }
+  }
+
   /// <summary>The values this text shows.</summary>
   public OverlayValueMask ValueMask { get; private set; }
 

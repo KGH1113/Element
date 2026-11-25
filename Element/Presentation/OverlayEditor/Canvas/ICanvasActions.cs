@@ -61,6 +61,12 @@ internal interface ICanvasActions
   /// </summary>
   void MoveLayers(IReadOnlyCollection<string> ids, string behindId, string group);
 
+  /// <summary>
+  /// Shows on the canvas the order a carried layer card would make, without
+  /// keeping it; null <paramref name="ids"/> brings the order back as it was.
+  /// </summary>
+  void PreviewLayers(IReadOnlyCollection<string> ids, string behindId);
+
   /// <summary>Names <paramref name="group"/>; one undo step.</summary>
   void RenameGroup(string group, string name);
 

@@ -9,12 +9,16 @@ internal sealed class LayoutHistory
   private readonly UndoStack<LayoutSnapshot> _steps = new(63);
   private LayoutSnapshot _current;
   public bool CanUndo => _steps.CanUndo;
+
+  /// <summary>Goes up each time the layout it holds changes: a new step, an undo, a redo or a reset.</summary>
+  public int Version { get; private set; }
   public bool CanRedo => _steps.CanRedo;
 
   public void Reset(IEnumerable<OverlayLayoutSettings> values)
   {
     _steps.Clear();
     _current = new LayoutSnapshot(values);
+    Version++;
   }
 
   /// <summary>A step for what changed since the last one; nothing when the layout is the same.</summary>
@@ -30,17 +34,24 @@ internal sealed class LayoutHistory
       return;
     _steps.Push(_current);
     _current = next;
+    Version++;
   }
 
   public void Undo(IList<OverlayLayoutSettings> values)
   {
     if (_steps.Undo(_current, out LayoutSnapshot state))
+    {
       (_current = state).Restore(values);
+      Version++;
+    }
   }
 
   public void Redo(IList<OverlayLayoutSettings> values)
   {
     if (_steps.Redo(_current, out LayoutSnapshot state))
+    {
       (_current = state).Restore(values);
+      Version++;
+    }
   }
 }

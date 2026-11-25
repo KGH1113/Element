@@ -1,6 +1,5 @@
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
-using Element.Domain.Overlay.ValueColors;
 
 namespace Element.Presentation.Overlay.Text;
 
@@ -17,9 +16,4 @@ internal sealed class OverlayCompiledRun
 
   // The run's slot in the text's OverlayTextGradients; -1 for a solid color.
   public int Gradient = -1;
-
-  // A color that follows a value: its stops, and the value it follows. Null
-  // for a color that doesn't, or one that follows no value yet.
-  public OverlayValueColorRamp ValueColor;
-  public OverlayFormula ValueColorSource;
 }

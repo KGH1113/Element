@@ -109,7 +109,7 @@ internal sealed class ColorPickerPanel
   }
 
   /// <summary>Takes the edit for undo before the first change since the picker opened.</summary>
-  public void RememberOnce()
+  private void RememberOnce()
   {
     if (_snapshotTaken)
       return;

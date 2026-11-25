@@ -1,7 +1,6 @@
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
-using Element.Domain.Overlay.ValueColors;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
@@ -12,7 +11,6 @@ using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.OverlayEditor.Parts.Property;
-using Element.Presentation.OverlayEditor.Parts.ValueColor;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
 using TMPro;
@@ -37,13 +35,7 @@ internal sealed class TextColor
   private readonly ColorPickerPanel _picker;
   private readonly OverlayGradientFormulas _swatchFormulas = new();
   private readonly OverlayResolvedGradient _swatchGradient = new();
-  private readonly OverlayValueColorRamp _swatchRamp = new();
   private PropertyButtonViewModel _colorButton;
-
-  // The picker shows another color than the range's own: a stop of a color
-  // that follows a value, beside the property column.
-  private bool _other;
-  private bool _toldValueColorOff;
 
   public TextColor(
     IEditorActions editor,
@@ -127,13 +119,12 @@ internal sealed class TextColor
   /// <summary>
   /// The open picker goes on with a new selection, or with the whole text
   /// once nothing is selected: it shows that color, and its first change is
-  /// a new undo step. (A stop's color open beside the column is
-  /// <see cref="TextValueColor"/>'s to close.)
+  /// a new undo step.
   /// </summary>
   public void Retarget()
   {
     UiColorPicker picker = _picker.Picker;
-    if (picker == null || !picker.Visible || _other)
+    if (picker == null || !picker.Visible)
       return;
     _picker.NewSession();
     ShowRange();
@@ -144,93 +135,32 @@ internal sealed class TextColor
   {
     UiColorPicker picker = _picker.Picker;
     Title = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
-    _other = false;
-    _toldValueColorOff = false;
     picker.ExternalOpacity = true;
     picker.ShowSource(
       Title,
       _text.RangeColor(),
       color =>
       {
-        // One way to color text at a time: a color picked here stops following a value.
-        bool followed = _text.RangeColor().FollowsValue;
-        color.ValueColor = null;
         _text.Range(out int start, out int end);
         _text.SetColor(
           start,
           end,
           _picker.Changed(_text.RangeColor(), color, _formulas.Field == TextFormulas.OpacityKey, _formulas.Editing)
         );
-        if (followed && !_toldValueColorOff)
-        {
-          _toldValueColorOff = true;
-          _editor.Notice(
-            L(
-              "글자 색을 직접 골라서, 값에 따라 바뀌던 색은 껐어요.",
-              "You picked the text color, so the color no longer follows a value."
-            )
-          );
-        }
         _editor.Render();
       }
     );
   }
 
-  /// <summary>
-  /// Opens the picker beside the property column on a color that isn't the
-  /// range's own, such as a stop of a color that follows a value: solid
-  /// only, its opacity typed in the picker. All its changes are one undo step.
-  /// </summary>
-  public void PickOther(string title, OverlayColorSettings value, Action<OverlayColorSettings> changed)
-  {
-    UiColorPicker picker = _picker.Picker;
-    _picker.NewSession();
-    _other = true;
-    Title = title;
-    picker.ExternalOpacity = false;
-    picker.ShowSource(
-      title,
-      value,
-      color =>
-      {
-        _picker.RememberOnce();
-        changed(color);
-        _editor.Render();
-      },
-      gradient: false
-    );
-  }
+  /// <summary>The picker in the property column from the tool's top, above the keypad.</summary>
+  public void Place(InputDockPanel dock, InspectorPanel inspector) => _picker.Place(dock, inspector.ToolTop);
 
-  /// <summary>The picker shows a color from <see cref="PickOther"/>.</summary>
-  public bool PicksOther => _other && Picker.Visible;
+  public void ShowButton() => _colorButton.Set(ColorNames.Describe(_text.RangeColor()), false, Picker.Visible);
 
-  /// <summary>Where the picker starts while it opens beside the column (frame units); NaN otherwise.</summary>
-  public float Reach(InspectorPanel inspector) =>
-    PicksOther ? ColorPickerPlacement.BesideLeft(Picker, inspector.Left) : float.NaN;
-
-  /// <summary>The picker in the property column from the tool's top, above the keypad, or beside the column.</summary>
-  public void Place(InputDockPanel dock, InspectorPanel inspector)
-  {
-    if (_other)
-      ColorPickerPlacement.PlaceBeside(Picker, dock, inspector.Left, inspector.ToolTop);
-    else
-      _picker.Place(dock, inspector.ToolTop);
-  }
-
-  public void ShowButton() =>
-    _colorButton.Set(ColorNames.Describe(_text.RangeColor()), false, Picker.Visible && !_other);
-
-  /// <summary>The range's color in the bar's button: its swatch, its gradient, or the band of a color that follows a value.</summary>
+  /// <summary>The range's color in the bar's button: its swatch, or its gradient.</summary>
   public void ShowSwatch()
   {
     OverlayColorSettings color = _text.RangeColor();
-    if (color.FollowsValue)
-    {
-      _swatchRamp.Load(color.ValueColor);
-      bool band = ValueColorSwatch.Fill(_swatchGradient, _swatchRamp, UiTheme.Accent);
-      _colorButton.SetSwatch(OverlayTextComposer.Resolve(color, UiTheme.Accent), band ? _swatchGradient : null);
-      return;
-    }
     _swatchFormulas.Compile(color);
     bool gradient = _swatchFormulas.Resolve(color, UiTheme.Accent, _values.WithSamples, 1, 1, _swatchGradient);
     _colorButton.SetSwatch(OverlayTextComposer.Resolve(color, UiTheme.Accent), gradient ? _swatchGradient : null);
@@ -239,7 +169,7 @@ internal sealed class TextColor
   // The picker's opacity shows its result like the size.
   public void ShowOpacity()
   {
-    if (!Picker.Visible || _other)
+    if (!Picker.Visible)
       return;
     bool opacity = _formulas.Edits(TextFormulas.OpacityKey, out OverlayFormula typed);
     OverlayFormula alpha = typed ?? ReadOpacity();
@@ -249,8 +179,7 @@ internal sealed class TextColor
 
   /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
   public string Hint() =>
-    _other ? null
-    : Picker.Visible && Picker.Gradient.IsGradient
+    Picker.Visible && Picker.Gradient.IsGradient
       ? L(
         "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
         "Picking the text color · Drop a value on an opacity, position or angle to calculate it"

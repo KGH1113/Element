@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 namespace Element.Configuration.Overlay;
 
-// A color that follows a live value: Value is the key of the value it
-// follows ("accuracy", or a mod's "Mod/key"), empty until one is picked. Each
-// stop gives the color at one value; the lowest and highest stops hold below
-// and above them. The stops are kept in the order they were made, not by
-// value. While the value has no data, the color it belongs to shows its own
-// color instead.
+// A color that followed a live value, as earlier versions saved it. Nothing
+// draws from it any more; it is read only to convert old settings. Value is
+// the key of the value it followed ("accuracy", or a mod's "Mod/key"), empty
+// when none was picked. Each stop gave the color at one value; the lowest and
+// highest stops held below and above them. The stops are kept in the order
+// they were made, not by value.
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayValueColor

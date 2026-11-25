@@ -61,7 +61,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private readonly TextGradient _gradient;
   private readonly TextColor _color;
   private readonly TextFonts _fonts;
-  private readonly TextValueColor _valueColor;
   private readonly TextAnimate _animate;
   private readonly GrowFrom _grow;
 
@@ -105,10 +104,9 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
-    _valueColor = new TextValueColor(this, _text, _formulas, _color, values);
-    _formulas.Use(_size, _color, _gradient, _valueColor, () => _animate.Visible);
+    _formulas.Use(_size, _color, _gradient);
     _fonts = new TextFonts(this, this, _text, _color);
-    _animate = new TextAnimate(this, this, _text, _color, _preview, _valueColor);
+    _animate = new TextAnimate(this, _text, _color, _preview);
     _grow = new GrowFrom(CloseOpen, Render);
     _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _color, _gradient);
     _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate);
@@ -156,15 +154,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Done() => _formulas.FinishEditing();
 
-  // While the text's color waits for a value to follow, the clicked value is
-  // that one; otherwise it joins the formula being typed, or goes in at the caret.
-  void IInputDockActions.Pick(OverlayValueDefinition value)
-  {
-    if (_valueColor.Armed)
-      _valueColor.PickFromDock(value);
-    else
-      _formulas.PickValue(value);
-  }
+  // The clicked value joins the formula being typed, or goes in at the caret.
+  void IInputDockActions.Pick(OverlayValueDefinition value) => _formulas.PickValue(value);
 
   // A value's name tip would sit over where the carried value lands.
   void IInputDockActions.BeganCarrying() => _frame?.HideTip();
@@ -238,7 +229,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
-    _popovers.Add(_valueColor.Menu);
     // Built last: every place a carried value can land is drawn by now.
     _drops.Build(_frame);
   }
@@ -378,7 +368,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
         mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Value));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
-      mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.ValueColor?.Value));
     }
     return mask | _preview.GradientMask;
   }
@@ -402,18 +391,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _bottomTop = _dockPanel.Top;
     // The text keeps to the space left of the property column, or of an open
     // picker; it glides aside as the picker opens, and back as it closes.
-    _space.Measure(
-      _frame,
-      _color.Picker,
-      _dockPanel,
-      _inspector,
-      _reduceMotion(),
-      out float left,
-      out float right,
-      _color.Reach(_inspector)
-    );
-    // While a stop's color is picked, the text wears it.
-    _preview.Pinned = _valueColor.PreviewNumber;
+    _space.Measure(_frame, _color.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
     _preview.Draw(
       left,
       right,
@@ -432,11 +410,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     ShowFields();
     _color.ShowSwatch();
     _color.Place(_dockPanel, _inspector);
-    // The picker on a stop of a color that follows a value isn't the range's own color.
-    if (_color.PicksOther)
-      _gradient.Handles.Hide();
-    else
-      _gradient.Show();
+    _gradient.Show();
     _fonts.Place(_dockPanel, _inspector.ToolTop);
     _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
@@ -480,7 +454,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       return;
     _toolStart = start;
     _toolEnd = end;
-    _valueColor.Retarget();
     _color.Retarget();
     _fonts.Retarget();
   }
@@ -493,15 +466,9 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _popovers.CloseAll();
   }
 
-  // The number or value being typed, a value waiting to be picked from the
-  // dock and its menu close; the column's tool (the picker, the font list,
-  // the grow points, Animate) stays.
-  private void CloseTyping()
-  {
-    _formulas.Close();
-    _valueColor.Disarm();
-    _valueColor.Menu?.Hide();
-  }
+  // The number or value being typed closes; the column's tool (the picker,
+  // the font list, the grow points, Animate) stays.
+  private void CloseTyping() => _formulas.Close();
 
   // The dimmed space around the text belongs to it; the header, the
   // property column, the popovers and the picker don't.
@@ -527,20 +494,14 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   }
 
   /// <summary>
-  /// Esc closes the picker first, then stops picking a value from the dock,
-  /// then closes the Animate tool, then finishes like Done; only Cancel
-  /// leaves without saving.
+  /// Esc closes the picker first, then the Animate tool, then finishes like
+  /// Done; only Cancel leaves without saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
-    else if (_valueColor.Armed)
-    {
-      _valueColor.Disarm();
-      Render();
-    }
     else if (_animate.Visible)
     {
       _animate.Hide();

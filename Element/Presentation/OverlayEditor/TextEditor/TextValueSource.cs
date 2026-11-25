@@ -12,11 +12,10 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
 /// <summary>
-/// Which value the text's color follows: a menu under the value row with the
-/// numbers the text shows, then "Another value", after which the next value
-/// clicked in the dock is the one (words are refused with a reason). The
-/// owner (<see cref="TextValueColor"/>) makes the color follow the value
-/// picked.
+/// Picks a value for a tool in the property column to follow: a menu under
+/// the tool's value row with the numbers the text shows, then "Another
+/// value", after which the next value clicked in the dock is the one (words
+/// are refused with a reason). The owner is told the value picked.
 /// </summary>
 internal sealed class TextValueSource
 {

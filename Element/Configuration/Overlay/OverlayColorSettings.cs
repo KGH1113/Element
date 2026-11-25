@@ -15,9 +15,9 @@ namespace Element.Configuration.Overlay;
 // Highlight then applies to the whole gradient: every stop is the highlight
 // color and only their opacities differ.
 //
-// With ValueColor, the color follows a live value instead, and everything
-// above is what shows while that value has no data. Turning it off brings
-// that color back as it was.
+// ValueColor is what earlier versions saved for a color that followed a live
+// value. Nothing draws from it any more: it is kept, and saved back as it
+// was, only so those settings can be converted.
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayColorSettings
@@ -30,12 +30,10 @@ public sealed class OverlayColorSettings
   /// <summary>Null for a solid color.</summary>
   public OverlayGradient Gradient;
 
-  /// <summary>Null unless the color follows a live value.</summary>
+  /// <summary>Null unless an earlier version saved a color that followed a live value; read only to convert it.</summary>
   public OverlayValueColor ValueColor;
 
   public bool IsGradient => Gradient != null && Gradient.Stops != null && Gradient.Stops.Count > 1;
-
-  public bool FollowsValue => ValueColor != null;
 
   public static OverlayColorSettings HighlightColor(float alpha = 1f) => new() { Highlight = true, Alpha = alpha };
 

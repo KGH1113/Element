@@ -36,8 +36,6 @@ internal sealed class TextFormulas
   private TextSize _size;
   private TextColor _color;
   private TextGradient _gradient;
-  private TextValueColor _valueColor;
-  private Func<bool> _animateOpen;
   private string _fieldSlot;
 
   // The value whose popover is open, while it stays selected; -1 for none.
@@ -67,23 +65,12 @@ internal sealed class TextFormulas
   /// <summary>The value being calculated in the dock, or -1.</summary>
   public int EditedValue => ChipOpen(out int index) ? index : -1;
 
-  /// <summary>
-  /// The numbers the dock can type besides values, and the color that follows
-  /// a value, whose tool <paramref name="animateOpen"/> says is open.
-  /// </summary>
-  public void Use(
-    TextSize size,
-    TextColor color,
-    TextGradient gradient,
-    TextValueColor valueColor,
-    Func<bool> animateOpen
-  )
+  /// <summary>The numbers the dock can type besides values.</summary>
+  public void Use(TextSize size, TextColor color, TextGradient gradient)
   {
     _size = size;
     _color = color;
     _gradient = gradient;
-    _valueColor = valueColor;
-    _animateOpen = animateOpen;
   }
 
   /// <summary>Nothing open, as when the editor opens.</summary>
@@ -106,8 +93,6 @@ internal sealed class TextFormulas
       return _size.Slot;
     if (_fieldSlot == OpacityKey)
       return _color.OpacitySlot;
-    if (_valueColor.Slot(_fieldSlot) is { } stop)
-      return stop;
     return ChipOpen(out int index) ? ChipSlot(index) : null;
   }
 
@@ -192,14 +177,12 @@ internal sealed class TextFormulas
       : null;
     string hint =
       _color.Hint()
-      ?? _valueColor.Hint(_animateOpen())
       ?? L(
         "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
         "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
       );
     string name =
       _gradient.Name(_fieldSlot)
-      ?? TextValueColor.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
@@ -226,7 +209,6 @@ internal sealed class TextFormulas
       + (
         _fieldSlot == OpacityKey || _fieldSlot == PositionKey ? "%"
         : _fieldSlot == AngleKey ? "°"
-        : _fieldSlot == TextValueColor.StopKey ? ""
         : " px"
       );
   }

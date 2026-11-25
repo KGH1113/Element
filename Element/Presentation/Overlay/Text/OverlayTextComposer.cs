@@ -3,7 +3,6 @@ using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
-using Element.Domain.Overlay.ValueColors;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Values;
@@ -47,16 +46,9 @@ internal static class OverlayTextComposer
       };
       if (run.IsValue && compiled.Value == null)
         continue;
-      // A color following a value takes the place of the run's own color.
-      OverlayFormula follows = OverlayFormulaText.Compile(run.Color?.ValueColor?.Value);
-      if (follows != null)
-      {
-        compiled.ValueColor = new OverlayValueColorRamp(run.Color.ValueColor);
-        compiled.ValueColorSource = follows;
-      }
-      else if (gradients != null && run.Color != null && run.Color.IsGradient)
+      if (gradients != null && run.Color != null && run.Color.IsGradient)
         compiled.Gradient = gradients.Add(run.Color);
-      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha) | Mask(follows);
+      mask |= Mask(compiled.Value) | Mask(compiled.Size) | Mask(compiled.Alpha);
       output.Add(compiled);
     }
     return mask | (gradients?.Mask ?? OverlayValueMask.None);
@@ -95,9 +87,7 @@ internal static class OverlayTextComposer
       Color color =
         compiled.Gradient >= 0
           ? OverlayTextGradients.Marker(compiled.Gradient)
-          : OverlayTextGradients.AvoidMarker(
-            Resolve(run.Color, highlight, compiled.Alpha, source, compiled.ValueColor, compiled.ValueColorSource)
-          );
+          : OverlayTextGradients.AvoidMarker(Resolve(run.Color, highlight, compiled.Alpha, source));
       OpenStyle(output, color, size, font);
       if (compiled.Value != null)
       {
@@ -175,36 +165,6 @@ internal static class OverlayTextComposer
         result.a = Mathf.Clamp01((float)percent / 100f);
     }
     return result;
-  }
-
-  /// <summary>
-  /// The color as it shows now: with <paramref name="ramp"/>, the color for
-  /// the number <paramref name="follows"/> works out to, or while that has no
-  /// data the color's own (<see cref="Resolve(OverlayColorSettings, Color, OverlayFormula, IOverlayNumberSource)"/>).
-  /// Allocates nothing.
-  /// </summary>
-  public static Color Resolve(
-    OverlayColorSettings color,
-    Color highlight,
-    OverlayFormula alpha,
-    IOverlayNumberSource source,
-    OverlayValueColorRamp ramp,
-    OverlayFormula follows
-  )
-  {
-    if (
-      ramp != null
-      && ramp.Count > 0
-      && follows != null
-      && follows.TryEvaluate(source, out double number, out _)
-      && !double.IsNaN(number)
-      && !double.IsInfinity(number)
-    )
-    {
-      OverlayRgba shown = ramp.Evaluate(number, new OverlayRgba(highlight.r, highlight.g, highlight.b, 1));
-      return new Color(shown.R, shown.G, shown.B, shown.A);
-    }
-    return Resolve(color, highlight, alpha, source);
   }
 
   public static Color ParseHex(string hex)

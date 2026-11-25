@@ -312,7 +312,6 @@ namespace Element.Editor
       CheckShapes(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
       CheckKeyViewers(editor, viewers, camera, texture, canvases, name);
       CheckTextEditor(editor, host, camera, texture, canvases, name);
-      CheckValueColor(editor, host, camera, texture, canvases, name);
       CheckMultiSelect(editor, host, settings, camera, texture, canvases, name);
       CheckSettingsKeepSpaces();
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
@@ -1214,8 +1213,7 @@ namespace Element.Editor
       Assert(animateTool.Visible, "the Animate row opens its tool");
       AssertInColumn(text, animateTool.Root, Korean(name) ? "애니메이션" : "Animate");
       Pressable drawnAnimate = ByName<Pressable>(animateTool.Root, "Grow on change");
-      Assert(drawnAnimate != null && ByName<Pressable>(animateTool.Root, "Color by value") != null,
-        "the tool has a switch to grow on each change and one to color by value");
+      Assert(drawnAnimate != null, "the tool has a switch to grow on each change");
       RoundedRect[] switchShapes = drawnAnimate.GetComponentsInChildren<RoundedRect>(false);
       RoundedRect animateTrack = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 30) < .01f
         && Mathf.Abs(graphic.rectTransform.rect.height - 18) < .01f && Mathf.Abs(graphic.Radius - 9) < .01f);

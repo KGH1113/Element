@@ -22,6 +22,9 @@ internal sealed class InputDockPanel
 {
   private const float BottomGap = 16;
 
+  // Over the values and the input method: the line, then the notice under it.
+  private const float Head = FormulaLineView.Height + InputDockView.NoticeHeight + InputDockView.LineGap;
+
   private readonly ScreenPanel _panel;
   private readonly InputDockViewModel _vm;
   private readonly InputDockView _view;
@@ -32,7 +35,7 @@ internal sealed class InputDockPanel
   {
     _vm = vm;
     _width = screen.ContentWidth;
-    float height = FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height;
+    float height = Head + KeypadView.Height;
     Top = screen.Height - BottomGap - height;
     Left = screen.ContentLeft;
     _panel = screen.Panel("Input dock", Color.clear);
@@ -45,25 +48,28 @@ internal sealed class InputDockPanel
       vm,
       _width
     );
-    // The notice line sits above the formula line; Top stays the formula line's.
-    Root.anchoredPosition = new Vector2(Left, -(Top - InputDockView.NoticeHeight));
+    Root.anchoredPosition = new Vector2(Left, -Top);
   }
 
   public RectTransform Root => _panel.Root;
 
-  /// <summary>Where the dock starts, in frame units; previews stay above it.</summary>
+  /// <summary>Where the dock starts (its hairline), in frame units; previews stay above it.</summary>
   public float Top { get; }
 
   private float Left { get; }
 
   /// <summary>The keypad's column, in frame units, for what opens right above it.</summary>
-  public Rect KeypadArea =>
-    new(
-      Left + _width - KeypadView.Width,
-      Top + FormulaLineView.Height + InputDockView.LineGap,
-      KeypadView.Width,
-      KeypadView.Height
-    );
+  public Rect KeypadArea => new(Left + _width - KeypadView.Width, Top + Head, KeypadView.Width, KeypadView.Height);
+
+  /// <summary>Where an input method is drawn, under the line that names it: a solid color's picker stands there.</summary>
+  public Rect MethodArea
+  {
+    get
+    {
+      Rect column = KeypadArea;
+      return new Rect(column.x, column.y + KeypadView.TitleHeight, KeypadView.Width, KeypadView.MethodHeight);
+    }
+  }
 
   /// <summary>Once a frame: a part of the values shown for the first time gets its pointer.</summary>
   public void Tick()

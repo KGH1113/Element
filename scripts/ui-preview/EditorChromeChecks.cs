@@ -52,37 +52,46 @@ namespace Element.Editor
     }
 
     /// <summary>
-    /// A tool a row opened (the picker, the font list, the points) as the
-    /// column shows it: the rows give way to a back row naming
-    /// <paramref name="tool"/>, and the tool hangs under it, ending with the column.
+    /// A field picked from a fixed set (a font, a point) as the dock shows
+    /// it: the column keeps its rows, the dock's line names the field
+    /// (<paramref name="whose"/> <paramref name="name"/>) and shows its one
+    /// choice, the list's place says it is picked on the right, and
+    /// <paramref name="drawn"/> stands where the input method is, over Remove
+    /// (which rests) and Apply, under "<paramref name="method"/>".
     /// </summary>
-    private static void AssertInColumn(object editor, RectTransform drawn, string tool)
+    private static void AssertInputMethod(object editor, RectTransform drawn, string method, string name, string whose)
     {
       Settle();
       InspectorPanel inspector = EditorInspector(editor);
-      Pressable back = ByName<Pressable>(inspector.Root, "Inspector back");
-      Assert(back != null && Shown(back) && back.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == tool)
-        && inspector.ViewModel.OpenTool == tool && inspector.Root.GetComponentsInChildren<Pressable>(false).Length == 1,
-        "the column shows only a back row naming " + tool);
-      Rect backRect = ScreenRectOf((RectTransform)back.transform), toolRect = ScreenRectOf(drawn),
-        keypad = KeypadRect(DockOf(editor));
-      Assert(toolRect.yMax <= backRect.yMin + .5f && Mathf.Abs(toolRect.xMax - keypad.xMax) < 1 && InsideScreen(toolRect),
-        tool + " opens in the column under its back row, ending with the keypad: " + toolRect + " / " + backRect);
-      Assert(Mathf.Abs(backRect.xMin - Mathf.Min(keypad.xMin, toolRect.xMin)) < 1 && Mathf.Abs(backRect.xMax - keypad.xMax) < 1,
-        "the back row is as wide as the tool under it: " + backRect + " / " + toolRect);
+      DockProbe dock = DockOf(editor);
+      Assert(inspector.ViewModel.OpenTool == null && ByName<Pressable>(inspector.Root, "Inspector back") == null,
+        "the column keeps its rows while " + name + " is open");
+      LineViewModel line = dock.Vm.Line;
+      Assert(line.Open && line.Choosing && line.Name == name && line.Whose == whose && line.ChoiceLabel.Length > 0
+        && ByName<TextMeshProUGUI>(dock.Root, "Choice").text == line.ChoiceLabel,
+        "the line names " + name + " and shows what it holds: " + line.Whose + " " + line.Name + " = " + line.ChoiceLabel);
+      TextMeshProUGUI title = ByName<TextMeshProUGUI>(dock.Root, "Input method"), rest = ByName<TextMeshProUGUI>(dock.Root, "Values rest");
+      Assert(title.text == method && !dock.Values.Listing.Value && rest != null && rest.text.Contains(L("오른쪽 입력기", "at the right")),
+        "the place is named " + method + ", and the list says it is picked there: " + title.text + " / " + rest?.text);
+      Pressable remove = DockKey(dock, "Key remove"), done = DockKey(dock, "Key done");
+      Assert(!remove.IsInteractable() && done.IsInteractable(), name + " can be applied; nothing of it is removed");
+      Rect toolRect = ScreenRectOf(drawn), doneRect = ScreenRectOf((RectTransform)done.transform),
+        removeRect = ScreenRectOf((RectTransform)remove.transform), titleRect = ScreenRectOf(title.rectTransform);
+      Assert(Mathf.Abs(toolRect.xMin - removeRect.xMin) < 1.5f && toolRect.xMax <= doneRect.xMax + 1.5f
+        // The title's words start a little under the top of their row.
+        && toolRect.yMin >= doneRect.yMax - 1.5f && toolRect.yMax <= titleRect.yMax + 4 && InsideScreen(toolRect),
+        name + " stands where the input method is, over Remove and Apply: " + toolRect + " / " + doneRect + " / " + titleRect);
       Graphic toolSurface = drawn.GetComponent<Graphic>();
-      Assert(back.targetGraphic.color.a < .01f && (toolSurface == null || toolSurface.color.a < .01f),
-        tool + " and its back row stand on the screen with no box around them");
+      Assert(toolSurface == null || toolSurface.color.a < .01f, name + " stands on the screen with no box around it");
     }
 
-    /// <summary>The column's back row: the tool closes and the rows come back.</summary>
-    private static void PressBack(object editor)
+    /// <summary>Apply on a field picked from a fixed set: its input method closes and the dock rests.</summary>
+    private static void ApplyChoice(object editor)
     {
-      Pressable back = ByName<Pressable>(EditorInspector(editor).Root, "Inspector back");
-      Assert(back != null && Shown(back), "the column has a back row");
-      Press(back);
+      DockProbe dock = DockOf(editor);
+      Press(DockKey(dock, "Key done"));
       Settle();
-      Assert(EditorInspector(editor).ViewModel.OpenTool == null, "back brings the rows again");
+      Assert(!dock.Vm.Line.Choosing && dock.Vm.Choice.Value == DockMethod.Rest, "Apply closes the field's input method");
     }
 
     private static Rect BarButtonRect(object editor, PropertyButtonViewModel button) =>
@@ -256,48 +265,33 @@ namespace Element.Editor
       return dock.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
     }
 
-    /// <summary>A value's chip, after opening the place that holds it as the player would.</summary>
+    /// <summary>A value's chip in the list: every section shows at once, so a listed value is there to press.</summary>
     private static Pressable DockChip(DockProbe dock, string name)
     {
-      ValueBrowserViewModel values = dock.Values;
-      ValueFolderViewModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
-      if (values.Searching.Value || values.OpenFolder != folder)
-        Press(DockPlace(dock, folder.Key));
       Pressable[] chips = DockChips(dock);
       if (!chips.Any(chip => chip.name == name))
-        throw new System.InvalidOperationException("Opening " + folder.Key + " did not expose " + name
-        + "; open=" + values.OpenFolder.Key + ", query=" + values.Query.Value + ", searching=" + values.Searching.Value
-        + ", folderVisible=" + folder.Open.Value + ", rootActive=" + dock.Root.gameObject.activeInHierarchy
-        + ", visible=" + string.Join(",", chips.Select(chip => chip.name))
-        + ", matchingNative=" + string.Join(";", dock.Root.GetComponentsInChildren<Pressable>(true)
-          .Where(chip => chip.name == name).Select(chip => chip.transform.parent.name + ":self="
-            + chip.gameObject.activeSelf + ":hierarchy=" + chip.gameObject.activeInHierarchy)));
+        throw new System.InvalidOperationException("The list does not show " + name
+        + "; title=" + dock.Values.Title.Value + ", listing=" + dock.Values.Listing.Value
+        + ", listed=" + string.Join(",", chips.Select(chip => chip.name)));
       return chips.Single(chip => chip.name == name);
     }
 
-    /// <summary>Whether a value is listed now: it fits where values go, and so its place is listed too.</summary>
+    /// <summary>Whether a value is listed now: it fits where values go, and so its section shows too.</summary>
     private static bool DockListed(DockProbe dock, string name)
     {
       Settle();
       ValueBrowserViewModel values = dock.Values;
-      ValueFolderViewModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
-      bool listed = values.Listing.Value && folder.Chips.Single(chip => chip.Name == name).Fits.Value;
-      Assert(!listed || (folder.Shown.Value && Shown(DockPlace(dock, folder.Key))), "a value that is listed has its place listed: " + name);
+      ValueFolderViewModel section = values.Sections.First(each => each.Chips.Any(chip => chip.Name == name));
+      bool listed = values.Listing.Value && section.Chips.Single(chip => chip.Name == name).Fits.Value;
+      Assert(!listed || (section.Shown.Value && DockSection(dock, section.Key) != null), "a value that is listed has its section's heading: " + name);
       return listed;
     }
 
-    /// <summary>A row of the dock's list of places: "Judgement", "mod:TUFOverlay".</summary>
-    private static Pressable DockPlace(DockProbe dock, string key)
+    /// <summary>A section's heading in the dock's list: "Judgement", "mod:TUFOverlay"; null while it isn't drawn.</summary>
+    private static TextMeshProUGUI DockSection(DockProbe dock, string key)
     {
       Settle();
-      return ByName<Pressable>(dock.Root, "Place " + key);
-    }
-
-    /// <summary>The dock's value search field.</summary>
-    private static TMP_InputField DockSearch(DockProbe dock)
-    {
-      Settle();
-      return ByName<TMP_InputField>(dock.Root, "Value search");
+      return dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).FirstOrDefault(label => label.name == "Section " + key);
     }
 
     /// <summary>Presses the open editor's Cancel or Done, named after the editor.</summary>
@@ -360,13 +354,13 @@ namespace Element.Editor
       screen.ViewModel.Notice("Preview warning", true);
       Settle();
       Assert(screen.ViewModel.NoticeText == "Preview warning" && line.text == "Preview warning" && line.color == UiPalette.Error,
-        "a warning shows " + (docked ? "right above the dock" : "in the header") + ", warm");
+        "a warning shows " + (docked ? "under the dock's line" : "in the header") + ", warm");
       if (docked)
       {
         DockProbe noticeDock = DockOf(editor);
         Rect noticeRect = ScreenRectOf(line.rectTransform), keypadRect = KeypadRect(noticeDock);
-        Assert(noticeRect.yMin >= ScreenRectOf(noticeDock.Root.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Formula line" || part.name == "Line hint")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
-          "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);
+        Assert(noticeRect.yMax <= ScreenRectOf(noticeDock.Root.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Formula line" || part.name == "Line hint")).yMin + .5f && noticeRect.yMin >= keypadRect.yMax - .5f,
+          "the notice sits under the line, over the values and the input method: " + noticeRect);
       }
       Assert(!docked || headerNotice.text.Length == 0, "the header stays quiet while the dock shows the notices");
       screen.ViewModel.Notice("Preview note", false);
@@ -382,7 +376,7 @@ namespace Element.Editor
     }
 
     /// <summary>
-    /// Grow from's popover as drawn: what it picks, the nine points, Auto and
+    /// Grow from's input method as drawn: the nine points as keys, Auto and
     /// a line saying what the choice does; a point's press picks it and Auto
     /// puts Auto back. Leaves the growth as it found it.
     /// </summary>
@@ -393,16 +387,19 @@ namespace Element.Editor
       Settle();
       Pressable[] points = popover.Root.GetComponentsInChildren<Pressable>(true).Where(point => point.name.StartsWith("Grow from ")).ToArray();
       Assert(points.Select(point => point.name).SequenceEqual(Enumerable.Range(0, 9).Select(i => "Grow from " + (OverlayGrowth)i)),
-        "the popover offers the nine points, row by row");
+        "the input method offers the nine points, row by row");
+      Rect first = ScreenRectOf((RectTransform)points[0].transform), last = ScreenRectOf((RectTransform)points[8].transform);
+      Assert(Mathf.Abs(first.width - first.height) < .5f && first.xMax < last.xMin && first.yMin > last.yMax,
+        "the points are square keys, three by three: " + first + " / " + last);
       Pressable auto = ByName<Pressable>(popover.Root, "Grow automatically");
       TextMeshProUGUI caption = ByName<TextMeshProUGUI>(popover.Root, "Caption");
-      Assert(Shown(auto) && caption != null && caption.text == popover.ViewModel.Caption.Value && caption.text.Length > 0
-        && popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("크기가 바뀔 때 고정할 점", "Point that stays when the size changes")),
-        "it says what it picks, with Auto and what the choice does");
+      Assert(Shown(auto) && caption != null && caption.text == popover.ViewModel.Says.Value && caption.text.Length > 0
+        && ScreenRectOf((RectTransform)auto.transform).yMax <= last.yMin + .5f,
+        "Auto sits under the points, and a line says what the choice does");
       foreach (TextMeshProUGUI label in popover.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
-        Assert(!label.isTextTruncated, "grow popover label fits: " + label.text);
+        Assert(!label.isTextTruncated, "grow input method label fits: " + label.text);
       }
       Rect box = ScreenRectOf(popover.Root);
       Assert(points.All(point => box.Contains(ScreenRectOf((RectTransform)point.transform).center)) && box.Contains(ScreenRectOf(caption.rectTransform).min),
@@ -410,15 +407,13 @@ namespace Element.Editor
       Press(points[(int)OverlayGrowth.BottomRight]);
       Settle();
       GrowPickerViewModel model = popover.ViewModel;
-      Assert(grow.Growth == OverlayGrowth.BottomRight && model.Points[8].Look.Value == GrowLook.Chosen
-        && model.Points[4].Look.Value == GrowLook.Arrow && model.Points[5].Look.Value == GrowLook.Arrow
-        && model.Points[0].Look.Value == GrowLook.Dot && caption.text.Contains(L("오른쪽 아래", "bottom right")),
-        "a point's press picks it: filled, arrows on the points around it, the caption names it: " + caption.text);
+      Assert(grow.Growth == OverlayGrowth.BottomRight && model.Points[8].Look.Value == GrowLook.Chosen && !model.IsAuto.Value
+        && model.Points[0].Look.Value != GrowLook.Chosen && caption.text.Contains(L("오른쪽 아래", "bottom right")),
+        "a point's press picks it: its key alone holds, the caption names it: " + caption.text);
       Press(auto);
       Settle();
-      Assert(grow.Growth == OverlayGrowth.Auto && caption.text.StartsWith(L("자동", "Auto")) 
-        && auto.GetComponentInChildren<TextMeshProUGUI>().color == UiPalette.Foreground,
-        "Auto follows where the element sits, and lights up: " + caption.text);
+      Assert(grow.Growth == OverlayGrowth.Auto && caption.text.StartsWith(L("자동", "Auto")) && model.IsAuto.Value,
+        "Auto follows where the element sits, and holds instead of a point: " + caption.text);
       Call(grow, "Pick", before);
     }
   }

@@ -88,6 +88,16 @@ internal sealed class TextPointerInput
       if (!Shift && _map.TryValueAt(screen, out int value))
       {
         _lastClick = Time.unscaledTime;
+        // The open font list goes on with the value: it is picked for its font, its own formula stays shut.
+        if (_fonts.Visible)
+        {
+          _text.Select(value, value + 1);
+          _text.GoalX = float.NaN;
+          _editor.Render();
+          return;
+        }
+        // The points are the element's, not the value's: they give the dock back.
+        _grow.Hide();
         _formulas.OpenChip(value);
         return;
       }

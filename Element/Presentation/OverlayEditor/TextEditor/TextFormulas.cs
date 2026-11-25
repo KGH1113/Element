@@ -7,6 +7,7 @@ using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using UnityEngine;
@@ -203,14 +204,57 @@ internal sealed class TextFormulas
     string name =
       _gradient.Name(_fieldSlot)
       ?? (
-        _fieldSlot == SizeKey ? L("글자 크기", "Text size")
+        _fieldSlot == SizeKey ? L("크기", "Size")
         : _fieldSlot == GrowKey ? L("바뀔 때 커지기", "Grow on change")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : owner == ColorCases.Key ? _color.OwnTitle
-        : L("값", "Value")
+        : L("고른 값", "Picked value")
       );
-    dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Placeholder() : null);
+    // A look is somebody's: the whole text's, the selected letters' or the picked value's.
+    bool look = _fieldSlot != null || owner == ColorCases.Key;
+    dock.Show(
+      owner,
+      name,
+      DockResult(),
+      hint,
+      _editing.Active ? _editing.Slot.Placeholder() : null,
+      look ? LookOwner() + " ›" : null
+    );
+    // With only the caret in the text, the input method is the keyboard: it has nothing to draw.
+    dock.AtRest(
+      L("글자의 입력기는 키보드예요.", "Words are typed on the keyboard."),
+      L(
+        "커서 자리에서 그대로 쳐요. 치는 동안 그 글자 값의 밑줄이 켜져요.",
+        "Type where the caret is. The words you are typing keep their underline lit."
+      )
+    );
   }
+
+  /// <summary>
+  /// Whose look the column's fields hold: the value picked in the text (by
+  /// what it says), the letters selected (in quotes), or the whole text.
+  /// </summary>
+  public string LookOwner()
+  {
+    _text.Range(out int start, out int end);
+    if (!_text.HasSelection || start >= end)
+      return L("글 전체", "Whole text");
+    if (end - start == 1 && _text.Document[start].IsValue)
+      return Short(ValueWords(OverlayVariable.Parse(_text.Document[start].Value)), 16);
+    return "“" + Short(_text.Document.PlainText(start, end, _ => ""), 8) + "”";
+  }
+
+  // What a value in the text says: its pieces as the line names them.
+  private string ValueWords(OverlayVariable value)
+  {
+    _builder.Clear();
+    for (int i = 0; i < value.Count; i++)
+      _builder.Append(i > 0 ? " " : "").Append(LineViewModel.Label(value[i]));
+    return _builder.ToString();
+  }
+
+  private static string Short(string words, int most) =>
+    words.Length > most ? words.Substring(0, most - 1) + "…" : words;
 
   // With nothing open the line says what is picked in the text: the letters
   // selected, or where the caret is.
@@ -219,15 +263,17 @@ internal sealed class TextFormulas
     _text.Range(out int start, out int end);
     if (start >= end)
       return L(
-        "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 칸을 누르면 여기서 고쳐요",
-        "Click a value to add it at the caret · Click a value in the text or a field to edit it here"
+        "글자는 그대로 치고, 값은 아래에서 골라 커서 자리에 넣어요. 글 속의 값을 누르면 여기서 고쳐요.",
+        "Type words as they are; pick a value below to put it at the caret. Click a value in the text to edit it here."
       );
     string letters = _text.Document.PlainText(start, end, _ => "");
     if (letters.Length > 16)
       letters = letters.Substring(0, 15) + "…";
     return L(
-      "고른 글자 “" + letters + "” · 값을 누르면 이 자리를 바꾸고, 칸을 누르면 이 글자만 꾸며요",
-      "Picked “" + letters + "” · A value takes its place; a field styles just these letters"
+      "고른 글자 “" + letters + "” · 오른쪽 칸으로 이 글자만 꾸미고, 치거나 값을 고르면 이 자리를 바꿔요.",
+      "Picked “"
+        + letters
+        + "” · The fields on the right style just these letters; typing or a value takes their place."
     );
   }
 
@@ -239,10 +285,19 @@ internal sealed class TextFormulas
     if (_editing.Slot.Key == ColorCases.Key)
       return _color.Cases.Result(_values.WithSamples);
     OverlayVariable formula = _editing.Root;
-    if (formula.IsEmpty || _editing.Problem != null || _fieldSlot == GrowKey)
+    if (formula.IsEmpty || _editing.Problem != null)
       return null;
+    if (_fieldSlot == GrowKey)
+      return formula.TryBool(_values.WithSamples, out bool grows)
+        ? grows
+          ? FormulaWords.Current.Yes
+          : FormulaWords.Current.No
+        : null;
     if (_fieldSlot == null)
     {
+      // One number or some words typed by hand read the same as their result.
+      if (formula.Count == 1 && formula[0].Kind is OverlayPieceKind.Number or OverlayPieceKind.Text)
+        return null;
       _builder.Clear();
       OverlayFormulaText.Append(_builder, formula, _values, true);
       return _builder.Length > 0 ? _builder.ToString() : null;

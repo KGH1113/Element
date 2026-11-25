@@ -15,6 +15,7 @@ using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
@@ -84,87 +85,83 @@ namespace Element.Editor
       ValueBrowserViewModel values = dock.Values;
       List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
 
-      // At the text's caret: what a text shows. Colors and true or false
-      // don't, and words are typed there, so those are left out, and so is a
-      // place that holds nothing else; under the values, how many that was.
+      // At the text's caret: what a text shows, a section under a section.
+      // Colors and true or false don't show in a text and words are typed
+      // there, so those are left out, and so is a section that holds nothing
+      // else; after the values, how many that was.
       Settle();
-      string[] rows = dock.Root.GetComponentsInChildren<Pressable>(false).Where(row => row.name.StartsWith("Place ")).Select(row => row.name).ToArray();
-      Assert(rows.SequenceEqual(folders.Where(folder => folder.Key != "Color").Select(folder => "Place " + folder.Key)),
-        "at the caret the list has each category with something a text shows, then each mod once: " + string.Join(", ", rows));
-      Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("글에 넣을 수 있는 값", "Values for the text")
+      string[] sections = dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Where(label => label.name.StartsWith("Section "))
+        .Select(label => label.name).ToArray();
+      Assert(sections.SequenceEqual(folders.Where(folder => folder.Key != "Color").Select(folder => "Section " + folder.Key)),
+        "at the caret every category with something a text shows has its section, in order, then each mod once: " + string.Join(", ", sections));
+      Assert(!dock.Root.GetComponentsInChildren<TMP_InputField>(true).Any(field => field.name == "Value search")
+        && !dock.Root.GetComponentsInChildren<Pressable>(true).Any(row => row.name.StartsWith("Place ")),
+        "the values are one list of sections: no search field, no list of places beside it");
+      Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("커서 자리에 넣을 수 있는 값", "Values for the caret's place")
         && TypeMarkOf(dock) == "*",
         "the words over the values say where they go, after the mark of anything: " + values.Title.Value);
       int notInText = folders.SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
-        .Count(value => value.IsColor || value.Kind == OverlayValueKind.Bool || value.Id == OverlayValueId.MakeText);
+        .Count(value => value.IsColor || value.Kind == OverlayValueKind.Bool || value.Id == OverlayValueId.MakeText
+          || value.Id == OverlayValueId.MakeGroup);
       TextMeshProUGUI hiddenNote = ByName<TextMeshProUGUI>(dock.Root, "Values hidden");
       Assert(notInText > 0 && hiddenNote.text == L("이 자리에 맞지 않는 값 " + notInText + "개는 숨겼어요.", notInText + " values that don't fit here are hidden."),
-        "how many were left out is said under the values: " + hiddenNote.text);
-      Press(DockPlace(dock, "Make"));
-      // In the order they are drawn: rows top to bottom, each left to right.
-      string[] makeChips = DockChips(dock).OrderByDescending(chip => Mathf.Round(ScreenRectOf((RectTransform)chip.transform).yMax))
-        .ThenBy(chip => ScreenRectOf((RectTransform)chip.transform).xMin).Select(chip => chip.name).ToArray();
-      Assert(makeChips.SequenceEqual(new[] { "Value make-number", "Value make-condition", "Value make-group" }),
-        "the text lists no words or true or false to make: " + string.Join(", ", makeChips));
-      Assert(folders.Count(folder => folder.IsMod) == 2 && rows.Count(row => row.StartsWith("Place mod:")) == 2,
-        "two mods are two rows, not one per group");
-      Pressable tuf = DockPlace(dock, "mod:" + PreviewMod), sample = DockPlace(dock, "mod:Sample"), system = DockPlace(dock, "System");
-      Assert(tuf.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "TUFOverlay")
-        && tuf.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "11"),
-        "a mod's row names the mod and counts every value it adds");
-      Assert(sample.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == "Sample"),
-        "a mod with no name of its own goes by its id");
-      TextMeshProUGUI modsHeading = ByName<TextMeshProUGUI>(dock.Root, "Mods heading");
-      Assert(modsHeading != null && modsHeading.text == L("모드", "Mods")
-        && ScreenRectOf(modsHeading.rectTransform).yMax <= ScreenRectOf((RectTransform)system.transform).yMin + .5f
-        && ScreenRectOf((RectTransform)tuf.transform).yMax <= ScreenRectOf(modsHeading.rectTransform).yMin + .5f,
-        "a small heading sets the mods apart, under the categories");
+        "how many were left out is said after the values: " + hiddenNote.text);
+      ValueFolderViewModel make = values.Sections.Single(folder => folder.Key == "Make");
+      string[] makeChips = DockChips(dock).Where(chip => make.Chips.Any(value => value.Name == chip.name)).Select(chip => chip.name).ToArray();
+      Assert(makeChips.SequenceEqual(new[] { "Value make-number", "Value make-condition" }),
+        "at the caret a number or a condition is made: no words, no true or false, no color, no group: " + string.Join(", ", makeChips));
+      Assert(folders.Count(folder => folder.IsMod) == 2 && sections.Count(row => row.StartsWith("Section mod:")) == 2,
+        "two mods are two sections, not one per group");
+      Assert(DockSection(dock, "mod:" + PreviewMod).text == "TUFOverlay" && DockSection(dock, "mod:Sample").text == "Sample",
+        "a mod's section is headed by the mod's name; one with no name of its own goes by its id");
 
-      // More places than fit: the list's bottom fades into its base, and its top once scrolled down.
-      ScrollRect placesScroll = ByName<ScrollRect>(dock.Root, "Places");
-      UiEdgeFadeGraphic topFade = ByName<UiEdgeFadeGraphic>(placesScroll.transform, "Top fade"),
-        bottomFade = ByName<UiEdgeFadeGraphic>(placesScroll.transform, "Bottom fade");
-      // What the scroll view reports each frame its content, frame or place changed.
-      Action scrolled = () => placesScroll.onValueChanged.Invoke(placesScroll.normalizedPosition);
-      scrolled();
-      float placesOverflow = placesScroll.content.rect.height - ((RectTransform)placesScroll.transform).rect.height;
-      Assert(placesOverflow > UiScrollCues.Reach, "the preview's list holds more places than fit: " + placesOverflow);
-      Assert(bottomFade.enabled && bottomFade.Strength == 1 && !topFade.enabled
-        && bottomFade.transform.GetSiblingIndex() > placesScroll.content.GetSiblingIndex()
-        && ScreenRectOf(bottomFade.rectTransform).yMin <= ScreenRectOf((RectTransform)placesScroll.transform).yMin + .5f,
-        "at the top, the list's bottom edge fades over the rows, its top doesn't");
-      placesScroll.verticalNormalizedPosition = .5f;
-      scrolled();
-      Assert(topFade.enabled && bottomFade.enabled, "scrolled halfway, both edges fade");
-      placesScroll.verticalNormalizedPosition = 0;
-      scrolled();
-      Assert(topFade.Strength == 1 && !bottomFade.enabled, "at the bottom, only the top fades");
-      UiCapsuleGraphic placesBar = ByName<UiCapsuleGraphic>(placesScroll.transform, "Scroll bar");
-      Rect placesRect = ScreenRectOf((RectTransform)placesScroll.transform), barAtBottom = ScreenRectOf(placesBar.rectTransform);
-      placesScroll.verticalNormalizedPosition = 1;
-      scrolled();
-      Rect barAtTop = ScreenRectOf(placesBar.rectTransform);
-      Assert(placesBar.enabled && placesBar.transform.GetSiblingIndex() > bottomFade.transform.GetSiblingIndex()
-        && barAtTop.yMax <= placesRect.yMax && barAtTop.yMax > placesRect.yMax - 8 && barAtBottom.yMin >= placesRect.yMin
-        && barAtBottom.yMin < placesRect.yMin + 8 && barAtTop.height < placesRect.height * .95f
-        && barAtTop.xMax <= placesRect.xMax && barAtTop.xMax > placesRect.xMax - 8,
-        "a slim bar along the list's right edge runs from top to bottom as it scrolls, as long as the share that shows: "
-          + barAtTop + " / " + barAtBottom + " in " + placesRect);
-
-      // A place opens its values, lit while open; the next dock opens there again.
-      ValueFolderViewModel judgement = values.Categories.Single(folder => folder.Key == "Judgement"),
-        tufFolder = values.Mods.Single(folder => folder.Key == "mod:" + PreviewMod);
-      Press(DockPlace(dock, "Judgement"));
+      // A section's heading stands over its own values, and every value leads with its type's mark.
+      ValueFolderViewModel judgement = values.Sections.Single(folder => folder.Key == "Judgement"),
+        tufFolder = values.Sections.Single(folder => folder.Key == "mod:" + PreviewMod);
+      Rect judgementHeading = ScreenRectOf(DockSection(dock, "Judgement").rectTransform),
+        timeHeading = ScreenRectOf(DockSection(dock, "Time").rectTransform);
       Pressable[] chips = DockChips(dock);
-      Assert(values.OpenFolder == judgement && chips.Select(chip => chip.name).SequenceEqual(judgement.Chips.Select(chip => chip.Name)),
-        "a place shows its values, and only them");
+      Pressable[] judgementChips = chips.Where(chip => judgement.Chips.Any(value => value.Name == chip.name)).ToArray();
+      Assert(judgementChips.Length == judgement.Chips.Count
+        && judgementChips.All(chip => ScreenRectOf((RectTransform)chip.transform).yMax <= judgementHeading.yMin + .5f
+          && ScreenRectOf((RectTransform)chip.transform).yMin >= timeHeading.yMax - .5f),
+        "a section's values stand under its heading and over the next section's");
       Assert(chips.All(chip => ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject)?.GetComponent<DragSource>() == null),
         "no chip can be carried out: picking one is the only way in");
-      Assert(!judgement.Fill.Value.Equals(tufFolder.Fill.Value) && judgement.Fill.Value.Literal.a == 1
-        && judgement.Ink.Value.Equals((ElementUI.UiColor)UiPalette.Foreground),
-        "the open place is lit, opaque");
-      ValueBrowserViewModel next = new ValueBrowserViewModel(host.Values, NoDockActions.Instance, new FormulaEditing(), true);
-      Assert(next.OpenFolder.Key == "Judgement", "the next editor's dock opens on the place opened last");
-      next.Dispose();
+      Assert(chips.All(chip => ScreenRectOf(ByName<TextMeshProUGUI>(chip.transform, "Value name").rectTransform).xMin
+          > ScreenRectOf((RectTransform)chip.transform).xMin + 16),
+        "every value leads with its type's mark, its name after it");
+
+      // More sections than fit: the list's bottom fades into its base, and its top once scrolled down.
+      ScrollRect scroll = ByName<ScrollRect>(dock.Root, "Values");
+      UiEdgeFadeGraphic topFade = ByName<UiEdgeFadeGraphic>(scroll.transform, "Top fade"),
+        bottomFade = ByName<UiEdgeFadeGraphic>(scroll.transform, "Bottom fade");
+      // What the scroll view reports each frame its content, frame or place changed.
+      Action scrolled = () => scroll.onValueChanged.Invoke(scroll.normalizedPosition);
+      scrolled();
+      float overflow = scroll.content.rect.height - ((RectTransform)scroll.transform).rect.height;
+      Assert(overflow > UiScrollCues.Reach, "the preview's values are more than fit: " + overflow);
+      Assert(bottomFade.enabled && bottomFade.Strength == 1 && !topFade.enabled
+        && bottomFade.transform.GetSiblingIndex() > scroll.content.GetSiblingIndex()
+        && ScreenRectOf(bottomFade.rectTransform).yMin <= ScreenRectOf((RectTransform)scroll.transform).yMin + .5f,
+        "at the top, the list's bottom edge fades over the values, its top doesn't");
+      scroll.verticalNormalizedPosition = .5f;
+      scrolled();
+      Assert(topFade.enabled && bottomFade.enabled, "scrolled halfway, both edges fade");
+      scroll.verticalNormalizedPosition = 0;
+      scrolled();
+      Assert(topFade.Strength == 1 && !bottomFade.enabled, "at the bottom, only the top fades");
+      UiCapsuleGraphic bar = ByName<UiCapsuleGraphic>(scroll.transform, "Scroll bar");
+      Rect listRect = ScreenRectOf((RectTransform)scroll.transform), barAtBottom = ScreenRectOf(bar.rectTransform);
+      scroll.verticalNormalizedPosition = 1;
+      scrolled();
+      Rect barAtTop = ScreenRectOf(bar.rectTransform);
+      Assert(bar.enabled && bar.transform.GetSiblingIndex() > bottomFade.transform.GetSiblingIndex()
+        && barAtTop.yMax <= listRect.yMax && barAtTop.yMax > listRect.yMax - 8 && barAtBottom.yMin >= listRect.yMin
+        && barAtBottom.yMin < listRect.yMin + 8 && barAtTop.height < listRect.height * .95f
+        && barAtTop.xMax <= listRect.xMax && barAtTop.xMax > listRect.xMax - 8,
+        "a slim bar along the list's right edge runs from top to bottom as it scrolls, as long as the share that shows: "
+          + barAtTop + " / " + barAtBottom + " in " + listRect);
 
       // Chips show what their values read now, a few times a second; unchanged values make nothing.
       host.Values.Set(OverlayValueId.Accuracy, new StringBuilder("99.81"), 99.81);
@@ -195,130 +192,49 @@ namespace Element.Editor
       long made = GC.GetAllocatedBytesForCurrentThread() - before;
       Assert(made == 0, "following values that didn't change makes nothing: " + made + " bytes");
       host.Values.Set(OverlayValueId.SongTitle, "<color=#FF4400>Hello</color> <noparse><</noparse>3\nagain");
-      DockChip(dock, "Value song-title");
       FollowNow(values);
       Assert(Reading(dock, "Value song-title") == "Hello <3 again", "a value's markup is left out of its chip: " + Reading(dock, "Value song-title"));
       host.Values.Clear(OverlayValueId.SongTitle);
       FollowNow(values);
       Assert(Reading(dock, "Value song-title") == null, "a value that goes away leaves its name alone");
-      Press(DockPlace(dock, "Judgement"));
-      CheckValueLabels(dock, "judgment page");
+      CheckValueLabels(dock, "values");
       SaveFrame(camera, texture, canvases, name + "-dock-values");
 
-      // A mod's page: a row per group beside the group's heading.
-      Press(tuf);
-      chips = DockChips(dock);
-      Assert(values.OpenFolder == tufFolder && chips.Length == 11 && chips.All(chip => chip.name.StartsWith("Value " + PreviewMod + "/")),
-        "a mod's page holds all it adds");
+      // A mod's section: a row per group under the group's heading.
+      Pressable[] tufChips = DockChips(dock).Where(chip => chip.name.StartsWith("Value " + PreviewMod + "/")).ToArray();
+      Assert(tufChips.Length == 11 && tufFolder.Chips.Count == 11, "a mod's section holds all it adds");
       string[] headings = korean ? new[] { "레벨", "실시간", "순위" } : new[] { "Level", "Live", "Rank" };
       Rect[] headingRects = headings.Select(heading =>
         ScreenRectOf(dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Single(label => label.text == heading).rectTransform)).ToArray();
       Assert(headingRects[0].yMin > headingRects[1].yMax && headingRects[1].yMin > headingRects[2].yMax,
         "the groups stand one under another, in the order the mod made them");
-      float column = headingRects.Max(rect => rect.xMax);
-      Assert(chips.All(chip => ScreenRectOf((RectTransform)chip.transform).xMin >= column - .5f), "each group's chips wrap beside its heading");
+      Assert(tufChips.All(chip => ScreenRectOf((RectTransform)chip.transform).yMax <= headingRects[0].yMin + .5f),
+        "a mod's values stand under its groups' headings");
       Assert(Reading(dock, "Value " + PreviewMod + "/level-id") == "14898" && Reading(dock, "Value " + PreviewMod + "/song") == "Hello (BPM) 2024"
         && Reading(dock, "Value " + PreviewMod + "/difficulty") == null,
         "a mod's chips read what the mod set");
-      CheckValueLabels(dock, "mod page");
+      scroll.verticalNormalizedPosition = 0;
+      scrolled();
       SaveFrame(camera, texture, canvases, name + "-dock-mod");
+      scroll.verticalNormalizedPosition = 1;
+      scrolled();
 
-      // The search: every place at once, under the places' names; the open place dims.
-      TMP_InputField search = DockSearch(dock);
-      Assert(search != null && search.placeholder is TMP_Text hint && hint.text == L("값 찾기", "Find a value"), "the search says what it finds");
-      Rect searchRect = ScreenRectOf((RectTransform)search.transform);
-      ElementUI.Ugui.RoundedRect searchSurface = dock.Root.GetComponentsInChildren<ElementUI.Ugui.RoundedRect>(false)
-        .FirstOrDefault(surface => surface.color.a == 1
-          && ScreenRectOf(surface.rectTransform).Contains(searchRect.center)
-          && Mathf.Approximately(surface.Radius, surface.rectTransform.rect.height / 2));
-      Assert(search.targetGraphic.color.a == 0 && searchSurface != null,
-        "the composed search capsule is opaque while its plain input leaves the surface to its container");
-      CheckSearchFits(search, name);
-      search.text = korean ? "정확" : "acc";
-      chips = DockChips(dock);
-      Assert(values.Searching.Value && chips.Select(chip => chip.name).SequenceEqual(new[] { "Value accuracy", "Value " + PreviewMod + "/accuracy" }),
-        "the search finds values in every place, in the list's order: " + string.Join(", ", chips.Select(chip => chip.name)));
-      Assert(tufFolder.Fill.Value.Equals((ElementUI.UiColor)UiPalette.EditorControl) && !tufFolder.Open.Value,
-        "the open place dims while the search shows");
-      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("글에 넣을 수 있는 값", "Values for the text")
-        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("· 2개 찾음", "· 2 found"))
-        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Count(label => label.text == judgement.Name) == 2
-        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Count(label => label.text == "TUFOverlay") == 2,
-        "what it finds sits under its place's name");
-      Assert(ReadingOf(chips[0]) == "99.81", "found chips read their values too");
-      CheckValueLabels(dock, "search");
-      SaveFrame(camera, texture, canvases, name + "-dock-search");
-      search.text = korean ? "실시간" : "live";
-      chips = DockChips(dock);
-      Assert(chips.Length == 4 && chips.All(chip => chip.name.StartsWith("Value " + PreviewMod + "/")), "a mod's group heading finds its values");
-      search.text = "zzz";
-      chips = DockChips(dock);
-      TextMeshProUGUI nothing = ByName<TextMeshProUGUI>(dock.Root, "Nothing found");
-      Assert(chips.Length == 0 && Shown(nothing) && nothing.text.Contains("zzz"), "a search that finds nothing says so: " + (nothing == null ? "" : nothing.text));
-      SaveFrame(camera, texture, canvases, name + "-dock-nothing");
-      Press(ByName<Pressable>(dock.Root, "Clear value search"));
-      chips = DockChips(dock);
-      Assert(!values.Searching.Value && search.text == "" && values.OpenFolder == tufFolder && chips.Length == 11 && tufFolder.Open.Value,
-        "× clears the search and the open place comes back: searching " + values.Searching.Value + ", text '" + search.text + "', open "
-          + values.OpenFolder.Key + ", chips " + chips.Length + ", shown " + tufFolder.Open.Value);
-      // Typed over frames, as a player types: the field and the dock agree before Esc.
-      search.text = "combo";
-      Settle();
-      bool searchingBefore = values.Searching.Value;
-      SetField(search, "m_WasCanceled", true);
-      bool canceled = search.wasCanceled;
-      search.onEndEdit.Invoke(search.text);
-      SetField(search, "m_WasCanceled", false);
-      Settle();
-      Assert(searchingBefore && !values.Searching.Value && search.text == "", "Esc clears the search too: before " + searchingBefore
-        + ", canceled " + canceled + ", searching " + values.Searching.Value + ", text '" + search.text + "', query '" + values.Query.Value + "'");
-      search.text = "x";
-      Settle();
-      Press(DockPlace(dock, "Time"));
-      Settle();
-      Assert(!values.Searching.Value && search.text == "" && values.OpenFolder.Key == "Time", "picking a place leaves the search");
-
-      // Enter adds the first value found, at the caret, as a click would.
+      // A value pressed goes in at the caret, and undoes as one step.
       OverlayTextDocument document = TextDocumentOf(text).Document;
       int count = document.Count, caret = Field<int>(TextDocumentOf(text), "_caretIndex");
-      search.text = korean ? "콤보" : "combo";
-      search.onSubmit.Invoke(search.text);
+      Press(DockChip(dock, "Value combo"));
       document = TextDocumentOf(text).Document;
-      Assert(document.Count == count + 1 && document[caret].Value == "combo", "Enter in the search adds the first value it found");
+      Assert(document.Count == count + 1 && document[caret].Value == "combo", "a value pressed in the list goes in at the caret");
       TextDocumentOf(text).Undo();
       Assert(TextDocumentOf(text).Document.Count == count && Field<int>(TextDocumentOf(text), "_caretIndex") == caret, "and undoes as one step");
-      Press(ByName<Pressable>(dock.Root, "Clear value search"));
-
-      // While the search has the keyboard the editor leaves keys to it.
-      EventSystem.current.SetSelectedGameObject(null);
-      EventSystem.current.SetSelectedGameObject(search.gameObject);
-      typeof(TMP_InputField).GetMethod("LateUpdate", Private).Invoke(search, null);
-      Assert(search.isFocused && values.SearchFocused.Value && dock.IsTyping, "the search has the keys while it is focused");
-      EventSystem.current.SetSelectedGameObject(null);
-      Assert(!search.isFocused && !values.SearchFocused.Value && dock.IsTyping,
-        "ending search focus keeps the terminating key from reaching the editor in the same frame");
-      Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value,
-        "clearing the search then focusing and blurring before a render cannot restore its old query");
-      EventSystem.current.SetSelectedGameObject(search.gameObject);
-      typeof(TMP_InputField).GetMethod("LateUpdate", Private).Invoke(search, null);
-      search.text = korean ? "콤보" : "combo";
-      int beforeClearedSubmit = TextDocumentOf(text).Document.Count;
-      values.ClearSearch.TryExecute();
-      search.onSubmit.Invoke(korean ? "콤보" : "combo");
-      search.onEndEdit.Invoke(korean ? "콤보" : "combo");
-      EventSystem.current.SetSelectedGameObject(null);
-      Assert(values.Query.Value == "" && search.text == "" && !values.Searching.Value
-        && TextDocumentOf(text).Document.Count == beforeClearedSubmit,
-        "clearing a focused search wins through submit followed by end even with stale native event arguments");
-      // That it gives them back on the next frame is ElementUI's Keyboard tests' (an edit-mode check has no next frame).
       host.Values.Clear(OverlayValueId.Accuracy);
       host.Values.Clear(OverlayValueId.Combo);
       FollowNow(values);
       CheckNumberValues(text, dock, camera, texture, canvases, name);
     }
 
-    // A number field lists numbers only: a place with none, such as colors,
-    // is left out, the song title isn't found, and the words say so.
+    // A number field lists numbers only: a section with none, such as
+    // colors, is left out, the song title isn't listed, and the words say so.
     private static void CheckNumberValues(TextEditorScreen text, DockProbe dock, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
@@ -328,9 +244,8 @@ namespace Element.Editor
       Assert(dock.Owner == "size" && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("숫자 칸에 넣을 수 있는 값", "Values for a number field")
         && TypeMarkOf(dock) == "#",
         "opening the size, the words over the values name a number field: " + values.Title.Value);
-      Assert(!Shown(DockPlace(dock, "Color")) && Shown(DockPlace(dock, "Song")),
-        "colors aren't listed for a number; the song's place is, for its numbers");
-      Press(DockPlace(dock, "Song"));
+      Assert(DockSection(dock, "Color") == null && DockSection(dock, "Song") != null,
+        "colors aren't listed for a number; the song's section is, for its numbers");
       Assert(DockChips(dock).All(chip => chip.name != "Value song-title") && DockChips(dock).Any(chip => chip.name == "Value attempt"),
         "the song title isn't listed for a number, the attempts are");
       int notNumbers = OverlayValueCatalog.Folders().SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
@@ -340,28 +255,19 @@ namespace Element.Editor
         "it says how many were left out: " + values.Hidden.Value);
       CheckValueLabels(dock, "number field");
       SaveFrame(camera, texture, canvases, name + "-dock-number");
-      TMP_InputField search = DockSearch(dock);
-      search.text = ValueSectionNames.ValueName(OverlayValueCatalog.Get(OverlayValueId.SongTitle));
-      Assert(DockChips(dock).Length == 0 && values.NothingFound.Value, "the search finds only what fits: the song title isn't found for a number");
-      Press(ByName<Pressable>(dock.Root, "Clear value search"));
       Call(text, "CloseOpen");
       Call(text, "Render");
       Settle();
     }
 
-    // The search's hint and what is typed show whole between the glass and ×: the field clips, it doesn't cut short.
-    private static void CheckSearchFits(TMP_InputField search, string where)
-    {
-      TMP_Text hint = (TMP_Text)search.placeholder;
-      float room = search.textViewport.rect.width;
-      Assert(hint.GetPreferredValues(hint.text).x <= room + .5f && search.textComponent.GetPreferredValues(search.text).x <= room + .5f,
-        where + ": the search's words fit its field: " + hint.text + " / " + search.text + " in " + room);
-    }
-
     /// <summary>The sign in the mark over the values, as drawn now: "#", "*"; null while none shows.</summary>
-    private static string TypeMarkOf(DockProbe dock) =>
-      dock.Root.GetComponentsInChildren<RectTransform>(false).Where(mark => mark.name == "Values type")
-        .Select(mark => mark.GetComponentInChildren<TextMeshProUGUI>()?.text).FirstOrDefault();
+    private static string TypeMarkOf(DockProbe dock) => TypeMarkIn(dock.Root);
+
+    // "Any" has no glyph in the UI font: its mark is drawn, and reads here as "*".
+    private static string TypeMarkIn(Transform root) =>
+      root.GetComponentsInChildren<RectTransform>(false).Where(mark => mark.name == "Values type")
+        .Select(mark => mark.GetComponentInChildren<UiIcon>() is { Kind: UiIconKind.AnyType } ? "*" : mark.GetComponentInChildren<TextMeshProUGUI>()?.text)
+        .FirstOrDefault();
 
     // Lets the dock take what its values read now, without waiting for the next look.
     private static void FollowNow(ValueBrowserViewModel values)
@@ -429,18 +335,14 @@ namespace Element.Editor
       foreach (SystemLanguage language in new[] { SystemLanguage.Korean, SystemLanguage.English })
       {
         string name = "value-dock-" + (language == SystemLanguage.Korean ? "ko" : "en") + "-" + width;
-        RenderValueDock(font, live, width, 720, language, name, "Judgement", null);
+        RenderValueDock(font, live, width, 720, language, name, true);
         if (language == SystemLanguage.Korean ? width == 1280 : width == 540)
-        {
-          RenderValueDock(font, live, width, 720, language, name + "-mod", "mod:" + PreviewMod, null);
-          RenderValueDock(font, live, width, 720, language, name + "-search", "Judgement", language == SystemLanguage.Korean ? "정확" : "perfect");
-          RenderValueDock(font, live, width, 720, language, name + "-rest", null, null);
-        }
+          RenderValueDock(font, live, width, 720, language, name + "-rest", false);
       }
     }
 
     private static void RenderValueDock(TMP_FontAsset font, OverlayValues live, int width, int height, SystemLanguage language,
-      string name, string place, string query)
+      string name, bool open)
     {
       RDString.language = language;
       GameObject root = new GameObject("Value dock fixture", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster));
@@ -475,7 +377,7 @@ namespace Element.Editor
         // A number field is open: the list holds what goes in a number.
         FormulaEditing editing = new FormulaEditing();
         OverlayVariable typed = new OverlayVariable(OverlayPiece.NumberPiece("160"));
-        if (place != null)
+        if (open)
           editing.Activate(new FormulaSlot("width", OverlayValueType.Number, () => typed, variable => typed = variable));
         InputDockViewModel model = new InputDockViewModel(live, editing, notices, NoDockActions.Instance, true);
         InputDockView dockView = new InputDockView(model, contentWidth);
@@ -487,27 +389,24 @@ namespace Element.Editor
           contentWidth
         );
         panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
-        if (place != null)
+        if (open)
           model.Show("width", L("너비", "Width"), "160 px", null);
         else
           model.Show(null, "", null, L("숫자를 누르면 여기서 계산해요", "Click a number to calculate it here"));
         Settle();
-        if (place == null)
+        if (!open)
         {
           // Nothing open: no values, only what to do.
           TextMeshProUGUI rest = ByName<TextMeshProUGUI>(panel.Root, "Values rest");
           Assert(Shown(rest) && rest.text == L("값이나 칸을 고르면 거기에 넣을 수 있는 값만 여기 나와요.",
               "Pick a value or a field, and the values that fit there show here.")
-            && !panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value ") || chip.name.StartsWith("Place ")),
+            && !panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value ")),
             name + ": with nothing open the dock lists no values and says what to do");
           rest.ForceMeshUpdate();
           Assert(!rest.isTextTruncated, name + ": the hint fits: " + rest.text);
           SaveFrame(camera, target, new[] { canvas }, name);
           return;
         }
-        Press(ByName<Pressable>(panel.Root, "Place " + place));
-        if (query != null)
-          ByName<TMP_InputField>(panel.Root, "Value search").text = query;
         Settle();
         panel.Sync();
         Settle();
@@ -519,20 +418,19 @@ namespace Element.Editor
         Assert(dock.xMin >= window.xMin - .5f && dock.xMax <= window.xMax + .5f && dock.yMin >= window.yMin - .5f,
           name + ": the dock fits the window: " + dock + " / " + window);
         Pressable[] chips = panel.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
-        Pressable[] places = panel.Root.GetComponentsInChildren<Pressable>(false).Where(row => row.name.StartsWith("Place ")).ToArray();
-        Assert(chips.Length > 0 && places.Select(row => row.name).SequenceEqual(model.Values.Categories.Concat(model.Values.Mods)
-            .Where(folder => folder.Shown.Value).Select(folder => "Place " + folder.Key))
-          && !places.Any(row => row.name == "Place Color"),
-          name + ": the list holds the places with numbers, and the page is drawn: " + string.Join(", ", places.Select(row => row.name)));
+        string[] sections = panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Where(label => label.name.StartsWith("Section "))
+          .Select(label => label.name).ToArray();
+        Assert(chips.Length > 0 && sections.SequenceEqual(model.Values.Sections.Where(section => section.Shown.Value).Select(section => "Section " + section.Key))
+          && !sections.Contains("Section Color"),
+          name + ": the list holds the sections with numbers: " + string.Join(", ", sections));
         TextMeshProUGUI hidden = ByName<TextMeshProUGUI>(panel.Root, "Values hidden");
         Assert(Shown(hidden) && hidden.text.Length > 0 && model.Values.Title.Value == L("숫자 칸에 넣을 수 있는 값", "Values for a number field"),
           name + ": the words name a number field and say how many were left out: " + hidden.text);
-        float listEdge = places.Max(row => ScreenRectOf((RectTransform)row.transform).xMax);
         foreach (Pressable chip in chips)
         {
           Rect rect = ScreenRectOf((RectTransform)chip.transform);
-          Assert(rect.xMin > listEdge && rect.xMax <= keypad - InputDockView.KeypadGap * scale + .5f,
-            name + ": a chip stays between the list and the keypad: " + chip.name + " " + rect);
+          Assert(rect.xMin >= dock.xMin - .5f && rect.xMax <= keypad - InputDockView.KeypadGap * scale + .5f,
+            name + ": a chip stays left of the input method: " + chip.name + " " + rect);
         }
         foreach (TextMeshProUGUI label in panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
         {
@@ -541,7 +439,6 @@ namespace Element.Editor
           label.ForceMeshUpdate();
           Assert(!label.isTextTruncated, name + ": dock label fits: " + label.text);
         }
-        CheckSearchFits(ByName<TMP_InputField>(panel.Root, "Value search"), name);
         SaveFrame(camera, target, new[] { canvas }, name);
       }
       finally

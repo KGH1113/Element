@@ -45,6 +45,22 @@ internal sealed class LineViewModel : ViewModel
   /// <summary>The open field's name: "너비", "크기".</summary>
   public string Name = "";
 
+  /// <summary>Whose field it is, said before its name: "글 전체 ›", "“FPS” ›"; empty for a field of the element itself.</summary>
+  public string Whose = "";
+
+  /// <summary>
+  /// The field is picked from a fixed set (a font, a point), not made of
+  /// values: the line shows its one choice, and the input method's place has
+  /// the set.
+  /// </summary>
+  public bool Choosing;
+
+  /// <summary>What a <see cref="Choosing"/> field's mark says ("Aa", a place).</summary>
+  public string ChoiceGlyph = "";
+
+  /// <summary>What a <see cref="Choosing"/> field holds now: "기본", "자동".</summary>
+  public string ChoiceLabel = "";
+
   /// <summary>What the open field gives, for its mark.</summary>
   public OverlayValueType Type;
 
@@ -66,9 +82,11 @@ internal sealed class LineViewModel : ViewModel
   /// <paramref name="name"/>, working out to <paramref name="result"/>; with
   /// nothing open, <paramref name="hint"/>.
   /// </summary>
-  public void Show(FormulaEditing editing, string name, string result, string hint)
+  public void Show(FormulaEditing editing, string name, string result, string hint, string whose = null)
   {
     Open = editing != null && editing.Active;
+    Choosing = false;
+    Whose = Open ? whose ?? "" : "";
     Hint = hint ?? "";
     if (!Open)
     {
@@ -81,8 +99,10 @@ internal sealed class LineViewModel : ViewModel
     bool made = lineBase > 0;
     Name = made ? OverlayCustomValues.Shown(start.Custom, FormulaWords.Current) : name ?? "";
     Type = start.Type;
-    Result = made || string.IsNullOrEmpty(result) || IsPlain(start.Variable) ? "" : "= " + result;
-    ResultHasSwatch = Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
+    // A field always says what it gives; whoever shows a value picked in a text leaves a plain one's result out.
+    Result = made || string.IsNullOrEmpty(result) ? "" : "= " + result;
+    ResultHasSwatch =
+      Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
     SelectedRoute(editing, lineBase);
     _used.Clear();
     _route.Clear();
@@ -91,11 +111,22 @@ internal sealed class LineViewModel : ViewModel
     Forget(_slots);
   }
 
-  // One number, words or color typed by hand reads the same as its result; a
-  // game value, a value of the player's or a condition says what it gives.
-  private static bool IsPlain(OverlayVariable variable) =>
-    variable.Count == 1
-    && variable[0].Kind is OverlayPieceKind.Number or OverlayPieceKind.Text or OverlayPieceKind.Color or OverlayPieceKind.Bool;
+  /// <summary>
+  /// The line for a field picked from a fixed set: <paramref name="whose"/>
+  /// <paramref name="name"/>, marked <paramref name="glyph"/>, holding
+  /// <paramref name="label"/>.
+  /// </summary>
+  public void ShowChoice(string whose, string name, string glyph, string label)
+  {
+    Open = true;
+    Choosing = true;
+    Whose = whose ?? "";
+    Name = name ?? "";
+    ChoiceGlyph = glyph ?? "";
+    ChoiceLabel = label ?? "";
+    Result = "";
+    ResultHasSwatch = false;
+  }
 
   // Where the picked piece is: the route of the innermost open variable.
   private void SelectedRoute(FormulaEditing editing, int lineBase)

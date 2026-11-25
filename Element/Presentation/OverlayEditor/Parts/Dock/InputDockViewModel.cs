@@ -54,12 +54,15 @@ internal sealed class InputDockViewModel : ViewModel
     _actions = actions;
     _emptyHint = L("칸이나 값을 누르면 여기서 고쳐요", "Click a field or a value to edit it here");
     Notices = notices;
-    Keypad = Own(new KeypadViewModel(actions, editing));
+    // A text is its own content field, open all along: there is always something to apply.
+    Keypad = Own(new KeypadViewModel(actions, editing, Choice, caret));
     Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
     Line = Own(new LineViewModel(actions));
     Typing = Computed(() => Owner.Value != null && _editing.Active);
     Problem = Computed(() => Typing.Value ? FormulaRefusals.Explain(_editing.Problem) ?? "" : "");
-    Method = Computed(() => MethodOf(_editing));
+    RestNote = Computed(() => Said(RestTitle.Value, RestBody.Value));
+    Method = Computed(() => MethodOf(_editing, Choice.Value));
+    MethodName = Computed(() => NameOf(MethodOf(_editing, Choice.Value)));
     SwitchOn = Computed(() => PickedBool(_editing));
     CompareOn = Computed(() => PickedCompare(_editing));
     Color rest = UiPalette.EditorControl;
@@ -75,6 +78,36 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>What the picked piece is edited with.</summary>
   public readonly Computed<DockMethod> Method;
 
+  /// <summary>Over the input method's place: "입력기 · 키패드", or "입력기" alone at rest.</summary>
+  public readonly Computed<string> MethodName;
+
+  /// <summary>
+  /// The field open that is picked from a fixed set (a font, a point) and so
+  /// has no values on the line: its input method; <see cref="DockMethod.Rest"/> for none.
+  /// </summary>
+  public readonly State<DockMethod> Choice = new(DockMethod.Rest);
+
+  /// <summary>The input method's place at rest: what it says first, and what it goes on to say.</summary>
+  public readonly State<string> RestTitle = new(L("값을 누르면", "Pick a value")),
+    RestBody =
+      new(
+        L(
+          "그 값의 입력기가 여기 나와요. 숫자는 키패드, 글자는 키보드, 색은 색 고르기, 참·거짓은 스위치예요.",
+          "and its input method shows here. Numbers have the keypad, words the keyboard, colors the color picker, true or false a switch."
+        )
+      );
+
+  /// <summary>What the place says at rest, as one rich text (<see cref="Said"/>).</summary>
+  public readonly Computed<string> RestNote;
+
+  /// <summary>
+  /// A note of the input method's place as rich text: <paramref name="lead"/>
+  /// bold in the foreground, <paramref name="rest"/> going on after it.
+  /// </summary>
+  [Pure]
+  public static string Said(string lead, string rest) =>
+    string.IsNullOrEmpty(lead) ? rest ?? "" : "<b><color=#F3F3F4>" + lead + "</color></b> " + rest;
+
   /// <summary>Why the field can't be finished as it is; empty while it can.</summary>
   public readonly Computed<string> Problem;
 
@@ -89,6 +122,9 @@ internal sealed class InputDockViewModel : ViewModel
     Warn,
     AccentInk,
     OnInk;
+
+  /// <summary>No outline: what a choice that doesn't hold wears.</summary>
+  public readonly UiColor NoEdge = new Color(0, 0, 0, 0);
 
   /// <summary>The picked words, which the keyboard input method types.</summary>
   public string Words
@@ -158,19 +194,73 @@ internal sealed class InputDockViewModel : ViewModel
   /// reads from what the keypad types; <paramref name="otherwise"/> is what
   /// shows when none of its cases holds (rich text), said after them.
   /// </summary>
-  public void Show(string owner, string name, string result, string hint, string otherwise = null)
+  /// <summary>
+  /// What the input method's place says while nothing is picked: by default
+  /// that a picked value's input method shows there; a text editor says words
+  /// are typed where the caret is.
+  /// </summary>
+  public void AtRest(string title, string body)
+  {
+    RestTitle.Value = title ?? "";
+    RestBody.Value = body ?? "";
+  }
+
+  public void Show(string owner, string name, string result, string hint, string otherwise = null, string whose = null)
   {
     Owner.Value = owner;
-    Line.Show(owner != null ? _editing : null, name, result, string.IsNullOrEmpty(hint) ? _emptyHint : hint);
+    Choice.Value = DockMethod.Rest;
+    Values.Choice.Value = "";
+    Line.Show(owner != null ? _editing : null, name, result, string.IsNullOrEmpty(hint) ? _emptyHint : hint, whose);
     Runtime.Probe();
+  }
+
+  /// <summary>
+  /// The dock has a field open that is picked from a fixed set, in
+  /// <paramref name="method"/>'s place: the line names it
+  /// (<paramref name="whose"/> <paramref name="name"/>, marked
+  /// <paramref name="glyph"/>) and shows <paramref name="label"/>, what it
+  /// holds; where values are listed, <paramref name="hint"/> says they are
+  /// picked on the right.
+  /// </summary>
+  public void ShowChoice(DockMethod method, string whose, string name, string glyph, string label, string hint)
+  {
+    Owner.Value = null;
+    Choice.Value = method;
+    Values.Choice.Value = hint ?? "";
+    Line.ShowChoice(whose, name, glyph, label);
+    Runtime.Probe();
+  }
+
+  [Pure]
+  private static string NameOf(DockMethod method)
+  {
+    string which = method switch
+    {
+      DockMethod.Keypad => L("키패드", "Keypad"),
+      DockMethod.Words => L("키보드", "Keyboard"),
+      DockMethod.Switch => L("스위치", "Switch"),
+      DockMethod.Compare => L("비교 기호", "Comparison"),
+      DockMethod.Condition => L("조건", "Condition"),
+      DockMethod.Group => L("계산", "Calculation"),
+      DockMethod.Color => L("색 고르기", "Color picker"),
+      DockMethod.Gradient => L("그라데이션", "Gradient"),
+      DockMethod.Custom => L("내 값", "Your value"),
+      DockMethod.Fonts => L("폰트 목록", "Fonts"),
+      DockMethod.Points => L("아홉 자리", "Nine points"),
+      _ => null,
+    };
+    return which == null ? L("입력기", "Input method") : L("입력기 · ", "Input method · ") + which;
   }
 
   // What the picked piece is edited with; the operator slot has its comparisons.
   [Pure]
-  private static DockMethod MethodOf(FormulaEditing editing)
+  private static DockMethod MethodOf(FormulaEditing editing, DockMethod choice)
   {
+    // A field picked from a fixed set has the place while it is open, whatever is picked in the text.
+    if (choice != DockMethod.Rest)
+      return choice;
     if (!editing.Active)
-      return DockMethod.Keypad;
+      return DockMethod.Rest;
     if (editing.Kind == OverlayValueType.Compare)
       return DockMethod.Compare;
     OverlayPiece piece = editing.SelectedPiece;

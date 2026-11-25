@@ -16,7 +16,9 @@ internal sealed class KeypadView : View<KeypadViewModel>
     Width = 4 * Key + 3 * Gap,
     // What an input method has above the shared row.
     MethodHeight = 4 * KeyHeight + 3 * Gap,
-    Height = MethodHeight + Gap + KeyHeight;
+    // The line over it that names the input method; the values' title is as tall.
+    TitleHeight = 30,
+    Height = TitleHeight + MethodHeight + Gap + KeyHeight;
 
   public KeypadView(KeypadViewModel vm)
     : base(vm) { }

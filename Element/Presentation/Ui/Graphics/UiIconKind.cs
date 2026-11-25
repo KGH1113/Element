@@ -41,6 +41,10 @@ internal enum UiIconKind
   NotSame,
   MoreOrSame,
   More,
+
+  /// <summary>Type marks the UI font has no glyph for: an asterisk for "any type", a boxed point for a place.</summary>
+  AnyType,
+  PlaceType,
   Extension,
   Check,
   Up,

@@ -21,7 +21,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// less what a text has no use for: a text shows words and numbers, so a
 /// place in it lists no colors and no true or false; and words are typed at
 /// the caret, so the text itself lists no "Text" to make. A condition's
-/// answer inside a text still does.
+/// answer inside a text still does. A group (묶음) is listed only where a
+/// calculation can be: not for a color or a true-or-false, and not straight
+/// at the caret, where a number starts the calculation.
 /// </remarks>
 internal sealed class ValuePlace
 {
@@ -53,18 +55,23 @@ internal sealed class ValuePlace
   /// <summary>
   /// The place <paramref name="editing"/> has open: the innermost variable,
   /// or with nothing open, the text's caret when <paramref name="caret"/>
-  /// (values go in there), else nowhere.
+  /// (values go in there), else nowhere. While a field picked from a fixed
+  /// set is open, <paramref name="choice"/> says so and nothing is listed.
   /// </summary>
   [Pure]
-  public static ValuePlace Of(FormulaEditing editing, bool caret)
+  public static ValuePlace Of(FormulaEditing editing, bool caret, string choice)
   {
+    // A font or a point is picked on the input method: the game gives no such values.
+    if (!string.IsNullOrEmpty(choice))
+      return new ValuePlace(OverlayValueType.Any, null, choice, null);
     if (!editing.Active)
       return caret
         ? new ValuePlace(
           OverlayValueType.Any,
           TextTitle(),
           null,
-          value => InText(value) && value.Id != OverlayValueId.MakeText
+          // At the caret 숫자 starts a calculation; a group goes inside one.
+          value => InText(value) && value.Id != OverlayValueId.MakeText && value.Id != OverlayValueId.MakeGroup
         )
         : new ValuePlace(
           OverlayValueType.Any,
@@ -93,6 +100,8 @@ internal sealed class ValuePlace
         editing.CanDrop(value)
         && (type != OverlayValueType.Any || InText(value))
         && !(text && value.Id == OverlayValueId.MakeText)
+        // A group holds a calculation: a color or a true-or-false has none to hold.
+        && !(value.Id == OverlayValueId.MakeGroup && type is OverlayValueType.Color or OverlayValueType.Bool)
     );
   }
 
@@ -103,7 +112,7 @@ internal sealed class ValuePlace
     return type != OverlayValueType.Color && type != OverlayValueType.Bool;
   }
 
-  private static string TextTitle() => L("글에 넣을 수 있는 값", "Values for the text");
+  private static string TextTitle() => L("커서 자리에 넣을 수 있는 값", "Values for the caret's place");
 
   // A condition's slot by its name, a value of the player's by its own, anything else by its type.
   private static string TitleOf(FormulaFrame frame)

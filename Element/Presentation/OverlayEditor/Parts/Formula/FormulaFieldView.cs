@@ -6,6 +6,7 @@ using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using ElementUI;
+using ElementUI.Ugui;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -33,6 +34,7 @@ internal sealed class FormulaFieldView
   private static readonly Color Hover = UiPalette.Wash(UiPalette.EditorDim, .265f);
 
   private readonly Button _body;
+  private readonly RoundedRect _ring;
   private readonly RectTransform _mark;
   private readonly bool _reduceMotion;
   private readonly TextMeshProUGUI _text,
@@ -43,6 +45,7 @@ internal sealed class FormulaFieldView
   private float _textWidth;
   private bool _active;
   private bool _fills;
+  private string _value = "";
 
   public FormulaFieldView(
     UiFactory ui,
@@ -57,12 +60,19 @@ internal sealed class FormulaFieldView
     _reduceMotion = reduceMotion;
     _body = UiCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
     Root = (RectTransform)_body.transform;
+    // The open field's outline, as a row of the column has: drawn over the pill, never pressed.
+    _ring = new GameObject("Field ring", typeof(RectTransform)).AddComponent<RoundedRect>();
+    _ring.transform.SetParent(Root, false);
+    UiFactory.Stretch(_ring.rectTransform, 0, 0, 0, 0);
+    _ring.raycastTarget = false;
+    _ring.color = Color.clear;
+    _ring.Radius = Height / 2;
     Color ink = TypeMarks.InkColor(OverlayValueType.Number);
-    _mark = ui.Panel("Number mark", Root, 0, 0, MarkSize, MarkSize, new Color(ink.r, ink.g, ink.b, .16f)).rectTransform;
+    _mark = ui.Panel("Number mark", Root, 0, 0, MarkSize, MarkSize, new Color(1, 1, 1, .1f)).rectTransform;
     TextMeshProUGUI glyph = ui.Text(TypeMarks.Glyph(OverlayValueType.Number), _mark, 0, 0, MarkSize, MarkSize, 12, ink);
     glyph.alignment = TextAlignmentOptions.Center;
     glyph.textWrappingMode = TextWrappingModes.NoWrap;
-    _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
+    _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 13, UiPalette.Foreground);
     _prefix.textWrappingMode = TextWrappingModes.NoWrap;
     _prefixWidth = Measure(_prefix, 5);
     _text = ui.Text("", Root, 0, 0, 10, Height, 15);
@@ -81,7 +91,8 @@ internal sealed class FormulaFieldView
 
   public string Name => Root.name;
 
-  public string Text => _text.text;
+  /// <summary>The number shown, without the "=" a worked-out one leads with.</summary>
+  public string Text => _value;
 
   /// <summary>The shown number came from a formula.</summary>
   public bool Computed { get; private set; }
@@ -94,9 +105,12 @@ internal sealed class FormulaFieldView
   {
     text ??= "";
     Computed = computed;
-    _text.text = text;
+    _value = text;
+    // What a calculation or a condition works out to reads as a result, as in the column: "= 320".
+    string shown = computed && text.Length > 0 ? "= " + text : text;
+    _text.text = shown;
     _text.color = computed ? UiPalette.SoftAccent : UiPalette.Foreground;
-    _textWidth = Mathf.Min(MaximumText, Mathf.Ceil(_text.GetPreferredValues(text).x) + 1);
+    _textWidth = Mathf.Min(MaximumText, Mathf.Ceil(_text.GetPreferredValues(shown).x) + 1);
     // A field made while hidden (as in a closed color picker) is measured
     // once it shows.
     if (_prefixWidth == 0)
@@ -183,7 +197,6 @@ internal sealed class FormulaFieldView
   public static string Number(double value) =>
     double.IsNaN(value) || double.IsInfinity(value) ? "—" : value.ToString("0.#", CultureInfo.InvariantCulture);
 
-
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
   public void SetVisible(bool visible)
@@ -196,10 +209,12 @@ internal sealed class FormulaFieldView
   private void Paint()
   {
     Color accent = UiPalette.SoftAccent;
-    Color rest = _active ? Color.Lerp(Rest, accent, .38f) : Rest;
+    // Open, it is a dark tint of the highlight color inside its outline.
+    Color rest = _active ? Color.Lerp(Rest, accent, .2f) : Rest;
+    _ring.SetStroke(_active ? accent : Color.clear, FieldLook.Edge);
     ColorBlock colors = _body.colors;
     colors.normalColor = colors.selectedColor = rest;
-    colors.highlightedColor = _active ? Color.Lerp(Rest, accent, .5f) : Hover;
+    colors.highlightedColor = _active ? Color.Lerp(Rest, accent, .3f) : Hover;
     colors.pressedColor = Color.Lerp(Hover, Color.white, .1f);
     colors.fadeDuration = _reduceMotion ? 0 : .08f;
     ((UiButton)_body).SetPalette(colors);

@@ -1,9 +1,9 @@
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Property;
-using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
+using Element.Presentation.Ui.Theme;
 using ElementUI;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
@@ -28,6 +28,10 @@ internal sealed class InspectorRowView : View<PropertyButtonViewModel>
       View row = Button(Content(), () => VM.Click, ButtonStyle.Plain)
         .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, InspectorRowStyle.Radius))
         .Named(VM.Name);
+      if (VM.IsField)
+        row = row.Overlay(
+          RoundedRectangle(InspectorRowStyle.Radius).Stroke(() => VM.Edge.Value, FieldLook.Edge).AllowsHitTesting(false)
+        );
       // A row that starts a group of the column carries the group's heading.
       return VStack(
         spacing: InspectorRowStyle.Gap,
@@ -42,25 +46,17 @@ internal sealed class InspectorRowView : View<PropertyButtonViewModel>
   // A field (칸): its type's mark, its name, then what it holds as chips and what that works out to.
   private View FieldContent() =>
     InspectorRowStyle.Of(
-      VM.Field is { } type ? TypeMarks.Mark(type, 20) : FieldGlyph(VM.FieldGlyph),
+      VM.Field is { } type ? TypeMarks.Mark(type, 18) : TypeMarks.Mark(VM.FieldGlyph, 18),
       InspectorRowStyle.Name(VM.Label, () => VM.Ink.Value),
       false,
       HStack(spacing: 4, ForEach(() => VM.Chips.Value, chip => chip.Identity, chip => new FieldChipView(chip))),
       Text(() => VM.Result.Value)
-        .Font(Font.Caption.Sized(13))
+        .Font(Font.Caption.Sized(13).Bolded())
         .Foreground(UiPalette.SoftAccent)
         .LineLimit(1)
+        .Padding(new Insets(0, 7, 0, 0))
         .Hidden(() => VM.Result.Value.Length == 0)
     );
-
-  private static View FieldGlyph(string glyph) =>
-    Text(glyph)
-      .Font(Font.Caption.Sized(12))
-      .Foreground(Colors.Muted)
-      .LineLimit(1)
-      .TextAlignment(TextAlign.Center)
-      .Frame(width: 20, height: 20)
-      .Background(new UnityEngine.Color(1, 1, 1, .1f), 6);
 
   private View ButtonContent() =>
     InspectorRowStyle.Of(

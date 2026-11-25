@@ -1,9 +1,9 @@
-using Element.Presentation.OverlayEditor.Parts.Field;
-using Element.Domain.Overlay.Variables;
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
@@ -22,7 +22,9 @@ internal sealed class PropertyButtonViewModel : ViewModel
 {
   private readonly UiColor _rest,
     _lit,
-    _computed;
+    _computed,
+    _edge;
+  private readonly UiColor _noEdge = new Color(0, 0, 0, 0);
   private readonly State<bool> _computedValue = new(false);
   private readonly State<bool> _active = new(false);
 
@@ -69,9 +71,12 @@ internal sealed class PropertyButtonViewModel : ViewModel
     Color rest = UiPalette.Wash(under ?? UiPalette.EditorDim, .07f),
       accent = UiPalette.SoftAccent;
     _rest = rest;
-    _lit = Color.Lerp(rest, accent, .3f);
+    // An open field is a dark tint of the highlight color with its outline, as a picked value is ringed.
+    _lit = Color.Lerp(rest, accent, field.HasValue || fieldGlyph != null ? .2f : .3f);
     _computed = accent;
+    _edge = accent;
     Fill = Computed(() => _active.Value ? _lit : _rest);
+    Edge = Computed(() => _active.Value ? _edge : _noEdge);
     ValueInk = Computed(() => _computedValue.Value ? _computed : Colors.Foreground);
     Ink = Computed(() => Available.Value ? Colors.Foreground : Colors.Muted);
     Click = Command(click);
@@ -137,6 +142,9 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Its fill at rest: lit while what it opened is open.</summary>
   public readonly Computed<UiColor> Fill;
 
+  /// <summary>A field's outline: the highlight color while it is open, nothing otherwise.</summary>
+  public readonly Computed<UiColor> Edge;
+
   /// <summary>The swatch's color, opaque.</summary>
   public readonly State<Color> SwatchColor = new(Color.white);
 
@@ -174,8 +182,6 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
 
-
-
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
 
@@ -208,7 +214,13 @@ internal sealed class PropertyButtonViewModel : ViewModel
     bool plain =
       variable != null
       && variable.Count == 1
-      && variable[0].Kind is not (OverlayPieceKind.Value or OverlayPieceKind.Condition or OverlayPieceKind.Group or OverlayPieceKind.Custom);
+      && variable[0].Kind
+        is not (
+          OverlayPieceKind.Value
+          or OverlayPieceKind.Condition
+          or OverlayPieceKind.Group
+          or OverlayPieceKind.Custom
+        );
     Result.Value = plain || string.IsNullOrEmpty(result) ? "" : "= " + result;
     _active.Value = active;
   }
@@ -246,7 +258,6 @@ internal sealed class PropertyButtonViewModel : ViewModel
     SwatchColor.Value = color;
     SwatchGradient.Value = gradient;
   }
-
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

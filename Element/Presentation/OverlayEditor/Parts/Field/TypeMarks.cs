@@ -1,6 +1,8 @@
 using System;
 using System.Linq.Expressions;
 using Element.Domain.Overlay.Variables;
+using Element.Presentation.Ui.Declarative;
+using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using UnityEngine;
 using static ElementUI.UI;
@@ -9,17 +11,20 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Field;
 
 /// <summary>
-/// The mark that says what type a field or a value is: a small rounded tile
-/// with a glyph in the type's soft color (# numbers blue, 가 words green,
-/// ◐ true or false purple, * anything), and for a color the color itself.
-/// Every field row, piece and list header uses the same marks.
+/// The mark that says what type a field or a value is: a glyph in the type's
+/// soft color (# numbers blue, 가 words green, ◐ true or false purple,
+/// * anything) on a small quiet tile, and for a color the color itself.
+/// Every field row, piece and list header uses the same marks. Only the glyph
+/// carries the color, so a column of marks stays calm.
 /// </summary>
 internal static class TypeMarks
 {
-  private static readonly Color NumberInk = new(.49f, .7f, 1f),
-    TextInk = new(.47f, .84f, .6f),
-    BoolInk = new(.75f, .62f, 1f),
-    PlainInk = new(.74f, .74f, .76f);
+  private static readonly Color NumberInk = new(.56f, .72f, 1f),
+    TextInk = new(.58f, .86f, .65f),
+    BoolInk = new(.79f, .68f, 1f),
+    PlainInk = new(.85f, .85f, .87f),
+    // Letters that are a word ("Aa") read as words do, in the foreground.
+    WordInk = new(.95f, .95f, .96f);
 
   /// <summary>The soft color of <paramref name="type"/>: marks, underlines and the edge of its pieces.</summary>
   public static UiColor Ink(OverlayValueType type) => InkColor(type);
@@ -46,20 +51,41 @@ internal static class TypeMarks
       _ => "*",
     };
 
-  /// <summary>A small tile with the type's glyph in its color.</summary>
-  public static View Mark(OverlayValueType type, float size = 18)
-  {
-    Color ink = InkColor(type);
-    Color tile = ink;
-    tile.a = .16f;
-    return Text(Glyph(type))
-      .Font(Font.Caption.Sized(Mathf.Round(size * .62f)))
+  /// <summary>A small quiet tile with the type's glyph in its color.</summary>
+  public static View Mark(OverlayValueType type, float size = 18) =>
+    Letter(type, size).Background(FieldLook.MarkTile, Mathf.Round(size * .3f));
+
+  /// <summary>The type's glyph alone, as a small value in a field row leads with it.</summary>
+  public static View Letter(OverlayValueType type, float size = 14) =>
+    // The UI font has no asterisk that sits in the middle: "any" is drawn.
+    type == OverlayValueType.Any
+    || type == OverlayValueType.Compare
+      ? Drawn(UiIconKind.AnyType, InkColor(type), size)
+      : Letters(Glyph(type), InkColor(type), size);
+
+  /// <summary>A mark for something that is no value type: "Aa" for a font, a boxed point for a place.</summary>
+  public static View Mark(string letters, float size = 18) =>
+    Letter(letters, size).Background(FieldLook.MarkTile, Mathf.Round(size * .3f));
+
+  /// <summary><see cref="Mark(string, float)"/> without its tile. Two letters take a little more room than one glyph.</summary>
+  public static View Letter(string letters, float size = 14) =>
+    letters == Place ? Drawn(UiIconKind.PlaceType, PlainInk, size)
+    : letters.Length > 1 ? Letters(letters, WordInk, size, .64f, Mathf.Round(size * 1.3f))
+    : Letters(letters, PlainInk, size);
+
+  /// <summary>Stands for a place (an anchor point) where a mark's letters are given.</summary>
+  public const string Place = "place";
+
+  private static View Letters(string letters, Color ink, float size, float scale = .66f, float width = 0) =>
+    Text(letters)
+      .Font(Font.Caption.Sized(Mathf.Round(size * scale)).Bolded())
       .Foreground(ink)
       .LineLimit(1)
       .TextAlignment(TextAlign.Center)
-      .Frame(width: size, height: size)
-      .Background(tile, Mathf.Round(size * .28f));
-  }
+      .Frame(width: width > 0 ? width : size, height: size);
+
+  private static View Drawn(UiIconKind icon, Color ink, float size) =>
+    Image(ElementIcons.Of(icon), Mathf.Round(size * .72f)).Foreground(ink).Frame(width: size, height: size);
 
   /// <summary>
   /// The mark of a type that changes, as <paramref name="type"/> reads it

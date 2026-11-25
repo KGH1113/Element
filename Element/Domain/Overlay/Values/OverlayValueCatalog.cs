@@ -124,9 +124,9 @@ internal static class OverlayValueCatalog
     ),
     Color(OverlayValueId.HighlightColor, "highlight-color", "하이라이트 색", "Highlight color"),
     // Never saved as a value: put in a formula, it becomes a color picked by hand.
-    Color(OverlayValueId.CustomColor, "custom-color", "커스텀 색", "Custom color"),
+    Maker(OverlayValueId.CustomColor, "custom-color", OverlayValueKind.Color, "커스텀 색", "Custom color"),
     // Never saved as a value either: picked for a color, it makes that color a gradient.
-    Color(OverlayValueId.MakeGradient, "make-gradient", "그라데이션", "Gradient"),
+    Maker(OverlayValueId.MakeGradient, "make-gradient", OverlayValueKind.Color, "그라데이션", "Gradient"),
     Maker(OverlayValueId.MakeNumber, "make-number", OverlayValueKind.Number, "숫자", "Number"),
     Maker(OverlayValueId.MakeText, "make-text", OverlayValueKind.Text, "글자", "Text"),
     Maker(OverlayValueId.MakeBool, "make-bool", OverlayValueKind.Bool, "참·거짓", "True or false"),

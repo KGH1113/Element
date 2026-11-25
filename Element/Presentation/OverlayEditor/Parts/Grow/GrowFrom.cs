@@ -1,11 +1,11 @@
-using Element.Domain.Overlay.Variables;
-using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Layout;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
+using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
-using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
@@ -17,9 +17,10 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.Parts.Grow;
 
 /// <summary>
-/// Where an edited element grows from: the property column's Grow from row,
-/// the nine points it opens in the column, and a dot on the preview at the point that
-/// stays put while the popover is open. Done saves the choice with the element.
+/// Where an edited element grows from: the property column's Grow from
+/// field, its input method (the nine points and Auto, standing in the dock
+/// where the keypad does), and a dot on the preview at the point that stays
+/// put while they are open. Done saves the choice with the element.
 /// </summary>
 internal sealed class GrowFrom
 {
@@ -28,7 +29,6 @@ internal sealed class GrowFrom
   private readonly Action _closeOthers;
   private readonly Action _changed;
   private OverlayElementTarget _element;
-  private InspectorPanel _inspector;
   private GrowPopoverPanel _popover;
   private UiCapsuleGraphic _mark;
 
@@ -64,14 +64,13 @@ internal sealed class GrowFrom
       L("기준점", "Grow from"),
       Toggle,
       opens: true,
-      fieldGlyph: "⊙"
+      fieldGlyph: TypeMarks.Place
     );
 
-  /// <summary>The points, opening in <paramref name="inspector"/>'s column, and the dot, over the editor's controls.</summary>
-  public void Build(EditorFramePanel screen, InspectorPanel inspector)
+  /// <summary>The points, as the dock's input method, and the dot, over the editor's controls.</summary>
+  public void Build(EditorFramePanel screen)
   {
-    _inspector = inspector;
-    _popover = new GrowPopoverPanel(screen, Pick, inColumn: true);
+    _popover = new GrowPopoverPanel(screen, Pick, asInputMethod: true);
     _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }
@@ -80,18 +79,44 @@ internal sealed class GrowFrom
 
   public bool Contains(Vector2 screen) => _popover.Contains(screen);
 
-  /// <summary>The row opens the points in the column, and closes them again.</summary>
+  /// <summary>The field opens its points in the dock, and closes them again.</summary>
   private void Toggle()
   {
     bool open = _popover.Visible;
     _closeOthers();
     if (!open)
     {
-      _popover.ShowIn(_inspector.Right, _inspector.ToolTop);
+      _popover.ShowAt(_at);
       _popover.Refresh(Growth, PointNow());
     }
     _changed();
   }
+
+  // Where the dock draws an input method, as last placed.
+  private Vector2 _at;
+
+  /// <summary>Keeps the points where <paramref name="dock"/> draws an input method.</summary>
+  public void Place(InputDockPanel dock)
+  {
+    Rect place = dock.MethodArea;
+    _at = new Vector2(place.x, place.y);
+    if (_popover.Visible)
+      _popover.ShowAt(_at);
+  }
+
+  /// <summary>While the points are open, the dock shows the field: on its line its name and the point it is.</summary>
+  public void ShowIn(InputDockViewModel dock) =>
+    dock.ShowChoice(
+      DockMethod.Points,
+      null,
+      Button.Label,
+      TypeMarks.Place,
+      GrowPickerViewModel.ShortName(Growth),
+      L(
+        "기준점 칸은 오른쪽 입력기에서 골라요. 게임이 알려 주는 자리 값은 없어요.",
+        "The point is picked on the input method at the right. The game gives no place values."
+      )
+    );
 
   private void Pick(OverlayGrowth growth)
   {
@@ -106,7 +131,7 @@ internal sealed class GrowFrom
   /// <summary>Shows the row's choice: the short name of the point, lit while the points are open.</summary>
   public void ShowButton() =>
     Button.ShowField(
-      new FieldChip("point", GrowPickerViewModel.ShortName(Growth), OverlayValueType.Any) { Bare = true },
+      new FieldChip("point", GrowPickerViewModel.ShortName(Growth), OverlayValueType.Any) { Glyph = TypeMarks.Place },
       _popover.Visible
     );
 

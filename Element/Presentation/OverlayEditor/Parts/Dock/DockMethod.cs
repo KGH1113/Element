@@ -3,6 +3,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 // The input method the dock shows: what the picked piece is edited with.
 internal enum DockMethod
 {
+  /// <summary>Nothing is picked: the place says what shows there.</summary>
+  Rest,
+
   /// <summary>Numbers: the keypad.</summary>
   Keypad,
 
@@ -29,4 +32,10 @@ internal enum DockMethod
 
   /// <summary>A value the player made: its name, and its variable to go into.</summary>
   Custom,
+
+  /// <summary>A font field: the font list, standing in the keypad's place.</summary>
+  Fonts,
+
+  /// <summary>A point of the element (where it grows from): the nine points and Auto.</summary>
+  Points,
 }

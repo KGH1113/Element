@@ -76,6 +76,17 @@ internal sealed class UiIcon : UiVectorGraphic
         Line(mesh, 7, 6, 17, 12, 2.4f);
         Line(mesh, 17, 12, 7, 18, 2.4f);
         break;
+      case UiIconKind.AnyType:
+        // An asterisk of three strokes through the middle.
+        Line(mesh, 12, 4.5f, 12, 19.5f, 2.6f);
+        Line(mesh, 5.5f, 8.25f, 18.5f, 15.75f, 2.6f);
+        Line(mesh, 5.5f, 15.75f, 18.5f, 8.25f, 2.6f);
+        break;
+      case UiIconKind.PlaceType:
+        // A box with its middle point marked.
+        Box(mesh, 5, 5, 19, 19);
+        Dot(mesh, 12, 12, 2.6f);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);

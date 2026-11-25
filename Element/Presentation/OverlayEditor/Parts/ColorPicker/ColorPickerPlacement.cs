@@ -30,7 +30,7 @@ internal static class ColorPickerPlacement
   {
     if (picker == null || !picker.Visible)
       return;
-    Rect keys = dock.KeypadArea;
+    Rect keys = dock.MethodArea;
     picker.Root.anchoredPosition = new Vector2(keys.x, -keys.y);
     picker.Root.SetAsLastSibling();
   }

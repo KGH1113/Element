@@ -245,7 +245,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _color.LayOutAbove(_dockPanel);
     BuildInspector();
     _fonts.Build(_frame, _element.Fonts, _reduceMotion());
-    _grow.Build(_frame, _inspector);
+    _grow.Build(_frame);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
@@ -282,20 +282,17 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     Render();
   }
 
-  // Where the open tool is drawn; its back row lines up with it.
-  // A solid color's picker stands in the keypad's place, not in the column.
+  // Where the open tool is drawn; its back row lines up with it. Only a
+  // gradient's tool opens in the column: a solid color's picker, the font
+  // list and the nine points are input methods, in the keypad's place.
   private RectTransform OpenToolRoot() =>
-    _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Picker.Root
-    : _fonts.Visible ? _fonts.Popover.Root
-    : _grow.Visible ? _grow.Popover.Root
-    : null;
+    _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Picker.Root : null;
 
   // What the column has open, as its back row names it; null while it shows the rows.
-  private string OpenTool() =>
-    _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Title
-    : _fonts.Visible ? _fonts.Title
-    : _grow.Visible ? _grow.Button.Label
-    : null;
+  private string OpenTool() => _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Title : null;
+
+  // A look field is open: letters selected show as the 글자 value they become once the look changes.
+  private bool LookOpen => _color.Picker.Visible || _fonts.Visible || _formulas.Field != null;
 
   public void Tick()
   {
@@ -428,26 +425,46 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _marks.PlaceCaret();
     _marks.Place();
     // Letters selected while a look is open are shown as the 글자 value they become.
-    _underlines.Place(_formulas.EditedValue, OpenTool() != null || _formulas.Field != null);
+    _underlines.Place(_formulas.EditedValue, LookOpen);
     ShowFields();
     _color.ShowSwatch();
     _color.Place(_dockPanel, _inspector);
     _gradient.Show();
-    _fonts.Place(_dockPanel, _inspector.ToolTop);
+    _fonts.Place(_dockPanel);
+    _grow.Place(_dockPanel);
     _inspector.Show(OpenTool(), OpenToolRoot());
-    _formulas.Refresh(_dock);
+    // A font or a point is picked from its own list: while one is open, the dock shows that field.
+    if (_fonts.Visible)
+      _fonts.ShowIn(_dock, _formulas.LookOwner() + " ›");
+    else if (_grow.Visible)
+      _grow.ShowIn(_dock);
+    else
+      _formulas.Refresh(_dock);
     PlaceGrowMark();
     _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _frame.Scale);
     _liveMask = LiveMask();
+  }
+
+  // Whose look the fields show: a value picked in the text, the letters
+  // selected (named, so it is plain which), or the whole text.
+  private string LookHeading()
+  {
+    if (!_text.HasSelection)
+      return L("글 전체의 모습", "The whole text");
+    _text.Range(out int start, out int end);
+    if (_formulas.EditedValue >= 0 || (end - start == 1 && _text.Document[start].IsValue))
+      return L("고른 값의 모습 · ", "The picked value · ") + _formulas.LookOwner();
+    string letters = _text.Document.PlainText(start, end, _ => "");
+    if (letters.Length > 12)
+      letters = letters.Substring(0, 11) + "…";
+    return L("고른 글자의 모습 · “" + letters + "”", "The picked letters · “" + letters + "”");
   }
 
   // The column's fields show the range's look and the grow point; the look's
   // heading says whether it is the selected letters' or the whole text's.
   private void ShowFields()
   {
-    _size.Button.Section.Value = _text.HasSelection
-      ? L("고른 글자의 모습", "The picked letters")
-      : L("글 전체의 모습", "The whole text");
+    _size.Button.Section.Value = LookHeading();
     _size.Show();
     _color.ShowButton();
     _color.ShowOpacityButton();

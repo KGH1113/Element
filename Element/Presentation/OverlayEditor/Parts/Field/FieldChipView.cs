@@ -10,9 +10,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Field;
 /// <summary>One chip in a field row: its mark, swatch or letters and what it says; an operator as its plain sign.</summary>
 internal sealed class FieldChipView : View<FieldChip>
 {
-  public const float Height = 24;
+  public const float Height = 22;
 
-  private static readonly UiColor Fill = new Color(1, 1, 1, .07f);
+  private static readonly UiColor Fill = FieldLook.Mini;
 
   public FieldChipView(ItemSlot<FieldChip> slot)
     : base(slot) { }
@@ -28,31 +28,23 @@ internal sealed class FieldChipView : View<FieldChip>
         return Text(chip.Label).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1);
       if (chip.Bare)
         return Text(chip.Label)
-          .Font(Font.Caption.Sized(13))
+          .Font(Font.Caption.Sized(12))
           .LineLimit(1)
-          .Padding(0, 8)
+          .Padding(0, 9)
           .Frame(height: Height)
-          .Background(Fill, 7);
+          .Background(Fill, Height / 2);
       // A chip is drawn once: its gradient is read as it was given.
       OverlayResolvedGradient gradient = chip.Gradient;
       View lead =
         gradient != null ? new SwatchDot(() => Color.white, () => gradient).Frame(width: 13, height: 13)
         : chip.HasSwatch ? TypeMarks.Swatch(chip.Swatch, 12)
-        : chip.Glyph != null ? Glyph(chip.Glyph)
-        : TypeMarks.Mark(chip.Type, 15);
-      return HStack(spacing: 4, lead, Text(chip.Label).Font(Font.Caption.Sized(13)).LineLimit(1))
-        .Padding(0, 7)
+        : chip.Glyph != null ? TypeMarks.Letter(chip.Glyph, 14)
+        : TypeMarks.Letter(chip.Type, 14);
+      // A pill, its mark only the glyph: the row's own mark already has the tile.
+      return HStack(spacing: 3, lead, Text(chip.Label).Font(Font.Caption.Sized(12)).LineLimit(1))
+        .Padding(new Insets(0, 5, 0, 9))
         .Frame(height: Height)
-        .Background(Fill, 7);
+        .Background(Fill, Height / 2);
     }
   }
-
-  private static View Glyph(string glyph) =>
-    Text(glyph)
-      .Font(Font.Caption.Sized(10))
-      .Foreground(Colors.Muted)
-      .LineLimit(1)
-      .TextAlignment(TextAlign.Center)
-      .Frame(width: 15, height: 15)
-      .Background(new Color(1, 1, 1, .1f), 4);
 }

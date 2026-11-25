@@ -52,15 +52,14 @@ A value is something the game knows, kept live. It behaves as one character: the
 
 - **Units are words you type.** Values carry no units, so write `%` after progress or accuracy yourself.
 - **Composite values are built from parts.** Values that combined others are gone. The old progress `0%-48%` is now start, `%-`, current and `%`. The old time `1:27~3:48` is elapsed, `~` and total.
-- **Adding a value.** The input dock at the bottom of both editors, which is always there, lists the categories on its left, then one row per mod that adds values, and shows the picked one's values beside the list; a mod's values sit in a row per group. The category picked last stays picked for the next editor. In a text, clicking a value adds it at the caret; while a field or a piece is picked, it goes there. Values are only picked, never dragged.
-- **Only what fits.** The dock lists only the values that can go where it is now, under a heading that says where ("Values for a number field"), and says how many it left out. With nothing picked it lists none and says to pick a field or a value.
-- **Finding a value.** Typing in the dock's search shows every value it finds, by category and mod: Korean and English names, keys (`kps`), group headings and mod names all count, with case, spaces and dashes left out. Enter adds the first one; × or Esc clears the search.
+- **Adding a value.** The input dock at the bottom of both editors, which is always there, lists the values on its left: one section per category, then one per mod that adds values, a mod's values in a row per group. In a text, clicking a value adds it at the caret; while a field or a piece is picked, it goes there. Values are only picked, never dragged.
+- **Only what fits.** The dock lists only the values that can go where it is now, under a heading that says where ("Values for a number field", "Values for the caret's place"), and says how many it left out. In a shape with nothing picked it lists none and says to pick a field or a value.
 - **What a value reads now.** Each value in the dock shows its current reading after its name, as the overlay would show it, while the game has one.
 - **Hovering.** Pointing at a value in the text names it, including its calculation.
 
 ## Calculating
 
-Clicking a number, or a value in a text, types its formula in the input dock along the bottom of the editor. The preview always sits above the dock, so it is never covered. With nothing being typed, the dock's top line says what to do and the keypad rests.
+Clicking a number, or a value in a text, types its formula in the input dock along the bottom of the editor. The preview always sits above the dock, so it is never covered. With nothing being typed, the dock's top line says what to do and the input method's place says what will show there.
 
 - **Formula line.** The top line shows what is open (its type's mark and name), every piece of it laid out in place, a condition's five slots side by side, and the result on the right. Any piece or slot is one click away.
 - **Values and keypad.** Below are the values that fit and a large keypad: 0–9, point, + − × ÷ and backspace, with **Remove** and **Apply** under it (the header's **Done** closes the editor). The keyboard types the same keys.
@@ -80,16 +79,16 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 ## Variables
 
-Every property of an element is a **field** (칸): in the editors' columns each one shows its type's mark (# number, 가 words, ● color, ◐ true or false, Aa font, ⊙ grow point), its name, what it holds as chips and, when that is worked out, "= result". The numbers around a shape are the same fields as pills.
+Every property of an element is a **field** (칸): in the editors' columns each one shows its type's mark (# number, 가 words, ● color, ◐ true or false, Aa font, ⊡ grow point), its name, what it holds as chips and, when that is worked out, "= result". The numbers around a shape are the same fields as pills.
 
 Every field the dock opens is a **variable**: a text's value, a size, a shape's width, a color. Nothing is typed into it directly; it holds values, and the dock's **input method** below the line edits the one picked. Every variable has a type, and so does every value: **number**, **words**, **color**, **true or false**, or **anything** (a text's value). Values of different types don't mix, and a field can be finished only when what it holds gives its type.
 
 - **The line is made of pieces.** Each value, number, word or condition is a piece; clicking one picks it, and clicking an empty slot makes it the place a value goes. A field that holds one value (a number holds one calculation) swaps it for the one picked; a text's value holds pieces side by side. Numbers join with + − × ÷; in a text's value, pieces side by side show one after another.
-- **Making values.** The dock's first category, **Make**, holds what fits of **Number**, **Text**, **True or false**, **Condition** and **Group**. A new one is picked at once, with its input method. A text needs no **Text** at its caret: typing makes words.
-- **Input methods.** Always in the same place, bottom right. A number has the keypad; words have a field the keyboard types into (spaces count); true or false has two buttons; a solid color has the picker; a condition and a group have their slots on the line. Under each sits the same row: **Remove** and **Apply**.
+- **Making values.** The dock's first section, **Make**, holds what fits of **Custom color**, **Gradient**, **Number**, **Text**, **True or false**, **Condition** and **Group** (a group only where a calculation can be). A new one is picked at once, with its input method. A text needs no **Text** at its caret: typing makes words.
+- **Input methods.** Always in the same place, bottom right, under a line that names the one showing ("Input method · Keypad"). A number has the keypad; words have a field the keyboard types into (spaces count); true or false has two buttons; a solid color has the picker; a font has the font list; a grow point has its nine points and Auto; a condition and a group have their slots on the line. Under each sits the same row: **Remove** and **Apply**. A font and a grow point are picked from their own sets, so the values' place says so and lists nothing.
 - **Conditions.** A condition lays its five slots out on the line: "if [compared] [operator] [compared with] then [result] otherwise [default]". Click a slot to fill it; an empty one says what goes in it. The two compared slots take numbers, the operator one of < ≤ = ≠ ≥ > (it starts as ≥), and the result and default whatever the field needs: "Combo ≥ 100 → 60, otherwise 40". The default also shows before the game has the values compared (before a level starts). Numbers the same to six decimals count as the same. In a text's value the result and default may stay empty, which shows nothing.
 - **Groups.** A group is a variable inside the variable, for a calculation that goes first: (Combo + 1) × 2.
-- **Can't finish yet.** While a variable doesn't give its type, an empty slot for one, the dock says what is wrong and where (In the condition's Result: it's empty), Apply says it again, and the element keeps what it had. Values that can't go where the dock is now read dimmed.
+- **Can't finish yet.** While a variable doesn't give its type, an empty slot for one, the dock says what is wrong and where (In the condition's Result: it's empty), Apply says it again, and the element keeps what it had. Values that can't go where the dock is now are not listed.
 - **Keyboard.** Digits, the point and + − × ÷ go to the keypad. In the operator slot < > = type comparisons, > then = makes ≥, < then = makes ≤, and ! makes ≠.
 - **Values of your own.** **New value** under **My values** makes one, of the type needed where it goes, and opens it on the line to be filled like any variable; **Apply** goes back to where it sits. Picked there, its input method has its name, typed on the keyboard, and **Change what it holds**. It is listed under My values for every text and shape, and changing it changes every element that uses it. Cancel takes back values made or changed in that edit. A value can't use itself.
 
@@ -99,8 +98,8 @@ Every field the dock opens is a **variable**: a text's value, a size, a shape's 
 - **The text is its own content field.** Under each piece of the text, a thin bracket in its type's color and its type's mark: each run of letters that look the same is one **letters value** (가), each game value its own (# for a number). Nothing is drawn over the letters. The picked piece's bracket is the accent; the letters the caret types into light up as they grow. A piece across lines gets a bracket per line.
 - **The caret belongs to letters.** Typing between two values starts new letters. A selection stays inside one letters value (dragging, Shift + arrows, Shift + Home/End); select all takes the letters the caret is in; two clicks take a word, three the whole letters value. With letters selected, the dock's line names them.
 - A column on the right, above the keypad, holds the fields in two groups. **The whole text** (or **The picked letters** while some are selected): **Size**, **Text color**, **Opacity**, **Font** and **Grow on change**. **Element**: **Grow from**. Selected letters styled on their own show as their own letters value while a field is open. See [Fonts](#fonts) and [Animation](#animation).
-- Size, Opacity and Grow on change open in the dock. Text color opens the color picker in the keypad's place; a gradient's bigger tool, the font list and the nine points open in the column above the keypad, under a back row naming them. Apply, the field again, Esc or a click elsewhere closes them.
-- Notices (a value that can't go somewhere, a number kept in range) show for a few seconds right above the dock's formula line.
+- Every field opens in the dock, its line naming whose it is ("Whole text › Size", "“FPS” › Font"). Size, Opacity and Grow on change are typed or switched there; Text color opens the color picker, Font the font list and Grow from the nine points, each in the keypad's place. Only a gradient's bigger tool opens in the column above the keypad, under a back row naming it. Apply, the field again, Esc or a click elsewhere closes them.
+- Notices (a value that can't go somewhere, a number kept in range) show for a few seconds under the dock's line.
 - A color is a variable: the highlight color (only its opacity is yours), a custom color, or a condition giving colors. See [Colors](#colors).
 - Sizes are what the game draws at 1080p.
 - ⌘/Ctrl + Enter or Esc finishes and saves, as Done does; only Cancel leaves without saving. A text left empty is removed.
@@ -168,7 +167,7 @@ A shape's fill and border and a text's color can be gradients, as in Figma: line
 
 ## Grow from
 
-When a text or shape changes size (a value grows longer, a width follows progress), one point of it stays put and the rest grows away from it. The **Grow from** row in either editor's column names the current point and picks it from nine, with arrows showing where it grows; the editor marks the point on the preview. **Auto** uses the point nearest to where the element sits on screen: an element near the right edge grows to the left. The choice is saved with the element when you press Done.
+When a text or shape changes size (a value grows longer, a width follows progress), one point of it stays put and the rest grows away from it. The **Grow from** field in either editor's column names the current point; its input method, in the keypad's place, has the nine points as keys with **Auto** under them, and the editor marks the point on the preview. **Auto** uses the point nearest to where the element sits on screen: an element near the right edge grows to the left. The choice is saved with the element when you press Done.
 
 ## Key viewer
 

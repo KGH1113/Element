@@ -54,6 +54,9 @@ internal sealed class TextPreview
   /// <summary>Screen pixels per unit of the text as it is shown.</summary>
   public float Scale => _previewScale;
 
+  /// <summary>Screen pixels in a frame unit, as the text was last drawn: what is drawn with the text keeps the editor's sizes.</summary>
+  public float FrameScale { get; private set; } = 1;
+
   /// <summary>The values the preview's gradients use.</summary>
   public OverlayValueMask GradientMask => _previewGradients?.Mask ?? OverlayValueMask.None;
 
@@ -109,6 +112,7 @@ internal sealed class TextPreview
     bool reduceMotion
   )
   {
+    FrameScale = Mathf.Max(.01f, frameScale);
     // The text must be active before it is laid out for the caret.
     Empty = _text.Document.Count == 0 && _text.Composition.Length == 0;
     if (_preview.gameObject.activeSelf == Empty)

@@ -1,4 +1,3 @@
-using Element.Presentation.OverlayEditor.Parts.Property;
 using System;
 using System.Collections.Generic;
 using Element.Application.Input;
@@ -16,6 +15,7 @@ using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using ElementUI.Ugui;
@@ -244,7 +244,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     BuildInspector();
     _colors.BuildPicker(_frame, _dockPanel);
     _gradient.BuildPicker(_frame.Ui, _reduceMotion());
-    _grow.Build(_frame, _inspector);
+    _grow.Build(_frame);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
   }
@@ -284,11 +284,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   }
 
   // What the column has open, as its back row names it; null while it shows the rows.
-  // A solid color's picker stands in the keypad's place, not in the column.
-  private string OpenTool() =>
-    _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Title
-    : _grow.Visible ? _grow.Button.Label
-    : null;
+  // Only a gradient's tool opens there: a solid color's picker and the nine
+  // points are input methods, in the keypad's place.
+  private string OpenTool() => _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Title : null;
 
   public void Tick()
   {
@@ -371,6 +369,13 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     );
     _colors.ShowOpacity(_gradient.PickedStop);
     PlaceGrowMark();
+    _grow.Place(_dockPanel);
+    // The point is picked from its own nine: while they are open, the dock shows that field.
+    if (_grow.Visible)
+    {
+      _grow.ShowIn(_dock);
+      return;
+    }
     // The dock shows the number open in it, or with none what to do.
     string field = _numbers.Field;
     FormulaEditing editing = _numbers.Editing;
@@ -385,8 +390,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
         : null,
       _colors.Hint()
         ?? L(
-          "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
-          "Click a number (W, H, border or a corner's arc) to type it here"
+          "칸을 누르면 여기서 고쳐요. 도형 둘레의 너비 · 높이 · 둥글기도 같은 칸이에요.",
+          "Click a field to edit it here. The width, height and rounding around the shape are fields too."
         ),
       editing.Active ? editing.Slot.Placeholder() : null
     );
@@ -400,12 +405,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers.ShowStrokeWidth();
     _grow.ShowButton();
     _colors.PlacePicker(_dockPanel, _inspector.ToolTop);
-    _inspector.Show(
-      OpenTool(),
-      _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Picker.Root
-        : _grow.Visible ? _grow.Popover.Root
-        : null
-    );
+    _inspector.Show(OpenTool(), _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Picker.Root : null);
   }
 
   // While the grow popover is open, a dot marks the point that stays put.

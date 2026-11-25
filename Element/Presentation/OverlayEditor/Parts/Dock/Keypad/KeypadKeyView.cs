@@ -12,6 +12,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 /// <summary>One key: a capsule that fills its cell, faint and with its label dimmed while it can't be pressed.</summary>
 internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
 {
+  private static readonly Color Apply = new(.227f, .247f, .278f);
+
   private readonly float _size;
   private readonly float _height;
   private readonly UiColor _fill,
@@ -20,7 +22,7 @@ internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
     _offInk;
 
   /// <param name="size">The label's size.</param>
-  /// <param name="tinted">Filled with the accent, as Done.</param>
+  /// <param name="tinted">Filled lighter than a key, as Apply: the way out of the dock.</param>
   /// <param name="height">How tall it is: a full key, or a comparison in the short row.</param>
   public KeypadKeyView(KeypadKeyViewModel vm, float size, bool tinted, float height = KeypadView.KeyHeight)
     : base(vm)
@@ -28,9 +30,10 @@ internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
     _size = size;
     _height = height;
     Color accent = UiPalette.SoftAccent;
-    // Opaque, so the overlay behind never shows through a key.
-    _fill = tinted ? Color.Lerp(UiPalette.EditorControl, accent, .32f) : UiPalette.EditorControl;
-    _offFill = tinted ? Color.Lerp(UiPalette.EditorControlOff, accent, .14f) : UiPalette.EditorControlOff;
+    // Opaque, so the overlay behind never shows through a key. Apply is a
+    // lighter slate than a key, not the highlight color: that marks what is picked.
+    _fill = tinted ? Apply : UiPalette.EditorControl;
+    _offFill = tinted ? Color.Lerp(UiPalette.EditorDim, Apply, .3f) : UiPalette.EditorControlOff;
     Color ink = vm.Symbol ? accent : UiPalette.Foreground;
     _ink = ink;
     _offInk = new Color(ink.r, ink.g, ink.b, .3f);

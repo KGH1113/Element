@@ -39,7 +39,14 @@ internal sealed class KeypadViewModel : ViewModel
 
   /// <param name="actions">Where a pressed key, Remove and Apply go.</param>
   /// <param name="editing">The variable open: what it can take next lets a key be pressed.</param>
-  public KeypadViewModel(IInputDockActions actions, FormulaEditing editing)
+  /// <param name="choice">A field picked from a fixed set is open: it can be applied, and nothing of it removed.</param>
+  /// <param name="alwaysOpen">Something is open all along (a text is its own content field), so Apply always can be pressed.</param>
+  public KeypadViewModel(
+    IInputDockActions actions,
+    FormulaEditing editing,
+    State<DockMethod> choice,
+    bool alwaysOpen = false
+  )
   {
     KeypadKeyViewModel[] keys = new KeypadKeyViewModel[Layout.Length];
     for (int i = 0; i < keys.Length; i++)
@@ -60,9 +67,25 @@ internal sealed class KeypadViewModel : ViewModel
     }
     Keys = keys;
     Remove = Own(
-      new KeypadKeyViewModel("Key remove", L("지우기", "Remove"), '\0', false, actions.Remove, () => editing.CanRemove)
+      new KeypadKeyViewModel(
+        "Key remove",
+        L("지우기", "Remove"),
+        '\0',
+        false,
+        actions.Remove,
+        () => choice.Value == DockMethod.Rest && editing.CanRemove
+      )
     );
-    Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done, () => editing.Active));
+    Done = Own(
+      new KeypadKeyViewModel(
+        "Key done",
+        L("적용", "Apply"),
+        '\0',
+        false,
+        actions.Done,
+        () => alwaysOpen || choice.Value != DockMethod.Rest || editing.Active
+      )
+    );
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>

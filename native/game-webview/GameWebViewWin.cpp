@@ -322,6 +322,7 @@ struct Surface {
   POINT appliedOffset{INT_MIN, INT_MIN};
   RectD appliedClip;
   std::wstring appliedExclusion;
+  std::wstring appliedCovers;
   int appliedEditing = -1;
 };
 
@@ -366,6 +367,12 @@ Host *host = nullptr;
 // Intentionally leaked: static destructors would release WebView2 and D3D objects
 // under the loader lock at process exit.
 Shared &shared = *new Shared();
+// What overlay elements in front of each viewer cover, by viewer identifier,
+// normalized to the game with a top-left origin. Kept apart from the pages and
+// the host, so covers sent before a page attaches or across its replacement
+// still apply. The game window's thread only; emptied on dispose.
+constexpr int kMaximumCovers = 4096;
+std::map<std::string, std::vector<RectD>> covers;
 bool previewVisible = true;
 bool apartmentReady = false;
 unsigned long long nextSurfaceId = 1;
@@ -645,6 +652,18 @@ std::wstring PageScript() {
       "  root.style.clipPath = `path(evenodd, \"${d}\")`;\n"
       "};\n"
       "window.__irpSetExclusion = (x, y, w, h) => window.__irpSetExclusions(w > 0 && h > 0 ? [[x, y, w, h, 0]] : []);\n"
+      // Overlay elements in front of this viewer hide it where they draw, also
+      // outside editing. A second clip, on body, intersects the editor's clip
+      // on the root instead of replacing it, so the two may overlap. Its path
+      // is relative to body's box, which may sit away from the page origin.
+      "window.__irpSetCovers = (rects) => {\n"
+      "  const body = document.body; if (!body) return;\n"
+      "  if (!rects || !rects.length) { body.style.clipPath = ''; return; }\n"
+      "  const box = body.getBoundingClientRect();\n"
+      "  let d = 'M-100000 -100000H100000V100000H-100000Z';\n"
+      "  for (const [x, y, w, h] of rects) d += ` M${x - box.left} ${y - box.top}h${w}v${h}h${-w}Z`;\n"
+      "  body.style.clipPath = `path(evenodd, \"${d}\")`;\n"
+      "};\n"
       "const run = () => {\n";
   script += irp::scripts::kSelection;
   script += "\n";
@@ -664,6 +683,7 @@ void Navigate(Surface &surface) {
   surface.navigated = false;
   surface.appliedEditing = -1;
   surface.appliedExclusion.clear();
+  surface.appliedCovers.clear();
   surface.reloadPending = false;
   std::wstring url = Widen(surface.url);
   surface.webView->Navigate(url.c_str());
@@ -957,6 +977,7 @@ void CloseWebView(Surface &surface, bool keepVisual) {
   surface.boundsApplied = false;
   surface.appliedVisible = -1;
   surface.appliedExclusion.clear();
+  surface.appliedCovers.clear();
   surface.appliedEditing = -1;
   // A new controller replaces the visual's children; give it an empty content visual.
   if (surface.container && surface.content) surface.container->RemoveVisual(surface.content.Get());
@@ -1138,6 +1159,38 @@ void ApplyExclusion(Surface &surface, const std::vector<Exclusion> &exclusions) 
   Execute(surface, script);
 }
 
+// The page's covers in its CSS pixels, kept to the content the viewer shows,
+// converted like ApplyExclusion. A hidden viewer keeps its last covers until
+// it is laid out again.
+void ApplyCovers(Surface &surface) {
+  if (!surface.webView || !surface.navigated || host == nullptr || surface.hidden || surface.scale <= 0 ||
+      surface.appliedOffset.x == INT_MIN)
+    return;
+  std::wstring script = L"window.__irpSetCovers?.([";
+  auto found = covers.find(surface.kind);
+  if (found != covers.end() && host->width > 0 && host->height > 0) {
+    double width = host->width, height = host->height;
+    double offsetX = (double)surface.appliedOffset.x, offsetY = (double)surface.appliedOffset.y;
+    bool first = true;
+    for (const RectD &normalized : found->second) {
+      RectD cut = Intersect({normalized.x * width, normalized.y * height, normalized.width * width,
+                             normalized.height * height},
+                            surface.contentFrame);
+      if (cut.Empty()) continue;
+      wchar_t item[160];
+      std::swprintf(item, 160, L"[%.2f,%.2f,%.2f,%.2f]", (cut.x - offsetX) / surface.scale,
+                    (cut.y - offsetY) / surface.scale, cut.width / surface.scale, cut.height / surface.scale);
+      if (!first) script += L",";
+      script += item;
+      first = false;
+    }
+  }
+  script += L"]);";
+  if (surface.appliedCovers == script) return;
+  surface.appliedCovers = script;
+  Execute(surface, script);
+}
+
 // Everything except the editor's rounded panels; chrome drawn through it
 // never covers Unity's toolbar. Cutouts never overlap, so even-odd is exact.
 ComPtr<ID2D1Geometry> ChromeMask(ID2D1DeviceContext *context, const std::vector<Exclusion> &exclusions) {
@@ -1313,7 +1366,10 @@ void Layout() {
   }
   UpdateChrome();
   std::vector<Exclusion> exclusions = ExclusionPixels();
-  for (auto &entry : host->surfaces) ApplyExclusion(*entry.second, exclusions);
+  for (auto &entry : host->surfaces) {
+    ApplyExclusion(*entry.second, exclusions);
+    ApplyCovers(*entry.second);
+  }
   Commit();
 }
 
@@ -1703,11 +1759,35 @@ IRP_WEBVIEW_API void irp_webview_set_editor_exclusions(const double *values, int
   });
 }
 
+IRP_WEBVIEW_API void irp_webview_set_covers(const char *viewerKind, const double *values, int count) {
+  if (!ValidKind(viewerKind) || count < 0 || count > kMaximumCovers || (count > 0 && values == nullptr) ||
+      !OnGameThread())
+    return;
+  Guarded([&] {
+    std::vector<RectD> next;
+    next.reserve((size_t)count);
+    for (int i = 0; i < count; i++) {
+      const double *cover = values + (size_t)i * 4;
+      bool finite = true;
+      for (int j = 0; j < 4; j++) finite = finite && std::isfinite(cover[j]);
+      if (!finite || cover[2] <= 0 || cover[3] <= 0) continue;
+      next.push_back({cover[0], cover[1], cover[2], cover[3]});
+    }
+    std::string kind = viewerKind;
+    if (next.empty()) covers.erase(kind);
+    else covers[kind] = std::move(next);
+    // Only this page's clip changes: no layout, no composition commit.
+    if (Surface *surface = Lookup(viewerKind)) ApplyCovers(*surface);
+    return 1;
+  });
+}
+
 IRP_WEBVIEW_API void irp_webview_dispose(void) {
   if (!OnGameThread()) return;
   Guarded([] {
     DestroyHost();
     ClearFaults();
+    covers.clear();
     previewVisible = true;
     if (shared.messageWindow != nullptr) {
       KillTimer(shared.messageWindow, kRecoverTimer);

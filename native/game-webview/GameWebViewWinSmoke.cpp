@@ -68,6 +68,7 @@ struct Api {
   void (*setSelected)(const char *, int);
   void (*setHighlight)(double, double, double);
   void (*setEditorExclusion)(double, double, double, double);
+  void (*setCovers)(const char *, const double *, int);
   void (*dispose)();
   const char *(*lastError)();
 } api;
@@ -100,6 +101,7 @@ bool LoadApi(const wchar_t *path) {
          Resolve(module, "irp_webview_set_selected", &api.setSelected) &&
          Resolve(module, "irp_webview_set_highlight", &api.setHighlight) &&
          Resolve(module, "irp_webview_set_editor_exclusion", &api.setEditorExclusion) &&
+         Resolve(module, "irp_webview_set_covers", &api.setCovers) &&
          Resolve(module, "irp_webview_dispose", &api.dispose) &&
          Resolve(module, "irp_webview_last_error", &api.lastError);
 }
@@ -508,6 +510,26 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
   api.setEditing(0);
   Pump(600);
   Check(IsKey(Pixel(keyX, keyY)), "clearing the exclusion restores the page");
+
+  // Covers: an overlay element in front of the viewer hides it where it draws,
+  // outside editing too; with an overlapping editor cutout both are hidden.
+  const double cover[] = {keyX - 0.02, keyY - 0.02, 0.04, 0.04};
+  api.setCovers("hand", cover, 1);
+  Pump(600);
+  LogPixel("covered key", Pixel(keyX, keyY));
+  Check(IsGame(Pixel(keyX, keyY)), "a cover cuts the page outside editing");
+  Check(IsKey(Pixel(0.1 + width * 0.1, keyY)), "a cover keeps the rest of the page");
+  api.setEditing(1);
+  api.setEditorExclusion(keyX - 0.03, keyY - 0.03, 0.03, 0.03);
+  Pump(600);
+  Check(IsGame(Pixel(keyX, keyY)) && IsGame(Pixel(keyX - 0.025, keyY - 0.025)) &&
+            IsKey(Pixel(0.1 + width * 0.1, keyY)),
+        "a cover and an overlapping editor cutout both hide the page, and only there");
+  api.setEditorExclusion(0, 0, 0, 0);
+  api.setEditing(0);
+  api.setCovers("hand", nullptr, 0);
+  Pump(600);
+  Check(IsKey(Pixel(keyX, keyY)), "clearing covers restores the page");
 
   api.setVisible(0);
   Pump(400);

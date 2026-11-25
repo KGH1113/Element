@@ -32,6 +32,7 @@ internal sealed class TextPointerInput
   private readonly TextAnimate _animate;
   private bool _dragging;
   private float _lastClick = -1;
+  private int _clicks;
 
   public TextPointerInput(
     ITextEditorActions editor,
@@ -95,27 +96,35 @@ internal sealed class TextPointerInput
         return;
       }
       int index = _map.IndexAt(screen);
-      bool doubleClick = Time.unscaledTime - _lastClick < .35f;
+      bool again = Time.unscaledTime - _lastClick < .35f;
       _lastClick = Time.unscaledTime;
-      if (doubleClick)
+      _clicks = again ? _clicks + 1 : 1;
+      if (_clicks >= 2)
       {
+        // Twice a word, three times the whole 글자 value, never past it.
         OverlayTextDocument document = _text.Document;
-        _text.Anchor = document.WordStart(Mathf.Min(document.Count, index + 1));
-        _text.Caret = document.WordEnd(_text.Anchor);
+        if (_clicks >= 3 && OverlayTextRuns.RunOfCaret(document, index, out int start, out int end))
+          _text.Select(start, end);
+        else
+        {
+          int word = document.WordStart(Mathf.Min(document.Count, index + 1));
+          _text.Select(word, document.WordEnd(word));
+        }
         _dragging = false;
         _editor.Render();
         return;
       }
-      _text.Caret = index;
-      if (!Shift)
-        _text.Anchor = index;
+      if (Shift)
+        _text.Select(_text.Anchor, index);
+      else
+        _text.Select(index, index);
       _dragging = true;
       _text.GoalX = float.NaN;
       _editor.Render();
     }
     else if (_dragging && Input.GetMouseButton(0))
     {
-      int index = _map.IndexAt(screen);
+      int index = OverlayTextRuns.Reach(_text.Document, _text.Anchor, _map.IndexAt(screen));
       if (index != _text.Caret)
       {
         _text.Caret = index;
@@ -133,8 +142,12 @@ internal sealed class TextPointerInput
 
   // ---- Naming the value under the pointer ----
 
+  /// <summary>The value under the pointer as of the last <see cref="UpdateHover"/>; -1 for none.</summary>
+  public int HoveredValue { get; private set; } = -1;
+
   public void UpdateHover(Vector2 screen)
   {
+    HoveredValue = -1;
     EditorFramePanel frame = _context.Frame;
     if (
       DragSession.Active
@@ -149,6 +162,7 @@ internal sealed class TextPointerInput
       frame.HideTip();
       return;
     }
+    HoveredValue = index;
     OverlayTextItem item = _text.Document[index];
     OverlayVariable formula = OverlayVariable.Parse(item.Value);
     OverlayVariableWords said = FormulaWords.Current;

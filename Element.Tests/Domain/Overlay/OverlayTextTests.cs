@@ -27,6 +27,28 @@ internal static class OverlayTextTests
     FontUsesTouchOnlyTheirOwnPlaces();
     FontKeysNameOneFace();
     TextDocumentKeepsFormulas();
+    LettersOfOneLookAreOneValue();
+  }
+
+  private static void LettersOfOneLookAreOneValue()
+  {
+    OverlayTextDocument document = new();
+    OverlayColorSettings white = OverlayColorSettings.Custom("#FFFFFF"),
+      blue = OverlayColorSettings.Custom("#5AC8FA");
+    int caret = document.InsertText(0, 0, "FPS ", white);
+    caret = document.InsertValue(caret, caret, "fps", OverlayColorSettings.HighlightColor());
+    caret = document.InsertText(caret, caret, "ok", white);
+    document.SetColor(5, 6, blue);
+    // F P S _ {fps} o k : "o" is blue, so "k" is a value of its own.
+    Check(OverlayTextRuns.RunAt(document, 1, out int start, out int end) && start == 0 && end == 4, "letters that look the same are one value");
+    Check(!OverlayTextRuns.RunAt(document, 4, out _, out _), "a value of the game is never letters");
+    Check(OverlayTextRuns.RunAt(document, 6, out start, out end) && start == 6 && end == 7, "letters that look different are another value");
+    Check(OverlayTextRuns.RunOfCaret(document, 4, out start, out end) && start == 0 && end == 4, "the caret belongs to the letters before it");
+    Check(OverlayTextRuns.RunOfCaret(document, 5, out start, out end) && start == 5 && end == 6, "right after a value, to the letters after it");
+    Check(OverlayTextRuns.Reach(document, 1, 7) == 4, "a selection stops at the end of its letters, before the value");
+    Check(OverlayTextRuns.Reach(document, 3, 0) == 0, "and reaches back to their start");
+    Check(OverlayTextRuns.Reach(document, 4, 7) == 4, "from the end of the letters it can't step over the value");
+    Check(OverlayTextRuns.Reach(document, 5, 7) == 6, "from right after the value it stays in the blue letter");
   }
 
   private static void TextDocumentKeepsValuesAtomic()

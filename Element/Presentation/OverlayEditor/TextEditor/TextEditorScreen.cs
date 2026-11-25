@@ -57,6 +57,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private readonly TextPreview _preview;
   private readonly TextLayoutMap _map;
   private readonly TextMarks _marks;
+  private readonly TextUnderlines _underlines;
   private readonly TextFormulas _formulas;
   private readonly TextSize _size;
   private readonly TextGradient _gradient;
@@ -104,6 +105,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _preview = new TextPreview(_text, values);
     _map = new TextLayoutMap(_text, _preview);
     _marks = new TextMarks(_text, _preview, _map);
+    _underlines = new TextUnderlines(_text, _preview, _map);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
     _formulas = new TextFormulas(this, this, _text, values, book);
@@ -230,6 +232,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     );
     _preview.Build(_frame, _element);
     _zoom.Build(_frame.Ui, _frame.Frame);
+    _underlines.Build(_frame.Ui);
     _marks.BuildCarets(_frame.Ui);
     _gradient.BuildHandles(_frame, _reduceMotion());
     _bottomTop = _frame.Height - 40;
@@ -334,6 +337,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     if (_frame == null)
       return;
     _pointer.UpdateHover(Input.mousePosition);
+    _underlines.Hover(_pointer.HoveredValue);
     if (!searching)
       _keyboard.FollowComposition();
     bool blink = _reduceMotion() || (Time.unscaledTime - _blinkStart) % 1.06f < .53f;
@@ -424,7 +428,9 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _zoom.Say(_preview.Shown, (left + right) * .5f, EditorFramePanel.TopBar + 8);
     _map.Map();
     _marks.PlaceCaret();
-    _marks.Place(-1, false, _formulas.EditedValue);
+    _marks.Place();
+    // Letters selected while a look is open are shown as the 글자 value they become.
+    _underlines.Place(_formulas.EditedValue, OpenTool() != null || _formulas.Field != null);
     ShowFields();
     _color.ShowSwatch();
     _color.Place(_dockPanel, _inspector);

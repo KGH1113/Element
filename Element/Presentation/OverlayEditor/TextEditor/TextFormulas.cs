@@ -184,12 +184,7 @@ internal sealed class TextFormulas
       : ChipOpen(out int chip) ? "value:" + chip
       : _color.CasesOpen ? ColorCases.Key
       : null;
-    string hint =
-      _color.Hint()
-      ?? L(
-        "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
-        "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
-      );
+    string hint = _color.Hint() ?? RestingHint();
     string name =
       _gradient.Name(_fieldSlot)
       ?? (
@@ -199,6 +194,25 @@ internal sealed class TextFormulas
         : L("값", "Value")
       );
     dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Placeholder() : null);
+  }
+
+  // With nothing open the line says what is picked in the text: the letters
+  // selected, or where the caret is.
+  private string RestingHint()
+  {
+    _text.Range(out int start, out int end);
+    if (start >= end)
+      return L(
+        "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 칸을 누르면 여기서 고쳐요",
+        "Click a value to add it at the caret · Click a value in the text or a field to edit it here"
+      );
+    string letters = _text.Document.PlainText(start, end, _ => "");
+    if (letters.Length > 16)
+      letters = letters.Substring(0, 15) + "…";
+    return L(
+      "고른 글자 “" + letters + "” · 값을 누르면 이 자리를 바꾸고, 칸을 누르면 이 글자만 꾸며요",
+      "Picked “" + letters + "” · A value takes its place; a field styles just these letters"
+    );
   }
 
   // The result of what the dock types, as the text or the field will show it.

@@ -103,25 +103,12 @@ internal sealed class TextDocumentEditing
 
   // ---- The selection and the style typing takes ----
 
-  /// <summary>
-  /// What the column's tools act on: the selection; with nothing selected,
-  /// the look of the If the caret is in; otherwise the whole text.
-  /// </summary>
+  /// <summary>The selection, or the whole text when nothing is selected.</summary>
   public void Range(out int start, out int end)
   {
-    if (HasSelection)
-    {
-      start = Mathf.Min(_anchor, _caretIndex);
-      end = Mathf.Max(_anchor, _caretIndex);
-      return;
-    }
-    int block = _document.BlockIn(_caretIndex, _caretIndex);
-    start = block >= 0 ? _document.Block(block).Start : 0;
-    end = block >= 0 ? _document.Block(block).End : _document.Count;
+    start = HasSelection ? Mathf.Min(_anchor, _caretIndex) : 0;
+    end = HasSelection ? Mathf.Max(_anchor, _caretIndex) : _document.Count;
   }
-
-  /// <summary>Nothing is selected and the caret is in an If: the tools act on that If's look alone.</summary>
-  public bool InLook => !HasSelection && _document.BlockIn(_caretIndex, _caretIndex) >= 0;
 
   public OverlayColorSettings RangeColor()
   {

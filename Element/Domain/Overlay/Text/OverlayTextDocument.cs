@@ -12,21 +12,11 @@ namespace Element.Domain.Overlay.Text;
 /// items, so a value is always selected, deleted and skipped as one character.
 /// Colors are shared, never mutated; callers pass a fresh copy to change one.
 /// </summary>
-/// <remarks>
-/// An If is a stretch of the items (<see cref="OverlayTextBlock"/>): the look
-/// it shows sits among the items and is edited like the rest, while its other
-/// looks wait in the block. Every edit keeps the stretches in place: text
-/// typed inside one, at its end, or into one showing nothing belongs to it;
-/// deleting a selection that holds a whole If and more takes the If away.
-/// </remarks>
 internal sealed class OverlayTextDocument
 {
   public const int MaxItems = 500;
-  private const int NoOwner = -1,
-    AutoOwner = -2;
   private static readonly OverlayColorSettings DefaultColor = OverlayColorSettings.Custom("#FFFFFF");
   private readonly List<OverlayTextItem> _items = new();
-  private readonly List<OverlayTextBlock> _blocks = new();
 
   public int Count => _items.Count;
   public OverlayTextItem this[int index] => _items[index];
@@ -40,96 +30,29 @@ internal sealed class OverlayTextDocument
     {
       if (run == null)
         continue;
-      if (run.If == null)
+      OverlayColorSettings color = (run.Color ?? DefaultColor).Clone();
+      float size = ValidSize(run.Size);
+      string sizeFormula = Formula(run.SizeFormula);
+      string font = OverlayFontKey.Normalize(run.Font);
+      if (run.IsValue)
       {
-        AppendRun(document._items, run);
-        continue;
+        string formula = Formula(run.Value);
+        if (formula.Length > 0)
+          document._items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula, font, run.Animate));
       }
-      // An If starts on otherwise, which is what shows before a level has data.
-      OverlayTextBlock block = new() { Start = document._items.Count };
-      AppendRuns(document._items, run.If.Otherwise);
-      block.End = document._items.Count;
-      if (run.If.Cases != null)
-        foreach (OverlayTextCase item in run.If.Cases)
-        {
-          if (item == null || block.Cases >= OverlayTextIf.MaximumCases)
-            continue;
-          List<OverlayTextItem> look = new();
-          AppendRuns(look, item.Runs);
-          block.Looks.Insert(block.Cases, look);
-          block.Conditions.Add((item.When ?? new OverlayCondition()).Clone());
-        }
-      block.Shown = block.Otherwise;
-      // Without a case it is plain text.
-      if (block.Cases > 0)
-        document._blocks.Add(block);
+      else
+        AppendCharacters(document._items, run.Text, color, size, sizeFormula, font);
     }
     return document;
-  }
-
-  private static void AppendRuns(List<OverlayTextItem> items, List<OverlayTextRun> runs)
-  {
-    if (runs == null)
-      return;
-    foreach (OverlayTextRun run in runs)
-      if (run != null && run.If == null)
-        AppendRun(items, run);
-  }
-
-  private static void AppendRun(List<OverlayTextItem> items, OverlayTextRun run)
-  {
-    OverlayColorSettings color = (run.Color ?? DefaultColor).Clone();
-    float size = ValidSize(run.Size);
-    string sizeFormula = Formula(run.SizeFormula);
-    string font = OverlayFontKey.Normalize(run.Font);
-    if (run.IsValue)
-    {
-      string formula = Formula(run.Value);
-      if (formula.Length > 0)
-        items.Add(OverlayTextItem.ValueItem(formula, color, size, sizeFormula, font, run.Animate));
-    }
-    else
-      AppendCharacters(items, run.Text, color, size, sizeFormula, font);
   }
 
   public List<OverlayTextRun> ToRuns()
   {
     List<OverlayTextRun> runs = new();
-    int at = 0;
-    foreach (OverlayTextBlock block in _blocks)
-    {
-      AppendRuns(runs, _items, at, block.Start);
-      at = block.End;
-      OverlayTextIf saved = new();
-      bool shows = false;
-      for (int look = 0; look <= block.Otherwise; look++)
-      {
-        List<OverlayTextRun> lookRuns = new();
-        if (look == block.Shown)
-          AppendRuns(lookRuns, _items, block.Start, block.End);
-        else
-          AppendRuns(lookRuns, block.Looks[look], 0, block.Looks[look].Count);
-        shows |= lookRuns.Count > 0;
-        if (look == block.Otherwise)
-          saved.Otherwise = lookRuns;
-        else
-          saved.Cases.Add(new OverlayTextCase { When = block.Conditions[look].Clone(), Runs = lookRuns });
-      }
-      // An If that shows nothing in any case is nothing.
-      if (shows)
-        runs.Add(new OverlayTextRun { If = saved });
-    }
-    AppendRuns(runs, _items, at, _items.Count);
-    return runs;
-  }
-
-  private static void AppendRuns(List<OverlayTextRun> runs, List<OverlayTextItem> items, int start, int end)
-  {
     StringBuilder literal = new();
     OverlayTextItem? style = null;
-    for (int i = start; i < end; i++)
+    foreach (OverlayTextItem item in _items)
     {
-      OverlayTextItem item = items[i];
       if (!item.IsValue && style != null && item.SameStyle(style.Value))
       {
         literal.Append(item.Text);
@@ -152,6 +75,7 @@ internal sealed class OverlayTextDocument
       }
     }
     Flush();
+    return runs;
 
     void Flush()
     {
@@ -172,74 +96,39 @@ internal sealed class OverlayTextDocument
   {
     OverlayTextDocument copy = new();
     copy._items.AddRange(_items);
-    foreach (OverlayTextBlock block in _blocks)
-      copy._blocks.Add(block.Clone());
     return copy;
   }
 
-  /// <summary>Whether both save as the same text, whichever look each If shows now.</summary>
   public bool SameAs(OverlayTextDocument other)
   {
-    if (other == null)
+    if (other == null || other.Count != Count)
       return false;
-    if (_blocks.Count == 0 && other._blocks.Count == 0)
+    for (int i = 0; i < Count; i++)
     {
-      if (other.Count != Count)
+      OverlayTextItem a = _items[i],
+        b = other._items[i];
+      if (a.Text != b.Text || a.Value != b.Value || !a.SameStyle(b))
         return false;
-      for (int i = 0; i < Count; i++)
-      {
-        OverlayTextItem a = _items[i],
-          b = other._items[i];
-        if (a.Text != b.Text || a.Value != b.Value || !a.SameStyle(b))
-          return false;
-      }
-      return true;
     }
-    return OverlayTextSettings.SameRuns(ToRuns(), other.ToRuns());
+    return true;
   }
 
-  /// <summary>Nothing to show in any case: no items, and no If with a look that holds any.</summary>
-  public bool IsBlank
-  {
-    get
-    {
-      if (_items.Count > 0)
-        return false;
-      foreach (OverlayTextBlock block in _blocks)
-      foreach (List<OverlayTextItem> look in block.Looks)
-        if (look.Count > 0)
-          return false;
-      return true;
-    }
-  }
-
-  /// <summary>Replaces each value <paramref name="literal"/> names with plain characters in its style, in every look.</summary>
+  /// <summary>Replaces each value <paramref name="literal"/> names with plain characters in its style.</summary>
   public void ReplaceValues(Func<string, string> literal)
   {
-    List<OverlayTextItem> characters = new();
     for (int i = _items.Count - 1; i >= 0; i--)
-      if (Characters(_items[i], literal, characters))
-        Splice(i, 1, characters, characters.Count, Containing(i));
-    foreach (OverlayTextBlock block in _blocks)
-    foreach (List<OverlayTextItem> look in block.Looks)
-      for (int i = look.Count - 1; i >= 0; i--)
-        if (Characters(look[i], literal, characters))
-        {
-          look.RemoveAt(i);
-          look.InsertRange(i, characters);
-        }
+    {
+      OverlayTextItem item = _items[i];
+      string text = item.IsValue ? literal(item.Value) : null;
+      if (text == null)
+        continue;
+      List<OverlayTextItem> characters = new();
+      AppendCharacters(characters, text, item.Color, item.Size, item.SizeFormula, item.Font);
+      _items.RemoveAt(i);
+      _items.InsertRange(i, characters);
+    }
     if (_items.Count > MaxItems)
-      Splice(MaxItems, _items.Count - MaxItems, null, 0, NoOwner);
-  }
-
-  private static bool Characters(OverlayTextItem item, Func<string, string> literal, List<OverlayTextItem> output)
-  {
-    string text = item.IsValue ? literal(item.Value) : null;
-    if (text == null)
-      return false;
-    output.Clear();
-    AppendCharacters(output, text, item.Color, item.Size, item.SizeFormula, item.Font);
-    return true;
+      _items.RemoveRange(MaxItems, _items.Count - MaxItems);
   }
 
   /// <summary>Replaces the range with typed or pasted text; returns the caret after it.</summary>
@@ -304,7 +193,7 @@ internal sealed class OverlayTextDocument
       return;
     formula = Formula(formula);
     if (formula.Length == 0)
-      Splice(index, 1, null, 0, NoOwner);
+      _items.RemoveAt(index);
     else
       _items[index] = _items[index].WithValue(formula);
   }
@@ -312,224 +201,18 @@ internal sealed class OverlayTextDocument
   public int InsertItems(int start, int end, IReadOnlyList<OverlayTextItem> items)
   {
     Order(ref start, ref end);
-    int room = Math.Max(0, MaxItems - (_items.Count - (end - start)));
+    _items.RemoveRange(start, end - start);
+    int room = Math.Max(0, MaxItems - _items.Count);
     int count = Math.Min(room, items.Count);
-    Splice(start, end - start, items, count, AutoOwner);
+    for (int i = 0; i < count; i++)
+      _items.Insert(start + i, items[i]);
     return start + count;
   }
 
   public void Delete(int start, int end)
   {
     Order(ref start, ref end);
-    Splice(start, end - start, null, 0, NoOwner);
-  }
-
-  // ---- Ifs ----
-
-  public int BlockCount => _blocks.Count;
-
-  public OverlayTextBlock Block(int index) => _blocks[index];
-
-  /// <summary>
-  /// The first If the range touches, or with an empty range the one the caret
-  /// is in or at an end of; -1 for none.
-  /// </summary>
-  public int BlockIn(int start, int end)
-  {
-    Order(ref start, ref end);
-    for (int i = 0; i < _blocks.Count; i++)
-    {
-      OverlayTextBlock block = _blocks[i];
-      bool touches =
-        start == end || block.Start == block.End
-          ? block.Start <= end && block.End >= start
-          : block.Start < end && block.End > start;
-      if (touches)
-        return i;
-    }
-    return -1;
-  }
-
-  /// <summary>
-  /// Makes the range an If with no case yet, to be given one at once
-  /// (<see cref="AddCase"/>); its number, or -1 when the range touches an If
-  /// already there.
-  /// </summary>
-  public int AddBlock(int start, int end)
-  {
-    Order(ref start, ref end);
-    int at = 0;
-    foreach (OverlayTextBlock other in _blocks)
-    {
-      bool touches =
-        other.Start == other.End ? (start < other.Start && other.Start < end) || (start == end && start == other.Start)
-        : start == end ? other.Start <= start && start <= other.End
-        : other.Start < end && other.End > start;
-      if (touches)
-        return -1;
-      if (other.End <= start)
-        at++;
-    }
-    _blocks.Insert(at, new OverlayTextBlock { Start = start, End = end });
-    return at;
-  }
-
-  /// <summary>
-  /// Adds a case after the others, looking as the If does now, so nothing
-  /// changes until that look is edited; its number, or -1 with no room for more.
-  /// </summary>
-  public int AddCase(int block, OverlayCondition when)
-  {
-    OverlayTextBlock target = _blocks[block];
-    if (target.Cases >= OverlayTextIf.MaximumCases)
-      return -1;
-    int index = target.Cases;
-    target.Looks.Insert(index, _items.GetRange(target.Start, target.End - target.Start));
-    target.Conditions.Add((when ?? new OverlayCondition()).Clone());
-    if (target.Shown >= index)
-      target.Shown++;
-    return index;
-  }
-
-  /// <summary>
-  /// Takes a case and its look away. Without its last case the If is gone
-  /// too, and what otherwise showed stays as plain text.
-  /// </summary>
-  public void RemoveCase(int block, int index)
-  {
-    OverlayTextBlock target = _blocks[block];
-    if (index < 0 || index >= target.Cases)
-      return;
-    if (target.Shown == index)
-      Show(block, target.Otherwise);
-    target.Conditions.RemoveAt(index);
-    target.Looks.RemoveAt(index);
-    if (target.Shown > index)
-      target.Shown--;
-    if (target.Cases == 0)
-      _blocks.RemoveAt(block);
-  }
-
-  public void SetCase(int block, int index, OverlayCondition when) =>
-    _blocks[block].Conditions[index] = (when ?? new OverlayCondition()).Clone();
-
-  /// <summary>Puts look <paramref name="look"/> of the If in the document, in place of the one shown.</summary>
-  public void Show(int block, int look)
-  {
-    OverlayTextBlock target = _blocks[block];
-    if (look == target.Shown || look < 0 || look > target.Otherwise)
-      return;
-    List<OverlayTextItem> shown = _items.GetRange(target.Start, target.End - target.Start);
-    List<OverlayTextItem> next = target.Looks[look];
-    _items.RemoveRange(target.Start, shown.Count);
-    _items.InsertRange(target.Start, next);
-    target.Looks[target.Shown] = shown;
-    target.Looks[look] = new List<OverlayTextItem>();
-    target.Shown = look;
-    int moved = next.Count - shown.Count;
-    target.End += moved;
-    for (int i = block + 1; i < _blocks.Count; i++)
-    {
-      _blocks[i].Start += moved;
-      _blocks[i].End += moved;
-    }
-  }
-
-  /// <summary>How many items look <paramref name="look"/> of the If holds.</summary>
-  public int LookCount(int block, int look)
-  {
-    OverlayTextBlock target = _blocks[block];
-    return look == target.Shown ? target.End - target.Start : target.Looks[look].Count;
-  }
-
-  /// <summary>Item <paramref name="index"/> of look <paramref name="look"/> of the If.</summary>
-  public OverlayTextItem LookItem(int block, int look, int index)
-  {
-    OverlayTextBlock target = _blocks[block];
-    return look == target.Shown ? _items[target.Start + index] : target.Looks[look][index];
-  }
-
-  // The If item <paramref name="index"/> is in; none outside them all.
-  private int Containing(int index)
-  {
-    for (int i = 0; i < _blocks.Count; i++)
-      if (_blocks[i].Start <= index && index < _blocks[i].End)
-        return i;
-    return NoOwner;
-  }
-
-  // Every change to the items goes through here, so the Ifs keep their
-  // places: <paramref name="remove"/> items go from <paramref name="start"/>,
-  // then <paramref name="count"/> of <paramref name="insert"/> come in there.
-  // They belong to the If <paramref name="owner"/> names, to none, or (auto)
-  // to the one typing there would continue.
-  private void Splice(int start, int remove, IReadOnlyList<OverlayTextItem> insert, int count, int owner)
-  {
-    int end = start + remove;
-    _items.RemoveRange(start, remove);
-    for (int i = _blocks.Count - 1; i >= 0; i--)
-    {
-      OverlayTextBlock block = _blocks[i];
-      bool empty = block.Start == block.End;
-      // A selection holding a whole If and more takes the If with it.
-      bool gone =
-        remove > 0
-        && (
-          empty
-            ? start < block.Start && block.Start < end
-            : start <= block.Start && block.End <= end && remove > block.End - block.Start
-        );
-      if (gone)
-      {
-        _blocks.RemoveAt(i);
-        if (owner > i)
-          owner--;
-        else if (owner == i)
-          owner = NoOwner;
-        continue;
-      }
-      block.Start = After(block.Start, start, end, remove);
-      block.End = After(block.End, start, end, remove);
-    }
-    if (count <= 0)
-      return;
-    if (owner == AutoOwner)
-      owner = Typing(start);
-    for (int i = 0; i < count; i++)
-      _items.Insert(start + i, insert[i]);
-    for (int i = 0; i < _blocks.Count; i++)
-    {
-      OverlayTextBlock block = _blocks[i];
-      if (i == owner)
-        block.End += count;
-      else if (block.Start >= start)
-      {
-        block.Start += count;
-        block.End += count;
-      }
-    }
-  }
-
-  private static int After(int position, int start, int end, int remove) =>
-    position <= start ? position
-    : position >= end ? position - remove
-    : start;
-
-  // The If that text put in at <paramref name="at"/> belongs to: one it is
-  // inside, one showing nothing right there, one that ends there, or one
-  // that starts the whole text; otherwise none.
-  private int Typing(int at)
-  {
-    for (int i = 0; i < _blocks.Count; i++)
-      if (_blocks[i].Start < at && at < _blocks[i].End)
-        return i;
-    for (int i = 0; i < _blocks.Count; i++)
-      if (_blocks[i].Start == at && _blocks[i].End == at)
-        return i;
-    for (int i = 0; i < _blocks.Count; i++)
-      if (_blocks[i].End == at && _blocks[i].Start < at)
-        return i;
-    return at == 0 && _blocks.Count > 0 && _blocks[0].Start == 0 ? 0 : NoOwner;
+    _items.RemoveRange(start, end - start);
   }
 
   public List<OverlayTextItem> Slice(int start, int end)

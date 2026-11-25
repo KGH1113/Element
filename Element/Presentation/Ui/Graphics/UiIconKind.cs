@@ -1,3 +1,4 @@
+
 namespace Element.Presentation.Ui.Graphics;
 
 /// <summary>Every icon <see cref="UiIcon"/> draws. Each one is its own glyph; none is drawn by another's code.</summary>
@@ -33,9 +34,6 @@ internal enum UiIconKind
   DistributeVertical,
   Font,
   Animate,
-
-  /// <summary>One way in that parts into two: an If.</summary>
-  If,
   Extension,
   Check,
   Up,

@@ -18,10 +18,8 @@ internal static class OverlayTextComposer
   public const string ValueLink = "v";
 
   /// <summary>
-  /// Parses every formula in <paramref name="runs"/> (what a text shows now,
-  /// from <see cref="Domain.Overlay.Text.OverlayTextLooks"/> when it has Ifs);
-  /// returns the values they use. Gradient runs take a slot in
-  /// <paramref name="gradients"/>.
+  /// Parses every formula in <paramref name="runs"/>; returns the values they
+  /// use. Gradient runs take a slot in <paramref name="gradients"/>.
   /// </summary>
   public static OverlayValueMask Compile(
     IReadOnlyList<OverlayTextRun> runs,
@@ -36,8 +34,7 @@ internal static class OverlayTextComposer
       return mask;
     foreach (OverlayTextRun run in runs)
     {
-      // An If is drawn as the runs it shows now (OverlayTextLooks), never as itself.
-      if (run == null || run.If != null)
+      if (run == null)
         continue;
       OverlayCompiledRun compiled = new()
       {
@@ -183,10 +180,7 @@ internal static class OverlayTextComposer
 
   internal static void AppendValue(StringBuilder output, OverlayValueId id, OverlayValues values, bool samples)
   {
-    // A number an editor is trying out shows where examples would.
-    if (samples && values != null && values.IsTrying(id, out double tried))
-      OverlayFormulaText.AppendResult(output, tried, OverlayValueCatalog.Get(id).Kind == OverlayValueKind.Time);
-    else if (values != null && values.TryGet(id, out StringBuilder live) && live.Length > 0)
+    if (values != null && values.TryGet(id, out StringBuilder live) && live.Length > 0)
       output.Append(live);
     else if (samples)
       OverlayValues.AppendSample(output, id);

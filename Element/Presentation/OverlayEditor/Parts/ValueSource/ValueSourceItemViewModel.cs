@@ -4,7 +4,7 @@ using ElementUI;
 
 namespace Element.Presentation.OverlayEditor.Parts.ValueSource;
 
-/// <summary>One value a tool can read, as its menu offers it: its name, whether it is the one read now, and picking it.</summary>
+/// <summary>One value a color can follow, as its menu offers it: its name, whether it is followed now, and picking it.</summary>
 internal sealed class ValueSourceItemViewModel : ViewModel
 {
   public ValueSourceItemViewModel(OverlayValueDefinition value, bool followed, Action<OverlayValueDefinition> picked)

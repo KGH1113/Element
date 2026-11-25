@@ -8,7 +8,7 @@ using Font = ElementUI.Font;
 
 namespace Element.Presentation.OverlayEditor.Parts.ValueSource;
 
-/// <summary>One value in the menu, ticked while it is the one compared.</summary>
+/// <summary>One value in the menu, ticked while the color follows it.</summary>
 internal sealed class ValueSourceItemView : View<ValueSourceItemViewModel>
 {
   public ValueSourceItemView(ItemSlot<ValueSourceItemViewModel> slot)

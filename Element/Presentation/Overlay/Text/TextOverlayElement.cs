@@ -2,8 +2,6 @@ using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Defaults;
-using Element.Domain.Overlay.Formula;
-using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Fonts;
@@ -18,10 +16,7 @@ namespace Element.Presentation.Overlay.Text;
 
 /// <summary>
 /// One TMP text built from runs. It is rebuilt only when a value it uses
-/// changes, the highlight color or fonts change, or its runs are edited. An
-/// If among its runs shows the runs of the case that holds now
-/// (<see cref="OverlayTextLooks"/>); they are parsed again only when it
-/// moves to another case.
+/// changes, the highlight color or fonts change, or its runs are edited.
 /// </summary>
 internal sealed class TextOverlayElement : OverlayElementTarget
 {
@@ -31,7 +26,6 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   private readonly OverlayContentGeometry _geometry;
   private readonly StringBuilder _builder = new(128);
   private readonly List<OverlayCompiledRun> _runs = new();
-  private readonly OverlayTextLooks _looks = new();
   private readonly OverlayTextPulse _pulse;
   private readonly OverlayTextGradients _gradients;
   private readonly List<(int Start, int Length)> _animated = new();
@@ -108,22 +102,12 @@ internal sealed class TextOverlayElement : OverlayElementTarget
       if (_text.alignment != alignment)
         _text.alignment = alignment;
     }
-    _looks.Load(Settings.Text.Runs);
-    _looks.Update(Source);
-    Compile();
-    Render();
-  }
-
-  // The numbers the text reads: the editor's examples stand in while previewing.
-  private IOverlayNumberSource Source => _preview ? _values?.WithSamples : _values;
-
-  // Parses the runs shown now. They start over: what was shown before is no change to grow on.
-  private void Compile()
-  {
-    ValueMask = OverlayTextComposer.Compile(_looks.Shown, _runs, _gradients) | _looks.Mask;
+    ValueMask = OverlayTextComposer.Compile(Settings.Text.Runs, _runs, _gradients);
     _hasSizeFormula = _runs.Exists(run => run.Size != null);
+    // Edited runs start over: what they showed before is no change to grow on.
     _pulse.Stop();
     _shown.Clear();
+    Render();
   }
 
   protected override void ResetPose()
@@ -186,12 +170,6 @@ internal sealed class TextOverlayElement : OverlayElementTarget
         _text.font = _fonts.DefaultAsset;
       if (_text.fontSharedMaterial != _fonts.DefaultMaterial)
         _text.fontSharedMaterial = _fonts.DefaultMaterial;
-    }
-    // An If that moved to another case shows other runs; they appear without growing.
-    if (_looks.HasIfs && _looks.Update(Source))
-    {
-      Compile();
-      settle = true;
     }
     OverlayTextComposer.Compose(_builder, _runs, _values, _preview, UiTheme.Accent, _renderedScale, _fonts, _animated);
     _gradients.SetSource(_preview ? _values?.WithSamples : _values, UiTheme.Accent);

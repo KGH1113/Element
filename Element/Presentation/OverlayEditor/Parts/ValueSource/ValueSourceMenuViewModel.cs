@@ -6,7 +6,7 @@ using ElementUI;
 namespace Element.Presentation.OverlayEditor.Parts.ValueSource;
 
 /// <summary>
-/// The values a tool can read, as its menu opens: the ones in the text
+/// The values a color can follow, as its menu opens: the ones in the text
 /// first, then a way to pick any value from the dock.
 /// </summary>
 internal sealed class ValueSourceMenuViewModel : ViewModel

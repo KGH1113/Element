@@ -22,10 +22,6 @@ internal sealed class OverlayValues : IOverlayNumberSource
   private OverlayValueMask _dirty;
   private long _stampNow;
 
-  // The value an editor is trying a number for; -1 for none.
-  private int _tried = -1;
-  private double _triedNumber;
-
   public OverlayValues()
   {
     for (int i = 0; i < _text.Length; i++)
@@ -93,39 +89,6 @@ internal sealed class OverlayValues : IOverlayNumberSource
     _has[(int)id] = false;
     _text[(int)id].Clear();
     Changed(id);
-  }
-
-  /// <summary>
-  /// An editor tries <paramref name="number"/> out for a value: wherever
-  /// examples stand in (<see cref="WithSamples"/>, an editor's preview) the
-  /// value reads as that number, live or not, until <see cref="StopTrying"/>.
-  /// The game's own overlay never sees it.
-  /// </summary>
-  public void Try(OverlayValueId id, double number)
-  {
-    if (_tried == (int)id && _triedNumber == number)
-      return;
-    StopTrying();
-    _tried = (int)id;
-    _triedNumber = number;
-    Changed(id);
-  }
-
-  /// <summary>The tried value reads as the game has it again.</summary>
-  public void StopTrying()
-  {
-    if (_tried < 0)
-      return;
-    OverlayValueId id = (OverlayValueId)_tried;
-    _tried = -1;
-    Changed(id);
-  }
-
-  /// <summary>Whether an editor is trying a number out for <paramref name="id"/>, and which.</summary>
-  public bool IsTrying(OverlayValueId id, out double number)
-  {
-    number = _triedNumber;
-    return _tried == (int)id;
   }
 
   private void Changed(OverlayValueId id)
@@ -200,7 +163,7 @@ internal sealed class OverlayValues : IOverlayNumberSource
 
     public bool TryGetNumber(OverlayValueId id, out double number)
     {
-      if (_live.IsTrying(id, out number) || _live.TryGetNumber(id, out number))
+      if (_live.TryGetNumber(id, out number))
         return true;
       number = OverlayValueCatalog.Get(id).SampleNumber;
       return !double.IsNaN(number);

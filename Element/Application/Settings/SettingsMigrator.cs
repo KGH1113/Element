@@ -61,9 +61,6 @@ internal static class SettingsMigrator
     // Animation became a switch on each value; the combos that always grew keep growing.
     if (version < 9)
       OverlayElementMigration.AnimateCombos(settings.OverlayLayouts);
-    // A color that followed a value is an If now, with a case per stop.
-    if (version < 10)
-      OverlayElementMigration.ConvertValueColors(settings.OverlayLayouts);
     settings.Profiles ??= new();
     settings.SettingsVersion = Math.Max(version, ElementSettings.CurrentSettingsVersion);
   }

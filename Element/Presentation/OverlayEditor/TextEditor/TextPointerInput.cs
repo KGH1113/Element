@@ -29,7 +29,6 @@ internal sealed class TextPointerInput
   private readonly TextGradient _gradient;
   private readonly GrowFrom _grow;
   private readonly TextAnimate _animate;
-  private readonly TextIf _if;
   private bool _dragging;
   private float _lastClick = -1;
 
@@ -43,8 +42,7 @@ internal sealed class TextPointerInput
     TextFonts fonts,
     TextGradient gradient,
     GrowFrom grow,
-    TextAnimate animate,
-    TextIf textIf
+    TextAnimate animate
   )
   {
     _editor = editor;
@@ -57,7 +55,6 @@ internal sealed class TextPointerInput
     _gradient = gradient;
     _grow = grow;
     _animate = animate;
-    _if = textIf;
   }
 
   public void HandleMouse()
@@ -75,7 +72,6 @@ internal sealed class TextPointerInput
         || _fonts.Contains(screen)
         || _context.Inspector.Contains(screen)
         || _animate.Contains(screen)
-        || _if.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
         || _gradient.Handles.Contains(screen)
       )
@@ -146,7 +142,6 @@ internal sealed class TextPointerInput
       || _grow.Contains(screen)
       || _fonts.Contains(screen)
       || _animate.Contains(screen)
-      || _if.Contains(screen)
       || !_map.TryValueAt(screen, out int index)
     )
     {

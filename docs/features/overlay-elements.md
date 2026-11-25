@@ -58,8 +58,8 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 ## Text
 
 - Adding a text, double-clicking one, pressing Enter on a selected one or **Edit text** in the toolbar opens the editor. The game is hidden behind a black screen with a header (what is edited, Cancel, Done), and the text sits at the size the game draws it.
-- A column on the right, above the keypad, has a row per property: **Font**, **Size**, **Text color**, **If**, **Animate** and **Grow from**, each with what it holds. Font, size, color, If and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts), [If](#if) and [Animation](#animation).
-- Text color, Font, If, Animate and Grow from open in that column: the rows give way to a back row naming what is open (‹ Text color), with the color picker, the font list or the nine points under it. The text stays in sight; the dock's line says which color is picked. The back row, Esc or a click elsewhere closes it.
+- A column on the right, above the keypad, has a row per property: **Font**, **Size**, **Text color**, **Animate** and **Grow from**, each with what it holds. Font, size, color and Animate act on the selected characters, or on the whole text when nothing is selected. Size takes values too. See [Fonts](#fonts) and [Animation](#animation).
+- Text color, Font, Animate and Grow from open in that column: the rows give way to a back row naming what is open (‹ Text color), with the color picker, the font list or the nine points under it. The text stays in sight; the dock's line says which color is picked. The back row, Esc or a click elsewhere closes it.
 - Notices (a value that can't go somewhere, a number kept in range) show for a few seconds right above the dock's formula line.
 - The picker's opacity works like the editor's other numbers: clicking it types its formula on the keypad right below, and a value from the dock can be dropped on it. The slider shows the result; moving it makes the opacity a plain number again.
 - Every color is either **Highlight Color** (follows the highlight color; only its opacity is yours) or **Custom Color**.
@@ -67,34 +67,32 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 - ⌘/Ctrl + Enter or Esc finishes and saves, as Done does; only Cancel leaves without saving. A text left empty is removed.
 - Only texts that use a changed value are redrawn, so values that update every hit cost no more than before.
 
-## If
-
-**If** in the text editor's column makes a part of the text look different from case to case: X-Accuracy in gold with "Perfect!" in front once it reaches 100, sky blue from 98, and as it is otherwise; or "FC" that shows only while Miss is 0. Like Text color it is made on the selection, or on the whole text when nothing is selected, and a text can hold several side by side.
-
-- **Cases are cards.** The tool (‹ If) lists one card per case, then **Otherwise**. They are read from the top: the first case that is on shows its look, and when none is, Otherwise shows. The row says how many cases there are.
-- **A case compares a value with a number.** Its card has the value, a seesaw, and the number. The value sits on the seesaw's left and the number on its right, and the bigger side sinks, live. Under them are the three ways the seesaw can stand: **Smaller**, **The same** and **Bigger**. The lit ones turn the case on, so lighting The same and Bigger reads "100 or bigger" and Smaller with Bigger reads "anything but 100". There are no symbols to learn. A green dot marks how the value compares right now.
-- **A look is edited like any text.** Pressing a card puts its look in the preview, selected, and opens the card; a line over the preview names it ("If · X-Accuracy is 100 or bigger"). From then on typing, Text color, Font and Size change that look alone. A new case starts as a copy of the look it was made from, so nothing changes until it is edited. Deleting everything in a look makes the part show nothing in that case.
-- **Make an If / Add a case.** The first press makes the If with one case that compares the first number the text shows with the round number at or above where it is now, on from there up. Each further case copies the one before it, so tiers of one value take a press and a number each. Up to eight cases; the × on a card removes its case, and removing the last leaves the text as Otherwise showed it.
-- **The value.** A press on the value offers the numbers the text shows, then **Another value**, after which the next value clicked in the dock is compared instead of added to the text (Esc stops). Another mod's values work too. Words such as the song title can't be compared.
-- **The number.** A press on it types it on the keypad. It takes values like every other number, so two values can be compared: tile BPM against current BPM.
-- **Try a value.** The slider under the cards moves the compared value by hand, so every case can be seen without playing a level: the preview shows the look for that number and the text shows the number. It lands on the cases' own numbers, so "the same" can be reached. Closing the tool lets the value go.
-- **Now.** The card of the case that is on now, as the game's values or the editor's examples are, wears an accent edge and says so.
-- **Typing around an If.** Text typed inside an If's look, at its end, or into a look that shows nothing belongs to that look. Deleting a selection that holds a whole If and more removes the If with it.
-- **In the game.** The conditions are checked only when a value they read changes, and the text is built again only when an If moves to another case. Before the values have data (before a level starts), Otherwise shows.
-- Undo, Cancel and Done work as for every other edit.
-
 ## Animation
 
-**Animate** in the text editor's column opens a tool there (‹ Animate) with a switch, and the row says whether it is on (Grow or Off). **Grow when it changes** makes a value grow for a moment and settle back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes.
+**Animate** in the text editor's column opens a tool there (‹ Animate) with two switches, and the row says what is on (Grow · Color, Grow, Color or Off). **Grow when it changes** makes a value grow for a moment and settle back each time what it shows changes: the combo on every hit, Miss when one happens, the BPM when it changes. **Color by value** is [below](#color-by-value).
 
 - **What it acts on.** Values in the selection, or every value in the text when nothing is selected. Typed text never moves. A selection of only text has nothing to move, so the switch reads dimmed and a press says why.
 - **Mixed.** When the selection holds values that move and values that don't, the switch sits halfway; a press turns them all on.
 - **Turning it on** plays it once on the text in the editor.
 - **New values** follow the nearest value in the text, the one before the caret first. In a text without values they start still.
 - **What counts as a change** is the text as shown. Elapsed time changes every frame but reads differently once a second, so it grows once a second. Accuracy that rounds to the same two decimals doesn't grow.
-- **When it stays still.** A value that appears (the game had no data yet) or goes away doesn't grow, and neither does anything when a level starts or restarts or an If moves to another case. A combo that breaks to 0 grows, as any change does.
+- **When it stays still.** A value that appears (the game had no data yet) or goes away doesn't grow, and neither does anything when a level starts or restarts. A combo that breaks to 0 grows, as any change does.
 - Each value grows around its own middle; the text's place, size and selection outline stay as they are, and a gradient keeps its colors while a value grows.
 - The built-in combo has it on. Texts from before this switch keep their combos growing; nothing else starts moving.
+
+### Color by value
+
+**Color by value** makes the text's color follow a value as it changes: X-Accuracy turning sky blue from 99.5 and the highlight color at 100, or progress blending into the highlight color as a level goes on. Like Text color it acts on the selection, or the whole text when nothing is selected.
+
+- **The band.** The tool draws the color as a band: the lowest stop at its left end, the highest at its right, each stop a round handle with its value above it. Under the band a pointer marks where the value is now ("Now 99.81"), or the editor's example while no level plays; past the ends it waits at the end.
+- **Changes smoothly or at once.** Smoothly blends from stop to stop, mixed as eyes see colors (Oklab), so white to blue passes no gray. At once jumps to a stop's color the moment the value reaches it and holds it up to the next stop. Below the lowest stop and above the highest, their colors hold.
+- **Stops.** A click on a handle picks it; a click on the band between handles adds a stop there in the color the band already has, and keeps dragging it. Dragging snaps to tidy numbers for the band's range (tenths for 95–100, fives for 0–200); Alt drags freely. Dragging past an end grows the band, which fits the stops again when the handle is let go. Up to eight stops; the last two stay.
+- **The picked stop** shows its value, typed on the keypad, and its color, which opens the color picker beside the column (Highlight or Custom, with opacity). While it is open the text wears that stop's color. The bin removes the stop.
+- **Follows.** The value row names the value the color follows. Turning the color on follows the first number in the selection; with none, the values to pick from open at once. The row lists the text's values, then **Another value**, after which the next value clicked in the dock is followed instead of added to the text (Esc stops). Another mod's values work too. Words such as the song title can't pick a color. Following another value keeps the colors and how they are spread across the new value's range.
+- **First look.** X-Accuracy changes at once, from the text's own color at 95 to green at 98, sky blue at 99.5 and the highlight color at 100. Progress changes smoothly from the text's own color at 0 to the highlight color at 100. Other values blend the same two colors from 0 to a round number half again above today's value. A text in the highlight color starts from white, so the change shows.
+- **One way at a time.** While the color follows a value, Text color reads **By value** and its swatch shows the band. Picking a color or gradient there stops following the value, and a notice says so. Each character keeps its own color underneath: turning Color by value off brings it back.
+- **In the game.** The color changes only when the followed value does, without extra work per frame. Before the value has data (before a level starts), the text shows its own color.
+- Undo, Cancel and Done work as for every other edit; dragging a stop is one undo step, and so is everything picked while the color picker stays on one stop.
 
 ## Fonts
 
@@ -147,5 +145,4 @@ Editor panels over a key viewer cut it out with their own rounded corners, so th
 ## Settings from earlier versions
 
 - **Before 1.1:** the fixed overlays are converted on the first load into texts with the same values, colors and places. A moved overlay keeps its anchor, offset and size. The combo becomes two texts, "Perfect" and the number, placed where the old combo was. Values that used to fade toward the highlight color (progress, accuracy, BPM) now use the highlight color directly. The labels in front of them ("Progress |", "Music Time |") keep following the game's language until the text is edited; editing turns them into plain words.
-- **Color by value (up to 1.5.0):** a text color that followed a value becomes an If on the same characters, with a case per stop read from the highest ("the value is this number or more") and the lowest stop's color as Otherwise. A color that changed smoothly between its stops now changes at each stop.
 - **1.1.0:** texts are rewritten once so they read the same. Progress, time and the judgment row become their parts, and values that lost their `%` get it back as text. The judgment row's Pure Perfect takes a fixed green instead of following the game's hit color.

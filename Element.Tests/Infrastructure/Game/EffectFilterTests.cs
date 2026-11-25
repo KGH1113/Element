@@ -11,12 +11,37 @@ namespace Element.Tests.Infrastructure.Game;
 
 internal static class EffectFilterTests
 {
-  [Suite("effect filter copies only changed tracks and ignores NONE tags")]
+  [Suite("effect filter copies only changed tracks, ignores NONE tags and fixes tile animations")]
   public static void Run()
   {
     CopiesOnlyTracksThatChangeOpacity();
     IgnoresTheGamesNoneTag();
     FollowingCameraUsesTheChosenZoom();
+    TrackAnimationsKeepTheOpeningAppearanceAndHidePassedTiles();
+  }
+
+  private static void TrackAnimationsKeepTheOpeningAppearanceAndHidePassedTiles()
+  {
+    LevelEvent settings = Fixture(
+      LevelEventType.TrackSettings,
+      ("trackAnimation", TrackAnimationType.Assemble),
+      ("beatsAhead", 3f),
+      ("trackDisappearAnimation", TrackAnimationType2.None),
+      ("beatsBehind", 4f)
+    );
+    EffectLevelFilter.FixAnimations(settings);
+    Check(
+      settings["trackAnimation"] is TrackAnimationType.Assemble,
+      "The map's opening tile appearance must stay, as in Enhanced Effect Remover."
+    );
+    Check(
+      settings["trackDisappearAnimation"] is TrackAnimationType2.Fade
+        && settings["beatsAhead"] is float ahead
+        && ahead == 8f
+        && settings["beatsBehind"] is float behind
+        && behind == 0f,
+      "Tiles must appear 8 beats ahead and fade out as soon as they are passed."
+    );
   }
 
   private static void FollowingCameraUsesTheChosenZoom()

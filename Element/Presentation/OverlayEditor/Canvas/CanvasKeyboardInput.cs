@@ -9,8 +9,9 @@ namespace Element.Presentation.OverlayEditor.Canvas;
 
 /// <summary>
 /// The canvas's keys: Tab through elements, undo and redo, delete, select
-/// all, Enter to edit, arrows to move and + or − to scale. While a level is
-/// played they need Cmd/Ctrl, so rhythm keys keep reaching the game.
+/// all, group and ungroup, front and back, Enter to edit, arrows to move and
+/// + or − to scale. While a level is played they need Cmd/Ctrl, so rhythm
+/// keys keep reaching the game.
 /// </summary>
 internal sealed class CanvasKeyboardInput
 {
@@ -82,6 +83,21 @@ internal sealed class CanvasKeyboardInput
     }
     if (!_selection.HasSelection)
       return;
+    // Cmd/Ctrl + G groups, with Shift ungroups; Cmd/Ctrl + ] and [ bring
+    // forward and send back, with Shift to the very front or back.
+    if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.G))
+    {
+      if (EditorKeys.ShiftHeld)
+        _canvas.Ungroup();
+      else
+        _canvas.Group();
+      return;
+    }
+    if (EditorKeys.CommandHeld && (EditorKeys.Pressed(KeyCode.RightBracket) || EditorKeys.Pressed(KeyCode.LeftBracket)))
+    {
+      _canvas.Arrange(EditorKeys.Pressed(KeyCode.RightBracket), EditorKeys.ShiftHeld);
+      return;
+    }
     // Enter edits one element; it has no meaning for several.
     if (!gameplay && !_selection.Multi && EditorKeys.EnterPressed && _kinds.Edit(frames[_selection.Selected].Target))
       return;

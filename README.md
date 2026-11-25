@@ -49,7 +49,7 @@
 <td width="33%" valign="top">
 
 ### 끌어서 배치
-드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
+드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다. **순서** 패널에서 카드를 끌어 무엇이 앞에 보일지 정하고, 요소를 묶음으로 묶어 함께 다룹니다. [자세히](docs/features/overlay-elements.md#order-and-groups)
 
 </td>
 <td width="33%" valign="top">
@@ -118,6 +118,8 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
 | 텍스트 편집 | 텍스트 더블클릭 또는 <kbd>Enter</kbd> | 동일 |
 | 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |
+| 묶기 / 풀기 | <kbd>Ctrl</kbd> + <kbd>G</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | <kbd>⌘</kbd> + <kbd>G</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> |
+| 앞으로 / 뒤로 (맨 앞·맨 뒤는 <kbd>Shift</kbd>) | <kbd>Ctrl</kbd> + <kbd>]</kbd> / <kbd>Ctrl</kbd> + <kbd>[</kbd> | <kbd>⌘</kbd> + <kbd>]</kbd> / <kbd>⌘</kbd> + <kbd>[</kbd> |
 | 자동 맞춤 잠시 끄기 | <kbd>Alt</kbd> 누르는 동안 | <kbd>⌥</kbd> 누르는 동안 |
 | 정밀 회전 (에디터) | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>,</kbd> <kbd>.</kbd> | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>,</kbd> <kbd>.</kbd> |
 

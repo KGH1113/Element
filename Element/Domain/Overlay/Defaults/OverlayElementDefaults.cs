@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
 using Element.Domain.Judgement;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Shape;
 
 namespace Element.Domain.Overlay.Defaults;
@@ -16,6 +17,10 @@ internal static class OverlayElementDefaults
   public const string ProgressBarId = "progress-bar";
   public const string ProgressTrackId = "progress-bar-track";
   public const string ProgressFillId = "progress-bar-fill";
+
+  // The groups the built-ins start in; a built-in group has no typed name.
+  public const string ProgressBarGroup = "progress-bar";
+  public const string ComboGroup = "combo";
   private const string White = "#FFFFFF";
 
   // JRP's progress bar as it shows, in 1080p pixels: a black bar along the
@@ -75,6 +80,7 @@ internal static class OverlayElementDefaults
       Enabled = true,
       DefaultPlacement = element.Id,
       GrowFrom = element.GrowFrom,
+      Group = GroupOf(element.Id),
     };
     Reset(settings, element);
     return settings;
@@ -103,6 +109,41 @@ internal static class OverlayElementDefaults
       else
         layouts.Add(created);
     }
+  }
+
+  /// <summary>The group a built-in starts in: the progress bar's pieces, the combo and its title.</summary>
+  public static string GroupOf(string id) =>
+    id switch
+    {
+      ProgressBarId or ProgressTrackId or ProgressFillId => ProgressBarGroup,
+      ComboId or ComboTitleId => ComboGroup,
+      _ => string.Empty,
+    };
+
+  /// <summary>
+  /// Puts the built-ins in their groups, unless one was put in another group
+  /// by hand. A group left with one shown element is dropped again.
+  /// </summary>
+  public static void GroupBuiltIns(List<OverlayLayoutSettings> layouts)
+  {
+    if (layouts == null)
+      return;
+    foreach (OverlayLayoutSettings layout in layouts)
+    {
+      if (
+        layout == null
+        || !TryGet(layout.Id, out OverlayDefaultElement element)
+        || layout.TemplateId != element.TemplateId
+      )
+        continue;
+      string group = GroupOf(layout.Id);
+      if (group.Length == 0 || (!string.IsNullOrEmpty(layout.Group) && layout.Group != group))
+        continue;
+      layout.Group = group;
+      layout.GroupName = string.Empty;
+    }
+    LayoutGroups.KeepTogether(layouts);
+    LayoutGroups.DropLonely(layouts);
   }
 
   public static int IndexOf(List<OverlayLayoutSettings> layouts, string id) =>
@@ -182,6 +223,20 @@ internal static class OverlayElementDefaults
     foreach (OverlayDefaultElement element in Elements)
       if (!present.Contains(element.Id))
         layouts.Add(Create(element));
+    // The built-ins draw in their first order again, in their groups.
+    LayoutLayers.SortByLegacyLayer(layouts);
+    foreach (OverlayLayoutSettings layout in layouts)
+      if (
+        layout != null
+        && TryGet(layout.Id, out OverlayDefaultElement element)
+        && layout.TemplateId == element.TemplateId
+      )
+      {
+        layout.Group = GroupOf(layout.Id);
+        layout.GroupName = string.Empty;
+      }
+    LayoutGroups.KeepTogether(layouts);
+    LayoutGroups.DropLonely(layouts);
   }
 
   public static void ResetPlacement(OverlayLayoutSettings layout)

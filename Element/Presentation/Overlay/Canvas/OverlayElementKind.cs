@@ -7,17 +7,12 @@ namespace Element.Presentation.Overlay.Canvas;
 
 /// <summary>
 /// How the overlay draws one kind of element: which saved layouts it owns,
-/// the layer it draws on, how it makes an element and what it does each
-/// frame. <see cref="OverlayCanvasHost"/> knows kinds only through this.
+/// how it makes an element and what it does each frame. Every kind makes its
+/// elements on the canvas's one layer, where the saved order stacks them.
+/// <see cref="OverlayCanvasHost"/> knows kinds only through this.
 /// </summary>
 internal abstract class OverlayElementKind
 {
-  /// <summary>The layer's name in the canvas.</summary>
-  public abstract string LayerName { get; }
-
-  /// <summary>Where its layer sits: 0 is the bottom.</summary>
-  public abstract int LayerDepth { get; }
-
   /// <summary>The layer its elements draw on, set by the canvas.</summary>
   public Transform Layer { get; set; }
 

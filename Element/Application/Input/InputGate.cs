@@ -15,6 +15,7 @@ internal static class InputGate
   private static volatile bool _textEditing;
   private static int _suppressThroughFrame = -1;
   private static Action _clearGameKeys;
+  public static ITrackpadViewport TrackpadViewport { get; set; }
 
   // The native keyboard hook reads only these volatile values, never Unity APIs.
   public static bool IsActive => _active;

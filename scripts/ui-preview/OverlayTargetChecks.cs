@@ -201,8 +201,9 @@ namespace Element.Editor
         OverlayShapeGeometry.SetKind(shape.Shape, OverlayShapeKind.Circle);
         shape.Apply();
         check(Vertices(graphic) > 40, "circles draw as ellipses in their box");
-        Transform shapes = host.Root.transform.Find("Shapes"), texts = host.Root.transform.Find("Texts");
-        check(shapes.GetSiblingIndex() < texts.GetSiblingIndex(), "shapes draw behind every text");
+        // One layer: the saved list's order stacks every kind, the last in front.
+        Transform layer = host.Root.transform.Find("Elements");
+        check(layer != null && host.Root.transform.Find("Shapes") == null, "every kind draws on one layer");
       }
       finally
       {

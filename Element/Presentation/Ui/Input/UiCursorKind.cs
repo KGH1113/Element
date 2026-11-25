@@ -6,4 +6,5 @@ internal enum UiCursorKind
   Text,
   Horizontal,
   Crosshair,
+  Grab,
 }

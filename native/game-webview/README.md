@@ -66,6 +66,16 @@ viewer is moved over them. Overlapping panels arrive merged into one cutout. The
 same frame, follows window resizing, and is
 removed when editing ends.
 
+Overlay elements drawn in front of a viewer are cut out of it
+(`irp_webview_set_covers`): non-overlapping rectangles per viewer identifier,
+normalized like the editor cutouts, kept to the viewer's content. Each page sits
+in a clip view at its web frame with an even-odd mask of its own, nested inside
+the host's editor mask, so covers and cutouts may overlap and the viewer is hidden
+where either is. The clip is unflipped like the host (the WKWebView's own layer
+is geometry-flipped), so its mask uses the host's y-up points. Covers apply in
+and out of editing, are kept per identifier before a page attaches and across
+reloads, and are cleared by `dispose`. The selection chrome is not covered.
+
 The host covers where the game is drawn, not the whole window. Unity tells it
 the game's size (`irp_webview_set_game_size`, Screen.width/height); a game drawn
 at another aspect than its window, such as fullscreen at a lower resolution, is
@@ -117,8 +127,8 @@ a local HTTP fixture;
 it checks the ABI, source validation, attachment, CSS viewport, transparency,
 input pass-through, resizing, legacy and resolved layout, reference sizing,
 Retina conversion, scale-only changes, aspect-ratio preservation,
-selection ownership, immediate toolbar exclusion, padding crop, URL reuse, hiding,
-removal, and lifecycle. At fractional zoom, WebKit can round its CSS layout viewport
+selection ownership, immediate toolbar exclusion, covers and their nesting with
+it, padding crop, URL reuse, hiding, removal, and lifecycle. At fractional zoom, WebKit can round its CSS layout viewport
 by less than one AppKit point; the probe allows that physical rounding while
 checking exact native content bounds and page reuse. Its host
 is a test window, so passing this probe does not confirm the real Unity view
@@ -157,7 +167,11 @@ its final size. Offsets are rounded to whole pixels for sharp text. A visual cli
 crops the configured padding. Editing chrome is drawn with Direct2D on a
 DirectComposition surface; the editor's rounded panels are left out of the chrome
 through a geometric layer mask, and cut out of the page with a CSS `clip-path`
-(even-odd path with arcs) because visual clips cannot express holes.
+(even-odd path with arcs) because visual clips cannot express holes. Covers
+(`irp_webview_set_covers`) go to the page as `window.__irpSetCovers`, converted
+to CSS pixels the same way: a second even-odd `clip-path` on `body`, offset by
+its box, so it intersects the editor's clip on the root instead of replacing it.
+They apply outside editing too and leave the chrome alone.
 
 Security matches macOS: explicit-port loopback HTTP only, top-level and frame
 navigation limited to the descriptor's origin, new windows and script dialogs
@@ -185,6 +199,6 @@ the game's frame, so they omit the viewers.
 desktop. The probe creates a `UnityWndClass` window presenting a D3D11 flip-model
 swap chain, serves a loopback fixture page, and checks composed screen pixels,
 transparency, click and focus pass-through, editing chrome and exclusion,
-visibility, content growth, stale descriptors, resize and minimize, navigation
+covers (alone and overlapping an exclusion), visibility, content growth, stale descriptors, resize and minimize, navigation
 blocking, browser-process recovery, and reattachment. Like the macOS probe, it
 does not prove the real game's hierarchy or capture behavior.

@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
@@ -10,6 +13,7 @@ using Element.Presentation.Overlay.Values;
 using Element.Presentation.Ui.Theme;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
+using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Overlay.Shape;
 
@@ -24,6 +28,10 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   private readonly OverlayValues _values;
   private readonly OverlayShapeSettings _resolved = new();
   private readonly OverlayShapeResolver _formulas = new();
+
+  // The outline in screen pixels for the key viewers behind it; outer, then inner for a border.
+  private readonly List<NVector2> _coverPoints = new(128);
+  private readonly List<int> _coverContours = new(2);
   private int _themeVersion = -1;
   private float _resolvedScale = -1;
   private bool _preview;
@@ -156,4 +164,41 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
 
   /// <summary>Keeps edges one screen pixel soft after the screen or the layout changed.</summary>
   public void RefreshPixels() => _graphic.SetPixelsPerUnit(PixelsPerUnit);
+
+  // Both only count up, so their sum changes whenever either does.
+  public override int CoverVersion => base.CoverVersion + _graphic.DrawnVersion;
+
+  public override bool TryGetCoverBounds(out LayoutBounds screenTopLeft)
+  {
+    screenTopLeft = default;
+    return _graphic.Drawn && base.TryGetCoverBounds(out screenTopLeft);
+  }
+
+  /// <summary>
+  /// The outline the graphic drew, with the border's width: all of it with a
+  /// fill, the band inside the outline for a border alone.
+  /// </summary>
+  public override void Rasterize(ViewerCoverRuns runs)
+  {
+    if (!OnScreen || !_graphic.Drawn)
+      return;
+    IReadOnlyList<Vector2> outline = _graphic.DrawnOutline;
+    IReadOnlyList<Vector2> normals = _graphic.DrawnNormals;
+    Matrix4x4 toWorld = Rect.localToWorldMatrix;
+    float height = Screen.height;
+    _coverPoints.Clear();
+    _coverContours.Clear();
+    _coverContours.Add(0);
+    for (int i = 0; i < outline.Count; i++)
+      _coverPoints.Add(ToScreen(toWorld, outline[i], height));
+    float border = _graphic.DrawnBorder;
+    // A border as wide as half the shape leaves no hole.
+    if (!_graphic.DrawnFill && border < Mathf.Min(_resolved.Width, _resolved.Height) * .5f - .01f)
+    {
+      _coverContours.Add(_coverPoints.Count);
+      for (int i = 0; i < outline.Count && i < normals.Count; i++)
+        _coverPoints.Add(ToScreen(toWorld, outline[i] - normals[i] * border, height));
+    }
+    runs.FillEvenOdd(_coverPoints, _coverContours);
+  }
 }

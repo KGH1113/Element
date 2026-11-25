@@ -6,16 +6,12 @@ using Element.Presentation.Overlay.Shape;
 
 namespace Element.Presentation.Overlay.Canvas;
 
-/// <summary>Shapes: the bottom layer, behind other mods' elements and texts.</summary>
+/// <summary>Shapes: squares, triangles and circles drawn by Element.</summary>
 internal sealed class ShapeElementKind : OverlayElementKind<ShapeOverlayElement>
 {
   private readonly OverlayCanvasHost _host;
 
   public ShapeElementKind(OverlayCanvasHost host) => _host = host;
-
-  public override string LayerName => "Shapes";
-
-  public override int LayerDepth => 0;
 
   public override bool Owns(string templateId) => templateId == OverlayElementKinds.Shape;
 

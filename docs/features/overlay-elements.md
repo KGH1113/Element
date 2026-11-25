@@ -16,6 +16,27 @@ The overlay editor (Settings → Overlay) places three kinds of elements: **Text
 - **Align and distribute.** With two or more selected, the second toolbar lines them up: left, center, right, top, middle or bottom, against the box they cover together. With three or more, it also spaces them evenly across or down, keeping the outer two in place. Each press is one undo step; when there is nothing to change, such as a column already evenly spaced, the toolbar says so instead.
 - While several are selected, the scale greys out and Edit text/shape, the resize handles and the key viewer toolbar step aside. Double-clicking one selects it alone and opens its editor.
 
+## Order and groups
+
+What is in front and what is grouped is one list: the overlay draws the saved elements in their order, the last one in front. Key viewers are elements of that list like any other.
+
+- **Order panel.** **Order** in the toolbar opens a panel above it, from that button, and the same button closes it; the panel never blocks the canvas. It has a card per element, front-most at the top, and the game itself as the last card. Each card shows the element as it looks, small, and its name (a text is called by what it says). A key viewer, drawn outside the game, shows as a pane with keys.
+- **Moving a card.** Dragging a card up or down shows a line where it will land, and the canvas shows the new order while it is held. Letting it go is one undo step; letting it go outside the list changes nothing.
+- **Picking.** A click on a card picks its element; Shift or Cmd/Ctrl adds it. The pointer over a card outlines its elements on the canvas in the highlight color.
+- **Forward and back.** Cmd/Ctrl + ] and [ move the selection past the nearest element it overlaps, so every press shows a change; with Shift, to the very front or back. When nothing it overlaps is that way, the status line says so.
+- **On the canvas** a press picks the front-most element under the pointer.
+
+### Groups
+
+- **Making one.** With two or more selected, **Group** on the element toolbar (Cmd/Ctrl + G) makes them one group, named "Group 1", "Group 2"…. The elements gather in the order where the front-most of them was.
+- **One level.** A group holds elements, not groups. Its elements always sit next to each other in the order. A group left with one element, by deleting or dragging the others out, is no group any more.
+- **Picking.** A press on a grouped element picks the whole group; a second press picks the element inside. A double-click opens its editor, as for any element. A marquee takes a group once all of it is inside. The toolbar names a picked group ("Group · Combo").
+- **On the order panel** a group is a card with a colored stripe, the group pictured whole and how many it holds. Its arrow shows its elements under it, set in beside the stripe; picking one of them on the canvas opens its group's card. A second click on a picked group's card renames it. Dragging the group's card moves the whole group; dragging an element card between a group's elements puts it in that group, and out of the group takes it out. A group's card never lands inside another group.
+- **Ungrouping.** With a group picked, the element toolbar shows its name and **Ungroup** (Cmd/Ctrl + Shift + G). Its elements stay where they are, picked.
+- **Together on any screen.** When a group moves, every element of it is saved against the same screen point, the one nearest the group as a whole, so the group stays together when the resolution changes. With a key viewer in it, that point is a corner or the middle, the points a key viewer can hold.
+- **Lining up.** Several groups and elements line up and space out with each group as one box. A group picked alone lines up its own elements.
+- **Built in.** The progress bar's three shapes and the combo with its "Perfect" title start as groups, named "Progress bar" and "Combo" in the player's language. Reset all brings back the first order and these groups.
+
 ## Values
 
 A value is something the game knows, kept live. It behaves as one character: the caret skips it, a selection takes it whole, and one Backspace deletes it.
@@ -125,7 +146,7 @@ The default layout has a **progress bar** made of three shapes, as JipperResourc
 - The column on the right has **Fill**, **Border**, **Border width** and **Grow from**, as in the text editor. Fill and Border open the color picker in the column, under a back row naming the color. Their opacity in the picker and the border width are typed in the input dock and take values.
 - Squares whose corners were dragged in 1.1.0 keep that shape; corners can no longer be moved.
 - Every number takes values. For example, width = current × 3 makes a progress bar.
-- On the canvas a shape only moves, like a text. Shapes are drawn behind all texts.
+- On the canvas a shape only moves, like a text. A new shape, like any new element, goes in front; the [order panel](#order-and-groups) puts it behind.
 - ⌘/Ctrl + Z undoes inside the editor. Done is one undo step in the overlay editor. Cancelling a new shape removes it.
 
 ## Gradients
@@ -151,7 +172,11 @@ Added at once as a hand viewer. Its toolbar switches between hand and foot in th
 
 Editor panels over a key viewer cut it out with their own rounded corners, so the viewer never covers the editor.
 
+A key viewer takes its place in the [order](#order-and-groups) like other elements and can be in a group. It is drawn by ElementNote above the game, so an element in front of it cuts its own shape out of the viewer, in the game and in the editor: opaque elements look exactly in front, and where a see-through element covers it the game shows through instead of the viewer.
+
 ## Settings from earlier versions
+
+- **Before layers (settings version 11):** elements drew by kind, shapes behind other mods' elements, those behind texts, key viewers over everything. The first load puts the saved list in that order, so everything looks as before, and starts the progress bar and the combo as groups.
 
 - **Before 1.1:** the fixed overlays are converted on the first load into texts with the same values, colors and places. A moved overlay keeps its anchor, offset and size. The combo becomes two texts, "Perfect" and the number, placed where the old combo was. Values that used to fade toward the highlight color (progress, accuracy, BPM) now use the highlight color directly. The labels in front of them ("Progress |", "Music Time |") keep following the game's language until the text is edited; editing turns them into plain words.
 - **Color by value (up to 1.5.0):** a text color that followed a value becomes a color condition: from the highest stop ("the value ≥ this stop's number → its color"), each next stop in the default, down to the lowest stop's color. A color that changed smoothly between its stops now changes at each stop, and every stop takes the lowest stop's opacity.

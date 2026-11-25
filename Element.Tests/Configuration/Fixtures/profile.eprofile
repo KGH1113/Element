@@ -4,7 +4,7 @@
   <ModVersion>1.2.3</ModVersion>
   <Name>Sample</Name>
   <Content>
-    <SettingsVersion>10</SettingsVersion>
+    <SettingsVersion>11</SettingsVersion>
     <HighlightColor>HighlightColor</HighlightColor>
     <OverlayFont>OverlayFont</OverlayFont>
     <Gameplay>
@@ -127,6 +127,8 @@
         <GrowFrom>Auto</GrowFrom>
         <DefaultPlacement>DefaultPlacement</DefaultPlacement>
         <PendingGroup>PendingGroup</PendingGroup>
+        <Group>Group</Group>
+        <GroupName>GroupName</GroupName>
         <Text>
           <Runs>
             <OverlayTextRun>

@@ -1,3 +1,4 @@
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using static Element.Presentation.OverlayEditor.Parts.EditorControls;
@@ -6,7 +7,11 @@ using static ElementUI.UI;
 
 namespace Element.Presentation.OverlayEditor.Canvas.ElementBar;
 
-/// <summary>The element toolbar for several: six ways to line them up, then two to space them evenly.</summary>
+/// <summary>
+/// The element toolbar for several: six ways to line them up, two to space
+/// them evenly, then Group, or the group's name and Ungroup when the
+/// selection is one group.
+/// </summary>
 internal sealed class ArrangeView : View<ArrangeViewModel>
 {
   public ArrangeView(ArrangeViewModel vm)
@@ -54,7 +59,31 @@ internal sealed class ArrangeView : View<ArrangeViewModel>
             () => VM.DistributeVertical,
             36
           )
+        ),
+        Separator(),
+        If(
+          () => VM.GroupName.Value.Length > 0,
+          () =>
+            HStack(
+              spacing: 8,
+              Text(() => VM.GroupName.Value).LineLimit(1).Foreground(Colors.Muted).Frame(maxWidth: 120),
+              WideButton(Labelled(UiIconKind.Ungroup, L("풀기", "Ungroup")), "Ungroup", () => VM.Ungroup, 124, 36)
+                .Hint(L("묶음 풀기 · Cmd/Ctrl + Shift + G", "Ungroup · Cmd/Ctrl + Shift + G"))
+            ),
+          () =>
+            WideButton(
+                Labelled(UiIconKind.Group, L("묶기", "Group")),
+                "Group",
+                () => VM.Group,
+                84,
+                36,
+                ButtonStyle.Prominent
+              )
+              .Hint(L("하나로 묶기 · Cmd/Ctrl + G", "Group · Cmd/Ctrl + G"))
         )
       )
       .Padding(new Insets(10, 10, 10, 8));
+
+  private static View Labelled(UiIconKind icon, string label) =>
+    HStack(spacing: 6, Image(ElementIcons.Of(icon), 18), Text(label).LineLimit(1));
 }

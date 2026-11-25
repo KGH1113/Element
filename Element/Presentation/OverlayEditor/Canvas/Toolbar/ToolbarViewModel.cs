@@ -49,10 +49,12 @@ internal sealed class ToolbarViewModel : ViewModel
     Redo = Command(() => canvas.Redo(), canExecute: Computed(() => CanRedo.Value));
     Cancel = Command(() => canvas.Cancel());
     Save = Command(() => canvas.Save());
+    ToggleFloatView = Command(() => canvas.ToggleFloatView());
     ResetAll = Command(() => canvas.ResetAll());
     ResetElement = Command(() => canvas.ResetSelected(), canExecute: selected);
     Delete = Command(() => canvas.Delete(), canExecute: selected);
     Add = Command(() => canvas.Add());
+    Layers = Command(() => canvas.Layers());
     Color = Command(() => canvas.Color());
     Font = Command(() => canvas.Font(), canExecute: Computed(() => HasFonts));
     Edit = Command(() => canvas.Edit());
@@ -75,6 +77,9 @@ internal sealed class ToolbarViewModel : ViewModel
 
   /// <summary>Whether the overlay fonts loaded: the default font can be picked.</summary>
   public readonly bool HasFonts;
+
+  public bool NativeOrbit =>
+    UnityEngine.Application.platform == RuntimePlatform.OSXPlayer && _session.Preferences.NativeEditorTrackpad;
 
   /// <summary>"Text", "3 selected", or "Select overlay" with nothing selected.</summary>
   public readonly State<string> Selection = new("");
@@ -109,10 +114,18 @@ internal sealed class ToolbarViewModel : ViewModel
   public Command Redo { get; }
   public Command Cancel { get; }
   public Command Save { get; }
+  public Command ToggleFloatView { get; }
+  public readonly State<bool> Floating = new(false);
   public Command ResetAll { get; }
   public Command ResetElement { get; }
   public Command Delete { get; }
   public Command Add { get; }
+
+  /// <summary>Opens or closes the layers panel.</summary>
+  public Command Layers { get; }
+
+  /// <summary>Whether the layers panel is open: its button stays lit.</summary>
+  public readonly State<bool> LayersOpen = new(false);
   public Command Color { get; }
   public Command Font { get; }
 
@@ -165,6 +178,10 @@ internal sealed class ToolbarViewModel : ViewModel
       return L("요소 선택", "Select overlay");
     if (!several)
       return _kinds.Label(primary);
+    // A whole group is named, not counted.
+    string group = _selection.Group;
+    if (group != null)
+      return L("묶음 · ", "Group · ") + GroupNames.Of(_session.Host.LayoutSettings, group);
     int count = _selection.Count;
     if (count != _countShown)
     {

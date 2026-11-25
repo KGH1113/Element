@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Configuration;
 using Element.Configuration.Gameplay;
 using Element.Configuration.Overlay;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using UnityEngine;
 
@@ -103,6 +104,14 @@ internal static class SettingsMigrator
     {
       OverlayElementMigration.UpgradeProgressBar(layouts);
       OverlayElementDefaults.AddMissing(layouts);
+    }
+    // The list became the drawing order, back to front. Older layouts keep
+    // drawing as they did (shapes, other mods' elements, texts, key viewers),
+    // and the progress bar and the combo start as groups.
+    if (version < 11)
+    {
+      LayoutLayers.SortByLegacyLayer(layouts);
+      OverlayElementDefaults.GroupBuiltIns(layouts);
     }
   }
 }

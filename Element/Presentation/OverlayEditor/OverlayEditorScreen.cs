@@ -11,7 +11,9 @@ using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Canvas.AddMenu;
 using Element.Presentation.OverlayEditor.Canvas.Confirm;
 using Element.Presentation.OverlayEditor.Canvas.ElementBar;
+using Element.Presentation.OverlayEditor.Canvas.Layers;
 using Element.Presentation.OverlayEditor.Canvas.Toolbar;
+using Element.Presentation.OverlayEditor.FloatView;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.Ui.Popovers;
@@ -52,12 +54,15 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   private readonly ConfirmPanel _modal;
   private readonly CanvasReset _reset;
   private readonly CanvasKeyboardInput _keyboard;
+  private readonly CanvasLayers _layers;
+  private readonly LayersPanel _layersPanel;
   private readonly Func<IOverlayLayoutTarget, bool> _edit;
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
   private string _openingFont;
   private List<OverlayCustomValueSettings> _openingValues;
   private GameObject _ownedEvents;
+  private FloatScene _float;
   private bool _previousCursorVisible;
   private CursorLockMode _previousCursorLock;
 
@@ -87,6 +92,10 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _reset = new CanvasReset(_session, _modal, this, this, RebuildFrames, _elementBar.MarkStale);
     _edit = _kinds.Edit;
     _keyboard = new CanvasKeyboardInput(_session, _selection, _drag, _toolbar, _kinds, this);
+    _layers = new CanvasLayers(_session, _selection, _status);
+    _layersPanel = new LayersPanel(_session, _selection, _toolbar, _kinds, _status);
+    _popovers.Stack.Add(_layersPanel, false);
+    _elementBar.Avoid = () => _layersPanel.Bounds;
   }
 
   public bool IsOpen => _session.IsOpen;
@@ -151,12 +160,16 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       return;
     if (save)
       FinishDrag();
+    EndFloatView();
     _session.IsOpen = false;
     _session.Closing = true;
     _drag.Cancel();
     _toolbar.Dragging = false;
     ClosePopovers();
     _elementBar.Close();
+    _layers.EndPreview();
+    _layers.Peek(null);
+    _layersPanel.Close();
     if (!save)
     {
       _openingLayout.Restore(_session.Host.LayoutSettings);
@@ -195,6 +208,16 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     EnsureEvents();
     if (_session.ViewportChanged(Screen.width, Screen.height))
       Resize(Screen.width, Screen.height);
+    if (_float != null)
+    {
+      if (CanvasSession.GameplayActive)
+        EndFloatView();
+      else
+      {
+        TickFloatView();
+        return;
+      }
+    }
     IContentEditor editor = _kinds.OpenEditor;
     if (editor != null)
     {
@@ -258,6 +281,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       return;
     }
     host.TickLayoutPreview();
+    _layersPanel.TrackPointer(Input.mousePosition);
     TrackPointer(CanvasSession.Mouse);
     _keyboard.Handle();
     UpdateFrames();
@@ -292,6 +316,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       if (canDrag && Input.GetMouseButtonDown(0))
         _elementBar.BeginDrag(mouse);
     }
+    else if (_layersPanel.Contains(Input.mousePosition))
+      _cursors.Set(LayoutHandle.None);
     else if (_toolbar.Bounds.Contains(mouse))
     {
       bool canDrag = !_toolbar.ControlAt(mouse);
@@ -331,6 +357,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _session.SetViewport(width, height);
     if (changed)
     {
+      EndFloatView();
       // Never capture coordinates from a gesture that began in another viewport.
       if (_drag.Active)
       {
@@ -400,25 +427,30 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _exclusions.Add(new LayoutExclusion(new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height), 8 * scale));
 
   // A dialog or a full-screen editor covers the whole view.
-  private bool Covered => _modal.IsOpen || _kinds.OpenEditor != null;
+  private bool Covered => _float != null || _modal.IsOpen || _kinds.OpenEditor != null;
 
   private void UpdateFrames()
   {
     bool editingContent = _kinds.OpenEditor != null;
-    bool covered = _modal.IsOpen || editingContent;
+    bool covered = Covered;
     _selection.Normalize();
     // A full-screen editor stands alone; the toolbar would show through its dim.
     _toolbar.Show(!editingContent);
     List<CanvasFrame> frames = _session.Frames;
+    HashSet<string> peeked = _layers.Peeked;
     for (int index = 0; index < frames.Count; index++)
     {
       CanvasFrame frame = frames[index];
       bool selected = !covered && _selection.Contains(frame.Target);
-      (frame.Target as IExternalLayoutOutline)?.SetSelected(selected);
-      bool visible = selected && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
+      // The pointer over a layer card outlines its elements in the highlight color.
+      bool peek = !covered && !selected && peeked.Contains(frame.Target.Id);
+      (frame.Target as IExternalLayoutOutline)?.SetSelected(selected || peek);
+      bool visible =
+        (selected || peek) && !(frame.Target is IExternalLayoutOutline external && external.OwnsSelectionOutline);
       frame.Outline.gameObject.SetActive(visible);
       if (!visible)
         continue;
+      frame.Outline.color = peek ? UiPalette.Accent : Color.white;
       Rect bounds = frame.Target.Bounds;
       _session.SetRect(frame.Outline.rectTransform, bounds);
       frame.Outline.SetScale(_session.UiScale);
@@ -427,6 +459,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
     _elementBar.Sync(covered, (_drag.Active && _drag.Moved) || _popovers.Stack.AnyOpen);
+    _layersPanel.Sync(covered);
+    _toolbar.ViewModel.LayersOpen.Value = _layersPanel.Visible;
     _toolbar.Refresh();
     _guides.Refresh(_session.UiScale);
     RaisePopovers();
@@ -444,6 +478,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   {
     _popovers.Place();
     _addMenu.Place();
+    _layersPanel.Place();
     _elementBar.Place();
     _modal.Follow();
   }
@@ -500,10 +535,12 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _toolbar.ViewModel.ForgetScale();
     _status.Clear();
     _session.Host.ApplyLayouts();
+    FloatOrder.Apply(_session);
     if (_session.KeyViewers != null)
       foreach (IOverlayLayoutTarget target in _session.KeyViewers.Targets)
         target.RefreshLayout();
     _selection.Prune();
+    _float?.Refresh();
   }
 
   private void Undo()
@@ -553,7 +590,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     }
     _selection.SelectOnly(-1);
     _drag.Cancel();
-    _session.Commit();
+    // A group left with one element is no group any more.
+    _layers.Changed();
     RefreshLayouts();
     UpdateFrames();
   }
@@ -657,11 +695,115 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _session.Fonts?.SetDefault(_session.Preferences.OverlayFont);
   }
 
+  // ---- Layers and groups ----
+
+  // The layers panel stays open beside the canvas until its button closes it.
+  private void ToggleLayers()
+  {
+    FinishDrag();
+    _toolbar.Dragging = false;
+    if (_layersPanel.Visible)
+      _layersPanel.Close();
+    else
+    {
+      _layersPanel.Open(this);
+      UpdatePopupPositions();
+    }
+    UpdateFrames();
+  }
+
+  // After a change to the order or the groups: the element toolbar and the
+  // outlines follow.
+  private void AfterLayers(bool changed)
+  {
+    if (!changed)
+      return;
+    _elementBar.MarkStale();
+    _toolbar.ViewModel.ForgetScale();
+    UpdateFrames();
+  }
+
   // ---- Everything the editor is asked to do: the player's commands, then what its parts ask ----
 
   void ICanvasActions.Undo() => Undo();
 
   void ICanvasActions.Redo() => Redo();
+
+  void ICanvasActions.ToggleFloatView()
+  {
+    if (CanvasSession.GameplayActive)
+    {
+      _status.ShowNote(L("레벨을 일시 정지하면 띄워 볼 수 있어요.", "Pause the level to use Float view."));
+      return;
+    }
+    if (_float == null)
+    {
+      if (!Settle() || !_toolbar.CommitPendingScale())
+        return;
+      _marquee.End();
+      _guides.HideLines();
+      _cursors.Set(LayoutHandle.None);
+      _float = new FloatScene(_session, () => _toolbar.Bounds, _kinds.Label, _cursors);
+    }
+    else
+    {
+      _float.CancelGesture();
+      _float.Open = !_float.Open;
+    }
+    InputGate.TrackpadViewport = _float.Open ? _float : null;
+    _toolbar.ViewModel.Floating.Value = true;
+    UpdateFrames();
+  }
+
+  private void TickFloatView()
+  {
+    InputGate.SetTextEditing(true);
+    if (EditorKeys.Pressed(KeyCode.Escape) || (EditorKeys.CommandHeld && EditorKeys.EnterPressed))
+    {
+      Close(true);
+      return;
+    }
+    if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Z))
+    {
+      if (EditorKeys.ShiftHeld)
+        Redo();
+      else
+        Undo();
+    }
+    else if (EditorKeys.CommandHeld && EditorKeys.Pressed(KeyCode.Y))
+      Redo();
+    Vector2 mouse = CanvasSession.Mouse;
+    if (
+      _toolbar.Dragging
+      || (_toolbar.Bounds.Contains(mouse) && Input.GetMouseButtonDown(0) && !_toolbar.ControlAt(mouse))
+    )
+    {
+      if (!_toolbar.Dragging)
+        _float.ClearHover();
+      TrackPointer(mouse);
+    }
+    else
+      _float.Pointer(mouse);
+    AdvanceFloatView(Time.unscaledDeltaTime);
+  }
+
+  private void AdvanceFloatView(float dt)
+  {
+    if (!_float.Advance(dt))
+      EndFloatView();
+    UpdateFrames();
+  }
+
+  private void EndFloatView()
+  {
+    if (_float == null)
+      return;
+    InputGate.TrackpadViewport = null;
+    _float.Dispose();
+    _float = null;
+    _toolbar.ViewModel.Floating.Value = false;
+    InputGate.SetTextEditing(false);
+  }
 
   void ICanvasActions.Cancel() => Close(false);
 
@@ -681,6 +823,38 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   void ICanvasActions.Edit() => EditSelected();
 
+  void ICanvasActions.Layers() => ToggleLayers();
+
+  void ICanvasActions.Group() => AfterLayers(_layers.Group());
+
+  void ICanvasActions.Ungroup() => AfterLayers(_layers.Ungroup());
+
+  void ICanvasActions.Arrange(bool forward, bool toEnd) => AfterLayers(_layers.Arrange(forward, toEnd));
+
+  void ICanvasActions.MoveLayers(IReadOnlyCollection<string> ids, string behindId, string group)
+  {
+    _layers.Move(ids, behindId, group);
+    AfterLayers(true);
+  }
+
+  void ICanvasActions.RenameGroup(string group, string name)
+  {
+    _layers.Rename(group, name);
+    AfterLayers(true);
+  }
+
+  void ICanvasActions.SelectLayer(string id, string group, bool adding)
+  {
+    FinishDrag();
+    _layers.Select(id, group, adding);
+    _toolbar.ViewModel.DropTypedScale();
+    UpdateFrames();
+  }
+
+  void ICanvasActions.PeekLayers(IReadOnlyCollection<string> ids) => _layers.Peek(ids);
+
+  void ICanvasActions.PreviewLayers(IReadOnlyCollection<string> ids, string behindId) => _layers.Preview(ids, behindId);
+
   bool ICanvasActions.Settle() => Settle();
 
   void ICanvasActions.PlaceNew(IOverlayLayoutTarget target, bool commit) => PlaceNewElement(target, commit);
@@ -691,6 +865,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   public void Dispose()
   {
+    EndFloatView();
     _session.Closing = true;
     // Disposal must not reopen settings through the normal close callback.
     // Torn down while open (the mod turned off), it keeps what was edited,
@@ -708,6 +883,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _cursors.Dispose();
     ClosePopovers();
     _elementBar.Close();
+    _layers.EndPreview();
+    _layersPanel.Close();
     _modal.Close();
     _toolbar.Dispose();
     _popovers.Dispose();

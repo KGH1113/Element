@@ -26,6 +26,9 @@ internal sealed class NativeViewerHostLifetime
 
   // Filled again each frame the layout editor is open, without a new list.
   private readonly List<LayoutExclusion> _editorExclusions = new();
+
+  // Each viewer's latest covers, normalized, by native id: a new host gets them too.
+  private readonly Dictionary<string, List<LayoutBounds>> _covers = new(StringComparer.Ordinal);
   private DateTime _nextErrorCheckAt;
   private bool _suspended;
   private bool _visible = true;
@@ -99,6 +102,34 @@ internal sealed class NativeViewerHostLifetime
 
   public void Edit(bool editing) => _host?.Edit(editing);
 
+  /// <summary>Whether a host shows the pages now: a play or the layout editor, not hidden for a window or a render.</summary>
+  public bool Showing => _host != null && _shown && _visible && !_suspended;
+
+  /// <summary>
+  /// What overlay elements in front of the viewer <paramref name="nativeId"/>
+  /// draw over it, in screen pixels from the top left; kept for a later host.
+  /// </summary>
+  public void Cover(string nativeId, IReadOnlyList<LayoutBounds> screenTopLeftPixels)
+  {
+    if (!_covers.TryGetValue(nativeId, out List<LayoutBounds> covers))
+    {
+      if (screenTopLeftPixels.Count == 0)
+        return;
+      covers = new List<LayoutBounds>(screenTopLeftPixels.Count);
+      _covers.Add(nativeId, covers);
+    }
+    covers.Clear();
+    float width = Screen.width,
+      height = Screen.height;
+    if (width > 0 && height > 0)
+      for (int i = 0; i < screenTopLeftPixels.Count; i++)
+      {
+        LayoutBounds cover = screenTopLeftPixels[i];
+        covers.Add(new LayoutBounds(cover.X / width, cover.Y / height, cover.Width / width, cover.Height / height));
+      }
+    _host?.Cover(nativeId, covers);
+  }
+
   /// <summary>The session ended: its pages are gone, so a new one starts from fresh descriptors.</summary>
   public void ForgetSurfaces() => _knownSurfaces = Array.Empty<NativeViewerSurface>();
 
@@ -151,6 +182,8 @@ internal sealed class NativeViewerHostLifetime
         _host.FitGame(Screen.width, Screen.height);
         ApplyEnabledSurfaces();
         _host.ExcludeEditor(_editorExclusions);
+        foreach (KeyValuePair<string, List<LayoutBounds>> covers in _covers)
+          _host.Cover(covers.Key, covers.Value);
         _host.Edit(_targets.Editing);
         _targets.Bind(_host);
       }

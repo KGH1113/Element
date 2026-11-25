@@ -5,16 +5,12 @@ using Element.Presentation.Overlay.Text;
 
 namespace Element.Presentation.Overlay.Canvas;
 
-/// <summary>Texts: drawn above everything else, only while the overlay font is loaded.</summary>
+/// <summary>Texts: drawn only while the overlay font is loaded.</summary>
 internal sealed class TextElementKind : OverlayElementKind<TextOverlayElement>
 {
   private readonly OverlayCanvasHost _host;
 
   public TextElementKind(OverlayCanvasHost host) => _host = host;
-
-  public override string LayerName => "Texts";
-
-  public override int LayerDepth => 2;
 
   public override bool Owns(string templateId) => templateId == OverlayElementKinds.Text;
 

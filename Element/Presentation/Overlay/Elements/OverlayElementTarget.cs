@@ -1,10 +1,12 @@
 using System;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
+using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Overlay.Elements;
 
@@ -14,7 +16,7 @@ namespace Element.Presentation.Overlay.Elements;
 /// bounds, not the edit rectangle, carry the anchor, so a value growing wider
 /// keeps the chosen edge in place.
 /// </summary>
-internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
+internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IOverlayCover, IDisposable
 {
   private readonly Vector3[] _corners = new Vector3[4];
   private readonly OverlayLayoutSettings _stagedSettings = new();
@@ -23,6 +25,10 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   private Rect _stageOrigin;
   private bool _applying;
 
+  // Counts up whenever the element may have moved, changed size or shown or
+  // hidden; each kind adds what changes its drawing (IOverlayCover).
+  private int _placementVersion;
+
   protected OverlayElementTarget(Transform parent, string name)
   {
     GameObject root = new(name, typeof(RectTransform));
@@ -30,7 +36,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     Rect.SetParent(parent, false);
   }
 
-  protected RectTransform Rect { get; private set; }
+  protected internal RectTransform Rect { get; private set; }
   public OverlayLayoutSettings Settings { get; private set; }
   public string Id => Settings?.Id ?? string.Empty;
   public string TemplateId => Settings?.TemplateId ?? string.Empty;
@@ -129,6 +135,40 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 
   public bool HasContent => Rect != null && TryGetLocalContent(out _);
 
+  /// <inheritdoc/>
+  public virtual int CoverVersion => _placementVersion;
+
+  /// <summary>On, and on screen: its canvas shows and nothing hides it.</summary>
+  protected bool OnScreen => Rect != null && Settings != null && Enabled && Rect.gameObject.activeInHierarchy;
+
+  /// <summary>Its rectangle on screen while it shows; kinds whose drawing reaches further say so.</summary>
+  public virtual bool TryGetCoverBounds(out LayoutBounds screenTopLeft)
+  {
+    screenTopLeft = default;
+    if (!OnScreen)
+      return false;
+    Rect bounds = Bounds;
+    screenTopLeft = new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height);
+    return bounds.width > 0 && bounds.height > 0;
+  }
+
+  /// <inheritdoc/>
+  public abstract void Rasterize(ViewerCoverRuns runs);
+
+  /// <summary>Something its kind draws changed where the base can't see it.</summary>
+  protected void CoverChanged() => _placementVersion++;
+
+  /// <summary>
+  /// A point of this element's rect, in screen pixels from the top left, via
+  /// <paramref name="toWorld"/> (its <see cref="Transform.localToWorldMatrix"/>,
+  /// read once per drawing). An overlay canvas's world space is the screen's.
+  /// </summary>
+  protected static NVector2 ToScreen(in Matrix4x4 toWorld, Vector3 local, float screenHeight)
+  {
+    Vector3 world = toWorld.MultiplyPoint3x4(local);
+    return new NVector2(world.x, screenHeight - world.y);
+  }
+
   public void Configure(OverlayLayoutSettings settings)
   {
     Settings = settings;
@@ -146,6 +186,19 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   }
 
   public void RefreshLayout() => Apply();
+
+  /// <summary>
+  /// Puts the element at <paramref name="index"/> among the layer's elements,
+  /// counted from the back; false when it has no object to place.
+  /// </summary>
+  public bool DrawAt(int index)
+  {
+    if (Rect == null)
+      return false;
+    if (Rect.GetSiblingIndex() != index)
+      Rect.SetSiblingIndex(index);
+    return true;
+  }
 
   // Text runs or shape geometry changed in Settings.
   protected abstract void ApplyContent();
@@ -169,6 +222,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
       return;
     Settings.Enabled = enabled;
     ApplyVisibility();
+    _placementVersion++;
   }
 
   public void ResetLayout()
@@ -228,6 +282,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     finally
     {
       _applying = false;
+      _placementVersion++;
     }
   }
 
@@ -254,6 +309,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     BeginStage();
     float scale = ValidScale(Rect.localScale.x * bounds.width / current.width, true);
     Rect.localScale = new Vector3(scale, scale, 1);
+    _placementVersion++;
     FitVisibleSize(Bounds, Screen.width, Screen.height);
     StageCenter(bounds.center);
   }
@@ -304,19 +360,34 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if ((!_staged && !initialize) || Settings == null || Rect == null)
       return;
+    Commit(
+      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null,
+      reselectAnchor && !initialize
+    );
+  }
+
+  public void CommitLayout(Anchor9 anchor)
+  {
+    if (Settings == null || Rect == null)
+      return;
+    Commit(anchor, true);
+  }
+
+  // Saves the placement against anchor, or the nearest screen point for null.
+  private void Commit(Anchor9? anchor, bool keepScale)
+  {
     Rect content = AnchorBounds;
     AnchoredLayoutPosition position = OverlayLayoutPosition.Capture(
       new LayoutBounds(content.x, content.y, content.width, content.height),
       Screen.width,
       Screen.height,
-      !reselectAnchor && OverlayLayoutPosition.IsAnchored(Settings) ? Settings.Anchor : null,
+      anchor,
       Settings.GrowFrom
     );
     if (!position.IsValid)
       return;
     bool preserveScale =
-      reselectAnchor
-      && !initialize
+      keepScale
       && OverlayLayoutPosition.IsAnchored(Settings)
       && OverlayLayoutGeometry.Finite(Settings.Scale)
       && Settings.Scale > 0;
@@ -376,6 +447,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     Rect.localScale = new Vector3(scale, scale, 1);
     Rect current = AnchorBounds;
     Rect.position += new Vector3(content.center.x - current.center.x, current.center.y - content.center.y, 0);
+    _placementVersion++;
   }
 
   private static void StorePosition(OverlayLayoutSettings settings, AnchoredLayoutPosition position)
@@ -391,6 +463,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     Rect bounds = Bounds;
     Rect.position += new Vector3(center.x - bounds.center.x, bounds.center.y - center.y, 0f);
+    _placementVersion++;
   }
 
   // Shrinks an element too large to keep a tenth of it inside the viewport.
@@ -427,6 +500,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if (!_applying && !_staged && Settings != null && OverlayLayoutPosition.IsAnchored(Settings) && !PendingFit)
       ApplyPosition();
+    _placementVersion++;
     ContentChanged?.Invoke(this);
   }
 
@@ -452,10 +526,50 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     && Mathf.Abs(a.width - b.width) < .001f
     && Mathf.Abs(a.height - b.height) < .001f;
 
+  /// <summary>
+  /// A still copy of what the element draws now, under <paramref name="parent"/>,
+  /// for a picture of it such as a layer card: only what draws is kept, and
+  /// nothing in it takes the pointer. Null when it draws nothing.
+  /// <paramref name="screen"/> is where the element is drawn, in screen pixels
+  /// from the bottom left.
+  /// </summary>
+  public RectTransform Snapshot(Transform parent, out Rect screen)
+  {
+    screen = default;
+    if (Rect == null || !Rect.gameObject.activeInHierarchy || !Enabled)
+      return null;
+    Rect.GetWorldCorners(_corners);
+    screen = UnityEngine.Rect.MinMaxRect(_corners[0].x, _corners[0].y, _corners[2].x, _corners[2].y);
+    if (screen.width <= 0 || screen.height <= 0)
+      return null;
+    GameObject copy = UnityEngine.Object.Instantiate(Rect.gameObject, parent, false);
+    copy.name = "Snapshot: " + Id;
+    CopyDrawing(Rect.gameObject, copy);
+    foreach (MonoBehaviour behaviour in copy.GetComponentsInChildren<MonoBehaviour>(true))
+    {
+      if (behaviour is UnityEngine.UI.Graphic graphic)
+        graphic.raycastTarget = false;
+      else if (behaviour is not UnityEngine.UI.RectMask2D and not UnityEngine.UI.Mask)
+        UiFactory.Destroy(behaviour);
+    }
+    return (RectTransform)copy.transform;
+  }
+
+  // A copied object keeps what its graphics hold themselves, as text does,
+  // but not the shapes given to shape graphics in code: those are handed over.
+  private static void CopyDrawing(GameObject original, GameObject copy)
+  {
+    Shape.ShapeGraphic[] from = original.GetComponentsInChildren<Shape.ShapeGraphic>(true),
+      to = copy.GetComponentsInChildren<Shape.ShapeGraphic>(true);
+    for (int i = 0; i < from.Length && i < to.Length; i++)
+      to[i].CopyFrom(from[i]);
+  }
+
   public virtual void Dispose()
   {
     if (Rect != null)
       UiFactory.Destroy(Rect.gameObject);
     Rect = null;
+    _placementVersion++;
   }
 }

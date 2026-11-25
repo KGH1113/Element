@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Element.Application.KeyViewer;
 using Element.Application.Layout;
 using Element.Configuration;
+using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Fonts;
@@ -26,8 +28,10 @@ internal sealed class CanvasSession
   public const float MaximumScale = 10f;
 
   /// <summary>The main toolbar's width before it is scaled to the view.</summary>
-  public const float ToolbarWidth = 760;
+  public const float ToolbarWidth = 876;
 
+  private readonly HashSet<string> _committedGroups = new();
+  private readonly List<IOverlayLayoutTarget> _groupMembers = new();
   private int _viewportWidth,
     _viewportHeight;
 
@@ -143,6 +147,75 @@ internal sealed class CanvasSession
         AddFrame(target);
   }
 
+  /// <summary>
+  /// Saves where <paramref name="moved"/> are now. An element in a group is
+  /// saved with its whole group against one screen point, so the group stays
+  /// together when the screen size changes; the rest pick their nearest point.
+  /// </summary>
+  public void CommitMoved(IReadOnlyList<IOverlayLayoutTarget> moved)
+  {
+    _committedGroups.Clear();
+    foreach (IOverlayLayoutTarget target in moved)
+    {
+      string group = GroupOf(target);
+      if (group == null)
+      {
+        target.CommitLayout(true);
+        continue;
+      }
+      if (!_committedGroups.Add(group))
+        continue;
+      GroupFrames(group, _groupMembers);
+      Anchor9 anchor = GroupAnchor(_groupMembers);
+      foreach (IOverlayLayoutTarget member in _groupMembers)
+        member.CommitLayout(anchor);
+    }
+  }
+
+  // The screen point nearest the group as a whole; only corners and the
+  // middle when a key viewer is in it, since those are all a viewer can hold.
+  private Anchor9 GroupAnchor(List<IOverlayLayoutTarget> members)
+  {
+    bool viewer = false;
+    float xMin = float.MaxValue,
+      yMin = float.MaxValue,
+      xMax = float.MinValue,
+      yMax = float.MinValue;
+    foreach (IOverlayLayoutTarget member in members)
+    {
+      viewer |= member is IOverlayLayoutPointer;
+      Rect bounds = member.Bounds;
+      bounds.position -= OffsetOf(member);
+      xMin = Mathf.Min(xMin, bounds.xMin);
+      yMin = Mathf.Min(yMin, bounds.yMin);
+      xMax = Mathf.Max(xMax, bounds.xMax);
+      yMax = Mathf.Max(yMax, bounds.yMax);
+    }
+    LayoutBounds union = new(xMin, yMin, xMax - xMin, yMax - yMin);
+    return viewer
+      ? NativeViewerGrowth.SelectAnchor(union, Screen.width, Screen.height)
+      : OverlayLayoutPosition.SelectAnchor(union, Screen.width, Screen.height);
+  }
+
+  /// <summary>The group <paramref name="target"/> is in, or null.</summary>
+  public string GroupOf(IOverlayLayoutTarget target) =>
+    target == null ? null : LayoutGroups.Of(Host.LayoutSettings, target.Id);
+
+  /// <summary>Where <paramref name="target"/> draws: higher is further in front; -1 when it isn't saved.</summary>
+  public int DrawIndex(IOverlayLayoutTarget target) =>
+    target == null ? -1 : LayoutLayers.IndexOf(Host.LayoutSettings, target.Id);
+
+  /// <summary>The frames of <paramref name="group"/>'s shown elements, into <paramref name="members"/>.</summary>
+  public void GroupFrames(string group, List<IOverlayLayoutTarget> members)
+  {
+    members.Clear();
+    if (string.IsNullOrEmpty(group))
+      return;
+    foreach (CanvasFrame frame in Frames)
+      if (CanvasSelection.Selectable(frame.Target) && GroupOf(frame.Target) == group)
+        members.Add(frame.Target);
+  }
+
   public int IndexOf(IOverlayLayoutTarget target)
   {
     for (int i = 0; i < Frames.Count; i++)
@@ -160,6 +233,18 @@ internal sealed class CanvasSession
       transform.sizeDelta = size;
     if (transform.anchoredPosition != position)
       transform.anchoredPosition = position;
+  }
+
+  /// <summary>
+  /// How far <paramref name="target"/>'s own space is from the editor's: zero
+  /// except for native viewers, which measure from their window's origin.
+  /// </summary>
+  public static Vector2 OffsetOf(IOverlayLayoutTarget target)
+  {
+    if (target is not IOverlayLayoutPointer)
+      return Vector2.zero;
+    Vector2 mouse = Mouse;
+    return PointerFor(target, mouse) - mouse;
   }
 
   /// <summary>The pointer in <paramref name="target"/>'s space: native viewers measure from their own origin.</summary>

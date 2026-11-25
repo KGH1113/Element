@@ -132,6 +132,22 @@ internal sealed class ElementNoteNativeViewers : IKeyViewerElements, IInGameKeyV
   public void SetEditorExclusions(IReadOnlyList<LayoutExclusion> screenTopLeftPixels) =>
     _host.ExcludeEditor(screenTopLeftPixels);
 
+  public bool Showing => !_disposed && _host.Showing;
+
+  // Unity main thread, from the overlay's covers once the canvases are laid out.
+  public void SetCovers(string viewerId, IReadOnlyList<LayoutBounds> screenTopLeftPixels)
+  {
+    if (_disposed)
+      return;
+    IReadOnlyList<NativeViewerLayoutTarget> targets = _targets.All;
+    for (int i = 0; i < targets.Count; i++)
+      if (targets[i].Id == viewerId)
+      {
+        _host.Cover(targets[i].NativeId, screenTopLeftPixels);
+        return;
+      }
+  }
+
   // Ready keeps the session and its pages, hidden, so a play only shows them:
   // loading them when the play starts showed them late on slow PCs.
   public void SetPresence(KeyViewerPresence presence)

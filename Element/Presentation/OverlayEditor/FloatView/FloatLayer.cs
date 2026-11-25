@@ -14,6 +14,8 @@ internal sealed class FloatLayer
 {
   public IOverlayLayoutTarget Target { get; }
   public RectTransform Face { get; }
+  public RectTransform Visual { get; }
+  public FloatFootprint Footprint { get; } = new();
   public Vector2 Home { get; }
   public float Rank,
     Velocity;
@@ -33,6 +35,7 @@ internal sealed class FloatLayer
       bounds = target.Bounds;
     Face = session.Ui.Rect(target.Id, plane, bounds.x, bounds.y, bounds.width, bounds.height);
     Home = Face.anchoredPosition;
+    Visual = session.Ui.Rect("Contents", Face, 0, 0, bounds.width, bounds.height);
     if (target is OverlayElementTarget element)
     {
       RectTransform shadow = session.Ui.Rect(target.Id, shadows, bounds.x, bounds.y, bounds.width, bounds.height);
@@ -46,7 +49,7 @@ internal sealed class FloatLayer
           continue;
         Vector3 point = graphic.rectTransform.position;
         Vector2 offset = new(point.x - bounds.x, Screen.height - point.y - bounds.y);
-        Copy(Face, offset, graphic, mesh, source.GetColor());
+        Copy(Visual, offset, graphic, mesh, source.GetColor());
         Copy(shadow, offset, graphic, mesh, new Color(0, 0, 0, .65f));
       }
     }
@@ -63,7 +66,7 @@ internal sealed class FloatLayer
       );
       var sample = NativeViewerMock.Create(
         target.TemplateId == OverlayElementKinds.FootKeyViewer ? "foot" : "hand",
-        Face,
+        Visual,
         session.Font,
         false
       );

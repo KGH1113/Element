@@ -8,8 +8,17 @@ namespace Element.Presentation.OverlayEditor.Canvas;
 
 internal sealed class CanvasCursors : IDisposable
 {
+  private const int GrabCursor = -2;
   private readonly Texture2D[] _textures = new Texture2D[5];
   private int _current = -1;
+
+  public void Grab()
+  {
+    if (_current == GrabCursor)
+      return;
+    _current = GrabCursor;
+    UiCursor.Apply(UiCursorKind.Grab);
+  }
 
   public void Set(LayoutHandle handle)
   {

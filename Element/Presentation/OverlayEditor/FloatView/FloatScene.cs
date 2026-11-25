@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Application.Input;
+using Element.Application.Layout;
+using Element.Domain.Layout;
 using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -16,6 +18,9 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
   private readonly Func<Rect> _toolbar;
   private readonly FloatOrbit _orbit = new();
   private readonly FloatOrder _order;
+  private readonly FloatHover _hover;
+  private readonly CanvasCursors _cursors;
+  private Vector2? _pointer;
   private readonly float _bottomMargin;
   private readonly RectTransform _root,
     _pitch,
@@ -40,11 +45,17 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
   private int _nativeFrame = -1;
   public bool Open = true;
 
-  public FloatScene(CanvasSession session, Func<Rect> toolbar)
+  public FloatScene(
+    CanvasSession session,
+    Func<Rect> toolbar,
+    Func<IOverlayLayoutTarget, string> label,
+    CanvasCursors cursors
+  )
   {
     _session = session;
     _toolbar = toolbar;
     _order = new FloatOrder(session);
+    _cursors = cursors;
     float w = session.ViewWidth,
       h = session.ViewHeight;
     Rect chrome = toolbar();
@@ -64,6 +75,7 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
     floor.texture = _picture.Texture;
     floor.color = floor.texture == null ? new Color(.10f, .12f, .15f) : Color.white;
     _shadows = session.Ui.Rect("Ground shadows", _plane, 0, 0, w, h);
+    _hover = new FloatHover(session, _root, label, toolbar);
     Refresh();
   }
 
@@ -129,6 +141,7 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
     _pitch.anchoredPosition = new Vector2(0, (_bottomMargin - liftBudget - 12) * .5f * t);
     Vector2 up = new(s, c);
     _step = Mathf.Min(h * .028f, h * .2f / Mathf.Max(1, _layers.Count)) * Mathf.Sin(pitch);
+    Matrix4x4 toScreen = _root.worldToLocalMatrix;
     for (int i = 0; i < _layers.Count; i++)
     {
       var layer = _layers[i];
@@ -141,7 +154,11 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
       if (layer == _drag)
         rise += _lift;
       layer.Face.anchoredPosition = layer.Home + up * (rise / _pitch.localScale.y);
+      layer.Footprint.Project(layer.Face, toScreen);
     }
+    if (_pointer.HasValue || _drag != null)
+      UpdateHover();
+    _hover.Place();
   }
 
   public void Pointer(Vector2 mouse)
@@ -162,19 +179,81 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
       if (!Input.GetMouseButton(0))
         End(mouse);
     }
+    else
+      Hover(mouse);
+  }
+
+  internal void Hover(Vector2 mouse)
+  {
+    if (
+      !Open
+      || _toolbar().Contains(mouse)
+      || mouse.x < 0
+      || mouse.x >= _session.ViewWidth
+      || mouse.y < 0
+      || mouse.y >= _session.ViewHeight
+    )
+    {
+      ClearHover();
+      return;
+    }
+    if (_pointer == mouse)
+      return;
+    _pointer = mouse;
+    UpdateHover();
+  }
+
+  private void UpdateHover()
+  {
+    FloatLayer candidate = _drag;
+    if (candidate == null && !_orbiting && _pointer.HasValue)
+    {
+      float unit = _session.UiScale;
+      candidate = Nearest(_pointer.Value, 14 * unit) ?? Nearest(_pointer.Value, 28 * unit);
+    }
+    _hover.Show(candidate);
+    if (candidate != null)
+      _cursors.Grab();
+    else
+      _cursors.Set(LayoutHandle.None);
+  }
+
+  private FloatLayer Nearest(Vector2 mouse, float radius)
+  {
+    FloatLayer closest = null;
+    float best = radius * radius;
+    // Front to back, so equally distant faces keep the frontmost hit.
+    for (int i = _layers.Count - 1; i >= 0; i--)
+    {
+      float distance = _layers[i].Footprint.DistanceSquared(mouse, radius);
+      if (distance == 0)
+        return _layers[i];
+      if (distance < best || (closest == null && distance == best))
+      {
+        best = distance;
+        closest = _layers[i];
+      }
+    }
+    return closest;
+  }
+
+  public void ClearHover()
+  {
+    _pointer = null;
+    _hover.Show(null);
+    _cursors.Set(LayoutHandle.None);
   }
 
   internal void Begin(Vector2 mouse)
   {
     _press = _last = mouse;
-    Vector2 screen = new(mouse.x, _session.ViewHeight - mouse.y);
-    for (int i = _layers.Count - 1; i >= 0; i--)
-      if (RectTransformUtility.RectangleContainsScreenPoint(_layers[i].Face, screen))
-      {
-        _drag = _layers[i];
-        _lastClick = -1;
-        return;
-      }
+    Hover(mouse);
+    _drag = _hover.Target;
+    if (_drag != null)
+    {
+      _lastClick = -1;
+      return;
+    }
     _orbit.Grab();
     _orbiting = true;
   }
@@ -216,10 +295,12 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
       _lastClick = Time.unscaledTime;
     }
     CancelGesture();
+    Hover(mouse);
   }
 
   public void CancelGesture()
   {
+    ClearHover();
     _orbiting = false;
     _drag = null;
     _lift = 0;
@@ -245,6 +326,7 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
 
   public void Dispose()
   {
+    ClearHover();
     _root.gameObject.SetActive(false);
     UiFactory.Destroy(_root.gameObject);
     _picture.Dispose();

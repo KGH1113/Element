@@ -126,7 +126,7 @@ public sealed class EffectSettings
       {
         Id = RemoveAllId,
         Name = "Remove All",
-        Effects = EffectCatalog.All,
+        Effects = EffectCatalog.All & ~EffectCatalog.GameplayEffects,
       },
       new()
       {
@@ -138,7 +138,9 @@ public sealed class EffectSettings
       {
         Id = OnlyTilesId,
         Name = "Only Tiles",
-        Effects = EffectCatalog.All & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents),
+        Effects =
+          EffectCatalog.All
+          & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents | EffectCatalog.GameplayEffects),
       },
     };
   }

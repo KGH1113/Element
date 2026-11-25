@@ -28,4 +28,5 @@ public enum RemovedEffects : long
   RepeatEvents = 1L << 19,
   FrameRate = 1L << 20,
   Checkpoints = 1L << 21,
+  HitboxDecorations = 1L << 22,
 }

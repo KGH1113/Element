@@ -2,7 +2,10 @@ namespace Element.Configuration.Effects;
 
 public static class EffectCatalog
 {
-  public const RemovedEffects All = (RemovedEffects)((1L << 22) - 1);
+  public const RemovedEffects All = (RemovedEffects)((1L << 23) - 1);
+
+  /// <summary>Removals that change how a map plays. No default preset includes them.</summary>
+  public const RemovedEffects GameplayEffects = RemovedEffects.HitboxDecorations;
   public const RemovedEffects FilterEffects = RemovedEffects.Filters | RemovedEffects.AdvancedFilters;
   public const RemovedEffects TrackEffects =
     RemovedEffects.TrackAnimations
@@ -66,8 +69,16 @@ public static class EffectCatalog
       EffectGroup.Scene,
       "Decorations",
       "장식",
-      "Remove visual decorations; keep those used by gameplay conditions.",
-      "시각 장식을 제거하고 게임플레이 조건에 쓰이는 장식은 유지합니다."
+      "Remove visual decorations; keep hitbox decorations and those used by gameplay conditions.",
+      "시각 장식을 제거하고 히트박스 장식과 게임플레이 조건에 쓰이는 장식은 유지합니다."
+    ),
+    new(
+      RemovedEffects.HitboxDecorations,
+      EffectGroup.Scene,
+      "Hitbox decorations",
+      "히트박스 장식",
+      "Remove decorations with kill or event hitboxes. This changes how the map plays.",
+      "죽음·이벤트 히트박스가 있는 장식을 제거합니다. 맵의 플레이 방식이 달라집니다."
     ),
     new(
       RemovedEffects.Particles,

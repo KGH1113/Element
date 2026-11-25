@@ -36,6 +36,14 @@ public sealed class OverlayLayoutSettings
   // placement here until they are fitted together on their first layout.
   public string PendingGroup = string.Empty;
 
+  // The group this element is in, or empty. The list's order is the drawing
+  // order, back to front; a group's elements sit next to each other in it.
+  public string Group = string.Empty;
+
+  // The group's name as typed, kept on each of its elements; empty for a
+  // built-in group, which is named in the player's language.
+  public string GroupName = string.Empty;
+
   public OverlayTextSettings Text;
   public OverlayShapeSettings Shape;
 
@@ -57,6 +65,8 @@ public sealed class OverlayLayoutSettings
     CopyPlacementFrom(source);
     DefaultPlacement = source.DefaultPlacement;
     PendingGroup = source.PendingGroup;
+    Group = source.Group;
+    GroupName = source.GroupName;
     Text = source.Text?.Clone();
     Shape = source.Shape?.Clone();
     Mod = source.Mod?.Clone();
@@ -91,6 +101,8 @@ public sealed class OverlayLayoutSettings
     && GrowFrom == other.GrowFrom
     && DefaultPlacement == other.DefaultPlacement
     && PendingGroup == other.PendingGroup
+    && Group == other.Group
+    && GroupName == other.GroupName
     && (Text?.SameAs(other.Text) ?? other.Text == null)
     && (Shape?.SameAs(other.Shape) ?? other.Shape == null)
     && (Mod?.SameAs(other.Mod) ?? other.Mod == null);

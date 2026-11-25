@@ -52,6 +52,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   private readonly ConfirmPanel _modal;
   private readonly CanvasReset _reset;
   private readonly CanvasKeyboardInput _keyboard;
+  private readonly CanvasLayers _layers;
   private readonly Func<IOverlayLayoutTarget, bool> _edit;
   private LayoutSnapshot _openingLayout;
   private string _openingColor;
@@ -86,6 +87,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _reset = new CanvasReset(_session, _modal, this, this, RebuildFrames, _elementBar.MarkStale);
     _edit = _kinds.Edit;
     _keyboard = new CanvasKeyboardInput(_session, _selection, _drag, _toolbar, _kinds, this);
+    _layers = new CanvasLayers(_session, _selection, _status);
   }
 
   public bool IsOpen => _session.IsOpen;
@@ -550,7 +552,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     }
     _selection.SelectOnly(-1);
     _drag.Cancel();
-    _session.Commit();
+    // A group left with one element is no group any more.
+    _layers.Changed();
     RefreshLayouts();
     UpdateFrames();
   }
@@ -654,6 +657,24 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     _session.Fonts?.SetDefault(_session.Preferences.OverlayFont);
   }
 
+  // ---- Layers and groups ----
+
+  private void ToggleLayers()
+  {
+    // Filled in with the layers panel.
+  }
+
+  // After a change to the order or the groups: the element toolbar and the
+  // outlines follow.
+  private void AfterLayers(bool changed)
+  {
+    if (!changed)
+      return;
+    _elementBar.MarkStale();
+    _toolbar.ViewModel.ForgetScale();
+    UpdateFrames();
+  }
+
   // ---- Everything the editor is asked to do: the player's commands, then what its parts ask ----
 
   void ICanvasActions.Undo() => Undo();
@@ -677,6 +698,36 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
   void ICanvasActions.Font() => ToggleFont();
 
   void ICanvasActions.Edit() => EditSelected();
+
+  void ICanvasActions.Layers() => ToggleLayers();
+
+  void ICanvasActions.Group() => AfterLayers(_layers.Group());
+
+  void ICanvasActions.Ungroup() => AfterLayers(_layers.Ungroup());
+
+  void ICanvasActions.Arrange(bool forward, bool toEnd) => AfterLayers(_layers.Arrange(forward, toEnd));
+
+  void ICanvasActions.MoveLayers(IReadOnlyCollection<string> ids, string behindId, string group)
+  {
+    _layers.Move(ids, behindId, group);
+    AfterLayers(true);
+  }
+
+  void ICanvasActions.RenameGroup(string group, string name)
+  {
+    _layers.Rename(group, name);
+    AfterLayers(true);
+  }
+
+  void ICanvasActions.SelectLayer(string id, string group, bool adding)
+  {
+    FinishDrag();
+    _layers.Select(id, group, adding);
+    _toolbar.ViewModel.DropTypedScale();
+    UpdateFrames();
+  }
+
+  void ICanvasActions.PeekLayers(IReadOnlyCollection<string> ids) => _layers.Peek(ids);
 
   bool ICanvasActions.Settle() => Settle();
 

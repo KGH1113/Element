@@ -177,9 +177,16 @@ internal static class LayoutEditingTests
     history.Reset(values);
     OverlayElementDefaults.Restore(values, new HashSet<string> { "fps", "dmnote-hand" });
     history.Commit(values);
+    OverlayLayoutSettings Find(string id) => values.Find(value => value.Id == id);
     Check(
-      values[0].Enabled && values[1].Enabled && !values[2].Enabled,
+      Find("fps").Enabled && Find("dmnote-hand").Enabled && !Find("fps:copy").Enabled,
       "factory reset restores deleted defaults and removes added instances"
+    );
+    Check(
+      values.FindIndex(value => value.Id == OverlayElementDefaults.ProgressFillId)
+        < values.FindIndex(value => value.Id == "fps")
+        && Find(OverlayElementDefaults.ProgressBarId).Group == OverlayElementDefaults.ProgressBarGroup,
+      "factory reset draws the progress bar behind the texts again, as one group"
     );
     foreach (var value in values)
       Check(
@@ -199,7 +206,7 @@ internal static class LayoutEditingTests
       "one undo restores the complete pre-reset composition and placement"
     );
     history.Redo(values);
-    Check(values[0].Enabled && !values[2].Enabled, "redo reapplies the complete reset");
+    Check(Find("fps").Enabled && !Find("fps:copy").Enabled, "redo reapplies the complete reset");
     before.Restore(values);
     Check(before.Matches(new LayoutSnapshot(values)), "cancel recovers the exact pre-reset layout");
   }

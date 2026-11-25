@@ -20,9 +20,9 @@ internal sealed class CanvasDragInput
   private readonly CanvasCursors _cursors;
   private readonly Func<IOverlayLayoutTarget, bool> _sizedInEditor;
   private readonly List<LayoutBounds> _snapReferences = new();
-  private readonly List<Rect> _groupStart = new();
-  private readonly List<IOverlayLayoutTarget> _groupTargets = new();
-  private readonly List<LayoutBounds> _groupBounds = new();
+  private readonly List<Rect> _severalStart = new();
+  private readonly List<IOverlayLayoutTarget> _severalTargets = new();
+  private readonly List<LayoutBounds> _severalBounds = new();
   private int _dragging = -1;
   private LayoutHandle _handle;
   private Rect _start;
@@ -74,12 +74,21 @@ internal sealed class CanvasDragInput
     if (doubleClick && edit(_session.Frames[hovered].Target))
       return true;
     IOverlayLayoutTarget target = _session.Frames[hovered].Target;
-    // Pressing one of several selected elements moves them all.
+    string group = _session.GroupOf(target);
+    // Pressing one of several selected elements moves them all; a press
+    // that doesn't move picks it alone, as a second press into a group does.
     if (_selection.Multi && _selection.Contains(target))
     {
       _selection.Selected = hovered;
       _collapseTo = hovered;
-      BeginGroup();
+      BeginSeveral();
+    }
+    // The first press on a grouped element takes its whole group, unless an
+    // element of that group is already picked on its own.
+    else if (group != null && _session.GroupOf(_selection.Primary) != group)
+    {
+      _selection.SelectGroup(group, hovered);
+      BeginSeveral();
     }
     else
       _selection.SelectOnly(hovered);
@@ -100,8 +109,8 @@ internal sealed class CanvasDragInput
       _pressMoved = true;
     if (frame.Target.Available && Input.GetMouseButton(0) && _pressMoved)
     {
-      if (GroupDragging)
-        DragGroup(mouse);
+      if (SeveralDragging)
+        DragSeveral(mouse);
       else
         DragBox(frame, mouse);
     }
@@ -126,20 +135,20 @@ internal sealed class CanvasDragInput
     _collapseTo = -1;
     if (_dragging < 0 || _dragging >= _session.Frames.Count)
     {
-      _groupTargets.Clear();
+      _severalTargets.Clear();
       return;
     }
-    if (GroupDragging)
+    if (SeveralDragging)
     {
       // A press that didn't move leaves every element where it was saved.
       if (_pressMoved)
-        foreach (IOverlayLayoutTarget member in _groupTargets)
+        foreach (IOverlayLayoutTarget member in _severalTargets)
           member.CommitLayout(true);
     }
     else
       _session.Frames[_dragging].Target.CommitLayout(_handle == LayoutHandle.Move);
-    _groupTargets.Clear();
-    _groupStart.Clear();
+    _severalTargets.Clear();
+    _severalStart.Clear();
     _dragging = -1;
     _session.Commit();
   }
@@ -178,53 +187,53 @@ internal sealed class CanvasDragInput
 
   // ---- Moving several at once ----
 
-  private void BeginGroup()
+  private void BeginSeveral()
   {
-    _groupTargets.Clear();
-    _groupStart.Clear();
+    _severalTargets.Clear();
+    _severalStart.Clear();
     foreach (IOverlayLayoutTarget target in _selection.Targets)
     {
-      _groupTargets.Add(target);
-      _groupStart.Add(target.Bounds);
+      _severalTargets.Add(target);
+      _severalStart.Add(target.Bounds);
     }
   }
 
-  private bool GroupDragging => _groupTargets.Count > 1;
+  private bool SeveralDragging => _severalTargets.Count > 1;
 
-  private void DragGroup(Vector2 mouse)
+  private void DragSeveral(Vector2 mouse)
   {
     IOverlayLayoutTarget primary = _session.Frames[_dragging].Target;
     Vector2 pointer = CanvasSession.PointerFor(primary, mouse);
     float dx = pointer.x - _pointerStart.x,
       dy = pointer.y - _pointerStart.y;
-    ClampGroupMove(_groupStart, ref dx, ref dy);
+    ClampSeveralMove(_severalStart, ref dx, ref dy);
     if (_session.Preferences.LayoutSnapping && !EditorKeys.AltHeld)
     {
-      _groupBounds.Clear();
-      foreach (Rect start in _groupStart)
-        _groupBounds.Add(new LayoutBounds(start.x + dx, start.y + dy, start.width, start.height));
-      LayoutBounds group = LayoutArrange.Union(_groupBounds);
+      _severalBounds.Clear();
+      foreach (Rect start in _severalStart)
+        _severalBounds.Add(new LayoutBounds(start.x + dx, start.y + dy, start.width, start.height));
+      LayoutBounds together = LayoutArrange.Union(_severalBounds);
       _snapReferences.Clear();
       List<CanvasFrame> frames = _session.Frames;
       for (int i = 0; i < frames.Count; i++)
-        if (CanvasSelection.Selectable(frames[i].Target) && !_groupTargets.Contains(frames[i].Target))
+        if (CanvasSelection.Selectable(frames[i].Target) && !_severalTargets.Contains(frames[i].Target))
           _snapReferences.Add(CanvasSession.ToBounds(frames[i].Target.Bounds));
-      LayoutBounds snapped = _guides.Snap(group, _snapReferences, 7 * _session.UiScale);
-      dx += snapped.X - group.X;
-      dy += snapped.Y - group.Y;
-      ClampGroupMove(_groupStart, ref dx, ref dy);
+      LayoutBounds snapped = _guides.Snap(together, _snapReferences, 7 * _session.UiScale);
+      dx += snapped.X - together.X;
+      dy += snapped.Y - together.Y;
+      ClampSeveralMove(_severalStart, ref dx, ref dy);
     }
     else
       _guides.HideLines();
-    for (int i = 0; i < _groupTargets.Count; i++)
+    for (int i = 0; i < _severalTargets.Count; i++)
     {
-      Rect start = _groupStart[i];
-      _groupTargets[i].SetBounds(new Rect(start.x + dx, start.y + dy, start.width, start.height));
+      Rect start = _severalStart[i];
+      _severalTargets[i].SetBounds(new Rect(start.x + dx, start.y + dy, start.width, start.height));
     }
   }
 
-  // The most any element of the group may move while each stays on screen.
-  private static void ClampGroupMove(List<Rect> starts, ref float dx, ref float dy)
+  // The most any of the elements may move while each stays on screen.
+  private static void ClampSeveralMove(List<Rect> starts, ref float dx, ref float dy)
   {
     float x = dx,
       y = dy;
@@ -251,17 +260,17 @@ internal sealed class CanvasDragInput
   public void Nudge(float dx, float dy)
   {
     List<IOverlayLayoutTarget> selection = _selection.Targets;
-    _groupStart.Clear();
+    _severalStart.Clear();
     foreach (IOverlayLayoutTarget target in selection)
-      _groupStart.Add(target.Bounds);
-    ClampGroupMove(_groupStart, ref dx, ref dy);
+      _severalStart.Add(target.Bounds);
+    ClampSeveralMove(_severalStart, ref dx, ref dy);
     for (int i = 0; i < selection.Count; i++)
     {
-      Rect start = _groupStart[i];
+      Rect start = _severalStart[i];
       selection[i].SetBounds(new Rect(start.x + dx, start.y + dy, start.width, start.height));
       selection[i].CommitLayout(true);
     }
-    _groupStart.Clear();
+    _severalStart.Clear();
   }
 
   // Dragging an edge resizes one selected element, except those sized in
@@ -276,17 +285,18 @@ internal sealed class CanvasDragInput
     // element's compact content overlaps it. New copies must remain draggable.
     if (_selection.Multi)
     {
-      // Several selected: each only moves, and the smallest under the pointer wins.
+      // Several selected: each only moves, and the front-most under the pointer wins.
       int owner = -1;
-      float smallest = float.MaxValue;
+      int front = -1;
       foreach (IOverlayLayoutTarget member in _selection.Targets)
       {
         Rect bounds = member.Bounds;
         Vector2 local = CanvasSession.PointerFor(member, pointer);
-        if (!bounds.Contains(local) || bounds.width * bounds.height >= smallest)
+        int drawn = _session.DrawIndex(member);
+        if (!bounds.Contains(local) || drawn < front)
           continue;
         owner = _session.IndexOf(member);
-        smallest = bounds.width * bounds.height;
+        front = drawn;
       }
       if (owner >= 0)
       {
@@ -311,7 +321,9 @@ internal sealed class CanvasDragInput
       if (bestHandle != LayoutHandle.None)
         return _selection.Selected;
     }
+    // What is seen is what is picked: the front-most element under the pointer.
     int best = -1;
+    int bestFront = -1;
     float bestArea = float.MaxValue;
     bestHandle = LayoutHandle.None;
     for (int index = 0; index < frames.Count; index++)
@@ -337,9 +349,15 @@ internal sealed class CanvasDragInput
       bool edge = handle != LayoutHandle.Move;
       bool bestEdge = bestHandle != LayoutHandle.None && bestHandle != LayoutHandle.Move;
       float area = bounds.width * bounds.height;
-      if (best < 0 || (edge && !bestEdge) || (edge == bestEdge && area <= bestArea))
+      int front = _session.DrawIndex(target);
+      if (
+        best < 0
+        || (edge && !bestEdge)
+        || (edge == bestEdge && (front > bestFront || (front == bestFront && area <= bestArea)))
+      )
       {
         best = index;
+        bestFront = front;
         bestArea = area;
         bestHandle = handle;
       }

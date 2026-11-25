@@ -21,7 +21,7 @@ public sealed class ElementSettings : UnityModManager.ModSettings
   public bool AutoOpenCloseDmNote = true;
 
   /// <summary>The version SettingsMigrator brings settings to. Raise it with each new migration step.</summary>
-  public const int CurrentSettingsVersion = 9;
+  public const int CurrentSettingsVersion = 11;
 
   public const string DefaultHighlightColor = "#BA712B";
 

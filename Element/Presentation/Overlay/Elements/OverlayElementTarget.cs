@@ -147,6 +147,19 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 
   public void RefreshLayout() => Apply();
 
+  /// <summary>
+  /// Puts the element at <paramref name="index"/> among the layer's elements,
+  /// counted from the back; false when it has no object to place.
+  /// </summary>
+  public bool DrawAt(int index)
+  {
+    if (Rect == null)
+      return false;
+    if (Rect.GetSiblingIndex() != index)
+      Rect.SetSiblingIndex(index);
+    return true;
+  }
+
   // Text runs or shape geometry changed in Settings.
   protected abstract void ApplyContent();
 

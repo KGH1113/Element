@@ -138,6 +138,25 @@ internal sealed class CanvasSession
         AddFrame(target);
   }
 
+  /// <summary>The group <paramref name="target"/> is in, or null.</summary>
+  public string GroupOf(IOverlayLayoutTarget target) =>
+    target == null ? null : LayoutGroups.Of(Host.LayoutSettings, target.Id);
+
+  /// <summary>Where <paramref name="target"/> draws: higher is further in front; -1 when it isn't saved.</summary>
+  public int DrawIndex(IOverlayLayoutTarget target) =>
+    target == null ? -1 : LayoutLayers.IndexOf(Host.LayoutSettings, target.Id);
+
+  /// <summary>The frames of <paramref name="group"/>'s shown elements, into <paramref name="members"/>.</summary>
+  public void GroupFrames(string group, List<IOverlayLayoutTarget> members)
+  {
+    members.Clear();
+    if (string.IsNullOrEmpty(group))
+      return;
+    foreach (CanvasFrame frame in Frames)
+      if (CanvasSelection.Selectable(frame.Target) && GroupOf(frame.Target) == group)
+        members.Add(frame.Target);
+  }
+
   public int IndexOf(IOverlayLayoutTarget target)
   {
     for (int i = 0; i < Frames.Count; i++)

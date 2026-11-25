@@ -135,6 +135,8 @@
       <GrowFrom>Auto</GrowFrom>
       <DefaultPlacement>DefaultPlacement</DefaultPlacement>
       <PendingGroup>PendingGroup</PendingGroup>
+      <Group>Group</Group>
+      <GroupName>GroupName</GroupName>
       <Text>
         <Runs>
           <OverlayTextRun>
@@ -412,6 +414,8 @@
             <GrowFrom>Auto</GrowFrom>
             <DefaultPlacement>DefaultPlacement</DefaultPlacement>
             <PendingGroup>PendingGroup</PendingGroup>
+            <Group>Group</Group>
+            <GroupName>GroupName</GroupName>
             <Text>
               <Runs>
                 <OverlayTextRun>

@@ -43,6 +43,14 @@ internal static class EffectLevelFilter
     "trackShadowColor",
   };
 
+  private static readonly string[] AnimationProperties =
+  {
+    "trackAnimation",
+    "beatsAhead",
+    "trackDisappearAnimation",
+    "beatsBehind",
+  };
+
   public static LevelData Create(
     LevelData source,
     RemovedEffects effects,
@@ -64,7 +72,7 @@ internal static class EffectLevelFilter
         ColorProperties
       );
     if (Has(effects, RemovedEffects.TrackAnimations))
-      ResetAnimations(result.trackSettings);
+      FixAnimations(result.trackSettings);
 
     // Without its moves, a camera pinned to a tile or a fixed spot would never
     // follow the planets. Start from the game's default camera, as Enhanced
@@ -253,7 +261,7 @@ internal static class EffectLevelFilter
       if (Has(effects, RemovedEffects.TrackColors))
         CopyProperties(trackSettings, result, ColorProperties);
       if (Has(effects, RemovedEffects.TrackAnimations))
-        ResetAnimations(result);
+        CopyProperties(trackSettings, result, AnimationProperties);
     }
     return result;
   }
@@ -270,11 +278,15 @@ internal static class EffectLevelFilter
     return !item.TryGet("opacity", out float value) || value != 100f;
   }
 
-  private static void ResetAnimations(LevelEvent settings)
+  /// <summary>
+  /// One tile animation for the whole map, as Enhanced Effect Remover plays it:
+  /// the map's opening appearance shows tiles 8 beats ahead, and a passed tile
+  /// fades out at once. Mid-map changes (AnimateTrack, ChangeTrack) are dropped.
+  /// </summary>
+  internal static void FixAnimations(LevelEvent settings)
   {
-    settings["trackAnimation"] = TrackAnimationType.None;
-    settings["trackDisappearAnimation"] = TrackAnimationType2.None;
     settings["beatsAhead"] = 8f;
+    settings["trackDisappearAnimation"] = TrackAnimationType2.Fade;
     settings["beatsBehind"] = 0f;
   }
 

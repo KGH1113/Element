@@ -93,8 +93,8 @@ public static class EffectCatalog
       EffectGroup.Track,
       "Track animations",
       "타일 등장·퇴장",
-      "Use immediate tile appearance and disappearance.",
-      "타일의 등장·퇴장 애니메이션을 제거합니다."
+      "Ignore the map's mid-song tile animation changes; passed tiles fade out at once.",
+      "맵 중간의 타일 등장·퇴장 변경을 무시하고, 밟은 타일은 바로 사라지게 합니다."
     ),
     new(
       RemovedEffects.TrackMovement,

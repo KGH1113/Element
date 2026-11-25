@@ -49,6 +49,33 @@ internal sealed class UiIcon : UiVectorGraphic
         Arc(mesh, 12, 12, 10.5f, -32, 32);
         Arc(mesh, 12, 12, 10.5f, 148, 212);
         break;
+      case UiIconKind.Less:
+        Line(mesh, 17, 6, 7, 12, 2.4f);
+        Line(mesh, 7, 12, 17, 18, 2.4f);
+        break;
+      case UiIconKind.LessOrSame:
+        Line(mesh, 17, 4, 7, 9.5f, 2.4f);
+        Line(mesh, 7, 9.5f, 17, 15, 2.4f);
+        Line(mesh, 7, 19.5f, 17, 19.5f, 2.4f);
+        break;
+      case UiIconKind.Same:
+        Line(mesh, 6, 9, 18, 9, 2.4f);
+        Line(mesh, 6, 15, 18, 15, 2.4f);
+        break;
+      case UiIconKind.NotSame:
+        Line(mesh, 6, 9, 18, 9, 2.4f);
+        Line(mesh, 6, 15, 18, 15, 2.4f);
+        Line(mesh, 15.5f, 4.5f, 8.5f, 19.5f, 2.4f);
+        break;
+      case UiIconKind.MoreOrSame:
+        Line(mesh, 7, 4, 17, 9.5f, 2.4f);
+        Line(mesh, 17, 9.5f, 7, 15, 2.4f);
+        Line(mesh, 7, 19.5f, 17, 19.5f, 2.4f);
+        break;
+      case UiIconKind.More:
+        Line(mesh, 7, 6, 17, 12, 2.4f);
+        Line(mesh, 17, 12, 7, 18, 2.4f);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);

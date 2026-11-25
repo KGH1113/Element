@@ -59,6 +59,7 @@ internal sealed class FormulaEditing : Observable
     if (same)
       return;
     _working = slot.Read();
+    _typed = false;
     Changed();
   }
 
@@ -179,9 +180,22 @@ internal sealed class FormulaEditing : Observable
     return FormulaDropResult.Applied;
   }
 
+  /// <summary>Something was typed or dropped since the place opened; a formula only read back is not.</summary>
+  public bool Typed
+  {
+    get
+    {
+      Reading();
+      return _typed;
+    }
+  }
+
+  private bool _typed;
+
   // The formula changed in place: its readers follow, and the slot takes the finished part.
   private void Commit()
   {
+    _typed = true;
     Changed();
     OverlayFormula finished = _working.Trimmed();
     // A number field keeps its last number until something new is typed; a

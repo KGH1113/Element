@@ -115,7 +115,8 @@ internal sealed class GradientEditing
   /// </summary>
   public bool Refresh(OverlayColorSettings color)
   {
-    if (!_picker.Visible || color == null)
+    // While the picker shows a case's color, the gradient isn't what it edits.
+    if (!_picker.Visible || color == null || _picker.ShowsOther)
     {
       Handles.Hide();
       return false;

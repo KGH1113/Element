@@ -86,7 +86,12 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
               If(() => VM.Error.Value.Length > 0, () => Error(14).Padding(new Insets(4, 0, 0, 0)))
             )
             .Padding(new Insets(12, 0, 0, 0)),
-        () => Opacity().Padding(new Insets(10, 0, 0, 0))
+        () =>
+          VStack(
+            spacing: 0,
+            Opacity().Padding(new Insets(10, 0, 0, 0)),
+            If(() => VM.DockNote.Value, () => DockNote().Padding(new Insets(10, 0, 0, 0)))
+          )
       ),
       HStack(
           spacing: 8,

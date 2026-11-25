@@ -1,5 +1,6 @@
 using System;
 using System.Linq.Expressions;
+using Element.Presentation.Ui.Graphics;
 using ElementUI;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
@@ -20,9 +21,11 @@ internal sealed class KeypadKeyViewModel : ViewModel
     bool symbol,
     Action press,
     Expression<Func<bool>> enabled,
-    Expression<Func<string>> saying = null
+    Expression<Func<string>> saying = null,
+    UiIconKind? icon = null
   )
   {
+    Icon = icon;
     Name = name;
     Label = label;
     Character = character;
@@ -33,6 +36,9 @@ internal sealed class KeypadKeyViewModel : ViewModel
   }
 
   public readonly string Name;
+
+  /// <summary>Drawn instead of its label; null for a key that says its label.</summary>
+  public readonly UiIconKind? Icon;
   public readonly string Label;
 
   /// <summary>What it says while that follows the formula; null when it always says <see cref="Label"/>.</summary>

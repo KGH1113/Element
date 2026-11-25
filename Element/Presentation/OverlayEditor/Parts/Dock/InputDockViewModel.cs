@@ -217,7 +217,8 @@ internal sealed class InputDockViewModel : ViewModel
           break;
         case OverlayFormulaTokenKind.Compare:
           builder.Append("  <color=#").AppendHexRgb(UiPalette.SoftAccent).Append('>');
-          builder.Append(token.Operator).Append("</color>  ");
+          OverlayTextComposer.AppendLiteral(builder, token.Operator.ToString());
+          builder.Append("</color>  ");
           break;
         case OverlayFormulaTokenKind.Then:
           builder.Append("  <size=80%><color=#FFFFFFB0>").Append(L("이면", "then")).Append("</color></size>  ");

@@ -191,7 +191,7 @@ internal sealed class TextFormulas
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
-        : owner == ColorCases.Key ? _color.Title
+        : owner == ColorCases.Key ? _color.OwnTitle
         : L("값", "Value")
       );
     dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Otherwise() : null);
@@ -294,6 +294,13 @@ internal sealed class TextFormulas
   {
     if (_context.Frame == null)
       return;
+    // A color always goes to the open picker's color, whatever else the dock types.
+    if (value.IsColor && _color.CasesOpen && _editing.Kind != OverlayFormulaKind.Color)
+    {
+      _color.Cases.Slot.OwnColor(value);
+      _editor.Render();
+      return;
+    }
     if (!_editing.Active && value.IsColor)
     {
       _editor.Notice(

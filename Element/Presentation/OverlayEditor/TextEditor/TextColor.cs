@@ -92,6 +92,9 @@ internal sealed class TextColor
   /// <summary>What the open picker colors, as the column's back row names it.</summary>
   public string Title { get; private set; } = "";
 
+  /// <summary>The color the picker belongs to, as the dock names it: the selection's or the text's.</summary>
+  public string OwnTitle { get; private set; } = "";
+
   /// <summary>How the keypad reads and writes the picker's opacity.</summary>
   public FormulaSlot OpacitySlot { get; }
 
@@ -176,7 +179,7 @@ internal sealed class TextColor
   {
     UiColorPicker picker = _picker.Picker;
     Cases.ShowingOwn();
-    Title = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
+    Title = OwnTitle = _text.HasSelection ? L("선택한 글자 색", "Selected text color") : L("글자 색", "Text color");
     picker.ExternalOpacity = true;
     picker.ShowSource(
       Title,

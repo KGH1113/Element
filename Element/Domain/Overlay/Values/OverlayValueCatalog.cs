@@ -311,6 +311,7 @@ internal static class OverlayValueCatalog
       OverlayValueCategory.Time => korean ? "시간" : "Time",
       OverlayValueCategory.Speed => korean ? "속도" : "Speed",
       OverlayValueCategory.Song => korean ? "곡·기록" : "Song",
+      OverlayValueCategory.Color => korean ? "색" : "Colors",
       _ => korean ? "시스템" : "System",
     };
 

@@ -97,10 +97,10 @@ internal sealed class ShapeColors
   public bool ForStroke => _pickerForStroke;
 
   /// <summary>What the open picker colors, as the column's back row names it.</summary>
-  public string Title =>
-    Cases.OnCase ? ColorCases.CaseTitle
-    : _pickerForStroke ? L("테두리 색", "Border color")
-    : L("채우기 색", "Fill color");
+  public string Title => Cases.OnCase ? ColorCases.CaseTitle : OwnTitle;
+
+  /// <summary>The color the picker belongs to, as the dock names it: the fill or the border.</summary>
+  public string OwnTitle => _pickerForStroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color");
 
   /// <summary>The picker's opacity edits the color it shows.</summary>
   public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";

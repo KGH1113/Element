@@ -1,4 +1,3 @@
-
 namespace Element.Presentation.Ui.Graphics;
 
 /// <summary>Every icon <see cref="UiIcon"/> draws. Each one is its own glyph; none is drawn by another's code.</summary>
@@ -34,6 +33,14 @@ internal enum UiIconKind
   DistributeVertical,
   Font,
   Animate,
+
+  /// <summary>The six comparisons, drawn alike so none reads as a bracket.</summary>
+  Less,
+  LessOrSame,
+  Same,
+  NotSame,
+  MoreOrSame,
+  More,
   Extension,
   Check,
   Up,

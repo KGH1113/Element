@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Element.Domain.Overlay.Formula;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -38,7 +39,15 @@ internal sealed class KeypadViewModel : ViewModel
     ("+", '+'),
   };
 
-  private static readonly char[] Comparisons = { '<', '≤', '=', '≠', '≥', '>' };
+  private static readonly (char Key, UiIconKind Icon)[] Comparisons =
+  {
+    ('<', UiIconKind.Less),
+    ('≤', UiIconKind.LessOrSame),
+    ('=', UiIconKind.Same),
+    ('≠', UiIconKind.NotSame),
+    ('≥', UiIconKind.MoreOrSame),
+    ('>', UiIconKind.More),
+  };
 
   /// <param name="actions">Where a pressed key, AC and Done go.</param>
   /// <param name="editing">The formula typed: what it can take next lets a key be pressed.</param>
@@ -65,7 +74,7 @@ internal sealed class KeypadViewModel : ViewModel
     KeypadKeyViewModel[] compares = new KeypadKeyViewModel[Comparisons.Length];
     for (int i = 0; i < compares.Length; i++)
     {
-      char key = Comparisons[i];
+      (char key, UiIconKind icon) = Comparisons[i];
       compares[i] = Own(
         new KeypadKeyViewModel(
           "Key " + key,
@@ -73,7 +82,8 @@ internal sealed class KeypadViewModel : ViewModel
           key,
           true,
           () => actions.Press(key),
-          () => CanPress(editing, key)
+          () => CanPress(editing, key),
+          icon: icon
         )
       );
     }

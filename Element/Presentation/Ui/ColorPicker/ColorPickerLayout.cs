@@ -42,12 +42,11 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
       () =>
         Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
           .Font(Font.Caption.Sized(13))
-          .Frame(height: 36),
-      () => If(() => VM.DockNote.Value, DockNote)
+          .Frame(height: 36)
     );
 
-  // With the choice in the dock, following the highlight says where a custom color is.
-  private View DockNote() =>
+  /// <summary>With the choice in the dock, following the highlight says where a custom color is picked.</summary>
+  protected View DockNote() =>
     VStack(
         spacing: 2,
         alignment: HAlignment.Leading,
@@ -180,7 +179,8 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
       spacing: 0,
       OpacityRow(),
       Opacity().Padding(new Insets(10, 0, 0, 0)),
-      Error(14).Padding(new Insets(2, 0, 0, 0))
+      Error(14).Padding(new Insets(2, 0, 0, 0)),
+      If(() => VM.DockNote.Value, () => DockNote().Padding(new Insets(10, 0, 0, 0)))
     );
 
   /// <summary>The close button of a picker with a title.</summary>

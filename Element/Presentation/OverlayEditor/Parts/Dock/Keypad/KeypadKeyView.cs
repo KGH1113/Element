@@ -49,6 +49,7 @@ internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
   private View Label() =>
     VM.Character == '\b'
       ? Image(ElementIcons.Of(UiIconKind.Backspace), 24).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
+    : VM.Icon is { } icon ? Image(ElementIcons.Of(icon), 20).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
     : VM.Saying != null
       ? UI.Text(() => VM.Saying.Value)
         .Font(Font.Body.Sized(_size))

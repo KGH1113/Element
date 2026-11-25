@@ -2,6 +2,7 @@ using System;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Shape;
@@ -127,7 +128,17 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Done() => _numbers.FinishEditing();
 
-  void IInputDockActions.Pick(OverlayValueDefinition value) => _numbers.PickValue(value);
+  // A color always goes to the open picker's color, whatever number the dock types.
+  void IInputDockActions.Pick(OverlayValueDefinition value)
+  {
+    if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Kind != OverlayFormulaKind.Color)
+    {
+      _colors.Cases.Slot.OwnColor(value);
+      Render();
+      return;
+    }
+    _numbers.PickValue(value);
+  }
 
   // Nothing covers the shape's numbers.
   void IInputDockActions.BeganCarrying() { }
@@ -322,7 +333,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _dock.Show(
       field ?? (cases ? ColorCases.Key : null),
       field != null ? _numbers.Name(field)
-        : cases ? _colors.Title
+        : cases ? _colors.OwnTitle
         : "",
       field != null ? _numbers.ResultText(field)
         : cases ? _colors.Cases.Result(_values.WithSamples)

@@ -100,8 +100,11 @@ namespace Element.Editor
       Assert(notInText > 0 && hiddenNote.text == L("이 자리에 맞지 않는 값 " + notInText + "개는 숨겼어요.", notInText + " values that don't fit here are hidden."),
         "how many were left out is said under the values: " + hiddenNote.text);
       Press(DockPlace(dock, "Make"));
-      Assert(DockChips(dock).Select(chip => chip.name).SequenceEqual(new[] { "Value make-number", "Value make-condition", "Value make-group" }),
-        "the text lists no words or true or false to make: " + string.Join(", ", DockChips(dock).Select(chip => chip.name)));
+      // In the order they are drawn: rows top to bottom, each left to right.
+      string[] makeChips = DockChips(dock).OrderByDescending(chip => Mathf.Round(ScreenRectOf((RectTransform)chip.transform).yMax))
+        .ThenBy(chip => ScreenRectOf((RectTransform)chip.transform).xMin).Select(chip => chip.name).ToArray();
+      Assert(makeChips.SequenceEqual(new[] { "Value make-number", "Value make-condition", "Value make-group" }),
+        "the text lists no words or true or false to make: " + string.Join(", ", makeChips));
       Assert(folders.Count(folder => folder.IsMod) == 2 && rows.Count(row => row.StartsWith("Place mod:")) == 2,
         "two mods are two rows, not one per group");
       Pressable tuf = DockPlace(dock, "mod:" + PreviewMod), sample = DockPlace(dock, "mod:Sample"), system = DockPlace(dock, "System");

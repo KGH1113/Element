@@ -93,7 +93,13 @@ internal sealed class InputMethodView : View<InputDockViewModel>
 
   private View Choice(string label, bool value) =>
     Button(
-        UI.Text(label).Font(Font.Body.Sized(18)).LineLimit(1).Frame(maxWidth: float.PositiveInfinity, height: 64),
+        // A Hangul syllable with a final consonant reads a little high; a point lower centres it.
+        UI.Text(label)
+          .Font(Font.Body.Sized(18))
+          .LineLimit(1)
+          .TextAlignment(TextAlign.Center)
+          .Padding(new Insets(2, 0, 0, 0))
+          .Frame(maxWidth: float.PositiveInfinity, height: 64, alignment: Alignment.Center),
         () => VM.SetSwitch(value),
         ButtonStyle.Plain
       )

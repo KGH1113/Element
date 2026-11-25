@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Property;
 using System;
 using System.Collections.Generic;
 using Element.Application.Input;
@@ -230,22 +231,30 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _popovers.Add(_grow.Popover);
   }
 
-  // A row per property in the column above the keypad: fill, border, border
-  // width and grow point. Colors open their picker (with opacity) in the
-  // column. Width, height and rounding stay on the shape.
+  // A field per property in the column above the keypad, in groups: the
+  // fill (color, opacity), the border (color, width, opacity) and the
+  // element (grow point). Width, height and rounding stay on the shape.
   private void BuildInspector() =>
     _inspector = new InspectorPanel(
       _frame,
       _dockPanel,
       "Shape bar",
-      L("도형", "Shape"),
+      null,
       CloseTool,
       _colors.BuildFill(),
+      _colors.BuildFillOpacity(),
       _colors.BuildStroke(),
-      // Values go in by picking them in the dock, never by carrying them onto the row.
       _numbers.BuildStrokeWidth(),
-      _grow.BuildButton()
+      _colors.BuildStrokeOpacity(),
+      ElementRow(_grow.BuildButton())
     );
+
+  // The element's own group: where it grows from.
+  private static PropertyButtonViewModel ElementRow(PropertyButtonViewModel row)
+  {
+    row.Section.Value = L("요소", "Element");
+    return row;
+  }
 
   // The column's back row: the rows come back.
   private void CloseTool()

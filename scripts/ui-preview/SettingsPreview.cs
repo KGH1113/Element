@@ -10,6 +10,7 @@ using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.OverlayEditor.ShapeEditor;
@@ -427,10 +428,14 @@ namespace Element.Editor
         strokeWidth = ShapeNumbersOf(shapes).StrokeWidth, shapeGrow = Grow(shapes).Button;
       CheckEditorTopLine(shapes, "Shape editor", L("도형 편집", "Edit shape"));
       Assert(shapeGrow.Value.Contains(Korean(name) ? "자동" : "Auto"), "the grow button says where the shape grows from");
-      Assert(new[] { typeof(ShapeEditorScreen), typeof(ShapeColors) }.All(type => type.GetField("_fillOpacity", Private) == null && type.GetField("_strokeOpacity", Private) == null),
-        "opacity lives in the color picker, not the bar");
-      PropertyButtonViewModel[] shapeBar = { fillButton, strokeButton, strokeWidth, shapeGrow };
-      string[] shapeLabels = Korean(name) ? new[] { "채우기", "테두리", "테두리 두께", "기준점" } : new[] { "Fill", "Border", "Border width", "Grow from" };
+      PropertyButtonViewModel fillOpacity = ShapeColorsOf(shapes).FillOpacityButton, strokeOpacity = ShapeColorsOf(shapes).StrokeOpacityButton;
+      PropertyButtonViewModel[] shapeBar = { fillButton, fillOpacity, strokeButton, strokeWidth, strokeOpacity, shapeGrow };
+      string[] shapeLabels = Korean(name)
+        ? new[] { "색", "불투명도", "색", "두께", "불투명도", "기준점" }
+        : new[] { "Color", "Opacity", "Color", "Width", "Opacity", "Grow from" };
+      Assert(fillButton.Section.Value == L("채우기", "Fill") && strokeButton.Section.Value == L("테두리", "Border") && shapeGrow.Section.Value == L("요소", "Element")
+        && shapeBar.Count(row => row.Section.Value.Length > 0) == 3 && shapeBar.All(row => row.IsField),
+        "the column is fields in three groups: the fill, the border and the element");
       for (int i = 0; i < shapeBar.Length; i++)
       {
         Pressable drawn = BarButton(shapes, shapeBar[i]);
@@ -443,6 +448,7 @@ namespace Element.Editor
       Assert(strokeWidth.Value.Length > 0 && !strokeWidth.IsComputed
         && BarButton(shapes, strokeWidth).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == strokeWidth.Value),
         "the border width shows its number");
+      Assert(fillOpacity.Value == "100" && strokeOpacity.Value == "100", "each opacity is a number field of its own: " + fillOpacity.Value);
       foreach (FormulaFieldView measure in new[] { widthField, heightField })
         Assert(measure.Root.GetComponent<Button>().targetGraphic.transform == measure.Root,
           "W and H light up exactly where the pill is drawn: " + measure.Name);
@@ -1161,21 +1167,21 @@ namespace Element.Editor
       RectTransform format = EditorBarRoot(text);
       PropertyButtonViewModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
         textGrow = Grow(text).Button, fontButton = Field<TextFonts>(text, "_fonts").Button,
-        animateButton = Field<TextAnimate>(text, "_animate").Button;
-      PropertyButtonViewModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
+        animateButton = Field<TextAnimate>(text, "_animate").Button, opacityButton = TextColorOf(text).OpacityButton;
+      PropertyButtonViewModel[] textBar = { sizeButton, colorButton, opacityButton, fontButton, animateButton, textGrow };
       Pressable[] barButtons = format.GetComponentsInChildren<Pressable>(true);
-      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 5
-        && new[] { typeof(TextEditorScreen), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
-        "font, size, color, animation and grow point share one column; no opacity, no + Value");
-      Assert(BarButtonRect(text, animateButton).y < BarButtonRect(text, colorButton).y
-        && BarButtonRect(text, animateButton).y > BarButtonRect(text, textGrow).y, "animation sits between the color and the grow point");
+      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 6
+        && textBar.All(button => button.IsField) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
+        "size, color, opacity, font, growing and the grow point are fields in one column");
+      Assert(sizeButton.Section.Value == L("글 전체의 모습", "The whole text") && textGrow.Section.Value == L("요소", "Element")
+        && textBar.Count(button => button.Section.Value.Length > 0) == 2, "the column has two groups: the text's look and the element");
       Rect formatRect = ScreenRectOf(format), keypadColumn = KeypadRect(DockOf(text));
       Assert(Mathf.Abs(formatRect.xMin - keypadColumn.xMin) < 1 && Mathf.Abs(formatRect.xMax - keypadColumn.xMax) < 1 && formatRect.yMin > keypadColumn.yMax,
         "the properties stand in a column above the keypad, as wide as it: " + formatRect + " / " + keypadColumn);
       Assert(ScreenRectOf(TextPreviewOf(text).Text.rectTransform).xMax < formatRect.xMin, "the text stays left of the column");
       string[] textLabels = Korean(name)
-        ? new[] { "폰트", "크기", "글자 색", "애니메이션", "기준점" }
-        : new[] { "Font", "Size", "Text color", "Animate", "Grow from" };
+        ? new[] { "크기", "글자 색", "불투명도", "폰트", "바뀔 때 커지기", "기준점" }
+        : new[] { "Size", "Text color", "Opacity", "Font", "Grow on change", "Grow from" };
       for (int i = 0; i < textBar.Length; i++)
       {
         Pressable drawn = BarButton(text, textBar[i]);
@@ -1205,73 +1211,46 @@ namespace Element.Editor
       Assert(sizeButton.Value.Length > 0 && !sizeButton.IsComputed, "the size button shows the size");
       SaveFrame(camera, texture, canvases, name + "-text");
 
-      // Animate opens a tool in the column: growth acts on values, the whole
-      // text's with nothing selected. Pressed as the player does, with the
-      // screen catching up only at the end of each frame, as in the game.
+      // Growing on change is a true-or-false field: the dock's switch sets it,
+      // for the values in the selection or the whole text.
       OverlayTextPulse previewPulse = TextPreviewOf(text).Pulse;
       Assert(!document[6].Animate, "FPS starts still");
-      TextAnimate animateTool = Field<TextAnimate>(text, "_animate");
-      Assert(animateButton.Opens && !animateButton.Toggle && animateButton.Value == (Korean(name) ? "꺼짐" : "Off"),
-        "the Animate row opens a tool and says nothing is on: " + animateButton.Value);
+      OverlayVariableWords said = FormulaWords.Current;
+      Assert(animateButton.Value == said.No, "the field says it is off: " + animateButton.Value);
       PressBar(text, animateButton);
-      Assert(animateTool.Visible, "the Animate row opens its tool");
-      AssertInColumn(text, animateTool.Root, Korean(name) ? "애니메이션" : "Animate");
-      Pressable drawnAnimate = ByName<Pressable>(animateTool.Root, "Grow on change");
-      Assert(drawnAnimate != null, "the tool has a switch to grow on each change");
-      RoundedRect[] switchShapes = drawnAnimate.GetComponentsInChildren<RoundedRect>(false);
-      RoundedRect animateTrack = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 30) < .01f
-        && Mathf.Abs(graphic.rectTransform.rect.height - 18) < .01f && Mathf.Abs(graphic.Radius - 9) < .01f);
-      RoundedRect animateThumb = switchShapes.Single(graphic => Mathf.Abs(graphic.rectTransform.rect.width - 10) < .01f
-        && Mathf.Abs(graphic.rectTransform.rect.height - 10) < .01f && Mathf.Abs(graphic.Radius - 5) < .01f);
-      Func<float> thumbX = () => CenterIn(animateThumb.rectTransform, animateTrack.transform).x - animateTrack.rectTransform.rect.xMin - 5;
-      Func<Color, Color, bool> sameColor = (a, b) => ((Vector4)(a - b)).magnitude < .01f;
-      Assert(Mathf.Abs(thumbX() - 4) < .01f
-        && Mathf.Abs(CenterIn(animateThumb.rectTransform, animateTrack.transform).y - animateTrack.rectTransform.rect.center.y) < .01f
-        && !animateTrack.raycastTarget && !animateThumb.raycastTarget && sameColor(animateThumb.color, UiPalette.Foreground),
-        "the 30 by 18 capsule starts with its centered 10-point thumb inset by 4; the row owns clicks");
+      Assert(dock.Owner == TextFormulas.GrowKey && dock.Vm.Method.Value == Element.Presentation.OverlayEditor.Parts.Dock.DockMethod.Switch && animateButton.Active,
+        "the field opens in the dock, set with the switch");
       // Notices show right above the dock's formula line.
       TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(DockOf(text).Root, "Notice");
       string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
-      // The frame before drew a change that took layout (a notice), and the
-      // driver went back to sleep after it.
-      screen.ViewModel.Notice(L("미리보기를 바꿨어요", "The preview changed"), false);
-      Frames(() => QuietFrame(text), 3);
-      Press(drawnAnimate);
+      Press(ByName<Pressable>(dock.Root, "Switch true"));
+      Settle();
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
-      Frames(() => QuietFrame(text), 1);
-      Assert(thumbX() > 4 && thumbX() < 16 && sameColor(animateThumb.color, UiPalette.SoftAccent),
-        "the thumb moves partway in one frame while its on color changes immediately: " + thumbX());
-      Frames(() => QuietFrame(text), 39);
       Assert(screen.ViewModel.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
         "turning it on says what it does, on the screen: " + topLine.text);
-      Assert(Mathf.Abs(thumbX() - 16) < .01f && sameColor(animateThumb.color, UiPalette.SoftAccent),
-        "the switch slides over to the exact on inset and lights up in the game's frames: " + thumbX());
-      Assert(animateButton.Value == (Korean(name) ? "커지기" : "Grow"), "the row says what is on: " + animateButton.Value);
+      Assert(animateButton.Value == said.Yes, "the field says it is on: " + animateButton.Value);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
+      Press(DockKey(dock, "Key done"));
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
       Call(text, "Render");
-      Press(drawnAnimate);
+      PressBar(text, animateButton);
+      Press(ByName<Pressable>(dock.Root, "Switch true"));
       Settle();
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && screen.ViewModel.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
         "letters alone stay as they are and say why: " + screen.ViewModel.NoticeText);
+      Press(DockKey(dock, "Key done"));
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
-      screen.ViewModel.Notice(L("커서를 옮겼어요", "The caret moved"), false);
-      Frames(() => QuietFrame(text), 3);
-      Press(drawnAnimate);
-      Frames(() => QuietFrame(text), 1);
-      Assert(thumbX() > 4 && thumbX() < 16 && sameColor(animateThumb.color, UiPalette.Foreground),
-        "the thumb moves back partway in one frame while its off color changes immediately: " + thumbX());
-      Frames(() => QuietFrame(text), 39);
+      PressBar(text, animateButton);
+      Press(ByName<Pressable>(dock.Root, "Switch false"));
+      Settle();
       document = TextDocumentOf(text).Document;
-      Assert(!document[6].Animate && !previewPulse.Playing, "a second press turns it off without moving anything");
-      Assert(Mathf.Abs(thumbX() - 4) < .01f && sameColor(animateThumb.color, UiPalette.Foreground),
-        "the switch slides back to the exact off inset in the game's frames: " + thumbX());
-      PressBack(text);
-      Assert(!animateTool.Visible, "back closes the Animate tool");
+      Assert(!document[6].Animate && !previewPulse.Playing, "the switch turns it off without moving anything");
+      Press(DockKey(dock, "Key done"));
+      Assert(dock.Owner == null && !animateButton.Active, "Apply lets the dock rest");
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.

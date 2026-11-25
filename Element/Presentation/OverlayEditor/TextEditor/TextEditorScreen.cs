@@ -112,11 +112,11 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
-    _formulas.Use(_size, _color, _gradient);
+    _animate = new TextAnimate(this, _text, _preview);
+    _formulas.Use(_size, _color, _gradient, _animate);
     _fonts = new TextFonts(this, this, _text, _color);
-    _animate = new TextAnimate(this, _text, _color, _preview);
     _grow = new GrowFrom(CloseOpen, Render);
-    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate);
+    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow);
     _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
@@ -246,30 +246,31 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     BuildInspector();
     _fonts.Build(_frame, _element.Fonts, _reduceMotion());
     _grow.Build(_frame, _inspector);
-    _animate.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
   }
 
-  // A row per property in the column above the keypad: the font, the size,
-  // the color (with its opacity), the values' animation and where the text
-  // grows from. Font, size, color and animation act on the selection, or on
-  // the whole text when nothing is selected.
-  private void BuildInspector() =>
+  // A field per property in the column above the keypad, in two groups: the
+  // look (size, color, opacity, font, growing on change), which acts on the
+  // selected letters or the whole text, and the element (where it grows from).
+  private void BuildInspector()
+  {
     _inspector = new InspectorPanel(
       _frame,
       _dockPanel,
       "Format",
-      L("글자", "Text"),
+      null,
       CloseTool,
-      _fonts.BuildButton(),
-      // Values go in by picking them in the dock, never by carrying them onto the row.
       _size.BuildButton(),
       _color.BuildButton(),
-      _animate.BuildButton(),
+      _color.BuildOpacityButton(),
+      _fonts.BuildButton(),
+      _animate.BuildButton(() => _formulas.Activate(TextFormulas.GrowKey)),
       _grow.BuildButton()
     );
+    _grow.Button.Section.Value = L("요소", "Element");
+  }
 
   // The column's back row: the rows come back, with whatever the tool had open.
   private void CloseTool()
@@ -277,24 +278,20 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
-    _animate.Hide();
     CloseOpen();
     Render();
   }
 
-  // Where the open tool is drawn; its back row lines up with it. A picker
-  // the Animate tool opened beside the column belongs to that tool.
+  // Where the open tool is drawn; its back row lines up with it.
   private RectTransform OpenToolRoot() =>
-    _animate.Visible ? _animate.Root
-    : _color.Picker.Visible ? _color.Picker.Root
+    _color.Picker.Visible ? _color.Picker.Root
     : _fonts.Visible ? _fonts.Popover.Root
     : _grow.Visible ? _grow.Popover.Root
     : null;
 
   // What the column has open, as its back row names it; null while it shows the rows.
   private string OpenTool() =>
-    _animate.Visible ? _animate.Title
-    : _color.Picker.Visible ? _color.Title
+    _color.Picker.Visible ? _color.Title
     : _fonts.Visible ? _fonts.Title
     : _grow.Visible ? _grow.Button.Label
     : null;
@@ -443,12 +440,17 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _liveMask = LiveMask();
   }
 
-  // The column's rows show the range's font, size, color, animation and grow point.
+  // The column's fields show the range's look and the grow point; the look's
+  // heading says whether it is the selected letters' or the whole text's.
   private void ShowFields()
   {
+    _size.Button.Section.Value = _text.HasSelection
+      ? L("고른 글자의 모습", "The picked letters")
+      : L("글 전체의 모습", "The whole text");
     _size.Show();
     _color.ShowButton();
-    _animate.Show();
+    _color.ShowOpacityButton();
+    _animate.Show(_formulas.Field == TextFormulas.GrowKey);
     _fonts.ShowButton();
     _grow.ShowButton();
     _color.ShowOpacity();
@@ -502,7 +504,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       _dockPanel.Contains(screen)
       || _popovers.Contains(screen)
       || _inspector.Contains(screen)
-      || _animate.Contains(screen)
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
     )
       return false;
@@ -518,19 +519,14 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   }
 
   /// <summary>
-  /// Esc closes the picker first, then the Animate tool, then finishes like
-  /// Done; only Cancel leaves without saving.
+  /// Esc closes the picker first, then finishes like Done; only Cancel
+  /// leaves without saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
-    else if (_animate.Visible)
-    {
-      _animate.Hide();
-      Render();
-    }
     else
       Close(true, true);
   }

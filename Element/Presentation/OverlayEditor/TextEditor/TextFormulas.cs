@@ -24,6 +24,7 @@ internal sealed class TextFormulas
 {
   public const string SizeKey = "size",
     OpacityKey = "opacity",
+    GrowKey = "grow",
     PositionKey = "position",
     AngleKey = "angle";
 
@@ -36,6 +37,7 @@ internal sealed class TextFormulas
   private readonly StringBuilder _builder = new(128);
   private TextSize _size;
   private TextColor _color;
+  private TextAnimate _animate;
   private TextGradient _gradient;
   private string _fieldSlot;
 
@@ -70,11 +72,12 @@ internal sealed class TextFormulas
   public int EditedValue => ChipOpen(out int index) ? index : -1;
 
   /// <summary>The numbers the dock can type besides values.</summary>
-  public void Use(TextSize size, TextColor color, TextGradient gradient)
+  public void Use(TextSize size, TextColor color, TextGradient gradient, TextAnimate animate)
   {
     _size = size;
     _color = color;
     _gradient = gradient;
+    _animate = animate;
   }
 
   /// <summary>Nothing open, as when the editor opens.</summary>
@@ -97,6 +100,8 @@ internal sealed class TextFormulas
       return _size.Slot;
     if (_fieldSlot == OpacityKey)
       return _color.OpacitySlot;
+    if (_fieldSlot == GrowKey)
+      return _animate.Slot;
     if (ChipOpen(out int index))
       return ChipSlot(index);
     // With nothing else open, the open color picker's color is what the dock types.
@@ -189,6 +194,7 @@ internal sealed class TextFormulas
       _gradient.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
+        : _fieldSlot == GrowKey ? L("바뀔 때 커지기", "Grow on change")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : owner == ColorCases.Key ? _color.OwnTitle
         : L("값", "Value")
@@ -223,7 +229,7 @@ internal sealed class TextFormulas
     if (_editing.Slot.Key == ColorCases.Key)
       return _color.Cases.Result(_values.WithSamples);
     OverlayVariable formula = _editing.Root;
-    if (formula.IsEmpty || _editing.Problem != null)
+    if (formula.IsEmpty || _editing.Problem != null || _fieldSlot == GrowKey)
       return null;
     if (_fieldSlot == null)
     {

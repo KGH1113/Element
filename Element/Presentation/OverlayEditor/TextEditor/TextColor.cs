@@ -38,7 +38,8 @@ internal sealed class TextColor
   private readonly ColorPickerPanel _picker;
   private readonly OverlayGradientFormulas _swatchFormulas = new();
   private readonly OverlayResolvedGradient _swatchGradient = new();
-  private PropertyButtonViewModel _colorButton;
+  private PropertyButtonViewModel _colorButton,
+    _opacityButton;
   private Color _shown = Color.white;
   private OverlayResolvedGradient _shownGradient;
 
@@ -109,6 +110,26 @@ internal sealed class TextColor
       opens: true,
       field: OverlayValueType.Color
     );
+
+  /// <summary>The column's opacity field; made by <see cref="BuildOpacityButton"/>.</summary>
+  public PropertyButtonViewModel OpacityButton => _opacityButton;
+
+  public PropertyButtonViewModel BuildOpacityButton() =>
+    _opacityButton = new PropertyButtonViewModel(
+      "Text opacity",
+      L("불투명도", "Opacity"),
+      () => _formulas.Activate(TextFormulas.OpacityKey),
+      field: OverlayValueType.Number
+    );
+
+  /// <summary>The opacity field: what it holds and what that works out to in percent.</summary>
+  public void ShowOpacityButton()
+  {
+    bool active = _formulas.Edits(TextFormulas.OpacityKey, out OverlayVariable typed);
+    OverlayVariable alpha = typed ?? ReadOpacity();
+    double percent = _formulas.Result(alpha, _text.RangeColor().Alpha * 100);
+    _opacityButton.ShowField(alpha, FormulaFieldView.Number(percent) + " %", active);
+  }
 
   /// <summary>The picker over the controls, with its opacity as a number.</summary>
   public void BuildPicker(EditorFramePanel screen)

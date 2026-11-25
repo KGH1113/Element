@@ -70,7 +70,7 @@ internal sealed class ShapeNumbers
   public PropertyButtonViewModel BuildStrokeWidth() =>
     _strokeWidth = new PropertyButtonViewModel(
       "Border width",
-      L("테두리 두께", "Border width"),
+      L("두께", "Width"),
       () => _editor.Activate(StrokeKey),
       field: OverlayValueType.Number
     );

@@ -25,9 +25,15 @@ internal sealed class InspectorRowView : View<PropertyButtonViewModel>
   {
     get
     {
-      return Button(Content(), () => VM.Click, ButtonStyle.Plain)
+      View row = Button(Content(), () => VM.Click, ButtonStyle.Plain)
         .ButtonStyle(new ButtonSurfaceStyle(() => VM.Fill.Value, InspectorRowStyle.Radius))
         .Named(VM.Name);
+      // A row that starts a group of the column carries the group's heading.
+      return VStack(
+        spacing: InspectorRowStyle.Gap,
+        If(() => VM.Section.Value.Length > 0, () => InspectorRowStyle.Heading(() => VM.Section.Value)),
+        row
+      );
     }
   }
 

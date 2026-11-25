@@ -110,6 +110,12 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Whether it is drawn as a field (칸).</summary>
   public bool IsField => Field.HasValue || FieldGlyph != null;
 
+  /// <summary>
+  /// The heading over this row when it starts a group of the column, as
+  /// "채우기" or "글 전체의 모습"; empty for none.
+  /// </summary>
+  public readonly State<string> Section = new("");
+
   /// <summary>What the field holds, as chips.</summary>
   public readonly State<FieldChip[]> Chips = new(Array.Empty<FieldChip>());
 

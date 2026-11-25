@@ -25,11 +25,14 @@ internal sealed class InspectorView : View<InspectorViewModel>
         () => VM.ToolOpen.Value,
         () => InspectorRowStyle.Back(() => VM.Open.Value, () => VM.Back, "Inspector back"),
         () =>
-          VStack(
-            spacing: RowGap,
-            InspectorRowStyle.Heading(VM.Heading),
-            ForEach(VM.Rows, row => row.Name, slot => new InspectorRowView(slot))
-          )
+          // Rows that start a group carry its heading; a column without groups has one heading.
+          string.IsNullOrEmpty(VM.Heading)
+            ? VStack(spacing: RowGap, ForEach(VM.Rows, row => row.Name, slot => new InspectorRowView(slot)))
+            : VStack(
+              spacing: RowGap,
+              InspectorRowStyle.Heading(VM.Heading),
+              ForEach(VM.Rows, row => row.Name, slot => new InspectorRowView(slot))
+            )
       )
       // As wide as the panel: the column, or with a tool open as wide as the tool.
       .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);

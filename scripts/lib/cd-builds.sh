@@ -13,8 +13,8 @@ ELEMENT_CD_BUILDS_LOADED=1
 source "${BASH_SOURCE[0]%/*}/context.sh"
 # shellcheck source=guards.sh
 source "${BASH_SOURCE[0]%/*}/guards.sh"
-# shellcheck source=dmnote-app.sh
-source "${BASH_SOURCE[0]%/*}/dmnote-app.sh"
+# shellcheck source=element-note-app.sh
+source "${BASH_SOURCE[0]%/*}/element-note-app.sh"
 # shellcheck source=windows-webview.sh
 source "${BASH_SOURCE[0]%/*}/windows-webview.sh"
 
@@ -26,7 +26,7 @@ export CD_WORKFLOW CD_MAC_APP CD_WINDOWS_APP CD_WINDOWS_VIEWER
 
 # release_source_stamp_at <commit>: everything a release takes from CD.
 release_source_stamp_at() {
-  printf '%s %s\n' "$(dmnote_source_stamp_at "$1")" "$(windows_webview_source_stamp_at "$1")"
+  printf '%s %s\n' "$(element_note_source_stamp_at "$1")" "$(windows_webview_source_stamp_at "$1")"
 }
 
 # cd_has_artifacts <run id> <artifact>...: the run still has all of them

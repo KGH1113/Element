@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Defaults for a standalone build; scripts pass the same paths with -p. -->
+  <Import Project="../Element/Directory.Build.props" Condition="'$(UnityModManagerDll)' == ''" />
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <AssemblyName>ElementKit</AssemblyName>
+    <!--
+      Folders only sort the files (Elements, Editing, Drawing, Input, Values,
+      Hosting); they add no namespace segment. Every public type stays in
+      ElementKit, values in ElementKit.Values, so moving a file never changes
+      the names other mods compile against.
+    -->
+    <RootNamespace>ElementKit</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!--
+      Other mods bind to ElementKit by its full name, version included. It stays
+      1.0.0.0 for all of 1.x so a mod built against any 1.x runs on every later
+      Element; the release shows in FileVersion and InformationalVersion.
+    -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <Product>ElementKit</Product>
+    <Company>impl</Company>
+    <Description>Lets other ADOFAI mods add values and overlay elements to Element.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Element" />
+    <InternalsVisibleTo Include="Element.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="UnityModManager">
+      <HintPath>$(UnityModManagerDll)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!-- Overlay elements draw with UGUI and TextMesh Pro, and keep settings with JsonUtility. -->
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(AdofaiManaged)/UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(AdofaiManaged)/Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.JSONSerializeModule">
+      <HintPath>$(AdofaiManaged)/UnityEngine.JSONSerializeModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <!--
+      Editing screens are ElementUI views (OverlayElement<T>.Editor). Element
+      ships ElementUI next to ElementKit; mods compile against both and ship neither.
+    -->
+    <Reference Include="ElementUI.Core">
+      <HintPath>../vendor/elementui/ElementUI.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

@@ -217,17 +217,16 @@ impl AppState {
     }
 
     fn apply_panel_window_layout(&self, window: &WebviewWindow, layout: &PanelWindowLayout) {
-        if let Err(err) =
-            window.set_min_size(Some(LogicalSize::new(PANEL_WIDTH, layout.min_height)))
-        {
+        if let Err(err) = window.set_min_size(Some(LogicalSize::new(
+            PANEL_MIN_WIDTH.min(layout.width),
+            layout.min_height,
+        ))) {
             log::warn!("failed to apply panel min size: {err}");
         }
-        if let Err(err) =
-            window.set_max_size(Some(LogicalSize::new(PANEL_WIDTH, layout.max_height)))
-        {
+        if let Err(err) = window.set_max_size(None::<LogicalSize<f64>>) {
             log::warn!("failed to apply panel max size: {err}");
         }
-        if let Err(err) = window.set_size(LogicalSize::new(PANEL_WIDTH, layout.height)) {
+        if let Err(err) = window.set_size(LogicalSize::new(layout.width, layout.height)) {
             log::warn!("failed to apply panel size: {err}");
         }
         if let Some(position) = layout.position {
@@ -249,11 +248,7 @@ impl AppState {
     // main_window_hidden은 트레이 아이콘 생성 실패 폴백까지 반영된 값이어야 한다
     pub fn restore_detached_panel_on_startup(&self, main_window_hidden: bool) {
         let snapshot = self.store.snapshot();
-        let restore = should_restore_panel_on_startup(
-            snapshot.obs_mode_enabled,
-            main_window_hidden,
-            snapshot.panel_detached,
-        );
+        let restore = should_restore_panel_on_startup(main_window_hidden, snapshot.panel_detached);
         self.panel_restore_pending.store(restore, Ordering::SeqCst);
     }
 
@@ -476,9 +471,8 @@ impl AppState {
         .accept_first_mouse(true)
         .visible(false)
         .theme(snapshot.ui_theme.as_tauri_theme())
-        .inner_size(PANEL_WIDTH, layout.height)
-        .min_inner_size(PANEL_WIDTH, layout.min_height)
-        .max_inner_size(PANEL_WIDTH, layout.max_height)
+        .inner_size(layout.width, layout.height)
+        .min_inner_size(PANEL_MIN_WIDTH.min(layout.width), layout.min_height)
         .zoom_hotkeys_enabled(false);
 
         // 컨트롤러 생성 옵션에 실려야 첫 프레임부터 유효하다 - build() 이후 런타임 호출은

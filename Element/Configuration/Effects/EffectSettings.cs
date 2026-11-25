@@ -5,80 +5,8 @@ using UnityEngine;
 
 namespace Element.Configuration.Effects;
 
-[Flags]
-public enum RemovedEffects : long
-{
-  None = 0,
-  CameraMotion = 1L << 0,
-  ScreenFlash = 1L << 1,
-  ScreenShake = 1L << 2,
-  Filters = 1L << 3,
-  AdvancedFilters = 1L << 4,
-  Backgrounds = 1L << 5,
-  Decorations = 1L << 6,
-  Particles = 1L << 7,
-  TrackAnimations = 1L << 8,
-  TrackMovement = 1L << 9,
-  TrackPosition = 1L << 10,
-  TrackColors = 1L << 11,
-  TrackOpacity = 1L << 12,
-  PlanetOrbit = 1L << 13,
-  PlanetScale = 1L << 14,
-  PlanetRadius = 1L << 15,
-  HitSounds = 1L << 16,
-  HoldSounds = 1L << 17,
-  HideIcons = 1L << 18,
-  RepeatEvents = 1L << 19,
-  FrameRate = 1L << 20,
-  Checkpoints = 1L << 21,
-}
-
 [Serializable]
-public sealed class EffectPreset
-{
-  public const int MinimumCameraZoom = 100;
-  public const int MaximumCameraZoom = 1000;
-  public const int DefaultCameraZoom = 250;
-
-  public string Id = Guid.NewGuid().ToString("N");
-  public string Name = "";
-  public RemovedEffects Effects;
-
-  /// <summary>Zoom percent of the camera that follows the planets once camera movement is removed.</summary>
-  public int CameraZoom = DefaultCameraZoom;
-
-  /// <summary>Applies this preset when pressed outside play; None when the preset has no shortcut.</summary>
-  public KeyCode ShortcutKey = KeyCode.None;
-
-  /// <summary>Held with <see cref="ShortcutKey"/>; None for a single key.</summary>
-  public KeyCode ShortcutModifier = KeyCode.None;
-
-  public bool HasShortcut => ShortcutKey != KeyCode.None;
-
-  public bool UsesShortcut(KeyCode key, KeyCode modifier) =>
-    HasShortcut && ShortcutKey == key && ShortcutModifier == modifier;
-
-  public void ClearShortcut()
-  {
-    ShortcutKey = KeyCode.None;
-    ShortcutModifier = KeyCode.None;
-  }
-
-  public static int ClampCameraZoom(int zoom) => Math.Max(MinimumCameraZoom, Math.Min(MaximumCameraZoom, zoom));
-
-  public EffectPreset Copy() =>
-    new()
-    {
-      Id = Id,
-      Name = Name,
-      Effects = Effects,
-      CameraZoom = CameraZoom,
-      ShortcutKey = ShortcutKey,
-      ShortcutModifier = ShortcutModifier,
-    };
-}
-
-[Serializable]
+[CopiedInPlace]
 public sealed class EffectSettings
 {
   public const int MaximumNameLength = 40;
@@ -157,32 +85,6 @@ public sealed class EffectSettings
       Enabled = false;
   }
 
-  public bool TryAdd(string name, out EffectPreset preset, out string error)
-  {
-    preset = null;
-    if (!ValidateName(name, null, out string normalized, out error))
-      return false;
-    preset = new EffectPreset { Name = normalized };
-    Presets.Add(preset);
-    if (ActivePreset == null)
-      ActivePresetId = preset.Id;
-    return true;
-  }
-
-  public bool TryRename(string id, string name, out string error)
-  {
-    EffectPreset preset = Presets.Find(p => p.Id == id);
-    if (preset == null)
-    {
-      error = "This preset no longer exists.";
-      return false;
-    }
-    if (!ValidateName(name, id, out string normalized, out error))
-      return false;
-    preset.Name = normalized;
-    return true;
-  }
-
   public bool Select(string id)
   {
     if (!Presets.Exists(p => p.Id == id))
@@ -216,35 +118,6 @@ public sealed class EffectSettings
   public EffectPreset FindShortcut(KeyCode key, KeyCode modifier, string exceptId = null) =>
     Presets.Find(p => p != null && p.Id != exceptId && p.UsesShortcut(key, modifier));
 
-  public bool Remove(string id)
-  {
-    int index = Presets.FindIndex(p => p.Id == id);
-    if (index < 0)
-      return false;
-    Presets.RemoveAt(index);
-    if (ActivePresetId == id)
-      ActivePresetId = Presets.Count > 0 ? Presets[Math.Min(index, Presets.Count - 1)].Id : "";
-    if (Presets.Count == 0)
-      Enabled = false;
-    return true;
-  }
-
-  public bool ValidateName(string name, string exceptId, out string normalized, out string error)
-  {
-    normalized = (name ?? "").Trim();
-    string candidate = normalized;
-    error = "";
-    if (normalized.Length == 0)
-      error = "Give this preset a name.";
-    else if (normalized.Length > MaximumNameLength)
-      error = "Use 40 characters or fewer.";
-    else if (
-      Presets.Exists(p => p.Id != exceptId && string.Equals(p.Name, candidate, StringComparison.OrdinalIgnoreCase))
-    )
-      error = "A preset already uses this name. Choose another.";
-    return error.Length == 0;
-  }
-
   private static List<EffectPreset> CreateDefaults()
   {
     return new List<EffectPreset>
@@ -253,7 +126,7 @@ public sealed class EffectSettings
       {
         Id = RemoveAllId,
         Name = "Remove All",
-        Effects = EffectCatalog.All,
+        Effects = EffectCatalog.All & ~EffectCatalog.GameplayEffects,
       },
       new()
       {
@@ -265,7 +138,9 @@ public sealed class EffectSettings
       {
         Id = OnlyTilesId,
         Name = "Only Tiles",
-        Effects = EffectCatalog.All & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents),
+        Effects =
+          EffectCatalog.All
+          & ~(EffectCatalog.TrackEffects | RemovedEffects.RepeatEvents | EffectCatalog.GameplayEffects),
       },
     };
   }

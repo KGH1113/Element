@@ -1,4 +1,5 @@
-//! Describes OBS pages rendered directly by the game's native webviews.
+//! Describes the key viewer pages the game's native webviews render directly.
+//! The local viewer server serves them; OBS only shares that server.
 
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -26,12 +27,14 @@ impl NativeViewerError {
 }
 
 /// Tells the game to describe its pages again. The event carries no data:
-/// descriptors include the OBS token and are sent only over the game IPC.
+/// descriptors include the server token and are sent only over the game IPC.
 pub fn notify_changed(app: &AppHandle) {
     let _ = app.emit("native-viewers:changed", ());
 }
 
-/// The game owns rendering; describing pages never starts OBS or closes windows.
+/// The game owns rendering; describing pages never starts the server or
+/// touches windows. `AppState::reconcile_viewer_server` keeps the server up
+/// while the in-game display is on, so a missing URL only means "starting".
 pub fn describe(app: &AppHandle, session_id: &str) -> Result<Value, NativeViewerError> {
     validate_session_id(session_id).map_err(|_| {
         NativeViewerError::new("invalid-session", "Invalid in-game viewer session.", false)
@@ -54,21 +57,15 @@ pub fn describe(app: &AppHandle, session_id: &str) -> Result<Value, NativeViewer
     {
         return Err(NativeViewerError::new(
             "in-game-disabled",
-            "Show inside ADOFAI is off in ElementNote.",
+            "Inside ADOFAI is off in ElementNote's settings.",
             true,
         ));
     }
-    if !state.is_obs_mode_active() {
-        return Err(NativeViewerError::new(
-            "obs-required",
-            "Enable OBS mode in ElementNote to use the native in-game viewers.",
-            true,
-        ));
-    }
+    // The code name predates the split from OBS; the game reads it as "preparing".
     let url = state.obs_bridge.local_http_url().ok_or_else(|| {
         NativeViewerError::new(
             "obs-not-ready",
-            "The OBS viewer service is starting. Try again shortly.",
+            "The key viewer pages are starting. Try again shortly.",
             true,
         )
     })?;
@@ -100,7 +97,10 @@ fn native_surfaces(store: &AppStoreData, base_url: &tauri::Url) -> Vec<Value> {
             continue;
         }
         let mut url = base_url.clone();
-        url.query_pairs_mut().append_pair("viewer", viewer);
+        // `client=game` keeps these pages out of the OBS connection count.
+        url.query_pairs_mut()
+            .append_pair("viewer", viewer)
+            .append_pair("client", "game");
         let (width, height) = native_viewport_size(layout);
         // Dimensions are the source CSS viewport. The native host fits them
         // within 430x270 and sets browser page zoom, preserving CSS layout.
@@ -173,6 +173,10 @@ mod tests {
             assert_eq!(
                 query.get("viewer").map(|value| value.as_ref()),
                 Some(viewer)
+            );
+            assert_eq!(
+                query.get("client").map(|value| value.as_ref()),
+                Some("game")
             );
             assert_eq!(surface["width"], 860);
             assert_eq!(surface["height"], 320);

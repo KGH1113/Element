@@ -13,7 +13,7 @@
 import { OBS_PROTOCOL_VERSION } from '@src/types/obs';
 import type { ObsEnvelope, HelloAckPayload } from '@src/types/obs';
 import type { KeyViewerKind } from '@src/types/key/keys';
-import { obsWindowLabel } from './obsViewer';
+import { obsWindowLabel, type ViewerPageClient } from './obsViewer';
 
 // ── 내부 상태 ──
 
@@ -265,6 +265,7 @@ export function initIpcShim(
   wsUrl: string,
   token: string,
   viewerKind?: KeyViewerKind,
+  client: ViewerPageClient = 'obs-browser',
 ): Promise<void> {
   disposed = false;
   windowLabel = obsWindowLabel(viewerKind);
@@ -291,7 +292,7 @@ export function initIpcShim(
 
       ws.onopen = () => {
         sendWsMessage('hello', {
-          client: 'obs-browser',
+          client,
           protocol: OBS_PROTOCOL_VERSION,
           appVersion: '',
           resumeFromSeq: 0,

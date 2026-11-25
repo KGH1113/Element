@@ -13,6 +13,9 @@ import type {
 } from './types';
 import { TABS } from './types';
 import ColorPicker from '@components/main/Modal/content/pickers/ColorPicker';
+import RangeTrack from './RangeTrack';
+import { useInspectorPages } from './inspectorPageContext';
+import StateSwatches from './StateSwatches';
 import Dropdown from '@components/main/common/Dropdown';
 import Toggle from '@components/main/common/Toggle';
 
@@ -26,9 +29,14 @@ export const PropertyRow: React.FC<PropertyRowProps> = ({
 }) => (
   <div className="dmn-property-row flex min-h-[32px] w-full items-center justify-between">
     <p className="dmn-property-row__label">{label}</p>
-    <div className="flex items-center gap-[8px]">{children}</div>
+    <div className="dmn-property-row__control flex items-center gap-[8px]">
+      {children}
+    </div>
   </div>
 );
+
+/** A number is also a slider when its whole range is this small or smaller. */
+const RANGE_SPAN_MAX = 200;
 
 // ============================================================================
 // 숫자 입력
@@ -50,7 +58,10 @@ export const NumberInput: React.FC<NumberInputProps> = ({
   disabled = false,
   isMixed = false,
   mixedPlaceholder = 'Mixed',
+  visual,
 }) => {
+  // On a sidebar page, a number with a small range can also be dragged.
+  const onSidebarPage = !!useInspectorPages();
   const hasSuffix = !!suffix;
   const resolvedDecimalScale = allowDecimal
     ? Math.max(0, Math.floor(decimalScale))
@@ -255,30 +266,26 @@ export const NumberInput: React.FC<NumberInputProps> = ({
   // Mixed 상태일 때 placeholder 표시 여부
   const showMixedPlaceholder = isMixed && !isFocused && localValue === '';
 
-  if (hasSuffix) {
-    return (
-      <input
-        type="text"
-        aria-label={ariaLabel}
-        disabled={disabled}
-        inputMode={supportsDecimal ? 'decimal' : 'numeric'}
-        value={localValue}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        placeholder={showMixedPlaceholder ? mixedPlaceholder : undefined}
-        className={`dmn-number-field text-center h-[23px] border-[1px] border-transparent text-style-4 ${
-          showMixedPlaceholder
-            ? 'text-[#6B6D75] italic placeholder:text-[#6B6D75] placeholder:italic'
-            : 'text-[#DBDEE8]'
-        }`}
-        style={{ width }}
-      />
-    );
-  }
-
-  return (
+  const field = hasSuffix ? (
+    <input
+      type="text"
+      aria-label={ariaLabel}
+      disabled={disabled}
+      inputMode={supportsDecimal ? 'decimal' : 'numeric'}
+      value={localValue}
+      onChange={handleChange}
+      onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      placeholder={showMixedPlaceholder ? mixedPlaceholder : undefined}
+      className={`dmn-number-field text-center h-[23px] border-[1px] border-transparent text-style-4 ${
+        showMixedPlaceholder
+          ? 'text-[#6B6D75] italic placeholder:text-[#6B6D75] placeholder:italic'
+          : 'text-[#DBDEE8]'
+      }`}
+      style={{ width }}
+    />
+  ) : (
     <div
       className="dmn-number-field relative h-[23px] border-[1px] border-transparent"
       style={{ width }}
@@ -310,6 +317,38 @@ export const NumberInput: React.FC<NumberInputProps> = ({
         } text-center`}
       />
     </div>
+  );
+
+  const numeric = typeof value === 'number' ? value : Number(value);
+  const showsRange =
+    onSidebarPage &&
+    !prefix &&
+    !isMixed &&
+    Number.isFinite(numeric) &&
+    max - min > 0 &&
+    max - min <= RANGE_SPAN_MAX;
+  if (!showsRange) return field;
+
+  return (
+    <>
+      {field}
+      <RangeTrack
+        value={numeric}
+        min={min}
+        max={max}
+        step={step}
+        label={ariaLabel}
+        visual={visual}
+        disabled={disabled}
+        onChange={(next) => {
+          const clamped = normalizePrecision(
+            Math.min(Math.max(next, min), max),
+          );
+          if (!isFocused) setLocalValue(getDisplayValue(clamped, false));
+          onChange(clamped);
+        }}
+      />
+    </>
   );
 };
 
@@ -665,6 +704,8 @@ export const ColorInput: React.FC<ColorInputProps> = ({
   showStateTabs = false,
   stateMode: externalStateMode,
   onStateModeChange: externalOnStateModeChange,
+  label,
+  mixed,
   colorId,
   solidOnly = true,
   panelElement,
@@ -691,6 +732,11 @@ export const ColorInput: React.FC<ColorInputProps> = ({
         : 'idle';
 
   const buttonRef = useRef<HTMLButtonElement>(null);
+  // A color with two states shows both; the chooser is placed against the pair.
+  const pairRef = useRef<HTMLDivElement>(null);
+  const triggerRef = (
+    showStateTabs ? pairRef : buttonRef
+  ) as React.RefObject<HTMLElement>;
 
   // 로컬 색상 상태 (드래그 중 UI 업데이트용)
   const [localColor, setLocalColor] = useState(value || '#FFFFFF');
@@ -710,7 +756,7 @@ export const ColorInput: React.FC<ColorInputProps> = ({
   const _stableId =
     colorId || `color-input-${value?.replace(/[^a-zA-Z0-9]/g, '')}`;
 
-  const interactiveRefs = [buttonRef];
+  const interactiveRefs = [triggerRef];
 
   const handleToggle = () => {
     if (isControlled) {
@@ -768,28 +814,41 @@ export const ColorInput: React.FC<ColorInputProps> = ({
     return '#ffffff';
   };
 
+  // Pressing a state opens its chooser; pressing the open one closes it.
+  const handleStatePress = (state: 'idle' | 'active') => {
+    if (open && stateMode === state) {
+      handleClose();
+      return;
+    }
+    handleStateModeChange(state);
+    if (!open) handleToggle();
+  };
+
   return (
     <>
-      <button
-        ref={buttonRef}
-        onClick={handleToggle}
-        className={`w-[23px] h-[23px] rounded-[7px] border-[1px] overflow-hidden cursor-pointer transition-colors flex-shrink-0 ${
-          open
-            ? 'border-ui-accent'
-            : 'border-ui-line hover:border-ui-line-strong'
-        }`}
-        style={{
-          backgroundColor: getDisplayColor(
-            showStateTabs && stateMode === 'active'
-              ? localActiveColor
-              : localColor,
-          ),
-        }}
-      />
+      {showStateTabs ? (
+        <StateSwatches
+          ref={pairRef}
+          label={label ?? ''}
+          colors={{ idle: localColor, active: localActiveColor }}
+          mixed={mixed}
+          open={open ? stateMode : null}
+          onPress={handleStatePress}
+        />
+      ) : (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={handleToggle}
+          className="en-swatch-button"
+          data-open={open || undefined}
+          style={{ backgroundColor: getDisplayColor(localColor) }}
+        />
+      )}
       {open && (
         <ColorPicker
           open={open}
-          referenceRef={buttonRef}
+          referenceRef={triggerRef}
           panelElement={panelElement}
           color={
             showStateTabs && stateMode === 'active'
@@ -801,8 +860,6 @@ export const ColorInput: React.FC<ColorInputProps> = ({
           onClose={handleClose}
           interactiveRefs={interactiveRefs}
           solidOnly={solidOnly}
-          stateMode={showStateTabs ? stateMode : undefined}
-          onStateModeChange={showStateTabs ? handleStateModeChange : undefined}
         />
       )}
     </>
@@ -968,7 +1025,7 @@ export const FontStyleToggle: React.FC<FontStyleToggleProps> = ({
     }`;
 
   return (
-    <div className="flex items-center h-[23px] bg-ui-inset rounded-ui-inner overflow-hidden">
+    <div className="en-font-styles flex items-center h-[23px] bg-ui-inset rounded-ui-inner overflow-hidden">
       <button
         onClick={() => onBoldChange(!isBold)}
         className={buttonClass(isBold)}
@@ -1010,6 +1067,7 @@ const TabButton: React.FC<TabButtonProps> = ({ active, onClick, children }) => (
     type="button"
     role="tab"
     aria-selected={active}
+    tabIndex={active ? 0 : -1}
     onClick={onClick}
     className="dmn-panel-tab h-[24px] w-full"
   >
@@ -1029,9 +1087,41 @@ export const Tabs: React.FC<TabsProps> = ({
 
   return (
     <div
-      className="dmn-panel-tabs flex h-[30px] w-full items-center gap-[3px] p-[3px]"
+      className="dmn-panel-tabs grid w-full items-center gap-[3px] p-[3px]"
+      style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
       role="tablist"
+      onKeyDown={(event) => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key))
+          return;
+        const buttons = Array.from(
+          event.currentTarget.querySelectorAll<HTMLButtonElement>(
+            '[role="tab"]',
+          ),
+        );
+        const current = buttons.indexOf(event.target as HTMLButtonElement);
+        if (current < 0) return;
+        event.preventDefault();
+        const next =
+          event.key === 'Home'
+            ? 0
+            : event.key === 'End'
+              ? buttons.length - 1
+              : (current +
+                  (event.key === 'ArrowRight' ? 1 : -1) +
+                  buttons.length) %
+                buttons.length;
+        buttons[next]?.focus();
+        buttons[next]?.click();
+      }}
     >
+      {tabs.includes(TABS.INPUT) && (
+        <TabButton
+          active={activeTab === TABS.INPUT}
+          onClick={() => onTabChange(TABS.INPUT)}
+        >
+          {t('propertiesPanel.tabInput') || 'Input'}
+        </TabButton>
+      )}
       {tabs.includes(TABS.STYLE) && (
         <TabButton
           active={activeTab === TABS.STYLE}

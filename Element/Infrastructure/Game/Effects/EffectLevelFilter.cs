@@ -43,6 +43,14 @@ internal static class EffectLevelFilter
     "trackShadowColor",
   };
 
+  private static readonly string[] AnimationProperties =
+  {
+    "trackAnimation",
+    "beatsAhead",
+    "trackDisappearAnimation",
+    "beatsBehind",
+  };
+
   public static LevelData Create(
     LevelData source,
     RemovedEffects effects,
@@ -64,7 +72,7 @@ internal static class EffectLevelFilter
         ColorProperties
       );
     if (Has(effects, RemovedEffects.TrackAnimations))
-      ResetAnimations(result.trackSettings);
+      FixAnimations(result.trackSettings);
 
     // Without its moves, a camera pinned to a tile or a fixed spot would never
     // follow the planets. Start from the game's default camera, as Enhanced
@@ -91,11 +99,11 @@ internal static class EffectLevelFilter
     }
 
     List<LevelEvent> sourceEvents = events ?? source.levelEvents;
-    var preservedTags = Has(effects, RemovedEffects.Decorations) ? GameplayDecorationTags(sourceEvents) : null;
+    KeptDecorations kept = KeptDecorations.For(effects, sourceEvents, source.decorations);
     result.levelEvents = new EventsArray<LevelEvent> { Capacity = sourceEvents.Count };
     foreach (LevelEvent item in sourceEvents)
     {
-      if (ShouldRemove(item, effects, preservedTags))
+      if (ShouldRemove(item, effects, kept))
         continue;
       result.levelEvents.Add(Transform(item, result.trackSettings, effects));
     }
@@ -105,21 +113,17 @@ internal static class EffectLevelFilter
     result.decorations = new DecorationsArray<LevelEvent> { Capacity = source.decorations.Count };
     List<LevelEvent> decorations = result.decorations;
     foreach (LevelEvent item in source.decorations)
-      if (!ShouldRemove(item, effects, preservedTags))
+      if (!ShouldRemove(item, effects, kept))
         decorations.Add(item);
     return result;
   }
 
   internal static void FilterEditorDecorations(List<LevelEvent> items, LevelData source, RemovedEffects effects)
   {
-    if (
-      items == null
-      || source?.levelEvents == null
-      || (effects & (RemovedEffects.Decorations | RemovedEffects.Particles)) == 0
-    )
+    if (items == null || source?.levelEvents == null || (effects & (DecorationEffects | RemovedEffects.Particles)) == 0)
       return;
-    var preservedTags = Has(effects, RemovedEffects.Decorations) ? GameplayDecorationTags(source.levelEvents) : null;
-    items.RemoveAll(item => ShouldRemove(item, effects, preservedTags));
+    KeptDecorations kept = KeptDecorations.For(effects, source.levelEvents, source.decorations);
+    items.RemoveAll(item => ShouldRemove(item, effects, kept));
   }
 
   /// <summary>Sets the zoom on a default camera. The game unboxes "zoom" as a float.</summary>
@@ -163,14 +167,76 @@ internal static class EffectLevelFilter
     return required != RemovedEffects.None && Has(effects, required);
   }
 
-  private static bool ShouldRemove(LevelEvent item, RemovedEffects effects, HashSet<string> preservedTags)
+  private static bool ShouldRemove(LevelEvent item, RemovedEffects effects, KeptDecorations kept)
   {
     if (RemovesEvent(item.eventType, effects))
       return true;
-    return preservedTags != null
-      && IsDecorationEvent(item.eventType)
-      && !MatchesTags(item, "tag", preservedTags)
-      && !MatchesTags(item, "eventTag", preservedTags);
+    if (kept == null || !IsDecorationEvent(item.eventType))
+      return false;
+    // Decorations that gameplay conditions or input events drive stay under every option.
+    if (MatchesTags(item, "tag", kept.GameplayTags) || MatchesTags(item, "eventTag", kept.GameplayTags))
+      return false;
+    // A hitbox kills the planet or fires events, so only its own option removes it.
+    if (IsHitboxDecoration(item))
+      return Has(effects, RemovedEffects.HitboxDecorations);
+    if (!Has(effects, RemovedEffects.Decorations))
+      return false;
+    // Keep the moves of kept hitbox decorations: where a hitbox is decides where the planet dies.
+    return kept.HitboxTags == null || !MatchesTags(item, "tag", kept.HitboxTags);
+  }
+
+  /// <summary>
+  /// What the decoration options keep: decorations tied to gameplay conditions and,
+  /// while hitbox decorations stay, the tags their moves target.
+  /// </summary>
+  private sealed class KeptDecorations
+  {
+    public HashSet<string> GameplayTags;
+    public HashSet<string> HitboxTags;
+
+    public static KeptDecorations For(
+      RemovedEffects effects,
+      IEnumerable<LevelEvent> events,
+      IEnumerable<LevelEvent> decorations
+    )
+    {
+      if ((effects & DecorationEffects) == 0)
+        return null;
+      return new KeptDecorations
+      {
+        GameplayTags = GameplayDecorationTags(events),
+        HitboxTags =
+          Has(effects, RemovedEffects.Decorations) && !Has(effects, RemovedEffects.HitboxDecorations)
+            ? HitboxDecorationTags(decorations)
+            : null,
+      };
+    }
+  }
+
+  private const RemovedEffects DecorationEffects = RemovedEffects.Decorations | RemovedEffects.HitboxDecorations;
+
+  /// <summary>True for a decoration whose hitbox kills the planet or fires events.</summary>
+  internal static bool IsHitboxDecoration(LevelEvent item)
+  {
+    if (!item.GetData().TryGetValue("hitbox", out object value))
+      return false;
+    return value switch
+    {
+      HitboxType hitbox => hitbox != HitboxType.None,
+      string name => Enum.TryParse(name, true, out HitboxType parsed) && parsed != HitboxType.None,
+      _ => false,
+    };
+  }
+
+  private static HashSet<string> HitboxDecorationTags(IEnumerable<LevelEvent> decorations)
+  {
+    var tags = new HashSet<string>(StringComparer.Ordinal);
+    if (decorations == null)
+      return tags;
+    foreach (LevelEvent item in decorations)
+      if (IsHitboxDecoration(item) && item.ContainsKey("tag"))
+        AddTags(item.GetString("tag"), tags);
+    return tags;
   }
 
   private static LevelEvent Transform(LevelEvent item, LevelEvent trackSettings, RemovedEffects effects)
@@ -195,7 +261,7 @@ internal static class EffectLevelFilter
       if (Has(effects, RemovedEffects.TrackColors))
         CopyProperties(trackSettings, result, ColorProperties);
       if (Has(effects, RemovedEffects.TrackAnimations))
-        ResetAnimations(result);
+        CopyProperties(trackSettings, result, AnimationProperties);
     }
     return result;
   }
@@ -212,11 +278,15 @@ internal static class EffectLevelFilter
     return !item.TryGet("opacity", out float value) || value != 100f;
   }
 
-  private static void ResetAnimations(LevelEvent settings)
+  /// <summary>
+  /// One tile animation for the whole map, as Enhanced Effect Remover plays it:
+  /// the map's opening appearance shows tiles 8 beats ahead, and a passed tile
+  /// fades out at once. Mid-map changes (AnimateTrack, ChangeTrack) are dropped.
+  /// </summary>
+  internal static void FixAnimations(LevelEvent settings)
   {
-    settings["trackAnimation"] = TrackAnimationType.None;
-    settings["trackDisappearAnimation"] = TrackAnimationType2.None;
     settings["beatsAhead"] = 8f;
+    settings["trackDisappearAnimation"] = TrackAnimationType2.Fade;
     settings["beatsBehind"] = 0f;
   }
 

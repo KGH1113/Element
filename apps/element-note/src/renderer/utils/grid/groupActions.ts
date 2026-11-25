@@ -8,6 +8,8 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
+import { writeSprites } from '@src/renderer/editor/runtime/spritePositions';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
@@ -33,6 +35,7 @@ export async function groupSelectedElements(
   const statPos = useStatItemStore.getState().positions;
   const graphPos = useGraphItemStore.getState().positions;
   const knobPos = useKnobItemStore.getState().positions;
+  const spritePos = useSpriteStore.getState().positions;
   const pluginEls = usePluginDisplayElementStore.getState().elements;
   const currentLayerGroups = useLayerGroupStore.getState().layerGroups;
   const modeGroups = currentLayerGroups[selectedKeyType] || [];
@@ -44,6 +47,7 @@ export async function groupSelectedElements(
     statPos,
     graphPos,
     knobPos,
+    spritePos,
   );
 
   let targetGroupId = singleGroupId;
@@ -70,6 +74,7 @@ export async function groupSelectedElements(
     statPositions: statPos,
     graphPositions: graphPos,
     knobPositions: knobPos,
+    spritePositions: spritePos,
     targetGroupId,
   });
 
@@ -79,6 +84,7 @@ export async function groupSelectedElements(
     statPositions: grouped.statPositions,
     graphPositions: grouped.graphPositions,
     knobPositions: grouped.knobPositions,
+    spritePositions: grouped.spritePositions,
     layerGroups: nextLayerGroups,
   });
 
@@ -117,6 +123,7 @@ export async function groupSelectedElements(
     window.api.knobItems
       .updatePositions(normalized.knobPositions)
       .catch(() => {}),
+    writeSprites(normalized.spritePositions),
   ]);
 
   if (createdGroup || normalized.groupsChanged) {
@@ -141,6 +148,7 @@ export async function ungroupSelectedElements(
   const statPos = useStatItemStore.getState().positions;
   const graphPos = useGraphItemStore.getState().positions;
   const knobPos = useKnobItemStore.getState().positions;
+  const spritePos = useSpriteStore.getState().positions;
   const pluginEls = usePluginDisplayElementStore.getState().elements;
   const currentLayerGroups = useLayerGroupStore.getState().layerGroups;
 
@@ -151,6 +159,7 @@ export async function ungroupSelectedElements(
     statPositions: statPos,
     graphPositions: graphPos,
     knobPositions: knobPos,
+    spritePositions: spritePos,
     targetGroupId: undefined,
   });
 
@@ -160,6 +169,7 @@ export async function ungroupSelectedElements(
     statPositions: ungrouped.statPositions,
     graphPositions: ungrouped.graphPositions,
     knobPositions: ungrouped.knobPositions,
+    spritePositions: ungrouped.spritePositions,
     layerGroups: currentLayerGroups,
   });
 
@@ -194,6 +204,7 @@ export async function ungroupSelectedElements(
     window.api.knobItems
       .updatePositions(normalized.knobPositions)
       .catch(() => {}),
+    writeSprites(normalized.spritePositions),
   ]);
 
   if (normalized.groupsChanged) {

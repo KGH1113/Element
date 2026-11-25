@@ -9,6 +9,7 @@ import { useKeyStore } from '@stores/data/useKeyStore';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
+import { useSpriteStore } from '@stores/data/useSpriteStore';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
 import { useLayerGroupStore } from '@stores/data/useLayerGroupStore';
 import { useHistoryStore } from '@stores/data/useHistoryStore';
@@ -32,12 +33,20 @@ import type {
   GraphItemPositions,
 } from '@src/types/key/graphItems';
 import type { KnobItemPosition, KnobItemPositions } from '@src/types/key/knobs';
+import type { ReactiveSpritePosition } from '@src/types/key/sprites';
+import { copySprite } from '@components/main/Modal/content/editors/spriteEditorDraft';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import { revertUnsavedKeyChange } from '@src/renderer/editor/runtime/keySaveRecovery';
 import {
   saveItemPositions,
   syncItemPositionsToOverlay,
 } from '@src/renderer/editor/runtime/itemPositions';
+import {
+  patchSpritesAt,
+  removeSpritesAt,
+  saveSpritePreview,
+  writeSprites,
+} from '@src/renderer/editor/runtime/spritePositions';
 import {
   normalizeLayerGroupsForMode,
   buildNextLayerGroupName,
@@ -142,6 +151,9 @@ export function useGridSelection({
     } catch (error) {
       console.error('Failed to broadcast knob positions to overlay', error);
     }
+
+    // A drag only showed the sprites where they went; this saves them once.
+    void saveSpritePreview();
 
     // 플러그인 요소도 명시적으로 동기화 (드래그 종료 시 skipSync로 인해 동기화되지 않았을 수 있음)
     const currentPluginElements =
@@ -313,6 +325,15 @@ export function useGridSelection({
       }
     }
 
+    void patchSpritesAt(
+      selectedKeyType,
+      selectedElements
+        .filter((el) => el.type === 'sprite' && el.index !== undefined)
+        .map((el) => el.index as number),
+      (sprite) => ({ dx: sprite.dx + deltaX, dy: sprite.dy + deltaY }),
+      { save: syncToOverlay },
+    );
+
     // 플러그인 요소 배치 업데이트
     const pluginUpdates = selectedElements.filter((el) => el.type === 'plugin');
     if (pluginUpdates.length > 0) {
@@ -356,6 +377,10 @@ export function useGridSelection({
 
     const knobsToDelete = selectedElements
       .filter((el) => el.type === 'knob' && el.index !== undefined)
+      .map((el) => el.index as number);
+
+    const spritesToDelete = selectedElements
+      .filter((el) => el.type === 'sprite' && el.index !== undefined)
       .map((el) => el.index as number);
 
     const pluginsToDelete = selectedElements
@@ -528,12 +553,15 @@ export function useGridSelection({
       }
     }
 
+    await removeSpritesAt(selectedKeyType, spritesToDelete);
+
     const normalized = normalizeLayerGroupsForMode({
       mode: selectedKeyType,
       keyPositions: useKeyStore.getState().positions,
       statPositions: useStatItemStore.getState().positions,
       graphPositions: useGraphItemStore.getState().positions,
       knobPositions: useKnobItemStore.getState().positions,
+      spritePositions: useSpriteStore.getState().positions,
       layerGroups: useLayerGroupStore.getState().layerGroups,
     });
 
@@ -546,6 +574,7 @@ export function useGridSelection({
       useStatItemStore.getState().setPositions(normalized.statPositions);
       useGraphItemStore.getState().setPositions(normalized.graphPositions);
       useKnobItemStore.getState().setPositions(normalized.knobPositions);
+      const spriteSave = writeSprites(normalized.spritePositions);
       if (normalized.groupsChanged) {
         useLayerGroupStore.getState().setLayerGroups(normalized.layerGroups);
       }
@@ -555,6 +584,7 @@ export function useGridSelection({
         await window.api.statItems.updatePositions(normalized.statPositions);
         await window.api.graphItems.updatePositions(normalized.graphPositions);
         await window.api.knobItems.updatePositions(normalized.knobPositions);
+        await spriteSave;
         if (normalized.groupsChanged) {
           await window.api.layerGroups.update(normalized.layerGroups);
         }
@@ -621,6 +651,15 @@ export function useGridSelection({
           clipboardItems.push({
             type: 'knob',
             position: { ...position },
+          });
+        }
+      } else if (element.type === 'sprite' && element.index !== undefined) {
+        const position =
+          useSpriteStore.getState().positions[selectedKeyType]?.[element.index];
+        if (position) {
+          clipboardItems.push({
+            type: 'sprite',
+            position: structuredClone(position),
           });
         }
       } else if (element.type === 'plugin') {
@@ -740,6 +779,7 @@ export function useGridSelection({
     const statsToAdd: { position: StatItemPosition }[] = [];
     const graphsToAdd: { position: GraphItemPosition }[] = [];
     const knobsToAdd: { position: KnobItemPosition }[] = [];
+    const spritesToAdd: ReactiveSpritePosition[] = [];
     const pluginsToAdd: Omit<PluginDisplayElementInternal, 'fullId'>[] = [];
 
     for (const item of currentClipboard) {
@@ -784,6 +824,14 @@ export function useGridSelection({
             dy: (item.position.dy || 0) + PASTE_OFFSET,
           },
         });
+      } else if (item.type === 'sprite') {
+        spritesToAdd.push(
+          copySprite(item.position, {
+            groupId: remapGroupId(item.position.groupId ?? undefined),
+            dx: item.position.dx + PASTE_OFFSET,
+            dy: item.position.dy + PASTE_OFFSET,
+          }),
+        );
       } else if (item.type === 'plugin') {
         pluginsToAdd.push({
           ...item.element,
@@ -896,6 +944,25 @@ export function useGridSelection({
       useKnobItemStore.getState().setPositions(updatedPositions);
     }
 
+    // Sprites join the list here and are saved below, with their final order.
+    const spritesBeforePaste = useSpriteStore.getState().positions;
+    const spriteList = [
+      ...(spritesBeforePaste[selectedKeyType] || []),
+      ...spritesToAdd,
+    ];
+    spritesToAdd.forEach((_, i) => {
+      const index = spriteList.length - spritesToAdd.length + i;
+      newSelectedElements.push({
+        type: 'sprite',
+        id: `sprite-${index}`,
+        index,
+      });
+    });
+    const freshSpritePos =
+      spritesToAdd.length > 0
+        ? { ...spritesBeforePaste, [selectedKeyType]: spriteList }
+        : spritesBeforePaste;
+
     // 플러그인 요소 추가
     if (pluginsToAdd.length > 0) {
       const currentElements = usePluginDisplayElementStore.getState().elements;
@@ -934,6 +1001,7 @@ export function useGridSelection({
       freshStatPos,
       freshGraphPos,
       freshKnobPos,
+      freshSpritePos,
       freshPluginEls,
     );
 
@@ -964,6 +1032,7 @@ export function useGridSelection({
       freshStatPos,
       freshGraphPos,
       freshKnobPos,
+      freshSpritePos,
     );
 
     // 스토어 업데이트 (동기 — 배칭으로 한 번에 렌더)
@@ -971,6 +1040,7 @@ export function useGridSelection({
     useStatItemStore.getState().setPositions(patch.statPositions);
     useGraphItemStore.getState().setPositions(patch.graphPositions);
     useKnobItemStore.getState().setPositions(patch.knobPositions);
+    const spriteSave = writeSprites(patch.spritePositions);
     for (const { fullId, zIndex } of patch.pluginUpdates) {
       usePluginDisplayElementStore
         .getState()
@@ -1016,6 +1086,7 @@ export function useGridSelection({
           console.error('Failed to save pasted elements', error);
         });
       }
+      await spriteSave;
     } finally {
       useKeyStore.getState().setLocalUpdateInProgress(false);
       useStatItemStore.getState().setLocalUpdateInProgress(false);

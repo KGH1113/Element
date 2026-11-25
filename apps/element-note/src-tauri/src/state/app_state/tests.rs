@@ -10,6 +10,7 @@ use std::{
 
 #[cfg(not(target_os = "windows"))]
 use super::normalize_stored_overlay_bounds;
+use super::viewer_server_runtime::viewer_server_plan;
 use super::{
     acknowledge_editor_flush_handshake, acknowledge_panel_close_request,
     adjust_overlay_resize_position, applied_overlay_frame_from_native, apply_panel_bounds_change,
@@ -24,16 +25,15 @@ use super::{
     panel_bounds_from_sample, panel_height_bounds, panel_position_beside_main,
     publish_panel_hidden_transition, publish_panel_visibility_transition, resolve_event_age_ms,
     resolve_overlay_placement, resolve_panel_window_layout, resolve_windows_overlay_placement,
-    restore_panel_with_main_transition, run_panel_close_timeout, should_create_overlay_on_startup,
-    should_recover_keyboard_daemon, should_restore_panel_on_startup,
-    stored_overlay_bounds_for_persistence, take_cancelable_editor_flush_handshake,
-    take_editor_flush_handshake, take_panel_open_arm, AppState, EditorFlushAcknowledge,
-    EditorFlushCompletion, EditorFlushHandshake, EditorFlushRequest, FrontendFlushAction,
-    FrontendHistoryFlushPhase, FrontendHistoryFlushReady, FrontendLifecycleAction,
-    KeyCounterEventEmitter, LifecycleHandshakeInstall, MonitorData, MonitorSpec,
-    MutationPublicationSequencer, Mutex, NativePlacement, NativeRect, NativeRejectReason,
-    OverlayCloseAction, OverlayPersistenceAuthority, OverlayPlacementTrust, OverlayPosition,
-    OverlayRestoreSource, PanelBoundsChange, PanelBoundsPersistenceController,
+    restore_panel_with_main_transition, run_panel_close_timeout, should_recover_keyboard_daemon,
+    should_restore_panel_on_startup, stored_overlay_bounds_for_persistence,
+    take_cancelable_editor_flush_handshake, take_editor_flush_handshake, take_panel_open_arm,
+    AppState, EditorFlushAcknowledge, EditorFlushCompletion, EditorFlushHandshake,
+    EditorFlushRequest, FrontendFlushAction, FrontendHistoryFlushPhase, FrontendHistoryFlushReady,
+    FrontendLifecycleAction, KeyCounterEventEmitter, LifecycleHandshakeInstall, MonitorData,
+    MonitorSpec, MutationPublicationSequencer, Mutex, NativePlacement, NativeRect,
+    NativeRejectReason, OverlayCloseAction, OverlayPersistenceAuthority, OverlayPlacementTrust,
+    OverlayPosition, OverlayRestoreSource, PanelBoundsChange, PanelBoundsPersistenceController,
     PanelBoundsPersistenceState, PanelBoundsSample, PanelCloseRequestState,
     PanelCloseRequestedPayload, PanelPresentSnapshot, PanelVisibilityEventEmitter,
     PanelVisibilityPayload, PanelVisibilityReason, PhysicalPosition, PhysicalSize,
@@ -50,6 +50,7 @@ use crate::{
         PluginPoint, SavedPluginInstance, StoredOverlayBounds, StoredOverlayNativePosition, TabCss,
         EDITOR_OPS_VERSION,
     },
+    services::obs_bridge::ServerReach,
     state::{
         assets::local_asset_path::path_identity_key,
         history::{HistoryAdmissionGate, HistoryDirection, HistoryScope},
@@ -203,6 +204,23 @@ impl KeyCounterEventEmitter for NoopCounterEmitter {
 }
 
 #[test]
+fn counters_increment_even_when_an_older_store_disabled_the_master_switch() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = AppStore::initialize_for_test(directory.path()).unwrap();
+    store
+        .update(|data| data.key_counter_enabled = false)
+        .unwrap();
+    let state = AppState::initialize(store).unwrap();
+    let mode = state.store.snapshot().selected_key_type;
+    let key = state.store.snapshot().keys[&mode][0].canonical();
+    assert_eq!(
+        state.increment_key_counter_and_emit(&NoopCounterEmitter, &mode, &key),
+        Some(1)
+    );
+    assert!(state.bootstrap_payload().settings.key_counter_enabled);
+}
+
+#[test]
 fn preset_mapping_commit_drops_queued_increment_for_replaced_key() {
     let directory = tempfile::tempdir().unwrap();
     let store = AppStore::initialize_for_test(directory.path()).unwrap();
@@ -279,11 +297,84 @@ fn preset_mapping_commit_drops_queued_increment_for_replaced_key() {
 }
 
 #[test]
-fn startup_overlay_creation_covers_all_visibility_and_obs_combinations() {
-    assert!(!should_create_overlay_on_startup(false, false));
-    assert!(should_create_overlay_on_startup(false, true));
-    assert!(!should_create_overlay_on_startup(true, false));
-    assert!(!should_create_overlay_on_startup(true, true));
+fn viewer_server_runs_exactly_when_the_game_display_or_obs_is_on() {
+    assert_eq!(viewer_server_plan(false, false), None);
+    // The game is on this PC: nothing outside it can reach the server.
+    assert_eq!(viewer_server_plan(true, false), Some(ServerReach::Loopback));
+    // OBS may run on another PC of the same network.
+    assert_eq!(viewer_server_plan(false, true), Some(ServerReach::Lan));
+    assert_eq!(viewer_server_plan(true, true), Some(ServerReach::Lan));
+}
+
+#[tokio::test]
+async fn viewer_server_follows_both_switches_and_leaves_the_desktop_overlay_alone() {
+    let directory = tempfile::tempdir().unwrap();
+    let store = AppStore::initialize_for_test(directory.path()).unwrap();
+    store
+        .update(|data| {
+            // Port 0 lets the OS pick one, so a running ElementNote cannot clash.
+            data.obs_port = 0;
+            data.overlay_visible = true;
+        })
+        .unwrap();
+    let state = AppState::initialize(store).unwrap();
+    let set = |in_game: bool, obs: bool| {
+        state
+            .store
+            .update(|data| {
+                data.in_game_viewers_enabled = in_game;
+                data.obs_mode_enabled = obs;
+            })
+            .unwrap();
+    };
+
+    // New installs: the game display is on and OBS is off.
+    assert!(state.store.snapshot().in_game_viewers_enabled);
+    assert!(!state.store.snapshot().obs_mode_enabled);
+    assert!(!state.is_viewer_server_running());
+    assert!(state.apply_viewer_server_plan().await.unwrap());
+    assert_eq!(state.obs_bridge.reach(), Some(ServerReach::Loopback));
+    let port = state.store.snapshot().obs_port;
+    assert_ne!(port, 0);
+    let token = state.store.snapshot().obs_token.unwrap();
+    // Nothing to do when the switches did not move.
+    assert!(!state.apply_viewer_server_plan().await.unwrap());
+
+    // OBS on top of the game display opens the same server to the network.
+    // A page that is still connected must not push it off its port.
+    let lingering = tokio::net::TcpStream::connect(("127.0.0.1", port))
+        .await
+        .unwrap();
+    set(true, true);
+    assert!(state.apply_viewer_server_plan().await.unwrap());
+    assert_eq!(state.obs_bridge.reach(), Some(ServerReach::Lan));
+    assert_eq!(state.obs_bridge.status().port, port);
+    drop(lingering);
+
+    // OBS alone keeps it running; the game display alone closes it to the network.
+    set(false, true);
+    assert!(!state.apply_viewer_server_plan().await.unwrap());
+    assert_eq!(state.obs_bridge.reach(), Some(ServerReach::Lan));
+    set(true, false);
+    assert!(state.apply_viewer_server_plan().await.unwrap());
+    assert_eq!(state.obs_bridge.reach(), Some(ServerReach::Loopback));
+
+    // The address survives every restart: same port, same token.
+    assert_eq!(state.store.snapshot().obs_port, port);
+    assert_eq!(state.obs_bridge.status().port, port);
+    assert_eq!(state.obs_bridge.status().token, Some(token));
+
+    // Both off is the only state that stops it.
+    set(false, false);
+    assert!(state.apply_viewer_server_plan().await.unwrap());
+    assert!(!state.is_viewer_server_running());
+    assert_eq!(state.obs_bridge.reach(), None);
+
+    // None of this touched the desktop overlay's own switch.
+    assert!(state.store.snapshot().overlay_visible);
+
+    state.shutdown();
+    drop(state);
 }
 
 #[test]
@@ -294,7 +385,6 @@ fn key_mapping_commit_preserves_unflushed_runtime_counters() {
     ));
     std::fs::create_dir_all(&directory).unwrap();
     let state = AppState::initialize(AppStore::initialize_for_test(&directory).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let editor = state.store.editor_get();
     let mode = state.store.snapshot().selected_key_type;
@@ -350,7 +440,6 @@ fn properties_panel_key_change_saves_and_keeps_unsaved_presses() {
     let directory = tempfile::tempdir().unwrap();
     let state =
         AppState::initialize(AppStore::initialize_for_test(directory.path()).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let snapshot = state.store.snapshot();
     let mode = snapshot.selected_key_type.clone();
@@ -505,7 +594,6 @@ fn custom_tab_create_preserves_unflushed_runtime_counters() {
     ));
     std::fs::create_dir_all(&directory).unwrap();
     let state = AppState::initialize(AppStore::initialize_for_test(&directory).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let snapshot = state.store.snapshot();
     let mode = snapshot.selected_key_type;
@@ -611,7 +699,6 @@ fn custom_tab_delete_preserves_unflushed_runtime_counters() {
     ));
     std::fs::create_dir_all(&directory).unwrap();
     let state = AppState::initialize(AppStore::initialize_for_test(&directory).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let snapshot = state.store.snapshot();
     let mode = snapshot.selected_key_type;
@@ -728,7 +815,6 @@ fn custom_tab_restore_history_preserves_unflushed_runtime_counters() {
     ));
     std::fs::create_dir_all(&directory).unwrap();
     let state = AppState::initialize(AppStore::initialize_for_test(&directory).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let snapshot = state.store.snapshot();
     let mode = snapshot.selected_key_type;
@@ -857,7 +943,6 @@ fn mixed_gesture_history_preserves_live_and_restores_historical_counters() {
     ));
     std::fs::create_dir_all(&directory).unwrap();
     let state = AppState::initialize(AppStore::initialize_for_test(&directory).unwrap()).unwrap();
-    state.key_counter_enabled.store(true, Ordering::SeqCst);
     let emitter = NoopCounterEmitter;
     let editor = state.store.editor_get();
     let mode = state.store.snapshot().selected_key_type;
@@ -1271,11 +1356,10 @@ fn overlay_close_distinguishes_final_shutdown_from_user_close() {
 }
 
 #[test]
-fn startup_panel_restore_requires_detached_without_obs_or_tray_start() {
-    assert!(should_restore_panel_on_startup(false, false, true));
-    assert!(!should_restore_panel_on_startup(false, false, false));
-    assert!(!should_restore_panel_on_startup(true, false, true));
-    assert!(!should_restore_panel_on_startup(false, true, true));
+fn startup_panel_restore_requires_detached_without_tray_start() {
+    assert!(should_restore_panel_on_startup(false, true));
+    assert!(!should_restore_panel_on_startup(false, false));
+    assert!(!should_restore_panel_on_startup(true, true));
 }
 
 #[test]
@@ -1285,30 +1369,28 @@ fn startup_hidden_main_window_needs_both_tray_and_hidden_flags() {
     assert!(!main_window_starts_hidden(true, false));
     // 메인 창 표시와 패널 복원이 같은 판정을 공유한다
     assert!(should_restore_panel_on_startup(
-        false,
         main_window_starts_hidden(false, true),
         true
     ));
     assert!(!should_restore_panel_on_startup(
-        false,
         main_window_starts_hidden(true, true),
         true
     ));
 }
 
 #[test]
-fn panel_window_contract_uses_fixed_client_width() {
+fn panel_window_contract_allows_a_readable_resizable_panel() {
     assert_eq!(PANEL_LABEL, "panel");
-    assert_eq!(PANEL_WIDTH, 240.0);
+    assert_eq!(PANEL_WIDTH, 320.0);
     assert_eq!(PANEL_INITIAL_HEIGHT, 712.0);
-    assert_eq!(PANEL_MIN_HEIGHT, 712.0);
+    assert_eq!(PANEL_MIN_HEIGHT, 480.0);
     // 넉넉한 화면에서는 하한이 그대로 유지됨
     assert_eq!(
         panel_height_bounds(Some(1_000.0)),
         (PANEL_MIN_HEIGHT, 900.0)
     );
     // 하한보다 좁은 작업 영역에서는 하한이 화면에 맞춰 내려감 - clamp 역전 방지
-    assert_eq!(panel_height_bounds(Some(600.0)), (540.0, 540.0));
+    assert_eq!(panel_height_bounds(Some(600.0)), (480.0, 540.0));
     let (min_height, max_height) = panel_height_bounds(None);
     assert_eq!(min_height, PANEL_MIN_HEIGHT);
     assert!(max_height >= min_height);
@@ -1357,8 +1439,12 @@ fn main_rect(x: f64, y: f64, width: f64, height: f64) -> NativeRect {
 #[test]
 fn panel_lands_beside_the_main_window_on_the_right() {
     let work_area = work_area_spec(0.0, 0.0, 1_920.0, 1_080.0);
-    let position =
-        panel_position_beside_main(&main_rect(400.0, 200.0, 900.0, 500.0), 400.0, &work_area);
+    let position = panel_position_beside_main(
+        &main_rect(400.0, 200.0, 900.0, 500.0),
+        PANEL_WIDTH,
+        400.0,
+        &work_area,
+    );
 
     assert_eq!(position.x, 400.0 + 900.0 + PANEL_BESIDE_GAP);
     // 메인 창 세로 중앙
@@ -1368,8 +1454,12 @@ fn panel_lands_beside_the_main_window_on_the_right() {
 #[test]
 fn panel_flips_to_the_left_when_the_right_side_has_no_room() {
     let work_area = work_area_spec(0.0, 0.0, 1_920.0, 1_080.0);
-    let position =
-        panel_position_beside_main(&main_rect(1_600.0, 200.0, 300.0, 500.0), 400.0, &work_area);
+    let position = panel_position_beside_main(
+        &main_rect(1_600.0, 200.0, 300.0, 500.0),
+        PANEL_WIDTH,
+        400.0,
+        &work_area,
+    );
 
     assert_eq!(position.x, 1_600.0 - PANEL_BESIDE_GAP - PANEL_WIDTH);
     assert_eq!(position.y, 250.0);
@@ -1378,8 +1468,12 @@ fn panel_flips_to_the_left_when_the_right_side_has_no_room() {
 #[test]
 fn panel_clamps_into_the_work_area_when_neither_side_fits() {
     let work_area = work_area_spec(0.0, 0.0, 600.0, 800.0);
-    let position =
-        panel_position_beside_main(&main_rect(0.0, 0.0, 600.0, 400.0), 300.0, &work_area);
+    let position = panel_position_beside_main(
+        &main_rect(0.0, 0.0, 600.0, 400.0),
+        PANEL_WIDTH,
+        300.0,
+        &work_area,
+    );
 
     assert_eq!(position.x, 600.0 - PANEL_WIDTH);
     assert_eq!(position.y, 50.0);
@@ -1388,15 +1482,19 @@ fn panel_clamps_into_the_work_area_when_neither_side_fits() {
 #[test]
 fn panel_taller_than_the_work_area_clamps_to_its_top() {
     let work_area = work_area_spec(100.0, 50.0, 1_920.0, 1_000.0);
-    let position =
-        panel_position_beside_main(&main_rect(200.0, 400.0, 900.0, 500.0), 1_400.0, &work_area);
+    let position = panel_position_beside_main(
+        &main_rect(200.0, 400.0, 900.0, 500.0),
+        PANEL_WIDTH,
+        1_400.0,
+        &work_area,
+    );
 
     assert_eq!(position.x, 200.0 + 900.0 + PANEL_BESIDE_GAP);
     assert_eq!(position.y, 50.0);
 }
 
 #[test]
-fn panel_layout_keeps_stored_height_and_places_beside_main() {
+fn panel_layout_keeps_stored_size_and_places_beside_main() {
     let monitors = MonitorData {
         specs: vec![work_area_spec(0.0, 0.0, 1_920.0, 1_080.0)],
         primary_index: Some(0),
@@ -1405,6 +1503,7 @@ fn panel_layout_keeps_stored_height_and_places_beside_main() {
         Some(PanelBounds {
             x: 31.0,
             y: 47.0,
+            width: 480.0,
             height: 800.0,
         }),
         Some(main_rect(300.0, 100.0, 900.0, 500.0)),
@@ -1414,6 +1513,7 @@ fn panel_layout_keeps_stored_height_and_places_beside_main() {
 
     // 높이는 저장값 유지, 위치는 저장값을 무시하고 메인 옆으로 다시 계산
     assert_eq!(layout.height, 800.0);
+    assert_eq!(layout.width, 480.0);
     let position = layout.position.expect("panel should be placed beside main");
     assert_eq!(position.x, 300.0 + 900.0 + PANEL_BESIDE_GAP);
     // 세로 중앙이 화면 위로 넘치면 작업 영역 상단에 붙는다
@@ -1898,6 +1998,32 @@ fn panel_bounds_flush_uses_latest_when_window_read_fails() {
 }
 
 #[test]
+fn panel_width_only_resize_is_saved_after_reset_settles() {
+    let sample = PanelBoundsSample {
+        position: PhysicalPosition::new(600, 300),
+        position_scale_factor: 1.0,
+        size: PhysicalSize::new(320, 712),
+        size_scale_factor: 1.0,
+        current_scale_factor: 1.0,
+    };
+    let mut state = PanelBoundsPersistenceState {
+        latest: Some(sample),
+        unpersisted_default_height: Some(712.0),
+        unpersisted_default_width: Some(320.0),
+        default_height_pending: true,
+        ..PanelBoundsPersistenceState::default()
+    };
+    assert!(!PanelBoundsPersistenceController::should_persist_change(
+        &mut state, true
+    ));
+    state.latest.as_mut().unwrap().size.width = 480;
+    assert!(PanelBoundsPersistenceController::should_persist_change(
+        &mut state, true
+    ));
+    assert_eq!(panel_bounds_from_sample(state.latest.unwrap()).width, 480.0);
+}
+
+#[test]
 fn panel_bounds_flush_failure_restores_dirty_state() {
     let sample = PanelBoundsSample {
         position: PhysicalPosition::new(600, 300),
@@ -1966,6 +2092,7 @@ fn panel_restore_centers_on_the_freshly_placed_main_window() {
         Some(PanelBounds {
             x: 2_205.0,
             y: 185.0,
+            width: PANEL_WIDTH,
             height: 712.0,
         }),
         Some(main),
@@ -2010,6 +2137,7 @@ fn panel_follows_the_monitor_that_holds_the_main_window() {
         Some(PanelBounds {
             x: 31.0,
             y: 47.0,
+            width: PANEL_WIDTH,
             height: 800.0,
         }),
         Some(main_rect(2_000.0, 100.0, 900.0, 500.0)),
@@ -2021,7 +2149,7 @@ fn panel_follows_the_monitor_that_holds_the_main_window() {
     assert_eq!(layout.max_height, 720.0);
     assert_eq!(layout.height, 720.0);
     let position = layout.position.expect("panel should be placed beside main");
-    assert_eq!(position.x, 2_000.0 + 900.0 + PANEL_BESIDE_GAP);
+    assert_eq!(position.x, 3_200.0 - PANEL_WIDTH);
     assert_eq!(position.y, 0.0);
 }
 
@@ -2035,6 +2163,7 @@ fn persisted_panel_height_clamps_and_position_waits_for_main_geometry() {
         Some(PanelBounds {
             x: 31.0,
             y: 47.0,
+            width: PANEL_WIDTH,
             height: 200.0,
         }),
         None,
@@ -2080,7 +2209,6 @@ fn panel_present_snapshot_restores_docked_state_after_hide() {
     assert!(!snapshot.panel_visible);
     assert!(!should_restore_panel_on_startup(
         false,
-        false,
         snapshot.panel_detached
     ));
     assert_eq!(
@@ -2099,7 +2227,6 @@ fn panel_present_snapshot_preserves_detached_state_for_tray_hide() {
 
     assert!(snapshot.panel_visible);
     assert!(should_restore_panel_on_startup(
-        false,
         false,
         snapshot.panel_detached
     ));
@@ -2460,7 +2587,6 @@ fn sigterm_preserves_pending_state_and_allows_retry_after_canceled_flush() {
             AppState::initialize(AppStore::initialize_for_test(Path::new(&directory)).unwrap())
                 .unwrap(),
         );
-        state.key_counter_enabled.store(true, Ordering::SeqCst);
         let snapshot = state.store.snapshot();
         let key_mode = snapshot.selected_key_type;
         let key = snapshot.keys[&key_mode][0].canonical();
@@ -3590,4 +3716,37 @@ fn counters_reset_during_a_replay_show_once_it_ends() {
 
     state.end_replay_key_counters(&emitter);
     assert_eq!(emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&key], 0);
+}
+
+#[test]
+fn one_key_count_is_set_to_what_the_player_says_and_the_others_stay() {
+    let directory = tempfile::tempdir().unwrap();
+    let state = replay_test_state(directory.path());
+    let emitter = LastCountersEmitter::default();
+    let mode = state.store.snapshot().selected_key_type;
+    let keys = state.store.snapshot().keys[&mode].clone();
+    let first = keys[0].canonical();
+    let second = keys[1].canonical();
+    state.increment_key_counter_and_emit(&emitter, &mode, &first);
+    state.increment_key_counter_and_emit(&emitter, &mode, &second);
+
+    let admission = state.store.admit_editor_mutation().unwrap();
+    state
+        .set_single_key_counter_with_admission(&emitter, &mode, &first, 1234, None, admission)
+        .unwrap();
+    assert_eq!(state.snapshot_key_counters()[&mode][&first], 1234);
+    assert_eq!(state.snapshot_key_counters()[&mode][&second], 1);
+    assert_eq!(
+        emitter.0.lock().unwrap().as_ref().unwrap()[&mode][&first],
+        1234,
+        "the new count was not shown"
+    );
+
+    // 0 is a reset of that key alone.
+    let admission = state.store.admit_editor_mutation().unwrap();
+    state
+        .set_single_key_counter_with_admission(&emitter, &mode, &first, 0, None, admission)
+        .unwrap();
+    assert_eq!(state.snapshot_key_counters()[&mode][&first], 0);
+    assert_eq!(state.snapshot_key_counters()[&mode][&second], 1);
 }

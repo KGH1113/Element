@@ -4,26 +4,15 @@ import {
   MIN_GRID_POSITION,
   MAX_GRID_POSITION,
 } from '@stores/grid/useGridViewStore';
-import { useSmartGuidesStore } from '@stores/grid/useSmartGuidesStore';
 import { useGridSelectionStore } from '@stores/grid/useGridSelectionStore';
-import { useSettingsStore } from '@stores/useSettingsStore';
-import { calculateBounds, calculateSnapPoints } from '@utils/grid/smartGuides';
+import {
+  calculateRotatedBounds,
+  type ElementBounds,
+} from '@utils/grid/smartGuides';
 import { DRAG_THRESHOLD } from './constants';
-
-interface ElementBounds {
-  id: string;
-  left: number;
-  top: number;
-  right: number;
-  bottom: number;
-  centerX: number;
-  centerY: number;
-  width: number;
-  height: number;
-}
+import { clearSnapGuides, dragKeysOf, moveWithSnap } from './snapSession';
 
 interface UseDraggableOptions {
-  gridSize?: number;
   initialX?: number;
   initialY?: number;
   onPositionChange?: (x: number, y: number) => void;
@@ -34,6 +23,8 @@ interface UseDraggableOptions {
   elementId?: string;
   elementWidth?: number;
   elementHeight?: number;
+  /** Degrees the element is turned by; it snaps by the box it is seen in. */
+  elementRotation?: number;
   getOtherElements?: ((excludeId: string) => ElementBounds[]) | null;
   disabled?: boolean;
 }
@@ -51,20 +42,7 @@ const clampPosition = (value: number): number => {
   return Math.min(Math.max(value, MIN_GRID_POSITION), MAX_GRID_POSITION);
 };
 
-// 줌 레벨에 따른 동적 그리드 스냅 크기 계산
-// 화면상 일정한 드래그 거리를 유지하면서 최소 1px 보장
-const MIN_GRID_SIZE = 1;
-
-const calculateDynamicGridSize = (
-  zoom: number,
-  baseGridSize: number,
-): number => {
-  const dynamicSize = Math.round(baseGridSize / zoom);
-  return Math.max(dynamicSize, MIN_GRID_SIZE);
-};
-
 export const useDraggable = ({
-  gridSize: _gridSize, // 기본 그리드 크기 (사용하지 않음, 동적 계산으로 대체)
   initialX = 0,
   initialY = 0,
   onPositionChange,
@@ -76,6 +54,7 @@ export const useDraggable = ({
   elementId = '', // 요소 식별자
   elementWidth = 60, // 요소 너비
   elementHeight = 60, // 요소 높이
+  elementRotation = 0,
   getOtherElements = null, // 다른 요소들의 bounds를 반환하는 함수
   disabled = false, // 드래그 비활성화 옵션
 }: UseDraggableOptions): UseDraggableReturn => {
@@ -104,6 +83,7 @@ export const useDraggable = ({
   const elementIdRef = useRef<string>(elementId);
   const elementWidthRef = useRef<number>(elementWidth);
   const elementHeightRef = useRef<number>(elementHeight);
+  const elementRotationRef = useRef<number>(elementRotation);
   const getOtherElementsRef = useRef<
     ((excludeId: string) => ElementBounds[]) | null
   >(getOtherElements);
@@ -120,9 +100,17 @@ export const useDraggable = ({
     elementIdRef.current = elementId;
     elementWidthRef.current = elementWidth;
     elementHeightRef.current = elementHeight;
+    elementRotationRef.current = elementRotation;
     getOtherElementsRef.current = getOtherElements;
     disabledRef.current = disabled;
-  }, [elementId, elementWidth, elementHeight, getOtherElements, disabled]);
+  }, [
+    elementId,
+    elementWidth,
+    elementHeight,
+    elementRotation,
+    getOtherElements,
+    disabled,
+  ]);
 
   // initialX, initialY 변경 시 동기화
   useEffect(() => {
@@ -173,10 +161,9 @@ export const useDraggable = ({
     // 미들 버튼 드래그 중이면 요소 드래그 무시 (그리드 팬 우선)
     if (useGridSelectionStore.getState().isMiddleButtonDragging) return;
 
-    // 드래그 시작 전 기존 스마트 가이드 클리어 (이전 드래그가 정상 종료되지 않은 경우 대비)
-    useSmartGuidesStore.getState().clearGuides();
+    // A drag that did not end cleanly may have left guides behind.
+    clearSnapGuides();
 
-    // 마우스 다운 시점의 위치 저장
     const startClientX = e.clientX;
     const startClientY = e.clientY;
     let actuallyDragging = false;
@@ -184,230 +171,104 @@ export const useDraggable = ({
     setIsDragging(true);
     setWasMoved(false);
 
-    // 현재 줌/팬 값 캡처
     const currentZoom = zoomRef.current;
-
-    // gridSettings에서 스냅 크기 가져오기
-    const gridSnapSize =
-      useSettingsStore.getState().gridSettings?.gridSnapSize || 5;
-
-    // 줌 레벨에 따른 동적 그리드 크기 계산
-    const dynamicGridSize = calculateDynamicGridSize(currentZoom, gridSnapSize);
-
-    // 무한 캔버스에서는 경계 제한 없음
-    // 시작 위치 계산 (줌 반영)
-    const startPos = {
-      x: e.clientX - dx * currentZoom,
-      y: e.clientY - dy * currentZoom,
-    };
     const initialPosition = { dx, dy };
+    const elementIdNow = elementIdRef.current;
+    // The box the element is seen in. A turned element's box is not at its
+    // own position, so the two are kept apart by `boxOffset`.
+    const startBox = calculateRotatedBounds(
+      dx,
+      dy,
+      elementWidthRef.current,
+      elementHeightRef.current,
+      elementRotationRef.current,
+      elementIdNow,
+    );
+    const boxOffset = { x: startBox.left - dx, y: startBox.top - dy };
+    // What the element can line up with. Nothing else moves during the drag.
+    let targets: ElementBounds[] = [];
 
     let rafId: number | null = null;
-    // 드래그 종료 플래그 (rAF 콜백에서 체크)
     let dragEnded = false;
-    // Shift 키 드래그 시 축 고정을 위한 변수
-    let lockedAxis: 'x' | 'y' | null = null;
+    let pointer: MouseEvent | null = null;
 
-    // 스마트 가이드 스토어 참조
-    const smartGuidesStore = useSmartGuidesStore.getState();
+    // One rule for every drag on the canvas: see utils/grid/snapEngine.
+    const follow = () => {
+      rafId = null;
+      if (!pointer || !actuallyDragging) return;
+      const landed = moveWithSnap({
+        start: startBox,
+        deltaX: (pointer.clientX - startClientX) / currentZoom,
+        deltaY: (pointer.clientY - startClientY) / currentZoom,
+        targets,
+        zoom: currentZoom,
+        keys: dragKeysOf(pointer),
+      });
+      const snappedX = clampPosition(Math.round(landed.left - boxOffset.x));
+      const snappedY = clampPosition(Math.round(landed.top - boxOffset.y));
+
+      if (snappedX !== initialPosition.dx || snappedY !== initialPosition.dy) {
+        setWasMoved(true);
+      }
+      lastSnappedRef.current = { dx: snappedX, dy: snappedY };
+      setOffset({ dx: snappedX, dy: snappedY });
+    };
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      // 드래그가 종료되었으면 무시
       if (dragEnded) return;
+      pointer = moveEvent;
 
-      // 드래그 임계값 체크
-      const deltaX = Math.abs(moveEvent.clientX - startClientX);
-      const deltaY = Math.abs(moveEvent.clientY - startClientY);
-
-      if (
-        !actuallyDragging &&
-        (deltaX > dragThresholdRef.current || deltaY > dragThresholdRef.current)
-      ) {
+      if (!actuallyDragging) {
+        // A press that barely moves is a click, not a drag.
+        if (
+          Math.abs(moveEvent.clientX - startClientX) <=
+            dragThresholdRef.current &&
+          Math.abs(moveEvent.clientY - startClientY) <= dragThresholdRef.current
+        )
+          return;
         actuallyDragging = true;
         node.style.cursor = 'grabbing';
         setBodyCursor('grabbing');
-        // 실제 드래그가 시작될 때만 최적화 적용
         node.style.pointerEvents = 'none';
         node.style.userSelect = 'none';
-        // 드래그 시작 시 애니메이션 비활성화
         useGridSelectionStore.getState().setDraggingOrResizing(true);
-        // 드래그 시작 콜백 호출 (히스토리 저장용)
+        targets =
+          elementIdNow && getOtherElementsRef.current
+            ? getOtherElementsRef.current(elementIdNow)
+            : [];
         onDragStart?.();
-
-        // Shift 키가 눌려있으면 처음 움직인 방향으로 축 고정
-        if (moveEvent.shiftKey && lockedAxis === null) {
-          lockedAxis = deltaX >= deltaY ? 'x' : 'y';
-        }
       }
 
-      if (!actuallyDragging) return;
-
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-
-        // 드래그가 종료되었으면 rAF 콜백에서도 무시
-        if (dragEnded) return;
-
-        // 줌 레벨을 고려한 좌표 계산
-        let newDx = (moveEvent.clientX - startPos.x) / currentZoom;
-        let newDy = (moveEvent.clientY - startPos.y) / currentZoom;
-
-        // Shift 키로 축이 고정된 경우 해당 축만 이동
-        if (lockedAxis === 'x') {
-          newDy = initialPosition.dy;
-        } else if (lockedAxis === 'y') {
-          newDx = initialPosition.dx;
-        }
-
-        // 스마트 가이드 계산 (getOtherElements가 제공된 경우)
-        const getOtherElementsFn = getOtherElementsRef.current;
-        const currentElementId = elementIdRef.current;
-        const currentWidth = elementWidthRef.current;
-        const currentHeight = elementHeightRef.current;
-
-        let finalX = newDx;
-        let finalY = newDy;
-        let didSmartSnapX = false;
-        let didSmartSnapY = false;
-
-        // gridSettings에서 정렬 가이드 활성화 여부 확인
-        const gridSettings = useSettingsStore.getState().gridSettings;
-        const alignmentGuidesEnabled = gridSettings?.alignmentGuides !== false;
-        const spacingGuidesEnabled = gridSettings?.spacingGuides !== false;
-
-        if (getOtherElementsFn && currentElementId && alignmentGuidesEnabled) {
-          const otherElements = getOtherElementsFn(currentElementId);
-          const draggedBounds = calculateBounds(
-            newDx,
-            newDy,
-            currentWidth,
-            currentHeight,
-            currentElementId,
-          );
-
-          const snapResult = calculateSnapPoints(
-            draggedBounds,
-            otherElements,
-            undefined,
-            { disableSpacing: !spacingGuidesEnabled },
-          );
-
-          if (snapResult.didSnapX || snapResult.didSnapY) {
-            // 스마트 가이드 스냅이 적용됨 (축별로 개별 처리)
-            // 간격 스냅이 비활성화된 경우 간격 스냅 무시
-            if (snapResult.didSnapX) {
-              // 간격 스냅인 경우 spacingGuidesEnabled 확인
-              if (snapResult.didSpacingSnapX && !spacingGuidesEnabled) {
-                // 간격 스냅 무시, 정렬 스냅만 사용
-                // didSnapX가 true이지만 didSpacingSnapX만 true인 경우는 무시
-              } else {
-                finalX = snapResult.snappedX;
-                didSmartSnapX = true;
-              }
-            }
-            if (snapResult.didSnapY) {
-              if (snapResult.didSpacingSnapY && !spacingGuidesEnabled) {
-                // 간격 스냅 무시
-              } else {
-                finalY = snapResult.snappedY;
-                didSmartSnapY = true;
-              }
-            }
-
-            // 스냅된 bounds 업데이트
-            const snappedBounds = calculateBounds(
-              finalX,
-              finalY,
-              currentWidth,
-              currentHeight,
-              currentElementId,
-            );
-            smartGuidesStore.setDraggedBounds(snappedBounds);
-            smartGuidesStore.setActiveGuides(snapResult.guides);
-
-            // 간격 가이드도 업데이트 (spacingGuidesEnabled가 true인 경우에만)
-            if (
-              spacingGuidesEnabled &&
-              snapResult.spacingGuides &&
-              snapResult.spacingGuides.length > 0
-            ) {
-              smartGuidesStore.setSpacingGuides(snapResult.spacingGuides);
-            } else {
-              smartGuidesStore.setSpacingGuides([]);
-            }
-          } else {
-            // 스마트 가이드 스냅이 없으면 가이드라인 클리어
-            smartGuidesStore.clearGuides();
-          }
-        }
-
-        // 축별로 스냅 적용
-        // X축: 스마트 가이드로 스냅되지 않은 경우에만 기본 그리드 스냅 적용
-        let snappedX: number;
-        if (didSmartSnapX) {
-          snappedX = clampPosition(Math.round(finalX));
-        } else {
-          snappedX = clampPosition(
-            Math.round(finalX / dynamicGridSize) * dynamicGridSize,
-          );
-        }
-
-        // Y축: 스마트 가이드로 스냅되지 않은 경우에만 기본 그리드 스냅 적용
-        let snappedY: number;
-        if (didSmartSnapY) {
-          snappedY = clampPosition(Math.round(finalY));
-        } else {
-          snappedY = clampPosition(
-            Math.round(finalY / dynamicGridSize) * dynamicGridSize,
-          );
-        }
-
-        if (
-          snappedX !== initialPosition.dx ||
-          snappedY !== initialPosition.dy
-        ) {
-          setWasMoved(true);
-        }
-
-        lastSnappedRef.current = { dx: snappedX, dy: snappedY };
-        setOffset({ dx: snappedX, dy: snappedY });
-      });
+      // The newest pointer position is used, once per frame.
+      if (rafId === null) rafId = requestAnimationFrame(follow);
     };
 
     const handleMouseUp = () => {
-      // 드래그 종료 플래그 설정 (pending rAF 콜백이 실행되지 않도록)
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        // Let go where the pointer is, not where the last frame left it.
+        follow();
+      }
       dragEnded = true;
       restoreBodyCursor();
-
-      // pending rAF가 있으면 취소
-      if (rafId) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
 
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);
 
       setIsDragging(false);
+      clearSnapGuides();
 
-      // 스마트 가이드 클리어
-      useSmartGuidesStore.getState().clearGuides();
-
-      // 실제 드래그가 발생했을 때만 복구
       if (actuallyDragging) {
         node.style.cursor = 'grab';
         node.style.pointerEvents = 'auto';
         node.style.userSelect = 'auto';
-        // 드래그 종료 시 애니메이션 복원
         useGridSelectionStore.getState().setDraggingOrResizing(false);
 
-        // 최종 위치만 부모에 커밋
+        // Only the final place is handed to the owner.
         const { dx: finalDx, dy: finalDy } = lastSnappedRef.current;
         onPositionChange?.(finalDx, finalDy);
       } else {
-        // 클릭만 했을 경우 커서만 복구
         node.style.cursor = 'grab';
       }
     };

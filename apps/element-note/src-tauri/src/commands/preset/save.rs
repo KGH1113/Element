@@ -11,9 +11,9 @@ use crate::{
     commands::dialog::parented_file_dialog,
     errors::{CmdResult, CommandError},
     models::{
-        rewrite_coupled_sprite_image_reference, FontSettings, FontType, GraphPositions,
-        KeyMappings, KeyPositions, KnobPositions, LayerGroups, SpritePositions, StatPositions,
-        TabCssOverrides, TabNoteOverrides,
+        rewrite_coupled_sprite_image_reference, AppStoreData, FontSettings, FontType,
+        GraphPositions, KeyMappings, KeyPositions, KnobPositions, LayerGroups, SpritePositions,
+        StatPositions, TabCssOverrides, TabNoteOverrides,
     },
     state::{atomic_file::atomic_replace, AppState},
 };
@@ -50,8 +50,24 @@ pub async fn preset_save(
 
 fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
     let state = app.state::<AppState>();
+    let preset = full_preset_of(state.store.snapshot())?;
+    write_full_preset(&path, &preset)?;
 
-    let snapshot = state.store.snapshot();
+    Ok(PresetOperationResult {
+        success: true,
+        error: None,
+    })
+}
+
+/// Writes a whole-viewer preset where "Save all" would.
+pub(crate) fn write_full_preset(path: &Path, preset: &PresetFile) -> CmdResult<()> {
+    let json = serde_json::to_string_pretty(preset)?;
+    write_preset_file(path, &json)
+}
+
+/// Every key viewer and the viewer settings of `snapshot`, with its local
+/// images, sounds and fonts inside, so the file stands on its own.
+pub(crate) fn full_preset_of(snapshot: AppStoreData) -> CmdResult<PresetFile> {
     let used_font_families = collect_used_font_families(
         &snapshot.key_positions,
         &snapshot.stat_positions,
@@ -110,21 +126,16 @@ fn preset_save_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOpera
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
+        key_counters: None,
     };
-
-    let json = serde_json::to_string_pretty(&preset)?;
-    write_preset_file(&path, &json)?;
-
-    Ok(PresetOperationResult {
-        success: true,
-        error: None,
-    })
+    Ok(preset)
 }
 
 #[tauri::command]
 pub async fn preset_save_tab(
     app: AppHandle,
     window: WebviewWindow,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     let preset_file = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .set_file_name("preset-tab.json")
@@ -138,16 +149,24 @@ pub async fn preset_save_tab(
         });
     };
     let path = file.path().to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || preset_save_tab_from_path(app, path))
+    tauri::async_runtime::spawn_blocking(move || preset_save_tab_from_path(app, path, tab_id))
         .await
         .map_err(|error| CommandError::msg(format!("tab preset export task failed: {error}")))?
 }
 
-fn preset_save_tab_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetOperationResult> {
+/// Saves one key viewer: the one named by `tab_id`, or the one being edited.
+fn preset_save_tab_from_path(
+    app: AppHandle,
+    path: PathBuf,
+    tab_id: Option<String>,
+) -> CmdResult<PresetOperationResult> {
     let state = app.state::<AppState>();
 
     let snapshot = state.store.snapshot();
-    let tab_id = snapshot.selected_key_type.clone();
+    let tab_id = tab_id.unwrap_or_else(|| snapshot.selected_key_type.clone());
+    if !snapshot.keys.contains_key(&tab_id) {
+        return Err(CommandError::msg("tab-not-found"));
+    }
 
     // 단일 탭 맵 구성 (embed helper용)
     let mut tab_key_positions: KeyPositions = HashMap::new();
@@ -276,6 +295,7 @@ fn preset_save_tab_from_path(app: AppHandle, path: PathBuf) -> CmdResult<PresetO
         embedded_local_fonts: (!embedded_local_fonts.is_empty()).then_some(embedded_local_fonts),
         embedded_local_images: (!embedded_local_images.is_empty()).then_some(embedded_local_images),
         embedded_local_sounds: (!embedded_local_sounds.is_empty()).then_some(embedded_local_sounds),
+        key_counters: None,
     };
 
     let json = serde_json::to_string_pretty(&preset)?;

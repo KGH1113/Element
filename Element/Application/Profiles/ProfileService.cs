@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Element.Application.Files;
 using Element.Configuration.Profiles;
 
@@ -18,37 +19,47 @@ internal sealed class ProfileService : IProfiles
 
   private readonly ProfileLibrary _library;
   private readonly IFileDialogs _dialogs;
+  private readonly IProfileFiles _files;
   private readonly Func<bool> _save;
   private readonly Action _settingsReplaced;
   private readonly Action _backup;
   private readonly string _modVersion;
   private readonly Action<string, Exception> _logError;
+  private readonly ProfileKeyViewers _keyViewers;
 
+  /// <param name="files">Reads and writes the picked files. Without it or <paramref name="dialogs"/>, import and export are hidden.</param>
   /// <param name="settingsReplaced">Applies the live settings after a switch changed them.</param>
   /// <param name="backup">Copies the current settings aside before an import or a delete.</param>
+  /// <param name="keyViewers">Each profile's ElementNote key viewers; null leaves ElementNote alone.</param>
   public ProfileService(
     ProfileLibrary library,
     IFileDialogs dialogs,
+    IProfileFiles files,
     Func<bool> save,
     Action settingsReplaced,
     Action backup,
     string modVersion,
-    Action<string, Exception> logError
+    Action<string, Exception> logError,
+    ProfileKeyViewers keyViewers = null
   )
   {
     _library = library ?? throw new ArgumentNullException(nameof(library));
     _dialogs = dialogs;
+    _files = files;
     _save = save ?? (() => true);
     _settingsReplaced = settingsReplaced ?? (() => { });
     _backup = backup ?? (() => { });
     _modVersion = modVersion ?? "";
     _logError = logError ?? ((_, _) => { });
+    _keyViewers = keyViewers;
   }
 
   public IReadOnlyList<ElementProfile> Profiles => _library.Profiles;
   public ElementProfile Active => _library.Active;
   public bool CanDelete => _library.CanDelete;
-  public bool FilesSupported => _dialogs != null;
+  public bool FilesSupported => _dialogs != null && _files != null;
+  public string KeyViewersFailedProfile => _keyViewers?.FailedProfileName;
+  public int KeyViewerFailures => _keyViewers?.Failures ?? 0;
 
   public ProfileSummary Summarize(ElementProfile profile) => _library.Summarize(profile);
 
@@ -71,6 +82,7 @@ internal sealed class ProfileService : IProfiles
       _logError("Switch to profile '" + target.Name + "'", exception);
       return ProfileOutcome.Fail(ProfileProblem.Damaged);
     }
+    _keyViewers?.Sync();
     _settingsReplaced();
     return ProfileOutcome.Done(target.Name, _save());
   }
@@ -79,6 +91,7 @@ internal sealed class ProfileService : IProfiles
   {
     if (!_library.TryCreate(name, out ElementProfile profile, out ProfileNameProblem problem))
       return ProfileOutcome.InvalidName(problem);
+    _keyViewers?.Created(profile);
     _settingsReplaced();
     return ProfileOutcome.Done(profile.Name, _save());
   }
@@ -98,6 +111,7 @@ internal sealed class ProfileService : IProfiles
       _logError("Duplicate profile '" + source.Name + "'", exception);
       return ProfileOutcome.Fail(ProfileProblem.Damaged);
     }
+    _keyViewers?.Duplicated(source, copy);
     return ProfileOutcome.Done(copy.Name, _save());
   }
 
@@ -118,6 +132,7 @@ internal sealed class ProfileService : IProfiles
     if (!_library.CanDelete)
       return ProfileOutcome.Fail(ProfileProblem.LastProfile);
     Backup();
+    _keyViewers?.Deleting(profile);
     bool switched;
     try
     {
@@ -149,7 +164,7 @@ internal sealed class ProfileService : IProfiles
     if (picked.Status != FileDialogStatus.Chosen)
       return DialogClosed(picked);
 
-    ProfileFileResult read = ProfileFileCodec.ReadFile(picked.Path);
+    ProfileFileResult read = _files.Read(picked.Path);
     if (!read.Ok)
     {
       if (read.Exception != null)
@@ -167,15 +182,16 @@ internal sealed class ProfileService : IProfiles
       _logError("Import profile file " + picked.Path, exception);
       return ProfileOutcome.Fail(ProfileProblem.Damaged);
     }
+    _keyViewers?.Imported(profile, read.File.KeyViewers);
     _settingsReplaced();
     return ProfileOutcome.Done(profile.Name, _save());
   }
 
-  public ProfileOutcome Export(string id, string dialogTitle)
+  public Task<ProfileOutcome> Export(string id, string dialogTitle)
   {
     ElementProfile profile = _library.Find(id);
     if (profile == null)
-      return ProfileOutcome.Fail(ProfileProblem.Missing);
+      return Task.FromResult(ProfileOutcome.Fail(ProfileProblem.Missing));
     FileDialogResult picked = Ask(dialogs =>
       dialogs.Save(
         new FileDialogRequest
@@ -188,26 +204,38 @@ internal sealed class ProfileService : IProfiles
       )
     );
     if (picked.Status != FileDialogStatus.Chosen)
-      return DialogClosed(picked);
+      return Task.FromResult(DialogClosed(picked));
 
     string path = WithExtension(picked.Path);
     ProfileFile file;
     try
     {
+      // The settings as they are now, before anything else can change them.
       file = _library.Export(id, _modVersion);
     }
     catch (Exception exception)
     {
       _logError("Export profile '" + profile.Name + "'", exception);
-      return ProfileOutcome.Fail(ProfileProblem.Damaged);
+      return Task.FromResult(ProfileOutcome.Fail(ProfileProblem.Damaged));
     }
-    Exception failure = ProfileFileCodec.WriteFile(path, file);
-    if (failure != null)
-    {
-      _logError("Write profile file " + path, failure);
-      return ProfileOutcome.Fail(ProfileProblem.WriteFailed);
-    }
-    return ProfileOutcome.Done(profile.Name, true, Path.GetFileName(path));
+    string name = profile.Name;
+    Task<KeyViewersExport> keyViewers = _keyViewers?.Export(profile) ?? Task.FromResult(KeyViewersExport.None);
+    return keyViewers.ContinueWith(
+      viewers =>
+      {
+        KeyViewersExport included =
+          viewers.Status == TaskStatus.RanToCompletion ? viewers.Result : KeyViewersExport.Missed;
+        file.KeyViewers = included.Json;
+        Exception failure = _files.Write(path, file);
+        if (failure != null)
+        {
+          _logError("Write profile file " + path, failure);
+          return ProfileOutcome.Fail(ProfileProblem.WriteFailed);
+        }
+        return ProfileOutcome.Done(name, true, Path.GetFileName(path), included.LeftOut);
+      },
+      TaskScheduler.Default
+    );
   }
 
   /// <summary>A file name that works on macOS and Windows alike, from a profile name.</summary>
@@ -231,7 +259,7 @@ internal sealed class ProfileService : IProfiles
 
   private FileDialogResult Ask(Func<IFileDialogs, FileDialogResult> show)
   {
-    if (_dialogs == null)
+    if (!FilesSupported)
       return FileDialogResult.Unavailable(new PlatformNotSupportedException("No system file window on this platform."));
     try
     {

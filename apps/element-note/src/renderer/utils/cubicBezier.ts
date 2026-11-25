@@ -135,3 +135,40 @@ export const findBezierPresetId = (
   });
   return matched ? matched.id : 'custom';
 };
+
+/** The curves the CSS easing keywords stand for. */
+const CSS_EASING_KEYWORDS: Record<string, CounterAnimationBezier> = {
+  linear: [0, 0, 1, 1],
+  ease: [0.25, 0.1, 0.25, 1],
+  'ease-in': [0.42, 0, 1, 1],
+  'ease-out': [0, 0, 0.58, 1],
+  'ease-in-out': [0.42, 0, 0.58, 1],
+};
+
+const CSS_NUMBER = String.raw`[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?`;
+const CSS_CUBIC_BEZIER = new RegExp(
+  String.raw`^cubic-bezier\(\s*(${CSS_NUMBER})\s*,\s*(${CSS_NUMBER})\s*,\s*(${CSS_NUMBER})\s*,\s*(${CSS_NUMBER})\s*\)$`,
+  'i',
+);
+
+/**
+ * The curve a CSS easing is: a keyword or `cubic-bezier(…)`, however it is
+ * spelled. Null for anything else (steps, `linear(…)`, text that is no easing).
+ */
+export const cssEasingToBezier = (
+  easing: string,
+): CounterAnimationBezier | null => {
+  const text = easing.trim().toLowerCase();
+  const keyword = CSS_EASING_KEYWORDS[text];
+  if (keyword) return keyword;
+  const match = CSS_CUBIC_BEZIER.exec(text);
+  if (!match) return null;
+  const curve = match.slice(1, 5).map(Number) as CounterAnimationBezier;
+  return curve.every(Number.isFinite) ? curve : null;
+};
+
+/** Two curves that move the same way, whatever digits they were written with. */
+export const isSameBezier = (
+  a: CounterAnimationBezier,
+  b: CounterAnimationBezier,
+): boolean => a.every((value, index) => Math.abs(value - b[index]) < 0.001);

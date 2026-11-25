@@ -52,9 +52,11 @@ export interface SettingsState {
   useCustomJS: boolean;
   customJS: CustomJs;
   overlayResizeAnchor: OverlayResizeAnchor;
+  /** @deprecated Compatibility field; counters are shown or hidden per key. */
   keyCounterEnabled: boolean;
   gridSettings: GridSettings;
   shortcuts: ShortcutsState;
+  /** Offers the key viewer to OBS as a browser source. */
   obsModeEnabled: boolean;
   /** Sends the selected tabs' keys to Element's key limiter. */
   keyLimiterEnabled: boolean;

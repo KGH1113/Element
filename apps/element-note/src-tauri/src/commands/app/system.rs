@@ -15,6 +15,21 @@ pub fn window_minimize(app: AppHandle) -> CmdResult<()> {
 }
 
 #[tauri::command]
+pub fn window_toggle_maximize(app: AppHandle) -> CmdResult<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_maximized()? {
+            window.unmaximize()?;
+        } else {
+            if let Err(err) = crate::app::main_window::capture_bounds(&app) {
+                log::warn!("failed to remember main window bounds before maximize: {err}");
+            }
+            window.maximize()?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn window_close(app: AppHandle) -> CmdResult<()> {
     if let Some(main) = app.get_webview_window("main") {
         main.close()?;

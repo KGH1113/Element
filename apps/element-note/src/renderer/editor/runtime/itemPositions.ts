@@ -79,8 +79,11 @@ export async function saveItemPositions<F extends ItemPositionsField>(
   field: F,
   positions: ItemPositionsByField[F],
 ): Promise<void> {
-  const saved = await itemPositionsChannel(field).save(positions);
-  adoptSavedItemPositions(field, positions, saved);
+  const channel = itemPositionsChannel(field);
+  await channel.save(positions);
+  // 그사이 화면이 바뀌었으면 그 편집의 저장이 ID를 받으므로 읽지 않는다.
+  if (channel.store().positions !== positions) return;
+  adoptSavedItemPositions(field, positions, await channel.load());
 }
 
 export function syncItemPositionsToOverlay(field: ItemPositionsField): void {

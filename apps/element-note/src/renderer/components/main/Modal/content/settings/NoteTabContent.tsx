@@ -7,6 +7,11 @@ import React, {
 import { useTranslation } from '@contexts/useTranslation';
 import Checkbox from '@components/main/common/Checkbox';
 import {
+  FeatureSettings,
+  FeatureSwitch,
+  SettingsGroup,
+} from '@components/main/Grid/PropertiesPanel/FeatureSettings';
+import {
   COLOR_MODES,
   toGradient,
   type NoteTabState,
@@ -297,178 +302,189 @@ const NoteTabContent = forwardRef<NoteTabContentRef, NoteTabContentProps>(
     };
 
     // 노트 효과 토글 핸들러
-    const handleNoteEffectToggle = () => {
-      const newEnabled = !state.noteEffectEnabled;
+    const handleNoteEffectToggle = (newEnabled: boolean) => {
       setState((prev) => ({ ...prev, noteEffectEnabled: newEnabled }));
       onPreview({ noteEffectEnabled: newEnabled });
     };
 
     return (
-      <div className="flex flex-col gap-[19px]">
-        {/* 색상 */}
-        <div className="flex justify-between w-full items-center">
-          <p className="text-white text-style-2">{t('keySetting.noteColor')}</p>
-          <button
-            ref={colorButtonRef}
-            type="button"
-            className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-              state.showPicker ? 'border-ui-accent' : 'border-[#3A3943]'
-            } text-[#DBDEE8] text-style-2`}
-            onClick={() =>
-              setState((prev) => ({ ...prev, showPicker: !prev.showPicker }))
-            }
-          >
-            <div
-              className="absolute left-[6px] top-[4.5px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
-              style={renderColorPreview()}
-            />
-            <span className="ml-[16px] text-left">{colorLabel}</span>
-          </button>
-        </div>
-
-        {/* 노트 투명도 */}
-        <div className="flex justify-between w-full items-center">
-          <p className="text-white text-style-2">
-            {t('keySetting.noteOpacity')}
-          </p>
-          <input
-            type="text"
-            value={state.displayNoteOpacity}
-            onChange={handleOpacityChange}
-            onFocus={() =>
-              setState((prev) => ({
-                ...prev,
-                isFocused: true,
-                displayNoteOpacity: prev.noteOpacity.toString(),
-              }))
-            }
-            onBlur={handleOpacityBlur}
-            className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
-          />
-        </div>
-
-        <div className="h-px w-full bg-[#2A2A30]" />
-
-        {/* 글로우 */}
-        <div className="flex flex-col gap-[19px]">
-          <div className="flex justify-between w-full items-center">
-            <p className="text-white text-style-2">
-              {t('keySetting.noteGlow')}
-            </p>
-            <Checkbox checked={state.glowEnabled} onChange={handleGlowToggle} />
-          </div>
-
-          <div
-            className={`flex justify-between w-full items-center ${
-              !state.glowEnabled ? 'opacity-40' : ''
-            }`}
-          >
-            <p className="text-white text-style-2">
-              {t('keySetting.noteGlowColor')}
-            </p>
-            <button
-              ref={glowColorButtonRef}
-              type="button"
-              disabled={!state.glowEnabled}
-              className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
-                state.showGlowPicker ? 'border-ui-accent' : 'border-[#3A3943]'
-              } text-[#DBDEE8] text-style-2`}
-              onClick={() => {
-                if (state.glowEnabled) {
+      <div className="flex flex-col gap-3">
+        <FeatureSwitch
+          label={t('editorHelp.showtrails')}
+          checked={state.noteEffectEnabled}
+          onChange={handleNoteEffectToggle}
+        />
+        <FeatureSettings enabled={state.noteEffectEnabled}>
+          <SettingsGroup id="raining-colors" title={t('editorHelp.trailShape')}>
+            {/* 색상 */}
+            <div className="flex justify-between w-full items-center">
+              <p className="text-white text-style-2">
+                {t('keySetting.noteColor')}
+              </p>
+              <button
+                ref={colorButtonRef}
+                type="button"
+                className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
+                  state.showPicker ? 'border-ui-accent' : 'border-[#3A3943]'
+                } text-[#DBDEE8] text-style-2`}
+                onClick={() =>
                   setState((prev) => ({
                     ...prev,
-                    showGlowPicker: !prev.showGlowPicker,
-                  }));
+                    showPicker: !prev.showPicker,
+                  }))
                 }
-              }}
-            >
-              <div
-                className="absolute left-[6px] top-[4.5px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
-                style={renderGlowColorPreview()}
+              >
+                <div
+                  className="absolute left-[6px] top-[4.5px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
+                  style={renderColorPreview()}
+                />
+                <span className="ml-[16px] text-left">{colorLabel}</span>
+              </button>
+            </div>
+
+            {/* 노트 투명도 */}
+            <div className="flex justify-between w-full items-center">
+              <p className="text-white text-style-2">
+                {t('keySetting.noteOpacity')}
+              </p>
+              <input
+                type="text"
+                value={state.displayNoteOpacity}
+                onChange={handleOpacityChange}
+                onFocus={() =>
+                  setState((prev) => ({
+                    ...prev,
+                    isFocused: true,
+                    displayNoteOpacity: prev.noteOpacity.toString(),
+                  }))
+                }
+                onBlur={handleOpacityBlur}
+                className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
               />
-              <span className="ml-[16px] text-left">{glowColorLabel}</span>
-            </button>
-          </div>
+            </div>
+          </SettingsGroup>
 
-          <div
-            className={`flex justify-between w-full items-center ${
-              !state.glowEnabled ? 'opacity-40' : ''
-            }`}
+          <SettingsGroup id="raining-glow" title={t('editorHelp.glow')}>
+            {/* 글로우 */}
+            <div className="flex flex-col gap-[19px]">
+              <div className="flex justify-between w-full items-center">
+                <p className="text-white text-style-2">
+                  {t('keySetting.noteGlow')}
+                </p>
+                <Checkbox
+                  checked={state.glowEnabled}
+                  onChange={handleGlowToggle}
+                />
+              </div>
+
+              {state.glowEnabled && (
+                <>
+                  <div className="flex justify-between w-full items-center">
+                    <p className="text-white text-style-2">
+                      {t('keySetting.noteGlowColor')}
+                    </p>
+                    <button
+                      ref={glowColorButtonRef}
+                      type="button"
+                      disabled={!state.glowEnabled}
+                      className={`relative w-[80px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] flex items-center justify-center ${
+                        state.showGlowPicker
+                          ? 'border-ui-accent'
+                          : 'border-[#3A3943]'
+                      } text-[#DBDEE8] text-style-2`}
+                      onClick={() => {
+                        if (state.glowEnabled) {
+                          setState((prev) => ({
+                            ...prev,
+                            showGlowPicker: !prev.showGlowPicker,
+                          }));
+                        }
+                      }}
+                    >
+                      <div
+                        className="absolute left-[6px] top-[4.5px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
+                        style={renderGlowColorPreview()}
+                      />
+                      <span className="ml-[16px] text-left">
+                        {glowColorLabel}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div
+                    className={`flex justify-between w-full items-center ${
+                      !state.glowEnabled ? 'opacity-40' : ''
+                    }`}
+                  >
+                    <p className="text-white text-style-2">
+                      {t('keySetting.noteGlowSize')}
+                    </p>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      disabled={!state.glowEnabled}
+                      value={state.displayGlowSize}
+                      onChange={handleGlowSizeChange}
+                      onFocus={() =>
+                        setState((prev) => ({
+                          ...prev,
+                          glowSizeFocused: true,
+                          displayGlowSize: prev.glowSize.toString(),
+                        }))
+                      }
+                      onBlur={handleGlowSizeBlur}
+                      className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
+                    />
+                  </div>
+
+                  <div
+                    className={`flex justify-between w-full items-center ${
+                      !state.glowEnabled ? 'opacity-40' : ''
+                    }`}
+                  >
+                    <p className="text-white text-style-2">
+                      {t('keySetting.noteGlowOpacity')}
+                    </p>
+                    <input
+                      type="text"
+                      disabled={!state.glowEnabled}
+                      value={state.displayGlowOpacity}
+                      onChange={handleGlowOpacityChange}
+                      onFocus={() =>
+                        setState((prev) => ({
+                          ...prev,
+                          glowOpacityFocused: true,
+                          displayGlowOpacity: prev.glowOpacity.toString(),
+                        }))
+                      }
+                      onBlur={handleGlowOpacityBlur}
+                      className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </SettingsGroup>
+          <SettingsGroup
+            id="raining-advanced"
+            title={t('propertiesPanel.advanced')}
           >
-            <p className="text-white text-style-2">
-              {t('keySetting.noteGlowSize')}
-            </p>
-            <input
-              type="text"
-              inputMode="decimal"
-              disabled={!state.glowEnabled}
-              value={state.displayGlowSize}
-              onChange={handleGlowSizeChange}
-              onFocus={() =>
-                setState((prev) => ({
-                  ...prev,
-                  glowSizeFocused: true,
-                  displayGlowSize: prev.glowSize.toString(),
-                }))
-              }
-              onBlur={handleGlowSizeBlur}
-              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
-            />
-          </div>
-
-          <div
-            className={`flex justify-between w-full items-center ${
-              !state.glowEnabled ? 'opacity-40' : ''
-            }`}
-          >
-            <p className="text-white text-style-2">
-              {t('keySetting.noteGlowOpacity')}
-            </p>
-            <input
-              type="text"
-              disabled={!state.glowEnabled}
-              value={state.displayGlowOpacity}
-              onChange={handleGlowOpacityChange}
-              onFocus={() =>
-                setState((prev) => ({
-                  ...prev,
-                  glowOpacityFocused: true,
-                  displayGlowOpacity: prev.glowOpacity.toString(),
-                }))
-              }
-              onBlur={handleGlowOpacityBlur}
-              className="text-center w-[47px] h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8]"
-            />
-          </div>
-        </div>
-
-        <div className="h-px w-full bg-[#2A2A30]" />
-
-        {/* 노트 효과 사용 */}
-        <div className="flex justify-between w-full items-center">
-          <p className="text-white text-style-2">
-            {t('keySetting.noteEffectEnabled')}
-          </p>
-          <Checkbox
-            checked={state.noteEffectEnabled}
-            onChange={handleNoteEffectToggle}
-          />
-        </div>
-
-        {/* Y축 자동 보정 */}
-        <div className="flex justify-between w-full items-center">
-          <p className="text-white text-style-2">
-            {t('keySetting.noteAutoYCorrection')}
-          </p>
-          <Checkbox
-            checked={state.autoYCorrection}
-            onChange={() => {
-              const newValue = !state.autoYCorrection;
-              setState((prev) => ({ ...prev, autoYCorrection: newValue }));
-              onPreview({ noteAutoYCorrection: newValue });
-            }}
-          />
-        </div>
+            {/* Y축 자동 보정 */}
+            <div className="flex justify-between w-full items-center">
+              <p className="text-white text-style-2">
+                {t('keySetting.noteAutoYCorrection')}
+              </p>
+              <Checkbox
+                checked={state.autoYCorrection}
+                onChange={() => {
+                  const newValue = !state.autoYCorrection;
+                  setState((prev) => ({ ...prev, autoYCorrection: newValue }));
+                  onPreview({ noteAutoYCorrection: newValue });
+                }}
+              />
+            </div>
+          </SettingsGroup>
+        </FeatureSettings>
       </div>
     );
   },

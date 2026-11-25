@@ -18,7 +18,7 @@ this upstream snapshot is in [`DIFFERENCES.md`](DIFFERENCES.md).
 The v2 native runtime, editor transactions, persistence, input, audio, and OBS
 services are the upstream base. ElementNote retains its existing presentation
 and v1 viewer CSS/DOM contracts through the compatibility boundary documented in
-[`docs/element-note-dmnote-v2.md`](../../docs/element-note-dmnote-v2.md).
+[`docs/features/element-note-upstream.md`](../../docs/features/element-note-upstream.md).
 
 The 2026 modifications are Copyright (C) 2026 KGH1113 and are licensed under GPL-3.0-only as part of ElementNote. Upstream authors retain all rights in their original contributions. The retained upstream application icon and in-app logo are credited to the DM Note project and its original designer; no endorsement is implied.
 

@@ -43,7 +43,7 @@
 <td width="33%" valign="top">
 
 ### 텍스트와 도형
-진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/overlay-elements.md)
+진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 값마다 바뀔 때 잠깐 커지는 애니메이션을 켤 수 있습니다. 글자 색은 값을 따라 바뀌게 할 수도 있습니다(정확도가 100이 되면 하이라이트 색으로). 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/features/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
@@ -63,7 +63,7 @@
 <td valign="top">
 
 ### Effect Remover
-22가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 프리셋마다 단축키를 지정하면 플레이 중이 아닐 때 바로 바꾸고, 한 번 더 누르면 끕니다. 원본 맵은 바뀌지 않습니다.
+23가지 이펙트를 하나씩 켜고 끌 필요 없이 프리셋 카드 한 번으로 바꿉니다. `Remove All` · `No Filters` · `Only Tiles`를 그대로 쓰거나 원하는 조합을 저장하세요. 프리셋마다 단축키를 지정하면 플레이 중이 아닐 때 바로 바꾸고, 한 번 더 누르면 끕니다. 원본 맵은 바뀌지 않습니다.
 
 </td>
 <td colspan="2" valign="top">
@@ -78,7 +78,7 @@
 </tr>
 </table>
 
-그 밖에 [프로필](docs/profiles.md)(오버레이·이펙트·Tweaks 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), [TUFReplay 기록](docs/tufreplay.md)(리플레이와 영상에 그 플레이의 시도 횟수와 키 카운트), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
+그 밖에 [프로필](docs/features/profiles.md)(오버레이·이펙트·Tweaks·ElementNote 키뷰어 묶음을 바꿔 쓰고 파일로 내보내기·가져오기), [자동 업데이트](docs/features/auto-update.md)(게임을 켤 때 새 버전 적용, ElementNote 포함), 녹화 모드(게임 HUD와 오버레이 한 번에 숨기기), [OrbitRender 렌더](docs/features/orbitrender.md)(리플레이 영상에 오버레이와 키뷰어 포함), [TUFReplay 기록](docs/features/tufreplay.md)(리플레이와 영상에 그 플레이의 시도 횟수와 키 카운트), [다른 모드의 요소](ElementKit/README.md)(ElementKit을 쓰는 모드가 더한 값과 오버레이 요소도 Element에서 배치·편집), macOS 트랙패드 제스처, ElementNote 키로 얼불춤 기본 키 리미터 설정, 하이라이트 색 변경, 움직임 줄이기, 한국어·영어 UI를 지원합니다.
 
 ## 시작하기
 
@@ -101,7 +101,7 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 **게임 내 키뷰어 켜기**
 
 1. [ElementNote](#elementnote)를 실행하고(Launchpad·시작 메뉴, 또는 게임과 함께 자동으로) 손·발 탭 중 하나를 고릅니다.
-2. 앱 설정의 **OBS 모드 활성화**가 켜져 있는지 확인합니다(기본으로 켜져 있음). OBS 프로그램은 없어도 됩니다.
+2. 앱 설정 **보여 줄 곳**의 **얼불춤 안**이 켜져 있는지 확인합니다(기본으로 켜져 있음).
 3. 게임 설정의 **Overlay → Add Element → 키뷰어**로 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 고른 뒤 저장합니다.
 
 ## 단축키
@@ -155,11 +155,12 @@ flowchart TB
 [`apps/element-note`](apps/element-note)는 DM Note v2.1.0 기반의 키뷰어 데스크톱 앱입니다. 기존 v1 키뷰어 스타일을 유지하며 키 프로필을 모드와 동기화합니다.
 
 - 손·발 키뷰어, 키 입력 횟수, 프리셋, 키음, 커스텀 CSS
+- 손·발 뷰를 탭으로 오가며, 캔버스 옆 사이드바에서 요소를 눌러 입력·모양·레이닝·횟수를 한 줄씩 꾸밉니다. [사용법](docs/features/element-note-ux.md)
 - 처음 실행하면 손 16K~4K, 발 0K~8K 키뷰어가 바로 준비되어 있습니다
 - 키마다 고스트 키: 같은 자리에 두 번째 키를 연결하고 따로 꾸밉니다. 키 리미터에는 들어가지 않습니다.
-- 게임 화면 안 키뷰어와 방송용 OBS 브라우저 소스
-- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/bundled-element-note.md)
-- TUFReplay가 렌더링하는 리플레이 영상에 키뷰어를 프레임마다 그려 넣기 ([자세히](docs/orbitrender.md))
+- 키뷰어를 게임 화면 안, 바탕화면 위, OBS 방송 화면에 따로 켜고 끕니다
+- 모드 패키지에 함께 들어 있어 게임과 같이 열리고 닫힙니다 (일반 설정에서 끌 수 있음). 게임을 한 번 켜면 PC에 설치되어 Launchpad·시작 메뉴에서 따로 열 수도 있습니다. [자세히](docs/features/bundled-element-note.md)
+- TUFReplay가 렌더링하는 리플레이 영상에 키뷰어를 프레임마다 그려 넣기 ([자세히](docs/features/orbitrender.md))
 
 ```bash
 npm install

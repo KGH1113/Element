@@ -97,8 +97,9 @@ fn normalize_patch(patch: &SettingsPatchInput, current: &SettingsState) -> Resul
     if let Some(value) = patch.overlay_locked {
         normalized.overlay_locked = Some(value);
     }
-    if let Some(value) = patch.note_effect {
-        normalized.note_effect = Some(value);
+    if patch.note_effect.is_some() {
+        // Accept older clients without restoring the retired master switch.
+        normalized.note_effect = Some(true);
     }
     if let Some(value) = patch.note_settings.as_ref() {
         normalized.note_settings = Some(apply_note_patch(current.note_settings.clone(), value));
@@ -158,8 +159,9 @@ fn normalize_patch(patch: &SettingsPatchInput, current: &SettingsState) -> Resul
     if let Some(value) = patch.overlay_resize_anchor.as_ref() {
         normalized.overlay_resize_anchor = Some(value.clone());
     }
-    if let Some(value) = patch.key_counter_enabled {
-        normalized.key_counter_enabled = Some(value);
+    if patch.key_counter_enabled.is_some() {
+        // Accept older clients without restoring the retired master switch.
+        normalized.key_counter_enabled = Some(true);
     }
     if let Some(value) = patch.grid_settings.as_ref() {
         normalized.grid_settings = Some(value.clone());
@@ -230,9 +232,7 @@ fn apply_changes(mut current: SettingsState, patch: &SettingsPatch) -> SettingsS
     if let Some(value) = patch.overlay_locked {
         current.overlay_locked = value;
     }
-    if let Some(value) = patch.note_effect {
-        current.note_effect = value;
-    }
+    current.note_effect = true;
     if let Some(value) = patch.note_settings.as_ref() {
         current.note_settings = value.clone();
     }
@@ -275,9 +275,7 @@ fn apply_changes(mut current: SettingsState, patch: &SettingsPatch) -> SettingsS
     if let Some(value) = patch.overlay_resize_anchor.as_ref() {
         current.overlay_resize_anchor = value.clone();
     }
-    if let Some(value) = patch.key_counter_enabled {
-        current.key_counter_enabled = value;
-    }
+    current.key_counter_enabled = true;
     if let Some(value) = patch.grid_settings.as_ref() {
         current.grid_settings = value.clone();
     }
@@ -371,6 +369,46 @@ mod tests {
         ShortcutBinding, ShortcutsPatchInput,
     };
 
+    #[test]
+    fn retired_raining_master_is_ignored_in_saved_settings_and_patches() {
+        let mut store = AppStoreData {
+            note_effect: false,
+            ..Default::default()
+        };
+        assert!(settings_from_store(&store).note_effect);
+        let diff = apply_patch_to_store(
+            &mut store,
+            &SettingsPatchInput {
+                note_effect: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(store.note_effect);
+        assert_eq!(diff.changed.note_effect, Some(true));
+        assert!(diff.full.unwrap().note_effect);
+    }
+
+    #[test]
+    fn retired_counter_master_is_ignored_in_saved_settings_and_patches() {
+        let mut store = AppStoreData {
+            key_counter_enabled: false,
+            ..Default::default()
+        };
+        assert!(settings_from_store(&store).key_counter_enabled);
+        let diff = apply_patch_to_store(
+            &mut store,
+            &SettingsPatchInput {
+                key_counter_enabled: Some(false),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(store.key_counter_enabled);
+        assert_eq!(diff.changed.key_counter_enabled, Some(true));
+        assert!(diff.full.unwrap().key_counter_enabled);
+    }
+
     // 기본값 절대값 고정 스냅샷, 변경은 의도된 커밋에서만 허용
     #[test]
     fn default_settings_pinned_values() {
@@ -401,14 +439,16 @@ mod tests {
         assert_eq!(d.custom_js.content, "");
         assert!(d.custom_js.plugins.is_empty());
         assert_eq!(d.overlay_resize_anchor, OverlayResizeAnchor::TopLeft);
-        assert!(!d.key_counter_enabled);
-        assert!(d.obs_mode_enabled);
+        assert!(d.key_counter_enabled);
+        // 게임 화면이 기본이고 OBS는 부가 기능이다
+        assert!(!d.obs_mode_enabled);
+        assert!(d.in_game_viewers_enabled);
 
         let n = &d.note_settings;
         assert_eq!(n.border_radius, None);
         assert_eq!(n.frame_limit, 0);
-        assert_eq!(n.speed, 180);
-        assert_eq!(n.track_height, 150);
+        assert_eq!(n.speed, 450);
+        assert_eq!(n.track_height, 300);
         assert!(!n.reverse);
         assert_eq!(n.fade_position, FadePosition::Auto);
         assert_eq!(n.fade_top_px, 50);
@@ -632,7 +672,8 @@ mod tests {
         let expected_b = SettingsState {
             always_on_top: true,
             ui_theme: UiTheme::Dark,
-            note_effect: false,
+            // The retired Raining master switch stays on whatever a patch says.
+            note_effect: true,
             developer_mode_enabled: false,
             auto_update_enabled: true,
             use_custom_js: false,

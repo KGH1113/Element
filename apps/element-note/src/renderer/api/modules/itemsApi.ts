@@ -1,4 +1,5 @@
-import { invoke, trackEditorSave } from '../invoke';
+import { invoke } from '../invoke';
+import { editorApi, type EditorFieldValues } from './editorApi';
 import { subscribe } from './shared';
 
 import type { StatItemPositions } from '@src/types/key/statItems';
@@ -27,14 +28,17 @@ export function onItemPositionsSaveFailed(
   };
 }
 
-function saveItemPositions<T>(
-  command: string,
-  field: ItemPositionsField,
-  positions: T,
-): Promise<T> {
-  const saving = trackEditorSave(invoke<T>(command, { positions }), [
-    `editor:${field}`,
-  ]);
+/**
+ * 배치를 편집 커밋으로 저장한다: 실행 취소 한 단계로 기록된다.
+ * 저장하며 정해지는 새 요소의 ID는 getPositions로 읽는다.
+ */
+function saveItemPositions<F extends ItemPositionsField>(
+  field: F,
+  positions: NonNullable<EditorFieldValues[F]>,
+) {
+  const saving = editorApi
+    .replaceFields({ [field]: positions })
+    .then(() => positions);
   saving.catch((error: unknown) => {
     itemSaveFailureListeners.forEach((listener) => listener(field, error));
   });
@@ -44,7 +48,7 @@ function saveItemPositions<T>(
 export const statItemsApi = {
   getPositions: () => invoke<StatItemPositions>('stat_positions_get'),
   updatePositions: (positions: StatItemPositions) =>
-    saveItemPositions('stat_positions_update', 'statPositions', positions),
+    saveItemPositions('statPositions', positions),
   onPositionsChanged: (listener: (positions: StatItemPositions) => void) =>
     subscribe<StatItemPositions>('statPositions:changed', listener),
 };
@@ -52,7 +56,7 @@ export const statItemsApi = {
 export const graphItemsApi = {
   getPositions: () => invoke<GraphItemPositions>('graph_positions_get'),
   updatePositions: (positions: GraphItemPositions) =>
-    saveItemPositions('graph_positions_update', 'graphPositions', positions),
+    saveItemPositions('graphPositions', positions),
   onPositionsChanged: (listener: (positions: GraphItemPositions) => void) =>
     subscribe<GraphItemPositions>('graphPositions:changed', listener),
 };
@@ -60,7 +64,7 @@ export const graphItemsApi = {
 export const knobItemsApi = {
   getPositions: () => invoke<KnobItemPositions>('knob_positions_get'),
   updatePositions: (positions: KnobItemPositions) =>
-    saveItemPositions('knob_positions_update', 'knobPositions', positions),
+    saveItemPositions('knobPositions', positions),
   onPositionsChanged: (listener: (positions: KnobItemPositions) => void) =>
     subscribe<KnobItemPositions>('knobPositions:changed', listener),
 };
@@ -68,9 +72,7 @@ export const knobItemsApi = {
 export const layerGroupsApi = {
   get: () => invoke<LayerGroups>('layer_groups_get'),
   update: (groups: LayerGroups) =>
-    trackEditorSave(invoke<LayerGroups>('layer_groups_update', { groups }), [
-      'editor:layerGroups',
-    ]),
+    editorApi.replaceFields({ layerGroups: groups }).then(() => groups),
   onChanged: (listener: (groups: LayerGroups) => void) =>
     subscribe<LayerGroups>('layerGroups:changed', listener),
 };

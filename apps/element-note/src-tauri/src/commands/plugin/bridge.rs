@@ -69,7 +69,7 @@ pub fn plugin_bridge_send_to(
     if window_labels
         .iter()
         .any(|label| app.get_webview_window(label).is_some())
-        || (target == "overlay" && state.is_obs_mode_active())
+        || (target == "overlay" && state.is_viewer_server_running())
     {
         // 손·발 창이 모두 있어도 전역 이벤트는 한 번만 발행한다.
         publish_event(&app, "plugin-bridge:message", payload);

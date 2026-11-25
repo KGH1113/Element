@@ -131,7 +131,10 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
     const updateHeight = () => {
       if (contentEl) {
         const contentHeight = contentEl.scrollHeight;
-        const maxHeight = 195;
+        const maxHeight = Math.max(
+          120,
+          Math.min(420, window.innerHeight - 200),
+        );
         setContainerHeight(Math.min(contentHeight, maxHeight));
         const nextHasOverflow = contentHeight > maxHeight;
         setHasOverflow((prev) =>
@@ -154,6 +157,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
     // 초기 상태 확인
     updateScrollState(el);
     updateHeight();
+    window.addEventListener('resize', updateHeight);
 
     // 다음 프레임에서 애니메이션 다시 활성화 및 첫 렌더 플래그 해제
     const rafId = requestAnimationFrame(() => {
@@ -163,6 +167,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
 
     return () => {
       resizeObserver.disconnect();
+      window.removeEventListener('resize', updateHeight);
       cancelAnimationFrame(rafId);
     };
   }, [activeTab, wrapperElement]);
@@ -233,7 +238,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
   return (
     <Modal onClick={handleClose} animate={!initialSkipRef.current}>
       <div
-        className="dmn-modal-card flex flex-col p-[20px] pr-[6px]"
+        className="dmn-modal-card flex w-[400px] max-w-[calc(100vw-32px)] flex-col p-[20px] pr-[6px]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="pr-[14px]">
@@ -266,7 +271,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
             style={{
               height:
                 containerHeight !== null ? `${containerHeight}px` : 'auto',
-              maxHeight: '195px',
+              maxHeight: 'min(420px, calc(100dvh - 200px))',
               width:
                 hasOverflow && scrollbarWidth > 0
                   ? `calc(100% + ${scrollbarWidth}px)`
@@ -315,7 +320,7 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
       </div>
 
       {/* 이미지 피커 - 스크롤 영역 외부에 렌더링 */}
-      {keyState.showImagePicker && (
+      {activeTab === TABS.KEY && keyState.showImagePicker && (
         <ImagePicker
           open={keyState.showImagePicker}
           referenceRef={keyTabRef.current?.imageButtonRef}
@@ -336,77 +341,84 @@ const UnifiedKeySetting: React.FC<UnifiedKeySettingProps> = ({
       )}
 
       {/* 노트 컬러 피커 - 스크롤 영역 외부에 렌더링 */}
-      {noteState.showPicker && (
-        <ColorPicker
-          open={noteState.showPicker}
-          referenceRef={noteTabRef.current?.colorButtonRef}
-          color={
-            noteState.colorMode === COLOR_MODES.gradient
-              ? toGradient(noteState.noteColor, noteState.gradientBottom)
-              : noteState.noteColor
-          }
-          onColorChange={(c) => noteTabRef.current?.handleColorChange(c)}
-          onColorChangeComplete={(c) =>
-            noteTabRef.current?.handleColorChangeComplete(c)
-          }
-          onClose={() =>
-            setNoteState((prev) => ({ ...prev, showPicker: false }))
-          }
-          position={'right'}
-        />
-      )}
+      {activeTab === TABS.NOTE &&
+        noteState.noteEffectEnabled &&
+        noteState.showPicker && (
+          <ColorPicker
+            open={noteState.showPicker}
+            referenceRef={noteTabRef.current?.colorButtonRef}
+            color={
+              noteState.colorMode === COLOR_MODES.gradient
+                ? toGradient(noteState.noteColor, noteState.gradientBottom)
+                : noteState.noteColor
+            }
+            onColorChange={(c) => noteTabRef.current?.handleColorChange(c)}
+            onColorChangeComplete={(c) =>
+              noteTabRef.current?.handleColorChangeComplete(c)
+            }
+            onClose={() =>
+              setNoteState((prev) => ({ ...prev, showPicker: false }))
+            }
+            position={'right'}
+          />
+        )}
 
       {/* 글로우 컬러 피커 - 스크롤 영역 외부에 렌더링 */}
-      {noteState.showGlowPicker && (
-        <ColorPicker
-          open={noteState.showGlowPicker}
-          referenceRef={noteTabRef.current?.glowColorButtonRef}
-          color={
-            noteState.glowColorMode === COLOR_MODES.gradient
-              ? toGradient(noteState.glowColor, noteState.glowGradientBottom)
-              : noteState.glowColor
-          }
-          onColorChange={(c) => noteTabRef.current?.handleGlowColorChange(c)}
-          onColorChangeComplete={(c) =>
-            noteTabRef.current?.handleGlowColorChangeComplete(c)
-          }
-          onClose={() =>
-            setNoteState((prev) => ({ ...prev, showGlowPicker: false }))
-          }
-          position={'right'}
-        />
-      )}
+      {activeTab === TABS.NOTE &&
+        noteState.noteEffectEnabled &&
+        noteState.glowEnabled &&
+        noteState.showGlowPicker && (
+          <ColorPicker
+            open={noteState.showGlowPicker}
+            referenceRef={noteTabRef.current?.glowColorButtonRef}
+            color={
+              noteState.glowColorMode === COLOR_MODES.gradient
+                ? toGradient(noteState.glowColor, noteState.glowGradientBottom)
+                : noteState.glowColor
+            }
+            onColorChange={(c) => noteTabRef.current?.handleGlowColorChange(c)}
+            onColorChangeComplete={(c) =>
+              noteTabRef.current?.handleGlowColorChangeComplete(c)
+            }
+            onClose={() =>
+              setNoteState((prev) => ({ ...prev, showGlowPicker: false }))
+            }
+            position={'right'}
+          />
+        )}
 
       {/* 카운터 컬러 피커 - 스크롤 영역 외부에 렌더링 */}
-      {counterState.pickerFor && (
-        <ColorPicker
-          open={counterState.pickerOpen}
-          referenceRef={counterTabRef.current?.fillActiveBtnRef}
-          color={
-            counterTabRef.current?.colorValueFor(counterState.pickerFor) ??
-            '#FFFFFF'
-          }
-          onColorChange={(c: string) =>
-            counterTabRef.current?.setColorFor(counterState.pickerFor, c)
-          }
-          onColorChangeComplete={(c: string) =>
-            counterTabRef.current?.handleColorComplete(
-              counterState.pickerFor,
-              c,
-            )
-          }
-          onClose={() =>
-            setCounterState((prev) => ({
-              ...prev,
-              pickerFor: null,
-              pickerOpen: false,
-            }))
-          }
-          solidOnly={true}
-          interactiveRefs={counterTabRef.current?.colorPickerInteractiveRefs}
-          position={'right'}
-        />
-      )}
+      {activeTab === TABS.COUNTER &&
+        counterState.counterEnabled &&
+        counterState.pickerFor && (
+          <ColorPicker
+            open={counterState.pickerOpen}
+            referenceRef={counterTabRef.current?.fillActiveBtnRef}
+            color={
+              counterTabRef.current?.colorValueFor(counterState.pickerFor) ??
+              '#FFFFFF'
+            }
+            onColorChange={(c: string) =>
+              counterTabRef.current?.setColorFor(counterState.pickerFor, c)
+            }
+            onColorChangeComplete={(c: string) =>
+              counterTabRef.current?.handleColorComplete(
+                counterState.pickerFor,
+                c,
+              )
+            }
+            onClose={() =>
+              setCounterState((prev) => ({
+                ...prev,
+                pickerFor: null,
+                pickerOpen: false,
+              }))
+            }
+            solidOnly={true}
+            interactiveRefs={counterTabRef.current?.colorPickerInteractiveRefs}
+            position={'right'}
+          />
+        )}
     </Modal>
   );
 };

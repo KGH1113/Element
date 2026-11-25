@@ -18,6 +18,10 @@ export type ListItem = {
   type?: 'item' | 'separator';
   /** 토글 항목의 체크 상태 */
   checked?: boolean;
+  /** A 14px mark shown in the room the check uses. */
+  icon?: React.ReactNode;
+  /** Marks an item that cannot be undone, such as deleting. */
+  tone?: 'danger';
   /** 서브메뉴 항목 */
   children?: ListItem[];
   /** 서브메뉴 최대 표시 항목 수 (초과 시 스크롤) */
@@ -38,6 +42,10 @@ interface ListPopupProps {
   textAlign?: 'left' | 'center';
   /** 최대 표시 항목 수 (초과 시 스크롤) */
   maxVisibleItems?: number;
+  /** Side of the trigger the menu opens on; it flips when there is no room. */
+  placement?: string;
+  /** Gap between the trigger and the menu. */
+  offset?: number;
 }
 
 // 부모 메뉴가 닫히기 시작하면 body로 빠져나간 서브메뉴도 함께 걷는다.
@@ -242,6 +250,12 @@ const MenuItemRow = ({
   const hasCheck = typeof item.checked === 'boolean';
   const isBasicCenterItem = !isLeft && !hasCheck && !hasChildren;
 
+  const labelColor = item.disabled
+    ? 'text-[#6B6E7B]'
+    : item.tone === 'danger'
+      ? 'text-[#F17E86]'
+      : 'text-[#DBDEE8]';
+
   const handleSelect = () => {
     if (item.disabled || hasChildren) return;
     onSelect?.(item.id);
@@ -291,7 +305,10 @@ const MenuItemRow = ({
         }`}
       >
         {/* 좌측 체크 영역 (고정 너비) */}
-        <span className="w-[16px] flex-shrink-0 flex items-center justify-center">
+        <span
+          className={`w-[16px] flex-shrink-0 flex items-center justify-center ${labelColor}`}
+        >
+          {!hasCheck && item.icon}
           {hasCheck && item.checked && (
             <svg
               width="12"
@@ -315,7 +332,7 @@ const MenuItemRow = ({
         <span
           className={`flex-1 text-style-2 whitespace-nowrap ${
             isLeft ? 'text-left' : 'text-center'
-          } ${item.disabled ? 'text-[#6B6E7B]' : 'text-[#DBDEE8]'}`}
+          } ${labelColor}`}
         >
           {item.label}
         </span>
@@ -369,6 +386,8 @@ const ListPopup = ({
   offsetY = 0,
   textAlign = 'center',
   maxVisibleItems,
+  placement = 'top',
+  offset = 25,
 }: ListPopupProps) => {
   const defaultClassName = 'p-[5px] flex flex-col gap-[1px]';
   const effectiveClassName = `${defaultClassName} ${className}`.trim();
@@ -398,8 +417,8 @@ const ListPopup = ({
       <FloatingPopup
         open={open}
         referenceRef={referenceRef}
-        placement="top"
-        offset={25}
+        placement={placement}
+        offset={offset}
         offsetX={offsetX}
         offsetY={offsetY}
         fixedX={position?.x}

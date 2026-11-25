@@ -19,8 +19,10 @@ impl AppState {
         if diff.changed.in_game_viewers_enabled.is_some() {
             crate::services::native_viewers::notify_changed(app);
         }
-        if let Some(value) = diff.changed.key_counter_enabled {
-            self.key_counter_enabled.store(value, Ordering::SeqCst);
+        // 얼불춤 안·OBS 스위치 중 하나라도 바뀌면 서버를 다시 맞춘다
+        if diff.changed.in_game_viewers_enabled.is_some() || diff.changed.obs_mode_enabled.is_some()
+        {
+            self.reconcile_viewer_server(app);
         }
         // OBS 브릿지 캐시 갱신
         if self.obs_bridge.is_running() {
@@ -53,143 +55,6 @@ impl AppState {
             s.obs_token = Some(t.clone());
         })?;
         Ok(token)
-    }
-
-    /// 부팅 시 OBS 모드 자동 시작 (obs_mode_enabled=true일 때)
-    pub(super) fn auto_start_obs(&self, app: &AppHandle) {
-        let bridge = self.obs_bridge.clone();
-        let store = self.store.clone();
-
-        // 부팅 시에는 오버레이를 생성하지 않았으므로 이전 표시 상태만 저장
-        // (initialize_runtime에서 obs_mode_enabled일 때 ensure_overlay_window 건너뜀)
-        let was_visible = store.with_state(|s| s.overlay_visible);
-        *self.obs_previous_overlay_visible.write() = Some(was_visible);
-        let app_handle = app.clone();
-
-        // dev 모드: Vite dev server로 리다이렉트
-        if cfg!(debug_assertions) {
-            let dev_url = "http://localhost:3400".to_string();
-            log::info!("[ObsBridge] dev 모드: Vite dev server로 리다이렉트 ({dev_url})");
-            bridge.set_dev_url(dev_url);
-        } else {
-            // 프로덕션: Tauri 임베딩 에셋으로 서빙
-            let handle = app_handle.clone();
-            let fetcher = std::sync::Arc::new(move |path: &str| {
-                let resolver = handle.asset_resolver();
-                resolver.get(path.into()).map(|asset| {
-                    let mime = asset.mime_type.clone();
-                    (asset.bytes.to_vec(), mime)
-                })
-            });
-            bridge.set_asset_fetcher(fetcher);
-        }
-
-        // AppHandle 전달 (invoke_request 디스패치용)
-        bridge.set_app_handle(app.clone());
-        // async start를 tokio 런타임에서 실행
-        tauri::async_runtime::spawn(async move {
-            let state = app_handle.state::<AppState>();
-            let _lifecycle_guard = state.obs_lifecycle_lock.lock().await;
-            let port = store.with_state(|s| s.obs_port);
-            // 미저장 토큰 사용 방지를 위한 시작 중단
-            let token = match state.resolve_and_save_obs_token() {
-                Ok(token) => token,
-                Err(e) => {
-                    log::error!(
-                        "[ObsBridge] auto-start 중단: 토큰 저장 실패 ({e}), obs_mode_enabled를 false로 복구"
-                    );
-                    let _ = store.update(|s| {
-                        s.obs_mode_enabled = false;
-                    });
-                    state.obs_restore_overlay(&app_handle);
-                    let _ = app_handle.emit("obs:status", &state.obs_bridge.status());
-                    return;
-                }
-            };
-
-            match bridge.start(port, token).await {
-                Ok(actual_port) => {
-                    log::info!("[ObsBridge] auto-start 성공 (port={})", actual_port);
-                    // fallback 포트가 사용된 경우 store에 저장
-                    if actual_port != port {
-                        let _ = store.update(|s| {
-                            s.obs_port = actual_port;
-                        });
-                    }
-                    // 초기 스냅샷 캐싱 (신규 클라이언트에 전송됨)
-                    state.refresh_obs_snapshot();
-                    let _ = app_handle.emit("obs:status", &state.obs_bridge.status());
-                }
-                Err(e) => {
-                    log::error!(
-                        "[ObsBridge] auto-start 실패: {}, obs_mode_enabled를 false로 복구",
-                        e
-                    );
-                    let _ = store.update(|state| {
-                        state.obs_mode_enabled = false;
-                    });
-                    // 실패 시 오버레이 복원 (윈도우 재생성 포함)
-                    state.obs_restore_overlay(&app_handle);
-                    let _ = app_handle.emit("obs:status", &state.obs_bridge.status());
-                }
-            }
-        });
-    }
-
-    /// OBS 시작 시 오버레이 윈도우 destroy (이전 상태 보존)
-    pub fn obs_hide_overlay(&self, app: &AppHandle) {
-        if let Some(foot) = app.get_webview_window("foot-overlay") {
-            let _ = foot.destroy();
-        }
-        let was_visible = *self.overlay_visible.read();
-        *self.obs_previous_overlay_visible.write() = Some(was_visible);
-        // destroy()는 CloseRequested 이벤트 없이 즉시 윈도우를 파괴
-        if let Some(window) = app.get_webview_window(OVERLAY_LABEL) {
-            if let Err(e) = window.destroy() {
-                log::warn!("[ObsBridge] 오버레이 destroy 실패: {}", e);
-                // destroy 실패 시 hide로 fallback
-                if was_visible {
-                    if let Err(e) = self.set_overlay_visibility(app, false) {
-                        log::warn!("[ObsBridge] 오버레이 hide fallback 실패: {}", e);
-                    }
-                }
-                return;
-            }
-        }
-        if let Err(error) = self.overlay_hit.reset_for_parent_loss(app) {
-            log::warn!("failed to reset overlay hit state for OBS mode: {error:#}");
-        }
-        // destroy 성공(또는 윈도우 부재) 후 런타임 플래그만 갱신
-        // store.overlay_visible은 변경하지 않음 — ensure_overlay_window가 재생성 시
-        // 이 값을 기준으로 show/hide를 결정하므로, 원래 값을 유지해야 함
-        *self.overlay_visible.write() = false;
-        publish_event(app, "overlay:visibility", json!({ "visible": false }));
-    }
-
-    /// OBS 중지 시 오버레이 재생성 + 복원
-    pub fn obs_restore_overlay(&self, app: &AppHandle) {
-        let prev = self.obs_previous_overlay_visible.write().take();
-        match prev {
-            Some(true) => {
-                // set_overlay_visibility(true) 내부에서 ensure_overlay_window + show + store 갱신 + emit 처리
-                if let Err(e) = self.set_overlay_visibility(app, true) {
-                    log::warn!("[ObsBridge] 오버레이 복원 실패: {}", e);
-                }
-            }
-            Some(false) => {
-                // 이전 상태가 hidden이었더라도 윈도우는 재생성 필요
-                // (이후 sync 커맨드에서 WebView2 빌드 시 메시지 루프 블로킹 방지)
-                if let Err(e) = self.ensure_overlay_window(app) {
-                    log::warn!("[ObsBridge] 오버레이 윈도우 재생성 실패: {}", e);
-                }
-            }
-            None => {}
-        }
-    }
-
-    /// OBS 모드 활성화 여부
-    pub fn is_obs_mode_active(&self) -> bool {
-        self.obs_bridge.is_running()
     }
 
     /// OBS 브릿지용 전체 스냅샷 빌드 + 캐시 갱신 + 연결된 클라이언트에 broadcast
@@ -618,13 +483,13 @@ impl AppState {
         .maximizable(false)
         .zoom_hotkeys_enabled(false)
         .transparent(true)
-            .always_on_top(true)
-            .skip_taskbar(false)
-            // 첫 표시를 SW_SHOWNOACTIVATE로 처리하도록 tao에 지시 (포커스 미탈취)
-            .focused(false)
-            .inner_size(resolved.placement.width, resolved.placement.height)
-            .shadow(false)
-            .devtools(true);
+        .always_on_top(true)
+        .skip_taskbar(false)
+        // 첫 표시를 SW_SHOWNOACTIVATE로 처리하도록 tao에 지시 (포커스 미탈취)
+        .focused(false)
+        .inner_size(resolved.placement.width, resolved.placement.height)
+        .shadow(false)
+        .devtools(true);
         #[cfg(target_os = "windows")]
         {
             window_builder = window_builder.visible(false);

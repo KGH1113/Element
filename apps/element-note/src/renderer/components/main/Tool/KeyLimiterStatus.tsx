@@ -1,9 +1,6 @@
-import { useState } from 'react';
 import { useTranslation } from '@contexts/useTranslation';
-import { useKeyLimiterStatusStore } from '@stores/useKeyLimiterStatusStore';
-import ElementConnectionModal from './ElementConnectionModal';
 import {
-  getKeyLimiterStatusPresentation,
+  useKeyLimiterStatusPresentation,
   type StatusIcon,
 } from './keyLimiterStatusPresentation';
 
@@ -96,51 +93,33 @@ function StatusGlyph({ icon }: { icon: StatusIcon }) {
   return null;
 }
 
-export default function KeyLimiterStatus() {
+interface KeyLimiterStatusProps {
+  /** Opens the settings that go with the game connection. */
+  onOpen: () => void;
+}
+
+/** The game connection at a glance; its switches live in settings. */
+export default function KeyLimiterStatus({ onOpen }: KeyLimiterStatusProps) {
   const { t } = useTranslation();
-  const [isOpen, setIsOpen] = useState(false);
-  const connectionState = useKeyLimiterStatusStore(
-    (state) => state.connectionState,
-  );
-  const deliveryState = useKeyLimiterStatusStore(
-    (state) => state.deliveryState,
-  );
-  const hasUnsupportedKeys = useKeyLimiterStatusStore(
-    (state) => (state.lastAcknowledgement?.unsupportedKeys.length ?? 0) > 0,
-  );
-  const presentation = getKeyLimiterStatusPresentation(
-    connectionState,
-    deliveryState,
-    hasUnsupportedKeys,
-  );
+  const presentation = useKeyLimiterStatusPresentation();
   const label = t(presentation.labelKey);
 
   return (
-    <>
-      <button
-        type="button"
-        className={`key-limiter-status key-limiter-status--${presentation.tone}`}
-        aria-label={label}
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen(true)}
+    <button
+      type="button"
+      className={`key-limiter-status key-limiter-status--${presentation.tone}`}
+      aria-label={label}
+      onClick={onOpen}
+    >
+      <span
+        className="key-limiter-status__live"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
       >
-        <span
-          className="key-limiter-status__live"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <StatusGlyph icon={presentation.icon} />
-          <span className="key-limiter-status__label">{label}</span>
-        </span>
-      </button>
-      {isOpen && (
-        <ElementConnectionModal
-          presentation={presentation}
-          onClose={() => setIsOpen(false)}
-        />
-      )}
-    </>
+        <StatusGlyph icon={presentation.icon} />
+        <span className="key-limiter-status__label">{label}</span>
+      </span>
+    </button>
   );
 }

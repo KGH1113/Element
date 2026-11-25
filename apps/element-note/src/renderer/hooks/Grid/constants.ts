@@ -16,3 +16,6 @@ export const PASTE_OFFSET = 20;
 
 // 방향키 히스토리 저장 딜레이 (ms)
 export const ARROW_KEY_HISTORY_DELAY = 500;
+
+// The smallest an element can be made by dragging an edge
+export const MIN_ELEMENT_SIZE = 10;

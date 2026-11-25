@@ -1,9 +1,14 @@
-use std::{future::Future, sync::Arc};
+use std::future::Future;
 
 use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
-use crate::{commands::run_mutation, errors::CmdResult, models::obs::ObsStatus, state::AppState};
+use crate::{
+    commands::run_mutation,
+    errors::CmdResult,
+    models::{obs::ObsStatus, SettingsPatchInput},
+    state::AppState,
+};
 
 async fn run_obs_lifecycle<T, Operation, OperationFuture>(
     state: &AppState,
@@ -15,14 +20,6 @@ where
 {
     let _lifecycle_guard = state.obs_lifecycle_lock.lock().await;
     operation().await
-}
-
-async fn start_bridge_with_token(state: &AppState, port: u16, token: String) -> CmdResult<u16> {
-    state
-        .obs_bridge
-        .start(port, token)
-        .await
-        .map_err(crate::errors::CommandError::msg)
 }
 
 fn persist_and_apply_obs_token(state: &AppState, token: String) -> CmdResult<ObsStatus> {
@@ -37,67 +34,51 @@ fn persist_and_apply_obs_token(state: &AppState, token: String) -> CmdResult<Obs
     Ok(state.obs_bridge.status())
 }
 
-#[tauri::command]
-pub async fn obs_start(app: AppHandle, state: State<'_, AppState>) -> CmdResult<ObsStatus> {
-    run_obs_lifecycle(&state, || async {
-        let port = state.store.with_state(|s| s.obs_port);
-        // 저장 불가 시 시작 중단, 서버 토큰의 디스크 존재 보장
-        let token = state.resolve_and_save_obs_token()?;
+/// OBS 스위치를 저장하고 다른 설정처럼 알린다.
+/// 잠금 순서 고정: OBS lifecycle mutex -> run_mutation mutation ticket
+async fn persist_obs_offered(app: &AppHandle, offered: bool) -> CmdResult<()> {
+    run_mutation(app.clone(), move |app, state| {
+        let diff = state.settings.apply_patch(SettingsPatchInput {
+            obs_mode_enabled: Some(offered),
+            ..Default::default()
+        })?;
+        Ok(state.emit_settings_changed(&diff, app)?)
+    })
+    .await
+}
 
-        // OBS 정적 파일 서빙 설정
-        if cfg!(debug_assertions) {
-            // dev 모드: Vite dev server로 리다이렉트
-            let dev_url = "http://localhost:3400".to_string();
-            log::info!("[ObsBridge] dev 모드: Vite dev server로 리다이렉트 ({dev_url})");
-            state.obs_bridge.set_dev_url(dev_url);
-        } else {
-            // 프로덕션: Tauri 임베딩 에셋으로 서빙 (포터블 단일 exe 지원)
-            let handle = app.clone();
-            let fetcher = Arc::new(move |path: &str| {
-                let resolver = handle.asset_resolver();
-                resolver.get(path.into()).map(|asset| {
-                    let mime = asset.mime_type.clone();
-                    (asset.bytes.to_vec(), mime)
-                })
-            });
-            state.obs_bridge.set_asset_fetcher(fetcher);
-            log::info!("[ObsBridge] Tauri 임베딩 에셋으로 HTTP 서빙");
-        }
-
-        // AppHandle 전달 (invoke_request 디스패치용)
-        state.obs_bridge.set_app_handle(app.clone());
-        let actual_port = start_bridge_with_token(&state, port, token).await?;
-        // 성공한 포트를 store에 저장 (fallback 시 다음 시작에 재사용)
-        // 저장 실패 시 실행 서버 유지, 다음 시작에서 fallback 재시도
-        if actual_port != port {
-            if let Err(error) = state.store.update(|s| {
-                s.obs_port = actual_port;
-            }) {
-                log::warn!("[ObsBridge] fallback 포트 저장 실패: {error}");
+/// OBS 스위치: 브라우저 소스를 내줄지만 정한다. 서버를 실제로 켜고 끄는 일은
+/// reconcile이 맡는다 - 게임 화면 키뷰어가 켜져 있으면 OBS를 꺼도 서버는 남는다
+async fn set_obs_offered(app: &AppHandle, state: &AppState, offered: bool) -> CmdResult<ObsStatus> {
+    run_obs_lifecycle(state, || async {
+        persist_obs_offered(app, offered).await?;
+        match state.reconcile_viewer_server_locked(app).await {
+            Ok(status) => Ok(status),
+            Err(error) => {
+                // 켜지 못했으면 스위치를 되돌리고, 게임 화면용 서버라도 다시 띄운다
+                if offered {
+                    if let Err(revert_error) = persist_obs_offered(app, false).await {
+                        log::error!("[ObsBridge] OBS 스위치 복구 실패: {revert_error:#}");
+                    }
+                    if let Err(retry_error) = state.reconcile_viewer_server_locked(app).await {
+                        log::error!("[ObsBridge] 서버 복구 실패: {retry_error:#}");
+                    }
+                }
+                Err(error.into())
             }
         }
-        // 초기 스냅샷 캐싱 (신규 클라이언트에 전송됨)
-        state.refresh_obs_snapshot();
-        // 오버레이 destroy (이전 상태 보존)
-        state.obs_hide_overlay(&app);
-        let status = state.obs_bridge.status();
-        let _ = app.emit("obs:status", &status);
-        Ok(status)
     })
     .await
 }
 
 #[tauri::command]
+pub async fn obs_start(app: AppHandle, state: State<'_, AppState>) -> CmdResult<ObsStatus> {
+    set_obs_offered(&app, &state, true).await
+}
+
+#[tauri::command]
 pub async fn obs_stop(app: AppHandle, state: State<'_, AppState>) -> CmdResult<ObsStatus> {
-    run_obs_lifecycle(&state, || async {
-        state.obs_bridge.stop();
-        // 오버레이 재생성 + 복원 (async context에서 실행해야 WebView2 초기화가 정상 완료됨)
-        state.obs_restore_overlay(&app);
-        let status = state.obs_bridge.status();
-        let _ = app.emit("obs:status", &status);
-        Ok(status)
-    })
-    .await
+    set_obs_offered(&app, &state, false).await
 }
 
 #[tauri::command]
@@ -117,6 +98,8 @@ pub async fn obs_regenerate_token(
         run_mutation(app, move |app, state| {
             let status = persist_and_apply_obs_token(state, token)?;
             let _ = app.emit("obs:status", &status);
+            // 게임 화면 키뷰어도 같은 토큰으로 접속한다 - 새 주소를 바로 받아 가게 한다
+            crate::services::native_viewers::notify_changed(app);
             Ok(status)
         })
         .await
@@ -134,9 +117,19 @@ mod tests {
 
     use super::*;
     use crate::{
+        errors::CommandError,
         models::obs::{make_envelope, ObsEnvelope, OBS_PROTOCOL_VERSION},
+        services::obs_bridge::ServerReach,
         state::AppStore,
     };
+
+    async fn start_bridge_with_token(state: &AppState, port: u16, token: String) -> CmdResult<u16> {
+        state
+            .obs_bridge
+            .start(port, token, ServerReach::Loopback)
+            .await
+            .map_err(CommandError::msg)
+    }
 
     fn test_directory(label: &str) -> std::path::PathBuf {
         std::env::temp_dir().join(format!("dmnote-{label}-{}", Uuid::new_v4()))

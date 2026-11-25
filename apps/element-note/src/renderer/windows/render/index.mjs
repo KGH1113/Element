@@ -10,6 +10,8 @@ const nativeInvoke = window.__TAURI_INTERNALS__.invoke.bind(
   window.__TAURI_INTERNALS__,
 );
 const nativeTimeout = window.setTimeout.bind(window);
+// The real clock, for the stage timings; the render clock replaces performance.now.
+const realNow = performance.now.bind(performance);
 const realSleep = (ms) => new Promise((resolve) => nativeTimeout(resolve, ms));
 const acknowledge = (result, error = null) =>
   nativeInvoke('dmnote_render_ack', { result, error });
@@ -138,6 +140,7 @@ async function start() {
   );
   const active = router.active;
   window.__dmnRenderFrame = async (request) => {
+    const started = realNow();
     try {
       if (request.frameIndex !== nextFrame)
         throw new Error('Render frame is out of sequence.');
@@ -193,6 +196,7 @@ async function start() {
       clock.sampleFrame();
       await Promise.resolve();
       sampleStyles();
+      const drawn = realNow();
       await paint();
       nextFrame++;
       await acknowledge({
@@ -200,6 +204,7 @@ async function start() {
         outputTimeUs: request.outputTimeUs,
         replayTimeUs: request.replayTimeUs,
         activeKeys: [...active],
+        timing: { scriptMs: drawn - started, paintMs: realNow() - drawn },
         ...(config.verify
           ? {
               counters: shim.counters,
@@ -214,9 +219,11 @@ async function start() {
   };
   // The overlay publishes the viewport and padding it laid out, the same values
   // the in-game host crops by; the backend sizes this surface to match.
-  const published = ['dmnViewerWidth', 'dmnViewerHeight', 'dmnViewerPadding'].map(
-    (name) => Number(container.dataset[name]),
-  );
+  const published = [
+    'dmnViewerWidth',
+    'dmnViewerHeight',
+    'dmnViewerPadding',
+  ].map((name) => Number(container.dataset[name]));
   const [width, height, padding] = published;
   const layout =
     published.every(Number.isFinite) && width > 0 && height > 0 && padding >= 0

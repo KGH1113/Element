@@ -14,12 +14,14 @@ import type { KeyPositions } from '@src/types/key/keys';
 import type { StatItemPositions } from '@src/types/key/statItems';
 import type { GraphItemPositions } from '@src/types/key/graphItems';
 import type { KnobItemPositions } from '@src/types/key/knobs';
+import type { SpritePositions } from '@src/types/key/sprites';
 
 interface UseGridMarqueeParams {
   positions: KeyPositions;
   statPositions: StatItemPositions;
   graphPositions: GraphItemPositions;
   knobPositions: KnobItemPositions;
+  spritePositions: SpritePositions;
   selectedKeyType: string;
   pluginElements: PluginDisplayElementInternal[];
   clientToGridCoords: (
@@ -45,6 +47,7 @@ export function useGridMarquee({
   statPositions,
   graphPositions,
   knobPositions,
+  spritePositions,
   selectedKeyType,
   pluginElements,
   clientToGridCoords,
@@ -159,6 +162,23 @@ export function useGridMarquee({
           newSelectedElements.push({
             type: 'knob',
             id: `knob-${index}`,
+            index,
+          });
+        }
+      });
+
+      (spritePositions[selectedKeyType] || []).forEach((pos, index) => {
+        if (pos.hidden) return;
+        const elementBounds = {
+          x: pos.dx,
+          y: pos.dy,
+          width: pos.width,
+          height: pos.height,
+        };
+        if (isElementInMarquee(elementBounds, rect)) {
+          newSelectedElements.push({
+            type: 'sprite',
+            id: `sprite-${index}`,
             index,
           });
         }

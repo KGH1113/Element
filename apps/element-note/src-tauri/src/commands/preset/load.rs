@@ -55,12 +55,12 @@ mod imported_assets;
 mod validation;
 
 use imported_assets::{
-    merge_prepared_tab_preset_fonts, prepare_tab_preset_fonts, restore_preset_local_fonts,
-    restore_preset_local_images, restore_preset_local_sounds,
+    merge_prepared_tab_preset_fonts, merge_tab_preset_fonts, prepare_tab_preset_fonts,
+    restore_preset_local_fonts, restore_preset_local_images, restore_preset_local_sounds,
 };
 #[cfg(test)]
 use imported_assets::{
-    merge_tab_preset_fonts, restore_position_image_reference, restore_preset_local_fonts_in_dir,
+    restore_position_image_reference, restore_preset_local_fonts_in_dir,
     restore_preset_local_images_in_dir, restore_preset_local_sounds_in_dir,
 };
 #[cfg(test)]
@@ -99,7 +99,7 @@ fn resolve_full_preset_settings(
             .note_settings
             .take()
             .unwrap_or_else(|| current.note_settings.clone()),
-        note_effect: preset.note_effect.unwrap_or(current.note_effect),
+        note_effect: preset.note_effect.unwrap_or(true),
         laboratory_enabled: preset
             .laboratory_enabled
             .unwrap_or(current.laboratory_enabled),
@@ -146,7 +146,50 @@ fn preset_load_from_path(
     path: PathBuf,
 ) -> CmdResult<PresetOperationResult> {
     state.ensure_mutation_allowed().map_err(CommandError::msg)?;
-    let mut preset = read_preset_file(&path)?;
+    let preset = read_preset_file(&path)?;
+    load_full_preset(app, state, window_label, preset, FullPresetLoad::File)
+}
+
+/// Why every key viewer is being replaced at once.
+pub(crate) enum FullPresetLoad {
+    /// "Load all": undoable, and the font list becomes the file's.
+    File,
+    /// Element switched to the profile `owner`, whose key viewers these are.
+    /// The undo history belonged to the profile before it and is dropped, and
+    /// the font list keeps every font it had.
+    Profile { owner: String },
+}
+
+const FULL_PRESET_FIELDS: &[EditorField] = &[
+    EditorField::Keys,
+    EditorField::KeyPositions,
+    EditorField::StatPositions,
+    EditorField::GraphPositions,
+    EditorField::KnobPositions,
+    EditorField::SpritePositions,
+    EditorField::LayerGroups,
+];
+
+/// Reads a whole-viewer preset file, as "Load all" does.
+pub(crate) fn read_full_preset(path: &Path) -> CmdResult<PresetFile> {
+    read_preset_file(path)
+}
+
+/// Replaces every key viewer and the viewer settings with `preset`.
+pub(crate) fn load_full_preset(
+    app: &AppHandle,
+    state: &AppState,
+    window_label: &str,
+    mut preset: PresetFile,
+    purpose: FullPresetLoad,
+) -> CmdResult<PresetOperationResult> {
+    state.ensure_mutation_allowed().map_err(CommandError::msg)?;
+    migrate_legacy_preset_tabs(&mut preset);
+    // Only a profile's own file brings press counts back.
+    let returning_counts = match purpose {
+        FullPresetLoad::File => None,
+        FullPresetLoad::Profile { .. } => preset.key_counters.take(),
+    };
     let has_imported_global_css = preset.custom_css.is_some();
     let current = state.store.snapshot();
     let resolved_settings = resolve_full_preset_settings(&mut preset, &current);
@@ -164,19 +207,10 @@ fn preset_load_from_path(
     fold_stacked_ghost_keys(&mut keys, &mut positions);
     // Element's v1 renderer consumes the stored font weights and counter stroke directly.
     // Keep those values intact instead of rewriting them to v2 typography flags.
-    for id in super::BUILTIN_TAB_IDS {
-        keys.remove(id);
-        positions.remove(id);
-        stat_positions.remove(id);
-        graph_positions.remove(id);
-        knob_positions.remove(id);
-        sprite_positions.remove(id);
-    }
     let mut custom_tabs = preset
         .custom_tabs
         .take()
         .unwrap_or_else(|| synthesize_custom_tabs(&keys));
-    custom_tabs.retain(|tab| !super::BUILTIN_TAB_IDS.contains(&tab.id.as_str()));
     ensure_preset_viewer_tabs(&mut custom_tabs, &current.language);
     for tab in &custom_tabs {
         keys.entry(tab.id.clone()).or_default();
@@ -225,15 +259,25 @@ fn preset_load_from_path(
     };
     let js_use = resolved_settings.use_custom_js;
     let custom_js = resolved_settings.custom_js;
-    let has_font_settings = preset.font_settings.is_some();
-    let mut preset_font_settings = preset.font_settings.clone().unwrap_or_default();
-    if has_font_settings {
-        restore_preset_local_fonts(
-            app,
-            &mut preset_font_settings,
-            preset.embedded_local_fonts.as_deref(),
-        )?;
-    }
+    let font_settings = match preset.font_settings.take() {
+        None => None,
+        Some(mut fonts) => match purpose {
+            FullPresetLoad::File => {
+                restore_preset_local_fonts(
+                    app,
+                    &mut fonts,
+                    preset.embedded_local_fonts.as_deref(),
+                )?;
+                Some(fonts)
+            }
+            // Another profile's key viewers may still use a font this one doesn't.
+            FullPresetLoad::Profile { .. } => {
+                merge_tab_preset_fonts(&current.font_settings, fonts, |fonts| {
+                    restore_preset_local_fonts(app, fonts, preset.embedded_local_fonts.as_deref())
+                })?
+            }
+        },
+    };
     restore_preset_local_images(
         app,
         &mut positions,
@@ -257,6 +301,11 @@ fn preset_load_from_path(
     // 구조가 어긋난 것도 id로 결합이 확정되면 여기서 메운다. 아래 검증에 남는 것은
     // 대응을 추측해야 하는 손상뿐이다
     reconcile_custom_tab_metadata(&mut custom_tabs, &mut keys, &mut positions);
+    // A preset saved with Raining switched off for every key keeps that look:
+    // the retired switch becomes each key's own setting.
+    if !resolved_settings.note_effect {
+        crate::state::migration::hide_raining_on_every_key(&mut positions);
+    }
     // 정렬은 화해가 끝난 목록을 봐야 한다. 고아 모드에서 살아난 탭도 순서에 들어간다
     let tab_order = preset
         .tab_order
@@ -284,7 +333,7 @@ fn preset_load_from_path(
             path: Some(custom_css.path.clone()),
             content: Some(custom_css.content.clone()),
         }),
-        font_settings: has_font_settings.then_some(preset_font_settings),
+        font_settings,
         use_custom_js: Some(js_use),
         custom_js: Some(CustomJsPatch {
             path: Some(custom_js.path.clone()),
@@ -299,20 +348,12 @@ fn preset_load_from_path(
         state.ensure_mutation_allowed().map_err(CommandError::msg)?;
         let css_operation_guard = state.lock_css_operation();
         let previous_css_state = state.store.snapshot();
-        let (transaction, _) = state.commit_preset_editor_transaction_preserving_runtime_counters(
-            app,
-            EditorCommitOrigin::LegacyAdapter("preset_load".to_string()),
-            &[
-                EditorField::Keys,
-                EditorField::KeyPositions,
-                EditorField::StatPositions,
-                EditorField::GraphPositions,
-                EditorField::KnobPositions,
-                EditorField::SpritePositions,
-                EditorField::LayerGroups,
-            ],
-            admission,
-            move |store| {
+        let owner = match &purpose {
+            FullPresetLoad::File => None,
+            FullPresetLoad::Profile { owner } => Some(owner.clone()),
+        };
+        let updater =
+            move |store: &mut AppStoreData| -> Result<_, crate::errors::EditorCommitError> {
                 let previous_tab_css_overrides = store.tab_css_overrides.clone();
                 let selected_key_type = choose_selected_key_type(
                     requested_selected_key_type,
@@ -347,6 +388,13 @@ fn preset_load_from_path(
                 }
                 rekey_full_preset_elements(store);
                 crate::state::migration::clear_dangling_group_ids(store);
+                if let Some(owner) = owner {
+                    store.key_viewers_owner = Some(owner);
+                }
+                // Counts of keys the profile no longer has are dropped with the commit.
+                for (mode, counts) in returning_counts.into_iter().flatten() {
+                    store.key_counters.insert(mode, counts);
+                }
                 let diff = apply_patch_to_store(store, &settings_patch)
                     .map_err(crate::services::settings::settings_patch_validation_error)?;
                 Ok((
@@ -359,8 +407,26 @@ fn preset_load_from_path(
                     store.tab_css_overrides.clone(),
                     store.selected_viewer_tabs.clone(),
                 ))
-            },
-        )?;
+            };
+        let (transaction, _) = match purpose {
+            FullPresetLoad::File => state
+                .commit_preset_editor_transaction_preserving_runtime_counters(
+                    app,
+                    EditorCommitOrigin::LegacyAdapter("preset_load".to_string()),
+                    FULL_PRESET_FIELDS,
+                    admission,
+                    updater,
+                )?,
+            // Without a history scope the commit drops the undo history.
+            FullPresetLoad::Profile { .. } => state
+                .commit_legacy_editor_transaction_preserving_runtime_counters(
+                    app,
+                    EditorCommitOrigin::LegacyAdapter("profile_key_viewers".to_string()),
+                    FULL_PRESET_FIELDS,
+                    admission,
+                    updater,
+                )?,
+        };
         if !transaction
             .change
             .result
@@ -446,6 +512,7 @@ fn preset_load_from_path(
 pub async fn preset_load_tab(
     app: AppHandle,
     window: WebviewWindow,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     let picked = parented_file_dialog(&window, "ElementNote Preset", &["json"])
         .pick_file()
@@ -460,16 +527,19 @@ pub async fn preset_load_tab(
     let path = file.path().to_path_buf();
     let window_label = window.label().to_string();
     run_blocking(app, move |app, state| {
-        preset_load_tab_from_path(app, state, &window_label, path)
+        preset_load_tab_from_path(app, state, &window_label, path, tab_id)
     })
     .await
 }
 
+/// Loads a preset into one key viewer: the one named by `tab_id`, or the one
+/// being edited.
 fn preset_load_tab_from_path(
     app: &AppHandle,
     state: &AppState,
     window_label: &str,
     path: PathBuf,
+    tab_id: Option<String>,
 ) -> CmdResult<PresetOperationResult> {
     state.ensure_mutation_allowed().map_err(CommandError::msg)?;
     let preset = read_preset_file(&path)?;
@@ -492,9 +562,15 @@ fn preset_load_tab_from_path(
         ..
     } = preset;
 
-    let (current_tab_id, existing_font_settings) = state
-        .store
-        .with_state(|store| (store.selected_key_type.clone(), store.font_settings.clone()));
+    let (current_tab_id, existing_font_settings) = state.store.with_state(|store| {
+        let target = match tab_id {
+            Some(id) if store.keys.contains_key(&id) => Ok(id),
+            Some(_) => Err(CommandError::msg("tab-not-found")),
+            None => Ok(store.selected_key_type.clone()),
+        };
+        (target, store.font_settings.clone())
+    });
+    let current_tab_id = current_tab_id?;
 
     let mut imported_keys = keys.unwrap_or_default();
     normalize_key_mappings(&mut imported_keys);
@@ -990,6 +1066,114 @@ fn synthesize_custom_tabs(keys: &KeyMappings) -> Vec<crate::models::CustomTab> {
             name: format!("Custom {}", index + 1),
         })
         .collect()
+}
+
+fn migrate_legacy_preset_tabs(preset: &mut PresetFile) {
+    // The old built-in IDs are removed when ElementNote reloads its store.
+    // Give imported layouts persistent custom tab IDs and move every per-tab field.
+    let mut migrated = Vec::new();
+
+    for old_id in super::BUILTIN_TAB_IDS {
+        if !preset_has_tab_id(preset, old_id) {
+            continue;
+        }
+
+        // New custom tabs already in the preset retain their IDs.
+        let base_id = format!("legacy-{old_id}");
+        let mut new_id = base_id.clone();
+        let mut suffix = 2;
+        while preset_has_tab_id(preset, &new_id) {
+            new_id = format!("{base_id}-{suffix}");
+            suffix += 1;
+        }
+
+        let tabs = preset.custom_tabs.get_or_insert_with(|| {
+            preset
+                .keys
+                .as_ref()
+                .map(synthesize_custom_tabs)
+                .unwrap_or_default()
+        });
+        if let Some(tab) = tabs.iter_mut().find(|tab| tab.id == old_id) {
+            tab.id.clone_from(&new_id);
+        } else {
+            tabs.push(crate::models::CustomTab {
+                id: new_id.clone(),
+                name: old_id.replace("key", "K"),
+                viewer_kind: KeyViewerKind::Hand,
+            });
+        }
+        rename_preset_tab_entry(&mut preset.keys, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.key_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.stat_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.graph_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.knob_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.sprite_positions, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.layer_groups, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.tab_note_overrides, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.tab_css_overrides, old_id, &new_id);
+        rename_preset_tab_entry(&mut preset.key_counters, old_id, &new_id);
+        for id in preset
+            .tab_order
+            .iter_mut()
+            .flatten()
+            .chain(preset.selected_key_type.iter_mut())
+            .chain(
+                preset
+                    .selected_viewer_tabs
+                    .iter_mut()
+                    .flat_map(|tabs| [&mut tabs.hand, &mut tabs.foot]),
+            )
+        {
+            if *id == old_id {
+                id.clone_from(&new_id);
+            }
+        }
+        migrated.push(new_id);
+    }
+    let (false, Some(tabs)) = (migrated.is_empty(), preset.custom_tabs.as_mut()) else {
+        return;
+    };
+    // DM Note listed its built-in layouts before custom tabs; a saved order wins.
+    let order = preset.tab_order.as_ref().unwrap_or(&migrated);
+    tabs.sort_by_key(|tab| {
+        order
+            .iter()
+            .position(|id| *id == tab.id)
+            .unwrap_or(usize::MAX)
+    });
+}
+
+fn preset_has_tab_id(preset: &PresetFile, id: &str) -> bool {
+    fn contains<T>(map: &Option<HashMap<String, T>>, id: &str) -> bool {
+        map.as_ref().is_some_and(|map| map.contains_key(id))
+    }
+    preset
+        .custom_tabs
+        .as_ref()
+        .is_some_and(|tabs| tabs.iter().any(|tab| tab.id == id))
+        || contains(&preset.keys, id)
+        || contains(&preset.key_positions, id)
+        || contains(&preset.stat_positions, id)
+        || contains(&preset.graph_positions, id)
+        || contains(&preset.knob_positions, id)
+        || contains(&preset.sprite_positions, id)
+        || contains(&preset.layer_groups, id)
+        || contains(&preset.tab_note_overrides, id)
+        || contains(&preset.tab_css_overrides, id)
+        || contains(&preset.key_counters, id)
+}
+
+fn rename_preset_tab_entry<T>(
+    entries: &mut Option<HashMap<String, T>>,
+    old_id: &str,
+    new_id: &str,
+) {
+    if let Some(entries) = entries {
+        if let Some(entry) = entries.remove(old_id) {
+            entries.insert(new_id.to_string(), entry);
+        }
+    }
 }
 
 fn ensure_preset_viewer_tabs(tabs: &mut Vec<crate::models::CustomTab>, language: &str) {

@@ -1,0 +1,2236 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>ElementUI.Core</name>
+    </assembly>
+    <members>
+        <member name="T:ElementUI.AnimatedColor">
+            <summary>A color presentation target driven by the shared scheduler; retargets from its current color.</summary>
+        </member>
+        <member name="T:ElementUI.DragPhase">
+            <summary>Where a drag reported by <see cref="T:ElementUI.IDragSourcePeer"/> is.</summary>
+        </member>
+        <member name="F:ElementUI.DragPhase.Began">
+            <summary>A left-button press moved past the backend's drag threshold.</summary>
+        </member>
+        <member name="F:ElementUI.DragPhase.Moved">
+            <summary>The pointer moved while carrying.</summary>
+        </member>
+        <member name="F:ElementUI.DragPhase.Ended">
+            <summary>The button was let go.</summary>
+        </member>
+        <member name="F:ElementUI.DragPhase.Cancelled">
+            <summary>The drag stopped without a release, such as the container going away.</summary>
+        </member>
+        <member name="T:ElementUI.IDragSourcePeer">
+            <summary>
+            Optional container capability: a press on the container (or on anything in
+            it that doesn't take the drag itself) carried past the drag threshold.
+            While it reports, the press is no click and no scroll view around it scrolls.
+            </summary>
+        </member>
+        <member name="P:ElementUI.IDragSourcePeer.Dragged">
+            <summary>
+            Called as the drag begins, moves, ends or is cancelled, with the pointer
+            in screen pixels (origin bottom left). Left button only. Null stops
+            listening, so drags reach what is around the container again.
+            </summary>
+        </member>
+        <member name="T:ElementUI.IDropTargetPeer">
+            <summary>
+            Optional container capability: marks the container as a place a carried
+            value can land. The whole frame takes the pointer, not only what is drawn in it.
+            </summary>
+        </member>
+        <member name="P:ElementUI.IDropTargetPeer.DropTarget">
+            <summary>The mark <see cref="M:ElementUI.IDragBackend.DestinationsAt(UnityEngine.Vector2,System.Collections.Generic.List{ElementUI.DropTarget})"/> hands back for this container; null removes it.</summary>
+        </member>
+        <member name="T:ElementUI.IDragLayerPeer">
+            <summary>Optional container capability: the layer a carried value's preview is drawn in.</summary>
+        </member>
+        <member name="M:ElementUI.IDragLayerPeer.MoveTo(UnityEngine.Vector2)">
+            <summary>Puts the layer's top left at <paramref name="screen"/> (pixels, origin bottom left).</summary>
+        </member>
+        <member name="T:ElementUI.IDragBackend">
+            <summary>Optional backend capability: carrying values from one place to another.</summary>
+        </member>
+        <member name="M:ElementUI.IDragBackend.DestinationsAt(UnityEngine.Vector2,System.Collections.Generic.List{ElementUI.DropTarget})">
+            <summary>
+            Fills <paramref name="into"/> with the marks at <paramref name="screen"/>
+            (pixels, origin bottom left), nearest first: the topmost thing drawn
+            there that takes the pointer, then each of its parents. It stays empty
+            when the topmost thing has no mark above it, so a panel drawn over
+            everything shields what is behind it. Called on every move; allocate nothing.
+            </summary>
+        </member>
+        <member name="M:ElementUI.IDragBackend.CreateDragLayer(ElementUI.IContainerPeer)">
+            <summary>
+            A layer above everything on the canvas <paramref name="root"/> is drawn on,
+            at the scale of <paramref name="root"/>, for a carried value's preview. It never takes the pointer.
+            </summary>
+        </member>
+        <member name="T:ElementUI.DropTarget">
+            <summary>
+            A place a carried value can land, as a backend sees it. The engine makes
+            it; the backend keeps it on the object it marks
+            (<see cref="P:ElementUI.IDropTargetPeer.DropTarget"/>) and hands it back from
+            <see cref="M:ElementUI.IDragBackend.DestinationsAt(UnityEngine.Vector2,System.Collections.Generic.List{ElementUI.DropTarget})"/>. A backend reads nothing in it.
+            </summary>
+        </member>
+        <member name="F:ElementUI.DropTarget.Removed">
+            <summary>Its owner took it away: it takes nothing any more.</summary>
+        </member>
+        <member name="M:ElementUI.DropTarget.Takes(System.Object)">
+            <summary>Whether it is for values like <paramref name="payload"/>; others pass it by.</summary>
+        </member>
+        <member name="P:ElementUI.DropTarget.Accepting">
+            <summary>False while its view is hidden or disabled: it is there, but takes nothing now.</summary>
+        </member>
+        <member name="M:ElementUI.DropTarget.For``1(ElementUI.IDropDestination{``0})">
+            <summary>A mark for <paramref name="destination"/>, for a native object outside any view.</summary>
+        </member>
+        <member name="T:ElementUI.IBackend">
+            <summary>
+            Draws views. The UGUI backend makes Unity objects; a test backend records
+            calls. Element's backend supplies Element's look. Peers are made at mount
+            and kept; updates call their setters only when a value really changed.
+            </summary>
+        </member>
+        <member name="M:ElementUI.IBackend.CreateRoot(System.Object)">
+            <summary>The root of a screen, under a host object the backend knows.</summary>
+        </member>
+        <member name="M:ElementUI.IBackend.CreateContainer(ElementUI.IContainerPeer,System.String)">
+            <summary>An empty rectangle other peers go in: for clipping, scrolling and overlays.</summary>
+        </member>
+        <member name="M:ElementUI.IBackend.CreateBackdrop(ElementUI.IContainerPeer)">
+            <summary>A layer over the screen that catches clicks outside a popover.</summary>
+        </member>
+        <member name="M:ElementUI.IBackend.ShowHint(ElementUI.IContainerPeer,System.String,ElementUI.Frame)">
+            <summary>Shows a hint near <paramref name="anchor"/>, or hides it when <paramref name="text"/> is null.</summary>
+        </member>
+        <member name="P:ElementUI.IBackend.Keyboard">
+            <summary>Calls back on every key the backend sees while a screen is open; Escape and Tab mostly.</summary>
+        </member>
+        <member name="T:ElementUI.ITextMeasurer">
+            <summary>Measures text the way the backend will draw it.</summary>
+        </member>
+        <member name="M:ElementUI.ITextMeasurer.Measure(System.String,ElementUI.TextStyle@,System.Single)">
+            <summary>The size of <paramref name="text"/> in <paramref name="style"/>, wrapped at <paramref name="maxWidth"/> (infinity: one line).</summary>
+        </member>
+        <member name="M:ElementUI.ITextMeasurer.Measure(System.Char[],System.Int32,ElementUI.TextStyle@,System.Single)">
+            <summary>The size of <paramref name="length"/> characters of <paramref name="chars"/>, without making a string.</summary>
+        </member>
+        <member name="T:ElementUI.IKeyboard">
+            <summary>Keys a screen reacts to.</summary>
+        </member>
+        <member name="P:ElementUI.IKeyboard.EscapePressed">
+            <summary>Escape went down this frame.</summary>
+        </member>
+        <member name="T:ElementUI.IPeer">
+            <summary>A drawn thing with a place on screen.</summary>
+        </member>
+        <member name="M:ElementUI.IPeer.SetFrame(ElementUI.Frame)">
+            <summary>Puts the peer at <paramref name="frame"/>, relative to the container it was made in.</summary>
+        </member>
+        <member name="M:ElementUI.IPeer.SetOrder(System.Int32)">
+            <summary>Moves the peer among its container's children: later draws on top.</summary>
+        </member>
+        <member name="M:ElementUI.IPeer.GetNative(System.Type)">
+            <summary>The backend object of <paramref name="type"/> that draws this peer (TMP_Text, Image, RectTransform…), or null: for <c>Configure</c>.</summary>
+        </member>
+        <member name="T:ElementUI.IContainerPeer">
+            <summary>A peer other peers can go in.</summary>
+        </member>
+        <member name="M:ElementUI.IContainerPeer.SetClips(System.Boolean)">
+            <summary>Whether children outside the frame are cut off.</summary>
+        </member>
+        <member name="P:ElementUI.IContainerPeer.Hovered">
+            <summary>The pointer entered (true) or left (false) this container or anything in it; null stops listening.</summary>
+        </member>
+        <member name="M:ElementUI.ITextPeer.SetChars(System.Char[],System.Int32)">
+            <summary>Shows <paramref name="length"/> characters of a buffer the caller reuses.</summary>
+        </member>
+        <member name="M:ElementUI.IButtonPeer.SetSelected(System.Boolean)">
+            <summary>Whether a chip or row shows as on.</summary>
+        </member>
+        <member name="P:ElementUI.ISliderPeer.Changed">
+            <summary>The value moved by the player (one handle) or the low handle.</summary>
+        </member>
+        <member name="P:ElementUI.ISliderPeer.HighChanged">
+            <summary>The high handle of a range slider moved.</summary>
+        </member>
+        <member name="P:ElementUI.ISliderPeer.Dragging">
+            <summary>A drag started (true) or ended (false): one drag is one undo step.</summary>
+        </member>
+        <member name="M:ElementUI.ITextFieldPeer.EndEditing">
+            <summary>Ends typing, keeping the text.</summary>
+        </member>
+        <member name="P:ElementUI.IScrollPeer.Content">
+            <summary>Where the scrolled content's children go.</summary>
+        </member>
+        <member name="P:ElementUI.IScrollPeer.Offset">
+            <summary>How far it is scrolled, 0 at the start.</summary>
+        </member>
+        <member name="T:ElementUI.IScrollControlPeer">
+            <summary>
+            Optional: a scroll peer whose scrolling by the player can be turned off.
+            Older backends keep implementing <see cref="T:ElementUI.IScrollPeer"/>; <c>.ScrollDisabled()</c>
+            on them fails at mount with a reason.
+            </summary>
+        </member>
+        <member name="M:ElementUI.IScrollControlPeer.SetUserScrollEnabled(System.Boolean)">
+            <summary>Whether the wheel and drags scroll it. Off, they pass to what is around it; the engine still sets <see cref="P:ElementUI.IScrollPeer.Offset"/>.</summary>
+        </member>
+        <member name="T:ElementUI.Icon">
+            <summary>Icons a backend draws. Backends may add more by number.</summary>
+        </member>
+        <member name="T:ElementUI.IPresentationPeer">
+            <summary>Optional container capability. Transform uses screen coordinates (positive y down) and a normalized anchor.</summary>
+        </member>
+        <member name="T:ElementUI.IVisibilityPeer">
+            <summary>Reports visibility including activation of the native host's ancestors.</summary>
+        </member>
+        <member name="T:ElementUI.ColorToken">
+            <summary>Named colors a theme supplies; screens use these instead of literal colors.</summary>
+        </member>
+        <member name="T:ElementUI.UiColor">
+            <summary>A color a view is painted with: a theme token, or a literal color.</summary>
+        </member>
+        <member name="M:ElementUI.UiColor.In(ElementUI.Theme)">
+            <summary>This color in <paramref name="theme"/>.</summary>
+        </member>
+        <member name="T:ElementUI.Colors">
+            <summary>The theme's colors, for <c>.Foreground(Colors.Muted)</c>.</summary>
+        </member>
+        <member name="T:ElementUI.FontRole">
+            <summary>Roles of text in a theme.</summary>
+        </member>
+        <member name="T:ElementUI.Font">
+            <summary>How text looks: a theme role, optionally a size and weight of its own.</summary>
+        </member>
+        <member name="M:ElementUI.Font.Sized(System.Single)">
+            <summary>This font at <paramref name="size"/>.</summary>
+        </member>
+        <member name="M:ElementUI.Font.Bolded">
+            <summary>This font, bold.</summary>
+        </member>
+        <member name="T:ElementUI.TextAlign">
+            <summary>Where a text's lines sit.</summary>
+        </member>
+        <member name="T:ElementUI.TextStyle">
+            <summary>Everything that decides how a text is drawn and measured.</summary>
+        </member>
+        <member name="F:ElementUI.TextStyle.RichText">
+            <summary>Whether tags in the text (<c>&lt;b&gt;</c>, <c>&lt;mark=#FFFFFF26&gt;</c>) style it instead of showing as written.</summary>
+        </member>
+        <member name="M:ElementUI.TextStyle.SameShape(ElementUI.TextStyle@)">
+            <summary>Same layout, other color: a color change doesn't need measuring.</summary>
+        </member>
+        <member name="T:ElementUI.Theme">
+            <summary>
+            Colors, text sizes and spacing. A backend has one; Element's backend
+            supplies Element's own look.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Theme.FontSize(ElementUI.FontRole)">
+            <summary>The point size of a text role.</summary>
+        </member>
+        <member name="P:ElementUI.Theme.StackSpacing">
+            <summary>The space a stack leaves between children when none is given.</summary>
+        </member>
+        <member name="P:ElementUI.Theme.ControlHeight">
+            <summary>The height of a control row: buttons, fields, sliders.</summary>
+        </member>
+        <member name="M:ElementUI.Theme.ButtonInsets(ElementUI.ButtonStyle)">
+            <summary>Space inside a button around its label.</summary>
+        </member>
+        <member name="M:ElementUI.Theme.ButtonForeground(ElementUI.ButtonStyle)">
+            <summary>The label color of a button style, or null to keep the text color around it.</summary>
+        </member>
+        <member name="P:ElementUI.Theme.LabelWidth">
+            <summary>The width of the label column left of a labelled control.</summary>
+        </member>
+        <member name="P:ElementUI.Theme.Backdrop">
+            <summary>The dim laid over the screen behind a dialog.</summary>
+        </member>
+        <member name="T:ElementUI.ButtonStyle">
+            <summary>How a button looks.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Standard">
+            <summary>A rounded button with a quiet fill.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Prominent">
+            <summary>The main action: filled with the accent.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Plain">
+            <summary>Only its label, no fill.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Icon">
+            <summary>A small square button around an icon.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Row">
+            <summary>A whole-row button, as in lists and menus.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Chip">
+            <summary>A small pill that can be on, as in several-choice pickers.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Destructive">
+            <summary>A destructive action.</summary>
+        </member>
+        <member name="F:ElementUI.ButtonStyle.Card">
+            <summary>A large rounded panel that is a button as a whole: category cards, preset cards.</summary>
+        </member>
+        <member name="T:ElementUI.ButtonStyleConfiguration">
+            <summary>The label and live interaction state of one button. A style is built once; its expressions follow these values.</summary>
+        </member>
+        <member name="T:ElementUI.ButtonStyling">
+            <summary>
+            Owns a button's entire visible body, including its normal, hover, pressed,
+            selected and disabled surface. Native peers provide only input and focus.
+            </summary>
+        </member>
+        <member name="T:ElementUI.ButtonSurfaceStyle">
+            <summary>A rounded surface whose geometry stays the same for every interaction state.</summary>
+        </member>
+        <member name="T:ElementUI.IButtonInteractionPeer">
+            <summary>Optional input state reporting for buttons whose entire surface is drawn by a View style.</summary>
+        </member>
+        <member name="T:ElementUI.UI">
+            <summary>
+            Everything a screen is made of. Bring it in with <c>using static ElementUI.UI;</c>.
+            </summary>
+            <remarks>
+            Four rules: fixed content is a value (<c>Text("Save")</c>); changing content is
+            an expression (<c>Text(() =&gt; VM.Name)</c>); controls edit a field through
+            <see cref="M:ElementUI.UI.Bind``1(System.Linq.Expressions.Expression{System.Func{``0}})"/>; buttons pick a command (<c>() =&gt; VM.Save</c>).
+            </remarks>
+        </member>
+        <member name="M:ElementUI.UI.Switch``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Func{``0,ElementUI.View})">
+            <summary>One retained branch per selection key. Hidden branches pause their effects and resume when selected again.</summary>
+        </member>
+        <member name="M:ElementUI.UI.WithAnimation(System.Nullable{ElementUI.Motion},System.Action)">
+            <summary>Assign model targets immediately and animate their presentation at the next flush. Null explicitly disables animation.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Image(UnityEngine.Texture,ElementUI.ContentMode)">
+            <summary>A texture fitted inside the offered room. The caller retains ownership of the texture.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Button(ElementUI.View,System.Action,ElementUI.ButtonStyle)">
+            <summary>A local action, batched and observed exactly like a command's execution.</summary>
+        </member>
+        <member name="M:ElementUI.UI.TextField(ElementUI.Binding{System.String},System.String)">
+            <summary>An unlabelled input whose placeholder remains visible while empty.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Text(System.String)">
+            <summary>Fixed words.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Text(System.Linq.Expressions.Expression{System.Func{System.String}})">
+            <summary>Words that follow the view model: <c>Text(() =&gt; VM.Name)</c>.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Text(System.Linq.Expressions.Expression{System.Func{System.Int32}},System.String)">
+            <summary>
+            A number in words, written without making strings: <c>Text(() =&gt; VM.Count, format: "Count: {0}")</c>.
+            Use it for numbers that change often.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.Text(System.Linq.Expressions.Expression{System.Func{System.Single}},System.String,System.String)">
+            <summary>A decimal number in words: <c>Text(() =&gt; VM.Speed, format: "{0}x", number: "0.0")</c>.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Image(ElementUI.Icon,System.Single)">
+            <summary>An icon in the text color.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Section(System.String)">
+            <summary>A heading over the parts that follow: small, bold, muted.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Spacer(System.Single)">
+            <summary>Space that takes what is left along its stack.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Divider">
+            <summary>A thin line across its stack.</summary>
+        </member>
+        <member name="M:ElementUI.UI.VStack(ElementUI.View[])">
+            <summary>Top to bottom, lined up on the leading edge.</summary>
+        </member>
+        <member name="M:ElementUI.UI.HStack(ElementUI.View[])">
+            <summary>Left to right, centered vertically.</summary>
+        </member>
+        <member name="M:ElementUI.UI.ZStack(ElementUI.View[])">
+            <summary>On top of each other, later ones in front, centered.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Grid(System.Int32,ElementUI.View[])">
+            <summary>Equal columns, filled row by row.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Grid(System.Single,System.Single,ElementUI.View[])">
+            <summary>As many equal columns as fit, each at least <paramref name="minColumnWidth"/> wide: two cards side by side on a wide window, one under the other on a narrow one.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Grid(System.Single,System.Single,System.Int32,ElementUI.View[])">
+            <summary>Like <see cref="M:ElementUI.UI.Grid(System.Single,System.Single,ElementUI.View[])"/>, never more than <paramref name="maxColumns"/> columns.</summary>
+        </member>
+        <member name="M:ElementUI.UI.ViewThatFits(ElementUI.View[])">
+            <summary>
+            The first view whose ideal width fits, else the last: <c>ViewThatFits(HStack(a, b), VStack(a2, b2))</c>
+            for a row that stacks when narrow. Each candidate is its own views.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.Flow(ElementUI.View[])">
+            <summary>Left to right, wrapping onto new lines: chips, tags.</summary>
+        </member>
+        <member name="M:ElementUI.UI.ScrollView(ElementUI.View)">
+            <summary>Content that scrolls top to bottom when taller than its frame.</summary>
+        </member>
+        <member name="M:ElementUI.UI.If(System.Linq.Expressions.Expression{System.Func{System.Boolean}},System.Func{ElementUI.View},System.Func{ElementUI.View})">
+            <summary>
+            <paramref name="then"/> while the condition holds, else <paramref name="otherwise"/>.
+            Each is made the first time it shows and kept.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.ForEach``2(System.Linq.Expressions.Expression{System.Func{System.Collections.Generic.IReadOnlyList{``0}}},System.Func{``0,``1},System.Func{ElementUI.ItemSlot{``0},ElementUI.View})">
+            <summary>
+            A row per item, matched by <paramref name="key"/>. The row gets an
+            <see cref="T:ElementUI.ItemSlot`1"/>: give it to a view, and the row keeps working
+            when an item with its key is replaced.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.ForEach``2(System.Collections.Generic.IReadOnlyList{``0},System.Func{``0,``1},System.Func{ElementUI.ItemSlot{``0},ElementUI.View})">
+            <summary>A row per item of a list that doesn't change.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Tabs(ElementUI.TabPage[])">
+            <summary>A bar of tabs over the picked one's content.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Tab(System.String,System.String,System.Func{ElementUI.View})">
+            <summary>A tab: <paramref name="key"/> stays when <paramref name="title"/> is translated; <paramref name="content"/> is made the first time it is picked.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Card(System.String,ElementUI.View)">
+            <summary>A raised box around content, with an optional title.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Button(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.Command}},ElementUI.ButtonStyle,System.Linq.Expressions.Expression{System.Func{System.Boolean}})">
+            <summary>
+            A button that runs the command its expression picks: <c>Button(Text("Reset"), () =&gt; VM.Reset)</c>.
+            It is off while the command can't run. <paramref name="selected"/> shows it as on: a picked chip or row,
+            a tool whose popover is open.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.Toggle(System.String,ElementUI.Binding{System.Boolean},ElementUI.ToggleAppearance)">
+            <summary>On or off: a switch, or a box to tick.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Slider(System.String,ElementUI.Binding{System.Single},System.Single,System.Single,System.Single,System.Boolean)">
+            <summary>
+            A number dragged between <paramref name="min"/> and <paramref name="max"/>; <paramref name="step"/> 1 for
+            whole numbers. <paramref name="showsValue"/> false leaves out the number beside it, when the row shows it otherwise.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.RangeSlider(System.String,ElementUI.Binding{System.Single},ElementUI.Binding{System.Single},System.Single,System.Single,System.Single)">
+            <summary>Two numbers on one slider, the low one never past the high one.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Stepper(System.String,ElementUI.Binding{System.Int32},System.Int32,System.Int32,System.Int32)">
+            <summary>A whole number with − and +.</summary>
+        </member>
+        <member name="M:ElementUI.UI.TextField(System.String,ElementUI.Binding{System.String},System.String)">
+            <summary>One line of words.</summary>
+        </member>
+        <member name="M:ElementUI.UI.NumberField(System.String,ElementUI.Binding{System.Single},System.Single,System.Single)">
+            <summary>A typed number: applied while typing when in range, brought into range when typing ends.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Picker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Int32},ElementUI.PickerAppearance)">
+            <summary>One of several options: side by side, or in a list that opens.</summary>
+        </member>
+        <member name="M:ElementUI.UI.MultiPicker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Collections.Generic.List{System.Boolean}})">
+            <summary>Several options, each on or off, as chips that wrap.</summary>
+        </member>
+        <member name="M:ElementUI.UI.Bind``1(System.Linq.Expressions.Expression{System.Func{``0}})">
+            <summary>
+            A two-way link to a view model field: <c>Bind(() =&gt; VM.Settings.Width)</c>.
+            The path must end at a writable field or property, a <see cref="T:ElementUI.State`1"/>'s Value,
+            or a writable member of an <see cref="T:ElementUI.Observable"/>.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.BindObservable``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.MemberExpression)">
+            <summary>
+            Reads the member through the lowered expression (it follows the object)
+            and writes it on the object the path leads to now. A property's setter
+            calls Changed itself; a field has none, so the binding tells the readers.
+            </summary>
+        </member>
+        <member name="M:ElementUI.UI.EnvironmentReader(System.Func{ElementUI.EnvironmentValues,ElementUI.View})">
+            <summary>Composes once with inherited values that remain reactive.</summary>
+        </member>
+        <member name="T:ElementUI.ComponentView">
+            <summary>A reusable view with local state and no required view model. Its body is built once per mount.</summary>
+        </member>
+        <member name="M:ElementUI.ComponentView.Computed``1(System.Linq.Expressions.Expression{System.Func{``0}})">
+            <summary>A derived source owned by this component; expressions keep following replacement ItemSlots.</summary>
+        </member>
+        <member name="T:ElementUI.ViewModifiers">
+            <summary>
+            Modifiers: each wraps a view and returns a view. They apply from the
+            inside out, so <c>Text("A").Padding(8).Background(Colors.Surface)</c> fills
+            the padding too, and <c>.Background(...).Padding(8)</c> doesn't.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Padding(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.Insets}})">
+            <summary>Insets that follow state; changed insets invalidate layout, without rebuilding content.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Frame``1(ElementUI.View,System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.Expression{System.Func{``0}},System.Linq.Expressions.Expression{System.Func{``0}},System.Nullable{ElementUI.Alignment})">
+            <summary>Size constraints that follow state. Use a constant-returning expression for a fixed constraint alongside a watched one.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Background(ElementUI.View,ElementUI.View,System.Nullable{ElementUI.Alignment})">
+            <summary>A decoration behind the primary view. Only the primary determines layout size.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Overlay(ElementUI.View,ElementUI.View,System.Nullable{ElementUI.Alignment})">
+            <summary>A decoration in front of the primary view. It receives the primary's size as its proposal.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.ButtonStyle(ElementUI.View,ElementUI.ButtonStyling)">
+            <summary>Styles every button in the subtree. Null restores each button's enum style.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnChange``1(ElementUI.View,System.Linq.Expressions.Expression{System.Func{``0}},System.Action{``0},System.Boolean)">
+            <summary>Runs after a tracked value changes. Initial mounting is silent unless initial is true.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Padding(ElementUI.View,System.Single)">
+            <summary>Space inside every edge.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Padding(ElementUI.View,System.Single,System.Single)">
+            <summary>Space above and below, and on the sides.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Frame(ElementUI.View,System.Nullable{System.Single},System.Nullable{System.Single},System.Nullable{System.Single},System.Nullable{System.Single},System.Nullable{System.Single},System.Nullable{System.Single},System.Nullable{ElementUI.Alignment})">
+            <summary>
+            A size of its own, or limits on the content's. <c>maxWidth: float.PositiveInfinity</c>
+            takes all the width offered. Leave a value out to keep the content's.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Hidden(ElementUI.View,System.Boolean)">
+            <summary>Hides the view but keeps its space.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Hidden(ElementUI.View,System.Linq.Expressions.Expression{System.Func{System.Boolean}})">
+            <summary>Hides the view while the expression is true: <c>.Hidden(() =&gt; !VM.ShowNote)</c>.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Disabled(ElementUI.View,System.Boolean)">
+            <summary>Turns off input for the view and everything in it.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Hint(ElementUI.View,System.String)">
+            <summary>Words shown while the pointer is over the view.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Font(ElementUI.View,ElementUI.Font)">
+            <summary>The font of every text inside.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Foreground(ElementUI.View,ElementUI.UiColor)">
+            <summary>The color of every text and icon inside.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Foreground(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.UiColor}})">
+            <summary>A text and icon color that follows the view model.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.LineLimit(ElementUI.View,System.Int32)">
+            <summary>The most lines every text inside shows. <c>LineLimit(1)</c> keeps a title on one line, cut with an ellipsis.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.RichText(ElementUI.View,System.Boolean)">
+            <summary>
+            Whether every text inside reads TextMesh Pro tags as styling:
+            <c>Text("&lt;mark=#FFFFFF26&gt; speed &lt;/mark&gt;").RichText()</c> draws a chip
+            instead of the tags. Off everywhere else, so words from players show as written.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.ControlStyle(ElementUI.View,ElementUI.ControlStyle)">
+            <summary>
+            How every control inside is drawn (<see cref="T:ElementUI.ControlStyle"/>):
+            a host draws a screen it didn't write its own way. Null puts the standard look back.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.TextAlignment(ElementUI.View,ElementUI.TextAlign)">
+            <summary>How the lines of every text inside sit.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Background(ElementUI.View,ElementUI.UiColor,System.Single)">
+            <summary>A filled box behind the view, the view's size.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Background(ElementUI.View,ElementUI.UiColor,System.Single,ElementUI.UiColor)">
+            <summary>A filled box with a thin edge behind the view.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Background(ElementUI.View,System.Linq.Expressions.Expression{System.Func{ElementUI.UiColor}},System.Single)">
+            <summary>A background color that follows the view model.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Configure``1(ElementUI.View,System.Action{``0})">
+            <summary>
+            Runs <paramref name="configure"/> once, at mount, on the backend object
+            that draws the view: <c>.Configure&lt;TMP_Text&gt;(tmp =&gt; tmp.enableWordWrapping = false)</c>.
+            What the engine sets itself (text, size, color, frame) stays the engine's.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Configure``1(ElementUI.View,System.Func{``0,System.IDisposable})">
+            <summary>Like <see cref="M:ElementUI.ViewModifiers.Configure``1(ElementUI.View,System.Action{``0})"/>; the returned object is disposed when the view goes away.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Configure``2(ElementUI.View,System.Linq.Expressions.Expression{System.Func{``1}},System.Action{``0,``1})">
+            <summary>Sets a backend object's property from a value that follows the view model, whenever it changes.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Popover(ElementUI.View,ElementUI.Binding{System.Boolean},System.Func{ElementUI.View})">
+            <summary>A popover beside the view while <paramref name="isPresented"/> is true; clicking outside or Escape closes it.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Popover(ElementUI.View,ElementUI.Binding{System.Boolean},System.Func{ElementUI.View},ElementUI.Edge)">
+            <summary>
+            A popover beside the view on its <paramref name="attachment"/> edge: <c>Edge.Trailing</c>
+            opens it to the right, top edges lined up; <c>Edge.Top</c> above, leading edges lined up.
+            With no room on that side it opens on the other, and it always stays on screen.
+            <see cref="M:ElementUI.ViewModifiers.Popover(ElementUI.View,ElementUI.Binding{System.Boolean},System.Func{ElementUI.View})"/> is <c>Edge.Bottom</c>.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.ConfirmationDialog(ElementUI.View,ElementUI.Binding{System.Boolean},System.String,System.String,System.String,System.Action,System.String,System.Boolean)">
+            <summary>
+            Asks before <paramref name="confirm"/> while <paramref name="isPresented"/> is true: a card in
+            the middle of the dimmed screen with the title, the message, <paramref name="cancelLabel"/>
+            and <paramref name="confirmLabel"/>, in the danger color when <paramref name="destructive"/>.
+            Clicks beside it go nowhere. Escape cancels and Enter confirms when the host passes them on
+            (<see cref="M:ElementUI.Layout.UiRoot.HandleEscape"/>, <see cref="M:ElementUI.Layout.UiRoot.HandleEnter"/>).
+            Either answer writes false to the binding first.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Draggable``1(ElementUI.View,System.Func{``0},System.Func{``0,ElementUI.View})">
+            <summary>
+            A left-button press on the view that moves past the drag threshold
+            carries <paramref name="payload"/>'s value, read then. The press stops
+            being a click and a scroll view around the view stays still. While it is
+            carried, <paramref name="preview"/>'s view follows the pointer above
+            everything on the screen's canvas and can read <see cref="P:ElementUI.DragSession.State"/>;
+            leave it out for no preview. A null value carries nothing. If the view goes
+            away or is hidden mid-drag, the drag is cancelled: nothing is dropped.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.DropDestination``1(ElementUI.View,ElementUI.IDropDestination{``0})">
+            <summary>
+            Makes the view's whole frame a place a carried <typeparamref name="T"/> can
+            land. The place is found from the topmost thing under the pointer, walking
+            up: a destination inside another takes the value first, one for another
+            type is passed by, and anything drawn over the view shields it. A hidden
+            or disabled destination takes nothing.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.DropDestination``1(ElementUI.View,System.Func{``0,ElementUI.DropState},System.Action{``0},System.Action{ElementUI.DropState},System.Action{``0})">
+            <summary>
+            <see cref="M:ElementUI.ViewModifiers.DropDestination``1(ElementUI.View,ElementUI.IDropDestination{``0})"/> made of functions:
+            <paramref name="over"/> says whether a value may land (null: every value may),
+            <paramref name="drop"/> takes it, <paramref name="targeted"/> hears the
+            state each time it changes (<see cref="F:ElementUI.DropState.None"/> when the value
+            leaves), and <paramref name="refused"/> hears a value let go here that
+            can't land, so the place can say why.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Environment``1(ElementUI.View,ElementUI.EnvironmentKey{``0},``0)">
+            <summary>
+            Sets <paramref name="key"/> to <paramref name="value"/> for the view and
+            everything inside it, popovers included; the innermost setting wins.
+            Fixed at mount, like <c>.Font</c>: to follow a change, pass an object that
+            tells its readers (a <see cref="T:ElementUI.State`1"/>, an <see cref="T:ElementUI.Observable"/>).
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.TextFieldStyle(ElementUI.View,ElementUI.TextFieldStyle)">
+            <summary>Uses the standard field surface, or a bare input that composes with a surrounding HStack and background.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.CharacterLimit(ElementUI.View,System.Int32)">
+            <summary>Limits entered characters. Zero means no limit.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnSubmit(ElementUI.View,System.Action{System.String})">
+            <summary>Runs after text is written to the binding, when the user submits the field.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnEditEnded(ElementUI.View,System.Action{System.String,System.Boolean})">
+            <summary>Runs when editing ends. The second argument is true for Escape/cancellation.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnTextChanged(ElementUI.View,System.Action{System.String})">
+            <summary>Runs for user edits, after the binding is updated; external binding updates do not trigger it.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Focused(ElementUI.View,ElementUI.Binding{System.Boolean})">
+            <summary>Reads and requests focus. A field hidden or disposed writes false.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnFocusChanged(ElementUI.View,System.Action{System.Boolean})">
+            <summary>Reports focus transitions, including losing focus on hide and disposal.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.FocusOn(ElementUI.View,System.Linq.Expressions.Expression{System.Func{System.Int32}})">
+            <summary>Requests focus whenever a positive request number changes, including the first mount.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnKeyPress(ElementUI.View,UnityEngine.KeyCode,System.Func{System.Boolean})">
+            <summary>
+            Runs <paramref name="handled"/> each time <paramref name="key"/> goes
+            down, whatever modifier keys are held. The key goes to the text field
+            that has focus first, then up the views around it; with no field
+            focused, to the handlers around the screen's root content. Return true
+            to keep it: the handlers after don't get it, and game code asking
+            <c>Keyboard.IsTaken</c> sees the keyboard taken this frame. A hidden or
+            disabled view's handler gets nothing. The field itself still sees the
+            key: keeping Enter doesn't stop it from submitting.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.KeyboardShortcut(ElementUI.View,UnityEngine.KeyCode,UnityEngine.EventModifiers)">
+            <summary>
+            Presses the button when <paramref name="key"/> goes down with exactly
+            <paramref name="modifiers"/> held, while its screen shows it, the button
+            is enabled and can run, and no text input has the keyboard. Goes right
+            on a <c>Button</c>; on anything else it is a mount error (UI030).
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.FixedSize(ElementUI.View,System.Boolean,System.Boolean)">
+            <summary>
+            The view takes its ideal size on the chosen axes, whatever it is offered:
+            <c>Text(name).FixedSize()</c> never wraps or cuts, and a column of rows made
+            <c>.FixedSize(vertical: false)</c> is as wide as its widest row. Offered less,
+            it keeps its size and sticks out of its frame, centered.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.LayoutPriority(ElementUI.View,System.Single)">
+            <summary>
+            In an HStack or VStack, children with a higher priority get their room
+            first; the others share what is left, never less than the least they take.
+            Children of equal priority share as they always do. The default is 0.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnGeometryChange(ElementUI.View,System.Action{ElementUI.Frame})">
+            <summary>
+            Runs <paramref name="changed"/> with where layout put the view, in the
+            screen's units (top left (0, 0), y down): after the first layout, then after
+            each layout that moved or resized it. Offsets, scaling and scrolling move
+            what is drawn without moving this frame. It runs like a button's action:
+            fields it sets are seen.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.RotationEffect(ElementUI.View,System.Single,System.Nullable{ElementUI.Alignment})">
+            <summary>Clockwise degrees in screen coordinates. Does not change layout allocation.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Animation``1(ElementUI.View,System.Nullable{ElementUI.Motion},System.Linq.Expressions.Expression{System.Func{``0}})">
+            <summary>Animates presentation targets in this subtree when value changes. Null explicitly suppresses animation for that update.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.OnDispose(ElementUI.View,System.Action)">
+            <summary>Runs once on final unmount, after descendants unmount. Hiding a retained branch does not dispose it.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.DefaultScrollAnchor(ElementUI.View,ElementUI.Alignment)">
+            <summary>
+            Scroll views inside start at <paramref name="anchor"/>'s edge and keep it
+            in view as their content changes size: <c>Alignment.Bottom</c> for a log that
+            grows, <c>Alignment.Trailing</c> for a line whose end is the caret. Scrolled
+            away, the content keeps its distance from that edge. Content smaller than
+            its scroll view stays at the start.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.ScrollDisabled(ElementUI.View,System.Boolean)">
+            <summary>
+            The player can't scroll the scroll views inside: the wheel and drags pass to
+            what is around them. Anchoring (<see cref="M:ElementUI.ViewModifiers.DefaultScrollAnchor(ElementUI.View,ElementUI.Alignment)"/>) still moves them.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Enabled(ElementUI.View,System.Linq.Expressions.Expression{System.Func{System.Boolean}})">
+            <summary>Allows interaction while the expression is true; a disabled ancestor still wins.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModifiers.Transition(ElementUI.View,ElementUI.Transition,System.Nullable{ElementUI.Motion})">
+            <summary>Animates retained conditional branches and structural removal; root disposal always cancels immediately.</summary>
+        </member>
+        <member name="T:ElementUI.ControlStyle">
+            <summary>
+            How the controls in part of a screen are drawn. The standard style draws
+            a toggle as a switch beside its label, a card as a raised box, and so on;
+            a host that shows screens it didn't write (another mod's settings, say)
+            can draw them its own way. Subclass it, override what you draw
+            differently, and hand it to a view with <c>.ControlStyle(style)</c>:
+            everything inside takes it. Each method gets what the control was made
+            with and returns the view that shows it; <c>base</c> gives the standard look.
+            </summary>
+            <example>
+            <code>
+            sealed class RowStyle : ControlStyle
+            {
+                public override View Toggle(ToggleConfiguration toggle) =&gt;
+                    base.Toggle(toggle).Padding(4, 12).Background(Colors.Surface, 10);
+            }
+            // ...
+            screen.ControlStyle(new RowStyle())
+            </code>
+            </example>
+        </member>
+        <member name="F:ElementUI.ControlStyle.Standard">
+            <summary>The standard look, for screens no style was handed to.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Toggle(ElementUI.ToggleConfiguration)">
+            <summary>On or off: a switch after the label, or a box to tick before it.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Slider(ElementUI.SliderConfiguration)">
+            <summary>A number dragged along a track, with the number beside it unless it was left out.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.RangeSlider(ElementUI.RangeSliderConfiguration)">
+            <summary>Two numbers on one track.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Stepper(ElementUI.StepperConfiguration)">
+            <summary>A whole number with − and +.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.TextField(ElementUI.TextFieldConfiguration)">
+            <summary>
+            A field typed in: words, or a number (<see cref="P:ElementUI.TextFieldConfiguration.IsNumber"/>).
+            <see cref="M:ElementUI.TextFieldConfiguration.Field"/> makes the field itself, for a style that only moves it.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Picker(ElementUI.PickerConfiguration)">
+            <summary>One of several options: side by side, or in a list that opens.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.MultiPicker(ElementUI.MultiPickerConfiguration)">
+            <summary>Several options, each on or off.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Card(ElementUI.CardConfiguration)">
+            <summary>Content grouped under an optional title.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.Section(ElementUI.SectionConfiguration)">
+            <summary>A heading over the parts that follow.</summary>
+        </member>
+        <member name="M:ElementUI.ControlStyle.StackSpacing(ElementUI.Axis,System.Single)">
+            <summary>
+            The space a stack inside leaves between its children, given what the
+            stack asked for (or the theme's spacing when it asked for none). A host
+            can keep a screen to its own rhythm; the standard style keeps what was asked.
+            </summary>
+        </member>
+        <member name="T:ElementUI.ControlConfiguration">
+            <summary>What every control was made with, for a <see cref="T:ElementUI.ControlStyle"/> to draw it.</summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.Label">
+            <summary>The words that name it; empty for none.</summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.IsEnabled">
+            <summary>
+            Whether it takes input now: false inside <c>.Disabled(...)</c>. Read it in
+            an expression, such as a foreground that dims while it is off, and the
+            view follows it.
+            </summary>
+        </member>
+        <member name="P:ElementUI.ControlConfiguration.Kind">
+            <summary>Which control this is, such as "Toggle", for errors and the debug view.</summary>
+        </member>
+        <member name="T:ElementUI.ToggleConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Toggle(System.String,ElementUI.Binding{System.Boolean},ElementUI.ToggleAppearance)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.SliderConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Slider(System.String,ElementUI.Binding{System.Single},System.Single,System.Single,System.Single,System.Boolean)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.SliderConfiguration.Step">
+            <summary>0 for any value; 1 for whole numbers.</summary>
+        </member>
+        <member name="P:ElementUI.SliderConfiguration.ShowsValue">
+            <summary>False when the screen shows the number elsewhere.</summary>
+        </member>
+        <member name="M:ElementUI.SliderConfiguration.Track">
+            <summary>The track itself, without its label or number: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.RangeSliderConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.RangeSlider(System.String,ElementUI.Binding{System.Single},ElementUI.Binding{System.Single},System.Single,System.Single,System.Single)"/> was made with.</summary>
+        </member>
+        <member name="M:ElementUI.RangeSliderConfiguration.Track">
+            <summary>The track with its two handles, without its label or numbers: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.StepperConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Stepper(System.String,ElementUI.Binding{System.Int32},System.Int32,System.Int32,System.Int32)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.TextFieldConfiguration">
+            <summary>What a text field or <see cref="M:ElementUI.UI.NumberField(System.String,ElementUI.Binding{System.Single},System.Single,System.Single)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Text">
+            <summary>The words it edits; null for a number field.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Number">
+            <summary>The number it edits; null for a field of words.</summary>
+        </member>
+        <member name="P:ElementUI.TextFieldConfiguration.Min">
+            <summary>A number field's limits: typing past them is brought back when typing ends.</summary>
+        </member>
+        <member name="M:ElementUI.TextFieldConfiguration.Field">
+            <summary>The field itself, without its label: a new one each call.</summary>
+        </member>
+        <member name="T:ElementUI.PickerConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Picker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Int32},ElementUI.PickerAppearance)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.PickerConfiguration.Selected">
+            <summary>The index picked.</summary>
+        </member>
+        <member name="P:ElementUI.PickerConfiguration.Appearance">
+            <summary>How the screen asked for it to show; a style may choose otherwise.</summary>
+        </member>
+        <member name="M:ElementUI.PickerConfiguration.Segments">
+            <summary>The options side by side, without the label: a new control each call, whatever <see cref="P:ElementUI.PickerConfiguration.Appearance"/> asked for.</summary>
+        </member>
+        <member name="T:ElementUI.MultiPickerConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.MultiPicker(System.String,System.Collections.Generic.IReadOnlyList{System.String},ElementUI.Binding{System.Collections.Generic.List{System.Boolean}})"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.MultiPickerConfiguration.On">
+            <summary>One flag per option; the list may be shorter than the options (the rest are off).</summary>
+        </member>
+        <member name="M:ElementUI.MultiPickerConfiguration.IsOn(System.Collections.Generic.List{System.Boolean},System.Int32)">
+            <summary>Whether option <paramref name="index"/> is on in <paramref name="on"/>.</summary>
+        </member>
+        <member name="M:ElementUI.MultiPickerConfiguration.Set(System.Int32,System.Boolean)">
+            <summary>Turns option <paramref name="index"/> on or off, writing a new list.</summary>
+        </member>
+        <member name="T:ElementUI.CardConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Card(System.String,ElementUI.View)"/> was made with.</summary>
+        </member>
+        <member name="P:ElementUI.CardConfiguration.Title">
+            <summary>Its title; empty for none.</summary>
+        </member>
+        <member name="P:ElementUI.CardConfiguration.Content">
+            <summary>What it groups. A view goes in one place: show it once.</summary>
+        </member>
+        <member name="T:ElementUI.SectionConfiguration">
+            <summary>What a <see cref="M:ElementUI.UI.Section(System.String)"/> was made with.</summary>
+        </member>
+        <member name="T:ElementUI.StyledControl">
+            <summary>A control drawn by the <see cref="T:ElementUI.ControlStyle"/> it finds where it is mounted.</summary>
+        </member>
+        <member name="T:ElementUI.Debugging.DebugViewModel">
+            <summary>What the debug panel shows: a screen's layout, and the change trace.</summary>
+        </member>
+        <member name="T:ElementUI.Debugging.DebugPanel">
+            <summary>
+            The debug view: mount it in a screen of its own beside the one you're
+            looking at. It reads the other screen when you press Refresh; it never
+            runs on its own.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Debugging.Recorder">
+            <summary>
+            The change trace: which field changed, which views it reached, what they
+            wrote and what they skipped. Only the instrumented build (<c>-p:Trace=true</c>)
+            records; in a release build every call here is removed from its callers.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Debugging.Recorder.Available">
+            <summary>Whether this build can record at all.</summary>
+        </member>
+        <member name="M:ElementUI.Debugging.Recorder.Export">
+            <summary>
+            The recorded changes as a tree, newest last:
+            <code>
+            State changed: CounterViewModel.Count (3 -> 4)
+            └─ Text #14   updated
+            </code>
+            Builds strings; call it while the game is paused or after recording.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Debugging.Recorder.Clear">
+            <summary>Forgets what was recorded.</summary>
+        </member>
+        <member name="T:ElementUI.Debugging.Inspector">
+            <summary>The layout of a screen as text: what each view was offered and what it took. Works in every build.</summary>
+        </member>
+        <member name="M:ElementUI.Debugging.Inspector.DescribeLayout(ElementUI.Layout.UiRoot)">
+            <summary>
+            <code>
+            VStack #12          proposed 600 × 400 → 600 × 120   at (0, 0, 600, 120)
+            ├─ Text #13         proposed 600 × ? → 240 × 28      at (16, 16, 240, 28)
+            </code>
+            </summary>
+        </member>
+        <member name="T:ElementUI.Debugging.Trace">
+            <summary>
+            The debug record of one screen. In a release build every method here is
+            removed from its callers by <see cref="T:System.Diagnostics.ConditionalAttribute"/>, so the
+            record costs nothing. The instrumented build (<c>-p:Trace=true</c>) keeps
+            them and writes into a fixed ring of numbers.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Debugging.Counters">
+            <summary>How much work the engine did, per flush. Counted only in the instrumented build.</summary>
+        </member>
+        <member name="F:ElementUI.Debugging.Counters.Frame">
+            <summary>Flushes so far; the trace's frame number.</summary>
+        </member>
+        <member name="M:ElementUI.Debugging.Counters.Reset">
+            <summary>Starts counting a new frame.</summary>
+        </member>
+        <member name="T:ElementUI.DropState">
+            <summary>What the place under a carried value says about it.</summary>
+        </member>
+        <member name="F:ElementUI.DropState.None">
+            <summary>Not over a place that takes this kind of value.</summary>
+        </member>
+        <member name="F:ElementUI.DropState.Accepts">
+            <summary>Over a place that would take it: letting go drops it there.</summary>
+        </member>
+        <member name="F:ElementUI.DropState.Refuses">
+            <summary>Over a place for this kind of value that won't take this one.</summary>
+        </member>
+        <member name="T:ElementUI.IDropDestination`1">
+            <summary>What a place does with a carried value of type <typeparamref name="T"/>.</summary>
+        </member>
+        <member name="M:ElementUI.IDropDestination`1.Over(`0,UnityEngine.Vector2)">
+            <summary>
+            The value is over this place at <paramref name="screen"/> (pixels, origin
+            bottom left): may it land here? Called on every move while over it; keep
+            it cheap and allocation free.
+            </summary>
+        </member>
+        <member name="M:ElementUI.IDropDestination`1.Drop(`0,UnityEngine.Vector2)">
+            <summary>The value was let go here; only called after <see cref="M:ElementUI.IDropDestination`1.Over(`0,UnityEngine.Vector2)"/> returned <see cref="F:ElementUI.DropState.Accepts"/> at that point.</summary>
+        </member>
+        <member name="M:ElementUI.IDropDestination`1.Refused(`0,UnityEngine.Vector2)">
+            <summary>
+            The value was let go here, but <see cref="M:ElementUI.IDropDestination`1.Over(`0,UnityEngine.Vector2)"/> said it can't land:
+            the place can say why (words where a number goes). Nothing lands.
+            </summary>
+        </member>
+        <member name="M:ElementUI.IDropDestination`1.Left">
+            <summary>The value left this place: it moved away, was dropped (here or elsewhere) or the drag was cancelled.</summary>
+        </member>
+        <member name="T:ElementUI.DragSession">
+            <summary>
+            The drag in progress, for previews and other views. Its properties are
+            read like a <see cref="T:ElementUI.State`1"/>: an expression reading them follows them,
+            <c>.Opacity(() =&gt; DragSession.State == DropState.Refuses ? .5f : 1f)</c>.
+            </summary>
+        </member>
+        <member name="P:ElementUI.DragSession.Active">
+            <summary>Whether a value is being carried.</summary>
+        </member>
+        <member name="P:ElementUI.DragSession.State">
+            <summary>What the place under the carried value says: accepts, refuses, or none when it isn't over one.</summary>
+        </member>
+        <member name="P:ElementUI.DragSession.Payload">
+            <summary>The value being carried; null when nothing is.</summary>
+        </member>
+        <member name="M:ElementUI.DragSession.Cancel">
+            <summary>Stops the drag in progress without dropping anything. The place under it is told it was left.</summary>
+        </member>
+        <member name="M:ElementUI.DragSession.CancelFrom(ElementUI.IDragSource)">
+            <summary>The source went away or stopped dragging: nothing is dropped.</summary>
+        </member>
+        <member name="M:ElementUI.DragSession.Forget(ElementUI.DropTarget)">
+            <summary>
+            A place went away (unmounted, hidden, its mark taken off). If the value
+            is over it, it is told it was left now; the next move looks again.
+            </summary>
+        </member>
+        <member name="M:ElementUI.DragSession.ResetForTests">
+            <summary>Forgets the drag. Tests only.</summary>
+        </member>
+        <member name="T:ElementUI.IDragSource">
+            <summary>A view that carries a value: what <see cref="T:ElementUI.DragSession"/> asks of it while it does.</summary>
+        </member>
+        <member name="M:ElementUI.IDragSource.ShowPreview(UnityEngine.Vector2)">
+            <summary>The drag began at <paramref name="screen"/>: show the preview there.</summary>
+        </member>
+        <member name="M:ElementUI.IDragSource.HidePreview">
+            <summary>The drag is over: take the preview away.</summary>
+        </member>
+        <member name="T:ElementUI.DropActions`1">
+            <summary>A drop destination made of functions: <c>.DropDestination(over, drop, targeted, refused)</c>.</summary>
+        </member>
+        <member name="T:ElementUI.EnvironmentKey`1">
+             <summary>
+             A value of your own that a view hands down to everything inside it, such as
+             whether motion is reduced or how text is measured. Make one per value, kept
+             in a <c>static readonly</c> field: the key is the field, not its name.
+             </summary>
+             <example>
+             <code>
+             public static readonly EnvironmentKey&lt;bool&gt; ReduceMotion = new(false);
+            
+             Content().Environment(ReduceMotion, settings.ReduceMotion)  // set it for the subtree
+             Environment(ReduceMotion)                                  // read it in a view's Body
+             EnvironmentReader(env =&gt; ... env.Get(ReduceMotion) ...)    // or in a reader
+             </code>
+             </example>
+        </member>
+        <member name="P:ElementUI.EnvironmentKey`1.DefaultValue">
+            <summary>What views read where no <c>.Environment(key, value)</c> above set it.</summary>
+        </member>
+        <member name="T:ElementUI.KeyRouter">
+            <summary>
+            Takes the keys that go down to the views listening for them
+            (<c>OnKeyPress</c>, <c>KeyboardShortcut</c>) and keeps track of whether the
+            keyboard is taken. The backend that reads the keyboard calls
+            <see cref="M:ElementUI.KeyRouter.Observe(System.Int32,System.Boolean)"/> while it is awake (at the start and the end of each
+            frame), <see cref="M:ElementUI.KeyRouter.Press(UnityEngine.KeyCode,UnityEngine.EventModifiers,System.Int32,System.Boolean)"/> for each key that went down, and
+            <see cref="M:ElementUI.KeyRouter.IsTaken(System.Int32,System.Boolean)"/> for game code. Frames are the backend's numbers: the
+            engine only tells one from the next.
+            </summary>
+        </member>
+        <member name="E:ElementUI.KeyRouter.Woken">
+            <summary>
+            There is a reason to read the keyboard again: the first key handler
+            mounted, or a field took focus. A backend that sleeps wakes up here.
+            </summary>
+        </member>
+        <member name="P:ElementUI.KeyRouter.Listening">
+            <summary>Whether any mounted view listens for keys.</summary>
+        </member>
+        <member name="P:ElementUI.KeyRouter.Typing">
+            <summary>Whether an ElementUI text field has the keyboard.</summary>
+        </member>
+        <member name="P:ElementUI.KeyRouter.KeyCount">
+            <summary>How many different keys the mounted views listen for: the ones a backend reads.</summary>
+        </member>
+        <member name="M:ElementUI.KeyRouter.FocusChanged(ElementUI.Views.TextFieldView,System.Boolean)">
+            <summary>An ElementUI field took the keyboard or let it go.</summary>
+        </member>
+        <member name="M:ElementUI.KeyRouter.Observe(System.Int32,System.Boolean)">
+            <summary>
+            What the backend sees in <paramref name="frame"/>: whether a text input
+            it knows (ElementUI's own or any other) has the keyboard now. The first
+            call in a frame carries over whether one had it when it was last seen,
+            so the frame a field lets go stays taken.
+            </summary>
+        </member>
+        <member name="M:ElementUI.KeyRouter.IsTaken(System.Int32,System.Boolean)">
+            <summary>
+            Whether game code should leave the keyboard alone in <paramref name="frame"/>:
+            a text input has it, let it go this frame, or a view took a key this frame.
+            </summary>
+        </member>
+        <member name="M:ElementUI.KeyRouter.Press(UnityEngine.KeyCode,UnityEngine.EventModifiers,System.Int32,System.Boolean)">
+            <summary>
+            <paramref name="key"/> went down with <paramref name="modifiers"/> held.
+            True when a view took it; the frame is then taken.
+            </summary>
+        </member>
+        <member name="M:ElementUI.KeyRouter.ResetForTests">
+            <summary>Forgets everything. Tests only.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.ViewEnvironment">
+            <summary>
+            Values a view hands down to everything inside it: the text font and color,
+            the style its controls are drawn in, and values of your own. Set with
+            <c>.Font(...)</c>, <c>.Foreground(...)</c>, <c>.ControlStyle(...)</c> and
+            <c>.Environment(key, value)</c>; fixed at mount. Each change makes a copy,
+            so what a view was mounted with never changes under it.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.ForegroundWatch">
+            <summary>A watched foreground, when <c>.Foreground(() =&gt; ...)</c> was used; texts follow it.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.LineLimit">
+            <summary>The most lines a text shows; 0 for any. One line cuts the text with an ellipsis instead of wrapping.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.RichText">
+            <summary>Whether texts read their tags as styling (<c>.RichText()</c>).</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.ScrollAnchor">
+            <summary>The edge scroll views inside keep in view as their content changes size (<c>.DefaultScrollAnchor</c>); null for none.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.ScrollDisabled">
+            <summary>Whether the player can't scroll the scroll views inside (<c>.ScrollDisabled()</c>).</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.Style">
+            <summary>How the controls inside are drawn.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.ViewEnvironment.Values">
+            <summary>Values of your own set above, the innermost first.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.ViewEnvironment.WithValue``1(ElementUI.EnvironmentKey{``0},``0)">
+            <summary>The same environment with <paramref name="key"/> set to <paramref name="value"/> for the subtree.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.ViewEnvironment.Get``1(ElementUI.EnvironmentKey{``0})">
+            <summary>The nearest value set for <paramref name="key"/> above, else its default. Allocates nothing.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.EnvironmentEntry">
+            <summary>One value of your own in an environment, and the ones set further out.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.EnvironmentEntry`1">
+            <summary>Keeps the value typed, so value types aren't boxed and reads don't allocate.</summary>
+        </member>
+        <member name="T:ElementUI.Layout.HintPlacement">
+            <summary>Where a hint goes for the view it is about.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.HintPlacement.Gap">
+            <summary>Space between the hint and its view.</summary>
+        </member>
+        <member name="F:ElementUI.Layout.HintPlacement.Margin">
+            <summary>Space the hint keeps from the edges of the room it shows in.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.HintPlacement.Beside(ElementUI.Frame,ElementUI.Size,ElementUI.Frame)">
+            <summary>
+            A hint of <paramref name="size"/> for a view shown at <paramref name="anchor"/>:
+            centred on the view, above it when <paramref name="room"/> has space there,
+            below it otherwise, and always inside the room. All in the same units.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Layout.UiRoot">
+            <summary>
+            One mounted screen: its root view, its size, its peers and the layer
+            popovers open in. A host (the UGUI <c>UiHost</c>, or a test) owns it.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.MountedCount">
+            <summary>How many views are mounted: for tests and the debug view.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.TreeVersion">
+            <summary>Changes whenever a view mounts or unmounts, including equal-count replacements.</summary>
+        </member>
+        <member name="E:ElementUI.Layout.UiRoot.TreeChanged">
+            <summary>Raised after layout when the mounted view tree changed.</summary>
+        </member>
+        <member name="E:ElementUI.Layout.UiRoot.ContentSizeChanged">
+            <summary>The content-fitted screen changed size. Hosts can resize their native rectangle here.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.FitContent(System.Single)">
+            <summary>Opt in to following the content's intrinsic height and constrained width on invalidation.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.StopFittingContent">
+            <summary>Stops automatic content fitting; subsequent Resize calls own the screen size.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.Size">
+            <summary>The screen's size in its own units.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.Mount(ElementUI.View)">
+            <summary>Puts <paramref name="view"/> on this screen, replacing what was there.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.Resize(ElementUI.Size)">
+            <summary>The screen's size changed.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.UpdateLayout">
+            <summary>Measures and places what changed. The runtime calls this at flush.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.ContentSize(ElementUI.Proposal)">
+            <summary>
+            The size the screen's content wants for <paramref name="proposal"/>: a host
+            whose panel fits its content (a toolbar, a menu) sizes itself with this,
+            then calls <see cref="M:ElementUI.Layout.UiRoot.Resize(ElementUI.Size)"/>.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.FlushNow">
+            <summary>Runs pending updates and layout now: for tests and the first frame.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.HasOverlay">
+            <summary>Whether a popover, menu or dialog is open.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.HandleEscape">
+            <summary>
+            Escape: closes the topmost popover, or cancels the topmost dialog. True
+            when it did something, so the host can leave Escape alone.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.HandleEnter">
+            <summary>
+            Enter or Return: confirms the topmost dialog, as its action's button would.
+            True when it did, so the host can leave the key alone; a popover on top takes no Enter.
+            </summary>
+        </member>
+        <member name="E:ElementUI.Layout.UiRoot.Editing">
+            <summary>
+            A drag on a control started (true) or ended (false). A host that keeps
+            undo records one step per drag instead of one per frame.
+            </summary>
+        </member>
+        <member name="E:ElementUI.Layout.UiRoot.Edited">
+            <summary>
+            A control on this screen wrote a value, or a button ran a command. A host
+            that saves or applies settings listens here instead of to every field.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.NativeVisible">
+            <summary>Whether the host shows this screen (its native object is active). Followed while a view on it listens for keys.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.ListenForKeys">
+            <summary>A view on this screen listens for keys. True for the first.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.StopListeningForKeys">
+            <summary>A view on this screen stopped listening for keys. True for the last.</summary>
+        </member>
+        <member name="M:ElementUI.Layout.UiRoot.ViewAt(System.Single,System.Single)">
+            <summary>The view placed at a point, deepest first: for tests and the debug view.</summary>
+        </member>
+        <member name="P:ElementUI.Layout.UiRoot.RootView">
+            <summary>The root view, for the debug view.</summary>
+        </member>
+        <member name="T:ElementUI.Size">
+            <summary>A width and height in the screen's own units.</summary>
+        </member>
+        <member name="T:ElementUI.Proposal">
+            <summary>
+            The size a parent offers a child. On each axis: a number, NaN for "your
+            ideal size", or infinity for "as much as you want".
+            </summary>
+        </member>
+        <member name="F:ElementUI.Proposal.Ideal">
+            <summary>Ideal size on both axes.</summary>
+        </member>
+        <member name="T:ElementUI.Axis">
+            <summary>Horizontal or vertical.</summary>
+        </member>
+        <member name="T:ElementUI.HAlignment">
+            <summary>Where children line up across a vertical stack. A struct, not an enum, so 0 never means it.</summary>
+        </member>
+        <member name="P:ElementUI.HAlignment.Fraction">
+            <summary>0 for leading, 0.5 for center, 1 for trailing.</summary>
+        </member>
+        <member name="T:ElementUI.VAlignment">
+            <summary>Where children line up across a horizontal stack.</summary>
+        </member>
+        <member name="T:ElementUI.Alignment">
+            <summary>A point in a box, for frames and overlapping stacks.</summary>
+        </member>
+        <member name="T:ElementUI.Edge">
+            <summary>A side of a box: the one a popover opens beside.</summary>
+        </member>
+        <member name="T:ElementUI.Insets">
+            <summary>Space inside an edge, per side.</summary>
+        </member>
+        <member name="T:ElementUI.Frame">
+            <summary>A rectangle in the screen's units, top left (0, 0), y down.</summary>
+        </member>
+        <member name="T:ElementUI.Binding">
+            <summary>Two-way projections for state whose stored and displayed forms differ.</summary>
+        </member>
+        <member name="M:ElementUI.Binding.Create``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Action{``0})">
+            <summary>
+            Reads a tracked expression and writes through a custom setter. The setter's
+            other model changes are probed in the same batch, just like a UI action.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Binding.ToBinding``1(ElementUI.State{``0})">
+            <summary>A two-way link to local state.</summary>
+        </member>
+        <member name="T:ElementUI.Binding`1">
+            <summary>
+            A two-way link to one view model field, made with
+            <c>UI.Bind(() =&gt; VM.Settings.Width)</c>. Controls read it and write it;
+            a write tells exactly that field's readers.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Binding`1.Map``1(System.Func{`0,``0},System.Func{`0,``0,`0})">
+            <summary>
+            Projects this binding without capturing a stale value. A write reads the
+            latest source first, so an immutable record can preserve its other fields.
+            The projection delegates should be pure; dependencies belong to this binding.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Binding`1.Target">
+            <summary>The field it links to, such as GalleryViewModel.Settings.Width.</summary>
+        </member>
+        <member name="P:ElementUI.Binding`1.Value">
+            <summary>The field's value. Reading it in a view's expression follows it; setting it updates the field's readers.</summary>
+        </member>
+        <member name="T:ElementUI.Observable">
+             <summary>
+             A plain C# object that tells the views reading it when it changes, from
+             anywhere: an editor's formula being typed, an undo history, a list changed
+             in place. Views read its members in expressions as they read a view model's.
+             </summary>
+             <remarks>
+             One object is one source: after <see cref="M:ElementUI.Observable.Changed"/>, everything that read
+             any of its members updates at the next flush. Expressions follow the object
+             whatever member they read, fields included; call <see cref="M:ElementUI.Observable.Reading"/> in
+             getters as well, so reads from helpers and plain delegates follow it too.
+             A view model field holding the object is still a field: replacing the object
+             in a command is seen. Use it on the main thread.
+             </remarks>
+             <example>
+             <code>
+             public sealed class Formula : Observable
+             {
+               private readonly List&lt;string&gt; _tokens = new();
+            
+               public int Count { get { Reading(); return _tokens.Count; } }
+            
+               public void Add(string token) { _tokens.Add(token); Changed(); }
+             }
+            
+             Text(() =&gt; formula.Count, format: "{0} tokens")
+             </code>
+             </example>
+        </member>
+        <member name="M:ElementUI.Observable.Reading">
+            <summary>Call at the start of a getter a view may read: the reading expression follows this object.</summary>
+        </member>
+        <member name="M:ElementUI.Observable.Changed">
+            <summary>
+            Call after a change, also after changing something in place (a list's
+            items). Readers update in the next flush; changes in one batch update them once.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Observable.Track``1(``0)">
+            <summary>What lowered expressions read a member through, so every member follows the object.</summary>
+        </member>
+        <member name="M:ElementUI.Observable.FieldWritten">
+            <summary>A binding wrote one of its fields, which has no setter to call <see cref="M:ElementUI.Observable.Changed"/>.</summary>
+        </member>
+        <member name="T:ElementUI.State`1">
+            <summary>
+            A value that tells its readers when it is set, from anywhere: game code
+            pushing a combo count, a view's own temporary state. Set it on the main thread.
+            </summary>
+        </member>
+        <member name="P:ElementUI.State`1.Value">
+            <summary>The value; reading it in a view's expression follows it, setting a different one updates them.</summary>
+        </member>
+        <member name="M:ElementUI.State`1.Peek">
+            <summary>The value without following it.</summary>
+        </member>
+        <member name="T:ElementUI.ItemSlot`1">
+            <summary>The place of one item in a <c>UI.ForEach</c> row. Same key, new object: <see cref="P:ElementUI.ItemSlot`1.Value"/> changes, the row stays.</summary>
+        </member>
+        <member name="P:ElementUI.ItemSlot`1.Value">
+            <summary>The item now at this key; reading it in an expression follows it.</summary>
+        </member>
+        <member name="T:ElementUI.ObservableList`1">
+            <summary>
+            A list that tells its readers when items are added, removed, moved or
+            replaced. Use it for rows that change; a plain list's changes can't be seen.
+            </summary>
+        </member>
+        <member name="P:ElementUI.ObservableList`1.Count">
+            <summary>How many items; reading it follows the list.</summary>
+        </member>
+        <member name="M:ElementUI.ObservableList`1.ReplaceAll(System.Collections.Generic.IEnumerable{`0})">
+            <summary>Replaces every item at once: one change for its readers.</summary>
+        </member>
+        <member name="T:ElementUI.StateNode">
+            <summary>A source with no value of its own; the value lives in its owner.</summary>
+        </member>
+        <member name="T:ElementUI.ViewModel">
+             <summary>
+             What a screen shows and what it can do. Its fields are plain C#: a view
+             that reads <c>VM.Count</c> is told when <c>Count</c> changes, whether a
+             binding wrote it or a command assigned it.
+             </summary>
+             <example>
+             <code>
+             public sealed class CounterViewModel : ViewModel
+             {
+                 public int Count;
+                 public Computed&lt;bool&gt; CanReset { get; }
+                 public Command Increment { get; }
+                 public Command Reset { get; }
+            
+                 public CounterViewModel()
+                 {
+                     CanReset = Computed(() =&gt; Count &gt; 0);
+                     Increment = Command(() =&gt; Count++);
+                     Reset = Command(() =&gt; Count = 0, canExecute: CanReset);
+                 }
+             }
+             </code>
+             </example>
+        </member>
+        <member name="P:ElementUI.ViewModel.IsDisposed">
+            <summary>Whether <see cref="M:ElementUI.ViewModel.Dispose"/> ran: its commands no longer run.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.Computed``1(System.Linq.Expressions.Expression{System.Func{``0}})">
+            <summary>
+            A value worked out from this view model's fields, such as
+            <c>Computed(() =&gt; Count &gt; 0)</c>. It is worked out again only when a
+            field it read changes, and tells its readers only when the result changes.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.Command(System.Action,ElementUI.Computed{System.Boolean})">
+            <summary>
+            Something the screen can do. Inside <paramref name="execute"/> assign
+            fields plainly; when it ends, views that read a changed field update.
+            A button showing it is off while <paramref name="canExecute"/> is false.
+            </summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.Own``1(``0)">
+            <summary>Makes <paramref name="child"/> this view model's own: it is disposed with this one.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.ReplaceOwned``1(``0@,``0)">
+            <summary>Replaces an owned child: the old one is disposed, and views reading the field see the new one.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.Dispose">
+            <summary>Stops this view model and its owned children: commands no longer run, computed values stop following.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.OnDisposed">
+            <summary>Release what this view model holds outside itself, such as game event handlers.</summary>
+        </member>
+        <member name="M:ElementUI.ViewModel.ProbeRelated(ElementUI.Reactive.MemberPath)">
+            <summary>
+            After <paramref name="written"/> was assigned: probes the cells that read
+            it, a part of it (Fill.r) or what holds it (Fill). Other fields are not touched.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Computed`1">
+            <summary>A value worked out from view model fields. Read <see cref="P:ElementUI.Computed`1.Value"/>; it follows them.</summary>
+        </member>
+        <member name="P:ElementUI.Computed`1.Value">
+            <summary>The current result; reading it in a view's expression follows it.</summary>
+        </member>
+        <member name="T:ElementUI.Command">
+            <summary>
+            Something a screen can do. Buttons pick one with <c>() =&gt; VM.Reset</c> and
+            are off while it can't run.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Command.CanExecute">
+            <summary>Whether it can run now; reading it in a view's expression follows it.</summary>
+        </member>
+        <member name="M:ElementUI.Command.TryExecute">
+            <summary>Runs it if it can, then lets views see what changed. False when it couldn't run.</summary>
+        </member>
+        <member name="T:ElementUI.ElementUIException">
+            <summary>Raised when a screen is built against the rules, with a code (UI001…) that names the rule.</summary>
+        </member>
+        <member name="P:ElementUI.ElementUIException.Code">
+            <summary>The rule broken, such as UI006.</summary>
+        </member>
+        <member name="T:ElementUI.Motion">
+            <summary>A finite, interruptible presentation animation. Model values change immediately.</summary>
+        </member>
+        <member name="M:ElementUI.Motion.Exponential(System.Single,System.Single)">
+            <summary>Approaches the target at a rate per second, ending within an absolute threshold.</summary>
+        </member>
+        <member name="T:ElementUI.IMotionPolicy">
+            <summary>Optional theme policy used by presentation modifiers.</summary>
+        </member>
+        <member name="T:ElementUI.AnimatedFloat">
+            <summary>
+            An animated scalar for custom drawing and native hosts. Set changes the target,
+            never the model. Retargeting starts at Value; Snap, disposal and completion stop
+            the shared driver. The first Set is immediate. Own and dispose with the view.
+            </summary>
+        </member>
+        <member name="T:ElementUI.ToggleAppearance">
+            <summary>How a bool is shown: a switch, or a box to tick beside words.</summary>
+        </member>
+        <member name="T:ElementUI.PickerAppearance">
+            <summary>How one-of-several is shown: side by side, or in a list that opens.</summary>
+        </member>
+        <member name="T:ElementUI.TabPage">
+            <summary>One tab of <see cref="M:ElementUI.UI.Tabs(ElementUI.TabPage[])"/>: a key that stays when titles are translated, a title, and the content made the first time it is picked.</summary>
+        </member>
+        <member name="T:ElementUI.PureAttribute">
+            <summary>
+            Marks a method or property that reads only its arguments (and the view
+            model fields it is given), so a watched expression may call it:
+            <c>Text(() =&gt; Format(VM.Count))</c>.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Reactive.Lowering">
+            <summary>
+            Turns a view's or view model's expression into a delegate that reads
+            cells, so running it records exactly the fields it read. Done once at
+            mount. Reads the engine can't watch fail here with the reason, instead of
+            leaving a screen that silently stops updating.
+            </summary>
+            <remarks>
+            What can be read:
+            <list type="bullet">
+            <item>fields and properties reached from a view model (become cells);</item>
+            <item><c>.Value</c> of <see cref="T:ElementUI.State`1"/>, <see cref="T:ElementUI.Computed`1"/>, <see cref="T:ElementUI.ItemSlot`1"/>, and members of <see cref="T:ElementUI.ObservableList`1"/> and <see cref="T:ElementUI.Timeline"/> (track themselves);</item>
+            <item>any member of an <see cref="T:ElementUI.Observable"/> (read through it, so the expression follows the object);</item>
+            <item>the properties of <see cref="T:ElementUI.DragSession"/> (track themselves);</item>
+            <item>constants, captured locals, readonly fields, static readonly fields;</item>
+            <item>methods of the base library and math types, and methods or properties marked <see cref="T:ElementUI.PureAttribute"/>.</item>
+            </list>
+            </remarks>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.Lower(System.Linq.Expressions.Expression,System.String)">
+            <summary>Lowers an expression body: paths become cell reads.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.BindingTarget(System.Linq.Expressions.Expression,System.String)">
+            <summary>
+            The path a binding writes: the body must end at a view model field or
+            property (or a <see cref="T:ElementUI.State`1"/>'s Value). Returns the root expression
+            lowered and the path.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsObservable(System.Type)">
+            <summary>An object of your own that tells its readers when it changes.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsStaticSource(System.Reflection.MemberInfo)">
+            <summary>Static members that track themselves: the drag in progress.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsSource(System.Type)">
+            <summary>Types whose members track themselves.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.Lowering.PathExpression">
+            <summary>A chain of members from a view model, before it becomes a cell read.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.Marker.IsSelfTracking(System.Type)">
+            <summary>
+            A source whose reference is read plainly: its members track themselves.
+            An Observable is not one here: a field holding it is a cell, so
+            replacing the object is seen.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.Marker.Tracked(System.Linq.Expressions.Expression)">
+            <summary><paramref name="observable"/>, read so the running expression follows it.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.FromSource(System.Linq.Expressions.Expression)">
+            <summary>
+            Data reached through a source's value, such as <c>slot.Value.Name</c>: it is
+            read again whenever the source changes. Changes inside the object itself
+            aren't seen; replace the item, or keep the field in a view model.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsCapturedLocal(System.Linq.Expressions.MemberExpression)">
+            <summary>A captured local: a field of a compiler-generated closure. It holds what the local held at mount.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsPlainValue(System.Type)">
+            <summary>Values that are copies (structs, strings): reading their members can't miss a change.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.Lowering.IsLibraryType(System.Type)">
+            <summary>The base library and Unity's math types: they read only their arguments.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.ReadSite`1">
+            <summary>A place in a lowered expression that reads one path; remembers the cell of the last view model it saw.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.MemberPath">
+            <summary>
+            A chain of fields and properties from a view model, such as
+            <c>Settings.Width</c> on <c>GalleryViewModel</c>. Interned, so one chain has
+            one path; its getter and setter are compiled once.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Reactive.MemberPath.IsConstant">
+            <summary>Whether every member is a readonly field or a getter-only auto-property: the value never changes.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.MemberPath.Getter``1">
+            <summary>Reads the path from a root of <see cref="F:ElementUI.Reactive.MemberPath.RootType"/>; a null link on the way gives the default.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.MemberPath.WhyNotWritable">
+            <summary>Why the path can't be written, or null when it can.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.MemberPath.Setter``1">
+            <summary>Writes the path on a root; a null link on the way writes nothing.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.EffectNode">
+            <summary>
+            Work that follows values: it runs at flush when something it read changed.
+            An effect of a hidden branch is inactive: it remembers that it is stale and
+            catches up once when shown again.
+            </summary>
+        </member>
+        <member name="F:ElementUI.Reactive.EffectNode.Owner">
+            <summary>The view the effect updates, for the debug trace.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.ValueEffect`1">
+            <summary>Computes a value from tracked reads and applies it only when it differs from the last one.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ValueEffect`1.ForgetLast">
+            <summary>Forgets the last value so the next run applies even an equal one.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.ActionEffect">
+            <summary>Runs an action that reads tracked values; for work with no single result.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.ComputedNode">
+            <summary>Base of computed values, so a Check walk can find them without knowing their type.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.CellBase">
+            <summary>A source that is watched after commands while something reads it.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.CellBase.Probe">
+            <summary>Compares the live value with the last one seen; tells readers when it changed.</summary>
+        </member>
+        <member name="T:ElementUI.Reactive.Cell`1">
+            <summary>
+            One field path of one view model, such as <c>(vm, Settings.Width)</c>.
+            Reads return the live field; <see cref="M:ElementUI.Reactive.Cell`1.Probe"/> notices changes made by
+            plain assignments in commands.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Reactive.ReactiveNode">
+            <summary>
+            A node of the reactive graph. As a source it has subscribers (cells,
+            states, computeds); as an observer it has dependencies (effects,
+            computeds). A computed is both.
+            </summary>
+            <remarks>
+            Change moves in two steps. A source that changed marks its direct
+            subscribers Dirty; a computed that may have changed marks its subscribers
+            Check. Effects run at flush: one in Check first brings its computed
+            dependencies up to date and runs only if one of them really changed.
+            Nothing allocates once the arrays have grown to the graph's size.
+            </remarks>
+        </member>
+        <member name="F:ElementUI.Reactive.ReactiveNode.State">
+            <summary>Clean, Check or Dirty.</summary>
+        </member>
+        <member name="F:ElementUI.Reactive.ReactiveNode.Mark">
+            <summary>Scratch mark for de-duplicating within one run and one dependency diff.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.NotifyChanged">
+            <summary>This source's value changed: its direct subscribers must update.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.NotifyMaybeChanged">
+            <summary>This computed may have changed: its subscribers must check.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.Track">
+            <summary>Records that the observer running now read this source.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.OnStale">
+            <summary>Went from Clean to Check or Dirty: an effect schedules itself, a computed tells its subscribers.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.Execute">
+            <summary>Runs the observer's work while recording what it reads.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.UpdateIfNecessary">
+            <summary>
+            Brings this observer up to date: a Check walks its computed dependencies
+            first, and only a Dirty one runs.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.Run">
+            <summary>Runs <see cref="M:ElementUI.Reactive.ReactiveNode.Execute"/> and replaces the dependencies with what it read.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.Read(ElementUI.Reactive.ReactiveNode)">
+            <summary>Called through <see cref="M:ElementUI.Runtime.Depend(ElementUI.Reactive.ReactiveNode)"/> while this observer runs.</summary>
+        </member>
+        <member name="M:ElementUI.Reactive.ReactiveNode.DropDependencies">
+            <summary>Leaves every dependency: the observer is going away.</summary>
+        </member>
+        <member name="T:ElementUI.Runtime">
+            <summary>
+            The one engine every ElementUI screen in the game shares. Hosts call
+            <see cref="M:ElementUI.Runtime.Flush(System.Single)"/> once a frame while <see cref="P:ElementUI.Runtime.HasWork"/> is true; the
+            UGUI driver does this for you. Everything runs on the main thread.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Runtime.Untracked``1(System.Func{``0})">
+            <summary>Runs <paramref name="read"/> without recording what it reads.</summary>
+        </member>
+        <member name="P:ElementUI.Runtime.HasWork">
+            <summary>Whether a flush has something to do: effects to run or layout to update.</summary>
+        </member>
+        <member name="E:ElementUI.Runtime.WorkRequested">
+            <summary>
+            Raised once when work appears after none was waiting, so a driver that
+            sleeps while nothing changes knows to wake up.
+            </summary>
+        </member>
+        <member name="E:ElementUI.Runtime.ErrorReported">
+            <summary>Raised when a view, view model or effect throws. The engine keeps going.</summary>
+        </member>
+        <member name="M:ElementUI.Runtime.Flush(System.Single)">
+            <summary>
+            Runs the effects whose values changed, then updates layout, then steps
+            animations by <paramref name="deltaTime"/> seconds. Does nothing when
+            nothing is waiting.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Runtime.Batch(System.Action)">
+            <summary>
+            Groups changes: effects wait until the outermost batch ends. Commands and
+            bindings run in one already.
+            </summary>
+        </member>
+        <member name="P:ElementUI.Runtime.WatchedCount">
+            <summary>How many cells are watched now: what <see cref="M:ElementUI.Runtime.Probe"/> compares.</summary>
+        </member>
+        <member name="M:ElementUI.Runtime.Probe">
+            <summary>
+            Compares every watched cell with its view model's field and tells the
+            readers of those that changed. Commands do this when they finish; call it
+            after changing view models some other way, such as replacing settings on
+            undo. It reads fields only and allocates nothing.
+            </summary>
+            <returns>How many cells changed.</returns>
+        </member>
+        <member name="M:ElementUI.Runtime.ResetForTests">
+            <summary>Forgets everything. Tests only.</summary>
+        </member>
+        <member name="M:ElementUI.Runtime.Delay(System.Single,System.Action)">
+            <summary>A cancellable one-shot callback using unscaled flush time. Dispose when its owner disappears.</summary>
+        </member>
+        <member name="T:ElementUI.IAnimation">
+            <summary>Something that moves over frames, such as a switch's thumb.</summary>
+        </member>
+        <member name="M:ElementUI.IAnimation.Step(System.Single)">
+            <summary>Advances by <paramref name="deltaTime"/> seconds; false when finished.</summary>
+        </member>
+        <member name="T:ElementUI.Shape">
+            <summary>A size-independent shape used for drawing, clipping and hit testing.</summary>
+        </member>
+        <member name="T:ElementUI.IShapeContainerPeer">
+            <summary>Optional container capability. A backend must implement it to support shape clipping/hit testing.</summary>
+        </member>
+        <member name="T:ElementUI.TextFieldStyle">
+            <summary>The input's own surface. Plain leaves decoration and spacing to its surrounding views.</summary>
+        </member>
+        <member name="T:ElementUI.TextInputKind">
+            <summary>Character validation performed by the input backend, before editing callbacks.</summary>
+        </member>
+        <member name="T:ElementUI.TextInputConfiguration">
+            <summary>
+            The immutable input settings inherited by a field. Modifiers copy this
+            snapshot, so separate fields never change one another's settings.
+            </summary>
+        </member>
+        <member name="T:ElementUI.ITextInputPeer">
+            <summary>
+            Optional richer input peer. Older backends keep implementing ITextFieldPeer;
+            this contract adds native-independent focus, decoration and editing reasons.
+            A programmatic SetText must preserve selection where possible, and defer
+            replacement until marked IME text is committed rather than corrupting it.
+            </summary>
+        </member>
+        <member name="T:ElementUI.IStyledSegmentedPeer">
+            <summary>Optional text styling on a segmented control's labels.</summary>
+        </member>
+        <member name="T:ElementUI.Timeline">
+             <summary>
+             Something that changes with time, such as a caret's blink: it counts
+             periods of unscaled time. It runs only while an expression in a shown
+             branch reads it; otherwise it schedules nothing and its time stands still.
+             </summary>
+             <remarks>
+             It does not look at reduced motion: whether a caret still blinks or a pulse
+             stops is the caller's choice, so read your own setting and don't read the
+             timeline when it says no. A timeline nobody reads costs nothing; dispose it
+             with its owner to stop it for good.
+             </remarks>
+             <example>
+             <code>
+             private readonly Timeline _blink = Timeline.Periodic(.53f);
+            
+             Rectangle().Fill(Colors.Accent).Frame(width: 2, height: 18).Opacity(() =&gt; _blink.Even ? 1f : 0f)
+            
+             // after a key press: the caret shows at once and blinks from there
+             _blink.Restart();
+             </code>
+             </example>
+        </member>
+        <member name="M:ElementUI.Timeline.Periodic(System.Single)">
+            <summary>Ticks every <paramref name="seconds"/> of unscaled time, but only while an expression reads it.</summary>
+        </member>
+        <member name="P:ElementUI.Timeline.Tick">
+            <summary>How many periods have passed since it started or was restarted; reading it follows it.</summary>
+        </member>
+        <member name="P:ElementUI.Timeline.Even">
+            <summary>Whether the current period is an even one: a blink's on phase, and so true right after <see cref="M:ElementUI.Timeline.Restart"/>.</summary>
+        </member>
+        <member name="M:ElementUI.Timeline.Restart">
+            <summary>Starts counting again from 0 now (a caret that shows at once after typing).</summary>
+        </member>
+        <member name="M:ElementUI.Timeline.Dispose">
+            <summary>Stops it for good: it keeps its last count and schedules nothing again.</summary>
+        </member>
+        <member name="T:ElementUI.TimelineNode">
+            <summary>A timeline's place in the graph: it starts the timeline when first read and stops it when no one reads it.</summary>
+        </member>
+        <member name="M:ElementUI.TimelineNode.HasShownReader">
+            <summary>Whether an effect that would show a tick reads it, directly or through computed values. Allocates nothing.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ButtonView">
+            <summary>A button around a label view. It runs the command its expression picks, or (inside controls) an action.</summary>
+        </member>
+        <member name="M:ElementUI.Views.ButtonView.PressFromKeyboard">
+            <summary>A keyboard shortcut presses the button: only while it shows, is enabled and can run. True when it ran.</summary>
+        </member>
+        <member name="T:ElementUI.Views.SwitchView">
+            <summary>An on/off switch for a bool binding.</summary>
+        </member>
+        <member name="T:ElementUI.Views.CheckboxView">
+            <summary>A box to tick for a bool binding.</summary>
+        </member>
+        <member name="T:ElementUI.Views.SliderView">
+            <summary>A slider (one handle, or two for a range) that fills its row.</summary>
+        </member>
+        <member name="T:ElementUI.Views.TextFieldView">
+            <summary>One line of typed words; with number rules, a typed number.</summary>
+        </member>
+        <member name="T:ElementUI.Views.SegmentedView">
+            <summary>Two to four options side by side, one picked.</summary>
+        </member>
+        <member name="T:ElementUI.Views.Composites">
+            <summary>Controls made of other views: rows with labels, steppers, dropdowns, chips, cards.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Composites.Labeled(System.String,ElementUI.View,ElementUI.Theme)">
+            <summary>A label on the left at the theme's label width, the control filling the rest. No label: the control alone.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Composites.Readout(System.Func{System.Single},System.Single)">
+            <summary>The value beside a slider, written into a reused buffer so dragging makes no strings.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Composites.SectionTitle(System.String)">
+            <summary>A heading over the parts that follow: small, bold, muted.</summary>
+        </member>
+        <member name="T:ElementUI.Views.DialogView">
+            <summary>
+            Asks before an action while a binding is true: a card in the middle of the
+            dimmed screen with a title, a message, Cancel and the action. Either answer
+            writes false to the binding first.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Views.DialogView.MakeCard">
+            <summary>The card: title, message, then Cancel and the action on the right.</summary>
+        </member>
+        <member name="M:ElementUI.Views.DialogView.ConfirmFromKey">
+            <summary>
+            Enter: as if the action's button were clicked; for a destructive action,
+            as if Cancel were, so a stray Enter never deletes anything.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.DialogOverlay">
+            <summary>An open dialog: over the whole screen, Escape cancels it and Enter confirms it (or cancels a destructive one).</summary>
+        </member>
+        <member name="T:ElementUI.Views.DialogHostView">
+            <summary>The dialog's own views: a dim over the whole screen that takes every click, and the card in its middle.</summary>
+        </member>
+        <member name="T:ElementUI.Views.DragSourceView`1">
+            <summary>
+            Carries a value out of the content when a press on it moves past the drag
+            threshold. Its own container takes the drag, so the press stops being a
+            click and a scroll view around it stays still.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.DragPreviewView">
+            <summary>The carried value's preview, in the drag layer: frames here are from the pointer.</summary>
+        </member>
+        <member name="T:ElementUI.Views.DropDestinationView`1">
+            <summary>A place a carried value of type <typeparamref name="T"/> can land: the content's whole frame.</summary>
+        </member>
+        <member name="T:ElementUI.Views.KeyPressView">
+            <summary>Runs a handler when its key comes this way: <c>.OnKeyPress(KeyCode.Escape, () =&gt; ...)</c>.</summary>
+        </member>
+        <member name="M:ElementUI.Views.KeyPressView.Handle">
+            <summary>Runs the handler if the view can take input now; true when it kept the key.</summary>
+        </member>
+        <member name="T:ElementUI.Views.KeyboardShortcutView">
+            <summary>Presses the button it is on when its key goes down: <c>Button(...).KeyboardShortcut(KeyCode.S, EventModifiers.Control)</c>.</summary>
+        </member>
+        <member name="M:ElementUI.Views.KeyboardShortcutView.Press">
+            <summary>Presses the button if its screen shows it and it can be pressed; true when it was.</summary>
+        </member>
+        <member name="T:ElementUI.Views.FixedSizeView">
+            <summary>The content at its ideal size on the chosen axes, whatever it is offered there.</summary>
+        </member>
+        <member name="T:ElementUI.Views.LayoutPriorityView">
+            <summary>How early a stack gives the content its room.</summary>
+        </member>
+        <member name="T:ElementUI.Views.GeometryView">
+            <summary>Tells the app where layout put the content, after each layout that moved or resized it.</summary>
+        </member>
+        <member name="M:ElementUI.Views.GeometryView.Report">
+            <summary>Runs the callback with the last frame, once layout is done, like an action: batched, then probed.</summary>
+        </member>
+        <member name="T:ElementUI.Views.WrapperView">
+            <summary>A view around one other view: a modifier. Layout passes through unless it says otherwise.</summary>
+        </member>
+        <member name="P:ElementUI.Views.WrapperView.Inner">
+            <summary>The view this modifier wraps.</summary>
+        </member>
+        <member name="T:ElementUI.Views.PaddingView">
+            <summary>Space inside the edges.</summary>
+        </member>
+        <member name="T:ElementUI.Views.FrameView">
+            <summary>A size of its own, or limits on the content's: <c>.Frame(width: 40)</c>, <c>.Frame(maxWidth: float.PositiveInfinity)</c>.</summary>
+        </member>
+        <member name="T:ElementUI.Views.EnvironmentView">
+            <summary>Hands a font, text color or alignment down to everything inside.</summary>
+        </member>
+        <member name="T:ElementUI.Views.HiddenView">
+            <summary>Hides the content but keeps its space.</summary>
+        </member>
+        <member name="T:ElementUI.Views.DisabledView">
+            <summary>Turns off input for the content and everything in it.</summary>
+        </member>
+        <member name="T:ElementUI.Views.HintView">
+            <summary>Words that appear while the pointer is over the content.</summary>
+        </member>
+        <member name="T:ElementUI.Views.BackgroundView">
+            <summary>A filled, optionally rounded box behind the content, the size of the content.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ConfigureView`1">
+            <summary>Runs code on the backend object that draws the content: the way out when the engine has no setting for something.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ConfigureWatchView`2">
+            <summary>Sets a backend object's property from a watched value, whenever the value changes.</summary>
+        </member>
+        <member name="T:ElementUI.Views.PresenterView">
+            <summary>
+            A view that opens something over the screen while a binding is true: a
+            popover beside it, a dialog over everything. What opens is mounted under
+            this view, so it inherits its fonts and styles, but drawn in the screen's
+            overlay layer, over everything else.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Views.PresenterView.MakeOverlay">
+            <summary>What opens, made each time it opens.</summary>
+        </member>
+        <member name="M:ElementUI.Views.PresenterView.Dismiss">
+            <summary>Closes it the way the player does: writes false to the binding.</summary>
+        </member>
+        <member name="T:ElementUI.Views.Overlay">
+            <summary>Something open in the screen's overlay layer, last opened on top.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Overlay.Dismiss">
+            <summary>Escape: closes it as a click outside or Cancel would.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Overlay.Confirm">
+            <summary>Enter: answers it; false when it takes no Enter.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Overlay.Layout(ElementUI.Layout.UiRoot)">
+            <summary>Places it, after the screen is placed.</summary>
+        </member>
+        <member name="M:ElementUI.Views.Overlay.Remove(ElementUI.View)">
+            <summary>Takes <paramref name="host"/> off the screen, whether or not its anchor still is.</summary>
+        </member>
+        <member name="T:ElementUI.Views.PopoverView">
+            <summary>
+            Shows a popover beside the content while a binding is true. Clicking
+            outside or Escape sets it false.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.PopoverOverlay">
+            <summary>An open popover: the click-catching layer and the raised box with its content, beside its anchor.</summary>
+        </member>
+        <member name="M:ElementUI.Views.PopoverOverlay.Beside(System.Boolean,System.Single,System.Single,System.Single,System.Single)">
+            <summary>
+            Where a popover <paramref name="length"/> long starts on one axis: past the
+            anchor's far edge (<paramref name="after"/>) or before its near one; on the
+            other side when the asked one has no room and the other has.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.OverlayHostView">
+            <summary>The popover's own views: a layer over the screen that closes it on click, and a raised box holding the content.</summary>
+        </member>
+        <member name="T:ElementUI.Views.TextView">
+            <summary>Words. Fixed, followed from an expression, or a number written into a reused buffer.</summary>
+        </member>
+        <member name="M:ElementUI.Views.TextView.WriteInt(System.Int32,System.Char[],System.Int32)">
+            <summary>Writes an int's digits without making a string.</summary>
+        </member>
+        <member name="T:ElementUI.Views.SpacerView">
+            <summary>Empty space that grows along its stack.</summary>
+        </member>
+        <member name="T:ElementUI.Views.DividerView">
+            <summary>A thin line across its stack.</summary>
+        </member>
+        <member name="T:ElementUI.Views.IconView">
+            <summary>An icon the backend draws, in the text color.</summary>
+        </member>
+        <member name="T:ElementUI.Views.StackView">
+            <summary>
+            Children in a line. Along the axis, fixed children get their size first,
+            the least room-hungry first, each offered an equal share of what is left;
+            flexible children (Spacer, frames with an infinite maximum, scroll views)
+            share the rest. Children with a higher layout priority are given room
+            before the others, leaving them the least they can take. Across, children
+            line up by the alignment.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Views.StackView.Distribute(ElementUI.Proposal)">
+            <summary>Sizes every item for <paramref name="proposal"/> into the buffers; returns the stack's size.</summary>
+        </member>
+        <member name="M:ElementUI.Views.StackView.Allot(System.Single,System.Single,System.Single,System.Single@,System.Single@)">
+            <summary>
+            Gives the items of one priority <paramref name="room"/>: fixed ones their
+            ideal size when they all fit, else the smallest first, each offered an
+            equal share of what is left; flexible ones share the rest.
+            </summary>
+        </member>
+        <member name="M:ElementUI.Views.StackView.ReadPriorities(System.Int32,System.Boolean@)">
+            <summary>Reads every item's layout priority; returns the highest, and whether they differ.</summary>
+        </member>
+        <member name="M:ElementUI.Views.StackView.NextBelow(System.Single,System.Int32)">
+            <summary>The highest priority below <paramref name="group"/>; NaN when there is none.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ZStackView">
+            <summary>Children on top of each other, later ones in front.</summary>
+        </member>
+        <member name="T:ElementUI.Views.GridView">
+            <summary>Children in equal columns, row by row. With a minimum column width, as many columns as fit.</summary>
+        </member>
+        <member name="M:ElementUI.Views.GridView.Adaptive(System.Single,System.Single,System.Int32,ElementUI.View[])">
+            <summary>As many columns as fit, each at least <paramref name="minColumnWidth"/>, at most <paramref name="maxColumns"/>.</summary>
+        </member>
+        <member name="T:ElementUI.Views.FlowView">
+            <summary>Children left to right, wrapping onto new lines when the width runs out: chips, tags.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ViewThatFitsView">
+            <summary>
+            The first of its views whose ideal width fits the width offered, the last
+            one when none fits: a wide layout, then a narrow one. All are made at mount;
+            the ones not picked are hidden and run no updates.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.CompositeView">
+            <summary>A view that builds its content once from other views: cards, labelled rows, controls made of parts.</summary>
+        </member>
+        <member name="T:ElementUI.Views.ScrollView">
+            <summary>
+            Content larger than its frame, scrolled along one axis. With an anchor
+            (<c>.DefaultScrollAnchor</c>) it starts there and keeps the content's point
+            at the anchor where it shows as the content or the frame changes size.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.IfView">
+            <summary>
+            One of two views, by a watched condition. Each branch is made the first
+            time it shows and kept; the hidden one runs no updates and takes no space.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.ForEachView`2">
+            <summary>
+            A row per item, matched by key: when the list changes, rows with a kept
+            key stay (and see a new object through their slot), new keys get new rows,
+            gone keys lose theirs. Its rows are laid out by the stack it is in.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Views.TabsView">
+            <summary>A bar of tab titles over the picked tab's content. The pick is remembered by the tabs' keys.</summary>
+        </member>
+        <member name="T:ElementUI.EnvironmentValues">
+            <summary>Inherited values available while composing a reusable view.</summary>
+        </member>
+        <member name="P:ElementUI.EnvironmentValues.Theme">
+            <summary>The host's theme for sizes, typography and semantic colors.</summary>
+        </member>
+        <member name="P:ElementUI.EnvironmentValues.IsEnabled">
+            <summary>Whether this view and its ancestors allow interaction.</summary>
+        </member>
+        <member name="M:ElementUI.EnvironmentValues.Get``1(ElementUI.EnvironmentKey{``0})">
+            <summary>
+            The value of <paramref name="key"/> set nearest above with
+            <c>.Environment(key, value)</c>, else its default. Fixed at mount; an
+            expression may read it.
+            </summary>
+        </member>
+        <member name="T:ElementUI.Transition">
+            <summary>The presentation at the hidden end of an insertion/removal transition.</summary>
+        </member>
+        <member name="T:ElementUI.View">
+            <summary>
+            A part of a screen. Views are made once, when the screen mounts, and kept:
+            later changes update only the properties that read a changed value.
+            Compose them with the factories in <see cref="T:ElementUI.UI"/>; write your own as a
+            <see cref="T:ElementUI.View`1"/> with a <c>Body</c>.
+            </summary>
+            <remarks>
+            A view instance goes in one place. To show the same thing twice, make it twice.
+            </remarks>
+        </member>
+        <member name="F:ElementUI.View.ContainerOwner">
+            <summary>The view whose container this view's peers are made in; null for the screen's root container.</summary>
+        </member>
+        <member name="P:ElementUI.View.LastProposal">
+            <summary>The last proposal this view was measured with and the size it took, for the layout inspector.</summary>
+        </member>
+        <member name="F:ElementUI.View.Frame">
+            <summary>Where the view was placed, in the screen's units.</summary>
+        </member>
+        <member name="P:ElementUI.View.Id">
+            <summary>A number that stays the same while the view is mounted: #14 in the debug trace.</summary>
+        </member>
+        <member name="F:ElementUI.View.Origin">
+            <summary>Where the view was declared, for errors and the debug view: Type.Method.</summary>
+        </member>
+        <member name="P:ElementUI.View.Kind">
+            <summary>What kind of view this is, for errors and the debug view.</summary>
+        </member>
+        <member name="M:ElementUI.View.OnMount">
+            <summary>Make peers and mount children here. Effects you add run once now, so values are in place before layout.</summary>
+        </member>
+        <member name="M:ElementUI.View.MountChild(ElementUI.View)">
+            <summary>Mounts <paramref name="child"/> under this view, in the same container.</summary>
+        </member>
+        <member name="M:ElementUI.View.MountChild(ElementUI.View,ElementUI.Layout.ViewEnvironment)">
+            <summary>Mounts <paramref name="child"/> under this view with an environment of its own.</summary>
+        </member>
+        <member name="M:ElementUI.View.MountChild(ElementUI.View,ElementUI.View,ElementUI.IContainerPeer)">
+            <summary>Mounts <paramref name="child"/> into a container this view owns, such as a button's or a scroll view's.</summary>
+        </member>
+        <member name="M:ElementUI.View.RemoveChild(ElementUI.View)">
+            <summary>Unmounts and forgets <paramref name="child"/>.</summary>
+        </member>
+        <member name="M:ElementUI.View.OnUnmount">
+            <summary>Release peers and anything else made in <see cref="M:ElementUI.View.OnMount"/>.</summary>
+        </member>
+        <member name="M:ElementUI.View.Watch``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Action{``0})">
+            <summary>
+            Runs <paramref name="apply"/> with <paramref name="compute"/>'s value now,
+            and again whenever a value it read changes to give a different result.
+            </summary>
+        </member>
+        <member name="M:ElementUI.View.Follow``1(System.Func{``0},System.Action{``0})">
+            <summary>Like <see cref="M:ElementUI.View.Watch``1(System.Linq.Expressions.Expression{System.Func{``0}},System.Action{``0})"/>, for a delegate already lowered or reading only sources.</summary>
+        </member>
+        <member name="M:ElementUI.View.WatchAction(System.Action)">
+            <summary>Runs <paramref name="run"/> now and whenever a source it read changes.</summary>
+        </member>
+        <member name="M:ElementUI.View.SizeThatFits(ElementUI.Proposal)">
+            <summary>The size this view takes when offered <paramref name="proposal"/>. Cached until it changes.</summary>
+        </member>
+        <member name="M:ElementUI.View.Measure(ElementUI.Proposal)">
+            <summary>Works out the size for <paramref name="proposal"/>. Children's sizes come from their <see cref="M:ElementUI.View.SizeThatFits(ElementUI.Proposal)"/>.</summary>
+        </member>
+        <member name="M:ElementUI.View.IsFlexible(ElementUI.Axis)">
+            <summary>How this view grows along a stack's axis when there's room: fixed or flexible.</summary>
+        </member>
+        <member name="P:ElementUI.View.LayoutPriority">
+            <summary>How early a stack gives this view its room: higher first. 0 unless <c>.LayoutPriority</c> says otherwise.</summary>
+        </member>
+        <member name="M:ElementUI.View.PlaceAt(ElementUI.Frame)">
+            <summary>Puts the view at <paramref name="frame"/> (screen units) and places its children.</summary>
+        </member>
+        <member name="M:ElementUI.View.Place(ElementUI.Frame)">
+            <summary>Set peers' frames and place children. <paramref name="frame"/> is in the screen's units.</summary>
+        </member>
+        <member name="M:ElementUI.View.Local(ElementUI.Frame)">
+            <summary><paramref name="frame"/> relative to the container this view's peers are in.</summary>
+        </member>
+        <member name="P:ElementUI.View.ContentOriginX">
+            <summary>For views owning a container: where its children's coordinates start, in screen units.</summary>
+        </member>
+        <member name="P:ElementUI.View.ShownFrame">
+            <summary>
+            Where the view shows now, in the screen's units: its <see cref="F:ElementUI.View.Frame"/>
+            transformed by its presentation and scroll containers. A hint or a
+            popover goes beside this, not beside where the view was laid out.
+            </summary>
+        </member>
+        <member name="M:ElementUI.View.Scrolled(ElementUI.Frame)">
+            <summary>For views whose container scrolls: <paramref name="frame"/>, inside it, where it shows now.</summary>
+        </member>
+        <member name="M:ElementUI.View.InvalidateMeasure">
+            <summary>This view's size depends on something that changed: measure it again.</summary>
+        </member>
+        <member name="M:ElementUI.View.InvalidatePlacement">
+            <summary>This view's children must be placed again; its size is the same.</summary>
+        </member>
+        <member name="M:ElementUI.View.OnShownChanged(System.Boolean)">
+            <summary>Show or hide this view's own peers.</summary>
+        </member>
+        <member name="M:ElementUI.View.OnEnabledChanged(System.Boolean)">
+            <summary>Make this view's controls interactable or not.</summary>
+        </member>
+        <member name="M:ElementUI.View.RefreshActive">
+            <summary>An inactive branch keeps its views but runs none of their updates until it is active again.</summary>
+        </member>
+        <member name="M:ElementUI.View.EnvironmentValue``1(ElementUI.EnvironmentKey{``0})">
+            <summary>
+            The value of <paramref name="key"/> set nearest above this view with
+            <c>.Environment(key, value)</c>, else its default. Read it in
+            <c>Body</c> or later: the values are those of where the view is mounted,
+            so a constructor can't read them. Named apart from the
+            <c>.Environment(key, value)</c> modifier, which a protected method of the
+            same name would hide outside view classes.
+            </summary>
+        </member>
+        <member name="M:ElementUI.View.Edited">
+            <summary>A control wrote a value the player chose: the screen tells its host it was edited.</summary>
+        </member>
+        <member name="M:ElementUI.View.CollectItems(System.Collections.Generic.List{ElementUI.View})">
+            <summary>What a stack lays out for this view: itself, or for ForEach and If the views they show now.</summary>
+        </member>
+        <member name="M:ElementUI.View.NativeOf(System.Type)">
+            <summary>The backend object of <paramref name="type"/> drawing this view, for <c>Configure</c>.</summary>
+        </member>
+        <member name="M:ElementUI.View.ReapplyOwned">
+            <summary>Sends the values the engine owns to the peer again, after <c>Configure</c> may have changed them.</summary>
+        </member>
+        <member name="T:ElementUI.IBranchGate">
+            <summary>A view whose children aren't all active at once: If, Tabs.</summary>
+        </member>
+        <member name="T:ElementUI.View`1">
+             <summary>
+             A view of your own: what it shows is its <see cref="P:ElementUI.View`1.Body"/>, made once at
+             mount. Read the view model through <see cref="P:ElementUI.View`1.VM"/>.
+             </summary>
+             <example>
+             <code>
+             public sealed class CounterView : View&lt;CounterViewModel&gt;
+             {
+                 public CounterView(CounterViewModel vm) : base(vm) { }
+            
+                 public override View Body =&gt;
+                     VStack(spacing: 12,
+                         Text(() =&gt; VM.Count, format: "Count: {0}"),
+                         Button(Text("Reset"), () =&gt; VM.Reset));
+             }
+             </code>
+             </example>
+        </member>
+        <member name="M:ElementUI.View`1.#ctor(ElementUI.ItemSlot{`0})">
+            <summary>For a row of a ForEach: the row keeps showing whatever item now has its key.</summary>
+        </member>
+        <member name="P:ElementUI.View`1.VM">
+            <summary>The view model this view shows.</summary>
+        </member>
+        <member name="P:ElementUI.View`1.Body">
+            <summary>What this view shows. Read once, when it mounts.</summary>
+        </member>
+    </members>
+</doc>

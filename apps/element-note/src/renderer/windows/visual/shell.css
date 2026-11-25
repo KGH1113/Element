@@ -14,13 +14,14 @@ body {
 }
 
 .visual-shell-root {
-  width: min(902px, 100vw);
-  height: min(488px, 100vh);
+  width: min(1120px, 100vw);
+  height: min(720px, 100vh);
 }
 
 .visual-shell-canvas {
-  position: absolute;
-  inset: 0;
+  position: relative;
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   background:
     linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
@@ -60,6 +61,15 @@ body {
   left: -4px;
 }
 
+.visual-shell-key {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  color: var(--ui-fg-primary);
+  font-size: 18px;
+  font-weight: 600;
+}
+
 .visual-shell-selection::after {
   right: -4px;
 }
@@ -76,10 +86,10 @@ body {
   box-shadow: var(--ui-shadow-surface);
 }
 
-.visual-shell-panel-copy {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--ui-space-5);
-  padding: 12px;
+/* A Mac set to always show scroll bars, as CI's runners are, gives a scrolling
+   area 15px for its bar; one that shows them while scrolling gives none. The
+   pictures are saved without, so a bar the app doesn't style takes no room here. */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }

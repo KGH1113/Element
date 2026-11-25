@@ -1,7 +1,9 @@
 using System;
-using Element.Configuration;
+using Element.Application.Layout;
+using Element.Configuration.Overlay;
 using Element.Domain.Layout;
-using Element.Presentation.Layout;
+using Element.Domain.Overlay.Values;
+using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 
 namespace Element.Presentation.Overlay.Elements;
@@ -16,7 +18,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 {
   private readonly Vector3[] _corners = new Vector3[4];
   private readonly OverlayLayoutSettings _stagedSettings = new();
-  private Canvas _canvas;
+  private UnityEngine.Canvas _canvas;
   private bool _staged;
   private Rect _stageOrigin;
   private bool _applying;
@@ -57,7 +59,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     get
     {
       if (_canvas == null)
-        _canvas = Rect.GetComponentInParent<Canvas>()?.rootCanvas;
+        _canvas = Rect.GetComponentInParent<UnityEngine.Canvas>()?.rootCanvas;
       return _canvas != null && _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1f;
     }
   }
@@ -154,6 +156,13 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 
   public virtual void SetPreview(bool preview) { }
 
+  /// <summary>
+  /// Once a frame while the overlay is shown: redraws when one of
+  /// <paramref name="changes"/> affects it. While <paramref name="settle"/>
+  /// (a level starting or restarting), values take their new look at once.
+  /// </summary>
+  public abstract void Refresh(OverlayValueMask changes, bool settle);
+
   public void SetEnabled(bool enabled)
   {
     if (Settings == null)
@@ -166,7 +175,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if (Settings == null)
       return;
-    Domain.Elements.OverlayElementDefaults.ResetPlacement(Settings);
+    Domain.Overlay.Defaults.OverlayElementDefaults.ResetPlacement(Settings);
     Apply();
   }
 
@@ -446,7 +455,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   public virtual void Dispose()
   {
     if (Rect != null)
-      Presentation.Settings.SettingsUiFactory.Destroy(Rect.gameObject);
+      UiFactory.Destroy(Rect.gameObject);
     Rect = null;
   }
 }

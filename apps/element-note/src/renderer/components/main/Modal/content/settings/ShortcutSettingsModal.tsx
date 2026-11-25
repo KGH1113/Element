@@ -288,12 +288,6 @@ const ShortcutSettingsModal = ({
     // 캔버스
     {
       section: 'canvas' as const,
-      key: 'toggleSettingsPanel' as const,
-      label: t('shortcutSetting.toggleSidePanel'),
-      help: t('shortcutSetting.toggleSidePanelHint'),
-    },
-    {
-      section: 'canvas' as const,
       key: 'switchKeyMode' as const,
       label: t('shortcutSetting.switchKeyMode'),
       help: t('shortcutSetting.switchKeyModeHint'),

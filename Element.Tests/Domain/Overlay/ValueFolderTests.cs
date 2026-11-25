@@ -1,0 +1,123 @@
+using System.Collections.Generic;
+using System.Linq;
+using Element.Domain.Overlay.Values;
+using Element.Tests.Support;
+using static Element.Tests.Support.Assert;
+
+namespace Element.Tests.Domain.Overlay;
+
+// The dock's places and its search: a mod is one place however many groups
+// it made, and a value is found by any name a player would call it.
+internal static class ValueFolderTests
+{
+  [Suite("value dock: one place per category and per mod, found by any name")]
+  public static void Run()
+  {
+    OverlayValueCatalog.ForgetExtensions();
+    try
+    {
+      BuiltInCategoriesComeFirst();
+      AModsGroupsShareOnePlace();
+      AWithdrawnModLeavesTheList();
+      ValuesAreFoundByAnyName();
+    }
+    finally
+    {
+      OverlayValueCatalog.ForgetExtensions();
+    }
+  }
+
+  private static void BuiltInCategoriesComeFirst()
+  {
+    List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
+    Check(
+      folders.Select(folder => folder.Category).SequenceEqual(OverlayValueCatalog.Categories),
+      "with no mods, the places are the built-in categories in order"
+    );
+    Check(folders.All(folder => !folder.IsMod && folder.Sections.Count == 1), "a category is one group");
+    Check(
+      folders.Sum(folder => folder.Count) == OverlayValueCatalog.Sections().Sum(section => section.Values.Count),
+      "every value that can be added is in one place"
+    );
+    OverlayValueFolder judgement = folders.Single(folder => folder.Category == OverlayValueCategory.Judgement);
+    Check(
+      judgement.KoreanName == "판정" && judgement.EnglishName == "Judgment" && judgement.Key == "Judgement",
+      "a category is named in both languages and kept by its kind"
+    );
+  }
+
+  private static void AModsGroupsShareOnePlace()
+  {
+    OverlayValueGroup level = new("Tuf", "레벨", "Level", "TUF Overlay"),
+      live = new("Tuf", "실시간", "Live", "TUF Overlay"),
+      hands = new("Hands", "손", "Hands");
+    Register("Tuf/level-id", level, "레벨 ID", "Level ID");
+    Register("Hands/left", hands, "왼손", "Left");
+    Register("Tuf/score", live, "실시간 점수", "Live score");
+    Register("Tuf/speed", live, "배속", "Speed");
+    List<OverlayValueFolder> mods = OverlayValueCatalog.Folders().Where(folder => folder.IsMod).ToList();
+    Check(mods.Count == 2, "two mods are two places, not one per group: " + mods.Count);
+    OverlayValueFolder tuf = mods[0];
+    Check(
+      tuf.Source == "Tuf" && tuf.KoreanName == "TUF Overlay" && tuf.EnglishName == "TUF Overlay",
+      "a mod is named as the mod list names it"
+    );
+    Check(
+      tuf.Sections.Count == 2 && tuf.Sections[0].Group == level && tuf.Sections[1].Group == live && tuf.Count == 3,
+      "its groups stay in the order they arrived, under one place"
+    );
+    Check(mods[1].KoreanName == "Hands" && mods[1].Key == "mod:Hands", "a mod with no name of its own goes by its id");
+  }
+
+  private static void AWithdrawnModLeavesTheList()
+  {
+    OverlayValueCatalog.Withdraw("Hands/left");
+    Check(
+      OverlayValueCatalog.Folders().All(folder => folder.Source != "Hands"),
+      "a mod whose values all went away leaves the list"
+    );
+  }
+
+  private static void ValuesAreFoundByAnyName()
+  {
+    List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
+    Check(
+      OverlayValueSearch.Fold(" X-Acc ") == "xacc" && OverlayValueSearch.Fold("- ·") == "",
+      "case, spaces and marks don't count"
+    );
+    Check(Found(folders, "xacc").SequenceEqual(new[] { "accuracy" }), "an English name, typed loosely");
+    Check(Found(folders, "콤보").SequenceEqual(new[] { "combo" }), "a Korean name");
+    Check(Found(folders, "kps").SequenceEqual(new[] { "kps" }), "a value's key");
+    Check(
+      Found(folders, "판정").Count
+        == OverlayValueCatalog
+          .Sections()
+          .Single(section => section.Category == OverlayValueCategory.Judgement)
+          .Values.Count,
+      "a category's name finds all of it"
+    );
+    Check(Found(folders, "곡 기록").Contains("song-title"), "a category's name with its mark left out");
+    Check(
+      Found(folders, "tuf overlay").SequenceEqual(new[] { "Tuf/level-id", "Tuf/score", "Tuf/speed" }),
+      "a mod's name finds all it adds"
+    );
+    Check(Found(folders, "실시간").SequenceEqual(new[] { "Tuf/score", "Tuf/speed" }), "a group's heading");
+    Check(Found(folders, "").Count == 0 && Found(folders, "zzz").Count == 0, "nothing typed finds nothing");
+  }
+
+  private static List<string> Found(List<OverlayValueFolder> folders, string query)
+  {
+    string folded = OverlayValueSearch.Fold(query);
+    return folders
+      .SelectMany(folder => folder.Sections.SelectMany(section => section.Values).Select(value => (folder, value)))
+      .Where(pair => OverlayValueSearch.Matches(OverlayValueSearch.Index(pair.folder, pair.value), folded))
+      .Select(pair => pair.value.Key)
+      .ToList();
+  }
+
+  private static void Register(string key, OverlayValueGroup group, string korean, string english) =>
+    Check(
+      OverlayValueCatalog.Register(key, group, OverlayValueKind.Number, korean, english, 1, null) != null,
+      "registered " + key
+    );
+}

@@ -101,8 +101,8 @@ impl Default for NoteSettings {
         Self {
             border_radius: None,
             frame_limit: default_note_frame_limit(),
-            speed: 180,
-            track_height: 150,
+            speed: 450,
+            track_height: 300,
             reverse: false,
             fade_position: FadePosition::Auto,
             fade_top_px: 50,

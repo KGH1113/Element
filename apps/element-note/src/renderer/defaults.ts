@@ -119,8 +119,8 @@ function FALLBACK_COUNTER_SETTINGS(): KeyCounterSettings {
 function FALLBACK_NOTE_SETTINGS(): NoteSettings {
   return {
     frameLimit: 0,
-    speed: 180,
-    trackHeight: 150,
+    speed: 450,
+    trackHeight: 300,
     reverse: false,
     fadePosition: 'auto',
     fadeTopPx: 50,
@@ -207,10 +207,11 @@ function FALLBACK_SETTINGS_STATE(): SettingsState {
     useCustomJS: false,
     customJS: { path: null, content: '', plugins: [] },
     overlayResizeAnchor: 'top-left',
-    keyCounterEnabled: false,
+    // Legacy wire field: only each key's counter.enabled controls visibility.
+    keyCounterEnabled: true,
     gridSettings: FALLBACK_GRID_SETTINGS(),
     shortcuts: FALLBACK_SHORTCUTS(),
-    obsModeEnabled: true,
+    obsModeEnabled: false,
     keyLimiterEnabled: true,
     inGameViewersEnabled: true,
   };

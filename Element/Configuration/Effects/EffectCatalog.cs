@@ -1,46 +1,11 @@
-using System;
-
 namespace Element.Configuration.Effects;
-
-public enum EffectGroup
-{
-  Screen,
-  Scene,
-  Track,
-  Planets,
-  Other,
-}
-
-public sealed class EffectDefinition
-{
-  public RemovedEffects Flag { get; }
-  public EffectGroup Group { get; }
-  public string Name { get; }
-  public string NameKo { get; }
-  public string Description { get; }
-  public string DescriptionKo { get; }
-
-  internal EffectDefinition(
-    RemovedEffects flag,
-    EffectGroup group,
-    string name,
-    string nameKo,
-    string description,
-    string descriptionKo
-  )
-  {
-    Flag = flag;
-    Group = group;
-    Name = name;
-    NameKo = nameKo;
-    Description = description;
-    DescriptionKo = descriptionKo;
-  }
-}
 
 public static class EffectCatalog
 {
-  public const RemovedEffects All = (RemovedEffects)((1L << 22) - 1);
+  public const RemovedEffects All = (RemovedEffects)((1L << 23) - 1);
+
+  /// <summary>Removals that change how a map plays. No default preset includes them.</summary>
+  public const RemovedEffects GameplayEffects = RemovedEffects.HitboxDecorations;
   public const RemovedEffects FilterEffects = RemovedEffects.Filters | RemovedEffects.AdvancedFilters;
   public const RemovedEffects TrackEffects =
     RemovedEffects.TrackAnimations
@@ -104,8 +69,16 @@ public static class EffectCatalog
       EffectGroup.Scene,
       "Decorations",
       "장식",
-      "Remove visual decorations; keep those used by gameplay conditions.",
-      "시각 장식을 제거하고 게임플레이 조건에 쓰이는 장식은 유지합니다."
+      "Remove visual decorations; keep hitbox decorations and those used by gameplay conditions.",
+      "시각 장식을 제거하고 히트박스 장식과 게임플레이 조건에 쓰이는 장식은 유지합니다."
+    ),
+    new(
+      RemovedEffects.HitboxDecorations,
+      EffectGroup.Scene,
+      "Hitbox decorations",
+      "히트박스 장식",
+      "Remove decorations with kill or event hitboxes. This changes how the map plays.",
+      "죽음·이벤트 히트박스가 있는 장식을 제거합니다. 맵의 플레이 방식이 달라집니다."
     ),
     new(
       RemovedEffects.Particles,
@@ -120,8 +93,8 @@ public static class EffectCatalog
       EffectGroup.Track,
       "Track animations",
       "타일 등장·퇴장",
-      "Use immediate tile appearance and disappearance.",
-      "타일의 등장·퇴장 애니메이션을 제거합니다."
+      "Ignore the map's mid-song tile animation changes; passed tiles fade out at once.",
+      "맵 중간의 타일 등장·퇴장 변경을 무시하고, 밟은 타일은 바로 사라지게 합니다."
     ),
     new(
       RemovedEffects.TrackMovement,

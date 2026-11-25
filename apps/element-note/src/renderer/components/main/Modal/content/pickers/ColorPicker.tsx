@@ -8,6 +8,7 @@ import {
   type IColor,
 } from 'react-color-palette';
 import 'react-color-palette/css';
+import './ColorPicker.css';
 import FloatingPopup from '../../FloatingPopup';
 import {
   MODES,
@@ -40,9 +41,6 @@ interface ColorPickerWrapperProps {
   onColorChangeComplete?: (color: ColorValue) => void;
   onClose?: () => void;
   solidOnly?: boolean;
-  stateMode?: string;
-  onStateModeChange?:
-    React.Dispatch<React.SetStateAction<string>> | ((mode: string) => void);
   opacityPercent?: number | { top: number; bottom: number };
   onOpacityPercentChange?: (value: number, target: OpacityTarget) => void;
   onOpacityPercentChangeComplete?: (
@@ -86,8 +84,6 @@ const ColorPickerWrapper = ({
   onColorChangeComplete,
   onClose,
   solidOnly = false,
-  stateMode = undefined,
-  onStateModeChange = undefined,
   opacityPercent = undefined,
   onOpacityPercentChange = undefined,
   onOpacityPercentChangeComplete = undefined,
@@ -98,6 +94,7 @@ const ColorPickerWrapper = ({
   offsetY = -80,
   placement = 'right-start',
 }: ColorPickerWrapperProps) => {
+  const { t } = useTranslation();
   const initialMode = solidOnly
     ? MODES.solid
     : isGradientColor(color)
@@ -545,8 +542,6 @@ const ColorPickerWrapper = ({
     y: number;
   } | null>(null);
   const pickerContainerRef = useRef<HTMLDivElement | null>(null);
-  const showStateSwitch =
-    stateMode != null && typeof onStateModeChange === 'function';
 
   const resolvedOpacityPercent: ResolvedOpacity | null = (() => {
     if (typeof opacityPercent === 'number' && Number.isFinite(opacityPercent)) {
@@ -617,12 +612,10 @@ const ColorPickerWrapper = ({
 
         // picker 요소의 실제 크기를 측정하거나 기본값 사용
         const pickerEl = pickerContainerRef.current;
-        const pickerWidth = pickerEl ? pickerEl.offsetWidth : 164;
+        const pickerWidth = pickerEl ? pickerEl.offsetWidth : 240;
         // 솔리드 모드 높이를 기준으로 함
         const solidPickerHeight =
-          (solidOnly ? 280 : 264) +
-          (showStateSwitch ? 31 : 0) +
-          (showOpacityControl ? 36 : 0); // 상태 탭(대기/입력) + 추가 투명도 컨트롤 포함
+          (solidOnly ? 300 : 330) + (showOpacityControl ? 22 : 0);
         const actualPickerHeight = pickerEl
           ? pickerEl.offsetHeight
           : solidPickerHeight;
@@ -657,14 +650,7 @@ const ColorPickerWrapper = ({
     } else {
       setFixedPosition(null);
     }
-  }, [
-    open,
-    panelElement,
-    solidOnly,
-    mode,
-    showStateSwitch,
-    showOpacityControl,
-  ]); // mode/상태탭/추가컨트롤 변경 시에도 재계산 (높이가 변경됨)
+  }, [open, panelElement, solidOnly, mode, showOpacityControl]); // mode/추가컨트롤 변경 시에도 재계산 (높이가 변경됨)
 
   // fixedPosition이 있으면 offsetY를 무시 (이미 정확한 좌표가 계산됨)
   const effectiveOffsetY = fixedPosition ? 0 : offsetY;
@@ -777,18 +763,13 @@ const ColorPickerWrapper = ({
       onClose={handleClose}
       autoClose={false}
       closeOnScroll={false}
+      chooserTitle={t('sidebar.pickColor')}
     >
-      <div
-        ref={pickerContainerRef}
-        className="flex w-[146px] flex-col gap-[8px] p-[8px]"
-      >
-        {showStateSwitch && (
-          <StateSwitch state={stateMode} onChange={onStateModeChange} />
-        )}
+      <div ref={pickerContainerRef} className="en-color">
         {!solidOnly && <ModeSwitch mode={mode} onChange={handleModeSwitch} />}
 
         <Saturation
-          height={92}
+          height={132}
           color={selectedColor}
           onChange={handleChange}
           onChangeComplete={handleChangeComplete}
@@ -993,9 +974,9 @@ function ColorPaletteSection({
   }
 
   return (
-    <div className="flex flex-col gap-[6px] pt-[8px] border-t border-[#2A2A30]">
+    <div className="en-color-recent">
       {/* 솔리드 팔레트 */}
-      <div className="flex gap-[4px] justify-between">
+      <div className="en-color-recent-row">
         {filledSolid.map((color, index) => (
           <PaletteSlot
             key={`solid-${index}`}
@@ -1009,7 +990,7 @@ function ColorPaletteSection({
 
       {/* 그라디언트 팔레트 (solidOnly가 아닐 때만 표시) */}
       {showGradient && (
-        <div className="flex gap-[4px] justify-between">
+        <div className="en-color-recent-row">
           {filledGradient.map((color, index) => (
             <PaletteSlot
               key={`gradient-${index}`}
@@ -1114,49 +1095,13 @@ function PaletteSlot({
   return (
     <button
       type="button"
-      className={`w-[22px] h-[22px] rounded-[7px] border transition-colors ${
-        isEmpty
-          ? 'border-[#3A3943] cursor-default'
-          : 'border-[#3A3943] cursor-pointer'
-      }`}
-      style={getBackgroundStyle()}
+      className="en-color-slot"
+      data-empty={isEmpty || undefined}
+      style={isEmpty ? undefined : getBackgroundStyle()}
       onClick={isEmpty ? undefined : onClick}
       disabled={isEmpty}
       title={getTitle()}
     />
-  );
-}
-
-interface StateSwitchProps {
-  state?: string;
-  onChange?: (mode: string) => void;
-}
-
-function StateSwitch({ state, onChange }: StateSwitchProps) {
-  const { t } = useTranslation();
-  const idleLabel = t('colorPicker.idle') || '대기';
-  const activeLabel = t('colorPicker.active') || '입력';
-
-  return (
-    <div className="flex gap-[6px] max-w-full">
-      {[
-        { key: 'idle', label: idleLabel },
-        { key: 'active', label: activeLabel },
-      ].map((item) => (
-        <button
-          key={item.key}
-          type="button"
-          className={`flex-1 whitespace-nowrap px-[9px] h-[23px] rounded-[7px] text-style-4 text-[#DBDEE8] transition-colors ${
-            state === item.key
-              ? 'bg-[#2E2D33] text-[#FFFFFF]'
-              : 'hover:bg-[#303036] text-[#6F6E7A]'
-          }`}
-          onClick={() => onChange?.(item.key)}
-        >
-          {item.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -1170,7 +1115,7 @@ function ModeSwitch({ mode, onChange }: ModeSwitchProps) {
   const solidLabel = t('colorPicker.solid');
   const gradientLabel = t('colorPicker.gradient');
   return (
-    <div className="flex gap-[6px] max-w-full">
+    <div className="en-color-modes" role="tablist">
       {[
         { key: MODES.solid, label: solidLabel },
         { key: MODES.gradient, label: gradientLabel },
@@ -1178,11 +1123,9 @@ function ModeSwitch({ mode, onChange }: ModeSwitchProps) {
         <button
           key={item.key}
           type="button"
-          className={`flex-1 whitespace-nowrap px-[9px] h-[23px] rounded-[7px] text-style-4 text-[#DBDEE8] transition-colors ${
-            mode === item.key
-              ? 'bg-[#2E2D33] text-[#FFFFFF]'
-              : 'hover:bg-[#303036] text-[#6F6E7A]'
-          }`}
+          role="tab"
+          aria-selected={mode === item.key}
+          className="en-color-mode"
           onClick={() => onChange?.(item.key)}
         >
           {item.label}
@@ -1233,11 +1176,12 @@ const Input = ({
       : previewColor;
 
   return (
-    <div className="flex items-center gap-[6px] w-full">
-      <div className="relative flex-1 min-w-0">
-        <div
-          className="absolute left-[6px] top-[7px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
+    <div className="en-color-fields">
+      <div className="en-color-field">
+        <span
+          className="en-color-chip"
           style={{ background: rgbaPreview }}
+          aria-hidden="true"
         />
         <input
           type="text"
@@ -1249,12 +1193,13 @@ const Input = ({
               onValueCommit?.();
             }
           }}
-          className="pl-[23px] text-left w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] uppercase pt-[1px] leading-[23px]"
+          className="en-color-input"
+          spellCheck={false}
         />
       </div>
 
       {alpha !== undefined && (
-        <div className="w-[36px] flex-shrink-0">
+        <div className="en-color-field" data-kind="percent">
           <input
             type="text"
             inputMode="numeric"
@@ -1272,8 +1217,11 @@ const Input = ({
                 event.currentTarget.blur();
               }
             }}
-            className="px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px]"
+            className="en-color-input"
           />
+          <span className="en-color-unit" aria-hidden="true">
+            %
+          </span>
         </div>
       )}
     </div>
@@ -1316,7 +1264,7 @@ function GradientInputs({
   rightTitle,
 }: GradientInputsProps) {
   return (
-    <div className="flex flex-col gap-[8px]">
+    <div className="en-color-gradient">
       <GradientInput
         label="Top"
         value={topValue}
@@ -1385,8 +1333,8 @@ function GradientInput({
   rightTitle,
 }: GradientInputProps) {
   return (
-    <div className="flex items-center gap-[6px] w-full">
-      <div className="relative flex-1 min-w-0">
+    <div className="en-color-fields">
+      <div className="en-color-field" data-selected={selected || undefined}>
         <div
           role="button"
           tabIndex={0}
@@ -1394,7 +1342,7 @@ function GradientInput({
           onKeyDown={(e: React.KeyboardEvent<HTMLDivElement>) => {
             if (e.key === 'Enter') onSelect?.();
           }}
-          className="absolute left-[6px] top-[7px] w-[11px] h-[11px] rounded-[2px] border border-[#3A3943]"
+          className="en-color-chip"
           style={{
             background: value ? `#${value}` : '#561ecb',
           }}
@@ -1413,15 +1361,16 @@ function GradientInput({
             }
           }}
           placeholder={label}
-          className={`pl-[23px] text-left w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] text-style-4 text-[#DBDEE8] uppercase pt-[1px] leading-[23px] ${
-            selected
-              ? 'border-ui-accent'
-              : 'border-[#3A3943] focus:border-ui-accent'
-          }`}
+          className="en-color-input"
+          spellCheck={false}
         />
       </div>
       {rightValue !== undefined && (
-        <div className="w-[36px] flex-shrink-0">
+        <div
+          className="en-color-field"
+          data-kind="percent"
+          data-selected={rightFocused || undefined}
+        >
           <input
             type="text"
             inputMode="numeric"
@@ -1439,11 +1388,12 @@ function GradientInput({
                 event.currentTarget.blur();
               }
             }}
-            className={`px-[6px] text-center w-full h-[23px] bg-[#2A2A30] rounded-[7px] border-[1px] border-[#3A3943] focus:border-ui-accent text-style-4 text-[#DBDEE8] pt-[1px] leading-[23px] ${
-              rightFocused ? 'border-ui-accent' : ''
-            }`}
+            className="en-color-input"
             title={rightTitle}
           />
+          <span className="en-color-unit" aria-hidden="true">
+            %
+          </span>
         </div>
       )}
     </div>

@@ -17,16 +17,14 @@ use std::{fs, path::PathBuf};
 use tauri::{
     ipc::CapabilityBuilder,
     webview::{NewWindowResponse, PageLoadEvent},
-    LogicalSize, Manager, PhysicalPosition, Position,
+    Manager,
 };
 
 use state::{AppState, AppStore, PANEL_LABEL};
 
 const INTERACTION_BENCHMARK_ENV: &str = "DMN_INTERACTION_WEBVIEW_BENCHMARK";
 
-// 메인 창 논리 크기 - 고정 크기이고, 분리 패널이 이 사각형을 기준으로 옆에 붙는다
-const MAIN_WINDOW_WIDTH: f64 = 902.0;
-const MAIN_WINDOW_HEIGHT: f64 = 488.0;
+pub(crate) mod main_window;
 
 fn is_interaction_benchmark_mode() -> bool {
     std::env::var_os(INTERACTION_BENCHMARK_ENV).is_some()
@@ -69,12 +67,12 @@ pub fn run() {
         request_accessibility_permission();
     }
 
-    if let Err(err) = setup_logging() {
+    let context = tauri::generate_context!();
+    if let Err(err) = setup_logging(&context.config().identifier) {
         eprintln!("Failed to initialize logging: {err}");
     }
 
     let launch = LaunchContext::from_args(std::env::args());
-    let context = tauri::generate_context!();
 
     let builder = tauri::Builder::default()
         .on_page_load(|webview, payload| {
@@ -249,6 +247,7 @@ pub fn run() {
             commands::app::native_viewers::dmnote_native_describe,
             commands::app::system::app_launch_context,
             commands::app::system::window_minimize,
+            commands::app::system::window_toggle_maximize,
             commands::app::system::window_close,
             commands::app::system::window_show_main,
             commands::app::system::app_open_external,
@@ -258,7 +257,7 @@ pub fn run() {
             commands::app::system::app_cancel_editor_flush,
             commands::app::system::window_open_devtools_all,
             commands::app::system::get_cursor_settings,
-            // OBS 모드
+            // OBS 방송 화면 (로컬 키뷰어 서버)
             commands::app::obs::obs_start,
             commands::app::obs::obs_stop,
             commands::app::obs::obs_status,
@@ -315,7 +314,7 @@ pub fn run() {
             commands::keys::keys::keys_reset_mode,
             commands::keys::keys::keys_reset_counters,
             commands::keys::keys::keys_reset_counters_mode,
-            commands::keys::keys::keys_reset_single_counter,
+            commands::keys::keys::keys_set_single_counter,
             commands::keys::keys::keys_set_counters,
             commands::keys::keys::raw_input_subscribe,
             commands::keys::keys::raw_input_unsubscribe,
@@ -399,6 +398,9 @@ pub fn run() {
             commands::preset::save::preset_save_tab,
             commands::preset::load::preset_load,
             commands::preset::load::preset_load_tab,
+            commands::preset::profile::profile_key_viewers_owner,
+            commands::preset::profile::profile_key_viewers_save,
+            commands::preset::profile::profile_key_viewers_swap,
             // 플러그인
             commands::plugin::bridge::plugin_bridge_send,
             commands::plugin::bridge::plugin_bridge_send_to,
@@ -555,7 +557,7 @@ fn read_angle_mode_from_store(path: &PathBuf) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-fn setup_logging() -> Result<()> {
+fn setup_logging(identifier: &str) -> Result<()> {
     // 개발 모드에서는 Debug, 릴리즈에서는 Info
     let level = if cfg!(debug_assertions) {
         LevelFilter::Debug
@@ -563,7 +565,7 @@ fn setup_logging() -> Result<()> {
         LevelFilter::Info
     };
 
-    let _ = fern::Dispatch::new()
+    let mut dispatch = fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
                 "[{level}][{target}] {message}",
@@ -573,9 +575,26 @@ fn setup_logging() -> Result<()> {
             ))
         })
         .level(level)
-        .chain(std::io::stdout())
-        .apply();
+        .chain(std::io::stdout());
+    // A release build on Windows has no console, so the log goes to a file too.
+    match open_log_file(identifier) {
+        Ok(file) => dispatch = dispatch.chain(file),
+        Err(err) => eprintln!("Failed to open the log file: {err}"),
+    }
+    let _ = dispatch.apply();
     Ok(())
+}
+
+/// This launch's log file; the previous launch's stays beside it.
+fn open_log_file(identifier: &str) -> std::io::Result<std::fs::File> {
+    let directory = dirs_next::data_local_dir()
+        .ok_or_else(|| std::io::Error::other("no local data directory"))?
+        .join(identifier)
+        .join("logs");
+    std::fs::create_dir_all(&directory)?;
+    let path = directory.join("element-note.log");
+    let _ = std::fs::rename(&path, directory.join("element-note.previous.log"));
+    std::fs::File::create(path)
 }
 
 // tauri.conf.json의 main 항목(create=false)을 그대로 쓰되 on_new_window를 건다.
@@ -642,18 +661,10 @@ fn configure_main_window(app: &tauri::AppHandle) {
     });
 }
 
-// 메인 창을 놓을 자리 (physical px)
-struct MainWindowPlacement {
-    x: f64,
-    y: f64,
-}
-
 fn apply_main_window_configuration(
     app: &tauri::AppHandle,
     window: tauri::WebviewWindow,
 ) -> Result<()> {
-    let size = LogicalSize::new(MAIN_WINDOW_WIDTH, MAIN_WINDOW_HEIGHT);
-
     if let Err(err) = window.hide() {
         log::debug!("failed to hide main window before configuration: {err}");
     }
@@ -672,60 +683,17 @@ fn apply_main_window_configuration(
             log::warn!("failed to enable decorations: {err}");
         }
     }
-    if let Err(err) = window.set_resizable(false) {
-        log::warn!("failed to disable resizing: {err}");
+    if let Err(err) = window.set_resizable(true) {
+        log::warn!("failed to enable resizing: {err}");
     }
-    if let Err(err) = window.set_maximizable(false) {
-        log::warn!("failed to disable maximize: {err}");
+    if let Err(err) = window.set_maximizable(true) {
+        log::warn!("failed to enable maximize: {err}");
     }
-    if let Err(err) = window.set_min_size(Some(tauri::Size::Logical(size))) {
-        log::warn!("failed to set min size: {err}");
-    }
-    if let Err(err) = window.set_max_size(Some(tauri::Size::Logical(size))) {
-        log::warn!("failed to set max size: {err}");
-    }
-    if let Err(err) = window.set_size(tauri::Size::Logical(size)) {
-        log::warn!("failed to set size: {err}");
+    if let Err(err) = main_window::restore_bounds(app, &window) {
+        log::warn!("failed to restore main window bounds: {err}");
     }
     if let Err(err) = window.set_shadow(true) {
         log::warn!("failed to enable shadow: {err}");
-    }
-
-    let placement = app.primary_monitor().ok().flatten().and_then(|monitor| {
-        let work_area = monitor.work_area();
-        window.outer_size().ok().map(|size| {
-            let width = size.width as f64;
-            let height = size.height as f64;
-            let origin_x = work_area.position.x as f64;
-            let origin_y = work_area.position.y as f64;
-            let available_width = work_area.size.width as f64;
-            let available_height = work_area.size.height as f64;
-
-            let desired_x = origin_x + (available_width - width) / 2.0;
-            let desired_y = origin_y + (available_height - height) / 2.0;
-
-            let max_x = origin_x + (available_width - width).max(0.0);
-            let max_y = origin_y + (available_height - height).max(0.0);
-
-            MainWindowPlacement {
-                x: desired_x.clamp(origin_x, max_x),
-                y: desired_y.clamp(origin_y, max_y),
-            }
-        })
-    });
-
-    if let Some(placement) = placement {
-        if let Err(err) = window.set_position(Position::Physical(PhysicalPosition::new(
-            placement.x.round() as i32,
-            placement.y.round() as i32,
-        ))) {
-            log::warn!("failed to set main window position: {err}");
-            if let Err(err) = window.center() {
-                log::warn!("failed to center window: {err}");
-            }
-        }
-    } else if let Err(err) = window.center() {
-        log::warn!("failed to center window: {err}");
     }
 
     // Windows 접근성 텍스트 크기 설정에 의한 WebView2 스케일링을 보상

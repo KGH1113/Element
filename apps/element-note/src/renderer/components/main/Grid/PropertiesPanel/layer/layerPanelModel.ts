@@ -8,6 +8,7 @@ import type { KeyMappings, KeyPositions } from '@src/types/key/keys';
 import type { StatItemPositions } from '@src/types/key/statItems';
 import type { GraphItemPositions } from '@src/types/key/graphItems';
 import type { KnobItemPositions } from '@src/types/key/knobs';
+import type { SpritePositions } from '@src/types/key/sprites';
 import type { PluginDisplayElementInternal } from '@src/types/plugin/api';
 import type { LayerGroupDef } from '@src/types/layerGroups';
 import type { LayerItem, DisplayItem } from '../types';
@@ -23,6 +24,9 @@ interface BuildLayerItemsParams {
   statPositions: StatItemPositions;
   graphPositions: GraphItemPositions;
   knobPositions: KnobItemPositions;
+  spritePositions: SpritePositions;
+  /** What an image without a name of its own is called. */
+  spriteName: string;
   pluginElements: PluginDisplayElementInternal[];
 }
 
@@ -33,6 +37,8 @@ export function buildLayerItems({
   statPositions,
   graphPositions,
   knobPositions,
+  spritePositions,
+  spriteName,
   pluginElements,
 }: BuildLayerItemsParams): LayerItem[] {
   const items: LayerItem[] = [];
@@ -110,6 +116,18 @@ export function buildLayerItems({
       zIndex: pos.zIndex ?? index,
       hidden: !!pos.hidden,
       groupId: pos.groupId,
+    });
+  });
+
+  (spritePositions[selectedKeyType] || []).forEach((pos, index) => {
+    items.push({
+      type: 'sprite',
+      id: `sprite-${index}`,
+      index,
+      name: pos.layerName || `${spriteName} ${index + 1}`,
+      zIndex: pos.zIndex ?? index,
+      hidden: !!pos.hidden,
+      groupId: pos.groupId ?? undefined,
     });
   });
 

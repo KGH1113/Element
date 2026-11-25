@@ -1,5 +1,4 @@
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
-using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
@@ -15,16 +14,12 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// <summary>
 /// The dock's input method, as large as the keypad and in its place: the
 /// keypad for numbers, a field the keyboard types words into, true or false,
-/// the six comparisons for a condition's operator, a condition's five slots
-/// to go into, a group to go into, a made value's name and variable, or a
-/// word that colors are picked above.
-/// Under each, the row of AC, back and Apply.
+/// the six comparisons for a condition, a made value's name, or a word on
+/// what to do (a condition's slots are on the line, colors are picked above).
+/// Under each, the row of Remove and Apply.
 /// </summary>
 internal sealed class InputMethodView : View<InputDockViewModel>
 {
-  private const float RowHeight = 36,
-    RowGap = 5;
-
   public InputMethodView(InputDockViewModel vm)
     : base(vm) { }
 
@@ -43,12 +38,23 @@ internal sealed class InputMethodView : View<InputDockViewModel>
       DockMethod.Words => Words(),
       DockMethod.Switch => TrueOrFalse(),
       DockMethod.Compare => Compares(),
-      DockMethod.Condition => Slots(),
-      DockMethod.Group => GroupInside(),
-      DockMethod.Custom => CustomInside(),
-      DockMethod.Color => Note(
-        L("색은 위의 색 고르기에서 골라요", "Pick the color in the picker above"),
-        L("하이라이트 색은 왼쪽 '색'에 있어요", "The highlight color is under Colors on the left")
+      DockMethod.Condition => Note(
+        L("조건은 다섯 자리예요", "A condition has five places"),
+        L(
+          "위 줄에서 자리를 눌러 값을 넣어요. 자리마다 들어갈 타입이 써 있어요. 비교 기호를 누르면 여섯 가지 중에 골라요.",
+          "Click a place on the line above to put a value in; each says its type. Click the sign to pick one of six."
+        )
+      ),
+      DockMethod.Group => Note(
+        L("계산은 위 줄에 펼쳐져 있어요", "The calculation is laid out on the line"),
+        L("위 줄에서 조각을 눌러 고쳐요", "Click a piece on the line above to edit it")
+      ),
+      DockMethod.Custom => CustomName(),
+      // The color picker itself stands here, over this place.
+      DockMethod.Color => Spacer().Frame(width: KeypadView.Width, height: KeypadView.MethodHeight),
+      DockMethod.Gradient => Note(
+        L("그라데이션은 위에서 고쳐요", "The gradient is changed above"),
+        L("색을 하나 누르면 그 색과 위치를 고치고, 각도는 미리보기에서 돌려요", "Click a color to change it and where it sits; turn the angle on the preview")
       ),
       _ => new KeypadView(VM.Keypad),
     };
@@ -89,7 +95,13 @@ internal sealed class InputMethodView : View<InputDockViewModel>
 
   private View Choice(string label, bool value) =>
     Button(
-        UI.Text(label).Font(Font.Body.Sized(18)).LineLimit(1).Frame(maxWidth: float.PositiveInfinity, height: 64),
+        // A Hangul syllable with a final consonant reads a little high; a point lower centres it.
+        UI.Text(label)
+          .Font(Font.Body.Sized(18))
+          .LineLimit(1)
+          .TextAlignment(TextAlign.Center)
+          .Padding(new Insets(2, 0, 0, 0))
+          .Frame(maxWidth: float.PositiveInfinity, height: 64, alignment: Alignment.Center),
         () => VM.SetSwitch(value),
         ButtonStyle.Plain
       )
@@ -124,35 +136,8 @@ internal sealed class InputMethodView : View<InputDockViewModel>
       .ButtonStyle(new ButtonSurfaceStyle(() => VM.CompareOn.Value == op ? VM.Lit : VM.Rest, KeypadView.KeyHeight / 2))
       .Named("Key " + op);
 
-  // A condition's five slots as a sentence, top to bottom; a press goes into one.
-  private View Slots() => VStack(spacing: RowGap, Slot(0), Slot(1), Slot(2), Slot(3), Slot(4));
-
-  private View Slot(int slot) =>
-    Button(
-        HStack(
-            spacing: 8,
-            UI.Text(FormulaRefusals.SlotName(slot))
-              .Font(Font.Caption.Sized(12))
-              .Foreground(Colors.Muted)
-              .LineLimit(1)
-              .Frame(width: 100, alignment: Alignment.Leading),
-            UI.Text(() => VM.SlotText[slot].Value).RichText().Font(Font.Caption.Sized(13)).LineLimit(1),
-            Spacer(minLength: 4),
-            Image(ElementIcons.Of(UiIconKind.Forward), 12).Foreground(Colors.Muted)
-          )
-          .Padding(new Insets(0, 10, 0, 8))
-          .Frame(maxWidth: float.PositiveInfinity, height: RowHeight),
-        () => VM.EnterSlot(slot),
-        ButtonStyle.Plain
-      )
-      .ButtonStyle(new ButtonSurfaceStyle(() => VM.SlotEmpty[slot].Value ? VM.Warn : VM.Rest, 9))
-      .Named("Slot " + slot);
-
-  private View GroupInside() =>
-    VStack(spacing: 8, Title(L("묶음은 칸 안의 칸이에요", "A group is a variable inside the variable")), OpenInside());
-
-  // A made value: its name, typed on the keyboard, and its variable to go into.
-  private View CustomInside() =>
+  // A made value: its name, typed on the keyboard; every element shares it.
+  private View CustomName() =>
     VStack(
       spacing: 8,
       Title(L("내 값은 모든 요소가 같이 써요", "Every element shares your values")),
@@ -160,26 +145,10 @@ internal sealed class InputMethodView : View<InputDockViewModel>
         .Font(Font.Body.Sized(16))
         .Frame(maxWidth: float.PositiveInfinity, height: 40)
         .Named("Custom name"),
-      OpenInside()
+      Button(L("안에 든 값 고치기", "Change what it holds"), VM.OpenMade, ButtonStyle.Standard)
+        .Frame(maxWidth: float.PositiveInfinity, height: 36)
+        .Named("Open custom")
     );
-
-  // The variable inside the picked piece, in brief, which a press opens.
-  private View OpenInside() =>
-    Button(
-        HStack(
-            spacing: 8,
-            UI.Text(() => VM.SlotText[0].Value).RichText().Font(Font.Caption.Sized(13)).LineLimit(1),
-            Spacer(minLength: 4),
-            UI.Text(L("안으로", "Open")).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1),
-            Image(ElementIcons.Of(UiIconKind.Forward), 12).Foreground(Colors.Muted)
-          )
-          .Padding(new Insets(0, 10, 0, 8))
-          .Frame(maxWidth: float.PositiveInfinity, height: 48),
-        () => VM.EnterSlot(0),
-        ButtonStyle.Plain
-      )
-      .ButtonStyle(new ButtonSurfaceStyle(() => VM.SlotEmpty[0].Value ? VM.Warn : VM.Rest, 10))
-      .Named("Slot 0");
 
   private static View Note(string title, string body) =>
     VStack(

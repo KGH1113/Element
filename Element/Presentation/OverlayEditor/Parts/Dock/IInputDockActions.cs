@@ -1,10 +1,13 @@
+using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
 /// Everything the input dock asks for, and the only way out of it: a key
-/// typed, AC, Done, a value clicked, and a value let go on its line. The
+/// typed, a piece picked on the line, Remove, Apply, a value clicked, and a
+/// value let go on its line. The
 /// editor that shows the dock answers each one; the dock never changes what
 /// is edited itself, it shows what the editor tells it
 /// (<see cref="InputDockViewModel.Show"/>).
@@ -14,14 +17,12 @@ internal interface IInputDockActions
   /// <summary>A key typed on the keypad: a digit, the point, an operator, a comparison, or '\b' for backspace.</summary>
   void Press(char key);
 
-  /// <summary>A piece of the open variable clicked: it is picked, or let go with a second click.</summary>
-  void Select(int index);
-
-  /// <summary>Into slot <paramref name="slot"/> of the picked condition, or the picked group.</summary>
-  void Enter(int slot);
-
-  /// <summary>Back out of the slot the dock is in.</summary>
-  void Back();
+  /// <summary>
+  /// Something on the line clicked: piece <paramref name="index"/> of the
+  /// variable <paramref name="route"/> leads to, or with -1 that variable
+  /// itself (an empty slot, where a value then goes).
+  /// </summary>
+  void SelectAt(IReadOnlyList<FormulaStep> route, int index);
 
   /// <summary>The keyboard input method typed: the picked words become <paramref name="words"/>.</summary>
   void Words(string words);
@@ -32,24 +33,15 @@ internal interface IInputDockActions
   /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
   void Switch(bool value);
 
-  /// <summary>AC: the formula starts over.</summary>
-  void Clear();
+  /// <summary>The picked value of the player's opens: its inside is on the line, to change.</summary>
+  void OpenMade();
+
+  /// <summary>지우기: the picked value is taken out.</summary>
+  void Remove();
 
   /// <summary>Done: what is typed is kept, and the dock rests.</summary>
   void Done();
 
   /// <summary>A value clicked, or found by the search and picked with Enter.</summary>
   void Pick(OverlayValueDefinition value);
-
-  /// <summary>
-  /// A value started being carried out of the dock: the editor puts away what
-  /// would cover the places it can land, such as a value's name tip.
-  /// </summary>
-  void BeganCarrying();
-
-  /// <summary>
-  /// A value carried from the dock was let go on its formula line: it joins
-  /// the formula, or, words where a number goes, the editor says why not.
-  /// </summary>
-  void DropOnFormula(OverlayValueDefinition value);
 }

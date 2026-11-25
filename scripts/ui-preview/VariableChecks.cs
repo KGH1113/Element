@@ -53,30 +53,30 @@ namespace Element.Editor
         && dock.Vm.Problem.Value.Length > 0, "a new condition shows its five slots, and the dock says which is still empty: " + dock.Vm.Problem.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-condition");
       Press(DockSlot(dock, OverlayPiece.Left));
-      Assert(formulas.Editing.Path.Count == 2 && dock.Vm.Title.Value.Contains("›"), "a slot opens, and the dock's title says where it is: " + dock.Vm.Title.Value);
+      Assert(formulas.Editing.Path.Count == 2 && formulas.Editing.Selected < 0 && dock.Vm.Line.Root.Pieces[0].Slots[OverlayPiece.Left].Targeted,
+        "a slot clicked on the line is where a value goes, lit in place");
       Press(DockChip(dock, "Value combo"));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Compare));
       Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥', "the operator starts as ≥ and shows the six comparisons");
+      Settle();
+      TextMeshProUGUI signs = ByName<TextMeshProUGUI>(dock.Root, "Values rest");
+      Assert(Shown(signs) && signs.text == L("기호는 오른쪽 입력기에서 골라요.", "Pick the sign on the input method at the right.") && DockChips(dock).Length == 0,
+        "the operator's slot lists no values: its sign is picked on the input method");
       SaveFrame(camera, texture, canvases, name + "-variable-compare");
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Right));
       foreach (string key in new[] { "Key 1", "Key 0", "Key 0" })
         Press(DockKey(dock, key));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Result));
       foreach (string key in new[] { "Key 6", "Key 0" })
         Press(DockKey(dock, key));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Default));
       foreach (string key in new[] { "Key 4", "Key 0" })
         Press(DockKey(dock, key));
-      Press(DockKey(dock, "Key back"));
       Settle();
       Assert(formulas.Editing.Problem == null && document.Document[0].SizeFormula == "if({combo};>=;100;60;40)",
         "filled slot by slot, the size takes the condition: " + document.Document[0].SizeFormula);
-      Assert(dock.ResultText.Contains("60") && size.Value == "60",
-        "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Value);
+      Assert(dock.ResultText.Contains("60") && size.Result.Value.Contains("60"),
+        "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
       SaveFrameLarge(camera, canvases, name + "-variable-size-2x");
       document.Undo();
@@ -96,22 +96,21 @@ namespace Element.Editor
       Assert(color.Cases.OnCase && !string.IsNullOrEmpty(picker.Model.WaitNote), "with a condition picked the picker says how to reach a color");
       Press(DockSlot(dock, OverlayPiece.Left));
       Press(DockChip(dock, "Value accuracy"));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Compare));
       Press(DockKey(dock, "Key ="));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Right));
       foreach (string key in new[] { "Key 1", "Key 0", "Key 0" })
         Press(DockKey(dock, key));
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Result));
+      Settle();
+      Assert(dock.Values.Title.Value == L("결과값 자리에 넣을 수 있는 값", "Values for the Result slot") && !DockListed(dock, "Value combo"),
+        "the result's slot names itself and lists colors, not numbers: " + dock.Values.Title.Value);
       Press(DockChip(dock, "Value highlight-color"));
       Settle();
       Call(text, "Render");
       Settle();
       Assert(color.Cases.OnCase && picker.Model.FollowsHighlight && color.Title == ColorCases.CaseTitle,
         "the picker shows the result's color, the highlight color: " + color.Title);
-      Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Default));
       Press(DockChip(dock, "Value custom-color"));
       Settle();
@@ -139,14 +138,14 @@ namespace Element.Editor
       Call(text, "Render");
       Assert(document.Document[0].Color.Formula == colors, "Apply keeps the condition");
 
-      // A color can't go in the text.
+      // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");
       if (picker.Visible)
         picker.Hide();
       Settle();
       int count = document.Document.Count;
-      Press(DockChip(dock, "Value highlight-color"));
-      Assert(document.Document.Count == count && EditorScreen(text).ViewModel.NoticeText.Length > 0, "a color isn't added to the text, and says why");
+      Assert(!DockListed(dock, "Value highlight-color") && !DockListed(dock, "Value custom-color") && DockListed(dock, "Value combo"),
+        "at the caret the list holds no colors");
 
       // A value of the player's, made at the end of the text: filled, renamed, shared.
       document.Anchor = document.Caret = count;
@@ -163,9 +162,11 @@ namespace Element.Editor
       Settle();
       Assert(OverlayCustomValues.TryGet(made, out OverlayVariable inside) && inside.Serialize() == "\" PERFECT\"",
         "the keyboard types its words, and the value keeps them: " + inside?.Serialize());
-      Press(DockKey(dock, "Key back"));
       Settle();
-      Assert(dock.Vm.Method.Value == DockMethod.Custom, "back out, the value shows its name and its inside");
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Custom && formulas.Editing.Path.Count == 1,
+        "Apply goes back to the text, the value picked: its name is changed there");
       ByName<TMP_InputField>(dock.Root, "Custom name").text = korean ? "칭찬" : "Praise";
       Settle();
       Assert(OverlayCustomValues.NameOf(made) == (korean ? "칭찬" : "Praise") && dock.FormulaText.Contains(korean ? "칭찬" : "Praise"),
@@ -191,10 +192,20 @@ namespace Element.Editor
     }
 
     /// <summary>A row of the dock's condition input method, or the row that opens a group or a made value (slot 0).</summary>
+    /// <summary>
+    /// Slot <paramref name="slot"/> of the condition first on the line, as the
+    /// player clicks it: the comparison's sign, an empty slot, or the first
+    /// piece in it.
+    /// </summary>
     private static Pressable DockSlot(DockProbe dock, int slot)
     {
       Settle();
-      return dock.Root.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Slot " + slot);
+      Pressable[] line = dock.Root.GetComponentsInChildren<Pressable>(false);
+      if (slot == OverlayPiece.Compare)
+        return line.Single(button => button.name == "Comparison");
+      string key = ".0," + slot;
+      return line.FirstOrDefault(button => button.name == "Empty slot s" + key)
+        ?? line.First(button => button.name.StartsWith("Piece p" + key + "/"));
     }
 
     // The same frame at twice the pixels, to look at closely.

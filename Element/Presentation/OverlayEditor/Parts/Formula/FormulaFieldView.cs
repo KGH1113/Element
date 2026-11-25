@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using Element.Domain.Overlay.Variables;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -11,23 +13,27 @@ using UnityEngine.UI;
 namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
 /// <summary>
-/// A number beside the preview as it comes out: <c>W 160 px</c>. A number
-/// worked out from a formula reads in the accent; the formula itself is typed
-/// in the input dock, which a click points at it. The pill is the button, so
-/// it lights up exactly where it is drawn. It grows with what it shows, so
+/// A number field (칸) beside the preview, as a pill: the number mark, its
+/// name and what it comes out to, <c># 너비 160 px</c>. A number worked out
+/// from a formula reads in the accent; the formula itself is typed in the
+/// input dock, which a click points at it. The pill is the button, so it
+/// lights up exactly where it is drawn. It grows with what it shows, so
 /// callers lay it out after <see cref="Set"/>.
 /// </summary>
 internal sealed class FormulaFieldView
 {
   public const float Height = 32;
   private const float MinimumBody = 34,
-    MaximumText = 240;
+    MaximumText = 240,
+    MarkSize = 18,
+    MarkWidth = MarkSize + 6;
 
   // Opaque, so the overlay behind never shows through the pill.
   private static readonly Color Rest = UiPalette.Wash(UiPalette.EditorDim, .19f);
   private static readonly Color Hover = UiPalette.Wash(UiPalette.EditorDim, .265f);
 
   private readonly Button _body;
+  private readonly RectTransform _mark;
   private readonly bool _reduceMotion;
   private readonly TextMeshProUGUI _text,
     _unit,
@@ -37,7 +43,6 @@ internal sealed class FormulaFieldView
   private float _textWidth;
   private bool _active;
   private bool _fills;
-  private DropState? _drop;
 
   public FormulaFieldView(
     UiFactory ui,
@@ -52,6 +57,11 @@ internal sealed class FormulaFieldView
     _reduceMotion = reduceMotion;
     _body = UiCapsules.CapsuleButton(ui, parent, name, "", 0, 0, 10, Height, 14, activate, false, reduceMotion);
     Root = (RectTransform)_body.transform;
+    Color ink = TypeMarks.InkColor(OverlayValueType.Number);
+    _mark = ui.Panel("Number mark", Root, 0, 0, MarkSize, MarkSize, new Color(ink.r, ink.g, ink.b, .16f)).rectTransform;
+    TextMeshProUGUI glyph = ui.Text(TypeMarks.Glyph(OverlayValueType.Number), _mark, 0, 0, MarkSize, MarkSize, 12, ink);
+    glyph.alignment = TextAlignmentOptions.Center;
+    glyph.textWrappingMode = TextWrappingModes.NoWrap;
     _prefix = ui.Text(prefix, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _prefix.textWrappingMode = TextWrappingModes.NoWrap;
     _prefixWidth = Measure(_prefix, 5);
@@ -62,7 +72,7 @@ internal sealed class FormulaFieldView
     _unit = ui.Text(unit, Root, 0, 0, 10, Height, 12, UiPalette.Muted);
     _unit.textWrappingMode = TextWrappingModes.NoWrap;
     _unitWidth = Measure(_unit, 3);
-    SetDrop(DropState.None);
+    Paint();
   }
 
   public RectTransform Root { get; }
@@ -93,12 +103,14 @@ internal sealed class FormulaFieldView
       _prefixWidth = Measure(_prefix, 5);
     if (_unitWidth == 0)
       _unitWidth = Measure(_unit, 3);
-    Width = Mathf.Max(MinimumBody, _prefixWidth + _textWidth + _unitWidth + 22);
+    Width = Mathf.Max(MinimumBody, MarkWidth + _prefixWidth + _textWidth + _unitWidth + 22);
     if (_fills)
       LayOutAcross();
     else
     {
-      float left = (Width - _prefixWidth - _textWidth - _unitWidth) * .5f;
+      float left = (Width - MarkWidth - _prefixWidth - _textWidth - _unitWidth) * .5f;
+      UiFactory.Place(_mark, left, (Height - MarkSize) * .5f, MarkSize, MarkSize);
+      left += MarkWidth;
       UiFactory.Place(_prefix.rectTransform, left, 0, _prefixWidth, Height);
       UiFactory.Place(_text.rectTransform, left + _prefixWidth, 0, _textWidth, Height);
       UiFactory.Place(_unit.rectTransform, left + _prefixWidth + _textWidth + 3, 0, _unitWidth, Height);
@@ -119,9 +131,9 @@ internal sealed class FormulaFieldView
   public void Place(float x, float y) => UiFactory.Place(Root, x, y, Width, Height);
 
   /// <summary>
-  /// The pill spans what holds it, whatever size that becomes: what it is
-  /// named on the left (<paramref name="prefix"/>, empty for nothing), the
-  /// number and its unit on the right.
+  /// The pill spans what holds it, whatever size that becomes: its mark and
+  /// what it is named on the left (<paramref name="prefix"/>, empty for
+  /// nothing), the number and its unit on the right.
   /// </summary>
   public void Fill(string prefix)
   {
@@ -147,8 +159,15 @@ internal sealed class FormulaFieldView
   {
     const float inset = 12;
     float room = Root.rect.width - inset * 2 - _prefixWidth - _unitWidth - 3;
+    // In a narrow place the number keeps its room; the mark steps aside.
+    bool marked = room - MarkWidth >= _textWidth;
+    if (_mark.gameObject.activeSelf != marked)
+      _mark.gameObject.SetActive(marked);
+    float markWidth = marked ? MarkWidth : 0;
+    room -= markWidth;
     float text = room > 0 ? Mathf.Min(room, _textWidth) : _textWidth;
-    UiFactory.Place(_prefix.rectTransform, inset, 0, _prefixWidth, Height);
+    UiFactory.Place(_mark, inset, (Height - MarkSize) * .5f, MarkSize, MarkSize);
+    UiFactory.Place(_prefix.rectTransform, inset + markWidth, 0, _prefixWidth, Height);
     FromRight(_unit.rectTransform, inset, _unitWidth);
     FromRight(_text.rectTransform, inset + _unitWidth + 3, text);
   }
@@ -164,14 +183,6 @@ internal sealed class FormulaFieldView
   public static string Number(double value) =>
     double.IsNaN(value) || double.IsInfinity(value) ? "—" : value.ToString("0.#", CultureInfo.InvariantCulture);
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(DropState drop)
-  {
-    if (_drop == drop)
-      return;
-    _drop = drop;
-    Paint();
-  }
 
   public bool Contains(Vector2 screen) => PopoverPlacement.Contains(Root, screen);
 
@@ -185,11 +196,7 @@ internal sealed class FormulaFieldView
   private void Paint()
   {
     Color accent = UiPalette.SoftAccent;
-    Color rest =
-      _drop == DropState.Accepts ? Color.Lerp(Rest, accent, .5f)
-      : _drop == DropState.Refuses ? Color.Lerp(Rest, UiPalette.Error, .4f)
-      : _active ? Color.Lerp(Rest, accent, .38f)
-      : Rest;
+    Color rest = _active ? Color.Lerp(Rest, accent, .38f) : Rest;
     ColorBlock colors = _body.colors;
     colors.normalColor = colors.selectedColor = rest;
     colors.highlightedColor = _active ? Color.Lerp(Rest, accent, .5f) : Hover;

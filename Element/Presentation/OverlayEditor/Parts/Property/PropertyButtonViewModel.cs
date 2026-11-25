@@ -1,3 +1,5 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
+using Element.Domain.Overlay.Variables;
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
@@ -12,8 +14,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Property;
 /// <summary>
 /// One control in an editor's top bar: a button that says what it is and
 /// what it holds, such as <c>● Fill</c> or <c>═ Border width 2 px</c>, and
-/// what a click does. It stays lit while what it opened is open, and lights
-/// up as a place a dragged value can (or can't) land. A switch button shows
+/// what a click does. It stays lit while what it opened is open. A switch button shows
 /// its state in a small switch after the name. The part it belongs to sets
 /// what it shows; <see cref="PropertyButtonView"/> draws it.
 /// </summary>
@@ -21,12 +22,9 @@ internal sealed class PropertyButtonViewModel : ViewModel
 {
   private readonly UiColor _rest,
     _lit,
-    _accepts,
-    _refuses,
     _computed;
   private readonly State<bool> _computedValue = new(false);
   private readonly State<bool> _active = new(false);
-  private readonly State<DropState> _drop = new(DropState.None);
 
   /// <param name="name">Names the drawn button: the bar finds it by this, and so do the checks.</param>
   /// <param name="label">What it is, such as "Fill".</param>
@@ -51,10 +49,12 @@ internal sealed class PropertyButtonViewModel : ViewModel
     bool toggle = false,
     bool opens = false,
     Color? under = null,
-    Action<OverlayValueDefinition> takesValue = null
+    OverlayValueType? field = null,
+    string fieldGlyph = null
   )
   {
-    TakesValue = takesValue;
+    Field = field;
+    FieldGlyph = fieldGlyph;
     Name = name;
     Label = label;
     ShowsValue = value;
@@ -70,15 +70,8 @@ internal sealed class PropertyButtonViewModel : ViewModel
       accent = UiPalette.SoftAccent;
     _rest = rest;
     _lit = Color.Lerp(rest, accent, .3f);
-    _accepts = Color.Lerp(rest, accent, .38f);
-    _refuses = Color.Lerp(rest, UiPalette.Error, .3f);
     _computed = accent;
-    Fill = Computed(() =>
-      _drop.Value == DropState.Accepts ? _accepts
-      : _drop.Value == DropState.Refuses ? _refuses
-      : _active.Value ? _lit
-      : _rest
-    );
+    Fill = Computed(() => _active.Value ? _lit : _rest);
     ValueInk = Computed(() => _computedValue.Value ? _computed : Colors.Foreground);
     Ink = Computed(() => Available.Value ? Colors.Foreground : Colors.Muted);
     Click = Command(click);
@@ -105,6 +98,30 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>Whether a switch follows its name.</summary>
   public readonly bool Toggle;
 
+  /// <summary>
+  /// A field (칸): its type's mark leads the row and what it holds shows as
+  /// chips (<see cref="ShowField(OverlayVariable,string,bool)"/>); null for a plain button.
+  /// </summary>
+  public readonly OverlayValueType? Field;
+
+  /// <summary>Letters leading a field of a kind values don't have, as "Aa" for a font or "⊙" for an anchor.</summary>
+  public readonly string FieldGlyph;
+
+  /// <summary>Whether it is drawn as a field (칸).</summary>
+  public bool IsField => Field.HasValue || FieldGlyph != null;
+
+  /// <summary>
+  /// The heading over this row when it starts a group of the column, as
+  /// "채우기" or "글 전체의 모습"; empty for none.
+  /// </summary>
+  public readonly State<string> Section = new("");
+
+  /// <summary>What the field holds, as chips.</summary>
+  public readonly State<FieldChip[]> Chips = new(Array.Empty<FieldChip>());
+
+  /// <summary>What the field works out to, as "= 120 px"; empty when its chip already says it.</summary>
+  public readonly State<string> Result = new("");
+
   /// <summary>Whether a click opens a tool in the editor's column, as a list or a picker does.</summary>
   public readonly bool Opens;
 
@@ -117,7 +134,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
   /// <summary>The name's and the icon's color: muted while there is nothing for it to act on.</summary>
   public readonly Computed<UiColor> Ink;
 
-  /// <summary>Its fill at rest: lit while what it opened is open, or while a value is dragged over it.</summary>
+  /// <summary>Its fill at rest: lit while what it opened is open.</summary>
   public readonly Computed<UiColor> Fill;
 
   /// <summary>The swatch's color, opaque.</summary>
@@ -134,24 +151,30 @@ internal sealed class PropertyButtonViewModel : ViewModel
 
   public Command Click { get; }
 
-  /// <summary>What it shows after its name.</summary>
-  public string Value => ValueText.Value;
+  /// <summary>What it shows after its name; for a field, what it works out to, or its chips' words.</summary>
+  public string Value => IsField ? FieldText() : ValueText.Value;
 
   /// <summary>The shown value came from a formula.</summary>
-  public bool IsComputed => _computedValue.Value;
+  public bool IsComputed => IsField ? Result.Value.Length > 0 : _computedValue.Value;
+
+  private string FieldText()
+  {
+    string result = Result.Value;
+    if (result.Length > 0)
+      return result.StartsWith("= ") ? result.Substring(2) : result;
+    FieldChip[] chips = Chips.Value;
+    if (chips.Length == 1)
+      return chips[0].Label;
+    System.Text.StringBuilder text = new();
+    foreach (FieldChip chip in chips)
+      text.Append(text.Length > 0 ? " " : "").Append(chip.Label);
+    return text.ToString();
+  }
 
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
 
-  /// <summary>
-  /// A number row a value carried out of the dock can calculate, such as a
-  /// text's size: let go here, the value goes to this action, which also says
-  /// why words can't. Null for a row that takes none.
-  /// </summary>
-  public readonly Action<OverlayValueDefinition> TakesValue;
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public DropState Drop => _drop.Value;
 
   /// <summary>Goes up each time the shown value changes, which changes the button's width.</summary>
   public int Revision { get; private set; }
@@ -174,6 +197,38 @@ internal sealed class PropertyButtonViewModel : ViewModel
   }
 
   /// <summary>
+  /// Shows what a field holds: <paramref name="variable"/>'s pieces as chips
+  /// and, unless one chip already says it, what it works out to
+  /// (<paramref name="result"/>, in its unit). <paramref name="active"/>
+  /// lights the row while the field is open.
+  /// </summary>
+  public void ShowField(OverlayVariable variable, string result, bool active)
+  {
+    Chips.Value = FieldChips.Of(variable, Field ?? OverlayValueType.Any);
+    bool plain =
+      variable != null
+      && variable.Count == 1
+      && variable[0].Kind is not (OverlayPieceKind.Value or OverlayPieceKind.Condition or OverlayPieceKind.Group or OverlayPieceKind.Custom);
+    Result.Value = plain || string.IsNullOrEmpty(result) ? "" : "= " + result;
+    _active.Value = active;
+  }
+
+  /// <summary>Shows one chip as what a field holds, as a font's name or an anchor's point.</summary>
+  public void ShowField(FieldChip chip, bool active) =>
+    ShowField(chip == null ? Array.Empty<FieldChip>() : new[] { chip }, active);
+
+  /// <summary>Shows <paramref name="chips"/> as what a field holds, as a color's.</summary>
+  public void ShowField(FieldChip[] chips, bool active)
+  {
+    Chips.Value = chips ?? Array.Empty<FieldChip>();
+    Result.Value = "";
+    _active.Value = active;
+    // A color field's first chip is its swatch, as the button showed it.
+    if (Chips.Value.Length > 0 && Chips.Value[0].HasSwatch)
+      SetSwatch(Chips.Value[0].Swatch, Chips.Value[0].Gradient);
+  }
+
+  /// <summary>
   /// The switch on, off, or (null) halfway for a selection that mixes both.
   /// Unless <paramref name="available"/>, the button reads muted: there is
   /// nothing for it to act on, and a click only says why.
@@ -192,8 +247,6 @@ internal sealed class PropertyButtonViewModel : ViewModel
     SwatchGradient.Value = gradient;
   }
 
-  /// <summary>Whether a carried value is over it, and whether it can land here.</summary>
-  public void SetDrop(DropState drop) => _drop.Value = drop;
 
   // The swatch's gradient is one object filled again in place: only "none
   // again" is no change.

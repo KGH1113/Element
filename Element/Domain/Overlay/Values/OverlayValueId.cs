@@ -33,6 +33,7 @@ internal enum OverlayValueId
   TimeLabel,
   HighlightColor,
   CustomColor,
+  MakeGradient,
   MakeNumber,
   MakeText,
   MakeBool,

@@ -24,6 +24,7 @@ internal sealed class TextFormulas
 {
   public const string SizeKey = "size",
     OpacityKey = "opacity",
+    GrowKey = "grow",
     PositionKey = "position",
     AngleKey = "angle";
 
@@ -36,6 +37,7 @@ internal sealed class TextFormulas
   private readonly StringBuilder _builder = new(128);
   private TextSize _size;
   private TextColor _color;
+  private TextAnimate _animate;
   private TextGradient _gradient;
   private string _fieldSlot;
 
@@ -70,11 +72,12 @@ internal sealed class TextFormulas
   public int EditedValue => ChipOpen(out int index) ? index : -1;
 
   /// <summary>The numbers the dock can type besides values.</summary>
-  public void Use(TextSize size, TextColor color, TextGradient gradient)
+  public void Use(TextSize size, TextColor color, TextGradient gradient, TextAnimate animate)
   {
     _size = size;
     _color = color;
     _gradient = gradient;
+    _animate = animate;
   }
 
   /// <summary>Nothing open, as when the editor opens.</summary>
@@ -97,6 +100,8 @@ internal sealed class TextFormulas
       return _size.Slot;
     if (_fieldSlot == OpacityKey)
       return _color.OpacitySlot;
+    if (_fieldSlot == GrowKey)
+      return _animate.Slot;
     if (ChipOpen(out int index))
       return ChipSlot(index);
     // With nothing else open, the open color picker's color is what the dock types.
@@ -137,15 +142,25 @@ internal sealed class TextFormulas
   public void Activate(string key)
   {
     bool open = _fieldSlot == key;
+    PutCompactPickerAway();
     _editor.CloseOpen();
     if (!open)
       _fieldSlot = key;
     _editor.Render();
   }
 
+  // A solid color's picker stands where the keypad is: a number or a value
+  // opened in the dock puts it away first, before it takes its numbers with it.
+  private void PutCompactPickerAway()
+  {
+    if (_color.Picker.Visible && _color.Picker.InCompactPlace)
+      _color.Picker.Hide();
+  }
+
   // A click on a value selects it whole and opens its formula beside it; the column's open tool goes on with it.
   public void OpenChip(int index)
   {
+    PutCompactPickerAway();
     _editor.CloseTyping();
     _text.Anchor = index;
     _text.Caret = index + 1;
@@ -184,21 +199,36 @@ internal sealed class TextFormulas
       : ChipOpen(out int chip) ? "value:" + chip
       : _color.CasesOpen ? ColorCases.Key
       : null;
-    string hint =
-      _color.Hint()
-      ?? L(
-        "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
-        "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
-      );
+    string hint = _color.Hint() ?? RestingHint();
     string name =
       _gradient.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
+        : _fieldSlot == GrowKey ? L("바뀔 때 커지기", "Grow on change")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : owner == ColorCases.Key ? _color.OwnTitle
         : L("값", "Value")
       );
     dock.Show(owner, name, DockResult(), hint, _editing.Active ? _editing.Slot.Placeholder() : null);
+  }
+
+  // With nothing open the line says what is picked in the text: the letters
+  // selected, or where the caret is.
+  private string RestingHint()
+  {
+    _text.Range(out int start, out int end);
+    if (start >= end)
+      return L(
+        "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 칸을 누르면 여기서 고쳐요",
+        "Click a value to add it at the caret · Click a value in the text or a field to edit it here"
+      );
+    string letters = _text.Document.PlainText(start, end, _ => "");
+    if (letters.Length > 16)
+      letters = letters.Substring(0, 15) + "…";
+    return L(
+      "고른 글자 “" + letters + "” · 값을 누르면 이 자리를 바꾸고, 칸을 누르면 이 글자만 꾸며요",
+      "Picked “" + letters + "” · A value takes its place; a field styles just these letters"
+    );
   }
 
   // The result of what the dock types, as the text or the field will show it.
@@ -209,7 +239,7 @@ internal sealed class TextFormulas
     if (_editing.Slot.Key == ColorCases.Key)
       return _color.Cases.Result(_values.WithSamples);
     OverlayVariable formula = _editing.Root;
-    if (formula.IsEmpty || _editing.Problem != null)
+    if (formula.IsEmpty || _editing.Problem != null || _fieldSlot == GrowKey)
       return null;
     if (_fieldSlot == null)
     {
@@ -273,14 +303,6 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
-  /// <summary>Starting over is its own undo step.</summary>
-  public void ClearFormula()
-  {
-    _editing.Clear();
-    _text.BreakFormula();
-    _editor.Render();
-  }
-
   /// <summary>Apply: what is open is done, once it fits its field; until then the dock says why not.</summary>
   public void FinishEditing()
   {
@@ -289,6 +311,15 @@ internal sealed class TextFormulas
       _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
       return;
     }
+    // Apply in a value of the player's goes back to where it sits.
+    if (_editing.Active && _editing.LeaveMade())
+    {
+      _editor.Render();
+      return;
+    }
+    // Apply on a color puts its picker away.
+    if (_fieldSlot == null && !ChipOpen(out _) && _color.Picker.Visible)
+      _color.Picker.Hide();
     _editor.CloseOpen();
     _editor.Render();
   }
@@ -301,6 +332,14 @@ internal sealed class TextFormulas
   {
     if (_context.Frame == null)
       return;
+    // 그라데이션 makes the open color a gradient; its stops are then picked in the picker.
+    if (value.Id == OverlayValueId.MakeGradient)
+    {
+      if (_color.CasesOpen)
+        _color.Picker.Gradient.MakeGradient();
+      _editor.Render();
+      return;
+    }
     // A color always goes to the open picker's color, whatever else the dock types.
     if (value.IsColor && _color.CasesOpen && _editing.Slot?.Key != ColorCases.Key)
     {
@@ -352,22 +391,6 @@ internal sealed class TextFormulas
     Sync();
     if (custom)
       _editing.Enter(0);
-  }
-
-  /// <summary>A value dropped on a number opens that number and calculates it with the value.</summary>
-  public void DropOn(string key, OverlayValueDefinition value)
-  {
-    if (!value.IsNumeric)
-    {
-      Refuse(value);
-      return;
-    }
-    if (_fieldSlot != key)
-    {
-      _editor.CloseOpen();
-      _fieldSlot = key;
-    }
-    _editing.Drop(CurrentSlot(), value);
   }
 
   /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>

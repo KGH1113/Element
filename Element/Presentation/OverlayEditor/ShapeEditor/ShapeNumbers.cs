@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
@@ -66,16 +67,12 @@ internal sealed class ShapeNumbers
   /// <summary>The gradient reads and writes its own numbers.</summary>
   public void Use(ShapeGradient gradient) => _gradient = gradient;
 
-  /// <param name="takesValue">A value carried onto the row: it calculates the width with it.</param>
-  public PropertyButtonViewModel BuildStrokeWidth(Action<OverlayValueDefinition> takesValue) =>
+  public PropertyButtonViewModel BuildStrokeWidth() =>
     _strokeWidth = new PropertyButtonViewModel(
       "Border width",
-      L("테두리 두께", "Border width"),
+      L("두께", "Width"),
       () => _editor.Activate(StrokeKey),
-      value: true,
-      unit: "px",
-      icon: UiIconKind.StrokeWidth,
-      takesValue: takesValue
+      field: OverlayValueType.Number
     );
 
   /// <summary>
@@ -259,12 +256,12 @@ internal sealed class ShapeNumbers
     _editor.Render();
   }
 
-  /// <summary>Starting over is its own undo step.</summary>
-  public void ClearFormula()
+  /// <summary>지우기: the picked piece is taken out, a step of its own to undo.</summary>
+  public void Remove()
   {
-    _editing.Clear();
     _history.Break();
-    _editor.Render();
+    _editing.Remove();
+    _history.Break();
   }
 
   public void FinishEditing()
@@ -272,6 +269,12 @@ internal sealed class ShapeNumbers
     if (_editing.Active && _editing.Problem != null)
     {
       _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
+      return;
+    }
+    // Apply in a value of the player's goes back to where it sits.
+    if (_editing.Active && _editing.LeaveMade())
+    {
+      _editor.Render();
       return;
     }
     _editor.CloseOpen();
@@ -341,7 +344,10 @@ internal sealed class ShapeNumbers
   public void ShowStrokeWidth()
   {
     OverlayVariable stroke = Shown(StrokeKey);
-    bool computed = !stroke.IsEmpty && !stroke.IsPlainNumber(out _);
-    _strokeWidth.Set(stroke.IsEmpty ? "—" : FormulaFieldView.Number(Result(stroke)), computed, Field == StrokeKey);
+    _strokeWidth.ShowField(
+      stroke,
+      stroke.IsEmpty ? "" : FormulaFieldView.Number(Result(stroke)) + " px",
+      Field == StrokeKey
+    );
   }
 }

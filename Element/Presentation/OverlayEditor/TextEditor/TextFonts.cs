@@ -1,3 +1,5 @@
+using Element.Domain.Overlay.Variables;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Configuration.Overlay;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.OverlayEditor.Parts;
@@ -58,9 +60,8 @@ internal sealed class TextFonts
       "Text font",
       L("폰트", "Font"),
       ToggleFont,
-      value: true,
-      icon: UiIconKind.Font,
-      opens: true
+      opens: true,
+      fieldGlyph: "Aa"
     );
 
   public void Build(EditorFramePanel screen, OverlayFonts fonts, bool reduceMotion)
@@ -125,7 +126,8 @@ internal sealed class TextFonts
   }
 
   /// <summary>The bar names the range's font, lit while the list is open.</summary>
-  public void ShowButton() => _fontButton.Set(FontLabel(), false, _fontPopover.Visible);
+  public void ShowButton() =>
+    _fontButton.ShowField(new FieldChip("font", FontLabel(), OverlayValueType.Any) { Bare = true }, _fontPopover.Visible);
 
   private string FontLabel()
   {

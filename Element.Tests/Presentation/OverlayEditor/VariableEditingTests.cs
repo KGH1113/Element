@@ -46,12 +46,27 @@ internal static class VariableEditingTests
     Check(!editing.CanPress('.') && editing.Press('5') && saved[0].Serialize() == "405*2.5", "one point per number");
     editing.Backspace();
     editing.Backspace();
+    Check(saved[0].Serialize() == "405*2", "backspace takes digits: " + saved[0].Serialize());
     editing.Backspace();
-    Check(
-      saved[0].Serialize() == "405*2" || saved[0].Serialize() == "405",
-      "backspace takes digits, then pieces: " + saved[0].Serialize()
-    );
+    Check(saved[0].Serialize() == "405*0" && editing.SelectedPiece?.Text == "0", "its last digit leaves 0");
+    editing.Backspace();
+    Check(saved[0].Serialize() == "405", "and 0 goes with its operator, so it still calculates");
     Check(!editing.CanPress('≥'), "comparisons only go in a condition's operator");
+
+    // An operator brings the number after it, picked, so nothing ends in an operator.
+    editing.Press('+');
+    Check(
+      editing.Root.Serialize() == "405+0" && editing.SelectedPiece?.Text == "0" && editing.Problem == null,
+      "+ brings its 0, picked: " + editing.Root.Serialize()
+    );
+    editing.Press('7');
+    Check(saved[0].Serialize() == "405+7", "a digit types over that 0");
+    editing.SelectAt(null, 1);
+    Check(
+      editing.SelectedPiece?.Kind == OverlayPieceKind.Operator && editing.Remove(),
+      "a picked operator can be removed"
+    );
+    Check(saved[0].Serialize() == "405", "and it takes the number it joined: " + saved[0].Serialize());
   }
 
   private static void ValuesGoInPlace()
@@ -81,20 +96,25 @@ internal static class VariableEditingTests
       saved[0].Serialize() == "40" && editing.Problem?.Slot == OverlayPiece.Left,
       "an unfinished condition isn't taken: the field keeps 40, and the dock says which slot is empty"
     );
-    editing.Enter(OverlayPiece.Left);
-    Check(editing.Path.Count == 2 && editing.Kind == OverlayValueType.Number, "a slot opens as a number variable");
+    // Every slot is laid out on the line: a click picks it straight away.
+    FormulaStep[] Into(int slot) => new[] { new FormulaStep(0, slot) };
+    editing.SelectAt(Into(OverlayPiece.Left), -1);
+    Check(editing.Path.Count == 2 && editing.Kind == OverlayValueType.Number, "a slot is picked as a number variable");
     editing.Drop(editing.Slot, OverlayValueCatalog.Get(OverlayValueId.Combo));
-    editing.Back();
-    Check(editing.SelectedPiece?.Kind == OverlayPieceKind.Condition, "back out, the condition is picked again");
-    editing.Enter(OverlayPiece.Compare);
+    editing.SelectAt(null, 0);
+    Check(
+      editing.Path.Count == 1 && editing.SelectedPiece?.Kind == OverlayPieceKind.Condition,
+      "the condition itself is a click away too"
+    );
+    editing.SelectAt(Into(OverlayPiece.Compare), 0);
     Check(
       editing.Kind == OverlayValueType.Compare
         && editing.Working[0].Op == '≥'
         && editing.Press('>')
-        && editing.Press('≥'),
-      "the operator starts as ≥ and takes another comparison"
+        && editing.Press('≥')
+        && !editing.CanRemove,
+      "the comparison starts as ≥, takes another, and is chosen rather than removed"
     );
-    editing.Back();
     foreach (
       (int slot, string typed) in new[]
       {
@@ -104,10 +124,9 @@ internal static class VariableEditingTests
       }
     )
     {
-      editing.Enter(slot);
+      editing.SelectAt(Into(slot), -1);
       foreach (char key in typed)
         editing.Press(key);
-      editing.Back();
     }
     Check(
       editing.Problem == null && saved[0].Serialize() == "if({combo};>=;100;60;40)",
@@ -150,7 +169,12 @@ internal static class VariableEditingTests
         "what fits is kept with the settings: " + settings.OverlayCustomValues[0].Variable
       );
       Check(editing.Problem == null && saved[0].Serialize() == "{@" + key + "}", "and the field takes the value");
-      editing.Back();
+      editing.SelectAt(null, 0);
+      Check(editing.LineBase == 1 && editing.Path.Count == 2, "picking on the line stays inside the open value");
+      Check(
+        editing.LeaveMade() && editing.Path.Count == 1 && editing.SelectedPiece?.Kind == OverlayPieceKind.Custom,
+        "Apply goes back to where the value sits, the value picked"
+      );
       editing.Rename("콤보 두 배");
       Check(
         OverlayCustomValues.NameOf(key) == "콤보 두 배" && settings.OverlayCustomValues[0].Name == "콤보 두 배",
@@ -160,8 +184,11 @@ internal static class VariableEditingTests
       Check(!color.CanDrop(Mine(key)), "a number value doesn't fit a color");
       System.Collections.Generic.List<Element.Configuration.Overlay.OverlayCustomValueSettings> before = book.Copy();
       editing.Enter(0);
-      editing.Clear();
-      Check(settings.OverlayCustomValues[0].Variable == "{combo}*2", "an empty value keeps what it had");
+      while (editing.Working.Count > 0 && editing.Remove()) { }
+      Check(
+        settings.OverlayCustomValues[0].Variable == "combo",
+        "an emptied value keeps the last thing that fit: " + settings.OverlayCustomValues[0].Variable
+      );
       editing.Press('7');
       book.Restore(before);
       Check(settings.OverlayCustomValues[0].Variable == "{combo}*2", "Cancel puts the made values back");

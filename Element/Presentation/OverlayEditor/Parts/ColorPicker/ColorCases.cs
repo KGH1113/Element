@@ -165,10 +165,11 @@ internal sealed class ColorCases
       OverlayTextComposer.Cases(color),
       out _
     );
-    return InputDockViewModel.Swatch(Builder.Clear(), shown).ToString().TrimEnd();
+    // The line shows it as its swatch beside its code.
+    return "#" + ColorUtility.ToHtmlStringRGB(shown);
   }
 
-  // The color as a variable: its own pieces, or its plain color as one piece; nothing for a gradient.
+  // The color as a variable: its own pieces, or its plain color as one piece; a gradient reads as 그라데이션.
   private OverlayVariable Read()
   {
     OverlayColorSettings color = _color();
@@ -177,7 +178,7 @@ internal sealed class ColorCases
     if (!string.IsNullOrEmpty(color.Formula))
       return OverlayVariable.Parse(color.Formula);
     if (color.IsGradient)
-      return new OverlayVariable();
+      return new OverlayVariable(OverlayPiece.ValuePiece(OverlayValueId.MakeGradient));
     return new OverlayVariable(
       color.Highlight ? OverlayPiece.ValuePiece(OverlayValueId.HighlightColor) : OverlayPiece.ColorPiece(color.Hex)
     );
@@ -186,6 +187,9 @@ internal sealed class ColorCases
   // One color piece is the plain color again; anything more keeps the plain color underneath.
   private void Write(OverlayVariable variable)
   {
+    // 그라데이션 as it reads: the gradient itself is changed in the picker.
+    if (variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Value && variable[0].Value == OverlayValueId.MakeGradient)
+      return;
     OverlayColorSettings color = (_color() ?? new OverlayColorSettings()).Clone();
     if (variable.Count == 1 && IsColor(variable[0]))
     {

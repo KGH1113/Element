@@ -12,6 +12,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using NVector2 = System.Numerics.Vector2;
 
+using static Element.Presentation.Ui.Theme.UiLocale;
+
 namespace Element.Presentation.OverlayEditor.Parts.Gradient;
 
 /// <summary>
@@ -103,7 +105,7 @@ internal sealed class GradientHandles
     UiCursor.Attach(line.gameObject, UiCursorKind.Pointer);
     for (int i = 0; i < 3; i++)
       _grips[i] = new Grip(ui, _root, i, this);
-    Angle = new FormulaFieldView(ui, _root, "Gradient angle", "°", activateAngle, reduceMotion);
+    Angle = new FormulaFieldView(ui, _root, "Gradient angle", "°", activateAngle, reduceMotion, L("각도", "Angle"));
     _root.gameObject.SetActive(false);
   }
 

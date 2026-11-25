@@ -57,29 +57,29 @@ namespace Element.Editor
       Call(ShapeColorsOf(shapes), "Open", false);
       UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       GradientHandles handles = ShapeGradientOf(shapes).Handles;
-      Assert(picker.Visible && picker.GradientAvailable && !picker.Gradient.IsGradient && !handles.Visible,
-        "the fill picker has a color bar and starts solid, with no handles");
+      Assert(picker.Visible && picker.InCompactPlace && !picker.Gradient.IsGradient && !handles.Visible,
+        "the fill starts solid, picked in the keypad's place, with no handles");
       RectTransform bar = Field<RectTransform>(picker.Gradient, "_bar");
       Settle();
-      // The one shown: each of the picker's two layouts keeps its own.
-      Pressable makeGradient() => picker.Root.GetComponentsInChildren<Pressable>(false).FirstOrDefault(button => button.name == "Make gradient");
       Assert(!bar.gameObject.activeInHierarchy, "a solid color has no color bar: " + PathOf(bar));
-      Assert(makeGradient() != null, "only the button that makes it a gradient");
+      Assert(picker.Root.GetComponentsInChildren<Pressable>(false).All(button => button.name != "Make gradient"),
+        "no button makes a gradient: 그라데이션 is a value in the color's list");
 
-      // A new shape follows the highlight; a custom color shows the whole picker.
+      // A new shape follows the highlight; a custom color shows the square.
       picker.Model.SetSource(false);
       Settle();
-      Rect solidPicker = ScreenRectOf(picker.Root);
       SaveFrame(camera, texture, canvases, name + "-gradient-hover");
 
-      // The button makes a gradient whose new color shows at once.
-      Press(makeGradient());
+      // 그라데이션 picked from the list makes a gradient whose new color shows at once.
+      DockProbe dock0 = DockOf(shapes);
+      Press(DockChip(dock0, "Value make-gradient"));
+      Settle();
+      Call(shapes, "Render");
       Settle();
       OverlayColorSettings fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.Gradient.IsGradient && picker.Gradient.SelectedStop == 1
-        && bar.gameObject.activeInHierarchy && makeGradient() == null,
-        "the button makes a gradient, picks its new color and gives way to the bar");
-      Assert(ScreenRectOf(picker.Root) == solidPicker, "turning into a gradient keeps the picker in place");
+        && bar.gameObject.activeInHierarchy && !picker.InCompactPlace && picker.GradientAvailable,
+        "그라데이션 makes a gradient, picks its new color and opens the gradient's bigger tool with its bar");
       Invoke(picker.Gradient, "BarDown", Pointer(BarPoint(bar, 1)));
       Invoke(picker.Gradient, "BarDrag", Pointer(BarPoint(bar, .7f)));
       Settle();
@@ -89,7 +89,6 @@ namespace Element.Editor
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
       Assert(Field<RectTransform>(picker.Gradient, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
-      DockProbe dock0 = DockOf(shapes);
       FormulaFieldView position = ShapeGradientOf(shapes).Position;
       Assert(position.Text == "70", "the picked color's position number says where it is: " + position.Text);
       Rect numberRect = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
@@ -250,12 +249,14 @@ namespace Element.Editor
       textPicker.Model.SetSource(false);
       Settle();
       RectTransform textBar = Field<RectTransform>(textPicker.Gradient, "_bar");
-      Invoke(textPicker.Gradient, "BarDown", Pointer(BarPoint(textBar, 1)));
-      Invoke(textPicker.Gradient, "BarDrag", Pointer(BarPoint(textBar, 1)));
+      Press(DockChip(DockOf(text), "Value make-gradient"));
+      Settle();
+      Call(text, "Render");
       Settle();
       OverlayColorSettings range = TextDocumentOf(text).RangeColor();
       GradientHandles textHandles = Field<TextGradient>(text, "_gradient").Handles;
-      Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
+      Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible && textBar.gameObject.activeInHierarchy,
+        "그라데이션 from the list makes the text a gradient, with its bar and handles over the text");
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Assert(OverlayTextGradients.Box(preview.textInfo, out Rect box) && box.width > 0, "the handles measure the text's box");
       Rect textRect = ScreenRectOf(preview.rectTransform);

@@ -11,9 +11,11 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// <summary>
 /// One place in the dock's list (a built-in category, or everything one mod
 /// adds) and the page it opens: its values, in a row per group under the
-/// group's heading when a mod made several. It is lit while open, and
-/// dimmed while a search shows instead. "My values" changes while the dock
-/// is open (<see cref="Reload"/>).
+/// group's heading when a mod made several. Only the values that fit where
+/// the dock puts values now are listed and counted, and a place none of
+/// whose values fit is not listed at all (<see cref="Fit"/>). It is lit while
+/// open, and dimmed while a search shows instead. "My values" changes while
+/// the dock is open (<see cref="Reload"/>).
 /// </summary>
 internal sealed class ValueFolderViewModel : ViewModel
 {
@@ -51,7 +53,6 @@ internal sealed class ValueFolderViewModel : ViewModel
 
   private void TakeValues(OverlayValueFolder folder)
   {
-    Count.Value = folder.Count.ToString(CultureInfo.InvariantCulture);
     List<ValueChipRow> groups = new();
     List<ValueChipViewModel> all = new();
     foreach (OverlayValueSection section in folder.Sections)
@@ -84,8 +85,11 @@ internal sealed class ValueFolderViewModel : ViewModel
 
   public readonly string Name;
 
-  /// <summary>How many values it holds.</summary>
+  /// <summary>How many of its values fit where the dock puts values now.</summary>
   public readonly State<string> Count = new("");
+
+  /// <summary>Some of its values fit: it is listed.</summary>
+  public readonly State<bool> Shown = new(true);
 
   /// <summary>Goes up when its values were taken again: its page and search rows are drawn anew.</summary>
   public readonly State<int> Version = new(0);
@@ -121,13 +125,38 @@ internal sealed class ValueFolderViewModel : ViewModel
     Ink.Value = open && !searching ? UiPalette.Foreground : RestInk;
   }
 
-  /// <summary>Marks the values <paramref name="folded"/> finds (none for empty); how many it found.</summary>
+  /// <summary>
+  /// Keeps the values that fit <paramref name="place"/> listed, and their
+  /// rows; it is listed while one does. How many don't fit.
+  /// </summary>
+  public int Fit(ValuePlace place)
+  {
+    int fits = 0;
+    foreach (ValueChipRow row in Groups)
+    {
+      bool any = false;
+      foreach (ValueChipViewModel chip in row.Chips)
+      {
+        bool fit = place.Fits(chip.Value);
+        chip.Fits.Value = fit;
+        any |= fit;
+        if (fit)
+          fits++;
+      }
+      row.Shown.Value = any;
+    }
+    Count.Value = fits.ToString(CultureInfo.InvariantCulture);
+    Shown.Value = fits > 0;
+    return Chips.Count - fits;
+  }
+
+  /// <summary>Marks the values that fit and <paramref name="folded"/> finds (none for empty); how many it found.</summary>
   public int Find(string folded)
   {
     int found = 0;
     foreach (ValueChipViewModel chip in Chips)
     {
-      bool match = OverlayValueSearch.Matches(chip.Index, folded);
+      bool match = chip.Fits.Value && OverlayValueSearch.Matches(chip.Index, folded);
       chip.Found.Value = match;
       if (match)
         found++;

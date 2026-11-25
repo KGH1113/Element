@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using System;
 using Element.Configuration.Overlay;
 using Element.Presentation.OverlayEditor.Parts.Dock;
@@ -68,13 +69,24 @@ internal sealed class ColorPickerPanel
   public void BuildOpacity(UiFactory ui, Action activate) =>
     Opacity = new OpacityFieldView(ui, Picker, activate, _reduceMotion());
 
-  /// <summary>The color picker opens right above the keypad, in its column.</summary>
-  public void LayOutAbove(InputDockPanel dock) => Picker.LayOutAsColumn(dock.KeypadArea.width);
+  /// <summary>
+  /// A solid color is picked in the keypad's place, like any value's input
+  /// method; a gradient's bigger tool opens right above the keypad, in its column.
+  /// </summary>
+  public void LayOutAbove(InputDockPanel dock)
+  {
+    Picker.LayOutAsColumn(dock.KeypadArea.width);
+    Picker.UseCompact(KeypadView.Width, KeypadView.MethodHeight);
+  }
 
   /// <summary>In the property column from <paramref name="top"/> (frame units), above the keypad.</summary>
   public void Place(InputDockPanel dock, float top)
   {
-    if (dock != null)
+    if (dock == null)
+      return;
+    if (Picker.InCompactPlace)
+      ColorPickerPlacement.PlaceOnKeypad(Picker, dock);
+    else
       ColorPickerPlacement.Place(Picker, dock, top);
   }
 

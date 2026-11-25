@@ -9,11 +9,10 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
 /// Large keys for a number: 0–9, a point, + − × ÷ and backspace, then the
-/// row every input method shares: AC to empty what is open, back out of a
-/// slot, and Apply. A key that would do nothing can't be pressed and reads
-/// dimmed; each key follows the variable by itself. A pressed key goes up as
-/// the dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/>
-/// draws it.
+/// row every input method shares: Remove (지우기) takes the picked value out,
+/// and Apply. A key that would do nothing can't be pressed and reads dimmed;
+/// each key follows the variable by itself. A pressed key goes up as the
+/// dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/> draws it.
 /// </summary>
 internal sealed class KeypadViewModel : ViewModel
 {
@@ -38,7 +37,7 @@ internal sealed class KeypadViewModel : ViewModel
     ("+", '+'),
   };
 
-  /// <param name="actions">Where a pressed key, AC, back and Apply go.</param>
+  /// <param name="actions">Where a pressed key, Remove and Apply go.</param>
   /// <param name="editing">The variable open: what it can take next lets a key be pressed.</param>
   public KeypadViewModel(IInputDockActions actions, FormulaEditing editing)
   {
@@ -60,9 +59,8 @@ internal sealed class KeypadViewModel : ViewModel
       );
     }
     Keys = keys;
-    Clear = Own(new KeypadKeyViewModel("Key clear", "AC", '\0', false, actions.Clear, () => editing.CanClear));
-    Back = Own(
-      new KeypadKeyViewModel("Key back", L("위로", "Back"), '\0', false, actions.Back, () => editing.Path.Count > 1)
+    Remove = Own(
+      new KeypadKeyViewModel("Key remove", L("지우기", "Remove"), '\0', false, actions.Remove, () => editing.CanRemove)
     );
     Done = Own(new KeypadKeyViewModel("Key done", L("적용", "Apply"), '\0', false, actions.Done, () => editing.Active));
   }
@@ -70,11 +68,8 @@ internal sealed class KeypadViewModel : ViewModel
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>
   public readonly IReadOnlyList<KeypadKeyViewModel> Keys;
 
-  /// <summary>AC: empties what is open; nothing is kept until it fits again.</summary>
-  public readonly KeypadKeyViewModel Clear;
-
-  /// <summary>Back out of a condition's slot or a group.</summary>
-  public readonly KeypadKeyViewModel Back;
+  /// <summary>지우기: the picked value goes, an operator with the number it joined.</summary>
+  public readonly KeypadKeyViewModel Remove;
 
   /// <summary>Apply: the way out of the dock, once what is open fits its field.</summary>
   public readonly KeypadKeyViewModel Done;

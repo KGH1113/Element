@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
@@ -76,6 +77,28 @@ internal sealed class FormulaEditing : Observable
       Reading();
       return _path;
     }
+  }
+
+  /// <summary>
+  /// Where the dock's line starts on <see cref="Path"/>: the innermost value
+  /// of the player's that is open, whose inside the line then shows, or 0
+  /// for the field.
+  /// </summary>
+  public int LineBase
+  {
+    get
+    {
+      Reading();
+      return MadeDepth();
+    }
+  }
+
+  private int MadeDepth()
+  {
+    for (int i = _path.Count - 1; i > 0; i--)
+      if (_path[i].Custom != null)
+        return i;
+    return 0;
   }
 
   /// <summary>What the innermost open variable must give.</summary>
@@ -193,6 +216,44 @@ internal sealed class FormulaEditing : Observable
   {
     if (!CanEnter(slot))
       return;
+    Open(slot);
+    Changed();
+  }
+
+  /// <summary>
+  /// Picks piece <paramref name="index"/> of the variable <paramref name="route"/>
+  /// leads to, from the field's, in one go: every condition's slot is laid out
+  /// on the line, so any of them is a click away. -1 picks the variable
+  /// itself, where a value then goes in at its end.
+  /// </summary>
+  public void SelectAt(IReadOnlyList<FormulaStep> route, int index)
+  {
+    if (_path.Count == 0)
+      return;
+    // The route starts where the line does: inside an open value of the player's.
+    int floor = MadeDepth();
+    while (_path.Count > floor + 1)
+      _path.RemoveAt(_path.Count - 1);
+    if (route != null)
+      foreach (FormulaStep step in route)
+      {
+        OverlayVariable here = _path[_path.Count - 1].Variable;
+        if (step.Piece < 0 || step.Piece >= here.Count || here[step.Piece].Kind == OverlayPieceKind.Custom)
+          break;
+        _selected = step.Piece;
+        if (!CanEnter(step.Slot))
+          break;
+        Open(step.Slot);
+      }
+    OverlayVariable working = _path[_path.Count - 1].Variable;
+    _selected = index >= 0 && index < working.Count ? index : -1;
+    _problem = Check();
+    Changed();
+  }
+
+  // Goes one variable in, without telling the readers yet.
+  private void Open(int slot)
+  {
     OverlayPiece piece = SelectedPiece;
     if (piece.Kind == OverlayPieceKind.Custom)
     {
@@ -208,7 +269,6 @@ internal sealed class FormulaEditing : Observable
       );
       _selected = copy.Count - 1;
       _problem = Check();
-      Changed();
       return;
     }
     OverlayValueType around = NeededAt(_selected, replacing: true);
@@ -222,7 +282,6 @@ internal sealed class FormulaEditing : Observable
     OverlayVariable inner = piece.Slots[slot];
     _path.Add(new FormulaFrame(inner, type, slot, mayBeEmpty, piece) { Outer = _selected });
     _selected = inner.Count - 1;
-    Changed();
   }
 
   /// <summary>The picked made value is called <paramref name="name"/>, in every element.</summary>
@@ -255,6 +314,19 @@ internal sealed class FormulaEditing : Observable
     // A made value left as it can't be keeps what it gave before.
     _problem = Check();
     Changed();
+    return true;
+  }
+
+  /// <summary>
+  /// Leaves the open value of the player's, the value picked again where it
+  /// sits; false when none is open.
+  /// </summary>
+  public bool LeaveMade()
+  {
+    int made = MadeDepth();
+    if (made == 0)
+      return false;
+    BackTo(made - 1);
     return true;
   }
 
@@ -296,7 +368,7 @@ internal sealed class FormulaEditing : Observable
     if (picked == null && working.Count == 0)
       return op == '-';
     if (picked != null && picked.Kind == OverlayPieceKind.Operator)
-      return picked.Op != op || op == '-';
+      return picked.Op != op;
     OverlayPiece before = picked ?? working.Last;
     // A lone "-" needs its digits first; words and colors can't be calculated with.
     if (before == null || (before.Kind == OverlayPieceKind.Number && !before.HasNumber))
@@ -335,12 +407,9 @@ internal sealed class FormulaEditing : Observable
       return true;
     }
     char op = OverlayVariable.NormalizeOperator(key);
-    if (
-      (picked == null && working.Count == 0)
-      || (picked != null && picked.Kind == OverlayPieceKind.Operator && op == '-' && picked.Op != '-')
-    )
+    if (picked == null && working.Count == 0)
     {
-      // A leading minus, or one right after an operator, starts a negative number.
+      // A leading minus starts a negative number.
       InsertAfter(OverlayPiece.NumberPiece("-"));
       Commit();
       return true;
@@ -348,42 +417,82 @@ internal sealed class FormulaEditing : Observable
     if (picked != null && picked.Kind == OverlayPieceKind.Operator)
       picked.Op = op;
     else
-      InsertAfter(OverlayPiece.OperatorPiece(op));
-    Commit();
-    return true;
-  }
-
-  public bool CanBackspace => Active && Working.Count > 0;
-
-  /// <summary>Removes the picked number's last digit, or the picked piece (the last one with none picked).</summary>
-  public bool Backspace()
-  {
-    if (!CanBackspace)
-      return false;
-    OverlayVariable working = Working;
-    int index = _selected >= 0 ? _selected : working.Count - 1;
-    OverlayPiece piece = working[index];
-    if (piece.Kind == OverlayPieceKind.Number && piece.Text.Length > 1)
-      piece.Text = piece.Text.Substring(0, piece.Text.Length - 1);
-    else
     {
-      working.RemoveAt(index);
-      _selected = working.Count == 0 ? -1 : System.Math.Max(0, index - 1);
+      // An operator brings the number after it, picked to be typed over, so
+      // a calculation never ends in an operator.
+      InsertAfter(OverlayPiece.OperatorPiece(op));
+      InsertAfter(OverlayPiece.NumberPiece("0"));
     }
     Commit();
     return true;
   }
 
-  public bool CanClear => Active && Working.Count > 0;
+  public bool CanBackspace => Active && SelectedPiece is { Kind: OverlayPieceKind.Number };
 
-  /// <summary>Empties the innermost open variable.</summary>
-  public void Clear()
+  /// <summary>
+  /// Takes the picked number's last digit away: its last digit leaves 0, and
+  /// 0 goes with the number (<see cref="Remove"/>).
+  /// </summary>
+  public bool Backspace()
   {
-    if (!CanClear)
-      return;
-    Working.Clear();
-    _selected = -1;
+    if (!CanBackspace)
+      return false;
+    OverlayPiece piece = SelectedPiece;
+    string text = piece.Text;
+    if (text.Length > 1 && text != "-0")
+      piece.Text = text.Substring(0, text.Length - 1);
+    else if (text != "0")
+      piece.Text = "0";
+    else
+      return Remove();
+    if (piece.Text == "-")
+      piece.Text = "0";
     Commit();
+    return true;
+  }
+
+  /// <summary>Whether a picked piece can be taken out: anything but a comparison, which is chosen, not removed.</summary>
+  public bool CanRemove => Active && SelectedPiece != null && Kind != OverlayValueType.Compare;
+
+  /// <summary>
+  /// Takes the picked piece out (지우기). In a calculation its operator goes
+  /// with it, so what is left still calculates: the number after an
+  /// operator takes that operator, a picked operator takes the number after it.
+  /// </summary>
+  public bool Remove()
+  {
+    if (!CanRemove)
+      return false;
+    OverlayVariable working = Working;
+    int index = _selected;
+    if (working[index].Kind == OverlayPieceKind.Operator)
+    {
+      int count = index + 1 < working.Count ? 2 : 1;
+      for (int i = 0; i < count; i++)
+        working.RemoveAt(index);
+      _selected = index - 1;
+    }
+    else if (index > 0 && working[index - 1].Kind == OverlayPieceKind.Operator)
+    {
+      working.RemoveAt(index);
+      working.RemoveAt(index - 1);
+      _selected = index - 2;
+    }
+    else if (index + 1 < working.Count && working[index + 1].Kind == OverlayPieceKind.Operator)
+    {
+      working.RemoveAt(index + 1);
+      working.RemoveAt(index);
+      _selected = Math.Min(index, working.Count - 1);
+    }
+    else
+    {
+      working.RemoveAt(index);
+      _selected = working.Count == 0 ? -1 : Math.Min(index, working.Count - 1);
+    }
+    if (_selected >= working.Count)
+      _selected = working.Count - 1;
+    Commit();
+    return true;
   }
 
   // ---- What input methods set ----
@@ -440,6 +549,9 @@ internal sealed class FormulaEditing : Observable
   {
     if (value.Id == OverlayValueId.MakeCustom)
       return CanMake;
+    // A gradient is a whole color of its own: only a color field itself takes one.
+    if (value.Id == OverlayValueId.MakeGradient)
+      return Active && _path.Count == 1 && Kind == OverlayValueType.Color;
     if (!Active || Kind == OverlayValueType.Compare)
       return false;
     // A made value can't use itself.

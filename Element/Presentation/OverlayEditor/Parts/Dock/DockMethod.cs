@@ -21,8 +21,11 @@ internal enum DockMethod
   /// <summary>A group: the variable inside it.</summary>
   Group,
 
-  /// <summary>A color: the color picker above.</summary>
+  /// <summary>A solid color: the color picker, standing in the keypad's place.</summary>
   Color,
+
+  /// <summary>A gradient: its bigger tool opens above; here a note says so.</summary>
+  Gradient,
 
   /// <summary>A value the player made: its name, and its variable to go into.</summary>
   Custom,

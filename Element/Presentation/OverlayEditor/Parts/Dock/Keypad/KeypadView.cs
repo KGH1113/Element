@@ -6,7 +6,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 /// <summary>
 /// The keypad: four columns of capsule keys, the operators in the accent.
 /// Its sizes are every input method's: they all take its place
-/// (<see cref="InputMethodView"/>), over the row of AC, back and Apply.
+/// (<see cref="InputMethodView"/>), over the row of Remove and Apply.
 /// </summary>
 internal sealed class KeypadView : View<KeypadViewModel>
 {
@@ -23,12 +23,11 @@ internal sealed class KeypadView : View<KeypadViewModel>
 
   public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: MethodHeight);
 
-  /// <summary>The row under every input method: AC, back out of a slot, and a wide, tinted Apply.</summary>
+  /// <summary>The row under every input method: Remove (지우기) the picked value, and a wide, tinted Apply.</summary>
   public static View SharedRow(KeypadViewModel vm) =>
     HStack(
         spacing: Gap,
-        new KeypadKeyView(vm.Clear, 17, false).Frame(width: Key),
-        new KeypadKeyView(vm.Back, 15, false).Frame(width: Key),
+        new KeypadKeyView(vm.Remove, 17, false).Frame(width: 2 * Key + Gap),
         // Apply is the one filled key: the way out of the dock.
         new KeypadKeyView(vm.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
       )

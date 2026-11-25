@@ -82,6 +82,15 @@ internal static class InspectorRowStyle
   public static View Glyph(string letters) => UI.Text(letters).Font(Font.Callout).Foreground(Colors.Muted).LineLimit(1);
 
   /// <summary>Over a group of rows, such as "Text".</summary>
+  /// <summary>A heading that follows <paramref name="title"/>.</summary>
+  public static View Heading(Expression<Func<string>> title) =>
+    UI.Text(title)
+      .Font(Font.Caption.Bolded())
+      .Foreground(Colors.Muted)
+      .LineLimit(1)
+      .Frame(maxWidth: float.PositiveInfinity, height: HeadingHeight, alignment: Alignment.BottomLeading)
+      .Padding(new Insets(0, 4, 0, 0));
+
   public static View Heading(string title) =>
     UI.Text(title ?? "")
       .Font(Font.Caption.Bolded())

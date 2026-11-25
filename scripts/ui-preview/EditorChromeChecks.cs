@@ -1,5 +1,8 @@
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
+using Element.Presentation.OverlayEditor.Parts.Formula;
+using System.Collections.Generic;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.OverlayEditor.Parts.EditorBar;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -149,15 +152,50 @@ namespace Element.Editor
       public string Owner => Vm.Owner.Value;
 
       /// <summary>What the line says to do, while nothing is edited.</summary>
-      public string HintText => Vm.Owner.Value == null ? Vm.Title.Value : "";
+      public string HintText => Vm.Line.Open ? "" : Vm.Line.Hint;
 
-      public string FormulaText => Vm.Formula.Value;
-      public string ResultText => Vm.Result.Value;
+      /// <summary>The line's pieces as words, a condition's slots in a row: "192 × 콤보".</summary>
+      public string FormulaText => Vm.Line.Open ? LineText(Vm.Line.Root) : "";
+
+      public string ResultText => Vm.Line.Result;
       public bool IsTyping => ElementUI.Ugui.Keyboard.IsTaken;
       public bool Contains(Vector2 screen) => Panel.Contains(screen);
-      public bool Dragging => DragSession.Active;
       public void Tick() => Panel.Tick();
-      public void Blink(bool visible) => Vm.RestartBlink();
+
+      /// <summary>The dock has no caret of its own any more: what is typed shows on its piece.</summary>
+      public void Blink(bool visible) { }
+
+      private static string LineText(LineSlotViewModel slot)
+      {
+        if (slot.Pieces.Length == 0)
+          return "[" + slot.Placeholder + "]";
+        System.Text.StringBuilder text = new();
+        foreach (LinePieceViewModel piece in slot.Pieces)
+        {
+          if (text.Length > 0)
+            text.Append(' ');
+          switch (piece.Kind)
+          {
+            case LinePieceKind.Condition:
+              text.Append(piece.Label).Append(' ')
+                .Append(LineText(piece.Slots[0])).Append(' ')
+                .Append(piece.Compare).Append(' ')
+                .Append(LineText(piece.Slots[2])).Append(" → ")
+                .Append(LineText(piece.Slots[3])).Append(" / ")
+                .Append(LineText(piece.Slots[4]));
+              break;
+            case LinePieceKind.Group:
+              text.Append('(').Append(LineText(piece.Slots[0])).Append(')');
+              break;
+            default:
+              if (piece.HasSwatch)
+                text.Append("● ");
+              text.Append(piece.Label);
+              break;
+          }
+        }
+        return text.ToString();
+      }
     }
 
     /// <summary>A dock with nowhere to send what is done in it, for docks the checks make on their own.</summary>
@@ -167,11 +205,7 @@ namespace Element.Editor
 
       public void Press(char key) { }
 
-      public void Select(int index) { }
-
-      public void Enter(int slot) { }
-
-      public void Back() { }
+      public void SelectAt(IReadOnlyList<FormulaStep> route, int index) { }
 
       public void Words(string words) { }
 
@@ -179,115 +213,14 @@ namespace Element.Editor
 
       public void Switch(bool value) { }
 
-      public void Clear() { }
+      public void Remove() { }
+
+      public void OpenMade() { }
 
       public void Done() { }
 
       public void Pick(OverlayValueDefinition value) { }
 
-      public void BeganCarrying() { }
-
-      public void DropOnFormula(OverlayValueDefinition value) { }
-    }
-
-    /// <summary>
-    /// A value carried out of an editor's dock as the player carries it: its
-    /// chip is pressed and dragged past the threshold, and each move is aimed
-    /// at the topmost thing drawn under the pointer, as the input module does.
-    /// The chip is found with the dock's search unless its place is open
-    /// (<paramref name="open"/>), and the search is cleared once it is let go.
-    /// </summary>
-    private sealed class Carry
-    {
-      private readonly DockProbe _dock;
-      private readonly DragSource _source;
-      private readonly PointerEventData _data;
-      private readonly bool _searched;
-
-      public Carry(DockProbe dock, OverlayValueId id, bool open = false)
-      {
-        _dock = dock;
-        OverlayValueDefinition value = OverlayValueCatalog.Get(id);
-        string name = "Value " + value.Key;
-        Pressable chip;
-        if (open)
-          chip = DockChip(dock, name);
-        else
-        {
-          _searched = true;
-          dock.Values.Query.Value = ValueSectionNames.ValueName(value);
-          dock.Values.Search.TryExecute();
-          chip = DockChips(dock).Single(found => found.name == name);
-        }
-        GameObject handler = ExecuteEvents.GetEventHandler<IDragHandler>(chip.gameObject);
-        _source = handler != null ? handler.GetComponent<DragSource>() : null;
-        Assert(_source != null, "a chip's drag goes to ElementUI's drag source: " + name);
-        Vector2 start = ScreenCenter((RectTransform)chip.transform);
-        _data = new PointerEventData(EventSystem.current)
-        {
-          button = PointerEventData.InputButton.Left,
-          pointerId = -1,
-          position = start,
-          pressPosition = start,
-        };
-        Aim(start);
-        _source.OnInitializePotentialDrag(_data);
-        _data.eligibleForClick = true;
-        _source.OnBeginDrag(_data);
-        Settle();
-      }
-
-      public Carry MoveTo(Vector2 point)
-      {
-        Aim(point);
-        _source.OnDrag(_data);
-        Settle();
-        return this;
-      }
-
-      public void LetGoAt(Vector2 point)
-      {
-        MoveTo(point);
-        _source.OnEndDrag(_data);
-        Settle();
-        if (_searched)
-        {
-          _dock.Values.ClearSearch.TryExecute();
-          Settle();
-        }
-      }
-
-      private void Aim(Vector2 point)
-      {
-        _data.position = point;
-        _data.pointerCurrentRaycast = new RaycastResult { gameObject = TopmostAt(point), screenPosition = point };
-      }
-    }
-
-    /// <summary>
-    /// What a raycast at <paramref name="point"/> hits first: the last-drawn raycast
-    /// target there, over every canvas, leaving out what takes no raycasts.
-    /// </summary>
-    private static GameObject TopmostAt(Vector2 point)
-    {
-      GameObject top = null;
-      foreach (Canvas canvas in Object.FindObjectsOfType<Canvas>().Where(c => c.isRootCanvas).OrderBy(c => c.sortingOrder))
-      {
-        Camera camera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-        foreach (Graphic graphic in canvas.GetComponentsInChildren<Graphic>())
-          if (graphic.raycastTarget && graphic.isActiveAndEnabled && TakesRaycasts(graphic.transform)
-            && RectTransformUtility.RectangleContainsScreenPoint(graphic.rectTransform, point, camera))
-            top = graphic.gameObject;
-      }
-      return top;
-    }
-
-    private static bool TakesRaycasts(Transform at)
-    {
-      for (; at != null; at = at.parent)
-        if (at.TryGetComponent(out CanvasGroup group) && !group.blocksRaycasts)
-          return false;
-      return true;
     }
 
     /// <summary>The open editor's input dock.</summary>
@@ -340,6 +273,17 @@ namespace Element.Editor
           .Where(chip => chip.name == name).Select(chip => chip.transform.parent.name + ":self="
             + chip.gameObject.activeSelf + ":hierarchy=" + chip.gameObject.activeInHierarchy)));
       return chips.Single(chip => chip.name == name);
+    }
+
+    /// <summary>Whether a value is listed now: it fits where values go, and so its place is listed too.</summary>
+    private static bool DockListed(DockProbe dock, string name)
+    {
+      Settle();
+      ValueBrowserViewModel values = dock.Values;
+      ValueFolderViewModel folder = values.Categories.Concat(values.Mods).First(place => place.Chips.Any(chip => chip.Name == name));
+      bool listed = values.Listing.Value && folder.Chips.Single(chip => chip.Name == name).Fits.Value;
+      Assert(!listed || (folder.Shown.Value && Shown(DockPlace(dock, folder.Key))), "a value that is listed has its place listed: " + name);
+      return listed;
     }
 
     /// <summary>A row of the dock's list of places: "Judgement", "mod:TUFOverlay".</summary>
@@ -421,7 +365,7 @@ namespace Element.Editor
       {
         DockProbe noticeDock = DockOf(editor);
         Rect noticeRect = ScreenRectOf(line.rectTransform), keypadRect = KeypadRect(noticeDock);
-        Assert(noticeRect.yMin >= ScreenRectOf(ByName<RectTransform>(noticeDock.Root, "Formula line")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
+        Assert(noticeRect.yMin >= ScreenRectOf(noticeDock.Root.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Formula line" || part.name == "Line hint")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
           "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);
       }
       Assert(!docked || headerNotice.text.Length == 0, "the header stays quiet while the dock shows the notices");

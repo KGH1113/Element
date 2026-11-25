@@ -177,11 +177,15 @@ internal sealed class OverlayFonts : IDisposable
         if (!string.IsNullOrEmpty(key))
           used.Add(OverlayFontKey.Normalize(key));
     if (layouts != null)
+    {
+      // Every run counts, those in an If's cases too.
+      List<OverlayTextRun> runs = new();
       foreach (OverlayLayoutSettings layout in layouts)
-        if (layout?.Text?.Runs != null)
-          foreach (OverlayTextRun run in layout.Text.Runs)
-            if (run != null && !string.IsNullOrEmpty(run.Font))
-              used.Add(OverlayFontKey.Normalize(run.Font));
+        OverlayTextSettings.Collect(layout?.Text?.Runs, runs);
+      foreach (OverlayTextRun run in runs)
+        if (!string.IsNullOrEmpty(run.Font))
+          used.Add(OverlayFontKey.Normalize(run.Font));
+    }
     List<string> unused = null;
     foreach (string key in _loaded.Keys)
       if (!used.Contains(key))

@@ -37,14 +37,16 @@ internal sealed class OverlayFontUse
       Use(uses, font).IsDefault = true;
     if (settings?.OverlayLayouts == null)
       return uses;
+    // Every run counts, those in an If's cases too.
+    var runs = new List<OverlayTextRun>();
     foreach (OverlayLayoutSettings layout in settings.OverlayLayouts)
-      if (layout?.Text?.Runs != null)
-        foreach (OverlayTextRun run in layout.Text.Runs)
-        {
-          string key = OverlayFontKey.Normalize(run?.Font);
-          if (key.Length > 0)
-            Use(uses, key).Runs.Add(run);
-        }
+      OverlayTextSettings.Collect(layout?.Text?.Runs, runs);
+    foreach (OverlayTextRun run in runs)
+    {
+      string key = OverlayFontKey.Normalize(run.Font);
+      if (key.Length > 0)
+        Use(uses, key).Runs.Add(run);
+    }
     return uses;
   }
 

@@ -9,8 +9,8 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.ValueSource;
 
 /// <summary>
-/// The menu of values a color can follow: each value in the text, the
-/// followed one ticked, then "Another value" with where to find it.
+/// The menu of values a tool can read: each value in the text, the
+/// one read now ticked, then "Another value" with where to find it.
 /// </summary>
 internal sealed class ValueSourceMenuView : View<ValueSourceMenuViewModel>
 {

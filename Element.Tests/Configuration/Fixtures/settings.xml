@@ -181,6 +181,25 @@
             <SizeFormula>SizeFormula</SizeFormula>
             <Font>Font</Font>
             <Animate>true</Animate>
+            <If>
+              <Cases>
+                <OverlayTextCase>
+                  <When>
+                    <Value>Value</Value>
+                    <Than>Than</Than>
+                    <Smaller>true</Smaller>
+                    <Same>true</Same>
+                    <Bigger>true</Bigger>
+                  </When>
+                  <Runs>
+                    <OverlayTextRun xsi:nil="true" />
+                  </Runs>
+                </OverlayTextCase>
+              </Cases>
+              <Otherwise>
+                <OverlayTextRun xsi:nil="true" />
+              </Otherwise>
+            </If>
           </OverlayTextRun>
         </Runs>
       </Text>

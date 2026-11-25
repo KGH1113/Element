@@ -2,9 +2,10 @@ using System;
 
 namespace Element.Configuration.Overlay;
 
-// One run is either literal text in one color, or one value: Value is a
-// formula, usually a single value's key ("combo"), or values with numbers and
-// + - * / ("{combo}*2").
+// One run is literal text in one color, one value, or an If. A value's Value
+// is a formula, usually a single value's key ("combo"), or values with
+// numbers and + - * / ("{combo}*2"). An If run shows the runs of one of its
+// cases instead of anything of its own (see OverlayTextIf).
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayTextRun
@@ -25,6 +26,11 @@ public sealed class OverlayTextRun
   // shows no live value, so it never moves.
   public bool Animate;
 
+  /// <summary>Null unless this run is an If; then nothing else here is used.</summary>
+  public OverlayTextIf If;
+
+  public bool IsIf => If != null;
+
   public bool IsValue => !string.IsNullOrEmpty(Value);
 
   public static OverlayTextRun Literal(string text, OverlayColorSettings color) =>
@@ -42,6 +48,7 @@ public sealed class OverlayTextRun
       SizeFormula = SizeFormula ?? string.Empty,
       Font = Font ?? string.Empty,
       Animate = Animate,
+      If = If?.Clone(),
     };
 
   public bool SameAs(OverlayTextRun other) =>
@@ -52,5 +59,6 @@ public sealed class OverlayTextRun
     && Size == other.Size
     && OverlayColorSettings.SameFormula(SizeFormula, other.SizeFormula)
     && OverlayColorSettings.SameFormula(Font, other.Font)
-    && (Color ?? new OverlayColorSettings()).SameAs(other.Color ?? new OverlayColorSettings());
+    && (Color ?? new OverlayColorSettings()).SameAs(other.Color ?? new OverlayColorSettings())
+    && OverlayTextIf.Same(If, other.If);
 }

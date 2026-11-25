@@ -317,6 +317,7 @@ namespace Element.Editor
       CheckHighlightColor(editor, settings, camera, texture, canvases, name);
       CheckFonts(editor, host, settings, camera, texture, canvases, name);
       CheckGradients(editor, host, camera, texture, canvases, name);
+      CheckIf(editor, host, camera, texture, canvases, name);
       CheckModElements(editor, host, camera, texture, canvases, name, screenWidth, screenHeight);
 
       var beforeReset = new LayoutSnapshot(host.LayoutSettings);
@@ -1152,12 +1153,12 @@ namespace Element.Editor
       RectTransform format = EditorBarRoot(text);
       PropertyButtonViewModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
         textGrow = Grow(text).Button, fontButton = Field<TextFonts>(text, "_fonts").Button,
-        animateButton = Field<TextAnimate>(text, "_animate").Button;
-      PropertyButtonViewModel[] textBar = { fontButton, sizeButton, colorButton, animateButton, textGrow };
+        animateButton = Field<TextAnimate>(text, "_animate").Button, ifButton = Field<TextIf>(text, "_if").Button;
+      PropertyButtonViewModel[] textBar = { fontButton, sizeButton, colorButton, ifButton, animateButton, textGrow };
       Pressable[] barButtons = format.GetComponentsInChildren<Pressable>(true);
-      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 5
+      Assert(textBar.All(button => BarButton(text, button) != null && BarButton(text, button).transform.IsChildOf(format)) && barButtons.Length == 6
         && new[] { typeof(TextEditorScreen), typeof(TextColor) }.All(type => type.GetField("_opacityField", Private) == null) && textGrow.Value.Length > 0 && fontButton.Value.Length > 0,
-        "font, size, color, animation and grow point share one column; no opacity, no + Value");
+        "font, size, color, If, animation and grow point share one column; no opacity, no + Value");
       Assert(BarButtonRect(text, animateButton).y < BarButtonRect(text, colorButton).y
         && BarButtonRect(text, animateButton).y > BarButtonRect(text, textGrow).y, "animation sits between the color and the grow point");
       Rect formatRect = ScreenRectOf(format), keypadColumn = KeypadRect(DockOf(text));
@@ -1165,8 +1166,8 @@ namespace Element.Editor
         "the properties stand in a column above the keypad, as wide as it: " + formatRect + " / " + keypadColumn);
       Assert(ScreenRectOf(TextPreviewOf(text).Text.rectTransform).xMax < formatRect.xMin, "the text stays left of the column");
       string[] textLabels = Korean(name)
-        ? new[] { "폰트", "크기", "글자 색", "애니메이션", "기준점" }
-        : new[] { "Font", "Size", "Text color", "Animate", "Grow from" };
+        ? new[] { "폰트", "크기", "글자 색", "만약", "애니메이션", "기준점" }
+        : new[] { "Font", "Size", "Text color", "If", "Animate", "Grow from" };
       for (int i = 0; i < textBar.Length; i++)
       {
         Pressable drawn = BarButton(text, textBar[i]);

@@ -9,6 +9,7 @@ using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.Parts.IfTool;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -36,6 +37,7 @@ internal sealed class TextFormulas
   private TextSize _size;
   private TextColor _color;
   private TextGradient _gradient;
+  private TextIf _if;
   private string _fieldSlot;
 
   // The value whose popover is open, while it stays selected; -1 for none.
@@ -66,11 +68,12 @@ internal sealed class TextFormulas
   public int EditedValue => ChipOpen(out int index) ? index : -1;
 
   /// <summary>The numbers the dock can type besides values.</summary>
-  public void Use(TextSize size, TextColor color, TextGradient gradient)
+  public void Use(TextSize size, TextColor color, TextGradient gradient, TextIf textIf)
   {
     _size = size;
     _color = color;
     _gradient = gradient;
+    _if = textIf;
   }
 
   /// <summary>Nothing open, as when the editor opens.</summary>
@@ -93,6 +96,8 @@ internal sealed class TextFormulas
       return _size.Slot;
     if (_fieldSlot == OpacityKey)
       return _color.OpacitySlot;
+    if (TextIf.Owns(_fieldSlot))
+      return _if.Slot(_fieldSlot);
     return ChipOpen(out int index) ? ChipSlot(index) : null;
   }
 
@@ -177,12 +182,14 @@ internal sealed class TextFormulas
       : null;
     string hint =
       _color.Hint()
+      ?? _if.Hint()
       ?? L(
         "값을 누르면 커서 자리에 넣어요 · 글 속 값이나 크기를 누르면 여기서 계산해요",
         "Click a value to add it at the caret · Click a value in the text or a number to calculate here"
       );
     string name =
       _gradient.Name(_fieldSlot)
+      ?? TextIf.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("글자 크기", "Text size")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
@@ -205,6 +212,9 @@ internal sealed class TextFormulas
       OverlayFormulaText.Append(_builder, formula, _values, true);
       return _builder.Length > 0 ? _builder.ToString() : null;
     }
+    // A number an If compares with is whatever its value counts in.
+    if (TextIf.Owns(_fieldSlot))
+      return IfWords.Number(Result(formula));
     return FormulaFieldView.Number(Result(formula))
       + (
         _fieldSlot == OpacityKey || _fieldSlot == PositionKey ? "%"

@@ -9,25 +9,50 @@ public sealed class OverlayTextSettings
 {
   public List<OverlayTextRun> Runs = new();
 
-  public OverlayTextSettings Clone()
+  public OverlayTextSettings Clone() => new() { Runs = CloneRuns(Runs) };
+
+  public bool SameAs(OverlayTextSettings other) => other != null && SameRuns(Runs, other.Runs);
+
+  /// <summary>
+  /// Adds every run to <paramref name="output"/>, those inside each If's
+  /// cases included (after the If itself), for what must reach them all: the
+  /// fonts a text uses, for one.
+  /// </summary>
+  public static void Collect(List<OverlayTextRun> runs, List<OverlayTextRun> output)
   {
-    OverlayTextSettings copy = new();
-    if (Runs != null)
-      foreach (OverlayTextRun run in Runs)
+    if (runs == null)
+      return;
+    foreach (OverlayTextRun run in runs)
+    {
+      if (run == null)
+        continue;
+      output.Add(run);
+      if (run.If == null)
+        continue;
+      if (run.If.Cases != null)
+        foreach (OverlayTextCase item in run.If.Cases)
+          Collect(item?.Runs, output);
+      Collect(run.If.Otherwise, output);
+    }
+  }
+
+  internal static List<OverlayTextRun> CloneRuns(List<OverlayTextRun> runs)
+  {
+    List<OverlayTextRun> copy = new();
+    if (runs != null)
+      foreach (OverlayTextRun run in runs)
         if (run != null)
-          copy.Runs.Add(run.Clone());
+          copy.Add(run.Clone());
     return copy;
   }
 
-  public bool SameAs(OverlayTextSettings other)
+  internal static bool SameRuns(List<OverlayTextRun> a, List<OverlayTextRun> b)
   {
-    if (other == null)
-      return false;
-    int count = Runs?.Count ?? 0;
-    if (count != (other.Runs?.Count ?? 0))
+    int count = a?.Count ?? 0;
+    if (count != (b?.Count ?? 0))
       return false;
     for (int i = 0; i < count; i++)
-      if (!(Runs[i]?.SameAs(other.Runs[i]) ?? other.Runs[i] == null))
+      if (!(a[i]?.SameAs(b[i]) ?? b[i] == null))
         return false;
     return true;
   }

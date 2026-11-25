@@ -91,6 +91,8 @@ internal static class SavedFormatTests
 
   private static string Lines(string text) => text.Replace("\r\n", "\n").TrimEnd('\n');
 
+  private static readonly System.Collections.Generic.HashSet<Type> Filling = new();
+
   // Every saved field gets a value, so a field of every saved class is in the file.
   private static T Sample<T>()
     where T : class, new()
@@ -98,6 +100,14 @@ internal static class SavedFormatTests
     T value = new();
     Fill(value, 0);
     return value;
+  }
+
+  private static bool HoldsNothing(object value)
+  {
+    foreach (FieldInfo field in value.GetType().GetFields(BindingFlags.Public | BindingFlags.Instance))
+      if (!field.IsInitOnly && field.GetValue(value) != null)
+        return false;
+    return true;
   }
 
   private static void Fill(object target, int depth)
@@ -142,9 +152,15 @@ internal static class SavedFormatTests
     }
     if (type.IsClass)
     {
+      // A class that holds itself further down (a text run's If holds runs) is filled once.
+      if (!Filling.Add(type))
+        return null;
       object value = Activator.CreateInstance(type);
       Fill(value, depth + 1);
-      return value;
+      Filling.Remove(type);
+      // Cut off with nothing in it (only lists, all past the depth), it would
+      // read back with its empty lists made again: leave it out instead.
+      return HoldsNothing(value) ? null : value;
     }
     throw new InvalidOperationException("No sample value for " + type.Name + " " + name);
   }

@@ -10,7 +10,7 @@ using UnityEngine;
 namespace Element.Presentation.OverlayEditor.Parts.ValueSource;
 
 /// <summary>
-/// The values a color can follow, in a small menu under its value row
+/// The values a tool can read (an If compares one), in a small menu under its value chip
 /// (<see cref="ValueSourceMenuView"/>). Esc and a press elsewhere close it.
 /// </summary>
 internal sealed class ValueSourceMenuPanel : IPopover
@@ -23,7 +23,7 @@ internal sealed class ValueSourceMenuPanel : IPopover
   public ValueSourceMenuPanel(EditorFramePanel screen)
   {
     _screen = screen;
-    _panel = screen.Panel("Value color sources", UiPalette.Popover, 10);
+    _panel = screen.Panel("Value sources", UiPalette.Popover, 10);
     Root.gameObject.SetActive(false);
   }
 

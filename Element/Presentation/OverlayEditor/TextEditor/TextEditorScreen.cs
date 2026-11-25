@@ -24,7 +24,7 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// <summary>
 /// Text editing over a dimmed screen. Nothing sits on a card: the text floats
 /// at the size it has in the game, left of a property column (font, size,
-/// color, animation, grow point) that stands above the keypad; what a row
+/// color, If, animation, grow point) that stands above the keypad; what a row
 /// opens (the color picker, the font list, the points) opens in that column.
 /// The input dock along the bottom is always there: clicking one of its
 /// values adds it at the caret, and clicking a value in the text or a number
@@ -35,8 +35,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// (<see cref="TextDocumentEditing"/>), how it is drawn (<see cref="TextPreview"/>,
 /// <see cref="TextLayoutMap"/>, <see cref="TextMarks"/>), what the dock types
 /// (<see cref="TextFormulas"/>), the bar's <see cref="TextFonts"/>,
-/// <see cref="TextSize"/>, <see cref="TextColor"/> with <see cref="TextGradient"/>
-/// and <see cref="TextAnimate"/>, and the input (<see cref="TextValueDrops"/>,
+/// <see cref="TextSize"/>, <see cref="TextColor"/> with <see cref="TextGradient"/>,
+/// <see cref="TextIf"/> and <see cref="TextAnimate"/>, and the input (<see cref="TextValueDrops"/>,
 /// <see cref="TextPointerInput"/>, <see cref="TextKeyboardInput"/>), with the bar, the
 /// grow point and undo it shares with the shape editor. It tells the input
 /// dock what is edited on every render (<see cref="TextFormulas.Refresh"/>),
@@ -61,6 +61,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private readonly TextGradient _gradient;
   private readonly TextColor _color;
   private readonly TextFonts _fonts;
+  private readonly TextIf _if;
   private readonly TextAnimate _animate;
   private readonly GrowFrom _grow;
 
@@ -83,7 +84,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private float _blinkStart;
   private bool _dockTyping;
 
-  // What the column's tool acts on, as last drawn: the selection's ends, or -1 for the whole text.
+  // What the column's tool acts on, as last drawn: the selection's ends, -1
+  // for the whole text, or below that for the look of the If the caret is in.
   private int _toolStart = -1,
     _toolEnd = -1;
 
@@ -104,12 +106,25 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
-    _formulas.Use(_size, _color, _gradient);
+    _if = new TextIf(this, this, _text, _formulas, _color, _preview, values);
+    _formulas.Use(_size, _color, _gradient, _if);
     _fonts = new TextFonts(this, this, _text, _color);
     _animate = new TextAnimate(this, _text, _color, _preview);
     _grow = new GrowFrom(CloseOpen, Render);
     _drops = new TextValueDrops(this, this, _text, _formulas, _map, _marks, _color, _gradient);
-    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow, _animate);
+    _pointer = new TextPointerInput(
+      this,
+      this,
+      _text,
+      _formulas,
+      _map,
+      _color,
+      _fonts,
+      _gradient,
+      _grow,
+      _animate,
+      _if
+    );
     _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
@@ -154,8 +169,15 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Done() => _formulas.FinishEditing();
 
-  // The clicked value joins the formula being typed, or goes in at the caret.
-  void IInputDockActions.Pick(OverlayValueDefinition value) => _formulas.PickValue(value);
+  // The clicked value is what an If's case compares while it waits for one;
+  // otherwise it joins the formula being typed, or goes in at the caret.
+  void IInputDockActions.Pick(OverlayValueDefinition value)
+  {
+    if (_if.Armed)
+      _if.PickFromDock(value);
+    else
+      _formulas.PickValue(value);
+  }
 
   // A value's name tip would sit over where the carried value lands.
   void IInputDockActions.BeganCarrying() => _frame?.HideTip();
@@ -226,17 +248,19 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _fonts.Build(_frame, _element.Fonts, _reduceMotion());
     _grow.Build(_frame, _inspector);
     _animate.Build(_frame, _inspector);
+    _if.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
+    _popovers.Add(_if.Menu);
     // Built last: every place a carried value can land is drawn by now.
     _drops.Build(_frame);
   }
 
   // A row per property in the column above the keypad: the font, the size,
-  // the color (with its opacity), the values' animation and where the text
-  // grows from. Font, size, color and animation act on the selection, or on
-  // the whole text when nothing is selected.
+  // the color (with its opacity), the If, the values' animation and where
+  // the text grows from. Font, size, color, If and animation act on the
+  // selection, or on the whole text when nothing is selected.
   private void BuildInspector() =>
     _inspector = new InspectorPanel(
       _frame,
@@ -248,6 +272,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       // A value carried onto the size row calculates the size with it.
       _size.BuildButton(_drops.DropOnSize),
       _color.BuildButton(),
+      _if.BuildButton(),
       _animate.BuildButton(),
       _grow.BuildButton()
     );
@@ -259,6 +284,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     if (picker.Visible)
       picker.Hide();
     _animate.Hide();
+    _if.Hide();
     CloseOpen();
     Render();
   }
@@ -267,6 +293,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   // the Animate tool opened beside the column belongs to that tool.
   private RectTransform OpenToolRoot() =>
     _animate.Visible ? _animate.Root
+    : _if.Visible ? _if.Root
     : _color.Picker.Visible ? _color.Picker.Root
     : _fonts.Visible ? _fonts.Popover.Root
     : _grow.Visible ? _grow.Popover.Root
@@ -275,6 +302,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   // What the column has open, as its back row names it; null while it shows the rows.
   private string OpenTool() =>
     _animate.Visible ? _animate.Title
+    : _if.Visible ? _if.Title
     : _color.Picker.Visible ? _color.Title
     : _fonts.Visible ? _fonts.Title
     : _grow.Visible ? _grow.Button.Label
@@ -369,7 +397,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.SizeFormula));
       mask |= OverlayTextComposer.Mask(OverlayFormulaText.Compile(item.Color.AlphaFormula));
     }
-    return mask | _preview.GradientMask;
+    return mask | _preview.GradientMask | _if.Mask;
   }
 
   // Rebuilds the text at its game size and everything placed around it, after
@@ -415,7 +443,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _inspector.Show(OpenTool(), OpenToolRoot());
     _formulas.Refresh(_dock);
     PlaceGrowMark();
-    _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _frame.Scale);
+    _marks.PlaceEmptyHint(_preview.Center, _preview.Empty, _frame.Scale, _text.Document.BlockCount > 0);
     _liveMask = LiveMask();
   }
 
@@ -424,6 +452,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   {
     _size.Show();
     _color.ShowButton();
+    _if.Show();
     _animate.Show();
     _fonts.ShowButton();
     _grow.ShowButton();
@@ -448,12 +477,14 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private void FollowSelection()
   {
     _text.Range(out int start, out int end);
+    // The whole text is one target however long it grows; an If's look is told apart by where it starts.
     if (!_text.HasSelection)
-      start = end = -1;
+      start = end = _text.InLook ? -2 - start : -1;
     if (start == _toolStart && end == _toolEnd)
       return;
     _toolStart = start;
     _toolEnd = end;
+    _if.Retarget();
     _color.Retarget();
     _fonts.Retarget();
   }
@@ -466,9 +497,14 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _popovers.CloseAll();
   }
 
-  // The number or value being typed closes; the column's tool (the picker,
-  // the font list, the grow points, Animate) stays.
-  private void CloseTyping() => _formulas.Close();
+  // The number or value being typed closes, and an If stops waiting for a
+  // value; the column's tool (the picker, the font list, the grow points,
+  // the If, Animate) stays.
+  private void CloseTyping()
+  {
+    _formulas.Close();
+    _if.ClosePicking();
+  }
 
   // The dimmed space around the text belongs to it; the header, the
   // property column, the popovers and the picker don't.
@@ -479,6 +515,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       || _popovers.Contains(screen)
       || _inspector.Contains(screen)
       || _animate.Contains(screen)
+      || _if.Contains(screen)
       || PopoverPlacement.Contains(_color.Picker.Root, screen)
     )
       return false;
@@ -494,17 +531,24 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   }
 
   /// <summary>
-  /// Esc closes the picker first, then the Animate tool, then finishes like
-  /// Done; only Cancel leaves without saving.
+  /// Esc closes the picker first, then an If's wait for a value, then the
+  /// If or Animate tool, then finishes like Done; only Cancel leaves without
+  /// saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _color.Picker;
     if (picker.Visible)
       picker.Hide();
-    else if (_animate.Visible)
+    else if (_if.Armed)
+    {
+      _if.ClosePicking();
+      Render();
+    }
+    else if (_animate.Visible || _if.Visible)
     {
       _animate.Hide();
+      _if.Hide();
       Render();
     }
     else
@@ -519,6 +563,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     if (commit && _color.Picker.Visible && !_color.Picker.Commit())
       return;
     CloseOpen();
+    _if.Closed();
     TextOverlayElement element = _element;
     Action<bool> closed = _closed;
     if (commit && element?.Settings != null && _text.Edited)

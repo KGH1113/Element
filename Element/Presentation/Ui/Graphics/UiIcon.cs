@@ -49,6 +49,14 @@ internal sealed class UiIcon : UiVectorGraphic
         Arc(mesh, 12, 12, 10.5f, -32, 32);
         Arc(mesh, 12, 12, 10.5f, 148, 212);
         break;
+      case UiIconKind.If:
+        // One way in from the left that parts into two, each with a place to arrive.
+        Line(mesh, 3, 12, 9, 12);
+        Line(mesh, 9, 12, 15, 6);
+        Line(mesh, 9, 12, 15, 18);
+        Dot(mesh, 18.5f, 6, 2.6f);
+        Dot(mesh, 18.5f, 18, 2.6f);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);

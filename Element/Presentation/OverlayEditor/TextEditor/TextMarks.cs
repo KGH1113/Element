@@ -175,8 +175,14 @@ internal sealed class TextMarks
 
   // An empty text shows a muted hint with the caret just before it, centered
   // where the text will appear, like an empty text field.
-  public void PlaceEmptyHint(Vector2 center, bool empty, float frameScale)
+  public void PlaceEmptyHint(Vector2 center, bool empty, float frameScale, bool emptyLook = false)
   {
+    // The text has an If and the look in the preview shows nothing: that is a look too.
+    string hint = emptyLook
+      ? L("이 경우엔 안 보여요 · 글자를 치면 이 모습에 들어가요", "Shows nothing in this case · Type to give it a look")
+      : L("텍스트를 입력하세요", "Type your text");
+    if (empty && _placeholder.text != hint)
+      _placeholder.text = hint;
     _placeholder.gameObject.SetActive(empty);
     _emptyCaret.gameObject.SetActive(empty);
     if (!empty)

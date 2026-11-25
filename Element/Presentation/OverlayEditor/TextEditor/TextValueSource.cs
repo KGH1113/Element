@@ -12,10 +12,11 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
 /// <summary>
-/// Picks a value for a tool in the property column to follow: a menu under
-/// the tool's value row with the numbers the text shows, then "Another
-/// value", after which the next value clicked in the dock is the one (words
-/// are refused with a reason). The owner is told the value picked.
+/// Picks a value for a tool in the property column to read (the value an
+/// If's case compares): a menu under the tool's value chip with the numbers
+/// the text shows, then "Another value", after which the next value clicked
+/// in the dock is the one (words are refused with a reason). The owner is
+/// told the value picked.
 /// </summary>
 internal sealed class TextValueSource
 {
@@ -29,7 +30,7 @@ internal sealed class TextValueSource
   private Func<Rect> _row;
   private bool _armed;
 
-  /// <param name="picked">A value to follow was picked.</param>
+  /// <param name="picked">A value was picked.</param>
   public TextValueSource(
     IEditorActions editor,
     TextDocumentEditing text,
@@ -50,7 +51,7 @@ internal sealed class TextValueSource
   public bool Open => _menu.Visible;
 
   /// <summary>
-  /// Waiting for the value to follow: the next value clicked in the dock is
+  /// Waiting for the value to read: the next value clicked in the dock is
   /// it (<see cref="PickFromDock"/>), not one added to the text. The editor
   /// sends the dock's clicks here while this is on.
   /// </summary>
@@ -119,27 +120,27 @@ internal sealed class TextValueSource
     return _values.WithSamples.TryGetNumber(value.Id, out number) ? number : double.NaN;
   }
 
-  // The next value clicked in the dock is the one to follow.
+  // The next value clicked in the dock is the one.
   private void Arm()
   {
     _editor.CloseOpen();
     _armed = true;
     _editor.Notice(
-      L("아래 값 목록에서 따라갈 값을 눌러 주세요.", "Click the value to follow in the values below."),
+      L("아래 값 목록에서 비교할 값을 눌러 주세요.", "Click the value to compare in the values below."),
       false
     );
     _editor.Render();
   }
 
-  /// <summary>The value clicked in the dock while <see cref="Armed"/>: a number is followed, words are refused with a reason.</summary>
+  /// <summary>The value clicked in the dock while <see cref="Armed"/>: a number is picked, words are refused with a reason.</summary>
   public void PickFromDock(OverlayValueDefinition value)
   {
     if (!value.IsNumeric)
     {
       _editor.Notice(
         L(
-          ValueSectionNames.ValueName(value) + "은 글자라서 색을 정할 수 없어요. 숫자인 값을 골라 주세요.",
-          ValueSectionNames.ValueName(value) + " is words, so it can't pick a color. Pick a value that is a number."
+          ValueSectionNames.ValueName(value) + "은(는) 글자라서 크기를 비교할 수 없어요. 숫자인 값을 골라 주세요.",
+          ValueSectionNames.ValueName(value) + " is words, so it can't be compared. Pick a value that is a number."
         )
       );
       _editor.Render();

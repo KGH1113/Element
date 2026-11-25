@@ -28,6 +28,7 @@ using Element.Infrastructure.Mods;
 using Element.Infrastructure.Storage;
 using Element.Infrastructure.TufReplay;
 using Element.Presentation.Notices;
+using Element.Presentation.Overlay.Covers;
 using Element.Presentation.OverlayEditor.KeyViewers;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Theme;
@@ -73,6 +74,8 @@ internal sealed class ModRuntime : IDisposable
   private AttemptTracker _attempts;
   private HitTextHideSync _hitTextSync;
   private OverlayRuntime _overlay;
+  private KeyViewerCovers _covers;
+  private Canvas.WillRenderCanvases _coverCanvases;
   private SettingsUiRuntime _settingsUi;
   private GameplaySession _session;
   private GameEvents _events;
@@ -162,6 +165,7 @@ internal sealed class ModRuntime : IDisposable
       );
       _nativeViewers.ConfigureLayouts(_main.Settings.OverlayLayouts, _main.Settings.ShowDmNoteInGame);
       _nativeViewers.EnabledChanged = () => _session?.RefreshViewers();
+      HookCovers();
       _renderIpc = new KeyViewerRenderIpc();
       _counterIpc = new KeyCounterIpc();
       var keyViewerProfiles = new KeyViewerProfileIpc();
@@ -336,6 +340,12 @@ internal sealed class ModRuntime : IDisposable
     GameHooks.Clear();
     _frameLoop = null;
 
+    // Before the canvas and the viewers it reads go away.
+    if (_coverCanvases != null)
+      Canvas.willRenderCanvases -= _coverCanvases;
+    _coverCanvases = null;
+    _covers = null;
+
     // TUFReplay stops calling Element before anything it uses goes away.
     _replays?.Dispose();
     _replays = null;
@@ -417,6 +427,21 @@ internal sealed class ModRuntime : IDisposable
   }
 
   private void OnSceneUnloaded(Scene scene) => _events?.OnSceneUnloaded();
+
+  // Elements in front of a key viewer are cut out of it, in plays and in the
+  // layout editor. Runs as the canvases are about to draw: after UGUI has laid
+  // out this frame's texts and shapes, so a combo's new digits are cut the
+  // frame they show. Unity runs these handlers in the order they were added,
+  // and UGUI's own update was added when the game made its first canvas.
+  private void HookCovers()
+  {
+    _covers = new KeyViewerCovers(_overlay.Canvas, _nativeViewers, _nativeViewers);
+    Action tick = _covers.Tick;
+    _coverCanvases = () => _guard.Run(CoversContext, tick);
+    Canvas.willRenderCanvases += _coverCanvases;
+  }
+
+  private const string CoversContext = "Cut overlay elements out of the key viewers";
 
   // Without a render runtime, Element stays out of rendered replays but keeps its run states.
   private KeyValuePair<string, object>[] CreateReplayProviders()

@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Element.Application.Mods;
 using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Fonts;
@@ -115,6 +117,8 @@ internal sealed class ModOverlayElement : OverlayElementTarget
     }
     FollowSize();
     ShowPlaceholder();
+    // Its mod may have come or gone, which decides whether it draws at all.
+    CoverChanged();
   }
 
   // Added in the middle; the editor places it from there.
@@ -221,6 +225,22 @@ internal sealed class ModOverlayElement : OverlayElementTarget
       _root.gameObject.SetActive(false);
     FollowSize();
     ShowPlaceholder();
+    CoverChanged();
+  }
+
+  // Its mod draws anything inside the box, so the box is what it covers.
+  public override bool TryGetCoverBounds(out LayoutBounds screenTopLeft)
+  {
+    screenTopLeft = default;
+    return Drawn && base.TryGetCoverBounds(out screenTopLeft);
+  }
+
+  public override void Rasterize(ViewerCoverRuns runs)
+  {
+    if (!OnScreen || !Drawn)
+      return;
+    Rect bounds = Bounds;
+    runs.FillRect(bounds.x, bounds.y, bounds.width, bounds.height);
   }
 
   private void DestroyInstance()

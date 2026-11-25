@@ -34,6 +34,27 @@ internal sealed class ShapeGraphic : MaskableGraphic
     _strokeLayer;
   private bool _textured;
   private float _pixelsPerUnit = 1;
+  private bool _drawn;
+
+  /// <summary>Counts up each time the mesh is built again.</summary>
+  public int DrawnVersion { get; private set; }
+
+  /// <summary>
+  /// Whether the last mesh drew anything: then <see cref="DrawnOutline"/> holds
+  /// its outline in the rect's local space (the outer edge of fill and border).
+  /// </summary>
+  public bool Drawn => _drawn && (DrawnFill || DrawnBorder > 0);
+
+  public IReadOnlyList<Vector2> DrawnOutline => _local;
+
+  /// <summary>Outward offsets of <see cref="DrawnOutline"/>; a border is the band up to its width inside.</summary>
+  public IReadOnlyList<Vector2> DrawnNormals => _normals;
+
+  /// <summary>The last mesh filled the outline with something not fully transparent.</summary>
+  public bool DrawnFill { get; private set; }
+
+  /// <summary>How wide a border the last mesh drew inside the outline, in the rect's units; 0 for none.</summary>
+  public float DrawnBorder { get; private set; }
 
   /// <summary>
   /// Draws the shape as large as the rect, so it follows a resize at once,
@@ -131,6 +152,10 @@ internal sealed class ShapeGraphic : MaskableGraphic
   protected override void OnPopulateMesh(VertexHelper mesh)
   {
     mesh.Clear();
+    DrawnVersion++;
+    _drawn = false;
+    DrawnFill = false;
+    DrawnBorder = 0;
     if (_shape == null)
       return;
     Rect rect = rectTransform.rect;
@@ -179,6 +204,20 @@ internal sealed class ShapeGraphic : MaskableGraphic
     AddFill(mesh, feather);
     if (stroke > 0 && (_strokeLayer.Gradient || _stroke.a > 0))
       AddRing(mesh, 0, stroke, _strokeLayer.Gradient ? Color.white : _stroke, _strokeLayer, feather);
+    _drawn = true;
+    DrawnFill = _fillLayer.Gradient ? Shows(_fillGradient) : _fill.a > 0;
+    DrawnBorder = stroke > 0 && (_strokeLayer.Gradient ? Shows(_strokeGradient) : _stroke.a > 0) ? stroke : 0;
+  }
+
+  // A gradient with any stop that isn't fully transparent.
+  private static bool Shows(OverlayResolvedGradient gradient)
+  {
+    if (gradient == null)
+      return false;
+    for (int i = 0; i < gradient.Stops.Count; i++)
+      if (gradient.Stops[i].Color.A > 0)
+        return true;
+    return false;
   }
 
   private Rect _box;

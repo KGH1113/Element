@@ -1,10 +1,12 @@
 using System;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
+using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Overlay.Elements;
 
@@ -14,7 +16,7 @@ namespace Element.Presentation.Overlay.Elements;
 /// bounds, not the edit rectangle, carry the anchor, so a value growing wider
 /// keeps the chosen edge in place.
 /// </summary>
-internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
+internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IOverlayCover, IDisposable
 {
   private readonly Vector3[] _corners = new Vector3[4];
   private readonly OverlayLayoutSettings _stagedSettings = new();
@@ -22,6 +24,10 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   private bool _staged;
   private Rect _stageOrigin;
   private bool _applying;
+
+  // Counts up whenever the element may have moved, changed size or shown or
+  // hidden; each kind adds what changes its drawing (IOverlayCover).
+  private int _placementVersion;
 
   protected OverlayElementTarget(Transform parent, string name)
   {
@@ -129,6 +135,40 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
 
   public bool HasContent => Rect != null && TryGetLocalContent(out _);
 
+  /// <inheritdoc/>
+  public virtual int CoverVersion => _placementVersion;
+
+  /// <summary>On, and on screen: its canvas shows and nothing hides it.</summary>
+  protected bool OnScreen => Rect != null && Settings != null && Enabled && Rect.gameObject.activeInHierarchy;
+
+  /// <summary>Its rectangle on screen while it shows; kinds whose drawing reaches further say so.</summary>
+  public virtual bool TryGetCoverBounds(out LayoutBounds screenTopLeft)
+  {
+    screenTopLeft = default;
+    if (!OnScreen)
+      return false;
+    Rect bounds = Bounds;
+    screenTopLeft = new LayoutBounds(bounds.x, bounds.y, bounds.width, bounds.height);
+    return bounds.width > 0 && bounds.height > 0;
+  }
+
+  /// <inheritdoc/>
+  public abstract void Rasterize(ViewerCoverRuns runs);
+
+  /// <summary>Something its kind draws changed where the base can't see it.</summary>
+  protected void CoverChanged() => _placementVersion++;
+
+  /// <summary>
+  /// A point of this element's rect, in screen pixels from the top left, via
+  /// <paramref name="toWorld"/> (its <see cref="Transform.localToWorldMatrix"/>,
+  /// read once per drawing). An overlay canvas's world space is the screen's.
+  /// </summary>
+  protected static NVector2 ToScreen(in Matrix4x4 toWorld, Vector3 local, float screenHeight)
+  {
+    Vector3 world = toWorld.MultiplyPoint3x4(local);
+    return new NVector2(world.x, screenHeight - world.y);
+  }
+
   public void Configure(OverlayLayoutSettings settings)
   {
     Settings = settings;
@@ -182,6 +222,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
       return;
     Settings.Enabled = enabled;
     ApplyVisibility();
+    _placementVersion++;
   }
 
   public void ResetLayout()
@@ -241,6 +282,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     finally
     {
       _applying = false;
+      _placementVersion++;
     }
   }
 
@@ -267,6 +309,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     BeginStage();
     float scale = ValidScale(Rect.localScale.x * bounds.width / current.width, true);
     Rect.localScale = new Vector3(scale, scale, 1);
+    _placementVersion++;
     FitVisibleSize(Bounds, Screen.width, Screen.height);
     StageCenter(bounds.center);
   }
@@ -404,6 +447,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     Rect.localScale = new Vector3(scale, scale, 1);
     Rect current = AnchorBounds;
     Rect.position += new Vector3(content.center.x - current.center.x, current.center.y - content.center.y, 0);
+    _placementVersion++;
   }
 
   private static void StorePosition(OverlayLayoutSettings settings, AnchoredLayoutPosition position)
@@ -419,6 +463,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     Rect bounds = Bounds;
     Rect.position += new Vector3(center.x - bounds.center.x, bounds.center.y - center.y, 0f);
+    _placementVersion++;
   }
 
   // Shrinks an element too large to keep a tenth of it inside the viewport.
@@ -455,6 +500,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
   {
     if (!_applying && !_staged && Settings != null && OverlayLayoutPosition.IsAnchored(Settings) && !PendingFit)
       ApplyPosition();
+    _placementVersion++;
     ContentChanged?.Invoke(this);
   }
 
@@ -524,5 +570,6 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IDisposable
     if (Rect != null)
       UiFactory.Destroy(Rect.gameObject);
     Rect = null;
+    _placementVersion++;
   }
 }

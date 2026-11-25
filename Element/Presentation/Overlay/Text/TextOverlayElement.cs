@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
+using Element.Domain.KeyViewer;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
@@ -11,6 +14,7 @@ using Element.Presentation.Ui.Theme;
 using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
+using NVector2 = System.Numerics.Vector2;
 
 namespace Element.Presentation.Overlay.Text;
 
@@ -39,9 +43,15 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   private float _renderedScale = -1;
   private bool _hasSizeFormula;
 
+  // Counts up when TMP lays the text out or it is drawn again: the key
+  // viewers behind it trace its glyphs again only then.
+  private int _textVersion;
+  private readonly Action<TMP_TextInfo> _laidOut;
+
   public TextOverlayElement(Transform parent, OverlayFonts fonts, OverlayValues values)
     : base(parent, "Text element")
   {
+    _laidOut = _ => _textVersion++;
     _values = values;
     _fonts = fonts;
     _text = OverlayTextFactory.AddText(
@@ -67,6 +77,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     _pulse.Initialize(_text);
     _gradients = Rect.gameObject.AddComponent<OverlayTextGradients>();
     _gradients.Initialize(_text);
+    _text.OnPreRenderText += _laidOut;
   }
 
   public override string Label => L("텍스트", "Text");
@@ -198,6 +209,10 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     // A new text is colored as TMP lays it out; the same text is recolored now.
     if (ReferenceEquals(before, _text.text))
       _gradients.Repaint();
+    // A gradient's colors alone can show or hide glyphs (fading to clear);
+    // anything else that changes is laid out again (_laidOut).
+    if (_gradients.Count > 0)
+      _textVersion++;
     if (_hasLegacy && _legacy.FitsText)
     {
       // The combo's number and title were fitted to their text.
@@ -223,8 +238,132 @@ internal sealed class TextOverlayElement : OverlayElementTarget
     }
   }
 
+  // All three only count up, so the sum changes whenever one does. A copy of
+  // an atlas arriving lets glyphs traced as boxes trace their shape.
+  public override int CoverVersion => base.CoverVersion + _textVersion + _fonts.Atlases.Version;
+
+  /// <summary>The glyph quads it shows, which hold its outline and shadow too.</summary>
+  public override bool TryGetCoverBounds(out LayoutBounds screenTopLeft)
+  {
+    screenTopLeft = default;
+    TMP_TextInfo info = OnScreen ? _text.textInfo : null;
+    if (info == null)
+      return false;
+    Matrix4x4 toWorld = _text.rectTransform.localToWorldMatrix;
+    float height = Screen.height;
+    float left = float.PositiveInfinity,
+      top = float.PositiveInfinity,
+      right = float.NegativeInfinity,
+      bottom = float.NegativeInfinity;
+    int count = Mathf.Min(info.characterCount, info.characterInfo.Length);
+    for (int i = 0; i < count; i++)
+    {
+      ref readonly TMP_CharacterInfo character = ref info.characterInfo[i];
+      if (!Shows(info, character))
+        continue;
+      Include(ToScreen(toWorld, character.vertex_BL.position, height), ref left, ref top, ref right, ref bottom);
+      Include(ToScreen(toWorld, character.vertex_TL.position, height), ref left, ref top, ref right, ref bottom);
+      Include(ToScreen(toWorld, character.vertex_TR.position, height), ref left, ref top, ref right, ref bottom);
+      Include(ToScreen(toWorld, character.vertex_BR.position, height), ref left, ref top, ref right, ref bottom);
+    }
+    if (!(right > left && bottom > top))
+      return false;
+    screenTopLeft = new LayoutBounds(left, top, right - left, bottom - top);
+    return true;
+  }
+
+  /// <summary>
+  /// Each glyph as drawn at rest, with the overlay's outline and shadow: traced
+  /// from its font atlas, or its quad while the atlas can't be read on the CPU.
+  /// Fallback fonts' glyphs and gradient colors count like any others.
+  /// </summary>
+  public override void Rasterize(ViewerCoverRuns runs)
+  {
+    TMP_TextInfo info = OnScreen ? _text.textInfo : null;
+    if (info == null)
+      return;
+    Matrix4x4 toWorld = _text.rectTransform.localToWorldMatrix;
+    float height = Screen.height;
+    FontAtlasPixels atlases = _fonts.Atlases;
+    Material shaded = null;
+    GlyphShading shading = default;
+    int count = Mathf.Min(info.characterCount, info.characterInfo.Length);
+    for (int i = 0; i < count; i++)
+    {
+      ref readonly TMP_CharacterInfo character = ref info.characterInfo[i];
+      if (!Shows(info, character))
+        continue;
+      NVector2 bottomLeft = ToScreen(toWorld, character.vertex_BL.position, height),
+        topLeft = ToScreen(toWorld, character.vertex_TL.position, height),
+        topRight = ToScreen(toWorld, character.vertex_TR.position, height),
+        bottomRight = ToScreen(toWorld, character.vertex_BR.position, height);
+      Material material = MaterialOf(info, character);
+      Texture texture = material != null ? material.mainTexture : null;
+      if (
+        character.elementType != TMP_TextElementType.Character
+        || texture == null
+        || !atlases.TryRead(texture, out FontAtlasAlpha atlas)
+      )
+      {
+        runs.FillQuad(bottomLeft, topLeft, topRight, bottomRight);
+        continue;
+      }
+      // Most glyphs share one material: read its shading once.
+      if (!ReferenceEquals(material, shaded))
+      {
+        shaded = material;
+        shading = GlyphShading.Of(material, atlas.Width, atlas.Height);
+      }
+      bool bold = (character.style & FontStyles.Bold) != 0 && !character.isUsingAlternateTypeface;
+      GlyphCover.Trace(
+        runs,
+        bottomLeft,
+        bottomRight,
+        topLeft,
+        character.vertex_BL.uv,
+        character.vertex_TR.uv,
+        atlas,
+        shading,
+        bold
+      );
+    }
+  }
+
+  // Visible glyphs whose color isn't fully transparent at every corner.
+  private static bool Shows(TMP_TextInfo info, in TMP_CharacterInfo character)
+  {
+    if (!character.isVisible)
+      return false;
+    int mesh = character.materialReferenceIndex,
+      vertex = character.vertexIndex;
+    TMP_MeshInfo[] meshes = info.meshInfo;
+    Color32[] colors = meshes != null && mesh >= 0 && mesh < meshes.Length ? meshes[mesh].colors32 : null;
+    if (colors == null || vertex < 0 || vertex + 3 >= colors.Length)
+      return character.color.a > 0;
+    return colors[vertex].a > 0 || colors[vertex + 1].a > 0 || colors[vertex + 2].a > 0 || colors[vertex + 3].a > 0;
+  }
+
+  // The material its sub mesh draws with: the font's, or a fallback font's.
+  private static Material MaterialOf(TMP_TextInfo info, in TMP_CharacterInfo character)
+  {
+    int mesh = character.materialReferenceIndex;
+    TMP_MeshInfo[] meshes = info.meshInfo;
+    Material material = meshes != null && mesh >= 0 && mesh < meshes.Length ? meshes[mesh].material : null;
+    return material != null ? material : character.material;
+  }
+
+  private static void Include(NVector2 point, ref float left, ref float top, ref float right, ref float bottom)
+  {
+    left = Mathf.Min(left, point.X);
+    top = Mathf.Min(top, point.Y);
+    right = Mathf.Max(right, point.X);
+    bottom = Mathf.Max(bottom, point.Y);
+  }
+
   public override void Dispose()
   {
+    if (_text != null)
+      _text.OnPreRenderText -= _laidOut;
     _geometry.Dispose();
     base.Dispose();
   }

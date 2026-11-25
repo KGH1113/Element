@@ -61,6 +61,9 @@ internal sealed class OverlayFonts : IDisposable
   /// <summary>What the font picker lists; null without a font source.</summary>
   public IOverlayFontLibrary Library { get; }
 
+  /// <summary>The fonts' atlases on the CPU, for the key viewers that trace the glyphs in front of them.</summary>
+  public FontAtlasPixels Atlases { get; } = new();
+
   /// <summary>Changes whenever any key may draw with a different font.</summary>
   public int Version { get; private set; }
 
@@ -212,6 +215,7 @@ internal sealed class OverlayFonts : IDisposable
 
   public void Dispose()
   {
+    Atlases.Dispose();
     foreach (Entry entry in _releasing)
       entry.Dispose();
     _releasing.Clear();

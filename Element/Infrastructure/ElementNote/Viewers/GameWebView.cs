@@ -67,6 +67,9 @@ internal sealed class GameWebView : INativeViewerHost
   private delegate void SetEditorExclusions([In] double[] values, int count);
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+  private delegate void SetCovers(string kind, [In] double[] values, int count);
+
+  [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
   private delegate void DisposeViews();
 
   [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -95,6 +98,14 @@ internal sealed class GameWebView : INativeViewerHost
   private readonly SetGameSize _setGameSize;
   private int _gameWidth,
     _gameHeight;
+
+  // Optional: libraries before covers lack it, and then viewers stay whole.
+  private readonly SetCovers _setCovers;
+
+  // The covers each viewer's library has, and the buffer the next ones are
+  // written to: they swap, so a combo changing every hit allocates nothing.
+  private readonly Dictionary<string, AppliedCovers> _covers = new(StringComparer.Ordinal);
+  private double[] _nextCoverValues = Array.Empty<double>();
 
   // The cutouts the library has, and the buffer the next ones are written to:
   // the two swap, so an open layout editor allocates nothing per frame.
@@ -148,6 +159,7 @@ internal sealed class GameWebView : INativeViewerHost
     _setEditorExclusion = Symbol<SetEditorExclusion>(library, "irp_webview_set_editor_exclusion");
     _setEditorExclusions = OptionalSymbol<SetEditorExclusions>(library, "irp_webview_set_editor_exclusions");
     _setGameSize = OptionalSymbol<SetGameSize>(library, "irp_webview_set_game_size");
+    _setCovers = OptionalSymbol<SetCovers>(library, "irp_webview_set_covers");
     _dispose = Symbol<DisposeViews>(library, "irp_webview_dispose");
     _lastError = Symbol<LastError>(library, "irp_webview_last_error");
     if (Symbol<Supported>(library, "irp_webview_supported")() == 0)
@@ -248,6 +260,38 @@ internal sealed class GameWebView : INativeViewerHost
       _setEditorExclusion(0, 0, 0, 0);
     else
       _setEditorExclusion(left, top, right - left, bottom - top);
+  }
+
+  public void Cover(string kind, IReadOnlyList<LayoutBounds> normalized)
+  {
+    if (_disposed || _setCovers == null || kind == null)
+      return;
+    int length = normalized.Count * 4;
+    if (_nextCoverValues.Length < length)
+      _nextCoverValues = new double[length];
+    double[] values = _nextCoverValues;
+    for (int i = 0; i < normalized.Count; i++)
+    {
+      LayoutBounds bounds = normalized[i];
+      values[i * 4] = bounds.X;
+      values[i * 4 + 1] = bounds.Y;
+      values[i * 4 + 2] = bounds.Width;
+      values[i * 4 + 3] = bounds.Height;
+    }
+    if (!_covers.TryGetValue(kind, out AppliedCovers applied))
+    {
+      // Nothing sent yet is the same as no covers.
+      if (length == 0)
+        return;
+      applied = new AppliedCovers();
+      _covers.Add(kind, applied);
+    }
+    else if (Same(values, length, applied.Values, applied.Length))
+      return;
+    _nextCoverValues = applied.Values;
+    applied.Values = values;
+    applied.Length = length;
+    _setCovers(kind, values, normalized.Count);
   }
 
   // The first aLength values of a against the first bLength of b.
@@ -387,7 +431,14 @@ internal sealed class GameWebView : INativeViewerHost
       return;
     _disposed = true;
     _kinds.Clear();
+    _covers.Clear();
     _dispose();
+  }
+
+  private sealed class AppliedCovers
+  {
+    public double[] Values = Array.Empty<double>();
+    public int Length;
   }
 
   private NativeViewerHostException HostError()

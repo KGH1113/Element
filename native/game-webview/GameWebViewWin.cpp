@@ -323,6 +323,12 @@ struct Surface {
   RectD appliedClip;
   std::wstring appliedExclusion;
   std::wstring appliedCovers;
+  // What appliedCovers was worked out from; a layout that moved nothing skips it.
+  unsigned long long coversRevision = 0;
+  RectD coversFrame;
+  POINT coversOffset{INT_MIN, INT_MIN};
+  double coversScale = 0;
+  int coversWidth = 0, coversHeight = 0;
   int appliedEditing = -1;
 };
 
@@ -373,6 +379,8 @@ Shared &shared = *new Shared();
 // still apply. The game window's thread only; emptied on dispose.
 constexpr int kMaximumCovers = 4096;
 std::map<std::string, std::vector<RectD>> covers;
+// Counts every change of covers, so a layout that moved nothing skips them.
+unsigned long long coversRevision = 1;
 bool previewVisible = true;
 bool apartmentReady = false;
 unsigned long long nextSurfaceId = 1;
@@ -1166,6 +1174,18 @@ void ApplyCovers(Surface &surface) {
   if (!surface.webView || !surface.navigated || host == nullptr || surface.hidden || surface.scale <= 0 ||
       surface.appliedOffset.x == INT_MIN)
     return;
+  // Layout runs for every viewer and editor change; skip formatting when nothing it uses moved.
+  if (!surface.appliedCovers.empty() && surface.coversRevision == coversRevision &&
+      SameRect(surface.coversFrame, surface.contentFrame) && surface.coversOffset.x == surface.appliedOffset.x &&
+      surface.coversOffset.y == surface.appliedOffset.y && surface.coversScale == surface.scale &&
+      surface.coversWidth == host->width && surface.coversHeight == host->height)
+    return;
+  surface.coversRevision = coversRevision;
+  surface.coversFrame = surface.contentFrame;
+  surface.coversOffset = surface.appliedOffset;
+  surface.coversScale = surface.scale;
+  surface.coversWidth = host->width;
+  surface.coversHeight = host->height;
   std::wstring script = L"window.__irpSetCovers?.([";
   auto found = covers.find(surface.kind);
   if (found != covers.end() && host->width > 0 && host->height > 0) {
@@ -1776,6 +1796,7 @@ IRP_WEBVIEW_API void irp_webview_set_covers(const char *viewerKind, const double
     std::string kind = viewerKind;
     if (next.empty()) covers.erase(kind);
     else covers[kind] = std::move(next);
+    ++coversRevision;
     // Only this page's clip changes: no layout, no composition commit.
     if (Surface *surface = Lookup(viewerKind)) ApplyCovers(*surface);
     return 1;
@@ -1788,6 +1809,7 @@ IRP_WEBVIEW_API void irp_webview_dispose(void) {
     DestroyHost();
     ClearFaults();
     covers.clear();
+    ++coversRevision;
     previewVisible = true;
     if (shared.messageWindow != nullptr) {
       KillTimer(shared.messageWindow, kRecoverTimer);

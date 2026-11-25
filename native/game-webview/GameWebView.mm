@@ -34,6 +34,8 @@ NSSize gameSize = NSZeroSize;
 // its replacement still apply. Main thread only.
 constexpr int kMaximumCovers = 4096;
 std::map<std::string, std::vector<double>> covers;
+// Counts every change of covers, so a layout that moved nothing skips them.
+unsigned long long coversRevision = 1;
 
 bool ValidKind(const char *kind) {
   return kind != nullptr && strlen(kind) <= 160 &&
@@ -278,8 +280,13 @@ static WKUserScript *PageScript(NSString *source) {
 @end
 
 @implementation IRPGameWebViewSurface {
-  // The clip size and cover rectangles the mask was last built from.
+  // The clip size and cover rectangles the mask was last built from, and
+  // what they were worked out from.
   std::vector<double> _appliedCovers;
+  unsigned long long _coversRevision;
+  NSRect _coversClip;
+  NSRect _coversContent;
+  NSSize _coversHost;
 }
 
 // Cuts this viewer's covers out of its clip. Each is kept to the content the
@@ -288,6 +295,14 @@ static WKUserScript *PageScript(NSString *source) {
   IRPGameWebViewClip *clip = self.clip;
   if (clip == nil) return;
   NSRect origin = clip.frame;
+  // Layouts that moved nothing (another viewer's, a backing change) leave the mask alone.
+  if (_coversRevision == coversRevision && NSEqualRects(_coversClip, origin) &&
+      NSEqualRects(_coversContent, self.contentFrame) && NSEqualSizes(_coversHost, size))
+    return;
+  _coversRevision = coversRevision;
+  _coversClip = origin;
+  _coversContent = self.contentFrame;
+  _coversHost = size;
   std::vector<double> applied;
   CGMutablePathRef path = nullptr;
   auto found = covers.find(self.kind.UTF8String);
@@ -1036,6 +1051,7 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_set_covers(co
   OnMainThread(^{
     if (next.empty()) covers.erase(kind);
     else covers[kind] = next;
+    ++coversRevision;
     IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:kind.c_str()]];
     [surface applyCoversInHost:host.bounds.size];
     return 1;
@@ -1054,6 +1070,7 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void)
     gameWindow = nil;
     previewVisible = true;
     covers.clear();
+    ++coversRevision;
     ClearFaults();
     SetError("");
     return 1;

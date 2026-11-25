@@ -62,14 +62,5 @@ internal sealed class InputDockView : View<InputDockViewModel>
         HStack(spacing: KeypadGap, alignment: VAlignment.Top, Values, new InputMethodView(VM))
           .Padding(new Insets(LineGap - 1, 0, 0, 0))
       )
-      .Frame(width: _width)
-      // A chip just started being carried: the editor makes room for it.
-      .OnChange(
-        () => DragSession.Active,
-        carrying =>
-        {
-          if (carrying)
-            VM.BeganCarrying();
-        }
-      );
+      .Frame(width: _width);
 }

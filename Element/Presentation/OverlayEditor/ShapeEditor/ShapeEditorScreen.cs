@@ -33,7 +33,7 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// <remarks>
 /// The editor puts its parts together and runs them: <see cref="ShapePreview"/>,
 /// <see cref="ShapeMeasures"/>, <see cref="ShapeNumbers"/>, <see cref="ShapeColors"/>,
-/// <see cref="ShapeGradient"/>, <see cref="ShapeValueDrops"/> and <see cref="ShapeInput"/>,
+/// <see cref="ShapeGradient"/> and <see cref="ShapeInput"/>,
 /// with the bar, the grow point and undo it shares with the text editor. It
 /// tells the input dock what is edited on every render, and everything done
 /// in the dock comes back here, through <see cref="IInputDockActions"/>.
@@ -57,7 +57,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   // The grow-from point; Esc and a press elsewhere close it.
   private readonly PopoverStack _popovers = new();
-  private readonly ShapeValueDrops _drops;
   private readonly ShapeInput _input;
   private EditorFramePanel _frame;
   private InspectorPanel _inspector;
@@ -92,7 +91,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers.Use(_gradient);
     _grow = new GrowFrom(CloseOpen, Render);
     ShapeFieldList fields = new(_measures, _colors, _gradient);
-    _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures);
     _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _grow, _history);
   }
 
@@ -170,9 +168,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers.PickValue(value);
   }
 
-  // Nothing covers the shape's numbers.
-  void IInputDockActions.BeganCarrying() { }
-
   // Let go on the dock's line: the value joins the formula, or words say why they can't.
   void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
   {
@@ -213,7 +208,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   {
     _colors.DisposePicker();
     _frame?.Dispose();
-    _drops.Release();
     _space.Snap();
     _zoom.Snap();
     _frame = new EditorFramePanel(
@@ -238,8 +232,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _grow.Build(_frame, _inspector);
     _popovers.Clear();
     _popovers.Add(_grow.Popover);
-    // Built last: every place a carried value can land is drawn by now.
-    _drops.Build();
   }
 
   // A row per property in the column above the keypad: fill, border, border
@@ -254,8 +246,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       CloseTool,
       _colors.BuildFill(),
       _colors.BuildStroke(),
-      // A value carried onto the border width row calculates the width with it.
-      _numbers.BuildStrokeWidth(_drops.DropOnStrokeWidth),
+      // Values go in by picking them in the dock, never by carrying them onto the row.
+      _numbers.BuildStrokeWidth(takesValue: null),
       _grow.BuildButton()
     );
 
@@ -499,7 +491,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _colors.DisposePicker();
     _frame.Dispose();
     _frame = null;
-    _drops.Release();
     _numbers.Editing.Deactivate();
     _element = null;
     _closed = null;

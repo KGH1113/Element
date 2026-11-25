@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
@@ -18,15 +19,19 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// The dock's values, as tall as the keypad beside it. On the left a search
-/// field over the list of places: the built-in categories with how many
-/// values each holds, then, under a small heading, one row per mod that adds
-/// values. On the right the open place's chips wrap under its name, a mod's
-/// in a row per group beside the group's heading; while something is typed
-/// they give way to what the search finds, by place. Each chip names its
-/// value and, in a muted ink, what it reads now. Only the list and the page
-/// scroll; the list shows a slim bar and fades at an edge while more of it
-/// lies beyond. Every surface is opaque.
+/// The dock's values, as tall as the keypad beside it, only those that fit
+/// where values go now. On the left a search field over the list of places:
+/// the built-in categories with how many of their values fit, then, under a
+/// small heading, one row per mod that adds some; a place with none is left
+/// out. On the right, under a mark of the type and words that name where
+/// the values go ("숫자 칸에 넣을 수 있는 값"), the open place's chips wrap,
+/// a mod's in a row per group beside the group's heading; while something is
+/// typed they give way to what the search finds, by place. Under them, in a
+/// muted ink, how many values were left out. Each chip names its value and,
+/// in a muted ink, what it reads now. With nothing open, or a sign to pick,
+/// a line says what to do instead. Only the list and the page scroll; the
+/// list shows a slim bar and fades at an edge while more of it lies beyond.
+/// Every surface is opaque.
 /// </summary>
 internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
@@ -41,7 +46,9 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     ChipGap = 6,
     GroupGap = 8,
     HeadingGap = 18,
-    LiveWidth = 150;
+    LiveWidth = 150,
+    NoteHeight = 22,
+    PageHeight = ListHeight - NoteHeight;
 
   // The search's icon and clear-button space, also used to size its hint.
   private const float SearchStart = 36,
@@ -52,10 +59,6 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     MinimumList = 184,
     MaximumList = 240,
     MaximumHeading = 150;
-
-  private const float GhostHeight = 30;
-
-  private static readonly UiColor GhostInk = new Color(.08f, .08f, .08f);
 
   private static readonly UiColor ChipFill = UiPalette.EditorControl,
     ChipInk = new Color(.92f, .92f, .92f),
@@ -73,10 +76,22 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
   private float Measure(string words) => EnvironmentValue(EditorEnvironment.Measure)(words);
 
   public override View Body =>
-    HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
+    If(() => VM.Listing.Value, () => HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page()), Resting)
       .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading)
       // A few times a second while shown, the chips take what their values read now.
-      .OnChange(() => VM.Live.Tick, _ => VM.Follow());
+      .OnChange(() => VM.Live.Tick, _ => VM.Follow())
+      // Only when where values go changes, the list keeps what fits there.
+      .OnChange(() => VM.Place.Value, VM.Refit);
+
+  // Nothing to list here: what to do instead, where the page's words would be.
+  private View Resting() =>
+    UI.Text(() => VM.Rest.Value)
+      .Font(Font.Caption.Sized(13))
+      .Foreground(Colors.Muted)
+      .LineLimit(2)
+      .Named("Values rest")
+      .Padding(new Insets(8, 2, 0, 0))
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 
   // ---- The list of places ----
 
@@ -94,6 +109,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       )
       .Frame(width: ListWidth, alignment: Alignment.TopLeading);
 
+  // Every place is made once; one with no value that fits is left out.
   private View[] Places()
   {
     List<View> rows = new();
@@ -102,13 +118,17 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     if (VM.Mods.Count > 0)
     {
       rows.Add(
-        UI.Text(L("모드", "Mods"))
-          .Font(Font.Caption.Sized(11).Bolded())
-          .Foreground(Colors.Muted)
-          .LineLimit(1)
-          .Named("Mods heading")
-          .Padding(new Insets(0, RowInset, 4, RowInset))
-          .Frame(maxWidth: float.PositiveInfinity, height: ModsHeadingHeight, alignment: Alignment.BottomLeading)
+        If(
+          () => VM.ModsShown.Value,
+          () =>
+            UI.Text(L("모드", "Mods"))
+              .Font(Font.Caption.Sized(11).Bolded())
+              .Foreground(Colors.Muted)
+              .LineLimit(1)
+              .Named("Mods heading")
+              .Padding(new Insets(0, RowInset, 4, RowInset))
+              .Frame(maxWidth: float.PositiveInfinity, height: ModsHeadingHeight, alignment: Alignment.BottomLeading)
+        )
       );
       foreach (ValueFolderViewModel folder in VM.Mods)
         rows.Add(Place(folder));
@@ -116,8 +136,10 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     return rows.ToArray();
   }
 
-  // A place: its name, and on the right how many values it holds. The whole row is the button.
-  private View Place(ValueFolderViewModel folder) =>
+  private View Place(ValueFolderViewModel folder) => If(() => folder.Shown.Value, () => PlaceRow(folder));
+
+  // A place: its name, and on the right how many of its values fit. The whole row is the button.
+  private View PlaceRow(ValueFolderViewModel folder) =>
     Button(
         HStack(
             spacing: 0,
@@ -182,6 +204,8 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       spacing: Gap,
       HStack(
           spacing: 8,
+          // The type that goes there, then where that is.
+          Switch(() => VM.Type.Value, type => TypeMarks.Mark(type).Named("Values type")),
           UI.Text(() => VM.Title.Value)
             .Font(Font.Caption.Sized(13).Bolded())
             .Foreground(Colors.Muted)
@@ -196,8 +220,19 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         )
         .Padding(new Insets(0, 2, 0, 0))
         .Frame(maxWidth: float.PositiveInfinity, height: FieldHeight),
-      ZStack(Alignment.TopLeading, pages.ToArray())
-        .Frame(maxWidth: float.PositiveInfinity, height: ListHeight, alignment: Alignment.TopLeading)
+      VStack(
+        spacing: 0,
+        ZStack(Alignment.TopLeading, pages.ToArray())
+          .Frame(maxWidth: float.PositiveInfinity, height: PageHeight, alignment: Alignment.TopLeading),
+        // How many were left out; nothing while every value fits.
+        UI.Text(() => VM.Hidden.Value)
+          .Font(Font.Caption.Sized(12))
+          .Foreground(Colors.Muted)
+          .LineLimit(1)
+          .Named("Values hidden")
+          .Padding(new Insets(0, 2, 0, 0))
+          .Frame(maxWidth: float.PositiveInfinity, height: NoteHeight, alignment: Alignment.BottomLeading)
+      )
     );
   }
 
@@ -209,7 +244,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       () =>
         Switch(
           () => folder.Version.Value,
-          _ => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
+          _ => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: PageHeight)
         )
     );
 
@@ -223,7 +258,11 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     column = Mathf.Min(MaximumHeading, column + HeadingGap);
     View[] rows = new View[groups.Count];
     for (int i = 0; i < rows.Length; i++)
-      rows[i] = Row(groups[i].Heading ?? "", column, Chips(groups[i].Chips, false));
+    {
+      ValueChipRow group = groups[i];
+      // A group none of whose values fit is left out, heading and all.
+      rows[i] = If(() => group.Shown.Value, () => Row(group.Heading ?? "", column, Chips(group.Chips, false)));
+    }
     return VStack(spacing: GroupGap, rows);
   }
 
@@ -245,7 +284,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     return Scroller(VStack(spacing: GroupGap, rows.ToArray()))
       // A new search starts at the top.
       .Configure<ScrollRect, string>(() => VM.Query.Value, (scroll, _) => scroll.verticalNormalizedPosition = 1)
-      .Frame(maxWidth: float.PositiveInfinity, height: ListHeight);
+      .Frame(maxWidth: float.PositiveInfinity, height: PageHeight);
   }
 
   private View Found(ValueFolderViewModel folder, float column) =>
@@ -292,15 +331,18 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
   {
     View[] views = new View[chips.Count];
     for (int i = 0; i < views.Length; i++)
-      views[i] = found ? FoundChip(chips[i]) : Chip(chips[i]);
+      views[i] = found ? FoundChip(chips[i]) : FitChip(chips[i]);
     return Flow(ChipGap, views).Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
   }
 
+  // A value that can't go where values go now is not listed at all.
+  private View FitChip(ValueChipViewModel chip) => If(() => chip.Fits.Value, () => Chip(chip));
+
   private View FoundChip(ValueChipViewModel chip) => If(() => chip.Found.Value, () => Chip(chip));
 
-  // A chip is pressed to pick its value and dragged to carry it out. The
-  // label takes the chip's height, so the capsule, its press and its drag
-  // are all as tall as the chip. What the value reads now follows its name,
+  // A chip is pressed to pick its value; picking is the only way a value
+  // goes in. The label takes the chip's height, so the capsule and its press
+  // are as tall as the chip. What the value reads now follows its name,
   // keeping the room its widest number took.
   private View Chip(ValueChipViewModel chip) =>
     Button(
@@ -329,10 +371,6 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         ButtonStyle.Plain
       )
       .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
-      // A value that can't go where values go now reads faint; a click says why.
-      .Opacity(() => VM.Fit(chip.Value) ? 1f : .38f)
-      // Carried out of the dock, the value lands wherever it is let go.
-      .Draggable(() => chip.Value, Ghost)
       .Named(chip.Name);
 
   // A color leads its name with its swatch: the highlight color, or white
@@ -349,22 +387,6 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
       .Frame(width: 13, height: 13)
       .Padding(new Insets(0, 0, 0, 6))
       .AllowsHitTesting(false);
-  }
-
-  // The carried value beside the pointer, in the highlight color as it is
-  // when the drag starts. Opaque, so the overlay behind never shows through;
-  // greyed while the place under it can't take it.
-  private static View Ghost(OverlayValueDefinition value)
-  {
-    UiColor carried = UiPalette.SoftAccent,
-      refused = UiPalette.Wash(UiPalette.EditorDim, .45f);
-    return UI.Text(ValueSectionNames.ValueName(value))
-      .Font(Font.Caption.Sized(13))
-      .Foreground(GhostInk)
-      .LineLimit(1)
-      .Padding(new Insets(0, 14, 0, 14))
-      .Frame(height: GhostHeight)
-      .Background(() => DragSession.State == DropState.Refuses ? refused : carried, GhostHeight / 2);
   }
 
   private View Scroller(View content) =>

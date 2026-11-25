@@ -58,12 +58,14 @@ internal sealed class InputDockViewModel : ViewModel
   /// <param name="notices">The editor's notices, which the dock shows above its line.</param>
   /// <param name="actions">Where everything the player does in the dock goes.</param>
   /// <param name="reduceMotion">The caret stays on instead of blinking.</param>
+  /// <param name="caret">With nothing open, values go in at a text's caret, and the list shows what fits there.</param>
   public InputDockViewModel(
     OverlayValues values,
     FormulaEditing editing,
     EditorFrameViewModel notices,
     IInputDockActions actions,
-    bool reduceMotion
+    bool reduceMotion,
+    bool caret = false
   )
   {
     _editing = editing;
@@ -72,7 +74,7 @@ internal sealed class InputDockViewModel : ViewModel
     _emptyHint = L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value");
     Notices = notices;
     Keypad = Own(new KeypadViewModel(actions, editing));
-    Values = Own(new ValueBrowserViewModel(values, actions));
+    Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
     Typing = Computed(() => Owner.Value != null && _editing.Active);
     // Where the dock is: the field, then each slot opened inside it.
     Title = Computed(() => Typing.Value ? PathText(_editing, _name.Value) + "  =" : _hint.Value);
@@ -104,7 +106,6 @@ internal sealed class InputDockViewModel : ViewModel
     Warn = Color.Lerp(rest, UiPalette.Error, .22f);
     AccentInk = UiPalette.SoftAccent;
     OnInk = UiPalette.Foreground;
-    Values.Fits = value => !_editing.Active || _editing.CanDrop(value);
 
     // While nothing is typed the caret doesn't read the blink, which then rests.
     Caret = Computed(() => Typing.Value && (_steadyCaret || _blink.Even));
@@ -182,7 +183,7 @@ internal sealed class InputDockViewModel : ViewModel
 
   public readonly KeypadViewModel Keypad;
 
-  /// <summary>Every value that can be added: the places, the open one's chips and the search.</summary>
+  /// <summary>The values that fit where values go now: the places, the open one's chips and the search.</summary>
   public readonly ValueBrowserViewModel Values;
 
   /// <summary>The editor's notices, shown above the line for a few seconds.</summary>
@@ -250,9 +251,6 @@ internal sealed class InputDockViewModel : ViewModel
     Owner.Value == null ? DropState.None
     : _editing.Active && _editing.CanDrop(value) ? DropState.Accepts
     : DropState.Refuses;
-
-  /// <summary>A value started being carried out of the dock.</summary>
-  public void BeganCarrying() => _actions.BeganCarrying();
 
   /// <summary>Let go on the line: the editor joins it to the formula, or says why it can't.</summary>
   public void DropOnFormula(OverlayValueDefinition value) => _actions.DropOnFormula(value);

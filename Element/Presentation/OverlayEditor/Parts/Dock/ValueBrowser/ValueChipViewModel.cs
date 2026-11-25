@@ -8,9 +8,9 @@ using ElementUI;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// One value in the dock: a chip that a click picks and a drag carries out.
-/// After its name it shows what the value reads in the overlay now, while
-/// the game has one.
+/// One value in the dock: a chip that a click picks. After its name it shows
+/// what the value reads in the overlay now, while the game has one. It is
+/// listed only while it fits where the dock puts values now.
 /// </summary>
 internal sealed class ValueChipViewModel : ViewModel
 {
@@ -52,7 +52,10 @@ internal sealed class ValueChipViewModel : ViewModel
   /// </summary>
   public readonly State<string> Room = new("");
 
-  /// <summary>Whether the search finds it.</summary>
+  /// <summary>It can go where the dock puts values now: it is listed.</summary>
+  public readonly State<bool> Fits = new(true);
+
+  /// <summary>Whether the search finds it; only one that fits is found.</summary>
   public readonly State<bool> Found = new(false);
 
   public Command Pick { get; }

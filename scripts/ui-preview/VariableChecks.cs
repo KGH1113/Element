@@ -58,6 +58,10 @@ namespace Element.Editor
       Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Compare));
       Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥', "the operator starts as ≥ and shows the six comparisons");
+      Settle();
+      TextMeshProUGUI signs = ByName<TextMeshProUGUI>(dock.Root, "Values rest");
+      Assert(Shown(signs) && signs.text == L("기호는 오른쪽 입력기에서 골라요.", "Pick the sign on the input method at the right.") && DockChips(dock).Length == 0,
+        "the operator's slot lists no values: its sign is picked on the input method");
       SaveFrame(camera, texture, canvases, name + "-variable-compare");
       Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Right));
@@ -105,6 +109,9 @@ namespace Element.Editor
         Press(DockKey(dock, key));
       Press(DockKey(dock, "Key back"));
       Press(DockSlot(dock, OverlayPiece.Result));
+      Settle();
+      Assert(dock.Values.Title.Value == L("결과값 자리에 넣을 수 있는 값", "Values for the Result slot") && !DockListed(dock, "Value combo"),
+        "the result's slot names itself and lists colors, not numbers: " + dock.Values.Title.Value);
       Press(DockChip(dock, "Value highlight-color"));
       Settle();
       Call(text, "Render");
@@ -139,14 +146,14 @@ namespace Element.Editor
       Call(text, "Render");
       Assert(document.Document[0].Color.Formula == colors, "Apply keeps the condition");
 
-      // A color can't go in the text.
+      // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");
       if (picker.Visible)
         picker.Hide();
       Settle();
       int count = document.Document.Count;
-      Press(DockChip(dock, "Value highlight-color"));
-      Assert(document.Document.Count == count && EditorScreen(text).ViewModel.NoticeText.Length > 0, "a color isn't added to the text, and says why");
+      Assert(!DockListed(dock, "Value highlight-color") && !DockListed(dock, "Value custom-color") && DockListed(dock, "Value combo"),
+        "at the caret the list holds no colors");
 
       // A value of the player's, made at the end of the text: filled, renamed, shared.
       document.Anchor = document.Caret = count;

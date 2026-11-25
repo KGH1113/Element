@@ -42,12 +42,6 @@ internal interface IInputDockActions
   void Pick(OverlayValueDefinition value);
 
   /// <summary>
-  /// A value started being carried out of the dock: the editor puts away what
-  /// would cover the places it can land, such as a value's name tip.
-  /// </summary>
-  void BeganCarrying();
-
-  /// <summary>
   /// A value carried from the dock was let go on its formula line: it joins
   /// the formula, or, words where a number goes, the editor says why not.
   /// </summary>

@@ -70,14 +70,17 @@ internal sealed class LineViewModel : ViewModel
       Result = "";
       return;
     }
-    Name = name ?? "";
-    FormulaSlot slot = editing.Slot;
-    Type = slot.Type;
-    Result = string.IsNullOrEmpty(result) || IsPlain(editing.Root) ? "" : "= " + result;
-    SelectedRoute(editing);
+    // In a value of the player's the line shows its inside, under its name.
+    int lineBase = editing.LineBase;
+    FormulaFrame start = editing.Path[lineBase];
+    bool made = lineBase > 0;
+    Name = made ? OverlayCustomValues.Shown(start.Custom, FormulaWords.Current) : name ?? "";
+    Type = start.Type;
+    Result = made || string.IsNullOrEmpty(result) || IsPlain(start.Variable) ? "" : "= " + result;
+    SelectedRoute(editing, lineBase);
     _used.Clear();
     _route.Clear();
-    Slot(editing.Root, slot.Type, -1, slot.IsText, true, editing);
+    Slot(start.Variable, start.Type, -1, !made && editing.Slot.IsText, true, editing);
     Forget(_pieces);
     Forget(_slots);
   }
@@ -87,11 +90,11 @@ internal sealed class LineViewModel : ViewModel
     variable.Count == 1 && variable[0].Kind is not (OverlayPieceKind.Condition or OverlayPieceKind.Group);
 
   // Where the picked piece is: the route of the innermost open variable.
-  private void SelectedRoute(FormulaEditing editing)
+  private void SelectedRoute(FormulaEditing editing, int lineBase)
   {
     _selectedRoute.Clear();
     IReadOnlyList<FormulaFrame> path = editing.Path;
-    for (int i = 1; i < path.Count; i++)
+    for (int i = lineBase + 1; i < path.Count; i++)
       _selectedRoute.Add(new FormulaStep(path[i].Outer, path[i].Slot));
   }
 

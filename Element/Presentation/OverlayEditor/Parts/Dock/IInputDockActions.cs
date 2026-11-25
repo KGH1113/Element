@@ -33,6 +33,9 @@ internal interface IInputDockActions
   /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
   void Switch(bool value);
 
+  /// <summary>The picked value of the player's opens: its inside is on the line, to change.</summary>
+  void OpenMade();
+
   /// <summary>지우기: the picked value is taken out.</summary>
   void Remove();
 

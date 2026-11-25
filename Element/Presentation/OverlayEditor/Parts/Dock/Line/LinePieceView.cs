@@ -52,7 +52,7 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
         () => _line.Pick(VM.Route, VM.Index),
         ButtonStyle.Plain
       )
-      .Named("Piece")
+      .Named("Piece " + VM.Key)
       .Padding(0, 10)
       .Frame(height: ChipHeight)
       .Background(() => VM.Selected ? _lit : _chip, 9);

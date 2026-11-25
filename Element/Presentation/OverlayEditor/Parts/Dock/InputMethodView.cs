@@ -136,7 +136,10 @@ internal sealed class InputMethodView : View<InputDockViewModel>
       TextField(Binding.Create(() => VM.CustomName, value => VM.CustomName = value), L("이름", "Name"))
         .Font(Font.Body.Sized(16))
         .Frame(maxWidth: float.PositiveInfinity, height: 40)
-        .Named("Custom name")
+        .Named("Custom name"),
+      Button(L("안에 든 값 고치기", "Change what it holds"), VM.OpenMade, ButtonStyle.Standard)
+        .Frame(maxWidth: float.PositiveInfinity, height: 36)
+        .Named("Open custom")
     );
 
   private static View Note(string title, string body) =>

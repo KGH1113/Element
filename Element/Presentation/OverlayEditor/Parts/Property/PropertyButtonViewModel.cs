@@ -158,11 +158,25 @@ internal sealed class PropertyButtonViewModel : ViewModel
 
   public Command Click { get; }
 
-  /// <summary>What it shows after its name.</summary>
-  public string Value => ValueText.Value;
+  /// <summary>What it shows after its name; for a field, what it works out to, or its chips' words.</summary>
+  public string Value => IsField ? FieldText() : ValueText.Value;
 
   /// <summary>The shown value came from a formula.</summary>
-  public bool IsComputed => _computedValue.Value;
+  public bool IsComputed => IsField ? Result.Value.Length > 0 : _computedValue.Value;
+
+  private string FieldText()
+  {
+    string result = Result.Value;
+    if (result.Length > 0)
+      return result.StartsWith("= ") ? result.Substring(2) : result;
+    FieldChip[] chips = Chips.Value;
+    if (chips.Length == 1)
+      return chips[0].Label;
+    System.Text.StringBuilder text = new();
+    foreach (FieldChip chip in chips)
+      text.Append(text.Length > 0 ? " " : "").Append(chip.Label);
+    return text.ToString();
+  }
 
   /// <summary>Lit while what the button opened is open.</summary>
   public bool Active => _active.Value;
@@ -224,6 +238,9 @@ internal sealed class PropertyButtonViewModel : ViewModel
     Chips.Value = chips ?? Array.Empty<FieldChip>();
     Result.Value = "";
     _active.Value = active;
+    // A color field's first chip is its swatch, as the button showed it.
+    if (Chips.Value.Length > 0 && Chips.Value[0].HasSwatch)
+      SetSwatch(Chips.Value[0].Swatch, Chips.Value[0].Gradient);
   }
 
   /// <summary>

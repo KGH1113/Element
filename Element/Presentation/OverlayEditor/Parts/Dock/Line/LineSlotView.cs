@@ -38,7 +38,7 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
               () => _line.Pick(VM.Route, -1),
               ButtonStyle.Plain
             )
-            .Named("Empty slot")
+            .Named("Empty slot " + VM.Key)
             .Padding(0, 8)
             .Frame(height: 32),
         () => HStack(spacing: 4, ForEach(() => VM.Pieces, piece => piece.Key, slot => new LinePieceView(slot, _line)))

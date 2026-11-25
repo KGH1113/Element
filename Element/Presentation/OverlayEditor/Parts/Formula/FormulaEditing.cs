@@ -79,6 +79,28 @@ internal sealed class FormulaEditing : Observable
     }
   }
 
+  /// <summary>
+  /// Where the dock's line starts on <see cref="Path"/>: the innermost value
+  /// of the player's that is open, whose inside the line then shows, or 0
+  /// for the field.
+  /// </summary>
+  public int LineBase
+  {
+    get
+    {
+      Reading();
+      return MadeDepth();
+    }
+  }
+
+  private int MadeDepth()
+  {
+    for (int i = _path.Count - 1; i > 0; i--)
+      if (_path[i].Custom != null)
+        return i;
+    return 0;
+  }
+
   /// <summary>What the innermost open variable must give.</summary>
   public OverlayValueType Kind
   {
@@ -208,7 +230,9 @@ internal sealed class FormulaEditing : Observable
   {
     if (_path.Count == 0)
       return;
-    while (_path.Count > 1)
+    // The route starts where the line does: inside an open value of the player's.
+    int floor = MadeDepth();
+    while (_path.Count > floor + 1)
       _path.RemoveAt(_path.Count - 1);
     if (route != null)
       foreach (FormulaStep step in route)
@@ -290,6 +314,19 @@ internal sealed class FormulaEditing : Observable
     // A made value left as it can't be keeps what it gave before.
     _problem = Check();
     Changed();
+    return true;
+  }
+
+  /// <summary>
+  /// Leaves the open value of the player's, the value picked again where it
+  /// sits; false when none is open.
+  /// </summary>
+  public bool LeaveMade()
+  {
+    int made = MadeDepth();
+    if (made == 0)
+      return false;
+    BackTo(made - 1);
     return true;
   }
 

@@ -1,5 +1,8 @@
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
+using Element.Presentation.OverlayEditor.Parts.Formula;
+using System.Collections.Generic;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 using Element.Presentation.OverlayEditor.Parts.EditorBar;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -149,15 +152,51 @@ namespace Element.Editor
       public string Owner => Vm.Owner.Value;
 
       /// <summary>What the line says to do, while nothing is edited.</summary>
-      public string HintText => Vm.Owner.Value == null ? Vm.Title.Value : "";
+      public string HintText => Vm.Line.Open ? "" : Vm.Line.Hint;
 
-      public string FormulaText => Vm.Formula.Value;
-      public string ResultText => Vm.Result.Value;
+      /// <summary>The line's pieces as words, a condition's slots in a row: "192 × 콤보".</summary>
+      public string FormulaText => Vm.Line.Open ? LineText(Vm.Line.Root) : "";
+
+      public string ResultText => Vm.Line.Result;
       public bool IsTyping => ElementUI.Ugui.Keyboard.IsTaken;
       public bool Contains(Vector2 screen) => Panel.Contains(screen);
       public bool Dragging => DragSession.Active;
       public void Tick() => Panel.Tick();
-      public void Blink(bool visible) => Vm.RestartBlink();
+
+      /// <summary>The dock has no caret of its own any more: what is typed shows on its piece.</summary>
+      public void Blink(bool visible) { }
+
+      private static string LineText(LineSlotViewModel slot)
+      {
+        if (slot.Pieces.Length == 0)
+          return "[" + slot.Placeholder + "]";
+        System.Text.StringBuilder text = new();
+        foreach (LinePieceViewModel piece in slot.Pieces)
+        {
+          if (text.Length > 0)
+            text.Append(' ');
+          switch (piece.Kind)
+          {
+            case LinePieceKind.Condition:
+              text.Append(piece.Label).Append(' ')
+                .Append(LineText(piece.Slots[0])).Append(' ')
+                .Append(piece.Compare).Append(' ')
+                .Append(LineText(piece.Slots[2])).Append(" → ")
+                .Append(LineText(piece.Slots[3])).Append(" / ")
+                .Append(LineText(piece.Slots[4]));
+              break;
+            case LinePieceKind.Group:
+              text.Append('(').Append(LineText(piece.Slots[0])).Append(')');
+              break;
+            default:
+              if (piece.HasSwatch)
+                text.Append("● ");
+              text.Append(piece.Label);
+              break;
+          }
+        }
+        return text.ToString();
+      }
     }
 
     /// <summary>A dock with nowhere to send what is done in it, for docks the checks make on their own.</summary>
@@ -167,11 +206,7 @@ namespace Element.Editor
 
       public void Press(char key) { }
 
-      public void Select(int index) { }
-
-      public void Enter(int slot) { }
-
-      public void Back() { }
+      public void SelectAt(IReadOnlyList<FormulaStep> route, int index) { }
 
       public void Words(string words) { }
 
@@ -179,7 +214,9 @@ namespace Element.Editor
 
       public void Switch(bool value) { }
 
-      public void Clear() { }
+      public void Remove() { }
+
+      public void OpenMade() { }
 
       public void Done() { }
 
@@ -421,7 +458,7 @@ namespace Element.Editor
       {
         DockProbe noticeDock = DockOf(editor);
         Rect noticeRect = ScreenRectOf(line.rectTransform), keypadRect = KeypadRect(noticeDock);
-        Assert(noticeRect.yMin >= ScreenRectOf(ByName<RectTransform>(noticeDock.Root, "Formula line")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
+        Assert(noticeRect.yMin >= ScreenRectOf(noticeDock.Root.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Formula line" || part.name == "Line hint")).yMax - .5f && noticeRect.xMax <= keypadRect.xMin,
           "the notice sits over the formula line, clear of the keypad's column: " + noticeRect);
       }
       Assert(!docked || headerNotice.text.Length == 0, "the header stays quiet while the dock shows the notices");

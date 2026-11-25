@@ -408,7 +408,7 @@ namespace Element.Editor
         RectTransform controls = ui.Rect("Controls", view, 0, 0, frameWidth, frameHeight);
         controls.localScale = Vector3.one * scale;
         float contentWidth = Mathf.Min(1600, frameWidth - EditorFramePanel.Margin * 2), left = (frameWidth - contentWidth) * .5f;
-        float top = frameHeight - 16 - (FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height);
+        float top = frameHeight - 16 - (Element.Presentation.OverlayEditor.Parts.Dock.Line.FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height);
         TextMeshProUGUI measure = ui.Text("", controls, 0, 0, 10, 10, 13);
         measure.textWrappingMode = TextWrappingModes.NoWrap;
         measure.color = Color.clear;

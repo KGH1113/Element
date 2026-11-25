@@ -389,7 +389,7 @@ namespace Element.Editor
       float scale = shape.EffectiveScale;
       DockProbe dock = DockOf(shapes);
       Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
-        && DockKeys(dock).Length == 19 && DockKeys(dock).All(key => !key.IsInteractable()),
+        && DockKeys(dock).Length == 18 && DockKeys(dock).All(key => !key.IsInteractable()),
         "the input dock is always there, resting with a hint until a number is clicked");
       Press(DockChip(dock, "Value combo"));
       Assert(Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length > 0, "a value with no number picked says to pick one first");
@@ -472,9 +472,8 @@ namespace Element.Editor
       Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - ValueBrowserView.ChipHeight) > .5f);
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
-      Assert(DockKeys(dock).Any(key => key.name == "Key clear") && DockKeys(dock).Any(key => key.name == "Key done"), "the keypad has AC and Done");
-      Assert(DockKeys(dock).Where(key => key.name != "Key back").All(key => key.IsInteractable()) && !DockKey(dock, "Key back").IsInteractable(),
-        "with a number open every key can be pressed, but Back waits for a slot to be open");
+      Assert(DockKeys(dock).Any(key => key.name == "Key remove") && DockKeys(dock).Any(key => key.name == "Key done"), "under the keypad are Remove and Apply");
+      Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number picked every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         if (label.GetComponentInParent<ScrollRect>() != null || label.name == "Formula" || label.richText)
@@ -513,19 +512,22 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.ProgressCurrent);
       Call(shapes, "FollowLiveValues");
       Assert(widthField.Text == "144", "without live data the example comes back");
-      Press(DockKey(dock, "Key clear"));
-      Assert(editing.Working.IsEmpty && working.WidthFormula == "{progress-current}*3", "AC starts over without losing the width yet");
+      Press(DockKey(dock, "Key remove"));
+      Assert(editing.Working.Serialize().Trim('{', '}') == "progress-current", "Remove takes the picked number out with its operator: " + editing.Working.Serialize());
+      Press(DockKey(dock, "Key remove"));
+      Assert(editing.Working.IsEmpty && working.WidthFormula.Trim('{', '}') == "progress-current", "emptied, the width keeps the last thing that fit: " + working.WidthFormula);
       Assert(DockKey(dock, "Key 7").IsInteractable() && DockKey(dock, "Key −").IsInteractable() && !DockKey(dock, "Key +").IsInteractable()
-        && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key clear").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
-        "after AC only what can start a number can be pressed");
+        && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key remove").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
+        "emptied, only what can start a number can be pressed");
       Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<TextMeshProUGUI>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<TextMeshProUGUI>().color;
       Assert(plusInk.a < minusInk.a * .5f, "a key that would do nothing reads dimmed: " + plusInk + " / " + minusInk);
       ShapeNumbersOf(shapes).KeypadPress('9');
       ShapeNumbersOf(shapes).KeypadPress('0');
-      Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing after AC replaces the formula");
+      Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing in the emptied field replaces the formula");
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      Assert(working.WidthFormula == "{progress-current}*3", "undo brings the formula back");
+      Assert(Mathf.Abs(working.Width * scale - 90) > .01f || working.WidthFormula.Length > 0,
+        "undo takes the typing back: " + working.WidthFormula + " / " + working.Width * scale);
       Click(heightField.Root, "Height");
       Assert(dock.Owner == "height", "another number switches the dock to it");
       SaveFrame(camera, texture, canvases, name + "-shape-values");
@@ -577,8 +579,8 @@ namespace Element.Editor
         && InsideScreen(pickerRect), "the picker opens above the keypad, ending with it: " + pickerRect + " / " + keypadRect);
       AssertInColumn(shapes, picker.Root, L("채우기 색", "Fill color"));
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.Owner == "color"
-        && dock.Vm.Title.Value.Contains(Korean(name) ? "채우기 색" : "Fill color"),
-        "the shape stays in sight, and the dock points at the picked color: " + dock.Vm.Title.Value);
+        && dock.Vm.Line.Name.Contains(Korean(name) ? "채우기 색" : "Fill color"),
+        "the shape stays in sight, and the dock points at the picked color: " + dock.Vm.Line.Name);
       OpacityFieldView opacity = ShapeColorsOf(shapes).Opacity;
       Assert(picker.ExternalOpacity && picker.OpacitySlot.gameObject.activeInHierarchy && opacity.Field.Root.IsChildOf(picker.OpacitySlot)
         && !ColorPickerProbe.Shown(ColorPickerProbe.Opacity(picker.Root)) && opacity.Field.Text == "100",
@@ -669,7 +671,7 @@ namespace Element.Editor
       Assert(!picker.Visible && !fillButton.Active, "back closes the fill's picker");
       PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root) == pickerRect
-        && dock.Vm.Title.Value.Contains(Korean(name) ? "테두리 색" : "Border color"), "Border opens the picker on its color, in the same place");
+        && dock.Vm.Line.Name.Contains(Korean(name) ? "테두리 색" : "Border color"), "Border opens the picker on its color, in the same place");
       AssertInColumn(shapes, picker.Root, L("테두리 색", "Border color"));
       PressBack(shapes);
       Assert(!picker.Visible && !strokeButton.Active && Shown(DockKey(dock, "Key done")), "back closes the picker; the rows and the keypad stay");
@@ -1319,10 +1321,11 @@ namespace Element.Editor
       Call(text, "FollowLiveValues");
       Assert(preview.text.Contains("240"), "without live data the example comes back");
       TextFormulasOf(text).KeypadPress('+');
-      Vector2 line = ScreenCenter(ByName<RectTransform>(dock.Root, "Formula line"));
-      new Carry(dock, OverlayValueId.Miss).LetGoAt(line);
+      Assert(TextFormulasOf(text).Editing.Working.Serialize() == "{combo}*2+0" && TextFormulasOf(text).Editing.SelectedPiece?.Text == "0",
+        "+ brings the number after it, picked: " + TextFormulasOf(text).Editing.Working.Serialize());
+      Press(DockChip(dock, "Value miss"));
       document = TextDocumentOf(text).Document;
-      Assert(document[9].Value == "{combo}*2+{miss}", "a value dropped on the formula line joins it: " + document[9].Value);
+      Assert(document[9].Value == "{combo}*2+{miss}", "a value picked takes the picked number's place: " + document[9].Value);
       Assert(dockRect.yMax < ScreenRectOf(preview.rectTransform).yMin, "the dock never covers the text");
       // The screenshot shows the dock's caret on: settling moves the blink along, so start it over after.
       Action settle = _refresh;

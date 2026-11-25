@@ -140,6 +140,13 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
 
+  void IInputDockActions.OpenMade() =>
+    Edit(editing =>
+    {
+      if (editing.CanEnter(0))
+        editing.Enter(0);
+    });
+
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(Action<FormulaEditing> change)
   {

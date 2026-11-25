@@ -265,6 +265,12 @@ internal sealed class ShapeNumbers
       _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
       return;
     }
+    // Apply in a value of the player's goes back to where it sits.
+    if (_editing.Active && _editing.LeaveMade())
+    {
+      _editor.Render();
+      return;
+    }
     _editor.CloseOpen();
     _editor.Render();
   }

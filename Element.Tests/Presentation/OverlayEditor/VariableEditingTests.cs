@@ -170,6 +170,11 @@ internal static class VariableEditingTests
       );
       Check(editing.Problem == null && saved[0].Serialize() == "{@" + key + "}", "and the field takes the value");
       editing.SelectAt(null, 0);
+      Check(editing.LineBase == 1 && editing.Path.Count == 2, "picking on the line stays inside the open value");
+      Check(
+        editing.LeaveMade() && editing.Path.Count == 1 && editing.SelectedPiece?.Kind == OverlayPieceKind.Custom,
+        "Apply goes back to where the value sits, the value picked"
+      );
       editing.Rename("콤보 두 배");
       Check(
         OverlayCustomValues.NameOf(key) == "콤보 두 배" && settings.OverlayCustomValues[0].Name == "콤보 두 배",

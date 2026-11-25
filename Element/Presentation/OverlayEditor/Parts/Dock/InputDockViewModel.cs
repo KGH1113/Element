@@ -110,6 +110,9 @@ internal sealed class InputDockViewModel : ViewModel
 
   public void SetSwitch(bool value) => _actions.Switch(value);
 
+  /// <summary>The picked value of the player's opens, its inside on the line.</summary>
+  public void OpenMade() => _actions.OpenMade();
+
   public void PressCompare(char op) => _actions.Press(op);
 
   // The operator in a condition's operator slot; '\0' for none.

@@ -185,6 +185,7 @@ internal sealed class InputDockViewModel : ViewModel
       OverlayPieceKind.Condition => DockMethod.Condition,
       OverlayPieceKind.Group => DockMethod.Group,
       OverlayPieceKind.Custom => DockMethod.Custom,
+      OverlayPieceKind.Value when piece.Value == OverlayValueId.MakeGradient => DockMethod.Gradient,
       OverlayPieceKind.Color => DockMethod.Color,
       OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).IsColor => DockMethod.Color,
       _ => DockMethod.Keypad,

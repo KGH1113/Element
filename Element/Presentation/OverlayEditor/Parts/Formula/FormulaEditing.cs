@@ -549,6 +549,9 @@ internal sealed class FormulaEditing : Observable
   {
     if (value.Id == OverlayValueId.MakeCustom)
       return CanMake;
+    // A gradient is a whole color of its own: only a color field itself takes one.
+    if (value.Id == OverlayValueId.MakeGradient)
+      return Active && _path.Count == 1 && Kind == OverlayValueType.Color;
     if (!Active || Kind == OverlayValueType.Compare)
       return false;
     // A made value can't use itself.

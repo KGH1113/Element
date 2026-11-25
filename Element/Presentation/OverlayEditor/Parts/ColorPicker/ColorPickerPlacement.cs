@@ -25,6 +25,16 @@ internal static class ColorPickerPlacement
     picker.Root.SetAsLastSibling();
   }
 
+  /// <summary>A solid color's picker over the keypad's keys, where every input method is.</summary>
+  public static void PlaceOnKeypad(UiColorPicker picker, InputDockPanel dock)
+  {
+    if (picker == null || !picker.Visible)
+      return;
+    Rect keys = dock.KeypadArea;
+    picker.Root.anchoredPosition = new Vector2(keys.x, -keys.y);
+    picker.Root.SetAsLastSibling();
+  }
+
   /// <summary>
   /// Where the picker above the keypad starts (frame units). It ends with the
   /// keypad; an editor's two-column picker reaches further left, so the

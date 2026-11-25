@@ -283,15 +283,16 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   }
 
   // Where the open tool is drawn; its back row lines up with it.
+  // A solid color's picker stands in the keypad's place, not in the column.
   private RectTransform OpenToolRoot() =>
-    _color.Picker.Visible ? _color.Picker.Root
+    _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Picker.Root
     : _fonts.Visible ? _fonts.Popover.Root
     : _grow.Visible ? _grow.Popover.Root
     : null;
 
   // What the column has open, as its back row names it; null while it shows the rows.
   private string OpenTool() =>
-    _color.Picker.Visible ? _color.Title
+    _color.Picker.Visible && !_color.Picker.InCompactPlace ? _color.Title
     : _fonts.Visible ? _fonts.Title
     : _grow.Visible ? _grow.Button.Label
     : null;

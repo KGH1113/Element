@@ -157,11 +157,29 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Remove() => Edit(_ => _numbers.Remove());
 
-  void IInputDockActions.Done() => _numbers.FinishEditing();
+  // Apply on a color puts its picker away; on a number, finishes it.
+  void IInputDockActions.Done()
+  {
+    if (_numbers.Field == null && _colors.Picker.Visible && _numbers.Editing.Problem == null)
+    {
+      _colors.Picker.Hide();
+      Render();
+      return;
+    }
+    _numbers.FinishEditing();
+  }
 
   // A color always goes to the open picker's color, whatever number the dock types.
   void IInputDockActions.Pick(OverlayValueDefinition value)
   {
+    // 그라데이션 makes the open color a gradient; its stops are then picked in the picker.
+    if (value.Id == OverlayValueId.MakeGradient)
+    {
+      if (_colors.CasesOpen)
+        _colors.Picker.Gradient.MakeGradient();
+      Render();
+      return;
+    }
     if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Slot?.Key != ColorCases.Key)
     {
       _numbers.Finish();
@@ -266,8 +284,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   }
 
   // What the column has open, as its back row names it; null while it shows the rows.
+  // A solid color's picker stands in the keypad's place, not in the column.
   private string OpenTool() =>
-    _colors.Picker.Visible ? _colors.Title
+    _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Title
     : _grow.Visible ? _grow.Button.Label
     : null;
 
@@ -383,7 +402,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _colors.PlacePicker(_dockPanel, _inspector.ToolTop);
     _inspector.Show(
       OpenTool(),
-      _colors.Picker.Visible ? _colors.Picker.Root
+      _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Picker.Root
         : _grow.Visible ? _grow.Popover.Root
         : null
     );
@@ -414,9 +433,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       return;
     bool open = _numbers.Field == key;
     CloseOpen();
-    // The picker's own numbers keep it open.
+    // A gradient's own numbers keep its picker open; a solid color's picker
+    // stands where the keypad is, so any number puts it away.
     UiColorPicker picker = _colors.Picker;
-    if (picker.Visible && !ShapeGradient.PickerKey(key))
+    if (picker.Visible && (!ShapeGradient.PickerKey(key) || picker.InCompactPlace))
       picker.Hide();
     if (!open)
       _numbers.Field = key;

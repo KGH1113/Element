@@ -50,9 +50,11 @@ internal sealed class InputMethodView : View<InputDockViewModel>
         L("위 줄에서 조각을 눌러 고쳐요", "Click a piece on the line above to edit it")
       ),
       DockMethod.Custom => CustomName(),
-      DockMethod.Color => Note(
-        L("색은 위의 색 고르기에서 골라요", "Pick the color in the picker above"),
-        L("하이라이트 색은 왼쪽 '색'에 있어요", "The highlight color is under Colors on the left")
+      // The color picker itself stands here, over this place.
+      DockMethod.Color => Spacer().Frame(width: KeypadView.Width, height: KeypadView.MethodHeight),
+      DockMethod.Gradient => Note(
+        L("그라데이션은 위에서 고쳐요", "The gradient is changed above"),
+        L("색을 하나 누르면 그 색과 위치를 고치고, 각도는 미리보기에서 돌려요", "Click a color to change it and where it sits; turn the angle on the preview")
       ),
       _ => new KeypadView(VM.Keypad),
     };

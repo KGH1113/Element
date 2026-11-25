@@ -1,3 +1,4 @@
+using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Ui.Declarative.Controls;
 using ElementUI;
 using UnityEngine;
@@ -32,8 +33,10 @@ internal sealed class FieldChipView : View<FieldChip>
           .Padding(0, 8)
           .Frame(height: Height)
           .Background(Fill, 7);
+      // A chip is drawn once: its gradient is read as it was given.
+      OverlayResolvedGradient gradient = chip.Gradient;
       View lead =
-        chip.Gradient != null ? new SwatchDot(() => Color.white, () => VM.Gradient).Frame(width: 13, height: 13)
+        gradient != null ? new SwatchDot(() => Color.white, () => gradient).Frame(width: 13, height: 13)
         : chip.HasSwatch ? TypeMarks.Swatch(chip.Swatch, 12)
         : chip.Glyph != null ? Glyph(chip.Glyph)
         : TypeMarks.Mark(chip.Type, 15);

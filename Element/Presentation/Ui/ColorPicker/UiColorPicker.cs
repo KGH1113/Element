@@ -72,7 +72,28 @@ internal sealed class UiColorPicker : IDisposable
 
     // An overlay color that can only be solid: Highlight/Custom over its own controls.
     SourceColumn,
+
+    // A solid overlay color picked in the place of a keypad: the square, hue and HEX.
+    Compact,
   }
+
+  private float _compactWidth,
+    _compactHeight;
+
+  /// <summary>
+  /// Solid colors are picked in a place <paramref name="width"/> by
+  /// <paramref name="height"/>, such as where a keypad is: only the square,
+  /// its hue and HEX, the opacity being a field of the owner's. A gradient
+  /// still takes the two columns with its color bar.
+  /// </summary>
+  public void UseCompact(float width, float height)
+  {
+    _compactWidth = width;
+    _compactHeight = height;
+  }
+
+  /// <summary>Whether it shows as a solid color in its compact place now.</summary>
+  public bool InCompactPlace => _shape == Shape.Compact;
 
   /// <summary>
   /// The owner shows another color than the one its other parts refresh (a
@@ -106,6 +127,7 @@ internal sealed class UiColorPicker : IDisposable
     !_column ? Width
     : GradientAvailable ? TwoColumnsWidth
     : _shape == Shape.SourceColumn ? ColorPickerLayout.Column
+    : _shape == Shape.Compact ? _compactWidth
     : _columnWidth;
 
   public bool Column => _column;
@@ -186,14 +208,16 @@ internal sealed class UiColorPicker : IDisposable
   )
   {
     Root.gameObject.SetActive(true);
-    Mount(
-      !_column ? Shape.Card
-      : gradient ? Shape.TwoColumns
-      : Shape.SourceColumn
-    );
+    Mount(SourceShape(value, gradient));
     Model.ShowSource(title, value, changed, keepStop);
     Opened();
   }
+
+  private Shape SourceShape(OverlayColorSettings value, bool gradient) =>
+    !_column ? Shape.Card
+    : _compactHeight > 0 && (value == null || !value.IsGradient) ? Shape.Compact
+    : gradient ? Shape.TwoColumns
+    : Shape.SourceColumn;
 
   private void Opened()
   {
@@ -211,8 +235,12 @@ internal sealed class UiColorPicker : IDisposable
     // A color its owner shows instead of the one being refreshed isn't touched.
     if (ShowsOther)
       return;
-    if (Visible)
-      Model.Refresh(value);
+    if (!Visible)
+      return;
+    // Made a gradient, or back to one color: the place it needs changes.
+    if (_compactHeight > 0 && _column && (_shape == Shape.Compact || _shape == Shape.TwoColumns))
+      Mount(value != null && value.IsGradient ? Shape.TwoColumns : Shape.Compact);
+    Model.Refresh(value);
   }
 
   /// <summary>Moves the opacity to <paramref name="alpha"/> without reporting a change.</summary>
@@ -245,6 +273,7 @@ internal sealed class UiColorPicker : IDisposable
     View view =
       shape == Shape.Card ? new ColorPickerCardView(Model, _parts)
       : shape == Shape.SourceColumn ? new ColorPickerSourceColumnView(Model, _parts)
+      : shape == Shape.Compact ? new ColorPickerCompactView(Model, _parts, _compactWidth, _compactHeight)
       : new ColorPickerColumnsView(Model, _parts, shape == Shape.TwoColumns, _columnWidth);
     _panel.Mount(NewBackend(), view, null, WidthOf(shape));
     _stale = true;
@@ -273,6 +302,7 @@ internal sealed class UiColorPicker : IDisposable
       Shape.Card => Width,
       Shape.TwoColumns => TwoColumnsWidth,
       Shape.SourceColumn => ColorPickerLayout.Column,
+      Shape.Compact => _compactWidth,
       _ => _columnWidth,
     };
 

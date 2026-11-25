@@ -142,15 +142,25 @@ internal sealed class TextFormulas
   public void Activate(string key)
   {
     bool open = _fieldSlot == key;
+    PutCompactPickerAway();
     _editor.CloseOpen();
     if (!open)
       _fieldSlot = key;
     _editor.Render();
   }
 
+  // A solid color's picker stands where the keypad is: a number or a value
+  // opened in the dock puts it away first, before it takes its numbers with it.
+  private void PutCompactPickerAway()
+  {
+    if (_color.Picker.Visible && _color.Picker.InCompactPlace)
+      _color.Picker.Hide();
+  }
+
   // A click on a value selects it whole and opens its formula beside it; the column's open tool goes on with it.
   public void OpenChip(int index)
   {
+    PutCompactPickerAway();
     _editor.CloseTyping();
     _text.Anchor = index;
     _text.Caret = index + 1;
@@ -307,6 +317,9 @@ internal sealed class TextFormulas
       _editor.Render();
       return;
     }
+    // Apply on a color puts its picker away.
+    if (_fieldSlot == null && !ChipOpen(out _) && _color.Picker.Visible)
+      _color.Picker.Hide();
     _editor.CloseOpen();
     _editor.Render();
   }
@@ -319,6 +332,14 @@ internal sealed class TextFormulas
   {
     if (_context.Frame == null)
       return;
+    // 그라데이션 makes the open color a gradient; its stops are then picked in the picker.
+    if (value.Id == OverlayValueId.MakeGradient)
+    {
+      if (_color.CasesOpen)
+        _color.Picker.Gradient.MakeGradient();
+      _editor.Render();
+      return;
+    }
     // A color always goes to the open picker's color, whatever else the dock types.
     if (value.IsColor && _color.CasesOpen && _editing.Slot?.Key != ColorCases.Key)
     {

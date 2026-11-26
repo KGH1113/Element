@@ -527,6 +527,37 @@ internal sealed class FormulaEditing : Observable
   }
 
   /// <summary>
+  /// Takes back one step of what was put in, as backspace on the keyboard
+  /// does: a digit of the picked number, a letter of the picked words, else
+  /// the picked value whole. With nothing picked it is the last one put in.
+  /// </summary>
+  public bool Erase()
+  {
+    if (!Active)
+      return false;
+    OverlayVariable working = Working;
+    if (working.Count == 0)
+      return false;
+    if (_selected < 0 || _selected >= working.Count)
+      _selected = working.Count - 1;
+    OverlayPiece piece = working[_selected];
+    if (piece.Kind == OverlayPieceKind.Number)
+      return Backspace();
+    if (piece.Kind == OverlayPieceKind.Text && piece.Text.Length > 0)
+    {
+      // A letter outside the basic plane is two chars: both go.
+      int cut = piece.Text.Length > 1 && char.IsLowSurrogate(piece.Text[piece.Text.Length - 1]) ? 2 : 1;
+      piece.Text = piece.Text.Substring(0, piece.Text.Length - cut);
+      Commit();
+      return true;
+    }
+    if (CanRemove)
+      return Remove();
+    Changed();
+    return false;
+  }
+
+  /// <summary>
   /// Whether a picked piece can be taken out: anything but what a
   /// comparison's or a point's field holds, which is swapped for another,
   /// never left empty.

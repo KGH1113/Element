@@ -297,6 +297,7 @@ namespace Element.Editor
       SaveFrame(camera, texture, canvases, name + "-variable-fork");
 
       CheckDockKeyboard(text, dock, picker);
+      CheckWordsAndEmptyValue(text, dock, camera, texture, canvases, name);
 
       // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");
@@ -484,6 +485,101 @@ namespace Element.Editor
       Call(text, "Render");
       Settle();
       Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before, "the text is as it was: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+    }
+
+    /// <summary>
+    /// A condition made in the text, its answer some words. While it gives
+    /// nothing the value shows nothing, and an empty slot stands in its place
+    /// in the preview. The words' field reads as one (its mark, a ring, a
+    /// caret asked for at once), words show on the line without quotes, and
+    /// backspace on the keyboard takes them back a letter at a time, then the
+    /// value itself.
+    /// </summary>
+    private static void CheckWordsAndEmptyValue(TextEditorScreen text, DockProbe dock, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
+    {
+      TextDocumentEditing document = TextDocumentOf(text);
+      TextFormulas formulas = TextFormulasOf(text);
+      TextKeyboardInput keyboard = Field<TextKeyboardInput>(text, "_keyboard");
+      TextPreview preview = TextPreviewOf(text);
+      TextLayoutMap map = Field<TextLayoutMap>(text, "_map");
+      List<RoundedRect> blanks = Field<List<RoundedRect>>(Field<TextUnderlines>(text, "_underlines"), "_blanks");
+      int anchor = document.Anchor, caret = document.Caret;
+      int at = Enumerable.Range(0, document.Document.Count).First(i => document.Document[i].IsValue);
+      string before = document.Document.PlainText(0, document.Document.Count, _ => "<v>");
+      Call(text, "CloseOpen");
+      document.Anchor = document.Caret = at;
+      Call(text, "Render");
+      Settle();
+      Assert(!blanks.Any(slot => slot.gameObject.activeSelf), "no value of the text shows nothing: no empty slot is drawn");
+      Press(DockChip(dock, "Value make-condition"));
+      Settle();
+      Call(text, "Render");
+      Settle();
+      Assert(document.Document[at].IsValue && formulas.ChipOpen(out int open) && open == at && dock.Vm.Method.Value == DockMethod.Condition,
+        "a condition made at the caret is a value there, open in the dock");
+      // In the preview: it gives nothing yet, so its place is kept open, an empty slot in it, between its neighbours.
+      RoundedRect[] shown = blanks.Where(slot => slot.gameObject.activeSelf).ToArray();
+      Assert(preview.ShowsNothing(at) && shown.Length == 1, "a value that shows nothing has one empty slot in the preview: " + shown.Length);
+      Assert(map.ItemRect(at, out Rect place) & map.ItemRect(at + 1, out Rect next) & map.ItemRect(at - 1, out Rect last), "the value and its neighbours have places");
+      Rect slotRect = ScreenRectOf(shown[0].rectTransform);
+      float unit = preview.FrameScale / Mathf.Max(.01f, preview.Scale);
+      Assert(place.width >= 12 * unit && place.xMin >= last.xMax - .5f && place.xMax <= next.xMin + .5f && slotRect.width > slotRect.height * .45f && slotRect.width > 6,
+        "the empty slot has room of its own, between the letters before it and the value after: " + last + " / " + place + " / " + next + " / " + slotRect);
+      Assert(map.TryValueAt(slotRect.center, out int clicked) && clicked == at, "a click on the empty slot lands on its value");
+      SaveFrame(camera, texture, canvases, name + "-variable-empty");
+      // Its answer: words. Their field stands under the folded condition: a mark, the field, a ring; the caret is asked for as the words are picked.
+      Press(DockSlot(dock, OverlayPiece.Left));
+      Press(DockChip(dock, "Value combo"));
+      Press(DockSlot(dock, OverlayPiece.Right));
+      foreach (string key in new[] { "Key 1", "Key 0", "Key 0" })
+        Press(DockKey(dock, key));
+      Press(DockSlot(dock, OverlayPiece.Result));
+      int asked = dock.Vm.WordsFocus.Value;
+      Press(DockChip(dock, "Value make-text"));
+      Settle();
+      Call(text, "Render");
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Words && dock.Vm.Folded.Value && dock.Vm.Fold.In.Value == OverlayPiece.Result && preview.ShowsNothing(at),
+        "words made in the answer are picked there, their field the input method; with none typed the value still shows nothing");
+      TMP_InputField field = dock.MethodRoot.GetComponentsInChildren<TMP_InputField>(false).Single(input => input.name == "Words field");
+      RectTransform box = dock.MethodRoot.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Words box");
+      Rect boxRect = ScreenRectOf(box), fieldRect = ScreenRectOf((RectTransform)field.transform), methodPlace = ScreenRectOf(dock.MethodRoot), strip = ScreenRectOf(StripOf(dock));
+      Assert(dock.Vm.WordsFocus.Value == asked + 1 && field.customCaretColor && field.caretWidth >= 2 && !field.onFocusSelectAll && field.caretColor.a > .9f,
+        "picking words asks their field to take the keys, with a caret plain to see and what is there kept");
+      Assert(Mathf.Abs(boxRect.xMin - methodPlace.xMin) < 1 && Mathf.Abs(boxRect.xMax - methodPlace.xMax) < 1 && boxRect.yMax <= strip.yMin - 1
+        && fieldRect.xMin > boxRect.xMin + 20 && fieldRect.xMax <= boxRect.xMax && fieldRect.yMin >= boxRect.yMin - .5f && fieldRect.yMax <= boxRect.yMax + .5f,
+        "the words' field is a box across the place under the strip, its type's mark before what is typed: " + boxRect + " / " + fieldRect + " / " + strip);
+      SaveFrame(camera, texture, canvases, name + "-variable-words");
+      // Typed words show on the line as they are, and in the preview in the value's place (the example combo is past 100).
+      dock.Vm.Words = "Acc";
+      Settle();
+      Call(text, "Render");
+      Settle();
+      Assert(dock.Vm.Line.Root.Pieces.Length == 1 && dock.Vm.Line.Root.Pieces[0].Label == "Acc" && !preview.ShowsNothing(at) && !blanks.Any(slot => slot.gameObject.activeSelf)
+        && dock.Vm.Fold.Slots[OverlayPiece.Result].Brief.Value == "Acc",
+        "typed words are on the line and the strip without quotes, and the preview shows them, the empty slot gone: " + dock.Vm.Line.Root.Pieces[0].Label);
+      // Backspace on the keyboard: a letter at a time, then the words themselves; never the text around the value.
+      Assert(keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && dock.Vm.Words == "Ac" && keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && keyboard.Key(KeyDown(KeyCode.Backspace, '\0'))
+        && dock.Vm.Words == "" && formulas.Editing.Working.Count == 1,
+        "backspace takes the words back a letter at a time: " + dock.Vm.Words);
+      Call(text, "Render");
+      Settle();
+      Assert(preview.ShowsNothing(at) && blanks.Count(slot => slot.gameObject.activeSelf) == 1, "with no letters left the value shows nothing again, the empty slot back in its place");
+      Assert(keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && formulas.Editing.Working.Count == 0 && formulas.Editing.Depth == 1 && document.Document[at].IsValue,
+        "once more and the empty words go from the answer; the dock stays in it and the value in the text");
+      Press(DockChip(dock, "Value combo"));
+      Settle();
+      Assert(formulas.Editing.Working.Count == 1 && keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && formulas.Editing.Working.Count == 0,
+        "a value picked from the list goes whole with one backspace");
+      // The value made for this is taken out again, and the text is as it was.
+      Call(text, "CloseOpen");
+      document.DeleteRange(at, at + 1);
+      document.Anchor = anchor;
+      document.Caret = caret;
+      Call(text, "Render");
+      Settle();
+      Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && !blanks.Any(slot => slot.gameObject.activeSelf),
+        "the text is as it was: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
     }
 
     private static Event KeyDown(KeyCode code, char character) => new() { type = EventType.KeyDown, keyCode = code, character = character };

@@ -18,6 +18,7 @@ internal static class VariableEditingTests
     ValuesGoInPlace();
     ConditionsOpenSlotByslot();
     TheDockStepsOutAndAcross();
+    BackspaceTakesBackOneStep();
   }
 
   private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(OverlayValueType type, string start)
@@ -195,6 +196,57 @@ internal static class VariableEditingTests
     Check(
       unfinished.Depth == 2 && unfinished.Around == lacking && unfinished.AroundSlot == OverlayPiece.Right,
       "inside a slot of that condition the dock stays: its strip shows the empty one"
+    );
+  }
+
+  // Backspace on the keyboard: a digit of a number, a letter of words, a value whole.
+  private static void BackspaceTakesBackOneStep()
+  {
+    (FormulaEditing text, OverlayVariable[] said) = Field(OverlayValueType.Any, "\"Acc \" {combo} 42");
+    Check(
+      text.SelectedPiece?.Text == "42" && text.Erase() && said[0].Serialize() == "\"Acc \" {combo} 4",
+      "a digit of the picked number goes first"
+    );
+    text.Erase();
+    text.Erase();
+    Check(
+      said[0].Serialize() == "\"Acc \" {combo}",
+      "its last digit leaves 0, and 0 goes with the number: " + said[0].Serialize()
+    );
+    Check(
+      text.SelectedPiece?.Kind == OverlayPieceKind.Value && text.Erase() && said[0].Serialize() == "\"Acc \"",
+      "a value goes whole: " + said[0].Serialize()
+    );
+    Check(
+      text.SelectedPiece?.Kind == OverlayPieceKind.Text && text.Erase() && text.SelectedPiece?.Text == "Acc",
+      "words go a letter at a time, a space counted: " + text.SelectedPiece?.Text
+    );
+    text.Erase();
+    text.Erase();
+    text.Erase();
+    Check(
+      text.SelectedPiece?.Text == "" && text.Working.Count == 1,
+      "down to no letters, the words are still there, empty"
+    );
+    Check(
+      text.Erase() && text.Working.Count == 0 && !text.Erase(),
+      "then the empty words go, and with nothing left backspace does nothing"
+    );
+
+    // With nothing picked, it is the last thing put in.
+    (FormulaEditing loose, OverlayVariable[] kept) = Field(OverlayValueType.Any, "{combo} {miss}");
+    loose.SelectAt(null, -1);
+    Check(
+      loose.Selected < 0 && loose.Erase() && kept[0].Serialize() == "combo",
+      "with none picked the last value goes: " + kept[0].Serialize()
+    );
+
+    // What a comparison's field holds is swapped, never taken out.
+    (FormulaEditing condition, OverlayVariable[] whole) = Field(OverlayValueType.Number, "if({combo};>=;100;60;40)");
+    condition.Enter(OverlayPiece.Compare);
+    Check(
+      !condition.Erase() && whole[0].Serialize() == "if({combo};>=;100;60;40)",
+      "a comparison stays: it is chosen, not removed"
     );
   }
 }

@@ -244,7 +244,7 @@ internal sealed class LineViewModel : ViewModel
     return vm;
   }
 
-  /// <summary>What a piece says on the line: a number as typed, words in quotes, a value's name, a sign.</summary>
+  /// <summary>What a piece says on the line: a number as typed, words as they are, a value's name, a sign.</summary>
   public static string Label(OverlayPiece piece)
   {
     OverlayVariableWords words = FormulaWords.Current;
@@ -253,7 +253,8 @@ internal sealed class LineViewModel : ViewModel
       case OverlayPieceKind.Number:
         return piece.Text.Replace('-', '−');
       case OverlayPieceKind.Text:
-        return "“" + piece.Text + "”";
+        // Its mark already says it is words.
+        return piece.Text;
       case OverlayPieceKind.Color:
         return piece.Text;
       case OverlayPieceKind.Bool:

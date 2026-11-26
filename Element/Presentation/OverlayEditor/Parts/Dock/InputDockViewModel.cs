@@ -7,6 +7,7 @@ using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.Theme;
@@ -112,6 +113,21 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>No outline: what a choice that doesn't hold wears.</summary>
   public readonly UiColor NoEdge = new Color(0, 0, 0, 0);
 
+  /// <summary>A field's outline while it doesn't have the keys: there, but quiet.</summary>
+  public readonly UiColor FieldEdge = FieldLook.SlotEdge;
+
+  /// <summary>Asks the words' field to take the keys: it goes up each time other words are picked.</summary>
+  public readonly State<int> WordsFocus = new(0);
+
+  /// <summary>The words' field has the keys: it wears the highlight color's ring.</summary>
+  public readonly State<bool> WordsFocused = new(false);
+
+  /// <summary>The words' field took the keys, or let go of them.</summary>
+  public void FocusWords(bool focused) => WordsFocused.Value = focused;
+
+  // The words last picked, so picking others brings the caret to them.
+  private OverlayPiece _wordsPicked;
+
   /// <summary>The picked words, which the keyboard input method types.</summary>
   public string Words
   {
@@ -186,6 +202,11 @@ internal sealed class InputDockViewModel : ViewModel
     Line.Alarmed = Alarmed.Value;
     Line.Show(owner != null ? _editing : null, name, result, whose);
     OverlayPiece picked = _editing.Active ? _editing.SelectedPiece : null;
+    // Words picked: the caret goes into their field, so the keyboard types them at once.
+    OverlayPiece words = picked != null && picked.Kind == OverlayPieceKind.Text ? picked : null;
+    if (words != null && words != _wordsPicked)
+      WordsFocus.Value++;
+    _wordsPicked = words;
     if (picked != null && picked.Kind == OverlayPieceKind.Condition)
       Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _samples, _editing.Problem, Alarmed.Value);
     else if (picked != null && picked.Kind == OverlayPieceKind.Point)
@@ -298,6 +319,7 @@ internal sealed class InputDockViewModel : ViewModel
     Folded.Value = false;
     Fold.In.Value = -1;
     _shownOwner = null;
+    _wordsPicked = null;
     Line.ShowChoice(whose, name, glyph, label);
     Runtime.Probe();
   }

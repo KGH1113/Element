@@ -170,7 +170,11 @@ internal sealed class TextKeyboardInput
     }
     if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(key, _formulas.Editing, out char typed))
     {
-      _formulas.KeypadPress(typed);
+      // Backspace takes back one step: a digit, a letter, or the value last put in.
+      if (typed == '\b')
+        _formulas.Erase();
+      else
+        _formulas.KeypadPress(typed);
       return true;
     }
     if (!_formulas.ChipOpen(out _) || _formulas.Editing.Depth > 0)

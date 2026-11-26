@@ -19,7 +19,9 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// preview stays what the game draws. The picked piece's bracket is the
 /// accent and thicker; the one under the pointer is brighter. A piece across
 /// lines gets a bracket on each line and its mark on the last; a mark that
-/// would reach the next line shows only for the picked or pointed piece.
+/// would reach the next line shows only for the picked or pointed piece. A
+/// value that shows nothing now has an empty slot standing in its place, the
+/// same outline an empty slot has on the dock's line.
 /// </summary>
 internal sealed class TextUnderlines
 {
@@ -39,6 +41,14 @@ internal sealed class TextUnderlines
 
   private static readonly Color Bright = new(1, 1, 1, .85f);
 
+  // An empty slot's outline, as quiet as an empty slot's on the dock's line.
+  private static readonly Color BlankEdge = new(1, 1, 1, .3f);
+
+  // How much of the line an empty slot leaves under and over it.
+  private const float BlankFoot = .2f,
+    BlankHead = .16f,
+    BlankInset = 3;
+
   private readonly TextDocumentEditing _text;
   private readonly TextPreview _preview;
   private readonly TextLayoutMap _map;
@@ -48,6 +58,9 @@ internal sealed class TextUnderlines
   // A bracket is a rounded outline cut off above its lower half: the bottom stroke and a tick at each end, round at the corners.
   private readonly List<RectMask2D> _bars = new();
   private readonly List<RoundedRect> _strokes = new();
+
+  // Empty slots, for values that show nothing now.
+  private readonly List<RoundedRect> _blanks = new();
   private readonly List<Image> _tiles = new();
   private readonly List<TextMeshProUGUI> _glyphs = new();
   private readonly List<UiIcon> _icons = new();
@@ -56,6 +69,7 @@ internal sealed class TextUnderlines
   private float _unit = 1;
   private int _piecesUsed,
     _barsUsed,
+    _blanksUsed,
     _tilesUsed;
 
   public TextUnderlines(TextDocumentEditing text, TextPreview preview, TextLayoutMap map)
@@ -70,6 +84,7 @@ internal sealed class TextUnderlines
     _ui = ui;
     _bars.Clear();
     _strokes.Clear();
+    _blanks.Clear();
     _tiles.Clear();
     _glyphs.Clear();
     _icons.Clear();
@@ -90,7 +105,7 @@ internal sealed class TextUnderlines
     if (_ui == null)
       return;
     Collect(picked, lookOpen);
-    _barsUsed = _tilesUsed = 0;
+    _barsUsed = _blanksUsed = _tilesUsed = 0;
     // The text is drawn in screen pixels at the game's size; its marks are sized like the editor around it.
     float unit = _unit = _preview.FrameScale / Mathf.Max(.01f, _preview.Scale);
     int lastLine = _map.Lines - 1;
@@ -101,6 +116,7 @@ internal sealed class TextUnderlines
       if (_pieces[p].Tile >= 0)
         _tiles[_pieces[p].Tile].gameObject.SetActive(MarkShown(_pieces[p]));
     Hide(_bars, _barsUsed);
+    Hide(_blanks, _blanksUsed);
     Hide(_tiles, _tilesUsed);
   }
 
@@ -147,6 +163,8 @@ internal sealed class TextUnderlines
       Color ink = Ink(piece);
       for (int i = piece.FirstBar; i < piece.FirstBar + piece.Bars; i++)
         _strokes[i].SetStroke(ink, (piece.Lit ? Thick : Thin) * _unit);
+      if (piece.Blank >= 0)
+        _blanks[piece.Blank].SetStroke(BlankInk(piece), (piece.Lit ? Thick : Thin) * _unit);
       if (piece.Tile >= 0)
         _tiles[piece.Tile].gameObject.SetActive(MarkShown(piece));
     }
@@ -206,12 +224,15 @@ internal sealed class TextUnderlines
     piece.FirstBar = _barsUsed;
     piece.Bars = 0;
     piece.Tile = -1;
+    piece.Blank = -1;
     Segments(piece);
     if (_segments.Count == 0)
       return;
     float thickness = (piece.Lit ? Thick : Thin) * unit;
     foreach (Segment segment in _segments)
       Bracket(piece, segment, unit, thickness);
+    if (piece.End - piece.Start == 1 && _preview.ShowsNothing(piece.Start))
+      piece.Blank = Blank(piece, _segments[0], unit, thickness);
     Segment last = _segments[_segments.Count - 1];
     piece.MarkAlways = last.Line >= lastLine;
     piece.MarkLine = last.Line;
@@ -277,6 +298,43 @@ internal sealed class TextUnderlines
     stroke.SetStroke(Ink(piece), thickness);
     piece.Bars++;
   }
+
+  // A value that shows nothing now: an empty slot in the place kept for it, as tall as a letter.
+  private int Blank(Piece piece, Segment segment, float unit, float thickness)
+  {
+    _map.LineExtent(segment.Line, out float top, out float bottom);
+    float height = top - bottom;
+    // A little air on each side, so it doesn't touch the letters beside it.
+    float left = segment.Left + BlankInset * unit,
+      right = Mathf.Max(left + thickness * 2, segment.Right - BlankInset * unit);
+    // Between the letters' feet and their heads, clear of the bracket under it.
+    float low = bottom + height * BlankFoot,
+      high = top - height * BlankHead;
+    if (_blanksUsed >= _blanks.Count)
+    {
+      RoundedRect made = new GameObject("Empty value", typeof(RectTransform)).AddComponent<RoundedRect>();
+      made.transform.SetParent(_preview.Text.rectTransform, false);
+      made.raycastTarget = false;
+      made.color = Color.clear;
+      Anchor(made.rectTransform);
+      _blanks.Add(made);
+    }
+    int index = _blanksUsed++;
+    RoundedRect slot = _blanks[index];
+    if (!slot.gameObject.activeSelf)
+      slot.gameObject.SetActive(true);
+    slot.rectTransform.anchoredPosition = new Vector2(left, low);
+    slot.rectTransform.sizeDelta = new Vector2(right - left, high - low);
+    slot.Radius = Corner * unit;
+    slot.SetStroke(BlankInk(piece), thickness);
+    return index;
+  }
+
+  // An empty slot's outline: quiet, the accent while its value is picked, brighter under the pointer.
+  private Color BlankInk(Piece piece) =>
+    piece.Lit ? UiPalette.SoftAccent
+    : Hovered(piece) ? Bright
+    : BlankEdge;
 
   // The type's mark, centered under the piece's last line.
   private int Mark(Piece piece, Segment segment, float unit)
@@ -362,6 +420,7 @@ internal sealed class TextUnderlines
     public int FirstBar;
     public int Bars;
     public int Tile = -1;
+    public int Blank = -1;
     public bool MarkAlways = true;
     public bool Crowded;
     public int MarkLine;

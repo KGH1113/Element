@@ -26,7 +26,7 @@ internal sealed class LinePieceViewModel : ViewModel
 
   public int Index;
 
-  /// <summary>What it says: "120", "“%”", "X-정확도", "×".</summary>
+  /// <summary>What it says: "120", "%", "X-정확도", "×".</summary>
   public string Label = "";
 
   /// <summary>What it gives, for its mark.</summary>

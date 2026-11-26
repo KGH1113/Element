@@ -1,3 +1,4 @@
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Field;
@@ -6,6 +7,7 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
+using TMPro;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
@@ -27,6 +29,8 @@ internal sealed class InputMethodView : View<InputDockViewModel>
 {
   /// <summary>What an input method has under a folded condition's strip.</summary>
   public const float FoldedHeight = KeypadView.MethodHeight - ConditionStripView.Height - ConditionStripView.Gap;
+
+  private const float WordsHeight = 52;
 
   public InputMethodView(InputDockViewModel vm)
     : base(vm) { }
@@ -88,12 +92,46 @@ internal sealed class InputMethodView : View<InputDockViewModel>
       )
       .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight, alignment: Alignment.Center);
 
-  // Words, typed on the keyboard into the picked piece.
+  // Words, typed on the keyboard into the picked piece: a field that reads as one, its type's mark first, a
+  // ring in the highlight color while it has the keys, and the caret in it from the moment the words are picked.
   private View Words() =>
-    TextField(Binding.Create(() => VM.Words, value => VM.Words = value), L("글자", "Words"))
-      .Font(Font.Body.Sized(18))
-      .Frame(maxWidth: float.PositiveInfinity, height: 48)
-      .Named("Words field");
+    HStack(
+        spacing: 10,
+        TypeMarks.Mark(OverlayValueType.Text, 20),
+        TextField(Binding.Create(() => VM.Words, value => VM.Words = value), L("글자", "Words"))
+          .TextFieldStyle(TextFieldStyle.Plain)
+          // What is there stays as the caret comes in after it, and Esc only lets go of the keys: each letter is kept as typed.
+          .SelectAllOnFocus(false)
+          .RestoreOriginalTextOnEscape(false)
+          .FocusOn(() => VM.WordsFocus.Value)
+          .OnFocusChanged(VM.FocusWords)
+          .Font(Font.Body.Sized(18))
+          .Configure<TMP_InputField>(Caret)
+          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
+          .Named("Words field")
+      )
+      .Padding(new Insets(0, 12, 0, 12))
+      .Frame(maxWidth: float.PositiveInfinity, height: WordsHeight)
+      .Background(VM.Rest, 14)
+      .Overlay(
+        RoundedRectangle(14)
+          .Stroke(() => VM.WordsFocused.Value ? VM.AccentInk : VM.FieldEdge, FieldLook.Ring)
+          .Named("Words box")
+          .AllowsHitTesting(false)
+      );
+
+  // A caret that is plain to see, in the highlight color, at the end of what is there when the field takes the keys.
+  private void Caret(TMP_InputField field)
+  {
+    field.customCaretColor = true;
+    field.caretColor = VM.AccentInk.Literal;
+    field.caretWidth = 2;
+    field.caretBlinkRate = .9f;
+    UnityEngine.Color selection = VM.AccentInk.Literal;
+    selection.a = .35f;
+    field.selectionColor = selection;
+    field.onSelect.AddListener(_ => field.MoveTextEnd(false));
+  }
 
   private View TrueOrFalse() =>
     HStack(spacing: KeypadView.Gap, Choice(L("참", "True"), true), Choice(L("거짓", "False"), false));

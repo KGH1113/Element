@@ -243,6 +243,15 @@ internal sealed class ShapeNumbers
     _history.Break();
   }
 
+  /// <summary>Backspace on the keyboard: one step of what was put in is taken back.</summary>
+  public void Erase()
+  {
+    if (_context.Frame == null)
+      return;
+    _editing.Erase();
+    _editor.Render();
+  }
+
   /// <summary>
   /// Apply: what is open is done, from however deep inside it, once it fits
   /// its field. Until then it is refused, and the dock goes out to where

@@ -98,7 +98,13 @@ internal sealed class ShapeInput
     if (_gradient.Key(code, key.shift, _numbers.Editing.Active))
       return true;
     if (_numbers.Editing.Active && KeypadViewModel.TryKeyboard(key, _numbers.Editing, out char typed))
-      _numbers.KeypadPress(typed);
+    {
+      // Backspace takes back one step: a digit, a letter, or the value last put in.
+      if (typed == '\b')
+        _numbers.Erase();
+      else
+        _numbers.KeypadPress(typed);
+    }
     return true;
   }
 

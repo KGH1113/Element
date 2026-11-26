@@ -66,6 +66,18 @@ internal sealed class TextPreview
   /// <summary>Nothing typed or being composed; the hint shows instead.</summary>
   public bool Empty { get; private set; }
 
+  // What stands for a value that shows nothing: room for an empty slot, about one letter wide.
+  private const string BlankPlace = "     ";
+
+  private readonly HashSet<int> _blank = new();
+
+  /// <summary>
+  /// Whether value <paramref name="item"/> shows nothing with the values as
+  /// they are now (an empty answer, words not typed yet). The game draws
+  /// nothing there; the editor keeps its place open so it can be seen and picked.
+  /// </summary>
+  public bool ShowsNothing(int item) => _blank.Contains(item);
+
   /// <summary>The text's middle in screen pixels from the top left.</summary>
   public Vector2 Center { get; private set; }
 
@@ -176,6 +188,7 @@ internal sealed class TextPreview
   // that have no data yet. Each value is a link so its characters can be found.
   private void Compose(float elementScale)
   {
+    _blank.Clear();
     _builder.Clear();
     Color highlight = UiTheme.Accent;
     IOverlayNumberSource samples = _values.WithSamples;
@@ -226,7 +239,11 @@ internal sealed class TextPreview
         int before = _builder.Length;
         OverlayFormulaText.Append(_builder, OverlayVariable.Parse(item.Value), _values, true);
         if (_builder.Length == before)
-          _builder.Append(' ');
+        {
+          // It shows nothing now: its place is kept open here, to be seen and picked.
+          _builder.Append(BlankPlace);
+          _blank.Add(i);
+        }
         _builder.Append("</link>");
         OverlayTextComposer.CloseStyle(_builder, size, font);
         continue;

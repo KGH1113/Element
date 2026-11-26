@@ -16,6 +16,7 @@ using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Widgets;
 using ElementUI.Ugui;
 using TMPro;
@@ -118,6 +119,7 @@ namespace Element.Editor
       Press(DockSlot(dock, OverlayPiece.Compare));
       Settle();
       CheckStrip(dock, OverlayPiece.Compare, "the comparison");
+      CheckIconsFollowScale(text, dock);
       Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥' && dock.Vm.Line.Type == OverlayValueType.Compare,
         "the comparison is a value of its own type: it starts as ≥ and its input method is the six comparisons");
       Assert(DockListed(dock, "Value make-compare") && DockListed(dock, "Value make-condition") && !DockListed(dock, "Value combo")
@@ -380,6 +382,41 @@ namespace Element.Editor
         Rect words = ScreenRectOf(label.rectTransform);
         Assert(words.xMin >= bar.xMin - .5f && words.xMax <= bar.xMax + .5f, what + ": the strip's words stay on it: " + label.text + " " + words);
       }
+    }
+
+    /// <summary>
+    /// A hand-drawn icon's edge is a screen pixel at the scale it is drawn
+    /// at. The input method grows into place from small: its icons are drawn
+    /// again as it grows and once it is there, not left with the wide edge of
+    /// the small one. (In this run the clock stands still, so an arrival
+    /// stays at its start until it is told to rest.)
+    /// </summary>
+    private static void CheckIconsFollowScale(TextEditorScreen text, DockProbe dock)
+    {
+      InputDockPanel panel = Field<InputDockPanel>(text, "_dockPanel");
+      // Out to the condition and into the slot again, with motion on this once: the six keys are made while their place is small.
+      SetField(dock.Vm, "_reduceMotion", false);
+      Press(StripBack(dock));
+      Settle();
+      dock.Vm.Arrival.Play(0);
+      Settle();
+      Press(ForkSlot(dock, OverlayPiece.Compare));
+      Settle();
+      UiIcon icon = dock.MethodRoot.GetComponentsInChildren<UiIcon>(false).First(part => part.Kind == UiIconKind.MoreOrSame && part.GetComponentInParent<Pressable>().name == "Key ≥");
+      panel.Tick();
+      Canvas.ForceUpdateCanvases();
+      float small = icon.DrawnScale;
+      Assert(dock.Vm.Arrival.Running && dock.Vm.Folded.Value && Mathf.Abs(small / Mathf.Abs(icon.transform.lossyScale.x) - 1) < .001f,
+        "as its place starts to grow, an icon is drawn for the small scale it has: " + small + " / " + icon.transform.lossyScale.x);
+      dock.Vm.Arrival.Play(0);
+      Settle();
+      float whole = Mathf.Abs(icon.transform.lossyScale.x);
+      Assert(!dock.Vm.Arrival.Running && whole > small * 3, "then its place is as large as it stays: " + small + " / " + whole);
+      panel.Tick();
+      Canvas.ForceUpdateCanvases();
+      Assert(Mathf.Abs(icon.DrawnScale / whole - 1) < .001f,
+        "in place, the icon is drawn again for its full scale, its edge one pixel and not the small one's: " + icon.DrawnScale + " / " + whole);
+      SetField(dock.Vm, "_reduceMotion", true);
     }
 
     /// <summary>

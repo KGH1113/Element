@@ -43,6 +43,9 @@ internal sealed class EditorArrival : IDisposable
     _frames.Restart();
   }
 
+  /// <summary>Still on its way. Nothing follows this by itself: ask it each frame.</summary>
+  public bool Running => Time.unscaledTime - _startedAt < _seconds;
+
   /// <summary>How far along it is: 0 as it starts, 1 at rest. Reading it follows the arrival while it runs.</summary>
   public float Progress
   {

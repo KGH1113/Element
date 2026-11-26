@@ -6,12 +6,27 @@ namespace Element.Presentation.Ui.Graphics;
 // Continuous stroke strips with a one-screen-pixel coverage fringe. Canvas UI
 // does not receive the camera's MSAA, so hard-edged triangles alone shimmer at
 // small UI scales. Each graphic retains its path buffer for the next rebuild.
+// The fringe is a screen pixel at the scale the graphic has when it is drawn:
+// where a part of the screen is scaled over time (grown into place), whoever
+// scales it calls FollowScale while it does, or the fringe drawn while small
+// stays that wide and the strokes read as blurred.
 [RequireComponent(typeof(CanvasRenderer))]
 internal abstract class UiVectorGraphic : MaskableGraphic
 {
   private readonly Vector2[] _points = new Vector2[96];
   private int _count;
+  private float _drawnScale = float.NaN;
   protected virtual float DesignSize => 24;
+
+  /// <summary>The scale on screen its fringe was last sized for.</summary>
+  public float DrawnScale => _drawnScale;
+
+  /// <summary>Draws it again if its scale on screen changed since it was drawn.</summary>
+  public void FollowScale()
+  {
+    if (!Mathf.Approximately(Mathf.Abs(transform.lossyScale.x), _drawnScale))
+      SetVerticesDirty();
+  }
 
   protected void BeginPath() => _count = 0;
 
@@ -124,6 +139,7 @@ internal abstract class UiVectorGraphic : MaskableGraphic
 
   private float CoverageWidth()
   {
+    _drawnScale = Mathf.Abs(transform.lossyScale.x);
     // Screen-space camera canvases have a world-space scale determined by the
     // camera. Divide that out; only scale inside the canvas changes pixel size.
     if (canvas == null)

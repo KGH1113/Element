@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Declarative;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Popovers;
 using ElementUI;
 using TMPro;
@@ -27,6 +29,8 @@ internal sealed class InputDockPanel
   private readonly InputDockViewModel _vm;
   private readonly float _left;
   private readonly float _right;
+  private readonly List<UiVectorGraphic> _drawn = new();
+  private bool _arriving;
 
   /// <param name="vm">What the dock shows; the panel lets it go with the frame.</param>
   public InputDockPanel(EditorFramePanel screen, InputDockViewModel vm, bool reduceMotion)
@@ -102,6 +106,22 @@ internal sealed class InputDockPanel
   {
     _panel.Sync();
     _method.Sync();
+    FollowArrival();
+  }
+
+  // Hand-drawn icons size their one-pixel edge for the scale they are drawn at. While the
+  // input method grows into place they are drawn again as it grows, and once more when it
+  // is there; drawn only once, small, they would keep an edge that wide and read as blurred.
+  private void FollowArrival()
+  {
+    bool arriving = _vm.Arrival.Running;
+    if (!arriving && !_arriving)
+      return;
+    _arriving = arriving;
+    MethodRoot.GetComponentsInChildren(false, _drawn);
+    foreach (UiVectorGraphic icon in _drawn)
+      icon.FollowScale();
+    _drawn.Clear();
   }
 
   public bool Contains(Vector2 screen) =>

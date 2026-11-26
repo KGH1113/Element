@@ -40,10 +40,6 @@ internal static class FormulaRefusals
     OverlayValueType needed = editing?.Active == true ? editing.Kind : OverlayValueType.Number;
     if (needed == OverlayValueType.Compare)
       return L("연산자 칸에는 아래 비교 기호만 들어가요.", "The operator takes one of the comparisons below.");
-    if (value.Id == OverlayValueId.MakeCustom)
-      return L("먼저 값을 넣을 칸을 고르세요.", "Pick where the value goes first.");
-    if (value.IsMine && editing?.Active == true && OpenedHere(value, editing))
-      return L(name + "은(는) 자기 자신 안에 넣을 수 없어요.", name + " can't go inside itself.");
     if (editing?.Active == true && needed == OverlayValueType.Any)
       needed = OverlayValueType.Number;
     return L(
@@ -64,11 +60,9 @@ internal static class FormulaRefusals
     if (problem == null)
       return null;
     string where =
-      problem.Piece?.Kind == OverlayPieceKind.Custom
-        ? "★" + OverlayCustomValues.Shown(problem.Piece.Text, FormulaWords.Current) + ": "
-      : problem.Slot >= 0
+      problem.Slot >= 0
         ? L("조건의 " + SlotName(problem.Slot) + ": ", "In the condition's " + SlotName(problem.Slot) + ": ")
-      : "";
+        : "";
     string needed = TypeName(problem.Needed),
       found = TypeName(problem.Found);
     return where
@@ -88,15 +82,7 @@ internal static class FormulaRefusals
           found + " can't be calculated. Only numbers join with + − × ÷."
         ),
         OverlayTypeProblemKind.Dangling => L("연산 기호 뒤에 숫자가 없어요.", "an operator has no number after it."),
-        _ => L("내 값이 자기 자신을 쓰고 있어요.", "a value of yours uses itself."),
+        _ => L("조건과 묶음이 너무 깊이 겹쳐 있어요.", "conditions and groups sit too deep inside each other."),
       };
-  }
-
-  private static bool OpenedHere(OverlayValueDefinition value, FormulaEditing editing)
-  {
-    foreach (FormulaFrame frame in editing.Path)
-      if (frame.Custom != null && "@" + frame.Custom == value.Key)
-        return true;
-    return false;
   }
 }

@@ -24,9 +24,6 @@ internal enum OverlayPieceKind
   /// <summary>A live value: the game's, another mod's, or the highlight color.</summary>
   Value,
 
-  /// <summary>A value the player made (<see cref="OverlayCustomValues"/>).</summary>
-  Custom,
-
   /// <summary>Compares two numbers and gives its result or its default (five slots).</summary>
   Condition,
 

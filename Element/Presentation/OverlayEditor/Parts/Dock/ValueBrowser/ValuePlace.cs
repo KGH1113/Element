@@ -114,14 +114,9 @@ internal sealed class ValuePlace
 
   private static string TextTitle() => L("커서 자리에 넣을 수 있는 값", "Values for the caret's place");
 
-  // A condition's slot by its name, a value of the player's by its own, anything else by its type.
+  // A condition's slot by its name, anything else by its type.
   private static string TitleOf(FormulaFrame frame)
   {
-    if (frame.Custom != null)
-    {
-      string name = "★" + OverlayCustomValues.Shown(frame.Custom, FormulaWords.Current);
-      return L(name + "에 넣을 수 있는 값", "Values for " + name);
-    }
     if (frame.Owner?.Kind == OverlayPieceKind.Condition)
     {
       string slot = FormulaRefusals.SlotName(frame.Slot);

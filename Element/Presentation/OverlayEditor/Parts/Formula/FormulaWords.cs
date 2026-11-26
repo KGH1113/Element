@@ -8,13 +8,5 @@ internal static class FormulaWords
 {
   /// <summary>"만약 … 이면 … 아니면", true and false, in the language shown now.</summary>
   public static OverlayVariableWords Current =>
-    new(
-      L("만약", "if"),
-      L("이면", "then"),
-      L("아니면", "otherwise"),
-      L("참", "true"),
-      L("거짓", "false"),
-      L("없는 값", "missing"),
-      L("이름 없는 값", "Unnamed value")
-    );
+    new(L("만약", "if"), L("이면", "then"), L("아니면", "otherwise"), L("참", "true"), L("거짓", "false"));
 }

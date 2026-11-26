@@ -69,7 +69,7 @@ Clicking a number, or a value in a text, types its formula in the input dock alo
 
 - **Order.** × and ÷ come before + and −.
 - **Combining values.** An operator brings the number after it, picked (× makes × 0), so a calculation is never left hanging; type over it or pick a value for it. Without an operator, a value replaces what was there.
-- See [Variables](#variables) for conditions, words, colors and values of your own.
+- See [Variables](#variables) for conditions, words and colors.
 - **Display.** The text shows the result as the game will: up to two decimals, or m:ss when the result is a time. Total − elapsed shows the time left. A time divided by a time is a plain number.
 - **Missing data.** A result needs every value it uses. Until the game has them, the overlay shows nothing there, and the editor uses each value's example.
 - **Leaving saves.** In the overlay editor and the text and shape editors, every way out saves except the Cancel button: Esc (once nothing else is open) finishes like Save or Done, and edits open when the mod is turned off are kept.
@@ -90,7 +90,6 @@ Every field the dock opens is a **variable**: a text's value, a size, a shape's 
 - **Groups.** A group is a variable inside the variable, for a calculation that goes first: (Combo + 1) × 2.
 - **Can't finish yet.** While a variable doesn't give its type, an empty slot for one, the dock says what is wrong and where (In the condition's Result: it's empty), Apply says it again, and the element keeps what it had. Values that can't go where the dock is now are not listed.
 - **Keyboard.** Digits, the point and + − × ÷ go to the keypad. In the operator slot < > = type comparisons, > then = makes ≥, < then = makes ≤, and ! makes ≠.
-- **Values of your own.** **New value** under **My values** makes one, of the type needed where it goes, and opens it on the line to be filled like any variable; **Apply** goes back to where it sits. Picked there, its input method has its name, typed on the keyboard, and **Change what it holds**. It is listed under My values for every text and shape, and changing it changes every element that uses it. Cancel takes back values made or changed in that edit. A value can't use itself.
 
 ## Text
 

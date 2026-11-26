@@ -70,13 +70,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   private OverlayShapeSettings _opening;
   private float _elementScale = 1;
 
-  public ShapeEditorScreen(
-    Transform parent,
-    TMP_FontAsset font,
-    Func<bool> reduceMotion,
-    OverlayValues values,
-    ICustomValueBook book
-  )
+  public ShapeEditorScreen(Transform parent, TMP_FontAsset font, Func<bool> reduceMotion, OverlayValues values)
   {
     _parent = parent;
     _font = font;
@@ -87,7 +81,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _preview = new ShapePreview(values);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
-    _numbers = new ShapeNumbers(this, this, values, _history, book);
+    _numbers = new ShapeNumbers(this, this, values, _history);
     _colors = new ShapeColors(this, this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
     _numbers.Use(_gradient);
@@ -136,15 +130,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
   void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
-
-  void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
-
-  void IInputDockActions.OpenMade() =>
-    Edit(editing =>
-    {
-      if (editing.CanEnter(0))
-        editing.Enter(0);
-    });
 
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(Action<FormulaEditing> change)

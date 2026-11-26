@@ -5,10 +5,10 @@ namespace Element.Domain.Overlay.Variables;
 
 /// <summary>
 /// One piece of a variable: something typed or picked (a number, words, a
-/// color, true or false, a comparison), an operator, a live value, a value
-/// the player made, a condition with its five slots, or a variable inside
-/// the variable. Pieces are changed in place while they are edited; copy one
-/// with <see cref="Clone"/> to keep it.
+/// color, true or false, a comparison), an operator, a live value, a
+/// condition with its five slots, or a variable inside the variable. Pieces
+/// are changed in place while they are edited; copy one with
+/// <see cref="Clone"/> to keep it.
 /// </summary>
 internal sealed class OverlayPiece
 {
@@ -23,7 +23,7 @@ internal sealed class OverlayPiece
 
   public OverlayPieceKind Kind { get; }
 
-  /// <summary>A number as typed, words, a color's #RRGGBB, or a made value's key.</summary>
+  /// <summary>A number as typed, words, or a color's #RRGGBB.</summary>
   public string Text { get; set; } = string.Empty;
 
   public OverlayValueId Value { get; set; }
@@ -52,8 +52,6 @@ internal sealed class OverlayPiece
   public static OverlayPiece OperatorPiece(char op) => new(OverlayPieceKind.Operator) { Op = op };
 
   public static OverlayPiece ValuePiece(OverlayValueId id) => new(OverlayPieceKind.Value) { Value = id };
-
-  public static OverlayPiece CustomPiece(string key) => new(OverlayPieceKind.Custom) { Text = key ?? string.Empty };
 
   /// <summary>A new condition: "≥" picked, everything else empty.</summary>
   public static OverlayPiece ConditionPiece() =>

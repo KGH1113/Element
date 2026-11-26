@@ -88,13 +88,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   private int _toolStart = -1,
     _toolEnd = -1;
 
-  public TextEditorScreen(
-    Transform parent,
-    TMP_FontAsset uiFont,
-    Func<bool> reduceMotion,
-    OverlayValues values,
-    ICustomValueBook book
-  )
+  public TextEditorScreen(Transform parent, TMP_FontAsset uiFont, Func<bool> reduceMotion, OverlayValues values)
   {
     _parent = parent;
     _uiFont = uiFont;
@@ -108,7 +102,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _underlines = new TextUnderlines(_text, _preview, _map);
     // Each part gets this screen twice: as what it reads (the context) and as
     // what it asks of it (the actions).
-    _formulas = new TextFormulas(this, this, _text, values, book);
+    _formulas = new TextFormulas(this, this, _text, values);
     _size = new TextSize(this, _text, _formulas);
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
@@ -163,15 +157,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
   void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
-
-  void IInputDockActions.Rename(string name) => Edit(editing => editing.Rename(name));
-
-  void IInputDockActions.OpenMade() =>
-    Edit(editing =>
-    {
-      if (editing.CanEnter(0))
-        editing.Enter(0);
-    });
 
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(System.Action<FormulaEditing> change)

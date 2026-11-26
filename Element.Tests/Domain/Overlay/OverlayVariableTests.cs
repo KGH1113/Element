@@ -11,9 +11,9 @@ using static Element.Tests.Support.Assert;
 
 namespace Element.Tests.Domain.Overlay;
 
-// Variables: pieces of every type, conditions with five slots, groups and
-// the player's own values; how they save, what they give, what a field of
-// each type takes, and the move from colors that followed a value.
+// Variables: pieces of every type, conditions with five slots and groups;
+// how they save, what they give, what a field of each type takes, and the
+// move from colors that followed a value.
 internal static class OverlayVariableTests
 {
   [Suite("variables hold typed values, conditions and groups, and say why they don't fit")]
@@ -22,7 +22,7 @@ internal static class OverlayVariableTests
     PiecesSaveAndRead();
     ConditionsGiveResultOrDefault();
     TypesDecideWhatFits();
-    MadeValuesAreShared();
+    LeftoverAtKeysDropOut();
     ValueColorsBecomeConditions();
   }
 
@@ -37,7 +37,6 @@ internal static class OverlayVariableTests
       "if({accuracy};>=;100;{highlight-color};#FFFFFF)",
       "\"x\" ({combo}*2)",
       "if({miss};=;0;\"FC\";)",
-      "{@grade}",
     };
     foreach (string text in saved)
       Check(
@@ -139,45 +138,30 @@ internal static class OverlayVariableTests
     );
   }
 
-  private static void MadeValuesAreShared()
+  // A build that was never released saved a value the player named as {@key}.
+  // No such value exists: the piece drops out like any key nobody knows, and
+  // the rest of the variable is kept.
+  private static void LeftoverAtKeysDropOut()
   {
-    OverlayCustomValues.Load(
-      new[] { Made("grade", "등급 색", "color", "if({accuracy};=;100;{highlight-color};#FFFFFF)") }
+    Check(OverlayVariable.Parse("{@v1}").IsEmpty, "a leftover {@key} alone leaves nothing");
+    Check(
+      OverlayVariable.Parse("{combo}*2+{@v1}").Serialize() == "{combo}*2",
+      "in a calculation it goes with its operator: " + OverlayVariable.Parse("{combo}*2+{@v1}").Serialize()
     );
-    try
-    {
-      Numbers numbers = new() { [OverlayValueId.Accuracy] = 100 };
-      OverlayVariable color = OverlayVariable.Parse("{@grade}");
-      Check(
-        color.TryColor(numbers, out OverlayPiece piece) && piece.Kind == OverlayPieceKind.Value,
-        "a made value gives what its variable does"
-      );
-      Check(color.Mask.Contains(OverlayValueId.Accuracy), "and reads what it reads");
-      Check(OverlayVariableTypes.Check(color, OverlayValueType.Color) == null, "it fits where its type does");
-      Check(
-        OverlayVariableTypes.Check(color, OverlayValueType.Number)?.Kind == OverlayTypeProblemKind.WrongType,
-        "and nowhere else"
-      );
-      OverlayCustomValues.Load(new[] { Made("loop", "loop", "number", "{@loop}+1") });
-      Check(
-        !OverlayVariable.Parse("{@loop}").TryNumber(numbers, out _, out _),
-        "a value that uses itself gives nothing, and stops"
-      );
-    }
-    finally
-    {
-      OverlayCustomValues.Load(null);
-    }
+    Check(
+      OverlayVariable.Parse("\"Acc \" {@v1} {accuracy}").Serialize() == "\"Acc \" {accuracy}",
+      "beside other pieces only it goes: " + OverlayVariable.Parse("\"Acc \" {@v1} {accuracy}").Serialize()
+    );
+    OverlayVariable condition = OverlayVariable.Parse("if({@v1};>=;100;60;40)");
+    Check(
+      condition.Serialize() == "if(;>=;100;60;40)",
+      "in a condition its slot is left empty: " + condition.Serialize()
+    );
+    Check(
+      condition.TryNumber(new Numbers { [OverlayValueId.Combo] = 120 }, out double result, out _) && result == 40,
+      "and the condition gives its default"
+    );
   }
-
-  private static OverlayCustomValueSettings Made(string key, string name, string type, string variable) =>
-    new()
-    {
-      Key = key,
-      Name = name,
-      Type = type,
-      Variable = variable,
-    };
 
   private static void ValueColorsBecomeConditions()
   {

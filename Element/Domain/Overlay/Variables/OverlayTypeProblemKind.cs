@@ -18,6 +18,6 @@ internal enum OverlayTypeProblemKind
   /// <summary>An operator with no number after it.</summary>
   Dangling,
 
-  /// <summary>A made value that uses itself.</summary>
-  Loop,
+  /// <summary>Conditions and groups inside each other, deeper than a variable goes.</summary>
+  TooDeep,
 }

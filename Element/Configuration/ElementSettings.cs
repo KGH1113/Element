@@ -60,9 +60,6 @@ public sealed class ElementSettings : UnityModManager.ModSettings
 
   public List<OverlayLayoutSettings> OverlayLayouts = new();
 
-  /// <summary>The values the player made, which every element can use.</summary>
-  public List<OverlayCustomValueSettings> OverlayCustomValues = new();
-
   /// <summary>
   /// Every profile, the one in use included. The values above belong to the
   /// profile in use; the others keep theirs in <see cref="Profiles.ElementProfile.Content"/>.

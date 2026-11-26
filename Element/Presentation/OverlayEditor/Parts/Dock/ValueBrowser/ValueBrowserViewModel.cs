@@ -25,17 +25,13 @@ internal sealed class ValueBrowserViewModel : ViewModel
 {
   private const float FollowSeconds = .25f;
 
-  private static readonly string MineKey = OverlayValueCategory.Mine.ToString();
-
   private readonly OverlayValues _values;
   private readonly FormulaEditing _editing;
   private readonly bool _caret;
   private readonly List<ValueFolderViewModel> _folders = new();
   private readonly List<ValueChipViewModel> _listed = new();
   private readonly StringBuilder _scratch = new(64);
-  private ValuePlace _place;
   private long _seen;
-  private int _made = OverlayCustomValues.Version;
 
   /// <param name="values">What the overlay shows now; null shows names only.</param>
   /// <param name="actions">Where a clicked value goes.</param>
@@ -104,32 +100,12 @@ internal sealed class ValueBrowserViewModel : ViewModel
   }
 
   /// <summary>
-  /// Each frame: when a value of the player's was made or renamed, "My
-  /// values" takes the catalog's list again. With nothing new it compares one
-  /// number.
-  /// </summary>
-  public void FollowMade()
-  {
-    if (_made == OverlayCustomValues.Version)
-      return;
-    _made = OverlayCustomValues.Version;
-    foreach (OverlayValueFolder folder in OverlayValueCatalog.Folders())
-    {
-      ValueFolderViewModel model = _folders.Find(each => each.Key == folder.Key);
-      if (model != null && folder.Key == MineKey)
-        model.Reload(folder);
-    }
-    Refit(_place);
-  }
-
-  /// <summary>
   /// Where the dock puts values is now <paramref name="place"/>: only the
   /// values that fit there stay listed. Runs when the place changes, never
   /// each frame; chips whose fit didn't change are left as they are.
   /// </summary>
   public void Refit(ValuePlace place)
   {
-    _place = place;
     int hidden = 0;
     foreach (ValueFolderViewModel folder in _folders)
       hidden += folder.Fit(place);

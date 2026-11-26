@@ -15,8 +15,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// <summary>
 /// The dock's input method, as large as the keypad and in its place: with
 /// nothing picked a word on what shows there; the keypad for numbers, a field the keyboard types words into, true or false,
-/// the six comparisons for a condition, a made value's name, or a word on
-/// what to do (a condition's slots are on the line, colors are picked above).
+/// the six comparisons for a condition, or a word on what to do (a
+/// condition's slots are on the line, colors are picked above).
 /// Under each, the row of Remove and Apply.
 /// </summary>
 internal sealed class InputMethodView : View<InputDockViewModel>
@@ -59,7 +59,6 @@ internal sealed class InputMethodView : View<InputDockViewModel>
         L("계산은 위 줄에 펼쳐져 있어요.", "The calculation is laid out on the line."),
         L("위 줄에서 조각을 눌러 고쳐요.", "Click a piece on the line above to edit it.")
       ),
-      DockMethod.Custom => CustomName(),
       // The color picker itself stands here, over this place; so do the font list and the nine points.
       DockMethod.Color or DockMethod.Fonts or DockMethod.Points => Spacer()
         .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight),
@@ -150,24 +149,6 @@ internal sealed class InputMethodView : View<InputDockViewModel>
           .AllowsHitTesting(false)
       )
       .Named("Key " + op);
-
-  // A made value: its name, typed on the keyboard; every element shares it.
-  private View CustomName() =>
-    VStack(
-      spacing: 8,
-      UI.Text(L("내 값은 모든 요소가 같이 써요", "Every element shares your values"))
-        .Font(Font.Caption.Sized(12))
-        .Foreground(Colors.Muted)
-        .LineLimit(1)
-        .Frame(maxWidth: float.PositiveInfinity, height: 18, alignment: Alignment.Leading),
-      TextField(Binding.Create(() => VM.CustomName, value => VM.CustomName = value), L("이름", "Name"))
-        .Font(Font.Body.Sized(16))
-        .Frame(maxWidth: float.PositiveInfinity, height: 40)
-        .Named("Custom name"),
-      Button(L("안에 든 값 고치기", "Change what it holds"), VM.OpenMade, ButtonStyle.Standard)
-        .Frame(maxWidth: float.PositiveInfinity, height: 36)
-        .Named("Open custom")
-    );
 
   private static View Note(string title, string body) => Said(UI.Text(InputDockViewModel.Said(title, body)));
 

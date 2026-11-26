@@ -27,14 +27,8 @@ internal interface IInputDockActions
   /// <summary>The keyboard input method typed: the picked words become <paramref name="words"/>.</summary>
   void Words(string words);
 
-  /// <summary>The picked value of the player's is called <paramref name="name"/> from now on.</summary>
-  void Rename(string name);
-
   /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
   void Switch(bool value);
-
-  /// <summary>The picked value of the player's opens: its inside is on the line, to change.</summary>
-  void OpenMade();
 
   /// <summary>지우기: the picked value is taken out.</summary>
   void Remove();

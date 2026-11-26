@@ -1,4 +1,3 @@
-using Element.Configuration;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -18,17 +17,12 @@ internal static class VariableEditingTests
     TheKeypadTypesNumbers();
     ValuesGoInPlace();
     ConditionsOpenSlotByslot();
-    MadeValuesOpenLikeAnyVariable();
   }
 
-  private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(
-    OverlayValueType type,
-    string start,
-    ICustomValueBook book = null
-  )
+  private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(OverlayValueType type, string start)
   {
     OverlayVariable[] saved = { OverlayVariable.Parse(start) };
-    FormulaEditing editing = new(book);
+    FormulaEditing editing = new();
     editing.Activate(new FormulaSlot("field", type, () => saved[0], variable => saved[0] = variable, null));
     return (editing, saved);
   }
@@ -132,70 +126,5 @@ internal static class VariableEditingTests
       editing.Problem == null && saved[0].Serialize() == "if({combo};>=;100;60;40)",
       "once every slot fits, the field takes it: " + saved[0].Serialize()
     );
-  }
-
-  private static OverlayValueDefinition Mine(string key) =>
-    OverlayValueCatalog.TryGet("@" + key, out OverlayValueDefinition value) ? value : null;
-
-  private static void MadeValuesOpenLikeAnyVariable()
-  {
-    ElementSettings settings = new();
-    CustomValueBook book = new(settings);
-    try
-    {
-      (FormulaEditing editing, OverlayVariable[] saved) = Field(OverlayValueType.Number, "40", book);
-      Check(
-        editing.CanDrop(OverlayValueCatalog.Get(OverlayValueId.MakeCustom)),
-        "a value can be made where numbers go"
-      );
-      editing.Drop(editing.Slot, OverlayValueCatalog.Get(OverlayValueId.MakeCustom));
-      string key = settings.OverlayCustomValues[0].Key;
-      Check(settings.OverlayCustomValues[0].Type == "number", "it gives what the field needs");
-      Check(
-        editing.Path.Count == 2 && editing.Path[1].Custom == key && editing.Kind == OverlayValueType.Number,
-        "and opens at once"
-      );
-      Check(
-        saved[0].Serialize() == "40" && editing.Problem?.Kind == OverlayTypeProblemKind.Empty,
-        "an empty value isn't taken yet"
-      );
-      Check(!editing.CanDrop(OverlayValueCatalog.Get(OverlayValueId.SongTitle)), "words don't go in a number value");
-      Check(!editing.CanDrop(Mine(key)), "nor the value itself");
-      editing.Drop(editing.Slot, OverlayValueCatalog.Get(OverlayValueId.Combo));
-      editing.Press('*');
-      editing.Press('2');
-      Check(
-        settings.OverlayCustomValues[0].Variable == "{combo}*2",
-        "what fits is kept with the settings: " + settings.OverlayCustomValues[0].Variable
-      );
-      Check(editing.Problem == null && saved[0].Serialize() == "{@" + key + "}", "and the field takes the value");
-      editing.SelectAt(null, 0);
-      Check(editing.LineBase == 1 && editing.Path.Count == 2, "picking on the line stays inside the open value");
-      Check(
-        editing.LeaveMade() && editing.Path.Count == 1 && editing.SelectedPiece?.Kind == OverlayPieceKind.Custom,
-        "Apply goes back to where the value sits, the value picked"
-      );
-      editing.Rename("콤보 두 배");
-      Check(
-        OverlayCustomValues.NameOf(key) == "콤보 두 배" && settings.OverlayCustomValues[0].Name == "콤보 두 배",
-        "renamed for every element"
-      );
-      (FormulaEditing color, _) = Field(OverlayValueType.Color, "#FFFFFF", book);
-      Check(!color.CanDrop(Mine(key)), "a number value doesn't fit a color");
-      System.Collections.Generic.List<Element.Configuration.Overlay.OverlayCustomValueSettings> before = book.Copy();
-      editing.Enter(0);
-      while (editing.Working.Count > 0 && editing.Remove()) { }
-      Check(
-        settings.OverlayCustomValues[0].Variable == "combo",
-        "an emptied value keeps the last thing that fit: " + settings.OverlayCustomValues[0].Variable
-      );
-      editing.Press('7');
-      book.Restore(before);
-      Check(settings.OverlayCustomValues[0].Variable == "{combo}*2", "Cancel puts the made values back");
-    }
-    finally
-    {
-      OverlayCustomValues.Load(null);
-    }
   }
 }

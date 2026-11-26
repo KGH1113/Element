@@ -42,7 +42,7 @@ internal static class OverlayVariableTypes
       _ => OverlayValueType.Text,
     };
 
-  /// <summary>The live values a variable reads, in its slots and in the made values it uses.</summary>
+  /// <summary>The live values a variable reads, in its slots too.</summary>
   public static OverlayValueMask Mask(OverlayVariable variable, int depth)
   {
     OverlayValueMask mask = OverlayValueMask.None;
@@ -53,11 +53,6 @@ internal static class OverlayVariableTypes
       OverlayPiece piece = variable[i];
       if (piece.Kind == OverlayPieceKind.Value)
         mask |= OverlayValueCatalog.Bit(piece.Value);
-      else if (
-        piece.Kind == OverlayPieceKind.Custom
-        && OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made)
-      )
-        mask |= Mask(made, depth + 1);
       foreach (OverlayVariable slot in piece.Slots)
         mask |= Mask(slot, depth + 1);
     }
@@ -82,12 +77,6 @@ internal static class OverlayVariableTypes
         return OverlayValueType.Compare;
       case OverlayPieceKind.Value:
         return TypeOf(OverlayValueCatalog.Get(piece.Value));
-      case OverlayPieceKind.Custom:
-        // What it was made to give; one made to give anything gives what its variable does.
-        OverlayValueType made = OverlayCustomValues.TypeOf(piece.Text);
-        return made == OverlayValueType.Any && OverlayCustomValues.TryGet(piece.Text, out OverlayVariable inside)
-          ? TypeOf(inside, depth + 1)
-          : made;
       case OverlayPieceKind.Condition:
         // What it gives is what its result gives, or its default while that is empty.
         OverlayVariable result = piece.Slots[OverlayPiece.Result];
@@ -119,7 +108,14 @@ internal static class OverlayVariableTypes
   )
   {
     if (depth > MaxDepth)
-      return new OverlayTypeProblem(OverlayTypeProblemKind.Loop, null, needed, OverlayValueType.Any, slot, condition);
+      return new OverlayTypeProblem(
+        OverlayTypeProblemKind.TooDeep,
+        null,
+        needed,
+        OverlayValueType.Any,
+        slot,
+        condition
+      );
     if (variable == null || variable.IsEmpty)
       return mayBeEmpty
         ? null
@@ -187,7 +183,7 @@ internal static class OverlayVariableTypes
     return null;
   }
 
-  // What is inside a piece: a condition's slots, a group's variable, a made value's.
+  // What is inside a piece: a condition's slots, a group's variable.
   private static OverlayTypeProblem CheckPiece(OverlayPiece piece, OverlayValueType needed, int depth)
   {
     switch (piece.Kind)
@@ -223,20 +219,6 @@ internal static class OverlayVariableTypes
           ?? Check(piece.Slots[OverlayPiece.Default], needed, any, piece, OverlayPiece.Default, depth + 1);
       case OverlayPieceKind.Group:
         return Check(piece.Slots[0], needed, false, null, -1, depth + 1);
-      case OverlayPieceKind.Custom:
-        if (!OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made))
-          return new OverlayTypeProblem(OverlayTypeProblemKind.Empty, piece, needed, OverlayValueType.Any);
-        // It must give what it was made to give; whether that fits here is the caller's to say.
-        OverlayValueType own = OverlayCustomValues.TypeOf(piece.Text);
-        OverlayTypeProblem problem = Check(
-          made,
-          own == OverlayValueType.Any ? needed : own,
-          false,
-          null,
-          -1,
-          depth + 1
-        );
-        return problem == null ? null : new OverlayTypeProblem(problem.Kind, piece, problem.Needed, problem.Found);
       default:
         return null;
     }

@@ -30,9 +30,6 @@ internal enum DockMethod
   /// <summary>A gradient: its bigger tool opens above; here a note says so.</summary>
   Gradient,
 
-  /// <summary>A value the player made: its name, and its variable to go into.</summary>
-  Custom,
-
   /// <summary>A font field: the font list, standing in the keypad's place.</summary>
   Fonts,
 

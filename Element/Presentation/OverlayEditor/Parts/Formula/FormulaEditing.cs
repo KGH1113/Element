@@ -13,23 +13,17 @@ namespace Element.Presentation.OverlayEditor.Parts.Formula;
 /// after it or in its place, the keypad types into a number, and what the
 /// picked piece is decides the input method. Every change is checked
 /// against what the field must give: the field takes it while it fits, and
-/// keeps what it had while it doesn't (<see cref="Problem"/>). A value the
-/// player made opens the same way; what changes in it goes to the
-/// <see cref="ICustomValueBook"/> while it gives what it was made to give.
-/// The dock and its parts read it and follow each change by themselves.
+/// keeps what it had while it doesn't (<see cref="Problem"/>). The dock and
+/// its parts read it and follow each change by themselves.
 /// </summary>
 internal sealed class FormulaEditing : Observable
 {
-  private readonly ICustomValueBook _book;
   private readonly List<FormulaFrame> _path = new();
   private FormulaSlot _slot;
   private OverlayVariable _root;
   private int _selected = -1;
   private bool _typed;
   private OverlayTypeProblem _problem;
-
-  /// <param name="book">Where made values are kept; without one, none can be made or opened.</param>
-  public FormulaEditing(ICustomValueBook book = null) => _book = book;
 
   public FormulaSlot Slot
   {
@@ -77,28 +71,6 @@ internal sealed class FormulaEditing : Observable
       Reading();
       return _path;
     }
-  }
-
-  /// <summary>
-  /// Where the dock's line starts on <see cref="Path"/>: the innermost value
-  /// of the player's that is open, whose inside the line then shows, or 0
-  /// for the field.
-  /// </summary>
-  public int LineBase
-  {
-    get
-    {
-      Reading();
-      return MadeDepth();
-    }
-  }
-
-  private int MadeDepth()
-  {
-    for (int i = _path.Count - 1; i > 0; i--)
-      if (_path[i].Custom != null)
-        return i;
-    return 0;
   }
 
   /// <summary>What the innermost open variable must give.</summary>
@@ -200,18 +172,14 @@ internal sealed class FormulaEditing : Observable
     Changed();
   }
 
-  /// <summary>Whether the picked piece has a variable to go into: a condition's slot, a group's or a made value's.</summary>
+  /// <summary>Whether the picked piece has a variable to go into: a condition's slot or a group's.</summary>
   public bool CanEnter(int slot)
   {
     OverlayPiece piece = SelectedPiece;
-    if (piece == null)
-      return false;
-    if (piece.Kind == OverlayPieceKind.Custom)
-      return slot == 0 && _book != null && OverlayCustomValues.TryGet(piece.Text, out _) && !Opened(piece.Text);
-    return slot >= 0 && slot < piece.Slots.Length;
+    return piece != null && slot >= 0 && slot < piece.Slots.Length;
   }
 
-  /// <summary>Goes into slot <paramref name="slot"/> of the picked condition, the picked group or made value.</summary>
+  /// <summary>Goes into slot <paramref name="slot"/> of the picked condition or group.</summary>
   public void Enter(int slot)
   {
     if (!CanEnter(slot))
@@ -230,15 +198,13 @@ internal sealed class FormulaEditing : Observable
   {
     if (_path.Count == 0)
       return;
-    // The route starts where the line does: inside an open value of the player's.
-    int floor = MadeDepth();
-    while (_path.Count > floor + 1)
+    while (_path.Count > 1)
       _path.RemoveAt(_path.Count - 1);
     if (route != null)
       foreach (FormulaStep step in route)
       {
         OverlayVariable here = _path[_path.Count - 1].Variable;
-        if (step.Piece < 0 || step.Piece >= here.Count || here[step.Piece].Kind == OverlayPieceKind.Custom)
+        if (step.Piece < 0 || step.Piece >= here.Count)
           break;
         _selected = step.Piece;
         if (!CanEnter(step.Slot))
@@ -247,7 +213,6 @@ internal sealed class FormulaEditing : Observable
       }
     OverlayVariable working = _path[_path.Count - 1].Variable;
     _selected = index >= 0 && index < working.Count ? index : -1;
-    _problem = Check();
     Changed();
   }
 
@@ -255,22 +220,6 @@ internal sealed class FormulaEditing : Observable
   private void Open(int slot)
   {
     OverlayPiece piece = SelectedPiece;
-    if (piece.Kind == OverlayPieceKind.Custom)
-    {
-      // Its own copy: the book takes it while it gives what the value was made to give.
-      OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made);
-      OverlayVariable copy = made.Clone();
-      _path.Add(
-        new FormulaFrame(copy, OverlayCustomValues.TypeOf(piece.Text), 0, false, piece)
-        {
-          Outer = _selected,
-          Custom = piece.Text,
-        }
-      );
-      _selected = copy.Count - 1;
-      _problem = Check();
-      return;
-    }
     OverlayValueType around = NeededAt(_selected, replacing: true);
     OverlayValueType type =
       piece.Kind == OverlayPieceKind.Group ? around
@@ -284,25 +233,6 @@ internal sealed class FormulaEditing : Observable
     _selected = inner.Count - 1;
   }
 
-  /// <summary>The picked made value is called <paramref name="name"/>, in every element.</summary>
-  public void Rename(string name)
-  {
-    OverlayPiece piece = SelectedPiece;
-    if (_book == null || piece == null || piece.Kind != OverlayPieceKind.Custom)
-      return;
-    _book.Rename(piece.Text, name);
-    Changed();
-  }
-
-  // Whether the made value <paramref name="key"/> is open on the way here, so it can't go into itself.
-  private bool Opened(string key)
-  {
-    foreach (FormulaFrame frame in _path)
-      if (frame.Custom == key)
-        return true;
-    return false;
-  }
-
   /// <summary>Back out of the innermost slot, the piece it belongs to picked again.</summary>
   public bool Back()
   {
@@ -311,22 +241,7 @@ internal sealed class FormulaEditing : Observable
     FormulaFrame left = _path[_path.Count - 1];
     _path.RemoveAt(_path.Count - 1);
     _selected = left.Outer;
-    // A made value left as it can't be keeps what it gave before.
-    _problem = Check();
     Changed();
-    return true;
-  }
-
-  /// <summary>
-  /// Leaves the open value of the player's, the value picked again where it
-  /// sits; false when none is open.
-  /// </summary>
-  public bool LeaveMade()
-  {
-    int made = MadeDepth();
-    if (made == 0)
-      return false;
-    BackTo(made - 1);
     return true;
   }
 
@@ -537,8 +452,6 @@ internal sealed class FormulaEditing : Observable
   {
     if (slot == null)
       return false;
-    if (value.Id == OverlayValueId.MakeCustom)
-      return true;
     OverlayValueType type = OverlayVariableTypes.TypeOf(value);
     // Numbers also go into a condition's comparison, wherever it is.
     return OverlayVariableTypes.Fits(slot.Type, type) || type == OverlayValueType.Number;
@@ -547,15 +460,10 @@ internal sealed class FormulaEditing : Observable
   /// <summary>Whether <paramref name="value"/> can go where values go now: after the picked piece, or in its place.</summary>
   public bool CanDrop(OverlayValueDefinition value)
   {
-    if (value.Id == OverlayValueId.MakeCustom)
-      return CanMake;
     // A gradient is a whole color of its own: only a color field itself takes one.
     if (value.Id == OverlayValueId.MakeGradient)
       return Active && _path.Count == 1 && Kind == OverlayValueType.Color;
     if (!Active || Kind == OverlayValueType.Compare)
-      return false;
-    // A made value can't use itself.
-    if (value.IsMine && Opened(value.Key.Substring(1)))
       return false;
     OverlayPiece piece = PieceFor(value);
     OverlayValueType needed = NeededAt(_selected, Replaces());
@@ -574,8 +482,6 @@ internal sealed class FormulaEditing : Observable
     if (!Accepts(slot, value))
       return FormulaDropResult.Refused;
     Activate(slot);
-    if (value.Id == OverlayValueId.MakeCustom)
-      return Make() ? FormulaDropResult.Applied : FormulaDropResult.Refused;
     if (!CanDrop(value))
       return FormulaDropResult.Refused;
     Put(PieceFor(value));
@@ -583,26 +489,7 @@ internal sealed class FormulaEditing : Observable
     return FormulaDropResult.Applied;
   }
 
-  /// <summary>Whether a new value of the player's can be made where values go now.</summary>
-  public bool CanMake =>
-    Active && _book != null && Kind != OverlayValueType.Compare && Working.Count < OverlayVariable.MaxPieces;
-
-  /// <summary>
-  /// Makes a new value of the player's that gives what is needed where it
-  /// goes, puts it there and opens it, to be filled like any variable.
-  /// </summary>
-  public bool Make()
-  {
-    if (!CanMake)
-      return false;
-    string key = _book.Make(NeededAt(_selected, Replaces()));
-    Put(OverlayPiece.CustomPiece(key));
-    Commit();
-    Enter(0);
-    return true;
-  }
-
-  /// <summary>The piece a value becomes: a reference to a live or made value, or a new piece of a made kind.</summary>
+  /// <summary>The piece a value becomes: a reference to a live value, or a new piece of a made kind.</summary>
   public static OverlayPiece PieceFor(OverlayValueDefinition value) =>
     value.Id switch
     {
@@ -612,7 +499,6 @@ internal sealed class FormulaEditing : Observable
       OverlayValueId.MakeCondition => OverlayPiece.ConditionPiece(),
       OverlayValueId.MakeGroup => OverlayPiece.GroupPiece(new OverlayVariable()),
       OverlayValueId.CustomColor => OverlayPiece.ColorPiece("#FFFFFF"),
-      _ when value.IsMine => OverlayPiece.CustomPiece(value.Key.Substring(1)),
       _ => OverlayPiece.ValuePiece(value.Id),
     };
 
@@ -697,36 +583,17 @@ internal sealed class FormulaEditing : Observable
     return digits;
   }
 
-  // The variable changed in place: its readers follow, the made values open
-  // on the way take theirs while they fit, and the field takes it while it fits.
+  // The variable changed in place: its readers follow, and the field takes it while it fits.
   private void Commit()
   {
     _typed = true;
-    for (int i = _path.Count - 1; i >= 1; i--)
-    {
-      FormulaFrame frame = _path[i];
-      if (frame.Custom != null && OverlayVariableTypes.Check(frame.Variable, frame.Type) == null)
-        _book.Write(frame.Custom, frame.Variable);
-    }
     _problem = Check();
     Changed();
     if (_problem == null)
       _slot.Write(_root.Clone());
   }
 
-  // What keeps the edit from being finished: the innermost open made value
-  // that can't be what it was made to give, then the field itself.
-  private OverlayTypeProblem Check()
-  {
-    for (int i = _path.Count - 1; i >= 1; i--)
-    {
-      FormulaFrame frame = _path[i];
-      if (frame.Custom == null)
-        continue;
-      OverlayTypeProblem problem = OverlayVariableTypes.Check(frame.Variable, frame.Type);
-      if (problem != null)
-        return problem;
-    }
-    return _root == null ? null : OverlayVariableTypes.Check(_root, _slot.Type, _slot.IsText);
-  }
+  // What keeps the edit from being finished: why the field's variable can't be what the field needs.
+  private OverlayTypeProblem Check() =>
+    _root == null ? null : OverlayVariableTypes.Check(_root, _slot.Type, _slot.IsText);
 }

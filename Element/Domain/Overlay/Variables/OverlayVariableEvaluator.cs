@@ -11,7 +11,7 @@ namespace Element.Domain.Overlay.Variables;
 /// </summary>
 internal static class OverlayVariableEvaluator
 {
-  // Made values may use made values; this many deep is enough, and stops a loop.
+  // Conditions and groups hold variables of their own; this many deep is enough.
   private const int MaxDepth = 16;
 
   /// <summary>
@@ -107,7 +107,7 @@ internal static class OverlayVariableEvaluator
     return Calculate(variable, 0, variable.Count, source, depth, out result, out isTime);
   }
 
-  // One piece that is of type <paramref name="type"/>, through conditions, groups and made values.
+  // One piece that is of type <paramref name="type"/>, through conditions and groups.
   private static bool TrySingle(
     OverlayVariable variable,
     IOverlayNumberSource source,
@@ -139,9 +139,6 @@ internal static class OverlayVariableEvaluator
         );
       case OverlayPieceKind.Group:
         return TrySingle(only.Slots[0], source, depth + 1, type, out piece);
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.TryGet(only.Text, out OverlayVariable made)
-          && TrySingle(made, source, depth + 1, type, out piece);
       default:
         return false;
     }
@@ -256,9 +253,6 @@ internal static class OverlayVariableEvaluator
         );
       case OverlayPieceKind.Group:
         return TryNumber(piece.Slots[0], source, depth + 1, out number, out time);
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made)
-          && TryNumber(made, source, depth + 1, out number, out time);
       default:
         return false;
     }

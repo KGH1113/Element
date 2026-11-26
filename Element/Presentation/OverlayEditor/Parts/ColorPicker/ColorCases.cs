@@ -15,11 +15,11 @@ namespace Element.Presentation.OverlayEditor.Parts.ColorPicker;
 
 /// <summary>
 /// A color as a variable: one color (picked by hand, or the highlight
-/// color), a condition giving colors, or a value of the player's. The dock
-/// opens it like any field (<see cref="Slot"/>) while its picker is open,
-/// and the picker is the input method of the color piece picked in the
-/// dock: it shows that color and its changes go to it. With nothing but a
-/// gradient, the picker edits the gradient itself.
+/// color), or a condition giving colors. The dock opens it like any field
+/// (<see cref="Slot"/>) while its picker is open, and the picker is the
+/// input method of the color piece picked in the dock: it shows that color
+/// and its changes go to it. With nothing but a gradient, the picker edits
+/// the gradient itself.
 /// </summary>
 internal sealed class ColorCases
 {
@@ -188,7 +188,11 @@ internal sealed class ColorCases
   private void Write(OverlayVariable variable)
   {
     // 그라데이션 as it reads: the gradient itself is changed in the picker.
-    if (variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Value && variable[0].Value == OverlayValueId.MakeGradient)
+    if (
+      variable.Count == 1
+      && variable[0].Kind == OverlayPieceKind.Value
+      && variable[0].Value == OverlayValueId.MakeGradient
+    )
       return;
     OverlayColorSettings color = (_color() ?? new OverlayColorSettings()).Clone();
     if (variable.Count == 1 && IsColor(variable[0]))

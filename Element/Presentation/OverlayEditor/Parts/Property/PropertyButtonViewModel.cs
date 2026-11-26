@@ -214,13 +214,7 @@ internal sealed class PropertyButtonViewModel : ViewModel
     bool plain =
       variable != null
       && variable.Count == 1
-      && variable[0].Kind
-        is not (
-          OverlayPieceKind.Value
-          or OverlayPieceKind.Condition
-          or OverlayPieceKind.Group
-          or OverlayPieceKind.Custom
-        );
+      && variable[0].Kind is not (OverlayPieceKind.Value or OverlayPieceKind.Condition or OverlayPieceKind.Group);
     Result.Value = plain || string.IsNullOrEmpty(result) ? "" : "= " + result;
     _active.Value = active;
   }

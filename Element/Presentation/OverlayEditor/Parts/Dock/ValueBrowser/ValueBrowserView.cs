@@ -111,13 +111,13 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     return sections.ToArray();
   }
 
-  // A heading over its chips; "My values" is made again when its values change.
+  // A heading over its chips.
   private View Section(ValueFolderViewModel folder) =>
     VStack(
         spacing: HeadingGap,
         HAlignment.Leading,
         Heading(folder.Name).Named("Section " + folder.Key),
-        Switch(() => folder.Version.Value, _ => Rows(folder.Groups))
+        Rows(folder.Groups)
       )
       .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 

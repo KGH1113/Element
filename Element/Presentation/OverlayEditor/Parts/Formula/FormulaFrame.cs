@@ -4,9 +4,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
 /// <summary>
 /// One step of the dock's path: a variable that is open, what it must give,
-/// and where it sits: the field itself (slot -1), slot <see cref="Slot"/> of
-/// <see cref="Owner"/> (a condition or a group), or a value the player made
-/// (<see cref="Custom"/>), whose variable is kept apart from the field's.
+/// and where it sits: the field itself (slot -1), or slot <see cref="Slot"/>
+/// of <see cref="Owner"/> (a condition or a group).
 /// </summary>
 internal sealed class FormulaFrame
 {
@@ -31,9 +30,6 @@ internal sealed class FormulaFrame
 
   /// <summary>The condition or group it belongs to; null for the field.</summary>
   public OverlayPiece Owner { get; }
-
-  /// <summary>The key of the made value it is; null for anything else.</summary>
-  public string Custom { get; set; }
 
   /// <summary>The piece picked outside when it was opened, picked again on the way back.</summary>
   public int Outer { get; set; } = -1;

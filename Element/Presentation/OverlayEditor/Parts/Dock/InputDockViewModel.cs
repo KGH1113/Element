@@ -134,21 +134,7 @@ internal sealed class InputDockViewModel : ViewModel
     set => _actions.Words(value);
   }
 
-  /// <summary>The picked made value's name, which the keyboard renames.</summary>
-  public string CustomName
-  {
-    [Pure]
-    get =>
-      _editing.SelectedPiece is { Kind: OverlayPieceKind.Custom } piece
-        ? OverlayCustomValues.NameOf(piece.Text) ?? ""
-        : "";
-    set => _actions.Rename(value);
-  }
-
   public void SetSwitch(bool value) => _actions.Switch(value);
-
-  /// <summary>The picked value of the player's opens, its inside on the line.</summary>
-  public void OpenMade() => _actions.OpenMade();
 
   public void PressCompare(char op) => _actions.Press(op);
 
@@ -244,7 +230,6 @@ internal sealed class InputDockViewModel : ViewModel
       DockMethod.Group => L("계산", "Calculation"),
       DockMethod.Color => L("색 고르기", "Color picker"),
       DockMethod.Gradient => L("그라데이션", "Gradient"),
-      DockMethod.Custom => L("내 값", "Your value"),
       DockMethod.Fonts => L("폰트 목록", "Fonts"),
       DockMethod.Points => L("아홉 자리", "Nine points"),
       _ => null,
@@ -274,7 +259,6 @@ internal sealed class InputDockViewModel : ViewModel
       OverlayPieceKind.Bool => DockMethod.Switch,
       OverlayPieceKind.Condition => DockMethod.Condition,
       OverlayPieceKind.Group => DockMethod.Group,
-      OverlayPieceKind.Custom => DockMethod.Custom,
       OverlayPieceKind.Value when piece.Value == OverlayValueId.MakeGradient => DockMethod.Gradient,
       OverlayPieceKind.Color => DockMethod.Color,
       OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).IsColor => DockMethod.Color,

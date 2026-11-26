@@ -22,15 +22,13 @@ namespace Element.Editor
 {
   // Variables as the player builds them: a size made a condition slot by
   // slot, a text color whose condition gives the highlight color or one
-  // picked by hand (the picker following the color piece picked), a value of
-  // the player's made in the text, filled, renamed and shared, and Done
+  // picked by hand (the picker following the color piece picked), and Done
   // saving what the game then draws.
   public static partial class SettingsPreview
   {
     private static void CheckVariables(OverlayEditorScreen editor, OverlayCanvasHost host, Camera camera, RenderTexture texture,
       Canvas[] canvases, string name)
     {
-      bool korean = Korean(name);
       TextOverlayElement accuracy = host.LayoutTargets.OfType<TextOverlayElement>().Single(target => target.Id == "accuracy");
       Select(editor, IndexOf(editor, accuracy));
       PressEdit(editor);
@@ -143,55 +141,18 @@ namespace Element.Editor
       if (picker.Visible)
         picker.Hide();
       Settle();
-      int count = document.Document.Count;
       Assert(!DockListed(dock, "Value highlight-color") && !DockListed(dock, "Value custom-color") && DockListed(dock, "Value combo"),
         "at the caret the list holds no colors");
 
-      // A value of the player's, made at the end of the text: filled, renamed, shared.
-      document.Anchor = document.Caret = count;
-      Press(DockChip(dock, "Value make-custom"));
-      Settle();
-      Assert(OverlayCustomValues.Keys.Count == 1, "Make a value makes one");
-      string made = OverlayCustomValues.Keys[0];
-      Assert(document.Document[count].Value == "{@" + made + "}" && formulas.Editing.Path.Count == 2 && formulas.Editing.Path[1].Custom == made,
-        "it goes in at the caret and opens to be filled");
-      Press(DockChip(dock, "Value make-text"));
-      Settle();
-      TMP_InputField words = ByName<TMP_InputField>(dock.Root, "Words field");
-      words.text = " PERFECT";
-      Settle();
-      Assert(OverlayCustomValues.TryGet(made, out OverlayVariable inside) && inside.Serialize() == "\" PERFECT\"",
-        "the keyboard types its words, and the value keeps them: " + inside?.Serialize());
-      Settle();
-      Press(DockKey(dock, "Key done"));
-      Settle();
-      Assert(dock.Vm.Method.Value == DockMethod.Custom && formulas.Editing.Path.Count == 1,
-        "Apply goes back to the text, the value picked: its name is changed there");
-      ByName<TMP_InputField>(dock.Root, "Custom name").text = korean ? "칭찬" : "Praise";
-      Settle();
-      Assert(OverlayCustomValues.NameOf(made) == (korean ? "칭찬" : "Praise") && dock.FormulaText.Contains(korean ? "칭찬" : "Praise"),
-        "its name is the one typed, in the line too: " + dock.FormulaText);
-      Assert(DockChip(dock, "Value @" + made) != null, "and it is listed under My values for every element");
-      SaveFrame(camera, texture, canvases, name + "-variable-mine");
-      SaveFrameLarge(camera, canvases, name + "-variable-mine-2x");
-      Press(DockKey(dock, "Key done"));
-      Settle();
-      Call(text, "Render");
-      Assert(previewText.text.Contains("PERFECT"), "the text shows what the value gives: " + previewText.text);
-
-      // Done saves it all; the overlay draws the color and the value's words.
+      // Done saves it; the overlay draws the color.
       PressEditorButton(text, "Text editor done");
       Assert(!text.IsOpen && accuracy.Settings.Text.Runs.All(run => run.Color.Formula == colors), "Done saves the color's condition");
       TextMeshProUGUI game = Field<TextMeshProUGUI>(accuracy, "_text");
-      Assert(game.text.Contains("<color=#5AC8FA") && game.text.Contains("PERFECT"), "the overlay draws them: " + game.text);
+      Assert(game.text.Contains("<color=#5AC8FA"), "the overlay draws it: " + game.text);
       Call(editor, "Undo");
       Assert(accuracy.Settings.Text.Runs.All(run => string.IsNullOrEmpty(run.Color.Formula)), "it is one layout undo step");
-      // The made value isn't part of undo; later checks start without it.
-      Field<CanvasSession>(editor, "_session").CustomValues.Restore(new List<OverlayCustomValueSettings>());
-      Assert(OverlayCustomValues.Keys.Count == 0, "made values can be put back");
     }
 
-    /// <summary>A row of the dock's condition input method, or the row that opens a group or a made value (slot 0).</summary>
     /// <summary>
     /// Slot <paramref name="slot"/> of the condition first on the line, as the
     /// player clicks it: the comparison's sign, an empty slot, or the first

@@ -114,10 +114,10 @@ internal sealed class OverlayVariable
   public bool IsWords =>
     IsSingleValue(out OverlayValueId id) && OverlayValueCatalog.Get(id).Kind == OverlayValueKind.Text;
 
-  /// <summary>It reads a live value somewhere, its slots and made values included.</summary>
+  /// <summary>It reads a live value somewhere, its slots included.</summary>
   public bool HasValues => !Mask.IsEmpty;
 
-  /// <summary>The live values it reads, in its slots and in the values the player made too.</summary>
+  /// <summary>The live values it reads, in its slots too.</summary>
   public OverlayValueMask Mask => OverlayVariableTypes.Mask(this, 0);
 
   /// <summary>The number it gives, false when a value has no data, it isn't a number, or it isn't finite.</summary>

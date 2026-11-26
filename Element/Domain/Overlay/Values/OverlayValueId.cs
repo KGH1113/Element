@@ -39,5 +39,4 @@ internal enum OverlayValueId
   MakeBool,
   MakeCondition,
   MakeGroup,
-  MakeCustom,
 }

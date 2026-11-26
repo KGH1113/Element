@@ -33,8 +33,7 @@ internal sealed class TextFormulas
   private readonly ITextEditorContext _context;
   private readonly TextDocumentEditing _text;
   private readonly OverlayValues _values;
-  private readonly FormulaEditing _editing;
-  private readonly ICustomValueBook _book;
+  private readonly FormulaEditing _editing = new();
   private readonly StringBuilder _builder = new(128);
   private TextSize _size;
   private TextColor _color;
@@ -49,16 +48,13 @@ internal sealed class TextFormulas
     ITextEditorActions editor,
     ITextEditorContext context,
     TextDocumentEditing text,
-    OverlayValues values,
-    ICustomValueBook book
+    OverlayValues values
   )
   {
     _editor = editor;
     _context = context;
     _text = text;
     _values = values;
-    _book = book;
-    _editing = new FormulaEditing(book);
   }
 
   public FormulaEditing Editing => _editing;
@@ -366,12 +362,6 @@ internal sealed class TextFormulas
       _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
       return;
     }
-    // Apply in a value of the player's goes back to where it sits.
-    if (_editing.Active && _editing.LeaveMade())
-    {
-      _editor.Render();
-      return;
-    }
     // Apply on a color puts its picker away.
     if (_fieldSlot == null && !ChipOpen(out _) && _color.Picker.Visible)
       _color.Picker.Hide();
@@ -430,22 +420,14 @@ internal sealed class TextFormulas
   }
 
   // Something made on the spot goes in at the caret and opens in the dock to
-  // be filled: a number, words, true or false, a condition, a group, or a new
-  // value of the player's, which opens to its inside.
+  // be filled: a number, words, true or false, a condition or a group.
   private void InsertMade(OverlayValueDefinition value)
   {
-    bool custom = value.Id == OverlayValueId.MakeCustom;
-    if (custom && _book == null)
-      return;
-    OverlayPiece piece = custom
-      ? OverlayPiece.CustomPiece(_book.Make(OverlayValueType.Any))
-      : FormulaEditing.PieceFor(value);
+    OverlayPiece piece = FormulaEditing.PieceFor(value);
     int start = Mathf.Min(_text.Anchor, _text.Caret);
     _text.InsertFormula(new OverlayVariable(piece).Serialize(), start, Mathf.Max(_text.Anchor, _text.Caret));
     OpenChip(start);
     Sync();
-    if (custom)
-      _editing.Enter(0);
   }
 
   /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>

@@ -218,13 +218,9 @@ namespace Element.Editor
 
       public void Words(string words) { }
 
-      public void Rename(string name) { }
-
       public void Switch(bool value) { }
 
       public void Remove() { }
-
-      public void OpenMade() { }
 
       public void Done() { }
 

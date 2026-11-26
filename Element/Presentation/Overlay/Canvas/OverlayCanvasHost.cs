@@ -6,7 +6,6 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Values;
-using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.Overlay.Migration;
@@ -38,7 +37,6 @@ internal sealed class OverlayCanvasHost : IDisposable
   private bool _visible;
   private bool _layoutPreview;
   private int _settles;
-  private int _madeValues = OverlayCustomValues.Version;
 
   /// <summary>Values from outside the game's events, written into <see cref="Values"/> each frame.</summary>
   public IOverlayValueFeed Feed { get; set; }
@@ -235,12 +233,6 @@ internal sealed class OverlayCanvasHost : IDisposable
     OverlayValueMask changes = Values.TakeChanges();
     bool settle = _settles != Values.Settles;
     _settles = Values.Settles;
-    // A value the player made changed: every element that may use it reads it again.
-    if (_madeValues != OverlayCustomValues.Version)
-    {
-      _madeValues = OverlayCustomValues.Version;
-      ApplyLayouts();
-    }
     // Each refresh is a mask test unless its values, the theme or its scale changed.
     for (int i = 0; i < _kinds.Length; i++)
       _kinds[i].Tick(changes, settle);

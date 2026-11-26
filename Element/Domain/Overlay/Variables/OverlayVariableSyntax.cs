@@ -8,9 +8,9 @@ namespace Element.Domain.Overlay.Variables;
 /// How a variable is written and saved. One value alone saves as its key, so
 /// texts from 1.1 read unchanged; otherwise values go in braces
 /// (<c>{combo}*2</c>), words in quotes (<c>"FC"</c>), colors as #RRGGBB,
-/// true or false as such, a value the player made as <c>{@key}</c>, a
-/// condition as <c>if(left;compare;right;result;default)</c> and a group in
-/// parentheses. Pieces side by side are kept apart by a space.
+/// true or false as such, a condition as
+/// <c>if(left;compare;right;result;default)</c> and a group in parentheses.
+/// Pieces side by side are kept apart by a space.
 /// </summary>
 internal static class OverlayVariableSyntax
 {
@@ -94,9 +94,6 @@ internal static class OverlayVariableSyntax
         case OverlayPieceKind.Value:
           builder.Append('{').Append(OverlayValueCatalog.Get(piece.Value).Key).Append('}');
           break;
-        case OverlayPieceKind.Custom:
-          builder.Append("{@").Append(piece.Text).Append('}');
-          break;
         case OverlayPieceKind.Condition:
           builder.Append("if(");
           for (int s = 0; s < piece.Slots.Length; s++)
@@ -153,10 +150,8 @@ internal static class OverlayVariableSyntax
         }
         string key = text.Substring(at + 1, close - at - 1);
         at = close + 1;
-        if (key.StartsWith("@", StringComparison.Ordinal))
-          variable.Add(OverlayPiece.CustomPiece(key.Substring(1)));
         // A built-in value that no longer exists drops out; a mod's value stays while that mod is missing.
-        else if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value))
+        if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value))
           variable.Add(OverlayPiece.ValuePiece(value.Id));
         continue;
       }
@@ -325,7 +320,7 @@ internal static class OverlayVariableSyntax
     {
       OverlayPieceKind.Number => true,
       OverlayPieceKind.Value => OverlayValueCatalog.Get(piece.Value).IsNumeric,
-      OverlayPieceKind.Condition or OverlayPieceKind.Group or OverlayPieceKind.Custom => true,
+      OverlayPieceKind.Condition or OverlayPieceKind.Group => true,
       _ => false,
     };
 
@@ -364,9 +359,6 @@ internal static class OverlayVariableSyntax
           break;
         case OverlayPieceKind.Value:
           builder.Append(name(OverlayValueCatalog.Get(piece.Value)));
-          break;
-        case OverlayPieceKind.Custom:
-          builder.Append('★').Append(OverlayCustomValues.Shown(piece.Text, words));
           break;
         case OverlayPieceKind.Condition when depth < MaxDepth:
           builder.Append(words.ConditionStart).Append(" (");

@@ -93,20 +93,17 @@ internal sealed class LineViewModel : ViewModel
       Result = "";
       return;
     }
-    // In a value of the player's the line shows its inside, under its name.
-    int lineBase = editing.LineBase;
-    FormulaFrame start = editing.Path[lineBase];
-    bool made = lineBase > 0;
-    Name = made ? OverlayCustomValues.Shown(start.Custom, FormulaWords.Current) : name ?? "";
-    Type = start.Type;
+    Name = name ?? "";
+    FormulaSlot slot = editing.Slot;
+    Type = slot.Type;
     // A field always says what it gives; whoever shows a value picked in a text leaves a plain one's result out.
-    Result = made || string.IsNullOrEmpty(result) ? "" : "= " + result;
+    Result = string.IsNullOrEmpty(result) ? "" : "= " + result;
     ResultHasSwatch =
       Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
-    SelectedRoute(editing, lineBase);
+    SelectedRoute(editing);
     _used.Clear();
     _route.Clear();
-    Slot(start.Variable, start.Type, -1, !made && editing.Slot.IsText, true, editing);
+    Slot(editing.Root, slot.Type, -1, slot.IsText, true, editing);
     Forget(_pieces);
     Forget(_slots);
   }
@@ -129,11 +126,11 @@ internal sealed class LineViewModel : ViewModel
   }
 
   // Where the picked piece is: the route of the innermost open variable.
-  private void SelectedRoute(FormulaEditing editing, int lineBase)
+  private void SelectedRoute(FormulaEditing editing)
   {
     _selectedRoute.Clear();
     IReadOnlyList<FormulaFrame> path = editing.Path;
-    for (int i = lineBase + 1; i < path.Count; i++)
+    for (int i = 1; i < path.Count; i++)
       _selectedRoute.Add(new FormulaStep(path[i].Outer, path[i].Slot));
   }
 
@@ -258,8 +255,6 @@ internal sealed class LineViewModel : ViewModel
         return OverlayVariable.Symbol(piece.Op).ToString();
       case OverlayPieceKind.Value:
         return ValueSectionNames.ValueName(OverlayValueCatalog.Get(piece.Value));
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.Shown(piece.Text, words);
       case OverlayPieceKind.Condition:
         return words.ConditionStart;
       default:

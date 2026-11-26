@@ -1,4 +1,3 @@
-using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
@@ -9,6 +8,7 @@ using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.Graphics;
@@ -36,7 +36,7 @@ internal sealed class ShapeNumbers
   private readonly IShapeEditorContext _context;
   private readonly OverlayValues _values;
   private readonly EditorHistory<OverlayShapeSettings> _history;
-  private readonly FormulaEditing _editing;
+  private readonly FormulaEditing _editing = new();
   private ShapeGradient _gradient;
   private PropertyButtonViewModel _strokeWidth;
   private FormulaSlot _slot;
@@ -45,15 +45,13 @@ internal sealed class ShapeNumbers
     IShapeEditorActions editor,
     IShapeEditorContext context,
     OverlayValues values,
-    EditorHistory<OverlayShapeSettings> history,
-    ICustomValueBook book
+    EditorHistory<OverlayShapeSettings> history
   )
   {
     _editor = editor;
     _context = context;
     _values = values;
     _history = history;
-    _editing = new FormulaEditing(book);
   }
 
   /// <summary>The key of the number open in the dock; null with none.</summary>
@@ -269,12 +267,6 @@ internal sealed class ShapeNumbers
     if (_editing.Active && _editing.Problem != null)
     {
       _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
-      return;
-    }
-    // Apply in a value of the player's goes back to where it sits.
-    if (_editing.Active && _editing.LeaveMade())
-    {
-      _editor.Render();
       return;
     }
     _editor.CloseOpen();

@@ -289,14 +289,6 @@
       </Mod>
     </OverlayLayoutSettings>
   </OverlayLayouts>
-  <OverlayCustomValues>
-    <OverlayCustomValueSettings>
-      <Key>Key</Key>
-      <Name>Name</Name>
-      <Type>Type</Type>
-      <Variable>Variable</Variable>
-    </OverlayCustomValueSettings>
-  </OverlayCustomValues>
   <Profiles>
     <ElementProfile>
       <Id>Id</Id>
@@ -526,14 +518,6 @@
             </Mod>
           </OverlayLayoutSettings>
         </OverlayLayouts>
-        <OverlayCustomValues>
-          <OverlayCustomValueSettings>
-            <Key>Key</Key>
-            <Name>Name</Name>
-            <Type>Type</Type>
-            <Variable>Variable</Variable>
-          </OverlayCustomValueSettings>
-        </OverlayCustomValues>
       </Content>
       <KeyViewersStart>CopyOf</KeyViewersStart>
       <KeyViewersCopyOf>KeyViewersCopyOf</KeyViewersCopyOf>

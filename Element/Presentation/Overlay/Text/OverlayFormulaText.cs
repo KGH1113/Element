@@ -15,7 +15,7 @@ namespace Element.Presentation.Overlay.Text;
 /// </summary>
 internal static class OverlayFormulaText
 {
-  // Made values may use made values; this many deep is enough, and stops a loop.
+  // Conditions and groups hold variables of their own; this many deep is enough.
   private const int MaxDepth = 16;
 
   /// <summary>Appends what a variable shows; nothing for a part whose values have no data yet.</summary>
@@ -79,10 +79,6 @@ internal static class OverlayFormulaText
         break;
       case OverlayPieceKind.Group:
         Append(output, piece.Slots[0], values, samples, depth + 1);
-        break;
-      case OverlayPieceKind.Custom:
-        if (OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made))
-          Append(output, made, values, samples, depth + 1);
         break;
     }
   }

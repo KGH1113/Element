@@ -13,35 +13,15 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 /// mod adds): its heading and its values, in a row per group under the
 /// group's heading when a mod made several. Only the values that fit where
 /// the dock puts values now are listed, and a section none of whose values
-/// fit is not listed at all (<see cref="Fit"/>). "My values" changes while
-/// the dock is open (<see cref="Reload"/>).
+/// fit is not listed at all (<see cref="Fit"/>).
 /// </summary>
 internal sealed class ValueFolderViewModel : ViewModel
 {
-  private readonly Action<OverlayValueDefinition> _pick;
-  private List<ValueChipViewModel> _chips = new();
-
   public ValueFolderViewModel(OverlayValueFolder folder, Action<OverlayValueDefinition> pick)
   {
     Key = folder.Key;
     Name = ValueSectionNames.FolderName(folder);
     IsMod = folder.IsMod;
-    _pick = pick;
-    TakeValues(folder);
-  }
-
-  /// <summary>Takes <paramref name="folder"/>'s values in place of its own; the section is drawn again.</summary>
-  public void Reload(OverlayValueFolder folder)
-  {
-    List<ValueChipViewModel> old = _chips;
-    TakeValues(folder);
-    foreach (ValueChipViewModel chip in old)
-      chip.Dispose();
-    Version.Value++;
-  }
-
-  private void TakeValues(OverlayValueFolder folder)
-  {
     List<ValueChipRow> groups = new();
     List<ValueChipViewModel> all = new();
     foreach (OverlayValueSection section in folder.Sections)
@@ -49,7 +29,7 @@ internal sealed class ValueFolderViewModel : ViewModel
       ValueChipViewModel[] chips = new ValueChipViewModel[section.Values.Count];
       for (int i = 0; i < chips.Length; i++)
       {
-        chips[i] = new ValueChipViewModel(section.Values[i], _pick);
+        chips[i] = Own(new ValueChipViewModel(section.Values[i], pick));
         all.Add(chips[i]);
       }
       // A heading only tells groups apart; one group needs none.
@@ -59,13 +39,6 @@ internal sealed class ValueFolderViewModel : ViewModel
     }
     Groups = groups;
     Chips = all;
-    _chips = all;
-  }
-
-  protected override void OnDisposed()
-  {
-    foreach (ValueChipViewModel chip in _chips)
-      chip.Dispose();
   }
 
   /// <summary>Names it the same way from one opening to the next; it names the drawn section too.</summary>
@@ -77,16 +50,13 @@ internal sealed class ValueFolderViewModel : ViewModel
   /// <summary>Some of its values fit: it is listed.</summary>
   public readonly State<bool> Shown = new(true);
 
-  /// <summary>Goes up when its values were taken again: the section is drawn anew.</summary>
-  public readonly State<int> Version = new(0);
-
   public readonly bool IsMod;
 
   /// <summary>Its rows: one for a category or a mod with one group, else one per group.</summary>
-  public IReadOnlyList<ValueChipRow> Groups { get; private set; }
+  public readonly IReadOnlyList<ValueChipRow> Groups;
 
   /// <summary>Every value it holds, in order.</summary>
-  public IReadOnlyList<ValueChipViewModel> Chips { get; private set; }
+  public readonly IReadOnlyList<ValueChipViewModel> Chips;
 
   /// <summary>
   /// Keeps the values that fit <paramref name="place"/> listed, and their

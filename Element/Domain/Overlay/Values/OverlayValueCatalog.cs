@@ -7,7 +7,7 @@ namespace Element.Domain.Overlay.Values;
 // ids after them for the rest of the session. Changed on the main thread only.
 internal static class OverlayValueCatalog
 {
-  public const int BuiltInCount = (int)OverlayValueId.MakeCustom + 1;
+  public const int BuiltInCount = (int)OverlayValueId.MakeGroup + 1;
 
   /// <summary>Built-in and added values together; one value mask holds them all.</summary>
   public const int Capacity = OverlayValueMask.Capacity;
@@ -22,7 +22,6 @@ internal static class OverlayValueCatalog
     OverlayValueCategory.Song,
     OverlayValueCategory.System,
     OverlayValueCategory.Color,
-    OverlayValueCategory.Mine,
   };
 
   private static readonly OverlayValueDefinition[] BuiltInDefinitions =
@@ -132,16 +131,6 @@ internal static class OverlayValueCatalog
     Maker(OverlayValueId.MakeBool, "make-bool", OverlayValueKind.Bool, "참·거짓", "True or false"),
     Maker(OverlayValueId.MakeCondition, "make-condition", OverlayValueKind.Any, "조건", "Condition"),
     Maker(OverlayValueId.MakeGroup, "make-group", OverlayValueKind.Any, "묶음", "Group"),
-    new(
-      OverlayValueId.MakeCustom,
-      "make-custom",
-      OverlayValueCategory.Mine,
-      OverlayValueKind.Any,
-      "새 값 만들기",
-      "New value",
-      string.Empty,
-      double.NaN
-    ),
   };
 
   private static readonly List<OverlayValueDefinition> Definitions = new(BuiltInDefinitions);
@@ -229,64 +218,6 @@ internal static class OverlayValueCatalog
   }
 
   /// <summary>
-  /// Lists the values the player made (key, name, the type each gives), in
-  /// their order, under "My values": a made value keeps its id while it is
-  /// there, and one taken away stays known but is no longer offered.
-  /// </summary>
-  public static void SetMine(IReadOnlyList<(string Key, string Name, OverlayValueKind Kind)> mine)
-  {
-    HashSet<string> kept = new();
-    if (mine != null)
-      foreach ((string key, string name, OverlayValueKind kind) in mine)
-      {
-        string full = "@" + key;
-        kept.Add(full);
-        OverlayValueId id;
-        if (ByKey.TryGetValue(full, out OverlayValueDefinition existing))
-          id = existing.Id;
-        else if (Definitions.Count < Capacity)
-          id = NextId();
-        else
-          continue;
-        bool named = !string.IsNullOrWhiteSpace(name);
-        OverlayValueDefinition definition = new(
-          id,
-          full,
-          OverlayValueCategory.Mine,
-          kind,
-          named ? name : "이름 없는 값",
-          named ? name : "Unnamed value",
-          string.Empty,
-          double.NaN
-        );
-        if (existing != null)
-          Replace(definition);
-        else
-          Add(definition);
-      }
-    for (int i = BuiltInCount; i < Definitions.Count; i++)
-    {
-      OverlayValueDefinition value = Definitions[i];
-      if (value.IsMine && value.Available && !kept.Contains(value.Key))
-        Replace(
-          new OverlayValueDefinition(
-            value.Id,
-            value.Key,
-            value.Category,
-            value.Kind,
-            value.KoreanName,
-            value.EnglishName,
-            string.Empty,
-            double.NaN,
-            null,
-            false
-          )
-        );
-    }
-    Version++;
-  }
-
-  /// <summary>
   /// The mod that added <paramref name="key"/> went away or was turned off.
   /// Its id and name stay so texts keep it; it comes back on the next
   /// <see cref="Register"/>.
@@ -311,11 +242,6 @@ internal static class OverlayValueCatalog
       foreach (OverlayValueDefinition value in BuiltInDefinitions)
         if (value.Category == category)
           values.Add(value);
-      // The player's values come before the way to make one.
-      if (category == OverlayValueCategory.Mine)
-        for (int i = BuiltInCount; i < Definitions.Count; i++)
-          if (Definitions[i].IsMine && Definitions[i].Available)
-            values.Insert(values.Count - 1, Definitions[i]);
       sections.Add(new OverlayValueSection(category, null, values));
     }
     List<OverlayValueGroup> groups = new();
@@ -393,7 +319,6 @@ internal static class OverlayValueCatalog
       OverlayValueCategory.Time => korean ? "시간" : "Time",
       OverlayValueCategory.Speed => korean ? "속도" : "Speed",
       OverlayValueCategory.Make => korean ? "직접 만들기" : "Make",
-      OverlayValueCategory.Mine => korean ? "내 값" : "My values",
       OverlayValueCategory.Song => korean ? "곡·기록" : "Song",
       OverlayValueCategory.Color => korean ? "색" : "Colors",
       _ => korean ? "시스템" : "System",

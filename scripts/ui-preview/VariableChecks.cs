@@ -202,6 +202,17 @@ namespace Element.Editor
         label.ForceMeshUpdate();
         Assert(!label.isTextTruncated, "the fork's words fit: " + label.text);
       }
+      // The color and its name stand on the tile's middle, one over the other.
+      foreach (int slot in new[] { OverlayPiece.Result, OverlayPiece.Default })
+      {
+        Transform tile = DockSlot(dock, slot).transform;
+        Rect tileRect = ScreenRectOf((RectTransform)tile),
+          swatch = ScreenRectOf(tile.GetComponentsInChildren<RectTransform>(false).Single(part => part.name == "Condition swatch")),
+          caption = ScreenRectOf(tile.GetComponentsInChildren<RectTransform>(false).Single(part => part.name == "Condition caption"));
+        Assert(Mathf.Abs(swatch.center.x - tileRect.center.x) < 1 && Mathf.Abs(caption.center.x - tileRect.center.x) < 1
+          && Mathf.Abs(swatch.width - swatch.height) < .5f && caption.yMax <= swatch.yMin + .5f,
+          "an answer's color and its name are centered on the tile: " + tileRect + " / " + swatch + " / " + caption);
+      }
       SaveFrame(camera, texture, canvases, name + "-variable-fork");
 
       // A color doesn't go in the text: at the caret none is listed.

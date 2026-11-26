@@ -36,8 +36,7 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
     LeftDrop = TileWidth / 2,
     RightDrop = Width - TileWidth / 2,
     Bend = 9,
-    Thin = 1.5f,
-    Thick = 2;
+    Stroke = 2;
 
   private readonly UiColor _fill = UiPalette.EditorControl;
   private readonly UiColor _live = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .17f);
@@ -46,7 +45,9 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
   private readonly UiColor _bad = UiPalette.Error;
   private readonly UiColor _noEdge = FieldLook.Clear;
   private readonly UiColor _hover = new Color(1, 1, 1, .05f);
-  private readonly UiColor _path = new Color(1, 1, 1, .2f);
+
+  // The way not taken is still a way: plain to see on the dark, only without the highlight color.
+  private readonly UiColor _path = new Color(1, 1, 1, .42f);
   private readonly UiColor _swatchEdge = new Color(1, 1, 1, .28f);
 
   public ConditionFormView(ConditionFormViewModel vm)
@@ -118,10 +119,10 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
       no = VM.Slots[OverlayPiece.Default];
     return ZStack(
         Alignment.TopLeading,
-        Line(Stem, 0, Stem, Bend, Thin, _path),
-        Line(LeftDrop, Bend, RightDrop, Bend, Thin, _path),
-        Line(LeftDrop, Bend, LeftDrop, ForkHeight, Thin, _path),
-        Line(RightDrop, Bend, RightDrop, ForkHeight, Thin, _path),
+        Line(Stem, 0, Stem, Bend, Stroke, _path),
+        Line(LeftDrop, Bend, RightDrop, Bend, Stroke, _path),
+        Line(LeftDrop, Bend, LeftDrop, ForkHeight, Stroke, _path),
+        Line(RightDrop, Bend, RightDrop, ForkHeight, Stroke, _path),
         If(() => yes.Live.Value, () => Way(LeftDrop)),
         If(() => no.Live.Value, () => Way(RightDrop))
       )
@@ -132,9 +133,9 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
   private View Way(float drop) =>
     ZStack(
         Alignment.TopLeading,
-        Line(Stem, 0, Stem, Bend, Thick, _accent),
-        Line(Mathf.Min(Stem, drop), Bend, Mathf.Max(Stem, drop), Bend, Thick, _accent),
-        Line(drop, Bend, drop, ForkHeight, Thick, _accent)
+        Line(Stem, 0, Stem, Bend, Stroke, _accent),
+        Line(Mathf.Min(Stem, drop), Bend, Mathf.Max(Stem, drop), Bend, Stroke, _accent),
+        Line(drop, Bend, drop, ForkHeight, Stroke, _accent)
       )
       .Frame(width: Width, height: ForkHeight, alignment: Alignment.TopLeading);
 
@@ -195,17 +196,21 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
       look =>
         look switch
         {
+          // The color over its name, both on the tile's middle.
           ConditionSlotLook.Color => VStack(
             spacing: 8,
-            Spacer()
+            HAlignment.Center,
+            RoundedRectangle(14)
+              .Fill(() => slot.Swatch.Value)
+              .Named("Condition swatch")
               .Frame(width: 46, height: 46)
-              .Background(() => slot.Swatch.Value, 14)
               .Overlay(RoundedRectangle(14).Stroke(() => _swatchEdge, FieldLook.Edge)),
             // The way not taken is quieter, but a color stays the color it is.
             Text(() => slot.Caption.Value)
               .Font(Font.Caption.Sized(13))
               .LineLimit(1)
               .Opacity(() => slot.Quiet.Value ? .5f : 1f)
+              .Named("Condition caption")
           ),
           ConditionSlotLook.Big => Switch(
               () => slot.BigSize.Value,

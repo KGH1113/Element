@@ -1317,6 +1317,11 @@ namespace Element.Editor
         && dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Input rest" && label.text == L("키보드로 입력", "Type on the keyboard"))
         && dock.MethodRoot.GetComponentsInChildren<UiIcon>(false).Any(icon => icon.Kind == UiIconKind.Keyboard),
         "with only the caret in the text there is no keypad: a keyboard and three words say where the typing goes");
+      Rect restPlace = ScreenRectOf(dock.MethodRoot),
+        restIcon = ScreenRectOf((RectTransform)dock.MethodRoot.GetComponentsInChildren<UiIcon>(false).Single(icon => icon.Kind == UiIconKind.Keyboard).transform),
+        restWords = ScreenRectOf((RectTransform)dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Single(label => label.name == "Input rest").transform);
+      Assert(Mathf.Abs(restIcon.center.x - restWords.center.x) < 1 && Mathf.Abs(restIcon.center.x - restPlace.center.x) < 1,
+        "the keyboard stands over the middle of its words, in the middle of the place: " + restPlace + " / " + restIcon + " / " + restWords);
       // The frame before drew a change that took layout (a notice), and the
       // driver went back to sleep after it.
       screen.ViewModel.Notice(L("값을 골랐어요", "A value was picked"), false);

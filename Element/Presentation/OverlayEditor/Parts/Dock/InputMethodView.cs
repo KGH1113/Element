@@ -54,6 +54,7 @@ internal sealed class InputMethodView : View<InputDockViewModel>
   private static View Typing() =>
     VStack(
         spacing: 10,
+        HAlignment.Center,
         Image(ElementIcons.Of(UiIconKind.Keyboard), 46).Foreground(Colors.Muted),
         UI.Text(L("키보드로 입력", "Type on the keyboard"))
           .Font(Font.Caption.Sized(13))

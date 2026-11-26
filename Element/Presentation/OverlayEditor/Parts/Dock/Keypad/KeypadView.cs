@@ -20,10 +20,16 @@ internal sealed class KeypadView : View<KeypadViewModel>
     MethodHeight = 4 * PadKeyHeight + 3 * Gap,
     Height = MethodHeight + Gap + KeyHeight;
 
-  public KeypadView(KeypadViewModel vm)
-    : base(vm) { }
+  private readonly float _keyHeight;
 
-  public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: MethodHeight);
+  /// <param name="keyHeight">How tall a key is: lower where a folded condition has the top of the place.</param>
+  public KeypadView(KeypadViewModel vm, float keyHeight = PadKeyHeight)
+    : base(vm) => _keyHeight = keyHeight;
+
+  /// <summary>How tall a key is when the pad has <paramref name="height"/> for its four rows.</summary>
+  public static float KeyHeightIn(float height) => (height - 3 * Gap) / 4;
+
+  public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: 4 * _keyHeight + 3 * Gap);
 
   /// <summary>The row under every input method: Remove (지우기) the picked value, and a wide Apply.</summary>
   public static View SharedRow(KeypadViewModel vm) =>
@@ -41,7 +47,7 @@ internal sealed class KeypadView : View<KeypadViewModel>
     for (int i = 0; i < keys.Length; i++)
     {
       KeypadKeyViewModel key = VM.Keys[i];
-      keys[i] = new KeypadKeyView(key, key.Symbol ? 24 : 22, false, PadKeyHeight);
+      keys[i] = new KeypadKeyView(key, key.Symbol ? 24 : 22, false, _keyHeight);
     }
     return keys;
   }

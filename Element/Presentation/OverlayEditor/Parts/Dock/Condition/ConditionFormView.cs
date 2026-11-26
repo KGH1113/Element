@@ -24,19 +24,27 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 internal sealed class ConditionFormView : View<ConditionFormViewModel>
 {
   private const float Width = KeypadView.Width,
-    QuestionHeight = 64,
-    SideHeight = 48,
-    SignSize = 44,
-    ForkHeight = 22,
     TileGap = 8,
-    TileHeight = KeypadView.MethodHeight - QuestionHeight - ForkHeight,
     TileWidth = (Width - TileGap) / 2,
     // The fork: a stem down from the middle of the bar, out to the middle of each tile.
     Stem = Width / 2,
     LeftDrop = TileWidth / 2,
     RightDrop = Width - TileWidth / 2,
-    Bend = 9,
     Stroke = 2;
+
+  // Its sizes follow the place it has: all of the input method's, or what a folded condition leaves under its strip.
+  private readonly float _height,
+    _question,
+    _side,
+    _sign,
+    _signIcon,
+    _fork,
+    _bend,
+    _tile,
+    _swatch,
+    _swatchRadius,
+    _radius,
+    _between;
 
   private readonly UiColor _fill = UiPalette.EditorControl;
   private readonly UiColor _live = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .17f);
@@ -50,14 +58,30 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
   private readonly UiColor _path = new Color(1, 1, 1, .42f);
   private readonly UiColor _swatchEdge = new Color(1, 1, 1, .28f);
 
-  public ConditionFormView(ConditionFormViewModel vm)
-    : base(vm) { }
+  /// <param name="height">How tall a place it has; lower than the input method's whole place, it is drawn smaller.</param>
+  public ConditionFormView(ConditionFormViewModel vm, float height = KeypadView.MethodHeight)
+    : base(vm)
+  {
+    bool small = height < KeypadView.MethodHeight;
+    _height = height;
+    _question = small ? 52 : 64;
+    _side = small ? 38 : 48;
+    _sign = small ? 36 : 44;
+    _signIcon = small ? 21 : 26;
+    _fork = small ? 18 : 22;
+    _bend = small ? 7 : 9;
+    _tile = height - _question - _fork;
+    _swatch = small ? 36 : 46;
+    _swatchRadius = small ? 11 : 14;
+    _radius = small ? 14 : 16;
+    _between = small ? 6 : 8;
+  }
 
   public override View Body =>
     VStack(spacing: 0, Question(), Fork(), Answers())
       // "No" is a shake, not a sentence.
       .Offset(x: () => VM.Shake.X)
-      .Frame(width: Width, height: KeypadView.MethodHeight, alignment: Alignment.Top);
+      .Frame(width: Width, height: _height, alignment: Alignment.Top);
 
   // What is compared: value, comparison, value, in one bar.
   private View Question() =>
@@ -68,39 +92,36 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
         Side(VM.Slots[OverlayPiece.Right])
       )
       .Padding(0, 8)
-      .Frame(width: Width, height: QuestionHeight)
-      .Background(_fill, 16);
+      .Frame(width: Width, height: _question)
+      .Background(_fill, _radius);
 
   private View Side(ConditionSlotViewModel slot) =>
-    Button(
-        Held(slot, 84).Frame(maxWidth: float.PositiveInfinity, height: SideHeight),
-        () => slot.Enter,
-        ButtonStyle.Plain
-      )
+    Button(Held(slot, 84).Frame(maxWidth: float.PositiveInfinity, height: _side), () => slot.Enter, ButtonStyle.Plain)
       .ButtonStyle(new ButtonSurfaceStyle(_noEdge, 12, hovered: _hover))
       .Overlay(
         RoundedRectangle(12).Stroke(() => slot.Bad.Value ? _bad : _noEdge, FieldLook.Edge).AllowsHitTesting(false)
       )
       .Named("Condition slot " + slot.Slot)
-      .Frame(maxWidth: float.PositiveInfinity, height: SideHeight);
+      .Frame(maxWidth: float.PositiveInfinity, height: _side);
 
   // The comparison, in a round key between what it compares; a condition that gives one shows as the type's mark.
   private View Sign(ConditionSlotViewModel slot) =>
     Button(
         Switch(
             () => slot.Sign.Value,
-            sign => Image(ElementIcons.Of(IconOf(sign)), 26).Foreground(sign == '\0' ? _muted : _accent)
+            sign => Image(ElementIcons.Of(IconOf(sign)), _signIcon).Foreground(sign == '\0' ? _muted : _accent)
           )
-          .Frame(width: SignSize, height: SignSize),
+          .Frame(width: _sign, height: _sign),
         () => slot.Enter,
         ButtonStyle.Plain
       )
-      .ButtonStyle(new ButtonSurfaceStyle(FieldLook.Chip, SignSize / 2))
+      .ButtonStyle(new ButtonSurfaceStyle(FieldLook.Chip, _sign / 2))
       .Overlay(Capsule().Stroke(() => slot.Bad.Value ? _bad : _noEdge, FieldLook.Edge).AllowsHitTesting(false))
       .Named("Condition slot " + slot.Slot)
-      .Frame(width: SignSize, height: SignSize);
+      .Frame(width: _sign, height: _sign);
 
-  private static UiIconKind IconOf(char sign) =>
+  /// <summary>The icon a comparison is drawn as; the comparison type's mark for none.</summary>
+  public static UiIconKind IconOf(char sign) =>
     sign switch
     {
       '<' => UiIconKind.Less,
@@ -119,25 +140,25 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
       no = VM.Slots[OverlayPiece.Default];
     return ZStack(
         Alignment.TopLeading,
-        Line(Stem, 0, Stem, Bend, Stroke, _path),
-        Line(LeftDrop, Bend, RightDrop, Bend, Stroke, _path),
-        Line(LeftDrop, Bend, LeftDrop, ForkHeight, Stroke, _path),
-        Line(RightDrop, Bend, RightDrop, ForkHeight, Stroke, _path),
+        Line(Stem, 0, Stem, _bend, Stroke, _path),
+        Line(LeftDrop, _bend, RightDrop, _bend, Stroke, _path),
+        Line(LeftDrop, _bend, LeftDrop, _fork, Stroke, _path),
+        Line(RightDrop, _bend, RightDrop, _fork, Stroke, _path),
         If(() => yes.Live.Value, () => Way(LeftDrop)),
         If(() => no.Live.Value, () => Way(RightDrop))
       )
-      .Frame(width: Width, height: ForkHeight, alignment: Alignment.TopLeading);
+      .Frame(width: Width, height: _fork, alignment: Alignment.TopLeading);
   }
 
   // From the stem out to one answer.
   private View Way(float drop) =>
     ZStack(
         Alignment.TopLeading,
-        Line(Stem, 0, Stem, Bend, Stroke, _accent),
-        Line(Mathf.Min(Stem, drop), Bend, Mathf.Max(Stem, drop), Bend, Stroke, _accent),
-        Line(drop, Bend, drop, ForkHeight, Stroke, _accent)
+        Line(Stem, 0, Stem, _bend, Stroke, _accent),
+        Line(Mathf.Min(Stem, drop), _bend, Mathf.Max(Stem, drop), _bend, Stroke, _accent),
+        Line(drop, _bend, drop, _fork, Stroke, _accent)
       )
-      .Frame(width: Width, height: ForkHeight, alignment: Alignment.TopLeading);
+      .Frame(width: Width, height: _fork, alignment: Alignment.TopLeading);
 
   // A straight line, upright or level, from one point to another: its ends are square, so corners meet.
   private static View Line(float x, float y, float toX, float toY, float width, UiColor color)
@@ -151,7 +172,7 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
 
   private View Answers() =>
     HStack(spacing: TileGap, Tile(VM.Slots[OverlayPiece.Result]), Tile(VM.Slots[OverlayPiece.Default]))
-      .Frame(width: Width, height: TileHeight);
+      .Frame(width: Width, height: _tile);
 
   // An answer: its word in the corner, what it gives in the middle.
   private View Tile(ConditionSlotViewModel slot) =>
@@ -170,13 +191,13 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
                 alignment: Alignment.TopLeading
               )
           )
-          .Frame(maxWidth: float.PositiveInfinity, height: TileHeight),
+          .Frame(maxWidth: float.PositiveInfinity, height: _tile),
         () => slot.Enter,
         ButtonStyle.Plain
       )
-      .ButtonStyle(new ButtonSurfaceStyle(() => slot.Live.Value ? _live : _fill, 16))
+      .ButtonStyle(new ButtonSurfaceStyle(() => slot.Live.Value ? _live : _fill, _radius))
       .Overlay(
-        RoundedRectangle(16)
+        RoundedRectangle(_radius)
           .Stroke(
             () =>
               slot.Bad.Value ? _bad
@@ -187,7 +208,7 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
           .AllowsHitTesting(false)
       )
       .Named("Condition slot " + slot.Slot)
-      .Frame(maxWidth: float.PositiveInfinity, height: TileHeight);
+      .Frame(maxWidth: float.PositiveInfinity, height: _tile);
 
   // What a slot holds: nothing yet (its mark and name), pills, one large number or word, or one color.
   private View Held(ConditionSlotViewModel slot, float widest) =>
@@ -198,13 +219,13 @@ internal sealed class ConditionFormView : View<ConditionFormViewModel>
         {
           // The color over its name, both on the tile's middle.
           ConditionSlotLook.Color => VStack(
-            spacing: 8,
+            spacing: _between,
             HAlignment.Center,
-            RoundedRectangle(14)
+            RoundedRectangle(_swatchRadius)
               .Fill(() => slot.Swatch.Value)
               .Named("Condition swatch")
-              .Frame(width: 46, height: 46)
-              .Overlay(RoundedRectangle(14).Stroke(() => _swatchEdge, FieldLook.Edge)),
+              .Frame(width: _swatch, height: _swatch)
+              .Overlay(RoundedRectangle(_swatchRadius).Stroke(() => _swatchEdge, FieldLook.Edge)),
             // The way not taken is quieter, but a color stays the color it is.
             Text(() => slot.Caption.Value)
               .Font(Font.Caption.Sized(13))

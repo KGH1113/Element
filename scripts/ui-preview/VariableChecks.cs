@@ -4,6 +4,7 @@ using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.OverlayEditor.TextEditor;
@@ -81,22 +82,42 @@ namespace Element.Editor
         && !dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Notice"),
         "Apply on an unfinished condition is refused without words: the form shakes and the empty slot is outlined");
       SaveFrame(camera, texture, canvases, name + "-variable-condition");
+      Rect forkLeft = ScreenRectOf((RectTransform)DockSlot(dock, OverlayPiece.Left).transform);
+      int glides = dock.Vm.Arrival.Asked;
       Press(DockSlot(dock, OverlayPiece.Left));
       Settle();
       Assert(formulas.Editing.Path.Count == 2 && formulas.Editing.Selected < 0 && dock.Vm.Line.Root.Targeted
-        && dock.Vm.Line.Name == FormulaRefusals.SlotName(OverlayPiece.Left) && dock.Vm.Line.Whose.Contains(L("조건", "Condition"))
+        && dock.Vm.Line.Name == FormulaRefusals.SlotName(OverlayPiece.Left) && dock.Vm.Line.Whose == ""
         && dock.Vm.Method.Value == DockMethod.Keypad,
-        "a slot clicked in the form is gone into: the line is that slot's, with the way to it, and the keypad is its input method: "
+        "a slot clicked in the form is gone into: the line is that slot's alone, and the keypad is its input method: "
           + dock.Vm.Line.Whose + " " + dock.Vm.Line.Name);
+      // The condition doesn't go away: it folds into a strip over the slot's input method.
+      CheckStrip(dock, OverlayPiece.Left, "the size's condition");
+      Assert(dock.Vm.Arrival.Asked == glides + 1 && dock.Vm.Line.Slide.Asked > 0,
+        "going in, the input method and the line arrive once");
+      Assert(dock.Vm.Fold.Slots[OverlayPiece.Left].Bad.Value && !dock.Vm.Fold.Slots[OverlayPiece.Right].Bad.Value,
+        "the slot that kept Apply from finishing is still outlined on the strip");
+      Pressable seven = DockKey(dock, "Key 7");
+      Rect sevenRect = ScreenRectOf((RectTransform)seven.transform), stripRect = ScreenRectOf(StripOf(dock));
+      Assert(Mathf.Abs(sevenRect.height / stripRect.height - KeypadView.KeyHeightIn(InputMethodView.FoldedHeight) / ConditionStripView.Height) < .02f
+        && sevenRect.yMax <= stripRect.yMin - 1 && sevenRect.width > forkLeft.width * .4f,
+        "under the strip the keypad keeps its four rows, each a little lower: " + sevenRect + " / " + stripRect);
+      SaveFrame(camera, texture, canvases, name + "-variable-strip");
       Press(DockChip(dock, "Value combo"));
-      Press(DockKey(dock, "Key done"));
       Settle();
-      Assert(dock.Vm.Method.Value == DockMethod.Condition && formulas.Editing.Path.Count == 1
+      Assert(dock.Vm.Fold.Slots[OverlayPiece.Left].Look.Value == ConditionSlotLook.Chips && !dock.Vm.Fold.Slots[OverlayPiece.Left].Bad.Value,
+        "what goes into the slot shows on the strip at once, and its outline goes");
+      // Back: one step out, and the condition unfolds with the slot showing what it holds.
+      Press(StripBack(dock));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Condition && formulas.Editing.Path.Count == 1 && !dock.Vm.Folded.Value && dock.Owner == "size"
         && dock.Vm.Form.Slots[OverlayPiece.Left].Look.Value == ConditionSlotLook.Chips
-        && dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Length == 1 && !dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value,
-        "Apply inside a slot goes back to the condition, whose slot now shows what it holds");
+        && dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Length == 1 && !dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value
+        && StripOf(dock) == null,
+        "the strip's key goes one step back out: the condition unfolds, its slot showing what it holds");
       Press(DockSlot(dock, OverlayPiece.Compare));
       Settle();
+      CheckStrip(dock, OverlayPiece.Compare, "the comparison");
       Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥' && dock.Vm.Line.Type == OverlayValueType.Compare,
         "the comparison is a value of its own type: it starts as ≥ and its input method is the six comparisons");
       Assert(DockListed(dock, "Value make-compare") && DockListed(dock, "Value make-condition") && !DockListed(dock, "Value combo")
@@ -106,6 +127,8 @@ namespace Element.Editor
       Press(DockSlot(dock, OverlayPiece.Right));
       foreach (string key in new[] { "Key 1", "Key 0", "Key 0" })
         Press(DockKey(dock, key));
+      Settle();
+      SaveFrame(camera, texture, canvases, name + "-variable-strip-number");
       Press(DockSlot(dock, OverlayPiece.Result));
       foreach (string key in new[] { "Key 6", "Key 0" })
         Press(DockKey(dock, key));
@@ -115,8 +138,12 @@ namespace Element.Editor
       Settle();
       Assert(formulas.Editing.Problem == null && document.Document[0].SizeFormula == "if({combo};>=;100;60;40)",
         "filled slot by slot, the size takes the condition: " + document.Document[0].SizeFormula);
-      // Apply inside the last slot goes back to the condition, where the line says what the field gives.
-      Press(DockKey(dock, "Key done"));
+      // From one slot straight to another on the strip, never coming out in between.
+      Assert(formulas.Editing.Path.Count == 2 && dock.Vm.Folded.Value && dock.Vm.Fold.In.Value == OverlayPiece.Default
+        && dock.Vm.Fold.Slots[OverlayPiece.Result].Big.Value == "60" && dock.Vm.Fold.Slots[OverlayPiece.Compare].Sign.Value == '≥',
+        "each slot was reached from the one before on the strip, which shows what they hold");
+      // The strip's key goes back to the condition, where the line says what the field gives.
+      Press(StripBack(dock));
       Settle();
       Assert(dock.Vm.Method.Value == DockMethod.Condition && !dock.Vm.Alarmed.Value
         && dock.Vm.Form.Slots.All(row => row.Look.Value != ConditionSlotLook.Empty && !row.Bad.Value),
@@ -130,6 +157,48 @@ namespace Element.Editor
         "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
       SaveFrameLarge(camera, canvases, name + "-variable-size-2x");
+      // Apply means the field is done, from however deep: inside a slot it doesn't step back, it finishes.
+      Press(DockSlot(dock, OverlayPiece.Right));
+      Settle();
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Owner == null && !dock.Vm.Folded.Value && document.Document[0].SizeFormula == "if({combo};>=;100;60;40)",
+        "Apply inside a slot finishes the field, which keeps the condition: " + document.Document[0].SizeFormula);
+      // A condition in an answer: going into it, the strip is the nearer condition's, and under it the inner one's fork, smaller.
+      PressBar(text, size);
+      Settle();
+      Press(DockSlot(dock, OverlayPiece.Default));
+      Press(DockChip(dock, "Value make-condition"));
+      Settle();
+      Assert(dock.Vm.Folded.Value && dock.Vm.Fold.In.Value == OverlayPiece.Default && dock.Vm.Method.Value == DockMethod.Condition
+        && formulas.Editing.Depth == 1 && dock.Vm.Fold.Slots[OverlayPiece.Default].Nested.Value,
+        "a condition put in an answer is picked there: the outer one stays folded, the inner one's fork under it");
+      Rect outerStrip = ScreenRectOf(StripOf(dock));
+      Rect[] inner = Enumerable.Range(0, 5).Select(i => ScreenRectOf((RectTransform)ForkSlot(dock, i).transform)).ToArray();
+      Rect methodPlace = ScreenRectOf(dock.MethodRoot), applyKey = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Assert(inner.All(row => row.yMax <= outerStrip.yMin - 1 && row.yMin >= applyKey.yMax - .5f && row.xMin >= methodPlace.xMin - .5f && row.xMax <= methodPlace.xMax + .5f)
+        && inner[OverlayPiece.Result].yMax < inner[OverlayPiece.Left].yMin && inner[OverlayPiece.Result].xMax < inner[OverlayPiece.Default].xMin,
+        "the inner fork fits between the strip and the row of Remove and Apply: " + outerStrip + " / " + inner[OverlayPiece.Left] + " / " + inner[OverlayPiece.Default]);
+      SaveFrame(camera, texture, canvases, name + "-variable-nested");
+      Press(ForkSlot(dock, OverlayPiece.Left));
+      Settle();
+      Assert(formulas.Editing.Depth == 2 && dock.Vm.Folded.Value && dock.Vm.Fold.In.Value == OverlayPiece.Left
+        && dock.Vm.Fold.Slots[OverlayPiece.Left].Look.Value == ConditionSlotLook.Empty && dock.Vm.Method.Value == DockMethod.Keypad,
+        "inside the inner condition the strip is the inner one's, the nearest");
+      Press(StripBack(dock));
+      Settle();
+      Assert(formulas.Editing.Depth == 1 && dock.Vm.Fold.In.Value == OverlayPiece.Default && dock.Vm.Method.Value == DockMethod.Condition,
+        "back goes one step: to the inner condition, still inside the outer one's answer");
+      // Apply with the inner condition unfinished is refused, and the dock stays where what is missing shows.
+      int refusals = dock.Vm.Form.Shake.Asked;
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Owner == "size" && dock.Vm.Alarmed.Value && dock.Vm.Form.Shake.Asked == refusals + 1 && dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value,
+        "Apply is refused while the inner condition is unfinished, its empty slot outlined");
+      Press(StripBack(dock));
+      Settle();
+      Assert(formulas.Editing.Depth == 0 && !dock.Vm.Folded.Value, "and back again is out at the field's own condition");
+      Call(text, "CloseOpen");
       document.Undo();
       Call(text, "CloseOpen");
       Settle();
@@ -185,12 +254,22 @@ namespace Element.Editor
       }
       SaveFrame(camera, texture, canvases, name + "-variable-color");
       SaveFrameLarge(camera, canvases, name + "-variable-color-2x");
-      Press(DockKey(dock, "Key done"));
+      // Inside an answer of a color's condition, the picker has what the strip leaves, and nothing more.
+      Rect colorStrip = ScreenRectOf(StripOf(dock)), pickerPlace = ScreenRectOf(picker.Root), applyRow = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Assert(picker.InCompactPlace && pickerPlace.yMax <= colorStrip.yMin - 1 && pickerPlace.yMin >= applyRow.yMax - .5f
+        && Mathf.Abs(pickerPlace.height / colorStrip.height - InputMethodView.FoldedHeight / ConditionStripView.Height) < .05f,
+        "the color picker stands under the strip, over Remove and Apply: " + colorStrip + " / " + pickerPlace + " / " + applyRow);
+      CheckStrip(dock, OverlayPiece.Default, "the color's condition");
+      SaveFrame(camera, texture, canvases, name + "-variable-strip-color");
+      Press(StripBack(dock));
       Settle();
       Call(text, "Render");
-      Assert(document.Document[0].Color.Formula == colors, "Apply keeps the condition");
+      Assert(document.Document[0].Color.Formula == colors, "back out keeps the condition");
       // Back at the condition: its answers are colors, shown as the colors they are.
       Settle();
+      Rect wholePlace = ScreenRectOf(picker.Root);
+      Assert(!dock.Vm.Folded.Value && Mathf.Abs(wholePlace.height / pickerPlace.height - KeypadView.MethodHeight / InputMethodView.FoldedHeight) < .05f,
+        "unfolded, the picker's place is the whole input method's again: " + wholePlace + " / " + pickerPlace);
       ConditionSlotViewModel colorThen = dock.Vm.Form.Slots[OverlayPiece.Result], colorElse = dock.Vm.Form.Slots[OverlayPiece.Default];
       Assert(dock.Vm.Method.Value == DockMethod.Condition && colorThen.Look.Value == ConditionSlotLook.Color
         && colorElse.Look.Value == ConditionSlotLook.Color && colorElse.Caption.Value == "#5AC8FA",
@@ -215,6 +294,8 @@ namespace Element.Editor
       }
       SaveFrame(camera, texture, canvases, name + "-variable-fork");
 
+      CheckDockKeyboard(text, dock, picker);
+
       // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");
       if (picker.Visible)
@@ -225,7 +306,7 @@ namespace Element.Editor
 
       // Done saves it; the overlay draws the color.
       PressEditorButton(text, "Text editor done");
-      Assert(!text.IsOpen && accuracy.Settings.Text.Runs.All(run => run.Color.Formula == colors), "Done saves the color's condition");
+      Assert(!text.IsOpen && accuracy.Settings.Text.Runs.All(run => run.Color.Formula == colors), "Done saves the color's condition: " + string.Join(" | ", accuracy.Settings.Text.Runs.Select(run => run.Color.Formula)));
       TextMeshProUGUI game = Field<TextMeshProUGUI>(accuracy, "_text");
       Assert(game.text.Contains("<color=#5AC8FA"), "the overlay draws it: " + game.text);
       Call(editor, "Undo");
@@ -233,20 +314,142 @@ namespace Element.Editor
     }
 
     /// <summary>
-    /// Slot <paramref name="slot"/> of the condition open in the dock, as
-    /// the player reaches it: its row in the condition's input method. From
-    /// inside another slot, Apply goes back to the condition first.
+    /// Slot <paramref name="slot"/> of the condition the dock shows, as the
+    /// player reaches it: on the fork while the condition is picked, on its
+    /// folded strip while the dock is inside one of its slots.
     /// </summary>
     private static Pressable DockSlot(DockProbe dock, int slot)
     {
       Settle();
-      if (dock.Vm.Method.Value != DockMethod.Condition)
-      {
-        Press(DockKey(dock, "Key done"));
-        Settle();
-      }
-      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Condition slot " + slot);
+      return dock.Vm.Folded.Value ? StripSlot(dock, slot) : ForkSlot(dock, slot);
     }
+
+    private static Pressable ForkSlot(DockProbe dock, int slot) =>
+      dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Condition slot " + slot);
+
+    private static Pressable StripSlot(DockProbe dock, int slot) =>
+      dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Condition strip slot " + slot);
+
+    private static Pressable StripBack(DockProbe dock)
+    {
+      Settle();
+      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Condition back");
+    }
+
+    // The folded condition's strip; null while none is folded.
+    private static RectTransform StripOf(DockProbe dock) =>
+      dock.MethodRoot.GetComponentsInChildren<RectTransform>(false).FirstOrDefault(part => part.name == "Condition strip");
+
+    /// <summary>
+    /// Inside slot <paramref name="slot"/> of a condition: that condition is
+    /// folded into a strip at the top of the input method's place, the back
+    /// key first, then the five slots in a row with only this one lit, and
+    /// the slot's input method under it, none over another.
+    /// </summary>
+    private static void CheckStrip(DockProbe dock, int slot, string what)
+    {
+      Settle();
+      RectTransform strip = StripOf(dock);
+      Assert(dock.Vm.Folded.Value && dock.Vm.Fold.In.Value == slot && strip != null, what + ": inside a slot the condition is folded over the input method");
+      Rect place = ScreenRectOf(dock.MethodRoot), bar = ScreenRectOf(strip), back = ScreenRectOf((RectTransform)StripBack(dock).transform);
+      Rect[] slots = Enumerable.Range(0, 5).Select(i => ScreenRectOf((RectTransform)StripSlot(dock, i).transform)).ToArray();
+      float unit = bar.height / ConditionStripView.Height;
+      Assert(Mathf.Abs(bar.yMax - place.yMax) < 1 && Mathf.Abs(bar.xMin - place.xMin) < 1 && Mathf.Abs(bar.xMax - place.xMax) < 1,
+        what + ": the strip spans the top of the input method's place: " + bar + " / " + place);
+      Assert(back.xMin >= bar.xMin && back.xMax <= slots[OverlayPiece.Left].xMin + .5f && Mathf.Abs(back.width - back.height) < .5f
+        && Enumerable.Range(0, 4).All(i => slots[i].xMax <= slots[i + 1].xMin + .5f) && slots[OverlayPiece.Default].xMax <= bar.xMax
+        && slots.All(row => Mathf.Abs(row.center.y - bar.center.y) < 1 && row.yMin >= bar.yMin && row.yMax <= bar.yMax)
+        && Mathf.Abs(slots[OverlayPiece.Left].width - slots[OverlayPiece.Right].width) < .5f
+        && Mathf.Abs(slots[OverlayPiece.Result].width - slots[OverlayPiece.Default].width) < .5f,
+        what + ": on the strip, the back key and then the five slots in a row: " + back + " / " + string.Join(" ", slots.Select(row => row.ToString())));
+      // What is in the slot grows out of the slot's own place on the strip.
+      Assert(Mathf.Abs(bar.xMin + ConditionStripView.CenterOf(slot) * unit - slots[slot].center.x) < 1.5f,
+        what + ": the slot's input method comes from where the slot stands: " + slots[slot] + " / " + (bar.xMin + ConditionStripView.CenterOf(slot) * unit));
+      // Under it, whatever the slot's input method is keeps clear of the strip and of Remove and Apply.
+      Rect apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      foreach (Pressable key in dock.MethodRoot.GetComponentsInChildren<Pressable>(false))
+      {
+        if (key.name.StartsWith("Condition strip") || key.name == "Condition back" || key.name == "Key done" || key.name == "Key remove")
+          continue;
+        Rect rect = ScreenRectOf((RectTransform)key.transform);
+        Assert(rect.yMax <= bar.yMin - 1 && rect.yMin >= apply.yMax - .5f, what + ": " + key.name + " is under the strip and over Apply: " + rect + " / " + bar);
+      }
+      foreach (TextMeshProUGUI label in strip.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Rect words = ScreenRectOf(label.rectTransform);
+        Assert(words.xMin >= bar.xMin - .5f && words.xMax <= bar.xMax + .5f, what + ": the strip's words stay on it: " + label.text + " " + words);
+      }
+    }
+
+    /// <summary>
+    /// The keyboard while the dock has a color open on a value picked in the
+    /// text: its keys are the dock's. Digits and backspace type into the
+    /// condition's slot, nothing types over or deletes the picked value, and
+    /// Esc steps back out one level at a time.
+    /// </summary>
+    private static void CheckDockKeyboard(TextEditorScreen text, DockProbe dock, UiColorPicker picker)
+    {
+      TextDocumentEditing document = TextDocumentOf(text);
+      TextFormulas formulas = TextFormulasOf(text);
+      TextKeyboardInput keyboard = Field<TextKeyboardInput>(text, "_keyboard");
+      int anchor = document.Anchor, caret = document.Caret;
+      Call(text, "CloseOpen");
+      if (picker.Visible)
+        picker.Hide();
+      Settle();
+      int value = Enumerable.Range(0, document.Document.Count).First(i => document.Document[i].IsValue);
+      string before = document.Document.PlainText(0, document.Document.Count, _ => "<v>");
+      formulas.OpenChip(value);
+      Settle();
+      PressBar(text, TextColorOf(text).Button);
+      Settle();
+      Press(DockSlot(dock, OverlayPiece.Right));
+      Settle();
+      Assert(picker.Visible && dock.Owner == ColorCases.Key && dock.Vm.Method.Value == DockMethod.Keypad && document.SelectedValue(out int picked) && picked == value
+        && formulas.Editing.Working.Count == 1 && formulas.Editing.Working[0].Text == "100",
+        "the picked value's color is open on its condition's slot, which holds 100");
+      Assert(keyboard.Key(KeyDown(KeyCode.Alpha5, '5')) && formulas.Editing.Working[0].Text == "1005"
+        && document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && document.Document[value].IsValue,
+        "a digit typed on the keyboard goes into the slot, not over the value picked in the text: " + formulas.Editing.Working[0].Text
+          + " / " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+      Assert(keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && formulas.Editing.Working[0].Text == "100"
+        && document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && document.SelectedValue(out _),
+        "backspace takes the digit back, and deletes nothing in the text");
+      // Delete takes a digit back like backspace does, in the dock: never the value picked in the text.
+      Assert(keyboard.Key(KeyDown(KeyCode.Delete, '\0')) && formulas.Editing.Working[0].Text == "10" && keyboard.Key(KeyDown(KeyCode.Alpha0, '0'))
+        && formulas.Editing.Working[0].Text == "100" && document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before,
+        "Delete takes a digit of the slot's number too: " + formulas.Editing.Working[0].Text);
+      foreach (Event key in new[] { KeyDown(KeyCode.A, 'a'), KeyDown(KeyCode.LeftArrow, '\0'), KeyDown(KeyCode.Space, ' ') })
+        Assert(keyboard.Key(key), "the editor stays open");
+      Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && document.SelectedValue(out picked) && picked == value
+        && dock.Owner == ColorCases.Key && picker.Visible && formulas.Editing.Depth == 1,
+        "a letter, an arrow or a space does nothing to the text while the color is open: "
+          + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+      // Esc: one step back out, then the color closes; the value stays picked.
+      Assert(keyboard.Key(KeyDown(KeyCode.Escape, '\0')) && formulas.Editing.Depth == 0 && dock.Vm.Method.Value == DockMethod.Condition && picker.Visible && text.IsOpen,
+        "Esc steps out of the slot, back to the condition");
+      Assert(keyboard.Key(KeyDown(KeyCode.Escape, '\0')) && !picker.Visible && text.IsOpen && document.SelectedValue(out picked) && picked == value
+        && document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before,
+        "Esc again closes the color; the text and what is picked in it are as they were");
+      // With only the value picked and nothing open, typing is the text's again: it goes on behind an open value.
+      formulas.OpenChip(value);
+      Settle();
+      int items = document.Document.Count;
+      Assert(keyboard.Key(KeyDown(KeyCode.Z, 'z')) && document.Document.Count == items + 1 && document.Document[value].IsValue
+        && !document.Document[value + 1].IsValue && dock.Owner == null,
+        "with only a value of the text open, typing goes on behind it: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+      // Taken out again by hand: an undo here could take an earlier step with it.
+      document.DeleteRange(value + 1, value + 2);
+      Call(text, "CloseOpen");
+      document.Anchor = anchor;
+      document.Caret = caret;
+      Call(text, "Render");
+      Settle();
+      Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before, "the text is as it was: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+    }
+
+    private static Event KeyDown(KeyCode code, char character) => new() { type = EventType.KeyDown, keyCode = code, character = character };
 
     // The same frame at twice the pixels, to look at closely.
     private static void SaveFrameLarge(Camera camera, Canvas[] canvases, string name)

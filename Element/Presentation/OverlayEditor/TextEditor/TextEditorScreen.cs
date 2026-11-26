@@ -168,6 +168,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Enter(int slot) => _formulas.EnterSlot(slot);
 
+  void IInputDockActions.Hop(int slot) => _formulas.HopSlot(slot);
+
+  void IInputDockActions.Leave() => _formulas.LeaveSlot();
+
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(System.Action<FormulaEditing> change)
   {
@@ -495,6 +499,9 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   private bool AnyOpen => _formulas.Open || _popovers.AnyOpen;
 
+  // The dock has something open: a number, a value of the text, the font list or a color. The keyboard is its.
+  bool ITextEditorContext.DockOpen => AnyOpen || _color.CasesOpen;
+
   private void CloseOpen()
   {
     CloseTyping();
@@ -528,12 +535,14 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   }
 
   /// <summary>
-  /// Esc closes the picker first, then finishes like Done; only Cancel
-  /// leaves without saving.
+  /// Esc steps back out of a condition's slot first, then closes the picker,
+  /// then finishes like Done; only Cancel leaves without saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _color.Picker;
+    if (_formulas.LeaveSlot())
+      return;
     if (picker.Visible)
       picker.Hide();
     else

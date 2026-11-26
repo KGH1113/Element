@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Declarative;
@@ -82,8 +83,19 @@ internal sealed class InputDockPanel
   /// <summary>The right column's lower part, in frame units: the input method and the row under it.</summary>
   public Rect KeypadArea => new(_right, Top, KeypadView.Width, KeypadView.Height);
 
-  /// <summary>Where an input method is drawn: a solid color's picker and the font list stand there.</summary>
-  public Rect MethodArea => new(_right, Top, KeypadView.Width, KeypadView.MethodHeight);
+  /// <summary>
+  /// Where an input method is drawn: a solid color's picker and the font
+  /// list stand there. Inside a condition's slot, that condition's folded
+  /// strip has the top of the place.
+  /// </summary>
+  public Rect MethodArea
+  {
+    get
+    {
+      float taken = _vm.Folded.Value ? ConditionStripView.Height + ConditionStripView.Gap : 0;
+      return new(_right, Top + taken, KeypadView.Width, KeypadView.MethodHeight - taken);
+    }
+  }
 
   /// <summary>Once a frame: the screens follow what changed.</summary>
   public void Tick()

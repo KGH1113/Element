@@ -49,6 +49,15 @@ internal sealed class ConditionSlotViewModel : ViewModel
 
   public readonly State<string> Caption = new("");
 
+  /// <summary>What the first thing it holds gives, for the mark it has where there is no room for words.</summary>
+  public readonly State<OverlayValueType> Lead = new(OverlayValueType.Number);
+
+  /// <summary>What it holds in a word or two, where there is no room for pills: its first value's name, "…" after it for more.</summary>
+  public readonly State<string> Brief = new("");
+
+  /// <summary>It holds one condition, and nothing else.</summary>
+  public readonly State<bool> Nested = new(false);
+
   /// <summary>A comparison picked by hand, as its sign; '\0' while the slot holds something else.</summary>
   public readonly State<char> Sign = new('\0');
 

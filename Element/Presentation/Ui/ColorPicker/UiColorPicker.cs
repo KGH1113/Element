@@ -91,8 +91,17 @@ internal sealed class UiColorPicker : IDisposable
   /// </summary>
   public void UseCompact(float width, float height)
   {
+    bool changed =
+      _compactHeight > 0
+      && (!Mathf.Approximately(width, _compactWidth) || !Mathf.Approximately(height, _compactHeight));
     _compactWidth = width;
     _compactHeight = height;
+    // The place grew or shrank under it: what stands there is laid out for it again.
+    if (changed && _shape == Shape.Compact)
+    {
+      _shape = Shape.None;
+      Mount(Shape.Compact);
+    }
   }
 
   // With a compact place, a gradient's tool splits in two: its controls one

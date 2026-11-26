@@ -215,6 +215,10 @@ namespace Element.Editor
 
       public void Enter(int slot) { }
 
+      public void Hop(int slot) { }
+
+      public void Leave() { }
+
       public void Remove() { }
 
       public void Done() { }
@@ -229,13 +233,20 @@ namespace Element.Editor
 
     /// <summary>A key of the dock's keypad as it is drawn now, without letting the dock catch up first.</summary>
     private static Pressable DockKeyAsIs(DockProbe dock, string name) =>
-      dock.MethodRoot.GetComponentsInChildren<Pressable>(true).Single(key => key.name == name);
+      ShownKeys(dock.MethodRoot.GetComponentsInChildren<Pressable>(true)).Single(key => key.name == name);
+
+    // An input method the dock isn't showing now is kept, hidden (the keypad as large as the whole
+    // place, and the lower one under a folded condition): of two keys of a name, the one shown is meant.
+    private static Pressable[] ShownKeys(Pressable[] keys) =>
+      keys.Where(key => key.gameObject.activeInHierarchy
+        || !keys.Any(other => other != key && other.name == key.name
+          && (other.gameObject.activeInHierarchy || System.Array.IndexOf(keys, other) < System.Array.IndexOf(keys, key)))).ToArray();
 
     /// <summary>The dock's keys as drawn, row by row, then AC and Done, once the dock caught up.</summary>
     private static Pressable[] DockKeys(DockProbe dock)
     {
       Settle();
-      return dock.MethodRoot.GetComponentsInChildren<Pressable>(true).Where(key => key.name.StartsWith("Key ")).ToArray();
+      return ShownKeys(dock.MethodRoot.GetComponentsInChildren<Pressable>(true).Where(key => key.name.StartsWith("Key ")).ToArray());
     }
 
     /// <summary>A key of the dock's keypad by name: "Key 7", "Key backspace", "Key clear", "Key done".</summary>

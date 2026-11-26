@@ -265,6 +265,146 @@ internal sealed class FormulaEditing : Observable
     while (_path.Count > depth + 1 && Back()) { }
   }
 
+  // ---- Inside a condition ----
+
+  /// <summary>How many conditions' slots the dock went into, one inside another; 0 at the field.</summary>
+  public int Depth
+  {
+    get
+    {
+      Reading();
+      int depth = 0;
+      for (int i = 1; i < _path.Count; i++)
+        if (_path[i].Owner?.Kind == OverlayPieceKind.Condition)
+          depth++;
+      return depth;
+    }
+  }
+
+  /// <summary>The condition whose slot the dock is in, the nearest one; null at the field.</summary>
+  public OverlayPiece Around
+  {
+    get
+    {
+      Reading();
+      int held = Held();
+      return held > 0 ? _path[held].Owner : null;
+    }
+  }
+
+  /// <summary>Which of <see cref="Around"/>'s slots the dock is in; -1 at the field.</summary>
+  public int AroundSlot
+  {
+    get
+    {
+      Reading();
+      int held = Held();
+      return held > 0 ? _path[held].Slot : -1;
+    }
+  }
+
+  /// <summary>What <see cref="Around"/>'s answers must give, where that condition sits.</summary>
+  public OverlayValueType AroundGives
+  {
+    get
+    {
+      Reading();
+      int held = Held();
+      if (held == 0)
+        return Kind;
+      FormulaFrame outside = _path[held - 1];
+      return InCalculation(outside.Variable, _path[held].Outer) ? OverlayValueType.Number : outside.Type;
+    }
+  }
+
+  // The innermost step of the path that is a condition's slot; 0 for none.
+  private int Held()
+  {
+    for (int i = _path.Count - 1; i > 0; i--)
+      if (_path[i].Owner?.Kind == OverlayPieceKind.Condition)
+        return i;
+    return 0;
+  }
+
+  /// <summary>
+  /// One step back out: out of the slot the dock is in, as far as the nearest
+  /// condition, which is picked again. False at the field, with no further out.
+  /// </summary>
+  public bool Leave()
+  {
+    if (_path.Count <= 1)
+      return false;
+    Unwind();
+    Changed();
+    return true;
+  }
+
+  /// <summary>
+  /// From inside a condition's slot straight into slot <paramref name="slot"/>
+  /// of the same condition, without coming out in between.
+  /// </summary>
+  public bool Hop(int slot)
+  {
+    if (Held() == 0)
+      return false;
+    Unwind();
+    if (CanEnter(slot))
+      Open(slot);
+    Changed();
+    return true;
+  }
+
+  // Out to the nearest condition, through any group inside its slot, without telling the readers yet.
+  private void Unwind()
+  {
+    while (_path.Count > 1)
+    {
+      FormulaFrame left = _path[_path.Count - 1];
+      _path.RemoveAt(_path.Count - 1);
+      _selected = left.Outer;
+      if (left.Owner?.Kind == OverlayPieceKind.Condition)
+        break;
+    }
+  }
+
+  /// <summary>
+  /// Goes to where what is in the way (<see cref="Problem"/>) can be seen:
+  /// a condition's empty slot shows on that condition, so it is picked,
+  /// however far in or out it is. Where it already shows, the dock stays.
+  /// </summary>
+  public void FaceProblem()
+  {
+    OverlayPiece at = _problem?.Condition;
+    if (at == null || _root == null || at == SelectedPiece || at == Around)
+      return;
+    List<FormulaStep> route = new();
+    if (Find(_root, at, route, out int index))
+      SelectAt(route, index);
+  }
+
+  // The way from a variable to a piece somewhere in it: each step a piece and the slot of it gone into.
+  private static bool Find(OverlayVariable variable, OverlayPiece piece, List<FormulaStep> route, out int index)
+  {
+    for (int i = 0; i < variable.Count; i++)
+    {
+      if (variable[i] == piece)
+      {
+        index = i;
+        return true;
+      }
+      OverlayVariable[] slots = variable[i].Slots;
+      for (int slot = 0; slot < slots.Length; slot++)
+      {
+        route.Add(new FormulaStep(i, slot));
+        if (Find(slots[slot], piece, route, out index))
+          return true;
+        route.RemoveAt(route.Count - 1);
+      }
+    }
+    index = -1;
+    return false;
+  }
+
   // ---- The keypad ----
 
   public bool CanPress(char key)

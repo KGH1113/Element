@@ -89,6 +89,9 @@ internal sealed class ColorPickerPanel
   {
     if (dock == null)
       return;
+    // The keypad's place is lower while a condition is folded over it.
+    Rect place = dock.MethodArea;
+    Picker.UseCompact(place.width, place.height);
     if (Picker.InCompactPlace)
       ColorPickerPlacement.PlaceOnKeypad(Picker, dock);
     else

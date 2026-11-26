@@ -45,6 +45,24 @@ internal sealed class LineViewModel : ViewModel
   /// <summary>Shakes the line when what was asked can't be done.</summary>
   public readonly EditorShake Shake = new();
 
+  /// <summary>Carries the line in from a side when the dock goes into a slot or comes back out of one.</summary>
+  public readonly EditorArrival Slide = new();
+
+  /// <summary>How far aside the line starts that glide: right of its place going in, left of it coming out.</summary>
+  public float SlideFrom;
+
+  public float SlideX
+  {
+    [Pure]
+    get => SlideFrom * (1 - Slide.Progress);
+  }
+
+  public float SlideOpacity
+  {
+    [Pure]
+    get => Mathf.Clamp01(.25f + Slide.Progress);
+  }
+
   /// <summary>The open field's name: "너비", "크기".</summary>
   public string Name = "";
 
@@ -104,7 +122,7 @@ internal sealed class LineViewModel : ViewModel
         held = i;
     FormulaFrame start = path[held];
     Name = held == 0 ? name ?? "" : FormulaRefusals.SlotName(start.Slot);
-    Whose = Trail(whose, name, path, held);
+    Whose = Trail(whose, held);
     Type = start.Type;
     // A field always says what it gives; inside a condition the form beside the line shows the whole.
     Result = held > 0 || string.IsNullOrEmpty(result) ? "" : "= " + result;
@@ -122,26 +140,9 @@ internal sealed class LineViewModel : ViewModel
     Forget(_slots);
   }
 
-  // The way to the variable on the line, said before its name: whose field
-  // it is, then each condition gone into and the slot of it.
-  private static string Trail(string whose, string name, IReadOnlyList<FormulaFrame> path, int held)
-  {
-    if (held == 0)
-      return whose ?? "";
-    System.Text.StringBuilder trail = new(whose ?? "");
-    if (trail.Length > 0)
-      trail.Append(' ');
-    trail.Append(name).Append(" ›");
-    for (int i = 1; i <= held; i++)
-    {
-      if (path[i].Owner?.Kind != OverlayPieceKind.Condition)
-        continue;
-      trail.Append(' ').Append(L("조건", "Condition")).Append(" ›");
-      if (i < held)
-        trail.Append(' ').Append(FormulaRefusals.SlotName(path[i].Slot)).Append(" ›");
-    }
-    return trail.ToString();
-  }
+  // Whose field it is, said before its name. Inside a condition's slot the line
+  // is that slot's alone: the condition folded beside it says where that is.
+  private static string Trail(string whose, int held) => held == 0 ? whose ?? "" : "";
 
   /// <summary>
   /// The line for a field picked from a fixed set: <paramref name="whose"/>
@@ -311,6 +312,7 @@ internal sealed class LineViewModel : ViewModel
   protected override void OnDisposed()
   {
     Shake.Dispose();
+    Slide.Dispose();
     foreach (LinePieceViewModel piece in _pieces.Values)
       piece.Dispose();
     foreach (LineSlotViewModel slot in _slots.Values)

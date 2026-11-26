@@ -569,8 +569,22 @@ namespace Element.Editor
         "a value picked for the border width calculates it in the dock");
       Assert(strokeWidth.IsComputed && strokeWidth.Result.Value == "= 99.5 px",
         "the border width's field shows the value and what it works out to: " + strokeWidth.Result.Value);
-      ShapeHistory(shapes).Undo();
+      // A shape's number folds its condition the same way, and Esc steps back out of a slot before it closes the field.
+      Press(DockChip(dock, "Value make-condition"));
+      Press(DockSlot(dock, OverlayPiece.Right));
+      CheckStrip(dock, OverlayPiece.Right, "a shape's border width");
+      ShapeInput shapeKeys = Field<ShapeInput>(shapes, "_input");
+      FormulaEditing shapeEditing = Field<ShapeNumbers>(shapes, "_numbers").Editing;
+      Assert(shapeKeys.Key(KeyDown(KeyCode.Alpha7, '7')) && shapeEditing.Depth == 1 && shapeEditing.Working.Count == 1 && shapeEditing.Working[0].Text == "7",
+        "the keyboard types into the slot the dock is in");
+      Assert(shapeKeys.Key(KeyDown(KeyCode.Escape, '\0')) && shapeEditing.Depth == 0 && !dock.Vm.Folded.Value && dock.Owner == "stroke" && shapes.IsOpen,
+        "Esc steps back out of the slot: the condition unfolds, the border width still open");
+      Assert(shapeKeys.Key(KeyDown(KeyCode.Escape, '\0')) && dock.Owner == null && shapes.IsOpen, "Esc again closes the field, not the editor");
+      // Back to the plain width it was, however many steps that is.
+      for (int step = 0; step < 8 && !string.IsNullOrEmpty(Field<OverlayShapeSettings>(shapes, "_shape").StrokeWidthFormula); step++)
+        ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
+      Assert(string.IsNullOrEmpty(working.StrokeWidthFormula), "undo takes the border width's condition and value back: " + working.StrokeWidthFormula);
       Call(shapes, "CloseOpen");
 
       // A corner's arc opens its rounding, shown beside the arc.
@@ -1628,6 +1642,14 @@ namespace Element.Editor
       Assert(textFont.Value.StartsWith("American") && textFont.Active, "the row takes the selection's font, lit while the list is open: " + textFont.Value);
       AssertInputMethod(text, textFonts.Root, Element.Presentation.OverlayEditor.Parts.Dock.DockMethod.Fonts, L("폰트", "Font"), "“FPS” ›");
       SaveFrame(camera, texture, canvases, name + "-text-font");
+      // The keyboard is the open font list's: Backspace and letters don't touch the letters whose font is being picked.
+      TextKeyboardInput fontKeys = Field<TextKeyboardInput>(text, "_keyboard");
+      string fontLetters = TextDocumentOf(text).Document.PlainText(0, TextDocumentOf(text).Document.Count, _ => "<v>");
+      Assert(fontKeys.Key(KeyDown(KeyCode.Backspace, '\0')) && fontKeys.Key(KeyDown(KeyCode.X, 'x'))
+        && TextDocumentOf(text).Document.PlainText(0, TextDocumentOf(text).Document.Count, _ => "<v>") == fontLetters
+        && textFonts.Visible && TextDocumentOf(text).HasSelection,
+        "with the font list open, Backspace and a letter leave the selected letters alone: "
+          + TextDocumentOf(text).Document.PlainText(0, TextDocumentOf(text).Document.Count, _ => "<v>"));
       // The list stays while another part is selected, marking that part's font; its pick is its own undo step.
       SetField(TextDocumentOf(text), "_anchor", 3);
       SetField(TextDocumentOf(text), "_caretIndex", 5);

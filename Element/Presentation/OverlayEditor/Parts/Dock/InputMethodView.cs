@@ -18,37 +18,61 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// words into, two keys for true or false, the six comparisons, the nine
 /// points, a condition's five slots. A solid color's picker and the font
 /// list stand in the same place. With only a text's caret, a keyboard says
-/// where the typing goes. Under each, the row of Remove and Apply.
+/// where the typing goes. Inside a condition's slot, that condition stays
+/// on top folded into a strip (<see cref="ConditionStripView"/>), and the
+/// slot's input method has the rest, grown out of its place on the strip.
+/// Under each, the row of Remove and Apply.
 /// </summary>
 internal sealed class InputMethodView : View<InputDockViewModel>
 {
+  /// <summary>What an input method has under a folded condition's strip.</summary>
+  public const float FoldedHeight = KeypadView.MethodHeight - ConditionStripView.Height - ConditionStripView.Gap;
+
   public InputMethodView(InputDockViewModel vm)
     : base(vm) { }
 
   public override View Body =>
     VStack(
         spacing: 0,
-        Switch(() => VM.Method.Value, Method)
+        Switch(() => VM.Folded.Value, folded => folded ? Folded() : Place(KeypadView.MethodHeight))
           .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight, alignment: Alignment.Top),
         KeypadView.SharedRow(VM.Keypad).Padding(new Insets(KeypadView.Gap, 0, 0, 0))
       )
       .Frame(width: KeypadView.Width, height: KeypadView.Height);
 
-  private View Method(DockMethod method) =>
+  // Inside a condition's slot: the condition folded on top, the slot's input method under it.
+  private View Folded() =>
+    VStack(
+      spacing: ConditionStripView.Gap,
+      new ConditionStripView(VM.Fold).Offset(y: () => VM.StripY).Opacity(() => VM.StripOpacity),
+      Place(FoldedHeight)
+    );
+
+  // The input method in the place it has. Going into a slot it grows out of that slot's
+  // place on the strip; coming back out, the condition settles back around it.
+  private View Place(float height) =>
+    Switch(() => VM.Method.Value, method => Method(method, height))
+      .Frame(width: KeypadView.Width, height: height, alignment: Alignment.Top)
+      .ScaleEffect(() => VM.BodyScale)
+      .Offset(x: () => VM.BodyX, y: () => VM.BodyY)
+      .Opacity(() => VM.BodyOpacity)
+      .Named("Input method body");
+
+  private View Method(DockMethod method, float height) =>
     method switch
     {
-      DockMethod.Rest => VM.Keyboard ? Typing() : Clear(),
+      DockMethod.Rest => VM.Keyboard ? Typing() : Clear(height),
       DockMethod.Words => Words(),
       DockMethod.Switch => TrueOrFalse(),
       DockMethod.Compare => Compares(),
-      DockMethod.Condition => new ConditionFormView(VM.Form),
-      DockMethod.Points => new GrowKeysView(VM.Points),
+      DockMethod.Condition => new ConditionFormView(VM.Form, height),
+      DockMethod.Points => new GrowKeysView(VM.Points, height),
       // The color picker itself stands here, over this place; so does the font list. A gradient's tool is above.
-      DockMethod.Color or DockMethod.Fonts or DockMethod.Gradient => Clear(),
-      _ => new KeypadView(VM.Keypad),
+      DockMethod.Color or DockMethod.Fonts or DockMethod.Gradient => Clear(height),
+      _ => new KeypadView(VM.Keypad, KeypadView.KeyHeightIn(height)),
     };
 
-  private static View Clear() => Spacer().Frame(width: KeypadView.Width, height: KeypadView.MethodHeight);
+  private static View Clear(float height) => Spacer().Frame(width: KeypadView.Width, height: height);
 
   // The text itself has the keys: a keyboard, and three words.
   private static View Typing() =>

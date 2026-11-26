@@ -18,8 +18,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// <summary>
 /// What the input dock shows: on the left its line (the field open and what
 /// it holds) over the values that fit there, on the right the input method
-/// of what is picked. It says nothing in words: what can't be finished or
-/// can't take what was given shakes (<see cref="Alarm"/>).
+/// of what is picked. Inside a condition's slot that condition stays over
+/// the input method, folded (<see cref="Fold"/>). It says nothing in words:
+/// what can't be finished or can't take what was given shakes (<see cref="Alarm"/>).
 /// </summary>
 /// <remarks>
 /// Data goes one way. The formula being typed (<see cref="FormulaEditing"/>)
@@ -60,6 +61,17 @@ internal sealed class InputDockViewModel : ViewModel
     Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
     Line = Own(new LineViewModel(actions));
     Form = Own(new ConditionFormViewModel(actions.Enter));
+    // On the strip a click on the slot the dock is already in does nothing.
+    Fold = Own(
+      new ConditionFormViewModel(
+        slot =>
+        {
+          if (slot != Fold.In.Value)
+            actions.Hop(slot);
+        },
+        actions.Leave
+      )
+    );
     Points = Own(new GrowPickerViewModel(actions.Point));
     Typing = Computed(() => Owner.Value != null && _editing.Active);
     Method = Computed(() => MethodOf(_editing, Choice.Value));
@@ -133,6 +145,15 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>The picked condition's five slots.</summary>
   public readonly ConditionFormViewModel Form;
 
+  /// <summary>
+  /// The condition whose slot the dock is in, folded into a strip over the
+  /// slot's input method; it shows the last one while <see cref="Folded"/> is false.
+  /// </summary>
+  public readonly ConditionFormViewModel Fold;
+
+  /// <summary>The dock is inside a condition's slot: that condition is folded over the input method.</summary>
+  public readonly State<bool> Folded = new(false);
+
   /// <summary>The picked point among the nine, or Auto.</summary>
   public readonly GrowPickerViewModel Points;
 
@@ -169,7 +190,97 @@ internal sealed class InputDockViewModel : ViewModel
       Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _samples, _editing.Problem, Alarmed.Value);
     else if (picked != null && picked.Kind == OverlayPieceKind.Point)
       Points.Show(picked.Point, Anchor9.Center);
+    OverlayPiece around = owner != null && _editing.Active ? _editing.Around : null;
+    int slot = around != null ? _editing.AroundSlot : -1;
+    if (around != null)
+      Fold.Show(around, _editing.AroundGives, _samples, _editing.Problem, Alarmed.Value);
+    Arrive(owner, around != null, slot, around != null ? _editing.Depth : 0);
+    Fold.In.Value = slot;
+    Folded.Value = around != null;
     Runtime.Probe();
+  }
+
+  // ---- How the input method arrives ----
+
+  // Where the dock was when last shown: going in, across or back out from there glides.
+  private string _shownOwner;
+  private bool _shownFolded;
+  private int _shownSlot = -1,
+    _shownDepth;
+
+  // Where the input method glides in from: aside, and how small or large.
+  private float _fromX,
+    _fromY,
+    _fromScale = 1;
+  private bool _folding;
+
+  /// <summary>Carries the input method into place when the dock goes into a slot, across to another, or back out.</summary>
+  public readonly EditorArrival Arrival = new();
+
+  public float BodyScale
+  {
+    [Pure]
+    get => Mathf.LerpUnclamped(_fromScale, 1, Arrival.Progress);
+  }
+
+  public float BodyX
+  {
+    [Pure]
+    get => _fromX * (1 - Arrival.Progress);
+  }
+
+  public float BodyY
+  {
+    [Pure]
+    get => _fromY * (1 - Arrival.Progress);
+  }
+
+  public float BodyOpacity
+  {
+    [Pure]
+    get => Mathf.Clamp01(Arrival.Progress * 2);
+  }
+
+  /// <summary>The strip settles into place from a little lower as its condition folds.</summary>
+  public float StripY
+  {
+    [Pure]
+    get => _folding ? 10 * (1 - Arrival.Progress) : 0;
+  }
+
+  public float StripOpacity
+  {
+    [Pure]
+    get => _folding ? Mathf.Clamp01(Arrival.Progress * 2) : 1;
+  }
+
+  // The same field, somewhere else in it: into a slot or across to another, what is in the
+  // slot grows out of its place on the strip; back out, the condition settles around it.
+  private void Arrive(string owner, bool folded, int slot, int depth)
+  {
+    bool moved =
+      owner != null && owner == _shownOwner && (folded != _shownFolded || slot != _shownSlot || depth != _shownDepth);
+    if (moved)
+    {
+      bool inward = folded && depth >= _shownDepth;
+      bool across = inward && _shownFolded && depth == _shownDepth;
+      _fromX = inward ? ConditionStripView.CenterOf(slot) - KeypadView.Width / 2 : 0;
+      _fromY = inward
+        ? -(ConditionStripView.Height / 2 + ConditionStripView.Gap + InputMethodView.FoldedHeight / 2)
+        : 0;
+      _fromScale = inward ? .2f : 1.08f;
+      _folding = folded && !_shownFolded;
+      Arrival.Play(across ? .26f : .34f, _reduceMotion);
+      Line.SlideFrom =
+        across ? 0
+        : inward ? 10
+        : -10;
+      Line.Slide.Play(.24f, _reduceMotion);
+    }
+    _shownOwner = owner;
+    _shownFolded = folded;
+    _shownSlot = slot;
+    _shownDepth = depth;
   }
 
   /// <summary>
@@ -184,6 +295,9 @@ internal sealed class InputDockViewModel : ViewModel
     Owner.Value = null;
     Choice.Value = method;
     Values.Closed.Value = true;
+    Folded.Value = false;
+    Fold.In.Value = -1;
+    _shownOwner = null;
     Line.ShowChoice(whose, name, glyph, label);
     Runtime.Probe();
   }
@@ -198,7 +312,10 @@ internal sealed class InputDockViewModel : ViewModel
     Alarmed.Value = _editing.Active && _editing.Problem != null;
     Line.Shake.Play(_reduceMotion);
     Form.Shake.Play(_reduceMotion);
+    Fold.Shake.Play(_reduceMotion);
   }
+
+  protected override void OnDisposed() => Arrival.Dispose();
 
   // What the picked piece is edited with; an empty variable has its type's.
   [Pure]

@@ -49,6 +49,9 @@ internal enum UiIconKind
 
   /// <summary>A keyboard: where words are typed on the keys.</summary>
   Keyboard,
+
+  /// <summary>A fork: a condition, what is compared over its two answers.</summary>
+  Fork,
   Extension,
   Check,
   Up,

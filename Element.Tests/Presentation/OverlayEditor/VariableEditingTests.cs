@@ -17,6 +17,7 @@ internal static class VariableEditingTests
     TheKeypadTypesNumbers();
     ValuesGoInPlace();
     ConditionsOpenSlotByslot();
+    TheDockStepsOutAndAcross();
   }
 
   private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(OverlayValueType type, string start)
@@ -125,6 +126,75 @@ internal static class VariableEditingTests
     Check(
       editing.Problem == null && saved[0].Serialize() == "if({combo};>=;100;60;40)",
       "once every slot fits, the field takes it: " + saved[0].Serialize()
+    );
+  }
+
+  // Inside a condition's slot: which condition that is, a step back out of
+  // it, and straight across to another of its slots.
+  private static void TheDockStepsOutAndAcross()
+  {
+    (FormulaEditing editing, _) = Field(OverlayValueType.Number, "if({combo};>=;100;60;if({combo};>=;50;30;20))");
+    OverlayPiece outer = editing.SelectedPiece;
+    Check(
+      editing.Depth == 0 && editing.Around == null && editing.AroundSlot == -1 && !editing.Leave() && !editing.Hop(0),
+      "at the field there is no condition around, nowhere back to and nowhere across"
+    );
+    editing.Enter(OverlayPiece.Right);
+    Check(
+      editing.Depth == 1
+        && editing.Around == outer
+        && editing.AroundSlot == OverlayPiece.Right
+        && editing.AroundGives == OverlayValueType.Number
+        && editing.SelectedPiece?.Text == "100",
+      "inside a slot the condition around is the one it is a slot of"
+    );
+    Check(
+      editing.Hop(OverlayPiece.Result)
+        && editing.Depth == 1
+        && editing.Around == outer
+        && editing.AroundSlot == OverlayPiece.Result
+        && editing.SelectedPiece?.Text == "60",
+      "across goes straight into another slot of the same condition"
+    );
+    editing.Hop(OverlayPiece.Default);
+    OverlayPiece inner = editing.SelectedPiece;
+    Check(
+      inner?.Kind == OverlayPieceKind.Condition && editing.Depth == 1 && editing.AroundSlot == OverlayPiece.Default,
+      "an answer that is a condition is picked there, still inside the outer one"
+    );
+    editing.Enter(OverlayPiece.Left);
+    Check(
+      editing.Depth == 2 && editing.Around == inner && editing.AroundSlot == OverlayPiece.Left,
+      "inside the inner condition, the nearest one is around"
+    );
+    Check(
+      editing.Leave() && editing.Depth == 1 && editing.Around == outer && editing.SelectedPiece == inner,
+      "back is one step: the inner condition is picked again, inside the outer one's answer"
+    );
+    Check(
+      editing.Leave() && editing.Depth == 0 && editing.Around == null && editing.SelectedPiece == outer,
+      "and one more step is out at the field, the outer condition picked"
+    );
+
+    // What keeps the field from being finished shows on its own condition: the dock goes there.
+    (FormulaEditing unfinished, _) = Field(OverlayValueType.Number, "if({combo};>=;100;60;if(;>=;50;30;20))");
+    OverlayPiece whole = unfinished.SelectedPiece;
+    unfinished.Enter(OverlayPiece.Right);
+    OverlayPiece lacking = unfinished.Problem?.Condition;
+    Check(lacking != null && lacking != whole, "the empty slot is the inner condition's");
+    unfinished.FaceProblem();
+    Check(
+      unfinished.SelectedPiece == lacking
+        && unfinished.Depth == 1
+        && unfinished.Around == whole
+        && unfinished.AroundSlot == OverlayPiece.Default,
+      "from another slot the dock goes to the condition that lacks something, picked where it sits"
+    );
+    unfinished.Enter(OverlayPiece.Right);
+    unfinished.FaceProblem();
+    Check(
+      unfinished.Depth == 2 && unfinished.Around == lacking && unfinished.AroundSlot == OverlayPiece.Right,
+      "inside a slot of that condition the dock stays: its strip shows the empty one"
     );
   }
 }

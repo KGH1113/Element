@@ -314,18 +314,15 @@ internal sealed class TextFormulas
   }
 
   /// <summary>
-  /// Apply: inside a condition's slot it goes back to the condition; else
-  /// what is open is done, once it fits its field. Until then it is refused.
+  /// Apply: what is open is done, from however deep inside it, once it fits
+  /// its field. Until then it is refused, and the dock goes out to where
+  /// what is in the way shows.
   /// </summary>
   public void FinishEditing()
   {
-    if (_editing.Active && LeaveSlot())
-    {
-      _editor.Render();
-      return;
-    }
     if (_editing.Active && _editing.Problem != null)
     {
+      _editing.FaceProblem();
       _editor.Refuse();
       return;
     }
@@ -336,19 +333,20 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
-  // Out of the slots gone into, as far as the nearest condition, which is then picked: its five slots show again.
-  private bool LeaveSlot()
+  /// <summary>Back: one step out of the slot the dock is in; false when it is in none.</summary>
+  public bool LeaveSlot()
   {
-    bool left = false;
-    while (_editing.Path.Count > 1)
-    {
-      bool condition = _editing.Path[_editing.Path.Count - 1].Owner?.Kind == OverlayPieceKind.Condition;
-      _editing.Back();
-      left = true;
-      if (condition)
-        break;
-    }
-    return left;
+    if (!_editing.Active || !_editing.Leave())
+      return false;
+    _editor.Render();
+    return true;
+  }
+
+  /// <summary>Straight into another slot of the condition the dock is inside.</summary>
+  public void HopSlot(int slot)
+  {
+    if (_editing.Active && _editing.Hop(slot))
+      _editor.Render();
   }
 
   /// <summary>The dock goes into slot <paramref name="slot"/> of the picked condition.</summary>

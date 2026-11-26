@@ -104,6 +104,16 @@ internal sealed class UiIcon : UiVectorGraphic
         }
         Line(mesh, 8, 15.5f, 16, 15.5f, 1.8f);
         break;
+      case UiIconKind.Fork:
+        // A bar over two boxes, a line from it down to each.
+        Line(mesh, 5, 5.5f, 19, 5.5f, 3.4f);
+        Line(mesh, 12, 7.2f, 12, 10.5f, 1.5f);
+        Line(mesh, 7, 10.5f, 17, 10.5f, 1.5f);
+        Line(mesh, 7, 10.5f, 7, 13, 1.5f);
+        Line(mesh, 17, 10.5f, 17, 13, 1.5f);
+        Box(mesh, 3.5f, 13.5f, 10.5f, 20);
+        Box(mesh, 13.5f, 13.5f, 20.5f, 20);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);

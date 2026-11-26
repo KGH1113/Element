@@ -40,10 +40,19 @@ internal interface IInputDockActions
   /// </summary>
   void Enter(int slot);
 
+  /// <summary>
+  /// Another slot of the condition the dock is inside, clicked on its folded
+  /// strip: the dock goes straight there, without coming out in between.
+  /// </summary>
+  void Hop(int slot);
+
+  /// <summary>Back: one step out of the slot the dock is in, to the condition it is a slot of.</summary>
+  void Leave();
+
   /// <summary>지우기: the picked value is taken out.</summary>
   void Remove();
 
-  /// <summary>Done: what is typed is kept, and the dock rests.</summary>
+  /// <summary>Apply: the open field is done, from however deep inside it; what is typed is kept and the dock rests.</summary>
   void Done();
 
   /// <summary>A value clicked, or found by the search and picked with Enter.</summary>

@@ -14,8 +14,11 @@ namespace Element.Presentation.OverlayEditor.Parts.Grow;
 /// </summary>
 internal sealed class GrowKeyView : View<GrowPointViewModel>
 {
-  public const float Size = 60;
+  /// <summary>A key's side where the nine have the whole place, and under a folded condition.</summary>
+  public const float Size = 60,
+    SmallSize = 44;
 
+  private readonly float _size;
   private readonly GrowPickerViewModel _picker;
   private readonly float _angle;
   private readonly bool _middle;
@@ -25,9 +28,11 @@ internal sealed class GrowKeyView : View<GrowPointViewModel>
   private readonly UiColor _noEdge = FieldLook.Clear;
 
   /// <param name="picker">Whether Auto is the choice: then no point is lit.</param>
-  public GrowKeyView(GrowPointViewModel vm, GrowPickerViewModel picker)
+  /// <param name="size">How long its side is.</param>
+  public GrowKeyView(GrowPointViewModel vm, GrowPickerViewModel picker, float size = Size)
     : base(vm)
   {
+    _size = size;
     _picker = picker;
     int index = (int)vm.Growth;
     int dx = index % 3 - 1,
@@ -42,7 +47,7 @@ internal sealed class GrowKeyView : View<GrowPointViewModel>
           _middle
             ? Circle().Fill(Colors.Foreground).Frame(width: 5, height: 5)
             : new GrowArrowView().RotationEffect(() => _angle)
-        ).Frame(width: Size, height: Size),
+        ).Frame(width: _size, height: _size),
         () => VM.Pick,
         ButtonStyle.Plain
       )
@@ -55,5 +60,5 @@ internal sealed class GrowKeyView : View<GrowPointViewModel>
           .AllowsHitTesting(false)
       )
       .Named(VM.Name)
-      .Frame(width: Size, height: Size);
+      .Frame(width: _size, height: _size);
 }

@@ -52,8 +52,9 @@ internal sealed class FormulaLineView : View<LineViewModel>
                   .Named("Result")
               )
             )
-            // "No" is a shake, not a sentence.
-            .Offset(x: () => VM.Shake.X)
+            // "No" is a shake, not a sentence; into a slot or out of one, the line comes from that side.
+            .Offset(x: () => VM.Shake.X + VM.SlideX)
+            .Opacity(() => VM.SlideOpacity)
       )
       .Frame(maxWidth: float.PositiveInfinity, height: Height);
 

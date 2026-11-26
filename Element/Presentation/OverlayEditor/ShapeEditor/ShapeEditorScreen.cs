@@ -140,6 +140,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Enter(int slot) => _numbers.EnterSlot(slot);
 
+  void IInputDockActions.Hop(int slot) => _numbers.HopSlot(slot);
+
+  void IInputDockActions.Leave() => _numbers.LeaveSlot();
+
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(Action<FormulaEditing> change)
   {
@@ -154,13 +158,7 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   // Apply on a color puts its picker away; on a number, finishes it.
   void IInputDockActions.Done()
   {
-    // Inside a condition's slot, Apply goes back to the condition first.
-    if (
-      _numbers.Field == null
-      && _colors.Picker.Visible
-      && _numbers.Editing.Problem == null
-      && _numbers.Editing.Path.Count <= 1
-    )
+    if (_numbers.Field == null && _colors.Picker.Visible && _numbers.Editing.Problem == null)
     {
       _colors.Picker.Hide();
       Render();
@@ -451,12 +449,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   }
 
   /// <summary>
-  /// Esc closes what is open; with nothing open it finishes like Done. Only
-  /// Cancel leaves without saving.
+  /// Esc steps back out of a condition's slot first, then closes what is
+  /// open; with nothing open it finishes like Done. Only Cancel leaves without saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _colors.Picker;
+    // Out of a condition's slot first, one step.
+    if (_numbers.LeaveSlot())
+      return;
     if (picker.Visible)
       picker.Hide();
     else if (AnyOpen)

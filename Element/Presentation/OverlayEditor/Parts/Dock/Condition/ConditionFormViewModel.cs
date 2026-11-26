@@ -12,20 +12,24 @@ using ElementUI;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 
 /// <summary>
-/// A condition's input method, drawn as a fork: what is compared on top
-/// (value, comparison, value), and under it the two answers side by side.
-/// With the values as they are now, the answer the condition gives is lit,
-/// and the other waits. A slot clicked is gone into, where the dock's line
-/// and input method are that slot's. When Apply is refused, the slot in the
-/// way is outlined and the whole shakes.
+/// A condition's five slots as the dock shows them. Picked, it is its own
+/// input method, drawn as a fork: what is compared on top (value,
+/// comparison, value), and under it the two answers side by side. With the
+/// values as they are now, the answer the condition gives is lit, and the
+/// other waits. A slot clicked is gone into, where the dock's line and input
+/// method are that slot's; the condition then stays over them, folded into
+/// a strip with the slot gone into lit (<see cref="In"/>). When Apply is
+/// refused, the slot in the way is outlined and the whole shakes.
 /// </summary>
 internal sealed class ConditionFormViewModel : ViewModel
 {
   private static readonly FieldChip[] Nothing = Array.Empty<FieldChip>();
 
-  /// <param name="enter">Goes into one of the picked condition's slots.</param>
-  public ConditionFormViewModel(Action<int> enter)
+  /// <param name="enter">Goes into one of the condition's slots.</param>
+  /// <param name="leave">Back out of the slot the dock is in, to this condition; folded only.</param>
+  public ConditionFormViewModel(Action<int> enter, Action leave = null)
   {
+    Leave = Command(() => leave?.Invoke());
     OverlayVariableWords words = FormulaWords.Current;
     ConditionSlotViewModel[] slots = new ConditionSlotViewModel[5];
     for (int slot = 0; slot < slots.Length; slot++)
@@ -41,6 +45,12 @@ internal sealed class ConditionFormViewModel : ViewModel
 
   /// <summary>Compared, comparison, compared with, result, default.</summary>
   public readonly IReadOnlyList<ConditionSlotViewModel> Slots;
+
+  /// <summary>Which slot the dock is in, while this condition is folded over it; -1 while it isn't.</summary>
+  public readonly State<int> In = new(-1);
+
+  /// <summary>Back out of that slot: the condition unfolds.</summary>
+  public Command Leave { get; }
 
   /// <summary>Shakes the fork when Apply is refused.</summary>
   public readonly EditorShake Shake = new();
@@ -72,6 +82,8 @@ internal sealed class ConditionFormViewModel : ViewModel
         : answer ? gives
         : OverlayValueType.Number;
       row.Type.Value = type;
+      row.Nested.Value = held.Count == 1 && held[0].Kind == OverlayPieceKind.Condition;
+      row.Lead.Value = held.IsEmpty || row.Nested.Value ? type : OverlayVariableTypes.TypeOf(held[0]);
       row.Sign.Value =
         slot == OverlayPiece.Compare && held.Count == 1 && held[0].Kind == OverlayPieceKind.Compare ? held[0].Op : '\0';
       if (answer)
@@ -132,7 +144,9 @@ internal sealed class ConditionFormViewModel : ViewModel
 
   private static void ShowPills(ConditionSlotViewModel row, OverlayVariable held, OverlayValueType type, int most)
   {
-    row.Chips.Value = held.IsEmpty ? Nothing : FieldChips.Of(held, type, most);
+    FieldChip[] chips = held.IsEmpty ? Nothing : FieldChips.Of(held, type, most);
+    row.Chips.Value = chips;
+    row.Brief.Value = chips.Length == 0 ? "" : chips[0].Label + (held.Count > 1 ? "…" : "");
     row.Look.Value = held.IsEmpty ? ConditionSlotLook.Empty : ConditionSlotLook.Chips;
   }
 

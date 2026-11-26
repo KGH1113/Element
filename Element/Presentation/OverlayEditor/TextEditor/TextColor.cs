@@ -208,7 +208,8 @@ internal sealed class TextColor
   }
 
   /// <summary>The picker in the property column from the tool's top, above the keypad.</summary>
-  public void Place(InputDockPanel dock, InspectorPanel inspector) => _picker.Place(dock, inspector.ToolTop);
+  public void Place(InputDockPanel dock, InspectorPanel inspector) =>
+    _picker.Place(dock, inspector.ToolTop, typing: _formulas.Field != null);
 
   public void ShowButton() =>
     _colorButton.ShowField(FieldChips.Of(_text.RangeColor(), _shown, _shownGradient), Picker.Visible);

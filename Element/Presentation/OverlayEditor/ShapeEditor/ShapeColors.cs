@@ -261,7 +261,7 @@ internal sealed class ShapeColors
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
-  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top);
+  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top, typing: _numbers.Field != null);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)

@@ -1,7 +1,7 @@
-using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using System;
 using Element.Configuration.Overlay;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
@@ -71,16 +71,21 @@ internal sealed class ColorPickerPanel
 
   /// <summary>
   /// A solid color is picked in the keypad's place, like any value's input
-  /// method; a gradient's bigger tool opens right above the keypad, in its column.
+  /// method. A gradient's tool is as wide as the column: its color bar and
+  /// numbers stand above the keypad, the picked color's square in the keypad's place.
   /// </summary>
   public void LayOutAbove(InputDockPanel dock)
   {
-    Picker.LayOutAsColumn(dock.KeypadArea.width);
     Picker.UseCompact(KeypadView.Width, KeypadView.MethodHeight);
+    Picker.LayOutAsColumn(dock.KeypadArea.width);
   }
 
-  /// <summary>In the property column from <paramref name="top"/> (frame units), above the keypad.</summary>
-  public void Place(InputDockPanel dock, float top)
+  /// <summary>
+  /// In the property column from <paramref name="top"/> (frame units), above
+  /// the keypad. While <paramref name="typing"/> (a number is open on the
+  /// keypad), a gradient's color square gives the keypad's place back.
+  /// </summary>
+  public void Place(InputDockPanel dock, float top, bool typing)
   {
     if (dock == null)
       return;
@@ -88,6 +93,7 @@ internal sealed class ColorPickerPanel
       ColorPickerPlacement.PlaceOnKeypad(Picker, dock);
     else
       ColorPickerPlacement.Place(Picker, dock, top);
+    Picker.PlaneResting = typing;
   }
 
   public void Dispose()

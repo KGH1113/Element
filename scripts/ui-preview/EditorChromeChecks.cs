@@ -227,6 +227,28 @@ namespace Element.Editor
 
     }
 
+    /// <summary>
+    /// The editor is two rows with one line across between them: above it
+    /// the preview and the property column, below it the line and values and
+    /// the input method. No line runs between the columns.
+    /// </summary>
+    private static void CheckTwoRows(object editor, string what)
+    {
+      DockProbe dock = DockOf(editor);
+      InputDockPanel panel = Field<InputDockPanel>(editor, "_dockPanel");
+      InspectorPanel inspector = Field<InspectorPanel>(editor, "_inspector");
+      EditorFramePanel frame = Field<EditorFramePanel>(editor, "_frame");
+      RectTransform controls = frame.Frame;
+      Image[] rowLines = controls.GetComponentsInChildren<Image>(true).Where(line => line.name == "Row line").ToArray();
+      Assert(rowLines.Length == 1 && !controls.GetComponentsInChildren<Image>(true).Any(line => line.name == "Column line"),
+        what + ": one line between the rows, none between the columns");
+      Rect row = ScreenRectOf(rowLines[0].rectTransform), left = ScreenRectOf(dock.Root), method = ScreenRectOf(dock.MethodRoot), column = ScreenRectOf(inspector.Root);
+      Assert(row.height < 4 && Mathf.Abs(row.xMin - left.xMin) < 1 && Mathf.Abs(row.xMax - method.xMax) < 1,
+        what + ": the line runs across the content, from the line's left to the input method's right: " + row + " / " + left + " / " + method);
+      Assert(left.yMax <= row.yMin + .5f && method.yMax < row.yMin - 4 && column.yMin > row.yMax + 4,
+        what + ": the line and values and the input method are under it, the property column over it, clear of it: " + row + " / " + method + " / " + column);
+    }
+
     /// <summary>The open editor's input dock.</summary>
     private static DockProbe DockOf(object editor) =>
       new DockProbe(Field<InputDockPanel>(editor, "_dockPanel"), Field<InputDockViewModel>(editor, "_dock"));

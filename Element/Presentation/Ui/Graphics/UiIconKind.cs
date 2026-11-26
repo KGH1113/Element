@@ -52,6 +52,15 @@ internal enum UiIconKind
 
   /// <summary>A fork: a condition, what is compared over its two answers.</summary>
   Fork,
+
+  /// <summary>
+  /// The four operators on the keypad, drawn alike and as heavy as the
+  /// comparisons: the UI font's own minus sign is much thinner than its + × ÷.
+  /// </summary>
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
   Extension,
   Check,
   Up,

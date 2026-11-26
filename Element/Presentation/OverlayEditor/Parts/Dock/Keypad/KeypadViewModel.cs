@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -61,7 +62,8 @@ internal sealed class KeypadViewModel : ViewModel
           i % 4
             == 3,
           () => actions.Press(key),
-          () => CanPress(editing, key)
+          () => CanPress(editing, key),
+          icon: OperatorIcon(key)
         )
       );
     }
@@ -96,6 +98,17 @@ internal sealed class KeypadViewModel : ViewModel
 
   /// <summary>Apply: the way out of the dock, once what is open fits its field.</summary>
   public readonly KeypadKeyViewModel Done;
+
+  // The operators are drawn, all four alike; the digits are the font's.
+  private static UiIconKind? OperatorIcon(char key) =>
+    key switch
+    {
+      '+' => UiIconKind.Add,
+      '-' => UiIconKind.Subtract,
+      '*' => UiIconKind.Multiply,
+      '/' => UiIconKind.Divide,
+      _ => null,
+    };
 
   // A key can be pressed while it would do something: backspace while there
   // is something to take back, the rest while the variable takes them.

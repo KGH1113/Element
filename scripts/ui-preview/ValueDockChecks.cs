@@ -379,7 +379,8 @@ namespace Element.Editor
           model,
           dockWidth
         );
-        panel.Root.anchoredPosition = new Vector2(left, -top);
+        // As the editor places it: under the line between the rows.
+        panel.Root.anchoredPosition = new Vector2(left, -(top + 1));
         method = new ScreenPanel("Input method", controls, Color.clear, false);
         method.Mount(
           new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }),
@@ -387,7 +388,7 @@ namespace Element.Editor
           null,
           KeypadView.Width
         );
-        method.Root.anchoredPosition = new Vector2(left + contentWidth - KeypadView.Width, -top);
+        method.Root.anchoredPosition = new Vector2(left + contentWidth - KeypadView.Width, -(top + InputDockView.MethodGap));
         if (open)
           model.Show("width", L("너비", "Width"), "160 px");
         else
@@ -413,8 +414,8 @@ namespace Element.Editor
         Pressable[] keys = method.Root.GetComponentsInChildren<Pressable>(false).Where(key => key.name.StartsWith("Key ")).ToArray();
         float keypad = keys.Min(key => ScreenRectOf((RectTransform)key.transform).xMin);
         Assert(dock.xMin >= window.xMin - .5f && right.xMax <= window.xMax + .5f && dock.yMin >= window.yMin - .5f && right.yMin >= window.yMin - .5f
-          && dock.xMax < right.xMin && Mathf.Abs(dock.yMax - right.yMax) < 1 && Mathf.Abs(dock.yMin - right.yMin) < 1,
-          name + ": the two columns fit the window side by side, as tall as each other: " + dock + " / " + right + " / " + window);
+          && dock.xMax < right.xMin && dock.yMax > right.yMax + 4 && Mathf.Abs(dock.yMin - right.yMin) < 1,
+          name + ": the lower row fits the window, the values beside the input method, ending together: " + dock + " / " + right + " / " + window);
         Pressable[] chips = panel.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
         string[] sections = panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Where(label => label.name.StartsWith("Section "))
           .Select(label => label.name).ToArray();

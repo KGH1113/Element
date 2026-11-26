@@ -52,7 +52,9 @@ internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
   private View Label() =>
     VM.Character == '\b'
       ? Image(ElementIcons.Of(UiIconKind.Backspace), 24).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
-    : VM.Icon is { } icon ? Image(ElementIcons.Of(icon), 20).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
+    // An operator's icon is as large as a comparison's; other icons a little smaller.
+    : VM.Icon is { } icon
+      ? Image(ElementIcons.Of(icon), VM.Symbol ? 24 : 20).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
     : VM.Saying != null
       ? UI.Text(() => VM.Saying.Value)
         .Font(Font.Body.Sized(_size))

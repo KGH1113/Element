@@ -104,6 +104,23 @@ internal sealed class UiIcon : UiVectorGraphic
         }
         Line(mesh, 8, 15.5f, 16, 15.5f, 1.8f);
         break;
+      // As heavy as the bold digits beside them on the keypad.
+      case UiIconKind.Add:
+        Line(mesh, 12, 5.8f, 12, 18.2f, 3.6f);
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        break;
+      case UiIconKind.Subtract:
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        break;
+      case UiIconKind.Multiply:
+        Line(mesh, 7.4f, 7.4f, 16.6f, 16.6f, 3.6f);
+        Line(mesh, 16.6f, 7.4f, 7.4f, 16.6f, 3.6f);
+        break;
+      case UiIconKind.Divide:
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        Dot(mesh, 12, 6.2f, 2.2f);
+        Dot(mesh, 12, 17.8f, 2.2f);
+        break;
       case UiIconKind.Fork:
         // A bar over two boxes, a line from it down to each.
         Line(mesh, 5, 5.5f, 19, 5.5f, 3.4f);

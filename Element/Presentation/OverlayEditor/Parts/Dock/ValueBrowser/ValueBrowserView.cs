@@ -32,6 +32,7 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
   public const float TitleHeight = 30,
     // With the hairline and the line over it, as tall as the input method beside it.
+    // Under the line between the rows (one unit) and the dock's line.
     Height = InputDockView.Height - 1 - FormulaLineView.Height,
     ListHeight = Height - TitleHeight,
     ChipHeight = 30,

@@ -1,25 +1,27 @@
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
-using Element.Presentation.Ui.Declarative.Controls;
 using ElementUI;
 using static ElementUI.UI;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
-/// The left column's lower part, under a hairline that ends the preview: the
+/// The left of the editor's lower row, under the line between the rows: the
 /// line (the variable open and its pieces), then the values that fit there
-/// (<see cref="ValueBrowserView"/>). As tall as the input method beside it,
-/// in the right column. No card behind it. Reads only its view model.
+/// (<see cref="ValueBrowserView"/>). As tall as the input method beside it
+/// with the room it keeps over it. No card behind it. Reads only its view model.
 /// </summary>
 internal sealed class InputDockView : View<InputDockViewModel>
 {
   /// <summary>Between the two columns of an editor.</summary>
   public const float ColumnGap = 28;
 
-  /// <summary>How tall the dock is: the hairline, the line and the values.</summary>
-  public const float Height = KeypadView.Height;
+  /// <summary>Between the line across the rows and the input method under it.</summary>
+  public const float MethodGap = 12;
+
+  /// <summary>How tall the lower row is, from the line between the rows: the input method and the room over it.</summary>
+  public const float Height = KeypadView.Height + MethodGap;
 
   private readonly float _width;
 
@@ -34,6 +36,5 @@ internal sealed class InputDockView : View<InputDockViewModel>
   /// <summary>The values under the line.</summary>
   public ValueBrowserView Values { get; }
 
-  public override View Body =>
-    VStack(spacing: 0, HairLine.Across(), new FormulaLineView(VM.Line), Values).Frame(width: _width);
+  public override View Body => VStack(spacing: 0, new FormulaLineView(VM.Line), Values).Frame(width: _width);
 }

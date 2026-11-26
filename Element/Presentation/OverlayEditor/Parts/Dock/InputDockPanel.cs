@@ -13,12 +13,13 @@ using UnityEngine;
 namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
-/// Where the input dock sits in an editor of two columns: the line and the
-/// values at the bottom of the left one (<see cref="InputDockView"/>), the
-/// input method at the bottom of the right one (<see cref="InputMethodView"/>),
-/// a hairline between the columns. Neither reaches into the other. It
-/// answers where its parts are, for what is laid out around them. It holds
-/// nothing the dock shows: that is <see cref="InputDockViewModel"/>'s.
+/// Where the input dock sits. An editor is two rows, one line across the
+/// screen between them: above it what is edited (the preview, and the
+/// property column right of it), below it how (the line and the values on
+/// the left, <see cref="InputDockView"/>; the input method on the right,
+/// <see cref="InputMethodView"/>, under the property column). The dock is
+/// the lower row. It answers where its parts are, for what is laid out
+/// around them. It holds nothing the dock shows: that is <see cref="InputDockViewModel"/>'s.
 /// </summary>
 internal sealed class InputDockPanel
 {
@@ -40,16 +41,15 @@ internal sealed class InputDockPanel
     _right = screen.ContentLeft + screen.ContentWidth - KeypadView.Width;
     float width = screen.ContentWidth - KeypadView.Width - InputDockView.ColumnGap;
     Top = screen.Height - BottomGap - InputDockView.Height;
-    // The line between the columns, from under the header to the bottom.
-    float line = Mathf.Round(_right - InputDockView.ColumnGap * .5f);
+    // The line between the two rows, across the content.
     screen
       .Ui.Panel(
-        "Column line",
+        "Row line",
         screen.Frame,
-        line,
-        EditorFramePanel.TopBar + 8,
+        Mathf.Round(_left),
+        Mathf.Round(Top),
+        Mathf.Round(screen.ContentWidth),
         1,
-        screen.Height - BottomGap - EditorFramePanel.TopBar - 8,
         new Color(1, 1, 1, .1f),
         false
       )
@@ -63,7 +63,8 @@ internal sealed class InputDockPanel
       vm,
       width
     );
-    Root.anchoredPosition = new Vector2(Mathf.Round(_left), -Mathf.Round(Top));
+    // Under the row line.
+    Root.anchoredPosition = new Vector2(Mathf.Round(_left), -Mathf.Round(Top + 1));
     _method = screen.Panel("Input method", Color.clear);
     _method.Mount(
       screen.NewBackend(),
@@ -72,7 +73,7 @@ internal sealed class InputDockPanel
       null,
       KeypadView.Width
     );
-    MethodRoot.anchoredPosition = new Vector2(Mathf.Round(_right), -Mathf.Round(Top));
+    MethodRoot.anchoredPosition = new Vector2(Mathf.Round(_right), -Mathf.Round(MethodTop));
   }
 
   /// <summary>The left part: the line and the values.</summary>
@@ -81,11 +82,14 @@ internal sealed class InputDockPanel
   /// <summary>The right part: the input method over Remove and Apply.</summary>
   public RectTransform MethodRoot => _method.Root;
 
-  /// <summary>Where the dock starts (its hairline), in frame units; the preview stays above it, the fields above the input method.</summary>
+  /// <summary>Where the dock starts, at the line between the rows, in frame units; the preview and the property column stay above it.</summary>
   public float Top { get; }
 
-  /// <summary>The right column's lower part, in frame units: the input method and the row under it.</summary>
-  public Rect KeypadArea => new(_right, Top, KeypadView.Width, KeypadView.Height);
+  // The input method keeps a little room under the row line; the line on the left has its own.
+  private float MethodTop => Top + InputDockView.MethodGap;
+
+  /// <summary>The right of the lower row, in frame units: the input method and the row under it.</summary>
+  public Rect KeypadArea => new(_right, MethodTop, KeypadView.Width, KeypadView.Height);
 
   /// <summary>
   /// Where an input method is drawn: a solid color's picker and the font
@@ -97,7 +101,7 @@ internal sealed class InputDockPanel
     get
     {
       float taken = _vm.Folded.Value ? ConditionStripView.Height + ConditionStripView.Gap : 0;
-      return new(_right, Top + taken, KeypadView.Width, KeypadView.MethodHeight - taken);
+      return new(_right, MethodTop + taken, KeypadView.Width, KeypadView.MethodHeight - taken);
     }
   }
 

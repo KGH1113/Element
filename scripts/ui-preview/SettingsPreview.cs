@@ -483,8 +483,8 @@ namespace Element.Editor
         "the dock sits below the shape and its numbers, never over them");
       Rect methodRect = ScreenRectOf(dock.MethodRoot);
       Assert(dockRect.xMax < methodRect.xMin && methodRect.xMax - dockRect.xMin > Screen.width * .7f
-        && Mathf.Abs(dockRect.yMin - methodRect.yMin) < 1 && Mathf.Abs(dockRect.yMax - methodRect.yMax) < 1,
-        "the dock is two columns side by side, as tall as each other, that span the screen: " + dockRect + " / " + methodRect);
+        && Mathf.Abs(dockRect.yMin - methodRect.yMin) < 1 && dockRect.yMax > methodRect.yMax + 4,
+        "the lower row is the line and values beside the input method, ending together, the input method with room over it: " + dockRect + " / " + methodRect);
       Assert(methodRect.xMin >= ScreenRectOf(EditorInspector(shapes).Root).xMin - 1 && methodRect.yMax <= ScreenRectOf(EditorInspector(shapes).Root).yMin + 1,
         "the input method stands under the fields, in their column");
       Assert(DockChips(dock).Length == dock.Values.Sections.Sum(section => section.Chips.Count(chip => chip.Fits.Value)) && DockChips(dock).Length > 0,
@@ -539,8 +539,14 @@ namespace Element.Editor
       Assert(DockKey(dock, "Key 7").IsInteractable() && DockKey(dock, "Key −").IsInteractable() && !DockKey(dock, "Key +").IsInteractable()
         && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key remove").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
         "emptied, only what can start a number can be pressed");
-      Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<TextMeshProUGUI>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<TextMeshProUGUI>().color;
+      Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<UiIcon>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<UiIcon>().color;
       Assert(plusInk.a < minusInk.a * .5f, "a key that would do nothing reads dimmed: " + plusInk + " / " + minusInk);
+      // The four operators are drawn alike, so none reads lighter than the others.
+      UiIcon[] operators = new[] { "Key ÷", "Key ×", "Key −", "Key +" }.Select(key => DockKey(dock, key).GetComponentInChildren<UiIcon>()).ToArray();
+      Assert(operators.Select(icon => icon.Kind).SequenceEqual(new[] { UiIconKind.Divide, UiIconKind.Multiply, UiIconKind.Subtract, UiIconKind.Add })
+        && operators.All(icon => Mathf.Abs(icon.rectTransform.rect.width - operators[0].rectTransform.rect.width) < .01f)
+        && new[] { "Key ÷", "Key ×", "Key −", "Key +" }.All(key => DockKey(dock, key).GetComponentInChildren<TextMeshProUGUI>() == null),
+        "the four operators are icons of one size, not the font's glyphs");
       ShapeNumbersOf(shapes).KeypadPress('9');
       ShapeNumbersOf(shapes).KeypadPress('0');
       Assert(working.WidthFormula == "" && Mathf.Abs(working.Width * scale - 90) < .01f, "typing in the emptied field replaces the formula");
@@ -690,6 +696,7 @@ namespace Element.Editor
 
       // Where the shape grows from.
       PressBar(shapes, shapeGrow);
+      CheckTwoRows(shapes, "the shape editor");
       CheckGrowField(shapes, Grow(shapes));
       Press(dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.TopLeft));
       Settle();
@@ -1462,6 +1469,7 @@ namespace Element.Editor
 
       // Where the text grows from.
       PressBar(text, textGrow);
+      CheckTwoRows(text, "the text editor");
       CheckGrowField(text, Grow(text));
       Press(DockOf(text).MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.Right));
       Settle();

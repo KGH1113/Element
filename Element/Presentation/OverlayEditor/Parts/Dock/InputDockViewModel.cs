@@ -34,6 +34,7 @@ internal sealed class InputDockViewModel : ViewModel
   private readonly FormulaEditing _editing;
   private readonly IInputDockActions _actions;
   private readonly bool _reduceMotion;
+  private readonly IOverlayNumberSource _samples;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
   /// <param name="editing">The formula the keypad types; the line shows it as it changes.</param>
@@ -51,6 +52,8 @@ internal sealed class InputDockViewModel : ViewModel
     _editing = editing;
     _actions = actions;
     _reduceMotion = reduceMotion;
+    // What the game reads now, or each value's example while it reads nothing: which way a condition goes.
+    _samples = values?.WithSamples;
     Keyboard = caret;
     // A text is its own content field, open all along: there is always something to apply.
     Keypad = Own(new KeypadViewModel(actions, editing, Choice, caret));
@@ -163,7 +166,7 @@ internal sealed class InputDockViewModel : ViewModel
     Line.Show(owner != null ? _editing : null, name, result, whose);
     OverlayPiece picked = _editing.Active ? _editing.SelectedPiece : null;
     if (picked != null && picked.Kind == OverlayPieceKind.Condition)
-      Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _editing.Problem, Alarmed.Value);
+      Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _samples, _editing.Problem, Alarmed.Value);
     else if (picked != null && picked.Kind == OverlayPieceKind.Point)
       Points.Show(picked.Point, Anchor9.Center);
     Runtime.Probe();

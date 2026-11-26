@@ -3,6 +3,7 @@ using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.OverlayEditor.TextEditor;
@@ -53,11 +54,24 @@ namespace Element.Editor
         && dock.Vm.Line.Root.Pieces.Length == 1 && dock.Vm.Line.Root.Pieces[0].Label == L("조건", "Condition")
         && slots.Select(row => row.name).SequenceEqual(Enumerable.Range(0, 5).Select(i => "Condition slot " + i)),
         "a new condition is one value on the line, and its input method is its five slots: " + dock.FormulaText);
+      // The condition is drawn as a fork: what is compared in one bar on top (value, comparison, value),
+      // the two answers side by side under it.
       Rect place = ScreenRectOf(dock.MethodRoot), doneKey = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
       Rect[] rows = slots.Select(row => ScreenRectOf((RectTransform)row.transform)).ToArray();
-      Assert(Enumerable.Range(1, 4).All(i => rows[i].yMax <= rows[i - 1].yMin + .5f && Mathf.Abs(rows[i].xMin - rows[0].xMin) < .5f)
-        && rows.All(row => place.Contains(row.center) && row.yMin >= doneKey.yMax - .5f),
-        "the five slots stand one under another in the input method's place, over Remove and Apply");
+      Rect left = rows[OverlayPiece.Left], sign = rows[OverlayPiece.Compare], right = rows[OverlayPiece.Right],
+        yes = rows[OverlayPiece.Result], no = rows[OverlayPiece.Default];
+      Assert(left.xMax <= sign.xMin + .5f && sign.xMax <= right.xMin + .5f && Mathf.Abs(left.center.y - right.center.y) < .5f
+        && Mathf.Abs(sign.center.y - left.center.y) < .5f && Mathf.Abs(sign.width - sign.height) < .5f
+        && Mathf.Abs(sign.center.x - place.center.x) < 1,
+        "what is compared stands in one bar: value, a round comparison in the middle, value: " + left + " / " + sign + " / " + right);
+      Assert(yes.yMax < left.yMin && no.yMax < left.yMin && yes.xMax < no.xMin && Mathf.Abs(yes.width - no.width) < .5f
+        && Mathf.Abs(yes.center.y - no.center.y) < .5f && yes.height > left.height * 2,
+        "the two answers stand side by side under it, as large tiles: " + yes + " / " + no);
+      Assert(rows.All(row => place.Contains(row.center) && row.yMin >= doneKey.yMax - .5f),
+        "all of it in the input method's place, over Remove and Apply");
+      Assert(dock.Vm.Form.Slots.All(row => (row.Slot == OverlayPiece.Compare || row.Look.Value == ConditionSlotLook.Empty) && !row.Live.Value && !row.Quiet.Value)
+        && dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '≥',
+        "a new condition's slots say what goes in them, it compares by ≥, and neither answer is lit yet");
       // Apply while a slot that must hold something is empty: refused with a shake, the slot outlined.
       int shaken = dock.Vm.Form.Shake.Asked;
       Press(DockKey(dock, "Key done"));
@@ -78,6 +92,7 @@ namespace Element.Editor
       Press(DockKey(dock, "Key done"));
       Settle();
       Assert(dock.Vm.Method.Value == DockMethod.Condition && formulas.Editing.Path.Count == 1
+        && dock.Vm.Form.Slots[OverlayPiece.Left].Look.Value == ConditionSlotLook.Chips
         && dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Length == 1 && !dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value,
         "Apply inside a slot goes back to the condition, whose slot now shows what it holds");
       Press(DockSlot(dock, OverlayPiece.Compare));
@@ -103,8 +118,14 @@ namespace Element.Editor
       // Apply inside the last slot goes back to the condition, where the line says what the field gives.
       Press(DockKey(dock, "Key done"));
       Settle();
-      Assert(dock.Vm.Method.Value == DockMethod.Condition && !dock.Vm.Alarmed.Value && dock.Vm.Form.Slots.All(row => !row.Empty.Value && !row.Bad.Value),
+      Assert(dock.Vm.Method.Value == DockMethod.Condition && !dock.Vm.Alarmed.Value
+        && dock.Vm.Form.Slots.All(row => row.Look.Value != ConditionSlotLook.Empty && !row.Bad.Value),
         "back at the condition, all five slots show what they hold and none is outlined");
+      ConditionSlotViewModel then = dock.Vm.Form.Slots[OverlayPiece.Result], otherwise = dock.Vm.Form.Slots[OverlayPiece.Default];
+      Assert(then.Look.Value == ConditionSlotLook.Big && then.Big.Value == "60" && otherwise.Big.Value == "40",
+        "an answer that is one number shows as that number, large: " + then.Big.Value + " / " + otherwise.Big.Value);
+      Assert(then.Live.Value && !then.Quiet.Value && otherwise.Quiet.Value && !otherwise.Live.Value,
+        "the example combo 120 is past 100: the answer the condition gives now is lit, the other waits");
       Assert(dock.ResultText.Contains("60") && size.Result.Value.Contains("60"),
         "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
@@ -124,7 +145,7 @@ namespace Element.Editor
       Settle();
       Call(text, "Render");
       Assert(color.Cases.OnCase && dock.Vm.Method.Value == DockMethod.Condition && picker.Root.GetComponent<CanvasGroup>() is { alpha: 0, blocksRaycasts: false },
-        "with a condition picked the picker rests, clear, and the condition's five slots have the place");
+        "with a condition picked the picker rests, clear, and the condition's fork has the place");
       Press(DockSlot(dock, OverlayPiece.Left));
       Press(DockChip(dock, "Value accuracy"));
       Press(DockSlot(dock, OverlayPiece.Compare));
@@ -168,6 +189,20 @@ namespace Element.Editor
       Settle();
       Call(text, "Render");
       Assert(document.Document[0].Color.Formula == colors, "Apply keeps the condition");
+      // Back at the condition: its answers are colors, shown as the colors they are.
+      Settle();
+      ConditionSlotViewModel colorThen = dock.Vm.Form.Slots[OverlayPiece.Result], colorElse = dock.Vm.Form.Slots[OverlayPiece.Default];
+      Assert(dock.Vm.Method.Value == DockMethod.Condition && colorThen.Look.Value == ConditionSlotLook.Color
+        && colorElse.Look.Value == ConditionSlotLook.Color && colorElse.Caption.Value == "#5AC8FA",
+        "an answer that is one color shows as that color over its name: " + colorThen.Caption.Value + " / " + colorElse.Caption.Value);
+      Assert(colorElse.Live.Value && colorThen.Quiet.Value && dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '=',
+        "the example 99.5 isn't 100: the default is the answer lit now");
+      foreach (TextMeshProUGUI label in dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the fork's words fit: " + label.text);
+      }
+      SaveFrame(camera, texture, canvases, name + "-variable-fork");
 
       // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");

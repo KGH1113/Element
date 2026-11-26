@@ -21,14 +21,19 @@ internal static class FieldChips
   private const int MostShown = 3;
 
   /// <param name="around">What the field gives: a condition or a calculation in it gives that too.</param>
-  public static FieldChip[] Of(OverlayVariable variable, OverlayValueType around = OverlayValueType.Any)
+  /// <param name="most">How many pieces show before "…"; a narrow place shows fewer.</param>
+  public static FieldChip[] Of(
+    OverlayVariable variable,
+    OverlayValueType around = OverlayValueType.Any,
+    int most = MostShown
+  )
   {
     if (variable == null || variable.IsEmpty)
       return new[] { new FieldChip("empty", L("비어 있음", "Empty"), OverlayValueType.Any) { Muted = true } };
-    List<FieldChip> chips = new(MostShown + 1);
-    for (int i = 0; i < variable.Count && i < MostShown; i++)
+    List<FieldChip> chips = new(most + 1);
+    for (int i = 0; i < variable.Count && i < most; i++)
       chips.Add(Of(variable[i], i, around));
-    if (variable.Count > MostShown)
+    if (variable.Count > most)
       chips.Add(new FieldChip("more", "…", OverlayValueType.Any) { Operator = true });
     return chips.ToArray();
   }

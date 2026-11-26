@@ -129,6 +129,8 @@ internal static class OverlayValueCatalog
     Maker(OverlayValueId.MakeNumber, "make-number", OverlayValueKind.Number, "숫자", "Number"),
     Maker(OverlayValueId.MakeText, "make-text", OverlayValueKind.Text, "글자", "Text"),
     Maker(OverlayValueId.MakeBool, "make-bool", OverlayValueKind.Bool, "참·거짓", "True or false"),
+    Maker(OverlayValueId.MakeCompare, "make-compare", OverlayValueKind.Compare, "비교 기호", "Comparison"),
+    Maker(OverlayValueId.MakePoint, "make-point", OverlayValueKind.Point, "자리", "Point"),
     Maker(OverlayValueId.MakeCondition, "make-condition", OverlayValueKind.Any, "조건", "Condition"),
     Maker(OverlayValueId.MakeGroup, "make-group", OverlayValueKind.Any, "묶음", "Group"),
   };

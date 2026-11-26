@@ -3,7 +3,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 // The input method the dock shows: what the picked piece is edited with.
 internal enum DockMethod
 {
-  /// <summary>Nothing is picked: the place says what shows there.</summary>
+  /// <summary>Nothing is picked.</summary>
   Rest,
 
   /// <summary>Numbers: the keypad.</summary>
@@ -15,19 +15,16 @@ internal enum DockMethod
   /// <summary>True or false.</summary>
   Switch,
 
-  /// <summary>A condition's operator: the six comparisons.</summary>
+  /// <summary>A comparison: the six of them.</summary>
   Compare,
 
-  /// <summary>A condition: its five slots, each opened in turn.</summary>
+  /// <summary>A condition: its five slots, one under another, each a click away.</summary>
   Condition,
-
-  /// <summary>A group: the variable inside it.</summary>
-  Group,
 
   /// <summary>A solid color: the color picker, standing in the keypad's place.</summary>
   Color,
 
-  /// <summary>A gradient: its bigger tool opens above; here a note says so.</summary>
+  /// <summary>A gradient: its bigger tool opens in the column above; the place stays clear.</summary>
   Gradient,
 
   /// <summary>A font field: the font list, standing in the keypad's place.</summary>

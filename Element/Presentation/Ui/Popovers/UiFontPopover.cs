@@ -409,7 +409,10 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     else if (query.Length > 0 && !HasFonts())
       text = L("맞는 폰트가 없어요. 다른 이름으로 찾아보세요.", "No font matches. Try another name.");
     else
-      text = L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
+      // In a small place only what needs saying is said.
+      text = Compact
+        ? ""
+        : L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
     _status.text = text;
     _status.color = warning ? UiPalette.Error : UiPalette.Muted;
     // A long message takes the lines it needs from the list.

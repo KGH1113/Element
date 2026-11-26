@@ -14,7 +14,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Grow;
 /// </summary>
 internal sealed class GrowKeyView : View<GrowPointViewModel>
 {
-  public const float Size = 40;
+  public const float Size = 60;
 
   private readonly GrowPickerViewModel _picker;
   private readonly float _angle;
@@ -54,5 +54,6 @@ internal sealed class GrowKeyView : View<GrowPointViewModel>
           .Stroke(() => VM.Look.Value == GrowLook.Chosen && !_picker.IsAuto.Value ? _edge : _noEdge, FieldLook.Edge)
           .AllowsHitTesting(false)
       )
-      .Named(VM.Name);
+      .Named(VM.Name)
+      .Frame(width: Size, height: Size);
 }

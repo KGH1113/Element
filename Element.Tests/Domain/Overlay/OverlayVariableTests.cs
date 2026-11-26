@@ -23,6 +23,7 @@ internal static class OverlayVariableTests
     ConditionsGiveResultOrDefault();
     TypesDecideWhatFits();
     LeftoverAtKeysDropOut();
+    ComparisonsAndPointsAreValues();
     ValueColorsBecomeConditions();
   }
 
@@ -160,6 +161,62 @@ internal static class OverlayVariableTests
     Check(
       condition.TryNumber(new Numbers { [OverlayValueId.Combo] = 120 }, out double result, out _) && result == 40,
       "and the condition gives its default"
+    );
+  }
+
+  // What a condition compares by, and where an element grows from, are
+  // values of their own types: each takes one of its kind, or a condition
+  // that gives one, and nothing else takes them.
+  private static void ComparisonsAndPointsAreValues()
+  {
+    // Combo ≥ 100 compares Miss by "<", otherwise by "≥".
+    OverlayVariable nested = OverlayVariable.Parse("if({miss};if({combo};>=;100;<;>=);1;60;40)");
+    Check(
+      OverlayVariableTypes.Check(nested, OverlayValueType.Number) == null
+        && nested.Serialize() == "if({miss};if({combo};>=;100;<;>=);1;60;40)",
+      "a condition's comparison may itself be a condition that gives comparisons: " + nested.Serialize()
+    );
+    Check(
+      nested.TryNumber(new Numbers { [OverlayValueId.Combo] = 120, [OverlayValueId.Miss] = 0 }, out double many, out _)
+        && many == 60
+        && nested.TryNumber(
+          new Numbers { [OverlayValueId.Combo] = 20, [OverlayValueId.Miss] = 0 },
+          out double few,
+          out _
+        )
+        && few == 40,
+      "the comparison is worked out first: 0 < 1 holds with a high combo, 0 ≥ 1 doesn't with a low one"
+    );
+    Check(
+      OverlayVariableTypes.Check(OverlayVariable.Parse("if({miss};{combo};1;60;40)"), OverlayValueType.Number)
+        is { Slot: OverlayPiece.Compare },
+      "a number can't be what a condition compares by"
+    );
+
+    OverlayVariable point = OverlayVariable.Parse("at(TopLeft)");
+    Check(
+      point.Count == 1
+        && point[0].Kind == OverlayPieceKind.Point
+        && point[0].Point == OverlayGrowth.TopLeft
+        && point.Serialize() == "at(TopLeft)"
+        && OverlayVariable.Parse("at(Auto)")[0].Point == OverlayGrowth.Auto
+        && OverlayVariable.Parse("at(Nowhere)").IsEmpty,
+      "a point saves by its name and reads back; a name nobody knows drops out"
+    );
+    OverlayVariable follows = OverlayVariable.Parse("if({progress-current};>=;50;at(TopRight);at(Auto))");
+    Check(
+      OverlayVariableTypes.Check(follows, OverlayValueType.Point) == null
+        && follows.TryPoint(new Numbers { [OverlayValueId.ProgressCurrent] = 80 }, out OverlayGrowth late)
+        && late == OverlayGrowth.TopRight
+        && follows.TryPoint(new Numbers { [OverlayValueId.ProgressCurrent] = 10 }, out OverlayGrowth early)
+        && early == OverlayGrowth.Auto,
+      "a condition gives points: past half the level it grows from the top right"
+    );
+    Check(
+      OverlayVariableTypes.Check(point, OverlayValueType.Any) != null
+        && OverlayVariableTypes.Check(point, OverlayValueType.Number) != null
+        && OverlayVariableTypes.Check(OverlayVariable.Parse("12"), OverlayValueType.Point) != null,
+      "a point goes only where a point is needed, and only a point goes there"
     );
   }
 

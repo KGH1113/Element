@@ -3,7 +3,6 @@ using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
-using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Property;
@@ -70,7 +69,7 @@ internal sealed class TextFonts
     _fontPopover = new UiFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont, bare: true)
     {
       Hidden = () => _fontSnapshotTaken = false,
-      // The dock names it ("입력기 · 폰트 목록"); its buttons sit in that row.
+      // It stands in the input method's place, which is smaller than a popover.
       Compact = true,
     };
   }
@@ -151,26 +150,15 @@ internal sealed class TextFonts
   /// method's place.
   /// </summary>
   public void ShowIn(InputDockViewModel dock, string whose) =>
-    dock.ShowChoice(
-      DockMethod.Fonts,
-      whose,
-      L("폰트", "Font"),
-      "Aa",
-      FontLabel(),
-      L(
-        "폰트 칸은 오른쪽 입력기에서 골라요. 게임이 알려 주는 폰트 값은 없어요.",
-        "A font is picked on the input method at the right. The game gives no font values."
-      )
-    );
+    dock.ShowChoice(DockMethod.Fonts, whose, L("폰트", "Font"), "Aa", FontLabel());
 
-  // Where the dock's input method is, from its title's row down: the list's
-  // buttons sit beside that title.
+  // Where the dock draws an input method: the list is the font field's.
   public void Place(InputDockPanel dock)
   {
     if (_fontPopover == null || !_fontPopover.Visible || dock == null)
       return;
-    Rect place = dock.KeypadArea;
-    _fontPopover.Place(place.x, place.y, place.width, KeypadView.TitleHeight + KeypadView.MethodHeight);
+    Rect place = dock.MethodArea;
+    _fontPopover.Place(place.x, place.y, place.width, place.height);
     _fontPopover.Root.SetAsLastSibling();
   }
 }

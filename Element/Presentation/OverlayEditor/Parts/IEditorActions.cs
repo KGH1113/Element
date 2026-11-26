@@ -3,7 +3,7 @@ namespace Element.Presentation.OverlayEditor.Parts;
 /// <summary>
 /// What a full-screen editor's parts ask of it, and the only way up from
 /// them: a part changes what it holds, then asks for the screen to be drawn
-/// again (<see cref="Render"/>), for what is open to close, or for a notice.
+/// again (<see cref="Render"/>), for what is open to close, or to say no.
 /// What they read from it goes the other way, through <see cref="IEditorContext"/>.
 /// </summary>
 internal interface IEditorActions
@@ -20,6 +20,10 @@ internal interface IEditorActions
   /// <summary>Done (<paramref name="commit"/>) or Cancel.</summary>
   void Close(bool commit, bool notify);
 
-  /// <summary>A short message for a few seconds, on the dock's line or in the header; a warning reads warm.</summary>
-  void Notice(string message, bool warning = true);
+  /// <summary>
+  /// "No": what was asked can't be done as things are (a value that can't
+  /// go where it was put, Apply on a field that can't be finished). Nothing
+  /// is said in words: what is open shakes.
+  /// </summary>
+  void Refuse();
 }

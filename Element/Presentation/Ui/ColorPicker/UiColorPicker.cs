@@ -106,6 +106,23 @@ internal sealed class UiColorPicker : IDisposable
 
   public RectTransform Root => _panel.Root;
 
+  /// <summary>
+  /// It stays open but shows nothing and takes no clicks: what is picked
+  /// now is no color (a number inside a condition that gives colors), and
+  /// that piece's own input method has the place under it.
+  /// </summary>
+  public bool Resting
+  {
+    set
+    {
+      CanvasGroup group = Root.GetComponent<CanvasGroup>();
+      if (group == null)
+        group = Root.gameObject.AddComponent<CanvasGroup>();
+      group.alpha = value ? 0 : 1;
+      group.blocksRaycasts = !value;
+    }
+  }
+
   /// <summary>The color bar of an overlay editor's picker: its stops, kinds and the picked stop.</summary>
   public UiGradientBar Gradient { get; }
 

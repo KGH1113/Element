@@ -25,7 +25,6 @@ internal sealed class ShapeInput
   private readonly ShapeGradient _gradient;
   private readonly ShapeMeasures _measures;
   private readonly ShapeFieldList _fields;
-  private readonly GrowFrom _grow;
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly Event _event = new();
 
@@ -37,7 +36,6 @@ internal sealed class ShapeInput
     ShapeGradient gradient,
     ShapeMeasures measures,
     ShapeFieldList fields,
-    GrowFrom grow,
     EditorHistory<OverlayShapeSettings> history
   )
   {
@@ -48,7 +46,6 @@ internal sealed class ShapeInput
     _gradient = gradient;
     _measures = measures;
     _fields = fields;
-    _grow = grow;
     _history = history;
   }
 
@@ -128,7 +125,6 @@ internal sealed class ShapeInput
     if (
       _context.Inspector.Contains(screen)
       || _context.DockPanel.Contains(screen)
-      || _grow.Contains(screen)
       || PopoverPlacement.Contains(_colors.Picker.Root, screen)
       || _gradient.Handles.Contains(screen)
       || _context.Frame.ToFrame(screen).y < EditorFramePanel.TopBar

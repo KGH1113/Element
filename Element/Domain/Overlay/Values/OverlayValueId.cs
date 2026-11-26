@@ -37,6 +37,8 @@ internal enum OverlayValueId
   MakeNumber,
   MakeText,
   MakeBool,
+  MakeCompare,
+  MakePoint,
   MakeCondition,
   MakeGroup,
 }

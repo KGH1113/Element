@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
@@ -8,18 +7,16 @@ using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using ElementUI;
 using UnityEngine;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// The dock's values: under words that name where they go
-/// (<see cref="Place"/>), a section per built-in category and per mod, one
-/// under the other. Only values that fit where the dock puts values now are
-/// listed; how many were left out is said after them. With nothing open, or a
-/// sign to pick, it lists nothing and says what to do. The chips show what
-/// their values read now, a few times a second. A chip clicked goes up as the
-/// dock's <see cref="IInputDockActions"/>. <see cref="ValueBrowserView"/> draws it.
+/// The dock's values: under the mark of the type that goes there, a section
+/// per built-in category and per mod, one under the other. Only values that
+/// fit where the dock puts values now are listed; where none can go, the
+/// list is clear. The chips show what their values read now, a few times a
+/// second. A chip clicked goes up as the dock's
+/// <see cref="IInputDockActions"/>. <see cref="ValueBrowserView"/> draws it.
 /// </summary>
 internal sealed class ValueBrowserViewModel : ViewModel
 {
@@ -50,33 +47,21 @@ internal sealed class ValueBrowserViewModel : ViewModel
       if (folder.IsMod)
         _folders.Add(Own(new ValueFolderViewModel(folder, actions.Pick)));
     // What the dock has open tells the place when it changes.
-    Place = Computed(() => ValuePlace.Of(_editing, _caret, Choice.Value));
-    Refit(ValuePlace.Of(editing, caret, ""));
+    Place = Computed(() => ValuePlace.Of(_editing, _caret, Closed.Value));
+    Refit(ValuePlace.Of(editing, caret, false));
   }
 
-  /// <summary>
-  /// A field picked from a fixed set (a font, a point) is open: what the
-  /// list's place says instead of listing values; empty while none is.
-  /// </summary>
-  public readonly State<string> Choice = new("");
+  /// <summary>A field picked from a list of its own (a font) is open: no values are listed for it.</summary>
+  public readonly State<bool> Closed = new(false);
 
   /// <summary>Where the dock puts values now; it changes only as what the dock has open, or picked, changes.</summary>
   public readonly Computed<ValuePlace> Place;
 
-  /// <summary>The place takes values from the list; while it doesn't, <see cref="Rest"/> shows instead.</summary>
+  /// <summary>The place takes values from the list; while it doesn't, the list is clear.</summary>
   public readonly State<bool> Listing = new(false);
 
-  /// <summary>In place of the list while it lists nothing: what to do.</summary>
-  public readonly State<string> Rest = new("");
-
-  /// <summary>What goes where the dock puts values, for the mark beside <see cref="Title"/>.</summary>
+  /// <summary>What goes where the dock puts values, for the mark over the list.</summary>
   public readonly State<OverlayValueType> Type = new(OverlayValueType.Any);
-
-  /// <summary>Over the list: where the values go, "숫자 칸에 넣을 수 있는 값".</summary>
-  public readonly State<string> Title = new("");
-
-  /// <summary>After the list: how many values were left out as not fitting; empty when none were.</summary>
-  public readonly State<string> Hidden = new("");
 
   /// <summary>The sections in order: the built-in categories that have values, then one per mod.</summary>
   public IReadOnlyList<ValueFolderViewModel> Sections => _folders;
@@ -106,21 +91,10 @@ internal sealed class ValueBrowserViewModel : ViewModel
   /// </summary>
   public void Refit(ValuePlace place)
   {
-    int hidden = 0;
     foreach (ValueFolderViewModel folder in _folders)
-      hidden += folder.Fit(place);
+      folder.Fit(place);
     Listing.Value = place.Lists;
-    Rest.Value = place.Hint;
-    Title.Value = place.Title;
     Type.Value = place.Type;
-    Hidden.Value =
-      place.Lists && hidden > 0
-        ? L(
-          "이 자리에 맞지 않는 값 " + hidden.ToString(CultureInfo.InvariantCulture) + "개는 숨겼어요.",
-          hidden.ToString(CultureInfo.InvariantCulture)
-            + (hidden == 1 ? " value that doesn't fit here is hidden." : " values that don't fit here are hidden.")
-        )
-        : "";
     // The chips now listed show their values at once.
     _listed.Clear();
     foreach (ValueFolderViewModel folder in _folders)

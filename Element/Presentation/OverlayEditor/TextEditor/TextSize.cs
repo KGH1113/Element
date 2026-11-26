@@ -1,9 +1,9 @@
-using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Domain.Overlay.Defaults;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using UnityEngine;
@@ -31,7 +31,7 @@ internal sealed class TextSize
     _context = context;
     _text = text;
     _formulas = formulas;
-    Slot = new FormulaSlot(TextFormulas.SizeKey, OverlayValueType.Number, Read, Write, PlainSize);
+    Slot = new FormulaSlot(TextFormulas.SizeKey, OverlayValueType.Number, Read, Write);
   }
 
   /// <summary>How the keypad reads and writes the size.</summary>
@@ -94,13 +94,6 @@ internal sealed class TextSize
       _text.PendingSize = size;
       _text.PendingSizeFormula = text;
     }
-  }
-
-  // The size kept underneath a formula, for when none of its cases holds.
-  private string PlainSize()
-  {
-    _text.Range(out int start, out int end);
-    return FormulaFieldView.Number(ShownSize(start, end)) + " px";
   }
 
   private bool SameSize(int start, int end)

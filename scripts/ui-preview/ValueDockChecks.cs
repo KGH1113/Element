@@ -97,15 +97,11 @@ namespace Element.Editor
       Assert(!dock.Root.GetComponentsInChildren<TMP_InputField>(true).Any(field => field.name == "Value search")
         && !dock.Root.GetComponentsInChildren<Pressable>(true).Any(row => row.name.StartsWith("Place ")),
         "the values are one list of sections: no search field, no list of places beside it");
-      Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("커서 자리에 넣을 수 있는 값", "Values for the caret's place")
+      Assert(values.Listing.Value && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("넣을 수 있는 값", "Values that fit")
         && TypeMarkOf(dock) == "*",
-        "the words over the values say where they go, after the mark of anything: " + values.Title.Value);
-      int notInText = folders.SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
-        .Count(value => value.IsColor || value.Kind == OverlayValueKind.Bool || value.Id == OverlayValueId.MakeText
-          || value.Id == OverlayValueId.MakeGroup);
-      TextMeshProUGUI hiddenNote = ByName<TextMeshProUGUI>(dock.Root, "Values hidden");
-      Assert(notInText > 0 && hiddenNote.text == L("이 자리에 맞지 않는 값 " + notInText + "개는 숨겼어요.", notInText + " values that don't fit here are hidden."),
-        "how many were left out is said after the values: " + hiddenNote.text);
+        "a short title heads the values, after the mark of anything");
+      Assert(!dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Values hidden" || label.name == "Values rest"),
+        "no sentence counts what was left out or says what to do");
       ValueFolderViewModel make = values.Sections.Single(folder => folder.Key == "Make");
       string[] makeChips = DockChips(dock).Where(chip => make.Chips.Any(value => value.Name == chip.name)).Select(chip => chip.name).ToArray();
       Assert(makeChips.SequenceEqual(new[] { "Value make-number", "Value make-condition" }),
@@ -241,18 +237,12 @@ namespace Element.Editor
       ValueBrowserViewModel values = dock.Values;
       PressBar(text, Field<TextSize>(text, "_size").Button);
       Settle();
-      Assert(dock.Owner == "size" && ByName<TextMeshProUGUI>(dock.Root, "Values title").text == L("숫자 칸에 넣을 수 있는 값", "Values for a number field")
-        && TypeMarkOf(dock) == "#",
-        "opening the size, the words over the values name a number field: " + values.Title.Value);
+      Assert(dock.Owner == "size" && values.Type.Value == OverlayValueType.Number && TypeMarkOf(dock) == "#",
+        "opening the size, the mark over the values is a number's");
       Assert(DockSection(dock, "Color") == null && DockSection(dock, "Song") != null,
         "colors aren't listed for a number; the song's section is, for its numbers");
       Assert(DockChips(dock).All(chip => chip.name != "Value song-title") && DockChips(dock).Any(chip => chip.name == "Value attempt"),
         "the song title isn't listed for a number, the attempts are");
-      int notNumbers = OverlayValueCatalog.Folders().SelectMany(folder => folder.Sections).SelectMany(section => section.Values)
-        .Count(value => OverlayVariableTypes.TypeOf(value) is OverlayValueType.Text or OverlayValueType.Color or OverlayValueType.Bool);
-      Assert(ByName<TextMeshProUGUI>(dock.Root, "Values hidden").text
-          == L("이 자리에 맞지 않는 값 " + notNumbers + "개는 숨겼어요.", notNumbers + " values that don't fit here are hidden."),
-        "it says how many were left out: " + values.Hidden.Value);
       CheckValueLabels(dock, "number field");
       SaveFrame(camera, texture, canvases, name + "-dock-number");
       Call(text, "CloseOpen");
@@ -354,7 +344,7 @@ namespace Element.Editor
       RenderTexture target = new RenderTexture(width, height, 24);
       camera.targetTexture = target;
       UiFactory ui = new UiFactory(font);
-      ScreenPanel panel = null;
+      ScreenPanel panel = null, method = null;
       Action refresh = _refresh;
       _refresh = Settle;
       try
@@ -368,69 +358,76 @@ namespace Element.Editor
         RectTransform controls = ui.Rect("Controls", view, 0, 0, frameWidth, frameHeight);
         controls.localScale = Vector3.one * scale;
         float contentWidth = Mathf.Min(1600, frameWidth - EditorFramePanel.Margin * 2), left = (frameWidth - contentWidth) * .5f;
-        float top = frameHeight - 16 - (Element.Presentation.OverlayEditor.Parts.Dock.Line.FormulaLineView.Height + InputDockView.LineGap + KeypadView.Height);
+        // Two columns: the line and the values on the left, the input method on the right.
+        float dockWidth = contentWidth - KeypadView.Width - InputDockView.ColumnGap;
+        float top = frameHeight - 16 - InputDockView.Height;
         TextMeshProUGUI measure = ui.Text("", controls, 0, 0, 10, 10, 13);
         measure.textWrappingMode = TextWrappingModes.NoWrap;
         measure.color = Color.clear;
         Func<string, float> measurer = words => Mathf.Ceil(measure.GetPreferredValues(words).x);
-        EditorFrameViewModel notices = new EditorFrameViewModel("Value dock", "", () => { }, () => { }, true);
         // A number field is open: the list holds what goes in a number.
         FormulaEditing editing = new FormulaEditing();
         OverlayVariable typed = new OverlayVariable(OverlayPiece.NumberPiece("160"));
         if (open)
           editing.Activate(new FormulaSlot("width", OverlayValueType.Number, () => typed, variable => typed = variable));
-        InputDockViewModel model = new InputDockViewModel(live, editing, notices, NoDockActions.Instance, true);
-        InputDockView dockView = new InputDockView(model, contentWidth);
+        InputDockViewModel model = new InputDockViewModel(live, editing, NoDockActions.Instance, true);
+        InputDockView dockView = new InputDockView(model, dockWidth);
         panel = new ScreenPanel("Input dock", controls, Color.clear, false);
         panel.Mount(
           new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }),
           dockView.Environment(EditorEnvironment.Measure, measurer).Environment(EditorEnvironment.ReduceMotion, true),
           model,
-          contentWidth
+          dockWidth
         );
-        panel.Root.anchoredPosition = new Vector2(left, -(top - InputDockView.NoticeHeight));
+        panel.Root.anchoredPosition = new Vector2(left, -top);
+        method = new ScreenPanel("Input method", controls, Color.clear, false);
+        method.Mount(
+          new ElementBackend(new ElementTheme(UiFonts.Choose(font), true) { Compact = true }),
+          new InputMethodView(model).Environment(EditorEnvironment.ReduceMotion, true),
+          null,
+          KeypadView.Width
+        );
+        method.Root.anchoredPosition = new Vector2(left + contentWidth - KeypadView.Width, -top);
         if (open)
-          model.Show("width", L("너비", "Width"), "160 px", null);
+          model.Show("width", L("너비", "Width"), "160 px");
         else
-          model.Show(null, "", null, L("숫자를 누르면 여기서 계산해요", "Click a number to calculate it here"));
+          model.Show(null, "", null);
         Settle();
         if (!open)
         {
-          // Nothing open: no values, only what to do.
-          TextMeshProUGUI rest = ByName<TextMeshProUGUI>(panel.Root, "Values rest");
-          Assert(Shown(rest) && rest.text == L("값이나 칸을 고르면 거기에 넣을 수 있는 값만 여기 나와요.",
-              "Pick a value or a field, and the values that fit there show here.")
-            && !panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value ")),
-            name + ": with nothing open the dock lists no values and says what to do");
-          rest.ForceMeshUpdate();
-          Assert(!rest.isTextTruncated, name + ": the hint fits: " + rest.text);
+          // Nothing open: no values and no words; the keys rest.
+          Assert(!panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value "))
+            && !panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Length > 0)
+            && method.Root.GetComponentsInChildren<Pressable>(false).All(key => !key.IsInteractable()),
+            name + ": with nothing open the dock is clear, and Remove and Apply rest");
           SaveFrame(camera, target, new[] { canvas }, name);
           return;
         }
         Settle();
         panel.Sync();
+        method.Sync();
         Settle();
 
         // Everything fits: the dock in the window, the values clear of the keypad, no label cut short.
-        Rect window = ScreenRectOf(view), dock = ScreenRectOf(panel.Root);
-        Pressable[] keys = panel.Root.GetComponentsInChildren<Pressable>(false).Where(key => key.name.StartsWith("Key ")).ToArray();
+        Rect window = ScreenRectOf(view), dock = ScreenRectOf(panel.Root), right = ScreenRectOf(method.Root);
+        Pressable[] keys = method.Root.GetComponentsInChildren<Pressable>(false).Where(key => key.name.StartsWith("Key ")).ToArray();
         float keypad = keys.Min(key => ScreenRectOf((RectTransform)key.transform).xMin);
-        Assert(dock.xMin >= window.xMin - .5f && dock.xMax <= window.xMax + .5f && dock.yMin >= window.yMin - .5f,
-          name + ": the dock fits the window: " + dock + " / " + window);
+        Assert(dock.xMin >= window.xMin - .5f && right.xMax <= window.xMax + .5f && dock.yMin >= window.yMin - .5f && right.yMin >= window.yMin - .5f
+          && dock.xMax < right.xMin && Mathf.Abs(dock.yMax - right.yMax) < 1 && Mathf.Abs(dock.yMin - right.yMin) < 1,
+          name + ": the two columns fit the window side by side, as tall as each other: " + dock + " / " + right + " / " + window);
         Pressable[] chips = panel.Root.GetComponentsInChildren<Pressable>(false).Where(chip => chip.name.StartsWith("Value ")).ToArray();
         string[] sections = panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Where(label => label.name.StartsWith("Section "))
           .Select(label => label.name).ToArray();
         Assert(chips.Length > 0 && sections.SequenceEqual(model.Values.Sections.Where(section => section.Shown.Value).Select(section => "Section " + section.Key))
           && !sections.Contains("Section Color"),
           name + ": the list holds the sections with numbers: " + string.Join(", ", sections));
-        TextMeshProUGUI hidden = ByName<TextMeshProUGUI>(panel.Root, "Values hidden");
-        Assert(Shown(hidden) && hidden.text.Length > 0 && model.Values.Title.Value == L("숫자 칸에 넣을 수 있는 값", "Values for a number field"),
-          name + ": the words name a number field and say how many were left out: " + hidden.text);
+        Assert(model.Values.Type.Value == OverlayValueType.Number && ByName<TextMeshProUGUI>(panel.Root, "Values hidden") == null,
+          name + ": the mark over the values is a number's, and nothing counts what was left out");
         foreach (Pressable chip in chips)
         {
           Rect rect = ScreenRectOf((RectTransform)chip.transform);
-          Assert(rect.xMin >= dock.xMin - .5f && rect.xMax <= keypad - InputDockView.KeypadGap * scale + .5f,
-            name + ": a chip stays left of the input method: " + chip.name + " " + rect);
+          Assert(rect.xMin >= dock.xMin - .5f && rect.xMax <= dock.xMax + .5f && rect.xMax < keypad,
+            name + ": a chip stays in the left column: " + chip.name + " " + rect);
         }
         foreach (TextMeshProUGUI label in panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
         {
@@ -445,6 +442,7 @@ namespace Element.Editor
       {
         _refresh = refresh;
         panel?.Dispose();
+        method?.Dispose();
         ui.Dispose();
         Object.DestroyImmediate(root);
         Object.DestroyImmediate(cameraRoot);

@@ -10,6 +10,7 @@ using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.Parts.Grow;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
@@ -39,6 +40,7 @@ internal sealed class TextFormulas
   private TextColor _color;
   private TextAnimate _animate;
   private TextGradient _gradient;
+  private GrowFrom _grow;
   private string _fieldSlot;
 
   // The value whose popover is open, while it stays selected; -1 for none.
@@ -68,13 +70,14 @@ internal sealed class TextFormulas
   /// <summary>The value being calculated in the dock, or -1.</summary>
   public int EditedValue => ChipOpen(out int index) ? index : -1;
 
-  /// <summary>The numbers the dock can type besides values.</summary>
-  public void Use(TextSize size, TextColor color, TextGradient gradient, TextAnimate animate)
+  /// <summary>The fields the dock can open besides values.</summary>
+  public void Use(TextSize size, TextColor color, TextGradient gradient, TextAnimate animate, GrowFrom grow)
   {
     _size = size;
     _color = color;
     _gradient = gradient;
     _animate = animate;
+    _grow = grow;
   }
 
   /// <summary>Nothing open, as when the editor opens.</summary>
@@ -99,6 +102,8 @@ internal sealed class TextFormulas
       return _color.OpacitySlot;
     if (_fieldSlot == GrowKey)
       return _animate.Slot;
+    if (_fieldSlot == GrowFrom.Key)
+      return _grow.Slot;
     if (ChipOpen(out int index))
       return ChipSlot(index);
     // With nothing else open, the open color picker's color is what the dock types.
@@ -118,8 +123,7 @@ internal sealed class TextFormulas
         _text.Document.SetValue(index, formula.Serialize());
         if (formula.IsEmpty)
           _text.Caret = _text.Anchor = Mathf.Min(index, _text.Document.Count);
-      },
-      () => L("안 보임", "nothing")
+      }
     );
 
   /// <summary>
@@ -186,8 +190,8 @@ internal sealed class TextFormulas
   }
 
   /// <summary>
-  /// Tells the dock what it edits: the number or value open in it, its name
-  /// and result, or with nothing open what to do.
+  /// Tells the dock what it edits: the field or value open in it, its name,
+  /// whose it is and its result; nothing while none is open.
   /// </summary>
   public void Refresh(InputDockViewModel dock)
   {
@@ -196,34 +200,19 @@ internal sealed class TextFormulas
       : ChipOpen(out int chip) ? "value:" + chip
       : _color.CasesOpen ? ColorCases.Key
       : null;
-    string hint = _color.Hint() ?? RestingHint();
     string name =
       _gradient.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("크기", "Size")
         : _fieldSlot == GrowKey ? L("바뀔 때 커지기", "Grow on change")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
+        : _fieldSlot == GrowFrom.Key ? L("기준점", "Grow from")
         : owner == ColorCases.Key ? _color.OwnTitle
         : L("고른 값", "Picked value")
       );
-    // A look is somebody's: the whole text's, the selected letters' or the picked value's.
-    bool look = _fieldSlot != null || owner == ColorCases.Key;
-    dock.Show(
-      owner,
-      name,
-      DockResult(),
-      hint,
-      _editing.Active ? _editing.Slot.Placeholder() : null,
-      look ? LookOwner() + " ›" : null
-    );
-    // With only the caret in the text, the input method is the keyboard: it has nothing to draw.
-    dock.AtRest(
-      L("글자의 입력기는 키보드예요.", "Words are typed on the keyboard."),
-      L(
-        "커서 자리에서 그대로 쳐요. 치는 동안 그 글자 값의 밑줄이 켜져요.",
-        "Type where the caret is. The words you are typing keep their underline lit."
-      )
-    );
+    // A look is somebody's: the whole text's, the selected letters' or the picked value's. The grow point is the element's.
+    bool look = (_fieldSlot != null && _fieldSlot != GrowFrom.Key) || owner == ColorCases.Key;
+    dock.Show(owner, name, DockResult(), look ? LookOwner() + " ›" : null);
   }
 
   /// <summary>
@@ -252,27 +241,6 @@ internal sealed class TextFormulas
   private static string Short(string words, int most) =>
     words.Length > most ? words.Substring(0, most - 1) + "…" : words;
 
-  // With nothing open the line says what is picked in the text: the letters
-  // selected, or where the caret is.
-  private string RestingHint()
-  {
-    _text.Range(out int start, out int end);
-    if (start >= end)
-      return L(
-        "글자는 그대로 치고, 값은 아래에서 골라 커서 자리에 넣어요. 글 속의 값을 누르면 여기서 고쳐요.",
-        "Type words as they are; pick a value below to put it at the caret. Click a value in the text to edit it here."
-      );
-    string letters = _text.Document.PlainText(start, end, _ => "");
-    if (letters.Length > 16)
-      letters = letters.Substring(0, 15) + "…";
-    return L(
-      "고른 글자 “" + letters + "” · 오른쪽 칸으로 이 글자만 꾸미고, 치거나 값을 고르면 이 자리를 바꿔요.",
-      "Picked “"
-        + letters
-        + "” · The fields on the right style just these letters; typing or a value takes their place."
-    );
-  }
-
   // The result of what the dock types, as the text or the field will show it.
   private string DockResult()
   {
@@ -283,6 +251,8 @@ internal sealed class TextFormulas
     OverlayVariable formula = _editing.Root;
     if (formula.IsEmpty || _editing.Problem != null)
       return null;
+    if (_fieldSlot == GrowFrom.Key)
+      return _grow.Result(_values.WithSamples, formula);
     if (_fieldSlot == GrowKey)
       return formula.TryBool(_values.WithSamples, out bool grows)
         ? grows
@@ -321,24 +291,13 @@ internal sealed class TextFormulas
     field.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(Result(formula)), computed, active);
   }
 
-  // Leaves a number field, saying so when what was typed had to be brought into range.
+  // Leaves the open field; a number out of its range was already brought into it.
   private void Finish()
   {
     if (_fieldSlot == null)
       return;
-    string key = _fieldSlot;
-    OverlayVariable typed = _editing.Root;
     _fieldSlot = null;
     _editing.Deactivate();
-    if (typed != null && typed.IsPlainNumber(out double number))
-    {
-      if (key == SizeKey && (number < TextSize.Minimum || number > TextSize.Maximum))
-        _editor.Notice(L("글자 크기는 4–400px 사이로 맞췄어요", "Text size was kept between 4 and 400px"));
-      else if (key == OpacityKey && OpacityFieldView.OutOfRange(typed))
-        _editor.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
-      else if (key == PositionKey && (number < 0 || number > 100))
-        _editor.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
-    }
   }
 
   // ---- The dock's keypad and values ----
@@ -354,18 +313,50 @@ internal sealed class TextFormulas
     _editor.Render();
   }
 
-  /// <summary>Apply: what is open is done, once it fits its field; until then the dock says why not.</summary>
+  /// <summary>
+  /// Apply: inside a condition's slot it goes back to the condition; else
+  /// what is open is done, once it fits its field. Until then it is refused.
+  /// </summary>
   public void FinishEditing()
   {
+    if (_editing.Active && LeaveSlot())
+    {
+      _editor.Render();
+      return;
+    }
     if (_editing.Active && _editing.Problem != null)
     {
-      _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
+      _editor.Refuse();
       return;
     }
     // Apply on a color puts its picker away.
     if (_fieldSlot == null && !ChipOpen(out _) && _color.Picker.Visible)
       _color.Picker.Hide();
     _editor.CloseOpen();
+    _editor.Render();
+  }
+
+  // Out of the slots gone into, as far as the nearest condition, which is then picked: its five slots show again.
+  private bool LeaveSlot()
+  {
+    bool left = false;
+    while (_editing.Path.Count > 1)
+    {
+      bool condition = _editing.Path[_editing.Path.Count - 1].Owner?.Kind == OverlayPieceKind.Condition;
+      _editing.Back();
+      left = true;
+      if (condition)
+        break;
+    }
+    return left;
+  }
+
+  /// <summary>The dock goes into slot <paramref name="slot"/> of the picked condition.</summary>
+  public void EnterSlot(int slot)
+  {
+    if (!_editing.Active || !_editing.CanEnter(slot))
+      return;
+    _editing.Enter(slot);
     _editor.Render();
   }
 
@@ -394,14 +385,10 @@ internal sealed class TextFormulas
       _editor.Render();
       return;
     }
+    // A color can't go in the text itself.
     if (!_editing.Active && value.IsColor)
     {
-      _editor.Notice(
-        L(
-          "색은 글 안에 넣을 수 없어요. 글자 색을 열고 골라 주세요.",
-          "A color can't go in the text. Open Text color and pick it there."
-        )
-      );
+      _editor.Refuse();
       return;
     }
     if (_editing.Active)
@@ -430,6 +417,6 @@ internal sealed class TextFormulas
     Sync();
   }
 
-  /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>
-  public void Refuse(OverlayValueDefinition value) => _editor.Notice(FormulaRefusals.Why(value, _editing));
+  /// <summary><paramref name="value"/> can't go where it was put.</summary>
+  public void Refuse(OverlayValueDefinition value) => _editor.Refuse();
 }

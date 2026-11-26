@@ -3,12 +3,10 @@ using Element.Configuration.Overlay;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Elements;
-using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
-using Element.Presentation.OverlayEditor.Parts.Field;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
@@ -17,131 +15,79 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.Parts.Grow;
 
 /// <summary>
-/// Where an edited element grows from: the property column's Grow from
-/// field, its input method (the nine points and Auto, standing in the dock
-/// where the keypad does), and a dot on the preview at the point that stays
-/// put while they are open. Done saves the choice with the element.
+/// Where an edited element grows from: a field like any other. It holds a
+/// point (one of nine, or Auto), or a condition that gives points, and opens
+/// in the dock, where a point's input method is the nine points. While it is
+/// open a dot on the preview marks the point that stays put. Done saves the
+/// field with the element.
 /// </summary>
 internal sealed class GrowFrom
 {
+  /// <summary>The field's key in the dock.</summary>
+  public const string Key = "grow-from";
+
   private const float MarkSize = 12;
 
-  private readonly Action _closeOthers;
-  private readonly Action _changed;
   private OverlayElementTarget _element;
-  private GrowPopoverPanel _popover;
+  private OverlayVariable _variable = new(OverlayPiece.PointPiece(OverlayGrowth.Auto));
   private UiCapsuleGraphic _mark;
 
-  /// <param name="closeOthers">Closes what else is open before the popover opens.</param>
-  /// <param name="changed">Redraws the editor after a click.</param>
-  public GrowFrom(Action closeOthers, Action changed)
-  {
-    _closeOthers = closeOthers;
-    _changed = changed;
-  }
+  public GrowFrom() => Slot = new FormulaSlot(Key, OverlayValueType.Point, () => _variable, held => _variable = held);
 
-  public OverlayGrowth Growth { get; private set; }
+  /// <summary>The dock's way to read and write what the field holds.</summary>
+  public FormulaSlot Slot { get; }
 
-  /// <summary>The column's Grow from row; made by <see cref="BuildButton"/>.</summary>
+  /// <summary>The column's Grow from field; made by <see cref="BuildButton"/>.</summary>
   public PropertyButtonViewModel Button { get; private set; }
-
-  public bool Visible => _popover.Visible;
-
-  /// <summary>The popover with the nine points; made by <see cref="Build"/>.</summary>
-  public IPopover Popover => _popover;
 
   /// <summary>Starts from what <paramref name="element"/> has saved.</summary>
   public void Open(OverlayElementTarget element)
   {
     _element = element;
-    Growth = element.Settings?.GrowFrom ?? OverlayGrowth.Auto;
+    _variable = element.GrowFromVariable;
   }
 
-  /// <summary>The Grow from row, added where the column has it.</summary>
-  public PropertyButtonViewModel BuildButton() =>
-    Button = new PropertyButtonViewModel(
-      "Grow from",
-      L("기준점", "Grow from"),
-      Toggle,
-      opens: true,
-      fieldGlyph: TypeMarks.Place
-    );
+  /// <summary>The Grow from field, added where the column has it; <paramref name="open"/> opens it in the dock.</summary>
+  public PropertyButtonViewModel BuildButton(Action open) =>
+    Button = new PropertyButtonViewModel("Grow from", L("기준점", "Grow from"), open, field: OverlayValueType.Point);
 
-  /// <summary>The points, as the dock's input method, and the dot, over the editor's controls.</summary>
+  /// <summary>The dot, over the editor's controls.</summary>
   public void Build(EditorFramePanel screen)
   {
-    _popover = new GrowPopoverPanel(screen, Pick, asInputMethod: true);
     _mark = screen.Ui.Capsule("Grow point", screen.Frame, 0, 0, MarkSize, MarkSize, UiPalette.SoftAccent);
     _mark.gameObject.SetActive(false);
   }
 
-  public void Hide() => _popover?.Hide();
-
-  public bool Contains(Vector2 screen) => _popover.Contains(screen);
-
-  /// <summary>The field opens its points in the dock, and closes them again.</summary>
-  private void Toggle()
-  {
-    bool open = _popover.Visible;
-    _closeOthers();
-    if (!open)
-    {
-      _popover.ShowAt(_at);
-      _popover.Refresh(Growth, PointNow());
-    }
-    _changed();
-  }
-
-  // Where the dock draws an input method, as last placed.
-  private Vector2 _at;
-
-  /// <summary>Keeps the points where <paramref name="dock"/> draws an input method.</summary>
-  public void Place(InputDockPanel dock)
-  {
-    Rect place = dock.MethodArea;
-    _at = new Vector2(place.x, place.y);
-    if (_popover.Visible)
-      _popover.ShowAt(_at);
-  }
-
-  /// <summary>While the points are open, the dock shows the field: on its line its name and the point it is.</summary>
-  public void ShowIn(InputDockViewModel dock) =>
-    dock.ShowChoice(
-      DockMethod.Points,
-      null,
-      Button.Label,
-      TypeMarks.Place,
-      GrowPickerViewModel.ShortName(Growth),
-      L(
-        "기준점 칸은 오른쪽 입력기에서 골라요. 게임이 알려 주는 자리 값은 없어요.",
-        "The point is picked on the input method at the right. The game gives no place values."
-      )
-    );
-
-  private void Pick(OverlayGrowth growth)
-  {
-    Growth = growth;
-    _popover.Refresh(Growth, PointNow());
-    _changed();
-  }
-
-  // With Auto, the point picked from where the element sits on screen.
-  private Anchor9 PointNow() => OverlayLayoutPosition.ValidGrowth(Growth) ? (Anchor9)(int)Growth : _element.GrowPoint;
-
-  /// <summary>Shows the row's choice: the short name of the point, lit while the points are open.</summary>
-  public void ShowButton() =>
-    Button.ShowField(
-      new FieldChip("point", GrowPickerViewModel.ShortName(Growth), OverlayValueType.Any) { Glyph = TypeMarks.Place },
-      _popover.Visible
-    );
+  /// <summary>The point the field gives now, with <paramref name="samples"/> for the values it reads.</summary>
+  public OverlayGrowth Growth(IOverlayNumberSource samples, OverlayVariable typed = null) =>
+    (typed ?? _variable).TryPoint(samples, out OverlayGrowth point) ? point : OverlayGrowth.Auto;
 
   /// <summary>
-  /// While the popover is open, puts the dot on the point of the preview's
-  /// box (frame units) that stays put; hides it otherwise.
+  /// The field shows what it holds (<paramref name="typed"/> while the dock
+  /// has it open) and, when that is worked out, the point it gives; lit
+  /// while <paramref name="active"/>.
   /// </summary>
-  public void PlaceMark(float x, float y, float width, float height)
+  public void ShowButton(bool active, OverlayVariable typed, IOverlayNumberSource samples)
   {
-    Anchor9 point = PointNow();
+    OverlayVariable held = typed ?? _variable;
+    bool plain = held.Count == 1 && held[0].Kind == OverlayPieceKind.Point;
+    Button.ShowField(held, plain ? "" : GrowPickerViewModel.ShortName(Growth(samples, held)), active);
+  }
+
+  /// <summary>What the field gives, as the dock's line says it.</summary>
+  public string Result(IOverlayNumberSource samples, OverlayVariable typed) =>
+    GrowPickerViewModel.ShortName(Growth(samples, typed));
+
+  /// <summary>Saves the field with <paramref name="element"/>, which follows it from then on.</summary>
+  public void Save(OverlayElementTarget element, IOverlayNumberSource values) => element.SetGrowFrom(_variable, values);
+
+  /// <summary>
+  /// Puts the dot on the point of the preview's box (frame units) that stays
+  /// put; with Auto, the point picked from where the element sits.
+  /// </summary>
+  public void PlaceMark(float x, float y, float width, float height, OverlayGrowth growth)
+  {
+    Anchor9 point = OverlayLayoutPosition.ValidGrowth(growth) ? (Anchor9)(int)growth : _element.GrowPoint;
     Vector2 at = new(
       x + width * OverlayLayoutPosition.AnchorX(point),
       y + height * OverlayLayoutPosition.AnchorY(point)

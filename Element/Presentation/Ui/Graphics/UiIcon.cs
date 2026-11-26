@@ -87,6 +87,23 @@ internal sealed class UiIcon : UiVectorGraphic
         Box(mesh, 5, 5, 19, 19);
         Dot(mesh, 12, 12, 2.6f);
         break;
+      case UiIconKind.CompareType:
+        // Less and more, back to back: something that compares.
+        Line(mesh, 9.5f, 6.5f, 4, 12, 2.4f);
+        Line(mesh, 4, 12, 9.5f, 17.5f, 2.4f);
+        Line(mesh, 14.5f, 6.5f, 20, 12, 2.4f);
+        Line(mesh, 20, 12, 14.5f, 17.5f, 2.4f);
+        break;
+      case UiIconKind.Keyboard:
+        // Two rows of keys over a space bar.
+        Box(mesh, 2.5f, 5.5f, 21.5f, 18.5f);
+        for (int key = 0; key < 4; key++)
+        {
+          Dot(mesh, 6.75f + key * 3.5f, 9.25f, 1.1f);
+          Dot(mesh, 6.75f + key * 3.5f, 12.25f, 1.1f);
+        }
+        Line(mesh, 8, 15.5f, 16, 15.5f, 1.8f);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);

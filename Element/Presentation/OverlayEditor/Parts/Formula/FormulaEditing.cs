@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using ElementUI;
@@ -179,6 +180,19 @@ internal sealed class FormulaEditing : Observable
     return piece != null && slot >= 0 && slot < piece.Slots.Length;
   }
 
+  /// <summary>
+  /// What slot <paramref name="slot"/> of the picked condition must give: a
+  /// number where it compares, a comparison to compare by, and for its
+  /// result and default whatever the condition must give where it sits.
+  /// </summary>
+  public OverlayValueType SlotType(int slot)
+  {
+    Reading();
+    return slot == OverlayPiece.Compare ? OverlayValueType.Compare
+      : slot == OverlayPiece.Left || slot == OverlayPiece.Right ? OverlayValueType.Number
+      : NeededAt(_selected, replacing: true);
+  }
+
   /// <summary>Goes into slot <paramref name="slot"/> of the picked condition or group.</summary>
   public void Enter(int slot)
   {
@@ -261,7 +275,9 @@ internal sealed class FormulaEditing : Observable
     OverlayValueType kind = Kind;
     OverlayPiece picked = SelectedPiece;
     if (kind == OverlayValueType.Compare)
-      return IsCompare(key) && !(working.Count == 1 && working[0].Op == key);
+      // A comparison key changes the picked comparison, or puts one in an empty slot; a condition there is picked away first.
+      return IsCompare(key)
+        && (picked != null ? picked.Kind == OverlayPieceKind.Compare && picked.Op != key : working.Count == 0);
     if (IsCompare(key))
       return false;
     if (kind != OverlayValueType.Number && kind != OverlayValueType.Any)
@@ -300,9 +316,13 @@ internal sealed class FormulaEditing : Observable
     OverlayPiece picked = SelectedPiece;
     if (Kind == OverlayValueType.Compare)
     {
-      working.Clear();
-      working.Add(OverlayPiece.ComparePiece(key));
-      _selected = 0;
+      if (picked != null)
+        picked.Op = key;
+      else
+      {
+        working.Add(OverlayPiece.ComparePiece(key));
+        _selected = 0;
+      }
       Commit();
       return true;
     }
@@ -366,8 +386,13 @@ internal sealed class FormulaEditing : Observable
     return true;
   }
 
-  /// <summary>Whether a picked piece can be taken out: anything but a comparison, which is chosen, not removed.</summary>
-  public bool CanRemove => Active && SelectedPiece != null && Kind != OverlayValueType.Compare;
+  /// <summary>
+  /// Whether a picked piece can be taken out: anything but what a
+  /// comparison's or a point's field holds, which is swapped for another,
+  /// never left empty.
+  /// </summary>
+  public bool CanRemove =>
+    Active && SelectedPiece != null && Kind != OverlayValueType.Compare && Kind != OverlayValueType.Point;
 
   /// <summary>
   /// Takes the picked piece out (지우기). In a calculation its operator goes
@@ -432,6 +457,16 @@ internal sealed class FormulaEditing : Observable
     Commit();
   }
 
+  /// <summary>The picked point becomes <paramref name="point"/>.</summary>
+  public void SetPoint(OverlayGrowth point)
+  {
+    OverlayPiece piece = SelectedPiece;
+    if (piece == null || piece.Kind != OverlayPieceKind.Point || piece.Point == point)
+      return;
+    piece.Point = point;
+    Commit();
+  }
+
   public void SetBool(bool value)
   {
     OverlayPiece piece = SelectedPiece;
@@ -463,12 +498,18 @@ internal sealed class FormulaEditing : Observable
     // A gradient is a whole color of its own: only a color field itself takes one.
     if (value.Id == OverlayValueId.MakeGradient)
       return Active && _path.Count == 1 && Kind == OverlayValueType.Color;
-    if (!Active || Kind == OverlayValueType.Compare)
+    if (!Active)
       return false;
     OverlayPiece piece = PieceFor(value);
     OverlayValueType needed = NeededAt(_selected, Replaces());
     OverlayValueType found = OverlayVariableTypes.TypeOf(piece);
-    return OverlayVariableTypes.Fits(needed, found) && found != OverlayValueType.Compare;
+    // A comparison or a point goes only where one is needed, and only one or a condition goes there.
+    bool own = needed == OverlayValueType.Compare || needed == OverlayValueType.Point;
+    if (own)
+      return found == needed || piece.Kind == OverlayPieceKind.Condition;
+    return OverlayVariableTypes.Fits(needed, found)
+      && found != OverlayValueType.Compare
+      && found != OverlayValueType.Point;
   }
 
   /// <summary>
@@ -498,6 +539,8 @@ internal sealed class FormulaEditing : Observable
       OverlayValueId.MakeBool => OverlayPiece.BoolPiece(true),
       OverlayValueId.MakeCondition => OverlayPiece.ConditionPiece(),
       OverlayValueId.MakeGroup => OverlayPiece.GroupPiece(new OverlayVariable()),
+      OverlayValueId.MakeCompare => OverlayPiece.ComparePiece('≥'),
+      OverlayValueId.MakePoint => OverlayPiece.PointPiece(OverlayGrowth.Auto),
       OverlayValueId.CustomColor => OverlayPiece.ColorPiece("#FFFFFF"),
       _ => OverlayPiece.ValuePiece(value.Id),
     };
@@ -524,7 +567,7 @@ internal sealed class FormulaEditing : Observable
     OverlayVariable working = Working;
     if (working == null || working.Count == 0)
       return false;
-    if (Kind == OverlayValueType.Compare)
+    if (Kind == OverlayValueType.Compare || Kind == OverlayValueType.Point)
       return true;
     OverlayPiece at = _selected >= 0 ? working[_selected] : working.Last;
     if (at.Kind == OverlayPieceKind.Operator)

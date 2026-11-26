@@ -125,6 +125,7 @@
         <OffsetX>0.5</OffsetX>
         <OffsetY>0.5</OffsetY>
         <GrowFrom>Auto</GrowFrom>
+        <GrowFromFormula>GrowFromFormula</GrowFromFormula>
         <DefaultPlacement>DefaultPlacement</DefaultPlacement>
         <PendingGroup>PendingGroup</PendingGroup>
         <Group>Group</Group>

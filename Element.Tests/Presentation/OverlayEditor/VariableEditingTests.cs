@@ -23,7 +23,7 @@ internal static class VariableEditingTests
   {
     OverlayVariable[] saved = { OverlayVariable.Parse(start) };
     FormulaEditing editing = new();
-    editing.Activate(new FormulaSlot("field", type, () => saved[0], variable => saved[0] = variable, null));
+    editing.Activate(new FormulaSlot("field", type, () => saved[0], variable => saved[0] = variable));
     return (editing, saved);
   }
 

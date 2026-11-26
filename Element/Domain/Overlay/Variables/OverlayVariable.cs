@@ -131,6 +131,10 @@ internal sealed class OverlayVariable
   public bool TryBool(IOverlayNumberSource source, out bool value) =>
     OverlayVariableEvaluator.TryBool(this, source, out value);
 
+  /// <summary>The point it gives now: one picked, or what its condition gives.</summary>
+  public bool TryPoint(IOverlayNumberSource source, out Element.Configuration.Overlay.OverlayGrowth point) =>
+    OverlayVariableEvaluator.TryPoint(this, source, out point);
+
   /// <summary>A number as saved: up to two decimals, "0" for one that isn't finite.</summary>
   public static string NumberText(double number)
   {

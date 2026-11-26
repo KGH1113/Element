@@ -10,8 +10,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Line;
 /// The dock's line: the open field's mark, whose it is and its name, then
 /// its pieces laid out in place (a condition's five slots in a row, each a
 /// click away), and the result on the right. A field picked from a fixed set
-/// (a font, a point) shows its one choice as a picked value. A long line
-/// scrolls sideways. With nothing open, it says what to do.
+/// (a font) shows its one choice as a picked value. A long line scrolls
+/// sideways. With nothing open it is clear. When what was asked can't be
+/// done, it shakes.
 /// </summary>
 internal sealed class FormulaLineView : View<LineViewModel>
 {
@@ -27,37 +28,32 @@ internal sealed class FormulaLineView : View<LineViewModel>
         () => VM.Open,
         () =>
           HStack(
-            spacing: 10,
-            Who(),
-            If(
-              () => VM.Choosing,
-              () => Choice().Frame(maxWidth: float.PositiveInfinity, height: Height, alignment: Alignment.Leading),
-              () =>
-                ScrollView(Axis.Horizontal, new LineSlotView(VM.Root, VM))
-                  .DefaultScrollAnchor(Alignment.Trailing)
-                  .Frame(maxWidth: float.PositiveInfinity, height: Height)
-                  .Named("Formula line")
-            ),
-            HStack(
-              spacing: 6,
+              spacing: 10,
+              Who(),
               If(
-                () => VM.ResultHasSwatch,
-                () => Spacer().Frame(width: 16, height: 16).Background(() => VM.ResultSwatch, 8)
+                () => VM.Choosing,
+                () => Choice().Frame(maxWidth: float.PositiveInfinity, height: Height, alignment: Alignment.Leading),
+                () =>
+                  ScrollView(Axis.Horizontal, new LineSlotView(VM.Root, VM))
+                    .DefaultScrollAnchor(Alignment.Trailing)
+                    .Frame(maxWidth: float.PositiveInfinity, height: Height)
+                    .Named("Formula line")
               ),
-              Text(() => VM.Result)
-                .Font(Font.Body.Sized(20))
-                .Foreground(Ui.Theme.UiPalette.SoftAccent)
-                .LineLimit(1)
-                .Named("Result")
+              HStack(
+                spacing: 6,
+                If(
+                  () => VM.ResultHasSwatch,
+                  () => Spacer().Frame(width: 16, height: 16).Background(() => VM.ResultSwatch, 8)
+                ),
+                Text(() => VM.Result)
+                  .Font(Font.Body.Sized(20))
+                  .Foreground(Ui.Theme.UiPalette.SoftAccent)
+                  .LineLimit(1)
+                  .Named("Result")
+              )
             )
-          ),
-        () =>
-          Text(() => VM.Hint)
-            .Font(Font.Body.Sized(15))
-            .Foreground(Colors.Muted)
-            .LineLimit(1)
-            .Named("Line hint")
-            .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
+            // "No" is a shake, not a sentence.
+            .Offset(x: () => VM.Shake.X)
       )
       .Frame(maxWidth: float.PositiveInfinity, height: Height);
 

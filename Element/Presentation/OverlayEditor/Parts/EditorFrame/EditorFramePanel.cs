@@ -62,8 +62,19 @@ internal sealed class EditorFramePanel : IDisposable
     _fade = new AnimatedFloat(alpha => fadeGroup.alpha = alpha);
     _fade.Set(reduceMotion() ? 1 : 0);
     _fade.Set(1, reduceMotion() ? null : Motion.Linear(FadeSeconds));
-    // Deep enough that the game's own texts stay far behind the edited one.
-    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, new Color(0, 0, 0, .92f), false);
+    // Deep enough that the game's own texts stay far behind the edited one. An
+    // editor with a dock fills the screen with its two columns, so the game's
+    // own screens (a level editor's panels) are dimmed nearly out.
+    Image dim = Ui.Panel(
+      "Dim",
+      Root.transform,
+      0,
+      0,
+      ViewWidth,
+      ViewHeight,
+      new Color(0, 0, 0, noticesInDock ? .965f : .92f),
+      false
+    );
     dim.raycastTarget = true;
     Stage = Ui.Rect("Stage", Root.transform, 0, 0, ViewWidth, ViewHeight);
     Scale = Mathf.Clamp(Mathf.Min(ViewWidth / 1120f, ViewHeight / 760f), .55f, 2f);

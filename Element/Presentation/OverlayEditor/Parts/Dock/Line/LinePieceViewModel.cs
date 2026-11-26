@@ -41,10 +41,4 @@ internal sealed class LinePieceViewModel : ViewModel
 
   /// <summary>A condition's slots in order (compared value, comparison, compared with, result, otherwise), or a group's one.</summary>
   public LineSlotViewModel[] Slots = Array.Empty<LineSlotViewModel>();
-
-  /// <summary>A condition's comparison, as its sign.</summary>
-  public string Compare = "";
-
-  /// <summary>A condition's comparison is what is picked.</summary>
-  public bool CompareSelected;
 }

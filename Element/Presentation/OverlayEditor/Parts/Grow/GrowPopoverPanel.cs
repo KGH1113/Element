@@ -1,6 +1,5 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
@@ -11,35 +10,25 @@ namespace Element.Presentation.OverlayEditor.Parts.Grow;
 
 /// <summary>
 /// Which point of the element stays put when it changes size: a panel under
-/// the Grow from button showing <see cref="GrowPopoverView"/>, or, in an
-/// editor with an input dock, the point field's input method
-/// (<see cref="GrowKeysView"/>) standing where the keypad does. Made with
-/// the editor's screen and shown or hidden.
+/// the Grow from button showing <see cref="GrowPopoverView"/>, made with the
+/// editor's screen and shown or hidden. (The text and shape editors pick the
+/// point in their input dock instead: <see cref="GrowKeysView"/>.)
 /// </summary>
 internal sealed class GrowPopoverPanel : IPopover
 {
-  private const float PopoverWidth = 312;
+  private const float Width = 312;
 
   private readonly EditorFramePanel _screen;
   private readonly ScreenPanel _panel;
-  private readonly float _width;
   private Rect _anchor;
-  private Vector2? _place;
 
   /// <param name="picked">A point or Auto was clicked; show the choice with <see cref="Refresh"/>.</param>
-  /// <param name="asInputMethod">It stands in an input dock, where the keypad does, without a panel of its own.</param>
-  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked, bool asInputMethod = false)
+  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked)
   {
     _screen = screen;
-    _width = asInputMethod ? KeypadView.Width : PopoverWidth;
     ViewModel = new GrowPickerViewModel(picked);
-    _panel = screen.Panel("Grow popover", asInputMethod ? Color.clear : UiPalette.Popover);
-    _panel.Mount(
-      screen.NewBackend(),
-      asInputMethod ? new GrowKeysView(ViewModel) : new GrowPopoverView(ViewModel),
-      ViewModel,
-      _width
-    );
+    _panel = screen.Panel("Grow popover", UiPalette.Popover);
+    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel), ViewModel, Width);
     Root.gameObject.SetActive(false);
   }
 
@@ -54,16 +43,6 @@ internal sealed class GrowPopoverPanel : IPopover
   public void Show(Rect anchor)
   {
     _anchor = anchor;
-    _place = null;
-    Root.gameObject.SetActive(true);
-    Place();
-    Root.SetAsLastSibling();
-  }
-
-  /// <summary>Stands in an input dock: its top left at <paramref name="at"/> (frame units), where the input method is drawn.</summary>
-  public void ShowAt(Vector2 at)
-  {
-    _place = at;
     Root.gameObject.SetActive(true);
     Place();
     Root.SetAsLastSibling();
@@ -74,7 +53,7 @@ internal sealed class GrowPopoverPanel : IPopover
   {
     ViewModel.Show(growth, point);
     // The caption may take another line.
-    _panel.Refit(_width);
+    _panel.Refit(Width);
     if (Visible)
       Place();
   }
@@ -82,11 +61,6 @@ internal sealed class GrowPopoverPanel : IPopover
   private void Place()
   {
     Vector2 size = _panel.Size;
-    if (_place is { } place)
-    {
-      Root.anchoredPosition = new Vector2(Mathf.Round(place.x), -Mathf.Round(place.y));
-      return;
-    }
     Rect bounds = PopoverPlacement.Under(
       _anchor,
       _anchor.center.x - size.x * .5f,

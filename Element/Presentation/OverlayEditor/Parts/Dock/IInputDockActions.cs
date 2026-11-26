@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 
@@ -29,6 +30,15 @@ internal interface IInputDockActions
 
   /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
   void Switch(bool value);
+
+  /// <summary>The nine points: the picked point becomes <paramref name="point"/>.</summary>
+  void Point(OverlayGrowth point);
+
+  /// <summary>
+  /// A slot of the picked condition clicked in its input method: the dock
+  /// goes into it, its line and input method that slot's from then on.
+  /// </summary>
+  void Enter(int slot);
 
   /// <summary>지우기: the picked value is taken out.</summary>
   void Remove();

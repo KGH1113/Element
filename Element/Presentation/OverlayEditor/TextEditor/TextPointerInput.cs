@@ -3,7 +3,6 @@ using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
-using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using ElementUI;
@@ -28,7 +27,6 @@ internal sealed class TextPointerInput
   private readonly TextColor _color;
   private readonly TextFonts _fonts;
   private readonly TextGradient _gradient;
-  private readonly GrowFrom _grow;
   private bool _dragging;
   private float _lastClick = -1;
   private int _clicks;
@@ -41,8 +39,7 @@ internal sealed class TextPointerInput
     TextLayoutMap map,
     TextColor color,
     TextFonts fonts,
-    TextGradient gradient,
-    GrowFrom grow
+    TextGradient gradient
   )
   {
     _editor = editor;
@@ -53,7 +50,6 @@ internal sealed class TextPointerInput
     _color = color;
     _fonts = fonts;
     _gradient = gradient;
-    _grow = grow;
   }
 
   public void HandleMouse()
@@ -67,7 +63,6 @@ internal sealed class TextPointerInput
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         _context.DockPanel.Contains(screen)
-        || _grow.Contains(screen)
         || _fonts.Contains(screen)
         || _context.Inspector.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
@@ -96,8 +91,6 @@ internal sealed class TextPointerInput
           _editor.Render();
           return;
         }
-        // The points are the element's, not the value's: they give the dock back.
-        _grow.Hide();
         _formulas.OpenChip(value);
         return;
       }
@@ -159,7 +152,6 @@ internal sealed class TextPointerInput
       DragSession.Active
       || _dragging
       || _context.DockPanel.Contains(screen)
-      || _grow.Contains(screen)
       || _fonts.Contains(screen)
       || !_map.TryValueAt(screen, out int index)
     )

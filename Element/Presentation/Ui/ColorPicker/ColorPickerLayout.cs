@@ -45,17 +45,6 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
           .Frame(height: 36)
     );
 
-  /// <summary>With the choice in the dock, following the highlight says where a custom color is picked.</summary>
-  protected View DockNote() =>
-    VStack(
-        spacing: 2,
-        alignment: HAlignment.Leading,
-        UI.Text(() => VM.DockNoteTitle.Value).Font(Font.Caption.Sized(13)).LineLimit(3),
-        UI.Text(() => VM.DockNoteBody.Value).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted).LineLimit(2)
-      )
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
-      .Padding(new Insets(2, 2, 0, 2));
-
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>
   protected View HexRow() =>
     HStack(
@@ -176,8 +165,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
       spacing: 0,
       OpacityRow(),
       Opacity().Padding(new Insets(10, 0, 0, 0)),
-      Error(14).Padding(new Insets(2, 0, 0, 0)),
-      If(() => VM.DockNote.Value, () => DockNote().Padding(new Insets(10, 0, 0, 0)))
+      Error(14).Padding(new Insets(2, 0, 0, 0))
     );
 
   /// <summary>The close button of a picker with a title.</summary>

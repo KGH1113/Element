@@ -28,6 +28,11 @@ public sealed class OverlayLayoutSettings
   public float OffsetY;
   public OverlayGrowth GrowFrom = OverlayGrowth.Auto;
 
+  // The grow point as a variable, when it is worked out (a condition giving
+  // points); empty while it is the plain point above, which then also keeps
+  // the point last worked out.
+  public string GrowFromFormula = string.Empty;
+
   // A text converted from a built-in overlay sits where that overlay did until
   // it is moved. Empty for elements added in the editor.
   public string DefaultPlacement = string.Empty;
@@ -83,6 +88,7 @@ public sealed class OverlayLayoutSettings
     OffsetX = source.OffsetX;
     OffsetY = source.OffsetY;
     GrowFrom = source.GrowFrom;
+    GrowFromFormula = source.GrowFromFormula;
   }
 
   public bool SameAs(OverlayLayoutSettings other) =>
@@ -99,6 +105,7 @@ public sealed class OverlayLayoutSettings
     && OffsetX == other.OffsetX
     && OffsetY == other.OffsetY
     && GrowFrom == other.GrowFrom
+    && (GrowFromFormula ?? string.Empty) == (other.GrowFromFormula ?? string.Empty)
     && DefaultPlacement == other.DefaultPlacement
     && PendingGroup == other.PendingGroup
     && Group == other.Group

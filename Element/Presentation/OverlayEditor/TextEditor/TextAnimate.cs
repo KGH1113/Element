@@ -57,7 +57,9 @@ internal sealed class TextAnimate
   private OverlayVariable Read()
   {
     _text.Range(out int start, out int end);
-    return new OverlayVariable(OverlayPiece.BoolPiece(_text.Document.AnimateState(start, end) == OverlayAnimateState.On));
+    return new OverlayVariable(
+      OverlayPiece.BoolPiece(_text.Document.AnimateState(start, end) == OverlayAnimateState.On)
+    );
   }
 
   // Only a plain 참 or 거짓 is kept: growth is a switch of the text's values.
@@ -70,18 +72,9 @@ internal sealed class TextAnimate
     OverlayAnimateState state = _text.Document.AnimateState(start, end);
     if (state == OverlayAnimateState.NoValues)
     {
+      // Nothing in the range can grow: there is no value to follow.
       if (animate)
-        _editor.Notice(
-          _text.HasSelection
-            ? L(
-              "고른 부분에 값이 없어요. 값까지 함께 고르면 그 값이 바뀔 때마다 움직여요.",
-              "The selection has no value. Include a value to make it move each time it changes."
-            )
-            : L(
-              "아직 움직일 값이 없어요. 값을 넣으면 그 값이 바뀔 때마다 움직여요.",
-              "There's no value to move yet. Add one and it moves each time it changes."
-            )
-        );
+        _editor.Refuse();
       return;
     }
     if (state == (animate ? OverlayAnimateState.On : OverlayAnimateState.Off))
@@ -90,13 +83,6 @@ internal sealed class TextAnimate
     _text.Document.SetAnimate(start, end, animate);
     if (!animate)
       return;
-    _editor.Notice(
-      L(
-        "값이 바뀔 때마다 잠깐 커졌다가 돌아와요.",
-        "Each time the value changes, it grows for a moment and settles back."
-      ),
-      false
-    );
     // Every value in the preview is a link, in order.
     int link = 0;
     for (int i = 0; i < end; i++)

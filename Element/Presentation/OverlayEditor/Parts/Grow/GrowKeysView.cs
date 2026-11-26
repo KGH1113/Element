@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Theme;
@@ -10,14 +11,13 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Grow;
 
 /// <summary>
-/// The point field's input method, in the keypad's place: the nine points as
-/// keys, three by three, Auto under them, and beside them what the choice
-/// does.
+/// A point's input method, in the keypad's place: the nine points as keys,
+/// three by three, and Auto under them.
 /// </summary>
 internal sealed class GrowKeysView : View<GrowPickerViewModel>
 {
-  private const float Gap = 6,
-    AutoHeight = 32;
+  private const float Gap = 8,
+    AutoHeight = 40;
 
   private readonly UiColor _rest = UiPalette.EditorControl;
   private readonly UiColor _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .34f);
@@ -28,38 +28,27 @@ internal sealed class GrowKeysView : View<GrowPickerViewModel>
     : base(vm) { }
 
   public override View Body =>
-    HStack(
-        spacing: 14,
-        alignment: VAlignment.Top,
-        VStack(
-          spacing: Gap,
-          HAlignment.Leading,
-          Grid(3, Gap, Keys()),
-          Button(
-              UI.Text(L("자동", "Auto"))
-                .Font(Font.Body.Sized(14))
-                .LineLimit(1)
-                .Padding(0, 16)
-                .Frame(height: AutoHeight),
-              () => VM.Auto,
-              ButtonStyle.Plain
-            )
-            .ButtonStyle(new ButtonSurfaceStyle(() => VM.IsAuto.Value ? _lit : _rest, 10))
-            .Overlay(
-              RoundedRectangle(10)
-                .Stroke(() => VM.IsAuto.Value ? _edge : _noEdge, FieldLook.Edge)
-                .AllowsHitTesting(false)
-            )
-            .Named("Grow automatically")
-        ),
-        UI.Text(() => VM.Says.Value)
-          .Font(Font.Caption.Sized(12))
-          .Foreground(Colors.Muted)
-          .LineLimit(6)
-          .Named("Caption")
-          .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
+    VStack(
+        spacing: Gap,
+        HAlignment.Leading,
+        // Square, as the box they are the points of.
+        Grid(3, Gap, Keys()).Frame(width: GrowKeyView.Size * 3 + Gap * 2),
+        Button(
+            UI.Text(L("자동", "Auto"))
+              .Font(Font.Body.Sized(15))
+              .LineLimit(1)
+              .TextAlignment(TextAlign.Center)
+              .Frame(width: GrowKeyView.Size * 3 + Gap * 2, height: AutoHeight),
+            () => VM.Auto,
+            ButtonStyle.Plain
+          )
+          .ButtonStyle(new ButtonSurfaceStyle(() => VM.IsAuto.Value ? _lit : _rest, 10))
+          .Overlay(
+            RoundedRectangle(10).Stroke(() => VM.IsAuto.Value ? _edge : _noEdge, FieldLook.Edge).AllowsHitTesting(false)
+          )
+          .Named("Grow automatically")
       )
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
+      .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight, alignment: Alignment.TopLeading);
 
   private View[] Keys()
   {

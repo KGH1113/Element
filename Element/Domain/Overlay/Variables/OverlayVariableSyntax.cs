@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
@@ -8,7 +9,7 @@ namespace Element.Domain.Overlay.Variables;
 /// How a variable is written and saved. One value alone saves as its key, so
 /// texts from 1.1 read unchanged; otherwise values go in braces
 /// (<c>{combo}*2</c>), words in quotes (<c>"FC"</c>), colors as #RRGGBB,
-/// true or false as such, a condition as
+/// true or false as such, a point as <c>at(TopLeft)</c>, a condition as
 /// <c>if(left;compare;right;result;default)</c> and a group in parentheses.
 /// Pieces side by side are kept apart by a space.
 /// </summary>
@@ -87,6 +88,9 @@ internal static class OverlayVariableSyntax
           break;
         case OverlayPieceKind.Compare:
           builder.Append(CompareText(piece.Op));
+          break;
+        case OverlayPieceKind.Point:
+          builder.Append("at(").Append(piece.Point.ToString()).Append(')');
           break;
         case OverlayPieceKind.Operator:
           builder.Append(piece.Op);
@@ -200,6 +204,16 @@ internal static class OverlayVariableSyntax
         }
         Close(text, ref at);
         variable.Add(OverlayPiece.ConditionPiece(slots[0], slots[1], slots[2], slots[3], slots[4]));
+        continue;
+      }
+      if (Word(text, at, "at("))
+      {
+        int close = text.IndexOf(')', at + 3);
+        string name = (close < 0 ? text.Substring(at + 3) : text.Substring(at + 3, close - at - 3)).Trim();
+        at = close < 0 ? text.Length : close + 1;
+        // A point this version doesn't know drops out.
+        if (Enum.TryParse(name, true, out OverlayGrowth point) && Enum.IsDefined(typeof(OverlayGrowth), point))
+          variable.Add(OverlayPiece.PointPiece(point));
         continue;
       }
       if (Word(text, at, "true") || Word(text, at, "false"))
@@ -356,6 +370,9 @@ internal static class OverlayVariableSyntax
         case OverlayPieceKind.Compare:
         case OverlayPieceKind.Operator:
           builder.Append(OverlayVariable.Symbol(piece.Op));
+          break;
+        case OverlayPieceKind.Point:
+          builder.Append(words.Point(piece.Point));
           break;
         case OverlayPieceKind.Value:
           builder.Append(name(OverlayValueCatalog.Get(piece.Value)));

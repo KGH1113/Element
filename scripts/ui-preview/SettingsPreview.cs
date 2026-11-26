@@ -396,13 +396,13 @@ namespace Element.Editor
       Assert(editor.NativeExclusionBounds == new Rect(0, 0, Screen.width, Screen.height), "the shape editor covers native viewers");
       float scale = shape.EffectiveScale;
       DockProbe dock = DockOf(shapes);
-      Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0
+      Assert(dock.Root.gameObject.activeInHierarchy && dock.MethodRoot.gameObject.activeInHierarchy && dock.Owner == null && !dock.Vm.Line.Open
         && DockKeys(dock).All(key => !key.IsInteractable()) && !DockKeys(dock).Any(key => key.name == "Key 7")
-        && ByName<TextMeshProUGUI>(dock.Root, "Input rest").text.Length > 0,
-        "the input dock is always there, resting: no keypad, a word on input methods in its place, until a number is clicked");
-      TextMeshProUGUI valuesRest = ByName<TextMeshProUGUI>(dock.Root, "Values rest");
-      Assert(Shown(valuesRest) && valuesRest.text == L("값이나 칸을 고르면 거기에 넣을 수 있는 값만 여기 나와요.", "Pick a value or a field, and the values that fit there show here.") && DockChips(dock).Length == 0,
-        "with no number picked the dock lists no values and says what to do: " + (valuesRest == null ? "" : valuesRest.text));
+        && !dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Input rest"),
+        "the input dock is always there, resting: a clear line, no keypad and no words, until a field is clicked");
+      Assert(!dock.Values.Listing.Value && DockChips(dock).Length == 0
+        && !dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Length > 0),
+        "with no field picked the left of the dock is clear: no values, and no sentence saying what to do");
       FormulaFieldView widthField = Measures(shapes).WidthField, heightField = Measures(shapes).HeightField;
       Assert(widthField.Text == "160" && heightField.Text == "160", "W and H show the size in pixels");
       Rect restingDock = ScreenRectOf(dock.Root);
@@ -481,7 +481,12 @@ namespace Element.Editor
       shapeRect = ScreenRectOf(ShapeRect(shapes));
       Assert(InsideScreen(dockRect) && dockRect.yMax < shapeRect.yMin && dockRect.yMax < ScreenRectOf(widthField.Root).yMin,
         "the dock sits below the shape and its numbers, never over them");
-      Assert(dockRect.width > Screen.width * .7f, "the dock spans the screen");
+      Rect methodRect = ScreenRectOf(dock.MethodRoot);
+      Assert(dockRect.xMax < methodRect.xMin && methodRect.xMax - dockRect.xMin > Screen.width * .7f
+        && Mathf.Abs(dockRect.yMin - methodRect.yMin) < 1 && Mathf.Abs(dockRect.yMax - methodRect.yMax) < 1,
+        "the dock is two columns side by side, as tall as each other, that span the screen: " + dockRect + " / " + methodRect);
+      Assert(methodRect.xMin >= ScreenRectOf(EditorInspector(shapes).Root).xMin - 1 && methodRect.yMax <= ScreenRectOf(EditorInspector(shapes).Root).yMin + 1,
+        "the input method stands under the fields, in their column");
       Assert(DockChips(dock).Length == dock.Values.Sections.Sum(section => section.Chips.Count(chip => chip.Fits.Value)) && DockChips(dock).Length > 0,
         "the dock lays out every value that fits, section by section: " + DockChips(dock).Length);
       Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - ValueBrowserView.ChipHeight) > .5f);
@@ -505,8 +510,8 @@ namespace Element.Editor
       ShapeNumbersOf(shapes).KeypadPress('0');
       Press(DockKey(dock, "Key done"));
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
-        && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Contains("10000"),
-        "Done lets the dock rest; a width past the limit is kept in range and says so");
+        && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length == 0,
+        "Done lets the dock rest; a width past the limit is kept in range, without a word");
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 160) < .01f, "keypad typing undoes as one step");
@@ -595,8 +600,9 @@ namespace Element.Editor
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.Owner == "color"
         && dock.Vm.Line.Name.Contains(Korean(name) ? "채우기 색" : "Fill color"),
         "the shape stays in sight, and the dock points at the picked color: " + dock.Vm.Line.Name);
-      Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root)) && picker.Model.DockNote.Value,
-        "a new shape follows the highlight: a note says where its color comes from");
+      Assert(picker.Model.FollowsHighlight && !ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root))
+        && !picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Length > 0),
+        "a new shape follows the highlight: the place shows that color, with no note");
       SaveFrame(camera, texture, canvases, name + "-shape-color");
       Press(DockChip(dock, "Value custom-color"));
       Settle();
@@ -670,13 +676,11 @@ namespace Element.Editor
 
       // Where the shape grows from.
       PressBar(shapes, shapeGrow);
-      GrowPopoverPanel grow = Field<GrowPopoverPanel>(Grow(shapes), "_popover");
-      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && shapeGrow.Active, "the grow point opens its points, on screen");
-      AssertInputMethod(shapes, grow.Root, L("입력기 · 아홉 자리", "Input method · Nine points"), L("기준점", "Grow from"), "");
-      CheckGrowPopover(Grow(shapes));
-      Call(Grow(shapes), "Pick", OverlayGrowth.TopLeft);
+      CheckGrowField(shapes, Grow(shapes));
+      Press(dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.TopLeft));
+      Settle();
       Assert(Field<UiCapsuleGraphic>(Grow(shapes), "_mark").gameObject.activeSelf, "the preview marks the point that stays put");
-      Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the button names the chosen point");
+      Assert(!shapeGrow.Value.Contains("Auto") && !shapeGrow.Value.Contains("자동"), "the field names the chosen point");
       SaveFrame(camera, texture, canvases, name + "-shape-grow");
       Call(shapes, "CloseOpen");
       Call(shapes, "Render");
@@ -713,7 +717,9 @@ namespace Element.Editor
       heightField = Measures(shapes).HeightField;
       Click(heightField.Root, "Height");
       ShapeNumbersOf(shapes).KeypadPress('9');
-      Call(Grow(shapes), "Pick", OverlayGrowth.Center);
+      PressBar(shapes, Grow(shapes).Button);
+      Press(DockOf(shapes).MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.Center));
+      Settle();
       PressEditorButton(shapes, "Shape editor cancel");
       Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
         && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
@@ -1148,8 +1154,8 @@ namespace Element.Editor
       screen.Tick();
       Assert(editorFade.alpha == 1, "the fade finishes");
       DockProbe dock = DockOf(text);
-      Assert(dock.Root.gameObject.activeInHierarchy && dock.Owner == null && dock.HintText.Length > 0,
-        "the input dock is always there, resting with a hint");
+      Assert(dock.Root.gameObject.activeInHierarchy && dock.MethodRoot.gameObject.activeInHierarchy && dock.Owner == null && !dock.Vm.Line.Open,
+        "the input dock is always there, its line clear while nothing is open");
       CheckEditorTopLine(text, "Text editor", L("텍스트 편집", "Edit text"));
       RectTransform format = EditorBarRoot(text);
       PropertyButtonViewModel sizeButton = Field<TextSize>(text, "_size").Button, colorButton = TextColorOf(text).Button,
@@ -1207,15 +1213,11 @@ namespace Element.Editor
       PressBar(text, animateButton);
       Assert(dock.Owner == TextFormulas.GrowKey && dock.Vm.Method.Value == Element.Presentation.OverlayEditor.Parts.Dock.DockMethod.Switch && animateButton.Active,
         "the field opens in the dock, set with the switch");
-      // Notices show right above the dock's formula line.
-      TextMeshProUGUI topLine = ByName<TextMeshProUGUI>(DockOf(text).Root, "Notice");
-      string animateNotice = Korean(name) ? "값이 바뀔 때마다" : "Each time the value changes";
-      Press(ByName<Pressable>(dock.Root, "Switch true"));
+      Press(ByName<Pressable>(dock.MethodRoot, "Switch true"));
       Settle();
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && previewPulse.Playing, "the switch makes FPS grow on each change and shows it once");
-      Assert(screen.ViewModel.NoticeText.Contains(animateNotice) && topLine.text.Contains(animateNotice),
-        "turning it on says what it does, on the screen: " + topLine.text);
+      Assert(screen.ViewModel.NoticeText.Length == 0, "nothing is said in words: the text itself shows the growth");
       Assert(animateButton.Value == said.Yes, "the field says it is on: " + animateButton.Value);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
@@ -1223,16 +1225,17 @@ namespace Element.Editor
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
       Call(text, "Render");
       PressBar(text, animateButton);
-      Press(ByName<Pressable>(dock.Root, "Switch true"));
+      int refused = dock.Vm.Line.Shake.Asked;
+      Press(ByName<Pressable>(dock.MethodRoot, "Switch true"));
       Settle();
       document = TextDocumentOf(text).Document;
-      Assert(document[6].Animate && screen.ViewModel.NoticeText.Contains(Korean(name) ? "값이 없어요" : "no value"),
-        "letters alone stay as they are and say why: " + screen.ViewModel.NoticeText);
+      Assert(document[6].Animate && dock.Vm.Line.Shake.Asked == refused + 1 && screen.ViewModel.NoticeText.Length == 0,
+        "letters alone stay as they are: the switch is refused with a shake, not a sentence");
       Press(DockKey(dock, "Key done"));
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
       PressBar(text, animateButton);
-      Press(ByName<Pressable>(dock.Root, "Switch false"));
+      Press(ByName<Pressable>(dock.MethodRoot, "Switch false"));
       Settle();
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "the switch turns it off without moving anything");
@@ -1310,9 +1313,10 @@ namespace Element.Editor
         && (bool)typeof(TextEditorScreen).GetMethod("InTextArea", Private).Invoke(text, new object[] { valuePoint }),
         "a click on the value in the text lands on it");
       Frames(() => QuietFrame(text), 3);
-      Assert(!dock.Root.GetComponentsInChildren<Pressable>(false).Any(key => key.name == "Key ×")
-        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Input rest" && label.text.Length > 0),
-        "with only the caret in the text there is no keypad: the place says words are typed on the keyboard");
+      Assert(!dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Any(key => key.name == "Key ×")
+        && dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Input rest" && label.text == L("키보드로 입력", "Type on the keyboard"))
+        && dock.MethodRoot.GetComponentsInChildren<UiIcon>(false).Any(icon => icon.Kind == UiIconKind.Keyboard),
+        "with only the caret in the text there is no keypad: a keyboard and three words say where the typing goes");
       // The frame before drew a change that took layout (a notice), and the
       // driver went back to sleep after it.
       screen.ViewModel.Notice(L("값을 골랐어요", "A value was picked"), false);
@@ -1439,11 +1443,9 @@ namespace Element.Editor
 
       // Where the text grows from.
       PressBar(text, textGrow);
-      GrowPopoverPanel grow = Field<GrowPopoverPanel>(Grow(text), "_popover");
-      Assert(grow.Visible && InsideScreen(ScreenRectOf(grow.Root)) && textGrow.Active, "the grow point opens its points, on screen");
-      AssertInputMethod(text, grow.Root, L("입력기 · 아홉 자리", "Input method · Nine points"), L("기준점", "Grow from"), "");
-      CheckGrowPopover(Grow(text));
-      Call(Grow(text), "Pick", OverlayGrowth.Right);
+      CheckGrowField(text, Grow(text));
+      Press(DockOf(text).MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.Right));
+      Settle();
       Assert(Field<UiCapsuleGraphic>(Grow(text), "_mark").gameObject.activeSelf, "the text marks the point that stays put");
       SaveFrame(camera, texture, canvases, name + "-text-grow");
       Call(text, "CloseOpen");
@@ -1472,10 +1474,9 @@ namespace Element.Editor
 
       Kind<TextKind>(editor).Add();
       Assert(text.IsOpen && TextDocumentOf(text).Document.Count == 0, "Add Element → Text opens an empty editor");
-      RectTransform hint = Field<TextMeshProUGUI>(TextMarksOf(text), "_placeholder").rectTransform, emptyCaret = Field<Image>(TextMarksOf(text), "_emptyCaret").rectTransform;
-      Assert(hint.gameObject.activeSelf && emptyCaret.gameObject.activeSelf && emptyCaret.anchoredPosition.x < hint.anchoredPosition.x
-        && Mathf.Abs((emptyCaret.anchoredPosition.y - emptyCaret.sizeDelta.y * .5f) - (hint.anchoredPosition.y - hint.sizeDelta.y * .5f)) < 1,
-        "an empty text shows its caret just before the hint, on one line");
+      RectTransform emptyCaret = Field<Image>(TextMarksOf(text), "_emptyCaret").rectTransform;
+      Assert(emptyCaret.gameObject.activeSelf && Mathf.Abs(ScreenRectOf(emptyCaret).center.x - TextPreviewOf(text).Center.x) < 4,
+        "an empty text shows only its caret, where the first letter will go");
       SaveFrame(camera, texture, canvases, name + "-text-new");
       TextOverlayElement added = host.LayoutTargets.OfType<TextOverlayElement>().Last();
       text.Close(false, true);
@@ -1620,7 +1621,7 @@ namespace Element.Editor
           + " / " + characters[3].fontAsset?.faceInfo.familyName);
       PropertyButtonViewModel textFont = Field<TextFonts>(text, "_fonts").Button;
       Assert(textFont.Value.StartsWith("American") && textFont.Active, "the row takes the selection's font, lit while the list is open: " + textFont.Value);
-      AssertInputMethod(text, textFonts.Root, L("입력기 · 폰트 목록", "Input method · Fonts"), L("폰트", "Font"), "“FPS” ›");
+      AssertInputMethod(text, textFonts.Root, Element.Presentation.OverlayEditor.Parts.Dock.DockMethod.Fonts, L("폰트", "Font"), "“FPS” ›");
       SaveFrame(camera, texture, canvases, name + "-text-font");
       // The list stays while another part is selected, marking that part's font; its pick is its own undo step.
       SetField(TextDocumentOf(text), "_anchor", 3);
@@ -1639,7 +1640,7 @@ namespace Element.Editor
       SetField(TextDocumentOf(text), "_caretIndex", 0);
       Call(text, "Render");
       Assert(textFonts.Visible, "a click that selects nothing keeps the list open");
-      AssertInputMethod(text, textFonts.Root, L("입력기 · 폰트 목록", "Input method · Fonts"), L("폰트", "Font"), L("글 전체 ›", "Whole text ›"));
+      AssertInputMethod(text, textFonts.Root, Element.Presentation.OverlayEditor.Parts.Dock.DockMethod.Fonts, L("폰트", "Font"), L("글 전체 ›", "Whole text ›"));
       SetField(TextDocumentOf(text), "_anchor", 0);
       SetField(TextDocumentOf(text), "_caretIndex", 3);
       Call(text, "Render");

@@ -1,4 +1,5 @@
 using System;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
@@ -38,6 +39,16 @@ internal static class OverlayVariableEvaluator
     if (!TrySingle(variable, source, 0, OverlayValueType.Bool, out OverlayPiece piece))
       return false;
     value = piece.Bool;
+    return true;
+  }
+
+  /// <summary>The point a variable gives: one picked, or what a condition gives.</summary>
+  public static bool TryPoint(OverlayVariable variable, IOverlayNumberSource source, out OverlayGrowth point)
+  {
+    point = OverlayGrowth.Auto;
+    if (!TrySingle(variable, source, 0, OverlayValueType.Point, out OverlayPiece piece))
+      return false;
+    point = piece.Point;
     return true;
   }
 
@@ -81,12 +92,17 @@ internal static class OverlayVariableEvaluator
 
   private static bool Holds(OverlayPiece condition, IOverlayNumberSource source, int depth)
   {
-    OverlayVariable compare = condition.Slots[OverlayPiece.Compare];
-    return compare.Count == 1
-      && compare[0].Kind == OverlayPieceKind.Compare
+    // The comparison is a value too: picked, or given by a condition of its own.
+    return TrySingle(
+        condition.Slots[OverlayPiece.Compare],
+        source,
+        depth + 1,
+        OverlayValueType.Compare,
+        out OverlayPiece compare
+      )
       && TryNumber(condition.Slots[OverlayPiece.Left], source, depth + 1, out double left, out _)
       && TryNumber(condition.Slots[OverlayPiece.Right], source, depth + 1, out double right, out _)
-      && Holds(compare[0].Op, left, right);
+      && Holds(compare.Op, left, right);
   }
 
   private static bool TryNumber(
@@ -124,6 +140,8 @@ internal static class OverlayVariableEvaluator
     {
       case OverlayPieceKind.Color when type == OverlayValueType.Color:
       case OverlayPieceKind.Bool when type == OverlayValueType.Bool:
+      case OverlayPieceKind.Compare when type == OverlayValueType.Compare:
+      case OverlayPieceKind.Point when type == OverlayValueType.Point:
         piece = only;
         return true;
       case OverlayPieceKind.Value when type == OverlayValueType.Color && OverlayValueCatalog.Get(only.Value).IsColor:

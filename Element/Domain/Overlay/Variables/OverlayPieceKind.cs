@@ -18,6 +18,9 @@ internal enum OverlayPieceKind
   /// <summary>One of &lt; ≤ = ≠ ≥ &gt;.</summary>
   Compare,
 
+  /// <summary>One of the nine points of an element's box, or Auto.</summary>
+  Point,
+
   /// <summary>+ − × ÷ between two numbers.</summary>
   Operator,
 

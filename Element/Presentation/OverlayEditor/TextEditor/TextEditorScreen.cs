@@ -5,6 +5,7 @@ using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
@@ -107,10 +108,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _gradient = new TextGradient(this, this, _text, _formulas, _preview, values);
     _color = new TextColor(this, this, _text, _formulas, _gradient, values, uiFont, reduceMotion);
     _animate = new TextAnimate(this, _text, _preview);
-    _formulas.Use(_size, _color, _gradient, _animate);
+    _grow = new GrowFrom();
+    _formulas.Use(_size, _color, _gradient, _animate, _grow);
     _fonts = new TextFonts(this, this, _text, _color);
-    _grow = new GrowFrom(CloseOpen, Render);
-    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient, _grow);
+    _pointer = new TextPointerInput(this, this, _text, _formulas, _map, _color, _fonts, _gradient);
     _keyboard = new TextKeyboardInput(this, this, _text, _formulas, _map, _preview);
   }
 
@@ -145,7 +146,12 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void ITextEditorActions.CloseTyping() => CloseTyping();
 
-  void IEditorActions.Notice(string message, bool warning) => _frame?.ViewModel.Notice(message, warning);
+  // "No" is shown, not said: the dock shakes, and what is in the way is outlined on the next draw.
+  void IEditorActions.Refuse()
+  {
+    _dock?.Alarm();
+    Render();
+  }
 
   // ---- What the dock asks for: everything done in the dock lands here ----
 
@@ -157,6 +163,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
   void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
   void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
+
+  void IInputDockActions.Point(OverlayGrowth point) => Edit(editing => editing.SetPoint(point));
+
+  void IInputDockActions.Enter(int slot) => _formulas.EnterSlot(slot);
 
   // A change the dock asked for, made to what it has open, then drawn.
   private void Edit(System.Action<FormulaEditing> change)
@@ -225,14 +235,13 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _color.BuildPicker(_frame);
     _gradient.BuildPicker(_frame.Ui, _color.Picker, _reduceMotion());
     // With nothing open, the dock lists what can go in at the caret.
-    _dock = new InputDockViewModel(_values, _formulas.Editing, _frame.ViewModel, this, _reduceMotion(), caret: true);
+    _dock = new InputDockViewModel(_values, _formulas.Editing, this, _reduceMotion(), caret: true);
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     _color.LayOutAbove(_dockPanel);
     BuildInspector();
     _fonts.Build(_frame, _element.Fonts, _reduceMotion());
     _grow.Build(_frame);
     _popovers.Clear();
-    _popovers.Add(_grow.Popover);
     _popovers.Add(_fonts.Popover);
   }
 
@@ -252,7 +261,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       _color.BuildOpacityButton(),
       _fonts.BuildButton(),
       _animate.BuildButton(() => _formulas.Activate(TextFormulas.GrowKey)),
-      _grow.BuildButton()
+      _grow.BuildButton(() => _formulas.Activate(GrowFrom.Key))
     );
     _grow.Button.Section.Value = L("요소", "Element");
   }
@@ -416,13 +425,10 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _color.Place(_dockPanel, _inspector);
     _gradient.Show();
     _fonts.Place(_dockPanel);
-    _grow.Place(_dockPanel);
     _inspector.Show(OpenTool(), OpenToolRoot());
-    // A font or a point is picked from its own list: while one is open, the dock shows that field.
+    // A font is picked from its own list: while that is open, the dock shows the font field.
     if (_fonts.Visible)
       _fonts.ShowIn(_dock, _formulas.LookOwner() + " ›");
-    else if (_grow.Visible)
-      _grow.ShowIn(_dock);
     else
       _formulas.Refresh(_dock);
     PlaceGrowMark();
@@ -455,20 +461,20 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     _color.ShowOpacityButton();
     _animate.Show(_formulas.Field == TextFormulas.GrowKey);
     _fonts.ShowButton();
-    _grow.ShowButton();
+    _grow.ShowButton(_formulas.Edits(GrowFrom.Key, out OverlayVariable point), point, _values.WithSamples);
     _color.ShowOpacity();
   }
 
-  // While the grow popover is open, a dot marks the point that stays put.
+  // While the grow point's field is open, a dot marks the point that stays put.
   private void PlaceGrowMark()
   {
-    if (!_grow.Visible)
+    if (!_formulas.Edits(GrowFrom.Key, out OverlayVariable typed))
     {
       _grow.HideMark();
       return;
     }
     Rect text = _frame.FrameRect(_preview.Text.rectTransform);
-    _grow.PlaceMark(text.x, text.y, text.width, text.height);
+    _grow.PlaceMark(text.x, text.y, text.width, text.height, _grow.Growth(_values.WithSamples, typed));
   }
 
   // The column's open tool goes on with a new selection, or with the whole
@@ -552,7 +558,7 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     }
     // Where it grows from is part of its placement, saved with the text.
     if (commit && element?.Settings != null)
-      element.SetGrowFrom(_grow.Growth);
+      _grow.Save(element, _values);
     Input.imeCompositionMode = IMECompositionMode.Auto;
     _color.DisposePicker();
     _frame.Dispose();

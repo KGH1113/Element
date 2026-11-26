@@ -1,4 +1,3 @@
-using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Variables;
@@ -9,6 +8,7 @@ using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.OverlayEditor.Parts.Property;
@@ -70,13 +70,7 @@ internal sealed class TextColor
       _editor.CloseOpen,
       _editor.Render
     );
-    OpacitySlot = new FormulaSlot(
-      TextFormulas.OpacityKey,
-      OverlayValueType.Number,
-      ReadOpacity,
-      WriteOpacity,
-      () => FormulaFieldView.Number(_text.RangeColor().Alpha * 100) + "%"
-    );
+    OpacitySlot = new FormulaSlot(TextFormulas.OpacityKey, OverlayValueType.Number, ReadOpacity, WriteOpacity);
     Cases = new ColorCases(_picker, _text.RangeColor, WriteColor, _editor.Render);
   }
 
@@ -253,20 +247,6 @@ internal sealed class TextColor
       opacity
     );
   }
-
-  /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
-  public string Hint() =>
-    Picker.Visible && Picker.Gradient.IsGradient
-      ? L(
-        "글자 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the text color · Drop a value on an opacity, position or angle to calculate it"
-      )
-    : Picker.Visible
-      ? L(
-        "글자 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the text color · Drop a value on the opacity to calculate it"
-      )
-    : null;
 
   // A picked gradient color has its own opacity.
   private OverlayVariable ReadOpacity() =>

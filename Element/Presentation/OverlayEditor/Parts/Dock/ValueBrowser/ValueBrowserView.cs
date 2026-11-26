@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
-using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
@@ -20,29 +20,27 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// The dock's values, as tall as the input method beside them: only those
-/// that fit where values go now. Under a mark of the type and words that
-/// name the place ("숫자 칸에 넣을 수 있는 값"), one section per built-in
+/// The dock's values, under the line: only those that fit where values go
+/// now. Under a mark of the type and a short title, one section per built-in
 /// category and per mod, each a small heading over its chips, a mod's in a
-/// row per group; a section with nothing that fits is left out. After them,
-/// in a muted ink, how many values were left out. Each chip leads with its
-/// type's mark, names its value and, in a muted ink, says what it reads now.
-/// With nothing open, or a sign to pick, a line says what to do instead.
-/// Only the sections scroll, a slim bar and a fading edge saying more lies
-/// beyond.
+/// row per group; a section with nothing that fits is left out. Each chip
+/// leads with its type's mark, names its value and, in a muted ink, says
+/// what it reads now. Where no value can go, the place is clear. Only the
+/// sections scroll, a slim bar and a fading edge saying more lies beyond.
 /// </summary>
 internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
-  public const float TitleHeight = KeypadView.TitleHeight,
-    ListHeight = KeypadView.Height - TitleHeight,
+  public const float TitleHeight = 30,
+    // With the hairline and the line over it, as tall as the input method beside it.
+    Height = InputDockView.Height - 1 - FormulaLineView.Height,
+    ListHeight = Height - TitleHeight,
     ChipHeight = 30,
     ChipGap = 6,
     SectionGap = 10,
     HeadingHeight = 18,
     HeadingGap = 5,
     GroupGap = 6,
-    LiveWidth = 150,
-    NoteHeight = 22;
+    LiveWidth = 150;
 
   // A value is the same pill in the list as on the line.
   private static readonly UiColor ChipFill = FieldLook.Chip,
@@ -53,31 +51,21 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
     : base(vm) { }
 
   public override View Body =>
-    If(() => VM.Listing.Value, Listed, Resting)
-      .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading)
+    If(() => VM.Listing.Value, Listed, () => Spacer())
+      .Frame(maxWidth: float.PositiveInfinity, height: Height, alignment: Alignment.TopLeading)
       // A few times a second while shown, the chips take what their values read now.
       .OnChange(() => VM.Live.Tick, _ => VM.Follow())
       // Only when where values go changes, the list keeps what fits there.
       .OnChange(() => VM.Place.Value, VM.Refit);
 
-  // Nothing to list here: what to do instead, where the title would be.
-  private View Resting() =>
-    UI.Text(() => VM.Rest.Value)
-      .Font(Font.Caption.Sized(13))
-      .Foreground(Colors.Muted)
-      .LineLimit(2)
-      .Named("Values rest")
-      .Padding(new Insets(4, 2, 0, 0))
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
-
   private View Listed() =>
     VStack(
       spacing: 0,
-      // The type that goes there, then where that is.
+      // The type that goes there, then what the list is.
       HStack(
           spacing: 8,
           Switch(() => VM.Type.Value, type => TypeMarks.Mark(type).Named("Values type")),
-          UI.Text(() => VM.Title.Value)
+          UI.Text(L("넣을 수 있는 값", "Values that fit"))
             .Font(Font.Caption.Sized(14).Bolded())
             .Foreground(Colors.Foreground)
             .LineLimit(1)
@@ -93,21 +81,12 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         .Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
     );
 
-  // Every section is made once; one with no value that fits is left out. Last, how many were left out.
+  // Every section is made once; one with no value that fits is left out.
   private View[] Sections()
   {
     List<View> sections = new();
     foreach (ValueFolderViewModel folder in VM.Sections)
       sections.Add(If(() => folder.Shown.Value, () => Section(folder)));
-    sections.Add(
-      UI.Text(() => VM.Hidden.Value)
-        .Font(Font.Caption.Sized(12))
-        .Foreground(Colors.Muted)
-        .LineLimit(1)
-        .Named("Values hidden")
-        .Padding(new Insets(0, 2, 0, 0))
-        .Frame(maxWidth: float.PositiveInfinity, height: NoteHeight, alignment: Alignment.BottomLeading)
-    );
     return sections.ToArray();
   }
 

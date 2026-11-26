@@ -15,4 +15,10 @@ internal enum OverlayValueKind
 
   /// <summary>Whatever is put in it: a condition, a group.</summary>
   Any,
+
+  /// <summary>One of &lt; ≤ = ≠ ≥ &gt;, which a condition compares by.</summary>
+  Compare,
+
+  /// <summary>A point of an element's box, or Auto.</summary>
+  Point,
 }

@@ -1,11 +1,12 @@
 using System.Globalization;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
 
 /// <summary>
 /// One piece of a variable: something typed or picked (a number, words, a
-/// color, true or false, a comparison), an operator, a live value, a
+/// color, true or false, a comparison, a point), an operator, a live value, a
 /// condition with its five slots, or a variable inside the variable. Pieces
 /// are changed in place while they are edited; copy one with
 /// <see cref="Clone"/> to keep it.
@@ -33,6 +34,9 @@ internal sealed class OverlayPiece
 
   public bool Bool { get; set; }
 
+  /// <summary>A point of an element's box, or Auto.</summary>
+  public OverlayGrowth Point { get; set; } = OverlayGrowth.Auto;
+
   /// <summary>A condition's five slots, or a group's one; empty for the rest.</summary>
   public OverlayVariable[] Slots { get; private set; } = System.Array.Empty<OverlayVariable>();
 
@@ -48,6 +52,8 @@ internal sealed class OverlayPiece
   public static OverlayPiece BoolPiece(bool value) => new(OverlayPieceKind.Bool) { Bool = value };
 
   public static OverlayPiece ComparePiece(char op) => new(OverlayPieceKind.Compare) { Op = op };
+
+  public static OverlayPiece PointPiece(OverlayGrowth point) => new(OverlayPieceKind.Point) { Point = point };
 
   public static OverlayPiece OperatorPiece(char op) => new(OverlayPieceKind.Operator) { Op = op };
 
@@ -94,6 +100,7 @@ internal sealed class OverlayPiece
       Value = Value,
       Op = Op,
       Bool = Bool,
+      Point = Point,
     };
     if (Slots.Length > 0)
     {
@@ -113,6 +120,7 @@ internal sealed class OverlayPiece
       || Value != other.Value
       || Op != other.Op
       || Bool != other.Bool
+      || Point != other.Point
     )
       return false;
     if (Slots.Length != other.Slots.Length)

@@ -12,7 +12,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Line;
 /// A variable laid out on the line: its pieces side by side, in a thin
 /// outline unless it is the field's own. Empty, it says what goes in it with
 /// that type's mark, and a click makes it the place a value goes, its outline
-/// the highlight color. What is missing is said under the line, in words.
+/// the highlight color. What is missing is outlined in the warning color
+/// once Apply was refused.
 /// </summary>
 internal sealed class LineSlotView : View<LineSlotViewModel>
 {
@@ -23,6 +24,7 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
   private readonly UiColor _edge = FieldLook.SlotEdge;
   private readonly UiColor _fill = FieldLook.Slot;
   private readonly UiColor _clear = FieldLook.Clear;
+  private readonly UiColor _bad = UiPalette.Error;
   private readonly UiColor _ink = Colors.Foreground;
   private readonly UiColor _quiet = Colors.Muted;
 
@@ -59,6 +61,8 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
           .Stroke(
             () =>
               VM.Root && VM.Pieces.Length > 0 ? _clear
+              // After a refused Apply, an empty place that must hold something says so.
+              : VM.Missing && _line.Alarmed ? _bad
               : VM.Targeted ? _ring
               : _edge,
             FieldLook.Edge

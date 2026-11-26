@@ -10,6 +10,7 @@ using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.Graphics;
 using UnityEngine;
@@ -38,6 +39,7 @@ internal sealed class ShapeNumbers
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly FormulaEditing _editing = new();
   private ShapeGradient _gradient;
+  private GrowFrom _grow;
   private PropertyButtonViewModel _strokeWidth;
   private FormulaSlot _slot;
 
@@ -62,8 +64,12 @@ internal sealed class ShapeNumbers
   /// <summary>The bar's Border width button; made by <see cref="BuildStrokeWidth"/>.</summary>
   public PropertyButtonViewModel StrokeWidth => _strokeWidth;
 
-  /// <summary>The gradient reads and writes its own numbers.</summary>
-  public void Use(ShapeGradient gradient) => _gradient = gradient;
+  /// <summary>The gradient reads and writes its own numbers; the grow point is a field of its own type.</summary>
+  public void Use(ShapeGradient gradient, GrowFrom grow)
+  {
+    _gradient = gradient;
+    _grow = grow;
+  }
 
   public PropertyButtonViewModel BuildStrokeWidth() =>
     _strokeWidth = new PropertyButtonViewModel(
@@ -82,14 +88,10 @@ internal sealed class ShapeNumbers
   /// <summary>The keypad's way to read and write the number of <paramref name="key"/>.</summary>
   public FormulaSlot Slot(string key)
   {
+    if (key == GrowFrom.Key)
+      return _grow.Slot;
     if (_slot == null || _slot.Key != key)
-      _slot = new FormulaSlot(
-        key,
-        OverlayValueType.Number,
-        () => Read(key),
-        formula => Write(key, formula),
-        () => PlainText(key)
-      );
+      _slot = new FormulaSlot(key, OverlayValueType.Number, () => Read(key), formula => Write(key, formula));
     return _slot;
   }
 
@@ -111,12 +113,6 @@ internal sealed class ShapeNumbers
       "radius" when index >= 0 && index < shape.Points.Count => shape.Points[index].Radius * scale,
       _ => double.NaN,
     };
-  }
-
-  private string PlainText(string key)
-  {
-    double plain = Plain(key);
-    return double.IsNaN(plain) ? null : FormulaFieldView.Number(plain) + Unit(key);
   }
 
   private static string Unit(string key)
@@ -219,28 +215,13 @@ internal sealed class ShapeNumbers
 
   // ---- The dock ----
 
-  /// <summary>Leaves the open number, saying so when what was typed had to be brought into range.</summary>
+  /// <summary>Leaves the open field; a number out of its range was already brought into it.</summary>
   public void Finish()
   {
     if (Field == null)
       return;
-    string key = Field;
-    OverlayVariable typed = _editing.Root;
     Field = null;
     _editing.Deactivate();
-    if (typed == null || !typed.IsPlainNumber(out double number) || _context.Frame == null)
-      return;
-    string kind = Kind(key, out _);
-    if ((kind == ShapeMeasures.WidthKey || kind == ShapeMeasures.HeightKey) && (number < 1 || number > MaximumSize))
-      _editor.Notice(L("너비와 높이는 1–10000px 사이로 맞췄어요", "Width and height were kept between 1 and 10000px"));
-    else if (kind == StrokeKey && (number < 0 || number > MaximumStroke))
-      _editor.Notice(L("테두리 두께는 0–100px 사이로 맞췄어요", "Border width was kept between 0 and 100px"));
-    else if (kind.EndsWith("opacity") && OpacityFieldView.OutOfRange(typed))
-      _editor.Notice(L("불투명도는 0–100% 사이로 맞췄어요", "Opacity was kept between 0 and 100%"));
-    else if (kind.EndsWith("position") && (number < 0 || number > 100))
-      _editor.Notice(L("색 위치는 0–100% 사이로 맞췄어요", "The color's position was kept between 0 and 100%"));
-    else if (kind == "radius" && !Read(key).SameAs(OverlayVariable.FromNumber(number)))
-      _editor.Notice(L("둥글기는 이 꼭짓점에 들어가는 만큼만 적용돼요", "Rounding was kept to what fits this corner"));
   }
 
   public void KeypadPress(char key)
@@ -262,14 +243,47 @@ internal sealed class ShapeNumbers
     _history.Break();
   }
 
+  /// <summary>
+  /// Apply: inside a condition's slot it goes back to the condition; else
+  /// what is open is done, once it fits its field. Until then it is refused.
+  /// </summary>
   public void FinishEditing()
   {
+    if (_editing.Active && LeaveSlot())
+    {
+      _editor.Render();
+      return;
+    }
     if (_editing.Active && _editing.Problem != null)
     {
-      _editor.Notice(FormulaRefusals.Explain(_editing.Problem));
+      _editor.Refuse();
       return;
     }
     _editor.CloseOpen();
+    _editor.Render();
+  }
+
+  // Out of the slots gone into, as far as the nearest condition, which is then picked: its five slots show again.
+  private bool LeaveSlot()
+  {
+    bool left = false;
+    while (_editing.Path.Count > 1)
+    {
+      bool condition = _editing.Path[_editing.Path.Count - 1].Owner?.Kind == OverlayPieceKind.Condition;
+      _editing.Back();
+      left = true;
+      if (condition)
+        break;
+    }
+    return left;
+  }
+
+  /// <summary>The dock goes into slot <paramref name="slot"/> of the picked condition.</summary>
+  public void EnterSlot(int slot)
+  {
+    if (!_editing.Active || !_editing.CanEnter(slot))
+      return;
+    _editing.Enter(slot);
     _editor.Render();
   }
 
@@ -279,34 +293,35 @@ internal sealed class ShapeNumbers
     if (_context.Frame == null)
       return;
     if (!_editing.Active)
-    {
-      _editor.Notice(L("먼저 값을 넣을 숫자를 고르세요", "Pick the number for it first"), false);
       return;
-    }
     if (_editing.Drop(_editing.Slot, value) == FormulaDropResult.Refused)
       Refuse(value);
     _editor.Render();
   }
 
-  /// <summary>Says why <paramref name="value"/> can't go where it was put.</summary>
-  public void Refuse(OverlayValueDefinition value) => _editor.Notice(FormulaRefusals.Why(value, _editing));
+  /// <summary><paramref name="value"/> can't go where it was put.</summary>
+  public void Refuse(OverlayValueDefinition value) => _editor.Refuse();
 
   /// <summary>The open number's name in the dock.</summary>
   public string Name(string key) =>
-    _gradient.Name(Kind(key, out _))
-    ?? Kind(key, out int index) switch
-    {
-      ShapeMeasures.WidthKey => L("너비", "Width"),
-      ShapeMeasures.HeightKey => L("높이", "Height"),
-      StrokeKey => L("테두리 두께", "Border width"),
-      "fill-opacity" => L("채우기 불투명도", "Fill opacity"),
-      "stroke-opacity" => L("테두리 불투명도", "Border opacity"),
-      _ => L("꼭짓점 ", "Corner ") + (index + 1) + L(" 둥글기", " rounding"),
-    };
+    key == GrowFrom.Key
+      ? L("기준점", "Grow from")
+      : _gradient.Name(Kind(key, out _))
+        ?? Kind(key, out int index) switch
+        {
+          ShapeMeasures.WidthKey => L("너비", "Width"),
+          ShapeMeasures.HeightKey => L("높이", "Height"),
+          StrokeKey => L("테두리 두께", "Border width"),
+          "fill-opacity" => L("채우기 불투명도", "Fill opacity"),
+          "stroke-opacity" => L("테두리 불투명도", "Border opacity"),
+          _ => L("꼭짓점 ", "Corner ") + (index + 1) + L(" 둥글기", " rounding"),
+        };
 
   /// <summary>The open number's result as the dock shows it, with its unit.</summary>
   public string ResultText(string key)
   {
+    if (key == GrowFrom.Key)
+      return _grow.Result(_values.WithSamples, _editing.Active ? _editing.Root : null);
     OverlayVariable formula = _editing.Active ? _editing.Root : Read(key);
     if (formula.IsEmpty)
       return null;

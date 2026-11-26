@@ -55,9 +55,6 @@ internal sealed class GrowPickerViewModel : ViewModel
   /// <summary>Auto is the choice.</summary>
   public readonly State<bool> IsAuto = new(true);
 
-  /// <summary>What the choice does, where the points are keys with no arrows away from the chosen one.</summary>
-  public readonly State<string> Says = new("");
-
   public Command Auto { get; }
 
   /// <summary>
@@ -89,12 +86,6 @@ internal sealed class GrowPickerViewModel : ViewModel
         : _chosen;
     }
     IsAuto.Value = auto;
-    Says.Value = auto
-      ? L("자동: 화면에 놓인 자리에 맞춰요. 지금은 ", "Auto: follows where it sits. For now, ")
-        + PointName((Anchor9)chosen, false)
-        + L(" 고정.", " stays.")
-      : PointName((Anchor9)chosen, true)
-        + L(" 고정. 크기가 바뀌어도 이 점은 제자리예요.", " stays where it is when the size changes.");
     AutoFill.Value = auto ? _autoOn : Rest;
     AutoInk.Value = auto ? Colors.Foreground : Colors.Muted;
     Caption.Value = auto

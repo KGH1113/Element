@@ -3,6 +3,7 @@ using Element.Presentation.OverlayEditor.Canvas;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.OverlayEditor.TextEditor;
 using System.Collections.Generic;
@@ -47,19 +48,45 @@ namespace Element.Editor
       Assert(dock.Owner == "size", "the size opens in the dock");
       Press(DockChip(dock, "Value make-condition"));
       Settle();
+      Pressable[] slots = dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Where(row => row.name.StartsWith("Condition slot ")).ToArray();
       Assert(dock.Vm.Method.Value == DockMethod.Condition && formulas.Editing.Problem?.Slot == OverlayPiece.Left
-        && dock.Vm.Problem.Value.Length > 0, "a new condition shows its five slots, and the dock says which is still empty: " + dock.Vm.Problem.Value);
+        && dock.Vm.Line.Root.Pieces.Length == 1 && dock.Vm.Line.Root.Pieces[0].Label == L("조건", "Condition")
+        && slots.Select(row => row.name).SequenceEqual(Enumerable.Range(0, 5).Select(i => "Condition slot " + i)),
+        "a new condition is one value on the line, and its input method is its five slots: " + dock.FormulaText);
+      Rect place = ScreenRectOf(dock.MethodRoot), doneKey = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Rect[] rows = slots.Select(row => ScreenRectOf((RectTransform)row.transform)).ToArray();
+      Assert(Enumerable.Range(1, 4).All(i => rows[i].yMax <= rows[i - 1].yMin + .5f && Mathf.Abs(rows[i].xMin - rows[0].xMin) < .5f)
+        && rows.All(row => place.Contains(row.center) && row.yMin >= doneKey.yMax - .5f),
+        "the five slots stand one under another in the input method's place, over Remove and Apply");
+      // Apply while a slot that must hold something is empty: refused with a shake, the slot outlined.
+      int shaken = dock.Vm.Form.Shake.Asked;
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Owner == "size" && dock.Vm.Alarmed.Value && dock.Vm.Form.Shake.Asked == shaken + 1 && dock.Vm.Line.Shake.Asked > 0
+        && dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value && !dock.Vm.Form.Slots[OverlayPiece.Compare].Bad.Value
+        && !dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Notice"),
+        "Apply on an unfinished condition is refused without words: the form shakes and the empty slot is outlined");
       SaveFrame(camera, texture, canvases, name + "-variable-condition");
       Press(DockSlot(dock, OverlayPiece.Left));
-      Assert(formulas.Editing.Path.Count == 2 && formulas.Editing.Selected < 0 && dock.Vm.Line.Root.Pieces[0].Slots[OverlayPiece.Left].Targeted,
-        "a slot clicked on the line is where a value goes, lit in place");
-      Press(DockChip(dock, "Value combo"));
-      Press(DockSlot(dock, OverlayPiece.Compare));
-      Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥', "the operator starts as ≥ and shows the six comparisons");
       Settle();
-      TextMeshProUGUI signs = ByName<TextMeshProUGUI>(dock.Root, "Values rest");
-      Assert(Shown(signs) && signs.text == L("기호는 오른쪽 입력기에서 골라요.", "Pick the sign on the input method at the right.") && DockChips(dock).Length == 0,
-        "the operator's slot lists no values: its sign is picked on the input method");
+      Assert(formulas.Editing.Path.Count == 2 && formulas.Editing.Selected < 0 && dock.Vm.Line.Root.Targeted
+        && dock.Vm.Line.Name == FormulaRefusals.SlotName(OverlayPiece.Left) && dock.Vm.Line.Whose.Contains(L("조건", "Condition"))
+        && dock.Vm.Method.Value == DockMethod.Keypad,
+        "a slot clicked in the form is gone into: the line is that slot's, with the way to it, and the keypad is its input method: "
+          + dock.Vm.Line.Whose + " " + dock.Vm.Line.Name);
+      Press(DockChip(dock, "Value combo"));
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Condition && formulas.Editing.Path.Count == 1
+        && dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Length == 1 && !dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value,
+        "Apply inside a slot goes back to the condition, whose slot now shows what it holds");
+      Press(DockSlot(dock, OverlayPiece.Compare));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Compare && formulas.Editing.Working[0].Op == '≥' && dock.Vm.Line.Type == OverlayValueType.Compare,
+        "the comparison is a value of its own type: it starts as ≥ and its input method is the six comparisons");
+      Assert(DockListed(dock, "Value make-compare") && DockListed(dock, "Value make-condition") && !DockListed(dock, "Value combo")
+        && !DockListed(dock, "Value make-number") && !DockListed(dock, "Value make-group"),
+        "only a comparison or a condition that gives one goes where the condition compares");
       SaveFrame(camera, texture, canvases, name + "-variable-compare");
       Press(DockSlot(dock, OverlayPiece.Right));
       foreach (string key in new[] { "Key 1", "Key 0", "Key 0" })
@@ -73,6 +100,11 @@ namespace Element.Editor
       Settle();
       Assert(formulas.Editing.Problem == null && document.Document[0].SizeFormula == "if({combo};>=;100;60;40)",
         "filled slot by slot, the size takes the condition: " + document.Document[0].SizeFormula);
+      // Apply inside the last slot goes back to the condition, where the line says what the field gives.
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Condition && !dock.Vm.Alarmed.Value && dock.Vm.Form.Slots.All(row => !row.Empty.Value && !row.Bad.Value),
+        "back at the condition, all five slots show what they hold and none is outlined");
       Assert(dock.ResultText.Contains("60") && size.Result.Value.Contains("60"),
         "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
@@ -91,7 +123,8 @@ namespace Element.Editor
       Press(DockChip(dock, "Value make-condition"));
       Settle();
       Call(text, "Render");
-      Assert(color.Cases.OnCase && !string.IsNullOrEmpty(picker.Model.WaitNote), "with a condition picked the picker says how to reach a color");
+      Assert(color.Cases.OnCase && dock.Vm.Method.Value == DockMethod.Condition && picker.Root.GetComponent<CanvasGroup>() is { alpha: 0, blocksRaycasts: false },
+        "with a condition picked the picker rests, clear, and the condition's five slots have the place");
       Press(DockSlot(dock, OverlayPiece.Left));
       Press(DockChip(dock, "Value accuracy"));
       Press(DockSlot(dock, OverlayPiece.Compare));
@@ -101,8 +134,8 @@ namespace Element.Editor
         Press(DockKey(dock, key));
       Press(DockSlot(dock, OverlayPiece.Result));
       Settle();
-      Assert(dock.Values.Title.Value == L("결과값 자리에 넣을 수 있는 값", "Values for the Result slot") && !DockListed(dock, "Value combo"),
-        "the result's slot names itself and lists colors, not numbers: " + dock.Values.Title.Value);
+      Assert(dock.Vm.Line.Name == FormulaRefusals.SlotName(OverlayPiece.Result) && dock.Vm.Line.Type == OverlayValueType.Color && !DockListed(dock, "Value combo"),
+        "the line names the result's slot, which lists colors, not numbers: " + dock.Vm.Line.Name);
       Press(DockChip(dock, "Value highlight-color"));
       Settle();
       Call(text, "Render");
@@ -154,19 +187,19 @@ namespace Element.Editor
     }
 
     /// <summary>
-    /// Slot <paramref name="slot"/> of the condition first on the line, as the
-    /// player clicks it: the comparison's sign, an empty slot, or the first
-    /// piece in it.
+    /// Slot <paramref name="slot"/> of the condition open in the dock, as
+    /// the player reaches it: its row in the condition's input method. From
+    /// inside another slot, Apply goes back to the condition first.
     /// </summary>
     private static Pressable DockSlot(DockProbe dock, int slot)
     {
       Settle();
-      Pressable[] line = dock.Root.GetComponentsInChildren<Pressable>(false);
-      if (slot == OverlayPiece.Compare)
-        return line.Single(button => button.name == "Comparison");
-      string key = ".0," + slot;
-      return line.FirstOrDefault(button => button.name == "Empty slot s" + key)
-        ?? line.First(button => button.name.StartsWith("Piece p" + key + "/"));
+      if (dock.Vm.Method.Value != DockMethod.Condition)
+      {
+        Press(DockKey(dock, "Key done"));
+        Settle();
+      }
+      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(row => row.name == "Condition slot " + slot);
     }
 
     // The same frame at twice the pixels, to look at closely.

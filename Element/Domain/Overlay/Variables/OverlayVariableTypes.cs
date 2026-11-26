@@ -7,7 +7,8 @@ namespace Element.Domain.Overlay.Variables;
 /// Numbers are joined only by operators, and only numbers can be; pieces
 /// side by side show as they are, which only a field of type Any takes. A
 /// condition gives what its result and default give, which must be what the
-/// field needs; it compares two numbers by one comparison.
+/// field needs; it compares two numbers by a comparison, which is a value
+/// too: its slot takes one, or a condition that gives one.
 /// </summary>
 internal static class OverlayVariableTypes
 {
@@ -39,6 +40,8 @@ internal static class OverlayVariableTypes
       OverlayValueKind.Color => OverlayValueType.Color,
       OverlayValueKind.Bool => OverlayValueType.Bool,
       OverlayValueKind.Any => OverlayValueType.Any,
+      OverlayValueKind.Compare => OverlayValueType.Compare,
+      OverlayValueKind.Point => OverlayValueType.Point,
       _ => OverlayValueType.Text,
     };
 
@@ -75,6 +78,8 @@ internal static class OverlayVariableTypes
         return OverlayValueType.Bool;
       case OverlayPieceKind.Compare:
         return OverlayValueType.Compare;
+      case OverlayPieceKind.Point:
+        return OverlayValueType.Point;
       case OverlayPieceKind.Value:
         return TypeOf(OverlayValueCatalog.Get(piece.Value));
       case OverlayPieceKind.Condition:
@@ -174,8 +179,8 @@ internal static class OverlayVariableTypes
           );
         if (!calculation && !Fits(needed, found))
           return new OverlayTypeProblem(OverlayTypeProblemKind.WrongType, piece, needed, found, slot, condition);
-        // A comparison only goes where one is needed.
-        if (found == OverlayValueType.Compare && needed != OverlayValueType.Compare)
+        // A comparison or a point only goes where one is needed: a text shows neither.
+        if ((found == OverlayValueType.Compare || found == OverlayValueType.Point) && needed != found)
           return new OverlayTypeProblem(OverlayTypeProblemKind.WrongType, piece, needed, found, slot, condition);
       }
       start = end;

@@ -12,7 +12,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Field;
 
 /// <summary>
 /// The mark that says what type a field or a value is: a glyph in the type's
-/// soft color (# numbers blue, 가 words green, ◐ true or false purple,
+/// soft color (# numbers blue, T words green, ◐ true or false purple,
 /// * anything) on a small quiet tile, and for a color the color itself.
 /// Every field row, piece and list header uses the same marks. Only the glyph
 /// carries the color, so a column of marks stays calm.
@@ -44,7 +44,7 @@ internal static class TypeMarks
     type switch
     {
       OverlayValueType.Number => "#",
-      OverlayValueType.Text => "가",
+      OverlayValueType.Text => "T",
       OverlayValueType.Bool => "◐",
       OverlayValueType.Color => "●",
       OverlayValueType.Compare => "<>",
@@ -57,24 +57,22 @@ internal static class TypeMarks
 
   /// <summary>The type's glyph alone, as a small value in a field row leads with it.</summary>
   public static View Letter(OverlayValueType type, float size = 14) =>
-    // The UI font has no asterisk that sits in the middle: "any" is drawn.
+    // The UI font has no asterisk that sits in the middle, and no sign for a comparison: they are drawn.
     type == OverlayValueType.Any
-    || type == OverlayValueType.Compare
       ? Drawn(UiIconKind.AnyType, InkColor(type), size)
-      : Letters(Glyph(type), InkColor(type), size);
+    : type == OverlayValueType.Compare ? Drawn(UiIconKind.CompareType, InkColor(type), size)
+    : type == OverlayValueType.Point ? Drawn(UiIconKind.PlaceType, InkColor(type), size)
+    : Letters(Glyph(type), InkColor(type), size);
 
-  /// <summary>A mark for something that is no value type: "Aa" for a font, a boxed point for a place.</summary>
+  /// <summary>A mark for something that is no value type: "Aa" for a font.</summary>
   public static View Mark(string letters, float size = 18) =>
     Letter(letters, size).Background(FieldLook.MarkTile, Mathf.Round(size * .3f));
 
   /// <summary><see cref="Mark(string, float)"/> without its tile. Two letters take a little more room than one glyph.</summary>
   public static View Letter(string letters, float size = 14) =>
-    letters == Place ? Drawn(UiIconKind.PlaceType, PlainInk, size)
-    : letters.Length > 1 ? Letters(letters, WordInk, size, .64f, Mathf.Round(size * 1.3f))
-    : Letters(letters, PlainInk, size);
-
-  /// <summary>Stands for a place (an anchor point) where a mark's letters are given.</summary>
-  public const string Place = "place";
+    letters.Length > 1
+      ? Letters(letters, WordInk, size, .64f, Mathf.Round(size * 1.3f))
+      : Letters(letters, PlainInk, size);
 
   private static View Letters(string letters, Color ink, float size, float scale = .66f, float width = 0) =>
     Text(letters)
@@ -105,7 +103,9 @@ internal static class TypeMarks
       One(OverlayValueType.Text),
       One(OverlayValueType.Bool),
       One(OverlayValueType.Color),
-      One(OverlayValueType.Any, OverlayValueType.Compare)
+      One(OverlayValueType.Any),
+      One(OverlayValueType.Compare),
+      One(OverlayValueType.Point)
     );
   }
 

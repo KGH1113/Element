@@ -428,6 +428,7 @@ namespace Element.Editor
         shortcut.TryAssign(KeyCode.H, KeyCode.None);
         Assert(!mods2.View.Typing && Working().Contains("\"Hide\":{\"Key\":104"), "the key it records is the setting, and recording stops: " + Working());
         SaveFrame(camera, texture, canvases, name + "-mod-editor-shortcut");
+        SaveHovered(camera, texture, canvases, name + "-mod-editor-shortcut", "Shortcut field " + L("숨기기 키", "Hide key"));
         PressToolBack(mods2, Column());
         Pressable box = Find("Checkbox ");
         Press(box);

@@ -66,6 +66,7 @@ namespace Element.Editor
         "built-in groups are named in the player's language"
       );
       SaveFrame(camera, texture, canvases, name + "-layers");
+      SaveHovered(camera, texture, canvases, name + "-layers", "e:judgement");
       Assert(PopoverInside(editor, panel.Root, Screen.width, Screen.height), "the layers panel stays on screen");
       Rect panelRect = PopoverPlacement.ScreenRect(panel.Root);
       Assert(

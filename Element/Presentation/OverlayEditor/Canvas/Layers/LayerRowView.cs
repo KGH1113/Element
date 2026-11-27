@@ -67,6 +67,8 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
         () => _list.Pick(VM, EditorKeys.ShiftHeld || EditorKeys.CommandHeld),
         ButtonStyle.Plain
       )
+      // The card lights as itself, corner for corner.
+      .ButtonStyle(SurfaceHover.Of(Radius))
       .Configure<RectTransform>(rect => _track(VM.Key, rect))
       .Named(VM.Key)
       .Draggable(() => _list.DragOf(VM), Ghost)
@@ -101,6 +103,8 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
           () => _list.Toggle(VM),
           ButtonStyle.Plain
         )
+        // Round, inside the card; not the card's own corners.
+        .ButtonStyle(SurfaceHover.Of(12))
         .Named("Open group")
         .Frame(width: 24, height: 24)
       : Spacer().Frame(width: 0, height: 0);

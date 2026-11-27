@@ -1396,6 +1396,7 @@ namespace Element.Editor
         ElementUI.Runtime.Flush(0);
       };
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
+      SaveHovered(camera, texture, canvases, name + "-text-keypad", "Operator", "Piece p/2:0");
       _refresh = settle;
       Finish(text);
       Assert(dock.Owner == null, "Enter lets the dock rest and leaves the text alone");
@@ -1886,6 +1887,24 @@ namespace Element.Editor
       for (int i = 0; i < canvases.Length; i++) { canvases[i].renderMode = RenderMode.ScreenSpaceOverlay; canvases[i].scaleFactor = factors[i]; }
       if (sharp != null) Object.DestroyImmediate(sharp);
       Canvas.ForceUpdateCanvases();
+    }
+    // Saves the frame again with the pointer over each named button, one frame a button,
+    // so how a hover lights can be looked at; the light goes again after.
+    private static void SaveHovered(Camera camera, RenderTexture target, Canvas[] canvases, string name, params string[] buttons)
+    {
+      EventSystem events = EventSystem.current;
+      for (int i = 0; i < buttons.Length; i++)
+      {
+        Pressable button = canvases.SelectMany(canvas => canvas.GetComponentsInChildren<Pressable>(false))
+          .FirstOrDefault(found => found.name == buttons[i]);
+        Assert(button != null, "a button to hover is on screen: " + buttons[i] + " (" + name + ")");
+        PointerEventData pointer = new PointerEventData(events);
+        button.OnPointerEnter(pointer);
+        ElementUI.Runtime.Flush(0);
+        SaveFrame(camera, target, canvases, name + "-hover" + (buttons.Length > 1 ? "-" + (i + 1) : ""));
+        button.OnPointerExit(pointer);
+        ElementUI.Runtime.Flush(0);
+      }
     }
     private static void SaveFrame(Camera camera, RenderTexture target, int width, int height, string name)
     {

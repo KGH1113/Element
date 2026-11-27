@@ -19,6 +19,9 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
 {
   private const float Radius = 12;
 
+  // Between the outline and what it holds.
+  private static readonly Insets Around = new(2, 4, 2, 4);
+
   private readonly LineViewModel _line;
   private readonly UiColor _ring = UiPalette.SoftAccent;
   private readonly UiColor _edge = FieldLook.SlotEdge;
@@ -38,22 +41,25 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
         () =>
           Button(
               HStack(
-                spacing: 6,
-                TypeMarks.Mark(() => VM.Type, 16),
-                Text(() => VM.Placeholder)
-                  .Font(Font.Body.Sized(14))
-                  .Foreground(() => VM.Targeted ? _ink : _quiet)
-                  .LineLimit(1)
-              ),
+                  spacing: 6,
+                  TypeMarks.Mark(() => VM.Type, 16),
+                  Text(() => VM.Placeholder)
+                    .Font(Font.Body.Sized(14))
+                    .Foreground(() => VM.Targeted ? _ink : _quiet)
+                    .LineLimit(1)
+                )
+                // The whole outlined place is the button, so its light fills the outline.
+                .Padding(new Insets(0, 4, 0, 8))
+                .Frame(height: 26)
+                .Padding(Around),
               () => _line.Pick(VM.Route, -1),
               ButtonStyle.Plain
             )
-            .Named("Empty slot " + VM.Key)
-            .Padding(new Insets(0, 4, 0, 8))
-            .Frame(height: 26),
+            .ButtonStyle(SurfaceHover.Of(Radius))
+            .Named("Empty slot " + VM.Key),
         () => HStack(spacing: 5, ForEach(() => VM.Pieces, piece => piece.Key, slot => new LinePieceView(slot, _line)))
       )
-      .Padding(() => VM.Root && VM.Pieces.Length > 0 ? new Insets(0, 0, 0, 0) : new Insets(2, 4, 2, 4))
+      .Padding(() => VM.Pieces.Length == 0 || VM.Root ? new Insets(0, 0, 0, 0) : Around)
       // The field's own pieces stand on the line; a slot inside a value is a thin outline.
       .Background(() => VM.Root ? _clear : _fill, Radius)
       .Overlay(

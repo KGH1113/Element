@@ -127,6 +127,7 @@ namespace Element.Editor
         && !pickerRect.Overlaps(KeypadRect(dock0)),
         "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
+      SaveHovered(camera, texture, canvases, name + "-gradient-linear", "Inspector back");
 
       // The ends of the line are handles only: nothing covers them.
       Rect shapeRect = ScreenRectOf(ShapeRect(shapes));

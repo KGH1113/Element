@@ -105,6 +105,7 @@ namespace Element.Editor
         && sevenRect.yMax <= stripRect.yMin - 1 && sevenRect.width > forkLeft.width * .4f,
         "under the strip the keypad keeps its four rows, each a little lower: " + sevenRect + " / " + stripRect);
       SaveFrame(camera, texture, canvases, name + "-variable-strip");
+      SaveHovered(camera, texture, canvases, name + "-variable-strip", "Empty slot s");
       Press(DockChip(dock, "Value combo"));
       Settle();
       Assert(dock.Vm.Fold.Slots[OverlayPiece.Left].Look.Value == ConditionSlotLook.Chips && !dock.Vm.Fold.Slots[OverlayPiece.Left].Bad.Value,

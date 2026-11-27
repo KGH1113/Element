@@ -15,7 +15,8 @@ namespace Element.Editor
   /// Looks at every frame the checks save for what a person would call
   /// sloppy: words not centred in their control, a control lying half over
   /// another, words spilling out of their box, an icon off the middle of its
-  /// button, neighbours out of line, something off the screen. What it finds
+  /// button, neighbours out of line, something off the screen, a hover that
+  /// lights a shape other than the surface it is on or hugs its letters. What it finds
   /// goes to ui-audit.txt in the output folder, worst first; the kinds with no
   /// reason to happen at all fail the checks (<see cref="Broken"/>).
   /// </summary>
@@ -49,6 +50,7 @@ namespace Element.Editor
     private static readonly string[] NeverAllowed =
     {
       "audit-failed", "words-off-centre", "overlap-control", "overlap-words", "words-over-words", "words-spill", "icon-off-centre",
+      "hover-shape", "hover-tight",
     };
 
     /// <summary>What must not be on any screen, one line each; empty when all is tidy.</summary>
@@ -126,7 +128,170 @@ namespace Element.Editor
       }
       CheckNeighbours(controls, frame);
       CheckWordOverlaps(words, screen, frame);
+      CheckHovers(canvas, controls, screen, frame);
     }
+
+    // A control lights up as the thing a person sees: its hover covers the
+    // surface it is drawn on, corner for corner, or stays well inside it.
+    private static void CheckHovers(Canvas canvas, List<Item> controls, Rect screen, string frame)
+    {
+      Graphic[] drawn = canvas.GetComponentsInChildren<Graphic>(false);
+      Dictionary<Graphic, int> order = new Dictionary<Graphic, int>();
+      for (int i = 0; i < drawn.Length; i++)
+        order[drawn[i]] = i;
+      foreach (Item control in controls)
+      {
+        // A surface shown all the time lights itself; one that only comes up
+        // under the pointer has to come up as the shape a person already sees.
+        if (!TryHover(control.Part, out Graphic lit, out float litRadius, out bool idleShown) || idleShown
+          || !order.TryGetValue(lit, out int litOrder))
+          continue;
+        Rect box = BoxOf(lit.rectTransform);
+        float unit = control.Unit;
+        // The tightest painted surface behind the lit one that holds it.
+        Graphic beneath = null;
+        Rect under = default;
+        for (int i = 0; i < litOrder; i++)
+        {
+          Graphic graphic = drawn[i];
+          if (graphic is TMP_Text || graphic is UiVectorGraphic || graphic.transform.IsChildOf(lit.transform) || !Painted(graphic))
+            continue;
+          if (graphic.GetComponent<Mask>() != null || graphic.GetComponent<RectMask2D>() != null)
+            continue;
+          Rect rect = BoxOf(graphic.rectTransform);
+          if (!Holds(rect, box, unit) || (rect.width >= screen.width * .8f && rect.height >= screen.height * .8f))
+            continue;
+          if (beneath == null || rect.width * rect.height < under.width * under.height)
+          {
+            beneath = graphic;
+            under = rect;
+          }
+        }
+        string what = Size(box, unit) + " r" + Corner(litRadius, box, unit).ToString("0");
+        if (beneath == null)
+        {
+          // Lit on nothing: it needs room around what it holds, or the light hugs the letters.
+          float room = Room(control.Part.transform, box, unit);
+          if (room < 3.5f)
+            Report("hover-tight", Name(control.Part.transform), what + " room " + room.ToString("0"), frame, 4 - room);
+          continue;
+        }
+        float left = (box.xMin - under.xMin) / unit,
+          right = (under.xMax - box.xMax) / unit,
+          bottom = (box.yMin - under.yMin) / unit,
+          top = (under.yMax - box.yMax) / unit;
+        float widest = Mathf.Max(Mathf.Max(left, right), Mathf.Max(bottom, top));
+        float underRadius = beneath is ElementUI.Ugui.RoundedRect round ? round.Radius : float.NaN;
+        string on = beneath.name + " " + Size(under, unit) + (float.IsNaN(underRadius) ? "" : " r" + Corner(underRadius, under, unit).ToString("0"));
+        float cornerOff = float.IsNaN(underRadius) ? 0 : Mathf.Abs(Corner(litRadius, box, unit) - Corner(underRadius, under, unit));
+        // Set in evenly with its corner set in as much reads as one shape inside the other.
+        float narrowest = Mathf.Min(Mathf.Min(left, right), Mathf.Min(bottom, top));
+        bool inset = widest - narrowest <= 1 && !float.IsNaN(underRadius)
+          && Mathf.Abs(Corner(litRadius, box, unit) - (Corner(underRadius, under, unit) - narrowest)) <= 1.5f;
+        if (widest <= 8 && !inset && (widest > 1.5f || cornerOff > 1.5f))
+          // Nearly the surface, but not quite: a second outline inside the first.
+          Report("hover-shape", Name(control.Part.transform), what + " on " + on, frame, Mathf.Max(widest, cornerOff));
+        else if (Mathf.Max(left, right) <= 8 != Mathf.Max(bottom, top) <= 8)
+          // Across the surface one way, a slice of it the other.
+          Report("hover-part", Name(control.Part.transform), what + " on " + on, frame, widest);
+      }
+    }
+
+    // What lights up when the pointer is over a control, and its corner.
+    private static bool TryHover(Component control, out Graphic lit, out float radius, out bool idleShown)
+    {
+      lit = null;
+      radius = float.NaN;
+      idleShown = false;
+      if (control is ElementUI.Ugui.Pressable pressable && pressable.StateChanged?.Target is ElementUI.Ugui.ButtonPeer peer)
+      {
+        const System.Reflection.BindingFlags Any =
+          System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        Type type = typeof(ElementUI.Ugui.ButtonPeer);
+        bool owned = (bool)type.GetField("_surfaceOwnedByView", Any).GetValue(peer);
+        if (!owned)
+        {
+          ElementUI.Ugui.UguiTheme theme = (ElementUI.Ugui.UguiTheme)type.GetField("Theme", Any).GetValue(peer);
+          ElementUI.ButtonStyle style = (ElementUI.ButtonStyle)type.GetField("Style", Any).GetValue(peer);
+          bool selected = (bool)type.GetField("_selected", Any).GetValue(peer);
+          Color hover = theme.ButtonFill(
+            style,
+            ElementUI.Ugui.ButtonState.Hovered | (selected ? ElementUI.Ugui.ButtonState.Selected : 0)
+          );
+          Color idle = theme.ButtonFill(style, selected ? ElementUI.Ugui.ButtonState.Selected : 0);
+          if (hover.a <= .02f || hover == idle)
+            return false;
+          idleShown = idle.a > .02f;
+          lit = peer.Fill;
+          radius = peer.Fill.Radius;
+          return true;
+        }
+        // A style draws the surface: the box the size of the button, inside it,
+        // lit when it is told the pointer is over it.
+        Rect whole = BoxOf((RectTransform)control.transform);
+        float unit = Unit(control.transform);
+        bool picked = (bool)type.GetField("_selected", Any).GetValue(peer);
+        Action<ElementUI.ButtonInteraction> told =
+          (Action<ElementUI.ButtonInteraction>)type.GetField("_interactionChanged", Any).GetValue(peer);
+        if (told == null)
+          return false;
+        ElementUI.ButtonInteraction now = (ElementUI.ButtonInteraction)((int)pressable.State | (picked ? 4 : 0));
+        foreach (ElementUI.Ugui.RoundedRect box in control.GetComponentsInChildren<ElementUI.Ugui.RoundedRect>(false))
+          if (box != peer.Fill && Holds(BoxOf(box.rectTransform), whole, unit) && Holds(whole, BoxOf(box.rectTransform), unit))
+          {
+            Color idle = box.color;
+            told(now | ElementUI.ButtonInteraction.Hovered);
+            ElementUI.Runtime.Flush();
+            Color hovered = box.color;
+            told(now);
+            ElementUI.Runtime.Flush();
+            if (hovered == idle)
+              return false;
+            idleShown = idle.a > .02f;
+            lit = box;
+            radius = box.Radius;
+            return true;
+          }
+        return false;
+      }
+      // A Unity control tints its own graphic.
+      if (control is Selectable plain && plain.transition == Selectable.Transition.ColorTint && plain.targetGraphic != null
+        && plain.colors.highlightedColor != plain.colors.normalColor && Painted(plain.targetGraphic))
+      {
+        lit = plain.targetGraphic;
+        idleShown = (lit.color * plain.colors.normalColor).a > .02f;
+        radius = lit is ElementUI.Ugui.RoundedRect round ? round.Radius : float.NaN;
+        return true;
+      }
+      return false;
+    }
+
+    // The least space between what a control holds and the edge of its light.
+    private static float Room(Transform control, Rect light, float unit)
+    {
+      float room = float.PositiveInfinity;
+      void Measure(Rect part)
+      {
+        float least = Mathf.Min(
+          Mathf.Min(part.xMin - light.xMin, light.xMax - part.xMax),
+          Mathf.Min(part.yMin - light.yMin, light.yMax - part.yMax)
+        );
+        room = Mathf.Min(room, least / unit);
+      }
+      foreach (TextMeshProUGUI words in control.GetComponentsInChildren<TextMeshProUGUI>(false))
+        if (words.color.a > .05f && TryWords(words, out Rect box))
+          Measure(box);
+      foreach (UiVectorGraphic icon in control.GetComponentsInChildren<UiVectorGraphic>(false))
+        if (icon.color.a > .05f)
+          Measure(BoxOf(icon.rectTransform));
+      return room;
+    }
+
+    // A corner as drawn: no rounder than half the shorter side.
+    private static float Corner(float radius, Rect box, float unit) =>
+      float.IsNaN(radius) ? float.NaN : Mathf.Min(radius, Mathf.Min(box.width, box.height) / unit / 2);
+
+    private static string Size(Rect box, float unit) => (box.width / unit).ToString("0") + "×" + (box.height / unit).ToString("0");
 
     // Words in a control sit in its middle; they stay inside the box around them.
     private static void CheckWords(Item item, List<Item> words, Rect screen, string frame)

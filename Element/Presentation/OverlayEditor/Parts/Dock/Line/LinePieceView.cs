@@ -21,7 +21,8 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
 {
   public const float ChipHeight = 32;
 
-  private const float RemoveSize = 20;
+  private const float RemoveSize = 20,
+    OperatorRadius = 8;
 
   private readonly LineViewModel _line;
   private readonly UiColor _ring = UiPalette.SoftAccent;
@@ -40,10 +41,11 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
     };
 
   // A pill: its mark or swatch, then what it says. Picked, it wears a ring and keeps its fill, and shows its × to be taken out.
+  // The whole pill is the button, so it lights as itself; the × inside is a button of its own.
   private View Chip() =>
-    HStack(
-        spacing: 2,
-        Button(
+    Button(
+        HStack(
+            spacing: 2,
             HStack(
               spacing: 6,
               If(
@@ -65,15 +67,15 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
                   Text(() => VM.Digits).Font(Font.Body.Sized(14)).Foreground(Colors.Muted).LineLimit(1).Named("Digits")
               )
             ),
-            () => _line.Pick(VM.Route, VM.Index),
-            ButtonStyle.Plain
+            If(() => VM.Removable, RemoveKey)
           )
-          .Named("Piece " + VM.Key),
-        If(() => VM.Removable, RemoveKey)
+          .Padding(new Insets(0, 7, 0, 12))
+          .Frame(height: ChipHeight),
+        () => _line.Pick(VM.Route, VM.Index),
+        ButtonStyle.Plain
       )
-      .Padding(new Insets(0, 7, 0, 12))
-      .Frame(height: ChipHeight)
-      .Background(FieldLook.Chip, ChipHeight / 2)
+      .ButtonStyle(new ButtonSurfaceStyle(FieldLook.Chip, ChipHeight / 2))
+      .Named("Piece " + VM.Key)
       .Overlay(Capsule().Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring).AllowsHitTesting(false));
 
   // The picked piece's ×: it is taken out, where it stands.
@@ -90,18 +92,24 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
       .Frame(width: RemoveSize, height: RemoveSize)
       .Padding(new Insets(0, 0, 0, 4));
 
+  // A sign, lit under the pointer in the shape of the ring it wears when picked.
   private View Operator() =>
-    HStack(
-        spacing: 0,
-        Button(
+    Button(
+        HStack(
+            spacing: 0,
             Text(() => VM.Label).Font(Font.Body.Sized(20).Bolded()).Foreground(Colors.Foreground),
-            () => _line.Pick(VM.Route, VM.Index),
-            ButtonStyle.Plain
+            If(() => VM.Removable, RemoveKey)
           )
-          .Named("Operator"),
-        If(() => VM.Removable, RemoveKey)
+          .Padding(0, 7)
+          .Frame(height: ChipHeight - 4),
+        () => _line.Pick(VM.Route, VM.Index),
+        ButtonStyle.Plain
       )
-      .Padding(0, 7)
-      .Frame(height: ChipHeight - 4)
-      .Overlay(RoundedRectangle(8).Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring).AllowsHitTesting(false));
+      .ButtonStyle(SurfaceHover.Of(OperatorRadius))
+      .Named("Operator")
+      .Overlay(
+        RoundedRectangle(OperatorRadius)
+          .Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring)
+          .AllowsHitTesting(false)
+      );
 }

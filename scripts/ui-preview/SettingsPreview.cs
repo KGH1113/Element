@@ -913,6 +913,12 @@ namespace Element.Editor
       Assert(!ElementBar(editor).ControlAt(barGrip) && ElementBar(editor).ControlAt(PointerOn((RectTransform)arrange(UiIconKind.AlignLeft).transform)),
         "the align toolbar drags from its grip; its buttons take their presses");
       Assert(PopoverInside(editor, bar, Screen.width, Screen.height), "the align toolbar stays on screen");
+      // Group says its whole word, in either language.
+      Pressable groupButton = bar.GetComponentsInChildren<Pressable>(false).Single(button => button.name == "Group");
+      TextMeshProUGUI groupWord = groupButton.GetComponentInChildren<TextMeshProUGUI>();
+      groupWord.ForceMeshUpdate();
+      Assert(!groupWord.isTextTruncated && groupWord.text == L("묶기", "Group"),
+        "the Group button says its whole word: " + groupWord.text + " " + groupWord.GetPreferredValues().x + " in " + groupWord.rectTransform.rect.width);
       object[] hit = { texts[0].Bounds.center, null };
       Assert((int)typeof(CanvasDragInput).GetMethod("FindTarget").Invoke(Drag(editor), hit) == a && (LayoutHandle)hit[1] == LayoutHandle.Move,
         "each selected element moves the group");

@@ -75,7 +75,8 @@ internal sealed class ArrangeView : View<ArrangeViewModel>
                 Labelled(UiIconKind.Group, L("묶기", "Group")),
                 "Group",
                 () => VM.Group,
-                84,
+                // Room for "Group" beside its icon, not only "묶기".
+                100,
                 36,
                 ButtonStyle.Prominent
               )

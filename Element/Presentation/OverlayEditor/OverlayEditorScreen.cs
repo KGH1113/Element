@@ -285,10 +285,15 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     UpdateFrames();
   }
 
-  // Who the pointer belongs to: a drag in progress, a toolbar, or the canvas.
+  // Who the pointer belongs to: a drag in progress, a toolbar, the order panel, or the canvas.
   private void TrackPointer(Vector2 mouse)
   {
-    if (_toolbar.Dragging)
+    if (_layersPanel.Dragging)
+    {
+      _layersPanel.Move(mouse, Input.GetMouseButton(0));
+      _cursors.Set(LayoutHandle.Move);
+    }
+    else if (_toolbar.Dragging)
     {
       _toolbar.Move(mouse);
       if (!Input.GetMouseButton(0))
@@ -315,7 +320,13 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
         _elementBar.BeginDrag(mouse);
     }
     else if (_layersPanel.Contains(Input.mousePosition))
-      _cursors.Set(LayoutHandle.None);
+    {
+      // Carried by its head, as the toolbars are from anywhere but their controls.
+      bool canDrag = _layersPanel.HeadAt(mouse);
+      _cursors.Set(canDrag ? LayoutHandle.Move : LayoutHandle.None);
+      if (canDrag && Input.GetMouseButtonDown(0))
+        _layersPanel.BeginDrag(mouse);
+    }
     else if (_toolbar.Bounds.Contains(mouse))
     {
       bool canDrag = !_toolbar.ControlAt(mouse);
@@ -457,8 +468,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
     _elementBar.Sync(covered, (_drag.Active && _drag.Moved) || _popovers.Stack.AnyOpen);
-    // Float view starts from the order panel, which stays beside it with the button that turns it off.
-    _layersPanel.Sync(_modal.IsOpen || _kinds.OpenEditor != null);
+    // The order panel steps aside for a question, an element's editor and Float view, and comes back where it was.
+    _layersPanel.Sync(_modal.IsOpen || _kinds.OpenEditor != null || _float != null);
     _toolbar.ViewModel.LayersOpen.Value = _layersPanel.Visible;
     _toolbar.Refresh();
     _guides.Refresh(_session.UiScale);
@@ -728,7 +739,7 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
 
   void ICanvasActions.Redo() => Redo();
 
-  void ICanvasActions.ToggleFloatView()
+  void ICanvasActions.OpenFloatView()
   {
     if (CanvasSession.GameplayActive)
     {
@@ -742,28 +753,39 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       _marquee.End();
       _guides.HideLines();
       _cursors.Set(LayoutHandle.None);
-      _float = new FloatScene(
-        _session,
-        () => _toolbar.Bounds,
-        _kinds.Label,
-        _cursors,
-        p => _layersPanel.Contains(new Vector2(p.x * Screen.width, p.y * Screen.height))
-      );
+      _float = new FloatScene(_session, () => _toolbar.Bounds, _kinds.Label, _cursors);
     }
     else
     {
+      // Still settling back down: it rises again.
       _float.CancelGesture();
-      _float.Open = !_float.Open;
+      _float.Open = true;
     }
-    InputGate.TrackpadViewport = _float.Open ? _float : null;
+    InputGate.TrackpadViewport = _float;
     _toolbar.ViewModel.Floating.Value = true;
+    UpdateFrames();
+  }
+
+  void ICanvasActions.CloseFloatView() => CloseFloatView();
+
+  // The scene settles back down to the flat canvas, then goes (EndFloatView).
+  private void CloseFloatView()
+  {
+    if (_float == null || !_float.Open)
+      return;
+    _float.CancelGesture();
+    _float.Open = false;
+    InputGate.TrackpadViewport = null;
     UpdateFrames();
   }
 
   private void TickFloatView()
   {
     InputGate.SetTextEditing(true);
-    if (EditorKeys.Pressed(KeyCode.Escape) || (EditorKeys.CommandHeld && EditorKeys.EnterPressed))
+    // Esc steps back to the flat canvas; Cmd/Ctrl+Enter still saves and leaves.
+    if (EditorKeys.Pressed(KeyCode.Escape))
+      CloseFloatView();
+    else if (EditorKeys.CommandHeld && EditorKeys.EnterPressed)
     {
       Close(true);
       return;
@@ -787,9 +809,6 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
         _float.ClearHover();
       TrackPointer(mouse);
     }
-    // The order panel beside the scene takes its own clicks and scrolling.
-    else if (_layersPanel.Contains(Input.mousePosition))
-      _float.ClearHover();
     else
       _float.Pointer(mouse);
     AdvanceFloatView(Time.unscaledDeltaTime);

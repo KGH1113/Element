@@ -30,7 +30,6 @@ internal sealed class ToolbarPanel
   private TMP_InputField _scale;
   private Selectable _add;
   private float _addX;
-  private float _layersX;
   private int _controlsVersion = -1;
   private bool _dragging,
     _placed;
@@ -115,12 +114,6 @@ internal sealed class ToolbarPanel
     _controlsVersion = _panel.ControlsVersion;
     _scale = _panel.Control<TMP_InputField>("Scale percent");
     _add = _panel.Control<Selectable>("Add element");
-    Selectable layers = _panel.Control<Selectable>("Layers");
-    if (layers != null)
-    {
-      RectTransform button = (RectTransform)layers.transform;
-      _layersX = _panel.Root.InverseTransformPoint(button.TransformPoint(button.rect.min)).x;
-    }
     if (_add == null)
       return;
     RectTransform add = (RectTransform)_add.transform;
@@ -149,25 +142,6 @@ internal sealed class ToolbarPanel
   {
     FindControls();
     return PopoverAbove(width, height, _addX, false);
-  }
-
-  /// <summary>
-  /// Above the toolbar from its Order button, made smaller when the room
-  /// above the toolbar is short, so it never covers the toolbar.
-  /// </summary>
-  public Rect PopoverAboveLayers(float width, float height)
-  {
-    FindControls();
-    Rect bounds = PopoverAbove(width, height, _layersX, false);
-    Rect toolbar = Bounds;
-    float room = Mathf.Max(toolbar.y, _session.ViewHeight - toolbar.yMax) - 18;
-    if (bounds.height <= room || room <= 0)
-      return bounds;
-    float shrink = room / bounds.height;
-    float w = bounds.width * shrink,
-      h = bounds.height * shrink;
-    float x = Mathf.Clamp(bounds.x, 0, Mathf.Max(0, _session.ViewWidth - w));
-    return PopoverPlacement.Above(toolbar, x, w, h, 10, _session.ViewWidth, _session.ViewHeight);
   }
 
   public void BeginDrag(Vector2 pointer)

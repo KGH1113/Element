@@ -44,7 +44,7 @@ namespace Element.Editor
         "the progress bar draws behind the texts, as before layers"
       );
 
-      // Opening: above the toolbar from its Order button, the button lit.
+      // Opening: a panel of its own at the view's top right, clear of the toolbar; Order stays lit.
       canvas.Layers();
       Call(editor, "UpdateFrames");
       Settle();
@@ -70,12 +70,38 @@ namespace Element.Editor
       Assert(PopoverInside(editor, panel.Root, Screen.width, Screen.height), "the layers panel stays on screen");
       Rect panelRect = PopoverPlacement.ScreenRect(panel.Root);
       Assert(
-        panelRect.yMax <= editor.ToolbarBounds.y + .5f || panelRect.y >= editor.ToolbarBounds.yMax - .5f,
-        "the layers panel opens above the toolbar, or below it without room: "
-          + panelRect
-          + " / "
-          + editor.ToolbarBounds
+        !panelRect.Overlaps(editor.ToolbarBounds) && Screen.width - panelRect.xMax < 30 && panelRect.y < 30,
+        "the order panel opens at the view's top right, clear of the toolbar: " + panelRect + " / " + editor.ToolbarBounds
       );
+      // Carried by its head, not by its cards or its button; it stays where it is left.
+      Vector2 head = new Vector2(panelRect.x + panelRect.width * .3f, panelRect.y + 10);
+      RectTransform floatButton = ByName<RectTransform>(panel.Root, "Float view");
+      Rect floatRect = ScreenRectOf(floatButton);
+      Vector2 onButton = new Vector2(floatRect.center.x, Screen.height - floatRect.center.y);
+      Vector2 onCards = new Vector2(panelRect.center.x, panelRect.center.y);
+      Assert(panel.HeadAt(head) && !panel.HeadAt(onButton) && !panel.HeadAt(onCards),
+        "the panel is carried by its head, away from Float view and the cards");
+      panel.BeginDrag(head);
+      panel.Move(head + new Vector2(-180, 40), true);
+      panel.Move(head + new Vector2(-180, 40), false);
+      Rect moved = PopoverPlacement.ScreenRect(panel.Root);
+      Assert(!panel.Dragging && Mathf.Abs(moved.x - (panelRect.x - 180)) < 1 && Mathf.Abs(moved.y - (panelRect.y + 40)) < 1,
+        "carried, it moves with the pointer and stays when let go: " + panelRect + " -> " + moved);
+      canvas.Layers();
+      canvas.Layers();
+      Call(editor, "UpdateFrames");
+      Settle();
+      Rect reopened = PopoverPlacement.ScreenRect(panel.Root);
+      Assert(panel.Visible && Mathf.Abs(reopened.x - moved.x) < 1 && Mathf.Abs(reopened.y - moved.y) < 1,
+        "closed and opened again, it comes back where it was left: " + reopened);
+      SaveFrame(camera, texture, canvases, name + "-layers-moved");
+      panel.BeginDrag(head + new Vector2(-180, 40));
+      panel.Move(head, false);
+      Call(editor, "UpdateFrames");
+      Settle();
+      // Opened again, it has a new model.
+      layers = panel.ViewModel;
+      rows = layers.Rows;
       RectTransform titleCard = ByName<RectTransform>(panel.Root, rows[title].Key);
       Assert(
         titleCard != null

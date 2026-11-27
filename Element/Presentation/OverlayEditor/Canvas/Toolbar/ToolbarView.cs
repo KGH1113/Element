@@ -49,20 +49,37 @@ internal sealed class ToolbarView : View<ToolbarViewModel>
         If(
           () => VM.Floating.Value,
           () =>
-            Text(
-                VM.NativeOrbit
-                  ? L(
-                    "요소는 위아래로 끌어 순서 변경 · 두 손가락으로 회전 · 핀치로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
-                    "Drag up/down to reorder · Two fingers to orbit · Pinch to zoom · Double-click space to reset"
-                  )
-                  : L(
-                    "요소는 위아래로 끌어 순서 변경 · 빈 곳을 끌어 회전 · 휠로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
-                    "Drag elements up or down to reorder · Drag space to orbit · Scroll to zoom · Double-click space to reset"
-                  )
-              )
-              .Font(Font.Caption)
-              .Foreground(Colors.Muted)
-              .Frame(maxWidth: float.PositiveInfinity, height: 40),
+            HStack(
+              spacing: 8,
+              Text(
+                  VM.NativeOrbit
+                    ? L(
+                      "요소는 위아래로 끌어 순서 변경 · 두 손가락으로 회전 · 핀치로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
+                      "Drag up/down to reorder · Two fingers to orbit · Pinch to zoom · Double-click space to reset"
+                    )
+                    : L(
+                      "요소는 위아래로 끌어 순서 변경 · 빈 곳을 끌어 회전 · 휠로 확대 · 빈 곳을 두 번 눌러 시점 초기화",
+                      "Drag elements up or down to reorder · Drag space to orbit · Scroll to zoom · Double-click space to reset"
+                    )
+                )
+                .Font(Font.Caption)
+                .Foreground(Colors.Muted)
+                .Frame(maxWidth: float.PositiveInfinity, height: 40),
+              // The order panel, which turned it on, steps aside meanwhile: this turns it off, as Esc does.
+              WideButton(
+                  HStack(
+                    spacing: 6,
+                    Image(ElementIcons.Of(UiIconKind.Float), 20),
+                    Text(L("띄워 보기 끝", "End Float view")).LineLimit(1)
+                  ),
+                  "End float view",
+                  () => VM.EndFloatView,
+                  172,
+                  40,
+                  ButtonStyle.Prominent
+                )
+                .Overlay(RoundedRectangle(8).Stroke(_lit, 2).AllowsHitTesting(false))
+            ),
           () =>
             HStack(
               spacing: 8,

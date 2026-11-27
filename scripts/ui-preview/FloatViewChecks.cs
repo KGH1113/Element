@@ -63,8 +63,10 @@ namespace Element.Editor
       gameCamera.Render();
       for (int i=0; i<40; i++) scene.Advance(.016f);
       Settle();
-      Assert(layersPanel.Visible && Shown(button) && layersPanel.ViewModel.Floating.Value,
-        "while Float view is on, the order panel stays beside it, its button lit, to turn it off");
+      Pressable end = ToolbarButton(editor, "End float view");
+      Assert(!layersPanel.Visible && Shown(end) && !Shown(ToolbarButton(editor, "Layers")),
+        "while Float view is on, the order panel steps aside and the toolbar's End Float view turns it off: panel "
+          + layersPanel.Visible + ", end " + Shown(end) + ", order " + Shown(ToolbarButton(editor, "Layers")));
       SaveFrame(camera, texture, canvases, name + "-float-on");
       CheckFloatHover(editor, scene, camera, texture, canvases, name);
       bool reduced = session.Preferences.ReduceUiMotion;
@@ -82,9 +84,6 @@ namespace Element.Editor
       var chrome = editor.ToolbarBounds.center;
       Assert(!scene.Accepts(new Vector2(chrome.x/session.ViewWidth, 1-chrome.y/session.ViewHeight))
         && scene.Accepts(new Vector2(.15f,.6f)), "native gestures start on the canvas and leave toolbar controls alone");
-      Rect panelRect = ScreenRectOf(layersPanel.Root);
-      Assert(!scene.Accepts(new Vector2(panelRect.center.x / Screen.width, panelRect.center.y / Screen.height)),
-        "and leave the order panel beside the scene alone: " + panelRect);
       scene.Orbit(new Vector2(0, 4));
       for (int i = 0; i < 20; i++) scene.Magnify(.2f);
       Assert(orbit.Pitch > 75 && orbit.Pitch < 84 && orbit.Zoom > 1.9f && orbit.Zoom < 2.14f,
@@ -116,10 +115,14 @@ namespace Element.Editor
       Call(editor, "Redo");
       Assert(order.Read().IndexOf(shape) == lifted, "redo restores the lifted depth");
       Call(editor, "Undo");
-      Press(button);
+      Press(end);
+      Assert(!scene.Open && !layersPanel.Visible, "End Float view settles the scene back down; the panel waits for it");
       for (int i=0; i<60; i++) scene.Advance(.016f);
       Call(editor, "AdvanceFloatView", .016f);
-      Assert(Field<FloatScene>(editor, "_float") == null, "closing releases the float scene");
+      Call(editor, "UpdateFrames");
+      Settle();
+      Assert(Field<FloatScene>(editor, "_float") == null && layersPanel.Visible && Shown(ToolbarButton(editor, "Layers")),
+        "closing releases the float scene, and the order panel comes back where it was");
       Press(ToolbarButton(editor, "Layers"));
       Settle();
       Object.DestroyImmediate(sample.gameObject);

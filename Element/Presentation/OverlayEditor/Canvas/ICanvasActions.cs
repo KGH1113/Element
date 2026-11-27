@@ -15,7 +15,12 @@ internal interface ICanvasActions
 
   void Undo();
   void Redo();
-  void ToggleFloatView();
+
+  /// <summary>Float view: the elements stand apart in depth; the order panel steps aside meanwhile.</summary>
+  void OpenFloatView();
+
+  /// <summary>Back from Float view to the flat canvas.</summary>
+  void CloseFloatView();
 
   /// <summary>Leaves without saving.</summary>
   void Cancel();

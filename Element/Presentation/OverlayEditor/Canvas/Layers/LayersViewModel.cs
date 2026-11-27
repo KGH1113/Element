@@ -43,28 +43,20 @@ internal sealed class LayersViewModel : ViewModel
   private int _stamp;
   private bool _carrying;
 
-  /// <param name="floating">Whether Float view is on: its button in the panel is lit.</param>
-  public LayersViewModel(
-    CanvasSession session,
-    CanvasSelection selection,
-    ElementKinds kinds,
-    ICanvasActions canvas,
-    State<bool> floating
-  )
+  public LayersViewModel(CanvasSession session, CanvasSelection selection, ElementKinds kinds, ICanvasActions canvas)
   {
     _session = session;
     _selection = selection;
     _kinds = kinds;
     _canvas = canvas;
-    Floating = floating;
-    ToggleFloatView = Command(canvas.ToggleFloatView);
+    OpenFloatView = Command(canvas.OpenFloatView);
   }
 
   /// <summary>Float view: the elements stand apart in depth, in the order the cards show.</summary>
-  public Command ToggleFloatView { get; }
+  public Command OpenFloatView { get; }
 
-  /// <summary>Float view is on.</summary>
-  public readonly State<bool> Floating;
+  /// <summary>The panel's name over its cards, as on the toolbar's button that opens it.</summary>
+  public static string Title => L("순서", "Order");
 
   /// <summary>The cards, front-most first.</summary>
   public LayerRowViewModel[] Rows = Array.Empty<LayerRowViewModel>();

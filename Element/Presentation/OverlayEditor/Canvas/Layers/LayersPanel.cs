@@ -10,14 +10,18 @@ using UnityEngine;
 namespace Element.Presentation.OverlayEditor.Canvas.Layers;
 
 /// <summary>
-/// The layers panel's place: above the toolbar from its Order button, open
-/// until that button closes it, without blocking the canvas. It keeps each
-/// shown card's frame for carrying and pointing, and the cards' pictures.
-/// What it shows is <see cref="LayersView"/>.
+/// The order panel's place: a panel of its own, carried by its head like the
+/// toolbar, at the view's top right until it is moved and then where it was
+/// left, open until the toolbar's Order button closes it, without blocking
+/// the canvas. It keeps each shown card's frame for carrying and pointing,
+/// and the cards' pictures. What it shows is <see cref="LayersView"/>.
 /// </summary>
 internal sealed class LayersPanel : IPopover
 {
   public const float Width = 392;
+
+  // From the view's edges, and from the toolbar it opens clear of.
+  private const float Margin = 12;
 
   private readonly CanvasSession _session;
   private readonly CanvasSelection _selection;
@@ -31,6 +35,11 @@ internal sealed class LayersPanel : IPopover
   private int _themeVersion = -1;
   private ICanvasActions _canvas;
   private LayerRowViewModel[] _rows;
+  private bool _dragging,
+    _placed;
+  private Vector2 _position,
+    _grab;
+  private float _placedScale;
 
   public LayersPanel(
     CanvasSession session,
@@ -67,7 +76,7 @@ internal sealed class LayersPanel : IPopover
     Close();
     _canvas = canvas;
     _themeVersion = UiTheme.Version;
-    ViewModel = new LayersViewModel(_session, _selection, _kinds, canvas, _toolbar.ViewModel.Floating);
+    ViewModel = new LayersViewModel(_session, _selection, _kinds, canvas);
     ViewModel.Refresh();
     _panel = new ScreenPanel("Layers", _session.Root.transform, UiPalette.Toolbar, keyboard: false);
     _panel.Mount(
@@ -82,6 +91,7 @@ internal sealed class LayersPanel : IPopover
 
   public void Close()
   {
+    _dragging = false;
     if (_panel == null)
       return;
     ViewModel?.Hover(null);
@@ -105,6 +115,7 @@ internal sealed class LayersPanel : IPopover
       _panel.Root.gameObject.SetActive(!hidden);
     if (hidden)
     {
+      _dragging = false;
       ViewModel.Hover(null);
       return;
     }
@@ -142,17 +153,77 @@ internal sealed class LayersPanel : IPopover
     ViewModel.Hover(CardUnder(pointer));
   }
 
-  /// <summary>Above the toolbar from its Order button.</summary>
+  /// <summary>Where it stands: its own place, scaled to the view.</summary>
   public void Place()
   {
     if (_panel == null)
       return;
-    float height = _panel.Size.y;
-    PopoverPlacement.PlaceScaled(_panel.Root, _toolbar.PopoverAboveLayers(Width, height), Width, height);
+    PopoverPlacement.PlaceScaled(_panel.Root, Frame(), Width, _panel.Size.y);
   }
 
   /// <summary>Where it stands, in screen pixels from the top left; empty while closed.</summary>
   public Rect Bounds => Visible ? PopoverPlacement.ScreenRect(_panel.Root) : default;
+
+  /// <summary>Whether it is being carried.</summary>
+  public bool Dragging => _dragging;
+
+  /// <summary>
+  /// Whether <paramref name="pointer"/> (screen pixels from the top left) is on
+  /// the head it is carried by, away from the head's button.
+  /// </summary>
+  public bool HeadAt(Vector2 pointer)
+  {
+    if (!Visible)
+      return false;
+    Rect frame = Bounds;
+    float head = LayersView.HeadHeight * frame.width / Width;
+    return frame.Contains(pointer)
+      && pointer.y <= frame.y + head
+      && !_panel.ControlAt(new Vector2(pointer.x, _session.ViewHeight - pointer.y));
+  }
+
+  /// <summary>Starts carrying it from <paramref name="pointer"/> (screen pixels from the top left).</summary>
+  public void BeginDrag(Vector2 pointer)
+  {
+    Rect frame = Frame();
+    _position = frame.position;
+    // It keeps the size it had where it opened, so it doesn't jump under the pointer.
+    _placedScale = frame.width / Width;
+    _dragging = _placed = true;
+    _grab = pointer - _position;
+  }
+
+  /// <summary>Carries it to <paramref name="pointer"/>; it ends when the button is let go.</summary>
+  public void Move(Vector2 pointer, bool held)
+  {
+    _position = pointer - _grab;
+    _position = Frame().position;
+    _dragging = held;
+    Place();
+  }
+
+  // Its place in screen pixels from the top left: at the top right until it
+  // is moved, then where it was left, kept inside the view. Before it is
+  // moved it stays clear of the toolbar, smaller if it must, and keeps that size once moved.
+  private Rect Frame()
+  {
+    float viewWidth = _session.ViewWidth,
+      viewHeight = _session.ViewHeight;
+    float height = _panel.Size.y;
+    float scale = Mathf.Min(_session.UiScale, Mathf.Min((viewWidth - 16) / Width, (viewHeight - 16) / height));
+    float margin = Margin * _session.UiScale;
+    Rect toolbar = _toolbar.Bounds;
+    if (_placed)
+      scale = Mathf.Min(scale, _placedScale);
+    else if (toolbar.xMax > viewWidth - Width * scale - margin && toolbar.y > margin)
+      scale = Mathf.Min(scale, (toolbar.y - margin * 2) / height);
+    float w = Width * scale,
+      h = height * scale;
+    Vector2 p = _placed ? _position : new Vector2(viewWidth - w - margin, margin);
+    p.x = Mathf.Clamp(p.x, 0, Mathf.Max(0, viewWidth - w));
+    p.y = Mathf.Clamp(p.y, 0, Mathf.Max(0, viewHeight - h));
+    return new Rect(p, new Vector2(w, h));
+  }
 
   /// <summary>Over the editor's other panels.</summary>
   public void Raise() => _panel?.Root.SetAsLastSibling();

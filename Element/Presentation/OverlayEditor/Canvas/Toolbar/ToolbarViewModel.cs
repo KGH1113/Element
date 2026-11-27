@@ -54,6 +54,7 @@ internal sealed class ToolbarViewModel : ViewModel
     Delete = Command(() => canvas.Delete(), canExecute: selected);
     Add = Command(() => canvas.Add());
     Layers = Command(() => canvas.Layers());
+    EndFloatView = Command(() => canvas.CloseFloatView());
     Color = Command(() => canvas.Color());
     Font = Command(() => canvas.Font(), canExecute: Computed(() => HasFonts));
     Edit = Command(() => canvas.Edit());
@@ -114,8 +115,11 @@ internal sealed class ToolbarViewModel : ViewModel
   public Command Cancel { get; }
   public Command Save { get; }
 
-  /// <summary>Float view is on (its button is in the order panel): the toolbar says how to move around.</summary>
+  /// <summary>Float view is on (its button is in the order panel): the toolbar says how to move around, and ends it.</summary>
   public readonly State<bool> Floating = new(false);
+
+  /// <summary>Back from Float view to the flat canvas.</summary>
+  public Command EndFloatView { get; }
   public Command ResetAll { get; }
   public Command ResetElement { get; }
   public Command Delete { get; }

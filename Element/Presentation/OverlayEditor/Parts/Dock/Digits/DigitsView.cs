@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
@@ -80,6 +81,8 @@ internal sealed class DigitsView : View<DigitsViewModel>
         () => glyph.Pick,
         ButtonStyle.Plain
       )
+      // No fill behind a digit, hovered or pressed: the digit itself turns the highlight color.
+      .ButtonStyle(new ButtonSurfaceStyle(FieldLook.Clear, 0, hovered: FieldLook.Clear, pressed: FieldLook.Clear))
       .OnHover(glyph.Hover)
       .Named(glyph.Name)
       .Frame(height: _card);

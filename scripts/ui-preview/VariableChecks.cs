@@ -681,6 +681,15 @@ namespace Element.Editor
         "the number stands in the middle of its card, smaller than the mock's: " + (left + right) / 2 + " / " + card.center.x + " · size " + inks[0].fontSize);
       Assert(inks.Skip(3).All(ink => ink.GetComponentInParent<CanvasGroup>() != null || true), "drawn");
       SaveFrame(camera, texture, canvases, name + "-variable-digits");
+      // Under the pointer a digit turns the highlight color, with nothing drawn behind it.
+      Pressable third = DigitsKey(dock, 3);
+      third.OnPointerEnter(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current));
+      Settle();
+      UnityEngine.UI.Graphic[] behind = third.GetComponentsInChildren<UnityEngine.UI.Graphic>(false).Where(part => !(part is TMP_Text)).ToArray();
+      Assert(behind.All(part => part.color.a < .01f),
+        "a digit under the pointer has no fill behind it: " + string.Join(" ", behind.Select(part => part.name + " " + part.color.a)));
+      third.OnPointerExit(new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current));
+      Settle();
       // One decimal: pressed where it stands; compared at it, so 0.1 is not 0; the pill says so.
       Press(DigitsKey(dock, 1));
       Settle();

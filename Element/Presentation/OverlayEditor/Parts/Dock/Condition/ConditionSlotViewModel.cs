@@ -9,8 +9,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 /// <summary>
 /// One of a condition's five slots as its input method shows it: what it
 /// holds (pills, one large number or word, or one color), or while empty its
-/// type's mark and name. An answer (the result or the default) also knows
-/// whether the condition goes its way now. A click goes into it.
+/// type's mark and name. A click goes into it.
 /// </summary>
 internal sealed class ConditionSlotViewModel : ViewModel
 {
@@ -63,12 +62,6 @@ internal sealed class ConditionSlotViewModel : ViewModel
 
   /// <summary>A comparison picked by hand, as its sign; '\0' while the slot holds something else.</summary>
   public readonly State<char> Sign = new('\0');
-
-  /// <summary>The condition goes this way now, with the values as they are.</summary>
-  public readonly State<bool> Live = new(false);
-
-  /// <summary>The condition goes the other way now: this answer waits, quieter.</summary>
-  public readonly State<bool> Quiet = new(false);
 
   /// <summary>It keeps the field from being finished, and Apply was just refused: its outline says so.</summary>
   public readonly State<bool> Bad = new(false);

@@ -14,9 +14,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 /// <summary>
 /// A condition's five slots as the dock shows them. Picked, it is its own
 /// input method, drawn as a fork: what is compared on top (value,
-/// comparison, value), and under it the two answers side by side. With the
-/// values as they are now, the answer the condition gives is lit, and the
-/// other waits. A slot clicked is gone into, where the dock's line and input
+/// comparison, value), and under it the two answers side by side, marked ✓
+/// and ✕ for when it holds and when it doesn't. Nothing lights up with the
+/// values of the moment. A slot clicked is gone into, where the dock's line and input
 /// method are that slot's; the condition then stays over them, folded into
 /// a strip with the slot gone into lit (<see cref="In"/>). When Apply is
 /// refused, the slot in the way is outlined and the whole shakes.
@@ -31,6 +31,7 @@ internal sealed class ConditionFormViewModel : ViewModel
   {
     Leave = Command(() => leave?.Invoke());
     OverlayVariableWords words = FormulaWords.Current;
+    Start = words.ConditionStart;
     ConditionSlotViewModel[] slots = new ConditionSlotViewModel[5];
     for (int slot = 0; slot < slots.Length; slot++)
     {
@@ -42,6 +43,9 @@ internal sealed class ConditionFormViewModel : ViewModel
     }
     Slots = slots;
   }
+
+  /// <summary>The word the condition starts with, before what it compares: "if".</summary>
+  public readonly string Start;
 
   /// <summary>Compared, comparison, compared with, result, default.</summary>
   public readonly IReadOnlyList<ConditionSlotViewModel> Slots;
@@ -57,21 +61,13 @@ internal sealed class ConditionFormViewModel : ViewModel
 
   /// <summary>
   /// Shows <paramref name="condition"/>, whose answers must give
-  /// <paramref name="gives"/>. <paramref name="values"/> say which way it
-  /// goes now. <paramref name="problem"/> is what keeps the field from being
-  /// finished, shown on its slot while <paramref name="alarmed"/>.
+  /// <paramref name="gives"/>. <paramref name="problem"/> is what keeps the
+  /// field from being finished, shown on its slot while <paramref name="alarmed"/>.
   /// </summary>
-  public void Show(
-    OverlayPiece condition,
-    OverlayValueType gives,
-    IOverlayNumberSource values,
-    OverlayTypeProblem problem,
-    bool alarmed
-  )
+  public void Show(OverlayPiece condition, OverlayValueType gives, OverlayTypeProblem problem, bool alarmed)
   {
     if (condition == null || condition.Kind != OverlayPieceKind.Condition)
       return;
-    bool known = OverlayVariableEvaluator.TryHolds(condition, values, out bool holds);
     for (int slot = 0; slot < Slots.Count; slot++)
     {
       ConditionSlotViewModel row = Slots[slot];
@@ -90,8 +86,6 @@ internal sealed class ConditionFormViewModel : ViewModel
         ShowAnswer(row, held, type);
       else
         ShowPills(row, held, type, 1);
-      row.Live.Value = answer && known && holds == (slot == OverlayPiece.Result);
-      row.Quiet.Value = answer && known && !row.Live.Value;
       row.Bad.Value = alarmed && problem != null && problem.Condition == condition && problem.Slot == slot;
     }
   }

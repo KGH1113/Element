@@ -213,7 +213,7 @@ internal sealed class InputDockViewModel : ViewModel
       WordsFocus.Value++;
     _wordsPicked = words;
     if (picked != null && picked.Kind == OverlayPieceKind.Condition)
-      Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _samples, _editing.Problem, Alarmed.Value);
+      Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _editing.Problem, Alarmed.Value);
     else if (picked != null && picked.Kind == OverlayPieceKind.Point)
       Points.Show(picked.Point, Anchor9.Center);
     else if (picked != null && picked.Kind == OverlayPieceKind.Value && OverlayValueCatalog.Get(picked.Value).HasDigits)
@@ -221,7 +221,7 @@ internal sealed class InputDockViewModel : ViewModel
     OverlayPiece around = owner != null && _editing.Active ? _editing.Around : null;
     int slot = around != null ? _editing.AroundSlot : -1;
     if (around != null)
-      Fold.Show(around, _editing.AroundGives, _samples, _editing.Problem, Alarmed.Value);
+      Fold.Show(around, _editing.AroundGives, _editing.Problem, Alarmed.Value);
     Arrive(owner, around != null, slot, around != null ? _editing.Depth : 0);
     Fold.In.Value = slot;
     Folded.Value = around != null;

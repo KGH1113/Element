@@ -60,26 +60,6 @@ internal static class OverlayVariableEvaluator
     Holds(condition, source, 0) ? condition.Slots[OverlayPiece.Result] : condition.Slots[OverlayPiece.Default];
 
   /// <summary>
-  /// Which way a condition goes now: <paramref name="holds"/> says whether
-  /// its comparison holds. False while that can't be known: something it
-  /// compares, or what it compares by, has nothing to give yet.
-  /// </summary>
-  public static bool TryHolds(OverlayPiece condition, IOverlayNumberSource source, out bool holds)
-  {
-    holds = false;
-    if (condition == null || condition.Kind != OverlayPieceKind.Condition)
-      return false;
-    if (
-      !TrySingle(condition.Slots[OverlayPiece.Compare], source, 1, OverlayValueType.Compare, out OverlayPiece compare)
-      || !TryNumber(condition.Slots[OverlayPiece.Left], source, 1, out double left, out _)
-      || !TryNumber(condition.Slots[OverlayPiece.Right], source, 1, out double right, out _)
-    )
-      return false;
-    holds = Holds(compare.Op, left, right);
-    return true;
-  }
-
-  /// <summary>
   /// Whether <paramref name="value"/> compares with <paramref name="than"/>
   /// by <paramref name="compare"/>: numbers the same to six decimals are the
   /// same, so 0.1 + 0.2 = 0.3.

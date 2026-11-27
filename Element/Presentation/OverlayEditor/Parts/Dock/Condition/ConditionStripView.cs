@@ -31,9 +31,13 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
     Key = 28,
     KeyAfter = 2,
     Answer = 30,
+    // An answer's ✓ or ✕, small, just before it.
+    MarkSize = 9,
+    MarkGap = 2,
+    MarkedAnswer = MarkSize + MarkGap + Answer,
     TickGap = 4,
-    // The two sides share what the keys, the tick and the answers leave.
-    Side = (Width - Pad * 2 - Key - KeyAfter - Key - Answer * 2 - (TickGap * 2 + 1) - Between * 6) / 2,
+    // The two sides share what the keys, the tick and the marked answers leave.
+    Side = (Width - Pad * 2 - Key - KeyAfter - Key - MarkedAnswer * 2 - (TickGap * 2 + 1) - Between * 6) / 2,
     // A slot that isn't the one being filled reads quieter.
     Quiet = .62f;
 
@@ -60,8 +64,8 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
     float left = Pad + Key + KeyAfter + Between,
       sign = left + Side + Between,
       right = sign + Key + Between,
-      yes = right + Side + Between + TickGap * 2 + 1 + Between,
-      no = yes + Answer + Between;
+      yes = right + Side + Between + TickGap * 2 + 1 + Between + MarkSize + MarkGap,
+      no = yes + Answer + Between + MarkSize + MarkGap;
     return slot == OverlayPiece.Left ? left + Side / 2
       : slot == OverlayPiece.Compare ? sign + Key / 2
       : slot == OverlayPiece.Right ? right + Side / 2
@@ -77,8 +81,8 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
         Sign(VM.Slots[OverlayPiece.Compare]),
         Wide(VM.Slots[OverlayPiece.Right]),
         Rectangle().Fill(_tick).Frame(width: 1, height: 18).Padding(0, TickGap),
-        Narrow(VM.Slots[OverlayPiece.Result]),
-        Narrow(VM.Slots[OverlayPiece.Default])
+        Marked(VM.Slots[OverlayPiece.Result]),
+        Marked(VM.Slots[OverlayPiece.Default])
       )
       .Padding(0, Pad)
       .Frame(width: Width, height: Height)
@@ -124,6 +128,16 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
     );
 
   // An answer, with room for one thing: its color, its number, or the mark of what it holds.
+  // An answer with its ✓ or ✕ just before it, as on the unfolded fork: ✓ for when the condition holds, ✕ for when it doesn't.
+  private View Marked(ConditionSlotViewModel slot) =>
+    HStack(
+      spacing: MarkGap,
+      Image(ElementIcons.Of(slot.Slot == OverlayPiece.Result ? UiIconKind.Check : UiIconKind.Close), MarkSize)
+        .Foreground(Colors.Foreground)
+        .Named(slot.Slot == OverlayPiece.Result ? "Condition strip mark true" : "Condition strip mark false"),
+      Narrow(slot)
+    );
+
   private View Narrow(ConditionSlotViewModel slot) =>
     Slot(
       slot,

@@ -72,9 +72,10 @@ namespace Element.Editor
         "the two answers stand side by side under it, as large tiles: " + yes + " / " + no);
       Assert(rows.All(row => place.Contains(row.center) && row.yMin >= doneKey.yMax - .5f),
         "all of it in the input method's place, over Remove and Apply");
-      Assert(dock.Vm.Form.Slots.All(row => (row.Slot == OverlayPiece.Compare || row.Look.Value == ConditionSlotLook.Empty) && !row.Live.Value && !row.Quiet.Value)
+      Assert(dock.Vm.Form.Slots.All(row => row.Slot == OverlayPiece.Compare || row.Look.Value == ConditionSlotLook.Empty)
         && dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '≥',
-        "a new condition's slots say what goes in them, it compares by ≥, and neither answer is lit yet");
+        "a new condition's slots say what goes in them, and it compares by ≥");
+      CheckForkMarks(dock, "a new condition");
       // Apply while a slot that must hold something is empty: refused with a shake, the slot outlined.
       int shaken = dock.Vm.Form.Shake.Asked;
       Press(DockKey(dock, "Key done"));
@@ -154,8 +155,7 @@ namespace Element.Editor
       ConditionSlotViewModel then = dock.Vm.Form.Slots[OverlayPiece.Result], otherwise = dock.Vm.Form.Slots[OverlayPiece.Default];
       Assert(then.Look.Value == ConditionSlotLook.Big && then.Big.Value == "60" && otherwise.Big.Value == "40",
         "an answer that is one number shows as that number, large: " + then.Big.Value + " / " + otherwise.Big.Value);
-      Assert(then.Live.Value && !then.Quiet.Value && otherwise.Quiet.Value && !otherwise.Live.Value,
-        "the example combo 120 is past 100: the answer the condition gives now is lit, the other waits");
+      CheckForkMarks(dock, "a filled condition");
       Assert(dock.ResultText.Contains("60") && size.Result.Value.Contains("60"),
         "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
@@ -277,8 +277,8 @@ namespace Element.Editor
       Assert(dock.Vm.Method.Value == DockMethod.Condition && colorThen.Look.Value == ConditionSlotLook.Color
         && colorElse.Look.Value == ConditionSlotLook.Color && colorElse.Caption.Value == "#5AC8FA",
         "an answer that is one color shows as that color over its name: " + colorThen.Caption.Value + " / " + colorElse.Caption.Value);
-      Assert(colorElse.Live.Value && colorThen.Quiet.Value && dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '=',
-        "the example 99.5 isn't 100: the default is the answer lit now");
+      Assert(dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '=', "the color's condition compares by =");
+      CheckForkMarks(dock, "the color's condition");
       foreach (TextMeshProUGUI label in dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
         label.ForceMeshUpdate();
@@ -367,6 +367,13 @@ namespace Element.Editor
         && Mathf.Abs(slots[OverlayPiece.Left].width - slots[OverlayPiece.Right].width) < .5f
         && Mathf.Abs(slots[OverlayPiece.Result].width - slots[OverlayPiece.Default].width) < .5f,
         what + ": on the strip, the back key and then the five slots in a row: " + back + " / " + string.Join(" ", slots.Select(row => row.ToString())));
+      // Its answers are marked as on the fork, ✓ and ✕, each just before its slot.
+      RectTransform stripYes = ByName<RectTransform>(strip, "Condition strip mark true"), stripNo = ByName<RectTransform>(strip, "Condition strip mark false");
+      Rect yesMark = ScreenRectOf(stripYes), noMark = ScreenRectOf(stripNo);
+      Assert(yesMark.xMax <= slots[OverlayPiece.Result].xMin + .5f && yesMark.xMin >= slots[OverlayPiece.Right].xMax
+        && noMark.xMax <= slots[OverlayPiece.Default].xMin + .5f && noMark.xMin >= slots[OverlayPiece.Result].xMax
+        && Mathf.Abs(yesMark.center.y - slots[OverlayPiece.Result].center.y) < 1 && Mathf.Abs(noMark.center.y - slots[OverlayPiece.Default].center.y) < 1,
+        what + ": the strip's answers carry ✓ and ✕ just before them, as on the fork: " + yesMark + " / " + slots[OverlayPiece.Result] + " / " + noMark + " / " + slots[OverlayPiece.Default]);
       // What is in the slot grows out of the slot's own place on the strip.
       Assert(Mathf.Abs(bar.xMin + ConditionStripView.CenterOf(slot) * unit - slots[slot].center.x) < 1.5f,
         what + ": the slot's input method comes from where the slot stands: " + slots[slot] + " / " + (bar.xMin + ConditionStripView.CenterOf(slot) * unit));
@@ -595,6 +602,32 @@ namespace Element.Editor
       Settle();
       Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && !blanks.Any(slot => slot.gameObject.activeSelf),
         "the text is as it was: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
+    }
+
+    /// <summary>
+    /// The fork says which answer is which without a word and whatever the
+    /// values are now: "if" before what is compared, ✓ on the way to the
+    /// answer for when it holds, ✕ on the way to the other, each mark on its
+    /// way between the bar and its tile, over the tile's middle. Both tiles
+    /// keep their words, "then" and "otherwise".
+    /// </summary>
+    private static void CheckForkMarks(DockProbe dock, string what)
+    {
+      Settle();
+      RectTransform yesMark = ByName<RectTransform>(dock.MethodRoot, "Condition mark true"), noMark = ByName<RectTransform>(dock.MethodRoot, "Condition mark false");
+      Assert(yesMark != null && noMark != null && yesMark.gameObject.activeInHierarchy && noMark.gameObject.activeInHierarchy,
+        what + ": the fork's two ways are marked");
+      Assert(yesMark.GetComponentInChildren<UiIcon>().Kind == UiIconKind.Check && noMark.GetComponentInChildren<UiIcon>().Kind == UiIconKind.Close,
+        what + ": ✓ on the way to the answer for when it holds, ✕ on the other");
+      Rect yes = ScreenRectOf((RectTransform)ForkSlot(dock, OverlayPiece.Result).transform), no = ScreenRectOf((RectTransform)ForkSlot(dock, OverlayPiece.Default).transform),
+        bar = ScreenRectOf((RectTransform)ForkSlot(dock, OverlayPiece.Compare).transform), check = ScreenRectOf(yesMark), cross = ScreenRectOf(noMark);
+      Assert(Mathf.Abs(check.center.x - yes.center.x) < 1 && Mathf.Abs(cross.center.x - no.center.x) < 1
+        && check.yMin >= yes.yMax + 1 && cross.yMin >= no.yMax + 1 && check.yMax <= bar.yMin && Mathf.Abs(check.width - check.height) < .5f,
+        what + ": each mark is on its way, over its tile's middle, between the bar and the tile: " + check + " / " + yes + " / " + cross + " / " + no);
+      string[] words = dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Select(label => label.text).ToArray();
+      OverlayVariableWords said = FormulaWords.Current;
+      Assert(words.Contains(said.ConditionStart) && words.Contains(said.Then) && words.Contains(said.Otherwise),
+        what + ": the fork still reads if, then and otherwise: " + string.Join(" | ", words));
     }
 
     // How many hollow boxes for words not typed yet are drawn under a part.

@@ -73,7 +73,7 @@ The text and shape editors are two rows with one line across between them: above
 - See [Variables](#variables) for conditions, words and colors.
 - **Display.** The text shows the result as the game will: up to two decimals, or m:ss when the result is a time. Total − elapsed shows the time left. A time divided by a time is a plain number.
 - **Missing data.** A result needs every value it uses. Until the game has them, the overlay shows nothing there, and the editor uses each value's example.
-- **A value that shows nothing.** A value can give nothing for now (a condition whose answer is empty, words not typed yet). The game draws nothing there; the text editor keeps its place open with an empty slot, so it can still be seen and clicked.
+- **A value that shows nothing.** A value can give nothing for now (a condition whose answer is empty, words not typed yet). The game draws nothing there; the text editor keeps its place open with a hollow box, so it can still be seen and clicked. Words not typed yet are that same hollow box wherever they are drawn: on the line, on a condition's fork and strip, and in the field rows.
 - **Leaving saves.** In the overlay editor and the text and shape editors, every way out saves except the Cancel button: Esc (once nothing else is open) finishes like Save or Done, and edits open when the mod is turned off are kept.
 - **Live while editing.** With a level playing behind the editor (autoplay, for one), the canvas, the text and shape editors' previews, their numbers and the input dock's result follow the live values. An editor redraws only when a value it shows changes.
 - **Words.** The song title can't be calculated with, so number fields refuse it with a short reason.

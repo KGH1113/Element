@@ -22,7 +22,7 @@ internal interface IEditorActions
 
   /// <summary>
   /// "No": what was asked can't be done as things are (a value that can't
-  /// go where it was put, Apply on a field that can't be finished). Nothing
+  /// go where it was put, Enter on a field that can't be finished). Nothing
   /// is said in words: what is open shakes.
   /// </summary>
   void Refuse();

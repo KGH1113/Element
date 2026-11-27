@@ -4,14 +4,12 @@ using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.Graphics;
 using ElementUI;
 using UnityEngine;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// Large keys for a number: 0–9, a point, + − × ÷ and backspace, then the
-/// row every input method shares: Remove (지우기) takes the picked value out,
-/// and Apply. A key that would do nothing can't be pressed and reads dimmed;
+/// Large keys for a number: 0–9, a point, + − × ÷ and backspace. A key that
+/// would do nothing can't be pressed and reads dimmed;
 /// each key follows the variable by itself. A pressed key goes up as the
 /// dock's <see cref="IInputDockActions"/>. <see cref="KeypadView"/> draws it.
 /// </summary>
@@ -38,16 +36,9 @@ internal sealed class KeypadViewModel : ViewModel
     ("+", '+'),
   };
 
-  /// <param name="actions">Where a pressed key, Remove and Apply go.</param>
+  /// <param name="actions">Where a pressed key goes.</param>
   /// <param name="editing">The variable open: what it can take next lets a key be pressed.</param>
-  /// <param name="choice">A field picked from a fixed set is open: it can be applied, and nothing of it removed.</param>
-  /// <param name="alwaysOpen">Something is open all along (a text is its own content field), so Apply always can be pressed.</param>
-  public KeypadViewModel(
-    IInputDockActions actions,
-    FormulaEditing editing,
-    State<DockMethod> choice,
-    bool alwaysOpen = false
-  )
+  public KeypadViewModel(IInputDockActions actions, FormulaEditing editing)
   {
     KeypadKeyViewModel[] keys = new KeypadKeyViewModel[Layout.Length];
     for (int i = 0; i < keys.Length; i++)
@@ -68,36 +59,10 @@ internal sealed class KeypadViewModel : ViewModel
       );
     }
     Keys = keys;
-    Remove = Own(
-      new KeypadKeyViewModel(
-        "Key remove",
-        L("지우기", "Remove"),
-        '\0',
-        false,
-        actions.Remove,
-        () => choice.Value == DockMethod.Rest && editing.CanRemove
-      )
-    );
-    Done = Own(
-      new KeypadKeyViewModel(
-        "Key done",
-        L("적용", "Apply"),
-        '\0',
-        false,
-        actions.Done,
-        () => alwaysOpen || choice.Value != DockMethod.Rest || editing.Active
-      )
-    );
   }
 
   /// <summary>The sixteen keys of the grid, row by row: digits, the point, backspace and the operators.</summary>
   public readonly IReadOnlyList<KeypadKeyViewModel> Keys;
-
-  /// <summary>지우기: the picked value goes, an operator with the number it joined.</summary>
-  public readonly KeypadKeyViewModel Remove;
-
-  /// <summary>Apply: the way out of the dock, once what is open fits its field.</summary>
-  public readonly KeypadKeyViewModel Done;
 
   // The operators are drawn, all four alike; the digits are the font's.
   private static UiIconKind? OperatorIcon(char key) =>

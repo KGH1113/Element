@@ -63,7 +63,7 @@ internal sealed class ConditionSlotViewModel : ViewModel
   /// <summary>A comparison picked by hand, as its sign; '\0' while the slot holds something else.</summary>
   public readonly State<char> Sign = new('\0');
 
-  /// <summary>It keeps the field from being finished, and Apply was just refused: its outline says so.</summary>
+  /// <summary>It keeps the field from being finished, and finishing was just refused: its outline says so.</summary>
   public readonly State<bool> Bad = new(false);
 
   public Command Enter { get; }

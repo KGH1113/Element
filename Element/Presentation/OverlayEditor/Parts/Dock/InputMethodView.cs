@@ -26,7 +26,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// where the typing goes. Inside a condition's slot, that condition stays
 /// on top folded into a strip (<see cref="ConditionStripView"/>), and the
 /// slot's input method has the rest, grown out of its place on the strip.
-/// Under each, the row of Remove and Apply.
+/// Nothing is under it: a value is taken out with the × on its pill on the
+/// line, and the field is done with Enter, Esc or a click elsewhere.
 /// </summary>
 internal sealed class InputMethodView : View<InputDockViewModel>
 {
@@ -39,13 +40,8 @@ internal sealed class InputMethodView : View<InputDockViewModel>
     : base(vm) { }
 
   public override View Body =>
-    VStack(
-        spacing: 0,
-        Switch(() => VM.Folded.Value, folded => folded ? Folded() : Place(KeypadView.MethodHeight))
-          .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight, alignment: Alignment.Top),
-        KeypadView.SharedRow(VM.Keypad).Padding(new Insets(KeypadView.Gap, 0, 0, 0))
-      )
-      .Frame(width: KeypadView.Width, height: KeypadView.Height);
+    Switch(() => VM.Folded.Value, folded => folded ? Folded() : Place(KeypadView.MethodHeight))
+      .Frame(width: KeypadView.Width, height: KeypadView.MethodHeight, alignment: Alignment.Top);
 
   // Inside a condition's slot: the condition folded on top, the slot's input method under it.
   private View Folded() =>

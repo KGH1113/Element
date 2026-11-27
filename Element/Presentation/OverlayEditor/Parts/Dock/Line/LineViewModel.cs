@@ -39,7 +39,7 @@ internal sealed class LineViewModel : ViewModel
   /// <summary>Whether a field is open; with none the line is clear.</summary>
   public bool Open;
 
-  /// <summary>Apply was refused: what is missing on the line is outlined until it is put right.</summary>
+  /// <summary>Finishing was refused: what is missing on the line is outlined until it is put right.</summary>
   public bool Alarmed;
 
   /// <summary>Shakes the line when what was asked can't be done.</summary>
@@ -97,6 +97,9 @@ internal sealed class LineViewModel : ViewModel
 
   /// <summary>A piece or a slot clicked: it is picked.</summary>
   public void Pick(FormulaStep[] route, int index) => _actions.SelectAt(route, index);
+
+  /// <summary>The × on the picked piece: it is taken out.</summary>
+  public void Remove() => _actions.Remove();
 
   /// <summary>
   /// The line for what <paramref name="editing"/> has open, called
@@ -212,6 +215,7 @@ internal sealed class LineViewModel : ViewModel
     vm.Route = _route.ToArray();
     vm.Index = index;
     vm.Selected = selected;
+    vm.Removable = selected && editing.CanRemove;
     vm.Type = OverlayVariableTypes.TypeOf(piece);
     vm.HasSwatch = false;
     vm.Label = Label(piece);

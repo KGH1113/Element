@@ -185,8 +185,6 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Remove() => Edit(editing => editing.Remove());
 
-  void IInputDockActions.Done() => _formulas.FinishEditing();
-
   // The clicked value joins the formula being typed, or goes in at the caret.
   void IInputDockActions.Pick(OverlayValueDefinition value) => _formulas.PickValue(value);
 

@@ -9,8 +9,9 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// moving the caret by character, word and line, selecting, deleting,
 /// the clipboard, undo, and ⌘/Ctrl+Enter or Esc to finish. While the dock
 /// has something open, the keys are the dock's: the keyboard types like the
-/// keypad, Esc steps back out of a condition's slot and then closes what is
-/// open, and nothing reaches the text.
+/// keypad, Enter finishes what is open (refused while it doesn't fit), Esc
+/// steps back out of a condition's slot and then closes what is open, and
+/// nothing reaches the text.
 /// </summary>
 internal sealed class TextKeyboardInput
 {
@@ -147,7 +148,7 @@ internal sealed class TextKeyboardInput
 
   // While the dock has something open (a number, a color, the font list, a
   // value of the text), the keys are the dock's: Esc steps back out of a
-  // condition's slot and then closes what is open, Enter closes it, and the
+  // condition's slot and then closes what is open, Enter finishes it, and the
   // keyboard types like the keypad. Nothing else falls through to the text,
   // where it would type over or delete what is selected, the very thing
   // being edited. Only a value of the text itself, not gone into, lets
@@ -163,9 +164,10 @@ internal sealed class TextKeyboardInput
         CloseDock();
       return true;
     }
+    // Enter: what is open is done, from however deep inside it; refused, with a shake, while it doesn't fit.
     if (code == KeyCode.Return || code == KeyCode.KeypadEnter)
     {
-      CloseDock();
+      _formulas.FinishEditing();
       return true;
     }
     if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(key, _formulas.Editing, out char typed))

@@ -58,8 +58,7 @@ internal sealed class InputDockViewModel : ViewModel
     // What the game reads now, or each value's example while it reads nothing: which way a condition goes.
     _samples = values?.WithSamples;
     Keyboard = caret;
-    // A text is its own content field, open all along: there is always something to apply.
-    Keypad = Own(new KeypadViewModel(actions, editing, Choice, caret));
+    Keypad = Own(new KeypadViewModel(actions, editing));
     Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
     Line = Own(new LineViewModel(actions));
     Form = Own(new ConditionFormViewModel(actions.Enter));
@@ -186,7 +185,7 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>What the dock edits, such as "width" or "value:3"; null while nothing is.</summary>
   public readonly State<string> Owner = new(null);
 
-  /// <summary>Apply was refused and what was in the way is still so: it is outlined until it is put right.</summary>
+  /// <summary>Finishing was refused and what was in the way is still so: it is outlined until it is put right.</summary>
   public readonly State<bool> Alarmed = new(false);
 
   // ---- What the editor tells it ----
@@ -332,7 +331,7 @@ internal sealed class InputDockViewModel : ViewModel
   }
 
   /// <summary>
-  /// "No": what was asked can't be done as things are (Apply while a field
+  /// "No": what was asked can't be done as things are (Enter while a field
   /// can't be finished, a value that can't go where it was put). The line
   /// and the open condition shake, and what is in the way is outlined.
   /// </summary>

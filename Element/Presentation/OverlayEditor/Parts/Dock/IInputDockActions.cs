@@ -7,7 +7,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
 /// Everything the input dock asks for, and the only way out of it: a key
-/// typed, a piece picked on the line, Remove, Apply, a value clicked, and a
+/// typed, a piece picked on the line, a piece's ×, a value clicked, and a
 /// value let go on its line. The
 /// editor that shows the dock answers each one; the dock never changes what
 /// is edited itself, it shows what the editor tells it
@@ -52,11 +52,8 @@ internal interface IInputDockActions
   /// <summary>Back: one step out of the slot the dock is in, to the condition it is a slot of.</summary>
   void Leave();
 
-  /// <summary>지우기: the picked value is taken out.</summary>
+  /// <summary>The × on the picked piece: it is taken out.</summary>
   void Remove();
-
-  /// <summary>Apply: the open field is done, from however deep inside it; what is typed is kept and the dock rests.</summary>
-  void Done();
 
   /// <summary>A value clicked, or found by the search and picked with Enter.</summary>
   void Pick(OverlayValueDefinition value);

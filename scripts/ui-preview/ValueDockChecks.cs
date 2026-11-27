@@ -400,7 +400,7 @@ namespace Element.Editor
           Assert(!panel.Root.GetComponentsInChildren<Pressable>(false).Any(chip => chip.name.StartsWith("Value "))
             && !panel.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Length > 0)
             && method.Root.GetComponentsInChildren<Pressable>(false).All(key => !key.IsInteractable()),
-            name + ": with nothing open the dock is clear, and Remove and Apply rest");
+            name + ": with nothing open the dock is clear, and its keys rest");
           SaveFrame(camera, target, new[] { canvas }, name);
           return;
         }

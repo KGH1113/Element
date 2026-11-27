@@ -45,6 +45,9 @@ internal sealed class LinePieceViewModel : ViewModel
 
   public bool Selected;
 
+  /// <summary>Picked and can be taken out: it shows its ×. What a comparison's or a point's field holds is swapped, never taken out.</summary>
+  public bool Removable;
+
   /// <summary>A condition's slots in order (compared value, comparison, compared with, result, otherwise), or a group's one.</summary>
   public LineSlotViewModel[] Slots = Array.Empty<LineSlotViewModel>();
 }

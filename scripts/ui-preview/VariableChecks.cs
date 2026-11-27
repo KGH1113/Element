@@ -59,7 +59,7 @@ namespace Element.Editor
         "a new condition is one value on the line, and its input method is its five slots: " + dock.FormulaText);
       // The condition is drawn as a fork: what is compared in one bar on top (value, comparison, value),
       // the two answers side by side under it.
-      Rect place = ScreenRectOf(dock.MethodRoot), doneKey = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Rect place = ScreenRectOf(dock.MethodRoot);
       Rect[] rows = slots.Select(row => ScreenRectOf((RectTransform)row.transform)).ToArray();
       Rect left = rows[OverlayPiece.Left], sign = rows[OverlayPiece.Compare], right = rows[OverlayPiece.Right],
         yes = rows[OverlayPiece.Result], no = rows[OverlayPiece.Default];
@@ -70,20 +70,19 @@ namespace Element.Editor
       Assert(yes.yMax < left.yMin && no.yMax < left.yMin && yes.xMax < no.xMin && Mathf.Abs(yes.width - no.width) < .5f
         && Mathf.Abs(yes.center.y - no.center.y) < .5f && yes.height > left.height * 2,
         "the two answers stand side by side under it, as large tiles: " + yes + " / " + no);
-      Assert(rows.All(row => place.Contains(row.center) && row.yMin >= doneKey.yMax - .5f),
-        "all of it in the input method's place, over Remove and Apply");
+      Assert(rows.All(row => place.Contains(row.center) && row.yMin >= place.yMin - .5f),
+        "all of it in the input method's place");
       Assert(dock.Vm.Form.Slots.All(row => row.Slot == OverlayPiece.Compare || row.Look.Value == ConditionSlotLook.Empty)
         && dock.Vm.Form.Slots[OverlayPiece.Compare].Sign.Value == '≥',
         "a new condition's slots say what goes in them, and it compares by ≥");
       CheckForkMarks(dock, "a new condition");
-      // Apply while a slot that must hold something is empty: refused with a shake, the slot outlined.
+      // Enter while a slot that must hold something is empty: refused with a shake, the slot outlined.
       int shaken = dock.Vm.Form.Shake.Asked;
-      Press(DockKey(dock, "Key done"));
-      Settle();
+      Finish(text);
       Assert(dock.Owner == "size" && dock.Vm.Alarmed.Value && dock.Vm.Form.Shake.Asked == shaken + 1 && dock.Vm.Line.Shake.Asked > 0
         && dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value && !dock.Vm.Form.Slots[OverlayPiece.Compare].Bad.Value
         && !dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Notice"),
-        "Apply on an unfinished condition is refused without words: the form shakes and the empty slot is outlined");
+        "Enter on an unfinished condition is refused without words: the form shakes and the empty slot is outlined");
       SaveFrame(camera, texture, canvases, name + "-variable-condition");
       Rect forkLeft = ScreenRectOf((RectTransform)DockSlot(dock, OverlayPiece.Left).transform);
       int glides = dock.Vm.Arrival.Asked;
@@ -99,7 +98,7 @@ namespace Element.Editor
       Assert(dock.Vm.Arrival.Asked == glides + 1 && dock.Vm.Line.Slide.Asked > 0,
         "going in, the input method and the line arrive once");
       Assert(dock.Vm.Fold.Slots[OverlayPiece.Left].Bad.Value && !dock.Vm.Fold.Slots[OverlayPiece.Right].Bad.Value,
-        "the slot that kept Apply from finishing is still outlined on the strip");
+        "the slot that kept Enter from finishing is still outlined on the strip");
       Pressable seven = DockKey(dock, "Key 7");
       Rect sevenRect = ScreenRectOf((RectTransform)seven.transform), stripRect = ScreenRectOf(StripOf(dock));
       Assert(Mathf.Abs(sevenRect.height / stripRect.height - KeypadView.KeyHeightIn(InputMethodView.FoldedHeight) / ConditionStripView.Height) < .02f
@@ -160,13 +159,12 @@ namespace Element.Editor
         "the example combo 120 is past 100: the dock and the size row show 60: " + dock.ResultText + " / " + size.Result.Value);
       SaveFrame(camera, texture, canvases, name + "-variable-size");
       SaveFrameLarge(camera, canvases, name + "-variable-size-2x");
-      // Apply means the field is done, from however deep: inside a slot it doesn't step back, it finishes.
+      // Enter means the field is done, from however deep: inside a slot it doesn't step back, it finishes.
       Press(DockSlot(dock, OverlayPiece.Right));
       Settle();
-      Press(DockKey(dock, "Key done"));
-      Settle();
+      Finish(text);
       Assert(dock.Owner == null && !dock.Vm.Folded.Value && document.Document[0].SizeFormula == "if({combo};>=;100;60;40)",
-        "Apply inside a slot finishes the field, which keeps the condition: " + document.Document[0].SizeFormula);
+        "Enter inside a slot finishes the field, which keeps the condition: " + document.Document[0].SizeFormula);
       // A condition in an answer: going into it, the strip is the nearer condition's, and under it the inner one's fork, smaller.
       PressBar(text, size);
       Settle();
@@ -178,10 +176,10 @@ namespace Element.Editor
         "a condition put in an answer is picked there: the outer one stays folded, the inner one's fork under it");
       Rect outerStrip = ScreenRectOf(StripOf(dock));
       Rect[] inner = Enumerable.Range(0, 5).Select(i => ScreenRectOf((RectTransform)ForkSlot(dock, i).transform)).ToArray();
-      Rect methodPlace = ScreenRectOf(dock.MethodRoot), applyKey = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
-      Assert(inner.All(row => row.yMax <= outerStrip.yMin - 1 && row.yMin >= applyKey.yMax - .5f && row.xMin >= methodPlace.xMin - .5f && row.xMax <= methodPlace.xMax + .5f)
+      Rect methodPlace = ScreenRectOf(dock.MethodRoot);
+      Assert(inner.All(row => row.yMax <= outerStrip.yMin - 1 && row.yMin >= methodPlace.yMin - .5f && row.xMin >= methodPlace.xMin - .5f && row.xMax <= methodPlace.xMax + .5f)
         && inner[OverlayPiece.Result].yMax < inner[OverlayPiece.Left].yMin && inner[OverlayPiece.Result].xMax < inner[OverlayPiece.Default].xMin,
-        "the inner fork fits between the strip and the row of Remove and Apply: " + outerStrip + " / " + inner[OverlayPiece.Left] + " / " + inner[OverlayPiece.Default]);
+        "the inner fork fits between the strip and the place's bottom: " + outerStrip + " / " + inner[OverlayPiece.Left] + " / " + inner[OverlayPiece.Default]);
       SaveFrame(camera, texture, canvases, name + "-variable-nested");
       Press(ForkSlot(dock, OverlayPiece.Left));
       Settle();
@@ -192,12 +190,11 @@ namespace Element.Editor
       Settle();
       Assert(formulas.Editing.Depth == 1 && dock.Vm.Fold.In.Value == OverlayPiece.Default && dock.Vm.Method.Value == DockMethod.Condition,
         "back goes one step: to the inner condition, still inside the outer one's answer");
-      // Apply with the inner condition unfinished is refused, and the dock stays where what is missing shows.
+      // Enter with the inner condition unfinished is refused, and the dock stays where what is missing shows.
       int refusals = dock.Vm.Form.Shake.Asked;
-      Press(DockKey(dock, "Key done"));
-      Settle();
+      Finish(text);
       Assert(dock.Owner == "size" && dock.Vm.Alarmed.Value && dock.Vm.Form.Shake.Asked == refusals + 1 && dock.Vm.Form.Slots[OverlayPiece.Left].Bad.Value,
-        "Apply is refused while the inner condition is unfinished, its empty slot outlined");
+        "Enter is refused while the inner condition is unfinished, its empty slot outlined");
       Press(StripBack(dock));
       Settle();
       Assert(formulas.Editing.Depth == 0 && !dock.Vm.Folded.Value, "and back again is out at the field's own condition");
@@ -258,10 +255,10 @@ namespace Element.Editor
       SaveFrame(camera, texture, canvases, name + "-variable-color");
       SaveFrameLarge(camera, canvases, name + "-variable-color-2x");
       // Inside an answer of a color's condition, the picker has what the strip leaves, and nothing more.
-      Rect colorStrip = ScreenRectOf(StripOf(dock)), pickerPlace = ScreenRectOf(picker.Root), applyRow = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
-      Assert(picker.InCompactPlace && pickerPlace.yMax <= colorStrip.yMin - 1 && pickerPlace.yMin >= applyRow.yMax - .5f
+      Rect colorStrip = ScreenRectOf(StripOf(dock)), pickerPlace = ScreenRectOf(picker.Root), methodBottom = ScreenRectOf(dock.MethodRoot);
+      Assert(picker.InCompactPlace && pickerPlace.yMax <= colorStrip.yMin - 1 && pickerPlace.yMin >= methodBottom.yMin - .5f
         && Mathf.Abs(pickerPlace.height / colorStrip.height - InputMethodView.FoldedHeight / ConditionStripView.Height) < .05f,
-        "the color picker stands under the strip, over Remove and Apply: " + colorStrip + " / " + pickerPlace + " / " + applyRow);
+        "the color picker stands under the strip, in the rest of the place: " + colorStrip + " / " + pickerPlace + " / " + methodBottom);
       CheckStrip(dock, OverlayPiece.Default, "the color's condition");
       SaveFrame(camera, texture, canvases, name + "-variable-strip-color");
       Press(StripBack(dock));
@@ -377,14 +374,13 @@ namespace Element.Editor
       // What is in the slot grows out of the slot's own place on the strip.
       Assert(Mathf.Abs(bar.xMin + ConditionStripView.CenterOf(slot) * unit - slots[slot].center.x) < 1.5f,
         what + ": the slot's input method comes from where the slot stands: " + slots[slot] + " / " + (bar.xMin + ConditionStripView.CenterOf(slot) * unit));
-      // Under it, whatever the slot's input method is keeps clear of the strip and of Remove and Apply.
-      Rect apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      // Under it, whatever the slot's input method is keeps clear of the strip, inside the place.
       foreach (Pressable key in dock.MethodRoot.GetComponentsInChildren<Pressable>(false))
       {
-        if (key.name.StartsWith("Condition strip") || key.name == "Condition back" || key.name == "Key done" || key.name == "Key remove")
+        if (key.name.StartsWith("Condition strip") || key.name == "Condition back")
           continue;
         Rect rect = ScreenRectOf((RectTransform)key.transform);
-        Assert(rect.yMax <= bar.yMin - 1 && rect.yMin >= apply.yMax - .5f, what + ": " + key.name + " is under the strip and over Apply: " + rect + " / " + bar);
+        Assert(rect.yMax <= bar.yMin - 1 && rect.yMin >= place.yMin - .5f, what + ": " + key.name + " is under the strip, inside the place: " + rect + " / " + bar);
       }
       foreach (TextMeshProUGUI label in strip.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
@@ -661,13 +657,12 @@ namespace Element.Editor
         "progress picked in the compared slot has its own input method: its number");
       Assert(Written(dock) == "48.0000" && Solid(dock) == "48" && dock.Vm.Digits.Read == 0,
         "its number written out to four decimals (the example 48), solid as far as it is read, whole as the game shows it: " + Written(dock) + " / " + Solid(dock));
-      Rect card = ScreenRectOf(DigitsCard(dock)), strip = ScreenRectOf(StripOf(dock)), place = ScreenRectOf(dock.MethodRoot),
-        apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Rect card = ScreenRectOf(DigitsCard(dock)), strip = ScreenRectOf(StripOf(dock)), place = ScreenRectOf(dock.MethodRoot);
       Rect[] glyphs = DigitsGlyphs(dock).Select(glyph => ScreenRectOf((RectTransform)glyph.transform)).ToArray();
       Rect[] operators = new[] { "Key ÷", "Key ×", "Key −", "Key +" }.Select(key => ScreenRectOf((RectTransform)DockKey(dock, key).transform)).ToArray();
       Assert(card.yMax <= strip.yMin - 1 && Mathf.Abs(card.xMin - place.xMin) < 1 && Mathf.Abs(card.xMax - place.xMax) < 1
-        && operators.All(op => op.yMax <= card.yMin + .5f && op.yMin >= apply.yMax - .5f && Mathf.Abs(op.center.y - operators[0].center.y) < .5f),
-        "the number's card spans the place under the strip, the operators under it, over Remove and Apply: " + card + " / " + strip);
+        && operators.All(op => op.yMax <= card.yMin + .5f && op.yMin >= place.yMin - .5f && Mathf.Abs(op.center.y - operators[0].center.y) < .5f),
+        "the number's card spans the place under the strip, the operators under it at the bottom: " + card + " / " + strip);
       Assert(Enumerable.Range(0, glyphs.Length - 1).All(i => glyphs[i].xMax <= glyphs[i + 1].xMin + .5f)
         && glyphs.All(glyph => Mathf.Abs(glyph.height - card.height) < 1 && card.Contains(glyph.center)),
         "its parts stand in a row, each as tall as the card to be pressed: " + string.Join(" ", glyphs.Select(glyph => glyph.ToString())));
@@ -719,8 +714,7 @@ namespace Element.Editor
       Settle();
       Assert(dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Single().Digits == "0.0", "on the fork the compared slot's pill says it too");
       SaveFrame(camera, texture, canvases, name + "-variable-digits-fork");
-      Press(DockKey(dock, "Key done"));
-      Settle();
+      Finish(text);
       document.Undo();
       Call(text, "CloseOpen");
       Settle();

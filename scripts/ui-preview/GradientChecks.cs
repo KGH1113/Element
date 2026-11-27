@@ -116,10 +116,10 @@ namespace Element.Editor
         "a gradient's controls are as wide as the column and fit above the keypad: " + picker.CurrentWidth + " x " + picker.Height);
       Rect pickerRect = ScreenRectOf(picker.Root);
       // The picked color's square stands where every input method does, so nothing reaches out of the column.
-      Rect methodPlace = ScreenRectOf(dock0.MethodRoot), applyKey = ScreenRectOf((RectTransform)DockKey(dock0, "Key done").transform);
+      Rect methodPlace = ScreenRectOf(dock0.MethodRoot);
       Assert(picker.PlaneRoot != null && picker.PlaneRoot.gameObject.activeSelf, "the picked color has its square");
       Rect planeRect = ScreenRectOf(picker.PlaneRoot);
-      Assert(Mathf.Abs(planeRect.xMin - methodPlace.xMin) < 1 && Mathf.Abs(planeRect.yMax - methodPlace.yMax) < 1 && planeRect.yMin >= applyKey.yMax - 1
+      Assert(Mathf.Abs(planeRect.xMin - methodPlace.xMin) < 1 && Mathf.Abs(planeRect.yMax - methodPlace.yMax) < 1 && planeRect.yMin >= methodPlace.yMin - 1
         && pickerRect.xMin >= methodPlace.xMin - 1 && pickerRect.xMax <= methodPlace.xMax + 1 && pickerRect.yMin >= methodPlace.yMax - 1,
         "the square is in the input method's place and the controls right above it, both inside the right column: " + planeRect + " / " + pickerRect + " / " + methodPlace);
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes)))

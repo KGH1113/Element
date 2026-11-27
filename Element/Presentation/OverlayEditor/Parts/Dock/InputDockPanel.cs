@@ -79,7 +79,7 @@ internal sealed class InputDockPanel
   /// <summary>The left part: the line and the values.</summary>
   public RectTransform Root => _panel.Root;
 
-  /// <summary>The right part: the input method over Remove and Apply.</summary>
+  /// <summary>The right part: the input method.</summary>
   public RectTransform MethodRoot => _method.Root;
 
   /// <summary>Where the dock starts, at the line between the rows, in frame units; the preview and the property column stay above it.</summary>

@@ -85,14 +85,11 @@ internal sealed class ShapeInput
       _editor.Escape();
       return _context.Frame != null;
     }
-    // Enter closes what is open.
+    // Enter: what is open is done, refused while a number doesn't fit yet.
     if (EditorKeys.IsEnter(code))
     {
-      if (picker.Visible)
-        picker.Hide();
-      else if (_context.AnyOpen)
-        _editor.CloseOpen();
-      _editor.Render();
+      if (picker.Visible || _context.AnyOpen)
+        _editor.Finish();
       return true;
     }
     if (_gradient.Key(code, key.shift, _numbers.Editing.Active))

@@ -13,7 +13,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Line;
 /// outline unless it is the field's own. Empty, it says what goes in it with
 /// that type's mark, and a click makes it the place a value goes, its outline
 /// the highlight color. What is missing is outlined in the warning color
-/// once Apply was refused.
+/// once finishing was refused.
 /// </summary>
 internal sealed class LineSlotView : View<LineSlotViewModel>
 {
@@ -61,7 +61,7 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
           .Stroke(
             () =>
               VM.Root && VM.Pieces.Length > 0 ? _clear
-              // After a refused Apply, an empty place that must hold something says so.
+              // After finishing was refused, an empty place that must hold something says so.
               : VM.Missing && _line.Alarmed ? _bad
               : VM.Targeted ? _ring
               : _edge,

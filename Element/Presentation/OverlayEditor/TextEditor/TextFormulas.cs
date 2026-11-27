@@ -323,7 +323,7 @@ internal sealed class TextFormulas
   }
 
   /// <summary>
-  /// Apply: what is open is done, from however deep inside it, once it fits
+  /// Enter: what is open is done, from however deep inside it, once it fits
   /// its field. Until then it is refused, and the dock goes out to where
   /// what is in the way shows.
   /// </summary>
@@ -335,7 +335,7 @@ internal sealed class TextFormulas
       _editor.Refuse();
       return;
     }
-    // Apply on a color puts its picker away.
+    // Finishing a color puts its picker away.
     if (_fieldSlot == null && !ChipOpen(out _) && _color.Picker.Visible)
       _color.Picker.Hide();
     _editor.CloseOpen();

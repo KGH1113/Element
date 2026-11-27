@@ -18,7 +18,7 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Condition;
 /// and ✕ for when it holds and when it doesn't. Nothing lights up with the
 /// values of the moment. A slot clicked is gone into, where the dock's line and input
 /// method are that slot's; the condition then stays over them, folded into
-/// a strip with the slot gone into lit (<see cref="In"/>). When Apply is
+/// a strip with the slot gone into lit (<see cref="In"/>). When finishing is
 /// refused, the slot in the way is outlined and the whole shakes.
 /// </summary>
 internal sealed class ConditionFormViewModel : ViewModel
@@ -56,7 +56,7 @@ internal sealed class ConditionFormViewModel : ViewModel
   /// <summary>Back out of that slot: the condition unfolds.</summary>
   public Command Leave { get; }
 
-  /// <summary>Shakes the fork when Apply is refused.</summary>
+  /// <summary>Shakes the fork when finishing is refused.</summary>
   public readonly EditorShake Shake = new();
 
   /// <summary>

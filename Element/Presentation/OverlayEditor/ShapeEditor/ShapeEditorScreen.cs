@@ -157,8 +157,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Remove() => Edit(_ => _numbers.Remove());
 
-  // Apply on a color puts its picker away; on a number, finishes it.
-  void IInputDockActions.Done()
+  // Enter: on a color it puts the picker away; on a number it finishes it, refused while it doesn't fit.
+  public void Finish()
   {
     if (_numbers.Field == null && _colors.Picker.Visible && _numbers.Editing.Problem == null)
     {

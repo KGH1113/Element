@@ -57,7 +57,7 @@ namespace Element.Editor
     /// the column keeps its rows, the dock's line names the field
     /// (<paramref name="whose"/> <paramref name="name"/>) and shows its one
     /// choice, no values are listed, and <paramref name="drawn"/> stands
-    /// where the input method is, over Remove (which rests) and Apply.
+    /// where the input method is, with nothing under it.
     /// </summary>
     private static void AssertInputMethod(object editor, RectTransform drawn, DockMethod method, string name, string whose)
     {
@@ -72,24 +72,21 @@ namespace Element.Editor
         "the line names " + name + " and shows what it holds: " + line.Whose + " " + line.Name + " = " + line.ChoiceLabel);
       Assert(dock.Vm.Method.Value == method && !dock.Values.Listing.Value && DockChips(dock).Length == 0,
         "the place is " + name + "'s input method, and no values are listed for it");
-      Pressable remove = DockKey(dock, "Key remove"), done = DockKey(dock, "Key done");
-      Assert(!remove.IsInteractable() && done.IsInteractable(), name + " can be applied; nothing of it is removed");
-      Rect toolRect = ScreenRectOf(drawn), doneRect = ScreenRectOf((RectTransform)done.transform),
-        removeRect = ScreenRectOf((RectTransform)remove.transform), place = ScreenRectOf(dock.MethodRoot);
-      Assert(Mathf.Abs(toolRect.xMin - removeRect.xMin) < 1.5f && toolRect.xMax <= doneRect.xMax + 1.5f
-        && toolRect.yMin >= doneRect.yMax - 1.5f && toolRect.yMax <= place.yMax + 1.5f && InsideScreen(toolRect),
-        name + " stands where the input method is, over Remove and Apply: " + toolRect + " / " + doneRect + " / " + place);
+      Assert(RemoveKey(dock) == null, "nothing of " + name + " is taken out: it is swapped for another");
+      Rect toolRect = ScreenRectOf(drawn), place = ScreenRectOf(dock.MethodRoot);
+      Assert(Mathf.Abs(toolRect.xMin - place.xMin) < 1.5f && toolRect.xMax <= place.xMax + 1.5f
+        && toolRect.yMin >= place.yMin - 1.5f && toolRect.yMax <= place.yMax + 1.5f && InsideScreen(toolRect),
+        name + " stands where the input method is: " + toolRect + " / " + place);
       Graphic toolSurface = drawn.GetComponent<Graphic>();
       Assert(toolSurface == null || toolSurface.color.a < .01f, name + " stands on the screen with no box around it");
     }
 
-    /// <summary>Apply on a field picked from a fixed set: its input method closes and the dock rests.</summary>
+    /// <summary>Enter on a field picked from a fixed set: its input method closes and the dock rests.</summary>
     private static void ApplyChoice(object editor)
     {
       DockProbe dock = DockOf(editor);
-      Press(DockKey(dock, "Key done"));
-      Settle();
-      Assert(!dock.Vm.Line.Choosing && dock.Vm.Choice.Value == DockMethod.Rest, "Apply closes the field's input method");
+      Finish(editor);
+      Assert(!dock.Vm.Line.Choosing && dock.Vm.Choice.Value == DockMethod.Rest, "Enter closes the field's input method");
     }
 
     private static Rect BarButtonRect(object editor, PropertyButtonViewModel button) =>
@@ -157,7 +154,7 @@ namespace Element.Editor
       /// <summary>The left part: the line and the values.</summary>
       public RectTransform Root => Panel.Root;
 
-      /// <summary>The right part: the input method over Remove and Apply.</summary>
+      /// <summary>The right part: the input method.</summary>
       public RectTransform MethodRoot => Panel.MethodRoot;
       public ValueBrowserViewModel Values => Vm.Values;
       public string Owner => Vm.Owner.Value;
@@ -273,13 +270,35 @@ namespace Element.Editor
       return ShownKeys(dock.MethodRoot.GetComponentsInChildren<Pressable>(true).Where(key => key.name.StartsWith("Key ")).ToArray());
     }
 
-    /// <summary>A key of the dock's keypad by name: "Key 7", "Key backspace", "Key clear", "Key done".</summary>
+    /// <summary>
+    /// Enter, as the player finishes what is open: the editor's own keyboard
+    /// takes it (refused with a shake while the field doesn't fit).
+    /// </summary>
+    private static void Finish(object editor)
+    {
+      if (editor is TextEditorScreen text)
+        Field<TextKeyboardInput>(text, "_keyboard").Key(KeyDown(KeyCode.Return, '\n'));
+      else
+        Field<Element.Presentation.OverlayEditor.ShapeEditor.ShapeInput>(editor, "_input").Key(KeyDown(KeyCode.Return, '\n'));
+      Settle();
+    }
+
+    /// <summary>The × on the line's picked piece; null while none shows.</summary>
+    private static Pressable RemoveKey(DockProbe dock)
+    {
+      Settle();
+      return dock.Root.GetComponentsInChildren<Pressable>(false).SingleOrDefault(key => key.name == "Remove piece");
+    }
+
+    /// <summary>A key of the dock's keypad by name: "Key 7", "Key backspace", "Key ×".</summary>
     private static Pressable DockKey(DockProbe dock, string name) => DockKeys(dock).Single(key => key.name == name);
 
-    /// <summary>Where the keypad is drawn: around its keys.</summary>
+    /// <summary>Where the keypad is drawn: around its keys; with none shown, the input method's place.</summary>
     private static Rect KeypadRect(DockProbe dock)
     {
-      Rect[] keys = DockKeys(dock).Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
+      Rect[] keys = DockKeys(dock).Where(key => key.gameObject.activeInHierarchy).Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
+      if (keys.Length == 0)
+        return ScreenRectOf(dock.MethodRoot);
       return Rect.MinMaxRect(keys.Min(key => key.xMin), keys.Min(key => key.yMin), keys.Max(key => key.xMax), keys.Max(key => key.yMax));
     }
 
@@ -427,8 +446,8 @@ namespace Element.Editor
         "the points are square keys, three by three, in the input method's place: " + first + " / " + last);
       Pressable auto = ByName<Pressable>(dock.MethodRoot, "Grow automatically");
       Assert(Shown(auto) && ScreenRectOf((RectTransform)auto.transform).yMax <= last.yMin + .5f
-        && ScreenRectOf((RectTransform)auto.transform).yMin >= ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform).yMax - .5f,
-        "Auto sits under the points, over Remove and Apply");
+        && ScreenRectOf((RectTransform)auto.transform).yMin >= place.yMin - .5f,
+        "Auto sits under the points, in the input method's place");
       Assert(!dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Caption"),
         "no sentence explains the points");
       Press(points[(int)OverlayGrowth.BottomRight]);
@@ -441,8 +460,7 @@ namespace Element.Editor
       Settle();
       Assert(grow.Growth(null) == OverlayGrowth.Auto && model.IsAuto.Value && grow.Button.Value.Contains(L("자동", "Auto")),
         "Auto follows where the element sits, and holds instead of a point: " + grow.Button.Value);
-      Assert(!DockKey(dock, "Key remove").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
-        "a point is swapped for another, never removed");
+      Assert(RemoveKey(dock) == null, "a point is swapped for another, never removed: its pill has no ×");
     }
   }
 }

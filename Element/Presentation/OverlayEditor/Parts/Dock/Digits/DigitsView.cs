@@ -58,9 +58,7 @@ internal sealed class DigitsView : View<DigitsViewModel>
         HStack(
           spacing: Gap,
           _operators
-            .Select(key =>
-              (View)new KeypadKeyView(key, 24, false, _operatorRow).Frame(maxWidth: float.PositiveInfinity)
-            )
+            .Select(key => (View)new KeypadKeyView(key, 24, _operatorRow).Frame(maxWidth: float.PositiveInfinity))
             .ToArray()
         )
       )

@@ -1,6 +1,8 @@
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
+using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
 using UnityEngine;
@@ -19,9 +21,12 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
 {
   public const float ChipHeight = 32;
 
+  private const float RemoveSize = 20;
+
   private readonly LineViewModel _line;
   private readonly UiColor _ring = UiPalette.SoftAccent;
   private readonly UiColor _clear = FieldLook.Clear;
+  private readonly UiColor _removeHover = new Color(1, 1, 1, .1f);
 
   public LinePieceView(ItemSlot<LinePieceViewModel> slot, LineViewModel line)
     : base(slot) => _line = line;
@@ -34,45 +39,69 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
       _ => Chip(),
     };
 
-  // A pill: its mark or swatch, then what it says. Picked, it wears a ring and keeps its fill.
+  // A pill: its mark or swatch, then what it says. Picked, it wears a ring and keeps its fill, and shows its × to be taken out.
   private View Chip() =>
-    Button(
-        HStack(
-          spacing: 6,
-          If(
-            () => VM.HasSwatch,
-            () => Spacer().Frame(width: 14, height: 14).Background(() => VM.Swatch, 7).Padding(new Insets(0, 2, 0, 0)),
-            () => TypeMarks.Mark(() => VM.Type, 18)
-          ),
-          // Words not typed yet: the hollow box they have everywhere. A piece keeps its view as it is typed into.
-          If(
-            () => VM.Blank,
-            () => BlankWords.Box(17),
-            () => Text(() => VM.Label).Font(Font.Body.Sized(17)).Foreground(Colors.Foreground).LineLimit(1)
-          ),
-          // A value read at decimals of its own says how many, quietly.
-          If(
-            () => VM.Digits.Length > 0,
-            () => Text(() => VM.Digits).Font(Font.Body.Sized(14)).Foreground(Colors.Muted).LineLimit(1).Named("Digits")
+    HStack(
+        spacing: 2,
+        Button(
+            HStack(
+              spacing: 6,
+              If(
+                () => VM.HasSwatch,
+                () =>
+                  Spacer().Frame(width: 14, height: 14).Background(() => VM.Swatch, 7).Padding(new Insets(0, 2, 0, 0)),
+                () => TypeMarks.Mark(() => VM.Type, 18)
+              ),
+              // Words not typed yet: the hollow box they have everywhere. A piece keeps its view as it is typed into.
+              If(
+                () => VM.Blank,
+                () => BlankWords.Box(17),
+                () => Text(() => VM.Label).Font(Font.Body.Sized(17)).Foreground(Colors.Foreground).LineLimit(1)
+              ),
+              // A value read at decimals of its own says how many, quietly.
+              If(
+                () => VM.Digits.Length > 0,
+                () =>
+                  Text(() => VM.Digits).Font(Font.Body.Sized(14)).Foreground(Colors.Muted).LineLimit(1).Named("Digits")
+              )
+            ),
+            () => _line.Pick(VM.Route, VM.Index),
+            ButtonStyle.Plain
           )
-        ),
-        () => _line.Pick(VM.Route, VM.Index),
-        ButtonStyle.Plain
+          .Named("Piece " + VM.Key),
+        If(() => VM.Removable, RemoveKey)
       )
-      .Named("Piece " + VM.Key)
       .Padding(new Insets(0, 7, 0, 12))
       .Frame(height: ChipHeight)
       .Background(FieldLook.Chip, ChipHeight / 2)
-      .Overlay(Capsule().Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring));
+      .Overlay(Capsule().Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring).AllowsHitTesting(false));
 
-  private View Operator() =>
+  // The picked piece's ×: it is taken out, where it stands.
+  private View RemoveKey() =>
     Button(
-        Text(() => VM.Label).Font(Font.Body.Sized(20).Bolded()).Foreground(Colors.Foreground),
-        () => _line.Pick(VM.Route, VM.Index),
+        Image(ElementIcons.Of(UiIconKind.Close), 10)
+          .Foreground(Colors.Muted)
+          .Frame(width: RemoveSize, height: RemoveSize),
+        _line.Remove,
         ButtonStyle.Plain
       )
-      .Named("Operator")
+      .ButtonStyle(new ButtonSurfaceStyle(_clear, RemoveSize / 2, hovered: _removeHover))
+      .Named("Remove piece")
+      .Frame(width: RemoveSize, height: RemoveSize)
+      .Padding(new Insets(0, 0, 0, 4));
+
+  private View Operator() =>
+    HStack(
+        spacing: 0,
+        Button(
+            Text(() => VM.Label).Font(Font.Body.Sized(20).Bolded()).Foreground(Colors.Foreground),
+            () => _line.Pick(VM.Route, VM.Index),
+            ButtonStyle.Plain
+          )
+          .Named("Operator"),
+        If(() => VM.Removable, RemoveKey)
+      )
       .Padding(0, 7)
       .Frame(height: ChipHeight - 4)
-      .Overlay(RoundedRectangle(8).Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring));
+      .Overlay(RoundedRectangle(8).Stroke(() => VM.Selected ? _ring : _clear, FieldLook.Ring).AllowsHitTesting(false));
 }

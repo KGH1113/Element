@@ -492,7 +492,11 @@ namespace Element.Editor
       Pressable shortChip = DockChips(dock).FirstOrDefault(chip => Mathf.Abs(((RectTransform)chip.transform).rect.height - ValueBrowserView.ChipHeight) > .5f);
       Assert(shortChip == null, "every value chip, its capsule and its press are as tall as a chip: "
         + (shortChip == null ? "" : shortChip.name + " " + ((RectTransform)shortChip.transform).rect.height));
-      Assert(DockKeys(dock).Any(key => key.name == "Key remove") && DockKeys(dock).Any(key => key.name == "Key done"), "under the keypad are Remove and Apply");
+      Assert(DockKeys(dock).Length == 16 && RemoveKey(dock) != null,
+        "the keypad is its sixteen keys and nothing under them; the picked number's pill has its ×");
+      Rect keysRect = KeypadRect(dock), placeRect = ScreenRectOf(dock.MethodRoot);
+      Assert(Mathf.Abs(keysRect.yMin - placeRect.yMin) < 1 && Mathf.Abs(keysRect.yMax - placeRect.yMax) < 1,
+        "the keys fill the input method's place: " + keysRect + " / " + placeRect);
       Assert(DockKeys(dock).All(key => key.IsInteractable()), "with a number picked every key can be pressed");
       foreach (TextMeshProUGUI label in dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
       {
@@ -508,10 +512,10 @@ namespace Element.Editor
       Assert(Mathf.Abs(working.Width * scale - 240) < .01f && widthField.Text == "240", "keypad digits set the width as they are typed");
       ShapeNumbersOf(shapes).KeypadPress('0');
       ShapeNumbersOf(shapes).KeypadPress('0');
-      Press(DockKey(dock, "Key done"));
+      Finish(shapes);
       Assert(dock.Owner == null && Mathf.Abs(working.Width * scale - 10000) < .01f
         && Field<EditorFramePanel>(shapes, "_frame").ViewModel.NoticeText.Length == 0,
-        "Done lets the dock rest; a width past the limit is kept in range, without a word");
+        "Enter lets the dock rest; a width past the limit is kept in range, without a word");
       ShapeHistory(shapes).Undo();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
       Assert(Mathf.Abs(working.Width * scale - 160) < .01f, "keypad typing undoes as one step");
@@ -532,13 +536,16 @@ namespace Element.Editor
       host.Values.Clear(OverlayValueId.ProgressCurrent);
       Call(shapes, "FollowLiveValues");
       Assert(widthField.Text == "144", "without live data the example comes back");
-      Press(DockKey(dock, "Key remove"));
-      Assert(editing.Working.Serialize().Trim('{', '}') == "progress-current", "Remove takes the picked number out with its operator: " + editing.Working.Serialize());
-      Press(DockKey(dock, "Key remove"));
+      // The × on the picked pill takes it out, where it stands.
+      Rect pickedPill = ScreenRectOf((RectTransform)RemoveKey(dock).transform.parent);
+      Assert(ScreenRectOf(dock.Root).Contains(pickedPill.center), "the × is on the line, on the picked pill");
+      Press(RemoveKey(dock));
+      Assert(editing.Working.Serialize().Trim('{', '}') == "progress-current", "the × takes the picked number out with its operator: " + editing.Working.Serialize());
+      Press(RemoveKey(dock));
       Assert(editing.Working.IsEmpty && working.WidthFormula.Trim('{', '}') == "progress-current", "emptied, the width keeps the last thing that fit: " + working.WidthFormula);
       Assert(DockKey(dock, "Key 7").IsInteractable() && DockKey(dock, "Key −").IsInteractable() && !DockKey(dock, "Key +").IsInteractable()
-        && !DockKey(dock, "Key ×").IsInteractable() && !DockKey(dock, "Key remove").IsInteractable() && DockKey(dock, "Key done").IsInteractable(),
-        "emptied, only what can start a number can be pressed");
+        && !DockKey(dock, "Key ×").IsInteractable() && RemoveKey(dock) == null,
+        "emptied, only what can start a number can be pressed, and there is nothing to take out");
       Color plusInk = DockKey(dock, "Key +").GetComponentInChildren<UiIcon>().color, minusInk = DockKey(dock, "Key −").GetComponentInChildren<UiIcon>().color;
       Assert(plusInk.a < minusInk.a * .5f, "a key that would do nothing reads dimmed: " + plusInk + " / " + minusInk);
       // The four operators are drawn alike, so none reads lighter than the others.
@@ -612,10 +619,10 @@ namespace Element.Editor
       UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root);
       Assert(picker.Visible && fillButton.Active && !strokeButton.Active, "Fill opens its picker and stays lit");
-      Rect keypadRect = KeypadRect(dock), applyRect = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
-      Assert(picker.InCompactPlace && Shown(DockKey(dock, "Key done")) && Mathf.Abs(pickerRect.xMin - keypadRect.xMin) < 1
-        && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && Mathf.Abs(pickerRect.yMax - keypadRect.yMax) < 1 && pickerRect.yMin >= applyRect.yMax - 1,
-        "a solid color is picked in the keypad's place, above Remove and Apply: " + pickerRect + " / " + keypadRect);
+      Rect keypadRect = ScreenRectOf(dock.MethodRoot);
+      Assert(picker.InCompactPlace && Mathf.Abs(pickerRect.xMin - keypadRect.xMin) < 1
+        && Mathf.Abs(pickerRect.xMax - keypadRect.xMax) < 1 && Mathf.Abs(pickerRect.yMax - keypadRect.yMax) < 1 && pickerRect.yMin >= keypadRect.yMin - 1,
+        "a solid color is picked in the keypad's place: " + pickerRect + " / " + keypadRect);
       Assert(Field<Element.Presentation.OverlayEditor.Parts.Inspector.InspectorPanel>(shapes, "_inspector").ViewModel.OpenTool == null, "the column keeps its fields while the color is picked");
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes))) && dock.Owner == "color"
         && dock.Vm.Line.Name.Contains(Korean(name) ? "채우기 색" : "Fill color"),
@@ -678,7 +685,7 @@ namespace Element.Editor
       Assert(Mathf.Abs(working.Fill.Alpha - .5f) < .001f, "the plain opacity stays underneath");
       Assert(dock.ResultText.Contains("99.5%"), "the dock shows the opacity in percent: " + dock.ResultText);
       SaveFrame(camera, texture, canvases, name + "-shape-opacity");
-      Press(DockKey(dock, "Key done"));
+      Finish(shapes);
       PressBar(shapes, fillButton);
       Assert(picker.Visible && picker.InCompactPlace && dock.Owner == "color", "the color opens again in the keypad's place");
       ColorPickerProbe.Hex(picker.Root).text = "#3060B0";
@@ -696,13 +703,13 @@ namespace Element.Editor
       ColorPickerProbe.Hex(picker.Root).text = "#2050A0";
       picker.Commit();
       working = Field<OverlayShapeSettings>(shapes, "_shape");
-      Press(DockKey(dock, "Key done"));
-      Assert(!picker.Visible && !fillButton.Active && dock.Owner == null, "Apply puts the fill's picker away, and the dock rests");
+      Finish(shapes);
+      Assert(!picker.Visible && !fillButton.Active && dock.Owner == null, "Enter puts the fill's picker away, and the dock rests");
       PressBar(shapes, strokeButton);
       Assert(picker.Visible && strokeButton.Active && !fillButton.Active && ScreenRectOf(picker.Root).center == ScreenRectOf(picker.Root).center
         && picker.InCompactPlace && dock.Vm.Line.Name.Contains(Korean(name) ? "테두리 색" : "Border color"), "Border opens its picker in the same place");
-      Press(DockKey(dock, "Key done"));
-      Assert(!picker.Visible && !strokeButton.Active && Shown(DockKey(dock, "Key done")), "Apply puts it away; the fields and the keypad stay");
+      Finish(shapes);
+      Assert(!picker.Visible && !strokeButton.Active, "Enter puts it away; the fields stay");
 
       // Where the shape grows from.
       PressBar(shapes, shapeGrow);
@@ -1258,7 +1265,7 @@ namespace Element.Editor
       Assert(animateButton.Value == said.Yes, "the field says it is on: " + animateButton.Value);
       SaveFrame(camera, texture, canvases, name + "-text-animate");
       previewPulse.Stop();
-      Press(DockKey(dock, "Key done"));
+      Finish(text);
       SetField(TextDocumentOf(text), "_caretIndex", 3); SetField(TextDocumentOf(text), "_anchor", 0);
       Call(text, "Render");
       PressBar(text, animateButton);
@@ -1268,7 +1275,7 @@ namespace Element.Editor
       document = TextDocumentOf(text).Document;
       Assert(document[6].Animate && dock.Vm.Line.Shake.Asked == refused + 1 && screen.ViewModel.NoticeText.Length == 0,
         "letters alone stay as they are: the switch is refused with a shake, not a sentence");
-      Press(DockKey(dock, "Key done"));
+      Finish(text);
       SetField(TextDocumentOf(text), "_caretIndex", 7); SetField(TextDocumentOf(text), "_anchor", 7);
       Call(text, "Render");
       PressBar(text, animateButton);
@@ -1276,8 +1283,8 @@ namespace Element.Editor
       Settle();
       document = TextDocumentOf(text).Document;
       Assert(!document[6].Animate && !previewPulse.Playing, "the switch turns it off without moving anything");
-      Press(DockKey(dock, "Key done"));
-      Assert(dock.Owner == null && !animateButton.Active, "Apply lets the dock rest");
+      Finish(text);
+      Assert(dock.Owner == null && !animateButton.Active, "Enter lets the dock rest");
       preferences.ReduceUiMotion = true;
 
       // With nothing being calculated, a value from the dock goes in at the caret.
@@ -1332,8 +1339,8 @@ namespace Element.Editor
       };
       SaveFrame(camera, texture, canvases, name + "-text-keypad");
       _refresh = settle;
-      Press(DockKey(dock, "Key done"));
-      Assert(dock.Owner == null, "Done lets the dock rest and leaves the text alone");
+      Finish(text);
+      Assert(dock.Owner == null, "Enter lets the dock rest and leaves the text alone");
       Field<TextPointerInput>(text, "_pointer").UpdateHover(ScreenCenterOfItem(text, 9));
       Assert(screen.TipText.Contains("×") && screen.TipText.Contains("+"), "hovering a value names it: " + screen.TipText);
       TextFormulasOf(text).OpenChip(9);
@@ -1416,7 +1423,7 @@ namespace Element.Editor
       PressBar(text, colorButton);
       UiColorPicker picker = TextColorOf(text).Picker;
       Rect pickerRect = ScreenRectOf(picker.Root), textKeys = KeypadRect(dock);
-      Assert(picker.Visible && colorButton.Active && picker.InCompactPlace && Shown(DockKey(dock, "Key done"))
+      Assert(picker.Visible && colorButton.Active && picker.InCompactPlace
         && Mathf.Abs(pickerRect.xMin - textKeys.xMin) < 1 && Mathf.Abs(pickerRect.xMax - textKeys.xMax) < 1 && Mathf.Abs(pickerRect.yMax - textKeys.yMax) < 1,
         "the color is picked in the keypad's place: " + pickerRect + " / " + textKeys);
       Press(DockChip(dock, "Value custom-color"));
@@ -1434,7 +1441,7 @@ namespace Element.Editor
       Assert(document[0].Color.AlphaFormula == "progress-current" && document[3].Color.AlphaFormula == ""
         && dock.Owner == "opacity" && opacityButton.Result.Value == "= 48 %",
         "the opacity takes a value for the selection: " + opacityButton.Result.Value);
-      Press(DockKey(dock, "Key done"));
+      Finish(text);
       PressBar(text, colorButton);
       Assert(picker.Visible && picker.Commit() && TextDocumentOf(text).Document[0].Color.AlphaFormula == "progress-current"
         && TextDocumentOf(text).Document[0].Color.Hex == "#40C0FF", "confirming the color keeps the calculated opacity");
@@ -1448,8 +1455,8 @@ namespace Element.Editor
       ColorPickerProbe.Hex(picker.Root).text = "#40C0FF";
       text.Escape();
       Assert(text.IsOpen && !picker.Visible, "Esc closes the picker before the editor");
-      Assert(!colorButton.Active && dock.Owner == null && Shown(DockKey(dock, "Key done")),
-        "Text color lets go once the picker closes; the keypad is back");
+      Assert(!colorButton.Active && dock.Owner == null,
+        "Text color lets go once the picker closes");
 
       // The picker goes on with what is selected.
       SetField(TextDocumentOf(text), "_anchor", 0); SetField(TextDocumentOf(text), "_caretIndex", 3);
@@ -1698,7 +1705,7 @@ namespace Element.Editor
       ApplyChoice(text);
       Assert(!textFonts.Visible && !textFont.Active
         && BarButton(text, textFont).GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == textFont.Value),
-        "Apply closes the list; the row names the selection's font: " + textFont.Value);
+        "Enter closes the list; the row names the selection's font: " + textFont.Value);
       TextDocumentOf(text).Undo();
       OverlayTextDocument document = TextDocumentOf(text).Document;
       Assert(Enumerable.Range(0, document.Count).All(i => document[i].Font == ""), "one undo takes back the fonts tried");

@@ -23,14 +23,17 @@ internal sealed class ColorPickerCompactView : ColorPickerLayout
     _height = height;
   }
 
+  // The square and the hue beside it, over the HEX field.
+  private float SquareHeight => _height - FieldHeight - Gap;
+
   public override View Body =>
     If(
         () => VM.Custom.Value,
         () =>
           VStack(
             spacing: 0,
-            Plane(_height - ColorSliderView.Height - FieldHeight - Gap * 2),
-            Hue().Padding(new Insets(Gap, 0, 0, 0)),
+            // The hue stands left of the square, so the picker is no wider than its place needs.
+            HStack(spacing: Gap, UprightHue(SquareHeight), Plane(SquareHeight).Frame(maxWidth: float.PositiveInfinity)),
             HexField().Frame(maxWidth: float.PositiveInfinity, height: FieldHeight).Padding(new Insets(Gap, 0, 0, 0)),
             If(() => VM.Error.Value.Length > 0, () => Error(14).Padding(new Insets(4, 0, 0, 0)))
           ),

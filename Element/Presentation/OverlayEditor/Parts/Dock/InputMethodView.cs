@@ -7,6 +7,7 @@ using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
+using Element.Presentation.Ui.Widgets;
 using ElementUI;
 using TMPro;
 using static Element.Presentation.Ui.Theme.UiLocale;
@@ -123,16 +124,10 @@ internal sealed class InputMethodView : View<InputDockViewModel>
           .AllowsHitTesting(false)
       );
 
-  // A caret that is plain to see, in the highlight color, at the end of what is there when the field takes the keys.
-  private void Caret(TMP_InputField field)
+  // The editors' caret, at the end of what is there when the field takes the keys.
+  private static void Caret(TMP_InputField field)
   {
-    field.customCaretColor = true;
-    field.caretColor = VM.AccentInk.Literal;
-    field.caretWidth = 2;
-    field.caretBlinkRate = .9f;
-    UnityEngine.Color selection = VM.AccentInk.Literal;
-    selection.a = .35f;
-    field.selectionColor = selection;
+    UiCaret.Show(field);
     field.onSelect.AddListener(_ => field.MoveTextEnd(false));
   }
 

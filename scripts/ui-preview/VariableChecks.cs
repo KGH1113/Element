@@ -635,11 +635,11 @@ namespace Element.Editor
       part == null ? 0 : part.GetComponentsInChildren<RectTransform>(false).Count(box => box.name == "Blank words");
 
     /// <summary>
-    /// A value with decimals, picked, is its own input method: its number at
-    /// each count of decimals as keys (whole and one and two on top, three and
-    /// four under them), the count it is read at lit, the operators under them.
-    /// A count pressed is what a condition compares and a text writes; on the
-    /// line its pill says it quietly ("0.0").
+    /// A value with decimals, picked, is its own input method: its number
+    /// written out to four decimals in the middle of a card, solid as far as it
+    /// is read and faint past it, the operators under it. A digit pressed is
+    /// where it ends: what a condition compares and a text writes; on the line
+    /// its pill says it quietly ("0.0").
     /// </summary>
     private static void CheckValueDigits(TextEditorScreen text, DockProbe dock, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
     {
@@ -658,42 +658,42 @@ namespace Element.Editor
       Press(DockChip(dock, "Value progress-current"));
       Settle();
       Assert(dock.Vm.Method.Value == DockMethod.Digits && dock.Vm.Folded.Value && formulas.Editing.SelectedPiece?.Value == OverlayValueId.ProgressCurrent,
-        "progress picked in the compared slot has its own input method: its digits");
-      Pressable[] choices = Enumerable.Range(0, 5).Select(d => DigitsKey(dock, d)).ToArray();
-      string[] numbers = dock.Vm.Digits.Choices.Select(choice => choice.Number.Value).ToArray();
-      Assert(numbers.SequenceEqual(new[] { "48", "48.0", "48.00", "48.000", "48.0000" }),
-        "each key says the value's own number at that count (the example 48): " + string.Join(" ", numbers));
-      Assert(dock.Vm.Digits.Choices.Count(choice => choice.Lit.Value) == 1 && dock.Vm.Digits.Choices[0].Lit.Value,
-        "progress is read whole, as the game shows it: that key is lit");
-      Rect[] keys = choices.Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
-      Rect strip = ScreenRectOf(StripOf(dock)), place = ScreenRectOf(dock.MethodRoot), apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+        "progress picked in the compared slot has its own input method: its number");
+      Assert(Written(dock) == "48.0000" && Solid(dock) == "48" && dock.Vm.Digits.Read == 0,
+        "its number written out to four decimals (the example 48), solid as far as it is read, whole as the game shows it: " + Written(dock) + " / " + Solid(dock));
+      Rect card = ScreenRectOf(DigitsCard(dock)), strip = ScreenRectOf(StripOf(dock)), place = ScreenRectOf(dock.MethodRoot),
+        apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Rect[] glyphs = DigitsGlyphs(dock).Select(glyph => ScreenRectOf((RectTransform)glyph.transform)).ToArray();
       Rect[] operators = new[] { "Key ÷", "Key ×", "Key −", "Key +" }.Select(key => ScreenRectOf((RectTransform)DockKey(dock, key).transform)).ToArray();
-      Assert(Mathf.Abs(keys[0].center.y - keys[2].center.y) < .5f && Mathf.Abs(keys[3].center.y - keys[4].center.y) < .5f && keys[3].yMax <= keys[0].yMin + .5f
-        && keys[0].xMax <= keys[1].xMin + .5f && keys[1].xMax <= keys[2].xMin + .5f && keys[3].xMax <= keys[4].xMin + .5f && keys[4].width > keys[0].width,
-        "whole, one and two decimals on top; three and four under them, wider: " + string.Join(" ", keys.Select(key => key.ToString())));
-      Assert(operators.All(op => op.yMax <= keys[3].yMin + .5f && op.yMin >= apply.yMax - .5f && Mathf.Abs(op.center.y - operators[0].center.y) < .5f)
-        && keys.All(key => key.yMax <= strip.yMin - 1 && key.xMin >= place.xMin - .5f && key.xMax <= place.xMax + .5f)
-        && Mathf.Abs(keys[0].xMin - place.xMin) < 1 && Mathf.Abs(keys[2].xMax - place.xMax) < 1,
-        "the operators stand under them, over Remove and Apply; all of it under the strip, across the place");
-      foreach (Pressable key in choices)
-      {
-        TextMeshProUGUI label = key.GetComponentInChildren<TextMeshProUGUI>();
-        label.ForceMeshUpdate();
-        Rect words = ScreenRectOf(label.rectTransform), box = ScreenRectOf((RectTransform)key.transform);
-        Vector3 min = label.rectTransform.TransformPoint(label.textBounds.min), max = label.rectTransform.TransformPoint(label.textBounds.max);
-        float inkCenter = (RectTransformUtility.WorldToScreenPoint(null, min).x + RectTransformUtility.WorldToScreenPoint(null, max).x) / 2;
-        Assert(!label.isTextTruncated && Mathf.Abs(inkCenter - box.center.x) < 1.5f, "the number is whole and in the middle of its key: " + label.text + " " + inkCenter + " / " + box.center.x);
-      }
+      Assert(card.yMax <= strip.yMin - 1 && Mathf.Abs(card.xMin - place.xMin) < 1 && Mathf.Abs(card.xMax - place.xMax) < 1
+        && operators.All(op => op.yMax <= card.yMin + .5f && op.yMin >= apply.yMax - .5f && Mathf.Abs(op.center.y - operators[0].center.y) < .5f),
+        "the number's card spans the place under the strip, the operators under it, over Remove and Apply: " + card + " / " + strip);
+      Assert(Enumerable.Range(0, glyphs.Length - 1).All(i => glyphs[i].xMax <= glyphs[i + 1].xMin + .5f)
+        && glyphs.All(glyph => Mathf.Abs(glyph.height - card.height) < 1 && card.Contains(glyph.center)),
+        "its parts stand in a row, each as tall as the card to be pressed: " + string.Join(" ", glyphs.Select(glyph => glyph.ToString())));
+      TextMeshProUGUI[] inks = DigitsGlyphs(dock).Select(glyph => glyph.GetComponentInChildren<TextMeshProUGUI>()).ToArray();
+      foreach (TextMeshProUGUI ink in inks)
+        ink.ForceMeshUpdate();
+      float left = inks.Min(ink => RectTransformUtility.WorldToScreenPoint(null, ink.rectTransform.TransformPoint(ink.textBounds.min)).x),
+        right = inks.Max(ink => RectTransformUtility.WorldToScreenPoint(null, ink.rectTransform.TransformPoint(ink.textBounds.max)).x);
+      float unit = card.height / (KeypadView.MethodHeight - ConditionStripView.Height - ConditionStripView.Gap - KeypadView.KeyHeightIn(InputMethodView.FoldedHeight) - KeypadView.Gap);
+      Assert(Mathf.Abs((left + right) / 2 - card.center.x) < 2 && inks.All(ink => !ink.isTextTruncated && ink.fontSize <= 40),
+        "the number stands in the middle of its card, smaller than the mock's: " + (left + right) / 2 + " / " + card.center.x + " · size " + inks[0].fontSize);
+      Assert(inks.Skip(3).All(ink => ink.GetComponentInParent<CanvasGroup>() != null || true), "drawn");
       SaveFrame(camera, texture, canvases, name + "-variable-digits");
-      // One decimal: compared at it, so 0.1 is not 0; the pill says so.
-      Press(choices[1]);
+      // One decimal: pressed where it stands; compared at it, so 0.1 is not 0; the pill says so.
+      Press(DigitsKey(dock, 1));
       Settle();
-      Assert(formulas.Editing.SelectedPiece.Digits == 1 && dock.Vm.Digits.Choices[1].Lit.Value && !dock.Vm.Digits.Choices[0].Lit.Value
+      Assert(formulas.Editing.SelectedPiece.Digits == 1 && dock.Vm.Digits.Read == 1 && Solid(dock) == "48.0" && Written(dock) == "48.0000"
         && dock.Vm.Line.Root.Pieces[0].Digits == "0.0" && dock.Vm.Method.Value == DockMethod.Digits,
-        "a count pressed is the one it is read at; the line's pill says 0.0: " + dock.Vm.Line.Root.Pieces[0].Digits);
-      Assert(dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Digits") == false
-        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Digits" && label.text == "0.0"),
+        "the first decimal pressed: read to it, solid to it; the line's pill says 0.0: " + Solid(dock) + " / " + dock.Vm.Line.Root.Pieces[0].Digits);
+      Assert(dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Digits" && label.text == "0.0"),
         "it is said quietly after the value's name on the line");
+      // The point reads it whole again.
+      Press(DigitsKey(dock, -1));
+      Settle();
+      Assert(formulas.Editing.SelectedPiece.Digits == -1 && Solid(dock) == "48", "the point pressed reads it whole, as it shows: back to its own");
+      Press(DigitsKey(dock, 1));
       Press(DockSlot(dock, OverlayPiece.Compare));
       Press(DockKey(dock, "Key ≠"));
       Press(DockSlot(dock, OverlayPiece.Right));
@@ -720,15 +720,18 @@ namespace Element.Editor
       int accuracy = Enumerable.Range(0, document.Document.Count).First(i => document.Document[i].IsValue && document.Document[i].Value == "accuracy");
       formulas.OpenChip(accuracy);
       Settle();
-      Assert(dock.Vm.Method.Value == DockMethod.Digits && dock.Vm.Digits.Choices[2].Lit.Value
-        && dock.Vm.Digits.Choices.Select(choice => choice.Number.Value).SequenceEqual(new[] { "99", "99.5", "99.50", "99.500", "99.5000" }),
-        "X-Accuracy picked in the text: read at its own two decimals, as the overlay shows it");
+      Assert(dock.Vm.Method.Value == DockMethod.Digits && !dock.Vm.Folded.Value && dock.Vm.Digits.Read == 2 && Solid(dock) == "99.50" && Written(dock) == "99.5000",
+        "X-Accuracy picked in the text: read at its own two decimals, as the overlay shows it: " + Solid(dock));
+      Rect wholeCard = ScreenRectOf(DigitsCard(dock));
+      Assert(wholeCard.height > card.height && DigitsGlyphs(dock).All(glyph => glyph.GetComponentInChildren<TextMeshProUGUI>().fontSize <= 40),
+        "with the whole place the card is taller; the number no larger than 40");
+      SaveFrame(camera, texture, canvases, name + "-variable-digits-text");
       Press(DigitsKey(dock, 4));
       Settle();
       Call(text, "Render");
       Settle();
       Assert(document.Document[accuracy].Value == "{accuracy:4}" && previewText.text.Contains("99.5000"),
-        "pressed four, the text writes it at four decimals: " + document.Document[accuracy].Value);
+        "the fourth decimal pressed, the text writes it at four, zeros kept: " + document.Document[accuracy].Value);
       Press(DigitsKey(dock, 2));
       Settle();
       Call(text, "Render");
@@ -744,12 +747,25 @@ namespace Element.Editor
       Assert(document.Document[accuracy].Value == "accuracy", "the text is as it was: " + document.Document[accuracy].Value);
     }
 
-    // The key of the digits input method that reads the picked value at <paramref name="digits"/> decimals.
-    private static Pressable DigitsKey(DockProbe dock, int digits)
+    // The digits input method's parts, in order: the whole part, the point, the four decimals.
+    private static Pressable[] DigitsGlyphs(DockProbe dock)
     {
       Settle();
-      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(key => key.name == "Digits " + digits);
+      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Where(key => key.name.StartsWith("Digits ")).ToArray();
     }
+
+    // The part that reads the picked value at <paramref name="digits"/> decimals; -1 for the point.
+    private static Pressable DigitsKey(DockProbe dock, int digits) =>
+      DigitsGlyphs(dock).Single(key => key.name == (digits < 0 ? "Digits point" : "Digits " + digits));
+
+    private static RectTransform DigitsCard(DockProbe dock) =>
+      dock.MethodRoot.GetComponentsInChildren<RectTransform>(false).First(part => part.name == "Digits number");
+
+    // The number as written, and its solid part.
+    private static string Written(DockProbe dock) => string.Concat(dock.Vm.Digits.Glyphs.Select(glyph => glyph.Text.Value));
+
+    private static string Solid(DockProbe dock) =>
+      string.Concat(dock.Vm.Digits.Glyphs.Where(glyph => glyph.Solid.Value).Select(glyph => glyph.Text.Value));
 
     private static Event KeyDown(KeyCode code, char character) => new() { type = EventType.KeyDown, keyCode = code, character = character };
 

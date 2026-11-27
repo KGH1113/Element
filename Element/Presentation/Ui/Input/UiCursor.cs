@@ -16,7 +16,7 @@ internal sealed class UiCursor
     IPointerDownHandler,
     IPointerUpHandler
 {
-  private static readonly Texture2D[] Textures = new Texture2D[5];
+  private static readonly Texture2D[] Textures = new Texture2D[6];
   private static UiCursor _owner;
   private static Texture2D _applied;
   private static Vector2 _hotspot;
@@ -222,6 +222,9 @@ internal sealed class UiCursor
       d = Mathf.Min(d, Segment(p, 12, 7, 20, 7));
       return Mathf.Min(d, Segment(p, 12, 25, 20, 25)) - .7f;
     }
+    // Up and down is left and right turned upright.
+    if (kind == UiCursorKind.Vertical)
+      return Distance(UiCursorKind.Horizontal, new Vector2(p.y, p.x));
     if (kind == UiCursorKind.Horizontal)
     {
       float d = Segment(p, 6, 16, 26, 16);

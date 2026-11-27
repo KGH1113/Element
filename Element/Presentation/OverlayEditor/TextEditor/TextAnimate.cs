@@ -9,7 +9,7 @@ using static Element.Presentation.Ui.Theme.UiLocale;
 namespace Element.Presentation.OverlayEditor.TextEditor;
 
 /// <summary>
-/// The column's "바뀔 때 커지기" field, a true-or-false one: values in the
+/// The column's "바뀔 때 애니메이션" field, a true-or-false one: values in the
 /// selection (or the whole text) grow briefly each time what they show
 /// changes. A click opens it in the dock, where the switch sets it; turning
 /// it on plays the growth once on the preview. Letters alone have nothing to
@@ -40,7 +40,7 @@ internal sealed class TextAnimate
   public PropertyButtonViewModel BuildButton(Action open) =>
     _animateButton = new PropertyButtonViewModel(
       "Text animation",
-      L("바뀔 때 커지기", "Grow on change"),
+      L("바뀔 때 애니메이션", "Animate on change"),
       open,
       field: OverlayValueType.Bool
     );

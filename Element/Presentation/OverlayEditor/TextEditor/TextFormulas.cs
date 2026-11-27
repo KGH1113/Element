@@ -204,7 +204,7 @@ internal sealed class TextFormulas
       _gradient.Name(_fieldSlot)
       ?? (
         _fieldSlot == SizeKey ? L("크기", "Size")
-        : _fieldSlot == GrowKey ? L("바뀔 때 커지기", "Grow on change")
+        : _fieldSlot == GrowKey ? L("바뀔 때 애니메이션", "Animate on change")
         : _fieldSlot == OpacityKey ? L("불투명도", "Opacity")
         : _fieldSlot == GrowFrom.Key ? L("기준점", "Grow from")
         : owner == ColorCases.Key ? _color.OwnTitle

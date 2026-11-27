@@ -1,55 +1,59 @@
 using System.Collections.Generic;
 using System.Linq;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
-using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
-using UnityEngine;
 using static ElementUI.UI;
 using Font = ElementUI.Font;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Digits;
 
 /// <summary>
-/// The picked value's own number as keys, one for each count of decimals:
-/// whole and one and two decimals on top, three and four under them, the
-/// count read here lit like a chosen comparison. Under them the keypad's
-/// four operators, as tall as its keys, to carry on a calculation. It
-/// fills the place it has, the whole input method's or what a folded
-/// condition leaves.
+/// The picked value's own number in the middle of a quiet card, written out
+/// to four decimals: solid as far as it is read here, faint past it. Each
+/// digit is pressed where it stands (as tall as the card, so it is easy to
+/// hit); under the pointer the number shows what it would read, its last
+/// digit in the highlight color. Under the card the keypad's four
+/// operators, as tall as its keys, to carry on a calculation. It fills the
+/// place it has, the whole input method's or what a folded condition leaves.
 /// </summary>
 internal sealed class DigitsView : View<DigitsViewModel>
 {
   private const float Gap = KeypadView.Gap,
-    Radius = 16;
+    Radius = 16,
+    // What a digit is beyond what is read: there, but plainly not taken.
+    Faint = .28f;
 
   private readonly IReadOnlyList<KeypadKeyViewModel> _operators;
   private readonly float _height,
-    _row,
-    _operatorRow;
-  private readonly UiColor _rest = UiPalette.EditorControl;
-  private readonly UiColor _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .34f);
-  private readonly UiColor _edge = UiPalette.SoftAccent;
-  private readonly UiColor _noEdge = FieldLook.Clear;
-  private readonly UiColor _hover = UiPalette.Wash(UiPalette.EditorControl, .05f);
+    _card,
+    _operatorRow,
+    _size;
+  private readonly UiColor _ink = UiPalette.Foreground;
+  private readonly UiColor _hot = UiPalette.SoftAccent;
 
-  /// <param name="keypad">The keypad whose operator keys stand under the numbers.</param>
-  /// <param name="height">How tall a place it has.</param>
+  /// <param name="keypad">The keypad whose operator keys stand under the number.</param>
+  /// <param name="height">How tall a place it has; under a folded condition the number is a little smaller.</param>
   public DigitsView(DigitsViewModel vm, KeypadViewModel keypad, float height)
     : base(vm)
   {
     _operators = new[] { '/', '*', '-', '+' }.Select(op => keypad.Keys.First(key => key.Character == op)).ToArray();
     _height = height;
     _operatorRow = KeypadView.KeyHeightIn(height);
-    _row = (height - _operatorRow - Gap * 2) / 2;
+    _card = height - _operatorRow - Gap;
+    _size = height < KeypadView.MethodHeight ? 34 : 40;
   }
 
   public override View Body =>
     VStack(
         spacing: Gap,
-        HStack(spacing: Gap, Choice(VM.Choices[0]), Choice(VM.Choices[1]), Choice(VM.Choices[2])),
-        HStack(spacing: Gap, Choice(VM.Choices[3]), Choice(VM.Choices[4])),
+        // The card is a shape of its own, so it can be found; the number stands in its middle.
+        ZStack(
+            RoundedRectangle(Radius).Fill(UiPalette.EditorControl).Named("Digits number"),
+            HStack(spacing: 0, VM.Glyphs.Select(Glyph).ToArray())
+          )
+          .Frame(maxWidth: float.PositiveInfinity, height: _card, alignment: Alignment.Center),
         HStack(
           spacing: Gap,
           _operators
@@ -61,23 +65,22 @@ internal sealed class DigitsView : View<DigitsViewModel>
       )
       .Frame(width: KeypadView.Width, height: _height, alignment: Alignment.Top);
 
-  // One count of decimals: the number it gives, in the middle of its key.
-  private View Choice(DigitsChoiceViewModel choice) =>
+  // One part of the number, pressed where it stands.
+  private View Glyph(DigitsGlyphViewModel glyph) =>
     Button(
-        Text(() => choice.Number.Value)
-          .Font(Font.Body.Sized(20).Bolded())
+        Text(() => glyph.Text.Value)
+          // The keypad's digits' weight: drawn heavier, neighbours' ink would touch.
+          .Font(Font.Body.Sized(_size))
+          .Foreground(() => glyph.Hot.Value ? _hot : _ink)
+          .Opacity(() => glyph.Solid.Value ? 1f : Faint)
           .LineLimit(1)
-          .TextAlignment(TextAlign.Center)
-          .Frame(maxWidth: float.PositiveInfinity, height: _row, alignment: Alignment.Center),
-        () => choice.Pick,
+          // Room for each glyph's drawn edge, so neighbours never sit on each other.
+          .Padding(0, 2.5f)
+          .Frame(height: _card, alignment: Alignment.Center),
+        () => glyph.Pick,
         ButtonStyle.Plain
       )
-      .ButtonStyle(new ButtonSurfaceStyle(() => choice.Lit.Value ? _lit : _rest, Radius, hovered: _hover))
-      .Overlay(
-        RoundedRectangle(Radius)
-          .Stroke(() => choice.Lit.Value ? _edge : _noEdge, FieldLook.Edge)
-          .AllowsHitTesting(false)
-      )
-      .Named(choice.Name)
-      .Frame(maxWidth: float.PositiveInfinity, height: _row);
+      .OnHover(glyph.Hover)
+      .Named(glyph.Name)
+      .Frame(height: _card);
 }

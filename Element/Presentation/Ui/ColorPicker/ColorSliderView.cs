@@ -10,9 +10,10 @@ namespace Element.Presentation.Ui.ColorPicker;
 
 /// <summary>
 /// The hue bar (the spectrum, its handle holding the pure hue) or the opacity
-/// bar (a checkerboard into the color). The handle reaches past both ends of
-/// the bar by half its size, so the slider takes that much more room than it
-/// is laid out in.
+/// bar (a checkerboard into the color), lying or upright (beside a color
+/// square in a narrow place, so the picker doesn't run wide). The handle
+/// reaches past both ends of the bar by half its size, so the slider takes
+/// that much more room than it is laid out in.
 /// </summary>
 internal sealed class ColorSliderView : NativeView
 {
@@ -23,15 +24,18 @@ internal sealed class ColorSliderView : NativeView
 
   private readonly ColorPickerViewModel _vm;
   private readonly bool _hue;
+  private readonly bool _upright;
   private UiCapsuleGraphic _ring,
     _center;
   private UiAlphaGraphic _checker;
 
   /// <param name="hue">The hue bar; otherwise the opacity bar.</param>
-  public ColorSliderView(ColorPickerViewModel vm, bool hue)
+  /// <param name="upright">Standing, as tall as it is laid out and <see cref="Height"/> wide; the hue runs from red at the top.</param>
+  public ColorSliderView(ColorPickerViewModel vm, bool hue, bool upright = false)
   {
     _vm = vm;
     _hue = hue;
+    _upright = upright;
   }
 
   /// <summary>The slider, for checks.</summary>
@@ -40,17 +44,18 @@ internal sealed class ColorSliderView : NativeView
   protected override void Build(RectTransform rect)
   {
     RectTransform root = RectPeer.Child(rect, _hue ? "Hue" : "Opacity");
-    RectPeer.Stretch(root, -Overhang, 0, -Overhang, 0);
+    // Along the bar: across it for a lying one, up and down for an upright one.
+    Along(root, -Overhang, 0);
     Image hit = root.gameObject.AddComponent<Image>();
     hit.color = Color.clear;
     UiSlider slider = root.gameObject.AddComponent<UiSlider>();
     slider.Step = _hue ? 1f / 360 : .01f;
     slider.navigation = new Navigation { mode = Navigation.Mode.None };
-    UiCursor.Attach(root.gameObject, UiCursorKind.Horizontal);
+    UiCursor.Attach(root.gameObject, _upright ? UiCursorKind.Vertical : UiCursorKind.Horizontal);
 
     RectTransform track = RectPeer.Child(root, _hue ? "Hue spectrum" : "Opacity track");
     float inset = (Height - Track) / 2;
-    RectPeer.Stretch(track, Overhang, inset, Overhang, inset);
+    Along(track, Overhang, inset);
     UiCapsuleGraphic shape = track.gameObject.AddComponent<UiCapsuleGraphic>();
     shape.color = Color.white;
     shape.raycastTarget = false;
@@ -60,6 +65,7 @@ internal sealed class ColorSliderView : NativeView
     {
       UiGradientGraphic spectrum = fill.gameObject.AddComponent<UiGradientGraphic>();
       spectrum.HueStrip = true;
+      spectrum.Upright = _upright;
       spectrum.raycastTarget = false;
     }
     else
@@ -71,12 +77,13 @@ internal sealed class ColorSliderView : NativeView
     RectTransform area = RectPeer.Child(root, "Handle area");
     inset = (Height - Handle) / 2;
     // The handle stops at the track's ends, so it never sticks out of the column.
-    RectPeer.Stretch(area, Overhang + Handle / 2, inset, Overhang + Handle / 2, inset);
+    Along(area, Overhang + Handle / 2, inset);
     RectTransform handle = RectPeer.Child(area, "Handle");
     handle.pivot = new Vector2(.5f, .5f);
-    handle.anchorMin = handle.anchorMax = new Vector2(0, .5f);
+    handle.anchorMin = handle.anchorMax = _upright ? new Vector2(.5f, 1) : new Vector2(0, .5f);
     handle.anchoredPosition = Vector2.zero;
-    handle.sizeDelta = new Vector2(Handle, 0);
+    // The slider sets where along the bar it is; across, it fills the area.
+    handle.sizeDelta = _upright ? new Vector2(0, Handle) : new Vector2(Handle, 0);
     // Every handle is made alike: a hairline, a ring that follows the color, the color it holds.
     UiCapsuleGraphic hairline = handle.gameObject.AddComponent<UiCapsuleGraphic>();
     hairline.color = UiPalette.HandleHairline;
@@ -91,7 +98,9 @@ internal sealed class ColorSliderView : NativeView
     _center.raycastTarget = false;
     slider.handleRect = handle;
     slider.targetGraphic = _ring;
-    slider.direction = UnityEngine.UI.Slider.Direction.LeftToRight;
+    slider.direction = _upright
+      ? UnityEngine.UI.Slider.Direction.TopToBottom
+      : UnityEngine.UI.Slider.Direction.LeftToRight;
     slider.minValue = 0;
     slider.maxValue = 1;
     slider.onValueChanged.AddListener(Moved);
@@ -150,5 +159,16 @@ internal sealed class ColorSliderView : NativeView
   }
 
   protected override Size PreferredSize(Proposal proposal) =>
-    new(proposal.HasWidth && !float.IsInfinity(proposal.Width) ? proposal.Width : 256, Height);
+    _upright
+      ? new(Height, proposal.HasHeight && !float.IsInfinity(proposal.Height) ? proposal.Height : 256)
+      : new(proposal.HasWidth && !float.IsInfinity(proposal.Width) ? proposal.Width : 256, Height);
+
+  // Insets <paramref name="along"/> at the bar's two ends and <paramref name="across"/> at its two sides.
+  private void Along(RectTransform rect, float along, float across)
+  {
+    if (_upright)
+      RectPeer.Stretch(rect, across, along, across, along);
+    else
+      RectPeer.Stretch(rect, along, across, along, across);
+  }
 }

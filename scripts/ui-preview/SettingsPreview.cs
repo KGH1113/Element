@@ -633,12 +633,22 @@ namespace Element.Editor
       pickerRect = ScreenRectOf(picker.Root);
       Rect planeRect = ScreenRectOf(plane), hueRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hue(picker.Root).transform),
         hexRect = ScreenRectOf((RectTransform)ColorPickerProbe.Hex(picker.Root).transform);
-      Assert(planeRect.center.y > hueRect.center.y && hueRect.center.y > hexRect.center.y
+      // The hue stands left of the square, as tall as it, the HEX field under both: the picker no wider than its place.
+      Assert(hueRect.xMax <= planeRect.xMin + .5f && hueRect.height > hueRect.width * 3 && Mathf.Abs(hueRect.center.y - planeRect.center.y) < 2
+        && Mathf.Abs(hueRect.yMax - planeRect.yMax) < 12 && hexRect.yMax <= planeRect.yMin + .5f && hexRect.yMax <= hueRect.yMin + 12
         && pickerRect.Contains(planeRect.min) && pickerRect.Contains(hexRect.min) && ColorPickerProbe.Title(picker.Root) == null
         && ColorPickerProbe.Close(picker.Root) == null && !ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)),
-        "the square over its hue and HEX, without an opacity bar, a title or a card");
+        "the hue standing left of the square, the HEX under them, without an opacity bar, a title or a card: " + hueRect + " / " + planeRect + " / " + hexRect);
+      Assert(ColorPickerProbe.Hue(picker.Root).direction == Slider.Direction.TopToBottom
+        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Vertical,
+        "the standing hue runs from the top down, its cursor up and down");
+      Assert(Mathf.Abs(planeRect.xMax - pickerRect.xMax) < 1 && Mathf.Abs(hueRect.xMin - pickerRect.xMin) < 1,
+        "the hue and the square fill the place from side to side: " + hueRect + " / " + planeRect + " / " + pickerRect);
+      TMP_InputField hexField = ColorPickerProbe.Hex(picker.Root);
+      Assert(hexField.customCaretColor && hexField.caretWidth >= 2 && hexField.caretColor.a > .9f && hexField.caretColor != Color.white,
+        "the HEX field's caret is the highlight color, two wide, plain to see");
       Assert(ColorPickerProbe.Plane(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Crosshair
-        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Horizontal
+        && ColorPickerProbe.Hue(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Vertical
         && ColorPickerProbe.Hex(picker.Root).GetComponent<UiCursor>().Kind == UiCursorKind.Text,
         "the square and the bars keep their crosshair and slider cursors in the editor's panel");
       foreach (TextMeshProUGUI label in picker.Root.GetComponentsInChildren<TextMeshProUGUI>(false))
@@ -1194,8 +1204,8 @@ namespace Element.Editor
         "the properties stand in a column above the keypad, as wide as it: " + formatRect + " / " + keypadColumn);
       Assert(ScreenRectOf(TextPreviewOf(text).Text.rectTransform).xMax < formatRect.xMin, "the text stays left of the column");
       string[] textLabels = Korean(name)
-        ? new[] { "크기", "글자 색", "불투명도", "폰트", "바뀔 때 커지기", "기준점" }
-        : new[] { "Size", "Text color", "Opacity", "Font", "Grow on change", "Grow from" };
+        ? new[] { "크기", "글자 색", "불투명도", "폰트", "바뀔 때 애니메이션", "기준점" }
+        : new[] { "Size", "Text color", "Opacity", "Font", "Animate on change", "Grow from" };
       for (int i = 0; i < textBar.Length; i++)
       {
         Pressable drawn = BarButton(text, textBar[i]);

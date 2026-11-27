@@ -7,4 +7,7 @@ internal enum UiCursorKind
   Horizontal,
   Crosshair,
   Grab,
+
+  /// <summary>Up and down: an upright bar is dragged along it.</summary>
+  Vertical,
 }

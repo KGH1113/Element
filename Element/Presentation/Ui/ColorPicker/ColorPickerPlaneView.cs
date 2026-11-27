@@ -12,8 +12,7 @@ namespace Element.Presentation.Ui.ColorPicker;
 /// </summary>
 internal sealed class ColorPickerPlaneView : ColorPickerLayout
 {
-  private const float Gap = 8,
-    BarsHeight = ColorSliderView.Height * 2 + Gap;
+  private const float Gap = 8;
 
   private readonly float _width,
     _height;
@@ -28,7 +27,14 @@ internal sealed class ColorPickerPlaneView : ColorPickerLayout
   public override View Body =>
     If(
         () => VM.Custom.Value,
-        () => VStack(spacing: 0, Plane(_height - BarsHeight - Gap), Hue().Padding(new Insets(Gap, 0, 0, 0)), Opacity()),
+        // In the input method's place, as a solid color is picked there: the hue standing left of the square, the opacity right.
+        () =>
+          HStack(
+            spacing: Gap,
+            UprightHue(_height),
+            Plane(_height).Frame(maxWidth: float.PositiveInfinity),
+            UprightOpacity(_height)
+          ),
         () => Spacer().Frame(maxWidth: float.PositiveInfinity, height: _height).Background(() => VM.Swatch.Value, 12)
       )
       .Frame(width: _width, height: _height, alignment: Alignment.Top);

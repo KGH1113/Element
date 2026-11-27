@@ -37,10 +37,10 @@ internal interface IGradientBar
   /// <summary>The color as the editor gets it after the controls moved to <paramref name="color"/>.</summary>
   OverlayColorSettings TakeColor(Color color, float alphaBefore);
 
-  /// <summary>Makes a solid color a gradient, its new color picked.</summary>
+  /// <summary>Makes a solid color a gradient of custom colors, its new color picked; the highlight color starts it as a custom one.</summary>
   void MakeGradient();
 
-  /// <summary>Makes every color follow the highlight, or each its own color again.</summary>
+  /// <summary>Follows the highlight color, a gradient becoming one color; or each color its own again.</summary>
   void SetHighlight(bool highlight);
 
   /// <summary>Tells the picker's owner the working color changed.</summary>

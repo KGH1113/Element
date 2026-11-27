@@ -260,7 +260,8 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
     if (!_sourceMode || _followsHighlight == highlight)
       return;
     _followsHighlight = highlight;
-    // Following the highlight or not changes the whole gradient at once.
+    // Following the highlight or not changes the whole gradient at once: the
+    // highlight is one color, so a gradient following it is solid again.
     if (Gradient != null && Gradient.IsGradient)
     {
       Gradient.SetHighlight(highlight);
@@ -532,4 +533,12 @@ internal sealed class ColorPickerViewModel : ViewModel, IGradientBarHost
   void IGradientBarHost.Relayout() => UpdateShape();
 
   void IGradientBarHost.Report(OverlayColorSettings value) => _sourceChanged?.Invoke(value);
+
+  void IGradientBarHost.LeftHighlight()
+  {
+    if (!_followsHighlight)
+      return;
+    _followsHighlight = false;
+    UpdateShape();
+  }
 }

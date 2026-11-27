@@ -21,6 +21,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Theme;
 using ElementUI.Ugui;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
@@ -28,7 +29,7 @@ using Element.Presentation.Overlay.Text;
 namespace Element.Editor
 {
   // Gradients in the overlay editors: the color bar, kinds, handles with
-  // snapping, the highlight's opacity-only stops, and how shapes and texts
+  // snapping, a gradient always of custom colors, and how shapes and texts
   // draw them afterwards.
   public static partial class SettingsPreview
   {
@@ -65,9 +66,8 @@ namespace Element.Editor
       Assert(picker.Root.GetComponentsInChildren<Pressable>(false).All(button => button.name != "Make gradient"),
         "no button makes a gradient: 그라데이션 is a value in the color's list");
 
-      // A new shape follows the highlight; a custom color shows the square.
-      picker.Model.SetSource(false);
-      Settle();
+      // A new shape follows the highlight.
+      Assert(Field<OverlayShapeSettings>(shapes, "_shape").Fill.Highlight && picker.Model.FollowsHighlight, "a new shape's fill follows the highlight");
       SaveFrame(camera, texture, canvases, name + "-gradient-hover");
 
       // 그라데이션 picked from the list makes a gradient whose new color shows at once.
@@ -80,6 +80,12 @@ namespace Element.Editor
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.Gradient.IsGradient && picker.Gradient.SelectedStop == 1
         && bar.gameObject.activeInHierarchy && !picker.InCompactPlace && picker.GradientAvailable,
         "그라데이션 makes a gradient, picks its new color and opens the gradient's bigger tool with its bar");
+      // Made from the highlight color, it is still a gradient of custom colors, starting from the highlight.
+      string accent = "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
+      Assert(!fill.Highlight && !picker.Model.FollowsHighlight && fill.Gradient.Stops.Any(stop => stop.Hex == accent)
+        && fill.Gradient.Stops.Any(stop => stop.Hex != accent) && ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.PlaneRoot)),
+        "a gradient made from the highlight is of custom colors, starting from the highlight, its square to pick them: "
+          + string.Join(" ", fill.Gradient.Stops.Select(stop => stop.Hex)));
       Invoke(picker.Gradient, "BarDown", Pointer(BarPoint(bar, 1)));
       Invoke(picker.Gradient, "BarDrag", Pointer(BarPoint(bar, .7f)));
       Settle();
@@ -159,23 +165,6 @@ namespace Element.Editor
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(OverlayGradientMath.Angle(fill.Gradient, 420, 240)) < .5f, "a typed angle turns the gradient");
 
-      // Following the highlight leaves only opacities; nothing on the left moves.
-      Rect barBefore = ScreenRectOf(bar);
-      picker.Model.SetSource(true);
-      Settle();
-      Assert(Mathf.Abs(ScreenRectOf(bar).xMax - barBefore.xMax) < 1 && Mathf.Abs(ScreenRectOf(bar).yMin - barBefore.yMin) < 1
-        && Mathf.Abs(ScreenRectOf(picker.Root).xMin - KeypadRect(DockOf(shapes)).xMin) < 1,
-        "following the highlight leaves one column over the keypad, the bar at the same height");
-      fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
-      List<int> order = OverlayGradientEdits.Order(fill.Gradient);
-      Assert(fill.Highlight && fill.IsGradient && fill.Gradient.Stops[order[order.Count - 1]].Alpha < fill.Gradient.Stops[order[0]].Alpha,
-        "the highlight gradient fades instead of vanishing");
-      Assert(!ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)),
-        "only the opacity shows while following the highlight");
-      SaveFrame(camera, texture, canvases, name + "-gradient-highlight");
-      picker.Model.SetSource(false);
-      Settle();
-
       // A small shape shows larger while its color is edited, and says so.
       ShapePreview shapePreview = Field<ShapePreview>(shapes, "_preview");
       Assert(shapePreview.Shown <= 1.001f, "a large shape isn't made larger: " + shapePreview.Shown);
@@ -184,7 +173,7 @@ namespace Element.Editor
       Call(shapes, "Render");
       Settle();
       Assert(bar.gameObject.activeInHierarchy && position.Root.gameObject.activeInHierarchy && ShapeColorsOf(shapes).Opacity.Field.Root.gameObject.activeInHierarchy,
-        "back from the highlight, the bar and both numbers are there again");
+        "the bar and both numbers are there");
       TextMeshProUGUI zoomLine = ByName<TextMeshProUGUI>(Field<EditorFramePanel>(shapes, "_frame").Frame, "Preview zoom");
       Assert(shapePreview.Shown >= 2 && Shown(zoomLine) && zoomLine.text.Length > 0,
         "a small shape shows larger while its color is edited: " + shapePreview.Shown);

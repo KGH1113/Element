@@ -23,4 +23,7 @@ internal interface IGradientBarHost
 
   /// <summary>Tells the picker's owner the color changed.</summary>
   void Report(OverlayColorSettings value);
+
+  /// <summary>The color stopped following the highlight color (it became a gradient, which is always of custom colors).</summary>
+  void LeftHighlight();
 }

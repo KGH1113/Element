@@ -162,7 +162,7 @@ A shape's fill and border and a text's color can be gradients, as in Figma: line
 - Four tiles drawn in the current colors pick the kind, beside flip and a quarter turn.
 - Over the preview, circles are handles and squares are colors. The round start and end handles (and a width handle for radial, angular and diamond) only move the gradient. They stick to the box's edges, middle and center and line up with each other, with guides as in the layout editor; Alt lets go and Shift turns in 15° steps. Colors hang just off the line as squares pointing at where they sit; dragging one moves its color, and clicking the line adds one. The angle shows beside the line; 90° runs left to right, as in ElementNote.
 - Positions, opacities and the angle take values, so a color can follow progress.
-- Following the highlight color, the whole gradient is that one color and each stop sets only its opacity.
+- A gradient is always of colors of its own. Made from the highlight color, it starts from that color as a custom one; picking the highlight color for a gradient makes it that one color again.
 - A text's gradient spans the whole text's box, so a gradient on part of a text carries on across it. Colors are worked out at the corners of each character, which is exact for two-color linear gradients.
 - Shapes read their gradient from a small texture built only when it changes, so the game's stock UI shader draws them on every platform. Earlier versions show a gradient's first color.
 

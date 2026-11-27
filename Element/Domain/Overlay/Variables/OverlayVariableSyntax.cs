@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.Text;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
@@ -8,9 +10,9 @@ namespace Element.Domain.Overlay.Variables;
 /// How a variable is written and saved. One value alone saves as its key, so
 /// texts from 1.1 read unchanged; otherwise values go in braces
 /// (<c>{combo}*2</c>), words in quotes (<c>"FC"</c>), colors as #RRGGBB,
-/// true or false as such, a value the player made as <c>{@key}</c>, a
-/// condition as <c>if(left;compare;right;result;default)</c> and a group in
-/// parentheses. Pieces side by side are kept apart by a space.
+/// true or false as such, a point as <c>at(TopLeft)</c>, a condition as
+/// <c>if(left;compare;right;result;default)</c> and a group in parentheses.
+/// Pieces side by side are kept apart by a space.
 /// </summary>
 internal static class OverlayVariableSyntax
 {
@@ -35,7 +37,8 @@ internal static class OverlayVariableSyntax
   {
     if (variable == null)
       return string.Empty;
-    if (variable.IsSingleValue(out OverlayValueId only))
+    // One value read as it is shows is saved by its name alone.
+    if (variable.IsSingleValue(out OverlayValueId only) && variable[0].Digits < 0)
       return OverlayValueCatalog.Get(only).Key;
     StringBuilder builder = new();
     Write(builder, variable);
@@ -52,6 +55,20 @@ internal static class OverlayVariableSyntax
     StringBuilder builder = new();
     DescribeInto(builder, variable, name, words ?? OverlayVariableWords.Plain, 0);
     return builder.ToString();
+  }
+
+  // The decimals chosen after a value's name ("progress-current:1"), taken off the name; -1 for none.
+  private static int Digits(ref string key)
+  {
+    int colon = key.LastIndexOf(':');
+    if (
+      colon <= 0
+      || colon == key.Length - 1
+      || !int.TryParse(key.Substring(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int digits)
+    )
+      return -1;
+    key = key.Substring(0, colon);
+    return Math.Min(digits, OverlayValueNumbers.Most);
   }
 
   // ---- Writing ----
@@ -88,14 +105,18 @@ internal static class OverlayVariableSyntax
         case OverlayPieceKind.Compare:
           builder.Append(CompareText(piece.Op));
           break;
+        case OverlayPieceKind.Point:
+          builder.Append("at(").Append(piece.Point.ToString()).Append(')');
+          break;
         case OverlayPieceKind.Operator:
           builder.Append(piece.Op);
           break;
         case OverlayPieceKind.Value:
-          builder.Append('{').Append(OverlayValueCatalog.Get(piece.Value).Key).Append('}');
-          break;
-        case OverlayPieceKind.Custom:
-          builder.Append("{@").Append(piece.Text).Append('}');
+          // Decimals chosen here follow the name: {progress-current:1}.
+          builder.Append('{').Append(OverlayValueCatalog.Get(piece.Value).Key);
+          if (piece.Digits >= 0)
+            builder.Append(':').Append(piece.Digits);
+          builder.Append('}');
           break;
         case OverlayPieceKind.Condition:
           builder.Append("if(");
@@ -153,11 +174,10 @@ internal static class OverlayVariableSyntax
         }
         string key = text.Substring(at + 1, close - at - 1);
         at = close + 1;
-        if (key.StartsWith("@", StringComparison.Ordinal))
-          variable.Add(OverlayPiece.CustomPiece(key.Substring(1)));
+        int digits = Digits(ref key);
         // A built-in value that no longer exists drops out; a mod's value stays while that mod is missing.
-        else if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value))
-          variable.Add(OverlayPiece.ValuePiece(value.Id));
+        if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value))
+          variable.Add(OverlayPiece.ValuePiece(value.Id, digits));
         continue;
       }
       if (c == '"')
@@ -205,6 +225,16 @@ internal static class OverlayVariableSyntax
         }
         Close(text, ref at);
         variable.Add(OverlayPiece.ConditionPiece(slots[0], slots[1], slots[2], slots[3], slots[4]));
+        continue;
+      }
+      if (Word(text, at, "at("))
+      {
+        int close = text.IndexOf(')', at + 3);
+        string name = (close < 0 ? text.Substring(at + 3) : text.Substring(at + 3, close - at - 3)).Trim();
+        at = close < 0 ? text.Length : close + 1;
+        // A point this version doesn't know drops out.
+        if (Enum.TryParse(name, true, out OverlayGrowth point) && Enum.IsDefined(typeof(OverlayGrowth), point))
+          variable.Add(OverlayPiece.PointPiece(point));
         continue;
       }
       if (Word(text, at, "true") || Word(text, at, "false"))
@@ -325,7 +355,7 @@ internal static class OverlayVariableSyntax
     {
       OverlayPieceKind.Number => true,
       OverlayPieceKind.Value => OverlayValueCatalog.Get(piece.Value).IsNumeric,
-      OverlayPieceKind.Condition or OverlayPieceKind.Group or OverlayPieceKind.Custom => true,
+      OverlayPieceKind.Condition or OverlayPieceKind.Group => true,
       _ => false,
     };
 
@@ -362,11 +392,11 @@ internal static class OverlayVariableSyntax
         case OverlayPieceKind.Operator:
           builder.Append(OverlayVariable.Symbol(piece.Op));
           break;
+        case OverlayPieceKind.Point:
+          builder.Append(words.Point(piece.Point));
+          break;
         case OverlayPieceKind.Value:
           builder.Append(name(OverlayValueCatalog.Get(piece.Value)));
-          break;
-        case OverlayPieceKind.Custom:
-          builder.Append('★').Append(OverlayCustomValues.Shown(piece.Text, words));
           break;
         case OverlayPieceKind.Condition when depth < MaxDepth:
           builder.Append(words.ConditionStart).Append(" (");

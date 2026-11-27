@@ -4,6 +4,7 @@ using Element.Configuration.Overlay;
 using Element.Domain.KeyViewer;
 using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Ui.Widgets;
 using UnityEngine;
 using NVector2 = System.Numerics.Vector2;
@@ -181,6 +182,7 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IOverlayCov
     if (Rect == null || Settings == null)
       return;
     _staged = false;
+    ReadGrowth();
     ApplyContent();
     ApplyPosition();
   }
@@ -425,6 +427,61 @@ internal abstract class OverlayElementTarget : IOverlayLayoutTarget, IOverlayCov
         Screen.height
       );
     }
+  }
+
+  // Where it grows from while that is worked out from values; null for a plain point.
+  private OverlayVariable _growth;
+  private OverlayValueMask _growthMask;
+
+  /// <summary>
+  /// The grow point as the element keeps it: the variable it is worked out
+  /// from, or one piece holding its plain point.
+  /// </summary>
+  public OverlayVariable GrowFromVariable =>
+    _growth != null
+      ? _growth.Clone()
+      : new OverlayVariable(OverlayPiece.PointPiece(Settings?.GrowFrom ?? OverlayGrowth.Auto));
+
+  /// <summary>
+  /// Where it grows from is <paramref name="variable"/> from now on: a plain
+  /// point is kept as such; anything else is worked out with
+  /// <paramref name="values"/> now and each time one of its values changes.
+  /// </summary>
+  public void SetGrowFrom(OverlayVariable variable, IOverlayNumberSource values)
+  {
+    if (Settings == null)
+      return;
+    bool plain =
+      variable == null || variable.IsEmpty || (variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Point);
+    Settings.GrowFromFormula = plain ? string.Empty : variable.Serialize();
+    ReadGrowth();
+    if (plain)
+      SetGrowFrom(variable == null || variable.IsEmpty ? OverlayGrowth.Auto : variable[0].Point);
+    else
+      FollowGrowth(_growthMask, values);
+  }
+
+  // The saved grow point's variable, read when the settings arrive.
+  private void ReadGrowth()
+  {
+    string formula = Settings?.GrowFromFormula;
+    _growth = string.IsNullOrEmpty(formula) ? null : OverlayVariable.Parse(formula);
+    if (_growth != null && _growth.IsEmpty)
+      _growth = null;
+    _growthMask = _growth == null ? OverlayValueMask.None : _growth.Mask;
+  }
+
+  /// <summary>
+  /// A grow point worked out from values follows them: when one of
+  /// <paramref name="changes"/> is its, the point is worked out again, and
+  /// the element stays where it is. A mask test while it is a plain point.
+  /// </summary>
+  protected void FollowGrowth(OverlayValueMask changes, IOverlayNumberSource values)
+  {
+    if (_growth == null || !changes.Overlaps(_growthMask))
+      return;
+    if (_growth.TryPoint(values, out OverlayGrowth point))
+      SetGrowFrom(point);
   }
 
   /// <summary>Changes the point the element grows from, leaving it where it is now.</summary>

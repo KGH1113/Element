@@ -133,6 +133,7 @@
       <OffsetX>0.5</OffsetX>
       <OffsetY>0.5</OffsetY>
       <GrowFrom>Auto</GrowFrom>
+      <GrowFromFormula>GrowFromFormula</GrowFromFormula>
       <DefaultPlacement>DefaultPlacement</DefaultPlacement>
       <PendingGroup>PendingGroup</PendingGroup>
       <Group>Group</Group>
@@ -289,14 +290,6 @@
       </Mod>
     </OverlayLayoutSettings>
   </OverlayLayouts>
-  <OverlayCustomValues>
-    <OverlayCustomValueSettings>
-      <Key>Key</Key>
-      <Name>Name</Name>
-      <Type>Type</Type>
-      <Variable>Variable</Variable>
-    </OverlayCustomValueSettings>
-  </OverlayCustomValues>
   <Profiles>
     <ElementProfile>
       <Id>Id</Id>
@@ -423,6 +416,7 @@
             <OffsetX>0.5</OffsetX>
             <OffsetY>0.5</OffsetY>
             <GrowFrom>Auto</GrowFrom>
+            <GrowFromFormula>GrowFromFormula</GrowFromFormula>
             <DefaultPlacement>DefaultPlacement</DefaultPlacement>
             <PendingGroup>PendingGroup</PendingGroup>
             <Group>Group</Group>
@@ -526,14 +520,6 @@
             </Mod>
           </OverlayLayoutSettings>
         </OverlayLayouts>
-        <OverlayCustomValues>
-          <OverlayCustomValueSettings>
-            <Key>Key</Key>
-            <Name>Name</Name>
-            <Type>Type</Type>
-            <Variable>Variable</Variable>
-          </OverlayCustomValueSettings>
-        </OverlayCustomValues>
       </Content>
       <KeyViewersStart>CopyOf</KeyViewersStart>
       <KeyViewersCopyOf>KeyViewersCopyOf</KeyViewersCopyOf>

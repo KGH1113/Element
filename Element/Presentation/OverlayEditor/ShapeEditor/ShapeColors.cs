@@ -1,5 +1,3 @@
-using Element.Presentation.OverlayEditor.Parts.Formula;
-using Element.Presentation.OverlayEditor.Parts.Field;
 using System;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Variables;
@@ -8,6 +6,8 @@ using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
@@ -261,7 +261,7 @@ internal sealed class ShapeColors
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
-  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top);
+  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top, typing: _numbers.Field != null);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)
@@ -277,31 +277,5 @@ internal sealed class ShapeColors
       pickedStop?.Alpha ?? color?.Alpha ?? 1,
       _numbers.Field == key
     );
-  }
-
-  /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
-  public string Hint()
-  {
-    if (!Picker.Visible)
-      return null;
-    if (Picker.Gradient.IsGradient)
-      return _pickerForStroke
-        ? L(
-          "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-          "Picking the border color · Drop a value on an opacity, position or angle to calculate it"
-        )
-        : L(
-          "채우기 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-          "Picking the fill color · Drop a value on an opacity, position or angle to calculate it"
-        );
-    return _pickerForStroke
-      ? L(
-        "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the border color · Drop a value on the opacity to calculate it"
-      )
-      : L(
-        "채우기 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the fill color · Drop a value on the opacity to calculate it"
-      );
   }
 }

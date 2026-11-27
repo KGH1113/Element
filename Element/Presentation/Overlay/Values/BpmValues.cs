@@ -1,4 +1,3 @@
-using System.Text;
 using Element.Application.Overlay;
 using Element.Domain.Bpm;
 using Element.Domain.Overlay.Values;
@@ -8,12 +7,6 @@ namespace Element.Presentation.Overlay.Values;
 internal sealed class BpmValues : IOverlayView<BpmSnapshot>
 {
   private readonly OverlayValues _values;
-  private readonly StringBuilder _builder = new(16);
-
-  // Displayed values (two decimals) decide when a value changes.
-  private long _lastTileBpm = long.MinValue;
-  private long _lastCurrentBpm = long.MinValue;
-  private long _lastKeysPerSecond = long.MinValue;
 
   public BpmValues(OverlayValues values)
   {
@@ -27,26 +20,17 @@ internal sealed class BpmValues : IOverlayView<BpmSnapshot>
     _values.Clear(OverlayValueId.TileBpm);
     _values.Clear(OverlayValueId.CurrentBpm);
     _values.Clear(OverlayValueId.KeysPerSecond);
-    _lastTileBpm = _lastCurrentBpm = _lastKeysPerSecond = long.MinValue;
   }
 
   public void Render(BpmSnapshot snapshot)
   {
     if (!snapshot.IsValid)
       return;
-    Set(OverlayValueId.TileBpm, snapshot.TileBpm, ref _lastTileBpm);
-    Set(OverlayValueId.CurrentBpm, snapshot.CurrentBpm, ref _lastCurrentBpm);
-    Set(OverlayValueId.KeysPerSecond, snapshot.KeysPerSecond, ref _lastKeysPerSecond);
+    // Whole, as measured: written at two decimals, and kept whole for places that read them at more or fewer.
+    _values.SetNumber(OverlayValueId.TileBpm, snapshot.TileBpm);
+    _values.SetNumber(OverlayValueId.CurrentBpm, snapshot.CurrentBpm);
+    _values.SetNumber(OverlayValueId.KeysPerSecond, snapshot.KeysPerSecond);
   }
 
   public void Dispose() { }
-
-  private void Set(OverlayValueId id, double value, ref long last)
-  {
-    long shown = NumberText.Scaled(value, 2);
-    if (shown == last)
-      return;
-    last = shown;
-    _values.Set(id, _builder.Clear().AppendRounded(value, 2), shown / 100d);
-  }
 }

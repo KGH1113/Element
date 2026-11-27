@@ -25,7 +25,14 @@ internal sealed class FieldChip
   /// says something else is a new row.
   /// </summary>
   public string Identity =>
-    Key + "\u0001" + Label + "\u0001" + Glyph + (HasSwatch ? "\u0001" + ColorUtility.ToHtmlStringRGB(Swatch) : "");
+    Key
+    + "\u0001"
+    + Label
+    + "\u0001"
+    + Glyph
+    + (Blank ? "\u0001blank" : "")
+    + (Digits.Length > 0 ? "\u0001" + Digits : "")
+    + (HasSwatch ? "\u0001" + ColorUtility.ToHtmlStringRGB(Swatch) : "");
 
   public readonly string Label;
 
@@ -50,4 +57,10 @@ internal sealed class FieldChip
 
   /// <summary>Only its words, as a font's name or an anchor's point: the row's mark already says what it is.</summary>
   public bool Bare;
+
+  /// <summary>Words not typed yet: a hollow box stands where they would be (<see cref="BlankWords"/>).</summary>
+  public bool Blank;
+
+  /// <summary>A value read at decimals of its own: how many, as "0.0", said quietly after it; empty for its own.</summary>
+  public string Digits = "";
 }

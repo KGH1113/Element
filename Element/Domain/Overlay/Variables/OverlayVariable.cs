@@ -114,10 +114,10 @@ internal sealed class OverlayVariable
   public bool IsWords =>
     IsSingleValue(out OverlayValueId id) && OverlayValueCatalog.Get(id).Kind == OverlayValueKind.Text;
 
-  /// <summary>It reads a live value somewhere, its slots and made values included.</summary>
+  /// <summary>It reads a live value somewhere, its slots included.</summary>
   public bool HasValues => !Mask.IsEmpty;
 
-  /// <summary>The live values it reads, in its slots and in the values the player made too.</summary>
+  /// <summary>The live values it reads, in its slots too.</summary>
   public OverlayValueMask Mask => OverlayVariableTypes.Mask(this, 0);
 
   /// <summary>The number it gives, false when a value has no data, it isn't a number, or it isn't finite.</summary>
@@ -130,6 +130,10 @@ internal sealed class OverlayVariable
 
   public bool TryBool(IOverlayNumberSource source, out bool value) =>
     OverlayVariableEvaluator.TryBool(this, source, out value);
+
+  /// <summary>The point it gives now: one picked, or what its condition gives.</summary>
+  public bool TryPoint(IOverlayNumberSource source, out Element.Configuration.Overlay.OverlayGrowth point) =>
+    OverlayVariableEvaluator.TryPoint(this, source, out point);
 
   /// <summary>A number as saved: up to two decimals, "0" for one that isn't finite.</summary>
   public static string NumberText(double number)

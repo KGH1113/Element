@@ -20,4 +20,7 @@ internal enum OverlayValueType
 
   /// <summary>One of &lt; ≤ = ≠ ≥ &gt;: what a condition compares by.</summary>
   Compare,
+
+  /// <summary>A point of an element's box, or Auto: where the element grows from.</summary>
+  Point,
 }

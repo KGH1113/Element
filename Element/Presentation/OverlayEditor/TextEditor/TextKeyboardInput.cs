@@ -7,8 +7,10 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// <summary>
 /// Keys in the text editor: typing (with an input method's composition),
 /// moving the caret by character, word and line, selecting, deleting,
-/// the clipboard, undo, and ⌘/Ctrl+Enter or Esc to finish. While a number
-/// or value is open, Enter and Esc close it and the keyboard types like the keypad.
+/// the clipboard, undo, and ⌘/Ctrl+Enter or Esc to finish. While the dock
+/// has something open, the keys are the dock's: the keyboard types like the
+/// keypad, Esc steps back out of a condition's slot and then closes what is
+/// open, and nothing reaches the text.
 /// </summary>
 internal sealed class TextKeyboardInput
 {
@@ -39,135 +41,160 @@ internal sealed class TextKeyboardInput
 
   public void HandleKeys()
   {
-    bool mac = EditorKeys.Mac;
     while (_context.Frame != null && EditorKeys.NextKeyDown(_event))
-    {
-      bool command = EditorKeys.Command(_event, mac);
-      bool word = EditorKeys.Word(_event, mac);
-      bool shift = _event.shift;
-      if (HandlePopoverKey(command))
-        continue;
-      int caret = _text.Caret;
-      switch (_event.keyCode)
-      {
-        case KeyCode.Escape:
-          _editor.Escape();
-          return;
-        case KeyCode.Return:
-        case KeyCode.KeypadEnter:
-          if (command)
-          {
-            _editor.Close(true, true);
-            return;
-          }
-          if (_text.Composition.Length == 0)
-            _text.Type("\n");
-          continue;
-        case KeyCode.Backspace:
-          if (_text.Composition.Length > 0)
-            continue;
-          if (_text.HasSelection)
-            _text.DeleteSelection();
-          else if (caret > 0)
-            _text.DeleteRange(
-              word ? _text.Document.WordStart(caret)
-                : command ? _map.LineStart(caret)
-                : caret - 1,
-              caret
-            );
-          continue;
-        case KeyCode.Delete:
-          if (_text.HasSelection)
-            _text.DeleteSelection();
-          else if (caret < _text.Document.Count)
-            _text.DeleteRange(caret, word ? _text.Document.WordEnd(caret) : caret + 1);
-          continue;
-        case KeyCode.LeftArrow:
-          MoveHorizontally(-1, shift, word, command);
-          continue;
-        case KeyCode.RightArrow:
-          MoveHorizontally(1, shift, word, command);
-          continue;
-        case KeyCode.UpArrow:
-          _text.MoveTo(command ? 0 : LineStep(-1), shift, true);
-          continue;
-        case KeyCode.DownArrow:
-          _text.MoveTo(command ? _text.Document.Count : LineStep(1), shift, true);
-          continue;
-        case KeyCode.Home:
-          _text.MoveTo(_map.LineStart(caret), shift);
-          continue;
-        case KeyCode.End:
-          _text.MoveTo(_map.LineEnd(caret), shift);
-          continue;
-      }
-      if (command)
-      {
-        switch (_event.keyCode)
-        {
-          case KeyCode.A:
-            _text.SelectAll();
-            break;
-          case KeyCode.C:
-            _text.Copy();
-            break;
-          case KeyCode.X:
-            if (_text.Copy())
-              _text.DeleteSelection();
-            break;
-          case KeyCode.V:
-            _text.Paste();
-            break;
-          case KeyCode.Z:
-            if (shift)
-              _text.Redo();
-            else
-              _text.Undo();
-            break;
-          case KeyCode.Y:
-            _text.Redo();
-            break;
-        }
-        continue;
-      }
-      char c = _event.character;
-      if (c == '\r' || c == '\n' || c == '\t' || c == 0 || char.IsControl(c))
-        continue;
-      _text.Type(c.ToString());
-    }
+      if (!Key(_event))
+        return;
   }
 
-  // While a popover is open: Enter and Esc close it, a formula before the
-  // column's tool, and with a formula open the keyboard types into it like
-  // the keypad. Other keys go back to the text, the column's tool staying;
-  // after a value, typing continues behind it.
-  private bool HandlePopoverKey(bool command)
+  /// <summary>One key press, as the editor takes it; false once it closed the editor, so no later key is read.</summary>
+  public bool Key(Event key)
   {
-    if (command || !_context.AnyOpen)
+    bool mac = EditorKeys.Mac;
+    bool command = EditorKeys.Command(key, mac);
+    bool word = EditorKeys.Word(key, mac);
+    bool shift = key.shift;
+    if (HandleDockKey(key, command))
+      return _context.Frame != null;
+    int caret = _text.Caret;
+    switch (key.keyCode)
+    {
+      case KeyCode.Escape:
+        _editor.Escape();
+        return false;
+      case KeyCode.Return:
+      case KeyCode.KeypadEnter:
+        if (command)
+        {
+          _editor.Close(true, true);
+          return false;
+        }
+        if (_text.Composition.Length == 0)
+          _text.Type("\n");
+        return true;
+      case KeyCode.Backspace:
+        if (_text.Composition.Length > 0)
+          return true;
+        if (_text.HasSelection)
+          _text.DeleteSelection();
+        else if (caret > 0)
+          _text.DeleteRange(
+            word ? _text.Document.WordStart(caret)
+              : command ? _map.LineStart(caret)
+              : caret - 1,
+            caret
+          );
+        return true;
+      case KeyCode.Delete:
+        if (_text.HasSelection)
+          _text.DeleteSelection();
+        else if (caret < _text.Document.Count)
+          _text.DeleteRange(caret, word ? _text.Document.WordEnd(caret) : caret + 1);
+        return true;
+      case KeyCode.LeftArrow:
+        MoveHorizontally(-1, shift, word, command);
+        return true;
+      case KeyCode.RightArrow:
+        MoveHorizontally(1, shift, word, command);
+        return true;
+      case KeyCode.UpArrow:
+        _text.MoveTo(command ? 0 : LineStep(-1), shift, true);
+        return true;
+      case KeyCode.DownArrow:
+        _text.MoveTo(command ? _text.Document.Count : LineStep(1), shift, true);
+        return true;
+      case KeyCode.Home:
+        _text.MoveTo(_map.LineStart(caret), shift);
+        return true;
+      case KeyCode.End:
+        _text.MoveTo(_map.LineEnd(caret), shift);
+        return true;
+    }
+    if (command)
+    {
+      switch (key.keyCode)
+      {
+        case KeyCode.A:
+          _text.SelectAll();
+          break;
+        case KeyCode.C:
+          _text.Copy();
+          break;
+        case KeyCode.X:
+          if (_text.Copy())
+            _text.DeleteSelection();
+          break;
+        case KeyCode.V:
+          _text.Paste();
+          break;
+        case KeyCode.Z:
+          if (shift)
+            _text.Redo();
+          else
+            _text.Undo();
+          break;
+        case KeyCode.Y:
+          _text.Redo();
+          break;
+      }
+      return true;
+    }
+    char c = key.character;
+    if (c == '\r' || c == '\n' || c == '\t' || c == 0 || char.IsControl(c))
+      return true;
+    _text.Type(c.ToString());
+    return true;
+  }
+
+  // While the dock has something open (a number, a color, the font list, a
+  // value of the text), the keys are the dock's: Esc steps back out of a
+  // condition's slot and then closes what is open, Enter closes it, and the
+  // keyboard types like the keypad. Nothing else falls through to the text,
+  // where it would type over or delete what is selected, the very thing
+  // being edited. Only a value of the text itself, not gone into, lets
+  // typing go on behind it.
+  private bool HandleDockKey(Event key, bool command)
+  {
+    if (command || !_context.DockOpen)
       return false;
-    KeyCode code = _event.keyCode;
-    if (code == KeyCode.Escape || code == KeyCode.Return || code == KeyCode.KeypadEnter)
+    KeyCode code = key.keyCode;
+    if (code == KeyCode.Escape)
     {
-      if (_formulas.Open)
-        _editor.CloseTyping();
+      if (!_formulas.LeaveSlot())
+        CloseDock();
+      return true;
+    }
+    if (code == KeyCode.Return || code == KeyCode.KeypadEnter)
+    {
+      CloseDock();
+      return true;
+    }
+    if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(key, _formulas.Editing, out char typed))
+    {
+      // Backspace takes back one step: a digit, a letter, or the value last put in.
+      if (typed == '\b')
+        _formulas.Erase();
       else
-        _editor.CloseOpen();
-      _editor.Render();
+        _formulas.KeypadPress(typed);
       return true;
     }
-    if (_formulas.Editing.Active && KeypadViewModel.TryKeyboard(_event, _formulas.Editing, out char key))
-    {
-      _formulas.KeypadPress(key);
+    if (!_formulas.ChipOpen(out _) || _formulas.Editing.Depth > 0)
       return true;
-    }
-    if (_formulas.Field != null)
-      return true;
-    bool chip = _formulas.ChipOpen(out _);
     _editor.CloseTyping();
-    if (chip)
-      _text.Anchor = _text.Caret = Mathf.Max(_text.Anchor, _text.Caret);
+    _text.Anchor = _text.Caret = Mathf.Max(_text.Anchor, _text.Caret);
     _editor.Render();
     return false;
+  }
+
+  // What the dock has open closes: a number or a value being typed first, else the picker or the font list.
+  private void CloseDock()
+  {
+    if (_formulas.Open)
+      _editor.CloseTyping();
+    else if (_context.AnyOpen)
+      _editor.CloseOpen();
+    else
+      _editor.Escape();
+    _editor.Render();
   }
 
   private void MoveHorizontally(int direction, bool extend, bool word, bool line)

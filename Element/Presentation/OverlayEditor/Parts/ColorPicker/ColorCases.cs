@@ -1,5 +1,4 @@
 using System;
-using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
@@ -15,18 +14,16 @@ namespace Element.Presentation.OverlayEditor.Parts.ColorPicker;
 
 /// <summary>
 /// A color as a variable: one color (picked by hand, or the highlight
-/// color), a condition giving colors, or a value of the player's. The dock
-/// opens it like any field (<see cref="Slot"/>) while its picker is open,
-/// and the picker is the input method of the color piece picked in the
-/// dock: it shows that color and its changes go to it. With nothing but a
-/// gradient, the picker edits the gradient itself.
+/// color), or a condition giving colors. The dock opens it like any field
+/// (<see cref="Slot"/>) while its picker is open, and the picker is the
+/// input method of the color piece picked in the dock: it shows that color
+/// and its changes go to it. With nothing but a gradient, the picker edits
+/// the gradient itself.
 /// </summary>
 internal sealed class ColorCases
 {
   /// <summary>The dock's key for a color.</summary>
   public const string Key = "color";
-
-  private static readonly StringBuilder Builder = new(48);
 
   private readonly ColorPickerPanel _picker;
   private readonly Func<OverlayColorSettings> _color;
@@ -49,7 +46,7 @@ internal sealed class ColorCases
     _color = color;
     _write = write;
     _render = render;
-    Slot = new FormulaSlot(Key, OverlayValueType.Color, Read, Write, Placeholder);
+    Slot = new FormulaSlot(Key, OverlayValueType.Color, Read, Write);
   }
 
   /// <summary>How the dock reads and writes the color.</summary>
@@ -68,7 +65,10 @@ internal sealed class ColorCases
     _shown = null;
     _shownDepth = -1;
     if (_picker.Picker != null)
+    {
       _picker.Picker.ShowsOther = false;
+      _picker.Picker.Resting = false;
+    }
   }
 
   /// <summary>
@@ -117,7 +117,7 @@ internal sealed class ColorCases
         : OverlayColorSettings.HighlightColor(alpha);
     _picker.NewSession();
     _picker.Picker.ShowsOther = true;
-    _picker.Picker.Model.WaitNote = null;
+    _picker.Picker.Resting = false;
     _picker.Picker.ShowSource(
       CaseTitle,
       shown,
@@ -134,23 +134,13 @@ internal sealed class ColorCases
     );
   }
 
-  // Nothing to pick a color for: the picker says how to get one.
+  // Nothing to pick a color for: the picker rests, and the picked piece's own input method shows in its place.
   private void ShowWaiting()
   {
     _onCase = true;
     _shown = null;
     _shownDepth = -1;
-    _picker.Picker.ShowsOther = true;
-    _picker.Picker.Model.WaitNote = L(
-      "색 조각을 고르면 여기서 골라요 · 조건이면 결과값이나 기본값 안으로 들어가요",
-      "Pick a color piece to choose it here · In a condition, go into its result or default"
-    );
-    _picker.Picker.ShowSource(
-      CaseTitle,
-      OverlayColorSettings.HighlightColor(_color()?.Alpha ?? 1),
-      _ => { },
-      gradient: false
-    );
+    _picker.Picker.Resting = true;
   }
 
   /// <summary>The color shown now, as a swatch for the dock's result.</summary>
@@ -188,7 +178,11 @@ internal sealed class ColorCases
   private void Write(OverlayVariable variable)
   {
     // 그라데이션 as it reads: the gradient itself is changed in the picker.
-    if (variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Value && variable[0].Value == OverlayValueId.MakeGradient)
+    if (
+      variable.Count == 1
+      && variable[0].Kind == OverlayPieceKind.Value
+      && variable[0].Value == OverlayValueId.MakeGradient
+    )
       return;
     OverlayColorSettings color = (_color() ?? new OverlayColorSettings()).Clone();
     if (variable.Count == 1 && IsColor(variable[0]))
@@ -202,16 +196,6 @@ internal sealed class ColorCases
     else
       color.Formula = variable.Serialize();
     _write(color);
-  }
-
-  private string Placeholder()
-  {
-    OverlayColorSettings color = _color();
-    if (color == null || !color.IsGradient)
-      return null;
-    Builder.Clear().Append("<mark=#FFFFFF26> ");
-    InputDockViewModel.Swatch(Builder, OverlayTextComposer.Resolve(color, UiTheme.Accent));
-    return Builder.Append(ColorNames.Describe(color)).Append(" </mark>").ToString();
   }
 
   private static bool IsColor(OverlayPiece piece) =>

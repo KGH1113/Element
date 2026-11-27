@@ -18,11 +18,9 @@ internal sealed class ValueChipViewModel : ViewModel
   private readonly bool _reserves;
   private string _live = "";
 
-  /// <param name="index">What a search reads: every name the value can be found by (<see cref="OverlayValueSearch.Index"/>).</param>
-  public ValueChipViewModel(OverlayValueDefinition value, string index, Action<OverlayValueDefinition> pick)
+  public ValueChipViewModel(OverlayValueDefinition value, Action<OverlayValueDefinition> pick)
   {
     Value = value;
-    Index = index;
     Name = "Value " + value.Key;
     Label = ValueSectionNames.ValueName(value);
     _bit = OverlayValueMask.Of(value.Id);
@@ -36,9 +34,6 @@ internal sealed class ValueChipViewModel : ViewModel
   public readonly string Name;
 
   public readonly string Label;
-
-  /// <summary>Every name the value can be found by, folded for searching.</summary>
-  public readonly string Index;
 
   /// <summary>What the value reads now, as plain words; empty while the game has none.</summary>
   public readonly State<string> Live = new("");
@@ -54,9 +49,6 @@ internal sealed class ValueChipViewModel : ViewModel
 
   /// <summary>It can go where the dock puts values now: it is listed.</summary>
   public readonly State<bool> Fits = new(true);
-
-  /// <summary>Whether the search finds it; only one that fits is found.</summary>
-  public readonly State<bool> Found = new(false);
 
   public Command Pick { get; }
 

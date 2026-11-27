@@ -52,6 +52,9 @@ internal sealed class GrowPickerViewModel : ViewModel
   /// <summary>What the choice does.</summary>
   public readonly State<string> Caption = new("");
 
+  /// <summary>Auto is the choice.</summary>
+  public readonly State<bool> IsAuto = new(true);
+
   public Command Auto { get; }
 
   /// <summary>
@@ -82,6 +85,7 @@ internal sealed class GrowPickerViewModel : ViewModel
         : auto ? _followed
         : _chosen;
     }
+    IsAuto.Value = auto;
     AutoFill.Value = auto ? _autoOn : Rest;
     AutoInk.Value = auto ? Colors.Foreground : Colors.Muted;
     Caption.Value = auto

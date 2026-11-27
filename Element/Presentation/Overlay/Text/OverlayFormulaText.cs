@@ -8,14 +8,15 @@ namespace Element.Presentation.Overlay.Text;
 
 /// <summary>
 /// Shows and calculates variables. Pieces side by side show one after the
-/// other: one value exactly as the game writes it, words as typed, anything
+/// other: one value exactly as the game writes it (or at the decimals chosen
+/// for it there, zeros kept), words as typed, anything
 /// calculated up to two decimals or as m:ss when the result is a time, a
 /// condition as the answer it gives now. Nothing here allocates, so texts
 /// updating on every hit stay free of garbage.
 /// </summary>
 internal static class OverlayFormulaText
 {
-  // Made values may use made values; this many deep is enough, and stops a loop.
+  // Conditions and groups hold variables of their own; this many deep is enough.
   private const int MaxDepth = 16;
 
   /// <summary>Appends what a variable shows; nothing for a part whose values have no data yet.</summary>
@@ -59,6 +60,17 @@ internal static class OverlayFormulaText
     switch (piece.Kind)
     {
       case OverlayPieceKind.Value:
+        OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
+        // Read at decimals of its own, it is written at exactly that many, zeros kept, so its width holds.
+        if (OverlayValueNumbers.HasOwnDigits(piece, value))
+        {
+          if (source != null && source.TryGetNumber(piece.Value, out double raw))
+          {
+            int digits = OverlayValueNumbers.DigitsOf(piece, value);
+            output.AppendScaled(OverlayValueNumbers.Scaled(raw, digits, value.Rounding), digits, true);
+          }
+          break;
+        }
         OverlayTextComposer.AppendValue(output, piece.Value, values, samples);
         break;
       case OverlayPieceKind.Number:
@@ -79,10 +91,6 @@ internal static class OverlayFormulaText
         break;
       case OverlayPieceKind.Group:
         Append(output, piece.Slots[0], values, samples, depth + 1);
-        break;
-      case OverlayPieceKind.Custom:
-        if (OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made))
-          Append(output, made, values, samples, depth + 1);
         break;
     }
   }

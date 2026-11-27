@@ -1,4 +1,3 @@
-using Element.Configuration;
 using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
@@ -18,18 +17,15 @@ internal static class VariableEditingTests
     TheKeypadTypesNumbers();
     ValuesGoInPlace();
     ConditionsOpenSlotByslot();
-    MadeValuesOpenLikeAnyVariable();
+    TheDockStepsOutAndAcross();
+    BackspaceTakesBackOneStep();
   }
 
-  private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(
-    OverlayValueType type,
-    string start,
-    ICustomValueBook book = null
-  )
+  private static (FormulaEditing Editing, OverlayVariable[] Saved) Field(OverlayValueType type, string start)
   {
     OverlayVariable[] saved = { OverlayVariable.Parse(start) };
-    FormulaEditing editing = new(book);
-    editing.Activate(new FormulaSlot("field", type, () => saved[0], variable => saved[0] = variable, null));
+    FormulaEditing editing = new();
+    editing.Activate(new FormulaSlot("field", type, () => saved[0], variable => saved[0] = variable));
     return (editing, saved);
   }
 
@@ -134,68 +130,123 @@ internal static class VariableEditingTests
     );
   }
 
-  private static OverlayValueDefinition Mine(string key) =>
-    OverlayValueCatalog.TryGet("@" + key, out OverlayValueDefinition value) ? value : null;
-
-  private static void MadeValuesOpenLikeAnyVariable()
+  // Inside a condition's slot: which condition that is, a step back out of
+  // it, and straight across to another of its slots.
+  private static void TheDockStepsOutAndAcross()
   {
-    ElementSettings settings = new();
-    CustomValueBook book = new(settings);
-    try
-    {
-      (FormulaEditing editing, OverlayVariable[] saved) = Field(OverlayValueType.Number, "40", book);
-      Check(
-        editing.CanDrop(OverlayValueCatalog.Get(OverlayValueId.MakeCustom)),
-        "a value can be made where numbers go"
-      );
-      editing.Drop(editing.Slot, OverlayValueCatalog.Get(OverlayValueId.MakeCustom));
-      string key = settings.OverlayCustomValues[0].Key;
-      Check(settings.OverlayCustomValues[0].Type == "number", "it gives what the field needs");
-      Check(
-        editing.Path.Count == 2 && editing.Path[1].Custom == key && editing.Kind == OverlayValueType.Number,
-        "and opens at once"
-      );
-      Check(
-        saved[0].Serialize() == "40" && editing.Problem?.Kind == OverlayTypeProblemKind.Empty,
-        "an empty value isn't taken yet"
-      );
-      Check(!editing.CanDrop(OverlayValueCatalog.Get(OverlayValueId.SongTitle)), "words don't go in a number value");
-      Check(!editing.CanDrop(Mine(key)), "nor the value itself");
-      editing.Drop(editing.Slot, OverlayValueCatalog.Get(OverlayValueId.Combo));
-      editing.Press('*');
-      editing.Press('2');
-      Check(
-        settings.OverlayCustomValues[0].Variable == "{combo}*2",
-        "what fits is kept with the settings: " + settings.OverlayCustomValues[0].Variable
-      );
-      Check(editing.Problem == null && saved[0].Serialize() == "{@" + key + "}", "and the field takes the value");
-      editing.SelectAt(null, 0);
-      Check(editing.LineBase == 1 && editing.Path.Count == 2, "picking on the line stays inside the open value");
-      Check(
-        editing.LeaveMade() && editing.Path.Count == 1 && editing.SelectedPiece?.Kind == OverlayPieceKind.Custom,
-        "Apply goes back to where the value sits, the value picked"
-      );
-      editing.Rename("콤보 두 배");
-      Check(
-        OverlayCustomValues.NameOf(key) == "콤보 두 배" && settings.OverlayCustomValues[0].Name == "콤보 두 배",
-        "renamed for every element"
-      );
-      (FormulaEditing color, _) = Field(OverlayValueType.Color, "#FFFFFF", book);
-      Check(!color.CanDrop(Mine(key)), "a number value doesn't fit a color");
-      System.Collections.Generic.List<Element.Configuration.Overlay.OverlayCustomValueSettings> before = book.Copy();
-      editing.Enter(0);
-      while (editing.Working.Count > 0 && editing.Remove()) { }
-      Check(
-        settings.OverlayCustomValues[0].Variable == "combo",
-        "an emptied value keeps the last thing that fit: " + settings.OverlayCustomValues[0].Variable
-      );
-      editing.Press('7');
-      book.Restore(before);
-      Check(settings.OverlayCustomValues[0].Variable == "{combo}*2", "Cancel puts the made values back");
-    }
-    finally
-    {
-      OverlayCustomValues.Load(null);
-    }
+    (FormulaEditing editing, _) = Field(OverlayValueType.Number, "if({combo};>=;100;60;if({combo};>=;50;30;20))");
+    OverlayPiece outer = editing.SelectedPiece;
+    Check(
+      editing.Depth == 0 && editing.Around == null && editing.AroundSlot == -1 && !editing.Leave() && !editing.Hop(0),
+      "at the field there is no condition around, nowhere back to and nowhere across"
+    );
+    editing.Enter(OverlayPiece.Right);
+    Check(
+      editing.Depth == 1
+        && editing.Around == outer
+        && editing.AroundSlot == OverlayPiece.Right
+        && editing.AroundGives == OverlayValueType.Number
+        && editing.SelectedPiece?.Text == "100",
+      "inside a slot the condition around is the one it is a slot of"
+    );
+    Check(
+      editing.Hop(OverlayPiece.Result)
+        && editing.Depth == 1
+        && editing.Around == outer
+        && editing.AroundSlot == OverlayPiece.Result
+        && editing.SelectedPiece?.Text == "60",
+      "across goes straight into another slot of the same condition"
+    );
+    editing.Hop(OverlayPiece.Default);
+    OverlayPiece inner = editing.SelectedPiece;
+    Check(
+      inner?.Kind == OverlayPieceKind.Condition && editing.Depth == 1 && editing.AroundSlot == OverlayPiece.Default,
+      "an answer that is a condition is picked there, still inside the outer one"
+    );
+    editing.Enter(OverlayPiece.Left);
+    Check(
+      editing.Depth == 2 && editing.Around == inner && editing.AroundSlot == OverlayPiece.Left,
+      "inside the inner condition, the nearest one is around"
+    );
+    Check(
+      editing.Leave() && editing.Depth == 1 && editing.Around == outer && editing.SelectedPiece == inner,
+      "back is one step: the inner condition is picked again, inside the outer one's answer"
+    );
+    Check(
+      editing.Leave() && editing.Depth == 0 && editing.Around == null && editing.SelectedPiece == outer,
+      "and one more step is out at the field, the outer condition picked"
+    );
+
+    // What keeps the field from being finished shows on its own condition: the dock goes there.
+    (FormulaEditing unfinished, _) = Field(OverlayValueType.Number, "if({combo};>=;100;60;if(;>=;50;30;20))");
+    OverlayPiece whole = unfinished.SelectedPiece;
+    unfinished.Enter(OverlayPiece.Right);
+    OverlayPiece lacking = unfinished.Problem?.Condition;
+    Check(lacking != null && lacking != whole, "the empty slot is the inner condition's");
+    unfinished.FaceProblem();
+    Check(
+      unfinished.SelectedPiece == lacking
+        && unfinished.Depth == 1
+        && unfinished.Around == whole
+        && unfinished.AroundSlot == OverlayPiece.Default,
+      "from another slot the dock goes to the condition that lacks something, picked where it sits"
+    );
+    unfinished.Enter(OverlayPiece.Right);
+    unfinished.FaceProblem();
+    Check(
+      unfinished.Depth == 2 && unfinished.Around == lacking && unfinished.AroundSlot == OverlayPiece.Right,
+      "inside a slot of that condition the dock stays: its strip shows the empty one"
+    );
+  }
+
+  // Backspace on the keyboard: a digit of a number, a letter of words, a value whole.
+  private static void BackspaceTakesBackOneStep()
+  {
+    (FormulaEditing text, OverlayVariable[] said) = Field(OverlayValueType.Any, "\"Acc \" {combo} 42");
+    Check(
+      text.SelectedPiece?.Text == "42" && text.Erase() && said[0].Serialize() == "\"Acc \" {combo} 4",
+      "a digit of the picked number goes first"
+    );
+    text.Erase();
+    text.Erase();
+    Check(
+      said[0].Serialize() == "\"Acc \" {combo}",
+      "its last digit leaves 0, and 0 goes with the number: " + said[0].Serialize()
+    );
+    Check(
+      text.SelectedPiece?.Kind == OverlayPieceKind.Value && text.Erase() && said[0].Serialize() == "\"Acc \"",
+      "a value goes whole: " + said[0].Serialize()
+    );
+    Check(
+      text.SelectedPiece?.Kind == OverlayPieceKind.Text && text.Erase() && text.SelectedPiece?.Text == "Acc",
+      "words go a letter at a time, a space counted: " + text.SelectedPiece?.Text
+    );
+    text.Erase();
+    text.Erase();
+    text.Erase();
+    Check(
+      text.SelectedPiece?.Text == "" && text.Working.Count == 1,
+      "down to no letters, the words are still there, empty"
+    );
+    Check(
+      text.Erase() && text.Working.Count == 0 && !text.Erase(),
+      "then the empty words go, and with nothing left backspace does nothing"
+    );
+
+    // With nothing picked, it is the last thing put in.
+    (FormulaEditing loose, OverlayVariable[] kept) = Field(OverlayValueType.Any, "{combo} {miss}");
+    loose.SelectAt(null, -1);
+    Check(
+      loose.Selected < 0 && loose.Erase() && kept[0].Serialize() == "combo",
+      "with none picked the last value goes: " + kept[0].Serialize()
+    );
+
+    // What a comparison's field holds is swapped, never taken out.
+    (FormulaEditing condition, OverlayVariable[] whole) = Field(OverlayValueType.Number, "if({combo};>=;100;60;40)");
+    condition.Enter(OverlayPiece.Compare);
+    Check(
+      !condition.Erase() && whole[0].Serialize() == "if({combo};>=;100;60;40)",
+      "a comparison stays: it is chosen, not removed"
+    );
   }
 }

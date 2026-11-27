@@ -1,4 +1,5 @@
 using System;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
@@ -11,7 +12,7 @@ namespace Element.Domain.Overlay.Variables;
 /// </summary>
 internal static class OverlayVariableEvaluator
 {
-  // Made values may use made values; this many deep is enough, and stops a loop.
+  // Conditions and groups hold variables of their own; this many deep is enough.
   private const int MaxDepth = 16;
 
   /// <summary>
@@ -38,6 +39,16 @@ internal static class OverlayVariableEvaluator
     if (!TrySingle(variable, source, 0, OverlayValueType.Bool, out OverlayPiece piece))
       return false;
     value = piece.Bool;
+    return true;
+  }
+
+  /// <summary>The point a variable gives: one picked, or what a condition gives.</summary>
+  public static bool TryPoint(OverlayVariable variable, IOverlayNumberSource source, out OverlayGrowth point)
+  {
+    point = OverlayGrowth.Auto;
+    if (!TrySingle(variable, source, 0, OverlayValueType.Point, out OverlayPiece piece))
+      return false;
+    point = piece.Point;
     return true;
   }
 
@@ -81,12 +92,17 @@ internal static class OverlayVariableEvaluator
 
   private static bool Holds(OverlayPiece condition, IOverlayNumberSource source, int depth)
   {
-    OverlayVariable compare = condition.Slots[OverlayPiece.Compare];
-    return compare.Count == 1
-      && compare[0].Kind == OverlayPieceKind.Compare
+    // The comparison is a value too: picked, or given by a condition of its own.
+    return TrySingle(
+        condition.Slots[OverlayPiece.Compare],
+        source,
+        depth + 1,
+        OverlayValueType.Compare,
+        out OverlayPiece compare
+      )
       && TryNumber(condition.Slots[OverlayPiece.Left], source, depth + 1, out double left, out _)
       && TryNumber(condition.Slots[OverlayPiece.Right], source, depth + 1, out double right, out _)
-      && Holds(compare[0].Op, left, right);
+      && Holds(compare.Op, left, right);
   }
 
   private static bool TryNumber(
@@ -107,7 +123,7 @@ internal static class OverlayVariableEvaluator
     return Calculate(variable, 0, variable.Count, source, depth, out result, out isTime);
   }
 
-  // One piece that is of type <paramref name="type"/>, through conditions, groups and made values.
+  // One piece that is of type <paramref name="type"/>, through conditions and groups.
   private static bool TrySingle(
     OverlayVariable variable,
     IOverlayNumberSource source,
@@ -124,6 +140,8 @@ internal static class OverlayVariableEvaluator
     {
       case OverlayPieceKind.Color when type == OverlayValueType.Color:
       case OverlayPieceKind.Bool when type == OverlayValueType.Bool:
+      case OverlayPieceKind.Compare when type == OverlayValueType.Compare:
+      case OverlayPieceKind.Point when type == OverlayValueType.Point:
         piece = only;
         return true;
       case OverlayPieceKind.Value when type == OverlayValueType.Color && OverlayValueCatalog.Get(only.Value).IsColor:
@@ -139,9 +157,6 @@ internal static class OverlayVariableEvaluator
         );
       case OverlayPieceKind.Group:
         return TrySingle(only.Slots[0], source, depth + 1, type, out piece);
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.TryGet(only.Text, out OverlayVariable made)
-          && TrySingle(made, source, depth + 1, type, out piece);
       default:
         return false;
     }
@@ -244,6 +259,9 @@ internal static class OverlayVariableEvaluator
         OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
         if (!value.IsNumeric || source == null || !source.TryGetNumber(piece.Value, out number))
           return false;
+        // A value with decimals is compared and calculated at as many as this place reads, cut the game's way.
+        if (value.HasDigits)
+          number = OverlayValueNumbers.Cut(number, OverlayValueNumbers.DigitsOf(piece, value), value.Rounding);
         time = value.Kind == OverlayValueKind.Time;
         return true;
       case OverlayPieceKind.Condition:
@@ -256,9 +274,6 @@ internal static class OverlayVariableEvaluator
         );
       case OverlayPieceKind.Group:
         return TryNumber(piece.Slots[0], source, depth + 1, out number, out time);
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made)
-          && TryNumber(made, source, depth + 1, out number, out time);
       default:
         return false;
     }

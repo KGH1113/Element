@@ -9,7 +9,6 @@ using Element.Application.Overlay;
 using Element.Application.Rendering;
 using Element.Application.Status;
 using Element.Domain.Judgement;
-using Element.Domain.Overlay.Variables;
 using Element.Infrastructure.Game.Play;
 using Element.Infrastructure.Platform;
 using Element.Infrastructure.Storage;
@@ -41,8 +40,6 @@ internal sealed class OverlayRuntime : IGameplayOverlay, IDisposable
   {
     try
     {
-      // The values the player made, before the elements that use them.
-      OverlayCustomValues.Load(main.Settings.OverlayCustomValues);
       Canvas = new OverlayCanvasHost();
       // Values other mods add through ElementKit; shapes use them even without the font.
       Canvas.Feed = new ModValues(main.LogWarning);

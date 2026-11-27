@@ -2,7 +2,9 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementUI;
+using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -33,7 +35,15 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 
   protected View Hue() => new ColorSliderView(VM, true);
 
+  /// <summary>The hue bar standing, <see cref="ColorSliderView.Height"/> wide, as tall as it is laid out.</summary>
+  protected View UprightHue(float height) =>
+    new ColorSliderView(VM, true, upright: true).Frame(width: ColorSliderView.Height, height: height);
+
   protected View Opacity() => new ColorSliderView(VM, false);
+
+  /// <summary>The opacity bar standing, <see cref="ColorSliderView.Height"/> wide, as tall as it is laid out.</summary>
+  protected View UprightOpacity(float height) =>
+    new ColorSliderView(VM, false, upright: true).Frame(width: ColorSliderView.Height, height: height);
 
   /// <summary>Highlight/Custom: follow the highlight color, or a color of its own.</summary>
   protected View Source() =>
@@ -44,17 +54,6 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
           .Font(Font.Caption.Sized(13))
           .Frame(height: 36)
     );
-
-  /// <summary>With the choice in the dock, following the highlight says where a custom color is picked.</summary>
-  protected View DockNote() =>
-    VStack(
-        spacing: 2,
-        alignment: HAlignment.Leading,
-        UI.Text(() => VM.DockNoteTitle.Value).Font(Font.Caption.Sized(13)).LineLimit(3),
-        UI.Text(() => VM.DockNoteBody.Value).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted).LineLimit(2)
-      )
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
-      .Padding(new Insets(2, 2, 0, 2));
 
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>
   protected View HexRow() =>
@@ -97,6 +96,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
             .CharacterLimit(7)
             .OnEditEnded((_, _) => VM.Commit())
             .FocusOn(() => VM.FocusHex.Value)
+            .Configure<TMP_InputField>(UiCaret.Show)
             .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
             .Named("HEX color")
         )
@@ -134,6 +134,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
             .TextAlignment(TextAlign.Trailing)
             .OnEditEnded((_, _) => VM.Commit())
             .FocusOn(() => VM.FocusOpacity.Value)
+            .Configure<TMP_InputField>(UiCaret.Show)
             .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
             .Named("Opacity percentage"),
           UI.Text("%").Font(Font.Caption.Sized(13)).Foreground(Colors.Muted)
@@ -176,8 +177,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
       spacing: 0,
       OpacityRow(),
       Opacity().Padding(new Insets(10, 0, 0, 0)),
-      Error(14).Padding(new Insets(2, 0, 0, 0)),
-      If(() => VM.DockNote.Value, () => DockNote().Padding(new Insets(10, 0, 0, 0)))
+      Error(14).Padding(new Insets(2, 0, 0, 0))
     );
 
   /// <summary>The close button of a picker with a title.</summary>

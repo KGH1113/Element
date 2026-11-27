@@ -23,6 +23,13 @@ internal static class ColorPickerPlacement
     // The panel keeps the size of what it shows; only its place follows the dock.
     picker.Root.anchoredPosition = new Vector2(Left(picker, dock), -y);
     picker.Root.SetAsLastSibling();
+    // A gradient's picked color stands where every input method does.
+    if (picker.PlaneRoot != null && picker.PlaneRoot.gameObject.activeSelf)
+    {
+      Rect place = dock.MethodArea;
+      picker.PlaneRoot.anchoredPosition = new Vector2(place.x, -place.y);
+      picker.PlaneRoot.SetAsLastSibling();
+    }
   }
 
   /// <summary>A solid color's picker over the keypad's keys, where every input method is.</summary>
@@ -30,15 +37,11 @@ internal static class ColorPickerPlacement
   {
     if (picker == null || !picker.Visible)
       return;
-    Rect keys = dock.KeypadArea;
+    Rect keys = dock.MethodArea;
     picker.Root.anchoredPosition = new Vector2(keys.x, -keys.y);
     picker.Root.SetAsLastSibling();
   }
 
-  /// <summary>
-  /// Where the picker above the keypad starts (frame units). It ends with the
-  /// keypad; an editor's two-column picker reaches further left, so the
-  /// preview and its bar keep to the space before it while it is open.
-  /// </summary>
+  /// <summary>Where the picker above the keypad starts (frame units): it is as wide as the column and ends with it.</summary>
   public static float Left(UiColorPicker picker, InputDockPanel dock) => dock.KeypadArea.xMax - picker.CurrentWidth;
 }

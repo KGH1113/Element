@@ -29,19 +29,29 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
     ButtonHeight = 36;
 
   private readonly bool _two;
+  private readonly bool _split;
   private readonly float _width;
 
   /// <param name="two">With the color bar: an overlay element's color.</param>
   /// <param name="width">One column's width; its controls keep the color square's and center in it.</param>
-  public ColorPickerColumnsView(ColorPickerViewModel vm, ColorPickerParts parts, bool two, float width)
+  /// <param name="split">The color's square stands elsewhere (<see cref="ColorPickerPlaneView"/>): only the controls show, one column wide.</param>
+  public ColorPickerColumnsView(
+    ColorPickerViewModel vm,
+    ColorPickerParts parts,
+    bool two,
+    float width,
+    bool split = false
+  )
     : base(vm, parts)
   {
     _two = two;
+    _split = split;
     _width = width;
   }
 
   public override View Body =>
-    _two
+    _two && _split ? Controls().Frame(width: _width, alignment: Alignment.Top)
+    : _two
       ? HStack(
           spacing: 0,
           alignment: VAlignment.Top,
@@ -56,7 +66,7 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
           Controls().Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Top)
         )
         .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading)
-      : OwnColumn().Frame(width: Column).Frame(width: _width, height: Height, alignment: Alignment.Top);
+    : OwnColumn().Frame(width: Column).Frame(width: _width, height: Height, alignment: Alignment.Top);
 
   // A color of its own: the square, large, over its hue and opacity.
   private View OwnColor() => VStack(spacing: 0, Plane(PlaneHeight), Hue().Padding(new Insets(8, 0, 0, 0)), Opacity());
@@ -86,12 +96,7 @@ internal sealed class ColorPickerColumnsView : ColorPickerLayout
               If(() => VM.Error.Value.Length > 0, () => Error(14).Padding(new Insets(4, 0, 0, 0)))
             )
             .Padding(new Insets(12, 0, 0, 0)),
-        () =>
-          VStack(
-            spacing: 0,
-            Opacity().Padding(new Insets(10, 0, 0, 0)),
-            If(() => VM.DockNote.Value, () => DockNote().Padding(new Insets(10, 0, 0, 0)))
-          )
+        () => Opacity().Padding(new Insets(10, 0, 0, 0))
       ),
       HStack(
           spacing: 8,

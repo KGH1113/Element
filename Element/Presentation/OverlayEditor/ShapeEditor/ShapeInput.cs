@@ -25,7 +25,6 @@ internal sealed class ShapeInput
   private readonly ShapeGradient _gradient;
   private readonly ShapeMeasures _measures;
   private readonly ShapeFieldList _fields;
-  private readonly GrowFrom _grow;
   private readonly EditorHistory<OverlayShapeSettings> _history;
   private readonly Event _event = new();
 
@@ -37,7 +36,6 @@ internal sealed class ShapeInput
     ShapeGradient gradient,
     ShapeMeasures measures,
     ShapeFieldList fields,
-    GrowFrom grow,
     EditorHistory<OverlayShapeSettings> history
   )
   {
@@ -48,58 +46,66 @@ internal sealed class ShapeInput
     _gradient = gradient;
     _measures = measures;
     _fields = fields;
-    _grow = grow;
     _history = history;
   }
 
   public void HandleKeys()
   {
-    bool mac = EditorKeys.Mac;
     while (_context.Frame != null && EditorKeys.NextKeyDown(_event))
+      if (!Key(_event))
+        return;
+  }
+
+  /// <summary>One key press, as the editor takes it; false once it closed the editor, so no later key is read.</summary>
+  public bool Key(Event key)
+  {
+    if (EditorKeys.Command(key, EditorKeys.Mac))
     {
-      if (EditorKeys.Command(_event, mac))
+      if (EditorKeys.IsEnter(key.keyCode))
       {
-        if (EditorKeys.IsEnter(_event.keyCode))
-        {
-          _editor.Close(true, true);
-          return;
-        }
-        if (_event.keyCode == KeyCode.Z)
-        {
-          if (_event.shift)
-            _history.Redo();
-          else
-            _history.Undo();
-        }
-        else if (_event.keyCode == KeyCode.Y)
+        _editor.Close(true, true);
+        return false;
+      }
+      if (key.keyCode == KeyCode.Z)
+      {
+        if (key.shift)
           _history.Redo();
-        continue;
+        else
+          _history.Undo();
       }
-      KeyCode code = _event.keyCode;
-      UiColorPicker picker = _colors.Picker;
-      if (code == KeyCode.Escape)
-      {
-        bool finishing = !picker.Visible && !_context.AnyOpen;
-        _editor.Escape();
-        if (finishing)
-          return;
-        continue;
-      }
-      // Enter closes what is open.
-      if (EditorKeys.IsEnter(code))
-      {
-        if (picker.Visible)
-          picker.Hide();
-        else if (_context.AnyOpen)
-          _editor.CloseOpen();
-        _editor.Render();
-        continue;
-      }
-      if (_gradient.Key(code, _event.shift, _numbers.Editing.Active))
-        continue;
-      if (_numbers.Editing.Active && KeypadViewModel.TryKeyboard(_event, _numbers.Editing, out char key))
-        _numbers.KeypadPress(key);
+      else if (key.keyCode == KeyCode.Y)
+        _history.Redo();
+      return true;
     }
+    KeyCode code = key.keyCode;
+    UiColorPicker picker = _colors.Picker;
+    if (code == KeyCode.Escape)
+    {
+      // Esc steps back out of a condition's slot, then closes what is open, then finishes.
+      _editor.Escape();
+      return _context.Frame != null;
+    }
+    // Enter closes what is open.
+    if (EditorKeys.IsEnter(code))
+    {
+      if (picker.Visible)
+        picker.Hide();
+      else if (_context.AnyOpen)
+        _editor.CloseOpen();
+      _editor.Render();
+      return true;
+    }
+    if (_gradient.Key(code, key.shift, _numbers.Editing.Active))
+      return true;
+    if (_numbers.Editing.Active && KeypadViewModel.TryKeyboard(key, _numbers.Editing, out char typed))
+    {
+      // Backspace takes back one step: a digit, a letter, or the value last put in.
+      if (typed == '\b')
+        _numbers.Erase();
+      else
+        _numbers.KeypadPress(typed);
+    }
+    return true;
   }
 
   // A click on the empty dim closes what is open.
@@ -128,7 +134,6 @@ internal sealed class ShapeInput
     if (
       _context.Inspector.Contains(screen)
       || _context.DockPanel.Contains(screen)
-      || _grow.Contains(screen)
       || PopoverPlacement.Contains(_colors.Picker.Root, screen)
       || _gradient.Handles.Contains(screen)
       || _context.Frame.ToFrame(screen).y < EditorFramePanel.TopBar

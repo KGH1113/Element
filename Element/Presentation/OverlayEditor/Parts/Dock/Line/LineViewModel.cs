@@ -36,14 +36,51 @@ internal sealed class LineViewModel : ViewModel
     _slots[Root.Key] = Root;
   }
 
-  /// <summary>Whether a field is open; with none the line says <see cref="Hint"/>.</summary>
+  /// <summary>Whether a field is open; with none the line is clear.</summary>
   public bool Open;
 
-  /// <summary>What the line says with nothing open.</summary>
-  public string Hint = "";
+  /// <summary>Apply was refused: what is missing on the line is outlined until it is put right.</summary>
+  public bool Alarmed;
+
+  /// <summary>Shakes the line when what was asked can't be done.</summary>
+  public readonly EditorShake Shake = new();
+
+  /// <summary>Carries the line in from a side when the dock goes into a slot or comes back out of one.</summary>
+  public readonly EditorArrival Slide = new();
+
+  /// <summary>How far aside the line starts that glide: right of its place going in, left of it coming out.</summary>
+  public float SlideFrom;
+
+  public float SlideX
+  {
+    [Pure]
+    get => SlideFrom * (1 - Slide.Progress);
+  }
+
+  public float SlideOpacity
+  {
+    [Pure]
+    get => Mathf.Clamp01(.25f + Slide.Progress);
+  }
 
   /// <summary>The open field's name: "너비", "크기".</summary>
   public string Name = "";
+
+  /// <summary>Whose field it is, said before its name: "글 전체 ›", "“FPS” ›"; empty for a field of the element itself.</summary>
+  public string Whose = "";
+
+  /// <summary>
+  /// The field is picked from a fixed set (a font, a point), not made of
+  /// values: the line shows its one choice, and the input method's place has
+  /// the set.
+  /// </summary>
+  public bool Choosing;
+
+  /// <summary>What a <see cref="Choosing"/> field's mark says ("Aa", a place).</summary>
+  public string ChoiceGlyph = "";
+
+  /// <summary>What a <see cref="Choosing"/> field holds now: "기본", "자동".</summary>
+  public string ChoiceLabel = "";
 
   /// <summary>What the open field gives, for its mark.</summary>
   public OverlayValueType Type;
@@ -63,47 +100,65 @@ internal sealed class LineViewModel : ViewModel
 
   /// <summary>
   /// The line for what <paramref name="editing"/> has open, called
-  /// <paramref name="name"/>, working out to <paramref name="result"/>; with
-  /// nothing open, <paramref name="hint"/>.
+  /// <paramref name="name"/>, working out to <paramref name="result"/>; clear
+  /// with nothing open.
   /// </summary>
-  public void Show(FormulaEditing editing, string name, string result, string hint)
+  public void Show(FormulaEditing editing, string name, string result, string whose = null)
   {
     Open = editing != null && editing.Active;
-    Hint = hint ?? "";
+    Choosing = false;
     if (!Open)
     {
+      Whose = "";
       Result = "";
       return;
     }
-    // In a value of the player's the line shows its inside, under its name.
-    int lineBase = editing.LineBase;
-    FormulaFrame start = editing.Path[lineBase];
-    bool made = lineBase > 0;
-    Name = made ? OverlayCustomValues.Shown(start.Custom, FormulaWords.Current) : name ?? "";
+    // The line holds one variable: the field's, or the slot of a condition
+    // the dock went into. A group inside it is laid out in place.
+    IReadOnlyList<FormulaFrame> path = editing.Path;
+    int held = 0;
+    for (int i = path.Count - 1; i > 0 && held == 0; i--)
+      if (path[i].Owner?.Kind == OverlayPieceKind.Condition)
+        held = i;
+    FormulaFrame start = path[held];
+    Name = held == 0 ? name ?? "" : FormulaRefusals.SlotName(start.Slot);
+    Whose = Trail(whose, held);
     Type = start.Type;
-    Result = made || string.IsNullOrEmpty(result) || IsPlain(start.Variable) ? "" : "= " + result;
-    ResultHasSwatch = Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
-    SelectedRoute(editing, lineBase);
+    // A field always says what it gives; inside a condition the form beside the line shows the whole.
+    Result = held > 0 || string.IsNullOrEmpty(result) ? "" : "= " + result;
+    ResultHasSwatch =
+      Result.Length > 0 && ColorUtility.TryParseHtmlString(result, out ResultSwatch) && result[0] == '#';
+    _selectedRoute.Clear();
+    for (int i = 1; i < path.Count; i++)
+      _selectedRoute.Add(new FormulaStep(path[i].Outer, path[i].Slot));
     _used.Clear();
     _route.Clear();
-    Slot(start.Variable, start.Type, -1, !made && editing.Slot.IsText, true, editing);
+    for (int i = 1; i <= held; i++)
+      _route.Add(new FormulaStep(path[i].Outer, path[i].Slot));
+    Slot(start.Variable, start.Type, -1, held == 0 ? editing.Slot.IsText : start.MayBeEmpty, true, editing);
     Forget(_pieces);
     Forget(_slots);
   }
 
-  // One number, words or color typed by hand reads the same as its result; a
-  // game value, a value of the player's or a condition says what it gives.
-  private static bool IsPlain(OverlayVariable variable) =>
-    variable.Count == 1
-    && variable[0].Kind is OverlayPieceKind.Number or OverlayPieceKind.Text or OverlayPieceKind.Color or OverlayPieceKind.Bool;
+  // Whose field it is, said before its name. Inside a condition's slot the line
+  // is that slot's alone: the condition folded beside it says where that is.
+  private static string Trail(string whose, int held) => held == 0 ? whose ?? "" : "";
 
-  // Where the picked piece is: the route of the innermost open variable.
-  private void SelectedRoute(FormulaEditing editing, int lineBase)
+  /// <summary>
+  /// The line for a field picked from a fixed set: <paramref name="whose"/>
+  /// <paramref name="name"/>, marked <paramref name="glyph"/>, holding
+  /// <paramref name="label"/>.
+  /// </summary>
+  public void ShowChoice(string whose, string name, string glyph, string label)
   {
-    _selectedRoute.Clear();
-    IReadOnlyList<FormulaFrame> path = editing.Path;
-    for (int i = lineBase + 1; i < path.Count; i++)
-      _selectedRoute.Add(new FormulaStep(path[i].Outer, path[i].Slot));
+    Open = true;
+    Choosing = true;
+    Whose = whose ?? "";
+    Name = name ?? "";
+    ChoiceGlyph = glyph ?? "";
+    ChoiceLabel = label ?? "";
+    Result = "";
+    ResultHasSwatch = false;
   }
 
   private LineSlotViewModel Slot(
@@ -115,7 +170,8 @@ internal sealed class LineViewModel : ViewModel
     FormulaEditing editing
   )
   {
-    string key = "s" + RouteKey(_route);
+    // The line's own variable keeps one object, whichever variable it is now, so the view on it stays.
+    string key = root ? Root.Key : "s" + RouteKey(_route);
     if (!_slots.TryGetValue(key, out LineSlotViewModel slot))
       _slots[key] = slot = new LineSlotViewModel(key);
     _used.Add(key);
@@ -125,11 +181,7 @@ internal sealed class LineViewModel : ViewModel
     bool here = SameRoute(_route, _selectedRoute);
     slot.Targeted = here && editing.Selected < 0;
     slot.Missing = variable.IsEmpty && !mayBeEmpty;
-    slot.Placeholder =
-      root ? L(FormulaRefusals.TypeName(type) + " 넣기", "Add " + FormulaRefusals.TypeName(type).ToLowerInvariant())
-      : slotIndex >= 0
-        ? FormulaRefusals.SlotName(slotIndex) + (mayBeEmpty ? L(" (비워도 돼요)", " (may stay empty)") : "")
-      : FormulaRefusals.TypeName(type);
+    slot.Placeholder = FormulaRefusals.TypeName(type);
     LinePieceViewModel[] pieces = new LinePieceViewModel[variable.Count];
     for (int i = 0; i < variable.Count; i++)
       pieces[i] = Piece(variable, i, type, here && editing.Selected == i, editing);
@@ -146,10 +198,10 @@ internal sealed class LineViewModel : ViewModel
   )
   {
     OverlayPiece piece = variable[index];
+    // A condition is one value on the line; its five slots are its input method's.
     LinePieceKind kind = piece.Kind switch
     {
       OverlayPieceKind.Operator => LinePieceKind.Operator,
-      OverlayPieceKind.Condition => LinePieceKind.Condition,
       OverlayPieceKind.Group => LinePieceKind.Group,
       _ => LinePieceKind.Chip,
     };
@@ -163,6 +215,8 @@ internal sealed class LineViewModel : ViewModel
     vm.Type = OverlayVariableTypes.TypeOf(piece);
     vm.HasSwatch = false;
     vm.Label = Label(piece);
+    vm.Digits = DigitsPattern(piece);
+    vm.Blank = piece.Kind == OverlayPieceKind.Text && piece.Text.Length == 0;
     if (piece.Kind == OverlayPieceKind.Color)
     {
       vm.HasSwatch = true;
@@ -178,26 +232,10 @@ internal sealed class LineViewModel : ViewModel
       (index > 0 && variable[index - 1].Kind == OverlayPieceKind.Operator)
       || (index + 1 < variable.Count && variable[index + 1].Kind == OverlayPieceKind.Operator);
     OverlayValueType gives = inCalculation ? OverlayValueType.Number : around;
-    if (kind == LinePieceKind.Condition)
-    {
-      vm.Slots = new LineSlotViewModel[5];
-      for (int slot = 0; slot < 5; slot++)
-      {
-        _route.Add(new FormulaStep(index, slot));
-        OverlayValueType type =
-          slot == OverlayPiece.Compare ? OverlayValueType.Compare
-          : slot == OverlayPiece.Left || slot == OverlayPiece.Right ? OverlayValueType.Number
-          : gives;
-        bool mayBeEmpty = slot >= OverlayPiece.Result && gives == OverlayValueType.Any;
-        vm.Slots[slot] = Slot(piece.Slots[slot], type, slot, mayBeEmpty, false, editing);
-        _route.RemoveAt(_route.Count - 1);
-      }
-      OverlayVariable compare = piece.Slots[OverlayPiece.Compare];
-      vm.Compare = compare.Count > 0 ? OverlayVariable.Symbol(compare[0].Op).ToString() : "?";
-      LineSlotViewModel compareSlot = vm.Slots[OverlayPiece.Compare];
-      vm.CompareSelected = compareSlot.Targeted || (compareSlot.Pieces.Length > 0 && compareSlot.Pieces[0].Selected);
-    }
-    else if (kind == LinePieceKind.Group)
+    // A condition wears the mark of what it gives where it sits.
+    if (piece.Kind == OverlayPieceKind.Condition)
+      vm.Type = gives;
+    if (kind == LinePieceKind.Group)
     {
       _route.Add(new FormulaStep(index, 0));
       vm.Slots = new[] { Slot(piece.Slots[0], gives, -1, false, false, editing) };
@@ -208,7 +246,7 @@ internal sealed class LineViewModel : ViewModel
     return vm;
   }
 
-  /// <summary>What a piece says on the line: a number as typed, words in quotes, a value's name, a sign.</summary>
+  /// <summary>What a piece says on the line: a number as typed, words as they are, a value's name, a sign.</summary>
   public static string Label(OverlayPiece piece)
   {
     OverlayVariableWords words = FormulaWords.Current;
@@ -217,7 +255,8 @@ internal sealed class LineViewModel : ViewModel
       case OverlayPieceKind.Number:
         return piece.Text.Replace('-', '−');
       case OverlayPieceKind.Text:
-        return "“" + piece.Text + "”";
+        // Its mark already says it is words.
+        return piece.Text;
       case OverlayPieceKind.Color:
         return piece.Text;
       case OverlayPieceKind.Bool:
@@ -227,13 +266,28 @@ internal sealed class LineViewModel : ViewModel
         return OverlayVariable.Symbol(piece.Op).ToString();
       case OverlayPieceKind.Value:
         return ValueSectionNames.ValueName(OverlayValueCatalog.Get(piece.Value));
-      case OverlayPieceKind.Custom:
-        return OverlayCustomValues.Shown(piece.Text, words);
+      case OverlayPieceKind.Point:
+        return words.Point(piece.Point);
       case OverlayPieceKind.Condition:
-        return words.ConditionStart;
+        return L("조건", "Condition");
       default:
         return "";
     }
+  }
+
+  /// <summary>
+  /// How many decimals a value is read at, when not as many as it shows:
+  /// "0" whole, "0.0", "0.00"…; empty otherwise.
+  /// </summary>
+  public static string DigitsPattern(OverlayPiece piece)
+  {
+    if (piece.Kind != OverlayPieceKind.Value)
+      return "";
+    OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
+    if (!OverlayValueNumbers.HasOwnDigits(piece, value))
+      return "";
+    int digits = OverlayValueNumbers.DigitsOf(piece, value);
+    return digits == 0 ? "0" : "0." + new string('0', digits);
   }
 
   private static string RouteKey(List<FormulaStep> route)
@@ -275,6 +329,8 @@ internal sealed class LineViewModel : ViewModel
 
   protected override void OnDisposed()
   {
+    Shake.Dispose();
+    Slide.Dispose();
     foreach (LinePieceViewModel piece in _pieces.Values)
       piece.Dispose();
     foreach (LineSlotViewModel slot in _slots.Values)

@@ -1,14 +1,15 @@
 using System.Globalization;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 
 namespace Element.Domain.Overlay.Variables;
 
 /// <summary>
 /// One piece of a variable: something typed or picked (a number, words, a
-/// color, true or false, a comparison), an operator, a live value, a value
-/// the player made, a condition with its five slots, or a variable inside
-/// the variable. Pieces are changed in place while they are edited; copy one
-/// with <see cref="Clone"/> to keep it.
+/// color, true or false, a comparison, a point), an operator, a live value, a
+/// condition with its five slots, or a variable inside the variable. Pieces
+/// are changed in place while they are edited; copy one with
+/// <see cref="Clone"/> to keep it.
 /// </summary>
 internal sealed class OverlayPiece
 {
@@ -23,7 +24,7 @@ internal sealed class OverlayPiece
 
   public OverlayPieceKind Kind { get; }
 
-  /// <summary>A number as typed, words, a color's #RRGGBB, or a made value's key.</summary>
+  /// <summary>A number as typed, words, or a color's #RRGGBB.</summary>
   public string Text { get; set; } = string.Empty;
 
   public OverlayValueId Value { get; set; }
@@ -32,6 +33,15 @@ internal sealed class OverlayPiece
   public char Op { get; set; }
 
   public bool Bool { get; set; }
+
+  /// <summary>A point of an element's box, or Auto.</summary>
+  public OverlayGrowth Point { get; set; } = OverlayGrowth.Auto;
+
+  /// <summary>
+  /// How many decimals a value with decimals is read at here; -1 for as many
+  /// as the value itself shows (<see cref="Values.OverlayValueNumbers"/>).
+  /// </summary>
+  public int Digits { get; set; } = -1;
 
   /// <summary>A condition's five slots, or a group's one; empty for the rest.</summary>
   public OverlayVariable[] Slots { get; private set; } = System.Array.Empty<OverlayVariable>();
@@ -49,11 +59,15 @@ internal sealed class OverlayPiece
 
   public static OverlayPiece ComparePiece(char op) => new(OverlayPieceKind.Compare) { Op = op };
 
+  public static OverlayPiece PointPiece(OverlayGrowth point) => new(OverlayPieceKind.Point) { Point = point };
+
   public static OverlayPiece OperatorPiece(char op) => new(OverlayPieceKind.Operator) { Op = op };
 
   public static OverlayPiece ValuePiece(OverlayValueId id) => new(OverlayPieceKind.Value) { Value = id };
 
-  public static OverlayPiece CustomPiece(string key) => new(OverlayPieceKind.Custom) { Text = key ?? string.Empty };
+  /// <summary>A value read at <paramref name="digits"/> decimals; -1 for as many as it shows.</summary>
+  public static OverlayPiece ValuePiece(OverlayValueId id, int digits) =>
+    new(OverlayPieceKind.Value) { Value = id, Digits = digits };
 
   /// <summary>A new condition: "≥" picked, everything else empty.</summary>
   public static OverlayPiece ConditionPiece() =>
@@ -96,6 +110,8 @@ internal sealed class OverlayPiece
       Value = Value,
       Op = Op,
       Bool = Bool,
+      Point = Point,
+      Digits = Digits,
     };
     if (Slots.Length > 0)
     {
@@ -115,6 +131,8 @@ internal sealed class OverlayPiece
       || Value != other.Value
       || Op != other.Op
       || Bool != other.Bool
+      || Point != other.Point
+      || Digits != other.Digits
     )
       return false;
     if (Slots.Length != other.Slots.Length)

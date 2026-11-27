@@ -26,8 +26,14 @@ internal sealed class LinePieceViewModel : ViewModel
 
   public int Index;
 
-  /// <summary>What it says: "120", "“%”", "X-정확도", "×".</summary>
+  /// <summary>What it says: "120", "%", "X-정확도", "×".</summary>
   public string Label = "";
+
+  /// <summary>Words not typed yet: a hollow box stands where they would be.</summary>
+  public bool Blank;
+
+  /// <summary>A value read at decimals of its own: how many, as "0.0"; empty for its own.</summary>
+  public string Digits = "";
 
   /// <summary>What it gives, for its mark.</summary>
   public OverlayValueType Type;
@@ -41,10 +47,4 @@ internal sealed class LinePieceViewModel : ViewModel
 
   /// <summary>A condition's slots in order (compared value, comparison, compared with, result, otherwise), or a group's one.</summary>
   public LineSlotViewModel[] Slots = Array.Empty<LineSlotViewModel>();
-
-  /// <summary>A condition's comparison, as its sign.</summary>
-  public string Compare = "";
-
-  /// <summary>A condition's comparison is what is picked.</summary>
-  public bool CompareSelected;
 }

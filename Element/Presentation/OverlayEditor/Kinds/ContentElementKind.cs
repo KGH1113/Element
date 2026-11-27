@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Presentation.OverlayEditor.Canvas;
@@ -57,19 +56,7 @@ internal abstract class ContentElementKind<T> : IElementKind
     if (!Actions.Settle())
       return;
     _editor ??= MakeEditor();
-    // Values made or changed in an edit that is cancelled go back too.
-    List<OverlayCustomValueSettings> madeBefore = Context.Session.CustomValues.Copy();
-    if (
-      !_editor.Open(
-        target,
-        committed =>
-        {
-          if (!committed)
-            Context.Session.CustomValues.Restore(madeBefore);
-          Closed(target, isNew, committed);
-        }
-      )
-    )
+    if (!_editor.Open(target, committed => Closed(target, isNew, committed)))
     {
       Refused(target);
       return;

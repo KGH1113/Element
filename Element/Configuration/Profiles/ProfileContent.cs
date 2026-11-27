@@ -6,10 +6,10 @@ using Element.Configuration.Overlay;
 namespace Element.Configuration.Profiles;
 
 /// <summary>
-/// What a profile carries: the overlay and the values made for it, effect
-/// presets, gameplay tweaks, the highlight color and the overlay's default
-/// font. The chatter filter suits one keyboard, and general preferences such
-/// as shortcuts suit one PC, so every profile shares those.
+/// What a profile carries: the overlay, effect presets, gameplay tweaks, the
+/// highlight color and the overlay's default font. The chatter filter suits
+/// one keyboard, and general preferences such as shortcuts suit one PC, so
+/// every profile shares those.
 /// </summary>
 [CopiedInPlace]
 public sealed class ProfileContent
@@ -23,7 +23,6 @@ public sealed class ProfileContent
   public GameplayTweaksSettings Gameplay = new();
   public EffectSettings Effects = new();
   public List<OverlayLayoutSettings> OverlayLayouts = new();
-  public List<OverlayCustomValueSettings> OverlayCustomValues = new();
 
   /// <summary>A copy of the profile values in <paramref name="settings"/>.</summary>
   public static ProfileContent Capture(ElementSettings settings)
@@ -37,7 +36,6 @@ public sealed class ProfileContent
         Gameplay = settings.Gameplay,
         Effects = settings.Effects,
         OverlayLayouts = settings.OverlayLayouts,
-        OverlayCustomValues = settings.OverlayCustomValues,
       }
     );
     copy.Gameplay.Chatter = null;
@@ -61,10 +59,8 @@ public sealed class ProfileContent
       Gameplay = copy.Gameplay ?? new(),
       Effects = copy.Effects ?? new(),
       OverlayLayouts = copy.OverlayLayouts ?? new(),
-      OverlayCustomValues = copy.OverlayCustomValues ?? new(),
     };
     settings.OverlayLayouts.RemoveAll(layout => layout == null);
-    settings.OverlayCustomValues.RemoveAll(value => value == null);
     return settings;
   }
 
@@ -86,7 +82,5 @@ public sealed class ProfileContent
         preset.ClearShortcut();
     live.OverlayLayouts.Clear();
     live.OverlayLayouts.AddRange(prepared.OverlayLayouts);
-    live.OverlayCustomValues.Clear();
-    live.OverlayCustomValues.AddRange(prepared.OverlayCustomValues);
   }
 }

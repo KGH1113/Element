@@ -53,8 +53,7 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
       Context.Session.Root.transform,
       Context.Session.Font,
       Context.Session.ReduceMotion,
-      Context.Session.Host.Values,
-      Context.Session.CustomValues
+      Context.Session.Host.Values
     );
 
   // Done with text keeps it (one undo step); a new text that is cancelled, or

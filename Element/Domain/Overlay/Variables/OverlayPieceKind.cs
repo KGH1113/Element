@@ -18,14 +18,14 @@ internal enum OverlayPieceKind
   /// <summary>One of &lt; ≤ = ≠ ≥ &gt;.</summary>
   Compare,
 
+  /// <summary>One of the nine points of an element's box, or Auto.</summary>
+  Point,
+
   /// <summary>+ − × ÷ between two numbers.</summary>
   Operator,
 
   /// <summary>A live value: the game's, another mod's, or the highlight color.</summary>
   Value,
-
-  /// <summary>A value the player made (<see cref="OverlayCustomValues"/>).</summary>
-  Custom,
 
   /// <summary>Compares two numbers and gives its result or its default (five slots).</summary>
   Condition,

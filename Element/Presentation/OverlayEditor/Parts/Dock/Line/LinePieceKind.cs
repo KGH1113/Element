@@ -9,9 +9,6 @@ internal enum LinePieceKind
   /// <summary>+ − × ÷ between numbers.</summary>
   Operator,
 
-  /// <summary>A condition with its slots laid out in a row: if … ≥ … then … otherwise ….</summary>
-  Condition,
-
   /// <summary>A calculation inside a text, boxed.</summary>
   Group,
 }

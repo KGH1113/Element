@@ -18,9 +18,6 @@ internal enum OverlayValueCategory
   // color does.
   Color,
 
-  // The values the player made, shared by every element, and a way to make one.
-  Mine,
-
   // Game-language labels from texts converted before 1.1. They still render,
   // but aren't offered; editing such a text turns them into plain words.
   Legacy,

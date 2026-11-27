@@ -191,6 +191,22 @@ internal sealed class UiFontPopover : IPopover, IDisposable
   public Action Hidden;
 
   /// <summary>
+  /// It stands in a small place that has its own title (an input dock's
+  /// input method): its buttons sit in that title's row, the search and the
+  /// status line are lower, and it is as tall as it is placed.
+  /// </summary>
+  public bool Compact { get; set; }
+
+  // The parts' sizes, tighter in a small place.
+  private float Header => Compact ? 26 : HeaderHeight;
+
+  private float SearchRow => Compact ? 34 : SearchHeight;
+
+  private float Between => Compact ? 6 : Gap;
+
+  private float StatusRow => Compact ? 16 : StatusHeight;
+
+  /// <summary>
   /// Opens with <paramref name="current"/> marked: a key, empty for the
   /// default row, or null when the selection mixes fonts.
   /// </summary>
@@ -217,7 +233,7 @@ internal sealed class UiFontPopover : IPopover, IDisposable
   public void Place(float x, float y, float width, float height)
   {
     width = Mathf.Max(260, width);
-    height = Mathf.Max(MinimumHeight, height);
+    height = Compact ? height : Mathf.Max(MinimumHeight, height);
     bool resized = !Mathf.Approximately(width, _width) || !Mathf.Approximately(height, _height);
     _width = width;
     _height = height;
@@ -393,11 +409,14 @@ internal sealed class UiFontPopover : IPopover, IDisposable
     else if (query.Length > 0 && !HasFonts())
       text = L("맞는 폰트가 없어요. 다른 이름으로 찾아보세요.", "No font matches. Try another name.");
     else
-      text = L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
+      // In a small place only what needs saying is said.
+      text = Compact
+        ? ""
+        : L("추가한 폰트는 Mods/Element/Fonts에 보관돼요.", "Added fonts are kept in Mods/Element/Fonts.");
     _status.text = text;
     _status.color = warning ? UiPalette.Error : UiPalette.Muted;
     // A long message takes the lines it needs from the list.
-    float needed = Mathf.Max(StatusHeight, Mathf.Ceil(_status.GetPreferredValues(text, _width - _inset * 2, 0).y));
+    float needed = Mathf.Max(StatusRow, Mathf.Ceil(_status.GetPreferredValues(text, _width - _inset * 2, 0).y));
     if (!Mathf.Approximately(needed, _statusHeight))
     {
       _statusHeight = needed;
@@ -512,24 +531,25 @@ internal sealed class UiFontPopover : IPopover, IDisposable
   private void Layout()
   {
     float inner = _width - _inset * 2;
+    float header = Header;
     float addWidth = Mathf.Ceil(Measure(_add)) + 28;
     float folderWidth = _folder.gameObject.activeSelf ? Mathf.Ceil(Measure(_folder)) + 24 : 0;
     float right = _width - _inset;
-    UiFactory.Place((RectTransform)_add.transform, right - addWidth, _inset, addWidth, HeaderHeight);
+    UiFactory.Place((RectTransform)_add.transform, right - addWidth, _inset, addWidth, header);
     right -= addWidth;
     if (folderWidth > 0)
     {
-      UiFactory.Place((RectTransform)_folder.transform, right - 4 - folderWidth, _inset, folderWidth, HeaderHeight);
+      UiFactory.Place((RectTransform)_folder.transform, right - 4 - folderWidth, _inset, folderWidth, header);
       right -= folderWidth + 4;
     }
-    UiFactory.Place(_title.rectTransform, _inset, _inset, Mathf.Max(40, right - _inset - 8), HeaderHeight);
-    float y = _inset + HeaderHeight + 8;
-    UiFactory.Place((RectTransform)_search.transform, _inset, y, inner, SearchHeight);
-    y += SearchHeight + Gap;
-    float listHeight = Mathf.Max(RowHeight * 3, _height - y - Gap - _statusHeight - _inset);
+    UiFactory.Place(_title.rectTransform, _inset, _inset, Mathf.Max(40, right - _inset - 8), header);
+    float y = _inset + header + (Compact ? 4 : 8);
+    UiFactory.Place((RectTransform)_search.transform, _inset, y, inner, SearchRow);
+    y += SearchRow + Between;
+    float listHeight = Mathf.Max(RowHeight * (Compact ? 2 : 3), _height - y - Between - _statusHeight - _inset);
     UiFactory.Place(_viewport, _inset, y, inner - TrackWidth - 6, listHeight);
     UiFactory.Place(_track, _width - _inset - TrackWidth, y, TrackWidth, listHeight);
-    UiFactory.Place(_status.rectTransform, _inset, y + listHeight + Gap, inner, _statusHeight);
+    UiFactory.Place(_status.rectTransform, _inset, y + listHeight + Between, inner, _statusHeight);
     EnsureRows(Mathf.CeilToInt(listHeight / RowHeight) + 1);
     _scroll = Mathf.Clamp(_scroll, 0, MaxScroll);
     RefreshRows();

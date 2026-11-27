@@ -24,6 +24,7 @@ internal static class SavedFormatTests
   {
     SettingsFileKeepsItsFormat();
     ProfileFileKeepsItsFormat();
+    SettingsNoLongerKnownAreSkipped();
   }
 
   private static void SettingsFileKeepsItsFormat()
@@ -45,6 +46,40 @@ internal static class SavedFormatTests
     Check(read.Problem == ProfileFileProblem.None, "a profile file written before imports: " + read.Problem);
     Check(WriteProfile(read.File) == saved, "a profile file written before reads back whole");
     Check(NamesNoClass(saved), "a profile file names no class namespace");
+  }
+
+  // A file may hold a setting this build doesn't have, empty or filled, as one
+  // saved by a build that had more: it is skipped and everything else reads.
+  private static void SettingsNoLongerKnownAreSkipped()
+  {
+    const string unknown =
+      "<SettingOfAnotherBuild />\n<ListOfAnotherBuild><Item><Key>v1</Key></Item></ListOfAnotherBuild>\n";
+    string saved = Fixture("settings.xml");
+    string settings = After(saved, "\n  </OverlayLayouts>\n", unknown);
+    using MemoryStream stream = new(Encoding.UTF8.GetBytes(settings));
+    ElementSettings read = SettingsXml.Read<ElementSettings>(stream);
+    Check(
+      read != null && WriteSettings(read) == saved,
+      "a settings file with settings nobody knows reads the rest whole"
+    );
+
+    string exported = Fixture("profile.eprofile");
+    string profile = After(exported, "\n    </OverlayLayouts>\n", unknown);
+    using MemoryStream profileStream = new(Encoding.UTF8.GetBytes(profile));
+    ProfileFileResult imported = ProfileFileCodec.Read(profileStream);
+    Check(
+      imported.Problem == ProfileFileProblem.None && WriteProfile(imported.File) == exported,
+      "a profile file with settings nobody knows imports the rest whole: " + imported.Problem
+    );
+  }
+
+  // <paramref name="file"/> with <paramref name="added"/> right after the first <paramref name="mark"/>.
+  private static string After(string file, string mark, string added)
+  {
+    int at = file.IndexOf(mark, StringComparison.Ordinal);
+    if (at < 0)
+      throw new InvalidOperationException("The fixture has no " + mark.Trim());
+    return file.Insert(at + mark.Length, added);
   }
 
   // Unity Mod Manager saves settings with an XmlSerializer of the settings class.

@@ -198,7 +198,7 @@ internal static class OverlayTextComposer
   public static Color Given(OverlayPiece color, Color highlight) =>
     color.Kind == OverlayPieceKind.Color ? ParseHex(color.Text) : highlight;
 
-  /// <summary>A color's variable when it is more than a plain color (a condition, a made value), parsed once; null otherwise.</summary>
+  /// <summary>A color's variable when it is more than a plain color (a condition), parsed once; null otherwise.</summary>
   public static OverlayVariable Cases(OverlayColorSettings color) => OverlayFormulaText.Compile(color?.Formula);
 
   public static Color ParseHex(string hex)

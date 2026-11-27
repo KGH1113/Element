@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 
@@ -27,19 +28,34 @@ internal interface IInputDockActions
   /// <summary>The keyboard input method typed: the picked words become <paramref name="words"/>.</summary>
   void Words(string words);
 
-  /// <summary>The picked value of the player's is called <paramref name="name"/> from now on.</summary>
-  void Rename(string name);
-
   /// <summary>The switch input method: the picked true or false becomes <paramref name="value"/>.</summary>
   void Switch(bool value);
 
-  /// <summary>The picked value of the player's opens: its inside is on the line, to change.</summary>
-  void OpenMade();
+  /// <summary>The nine points: the picked point becomes <paramref name="point"/>.</summary>
+  void Point(OverlayGrowth point);
+
+  /// <summary>The picked value's own number: it is read at <paramref name="digits"/> decimals.</summary>
+  void Digits(int digits);
+
+  /// <summary>
+  /// A slot of the picked condition clicked in its input method: the dock
+  /// goes into it, its line and input method that slot's from then on.
+  /// </summary>
+  void Enter(int slot);
+
+  /// <summary>
+  /// Another slot of the condition the dock is inside, clicked on its folded
+  /// strip: the dock goes straight there, without coming out in between.
+  /// </summary>
+  void Hop(int slot);
+
+  /// <summary>Back: one step out of the slot the dock is in, to the condition it is a slot of.</summary>
+  void Leave();
 
   /// <summary>지우기: the picked value is taken out.</summary>
   void Remove();
 
-  /// <summary>Done: what is typed is kept, and the dock rests.</summary>
+  /// <summary>Apply: the open field is done, from however deep inside it; what is typed is kept and the dock rests.</summary>
   void Done();
 
   /// <summary>A value clicked, or found by the search and picked with Enter.</summary>

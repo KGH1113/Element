@@ -9,18 +9,24 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Line;
 
 /// <summary>
-/// A variable laid out on the line: its pieces side by side, in a soft box
-/// unless it is the field's own. Empty, it says what goes in it with that
-/// type's mark, and a click makes it the place a value goes; one empty where
-/// something must be reads warm.
+/// A variable laid out on the line: its pieces side by side, in a thin
+/// outline unless it is the field's own. Empty, it says what goes in it with
+/// that type's mark, and a click makes it the place a value goes, its outline
+/// the highlight color. What is missing is outlined in the warning color
+/// once Apply was refused.
 /// </summary>
 internal sealed class LineSlotView : View<LineSlotViewModel>
 {
+  private const float Radius = 12;
+
   private readonly LineViewModel _line;
-  private readonly UiColor _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .4f);
-  private readonly UiColor _box = new Color(1, 1, 1, .06f);
-  private readonly UiColor _warn = Color.Lerp(UiPalette.EditorControl, UiPalette.Error, .25f);
-  private readonly UiColor _clear = new Color(0, 0, 0, 0);
+  private readonly UiColor _ring = UiPalette.SoftAccent;
+  private readonly UiColor _edge = FieldLook.SlotEdge;
+  private readonly UiColor _fill = FieldLook.Slot;
+  private readonly UiColor _clear = FieldLook.Clear;
+  private readonly UiColor _bad = UiPalette.Error;
+  private readonly UiColor _ink = Colors.Foreground;
+  private readonly UiColor _quiet = Colors.Muted;
 
   public LineSlotView(LineSlotViewModel vm, LineViewModel line)
     : base(vm) => _line = line;
@@ -28,28 +34,38 @@ internal sealed class LineSlotView : View<LineSlotViewModel>
   public override View Body =>
     If(
         () => VM.Pieces.Length == 0,
+        // An empty place says what goes in it: the type's mark and the place's name.
         () =>
           Button(
               HStack(
-                spacing: 5,
+                spacing: 6,
                 TypeMarks.Mark(() => VM.Type, 16),
-                Text(() => VM.Placeholder).Font(Font.Body.Sized(15)).Foreground(Colors.Muted).LineLimit(1)
+                Text(() => VM.Placeholder)
+                  .Font(Font.Body.Sized(14))
+                  .Foreground(() => VM.Targeted ? _ink : _quiet)
+                  .LineLimit(1)
               ),
               () => _line.Pick(VM.Route, -1),
               ButtonStyle.Plain
             )
             .Named("Empty slot " + VM.Key)
-            .Padding(0, 8)
-            .Frame(height: 32),
-        () => HStack(spacing: 4, ForEach(() => VM.Pieces, piece => piece.Key, slot => new LinePieceView(slot, _line)))
+            .Padding(new Insets(0, 4, 0, 8))
+            .Frame(height: 26),
+        () => HStack(spacing: 5, ForEach(() => VM.Pieces, piece => piece.Key, slot => new LinePieceView(slot, _line)))
       )
-      .Padding(() => VM.Root ? new Insets(0, 0, 0, 0) : new Insets(3, 4, 3, 4))
-      .Background(
-        () =>
-          VM.Targeted ? _lit
-          : VM.Missing ? _warn
-          : VM.Root ? _clear
-          : _box,
-        9
+      .Padding(() => VM.Root && VM.Pieces.Length > 0 ? new Insets(0, 0, 0, 0) : new Insets(2, 4, 2, 4))
+      // The field's own pieces stand on the line; a slot inside a value is a thin outline.
+      .Background(() => VM.Root ? _clear : _fill, Radius)
+      .Overlay(
+        RoundedRectangle(Radius)
+          .Stroke(
+            () =>
+              VM.Root && VM.Pieces.Length > 0 ? _clear
+              // After a refused Apply, an empty place that must hold something says so.
+              : VM.Missing && _line.Alarmed ? _bad
+              : VM.Targeted ? _ring
+              : _edge,
+            FieldLook.Edge
+          )
       );
 }

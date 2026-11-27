@@ -175,6 +175,7 @@ internal sealed class TextOverlayElement : OverlayElementTarget
   /// </summary>
   public override void Refresh(OverlayValueMask changes, bool settle = false)
   {
+    FollowGrowth(changes, _preview ? _values?.WithSamples : _values);
     // Size formulas give pixels as drawn, so they follow the element's scale.
     if (
       changes.Overlaps(ValueMask)

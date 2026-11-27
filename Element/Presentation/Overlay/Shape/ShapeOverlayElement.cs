@@ -154,6 +154,7 @@ internal sealed class ShapeOverlayElement : OverlayElementTarget
   /// <summary>Redraws when its values, the highlight color or (for formulas) its scale changed; a mask test otherwise.</summary>
   public override void Refresh(OverlayValueMask changes, bool settle = false)
   {
+    FollowGrowth(changes, _preview ? _values?.WithSamples : _values);
     if (
       _themeVersion != UiTheme.Version
       || changes.Overlaps(_formulas.Mask)

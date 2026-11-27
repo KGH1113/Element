@@ -1,11 +1,10 @@
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Variables;
-using Element.Presentation.OverlayEditor.Parts.Formula;
 using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.ColorPicker;
 
-/// <summary>What a color row holds, in a word: Condition, a value of yours, Highlight, Gradient, or its HEX.</summary>
+/// <summary>What a color row holds, in a word: Condition, Value, Highlight, Gradient, or its HEX.</summary>
 internal static class ColorNames
 {
   public static string Describe(OverlayColorSettings color)
@@ -24,8 +23,5 @@ internal static class ColorNames
   }
 
   private static string Variable(OverlayVariable variable) =>
-    variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Custom
-      ? "★" + OverlayCustomValues.Shown(variable[0].Text, FormulaWords.Current)
-    : variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Condition ? L("조건", "Condition")
-    : L("값", "Value");
+    variable.Count == 1 && variable[0].Kind == OverlayPieceKind.Condition ? L("조건", "Condition") : L("값", "Value");
 }

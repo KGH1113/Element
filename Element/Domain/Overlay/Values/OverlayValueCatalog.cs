@@ -7,7 +7,7 @@ namespace Element.Domain.Overlay.Values;
 // ids after them for the rest of the session. Changed on the main thread only.
 internal static class OverlayValueCatalog
 {
-  public const int BuiltInCount = (int)OverlayValueId.MakeCustom + 1;
+  public const int BuiltInCount = (int)OverlayValueId.MakeGroup + 1;
 
   /// <summary>Built-in and added values together; one value mask holds them all.</summary>
   public const int Capacity = OverlayValueMask.Capacity;
@@ -22,21 +22,41 @@ internal static class OverlayValueCatalog
     OverlayValueCategory.Song,
     OverlayValueCategory.System,
     OverlayValueCategory.Color,
-    OverlayValueCategory.Mine,
   };
 
   private static readonly OverlayValueDefinition[] BuiltInDefinitions =
   {
-    Number(OverlayValueId.ProgressStart, "progress-start", OverlayValueCategory.Progress, "시작 지점", "Start", 0),
-    Number(
+    // The game floors progress to a whole percent and writes X-Accuracy cut at its last digit.
+    Fraction(
+      OverlayValueId.ProgressStart,
+      "progress-start",
+      OverlayValueCategory.Progress,
+      "시작 지점",
+      "Start",
+      0,
+      0,
+      OverlayRounding.Floor
+    ),
+    Fraction(
       OverlayValueId.ProgressCurrent,
       "progress-current",
       OverlayValueCategory.Progress,
       "현재 진행도",
       "Current",
-      48
+      48,
+      0,
+      OverlayRounding.Floor
     ),
-    Number(OverlayValueId.Accuracy, "accuracy", OverlayValueCategory.Judgement, "절대 정확도", "X-Accuracy", 99.5),
+    Fraction(
+      OverlayValueId.Accuracy,
+      "accuracy",
+      OverlayValueCategory.Judgement,
+      "절대 정확도",
+      "X-Accuracy",
+      99.5,
+      2,
+      OverlayRounding.Truncate
+    ),
     Judgment(OverlayValueId.Overload, "overload", "Overload", 0),
     Judgment(OverlayValueId.TooEarly, "too-early", "Too Early", 0),
     Judgment(OverlayValueId.VeryEarly, "very-early", "Very Early", 0),
@@ -49,13 +69,16 @@ internal static class OverlayValueCatalog
     Judgment(OverlayValueId.TooLate, "too-late", "Too Late", 0),
     Judgment(OverlayValueId.Miss, "miss", "Miss", 0),
     Number(OverlayValueId.Combo, "combo", OverlayValueCategory.Judgement, "콤보", "Combo", 120),
-    Number(
+    // The game writes none of these during play: they keep the overlay's own nearest two decimals.
+    Fraction(
       OverlayValueId.TimingScale,
       "timing-scale",
       OverlayValueCategory.Judgement,
       "타이밍 배율",
       "Timing scale",
-      100
+      100,
+      2,
+      OverlayRounding.Nearest
     ),
     new(
       OverlayValueId.CurrentTime,
@@ -77,9 +100,36 @@ internal static class OverlayValueCatalog
       "3:48",
       228
     ),
-    Number(OverlayValueId.TileBpm, "tile-bpm", OverlayValueCategory.Speed, "타일 BPM", "Tile BPM", 180),
-    Number(OverlayValueId.CurrentBpm, "current-bpm", OverlayValueCategory.Speed, "현재 BPM", "Current BPM", 180),
-    Number(OverlayValueId.KeysPerSecond, "kps", OverlayValueCategory.Speed, "초당 입력 수", "Keys per second", 6),
+    Fraction(
+      OverlayValueId.TileBpm,
+      "tile-bpm",
+      OverlayValueCategory.Speed,
+      "타일 BPM",
+      "Tile BPM",
+      180,
+      2,
+      OverlayRounding.Nearest
+    ),
+    Fraction(
+      OverlayValueId.CurrentBpm,
+      "current-bpm",
+      OverlayValueCategory.Speed,
+      "현재 BPM",
+      "Current BPM",
+      180,
+      2,
+      OverlayRounding.Nearest
+    ),
+    Fraction(
+      OverlayValueId.KeysPerSecond,
+      "kps",
+      OverlayValueCategory.Speed,
+      "초당 입력 수",
+      "Keys per second",
+      6,
+      2,
+      OverlayRounding.Nearest
+    ),
     Text(
       OverlayValueId.SongTitle,
       "song-title",
@@ -124,24 +174,16 @@ internal static class OverlayValueCatalog
     ),
     Color(OverlayValueId.HighlightColor, "highlight-color", "하이라이트 색", "Highlight color"),
     // Never saved as a value: put in a formula, it becomes a color picked by hand.
-    Color(OverlayValueId.CustomColor, "custom-color", "커스텀 색", "Custom color"),
+    Maker(OverlayValueId.CustomColor, "custom-color", OverlayValueKind.Color, "커스텀 색", "Custom color"),
     // Never saved as a value either: picked for a color, it makes that color a gradient.
-    Color(OverlayValueId.MakeGradient, "make-gradient", "그라데이션", "Gradient"),
+    Maker(OverlayValueId.MakeGradient, "make-gradient", OverlayValueKind.Color, "그라데이션", "Gradient"),
     Maker(OverlayValueId.MakeNumber, "make-number", OverlayValueKind.Number, "숫자", "Number"),
     Maker(OverlayValueId.MakeText, "make-text", OverlayValueKind.Text, "글자", "Text"),
     Maker(OverlayValueId.MakeBool, "make-bool", OverlayValueKind.Bool, "참·거짓", "True or false"),
+    Maker(OverlayValueId.MakeCompare, "make-compare", OverlayValueKind.Compare, "비교 기호", "Comparison"),
+    Maker(OverlayValueId.MakePoint, "make-point", OverlayValueKind.Point, "자리", "Point"),
     Maker(OverlayValueId.MakeCondition, "make-condition", OverlayValueKind.Any, "조건", "Condition"),
     Maker(OverlayValueId.MakeGroup, "make-group", OverlayValueKind.Any, "묶음", "Group"),
-    new(
-      OverlayValueId.MakeCustom,
-      "make-custom",
-      OverlayValueCategory.Mine,
-      OverlayValueKind.Any,
-      "새 값 만들기",
-      "New value",
-      string.Empty,
-      double.NaN
-    ),
   };
 
   private static readonly List<OverlayValueDefinition> Definitions = new(BuiltInDefinitions);
@@ -229,64 +271,6 @@ internal static class OverlayValueCatalog
   }
 
   /// <summary>
-  /// Lists the values the player made (key, name, the type each gives), in
-  /// their order, under "My values": a made value keeps its id while it is
-  /// there, and one taken away stays known but is no longer offered.
-  /// </summary>
-  public static void SetMine(IReadOnlyList<(string Key, string Name, OverlayValueKind Kind)> mine)
-  {
-    HashSet<string> kept = new();
-    if (mine != null)
-      foreach ((string key, string name, OverlayValueKind kind) in mine)
-      {
-        string full = "@" + key;
-        kept.Add(full);
-        OverlayValueId id;
-        if (ByKey.TryGetValue(full, out OverlayValueDefinition existing))
-          id = existing.Id;
-        else if (Definitions.Count < Capacity)
-          id = NextId();
-        else
-          continue;
-        bool named = !string.IsNullOrWhiteSpace(name);
-        OverlayValueDefinition definition = new(
-          id,
-          full,
-          OverlayValueCategory.Mine,
-          kind,
-          named ? name : "이름 없는 값",
-          named ? name : "Unnamed value",
-          string.Empty,
-          double.NaN
-        );
-        if (existing != null)
-          Replace(definition);
-        else
-          Add(definition);
-      }
-    for (int i = BuiltInCount; i < Definitions.Count; i++)
-    {
-      OverlayValueDefinition value = Definitions[i];
-      if (value.IsMine && value.Available && !kept.Contains(value.Key))
-        Replace(
-          new OverlayValueDefinition(
-            value.Id,
-            value.Key,
-            value.Category,
-            value.Kind,
-            value.KoreanName,
-            value.EnglishName,
-            string.Empty,
-            double.NaN,
-            null,
-            false
-          )
-        );
-    }
-    Version++;
-  }
-
-  /// <summary>
   /// The mod that added <paramref name="key"/> went away or was turned off.
   /// Its id and name stay so texts keep it; it comes back on the next
   /// <see cref="Register"/>.
@@ -311,11 +295,6 @@ internal static class OverlayValueCatalog
       foreach (OverlayValueDefinition value in BuiltInDefinitions)
         if (value.Category == category)
           values.Add(value);
-      // The player's values come before the way to make one.
-      if (category == OverlayValueCategory.Mine)
-        for (int i = BuiltInCount; i < Definitions.Count; i++)
-          if (Definitions[i].IsMine && Definitions[i].Available)
-            values.Insert(values.Count - 1, Definitions[i]);
       sections.Add(new OverlayValueSection(category, null, values));
     }
     List<OverlayValueGroup> groups = new();
@@ -393,7 +372,6 @@ internal static class OverlayValueCatalog
       OverlayValueCategory.Time => korean ? "시간" : "Time",
       OverlayValueCategory.Speed => korean ? "속도" : "Speed",
       OverlayValueCategory.Make => korean ? "직접 만들기" : "Make",
-      OverlayValueCategory.Mine => korean ? "내 값" : "My values",
       OverlayValueCategory.Song => korean ? "곡·기록" : "Song",
       OverlayValueCategory.Color => korean ? "색" : "Colors",
       _ => korean ? "시스템" : "System",
@@ -501,6 +479,31 @@ internal static class OverlayValueCatalog
     string english,
     double sample
   ) => new(id, key, category, OverlayValueKind.Number, korean, english, SampleText(sample), sample);
+
+  // A number with decimals: shown at <paramref name="digits"/> unless a place chooses up to four, cut the game's way.
+  private static OverlayValueDefinition Fraction(
+    OverlayValueId id,
+    string key,
+    OverlayValueCategory category,
+    string korean,
+    string english,
+    double sample,
+    int digits,
+    OverlayRounding rounding
+  ) =>
+    new(
+      id,
+      key,
+      category,
+      OverlayValueKind.Number,
+      korean,
+      english,
+      SampleText(sample),
+      sample,
+      digits: digits,
+      mostDigits: OverlayValueNumbers.Most,
+      rounding: rounding
+    );
 
   // A judgment count: its name is the game's own word in both languages.
   private static OverlayValueDefinition Judgment(OverlayValueId id, string key, string name, double sample) =>

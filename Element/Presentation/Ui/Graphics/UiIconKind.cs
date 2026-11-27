@@ -41,6 +41,26 @@ internal enum UiIconKind
   NotSame,
   MoreOrSame,
   More,
+
+  /// <summary>Type marks the UI font has no glyph for: an asterisk for "any type", a boxed point for a place, two angles for a comparison.</summary>
+  AnyType,
+  PlaceType,
+  CompareType,
+
+  /// <summary>A keyboard: where words are typed on the keys.</summary>
+  Keyboard,
+
+  /// <summary>A fork: a condition, what is compared over its two answers.</summary>
+  Fork,
+
+  /// <summary>
+  /// The four operators on the keypad, drawn alike and as heavy as the
+  /// comparisons: the UI font's own minus sign is much thinner than its + × ÷.
+  /// </summary>
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
   Extension,
   Check,
   Up,

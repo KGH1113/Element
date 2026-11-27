@@ -7,7 +7,8 @@ namespace Element.Domain.Overlay.Variables;
 /// Numbers are joined only by operators, and only numbers can be; pieces
 /// side by side show as they are, which only a field of type Any takes. A
 /// condition gives what its result and default give, which must be what the
-/// field needs; it compares two numbers by one comparison.
+/// field needs; it compares two numbers by a comparison, which is a value
+/// too: its slot takes one, or a condition that gives one.
 /// </summary>
 internal static class OverlayVariableTypes
 {
@@ -39,10 +40,12 @@ internal static class OverlayVariableTypes
       OverlayValueKind.Color => OverlayValueType.Color,
       OverlayValueKind.Bool => OverlayValueType.Bool,
       OverlayValueKind.Any => OverlayValueType.Any,
+      OverlayValueKind.Compare => OverlayValueType.Compare,
+      OverlayValueKind.Point => OverlayValueType.Point,
       _ => OverlayValueType.Text,
     };
 
-  /// <summary>The live values a variable reads, in its slots and in the made values it uses.</summary>
+  /// <summary>The live values a variable reads, in its slots too.</summary>
   public static OverlayValueMask Mask(OverlayVariable variable, int depth)
   {
     OverlayValueMask mask = OverlayValueMask.None;
@@ -53,11 +56,6 @@ internal static class OverlayVariableTypes
       OverlayPiece piece = variable[i];
       if (piece.Kind == OverlayPieceKind.Value)
         mask |= OverlayValueCatalog.Bit(piece.Value);
-      else if (
-        piece.Kind == OverlayPieceKind.Custom
-        && OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made)
-      )
-        mask |= Mask(made, depth + 1);
       foreach (OverlayVariable slot in piece.Slots)
         mask |= Mask(slot, depth + 1);
     }
@@ -80,14 +78,10 @@ internal static class OverlayVariableTypes
         return OverlayValueType.Bool;
       case OverlayPieceKind.Compare:
         return OverlayValueType.Compare;
+      case OverlayPieceKind.Point:
+        return OverlayValueType.Point;
       case OverlayPieceKind.Value:
         return TypeOf(OverlayValueCatalog.Get(piece.Value));
-      case OverlayPieceKind.Custom:
-        // What it was made to give; one made to give anything gives what its variable does.
-        OverlayValueType made = OverlayCustomValues.TypeOf(piece.Text);
-        return made == OverlayValueType.Any && OverlayCustomValues.TryGet(piece.Text, out OverlayVariable inside)
-          ? TypeOf(inside, depth + 1)
-          : made;
       case OverlayPieceKind.Condition:
         // What it gives is what its result gives, or its default while that is empty.
         OverlayVariable result = piece.Slots[OverlayPiece.Result];
@@ -119,7 +113,14 @@ internal static class OverlayVariableTypes
   )
   {
     if (depth > MaxDepth)
-      return new OverlayTypeProblem(OverlayTypeProblemKind.Loop, null, needed, OverlayValueType.Any, slot, condition);
+      return new OverlayTypeProblem(
+        OverlayTypeProblemKind.TooDeep,
+        null,
+        needed,
+        OverlayValueType.Any,
+        slot,
+        condition
+      );
     if (variable == null || variable.IsEmpty)
       return mayBeEmpty
         ? null
@@ -178,8 +179,8 @@ internal static class OverlayVariableTypes
           );
         if (!calculation && !Fits(needed, found))
           return new OverlayTypeProblem(OverlayTypeProblemKind.WrongType, piece, needed, found, slot, condition);
-        // A comparison only goes where one is needed.
-        if (found == OverlayValueType.Compare && needed != OverlayValueType.Compare)
+        // A comparison or a point only goes where one is needed: a text shows neither.
+        if ((found == OverlayValueType.Compare || found == OverlayValueType.Point) && needed != found)
           return new OverlayTypeProblem(OverlayTypeProblemKind.WrongType, piece, needed, found, slot, condition);
       }
       start = end;
@@ -187,7 +188,7 @@ internal static class OverlayVariableTypes
     return null;
   }
 
-  // What is inside a piece: a condition's slots, a group's variable, a made value's.
+  // What is inside a piece: a condition's slots, a group's variable.
   private static OverlayTypeProblem CheckPiece(OverlayPiece piece, OverlayValueType needed, int depth)
   {
     switch (piece.Kind)
@@ -223,20 +224,6 @@ internal static class OverlayVariableTypes
           ?? Check(piece.Slots[OverlayPiece.Default], needed, any, piece, OverlayPiece.Default, depth + 1);
       case OverlayPieceKind.Group:
         return Check(piece.Slots[0], needed, false, null, -1, depth + 1);
-      case OverlayPieceKind.Custom:
-        if (!OverlayCustomValues.TryGet(piece.Text, out OverlayVariable made))
-          return new OverlayTypeProblem(OverlayTypeProblemKind.Empty, piece, needed, OverlayValueType.Any);
-        // It must give what it was made to give; whether that fits here is the caller's to say.
-        OverlayValueType own = OverlayCustomValues.TypeOf(piece.Text);
-        OverlayTypeProblem problem = Check(
-          made,
-          own == OverlayValueType.Any ? needed : own,
-          false,
-          null,
-          -1,
-          depth + 1
-        );
-        return problem == null ? null : new OverlayTypeProblem(problem.Kind, piece, problem.Needed, problem.Found);
       default:
         return null;
     }

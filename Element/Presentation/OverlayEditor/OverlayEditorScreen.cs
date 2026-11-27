@@ -16,6 +16,7 @@ using Element.Presentation.OverlayEditor.Canvas.Toolbar;
 using Element.Presentation.OverlayEditor.FloatView;
 using Element.Presentation.OverlayEditor.Kinds;
 using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.Confirm;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
@@ -812,7 +813,32 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
     InputGate.SetTextEditing(false);
   }
 
-  void ICanvasActions.Cancel() => Close(false);
+  void ICanvasActions.Cancel() => AskCancel();
+
+  // Cancel throws away everything changed since the editor opened: with anything changed, it asks first.
+  private void AskCancel()
+  {
+    if (!Edited)
+    {
+      Close(false);
+      return;
+    }
+    _modal.Confirm(
+      "Discard confirmation",
+      DiscardWords.Title,
+      "",
+      DiscardWords.Discard,
+      () => Close(false),
+      AskCancel,
+      DiscardWords.KeepEditing
+    );
+  }
+
+  // The elements, their order and groups, the highlight color or the default font differ from when the editor opened.
+  private bool Edited =>
+    !new LayoutSnapshot(_session.Host.LayoutSettings).Matches(_openingLayout)
+    || _session.Preferences.HighlightColor != _openingColor
+    || _session.Preferences.OverlayFont != _openingFont;
 
   void ICanvasActions.Save() => Close(true);
 

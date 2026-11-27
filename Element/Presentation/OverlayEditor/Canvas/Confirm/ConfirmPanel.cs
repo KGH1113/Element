@@ -32,8 +32,19 @@ internal sealed class ConfirmPanel
   /// <summary>The open dialog's panel; null while closed.</summary>
   public RectTransform Dialog => _dialog?.Root;
 
-  /// <summary>Asks before a change that drops work. Cancel is focused, so Enter is safe.</summary>
-  public void Confirm(string name, string title, string body, string confirm, Action confirmed, Action rebuild)
+  /// <summary>
+  /// Asks before a change that drops work. Cancel is focused, so Enter is
+  /// safe; <paramref name="cancelLabel"/> names it (null for "Cancel").
+  /// </summary>
+  public void Confirm(
+    string name,
+    string title,
+    string body,
+    string confirm,
+    Action confirmed,
+    Action rebuild,
+    string cancelLabel = null
+  )
   {
     Close();
     int viewWidth = _session.ViewWidth,
@@ -59,7 +70,8 @@ internal sealed class ConfirmPanel
       {
         Close();
         confirmed();
-      }
+      },
+      cancelLabel
     );
     _dialog = new ScreenPanel("Dialog", root, UiPalette.Background, keyboard: true);
     Vector2 size = _dialog.Mount(_session.NewBackend(), new ConfirmView(model), model, Width);

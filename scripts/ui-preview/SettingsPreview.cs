@@ -167,6 +167,10 @@ namespace Element.Editor
       // Batch edit mode does not run EventSystem's play-mode lifecycle.
       Call(eventsRoot.GetComponent<EventSystem>(), "OnEnable");
       editor.Open();
+      // With nothing changed, Cancel closes at once, asking nothing.
+      Call(editor, "AskCancel");
+      Assert(!editor.IsOpen && !Field<ConfirmPanel>(editor, "_modal").IsOpen, "with nothing changed, the layout editor's Cancel closes at once");
+      editor.Open();
       GameObject root = Session(editor).Root; root.SetActive(true);
       var cameraRoot = new GameObject("Layout preview camera", typeof(Camera));
       Camera camera = cameraRoot.GetComponent<Camera>();
@@ -360,8 +364,29 @@ namespace Element.Editor
       Assert(beforeReset.Matches(new LayoutSnapshot(host.LayoutSettings)), "Reset all is one undo step: "
         + string.Join(", ", host.LayoutSettings.Where(layout => !(beforeCopies.Find(copy => copy.Id == layout.Id)?.SameAs(layout) ?? !layout.Enabled))
           .Select(layout => layout.Id + (layout.Enabled ? "" : " (hidden)"))));
-      editor.Close(false);
-      Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "cancel restores the opening highlight and exits");
+      // With anything changed, the toolbar's Cancel asks before it throws it all away.
+      Press(ToolbarButton(editor, "Cancel"));
+      Settle();
+      Assert(editor.IsOpen && modal.IsOpen, "with changes, Cancel asks first; the editor stays open");
+      Pressable keep = ByName<Pressable>(modal.Dialog, "Cancel"), discardAll = ByName<Pressable>(modal.Dialog, "Confirm");
+      Assert(modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text == L("바뀐 내용을 버릴까요?", "Discard your changes?"))
+        && keep.GetComponentInChildren<TextMeshProUGUI>().text == L("계속 편집", "Keep editing")
+        && discardAll.GetComponentInChildren<TextMeshProUGUI>().text == L("버리기", "Discard")
+        && (EventSystem.current == null || EventSystem.current.currentSelectedGameObject == keep.gameObject),
+        "it asks as the full-screen editors do: Keep editing, focused, and Discard");
+      foreach (TextMeshProUGUI label in modal.Dialog.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the question's words fit: " + label.text);
+      }
+      SaveFrame(camera, texture, canvases, name + "-cancel-ask");
+      string highlightBefore = settings.HighlightColor;
+      Press(keep);
+      Assert(editor.IsOpen && !modal.IsOpen && settings.HighlightColor == highlightBefore, "Keep editing closes the question and keeps every change");
+      Press(ToolbarButton(editor, "Cancel"));
+      Settle();
+      Press(ByName<Pressable>(modal.Dialog, "Confirm"));
+      Assert(!editor.IsOpen && settings.HighlightColor == "#BA712B", "Discard restores the opening highlight and exits");
       Assert(settings.OverlayFont == "" && host.Fonts.DefaultKey == "", "cancel restores the opening default font");
       Assert(host.LayoutTargets.OfType<ShapeOverlayElement>().All(shape => !shape.Enabled || OverlayElementDefaults.TryGet(shape.Id, out _)), "cancel discards added shapes");
       Cleanup(editor, root, eventsRoot, cameraRoot, texture, host);

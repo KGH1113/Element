@@ -7,7 +7,6 @@ using ElementUI.Ugui;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.EditorFrame;
 
@@ -62,16 +61,16 @@ internal sealed class EditorDiscardAsk : IDisposable
     RectTransform area = _frame.Ui.Rect("Dialog area", _root.transform, 0, 0, _frame.Width, _frame.Height);
     area.localScale = Vector3.one * _frame.Scale;
     ConfirmViewModel model = new(
-      L("바뀐 내용을 버릴까요?", "Discard your changes?"),
+      DiscardWords.Title,
       "",
-      L("버리기", "Discard"),
+      DiscardWords.Discard,
       Close,
       () =>
       {
         Close();
         discard();
       },
-      L("계속 편집", "Keep editing")
+      DiscardWords.KeepEditing
     );
     _dialog = new ScreenPanel("Dialog", area, UiPalette.Background, keyboard: true, radius: 16);
     Vector2 size = _dialog.Mount(_frame.NewBackend(), new ConfirmView(model), model, Width);

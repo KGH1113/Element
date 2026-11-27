@@ -61,6 +61,7 @@ internal sealed class ModEditorScreen : IContentEditor
   private string _opening;
   private string _working;
   private OverlayGrowth _growth;
+  private OverlayGrowth _openingGrowth;
   private object _drag;
 
   /// <param name="report">Logs a mod's failure once per kind; see <see cref="ModElements.Failed"/>.</param>
@@ -104,6 +105,7 @@ internal sealed class ModEditorScreen : IContentEditor
     _opening = element.Settings.Mod?.Data ?? string.Empty;
     _working = _opening;
     _growth = element.Settings.GrowFrom;
+    _openingGrowth = _growth;
     _history.Clear();
     _guard.Clear();
     Build();
@@ -123,7 +125,8 @@ internal sealed class ModEditorScreen : IContentEditor
       L(TypeName + " 편집", "Edit " + TypeName),
       () => Close(false, true),
       () => Close(true, true),
-      noticesInDock: false
+      noticesInDock: false,
+      () => _working != _opening || _growth != _openingGrowth
     );
     _guard.Screen = _frame;
     _pickers = new ModPickerContext(_fonts, _reduceMotion());
@@ -272,6 +275,9 @@ internal sealed class ModEditorScreen : IContentEditor
     // Who had the keyboard as the frame began: Esc that ends recording a shortcut doesn't also finish.
     bool typing = Typing;
     _frame.Tick();
+    // While it asks whether to throw the edit away, the keys and clicks are the question's.
+    if (_frame.Asking)
+      return;
     ApplyPending();
     _pickers.Tick();
     if (_preview.Instance != null)

@@ -30,6 +30,7 @@ internal sealed class GrowFrom
 
   private OverlayElementTarget _element;
   private OverlayVariable _variable = new(OverlayPiece.PointPiece(OverlayGrowth.Auto));
+  private string _opened = "";
   private UiCapsuleGraphic _mark;
 
   public GrowFrom() => Slot = new FormulaSlot(Key, OverlayValueType.Point, () => _variable, held => _variable = held);
@@ -45,7 +46,11 @@ internal sealed class GrowFrom
   {
     _element = element;
     _variable = element.GrowFromVariable;
+    _opened = _variable.Serialize();
   }
+
+  /// <summary>It holds another point than the element had when it opened.</summary>
+  public bool Changed => _variable.Serialize() != _opened;
 
   /// <summary>The Grow from field, added where the column has it; <paramref name="open"/> opens it in the dock.</summary>
   public PropertyButtonViewModel BuildButton(Action open) =>

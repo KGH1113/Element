@@ -758,9 +758,42 @@ namespace Element.Editor
       PressBar(shapes, Grow(shapes).Button);
       Press(DockOf(shapes).MethodRoot.GetComponentsInChildren<Pressable>(false).Single(point => point.name == "Grow from " + OverlayGrowth.Center));
       Settle();
+      // With something changed, Cancel asks before it throws the edit away.
+      EditorFramePanel shapeFrame = EditorScreen(shapes);
       PressEditorButton(shapes, "Shape editor cancel");
-      Assert(shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
-        && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "cancel leaves the shape as it was");
+      Settle();
+      RectTransform question = shapeFrame.DiscardDialog;
+      Assert(shapes.IsOpen && question != null && shapeFrame.Asking, "with something changed, Cancel asks first; the editor stays open");
+      Rect questionRect = ScreenRectOf(question);
+      Assert(Mathf.Abs(questionRect.center.x - Screen.width / 2f) < 2 && Mathf.Abs(questionRect.center.y - Screen.height / 2f) < 2 && InsideScreen(questionRect),
+        "the question stands in the middle of the screen: " + questionRect);
+      Pressable keepEditing = ByName<Pressable>(question, "Cancel"), discard = ByName<Pressable>(question, "Confirm");
+      Assert(keepEditing.GetComponentInChildren<TextMeshProUGUI>().text == L("계속 편집", "Keep editing")
+        && discard.GetComponentInChildren<TextMeshProUGUI>().text == L("버리기", "Discard")
+        && UnityEngine.EventSystems.EventSystem.current?.currentSelectedGameObject == keepEditing.gameObject,
+        "it offers Keep editing, focused so Enter is safe, and Discard");
+      foreach (TextMeshProUGUI label in question.GetComponentsInChildren<TextMeshProUGUI>(false))
+      {
+        label.ForceMeshUpdate();
+        Assert(!label.isTextTruncated, "the question's words fit: " + label.text);
+      }
+      SaveFrame(camera, texture, canvases, name + "-shape-discard");
+      Press(keepEditing);
+      Assert(shapes.IsOpen && shapeFrame.DiscardDialog == null && shapeFrame.Asking,
+        "Keep editing closes the question; the editor stays, and leaves the keys of that frame alone (Esc or Enter that answered it doesn't also finish)");
+      Settle();
+      Assert(Field<OverlayShapeSettings>(shapes, "_shape").HeightFormula == "" && !Field<OverlayShapeSettings>(shapes, "_shape").SameAs(Field<OverlayShapeSettings>(shapes, "_opening")),
+        "the edit is still there");
+      PressEditorButton(shapes, "Shape editor cancel");
+      Settle();
+      Press(ByName<Pressable>(shapeFrame.DiscardDialog, "Confirm"));
+      Assert(!shapes.IsOpen && shape.Enabled && shape.Shape.HeightFormula == "" && Mathf.Abs(shape.Shape.Height - OverlayShapeGeometry.DefaultSize) < .01f
+        && shape.Settings.GrowFrom == OverlayGrowth.TopLeft, "Discard closes the editor and leaves the shape as it was");
+      // With nothing changed, Cancel closes at once.
+      Press(editContent);
+      Assert(shapes.IsOpen, "the shape editor opens again");
+      PressEditorButton(shapes, "Shape editor cancel");
+      Assert(!shapes.IsOpen, "with nothing changed, Cancel closes at once, asking nothing");
       // Only Cancel throws an edit away: one open when the editor is torn down
       // (the mod turned off) is kept.
       Press(editContent);
@@ -1529,8 +1562,13 @@ namespace Element.Editor
         "an empty text shows only its caret, where the first letter will go");
       SaveFrame(camera, texture, canvases, name + "-text-new");
       TextOverlayElement added = host.LayoutTargets.OfType<TextOverlayElement>().Last();
-      text.Close(false, true);
-      Assert(!added.Enabled, "cancelling a new text removes it");
+      // A word typed is an edit: Cancel asks; Discard throws the new text away.
+      TextDocumentOf(text).Type("Hi");
+      PressEditorButton(text, "Text editor cancel");
+      Settle();
+      Assert(text.IsOpen && EditorScreen(text).DiscardDialog != null, "with words typed, the text editor's Cancel asks first");
+      Press(ByName<Pressable>(EditorScreen(text).DiscardDialog, "Confirm"));
+      Assert(!text.IsOpen && !added.Enabled, "Discard cancels: a new text is removed");
     }
 
     private static Rect ScreenRectOf(RectTransform rect)

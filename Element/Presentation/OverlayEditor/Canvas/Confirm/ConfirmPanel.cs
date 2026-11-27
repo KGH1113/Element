@@ -1,4 +1,5 @@
 using System;
+using Element.Presentation.OverlayEditor.Parts.Confirm;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Popovers;
 using Element.Presentation.Ui.Theme;

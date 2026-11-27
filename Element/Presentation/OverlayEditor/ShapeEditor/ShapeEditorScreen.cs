@@ -233,7 +233,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       L("도형 편집", "Edit shape"),
       () => Close(false, true),
       () => Close(true, true),
-      noticesInDock: true
+      noticesInDock: true,
+      () => !_shape.SameAs(_opening) || _grow.Changed
     );
     _preview.Build(_frame);
     _zoom.Build(_frame.Ui, _frame.Frame);
@@ -299,6 +300,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     }
     _frame.Tick();
     _dockPanel.Tick();
+    // While it asks whether to throw the edit away, the keys and clicks are the question's.
+    if (_frame.Asking)
+      return;
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
     {

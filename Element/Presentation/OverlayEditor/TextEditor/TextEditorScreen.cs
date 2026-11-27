@@ -227,7 +227,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
       L("텍스트 편집", "Edit text"),
       () => Close(false, true),
       () => Close(true, true),
-      noticesInDock: true
+      noticesInDock: true,
+      () => _text.Edited || _grow.Changed
     );
     _preview.Build(_frame, _element);
     _zoom.Build(_frame.Ui, _frame.Frame);
@@ -304,6 +305,9 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
     }
     _frame.Tick();
     _dockPanel.Tick();
+    // While it asks whether to throw the edit away, the keys and clicks are the question's.
+    if (_frame.Asking)
+      return;
     UiColorPicker picker = _color.Picker;
     if (picker.Visible && picker.IsTyping)
     {

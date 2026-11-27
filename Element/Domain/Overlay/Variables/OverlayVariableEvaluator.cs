@@ -279,6 +279,9 @@ internal static class OverlayVariableEvaluator
         OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
         if (!value.IsNumeric || source == null || !source.TryGetNumber(piece.Value, out number))
           return false;
+        // A value with decimals is compared and calculated at as many as this place reads, cut the game's way.
+        if (value.HasDigits)
+          number = OverlayValueNumbers.Cut(number, OverlayValueNumbers.DigitsOf(piece, value), value.Rounding);
         time = value.Kind == OverlayValueKind.Time;
         return true;
       case OverlayPieceKind.Condition:

@@ -20,12 +20,7 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
   };
   private readonly OverlayValues _values;
 
-  // Compare the displayed (rounded) values: raw floats change on every tile
-  // even when the text would be identical.
   private readonly StringBuilder _builder = new(32);
-  private long _lastStartProgress = long.MinValue;
-  private long _lastProgress = long.MinValue;
-  private long _lastXAccuracy = long.MinValue;
   private bool _hasLastLanguage;
   private SystemLanguage _lastLanguage;
   private bool _hasLastTime;
@@ -44,7 +39,6 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
   {
     foreach (OverlayValueId id in Live)
       _values.Clear(id);
-    _lastStartProgress = _lastProgress = _lastXAccuracy = long.MinValue;
     _hasLastTime = false;
   }
 
@@ -74,27 +68,13 @@ internal sealed class StatusValues : IOverlayView<StatusSnapshot>
 
   public void Dispose() { }
 
+  // Progress and X-Accuracy go in whole, as the game has them (its float percentages); they are
+  // written and cut the game's way, and change only when they do at the finest a place reads them.
   private void RenderMetrics(StatusSnapshot snapshot)
   {
-    double startProgress = snapshot.StartProgress * 100f;
-    double progress = snapshot.Progress * 100f;
-    long shownStart = NumberText.Scaled(startProgress, 0);
-    long shownProgress = NumberText.Scaled(progress, 0);
-    if (_lastStartProgress != shownStart || _lastProgress != shownProgress)
-    {
-      _values.Set(OverlayValueId.ProgressStart, _builder.Clear().AppendRounded(startProgress, 0), shownStart);
-      _values.Set(OverlayValueId.ProgressCurrent, _builder.Clear().AppendRounded(progress, 0), shownProgress);
-      _lastStartProgress = shownStart;
-      _lastProgress = shownProgress;
-    }
-
-    double xAccuracy = snapshot.XAccuracy * 100f;
-    long shownAccuracy = NumberText.Scaled(xAccuracy, 2);
-    if (_lastXAccuracy != shownAccuracy)
-    {
-      _values.Set(OverlayValueId.Accuracy, _builder.Clear().AppendRounded(xAccuracy, 2), shownAccuracy / 100d);
-      _lastXAccuracy = shownAccuracy;
-    }
+    _values.SetNumber(OverlayValueId.ProgressStart, snapshot.StartProgress * 100f);
+    _values.SetNumber(OverlayValueId.ProgressCurrent, snapshot.Progress * 100f);
+    _values.SetNumber(OverlayValueId.Accuracy, snapshot.XAccuracy * 100f);
   }
 
   private void RenderTime(StatusSnapshot snapshot, bool languageChanged)

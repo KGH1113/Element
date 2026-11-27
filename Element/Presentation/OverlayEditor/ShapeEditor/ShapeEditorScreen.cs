@@ -138,6 +138,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Point(OverlayGrowth point) => Edit(editing => editing.SetPoint(point));
 
+  void IInputDockActions.Digits(int digits) => Edit(editing => editing.SetDigits(digits));
+
   void IInputDockActions.Enter(int slot) => _numbers.EnterSlot(slot);
 
   void IInputDockActions.Hop(int slot) => _numbers.HopSlot(slot);

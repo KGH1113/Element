@@ -4,6 +4,7 @@ using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
+using Element.Presentation.OverlayEditor.Parts.Dock.Digits;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
@@ -74,6 +75,7 @@ internal sealed class InputDockViewModel : ViewModel
       )
     );
     Points = Own(new GrowPickerViewModel(actions.Point));
+    Digits = Own(new DigitsViewModel(actions.Digits));
     Typing = Computed(() => Owner.Value != null && _editing.Active);
     Method = Computed(() => MethodOf(_editing, Choice.Value));
     SwitchOn = Computed(() => PickedBool(_editing));
@@ -173,6 +175,9 @@ internal sealed class InputDockViewModel : ViewModel
   /// <summary>The picked point among the nine, or Auto.</summary>
   public readonly GrowPickerViewModel Points;
 
+  /// <summary>The picked value's own number at each count of decimals.</summary>
+  public readonly DigitsViewModel Digits;
+
   // ---- What the view reads ----
 
   /// <summary>Something is open in the dock and the keypad has it.</summary>
@@ -211,6 +216,8 @@ internal sealed class InputDockViewModel : ViewModel
       Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _samples, _editing.Problem, Alarmed.Value);
     else if (picked != null && picked.Kind == OverlayPieceKind.Point)
       Points.Show(picked.Point, Anchor9.Center);
+    else if (picked != null && picked.Kind == OverlayPieceKind.Value && OverlayValueCatalog.Get(picked.Value).HasDigits)
+      Digits.Show(picked, _samples);
     OverlayPiece around = owner != null && _editing.Active ? _editing.Around : null;
     int slot = around != null ? _editing.AroundSlot : -1;
     if (around != null)
@@ -366,6 +373,8 @@ internal sealed class InputDockViewModel : ViewModel
       OverlayPieceKind.Point => DockMethod.Points,
       OverlayPieceKind.Condition => DockMethod.Condition,
       OverlayPieceKind.Value when piece.Value == OverlayValueId.MakeGradient => DockMethod.Gradient,
+      // A value with decimals is its own number, read at so many of them.
+      OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).HasDigits => DockMethod.Digits,
       OverlayPieceKind.Color => DockMethod.Color,
       OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).IsColor => DockMethod.Color,
       _ => DockMethod.Keypad,

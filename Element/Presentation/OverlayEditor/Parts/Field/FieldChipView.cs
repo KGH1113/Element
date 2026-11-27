@@ -32,6 +32,12 @@ internal sealed class FieldChipView : View<FieldChip>
     _widest = widest;
   }
 
+  // A value read at decimals of its own says how many, quietly, after its name; nothing otherwise.
+  private static View Digits(FieldChip chip, float size) =>
+    chip.Digits.Length == 0
+      ? null
+      : Text(chip.Digits).Font(Font.Caption.Sized(size)).Foreground(Colors.Muted).LineLimit(1);
+
   public override View Body
   {
     get
@@ -60,7 +66,7 @@ internal sealed class FieldChipView : View<FieldChip>
         View words = chip.Blank ? BlankWords.Box(13) : Text(chip.Label).Font(Font.Caption.Sized(13)).LineLimit(1);
         if (_widest > 0 && !chip.Blank)
           words = words.Frame(maxWidth: _widest);
-        return HStack(spacing: 5, mark, words)
+        return HStack(spacing: 5, mark, words, Digits(chip, 11.5f))
           .Padding(new Insets(0, 6, 0, 10))
           .Frame(height: LargeHeight)
           .Background(FieldLook.Chip, LargeHeight / 2);
@@ -74,7 +80,8 @@ internal sealed class FieldChipView : View<FieldChip>
       return HStack(
           spacing: 3,
           lead,
-          chip.Blank ? BlankWords.Box(12) : Text(chip.Label).Font(Font.Caption.Sized(12)).LineLimit(1)
+          chip.Blank ? BlankWords.Box(12) : Text(chip.Label).Font(Font.Caption.Sized(12)).LineLimit(1),
+          Digits(chip, 10.5f)
         )
         .Padding(new Insets(0, 5, 0, 9))
         .Frame(height: Height)

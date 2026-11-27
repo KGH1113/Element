@@ -9,6 +9,9 @@ internal enum DockMethod
   /// <summary>Numbers: the keypad.</summary>
   Keypad,
 
+  /// <summary>A value with decimals: its own number at each count of them, and the operators.</summary>
+  Digits,
+
   /// <summary>Words: typed on the keyboard.</summary>
   Words,
 

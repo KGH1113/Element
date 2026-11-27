@@ -215,6 +215,7 @@ internal sealed class LineViewModel : ViewModel
     vm.Type = OverlayVariableTypes.TypeOf(piece);
     vm.HasSwatch = false;
     vm.Label = Label(piece);
+    vm.Digits = DigitsPattern(piece);
     vm.Blank = piece.Kind == OverlayPieceKind.Text && piece.Text.Length == 0;
     if (piece.Kind == OverlayPieceKind.Color)
     {
@@ -272,6 +273,21 @@ internal sealed class LineViewModel : ViewModel
       default:
         return "";
     }
+  }
+
+  /// <summary>
+  /// How many decimals a value is read at, when not as many as it shows:
+  /// "0" whole, "0.0", "0.00"…; empty otherwise.
+  /// </summary>
+  public static string DigitsPattern(OverlayPiece piece)
+  {
+    if (piece.Kind != OverlayPieceKind.Value)
+      return "";
+    OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
+    if (!OverlayValueNumbers.HasOwnDigits(piece, value))
+      return "";
+    int digits = OverlayValueNumbers.DigitsOf(piece, value);
+    return digits == 0 ? "0" : "0." + new string('0', digits);
   }
 
   private static string RouteKey(List<FormulaStep> route)

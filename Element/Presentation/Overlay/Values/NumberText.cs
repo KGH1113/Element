@@ -101,6 +101,40 @@ internal static class NumberText
     return AppendHexByte(builder, color.b);
   }
 
+  private static readonly long[] Steps = { 1, 10, 100, 1000, 10000 };
+
+  /// <summary>
+  /// A number given as a whole count of its last decimal (9952 at 2 is
+  /// 99.52), written at <paramref name="decimals"/>; trailing zeros only
+  /// while <paramref name="keepZeros"/>, so a number read at a set count of
+  /// decimals keeps its width.
+  /// </summary>
+  public static StringBuilder AppendScaled(this StringBuilder builder, long scaled, int decimals, bool keepZeros)
+  {
+    decimals = Math.Max(0, Math.Min(Steps.Length - 1, decimals));
+    if (decimals == 0)
+      return builder.AppendInt(scaled);
+    if (scaled < 0)
+    {
+      builder.Append('-');
+      scaled = -scaled;
+    }
+    long step = Steps[decimals];
+    builder.AppendInt(scaled / step);
+    long fraction = scaled % step;
+    if (fraction == 0 && !keepZeros)
+      return builder;
+    builder.Append('.');
+    for (long digit = step / 10; digit > 0; digit /= 10)
+    {
+      if (!keepZeros && fraction == 0)
+        break;
+      builder.Append((char)('0' + fraction / digit));
+      fraction %= digit;
+    }
+    return builder;
+  }
+
   /// <summary>The value as displayed by AppendRounded, for change detection.</summary>
   public static long Scaled(double value, int decimals)
   {

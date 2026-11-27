@@ -26,16 +26,37 @@ internal static class OverlayValueCatalog
 
   private static readonly OverlayValueDefinition[] BuiltInDefinitions =
   {
-    Number(OverlayValueId.ProgressStart, "progress-start", OverlayValueCategory.Progress, "시작 지점", "Start", 0),
-    Number(
+    // The game floors progress to a whole percent and writes X-Accuracy cut at its last digit.
+    Fraction(
+      OverlayValueId.ProgressStart,
+      "progress-start",
+      OverlayValueCategory.Progress,
+      "시작 지점",
+      "Start",
+      0,
+      0,
+      OverlayRounding.Floor
+    ),
+    Fraction(
       OverlayValueId.ProgressCurrent,
       "progress-current",
       OverlayValueCategory.Progress,
       "현재 진행도",
       "Current",
-      48
+      48,
+      0,
+      OverlayRounding.Floor
     ),
-    Number(OverlayValueId.Accuracy, "accuracy", OverlayValueCategory.Judgement, "절대 정확도", "X-Accuracy", 99.5),
+    Fraction(
+      OverlayValueId.Accuracy,
+      "accuracy",
+      OverlayValueCategory.Judgement,
+      "절대 정확도",
+      "X-Accuracy",
+      99.5,
+      2,
+      OverlayRounding.Truncate
+    ),
     Judgment(OverlayValueId.Overload, "overload", "Overload", 0),
     Judgment(OverlayValueId.TooEarly, "too-early", "Too Early", 0),
     Judgment(OverlayValueId.VeryEarly, "very-early", "Very Early", 0),
@@ -48,13 +69,16 @@ internal static class OverlayValueCatalog
     Judgment(OverlayValueId.TooLate, "too-late", "Too Late", 0),
     Judgment(OverlayValueId.Miss, "miss", "Miss", 0),
     Number(OverlayValueId.Combo, "combo", OverlayValueCategory.Judgement, "콤보", "Combo", 120),
-    Number(
+    // The game writes none of these during play: they keep the overlay's own nearest two decimals.
+    Fraction(
       OverlayValueId.TimingScale,
       "timing-scale",
       OverlayValueCategory.Judgement,
       "타이밍 배율",
       "Timing scale",
-      100
+      100,
+      2,
+      OverlayRounding.Nearest
     ),
     new(
       OverlayValueId.CurrentTime,
@@ -76,9 +100,36 @@ internal static class OverlayValueCatalog
       "3:48",
       228
     ),
-    Number(OverlayValueId.TileBpm, "tile-bpm", OverlayValueCategory.Speed, "타일 BPM", "Tile BPM", 180),
-    Number(OverlayValueId.CurrentBpm, "current-bpm", OverlayValueCategory.Speed, "현재 BPM", "Current BPM", 180),
-    Number(OverlayValueId.KeysPerSecond, "kps", OverlayValueCategory.Speed, "초당 입력 수", "Keys per second", 6),
+    Fraction(
+      OverlayValueId.TileBpm,
+      "tile-bpm",
+      OverlayValueCategory.Speed,
+      "타일 BPM",
+      "Tile BPM",
+      180,
+      2,
+      OverlayRounding.Nearest
+    ),
+    Fraction(
+      OverlayValueId.CurrentBpm,
+      "current-bpm",
+      OverlayValueCategory.Speed,
+      "현재 BPM",
+      "Current BPM",
+      180,
+      2,
+      OverlayRounding.Nearest
+    ),
+    Fraction(
+      OverlayValueId.KeysPerSecond,
+      "kps",
+      OverlayValueCategory.Speed,
+      "초당 입력 수",
+      "Keys per second",
+      6,
+      2,
+      OverlayRounding.Nearest
+    ),
     Text(
       OverlayValueId.SongTitle,
       "song-title",
@@ -428,6 +479,31 @@ internal static class OverlayValueCatalog
     string english,
     double sample
   ) => new(id, key, category, OverlayValueKind.Number, korean, english, SampleText(sample), sample);
+
+  // A number with decimals: shown at <paramref name="digits"/> unless a place chooses up to four, cut the game's way.
+  private static OverlayValueDefinition Fraction(
+    OverlayValueId id,
+    string key,
+    OverlayValueCategory category,
+    string korean,
+    string english,
+    double sample,
+    int digits,
+    OverlayRounding rounding
+  ) =>
+    new(
+      id,
+      key,
+      category,
+      OverlayValueKind.Number,
+      korean,
+      english,
+      SampleText(sample),
+      sample,
+      digits: digits,
+      mostDigits: OverlayValueNumbers.Most,
+      rounding: rounding
+    );
 
   // A judgment count: its name is the game's own word in both languages.
   private static OverlayValueDefinition Judgment(OverlayValueId id, string key, string name, double sample) =>

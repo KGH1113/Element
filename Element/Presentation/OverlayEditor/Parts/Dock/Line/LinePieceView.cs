@@ -49,6 +49,11 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
             () => VM.Blank,
             () => BlankWords.Box(17),
             () => Text(() => VM.Label).Font(Font.Body.Sized(17)).Foreground(Colors.Foreground).LineLimit(1)
+          ),
+          // A value read at decimals of its own says how many, quietly.
+          If(
+            () => VM.Digits.Length > 0,
+            () => Text(() => VM.Digits).Font(Font.Body.Sized(14)).Foreground(Colors.Muted).LineLimit(1).Named("Digits")
           )
         ),
         () => _line.Pick(VM.Route, VM.Index),

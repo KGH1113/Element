@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Values;
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Text;
@@ -298,6 +299,7 @@ namespace Element.Editor
 
       CheckDockKeyboard(text, dock, picker);
       CheckWordsAndEmptyValue(text, dock, camera, texture, canvases, name);
+      CheckValueDigits(text, dock, camera, texture, canvases, name);
 
       // A color doesn't go in the text: at the caret none is listed.
       Call(text, "CloseOpen");
@@ -598,6 +600,123 @@ namespace Element.Editor
     // How many hollow boxes for words not typed yet are drawn under a part.
     private static int Blanks(Transform part) =>
       part == null ? 0 : part.GetComponentsInChildren<RectTransform>(false).Count(box => box.name == "Blank words");
+
+    /// <summary>
+    /// A value with decimals, picked, is its own input method: its number at
+    /// each count of decimals as keys (whole and one and two on top, three and
+    /// four under them), the count it is read at lit, the operators under them.
+    /// A count pressed is what a condition compares and a text writes; on the
+    /// line its pill says it quietly ("0.0").
+    /// </summary>
+    private static void CheckValueDigits(TextEditorScreen text, DockProbe dock, Camera camera, RenderTexture texture, Canvas[] canvases, string name)
+    {
+      TextDocumentEditing document = TextDocumentOf(text);
+      TextFormulas formulas = TextFormulasOf(text);
+      PropertyButtonViewModel size = Field<TextSize>(text, "_size").Button;
+      TextMeshProUGUI previewText = TextPreviewOf(text).Text;
+      Call(text, "CloseOpen");
+      Settle();
+
+      // In a condition: progress, compared with 0.
+      PressBar(text, size);
+      Settle();
+      Press(DockChip(dock, "Value make-condition"));
+      Press(DockSlot(dock, OverlayPiece.Left));
+      Press(DockChip(dock, "Value progress-current"));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Digits && dock.Vm.Folded.Value && formulas.Editing.SelectedPiece?.Value == OverlayValueId.ProgressCurrent,
+        "progress picked in the compared slot has its own input method: its digits");
+      Pressable[] choices = Enumerable.Range(0, 5).Select(d => DigitsKey(dock, d)).ToArray();
+      string[] numbers = dock.Vm.Digits.Choices.Select(choice => choice.Number.Value).ToArray();
+      Assert(numbers.SequenceEqual(new[] { "48", "48.0", "48.00", "48.000", "48.0000" }),
+        "each key says the value's own number at that count (the example 48): " + string.Join(" ", numbers));
+      Assert(dock.Vm.Digits.Choices.Count(choice => choice.Lit.Value) == 1 && dock.Vm.Digits.Choices[0].Lit.Value,
+        "progress is read whole, as the game shows it: that key is lit");
+      Rect[] keys = choices.Select(key => ScreenRectOf((RectTransform)key.transform)).ToArray();
+      Rect strip = ScreenRectOf(StripOf(dock)), place = ScreenRectOf(dock.MethodRoot), apply = ScreenRectOf((RectTransform)DockKey(dock, "Key done").transform);
+      Rect[] operators = new[] { "Key ÷", "Key ×", "Key −", "Key +" }.Select(key => ScreenRectOf((RectTransform)DockKey(dock, key).transform)).ToArray();
+      Assert(Mathf.Abs(keys[0].center.y - keys[2].center.y) < .5f && Mathf.Abs(keys[3].center.y - keys[4].center.y) < .5f && keys[3].yMax <= keys[0].yMin + .5f
+        && keys[0].xMax <= keys[1].xMin + .5f && keys[1].xMax <= keys[2].xMin + .5f && keys[3].xMax <= keys[4].xMin + .5f && keys[4].width > keys[0].width,
+        "whole, one and two decimals on top; three and four under them, wider: " + string.Join(" ", keys.Select(key => key.ToString())));
+      Assert(operators.All(op => op.yMax <= keys[3].yMin + .5f && op.yMin >= apply.yMax - .5f && Mathf.Abs(op.center.y - operators[0].center.y) < .5f)
+        && keys.All(key => key.yMax <= strip.yMin - 1 && key.xMin >= place.xMin - .5f && key.xMax <= place.xMax + .5f)
+        && Mathf.Abs(keys[0].xMin - place.xMin) < 1 && Mathf.Abs(keys[2].xMax - place.xMax) < 1,
+        "the operators stand under them, over Remove and Apply; all of it under the strip, across the place");
+      foreach (Pressable key in choices)
+      {
+        TextMeshProUGUI label = key.GetComponentInChildren<TextMeshProUGUI>();
+        label.ForceMeshUpdate();
+        Rect words = ScreenRectOf(label.rectTransform), box = ScreenRectOf((RectTransform)key.transform);
+        Vector3 min = label.rectTransform.TransformPoint(label.textBounds.min), max = label.rectTransform.TransformPoint(label.textBounds.max);
+        float inkCenter = (RectTransformUtility.WorldToScreenPoint(null, min).x + RectTransformUtility.WorldToScreenPoint(null, max).x) / 2;
+        Assert(!label.isTextTruncated && Mathf.Abs(inkCenter - box.center.x) < 1.5f, "the number is whole and in the middle of its key: " + label.text + " " + inkCenter + " / " + box.center.x);
+      }
+      SaveFrame(camera, texture, canvases, name + "-variable-digits");
+      // One decimal: compared at it, so 0.1 is not 0; the pill says so.
+      Press(choices[1]);
+      Settle();
+      Assert(formulas.Editing.SelectedPiece.Digits == 1 && dock.Vm.Digits.Choices[1].Lit.Value && !dock.Vm.Digits.Choices[0].Lit.Value
+        && dock.Vm.Line.Root.Pieces[0].Digits == "0.0" && dock.Vm.Method.Value == DockMethod.Digits,
+        "a count pressed is the one it is read at; the line's pill says 0.0: " + dock.Vm.Line.Root.Pieces[0].Digits);
+      Assert(dock.MethodRoot.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Digits") == false
+        && dock.Root.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.name == "Digits" && label.text == "0.0"),
+        "it is said quietly after the value's name on the line");
+      Press(DockSlot(dock, OverlayPiece.Compare));
+      Press(DockKey(dock, "Key ≠"));
+      Press(DockSlot(dock, OverlayPiece.Right));
+      Press(DockKey(dock, "Key 0"));
+      Press(DockSlot(dock, OverlayPiece.Result));
+      foreach (string key in new[] { "Key 6", "Key 0" })
+        Press(DockKey(dock, key));
+      Press(DockSlot(dock, OverlayPiece.Default));
+      foreach (string key in new[] { "Key 4", "Key 0" })
+        Press(DockKey(dock, key));
+      Settle();
+      Assert(document.Document[0].SizeFormula == "if({progress-current:1};!=;0;60;40)", "the size saves progress read at one decimal: " + document.Document[0].SizeFormula);
+      Press(StripBack(dock));
+      Settle();
+      Assert(dock.Vm.Form.Slots[OverlayPiece.Left].Chips.Value.Single().Digits == "0.0", "on the fork the compared slot's pill says it too");
+      SaveFrame(camera, texture, canvases, name + "-variable-digits-fork");
+      Press(DockKey(dock, "Key done"));
+      Settle();
+      document.Undo();
+      Call(text, "CloseOpen");
+      Settle();
+
+      // In the text: X-Accuracy written at four decimals, zeros kept; back at its own two it is its name alone.
+      int accuracy = Enumerable.Range(0, document.Document.Count).First(i => document.Document[i].IsValue && document.Document[i].Value == "accuracy");
+      formulas.OpenChip(accuracy);
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Digits && dock.Vm.Digits.Choices[2].Lit.Value
+        && dock.Vm.Digits.Choices.Select(choice => choice.Number.Value).SequenceEqual(new[] { "99", "99.5", "99.50", "99.500", "99.5000" }),
+        "X-Accuracy picked in the text: read at its own two decimals, as the overlay shows it");
+      Press(DigitsKey(dock, 4));
+      Settle();
+      Call(text, "Render");
+      Settle();
+      Assert(document.Document[accuracy].Value == "{accuracy:4}" && previewText.text.Contains("99.5000"),
+        "pressed four, the text writes it at four decimals: " + document.Document[accuracy].Value);
+      Press(DigitsKey(dock, 2));
+      Settle();
+      Call(text, "Render");
+      Assert(document.Document[accuracy].Value == "accuracy" && previewText.text.Contains("99.5") && !previewText.text.Contains("99.50"),
+        "back at its own count it is the value alone again: " + document.Document[accuracy].Value);
+      // An operator carries on a calculation from it.
+      Press(DockKey(dock, "Key ×"));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Keypad && formulas.Editing.Working.Count == 3, "× joins a number to it, which the keypad types");
+      document.Undo();
+      Call(text, "CloseOpen");
+      Settle();
+      Assert(document.Document[accuracy].Value == "accuracy", "the text is as it was: " + document.Document[accuracy].Value);
+    }
+
+    // The key of the digits input method that reads the picked value at <paramref name="digits"/> decimals.
+    private static Pressable DigitsKey(DockProbe dock, int digits)
+    {
+      Settle();
+      return dock.MethodRoot.GetComponentsInChildren<Pressable>(false).Single(key => key.name == "Digits " + digits);
+    }
 
     private static Event KeyDown(KeyCode code, char character) => new() { type = EventType.KeyDown, keyCode = code, character = character };
 

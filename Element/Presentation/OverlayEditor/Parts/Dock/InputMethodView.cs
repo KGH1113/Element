@@ -1,5 +1,6 @@
 using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
+using Element.Presentation.OverlayEditor.Parts.Dock.Digits;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Grow;
@@ -18,7 +19,8 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock;
 /// The input method of what is picked, at the bottom of the right column and
 /// always as large: the keypad for a number, a field the keyboard types
 /// words into, two keys for true or false, the six comparisons, the nine
-/// points, a condition's five slots. A solid color's picker and the font
+/// points, a condition's five slots, a value's own number at each count of
+/// decimals. A solid color's picker and the font
 /// list stand in the same place. With only a text's caret, a keyboard says
 /// where the typing goes. Inside a condition's slot, that condition stays
 /// on top folded into a strip (<see cref="ConditionStripView"/>), and the
@@ -71,6 +73,7 @@ internal sealed class InputMethodView : View<InputDockViewModel>
       DockMethod.Compare => Compares(),
       DockMethod.Condition => new ConditionFormView(VM.Form, height),
       DockMethod.Points => new GrowKeysView(VM.Points, height),
+      DockMethod.Digits => new DigitsView(VM.Digits, VM.Keypad, height),
       // The color picker itself stands here, over this place; so does the font list. A gradient's tool is above.
       DockMethod.Color or DockMethod.Fonts or DockMethod.Gradient => Clear(height),
       _ => new KeypadView(VM.Keypad, KeypadView.KeyHeightIn(height)),

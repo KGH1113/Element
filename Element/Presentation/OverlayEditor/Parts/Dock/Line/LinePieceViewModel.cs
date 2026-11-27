@@ -32,6 +32,9 @@ internal sealed class LinePieceViewModel : ViewModel
   /// <summary>Words not typed yet: a hollow box stands where they would be.</summary>
   public bool Blank;
 
+  /// <summary>A value read at decimals of its own: how many, as "0.0"; empty for its own.</summary>
+  public string Digits = "";
+
   /// <summary>What it gives, for its mark.</summary>
   public OverlayValueType Type;
 

@@ -34,6 +34,9 @@ internal interface IInputDockActions
   /// <summary>The nine points: the picked point becomes <paramref name="point"/>.</summary>
   void Point(OverlayGrowth point);
 
+  /// <summary>The picked value's own number: it is read at <paramref name="digits"/> decimals.</summary>
+  void Digits(int digits);
+
   /// <summary>
   /// A slot of the picked condition clicked in its input method: the dock
   /// goes into it, its line and input method that slot's from then on.

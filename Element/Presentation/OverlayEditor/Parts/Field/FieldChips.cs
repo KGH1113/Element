@@ -108,7 +108,7 @@ internal static class FieldChips
           Swatch = UiPalette.Accent,
         };
       default:
-        return new FieldChip(key, LineViewModel.Label(piece), type);
+        return new FieldChip(key, LineViewModel.Label(piece), type) { Digits = LineViewModel.DigitsPattern(piece) };
     }
   }
 }

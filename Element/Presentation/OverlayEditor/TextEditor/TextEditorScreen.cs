@@ -166,6 +166,8 @@ internal sealed class TextEditorScreen : IContentEditor, ITextEditorContext, ITe
 
   void IInputDockActions.Point(OverlayGrowth point) => Edit(editing => editing.SetPoint(point));
 
+  void IInputDockActions.Digits(int digits) => Edit(editing => editing.SetDigits(digits));
+
   void IInputDockActions.Enter(int slot) => _formulas.EnterSlot(slot);
 
   void IInputDockActions.Hop(int slot) => _formulas.HopSlot(slot);

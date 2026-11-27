@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Text;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Values;
@@ -36,7 +37,8 @@ internal static class OverlayVariableSyntax
   {
     if (variable == null)
       return string.Empty;
-    if (variable.IsSingleValue(out OverlayValueId only))
+    // One value read as it is shows is saved by its name alone.
+    if (variable.IsSingleValue(out OverlayValueId only) && variable[0].Digits < 0)
       return OverlayValueCatalog.Get(only).Key;
     StringBuilder builder = new();
     Write(builder, variable);
@@ -53,6 +55,20 @@ internal static class OverlayVariableSyntax
     StringBuilder builder = new();
     DescribeInto(builder, variable, name, words ?? OverlayVariableWords.Plain, 0);
     return builder.ToString();
+  }
+
+  // The decimals chosen after a value's name ("progress-current:1"), taken off the name; -1 for none.
+  private static int Digits(ref string key)
+  {
+    int colon = key.LastIndexOf(':');
+    if (
+      colon <= 0
+      || colon == key.Length - 1
+      || !int.TryParse(key.Substring(colon + 1), NumberStyles.None, CultureInfo.InvariantCulture, out int digits)
+    )
+      return -1;
+    key = key.Substring(0, colon);
+    return Math.Min(digits, OverlayValueNumbers.Most);
   }
 
   // ---- Writing ----
@@ -96,7 +112,11 @@ internal static class OverlayVariableSyntax
           builder.Append(piece.Op);
           break;
         case OverlayPieceKind.Value:
-          builder.Append('{').Append(OverlayValueCatalog.Get(piece.Value).Key).Append('}');
+          // Decimals chosen here follow the name: {progress-current:1}.
+          builder.Append('{').Append(OverlayValueCatalog.Get(piece.Value).Key);
+          if (piece.Digits >= 0)
+            builder.Append(':').Append(piece.Digits);
+          builder.Append('}');
           break;
         case OverlayPieceKind.Condition:
           builder.Append("if(");
@@ -154,9 +174,10 @@ internal static class OverlayVariableSyntax
         }
         string key = text.Substring(at + 1, close - at - 1);
         at = close + 1;
+        int digits = Digits(ref key);
         // A built-in value that no longer exists drops out; a mod's value stays while that mod is missing.
         if (OverlayValueCatalog.TryResolve(key, out OverlayValueDefinition value))
-          variable.Add(OverlayPiece.ValuePiece(value.Id));
+          variable.Add(OverlayPiece.ValuePiece(value.Id, digits));
         continue;
       }
       if (c == '"')

@@ -213,6 +213,8 @@ namespace Element.Editor
 
       public void Point(OverlayGrowth point) { }
 
+      public void Digits(int digits) { }
+
       public void Enter(int slot) { }
 
       public void Hop(int slot) { }

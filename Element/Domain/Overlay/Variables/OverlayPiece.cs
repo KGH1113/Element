@@ -37,6 +37,12 @@ internal sealed class OverlayPiece
   /// <summary>A point of an element's box, or Auto.</summary>
   public OverlayGrowth Point { get; set; } = OverlayGrowth.Auto;
 
+  /// <summary>
+  /// How many decimals a value with decimals is read at here; -1 for as many
+  /// as the value itself shows (<see cref="Values.OverlayValueNumbers"/>).
+  /// </summary>
+  public int Digits { get; set; } = -1;
+
   /// <summary>A condition's five slots, or a group's one; empty for the rest.</summary>
   public OverlayVariable[] Slots { get; private set; } = System.Array.Empty<OverlayVariable>();
 
@@ -58,6 +64,10 @@ internal sealed class OverlayPiece
   public static OverlayPiece OperatorPiece(char op) => new(OverlayPieceKind.Operator) { Op = op };
 
   public static OverlayPiece ValuePiece(OverlayValueId id) => new(OverlayPieceKind.Value) { Value = id };
+
+  /// <summary>A value read at <paramref name="digits"/> decimals; -1 for as many as it shows.</summary>
+  public static OverlayPiece ValuePiece(OverlayValueId id, int digits) =>
+    new(OverlayPieceKind.Value) { Value = id, Digits = digits };
 
   /// <summary>A new condition: "≥" picked, everything else empty.</summary>
   public static OverlayPiece ConditionPiece() =>
@@ -101,6 +111,7 @@ internal sealed class OverlayPiece
       Op = Op,
       Bool = Bool,
       Point = Point,
+      Digits = Digits,
     };
     if (Slots.Length > 0)
     {
@@ -121,6 +132,7 @@ internal sealed class OverlayPiece
       || Op != other.Op
       || Bool != other.Bool
       || Point != other.Point
+      || Digits != other.Digits
     )
       return false;
     if (Slots.Length != other.Slots.Length)

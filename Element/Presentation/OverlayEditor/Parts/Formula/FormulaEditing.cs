@@ -638,6 +638,27 @@ internal sealed class FormulaEditing : Observable
     Commit();
   }
 
+  /// <summary>
+  /// The picked value is read at <paramref name="digits"/> decimals here: in
+  /// a condition it is compared at them, in a text written at them. Its own
+  /// decimals are none of its own.
+  /// </summary>
+  public void SetDigits(int digits)
+  {
+    OverlayPiece piece = SelectedPiece;
+    if (piece == null || piece.Kind != OverlayPieceKind.Value)
+      return;
+    OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
+    if (!value.HasDigits)
+      return;
+    int chosen = Math.Max(0, Math.Min(value.MostDigits, digits));
+    int kept = chosen == value.Digits ? -1 : chosen;
+    if (piece.Digits == kept)
+      return;
+    piece.Digits = kept;
+    Commit();
+  }
+
   public void SetBool(bool value)
   {
     OverlayPiece piece = SelectedPiece;

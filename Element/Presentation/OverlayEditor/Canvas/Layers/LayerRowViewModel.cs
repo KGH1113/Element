@@ -29,6 +29,9 @@ internal sealed class LayerRowViewModel : ViewModel
 
   public string Name = "";
 
+  /// <summary>What it is, under its name: "Text", "Key viewer", a mod's name, or for a group how many elements it holds.</summary>
+  public string What = "";
+
   /// <summary>How many elements a group card holds.</summary>
   public string Count = "";
 

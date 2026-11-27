@@ -17,6 +17,9 @@ internal interface IElementKind : IDisposable
   /// <summary>The name the toolbar shows for one selected <paramref name="target"/>.</summary>
   string Label(IOverlayLayoutTarget target);
 
+  /// <summary>What <paramref name="target"/> is, in a word or two, said under its name in the order panel: "Text", "Key viewer", a mod's name.</summary>
+  string KindName(IOverlayLayoutTarget target);
+
   /// <summary>Sized in its editor, not by a scale: it only moves, and has an Edit button instead of + and −.</summary>
   bool SizedInEditor { get; }
 

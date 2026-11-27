@@ -105,6 +105,9 @@ internal enum UiIconKind
   /// <summary>Two sheets stacked, one over the other: the drawing order.</summary>
   Layers,
 
+  /// <summary>Float view: sheets standing apart in depth.</summary>
+  Float,
+
   /// <summary>Two small boxes inside a dashed frame: make one group.</summary>
   Group,
 

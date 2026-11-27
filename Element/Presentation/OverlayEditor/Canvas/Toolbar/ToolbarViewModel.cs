@@ -49,7 +49,6 @@ internal sealed class ToolbarViewModel : ViewModel
     Redo = Command(() => canvas.Redo(), canExecute: Computed(() => CanRedo.Value));
     Cancel = Command(() => canvas.Cancel());
     Save = Command(() => canvas.Save());
-    ToggleFloatView = Command(() => canvas.ToggleFloatView());
     ResetAll = Command(() => canvas.ResetAll());
     ResetElement = Command(() => canvas.ResetSelected(), canExecute: selected);
     Delete = Command(() => canvas.Delete(), canExecute: selected);
@@ -114,7 +113,8 @@ internal sealed class ToolbarViewModel : ViewModel
   public Command Redo { get; }
   public Command Cancel { get; }
   public Command Save { get; }
-  public Command ToggleFloatView { get; }
+
+  /// <summary>Float view is on (its button is in the order panel): the toolbar says how to move around.</summary>
   public readonly State<bool> Floating = new(false);
   public Command ResetAll { get; }
   public Command ResetElement { get; }

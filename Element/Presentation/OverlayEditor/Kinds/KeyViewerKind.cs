@@ -33,6 +33,8 @@ internal sealed class KeyViewerKind : IElementKind
       ? L("발 키뷰어", "Foot key viewer")
       : L("손 키뷰어", "Hand key viewer");
 
+  public string KindName(IOverlayLayoutTarget target) => L("키뷰어", "Key viewer");
+
   public bool SizedInEditor => false;
 
   public string EditCaption => null;

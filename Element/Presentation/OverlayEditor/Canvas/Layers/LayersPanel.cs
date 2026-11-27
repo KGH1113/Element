@@ -17,7 +17,7 @@ namespace Element.Presentation.OverlayEditor.Canvas.Layers;
 /// </summary>
 internal sealed class LayersPanel : IPopover
 {
-  public const float Width = 300;
+  public const float Width = 392;
 
   private readonly CanvasSession _session;
   private readonly CanvasSelection _selection;
@@ -67,7 +67,7 @@ internal sealed class LayersPanel : IPopover
     Close();
     _canvas = canvas;
     _themeVersion = UiTheme.Version;
-    ViewModel = new LayersViewModel(_session, _selection, _kinds, canvas);
+    ViewModel = new LayersViewModel(_session, _selection, _kinds, canvas, _toolbar.ViewModel.Floating);
     ViewModel.Refresh();
     _panel = new ScreenPanel("Layers", _session.Root.transform, UiPalette.Toolbar, keyboard: false);
     _panel.Mount(

@@ -386,6 +386,20 @@ internal sealed class UiIcon : UiVectorGraphic
         Line(mesh, 7.5f, 19.5f, 16.5f, 19.5f);
         Line(mesh, 16.5f, 19.5f, 17.5f, 7);
         break;
+      case UiIconKind.Float:
+        // Three sheets standing apart, each set back and up from the one before.
+        for (int sheet = 0; sheet < 3; sheet++)
+        {
+          float x = 3 + sheet * 4,
+            y = 9 - sheet * 3;
+          BeginPath();
+          PathPoint(x, y);
+          PathPoint(x + 9, y);
+          PathPoint(x + 9, y + 11);
+          PathPoint(x, y + 11);
+          Stroke(mesh, sheet == 0 ? 2 : 1.6f, true);
+        }
+        break;
       case UiIconKind.Layers:
         // A diamond sheet lying over the edge of another, as a stack is drawn.
         BeginPath();

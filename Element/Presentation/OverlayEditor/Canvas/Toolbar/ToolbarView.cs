@@ -34,15 +34,6 @@ internal sealed class ToolbarView : View<ToolbarViewModel>
               .LineLimit(1)
               .Named("Selection")
               .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
-            WideButton(
-              Text(L("띄워 보기", "Float view"))
-                .LineLimit(1)
-                .Foreground(() => VM.Floating.Value ? _lit : Colors.Foreground),
-              "Float view",
-              () => VM.ToggleFloatView,
-              122,
-              36
-            ),
             WideButton(L("전체 초기화", "Reset all"), "Reset all", () => VM.ResetAll, 104, 36)
               .Disabled(() => VM.Floating.Value),
             HStack(

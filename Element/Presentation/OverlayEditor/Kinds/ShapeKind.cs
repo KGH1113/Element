@@ -27,6 +27,8 @@ internal sealed class ShapeKind : ContentElementKind<ShapeOverlayElement>
 
   public override string Label(IOverlayLayoutTarget target) => ((ShapeOverlayElement)target).Label;
 
+  public override string KindName(IOverlayLayoutTarget target) => L("도형", "Shape");
+
   public override string EditCaption => L("도형 편집", "Edit shape");
 
   public override AddMenuRow Row() =>

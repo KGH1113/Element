@@ -20,10 +20,12 @@ namespace Element.Presentation.OverlayEditor.Canvas.Layers;
 /// </summary>
 internal sealed class LayerRowView : View<LayerRowViewModel>
 {
-  public const float Height = 32;
-  public const float ThumbWidth = 52;
-  public const float ThumbHeight = 24;
-  private const float Indent = 22;
+  // As large as the editor's toolbar under it: a name in its size, and what it is under that.
+  public const float Height = 58;
+  public const float ThumbWidth = 84;
+  public const float ThumbHeight = 42;
+  private const float Indent = 24,
+    Radius = 10;
 
   private static readonly UiColor CardFill = UiPalette.Wash(UiPalette.EditorDim, .1f);
   private static readonly UiColor HeaderFill = UiPalette.Wash(UiPalette.EditorDim, .075f);
@@ -53,14 +55,14 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
   public override View Body =>
     Button(
         HStack(
-            spacing: 8,
+            spacing: 10,
             Rail(),
             Arrow(),
             new LayerPictureView(rect => _thumbnail(VM.Ids, rect), ThumbWidth, ThumbHeight),
             NameOrField(),
             Count()
           )
-          .Padding(new Insets(0, VM.Child ? 8 : 6, 0, 8))
+          .Padding(new Insets(0, 8, 0, 12))
           .Frame(maxWidth: float.PositiveInfinity, height: Height, alignment: Alignment.Leading),
         () => _list.Pick(VM, EditorKeys.ShiftHeld || EditorKeys.CommandHeld),
         ButtonStyle.Plain
@@ -73,7 +75,7 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
           VM.Selected ? _picked
           : VM.Header ? HeaderFill
           : CardFill,
-        8
+        Radius
       )
       .Overlay(InsertLine(), Alignment.Top)
       .Frame(height: Height);
@@ -82,10 +84,10 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
   private View Rail() =>
     VM.Child
       ? Spacer()
-        .Frame(width: 3, height: Height - 8)
+        .Frame(width: 3, height: Height - 16)
         .Background(() => VM.Rail, 1.5f)
         .Padding(new Insets(0, Indent - 14, 0, 4))
-    : VM.Header ? Spacer().Frame(width: 3, height: Height - 10).Background(() => VM.Rail, 1.5f)
+    : VM.Header ? Spacer().Frame(width: 3, height: Height - 18).Background(() => VM.Rail, 1.5f)
     : Spacer().Frame(width: 0, height: 0);
 
   private View Arrow() =>
@@ -93,14 +95,14 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
       ? Button(
           If(
             () => VM.Open,
-            () => Image(ElementIcons.Of(UiIconKind.Down), 16).Foreground(Colors.Muted),
-            () => Image(ElementIcons.Of(UiIconKind.Forward), 16).Foreground(Colors.Muted)
+            () => Image(ElementIcons.Of(UiIconKind.Down), 18).Foreground(Colors.Muted),
+            () => Image(ElementIcons.Of(UiIconKind.Forward), 18).Foreground(Colors.Muted)
           ),
           () => _list.Toggle(VM),
           ButtonStyle.Plain
         )
         .Named("Open group")
-        .Frame(width: 20, height: 20)
+        .Frame(width: 24, height: 24)
       : Spacer().Frame(width: 0, height: 0);
 
   private View NameOrField() =>
@@ -111,23 +113,26 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
           .CharacterLimit(40)
           .OnEditEnded((_, cancelled) => _list.EndRename(cancelled))
           .FocusOn(() => _list.RenamingGroup == VM.Group ? 1 : 0)
-          .Frame(maxWidth: float.PositiveInfinity, height: 24),
+          .Frame(maxWidth: float.PositiveInfinity, height: 34),
       () =>
-        Text(() => VM.Name)
-          .Font(Font.Callout.Sized(13))
-          .Foreground(Colors.Foreground)
-          .LineLimit(1)
+        VStack(
+            spacing: 2,
+            HAlignment.Leading,
+            Text(() => VM.Name).Font(Font.Body.Sized(16)).Foreground(Colors.Foreground).LineLimit(1).Named("Card name"),
+            // What it is, quietly: the kind, a mod's name, or how many a group holds.
+            Text(() => VM.What).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1).Named("Card kind")
+          )
           .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading)
     );
 
   private View Count() =>
     VM.Header
       ? Text(() => VM.Count)
-        .Font(Font.Caption.Sized(11))
+        .Font(Font.Caption.Sized(13))
         .Foreground(new Color(.06f, .06f, .06f))
-        .Padding(new Insets(0, 6, 0, 6))
-        .Frame(height: 16)
-        .Background(() => VM.Rail, 5)
+        .Padding(new Insets(0, 7, 0, 7))
+        .Frame(minWidth: 24, height: 22)
+        .Background(() => VM.Rail, 7)
       : Spacer().Frame(width: 0, height: 0);
 
   // The line a carried card would land on; set in when it joins a group.
@@ -141,10 +146,10 @@ internal sealed class LayerRowView : View<LayerRowViewModel>
   // The carried card beside the pointer: its name on an opaque pill.
   private static View Ghost(LayerDrag drag) =>
     Text(drag.Name)
-      .Font(Font.Callout.Sized(13))
+      .Font(Font.Body.Sized(16))
       .Foreground(Colors.Foreground)
       .LineLimit(1)
-      .Padding(new Insets(0, 14, 0, 14))
-      .Frame(height: 30)
-      .Background(UiPalette.Wash(UiPalette.EditorDim, .16f), 8, UiPalette.Accent);
+      .Padding(new Insets(0, 16, 0, 16))
+      .Frame(height: 40)
+      .Background(UiPalette.Wash(UiPalette.EditorDim, .16f), Radius, UiPalette.Accent);
 }

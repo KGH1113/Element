@@ -19,6 +19,8 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
   public override string Label(IOverlayLayoutTarget target) =>
     target is TextOverlayElement text ? text.Words : L("텍스트", "Text");
 
+  public override string KindName(IOverlayLayoutTarget target) => L("텍스트", "Text");
+
   public override string EditCaption => L("텍스트 편집", "Edit text");
 
   public override AddMenuRow Row()

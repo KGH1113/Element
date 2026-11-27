@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Element.Application.Layout;
 using Element.Application.Mods;
+using Element.Configuration.Overlay;
 using Element.Presentation.Overlay.Canvas;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.OverlayEditor.Canvas;
@@ -32,6 +33,13 @@ internal sealed class ModKind : ContentElementKind<ModOverlayElement>
   }
 
   public override string Label(IOverlayLayoutTarget target) => ((ModOverlayElement)target).Label;
+
+  // Which mod it comes from: what tells it apart from Element's own.
+  public override string KindName(IOverlayLayoutTarget target)
+  {
+    string mod = OverlayElementKinds.ModOf(target.TemplateId);
+    return string.IsNullOrEmpty(mod) ? L("다른 모드", "Another mod") : mod;
+  }
 
   public override string EditCaption => L("요소 편집", "Edit element");
 

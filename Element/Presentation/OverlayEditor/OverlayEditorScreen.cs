@@ -456,7 +456,8 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       frame.Outline.SetExclusion(new Rect(panel.x - bounds.x, -panel.yMax + bounds.y, panel.width, panel.height));
     }
     _elementBar.Sync(covered, (_drag.Active && _drag.Moved) || _popovers.Stack.AnyOpen);
-    _layersPanel.Sync(covered);
+    // Float view starts from the order panel, which stays beside it with the button that turns it off.
+    _layersPanel.Sync(_modal.IsOpen || _kinds.OpenEditor != null);
     _toolbar.ViewModel.LayersOpen.Value = _layersPanel.Visible;
     _toolbar.Refresh();
     _guides.Refresh(_session.UiScale);
@@ -740,7 +741,13 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
       _marquee.End();
       _guides.HideLines();
       _cursors.Set(LayoutHandle.None);
-      _float = new FloatScene(_session, () => _toolbar.Bounds, _kinds.Label, _cursors);
+      _float = new FloatScene(
+        _session,
+        () => _toolbar.Bounds,
+        _kinds.Label,
+        _cursors,
+        p => _layersPanel.Contains(new Vector2(p.x * Screen.width, p.y * Screen.height))
+      );
     }
     else
     {
@@ -779,6 +786,9 @@ internal sealed class OverlayEditorScreen : ICanvasContext, ICanvasActions, IDis
         _float.ClearHover();
       TrackPointer(mouse);
     }
+    // The order panel beside the scene takes its own clicks and scrolling.
+    else if (_layersPanel.Contains(Input.mousePosition))
+      _float.ClearHover();
     else
       _float.Pointer(mouse);
     AdvanceFloatView(Time.unscaledDeltaTime);

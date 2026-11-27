@@ -1,3 +1,4 @@
+using Element.Presentation.OverlayEditor.Canvas.Layers;
 using System.Linq;
 using System.Collections.Generic;
 using Element.Domain.Layout;
@@ -6,6 +7,7 @@ using Element.Presentation.OverlayEditor.KeyViewers;
 using Element.Presentation.OverlayEditor;
 using Element.Presentation.OverlayEditor.FloatView;
 using UnityEngine;
+using ElementUI.Ugui;
 
 namespace Element.Editor
 {
@@ -42,7 +44,13 @@ namespace Element.Editor
         part.transform.localScale = i<14 ? new Vector3(.78f,.78f,.1f) : Vector3.one * .66f;
         part.GetComponent<Renderer>().sharedMaterial = i<14 ? tile : i==14 ? fire : ice;
       }
-      var button = ToolbarButton(editor, "Float view");
+      // Float view is in the order panel's head, which opens from Order.
+      Press(ToolbarButton(editor, "Layers"));
+      Settle();
+      var layersPanel = Field<LayersPanel>(editor, "_layersPanel");
+      Assert(layersPanel.Visible && ToolbarButton(editor, "Float view") == null, "Float view is not on the toolbar; Order opens the panel that has it");
+      var button = ByName<Pressable>(layersPanel.Root, "Float view");
+      Assert(Shown(button), "the order panel's head has Float view");
       SaveFrame(camera, texture, canvases, name + "-float-off");
       sample.gameObject.SetActive(false);
       var gameCamera = new GameObject("Fixture game camera").AddComponent<Camera>();
@@ -55,6 +63,8 @@ namespace Element.Editor
       gameCamera.Render();
       for (int i=0; i<40; i++) scene.Advance(.016f);
       Settle();
+      Assert(layersPanel.Visible && Shown(button) && layersPanel.ViewModel.Floating.Value,
+        "while Float view is on, the order panel stays beside it, its button lit, to turn it off");
       SaveFrame(camera, texture, canvases, name + "-float-on");
       CheckFloatHover(editor, scene, camera, texture, canvases, name);
       bool reduced = session.Preferences.ReduceUiMotion;
@@ -71,7 +81,10 @@ namespace Element.Editor
         "dragging empty space orbits in two axes and coasts on release");
       var chrome = editor.ToolbarBounds.center;
       Assert(!scene.Accepts(new Vector2(chrome.x/session.ViewWidth, 1-chrome.y/session.ViewHeight))
-        && scene.Accepts(new Vector2(.5f,.6f)), "native gestures start on the canvas and leave toolbar controls alone");
+        && scene.Accepts(new Vector2(.15f,.6f)), "native gestures start on the canvas and leave toolbar controls alone");
+      Rect panelRect = ScreenRectOf(layersPanel.Root);
+      Assert(!scene.Accepts(new Vector2(panelRect.center.x / Screen.width, panelRect.center.y / Screen.height)),
+        "and leave the order panel beside the scene alone: " + panelRect);
       scene.Orbit(new Vector2(0, 4));
       for (int i = 0; i < 20; i++) scene.Magnify(.2f);
       Assert(orbit.Pitch > 75 && orbit.Pitch < 84 && orbit.Zoom > 1.9f && orbit.Zoom < 2.14f,
@@ -103,10 +116,12 @@ namespace Element.Editor
       Call(editor, "Redo");
       Assert(order.Read().IndexOf(shape) == lifted, "redo restores the lifted depth");
       Call(editor, "Undo");
-      Press(ToolbarButton(editor, "Float view"));
+      Press(button);
       for (int i=0; i<60; i++) scene.Advance(.016f);
       Call(editor, "AdvanceFloatView", .016f);
       Assert(Field<FloatScene>(editor, "_float") == null, "closing releases the float scene");
+      Press(ToolbarButton(editor, "Layers"));
+      Settle();
       Object.DestroyImmediate(sample.gameObject);
       viewer.SetBounds(home);
       original.Restore(session.Host.LayoutSettings);

@@ -16,6 +16,7 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
 {
   private readonly CanvasSession _session;
   private readonly Func<Rect> _toolbar;
+  private readonly Func<Vector2, bool> _beside;
   private readonly FloatOrbit _orbit = new();
   private readonly FloatOrder _order;
   private readonly FloatHover _hover;
@@ -45,13 +46,19 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
   private int _nativeFrame = -1;
   public bool Open = true;
 
+  /// <param name="beside">
+  /// Whether a point (0–1 from the bottom left) is over the order panel
+  /// beside the scene, which takes its own gestures.
+  /// </param>
   public FloatScene(
     CanvasSession session,
     Func<Rect> toolbar,
     Func<IOverlayLayoutTarget, string> label,
-    CanvasCursors cursors
+    CanvasCursors cursors,
+    Func<Vector2, bool> beside
   )
   {
+    _beside = beside;
     _session = session;
     _toolbar = toolbar;
     _order = new FloatOrder(session);
@@ -314,7 +321,8 @@ internal sealed class FloatScene : IDisposable, ITrackpadViewport
     && p.y >= 0
     && p.x <= 1
     && p.y <= 1
-    && !_toolbar().Contains(new Vector2(p.x * _session.ViewWidth, (1 - p.y) * _session.ViewHeight));
+    && !_toolbar().Contains(new Vector2(p.x * _session.ViewWidth, (1 - p.y) * _session.ViewHeight))
+    && !_beside(p);
 
   public void SuppressWheel() => _nativeFrame = Time.frameCount;
 

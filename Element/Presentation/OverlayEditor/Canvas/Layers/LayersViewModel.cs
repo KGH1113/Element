@@ -43,13 +43,28 @@ internal sealed class LayersViewModel : ViewModel
   private int _stamp;
   private bool _carrying;
 
-  public LayersViewModel(CanvasSession session, CanvasSelection selection, ElementKinds kinds, ICanvasActions canvas)
+  /// <param name="floating">Whether Float view is on: its button in the panel is lit.</param>
+  public LayersViewModel(
+    CanvasSession session,
+    CanvasSelection selection,
+    ElementKinds kinds,
+    ICanvasActions canvas,
+    State<bool> floating
+  )
   {
     _session = session;
     _selection = selection;
     _kinds = kinds;
     _canvas = canvas;
+    Floating = floating;
+    ToggleFloatView = Command(canvas.ToggleFloatView);
   }
+
+  /// <summary>Float view: the elements stand apart in depth, in the order the cards show.</summary>
+  public Command ToggleFloatView { get; }
+
+  /// <summary>Float view is on.</summary>
+  public readonly State<bool> Floating;
 
   /// <summary>The cards, front-most first.</summary>
   public LayerRowViewModel[] Rows = Array.Empty<LayerRowViewModel>();
@@ -102,6 +117,7 @@ internal sealed class LayersViewModel : ViewModel
       header.Child = false;
       header.Name = GroupNames.Of(layouts, group);
       header.Count = members.Count.ToString();
+      header.What = L("요소 " + members.Count + "개", members.Count == 1 ? "1 element" : members.Count + " elements");
       header.Open = _open.Contains(group);
       header.Selected = wholeGroup == group;
       header.Rail = RailOf(group);
@@ -273,6 +289,7 @@ internal sealed class LayersViewModel : ViewModel
     row.Header = false;
     row.Child = child;
     row.Name = target != null ? _kinds.Label(target) : layout.Id;
+    row.What = target != null ? _kinds.KindName(target) : "";
     row.Count = "";
     row.Open = false;
     row.Selected =
@@ -359,6 +376,9 @@ internal sealed class LayersViewModel : ViewModel
     _byKey.Clear();
   }
 
-  /// <summary>The words over the list.</summary>
-  public static string Caption => L("위에 있을수록 앞에 보여요", "Higher in the list shows in front");
+  /// <summary>The top of the list: what is in front.</summary>
+  public static string Front => L("앞", "Front");
+
+  /// <summary>The bottom of the list, beside the game: what is at the back.</summary>
+  public static string Back => L("맨 뒤", "Back");
 }

@@ -19,11 +19,18 @@ namespace Element.Presentation.OverlayEditor.Canvas.Layers;
 internal sealed class LayersView : View<LayersViewModel>
 {
   /// <summary>How tall the cards may stand before they scroll.</summary>
-  public const float ListHeight = 360;
+  public const float ListHeight = 440;
+
+  private const float Gap = 6,
+    HeadHeight = 36;
 
   private static readonly UiColor GameFill = new Color(.06f, .075f, .11f);
 
   private readonly UiColor _accent = UiPalette.Accent;
+  private readonly UiColor _lit = UiPalette.SoftAccent;
+  private readonly UiColor _litFill = UiPalette.Wash(UiPalette.AccentSurface, .06f);
+  private readonly UiColor _buttonFill = UiPalette.Wash(UiPalette.EditorDim, .1f);
+  private readonly UiColor _clear = new Color(0, 0, 0, 0);
   private readonly Func<string, RectTransform, IDisposable> _track;
   private readonly Func<IReadOnlyList<string>, RectTransform, IDisposable> _thumbnail;
   private readonly IDropDestination<LayerDrag> _drop;
@@ -43,26 +50,52 @@ internal sealed class LayersView : View<LayersViewModel>
 
   public override View Body =>
     VStack(
-        spacing: 6,
-        // How to read the stack, in one line: the button below already says what this is.
-        HStack(
-            spacing: 8,
-            Image(ElementIcons.Of(UiIconKind.Up), 16).Foreground(Colors.Muted),
-            Text(LayersViewModel.Caption).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1)
-          )
-          .Padding(new Insets(2, 6, 2, 6))
-          .Frame(maxWidth: float.PositiveInfinity, height: 24, alignment: Alignment.Leading),
+        spacing: Gap,
+        Head(),
         ScrollView(
             VStack(
-              spacing: 3,
+              spacing: Gap,
               ForEach(() => VM.Rows, row => row.Key, slot => new LayerRowView(slot, VM, _track, _thumbnail))
             )
           )
           .Frame(maxHeight: ListHeight),
         Game()
       )
-      .Padding(8)
+      .Padding(12)
       .DropDestination(_drop);
+
+  // Over the list: the word for its top end, what is in front, and Float view, which shows the same order in depth.
+  private View Head() =>
+    HStack(
+        spacing: 8,
+        Image(ElementIcons.Of(UiIconKind.Up), 16).Foreground(Colors.Muted),
+        Text(LayersViewModel.Front).Font(Font.Callout.Sized(15)).Foreground(Colors.Muted).LineLimit(1).Named("Front"),
+        Spacer(),
+        FloatButton()
+      )
+      .Padding(new Insets(0, 6, 0, 0))
+      .Frame(maxWidth: float.PositiveInfinity, height: HeadHeight);
+
+  // Lit while it is on; the same press turns it off.
+  private View FloatButton() =>
+    Button(
+        HStack(
+            spacing: 8,
+            Image(ElementIcons.Of(UiIconKind.Float), 18).Foreground(() => VM.Floating.Value ? _lit : Colors.Foreground),
+            Text(L("띄워 보기", "Float view"))
+              .Font(Font.Callout.Sized(15))
+              .Foreground(() => VM.Floating.Value ? _lit : Colors.Foreground)
+              .LineLimit(1)
+          )
+          .Padding(new Insets(0, 14, 0, 16))
+          .Frame(height: HeadHeight),
+        () => VM.ToggleFloatView,
+        ButtonStyle.Plain
+      )
+      .ButtonStyle(new ButtonSurfaceStyle(() => VM.Floating.Value ? _litFill : _buttonFill, HeadHeight / 2))
+      .Overlay(Capsule().Stroke(() => VM.Floating.Value ? _lit : _clear, 2).AllowsHitTesting(false))
+      .Named("Float view")
+      .Frame(height: HeadHeight);
 
   // The game is the last card: everything else is drawn over it.
   private View Game() =>
@@ -70,14 +103,14 @@ internal sealed class LayersView : View<LayersViewModel>
         spacing: 8,
         Spacer()
           .Frame(width: LayerRowView.ThumbWidth, height: LayerRowView.ThumbHeight)
-          .Background(GameFill, 5, UiPalette.Wash(UiPalette.EditorDim, .14f)),
-        Text(L("게임 화면", "The game")).Font(Font.Callout.Sized(13)).Foreground(Colors.Muted).LineLimit(1),
+          .Background(GameFill, 7, UiPalette.Wash(UiPalette.EditorDim, .14f)),
+        Text(L("게임 화면", "The game")).Font(Font.Body.Sized(16)).Foreground(Colors.Muted).LineLimit(1),
         Spacer(),
-        Text(L("맨 뒤", "Back")).Font(Font.Caption.Sized(11)).Foreground(Colors.Muted)
+        Text(LayersViewModel.Back).Font(Font.Callout.Sized(14)).Foreground(Colors.Muted).Named("Back")
       )
-      .Padding(new Insets(0, 6, 0, 8))
+      .Padding(new Insets(0, 8, 0, 12))
       .Frame(height: LayerRowView.Height)
-      .Background(UiPalette.Wash(UiPalette.EditorDim, .045f), 8)
+      .Background(UiPalette.Wash(UiPalette.EditorDim, .045f), 10)
       .Overlay(
         Spacer()
           .Frame(maxWidth: float.PositiveInfinity, height: 2)

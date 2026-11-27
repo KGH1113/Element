@@ -44,7 +44,12 @@ internal sealed class LinePieceView : View<LinePieceViewModel>
             () => Spacer().Frame(width: 14, height: 14).Background(() => VM.Swatch, 7).Padding(new Insets(0, 2, 0, 0)),
             () => TypeMarks.Mark(() => VM.Type, 18)
           ),
-          Text(() => VM.Label).Font(Font.Body.Sized(17)).Foreground(Colors.Foreground).LineLimit(1)
+          // Words not typed yet: the hollow box they have everywhere. A piece keeps its view as it is typed into.
+          If(
+            () => VM.Blank,
+            () => BlankWords.Box(17),
+            () => Text(() => VM.Label).Font(Font.Body.Sized(17)).Foreground(Colors.Foreground).LineLimit(1)
+          )
         ),
         () => _line.Pick(VM.Route, VM.Index),
         ButtonStyle.Plain

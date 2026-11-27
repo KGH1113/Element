@@ -94,7 +94,7 @@ internal static class FieldChips
         return new FieldChip(key, L("계산", "Calculation"), around);
       case OverlayPieceKind.Text:
         string words = piece.Text.Length > 8 ? piece.Text.Substring(0, 7) + "…" : piece.Text;
-        return new FieldChip(key, words, type);
+        return new FieldChip(key, words, type) { Blank = piece.Text.Length == 0 };
       case OverlayPieceKind.Color:
         return new FieldChip(key, piece.Text, OverlayValueType.Color)
         {

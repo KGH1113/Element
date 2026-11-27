@@ -55,6 +55,9 @@ internal sealed class ConditionSlotViewModel : ViewModel
   /// <summary>What it holds in a word or two, where there is no room for pills: its first value's name, "…" after it for more.</summary>
   public readonly State<string> Brief = new("");
 
+  /// <summary>Its first value is words not typed yet: where pills have no room, a hollow box stands for them.</summary>
+  public readonly State<bool> LeadBlank = new(false);
+
   /// <summary>It holds one condition, and nothing else.</summary>
   public readonly State<bool> Nested = new(false);
 

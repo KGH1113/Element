@@ -112,6 +112,8 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
             : HStack(
               spacing: 3,
               Switch(() => slot.Lead.Value, type => TypeMarks.Letter(type, 12)),
+              // Words not typed yet: the hollow box they have everywhere.
+              If(() => slot.LeadBlank.Value, () => BlankWords.Box(11.5f)),
               Text(() => slot.Brief.Value)
                 .Font(Font.Caption.Sized(11.5f))
                 .LineLimit(1)
@@ -145,7 +147,11 @@ internal sealed class ConditionStripView : View<ConditionFormViewModel>
               nested =>
                 nested
                   ? Image(ElementIcons.Of(UiIconKind.Fork), 18).Foreground(Colors.Foreground)
-                  : Switch(() => slot.Lead.Value, type => TypeMarks.Letter(type, 12))
+                  : Switch(
+                    () => slot.LeadBlank.Value,
+                    blank =>
+                      blank ? BlankWords.Box(11.5f) : Switch(() => slot.Lead.Value, type => TypeMarks.Letter(type, 12))
+                  )
             ),
             _ => Blank(slot),
           }

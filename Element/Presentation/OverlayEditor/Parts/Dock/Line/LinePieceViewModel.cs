@@ -29,6 +29,9 @@ internal sealed class LinePieceViewModel : ViewModel
   /// <summary>What it says: "120", "%", "X-정확도", "×".</summary>
   public string Label = "";
 
+  /// <summary>Words not typed yet: a hollow box stands where they would be.</summary>
+  public bool Blank;
+
   /// <summary>What it gives, for its mark.</summary>
   public OverlayValueType Type;
 

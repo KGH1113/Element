@@ -57,8 +57,8 @@ internal sealed class FieldChipView : View<FieldChip>
           : chip.HasSwatch ? TypeMarks.Swatch(chip.Swatch, 12)
           : chip.Glyph != null ? TypeMarks.Mark(chip.Glyph, 16)
           : TypeMarks.Mark(chip.Type, 16);
-        View words = Text(chip.Label).Font(Font.Caption.Sized(13)).LineLimit(1);
-        if (_widest > 0)
+        View words = chip.Blank ? BlankWords.Box(13) : Text(chip.Label).Font(Font.Caption.Sized(13)).LineLimit(1);
+        if (_widest > 0 && !chip.Blank)
           words = words.Frame(maxWidth: _widest);
         return HStack(spacing: 5, mark, words)
           .Padding(new Insets(0, 6, 0, 10))
@@ -71,7 +71,11 @@ internal sealed class FieldChipView : View<FieldChip>
         : chip.Glyph != null ? TypeMarks.Letter(chip.Glyph, 14)
         : TypeMarks.Letter(chip.Type, 14);
       // A pill, its mark only the glyph: the row's own mark already has the tile.
-      return HStack(spacing: 3, lead, Text(chip.Label).Font(Font.Caption.Sized(12)).LineLimit(1))
+      return HStack(
+          spacing: 3,
+          lead,
+          chip.Blank ? BlankWords.Box(12) : Text(chip.Label).Font(Font.Caption.Sized(12)).LineLimit(1)
+        )
         .Padding(new Insets(0, 5, 0, 9))
         .Frame(height: Height)
         .Background(Fill, Height / 2);

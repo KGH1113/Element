@@ -147,6 +147,7 @@ internal sealed class ConditionFormViewModel : ViewModel
     FieldChip[] chips = held.IsEmpty ? Nothing : FieldChips.Of(held, type, most);
     row.Chips.Value = chips;
     row.Brief.Value = chips.Length == 0 ? "" : chips[0].Label + (held.Count > 1 ? "…" : "");
+    row.LeadBlank.Value = chips.Length > 0 && chips[0].Blank;
     row.Look.Value = held.IsEmpty ? ConditionSlotLook.Empty : ConditionSlotLook.Chips;
   }
 

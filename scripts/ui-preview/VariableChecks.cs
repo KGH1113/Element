@@ -550,6 +550,18 @@ namespace Element.Editor
         && fieldRect.xMin > boxRect.xMin + 20 && fieldRect.xMax <= boxRect.xMax && fieldRect.yMin >= boxRect.yMin - .5f && fieldRect.yMax <= boxRect.yMax + .5f,
         "the words' field is a box across the place under the strip, its type's mark before what is typed: " + boxRect + " / " + fieldRect + " / " + strip);
       SaveFrame(camera, texture, canvases, name + "-variable-words");
+      // Words not typed yet are one hollow box everywhere they are drawn: on the line, on the strip, and on the fork's tile.
+      Assert(Blanks(ByName<RectTransform>(dock.Root, "Formula line")) == 1 && Blanks(StripOf(dock)) == 1,
+        "words not typed yet are a hollow box on the line and on the strip, not an empty pill");
+      Press(StripBack(dock));
+      Settle();
+      Transform yesTile = ForkSlot(dock, OverlayPiece.Result).transform;
+      Assert(Blanks(yesTile) == 1 && !yesTile.GetComponentsInChildren<TextMeshProUGUI>(false).Any(label => label.text.Length == 0 && label.name != "Blank words"),
+        "back on the fork, the answer's words not typed yet are the same hollow box");
+      SaveFrame(camera, texture, canvases, name + "-variable-blank-words");
+      Press(ForkSlot(dock, OverlayPiece.Result));
+      Settle();
+      Assert(dock.Vm.Method.Value == DockMethod.Words && dock.Vm.Folded.Value, "back into the answer, its words' field again");
       // Typed words show on the line as they are, and in the preview in the value's place (the example combo is past 100).
       dock.Vm.Words = "Acc";
       Settle();
@@ -558,6 +570,7 @@ namespace Element.Editor
       Assert(dock.Vm.Line.Root.Pieces.Length == 1 && dock.Vm.Line.Root.Pieces[0].Label == "Acc" && !preview.ShowsNothing(at) && !blanks.Any(slot => slot.gameObject.activeSelf)
         && dock.Vm.Fold.Slots[OverlayPiece.Result].Brief.Value == "Acc",
         "typed words are on the line and the strip without quotes, and the preview shows them, the empty slot gone: " + dock.Vm.Line.Root.Pieces[0].Label);
+      Assert(Blanks(ByName<RectTransform>(dock.Root, "Formula line")) == 0 && Blanks(StripOf(dock)) == 0, "with words typed, no hollow box is left");
       // Backspace on the keyboard: a letter at a time, then the words themselves; never the text around the value.
       Assert(keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && dock.Vm.Words == "Ac" && keyboard.Key(KeyDown(KeyCode.Backspace, '\0')) && keyboard.Key(KeyDown(KeyCode.Backspace, '\0'))
         && dock.Vm.Words == "" && formulas.Editing.Working.Count == 1,
@@ -581,6 +594,10 @@ namespace Element.Editor
       Assert(document.Document.PlainText(0, document.Document.Count, _ => "<v>") == before && !blanks.Any(slot => slot.gameObject.activeSelf),
         "the text is as it was: " + document.Document.PlainText(0, document.Document.Count, _ => "<v>"));
     }
+
+    // How many hollow boxes for words not typed yet are drawn under a part.
+    private static int Blanks(Transform part) =>
+      part == null ? 0 : part.GetComponentsInChildren<RectTransform>(false).Count(box => box.name == "Blank words");
 
     private static Event KeyDown(KeyCode code, char character) => new() { type = EventType.KeyDown, keyCode = code, character = character };
 

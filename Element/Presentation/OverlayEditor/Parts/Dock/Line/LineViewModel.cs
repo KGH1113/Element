@@ -215,6 +215,7 @@ internal sealed class LineViewModel : ViewModel
     vm.Type = OverlayVariableTypes.TypeOf(piece);
     vm.HasSwatch = false;
     vm.Label = Label(piece);
+    vm.Blank = piece.Kind == OverlayPieceKind.Text && piece.Text.Length == 0;
     if (piece.Kind == OverlayPieceKind.Color)
     {
       vm.HasSwatch = true;

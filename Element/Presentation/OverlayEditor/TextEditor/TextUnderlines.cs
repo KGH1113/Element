@@ -20,8 +20,8 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 /// accent and thicker; the one under the pointer is brighter. A piece across
 /// lines gets a bracket on each line and its mark on the last; a mark that
 /// would reach the next line shows only for the picked or pointed piece. A
-/// value that shows nothing now has an empty slot standing in its place, the
-/// same outline an empty slot has on the dock's line.
+/// value that shows nothing now has a hollow box standing in its place, as
+/// words not typed yet have everywhere (<see cref="BlankWords"/>).
 /// </summary>
 internal sealed class TextUnderlines
 {
@@ -40,9 +40,6 @@ internal sealed class TextUnderlines
   private static readonly Color Tile = new(1, 1, 1, .1f);
 
   private static readonly Color Bright = new(1, 1, 1, .85f);
-
-  // An empty slot's outline, as quiet as an empty slot's on the dock's line.
-  private static readonly Color BlankEdge = new(1, 1, 1, .3f);
 
   // How much of the line an empty slot leaves under and over it.
   private const float BlankFoot = .2f,
@@ -334,7 +331,7 @@ internal sealed class TextUnderlines
   private Color BlankInk(Piece piece) =>
     piece.Lit ? UiPalette.SoftAccent
     : Hovered(piece) ? Bright
-    : BlankEdge;
+    : BlankWords.Edge;
 
   // The type's mark, centered under the piece's last line.
   private int Mark(Piece piece, Segment segment, float unit)

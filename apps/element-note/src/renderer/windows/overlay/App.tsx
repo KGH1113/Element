@@ -16,6 +16,7 @@ import { useNoteSystem } from '@hooks/overlay/useNoteSystem';
 import { useAppBootstrap } from '@hooks/app/useAppBootstrap';
 import { useBuiltinStatsSubscription } from '@hooks/overlay/useBuiltinStatsSubscription';
 import { useKeyStore } from '@stores/data/useKeyStore';
+import { keyLayoutInbox } from '@stores/data/keyLayoutInbox';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
@@ -29,11 +30,9 @@ import type { StatItemPosition } from '@src/types/key/statItems';
 import type { GraphItemPosition } from '@src/types/key/graphItems';
 import type { KnobItemPosition } from '@src/types/key/knobs';
 import { usePluginDisplayElementStore } from '@stores/plugin/usePluginDisplayElementStore';
-import OverlayScene from '@components/shared/OverlayScene';
-import { hasSpriteId } from '@utils/sprite/spriteIdentity';
+import { ViewerErrorBoundary } from '@components/shared/ViewerErrorBoundary';
+import { ViewerDrawing } from './ViewerDrawing';
 import { useSpriteStore } from '@stores/data/useSpriteStore';
-import { computeLayout } from '@hooks/shared/useLayoutComputation';
-import { publishViewerLayout } from '@api/viewerLayout';
 import { isKeyMappedToViewer } from './keyStateRouting';
 import { expandGhostKeys } from '@src/renderer/editor/model/ghostKeys';
 import { noteInputTiming } from '@utils/core/noteInputTiming';
@@ -101,12 +100,7 @@ export default function App() {
     const unsubscribe = window.api.bridge.on<{
       positions: Record<string, KeyPosition[]>;
     }>('positions:sync', (data) => {
-      if (data?.positions) {
-        useKeyStore.setState((state) => ({
-          ...state,
-          positions: data.positions,
-        }));
-      }
+      if (data?.positions) keyLayoutInbox.receivePositions(data.positions);
     });
     return () => unsubscribe();
   }, []);
@@ -599,141 +593,39 @@ export default function App() {
     };
   }, []);
 
-  const currentKeys = viewerKeys.keys;
-  const currentPositions = viewerKeys.positions;
-  const currentStatPositions = statPositions[selectedKeyType] ?? [];
-  const currentGraphPositions = graphPositions[selectedKeyType] ?? [];
-  const currentKnobPositions = knobPositions[selectedKeyType] ?? [];
-  const currentSpritePositions = (
-    spritePositions[selectedKeyType] ?? []
-  ).filter(hasSpriteId);
-
-  const {
-    bounds,
-    displayPositions,
-    displayStatPositions,
-    displayGraphPositions,
-    displayKnobPositions,
-    displaySpritePositions,
-    positionOffset,
-    webglTracks,
-  } = computeLayout({
-    currentKeys,
-    currentPositions,
-    currentStatPositions,
-    currentGraphPositions,
-    currentKnobPositions,
-    currentSpritePositions,
-    trackHeight,
-    noteSettings,
-    selectedKeyType,
-    pluginElements,
-    overlayPadding,
-  });
-
-  useEffect(() => {
-    updateTrackLayouts(webglTracks);
-  }, [webglTracks, updateTrackLayouts]);
-
-  // 이전 resize 값을 추적하여 실제로 변경되었을 때만 resize 호출
-  const lastResizeParams = useRef<{
-    width: number;
-    height: number;
-    anchor: string;
-    contentTopOffset: number;
-    minX: number;
-    minY: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (!bounds) {
-      publishViewerLayout(1, 1, 0);
-      return;
-    }
-
-    const keyAreaWidth = bounds.maxX - bounds.minX;
-    const keyAreaHeight = bounds.maxY - bounds.minY;
-    const extraTop = trackHeight;
-    const totalWidth = keyAreaWidth + overlayPadding * 2;
-    const totalHeight = keyAreaHeight + overlayPadding * 2 + extraTop;
-    publishViewerLayout(totalWidth, totalHeight, overlayPadding);
-    const contentTopOffset = extraTop + overlayPadding;
-    const currentMinX = bounds.minX;
-    const currentMinY = bounds.minY;
-
-    // 이전 값과 비교하여 실제로 변경되었을 때만 resize 호출
-    const lastParams = lastResizeParams.current;
-    const fixedPositionAnchor = overlayAnchor === 'fixed-position';
-    const fixedPositionDeltaX =
-      fixedPositionAnchor && lastParams?.anchor === 'fixed-position'
-        ? currentMinX - lastParams.minX
-        : 0;
-    const fixedPositionDeltaY =
-      fixedPositionAnchor && lastParams?.anchor === 'fixed-position'
-        ? currentMinY - lastParams.minY
-        : 0;
-    if (
-      lastParams &&
-      Math.abs(lastParams.width - totalWidth) < 0.5 &&
-      Math.abs(lastParams.height - totalHeight) < 0.5 &&
-      lastParams.anchor === overlayAnchor &&
-      Math.abs(lastParams.contentTopOffset - contentTopOffset) < 0.5 &&
-      (!fixedPositionAnchor ||
-        (Math.abs(lastParams.minX - currentMinX) < 0.5 &&
-          Math.abs(lastParams.minY - currentMinY) < 0.5))
-    ) {
-      return; // 변경사항 없음, resize 건너뛰기
-    }
-
-    lastResizeParams.current = {
-      width: totalWidth,
-      height: totalHeight,
-      anchor: overlayAnchor,
-      contentTopOffset,
-      minX: currentMinX,
-      minY: currentMinY,
-    };
-
-    window.api.overlay
-      .resize({
-        viewerKind: viewerKind ?? 'hand',
-        width: totalWidth,
-        height: totalHeight,
-        anchor: overlayAnchor,
-        contentTopOffset,
-        fixedPositionDeltaX: fixedPositionAnchor
-          ? fixedPositionDeltaX
-          : undefined,
-        fixedPositionDeltaY: fixedPositionAnchor
-          ? fixedPositionDeltaY
-          : undefined,
-      })
-      .catch((error) => {
-        console.error('Failed to resize overlay window', error);
-      });
-  }, [bounds, trackHeight, overlayAnchor, overlayPadding, viewerKind]);
-
   return (
-    <OverlayScene
-      currentKeys={currentKeys}
-      pairedKeys={viewerKeys.pairedKeys}
-      displayPositions={displayPositions}
-      currentPositions={currentPositions}
-      displayStatPositions={displayStatPositions}
-      displayGraphPositions={displayGraphPositions}
-      displayKnobPositions={displayKnobPositions}
-      displaySpritePositions={displaySpritePositions}
-      selectedKeyType={selectedKeyType}
-      noteEffect={noteEffect}
-      noteSettings={noteSettings}
-      webglTracks={webglTracks}
-      notesRef={notesRef}
-      subscribe={subscribe}
-      noteBuffer={noteBuffer}
-      backgroundColor={backgroundColor}
-      positionOffset={positionOffset}
-      onMouseDownCapture={handleOverlayMouseDownCapture}
-      showPluginElements={true}
-    />
+    <ViewerErrorBoundary
+      retryOn={[
+        viewerKeys,
+        selectedKeyType,
+        statPositions,
+        graphPositions,
+        knobPositions,
+        spritePositions,
+        pluginElements,
+      ]}
+    >
+      <ViewerDrawing
+        viewerKind={viewerKind}
+        viewerKeys={viewerKeys}
+        selectedKeyType={selectedKeyType}
+        statPositions={statPositions}
+        graphPositions={graphPositions}
+        knobPositions={knobPositions}
+        spritePositions={spritePositions}
+        pluginElements={pluginElements}
+        trackHeight={trackHeight}
+        overlayPadding={overlayPadding}
+        overlayAnchor={overlayAnchor}
+        updateTrackLayouts={updateTrackLayouts}
+        noteEffect={noteEffect}
+        noteSettings={noteSettings}
+        notesRef={notesRef}
+        subscribe={subscribe}
+        noteBuffer={noteBuffer}
+        backgroundColor={backgroundColor}
+        onMouseDownCapture={handleOverlayMouseDownCapture}
+      />
+    </ViewerErrorBoundary>
   );
 }

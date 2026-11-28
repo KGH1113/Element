@@ -15,7 +15,11 @@ internal sealed class TextKind : ContentElementKind<TextOverlayElement>
   public TextKind(ICanvasContext context, ICanvasActions canvas)
     : base(context, canvas) { }
 
-  public override string Label(IOverlayLayoutTarget target) => L("텍스트", "Text");
+  // What it says, so the toolbar and the layer cards tell texts apart.
+  public override string Label(IOverlayLayoutTarget target) =>
+    target is TextOverlayElement text ? text.Words : L("텍스트", "Text");
+
+  public override string KindName(IOverlayLayoutTarget target) => L("텍스트", "Text");
 
   public override string EditCaption => L("텍스트 편집", "Edit text");
 

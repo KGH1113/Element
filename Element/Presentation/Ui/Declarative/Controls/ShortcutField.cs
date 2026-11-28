@@ -20,7 +20,8 @@ namespace Element.Presentation.Ui.Declarative.Controls;
 /// </summary>
 internal sealed class ShortcutField : View<ShortcutFieldViewModel>
 {
-  private const float FieldHeight = 44;
+  private const float FieldHeight = 44,
+    Radius = 10;
 
   private readonly UiIconKind _actIcon;
   private readonly string _actHint;
@@ -56,10 +57,11 @@ internal sealed class ShortcutField : View<ShortcutFieldViewModel>
             () => VM.Record,
             ButtonStyle.Plain
           )
+          .ButtonStyle(SurfaceHover.Of(Radius))
           .Configure<Selectable, bool>(() => VM.Recording, KeepFocus())
           .Configure<GameObject>(button => button.name = _name ?? button.name)
           .Frame(height: FieldHeight)
-          .Background(Colors.Background, 10, Colors.Line),
+          .Background(Colors.Background, Radius, Colors.Line),
         ActButton()
       ),
       If(
@@ -73,10 +75,11 @@ internal sealed class ShortcutField : View<ShortcutFieldViewModel>
     View button = Button(
         Image(ElementIcons.Of(_actIcon), 24).Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
         () => VM.Act,
-        ButtonStyle.Icon
+        ButtonStyle.Plain
       )
+      .ButtonStyle(SurfaceHover.Of(Radius))
       .Frame(width: FieldHeight, height: FieldHeight)
-      .Background(Colors.Background, 10, Colors.Line);
+      .Background(Colors.Background, Radius, Colors.Line);
     return string.IsNullOrEmpty(_actHint) ? button : button.Hint(_actHint);
   }
 

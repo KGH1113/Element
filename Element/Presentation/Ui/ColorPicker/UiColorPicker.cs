@@ -28,6 +28,9 @@ internal sealed class UiColorPicker : IDisposable
   private readonly Func<bool> _reduceMotion;
   private readonly UiFactory _ui;
   private readonly ScreenPanel _panel;
+
+  // A gradient's picked color, in the compact place under its controls; made the first time one shows.
+  private ScreenPanel _plane;
   private readonly ColorPickerParts _parts;
   private readonly List<TMP_InputField> _fields = new();
   private Shape _shape;
@@ -72,12 +75,95 @@ internal sealed class UiColorPicker : IDisposable
 
     // An overlay color that can only be solid: Highlight/Custom over its own controls.
     SourceColumn,
+
+    // A solid overlay color picked in the place of a keypad: the square, hue and HEX.
+    Compact,
   }
+
+  private float _compactWidth,
+    _compactHeight;
+
+  /// <summary>
+  /// Solid colors are picked in a place <paramref name="width"/> by
+  /// <paramref name="height"/>, such as where a keypad is: only the square,
+  /// its hue and HEX, the opacity being a field of the owner's. A gradient
+  /// still takes the two columns with its color bar.
+  /// </summary>
+  public void UseCompact(float width, float height)
+  {
+    bool changed =
+      _compactHeight > 0
+      && (!Mathf.Approximately(width, _compactWidth) || !Mathf.Approximately(height, _compactHeight));
+    _compactWidth = width;
+    _compactHeight = height;
+    // The place grew or shrank under it: what stands there is laid out for it again.
+    if (changed && _shape == Shape.Compact)
+    {
+      _shape = Shape.None;
+      Mount(Shape.Compact);
+    }
+  }
+
+  // With a compact place, a gradient's tool splits in two: its controls one
+  // column wide, and the picked color's square in the compact place.
+  private bool Split => _column && _compactHeight > 0;
+
+  /// <summary>
+  /// A gradient's picked color (the square, hue and opacity), which stands
+  /// in the compact place while the gradient's controls show; null until a
+  /// gradient was shown, and inactive while none is.
+  /// </summary>
+  public RectTransform PlaneRoot => _plane?.Root;
+
+  /// <summary>
+  /// The compact place is taken by something else for now (a number of the
+  /// gradient is being typed on the keypad): the picked color's square shows
+  /// nothing and takes no clicks.
+  /// </summary>
+  public bool PlaneResting
+  {
+    set
+    {
+      if (_plane == null)
+        return;
+      CanvasGroup group = _plane.Root.GetComponent<CanvasGroup>();
+      if (group == null)
+        group = _plane.Root.gameObject.AddComponent<CanvasGroup>();
+      group.alpha = value ? 0 : 1;
+      group.blocksRaycasts = !value;
+    }
+  }
+
+  /// <summary>Whether it shows as a solid color in its compact place now.</summary>
+  public bool InCompactPlace => _shape == Shape.Compact;
+
+  /// <summary>
+  /// The owner shows another color than the one its other parts refresh (a
+  /// color's case): refreshes leave it alone until the owner shows its own again.
+  /// </summary>
+  public bool ShowsOther { get; set; }
 
   /// <summary>What the picker shows and does.</summary>
   public ColorPickerViewModel Model { get; }
 
   public RectTransform Root => _panel.Root;
+
+  /// <summary>
+  /// It stays open but shows nothing and takes no clicks: what is picked
+  /// now is no color (a number inside a condition that gives colors), and
+  /// that piece's own input method has the place under it.
+  /// </summary>
+  public bool Resting
+  {
+    set
+    {
+      CanvasGroup group = Root.GetComponent<CanvasGroup>();
+      if (group == null)
+        group = Root.gameObject.AddComponent<CanvasGroup>();
+      group.alpha = value ? 0 : 1;
+      group.blocksRaycasts = !value;
+    }
+  }
 
   /// <summary>The color bar of an overlay editor's picker: its stops, kinds and the picked stop.</summary>
   public UiGradientBar Gradient { get; }
@@ -98,8 +184,9 @@ internal sealed class UiColorPicker : IDisposable
   /// <summary>The width as laid out now.</summary>
   public float CurrentWidth =>
     !_column ? Width
-    : GradientAvailable ? TwoColumnsWidth
+    : GradientAvailable ? (Split ? _columnWidth : TwoColumnsWidth)
     : _shape == Shape.SourceColumn ? ColorPickerLayout.Column
+    : _shape == Shape.Compact ? _compactWidth
     : _columnWidth;
 
   public bool Column => _column;
@@ -159,6 +246,7 @@ internal sealed class UiColorPicker : IDisposable
   {
     Root.gameObject.SetActive(true);
     Mount(_column ? Shape.Column : Shape.Card);
+    ShowPlane();
     Model.Show(title, value, opacity, changed);
     Opened();
   }
@@ -180,14 +268,17 @@ internal sealed class UiColorPicker : IDisposable
   )
   {
     Root.gameObject.SetActive(true);
-    Mount(
-      !_column ? Shape.Card
-      : gradient ? Shape.TwoColumns
-      : Shape.SourceColumn
-    );
+    Mount(SourceShape(value, gradient));
+    ShowPlane();
     Model.ShowSource(title, value, changed, keepStop);
     Opened();
   }
+
+  private Shape SourceShape(OverlayColorSettings value, bool gradient) =>
+    !_column ? Shape.Card
+    : _compactHeight > 0 && (value == null || !value.IsGradient) ? Shape.Compact
+    : gradient ? Shape.TwoColumns
+    : Shape.SourceColumn;
 
   private void Opened()
   {
@@ -202,8 +293,15 @@ internal sealed class UiColorPicker : IDisposable
   /// </summary>
   public void Refresh(OverlayColorSettings value)
   {
-    if (Visible)
-      Model.Refresh(value);
+    // A color its owner shows instead of the one being refreshed isn't touched.
+    if (ShowsOther)
+      return;
+    if (!Visible)
+      return;
+    // Made a gradient, or back to one color: the place it needs changes.
+    if (_compactHeight > 0 && _column && (_shape == Shape.Compact || _shape == Shape.TwoColumns))
+      Mount(value != null && value.IsGradient ? Shape.TwoColumns : Shape.Compact);
+    Model.Refresh(value);
   }
 
   /// <summary>Moves the opacity to <paramref name="alpha"/> without reporting a change.</summary>
@@ -215,6 +313,7 @@ internal sealed class UiColorPicker : IDisposable
       return;
     Model.Closed();
     Root.gameObject.SetActive(false);
+    ShowPlane();
     InputGate.SetTextEditing(false);
     Hidden?.Invoke();
   }
@@ -233,15 +332,40 @@ internal sealed class UiColorPicker : IDisposable
     if (hidden)
       Root.gameObject.SetActive(true);
     Model.GradientShown = shape == Shape.TwoColumns;
+    bool split = shape == Shape.TwoColumns && Split;
     View view =
       shape == Shape.Card ? new ColorPickerCardView(Model, _parts)
       : shape == Shape.SourceColumn ? new ColorPickerSourceColumnView(Model, _parts)
-      : new ColorPickerColumnsView(Model, _parts, shape == Shape.TwoColumns, _columnWidth);
+      : shape == Shape.Compact ? new ColorPickerCompactView(Model, _parts, _compactWidth, _compactHeight)
+      : new ColorPickerColumnsView(Model, _parts, shape == Shape.TwoColumns, _columnWidth, split);
     _panel.Mount(NewBackend(), view, null, WidthOf(shape));
+    if (split && _plane == null)
+    {
+      _plane = new ScreenPanel("Color plane", Root.parent, Color.clear, keyboard: false);
+      _plane.Mount(
+        NewBackend(),
+        new ColorPickerPlaneView(Model, _parts, _compactWidth, _compactHeight),
+        null,
+        _compactWidth
+      );
+    }
     _stale = true;
     Fit();
     if (hidden)
       Root.gameObject.SetActive(false);
+    ShowPlane();
+  }
+
+  // The picked color's square shows with a gradient's controls, and goes with them.
+  private void ShowPlane()
+  {
+    if (_plane == null)
+      return;
+    bool shown = Visible && _shape == Shape.TwoColumns && Split;
+    if (_plane.Root.gameObject.activeSelf != shown)
+      _plane.Root.gameObject.SetActive(shown);
+    if (shown)
+      _plane.Sync();
   }
 
   // Fits the panel to what shows, after something that changes it.
@@ -262,8 +386,9 @@ internal sealed class UiColorPicker : IDisposable
     shape switch
     {
       Shape.Card => Width,
-      Shape.TwoColumns => TwoColumnsWidth,
+      Shape.TwoColumns => Split ? _columnWidth : TwoColumnsWidth,
       Shape.SourceColumn => ColorPickerLayout.Column,
+      Shape.Compact => _compactWidth,
       _ => _columnWidth,
     };
 
@@ -274,6 +399,7 @@ internal sealed class UiColorPicker : IDisposable
   {
     Model.Closed();
     _panel.Dispose();
+    _plane?.Dispose();
     Model.Dispose();
     _ui.Dispose();
   }

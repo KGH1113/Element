@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Domain.Overlay.Text;
 
@@ -228,6 +228,19 @@ internal sealed class OverlayTextDocument
       _items[i] = _items[i].WithColor(color.Clone());
   }
 
+  /// <summary>Gives each item's color the same cases (saved text; empty for none), keeping its own color.</summary>
+  public void SetColorCases(int start, int end, string cases)
+  {
+    Order(ref start, ref end);
+    cases ??= string.Empty;
+    for (int i = start; i < end; i++)
+    {
+      OverlayColorSettings color = _items[i].Color.Clone();
+      color.Formula = cases;
+      _items[i] = _items[i].WithColor(color);
+    }
+  }
+
   /// <summary>Changes only the opacity of each item's color; formulas give percent.</summary>
   public void SetAlpha(int start, int end, float alpha, string alphaFormula = null)
   {
@@ -243,36 +256,6 @@ internal sealed class OverlayTextDocument
   }
 
   /// <summary>
-  /// Makes the range's colors follow a value as <paramref name="color"/> says
-  /// (each item its own copy), or stop following one with null. Each item
-  /// keeps its own color underneath, which shows again once it stops.
-  /// </summary>
-  public void SetValueColor(int start, int end, OverlayValueColor color)
-  {
-    Order(ref start, ref end);
-    for (int i = start; i < end; i++)
-    {
-      OverlayColorSettings own = _items[i].Color.Clone();
-      own.ValueColor = color?.Clone();
-      _items[i] = _items[i].WithColor(own);
-    }
-  }
-
-  /// <summary>Whether the range's colors follow a value: all, none, or null for some of them; false when empty.</summary>
-  public bool? FollowsValue(int start, int end)
-  {
-    Order(ref start, ref end);
-    bool on = false,
-      off = false;
-    for (int i = start; i < end; i++)
-    {
-      on |= _items[i].Color.FollowsValue;
-      off |= !_items[i].Color.FollowsValue;
-    }
-    return on && off ? null : on;
-  }
-
-  /// <summary>
   /// Adds the values the range shows to <paramref name="output"/>, each once
   /// and in order; a calculation adds each value it uses.
   /// </summary>
@@ -283,10 +266,22 @@ internal sealed class OverlayTextDocument
     {
       if (!_items[i].IsValue)
         continue;
-      OverlayFormula formula = OverlayFormula.Parse(_items[i].Value);
-      for (int t = 0; t < formula.Count; t++)
-        if (formula[t].Kind == OverlayFormulaTokenKind.Value && !output.Contains(formula[t].Value))
-          output.Add(formula[t].Value);
+      Collect(OverlayVariable.Parse(_items[i].Value), output, 0);
+    }
+  }
+
+  // Every live value a variable reads, its slots included, in order.
+  private static void Collect(OverlayVariable variable, List<OverlayValueId> output, int depth)
+  {
+    if (depth > 16)
+      return;
+    for (int t = 0; t < variable.Count; t++)
+    {
+      OverlayPiece piece = variable[t];
+      if (piece.Kind == OverlayPieceKind.Value && !output.Contains(piece.Value))
+        output.Add(piece.Value);
+      foreach (OverlayVariable slot in piece.Slots)
+        Collect(slot, output, depth + 1);
     }
   }
 
@@ -431,7 +426,7 @@ internal sealed class OverlayTextDocument
   {
     if (string.IsNullOrEmpty(text))
       return string.Empty;
-    OverlayFormula formula = OverlayFormula.Parse(text);
+    OverlayVariable formula = OverlayVariable.Parse(text);
     return formula.IsEmpty ? string.Empty : formula.Serialize();
   }
 

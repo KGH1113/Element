@@ -20,5 +20,12 @@ internal interface INativeViewerHost : INativeViewerLayoutHost, IDisposable
 
   /// <summary>Normalized top-left panels; each radius is normalized to the view height.</summary>
   void ExcludeEditor(IReadOnlyList<LayoutExclusion> normalized);
+
+  /// <summary>
+  /// What overlay elements in front of the viewer <paramref name="kind"/> draw
+  /// over it: normalized top-left rectangles that don't overlap, left out of
+  /// its page; empty shows all of it. A library without covers ignores them.
+  /// </summary>
+  void Cover(string kind, IReadOnlyList<LayoutBounds> normalized);
   void ApplyHighlight(Color accent);
 }

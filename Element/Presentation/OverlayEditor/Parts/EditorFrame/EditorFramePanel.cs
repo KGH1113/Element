@@ -38,6 +38,9 @@ internal sealed class EditorFramePanel : IDisposable
   private readonly AnimatedFloat _fade;
   private readonly EditorFrameViewModel _top;
   private readonly List<ScreenPanel> _panels = new();
+  private readonly EditorDiscardAsk _discard;
+  private readonly Func<bool> _edited;
+  private readonly Action _cancel;
   private RectTransform _tip;
   private TextMeshProUGUI _tipText;
 
@@ -49,10 +52,13 @@ internal sealed class EditorFramePanel : IDisposable
     string title,
     Action cancel,
     Action done,
-    bool noticesInDock
+    bool noticesInDock,
+    Func<bool> edited
   )
   {
     _font = font;
+    _cancel = cancel;
+    _edited = edited;
     _reduceMotion = reduceMotion;
     ViewWidth = Screen.width;
     ViewHeight = Screen.height;
@@ -62,8 +68,19 @@ internal sealed class EditorFramePanel : IDisposable
     _fade = new AnimatedFloat(alpha => fadeGroup.alpha = alpha);
     _fade.Set(reduceMotion() ? 1 : 0);
     _fade.Set(1, reduceMotion() ? null : Motion.Linear(FadeSeconds));
-    // Deep enough that the game's own texts stay far behind the edited one.
-    Image dim = Ui.Panel("Dim", Root.transform, 0, 0, ViewWidth, ViewHeight, new Color(0, 0, 0, .92f), false);
+    // Deep enough that the game's own texts stay far behind the edited one. An
+    // editor with a dock fills the screen with its two columns, so the game's
+    // own screens (a level editor's panels) are dimmed nearly out.
+    Image dim = Ui.Panel(
+      "Dim",
+      Root.transform,
+      0,
+      0,
+      ViewWidth,
+      ViewHeight,
+      new Color(0, 0, 0, noticesInDock ? .965f : .92f),
+      false
+    );
     dim.raycastTarget = true;
     Stage = Ui.Rect("Stage", Root.transform, 0, 0, ViewWidth, ViewHeight);
     Scale = Mathf.Clamp(Mathf.Min(ViewWidth / 1120f, ViewHeight / 760f), .55f, 2f);
@@ -75,7 +92,9 @@ internal sealed class EditorFramePanel : IDisposable
     Measure.fontSize = 13;
     Measure.textWrappingMode = TextWrappingModes.NoWrap;
     Measure.color = Color.clear;
-    _top = new EditorFrameViewModel(name, title, cancel, done, noticesInDock);
+    _discard = new EditorDiscardAsk(this);
+    // Cancel throws the edit away: with anything changed, it asks first.
+    _top = new EditorFrameViewModel(name, title, Cancel, done, noticesInDock);
     // No fill: the dim is deep enough behind it. Its ends line up with the content below.
     // The screen's width but its margins, up to a limit only very wide screens reach.
     ContentWidth = Mathf.Min(1600, Width - Margin * 2);
@@ -131,13 +150,35 @@ internal sealed class EditorFramePanel : IDisposable
   public ElementBackend NewBackend() =>
     new(new ElementTheme(UiFonts.Choose(_font), _reduceMotion()) { Compact = true });
 
-  /// <summary>Fades in, and lets a notice go once it has been read.</summary>
+  /// <summary>Fades in, and lets a notice go once it has been read; Esc answers an open question.</summary>
   public void Tick()
   {
     if (_reduceMotion())
       _fade.Finish();
     _top.Tick();
+    _discard.Tick();
   }
+
+  /// <summary>
+  /// Cancel, as the header's button does it: right away when nothing
+  /// changed, else only once the player says to discard.
+  /// </summary>
+  public void Cancel()
+  {
+    if (_edited())
+      _discard.Ask(_cancel);
+    else
+      _cancel();
+  }
+
+  /// <summary>
+  /// Whether to throw the edit away is being asked (or was answered this
+  /// frame): the editor leaves the keys and clicks of the frame alone.
+  /// </summary>
+  public bool Asking => _discard.Holds;
+
+  /// <summary>The question's dialog while it is open; null otherwise.</summary>
+  public RectTransform DiscardDialog => _discard.Dialog;
 
   /// <summary>A screen point (origin bottom left) in frame units from the top left.</summary>
   public Vector2 ToFrame(Vector2 screen) => new(screen.x / Scale, (ViewHeight - screen.y) / Scale);
@@ -181,6 +222,7 @@ internal sealed class EditorFramePanel : IDisposable
 
   public void Dispose()
   {
+    _discard.Dispose();
     _fade.Dispose();
     foreach (ScreenPanel panel in _panels)
       panel.Dispose();

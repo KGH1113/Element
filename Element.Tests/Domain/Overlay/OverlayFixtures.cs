@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Tests.Domain.Overlay;
 
@@ -12,7 +12,7 @@ internal static class OverlayFixtures
 {
   internal static double Evaluate(string text, Numbers numbers, out bool time)
   {
-    if (!OverlayFormula.Parse(text).TryEvaluate(numbers, out double result, out time))
+    if (!OverlayVariable.Parse(text).TryNumber(numbers, out double result, out time))
       throw new InvalidOperationException(text + " should calculate");
     return result;
   }

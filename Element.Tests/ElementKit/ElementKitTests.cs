@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Mods;
 using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
@@ -150,7 +150,7 @@ internal static class ElementKitTests
       "markup in words is never read"
     );
     Check(
-      OverlayFormula.Parse("{Sample/left-keys}*2").TryEvaluate(values, out double doubled, out _) && doubled == 10,
+      OverlayVariable.Parse("{Sample/left-keys}*2").TryNumber(values, out double doubled, out _) && doubled == 10,
       "players calculate with it"
     );
 
@@ -215,7 +215,7 @@ internal static class ElementKitTests
       !Definition("Sample/left-keys").Available && !values.TryGet(left, out _),
       "a detached mod's values show nothing"
     );
-    Check(OverlayFormula.Parse("{Sample/left-keys}+1").Serialize() == "{Sample/left-keys}+1", "texts keep them");
+    Check(OverlayVariable.Parse("{Sample/left-keys}+1").Serialize() == "{Sample/left-keys}+1", "texts keep them");
     Attach();
     feed.Pump(values);
     Check(

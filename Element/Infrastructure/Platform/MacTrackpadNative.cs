@@ -65,7 +65,7 @@ internal sealed class MacTrackpadNative : IDisposable
     return Marshal.GetDelegateForFunctionPointer<T>(address);
   }
 
-  public void SetEnabled(bool enabled) => _enable(enabled ? 1 : 0);
+  public void SetEnabled(bool enabled, bool rotation = false) => _enable(enabled ? (rotation ? 2 : 1) : 0);
 
   public int Read(TrackpadEvent[] output) => _drain(output, output.Length);
 

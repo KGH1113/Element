@@ -1,6 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
 using Element.Presentation.OverlayEditor.Parts.Dock;
+using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
@@ -60,20 +61,42 @@ internal sealed class ColorPickerPanel
   {
     Picker = new UiColorPicker(frame, _font, _reduceMotion);
     Picker.Hidden = Hidden;
+    // Highlight or custom is a color value picked in the dock below.
+    Picker.Model.SourceInDock = true;
   }
 
   /// <summary>The opacity as a number; a click types it in the dock.</summary>
   public void BuildOpacity(UiFactory ui, Action activate) =>
     Opacity = new OpacityFieldView(ui, Picker, activate, _reduceMotion());
 
-  /// <summary>The color picker opens right above the keypad, in its column.</summary>
-  public void LayOutAbove(InputDockPanel dock) => Picker.LayOutAsColumn(dock.KeypadArea.width);
-
-  /// <summary>In the property column from <paramref name="top"/> (frame units), above the keypad.</summary>
-  public void Place(InputDockPanel dock, float top)
+  /// <summary>
+  /// A solid color is picked in the keypad's place, like any value's input
+  /// method. A gradient's tool is as wide as the column: its color bar and
+  /// numbers stand above the keypad, the picked color's square in the keypad's place.
+  /// </summary>
+  public void LayOutAbove(InputDockPanel dock)
   {
-    if (dock != null)
+    Picker.UseCompact(KeypadView.Width, KeypadView.MethodHeight);
+    Picker.LayOutAsColumn(dock.KeypadArea.width);
+  }
+
+  /// <summary>
+  /// In the property column from <paramref name="top"/> (frame units), above
+  /// the keypad. While <paramref name="typing"/> (a number is open on the
+  /// keypad), a gradient's color square gives the keypad's place back.
+  /// </summary>
+  public void Place(InputDockPanel dock, float top, bool typing)
+  {
+    if (dock == null)
+      return;
+    // The keypad's place is lower while a condition is folded over it.
+    Rect place = dock.MethodArea;
+    Picker.UseCompact(place.width, place.height);
+    if (Picker.InCompactPlace)
+      ColorPickerPlacement.PlaceOnKeypad(Picker, dock);
+    else
       ColorPickerPlacement.Place(Picker, dock, top);
+    Picker.PlaneResting = typing;
   }
 
   public void Dispose()
@@ -99,6 +122,8 @@ internal sealed class ColorPickerPanel
   )
   {
     RememberOnce();
+    // The picker knows nothing of the color's cases: they stay as they were.
+    color.Formula = before?.Formula ?? string.Empty;
     // A gradient's stops keep their own calculated opacities.
     if (!color.IsGradient)
       color = Opacity.Keep(before, color);
@@ -108,8 +133,14 @@ internal sealed class ColorPickerPanel
     return color;
   }
 
+  /// <summary>
+  /// The dock changed the color the picker is open on: it is the same undo
+  /// step as the picker's own changes since it opened.
+  /// </summary>
+  public void RememberChange() => RememberOnce();
+
   /// <summary>Takes the edit for undo before the first change since the picker opened.</summary>
-  public void RememberOnce()
+  private void RememberOnce()
   {
     if (_snapshotTaken)
       return;

@@ -391,9 +391,13 @@ internal sealed class UiGradientBar : IGradientBar
   {
     if (_working == null || _working.IsGradient)
       return;
+    // A gradient is always of custom colors: one made from the highlight color starts from it.
+    bool followed = _working.Highlight;
     int added = OverlayGradientEdits.AddStop(_working, 1, AccentHex);
     if (added < 0)
       return;
+    if (followed)
+      _host.LeftHighlight();
     _stop = added;
     _host.Relayout();
     ShowStop();
@@ -549,6 +553,11 @@ internal sealed class UiGradientBar : IGradientBar
     return _working.Clone();
   }
 
-  /// <summary>Makes every stop follow the highlight color, or each its own color again.</summary>
-  public void SetHighlight(bool highlight) => OverlayGradientEdits.SetHighlight(_working, highlight, AccentHex);
+  /// <summary>Follows the highlight color, a gradient becoming one color; or each stop its own color again.</summary>
+  public void SetHighlight(bool highlight)
+  {
+    OverlayGradientEdits.SetHighlight(_working, highlight, AccentHex);
+    if (!IsGradient)
+      _stop = 0;
+  }
 }

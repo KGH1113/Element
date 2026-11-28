@@ -1,7 +1,7 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
@@ -84,7 +84,8 @@ internal sealed class GradientEditing
       "Color position",
       "%",
       activatePosition,
-      reduceMotion
+      reduceMotion,
+      L("위치", "Position")
     );
     picker.Gradient.HasPosition = true;
     picker.Gradient.GradientBox = box;
@@ -115,7 +116,8 @@ internal sealed class GradientEditing
   /// </summary>
   public bool Refresh(OverlayColorSettings color)
   {
-    if (!_picker.Visible || color == null)
+    // While the picker shows a case's color, the gradient isn't what it edits.
+    if (!_picker.Visible || color == null || _picker.ShowsOther)
     {
       Handles.Hide();
       return false;
@@ -164,19 +166,19 @@ internal sealed class GradientEditing
   }
 
   /// <summary>A stop's position or opacity in percent: its formula, or the plain number to one decimal.</summary>
-  public static OverlayFormula ReadStop(OverlayGradientStop stop, bool position)
+  public static OverlayVariable ReadStop(OverlayGradientStop stop, bool position)
   {
     if (stop == null)
-      return new OverlayFormula();
+      return new OverlayVariable();
     string formula = position ? stop.PositionFormula : stop.AlphaFormula;
     if (!string.IsNullOrEmpty(formula))
-      return OverlayFormula.Parse(formula);
+      return OverlayVariable.Parse(formula);
     float plain = position ? stop.Position : stop.Alpha;
-    return OverlayFormula.FromNumber(Mathf.Round(Mathf.Clamp01(plain) * 1000) / 10);
+    return OverlayVariable.FromNumber(Mathf.Round(Mathf.Clamp01(plain) * 1000) / 10);
   }
 
   /// <summary>A plain percent replaces the stop's formula; a formula keeps the number underneath.</summary>
-  public static void WriteStop(OverlayGradientStop stop, bool position, OverlayFormula formula)
+  public static void WriteStop(OverlayGradientStop stop, bool position, OverlayVariable formula)
   {
     bool plain = formula.IsPlainNumber(out double percent);
     string text = plain ? "" : formula.Serialize();
@@ -195,17 +197,17 @@ internal sealed class GradientEditing
   }
 
   /// <summary>The angle in degrees over a <paramref name="width"/> by <paramref name="height"/> box: its formula, or the plain number.</summary>
-  public static OverlayFormula ReadAngle(OverlayColorSettings color, float width, float height)
+  public static OverlayVariable ReadAngle(OverlayColorSettings color, float width, float height)
   {
     if (color == null || !color.IsGradient)
-      return new OverlayFormula();
+      return new OverlayVariable();
     if (!string.IsNullOrEmpty(color.Gradient.AngleFormula))
-      return OverlayFormula.Parse(color.Gradient.AngleFormula);
-    return OverlayFormula.FromNumber(Mathf.Round(OverlayGradientMath.Angle(color.Gradient, width, height)) % 360);
+      return OverlayVariable.Parse(color.Gradient.AngleFormula);
+    return OverlayVariable.FromNumber(Mathf.Round(OverlayGradientMath.Angle(color.Gradient, width, height)) % 360);
   }
 
   /// <summary>A plain angle turns the gradient over the box; a formula keeps the turn underneath.</summary>
-  public static void WriteAngle(OverlayColorSettings color, OverlayFormula formula, float width, float height)
+  public static void WriteAngle(OverlayColorSettings color, OverlayVariable formula, float width, float height)
   {
     if (formula.IsPlainNumber(out double degrees))
     {

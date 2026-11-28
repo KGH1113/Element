@@ -1,8 +1,10 @@
 using Element.Configuration.Overlay;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Fonts;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Graphics;
@@ -14,8 +16,10 @@ namespace Element.Presentation.OverlayEditor.TextEditor;
 
 /// <summary>
 /// Fonts: like size and color, a font goes to the selected characters, or to
-/// the whole text when nothing is selected. Each pick shows on the text at
-/// once; one undo takes back everything tried while the list was open.
+/// the whole text when nothing is selected. The font field's input method is
+/// the font list, which stands in the dock where the keypad does. Each pick
+/// shows on the text at once; one undo takes back everything tried while the
+/// list was open.
 /// </summary>
 internal sealed class TextFonts
 {
@@ -42,9 +46,6 @@ internal sealed class TextFonts
   /// <summary>The font list; made by <see cref="Build"/>.</summary>
   public IPopover Popover => _fontPopover;
 
-  /// <summary>What the open list picks for, as the column's back row names it.</summary>
-  public string Title { get; private set; } = "";
-
   /// <summary>The font search has the keyboard.</summary>
   public bool IsTyping => _fontPopover.IsTyping;
 
@@ -58,9 +59,8 @@ internal sealed class TextFonts
       "Text font",
       L("폰트", "Font"),
       ToggleFont,
-      value: true,
-      icon: UiIconKind.Font,
-      opens: true
+      opens: true,
+      fieldGlyph: "Aa"
     );
 
   public void Build(EditorFramePanel screen, OverlayFonts fonts, bool reduceMotion)
@@ -69,6 +69,8 @@ internal sealed class TextFonts
     _fontPopover = new UiFontPopover(screen.Ui, screen.Frame, fonts, reduceMotion, PickFont, bare: true)
     {
       Hidden = () => _fontSnapshotTaken = false,
+      // It stands in the input method's place, which is smaller than a popover.
+      Compact = true,
     };
   }
 
@@ -86,8 +88,7 @@ internal sealed class TextFonts
     if (!open)
     {
       OverlayFonts fonts = _context.Element.Fonts;
-      Title = RangeTitle();
-      // The column's back row names the list; it needs no title of its own.
+      // The dock names the list; it needs no title of its own.
       _fontPopover.Show("", _text.RangeFont(), L("기본 폰트", "Default font"), DefaultFontName(fonts));
     }
     _editor.Render();
@@ -101,13 +102,9 @@ internal sealed class TextFonts
   {
     if (!Visible)
       return;
-    Title = RangeTitle();
     _fontSnapshotTaken = false;
     _fontPopover.SetCurrent(_text.RangeFont());
   }
-
-  private string RangeTitle() =>
-    _text.HasSelection ? L("선택한 글자 폰트", "Selected text font") : L("글자 폰트", "Text font");
 
   private void PickFont(string key)
   {
@@ -125,7 +122,11 @@ internal sealed class TextFonts
   }
 
   /// <summary>The bar names the range's font, lit while the list is open.</summary>
-  public void ShowButton() => _fontButton.Set(FontLabel(), false, _fontPopover.Visible);
+  public void ShowButton() =>
+    _fontButton.ShowField(
+      new FieldChip("font", FontLabel(), OverlayValueType.Any) { Glyph = "Aa" },
+      _fontPopover.Visible
+    );
 
   private string FontLabel()
   {
@@ -143,16 +144,21 @@ internal sealed class TextFonts
       ? L("메이플스토리", "MapleStory")
       : OverlayFonts.DisplayName(fonts.DefaultKey);
 
-  // In the property column from top (under its back row) like the color
-  // picker, above the keypad, a little wider for long names.
-  public void Place(InputDockPanel dock, float top)
+  /// <summary>
+  /// While the list is open, the dock shows the font field: on its line
+  /// <paramref name="whose"/> font and the font it is, the list in the input
+  /// method's place.
+  /// </summary>
+  public void ShowIn(InputDockViewModel dock, string whose) =>
+    dock.ShowChoice(DockMethod.Fonts, whose, L("폰트", "Font"), "Aa", FontLabel());
+
+  // Where the dock draws an input method: the list is the font field's.
+  public void Place(InputDockPanel dock)
   {
     if (_fontPopover == null || !_fontPopover.Visible || dock == null)
       return;
-    Rect keypad = dock.KeypadArea;
-    float width = Mathf.Max(keypad.width, UiFontPopover.PreferredWidth);
-    float height = Mathf.Min(UiFontPopover.PreferredHeight, dock.Top - 12 - top);
-    _fontPopover.Place(keypad.xMax - width, top, width, height);
+    Rect place = dock.MethodArea;
+    _fontPopover.Place(place.x, place.y, place.width, place.height);
     _fontPopover.Root.SetAsLastSibling();
   }
 }

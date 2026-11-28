@@ -1,6 +1,6 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Widgets;
@@ -38,7 +38,7 @@ internal sealed class OpacityFieldView
   /// result; <paramref name="fallback"/> is the plain opacity used while the
   /// formula has no result.
   /// </summary>
-  public void Show(OverlayFormula formula, double percent, float fallback, bool active)
+  public void Show(OverlayVariable formula, double percent, float fallback, bool active)
   {
     bool computed = !formula.IsEmpty && !formula.IsPlainNumber(out _);
     Field.Set(formula.IsEmpty ? "—" : FormulaFieldView.Number(percent), computed, active);
@@ -71,18 +71,18 @@ internal sealed class OpacityFieldView
   }
 
   /// <summary>An opacity as the dock reads it: the formula, or the plain percent.</summary>
-  public static OverlayFormula Read(OverlayColorSettings color)
+  public static OverlayVariable Read(OverlayColorSettings color)
   {
     if (color != null && !string.IsNullOrEmpty(color.AlphaFormula))
-      return OverlayFormula.Parse(color.AlphaFormula);
-    return OverlayFormula.FromNumber(Mathf.Round(Mathf.Clamp01(color?.Alpha ?? 1) * 100));
+      return OverlayVariable.Parse(color.AlphaFormula);
+    return OverlayVariable.FromNumber(Mathf.Round(Mathf.Clamp01(color?.Alpha ?? 1) * 100));
   }
 
   /// <summary>
   /// A copy of <paramref name="color"/> with the typed opacity: a plain
   /// percent replaces any formula, a formula keeps the plain opacity underneath.
   /// </summary>
-  public static OverlayColorSettings Write(OverlayColorSettings color, OverlayFormula formula)
+  public static OverlayColorSettings Write(OverlayColorSettings color, OverlayVariable formula)
   {
     OverlayColorSettings changed = (color ?? OverlayColorSettings.HighlightColor()).Clone();
     if (formula.IsPlainNumber(out double percent))
@@ -96,6 +96,6 @@ internal sealed class OpacityFieldView
   }
 
   /// <summary>A typed plain percent outside 0–100 was brought into range.</summary>
-  public static bool OutOfRange(OverlayFormula typed) =>
+  public static bool OutOfRange(OverlayVariable typed) =>
     typed != null && typed.IsPlainNumber(out double percent) && (percent < 0 || percent > 100);
 }

@@ -134,6 +134,17 @@ std::vector<WKWebView *> WebViews(NSWindow *window) {
 
 bool Nearly(CGFloat left, CGFloat right) { return std::abs(left - right) < 0.5; }
 
+// The native host every page sits in; each page sits in a clip of its own.
+NSView *HostOf(NSView *view) {
+  NSView *ancestor = view.superview;
+  while (ancestor != nil && ![NSStringFromClass(ancestor.class) isEqualToString:@"IRPGameWebViewHost"])
+    ancestor = ancestor.superview;
+  return ancestor;
+}
+
+// A page's frame in host points.
+NSRect PageFrame(NSView *view) { return [view.superview convertRect:view.frame toView:HostOf(view)]; }
+
 struct Api {
   int (*supported)(void);
   int (*surface)(const char *, const char *, int, int);
@@ -152,6 +163,7 @@ struct Api {
   void (*selected)(const char *, int);
   void (*highlight)(double, double, double);
   void (*exclusion)(double, double, double, double);
+  void (*covers)(const char *, const double *, int);
   void (*dispose)(void);
   const char *(*error)(void);
 };
@@ -182,10 +194,11 @@ int Run(const char *path) {
       reinterpret_cast<void (*)(const char *, int)>(dlsym(library, "irp_webview_set_selected")),
       reinterpret_cast<void (*)(double, double, double)>(dlsym(library, "irp_webview_set_highlight")),
       reinterpret_cast<void (*)(double, double, double, double)>(dlsym(library, "irp_webview_set_editor_exclusion")),
+      reinterpret_cast<void (*)(const char *, const double *, int)>(dlsym(library, "irp_webview_set_covers")),
       reinterpret_cast<void (*)(void)>(dlsym(library, "irp_webview_dispose")),
       reinterpret_cast<const char *(*)(void)>(dlsym(library, "irp_webview_last_error")),
   };
-  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.contentSize || !api.viewSize || !api.geometryRevision || !api.gameSize || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.dispose || !api.error) {
+  if (!api.supported || !api.surface || !api.visible || !api.layout || !api.setBounds || !api.referenceSize || !api.contentSize || !api.viewSize || !api.geometryRevision || !api.gameSize || !api.bounds || !api.selectionBounds || !api.pointer || !api.editing || !api.selected || !api.highlight || !api.exclusion || !api.covers || !api.dispose || !api.error) {
     fprintf(stderr, "FAIL: missing native viewer C ABI export\n");
     return 1;
   }
@@ -234,7 +247,7 @@ int Run(const char *path) {
              "attachment preserves game first responder")) return 1;
   // Test a host offset from the drawable without moving the user's pointer.
   // Both zero and nonzero offsets must map back to its real desktop position.
-  NSView *pointerHost = views[0].superview;
+  NSView *pointerHost = HostOf(views[0]);
   for (CGFloat offset : {0.0, 28.0}) {
     [pointerHost setFrameOrigin:NSMakePoint(0, offset)];
     double px, py;
@@ -249,11 +262,11 @@ int Run(const char *path) {
   }
   [pointerHost setFrameOrigin:NSZeroPoint];
   for (WKWebView *view : views) {
-    if (!check([view.superview hitTest:NSMakePoint(20, 20)] == nil &&
+    if (!check([HostOf(view) hitTest:NSMakePoint(20, 20)] == nil &&
                !view.acceptsFirstResponder && ![view becomeFirstResponder],
                "native content does not intercept input/focus")) return 1;
-    if (!check(view.frame.size.width <= 430.01 && view.frame.size.height <= 270.01 &&
-               Nearly(view.frame.origin.y, 16), "bounded bottom placement")) return 1;
+    if (!check(PageFrame(view).size.width <= 430.01 && PageFrame(view).size.height <= 270.01 &&
+               Nearly(PageFrame(view).origin.y, 16), "bounded bottom placement")) return 1;
     if (!check(![[view valueForKey:@"drawsBackground"] boolValue],
                "transparent WebKit background")) return 1;
   }
@@ -286,9 +299,9 @@ int Run(const char *path) {
   views = WebViews(game);
   CGFloat rightEdge = 0;
   for (WKWebView *view : views) {
-    rightEdge = std::max(rightEdge, NSMaxX(view.frame));
-    if (!check(NSMaxX(view.frame) <= game.contentView.bounds.size.width - 15.5 &&
-               Nearly(view.frame.size.width, 430) && Nearly(view.frame.origin.y, 16),
+    rightEdge = std::max(rightEdge, NSMaxX(PageFrame(view)));
+    if (!check(NSMaxX(PageFrame(view)) <= game.contentView.bounds.size.width - 15.5 &&
+               Nearly(PageFrame(view).size.width, 430) && Nearly(PageFrame(view).origin.y, 16),
                "window resize preserves CSS pixel size instead of fitting separate slots")) return 1;
   }
   if (!check(Nearly(rightEdge, 624), "foot surface follows right edge")) return 1;
@@ -345,7 +358,7 @@ int Run(const char *path) {
              Nearly(sw * 640, 120 * views[0].pageZoom) && Nearly(sh * 400, 60 * views[0].pageZoom),
              "selection geometry tracks changed key position and size while editing")) return 1;
   [views[0] evaluateJavaScript:@"document.getElementById('fixture').style.cssText=''" completionHandler:nil];
-  NSView *chrome = views[0].superview.subviews.lastObject;
+  NSView *chrome = HostOf(views[0]).subviews.lastObject;
   if (!check([NSStringFromClass(chrome.class) isEqualToString:@"IRPGameWebViewChrome"] &&
              !chrome.hidden && [chrome hitTest:NSMakePoint(320, 160)] == nil,
              "editing chrome draws above WebKit without intercepting game input")) return 1;
@@ -360,7 +373,7 @@ int Run(const char *path) {
   if (!check([mask isKindOfClass:CAShapeLayer.class] && [mask.fillRule isEqualToString:kCAFillRuleEvenOdd] &&
              !CGPathContainsPoint(mask.path, nullptr, CGPointMake(320, 50), true) &&
              CGPathContainsPoint(mask.path, nullptr, CGPointMake(100, 50), true) &&
-             chrome.superview == views[0].superview,
+             chrome.superview == HostOf(views[0]),
              "toolbar exclusion masks both WebKit and native chrome, preserving surrounding content")) return 1;
   api.exclusion(0, 0, 0.2, 0.2);
   if (!check(!CGPathContainsPoint(mask.path, nullptr, CGPointMake(30, 380), true) &&
@@ -373,6 +386,55 @@ int Run(const char *path) {
   if (!check(!CGPathContainsPoint(mask.path, nullptr, CGPointMake(640, 90), true) &&
              CGPathContainsPoint(mask.path, nullptr, CGPointMake(200, 90), true),
              "normalized toolbar exclusion follows window resizing")) return 1;
+
+  // Covers: overlay elements in front of a viewer are left out of it. Each
+  // page's clip has a mask of its own inside the host's editor mask, so the
+  // two may overlap, and covers stay outside editing.
+  NSView *handClip = views[0].superview;
+  auto clipPoint = [&](double nx, double ny) {
+    NSSize size = HostOf(views[0]).bounds.size;
+    return CGPointMake(nx * size.width - NSMinX(handClip.frame), (1 - ny) * size.height - NSMinY(handClip.frame));
+  };
+  if (!check(api.bounds("hand", &x, &y, &width, &height, &scale) == 1 && handClip.layer.mask == nil,
+             "a viewer starts without covers")) return 1;
+  // One cover inside the viewer, one reaching past its top left (kept to the viewer).
+  const double handCovers[] = {x + width * .5, y + height * .5, width * .25, height * .25,
+                               x - width, y - height, width * 1.2, height * 1.2};
+  api.covers("hand", handCovers, 2);
+  CAShapeLayer *coverMask = (CAShapeLayer *)handClip.layer.mask;
+  if (!check([coverMask isKindOfClass:CAShapeLayer.class] && [coverMask.fillRule isEqualToString:kCAFillRuleEvenOdd] &&
+             !CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .6, y + height * .6), true) &&
+             !CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .1, y + height * .1), true) &&
+             CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .9, y + height * .9), true) &&
+             CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .3, y + height * .6), true) &&
+             CGRectEqualToRect(CGPathGetBoundingBox(coverMask.path), NSRectToCGRect(handClip.bounds)) &&
+             HostOf(views[0]).layer.mask != nil && HostOf(views[0]).layer.mask != coverMask,
+             "covers are cut from the viewer's own clip, inside the editor mask and kept to the viewer")) return 1;
+  // The editor mask on the host draws y-up host points in the game; the clip's
+  // mask uses the same orientation only while both layers flip alike.
+  if (!check(handClip.layer.geometryFlipped == HostOf(views[0]).layer.geometryFlipped &&
+             handClip.layer.contentsAreFlipped == HostOf(views[0]).layer.contentsAreFlipped,
+             "the clip's mask is oriented like the host's editor mask")) return 1;
+  if (!check(views[1].superview.layer.mask == nil, "covers of one viewer leave the others whole")) return 1;
+  api.covers("hand", handCovers, 2);
+  if (!check(handClip.layer.mask == coverMask && coverMask.path != nullptr, "the same covers again change nothing")) return 1;
+  // Moving the viewer keeps each cover where it is on screen.
+  if (!check(api.layout("hand", 1, 0.52, 0.42, 0.6) == 1, "move the covered viewer")) return 1;
+  coverMask = (CAShapeLayer *)handClip.layer.mask;
+  if (!check(!CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .6, y + height * .6), true) &&
+             CGPathContainsPoint(coverMask.path, nullptr, clipPoint(x + width * .8, y + height * .8), true),
+             "covers stay on the screen spot they cover when the viewer moves")) return 1;
+  api.layout("hand", 1, 0.5, 0.4, 0.6);
+  api.editing(0);
+  if (!check(handClip.layer.mask != nil && HostOf(views[0]).layer.mask == nil,
+             "covers apply outside the editor, where its cutouts are gone")) return 1;
+  api.editing(1);
+  api.covers("hand", nullptr, 0);
+  if (!check(handClip.layer.mask == nil && HostOf(views[0]).layer.mask != nil,
+             "clearing covers shows the whole viewer and keeps the editor's cutouts")) return 1;
+  api.covers("main", handCovers, 1);
+  api.covers("hand", handCovers, -1);
+  if (!check(handClip.layer.mask == nil, "covers for unknown viewers or bad counts are ignored")) return 1;
   // Fullscreen at a lower resolution: Unity fits a wider game into the window
   // with bars above and below it. The host covers only the game, so a cutout
   // in game coordinates lands on the panel Unity draws.
@@ -422,10 +484,10 @@ int Run(const char *path) {
              "native movement allows exactly 90 percent offscreen")) return 1;
   if (!check(api.layout("hand", 1, NAN, 0.5, 1) == 0 && api.layout("hand", 1, 0.5, 0.5, -1) == 0,
              "reject non-finite geometry and negative scale")) return 1;
-  if (!check(api.layout("hand", 0, 0.5, 0.5, 1) == 1 && Nearly(views[0].frame.origin.x, 16) &&
-             Nearly(views[0].frame.origin.y, 16), "restore automatic placement")) return 1;
-  CGFloat originalWidth = views[0].frame.size.width;
-  CGFloat originalHeight = views[0].frame.size.height;
+  if (!check(api.layout("hand", 0, 0.5, 0.5, 1) == 1 && Nearly(PageFrame(views[0]).origin.x, 16) &&
+             Nearly(PageFrame(views[0]).origin.y, 16), "restore automatic placement")) return 1;
+  CGFloat originalWidth = PageFrame(views[0]).size.width;
+  CGFloat originalHeight = PageFrame(views[0]).size.height;
   __block bool paddingPublished = false;
   [views[0] evaluateJavaScript:@"window.fixturePadding({gridSettings:{overlayPadding:30}}); true"
             completionHandler:^(id result, NSError *error) { paddingPublished = error == nil && [result boolValue]; }];
@@ -434,12 +496,12 @@ int Run(const char *path) {
   CGFloat inset = 30 * views[0].pageZoom;
   if (!check(paddingPublished && Nearly(width * 1280, originalWidth - inset * 2) &&
              Nearly(height * 720, originalHeight - inset * 2) && Nearly(x * 1280, 16) &&
-             views[0].layer.mask != nil && Nearly(views[0].frame.size.width, originalWidth) &&
-             Nearly(views[0].frame.size.height, originalHeight),
+             views[0].layer.mask != nil && Nearly(PageFrame(views[0]).size.width, originalWidth) &&
+             Nearly(PageFrame(views[0]).size.height, originalHeight),
              "content padding is cropped from visual and hit bounds while preserving the CSS viewport and note area")) return 1;
   [views[0] evaluateJavaScript:@"window.fixturePadding({gridSettings:{overlayPadding:0}})" completionHandler:nil];
   Pump(0.2);
-  if (!check(views[0].layer.mask == nil && Nearly(views[0].frame.origin.x, 16),
+  if (!check(views[0].layer.mask == nil && Nearly(PageFrame(views[0]).origin.x, 16),
              "padding changes update without a viewer reload")) return 1;
 
   // Anchors and visibility policy are resolved by managed shared geometry. The
@@ -471,9 +533,9 @@ int Run(const char *path) {
              Nearly((1 - x - width) * 1280, 16 * 2.0 / 3) &&
              Nearly((1 - y - height) * 720, 16 * 2.0 / 3) && Nearly(scale, 1),
              "managed bottom-right rectangle preserves reference-unit margins and size")) return 1;
-  NSRect pointFrame = views[0].frame;
+  NSRect pointFrame = PageFrame(views[0]);
   if (!check(applyBottomRight(2560, 1440, 4.0 / 3, 1) == 1 &&
-             NSEqualRects(views[0].frame, pointFrame) && api.geometryRevision() == revision,
+             NSEqualRects(PageFrame(views[0]), pointFrame) && api.geometryRevision() == revision,
              "Retina game pixels map to the same AppKit frame without geometry revision feedback")) return 1;
   if (!check(applyBottomRight(1280, 720, 1, 1) == 1 &&
              api.bounds("hand", &x, &y, &width, &height, &scale) == 1 &&
@@ -522,7 +584,7 @@ int Run(const char *path) {
   Pump(.2);
   if (!viewportReady || server.requests.load() != requests)
     fprintf(stderr, "Resolved viewport: innerWidth=%.9f frameWidth=%.9f zoom=%.9f requests=%d expected=%d\n",
-      resolvedInnerWidth, views[0].frame.size.width, views[0].pageZoom, server.requests.load(), requests);
+      resolvedInnerWidth, PageFrame(views[0]).size.width, views[0].pageZoom, server.requests.load(), requests);
   if (!check(viewportReady && server.requests.load() == requests,
              "resolved geometry preserves CSS viewport within WebKit point rounding without page reload or IPC")) return 1;
   [views[0] evaluateJavaScript:@"window.fixturePadding({gridSettings:{overlayPadding:0}})" completionHandler:nil];
@@ -573,10 +635,10 @@ int Run(const char *path) {
     }];
     Pump(.1);
     revision = api.geometryRevision();
-    NSRect liveFrame = views[1].frame;
+    NSRect liveFrame = PageFrame(views[1]);
     if (!check(std::abs(cssViewport - cssWidth) * views[1].pageZoom < 1.001 &&
                api.surface("foot", source.UTF8String, 133, 395) == 1 &&
-               api.geometryRevision() == revision && NSEqualRects(views[1].frame, liveFrame) &&
+               api.geometryRevision() == revision && NSEqualRects(PageFrame(views[1]), liveFrame) &&
                server.requests.load() == requests,
                "descriptor polling cannot overwrite the live CSS viewport or reload the page")) return 1;
   }
@@ -638,9 +700,16 @@ int Run(const char *path) {
              "deleted viewers retain no editing or selection hit target")) return 1;
   if (!check(api.surface("hand", nullptr, 0, 0) == 1 && WebViews(game).empty(),
              "deleting both viewers removes both WebKit processes from host")) return 1;
+  // Covers sent before a viewer attaches apply once it does.
+  const double earlyCover[] = {0, 0, 1, 1};
+  api.covers("hand:first", earlyCover, 1);
   if (!check(api.surface("hand:first", source.UTF8String, 860, 540) == 1 &&
              api.surface("hand:second", source.UTF8String, 860, 540) == 1 && WebViews(game).size() == 2,
              "multiple instances can share one hand viewer source")) return 1;
+  int earlyCovered = 0;
+  for (WKWebView *view : WebViews(game))
+    if (view.superview.layer.mask != nil) earlyCovered++;
+  if (!check(earlyCovered == 1, "covers sent before a viewer attaches apply when it does, to it alone")) return 1;
   api.layout("hand:first", 1, .2, .3, .5);
   api.layout("hand:second", 1, .7, .6, 1.2);
   if (!check(api.bounds("hand:first", &x, &y, &width, &height, &scale) == 1 &&
@@ -651,16 +720,19 @@ int Run(const char *path) {
   if (!check(api.surface("hand:first", nullptr, 0, 0) == 1 && WebViews(game).size() == 1 &&
              api.bounds("hand:second", &x, &y, &width, &height, &scale) == 1,
              "deleting a duplicate leaves the other instance alive")) return 1;
+  api.covers("hand", earlyCover, 1);
   api.dispose();
   Pump(0.1);
   if (!check(WebViews(game).empty() && game.firstResponder == originalResponder,
              "dispose detaches native views and preserves focus")) return 1;
   if (!check(api.surface("hand", source.UTF8String, 860, 540) == 1,
              "reattach after mod-style dispose")) return 1;
+  if (!check(WebViews(game).size() == 1 && WebViews(game)[0].superview.layer.mask == nil,
+             "dispose forgets every viewer's covers")) return 1;
   api.dispose();
   [game orderOut:nil];
   printf("PASS: native C ABI, window selection, local HTML, CSS viewport, transparency, "
-         "input pass-through, reuse, resize, layout, editing chrome, visibility, navigation, removal, reload.\n");
+         "input pass-through, reuse, resize, layout, editing chrome, covers, visibility, navigation, removal, reload.\n");
   printf("Discord/OBS capture and the real Unity render hierarchy require manual game verification.\n");
   return 0;
 }

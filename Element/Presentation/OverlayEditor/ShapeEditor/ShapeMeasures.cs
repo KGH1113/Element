@@ -52,8 +52,8 @@ internal sealed class ShapeMeasures
     _radiusFields.Clear();
     _radiusKeys.Clear();
     _arcs.Clear();
-    _widthField = Field(screen, "Width", WidthKey, "W", activate, reduceMotion);
-    _heightField = Field(screen, "Height", HeightKey, "H", activate, reduceMotion);
+    _widthField = Field(screen, "Width", WidthKey, L("너비", "Width"), activate, reduceMotion);
+    _heightField = Field(screen, "Height", HeightKey, L("높이", "Height"), activate, reduceMotion);
     int corners = OverlayShapeGeometry.DefaultPoints(kind).Count;
     for (int i = 0; i < corners; i++)
     {
@@ -69,7 +69,7 @@ internal sealed class ShapeMeasures
         )
       );
       _radiusFields.Add(
-        Field(screen, L("꼭짓점 둥글기 값 ", "Corner radius ") + (i + 1), key, "R", activate, reduceMotion)
+        Field(screen, L("꼭짓점 둥글기 값 ", "Corner radius ") + (i + 1), key, L("둥글기", "Radius"), activate, reduceMotion)
       );
     }
   }

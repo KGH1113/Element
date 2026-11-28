@@ -3,15 +3,15 @@ import type { KeyPosition } from '@src/types/key/keys';
 /**
  * Which key each key element stands for. Poses name key elements, so a pose
  * keeps its place when the key of an element is changed; the runtime looks
- * the key up here.
+ * the key up here. A key whose place has not arrived yet has no element.
  */
 export function spriteKeyMap(
-  positions: readonly KeyPosition[],
+  positions: readonly (KeyPosition | undefined)[],
   keys: readonly string[],
 ): Map<string, string> {
   const map = new Map<string, string>();
   positions.forEach((position, index) => {
-    if (position.id && keys[index]) map.set(position.id, keys[index]);
+    if (position?.id && keys[index]) map.set(position.id, keys[index]);
   });
   return map;
 }

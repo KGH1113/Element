@@ -8,16 +8,12 @@ using Element.Presentation.Overlay.Mods;
 
 namespace Element.Presentation.Overlay.Canvas;
 
-/// <summary>Elements other mods draw: between shapes and texts, their types looked up again each frame.</summary>
+/// <summary>Elements other mods draw, their types looked up again each frame.</summary>
 internal sealed class ModElementKind : OverlayElementKind<ModOverlayElement>
 {
   private readonly OverlayCanvasHost _host;
 
   public ModElementKind(OverlayCanvasHost host) => _host = host;
-
-  public override string LayerName => "Mod elements";
-
-  public override int LayerDepth => 1;
 
   public override bool Owns(string templateId) => OverlayElementKinds.IsMod(templateId);
 

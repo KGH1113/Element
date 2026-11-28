@@ -1,32 +1,98 @@
 using System;
 using System.Text;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
 
 namespace Element.Presentation.Overlay.Text;
 
 /// <summary>
-/// Shows and calculates formulas. One value shows exactly as the game writes
-/// it; anything calculated shows up to two decimals, or as m:ss when the
-/// result is a time. Nothing here allocates, so texts updating on every hit
-/// stay free of garbage.
+/// Shows and calculates variables. Pieces side by side show one after the
+/// other: one value exactly as the game writes it (or at the decimals chosen
+/// for it there, zeros kept), words as typed, anything
+/// calculated up to two decimals or as m:ss when the result is a time, a
+/// condition as the answer it gives now. Nothing here allocates, so texts
+/// updating on every hit stay free of garbage.
 /// </summary>
 internal static class OverlayFormulaText
 {
-  /// <summary>Appends a value formula; nothing when a value it needs has no data yet.</summary>
-  public static void Append(StringBuilder output, OverlayFormula formula, OverlayValues values, bool samples)
+  // Conditions and groups hold variables of their own; this many deep is enough.
+  private const int MaxDepth = 16;
+
+  /// <summary>Appends what a variable shows; nothing for a part whose values have no data yet.</summary>
+  public static void Append(StringBuilder output, OverlayVariable formula, OverlayValues values, bool samples) =>
+    Append(output, formula, values, samples, 0);
+
+  private static void Append(
+    StringBuilder output,
+    OverlayVariable variable,
+    OverlayValues values,
+    bool samples,
+    int depth
+  )
   {
-    if (formula == null || formula.IsEmpty)
+    if (variable == null || variable.IsEmpty || depth > MaxDepth)
       return;
-    if (formula.IsSingleValue(out OverlayValueId id))
-    {
-      OverlayTextComposer.AppendValue(output, id, values, samples);
-      return;
-    }
     IOverlayNumberSource source = samples ? values?.WithSamples : values;
-    if (formula.TryEvaluate(source, out double result, out bool time))
-      AppendResult(output, result, time);
+    for (int start = 0; start < variable.Count; )
+    {
+      int end = variable.SegmentEnd(start);
+      if (end - start > 1)
+      {
+        if (OverlayVariableEvaluator.TryRange(variable, start, end, source, out double result, out bool time))
+          AppendResult(output, result, time);
+      }
+      else
+        AppendPiece(output, variable[start], values, samples, source, depth);
+      start = end;
+    }
+  }
+
+  private static void AppendPiece(
+    StringBuilder output,
+    OverlayPiece piece,
+    OverlayValues values,
+    bool samples,
+    IOverlayNumberSource source,
+    int depth
+  )
+  {
+    switch (piece.Kind)
+    {
+      case OverlayPieceKind.Value:
+        OverlayValueDefinition value = OverlayValueCatalog.Get(piece.Value);
+        // Read at decimals of its own, it is written at exactly that many, zeros kept, so its width holds.
+        if (OverlayValueNumbers.HasOwnDigits(piece, value))
+        {
+          if (source != null && source.TryGetNumber(piece.Value, out double raw))
+          {
+            int digits = OverlayValueNumbers.DigitsOf(piece, value);
+            output.AppendScaled(OverlayValueNumbers.Scaled(raw, digits, value.Rounding), digits, true);
+          }
+          break;
+        }
+        OverlayTextComposer.AppendValue(output, piece.Value, values, samples);
+        break;
+      case OverlayPieceKind.Number:
+        if (piece.HasNumber)
+          output.Append(piece.Text);
+        break;
+      case OverlayPieceKind.Text:
+        output.Append(piece.Text);
+        break;
+      case OverlayPieceKind.Color:
+        output.Append(piece.Text);
+        break;
+      case OverlayPieceKind.Bool:
+        output.Append(piece.Bool ? Ui.Theme.UiLocale.L("참", "true") : Ui.Theme.UiLocale.L("거짓", "false"));
+        break;
+      case OverlayPieceKind.Condition:
+        Append(output, OverlayVariableEvaluator.Chosen(piece, source), values, samples, depth + 1);
+        break;
+      case OverlayPieceKind.Group:
+        Append(output, piece.Slots[0], values, samples, depth + 1);
+        break;
+    }
   }
 
   public static StringBuilder AppendResult(StringBuilder output, double value, bool time)
@@ -47,19 +113,19 @@ internal static class OverlayFormulaText
   /// A number field: its formula's result, or <paramref name="fallback"/> when
   /// it has no formula or a value it needs has no data.
   /// </summary>
-  public static double Resolve(OverlayFormula formula, IOverlayNumberSource source, double fallback)
+  public static double Resolve(OverlayVariable formula, IOverlayNumberSource source, double fallback)
   {
-    if (formula == null || formula.IsEmpty || !formula.TryEvaluate(source, out double result, out _))
+    if (formula == null || formula.IsEmpty || !formula.TryNumber(source, out double result, out _))
       return fallback;
     return result;
   }
 
   /// <summary>Parsed once when settings change; null when the field has no formula.</summary>
-  public static OverlayFormula Compile(string text)
+  public static OverlayVariable Compile(string text)
   {
     if (string.IsNullOrEmpty(text))
       return null;
-    OverlayFormula formula = OverlayFormula.Parse(text);
+    OverlayVariable formula = OverlayVariable.Parse(text);
     return formula.IsEmpty ? null : formula;
   }
 }

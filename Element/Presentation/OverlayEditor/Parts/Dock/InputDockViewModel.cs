@@ -1,212 +1,382 @@
-using System.Text;
-using Element.Domain.Overlay.Formula;
+using Element.Configuration.Overlay;
+using Element.Domain.Layout;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Values;
+using Element.Presentation.OverlayEditor.Parts.Dock.Condition;
+using Element.Presentation.OverlayEditor.Parts.Dock.Digits;
 using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
 using Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
-using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.OverlayEditor.Parts.Formula;
+using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.Ui.Theme;
 using ElementUI;
 using UnityEngine;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock;
 
 /// <summary>
-/// What the input dock shows: its line (what is edited and its formula, or
-/// with nothing edited what to do), the result, the values and the keypad.
+/// What the input dock shows: on the left its line (the field open and what
+/// it holds) over the values that fit there, on the right the input method
+/// of what is picked. Inside a condition's slot that condition stays over
+/// the input method, folded (<see cref="Fold"/>). It says nothing in words:
+/// what can't be finished or can't take what was given shakes (<see cref="Alarm"/>).
 /// </summary>
 /// <remarks>
 /// Data goes one way. The formula being typed (<see cref="FormulaEditing"/>)
 /// tells its readers when it changes, so the line and the keypad follow each
 /// key by themselves; the editor only says what is edited and what to call it
-/// (<see cref="Show"/>). <see cref="InputDockView"/> draws it. What the player
-/// does in the dock goes back up through <see cref="IInputDockActions"/>,
-/// which the keypad and the values were given: the dock itself changes
-/// nothing that is edited.
+/// (<see cref="Show"/>). What the player does in the dock goes back up
+/// through <see cref="IInputDockActions"/>: the dock itself changes nothing
+/// that is edited.
 /// </remarks>
 internal sealed class InputDockViewModel : ViewModel
 {
-  // The caret's on and off halves, as a text field's.
-  private const float BlinkSeconds = .53f;
-
-  private static readonly Color Resting = new(1, 1, 1, .5f),
-    Placeholder = new(1, 1, 1, .32f),
-    Line = new(1, 1, 1, .16f),
-    Muted = UiPalette.Muted,
-    Ink = UiPalette.Foreground;
-
-  // The line is described on the main thread only, one at a time.
-  private static readonly StringBuilder Builder = new(128);
-
   private readonly FormulaEditing _editing;
   private readonly IInputDockActions _actions;
-  private readonly Timeline _blink = Timeline.Periodic(BlinkSeconds);
-  private readonly bool _steadyCaret;
-  private readonly string _emptyHint;
-  private readonly State<string> _name = new(""),
-    _result = new(""),
-    _hint = new("");
-  private DropState _drop;
+  private readonly bool _reduceMotion;
+  private readonly IOverlayNumberSource _samples;
 
   /// <param name="values">What the overlay shows now, for the chips; null shows names only.</param>
   /// <param name="editing">The formula the keypad types; the line shows it as it changes.</param>
-  /// <param name="notices">The editor's notices, which the dock shows above its line.</param>
   /// <param name="actions">Where everything the player does in the dock goes.</param>
-  /// <param name="reduceMotion">The caret stays on instead of blinking.</param>
+  /// <param name="reduceMotion">Nothing shakes; what is wrong only changes color.</param>
+  /// <param name="caret">With nothing open, values go in at a text's caret, and the keyboard types there.</param>
   public InputDockViewModel(
     OverlayValues values,
     FormulaEditing editing,
-    EditorFrameViewModel notices,
     IInputDockActions actions,
-    bool reduceMotion
+    bool reduceMotion,
+    bool caret = false
   )
   {
     _editing = editing;
     _actions = actions;
-    _steadyCaret = reduceMotion;
-    _emptyHint = L("숫자를 누르거나 값을 고르세요", "Type a number or pick a value");
-    Notices = notices;
+    _reduceMotion = reduceMotion;
+    // What the game reads now, or each value's example while it reads nothing: which way a condition goes.
+    _samples = values?.WithSamples;
+    Keyboard = caret;
     Keypad = Own(new KeypadViewModel(actions, editing));
-    Values = Own(new ValueBrowserViewModel(values, actions));
-    Typing = Computed(() => Owner.Value != null && _editing.Active);
-    Title = Computed(() => Typing.Value ? _name.Value + "  =" : _hint.Value);
-    TitleInk = Computed(() => Typing.Value ? Muted : Resting);
-    FormulaEmpty = Computed(() => Typing.Value && IsEmpty(_editing));
-    FormulaInk = Computed(() => FormulaEmpty.Value ? Placeholder : Ink);
-    Formula = Computed(() =>
-      !Typing.Value ? ""
-      : FormulaEmpty.Value ? _emptyHint
-      : Describe(_editing)
+    Values = Own(new ValueBrowserViewModel(values, actions, editing, caret));
+    Line = Own(new LineViewModel(actions));
+    Form = Own(new ConditionFormViewModel(actions.Enter));
+    // On the strip a click on the slot the dock is already in does nothing.
+    Fold = Own(
+      new ConditionFormViewModel(
+        slot =>
+        {
+          if (slot != Fold.In.Value)
+            actions.Hop(slot);
+        },
+        actions.Leave
+      )
     );
-    Result = Computed(() => Typing.Value && _result.Value.Length > 0 ? "= " + _result.Value : "");
-    // While nothing is typed the caret doesn't read the blink, which then rests.
-    Caret = Computed(() => Typing.Value && (_steadyCaret || _blink.Even));
+    Points = Own(new GrowPickerViewModel(actions.Point));
+    Digits = Own(new DigitsViewModel(actions.Digits));
+    Typing = Computed(() => Owner.Value != null && _editing.Active);
+    Method = Computed(() => MethodOf(_editing, Choice.Value));
+    SwitchOn = Computed(() => PickedBool(_editing));
+    CompareOn = Computed(() => PickedCompare(_editing));
+    Color rest = UiPalette.EditorControl;
+    Rest = rest;
+    Lit = Color.Lerp(rest, UiPalette.SoftAccent, .34f);
+    AccentInk = UiPalette.SoftAccent;
+    OnInk = UiPalette.Foreground;
   }
+
+  // ---- The input method ----
+
+  /// <summary>What the picked piece is edited with.</summary>
+  public readonly Computed<DockMethod> Method;
+
+  /// <summary>
+  /// The field open that is picked from a list of its own (a font) and so
+  /// has no values on the line: its input method; <see cref="DockMethod.Rest"/> for none.
+  /// </summary>
+  public readonly State<DockMethod> Choice = new(DockMethod.Rest);
+
+  /// <summary>At rest the keyboard types into the text: the place shows a keyboard.</summary>
+  public readonly bool Keyboard;
+
+  /// <summary>The picked true or false; null when none is picked.</summary>
+  public readonly Computed<bool?> SwitchOn;
+
+  /// <summary>The picked comparison; '\0' for none.</summary>
+  public readonly Computed<char> CompareOn;
+
+  public readonly UiColor Rest,
+    Lit,
+    AccentInk,
+    OnInk;
+
+  /// <summary>No outline: what a choice that doesn't hold wears.</summary>
+  public readonly UiColor NoEdge = new Color(0, 0, 0, 0);
+
+  /// <summary>A field's outline while it doesn't have the keys: there, but quiet.</summary>
+  public readonly UiColor FieldEdge = FieldLook.SlotEdge;
+
+  /// <summary>Asks the words' field to take the keys: it goes up each time other words are picked.</summary>
+  public readonly State<int> WordsFocus = new(0);
+
+  /// <summary>The words' field has the keys: it wears the highlight color's ring.</summary>
+  public readonly State<bool> WordsFocused = new(false);
+
+  /// <summary>The words' field took the keys, or let go of them.</summary>
+  public void FocusWords(bool focused) => WordsFocused.Value = focused;
+
+  // The words last picked, so picking others brings the caret to them.
+  private OverlayPiece _wordsPicked;
+
+  /// <summary>The picked words, which the keyboard input method types.</summary>
+  public string Words
+  {
+    [Pure]
+    get => _editing.SelectedPiece is { Kind: OverlayPieceKind.Text } piece ? piece.Text : "";
+    set => _actions.Words(value);
+  }
+
+  public void SetSwitch(bool value) => _actions.Switch(value);
+
+  public void PressCompare(char op) => _actions.Press(op);
+
+  [Pure]
+  private static char PickedCompare(FormulaEditing editing) =>
+    editing.Active && editing.SelectedPiece is { Kind: OverlayPieceKind.Compare } piece ? piece.Op : '\0';
+
+  [Pure]
+  private static bool? PickedBool(FormulaEditing editing) =>
+    editing.SelectedPiece is { Kind: OverlayPieceKind.Bool } piece ? piece.Bool : null;
 
   // ---- Its parts ----
 
   public readonly KeypadViewModel Keypad;
 
-  /// <summary>Every value that can be added: the places, the open one's chips and the search.</summary>
+  /// <summary>The values that fit where values go now.</summary>
   public readonly ValueBrowserViewModel Values;
 
-  /// <summary>The editor's notices, shown above the line for a few seconds.</summary>
-  public readonly EditorFrameViewModel Notices;
+  /// <summary>The line: the variable open and its pieces.</summary>
+  public readonly LineViewModel Line;
+
+  /// <summary>The picked condition's five slots.</summary>
+  public readonly ConditionFormViewModel Form;
+
+  /// <summary>
+  /// The condition whose slot the dock is in, folded into a strip over the
+  /// slot's input method; it shows the last one while <see cref="Folded"/> is false.
+  /// </summary>
+  public readonly ConditionFormViewModel Fold;
+
+  /// <summary>The dock is inside a condition's slot: that condition is folded over the input method.</summary>
+  public readonly State<bool> Folded = new(false);
+
+  /// <summary>The picked point among the nine, or Auto.</summary>
+  public readonly GrowPickerViewModel Points;
+
+  /// <summary>The picked value's own number at each count of decimals.</summary>
+  public readonly DigitsViewModel Digits;
 
   // ---- What the view reads ----
 
   /// <summary>Something is open in the dock and the keypad has it.</summary>
   public readonly Computed<bool> Typing;
 
-  /// <summary>What is edited, as "Width  =", or with nothing edited what to do.</summary>
-  public readonly Computed<string> Title;
-
-  public readonly Computed<Color> TitleInk;
-
-  /// <summary>The formula as it reads, values as soft chips (rich text); a hint while it is empty.</summary>
-  public readonly Computed<string> Formula;
-
-  public readonly Computed<Color> FormulaInk;
-
-  /// <summary>Nothing typed yet: the caret sits at the start, before the hint.</summary>
-  public readonly Computed<bool> FormulaEmpty;
-
-  /// <summary>The result on the right, as "= 160 px"; empty for none.</summary>
-  public readonly Computed<string> Result;
-
-  /// <summary>The caret at the formula's end, while something is typed: on or off as it blinks.</summary>
-  public readonly Computed<bool> Caret;
-
-  /// <summary>The line under the formula: lit while a carried value can (or can't) join it.</summary>
-  public readonly State<Color> Underline = new(Line);
-
   /// <summary>What the dock edits, such as "width" or "value:3"; null while nothing is.</summary>
   public readonly State<string> Owner = new(null);
+
+  /// <summary>Finishing was refused and what was in the way is still so: it is outlined until it is put right.</summary>
+  public readonly State<bool> Alarmed = new(false);
 
   // ---- What the editor tells it ----
 
   /// <summary>
   /// What the dock edits now: <paramref name="owner"/> (null for nothing),
-  /// named <paramref name="name"/>, with <paramref name="result"/> (already
-  /// in its unit) on the right. With nothing being edited,
-  /// <paramref name="hint"/> says what to do. The formula itself the dock
-  /// reads from what the keypad types.
+  /// named <paramref name="name"/> and <paramref name="whose"/> it is, with
+  /// <paramref name="result"/> (already in its unit) on the right. The
+  /// formula itself the dock reads from what the keypad types.
   /// </summary>
-  public void Show(string owner, string name, string result, string hint)
+  public void Show(string owner, string name, string result, string whose = null)
   {
     Owner.Value = owner;
-    _name.Value = name ?? "";
-    _result.Value = result ?? "";
-    _hint.Value = hint ?? "";
+    Choice.Value = DockMethod.Rest;
+    Values.Closed.Value = false;
+    if (!_editing.Active || _editing.Problem == null)
+      Alarmed.Value = false;
+    Line.Alarmed = Alarmed.Value;
+    Line.Show(owner != null ? _editing : null, name, result, whose);
+    OverlayPiece picked = _editing.Active ? _editing.SelectedPiece : null;
+    // Words picked: the caret goes into their field, so the keyboard types them at once.
+    OverlayPiece words = picked != null && picked.Kind == OverlayPieceKind.Text ? picked : null;
+    if (words != null && words != _wordsPicked)
+      WordsFocus.Value++;
+    _wordsPicked = words;
+    if (picked != null && picked.Kind == OverlayPieceKind.Condition)
+      Form.Show(picked, _editing.SlotType(OverlayPiece.Result), _editing.Problem, Alarmed.Value);
+    else if (picked != null && picked.Kind == OverlayPieceKind.Point)
+      Points.Show(picked.Point, Anchor9.Center);
+    else if (picked != null && picked.Kind == OverlayPieceKind.Value && OverlayValueCatalog.Get(picked.Value).HasDigits)
+      Digits.Show(picked, _samples);
+    OverlayPiece around = owner != null && _editing.Active ? _editing.Around : null;
+    int slot = around != null ? _editing.AroundSlot : -1;
+    if (around != null)
+      Fold.Show(around, _editing.AroundGives, _editing.Problem, Alarmed.Value);
+    Arrive(owner, around != null, slot, around != null ? _editing.Depth : 0);
+    Fold.In.Value = slot;
+    Folded.Value = around != null;
+    Runtime.Probe();
   }
 
-  /// <summary>The editor drew afresh after the player did something: the caret shows at once and blinks from there.</summary>
-  public void RestartBlink() => _blink.Restart();
+  // ---- How the input method arrives ----
 
-  // ---- A value carried onto the formula line ----
+  // Where the dock was when last shown: going in, across or back out from there glides.
+  private string _shownOwner;
+  private bool _shownFolded;
+  private int _shownSlot = -1,
+    _shownDepth;
+
+  // Where the input method glides in from: aside, and how small or large.
+  private float _fromX,
+    _fromY,
+    _fromScale = 1;
+  private bool _folding;
+
+  /// <summary>Carries the input method into place when the dock goes into a slot, across to another, or back out.</summary>
+  public readonly EditorArrival Arrival = new();
+
+  public float BodyScale
+  {
+    [Pure]
+    get => Mathf.LerpUnclamped(_fromScale, 1, Arrival.Progress);
+  }
+
+  public float BodyX
+  {
+    [Pure]
+    get => _fromX * (1 - Arrival.Progress);
+  }
+
+  public float BodyY
+  {
+    [Pure]
+    get => _fromY * (1 - Arrival.Progress);
+  }
+
+  public float BodyOpacity
+  {
+    [Pure]
+    get => Mathf.Clamp01(Arrival.Progress * 2);
+  }
+
+  /// <summary>The strip settles into place from a little lower as its condition folds.</summary>
+  public float StripY
+  {
+    [Pure]
+    get => _folding ? 10 * (1 - Arrival.Progress) : 0;
+  }
+
+  public float StripOpacity
+  {
+    [Pure]
+    get => _folding ? Mathf.Clamp01(Arrival.Progress * 2) : 1;
+  }
+
+  // The same field, somewhere else in it: into a slot or across to another, what is in the
+  // slot grows out of its place on the strip; back out, the condition settles around it.
+  private void Arrive(string owner, bool folded, int slot, int depth)
+  {
+    bool moved =
+      owner != null && owner == _shownOwner && (folded != _shownFolded || slot != _shownSlot || depth != _shownDepth);
+    if (moved)
+    {
+      bool inward = folded && depth >= _shownDepth;
+      bool across = inward && _shownFolded && depth == _shownDepth;
+      _fromX = inward ? ConditionStripView.CenterOf(slot) - KeypadView.Width / 2 : 0;
+      _fromY = inward
+        ? -(ConditionStripView.Height / 2 + ConditionStripView.Gap + InputMethodView.FoldedHeight / 2)
+        : 0;
+      _fromScale = inward ? .2f : 1.08f;
+      _folding = folded && !_shownFolded;
+      Arrival.Play(across ? .26f : .34f, _reduceMotion);
+      Line.SlideFrom =
+        across ? 0
+        : inward ? 10
+        : -10;
+      Line.Slide.Play(.24f, _reduceMotion);
+    }
+    _shownOwner = owner;
+    _shownFolded = folded;
+    _shownSlot = slot;
+    _shownDepth = depth;
+  }
 
   /// <summary>
-  /// Whether <paramref name="value"/> may join the formula: nothing is asked
-  /// while nothing is edited, and words can't go where a number does.
+  /// The dock has a field open that is picked from a list of its own, in
+  /// <paramref name="method"/>'s place: the line names it
+  /// (<paramref name="whose"/> <paramref name="name"/>, marked
+  /// <paramref name="glyph"/>) and shows <paramref name="label"/>, what it
+  /// holds. No values are listed for it.
   /// </summary>
-  public DropState OverFormula(OverlayValueDefinition value) =>
-    Owner.Value == null ? DropState.None
-    : _editing.Active && FormulaEditing.Accepts(_editing.Slot, value) ? DropState.Accepts
-    : DropState.Refuses;
-
-  /// <summary>A value started being carried out of the dock.</summary>
-  public void BeganCarrying() => _actions.BeganCarrying();
-
-  /// <summary>Let go on the line: the editor joins it to the formula, or says why it can't.</summary>
-  public void DropOnFormula(OverlayValueDefinition value) => _actions.DropOnFormula(value);
-
-  /// <summary>Whether a carried value is over the formula line, and whether it can join the formula.</summary>
-  public void SetDrop(DropState drop)
+  public void ShowChoice(DockMethod method, string whose, string name, string glyph, string label)
   {
-    if (_drop == drop)
-      return;
-    _drop = drop;
-    Underline.Value =
-      drop == DropState.Accepts ? UiPalette.SoftAccent
-      : drop == DropState.Refuses ? UiPalette.Error
-      : Line;
+    Owner.Value = null;
+    Choice.Value = method;
+    Values.Closed.Value = true;
+    Folded.Value = false;
+    Fold.In.Value = -1;
+    _shownOwner = null;
+    _wordsPicked = null;
+    Line.ShowChoice(whose, name, glyph, label);
+    Runtime.Probe();
   }
 
-  protected override void OnDisposed() => _blink.Dispose();
-
-  [Pure]
-  private static bool IsEmpty(FormulaEditing editing) => editing.Working == null || editing.Working.IsEmpty;
-
-  // The formula as it reads: values as soft chips, operators spaced out. Made
-  // again only when the formula changes, not when the editor draws again.
-  [Pure]
-  private static string Describe(FormulaEditing editing)
+  /// <summary>
+  /// "No": what was asked can't be done as things are (Enter while a field
+  /// can't be finished, a value that can't go where it was put). The line
+  /// and the open condition shake, and what is in the way is outlined.
+  /// </summary>
+  public void Alarm()
   {
-    OverlayFormula formula = editing.Working;
-    if (formula == null)
-      return "";
-    StringBuilder builder = Builder.Clear();
-    for (int i = 0; i < formula.Count; i++)
-    {
-      OverlayFormulaToken token = formula[i];
-      switch (token.Kind)
+    Alarmed.Value = _editing.Active && _editing.Problem != null;
+    Line.Shake.Play(_reduceMotion);
+    Form.Shake.Play(_reduceMotion);
+    Fold.Shake.Play(_reduceMotion);
+  }
+
+  protected override void OnDisposed() => Arrival.Dispose();
+
+  // What the picked piece is edited with; an empty variable has its type's.
+  [Pure]
+  private static DockMethod MethodOf(FormulaEditing editing, DockMethod choice)
+  {
+    // A field picked from its own list has the place while it is open, whatever is picked in the text.
+    if (choice != DockMethod.Rest)
+      return choice;
+    if (!editing.Active)
+      return DockMethod.Rest;
+    OverlayPiece piece = editing.SelectedPiece;
+    if (piece == null)
+      return editing.Kind switch
       {
-        case OverlayFormulaTokenKind.Number:
-          builder.Append(token.Number.Replace('-', '−'));
-          break;
-        case OverlayFormulaTokenKind.Value:
-          builder
-            .Append("<mark=#FFFFFF26> ")
-            .Append(ValueSectionNames.ValueName(OverlayValueCatalog.Get(token.Value)).Replace("<", ""))
-            .Append(" </mark>");
-          break;
-        default:
-          builder.Append("  ").Append(OverlayFormula.Symbol(token.Operator)).Append("  ");
-          break;
-      }
-    }
-    return builder.ToString();
+        OverlayValueType.Color => DockMethod.Color,
+        OverlayValueType.Bool => DockMethod.Switch,
+        OverlayValueType.Compare => DockMethod.Compare,
+        OverlayValueType.Point => DockMethod.Points,
+        _ => DockMethod.Keypad,
+      };
+    return piece.Kind switch
+    {
+      OverlayPieceKind.Text => DockMethod.Words,
+      OverlayPieceKind.Bool => DockMethod.Switch,
+      OverlayPieceKind.Compare => DockMethod.Compare,
+      OverlayPieceKind.Point => DockMethod.Points,
+      OverlayPieceKind.Condition => DockMethod.Condition,
+      OverlayPieceKind.Value when piece.Value == OverlayValueId.MakeGradient => DockMethod.Gradient,
+      // A value with decimals is its own number, read at so many of them.
+      OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).HasDigits => DockMethod.Digits,
+      OverlayPieceKind.Color => DockMethod.Color,
+      OverlayPieceKind.Value when OverlayValueCatalog.Get(piece.Value).IsColor => DockMethod.Color,
+      _ => DockMethod.Keypad,
+    };
   }
 }

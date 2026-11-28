@@ -1,17 +1,21 @@
 using System;
+using System.Collections.Generic;
 using Element.Application.Input;
 using Element.Application.Layout;
 using Element.Configuration.Overlay;
 using Element.Domain.Overlay.Shape;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Values;
 using Element.Presentation.OverlayEditor.Parts;
+using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
 using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Grow;
 using Element.Presentation.OverlayEditor.Parts.Inspector;
+using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using ElementUI.Ugui;
@@ -31,7 +35,7 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// <remarks>
 /// The editor puts its parts together and runs them: <see cref="ShapePreview"/>,
 /// <see cref="ShapeMeasures"/>, <see cref="ShapeNumbers"/>, <see cref="ShapeColors"/>,
-/// <see cref="ShapeGradient"/>, <see cref="ShapeValueDrops"/> and <see cref="ShapeInput"/>,
+/// <see cref="ShapeGradient"/> and <see cref="ShapeInput"/>,
 /// with the bar, the grow point and undo it shares with the text editor. It
 /// tells the input dock what is edited on every render, and everything done
 /// in the dock comes back here, through <see cref="IInputDockActions"/>.
@@ -55,7 +59,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   // The grow-from point; Esc and a press elsewhere close it.
   private readonly PopoverStack _popovers = new();
-  private readonly ShapeValueDrops _drops;
   private readonly ShapeInput _input;
   private EditorFramePanel _frame;
   private InspectorPanel _inspector;
@@ -81,11 +84,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     _numbers = new ShapeNumbers(this, this, values, _history);
     _colors = new ShapeColors(this, this, _numbers, _history, font, reduceMotion);
     _gradient = new ShapeGradient(this, values, _colors, _preview, _history, StopSelected);
-    _numbers.Use(_gradient);
-    _grow = new GrowFrom(CloseOpen, Render);
+    _grow = new GrowFrom();
+    _numbers.Use(_gradient, _grow);
     ShapeFieldList fields = new(_measures, _colors, _gradient);
-    _drops = new ShapeValueDrops(this, _numbers, _colors, _gradient, _measures);
-    _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _grow, _history);
+    _input = new ShapeInput(this, this, _numbers, _colors, _gradient, _measures, fields, _history);
   }
 
   public bool IsOpen => _frame != null;
@@ -114,7 +116,12 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IEditorActions.CloseOpen() => CloseOpen();
 
-  void IEditorActions.Notice(string message, bool warning) => _frame?.ViewModel.Notice(message, warning);
+  // "No" is shown, not said: the dock shakes, and what is in the way is outlined on the next draw.
+  void IEditorActions.Refuse()
+  {
+    _dock?.Alarm();
+    Render();
+  }
 
   void IShapeEditorActions.Activate(string key) => Activate(key);
 
@@ -122,22 +129,67 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
 
   void IInputDockActions.Press(char key) => _numbers.KeypadPress(key);
 
-  void IInputDockActions.Clear() => _numbers.ClearFormula();
+  void IInputDockActions.SelectAt(IReadOnlyList<FormulaStep> route, int index) =>
+    Edit(editing => editing.SelectAt(route, index));
 
-  void IInputDockActions.Done() => _numbers.FinishEditing();
+  void IInputDockActions.Words(string words) => Edit(editing => editing.SetText(words));
 
-  void IInputDockActions.Pick(OverlayValueDefinition value) => _numbers.PickValue(value);
+  void IInputDockActions.Switch(bool value) => Edit(editing => editing.SetBool(value));
 
-  // Nothing covers the shape's numbers.
-  void IInputDockActions.BeganCarrying() { }
+  void IInputDockActions.Point(OverlayGrowth point) => Edit(editing => editing.SetPoint(point));
 
-  // Let go on the dock's line: the value joins the formula, or words say why they can't.
-  void IInputDockActions.DropOnFormula(OverlayValueDefinition value)
+  void IInputDockActions.Digits(int digits) => Edit(editing => editing.SetDigits(digits));
+
+  void IInputDockActions.Enter(int slot) => _numbers.EnterSlot(slot);
+
+  void IInputDockActions.Hop(int slot) => _numbers.HopSlot(slot);
+
+  void IInputDockActions.Leave() => _numbers.LeaveSlot();
+
+  // A change the dock asked for, made to what it has open, then drawn.
+  private void Edit(Action<FormulaEditing> change)
   {
-    FormulaEditing editing = _numbers.Editing;
-    if (editing.Active && editing.Drop(editing.Slot, value) == FormulaDropResult.RefusedWords)
-      _numbers.RefuseWords(value);
+    if (_frame == null || !_numbers.Editing.Active)
+      return;
+    change(_numbers.Editing);
     Render();
+  }
+
+  void IInputDockActions.Remove() => Edit(_ => _numbers.Remove());
+
+  // Enter: on a color it puts the picker away; on a number it finishes it, refused while it doesn't fit.
+  public void Finish()
+  {
+    if (_numbers.Field == null && _colors.Picker.Visible && _numbers.Editing.Problem == null)
+    {
+      _colors.Picker.Hide();
+      Render();
+      return;
+    }
+    _numbers.FinishEditing();
+  }
+
+  // A color always goes to the open picker's color, whatever number the dock types.
+  void IInputDockActions.Pick(OverlayValueDefinition value)
+  {
+    // 그라데이션 makes the open color a gradient; its stops are then picked in the picker.
+    if (value.Id == OverlayValueId.MakeGradient)
+    {
+      if (_colors.CasesOpen)
+        _colors.Picker.Gradient.MakeGradient();
+      Render();
+      return;
+    }
+    if (value.IsColor && _colors.CasesOpen && _numbers.Editing.Slot?.Key != ColorCases.Key)
+    {
+      _numbers.Finish();
+      FormulaEditing editing = _numbers.Editing;
+      if (editing.Drop(_colors.Cases.Slot, value) == FormulaDropResult.Refused)
+        _numbers.Refuse(value);
+      Render();
+      return;
+    }
+    _numbers.PickValue(value);
   }
 
   // ---- Opening, running and closing ----
@@ -171,7 +223,6 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   {
     _colors.DisposePicker();
     _frame?.Dispose();
-    _drops.Release();
     _space.Snap();
     _zoom.Snap();
     _frame = new EditorFramePanel(
@@ -182,40 +233,46 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       L("도형 편집", "Edit shape"),
       () => Close(false, true),
       () => Close(true, true),
-      noticesInDock: true
+      noticesInDock: true,
+      () => !_shape.SameAs(_opening) || _grow.Changed
     );
     _preview.Build(_frame);
     _zoom.Build(_frame.Ui, _frame.Frame);
     _measures.Build(_frame, _shape.Kind, Activate, _reduceMotion());
     _gradient.BuildHandles(_frame, _reduceMotion());
-    _dock = new InputDockViewModel(_values, _numbers.Editing, _frame.ViewModel, this, _reduceMotion());
+    _dock = new InputDockViewModel(_values, _numbers.Editing, this, _reduceMotion());
     _dockPanel = new InputDockPanel(_frame, _dock, _reduceMotion());
     BuildInspector();
     _colors.BuildPicker(_frame, _dockPanel);
     _gradient.BuildPicker(_frame.Ui, _reduceMotion());
-    _grow.Build(_frame, _inspector);
+    _grow.Build(_frame);
     _popovers.Clear();
-    _popovers.Add(_grow.Popover);
-    // Built last: every place a carried value can land is drawn by now.
-    _drops.Build();
   }
 
-  // A row per property in the column above the keypad: fill, border, border
-  // width and grow point. Colors open their picker (with opacity) in the
-  // column. Width, height and rounding stay on the shape.
+  // A field per property in the column above the keypad, in groups: the
+  // fill (color, opacity), the border (color, width, opacity) and the
+  // element (grow point). Width, height and rounding stay on the shape.
   private void BuildInspector() =>
     _inspector = new InspectorPanel(
       _frame,
       _dockPanel,
       "Shape bar",
-      L("도형", "Shape"),
+      null,
       CloseTool,
       _colors.BuildFill(),
+      _colors.BuildFillOpacity(),
       _colors.BuildStroke(),
-      // A value carried onto the border width row calculates the width with it.
-      _numbers.BuildStrokeWidth(_drops.DropOnStrokeWidth),
-      _grow.BuildButton()
+      _numbers.BuildStrokeWidth(),
+      _colors.BuildStrokeOpacity(),
+      ElementRow(_grow.BuildButton(() => Activate(GrowFrom.Key)))
     );
+
+  // The element's own group: where it grows from.
+  private static PropertyButtonViewModel ElementRow(PropertyButtonViewModel row)
+  {
+    row.Section.Value = L("요소", "Element");
+    return row;
+  }
 
   // The column's back row: the rows come back.
   private void CloseTool()
@@ -227,10 +284,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   }
 
   // What the column has open, as its back row names it; null while it shows the rows.
-  private string OpenTool() =>
-    _colors.Picker.Visible ? _colors.Title
-    : _grow.Visible ? _grow.Button.Label
-    : null;
+  // Only a gradient's tool opens there: a solid color's picker and the nine
+  // points are input methods, in the keypad's place.
+  private string OpenTool() => _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Title : null;
 
   public void Tick()
   {
@@ -244,6 +300,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     }
     _frame.Tick();
     _dockPanel.Tick();
+    // While it asks whether to throw the edit away, the keys and clicks are the question's.
+    if (_frame.Asking)
+      return;
     UiColorPicker picker = _colors.Picker;
     if (picker.Visible && picker.IsTyping)
     {
@@ -283,8 +342,9 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     if (_frame == null)
       return;
     if (restartBlink)
-      _dock.RestartBlink();
-    _numbers.Sync();
+      // With no number open, the open picker's color is what the dock types.
+      _numbers.Sync(_colors.CasesOpen ? _colors.Cases.Slot : null);
+    _colors.Follow();
     // The shape centers in the space left of the property column, or of an open picker.
     _space.Measure(_frame, _colors.Picker, _dockPanel, _inspector, _reduceMotion(), out float left, out float right);
     _preview.Draw(
@@ -312,40 +372,36 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
     );
     _colors.ShowOpacity(_gradient.PickedStop);
     PlaceGrowMark();
-    // The dock shows the number open in it, or with none what to do.
+    // The dock shows the field open in it; nothing with none.
     string field = _numbers.Field;
+    bool cases = field == null && _colors.CasesOpen;
     _dock.Show(
-      field,
-      field == null ? "" : _numbers.Name(field),
-      field == null ? null : _numbers.ResultText(field),
-      _colors.Hint()
-        ?? L(
-          "W·H, 테두리, 꼭짓점 호 같은 숫자를 누르면 여기서 입력해요",
-          "Click a number (W, H, border or a corner's arc) to type it here"
-        )
-    );
-  }
-
-  // The column's rows show the fill, the border, its width and the grow
-  // point; an open picker or the points take the column.
-  private void LayOutInspector()
-  {
-    _colors.ShowButtons(_preview);
-    _numbers.ShowStrokeWidth();
-    _grow.ShowButton();
-    _colors.PlacePicker(_dockPanel, _inspector.ToolTop);
-    _inspector.Show(
-      OpenTool(),
-      _colors.Picker.Visible ? _colors.Picker.Root
-        : _grow.Visible ? _grow.Popover.Root
+      field ?? (cases ? ColorCases.Key : null),
+      field != null ? _numbers.Name(field)
+        : cases ? _colors.OwnTitle
+        : "",
+      field != null ? _numbers.ResultText(field)
+        : cases ? _colors.Cases.Result(_values.WithSamples)
         : null
     );
   }
 
-  // While the grow popover is open, a dot marks the point that stays put.
+  // The column's rows show the fill, the border, its width and the grow
+  // point; a gradient's tool takes the column while it is open.
+  private void LayOutInspector()
+  {
+    _colors.ShowButtons(_preview);
+    _numbers.ShowStrokeWidth();
+    bool growing = _numbers.Field == GrowFrom.Key;
+    _grow.ShowButton(growing, growing && _numbers.Editing.Active ? _numbers.Editing.Root : null, _values.WithSamples);
+    _colors.PlacePicker(_dockPanel, _inspector.ToolTop);
+    _inspector.Show(OpenTool(), _colors.Picker.Visible && !_colors.Picker.InCompactPlace ? _colors.Picker.Root : null);
+  }
+
+  // While the grow point's field is open, a dot marks the point that stays put.
   private void PlaceGrowMark()
   {
-    if (!_grow.Visible)
+    if (_numbers.Field != GrowFrom.Key)
     {
       _grow.HideMark();
       return;
@@ -355,7 +411,8 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       _preview.TopLeft.x,
       _preview.TopLeft.y,
       resolved.Width * _preview.UnitsToFrame,
-      resolved.Height * _preview.UnitsToFrame
+      resolved.Height * _preview.UnitsToFrame,
+      _grow.Growth(_values.WithSamples, _numbers.Editing.Active ? _numbers.Editing.Root : null)
     );
   }
 
@@ -367,9 +424,10 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
       return;
     bool open = _numbers.Field == key;
     CloseOpen();
-    // The picker's own numbers keep it open.
+    // A gradient's own numbers keep its picker open; a solid color's picker
+    // stands where the keypad is, so any number puts it away.
     UiColorPicker picker = _colors.Picker;
-    if (picker.Visible && !ShapeGradient.PickerKey(key))
+    if (picker.Visible && (!ShapeGradient.PickerKey(key) || picker.InCompactPlace))
       picker.Hide();
     if (!open)
       _numbers.Field = key;
@@ -397,12 +455,15 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
   }
 
   /// <summary>
-  /// Esc closes what is open; with nothing open it finishes like Done. Only
-  /// Cancel leaves without saving.
+  /// Esc steps back out of a condition's slot first, then closes what is
+  /// open; with nothing open it finishes like Done. Only Cancel leaves without saving.
   /// </summary>
   public void Escape()
   {
     UiColorPicker picker = _colors.Picker;
+    // Out of a condition's slot first, one step.
+    if (_numbers.LeaveSlot())
+      return;
     if (picker.Visible)
       picker.Hide();
     else if (AnyOpen)
@@ -443,12 +504,11 @@ internal sealed class ShapeEditorScreen : IContentEditor, IShapeEditorContext, I
         element.Settings.Shape = _shape.Clone();
         element.Apply();
       }
-      element.SetGrowFrom(_grow.Growth);
+      _grow.Save(element, _values);
     }
     _colors.DisposePicker();
     _frame.Dispose();
     _frame = null;
-    _drops.Release();
     _numbers.Editing.Deactivate();
     _element = null;
     _closed = null;

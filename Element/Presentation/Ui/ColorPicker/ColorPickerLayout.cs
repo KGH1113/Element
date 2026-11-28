@@ -2,7 +2,9 @@ using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
 using Element.Presentation.Ui.Theme;
+using Element.Presentation.Ui.Widgets;
 using ElementUI;
+using TMPro;
 using UnityEngine;
 using static Element.Presentation.Ui.Theme.UiLocale;
 using static ElementUI.UI;
@@ -33,13 +35,25 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
 
   protected View Hue() => new ColorSliderView(VM, true);
 
+  /// <summary>The hue bar standing, <see cref="ColorSliderView.Height"/> wide, as tall as it is laid out.</summary>
+  protected View UprightHue(float height) =>
+    new ColorSliderView(VM, true, upright: true).Frame(width: ColorSliderView.Height, height: height);
+
   protected View Opacity() => new ColorSliderView(VM, false);
+
+  /// <summary>The opacity bar standing, <see cref="ColorSliderView.Height"/> wide, as tall as it is laid out.</summary>
+  protected View UprightOpacity(float height) =>
+    new ColorSliderView(VM, false, upright: true).Frame(width: ColorSliderView.Height, height: height);
 
   /// <summary>Highlight/Custom: follow the highlight color, or a color of its own.</summary>
   protected View Source() =>
-    Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
-      .Font(Font.Caption.Sized(13))
-      .Frame(height: 36);
+    If(
+      () => VM.SourceShown.Value,
+      () =>
+        Picker(null, new[] { L("하이라이트", "Highlight"), L("직접 고르기", "Custom") }, Bind(() => VM.Source))
+          .Font(Font.Caption.Sized(13))
+          .Frame(height: 36)
+    );
 
   /// <summary>HEX with the color's swatch, then the opacity, Default, or nothing.</summary>
   protected View HexRow() =>
@@ -82,6 +96,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
             .CharacterLimit(7)
             .OnEditEnded((_, _) => VM.Commit())
             .FocusOn(() => VM.FocusHex.Value)
+            .Configure<TMP_InputField>(UiCaret.Show)
             .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
             .Named("HEX color")
         )
@@ -119,6 +134,7 @@ internal abstract class ColorPickerLayout : View<ColorPickerViewModel>
             .TextAlignment(TextAlign.Trailing)
             .OnEditEnded((_, _) => VM.Commit())
             .FocusOn(() => VM.FocusOpacity.Value)
+            .Configure<TMP_InputField>(UiCaret.Show)
             .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity)
             .Named("Opacity percentage"),
           UI.Text("%").Font(Font.Caption.Sized(13)).Foreground(Colors.Muted)

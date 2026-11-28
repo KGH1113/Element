@@ -3,7 +3,6 @@ using Element.Presentation.Ui.Theme;
 using Element.Presentation.Ui.Widgets;
 using TMPro;
 using UnityEngine;
-using static Element.Presentation.Ui.Theme.UiLocale;
 
 namespace Element.Presentation.OverlayEditor.Parts;
 
@@ -65,7 +64,7 @@ internal sealed class PreviewZoom
     {
       _said = rounded;
       string times = rounded.ToString("0.#", CultureInfo.InvariantCulture);
-      _line.text = L(times + "배로 보는 중", "Shown " + times + "× larger");
+      _line.text = times + "×";
     }
     UiFactory.Place(_line.rectTransform, x - 120, y, 240, LineHeight);
   }

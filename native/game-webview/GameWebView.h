@@ -86,6 +86,17 @@ IRP_WEBVIEW_API void irp_webview_set_editor_exclusion(double x, double y, double
 // origin) and corner radius (normalized to the view height). Cutouts must not
 // overlap; count = 0 clears them.
 IRP_WEBVIEW_API void irp_webview_set_editor_exclusions(const double *values, int count);
+// Hide the parts of one viewer that overlay elements drawn in front of it
+// cover, so those elements show instead of the viewer above them. viewer_kind
+// is a set_surface identifier; values holds count groups of x, y, width and
+// height, normalized to the game view with a top-left origin like editor
+// cutouts. Rectangles must not overlap; the host keeps only what falls on the
+// viewer's content. count = 0 shows the whole viewer again. Covers are kept by
+// viewer_kind until replaced or dispose, also before its surface attaches and
+// across a page reload, and apply in and out of editing. The viewer is hidden
+// where either covers or editor cutouts are; native selection chrome stays.
+// Added after set_editor_exclusions: managed callers treat it as optional.
+IRP_WEBVIEW_API void irp_webview_set_covers(const char *viewer_kind, const double *values, int count);
 IRP_WEBVIEW_API void irp_webview_dispose(void);
 
 // The latest host error (a failed call, the window, the web engine); if none, the

@@ -40,6 +40,7 @@ internal sealed class UiScrollCues : IDisposable
   private readonly UiEdgeFadeGraphic _top;
   private readonly UiEdgeFadeGraphic _bottom;
   private readonly UiCapsuleGraphic _bar;
+  private readonly System.Collections.Generic.List<UiSizeWatcher> _watched = new();
 
   private UiScrollCues(ScrollRect scroll, Color under, float radius)
   {
@@ -49,7 +50,21 @@ internal sealed class UiScrollCues : IDisposable
     _bottom = UiEdgeFadeGraphic.Make(_viewport, "Bottom fade", under, false, FadeHeight, radius);
     _bar = MakeBar(_viewport);
     scroll.onValueChanged.AddListener(Changed);
+    // What shows may grow or shrink without scrolling: the bar and the fades follow that too.
+    Watch(scroll.content);
+    Watch(_viewport);
     Follow();
+  }
+
+  private void Watch(RectTransform rect)
+  {
+    if (rect == null)
+      return;
+    UiSizeWatcher watcher = rect.GetComponent<UiSizeWatcher>();
+    if (watcher == null)
+      watcher = rect.gameObject.AddComponent<UiSizeWatcher>();
+    watcher.Changed += Follow;
+    _watched.Add(watcher);
   }
 
   /// <summary>Cues on <paramref name="scroll"/>, its fades in <paramref name="under"/> (the color of the base under it) rounded by its <paramref name="radius"/>.</summary>
@@ -59,6 +74,10 @@ internal sealed class UiScrollCues : IDisposable
   {
     if (_scroll != null)
       _scroll.onValueChanged.RemoveListener(Changed);
+    foreach (UiSizeWatcher watcher in _watched)
+      if (watcher != null)
+        watcher.Changed -= Follow;
+    _watched.Clear();
   }
 
   private void Changed(Vector2 _) => Follow();

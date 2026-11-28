@@ -9,7 +9,7 @@ using Element.Presentation.OverlayEditor.TextEditor;
 using System.Collections.Generic;
 using System.Linq;
 using Element.Configuration;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Values;
 using Element.Presentation.Overlay.Elements;
@@ -21,6 +21,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using Element.Configuration.Overlay;
 using Element.Presentation.Ui.ColorPicker;
+using Element.Presentation.Ui.Theme;
 using ElementUI.Ugui;
 using Element.Presentation.Overlay.Shape;
 using Element.Presentation.Overlay.Text;
@@ -28,7 +29,7 @@ using Element.Presentation.Overlay.Text;
 namespace Element.Editor
 {
   // Gradients in the overlay editors: the color bar, kinds, handles with
-  // snapping, the highlight's opacity-only stops, and how shapes and texts
+  // snapping, a gradient always of custom colors, and how shapes and texts
   // draw them afterwards.
   public static partial class SettingsPreview
   {
@@ -39,8 +40,8 @@ namespace Element.Editor
       ShapeOverlayElement shape = host.LayoutTargets.OfType<ShapeOverlayElement>().Last();
       ShapeEditorScreen shapes = (ShapeEditorScreen)Kind<ShapeKind>(editor).Editor;
       Assert(shapes.IsOpen, "a new square opens its editor");
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(420));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(240));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(420));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(240));
       Call(shapes, "Render");
       // With motion, opening the picker glides the shape aside from where it was.
       ElementSettings preferences = Session(editor).Preferences;
@@ -57,29 +58,34 @@ namespace Element.Editor
       Call(ShapeColorsOf(shapes), "Open", false);
       UiColorPicker picker = ShapeColorsOf(shapes).Picker;
       GradientHandles handles = ShapeGradientOf(shapes).Handles;
-      Assert(picker.Visible && picker.GradientAvailable && !picker.Gradient.IsGradient && !handles.Visible,
-        "the fill picker has a color bar and starts solid, with no handles");
+      Assert(picker.Visible && picker.InCompactPlace && !picker.Gradient.IsGradient && !handles.Visible,
+        "the fill starts solid, picked in the keypad's place, with no handles");
       RectTransform bar = Field<RectTransform>(picker.Gradient, "_bar");
       Settle();
-      // The one shown: each of the picker's two layouts keeps its own.
-      Pressable makeGradient() => picker.Root.GetComponentsInChildren<Pressable>(false).FirstOrDefault(button => button.name == "Make gradient");
       Assert(!bar.gameObject.activeInHierarchy, "a solid color has no color bar: " + PathOf(bar));
-      Assert(makeGradient() != null, "only the button that makes it a gradient");
+      Assert(picker.Root.GetComponentsInChildren<Pressable>(false).All(button => button.name != "Make gradient"),
+        "no button makes a gradient: 그라데이션 is a value in the color's list");
 
-      // A new shape follows the highlight; a custom color shows the whole picker.
-      picker.Model.SetSource(false);
-      Settle();
-      Rect solidPicker = ScreenRectOf(picker.Root);
+      // A new shape follows the highlight.
+      Assert(Field<OverlayShapeSettings>(shapes, "_shape").Fill.Highlight && picker.Model.FollowsHighlight, "a new shape's fill follows the highlight");
       SaveFrame(camera, texture, canvases, name + "-gradient-hover");
 
-      // The button makes a gradient whose new color shows at once.
-      Press(makeGradient());
+      // 그라데이션 picked from the list makes a gradient whose new color shows at once.
+      DockProbe dock0 = DockOf(shapes);
+      Press(DockChip(dock0, "Value make-gradient"));
+      Settle();
+      Call(shapes, "Render");
       Settle();
       OverlayColorSettings fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(fill.IsGradient && fill.Gradient.Stops.Count == 2 && picker.Gradient.IsGradient && picker.Gradient.SelectedStop == 1
-        && bar.gameObject.activeInHierarchy && makeGradient() == null,
-        "the button makes a gradient, picks its new color and gives way to the bar");
-      Assert(ScreenRectOf(picker.Root) == solidPicker, "turning into a gradient keeps the picker in place");
+        && bar.gameObject.activeInHierarchy && !picker.InCompactPlace && picker.GradientAvailable,
+        "그라데이션 makes a gradient, picks its new color and opens the gradient's bigger tool with its bar");
+      // Made from the highlight color, it is still a gradient of custom colors, starting from the highlight.
+      string accent = "#" + ColorUtility.ToHtmlStringRGB(UiTheme.Accent);
+      Assert(!fill.Highlight && !picker.Model.FollowsHighlight && fill.Gradient.Stops.Any(stop => stop.Hex == accent)
+        && fill.Gradient.Stops.Any(stop => stop.Hex != accent) && ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.PlaneRoot)),
+        "a gradient made from the highlight is of custom colors, starting from the highlight, its square to pick them: "
+          + string.Join(" ", fill.Gradient.Stops.Select(stop => stop.Hex)));
       Invoke(picker.Gradient, "BarDown", Pointer(BarPoint(bar, 1)));
       Invoke(picker.Gradient, "BarDrag", Pointer(BarPoint(bar, .7f)));
       Settle();
@@ -89,7 +95,6 @@ namespace Element.Editor
       Assert(fill.Gradient.Stops[1].Hex != fill.Gradient.Stops[0].Hex, "the new color is a neighbor, not the same color");
       Assert(Field<RectTransform>(picker.Gradient, "_kindRow").gameObject.activeSelf && handles.Visible,
         "the kinds and the handles show with two colors");
-      DockProbe dock0 = DockOf(shapes);
       FormulaFieldView position = ShapeGradientOf(shapes).Position;
       Assert(position.Text == "70", "the picked color's position number says where it is: " + position.Text);
       Rect numberRect = ScreenRectOf(position.Root), barRect = ScreenRectOf(bar);
@@ -107,13 +112,22 @@ namespace Element.Editor
       }
       Assert(ScreenRectOf(picker.Root).yMax <= Screen.height && ScreenRectOf(picker.Root).yMin >= 0, "the picker stays on screen");
       // 16:9 and 16:10 screens leave 310 frame units above the keypad.
-      Assert(picker.Height <= 310 && picker.CurrentWidth > 500, "the two-column picker fits above the keypad on wide screens: " + picker.Height);
+      Assert(picker.Height <= 310 && Mathf.Abs(picker.CurrentWidth - Element.Presentation.OverlayEditor.Parts.Dock.Keypad.KeypadView.Width) < .5f,
+        "a gradient's controls are as wide as the column and fit above the keypad: " + picker.CurrentWidth + " x " + picker.Height);
       Rect pickerRect = ScreenRectOf(picker.Root);
+      // The picked color's square stands where every input method does, so nothing reaches out of the column.
+      Rect methodPlace = ScreenRectOf(dock0.MethodRoot);
+      Assert(picker.PlaneRoot != null && picker.PlaneRoot.gameObject.activeSelf, "the picked color has its square");
+      Rect planeRect = ScreenRectOf(picker.PlaneRoot);
+      Assert(Mathf.Abs(planeRect.xMin - methodPlace.xMin) < 1 && Mathf.Abs(planeRect.yMax - methodPlace.yMax) < 1 && planeRect.yMin >= methodPlace.yMin - 1
+        && pickerRect.xMin >= methodPlace.xMin - 1 && pickerRect.xMax <= methodPlace.xMax + 1 && pickerRect.yMin >= methodPlace.yMax - 1,
+        "the square is in the input method's place and the controls right above it, both inside the right column: " + planeRect + " / " + pickerRect + " / " + methodPlace);
       Assert(!pickerRect.Overlaps(ScreenRectOf(ShapeRect(shapes)))
         && !pickerRect.Overlaps(ScreenRectOf(EditorBarRoot(shapes)))
         && !pickerRect.Overlaps(KeypadRect(dock0)),
         "the shape and its bar move clear of the picker, which stays off the keypad");
       SaveFrame(camera, texture, canvases, name + "-gradient-linear");
+      SaveHovered(camera, texture, canvases, name + "-gradient-linear", "Inspector back");
 
       // The ends of the line are handles only: nothing covers them.
       Rect shapeRect = ScreenRectOf(ShapeRect(shapes));
@@ -147,43 +161,26 @@ namespace Element.Editor
       Call(shapes, "Activate", "fill-angle");
       DockProbe dock = DockOf(shapes);
       Assert(dock.Owner == "fill-angle", "the angle opens in the dock");
-      Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayFormula.FromNumber(0));
+      Call(ShapeNumbersOf(shapes), "Write", "fill-angle", OverlayVariable.FromNumber(0));
       ShapeNumbersOf(shapes).FinishEditing();
       fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
       Assert(Mathf.Abs(OverlayGradientMath.Angle(fill.Gradient, 420, 240)) < .5f, "a typed angle turns the gradient");
 
-      // Following the highlight leaves only opacities; nothing on the left moves.
-      Rect barBefore = ScreenRectOf(bar);
-      picker.Model.SetSource(true);
-      Settle();
-      Assert(Mathf.Abs(ScreenRectOf(bar).xMax - barBefore.xMax) < 1 && Mathf.Abs(ScreenRectOf(bar).yMin - barBefore.yMin) < 1
-        && Mathf.Abs(ScreenRectOf(picker.Root).xMin - KeypadRect(DockOf(shapes)).xMin) < 1,
-        "following the highlight leaves one column over the keypad, the bar at the same height");
-      fill = Field<OverlayShapeSettings>(shapes, "_shape").Fill;
-      List<int> order = OverlayGradientEdits.Order(fill.Gradient);
-      Assert(fill.Highlight && fill.IsGradient && fill.Gradient.Stops[order[order.Count - 1]].Alpha < fill.Gradient.Stops[order[0]].Alpha,
-        "the highlight gradient fades instead of vanishing");
-      Assert(!ColorPickerProbe.Shown(ColorPickerProbe.Plane(picker.Root)) && ColorPickerProbe.Shown(ColorPickerProbe.Alpha(picker.Root)),
-        "only the opacity shows while following the highlight");
-      SaveFrame(camera, texture, canvases, name + "-gradient-highlight");
-      picker.Model.SetSource(false);
-      Settle();
-
       // A small shape shows larger while its color is edited, and says so.
       ShapePreview shapePreview = Field<ShapePreview>(shapes, "_preview");
       Assert(shapePreview.Shown <= 1.001f, "a large shape isn't made larger: " + shapePreview.Shown);
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(30));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(24));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(30));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(24));
       Call(shapes, "Render");
       Settle();
       Assert(bar.gameObject.activeInHierarchy && position.Root.gameObject.activeInHierarchy && ShapeColorsOf(shapes).Opacity.Field.Root.gameObject.activeInHierarchy,
-        "back from the highlight, the bar and both numbers are there again");
+        "the bar and both numbers are there");
       TextMeshProUGUI zoomLine = ByName<TextMeshProUGUI>(Field<EditorFramePanel>(shapes, "_frame").Frame, "Preview zoom");
       Assert(shapePreview.Shown >= 2 && Shown(zoomLine) && zoomLine.text.Length > 0,
         "a small shape shows larger while its color is edited: " + shapePreview.Shown);
       SaveFrame(camera, texture, canvases, name + "-gradient-small");
-      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayFormula.FromNumber(420));
-      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayFormula.FromNumber(240));
+      Call(ShapeNumbersOf(shapes), "Write", "width", OverlayVariable.FromNumber(420));
+      Call(ShapeNumbersOf(shapes), "Write", "height", OverlayVariable.FromNumber(240));
       Call(shapes, "Render");
       Settle();
 
@@ -250,12 +247,14 @@ namespace Element.Editor
       textPicker.Model.SetSource(false);
       Settle();
       RectTransform textBar = Field<RectTransform>(textPicker.Gradient, "_bar");
-      Invoke(textPicker.Gradient, "BarDown", Pointer(BarPoint(textBar, 1)));
-      Invoke(textPicker.Gradient, "BarDrag", Pointer(BarPoint(textBar, 1)));
+      Press(DockChip(DockOf(text), "Value make-gradient"));
+      Settle();
+      Call(text, "Render");
       Settle();
       OverlayColorSettings range = TextDocumentOf(text).RangeColor();
       GradientHandles textHandles = Field<TextGradient>(text, "_gradient").Handles;
-      Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible, "the text's color bar makes a gradient with handles over the text");
+      Assert(range.IsGradient && textPicker.Gradient.IsGradient && textHandles.Visible && textBar.gameObject.activeInHierarchy,
+        "그라데이션 from the list makes the text a gradient, with its bar and handles over the text");
       TextMeshProUGUI preview = TextPreviewOf(text).Text;
       Assert(OverlayTextGradients.Box(preview.textInfo, out Rect box) && box.width > 0, "the handles measure the text's box");
       Rect textRect = ScreenRectOf(preview.rectTransform);

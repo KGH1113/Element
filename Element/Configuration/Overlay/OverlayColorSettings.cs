@@ -6,7 +6,7 @@ namespace Element.Configuration.Overlay;
 // opacity, or is a fixed custom color.
 //
 // A number the player can tie to live values keeps its plain value and, next
-// to it, an optional formula (see OverlayFormula): values in braces with
+// to it, an optional formula (see OverlayVariable): values in braces with
 // + - * /, such as "{progress-current}*3". An empty formula uses the number.
 // Formulas give pixels as the game draws them at 1080p, or percent for opacity.
 //
@@ -15,9 +15,15 @@ namespace Element.Configuration.Overlay;
 // Highlight then applies to the whole gradient: every stop is the highlight
 // color and only their opacities differ.
 //
-// With ValueColor, the color follows a live value instead, and everything
-// above is what shows while that value has no data. Turning it off brings
-// that color back as it was.
+// Formula, when set, holds cases that give another color while they hold,
+// such as "{accuracy}=100?{highlight-color}" (see OverlayVariable). With no
+// case holding, or no data yet, the color above shows: it is the
+// "otherwise". A case's color is the highlight color or one picked by hand
+// (#RRGGBB), with this color's opacity.
+//
+// ValueColor is what earlier versions saved for a color that followed a live
+// value. Nothing draws from it any more: it is kept, and saved back as it
+// was, only so those settings can be converted.
 [Serializable]
 [CopiedInPlace]
 public sealed class OverlayColorSettings
@@ -27,15 +33,16 @@ public sealed class OverlayColorSettings
   public float Alpha = 1f;
   public string AlphaFormula = string.Empty;
 
+  /// <summary>Cases that give another color while they hold; empty for none.</summary>
+  public string Formula = string.Empty;
+
   /// <summary>Null for a solid color.</summary>
   public OverlayGradient Gradient;
 
-  /// <summary>Null unless the color follows a live value.</summary>
+  /// <summary>Null unless an earlier version saved a color that followed a live value; read only to convert it.</summary>
   public OverlayValueColor ValueColor;
 
   public bool IsGradient => Gradient != null && Gradient.Stops != null && Gradient.Stops.Count > 1;
-
-  public bool FollowsValue => ValueColor != null;
 
   public static OverlayColorSettings HighlightColor(float alpha = 1f) => new() { Highlight = true, Alpha = alpha };
 
@@ -48,6 +55,7 @@ public sealed class OverlayColorSettings
       Hex = Hex,
       Alpha = Alpha,
       AlphaFormula = AlphaFormula ?? string.Empty,
+      Formula = Formula ?? string.Empty,
       Gradient = IsGradient ? Gradient.Clone() : null,
       ValueColor = ValueColor?.Clone(),
     };
@@ -61,6 +69,7 @@ public sealed class OverlayColorSettings
         ? Gradient.SameAs(other.Gradient, Highlight)
         : Alpha == other.Alpha && SameFormula(AlphaFormula, other.AlphaFormula) && (Highlight || Hex == other.Hex)
     )
+    && SameFormula(Formula, other.Formula)
     && OverlayValueColor.Same(ValueColor, other.ValueColor);
 
   internal static bool SameFormula(string a, string b) => (a ?? string.Empty) == (b ?? string.Empty);

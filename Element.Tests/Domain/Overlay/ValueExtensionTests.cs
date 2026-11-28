@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.Overlay.Values;
 using Element.Tests.Support;
@@ -40,11 +40,11 @@ internal static class ValueExtensionTests
   private static void MissingModValuesSurviveSaving()
   {
     Check(
-      OverlayFormula.Parse("{Fingering/left-keys}+1").Serialize() == "{Fingering/left-keys}+1",
+      OverlayVariable.Parse("{Fingering/left-keys}+1").Serialize() == "{Fingering/left-keys}+1",
       "a formula keeps a mod's value"
     );
     Check(
-      OverlayFormula.Parse("Fingering/left-keys").Serialize() == "Fingering/left-keys",
+      OverlayVariable.Parse("Fingering/left-keys").Serialize() == "Fingering/left-keys",
       "a run keeps a mod's value"
     );
     List<OverlayTextRun> runs = new()
@@ -61,9 +61,9 @@ internal static class ValueExtensionTests
 
     OverlayValues values = new();
     StringBuilder output = new();
-    OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, false);
+    OverlayFormulaText.Append(output, OverlayVariable.Parse("Fingering/left-keys"), values, false);
     Check(output.Length == 0, "the overlay shows nothing for a missing value");
-    OverlayFormulaText.Append(output, OverlayFormula.Parse("Fingering/left-keys"), values, true);
+    OverlayFormulaText.Append(output, OverlayVariable.Parse("Fingering/left-keys"), values, true);
     Check(
       output.ToString() == "[Fingering/left-keys]",
       "the editor names a missing value by its key, so it can be found"
@@ -72,7 +72,7 @@ internal static class ValueExtensionTests
 
   private static void RemovedBuiltInValuesAreStillDropped()
   {
-    Check(OverlayFormula.Parse("{progress}+1").Serialize() == "1", "a removed built-in value is dropped as before");
+    Check(OverlayVariable.Parse("{progress}+1").Serialize() == "1", "a removed built-in value is dropped as before");
     Check(!OverlayValueCatalog.TryGet("progress", out _), "and gets no place");
   }
 
@@ -83,7 +83,7 @@ internal static class ValueExtensionTests
     Check(!OverlayValueCatalog.IsExtensionKey("Mod/a/b"), "one slash");
     Check(OverlayValueCatalog.IsExtensionKey("My.Mod_2/next-left-3"), "mod ids keep their own spelling");
     Check(
-      OverlayFormula.Parse("10-4/2").TryEvaluate(null, out double result, out _) && Math.Abs(result - 8) < 1e-9,
+      OverlayVariable.Parse("10-4/2").TryNumber(null, out double result, out _) && Math.Abs(result - 8) < 1e-9,
       "the calculation still works"
     );
   }
@@ -91,7 +91,7 @@ internal static class ValueExtensionTests
   private static void RegisteringBringsBackAMissingValue()
   {
     OverlayValueCatalog.TryResolve("Fingering/right-keys", out OverlayValueDefinition missing);
-    OverlayFormula formula = OverlayFormula.Parse("{Fingering/right-keys}*2");
+    OverlayVariable formula = OverlayVariable.Parse("{Fingering/right-keys}*2");
     OverlayValueGroup group = new("Sample", "예시", "Sample");
     OverlayValueDefinition added = OverlayValueCatalog.Register(
       "Fingering/right-keys",
@@ -108,7 +108,7 @@ internal static class ValueExtensionTests
 
     OverlayValues values = new();
     values.Set(added.Id, new StringBuilder("3"), 3);
-    Check(formula.TryEvaluate(values, out double doubled, out _) && doubled == 6, "and calculate with it");
+    Check(formula.TryNumber(values, out double doubled, out _) && doubled == 6, "and calculate with it");
 
     OverlayValueDefinition clock = OverlayValueCatalog.Register(
       "Fingering/rest",
@@ -175,7 +175,7 @@ internal static class ValueExtensionTests
     Check(!mask.IsEmpty && !mask.Overlaps(OverlayValueCatalog.Bit(OverlayValueId.Combo)), "its bit is its own");
     Check(values.ChangedSince(seen).Overlaps(mask), "an open editor sees it change");
     Check(values.TakeChanges().Overlaps(mask), "the canvas redraws texts that use it");
-    Check(OverlayFormula.Parse("{Wide/v0}+{" + last.Key + "}").Mask.Contains(last.Id), "formulas include it");
+    Check(OverlayVariable.Parse("{Wide/v0}+{" + last.Key + "}").Mask.Contains(last.Id), "formulas include it");
   }
 
   private static void AFullCatalogRefusesMore()

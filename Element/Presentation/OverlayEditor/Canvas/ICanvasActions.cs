@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Element.Application.Layout;
 
 namespace Element.Presentation.OverlayEditor.Canvas;
@@ -14,6 +15,12 @@ internal interface ICanvasActions
 
   void Undo();
   void Redo();
+
+  /// <summary>Float view: the elements stand apart in depth; the order panel steps aside meanwhile.</summary>
+  void OpenFloatView();
+
+  /// <summary>Back from Float view to the flat canvas.</summary>
+  void CloseFloatView();
 
   /// <summary>Leaves without saving.</summary>
   void Cancel();
@@ -36,6 +43,44 @@ internal interface ICanvasActions
 
   /// <summary>Opens the selected element's editor.</summary>
   void Edit();
+
+  // ---- Layers and groups ----
+
+  /// <summary>Opens or closes the layers panel above the toolbar.</summary>
+  void Layers();
+
+  /// <summary>Makes the selected elements one group.</summary>
+  void Group();
+
+  /// <summary>Takes the selected group apart; its elements stay where they are.</summary>
+  void Ungroup();
+
+  /// <summary>
+  /// Moves the selection to the front (<paramref name="forward"/>) or the back:
+  /// past the nearest element it overlaps, or all the way with <paramref name="toEnd"/>.
+  /// </summary>
+  void Arrange(bool forward, bool toEnd);
+
+  /// <summary>
+  /// Moves <paramref name="ids"/> just in front of <paramref name="behindId"/>
+  /// (null: the very back), in <paramref name="group"/> or in none for null; one undo step.
+  /// </summary>
+  void MoveLayers(IReadOnlyCollection<string> ids, string behindId, string group);
+
+  /// <summary>
+  /// Shows on the canvas the order a carried layer card would make, without
+  /// keeping it; null <paramref name="ids"/> brings the order back as it was.
+  /// </summary>
+  void PreviewLayers(IReadOnlyCollection<string> ids, string behindId);
+
+  /// <summary>Names <paramref name="group"/>; one undo step.</summary>
+  void RenameGroup(string group, string name);
+
+  /// <summary>Selects what a layer card stands for: an element, or a group by its id.</summary>
+  void SelectLayer(string id, string group, bool adding);
+
+  /// <summary>Shows only <paramref name="ids"/> clearly while the pointer is over their card; null shows all.</summary>
+  void PeekLayers(IReadOnlyCollection<string> ids);
 
   // ---- What the parts and kinds ask for ----
 

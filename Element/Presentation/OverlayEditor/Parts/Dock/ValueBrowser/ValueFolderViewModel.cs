@@ -9,27 +9,18 @@ using UnityEngine;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// One place in the dock's list (a built-in category, or everything one mod
-/// adds) and the page it opens: its values, in a row per group under the
-/// group's heading when a mod made several. It is lit while open, and
-/// dimmed while a search shows instead.
+/// One section of the dock's values (a built-in category, or everything one
+/// mod adds): its heading and its values, in a row per group under the
+/// group's heading when a mod made several. Only the values that fit where
+/// the dock puts values now are listed, and a section none of whose values
+/// fit is not listed at all (<see cref="Fit"/>).
 /// </summary>
 internal sealed class ValueFolderViewModel : ViewModel
 {
-  // A row at rest is the list's own opaque base; lit and dimmed it is opaque too.
-  private static readonly UiColor Rest = Color.clear,
-    RestInk = new Color(.8f, .8f, .8f);
-  private readonly UiColor _lit;
-
-  public ValueFolderViewModel(
-    OverlayValueFolder folder,
-    Action<OverlayValueDefinition> pick,
-    Action<ValueFolderViewModel> open
-  )
+  public ValueFolderViewModel(OverlayValueFolder folder, Action<OverlayValueDefinition> pick)
   {
     Key = folder.Key;
     Name = ValueSectionNames.FolderName(folder);
-    Count = folder.Count.ToString(CultureInfo.InvariantCulture);
     IsMod = folder.IsMod;
     List<ValueChipRow> groups = new();
     List<ValueChipViewModel> all = new();
@@ -38,8 +29,7 @@ internal sealed class ValueFolderViewModel : ViewModel
       ValueChipViewModel[] chips = new ValueChipViewModel[section.Values.Count];
       for (int i = 0; i < chips.Length; i++)
       {
-        OverlayValueDefinition value = section.Values[i];
-        chips[i] = Own(new ValueChipViewModel(value, OverlayValueSearch.Index(folder, value), pick));
+        chips[i] = Own(new ValueChipViewModel(section.Values[i], pick));
         all.Add(chips[i]);
       }
       // A heading only tells groups apart; one group needs none.
@@ -49,17 +39,16 @@ internal sealed class ValueFolderViewModel : ViewModel
     }
     Groups = groups;
     Chips = all;
-    _lit = Color.Lerp(UiPalette.EditorControl, UiPalette.SoftAccent, .3f);
-    Select = Command(() => open(this));
   }
 
-  /// <summary>Names it the same way from one opening to the next; it names the drawn row too.</summary>
+  /// <summary>Names it the same way from one opening to the next; it names the drawn section too.</summary>
   public readonly string Key;
 
+  /// <summary>Its heading: "판정", or the mod's name.</summary>
   public readonly string Name;
 
-  /// <summary>How many values it holds.</summary>
-  public readonly string Count;
+  /// <summary>Some of its values fit: it is listed.</summary>
+  public readonly State<bool> Shown = new(true);
 
   public readonly bool IsMod;
 
@@ -69,41 +58,27 @@ internal sealed class ValueFolderViewModel : ViewModel
   /// <summary>Every value it holds, in order.</summary>
   public readonly IReadOnlyList<ValueChipViewModel> Chips;
 
-  /// <summary>Its page shows.</summary>
-  public readonly State<bool> Open = new(false);
-
-  public readonly State<UiColor> Fill = new(Rest);
-
-  public readonly State<UiColor> Ink = new(RestInk);
-
-  /// <summary>The search finds some of its values.</summary>
-  public readonly State<bool> Found = new(false);
-
-  public Command Select { get; }
-
-  /// <summary>Lit while it is the place open, dimmed while a search shows instead.</summary>
-  public void Show(bool open, bool searching)
+  /// <summary>
+  /// Keeps the values that fit <paramref name="place"/> listed, and their
+  /// rows; it is listed while one does. How many don't fit.
+  /// </summary>
+  public int Fit(ValuePlace place)
   {
-    Open.Value = open && !searching;
-    Fill.Value =
-      !open ? Rest
-      : searching ? UiPalette.EditorControl
-      : _lit;
-    Ink.Value = open && !searching ? UiPalette.Foreground : RestInk;
-  }
-
-  /// <summary>Marks the values <paramref name="folded"/> finds (none for empty); how many it found.</summary>
-  public int Find(string folded)
-  {
-    int found = 0;
-    foreach (ValueChipViewModel chip in Chips)
+    int fits = 0;
+    foreach (ValueChipRow row in Groups)
     {
-      bool match = OverlayValueSearch.Matches(chip.Index, folded);
-      chip.Found.Value = match;
-      if (match)
-        found++;
+      bool any = false;
+      foreach (ValueChipViewModel chip in row.Chips)
+      {
+        bool fit = place.Fits(chip.Value);
+        chip.Fits.Value = fit;
+        any |= fit;
+        if (fit)
+          fits++;
+      }
+      row.Shown.Value = any;
     }
-    Found.Value = found > 0;
-    return found;
+    Shown.Value = fits > 0;
+    return Chips.Count - fits;
   }
 }

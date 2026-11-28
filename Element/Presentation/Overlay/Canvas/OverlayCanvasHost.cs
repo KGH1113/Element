@@ -19,8 +19,8 @@ namespace Element.Presentation.Overlay.Canvas;
 
 /// <summary>
 /// The overlay canvas and its elements, kept in step with the saved layout
-/// list. Each kind of element makes its own elements on its own layer:
-/// shapes below other mods' elements, and those below every text.
+/// list. Every kind makes its elements on one layer, stacked in the list's
+/// order: the last one draws in front.
 /// </summary>
 internal sealed class OverlayCanvasHost : IDisposable
 {
@@ -75,10 +75,9 @@ internal sealed class OverlayCanvasHost : IDisposable
     TextElementKind texts = new(this);
     _mods = new ModElementKind(this);
     _kinds = new OverlayElementKind[] { texts, new ShapeElementKind(this), _mods };
-    for (int depth = 0; depth < _kinds.Length; depth++)
-      foreach (OverlayElementKind kind in _kinds)
-        if (kind.LayerDepth == depth)
-          kind.Layer = CreateLayer(kind.LayerName);
+    Transform layer = CreateLayer("Elements");
+    foreach (OverlayElementKind kind in _kinds)
+      kind.Layer = layer;
     _comboFit = new ComboGroupFit(texts.Elements);
     _contentChanged = OnContentChanged;
     foreach (OverlayDefaultElement element in OverlayElementDefaults.All)
@@ -122,7 +121,23 @@ internal sealed class OverlayCanvasHost : IDisposable
         continue;
       Create(settings);
     }
+    ApplyOrder();
     _comboFit.Pending = true;
+  }
+
+  /// <summary>
+  /// Stacks the elements in the saved list's order, the last in front. Call
+  /// after the order changes; elements already in place aren't touched.
+  /// </summary>
+  public void ApplyOrder()
+  {
+    int index = 0;
+    foreach (OverlayLayoutSettings settings in _layoutSettings)
+    {
+      OverlayElementTarget element = settings == null ? null : Find(settings.Id);
+      if (element != null && element.DrawAt(index))
+        index++;
+    }
   }
 
   /// <summary>
@@ -136,7 +151,9 @@ internal sealed class OverlayCanvasHost : IDisposable
     if (kind == null || !kind.CanCreate)
       return null;
     _layoutSettings.Add(settings);
-    return Create(settings);
+    OverlayElementTarget element = Create(settings);
+    ApplyOrder();
+    return element;
   }
 
   private OverlayElementTarget Create(OverlayLayoutSettings settings)
@@ -199,6 +216,7 @@ internal sealed class OverlayCanvasHost : IDisposable
 
   public void ApplyLayouts()
   {
+    ApplyOrder();
     foreach (OverlayElementTarget element in _elements)
       element.Apply();
     foreach (OverlayElementKind kind in _kinds)

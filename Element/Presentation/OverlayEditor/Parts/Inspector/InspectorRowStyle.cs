@@ -82,6 +82,15 @@ internal static class InspectorRowStyle
   public static View Glyph(string letters) => UI.Text(letters).Font(Font.Callout).Foreground(Colors.Muted).LineLimit(1);
 
   /// <summary>Over a group of rows, such as "Text".</summary>
+  /// <summary>A heading that follows <paramref name="title"/>.</summary>
+  public static View Heading(Expression<Func<string>> title) =>
+    UI.Text(title)
+      .Font(Font.Caption.Bolded())
+      .Foreground(Colors.Muted)
+      .LineLimit(1)
+      .Frame(maxWidth: float.PositiveInfinity, height: HeadingHeight, alignment: Alignment.BottomLeading)
+      .Padding(new Insets(0, 4, 0, 0));
+
   public static View Heading(string title) =>
     UI.Text(title ?? "")
       .Font(Font.Caption.Bolded())
@@ -91,8 +100,9 @@ internal static class InspectorRowStyle
       .Padding(new Insets(0, 4, 0, 0));
 
   /// <summary>
-  /// Back to the rows, naming the tool open below it. It reads as the dimmed
-  /// view at rest but is opaque, so its hover doesn't let the overlay through.
+  /// Back to the rows, naming the tool open below it: a heading over the
+  /// tool with no box of its own at rest; under the pointer it lights as a
+  /// row does, with a row's corners.
   /// </summary>
   public static View Back(Expression<Func<string>> title, Expression<Func<Command>> back, string name) =>
     Button(
@@ -102,12 +112,13 @@ internal static class InspectorRowStyle
             UI.Text(title).Font(Font.Caption.Sized(13)).LineLimit(1),
             Spacer()
           )
-          .Padding(new Insets(0, 2, 0, 8))
+          // In line with the headings, with room for its light around the arrow.
+          .Padding(new Insets(0, 4, 0, 8))
           .Frame(height: BackHeight),
         back,
-        // A heading over the tool, with no box of its own; only the pointer lights it.
         ButtonStyle.Plain
       )
+      .ButtonStyle(SurfaceHover.Of(Radius))
       .Named(name);
 
   private static View LeadSlot(View lead) =>

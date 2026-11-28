@@ -1,41 +1,36 @@
-using Element.Presentation.Ui.Declarative;
-using Element.Presentation.Ui.Declarative.Controls;
-using Element.Presentation.Ui.Graphics;
-using Element.Presentation.Ui.Theme;
 using ElementUI;
-using UnityEngine;
 using static ElementUI.UI;
-using Font = ElementUI.Font;
 
 namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 
 /// <summary>
-/// The keypad: four columns of capsule keys, the operators in the accent,
-/// then AC and a wide, tinted Done.
+/// The keypad: four columns of capsule keys, the operators in the accent.
+/// Its sizes are the right column's and every input method's: they all take
+/// its place (<see cref="InputMethodView"/>), the whole of it. Nothing is
+/// under it: a value is taken out with the × on its pill, and the field is
+/// done with Enter, Esc or a click elsewhere.
 /// </summary>
 internal sealed class KeypadView : View<KeypadViewModel>
 {
-  public const float Key = 68,
-    KeyHeight = 44,
+  public const float Key = 80,
     Gap = 8,
     Width = 4 * Key + 3 * Gap,
-    Height = 5 * KeyHeight + 4 * Gap;
+    // The place every input method has.
+    Height = 302,
+    MethodHeight = Height,
+    // A key of the pad: four rows fill the place.
+    PadKeyHeight = (MethodHeight - 3 * Gap) / 4;
 
-  public KeypadView(KeypadViewModel vm)
-    : base(vm) { }
+  private readonly float _keyHeight;
 
-  public override View Body =>
-    VStack(
-        spacing: Gap,
-        Grid(4, Gap, Keys()),
-        HStack(
-          spacing: Gap,
-          new KeypadKeyView(VM.Clear, 17, false).Frame(width: Key),
-          // Done is the one filled key: the way out of the keypad.
-          new KeypadKeyView(VM.Done, 17, true).Frame(maxWidth: float.PositiveInfinity)
-        )
-      )
-      .Frame(width: Width, height: Height);
+  /// <param name="keyHeight">How tall a key is: lower where a folded condition has the top of the place.</param>
+  public KeypadView(KeypadViewModel vm, float keyHeight = PadKeyHeight)
+    : base(vm) => _keyHeight = keyHeight;
+
+  /// <summary>How tall a key is when the pad has <paramref name="height"/> for its four rows.</summary>
+  public static float KeyHeightIn(float height) => (height - 3 * Gap) / 4;
+
+  public override View Body => Grid(4, Gap, Keys()).Frame(width: Width, height: 4 * _keyHeight + 3 * Gap);
 
   private View[] Keys()
   {
@@ -43,7 +38,7 @@ internal sealed class KeypadView : View<KeypadViewModel>
     for (int i = 0; i < keys.Length; i++)
     {
       KeypadKeyViewModel key = VM.Keys[i];
-      keys[i] = new KeypadKeyView(key, key.Symbol ? 22 : 20, false);
+      keys[i] = new KeypadKeyView(key, key.Symbol ? 24 : 22, _keyHeight);
     }
     return keys;
   }

@@ -192,21 +192,40 @@ internal sealed class TextDocumentEditing
     Changed();
   }
 
+  /// <summary>
+  /// The caret to <paramref name="index"/>; <paramref name="extend"/> grows
+  /// the selection there, no further than the 글자 value it started in.
+  /// </summary>
   public void MoveTo(int index, bool extend, bool keepGoal = false)
   {
     _caretIndex = _document.Clamp(index);
-    if (!extend)
+    if (extend)
+      _caretIndex = OverlayTextRuns.Reach(_document, _anchor, _caretIndex);
+    else
       _anchor = _caretIndex;
     if (!keepGoal)
       GoalX = float.NaN;
     _changed();
   }
 
+  /// <summary>Select all: the whole 글자 value the caret is in; between two values, nothing.</summary>
   public void SelectAll()
   {
-    _anchor = 0;
-    _caretIndex = _document.Count;
+    if (!OverlayTextRuns.RunOfCaret(_document, _caretIndex, out int start, out int end))
+      return;
+    _anchor = start;
+    _caretIndex = end;
     _changed();
+  }
+
+  /// <summary>
+  /// Selects from <paramref name="anchor"/> towards <paramref name="caret"/>,
+  /// inside the 글자 value it starts in, as a drag or a double click does.
+  /// </summary>
+  public void Select(int anchor, int caret)
+  {
+    _anchor = _document.Clamp(anchor);
+    _caretIndex = OverlayTextRuns.Reach(_document, _anchor, _document.Clamp(caret));
   }
 
   public bool Copy()
@@ -249,15 +268,22 @@ internal sealed class TextDocumentEditing
   }
 
   /// <summary>A new value replaces the range and stays selected.</summary>
-  public void InsertValue(OverlayValueDefinition value, int start, int end)
+  public void InsertValue(OverlayValueDefinition value, int start, int end) =>
+    Insert(value.Key, InsertColor(value.Id), start, end);
+
+  /// <summary>A value made on the spot (<paramref name="formula"/>) replaces the range, in the color typing has there.</summary>
+  public void InsertFormula(string formula, int start, int end) =>
+    Insert(formula, TypingColor(_document.Clamp(start)), start, end);
+
+  private void Insert(string formula, OverlayColorSettings color, int start, int end)
   {
     Remember(false);
     start = _document.Clamp(start);
     int after = _document.InsertValue(
       start,
       end,
-      value.Key,
-      InsertColor(value.Id),
+      formula,
+      color,
       TypingSize(start),
       TypingSizeFormula(start),
       TypingFont(start),

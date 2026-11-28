@@ -30,6 +30,8 @@ internal abstract class ContentElementKind<T> : IElementKind
 
   public abstract string Label(IOverlayLayoutTarget target);
 
+  public abstract string KindName(IOverlayLayoutTarget target);
+
   public bool SizedInEditor => true;
 
   public abstract string EditCaption { get; }

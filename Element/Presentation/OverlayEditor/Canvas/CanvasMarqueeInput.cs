@@ -20,6 +20,7 @@ internal sealed class CanvasMarqueeInput
   private readonly CanvasSelection _selection;
   private readonly CanvasCursors _cursors;
   private readonly List<IOverlayLayoutTarget> _base = new();
+  private readonly List<IOverlayLayoutTarget> _members = new();
   private bool _pending,
     _active,
     _adds;
@@ -89,7 +90,7 @@ internal sealed class CanvasMarqueeInput
   }
 
   // Elements whose visible content lies fully inside the area join the
-  // selection the press started with.
+  // selection the press started with. A group joins whole, once all of it is inside.
   private void SelectInside(Vector2 mouse)
   {
     Rect area = Area(mouse);
@@ -103,24 +104,56 @@ internal sealed class CanvasMarqueeInput
       IOverlayLayoutTarget target = frames[i].Target;
       if (!CanvasSelection.Selectable(target) || selection.Contains(target))
         continue;
+      string group = _session.GroupOf(target);
+      if (group != null)
+        _session.GroupFrames(group, _members);
+      else
+      {
+        _members.Clear();
+        _members.Add(target);
+      }
+      Rect content = Union(_members, mouse);
+      if (content.width <= 0 || content.height <= 0)
+        continue;
+      if (
+        content.xMin >= area.xMin
+        && content.xMax <= area.xMax
+        && content.yMin >= area.yMin
+        && content.yMax <= area.yMax
+      )
+      {
+        foreach (IOverlayLayoutTarget member in _members)
+          if (!selection.Contains(member))
+            selection.Add(member);
+        primary = _session.IndexOf(selection[selection.Count - 1]);
+      }
+    }
+    _selection.Selected = primary;
+  }
+
+  // The visible content of all of them in the editor's space; empty when none shows.
+  private static Rect Union(List<IOverlayLayoutTarget> targets, Vector2 mouse)
+  {
+    Rect union = default;
+    bool any = false;
+    foreach (IOverlayLayoutTarget target in targets)
+    {
       Rect content = target.SelectionBounds;
       if (content.width <= 0 || content.height <= 0)
         continue;
       // Native viewers measure from their own window origin.
-      Vector2 offset = CanvasSession.PointerFor(target, mouse) - mouse;
-      Rect inSpace = new(area.position + offset, area.size);
-      if (
-        content.xMin >= inSpace.xMin
-        && content.xMax <= inSpace.xMax
-        && content.yMin >= inSpace.yMin
-        && content.yMax <= inSpace.yMax
-      )
-      {
-        selection.Add(target);
-        primary = i;
-      }
+      content.position -= CanvasSession.PointerFor(target, mouse) - mouse;
+      union = any
+        ? Rect.MinMaxRect(
+          Mathf.Min(union.xMin, content.xMin),
+          Mathf.Min(union.yMin, content.yMin),
+          Mathf.Max(union.xMax, content.xMax),
+          Mathf.Max(union.yMax, content.yMax)
+        )
+        : content;
+      any = true;
     }
-    _selection.Selected = primary;
+    return union;
   }
 
   private void Draw(Vector2 mouse)

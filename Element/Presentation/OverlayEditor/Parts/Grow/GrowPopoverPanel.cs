@@ -10,8 +10,9 @@ namespace Element.Presentation.OverlayEditor.Parts.Grow;
 
 /// <summary>
 /// Which point of the element stays put when it changes size: a panel under
-/// the Grow from button showing <see cref="GrowPopoverView"/>, made
-/// with the editor's screen and shown or hidden.
+/// the Grow from button showing <see cref="GrowPopoverView"/>, made with the
+/// editor's screen and shown or hidden. (The text and shape editors pick the
+/// point in their input dock instead: <see cref="GrowKeysView"/>.)
 /// </summary>
 internal sealed class GrowPopoverPanel : IPopover
 {
@@ -20,16 +21,14 @@ internal sealed class GrowPopoverPanel : IPopover
   private readonly EditorFramePanel _screen;
   private readonly ScreenPanel _panel;
   private Rect _anchor;
-  private Vector2? _column;
 
   /// <param name="picked">A point or Auto was clicked; show the choice with <see cref="Refresh"/>.</param>
-  /// <param name="inColumn">It opens in an editor's column, without a panel of its own.</param>
-  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked, bool inColumn = false)
+  public GrowPopoverPanel(EditorFramePanel screen, Action<OverlayGrowth> picked)
   {
     _screen = screen;
     ViewModel = new GrowPickerViewModel(picked);
-    _panel = screen.Panel("Grow popover", inColumn ? Color.clear : UiPalette.Popover);
-    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel, inColumn), ViewModel, Width);
+    _panel = screen.Panel("Grow popover", UiPalette.Popover);
+    _panel.Mount(screen.NewBackend(), new GrowPopoverView(ViewModel), ViewModel, Width);
     Root.gameObject.SetActive(false);
   }
 
@@ -44,16 +43,6 @@ internal sealed class GrowPopoverPanel : IPopover
   public void Show(Rect anchor)
   {
     _anchor = anchor;
-    _column = null;
-    Root.gameObject.SetActive(true);
-    Place();
-    Root.SetAsLastSibling();
-  }
-
-  /// <summary>Opens in an editor's column: its top right at <paramref name="right"/>, <paramref name="top"/> (frame units).</summary>
-  public void ShowIn(float right, float top)
-  {
-    _column = new Vector2(right, top);
     Root.gameObject.SetActive(true);
     Place();
     Root.SetAsLastSibling();
@@ -72,11 +61,6 @@ internal sealed class GrowPopoverPanel : IPopover
   private void Place()
   {
     Vector2 size = _panel.Size;
-    if (_column is { } column)
-    {
-      Root.anchoredPosition = new Vector2(Mathf.Round(column.x - size.x), -Mathf.Round(column.y));
-      return;
-    }
     Rect bounds = PopoverPlacement.Under(
       _anchor,
       _anchor.center.x - size.x * .5f,

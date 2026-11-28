@@ -149,12 +149,18 @@ internal static class OverlayMigrationTests
     OverlayElementDefaults.AddMissing(layouts);
     Check(layouts.Count == count && !layouts[edge].Enabled, "a deleted built-in stays deleted");
     OverlayElementDefaults.Restore(layouts, null);
+    // Reset all also puts the built-ins back in their drawing order.
+    edge = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressBarId);
+    track = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressTrackId);
+    fill = OverlayElementDefaults.IndexOf(layouts, OverlayElementDefaults.ProgressFillId);
     Check(
       layouts[edge].Enabled
         && layouts[track].Enabled
         && layouts[fill].Enabled
-        && layouts[fill].Shape.WidthFormula == progress.WidthFormula,
-      "Reset all brings the progress bar back"
+        && layouts[fill].Shape.WidthFormula == progress.WidthFormula
+        && edge < track
+        && track < fill,
+      "Reset all brings the progress bar back, its pieces in their order"
     );
   }
 

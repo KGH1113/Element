@@ -1,3 +1,4 @@
+using Element.Configuration.Overlay;
 using UnityEngine;
 
 namespace Element.Application.Layout;
@@ -24,6 +25,11 @@ internal interface IOverlayLayoutTarget
   // Only explicit edit completion captures an anchor/offset. Resizing retains its anchor.
   // initialize captures a newly added instance even if its default is already centered.
   void CommitLayout(bool reselectAnchor, bool initialize = false);
+
+  // Saves where it is now against the given screen point, as a group's
+  // elements all do so they stay together when the screen size changes. A
+  // target that can't hold that point picks its own nearest.
+  void CommitLayout(Anchor9 anchor);
   void SetEnabled(bool enabled);
   void SetPreview(bool preview);
   void RefreshLayout();

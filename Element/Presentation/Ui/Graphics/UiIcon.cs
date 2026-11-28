@@ -49,6 +49,88 @@ internal sealed class UiIcon : UiVectorGraphic
         Arc(mesh, 12, 12, 10.5f, -32, 32);
         Arc(mesh, 12, 12, 10.5f, 148, 212);
         break;
+      case UiIconKind.Less:
+        Line(mesh, 17, 6, 7, 12, 2.4f);
+        Line(mesh, 7, 12, 17, 18, 2.4f);
+        break;
+      case UiIconKind.LessOrSame:
+        Line(mesh, 17, 4, 7, 9.5f, 2.4f);
+        Line(mesh, 7, 9.5f, 17, 15, 2.4f);
+        Line(mesh, 7, 19.5f, 17, 19.5f, 2.4f);
+        break;
+      case UiIconKind.Same:
+        Line(mesh, 6, 9, 18, 9, 2.4f);
+        Line(mesh, 6, 15, 18, 15, 2.4f);
+        break;
+      case UiIconKind.NotSame:
+        Line(mesh, 6, 9, 18, 9, 2.4f);
+        Line(mesh, 6, 15, 18, 15, 2.4f);
+        Line(mesh, 15.5f, 4.5f, 8.5f, 19.5f, 2.4f);
+        break;
+      case UiIconKind.MoreOrSame:
+        Line(mesh, 7, 4, 17, 9.5f, 2.4f);
+        Line(mesh, 17, 9.5f, 7, 15, 2.4f);
+        Line(mesh, 7, 19.5f, 17, 19.5f, 2.4f);
+        break;
+      case UiIconKind.More:
+        Line(mesh, 7, 6, 17, 12, 2.4f);
+        Line(mesh, 17, 12, 7, 18, 2.4f);
+        break;
+      case UiIconKind.AnyType:
+        // An asterisk of three strokes through the middle.
+        Line(mesh, 12, 4.5f, 12, 19.5f, 2.6f);
+        Line(mesh, 5.5f, 8.25f, 18.5f, 15.75f, 2.6f);
+        Line(mesh, 5.5f, 15.75f, 18.5f, 8.25f, 2.6f);
+        break;
+      case UiIconKind.PlaceType:
+        // A box with its middle point marked.
+        Box(mesh, 5, 5, 19, 19);
+        Dot(mesh, 12, 12, 2.6f);
+        break;
+      case UiIconKind.CompareType:
+        // Less and more, back to back: something that compares.
+        Line(mesh, 9.5f, 6.5f, 4, 12, 2.4f);
+        Line(mesh, 4, 12, 9.5f, 17.5f, 2.4f);
+        Line(mesh, 14.5f, 6.5f, 20, 12, 2.4f);
+        Line(mesh, 20, 12, 14.5f, 17.5f, 2.4f);
+        break;
+      case UiIconKind.Keyboard:
+        // Two rows of keys over a space bar.
+        Box(mesh, 2.5f, 5.5f, 21.5f, 18.5f);
+        for (int key = 0; key < 4; key++)
+        {
+          Dot(mesh, 6.75f + key * 3.5f, 9.25f, 1.1f);
+          Dot(mesh, 6.75f + key * 3.5f, 12.25f, 1.1f);
+        }
+        Line(mesh, 8, 15.5f, 16, 15.5f, 1.8f);
+        break;
+      // As heavy as the bold digits beside them on the keypad.
+      case UiIconKind.Add:
+        Line(mesh, 12, 5.8f, 12, 18.2f, 3.6f);
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        break;
+      case UiIconKind.Subtract:
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        break;
+      case UiIconKind.Multiply:
+        Line(mesh, 7.4f, 7.4f, 16.6f, 16.6f, 3.6f);
+        Line(mesh, 16.6f, 7.4f, 7.4f, 16.6f, 3.6f);
+        break;
+      case UiIconKind.Divide:
+        Line(mesh, 5.8f, 12, 18.2f, 12, 3.6f);
+        Dot(mesh, 12, 6.2f, 2.2f);
+        Dot(mesh, 12, 17.8f, 2.2f);
+        break;
+      case UiIconKind.Fork:
+        // A bar over two boxes, a line from it down to each.
+        Line(mesh, 5, 5.5f, 19, 5.5f, 3.4f);
+        Line(mesh, 12, 7.2f, 12, 10.5f, 1.5f);
+        Line(mesh, 7, 10.5f, 17, 10.5f, 1.5f);
+        Line(mesh, 7, 10.5f, 7, 13, 1.5f);
+        Line(mesh, 17, 10.5f, 17, 13, 1.5f);
+        Box(mesh, 3.5f, 13.5f, 10.5f, 20);
+        Box(mesh, 13.5f, 13.5f, 20.5f, 20);
+        break;
       case UiIconKind.KeyViewer:
         Box(mesh, 3, 5, 10, 12);
         Box(mesh, 14, 5, 21, 12);
@@ -303,6 +385,51 @@ internal sealed class UiIcon : UiVectorGraphic
         Line(mesh, 6.5f, 7, 7.5f, 19.5f);
         Line(mesh, 7.5f, 19.5f, 16.5f, 19.5f);
         Line(mesh, 16.5f, 19.5f, 17.5f, 7);
+        break;
+      case UiIconKind.Float:
+        // Three sheets standing apart, each set back and up from the one before.
+        for (int sheet = 0; sheet < 3; sheet++)
+        {
+          float x = 3 + sheet * 4,
+            y = 9 - sheet * 3;
+          BeginPath();
+          PathPoint(x, y);
+          PathPoint(x + 9, y);
+          PathPoint(x + 9, y + 11);
+          PathPoint(x, y + 11);
+          Stroke(mesh, sheet == 0 ? 2 : 1.6f, true);
+        }
+        break;
+      case UiIconKind.Layers:
+        // A diamond sheet lying over the edge of another, as a stack is drawn.
+        BeginPath();
+        PathPoint(12, 3.5f);
+        PathPoint(21, 8.5f);
+        PathPoint(12, 13.5f);
+        PathPoint(3, 8.5f);
+        Stroke(mesh, 2, true);
+        BeginPath();
+        PathPoint(3, 13.5f);
+        PathPoint(12, 18.5f);
+        PathPoint(21, 13.5f);
+        Stroke(mesh);
+        break;
+      case UiIconKind.Group:
+        // Corners of a frame around two boxes.
+        Line(mesh, 3, 3, 7, 3);
+        Line(mesh, 3, 3, 3, 7);
+        Line(mesh, 17, 3, 21, 3);
+        Line(mesh, 21, 3, 21, 7);
+        Line(mesh, 3, 17, 3, 21);
+        Line(mesh, 3, 21, 7, 21);
+        Line(mesh, 21, 17, 21, 21);
+        Line(mesh, 17, 21, 21, 21);
+        Box(mesh, 7, 7, 13, 13);
+        Box(mesh, 11, 11, 17, 17);
+        break;
+      case UiIconKind.Ungroup:
+        Box(mesh, 3, 3, 11, 11);
+        Box(mesh, 13, 13, 21, 21);
         break;
       case UiIconKind.Duplicate:
         BeginPath();

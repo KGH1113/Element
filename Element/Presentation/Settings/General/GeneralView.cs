@@ -64,11 +64,12 @@ internal sealed class GeneralView : View<GeneralViewModel>
               .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.Leading),
             Image(ElementIcons.Of(UiIconKind.PageForward), 22).Foreground(Colors.Accent)
           )
-          .Frame(maxWidth: float.PositiveInfinity)
-          .Padding(new Insets(0, 8, 0, 8)),
+          .Padding(new Insets(10, 20, 10, 20))
+          .Frame(maxWidth: float.PositiveInfinity, minHeight: 80),
         () => VM.OpenProfiles,
-        ButtonStyle.Row
+        ButtonStyle.Plain
       )
-      .Frame(minHeight: 80)
+      // The whole card lights, corner for corner.
+      .ButtonStyle(SurfaceHover.Of(12))
       .Background(Colors.Surface, 12);
 }

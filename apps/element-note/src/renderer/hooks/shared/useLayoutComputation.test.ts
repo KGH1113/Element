@@ -5,6 +5,10 @@ import {
 } from '@constants/overlayDefaults';
 import { createNoteBuffer } from '@stores/signals/noteBuffer';
 import type { KeyPosition } from '@src/types/key/keys';
+import {
+  createDefaultGhostSettings,
+  expandGhostKeys,
+} from '@src/renderer/editor/model/ghostKeys';
 import { computeLayout } from './useLayoutComputation';
 
 const layout = (positions: KeyPosition[]) =>
@@ -84,4 +88,56 @@ describe('v2 note paint through the Element layout boundary', () => {
       5,
     );
   });
+});
+
+describe('a key whose place has not arrived yet', () => {
+  // A pasted key: keys:changed came, positions:changed has not. With a ghost
+  // key in the tab, the positions are padded with undefined to stay aligned.
+  const pastedBeforeItsPlace = (rotation?: number) => {
+    const owner: KeyPosition = {
+      ...FALLBACK_POSITION,
+      dx: 100,
+      dy: 50,
+      rotation,
+      ghost: {
+        enabled: true,
+        key: 'W',
+        settings: createDefaultGhostSettings(FALLBACK_POSITION),
+      },
+    };
+    const other: KeyPosition = { ...FALLBACK_POSITION, dx: 200, dy: 50 };
+    return {
+      before: expandGhostKeys(['A', 'B'], [owner, other]),
+      pasted: expandGhostKeys(['A', 'B', 'TAB'], [owner, other]),
+    };
+  };
+  const layoutOf = ({ keys, positions }: ReturnType<typeof expandGhostKeys>) =>
+    computeLayout({
+      currentKeys: keys,
+      currentPositions: positions,
+      currentStatPositions: [],
+      currentGraphPositions: [],
+      currentKnobPositions: [],
+      trackHeight: 150,
+      noteSettings: { ...DEFAULT_NOTE_SETTINGS, fadePosition: 'auto' },
+    });
+
+  it.each([undefined, 90])(
+    'is left out of the layout instead of stopping the viewer (rotation %s)',
+    (rotation) => {
+      const { before, pasted } = pastedBeforeItsPlace(rotation);
+      expect(pasted.positions).toHaveLength(4);
+      expect(pasted.positions[2]).toBeUndefined();
+
+      const result = layoutOf(pasted);
+
+      expect(result.bounds).toEqual(layoutOf(before).bounds);
+      expect(result.displayPositions[2]).toBeUndefined();
+      expect(result.webglTracks.map((track) => track!.trackKey)).toEqual([
+        'A',
+        'B',
+        'W',
+      ]);
+    },
+  );
 });

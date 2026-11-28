@@ -1,6 +1,6 @@
 using System.Text;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using UnityEngine;
 
@@ -19,6 +19,10 @@ internal sealed class OverlayValues : IOverlayNumberSource
   private readonly double[] _number = new double[OverlayValueCatalog.Capacity];
   private readonly bool[] _has = new bool[OverlayValueCatalog.Capacity];
   private readonly long[] _stamp = new long[OverlayValueCatalog.Capacity];
+
+  // A value with decimals as last set, at the most decimals any place reads it: it changed only when this did.
+  private readonly long[] _finest = new long[OverlayValueCatalog.Capacity];
+  private readonly StringBuilder _written = new(32);
   private OverlayValueMask _dirty;
   private long _stampNow;
 
@@ -68,6 +72,23 @@ internal sealed class OverlayValues : IOverlayNumberSource
     _number[(int)id] = number;
     _has[(int)id] = true;
     Changed(id);
+  }
+
+  /// <summary>
+  /// A value with decimals, whole (<paramref name="raw"/>): it is written as
+  /// the overlay shows it (its own decimals, cut the game's way), and kept
+  /// whole for places that read it at more or fewer. It changes when it does
+  /// at the most decimals a place may read, not at every tiny step.
+  /// </summary>
+  public void SetNumber(OverlayValueId id, double raw)
+  {
+    OverlayValueDefinition value = OverlayValueCatalog.Get(id);
+    long finest = OverlayValueNumbers.Scaled(raw, value.MostDigits, value.Rounding);
+    if (_has[(int)id] && _finest[(int)id] == finest && !double.IsNaN(_number[(int)id]))
+      return;
+    _finest[(int)id] = finest;
+    _written.Clear().AppendScaled(OverlayValueNumbers.Scaled(raw, value.Digits, value.Rounding), value.Digits, false);
+    Set(id, _written, raw);
   }
 
   /// <summary>Words such as the song title; they have no number.</summary>

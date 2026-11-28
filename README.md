@@ -43,19 +43,19 @@
 <td width="33%" valign="top">
 
 ### 텍스트와 도형
-진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 값마다 바뀔 때 잠깐 커지는 애니메이션을 켤 수 있습니다. 글자 색은 값을 따라 바뀌게 할 수도 있습니다(정확도가 100이 되면 하이라이트 색으로). 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/features/overlay-elements.md)
+진행도·정확도·BPM·판정·콤보·시간 같은 값을 글자에 넣고 키패드로 계산해 원하는 문구를 만듭니다. 폰트는 PC에 설치된 폰트나 직접 고른 폰트 파일로 바꿉니다. 사각형·삼각형·원의 크기와 둥글기, 글자 크기와 투명도도 값을 따라 움직이고, 값마다 바뀔 때 잠깐 커지는 애니메이션을 켤 수 있습니다. 숫자·글자·색 칸마다 조건(정확도 = 100 → 하이라이트 색, 아니면 흰색)을 넣어 값에 따라 바뀌게 합니다. 도형과 글자 색은 Figma처럼 선형·방사형·회전형·다이아몬드 그라디언트로 칠할 수 있습니다. 기본 배치에는 도형으로 만든 진행도 바가 있습니다. [자세히](docs/features/overlay-elements.md)
 
 </td>
 <td width="33%" valign="top">
 
 ### 끌어서 배치
-드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다.
+드래그로 이동하고, 글자와 도형의 크기는 편집 화면에서 정합니다. 크기가 바뀔 때 고정할 점도 고릅니다. 여러 요소를 한 번에 골라 옮기고 정렬하며, 정렬선과 간격 맞춤, 실행 취소·다시 실행을 지원하고, 해상도가 바뀌어도 배치가 유지됩니다. **순서** 패널에서 카드를 끌어 무엇이 앞에 보일지 정하고, 요소를 묶음으로 묶어 함께 다룹니다. [자세히](docs/features/overlay-elements.md#order-and-groups)
 
 </td>
 <td width="33%" valign="top">
 
 ### 게임 내 키뷰어
-[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꾸거나 **키뷰어 편집**으로 ElementNote의 해당 탭을 엽니다.
+[ElementNote](#elementnote)의 손·발 키뷰어를 게임 화면 안에 띄웁니다. Add Element에서 추가하고, 선택하면 뜨는 요소 툴바에서 손·발을 바꾸거나 **키뷰어 편집**으로 ElementNote의 해당 탭을 엽니다. 순서에서 키뷰어보다 앞에 둔 요소는 키뷰어 위로 보입니다.
 
 </td>
 </tr>
@@ -116,8 +116,12 @@ cp .env.example .env        # ADOFAI_DIR 등 내 PC에 맞게 수정
 | 크기 조절 | <kbd>+</kbd> / <kbd>-</kbd> | 동일 |
 | 저장하고 나가기 | <kbd>Ctrl</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> (취소 버튼만 저장하지 않음) | <kbd>⌘</kbd> + <kbd>Enter</kbd> 또는 <kbd>Esc</kbd> |
 | 요소 삭제 | <kbd>Ctrl</kbd> + <kbd>Delete</kbd> | <kbd>⌘</kbd> + <kbd>Delete</kbd> |
+| 묶기 / 묶음 풀기 | <kbd>Ctrl</kbd> + <kbd>G</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | <kbd>⌘</kbd> + <kbd>G</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> |
+| 앞으로 / 뒤로 (<kbd>Shift</kbd>: 맨 앞 / 맨 뒤) | <kbd>Ctrl</kbd> + <kbd>]</kbd> / <kbd>Ctrl</kbd> + <kbd>[</kbd> | <kbd>⌘</kbd> + <kbd>]</kbd> / <kbd>⌘</kbd> + <kbd>[</kbd> |
 | 텍스트 편집 | 텍스트 더블클릭 또는 <kbd>Enter</kbd> | 동일 |
 | 실행 취소 / 다시 실행 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | <kbd>⌘</kbd> + <kbd>Z</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> |
+| 묶기 / 풀기 | <kbd>Ctrl</kbd> + <kbd>G</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> | <kbd>⌘</kbd> + <kbd>G</kbd> / <kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>G</kbd> |
+| 앞으로 / 뒤로 (맨 앞·맨 뒤는 <kbd>Shift</kbd>) | <kbd>Ctrl</kbd> + <kbd>]</kbd> / <kbd>Ctrl</kbd> + <kbd>[</kbd> | <kbd>⌘</kbd> + <kbd>]</kbd> / <kbd>⌘</kbd> + <kbd>[</kbd> |
 | 자동 맞춤 잠시 끄기 | <kbd>Alt</kbd> 누르는 동안 | <kbd>⌥</kbd> 누르는 동안 |
 | 정밀 회전 (에디터) | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>,</kbd> <kbd>.</kbd> | <kbd>⌘</kbd> + <kbd>⌥</kbd> + <kbd>,</kbd> <kbd>.</kbd> |
 

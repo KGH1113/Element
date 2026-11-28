@@ -8,9 +8,9 @@ using ElementUI;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// One value in the dock: a chip that a click picks and a drag carries out.
-/// After its name it shows what the value reads in the overlay now, while
-/// the game has one.
+/// One value in the dock: a chip that a click picks. After its name it shows
+/// what the value reads in the overlay now, while the game has one. It is
+/// listed only while it fits where the dock puts values now.
 /// </summary>
 internal sealed class ValueChipViewModel : ViewModel
 {
@@ -18,11 +18,9 @@ internal sealed class ValueChipViewModel : ViewModel
   private readonly bool _reserves;
   private string _live = "";
 
-  /// <param name="index">What a search reads: every name the value can be found by (<see cref="OverlayValueSearch.Index"/>).</param>
-  public ValueChipViewModel(OverlayValueDefinition value, string index, Action<OverlayValueDefinition> pick)
+  public ValueChipViewModel(OverlayValueDefinition value, Action<OverlayValueDefinition> pick)
   {
     Value = value;
-    Index = index;
     Name = "Value " + value.Key;
     Label = ValueSectionNames.ValueName(value);
     _bit = OverlayValueMask.Of(value.Id);
@@ -37,9 +35,6 @@ internal sealed class ValueChipViewModel : ViewModel
 
   public readonly string Label;
 
-  /// <summary>Every name the value can be found by, folded for searching.</summary>
-  public readonly string Index;
-
   /// <summary>What the value reads now, as plain words; empty while the game has none.</summary>
   public readonly State<string> Live = new("");
 
@@ -52,8 +47,8 @@ internal sealed class ValueChipViewModel : ViewModel
   /// </summary>
   public readonly State<string> Room = new("");
 
-  /// <summary>Whether the search finds it.</summary>
-  public readonly State<bool> Found = new(false);
+  /// <summary>It can go where the dock puts values now: it is listed.</summary>
+  public readonly State<bool> Fits = new(true);
 
   public Command Pick { get; }
 

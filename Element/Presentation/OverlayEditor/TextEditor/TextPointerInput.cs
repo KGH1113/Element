@@ -1,8 +1,8 @@
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Text;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
-using Element.Presentation.OverlayEditor.Parts.Grow;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Popovers;
 using ElementUI;
@@ -27,10 +27,9 @@ internal sealed class TextPointerInput
   private readonly TextColor _color;
   private readonly TextFonts _fonts;
   private readonly TextGradient _gradient;
-  private readonly GrowFrom _grow;
-  private readonly TextAnimate _animate;
   private bool _dragging;
   private float _lastClick = -1;
+  private int _clicks;
 
   public TextPointerInput(
     ITextEditorActions editor,
@@ -40,9 +39,7 @@ internal sealed class TextPointerInput
     TextLayoutMap map,
     TextColor color,
     TextFonts fonts,
-    TextGradient gradient,
-    GrowFrom grow,
-    TextAnimate animate
+    TextGradient gradient
   )
   {
     _editor = editor;
@@ -53,8 +50,6 @@ internal sealed class TextPointerInput
     _color = color;
     _fonts = fonts;
     _gradient = gradient;
-    _grow = grow;
-    _animate = animate;
   }
 
   public void HandleMouse()
@@ -68,10 +63,8 @@ internal sealed class TextPointerInput
       // Popovers, the bar, the picker and the gradient's handles handle their own clicks.
       if (
         _context.DockPanel.Contains(screen)
-        || _grow.Contains(screen)
         || _fonts.Contains(screen)
         || _context.Inspector.Contains(screen)
-        || _animate.Contains(screen)
         || PopoverPlacement.Contains(picker.Root, screen)
         || _gradient.Handles.Contains(screen)
       )
@@ -90,31 +83,47 @@ internal sealed class TextPointerInput
       if (!Shift && _map.TryValueAt(screen, out int value))
       {
         _lastClick = Time.unscaledTime;
+        // The open font list goes on with the value: it is picked for its font, its own formula stays shut.
+        if (_fonts.Visible)
+        {
+          _text.Select(value, value + 1);
+          _text.GoalX = float.NaN;
+          _editor.Render();
+          return;
+        }
         _formulas.OpenChip(value);
         return;
       }
       int index = _map.IndexAt(screen);
-      bool doubleClick = Time.unscaledTime - _lastClick < .35f;
+      bool again = Time.unscaledTime - _lastClick < .35f;
       _lastClick = Time.unscaledTime;
-      if (doubleClick)
+      _clicks = again ? _clicks + 1 : 1;
+      if (_clicks >= 2)
       {
+        // Twice a word, three times the whole 글자 value, never past it.
         OverlayTextDocument document = _text.Document;
-        _text.Anchor = document.WordStart(Mathf.Min(document.Count, index + 1));
-        _text.Caret = document.WordEnd(_text.Anchor);
+        if (_clicks >= 3 && OverlayTextRuns.RunOfCaret(document, index, out int start, out int end))
+          _text.Select(start, end);
+        else
+        {
+          int word = document.WordStart(Mathf.Min(document.Count, index + 1));
+          _text.Select(word, document.WordEnd(word));
+        }
         _dragging = false;
         _editor.Render();
         return;
       }
-      _text.Caret = index;
-      if (!Shift)
-        _text.Anchor = index;
+      if (Shift)
+        _text.Select(_text.Anchor, index);
+      else
+        _text.Select(index, index);
       _dragging = true;
       _text.GoalX = float.NaN;
       _editor.Render();
     }
     else if (_dragging && Input.GetMouseButton(0))
     {
-      int index = _map.IndexAt(screen);
+      int index = OverlayTextRuns.Reach(_text.Document, _text.Anchor, _map.IndexAt(screen));
       if (index != _text.Caret)
       {
         _text.Caret = index;
@@ -132,27 +141,32 @@ internal sealed class TextPointerInput
 
   // ---- Naming the value under the pointer ----
 
+  /// <summary>The value under the pointer as of the last <see cref="UpdateHover"/>; -1 for none.</summary>
+  public int HoveredValue { get; private set; } = -1;
+
   public void UpdateHover(Vector2 screen)
   {
+    HoveredValue = -1;
     EditorFramePanel frame = _context.Frame;
     if (
       DragSession.Active
       || _dragging
       || _context.DockPanel.Contains(screen)
-      || _grow.Contains(screen)
       || _fonts.Contains(screen)
-      || _animate.Contains(screen)
       || !_map.TryValueAt(screen, out int index)
     )
     {
       frame.HideTip();
       return;
     }
+    HoveredValue = index;
     OverlayTextItem item = _text.Document[index];
-    OverlayFormula formula = OverlayFormula.Parse(item.Value);
-    string words = formula.Describe(ValueSectionNames.ValueName);
+    OverlayVariable formula = OverlayVariable.Parse(item.Value);
+    OverlayVariableWords said = FormulaWords.Current;
+    string words = formula.Describe(ValueSectionNames.ValueName, said);
     if (item.SizeFormula.Length > 0)
-      words += L(" · 크기 ", " · size ") + OverlayFormula.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName);
+      words +=
+        L(" · 크기 ", " · size ") + OverlayVariable.Parse(item.SizeFormula).Describe(ValueSectionNames.ValueName, said);
     if (!_map.ItemTop(index, frame, out Vector2 anchor))
     {
       frame.HideTip();

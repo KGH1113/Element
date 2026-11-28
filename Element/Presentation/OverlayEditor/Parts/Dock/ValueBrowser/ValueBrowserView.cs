@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.OverlayEditor.Parts;
-using Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
+using Element.Presentation.OverlayEditor.Parts.Dock.Line;
+using Element.Presentation.OverlayEditor.Parts.Field;
 using Element.Presentation.Ui.Declarative;
 using Element.Presentation.Ui.Declarative.Controls;
 using Element.Presentation.Ui.Graphics;
@@ -18,286 +20,133 @@ using Font = ElementUI.Font;
 namespace Element.Presentation.OverlayEditor.Parts.Dock.ValueBrowser;
 
 /// <summary>
-/// The dock's values, as tall as the keypad beside it. On the left a search
-/// field over the list of places: the built-in categories with how many
-/// values each holds, then, under a small heading, one row per mod that adds
-/// values. On the right the open place's chips wrap under its name, a mod's
-/// in a row per group beside the group's heading; while something is typed
-/// they give way to what the search finds, by place. Each chip names its
-/// value and, in a muted ink, what it reads now. Only the list and the page
-/// scroll; the list shows a slim bar and fades at an edge while more of it
-/// lies beyond. Every surface is opaque.
+/// The dock's values, under the line: only those that fit where values go
+/// now. Under a mark of the type and a short title, one section per built-in
+/// category and per mod, each a small heading over its chips, a mod's in a
+/// row per group; a section with nothing that fits is left out. Each chip
+/// leads with its type's mark, names its value and, in a muted ink, says
+/// what it reads now. Where no value can go, the place is clear. Only the
+/// sections scroll, a slim bar and a fading edge saying more lies beyond.
 /// </summary>
 internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
 {
-  public const float FieldHeight = 34,
-    Gap = 8,
-    ListHeight = KeypadView.Height - FieldHeight - Gap,
-    RowHeight = 30,
-    RowGap = 2,
-    ModsHeadingHeight = 22,
-    PaneGap = 20,
+  public const float TitleHeight = 30,
+    // With the hairline and the line over it, as tall as the input method beside it.
+    // Under the line between the rows (one unit) and the dock's line.
+    Height = InputDockView.Height - 1 - FormulaLineView.Height,
+    ListHeight = Height - TitleHeight,
     ChipHeight = 30,
     ChipGap = 6,
-    GroupGap = 8,
-    HeadingGap = 18,
+    SectionGap = 10,
+    HeadingHeight = 18,
+    HeadingGap = 5,
+    GroupGap = 6,
     LiveWidth = 150;
 
-  // The search's icon and clear-button space, also used to size its hint.
-  private const float SearchStart = 36,
-    SearchEnd = 38;
-
-  private const float RowInset = 12,
-    ListRadius = 8,
-    MinimumList = 184,
-    MaximumList = 240,
-    MaximumHeading = 150;
-
-  private const float GhostHeight = 30;
-
-  private static readonly UiColor GhostInk = new Color(.08f, .08f, .08f);
-
-  private static readonly UiColor ChipFill = UiPalette.EditorControl,
+  // A value is the same pill in the list as on the line.
+  private static readonly UiColor ChipFill = FieldLook.Chip,
     ChipInk = new Color(.92f, .92f, .92f),
     LiveInk = UiPalette.Muted;
-
-  private float _listWidth = -1;
 
   public ValueBrowserView(ValueBrowserViewModel vm)
     : base(vm) { }
 
-  /// <summary>How wide the list of places is: its longest name and count, within limits. Measured once, when first drawn.</summary>
-  private float ListWidth => _listWidth >= 0 ? _listWidth : _listWidth = MeasureList();
-
-  // How wide words are at the dock's size; handed down by the editor.
-  private float Measure(string words) => EnvironmentValue(EditorEnvironment.Measure)(words);
-
   public override View Body =>
-    HStack(spacing: PaneGap, alignment: VAlignment.Top, List(), Page())
-      .Frame(maxWidth: float.PositiveInfinity, height: KeypadView.Height, alignment: Alignment.TopLeading)
+    If(() => VM.Listing.Value, Listed, () => Spacer())
+      .Frame(maxWidth: float.PositiveInfinity, height: Height, alignment: Alignment.TopLeading)
       // A few times a second while shown, the chips take what their values read now.
-      .OnChange(() => VM.Live.Tick, _ => VM.Follow());
+      .OnChange(() => VM.Live.Tick, _ => VM.Follow())
+      // Only when where values go changes, the list keeps what fits there.
+      .OnChange(() => VM.Place.Value, VM.Refit);
 
-  // ---- The list of places ----
-
-  private View List() =>
+  private View Listed() =>
     VStack(
-        spacing: Gap,
-        SearchBox(),
-        // One opaque base under the rows: a row's hover lights it without letting the overlay through.
-        Scroller(VStack(spacing: RowGap, Places()).Padding(new Insets(0, 0, 4, 0)))
-          // A slim bar and fading edges say more places lie beyond what shows.
-          .Configure<ScrollRect>(scroll => UiScrollCues.Add(scroll, UiPalette.EditorDim, ListRadius))
-          .Named("Places")
-          .Frame(width: ListWidth, height: ListHeight)
-          .Background(UiPalette.EditorDim, ListRadius)
-      )
-      .Frame(width: ListWidth, alignment: Alignment.TopLeading);
-
-  private View[] Places()
-  {
-    List<View> rows = new();
-    foreach (ValueFolderViewModel folder in VM.Categories)
-      rows.Add(Place(folder));
-    if (VM.Mods.Count > 0)
-    {
-      rows.Add(
-        UI.Text(L("모드", "Mods"))
-          .Font(Font.Caption.Sized(11).Bolded())
-          .Foreground(Colors.Muted)
-          .LineLimit(1)
-          .Named("Mods heading")
-          .Padding(new Insets(0, RowInset, 4, RowInset))
-          .Frame(maxWidth: float.PositiveInfinity, height: ModsHeadingHeight, alignment: Alignment.BottomLeading)
-      );
-      foreach (ValueFolderViewModel folder in VM.Mods)
-        rows.Add(Place(folder));
-    }
-    return rows.ToArray();
-  }
-
-  // A place: its name, and on the right how many values it holds. The whole row is the button.
-  private View Place(ValueFolderViewModel folder) =>
-    Button(
-        HStack(
-            spacing: 0,
-            UI.Text(folder.Name).Font(Font.Caption.Sized(14)).Foreground(() => folder.Ink.Value).LineLimit(1),
-            Spacer(minLength: 10),
-            UI.Text(folder.Count).Font(Font.Caption.Sized(13)).Foreground(Colors.Muted).LineLimit(1)
-          )
-          .Padding(0, RowInset)
-          .Frame(maxWidth: float.PositiveInfinity, height: RowHeight),
-        () => folder.Select,
-        ButtonStyle.Plain
-      )
-      .ButtonStyle(new ButtonSurfaceStyle(() => folder.Fill.Value, 9))
-      .Named("Place " + folder.Key);
-
-  // The search: a capsule like a chip, the glass leading, × once something is typed.
-  private View SearchBox() =>
-    HStack(
-        spacing: 8,
-        Image(ElementIcons.Of(UiIconKind.Search), 16).Foreground(Colors.Muted),
-        TextField(Bind(() => VM.Query.Value), L("값 찾기", "Find a value"))
-          .TextFieldStyle(TextFieldStyle.Plain)
-          .CharacterLimit(40)
-          .RestoreOriginalTextOnEscape(false)
-          .Focused(Bind(() => VM.SearchFocused.Value))
-          .OnTextChanged(_ => VM.Search.TryExecute())
-          .OnSubmit(_ => VM.PickFirst.TryExecute())
-          .OnEditEnded(
-            (_, canceled) =>
-            {
-              if (canceled)
-                VM.ClearSearch.TryExecute();
-            }
-          )
-          .Named("Value search")
-          .Frame(maxWidth: float.PositiveInfinity, maxHeight: float.PositiveInfinity),
-        If(
-          () => VM.Searching.Value,
-          () =>
-            Button(Image(ElementIcons.Of(UiIconKind.Close), 12), () => VM.ClearSearch, ButtonStyle.Icon)
-              .Foreground(Colors.Muted)
-              .Named("Clear value search")
-              .Frame(width: 24, height: 24)
-        )
-      )
-      .Font(Font.Caption.Sized(14))
-      .Padding(new Insets(0, RowInset, 0, 5))
-      .Frame(width: ListWidth, height: FieldHeight)
-      .Background(UiPalette.EditorControl, Capsule());
-
-  // ---- The page ----
-
-  private View Page()
-  {
-    List<View> pages = new();
-    foreach (ValueFolderViewModel folder in VM.Categories)
-      pages.Add(FolderPage(folder));
-    foreach (ValueFolderViewModel folder in VM.Mods)
-      pages.Add(FolderPage(folder));
-    pages.Add(If(() => VM.Searching.Value, Results));
-    return VStack(
-      spacing: Gap,
+      spacing: 0,
+      // The type that goes there, then what the list is.
       HStack(
           spacing: 8,
-          UI.Text(() => VM.Title.Value)
-            .Font(Font.Caption.Sized(13).Bolded())
-            .Foreground(Colors.Muted)
+          Switch(() => VM.Type.Value, type => TypeMarks.Mark(type).Named("Values type")),
+          UI.Text(L("넣을 수 있는 값", "Values that fit"))
+            .Font(Font.Caption.Sized(14).Bolded())
+            .Foreground(Colors.Foreground)
             .LineLimit(1)
             .Named("Values title"),
-          // How many it found; a search that found nothing says so below instead.
-          If(
-            () => VM.Searching.Value && !VM.NothingFound.Value,
-            () => UI.Text(() => VM.FoundCount.Value).Font(Font.Caption.Sized(12)).Foreground(Colors.Muted).LineLimit(1)
-          ),
           Spacer()
         )
         .Padding(new Insets(0, 2, 0, 0))
-        .Frame(maxWidth: float.PositiveInfinity, height: FieldHeight),
-      ZStack(Alignment.TopLeading, pages.ToArray())
-        .Frame(maxWidth: float.PositiveInfinity, height: ListHeight, alignment: Alignment.TopLeading)
+        .Frame(maxWidth: float.PositiveInfinity, height: TitleHeight, alignment: Alignment.TopLeading),
+      Scroller(VStack(spacing: SectionGap, HAlignment.Leading, Sections()).Padding(new Insets(0, 0, 8, 0)))
+        // A slim bar and a fading edge say more values lie beyond what shows.
+        .Configure<ScrollRect>(scroll => UiScrollCues.Add(scroll, UiPalette.EditorDim, 0))
+        .Named("Values")
+        .Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
     );
+
+  // Every section is made once; one with no value that fits is left out.
+  private View[] Sections()
+  {
+    List<View> sections = new();
+    foreach (ValueFolderViewModel folder in VM.Sections)
+      sections.Add(If(() => folder.Shown.Value, () => Section(folder)));
+    return sections.ToArray();
   }
 
-  // Each place's page is made the first time it opens and kept, with where it was scrolled.
-  private View FolderPage(ValueFolderViewModel folder) =>
-    If(
-      () => folder.Open.Value,
-      () => Scroller(Rows(folder.Groups)).Frame(maxWidth: float.PositiveInfinity, height: ListHeight)
-    );
+  // A heading over its chips.
+  private View Section(ValueFolderViewModel folder) =>
+    VStack(
+        spacing: HeadingGap,
+        HAlignment.Leading,
+        Heading(folder.Name).Named("Section " + folder.Key),
+        Rows(folder.Groups)
+      )
+      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
 
   private View Rows(IReadOnlyList<ValueChipRow> groups)
   {
     if (groups.Count == 1 && groups[0].Heading == null)
-      return Chips(groups[0].Chips, false);
-    float column = 0;
-    foreach (ValueChipRow group in groups)
-      column = Mathf.Max(column, Measure(group.Heading ?? ""));
-    column = Mathf.Min(MaximumHeading, column + HeadingGap);
+      return Chips(groups[0].Chips);
     View[] rows = new View[groups.Count];
     for (int i = 0; i < rows.Length; i++)
-      rows[i] = Row(groups[i].Heading ?? "", column, Chips(groups[i].Chips, false));
-    return VStack(spacing: GroupGap, rows);
+    {
+      ValueChipRow group = groups[i];
+      // A group none of whose values fit is left out, heading and all.
+      rows[i] = If(
+        () => group.Shown.Value,
+        () => VStack(spacing: 3, HAlignment.Leading, Heading(group.Heading ?? ""), Chips(group.Chips))
+      );
+    }
+    return VStack(spacing: GroupGap, HAlignment.Leading, rows);
   }
 
-  // What the search finds, by place, each beside the place's name; or that it found nothing.
-  private View Results()
-  {
-    float column = 0;
-    List<View> rows = new();
-    foreach (ValueFolderViewModel folder in VM.Categories)
-      column = Mathf.Max(column, Measure(folder.Name));
-    foreach (ValueFolderViewModel folder in VM.Mods)
-      column = Mathf.Max(column, Measure(folder.Name));
-    column = Mathf.Min(MaximumHeading, column + HeadingGap);
-    foreach (ValueFolderViewModel folder in VM.Categories)
-      rows.Add(Found(folder, column));
-    foreach (ValueFolderViewModel folder in VM.Mods)
-      rows.Add(Found(folder, column));
-    rows.Add(If(() => VM.NothingFound.Value, NothingFound));
-    return Scroller(VStack(spacing: GroupGap, rows.ToArray()))
-      // A new search starts at the top.
-      .Configure<ScrollRect, string>(() => VM.Query.Value, (scroll, _) => scroll.verticalNormalizedPosition = 1)
-      .Frame(maxWidth: float.PositiveInfinity, height: ListHeight);
-  }
+  private static View Heading(string words) =>
+    UI.Text(words)
+      .Font(Font.Caption.Sized(12))
+      .Foreground(Colors.Muted)
+      .LineLimit(1)
+      .Padding(new Insets(0, 2, 0, 0))
+      .Frame(height: HeadingHeight, alignment: Alignment.BottomLeading);
 
-  private View Found(ValueFolderViewModel folder, float column) =>
-    If(() => folder.Found.Value, () => Row(folder.Name, column, Chips(folder.Chips, true)));
-
-  private View NothingFound() =>
-    VStack(
-        spacing: 4,
-        UI.Text(() => VM.Nothing.Value)
-          .Font(Font.Caption.Sized(13))
-          .Foreground(Colors.Foreground)
-          .LineLimit(1)
-          .Named("Nothing found"),
-        UI.Text(
-            L(
-              "값 이름(한글·영어), 분류, 모드 이름으로 찾을 수 있어요",
-              "Search by a value's name in Korean or English, its category or its mod"
-            )
-          )
-          .Font(Font.Caption.Sized(12))
-          .Foreground(Colors.Muted)
-          .LineLimit(2)
-      )
-      .Padding(new Insets(6, 2, 0, 0))
-      .Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
-
-  // A heading in a column on the left, its chips wrapping beside it.
-  private static View Row(string heading, float column, View chips) =>
-    HStack(
-      spacing: 0,
-      alignment: VAlignment.Top,
-      UI.Text(heading)
-        .Font(Font.Caption.Sized(12))
-        .Foreground(Colors.Muted)
-        .LineLimit(1)
-        .Frame(width: column, height: ChipHeight, alignment: Alignment.Leading),
-      chips
-    );
-
-  private View Chips(IReadOnlyList<ValueChipViewModel> chips, bool found)
+  private View Chips(IReadOnlyList<ValueChipViewModel> chips)
   {
     View[] views = new View[chips.Count];
     for (int i = 0; i < views.Length; i++)
-      views[i] = found ? FoundChip(chips[i]) : Chip(chips[i]);
+    {
+      ValueChipViewModel chip = chips[i];
+      // A value that can't go where values go now is not listed at all.
+      views[i] = If(() => chip.Fits.Value, () => Chip(chip));
+    }
     return Flow(ChipGap, views).Frame(maxWidth: float.PositiveInfinity, alignment: Alignment.TopLeading);
   }
 
-  private View FoundChip(ValueChipViewModel chip) => If(() => chip.Found.Value, () => Chip(chip));
-
-  // A chip is pressed to pick its value and dragged to carry it out. The
-  // label takes the chip's height, so the capsule, its press and its drag
-  // are all as tall as the chip. What the value reads now follows its name,
+  // A chip is pressed to pick its value; picking is the only way a value
+  // goes in. The label takes the chip's height, so the capsule and its press
+  // are as tall as the chip. What the value reads now follows its name,
   // keeping the room its widest number took.
   private View Chip(ValueChipViewModel chip) =>
     Button(
         HStack(
             spacing: 0,
+            Lead(chip.Value),
             UI.Text(chip.Label).Font(Font.Caption.Sized(13)).Foreground(ChipInk).LineLimit(1).Named("Value name"),
             If(
               () => chip.HasLive.Value,
@@ -314,30 +163,37 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
                   .Padding(new Insets(0, 7, 0, 0))
             )
           )
-          .Padding(0, 12)
+          .Padding(new Insets(0, 7, 0, 12))
           .Frame(height: ChipHeight),
         () => chip.Pick,
         ButtonStyle.Plain
       )
       .ButtonStyle(new ButtonSurfaceStyle(ChipFill, ChipHeight / 2))
-      // Carried out of the dock, the value lands wherever it is let go.
-      .Draggable(() => chip.Value, Ghost)
       .Named(chip.Name);
 
-  // The carried value beside the pointer, in the highlight color as it is
-  // when the drag starts. Opaque, so the overlay behind never shows through;
-  // greyed while the place under it can't take it.
-  private static View Ghost(OverlayValueDefinition value)
+  // What leads a value's name: a color's swatch, else its type's mark. One
+  // made on the spot that can be any type (a condition, a group) wears the
+  // mark of the place it would go.
+  private View Lead(OverlayValueDefinition value)
   {
-    UiColor carried = UiPalette.SoftAccent,
-      refused = UiPalette.Wash(UiPalette.EditorDim, .45f);
-    return UI.Text(ValueSectionNames.ValueName(value))
-      .Font(Font.Caption.Sized(13))
-      .Foreground(GhostInk)
-      .LineLimit(1)
-      .Padding(new Insets(0, 14, 0, 14))
-      .Frame(height: GhostHeight)
-      .Background(() => DragSession.State == DropState.Refuses ? refused : carried, GhostHeight / 2);
+    if (value.IsColor)
+      return ColorDot(value);
+    OverlayValueType type = OverlayVariableTypes.TypeOf(value);
+    View mark = type == OverlayValueType.Any ? TypeMarks.Mark(() => VM.Type.Value, 16) : TypeMarks.Mark(type, 16);
+    return mark.Padding(new Insets(0, 0, 0, 6)).AllowsHitTesting(false);
+  }
+
+  // The highlight color, or white ringed for one picked by hand.
+  private static View ColorDot(OverlayValueDefinition value)
+  {
+    UiColor fill = value.Id == OverlayValueId.HighlightColor ? (UiColor)UiTheme.Accent : Colors.Foreground;
+    return Circle()
+      .Fill(fill)
+      .Frame(width: 10, height: 10)
+      .Background(Circle().Fill(Colors.Muted).Frame(width: 13, height: 13))
+      .Frame(width: 16, height: 16)
+      .Padding(new Insets(0, 0, 0, 6))
+      .AllowsHitTesting(false);
   }
 
   private View Scroller(View content) =>
@@ -347,19 +203,4 @@ internal sealed class ValueBrowserView : View<ValueBrowserViewModel>
         scroll.scrollSensitivity = 34;
         scroll.inertia = !EnvironmentValue(EditorEnvironment.ReduceMotion);
       });
-
-  // The list fits its longest name beside its largest count, and the search's hint.
-  private float MeasureList()
-  {
-    float widest = Measure(L("값 찾기", "Find a value")) + SearchStart + SearchEnd + 4;
-    foreach (ValueFolderViewModel folder in VM.Categories)
-      widest = Mathf.Max(widest, Width(folder));
-    foreach (ValueFolderViewModel folder in VM.Mods)
-      widest = Mathf.Max(widest, Width(folder));
-    return Mathf.Clamp(Mathf.Ceil(widest), MinimumList, MaximumList);
-  }
-
-  // Its words are a size above what Measure gives.
-  private float Width(ValueFolderViewModel folder) =>
-    RowInset + (Measure(folder.Name) + Measure(folder.Count)) * 14 / 13 + 10 + RowInset + 2;
 }

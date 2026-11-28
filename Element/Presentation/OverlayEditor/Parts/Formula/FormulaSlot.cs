@@ -1,21 +1,22 @@
 using System;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 
 namespace Element.Presentation.OverlayEditor.Parts.Formula;
 
 /// <summary>
-/// One place a formula can be edited: a value in a text, or a number field.
-/// <see cref="Key"/> tells the same place apart across redraws.
+/// One field the dock opens as a variable: a number, a color, true or false,
+/// a point, or a value in a text (Any). <see cref="Key"/> tells the same field apart
+/// across redraws; <see cref="Type"/> is what it must give.
 /// </summary>
 internal sealed class FormulaSlot
 {
-  private readonly Func<OverlayFormula> _read;
-  private readonly Action<OverlayFormula> _write;
+  private readonly Func<OverlayVariable> _read;
+  private readonly Action<OverlayVariable> _write;
 
-  public FormulaSlot(string key, bool isText, Func<OverlayFormula> read, Action<OverlayFormula> write)
+  public FormulaSlot(string key, OverlayValueType type, Func<OverlayVariable> read, Action<OverlayVariable> write)
   {
     Key = key;
-    IsText = isText;
+    Type = type;
     _read = read;
     _write = write;
   }
@@ -23,12 +24,15 @@ internal sealed class FormulaSlot
   public string Key { get; }
 
   /// <summary>
-  /// A value in a text: it may hold words (the song title), and emptying it
-  /// removes it. A number field never holds words and keeps its last number.
+  /// What it must give. A number field keeps its last number while nothing
+  /// valid is typed; a value in a text (Any) is removed once emptied.
   /// </summary>
-  public bool IsText { get; }
+  public OverlayValueType Type { get; }
 
-  public OverlayFormula Read() => _read() ?? new OverlayFormula();
+  /// <summary>A value in a text: emptying it removes it.</summary>
+  public bool IsText => Type == OverlayValueType.Any;
 
-  public void Write(OverlayFormula formula) => _write(formula);
+  public OverlayVariable Read() => _read() ?? new OverlayVariable();
+
+  public void Write(OverlayVariable variable) => _write(variable);
 }

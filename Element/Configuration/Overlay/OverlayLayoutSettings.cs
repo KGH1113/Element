@@ -28,6 +28,11 @@ public sealed class OverlayLayoutSettings
   public float OffsetY;
   public OverlayGrowth GrowFrom = OverlayGrowth.Auto;
 
+  // The grow point as a variable, when it is worked out (a condition giving
+  // points); empty while it is the plain point above, which then also keeps
+  // the point last worked out.
+  public string GrowFromFormula = string.Empty;
+
   // A text converted from a built-in overlay sits where that overlay did until
   // it is moved. Empty for elements added in the editor.
   public string DefaultPlacement = string.Empty;
@@ -35,6 +40,14 @@ public sealed class OverlayLayoutSettings
   // The combo's title and number were one element. Both halves keep the old
   // placement here until they are fitted together on their first layout.
   public string PendingGroup = string.Empty;
+
+  // The group this element is in, or empty. The list's order is the drawing
+  // order, back to front; a group's elements sit next to each other in it.
+  public string Group = string.Empty;
+
+  // The group's name as typed, kept on each of its elements; empty for a
+  // built-in group, which is named in the player's language.
+  public string GroupName = string.Empty;
 
   public OverlayTextSettings Text;
   public OverlayShapeSettings Shape;
@@ -57,6 +70,8 @@ public sealed class OverlayLayoutSettings
     CopyPlacementFrom(source);
     DefaultPlacement = source.DefaultPlacement;
     PendingGroup = source.PendingGroup;
+    Group = source.Group;
+    GroupName = source.GroupName;
     Text = source.Text?.Clone();
     Shape = source.Shape?.Clone();
     Mod = source.Mod?.Clone();
@@ -73,6 +88,7 @@ public sealed class OverlayLayoutSettings
     OffsetX = source.OffsetX;
     OffsetY = source.OffsetY;
     GrowFrom = source.GrowFrom;
+    GrowFromFormula = source.GrowFromFormula;
   }
 
   public bool SameAs(OverlayLayoutSettings other) =>
@@ -89,8 +105,11 @@ public sealed class OverlayLayoutSettings
     && OffsetX == other.OffsetX
     && OffsetY == other.OffsetY
     && GrowFrom == other.GrowFrom
+    && (GrowFromFormula ?? string.Empty) == (other.GrowFromFormula ?? string.Empty)
     && DefaultPlacement == other.DefaultPlacement
     && PendingGroup == other.PendingGroup
+    && Group == other.Group
+    && GroupName == other.GroupName
     && (Text?.SameAs(other.Text) ?? other.Text == null)
     && (Shape?.SameAs(other.Shape) ?? other.Shape == null)
     && (Mod?.SameAs(other.Mod) ?? other.Mod == null);

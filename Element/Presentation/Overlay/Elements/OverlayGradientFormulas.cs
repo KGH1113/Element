@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
 using Element.Domain.Overlay.Gradient;
 using Element.Domain.Overlay.Values;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using UnityEngine;
 
@@ -14,9 +14,9 @@ namespace Element.Presentation.Overlay.Elements;
 /// </summary>
 internal sealed class OverlayGradientFormulas
 {
-  private readonly List<OverlayFormula> _positions = new(OverlayGradient.MaximumStops);
-  private readonly List<OverlayFormula> _alphas = new(OverlayGradient.MaximumStops);
-  private OverlayFormula _angle;
+  private readonly List<OverlayVariable> _positions = new(OverlayGradient.MaximumStops);
+  private readonly List<OverlayVariable> _alphas = new(OverlayGradient.MaximumStops);
+  private OverlayVariable _angle;
 
   /// <summary>The values the gradient uses, by catalog id.</summary>
   public OverlayValueMask Mask { get; private set; }
@@ -31,8 +31,8 @@ internal sealed class OverlayGradientFormulas
       return;
     foreach (OverlayGradientStop stop in color.Gradient.Stops)
     {
-      OverlayFormula position = OverlayFormulaText.Compile(stop.PositionFormula);
-      OverlayFormula alpha = OverlayFormulaText.Compile(stop.AlphaFormula);
+      OverlayVariable position = OverlayFormulaText.Compile(stop.PositionFormula);
+      OverlayVariable alpha = OverlayFormulaText.Compile(stop.AlphaFormula);
       _positions.Add(position);
       _alphas.Add(alpha);
       Mask |= (position?.Mask ?? OverlayValueMask.None) | (alpha?.Mask ?? OverlayValueMask.None);
@@ -81,7 +81,7 @@ internal sealed class OverlayGradientFormulas
   }
 
   // A percent formula as 0–1, or the plain value while it has no result.
-  private static float Percent(OverlayFormula formula, IOverlayNumberSource source, float plain)
+  private static float Percent(OverlayVariable formula, IOverlayNumberSource source, float plain)
   {
     double percent = OverlayFormulaText.Resolve(formula, source, double.NaN);
     float value = double.IsNaN(percent) || double.IsInfinity(percent) ? plain : (float)(percent / 100);

@@ -15,13 +15,13 @@ internal static class OverlayGradientTests
   public static void Run()
   {
     ASecondColorMakesAGradientThatShowsAtOnce();
-    TheHighlightFadesInsteadOfChangingColor();
+    AGradientIsAlwaysOfItsOwnColors();
     RemovingDownToOneColorIsSolidAgain();
     ColorsMixWithTheirOpacity();
     EachKindMeasuresItsOwnWay();
     AnglesTurnLikeElementNote();
     FlipRotateAndKindKeepTheGradientUsable();
-    SwitchingToTheHighlightKeepsAFade();
+    TheHighlightIsOneColor();
     StopsSnapToQuartersAndEachOther();
     GradientsSurviveTheSettingsFileAndOldVersions();
   }
@@ -54,18 +54,17 @@ internal static class OverlayGradientTests
     Check(middle.Gradient.Stops[third].Hex == "#808080", "later colors start as the gradient's color there");
   }
 
-  private static void TheHighlightFadesInsteadOfChangingColor()
+  private static void AGradientIsAlwaysOfItsOwnColors()
   {
-    OverlayColorSettings color = OverlayColorSettings.HighlightColor();
+    OverlayColorSettings color = OverlayColorSettings.HighlightColor(.8f);
     OverlayGradientEdits.AddStop(color, 1, "#BA712B");
-    Check(color.Highlight && color.IsGradient, "the highlight color makes a gradient too");
+    Check(color.IsGradient && !color.Highlight, "the highlight color makes a gradient of custom colors");
     Check(
-      Near(color.Gradient.Stops[1].Alpha, OverlayGradientEdits.HighlightFade, .01f),
-      "its second color is the highlight at a lighter opacity"
+      color.Gradient.Stops[0].Hex == "#BA712B"
+        && color.Gradient.Stops[1].Hex != "#BA712B"
+        && color.Gradient.Stops.TrueForAll(stop => Near(stop.Alpha, .8f, .001f)),
+      "it starts from the highlight color, the second color its neighbor, the opacity kept"
     );
-    OverlayColorSettings faint = OverlayColorSettings.HighlightColor(.3f);
-    OverlayGradientEdits.AddStop(faint, 1, "#BA712B");
-    Check(faint.Gradient.Stops[1].Alpha == 1, "a faint highlight brightens instead");
   }
 
   private static void RemovingDownToOneColorIsSolidAgain()
@@ -178,28 +177,27 @@ internal static class OverlayGradientTests
     );
   }
 
-  private static void SwitchingToTheHighlightKeepsAFade()
+  private static void TheHighlightIsOneColor()
   {
     OverlayColorSettings color = OverlayColorSettings.Custom("#204060");
     OverlayGradientEdits.AddStop(color, 1, "#BA712B");
     OverlayGradientEdits.AddStop(color, .5f, "#BA712B");
-    foreach (OverlayGradientStop stop in color.Gradient.Stops)
-      stop.Alpha = 1;
-    OverlayGradientEdits.SetHighlight(color, true, "#BA712B");
     List<int> order = OverlayGradientEdits.Order(color.Gradient);
-    Check(color.Highlight, "the whole gradient follows the highlight");
+    color.Gradient.Stops[order[0]].Alpha = .6f;
+    OverlayGradientEdits.SetHighlight(color, true, "#BA712B");
     Check(
-      color.Gradient.Stops[order[0]].Alpha == 1
-        && Near(color.Gradient.Stops[order[1]].Alpha, .7f, .01f)
-        && Near(color.Gradient.Stops[order[2]].Alpha, .4f, .01f),
-      "equal opacities would vanish, so they fade"
+      color.Highlight && !color.IsGradient && Near(color.Alpha, .6f, .001f),
+      "following the highlight, a gradient is one color again, at its first color's opacity"
     );
-    OverlayGradientEdits.SetHighlight(color, false, "#BA712B");
+
+    OverlayColorSettings old = OverlayColorSettings.Custom("#204060");
+    OverlayGradientEdits.AddStop(old, 1, "#BA712B");
+    old.Highlight = true;
+    OverlayGradientEdits.SetHighlight(old, false, "#BA712B");
     Check(
-      !color.Highlight && color.Gradient.Stops.TrueForAll(stop => stop.Hex == "#BA712B"),
-      "custom starts from the highlight"
+      !old.Highlight && old.Gradient.Stops.TrueForAll(stop => stop.Hex == "#BA712B"),
+      "a gradient saved following the highlight becomes custom from it"
     );
-    Check(Near(color.Gradient.Stops[order[2]].Alpha, .4f, .01f), "and keeps the opacities");
   }
 
   private static void StopsSnapToQuartersAndEachOther()

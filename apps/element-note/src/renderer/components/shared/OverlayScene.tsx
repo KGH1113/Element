@@ -9,7 +9,6 @@ import OverlayKnobItemBase from '@components/overlay/counters/OverlayKnobItem';
 import { PluginElementsRenderer } from '@components/shared/PluginElementsRenderer';
 import { getKeyInfoByGlobalKey } from '@utils/core/KeyMaps';
 import type { KeyPosition } from '@src/types/key/keys';
-import { FALLBACK_POSITION } from '@constants/overlayDefaults';
 import type { NoteSettings } from '@src/types/settings/noteSettings';
 import type { NoteBuffer } from '@stores/signals/noteBuffer';
 import SpriteRuntimeLayer from '@components/shared/SpriteRuntimeLayer';
@@ -153,11 +152,10 @@ const OverlayScene = ({
       </Suspense>
 
       {currentKeys.map((key, index) => {
+        // A key whose place has not arrived yet is drawn once it has one.
+        const basePosition = displayPositions[index] ?? currentPositions[index];
+        if (!basePosition) return null;
         const { displayName } = getKeyInfoByGlobalKey(key);
-        const basePosition =
-          displayPositions[index] ??
-          currentPositions[index] ??
-          FALLBACK_POSITION;
 
         const position = {
           ...basePosition,

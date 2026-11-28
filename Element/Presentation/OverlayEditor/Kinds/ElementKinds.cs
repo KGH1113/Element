@@ -36,6 +36,8 @@ internal sealed class ElementKinds : IDisposable
 
   public string Label(IOverlayLayoutTarget target) => Of(target)?.Label(target) ?? target.Label;
 
+  public string KindName(IOverlayLayoutTarget target) => Of(target)?.KindName(target) ?? "";
+
   public bool SizedInEditor(IOverlayLayoutTarget target) => Of(target)?.SizedInEditor ?? false;
 
   public string EditCaption(IOverlayLayoutTarget target) => Of(target)?.EditCaption;

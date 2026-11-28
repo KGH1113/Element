@@ -10,7 +10,7 @@ namespace Element.Tests.Domain.Overlay;
 // it made, and a value is found by any name a player would call it.
 internal static class ValueFolderTests
 {
-  [Suite("value dock: one place per category and per mod, found by any name")]
+  [Suite("value dock: one section per category and per mod")]
   public static void Run()
   {
     OverlayValueCatalog.ForgetExtensions();
@@ -19,7 +19,6 @@ internal static class ValueFolderTests
       BuiltInCategoriesComeFirst();
       AModsGroupsShareOnePlace();
       AWithdrawnModLeavesTheList();
-      ValuesAreFoundByAnyName();
     }
     finally
     {
@@ -76,43 +75,6 @@ internal static class ValueFolderTests
       OverlayValueCatalog.Folders().All(folder => folder.Source != "Hands"),
       "a mod whose values all went away leaves the list"
     );
-  }
-
-  private static void ValuesAreFoundByAnyName()
-  {
-    List<OverlayValueFolder> folders = OverlayValueCatalog.Folders();
-    Check(
-      OverlayValueSearch.Fold(" X-Acc ") == "xacc" && OverlayValueSearch.Fold("- ·") == "",
-      "case, spaces and marks don't count"
-    );
-    Check(Found(folders, "xacc").SequenceEqual(new[] { "accuracy" }), "an English name, typed loosely");
-    Check(Found(folders, "콤보").SequenceEqual(new[] { "combo" }), "a Korean name");
-    Check(Found(folders, "kps").SequenceEqual(new[] { "kps" }), "a value's key");
-    Check(
-      Found(folders, "판정").Count
-        == OverlayValueCatalog
-          .Sections()
-          .Single(section => section.Category == OverlayValueCategory.Judgement)
-          .Values.Count,
-      "a category's name finds all of it"
-    );
-    Check(Found(folders, "곡 기록").Contains("song-title"), "a category's name with its mark left out");
-    Check(
-      Found(folders, "tuf overlay").SequenceEqual(new[] { "Tuf/level-id", "Tuf/score", "Tuf/speed" }),
-      "a mod's name finds all it adds"
-    );
-    Check(Found(folders, "실시간").SequenceEqual(new[] { "Tuf/score", "Tuf/speed" }), "a group's heading");
-    Check(Found(folders, "").Count == 0 && Found(folders, "zzz").Count == 0, "nothing typed finds nothing");
-  }
-
-  private static List<string> Found(List<OverlayValueFolder> folders, string query)
-  {
-    string folded = OverlayValueSearch.Fold(query);
-    return folders
-      .SelectMany(folder => folder.Sections.SelectMany(section => section.Values).Select(value => (folder, value)))
-      .Where(pair => OverlayValueSearch.Matches(OverlayValueSearch.Index(pair.folder, pair.value), folded))
-      .Select(pair => pair.value.Key)
-      .ToList();
   }
 
   private static void Register(string key, OverlayValueGroup group, string korean, string english) =>

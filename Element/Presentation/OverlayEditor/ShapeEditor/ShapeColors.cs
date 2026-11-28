@@ -1,11 +1,13 @@
 using System;
 using Element.Configuration.Overlay;
-using Element.Domain.Overlay.Formula;
+using Element.Domain.Overlay.Variables;
 using Element.Presentation.Overlay.Text;
 using Element.Presentation.OverlayEditor.Parts;
 using Element.Presentation.OverlayEditor.Parts.ColorPicker;
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
+using Element.Presentation.OverlayEditor.Parts.Field;
+using Element.Presentation.OverlayEditor.Parts.Formula;
 using Element.Presentation.OverlayEditor.Parts.Property;
 using Element.Presentation.Ui.ColorPicker;
 using Element.Presentation.Ui.Theme;
@@ -18,7 +20,8 @@ namespace Element.Presentation.OverlayEditor.ShapeEditor;
 /// <summary>
 /// The fill's and the border's colors: their bar buttons with a swatch, and
 /// the color picker right above the keypad, which carries the color's
-/// opacity as a number like W and H.
+/// opacity as a number like W and H. While the picker is open the dock
+/// points at the color's cases (<see cref="ColorCases"/>).
 /// </summary>
 internal sealed class ShapeColors
 {
@@ -26,6 +29,8 @@ internal sealed class ShapeColors
   private readonly IShapeEditorContext _context;
   private readonly ShapeNumbers _numbers;
   private readonly ColorPickerPanel _picker;
+  private PropertyButtonViewModel _fillOpacity,
+    _strokeOpacity;
   private PropertyButtonViewModel _fillButton,
     _strokeButton;
   private bool _pickerForStroke;
@@ -52,6 +57,26 @@ internal sealed class ShapeColors
       _editor.CloseOpen,
       _editor.Render
     );
+    _history = history;
+    Cases = new ColorCases(_picker, () => Picked, WriteColor, _editor.Render);
+  }
+
+  private readonly EditorHistory<OverlayShapeSettings> _history;
+
+  /// <summary>The picked color's cases, which the dock types while the picker is open.</summary>
+  public ColorCases Cases { get; }
+
+  /// <summary>The dock points at the picked color's cases: the picker is open.</summary>
+  public bool CasesOpen => _picker.Picker != null && _picker.Picker.Visible;
+
+  /// <summary>After every change: the picker edits a case's color while the formula being typed ends in one.</summary>
+  public void Follow() => Cases.Follow(_numbers.Editing, () => Show(keepStop: true));
+
+  // One undo step with the picker's changes.
+  private void WriteColor(OverlayColorSettings color)
+  {
+    _picker.RememberChange();
+    Picked = color;
   }
 
   public UiColorPicker Picker => _picker.Picker;
@@ -75,10 +100,16 @@ internal sealed class ShapeColors
   public bool ForStroke => _pickerForStroke;
 
   /// <summary>What the open picker colors, as the column's back row names it.</summary>
-  public string Title => _pickerForStroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color");
+  public string Title => Cases.OnCase ? ColorCases.CaseTitle : OwnTitle;
+
+  /// <summary>The color the picker belongs to, as the dock names it: the fill or the border.</summary>
+  public string OwnTitle => _pickerForStroke ? L("테두리 색", "Border color") : L("채우기 색", "Fill color");
 
   /// <summary>The picker's opacity edits the color it shows.</summary>
-  public string OpacityKey => _pickerForStroke ? "stroke-opacity" : "fill-opacity";
+  public string OpacityKey => _pickerForStroke ? StrokeOpacity : FillOpacity;
+
+  private const string FillOpacity = "fill-opacity",
+    StrokeOpacity = "stroke-opacity";
 
   /// <summary>The column's Fill row; made by <see cref="BuildFill"/>.</summary>
   public PropertyButtonViewModel FillButton => _fillButton;
@@ -86,24 +117,54 @@ internal sealed class ShapeColors
   /// <summary>The column's Border row; made by <see cref="BuildStroke"/>.</summary>
   public PropertyButtonViewModel StrokeButton => _strokeButton;
 
-  public PropertyButtonViewModel BuildFill() =>
+  /// <summary>The column's fill opacity row; made by <see cref="BuildFillOpacity"/>.</summary>
+  public PropertyButtonViewModel FillOpacityButton => _fillOpacity;
+
+  /// <summary>The column's border opacity row; made by <see cref="BuildStrokeOpacity"/>.</summary>
+  public PropertyButtonViewModel StrokeOpacityButton => _strokeOpacity;
+
+  // The fill's group: its color, then its opacity.
+  public PropertyButtonViewModel BuildFill()
+  {
     _fillButton = new PropertyButtonViewModel(
       "Shape fill",
-      L("채우기", "Fill"),
+      L("색", "Color"),
       () => Open(false),
-      value: true,
-      swatch: true,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Color
+    );
+    _fillButton.Section.Value = L("채우기", "Fill");
+    return _fillButton;
+  }
+
+  public PropertyButtonViewModel BuildFillOpacity() =>
+    _fillOpacity = new PropertyButtonViewModel(
+      "Fill opacity",
+      L("불투명도", "Opacity"),
+      () => _editor.Activate(FillOpacity),
+      field: OverlayValueType.Number
     );
 
-  public PropertyButtonViewModel BuildStroke() =>
+  // The border's group: its color, its width (the numbers' row), then its opacity.
+  public PropertyButtonViewModel BuildStroke()
+  {
     _strokeButton = new PropertyButtonViewModel(
       "Shape border",
-      L("테두리", "Border"),
+      L("색", "Color"),
       () => Open(true),
-      value: true,
-      swatch: true,
-      opens: true
+      opens: true,
+      field: OverlayValueType.Color
+    );
+    _strokeButton.Section.Value = L("테두리", "Border");
+    return _strokeButton;
+  }
+
+  public PropertyButtonViewModel BuildStrokeOpacity() =>
+    _strokeOpacity = new PropertyButtonViewModel(
+      "Border opacity",
+      L("불투명도", "Opacity"),
+      () => _editor.Activate(StrokeOpacity),
+      field: OverlayValueType.Number
     );
 
   /// <summary>The picker in the keypad's column, with its opacity as a number.</summary>
@@ -139,6 +200,7 @@ internal sealed class ShapeColors
   /// </summary>
   public void Show(bool keepStop = false)
   {
+    Cases.ShowingOwn();
     bool stroke = _pickerForStroke;
     Picker.ShowSource(
       Title,
@@ -178,17 +240,28 @@ internal sealed class ShapeColors
   /// <summary>The fill's and the border's buttons, each lit while its picker is open.</summary>
   public void ShowButtons(ShapePreview preview)
   {
-    _fillButton.SetSwatch(OverlayTextComposer.Resolve(preview.Resolved.Fill, UiTheme.Accent), preview.FillGradient);
-    _fillButton.Set(ColorNames.Describe(_context.Shape.Fill), false, Picker.Visible && !_pickerForStroke);
-    _strokeButton.SetSwatch(
-      OverlayTextComposer.Resolve(preview.Resolved.Stroke, UiTheme.Accent),
-      preview.StrokeGradient
+    ShowOpacity(_fillOpacity, FillOpacity, _context.Shape.Fill);
+    ShowOpacity(_strokeOpacity, StrokeOpacity, _context.Shape.Stroke);
+    _fillButton.ShowField(
+      FieldChips.Of(_context.Shape.Fill, preview.FillShown, preview.FillGradient),
+      Picker.Visible && !_pickerForStroke
     );
-    _strokeButton.Set(ColorNames.Describe(_context.Shape.Stroke), false, Picker.Visible && _pickerForStroke);
+    _strokeButton.ShowField(
+      FieldChips.Of(_context.Shape.Stroke, preview.StrokeShown, preview.StrokeGradient),
+      Picker.Visible && _pickerForStroke
+    );
+  }
+
+  // An opacity row: what it holds, and what that works out to in percent.
+  private void ShowOpacity(PropertyButtonViewModel row, string key, OverlayColorSettings color)
+  {
+    OverlayVariable formula = _numbers.Shown(key);
+    double percent = _numbers.Result(formula, (color?.Alpha ?? 1) * 100);
+    row.ShowField(formula, FormulaFieldView.Number(percent) + " %", _numbers.Field == key);
   }
 
   /// <summary>The picker in the property column from <paramref name="top"/>, above the keypad.</summary>
-  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top);
+  public void PlacePicker(InputDockPanel dock, float top) => _picker.Place(dock, top, typing: _numbers.Field != null);
 
   /// <summary>The picker's opacity shows its result like W and H; a picked gradient color's own.</summary>
   public void ShowOpacity(OverlayGradientStop pickedStop)
@@ -196,34 +269,13 @@ internal sealed class ShapeColors
     if (!Picker.Visible)
       return;
     string key = OpacityKey;
-    OverlayFormula formula = _numbers.Shown(key);
+    OverlayVariable formula = _numbers.Shown(key);
     OverlayColorSettings color = _pickerForStroke ? _context.Shape.Stroke : _context.Shape.Fill;
-    Opacity.Show(formula, _numbers.Result(formula), pickedStop?.Alpha ?? color?.Alpha ?? 1, _numbers.Field == key);
-  }
-
-  /// <summary>The line in the dock while the picker is open; null while it is closed.</summary>
-  public string Hint()
-  {
-    if (!Picker.Visible)
-      return null;
-    if (Picker.Gradient.IsGradient)
-      return _pickerForStroke
-        ? L(
-          "테두리 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-          "Picking the border color · Drop a value on an opacity, position or angle to calculate it"
-        )
-        : L(
-          "채우기 색을 고르는 중이에요 · 값을 불투명도·위치·각도 칸에 끌어 놓으면 그 값으로 계산해요",
-          "Picking the fill color · Drop a value on an opacity, position or angle to calculate it"
-        );
-    return _pickerForStroke
-      ? L(
-        "테두리 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the border color · Drop a value on the opacity to calculate it"
-      )
-      : L(
-        "채우기 색을 고르는 중이에요 · 값을 불투명도 칸에 끌어 놓으면 그 값으로 계산해요",
-        "Picking the fill color · Drop a value on the opacity to calculate it"
-      );
+    Opacity.Show(
+      formula,
+      _numbers.Result(formula, (color?.Alpha ?? 1) * 100),
+      pickedStop?.Alpha ?? color?.Alpha ?? 1,
+      _numbers.Field == key
+    );
   }
 }

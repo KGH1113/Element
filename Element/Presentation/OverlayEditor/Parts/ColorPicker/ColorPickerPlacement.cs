@@ -1,6 +1,5 @@
 using Element.Presentation.OverlayEditor.Parts.Dock;
 using Element.Presentation.OverlayEditor.Parts.EditorFrame;
-using Element.Presentation.OverlayEditor.Parts.Inspector;
 using Element.Presentation.Ui.ColorPicker;
 using UnityEngine;
 
@@ -24,32 +23,25 @@ internal static class ColorPickerPlacement
     // The panel keeps the size of what it shows; only its place follows the dock.
     picker.Root.anchoredPosition = new Vector2(Left(picker, dock), -y);
     picker.Root.SetAsLastSibling();
+    // A gradient's picked color stands where every input method does.
+    if (picker.PlaneRoot != null && picker.PlaneRoot.gameObject.activeSelf)
+    {
+      Rect place = dock.MethodArea;
+      picker.PlaneRoot.anchoredPosition = new Vector2(place.x, -place.y);
+      picker.PlaneRoot.SetAsLastSibling();
+    }
   }
 
-  /// <summary>
-  /// A picker for a color shown in the property column's open tool (a stop
-  /// of a color that follows a value) opens beside the column instead, its
-  /// right edge <see cref="InspectorPanel.Gap"/> left of
-  /// <paramref name="column"/> and its top at <paramref name="top"/>, rising
-  /// as far as it must to stay clear of the dock.
-  /// </summary>
-  public static void PlaceBeside(UiColorPicker picker, InputDockPanel dock, float column, float top)
+  /// <summary>A solid color's picker over the keypad's keys, where every input method is.</summary>
+  public static void PlaceOnKeypad(UiColorPicker picker, InputDockPanel dock)
   {
     if (picker == null || !picker.Visible)
       return;
-    float y = Mathf.Max(EditorFramePanel.TopBar + 8, Mathf.Min(top, dock.Top - InspectorPanel.Gap - picker.Height));
-    picker.Root.anchoredPosition = new Vector2(Mathf.Round(BesideLeft(picker, column)), -Mathf.Round(y));
+    Rect keys = dock.MethodArea;
+    picker.Root.anchoredPosition = new Vector2(keys.x, -keys.y);
     picker.Root.SetAsLastSibling();
   }
 
-  /// <summary>Where a picker beside the column starts (frame units).</summary>
-  public static float BesideLeft(UiColorPicker picker, float column) =>
-    column - InspectorPanel.Gap - picker.CurrentWidth;
-
-  /// <summary>
-  /// Where the picker above the keypad starts (frame units). It ends with the
-  /// keypad; an editor's two-column picker reaches further left, so the
-  /// preview and its bar keep to the space before it while it is open.
-  /// </summary>
+  /// <summary>Where the picker above the keypad starts (frame units): it is as wide as the column and ends with it.</summary>
   public static float Left(UiColorPicker picker, InputDockPanel dock) => dock.KeypadArea.xMax - picker.CurrentWidth;
 }

@@ -15,18 +15,14 @@ internal static class OverlayGradientEdits
   /// <summary>How close (0–1) a dragged stop comes before it snaps.</summary>
   public const float SnapDistance = .018f;
 
-  /// <summary>
-  /// The opacity a second color starts at when the color follows the
-  /// highlight: there is one color, so the stops differ only in opacity.
-  /// </summary>
-  public const float HighlightFade = .4f;
-
   private static readonly float[] Marks = { 0, .25f, .5f, .75f, 1 };
 
   /// <summary>
   /// Adds a color at <paramref name="position"/> (0–1) and returns its index.
   /// A solid color becomes a gradient whose new color shows at once: a
-  /// neighbor of the current color, or with the highlight a lighter opacity.
+  /// neighbor of the current color. A gradient is always of colors of its
+  /// own: one that followed the highlight color starts from it as a custom
+  /// color (<paramref name="highlightHex"/>).
   /// Later colors start as the gradient's color at that point. -1 when the
   /// gradient is full.
   /// </summary>
@@ -35,6 +31,11 @@ internal static class OverlayGradientEdits
     position = Clamp01(position);
     if (!color.IsGradient)
     {
+      if (color.Highlight)
+      {
+        color.Highlight = false;
+        color.Hex = highlightHex;
+      }
       OverlayGradient gradient = new();
       OverlayGradientMath.ResetHandles(gradient, OverlayGradientKind.Linear);
       float alpha = Clamp01(color.Alpha);
@@ -49,19 +50,12 @@ internal static class OverlayGradientEdits
       // one to the other end.
       if (position < .08f)
         first.Position = 1;
-      OverlayGradientStop added = color.Highlight
-        ? new()
-        {
-          Position = position,
-          Hex = color.Hex,
-          Alpha = alpha > .6f ? HighlightFade : 1,
-        }
-        : new()
-        {
-          Position = position,
-          Hex = Companion(color.Hex, highlightHex),
-          Alpha = alpha,
-        };
+      OverlayGradientStop added = new()
+      {
+        Position = position,
+        Hex = Companion(color.Hex, highlightHex),
+        Alpha = alpha,
+      };
       gradient.Stops.Add(first);
       gradient.Stops.Add(added);
       color.Gradient = gradient;
@@ -143,10 +137,10 @@ internal static class OverlayGradientEdits
   }
 
   /// <summary>
-  /// Following the highlight keeps each stop's opacity; when they are all the
-  /// same the gradient would vanish, so they fade from the first to
-  /// <see cref="HighlightFade"/>. A custom color starts every stop from the
-  /// highlight color, so nothing jumps.
+  /// Follows the highlight color, or stops following it. The highlight is
+  /// one color, so a gradient following it is solid again, at its first
+  /// color's opacity. A custom color starts every stop from the highlight
+  /// color (<paramref name="highlightHex"/>), so nothing jumps.
   /// </summary>
   public static void SetHighlight(OverlayColorSettings color, bool highlight, string highlightHex)
   {
@@ -158,21 +152,16 @@ internal static class OverlayGradientEdits
     if (!color.IsGradient)
       return;
     List<OverlayGradientStop> stops = color.Gradient.Stops;
-    if (!highlight)
+    if (highlight)
     {
-      foreach (OverlayGradientStop stop in stops)
-        stop.Hex = highlightHex;
+      OverlayGradientStop first = stops[Order(color.Gradient)[0]];
+      color.Alpha = first.Alpha;
+      color.AlphaFormula = first.AlphaFormula ?? string.Empty;
+      color.Gradient = null;
+      return;
     }
-    else if (stops.TrueForAll(stop => string.IsNullOrEmpty(stop.AlphaFormula) && stop.Alpha == stops[0].Alpha))
-    {
-      List<int> order = Order(color.Gradient);
-      float alpha = stops[0].Alpha;
-      for (int rank = 0; rank < order.Count; rank++)
-      {
-        float fade = 1 + (HighlightFade - 1) * rank / (order.Count - 1);
-        stops[order[rank]].Alpha = (float)Math.Round(alpha * fade, 2);
-      }
-    }
+    foreach (OverlayGradientStop stop in stops)
+      stop.Hex = highlightHex;
     Sync(color);
   }
 

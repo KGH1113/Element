@@ -28,6 +28,20 @@ std::map<std::string, std::string> faults;
 std::atomic<unsigned long long> geometryRevision{1};
 // The size Unity draws the game at, in its pixels; zero until the game says.
 NSSize gameSize = NSZeroSize;
+// What overlay elements in front of each viewer cover, by viewer identifier:
+// groups of x, y, width and height normalized to the game, top-left origin.
+// Kept apart from the pages, so covers sent before a page attaches or across
+// its replacement still apply. Main thread only.
+constexpr int kMaximumCovers = 4096;
+std::map<std::string, std::vector<double>> covers;
+// Counts every change of covers, so a layout that moved nothing skips them.
+unsigned long long coversRevision = 1;
+
+bool ValidKind(const char *kind) {
+  return kind != nullptr && strlen(kind) <= 160 &&
+         (strcmp(kind, "hand") == 0 || strcmp(kind, "foot") == 0 || strncmp(kind, "hand:", 5) == 0 ||
+          strncmp(kind, "foot:", 5) == 0);
+}
 
 // Where the game is drawn in its window. A game drawn at another aspect than
 // the window (fullscreen at a lower resolution) is fitted and centered, with
@@ -165,6 +179,19 @@ NSWindow *FindGameWindow(NSWindow *previous) {
 - (NSView *)hitTest:(NSPoint)point { return nil; }
 @end
 
+// Holds one viewer's page at its web frame. Covers are cut out of it with a
+// mask of its own, nested inside the host's editor mask, so the two may
+// overlap and the viewer is hidden where either is. Unflipped like the host,
+// so the mask uses the host's y-up points shifted to its origin.
+@interface IRPGameWebViewClip : NSView
+@end
+
+@implementation IRPGameWebViewClip
+- (BOOL)isFlipped { return NO; }
+- (BOOL)acceptsFirstResponder { return NO; }
+- (NSView *)hitTest:(NSPoint)point { return nil; }
+@end
+
 @interface IRPGameWebViewPaddingBridge : NSObject <WKScriptMessageHandler>
 @property(nonatomic, copy) void (^changed)(CGFloat);
 @end
@@ -231,6 +258,8 @@ static WKUserScript *PageScript(NSString *source) {
 @interface IRPGameWebViewSurface : NSObject <WKNavigationDelegate, WKUIDelegate>
 @property(nonatomic, copy) NSString *kind;
 @property(nonatomic, strong) IRPGameWebView *webView;
+@property(nonatomic, strong) IRPGameWebViewClip *clip;
+@property(nonatomic, strong) CAShapeLayer *coverMask;
 @property(nonatomic, strong) NSURL *url;
 @property(nonatomic) NSSize viewport;
 @property(nonatomic) NSSize reportedViewport;
@@ -247,9 +276,84 @@ static WKUserScript *PageScript(NSString *source) {
 @property(nonatomic) NSRect normalizedBounds;
 @property(nonatomic) BOOL selected;
 @property(nonatomic) BOOL editing;
+- (void)applyCoversInHost:(NSSize)size;
 @end
 
-@implementation IRPGameWebViewSurface
+@implementation IRPGameWebViewSurface {
+  // The clip size and cover rectangles the mask was last built from, and
+  // what they were worked out from.
+  std::vector<double> _appliedCovers;
+  unsigned long long _coversRevision;
+  NSRect _coversClip;
+  NSRect _coversContent;
+  NSSize _coversHost;
+}
+
+// Cuts this viewer's covers out of its clip. Each is kept to the content the
+// viewer shows and moved from host points into the clip's own.
+- (void)applyCoversInHost:(NSSize)size {
+  IRPGameWebViewClip *clip = self.clip;
+  if (clip == nil) return;
+  NSRect origin = clip.frame;
+  // Layouts that moved nothing (another viewer's, a backing change) leave the mask alone.
+  if (_coversRevision == coversRevision && NSEqualRects(_coversClip, origin) &&
+      NSEqualRects(_coversContent, self.contentFrame) && NSEqualSizes(_coversHost, size))
+    return;
+  _coversRevision = coversRevision;
+  _coversClip = origin;
+  _coversContent = self.contentFrame;
+  _coversHost = size;
+  std::vector<double> applied;
+  CGMutablePathRef path = nullptr;
+  auto found = covers.find(self.kind.UTF8String);
+  if (found != covers.end() && size.width > 0 && size.height > 0) {
+    const std::vector<double> &values = found->second;
+    for (size_t i = 0; i + 3 < values.size(); i += 4) {
+      NSRect cover = NSIntersectionRect(self.contentFrame, NSMakeRect(
+          values[i] * size.width, (1 - values[i + 1] - values[i + 3]) * size.height,
+          values[i + 2] * size.width, values[i + 3] * size.height));
+      if (NSIsEmptyRect(cover)) continue;
+      cover = NSOffsetRect(cover, -NSMinX(origin), -NSMinY(origin));
+      if (path == nullptr) {
+        // Covers never overlap, so even-odd over the whole clip leaves exactly them out.
+        path = CGPathCreateMutable();
+        CGPathAddRect(path, nullptr, NSRectToCGRect(clip.bounds));
+        applied.insert(applied.end(), {clip.bounds.size.width, clip.bounds.size.height});
+      }
+      CGPathAddRect(path, nullptr, NSRectToCGRect(cover));
+      applied.insert(applied.end(), {cover.origin.x, cover.origin.y, cover.size.width, cover.size.height});
+    }
+  }
+  if (path == nullptr) {
+    if (clip.layer.mask != nil) {
+      [CATransaction begin];
+      [CATransaction setDisableActions:YES];
+      clip.layer.mask = nil;
+      [CATransaction commit];
+    }
+    _appliedCovers.clear();
+    return;
+  }
+  if (clip.layer.mask == self.coverMask && applied == _appliedCovers) {
+    CGPathRelease(path);
+    return;
+  }
+  if (self.coverMask == nil) {
+    self.coverMask = [CAShapeLayer layer];
+    self.coverMask.fillRule = kCAFillRuleEvenOdd;
+    self.coverMask.fillColor = NSColor.whiteColor.CGColor;
+  }
+  // Without implicit animations: a text's new glyphs are cut the frame they show.
+  [CATransaction begin];
+  [CATransaction setDisableActions:YES];
+  self.coverMask.frame = clip.bounds;
+  self.coverMask.path = path;
+  clip.layer.mask = self.coverMask;
+  [CATransaction commit];
+  _appliedCovers = applied;
+  CGPathRelease(path);
+}
+
 - (void)webView:(WKWebView *)webView
     decidePolicyForNavigationAction:(WKNavigationAction *)action
                    decisionHandler:(void (^)(WKNavigationActionPolicy))handler {
@@ -431,7 +535,10 @@ static WKUserScript *PageScript(NSString *source) {
     surface.contentFrame = frame;
     CGFloat inset = padding * scale;
     NSRect webFrame = NSInsetRect(frame, -inset, -inset);
-    if (!NSEqualRects(surface.webView.frame, webFrame)) surface.webView.frame = webFrame;
+    // The clip sits at the web frame and the page fills it, so moving a viewer moves only the clip.
+    if (!NSEqualRects(surface.clip.frame, webFrame)) surface.clip.frame = webFrame;
+    NSRect pageFrame = surface.clip.bounds;
+    if (!NSEqualRects(surface.webView.frame, pageFrame)) surface.webView.frame = pageFrame;
     if (padding > 0) {
       if (surface.contentMask == nil) surface.contentMask = [CAShapeLayer layer];
       NSRect maskRect = NSMakeRect(inset, inset, size.width, size.height);
@@ -451,6 +558,7 @@ static WKUserScript *PageScript(NSString *source) {
     // Preserve the CSS viewport used by the desktop/OBS renderer while fitting
     // the visual surface into game points (independent of Retina backing scale).
     if (std::abs(surface.webView.pageZoom - scale) > 0.000001) surface.webView.pageZoom = scale;
+    [surface applyCoversInHost:self.bounds.size];
   }
   self.chrome.hidden = !self.editing || !self.previewVisible;
   self.chrome.needsDisplay = self.editing;
@@ -583,6 +691,7 @@ void RemoveSurface(NSString *kind) {
   surface.webView.UIDelegate = nil;
   [surface.webView stopLoading];
   [surface.webView removeFromSuperview];
+  [surface.clip removeFromSuperview];
   [host.surfaces removeObjectForKey:kind];
   host.chrome.needsDisplay = YES;
   SetFault(kind, "");
@@ -598,9 +707,7 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_supported(void
 extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
     const char *viewerKind, const char *url, int width, int height) {
   if (!irp_webview_supported()) return 0;
-  if (viewerKind == nullptr || strlen(viewerKind) > 160 ||
-      (strcmp(viewerKind, "hand") != 0 && strcmp(viewerKind, "foot") != 0 &&
-       strncmp(viewerKind, "hand:", 5) != 0 && strncmp(viewerKind, "foot:", 5) != 0)) {
+  if (!ValidKind(viewerKind)) {
     SetError("Native viewer identifier must begin with hand or foot.");
     return 0;
   }
@@ -675,7 +782,10 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_set_surface(
       // WKWebView exposes transparent drawing via this WebKit property on macOS.
       // The outer exception boundary reports incompatibility without crashing Unity.
       [surface.webView setValue:@NO forKey:@"drawsBackground"];
-      [host addSubview:surface.webView positioned:NSWindowBelow relativeTo:host.chrome];
+      surface.clip = [[IRPGameWebViewClip alloc] initWithFrame:NSZeroRect];
+      surface.clip.wantsLayer = YES;
+      [surface.clip addSubview:surface.webView];
+      [host addSubview:surface.clip positioned:NSWindowBelow relativeTo:host.chrome];
       host.surfaces[kind] = surface;
     }
     BOOL sourceChanged = ![surface.url isEqual:source];
@@ -844,7 +954,8 @@ extern "C" __attribute__((visibility("default"))) int irp_webview_get_selection_
     NSRect measured = surface.selectionInViewport;
     NSRect frame = surface.contentFrame;
     if (measured.size.width > 0 && measured.size.height > 0) {
-      NSRect viewport = surface.webView.frame;
+      // The page's viewport in host points: the clip holds it at its web frame.
+      NSRect viewport = surface.clip.frame;
       frame = NSIntersectionRect(frame, NSMakeRect(
           NSMinX(viewport) + NSMinX(measured) * viewport.size.width,
           NSMaxY(viewport) - NSMaxY(measured) * viewport.size.height,
@@ -924,6 +1035,29 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_set_editor_ex
   });
 }
 
+extern "C" __attribute__((visibility("default"))) void irp_webview_set_covers(const char *viewerKind,
+                                                                             const double *values, int count) {
+  if (!ValidKind(viewerKind) || count < 0 || count > kMaximumCovers || (count > 0 && values == nullptr)) return;
+  std::string kind = viewerKind;
+  std::vector<double> next;
+  next.reserve((size_t)count * 4);
+  for (int i = 0; i < count; i++) {
+    const double *cover = values + (size_t)i * 4;
+    bool finite = true;
+    for (int j = 0; j < 4; j++) finite = finite && std::isfinite(cover[j]);
+    if (!finite || cover[2] <= 0 || cover[3] <= 0) continue;
+    next.insert(next.end(), cover, cover + 4);
+  }
+  OnMainThread(^{
+    if (next.empty()) covers.erase(kind);
+    else covers[kind] = next;
+    ++coversRevision;
+    IRPGameWebViewSurface *surface = host.surfaces[[NSString stringWithUTF8String:kind.c_str()]];
+    [surface applyCoversInHost:host.bounds.size];
+    return 1;
+  });
+}
+
 extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void) {
   OnMainThread(^{
     for (id observer in windowObservers) {
@@ -935,6 +1069,8 @@ extern "C" __attribute__((visibility("default"))) void irp_webview_dispose(void)
     host = nil;
     gameWindow = nil;
     previewVisible = true;
+    covers.clear();
+    ++coversRevision;
     ClearFaults();
     SetError("");
     return 1;

@@ -13,21 +13,23 @@ namespace Element.Presentation.OverlayEditor.Parts.Dock.Keypad;
 internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
 {
   private readonly float _size;
+  private readonly float _height;
   private readonly UiColor _fill,
     _offFill,
     _ink,
     _offInk;
 
   /// <param name="size">The label's size.</param>
-  /// <param name="tinted">Filled with the accent, as Done.</param>
-  public KeypadKeyView(KeypadKeyViewModel vm, float size, bool tinted)
+  /// <param name="height">How tall it is: a key of the pad, or of a shorter row.</param>
+  public KeypadKeyView(KeypadKeyViewModel vm, float size, float height = KeypadView.PadKeyHeight)
     : base(vm)
   {
     _size = size;
+    _height = height;
     Color accent = UiPalette.SoftAccent;
     // Opaque, so the overlay behind never shows through a key.
-    _fill = tinted ? Color.Lerp(UiPalette.EditorControl, accent, .32f) : UiPalette.EditorControl;
-    _offFill = tinted ? Color.Lerp(UiPalette.EditorControlOff, accent, .14f) : UiPalette.EditorControlOff;
+    _fill = UiPalette.EditorControl;
+    _offFill = UiPalette.EditorControlOff;
     Color ink = vm.Symbol ? accent : UiPalette.Foreground;
     _ink = ink;
     _offInk = new Color(ink.r, ink.g, ink.b, .3f);
@@ -39,12 +41,20 @@ internal sealed class KeypadKeyView : View<KeypadKeyViewModel>
         () => VM.Press,
         ButtonStyle.Plain
       )
-      .Background(() => VM.Enabled.Value ? _fill : _offFill, KeypadView.KeyHeight / 2)
+      .Background(() => VM.Enabled.Value ? _fill : _offFill, _height / 2)
       .Named(VM.Name)
-      .Frame(height: KeypadView.KeyHeight);
+      .Frame(height: _height);
 
   private View Label() =>
     VM.Character == '\b'
       ? Image(ElementIcons.Of(UiIconKind.Backspace), 24).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
-      : UI.Text(VM.Label).Font(Font.Body.Sized(_size)).Foreground(() => VM.Enabled.Value ? _ink : _offInk).LineLimit(1);
+    // An operator's icon is as large as a comparison's; other icons a little smaller.
+    : VM.Icon is { } icon
+      ? Image(ElementIcons.Of(icon), VM.Symbol ? 24 : 20).Foreground(() => VM.Enabled.Value ? _ink : _offInk)
+    : VM.Saying != null
+      ? UI.Text(() => VM.Saying.Value)
+        .Font(Font.Body.Sized(_size))
+        .Foreground(() => VM.Enabled.Value ? _ink : _offInk)
+        .LineLimit(1)
+    : UI.Text(VM.Label).Font(Font.Body.Sized(_size)).Foreground(() => VM.Enabled.Value ? _ink : _offInk).LineLimit(1);
 }

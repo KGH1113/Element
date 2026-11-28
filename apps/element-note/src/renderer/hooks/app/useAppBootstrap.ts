@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useKeyStore } from '@stores/data/useKeyStore';
+import { keyLayoutInbox } from '@stores/data/keyLayoutInbox';
 import { useStatItemStore } from '@stores/data/useStatItemStore';
 import { useGraphItemStore } from '@stores/data/useGraphItemStore';
 import { useKnobItemStore } from '@stores/data/useKnobItemStore';
@@ -507,13 +508,13 @@ export function useAppBootstrap(viewerKind?: KeyViewerKind) {
         const isOverlayWindow = window.__dmn_window_type === 'overlay';
         if (!isOverlayWindow && useKeyStore.getState().isLocalUpdateInProgress)
           return;
-        useKeyStore.setState((state) => ({ ...state, keyMappings: keys }));
+        keyLayoutInbox.receiveKeyMappings(keys);
       }),
       window.api.keys.onPositionsChanged((positions) => {
         const isOverlayWindow = window.__dmn_window_type === 'overlay';
         if (!isOverlayWindow && useKeyStore.getState().isLocalUpdateInProgress)
           return;
-        useKeyStore.setState((state) => ({ ...state, positions }));
+        keyLayoutInbox.receivePositions(positions);
       }),
       window.api.statItems.onPositionsChanged((positions) => {
         const isOverlayWindow = window.__dmn_window_type === 'overlay';

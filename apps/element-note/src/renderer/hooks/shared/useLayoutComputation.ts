@@ -8,7 +8,6 @@ import { rotatedRectAabb } from '@utils/element/rotation';
 import {
   DEFAULT_NOTE_BORDER_RADIUS,
   DEFAULT_NOTE_SETTINGS,
-  FALLBACK_POSITION,
 } from '@constants/overlayDefaults';
 import type { KeyPosition } from '@src/types/key/keys';
 import type { StatItemPosition } from '@src/types/key/statItems';
@@ -51,6 +50,15 @@ interface Bounds {
   maxY: number;
 }
 
+/**
+ * A key whose place has not arrived yet (positions are index-aligned with
+ * keys, and ghost keys pad the gap with undefined) is left out of the layout
+ * like a hidden one.
+ */
+function isLaidOut(position: KeyPosition | undefined): position is KeyPosition {
+  return position !== undefined && position !== null && !position.hidden;
+}
+
 export function computeLayout(input: LayoutInput) {
   const {
     currentKeys,
@@ -70,10 +78,12 @@ export function computeLayout(input: LayoutInput) {
   // the additional same-direction correction, including nearby 0° tracks.
   const rotatedFlowShiftByIndex = new Map<number, number>();
   if (
-    currentPositions.some((position) => !position.hidden && position.rotation)
+    currentPositions.some(
+      (position) => isLaidOut(position) && position.rotation,
+    )
   ) {
     const candidates = currentPositions.flatMap((position, index) =>
-      position.hidden ? [] : [index],
+      isLaidOut(position) ? [index] : [],
     );
     const hitline = Math.min(
       ...candidates.map((index) => currentPositions[index].dy),
@@ -151,7 +161,7 @@ export function computeLayout(input: LayoutInput) {
     };
 
     currentPositions.forEach((pos, index) => {
-      if (pos.hidden) return;
+      if (!isLaidOut(pos)) return;
       xs.push(pos.dx);
       ys.push(pos.dy);
       widths.push(pos.dx + pos.width);
@@ -242,7 +252,7 @@ export function computeLayout(input: LayoutInput) {
 
     const canonicalByTrigger = new Map<string, string>();
     currentPositions.forEach((position, index) => {
-      if (position.id && currentKeys[index])
+      if (position?.id && currentKeys[index])
         canonicalByTrigger.set(position.id, currentKeys[index]);
     });
     for (const sprite of currentSpritePositions) {
@@ -311,11 +321,9 @@ export function computeLayout(input: LayoutInput) {
     items: T[],
   ): T[] => {
     if (!bounds || !items.length) return items;
-    return items.map((item) => ({
-      ...item,
-      dx: item.dx + offsetX,
-      dy: item.dy + offsetY,
-    }));
+    return items.map((item) =>
+      item ? { ...item, dx: item.dx + offsetX, dy: item.dy + offsetY } : item,
+    );
   };
 
   const displayPositions = applyOffset(currentPositions);
@@ -331,8 +339,8 @@ export function computeLayout(input: LayoutInput) {
   // WebGL 트랙 계산
   const webglTracks = currentKeys
     .map((key, index) => {
-      const originalPosition = currentPositions[index] ?? FALLBACK_POSITION;
-      if (originalPosition.hidden) return null;
+      const originalPosition = currentPositions[index];
+      if (!isLaidOut(originalPosition)) return null;
       const position = displayPositions[index] ?? originalPosition;
       const useAutoCorrection = position.noteAutoYCorrection !== false;
       const trackStartY = useAutoCorrection ? topMostY : position.dy;

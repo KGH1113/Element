@@ -355,7 +355,7 @@ public sealed class ProgressBars : OverlayElement<BarsSettings>
 
 ### 없는 값 보존
 
-- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다([`OverlayFormula.cs` 90행](../../Element/Domain/Overlay/Formula/OverlayFormula.cs#L90)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
+- **문제:** 지금 수식 파서는 모르는 값 키를 지웁니다(지금은 [`OverlayVariableSyntax.cs` 178행](../../Element/Domain/Overlay/Variables/OverlayVariableSyntax.cs#L178)). 모드를 끈 채로 텍스트를 편집하고 저장하면 모드 값이 영구히 사라집니다.
 - **고칠 방법:**
   - `모드Id/키` 형식의 모르는 키는 "없는 값" 토큰으로 남겨, 저장할 때 그대로 다시 씁니다.
   - 오버레이에서는 표시하지 않고, 편집기에서는 `[이름]`으로 보입니다.
